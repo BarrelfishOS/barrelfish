@@ -1,0 +1,13 @@
+syntax: glob
+
+*~
+*.pyc
+.emacs.desktop*
+
+
+syntax: regexp
+
+^build.*
+# XXX: msvc build files, not integrated into build system
+^tools/demo/Aquarium/obj
+^tools/demo/Aquarium/.*\.(sln|suo)
