@@ -1,0 +1,21 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/netd
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "netd",
+  cFiles = [ "main.c", "portalloc.c", "lwipinit.c", "idc_barrelfish.c" ],
+--    cFiles = [ "main.c", "lwipinit.c", "idc_barrelfish.c" ],
+                      flounderBindings = [ "netd" , "ether_control" ],
+		      flounderDefs = [ "ether" ],
+		      addLibraries = [ "lwip", "bfdmuxtools", "contmng",
+		                           "trace" ]
+                    }
+]

@@ -1,0 +1,58 @@
+/**
+ * \file
+ * \brief e1000 continuation management
+ *
+ * This file provides a generic way of managing continuation for messages
+ * of different types
+ */
+
+/*
+ * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+
+#ifndef CONTMNG_H_
+#define CONTMNG_H_ 
+#include <stdio.h>
+
+/*********************************************************************/
+/* Implementation of generic queue */
+
+/* !!!!!!!!!!!!!!!!! ASSUMPTIONS: READ THIS BEFORE USING IT  !!!!!!!!!!!!!!!!!!
+ * 1. There are less than MAX_PARAMS no. of parameters.
+ * 2. All the data which is sent is of type uint64_t.
+ * 3. Only exception is struct cap, which is dealt separately.
+ * 4. The errval_t datatype is casted into uint64_t which is assumed to be lossless.
+ * 5. void * pointers are casted to uint64_t which is assumed to be lossless.
+ * */
+
+#define MAX_QUEUE_SIZE 4096
+#define MAX_PARAMS 10
+
+struct q_entry {
+    void *binding_ptr;
+    uint64_t plist[MAX_PARAMS]; /* Assuming max parameters are MAX_PARAMS */
+	struct capref cap;
+    errval_t (*handler)(struct q_entry entry);
+};
+
+struct cont_queue {
+    char name[64]; /* for debugging purposes */
+    int head;
+    int tail;
+    struct q_entry qelist[MAX_QUEUE_SIZE];
+};
+
+/***** helper functions *****/
+/* create new queue */
+struct cont_queue *create_cont_q(char *name);
+void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry);
+void cont_queue_callback(void *arg);
+void show_binary_blob (void *data, int len);
+
+#endif // CONTMNG_H_

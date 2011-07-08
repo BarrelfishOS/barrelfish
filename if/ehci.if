@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2009, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/* This file contains service interface provided 
+ * by the USB host controller driver. This file is 
+ * is about EHCI. For different controllers (like 
+ * UHCI, OHCI or new USB 3.0) write a new one 
+ * and provide appropriate service implementation. 
+ * 
+ * July, 2009.
+ */
+
+interface ehci "Host Controller (EHCI) services" {
+    typedef struct {
+        uint8 bmRequestType;
+        uint8 bRequest;
+        uint16 wValue;
+        uint16 wIndex;
+        uint16 wLength;
+    } udr;
+
+    typedef struct {
+        uint8 dev;
+        uint8 ep_number;
+        uint8 ep_address;
+        uint8 ep_dir;
+        uint8 ep_type;
+        uint16 ep_psz;
+        uint8 multi;
+        int valid;
+    } pipe;
+
+    call map_dev_arr(cap ref, uint32 sz);
+
+    response map_dev_arr_done(uint8 rsp);
+
+    call dctrl_exe(udr usb_req,
+                   uint64 buff_ptr,
+                   uint64 sz, uint8 device, uint8 debug, uint32 id);
+
+    response dctrl_done(uint32 id);
+
+
+    call ctrl_exe(udr usb_req, uint8 device, uint8 debug, uint32 id);
+
+    response ctrl_done(uint32 id);
+
+
+    call bulk_exe(pipe p, uint64 buff_ptr, uint32 len, uint8 debug, uint32 id);
+
+    response bulk_done(uint32 id);
+
+    call get_core_id();
+    response get_core_id_resp(uint64 core);
+
+};

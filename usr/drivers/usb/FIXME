@@ -1,0 +1,20 @@
+AB's notes:
+ * Why does everything want a buffer length of 4096 messages??
+   -- this forces the connection to use URPC, so the components
+      must all run on different cores
+ * Why does this code need so many threads??
+    -- the number of semaphores, mutexes and volatile variables is worrying
+ * ehci_client.[ch] is almost but not quite the same code in usb_manager and msd_driver!
+ * ditto usb_manager_client.[ch] in ehci and msd_driver!
+ * Lots of random numbers and confusing macros to clean up
+ * Why on earth does init_numa in libmemusb query the SKB on a timer after 1ms?!
+   -- Adrian says this is because of a problem where the data is only added to the SKB
+      sometime later, but this approach doesn't seem to work because the affinity data
+      is used immediately on startup.
+ * Bogus yield delay loops instead of sleep timers
+ * include/usb/error_codes.h -- code in header file
+ * struct names vary ... sometimes struct x_t, sometimes struct x, sometimes typedef x
+ * large structs are sometimes pass/returned by reference and sometimes by value
+ * pagesize defines etc. duplicate
+ * general namespace pollution with definitions and function names
+ * manually-declared little-endian packed bitfield structures

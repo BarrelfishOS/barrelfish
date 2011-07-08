@@ -1,0 +1,28 @@
+
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2011, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/vfs
+-- 
+--------------------------------------------------------------------------
+
+[ build library { target = "vfs",
+  		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c",
+                             "vfs_nfs.c", "vfs_ramfs.c" ],
+                  flounderBindings = [ "trivfs" ],
+                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]) ],
+                  flounderDefs = [ "monitor" ]
+                },
+  build library { target = "vfs_nonfs",
+  		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c" ],
+                  addCFlags = [ "-DDISABLE_NFS" ],
+                  flounderBindings = [ "trivfs" ],
+                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]) ],
+                  flounderDefs = [ "monitor" ]
+                }
+]

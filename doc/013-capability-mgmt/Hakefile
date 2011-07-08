@@ -1,0 +1,21 @@
+----------------------------------------------------------------------
+-- Copyright (c) 2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /doc/004-virtual_memory
+--
+----------------------------------------------------------------------
+
+let
+  figoutput f = "/tmp/" ++ f ++ ".pdf"
+  dot f = [ Str "dot", Str "-Tpdf",
+            In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
+  in
+ [ buildTechNoteWithDeps "CapMgmt.tex" "TN-013-CapabilityManagement.pdf" True [] 
+   (concat [dot "cap_types"])
+ ]
+

@@ -1,0 +1,207 @@
+/**
+ * \file
+ * \brief Deferred events (ie. timers)
+ */
+
+/*
+ * Copyright (c) 2009, 2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
+
+// FIXME: why do I need quite so many dispatcher headers?
+#include <barrelfish/dispatch.h>
+#include <barrelfish/dispatcher_arch.h>
+#include <barrelfish/curdispatcher_arch.h>
+#include <barrelfish_kpi/dispatcher_shared.h>
+
+#include "waitset_chan.h"
+
+// this macro hides two kludges:
+//  1. the kernel currently reports time in ms rather than us
+//  2. Beehive is apparently incapable of multiplying a 64-bit value by 1000
+//  (internal compiler error: in simplify_const_unary_operation, at simplify-rtx.c:1108)
+#ifdef __BEEHIVE__
+#define SYSTIME_MULTIPLIER 1
+#else
+#define SYSTIME_MULTIPLIER 1000
+#endif
+
+static void update_wakeup_disabled(dispatcher_handle_t dh)
+{
+    struct dispatcher_generic *dg = get_dispatcher_generic(dh);
+    struct dispatcher_shared_generic *ds = get_dispatcher_shared_generic(dh);
+
+    if (dg->deferred_events == NULL) {
+        ds->wakeup = 0;
+    } else {
+        ds->wakeup = dg->deferred_events->time / SYSTIME_MULTIPLIER;
+    }
+}
+
+/**
+ * \brief Returns the system time when the current dispatcher was last dispatched
+ */
+systime_t get_system_time(void)
+{
+    dispatcher_handle_t dh = curdispatcher();
+    struct dispatcher_shared_generic *ds = get_dispatcher_shared_generic(dh);
+    return ds->systime * SYSTIME_MULTIPLIER;
+}
+
+void deferred_event_init(struct deferred_event *event)
+{
+    assert(event != NULL);
+    waitset_chanstate_init(&event->waitset_state, CHANTYPE_DEFERRED);
+    event->next = event->prev = NULL;
+    event->time = 0;
+}
+
+/**
+ * \brief Register a deferred event
+ *
+ * \param ws Waitset
+ * \param delay Delay in microseconds
+ * \param closure Event closure to execute
+ * \param event Storage for event metadata
+ */
+errval_t deferred_event_register(struct deferred_event *event,
+                                 struct waitset *ws, delayus_t delay,
+                                 struct event_closure closure)
+{
+    errval_t err;
+
+    dispatcher_handle_t dh = disp_disable();
+    err = waitset_chan_register_disabled(ws, &event->waitset_state, closure);
+    if (err_is_ok(err)) {
+        struct dispatcher_generic *dg = get_dispatcher_generic(dh);
+
+        // XXX: determine absolute time for event (ignoring time since dispatch!)
+        event->time = get_system_time() + delay;
+
+        // enqueue in sorted list of pending timers
+        for (struct deferred_event *e = dg->deferred_events, *p = NULL; ;
+             p = e, e = e->next) {
+            if (e == NULL || e->time > event->time) {
+                if (p == NULL) { // insert at head
+                    assert(e == dg->deferred_events);
+                    event->prev = NULL;
+                    event->next = e;
+                    if (e != NULL) {
+                        e->prev = event;
+                    }
+                    dg->deferred_events = event;
+                } else {
+                    event->next = e;
+                    event->prev = p;
+                    p->next = event;
+                    if (e != NULL) {
+                        e->prev = event;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    update_wakeup_disabled(dh);
+
+    disp_enable(dh);
+
+    return err;
+}
+
+/**
+ * \brief Cancel a deferred event that has not yet fired
+ */
+errval_t deferred_event_cancel(struct deferred_event *event)
+{
+    dispatcher_handle_t dh = disp_disable();
+    errval_t err = waitset_chan_deregister_disabled(&event->waitset_state);
+    if (err_is_ok(err)) {
+        // remove from dispatcher queue
+        struct dispatcher_generic *disp = get_dispatcher_generic(dh);
+        if (event->prev == NULL) {
+            assert(disp->deferred_events == event);
+            disp->deferred_events = event->next;
+        } else {
+            event->prev->next = event->next;
+        }
+        if (event->next != NULL) {
+            event->next->prev = event->prev;
+        }
+        update_wakeup_disabled(dh);
+    }
+
+    disp_enable(dh);
+    return err;
+}
+
+static void periodic_event_handler(void *arg)
+{
+    struct periodic_event *e = arg;
+    assert(e != NULL);
+
+    // re-register (first, in case the handler wishes to cancel it)
+    errval_t err = deferred_event_register(&e->de, e->waitset, e->period,
+                                           MKCLOSURE(periodic_event_handler, e));
+    assert(err_is_ok(err));
+
+    // run handler
+    e->cl.handler(e->cl.arg);
+}
+
+/**
+ * \brief Create a periodic event
+ *
+ * A periodic event will repeatedly run a closure at a fixed rate until cancelled.
+ *
+ * \param event Storage for event state
+ * \param ws Waitset
+ * \param period Period, in microseconds
+ * \param closure Closure to run
+ */
+errval_t periodic_event_create(struct periodic_event *event, struct waitset *ws,
+                               delayus_t period, struct event_closure closure)
+{
+    assert(event != NULL);
+    deferred_event_init(&event->de);
+    event->cl = closure;
+    event->waitset = ws;
+    event->period = period;
+    return deferred_event_register(&event->de, ws, period,
+                                   MKCLOSURE(periodic_event_handler, event));
+}
+
+/// Cancel a periodic event
+errval_t periodic_event_cancel(struct periodic_event *event)
+{
+    return deferred_event_cancel(&event->de);
+}
+
+
+/// Trigger any pending deferred events, while disabled
+void trigger_deferred_events_disabled(dispatcher_handle_t dh, systime_t now)
+{
+    struct dispatcher_generic *dg = get_dispatcher_generic(dh);
+    struct deferred_event *e;
+    errval_t err;
+
+    now *= SYSTIME_MULTIPLIER;
+
+    for (e = dg->deferred_events; e != NULL && e->time <= now; e = e->next) {
+        err = waitset_chan_trigger_disabled(&e->waitset_state, dh);
+        assert(err_is_ok(err));
+    }
+    dg->deferred_events = e;
+    if (e != NULL) {
+        e->prev = NULL;
+    }
+    update_wakeup_disabled(dh);
+}

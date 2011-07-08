@@ -1,0 +1,20 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for usr/drivers/usb/driver_msd
+-- 
+--------------------------------------------------------------------------
+
+[ build application { target = "driver_msd",
+                      cFiles = [ "main.c", "mass_storage_driver.c",
+                          "usb_class_storage.c", "scsi.c", "usb_manager_client.c",
+                          "ehci_client.c" ],
+                      flounderDefs = [ "usb_driver","usb_manager", "ehci" ],
+                      addLibraries = [ "memusb", "timer", "skb" ]
+                    }
+]

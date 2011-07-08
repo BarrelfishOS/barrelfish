@@ -1,0 +1,23 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/posixcompat
+-- 
+--------------------------------------------------------------------------
+
+[ build library { target = "posixcompat",
+                  cFiles = [ "open.c", "creat.c", "read.c", "write.c",  
+                             "close.c", "lseek.c", "stat.c", "fstat.c", 
+                             "ftruncate.c", "access.c", "chdir.c", "mkdir.c", 
+                             "rmdir.c", "unlink.c", "dup.c", "chmod.c", 
+                             "umask.c", "isatty.c", "dup2.c", "pipe.c", 
+                             "utime.c", "dirent.c", "getcwd.c", "fileno.c", 
+                             "_exit.c", "process.c", "gethostid.c", "sbrk.c",
+			     "dlfcn.c", "fdtab.c", "signal.c" ]
+                }
+]

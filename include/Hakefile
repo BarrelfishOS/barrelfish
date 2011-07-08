@@ -1,0 +1,52 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /include
+-- 
+--------------------------------------------------------------------------
+
+[ includeFile (options arch) f
+      | f <- [ 
+   "assert.h",
+   "bexec.h",
+   "complex.h",
+   "cpiobin.h",
+   "ctype.h",
+   "dirent.h",
+   "dlfcn.h",
+   "errno.h",
+   "fpmath.h",
+   "getopt.h",
+   "ieeefp.h",
+   "inttypes.h",
+   "iso646.h",
+   "limits.h",
+   "locale.h",
+   "lwipopts.h",
+   "math.h",
+   "multicast.h",
+   "printf.h",
+   "setjmp.h",
+   "signal.h",
+   "stdarg.h",
+   "stdbool.h",
+   "stddef.h",
+   "stdint.h",
+   "stdio_file.h",
+   "stdio.h",
+   "stdlib.h",
+   "string.h",
+   "termios.h",
+   "time.h",
+   "unistd.h",
+   "utime.h",
+   "values.h",
+   "x86emu.h",
+   "zconf.h",
+   "zlib.h"
+  ], arch <- allArchitectures ]

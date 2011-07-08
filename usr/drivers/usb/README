@@ -1,0 +1,463 @@
+Distributed USB Infrastructure
+==============================
+
+The code has three main components, EHCI driver, USB manager and Mass 
+storage driver. 
+
+1) EHCI Driver: There is nothing special configurable in this part 
+                of the code. But you may wanna change interrupt 
+                frequency and map. This can be done in boot.c/ehci_init 
+                function. The "ehci" has to be run on core 0 because it 
+                takes interrupts. 
+
+2) USB Manager: There are no configurable parameters in there. 
+
+3) Mass Storage Driver: The mass storage driver is responsilbe for 
+                        reading data from the device. In the file 
+                        driver_msd/mass_storage_driver.c you have 
+                        DATA_SZ macro with 5 different settings 
+                        that you can choose from or can create 
+                        custom, calculating on the block size. 
+                        Block size is 512 bytes, hence for 1MB
+                        you have set DATA_SZ to 1024 * 512. Actually
+                        DATA_SZ is number of blocks required to 
+                        read/write the data. 
+
+Files distribution 
+================================
+
+The source code is dristributed as follow:
+
+-- usr/driver/usb 
+                  --ehci/         = Contains EHCI driver code
+                  --usb_manager/  = Contains USB manager code
+                  --driver_msd/   = Contains Mass storage driver 
+
+-- include/usb/   = Contains related header files 
+
+-- lib/memusb/    = Contains libmemusb code for memory management
+
+-- if/
+                  -- usb_*   = Contains 2 interface files for USB manager 
+                              and driver
+
+                  -- ehci.if = Interface file for EHCI server
+
+-- device/
+                  -- ehci_cap.dev = EHCI capability device 
+                  -- ehci_op.dev  = EHCI operational device 
+
+Menu.lst 
+=================================
+
+This is a copy of menu.lst used in the project 
+
+timeout 0
+
+title   Animesh's kernel
+root    (nd)
+kernel  /atrivedi/kernel loglevel=3 maxcpus=200 logmask=256
+module /atrivedi/mem_serv
+module /atrivedi/init
+module /atrivedi/chips
+module /atrivedi/monitor bootcpus=0-3
+module /atrivedi/pci
+module /atrivedi/skb 
+module /atrivedi/lpc_timer
+
+module /atrivedi/usb_manager core=2
+module /atrivedi/ehci core=0
+module /atrivedi/driver_msd core=3
+
+
+Changes necessary in Barrelfish
+===================================
+
+1) Change irq.c and pic.c to older version in order to receive interrupts.
+2) Change a typo in pci.h 
+         #define PCI_CLASS SERIAL 0xc to 
+         #define PCI_CLASS_SERIAL 0xc 
+3) Change pci_service.c at 298 to enable using interrupts 
+   change the boolean from false to ture
+
+
+
+
+OUTPUT (displaying all info about the device)
+===================================
+
+In the current setting of project the new USB device 
+is enumerated and assigned a non-zero address. Then the 
+information is passed to the USB mass storage driver which 
+tries to read DATA_SZ * 512 bytes of data from the drive 
+starting from block zero. All data dumped here is confirmed 
+and crossed checked with Linux. In output dumped below it 
+reads 33.5 MB data from the device and long numbers shown 
+in between are rdtsc() output. As can be seen that it starts
+reading the data from 53 second and ends near 58 second ~ 5
+seconds to transfer 33.5 MB.  
+
+
+
+....Barrelfish...booting ....dump 
+
+
+
+ ****** USB DEVICE INFORMATION [IN HEX]*************
+
+ Attached at port : 8
+ USB Address index: 1
+ Number of config : 1
+ Device State : 0
+ Device Manufacturer : USBest Technology
+ Device Name : USB Mass Storage Device
+ Device Serial Number : 00000000000630
+ -----USB DEVICE DESCRIPTOR DUMP (in HEX) --------
+
+ bLenght : 12
+ bDescriptor type : 1
+ bcdUSB : 200
+ bDeviceClass : 0
+ bDeviceSubClass : 0
+ bDeviceProtocol : 0
+ bMaxPacketSize0 : 40
+ idVendor : 1307
+ idProduct : 163
+ bcdDevice : 100
+ iManufacturer : 1
+ iProduct : 2
+ iSerial Number : 3
+ bNumConfigurations : 1
+ --------- END OF USB DEVICE DESCRIPTOR DUMP ------
+
+
+
+	 ----USB CONFIGURATION DESCRIPTOR DUMP (in HEX)-------
+
+	 bLenght : 9
+	 bDescriptor type : 2
+	 wTotalLength : 27
+	 bNumInterfaces : 1
+	 bConfigurationValue : 1
+	 iConfiguration : 0
+	 bmAttributes : 80
+	 bMaxPower : 28
+	 ----- END OF USB CONFIGURATION DESCRIPTOR DUMP ------
+
+
+
+		 ---USB INTERFACE DESCRIPTOR DUMP (in HEX) ----------
+		 bLenght : 9
+		 bDescriptor type : 4
+		 bInterfaceNumber : 0
+		 bAlternateSetting : 0
+		 bNumEndpoints : 3
+		 bInterfaceClass : 8
+		 binterfaceSubClass : 6
+		 bInterfaceProtocol : 50
+		 iInterface : 0
+		 ---- END OF USB INTERFACE DESCRIPTOR DUMP------
+
+
+
+			 ----USB ENDPOINT DESCRIPTOR DUMP (in HEX) ------
+			 bLenght : 7
+			 bDescriptor type : 5
+			 bEndpointAddress : 1
+			 bmAttributes : 2
+			 wMaxPacketSize : 200
+			 bInterval : 1
+			  ---- END OF USB ENDPOINT DESCRIPTOR DUMP -----
+
+
+
+			 ----USB ENDPOINT DESCRIPTOR DUMP (in HEX) ------
+			 bLenght : 7
+			 bDescriptor type : 5
+			 bEndpointAddress : 82
+			 bmAttributes : 2
+			 wMaxPacketSize : 200
+			 bInterval : 1
+			  ---- END OF USB ENDPOINT DESCRIPTOR DUMP -----
+
+
+
+			 ----USB ENDPOINT DESCRIPTOR DUMP (in HEX) ------
+			 bLenght : 7
+			 bDescriptor type : 5
+			 bEndpointAddress : 83
+			 bmAttributes : 3
+			 wMaxPacketSize : 40
+			 bInterval : 8
+			  ---- END OF USB ENDPOINT DESCRIPTOR DUMP -----
+
+
+ ************* END OF USB DEVICE INFORMATION ***********
+
+48650633948
+48662470112
+48676781339
+48688424736
+48701985556
+48713629032
+48727183019
+48738826574
+Sending infortioan to driver ....48734703869
+USB_DRIVER: Connect at server 
+USB_DRIVER: probe_handler for dev[1] 
+
+ DRIVER: Trying to connect to EHCI server ....
+
+
+
+ Thread entry -- connect_to_usb_manager
+ USB_DRIVER: Context init at usb_manager clientTrying to connect
+ USBD: Connect at usb_manager server
+
+ USB_DRIVER: MSD connected to USB manager 
+
+
+
+ USBD: Driver accepted the device USB_DRIVER: loop started
+A mass storage device has been located
+48962304387
+48974336326
+pipe_req_handler
+Sending pipe valid -- [1]
+pipe_req_handler
+Sending pipe valid -- [1]
+
+
+------- DUMP of CBW -------------
+ Signature 43425355
+ Tag       abcdabcd
+ Transfer Length 0
+ Flags  80
+ LUN 0
+ CBWCBLength 6
+ CBWCB[0] : 0
+ CBWCB[1] : 0
+ CBWCB[2] : 0
+ CBWCB[3] : 0
+ CBWCB[4] : 0
+ CBWCB[5] : 0
+ CBWCB[6] : 0
+ CBWCB[7] : 0
+ CBWCB[8] : 0
+ CBWCB[9] : 0
+ CBWCB[10] : 0
+ CBWCB[11] : 0
+ CBWCB[12] : 0
+ CBWCB[13] : 0
+ CBWCB[14] : 0
+ CBWCB[15] : 0
+----------End of dum of CBW -------49354887557
+49385267305
+49397134724
+49408978030
+49421551798
+49415540394
+
+
+------- DUMP of CSW -------------
+ Signature 0
+ Tag       0
+ Data Residue 0
+ Status  0
+----------End of dum of CSW -------49525013547
+49555394640
+49567262416
+49579117398
+49592353630
+49586337381
+
+
+------- DUMP of CSW -------------
+ Signature 53425355
+ Tag       abcdabcd
+ Data Residue 0
+ Status  0
+----------End of dum of CSW -------
+
+-------- Dump of INQUIRY data dump (in HEX)
+ [0] Dev type 0
+ [1] RMB      0
+ [2] Version 0
+ [3] Resp_data_format 0
+ [4] Additonal_length 0
+ [5] RSVD[0]  0
+ [6] RSVD[1]  0
+ [7] RSVD[2]  0
+ [8-15] Vendor info : 
+ [16-31] prod_id : 
+ [32-35] prod_revision : 
+
+------- DUMP of CBW -------------
+ Signature 43425355
+ Tag       abcdabce
+ Transfer Length 24
+ Flags  80
+ LUN 0
+ CBWCBLength 6
+ CBWCB[0] : 12
+ CBWCB[1] : 0
+ CBWCB[2] : 0
+ CBWCB[3] : 0
+ CBWCB[4] : 24
+ CBWCB[5] : 0
+ CBWCB[6] : 0
+ CBWCB[7] : 0
+ CBWCB[8] : 0
+ CBWCB[9] : 0
+ CBWCB[10] : 0
+ CBWCB[11] : 0
+ CBWCB[12] : 0
+ CBWCB[13] : 0
+ CBWCB[14] : 0
+ CBWCB[15] : 0
+----------End of dum of CBW -------50221959537
+50252340567
+50264213469
+50276082870
+50289553724
+50283533474
+50296027270
+50326191794
+50338058568
+50349905402
+50362353373
+50356336503
+
+
+-------- Dump of INQUIRY data dump (in HEX)
+ [0] Dev type 0
+ [1] RMB      80
+ [2] Version 2
+ [3] Resp_data_format 2
+ [4] Additonal_length 1f
+ [5] RSVD[0]  0
+ [6] RSVD[1]  0
+ [7] RSVD[2]  0
+ [8-15] Vendor info : TinyDisk
+ [16-31] prod_id : 2007-02-13      
+ [32-35] prod_revision : 0.0050562854369
+50593243778
+50605109660
+50616958370
+50631153352
+50625132847
+
+
+------- DUMP of CSW -------------
+ Signature 53425355
+ Tag       abcdabce
+ Data Residue 0
+ Status  0
+----------End of dum of CSW ------- [[0]: 0] [[1]: 0] [[2]: 0] [[3]: 0] [[4]: 0] [[5]: 0] [[6]: 0] [[7]: 0]
+
+------- DUMP of CBW -------------
+ Signature 43425355
+ Tag       abcdabcf
+ Transfer Length 8
+ Flags  80
+ LUN 0
+ CBWCBLength a
+ CBWCB[0] : 25
+ CBWCB[1] : 0
+ CBWCB[2] : 0
+ CBWCB[3] : 0
+ CBWCB[4] : 0
+ CBWCB[5] : 0
+ CBWCB[6] : 0
+ CBWCB[7] : 0
+ CBWCB[8] : 0
+ CBWCB[9] : 0
+ CBWCB[10] : 0
+ CBWCB[11] : 0
+ CBWCB[12] : 0
+ CBWCB[13] : 0
+ CBWCB[14] : 0
+ CBWCB[15] : 0
+----------End of dum of CBW -------51100099264
+51130480940
+51142347984
+51154194846
+51168753286
+51162738869
+51175229960
+51205404365
+51217271651
+51229118254
+51241553195
+51235536428
+51248027389
+51278189188
+51290055852
+51301902631
+51314353019
+51308338092
+
+
+------- DUMP of CSW -------------
+ Signature 53425355
+ Tag       abcdabcf
+ Data Residue 0
+ Status  0
+----------End of dum of CSW ------- [[0]: 0] [[1]: 1e] [[2]: ff] [[3]: fe] [[4]: 0] [[5]: 0] [[6]: 2] [[7]: 0]
+ USB_DRIVER: Device attributes ....
+             USB address :1 
+             block size  :512 bytes
+             last block  :2031614
+             capacity    :1040186368 bytes
+USB_DRIVER: Host controller driver is running on core 0
+53152721216
+53165016793
+53195190697
+53207092834
+53218890290
+53232355035
+53226347185
+53238830772
+53251328353
+53281491740
+53317542116
+58585947058
+58601263063
+58595245072
+58607738743
+58620236359
+58650406905
+58662268851
+58674116080
+58686753721
+58680733966
+58693227640
+58705731919
+
+ Amount of data read/write [33553920] bytes
+
+------- EHCI MEMORY STATS-----------
+
+ Total frames in use                                : 8194 
+ Total queue heads  (64 B) in used/freed/capacity   : 2 / 2 / 64
+ Total queue elements (32 B) in used/freed/capacity :	8 / 8 / 128
+
+------- ---------------- -----------
+Freeing the allocated I/O buffer
+
+
+------- EHCI MEMORY STATS-----------
+
+ Total frames in use                                : 2 
+ Total queue heads  (64 B) in used/freed/capacity   : 2 / 2 / 64
+ Total queue elements (32 B) in used/freed/capacity :	8 / 8 / 128
+
+------- ---------------- -----------
+
+
+FURTHER DRIVER CODE IN DEVELOPMENT
+---- ++++ ---- ++++ -----
+
+
+
+ 

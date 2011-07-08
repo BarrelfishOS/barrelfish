@@ -1,0 +1,21 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for usr/drivers/usb/usb_manager
+-- 
+--------------------------------------------------------------------------
+
+[ build application { target = "usb_manager",
+                      cFiles = [ "main.c", "device_commands.c", "usb_device.c",
+                          "usb_topology.c", "usbd.c", "shared_services.c",
+                          "ehci_client.c", "driver_managment.c" ],
+                      flounderBindings = [ "usb_manager" ],
+                      flounderDefs = [ "ehci", "usb_driver" ],
+                      addLibraries = [ "memusb", "timer", "skb" ]
+                    }
+]

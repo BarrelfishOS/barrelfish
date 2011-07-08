@@ -1,0 +1,69 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for if/
+-- 
+--------------------------------------------------------------------------
+
+-- whereas these are using the new-style bindings
+[ flounderGenDefs (options arch) f
+      | f <- [ "bcast",
+               "bench",
+               "boot_perfmon",
+               "bulkbench",
+               "ehci",
+               "ether",
+               "ether_control",
+               "fb",
+               "glue_bench",
+               "hpet",
+               "interdisp",
+               "intermon",
+               "keyboard",
+               "lock",
+               "mem",
+               "monitor",
+               "monitor_blocking",
+               "monitor_mem",
+               "mouse",
+               "nameservice",
+               "netd", 
+               "pci",
+               "ping_pong",
+               "pixels",
+               "rcce",
+               "route", -- the new routing library
+               "route_coordinator",
+               "routing",
+               "serial",
+               "skb",
+               "skb_map",
+               "spawn",
+               "test",
+               "timer",
+               "trivfs",
+               "usb_driver",
+               "usb_manager",
+               "xcorecap",
+               "xcorecapbench",
+               "xmplcr",
+               "xmplmsg",
+               "xmplrpc",
+               "xmplthc" ],
+
+             arch <- allArchitectures
+] ++
+
+-- these are for THC stubs
+[ flounderTHCFile (options arch) f
+      | f <- [ "bench",
+               "ping_pong",
+               "mem",
+               "xmplthc" ],
+             arch <- allArchitectures
+]

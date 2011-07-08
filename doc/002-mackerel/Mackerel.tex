@@ -1,0 +1,1766 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2011, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{textcomp}
+\usepackage{amsmath}
+
+\title{Mackerel 1.2 User Guide}
+\author{Barrelfish project}
+% \date{\today}		% Uncomment (if needed) - date is automatic
+\tnnumber{2}
+\tnkey{Mackerel}
+
+\begin{document}
+\maketitle			% Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{1.2}{31.05.2010}{TR}{Initial version under new formatting}
+\end{versionhistory}
+
+% \intro{Abstract}		% Insert abstract here
+% \intro{Acknowledgements}	% Uncomment (if needed) for acknowledgements
+\tableofcontents		% Uncomment (if needed) for final draft
+% \listoffigures		% Uncomment (if needed) for final draft
+% \listoftables			% Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\Mac}{Mackerel\xspace}
+
+
+%-------INTRODUCTION 
+
+
+\chapter{Introduction and Usage} 
+
+\Mac is a domain-specific language used to describe hardware devices
+and the in-memory formats of registers and data structures like
+descriptor lists, page-table entries, etc.   
+
+The \Mac language itself is designed to be easy to transcribe into
+from a hardware data book or similar description - most of the
+constructs correspond to the kinds of concepts one finds in hardware
+descriptions. 
+
+A feature of the \Mac language is that, while traditional comments in
+\Mac specifications are allowed, explanatory text in English is
+included as part of a \Mac specification itself, and used to generate
+debugging code which explains the meaning of register values. 
+
+ Typically, it takes as input a specification written in the
+Mackerel language and outputs a C header file consisting of a large
+number of C inline function definitions to access and manipulate
+registers and in-memory data structures, format them for printing in
+human-readable form, etc.  
+
+The \Mac compiler is written in Haskell using the Parsec parsing
+library.  A quick roadmap of the source code files is provided in
+Chapter \ref{chap:sourcetree}. 
+
+To manually invoke \Mac, run:
+
+\verb~> mackerel --shift-driver devFile.dev devFile.h~
+
+This will translate a device file into a single C header file containing all
+relevant functions for accessing the device, as described in
+Chapter~\ref{chap:shiftdriver}. 
+
+If you wish to use the (deprecated) bitfield-based back-end instead,
+you can use:
+
+\verb~> mackerel --bitfield-driver devFile.dev devFile.h~
+
+This backend should not be used for new code, as it is not portable
+across compilers.  It is described in
+Chapter~\ref{chap:bitfielddriver}. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\chapter{Lexical Conventions}\label{chap:lexical}
+The following convention has been adopted for Mackerel. It is similar to
+the convention opted by modern day programming languages like C and Java.\\
+
+\begin{description}
+\item[Whitespace:]  As in C and Java, \Mac considers sequences of
+  space, newline, tab, and carriage return characters to be
+  whitespace.  Whitespace is generally not significant. 
+
+\item[Comments:] \Mac supports C-style comments.  Single line comments
+  start with \texttt{//} and continue until the end of the line.
+  Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
+  anything inbetween is ignored and treated as white space.
+
+\item[Identifiers:] Valid \Mac identifiers are sequences of numbers
+  (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
+  must start must start with a letter or ``\texttt{\_}''.  
+  \begin{align*}
+    identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_)^{\textrm{*}} \\
+    letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
+    digit & \rightarrow (\textsf{0 \ldots 9})
+\end{align*}
+
+  Note that a single underscore ``\texttt{\_}'' by itself is a special,
+  ``don't care'' or anonymous identifier which is treated differently
+  inside the language. 
+  
+\item[Integer Literals:] A \Mac integer literals is a sequence of
+  digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
+  literals have no specifier and hexadecimal literals start with
+  \texttt{0x}.  Binary literals start with \texttt{0b}. 
+
+\begin{align*}
+digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
+hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
+binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
+\end{align*}
+
+
+\item[Reserved words:] The following are reserved words in \Mac:
+\begin{alltt}
+  \begin{tabbing}
+xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \kill
+addr \> also \> bytewise \> constants \> datatype \> device \\
+io \> lsbfirst \> many \> msbfirst \> pci \> regarray  \\
+register \> regtype \> space \> stepwise \> type \> valuewise
+  \end{tabbing}
+\end{alltt}
+
+\item[Special characters:] The following characters are used as operators,
+  separators, terminators or other special purposes in \Mac:
+\begin{alltt}
+
+  \{ \} [ ] ( ) + - * / ; , . _ = 
+
+\end{alltt}
+
+\end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Declarations}\label{chap:declarations}
+
+A \Mac source file must consist of a single \textit{device
+  specification}, which itself consists of further specifications of
+registers, register types, etc. 
+
+\section{Devices}\label{sec:devices}
+
+A device declaration in \Mac specifies a particular type of hardware
+device (such as an ioAPIC or a particular Ethernet controller).   The
+syntax is as follows:
+
+\begin{syntax}
+device \synit{name} [lsbfirst|msbfirst] ( \synit{args} ) "\synit{description}"
+\verb+{+
+  \synit{declaration};
+  \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+\item[name] is an identifier for the device type, and will be used to
+  generate identifiers in the target language (typically C).  While
+  not enforced by the \Mac compiler, by
+  convention this should only differ from the name of the file in case
+  and suffix, e.g.\ the file \texttt{xapic.dev} defines a device type
+  of name \texttt{xAPIC}. 
+
+\item[lsbfirst or msbfirst] optionally specifies the \emph{bit order}
+  of the declarations 
+  inside the device file; if specified, it must be \texttt{lsbfirst}
+  (the default) or \texttt{msbfirst}.  
+
+  Note that this does not say \emph{anything} about the endianness of
+  the hardware device, or the host platform, or the execution
+  environment.  It simply says which order the bitfields in particular
+  registers are listed in the declarations which follow --
+  least-significant bits first or most-sigificant bits first. 
+
+  The reason for this feature is that \Mac specifications are
+  typically transcribed from chip datasheets, and while these are
+  generally unambiguous there is no clear convention on which order to
+  list a hardware register bitfields in a datasheet.   This feature 
+  means that the \Mac specification can more closely resemble to text
+  in the datasheet.  
+
+  When transcribing a datasheet into a \Mac specification, if the
+  fields in a register or register type are listed starting with the
+  one which includes bit 0, specify \texttt{lsbfirst}.   If the fields
+  are listed starting with the one which includes the high bit in the
+  register, specify \texttt{msbfirst}.  In both cases type the fields
+  in the order they are printed in the datasheet. 
+
+\item[args] are the arguments that specify how to access the device.
+  They are treated as base addresses in one of several \emph{address
+    spaces} supported by \Mac (see Section~\ref{sec:spaces}
+  below).  Typical devices have a single base address in either memory
+  or I/O space, though some device types (of which only one instance
+  ever exists, and at a fixed address) have no arguments, and others
+  may have more if they have multiple register sets which can appear
+  at different addresses.   
+
+  The arguments will become arguments to the function that intializes
+  the struct used to represent the device in \Mac-generated C.
+  They are also used within the device declaration to specify the
+  locations of individual registers or groups of registers. 
+
+  Arguments are declared in C-style type notation as either of type
+  \texttt{address} (in memory space) or \texttt{io} (in I/O
+  space).  By convention a single device argument is named
+  \texttt{base}. 
+
+\item [description] is a string literal in double quotes, which
+  describes the device type being specified, for example \texttt{"AC97
+  Baseline Audio"}. 
+
+\end{description}
+
+After the description string follows in curly brackets a series of
+declarations which specify details of the device hardware.   Each
+declaration must be one of the following:
+
+\begin{itemize}
+
+  \item A \texttt{space} declaration, describing a device-specific
+    address space for registers in addition to the built-in address
+    spaces. 
+  
+  \item A \texttt{constants} list, analogous to a C enumeration type
+
+  \item A \texttt{register} declaration, describing a particular
+    hardware register or group of registers
+    
+  \item A \texttt{regtype} definition, giving the type and format of
+    other hardware register values. 
+
+\end{itemize}
+
+\section{Address spaces}\label{sec:spaces}
+
+Registers defined in a \Mac file (see Section~\ref{sec:registers})
+reside at specified addresses in an \emph{address space}.   There are
+currently 3 built-in address spaces that \Mac understands, and
+addresses in these spaces require both a base and an offset.  Base
+values are given as an arguments to the device specification, and so
+each device argument must be declared as being of one of the following
+types: 
+
+\begin{description}
+
+\item[addr]: Physical memory, for memory-mapped I/O.  Register
+  locations in physical address space are given as offsets relative to
+  a base address which is an argument to the device definition. 
+
+\item[io]: I/O port space, for \texttt{ia32} machines.  An I/O address
+  is a 16-bit port number, and register locations in I/O port space
+  are given as offsets relative to a base address which is an argument
+  to the device definition.   
+
+\item[pci]: PCI Configuration space.  A PCI configuration space
+  address is a 4-tuple of \textit{(bus, device, function, offset)}, however,
+  \Mac only deals in integer offsets from an opaque ``base'' address,
+  allowing for different addressing schemes depending on hardware.  
+
+\end{description}
+
+In addition, \Mac allows the specification of per-device address
+spaces.  This feature can express a variety of hardware features, for
+example processor model-specific registers, co-processor registers, 
+device registers that must be accessed indirectly through another
+index registers, etc.  
+
+The syntax for defining a new address space is:
+
+\begin{syntax}
+space \synit{name}(\synit{index}) bytewise|valuewise|stepwise(\textit{step}) 
+          "\synit{description}"; 
+\end{syntax}
+
+\begin{description}
+\item[name] is an identifier for the address space, and is used in
+  register declarations instead of a builtin space such as
+  \texttt{addr} or \texttt{io}. 
+
+\item [index] is an identifier for the argument giving the address for
+  the registers
+
+\item [bytewise or valuewise] defines how registers in the new
+  space are addressed.  Bytewise addresses are like conventional
+  memory addresses, for example two adjacent 32-bit registers in a
+  bytewise-addressed space will have offsets that differ by 4.  All
+  the built-in address spaces (\texttt{addr}, \texttt{pci}, and
+  \texttt{io}) are bytewise-addressed. 
+
+  In contrast, registers in a valuewise-addressed space are indexed by
+  a simple integer regardless of size, meaning that two adjacent
+  32-bit registers will have addresses that differ only by 1.
+  A good example of a valuewise address space is the set of ia32
+  model-specific registers (MSRs). 
+
+  If neither of these is sufficient, \texttt{stepwise} allows you to
+  explicitly specify how many bytes are occupied by each address in
+  the address space.  \texttt{bytewise} is therefore a synonym for
+  \texttt{stepwise(1)}, but \texttt{stepwise(4)} might be useful for
+  devices (such as some IOAPICs) where registers are indexed by 32-bit
+  values but can be accessed as 64-bit quantities. 
+
+\item [``description''] is a string literal in double quotes, which
+  describes the constant type being specified, for example
+  \texttt{"PHY control registers"}. 
+
+\end{description}
+
+Register addresses in user-defined address spaces are always given
+simply as offsets, since the base is implicit in the device
+definition.  
+
+\Mac files cannot currently say how registers in a particular space
+are accessed; this functionality must be provided externally by the
+programmer (typically by short inline functions).  
+
+Here is how ia32 MSRs are defined: 
+
+\begin{example}
+space msr valuewise "Model-specific Registers";
+register platform\_id ro msr(0x17) "Platform ID" \verb+{+
+    \_	50;
+    id	3 "platform id";
+    \_	11;
+\verb+}+;
+\ldots
+\end{example}
+
+As a second example, here is a set of space declarations (and
+associated index and data registers) from the legacy PC real-time
+clock (RTC) definition: 
+
+\begin{example}
+space std(idx) valuewise "Standard register space";
+register ndx rw io(base, 0x70) "Standard index" 
+             type(uint8);
+register target rw io(base, 0x71) "Standard target" 
+             type(uint8);
+regarray standard rw std(0x00)[256] type(uint8);
+
+space ext(idx) valuewise "Extended register space"; 
+register endx rw io(base, 0x72) "Extended index" 
+             type(uint8);
+register etarget rw io(base, 0x73) "Extended target''
+             type(uint8);
+regarray extended rw std(0x00)[256] type(uint8);
+\end{example}
+
+\section{Constants}\label{sec:constants}
+
+A \texttt{constant} declaration defines a series of related values,
+for example, the possible values of a given register field.  Each
+constant type consists of an identifier for the type, a textual
+description, and a series of possible values.   Each value in turn
+consists of an identifier for the value, the numerical value itself,
+and a textual description of its meaning. 
+
+The syntax is:
+
+\begin{syntax}
+constants \synit{name} "\synit{description}" \verb+{+ 
+   \synit{name\(\sb{1}\)} = \synit{value\(\sb{1}\)} ["\synit{description\(\sb{1}\)}"] ;
+   \ldots
+\verb+}+; 
+\end{syntax}
+
+
+\begin{description}
+\item[name] is an identifier for the constant type, and will be used to
+  generate identifiers in the target language (typically C).  The
+  scope of this identifier is the enclosing device specification.  
+
+\item [``description''] is a string literal in double quotes, which
+  describes the constant type being specified, for example
+  \texttt{"Vector delivery mode"}. 
+\end{description}
+
+Each constant value is given as follows:
+
+\begin{description}
+
+\item[name$_i$] is an identifier for the particular value of the
+  constant type.  The scope of this identifier is the enclosing
+  constant declaration, not the device declaration as a whole.
+
+\item[value$_i$] is an expression giving the corresponding numerical
+  value.  This will usually be a literal like \texttt{0b1101} or
+  \texttt{0xf}, though it can potentially be any arithmetic expression
+  supported by \Mac. 
+
+\item[``description$_i$''] is an optional string literal in double
+  quotes, which describes the meaning of the value being specified,
+  for example \texttt{"Lowest priority"}.  If not specified, it
+  defaults to the identifier name$_i$. 
+
+\end{description}
+
+Here is a complete example of a constants declaration, taken from the
+xAPIC definition: 
+
+\begin{example}
+constants vdm "Vector delivery mode" \verb+{+
+       fixed   = 0b000 "Fixed";
+       lowest  = 0b001 "Lowest priority";
+       smi     = 0b010 "SMI";
+       nmi     = 0b100 "NMI";
+       init    = 0b101 "INIT";
+       startup = 0b110 "Start Up";
+       extint  = 0b111 "ExtINT";
+\verb+}+;
+\end{example}
+
+Note that the collection of constant values does not have to be
+complete or contiguous. 
+
+\section{Register types}\label{sec:regtypes}
+
+A \texttt{regtype} declaration defines a data type corresponding to the
+format of one or more registers; it can be thought of as a translation
+of the bitfield descriptions typically found in data sheets.   A
+\texttt{regtype} doesn't define any particular hardware registers
+(see \texttt{register} declarations below), merely a data type for
+representing their contents. 
+The syntax is as follows:
+
+\begin{syntax}
+regtype \synit{name} ["\synit{description}"] \verb+{+
+   \synit{fieldname}\(\sb{1}\) \synit{width} [type(\synit{fieldtype})] [\synit{attr}] ["\synit{description}"];
+   \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+
+\item[name] is an identifier for the register type.  Its scope is the
+  enclosing device declaration. 
+
+\item[description] is an optional string in double quotes, giving a
+  description of the register type, for example \texttt{"LVT
+    monitor"}.   If not present, it defaults to the identifier.  
+
+\end{description}
+
+The field descriptions declare the individual bitfields which make up
+the register type.  The order in which these are given is determined
+by the \texttt{lsbfirst} or \texttt{msbfirst} declaration in the
+\texttt{device} specification: if \texttt{lsbfirst}, the first field
+given starts at bit 0, etc.
+
+\begin{description}
+
+\item[fieldname] is an identifier for the bit field.  It can be
+  given as an underscore (\texttt{\_}) to indicate ``don't care'' or
+  ``reserved'' fields, in which case the field is
+  assumed to have an attributed of \texttt{rsvd} (see below), and no
+  description is needed. 
+
+\item[width] is an integer giving the width of the field in bits. 
+
+\item[fieldtype] is an optional identifier giving the type of this field.
+  This must be the identifier of a \texttt{constants} declaration
+  somewhere in the enclosing \texttt{device} declaration, for example
+  \texttt{type(vdm)}. 
+
+\item[attr] is an optional field
+  attribute.  See section~\ref{sec:fieldattrs} for more information. 
+
+\item[description] is an optional string in double quotes, giving a
+  description of the field, for example \texttt{"Logical APIC ID"}. 
+  If not present, it defaults to the identifier.  
+
+\end{description}
+
+% feature from old version:
+% There is another variation for defining the bit-width for register layout in
+% bit-fields, called {\it location based width}, besides {\it normal mode}. It
+% may be more error prone and tiresome process for the user, to manually
+% calculate the bit width. Mackerel can do this for users. To automate the
+% process of calculating bit-width, user can specify exact register layout and
+% Mackerel will put appropriate bit-width. User just has to put bit location
+% it into (), to distuinguish it from normal mode.
+% 
+% \verb+(startbit - endbit)+
+% 
+% A number 8 in field declaration, in normal mode, represents 8 bits but (8)
+% represents single bit. Like wise, (9-11) (which are starting and ending
+% location of that particular field) represents 3 bits in register layout. By
+% using this mode of specifying the register layout, user can copy bit location
+% as it is from the hardware specificaion to dev file avoiding any confusions.
+
+
+Here is a complete example of a \texttt{regtype} declaration, taken from the
+xAPIC definition: 
+\begin{example}
+  regtype lvt_lint "LVT Int" \verb+{+
+    vector\verb+    +8 "Vector";
+    dlv_mode\verb+  +4 type(vdm) "Delivery mode";
+    _\verb+         +1;
+    status\verb+    +1 "Delivery status";
+    pinpol\verb+    +1 "Pin polarity";
+    rirr\verb+      +1 "Remote IRR";
+    trig_mode\verb+ +1 "Trigger mode";
+    mask\verb+      +1 "Mask";
+    _\verb+         +15;
+  \verb+}+;
+\end{example}
+
+\section{Registers}\label{sec:registers}
+
+A \texttt{register} declaration defines a particular hardware register
+on the device.  
+
+\begin{syntax}
+register \synit{name} [\synit{attr}] [also] 
+             \synit{space}( \synit{address} ) ["\synit{description}"] \synit{type} ;
+\end{syntax}
+
+\begin{description}
+
+\item[name] is an identifier for the register.  Its scope is the
+  enclosing \texttt{device} declaration. 
+
+\item[attr] is an (optional) attribute.  See
+  Section~\ref{sec:fieldattrs} for more information.
+
+\item[space] gives the address space of this register
+  (e.g. \texttt{addr}, \texttt{io}, \texttt{pci}, or a per-device
+  user-defined address space).
+
+\item[address] gives the address of the register in the address
+  space.  For builtin address spaces this is given as a
+  comma-separated pair of \textit{(base, offset)} where \textit{base}
+  is a device argument of the correct type and \textit{offset} is an
+  integer-valued \Mac expression.   For user-defined address spaces,
+  the address is a single \Mac integer expression giving the register
+  index.  
+
+  By default, it is an error to specify more than one
+  register at the same location, or at locations which overlap.  By
+  preceding the address specifier with the \texttt{also} keyword, you
+  can allow registers to coexist at the same location. 
+
+\item[description] is an optional string in double quotes, giving a
+  description of the register, for example \texttt{"Error status"}. 
+  If not present, it defaults to the name identifier.  
+
+\item[type] gives the format of the register.  It can consist of
+  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is either
+  the identifer of a register type previously declared with a
+  \texttt{regtype} declaration, or one of the built in register
+  types \texttt{uint8}, \texttt{uint16}, \texttt{uint32}, or
+  \texttt{uint64}. 
+
+  Alternatively, the type can be given as a sequence of fields in
+  braces, exactly as in a \texttt{regtype} declaration.  In effect,
+  this latter form defines both a register type and a register at the
+  same time, with the same name. 
+
+\end{description}
+
+Here are some examples of \texttt{register} definitions:
+
+\begin{example}
+  register dfr rw at (base, 0x00e0) 
+              "Destination Format" \verb+{+
+    _		28 mb1;
+    model	4 type(model_type) "Model";
+\verb+  };+
+\end{example}
+\begin{example}
+  register apr ro at (base, 0x0090) 
+              "Arbitration priority" type(priority);
+\end{example}
+\begin{example}
+  register isr0 ro at (base, 0x0100) 
+              "ISR bits 0-31" type(uint32);
+\end{example}
+
+\section{Register Arrays}\label{sec:regarrays}
+
+A \texttt{regarray} declaration defines an array of hardware registers
+on the device, all of which have the same type and attributes. 
+
+\begin{syntax}
+regarray \synit{name} [\synit{attr}] [also] 
+             \synit{space}( \synit{address} ) ["\synit{description}"] \synit{type} ;
+\end{syntax}
+
+All fields are as for register declarations, except: 
+
+\begin{description}
+
+\item[address] gives the address of the registers which form the array
+  in the address space.  This is given as for a single
+  \texttt{register} declaration, followed by an array specifier in
+  square brackets.  
+
+  There are three forms of array specifier. The simplest looks like
+  this:
+  \begin{example}
+    regarray ier ro addr(base, 0x0480) [ 8 ] 
+                 "IER" type(uint32);
+  \end{example}
+  This specifies a contiguous array of 8 32-bit registers starting at
+  \texttt{base + 0x0480}.  This example therefore occupies 32 bytes of
+  IO space.  Alternatively: 
+  \begin{example}
+    regarray ier ro addr(base, 0x0480) [ 8; 0x10 ] 
+                 "IER" type(uint32);
+  \end{example}
+  This second example specifies 8 32-bit registers, which occur every 16 bytes,
+  starting at \texttt{base + 0x0480}.  Finally, one can explicitly
+  list the individual locations for the array (note: the back-end does
+  not yet generate correct code for this case):
+  \begin{example}
+    regarray ier ro addr(base, 0x0480) [ 0, 0x10, 0x18 ] 
+                 "IER" type(uint32);
+  \end{example}
+  This third example specifies 3 32-bit registers, at offsets of
+  \texttt{0x480}, \texttt{0x490}, and \texttt{0x498} from
+  \texttt{base}. 
+
+\end{description}
+
+\section{Data types}\label{sec:datatypes}
+
+A \texttt{datatype} declaration defines a data type corresponding to the
+format of a structure in memory; it can be used to represent in-memory
+hardware-defined datastructures like page table entries or DMA
+descriptors. 
+
+The syntax is as follows:
+
+\begin{syntax}
+datatype \synit{name} [lsbfirst|msbfirst (\synit{wordsize})] ["\synit{descr}"] \verb+{+
+   \synit{fieldname}\(\sb{1}\) \synit{width} [type(\synit{fieldtype})] [\synit{attr}] ["\synit{description}"];
+   \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+
+\item[name] is an identifier for the data type.  Its scope is the
+  enclosing device declaration. 
+
+\item[lsbfirst or msbfirst] together with a (required) word size
+  specify how the fields in the specification are ordered.  This is
+  described in more detail below. 
+
+\item[description] is an optional string in double quotes, giving a
+  description of the register type, for example \texttt{"LVT
+    monitor"}.   If not present, it defaults to the identifier.  
+
+\end{description}
+
+The field descriptions declare the individual bitfields which make up
+the data type.  
+
+The order in which these are given is determined
+by the \texttt{lsbfirst} or \texttt{msbfirst} declaration.  Data
+structures in memory are sometimes listed in data books as a sequence
+of words, each of which is formatted into bit fields.  In order for
+authors of device specifications to easily translate these
+descriptions into Mackerel, one can specify the ``word size'' used in
+the description along with the order in which bit fields within a
+word are listed.  For example, ``\texttt{msbfirst(32)}'' means that
+the bit fields are to be grouped into words of 32 bits each, and
+within each word the fields are listed most-significant-bit (i.e. the
+field containing bit 31) first.  On an Intel architecture machine,
+this will cause the resulting C declaration to be derived by taking
+the first set of fields whose width adds up to 32, reversing their
+order in the struct declaration, then the next group, etc. 
+
+Specifying a word size of 0 will cause the entire set of fields to be
+reordered (if necessary) in one go.  If no bit order and word size are
+specified, the default is that of the device itself, with a word size
+of 0. 
+
+\begin{description}
+
+\item[fieldname] is an identifier for the bit field.  It can be
+  given as an underscore (\texttt{\_}) to indicate ``don't care'' or
+  ``reserved'' fields, in which case the field is
+  assumed to have an attributed of \texttt{rsvd} (see below), and no
+  description is needed. 
+
+\item[width] is an integer giving the width of the field in bits. 
+
+\item[fieldtype] is an optional identifier giving the type of this field.
+  This must be the identifier of a \texttt{constants} declaration
+  somewhere in the enclosing \texttt{device} declaration, for example
+  \texttt{type(vdm)}. 
+
+\item[attr] is an optional field
+  attribute.  See section~\ref{sec:fieldattrs} for more information.
+  The only field attributes allowed for data types are \texttt{rsvd},
+  \texttt{mbz}, \texttt{mb1}, or \texttt{rw}.  ``Don't care'' fields
+  default to \texttt{rsvd}; others default to \texttt{rw}. 
+
+\item[description] is an optional string in double quotes, giving a
+  description of the field, for example \texttt{"Command header"}. 
+  If not present, it defaults to the identifier.  
+
+\end{description}
+
+Here is a complete example of a \texttt{regtype} declaration, taken from the
+a SATA AHCI port definition: 
+\begin{example}
+  datatype cls msbfirst(32) "Command list structure" \verb+{+
+      prdtl\verb+ +16 "Physical region descriptor table length";
+      pmp\verb+   +4  "Port multiplier port";
+      \_\verb+     +1;
+      c\verb+     +1 "Clear busy upon R\_OK";
+      b\verb+     +1 "BIST";
+      r\verb+     +1 "Reset";
+      p\verb+     +1 "Prefetchable";
+      w\verb+     +1 "Write";
+      a\verb+     +1 "ATAPI";
+      cfl\verb+   +5 "Command FIS length";
+      prdbc\verb+ +32 "Physical region descriptor byte count";
+      ctba\verb+  +32 "Command table descriptor base addr";
+      ctbau\verb+ +32 "Command table descriptor base addr upper";
+      \_\verb+     +32;
+      \_\verb+     +32;
+      \_\verb+     +32;
+      \_\verb+     +32;
+  \verb+}+;
+\end{example}
+
+\section{Field and register attributes}\label{sec:fieldattrs}
+
+This section lists the various attributes that can be applied to
+register fields or entire registers.  Some of these values can only be
+applied to register fields, and not to entire registers.   Some of
+these attributes are functionally equivalent from the point of view of
+client code generated by \Mac, but the aim is to facilitate typing in
+information from data sheets. 
+
+\begin{description}
+
+\item[rw] Read/write.  The value is readable and writable.  This is
+  the default. 
+
+\item[ro] Read-only.  The value is readable, but not writeable.  No
+  code will be generated to handle writes to this value. 
+
+\item[wo] Write-only.  The value is writable, but not readable.  No
+  code will be generated to handle reads from this value, but
+  generated code may keep a ``shadow'' copy of the last value written
+  to aid in debugging. 
+
+\item[rc] Read to clear.  The value is readable, but not writeable,
+  and a read operation will clear the value (this is sometimes seen
+  with statistical count registers, for example).  Driver code
+  generated for registers will behave as if the register was
+  \textbf{ro}, so care must be taken if extra reads are inserted.  In
+  particular, remember that printing the value of the register in
+  debugging code will clear it. 
+
+\item[rwzc] Read/write zero to clear. The value is readable. A write of 0
+  clears (sets to 0) the corresponding bit, and a write of 1 has no effect.
+
+\item[rw1c] Read/write one to clear.  The value is readable. A write of 1
+  clears (sets to 0) the corresponding bit, and a write of 0 has no
+  effect. 
+
+\item[rwc] Read/write clear.  A synonmym for \textbf{rw1c}.
+
+\item[ros] Read-only sticky.  Value is readable and not writeable.  In
+  Intel nomenclature, the bits can only be reset with a power cycle;
+  in \Mac this attribute is simply a synonym for \texttt{ro}. 
+
+\item[rw1cs] Read and write one to clear and sticky.  In Intel
+  nomenclature, this is equivalent to \texttt{rwc} but bits can only
+  be reset on a power cycle.  
+
+\item[rwcs] Read, write to clear and sticky.  A synonym for \textbf{rw1cs}.
+
+\item[rwo] Read/write once. Can be written to precisely once after
+  reset, and thereafter is read-only. 
+
+\item[rws] Read/write and sticky.  Software can read and write to this
+  bit, but the bit can only be reset after a power cycle. 
+
+\item[rsvd] Reserved.  \Mac generates code to allow clients to read
+  reserved bits, but when writing a register value, code generated by \Mac
+  will ensure the bit values are preserved, if necessary by performing
+  a read before the write. 
+
+\item[mbz] Must be zero.  \Mac will generate no code to read the
+  value, but will ensure that it is always written as 0. 
+
+\item[mb1] Must be one.  \Mac will  generate no code to read the
+  value, but will ensure that it is always written as 1. 
+
+\end{description}
+
+Register attributes can be \texttt{rw}, \texttt{ro}, or \texttt{wo},
+and provide a default attribute for each field of the register.  If
+no attributes at all are specified, \texttt{rw} is assumed, except in
+the case of an anonymous register field (denoted by an underscore
+``\texttt{\_}''), which defaults to 
+\texttt{rsvd} regardless of the register attribute.  The motivation for
+this design choice is that unused fields of registers are frequently
+``reserved'' rather than ``don't care''.  The default behaviour will
+therefore result in potential inefficiency (due to reading the value
+before writing it), but never incorrect behaviour (due to writing the
+wrong values to a reserved field).
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{C mapping for device drivers}\label{chap:shiftdriver}
+
+For each device specification, \Mac generates a single C header file
+giving all the necessary definitions and declarations.   While
+developers are not expected to look at this file in normal use, it is
+designed to be fairly readable to curious humans, and is worth
+examining to understand what \Mac is generating (and to find bugs in
+\Mac). 
+
+This chapter will describe the contents of this header file. 
+
+\section{Preamble}
+
+The header file is protected by the customary macro to ensure that it
+is only included once - for example, for a device called \texttt{DEV} this is
+``\texttt{\_\_DEV\_H}''. 
+
+The file includes only one other header file: \texttt{mackerel.h}.
+This latter header file includes declarations for the low-level read
+and write functions that \Mac code requires, and some other
+preprocessor macros to ensure correct C code generation.   
+
+\Mac prefixes all declarations in the file with the
+name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
+most (though not all) declarations this prefix can be overridden by
+defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
+
+This is at first sight a little confusing.  Suppose we have a device
+called \texttt{pc16550d\_uart}.   By default, any declaration
+\texttt{foo} in \Mac file will correspond to
+\texttt{pc16550d\_uart\_foo} in the header file. 
+
+If, however, we include a line:
+
+\begin{quote}
+ \texttt{\#define pc16550d\_uart\_PREFIX uart}
+\end{quote}
+
+-- before including the header file, that declaration is likely to now
+be \texttt{uart\_foo}. 
+
+In the rest of this chapter, we'll use ``\texttt{DN\_}'' as the
+device prefix that cannot be redefined in this manner, and ``\texttt{DP\_}''
+as device prefix that can. 
+
+\section{Device-level declarations}
+
+For the device, \Mac generates: 
+
+\begin{enumerate}
+
+\item a C structure type to represent what it knows about the
+  device, called \texttt{DN\_t}.  To access a device from C via \Mac,
+  you first need to declare one of these, and then call a function
+  (see below) to initialize it. 
+  
+  The struct contains fields which correspond to each of the arguments
+  which define the addresses of the device, plus a ``shadow'' copy of
+  every register on the device which has at least one write-only field -
+  this is used to keep track of the last value written to the register. 
+
+\item The initialization function \texttt{DN\_initialize}.  For a
+  device type with an argment of ``\texttt{io base}'', the
+  initialization function looks like:
+
+  \begin{quote}
+    \texttt{void DN\_initialize( DN\_t *\_dev, mackerel\_io\_t base );}
+  \end{quote}
+  
+  The idiom for accessing a device at IO address \texttt{ia} would be:
+  
+  \begin{quote}
+    \texttt{DN\_t dev;}\\
+    \texttt{DN\_initialize( \&dev, ia );}\\
+    \ldots\\
+    \textit{code to access registers via \texttt{dev}}
+  \end{quote}
+
+\item An enumeration declaration \texttt{enum
+  DN\_initials}, with a field \texttt{DN\_REG\_initial} for each
+  register \texttt{REG} defined in the device.  Currently, all these
+  enumeration fields are set to \texttt{0x00}, and are used inside the
+  generated initialization function to initialize any shadow copies of
+  registers in the device struct.  
+  
+\item An \texttt{snprintf}-like function to
+  pretty-print \emph{all} the register contents of the device, with prototype:
+  \begin{quote}
+    \texttt{int DN\_pr(char *s, size\_t sz, DP\_CNSTS\_t v);}
+  \end{quote}
+  For a complex device, this is a lot of information, and may require a
+  large buffer to fully capture.  This is also potentially a large
+  function to inline.  It will result in reads from all readable device
+  registers, including ``read to clear'' (\textbf{rc}) registers and
+  fields.  For write-only registers, this function will print the shadow
+  copy of the register maintained in the device structure, which holds
+  the last value written to the register (or 0 if the register has not
+  been written since the initialization function was called).  The
+  output identifies which values are ``real'' and which are shadow
+  copies, includes descriptions of all register fields, and translates
+  symbolic values into their names and descriptions. 
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Constants}
+
+For a constants declaration of type \texttt{CNSTS}, having fields
+\texttt{FIELD1} and \texttt{FIELD2}, \Mac will generate the following:
+
+\begin{enumerate}
+
+\item An enumeration type \texttt{DP\_CNSTS\_t} with fields
+  \texttt{DP\_FIELD1} and \texttt{DP\_FIELD2}.  Note that the field
+  names are not prefixed by the enumeration name, only the device
+  prefix. 
+
+\item An \texttt{snprintf}-like function to pretty-print values of the
+  enumeration, with prototype:
+  \begin{quote}
+    \texttt{int DP\_CNSTS\_prtval(char *s, size\_t sz, DP\_CNSTS\_t e);}
+  \end{quote}
+      
+\item A function which returns 1 if an enumeration value is valid, 0
+  if otherwise:
+  \begin{quote}
+    \texttt{int DP\_CNSTS\_chk(DP\_CNSTS\_t e);}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Register types}\label{sec:c-regtype}. 
+
+For a \texttt{regtype} declaration \texttt{REGTYPE}, \Mac will
+generate the following: 
+
+\begin{enumerate}
+
+\item A type definition \texttt{DP\_REGTYPE\_t}, which is an unsigned
+  integer of the same size as the register. 
+
+\item A CPP macro \texttt{DP\_REGTYPE\_default}, which is an integer
+  literal giving the ``default'' value for the register type.  Note
+  that since this is a macro, the prefix of the name cannot be
+  overridden using the trick mentioned above. 
+
+\item An \texttt{snprintf}-like function to pretty-print values of the
+  register type, with prototype:
+  \begin{quote}
+    \texttt{int DP\_REGTYPE\_prtval(char *s, size\_t sz, DP\_REGTYPE\_t v);}
+  \end{quote}
+
+\item For every field \texttt{FLD} (of type \texttt{FLDTYPE\_t}) of the
+  register type, a function to insert a value into that field of a value
+  of type \texttt{DP\_REGTYPE\_t}: 
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REGTYPE\_FLD\_insert(DP\_REGTYPE\_t r, FLDTYPE\_t val );}
+  \end{quote}
+
+\item For every field \texttt{FLD} (of type \texttt{FLDTYPE\_t}) of the
+  register type, a function to extract a single field from a value
+  of type \texttt{DP\_REGTYPE\_t}: 
+  \begin{quote}
+    \texttt{FLDTYPE\_t DP\_REGTYPE\_FLD\_extract(DP\_REGTYPE\_t r);}
+  \end{quote}
+
+\end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Data types}\label{sec:c-datatype}. 
+
+For a \texttt{datatype} declaration
+\texttt{DATATYPE}, \Mac will generate the following:
+
+\begin{enumerate}
+
+\item A type definition \texttt{DP\_DATATYPE\_t}, which is of type
+  \texttt{uint8\_t *}.  This is the canonical way to refer to values
+  of the datatype in memory. 
+
+\item A \texttt{static const size\_t DP\_DATATYPE\_size}, which is the
+  size in bytes of the data type.  This should be used in place of
+  \texttt{sizeof(DP\_DATATYPE\_t)}, which will the wrong result in
+  general. 
+
+\item A type definition \texttt{DP\_DATATYPE\_array\_t}, which is of type
+  \texttt{uint8\_t[sz]}, where \texttt{sz} is the size in bytes of the
+  datatype.  This should be used sparingly, for example to allocate a
+  value of the datatype on the stack. 
+
+\item An \texttt{snprintf}-like function to pretty-print values of the
+  datatype, with prototype:
+  \begin{quote}
+    \texttt{int DP\_DATATYPE\_prtval(char *s, size\_t sz, DP\_DATATYPE\_t v);}
+  \end{quote}
+
+\item For every field \texttt{FLD} (of type \texttt{FLDTYPE\_t}) of the
+  datatype, a function to insert a value into that field of a value
+  of type \texttt{DP\_DATATYPE\_t}: 
+  \begin{quote}
+    \texttt{DP\_DATATYPE\_t DP\_DATATYPE\_FLD\_insert(DP\_DATATYPE\_t r, FLDTYPE\_t val );}
+  \end{quote}
+
+\item For every field \texttt{FLD} (of type \texttt{FLDTYPE\_t}) of the
+  datatype, a function to extract a single field from a value
+  of type \texttt{DP\_DATATYPE\_t}: 
+  \begin{quote}
+    \texttt{FLDTYPE\_t DP\_DATATYPE\_FLD\_extract(DP\_DATATYPE\_t r);}
+  \end{quote}
+
+\end{enumerate}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Registers}
+
+For a register \texttt{REG} that defines its own type, \Mac defines
+a register type with the same name and generates the declarations
+defined in section~\ref{sec:c-regtype}. 
+
+For each register \texttt{REG} with type \texttt{REGTYPE}, \Mac will
+generate some of the following:
+
+\begin{enumerate}
+
+\item If the register has fields which are readable, a function to
+  read the contents of the register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REG\_rd( DN\_t *dev );}
+  \end{quote}
+
+\item If the register has fields which are writeable, a function to
+  write the contents of the register:
+  \begin{quote}
+    \texttt{void DP\_REG\_wr( DN\_t *dev, DP\_REGTYPE\_t val );}
+  \end{quote}
+  Note that this is \emph{not} a simple write of the value: any fields
+  which must be 1 or 0 are set accordingly, and reserved fields are
+  read from the register before writing back the value.  Therefore,
+  this function will only write the bit fields of \texttt{val} which
+  are meaningful to write according to the register specification.
+  However, this function will not perform a read from the register
+  unless the register contains reserved fields. 
+
+\item For every readable field \texttt{FLD} (of type \texttt{FLDTYPE})
+  of the register, a function to read just that single field from the
+  register: 
+  \begin{quote}
+    \texttt{FLDTYPE DP\_REG\_FLD\_rdf( DN\_t *dev );}
+  \end{quote}
+
+\item For every writeable field \texttt{FLD} of the register, a function to
+  write just that single field to the register:
+  \begin{quote}
+    \texttt{void DP\_REG\_FLD\_wrf( DN\_t *dev, \texttt{FLDTYPE} val );}
+  \end{quote}
+  
+  These functions should be used with care.  It is of
+  course impossible to write only one field, hence a complete write to
+  the register will occur.  Furthermore, the values of the other
+  read/writeable or reserved register fields will be determined first
+  by doing a hidden read from the register.   Any write-only 
+  fields will then be initialized from the shadow copy.  Any ``must be
+  zero'' or ``must be 1'' fields will be set to their respective values.  
+
+\item For every write-only field \texttt{FLD} (of type \texttt{FLDTYPE})
+  of the register, a function to read just that single field from the
+  shadow copy of the register contents: 
+  \begin{quote}
+    \texttt{FLDTYPE DP\_REG\_FLD\_rd\_shadow( DN\_t *dev );}
+  \end{quote}
+  
+\item An \texttt{snprintf}-like function to pretty-print the
+  current value of the register, or its shadow copy if the register is
+  not readable, with prototype:
+  \begin{quote}
+    \texttt{int DP\_REG\_pr( char *s, size\_t sz, DN\_t *dev );}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Register Arrays}\label{sec:c-regarray}
+
+For a register array \texttt{RARR} that defines its own type, \Mac defines
+a register type with the same name and generates the declarations
+defined in section~\ref{sec:c-regtype}. 
+
+For each register array \texttt{RARR} with type \texttt{REGTYPE}, \Mac will
+generate some of the following:
+
+\begin{enumerate}
+
+\item A CPP macro \texttt{DP\_DATATYPE\_size}, which is an integer
+  literal cast to a \texttt{size\_t} giving the length in bytes of the
+  data type. 
+
+\item If the register array has fields which are readable, a function to
+  read the contents of a register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REG\_rd( DN\_t *dev, int i );}
+  \end{quote}
+
+\item If the register array has fields which are writeable, a function to
+  write the contents of a register:
+  \begin{quote}
+    \texttt{void DP\_REG\_wr( DN\_t *dev, int i, DP\_REGTYPE\_t val );}
+  \end{quote}
+  Note that this is \emph{not} a simple write of the value: any fields
+  which must be 1 or 0 are set accordingly, and reserved fields are
+  read from the register before writing back the value.  Therefore,
+  this function will only write the bit fields of \texttt{val} which
+  are meaningful to write according to the register specification.
+  However, this function will not perform a read from the register
+  unless the register contains reserved fields. 
+
+\item For every readable field \texttt{FLD} (of type \texttt{FLDTYPE})
+  of the register array, a function to read just that single field
+  from a register: 
+  \begin{quote}
+    \texttt{FLDTYPE DP\_REG\_FLD\_rdf( DN\_t *dev, int i );}
+  \end{quote}
+
+\item For every writeable field \texttt{FLD} of the register array, a
+  function to write just that single field to a register:
+  \begin{quote}
+    \texttt{void DP\_REG\_FLD\_wrf( DN\_t *dev, int i, \texttt{FLDTYPE} val );}
+  \end{quote}
+  
+  These functions should be used with care.  It is of
+  course impossible to write only one field, hence a complete write to
+  the register will occur.  Furthermore, the values of the other
+  read/writeable or reserved register fields will be determined first
+  by doing a hidden read from the register.   Any write-only 
+  fields will then be initialized from the shadow copy.  Any ``must be
+  zero'' or ``must be 1'' fields will be set to their respective values.  
+
+\item For every write-only field \texttt{FLD} (of type \texttt{FLDTYPE})
+  of the register array, a function to read just that single field from the
+  shadow copy of a register's contents: 
+  \begin{quote}
+    \texttt{FLDTYPE DP\_REG\_FLD\_rd\_shadow( DN\_t *dev );}
+  \end{quote}
+  
+\item An \texttt{snprintf}-like function to pretty-print the
+  current value of one register in the array, or its shadow copy
+  if the field is write-only, with prototype:
+  \begin{quote}
+    \texttt{int DP\_REG\_pri( char *s, size\_t sz, DN\_t *dev, int i );}
+  \end{quote}
+  
+\item An \texttt{snprintf}-like function to pretty-print the
+  current value of all registers in the array, or their shadow copies
+  if the field is write-only, with prototype:
+  \begin{quote}
+    \texttt{int DP\_REG\_pr( char *s, size\_t sz, DN\_t *dev );}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Address spaces}\label{sec:c-spaces}
+
+It is the responsibility of the programmer to supply functions to
+access registers in user-defined address spaces (though it's common to
+call \Mac{}-generated code in turn to do this).   The register access
+code generated by \Mac for a 32-bit wide register declared in an
+address space \texttt{SPACE} will call the following function for a
+read:
+  \begin{quote}
+    \texttt{uint32\_t DP\_SPACE\_read\_32( DN\_t *dev, size\_t offset );}
+  \end{quote}
+-- and the following function for a write:
+  \begin{quote}
+    \texttt{void DP\_SPACE\_write\_32( DN\_t *dev, size\_t offset,
+      uint32\_t value );}
+  \end{quote}
+
+These functions must be supplied by the programmer in a file named
+\texttt{DP\_spaces.h}, which is included by the generated header file
+\emph{if and only if} the device specification defines new address
+spaces.  Note that only one header file is required, rather than one
+for each user-defined address space.
+
+Since the device is passed as an argument, the functions can access
+any device fields (including device arguments and shadow copies of
+write-only registers) 
+
+They are not
+declared anywhere in the generated header file, which means that not
+all the read/write functions for an 
+address space need to be supplied, only the ones actually used.
+Furthermore, these can be declared to be \texttt{static inline}, or
+\texttt{extern}, etc.\ according to taste.
+
+\section{Overall header file structure}
+
+The generated header file is not too difficult to read, and doing so
+can be useful for debugging purposes.  The declarations emitted by
+\Mac occur in the file in the following order (to minimise the need
+for forward declarations):
+
+\begin{enumerate}
+\item Preamble, naturally.
+\item Type, print, and check declarations for each ``constants''
+  clause.
+\item Type, union, and print declarations for each register type
+  (including implicit types). 
+\item The device structure, and its initialization function.
+\item Read, write, and print functions for each register
+\item The device print function. 
+\end{enumerate}
+
+In addition, comments in the generated file are intended to help you
+find the relevant declarations quickly if you need to. 
+ 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Bitfield C mapping for device drivers}\label{chap:bitfielddriver} 
+
+\section*{Important}
+This appendix contains the deprecated C mapping which uses bitfield
+structures to represent registers.  This back end should not be used,
+since it is not portable across architectures and does not guarantee
+that register accesses will be of the same size as the register, which
+breaks some architectures (such as Rock Creek).   It is included here
+to help understand legacy code.  Such code should be converted as soon
+as possible. 
+
+For each device specification, \Mac generates a single C header file
+giving all the necessary definitions and declarations.   While
+developers are not expected to look at this file in normal use, it is
+designed to be fairly readable to curious humans, and is worth
+examining to understand what \Mac is generating (and to find bugs in
+\Mac). 
+
+This chapter will describe the contents of this header file. 
+
+\section{Preamble}
+
+The header file is protected by the customary macro to ensure that it
+is only included once - for example, for a device called \texttt{DEV} this is
+``\texttt{\_\_DEV\_H}''. 
+
+The file includes only one other header file: \texttt{mackerel.h}.
+This latter header file includes declarations for the low-level read
+and write functions that \Mac code requires, and some other
+preprocessor macros to ensure correct C code generation.   
+
+\Mac prefixes all declarations in the file with the
+name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
+most (though not all) declarations this prefix can be overridden by
+defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
+
+This is at first sight a little confusing.  Suppose we have a device
+called \texttt{pc16550d\_uart}.   By default, any declaration
+\texttt{foo} in \Mac file will correspond to
+\texttt{pc16550d\_uart\_foo} in the header file. 
+
+If, however, we include a line:
+
+\begin{quote}
+ \texttt{\#define pc16550d\_uart\_PREFIX uart}
+\end{quote}
+
+-- before including the header file, that declaration is likely to now
+be \texttt{uart\_foo}. 
+
+In the rest of this chapter, we'll use ``\texttt{DN\_}'' as the
+device prefix that cannot be redefined in this manner, and ``\texttt{DP\_}''
+as device prefix that can. 
+
+\section{Device-level declarations}
+
+\Mac provides a C structure type to represent what it knows about the
+device, called \texttt{DN\_t}.  To access a device from C via \Mac,
+you first need to declare one of these, and the call a function to
+initialize it. 
+
+The initialize function is called \texttt{DN\_initialize}.  For a
+device type with an argment of ``\texttt{io base}'', the
+initialization function looks like:
+
+\begin{quote}
+\texttt{void DN\_initialize( DN\_t *\_dev, mackerel\_io\_t base );}
+\end{quote}
+
+The idiom for accessing a device at IO address \texttt{ia} would be:
+
+\begin{quote}
+  \texttt{DN\_t dev;}\\
+  \texttt{DN\_initialize( \&dev, ia );}\\
+  \ldots\\
+  \textit{code to access registers via \texttt{dev}}
+\end{quote}
+
+In addition, \Mac generates an \texttt{snprintf}-like function to
+pretty-print \emph{all} the register contents of the device, with prototype:
+\begin{quote}
+  \texttt{int DN\_pr(char *s, size\_t sz, DP\_CNSTS\_t v);}
+\end{quote}
+For a complex device, this is a lot of information, and may require a
+large buffer to fully capture.  This is also potentially a large
+function to inline.  It will result in reads from all readable device
+registers, including ``read to clear'' (\textbf{rc}) registers and
+fields.  For write-only registers, this function will print the shadow
+copy of the register maintained in the device structure, which holds
+the last value written to the register (or 0 if the register has not
+been written since the initialization function was called).  The
+output identifies which values are ``real'' and which are shadow
+copies, includes descriptions of all register fields, and translates
+symbolic values into their names and descriptions. 
+
+\section{Constants}
+
+For a constants declaration of type \texttt{CNSTS}, having fields
+\texttt{FIELD1} and \texttt{FIELD2}, \Mac will generate the following:
+
+\begin{enumerate}
+
+\item An enumeration type \texttt{DP\_CNSTS\_t} with fields
+  \texttt{DP\_FIELD1} and \texttt{DP\_FIELD2}.  Note that the field
+  names are not prefixed by the enumeration name, only the device
+  prefix. 
+
+\item An \texttt{snprintf}-like function to pretty-print values of the
+  enumeration, with prototype:
+  \begin{quote}
+    \texttt{int DP\_CNSTS\_prt(char *s, size\_t sz, DP\_CNSTS\_t e);}
+  \end{quote}
+      
+\item A function which returns 1 if an enumeration value is valid, 0
+  if otherwise:
+  \begin{quote}
+    \texttt{int DP\_CNSTS\_chk(DP\_CNSTS\_t e);}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Register types}\label{sec:old:c-regtype}. 
+
+For a \texttt{regtype} declaration \texttt{REGTYPE}, \Mac will generate the following:
+
+\begin{enumerate}
+
+\item A bitfield structure type \texttt{DP\_REGTYPE\_t}, whose field
+  names are those of the fields specified in the \Mac file, with no
+  prefix, and whose physical layout corresponds to the hardware
+  register type.
+
+\item A union type \texttt{DP\_REGTYPE\_un}, whose members are the
+  bitfield struct above (as ``\texttt{val}'') and the smallest
+  enclosing unsigned integer type (as ``\texttt{raw}''),. 
+
+\item An \texttt{snprintf}-like function to pretty-print values of the
+  register type, with prototype:
+  \begin{quote}
+    \texttt{int DP\_REGTYPE\_prtval(char *s, size\_t sz, DP\_CNSTS\_t v);}
+  \end{quote}
+
+\end{enumerate}
+
+This functionality is being replaced by one based on shifts and masks,
+rather than using bitfields, which have portability issues. 
+For a \texttt{regtype} declaration \texttt{REGTYPE}, \Mac will soon
+generate the following: 
+
+\begin{enumerate}
+
+\item A type definition \texttt{DP\_REGTYPE\_t} which is an unsigned
+  integer of the same size as the register. 
+
+\item For every field \texttt{FLD} (of type \texttt{FLDTYPE}) of the
+  register type, a function to insert a value into that field of a value
+  of type \texttt{DP\_REGTYPE\_t}: 
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REGTYPE\_FLD\_ins(DP\_REGTYPE\_t r, FLD\_TYPE val );}
+  \end{quote}
+
+\item For every field \texttt{FLD} (of type \texttt{FLDTYPE}) of the
+  register type, a function to extract a single field from a value
+  of type \texttt{DP\_REGTYPE\_t}: 
+  \begin{quote}
+    \texttt{FLDTYPE DP\_REGTYPE\_FLD\_ext(DP\_REGTYPE\_t r);}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Data types}\label{sec:old:c-datatype}. 
+
+For a \texttt{datatype} declaration
+\texttt{DATATYPE}, \Mac will generate the following:
+
+\begin{enumerate}
+
+\item A bitfield structure type \texttt{DP\_DATATYPE\_t}, whose field
+  names are those of the fields specified in the \Mac file, with no
+  prefix, and whose physical layout corresponds to the hardware data type.
+
+\item An \texttt{snprintf}-like function to pretty-print values of the
+  data type, with prototype:
+  \begin{quote}
+    \texttt{int DP\_DATATYPE\_prtval(char *s, size\_t sz, DP\_CNSTS\_t v);}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Registers}
+
+For a register \texttt{REG} that defines its own type, \Mac defines
+a register type with the same name and generates the declarations
+defined in section~\ref{sec:old:c-regtype}. 
+
+For each register \texttt{REG} with type \texttt{REGTYPE}, \Mac will
+generate some of the following:
+
+\begin{enumerate}
+
+\item If the register has fields which are readable, a function to
+  read a ``raw'' (integer) value from the register:
+  \begin{quote}
+    \texttt{uint$x$\_t DP\_REG\_rd\_raw( DN\_t *dev );}
+  \end{quote}
+  -- where \texttt{uint$x$\_t} is a standard C unsigned integer type
+  with a fixed size, such as \texttt{uint32\_t}., 
+
+\item If the register has fields which are readable, a function to
+  read a bitfield value from the register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t  DP\_REG\_rd( DN\_t *dev );}
+  \end{quote}
+
+\item If the register has fields which are not readable, a function to
+  read a bitfield value from a saved copy of the last value written to
+  the register using this device struct:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t  DP\_REG\_rd\_shadow( DN\_t *dev );}
+  \end{quote}
+
+\item If the register has fields which are writeable, a function to
+  write a ``raw'' (integer) value to the register:
+  \begin{quote}
+    \texttt{void DP\_REG\_wr\_raw( DN\_t *dev, uint$x$\_t val );}
+  \end{quote}
+  -- where \texttt{uint$x$\_t} is smallest suitable standard C
+  unsigned integer type with a fixed size, such as
+  \texttt{uint32\_t}.
+
+\item If the register has fields which are writeable, a function to
+  write a bitfield value to the register:
+  \begin{quote}
+    \texttt{void DP\_REG\_wr( DN\_t *dev, DP\_REGTYPE val );}
+  \end{quote}
+  
+  Unlike the raw write function, this will (only if necessary) perform
+  a read first from the register to ensure that ``reserved'' fields
+  will be written back with their correct values.  It will also force
+  any ``must be zero'' or ``must be 1'' fields to be their respective 
+  values.  
+
+\item For every writeable field \texttt{FLD} of the register, a function to
+  write just that single field to the register:
+  \begin{quote}
+    \texttt{void DP\_REG\_FLD\_wrf( DN\_t *dev, \texttt{uint$x$\_t} val );}
+  \end{quote}
+  -- where \texttt{uint$x$\_t} is smallest suitable standard C
+  unsigned integer type with a fixed size, such as
+  \texttt{uint8\_t}. 
+  
+  These functions should be used with care.  It is of
+  course impossible to write only one field, hence a complete write to
+  the register will occur.  Furthermore, the values of the other
+  read/writeable or reserved register fields will be determined first
+  by doing a hidden read from the register.   Any write-only 
+  fields will then be initialized from the shadow copy.  Any ``must be
+  zero'' or ``must be 1'' fields will be set to their respective values.  
+  
+\item An \texttt{snprintf}-like function to pretty-print the
+  current value of the register, or its shadow copy if the register is
+  not readable, with prototype:
+  \begin{quote}
+    \texttt{int DP\_REG\_pr( char *s, size\_t sz, DN\_t *dev );}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Register Arrays}\label{sec:old:c-regarray}
+
+For a register array \texttt{RARR} that defines its own type, \Mac defines
+a register type with the same name and generates the declarations
+defined in section~\ref{sec:old:c-regtype}. 
+
+For each register array \texttt{RARR} with type \texttt{REGTYPE}, \Mac will
+generate some of the following:
+
+\begin{enumerate}
+
+\item A static constant giving the length of the array (42 in this example):
+  \begin{quote}
+    \texttt{static const int DP\_RARR\_length = 0x26;}
+  \end{quote}
+
+\item If the registers have fields which are readable, a function to
+  read a ``raw'' (integer) value from a register:
+  \begin{quote}
+    \texttt{uint$x$\_t DP\_RARR\_rd\_raw( DN\_t *dev, int i );}
+  \end{quote}
+  -- where \texttt{uint$x$\_t} is a standard C unsigned integer type
+  with a fixed size, such as \texttt{uint32\_t}, and \texttt{i} is an
+  index into the array.
+
+\item If the registers have fields which are readable, a function to
+  read a bitfield value from a register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t  DP\_RARR\_rd( DN\_t *dev, int i );}
+  \end{quote}
+
+\item If the registers have fields which are not readable, a function to
+  read a bitfield value from a saved copy of the last value written to
+  each register using this device struct:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t  DP\_RARR\_rd\_shadow( DN\_t *dev, int i );}
+  \end{quote}
+
+\item If the registers have fields which are writeable, a function to
+  write a ``raw'' (integer) value to a register:
+  \begin{quote}
+    \texttt{void DP\_RARRG\_wr\_raw( DN\_t *dev, int i,  uint$x$\_t val );}
+  \end{quote}
+  -- where \texttt{uint$x$\_t} is smallest suitable standard C
+  unsigned integer type with a fixed size, such as
+  \texttt{uint32\_t}.
+
+\item If the registers have fields which are writeable, a function to
+  write a bitfield value to a register:
+  \begin{quote}
+    \texttt{void DP\_RARR\_wr( DN\_t *dev, int i,  DP\_REGTYPE val );}
+  \end{quote}
+  -- where \texttt{uint$x$\_t} is smallest suitable standard C
+  unsigned integer type with a fixed size, such as
+  \texttt{uint32\_t}. 
+  
+  Unlike the raw write function, this will (only if necessary) perform
+  a read first from the register to ensure that ``reserved'' fields
+  will be written back with their correct values.  It will also force
+  any ``must be zero'' or ``must be 1'' fields to be their respective 
+  values.  
+  
+\item An \texttt{snprintf}-like function to pretty-print the
+  current value of one element of the array, or its shadow copy if the
+  register is not readable, with prototype:
+  \begin{quote}
+    \texttt{int DP\_RARR\_pri( char *s, size\_t sz, DN\_t *dev, int i );}
+  \end{quote}
+  
+\item An \texttt{snprintf}-like function to pretty-print the
+  entire register array, or its shadow copies if the registers in the
+  array are not readable, with prototype:
+  \begin{quote}
+    \texttt{int DP\_RARR\_pr( char *s, size\_t sz, DN\_t *dev );}
+  \end{quote}
+
+\end{enumerate}
+
+\section{Address spaces}\label{sec:old:c-spaces}
+
+It is the responsibility of the programmer to supply functions to
+access registers in user-defined address spaces (though it's common to
+call \Mac{}-generated code in turn to do this).   The register access
+code generated by \Mac for a 32-bit wide register declared in an
+address space \texttt{SPACE} will call the following function for a
+read:
+  \begin{quote}
+    \texttt{uint32\_t DP\_SPACE\_read\_32( DN\_t *dev, size\_t offset );}
+  \end{quote}
+-- and the following function for a write:
+  \begin{quote}
+    \texttt{void DP\_SPACE\_write\_32( DN\_t *dev, size\_t offset,
+      uint32\_t value );}
+  \end{quote}
+
+These functions must be supplied by the programmer in a file named
+\texttt{DP\_spaces.h}, which is included by the generated header file
+\emph{if and only if} the device specification defines new address
+spaces.  Note that only one header file is required, rather than one
+for each user-defined address space.
+
+Since the device is passed as an argument, the functions can access
+any device fields (including device arguments and shadow copies of
+write-only registers) 
+
+They are not
+declared anywhere in the generated header file, which means that not
+all the read/write functions for an 
+address space need to be supplied, only the ones actually used.
+Furthermore, these can be declared to be \texttt{static inline}, or
+\texttt{extern}, etc.\ according to taste.
+
+\section{Overall header file structure}
+
+The generated header file is not too difficult to read, and doing so
+can be useful for debugging purposes.  The declarations emitted by
+\Mac occur in the file in the following order (to minimise the need
+for forward declarations):
+
+\begin{enumerate}
+\item Preamble, naturally.
+\item Type, print, and check declarations for each ``constants''
+  clause.
+\item Type, union, and print declarations for each register type
+  (including implicit types). 
+\item The device structure, and its initialization function.
+\item Read, write, and print functions for each register
+\item The device print function. 
+\end{enumerate}
+
+In addition, comments in the generated file are intended to help you
+find the relevant declarations quickly if you need to. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Migrating from bit-field based version of Mackerel}\label{chap:migrating}
+
+Previous versions of Mackerel generated a C API by defining packed C
+bitfield structs for register types.  This version of Mackerel avoids
+this in favour of masks and shifts, hidden behind inline functions.
+This chapter gives some hints for migrating code written using the old
+Mackerel to the new version. 
+
+\begin{itemize}
+
+\item The initialize function for a device structure remains the same. 
+
+\item \texttt{DEV\_REG\_wr\_raw()} and \texttt{DEV\_REG\_rd\_raw()}
+  functions should be replaced with \texttt{DEV\_REG\_wr()} and
+  \texttt{DEV\_REG\_rd()} with the same arguments.  
+
+\item The following code to set individual register fields:
+
+\begin{verbatim}
+    //deassert PHY_RESET
+    {
+        e1000_ctrl_t c = e1000_ctrl_rd(d);
+        c.phy_rst = 0;
+        e1000_ctrl_wr(d, c);
+        e1000_status_t s = e1000_status_rd(d);
+        s.phyra = 0;
+        e1000_status_wr(d, s);
+    }
+\end{verbatim}
+
+ -- must be replaced with:
+
+\begin{verbatim}
+    //deassert PHY_RESET
+    e1000_ctrl_phy_rst_wrf(d, 0);
+    e1000_status_phyra_wrf(d, 0);
+\end{verbatim}
+
+\item The following code to read individual register fields:
+
+\begin{verbatim}
+    speed = e1000_status_rd(d).speed;
+\end{verbatim}
+
+ -- must be replaced by: 
+
+\begin{verbatim}
+    speed = e1000_status_speed_rdf(d);
+\end{verbatim}
+
+\item The following code to access a field from a register:
+
+\begin{verbatim}
+    // test LAN ID to see if we need to modify the MAC from EEPROM
+    {
+        e1000_status_t s = e1000_status_rd(d);
+        if (s.lan_id == e1000_lan_b) {
+            mac_word2 ^= e1000_lan_b_mask;
+        }
+    }
+\end{verbatim}
+
+  -- must be replaced by:
+
+\begin{verbatim}
+    // test LAN ID to see if we need to modify the MAC from EEPROM
+    {
+        e1000_status_t s = e1000_status_rd(d);
+        if (e1000_status_lan_id_extract(s) == e1000_lan_b) {
+            mac_word2 ^= e1000_lan_b_mask;
+        }
+    }
+\end{verbatim}
+
+\item The following idiom for setting fields using struct literals:
+
+\begin{verbatim}
+    e1000_rxdctl_wr(d, 0, (e1000_rxdctl_t){ .gran=1, .wthresh=1 } );
+\end{verbatim}
+
+ -- should be replaced by:
+
+\begin{verbatim}
+    e1000_rxdctl_t tmp = e1000_rxdctl_default;
+    tmp = e1000_rxdctl_gran_insert(tmp,1);
+    tmp = e1000_rxdctl_wthresh_insert(tmp,1);
+    e1000_rxdctl_wr(d, 0, tmp);
+\end{verbatim}
+\end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Source code structure}\label{chap:sourcetree}
+
+The \Mac source directory contains the files listed below.
+
+\begin{description}
+
+\item[Main.hs] Top level file, which is used to run \Mac.
+\item[MackerelParser.hs] ParSec parser for language.
+\item[CAbsSyntax.hs] Contains combinators for rendering C code.
+\item[Checks.hs] Compile-time checks.
+\item[ConstTable.hs] Constants definitions.
+\item[Dev.hs] Overall device representation.
+\item[Fields.hs] Representing register fields.
+\item[Attr.hs] Dealing with register field attributes.
+\item[RegisterTable.hs] Representing registers and register arrays.
+\item[ShiftDriver.hs] Code generator for device drivers using shifts
+  and masks.
+\item[Space.hs] Representing address spaces.
+\item[TypeTable.hs] Representing register types.
+\item[CSyntax.hs] Old-style C combinators, deprecated.
+\item[BitFieldDriver.hs] Old code generator for device drivers using
+  bitfields, deprecated.
+\item[Poly.hs] Polynomial arithmetic for compile-time expression
+  reduction (currently unused)
+\end{description}
+
+\end{document}
