@@ -20,7 +20,6 @@
  * Updated based on the "Intel SCC External Architecture Specification"
  * (EAS) Revision 0.97, June 21, 2010. 
  * 
- * This information is Intel Confidential. Do Not Distribute!
  */
 
 device rck msbfirst ( addr base ) "Intel Rock Creek Tile registers" {
