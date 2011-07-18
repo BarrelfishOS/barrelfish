@@ -261,7 +261,7 @@ static void setattr_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                   uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_setattr_callback_t callback = arg1;
+    nfs_setattr_callback_t callback = (nfs_setattr_callback_t)arg1;
     SETATTR3res result;
     bool rb;
 
