@@ -34,5 +34,3 @@ mmap	map	0xe800		0x13ff1800	1
 mmap	map	0x80000000	0x4000000	1
 # At the very end we have some platform memory (bootup EEPROM)
 mmap	map	0xfffc0000	0x40000		2
-
-output	bigimage.dat

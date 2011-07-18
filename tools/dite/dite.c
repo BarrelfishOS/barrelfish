@@ -1,6 +1,9 @@
 /**
  * \file
- * \brief Boot image generation tool
+ * \brief Boot image generation tool for non-Multiboot platforms.
+ *
+ * Not to be confused with the old UNSW/NICTA "dite" (DIT extended) tool, which
+ * served a vaguely similar purpose but otherwise has nothing in common.
  */
 
 /*
@@ -25,13 +28,20 @@
 typedef uint8_t coreid_t;
 
 #include "elf.h"
-#include "../../kernel/include/arch/scc/diteinfo.h"
+#include "../../kernel/include/diteinfo.h"
 
 struct diteinfo cd;
 uint32_t cdbase;
 
-static genvaddr_t elf_virtual_base32(struct Elf32_Ehdr *ehead)
+typedef union {
+    struct Elf32_Ehdr *head32;
+    struct Elf64_Ehdr *head64;
+    void *ptr;
+} elf_ehdr_ptr_t;
+
+static genvaddr_t elf32_virtual_base(elf_ehdr_ptr_t ptr)
 {
+    struct Elf32_Ehdr *ehead = ptr.head32;
     struct Elf32_Phdr *phead =
         (struct Elf32_Phdr *)((uintptr_t)ehead + (uintptr_t)ehead->e_phoff);
 
@@ -51,8 +61,31 @@ static genvaddr_t elf_virtual_base32(struct Elf32_Ehdr *ehead)
     return retval;
 }
 
-static size_t elf_virtual_size32(struct Elf32_Ehdr *ehead)
+static genvaddr_t elf64_virtual_base(elf_ehdr_ptr_t ptr)
 {
+    struct Elf64_Ehdr *ehead = ptr.head64;
+    struct Elf64_Phdr *phead =
+        (struct Elf64_Phdr *)((uintptr_t)ehead + (uintptr_t)ehead->e_phoff);
+
+    genvaddr_t retval = 0;
+    int i;
+
+    for (i = 0; i < ehead->e_phnum; i++) {
+        struct Elf64_Phdr *p = &phead[i];
+        if (p->p_type == PT_LOAD) {
+            if(retval == 0) {
+                retval = p->p_vaddr;
+            }
+            retval = p->p_vaddr < retval ? p->p_vaddr : retval;
+        }
+    }
+
+    return retval;
+}
+
+static size_t elf32_virtual_size(elf_ehdr_ptr_t ptr)
+{
+    struct Elf32_Ehdr *ehead = ptr.head32;
     struct Elf32_Phdr *phead =
         (struct Elf32_Phdr *)((uintptr_t)ehead + (uintptr_t)ehead->e_phoff);
 
@@ -66,7 +99,58 @@ static size_t elf_virtual_size32(struct Elf32_Ehdr *ehead)
         }
     }
 
-    return retval - elf_virtual_base32(ehead);
+    return retval - elf32_virtual_base(ptr);
+}
+
+static size_t elf64_virtual_size(elf_ehdr_ptr_t ptr)
+{
+    struct Elf64_Ehdr *ehead = ptr.head64;
+    struct Elf64_Phdr *phead =
+        (struct Elf64_Phdr *)((uintptr_t)ehead + (uintptr_t)ehead->e_phoff);
+
+    size_t retval = 0;
+    int i;
+
+    for (i = 0; i < ehead->e_phnum; i++) {
+        struct Elf64_Phdr *p = &phead[i];
+        if (p->p_type == PT_LOAD) {
+            retval = p->p_vaddr + p->p_memsz;
+        }
+    }
+
+    return retval - elf64_virtual_base(ptr);
+}
+
+static void elf32_fill_diteinfo(char *fbuf, genvaddr_t elfbase)
+{
+    cd.elf.size = sizeof(struct Elf32_Shdr);
+    struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)fbuf;
+    cd.elf.num  = head32->e_shnum;
+    cd.elf.addr = elfbase - DITEINFO_SIZE + __builtin_offsetof(struct diteinfo, sh);
+
+    size_t sh_size = cd.elf.size * cd.elf.num;
+    if(sh_size < 2048) {
+        memcpy(cd.sh, fbuf + (uintptr_t)head32->e_shoff, sh_size);
+    } else {
+        printf("section header too big (size %zd)\n", sh_size);
+        exit(1);
+    }
+}
+
+static void elf64_fill_diteinfo(char *fbuf, genvaddr_t elfbase)
+{
+    cd.elf.size = sizeof(struct Elf64_Shdr);
+    struct Elf64_Ehdr *head64 = (struct Elf64_Ehdr *)fbuf;
+    cd.elf.num  = head64->e_shnum;
+    cd.elf.addr = elfbase - DITEINFO_SIZE + __builtin_offsetof(struct diteinfo, sh);
+
+    size_t sh_size = cd.elf.size * cd.elf.num;
+    if(sh_size < 2048) {
+        memcpy(cd.sh, fbuf + (uintptr_t)head64->e_shoff, sh_size);
+    } else {
+        printf("section header too big (size %zd)\n", sh_size);
+        exit(1);
+    }
 }
 
 struct monitor_allocate_state {
@@ -84,6 +168,30 @@ static errval_t elf_allocate(void *state, genvaddr_t base,
     return 0;
 }
 
+struct elf_funcs {
+    genvaddr_t (*virtual_base)(elf_ehdr_ptr_t ehead);
+    size_t (*virtual_size)(elf_ehdr_ptr_t ehead);
+    errval_t (*load)(elf_allocator_fn allocate_func, void *state, lvaddr_t base,
+                     size_t size, genvaddr_t *retentry);
+    void (*fill_diteinfo)(char *fbuf, genvaddr_t elfbase);
+};
+
+static const struct elf_funcs elf_funcs_32 = {
+    .virtual_base = elf32_virtual_base,
+    .virtual_size = elf32_virtual_size,
+    .load = elf32_load,
+    .fill_diteinfo = elf32_fill_diteinfo,
+};
+
+static const struct elf_funcs elf_funcs_64 = {
+    .virtual_base = elf64_virtual_base,
+    .virtual_size = elf64_virtual_size,
+    .load = elf64_load,
+    .fill_diteinfo = elf64_fill_diteinfo,
+};
+
+static const struct elf_funcs *elf_funcs;
+
 static void *preload_kernel(const char *filename, size_t *outsize)
 {
     // Preload kernel image
@@ -96,17 +204,19 @@ static void *preload_kernel(const char *filename, size_t *outsize)
     fread(fbuf, filesize, 1, f);
     fclose(f);
 
-    size_t size = elf_virtual_size32((void *)fbuf);
+    elf_ehdr_ptr_t ehdrp = { .ptr = fbuf };
+    size_t size = elf_funcs->virtual_size(ehdrp);
     char *kernelbuf = malloc(size);
     struct monitor_allocate_state state = {
         .vbase = kernelbuf,
-        .elfbase = elf_virtual_base32((void *)fbuf)
+        .elfbase = elf_funcs->virtual_base(ehdrp)
     };
 
     genvaddr_t entry;
-    errval_t err = elf32_load(elf_allocate, &state, (lvaddr_t)fbuf, filesize, &entry);
+    int err = elf_funcs->load(elf_allocate, &state, (lvaddr_t)fbuf,
+                              filesize, &entry);
     if(err != 0) {
-        printf("error!\n");
+        printf("error! %d\n", err);
         exit(1);
     } else {
         printf("kernel entry point: 0x%" PRIx64 "\n", entry);
@@ -114,20 +224,8 @@ static void *preload_kernel(const char *filename, size_t *outsize)
                state.elfbase - DITEINFO_SIZE);
     }
 
-    cd.elf.size = sizeof(struct Elf32_Shdr);
-    struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)fbuf;
-    cd.elf.num  = head32->e_shnum;
-    cd.elf.addr = state.elfbase - DITEINFO_SIZE +
-        __builtin_offsetof(struct diteinfo, sh);
+    elf_funcs->fill_diteinfo(fbuf, state.elfbase);
     cdbase = state.elfbase - DITEINFO_SIZE;
-
-    size_t sh_size = cd.elf.size * cd.elf.num;
-    if(sh_size < 2048) {
-        memcpy(cd.sh, fbuf + (uintptr_t)head32->e_shoff, sh_size);
-    } else {
-        printf("section header too big (size %zd)\n", sh_size);
-        exit(1);
-    }
 
     free(fbuf);
     *outsize = size;
@@ -158,20 +256,44 @@ static void *load_module(const char *filename, size_t *outsize)
 
 #define MAX_MODULES     20
 
-char *output = NULL;
-
 int main(int argc, char *argv[])
 {
     assert(sizeof(struct diteinfo) <= DITEINFO_SIZE);
 
     void *kernelbuf = NULL;
+    char *image_output = NULL;
+    char *header_output = NULL;
+    char *input = NULL;
 
-    if(argc < 2) {
-        printf("Usage: %s <menu.lst>\n", argv[0]);
-        return 0;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-32") == 0) {
+            elf_funcs = &elf_funcs_32;
+        } else if (strcmp(argv[i], "-64") == 0) {
+            elf_funcs = &elf_funcs_64;
+        } else if (strcmp(argv[i], "-o") == 0) {
+            if (i == argc - 1) {
+                goto usage;
+            }
+            image_output = argv[++i];
+        } else if (strcmp(argv[i], "-h") == 0) {
+            if (i == argc - 1) {
+                goto usage;
+            }
+            header_output = argv[++i];
+        } else if (argv[i][0] == '-') {
+            goto usage;
+        } else {
+            input = argv[i];
+        }
     }
 
-    FILE *f = fopen(argv[1], "r");
+    if (output == NULL || input == NULL || elf_funcs == NULL) {
+usage:
+        printf("Usage: %s <-32|-64> [-o output] menu.lst\n", argv[0]);
+        return -1;
+    }
+
+    FILE *f = fopen(input, "r");
     assert(f != NULL);
     char cmd[1024], args[1024], image[1024];
     void *module[MAX_MODULES];
@@ -286,8 +408,7 @@ int main(int argc, char *argv[])
 
             mmaps++;
         } else if(!strcmp(cmd, "output")) {
-            output = calloc(1, strlen(image) + 1);
-            strcpy(output, image);
+            printf("Warning: output statements are no longer supported; ignored\n");
         } else {
             bool iscmd = false;
             for(int i = 0; i < strlen(cmd); i++) {
@@ -307,7 +428,7 @@ int main(int argc, char *argv[])
 
     fclose(f);
 
-    // Catenate all images
+    // Concatenate all images
     char *dstbuf = malloc(bufsize);
     char *pos = dstbuf + DITEINFO_SIZE;
 
@@ -341,7 +462,7 @@ int main(int argc, char *argv[])
 
     printf("writing %d modules ...\n", modules);
 
-    // Catenate all multiboot modules
+    // Concatenate all multiboot modules
     for(int i = 0; i < modules; i++) {
         pos = dstbuf + posmodule[i];
         memcpy(pos, module[i], sizemodule[i]);

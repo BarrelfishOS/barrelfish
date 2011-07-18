@@ -11,7 +11,7 @@
 #include <init.h>
 #include <x86.h>
 #include <barrelfish_kpi/pic_arch.h>
-#include <arch/scc/diteinfo.h>
+#include <diteinfo.h>
 
 #define PROT_MODE_ENABLE 1
 #define PAGING_ENABLE 31

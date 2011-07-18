@@ -335,7 +335,7 @@ arminstall:
 
 scc: all tools/bin/dite
 	strip -d scc/sbin/*
-	tools/bin/dite menu.lst.scc
+	tools/bin/dite -32 -o bigimage.dat menu.lst.scc
 	cp $(SRCDIR)/tools/scc/bootvector.dat .
 	bin2obj -m $(SRCDIR)/tools/scc/bigimage.map -o barrelfish0.obj
 	@echo Taking the barrelfish.obj file to SCC host

@@ -727,4 +727,8 @@ typedef errval_t (*elf_allocator_fn)(void *state, genvaddr_t base,
 errval_t elf32_load(elf_allocator_fn allocate_func, void *state, lvaddr_t base,
                     size_t size, genvaddr_t *retentry);
 
+errval_t elf64_load(elf_allocator_fn allocate_func,
+                    void *state, lvaddr_t base, size_t size,
+                    genvaddr_t *retentry);
+
 #endif // ELF_H

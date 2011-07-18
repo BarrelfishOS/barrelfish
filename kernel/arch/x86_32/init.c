@@ -34,7 +34,7 @@
 #include <arch/x86/rtc.h>
 #ifdef __scc__
 #       include <rck.h>
-#       include <arch/scc/diteinfo.h>
+#       include <diteinfo.h>
 #else
 #       include <arch/x86/ipi_notify.h>
 #endif
