@@ -110,7 +110,8 @@ memcpy(void *dst, const void *src, size_t len)
     const char *s = src;
 
     /* check that we don't overlap (should use memmove()) */
-    assert((src < dst && src + len <= dst) || (dst < src && dst + len <= src));
+    assert((src < dst && (char *)src + len <= dst)
+           || (dst < src && (char *)dst + len <= src));
 
     while (len--)
         *d++ = *s++;
@@ -141,12 +142,13 @@ strrchr(const char *s, int c)
     if(n == 0)
         return NULL;
 
-    for(i = n - 1; i >= 0; i--) {
-        if(s[i] == c)
+    for(i = n - 1; ; i--) {
+        if (s[i] == c) {
             return (char *)&s[i];
+        } else if (i == 0) {
+            return NULL;
+        }
     }
-
-    return NULL;
 }
 
 int

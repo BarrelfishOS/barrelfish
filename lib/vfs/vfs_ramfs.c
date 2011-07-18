@@ -356,7 +356,7 @@ restart:
 
         bulk_prepare_recv(buf);
 
-        memcpy(buffer + bytes_read, mybuf, retlen);
+        memcpy((char *)buffer + bytes_read, mybuf, retlen);
         h->pos += retlen;
         bytes_read += retlen;
 
@@ -400,7 +400,7 @@ static errval_t write_bulk(void *st, vfs_handle_t handle, const void *buffer,
             reqlen = bytes - bytes_written;
         }
 
-        memcpy(mybuf, buffer + bytes_written, reqlen);
+        memcpy(mybuf, (char *)buffer + bytes_written, reqlen);
         uintptr_t bufid = bulk_prepare_send(buf);
 
         int restarts = 0;
@@ -525,7 +525,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
         break;
 
     case VFS_SEEK_CUR:
-        assert(h->pos + offset >= 0);
+        assert(offset >= 0 || -offset <= h->pos);
         h->pos += offset;
         break;
 
@@ -534,7 +534,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
         if (err_is_fail(err)) {
             return err;
         }
-        assert(info.size + offset >= 0);
+        assert(offset >= 0 || -offset <= info.size);
         h->pos = info.size + offset;
         break;
 

@@ -52,7 +52,7 @@ static inline int32_t *make_space(XDR *xdr, size_t size)
                 size, ((size_t)((struct pbuf *)xdr->x_base)->len) - xdr->x_handy);
         return NULL;
     } else {
-        int32_t *ret = ((struct pbuf *)xdr->x_base)->payload + xdr->x_handy;
+        int32_t *ret = (int32_t *)((char *)((struct pbuf *)xdr->x_base)->payload + xdr->x_handy);
         xdr->x_handy += size;
         return ret;
     }

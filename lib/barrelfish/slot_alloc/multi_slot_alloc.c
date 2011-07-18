@@ -123,7 +123,7 @@ errval_t multi_alloc(struct slot_allocator *ca, struct capref *ret)
         }
 
         mca->reserve = buf;
-        buf += sizeof(struct slot_allocator_list);
+        buf = (char *)buf + sizeof(struct slot_allocator_list);
         size_t bufsize = mca->slab.blocksize - sizeof(struct slot_allocator_list);
 
         // Allocator

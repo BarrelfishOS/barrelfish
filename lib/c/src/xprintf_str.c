@@ -56,7 +56,7 @@
 static char *
 __wcsconv(wchar_t *wcsarg, int prec)
 {
-	static const mbstate_t initial;
+	static const mbstate_t initial = {0};
 	mbstate_t mbs;
 	char buf[MB_LEN_MAX];
 	wchar_t *p;
@@ -177,7 +177,7 @@ __printf_render_chr(struct __printf_io *io, const struct printf_info *pi, const 
 
 #ifdef HAVE_WCHAR
 	wint_t ii;
-	static const mbstate_t initial;		/* XXX: this is bogus! */
+	static const mbstate_t initial = {0};		/* XXX: this is bogus! */
 	mbstate_t mbs;
 	size_t mbseqlen;
 	char buf[MB_CUR_MAX];

@@ -31,7 +31,7 @@ static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
 {
     struct monitor_allocate_state *s = state;
 
-    *retbase = s->vbase + base - s->elfbase;
+    *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
 }
 
@@ -120,7 +120,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 #else
     err = intermon_ump_init(ump_binding, get_default_waitset(),
                             buf, MON_URPC_CHANNEL_LEN,
-                            buf + MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN);
 #endif
     if (err_is_fail(err)) {
@@ -248,7 +248,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 
     /* Load cpu */
     struct monitor_allocate_state state;
-    state.vbase = cpu_buf_memory + arch_page_size;
+    state.vbase = (char *)cpu_buf_memory + arch_page_size;
     assert(sizeof(struct x86_core_data) <= arch_page_size);
     state.elfbase = elf_virtual_base(cpu_binary);
     genvaddr_t cpu_entry;
@@ -470,7 +470,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
     assert(umpb != NULL);
 
     err = intermon_ump_init(umpb, get_default_waitset(),
-                            buf + MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN,
                             buf, MON_URPC_CHANNEL_LEN);
 #endif

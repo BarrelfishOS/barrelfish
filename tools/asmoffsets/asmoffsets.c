@@ -75,8 +75,7 @@
 #endif
 
 /* wrap everything inside a dummy function, to keep GCC happy */
-void dummy(void);
-void dummy(void)
+int main(void)
 {
     /* preamble */
     __asm("\n#ifndef ASMOFFSETS_H\n#define ASMOFFSETS_H\n");

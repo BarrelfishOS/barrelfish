@@ -90,11 +90,9 @@ static inline size_t vnode_objbits(enum objtype type)
     {
         return 12;
     }
-    else
-    {
-        assert(0 && !"Page table size unknown.");
-        return 0;
-    }
+
+    assert(0 && !"Page table size unknown.");
+    return 0;
 }
 
 /**

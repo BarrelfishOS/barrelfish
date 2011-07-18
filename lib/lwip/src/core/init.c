@@ -365,7 +365,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     static struct periodic_event tcp_timer;
     errval_t err = periodic_event_create(&tcp_timer, lwip_waitset,
                                          TCP_TMR_INTERVAL * 1000,
-                                         MKCLOSURE((void *)tcp_tmr, NULL));
+                                         MKCLOSURE((void (*)(void *))tcp_tmr, NULL));
     assert(err_is_ok(err));
 
     // Bring interface up

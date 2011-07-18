@@ -179,7 +179,8 @@ void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
         assert_disabled(disp->lmp_hint < (1UL << DISPATCHER_FRAME_BITS));
 
         /* compute endpoint location */
-        ep = (void *)handle + disp->lmp_hint - offsetof(struct lmp_endpoint, k);
+        ep = (struct lmp_endpoint *)
+            ((char *)handle + disp->lmp_hint - offsetof(struct lmp_endpoint, k));
 
         // clear hint now we're about to look at it
         disp->lmp_hint = 0;
@@ -470,7 +471,7 @@ void lmp_endpoint_init(void)
 {
     dispatcher_handle_t handle = disp_disable();
     size_t dispsize = get_dispatcher_size();
-    void *buf = (void *)get_dispatcher_vaddr(handle) + dispsize;
+    void *buf = (char *)get_dispatcher_vaddr(handle) + dispsize;
     size_t buflen = (1UL << DISPATCHER_FRAME_BITS) - dispsize;
     struct dispatcher_generic *d = get_dispatcher_generic(handle);
 

@@ -696,8 +696,8 @@ static void cap_send_request(struct monitor_binding *st,
         // make the compiler happy though
         on_cores = 0; 
         has_descendants = false;
-        cap_send_request_2(my_mon_id, cap, capid, capability, give_away, 
-                           has_descendants, on_cores);
+        cap_send_request_2(my_mon_id, cap, capid, (struct capability){0},
+                           give_away, has_descendants, on_cores);
         return;
     }
 

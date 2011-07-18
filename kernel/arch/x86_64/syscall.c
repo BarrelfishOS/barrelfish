@@ -677,8 +677,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
     struct sysret retval = { .error = SYS_ERR_OK, .value = 0 };
 
     switch(syscall) {
-    case SYSCALL_INVOKE: ; /* Handle capability invocation */
-
+    case SYSCALL_INVOKE: /* Handle capability invocation */
+    {
         // unpack "header" word
         caddr_t invoke_cptr = arg0 >> 32;
         uint8_t send_bits = arg0 >> 24;
@@ -792,6 +792,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             }
         }
         break;
+    }
 
         // Yield the CPU to the next dispatcher
     case SYSCALL_YIELD:

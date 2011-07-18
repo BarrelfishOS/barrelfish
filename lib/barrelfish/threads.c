@@ -54,7 +54,7 @@ static uintptr_t staticstack[THREADS_DEFAULT_STACK_BYTES / sizeof(uintptr_t)]
 __attribute__((aligned(STACK_ALIGNMENT)));
 static struct thread staticthread = {
     .stack = staticstack,
-    .stack_top = (void *)staticstack + sizeof(staticstack)
+    .stack_top = (char *)staticstack + sizeof(staticstack)
 };
 static struct thread_mutex staticthread_lock = THREAD_MUTEX_INITIALIZER;
 
@@ -426,10 +426,11 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
 
     // init stack
     newthread->stack = stack;
-    newthread->stack_top = stack + stacksize;
+    newthread->stack_top = (char *)stack + stacksize;
 
     // waste space for alignment, if malloc gave us an unaligned stack
-    newthread->stack_top -= (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
+    newthread->stack_top = (char *)newthread->stack_top
+        - (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
 
     // init registers
     registers_set_initial(&newthread->regs, newthread, (lvaddr_t)thread_entry,
@@ -1044,7 +1045,8 @@ void thread_init_disabled(dispatcher_handle_t handle, bool init_domain)
     staticthread_lock.locked = true; // XXX: safe while disabled
 
     // waste space for alignment, if unaligned
-    thread->stack_top -= (lvaddr_t)thread->stack_top % STACK_ALIGNMENT;
+    thread->stack_top = (char *)thread->stack_top
+        - (lvaddr_t)thread->stack_top % STACK_ALIGNMENT;
 
     // Initialise the first (static) thread
     thread_init(handle, thread);

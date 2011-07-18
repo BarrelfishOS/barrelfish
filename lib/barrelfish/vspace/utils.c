@@ -83,8 +83,7 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
         goto error;
     }
 
-    genvaddr_t gvaddr = vregion_get_base_addr(vregion);
-    *retaddr = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
+    *retaddr = (void*)vspace_genvaddr_to_lvaddr(vregion_get_base_addr(vregion));
     *ret_memobj = memobj;
     *ret_vregion = vregion;
 
@@ -326,8 +325,7 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
         goto error;
     }
 
-    genvaddr_t gvaddr = vregion_get_base_addr(vregion);
-    *retaddr = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
+    *retaddr = (void*)vspace_genvaddr_to_lvaddr(vregion_get_base_addr(vregion));
     if (retmemobj) {
         *retmemobj = memobj;
     }

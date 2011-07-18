@@ -96,7 +96,7 @@ exit(int status)
 
 	/* Remove anything created by tmpfile() */
 
-	/* Call _Exit() */
-	_Exit(status);
+	/* Call _exit() */
+	_exit(status);
 }
 

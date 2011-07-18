@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD$");
 float
 wcstof(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 {
-	static const mbstate_t initial;
+	static const mbstate_t initial = {0};
 	mbstate_t mbs;
 	float val;
 	char *buf, *end;

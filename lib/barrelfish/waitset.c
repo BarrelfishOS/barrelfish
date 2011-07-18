@@ -141,8 +141,8 @@ static struct waitset_chanstate *get_pending_event_disabled(struct waitset *ws)
 static inline void ump_endpoint_poll(struct waitset_chanstate *chan)
 {
     /* XXX: calculate location of endpoint from waitset channel state */
-    struct ump_endpoint *ep = (void *)chan
-                                 - offsetof(struct ump_endpoint, waitset_state);
+    struct ump_endpoint *ep = (struct ump_endpoint *)
+        ((char *)chan - offsetof(struct ump_endpoint, waitset_state));
 
     if (ump_endpoint_can_recv(ep)) {
         errval_t err = waitset_chan_trigger(chan);
@@ -180,6 +180,7 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 {
     struct waitset_chanstate *chan;
     bool was_polling = false;
+    cycles_t pollcycles;
 
     assert(ws != NULL);
     assert(retclosure != NULL);
@@ -192,7 +193,7 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 polling_loop:
     was_polling = true;
     assert(ws->polling); // this thread is polling
-    cycles_t pollcycles = cyclecount() + waitset_poll_cycles;
+    pollcycles = cyclecount() + waitset_poll_cycles;
 
     // while there are no pending events, poll channels
     while (ws->polled != NULL && ws->pending == NULL) {

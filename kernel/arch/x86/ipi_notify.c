@@ -76,10 +76,9 @@ errval_t ipi_register_notification(caddr_t ep, int chanid)
 void ipi_handle_notify(void)
 {
     uint64_t val = 0;
-    void *notify_page = my_notify_page;
 
     for(coreid_t srccore = 0; srccore < MAX_CPUS; srccore++) {
-        volatile uint64_t *fifo = (notify_page + (NOTIFY_FIFO_BYTES * srccore));
+        volatile uint64_t *fifo = (void *)&my_notify_page[NOTIFY_FIFO_BYTES * srccore];
 
         if (global->notify[my_arch_id] == 0) {
             panic("NO PCN for core %d!", my_arch_id);
@@ -108,7 +107,7 @@ void ipi_handle_notify(void)
 
 struct sysret ipi_raise_notify(coreid_t coreid, uintptr_t chanid)
 {
-    void *notify_page = (void*)local_phys_to_mem(global->notify[coreid]);
+    char *notify_page = (char *)local_phys_to_mem(global->notify[coreid]);
 
     if (notify_page == NULL || coreid >= MAX_CPUS) {
         printf("UMPNOTIFY ERROR!\n");
@@ -116,7 +115,7 @@ struct sysret ipi_raise_notify(coreid_t coreid, uintptr_t chanid)
     }
 
     // Locate our private notification fifo and head ptr
-    volatile uint64_t *fifo = (notify_page + (my_arch_id * NOTIFY_FIFO_BYTES)); 
+    volatile uint64_t *fifo = (void *)&notify_page[my_arch_id * NOTIFY_FIFO_BYTES]; 
     uint64_t slot = notifyhead[coreid] % NOTIFY_FIFO_SIZE;
 
     // Make sure the next slot is empty

@@ -16,7 +16,7 @@
 
 void (*_libc_exit_func)(int); // set by libbarrelfish
 
-void _Exit(int status)
+void _exit(int status)
 {
     _libc_exit_func(status);
 }

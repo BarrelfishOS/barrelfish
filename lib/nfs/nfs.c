@@ -209,7 +209,7 @@ static void getattr_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                   uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_getattr_callback_t callback = arg1;
+    nfs_getattr_callback_t callback = (nfs_getattr_callback_t)arg1;
     GETATTR3res result;
     bool rb;
 
@@ -323,7 +323,7 @@ static void readdir_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                   uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_readdir_callback_t callback = arg1;
+    nfs_readdir_callback_t callback = (nfs_readdir_callback_t)arg1;
     READDIR3res result;
     bool rb;
 
@@ -384,7 +384,7 @@ static void readdirplus_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                   uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_readdirplus_callback_t callback = arg1;
+    nfs_readdirplus_callback_t callback = (nfs_readdirplus_callback_t)arg1;
     READDIRPLUS3res result;
     bool rb;
 
@@ -448,7 +448,7 @@ static void lookup_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                  uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_lookup_callback_t callback = arg1;
+    nfs_lookup_callback_t callback = (nfs_lookup_callback_t)arg1;
     LOOKUP3res result;
     bool rb;
 
@@ -505,7 +505,7 @@ static void access_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                  uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_access_callback_t callback = arg1;
+    nfs_access_callback_t callback = (nfs_access_callback_t)arg1;
     ACCESS3res result;
     bool rb;
 
@@ -559,7 +559,7 @@ static void read_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_read_callback_t callback = arg1;
+    nfs_read_callback_t callback = (nfs_read_callback_t)arg1;
     READ3res result;
     bool rb;
 
@@ -617,7 +617,7 @@ static void write_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_write_callback_t callback = arg1;
+    nfs_write_callback_t callback = (nfs_write_callback_t)arg1;
     WRITE3res result;
     bool rb;
 
@@ -681,7 +681,7 @@ static void create_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_create_callback_t callback = arg1;
+    nfs_create_callback_t callback = (nfs_create_callback_t)arg1;
     CREATE3res result;
     bool rb;
 
@@ -746,7 +746,7 @@ static void mkdir_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                 uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_mkdir_callback_t callback = arg1;
+    nfs_mkdir_callback_t callback = (nfs_mkdir_callback_t)arg1;
     MKDIR3res result;
     bool rb;
 

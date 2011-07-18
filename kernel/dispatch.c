@@ -274,7 +274,8 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     assert(ep->u.endpoint.epoffset != 0);
 
     /* Look up the slot receiver can receive caps in */
-    struct lmp_endpoint_kern *recv_ep = (void *)recv->disp + ep->u.endpoint.epoffset;
+    struct lmp_endpoint_kern *recv_ep
+        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
 
     // The cnode
     struct capability *recv_cnode_cap;
@@ -333,7 +334,8 @@ static errval_t lmp_can_deliver_payload(struct capability *ep,
     }
 
     /* locate receiver's endpoint buffer */
-    struct lmp_endpoint_kern *recv_ep = (void *)recv->disp + ep->u.endpoint.epoffset;
+    struct lmp_endpoint_kern *recv_ep
+        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
 
     /* check delivered/consumed state */
     uint32_t epbuflen = ep->u.endpoint.epbuflen;
@@ -391,7 +393,8 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
     }
 
     /* locate receiver's endpoint buffer */
-    struct lmp_endpoint_kern *recv_ep = (void *)recv->disp + ep->u.endpoint.epoffset;
+    struct lmp_endpoint_kern *recv_ep
+        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
 
     /* read current pos and buflen */
     uint32_t epbuflen = ep->u.endpoint.epbuflen;

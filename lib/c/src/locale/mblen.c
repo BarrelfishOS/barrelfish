@@ -34,7 +34,7 @@ __FBSDID("$FreeBSD$");
 int
 mblen(const char *s, size_t n)
 {
-	static const mbstate_t initial;
+	static const mbstate_t initial = {0};
 	static mbstate_t mbs;
 	size_t rval;
 

@@ -170,7 +170,7 @@ void *realloc(void *, size_t);
 void abort(void) __attribute__ ((noreturn));
 int atexit(void (*func)(void));
 void exit(int status);
-void _Exit(int status);
+void _exit(int status);
 char *getenv(const char *name);
 int system(const char *string);
 

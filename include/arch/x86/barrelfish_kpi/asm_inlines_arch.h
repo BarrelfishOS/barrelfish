@@ -78,11 +78,11 @@ static inline void cache_flush_range(void *base, size_t len)
 {
     //mfence();
 
-    void *line = (void *)((uintptr_t)base & ~(CACHE_LINE_SIZE-1UL));
+    uint8_t *line = (uint8_t *)((uintptr_t)base & ~(CACHE_LINE_SIZE-1UL));
     do {
         clflush(line);
         line += CACHE_LINE_SIZE;
-    } while (line < base + len);
+    } while (line < (uint8_t *)base + len);
 }
 #endif
 

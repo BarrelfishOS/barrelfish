@@ -38,7 +38,8 @@
 #  include <arch/fpu.h>
 #endif
 
-#if defined(__x86_64__) || (defined(__i386__) && !defined(__scc__))
+#if defined(__GNUC__) && !defined(__ICC) \
+    && (defined(__x86_64__) || (defined(__i386__) && !defined(__scc__)))
 // Disable SSE/MMX -- this code context switches those registers
 #       pragma GCC target ("no-mmx,no-sse,no-sse2,no-sse3,no-sse4.1,no-sse4.2,no-sse4,no-sse4a,no-3dnow")
 #endif

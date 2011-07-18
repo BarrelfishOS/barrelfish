@@ -58,6 +58,9 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
 
     thread_mutex_lock(&ca->mutex);
 
+    struct cnode_meta *walk = sca->head;
+    struct cnode_meta *prev = NULL;
+
     // Entire cnode was allocated
     if (!sca->head) {
         sca->head = slab_alloc(&sca->slab);
@@ -84,8 +87,6 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
         goto finish;
     }
 
-    struct cnode_meta *walk = sca->head;
-    struct cnode_meta *prev = NULL;
     while (walk != NULL) {
         // Freeing at the edge of walk
         if (cap.slot == walk->slot + walk->space) {

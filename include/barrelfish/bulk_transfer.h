@@ -92,7 +92,7 @@ static inline void *bulk_slave_buf_get_mem(struct bulk_transfer_slave *bt,
         if (maxlen != NULL) {
             *maxlen = bt->size - id;
         }
-        return bt->mem + id;
+        return (char *)bt->mem + id;
     }
 }
 

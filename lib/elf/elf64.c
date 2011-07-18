@@ -186,7 +186,7 @@ void elf64_relocate(genvaddr_t dst, genvaddr_t src,
     for(int i = 0; i < size / sizeof(struct Elf64_Rela); i++) {
         struct Elf64_Rela *r = &rela[i];
         uint32_t type = ELF64_R_TYPE(r->r_info);
-        uint64_t *addr = vbase + r->r_offset - start;
+        uint64_t *addr = (uint64_t *)((char *)vbase + r->r_offset - start);
 
         switch(type) {
         case R_X86_64_NONE:
@@ -350,7 +350,7 @@ errval_t elf64_load(uint16_t em_machine, elf_allocator_fn allocate_func,
             memcpy(dest, (void *)(base + (uintptr_t)p->p_offset), p->p_filesz);
 
             // Initialize rest of memory segment (ie. BSS) with all zeroes
-            memset(dest + p->p_filesz, 0, p->p_memsz - p->p_filesz);
+            memset((char *)dest + p->p_filesz, 0, p->p_memsz - p->p_filesz);
 
             // Apply relocations
             if (rela != NULL && symtab != NULL) {

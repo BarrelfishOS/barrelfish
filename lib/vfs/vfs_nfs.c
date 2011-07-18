@@ -270,7 +270,7 @@ static void read_callback(void *arg, struct nfs_client *client, READ3res *result
     assert(res->data.data_len <= pfh->chunk_size);
 
     // copy the data
-    memcpy(pfh->fh->data + pfh->chunk_start, res->data.data_val,
+    memcpy((char *)pfh->fh->data + pfh->chunk_start, res->data.data_val,
            res->data.data_len);
     pfh->fh->size_complete += res->data.data_len;
 
@@ -359,7 +359,7 @@ static void write_callback(void *arg, struct nfs_client *client, WRITE3res *resu
         pfh->fh->chunk_pos += pfh->chunk_size;
         err_t r = nfs_write(client, pfh->fh->handle,
                             pfh->fh->offset + pfh->chunk_start,
-                            pfh->fh->data + pfh->chunk_start, pfh->chunk_size,
+                            (char *)pfh->fh->data + pfh->chunk_start, pfh->chunk_size,
                             NFS_WRITE_STABILITY, write_callback, pfh);
         assert(r == ERR_OK);
     } else {
@@ -639,7 +639,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
         pfh->chunk_size = MIN(MAX_NFS_WRITE_BYTES, fh.size - pfh->chunk_start);
         fh.chunk_pos += pfh->chunk_size;
         e = nfs_write(nfs->client, fh.handle, fh.offset + pfh->chunk_start,
-                      fh.data + pfh->chunk_start, pfh->chunk_size,
+                      (char *)fh.data + pfh->chunk_start, pfh->chunk_size,
                       NFS_WRITE_STABILITY, write_callback, pfh);
         chunks++;
     } while (fh.chunk_pos < fh.size && chunks < MAX_NFS_WRITE_CHUNKS);
@@ -781,7 +781,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
         break;
 
     case VFS_SEEK_CUR:
-        assert(h->u.file.pos + offset >= 0);
+        assert(offset >= 0 || -offset <= h->u.file.pos);
         h->u.file.pos += offset;
         break;
 
@@ -790,7 +790,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
         if (err_is_fail(err)) {
             return err;
         }
-        assert(info.size + offset >= 0);
+        assert(offset >= 0 || -offset <= info.size);
         h->u.file.pos = info.size + offset;
         break;
 

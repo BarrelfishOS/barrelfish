@@ -142,8 +142,7 @@ static int mem_to_hex(lvaddr_t mem, size_t memlen,
     int r;
 
     if (buflen < memlen * 2 + 1) {
-        assert(!"not enough space in output buffer");
-        return -1;
+        return -1; // not enough space in output buffer
     }
 
     for (int mempos = 0; mempos < memlen; mempos++) {

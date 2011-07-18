@@ -67,7 +67,7 @@ errval_t bulk_init(void *mem, size_t size, size_t block_size,
     for (int i = 0; i < size - 1; i++) {
         current_pbuf->offset = i * block_size;
         current_pbuf->pool = bt;
-        current_pbuf->base = mem + current_pbuf->offset;
+        current_pbuf->base = (char *)mem + current_pbuf->offset;
         current_pbuf->size = block_size;
 
         struct bulk_buf *tmp =
@@ -80,7 +80,7 @@ errval_t bulk_init(void *mem, size_t size, size_t block_size,
 
     current_pbuf->offset = (size - 1) * block_size;
     current_pbuf->pool = bt;
-    current_pbuf->base = mem + current_pbuf->offset;
+    current_pbuf->base = (char *)mem + current_pbuf->offset;
     current_pbuf->next = NULL;
 
     return SYS_ERR_OK;

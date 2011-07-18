@@ -131,7 +131,7 @@ static void register_service_handler(struct nameservice_binding *b,
 static void unregister_service_handler(struct nameservice_binding *b,
                                        nameservice_reghandle_t reghandle)
 {
-    struct service_registration *reg = (struct service_registration *)reg;
+    struct service_registration *reg = (struct service_registration *)reghandle;
     errval_t err;
     int r;
 

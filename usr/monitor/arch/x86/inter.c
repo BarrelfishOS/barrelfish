@@ -59,7 +59,7 @@ static void bind_monitor_request(struct intermon_binding *st,
     assert(umpb != NULL);
 
     err = intermon_ump_init(umpb, get_default_waitset(),
-                            buf + MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN,
                             buf, MON_URPC_CHANNEL_LEN);
     assert(err_is_ok(err));
@@ -207,7 +207,7 @@ static void new_monitor_notify(struct intermon_binding *st,
     assert(ump_binding != NULL);
     err = intermon_ump_init(ump_binding, get_default_waitset(),
                             buf, MON_URPC_CHANNEL_LEN,
-                            buf + MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN);
     assert(err_is_ok(err));
     /* if (err_is_fail(err)) { */

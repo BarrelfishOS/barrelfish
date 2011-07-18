@@ -283,7 +283,7 @@ void kernel_startup(void)
     /* Used when bringing up other cores, must be at consistent global address
      * seen by all cores */
     struct x86_core_data *core_data
-        = (struct x86_core_data*)(&_start_kernel - BASE_PAGE_SIZE);
+        = (void *)((lvaddr_t)&_start_kernel - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
 

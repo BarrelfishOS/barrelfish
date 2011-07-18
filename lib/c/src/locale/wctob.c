@@ -35,7 +35,7 @@ __FBSDID("$FreeBSD$");
 int
 wctob(wint_t c)
 {
-	static const mbstate_t initial;
+	static const mbstate_t initial = {0};
 	mbstate_t mbs = initial;
 	char buf[MB_LEN_MAX];
 

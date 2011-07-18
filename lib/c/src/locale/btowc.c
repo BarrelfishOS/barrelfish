@@ -34,7 +34,7 @@ __FBSDID("$FreeBSD$");
 wint_t
 btowc(int c)
 {
-	static const mbstate_t initial;
+	static const mbstate_t initial = {0};
 	mbstate_t mbs = initial;
 	char cc;
 	wchar_t wc;

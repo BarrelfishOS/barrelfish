@@ -97,7 +97,7 @@ wcsxfrm(wchar_t * __restrict dest, const wchar_t * __restrict src, size_t len)
 static char *
 __mbsdup(const wchar_t *ws)
 {
-	static const mbstate_t initial;
+	static const mbstate_t initial = {0};
 	mbstate_t st;
 	const wchar_t *wcp;
 	size_t len;
