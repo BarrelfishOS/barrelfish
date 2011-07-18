@@ -32,5 +32,5 @@ in
 
   -- copy default menu.lst file for the first architecture
   -- XXX: this should be per-platform, if hake knew about them
-  Rule [ Str "cp -p ", In SrcTree "src" "menu.lst.$(word 1, $(HAKE_ARCHS))", Out "root" "menu.lst" ]
+  Rule [ Str "cp -p -b ", In SrcTree "src" "menu.lst.$(word 1, $(HAKE_ARCHS))", Out "root" "menu.lst" ]
 ]
