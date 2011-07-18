@@ -15,6 +15,8 @@ module Checks where
 
 import MackerelParser
 import Text.ParserCombinators.Parsec
+import Text.Parsec.Pos
+import System.FilePath
 import qualified TypeTable as TT
 import qualified ConstTable as CT
 import qualified RegisterTable as RT
@@ -35,9 +37,10 @@ data MacError = MacError SourcePos String
 
 data CheckResult = Either String [ MacError ]
 
-check_all :: Dev.Rec -> Maybe [String]
-check_all dev = 
-    let errors = (check_rous dev) ++
+check_all :: String -> Dev.Rec -> Maybe [String]
+check_all inf dev = 
+    let errors = (check_devname inf dev) ++
+                 (check_rous dev) ++
                  (check_dous dev) ++
                  (check_undef_consts dev) ++
                  (check_undef_regtypes dev) ++
@@ -56,6 +59,17 @@ check_all dev =
          in Just [ printf "%s:%d:%d: %s" n l c s | (n,l,c,s) <- sort sort_errs ]
       else Nothing
       
+
+check_devname :: String -> Dev.Rec -> [ MacError ]
+check_devname inf dev = 
+  let (devname_f, ext) = splitExtension $ takeFileName inf
+      devname_d = Dev.name dev
+  in
+   if devname_f /= devname_d
+   then [ (MacError (initialPos inf)
+           (printf "File %s describes dev %s not %s" inf devname_d devname_f))]
+   else []
+
 --
 -- Check for Registers of Unusual Size
 --
