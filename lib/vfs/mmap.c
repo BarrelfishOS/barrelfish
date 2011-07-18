@@ -232,9 +232,13 @@ errval_t memobj_flush_vfs(struct memobj *memobj, struct vregion *vregion)
  * The memory object and vregion are returned so the user can call fill and
  * pagefault on it to create actual mappings.
  */
-errval_t vspace_map_file(genvaddr_t opt_base, size_t size, vregion_flags_t flags,
-                         vfs_handle_t file, off_t offset, size_t filesize,
-                         struct vregion **ret_vregion, struct memobj **ret_memobj)
+static errval_t vspace_map_file_internal(genvaddr_t opt_base,
+                                         size_t opt_alignment,
+                                         size_t size, vregion_flags_t flags,
+                                         vfs_handle_t file, off_t offset,
+                                         size_t filesize,
+                                         struct vregion **ret_vregion,
+                                         struct memobj **ret_memobj)
 {
     errval_t err1, err2;
     struct memobj *memobj = NULL;
@@ -263,6 +267,9 @@ errval_t vspace_map_file(genvaddr_t opt_base, size_t size, vregion_flags_t flags
     if (opt_base != 0) {
         err1 = vregion_map_fixed(vregion, get_current_vspace(), memobj, 0, size,
                                  opt_base, flags);
+    } else if (opt_alignment != 0) {
+        err1 = vregion_map_aligned(vregion, get_current_vspace(), memobj, 0, size,
+                                   flags, opt_alignment);
     } else {
         err1 = vregion_map(vregion, get_current_vspace(), memobj, 0, size, flags);
     }
@@ -292,4 +299,34 @@ errval_t vspace_map_file(genvaddr_t opt_base, size_t size, vregion_flags_t flags
         free(vregion);
     }
     return err1;
+}
+
+errval_t vspace_map_file(size_t size, vregion_flags_t flags,
+                         vfs_handle_t file, off_t offset, size_t filesize,
+                         struct vregion **ret_vregion,
+                         struct memobj **ret_memobj)
+{
+    return vspace_map_file_internal(0, 0, size, flags, file, offset, filesize,
+                                    ret_vregion, ret_memobj);
+}
+
+errval_t vspace_map_file_fixed(genvaddr_t base, size_t size,
+                               vregion_flags_t flags, vfs_handle_t file,
+                               off_t offset, size_t filesize,
+                               struct vregion **ret_vregion,
+                               struct memobj **ret_memobj)
+{
+    assert(base != 0);
+    return vspace_map_file_internal(base, 0, size, flags, file, offset, filesize,
+                                    ret_vregion, ret_memobj);
+}
+
+errval_t vspace_map_file_aligned(size_t alignment, size_t size,
+                                 vregion_flags_t flags, vfs_handle_t file,
+                                 off_t offset, size_t filesize,
+                                 struct vregion **ret_vregion,
+                                 struct memobj **ret_memobj)
+{
+    return vspace_map_file_internal(0, alignment, size, flags, file, offset,
+                                    filesize, ret_vregion, ret_memobj);
 }

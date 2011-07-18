@@ -25,8 +25,20 @@ errval_t memobj_create_vfs(struct memobj_vfs *memobj, size_t size,
                            size_t filesize);
 errval_t memobj_destroy_vfs(struct memobj *memobj);
 errval_t memobj_flush_vfs(struct memobj *memobj, struct vregion *vregion);
-errval_t vspace_map_file(genvaddr_t opt_base, size_t size, vregion_flags_t flags,
+
+errval_t vspace_map_file(size_t size, vregion_flags_t flags,
                          vfs_handle_t file, off_t offset, size_t filesize,
-                         struct vregion **ret_vregion, struct memobj **ret_memobj);
+                         struct vregion **ret_vregion,
+                         struct memobj **ret_memobj);
+errval_t vspace_map_file_fixed(genvaddr_t base, size_t size,
+                               vregion_flags_t flags, vfs_handle_t file,
+                               off_t offset, size_t filesize,
+                               struct vregion **ret_vregion,
+                               struct memobj **ret_memobj);
+errval_t vspace_map_file_aligned(size_t alignment, size_t size,
+                                 vregion_flags_t flags, vfs_handle_t file,
+                                 off_t offset, size_t filesize,
+                                 struct vregion **ret_vregion,
+                                 struct memobj **ret_memobj);
 
 #endif
