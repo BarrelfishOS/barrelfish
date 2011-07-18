@@ -79,7 +79,7 @@ wcscoll(const wchar_t *ws1, const wchar_t *ws2)
 static char *
 __mbsdup(const wchar_t *ws)
 {
-	static const mbstate_t initial = {0};
+	static const mbstate_t initial;
 	mbstate_t st;
 	const wchar_t *wcp;
 	size_t len;

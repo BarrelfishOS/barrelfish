@@ -214,4 +214,7 @@ int main(void)
 
     /* footer */
     __asm("\n#endif /* ASMOFFSETS_H */\n");
+
+    /* make GCC happy */
+    return 0;
 }

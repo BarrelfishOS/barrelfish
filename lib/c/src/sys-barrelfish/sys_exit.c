@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdlib.h>
+#include <unistd.h>
 
 void (*_libc_exit_func)(int); // set by libbarrelfish
 

@@ -83,6 +83,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <unistd.h> // for _exit
+
 void
 exit(int status)
 {

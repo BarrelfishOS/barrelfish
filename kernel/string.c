@@ -110,8 +110,8 @@ memcpy(void *dst, const void *src, size_t len)
     const char *s = src;
 
     /* check that we don't overlap (should use memmove()) */
-    assert((src < dst && (char *)src + len <= dst)
-           || (dst < src && (char *)dst + len <= src));
+    assert((src < dst && (char *)src + len <= (char *)dst)
+           || (dst < src && (char *)dst + len <= (char *)src));
 
     while (len--)
         *d++ = *s++;

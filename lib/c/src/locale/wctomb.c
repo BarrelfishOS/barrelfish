@@ -34,7 +34,7 @@ __FBSDID("$FreeBSD$");
 int
 wctomb(char *s, wchar_t wchar)
 {
-	static const mbstate_t initial = {0};
+	static const mbstate_t initial;
 	static mbstate_t mbs;
 	size_t rval;
 

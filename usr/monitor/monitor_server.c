@@ -687,6 +687,7 @@ static void cap_send_request(struct monitor_binding *st,
                              uint32_t capid, uint8_t give_away)
 {
     errval_t err;
+    static struct capability null_capability;
     struct capability capability;
     bool has_descendants;
     coremask_t on_cores;
@@ -696,7 +697,7 @@ static void cap_send_request(struct monitor_binding *st,
         // make the compiler happy though
         on_cores = 0; 
         has_descendants = false;
-        cap_send_request_2(my_mon_id, cap, capid, (struct capability){0},
+        cap_send_request_2(my_mon_id, cap, capid, null_capability,
                            give_away, has_descendants, on_cores);
         return;
     }

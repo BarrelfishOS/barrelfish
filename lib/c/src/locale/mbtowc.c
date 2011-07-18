@@ -34,7 +34,7 @@ __FBSDID("$FreeBSD$");
 int
 mbtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n)
 {
-	static const mbstate_t initial = {0};
+	static const mbstate_t initial;
 	static mbstate_t mbs;
 	size_t rval;
 

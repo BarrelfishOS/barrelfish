@@ -50,7 +50,7 @@ size_t
 wcsftime(wchar_t * __restrict wcs, size_t maxsize,
     const wchar_t * __restrict format, const struct tm * __restrict timeptr)
 {
-	static const mbstate_t initial = {0};
+	static const mbstate_t initial;
 	mbstate_t mbs;
 	char *dst, *sformat;
 	const char *dstp;
