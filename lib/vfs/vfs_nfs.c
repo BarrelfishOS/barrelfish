@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -16,6 +16,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/debug.h>
 #include <nfs/nfs.h>
+#include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
 
 // networking stuff
@@ -28,6 +29,9 @@
 #include <lwip/ip_addr.h>
 
 #include "vfs_backends.h"
+
+/// Define to enable asynchronous writes
+//#define ASYNC_WRITES
 
 //#define MAX_NFS_READ_BYTES   14000 /* 1330 */
 #define MAX_NFS_READ_BYTES   1330 /*14000*//*workaround for breakage in lwip*/
@@ -45,39 +49,13 @@ do {                        \
     }                       \
 } while (0)
 
-// per-mount state
-struct nfs_state {
-    struct nfs_client *client;
-    struct nfs_fh3 rootfh;
-    mountstat3 mountstat;
-};
-
-// file handle
-struct nfs_handle {
-    struct vfs_handle common;
-    struct nfs_state *nfs;
-    bool isdir;
-    struct nfs_fh3 fh;
-    enum ftype3 type;
-    void *st;
-    union {
-        struct {
-            size_t pos;
-        } file;
-        struct {
-            struct READDIR3res *readdir_result;
-            struct entry3 *readdir_prev;
-            struct entry3 *readdir_next;
-        } dir;
-    } u;
-};
+#include "vfs_nfs.h"
 
 // condition used to singal controlling code to wait for a condition
 static bool wait_flag;
 static struct thread_cond wait_cond = THREAD_COND_INITIALIZER;
 
 // XXX: lwip idc_barrelfish.c
-extern struct thread_mutex *lwip_mutex;
 extern struct waitset *lwip_waitset;
 
 static void wait_for_condition (void)
@@ -100,20 +78,6 @@ static void signal_condition(void)
     } else {
         assert(!thread_mutex_trylock(lwip_mutex));
         thread_cond_signal(&wait_cond);
-    }
-}
-
-static inline void lwip_mutex_lock(void)
-{
-    if (lwip_mutex != NULL) {
-        thread_mutex_lock(lwip_mutex);
-    }
-}
-
-static inline void lwip_mutex_unlock(void)
-{
-    if (lwip_mutex != NULL) {
-        thread_mutex_unlock(lwip_mutex);
     }
 }
 
@@ -243,6 +207,7 @@ struct nfs_file_io_handle {
     size_t      chunk_pos;
     int         chunks_in_progress;
     nfsstat3    status;
+    struct nfs_handle *back_fh;
 };
 
 struct nfs_file_parallel_io_handle {
@@ -336,6 +301,15 @@ static void write_callback(void *arg, struct nfs_client *client, WRITE3res *resu
     // error
     if (result->status != NFS3_OK) {
         pfh->fh->status = result->status;
+
+#ifdef ASYNC_WRITES
+        printf("write_callback: NFS error status %d\n", result->status);
+
+        pfh->fh->back_fh->inflight--;
+        assert(pfh->fh->back_fh->inflight >= 0);
+        free(pfh->fh);
+#endif
+
         free(pfh);
         signal_condition();
         goto out;
@@ -349,6 +323,12 @@ static void write_callback(void *arg, struct nfs_client *client, WRITE3res *resu
 
     // check whether all chunks have been transmitted
     if (pfh->fh->size == pfh->fh->size_complete) {
+#ifdef ASYNC_WRITES
+        pfh->fh->back_fh->inflight--;
+        assert(pfh->fh->back_fh->inflight >= 0);
+        free(pfh->fh);
+#endif
+
         signal_condition();
         free(pfh);
     }
@@ -397,6 +377,13 @@ static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
     h->u.file.pos = 0;
     h->nfs = nfs;
     h->fh = NULL_NFS_FH;
+#ifdef ASYNC_WRITES
+    h->inflight = 0;
+#endif
+#ifdef WITH_META_DATA_CACHE
+    h->filesize_cached = false;
+    h->cached_filesize = 0;
+#endif
 
     lwip_mutex_lock();
     initiate_resolve(nfs, path, open_resolve_cont, h);
@@ -432,7 +419,7 @@ static void create_callback(void *arg, struct nfs_client *client,
             h->type = res->obj_attributes.post_op_attr_u.attributes.type;
         }
     } else { // XXX: Proper error handling
-        debug_printf("Error in create_callback %d", result->status);
+        debug_printf("Error in create_callback %d\n", result->status);
     }
 
     signal_condition();
@@ -484,6 +471,13 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
     h->fh = NULL_NFS_FH;
     h->st = filename;
     h->fh.data_len = 0;
+#ifdef ASYNC_WRITES
+    h->inflight = 0;
+#endif
+#ifdef WITH_META_DATA_CACHE
+    h->filesize_cached = false;
+    h->cached_filesize = 0;
+#endif
 
     lwip_mutex_lock();
     initiate_resolve(nfs, dir, create_resolve_cont, h);
@@ -513,6 +507,9 @@ static errval_t opendir(void *st, const char *path, vfs_handle_t *rethandle)
     h->u.dir.readdir_prev = NULL;
     h->nfs = nfs;
     h->fh = NULL_NFS_FH;
+#ifdef ASYNC_WRITES
+    h->inflight = 0;
+#endif
 
     // skip leading '/'s
     while (*path == VFS_PATH_SEP) {
@@ -560,6 +557,7 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes
     fh.offset = h->u.file.pos;
     fh.status = NFS3_OK;
     fh.handle = h->fh;
+    fh.chunks_in_progress = 0;
 
     lwip_mutex_lock();
 
@@ -618,14 +616,28 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
     assert(!h->isdir);
 
     // set up the handle
-    struct nfs_file_io_handle fh;
-    memset(&fh, 0, sizeof(struct nfs_file_io_handle));
+#ifndef ASYNC_WRITES
+    struct nfs_file_io_handle the_fh;
+    struct nfs_file_io_handle *fh = &the_fh;
+#else
+    struct nfs_file_io_handle *fh = malloc(sizeof(struct nfs_file_io_handle));
+    assert(fh != NULL);
+#endif
+    memset(fh, 0, sizeof(struct nfs_file_io_handle));
 
-    fh.data = (void *)buffer;
-    fh.size = bytes;
-    fh.offset = h->u.file.pos;
-    fh.status = NFS3_OK;
-    fh.handle = h->fh;
+#ifdef ASYNC_WRITES
+    fh->data = malloc(bytes);
+    assert(fh->data != NULL);
+    memcpy(fh->data, buffer, bytes);
+    h->inflight++;
+#else
+    fh->data = (void *)buffer;
+#endif
+    fh->size = bytes;
+    fh->offset = h->u.file.pos;
+    fh->status = NFS3_OK;
+    fh->handle = h->fh;
+    fh->back_fh = h;
 
     lwip_mutex_lock();
 
@@ -634,27 +646,38 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
     do {
         struct nfs_file_parallel_io_handle *pfh =
             malloc(sizeof(struct nfs_file_parallel_io_handle));
-        pfh->fh = &fh;
-        pfh->chunk_start = fh.chunk_pos;
-        pfh->chunk_size = MIN(MAX_NFS_WRITE_BYTES, fh.size - pfh->chunk_start);
-        fh.chunk_pos += pfh->chunk_size;
-        e = nfs_write(nfs->client, fh.handle, fh.offset + pfh->chunk_start,
-                      (char *)fh.data + pfh->chunk_start, pfh->chunk_size,
+        pfh->fh = fh;
+        pfh->fh->chunks_in_progress = 0;
+        pfh->chunk_start = fh->chunk_pos;
+        pfh->chunk_size = MIN(MAX_NFS_WRITE_BYTES, fh->size - pfh->chunk_start);
+        fh->chunk_pos += pfh->chunk_size;
+        e = nfs_write(nfs->client, fh->handle, fh->offset + pfh->chunk_start,
+                      fh->data + pfh->chunk_start, pfh->chunk_size,
                       NFS_WRITE_STABILITY, write_callback, pfh);
+        assert(e == ERR_OK);
         chunks++;
-    } while (fh.chunk_pos < fh.size && chunks < MAX_NFS_WRITE_CHUNKS);
+    } while (fh->chunk_pos < fh->size && chunks < MAX_NFS_WRITE_CHUNKS);
+#ifndef ASYNC_WRITES
     wait_for_condition();
+#endif
 
     lwip_mutex_unlock();
 
+#ifndef ASYNC_WRITES
     // check result
-    if (fh.status != NFS3_OK) {
-        return nfsstat_to_errval(fh.status);
+    if (fh->status != NFS3_OK && fh->status != NFS3ERR_STALE) {
+        printf("NFS Error: %d\n", fh->status);
+        return nfsstat_to_errval(fh->status);
     }
 
-    assert(fh.size <= bytes);
-    h->u.file.pos += fh.size;
-    *bytes_written = fh.size;
+    assert(fh->size <= bytes);
+    h->u.file.pos += fh->size;
+    *bytes_written = fh->size;
+#else
+    // This always assumes it succeeded. We'll see failures at file close time.
+    h->u.file.pos += bytes;
+    *bytes_written = bytes;
+#endif
 
     return SYS_ERR_OK;
 }
@@ -730,6 +753,7 @@ static void getattr_callback(void *arg, struct nfs_client *client,
         info->size = res->size;
     } else {
         // XXX: no error reporting!
+        printf("GETATTR Error: %d\n", result->status);
         info->type = -1;
         info->size = -1;
     }
@@ -912,6 +936,15 @@ static errval_t close(void *st, vfs_handle_t inhandle)
 {
     struct nfs_handle *h = inhandle;
     assert(!h->isdir);
+
+#ifdef ASYNC_WRITES
+    while(h->inflight > 0) {
+        wait_for_condition();
+    }
+
+    // XXX: Errors ignored for now. Will be reported by handler functions though.
+#endif
+
     nfs_freefh(h->fh);
     free(h);
     return SYS_ERR_OK;
@@ -928,6 +961,88 @@ static errval_t closedir(void *st, vfs_handle_t inhandle)
     nfs_freefh(h->fh);
     free(h);
     return SYS_ERR_OK;
+}
+
+static void remove_callback(void *arg, struct nfs_client *client,
+                            REMOVE3res *result)
+{
+    struct nfs_handle *h = arg;
+    assert(result != NULL);
+
+    // XXX: Should find better way to report error
+    h->fh.data_len = result->status;
+
+    signal_condition();
+}
+
+static void remove_resolve_cont(void *st, errval_t err, struct nfs_fh3 fh,
+                                struct fattr3 *fattr)
+{
+    struct nfs_handle *h = st;
+
+    if (err_is_fail(err) || (fattr != NULL && fattr->type != NF3DIR)) {
+        DEBUG_ERR(err, "failure in remove_resolve_cont");
+        // FIXME: failed to lookup directory. return meaningful error
+        signal_condition();
+        return;
+    }
+
+    err_t r = nfs_remove(h->nfs->client, fh, h->st, remove_callback, h);
+    assert(r == ERR_OK);
+}
+
+static errval_t vfs_nfs_remove(void *st, const char *path)
+{
+    struct nfs_state *nfs = st;
+
+    // find last path component
+    char *filename = strrchr(path, VFS_PATH_SEP);
+    if (filename == NULL) {
+        return FS_ERR_NOTFOUND;
+    }
+
+    // get directory name in separate nul-terminated string buffer
+    char *dir = malloc(filename - path + 1);
+    assert(dir != NULL);
+    memcpy(dir, path, filename - path);
+    dir[filename - path] = '\0';
+
+    // advance past separator
+    filename = filename + 1;
+
+    struct nfs_handle *h = malloc(sizeof(struct nfs_handle));
+    assert(h != NULL);
+
+    h->isdir = false;
+    h->u.file.pos = 0;
+    h->nfs = nfs;
+    h->fh = NULL_NFS_FH;
+    h->st = filename;
+    h->fh.data_len = 0;
+#ifdef ASYNC_WRITES
+    h->inflight = 0;
+#endif
+
+    lwip_mutex_lock();
+    initiate_resolve(nfs, dir, remove_resolve_cont, h);
+    wait_for_condition();
+    lwip_mutex_unlock();
+
+    size_t err = h->fh.data_len;
+    free(dir);
+    free(h);
+
+    switch(err) {
+    case NFS3_OK:
+        return SYS_ERR_OK;
+
+    case NFS3ERR_NOENT:
+        return FS_ERR_NOTFOUND;
+
+    default:
+        // XXX: Unknown error
+        return NFS_ERR_TRANSPORT;
+    }
 }
 
 struct mkdir_state {
@@ -1007,6 +1122,166 @@ static errval_t mkdir(void *st, const char *path)
     return state.err;
 }
 
+#ifdef WITH_BUFFER_CACHE
+
+static errval_t get_bcache_key(void *st, vfs_handle_t inhandle,
+                               char **retkey, size_t *keylen, size_t *retoffset)
+{
+    struct nfs_handle *h = inhandle;
+    assert(h != NULL);
+    size_t filepos = h->u.file.pos;
+
+    assert(!h->isdir);
+
+    size_t blockid = filepos / BUFFER_CACHE_BLOCK_SIZE;
+    *retoffset = filepos % BUFFER_CACHE_BLOCK_SIZE;
+
+#if 0
+    // XXX: Incredibly slow way to generate a looong hash key
+    *retkey = malloc(200);
+    *retkey[0] = '\0';
+    char str[20];
+    for(int i = 0; i < h->fh.data_len; i++) {
+        snprintf(str, 20, "%02x", h->fh.data_val[i]);
+        strcat(*retkey, str);
+        assert(strlen(*retkey) < 200);
+    }
+    snprintf(str, 20, "/%zx", blockid);
+    strcat(*retkey, str);
+#else
+    *keylen = h->fh.data_len + sizeof(blockid);
+    *retkey = malloc(*keylen);
+    assert(*retkey != NULL);
+    memcpy(*retkey, h->fh.data_val, h->fh.data_len);
+    memcpy(&(*retkey)[h->fh.data_len], &blockid, sizeof(blockid));
+#endif
+
+    return SYS_ERR_OK;
+}
+
+static errval_t read_block(void *st, vfs_handle_t inhandle, void *buffer,
+                           size_t *bytes_read)
+{
+    struct nfs_state *nfs = st;
+    struct nfs_handle *h = inhandle;
+    assert(h != NULL);
+    err_t e;
+
+    assert(!h->isdir);
+
+    // set up the handle
+    struct nfs_file_io_handle fh;
+    memset(&fh, 0, sizeof(struct nfs_file_io_handle));
+
+    fh.data = buffer;
+    fh.size = BUFFER_CACHE_BLOCK_SIZE;
+    fh.offset = (h->u.file.pos / BUFFER_CACHE_BLOCK_SIZE) * BUFFER_CACHE_BLOCK_SIZE;
+    fh.status = NFS3_OK;
+    fh.handle = h->fh;
+    fh.chunks_in_progress = 0;
+
+    lwip_mutex_lock();
+
+    // start a parallel load of the file, wait for it to complete
+    int chunks = 0;
+    while (fh.chunk_pos < fh.size && chunks < MAX_NFS_READ_CHUNKS) {
+        struct nfs_file_parallel_io_handle *pfh =
+            malloc(sizeof(struct nfs_file_parallel_io_handle));
+
+        pfh->fh = &fh;
+        pfh->chunk_start = fh.chunk_pos;
+        pfh->chunk_size = MIN(MAX_NFS_READ_BYTES, fh.size - pfh->chunk_start);
+        fh.chunk_pos += pfh->chunk_size;
+        fh.chunks_in_progress++;
+        e = nfs_read(nfs->client, fh.handle, fh.offset + pfh->chunk_start,
+                     pfh->chunk_size, read_callback, pfh);
+        if (e == ERR_MEM) { // internal resource limit in lwip?
+            fh.chunk_pos -= pfh->chunk_size;
+            free(pfh);
+            break;
+        }
+        assert(e == ERR_OK);
+        chunks++;
+    }
+    wait_for_condition();
+
+    lwip_mutex_unlock();
+
+    // check result
+    if (fh.status != NFS3_OK && fh.status != NFS3ERR_STALE) {
+        return nfsstat_to_errval(fh.status);
+    }
+
+    assert(fh.size <= BUFFER_CACHE_BLOCK_SIZE);
+    *bytes_read = fh.size;
+
+    if (fh.size < BUFFER_CACHE_BLOCK_SIZE) {
+        /* XXX: assuming this means EOF, but we really do know from NFS */
+        return VFS_ERR_EOF;
+    } else {
+        return SYS_ERR_OK;
+    }
+}
+
+#if 0
+static errval_t write_block(void *st, vfs_handle_t handle, const void *buffer,
+                            size_t bytes, size_t *bytes_written)
+{
+    struct nfs_state *nfs = st;
+    struct nfs_handle *h = handle;
+    assert(h != NULL);
+    err_t e;
+
+    assert(!h->isdir);
+
+    // set up the handle
+    struct nfs_file_io_handle fh;
+    memset(&fh, 0, sizeof(struct nfs_file_io_handle));
+
+    assert(bytes <= BUFFER_CACHE_BLOCK_SIZE);
+
+    fh.data = (void *)buffer;
+    fh.size = bytes;
+    fh.offset = (h->u.file.pos / BUFFER_CACHE_BLOCK_SIZE) * BUFFER_CACHE_BLOCK_SIZE;
+    fh.status = NFS3_OK;
+    fh.handle = h->fh;
+
+    lwip_mutex_lock();
+
+    // start a parallel write of the file, wait for it to complete
+    int chunks = 0;
+    do {
+        struct nfs_file_parallel_io_handle *pfh =
+            malloc(sizeof(struct nfs_file_parallel_io_handle));
+        pfh->fh = &fh;
+        pfh->chunk_start = fh.chunk_pos;
+        pfh->chunk_size = MIN(MAX_NFS_WRITE_BYTES, fh.size - pfh->chunk_start);
+        fh.chunk_pos += pfh->chunk_size;
+        e = nfs_write(nfs->client, fh.handle, fh.offset + pfh->chunk_start,
+                      (char *)fh.data + pfh->chunk_start, pfh->chunk_size,
+                      NFS_WRITE_STABILITY, write_callback, pfh);
+        assert(e == ERR_OK);
+        chunks++;
+    } while (fh.chunk_pos < fh.size && chunks < MAX_NFS_WRITE_CHUNKS);
+    wait_for_condition();
+
+    lwip_mutex_unlock();
+
+    // check result
+    if (fh.status != NFS3_OK) {
+        return nfsstat_to_errval(fh.status);
+    }
+
+    assert(fh.size <= bytes);
+    h->u.file.pos += fh.size;
+    *bytes_written = fh.size;
+
+    return SYS_ERR_OK;
+}
+#endif
+
+#endif
+
 static void
 mount_callback (void *arg, struct nfs_client *client, enum mountstat3 mountstat,
                 struct nfs_fh3 fhandle)
@@ -1034,9 +1309,15 @@ static struct vfs_ops nfsops = {
     .opendir = opendir,
     .dir_read_next = dir_read_next,
     .closedir = closedir,
-    //.remove = remove,
+    .remove = vfs_nfs_remove,
     .mkdir = mkdir,
     //.rmdir = rmdir,
+
+#ifdef WITH_BUFFER_CACHE
+    .get_bcache_key = get_bcache_key,
+    .read_block = read_block,
+    //.write_block = write_block,
+#endif
 };
 
 errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
@@ -1068,7 +1349,13 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     // init stack if needed
     static bool stack_inited;
     if (!stack_inited) {
+#ifndef __scc__
         lwip_init("e1000");
+#else
+        static char cid[20];
+        snprintf(cid, 20, "eMAC2_%u", disp_get_core_id());
+        lwip_init(cid);
+#endif
         stack_inited = true;
     }
 
@@ -1084,7 +1371,12 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     if (st->mountstat == MNT3_OK) {
         *retst = st;
         *retops = &nfsops;
+
+#ifdef WITH_BUFFER_CACHE
+        return buffer_cache_enable(retst, retops);
+#else
         return SYS_ERR_OK;
+#endif
     } else {
         errval_t ret = mountstat_to_errval(st->mountstat);
         free(st);

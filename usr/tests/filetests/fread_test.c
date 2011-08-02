@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -22,7 +22,6 @@
 int main(int argc, char *argv[])
 {
     errval_t err;
-    vfs_init();
 
     err = vfs_mkdir("/filetests");
     if (err_is_fail(err)) {

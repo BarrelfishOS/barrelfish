@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -33,7 +33,7 @@ fputc(int c, FILE *stream)
     stream->buffer[stream->buf_pos++] = c;
 
     if(stream->buffering_mode == _IONBF
-       || stream->buf_pos == BUFSIZ
+       || stream->buf_pos == stream->buf_size
        || (stream->buffering_mode == _IOLBF && (c == '\n' || c == '\r'))) {
         unlock_stream(stream);
         if(fflush(stream) != 0) {

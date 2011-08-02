@@ -174,6 +174,30 @@ netconn_bind(struct netconn *conn, struct ip_addr *addr, u16_t port)
   return conn->err;
 }
 
+
+
+err_t
+netconn_redirect(struct netconn *conn, struct ip_addr *local_ip, 
+                 u16_t local_port,
+                 struct ip_addr *remote_ip, 
+                 u16_t remote_port)
+{
+  struct api_msg msg;
+
+  LWIP_ERROR("netconn_redirect: invalid conn", (conn != NULL), return ERR_ARG;);
+
+  msg.function = do_redirect;
+  msg.msg.conn = conn;
+  msg.msg.msg.red.local_ip = local_ip;
+  msg.msg.msg.red.local_port = local_port;
+  msg.msg.msg.red.remote_ip = remote_ip;
+  msg.msg.msg.red.remote_port = remote_port;
+  TCPIP_APIMSG(&msg);
+  return conn->err;
+}
+
+
+
 /**
  * Connect a netconn to a specific remote IP address and port.
  *
@@ -258,6 +282,7 @@ netconn_accept(struct netconn *conn)
   LWIP_ERROR("netconn_accept: invalid conn",       (conn != NULL),                      return NULL;);
   LWIP_ERROR("netconn_accept: invalid acceptmbox", (conn->acceptmbox != SYS_MBOX_NULL), return NULL;);
 
+  lwip_mutex_unlock();
 #if LWIP_SO_RCVTIMEO
   if (sys_arch_mbox_fetch(conn->acceptmbox, (void *)&newconn, conn->recv_timeout) == SYS_ARCH_TIMEOUT) {
     newconn = NULL;
@@ -265,6 +290,7 @@ netconn_accept(struct netconn *conn)
 #else
   sys_arch_mbox_fetch(conn->acceptmbox, (void *)&newconn, 0);
 #endif /* LWIP_SO_RCVTIMEO*/
+  lwip_mutex_lock();
   {
     /* Register event with callback */
     API_EVENT(conn, NETCONN_EVT_RCVMINUS, 0);
@@ -297,6 +323,7 @@ netconn_recv(struct netconn *conn)
   struct pbuf *p;
   u16_t len;
 
+  printf("netconn_recv called on [%p]\n", conn);
   LWIP_ERROR("netconn_recv: invalid conn",  (conn != NULL), return NULL;);
 
   if (conn->recvmbox == SYS_MBOX_NULL) {
@@ -325,6 +352,7 @@ netconn_recv(struct netconn *conn)
       return NULL;
     }
 
+  lwip_mutex_unlock();
 #if LWIP_SO_RCVTIMEO
     if (sys_arch_mbox_fetch(conn->recvmbox, (void *)&p, conn->recv_timeout)==SYS_ARCH_TIMEOUT) {
       conn->err = ERR_TIMEOUT;
@@ -333,6 +361,7 @@ netconn_recv(struct netconn *conn)
 #else
     sys_arch_mbox_fetch(conn->recvmbox, (void *)&p, 0);
 #endif /* LWIP_SO_RCVTIMEO*/
+  lwip_mutex_lock();
 
     if (p != NULL) {
       len = p->tot_len;
@@ -371,6 +400,8 @@ netconn_recv(struct netconn *conn)
 #endif /* LWIP_TCP */
   } else {
 #if (LWIP_UDP || LWIP_RAW)
+
+  lwip_mutex_unlock();
 #if LWIP_SO_RCVTIMEO
     if (sys_arch_mbox_fetch(conn->recvmbox, (void *)&buf, conn->recv_timeout)==SYS_ARCH_TIMEOUT) {
       buf = NULL;
@@ -378,6 +409,7 @@ netconn_recv(struct netconn *conn)
 #else
     sys_arch_mbox_fetch(conn->recvmbox, (void *)&buf, 0);
 #endif /* LWIP_SO_RCVTIMEO*/
+  lwip_mutex_lock();
     if (buf!=NULL) {
       SYS_ARCH_DEC(conn->recv_avail, buf->p->tot_len);
       /* Register event with callback */

@@ -59,92 +59,6 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
     return SYS_ERR_OK;
 }
 
-#ifndef NOTRANS
-static errval_t track_frame_create(struct capref dest, size_t bytes, size_t *retbytes)
-{
-    struct morecore_state *st = get_morecore_state();
-
-    assert(bytes > 0);
-    uint8_t bits = log2ceil(bytes);
-    assert((1UL << bits) >= bytes);
-    errval_t err;
-    int i;
-
-    if (bits < BASE_PAGE_BITS) {
-        bits = BASE_PAGE_BITS;
-    }
-
-    struct capref ram;
-    err = ram_alloc(&ram, bits);
-    if (err_is_fail(err)) {
-        if (err_no(err) == MM_ERR_NOT_FOUND) {
-            return err_push(err, LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS);
-        }
-        return err_push(err, LIB_ERR_RAM_ALLOC);
-    }
-
-    err = cap_retype(dest, ram, ObjType_Frame, bits);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
-    }
-
-    for(i = 0; i < MAX_TRACK_FRAMES; i++) {
-        struct captrack *c = &st->track_frames[i];
-
-        if(capref_is_null(c->framecap)) {
-            c->framecap = dest;
-            c->ramcap = ram;
-            break;
-        }
-    }
-    /* assert(i < MAX_TRACK_FRAMES || MAX_TRACK_FRAMES == 0); */
-
-    if (retbytes != NULL) {
-        *retbytes = 1UL << bits;
-    }
-
-    return SYS_ERR_OK;
-}
-
-static errval_t track_frame_return(struct capref frame)
-{
-    struct morecore_state *st = get_morecore_state();
-
-    for(int i = 0; i < MAX_TRACK_FRAMES; i++) {
-        struct captrack *c = &st->track_frames[i];
-
-        if(capcmp(c->framecap, frame)) {
-            errval_t err;
-
-            // Delete frame
-            err = cap_destroy(frame);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "cap_destroy");
-                return err;
-            }
-
-            // Return RAM
-            err = ram_free(c->ramcap);
-            if(err_is_fail(err)) {
-                DEBUG_ERR(err, "ram_free");
-                return err;
-            }
-
-            // Delete RAM
-            err = cap_destroy(c->ramcap);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "cap_destroy");
-                return err;
-            }
-
-            c->framecap = NULL_CAP;
-        }
-    }
-
-    return SYS_ERR_OK;
-}
-#endif
-
 /**
  * \brief Create mappings
  *
@@ -223,7 +137,7 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
 
     if(req_size > 0) {
         // Create frame of appropriate size
-        err = track_frame_create(frame, req_size, &ret_size);
+        err = frame_create(frame, req_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
                 return err_push(err, LIB_ERR_FRAME_CREATE_MS_CONSTRAINTS);
@@ -297,14 +211,14 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
             return err_push(err, LIB_ERR_MEMOBJ_UNMAP_REGION);
         }
 
-        // Hand frame cap back to memory allocator
+        // Delete frame cap
         if(err_is_ok(err)) {
             success = true;
             if (min_offset == 0 || min_offset > offset) {
                 min_offset = offset;
             }
 
-            err = track_frame_return(frame);
+            err = cap_destroy(frame);
             if(err_is_fail(err)) {
                 return err;
             }

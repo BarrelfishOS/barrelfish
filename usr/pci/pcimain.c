@@ -73,7 +73,7 @@ static errval_t init_allocators(void)
 
     err = mm_init(&pci_mm_physaddr, ObjType_PhysAddr, 0, 48,
                   DEFAULT_CNODE_BITS, slab_default_refill, slot_alloc_dynamic,
-                  &slot_allocator);
+                  &slot_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }

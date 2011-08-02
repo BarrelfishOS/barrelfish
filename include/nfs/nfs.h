@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, 2009, ETH Zurich.
+ * Copyright (c) 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -176,6 +176,19 @@ typedef void (*nfs_create_callback_t)(void *arg, struct nfs_client *client,
 typedef void (*nfs_mkdir_callback_t)(void *arg, struct nfs_client *client,
                                      MKDIR3res *result);
 
+/**
+ * \brief Callback function for remove operation
+ *
+ * \param arg Opaque argument pointer, as provided to nfs_remove()
+ * \param client NFS client instance
+ * \param result Result pointer, or NULL on error
+ *
+ * The memory referred to by #result, if any, is now the property of the callee,
+ * and must be freed by the appropriate XDR free operations.
+ */
+typedef void (*nfs_remove_callback_t)(void *arg, struct nfs_client *client,
+                                      REMOVE3res *result);
+
 struct nfs_client *nfs_mount(struct ip_addr server, const char *path,
                              nfs_mount_callback_t callback, void *cbarg);
 err_t nfs_getattr(struct nfs_client *client, struct nfs_fh3 fh,
@@ -203,6 +216,9 @@ err_t nfs_create(struct nfs_client *client, struct nfs_fh3 dir,
                  nfs_create_callback_t callback, void *cbarg);
 err_t nfs_mkdir(struct nfs_client *client, struct nfs_fh3 dir, const char *name,
                 sattr3 attributes, nfs_mkdir_callback_t callback, void *cbarg);
+err_t nfs_remove(struct nfs_client *client, struct nfs_fh3 dir,
+                 const char *name, nfs_remove_callback_t callback,
+                 void *cbarg);
 void nfs_destroy(struct nfs_client *client);
 
 void nfs_copyfh(struct nfs_fh3 *dest, struct nfs_fh3 src);

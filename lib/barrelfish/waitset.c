@@ -9,7 +9,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -260,6 +260,7 @@ check_for_events: ;
 
     // otherwise block awaiting an event
     chan = thread_block_disabled(handle, &ws->waiting_threads);
+
     if (chan == NULL) {
         // not a real event, just a wakeup to get us to start polling!
         assert(ws->polling);
@@ -723,6 +724,104 @@ errval_t waitset_chan_deregister(struct waitset_chanstate *chan)
     errval_t err = waitset_chan_deregister_disabled(chan);
     disp_enable(handle);
     return err;
+}
+
+/**
+ * \brief Migrate callback registrations to a new waitset.
+ *
+ * \param chan Old waitset's per-channel state to migrate
+ * \param new_ws New waitset to migrate to
+ */
+void waitset_chan_migrate(struct waitset_chanstate *chan,
+                          struct waitset *new_ws)
+{
+    struct waitset *ws = chan->waitset;
+
+    // Only when registered
+    if(ws == NULL) {
+        return;
+    }
+
+    switch(chan->state) {
+    case CHAN_IDLE:
+        if (chan->next == chan) {
+            assert(chan->prev == chan);
+            assert(ws->idle == chan);
+            ws->idle = NULL;
+        } else {
+            chan->prev->next = chan->next;
+            chan->next->prev = chan->prev;
+            if (ws->idle == chan) {
+                ws->idle = chan->next;
+            }
+        }
+
+        if (new_ws->idle == NULL) {
+            new_ws->idle = chan;
+            chan->next = chan->prev = chan;
+        } else {
+            chan->next = new_ws->idle;
+            chan->prev = new_ws->idle->prev;
+            chan->next->prev = chan;
+            chan->prev->next = chan;
+        }
+        break;
+
+    case CHAN_POLLED:
+        if (chan->next == chan) {
+            assert(chan->prev == chan);
+            assert(ws->polled == chan);
+            ws->polled = NULL;
+        } else {
+            chan->prev->next = chan->next;
+            chan->next->prev = chan->prev;
+            if (ws->polled == chan) {
+                ws->polled = chan->next;
+            }
+        }
+
+        if (new_ws->polled == NULL) {
+            new_ws->polled = chan;
+            chan->next = chan->prev = chan;
+        } else {
+            chan->next = new_ws->polled;
+            chan->prev = new_ws->polled->prev;
+            chan->next->prev = chan;
+            chan->prev->next = chan;
+        }
+        break;
+
+    case CHAN_PENDING:
+        if (chan->next == chan) {
+            assert(chan->prev == chan);
+            assert(ws->pending == chan);
+            ws->pending = NULL;
+        } else {
+            chan->prev->next = chan->next;
+            chan->next->prev = chan->prev;
+            if (ws->pending == chan) {
+                ws->pending = chan->next;
+            }
+        }
+
+        if (new_ws->pending == NULL) {
+            new_ws->pending = chan;
+            chan->next = chan->prev = chan;
+        } else {
+            chan->next = new_ws->pending;
+            chan->prev = new_ws->pending->prev;
+            chan->next->prev = chan;
+            chan->prev->next = chan;
+        }
+        break;
+
+    case CHAN_UNREGISTERED:
+        // Do nothing
+        break;
+    }
+
+    // Remember new waitset association
+    chan->waitset = new_ws;
 }
 
 /**

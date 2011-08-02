@@ -62,8 +62,10 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/net_constants.h>
 
 
+/* FIXME: Move this to config */
 //#define MYDEBUGLWIP 1
 
 #ifdef MYDEBUGLWIP
@@ -177,9 +179,11 @@
 #if (MEM_USE_POOLS && !MEMP_USE_CUSTOM_POOLS)
   #error "MEM_USE_POOLS requires custom pools (MEMP_USE_CUSTOM_POOLS) to be enabled in your lwipopts.h"
 #endif
+
 #if (PBUF_POOL_BUFSIZE <= MEM_ALIGNMENT)
   #error "PBUF_POOL_BUFSIZE must be greater than MEM_ALIGNMENT or the offset may take the full first pbuf"
 #endif
+
 #if (TCP_QUEUE_OOSEQ && !LWIP_TCP)
   #error "TCP_QUEUE_OOSEQ requires LWIP_TCP"
 #endif
@@ -241,22 +245,36 @@ lwip_sanity_check(void)
 #define lwip_sanity_check()
 #endif /* LWIP_DEBUG */
 
+static int is_ctl = 0;
 
 static void 
 remaining_lwip_initialization(char *card_name)
 {
-    //asq: connect to the e1000 driver, before doing anything else
+    //asq: connect to the NIC driver, before doing anything else
     idc_connect_to_driver(card_name);
+    DEBUGPRINTPS("Connected to driver [%s]\n", card_name);
     stats_init();
     sys_init();
+    DEBUGPRINTPS("remaining_lwip_init: allocating pbuf memory\n");
+#ifdef CONFIG_QEMU_NETWORK
+    printf("#### Networking with small amount of memory #####\n");
+#endif // CONFIG_QEMU_NETWORK
+    printf("#### [%u] [%s] [%d] MEM_SIZE[%d], MEMP_NUM_PBUF[%d],  PBUF_POOL_SIZE[%d], NR_PREALLOCATED_PBUFS[%d], PBUF_POOL_BUFSIZE[%d] ####\n",
+            disp_get_core_id(), MEM_CONF_LOC, is_ctl,
+            MEM_SIZE,  MEMP_NUM_PBUF, PBUF_POOL_SIZE,
+            NR_PREALLOCATED_PBUFS, PBUF_POOL_BUFSIZE);
+
     memp_init(); // 0'st buffer
+
+    DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
     mem_init(); // 1'th buffer
 
-    DEBUGPRINTPS("lwip_starting -- pbuf\n");
+    DEBUGPRINTPS("remaining_lwip_init: initing pbufs\n");
     pbuf_init();
-    DEBUGPRINTPS("lwip_starting -- netif_init\n");
+    DEBUGPRINTPS("remaining_lwip_init: done with pbuf_init\n");
     // prefill receive descriptors.
     mem_barrelfish_pbuf_init();
+    DEBUGPRINTPS("lwip_starting -- netif_init\n");
     netif_init();
 #if LWIP_SOCKET
     lwip_socket_init();
@@ -301,7 +319,7 @@ void
 owner_lwip_init(char *card_name)
 {
     DEBUGPRINTPS ("owner_lwip_init: Inside lwip_init\n");
-
+    is_ctl = 1;
     lwip_waitset = get_default_waitset();
 
     /* Sanity check user-configurable values */
@@ -311,6 +329,13 @@ owner_lwip_init(char *card_name)
     /* Modules initialization */
     DEBUGPRINTPS ("LWIP: owner_lwip_init: done with connection setup\n");
     remaining_lwip_initialization(card_name);
+}
+
+static void call_tcp_tmr(void)
+{
+    lwip_mutex_lock();
+    tcp_tmr();
+    lwip_mutex_unlock();
 }
 
 /**
@@ -348,9 +373,12 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     DEBUGPRINTPS ("LWIP: lwip_init: done with sanity check\n");
 
     /* Modules initialization */
+    char card_controller_name[100];
+    snprintf(card_controller_name, sizeof(card_controller_name), "%s%s",
+            card_name, CTL_SERVICE_SUFFIX);
 
     // Connecting to netd server
-    idc_connect_to_netd(NULL);
+    idc_connect_to_netd(card_controller_name);
     /* FIXME: name of the netd_server should also be passed to lwip_init */
 
     DEBUGPRINTPS ("LWIP: lwip_init: done with connection setup\n");
@@ -365,7 +393,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     static struct periodic_event tcp_timer;
     errval_t err = periodic_event_create(&tcp_timer, lwip_waitset,
                                          TCP_TMR_INTERVAL * 1000,
-                                         MKCLOSURE((void (*)(void *))tcp_tmr, NULL));
+                                         MKCLOSURE((void (*)(void *))call_tcp_tmr, NULL));
     assert(err_is_ok(err));
 
     // Bring interface up

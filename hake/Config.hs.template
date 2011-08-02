@@ -53,7 +53,11 @@ trace = False
 
 -- Enable QEMU networking. (ie. make network work in small memory)
 support_qemu_networking :: Bool
-support_qemu_networking  = False
+support_qemu_networking  = True
+
+-- enable network tracing
+trace_network_subsystem :: Bool
+trace_network_subsystem = False
 
 -- May want to disable LRPC to improve trace visuals
 trace_disable_lrpc :: Bool
@@ -65,6 +69,9 @@ global_debug = False
 
 e1000n_debug :: Bool
 e1000n_debug = False
+
+eMAC_debug :: Bool
+eMAC_debug = False
 
 rtl8029_debug :: Bool
 rtl8029_debug = False
@@ -170,9 +177,11 @@ defines = [ Str ("-D" ++ d) | d <- [
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
              if trace then "CONFIG_TRACE" else "",
              if support_qemu_networking then "CONFIG_QEMU_NETWORK" else "",
+             if trace_network_subsystem then "NETWORK_STACK_TRACE" else "",
              if trace_disable_lrpc then "TRACE_DISABLE_LRPC" else "",
              if global_debug then "GLOBAL_DEBUG" else "",
              if e1000n_debug then "E1000N_SERVICE_DEBUG" else "",
+             if eMAC_debug then "EMAC_SERVICE_DEBUG" else "",
              if rtl8029_debug then "RTL8029_SERVICE_DEBUG" else "",
              if ethersrv_debug then "ETHERSRV_SERVICE_DEBUG" else "",
              if netd_debug then "NETD_SERVICE_DEBUG" else "",

@@ -19,21 +19,13 @@
 #include <barrelfish/bulk_transfer.h>
 #include <contmng/contmng.h>
 #include <if/ether_defs.h>
+#include <barrelfish/net_constants.h>
 
 /*****************************************************************
  * Constants:
  *****************************************************************/
 #define RECEIVE_BUFFER_SIZE 2048 // user provided memory
 
-#ifdef CONFIG_QEMU_NETWORK
-#define RECEIVE_BUFFERS 512
-#define TRANSMIT_BUFFERS 512 //< Number of transmit descriptors
-                              //< (must be multiple of 8)
-#else // CONFIG_QEMU_NETWORK
-#define RECEIVE_BUFFERS 2048
-#define TRANSMIT_BUFFERS 2048 //< Number of transmit descriptors
-                              //< (must be multiple of 8)
-#endif // CONFIG_QEMU_NETWORK
 
 
 #define MAX_NR_TRANSMIT_PBUFS 80
@@ -47,6 +39,7 @@
 
 struct filter {
     uint64_t filter_id;
+    uint64_t filter_type;
     uint8_t *data;
     int32_t len;
     struct buffer_descriptor *buffer;
@@ -118,7 +111,9 @@ struct client_closure {
     /* Following two are used by packet transmit logic */
     uintptr_t nr_transmit_pbufs; /*< how many pbufs belong to the packet to
                                         transmit now? */
-    uintptr_t rtpbuf; ///< how many pbufs have we received so far?
+    /* FIXME: following should be a number */
+//    uintptr_t rtpbuf; ///< how many pbufs have we received so far?
+    uint16_t rtpbuf; ///< how many pbufs have we received so far?
     struct tx_pbuf pbuf[MAX_NR_TRANSMIT_PBUFS];
     uint64_t tx_private_mem_v;
     uint64_t tx_private_mem_p;

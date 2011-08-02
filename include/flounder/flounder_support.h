@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -47,6 +47,8 @@ void flounder_support_monitor_mutex_enqueue(struct monitor_binding *mb,
                                             struct event_queue_node *qn,
                                             struct event_closure cl);
 void flounder_support_monitor_mutex_unlock(struct monitor_binding *mb);
+void flounder_support_migrate_notify(struct waitset_chanstate *chan,
+                                     struct waitset *new_ws);
 
 #if defined(FLOUNDER_DEBUG)
 # include <barrelfish_kpi/dispatcher_shared.h>

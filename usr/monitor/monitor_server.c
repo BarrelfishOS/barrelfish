@@ -22,8 +22,6 @@
 // the monitor's loopback binding to itself
 static struct monitor_binding monitor_self_binding;
 
-static iref_t percore_mem_serv_iref = 0; 
-
 /* ---------------------- MULTIBOOT REQUEST CODE START ---------------------- */
 
 struct multiboot_cap_state {
@@ -529,12 +527,7 @@ static void get_mem_iref_request(struct monitor_binding *st)
     // Mem serv not registered yet
     assert(mem_serv_iref != 0);
 
-    if (percore_mem_serv_iref != 0) {
-        //printf("Giving them the percore one...\n");
-        err = st->tx_vtbl.get_mem_iref_reply(st, NOP_CONT, percore_mem_serv_iref);
-    } else {
-        err = st->tx_vtbl.get_mem_iref_reply(st, NOP_CONT, mem_serv_iref);
-    }
+    err = st->tx_vtbl.get_mem_iref_reply(st, NOP_CONT, mem_serv_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
     }
@@ -553,13 +546,8 @@ static void get_name_iref_request(struct monitor_binding *b, uintptr_t st)
 static void set_mem_iref_request(struct monitor_binding *st, 
                                  iref_t iref)
 {
-    if (mem_serv_iref != 0) {
-        // Called multiple times, return error
-        DEBUG_ERR(0, "Attempt to reset mem serv IREF ignored");
-        return;
-    }
-
     mem_serv_iref = iref;
+    update_ram_alloc_binding = true;
 }
 
 static void get_monitor_rpc_iref_request(struct monitor_binding *st, 
@@ -589,51 +577,6 @@ void set_monitor_rpc_iref(iref_t iref)
     monitor_rpc_iref = iref;
 }
 
-
-#if 0
-struct mem_client_response percore_allocator;
-
-/* remote (indirect through a channel) version of ram_alloc, for most domains */
-static errval_t ram_alloc_percore(struct capref *ret, uint8_t size_bits,
-                                  uint64_t minbase, uint64_t maxlimit)
-{
-    errval_t err, result;
-
-    err = the_mem_client_call_vtbl.allocate(&percore_allocator, size_bits,
-                                            minbase, maxlimit, &result, ret);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return result;
-}
-#endif
-
-static void set_percore_iref_request(struct monitor_binding *st, 
-                                 iref_t iref)
-{
-    if (percore_mem_serv_iref != 0) {
-        // Called multiple times, return error
-        DEBUG_ERR(0, "Attempt to reset percore mem serv IREF ignored");
-        return;
-    }
-
-    percore_mem_serv_iref = iref;
-
-#if 0
-    // for now monitor uses central mem_serv, only clients use local one
-    assert(!"percore NYI");
-    errval_t err;
-    err = chips_blocking_connect(iref, NULL, &percore_allocator.conn);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to connect to percore mem_serv\n");
-        return;
-    }
-    printf("Connected to percore!\n");
-
-    ram_alloc_set(ram_alloc_percore, NULL);
-#endif
-}
 
 static void set_name_iref_request(struct monitor_binding *st, 
                                   iref_t iref)
@@ -753,6 +696,12 @@ static void cap_send_request(struct monitor_binding *st,
         // continues in cap_send_request_2 (after cap_send_request_cb)
 
     } else {
+        err = monitor_cap_remote(cap, true, &has_descendants);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "monitor_cap_remote failed");
+            return;
+        }
+
         // TODO ensure that no more copies of this cap are on this core
         on_cores = 0;
         // call continuation directly
@@ -1028,7 +977,6 @@ struct monitor_rx_vtbl the_table = {
     .get_mem_iref_request  = get_mem_iref_request,
     .get_name_iref_request = get_name_iref_request,
     .set_mem_iref_request  = set_mem_iref_request,
-    .set_percore_iref_request  = set_percore_iref_request,
     .set_name_iref_request = set_name_iref_request,
     .get_monitor_rpc_iref_request  = get_monitor_rpc_iref_request,
 
@@ -1068,6 +1016,17 @@ errval_t monitor_client_setup(struct spawninfo *si)
         // TODO: destroy binding
         return err_push(err, LIB_ERR_CAP_COPY);
     }
+
+    // Copy the performance monitoring cap to all spawned processes.
+    struct capref src;
+    dest.cnode = si->taskcn;
+    dest.slot = TASKCN_SLOT_PERF_MON;
+    src.cnode = cnode_task;
+    src.slot = TASKCN_SLOT_PERF_MON;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_PERF_MON);
+    }    
 
     // copy our receive vtable to the binding
     monitor_server_init(&b->b);

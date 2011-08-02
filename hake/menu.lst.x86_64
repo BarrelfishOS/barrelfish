@@ -33,9 +33,11 @@ module  /x86_64/sbin/startd boot
 ## For networking
 ## For qemu, enable rtl8029
 # module	/x86_64/sbin/rtl8029
+# module    /x86_64/sbin/netd cardname=rtl8029
+
 ## For real hardware, enable e1000n
 # module	/x86_64/sbin/e1000n
-# module	/x86_64/sbin/netd
+# module	/x86_64/sbin/netd cardname=e1000
 
 # General user domains
 module	/x86_64/sbin/serial

@@ -23,6 +23,7 @@ struct spawninfo {
     struct cnoderef rootcn, taskcn, segcn, pagecn;
     struct capref   rootcn_cap, taskcn_cap, pagecn_cap;
     struct capref   dispframe, dcb, argspg, vtree;
+    struct capref   fdcap;
 
     // Slot (in segcn) from where elfload_allocate should allocate frames from
     cslot_t elfload_slot;
@@ -54,7 +55,8 @@ errval_t spawn_load_with_args(struct spawninfo *si, struct mem_region *module,
 errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
                           size_t binary_size, enum cpu_type type,
                           const char *name, coreid_t coreid,
-                          char *const argv[], char *const envp[]);
+                          char *const argv[], char *const envp[],
+                          struct capref fdcap);
 errval_t spawn_run(struct spawninfo *si);
 errval_t spawn_free(struct spawninfo *si);
 

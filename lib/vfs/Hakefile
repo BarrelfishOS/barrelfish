@@ -12,17 +12,16 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "vfs",
-  		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c",
-                             "vfs_nfs.c", "vfs_ramfs.c" ],
-                  flounderBindings = [ "trivfs" ],
-                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]) ],
+  		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c", "vfs_nfs.c", "vfs_ramfs.c", "cache.c" ],
+                  flounderBindings = [ "trivfs", "bcache" ],
+                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]), ("bcache", ["rpcclient"]) ],
                   flounderDefs = [ "monitor" ]
                 },
   build library { target = "vfs_nonfs",
-  		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c" ],
+  		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c", "cache.c" ],
                   addCFlags = [ "-DDISABLE_NFS" ],
-                  flounderBindings = [ "trivfs" ],
-                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]) ],
+                  flounderBindings = [ "trivfs", "bcache" ],
+                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]), ("bcache", ["rpcclient"]) ],
                   flounderDefs = [ "monitor" ]
                 }
 ]

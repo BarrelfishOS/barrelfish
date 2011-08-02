@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,21 +14,17 @@
 #include "posixcompat.h"
 #include "fdtab.h"
 
-int fstat(int fd, struct stat*buf)
+int fstat(int fd, struct stat *buf)
 {
-    if (fd >= 0 && fd <= 2) {
-        return -1;
-    }
-
-    vfs_handle_t vh = fdtab_get(fd);
-    if (vh == NULL_VFS_HANDLE) {
+    struct fdtab_entry *e = fdtab_get(fd);
+    if (e->type != FDTAB_TYPE_FILE) {
         return -1;
     }
 
     POSIXCOMPAT_DEBUG("fstat(%d)\n", fd);
 
     struct vfs_fileinfo info;
-    errval_t err = vfs_stat(vh, &info);
+    errval_t err = vfs_stat((vfs_handle_t)e->handle, &info);
     if (err_is_ok(err)) {
         _posixcompat_vfs_info_to_stat(&info, buf);
         return 0;

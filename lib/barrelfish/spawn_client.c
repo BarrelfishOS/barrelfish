@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -90,6 +90,10 @@ static errval_t bind_client(coreid_t coreid)
             messages_wait_and_handle_next();
         }
 
+        if(err_is_fail(bindst.err)) {
+            return bindst.err;
+        }
+
         spawn_b = bindst.b;
 
         cl = malloc(sizeof(struct spawn_rpc_client));
@@ -118,14 +122,16 @@ static errval_t bind_client(coreid_t coreid)
  *                        suitable for the given core
  * \param argv   Command-line arguments, NULL-terminated
  * \param envp   Optional environment, NULL-terminated (pass NULL to inherit)
+ * \param fdcap  A cap to a file descriptor region to pass through
  * \param flags  Flags to spawn
  * \param ret_domainid If non-NULL, filled in with domain ID of program
  *
  * \bug flags are currently ignored
  */
-errval_t spawn_program(coreid_t coreid, const char *path,
-                       char *const argv[], char *const envp[],
-                       spawn_flags_t flags, domainid_t *ret_domainid)
+errval_t spawn_program_with_fdcap(coreid_t coreid, const char *path,
+                             char *const argv[], char *const envp[],
+                             struct capref fdcap,
+                             spawn_flags_t flags, domainid_t *ret_domainid)
 {
     struct spawn_rpc_client *cl;
     errval_t err, msgerr;
@@ -144,7 +150,7 @@ errval_t spawn_program(coreid_t coreid, const char *path,
         namebuf[sizeof(namebuf) - 1] = '\0';
 
         iref_t iref;
-        err = nameservice_lookup(namebuf, &iref);
+        err = nameservice_blocking_lookup(namebuf, &iref);
         if (err_is_fail(err)) {
             //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
             return err;
@@ -229,8 +235,16 @@ errval_t spawn_program(coreid_t coreid, const char *path,
         path = pathbuf;
     }
 
-    err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen, envstr, envstrlen,
-                                &msgerr, &domain_id);
+    if (capref_is_null(fdcap)) {
+        err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen, 
+                                    envstr, envstrlen,
+                                    &msgerr, &domain_id);
+    } else {
+        err = cl->vtbl.spawn_domain_with_fdcap(cl, path, argstr, argstrlen, 
+                                               envstr, envstrlen,
+                                               fdcap, 
+                                               &msgerr, &domain_id);
+    }
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending spawn request");
     } else if (err_is_fail(msgerr)) {
@@ -243,6 +257,29 @@ errval_t spawn_program(coreid_t coreid, const char *path,
 
     return msgerr;
 }
+
+/**
+ * \brief Request the spawn daemon on a specific core to spawn a program
+ *
+ * \param coreid Core ID on which to spawn the program
+ * \param path   Absolute path in the file system to an executable image
+ *                        suitable for the given core
+ * \param argv   Command-line arguments, NULL-terminated
+ * \param envp   Optional environment, NULL-terminated (pass NULL to inherit)
+ * \param flags  Flags to spawn
+ * \param ret_domainid If non-NULL, filled in with domain ID of program
+ *
+ * \bug flags are currently ignored
+ */
+errval_t spawn_program(coreid_t coreid, const char *path,
+                             char *const argv[], char *const envp[],
+                             spawn_flags_t flags, domainid_t *ret_domainid)
+{
+    return spawn_program_with_fdcap(coreid, path, argv, envp, NULL_CAP, 
+                                    flags, ret_domainid);
+}    
+
+
 
 /**
  * \brief Request a program be spawned on all cores in the system
@@ -288,25 +325,79 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
     return SYS_ERR_OK;
 }
 
-/**
- * \brief Request a spawnd to reconnect to a local memserv
- *
- * \param coreid The core that the spawnd is running on
- */
-errval_t spawn_set_local_memserv(coreid_t coreid)
+errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client)
 {
-    struct spawn_rpc_client *cl;
-    errval_t err;
+    errval_t err = bind_client(coreid);
+    if(err_is_fail(err)) {
+        return err;
+    }
 
-    // do we have a spawn client connection for this core?
-    err = bind_client(coreid);
+    *ret_client = get_spawn_rpc_client(coreid);
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Kill a domain.
+ */
+errval_t spawn_kill(domainid_t domainid)
+{
+    errval_t err, reterr;
+
+    err = bind_client(disp_get_core_id());
     if (err_is_fail(err)) {
         return err;
     }
-    cl = get_spawn_rpc_client(coreid);
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    assert(cl != NULL);
 
-    //    err = spawn_b->tx_vtbl.use_local_memserv(spawn_b, NOP_CONT);
-    err = cl->vtbl.use_local_memserv(cl);
+    err = cl->vtbl.kill(cl, domainid, &reterr);
+    if(err_is_fail(err)) {
+        return err;
+    }
 
-    return err;
+    return reterr;
+}
+
+/**
+ * \brief Exit this domain.
+ */
+errval_t spawn_exit(uint8_t exitcode)
+{
+    errval_t err;
+
+    err = bind_client(disp_get_core_id());
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    assert(cl != NULL);
+
+    err = cl->vtbl.exit(cl, disp_get_domain_id(), exitcode);
+    if(err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Exit this domain.
+ */
+errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
+{
+    errval_t err, reterr;
+
+    err = bind_client(disp_get_core_id());
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    assert(cl != NULL);
+
+    err = cl->vtbl.wait(cl, domainid, nohang, exitcode, &reterr);
+    if(err_is_fail(err)) {
+        return err;
+    }
+
+    return reterr;
 }

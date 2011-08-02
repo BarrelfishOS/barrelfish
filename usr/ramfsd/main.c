@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -30,10 +30,31 @@
 
 #define BOOTSCRIPT_FILE_NAME "bootmodules"
 
+static errval_t write_directory(struct dirent *root, const char *path);
 static errval_t write_file(struct dirent *root, const char *path, uint8_t *data,
                            size_t len);
 
 /* -------------------- CODE TO UNPACK RAMFS IMAGES  ------------------------ */
+
+static int cpio_entry_handler(int n, const cpio_generic_header_t *h, void *arg)
+{
+    struct dirent *root = arg;
+    errval_t err;
+
+    if(CPIO_MODE_FILE == (h->mode & CPIO_MODE_FILE_TYPE_MASK)) {
+        err = write_file(root, h->name, (void *)h->data, h->datasize);
+    } else if(CPIO_MODE_DIRECTORY == (h->mode & CPIO_MODE_FILE_TYPE_MASK)) {
+        err = write_directory(root, h->name);
+    } else {
+        return 0;
+    }
+
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error writing file to ramfs");
+    }
+
+    return 0;
+}
 
 static errval_t unpack_cpio(struct dirent *root, void *data, size_t len)
 {
@@ -41,24 +62,8 @@ static errval_t unpack_cpio(struct dirent *root, void *data, size_t len)
         USER_PANIC("invalid CPIO archive");
     }
 
-    const char *fname;
-    const uint8_t *fdata;
-    size_t flen;
-    int found, i = 0;
-    errval_t err;
-
-    do {
-        found = cpio_get_file_by_ordinal(data, len, i++, &fname, &fdata, &flen);
-        if (found) {
-            err = write_file(root, fname, (void *)fdata, flen);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "error writing file '%s' with size %zu bytes\n",
-                          fname, flen);
-                return err;
-            }
-        }
-    } while(found);
-
+    cpio_generic_header_t h;
+    cpio_visit(data, len, cpio_entry_handler, &h, root);
     return SYS_ERR_OK;
 }
 
@@ -115,6 +120,69 @@ static errval_t unpack_cpiogz(struct dirent *root, void *data, size_t len)
 }
 
 /* ---------------------- POPULATION FROM BOOTINFO  ------------------------- */
+
+static errval_t write_directory(struct dirent *root, const char *path)
+{
+    errval_t err;
+
+    assert(path != NULL);
+    assert(root != NULL);
+
+    // walk path, creating/locating directories as we go
+    struct dirent *d = root;
+    while (true) {
+        // remove any leading /
+        while (path[0] == '/') {
+            path++;
+        }
+
+        char *nextsep = strchr(path, '/');
+
+        // no more /, we have the directory name
+        if (nextsep == NULL) {
+            break;
+        }
+
+        // extract dirname, advance path
+        size_t namelen = nextsep - path;
+        char *dirname = malloc(namelen + 1);
+        assert(dirname != NULL);
+        memcpy(dirname, path, namelen);
+        dirname[namelen] = '\0';
+        path += namelen;
+
+        // does this directory exist?
+        struct dirent *next;
+        err = ramfs_lookup(d, dirname, &next);
+        if (err_is_ok(err)) {
+            free(dirname);
+            d = next;
+            continue;
+        } else if (err_no(err) != FS_ERR_NOTFOUND) {
+            free(dirname);
+            return err;
+        }
+
+        // create the directory
+        err = ramfs_mkdir(d, dirname, &next);
+        if (err_is_fail(err)) {
+            free(dirname);
+            return err;
+        }
+        d = next;
+    }
+
+    // create the last-level directory
+    char *path_copy = strdup(path);
+    assert(path_copy != NULL);
+    err = ramfs_mkdir(d, path_copy, NULL);
+    if (err_is_fail(err)) {
+        free(path_copy);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
 
 static errval_t write_file(struct dirent *root, const char *path, uint8_t *data,
                            size_t len)

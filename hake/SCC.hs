@@ -33,7 +33,8 @@ ourCommonFlags = [ Str "-m32",
                    Str "-mno-red-zone",
                    Str "-fPIE",
                    Str "-fno-stack-protector",
-                   Str "-D__scc__" ]
+                   Str "-D__scc__",
+                   Str "-march=pentium" ]
 
 
 commonCFlags = ArchDefaults.commonCFlags
@@ -67,7 +68,7 @@ options = (ArchDefaults.options arch archFamily) {
 -- The kernel is "different"
 --
 
-kernelCFlags = X86_32.kernelCFlags ++ [ Str "-march=pentium", 
+kernelCFlags = X86_32.kernelCFlags ++ [ Str "-march=pentium",
                                         Str "-D__scc__" ]
 kernelLdFlags = X86_32.kernelLdFlags
 

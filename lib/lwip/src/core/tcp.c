@@ -119,6 +119,7 @@ tcp_close(struct tcp_pcb *pcb)
   tcp_debug_print_state(pcb->state);
 #endif /* TCP_DEBUG */
 
+  LWIP_DEBUGF(TCP_DEBUG, ("####### TCP close called\n"));
   switch (pcb->state) {
   case CLOSED:
     /* Closing a pcb in the CLOSED state might seem erroneous,
@@ -206,6 +207,8 @@ tcp_abandon(struct tcp_pcb *pcb, int reset)
 #endif /* LWIP_CALLBACK_API */
   void *errf_arg;
 
+//	printf("########### tcp_abandon.... ignoring\n");
+	return;
   
   /* Figure out on which TCP PCB list we are, and remove us. If we
      are in an active state, call the receive function associated with
@@ -266,14 +269,17 @@ tcp_bind(struct tcp_pcb *pcb, struct ip_addr *ipaddr, u16_t port)
 			  pcb->state == CLOSED, return ERR_ISCONN);
 
 	  /* Following modifications are part of DEMUX : PS */
-	  if (port == 0) {
-	    err = tcp_new_port(&port);
-	    if(!err_is_ok(err)) {
-	    	return err; /* return error based on err value */
-	    }
-	  } else if(idc_bind_tcp_port(port) == ERR_USE) {
-	      return ERR_USE;
-	  }
+      if (port == 0) { /* open new port */
+        err = tcp_new_port(&port);
+        if(!err_is_ok(err)) {
+            return err; /* return error based on err value */
+        }
+      } else { /* bind to the specified port */
+          err = idc_bind_tcp_port(port);
+            if(!err_is_ok(err)) {
+                return err; /* return error based on err value */
+            }
+      }
 
   if (!ip_addr_isany(ipaddr)) {
     pcb->local_ip = *ipaddr;
@@ -283,6 +289,19 @@ tcp_bind(struct tcp_pcb *pcb, struct ip_addr *ipaddr, u16_t port)
   LWIP_DEBUGF(TCP_DEBUG, ("tcp_bind: bind to port %"U16_F"\n", port));
   return ERR_OK;
 
+}
+
+
+err_t
+tcp_redirect(struct tcp_pcb *pcb, struct ip_addr *local_ip, u16_t local_port,
+              struct ip_addr *remote_ip, u16_t remote_port)
+{
+    if(idc_redirect_tcp(local_ip, local_port, remote_ip, remote_port) == ERR_USE) {
+     debug_printf("idc_redirect_tcp => ERR_USE\n");
+     return ERR_USE;
+  }
+
+  return ERR_OK;
 }
 
 
@@ -746,6 +765,7 @@ tcp_fasttmr(void)
       /* Notify again application with data previously received. */
       err_t err;
       LWIP_DEBUGF(TCP_INPUT_DEBUG, ("tcp_fasttmr: notify kept packet\n"));
+      printf("called from [tcp_fasttmr.]\n");
       TCP_EVENT_RECV(pcb, pcb->refused_data, ERR_OK, err);
       if (err == ERR_OK) {
         pcb->refused_data = NULL;

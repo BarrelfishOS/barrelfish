@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -29,8 +29,6 @@ typedef size_t cycles_t;
 #define PRIxCYCLES "zx"
 #define PRIXCYCLES "zX"
 #endif
-
-typedef intptr_t off_t;
 
 typedef uint32_t iref_t;
 

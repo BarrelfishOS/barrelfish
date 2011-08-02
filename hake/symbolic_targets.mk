@@ -52,6 +52,7 @@ MODULES_COMMON= \
 	sbin/idctest \
 	sbin/memtest \
 	sbin/fread_test \
+	sbin/fscanf_test \
 	sbin/monitor \
 	sbin/ramfsd \
 	sbin/routetest \
@@ -90,7 +91,7 @@ MODULES_x86_64= \
 	sbin/e1000n \
 	sbin/rtl8029 \
 	sbin/netd \
-        sbin/echoserver \
+	sbin/echoserver \
 	sbin/elver \
 	sbin/fbdemo \
 	sbin/fish \
@@ -133,6 +134,8 @@ MODULES_x86_64= \
 	sbin/webserver \
 	sbin/tlstest \
 	sbin/timer_test \
+	sbin/net_openport_test \
+	sbin/examples/xmpl-perfmon \
 	$(BIN_CONSENSUS) \
 
 # the following are broken in the newidc system
@@ -173,12 +176,16 @@ MODULES_scc=\
 	$(BIN_RCCE_LU) \
 	sbin/rcce_pingpong \
 	sbin/bench \
+	sbin/eMAC \
+	sbin/netd \
+	sbin/webserver \
 	sbin/ipirc_test \
 	sbin/thc_v_flounder_empty \
 	sbin/thcidctest \
 	sbin/thcminitest \
 	sbin/thctest \
 	sbin/mem_serv_dist \
+	sbin/net-test \
 
 # ARM-specific modules to build by default
 MODULES_arm=\
@@ -339,7 +346,7 @@ scc: all tools/bin/dite
 	cp $(SRCDIR)/tools/scc/bootvector.dat .
 	bin2obj -m $(SRCDIR)/tools/scc/bigimage.map -o barrelfish0.obj
 	@echo Taking the barrelfish.obj file to SCC host
-	scp barrelfish0.obj user@tomme2.in.barrelfish.org:
+	scp barrelfish0.obj user@tomme1.in.barrelfish.org:
 
 # M5 Simulation targets
 

@@ -83,6 +83,10 @@
 size_t
 fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
+    if(size == 0 || nmemb == 0) {
+        return 0;
+    }
+
     lock_stream(stream);
 
     if (stream->unget_pos) {
@@ -100,5 +104,5 @@ fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
     }
 
     unlock_stream(stream);
-    return ret;
+    return ret / size;
 }

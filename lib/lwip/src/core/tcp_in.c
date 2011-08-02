@@ -101,7 +101,6 @@ tcp_input(struct pbuf *p, struct netif *inp)
 
   TCP_STATS_INC(tcp.recv);
   snmp_inc_tcpinsegs();
-
   iphdr = p->payload;
   tcphdr = (struct tcp_hdr *)((u8_t *)p->payload + IPH_HL(iphdr) * 4);
 
@@ -186,6 +185,7 @@ tcp_input(struct pbuf *p, struct netif *inp)
        ip_addr_cmp(&(pcb->remote_ip), &(iphdr->src)) &&
        ip_addr_cmp(&(pcb->local_ip), &(iphdr->dest))) {
 
+
       /* Move this PCB to the front of the list so that subsequent
          lookups will be faster (we exploit locality in TCP segment
          arrivals). */
@@ -204,6 +204,7 @@ tcp_input(struct pbuf *p, struct netif *inp)
   if (pcb == NULL) {
     /* If it did not go to an active connection, we check the connections
        in the TIME-WAIT state. */
+
     for(pcb = tcp_tw_pcbs; pcb != NULL; pcb = pcb->next) {
       LWIP_ASSERT("tcp_input: TIME-WAIT pcb->state == TIME-WAIT", pcb->state == TIME_WAIT);
       if (pcb->remote_port == tcphdr->src &&
@@ -237,7 +238,6 @@ tcp_input(struct pbuf *p, struct netif *inp)
                 /* put this listening pcb at the head of the listening list */
           tcp_listen_pcbs.listen_pcbs = lpcb;
         }
-      
         LWIP_DEBUGF(TCP_INPUT_DEBUG, ("tcp_input: packed for LISTENing connection.\n"));
         tcp_listen_input(lpcb);
         pbuf_free(p);

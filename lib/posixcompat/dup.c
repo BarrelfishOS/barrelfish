@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,9 +9,36 @@
 
 #include <barrelfish/barrelfish.h>
 #include <unistd.h>
+#include <errno.h>
+#include "fdtab.h"
 
 int dup(int oldfd)
 {
-    USER_PANIC("dup() NYI");
-    return (-1);
+    return fcntl(oldfd, F_DUPFD, 0);
+}
+
+int dup2(int oldfd, int newfd)
+{
+    if(newfd < 0 || newfd >= MAX_FD) {
+        errno = EBADF;
+        return -1;
+    }
+
+    struct fdtab_entry *e = fdtab_get(oldfd);
+    if (e->type == FDTAB_TYPE_AVAILABLE) {
+        return -1;
+    }
+
+    if(oldfd == newfd) {
+        return newfd;
+    }
+
+    close(newfd);
+    int retfd = fcntl(oldfd, F_DUPFD, newfd);
+
+    if(newfd != retfd) {
+        return -1;
+    }
+
+    return newfd;
 }

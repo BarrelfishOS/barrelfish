@@ -94,6 +94,11 @@ fflush(FILE *file)
         /* Success */
         file->current_pos += file->buf_pos;
         file->buf_pos = 0;
+
+        // Discard input buffer on output buffer flush
+        file->rbuf_pos = file->rbuffer;
+        file->rbuf_valid = 0;
+
         unlock_stream(file);
         return 0;
     } else {

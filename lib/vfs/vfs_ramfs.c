@@ -686,12 +686,9 @@ static errval_t mkdir(void *st, const char *path)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in mkdir");
         return err;
-    } else if (err_is_fail(msgerr)) {
-        DEBUG_ERR(msgerr, "server error in mkdir");
-        return msgerr;
     }
 
-    return SYS_ERR_OK;
+    return msgerr;
 }
 
 static errval_t rmdir(void *st, const char *path)
@@ -825,7 +822,7 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
         // Init bulk data lib
         struct capref shared_frame;
         err = bulk_create(BULK_MEM_SIZE, BULK_BLOCK_SIZE, &shared_frame,
-                          &client->bulk);
+                          &client->bulk, false);
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "bulk_create");
         }

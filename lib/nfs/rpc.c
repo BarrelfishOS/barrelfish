@@ -54,9 +54,9 @@ enum rpc_msg_type {
 };
 
 //#define RPC_TIMER_PERIOD (5000 * 1000) ///< Time between RPC timer firings (us)
-#define RPC_TIMER_PERIOD (50 * 1000) ///< Time between RPC timer firings (us)
-#define RPC_RETRANSMIT_AFTER 8  ///< Number of timer firings before a retransmit
-#define RPC_MAX_RETRANSMIT  30  ///< Max number of retransmissions before giving up
+#define RPC_TIMER_PERIOD (1000 * 1000) ///< Time between RPC timer firings (us)
+#define RPC_RETRANSMIT_AFTER 6   ///< Number of timer firings before a retransmit
+#define RPC_MAX_RETRANSMIT  60  ///< Max number of retransmissions before giving up
 
 /* XXX: hardcoded data for authentication info */
 #define AUTH_MACHINE_NAME       "barrelfish"
@@ -206,7 +206,7 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         prev = call;
     }
     if (call == NULL) {
-        fprintf(stderr, "RPC: Unknown XID 0x%x in reply, dropped\n", xid);
+        fprintf(stderr, "RPC:[%d] Unknown XID 0x%x in reply, dropped\n", disp_get_domain_id(), xid);
         goto out;
     } else if (prev == NULL) {
     	client->call_hash[hid] = call->next;

@@ -35,7 +35,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-int __svfscanf(FILE *fp, const char *fmt0, va_list ap);
+#include "local.h"
 
 int sscanf(const char * __restrict str, char const * __restrict fmt, ...)
 {
@@ -54,9 +54,12 @@ int sscanf(const char * __restrict str, char const * __restrict fmt, ...)
 	/* f._bf._base = f._p = (unsigned char *)str; */
 	/* f._bf._size = f._r = strlen(str); */
 
-        f.buffer = (char *)str;
-        f.buf_pos = 0;
-        f.buf_size = strlen(str);
+        f.rbuffer = (char *)str;
+        f.rbuf_pos = f.rbuffer;
+        f.rbuf_size = strlen(str);
+        f.rbuf_valid = f.rbuf_size;
+        f.eof = 1;
+        thread_mutex_init(&f.mutex);
 
 	va_start(ap, fmt);
 	ret = __svfscanf(&f, fmt, ap);

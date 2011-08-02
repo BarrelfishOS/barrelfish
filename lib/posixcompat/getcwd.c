@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,14 +9,15 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <vfs/vfs_path.h>
 #include "posixcompat.h"
 
 char *getcwd(char *buf, size_t size)
 {
-    if (_posixcompat_cwd == NULL) {
-        _posixcompat_cwd_init();
+    char *cwd = getenv("PWD");
+    if(cwd == NULL) {
+        return NULL;
     }
-
-    strncpy(buf, _posixcompat_cwd, size);
+    strncpy(buf, cwd, size);
     return buf;
 }

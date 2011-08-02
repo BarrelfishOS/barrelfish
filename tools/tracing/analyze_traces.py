@@ -7,52 +7,93 @@ import re
 TRACE_SUBSYS_NET = 0x6000
 valid_cores = ["2 ","3 "]
 core_map = {2:"NIC", 3:"APP"}
-event_map_actual = {
-0X0001: "TRACE_EVENT_NET_START",
-0X0002: "TRACE_EVENT_NET_STOP",
-0X0003: "TRACE_EVENT_NET_NI_A",
-0X0004: "TRACE_EVENT_NET_NI_P",
-0X0005: "TRACE_EVENT_NET_NI_S",
-0X0006: "TRACE_EVENT_NET_AI_A",
-0X0007: "TRACE_EVENT_NET_AI_P",
-0X0008: "TRACE_EVENT_NET_AO_C",
-0X0009: "TRACE_EVENT_NET_AO_Q",
-0X000A: "TRACE_EVENT_NET_AO_S",
-0X000B: "TRACE_EVENT_NET_NO_A",
-0X000C: "TRACE_EVENT_NET_NO_S",
-0x000D: "TRACE_EVENT_NET_AOR_S",
-0x000E: "TRACE_EVENT_NET_AIR_R" 
-}
 
 event_map = {
 0X0001: "NET_START",
 0X0002: "NET_STOP",
+0X0003: "New_packet_came",
+0X0004: "pkt_processed",
+0X0005: "pkt_uploaded",
+0X0006: "pkt_entered_app",
+0X0007: "pkt_processed_app",
+0X0008: "reply_prepared_app",
+0X0009: "reply_queued_app",
+0X000A: "reply_sent_app",
+0X000B: "reply_into_NIC",
+0X000C: "reply_sent_by_NIC",
+0x000D: "app_done_with_pbuf",
+0x000E: "app_recved_TX_done",
+0x0010: "interrupt_came", 
+0x0011: "ARP_packet_incoming",
+0x0012: "physical_interrupt_came",
+0x0013: "TX_Done_by_NIC",
+0x0014: "register_pbuf_in_NIC",
+0x0015: "filters_executed_1",
+0x0016: "filters_executed_2",
+0x0017: "packet_copied",
+0x0018: "filter_frag",
+0x0019: "packet_copy_started",
+0x001A: "packet_copied_src_read",
+0x001B: "packet_copied_dst_read",
+0x001C: "packet_copy_copied",
+
+
+}
+
+NIC_IN_EVENTS = {
+0x0012: "physical interrupt came", 
+0x0010: "interrupt came", 
 0X0003: "New packet came",
 0X0004: "pkt processed",
-0X0005: "pkt uploaded",
+0X0005: "pkt uploaded"
+}
+
+APP_IN_EVENTS = {
 0X0006: "pkt entered app",
-0X0007: "pkt processed app",
+0X0007: "pkt processed app"
+}
+
+APP_OUT_EVENTS = {
 0X0008: "reply prepared app",
 0X0009: "reply queued app",
-0X000A: "reply sent app",
-0X000B: "reply into NIC",
-0X000C: "reply sent by NIC",
-0x000D: "app done with pbuf",
-0x000E: "app recved TX_done",
-0x0010: "interrupt came", 
-0x0011: "ARP packet incoming",
-0x0012: "physical interrupt came" 
+0X000A: "reply sent app"
 }
-packet_boundries = [0X0012]
 
-MAX_EVENT_NOREPLY = 8
+NIC_OUT_EVENTS = {
+0X000B: "reply into NIC",
+0X000C: "reply sent by NIC"
+}
 
-def cycles_to_time (cycles):
-	return ( cycles / 2800.0) / 1000 # miliseconds
+#packet_boundries = [0X0012]
+#LOGICAL_ORDER = [0x012, 0x0010, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
+#				0x0008, 0x0009, 0x000A, 0x000b, 0x000c]
+
+packet_boundries = [0X0010]
+LOGICAL_ORDER = [0x0010, 0x0003, 0x0015, 0x0016, # 0x0019, 0x001a, 0x001b, 0x001c,
+				0x0017, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000A,
+				0x000b, 0x000c]
+
+#LOGICAL_ORDER = [0x0010, 0x0003, 0x0015, 0x0016, 0x0019, 0x001a, 0x001b, 0x001c,
+#				0x0017, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000A,
+#				0x000b, 0x000c]
+
+
+MAX_EVENT_NOREPLY = 9
+MAX_EVENTS = 0x00FF
+
+DEBUG = False
+#DEBUG = True
+
+def dprint (args):
+	if DEBUG:
+		print args
+
+def c2t (cycles):
+	return ( cycles / (2800.0 * 1000.0))  # miliseconds
 
 def print_event(event):
-	print "%-15f %-12f %-25s %-4s %-15x" % (cycles_to_time(event['TS']), 
-		cycles_to_time(event['DIFF']), event_map[event['EVENT']],
+	print "%-15f %-12f %-25s %-4s %-15x" % (c2t(event['TS']), 
+		c2t(event['DIFF']), event_map[event['EVENT']],
 	 	core_map[event['CID']], event['INFO'])
 	#print event['DIFF_S'], event_map[event['EVENT']],\
 	#core_map[event['CID']], event['INFO']
@@ -75,12 +116,19 @@ def extract_events(in_f):
 			print "Error: Cant process line " + line
 			continue
 		c_event = {}
-	#	print "Processing line " + str(tokens)
-		c_event['CID'] = int(tokens[0])
-		c_event['TS'] = int(tokens[1])
-		c_event['SYS'] = int(tokens[2][0:4],16)
-		c_event['EVENT'] = int(tokens[2][4:8],16)
-		c_event['INFO'] = int(tokens[2][8:],16)
+#		print "Processing line " + str(tokens)
+		try:
+			c_event['CID'] = int(tokens[0])
+			c_event['TS'] = int(tokens[1])
+			c_event['SYS'] = int(tokens[2][0:4],16)
+			c_event['EVENT'] = int(tokens[2][4:8],16)
+			c_event['INFO'] = int(tokens[2][8:],16)
+		except Exception as inst:
+			print type(inst) 	# the exception instance
+			print inst.args 	# arguments stored in args
+			print "exception for line " + line
+			continue
+#			raise
 
 
 		# Lets ignore non-networking events 
@@ -122,12 +170,11 @@ def print_packet(pkt):
 	print ""
 	print "######################"
 	print "Time after last packet %f" % (
-		cycles_to_time(pkt['PDIFF']))
+		c2t(pkt['PDIFF']))
 	for e in pkt['EL']:
 		print_event(e)
 	print "Packet Lifetime = %f, no. of events = %d" % (
-	cycles_to_time(pkt['STOP'] - pkt['START']), len(pkt['EL']))
-
+	c2t(pkt['STOP'] - pkt['START']), len(pkt['EL']))
 
 
 def show_packet_list(plist, only_answered=False):
@@ -136,6 +183,140 @@ def show_packet_list(plist, only_answered=False):
 			if(len(pkt['EL'])<= MAX_EVENT_NOREPLY):
 				continue
 		print_packet(pkt)
+
+def find_event_in_pkt(event_id, pkt):
+	for e in pkt['EL']:
+		if event_id == e['EVENT']:
+			return e
+	return None
+
+def add_packet_stat(pkt, stat):
+	stat['PKTS'] = stat['PKTS'] + 1
+	
+	# calculate packet lifetime
+	lifetime = pkt['EL'][-1]['TS'] - pkt['EL'][0]['TS']
+	if stat['PKTS'] == 1 :
+		stat['PLIFE_SUM'] = lifetime
+		stat['PLIFE_MAX'] = lifetime
+		stat['PLIFE_MIN'] = lifetime
+	else:
+		stat['PLIFE_SUM'] = stat['PLIFE_SUM'] + lifetime
+		if lifetime < stat['PLIFE_MIN']:
+			stat['PLIFE_MIN'] = lifetime
+		if lifetime > stat['PLIFE_MAX']:
+			stat['PLIFE_MAX'] = lifetime
+			
+#	stat['PLIFE'] = stat['PLIFE'] + ( pkt['EL'][-1]['TS'] - pkt['EL'][0]['TS'])
+
+	prev = None
+	for i in LOGICAL_ORDER:
+		e = find_event_in_pkt(i, pkt)
+		if e == None:
+			print "event does not exist in packet!!!!"
+			print "event it %d " % (i)
+			print "pkt event list is " + str(pkt['EL'])
+			sys.exit(1) #continue
+		stat['COUNT'][i] = stat['COUNT'][i] + 1
+		if prev == None:
+			# This is the first event in the packet
+			diff = 0
+		else:
+			diff = e['TS'] - prev['TS']
+		
+		
+		if stat['PKTS'] == 1 :
+			# This is the first packet
+			stat['MAX'][i] = diff
+			stat['MIN'][i] = diff
+			stat['SUM'][i] = diff
+		else:
+			stat['SUM'][i] = stat['SUM'][i] + diff
+			if (diff < stat['MIN'][i]):
+				stat['MIN'][i] = diff
+			if (diff > stat['MAX'][i]):
+				stat['MAX'][i] = diff
+		prev = e
+
+
+#	for e in pkt['EL']:
+#		print "event is %d " %(e['EVENT'])
+#		stat['COUNT'][e['EVENT']] = stat['COUNT'][e['EVENT']] + 1
+#		stat['SUM'][e['EVENT']] = stat['SUM'][e['EVENT']] + e['DIFF']
+
+def print_stats(stat):
+	print "#################################"
+	print "######## AVERAGE of pkts %d #####" % (stat['PKTS'])
+	print "#################################"
+	if stat['PKTS'] == 0 :
+		print "No answered packets!!"
+		return
+	
+	for i in LOGICAL_ORDER:
+		if stat['COUNT'][i] == 0 :
+			continue
+		avg = stat['SUM'][i] / stat['COUNT'][i]
+
+		print "e %-25s %5d %10f %10f %10f" % (event_map[i], stat['COUNT'][i], 
+							c2t(stat['MIN'][i]), c2t(avg), c2t(stat['MAX'][i]))
+
+#		print "e %s %d %f %f %f" % (event_map[i], stat['COUNT'][i], 
+#							c2t(stat['MIN'][i]), c2t(avg), c2t(stat['MAX'][i]))
+
+	print "Packet lifespan %f/%f/%f" % (c2t(stat['PLIFE_MIN']),
+				c2t(stat['PLIFE_SUM']/stat['PKTS']), c2t(stat['PLIFE_MAX']))
+
+	print "######################"
+	print "######################"
+
+def create_packet_list_stat():
+	plist_stat = {}
+	plist_stat['PKTS'] = 0
+	plist_stat['PDIFF'] = 0
+	plist_stat['PLIFE'] = 0
+	plist_stat['COUNT'] = []
+	plist_stat['SUM'] = []
+	plist_stat['MAX'] = []
+	plist_stat['MIN'] = []
+	
+	
+	for i in range(0x0001,MAX_EVENTS+1):
+		plist_stat['SUM'].append(0) #[i] = 0
+		plist_stat['COUNT'].append(0) #[i] = 0
+		plist_stat['MAX'].append(0) #[i] = 0
+		plist_stat['MIN'].append(0) #[i] = 0
+	return plist_stat
+
+def is_answered_packet(pkt):
+	if len(pkt['EL']) < len(LOGICAL_ORDER):
+		dprint("not answered pkt as len  %d is smaller than %d" % (
+							len(pkt['EL']), len(LOGICAL_ORDER)) )
+		return False
+	counter = 0
+	for e in pkt['EL']:
+		if e['EVENT'] in LOGICAL_ORDER :
+			counter = counter + 1
+	if counter == len(LOGICAL_ORDER):
+		dprint("Answered..!!!!")
+		return True
+	
+	dprint("Not answered as common events are %d instead of %d"%(counter,
+						len(LOGICAL_ORDER)))
+	return False
+
+def show_answered_packets_list(plist):
+	if plist == None:
+		print "No packets.."
+		return
+	if len(plist) == 0:
+		print "No packets..."
+		return
+	stat = create_packet_list_stat()
+	for pkt in plist:
+		if is_answered_packet(pkt):
+			dprint("there are answered packets!!!")
+			add_packet_stat(pkt, stat)
+	print_stats(stat)
+
 
 def create_empty_packet(starting_event, last_stop):
 	starting_event['DIFF'] = 0
@@ -173,17 +354,21 @@ def group_events(event_list):
 
 def process_trace(in_f):
 	elist = diff_events(extract_events(in_f))
+	dprint("no. of events detected is " + str(len(elist)))
 #	show_event_list(elist)
 	plist = group_events(elist)
+	dprint("no. of packets detected is " + str(len(plist)))
+
 #	show_packet_list(plist)
-	show_packet_list(plist, True)
+#	show_packet_list(plist, True)
+	show_answered_packets_list(plist)
 
 def show_usage():
-	print "Usage: " + sys.argv[0] + " <traceFile> <outputFile>"
+	print "Usage: " + sys.argv[0] + " <traceFile>"
 
 	
 def main():
-	if len(sys.argv) != 3:
+	if len(sys.argv) != 2:
 		show_usage()
 		sys.exit(1)
 	inputFile = open(sys.argv[1], 'r')

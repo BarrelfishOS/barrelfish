@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -22,12 +22,19 @@ typedef enum spawn_flags {
 /* XXX: utility function that doesn't really belong here */
 const char *cpu_type_to_archstr(enum cpu_type cpu_type);
 
+errval_t spawn_program_with_fdcap(coreid_t coreid, const char *path,
+                       char *const argv[], char *const envp[],
+                       struct capref fdcap,
+                       spawn_flags_t flags, domainid_t *ret_domainid);
 errval_t spawn_program(coreid_t coreid, const char *path,
                        char *const argv[], char *const envp[],
                        spawn_flags_t flags, domainid_t *ret_domainid);
 errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     char *const argv[], char *const envp[],
                                     spawn_flags_t flags, domainid_t *ret_domainid);
-errval_t spawn_set_local_memserv(coreid_t coreid);
+errval_t spawn_kill(domainid_t domainid);
+errval_t spawn_exit(uint8_t exitcode);
+errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang);
+errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client);
 
 #endif // BARRELFISH_SPAWN_CLIENT_H

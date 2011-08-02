@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -37,7 +37,7 @@ lvaddr_t vspace_genvaddr_to_lvaddr(genvaddr_t genvaddr);
 errval_t vspace_current_init(bool init_domain);
 errval_t vspace_init(struct vspace* vspace, struct pmap *pmap);
 errval_t vspace_destroy(struct vspace* vspace);
-struct vregion* vspace_get_region(struct vspace* vspace, void *addr);
+struct vregion* vspace_get_region(struct vspace* vspace, const void *addr);
 errval_t vspace_pagefault_handler(struct vspace* vspace, lvaddr_t addr,
                                   vm_fault_type_t type);
 

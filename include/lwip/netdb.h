@@ -54,11 +54,13 @@
 #define EAI_SERVICE     201
 #define EAI_FAIL        202
 #define EAI_MEMORY      203
+#define EAI_FAMILY      204
 
 #define HOST_NOT_FOUND  210
 #define NO_DATA         211
 #define NO_RECOVERY     212
 #define TRY_AGAIN       213
+#define EAI_AGAIN	TRY_AGAIN
 #endif /* LWIP_DNS_API_DEFINE_ERRORS */
 
 #if LWIP_DNS_API_DECLARE_STRUCTS

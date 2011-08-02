@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -130,7 +130,9 @@ void destroy_outgoing_cap(void *arg)
 
     errval_t err = cap_destroy(*cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_destroy failed");
+        if(err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
+            DEBUG_ERR(err, "cap_destroy failed");
+        }
     }
 
     free(cap);

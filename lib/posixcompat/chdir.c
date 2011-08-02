@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,25 +15,11 @@
 #include <vfs/vfs_path.h>
 #include "posixcompat.h"
 
-char *_posixcompat_cwd;
-
-void _posixcompat_cwd_init(void)
-{
-    if (_posixcompat_cwd == NULL) {
-        _posixcompat_cwd = strdup("/");
-        assert(_posixcompat_cwd != NULL);
-    }
-}
-
 int chdir(const char *pathname)
 {
     errval_t err;
 
-    if (_posixcompat_cwd == NULL) {
-        _posixcompat_cwd_init();
-    }
-
-    char *newcwd = vfs_path_mkabsolute(_posixcompat_cwd, pathname);
+    char *newcwd = vfs_path_mkabs(pathname);
     assert(newcwd != NULL);
 
     // ensure directory exists, by attempting to open it
@@ -49,8 +35,5 @@ int chdir(const char *pathname)
     POSIXCOMPAT_DEBUG("chdir('%s') -> '%s'\n", pathname, newcwd);
 
     // ok!
-    free(_posixcompat_cwd);
-    _posixcompat_cwd = newcwd;
-
-    return 0;
+    return setenv("PWD", newcwd, 1);
 }

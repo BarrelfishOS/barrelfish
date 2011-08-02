@@ -111,6 +111,10 @@ struct lconv current_locale = {
 char *
 setlocale(int category, const char *locale)
 {
+    if(locale == NULL) {
+        return "C";
+    }
+
 	if (strcmp(locale, "C") == 0) {
 		return "C";
 	}

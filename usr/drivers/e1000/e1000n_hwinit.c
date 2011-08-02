@@ -237,9 +237,11 @@ void e1000_hwinit(e1000_t *d, struct device_mem *bar_info,
 
     //enable interrupt throttling rate
     {
+        /*
         e1000_itr_t c = e1000_itr_rd(d);
         c.interval = 0xff;
         e1000_itr_wr(d, c);
+        */
     }
 
     if (use_interrupt) {

@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -21,7 +21,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
-#include <vfs/vfs.h>
 
 #include <lwip/netif.h>
 #include <lwip/dhcp.h>
@@ -181,14 +180,14 @@ static struct tcp_pcb *bind(int port)
 
 static void close_connection(struct tcp_pcb *pcb)
 {
-    wait_cond = true;
+    //wait_cond = true;
     //    debug_printf("closing(pcb: %p)\n", pcb);
     tcp_close(pcb);
     tcp_arg(pcb, NULL);
     tcp_sent(pcb, NULL);
     tcp_recv(pcb, NULL);
     debug_printf("connection closed\n");
-    wait_for_condition();    
+    //    wait_for_condition();    
 }
 
 
@@ -254,12 +253,6 @@ static errval_t do_receive_file(int port, char *path)
     errval_t err;
 
     debug_printf("receive file %s on port %d\n", path, port);
-
-    //    debug_printf("initialising vfs\n");
-
-    vfs_init();
-
-    //    debug_printf("vfs initialised\n");
 
     //    debug_printf("opening %s for writing\n", path);
 
@@ -373,9 +366,6 @@ static errval_t send_file(struct tcp_pcb *pcb, char *path)
 
     //    debug_printf("opening file %s...", path);
 
-    vfs_init();
-
-
     // open the file
     f = fopen(path, "r");  
     if (f == NULL) {
@@ -450,7 +440,7 @@ static errval_t do_send_file(struct in_addr *addr, int port, char *path)
 
     // debug_printf("closing connection.\n");
 
-    close_connection(pcb);
+    //    close_connection(pcb);
 
     debug_printf("connection closed.\n");
 
@@ -533,14 +523,16 @@ static struct args process_args(int argc, char *argv[])
     return res;
 }
 
+// this is a hack to force vfs library code to be included
+extern void vfs_dummy(void);
 
 int main(int argc, char *argv[])
 {
 
     struct args args = process_args(argc, argv);
 
-    //    debug_printf("IP addr: %s port: %d\n", inet_ntoa(args.addr), args.port);
-    //    debug_printf("%s file %s\n", args.send? "send": "receive", args.path);
+    // debug_printf("IP addr: %s port: %d\n", inet_ntoa(args.addr), args.port);
+    // debug_printf("%s file %s\n", args.send? "send": "receive", args.path);
 
     // Boot up
     //    debug_printf("calling stack_init()\n");
@@ -549,12 +541,16 @@ int main(int argc, char *argv[])
 
     //    debug_printf("back from stack_init()\n");
 
+    vfs_dummy();
+
     if (args.send) {
         do_send_file(&args.addr, args.port, args.path);
+        debug_printf("do_send_file finished\n");
     } else {
         do_receive_file(args.port, args.path);
     } 
 
+#if 0
     // start event loop
     errval_t err;
     struct waitset *ws = get_default_waitset();
@@ -565,6 +561,7 @@ int main(int argc, char *argv[])
             break;
         }
     }
+#endif
 
     return EXIT_SUCCESS;
 }

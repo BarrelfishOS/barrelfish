@@ -19,6 +19,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/net_constants.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <trace/trace.h>
@@ -29,15 +31,17 @@
 #include "ethersrv_debug.h"
 
 /* Enable tracing based on the global settings. */
-#if CONFIG_TRACE
-//#define TRACE_ETHERSRV_MODE 1
-#endif // CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ETHERSRV_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 /*****************************************************************
  * Constants:
  *****************************************************************/
 
 #define LAST_ACCESSED_BYTE_ARP 12
 #define LAST_ACCESSED_BYTE_TRANSPORT 36
+
+
 
 /* This is client_closure for filter management */
 struct client_closure_FM {
@@ -70,10 +74,15 @@ static void print_cardinfo_handler(struct ether_binding *cc);
 static void register_filter_memory_request(struct ether_control_binding *cc,
 		struct capref mem_cap);
 static void register_filter(struct ether_control_binding *cc, uint64_t id,
-		uint64_t len_rx, uint64_t len_tx, uint64_t buffer_id_rx,
-		uint64_t buffer_id_tx);
+            uint64_t len_rx, uint64_t len_tx, uint64_t buffer_id_rx,
+            uint64_t buffer_id_tx, uint64_t ftype);
 static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 		uint64_t len_rx, uint64_t len_tx);
+static void deregister_filter(struct ether_control_binding *cc,
+        uint64_t filter_id);
+static void re_register_filter(struct ether_control_binding *cc,
+        uint64_t filter_id, uint64_t buffer_id_rx, uint64_t buffer_id_tx);
+
 /*****************************************************************
  * VTABLE
  *****************************************************************/
@@ -91,7 +100,8 @@ static struct ether_rx_vtbl rx_ether_vtbl = {
 static struct ether_control_rx_vtbl rx_ether_control_vtbl = {
 		.register_filter_memory_request = register_filter_memory_request,
 		.register_filter_request = register_filter,
-		/*    .deregister_filter_request = NULL, */
+		.re_register_filter_request = re_register_filter,
+		.deregister_filter_request = deregister_filter,
 		.register_arp_filter_request = register_arp_filter, };
 
 /*****************************************************************
@@ -123,10 +133,6 @@ static struct filter arp_filter_rx;
 static struct filter arp_filter_tx;
 
 
-/* The service name for netd : This is used as default value in
- usr/netd/main.c: 69 */
-/* FIXME: Provide a way to override this value */
-static char *my_service_name_en = "e1000_netd";
 
 /*****************************************************************
  * Message handlers:
@@ -206,7 +212,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap)
 
 		enqueue_cont_q(ccl->q, &entry);
 
-		return;
+        return;
 	}
 
 	/* FIXME: cheat, driver is allocating some memory on behalf of client.
@@ -236,7 +242,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap)
 
 	enqueue_cont_q(ccl->q, &entry);
 	ETHERSRV_DEBUG(
-			"register_buffer:buff_id[%lu] pa[%lu] va[%p] bits[%lu]#####\n",
+			"register_buffer:buff_id[%" PRIu64 "] pa[%" PRIuLPADDR "] va[%p] bits[%" PRIu64 "]#####\n",
 			buffer->buffer_id, buffer->pa, buffer->va, buffer->bits);
 }
 
@@ -269,7 +275,7 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
     /* FIXME: following is precautionary call.  This flow of code is not
      * sending and data but only sending back the empty buffer,
      * so prepare_recv is not strictly necessary. */
-    bulk_arch_prepare_recv((void *)vaddr, len);
+    bulk_arch_prepare_recv((void *)(uintptr_t)vaddr, len);
 
     pbuf[buffer->pbuf_tail].sr = sr;
     pbuf[buffer->pbuf_tail].pbuf_id = pbuf_id;
@@ -278,9 +284,11 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
     pbuf[buffer->pbuf_tail].len = len;
     pbuf[buffer->pbuf_tail].event_sent = false;
     buffer->pbuf_tail = new_tail;
+    /*
     ETHERSRV_DEBUG("pbuf added head %u msg_hd %u tail %u in buffer %lu\n",
     		buffer->pbuf_head, buffer->pbuf_head_msg, buffer->pbuf_tail,
     		buffer->buffer_id);
+    */
     return 0;
 
 }
@@ -294,19 +302,20 @@ static void register_pbuf(struct ether_binding *cc, uint64_t pbuf_id,
 #endif // TRACE_ETHERSRV_MODE
 
 	errval_t r;
-	//    ETHERSRV_DEBUG("ETHERSRV: register_pbuf: pbuf registered ++++++++\n");
-
+/*	ETHERSRV_DEBUG("ETHERSRV: register_pbuf: %"PRIx64" registering ++++++++\n",
+	        pbuf_id);
+*/
 	struct buffer_descriptor *buffer =(struct buffer_descriptor *)
 					((struct client_closure *) (cc->st))->buffer_ptr;
 
 	/* Calculating the physical address of this pbuf. */
-	uint64_t virtual_addr = (uint64_t) buffer->va + (paddr
+	uint64_t virtual_addr = (uint64_t)(uintptr_t)buffer->va + (paddr
 			- (uint64_t) buffer->pa);
 	/* NOTE: virtual address = virtual base + physical offset */
-
-	/*    ETHERSRV_DEBUG("register_pbuf: pbuf id %lu on buff_id %lu\n",
+/*
+	ETHERSRV_DEBUG("register_pbuf: pbuf id %"PRIx64" on buff_id %"PRIx64"\n",
 	 pbuf_id, buffer->buffer_id);
-	 */
+*/
 
 	r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, cc);
 	assert(err_is_ok(r));
@@ -380,7 +389,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 		//are usually sent
 
 		ETHERSRV_DEBUG(
-				"###transmit_packet dropping the packet buff_id %lu\n",
+				"###transmit_packet dropping the packet buff_id %" PRIu64 "\n",
 				closure->buffer_ptr->buffer_id);
 		/* BIG FIXME: This should free all the pbufs and not just pbuf[0].
 		 * Also, is it certain that all packets start with pbuf[0]??
@@ -449,34 +458,51 @@ static void print_cardinfo_handler(struct ether_binding *cc) {
 
 static void export_ether_cb(void *st, errval_t err, iref_t iref) {
 	if (err_is_fail(err)) {
-		DEBUG_ERR(err, "ether export failed");
+		DEBUG_ERR(err, "service [%s] export failed", my_service_name);
 		abort();
 	}
 
-	ETHERSRV_DEBUG("ether service exported at iref %u\n", iref);
+	ETHERSRV_DEBUG("service [%s] exported at iref %u\n", my_service_name, iref);
 
 	// register this iref with the name service
 	err = nameservice_register(my_service_name, iref);
 	if (err_is_fail(err)) {
-		DEBUG_ERR(err, "nameservice_register failed for ether");
+		DEBUG_ERR(err, "nameservice_register failed for [%s]", my_service_name);
 		abort();
 	}
 }
 
 static void export_ether_control_cb(void *st, errval_t err, iref_t iref) {
+    char service_name[100];
+    snprintf(service_name, sizeof(service_name), "%s%s", my_service_name,
+            FILTER_SERVICE_SUFFIX);
 	if (err_is_fail(err)) {
-		DEBUG_ERR(err, "ether_netd export failed");
+		DEBUG_ERR(err, "service[%s] export failed", service_name);
 		abort();
 	}
 
-	ETHERSRV_DEBUG("ether_netd service exported at iref %u\n", iref);
+	ETHERSRV_DEBUG("service [%s] exported at iref %u\n", service_name, iref);
 
 	// register this iref with the name service
-	err = nameservice_register(my_service_name_en, iref);
+	err = nameservice_register(service_name, iref);
 	if (err_is_fail(err)) {
-		DEBUG_ERR(err, "nameservice_register failed for ether_netd");
+		DEBUG_ERR(err, "nameservice_register failed for [%s]", service_name);
 		abort();
 	}
+}
+
+static void error_handler(struct ether_binding *b, errval_t err)
+{
+	ETHERSRV_DEBUG("ether service error_handler: called\n");
+	if (err == SYS_ERR_CAP_NOT_FOUND){
+		struct client_closure *cc = b->st;
+		assert(cc != NULL);
+		struct buffer_descriptor *buffer = cc->buffer_ptr;
+		assert(buffer != NULL);
+		free(buffer);
+		free(cc);	
+	}
+	ETHERSRV_DEBUG("ether service error_handler: terminated\n");
 }
 
 static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
@@ -487,6 +513,7 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 
 	// copy my message receive handler vtable to the binding
 	b->rx_vtbl = rx_ether_vtbl;
+	b->error_handler = error_handler;
 
 	struct client_closure *cc = (struct client_closure *) malloc(
 			sizeof(struct client_closure));
@@ -559,6 +586,7 @@ static errval_t connect_ether_control_cb(void *st,
 
 	// copy my message receive handler vtable to the binding
 	b->rx_vtbl = rx_ether_control_vtbl;
+	//b->error_handler = error_handler;
 
 	struct client_closure_FM *ccfm = (struct client_closure_FM*) malloc(
 			sizeof(struct client_closure_FM));
@@ -609,7 +637,7 @@ void ethersrv_init(char *service_name,
 			export_ether_cb, connect_ether_cb, get_default_waitset(),
 			IDC_EXPORT_FLAGS_DEFAULT);
 	if (err_is_fail(err)) {
-		DEBUG_ERR(err, "ether export failed");
+		DEBUG_ERR(err, "%s export failed", my_service_name);
 		abort();
 	}
 
@@ -619,7 +647,7 @@ void ethersrv_init(char *service_name,
 			connect_ether_control_cb, get_default_waitset(),
 			IDC_EXPORT_FLAGS_DEFAULT);
 	if (err_is_fail(err)) {
-		DEBUG_ERR(err, "ether_netd export failed");
+		DEBUG_ERR(err, "ethersrv_netd export failed");
 		abort();
 	}
 }
@@ -704,13 +732,13 @@ static errval_t send_register_filter_response(struct q_entry e) {
 	struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 	if (b->can_send(b)) {
 		return b->tx_vtbl.register_filter_response(b,
-				MKCONT(cont_queue_callback, ccfm->q), e.plist[0], e.plist[1],
-				e.plist[2], e.plist[3], e.plist[4]);
-		/* e.id,       e.error,     e.filter_id,    e.buffer_id_rx, e.buffer_id_tx */
+			MKCONT(cont_queue_callback, ccfm->q),
+			e.plist[0], e.plist[1], e.plist[2], e.plist[3], e.plist[4], e.plist[5]);
+	     /* e.id,       e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_tx, e.filter_type */
 
 	} else {
 		ETHERSRV_DEBUG(
-				"send_resigered_filter: ID %lu: Flounder bsy will retry\n",
+				"send_resigered_filter: ID %" PRIu64 ": Flounder bsy will retry\n",
 				e.plist[0]);
 		return FLOUNDER_ERR_TX_BUSY;
 	}
@@ -718,7 +746,8 @@ static errval_t send_register_filter_response(struct q_entry e) {
 
 static void wrapper_send_filter_registered_msg(
 		struct ether_control_binding *cc, uint64_t id, errval_t err,
-		uint64_t filter_id, uint64_t buffer_id_rx, uint64_t buffer_id_tx) {
+		uint64_t filter_id, uint64_t buffer_id_rx, uint64_t buffer_id_tx,
+		uint64_t ftype) {
 
 	/* call registered_netd_memory with new IDC */
 
@@ -733,8 +762,9 @@ static void wrapper_send_filter_registered_msg(
 	entry.plist[2] = filter_id;
 	entry.plist[3] = buffer_id_rx;
 	entry.plist[4] = buffer_id_tx;
-	/* e.plist[0], e.plist[0], e.plist[1], e.plist[2],      e.plist[3]);
-	 e.id,       e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_tx */
+	entry.plist[5] = ftype;
+	/* e.plist[0], e.plist[1], e.plist[2],  e.plist[3],     e.plist[4],     e.plist[5]);
+	   e.id,       e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_tx, e.filter_type */
 
 	enqueue_cont_q(ccfm->q, &entry);
 
@@ -745,17 +775,18 @@ static void wrapper_send_filter_registered_msg(
  */
 static void register_filter(struct ether_control_binding *cc, uint64_t id,
 			uint64_t len_rx, uint64_t len_tx, uint64_t buffer_id_rx,
-			uint64_t buffer_id_tx)
+			uint64_t buffer_id_tx, uint64_t ftype)
 {
 	errval_t err = SYS_ERR_OK;
-	ETHERSRV_DEBUG("Register_filter: ID:%lu buffers RX[%lu] and TX[%lu]\n", id,
-			buffer_id_rx, buffer_id_tx);
+	ETHERSRV_DEBUG("Register_filter: ID:%" PRIu64 " of type[%" PRIu64 "] buffers RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
+	        id, ftype, buffer_id_rx, buffer_id_tx);
 
 	struct buffer_descriptor *buffer_rx = NULL;
 	struct buffer_descriptor *buffer_tx = NULL;
 	struct buffer_descriptor *tmp = buffers_list;
 
 	while (tmp) {
+
 		if (tmp->buffer_id == buffer_id_tx) {
 			buffer_tx = tmp;
 		}
@@ -776,7 +807,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 		err = FILTER_ERR_BUFF_NOT_FOUND;
 
 		wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-				buffer_id_tx);
+				buffer_id_tx, ftype);
 		return;
 	}
 
@@ -794,7 +825,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 		ETHERSRV_DEBUG("no memory available for filter transfer\n");
 		err = FILTER_ERR_NO_NETD_MEM;
 		wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-				buffer_id_tx);
+				buffer_id_tx, ftype);
 		return;
 	}
 
@@ -809,7 +840,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 		ETHERSRV_DEBUG("out of memory for filter registration\n");
 		err = E1000_ERR_NOT_ENOUGH_MEM;
 		wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-				buffer_id_tx);
+				buffer_id_tx, ftype);
 
 		if (new_filter_rx) {
 			free(new_filter_rx);
@@ -833,7 +864,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 		ETHERSRV_DEBUG("out of memory for filter data registration\n");
 		err = E1000_ERR_NOT_ENOUGH_MEM;
 		wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
-				buffer_id_tx);
+				buffer_id_tx, ftype);
 
 		if (new_filter_rx->data) {
 			free(new_filter_rx->data);
@@ -859,10 +890,11 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 	memcpy(new_filter_rx->data, buf, len_rx);
 	new_filter_rx->len = len_rx;
 	new_filter_rx->filter_id = filter_id_counter;
+	new_filter_rx->filter_type = ftype;
 	new_filter_rx->buffer = buffer_rx;
 	new_filter_rx->next = rx_filters;
 	rx_filters = new_filter_rx;
-	ETHERSRV_DEBUG("filter registered with id %lu and len %d\n",
+	ETHERSRV_DEBUG("filter registered with id %" PRIu64 " and len %d\n",
 			new_filter_rx->filter_id, new_filter_rx->len);
 
 	// tx filter
@@ -870,21 +902,229 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 	memcpy(new_filter_tx->data, bbuf_tx, len_tx);
 	new_filter_tx->len = len_tx;
 	new_filter_tx->filter_id = filter_id_counter;
+	new_filter_tx->filter_type = ftype;
 	new_filter_tx->buffer = buffer_tx; // we do not really need to set this
 	/* FIXME: following linked list implementation looks buggy */
 	new_filter_tx->next = buffer_tx->tx_filters;
 	buffer_tx->tx_filters = new_filter_tx;
+	/* FIXME: following looks buggy!!! */
 	buffer_rx->tx_filters = new_filter_tx; // sometimes rx buffers transmit
 
 	/* reporting back the success/failure */
 	wrapper_send_filter_registered_msg(cc, id, err, filter_id_counter,
-			buffer_id_rx, buffer_id_tx);
+			buffer_id_rx, buffer_id_tx, ftype);
 
-	ETHERSRV_DEBUG(
-			"Register_filter: ID %lu: successful [%lu]\n", id,
-			filter_id_counter);
+	ETHERSRV_DEBUG("Register_filter: ID %" PRIu64 ": type[%"PRIu64"] successful [%" PRIu64 "]\n",
+			id, ftype, filter_id_counter);
 
 } /* end function: register filter */
+
+
+/* Handler for sending response to deregister_filter */
+static errval_t send_deregister_filter_response(struct q_entry e) {
+    //    ETHERSRV_DEBUG("send_deresigered_filter_response for ID %lu  -----\n", e.plist[0]);
+    struct ether_control_binding *b =
+            (struct ether_control_binding *) e.binding_ptr;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
+    if (b->can_send(b)) {
+        return b->tx_vtbl.deregister_filter_response(b,
+                MKCONT(cont_queue_callback, ccfm->q),
+                e.plist[0], e.plist[1]);
+             /* e.error,    e.filter_id,  */
+
+    } else {
+        ETHERSRV_DEBUG(
+                "send_deresiger_filter_response: Filter_ID %" PRIu64 ": Flounder bsy will retry\n",
+                e.plist[1]);
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+static void wrapper_send_filter_deregister_msg(
+        struct ether_control_binding *cc, errval_t err, uint64_t filter_id) {
+
+    /* call registered_netd_memory with new IDC */
+
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_deregister_filter_response;
+    entry.binding_ptr = (void *) cc;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
+
+    entry.plist[0] = err;
+    entry.plist[1] = filter_id;
+    /* e.plist[0], e.plist[1] );
+       e.error,    e.filter_id */
+    enqueue_cont_q(ccfm->q, &entry);
+}
+
+static struct filter *delete_from_filter_list(struct filter *head, uint64_t filter_id)
+{
+    struct filter *prev = NULL;
+    while(head != NULL){
+        if(head->filter_id == filter_id){
+            if(prev == NULL) {
+                rx_filters = head->next;
+            } else {
+                prev->next = head->next;
+            }
+            return head;
+        } /* end if: filter_id found */
+    } /* end while: for each element in list */
+    return NULL; /* could not not find the id. */
+}
+
+
+/**
+ * \brief: Deregisters the filter with network driver
+ */
+static void deregister_filter(struct ether_control_binding *cc,
+        uint64_t filter_id)
+{
+    errval_t err = SYS_ERR_OK;
+    ETHERSRV_DEBUG("DeRegister_filter: ID:%" PRIu64 "\n", filter_id);
+
+    /* Create the filter data-structures */
+    struct filter *rx_filter = NULL;
+    struct filter *tx_filter = NULL;
+
+    rx_filter = delete_from_filter_list(rx_filters, filter_id);
+    /* FIXME: delete the tx_filter from the filter list "buffer_rx->tx_filters" */
+//    tx_filter = delete_from_filter_list(tx_filters, filter_id);
+
+    if(rx_filter == NULL  /*|| tx_filter == NULL*/) {
+        ETHERSRV_DEBUG("Deregister_filter:requested filter_ID [%" PRIu64 "] not found\n", filter_id);
+        err = FILTER_ERR_FILTER_NOT_FOUND;
+    }
+
+    if(rx_filter) {
+        free(rx_filter);
+    }
+
+    if(tx_filter) {
+        free(tx_filter);
+    }
+
+    /* reporting back the success/failure */
+    wrapper_send_filter_deregister_msg(cc, err, filter_id);
+
+    ETHERSRV_DEBUG("Deregister_filter: ID %" PRIu64 ": Done\n", filter_id);
+
+} /* end function: deregister_filter */
+
+
+
+/* Handler for sending response to re register_filter */
+static errval_t send_re_register_filter_response(struct q_entry e) {
+    //    ETHERSRV_DEBUG("send_re_register_filter_response for ID %lu  -----\n", e.plist[0]);
+    struct ether_control_binding *b =
+            (struct ether_control_binding *) e.binding_ptr;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
+    if (b->can_send(b)) {
+        return b->tx_vtbl.re_register_filter_response(b,
+                MKCONT(cont_queue_callback, ccfm->q),
+                e.plist[0], e.plist[1], e.plist[2], e.plist[2]);
+             /* e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
+
+    } else {
+        ETHERSRV_DEBUG(
+                "send_re_register_filter_response: Filter_ID %" PRIu64 ": Flounder bsy will retry\n",
+                e.plist[1]);
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+} /* end function: send_re_register_filter_response */
+
+static void wrapper_send_filter_re_register_msg(
+        struct ether_control_binding *cc, errval_t err, uint64_t filter_id,
+        uint64_t buffer_id_rx, uint64_t buffer_id_tx)
+{
+
+    /* call registered_netd_memory with new IDC */
+
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_re_register_filter_response;
+    entry.binding_ptr = (void *) cc;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
+
+    entry.plist[0] = err;
+    entry.plist[1] = filter_id;
+    entry.plist[2] = buffer_id_rx;
+    entry.plist[3] = buffer_id_tx;
+/*    e.plist[0], e.plist[1],  e.plist[2],     e.plist[2]
+      e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
+    enqueue_cont_q(ccfm->q, &entry);
+} /* end function: wrapper_send_filter_re_register_msg */
+
+
+static struct filter *find_from_filter_list(struct filter *head,
+        uint64_t filter_id)
+{
+    while(head != NULL){
+        if(head->filter_id == filter_id){
+            return head;
+        } /* end if: filter_id found */
+    } /* end while: for each element in list */
+    return NULL; /* could not not find the id. */
+}
+
+static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
+{
+    struct buffer_descriptor *buffer = buffers_list;
+    while(buffer) {
+        if(buffer->buffer_id == buffer_id) {
+            return buffer;
+        }
+    }
+    return NULL;
+} /* end function: buffer_descriptor */
+
+/**
+ * \brief: re-registers the filter with network driver
+ */
+static void re_register_filter(struct ether_control_binding *cc,
+        uint64_t filter_id, uint64_t buffer_id_rx, uint64_t buffer_id_tx)
+{
+    errval_t err = SYS_ERR_OK;
+    ETHERSRV_DEBUG("re_register_filter: ID:%" PRIu64 "\n", filter_id);
+
+    /* Create the filter data-structures */
+    struct filter *rx_filter = NULL;
+//    struct filter *tx_filter = NULL;
+
+    rx_filter = find_from_filter_list(rx_filters, filter_id);
+    /* FIXME: delete the tx_filter from the filter list "buffer_rx->tx_filters" */
+//    tx_filter = delete_from_filter_list(tx_filters, filter_id);
+
+    if(rx_filter == NULL  /*|| tx_filter == NULL*/) {
+        ETHERSRV_DEBUG("re_register_filter: requested filter_ID [%" PRIu64 "] not found\n", filter_id);
+        err = FILTER_ERR_FILTER_NOT_FOUND;
+        wrapper_send_filter_re_register_msg(cc, err, filter_id,
+                buffer_id_rx, buffer_id_tx);
+        return;
+    }
+    /* Find the buffer with given buffer_id */
+    struct buffer_descriptor *buffer_rx = find_buffer(buffer_id_rx);
+    struct buffer_descriptor *buffer_tx = NULL;
+    buffer_tx = find_buffer(buffer_id_tx);
+    if(buffer_rx == NULL || buffer_rx == NULL) {
+        ETHERSRV_DEBUG("re_register_filter: provided buffer id's not found\n");
+        ETHERSRV_DEBUG("re_register_filter: rx=[[%" PRIu64 "] = %p], tx=[[%" PRIu64 "] = %p]\n",
+                buffer_id_rx, buffer_rx, buffer_id_tx, buffer_tx);
+        err =  FILTER_ERR_BUFFER_NOT_FOUND; /* set error value */
+        wrapper_send_filter_re_register_msg(cc, err, filter_id, buffer_id_rx,
+                buffer_id_tx);
+    }
+    rx_filter->buffer = buffer_rx;
+    /* FIXME: Also, set the new buffer for tx_filters */
+    /* reporting back the success/failure */
+    wrapper_send_filter_re_register_msg(cc, err, filter_id, buffer_id_rx,
+            buffer_id_tx);
+
+    ETHERSRV_DEBUG("re_register_filter: ID %" PRIu64 ": Done\n", filter_id);
+
+} /* end function: re_register_filter */
+
 
 /* Handler for sending response to register_filter */
 static errval_t send_register_arp_filter_response(struct q_entry entry) {
@@ -1004,8 +1244,8 @@ static errval_t send_received_packet_handler(struct q_entry entry)
     	errval_t err;
     	if(entry.plist[2] == 0 || entry.plist[1] == 0) {
     		/* FIXME: handle this error in better way. */
-    		printf("##ERROR: trying to send pbuf_id %lu at %lu "
-    				"of size %lu and len %lu\n",
+    	    ETHERSRV_DEBUG("##ERROR: trying to send pbuf_id %"PRIx64" at %"PRIx64" "
+    				"of size %"PRIx64" and len %"PRIx64"\n",
     				entry.plist[0], entry.plist[1],
     				entry.plist[2], entry.plist[3]);
     		assert(entry.plist[2] != 0);
@@ -1052,7 +1292,7 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     		(uint32_t)rx_pbuf->pbuf_id);
 #endif // TRACE_ETHERSRV_MODE
 
-    bulk_arch_prepare_send((void *)rx_pbuf->vaddr, rx_pbuf->len);
+    bulk_arch_prepare_send((void *)(uintptr_t)rx_pbuf->vaddr, rx_pbuf->len);
 
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
@@ -1064,13 +1304,13 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     entry.plist[2] = rx_pbuf->len;
     entry.plist[3] = rx_pbuf->packet_size;
 	if(entry.plist[2] == 0 || entry.plist[1] == 0) {
-		printf("## trying to enqueue pbuf_id %lu at %lu of size %lu and len %lu\n",
+	    ETHERSRV_DEBUG("## trying to enqueue pbuf_id %"PRIx64" at %"PRIx64" of size %"PRIx64" and len %"PRIx64"\n",
 				entry.plist[0], entry.plist[1], entry.plist[2], entry.plist[3]);
 		assert(entry.plist[2] != 0);
 	}
 
     enqueue_cont_q(ccl->q, &entry);
-//   ETHERSRV_DEBUG("send_packet_received done\n");
+    //    ETHERSRV_DEBUG("send_packet_received done\n");
     /* entry.plist[0], entry.plist[1], entry.plist[2], entry.plist[3]*/
     /* entry.pbuf_id,  entry.paddr,    entry.len,      entry.length */
 
@@ -1092,52 +1332,58 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     struct pbuf_desc *pbuf_list = (struct pbuf_desc *)(buffer->pbuf_metadata_ds);
 
     if(len <= 0 || data == NULL) {
-    	printf("ERROR: copy_packet_to_user: Invalid packet \n");
+    	printf("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"PRIu64" and ptr [%p]\n",
+               disp_get_core_id(), len, data);
+//        abort();
+
     	return false;
     	/* This is just another error, don't abort, ignore the packet
     	 * and continue. */
-    	// abort();
     }
 
     phead = buffer->pbuf_head;
     ptail = buffer->pbuf_tail;
 
-/*	ETHERSRV_DEBUG("Copy_packet_2_usr_buf [%lu]: phead[%u] ptail[%u]\n",
+    ETHERSRV_DEBUG("Copy_packet_2_usr_buf [%" PRIu64 "]: phead[%u] ptail[%u]\n",
 			buffer->buffer_id, buffer->pbuf_head, buffer->pbuf_tail);
-*/
 
     struct pbuf_desc *upbuf = &pbuf_list[phead];
 //    assert(upbuf != NULL);
     if(upbuf == NULL) {
     	/* pbufs are not yet registered, so can't send packet to userspace. */
-//    	printf("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
+    	printf("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
     	return false;
     }
 
     if(((phead + 1) % RECEIVE_BUFFERS ) == ptail) {
-/*    	printf("no space in userspace 2cp pkt buf [%lu]: phead[%u] ptail[%u]\n",
-    			buffer->buffer_id, buffer->pbuf_head, buffer->pbuf_tail);
-*/
+
+    	ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: phead[%u] ptail[%u]\n",
+    		disp_get_domain_id(), buffer->buffer_id, buffer->pbuf_head, buffer->pbuf_tail);
     	return false;
     }
-    void *dst = (void *)upbuf->vaddr;
 
-    /*
+    void *dst = (void *)(uintptr_t)upbuf->vaddr;
+
     ETHERSRV_DEBUG("Copy packet pos %p %p %p\n", buffer->va ,dst,
     		(buffer->va + (1L << buffer->bits)));
-     */
 
     if((dst < (buffer->va + (1L << buffer->bits))) && (dst >= buffer->va)) {
-    	memcpy((void*)upbuf->vaddr, data, len);
+        memcpy((void*)(uintptr_t)upbuf->vaddr, data, len);
    } else {
     	// k: naughty client does not deserve a packet :)
     	ETHERSRV_DEBUG("naughty client detected\n");
     	return false;
     }
+    // add trace pkt cpy
+#if TRACE_ETHERSRV_MODE
+    uint32_t pkt_location = (uint32_t)((uint64_t)data);
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
+#endif // TRACE_ETHERSRV_MODE
+
     upbuf->packet_size = len;
     phead = (phead + 1) % RECEIVE_BUFFERS;
     buffer->pbuf_head = phead;
-//    ETHERSRV_DEBUG("packet copied to userspace\n");
+    ETHERSRV_DEBUG("packet copied to userspace\n");
     return send_packet_received_notification(buffer, upbuf);
 }
 
@@ -1183,17 +1429,20 @@ struct buffer_descriptor *execute_filters(void *data, size_t len)
 	    res = execute_filter(head->data, head->len, (uint8_t *)data,
 		    len, &error);
 	    if(res) {
-/*	    	ETHERSRV_DEBUG("##### Filter_id %lu matched giving buff %lu..\n",
-					head->filter_id, head->buffer->buffer_id);
-*/
-
-	    	return head->buffer;
+                // FIXME IK: we need some way of testing how precise a match is
+                // and take the most precise match (ie with the least wildcards)
+                // Currently we just take the most recently added filter as
+                // reflected by the order in the list.
+	        ETHERSRV_DEBUG("##### Filter_id [%" PRIu64"] type[%" PRIu64"] matched giving buff [%"PRIu64"]..\n",
+					head->filter_id, head->filter_type, head->buffer->buffer_id);
+                return head->buffer;
 	    }
 	    head = head->next;
 	}
-	return NULL;
+        return NULL;
 }
 
+#if 0
 static bool only_one_user_app(void)
 {
 	if(buffer_id_counter == 3 || buffer_id_counter == 4){
@@ -1203,6 +1452,7 @@ static bool only_one_user_app(void)
 	}
 	return false;
 }
+#endif // 0
 
 void process_received_packet(void *pkt_data, size_t pkt_len)
 {
@@ -1215,6 +1465,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 	/* check if there is only one application,
 	 * then directly transfer the packet. */
 
+#if 0
 	if(only_one_user_app()){
 /*
 		printf("Taking single app path with buff id %lu\n",
@@ -1227,6 +1478,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 		return;
 */
 	}
+#endif // 0
 
 	if(handle_fragmented_packet(pkt_data, pkt_len)) {
 		ETHERSRV_DEBUG("fragmented packet..\n");
@@ -1234,19 +1486,33 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 	}
 
 
+#if TRACE_ETHERSRV_MODE
+	pkt_location = (uint32_t)((uint64_t)pkt_data);
+	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_FILTER_FRAG, pkt_location);
+#endif // TRACE_ETHERSRV_MODE
+
 	//	printf("normal non-SA mode packet\n");
+	buffer = execute_filters(pkt_data, pkt_len);
 
 	// executing filters to find the relevant buffer
 	if ((buffer = execute_filters(pkt_data, pkt_len)) != NULL){
-/*		printf("multiple app path with buff id %lu\n",
-				buffer->buffer_id);
+/*             printf("multiple app path with buff id %lu\n",
+                               buffer->buffer_id);
 */
-		if(copy_packet_to_user(buffer, pkt_data, pkt_len) == false) {
+		bool ret = copy_packet_to_user(buffer, pkt_data, pkt_len);
+		if(ret == false) {
 //			printf("A: Copy packet to userspace failed\n");
 		}
-//		printf("Application packet arrived for buff %lu\n", buffer->buffer_id);
+		//debug_printf("Application packet arrived for buff %lu\n", buffer->buffer_id);
 		return;
 	}
+
+// add trace filter_execution_end_1
+#if TRACE_ETHERSRV_MODE
+	pkt_location = (uint32_t)((uint64_t)pkt_data);
+	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_FILTER_EX_1, pkt_location);
+#endif // TRACE_ETHERSRV_MODE
+
 
 	/* no filter is succeeded. So, two case could happen:
 	   1: arp packets. in this case we copy the arp packet to
@@ -1272,6 +1538,12 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 		return;
 	}
 
+	// add trace filter_execution_end_2
+#if TRACE_ETHERSRV_MODE
+	pkt_location = (uint32_t)((uint64_t)pkt_data);
+	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_FILTER_EX_2, pkt_location);
+#endif // TRACE_ETHERSRV_MODE
+
 	/* assuming that it is netd */
 //  ETHERSRV_DEBUG("No client wants, giving it to netd\n");
 	buffer = ((struct client_closure *)
@@ -1281,8 +1553,11 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
     /* copy the packet to userspace */
 	if(copy_packet_to_user(buffer, pkt_data, pkt_len) == false) {
 //		ETHERSRV_DEBUG("Copy packet to userspace failed\n");
-		printf("O:Copy packet to userspace failed\n");
+//		printf("O:Copy packet to userspace failed\n");
 	}
+
+
+
 } /* end function: process_received_packet */
 
 /* This function tells if netd is registered or not. */

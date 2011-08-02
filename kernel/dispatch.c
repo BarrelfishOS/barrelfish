@@ -124,14 +124,19 @@ static inline void context_switch(struct dcb *dcb)
                 // Store old FPU state if it was used
                 if(fpu_dcb->disabled) {
                     fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
-                    /* printf("FPU eager switch while disabled\n"); */
+		    dst->fpu_used = 1;
                 } else {
                     assert(!fpu_dcb->disabled);
                     fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
+		    dst->fpu_used = 2;
                 }
-                dst->fpu_used = 1;
 
-                fpu_restore(dispatcher_get_disabled_fpu_save_area(dcb->disp));
+		if(disp->fpu_used == 1) {
+		  fpu_restore(dispatcher_get_disabled_fpu_save_area(dcb->disp));
+		} else {
+		  assert(disp->fpu_used == 2);
+		  fpu_restore(dispatcher_get_enabled_fpu_save_area(dcb->disp));
+		}
 
                 // Restore trap state once more, since we modified it
                 if(disp->fpu_trap) {
@@ -140,10 +145,6 @@ static inline void context_switch(struct dcb *dcb)
                     fpu_trap_off();
                 }
             }
-            // XXX: Not sure this is correct
-            // Wouldn't this allow the FPU not to be restored if we
-            // context switch more than once while disabled?
-            disp->fpu_used = 0;
             fpu_dcb = dcb;
         }
 #endif

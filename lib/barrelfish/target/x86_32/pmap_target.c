@@ -31,7 +31,7 @@
 // Location and size of virtual address space reserved for mapping
 // frames backing refill_slabs
 #define META_DATA_RESERVED_BASE ((lvaddr_t)1UL*1024*1024*1024)
-#define META_DATA_RESERVED_SIZE (X86_32_BASE_PAGE_SIZE * 1000)
+#define META_DATA_RESERVED_SIZE (X86_32_BASE_PAGE_SIZE * 1200)
 
 /**
  * \brief Translate generic vregion flags to architecture specific pmap flags

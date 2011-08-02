@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,30 +10,25 @@
 #ifndef SYS_ARCH_H
 #define SYS_ARCH_H
 
+#include <barrelfish/barrelfish.h>
+
 /// Protection level
 typedef u8_t    sys_prot_t;
 
-// XXX: Still need to be implemented
-typedef u8_t sys_sem_t;
-typedef u8_t sys_mbox_t;
-struct sys_timeo {u8_t dummy;};
+typedef struct thread_wrapper *sys_thread_t;
 
-// XXX: Still need to be implemented
-#define sys_init()
-#define sys_timeout(m,h,a)
-#define sys_untimeout(m,a)
-#define sys_sem_new(c) c
-#define sys_sem_signal(s)
-#define sys_sem_wait(s)
-#define sys_sem_wait_timeout(s,t)
-#define sys_arch_sem_wait(s,t)
-#define sys_sem_free(s)
-#define sys_mbox_new(s) 0
-#define sys_mbox_fetch(m,d)
-#define sys_mbox_tryfetch(m,d)
-#define sys_mbox_post(m,d)
-#define sys_mbox_trypost(m,d)
-#define sys_mbox_free(m)
-#define sys_thread_new(n,t,a,s,p)
+typedef struct thread_sem *sys_sem_t;
+
+struct bf_sys_mbox {
+    void *msg;
+    bool empty;
+    struct thread_mutex mutex;
+    struct thread_cond changed_cond;
+};
+typedef struct bf_sys_mbox * sys_mbox_t;
+
+
+#define SYS_MBOX_NULL   0
+#define SYS_SEM_NULL    0
 
 #endif

@@ -20,7 +20,7 @@ bool perfmon_amd_supported(void);
 
 void perfmon_amd_measure_stop(uint8_t idx);
 void perfmon_amd_measure_start(uint16_t event, uint8_t umask, bool os, 
-	uint8_t idx);
+                               uint8_t idx, bool intr);
 uint64_t perfmon_amd_measure_read(uint8_t idx);
 void perfmon_amd_measure_write(uint64_t val, uint8_t idx);
 

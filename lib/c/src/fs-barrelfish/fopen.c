@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -27,4 +27,22 @@ FILE *fdopen(int fd, const char *mode)
 {
     fprintf(stderr, "Warning: fdopen() unimplemented\n");
     return NULL;
+}
+
+FILE *freopen(const char *fname, const char *mode, FILE *stream)
+{
+    fprintf(stderr, "Warning: freopen() unimplemented\n");
+    return NULL;
+}
+
+FILE *popen(const char *command, const char *type)
+{
+    fprintf(stderr, "Warning: popen() unimplemented\n");
+    return NULL;
+}
+
+int pclose(FILE *stream)
+{
+    fprintf(stderr, "Warning: pclose() unimplemented\n");
+    return -1;
 }

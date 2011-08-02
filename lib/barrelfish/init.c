@@ -23,6 +23,7 @@
 #include <barrelfish/morecore.h>
 #include <barrelfish/monitor_client.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/spawn_client.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
 #include <trace/trace.h>
@@ -47,13 +48,27 @@ extern void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
 static void libc_exit(int status)
 {
-    errval_t err = cap_revoke(cap_dispatcher);
-    if (err_is_fail(err)) {
-        sys_print("revoking dispatcher failed in _Exit, spinning!", 100);
-        while (1) {}
+    printf("%s exiting\n", disp_name());
+
+    // Use spawnd if spawned through spawnd
+    if(disp_get_domain_id() == 0) {
+        errval_t err = cap_revoke(cap_dispatcher);
+        if (err_is_fail(err)) {
+	    sys_print("revoking dispatcher failed in _Exit, spinning!", 100);
+	    while (1) {}
+        }
+        err = cap_delete(cap_dispatcher);
+        sys_print("deleting dispatcher failed in _Exit, spinning!", 100);
+
+        // XXX: Leak all other domain allocations
+    } else {
+        errval_t err = spawn_exit(status);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "spawn_exit");
+        }
     }
-    err = cap_delete(cap_dispatcher);
-    sys_print("deleting dispatcher failed in _Exit, spinning!", 100);
+
+    // If we're not dead by now, we wait
     while (1) {}
 }
 
@@ -156,7 +171,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     // Initialize ram_alloc state
     ram_alloc_init();
     /* All domains use smallcn to initialize */
-    err = ram_alloc_set(ram_alloc_fixed, NULL);
+    err = ram_alloc_set(ram_alloc_fixed);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
@@ -231,7 +246,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
 
     /* XXX: Setup the channel with mem_serv and use the channel instead */
-    err = ram_alloc_set(NULL, NULL);
+    err = ram_alloc_set(NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, ETH Zurich.
+ * Copyright (c) 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -261,12 +261,194 @@ static void get_service_handler(struct nameservice_binding *b,
     assert(err_is_ok(err)); // XXX
 }
 
+/***** Simple capability store *****/
+
+static struct hashtable *capdb = NULL;
+
+static void get_cap_handler(struct nameservice_binding *b, char *key)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+    struct capref cap;
+
+    capdb->d.get_capability(&capdb->d, key, &cap);
+
+    if(capcmp(cap, NULL_CAP)) {
+        reterr = CHIPS_ERR_UNKNOWN_NAME;
+    }
+
+    err = b->tx_vtbl.get_cap_response(b, NOP_CONT, cap, reterr);
+    assert(err_is_ok(err));
+}
+
+static void put_cap_handler(struct nameservice_binding *b, char *key,
+                            struct capref cap)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+    struct capref dbcap;
+
+    capdb->d.get_capability(&capdb->d, key, &dbcap);
+    if(!capcmp(dbcap, NULL_CAP)) {
+        reterr = CHIPS_ERR_EXISTS;
+        err = cap_delete(cap);
+        assert(err_is_ok(err));
+    } else {
+        int r = capdb->d.put_capability(&capdb->d, key, cap);
+        assert(r == 0);
+    }
+
+    err = b->tx_vtbl.put_cap_response(b, NOP_CONT, reterr);
+    assert(err_is_ok(err));
+}
+
+/***** Semaphores  *****/
+
+#define MAX_SEM         2048
+#define MAX_QUEUE       128
+
+struct sem {
+    bool allocated;
+    uint32_t value;
+    struct nameservice_binding *queue[MAX_QUEUE];
+//  struct nameservice_binding *holder;
+};
+
+static struct sem sems[MAX_SEM];
+
+static void sem_new_handler(struct nameservice_binding *b, uint32_t value)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+    int i;
+
+    for(i = 0; i < MAX_SEM; i++) {
+        if(!sems[i].allocated) {
+            sems[i].allocated = true;
+            break;
+        }
+    }
+
+    if(i != MAX_SEM) {
+      printf("chips: sem_new(%d, %u)\n", i, value);
+        sems[i].value = value;
+	// sems[i].holder = NULL;
+    } else {
+        reterr = CHIPS_ERR_OUT_OF_SEMAPHORES;
+    }
+
+    err = b->tx_vtbl.sem_new_response(b, NOP_CONT, i, reterr);
+    assert(err_is_ok(err));
+}
+
+static void sem_post_handler(struct nameservice_binding *b, uint32_t sem)
+{
+    assert(sem < MAX_SEM);
+    struct sem *s = &sems[sem];
+    assert(s->allocated);
+    errval_t err;
+
+    printf("chips: sem_post %u, %u\n", sem, s->value);
+
+    if(s->value == 0) {
+        for(int i = 0; i < MAX_QUEUE; i++) {
+            if(s->queue[i] != NULL) {
+                // Wakeup one
+	      printf("chips: waking up one\n");
+                err = s->queue[i]->tx_vtbl.sem_wait_response(s->queue[i], NOP_CONT);
+                assert(err_is_ok(err));
+                s->queue[i] = NULL;
+		goto out;
+            }
+        }
+
+	//s->holder = NULL;
+    }
+
+    // Increment
+    s->value++;
+
+ out:
+    printf("chips: sem_post done\n");
+    err = b->tx_vtbl.sem_post_response(b, NOP_CONT);
+    assert(err_is_ok(err));
+}
+
+static void sem_wait_handler(struct nameservice_binding *b, uint32_t sem)
+{
+    assert(sem < MAX_SEM);
+    struct sem *s = &sems[sem];
+    assert(s->allocated);
+    errval_t err;
+
+    printf("chips: sem_wait %u, %u\n", sem, s->value);
+
+    if(s->value == 0) {
+      int i;
+
+      printf("chips: waiting\n");
+
+/* Try to avoid the deadlock of Postgres processes entering the wait section
+ * recursively.
+      if(s->holder == b) {
+        err = b->tx_vtbl.sem_wait_response(b, NOP_CONT);
+        assert(err_is_ok(err));
+	return;
+      }
+*/
+        // Wait
+        for(i = 0; i < MAX_QUEUE; i++) {
+            if(s->queue[i] == NULL) {
+                s->queue[i] = b;
+                break;
+            }
+        }
+
+	//s->holder = b;
+	assert(i < MAX_QUEUE);
+    } else {
+        // Decrement and continue
+      printf("chips: continuing\n");
+        s->value--;
+        err = b->tx_vtbl.sem_wait_response(b, NOP_CONT);
+        assert(err_is_ok(err));
+    }
+}
+
+static void sem_trywait_handler(struct nameservice_binding *b, uint32_t sem)
+{
+    assert(sem < MAX_SEM);
+    struct sem *s = &sems[sem];
+    assert(s->allocated);
+    errval_t err;
+    bool success;
+
+    if(s->value == 0) {
+        success = false;
+    } else {
+        s->value--;
+        success = true;
+    }
+
+    printf("chips: trywait %u, %s\n", sem, success ? "yes" : "no");
+
+    err = b->tx_vtbl.sem_trywait_response(b, NOP_CONT, success);
+    assert(err_is_ok(err));
+}
+
+/**********/
+
 static struct nameservice_rx_vtbl nameservice_rx_vtbl = {
     .register_service_call = register_service_handler,
     .unregister_service_call = unregister_service_handler,
     .get_service_reference_call = get_service_reference_handler,
     .wait_for_service_reference_call = wait_for_service_reference_handler,
     .get_service_call = get_service_handler,
+
+    .get_cap_call = get_cap_handler,
+    .put_cap_call = put_cap_handler,
+
+    .sem_new_call = sem_new_handler,
+    .sem_post_call = sem_post_handler,
+    .sem_wait_call = sem_wait_handler,
+    .sem_trywait_call = sem_trywait_handler,
 };
 
 static void export_handler(void *st, errval_t err, iref_t iref)
@@ -359,6 +541,10 @@ int main(int argc, char **argv)
     // create the service registry
     registry = create_multimap();
     assert(registry != NULL);
+
+    // create the capability database
+    capdb = create_hashtable();
+    assert(capdb != NULL);
 
 #ifdef CHIPS_TESTS_ENABLED
     registry_tests();

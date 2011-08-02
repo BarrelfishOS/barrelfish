@@ -26,7 +26,7 @@
  * \brief Setup use of performance counter
  *
  * \param handle   The handle to the dispatcher
- * \param counter  Which counter to use
+ * \param counter  Which counter to use.
  * \param evt      The event to use
  * \param umask    The mask on the event
  * \param kernel   Is it kernel or user readable
@@ -37,17 +37,16 @@
 errval_t perfmon_setup(dispatcher_handle_t handle, perfmon_counter_t counter,
                        perfmon_event_t evt, perfmon_mask_t umask, bool kernel)
 {
-    struct dispatcher_generic *disp = get_dispatcher_generic(handle);
     errval_t err;
 
     // Setup the counter
-    err = invoke_perfmon_setup(disp->dcb_cap, counter, evt, umask, kernel);
+    err = invoke_perfmon_activate(cap_perfmon, evt, umask, kernel, counter, 0, 0);
     if(err_is_fail(err)) {
         err_push(err, LIB_ERR_INVOKE_PERFMON_SETUP);
     }
 
     // Initialize it to 0
-    err = invoke_perfmon_write(disp->dcb_cap, counter, 0);
+    err = invoke_perfmon_write(cap_perfmon, counter, 0);
     if(err_is_fail(err)) {
         err_push(err, LIB_ERR_INVOKE_PERFMON_WRITE);
     }

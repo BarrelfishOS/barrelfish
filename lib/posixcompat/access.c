@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,27 +13,35 @@
 #include <vfs/vfs_path.h>
 #include "posixcompat.h"
 
-//XXX: this is not as it should be.
-int access(const char*pathname,int mode)
+int access(const char *pathname, int mode)
 {
     vfs_handle_t vh;
     errval_t err;
+    int ret;
 
-    if (_posixcompat_cwd == NULL) {
-        _posixcompat_cwd_init();
-    }
-
-    char *path = vfs_path_mkabsolute(_posixcompat_cwd, pathname);
+    char *path = vfs_path_mkabs(pathname);
     assert(path != NULL);
 
     err = vfs_open(path, &vh);
-    free(path);
     if (err_is_fail(err)) {
+        if(err_no(err) == FS_ERR_NOTFILE) {
+            // Is it a directory?
+            err = vfs_opendir(path, &vh);
+            if(err_is_ok(err)) {
+                vfs_closedir(vh);
+                ret = 0;
+                goto out;
+            }
+        }
         POSIXCOMPAT_DEBUG("access(%s) failed\n", pathname);
-        return -1;
+        ret = -1;
     } else {
-        vfs_close(vh);
         POSIXCOMPAT_DEBUG("access(%s): OK\n", pathname);
-        return 0;
+        vfs_close(vh);
+        ret = 0;
     }
+
+ out:
+    free(path);
+    return ret;
 }

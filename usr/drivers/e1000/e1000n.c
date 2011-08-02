@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -20,9 +20,9 @@
 #include <ethersrv/ethersrv.h>
 #include "e1000n.h"
 #include <trace/trace.h>
-#if CONFIG_TRACE
-//#define TRACE_ETHERSRV_MODE 1
-#endif // CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ETHERSRV_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 /*****************************************************************
  * Data types:
@@ -432,6 +432,8 @@ int main(int argc, char **argv)
         if(strncmp(argv[i],"deviceid=",strlen("deviceid=")-1)==0) {
             deviceid = strtoul(argv[i] + strlen("deviceid="), NULL, 0);
             E1000N_DEBUG("deviceid = %u\n", deviceid);
+            printf("### deviceid = %u\n", deviceid);
+
         }
         if(strcmp(argv[i],"noirq")==0) {
             use_interrupt = false;
@@ -458,6 +460,9 @@ int main(int argc, char **argv)
     E1000N_DEBUG("connected to pci\n");
 
     if(use_interrupt) {
+        printf("class %x: vendor %x, device %x, function %x\n",
+                PCI_CLASS_ETHERNET, PCI_VENDOR_INTEL, deviceid,
+                function);
         r = pci_register_driver_irq(e1000_init, PCI_CLASS_ETHERNET,
                                     PCI_DONT_CARE, PCI_DONT_CARE,
                                     PCI_VENDOR_INTEL, deviceid,
@@ -467,6 +472,9 @@ int main(int argc, char **argv)
         r = pci_register_driver_noirq(e1000_init, PCI_CLASS_ETHERNET, PCI_DONT_CARE,
                                       PCI_DONT_CARE, PCI_VENDOR_INTEL, deviceid,
                                       PCI_DONT_CARE, PCI_DONT_CARE, function);
+    }
+    if(err_is_fail(r)) {
+        DEBUG_ERR(r, "pci_register_driver");
     }
     assert(err_is_ok(r));
     E1000N_DEBUG("registered driver\n");

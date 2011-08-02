@@ -389,7 +389,7 @@ static void ram_hack(void)
         assert(err_is_ok(err));
     }
 
-    err = ram_alloc_set(my_ram_alloc, NULL);
+    err = ram_alloc_set(my_ram_alloc);
     assert(err_is_ok(err));
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include "posixcompat.h"
 
 DIR *opendir(const char *pathname)
@@ -20,16 +21,15 @@ DIR *opendir(const char *pathname)
     vfs_handle_t vh;
     errval_t err;
 
-    if (_posixcompat_cwd == NULL) {
-        _posixcompat_cwd_init();
-    }
-
-    char *path = vfs_path_mkabsolute(_posixcompat_cwd, pathname);
+    char *path = vfs_path_mkabs(pathname);
     assert(path != NULL);
 
     err = vfs_opendir(path, &vh);
     free(path);
     if (err_is_fail(err)) {
+        if(err_no(err) == FS_ERR_NOTFOUND) {
+            errno = ENOENT;
+        }
         POSIXCOMPAT_DEBUG("opendir(%s) not found\n", pathname);
         return NULL;
     }
@@ -47,9 +47,9 @@ struct dirent *readdir(DIR* dir)
 {
     char *name;
     errval_t err;
-
     err = vfs_dir_read_next(dir->vh, &name, NULL);
     if (err_is_fail(err)) {
+		DEBUG_ERR(err, "vfs_dir_read_next!\n");
         return NULL;
     }
 

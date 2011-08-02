@@ -545,7 +545,7 @@ xdr_reference(XDR *xdrs,
     xdrproc_t proc)             /* xdr routine to handle the object */
 {
     char *loc = *pp;
-    bool stat;
+    bool bstat;
 
     if (loc == NULL)
         switch (xdrs->x_op) {
@@ -565,13 +565,13 @@ xdr_reference(XDR *xdrs,
             break;
     }
 
-    stat = (*proc)(xdrs, loc);
+    bstat = (*proc)(xdrs, loc);
 
     if (xdrs->x_op == XDR_FREE) {
         mem_free(loc, size);
         *pp = NULL;
     }
-    return stat;
+    return bstat;
 }
 
 
@@ -638,7 +638,7 @@ xdr_array(XDR *xdrs,
     u_int i;
     char *target = *addrp;
     u_int c;  /* the actual element count */
-    bool stat = true;
+    bool bstat = true;
     u_int nodesize;
 
     /* like strings, arrays are really counted arrays */
@@ -679,8 +679,8 @@ xdr_array(XDR *xdrs,
     /*
      * now we xdr each element of array
      */
-    for (i = 0; (i < c) && stat; i++) {
-        stat = (*elproc)(xdrs, target);
+    for (i = 0; (i < c) && bstat; i++) {
+        bstat = (*elproc)(xdrs, target);
         target += elsize;
     }
 
@@ -691,7 +691,7 @@ xdr_array(XDR *xdrs,
         mem_free(*addrp, nodesize);
         *addrp = NULL;
     }
-    return stat;
+    return bstat;
 }
 
 /*

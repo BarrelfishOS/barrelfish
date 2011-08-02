@@ -521,6 +521,7 @@ static errval_t spawn_setup_env(struct spawninfo *si,
         buf += len;
         buflen -= len;
     }
+
     assert(i <= MAX_ENVIRON_VARS);
     params->envp[i] = NULL;
 
@@ -553,6 +554,26 @@ static errval_t spawn_setup_env(struct spawninfo *si,
     return SYS_ERR_OK;
 }
 
+static errval_t spawn_setup_fdcap(struct spawninfo *si, struct capref fdcap)
+{
+    errval_t err;
+
+    if (capref_is_null(fdcap)) {
+        return SYS_ERR_OK;
+    }
+
+    // Create frame (actually multiple pages) for fds
+    si->fdcap.cnode = si->taskcn;
+    si->fdcap.slot  = TASKCN_SLOT_FDSPAGE;
+
+    err = cap_copy(si->fdcap, fdcap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_COPY_FDCAP);
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Load an image
  *
@@ -563,11 +584,13 @@ static errval_t spawn_setup_env(struct spawninfo *si,
  * \param coreid Coreid to load for, required only to place it in disp struct
  * \param argv   Command-line arguments, NULL-terminated
  * \param envp   Environment, NULL-terminated
+ * \param fdcap  Frame capability to file descriptor region
  */
 errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
                           size_t binary_size, enum cpu_type type,
                           const char *name, coreid_t coreid,
-                          char *const argv[], char *const envp[])
+                          char *const argv[], char *const envp[],
+                          struct capref fdcap)
 {
     errval_t err;
 
@@ -597,6 +620,12 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
     err = spawn_setup_dispatcher(si, coreid, name, entry, arch_info);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
+    }
+
+    /* Copy the file descriptor frame cap over */
+    err = spawn_setup_fdcap(si, fdcap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_SETUP_FDCAP);
     }
 
     /* Setup cmdline args */
@@ -796,7 +825,14 @@ errval_t spawn_run(struct spawninfo *si)
 
 errval_t spawn_free(struct spawninfo *si)
 {
-    // NYI
+    cap_destroy(si->rootcn_cap);
+    cap_destroy(si->taskcn_cap);
+    cap_destroy(si->pagecn_cap);
+    cap_destroy(si->dispframe);
+    cap_destroy(si->dcb);
+    cap_destroy(si->argspg);
+    cap_destroy(si->vtree);
+
     return SYS_ERR_OK;
 }
 

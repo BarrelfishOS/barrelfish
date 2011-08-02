@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,23 +15,21 @@
 #ifndef LWIPOPTS_H
 #define LWIPOPTS_H
 
+#include <barrelfish/net_constants.h>
 /// Build DHCP client
 #define LWIP_DHCP               1
+
+/// Build DNS client
+#define LWIP_DNS		1
+
+/// Don't want lwip POSIX socket wrappers
+#define LWIP_POSIX_SOCKETS_IO_NAMES     0
 
 /// We do not want LWIP to provide POSIX errno
 #undef LWIP_PROVIDE_ERRNO
 
-/// No operating system support for locks, semaphores, mailboxes or timers
-#define NO_SYS                  1
-
-/// Don't want BSD sockets
-#define LWIP_SOCKET             0
-
-/// Don't want Netconn API
-#define LWIP_NETCONN            0
-
-/// Disable raw interface code
-//#define LWIP_RAW                0
+/// Don't want socket functions overriden by lwIP. We provide our own.
+#define LWIP_COMPAT_SOCKETS     0
 
 /// Use malloc() from libc
 //#define MEM_LIBC_MALLOC         1
@@ -45,27 +43,11 @@
 /// Disable locks (we lock the whole stack)
 #define SYS_LIGHTWEIGHT_PROT    0
 
-/// Size of (static) heap memory
-#define MEM_SIZE                (60*1024*1024)
 
 /// Number of simultaneously active TCP connections
 #define MEMP_NUM_TCP_PCB        200
 
-#ifdef CONFIG_QEMU_NETWORK
-/// Number of PBUF structs available
-#define MEMP_NUM_PBUF           1024
-/// Number of PBUF buffers available
-#define PBUF_POOL_SIZE          1024
-#else // CONFIG_QEMU_NETWORK
-/// Number of PBUF structs available
-#define MEMP_NUM_PBUF           16384
-/// Number of PBUF buffers available
-#define PBUF_POOL_SIZE          16384
-#endif // CONFIG_QEMU_NETWORK
 
-
-/// the size of the pool
-#define PBUF_POOL_BUFSIZE       (4 * 2048)
 
 /// Number of TCP segments
 #define MEMP_NUM_TCP_SEG        512
@@ -83,20 +65,25 @@
 #define TCP_SND_QUEUELEN       (16 * (TCP_SND_BUF/TCP_MSS))
 
 /// Enable debugging
-#define LWIP_DEBUG              1
+#define LWIP_DEBUG              0
+
+/// Enable have loopif (localhost hostname translation)
+#define LWIP_HAVE_LOOPIF 1
+
 /* Place to control the LWIP debugging.
  Enable debugging of these subsystems */
 
-/* #define ETHARP_DEBUG    LWIP_DBG_ON */
-/* #define NETIF_DEBUG     LWIP_DBG_ON */
-/* #define PBUF_DEBUG      LWIP_DBG_ON */
-/* #define DHCP_DEBUG      LWIP_DBG_ON */
-/* #define UDP_DEBUG       LWIP_DBG_ON */
-/* #define IP_DEBUG        LWIP_DBG_ON */
-/* #define TCP_DEBUG       LWIP_DBG_ON */
-/* #define TCP_INPUT_DEBUG LWIP_DBG_ON */
+/* #define ETHARP_DEBUG     LWIP_DBG_ON */
+/* #define NETIF_DEBUG      LWIP_DBG_ON */
+/* #define PBUF_DEBUG       LWIP_DBG_ON */
+/* #define DHCP_DEBUG       LWIP_DBG_ON */
+/* #define UDP_DEBUG        LWIP_DBG_ON */
+/* #define IP_DEBUG         LWIP_DBG_ON */
+/* #define TCP_DEBUG        LWIP_DBG_ON */
+/* #define TCPIP_DEBUG      LWIP_DBG_ON */
+/* #define TCP_INPUT_DEBUG  LWIP_DBG_ON */
 /* #define TCP_OUTPUT_DEBUG LWIP_DBG_ON */
-
+/* #define SOCKETS_DEBUG    LWIP_DBG_ON */
 
 #ifndef CHECKSUM_GEN_IP
 #define CHECKSUM_GEN_IP                 1

@@ -52,7 +52,7 @@ static const char *get_shortname(const char *start, const char *nameend,
 
 static void set_local_bindings(void) 
 {
-    ram_alloc_set(NULL, NULL); 
+    ram_alloc_set(NULL);
 }
 
 
@@ -302,4 +302,76 @@ void spawn_app_domains(void)
 
 }
 
+void spawn_bootscript_domains(void)
+{
+    errval_t err;
+    coreid_t my_coreid = disp_get_core_id();
+    char *argv[256], *name;
 
+    // open bootmodules file and read it in
+    FILE *f = fopen("/bootscript", "r");
+    if(f == NULL) {
+        printf("No bootscript\n");
+        return;
+    }
+    char line[1024];
+    while(fgets(line, 1024, f) != NULL) {
+        int argc;
+        argv[0] = strtok(line, " \n");
+        name = argv[0];
+        for(argc = 1;; argc++) {
+            argv[argc] = strtok(NULL, " \n");
+            if(argv[argc] == NULL) {
+                break;
+            }
+        }
+
+        // get core id
+        if (argc >= 2 && strncmp(argv[1], "core=", 5) == 0) {
+            char *p = strchr(argv[1], '=');
+            assert(p != NULL);
+
+            p++;
+            while(*p != '\0') {
+                int id_from = strtol(p, (char **)&p, 10), id_to = id_from;
+                if(*p == '-') {
+                    p++;
+                    id_to = strtol(p, (char **)&p, 10);
+                }
+                assert(*p == ',' || *p == '\0');
+                if(*p != '\0') {
+                    p++;
+                }
+
+                /* coreid = strtol(p + 1, NULL, 10); */
+                // discard 'core=x' argument
+                for (int i = 1; i < argc; i++) {
+                    argv[i] = argv[i+1];
+                }
+                argc--;
+
+                for(int i = id_from; i <= id_to; i++) {
+                    debug_printf("starting app %s on core %d\n", name, i);
+
+                    domainid_t new_domain;
+                    err = spawn_program(i, name, argv, environ, 
+                                        0, &new_domain);
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "spawn of %s failed", name);
+                    }
+                }
+            }
+        } else {
+            debug_printf("starting app %s on core %d\n", name, my_coreid);
+
+            domainid_t new_domain;
+            err = spawn_program(my_coreid, name, argv, environ, 
+                                0, &new_domain);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "spawn of %s failed", name);
+            }
+        }
+    }
+
+    fclose(f);
+}

@@ -218,6 +218,37 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     return sysret.error;
 }
 
+#ifdef __scc__
+/**
+ * \brief Return the physical address and size of a frame capability
+ *
+ * \param frame    CSpace address of frame capability
+ * \param ret      frame_identity struct filled in with relevant data
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_scc_frame_identify(struct capref frame,
+                                                 struct scc_frame_identity *ret)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(frame);
+    caddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
+
+    struct sysret sysret =
+        syscall2((invoke_bits << 16) | (FrameCmd_SCC_Identify << 8)
+                 | SYSCALL_INVOKE, invoke_cptr);
+
+    assert(ret != NULL);
+    if (err_is_ok(sysret.error)) {
+        ret->route = sysret.value & 0xff;
+        ret->subdest = (sysret.value >> 8) & 0xff;
+        ret->addrbits = sysret.value >> 16;
+        return sysret.error;
+    }
+
+    return sysret.error;
+}
+#endif
+
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
                                        uint16_t port, uint32_t *data)
 {
@@ -406,4 +437,18 @@ invoke_monitor_get_arch_id(uintptr_t *core_id)
     }
 
     return sysret.error;
+}
+
+static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
+                                               uint8_t event, uint8_t perf_umask, 
+                                               bool kernel, uint8_t counter_id,
+                                               uint64_t counter_value, 
+                                               caddr_t ep_addr)
+{
+    return ERR_NOTIMP;
+}
+
+static inline errval_t invoke_perfmon_deactivate(struct capref perfmon_cap)
+{
+    return ERR_NOTIMP;
 }

@@ -240,4 +240,9 @@ void sys_arch_unprotect(sys_prot_t pval);
 }
 #endif
 
+extern struct thread_mutex *lwip_mutex;
+
+void lwip_mutex_lock(void);
+void lwip_mutex_unlock(void);
+
 #endif /* __LWIP_SYS_H__ */

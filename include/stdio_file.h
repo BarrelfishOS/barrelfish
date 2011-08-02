@@ -91,29 +91,35 @@ Author: Ben Leslie
 #define unlock_stream(s) thread_mutex_unlock(&(s)->mutex)
 
 struct __file {
-        void *handle;
+    void *handle;       // Handle to pass to file handling functions
 
-        size_t (*read_fn)(void *, long int, size_t, void *);
-        size_t (*write_fn)(void *, long int, size_t, void *);
-        int (*close_fn)(void *);
-        long int (*eof_fn)(void *);
+    size_t (*read_fn)(void *, long int, size_t, void *);
+    size_t (*write_fn)(void *, long int, size_t, void *);
+    int (*close_fn)(void *);
+    long int (*eof_fn)(void *);
 
-        unsigned char buffering_mode;
-        char *buffer;
-        int buf_pos;
-        int buf_size;
-        int buf_allocated;
+    // Output buffering
+    unsigned char buffering_mode;       // Buffer mode. Can be _IONBF, _IOLBF, _IOFBF
+    char *buffer;   // The output buffer
+    int buf_pos;    // Current position in output buffer
+    int buf_size;   // Allocated size of the buffer
+    int buf_allocated;      // Was the buffer malloc'd (=1) or is it static (=0)?
 
-        unsigned char unget_pos;
-        long int current_pos;
+    // Input buffering
+    char *rbuffer;              // The input buffer
+    char *rbuf_pos;             // Current position in buffer
+    int rbuf_size;              // Allocated size of the buffer
+    int rbuf_valid;             // Remaining valid characters in buffer
 
-        struct thread_mutex mutex;
+    unsigned char unget_pos;    // Position in unget stack
+    size_t current_pos;         // Current position in file
 
-        int eof;
-        int error;
+    struct thread_mutex mutex;  // Mutex to protect file access
 
-        char unget_stack[__UNGET_SIZE];
+    int eof;
+    int error;
+
+    char unget_stack[__UNGET_SIZE];     // The unget stack
 };
 
 #endif // _STDIO_FILE_H_
-

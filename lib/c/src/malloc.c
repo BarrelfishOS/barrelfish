@@ -12,6 +12,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h> /* XXX */
 
+typedef void *(*alt_malloc_t)(size_t bytes);
+alt_malloc_t alt_malloc = NULL;
+
+typedef void (*alt_free_t)(void *p);
+alt_free_t alt_free = NULL;
+
 #define MALLOC_LOCK thread_mutex_lock(&state->mutex)
 #define MALLOC_UNLOCK thread_mutex_unlock(&state->mutex)
 
@@ -32,6 +38,10 @@ void __malloc_dump(void);
 void *
 malloc(size_t nbytes)
 {
+    if (alt_malloc != NULL) {
+        return alt_malloc(nbytes);
+    }
+
     struct morecore_state *state = get_morecore_state();
 	Header *p, *prevp;
 	unsigned nunits;
@@ -67,7 +77,7 @@ malloc(size_t nbytes)
 #endif
 #ifdef CONFIG_MALLOC_DEBUG_INTERNAL
 			if (__malloc_check() != 0) {
-				printf("malloc %d %p\n", nbytes, (void *) (p + 1));
+				printf("malloc %zu %p\n", nbytes, (void *) (p + 1));
 				__malloc_dump();
 				assert(__malloc_check() == 0);
 			}
@@ -139,6 +149,11 @@ void free(void *ap)
         return;
     }
 
+
+    if (alt_free != NULL) {
+        return alt_free(ap);
+    }
+
     struct morecore_state *state = get_morecore_state();
 
 #ifdef __x86_64__
@@ -169,6 +184,7 @@ void free(void *ap)
 int
 __malloc_check(void)
 {
+    struct morecore_state *state = get_morecore_state();
 	Header *p, *prevp;
 	if ((prevp = state->header_freep) == NULL) {	/* no free list yet */
 		return 0;
@@ -178,10 +194,10 @@ __malloc_check(void)
 			return 1;
 		}
 		/* Free bits should be in order */
-		if (p > p->s.ptr && p != &state->header_base) {
+		if (p > p->s.ptr && p->s.ptr != &state->header_base) {
 			return 1;
 		}
-		if ((uintptr_t) p + (p->s.size * sizeof(Header)) > (uintptr_t) p->s.ptr && p != &state->header_base) {
+		if ((uintptr_t) p + (p->s.size * sizeof(Header)) > (uintptr_t) p->s.ptr && p->s.ptr != &state->header_base) {
 			return 1;
 		}
 		/* shouldn't have zero sized free bits */
@@ -198,19 +214,28 @@ __malloc_check(void)
 void
 __malloc_dump(void)
 {
+    struct morecore_state *state = get_morecore_state();
 	Header *p, *prevp;
 	if ((prevp = state->header_freep) == NULL) {	/* no free list yet */
 		return;
 	}
-	printf("Malloc dump\n");
+        printf("Malloc dump\n"
+               "We expect the free list to be sorted from low to high addresses\n"
+               "with no item overlapping another item and no empty items.\n"
+               "Legend:\n"
+               "* Successor in list is at lower address than current item\n"
+               "# Item has size 0\n"
+               "$ This item overlaps (base + size) the next item's base\n");
+        printf("List base at %p, freep at %p\n", &state->header_base,
+               state->header_freep);
 	for (p = prevp->s.ptr;; prevp = p, p = p->s.ptr) {
-		if (p > p->s.ptr && p != &state->header_base) {
+		if (p > p->s.ptr && p->s.ptr != &state->header_base) {
 			printf("* ");
 		}
 		if (p->s.size == 0 && p != &state->header_base) {
 			printf("# ");
 		}
-		if ((uintptr_t) p + (p->s.size * sizeof(Header)) > (uintptr_t) p->s.ptr && p != &state->header_base) {
+		if ((uintptr_t) p + (p->s.size * sizeof(Header)) > (uintptr_t) p->s.ptr && p->s.ptr != &state->header_base) {
 			printf("$ ");
 		}
 		if (p == &state->header_base) {

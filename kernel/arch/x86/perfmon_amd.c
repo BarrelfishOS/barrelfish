@@ -78,13 +78,14 @@ void perfmon_amd_measure_stop(uint8_t idx)
 }
 
 void perfmon_amd_measure_start(uint16_t event, uint8_t umask, bool os, 
-                               uint8_t idx)
+                               uint8_t idx, bool intr)
 {
     ia32_amd_perfevtsel_t sel = {
 	.evsel = event & 0xff,
 	.umask = umask,
 	.usr = 1,
 	.os = os ? 1 : 0,
+        .intr = intr ? 1 : 0,
 	.en = 1,
 	.evsel_hi = (event >> 8) & 0xf
     };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include "posixcompat.h"
 
 void _posixcompat_vfs_info_to_stat(struct vfs_fileinfo *info, struct stat *buf)
@@ -20,6 +21,9 @@ void _posixcompat_vfs_info_to_stat(struct vfs_fileinfo *info, struct stat *buf)
     memset(buf, 0, sizeof(struct stat));
     buf->st_size = info->size;
     buf->st_mode = 0777;
+    buf->st_uid = 1000;
+    buf->st_gid = 100;
+    buf->st_mode = 0700;
     if (info->type == VFS_DIRECTORY) {
         buf->st_mode |= S_IFDIR;
     } else if (info->type == VFS_FILE) {
@@ -34,11 +38,7 @@ int stat(const char *pathname, struct stat *buf)
     int ret;
     errval_t err;
 
-    if (_posixcompat_cwd == NULL) {
-        _posixcompat_cwd_init();
-    }
-
-    char *path = vfs_path_mkabsolute(_posixcompat_cwd, pathname);
+    char *path = vfs_path_mkabs(pathname);
     assert(path != NULL);
 
     bool isdir = false;
@@ -51,6 +51,9 @@ int stat(const char *pathname, struct stat *buf)
     free(path);
     if (err_is_fail(err)) {
         POSIXCOMPAT_DEBUG("stat('%s') failed\n", pathname);
+        if(err_no(err) == FS_ERR_NOTFOUND) {
+            errno = ENOENT;
+        }
         return -1;
     }
 
@@ -72,4 +75,10 @@ int stat(const char *pathname, struct stat *buf)
     }
 
     return ret;
+}
+
+int lstat(const char *path, struct stat *buf)
+{
+    // XXX: There are no symbolic links in Barrelfish
+    return stat(path, buf);
 }

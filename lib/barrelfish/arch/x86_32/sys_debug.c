@@ -16,6 +16,7 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish_kpi/sys_debug.h>
+#define ENABLE_FEIGN_FRAME_CAP
 #include <barrelfish/sys_debug.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -91,4 +92,14 @@ errval_t sys_debug_set_breakpoint(uintptr_t addr, uint8_t mode, uint8_t length)
 {
     return syscall5(SYSCALL_DEBUG,
                     DEBUG_SET_BREAKPOINT, addr, mode, length).error;
+}
+
+errval_t sys_debug_feign_frame_cap(struct capref slot, lpaddr_t base,
+                                   uint8_t bits)
+{
+    uint8_t cap_bits = get_cnode_valid_bits(slot);
+    caddr_t addr = get_cnode_addr(slot);
+
+    return syscall5(SYSCALL_DEBUG,
+                    DEBUG_FEIGN_FRAME_CAP, addr, base, bits | (cap_bits << 8) | (slot.slot << 16)).error;
 }

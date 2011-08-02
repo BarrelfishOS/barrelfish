@@ -41,37 +41,13 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.14 2008/04/17 22:17:54 jhb 
 #include <stdio.h>
 #include <string.h>
 #include <stdio_file.h>
-
-#if 0
 #include "local.h"
-#endif
-
 #include <stdarg.h>
 
-int __svfscanf(FILE *fp, const char *fmt0, va_list ap);
-
-#if 0
-static int eofread(void *, char *, int);
-
-/* ARGSUSED */
-static int eofread(void *cookie, char *buf, int len)
+int vsscanf(const char * __restrict str, const char * __restrict fmt,
+            va_list ap)
 {
-
-	return (0);
-}
-#endif
-
-
-/*
-int
-vsscanf(str, fmt, ap)
-	const char * __restrict str;
-	const char * __restrict fmt;
-	__va_list ap;
-*/
-int vsscanf(const char *str, const char *fmt, va_list ap)
-{
-	FILE f;
+    FILE f;
 /*
 	f._file = -1;
 	f._flags = __SRD;
@@ -84,8 +60,13 @@ int vsscanf(const char *str, const char *fmt, va_list ap)
 	memset(&f._mbstate, 0, sizeof(mbstate_t));
 	return (__svfscanf(&f, fmt, ap));
 */
-    f.buffer = (char *)str;
-    f.buf_pos = 0;
-    f.buf_size = strlen(str);
+
+    f.rbuffer = (char *)str;
+    f.rbuf_pos = f.rbuffer;
+    f.rbuf_size = strlen(str);
+    f.rbuf_valid = f.rbuf_size;
+    f.eof = 1;
+    thread_mutex_init(&f.mutex);
+
     return __svfscanf(&f, fmt, ap);
 }

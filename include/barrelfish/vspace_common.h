@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -30,7 +30,7 @@ typedef uint32_t vregion_flags_t;
 #include <barrelfish/vspace.h>
 #include <barrelfish/vspace_mmu_aware.h>
 
-errval_t vspace_unmap(void *buf);
+errval_t vspace_unmap(const void *buf);
 errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
                               struct vregion **ret_vregion, size_t size,
                               size_t *retsize, vregion_flags_t flags);

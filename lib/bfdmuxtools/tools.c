@@ -20,6 +20,8 @@
 
 #endif							// DOXYGEN
 
+#include <barrelfish/barrelfish.h>
+
 #include <bfdmuxtools/tools.h>
 
 /**
@@ -234,6 +236,8 @@ char* build_src_mac_filter(struct eth_addr src)
  * @param dstip Filter packets going to this destination IP (BFDMUX_IP_ADDR_ANY for any target)
  * @return A filter string. Caller has to free it after use.
  */
+/* FIXME: It is assumed that if it is non-ARP packet then it should be IP packet.
+ * So no check in Ethernet packet header to see if it is IP or not. PS */
 char           *
 build_ipv4_filter(addr_t srcip, addr_t dstip)
 {
@@ -241,11 +245,11 @@ build_ipv4_filter(addr_t srcip, addr_t dstip)
 	char           *filter = malloc(max_len);
 	filter[0] = 0x0;			// strlen(filter) = 0;
 	if (srcip != BFDMUX_IP_ADDR_ANY)
-		snprintf(filter, max_len, "int32[26]==%d", (uint32_t) srcip);
+		snprintf(filter, max_len, "int32[26]==%"PRIu32"", (uint32_t) srcip);
 	if (dstip != BFDMUX_IP_ADDR_ANY) {
 		if (srcip != BFDMUX_IP_ADDR_ANY)
 			snprintf(filter + strlen(filter), max_len, "&&");
-		snprintf(filter + strlen(filter), max_len, "int32[30]==%d",
+		snprintf(filter + strlen(filter), max_len, "int32[30]==%"PRIu32"",
 				 (uint32_t) dstip);
 	}
 
@@ -455,7 +459,7 @@ char* build_ether_dst_ipv4_udp_filter(struct eth_addr dst, addr_t srcip,
 char* build_ether_dst_ipv4_tcp_filter(struct eth_addr dst, addr_t srcip, 
 	addr_t dstip, port_t srcport, port_t dstport)
 {
-    char *mac_filter = build_dst_mac_filter(dst);
+    char *mac_filter = build_dst_mac_filter(dst);	
     char *ip_filter = build_ipv4_filter(srcip, dstip);
     char *tcp_filter = build_tcp_filter(srcport, dstport);
     size_t filter_len = strlen(mac_filter) + strlen(ip_filter) + 

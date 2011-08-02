@@ -1,115 +1,126 @@
-/*
- * Australian Public Licence B (OZPLB)
- * 
- * Version 1-0
- * 
- * Copyright (c) 2004 University of New South Wales
- * 
- * All rights reserved. 
- * 
- * Developed by: Operating Systems and Distributed Systems Group (DiSy)
- *               University of New South Wales
- *               http://www.disy.cse.unsw.edu.au
- * 
- * Permission is granted by University of New South Wales, free of charge, to
- * any person obtaining a copy of this software and any associated
- * documentation files (the "Software") to deal with the Software without
- * restriction, including (without limitation) the rights to use, copy,
- * modify, adapt, merge, publish, distribute, communicate to the public,
- * sublicense, and/or sell, lend or rent out copies of the Software, and
- * to permit persons to whom the Software is furnished to do so, subject
- * to the following conditions:
- * 
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimers.
- * 
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimers in the documentation and/or other materials provided
- *       with the distribution.
- * 
- *     * Neither the name of University of New South Wales, nor the names of its
- *       contributors, may be used to endorse or promote products derived
- *       from this Software without specific prior written permission.
- * 
- * EXCEPT AS EXPRESSLY STATED IN THIS LICENCE AND TO THE FULL EXTENT
- * PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED "AS-IS", AND
- * NATIONAL ICT AUSTRALIA AND ITS CONTRIBUTORS MAKE NO REPRESENTATIONS,
- * WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
- * BUT NOT LIMITED TO ANY REPRESENTATIONS, WARRANTIES OR CONDITIONS
- * REGARDING THE CONTENTS OR ACCURACY OF THE SOFTWARE, OR OF TITLE,
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NONINFRINGEMENT,
- * THE ABSENCE OF LATENT OR OTHER DEFECTS, OR THE PRESENCE OR ABSENCE OF
- * ERRORS, WHETHER OR NOT DISCOVERABLE.
- * 
- * TO THE FULL EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
- * NATIONAL ICT AUSTRALIA OR ITS CONTRIBUTORS BE LIABLE ON ANY LEGAL
- * THEORY (INCLUDING, WITHOUT LIMITATION, IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHERWISE) FOR ANY CLAIM, LOSS, DAMAGES OR OTHER
- * LIABILITY, INCLUDING (WITHOUT LIMITATION) LOSS OF PRODUCTION OR
- * OPERATION TIME, LOSS, DAMAGE OR CORRUPTION OF DATA OR RECORDS; OR LOSS
- * OF ANTICIPATED SAVINGS, OPPORTUNITY, REVENUE, PROFIT OR GOODWILL, OR
- * OTHER ECONOMIC LOSS; OR ANY SPECIAL, INCIDENTAL, INDIRECT,
- * CONSEQUENTIAL, PUNITIVE OR EXEMPLARY DAMAGES, ARISING OUT OF OR IN
- * CONNECTION WITH THIS LICENCE, THE SOFTWARE OR THE USE OF OR OTHER
- * DEALINGS WITH THE SOFTWARE, EVEN IF NATIONAL ICT AUSTRALIA OR ITS
- * CONTRIBUTORS HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH CLAIM, LOSS,
- * DAMAGES OR OTHER LIABILITY.
- * 
- * If applicable legislation implies representations, warranties, or
- * conditions, or imposes obligations or liability on University of New South
- * Wales or one of its contributors in respect of the Software that
- * cannot be wholly or partly excluded, restricted or modified, the
- * liability of University of New South Wales or the contributor is limited, to
- * the full extent permitted by the applicable legislation, at its
- * option, to:
- * a.  in the case of goods, any one or more of the following:
- * i.  the replacement of the goods or the supply of equivalent goods;
- * ii.  the repair of the goods;
- * iii. the payment of the cost of replacing the goods or of acquiring
- *  equivalent goods;
- * iv.  the payment of the cost of having the goods repaired; or
- * b.  in the case of services:
- * i.  the supplying of the services again; or
- * ii.  the payment of the cost of having the services supplied again.
- * 
- * The construction, validity and performance of this licence is governed
- * by the laws in force in New South Wales, Australia.
+/*-
+ * Copyright (c) 1990 The Regents of the University of California.
+ * All rights reserved.
+ *
+ * This code is derived from software contributed to Berkeley by
+ * Chris Torek.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
-/*
- Author: Carl van Schaik
-*/
 #include <string.h>
 #include <stdint.h>
 
+
 /*
- * copy n bytes from s to d; the regions must not overlap 
+ * sizeof(word) MUST BE A POWER OF TWO
+ * SO THAT wmask BELOW IS ALL ONES
  */
-/* THREAD SAFE */
+typedef long    word;       /* "word" used for optimal copy speed */
+
+#define wsize   sizeof(word)
+#define wmask   (wsize - 1)
+
+/*
+ * Copy a block of memory, handling overlap.
+ * This is the routine that actually implements
+ * (the portable versions of) bcopy, memcpy, and memmove.
+ */
 void *
-memcpy(void *d, const void *s, size_t n)
+memcpy(void *dst0, const void *src0, size_t length)
 {
-	size_t i;
-	uintptr_t align = sizeof(uintptr_t)-1;
+    char        *dst;
+    const char  *src;
+    size_t      t;
 
-	if (((uintptr_t)d & align) || ((uintptr_t)s & align) || (n & align))
-	{
-		char *bs = (char *)s;
-		char *bd = (char *)d;
+    dst = dst0;
+    src = src0;
 
-		/* XXX - optimize this */
-		for (i = 0; i < n; i++)
-			*bd++ = *bs++;
-	}
-	else
-	{	/* memcpy - word aligned */
-		uintptr_t *ws = (uintptr_t*)s;
-		uintptr_t *wd = (uintptr_t*)d;
+    if (length == 0 || dst == src) {    /* nothing to do */
+        goto done;
+    }
 
-		n /= sizeof(uintptr_t);
+    /*
+     * Macros: loop-t-times; and loop-t-times, t>0
+     */
+#define TLOOP(s) if (t) TLOOP1(s)
+#define TLOOP1(s) do { s; } while (--t)
 
-		for (i = 0; i < n; i++)
-			*wd++ = *ws++;
-	}
-	return d;
+    if ((unsigned long)dst < (unsigned long)src) {
+        /*
+         * Copy forward.
+         */
+        t = (size_t)src;    /* only need low bits */
+
+        if ((t | (uintptr_t)dst) & wmask) {
+            /*
+             * Try to align operands.  This cannot be done
+             * unless the low bits match.
+             */
+            if ((t ^ (uintptr_t)dst) & wmask || length < wsize) {
+                t = length;
+            } else {
+                t = wsize - (t & wmask);
+            }
+
+            length -= t;
+            TLOOP1(*dst++ = *src++);
+        }
+        /*
+         * Copy whole words, then mop up any trailing bytes.
+         */
+        t = length / wsize;
+        TLOOP(*(word *)dst = *(const word *)src; src += wsize;
+            dst += wsize);
+        t = length & wmask;
+        TLOOP(*dst++ = *src++);
+    } else {
+        /*
+         * Copy backwards.  Otherwise essentially the same.
+         * Alignment works as before, except that it takes
+         * (t&wmask) bytes to align, not wsize-(t&wmask).
+         */
+        src += length;
+        dst += length;
+        t = (uintptr_t)src;
+
+        if ((t | (uintptr_t)dst) & wmask) {
+            if ((t ^ (uintptr_t)dst) & wmask || length <= wsize) {
+                t = length;
+            } else {
+                t &= wmask;
+            }
+
+            length -= t;
+            TLOOP1(*--dst = *--src);
+        }
+        t = length / wsize;
+        TLOOP(src -= wsize; dst -= wsize;
+            *(word *)dst = *(const word *)src);
+        t = length & wmask;
+        TLOOP(*--dst = *--src);
+    }
+done:
+    return (dst0);
 }

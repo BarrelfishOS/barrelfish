@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
 
     // Init sender
     struct capref frame;
-    err = bulk_create(BULKSIZE, block_size, &frame, &bt);
+    err = bulk_create(BULKSIZE, block_size, &frame, &bt, false);
     assert(err_is_ok(err));
 
     err = peer->tx_vtbl.bulk_init(peer, NOP_CONT, frame);

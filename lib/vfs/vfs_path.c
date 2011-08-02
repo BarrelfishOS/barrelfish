@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -131,4 +131,20 @@ char *vfs_path_mkabsolute(const char *cwd, const char *path)
     // realloc(ret, strlen(ret) + 1);
 
     return ret;
+}
+
+/**
+ * \brief Shorthand version of vfs_path_mkabsolute() that "knows" the current directory.
+ *
+ * \returns Path in malloc'ed buffer, which must be freed by caller.
+ */
+char *vfs_path_mkabs(const char *path)
+{
+    char *cwd = getenv("PWD");
+
+    if(cwd == NULL) {
+        return strdup(path);
+    }
+
+    return vfs_path_mkabsolute(cwd, path);
 }

@@ -31,7 +31,8 @@ cxxcompiler = "g++"
 ourCommonFlags = [ Str "-m32",
                    Str "-mno-red-zone",
                    Str "-fPIE",
-                   Str "-fno-stack-protector",  
+                   Str "-fno-stack-protector", 
+		   Str "-Wno-unused-but-set-variable", 
                    Str "-Wno-packed-bitfield-compat" ]
 
 cFlags = ArchDefaults.commonCFlags
@@ -85,6 +86,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-field-initializers",
                                 "-Wredundant-decls",
                                 "-Wno-packed-bitfield-compat",
+				"-Wno-unused-but-set-variable",
                                 "-Werror",
                                 "-imacros deputy/nodeputy.h",
                                 "-mno-mmx",

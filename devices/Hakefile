@@ -49,9 +49,10 @@
            "tulip",
            "x86_64_pagetable",
            "xapic",
-	   "pci_hdr0_mem",
-	   "rck",
-	   "crb_sif"
+           "pci_hdr0_mem",
+           "rck",
+           "eMAC",
+           "crb_sif"
          ], arch <- allArchitectures
 ] ++
 

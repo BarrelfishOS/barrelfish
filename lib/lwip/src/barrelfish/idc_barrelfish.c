@@ -35,26 +35,11 @@
 #include "lwip_barrelfish_debug.h"
 
 /* Enable tracing based on the global settings. */
-#if CONFIG_TRACE
-//#define LWIP_TRACE_MODE 1
-#endif // CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define LWIP_TRACE_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 struct waitset *lwip_waitset;
-struct thread_mutex *lwip_mutex;
-
-static inline void lwip_mutex_lock(void)
-{
-    if (lwip_mutex != NULL) {
-        thread_mutex_lock(lwip_mutex);
-    }
-}
-
-static inline void lwip_mutex_unlock(void)
-{
-    if (lwip_mutex != NULL) {
-        thread_mutex_unlock(lwip_mutex);
-    }
-}
 
 /* closure for network card client */
 struct client_closure_NC {
@@ -209,7 +194,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
     ptrdiff_t offset;
     struct buffer_desc *buff_ptr;
 
-
+     assert(p != NULL);
     /*
      * Count the number of pbufs to be transmitted as a single message
      * to e1000 
@@ -219,18 +204,21 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         numpbufs++;
     }
 
+
+#if !defined(__scc__)
     mfence(); // ensure that we flush all of the packet payload
+#endif // !defined(__scc__)
+
     for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+
+#if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
+#endif // !defined(__scc__)
+
         buff_ptr = mem_barrelfish_get_buffer_desc(tmpp->payload);
 
 //        assert(buff_ptr->buffer_id == driver_connection[TRANSMIT_CONNECTION]->);
         assert(buff_ptr != NULL);
-        /*
-        if (r != 0) {
-            return r;
-        }
-        */
 
         bulk_arch_prepare_send((void *)tmpp->payload, tmpp->len);
 
@@ -243,14 +231,12 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         		// driver_connection[TRANSMIT_CONNECTION];
         /* FIXME: need better way of doing following */
         entry.binding_ptr = (void *)b;
-
         struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
         entry.plist[0] = numpbufs;
         entry.plist[1] = buff_ptr->buffer_id;
         entry.plist[2] = tmpp->len;
         entry.plist[3] = offset;
-        entry.plist[4] = (uintptr_t)p;
-//        printf("idc pbuf %lu\n", entry.plist[4]);
+        entry.plist[4] = (uintptr_t)tmpp;
 
 #if LWIP_TRACE_MODE
         trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q,
@@ -342,7 +328,7 @@ static errval_t send_pbuf_request(struct q_entry e)
 /* To see if pbuf requests are flying around or not. */
 
 #if LWIP_TRACE_MODE
-    	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
+//    	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
 #endif // LWIP_TRACE_MODE
 
     	return b->tx_vtbl.register_pbuf(b,
@@ -538,7 +524,9 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
     struct client_closure_NC *ccnc = (struct client_closure_NC *)st->st;
     ccnc->buff_ptr->buffer_id = buffer_id;
 //    assign_id_to_latest_buffer(buffer_id);
-    LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %lu\n", buffer_id);
+    LWIPBF_DEBUG("[%zu] new_buffer_id: buffer_id = %"PRIx64"\n",
+            disp_get_core_id(), buffer_id);
+    LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %"PRIx64"\n", buffer_id);
 }
 
 
@@ -559,9 +547,10 @@ static void tx_done(struct ether_binding *st, uint64_t client_data)
     /* FIXME: Need a way to find out the pbuf_id for this tx_done */
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AIR_R,
                 (uint32_t)((uintptr_t)done_pbuf));
+*/
 #endif // LWIP_TRACE_MODE
 
-    LWIPBF_DEBUG("tx_done: %lu\n", client_data);
+    LWIPBF_DEBUG("tx_done: %"PRIx64"\n", client_data);
     if (lwip_free_handler != 0) {
         lwip_free_handler(done_pbuf);
     } else {
@@ -592,6 +581,7 @@ static void get_mac_address_response(struct ether_binding *st,
     LWIPBF_DEBUG("get_mac_address_response: terminated\n");
 }
 
+bool lwip_in_packet_received = false;
 
 /**
  * \brief
@@ -606,9 +596,11 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t)pbuf_id);
 #endif // LWIP_TRACE_MODE
 
-//    LWIPBF_DEBUG("packet_received: called\n");
+    LWIPBF_DEBUG("packet_received: called\n");
 
     lwip_mutex_lock();
+
+    lwip_in_packet_received = true;
 
     /* FIXME: enable this.  It is disabled to avoid compiliation issues with ARM
      * Problem is due to use of unint64_t to store paddr. */
@@ -625,6 +617,8 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
         //reused as receive pbuf
         idc_register_pbuf(pbuf_id, paddr, pbuf_len);
     }
+
+    lwip_in_packet_received = false;
 
     lwip_mutex_unlock();
 
@@ -667,12 +661,9 @@ static void netd_bind_cb(void *st, errval_t err, struct netd_binding *b)
  */
 static void init_netd_connection(char *service_name)
 {
-
     LWIPBF_DEBUG("init_netd_connection: called\n");
-
-    if (service_name == NULL) {
-        service_name = "netd";
-    }
+    assert(service_name != NULL);
+    LWIPBF_DEBUG("init_netd_connection: connecting to [%s]\n", service_name);
 
     errval_t err;
     iref_t iref;
@@ -812,6 +803,16 @@ void network_polling_loop(void)
     }
 }
 
+/*
+static void network_messages_wait_and_handle_next(void)
+{
+    errval_t err = event_dispatch(lwip_waitset);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error in event_dispatch for network_messages_wait_and_handle_next hack");
+    }
+}
+*/
+
 
 void idc_connect_to_netd(char *server_name)
 {
@@ -857,7 +858,8 @@ void idc_connect_to_driver(char *card_name)
     while (!lwip_connected[conn_nr]) {
         messages_wait_and_handle_next();
     }
-    LWIPBF_DEBUG("idc_client_init: successfully connected with e1000\n");
+    LWIPBF_DEBUG("idc_client_init: successfully connected with card [%s]\n",
+            card_name);
 }
 
 
@@ -994,7 +996,8 @@ err_t idc_close_tcp_port(uint16_t port)
 static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
 {
     if(is_owner) {
-    	return bind_port(port, port_type);
+        LWIPBF_DEBUG("idc_bind_port: called by owner\n");
+        return bind_port(port, port_type);
     }
 
     LWIPBF_DEBUG("idc_bind_port: called\n");
@@ -1082,6 +1085,58 @@ err_t idc_udp_new_port(uint16_t *port_no)
 
     return idc_new_port(port_no, netd_PORT_UDP);
 }
+
+
+static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
+                              struct ip_addr *remote_ip, u16_t remote_port, 
+                              netd_port_type_t port_type)
+{
+    if(is_owner) {
+        // redirecting doesn't make sense if we are the owner
+        return ERR_USE; // TODO: correct error
+    }
+
+    errval_t err, msgerr;
+
+    /* getting the proper buffer id's here */
+    err = netd_rpc.vtbl.redirect(&netd_rpc, port_type, local_ip->addr, local_port,
+                                 remote_ip->addr, remote_port,
+                /* buffer for RX */
+                ((struct client_closure_NC *)
+                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id,
+                /* buffer for TX */
+                ((struct client_closure_NC *)
+                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id,
+                &msgerr);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending redirect");
+    }
+
+    if(msgerr == PORT_ERR_IN_USE) {
+    	return ERR_USE;
+    } else if (msgerr == PORT_ERR_REDIRECT) {
+        return ERR_USE;  // TODO: correct error
+    }
+// FIXME: other errors?
+    return ERR_OK;
+}
+
+
+/*
+err_t idc_redirect_udp_port(uint16_t port)
+{
+    return idc_redirect_port(port, netd_PORT_UDP);
+}
+*/
+
+err_t idc_redirect_tcp(struct ip_addr *local_ip, u16_t local_port,
+                       struct ip_addr *remote_ip, u16_t remote_port)
+{
+    return idc_redirect(local_ip, local_port, remote_ip, remote_port, 
+                             netd_PORT_TCP);
+}
+
+
 
 void perform_ownership_housekeeping(uint16_t (*alloc_tcp_ptr)(void),
         uint16_t (*alloc_udp_ptr)(void),

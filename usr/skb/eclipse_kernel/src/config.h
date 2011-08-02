@@ -281,7 +281,7 @@
 //#define HAVE_SIGINTERRUPT 0
 
 /* Define if you have sigprocmask.  */
-//#define HAVE_SIGPROCMASK 0
+#define HAVE_SIGPROCMASK 1
 
 /* Define if you have sigstack.  */
 //#define HAVE_SIGSTACK 0

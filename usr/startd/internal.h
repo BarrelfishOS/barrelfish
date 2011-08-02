@@ -19,5 +19,6 @@ extern const char *gbootmodules;
 
 void spawn_dist_domains(void);
 void spawn_app_domains(void);
+void spawn_bootscript_domains(void);
 
 #endif //INTERNAL_H_

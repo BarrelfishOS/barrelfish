@@ -31,6 +31,11 @@
 #include <if/mem_defs.h>
 #include <if/mem_rpcclient_defs.h>
 #include <if/monitor_defs.h>
+#include <if/spawn_rpcclient_defs.h>
+
+#ifdef __scc__
+#include <barrelfish_kpi/shared_mem_arch.h>
+#endif
 
 #include "skb.h"
 #include "args.h"
@@ -68,6 +73,11 @@ static char local_nodebuf[SLAB_STATIC_SIZE(MINSPARENODES,
 /// simple slot allocator used by MM
 static struct slot_prealloc percore_slot_alloc;
 
+#ifndef __scc__
+static struct mm *mm_slots = &mm_percore;
+#else
+static struct mm *mm_slots = &mm_local;
+#endif
 
 #if 0
 static void dump_ram_region(int index, struct mem_region* m)
@@ -131,39 +141,20 @@ errval_t slab_refill(struct slab_alloc *slabs)
     return SYS_ERR_OK;
 }
 
-
-static errval_t do_free(struct mm *mm, struct capref ramcap, 
+static errval_t do_free(struct mm *mm, struct capref ramcap,
+                        genpaddr_t base, uint8_t bits,
                         memsize_t *mem_available)
 {
     errval_t ret;
-
-    struct capability info;
     memsize_t mem_to_add;
 
-    ret = debug_cap_identify(ramcap, &info);
-    if (err_is_fail(ret)) {
-        return err_push(ret, MON_ERR_CAP_IDENTIFY);
-    }
+    mem_to_add = (memsize_t)1 << bits;
 
-    if (info.type != ObjType_RAM) {
-        return SYS_ERR_INVALID_SOURCE_TYPE;
-    }
-
-#if 0
-    debug_printf("Cap is type %d Ram base 0x%"PRIxGENPADDR
-                 " (%"PRIuGENPADDR") Bits %d\n",
-                 info.type, info.u.ram.base, info.u.ram.base, 
-                 info.u.ram.bits);
-#endif
-
-    mem_to_add = (memsize_t)1 << info.u.ram.bits;
-        
-    ret = mm_free(mm, info.u.ram.base, info.u.ram.bits);
+    ret = mm_free(mm, ramcap, base, bits);
     if (err_is_fail(ret)) {
         if (err_no(ret) == MM_ERR_NOT_FOUND) {
             // memory wasn't there initially, add it
-            ret = mm_add(mm, ramcap, info.u.ram.bits, 
-                         info.u.ram.base);
+            ret = mm_add(mm, ramcap, bits, base);
             if (err_is_fail(ret)) {
                 return err_push(ret, MM_ERR_MM_ADD);
             }
@@ -180,12 +171,61 @@ static errval_t do_free(struct mm *mm, struct capref ramcap,
 
 static errval_t percore_free(struct capref ramcap) 
 {
-    return do_free(&mm_percore, ramcap, &mem_avail);
+    struct capability info;
+    errval_t ret;
+
+    ret = debug_cap_identify(ramcap, &info);
+    if (err_is_fail(ret)) {
+        return err_push(ret, MON_ERR_CAP_IDENTIFY);
+    }
+
+    if (info.type != ObjType_RAM) {
+        return SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+
+#if 0
+    printf("%d: Cap is type %d Ram base 0x%"PRIxGENPADDR
+           " (%"PRIuGENPADDR") Bits %d\n", disp_get_core_id(),
+           info.type, info.u.ram.base, info.u.ram.base, 
+           info.u.ram.bits);
+#endif
+
+    return do_free(&mm_percore, ramcap, info.u.ram.base,
+                   info.u.ram.bits, &mem_avail);
 }
 
-errval_t percore_free_handler_common(struct capref ramcap)
+#ifdef __scc__
+static errval_t local_free(struct capref ramcap) 
 {
-    return percore_free(ramcap);
+    struct capability info;
+    errval_t ret;
+
+    ret = debug_cap_identify(ramcap, &info);
+    if (err_is_fail(ret)) {
+        return err_push(ret, MON_ERR_CAP_IDENTIFY);
+    }
+
+    if (info.type != ObjType_RAM) {
+        return SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+
+    return do_free(&mm_local, ramcap, info.u.ram.base,
+                   info.u.ram.bits, &mem_local);
+}
+#endif
+
+errval_t percore_free_handler_common(struct capref ramcap, genpaddr_t base,
+                                     uint8_t bits)
+{
+#ifndef __scc__
+    return do_free(&mm_percore, ramcap, base, bits, &mem_avail);
+#else
+    if (base < SHARED_MEM_MIN) {
+        return do_free(&mm_local, ramcap, base, bits, &mem_local);
+    } else {
+        return do_free(&mm_percore, ramcap, base, bits, &mem_avail);
+    }
+#endif
 }
 
 memsize_t mem_available_handler_common(void) 
@@ -231,7 +271,16 @@ static errval_t local_alloc(struct capref *ret, uint8_t bits,
                             genpaddr_t minbase, genpaddr_t maxlimit)
 {
     errval_t err;
+
+#ifdef __scc__
+    // first try local memory
+    err = do_alloc(&mm_local, ret, bits, minbase, maxlimit, &mem_local);
   
+    // then try the general percore memory
+    if (err_is_fail(err)) {
+        err = percore_alloc(ret, bits, minbase, maxlimit);
+    }
+#else
     // first try the general percore memory
     err = percore_alloc(ret, bits, minbase, maxlimit);
 
@@ -239,6 +288,7 @@ static errval_t local_alloc(struct capref *ret, uint8_t bits,
     if (err_is_fail(err)) {
         err = do_alloc(&mm_local, ret, bits, minbase, maxlimit, &mem_local);
     }
+#endif
 
     return err;
 }
@@ -259,7 +309,11 @@ static errval_t get_more_ram(uint8_t bits, genpaddr_t minbase,
         }
     }
     // make the cap available for a subsequent alloc
+#ifndef __scc__
     percore_free(cap);
+#else
+    local_free(cap);
+#endif
 
     return SYS_ERR_OK;    
 }
@@ -297,7 +351,7 @@ errval_t percore_allocate_handler_common(uint8_t bits,
     trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC, bits);
 
     // refill slot allocator if needed 
-    err = do_slot_prealloc_refill(mm_percore.slot_alloc_inst);
+    err = do_slot_prealloc_refill(mm_slots->slot_alloc_inst);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure in slot_prealloc_refill");
     }
@@ -313,8 +367,12 @@ errval_t percore_allocate_handler_common(uint8_t bits,
         DEBUG_ERR(err, "Warning: failure when refilling mm_local slab");
     }
 
-    // do the actual allocation 
+    // do the actual allocation
+#ifndef __scc__
     ret = percore_alloc(&cap, bits, minbase, maxlimit);
+#else
+    ret = local_alloc(&cap, bits, minbase, maxlimit);
+#endif
 
     if (err_is_fail(ret)) {
         // debug_printf("percore_alloc(%d (%lu)) failed\n", bits, 1UL << bits);
@@ -333,11 +391,11 @@ static memsize_t get_percore_size(int num_cores)
 {
 #ifdef MEMSERV_PERCORE_DYNAMIC
     errval_t err;
-    memsize_t all_mem_avail, mem_percore;
+    memsize_t all_mem_avail, mem_percore, tot_mem;
 
     // send message to mem_serv
     struct mem_rpc_client *b = get_mem_client();
-    err = b->vtbl.available(b, &all_mem_avail);
+    err = b->vtbl.available(b, &all_mem_avail, &tot_mem);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure in call to mem_serv.available");
@@ -410,6 +468,16 @@ static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
             continue;
         } 
 
+        // XXX: Hack until we have cross-core cap management
+        // Forget about remote relations of this cap. This will ensure
+        // that the monitor will hand it back to us in case anyone on
+        // this core deletes it.
+        err = monitor_cap_set_remote(ramcap, false);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "Warning: failed to set cap non-remote. Trying next one.");
+            continue;
+        }
+
         err = debug_cap_identify(ramcap, &info);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Warning: failed to identify cap. Trying next one.");
@@ -456,7 +524,7 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
     /* XXX Base shouldn't need to be 0 ? */
     err = mm_init(mm, ObjType_RAM,
                   0, MAXSIZEBITS, MAXCHILDBITS, NULL,
-                  slot_alloc_prealloc, slot_alloc_inst);
+                  slot_alloc_prealloc, slot_alloc_inst, true);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
@@ -466,13 +534,13 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
     // Need to bootstrap with a small cap first!
     err = ram_alloc(&ramcap, SMALLCAP_BITS);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get small RAM from mem_serv.0");
+        DEBUG_ERR(err, "failed to get small RAM from mem_serv");
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
 
     err = debug_cap_identify(ramcap, &info);
     if (err_is_fail(err)) {
-        ram_free(ramcap);
+        percore_free(ramcap);
         return err_push(err, MON_ERR_CAP_IDENTIFY);
     }
 
@@ -488,7 +556,7 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
     if (err_is_ok(err)) {
         *mem_added += (memsize_t)1<<SMALLCAP_BITS;
     } else {
-        ram_free(ramcap);
+        percore_free(ramcap);
         return err_push(err, MM_ERR_MM_ADD);
     }
 
@@ -543,7 +611,6 @@ static errval_t init_slot_allocator(struct slot_prealloc *slot_alloc_inst,
     return SYS_ERR_OK;
 }
 
-
 errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores, 
                                      int len_cores, memsize_t percore_mem)
 {
@@ -554,29 +621,52 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
 
     trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_INIT, 0);
 
-    err = init_slot_allocator(&percore_slot_alloc, &mm_percore);
+    err = init_slot_allocator(&percore_slot_alloc, mm_slots);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_SLOT_ALLOC_INIT);
     }
 
+#ifdef __scc__
+    ram_set_affinity(0, EXTRA_SHARED_MEM_MIN);
+    err = init_mm(&mm_local, local_nodebuf, sizeof(local_nodebuf),
+                  &percore_slot_alloc, &mem_local, &mem_total);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
+                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
+#endif
     err = init_mm(&mm_percore, percore_nodebuf, sizeof(percore_nodebuf),
                   &percore_slot_alloc, &mem_avail, &mem_total);
     if (err_is_fail(err)) {
         return err;
     }
+#ifndef __scc__
     err = init_mm(&mm_local, local_nodebuf, sizeof(local_nodebuf),
-                         &percore_slot_alloc, &mem_local, &mem_total);
+                  &percore_slot_alloc, &mem_local, &mem_total);
     if (err_is_fail(err)) {
         return err;
     }
-  
+#endif
+
 #ifdef MEMSERV_AFFINITY
     set_affinity(core);
+#endif
+
+#ifdef __scc__
+    // Suck up private RAM
+    ram_set_affinity(0, EXTRA_SHARED_MEM_MIN);
 #endif
 
     // determine how much memory we need to get to fill up the percore mm
     percore_mem -= mem_total; // memory we've already taken
     percore_mem -= LOCAL_MEM; // memory we'll take for mm_local
+
+#ifdef __scc__
+    // Take all of private RAM we can get
+    percore_mem = PERCORE_MEM_SIZE;
+#endif
+
     uint8_t percore_bits = log2floor(percore_mem);
     if (percore_bits > MAXSIZEBITS) {
         percore_bits = MAXSIZEBITS;
@@ -584,16 +674,22 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
     // debug_printf("memory to use: %"PRIuMEMSIZE"\n", percore_mem);
 
     mem_local += fill_mm(&mm_local, LOCAL_MEM, LOCAL_MEMBITS, &mem_total);
+
+#ifdef __scc__
+    ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
+                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
+#endif
+
     mem_avail += fill_mm(&mm_percore, percore_mem, percore_bits, &mem_total);
 
     // from now on we don't care where memory comes from anymore
     ram_set_affinity(0,0);
     // also use our own memory, rather than the remote central mem_serv
-    ram_alloc_set(local_alloc, percore_free);
+    ram_alloc_set(local_alloc);
 
     // try to refill slot allocator (may fail or do nothing)
     // TODO: is this necessary?
-    slot_prealloc_refill(mm_percore.slot_alloc_inst);
+    slot_prealloc_refill(mm_slots->slot_alloc_inst);
 
     // refill slab allocator if needed and possible 
     if (slab_freecount(&mm_percore.slabs) <= MINSPARENODES
@@ -609,7 +705,7 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
     }
 
     // try to refill slot allocator - now it shouldn't fail!
-    err = slot_prealloc_refill(mm_percore.slot_alloc_inst);
+    err = slot_prealloc_refill(mm_slots->slot_alloc_inst);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Fatal internal error in RAM allocator: "
                   "failed to init slot allocator");
@@ -633,6 +729,21 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Request a spawnd to reconnect to a local memserv
+ *
+ * \param coreid The core that the spawnd is running on
+ */
+errval_t set_local_spawnd_memserv(coreid_t coreid)
+{
+    struct spawn_rpc_client *cl;
+    errval_t err = spawn_rpc_client(coreid, &cl);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return cl->vtbl.use_local_memserv(cl);
+}
 
 
 static int run_worker(coreid_t core, struct args *args)

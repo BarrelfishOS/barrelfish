@@ -83,6 +83,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+int
+atexit(void (*func)(void))
+{
+  // XXX: Ignore for now and return success
+  printf("Warning: atexit(%p) ignored\n", func);
+  return 0;
+}
+
 #include <unistd.h> // for _exit
 
 void

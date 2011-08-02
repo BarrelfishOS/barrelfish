@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, 2009, ETH Zurich.
+ * Copyright (c) 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -130,7 +130,7 @@ static void mount_reply_handler(struct rpc_client *rpc_client, void *arg1,
     return;
 
 error:
-    client->mount_callback(NULL, client->mount_cbarg, -1, fh);
+    client->mount_callback(client->mount_cbarg, NULL, -1, fh);
     nfs_destroy(client);
 }
 
@@ -795,6 +795,63 @@ err_t nfs_mkdir(struct nfs_client *client, struct nfs_fh3 dir, const char *name,
                     NFS_V3, NFSPROC3_MKDIR, (xdrproc_t) xdr_MKDIR3args, &args,
                     sizeof(args) + RNDUP(dir.data_len) + RNDUP(strlen(name)),
                     mkdir_reply_handler, callback, cbarg);
+}
+
+
+/// RPC callback for remove replies
+static void remove_reply_handler(struct rpc_client *rpc_client, void *arg1,
+                                 void *arg2, uint32_t replystat,
+                                 uint32_t acceptstat, XDR *xdr)
+{
+    struct nfs_client *client = (void *)rpc_client;
+    nfs_remove_callback_t callback = arg1;
+    REMOVE3res result;
+    bool rb;
+
+    if (replystat != RPC_MSG_ACCEPTED || acceptstat != RPC_SUCCESS) {
+        printf("Remove failed\n");
+        callback(arg2, client, NULL);
+    } else {
+        memset(&result, 0, sizeof(result));
+        rb = xdr_REMOVE3res(xdr, &result);
+        assert(rb);
+        if (rb) {
+            callback(arg2, client, &result);
+        } else {
+            /* free partial results if the xdr fails */
+            xdr_REMOVE3res(&xdr_free, &result);
+            callback(arg2, client, NULL);
+        }
+    }
+}
+
+/** \brief Initiate an NFS remove operation
+ *
+ * \param client NFS client pointer, which has completed the mount process
+ * \param dir Filehandle for directory in which to remove file
+ * \param name Name of file to remove
+ * \param callback Callback function to call when operation returns
+ * \param cbarg Opaque argument word passed to callback function
+ *
+ * \returns ERR_OK on success, error code on failure
+ */
+err_t nfs_remove(struct nfs_client *client, struct nfs_fh3 dir,
+                 const char *name, nfs_remove_callback_t callback,
+                 void *cbarg)
+{
+    assert(client->mount_state == NFS_INIT_COMPLETE);
+
+    struct REMOVE3args args = {
+        .object = {
+            .dir = dir,
+            .name = (char *)name,
+        }
+    };
+
+    return rpc_call(&client->rpc_client, client->nfs_port, NFS_PROGRAM,
+                    NFS_V3, NFSPROC3_REMOVE, (xdrproc_t) xdr_REMOVE3args, &args,
+                    sizeof(args) + RNDUP(dir.data_len) + RNDUP(strlen(name)),
+                    remove_reply_handler, callback, cbarg);
 }
 
 

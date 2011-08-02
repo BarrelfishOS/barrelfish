@@ -570,9 +570,11 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Initialize Rockcreek driver
     rck_init();
 
+
     // XXX: Set core ID and fake APIC ID to be the tile's core ID
     my_core_id = apic_id = rck_get_coreid();
     printf("My APIC ID: %d\n", apic_id);
+
 #else
     apic_id = apic_get_id();
 #endif
@@ -621,9 +623,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     enable_fpu();
 
 #ifndef __scc__
-    // Initialize performance monitoring
-    perfmon_init();
-
     // Enable user-mode RDPMC opcode
     enable_user_rdpmc();
 

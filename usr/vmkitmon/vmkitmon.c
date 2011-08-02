@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -65,8 +65,6 @@ int main (int argc, char *argv[])
     errval_t err;
 
     const char *imagefile = IMAGEFILE;
-
-    vfs_init();
 
     err = timer_init();
     if (err_is_fail(err)) {

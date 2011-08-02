@@ -231,6 +231,14 @@ static void cap_send_request(struct intermon_binding *b,
                 assert (on_cores & get_coremask(my_core_id));
             }
         } else {
+            bool kern_has_desc;
+            err = monitor_cap_remote(cap, true, &kern_has_desc);
+            if (err_is_fail(err)) {
+                // cleanup
+                err = err_push(err, MON_ERR_CAP_REMOTE);
+                goto cleanup2;
+            }
+
             // TODO, do something if this cap already has descendents to ensure 
             // that it cannot be retyped on this core
         }

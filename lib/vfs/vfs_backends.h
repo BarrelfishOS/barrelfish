@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -22,5 +22,7 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops);
 errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops);
 
 void vfs_fopen_init(void);
+
+errval_t buffer_cache_enable(void **st, struct vfs_ops **ops);
 
 #endif

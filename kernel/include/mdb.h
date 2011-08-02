@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,9 +17,9 @@
 
 void set_init_mapping(struct cte *dest_start, size_t num);
 bool has_descendants(struct cte *cte);
+bool has_ancestors(struct cte *cte);
 bool has_copies(struct cte *cte);
-void insert_after(struct cte *dest_start, struct cte *src, size_t num,
-                  bool is_a_copy);
+void insert_after(struct cte *dest_start, struct cte *src, size_t num);
 void remove_mapping(struct cte *cte);
 errval_t mdb_get_copy(struct capability *cap, struct capability **ret);
 bool mdb_is_sane(void);

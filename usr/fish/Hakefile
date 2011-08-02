@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2009, ETH Zurich.
+-- Copyright (c) 2007-2009, 2011, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -11,9 +11,10 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "fish",
-  		      cFiles = [ "fish.c", "ps.c", "font.c" ],
+  		      cFiles = [ "fish.c", "font.c" ],
 		      addLibraries = [ "vfs", "nfs", "lwip", "contmng",
                                        "pci", "trace", "skb" ],
-  		      flounderBindings = [ "pixels" ]
+  		      flounderBindings = [ "pixels" ],
+		      flounderExtraBindings = [ ("spawn", ["rpcclient"]) ]
                     }
 ]

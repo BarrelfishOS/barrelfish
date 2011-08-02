@@ -23,13 +23,11 @@
 /*****************************************************************
  * Debug printer
  *****************************************************************/
-
 #if defined(TIMER_CLIENT_DEBUG) || defined(GLOBAL_DEBUG)
 #define TIMER_DEBUG(x...) printf("timer_client: " x)
 #else
 #define TIMER_DEBUG(x...) ((void)0)
 #endif
-
 
 /*************************************************************//**
  * \defGroup LocalStates Local states
@@ -44,7 +42,7 @@
  * The timer priority queue (sorted by expiration time)
  *
  */
-static struct timer *timer_queue;
+static struct timer *timer_queue = NULL;
 
 /**
  * \brief 
@@ -77,7 +75,7 @@ static struct thread_mutex timer_mutex = THREAD_MUTEX_INITIALIZER;
  * Are we connected to the timer driver?
  *
  */
-static bool timer_connected;
+static bool timer_connected = false;
 
 static struct timer_binding *the_timer_binding;
 
@@ -219,9 +217,12 @@ static void timer_queue_add(struct timer *q)
     assert(q->next == NULL);
     assert(q->prev == NULL);
 
-    TIMER_DEBUG("timer_queue_add: called\n");
+    TIMER_DEBUG("timer_queue_add: called for %p of duration %lu, expiring %lu\n",
+    		q, q->duration, q->expires);
 
     for(struct timer *i = timer_queue; i != NULL; i = i->next) {
+    	TIMER_DEBUG("timer_queue_add: loop for timer %p duration %lu expiring %lu \n",
+    			i, i->duration, i->expires);
         // Sort into priority queue
         if(q->expires < i->expires) {
             i->expires -= q->expires;
@@ -236,11 +237,15 @@ static void timer_queue_add(struct timer *q)
             }
             i->prev = q;
 
-            TIMER_DEBUG("timer_queue_add: terminated (in-queue)\n");
+            TIMER_DEBUG("timer_queue_add: terminated. %p inserted before %p\n",
+            		q, i);
 
             return;
         } else {
             q->expires -= i->expires;
+            TIMER_DEBUG("timer_queue_add: reducing expire for %p by %lu,  new exp %lu\n",
+            		q, i->expires, q->expires);
+
         }
 
         // Add at queue end
@@ -333,6 +338,7 @@ static void timer_wakeup(void)
 
         // Call callback if registered
         if(t->callback != NULL) {
+        	TIMER_DEBUG("timer_wakeup: calling callback\n");
             t->callback(t, t->data);
         } else {
             TIMER_DEBUG("timer_wakeup: no callback\n");
@@ -428,7 +434,7 @@ struct timer *timer_new(void)
     t->callback = NULL;
     t->data = NULL;
 
-    TIMER_DEBUG("timer_new: terminated\n");
+    TIMER_DEBUG("timer_new: [%p] terminated\n", t);
 
     return t;
 }
@@ -445,7 +451,7 @@ void timer_start(struct timer *timer)
 {
     errval_t err = SYS_ERR_OK;
 
-    TIMER_DEBUG("timer_start: called\n");
+    TIMER_DEBUG("timer_start: called for [%p]\n", timer);
 
     assert(timer->next == NULL);
     assert(timer->prev == NULL);
@@ -508,6 +514,10 @@ void timer_stop(struct timer *timer)
 
     thread_mutex_lock_nested(&timer_mutex); // might be in a callback
 
+    if(!timer_connected){
+        timer_queue_remove(timer);
+    }
+
     // remove from queue if present
     if (timer_is_running(timer)) {
         if (timer_queue == timer) {
@@ -518,6 +528,7 @@ void timer_stop(struct timer *timer)
                                                                 NOP_CONT);
             } else if (timer->next->expires > 0) {
                 TIMER_DEBUG("removing top timer on queue: extend HW timer\n");
+            assert(the_timer_binding != NULL);
                 err = the_timer_binding->tx_vtbl
                         .add_to_timeout(the_timer_binding, NOP_CONT,
                                         timer->next->expires);
@@ -610,7 +621,10 @@ errval_t timer_init(void)
 {
     thread_mutex_lock(&timer_mutex);
 
-    timer_queue = NULL;
+    if (timer_queue != NULL){
+        TIMER_DEBUG("### Timer already started ###\n");
+    	return SYS_ERR_OK;
+    }
     timers_pending_insertion = NULL;
 
     // Register with timer driver
@@ -623,12 +637,20 @@ errval_t timer_init(void)
     }
     assert(iref != 0);
 
+    timer_connected = false;
     TIMER_DEBUG("timer_init: connecting to timer\n");
     err = timer_bind(iref, bind_cb, NULL, get_default_waitset(),
                      IDC_BIND_FLAGS_DEFAULT);
 
  out:
     thread_mutex_unlock(&timer_mutex);
+
+    return err;
+    /*
+    while(!timer_connected){
+    	messages_wait_and_handle_next();
+    }
+    */
 
     return err;
 }

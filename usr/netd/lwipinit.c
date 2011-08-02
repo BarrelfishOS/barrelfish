@@ -28,21 +28,14 @@
 #include "netd.h"
 
 
-void startlwip(char *card_name_, char * card_netd_name_)
+void startlwip(char *card_name)
 {
 
-    NETD_DEBUG ("NETD is taking control of the LWIP\n");
+    NETD_DEBUG ("NETD is taking control of the LWIP for card[%s]\n", card_name);
     perform_ownership_housekeeping(alloc_tcp_port, alloc_udp_port,
         alloc_specific_port, free_port);
 
     /* take ownership of lwip */
-    owner_lwip_init(card_name_);
-
-
-    /* connect with ether_netd interface of driver */
-    init_filter_broker(NULL);
-
-    /* advertise the netd service so that others can connect */
-    
-
+    owner_lwip_init(card_name);
 }
+
