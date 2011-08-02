@@ -161,7 +161,7 @@ device eMAC lsbfirst ( addr base ) "Xilinx IPblock" {
 
     /****** Registers for "RX Control Registers" ******/
     regtype RX_Buffer_start_addr "RX control RX Buffer Start Address" {
-        ADDR    29  rw      "Upper 29 bit of physical start address [33:5] of memory buffer. Lower 5 bits are always 0 because access granularity to buffer will be always 32 bytes – one cache-line.";
+        ADDR    29  rw      "Upper 29 bit of physical start address [33:5] of memory buffer. Lower 5 bits are always 0 because access granularity to buffer will be always 32 bytes - one cache-line.";
         _       3   mbz     "Unused";
     };
 
@@ -205,7 +205,7 @@ device eMAC lsbfirst ( addr base ) "Xilinx IPblock" {
     };
 
     regtype RX_net_port_enable "RX Network Port Enable" {
-        enable   1      rw      "1 – Enabled, 0 – Disabled";
+        enable   1      rw      "1 - Enabled, 0 - Disabled";
         _       31      mbz     "Unused";
     };
     
@@ -215,7 +215,7 @@ device eMAC lsbfirst ( addr base ) "Xilinx IPblock" {
 
 
     regtype TX_Buffer_start_addr "TX control TX Buffer Start Address" {
-        ADDR    29  rw      "Upper 29 bit of physical start address [33:5] of memory buffer. Lower 5 bits are always 0 because access granularity to buffer will be always 32 bytes – one cache-line.";
+        ADDR    29  rw      "Upper 29 bit of physical start address [33:5] of memory buffer. Lower 5 bits are always 0 because access granularity to buffer will be always 32 bytes - one cache-line.";
         _       3   mbz     "Unused";
     };
 
@@ -245,7 +245,7 @@ device eMAC lsbfirst ( addr base ) "Xilinx IPblock" {
 
 
     regtype TX_net_port_enable "TX Network Port Enable" {
-        enable   1      rw      "1 – Enabled, 0 – Disabled";
+        enable   1      rw      "1 - Enabled, 0 - Disabled";
         _       31      mbz     "Unused";
     };
     
