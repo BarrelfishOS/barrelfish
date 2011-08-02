@@ -16,11 +16,50 @@
 #include "monitor.h"
 #include <trace/trace.h>
 
+struct bind_monitor_reply_state {
+    struct intermon_msg_queue_elem elem;
+    struct intermon_binding *orig_binding;
+    errval_t err;
+};
+
+static void send_bind_monitor_reply(struct intermon_binding *b, errval_t err);
+
+static void send_bind_monitor_reply_cont(struct intermon_binding *b,
+                                         struct intermon_msg_queue_elem *e)
+{
+    struct bind_monitor_reply_state *st = (struct bind_monitor_reply_state *)e;
+    send_bind_monitor_reply(st->orig_binding, st->err);
+    free(st);
+}
+
+static void send_bind_monitor_reply(struct intermon_binding *b, errval_t err)
+{
+    errval_t err2 = b->tx_vtbl.bind_monitor_reply(b, NOP_CONT, err);
+    if (err_is_fail(err2)) {
+        if (err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
+            struct intermon_state *is = b->st;
+            struct bind_monitor_reply_state *st = malloc(sizeof(*st));
+            assert(st != NULL);
+
+            st->orig_binding = b;
+            st->elem.cont = send_bind_monitor_reply_cont;
+            st->err = err;
+
+            err2 = intermon_enqueue_send(b, &is->queue,
+                                         get_default_waitset(), &st->elem.queue);
+            assert(err_is_ok(err2));
+
+        } else {
+            DEBUG_ERR(err2, "reply failed");
+        }
+    }
+}
+
 /**
  * \brief A monitor receives request to setup a connection
  * with another newly booted monitor from a third monitor
  */
-static void bind_monitor_request(struct intermon_binding *st,
+static void bind_monitor_request(struct intermon_binding *b,
                                  coreid_t core_id, 
                                  intermon_caprep_t caprep)
 {
@@ -81,10 +120,7 @@ static void bind_monitor_request(struct intermon_binding *st,
 
     /* Send reply */
 reply:
-    err2 = st->tx_vtbl.bind_monitor_reply(st, NOP_CONT, err);
-    if (err_is_fail(err2)) {
-        DEBUG_ERR(err2, "reply failed");
-    }
+    send_bind_monitor_reply(b, err);
     return;
 
 error:
