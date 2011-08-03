@@ -1349,13 +1349,7 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     // init stack if needed
     static bool stack_inited;
     if (!stack_inited) {
-#ifndef __scc__
-        lwip_init("e1000");
-#else
-        static char cid[20];
-        snprintf(cid, 20, "eMAC2_%u", disp_get_core_id());
-        lwip_init(cid);
-#endif
+        lwip_init_auto();
         stack_inited = true;
     }
 

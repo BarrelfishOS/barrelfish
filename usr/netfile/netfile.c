@@ -537,7 +537,7 @@ int main(int argc, char *argv[])
     // Boot up
     //    debug_printf("calling stack_init()\n");
 
-    lwip_init("e1000");
+    lwip_init_auto();
 
     //    debug_printf("back from stack_init()\n");
 

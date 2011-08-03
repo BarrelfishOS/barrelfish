@@ -123,6 +123,7 @@ struct client_closure {
 
     struct ether_binding *app_connection; /* FIXME: Do I need this? */
     struct cont_queue *q;
+    uint8_t debug_state;
 }; /* holds info about how much data is transferred to NIC. */
 
 

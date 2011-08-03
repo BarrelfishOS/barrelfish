@@ -75,10 +75,14 @@ void perform_ownership_housekeeping(uint16_t (*alloc_tcp_ptr)(void),
 struct waitset;
 struct thread_mutex;
 void owner_lwip_init(char *card_name);
-bool lwip_init(const char *card_name);
 bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
                   struct thread_mutex *opt_mutex);
+bool lwip_init(const char *card_name);
+bool lwip_init_auto_ex(struct waitset *opt_waitset, 
+                       struct thread_mutex *opt_mutex);
+bool lwip_init_auto(void);
 
+void lwip_start_net_debug(uint8_t state);
 
 #ifdef __cplusplus
 }

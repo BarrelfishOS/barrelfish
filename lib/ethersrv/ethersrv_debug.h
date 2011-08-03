@@ -14,6 +14,9 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
+
+void ethersrv_debug_printf(const char *fmt, ...);
+
 /* #define ETHERSRV_DEBUG(x...) ((void)0) */
 #define ETHERSRV_SERVICE_DEBUG 0
 #define ETHERSRV_DEBUG(x...) ((void)0)

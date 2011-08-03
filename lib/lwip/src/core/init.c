@@ -414,5 +414,51 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
  */
 bool lwip_init(const char *card_name)
 {
-    return lwip_init_ex(card_name, NULL, NULL);
+    if(card_name == NULL) {
+        return lwip_init_auto_ex(NULL, NULL);
+    } else {
+        return lwip_init_ex(card_name, NULL, NULL);
+    }
 }
+
+
+/**
+ * Figure out the best NIC card to connect and initialize library network stack.
+ */
+bool lwip_init_auto_ex(struct waitset *opt_waitset, 
+                       struct thread_mutex *opt_mutex)
+{
+    char *card_name = NULL;
+    /* Figure out the best NIC card that can be used */
+    /* FIXME: hardcoding the NIC card right now, will do smarter detection
+       in future. */
+
+#ifndef __scc__
+#ifdef CONFIG_QEMU_NETWORK
+    card_name = "rtl8029";
+#else
+    card_name = "e1000";
+#endif // CONFIG_QEMU_NETWORK
+#else
+    static char cid[100];
+    snprintf(cid, sizeof(cid), "eMAC2_%u", disp_get_core_id());
+    card_name = cid;
+#endif // __scc__
+        
+        return lwip_init_ex(card_name, opt_waitset, opt_mutex);
+} // end function: lwip_init_auto_ex
+
+
+/**
+ * 
+ */
+bool lwip_init_auto(void)
+{
+    return lwip_init_auto_ex(NULL, NULL);
+}
+
+void lwip_start_net_debug(uint8_t state)
+{
+    idc_debug_status(state);
+} // end function: lwip_start_net_debug
+

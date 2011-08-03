@@ -137,8 +137,8 @@ static void network_setup_helper(void)
 
     waitset_init(&lwip_waitset);
     thread_mutex_lock(&my_mutex);
-    lwip_init_ex(NET_DRIVER, &lwip_waitset, &my_mutex);
-    tcpip_init(NET_DRIVER, NULL, NULL);
+    lwip_init_auto_ex(&lwip_waitset, &my_mutex);
+    tcpip_init(NULL, NULL, NULL);
     lwip_socket_init();
     thread_mutex_unlock(&my_mutex);
 
