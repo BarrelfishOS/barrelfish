@@ -48,8 +48,6 @@ extern void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
 static void libc_exit(int status)
 {
-    printf("%s exiting\n", disp_name());
-
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
         errval_t err = cap_revoke(cap_dispatcher);

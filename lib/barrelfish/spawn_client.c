@@ -311,6 +311,18 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
             continue;
         }
 
+        // Check first whether the spawnd exists
+        char namebuf[16];
+        snprintf(namebuf, sizeof(namebuf), "spawn.%u", c);
+        namebuf[sizeof(namebuf) - 1] = '\0';
+
+        iref_t iref;
+        err = nameservice_lookup(namebuf, &iref);
+        if (err_is_fail(err)) {
+            //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
+            return err;
+        }
+
         err = spawn_program(c, path, argv, envp, flags, NULL);
         if (err_is_fail(err)) {
             if (err_no(err) == CHIPS_ERR_UNKNOWN_NAME) {
