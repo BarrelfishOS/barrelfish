@@ -296,7 +296,6 @@ static void spawn_with_fdcap_handler(struct spawn_binding *b, char *path,
     errval_t err;
     domainid_t domainid = 0;
 
-    printf("spawn_with_fdcap_handler called.  ##### \n");
     /* extract arguments from buffer */
     char *argv[MAX_CMDLINE_ARGS + 1];
     int i = 0;
