@@ -1400,6 +1400,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 {
     struct filter *head = rx_filters;
 //    ETHERSRV_DEBUG("### Sending the ARP packet to all....\n");
+    printf("### Sending the ARP packet to all, %"PRIx64" \n", len);
     /* sending ARP packets to only those who have registered atleast one
      * filter with e1000n
      * */
@@ -1578,6 +1579,7 @@ bool waiting_for_netd(void)
 
 static void debug_status(struct ether_binding *cc, uint8_t state)
 {
+	printf("setting the debug status to %x\n", state);
     struct client_closure *cl = ((struct client_closure *)(cc->st));
     cl->debug_state = state;
     debug_state = state;

@@ -267,14 +267,17 @@ remaining_lwip_initialization(char *card_name)
     memp_init(); // 0'st buffer
 
     DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
+	printf("LWIP: remaining_lwip_init: allocating memory for sending\n");
     mem_init(); // 1'th buffer
 
     DEBUGPRINTPS("remaining_lwip_init: initing pbufs\n");
+	printf("LWIP: remaining_lwip_init: initing pbufs\n");
     pbuf_init();
     DEBUGPRINTPS("remaining_lwip_init: done with pbuf_init\n");
     // prefill receive descriptors.
     mem_barrelfish_pbuf_init();
     DEBUGPRINTPS("lwip_starting -- netif_init\n");
+	printf("LWIP: lwip_starting\n");
     netif_init();
 #if LWIP_SOCKET
     lwip_socket_init();
@@ -351,7 +354,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
                   struct thread_mutex *opt_mutex)
 {
     DEBUGPRINTPS ("LWIP_other: Inside lwip_init\n");
-
+	printf("LWIP: in lwip_init\n");
     static bool run_once;
     if (run_once) {
         return false;
@@ -371,7 +374,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     /* Sanity check user-configurable values */
     lwip_sanity_check();
     DEBUGPRINTPS ("LWIP: lwip_init: done with sanity check\n");
-
+	printf("LWIP: done with sanity check\n");
     /* Modules initialization */
     char card_controller_name[100];
     snprintf(card_controller_name, sizeof(card_controller_name), "%s%s",
@@ -381,13 +384,16 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     idc_connect_to_netd(card_controller_name);
     /* FIXME: name of the netd_server should also be passed to lwip_init */
 
-    DEBUGPRINTPS ("LWIP: lwip_init: done with connection setup\n");
+    DEBUGPRINTPS ("LWIP: lwip_init: done with connection setup\n");	
+	printf("LWIP: done with connection setup\n");
     remaining_lwip_initialization((char *)card_name);
 
     //k: we need ip... asking netd :)
     DEBUGPRINTPS ("getting IP from netd\n");
+	printf("LWIP: getting IP from netd\n");
     idc_get_ip();
     DEBUGPRINTPS ("ip requested\n");
+	printf("LWIP: IP requested\n");
 
     // Register timers... (TCP only)
     static struct periodic_event tcp_timer;
@@ -459,6 +465,7 @@ bool lwip_init_auto(void)
 
 void lwip_start_net_debug(uint8_t state)
 {
+	printf("calling idc_debug_status\n");
     idc_debug_status(state);
 } // end function: lwip_start_net_debug
 

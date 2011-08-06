@@ -268,8 +268,11 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
             } else {
                 if(net_debug_state == 0) {
                     net_debug_state = 1;
+			printf("starting the debug in network driver\n");
                     lwip_start_net_debug(net_debug_state);
-                }
+                } else {
+			printf("already started the debug in network driver\n");
+		}
                 /* retransmit */
                 fprintf(stderr, "##### RPC: retransmit XID 0x%x\n", call->xid);
 
