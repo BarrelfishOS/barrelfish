@@ -505,9 +505,14 @@ void idc_debug_status(uint8_t state)
      entry.plist[0] = state;
 
      struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
-	printf("idc_debug_status: q size [%d]\n", 
-			ccnc->q->head - ccnc->q->tail);
+     printf("idc_debug_status: q size [%d]\n",
+             ccnc->q->head - ccnc->q->tail);
      enqueue_cont_q(ccnc->q, &entry);
+     if (b->can_send(b)){
+         printf("idc_debug_status: can send packet right now!!\n");
+     } else {
+         printf("idc_debug_status: can't send packet, putting it in queue\n");
+     }
 
     LWIPBF_DEBUG("idc_debug_status: terminated\n");
     printf("idc_debug_status: terminated\n");

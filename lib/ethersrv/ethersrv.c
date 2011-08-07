@@ -211,7 +211,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap)
 		entry.binding_ptr = (void *) cc;
 		struct client_closure *ccl = (struct client_closure*) cc->st;
 
-		entry.plist[0] = E1000_ERR_TOO_MANY_BUFFERS;
+		entry.plist[0] = ETHERSRV_ERR_TOO_MANY_BUFFERS;
 		/* FIXME: this is wrong error */
 		entry.plist[1] = 0;
 		/*   entry.plist[0], entry.plist[1]);
@@ -524,7 +524,7 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 	struct client_closure *cc = (struct client_closure *) malloc(
 			sizeof(struct client_closure));
 	if (cc == NULL) {
-		err = E1000_ERR_NOT_ENOUGH_MEM;
+		err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
 		ETHERSRV_DEBUG("Ether connection: out of memory\n");
 		return err;
 	}
@@ -533,7 +533,7 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 	struct buffer_descriptor *buffer = (struct buffer_descriptor *) malloc(
 			sizeof(struct buffer_descriptor));
 	if (buffer == NULL) {
-		err = E1000_ERR_NOT_ENOUGH_MEM;
+		err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
 		ETHERSRV_DEBUG("connection_service_logic: out of memory\n");
 		free(cc);
 		return err;
@@ -845,7 +845,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 	/* FIXME: use goto to deal with failure conditions and reduce the code */
 	if (new_filter_rx == NULL || new_filter_tx == NULL) {
 		ETHERSRV_DEBUG("out of memory for filter registration\n");
-		err = E1000_ERR_NOT_ENOUGH_MEM;
+		err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
 		wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
 				buffer_id_tx, ftype);
 
@@ -869,7 +869,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 
 	if (new_filter_rx->data == NULL || new_filter_tx->data == NULL) {
 		ETHERSRV_DEBUG("out of memory for filter data registration\n");
-		err = E1000_ERR_NOT_ENOUGH_MEM;
+		err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
 		wrapper_send_filter_registered_msg(cc, id, err, 0, buffer_id_rx,
 				buffer_id_tx, ftype);
 
@@ -1400,7 +1400,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 {
     struct filter *head = rx_filters;
 //    ETHERSRV_DEBUG("### Sending the ARP packet to all....\n");
-    printf("### Sending the ARP packet to all, %"PRIx64" \n", len);
+//    printf("### Sending the ARP packet to all, %"PRIx64" \n", len);
     /* sending ARP packets to only those who have registered atleast one
      * filter with e1000n
      * */

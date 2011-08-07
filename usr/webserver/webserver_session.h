@@ -51,6 +51,8 @@ struct http_conn {
     struct buff_holder  *hbuff;      /* reply buffer holder */
     size_t              reply_pos;  /* amount of data sent from reply */
 
+    // Time taken to send reply
+    uint64_t            start_ts;
     /* number of send retries */
     int                 retries;
     int                 error; /*flag for internal errors */

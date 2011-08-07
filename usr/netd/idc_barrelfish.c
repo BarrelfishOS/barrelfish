@@ -1242,7 +1242,7 @@ static void register_filter_response (struct ether_control_binding *st, uint64_t
                         bp->active = true;
                         bp->filter_id = filter_id;
                     }
-                    else if(err == E1000_ERR_BUFFER_NOT_FOUND) {
+                    else if(err == ETHERSRV_ERR_BUFFER_NOT_FOUND) {
                         NETD_DEBUG("no buffer found on the driver\n");
                         err = FILTER_ERR_BUFF_NOT_FOUND;
                     }

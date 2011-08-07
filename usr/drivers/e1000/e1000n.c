@@ -139,7 +139,7 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
 	errval_t r;
 	if (!can_transmit(cl->rtpbuf)){
-		return ETHSRV_ERR_CANT_TRANSMIT;
+		return ETHERSRV_ERR_CANT_TRANSMIT;
 	}
 	for (int i = 0; i < cl->rtpbuf; i++) {
 		r = transmit_pbuf(cl->buffer_ptr->pa,

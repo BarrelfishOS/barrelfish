@@ -1,0 +1,28 @@
+/*
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface v_nic "Virtual NIC interface" {
+    typedef uint64 unicid; // Virtual NIC id
+    typedef uint64 ubufid;    // Buffer ID
+    typedef uint32 ubufring_size; // no. of slots in buffer ring
+    
+    call create_vnic_request(cap buf, 
+                    ubufring_size rx_slots,
+                    ubufring_size tx_slots);
+    response create_vnic_response(errval err, unicid vnic_id);
+
+    call register_buffer_request(cap buf);
+    response register_buffer_response(errval err, unicid index);
+
+    call RX_something_happened_request();
+    response RX_something_happened_response();
+    
+    call TX_something_happened_request();
+    response TX_something_happened_response();
+};
