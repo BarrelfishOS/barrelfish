@@ -102,6 +102,7 @@ MODULES_x86_64= \
 	sbin/lrpc_bench \
 	sbin/mem_affinity \
 	sbin/mem_serv_dist \
+	sbin/net-test \
 	sbin/pci \
 	sbin/placement_bench \
 	sbin/phases_bench \
