@@ -398,5 +398,4 @@ expand_aliases el =
 main :: IO ()
 main = do
   hPutStrLn stdout $ format_glossary glossary
-  hClose stdout
   exitWith ExitSuccess

@@ -384,7 +384,7 @@ TAGS: cscope.files
 
 # force rebuild of the Makefile
 rehake: ./hake/hake
-	./hake/hake Makefile
+	./hake/hake --source-dir $(SRCDIR)
 .PHONY: rehake
 
 clean::
@@ -409,6 +409,7 @@ DOCS= \
 	./docs/TN-009-Notifications.pdf \
 	./docs/TN-010-Spec.pdf \
 	./docs/TN-011-IDC.pdf \
+	./docs/TN-012-Services.pdf \
 	./docs/TN-013-CapabilityManagement.pdf \
 
 docs doc: $(DOCS)
