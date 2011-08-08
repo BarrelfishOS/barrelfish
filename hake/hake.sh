@@ -139,7 +139,7 @@ if [ "$RUN_HAKE" == "No" ] ; then
 fi
 
 echo "Running hake..."
-./hake/hake --output-filename Makefile || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR" || exit
 cat <<EOF
 
 OK - Hake has bootstrapped.  You should now have a Makefile in this
