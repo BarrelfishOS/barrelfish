@@ -53,7 +53,7 @@ trace = False
 
 -- Enable QEMU networking. (ie. make network work in small memory)
 support_qemu_networking :: Bool
-support_qemu_networking  = True
+support_qemu_networking  = False
 
 -- enable network tracing
 trace_network_subsystem :: Bool
