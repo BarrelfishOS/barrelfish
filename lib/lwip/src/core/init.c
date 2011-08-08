@@ -362,8 +362,11 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     run_once = true;
 
     if (opt_waitset == NULL) {
+        printf("#### Going ahead with default wait-set\n");
         lwip_waitset = get_default_waitset();
     } else {
+        printf("#### Going ahead with non-default wait-set\n");
+//        lwip_waitset = get_default_waitset();
         lwip_waitset = opt_waitset;
     }
 

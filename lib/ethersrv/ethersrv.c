@@ -165,6 +165,7 @@ static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS
 static void register_buffer(struct ether_binding *cc, struct capref cap)
 {
 
+    printf("ethersrv:register buffer called\n");
 	errval_t err;
 	int i;
 	struct buffer_descriptor *buffer = (struct buffer_descriptor *)

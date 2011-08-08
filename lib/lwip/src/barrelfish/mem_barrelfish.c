@@ -107,18 +107,21 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
     /* FIXME: should buffer be also put in the client_closure_NC? */
     printf("idc_register_buffer with index %d\n", binding_index);
     idc_register_buffer(tmp, binding_index);
-	printf("after idc_register_buffer\n");
+    printf("after idc_register_buffer\n");
 
+//    struct waitset *ws = get_default_waitset();
     /* Wait for actually getting the ID back from driver */
     while (tmp->buffer_id == -1) {
         extern struct waitset *lwip_waitset; // XXX: idc_barrelfish.c
-		printf("event_dispatch tmp->buffer_id %d\n", tmp->buffer_id);
+        printf("###event_dispatch tmp->buffer_id %d\n", tmp->buffer_id);
         err = event_dispatch(lwip_waitset);
+//        err = event_dispatch(ws);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "in event_dispatch on LWIP waitset");
-		}
+        }
+        printf("event_dispatch looping again!\n", tmp->buffer_id);
     }
-	printf("about to return\n");
+    printf("mem_barrelfish_alloc_and_register: about to return\n");
     return((uint8_t *)tmp->va);
 }
 

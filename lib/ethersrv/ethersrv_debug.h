@@ -16,9 +16,7 @@
  *****************************************************************/
 
 void ethersrv_debug_printf(const char *fmt, ...);
-
-/* #define ETHERSRV_DEBUG(x...) ((void)0) */
-#define ETHERSRV_SERVICE_DEBUG 0
+//#define ETHERSRV_DEBUG(x...) printf("ETHERSRV: " x)
 #define ETHERSRV_DEBUG(x...) ((void)0)
 
 /* #if defined(ETHERSRV_SERVICE_DEBUG) || defined(GLOBAL_DEBUG) */
