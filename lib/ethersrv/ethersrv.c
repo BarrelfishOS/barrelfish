@@ -50,6 +50,8 @@ struct client_closure_FM {
 /* FIXME: this should contain the registered buffer ptr */
 };
 
+/* ethersrv specific debug state indicator */
+static int debug_state = 0;
 
 /* NETD connections */
 #define NETD_BUF_NR 2
@@ -70,6 +72,7 @@ static void
 static void get_mac_addr(struct ether_binding *cc);
 static void print_statistics_handler(struct ether_binding *cc);
 static void print_cardinfo_handler(struct ether_binding *cc);
+static void debug_status(struct ether_binding *cc, uint8_t state);
 
 static void register_filter_memory_request(struct ether_control_binding *cc,
 		struct capref mem_cap);
@@ -83,6 +86,8 @@ static void deregister_filter(struct ether_control_binding *cc,
 static void re_register_filter(struct ether_control_binding *cc,
         uint64_t filter_id, uint64_t buffer_id_rx, uint64_t buffer_id_tx);
 
+
+
 /*****************************************************************
  * VTABLE
  *****************************************************************/
@@ -94,7 +99,9 @@ static struct ether_rx_vtbl rx_ether_vtbl = {
 		.transmit_packet = transmit_packet,
 		.get_mac_address = get_mac_addr,
 		.print_statistics = print_statistics_handler,
-		.print_cardinfo = print_cardinfo_handler, };
+		.print_cardinfo = print_cardinfo_handler,
+		.debug_status = debug_status,
+    };
 
 // Initialize interface for ether_control channel
 static struct ether_control_rx_vtbl rx_ether_control_vtbl = {
@@ -333,14 +340,13 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 	errval_t r;
 	struct client_closure *closure = (struct client_closure *) cc->st;
 	assert(closure != NULL);
-	/*
-	 ETHERSRV_DEBUG("ETHERSRV: transmit_packet: sending packet ------\n");
-	 ETHERSRV_DEBUG("packet from buf %lu, of size %lu from clie %d\n",
+
+	if(closure->debug_state) ethersrv_debug_printf("ETHERSRV: transmit_packet: sending packet ------\n");
+	if(closure->debug_state) ethersrv_debug_printf("packet from buf %lu, of size %lu from clie %d\n",
 	 buffer_id, len, closure->cl_no);
 
-	 ETHERSRV_DEBUG("transmit_packet with buff_id %lu, on buffer %lu\n",
-	 buffer_id, closure->buffer_ptr->buffer_id);
-	 */
+	if(closure->debug_state) ethersrv_debug_printf("transmit_packet with buff_id %lu, on buffer %lu\n",
+	        buffer_id, closure->buffer_ptr->buffer_id);
 
 	assert (closure->buffer_ptr->buffer_id == buffer_id);
 	assert(nr_pbufs <= MAX_NR_TRANSMIT_PBUFS);
@@ -388,7 +394,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 		//will never find it in the tx-ring from where the tx_dones
 		//are usually sent
 
-		ETHERSRV_DEBUG(
+	    if(closure->debug_state) ethersrv_debug_printf(
 				"###transmit_packet dropping the packet buff_id %" PRIu64 "\n",
 				closure->buffer_ptr->buffer_id);
 		/* BIG FIXME: This should free all the pbufs and not just pbuf[0].
@@ -538,6 +544,7 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 	cc->buffer_ptr = buffer;
 	cc->nr_transmit_pbufs = 0;
 	cc->rtpbuf = 0;
+	cc->debug_state = 0; // Default debug state : no debug
 	cc->app_connection = b;
 
 	char name[64];
@@ -1332,8 +1339,9 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     struct pbuf_desc *pbuf_list = (struct pbuf_desc *)(buffer->pbuf_metadata_ds);
 
     if(len <= 0 || data == NULL) {
-    	printf("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"PRIu64" and ptr [%p]\n",
+            	ETHERSRV_DEBUG("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"PRIu64" and ptr [%p]\n",
                disp_get_core_id(), len, data);
+       
 //        abort();
 
     	return false;
@@ -1376,7 +1384,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     }
     // add trace pkt cpy
 #if TRACE_ETHERSRV_MODE
-    uint32_t pkt_location = (uint32_t)((uint64_t)data);
+    uint32_t pkt_location = (uint32_t)((uintptr_t)data);
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
@@ -1410,7 +1418,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 
 #if TRACE_ETHERSRV_MODE
 	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_ARP,
-				(uint32_t)(uint64_t)data);
+				(uint32_t)(uintptr_t)data);
 #endif // TRACE_ETHERSRV_MODE
 
     copy_packet_to_user(buffer, data, len);
@@ -1458,7 +1466,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 {
 	struct buffer_descriptor *buffer = NULL;
 #if TRACE_ETHERSRV_MODE
-	uint32_t pkt_location = (uint32_t)((uint64_t)pkt_data);
+	uint32_t pkt_location = (uint32_t)((uintptr_t)pkt_data);
 	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_A, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
@@ -1487,7 +1495,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
 
 #if TRACE_ETHERSRV_MODE
-	pkt_location = (uint32_t)((uint64_t)pkt_data);
+	pkt_location = (uint32_t)((uintptr_t)pkt_data);
 	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_FILTER_FRAG, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
@@ -1509,7 +1517,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
 // add trace filter_execution_end_1
 #if TRACE_ETHERSRV_MODE
-	pkt_location = (uint32_t)((uint64_t)pkt_data);
+	pkt_location = (uint32_t)((uintptr_t)pkt_data);
 	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_FILTER_EX_1, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
@@ -1540,7 +1548,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
 	// add trace filter_execution_end_2
 #if TRACE_ETHERSRV_MODE
-	pkt_location = (uint32_t)((uint64_t)pkt_data);
+	pkt_location = (uint32_t)((uintptr_t)pkt_data);
 	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_FILTER_EX_2, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
@@ -1566,3 +1574,34 @@ bool waiting_for_netd(void)
 	return ((netd[RECEIVE_CONNECTION] == NULL)
 			 || (netd[TRANSMIT_CONNECTION] == NULL));
 } /* end function: is_netd_registered */
+
+
+static void debug_status(struct ether_binding *cc, uint8_t state)
+{
+    struct client_closure *cl = ((struct client_closure *)(cc->st));
+    cl->debug_state = state;
+    debug_state = state;
+} // end function: debug_status
+
+
+void ethersrv_debug_printf(const char *fmt, ...)
+{
+    uint8_t dbg = debug_state;
+    if (dbg == 0) {
+        return;
+    }
+
+    va_list argptr;
+    char str[512];
+    size_t len;
+
+    len = snprintf(str, sizeof(str), "%.*s.%u: ETHERSRV:", DISP_NAME_LEN, disp_name(),
+                   disp_get_core_id());
+    if (len < sizeof(str)) {
+        va_start(argptr, fmt);
+        vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
+        va_end(argptr);
+    }
+    sys_print(str, sizeof(str));
+}
+

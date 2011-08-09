@@ -43,12 +43,15 @@ class WebCommon(TestCommon):
         self.ip = None
 
     def get_modules(self, build, machine):
+        cardName = "e1000"
         modules = super(WebCommon, self).get_modules(build, machine)
-        modules.add_module("netd", ["core=%d" % machine.get_coreids()[2]])
         modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]])
+        modules.add_module("netd", ["core=%d" % machine.get_coreids()[2],
+                                   "cardname=%s"%cardName])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[3],
-				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])
+				cardName, nfsip, 
+                                         siteconfig.get('WEBSERVER_NFS_PATH')])
         return modules
 
     def process_line(self, line):

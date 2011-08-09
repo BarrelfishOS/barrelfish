@@ -20,13 +20,16 @@ class VMKitTest(TestCommon):
     name = "vmkit"
 
     def get_modules(self, build, machine):
+        cardName = "e1000"
         modules = super(VMKitTest, self).get_modules(build, machine)
         modules.add_module("serial")
-        modules.add_module("lpc_timer")
-        modules.add_module("e1000n")
-        modules.add_module("netd")
+        modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]])
+        modules.add_module("netd", ["core=%d" % machine.get_coreids()[2],
+                                    "cardname=%s"%cardName])
+
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-        modules.add_module("vmkitmon", ["nfs://" + nfsip + "/local/nfs/harness"])
+        modules.add_module("vmkitmon", [cardName, 
+                                       "nfs://" + nfsip + "/local/nfs/harness"])
         return modules
 
     def get_finish_string(self):

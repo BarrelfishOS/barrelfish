@@ -15,6 +15,8 @@
 #include <lwip/pbuf.h>
 #include <lwip/udp.h>
 #include <assert.h>
+#include <lwip/init.h>
+
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 
@@ -242,6 +244,7 @@ out:
     }
 }
 
+static uint8_t net_debug_state = 0;
 static void traverse_hash_bucket(int hid, struct rpc_client *client)
 {
     struct rpc_call *call, *next, *prev = NULL;
@@ -263,6 +266,10 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 free(call);
                 freed_call = true;
             } else {
+                if(net_debug_state == 0) {
+                    net_debug_state = 1;
+                    lwip_start_net_debug(net_debug_state);
+                }
                 /* retransmit */
                 fprintf(stderr, "##### RPC: retransmit XID 0x%x\n", call->xid);
 

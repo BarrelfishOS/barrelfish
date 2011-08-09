@@ -472,6 +472,40 @@ void idc_print_cardinfo(void)
 }
 
 
+static errval_t send_debug_status_request(struct q_entry e)
+{
+    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+
+    if (b->can_send(b)) {
+        return b->tx_vtbl.debug_status(b,
+            MKCONT(cont_queue_callback, ccnc->q),
+            (uint8_t)e.plist[0]);
+    } else {
+        LWIPBF_DEBUG("send_debug_status_request: Flounder busy,rtry+++++\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+
+void idc_debug_status(uint8_t state)
+{
+     LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
+
+     struct q_entry entry;
+     memset(&entry, 0, sizeof(struct q_entry));
+     entry.handler = send_debug_status_request;
+     struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+     entry.binding_ptr = (void *)b;
+     entry.plist[0] = state;
+
+     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+     enqueue_cont_q(ccnc->q, &entry);
+
+    LWIPBF_DEBUG("idc_debug_status: terminated\n");
+}
+
+
 /**
  * \brief
  *
@@ -547,7 +581,7 @@ static void tx_done(struct ether_binding *st, uint64_t client_data)
     /* FIXME: Need a way to find out the pbuf_id for this tx_done */
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AIR_R,
                 (uint32_t)((uintptr_t)done_pbuf));
-*/
+
 #endif // LWIP_TRACE_MODE
 
     LWIPBF_DEBUG("tx_done: %"PRIx64"\n", client_data);
