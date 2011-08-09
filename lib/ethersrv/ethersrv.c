@@ -1595,8 +1595,7 @@ void ethersrv_debug_printf(const char *fmt, ...)
     char str[512];
     size_t len;
 
-    len = snprintf(str, sizeof(str), "%.*s.%u: ETHERSRV:", DISP_NAME_LEN, disp_name(),
-                   disp_get_core_id());
+    len = snprintf(str, sizeof(str), "ETHERSRV:");
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
         vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
