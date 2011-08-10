@@ -63,7 +63,7 @@ static void bind_monitor_request(struct intermon_binding *b,
                                  coreid_t core_id, 
                                  intermon_caprep_t caprep)
 {
-    errval_t err, err2;
+    errval_t err;
 
     /* Create the cap */
     struct capability cap_raw;
