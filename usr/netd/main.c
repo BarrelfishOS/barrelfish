@@ -109,6 +109,12 @@ int main(int argc, char**argv)
         }
     }
 
+    if (card_name == NULL) {
+        fprintf(stderr, "Error: netd: card name not specified, but it is required\n");
+        fprintf(stderr, "Hint: try \"netd cardname=e1000\"\n");
+        return 1;
+    }
+
     snprintf(filter_controller_name, sizeof(filter_controller_name), "%s%s",
             card_name, FILTER_SERVICE_SUFFIX);
 
