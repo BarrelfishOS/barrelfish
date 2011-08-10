@@ -30,12 +30,11 @@
  *****************************************************************/
 
 void e1000_hwinit(e1000_t *d, struct device_mem *bar_info,
-                  uint64_t nr_allocated_bars,
+                  int nr_allocated_bars,
                   volatile struct tx_desc **transmit_ring,
                   volatile union rx_desc **receive_ring,
-                  uint64_t receive_buffers, uint64_t transmit_buffers,
-                  uint8_t *macaddr, bool use_interrupt
-                  )
+                  int receive_buffers, int transmit_buffers,
+                  uint8_t *macaddr, bool user_macaddr, bool use_interrupt)
 {
     struct capref frame;
     struct frame_identity frameid = { .base = 0, .bits = 0 };
@@ -123,23 +122,33 @@ void e1000_hwinit(e1000_t *d, struct device_mem *bar_info,
 
     /* --------------------- MAC address setup --------------------- */
 
-    // read MAC from EEPROM
-    uint16_t mac_word0 = read_eeprom(d, 0);
-    uint16_t mac_word1 = read_eeprom(d, 1);
-    uint16_t mac_word2 = read_eeprom(d, 2);
+    // is a valid MAC already present?
+    bool mac_present = e1000_rah_rd(d, 0).av;
 
-    // test LAN ID to see if we need to modify the MAC from EEPROM
-    {
-        e1000_status_t s = e1000_status_rd(d);
-        if (s.lan_id == e1000_lan_b) {
-            mac_word2 ^= e1000_lan_b_mask;
+    if (user_macaddr || !mac_present) {
+        uint16_t mac_word0, mac_word1, mac_word2;
+        if (user_macaddr) {
+            mac_word0 = (((uint16_t)macaddr[1]) << 16) | macaddr[0];
+            mac_word1 = (((uint16_t)macaddr[3]) << 16) | macaddr[2];
+            mac_word2 = (((uint16_t)macaddr[5]) << 16) | macaddr[4];
+        } else {
+            // read MAC from EEPROM
+            mac_word0 = read_eeprom(d, 0);
+            mac_word1 = read_eeprom(d, 1);
+            mac_word2 = read_eeprom(d, 2);
+
+            // test LAN ID to see if we need to modify the MAC from EEPROM
+            e1000_status_t s = e1000_status_rd(d);
+            if (s.lan_id == e1000_lan_b) {
+                mac_word2 ^= e1000_lan_b_mask;
+            }
         }
-    }
 
-    // program card's address with MAC
-    e1000_rah_wr(d, 0, (e1000_rah_t){ .av = 0 });
-    e1000_ral_wr(d, 0, ( mac_word0 | ((mac_word1)<<16)));
-    e1000_rah_wr(d, 0, (e1000_rah_t){ .rah = mac_word2, .av = 1 });
+        // program card's address with MAC
+        e1000_rah_wr(d, 0, (e1000_rah_t){ .av = 0 });
+        e1000_ral_wr(d, 0, ( mac_word0 | ((mac_word1)<<16)));
+        e1000_rah_wr(d, 0, (e1000_rah_t){ .rah = mac_word2, .av = 1 });
+    }
 
     // cache MAC for stack to see
     uint64_t machi = e1000_rah_rd(d, 0).rah;
