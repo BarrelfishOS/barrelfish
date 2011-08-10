@@ -308,13 +308,13 @@ static bool handle_next_received_packet(void)
     		goto end;
     	}
 
-//      E1000N_DEBUG("packet received..\n");
+        // E1000N_DEBUG("packet received of size %zu..\n", len);
 
     	buffer_address = (void*)rxd->rx_read_format.buffer_address;
 		data = (buffer_address - internal_memory_pa)
 			+ internal_memory_va;
 
-		if (data == NULL){
+		if (data == NULL || len == 0){
 			printf("ERROR: Incorrect packet\n");
 			// abort();
 			/* FIXME: What should I do when such errors occur. */
