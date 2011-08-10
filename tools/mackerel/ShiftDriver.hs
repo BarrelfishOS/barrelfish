@@ -409,7 +409,7 @@ device_prefix_defs d =
       [ C.Define "__DN" ["x"] (name ++ " ## _ ## x"),
         C.IfDef prefix
               [ C.Define "__DP" ["x"] ( "__DP1(x," ++ prefix ++ ")" ),
-                C.Define "__DP1" ["x1","x2"] "_DP2(x1,x2)",
+                C.Define "__DP1" ["x1","x2"] "__DP2(x1,x2)",
                 C.Define "__DP2" ["x1","x2"] "x2 ## x1" ]
               [ C.Define "__DP" ["x"] ( name ++ "##_ ##x") ],
         C.Define "__STR" ["x"] "#x",

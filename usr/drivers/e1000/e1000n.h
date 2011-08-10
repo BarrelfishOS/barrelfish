@@ -25,10 +25,10 @@
 uint16_t read_eeprom(struct e1000_t *dev, uint64_t offset);
 void *alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
 void e1000_hwinit(e1000_t *d, struct device_mem *bar_info,
-                  uint64_t nr_allocated_bars,
+                  int nr_allocated_bars,
                   volatile struct tx_desc **transmit_ring,
                   volatile union rx_desc **receive_ring,
-                  uint64_t receive_buffers, uint64_t transmit_buffers,
-                  uint8_t *macaddr, bool use_interrupt);
+                  int receive_buffers, int transmit_buffers,
+                  uint8_t *macaddr, bool user_macaddr, bool use_interrupt);
 
 #endif // E1000N_H_

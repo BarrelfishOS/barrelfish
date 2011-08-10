@@ -187,7 +187,7 @@ char* build_dst_mac_filter(struct eth_addr dst)
     last_two |= ((uint16_t) dst.addr[4]) << 8;
 
     if(!if_any_mac(dst)) {
-	snprintf(filter, max_len, "int32[0]==%d&&int16[4]==%d", 
+	snprintf(filter, max_len, "int32[0]==%u&&int16[4]==%u", 
 	        first_four, last_two);
     }
     if (strlen(filter) == 0) {
@@ -213,7 +213,7 @@ char* build_src_mac_filter(struct eth_addr src)
     last_two |= ((uint16_t) src.addr[4]) << 8;
 
     if(!if_any_mac(src)) {
-	snprintf(filter, max_len, "int32[6]==%d&&int16[10]==%d", 
+	snprintf(filter, max_len, "int32[6]==%u&&int16[10]==%u", 
 	        first_four, last_two);
     }
     if (strlen(filter) == 0) {
@@ -275,7 +275,7 @@ build_icmp_filter(void)
 {
 	size_t          max_len = 128;
 	char           *filter = malloc(max_len);
-	snprintf(filter, max_len, "int8[23]==%d", 0x01);
+	snprintf(filter, max_len, "int8[23]==%u", 0x01);
 
 	return filter;
 }
@@ -328,13 +328,13 @@ build_tcp_filter(port_t srcport, port_t dstport)
 {
 	size_t          max_len = 128;
 	char           *filter = malloc(max_len);
-	snprintf(filter, max_len, "int8[23]==%d", 0x06);
+	snprintf(filter, max_len, "int8[23]==%u", 0x06);
 
 	if (srcport != PORT_ANY)
-		snprintf(filter + strlen(filter), max_len, "&&int16[34]==%d",
+		snprintf(filter + strlen(filter), max_len, "&&int16[34]==%u",
 				 (uint16_t) srcport);
 	if (dstport != PORT_ANY) {
-		snprintf(filter + strlen(filter), max_len, "&&int16[36]==%d",
+		snprintf(filter + strlen(filter), max_len, "&&int16[36]==%u",
 				 (uint16_t) dstport);
 	}
 
@@ -362,13 +362,13 @@ build_udp_filter(port_t srcport, port_t dstport)
 {
 	size_t          max_len = 128;
 	char           *filter = malloc(max_len);
-	snprintf(filter, max_len, "int8[23]==%d", 0x11);
+	snprintf(filter, max_len, "int8[23]==%u", 0x11);
 
 	if (srcport != PORT_ANY)
-		snprintf(filter + strlen(filter), max_len, "&&int16[34]==%d",
+		snprintf(filter + strlen(filter), max_len, "&&int16[34]==%u",
 				 (uint16_t) srcport);
 	if (dstport != PORT_ANY) {
-		snprintf(filter + strlen(filter), max_len, "&&int16[36]==%d",
+		snprintf(filter + strlen(filter), max_len, "&&int16[36]==%u",
 				 (uint16_t) dstport);
 	}
 
@@ -517,10 +517,10 @@ char* build_generic_arp_reply_filter(void)
     char *filter = malloc(max_len);
     assert(filter);
     memset(filter, 0, max_len);
-    snprintf(filter, max_len, "int16[12]==%d", 0x0806 /* ETHTYPE_ARP */);
+    snprintf(filter, max_len, "int16[12]==%u", 0x0806 /* ETHTYPE_ARP */);
 		/* FIXME: why following filter is broken?
 		 * Question is, what is the correct location of value 0x0002? */
-/*    snprintf(filter, max_len, "int16[12]==%d&&int16[20]==%d", (0x0806),
+/*    snprintf(filter, max_len, "int16[12]==%u&&int16[20]==%u", (0x0806),
     		(0x0002));
 */
 
@@ -537,7 +537,7 @@ char* build_arp_transmit_filter(struct eth_addr src)
     assert(mac);
     assert(filter);
     memset(filter, 0, max_len);
-    snprintf(filter, max_len, "int16[12]==%d&&%s", 0x0806, mac);
+    snprintf(filter, max_len, "int16[12]==%u&&%s", 0x0806, mac);
     /*FIXME: why these values are not htons()? */
     return filter;
 }

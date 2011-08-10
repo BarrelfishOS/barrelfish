@@ -1560,8 +1560,13 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 //    ETHERSRV_DEBUG("sending packet up.\n");
     /* copy the packet to userspace */
 	if(copy_packet_to_user(buffer, pkt_data, pkt_len) == false) {
-//		ETHERSRV_DEBUG("Copy packet to userspace failed\n");
-//		printf("O:Copy packet to userspace failed\n");
+		ETHERSRV_DEBUG("Copy packet to userspace failed\n");
+		/* AB: commented out printf here. If we're on a busy network
+		 * and packets keep arriving, the rate of debug printing is
+		 * slower than the packet arrival rate, and we get stuck in a
+		 * loop printing out these messages that we are discarding packets.
+		 */
+		// printf("O:Copy packet to userspace failed\n");
 	}
 
 
