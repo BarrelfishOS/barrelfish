@@ -31,7 +31,7 @@ static char *vidmem;    /// Pointer to video memory
 
 // original video mode
 static uint16_t origmode;
-static int origlinear;
+static bool origlinear;
 static char fontbackup[65536];
 
 void wait_for_vsync(void)
@@ -42,16 +42,15 @@ void wait_for_vsync(void)
 
 void quit(void)
 {
-    int r;
-    errval_t err;
+    errval_t err, ret;
 
     // Restore font backup
     memcpy(vidmem, fontbackup, 65536);
 
     err = fb_client.vtbl.set_vesamode(&fb_client, origmode, origlinear,
-                                      true, &r);
+                                      true, &ret);
     assert(err_is_ok(err));
-    assert(r == 0);
+    assert(err_is_ok(ret));
     exit(0);
 }
 
@@ -217,8 +216,8 @@ static void load_slides(const char *indir)
 
 int main(int argc, char *argv[])
 {
-    int xres, yres, bpp, r;
-    errval_t err;
+    int xres, yres, bpp;
+    errval_t err, ret;
 
     // Parse commandline
     if(argc < 5) {
@@ -241,26 +240,30 @@ int main(int argc, char *argv[])
     load_slides(argv[4]);
 
     // Get current video mode
-    err = fb_client.vtbl.get_vesamode(&fb_client, &origmode, &origlinear, &r);
+    err = fb_client.vtbl.get_vesamode(&fb_client, &origmode, &origlinear, &ret);
     assert(err_is_ok(err));
-    assert(r == 0);
+    assert(err_is_ok(ret));
 
     // Set videomode
-    err = fb_client.vtbl.set_videomode(&fb_client, xres, yres, bpp, &r);
+    err = fb_client.vtbl.set_videomode(&fb_client, xres, yres, bpp, &ret);
     assert(err_is_ok(err));
-    assert(r == 0);
+    assert(err_is_ok(ret));
 
     // Get and map framebuffer
     struct capref fbcap;
-    err = fb_client.vtbl.get_framebuffer(&fb_client, &fbcap);
+    uint32_t fboffset;
+    err = fb_client.vtbl.get_framebuffer(&fb_client, &ret, &fbcap, &fboffset);
     assert(err_is_ok(err));
+    assert(err_is_ok(ret));
 
     struct frame_identity fbid = { .base = 0, .bits = 0 };
-    r = invoke_frame_identify(fbcap, &fbid);
-    assert(r == 0);
+    err = invoke_frame_identify(fbcap, &fbid);
+    assert(err_is_ok(err));
     err = vspace_map_one_frame((void**)&vidmem, 1 << fbid.bits, fbcap,
                                NULL, NULL);
     assert(err_is_ok(err));
+
+    vidmem += fboffset;
 
     // Save textmode bit of framebuffer and hopefully capture the font
     memcpy(fontbackup, vidmem, 65536);

@@ -127,35 +127,61 @@ uint16_t *vbe_getmodes(void)
     return modes;
 }
 
-int vbe_get_framebuffer_cap(struct capref *cap)
+// FIXME: this API is broken, because it assumes that the entire framebuffer
+// can be mapped by a single cap. in the long run we probably don't want to be
+// handing out the raw hardware cap anyway...
+errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *retoffset)
 {
     struct vbemodeinfoblock mib;
+    int first_mem_bar = -1;
 
     uint32_t r = vbe_mode_info(current_mode, &mib);
     assert((r & 0xffff) == VBE_OK);
 
-    printf("looking for mode with PA=%x\n", mib.physbaseptr);
+    lpaddr_t fbphys = mib.physbaseptr;
+    size_t fbsize = (size_t)mib.xresolution * mib.yresolution
+                    * (mib.bitsperpixel / 8);
+
+    printf("vbe: looking for BAR cap with PA %zx-%zx\n",
+           fbphys, fbphys + fbsize);
 
     for(int i = 0; i < nbars; i++) {
-        if (bars[i].type == 0) {
-            printf("%d: %d kB @ %" PRIxGENPADDR "\n", i,
-                   1U << (bars[i].bits - 10), bars[i].paddr);
-            if (bars[i].paddr == mib.physbaseptr) {
-                assert(bars[i].nr_caps == 1);
-                *cap = bars[i].frame_cap[0];
-                return 0;
+        if (bars[i].type == 0) { // memory bar
+            printf("%d: %"PRIxGENPADDR"-%"PRIxGENPADDR"\n", i,
+                   bars[i].paddr, bars[i].paddr + bars[i].bytes);
+            if (first_mem_bar == -1) {
+                first_mem_bar = i;
+            }
+            if (bars[i].paddr <= fbphys
+                && bars[i].paddr + bars[i].bytes >= fbphys + fbsize) {
+                // it's in this BAR, but do we have a single cap that covers it?
+                // XXX: assume uniformly-sized caps
+                size_t bytes_per_cap = bars[i].bytes / bars[i].nr_caps;
+                size_t fboffset = fbphys - bars[i].paddr;
+
+                if (fboffset / bytes_per_cap
+                    != (fboffset + fbsize - 1) / bytes_per_cap) {
+                    USER_PANIC("can't return multiple caps to framebuffer from"
+                               " broken API");
+                }
+
+                // does framebuf start at cap boundary?
+                *cap = bars[i].frame_cap[fboffset / bytes_per_cap];
+                *retoffset = fboffset % bytes_per_cap;
+                return SYS_ERR_OK;
             }
         } else {
             printf("%d: IO cap\n", i);
         }
     }
 
-    // XXX: Hack to get right framebuffer
-    printf("falling back to 0: %" PRIxGENPADDR "\n", bars[0].paddr);
-    assert(bars[0].type == 0);
-    assert(bars[0].nr_caps == 1);
-    *cap = bars[0].frame_cap[0];
-    return 0;
+    // XXX: Hack to get right framebuffer (usually it's the first memory BAR)
+    printf("vbe: not found, falling back to %d: %" PRIxGENPADDR "\n",
+           first_mem_bar, bars[first_mem_bar].paddr);
+    assert(bars[first_mem_bar].nr_caps == 1);
+    *cap = bars[first_mem_bar].frame_cap[0];
+
+    return SYS_ERR_OK;
 }
 
 /* XXX: hack to wait for a vertical retrace */
@@ -171,7 +197,7 @@ void vbe_vsync(void)
 static char *buf = NULL;
 static size_t bufsize = 0;
 
-int vbe_savestate(void)
+uint32_t vbe_savestate(void)
 {
     // Request size of state buffer
     struct int10_regs regs = {
@@ -200,7 +226,7 @@ int vbe_savestate(void)
     return nregs.eax & 0xffff;
 }
 
-int vbe_restorestate(void)
+uint32_t vbe_restorestate(void)
 {
     assert(buf != NULL);
     char *b = (myram + DATASEG);
