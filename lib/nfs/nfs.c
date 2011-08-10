@@ -806,7 +806,7 @@ static void remove_reply_handler(struct rpc_client *rpc_client, void *arg1,
                                  uint32_t acceptstat, XDR *xdr)
 {
     struct nfs_client *client = (void *)rpc_client;
-    nfs_remove_callback_t callback = arg1;
+    nfs_remove_callback_t callback = (nfs_remove_callback_t)arg1;
     REMOVE3res result;
     bool rb;
 

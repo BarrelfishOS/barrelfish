@@ -137,7 +137,10 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs)
 // XXX: Needs to be compiled with -O2, otherwise we use too many
 // registers. Have to think about how to circumvent this without needing
 // -O2.
-void __attribute__((optimize(2)))
+void
+#if defined(__GNUC__) && !defined(__ICC)
+__attribute__((optimize(2)))
+#endif
 disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
             arch_registers_state_t *to_state)
 {
@@ -207,7 +210,10 @@ disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
 // XXX: Needs to be compiled with -O2, otherwise we use too many
 // registers. Have to think about how to circumvent this without needing
 // -O2.
-void __attribute__((optimize(2)))
+void
+#if defined(__GNUC__) && !defined(__ICC)
+__attribute__((optimize(2)))
+#endif
 disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
           bool yield, caddr_t yield_to)
 {

@@ -652,7 +652,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
         pfh->chunk_size = MIN(MAX_NFS_WRITE_BYTES, fh->size - pfh->chunk_start);
         fh->chunk_pos += pfh->chunk_size;
         e = nfs_write(nfs->client, fh->handle, fh->offset + pfh->chunk_start,
-                      fh->data + pfh->chunk_start, pfh->chunk_size,
+                      (char *)fh->data + pfh->chunk_start, pfh->chunk_size,
                       NFS_WRITE_STABILITY, write_callback, pfh);
         assert(e == ERR_OK);
         chunks++;
