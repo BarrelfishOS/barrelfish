@@ -72,8 +72,15 @@ static errval_t init_allocators(void)
     }
 
     err = mm_init(&pci_mm_physaddr, ObjType_PhysAddr, 0, 48,
-                  DEFAULT_CNODE_BITS, slab_default_refill, slot_alloc_dynamic,
-                  &slot_allocator);
+                  /* This next parameter is important. It specifies the maximum
+                   * amount that a cap may be "chunked" (i.e. broken up) at each
+                   * level in the allocator. Setting it higher than 1 reduces the
+                   * memory overhead of keeping all the intermediate caps around,
+                   * but leads to problems if you chunk up a cap too small to be
+                   * able to allocate a large subregion. This caused problems
+                   * for me with a large framebuffer... -AB 20110810 */
+                  1 /* was DEFAULT_CNODE_BITS */,
+                  slab_default_refill, slot_alloc_dynamic, &slot_allocator);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
