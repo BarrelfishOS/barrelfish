@@ -182,19 +182,39 @@ static void start_icmp_benchmark(void)
 
 static void link_status_change(struct netif *nf)
 {
-/*	printf("##############################################################\n");
-*/
-    printf("Interface up! IP address %d.%d.%d.%d\n",
-    		ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
-    		ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
+    static bool subsequent_call;
 
-/*	printf("##############################################################\n");
-*/
+    assert(nf == &netif);
+
+    if (netif_is_up(nf)) {
+        printf("netd: interface is now up\n");
+    } else {
+        printf("netd: interface is now down\n");
+        return;
+    }
+
+    if (subsequent_call) {
+        if (ip_addr_cmp(&local_ip, &nf->ip_addr) != 0) {
+            printf("netd: WARNING: IP has changed! Current address: %d.%d.%d.%d",
+                   ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
+                   ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
+        }
+    } else {
+        // warning: some regression tests depend upon the format of this message
+        printf("Interface up! IP address %d.%d.%d.%d\n",
+               ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
+               ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
+    }
 
     local_ip = nf->ip_addr;
     netif_set_default(nf);
-    NETD_DEBUG("registering netd service\n");
-    register_netd_service(NULL);
+
+    if (!subsequent_call) {
+        NETD_DEBUG("registering netd service\n");
+        register_netd_service(NULL);
+    }
+
+    subsequent_call = true;
 }
 
 static void get_ip_from_dhcp(void)
