@@ -225,12 +225,6 @@ static void setup_dhcp_timer(void)
     assert(err_is_ok(err));
 }
 
-static void remove_dhcp_timers(void)
-{
-    periodic_event_cancel(&dhcp_fine_timer);
-    periodic_event_cancel(&dhcp_coarse_timer);
-}
-
 static void link_status_change(struct netif *nf)
 {
     static bool subsequent_call;
@@ -264,7 +258,8 @@ static void link_status_change(struct netif *nf)
 #if 0
         /* Now, the timers are not needed.  They should be closed. */
         /* I don't agree -- we need to keep renewing our lease -AB */
-        remove_dhcp_timers();
+        periodic_event_cancel(&dhcp_fine_timer);
+        periodic_event_cancel(&dhcp_coarse_timer);
 #endif
 
         NETD_DEBUG("registering netd service\n");
