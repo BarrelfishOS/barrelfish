@@ -63,7 +63,9 @@ static void mount_reply_handler(struct rpc_client *rpc_client, void *arg1,
     bool rb;
 
     if (replystat != RPC_MSG_ACCEPTED || acceptstat != RPC_SUCCESS) {
-        printf("Call failed while mounting in state %d\n", client->mount_state);
+        printf("RPC failed while mounting in state %d:"
+               "replystat = %u, acceptstat = %u\n", client->mount_state,
+               replystat, acceptstat);
         goto error;
     }
 
@@ -130,7 +132,7 @@ static void mount_reply_handler(struct rpc_client *rpc_client, void *arg1,
     return;
 
 error:
-    client->mount_callback(NULL, client->mount_cbarg, -1, fh);
+    client->mount_callback(client->mount_cbarg, NULL, -1, fh);
     nfs_destroy(client);
 }
 
