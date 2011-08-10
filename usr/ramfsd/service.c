@@ -406,7 +406,7 @@ reply:
         err = b->tx_vtbl.readdir_response(b, err_is_ok(reterr)
                                                 ? MKCONT(txcont, e) : NOP_CONT,
                                           reterr, name, isdir, size);
-        if (err_is_ok(err)) {
+	if (err_is_ok(err)) {
             return;
         } else if (err_no(err) != FLOUNDER_ERR_TX_BUSY) {
             if (err_is_ok(reterr)) {
@@ -417,7 +417,6 @@ reply:
             return;
         }
     }
-
     // enqueue in send queue
     struct msgq_elem *q = malloc(sizeof(struct msgq_elem));
     assert(q != NULL);
@@ -428,6 +427,7 @@ reply:
     q->a.readdir_response.size = size;
     q->dirent = err_is_ok(reterr) ? e : NULL;
     msg_enqueue(st, b, q);
+   
 }
 
 static void lookup(struct trivfs_binding *b, trivfs_fh_t dir, char *name)

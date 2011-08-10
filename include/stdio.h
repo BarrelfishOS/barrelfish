@@ -129,6 +129,8 @@ int setvbuf(FILE *, char *, int, size_t);
 
 /* XXX: POSIX */
 FILE *fdopen(int fd, const char *mode);
+FILE *popen(const char *command, const char *type);
+int pclose(FILE *stream);
 
 /* 7.19.6 Format i/o functions */
 int fprintf(FILE *, const char *, ...) __attribute__ ((format(printf, 2, 3)));

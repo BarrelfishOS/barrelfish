@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -314,6 +314,20 @@ errval_t monitor_client_new_binding(monitor_bind_continuation_fn *cont, void *st
                              MKCLOSURE(new_monitor_binding_request_sender,lmpb));
 
     return SYS_ERR_OK;
+}
+
+errval_t monitor_cap_set_remote(struct capref cap, bool remote)
+{
+    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    assert(mc != NULL);
+    errval_t err, reterr;
+
+    err = mc->vtbl.cap_set_remote(mc, cap, remote, &reterr);
+    if(err_is_fail(err)) {
+        return err;
+    } else {
+        return reterr;
+    }
 }
 
 struct bind_state {

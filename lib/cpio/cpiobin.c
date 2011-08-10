@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * Thi2s file is distributed under the terms in the attached LICENSE file.
@@ -59,26 +59,6 @@ typedef struct
 } __attribute__((packed)) cpio_newc_header_t;
 
 STATIC_ASSERT_SIZEOF(cpio_newc_header_t, 110);
-
-typedef struct
-{
-    cpio_mode_bits_t mode;
-    const char*      name;
-    const uint8_t*   data;
-    size_t           datasize;
-    uint32_t         checksum;
-} cpio_generic_header_t;
-
-/**
- * CPIO visitor function.
- *
- * This is invoked by cpio_visit.
- *
- * returns zero to continue visit after current invocation, non-zero to stop.
- */
-typedef int (*cpio_visitor_t)(int                          ordinal,
-                              const cpio_generic_header_t* header,
-                              void*                        arg);
 
 static const char CPIO_LAST[] = "TRAILER!!!";
 const size_t CPIO_BIN_LAST_SIZE = sizeof(cpio_bin_header_t) + sizeof(CPIO_LAST);
@@ -396,17 +376,7 @@ cpio_newc_visit(
     return visited;
 }
 
-/**
- * Apply visitor function to each header in CPIO memory image.
- *
- * @param cpio_base     base of CPIO memory image.
- * @param cpio_bytes    size of CPIO memory image in bytes.
- * @param cpio_visit_fn visitor function.
- * @param arg           user supplied argument to visitor function.
- *
- * @return              number of CPIO headers visited.
- */
-static int
+int
 cpio_visit(
     const uint8_t*         cpio_base,
     size_t                 cpio_bytes,

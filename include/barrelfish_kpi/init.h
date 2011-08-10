@@ -32,6 +32,12 @@
 #define MAX_ENVIRON_VARS   128
 
 /**
+ * Size of page with inherited file descriptors
+ */
+#define FDS_SIZE          (32 * 1024)  // estimate worst case here.
+
+
+/**
  * Size of dispatcher frame
  */
 #define DISPATCHER_SIZE         ((genpaddr_t)1 << DISPATCHER_FRAME_BITS)
@@ -96,7 +102,9 @@
 #define TASKCN_SLOT_ARGSPAGE    10  ///< ?
 #define TASKCN_SLOT_MON_URPC    11  ///< Frame cap for urpc comm.
 #define TASKCN_SLOT_BMP_TABLE   12  ///< cap to access BMP association table
-#define TASKCN_SLOTS_USER       13  ///< First free slot in taskcn for user
+#define TASKCN_SLOT_FDSPAGE     13  ///< cap for performance monitoring
+#define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
+#define TASKCN_SLOTS_USER       15  ///< First free slot in taskcn for user
 
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)

@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2009, ETH Zurich.
+-- Copyright (c) 2007-2009, 2011, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -11,13 +11,14 @@
 --------------------------------------------------------------------------
 
 
-let subdirs = [ "src/core", "src/core/ipv4", "src/barrelfish" ]
+let subdirs = [ "src/core", "src/core/ipv4", "src/barrelfish", "src/api" ]
     srcs = concat [ find cInDir sd | sd <- subdirs ]
            ++ [ "src/netif/bfeth.c", "src/netif/etharp.c", "src/sys_arch.c" ]
 in
   [ build library { target = "lwip",
                     cFiles = srcs,
                     flounderBindings = [ "ether", "netd" ],
+		    omitCFlags = [ "-Werror" ],
                     flounderExtraBindings = [ ("netd", ["rpcclient"]) ],
                     addCFlags =  [ "-Wno-redundant-decls" ],
                     addIncludes = [ "src/barrelfish" ],

@@ -65,7 +65,7 @@ extern sys_sem_t lock_tcpip_core;
 #define TCPIP_NETIFAPI_ACK(m) sys_sem_signal(m->sem)
 #endif /* LWIP_TCPIP_CORE_LOCKING */
 
-void tcpip_init(void (* tcpip_init_done)(void *), void *arg);
+void tcpip_init(char *card_name, void (* tcpip_init_done)(void *), void *arg);
 
 #if LWIP_NETCONN
 err_t tcpip_apimsg(struct api_msg *apimsg);

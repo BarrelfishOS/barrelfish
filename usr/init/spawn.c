@@ -53,6 +53,16 @@ errval_t initialize_monitor(struct spawninfo *si)
         return err_push(err, INIT_ERR_COPY_KERNEL_CAP);
     }
 
+    /* Give monitor the perfmon capability */
+    dest.cnode = si->taskcn;
+    dest.slot = TASKCN_SLOT_PERF_MON;
+    src.cnode = cnode_task;
+    src.slot = TASKCN_SLOT_PERF_MON;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_PERF_MON);
+    }
+
     /* Give monitor modulecn */
     dest.cnode = si->rootcn;
     dest.slot  = ROOTCN_SLOT_MODULECN;

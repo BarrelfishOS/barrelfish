@@ -570,6 +570,7 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
 static void realinit(void)
 {
     struct tcp_pcb *pcb = tcp_new();
+//    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));
     err_t e = tcp_bind(pcb, IP_ADDR_ANY, HTTP_PORT);
     assert(e == ERR_OK);
     pcb = tcp_listen(pcb);

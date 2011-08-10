@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,5 +17,6 @@
 
 void vfs_path_normalise(char *path);
 char *vfs_path_mkabsolute(const char *cwd, const char *path);
+char *vfs_path_mkabs(const char *path);
 
 #endif

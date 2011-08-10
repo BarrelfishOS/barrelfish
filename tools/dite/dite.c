@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <errno.h>
 
 typedef uint8_t coreid_t;
 
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
 
     void *kernelbuf = NULL;
     char *image_output = NULL;
-    char *header_output = NULL;
+    /* char *header_output = NULL; */
     char *input = NULL;
 
     for (int i = 1; i < argc; i++) {
@@ -275,11 +276,11 @@ int main(int argc, char *argv[])
                 goto usage;
             }
             image_output = argv[++i];
-        } else if (strcmp(argv[i], "-h") == 0) {
-            if (i == argc - 1) {
-                goto usage;
-            }
-            header_output = argv[++i];
+        /* } else if (strcmp(argv[i], "-h") == 0) { */
+        /*     if (i == argc - 1) { */
+        /*         goto usage; */
+        /*     } */
+        /*     header_output = argv[++i]; */
         } else if (argv[i][0] == '-') {
             goto usage;
         } else {
@@ -287,14 +288,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (output == NULL || input == NULL || elf_funcs == NULL) {
+    if (image_output == NULL || input == NULL || elf_funcs == NULL) {
 usage:
         printf("Usage: %s <-32|-64> [-o output] menu.lst\n", argv[0]);
         return -1;
     }
 
     FILE *f = fopen(input, "r");
-    assert(f != NULL);
+    if(f == NULL) {
+        fprintf(stderr, "%s: Could not open '%s': %s\n", argv[0], argv[1],
+                strerror(errno));
+        exit(EXIT_FAILURE);
+    }
     char cmd[1024], args[1024], image[1024];
     void *module[MAX_MODULES];
     size_t sizemodule[MAX_MODULES], sizekernel, posmodule[MAX_MODULES];
@@ -468,13 +473,13 @@ usage:
         memcpy(pos, module[i], sizemodule[i]);
     }
 
-    if(output == NULL) {
+    if(image_output == NULL) {
         printf("No output image specified!\n");
         exit(1);
     }
 
     // Write output
-    FILE *out = fopen(output, "w");
+    FILE *out = fopen(image_output, "w");
     assert(out != NULL);
     fwrite(dstbuf, bufsize, 1, f);
     fclose(out);

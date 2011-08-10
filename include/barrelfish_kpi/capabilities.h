@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -46,7 +46,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -70,7 +70,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -152,7 +152,8 @@ enum dispatcher_cmd {
  * Frame capability commands.
  */
 enum frame_cmd {
-    FrameCmd_Identify   ///< Return physical address of frame
+    FrameCmd_Identify,   ///< Return physical address of frame
+    FrameCmd_SCC_Identify,      ///< Return MC route to frame
 };
 
 /**
@@ -190,6 +191,17 @@ enum notify_cmd {
     NotifyCmd_Send
 };
 
+
+/**
+ * Performance monitoring commands.
+ * Seems to be already included in the Dispatcher capability.
+ */
+enum perfmon_cmd {
+    PerfmonCmd_Activate,    ///< Activate performance counters
+    PerfmonCmd_Deactivate,  ///< Deactivate performance counters 
+    PerfmonCmd_Write        ///< Read current performance counter values
+};
+
 /**
  * Maximum command ordinal.
  */
@@ -202,6 +214,13 @@ struct frame_identity {
     genpaddr_t base;   ///< Physical base address of frame
     uint8_t bits;      ///< Size of frame, in bits
 };
+
+#ifdef __scc__
+struct scc_frame_identity {
+    uint8_t route, subdest;
+    uint16_t addrbits;
+};
+#endif
 
 #endif // __ASSEMBLER__
 

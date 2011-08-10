@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -24,5 +24,9 @@ int fileno(FILE *f)
         return 2;
     }
 
-    return fdtab_search_alloc(f->handle);
+    struct fdtab_entry e = {
+        .type = FDTAB_TYPE_FILE,
+        .handle = f->handle,
+    };
+    return fdtab_search_alloc(&e);
 }

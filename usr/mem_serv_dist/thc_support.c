@@ -40,11 +40,12 @@
 // The various request handler functions
 
 static void percore_free_handler(struct mem_thc_service_binding_t *sv,
-                                 struct capref ramcap)
+                                 struct capref ramcap, genpaddr_t base,
+                                 uint8_t bits)
 {
     errval_t ret;
-    ret = percore_free_handler_common(ramcap);
-    sv->send.free(sv, ret);
+    ret = percore_free_handler_common(ramcap, base, bits);
+    sv->send.free_monitor(sv, ret);
 }
 
 static void mem_available_handler(struct mem_thc_service_binding_t *sv) 
@@ -76,10 +77,14 @@ static void percore_allocate_handler(struct mem_thc_service_binding_t *sv,
     struct capref cap;
     ret = percore_allocate_handler_common(bits, minbase, maxlimit, &cap);
     sv->send.allocate(sv, ret, cap);
+    if(!capref_is_null(cap)) {
+        ret = cap_delete(cap);
+        if(err_is_fail(ret)) {
+            DEBUG_ERR(err, "cap_delete after send. This memory will leak.");
+        }
+    }
 
     trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC_COMPLETE, 0);
-
-
 }
 
 // Various startup procedures
@@ -116,7 +121,7 @@ static void run_server(struct mem_thc_service_binding_t *sv)
         case mem_available:
             mem_available_handler(sv);
             break;
-        case mem_free:
+        case mem_free_monitor:
             percore_free_handler(sv, msg.args.free.in.mem_cap); 
             break;
         default:
@@ -159,14 +164,14 @@ errval_t percore_mem_serv(coreid_t core, coreid_t *cores,
     }
 
     struct monitor_binding *mb = get_monitor_binding();
-    err = mb->tx_vtbl. set_percore_iref_request(mb, NOP_CONT, iref);
+    err = mb->tx_vtbl. set_mem_iref_request(mb, NOP_CONT, iref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "setting monitor's percore mem_serv iref");
         return err;
     }
 
     // explicitly tell spawnd to use us
-    err = spawn_set_local_memserv(core);
+    err = set_local_spawnd_memserv(core);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "setting spawnd.%d's local memserv", core);
         return err;

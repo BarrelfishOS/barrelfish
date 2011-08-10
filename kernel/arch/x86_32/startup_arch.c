@@ -108,7 +108,6 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
     lvaddr_t vaddr;
 
     paging_align(&vbase, &base, &size, BASE_PAGE_SIZE);
-
     assert(vbase + size < X86_32_INIT_SPACE_LIMIT);
 
     // Map pages

@@ -168,6 +168,7 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
     assert(length <= PBUF_PKT_SIZE); /* It is typically equal to 1514, but adding extra for safety */
 #endif // PBUF_FIXED_SIZE
     /* determine header offset */
+  p = q = r = NULL;
 
   offset = 0;
   switch (layer) {
@@ -226,6 +227,8 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
     r = p;
     /* remaining length to be allocated */
     rem_len = length - p->len;
+    LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3, ("pbuf_alloc: remaining length to be allocated %"PRIu32"\n",
+            rem_len));
     /* any remaining pbufs to be allocated? */
     while (rem_len > 0) {
       ALLOC_POOL_PBUF(q);
@@ -233,6 +236,9 @@ pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
         /* free chain so far allocated */
         pbuf_free(p);
         /* bail out unsuccesfully */
+        LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3, ("pbuf_alloc: remaining length alloc failed %"PRIu32"\n",
+                rem_len));
+
         return NULL;
       }
       q->type = type;

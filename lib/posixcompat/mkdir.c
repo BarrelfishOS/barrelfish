@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -8,10 +8,33 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <vfs/vfs.h>
+#include <vfs/vfs_path.h>
 #include <unistd.h>
+#include <errno.h>
+#include "posixcompat.h"
 
-int mkdir(const char*pathname,int mode)
+int mkdir(const char *pathname, int mode)
 {
-    USER_PANIC("mkdir() NYI");
-    return (-1);
+    char *path = vfs_path_mkabs(pathname);
+    assert(path != NULL);
+
+    POSIXCOMPAT_DEBUG("mkdir(\"%s\", %d)\n", pathname, mode);
+
+    errval_t err = vfs_mkdir(path);
+    if(err_is_fail(err)) {
+        switch(err_no(err)) {
+        case FS_ERR_EXISTS:
+            errno = EEXIST;
+            break;
+
+        default:
+            DEBUG_ERR(err, "unknown vfs_mkdir error");
+            break;
+        }
+
+        return -1;
+    }
+
+    return 0;
 }

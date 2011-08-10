@@ -34,24 +34,25 @@ int main(int argc, char**argv)
     errval_t err;
 
     // Parse args
-    if (argc != 3) {
-        printf("Usage: %s NFSIP NFSpath\n", argv[0]);
+    if (argc != 4) {
+        printf("Usage: %s CardName NFSIP NFSpath\n", argv[0]);
         return 1;
     }
+    char *card_name = argv[1];
 
     struct in_addr server1;
-    if (inet_aton(argv[1], &server1) == 0) {
+    if (inet_aton(argv[2], &server1) == 0) {
         printf("Invalid IP addr: %s\n", argv[1]);
         return 1;
     }
     serverip.addr = server1.s_addr; // XXX
-    serverpath = argv[2];
+    serverpath = argv[3];
 
     // Boot up
     SERVER_DEBUG("init start\n");
 
     SERVER_DEBUG("lwip_demo: lwip setup\n");
-    lwip_init("e1000");
+    lwip_init(card_name);
 
     http_server_init(serverip, serverpath);
 

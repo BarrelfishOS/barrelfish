@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,41 +15,9 @@
 #ifndef LIBBARRELFISH_THREADS_H
 #define LIBBARRELFISH_THREADS_H
 
-#include <barrelfish_kpi/spinlocks_arch.h>
+#include <barrelfish/thread_sync.h>
 
 typedef int (*thread_func_t)(void *);
-
-/// A thread of execution
-struct thread;
-
-struct thread_mutex {
-    volatile int        locked;
-    struct thread       *queue;
-    spinlock_t          lock;
-    struct thread       *holder;
-};
-#ifndef __cplusplus
-#       define THREAD_MUTEX_INITIALIZER \
-    { .locked = false, .queue = NULL, .lock = 0 }
-#else
-#       define THREAD_MUTEX_INITIALIZER                                \
-    { false, (struct thread *)NULL, 0, (struct thread *)NULL }
-#endif
-
-struct thread_cond {
-    struct thread       *queue;
-    spinlock_t          lock;
-};
-#ifndef __cplusplus
-#       define THREAD_COND_INITIALIZER \
-    { .queue = NULL, .lock = 0 }
-#else
-#       define THREAD_COND_INITIALIZER \
-    { (struct thread *)NULL, 0 }
-#endif
-
-/// A thread of execution
-struct thread;
 
 /// Default size of a thread's stack
 #define THREADS_DEFAULT_STACK_BYTES     (64 * 1024)
@@ -82,13 +50,6 @@ void thread_cond_init(struct thread_cond *cond);
 void thread_cond_signal(struct thread_cond *cond);
 void thread_cond_broadcast(struct thread_cond *cond);
 void thread_cond_wait(struct thread_cond *cond, struct thread_mutex *mutex);
-
-struct thread_sem {
-    volatile unsigned int       value;
-    struct thread               *queue;
-    spinlock_t                  lock;
-};
-#define THREAD_SEM_INITIALIZER          { .value = 0, .queue = NULL, .lock = 0 }
 
 void thread_sem_init(struct thread_sem *sem, unsigned int value);
 void thread_sem_wait(struct thread_sem *sem);

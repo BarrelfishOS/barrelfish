@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,7 +10,7 @@
 #ifndef STAT_BARRELFISH_H_
 #define STAT_BARRELFISH_H_
 
-#include <sys/types.h> // for mode_t
+#include <sys/types.h> // for mode_t and dev_t
 
 struct stat {
     long st_uid;
@@ -63,5 +63,8 @@ struct stat {
 
 mode_t umask(mode_t mask);
 int chmod(const char *path, mode_t mode);
+int stat(const char *pathname, struct stat *buf);
+int fstat(int fd, struct stat*buf);
+int lstat(const char *path, struct stat *buf);
 
 #endif //  STAT_BARRELFISH_H_

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -64,6 +64,7 @@ errval_t lmp_chan_accept(struct lmp_chan *lc, size_t buflen_words,
 errval_t lmp_chan_register_send(struct lmp_chan *lc, struct waitset *ws,
                                 struct event_closure closure);
 errval_t lmp_chan_deregister_send(struct lmp_chan *lc);
+void lmp_chan_migrate_send(struct lmp_chan *lc, struct waitset *ws);
 errval_t lmp_chan_alloc_recv_slot(struct lmp_chan *lc);
 void lmp_channels_retry_send_disabled(dispatcher_handle_t handle);
 void lmp_init(void);
@@ -94,6 +95,19 @@ static inline errval_t lmp_chan_register_recv(struct lmp_chan *lc,
 static inline errval_t lmp_chan_deregister_recv(struct lmp_chan *lc)
 {
     return lmp_endpoint_deregister(lc->endpoint);
+}
+
+/**
+ * \brief Migrate an event registration made with
+ * lmp_chan_register_recv() to a new waitset
+ *
+ * \param lc LMP channel
+ * \param ws New waitset
+ */
+static inline void lmp_chan_migrate_recv(struct lmp_chan *lc,
+                                         struct waitset *ws)
+{
+    lmp_endpoint_migrate(lc->endpoint, ws);
 }
 
 /**

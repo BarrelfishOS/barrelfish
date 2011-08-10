@@ -183,6 +183,13 @@ err_t             netconn_getaddr (struct netconn *conn,
 err_t             netconn_bind    (struct netconn *conn,
                                    struct ip_addr *addr,
                                    u16_t port);
+
+err_t             netconn_redirect(struct netconn *conn, 
+                                   struct ip_addr *local_ip, 
+                                   u16_t local_port,
+                                   struct ip_addr *remote_ip, 
+                                   u16_t remote_port);
+
 err_t             netconn_connect (struct netconn *conn,
                                    struct ip_addr *addr,
                                    u16_t port);

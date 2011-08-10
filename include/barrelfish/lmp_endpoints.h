@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -72,6 +72,7 @@ errval_t lmp_endpoint_recv(struct lmp_endpoint *ep, struct lmp_recv_buf *buf,
 errval_t lmp_endpoint_register(struct lmp_endpoint *ep, struct waitset *ws,
                                struct event_closure closure);
 errval_t lmp_endpoint_deregister(struct lmp_endpoint *ep);
+void lmp_endpoint_migrate(struct lmp_endpoint *ep, struct waitset *ws);
 void lmp_endpoint_store_lrpc_disabled(struct lmp_endpoint *ep, uint32_t bufpos,
                                       uintptr_t arg1, uintptr_t arg2,
                                       uintptr_t arg3, uintptr_t arg4);

@@ -18,17 +18,13 @@
 
 typedef errval_t (* ram_alloc_func_t)(struct capref *ret, uint8_t size_bits,
                                       uint64_t minbase, uint64_t maxlimit);
-typedef errval_t (* ram_free_func_t)(struct capref cap);
 
 errval_t ram_alloc_fixed(struct capref *ret, uint8_t size_bits,
                          uint64_t minbase, uint64_t maxlimit);
 errval_t ram_alloc(struct capref *retcap, uint8_t size_bits);
-errval_t ram_alloc_set(ram_alloc_func_t local_allocator,
-                       ram_free_func_t local_free);
+errval_t ram_alloc_set(ram_alloc_func_t local_allocator);
 void ram_set_affinity(uint64_t minbase, uint64_t maxlimit);
 void ram_get_affinity(uint64_t *minbase, uint64_t *maxlimit);
 void ram_alloc_init(void);
-errval_t ram_free_fixed(struct capref ramcap);
-errval_t ram_free(struct capref ramcap);
 
 #endif // BARRELFISH_RAM_ALLOC_H

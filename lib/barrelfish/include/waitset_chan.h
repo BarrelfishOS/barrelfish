@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -52,5 +52,7 @@ errval_t waitset_chan_register_polled_disabled(struct waitset *ws,
                                                dispatcher_handle_t handle);
 errval_t waitset_chan_start_polling(struct waitset_chanstate *chan);
 errval_t waitset_chan_stop_polling(struct waitset_chanstate *chan);
+void waitset_chan_migrate(struct waitset_chanstate *chan,
+                          struct waitset *new_ws);
 
 #endif // BARRELFISH_WAITSET_CHAN_H

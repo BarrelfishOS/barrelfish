@@ -60,9 +60,6 @@ static void get_bootmodules(void)
 {
     errval_t err;
 
-    // init VFS
-    vfs_init();
-
     // open bootmodules file and read it in
     vfs_handle_t vh;
     err = vfs_open("/bootmodules", &vh);

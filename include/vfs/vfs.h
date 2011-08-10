@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -11,9 +11,18 @@
 #define VFS_H
 
 #include <stddef.h>
+#include <sys/types.h>
 
 typedef void *vfs_handle_t;
 #define NULL_VFS_HANDLE NULL
+
+//#define WITH_BUFFER_CACHE
+//#define WITH_WRITE_BACK_CACHE
+//#define WITH_META_DATA_CACHE
+
+#ifdef WITH_BUFFER_CACHE
+#define BUFFER_CACHE_BLOCK_SIZE      (1U << 12)      // 4KB
+#endif
 
 /// Enum defining interpretation of offset argument to #vfs_seek
 enum vfs_seekpos {
@@ -58,7 +67,5 @@ errval_t vfs_closedir(vfs_handle_t dhandle);
 // manipulation of VFS mounts
 errval_t vfs_mount(const char *mountpoint, const char *uri);
 errval_t vfs_unmount(const char *mountpoint);
-
-void vfs_init(void);
 
 #endif

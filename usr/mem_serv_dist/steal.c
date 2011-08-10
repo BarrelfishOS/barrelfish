@@ -21,6 +21,8 @@
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
 #include <mm/mm.h>
+#include <if/mem_defs.h>
+#include <if/monitor_blocking_rpcclient_defs.h>
 
 #include <thc/thc.h>
 #include <thc/thcsync.h>
@@ -79,7 +81,6 @@ static errval_t connect_peer(struct peer_core *peer)
 
     return SYS_ERR_OK;
 }
-
 
 static errval_t steal_from_serv(struct peer_core *peer, 
                                 struct capref *ret_cap, 
@@ -168,27 +169,58 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
         return err;
     }
 
+    // XXX: Hack to allow monitor to allocate memory while we call RPC into it
+    // These calls should just be avoided...
+    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    assert(mc != NULL);
+    struct waitset *oldws = monitor_mem_binding->waitset;
+    err = monitor_mem_binding->change_waitset(monitor_mem_binding, &mc->rpc_waitset);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "change_waitset");
+    }
+
+    // XXX: Mark as local to this core, until we have x-core cap management
+    err = monitor_cap_set_remote(ramcap, false);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "Warning: failed to set cap non-remote. "
+                  "This memory will leak.");
+    }
+
     err = debug_cap_identify(ramcap, &info);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_CAP_IDENTIFY);
     }
 
+    // XXX: Reset waitset before THC becomes active again
+    err = monitor_mem_binding->change_waitset(monitor_mem_binding, oldws);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "change_waitset");
+    }
+
 #if 0
-    debug_printf("Cap is type %d Ram base 0x%"PRIxGENPADDR
+    debug_printf("STOLEN cap is type %d Ram base 0x%"PRIxGENPADDR
                  " (%"PRIuGENPADDR") Bits %d\n",
                  info.type, info.u.ram.base, info.u.ram.base, 
                  info.u.ram.bits);
 #endif
     assert(steal_bits == info.u.ram.bits);
 
-
     memsize_t mem_to_add = (memsize_t)1 << info.u.ram.bits;
-    mem_total += mem_to_add;
-        
-    err = mm_add(&mm_percore, ramcap, info.u.ram.bits, info.u.ram.base);
+
+    err = mm_free(&mm_percore, ramcap, info.u.ram.base, info.u.ram.bits);
     if (err_is_fail(err)) {
-        return err_push(err, MM_ERR_MM_ADD);
+        if (err_no(err) == MM_ERR_NOT_FOUND) {
+            // memory wasn't there initially, add it
+            err = mm_add(&mm_percore, ramcap, info.u.ram.bits, info.u.ram.base);
+            if (err_is_fail(err)) {
+                return err_push(err, MM_ERR_MM_ADD);
+            }
+            mem_total += mem_to_add;
+        } else {
+            return err_push(err, MM_ERR_MM_FREE);
+        }
     }
+
     mem_avail += mem_to_add;
 
     err = percore_alloc(ret_cap, alloc_bits, minbase, maxlimit);    
@@ -200,14 +232,14 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
 void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
                genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    // debug_printf("failed percore alloc request: bits: %d going to STEAL\n",
-    //              bits);
+    /* printf("%d: failed percore alloc request: bits: %d going to STEAL\n", */
+    /*        disp_get_core_id(), bits); */
     //DEBUG_ERR(*ret, "allocation of %d bits in 0x%" PRIxGENPADDR 
     //           "-0x%" PRIxGENPADDR " failed", bits, minbase, maxlimit);
     *ret = steal_and_alloc(cap, bits+1, bits, minbase, maxlimit);
     if (err_is_fail(*ret)) {
-        // DEBUG_ERR(*ret, "stealing of %d bits in 0x%" PRIxGENPADDR "-0x%" 
-        //          PRIxGENPADDR " failed", bits, minbase, maxlimit);
+        /* DEBUG_ERR(*ret, "stealing of %d bits in 0x%" PRIxGENPADDR "-0x%"  */
+        /*          PRIxGENPADDR " failed", bits, minbase, maxlimit); */
         *cap = NULL_CAP;
     }
 }
@@ -239,12 +271,14 @@ errval_t percore_steal_handler_common(uint8_t bits,
     errval_t err, ret;
 
     trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC, bits);
-    // debug_printf("percore steal request: bits: %d\n", bits);
+    /* debug_printf("%d: percore steal request: bits: %d\n", disp_get_core_id(), bits); */
 
     // refill slot allocator if needed 
     err = slot_prealloc_refill(mm_percore.slot_alloc_inst);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure in slot_prealloc_refill\n");
+        cap = NULL_CAP;
+        return err;
     }
 
     // refill slab allocator if needed 

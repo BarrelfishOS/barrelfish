@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -28,15 +28,18 @@ void set_cap_remote(struct cte *cte, bool is_remote)
     assert(cte->mdbnode.next != NULL);
     assert(cte->mdbnode.prev != NULL);
 
-    cte->mdbnode.remote_copies = is_remote;   // set is_remote on this cte
+    cte->mdbnode.remote_relations = is_remote;   // set is_remote on this cte
 
     struct cte *next = cte->mdbnode.next;
     struct cte *prev = cte->mdbnode.prev;
 
-    // find any copies and set is_remote on them
+    // find all relations and set is_remote on them
+    // XXX: We shouldn't need to do the ancestor check forwards and backwards,
+    // but I'll stay consistent with the rest of the code in this file
     while(next != cte) {
-        if (is_copy(&next->cap, &cte->cap)) {
-            next->mdbnode.remote_copies = is_remote;
+        if (is_copy(&next->cap, &cte->cap) || is_ancestor(&next->cap, &cte->cap)
+            || is_ancestor(&cte->cap, &next->cap)) {
+            next->mdbnode.remote_relations = is_remote;
         } else {
             break;
         }
@@ -44,8 +47,9 @@ void set_cap_remote(struct cte *cte, bool is_remote)
     }
 
     while(prev != cte) {
-        if (is_copy(&prev->cap, &cte->cap)) {
-            prev->mdbnode.remote_copies = is_remote;
+        if (is_copy(&prev->cap, &cte->cap) || is_ancestor(&prev->cap, &cte->cap)
+            || is_ancestor(&cte->cap, &prev->cap)) {
+            prev->mdbnode.remote_relations = is_remote;
         } else {
             break;
         }
@@ -55,7 +59,7 @@ void set_cap_remote(struct cte *cte, bool is_remote)
 
 bool is_cap_remote(struct cte *cte) 
 {
-    return cte->mdbnode.remote_copies;
+    return cte->mdbnode.remote_relations;
 }
 
 /// Check if #cte has any descendants
@@ -79,8 +83,45 @@ bool has_descendants(struct cte *cte)
         next = next->mdbnode.next;
     }
 
+    // SP: Why is walking backwards needed when looking for descendants?
     while(prev != cte) {
         if (is_ancestor(&prev->cap, &cte->cap)) {
+            return true;
+        }
+        if (!is_copy(&prev->cap, &cte->cap)) {
+            break;
+        }
+        prev = prev->mdbnode.prev;
+    }
+
+    return false;
+}
+
+/// Check if #cte has any ancestors
+/// XXX TODO - check for descendents on remote cores
+bool has_ancestors(struct cte *cte)
+{
+    assert(cte != NULL);
+    assert(cte->mdbnode.next != NULL);
+    assert(cte->mdbnode.prev != NULL);
+
+    struct cte *next = cte->mdbnode.next;
+    struct cte *prev = cte->mdbnode.prev;
+
+    // XXX: Is walking forward needed here? (doing it because we walk
+    // backwards in has_descendants())
+    while(next != cte) {
+        if (is_ancestor(&cte->cap, &next->cap)) {
+            return true;
+        }
+        if (!is_copy(&next->cap, &cte->cap)) {
+            break;
+        }
+        next = next->mdbnode.next;
+    }
+
+    while(prev != cte) {
+        if (is_ancestor(&cte->cap, &prev->cap)) {
             return true;
         }
         if (!is_copy(&prev->cap, &cte->cap)) {
@@ -129,9 +170,9 @@ bool has_copies(struct cte *cte)
  * Insert #dest_start after #src in the mapping database.
  *
  * Can handle insertion of multiple capabilities by setting #num.
+ * Will also set MDB properties, like remote_relations, accordingly.
  */
-void insert_after(struct cte *dest_start, struct cte *src, size_t num,
-                  bool is_a_copy)
+void insert_after(struct cte *dest_start, struct cte *src, size_t num)
 {
     assert(dest_start != NULL);
     assert(src != NULL);
@@ -144,17 +185,13 @@ void insert_after(struct cte *dest_start, struct cte *src, size_t num,
     src->mdbnode.next               = &dest_start[0];
     dest_start[0].mdbnode.prev      = src;
 
-    if (is_a_copy) {
-        dest_start[num - 1].mdbnode.remote_copies = src->mdbnode.remote_copies;
-        dest_start[0].mdbnode.remote_copies = src->mdbnode.remote_copies;
-    }
+    dest_start[num - 1].mdbnode.remote_relations = src->mdbnode.remote_relations;
+    dest_start[0].mdbnode.remote_relations = src->mdbnode.remote_relations;
 
     for(size_t i = 0; i < (num - 1); i++) {
         dest_start[i + 1].mdbnode.prev = &dest_start[i];
         dest_start[i].mdbnode.next     = &dest_start[i + 1];
-        if (is_a_copy) {
-            dest_start[i].mdbnode.remote_copies = src->mdbnode.remote_copies;
-        }
+        dest_start[i].mdbnode.remote_relations = src->mdbnode.remote_relations;
     }
 }
 
@@ -163,8 +200,7 @@ void insert_after(struct cte *dest_start, struct cte *src, size_t num,
  *
  * Can handle insertion of multiple capabilities by setting #num.
  */
-static void insert_before(struct cte *dest_start, struct cte *src, size_t num,
-                          bool is_a_copy)
+static void insert_before(struct cte *dest_start, struct cte *src, size_t num)
 {
     assert(dest_start != NULL);
     assert(src != NULL);
@@ -175,17 +211,13 @@ static void insert_before(struct cte *dest_start, struct cte *src, size_t num,
     src->mdbnode.prev = &dest_start[num -1];
     dest_start[num - 1].mdbnode.next = src;
 
-    if (is_a_copy) {
-        dest_start[0].mdbnode.remote_copies = src->mdbnode.remote_copies;
-        dest_start[num - 1].mdbnode.remote_copies = src->mdbnode.remote_copies;
-    }
+    dest_start[0].mdbnode.remote_relations = src->mdbnode.remote_relations;
+    dest_start[num - 1].mdbnode.remote_relations = src->mdbnode.remote_relations;
 
     for(size_t i = 0; i < (num - 1); i++) {
         dest_start[i + 1].mdbnode.prev = &dest_start[i];
         dest_start[i].mdbnode.next     = &dest_start[i + 1];
-        if (is_a_copy) {
-            dest_start[i].mdbnode.remote_copies = src->mdbnode.remote_copies;
-        }
+        dest_start[i].mdbnode.remote_relations = src->mdbnode.remote_relations;
     }
 }
 
@@ -260,14 +292,14 @@ void set_init_mapping(struct cte *dest_start, size_t num)
         if (is_copy(&dest_start->cap, &walk->cap)) {
             /* A copy if found, insert after it */
             assert(num == 1);
-            insert_after(dest_start, walk, num, true);
+            insert_after(dest_start, walk, num);
             return;
         } else if (is_ancestor(&dest_start->cap, &walk->cap)) {
             /* Keep looking for the closest ancestor */
             ancestor = walk;
         } else if (ancestor != NULL) {
             /* Insert after closest ancestor */
-            insert_after(dest_start, ancestor, num, false);
+            insert_after(dest_start, ancestor, num);
             return;
         }
         // Increment
@@ -275,7 +307,7 @@ void set_init_mapping(struct cte *dest_start, size_t num)
     } while (walk != map_head);
 
     /* No relations found, insert before map_head and update map_head */
-    insert_before(dest_start, map_head, num, false);
+    insert_before(dest_start, map_head, num);
     map_head = dest_start;
 }
 
@@ -288,7 +320,7 @@ void remove_mapping(struct cte *cte)
     assert(cte->mdbnode.prev != NULL);
     assert(cte->mdbnode.next != NULL);
 
-    cte->mdbnode.remote_copies = false;   // insert as non-remote
+    cte->mdbnode.remote_relations = false;   // insert as non-remote
 
     /* The only cap in the database, empty it */
     if (cte->mdbnode.next == cte) {
@@ -355,48 +387,5 @@ void mdb_remove_recursively(struct cte *cte)
             continue;
         }
         mdb_remove_recursively(cte_in_cnode);
-    }
-}
-
-/// Recursively insert the cap into the mapping db.
-void mdb_insert_recursively(struct cte *cte)
-{
-    // Parameter checking
-    assert(cte != NULL);
-
-    // Return if cap already inserted
-    if ((cte->mdbnode.prev != NULL) || (cte->mdbnode.next != NULL)) {
-        return;
-    }
-
-    assert(cte->mdbnode.prev == NULL);
-    assert(cte->mdbnode.next == NULL);
-
-    // Insert this cap
-    set_init_mapping(cte, 1);
-
-    // Add specific fields from the dcb
-    if (cte->cap.type == ObjType_Dispatcher) {
-        set_init_mapping(&cte->cap.u.dispatcher.dcb->disp_cte, 1);
-        mdb_insert_recursively(&cte->cap.u.dispatcher.dcb->cspace);
-        return;
-    }
-
-    // Do not recurse if not type CNode
-    if (cte->cap.type != ObjType_CNode) {
-        return;
-    }
-
-    // Number of slots in the cnode
-    uint64_t max_slots = 1UL << cte->cap.u.cnode.bits;
-
-    // Insert each cap stored in the cnode
-    for(uint64_t slot_no = 0; slot_no < max_slots; slot_no++) {
-        struct cte *cte_in_cnode = caps_locate_slot(cte->cap.u.cnode.cnode,
-                                                    slot_no);
-        if (cte_in_cnode->cap.type == ObjType_Null) {
-            continue;
-        }
-        mdb_insert_recursively(cte_in_cnode);
     }
 }

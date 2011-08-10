@@ -158,6 +158,12 @@ int rand(void);
 void srand(unsigned int seed);
 int rand_r(unsigned int *ctx);
 
+/* from POSIX */
+void srandom(unsigned long x);
+char *initstate(unsigned long seed, char *arg_state, long n);
+char *setstate(char *arg_state);
+long random(void);
+
 /* 7.20.3 Memory management functions */
 
 void *malloc(size_t);
@@ -174,8 +180,9 @@ void _Exit(int status);
 char *getenv(const char *name);
 int system(const char *string);
 
-/* XXX: from POSIX -AB */
+/* from POSIX */
 int setenv(const char *name, const char *value, int overwrite);
+int unsetenv(const char *name);
 
 /* 7.20.5 Searching and sortin utilities */
 void *bsearch(const void *key, const void *base, size_t nmemb, size_t, int (*compar)(const void *, const void*));
@@ -216,5 +223,9 @@ int wctomb(char *s, wchar_t wc);
 /* 7.20.8 Multibyte/wide string conversion functions */
 size_t mbstowcs(wchar_t *pwcs, const char *s, size_t n);
 size_t wcstombs(char *s, const wchar_t *pwcs, size_t n);
+
+#ifdef _USE_XOPEN
+int putenv(char *string);
+#endif
 
 #endif                          /* _STDLIB_H_ */

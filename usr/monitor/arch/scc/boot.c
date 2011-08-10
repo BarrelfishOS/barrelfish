@@ -45,15 +45,19 @@ struct xcore_bind_handler {
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
                              const char *cmdline /* XXX: currently ignored */)
 {
+#ifdef RCK_EMU
     const char *monitorname = NULL, *cpuname = NULL;
+#endif
     genpaddr_t arch_page_size;
     errval_t err;
 
     switch(cpu_type) {
     case CPU_SCC:
         arch_page_size = X86_32_BASE_PAGE_SIZE;
+#ifdef RCK_EMU
         monitorname = "scc/sbin/monitor";
         cpuname = "scc/sbin/cpu";
+#endif
         break;
 
     default:
@@ -78,6 +82,13 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
 #ifndef RCK_EMU
     ram_set_affinity(0, 0);
 #endif
+
+    // Mark it remote
+    bool has_descendants;
+    err = monitor_cap_remote(frame, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     // map it in
     void *buf;
@@ -173,6 +184,11 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
+    // Mark memory as remote
+    err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
     void *cpu_buf_memory;
     err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap, NULL, NULL);
     if(err_is_fail(err)) {
@@ -185,6 +201,11 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     err = frame_alloc(&spawn_memory_cap, X86_CORE_DATA_PAGES * arch_page_size, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+    // Mark memory as remote
+    err = monitor_cap_remote(spawn_memory_cap, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
     }
     struct frame_identity spawn_memory_identity = { .base = 0, .bits = 0 };
     err = invoke_frame_identify(spawn_memory_cap, &spawn_memory_identity);
@@ -336,7 +357,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
     }
 
     /* Can now connect to and use mem_serv */
-    err = ram_alloc_set(NULL, NULL);
+    err = ram_alloc_set(NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }

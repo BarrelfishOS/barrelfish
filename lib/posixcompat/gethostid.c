@@ -9,6 +9,7 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <assert.h>
 
 long gethostid(void)
 {

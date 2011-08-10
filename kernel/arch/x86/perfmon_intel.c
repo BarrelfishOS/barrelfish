@@ -14,21 +14,22 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <arch/x86/perfmon_intel.h>
 #include "cpuid_dev.h"
 #include "ia32_dev.h"
+#include <arch/x86/perfmon_intel.h>
 
 static struct cpuid_t mycpuid;
 static struct ia32_t ia32;
 
-void perfmon_init(void)
+errval_t perfmon_intel_init(void)
 {
     cpuid_initialize(&mycpuid);
     ia32_initialize(&ia32);
 
     if(cpuid_max_biv_rd(&mycpuid) < 0xa) {
-        //printf("Intel Architectural Performance Monitoring not supported!\n");
-        return;
+        printf("Intel Architectural Performance Monitoring not supported!"
+               "cpuid_max_biv_rd is %d\n", cpuid_max_biv_rd(&mycpuid));
+        return SYS_ERR_PERFMON_NOT_AVAILABLE;
     }
 
     cpuid_apm_gen_t apmgen = cpuid_apm_gen_rd(&mycpuid);
@@ -46,9 +47,11 @@ void perfmon_init(void)
     char str[256];
     cpuid_apm_feat_pr(str, 256, &mycpuid);
     printf("Supported events:\n%s\n", str);
+
+    return SYS_ERR_OK;
 }
 
-void perfmon_measure_start0(uint8_t event, uint8_t umask)
+void perfmon_intel_measure_start(uint8_t event, uint8_t umask)
 {
     ia32_perfevtsel_t sel0 = {
         .evsel = event,
@@ -61,7 +64,12 @@ void perfmon_measure_start0(uint8_t event, uint8_t umask)
     ia32_perfevtsel0_wr(&ia32, sel0);
 }
 
-uint64_t perfmon_measure_read0(void)
+uint64_t perfmon_intel_measure_read(void)
 {
     return ia32_pmc0_rd(&ia32);
+}
+
+void perfmon_intel_measure_write(uint64_t val)
+{
+    ia32_pmc0_wr(&ia32, val);
 }

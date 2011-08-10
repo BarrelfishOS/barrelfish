@@ -179,7 +179,7 @@ errval_t mon_ram_alloc_init(uint8_t core_id)
         messages_wait_and_handle_next();
     }
 
-    err = ram_alloc_set(mon_ram_alloc, NULL);
+    err = ram_alloc_set(mon_ram_alloc);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }

@@ -14,7 +14,7 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-
+//#define RTL8029_SERVICE_DEBUG 1
 #if defined(RTL8029_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define RTL8029_DEBUG(x...) printf("RTL8029: " x)
 #else

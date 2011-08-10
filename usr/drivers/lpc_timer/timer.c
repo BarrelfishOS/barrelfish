@@ -67,9 +67,10 @@ static uint64_t timer_remainder;
  */
 static void timer0_set(uint16_t count, bool periodic)
 {
+	/*
     LPC_DEBUG("timer0_set: programming %s timer for %u ticks\n",
               periodic ? "periodic" : "one-shot", count);
-
+*/
     struct LPC_timer_tcw_t tcw = {
         .bcd = 0,                       // Binary mode (no BCD)
         .mode = periodic ? LPC_timer_rtgen : LPC_timer_oseoc, // Operating mode
@@ -126,14 +127,14 @@ static uint16_t timer0_read(void)
 
 
 /**
- * \brief
+ * \brief message handler for timer interrupt
  *
  * 
  *
  */
 static void lpc_timer_interrupt(void *arg)
 {
-    LPC_DEBUG("interrupt\n");
+//    LPC_DEBUG("interrupt\n");
 
     // reprogram timer if remainder is set
     if (timer_remainder != 0) {

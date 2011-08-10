@@ -32,6 +32,7 @@ ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
                    Str "-fPIE",
                    Str "-fno-stack-protector", 
+		   Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat" ]
 
 cFlags = ArchDefaults.commonCFlags
@@ -83,6 +84,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-field-initializers",
                                 "-Wredundant-decls",
                                 "-Wno-packed-bitfield-compat",
+				"-Wno-unused-but-set-variable",
                                 "-Werror",
                                 "-imacros deputy/nodeputy.h",
                                 "-mno-mmx",
@@ -91,6 +93,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse3",
                                 "-mno-sse4.1",
                                 "-mno-sse4.2",
+--		  		"-Wno-unused-but-set-variable",
                                 "-mno-sse4",
                                 "-mno-sse4a",
                                 "-mno-3dnow" ]]

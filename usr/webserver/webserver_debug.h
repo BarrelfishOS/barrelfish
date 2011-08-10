@@ -14,6 +14,7 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
+
 //#define WEBSERVER_DEBUG 1
 #if defined(WEBSERVER_DEBUG) || defined(GLOBAL_DEBUG)
 #define SERVER_DEBUG(x...) printf("webserver: " x)

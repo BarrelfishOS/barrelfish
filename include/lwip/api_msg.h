@@ -100,6 +100,14 @@ struct api_msg_msg {
       u8_t backlog;
     } lb;
 #endif /* TCP_LISTEN_BACKLOG */
+      // IK
+    struct {
+      struct ip_addr *local_ip;
+      u16_t local_port;
+      struct ip_addr *remote_ip;
+      u16_t remote_port;
+    } red;
+
   } msg;
 };
 
@@ -134,6 +142,7 @@ struct dns_api_msg {
 void do_newconn         ( struct api_msg_msg *msg);
 void do_delconn         ( struct api_msg_msg *msg);
 void do_bind            ( struct api_msg_msg *msg);
+void do_redirect        ( struct api_msg_msg *msg);
 void do_connect         ( struct api_msg_msg *msg);
 void do_disconnect      ( struct api_msg_msg *msg);
 void do_listen          ( struct api_msg_msg *msg);

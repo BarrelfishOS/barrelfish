@@ -194,7 +194,7 @@ errval_t vspace_destroy(struct vspace *vspace)
  *
  * \param addr  The virtual address
  */
-struct vregion* vspace_get_region(struct vspace *vspace, void *addr)
+struct vregion* vspace_get_region(struct vspace *vspace, const void *addr)
 {
     lvaddr_t lvaddr = (lvaddr_t)addr;
     genvaddr_t genvaddr = vspace_lvaddr_to_genvaddr(lvaddr);

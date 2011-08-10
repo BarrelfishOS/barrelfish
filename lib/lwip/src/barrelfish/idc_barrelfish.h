@@ -18,7 +18,7 @@
 #define IDC_BARRELFISH_H_
 
 #include <barrelfish/barrelfish.h>
-
+#include <lwip/ip_addr.h>
 
 struct buffer_desc {
     struct capref cap;
@@ -47,7 +47,7 @@ void idc_register_freeing_callback(void (*f)(struct pbuf*));
 void idc_print_statistics(void);
 void idc_print_cardinfo(void);
 void network_polling_loop(void);
-
+void idc_debug_status(uint8_t state);
 
 /* netd services */
 void idc_connect_netd(void);
@@ -57,6 +57,9 @@ void idc_just_to_test(void);
 void idc_get_ip(void);
 err_t idc_tcp_new_port(uint16_t *port_no);
 err_t idc_udp_new_port(uint16_t *port_no);
+err_t idc_redirect_tcp(struct ip_addr *local_ip, 
+                   uint16_t local_port, struct ip_addr *remote_ip,
+                   uint16_t remote_port);
 err_t idc_close_udp_port(uint16_t port);
 err_t idc_close_tcp_port(uint16_t port);
 err_t idc_bind_udp_port(uint16_t port);

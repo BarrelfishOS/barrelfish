@@ -43,7 +43,7 @@ void bulk_destroy(struct bulk_transfer *bt);
 errval_t bulk_init(void *mem, size_t size, size_t block_size,
                    struct bulk_transfer *bt);
 errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
-                     struct bulk_transfer *bt);
+                     struct bulk_transfer *bt, bool LMP_only);
 struct bulk_buf *bulk_alloc(struct bulk_transfer *bt);
 errval_t bulk_free(struct bulk_transfer *bt, uintptr_t id);
 

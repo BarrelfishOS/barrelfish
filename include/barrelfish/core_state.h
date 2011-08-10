@@ -52,7 +52,6 @@ struct ram_alloc_state {
     errval_t mem_connect_err;
     struct thread_mutex ram_alloc_lock;
     ram_alloc_func_t ram_alloc_func;
-    ram_free_func_t ram_free_func;
     uint64_t default_minbase;
     uint64_t default_maxlimit;
     int base_capnum;

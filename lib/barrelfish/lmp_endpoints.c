@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -336,6 +336,17 @@ errval_t lmp_endpoint_deregister(struct lmp_endpoint *ep)
     disp_enable(handle);
 
     return err;
+}
+
+/**
+ * \brief Migrate an event registration made with lmp_endpoint_register() to a new waitset.
+ *
+ * \param ep LMP Endpoint
+ * \param ws New waitset
+ */
+void lmp_endpoint_migrate(struct lmp_endpoint *ep, struct waitset *ws)
+{
+    waitset_chan_migrate(&ep->waitset_state, ws);
 }
 
 /**

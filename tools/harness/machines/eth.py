@@ -22,6 +22,7 @@ class ETHMachine(Machine):
     def __init__(self, options):
         super(ETHMachine, self).__init__(options)
         self.lockprocess = None
+        self.masterfd = None
 
     def get_bootarch(self):
         b = self._eth_machines[self.name]['bootarch']
@@ -106,22 +107,24 @@ class ETHMachine(Machine):
         # run a console in the background to 'hold' the lock and read output
         debug.verbose('starting "console %s"' % self.get_machine_name())
         # run on a PTY to work around terminal mangling code in console
-        (masterfd, slavefd) = pty.openpty()
+        (self.masterfd, slavefd) = pty.openpty()
         self.lockprocess = subprocess.Popen(["console", self.get_machine_name()],
                                             close_fds=True,
                                             stdout=slavefd, stdin=slavefd)
         os.close(slavefd)
         # XXX: open in binary mode with no buffering
         # otherwise select.select() may block when there is data in the buffer
-        self.console_out = os.fdopen(masterfd, 'rb', 0)
+        self.console_out = os.fdopen(self.masterfd, 'rb', 0)
 
     def unlock(self):
         if self.lockprocess is None:
             return # noop
-        debug.verbose('terminating console process (%d)' % self.lockprocess.pid)
-        os.kill(self.lockprocess.pid, signal.SIGTERM)
+        debug.verbose('quitting console process (%d)' % self.lockprocess.pid)
+        # os.kill(self.lockprocess.pid, signal.SIGTERM)
+        os.write(self.masterfd, "\x05c.")
         self.lockprocess.wait()
         self.lockprocess = None
+        self.masterfd = None
 
     def __rackboot(self, args):
         debug.checkcmd([RACKBOOT] + args + [self.get_machine_name()])

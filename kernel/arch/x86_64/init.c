@@ -30,8 +30,7 @@
 #include <getopt/getopt.h>
 #include <exec.h>
 #include <kputchar.h>
-#include <arch/x86/perfmon_intel.h>
-#include <arch/x86/perfmon_amd.h>
+#include <arch/x86/perfmon.h>
 #include <arch/x86/rtc.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/timing.h>
@@ -221,11 +220,12 @@ bool idt_initialized = false;
 /**
  * \brief Setup bootup page table.
  *
- * This function sets up the page table needed to boot the kernel proper.
- * The table identity maps the first 2 MBytes (page size is 2 MBytes) of
- * physical memory in order to have access to the first MByte containing
- * bootloader-passed data structures. It also identity maps the local copy
- * of the kernel in low memory and aliases it in kernel address space.
+ * This function sets up the page table needed to boot the kernel
+ * proper.  The table identity maps the first 1 GByte of physical
+ * memory in order to have access to various data structures and the
+ * first MByte containing bootloader-passed data structures. It also
+ * identity maps the local copy of the kernel in low memory and
+ * aliases it in kernel address space.
  *
  * \param base  Start address of kernel image in physical address space.
  * \param size  Size of kernel image.
@@ -540,9 +540,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Enable FPU and MMX
     enable_fpu();
-
-    // Initialize performance monitoring
-    perfmon_init();
 
     // Enable user-mode RDPMC opcode
     enable_user_rdpmc();

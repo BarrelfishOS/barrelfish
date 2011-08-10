@@ -53,7 +53,7 @@ in [
         in_x86_dir f = ("arch/x86") ./. f
         x86_cFiles = [ "apic.c", "pic.c", "start_aps.c", "cmos.c", "misc.c",
                        "serial.c", "multiboot.c", "conio.c", "syscall.c", "debugregs.c",
-                       "perfmon_intel.c", "perfmon_amd.c", "rtc.c", "timing.c",
+                       "perfmon.c", "perfmon_intel.c", "perfmon_amd.c", "rtc.c", "timing.c",
                        "startup_x86.c", "mcheck.c", "ipi_notify.c" ]
         x86_sFiles = [ "init_ap_x86_64.S", "init_ap_x86_32.S" ]
         absolute_cFiles = (map in_x86_dir x86_cFiles)
@@ -70,7 +70,7 @@ in [
         in_x86_dir f = ("arch/x86") ./. f
         x86_cFiles = [ "apic.c", "pic.c", "start_aps.c", "cmos.c", "misc.c",
                        "serial.c", "multiboot.c", "conio.c", "syscall.c", "debugregs.c",
-                       "perfmon_intel.c", "perfmon_amd.c", "rtc.c", "timing.c",
+                       "perfmon.c", "perfmon_intel.c", "perfmon_amd.c", "rtc.c", "timing.c",
                        "startup_x86.c", "ipi_notify.c" ]
         x86_sFiles = [ "init_ap_x86_64.S", "init_ap_x86_32.S" ]
         absolute_cFiles = (map in_x86_dir x86_cFiles)
@@ -108,9 +108,9 @@ in [
         indep_sFiles = (map in_x86_dir x86_sFiles)
         mackerelFiles =
             if Config.rck_emu then
-                [ "pc16550d_uart", "ia32", "xapic", "rck", "lpc_pic", "cmos", "cpuid" ]
+                [ "pc16550d_uart", "ia32", "xapic", "rck", "eMAC", "lpc_pic", "cmos", "cpuid" ]
             else
-                [ "pc16550d_uart", "ia32", "xapic", "rck", "cpuid" ]
+                [ "pc16550d_uart", "ia32", "xapic", "rck", "eMAC", "cpuid" ]
         libs = [ "elf_kernel" ]
     in mkrules "scc" cfiles sfiles mackerelFiles libs indep_cFiles indep_sFiles arch_cfiles arch_sfiles),
 

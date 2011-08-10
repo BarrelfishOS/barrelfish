@@ -39,7 +39,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <locale.h>
-#include <sys/_types.h>
+#include <sys/types.h>
 
 #include "local.h"
 
@@ -86,8 +86,6 @@
 static const u_char *__sccl(char *, const u_char *);
 static int parsefloat(FILE *, char *, char *);
 
-int __svfscanf(FILE *fp, const char *fmt0, va_list ap);
-
 static int __ungetc(int c, FILE *fp)
 {
     assert(!"Cannot ungetc yet");
@@ -132,8 +130,8 @@ __svfscanf(FILE *fp, const char *fmt0, va_list ap)
 		if (c == 0)
 			return (nassigned);
 		if (isspace(c)) {
-			while ((fp->buf_size > 0 || __srefill(fp) == 0) && isspace(*fp->buffer))
-				nread++, fp->buf_size--, fp->buffer++;
+			while ((fp->rbuf_valid > 0 || __srefill(fp) == 0) && isspace(*fp->rbuf_pos))
+				nread++, fp->rbuf_valid--, fp->rbuf_pos++;
 			continue;
 		}
 		if (c != '%')
@@ -148,11 +146,11 @@ again:		c = *fmt++;
 		switch (c) {
 		case '%':
 literal:
-			if (fp->buf_size <= 0 && __srefill(fp))
+			if (fp->rbuf_valid <= 0 && __srefill(fp))
 				goto input_failure;
-			if (*fp->buffer != c)
+			if (*fp->rbuf_pos != c)
 				goto match_failure;
-			fp->buf_size--, fp->buffer++;
+			fp->rbuf_valid--, fp->rbuf_pos++;
 			nread++;
 			continue;
 
@@ -301,7 +299,7 @@ literal:
 		/*
 		 * We have a conversion that requires input.
 		 */
-		if (fp->buf_size <= 0 && __srefill(fp))
+		if (fp->rbuf_valid <= 0 && __srefill(fp))
 			goto input_failure;
 
 		/*
@@ -309,10 +307,10 @@ literal:
 		 * that suppress this.
 		 */
 		if ((flags & NOSKIP) == 0) {
-			while (isspace(*fp->buffer)) {
+			while (isspace(*fp->rbuf_pos)) {
 				nread++;
-				if (--fp->buf_size > 0)
-					fp->buffer++;
+				if (--fp->rbuf_valid > 0)
+					fp->rbuf_pos++;
 				else if (__srefill(fp))
 					goto input_failure;
 			}
@@ -344,9 +342,9 @@ literal:
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
-					buf[n++] = *fp->buffer;
-					fp->buffer++;
-					fp->buf_size--;
+					buf[n++] = *fp->rbuf_pos;
+					fp->rbuf_pos++;
+					fp->rbuf_valid--;
 					mbs = initial;
 					nconv = mbrtowc(wcp, buf, n, &mbs);
 					if (nconv == (size_t)-1) {
@@ -362,7 +360,7 @@ literal:
 							wcp++;
 						n = 0;
 					}
-					if (fp->buf_size <= 0 && __srefill(fp)) {
+					if (fp->rbuf_valid <= 0 && __srefill(fp)) {
 						if (n != 0) {
 							fp->_flags |= __SERR;
 							goto input_failure;
@@ -378,10 +376,10 @@ literal:
 #endif
 				size_t sum = 0;
 				for (;;) {
-					if ((n = fp->buf_size) < width) {
+					if ((n = fp->rbuf_valid) < width) {
 						sum += n;
 						width -= n;
-						fp->buffer += n;
+						fp->rbuf_pos += n;
 						if (__srefill(fp)) {
 							if (sum == 0)
 							    goto input_failure;
@@ -389,8 +387,8 @@ literal:
 						}
 					} else {
 						sum += width;
-						fp->buf_size -= width;
-						fp->buffer += width;
+						fp->rbuf_valid -= width;
+						fp->rbuf_pos += width;
 						break;
 					}
 				}
@@ -428,9 +426,9 @@ literal:
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
-					buf[n++] = *fp->buffer;
-					fp->buffer++;
-					fp->buf_size--;
+					buf[n++] = *fp->rbuf_pos;
+					fp->rbuf_pos++;
+					fp->rbuf_valid--;
 					mbs = initial;
 					nconv = mbrtowc(wcp, buf, n, &mbs);
 					if (nconv == (size_t)-1) {
@@ -456,7 +454,7 @@ literal:
 						nchars++;
 						n = 0;
 					}
-					if (fp->buf_size <= 0 && __srefill(fp)) {
+					if (fp->rbuf_valid <= 0 && __srefill(fp)) {
 						if (n != 0) {
 							fp->_flags |= __SERR;
 							goto input_failure;
@@ -480,11 +478,11 @@ literal:
                             if (flags & SUPPRESS) {
 #endif
 				n = 0;
-				while (ccltab[(int)(*fp->buffer)]) {
-					n++, fp->buf_size--, fp->buffer++;
+				while (ccltab[(int)(*fp->rbuf_pos)]) {
+					n++, fp->rbuf_valid--, fp->rbuf_pos++;
 					if (--width == 0)
 						break;
-					if (fp->buf_size <= 0 && __srefill(fp)) {
+					if (fp->rbuf_valid <= 0 && __srefill(fp)) {
 						if (n == 0)
 							goto input_failure;
 						break;
@@ -494,12 +492,12 @@ literal:
 					goto match_failure;
 			} else {
 				p0 = p = va_arg(ap, char *);
-				while (ccltab[(int)(*fp->buffer)]) {
-					fp->buf_size--;
-					*p++ = *fp->buffer++;
+				while (ccltab[(int)(*fp->rbuf_pos)]) {
+					fp->rbuf_valid--;
+					*p++ = *fp->rbuf_pos++;
 					if (--width == 0)
 						break;
-					if (fp->buf_size <= 0 && __srefill(fp)) {
+					if (fp->rbuf_valid <= 0 && __srefill(fp)) {
 						if (p == p0)
 							goto input_failure;
 						break;
@@ -528,14 +526,14 @@ literal:
 				else
 					wcp = &twc;
 				n = 0;
-				while (!isspace(*fp->buffer) && width != 0) {
+				while (!isspace(*fp->rbuf_pos) && width != 0) {
 					if (n == MB_CUR_MAX) {
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
-					buf[n++] = *fp->buffer;
-					fp->buffer++;
-					fp->buf_size--;
+					buf[n++] = *fp->rbuf_pos;
+					fp->rbuf_pos++;
+					fp->rbuf_valid--;
 					mbs = initial;
 					nconv = mbrtowc(wcp, buf, n, &mbs);
 					if (nconv == (size_t)-1) {
@@ -559,7 +557,7 @@ literal:
 							wcp++;
 						n = 0;
 					}
-					if (fp->buf_size <= 0 && __srefill(fp)) {
+					if (fp->rbuf_valid <= 0 && __srefill(fp)) {
 						if (n != 0) {
 							fp->_flags |= __SERR;
 							goto input_failure;
@@ -576,22 +574,22 @@ literal:
                             if (flags & SUPPRESS) {
 #endif
 				n = 0;
-				while (!isspace(*fp->buffer)) {
-					n++, fp->buf_size--, fp->buffer++;
+				while (!isspace(*fp->rbuf_pos)) {
+					n++, fp->rbuf_valid--, fp->rbuf_pos++;
 					if (--width == 0)
 						break;
-					if (fp->buf_size <= 0 && __srefill(fp))
+					if (fp->rbuf_valid <= 0 && __srefill(fp))
 						break;
 				}
 				nread += n;
 			} else {
 				p0 = p = va_arg(ap, char *);
-				while (!isspace(*fp->buffer)) {
-					fp->buf_size--;
-					*p++ = *fp->buffer++;
+				while (!isspace(*fp->rbuf_pos)) {
+					fp->rbuf_valid--;
+					*p++ = *fp->rbuf_pos++;
 					if (--width == 0)
 						break;
-					if (fp->buf_size <= 0 && __srefill(fp))
+					if (fp->rbuf_valid <= 0 && __srefill(fp))
 						break;
 				}
 				*p = 0;
@@ -614,7 +612,7 @@ literal:
 #endif
 			flags |= SIGNOK | NDIGITS | NZDIGITS;
 			for (p = buf; width; width--) {
-				c = *fp->buffer;
+				c = *fp->rbuf_pos;
 				/*
 				 * Switch on the character; `goto ok'
 				 * if we accept it as a part of number.
@@ -703,8 +701,8 @@ literal:
 				 * c is legal: store it and look at the next.
 				 */
 				*p++ = c;
-				if (--fp->buf_size > 0)
-					fp->buffer++;
+				if (--fp->rbuf_valid > 0)
+					fp->rbuf_pos++;
 				else if (__srefill(fp))
 					break;		/* EOF */
 			}
@@ -916,7 +914,7 @@ parsefloat(FILE *fp, char *buf, char *end)
 	 */
 	commit = buf - 1;
 	for (p = buf; p < end; ) {
-		c = *fp->buffer;
+		c = *fp->rbuf_pos;
 reswitch:
 		switch (state) {
 		case S_START:
@@ -1048,8 +1046,8 @@ reswitch:
 			abort();
 		}
 		*p++ = c;
-		if (--fp->buf_size > 0)
-			fp->buffer++;
+		if (--fp->rbuf_valid > 0)
+			fp->rbuf_pos++;
 		else if (__srefill(fp))
 			break;	/* EOF */
 	}

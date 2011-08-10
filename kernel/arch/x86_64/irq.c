@@ -55,6 +55,8 @@
 #include <dispatch.h>
 #include <wakeup.h>
 #include <pic.h>
+#include <arch/x86/perfmon.h>
+#include <arch/x86/barrelfish_kpi/perfmon.h>
 #include <arch/x86/apic.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <asmoffsets.h>
@@ -371,9 +373,9 @@ static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
  */
 static struct cte irq_dispatch[NDISPATCH];
 
-#if CONFIG_TRACE
-//#define TRACE_ETHERSRV_MODE 1
-#endif // CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ETHERSRV_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -675,11 +677,12 @@ static __attribute__ ((used))
 
         if(fpu_dcb->disabled) {
             fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
+	    dst->fpu_used = 1;
         } else {
             assert(!fpu_dcb->disabled);
             fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
+	    dst->fpu_used = 2;
         }
-        dst->fpu_used = 1;
 
         if(trap) {
             fpu_trap_on();
@@ -825,6 +828,43 @@ static __attribute__ ((used)) void handle_irq(int vector)
         tsc_lasttime = tsc_now;
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_TIMER, kernel_now);
         wakeup_check(kernel_now);
+    } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
+        // Handle performance counter overflow
+        // Reset counters
+        perfmon_measure_reset();
+        if(dcb_current!=NULL) {
+            // Get faulting instruction pointer
+            struct registers_x86_64 *disp_save_area = dcb_current->disabled ?
+                dispatcher_get_disabled_save_area(dcb_current->disp) :
+                dispatcher_get_enabled_save_area(dcb_current->disp);
+            struct dispatcher_shared_generic *disp =
+                get_dispatcher_shared_generic(dcb_current->disp);
+
+            // Setup data structure for LMP transfer to user level handler
+            struct perfmon_overflow_data data = {
+                .ip = disp_save_area->rip
+            };
+            strncpy(data.name, disp->name, PERFMON_DISP_NAME_LEN);
+            
+            // Call overflow handler represented by endpoint
+            extern struct capability perfmon_callback_ep;
+            errval_t err;
+            size_t payload_len = sizeof(struct perfmon_overflow_data)/
+                sizeof(uintptr_t)+1;
+            err = lmp_deliver_payload(&perfmon_callback_ep,
+                                      NULL,
+                                      (uintptr_t*) &data, 
+                                      payload_len, 
+                                      false);
+
+            // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
+            assert(err_is_ok(err) || err_no(err)==SYS_ERR_LMP_BUF_OVERFLOW);
+        } else {
+            // This should never happen, as interrupts are disabled in kernel
+            printf("Performance counter overflow interrupt from "
+                   "apic in kernel level\n");
+        }
+        apic_eoi();
     } else if (vector == APIC_ERROR_INTERRUPT_VECTOR) {
         printk(LOG_ERR, "APIC error interrupt fired!\n");
         xapic_esr_t esr = apic_get_esr();

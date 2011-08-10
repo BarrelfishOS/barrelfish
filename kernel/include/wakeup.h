@@ -10,6 +10,7 @@
 #ifndef KERNEL_WAKEUP_H
 #define KERNEL_WAKEUP_H
 
+void wakeup_remove(struct dcb *dcb);
 void wakeup_set(struct dcb *dcb, systime_t waketime);
 void wakeup_check(systime_t now);
 bool wakeup_is_pending(void);

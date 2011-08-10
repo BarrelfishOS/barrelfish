@@ -29,12 +29,12 @@
 #define PRELOAD_WEB_CACHE 1
 
 /* Enable tracing only when it is globally enabled */
-#if CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
 //#define ENABLE_WEB_TRACING 1
-#endif // CONFIG_TRACE
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
-#define MAX_NFS_READ       14000
-//#define MAX_NFS_READ      1330 /* 14000 */ /* to avoid breakage of lwip*/
+//#define MAX_NFS_READ       14000
+#define MAX_NFS_READ      1330 /* 14000 */ /* to avoid breakage of lwip*/
 
 /* Maximum staleness allowed */
 #define MAX_STALENESS ((cycles_t)9000000)
@@ -300,7 +300,7 @@ static void read_callback (void *arg, struct nfs_client *client,
 	}
 
 	/* This is cache loading going on... */
-	printf("Copied %lu bytes for file [%s] of length: %lu\n",
+	printf("Copied %zu bytes for file [%s] of length: %zu\n",
 				e->copied, e->name, e->hbuff->len);
 	++cache_loaded_counter;
 	handle_cache_load_done();

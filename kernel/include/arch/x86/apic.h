@@ -44,6 +44,8 @@ void apic_seoi(uint8_t int_nr);
 uint8_t apic_get_id(void);
 
 void apic_timer_init(bool masked, bool periodic);
+void apic_perfcnt_init(void);
+void apic_perfcnt_stop(void);
 void apic_timer_set_count(uint32_t count);
 uint32_t apic_timer_get_count(void);
 void apic_timer_set_divide(enum xapic_divide_t divide);

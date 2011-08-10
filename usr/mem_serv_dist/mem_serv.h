@@ -23,7 +23,9 @@
 #define NAME_LEN 20
 
 #define MEMSERV_PERCORE_DYNAMIC
-#define MEMSERV_AFFINITY
+#ifndef __scc__
+#       define MEMSERV_AFFINITY
+#endif
 
 // FIXME: this should end up in trace.h
 //#define TRACE_SUBSYS_PERCORE_MEMSERV (TRACE_SUBSYS_MEMSERV + 0xDDD)
@@ -59,9 +61,14 @@ typedef genpaddr_t memsize_t;
 #define MINSIZEBITS     OBJBITS_DISPATCHER ///< Min size of each allocation
 #define MAXCHILDBITS    4               ///< Max branching of BTree nodes
 
-#define LOCAL_MEMBITS     18     // amount of memory that we keep for 
+#ifndef __scc__
+#       define LOCAL_MEMBITS     18     // amount of memory that we keep for 
+#       define LOCAL_MEM ((genpaddr_t)1 << LOCAL_MEMBITS)
 				   // internal use in each local server
-#define LOCAL_MEM ((genpaddr_t)1 << LOCAL_MEMBITS)
+#else
+#       define LOCAL_MEMBITS     29
+#       define LOCAL_MEM         EXTRA_SHARED_MEM_MIN
+#endif
 
 
 
@@ -100,10 +107,13 @@ extern struct mm mm_percore;
 /// MM local allocator instance data: B-tree to manage mem regions
 extern struct mm mm_local;
 
+/// Monitor's binding to this mem_serv
+extern struct mem_binding *monitor_mem_binding;
 
 errval_t slab_refill(struct slab_alloc *slabs);
 
-errval_t percore_free_handler_common(struct capref ramcap);
+errval_t percore_free_handler_common(struct capref ramcap, genpaddr_t base,
+                                     uint8_t bits);
 memsize_t mem_available_handler_common(void);
 errval_t percore_alloc(struct capref *ret, uint8_t bits,
                        genpaddr_t minbase, genpaddr_t maxlimit);
@@ -120,6 +130,8 @@ errval_t initialize_percore_mem_serv(coreid_t core,
 
 errval_t percore_mem_serv(coreid_t core, coreid_t *cores, 
                           int len_cores, memsize_t ram);
+
+errval_t set_local_spawnd_memserv(coreid_t coreid);
 
 int common_main(int argc, char **argv);
 

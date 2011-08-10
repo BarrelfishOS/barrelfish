@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -504,16 +504,17 @@ static void cap_identify(struct monitor_blocking_binding *b,
 
     union capability_caprep_u u;
     reterr = monitor_cap_identify(cap, &u.cap);
-    err = b->tx_vtbl.cap_identify_response(b, NOP_CONT, reterr, u.caprepb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "reply failed");
-    }
 
     /* XXX: shouldn't we skip this if we're being called from the monitor?
      * apparently not: we make a copy of the cap on LMP to self?!?! */
     err = cap_destroy(cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
+    }
+
+    err = b->tx_vtbl.cap_identify_response(b, NOP_CONT, reterr, u.caprepb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "reply failed");
     }
 }
 
@@ -528,6 +529,70 @@ static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep
     errval_t err = invoke_irqtable_set(cap_irq, vec, ep);
     errval_t err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
     assert(err_is_ok(err2));
+}
+
+static void cap_set_remote_done(void *arg)
+{
+    struct capref *tmpcap = arg;
+
+    errval_t err = cap_destroy(*tmpcap);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_destroy");
+    }
+
+    free(tmpcap);
+}
+
+struct pending_reply {
+    struct monitor_blocking_binding *b;
+    errval_t err;
+    struct capref *cap;
+};
+
+static void retry_reply(void *arg)
+{
+    struct pending_reply *r = arg;
+    assert(r != NULL);
+    struct monitor_blocking_binding *b = r->b;
+    errval_t err;
+
+    err = b->tx_vtbl.cap_set_remote_response(b, MKCONT(cap_set_remote_done, r->cap),
+                                             r->err);
+    if (err_is_ok(err)) {
+        free(r);
+    } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        err = b->register_send(b, get_default_waitset(), MKCONT(retry_reply, r));
+        assert(err_is_ok(err));
+    } else {
+        DEBUG_ERR(err, "failed to reply to memory request");
+        cap_set_remote_done(r->cap);
+    }
+}
+
+static void cap_set_remote(struct monitor_blocking_binding *b,
+                           struct capref cap, bool remote)
+{
+    bool has_descendants;
+    struct capref *tmpcap = malloc(sizeof(struct capref));
+    errval_t err, reterr;
+
+    *tmpcap = cap;
+    reterr = monitor_cap_remote(cap, remote, &has_descendants);
+    err = b->tx_vtbl.cap_set_remote_response(b, MKCONT(cap_set_remote_done, tmpcap),
+                                             reterr);
+    if(err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            struct pending_reply *r = malloc(sizeof(struct pending_reply));
+            assert(r != NULL);
+            r->b = b;
+            r->err = reterr;
+            r->cap = tmpcap;
+            err = b->register_send(b, get_default_waitset(), MKCONT(retry_reply, r));
+            assert(err_is_ok(err));
+        } else {
+            USER_PANIC_ERR(err, "cap_set_remote_response");
+        }
+    }
 }
 
 /*------------------------- Initialization functions -------------------------*/
@@ -546,6 +611,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .alloc_monitor_ep_call   = alloc_monitor_ep,
     .cap_identify_call       = cap_identify,
     .irq_handle_call         = irq_handle_call,
+
+    .cap_set_remote_call     = cap_set_remote,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

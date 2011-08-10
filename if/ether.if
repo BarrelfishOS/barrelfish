@@ -40,4 +40,5 @@ interface ether "Generic Ethernet Driver" {
 */
           call print_statistics();
           call print_cardinfo();
+          call debug_status(uint8 state);
 };

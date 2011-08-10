@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -79,6 +79,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     err = frame_alloc(&frame, framesize, &framesize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    // Mark it remote
+    bool has_descendants;
+    err = monitor_cap_remote(frame, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
     }
 
     // map it in
@@ -227,6 +234,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     ram_set_affinity(old_minbase, old_maxlimit);
 #endif
 
+    // Mark memory as remote
+    err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     void *cpu_buf_memory;
     err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap, NULL, NULL);
     if(err_is_fail(err)) {
@@ -239,6 +252,11 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
                       NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+    // Mark memory as remote
+    err = monitor_cap_remote(spawn_memory_cap, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
     }
     struct frame_identity spawn_memory_identity;
     err = invoke_frame_identify(spawn_memory_cap, &spawn_memory_identity);

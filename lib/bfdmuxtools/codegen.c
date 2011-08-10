@@ -331,6 +331,7 @@ compile_filter(char *expression, uint8_t ** filter_code, int *filter_len)
 	uint8_t        *output = malloc(sizeof(uint8_t) * out_sz);
 	if (output != NULL) {
 		// int len = strlen(expression);
+//		printf("Filter %s\n", expression);
 		if ((err_pos =
 			 compile_subtree(expression, 0, strlen(expression) - 1,
 							 &output, &out_len, &out_sz)) != 0) {

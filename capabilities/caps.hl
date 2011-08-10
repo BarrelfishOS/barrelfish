@@ -317,3 +317,7 @@ cap Domain {
     /* Domain capability (opaque type, used by the monitors) */
     eq uint32 domainid;
 };
+
+cap PerfMon {
+       is_always_copy;
+};

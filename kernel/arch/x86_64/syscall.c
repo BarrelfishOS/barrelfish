@@ -20,9 +20,8 @@
 #include <paging_kernel_arch.h>
 #include <exec.h>
 #include <arch/x86/apic.h>
-#include <arch/x86/perfmon_intel.h>
-#include <arch/x86/perfmon_amd.h>
 #include <arch/x86/global.h>
+#include <arch/x86/perfmon.h>
 #include <vmkit.h>
 #include <barrelfish_kpi/sys_debug.h>
 #include <barrelfish_kpi/lmp.h>
@@ -64,40 +63,6 @@ static struct sysret handle_dispatcher_properties(struct capability *to,
 
     return sys_dispatcher_properties(to, type, deadline, wcet, period,
                                      release, weight);
-}
-
-// XXX: FIXME: cleanup and handle errors!
-static struct sysret handle_dispatcher_perfmon(struct capability *to,
-                                               int cmd, uintptr_t *args)
-{
-    perfmon_counter_t idx = (perfmon_counter_t)(args[0]);
-    uint64_t operation = args[1];
-
-    // Currently only AMD perfmon is supported
-    if(!perfmon_amd_supported()) {
-        return SYSRET(SYS_ERR_PERFMON_NOT_AVAILABLE);
-    }
-
-    switch(operation) {
-    case 0: { // Setup counter
-        perfmon_event_t event = args[2];
-        perfmon_mask_t umask = args[3];
-        bool os = args[4];
-        perfmon_amd_measure_start(event, umask, os ? true : false, idx);
-        break;
-    }
-
-    case 1: { // Initialize counter
-        uint64_t val = args[2];
-        perfmon_amd_measure_write(val, idx);
-        break;
-    }
-
-    default:
-        panic("Unknown performance monitoring function!");
-    }
-
-    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret handle_retype_common(struct capability *root,
@@ -596,6 +561,81 @@ static struct sysret kernel_ipi_delete(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+
+/* 
+ * \brief Activate performance monitoring
+ * 
+ * Activates performance monitoring.
+ * \param xargs Expected parameters in args:
+ * - performance monitoring type
+ * - mask for given type
+ * - Counter id
+ * - Also count in privileged mode
+ * - Number of counts before overflow. This parameter may be used to
+ *   set tradeoff between accuracy and overhead. Set the counter to 0
+ *   to deactivate the usage of APIC.
+ * - Endpoint capability to be invoked when the counter overflows.
+ *   The buffer associated with the endpoint needs to be large enough
+ *   to hold several overflow notifications depending on the overflow 
+ *   frequency.
+ */
+static struct sysret performance_counter_activate(struct capability *cap,
+                                                  int cmd, uintptr_t *args)
+{
+    uint8_t event = args[0];
+    uint8_t umask = args[1];
+    uint8_t counter_id = args[2];
+    bool kernel = args[3];
+    uint64_t counter_value = args[4];
+    caddr_t ep_addr = args[5];
+
+    errval_t err;
+    struct capability *ep;
+    extern struct capability perfmon_callback_ep;
+
+    // Make sure that 
+    assert(ep_addr!=0 || counter_value==0);
+
+    perfmon_init();
+    perfmon_measure_start(event, umask, counter_id, kernel, counter_value);
+
+    if(ep_addr!=0) {
+        
+        err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, CPTR_BITS, &ep,
+                               CAPRIGHTS_READ);
+        if(err_is_fail(err)) {
+            return SYSRET(err);
+        }
+        
+        perfmon_callback_ep = *ep; 
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+/* 
+ * \brief Write counter values.
+ */
+static struct sysret performance_counter_write(struct capability *cap,
+                                               int cmd, uintptr_t *args)
+{
+    uint8_t counter_id = args[0];
+    uint64_t counter_value = args[1];
+
+    perfmon_measure_write(counter_id, counter_value);
+    return SYSRET(SYS_ERR_OK);
+}
+
+/* 
+ * \brief Deactivate performance counters again.
+ */
+static struct sysret performance_counter_deactivate(struct capability *cap,
+                                                  int cmd, uintptr_t *args)
+{
+    perfmon_measure_stop();
+    return SYSRET(SYS_ERR_OK);
+}
+
 typedef struct sysret (*invocation_handler_t)(struct capability *to,
                                               int cmd, uintptr_t *args);
 
@@ -603,7 +643,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_Dispatcher] = {
         [DispatcherCmd_Setup] = handle_dispatcher_setup,
         [DispatcherCmd_Properties] = handle_dispatcher_properties,
-        [DispatcherCmd_PerfMon] = handle_dispatcher_perfmon,
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest
     },
     [ObjType_Frame] = {
@@ -665,6 +704,11 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_Notify_IPI] = {
         [NotifyCmd_Send] = handle_ipi_notify_send
+    },
+    [ObjType_PerfMon] = {
+        [PerfmonCmd_Activate] = performance_counter_activate,
+        [PerfmonCmd_Deactivate] = performance_counter_deactivate,
+        [PerfmonCmd_Write] = performance_counter_write,
     }
 };
 

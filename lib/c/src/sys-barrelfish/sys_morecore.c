@@ -29,9 +29,11 @@ morecore_free_func_t sys_morecore_free;
 /**
  * \brief sbrk() equivalent.
  *
- * This function allocates at least the amount given by 'nu' in sizeof(::Header)
- * byte units. It returns a pointer to the freelist header of the memory region.
- * NULL is returned when out of memory.
+ * This function tries to allocate at least the amount given by 'nu'
+ * in sizeof(::Header) byte units. In some cases, it will allocate
+ * less, if no more memory was available. In any case, It returns a
+ * pointer to the freelist header of the memory region.  NULL is
+ * returned when out of memory.
  *
  * \param nu    Number of memory units (1 unit == sizeof(::Header) bytes)
  *
@@ -49,6 +51,7 @@ Header *morecore(unsigned nu)
     if (up == NULL) {
         return NULL;
     }
+    assert(nb % sizeof(Header) == 0);
     up->s.size = nb / sizeof(Header);
 
     // Add header to freelist
@@ -68,12 +71,6 @@ void lesscore(void)
     // Not implemented without translation hardware
 
 #else
-    // If ram_free_func is NULL, memory reclamation is disabled.
-    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-    if(ram_alloc_state->ram_free_func == NULL) {
-        return;
-    }
-
     struct morecore_state *state = get_morecore_state();
     genvaddr_t gvaddr =
         vregion_get_base_addr(&state->mmu_state.vregion)

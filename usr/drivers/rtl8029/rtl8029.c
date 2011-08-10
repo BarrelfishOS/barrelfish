@@ -132,8 +132,11 @@ static inline void write_page(uint8_t page, struct client_closure *cl)
 	    RTL8029_DEBUG("pa %p va %p offset %lu\n",
 	    		(void *)cl->buffer_ptr->pa, cl->buffer_ptr->va, cl->pbuf[index].offset);
 */
-        uint8_t *src =(uint8_t *)
-        				((uint64_t)cl->buffer_ptr->va + cl->pbuf[index].offset);
+#if defined(__i386__)
+		uint8_t *src = (uint8_t *) ((uintptr_t)(cl->buffer_ptr->va + cl->pbuf[index].offset));
+#else
+        uint8_t *src = (uint8_t *) ((uint64_t)cl->buffer_ptr->va + cl->pbuf[index].offset);
+#endif
         pbuf_len = cl->pbuf[index].len;
 
         uint32_t i = 0;
@@ -165,7 +168,7 @@ static inline void write_page(uint8_t page, struct client_closure *cl)
     // Stop write
     cr.rd = RTL8029AS_acrdma;
     RTL8029AS_cr_wr(&rtl, cr);
-
+    //RTL8029_DEBUG("finished writing page!\n");
 }
 
 /**
@@ -543,7 +546,7 @@ static void rtl8029_init(void)
 {
 	/* FIXME: use correct name, and make apps and netd
 	 * work with multiple service names for driver. */
-	char *service_name = "e1000";
+	char *service_name = "rtl8029";
 	RTL8029_DEBUG("starting hardware init\n");
 	rtl8029_initialize_card();
 	/* FIXME: do hardware init*/

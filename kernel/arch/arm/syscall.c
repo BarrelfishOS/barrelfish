@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -243,6 +243,40 @@ monitor_handle_register(
     return sys_monitor_register(ep_caddr);
 }
 
+static struct sysret
+monitor_create_cap(
+    struct capability *kernel_cap,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(6 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    printf("%d: %d, %d, %d, %d, %d, %d\n", argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
+
+    /* Create the cap in the destination */
+    caddr_t cnode_cptr = sa->arg2;
+    int cnode_vbits    = sa->arg3;
+    size_t slot        = sa->arg4;
+    struct capability *src =
+        (struct capability*)sa->arg5;
+
+    printf("type = %d\n", src->type);
+
+    /* Certain types cannot be created here */
+    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
+        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
+        || (src->type == ObjType_IRQTable)) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+                                            cnode_cptr, cnode_vbits,
+                                            slot, src));
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -267,6 +301,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id] = monitor_get_core_id,
         [KernelCmd_Register]    = monitor_handle_register,
+        [KernelCmd_Create_cap]  = monitor_create_cap,
     }
 };
 

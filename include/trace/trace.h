@@ -51,7 +51,9 @@
 /* Trace only network related events
  * This will reduce the amount of events recorded, and hence allows
  * recording for longer time. */
-//#define TRACE_ONLY_SUB_NET 1
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ONLY_SUB_NET 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 /**
  * \brief Constants for trace subsystems and events.
@@ -195,7 +197,16 @@
 #define TRACE_EVENT_NET_NI_AI               0X0012 /* added, 0 */
 #define TRACE_EVENT_NET_NI_I                0X0010 /* added, 0 */
 #define TRACE_EVENT_NET_NI_A                0X0003 /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_FILTER_FRAG      0X0018 /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_FILTER_EX_1      0X0015 /* added, pkt data location */
 #define TRACE_EVENT_NET_NI_ARP              0X0011 /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_FILTER_EX_2      0X0016 /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_PKT_CPY_1          0X0019 /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_PKT_CPY_2          0X001A /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_PKT_CPY_3          0X001B /* added, pkt data location */
+#define TRACE_EVENT_NET_NI_PKT_CPY_4          0X001C /* added, pkt data location */
+
+#define TRACE_EVENT_NET_NI_PKT_CPY          0X0017 /* added, pkt data location */
 #define TRACE_EVENT_NET_NI_P                0X0004 /* added, pbuf_id */
 #define TRACE_EVENT_NET_NI_S                0X0005 /* added, pbuf_id */
 #define TRACE_EVENT_NET_AI_A                0X0006 /* added, pbuf_id */
@@ -206,13 +217,14 @@
 #define TRACE_EVENT_NET_NO_A                0X000B /* added, client_data (pbuf_address in lwip) */
 #define TRACE_EVENT_NET_NO_S                0X000C /* added, e1000n.c client_data (pbuf_address in lwip) */
 
-/* FIXME: Add the timings of when does NIC gets TX_done
- * This might be killing the performance */
-#define TRACE_EVENT_NET_NO_TXD                0X0013 /* yet to add */
+/* FIXME: Add the timings of when does NIC gets TX_done */
+#define TRACE_EVENT_NET_NO_TXD              0X0013 /* yet to add */
+#define TRACE_EVENT_NET_AIR_R               0x000E /* added, pbuf_addr (TX DONE in app) */
 
 /* Response flow */
-#define TRACE_EVENT_NET_AOR_S               0x000D /* added, pbuf_id */
-#define TRACE_EVENT_NET_AIR_R               0x000E /* added, pbuf_addr */
+#define TRACE_EVENT_NET_AOR_S               0x000D /* added, pbuf_id ( register_pbuf from APP)*/
+#define TRACE_EVENT_NET_NIR_REG_PBUF        0x0014 /* commented pbuf_id ( register_pbuf in NIC)*/
+
 
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
@@ -581,11 +593,12 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 static inline errval_t trace_event_raw(uint64_t raw)
 {
 #ifdef CONFIG_TRACE
-/*
+
 #if TRACE_ONLY_SUB_NET
+	/* we do not want the stats about actual messages sent */
 	return SYS_ERR_OK;
 #endif // TRACE_ONLY_SUB_NET
-*/
+
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();
     ev.u.raw = raw;

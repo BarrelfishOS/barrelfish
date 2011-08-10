@@ -86,11 +86,14 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#define _USE_XOPEN // for strdup()
+#include <string.h>
 #include <stdio.h>
 #include <stdio_file.h>
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
+#include <errno.h>
 #include "vfs_backends.h"
 
 static long int barrelfish_eof(void *handle)
@@ -163,11 +166,9 @@ barrelfish_fopen(const char *fname, const char *mode)
     vfs_handle_t vh;
     errval_t err;
 
-    // XXX: no CWD, assume /
-    // FIXME: needs a way to respect the libposixcompat cwd variable
-    char *abspath = vfs_path_mkabsolute("/", fname);
+    char *abspath = vfs_path_mkabs(fname);
     assert(abspath != NULL);
-
+    
     //debug_printf("fopen('%s', '%s')\n", fname, mode);
 
     if (mode[0] == 'r') { // read: file must exist
@@ -178,6 +179,8 @@ barrelfish_fopen(const char *fname, const char *mode)
     if (err_is_fail(err)) {
         if (err_no(err) != FS_ERR_NOTFOUND) {
             DEBUG_ERR(err, "vfs_open failed in fopen('%s'): %s\n", fname, abspath);
+        } else {
+            errno = ENOENT;
         }
         free(abspath);
         return NULL;
@@ -186,7 +189,10 @@ barrelfish_fopen(const char *fname, const char *mode)
 
     if (mode[0] == 'a') {
         // append: seek to end of file
-        vfs_seek(vh, VFS_SEEK_END, 0);
+        err = vfs_seek(vh, VFS_SEEK_END, 0);
+        if(err_is_fail(err)) {
+            USER_PANIC_ERR(err, "vfs_seek");
+        }
     }
 
     newfile = malloc(sizeof(FILE));
@@ -200,14 +206,24 @@ barrelfish_fopen(const char *fname, const char *mode)
     newfile->close_fn = barrelfish_close;
     newfile->eof_fn = barrelfish_eof;
 
+    err = vfs_tell(vh, &newfile->current_pos);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vfs_tell");
+    }
+
     newfile->handle = vh;
-    newfile->current_pos = 0;
     newfile->buffering_mode = _IOFBF;
     newfile->buffer = NULL;
     newfile->buf_pos = 0;
-    newfile->buf_size = BUFSIZ;
+    /* newfile->buf_size = 65536; */
+    newfile->buf_size = 262144;
     newfile->unget_pos = 0;
     newfile->eof = 0;
+    newfile->error = 0;
+    newfile->rbuffer = NULL;
+    newfile->rbuf_pos = NULL;
+    newfile->rbuf_size = 0;
+    newfile->rbuf_valid = 0;
 
     thread_mutex_init(&newfile->mutex);
 
@@ -220,4 +236,8 @@ void vfs_fopen_init(void)
 {
     /* set the function pointer that libc calls through */
     _libc_fopen_func = barrelfish_fopen;
+
+    // Initialize working directory if not set already
+    int r = setenv("PWD", "/", 0);
+    assert(r == 0);
 }

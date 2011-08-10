@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -27,6 +27,26 @@ typedef enum
     CPIO_MODE_STICKY         = 0001000,
     CPIO_MODE_UMASK          = 0000777
 } cpio_mode_bits_t;
+
+typedef struct
+{
+    cpio_mode_bits_t mode;
+    const char*      name;
+    const uint8_t*   data;
+    size_t           datasize;
+    uint32_t         checksum;
+} cpio_generic_header_t;
+
+/**
+ * CPIO visitor function.
+ *
+ * This is invoked by cpio_visit.
+ *
+ * returns zero to continue visit after current invocation, non-zero to stop.
+ */
+typedef int (*cpio_visitor_t)(int                          ordinal,
+                              const cpio_generic_header_t* header,
+                              void*                        arg);
 
 /**
  * Find file with specified in CPIO binary image.
@@ -93,6 +113,25 @@ int
 cpio_archive_valid(
     const uint8_t*  cpio_base,
     size_t          cpio_bytes
+);
+
+/**
+ * Apply visitor function to each header in CPIO memory image.
+ *
+ * @param cpio_base     base of CPIO memory image.
+ * @param cpio_bytes    size of CPIO memory image in bytes.
+ * @param cpio_visit_fn visitor function.
+ * @param arg           user supplied argument to visitor function.
+ *
+ * @return              number of CPIO headers visited.
+ */
+int
+cpio_visit(
+    const uint8_t*         cpio_base,
+    size_t                 cpio_bytes,
+    cpio_visitor_t         cpio_visit_fn,
+    cpio_generic_header_t* g,
+    void*                  arg
 );
 
 #endif // __CPIOBIN_H__

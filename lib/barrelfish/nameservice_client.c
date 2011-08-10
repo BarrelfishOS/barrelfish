@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -108,6 +108,52 @@ errval_t nameservice_register(const char *iface, iref_t iref)
     return r->vtbl.register_service(r, iref, iface, &ref);
 }
 
+/**
+ * \brief Get a capability from the capability store.
+ *
+ * \param key           String that identifies the capability
+ * \param retcap        Pointer to structure holding capability
+ */
+#include <stdio.h>
+errval_t nameservice_get_capability(const char *key, struct capref *retcap)
+{
+    errval_t reterr;
+    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+    if (r == NULL) {
+	printf("nameservice not found\n");
+        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    }
+    printf("get cap %s\n", key);
+    errval_t err = r->vtbl.get_cap(r, key, retcap, &reterr);
+    if(err_is_fail(err)) {
+	printf("ERROR!\n");
+        return err_push(err, CHIPS_ERR_GET_CAP);
+    }
+    printf("about to return\n");
+    return reterr;
+}
+
+/**
+ * \brief Put a capability to the capability store.
+ *
+ * \param key           String that identifies the capability
+ * \param cap           The capability to store
+ */
+errval_t nameservice_put_capability(const char *key, struct capref cap)
+{
+    errval_t reterr;
+    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+    if (r == NULL) {
+        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    }
+
+    errval_t err = r->vtbl.put_cap(r, key, cap, &reterr);
+    if(err_is_fail(err)) {
+        return err_push(err, CHIPS_ERR_PUT_CAP);
+    }
+
+    return reterr;
+}
 
 /* ----------------------- BIND/INIT CODE FOLLOWS ----------------------- */
 
@@ -156,7 +202,7 @@ static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
         err = LIB_ERR_GET_NAME_IREF;
     } else {
         err = nameservice_bind(iref, bind_continuation, st,
-                               get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+                               get_default_waitset(), IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     }
 
     if (err_is_fail(err)) {

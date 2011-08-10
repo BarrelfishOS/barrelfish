@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, 2010, ETH Zurich.
+ * Copyright (c) 2008, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -18,6 +18,7 @@
 struct capability;
 errval_t debug_cap_identify(struct capref cap, struct capability *ret);
 void debug_cspace(struct capref root);
+void debug_my_cspace(void);
 void debug_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 int debug_print_cap(char *buf, size_t len, struct capability *cap);
 int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap);

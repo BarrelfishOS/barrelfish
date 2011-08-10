@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -134,8 +134,12 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs)
  * \param from_regs Location to save current register state
  * \param to_regs Location from which to resume new register state
  */
-void disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
-                 arch_registers_state_t *to_state)
+// XXX: Needs to be compiled with -O2, otherwise we use too many
+// registers. Have to think about how to circumvent this without needing
+// -O2.
+void __attribute__((optimize(2)))
+disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
+            arch_registers_state_t *to_state)
 {
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
@@ -200,8 +204,12 @@ void disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
  * \param yield If true, yield CPU to kernel; otherwise re-run thread scheduler
  * \param yield_to Endpoint capability for dispatcher to which we want to yield
  */
-void disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
-               bool yield, caddr_t yield_to)
+// XXX: Needs to be compiled with -O2, otherwise we use too many
+// registers. Have to think about how to circumvent this without needing
+// -O2.
+void __attribute__((optimize(2)))
+disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
+          bool yield, caddr_t yield_to)
 {
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);

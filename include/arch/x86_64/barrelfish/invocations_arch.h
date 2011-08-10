@@ -287,19 +287,27 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
     return sysret.error;
 }
 
-static inline errval_t invoke_perfmon_setup(struct capref dispcap,
-                                            uint8_t counter, uint64_t evt,
-                                            uint64_t umsk, bool os)
+static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
+                                               uint8_t event, uint8_t perf_umask, 
+                                               bool kernel, uint8_t counter_id,
+                                               uint64_t counter_value, 
+                                               caddr_t ep_addr)
 {
-    return cap_invoke6(dispcap, DispatcherCmd_PerfMon, counter, 0, evt, umsk,
-                       os ? 1 : 0).error;
+    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate, 
+                       event, perf_umask, counter_id, kernel, 
+                       counter_value, ep_addr).error;
 }
 
-static inline errval_t invoke_perfmon_write(struct capref dispcap,
-                                            uint8_t counter, uint64_t value)
+static inline errval_t invoke_perfmon_write(struct capref perfmon_cap,
+                                                  uint8_t counter_id,
+                                                  uint64_t counter_value)
 {
-    return 
-	cap_invoke4(dispcap, DispatcherCmd_PerfMon, counter, 1, value).error;
+    return cap_invoke3(perfmon_cap, PerfmonCmd_Write, counter_id, counter_value).error;
+}
+
+static inline errval_t invoke_perfmon_deactivate(struct capref perfmon_cap)
+{
+    return cap_invoke1(perfmon_cap, PerfmonCmd_Deactivate).error;
 }
 
 static inline errval_t

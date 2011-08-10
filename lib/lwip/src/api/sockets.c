@@ -51,6 +51,7 @@
 #include "lwip/raw.h"
 #include "lwip/udp.h"
 #include "lwip/tcpip.h"
+#include "lwip/sock_serialise.h"
 
 #include <string.h>
 
@@ -188,21 +189,20 @@ static struct lwip_socket *
 get_socket(int s)
 {
   struct lwip_socket *sock;
-
+  
   if ((s < 0) || (s >= NUM_SOCKETS)) {
     LWIP_DEBUGF(SOCKETS_DEBUG, ("get_socket(%d): invalid\n", s));
     set_errno(EBADF);
     return NULL;
   }
-
+ 
   sock = &sockets[s];
-
+ 
   if (!sock->conn) {
     LWIP_DEBUGF(SOCKETS_DEBUG, ("get_socket(%d): not active\n", s));
     set_errno(EBADF);
     return NULL;
-  }
-
+  } 
   return sock;
 }
 
@@ -214,7 +214,7 @@ get_socket(int s)
  */
 static int
 alloc_socket(struct netconn *newconn)
-{
+{ 
   int i;
 
   /* Protect socket array */
@@ -379,6 +379,7 @@ lwip_close(int s)
 
   sys_sem_wait(socksem);
   if (sock->lastdata) {
+      printf("close(%d): last data\n", s);
     netbuf_delete(sock->lastdata);
   }
   sock->lastdata   = NULL;
@@ -965,8 +966,10 @@ lwip_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
       if(msectimeout == 0)
         msectimeout = 1;
     }
-    
+
+    lwip_mutex_unlock();
     i = sys_sem_wait_timeout(select_cb.sem, msectimeout);
+    lwip_mutex_lock();
     
     /* Take us off the list */
     sys_sem_wait(selectsem);
@@ -1347,7 +1350,6 @@ lwip_getsockopt(int s, int level, int optname, void *optval, socklen_t *optlen)
     sock_set_errno(sock, err);
     return -1;
   }
-
   /* Now do the actual option processing */
   data.sock = sock;
   data.level = level;
@@ -1549,10 +1551,11 @@ lwip_setsockopt(int s, int level, int optname, const void *optval, socklen_t opt
   struct lwip_socket *sock = get_socket(s);
   int err = ERR_OK;
   struct lwip_setgetsockopt_data data;
-
+  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_setsockopt: sock is %d\n", sock));
   if (!sock)
     return -1;
-
+  else
+ 
   if (NULL == optval) {
     sock_set_errno(sock, EFAULT);
     return -1;
@@ -1602,7 +1605,7 @@ lwip_setsockopt(int s, int level, int optname, const void *optval, socklen_t opt
       }
 #endif /* LWIP_UDP */
       break;
-    default:
+      default:
       LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_setsockopt(%d, SOL_SOCKET, UNIMPL: optname=0x%x, ..)\n",
                   s, optname));
       err = ENOPROTOOPT;
@@ -1966,5 +1969,103 @@ lwip_ioctl(int s, long cmd, void *argp)
     return -1;
   } /* switch (cmd) */
 }
+
+int
+lwip_serialise_sock(int s, struct lwip_sockinfo *si)
+{
+  struct lwip_socket *sock;
+  // err_t err;
+
+  sock = get_socket(s);
+  if (!sock)
+    return -1;
+    
+  assert(sock->conn->type == NETCONN_TCP);
+
+  si->local_ip = sock->conn->pcb.ip->local_ip;
+  si->remote_ip = sock->conn->pcb.ip->remote_ip;
+  si->local_port = sock->conn->pcb.tcp->local_port;
+  si->remote_port = sock->conn->pcb.tcp->remote_port;
+  memcpy(&(si->netconn_state), sock->conn, sizeof(struct netconn));
+  memcpy(&(si->tcp_state), sock->conn->pcb.tcp, sizeof(struct tcp_pcb));
+  return 0;
+}
+
+
+static int
+lwip_redirect(int s, struct lwip_sockinfo *si)
+{
+  struct lwip_socket *sock;
+  err_t err;
+
+  sock = get_socket(s);
+  if (!sock)
+    return -1;
+
+  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_redirect(%d, ", s));
+  LWIP_DEBUGF(SOCKETS_DEBUG, (" local port=%"U16_F")\n", si->local_port));
+  LWIP_DEBUGF(SOCKETS_DEBUG, (" remote port=%"U16_F")\n", si->remote_port));
+
+  err = netconn_redirect(sock->conn, &si->local_ip, si->local_port,
+                         &si->remote_ip, si->remote_port);
+
+  if (err != ERR_OK) {
+    LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_redirect(%d) failed, err=%d\n", s, err));
+    sock_set_errno(sock, err_to_errno(err));
+    return -1;
+  }
+
+  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_redirect(%d) succeeded\n", s));
+  sock_set_errno(sock, 0);
+  return 0;
+}
+
+
+int
+lwip_deserialise_sock(int s, struct lwip_sockinfo *si)
+{
+  struct lwip_socket *sock;
+  //err_t err;
+
+  sock = get_socket(s);
+  if (!sock) {
+    return -1;
+  }
+  struct tcp_pcb *next = sock->conn->pcb.tcp->next;
+  assert(sock->conn->type == NETCONN_TCP);
+
+  memcpy(sock->conn->pcb.tcp, &(si->tcp_state), sizeof(struct tcp_pcb));
+#define TCP_SNDQUEUELEN_OVERFLOW (0xffff-3)
+  sock->conn->pcb.tcp->snd_queuelen = 0;
+  sock->conn->pcb.tcp->unsent = NULL;   /* Unsent (queued) segments. */
+  sock->conn->pcb.tcp->unacked = NULL;  /* Sent but unacknowledged segments. */
+#if TCP_QUEUE_OOSEQ
+  sock->conn->pcb.tcp->ooseq = NULL;    /* Received out of sequence segments. */
+#endif /* TCP_QUEUE_OOSEQ */
+  sock->conn->pcb.ip->local_ip =  si->local_ip;
+  sock->conn->pcb.ip->remote_ip = si->remote_ip;
+  sock->conn->pcb.tcp->local_port = si->local_port;
+  sock->conn->pcb.tcp->remote_port = si->remote_port;
+  sock->conn->pcb.tcp->callback_arg = sock->conn;
+  sock->conn->pcb.tcp->next = next;
+
+  if(sock->conn->pcb.tcp->state == ESTABLISHED) {
+      printf("lwip_deserialise_sock: in ESTABLISHED state!!!\n");
+      TCP_REG(&tcp_active_pcbs, sock->conn->pcb.tcp);
+      /* start lwip redirect now */
+      int ret = lwip_redirect(s, si);
+      assert(ret == 0);
+  } else if(sock->conn->pcb.tcp->state == LISTEN) {
+      printf("lwip_deserialise_sock: in LISTEN state!!!\n");
+//      TCP_REG(&tcp_bound_pcbs, sock->conn->pcb.tcp);
+  } else {
+      printf("lwip_deserialise_sock: in %d state!!!\n", sock->conn->pcb.tcp->state);
+  }
+
+  return 0;
+}
+
+
+
 
 #endif /* LWIP_SOCKET */

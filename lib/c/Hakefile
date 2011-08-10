@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2011, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -13,7 +13,7 @@
   let
       -- architecture independent source files
       generic_src = [ "src" ./. f | f <- [
-        "asctime.c",    "fseek.c",         "getchar.c",   "rename.c",   "strncpy.c",
+        "asctime.c",    "fseek.c",         "getchar.c",   "strncpy.c",
         "assert.c",     "ftell.c",         "getenv.c",    "rewind.c",   "strpbrk.c",
         "calloc.c",     "fwrite.c",        "getopt.c",    "scanf.c",    "strrchr.c",
         "clearerr.c",   "gdtoa/dmisc.c",   "gmtime.c",    "setbuf.c",   "strspn.c",
@@ -23,7 +23,7 @@
         "exit.c",       "gdtoa/gmisc.c",   "memchr.c",    "_srefill.c", "strtoll.c",
         "fclose.c",     "gdtoa/hd_init.c", "memcmp.c",    "sscanf.c",   "strtoul.c",
         "feof.c",       "gdtoa/_hdtoa.c",  "memcpy.c",    "strcat.c",   "system.c",
-        "ferror.c",     "gdtoa/hexnan.c",  "memmove.c",   "strchr.c",   "time.c",
+        "ferror.c",     "gdtoa/hexnan.c",  "memmove.c",   "strchr.c",
         "fflush.c",     "gdtoa/_hldtoa.c", "memset.c",    "strcmp.c",   "tmpfile.c",
         "fgetc.c",      "gdtoa/_ldtoa.c",  "mktime.c",    "strcoll.c",  "ungetc.c",
         "fgets.c",      "gdtoa/misc.c",    "perror.c",    "strcpy.c",   "vfprintf.c",
@@ -33,7 +33,7 @@
         "fputs.c",      "gdtoa/strtof.c",  "qsort.c",     "strftime.c", "xprintf.c",
         "_fread.c",     "gdtoa/strtord.c", "rand.c",      "strlen.c",   "xprintf_float.c",
         "fread.c",      "gdtoa/sum.c",     "realloc.c",   "strncat.c",  "xprintf_int.c",
-        "fscanf.c",     "gdtoa/ulp.c",     "remove.c",    "strncmp.c",  "xprintf_str.c",
+        "fscanf.c",     "gdtoa/ulp.c",     "strncmp.c",  "xprintf_str.c",
         "msgcat.c", "strlcpy.c", "strtold.c", "strtoull.c", "strxfrm.c",
         "swprintf.c", "vsscanf.c", "vswprintf.c", "wcscmp.c", "wcscoll.c", "wcscpy.c",
         "wcslen.c", "wcsncpy.c", "wcsxfrm.c", "wmemchr.c", "wmemcmp.c", "wmemcpy.c",
