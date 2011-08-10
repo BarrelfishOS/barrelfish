@@ -463,6 +463,7 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, netd_port_type_t type,
     compile_filter(filter, &filter_mem, len_rx);
     assert(*len_rx < BASE_PAGE_SIZE);
 
+    assert(filter_mem != NULL);
     memcpy(bbuf, filter_mem, *len_rx);
     free(filter);
     free(filter_mem);
@@ -586,7 +587,7 @@ static void bind_port(struct netd_binding *cc, netd_port_type_t type, uint16_t p
     struct buffer_port_translation* bp;
     struct net_user* this_net_app = (struct net_user*) cc->st;
 
-    NETD_DEBUG("bind_port: called for port %lu with RX[%lu] and TX[%lu]\n",
+    NETD_DEBUG("bind_port: called for port %u with RX[%"PRIu64"] and TX[%"PRIu64"]\n",
 				port_no, buffer_id_rx, buffer_id_tx);
 
     /* NOTE: check if someone else is using the filter location */
