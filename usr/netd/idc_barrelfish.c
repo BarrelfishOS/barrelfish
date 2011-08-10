@@ -235,7 +235,7 @@ static void link_status_change(struct netif *nf)
 {
 	printf("##############################################################\n");
 
-    printf("[%d]Interface up! IP address %d.%d.%d.%d\n", disp_get_core_id(),
+    printf("Interface up! IP address %d.%d.%d.%d\n",
     		ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
     		ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
 
