@@ -1359,7 +1359,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 //    assert(upbuf != NULL);
     if(upbuf == NULL) {
     	/* pbufs are not yet registered, so can't send packet to userspace. */
-    	printf("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
+    	ETHERSRV_DEBUG("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
     	return false;
     }
 
