@@ -42,7 +42,7 @@ class EchoTestCommon(TestCommon):
         return modules
 
     def process_line(self, line):
-        m = re.match(r'Interface up! IP address (\d+\.\d+\.\d+\.\d+)', line)
+        m = re.match(r'[\d+]Interface up! IP address (\d+\.\d+\.\d+\.\d+)', line)
         if m:
             self.run_test(m.group(1))
             self.finished = True
