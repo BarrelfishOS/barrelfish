@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -46,6 +46,35 @@ void apic_timer_init(bool masked, bool periodic)
             .vector = APIC_TIMER_INTERRUPT_VECTOR,
             .mask = masked ? xapic_masked : xapic_not_masked,
             .mode = periodic ? xapic_periodic : xapic_one_shot
+            }
+        );
+}
+
+/**
+ * \brief Initializes performance counter overflow interrupt
+ *
+ */
+void apic_perfcnt_init(void)
+{
+    // Activate use of APIC performance counter interrupts
+    xapic_lvt_perf_cnt_wr(&apic, (xapic_lvt_mon_t) {
+            .vector = APIC_PERFORMANCE_INTERRUPT_VECTOR,
+                .msgType = 0,
+                .mask = 0
+            }
+        );
+}
+/**
+ * \brief Initializes performance counter overflow interrupt
+ *
+ */
+void apic_perfcnt_stop(void)
+{
+    // Activate use of APIC performance counter interrupts
+    xapic_lvt_perf_cnt_wr(&apic, (xapic_lvt_mon_t) {
+            .vector = APIC_PERFORMANCE_INTERRUPT_VECTOR,
+                .msgType = 0,
+                .mask = 1
             }
         );
 }
@@ -144,11 +173,6 @@ void apic_init(void)
                 .vector = APIC_THERMAL_INTERRUPT_VECTOR,
                 .mask = xapic_masked } );
 
-    //performance monitoring counters
-    xapic_lvt_perfmon_wr(&apic, (xapic_lvt_mon_t) {
-                .vector = APIC_PERFORMANCE_INTERRUPT_VECTOR,
-                .mask = xapic_masked } );
-
 #if defined(__scc__) && !defined(RCK_EMU)
     //LINT0: inter-core interrupt
     //generate fixed int
@@ -159,13 +183,12 @@ void apic_init(void)
 		.mask = xapic_not_masked } );
 
     //LINT1: usually used to generate an NMI
-    //generate NMI
-    //disabled (FIXME?)
+    //generate device interrupt
     xapic_lvt_lint1_wr(&apic, (xapic_lvt_lint_t) {
-                .vector = 0,
-		.dlv_mode = xapic_nmi,
+                .vector = 32,
+		.dlv_mode = xapic_fixed,
                 .trig_mode = xapic_edge,
-                .mask = xapic_masked } );
+                .mask = xapic_not_masked } );
 #else
     //LINT0: external interrupts, delivered by the 8259 PIC
     //generate extInt as if INTR pin were activated

@@ -12,7 +12,7 @@
 
 [ build application { target = "netfile",
   		      cFiles = [ "netfile.c" ],
-		      addLibraries = [ "vfs", "nfs", "lwip" ],
+		      addLibraries = [ "vfs", "nfs", "lwip", "contmng" ],
 		      architectures = [ "x86_64" ]
                     }
 ]

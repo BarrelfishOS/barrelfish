@@ -7,21 +7,21 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface fb "Framebuffer server" {
-        rpc get_framebuffer(out cap fbcap);
+interface fb "Framebuffer interface" {
+        rpc get_framebuffer(out errval err, out cap fbcap, out uint32 offset);
 
         rpc set_videomode(
-               in int   xres,
-               in int   yres,
-               in int   bpp,
-               out int error);
+               in uint16   xres,
+               in uint16   yres,
+               in uint8    bpp,
+               out errval error);
 
-        rpc get_vesamode(out uint16 mode, out int linear, out int error);
-        rpc set_vesamode(in uint16 mode, in int linear, in int clear,
-                         out int error);
+        rpc get_vesamode(out uint16 mode, out bool linear, out errval error);
+        rpc set_vesamode(in uint16 mode, in bool linear, in bool clear,
+                         out errval error);
 
-        rpc save_vesastate(out int error);
-	rpc restore_vesastate(out int error);
+        rpc save_vesastate(out errval error);
+	rpc restore_vesastate(out errval error);
 
         rpc vsync();
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,5 +14,8 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref);
 errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref);
 errval_t nameservice_register(const char *iface, iref_t iref);
 errval_t nameservice_client_blocking_bind(void);
+
+errval_t nameservice_get_capability(const char *key, struct capref *retcap);
+errval_t nameservice_put_capability(const char *key, struct capref cap);
 
 #endif // BARRELFISH_NAMESERVICE_CLIENT_H

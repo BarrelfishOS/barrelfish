@@ -94,15 +94,16 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
 
   regtype lvt_mon "LVT monitor" {
     vector      8 "Vector";
-    dlv_mode    4 type(vdm) "Delivery mode";
+    msgType     3;
     _           1;
     status      1 "Delivery status";
     _           3;
-    mask        1 type(int_mask) "Mask";
-    _           14;
+    mask        1 type(int_mask) "Masked";
+    _           15;
   };
+  
+  register lvt_perf_cnt rw addr(base, 0x0340) type (lvt_mon);
   register lvt_thermal rw addr(base, 0x0330) type (lvt_mon);
-  register lvt_perfmon rw addr(base, 0x0340) type (lvt_mon);
 
   // 8.5.3
   register esr rw addr(base, 0x0280) "Error Status" {

@@ -102,61 +102,25 @@ static errval_t mymm_alloc(struct capref *ret, uint8_t bits, genpaddr_t minbase,
     return err;
 }
 
-static errval_t cap_identify(struct capref ramcap, struct capability *info)
-{
-
-    // TODO: bind to monitor_blocking and call cap_identify
-
-    return LIB_ERR_NOT_IMPLEMENTED;
-
-}
-
-static errval_t mymm_free(struct capref ramcap)
+static errval_t mymm_free(struct capref ramcap, genpaddr_t base, uint8_t bits)
 {
     errval_t ret;
-
-    struct capability info;
     genpaddr_t mem_to_add;
 
-    // debug_printf("mem_free\n");
+    mem_to_add = (genpaddr_t)1 << bits;
 
-    ret = cap_identify(ramcap, &info);
-    if (err_is_fail(ret)) {
-        // XXX: Until cap_identify() is implemented, we return OK here
-        // and leak all memory returned to us.
-        if(err_no(ret) == LIB_ERR_NOT_IMPLEMENTED) {
-            return SYS_ERR_OK;
-        }
-
-        return ret;
-    }
-
-    if (info.type != ObjType_RAM) {
-        return SYS_ERR_INVALID_SOURCE_TYPE;
-    }
-
-    /*
-    debug_printf("Cap is type %d Frame base 0x%"PRIxGENPADDR
-                 " (%"PRIuGENPADDR") Bits %d\n",
-                 info.type, info.u.frame.base, info.u.frame.base, 
-                 info.u.frame.bits);
-    */
-
-    mem_to_add = (genpaddr_t)1 << info.u.frame.bits;
-        
-    ret = mm_free(&mm_ram, info.u.frame.base, info.u.frame.bits);
+    ret = mm_free(&mm_ram, ramcap, base, bits);
     if (err_is_fail(ret)) {
         if (err_no(ret) == MM_ERR_NOT_FOUND) {
             // memory wasn't there initially, add it
-            ret = mm_add(&mm_ram, ramcap, info.u.frame.bits, 
-                         info.u.frame.base);
+            ret = mm_add(&mm_ram, ramcap, bits, base);
             if (err_is_fail(ret)) {
-                DEBUG_ERR(ret, "failed to add RAM to allocator");
+                /* DEBUG_ERR(ret, "failed to add RAM to allocator"); */
                 return ret;
             }
             mem_total += mem_to_add;
         } else {
-            DEBUG_ERR(ret, "failed to free RAM in allocator");
+            /* DEBUG_ERR(ret, "failed to free RAM in allocator"); */
             return ret;
         }
     }
@@ -174,7 +138,7 @@ static errval_t mymm_free(struct capref ramcap)
 struct pending_reply {
     struct mem_binding *b;
     errval_t err;
-    struct capref cap;
+    struct capref *cap;
 };
 
 
@@ -185,7 +149,7 @@ static void retry_free_reply(void *arg)
     struct mem_binding *b = r->b;
     errval_t err;
 
-    err = b->tx_vtbl.free_response(b, NOP_CONT, r->err);
+    err = b->tx_vtbl.free_monitor_response(b, NOP_CONT, r->err);
     if (err_is_ok(err)) {
         b->st = NULL;
         free(r);
@@ -200,6 +164,19 @@ static void retry_free_reply(void *arg)
     }
 }
 
+static void allocate_response_done(void *arg)
+{
+    struct capref *cap = arg;
+
+    if(!capref_is_null(*cap)) {
+        errval_t err = cap_delete(*cap);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "cap_delete after send. This memory will leak.");
+        }
+    }
+
+    free(cap);
+}
 
 static void retry_reply(void *arg)
 {
@@ -208,7 +185,8 @@ static void retry_reply(void *arg)
     struct mem_binding *b = r->b;
     errval_t err;
 
-    err = b->tx_vtbl.allocate_response(b, NOP_CONT, r->err, r->cap);
+    err = b->tx_vtbl.allocate_response(b, MKCONT(allocate_response_done, r->cap),
+                                       r->err, *r->cap);
     if (err_is_ok(err)) {
         b->st = NULL;
         free(r);
@@ -217,22 +195,22 @@ static void retry_reply(void *arg)
         assert(err_is_ok(err));
     } else {
         DEBUG_ERR(err, "failed to reply to memory request");
+        allocate_response_done(r->cap);
     }
 }
 
 
 
 static void mem_free_handler(struct mem_binding *b,
-                                 struct capref ramcap)
+                             struct capref ramcap, genpaddr_t base,
+                             uint8_t bits)
 {
     errval_t ret;
     errval_t err;
 
-    // debug_printf("mem_free_handler\n");
+    ret = mymm_free(ramcap, base, bits);
 
-    ret = mymm_free(ramcap);
-
-    err = b->tx_vtbl.free_response(b, NOP_CONT, ret);
+    err = b->tx_vtbl.free_monitor_response(b, NOP_CONT, ret);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct pending_reply *r = malloc(sizeof(struct pending_reply));
@@ -253,7 +231,7 @@ static void mem_available_handler(struct mem_binding *b)
 {
     errval_t err;
     /* Reply */
-    err = b->tx_vtbl.available_response(b, NOP_CONT, mem_avail);
+    err = b->tx_vtbl.available_response(b, NOP_CONT, mem_avail, mem_total);
     if (err_is_fail(err)) {
         // FIXME: handle FLOUNDER_ERR_TX_BUSY
         DEBUG_ERR(err, "failed to reply to memory request");
@@ -265,7 +243,7 @@ static void mem_available_handler(struct mem_binding *b)
 static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
                                  genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    struct capref cap;
+    struct capref *cap = malloc(sizeof(struct capref));
     errval_t err, ret;
 
     trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_ALLOC, bits);
@@ -290,17 +268,18 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
         slab_grow(&mm_ram.slabs, buf, BASE_PAGE_SIZE * 8);
     }
 
-    ret = mymm_alloc(&cap, bits, minbase, maxlimit);
+    ret = mymm_alloc(cap, bits, minbase, maxlimit);
     if (err_is_ok(ret)) {
         mem_avail -= 1UL << bits;
     } else {
         // DEBUG_ERR(ret, "allocation of %d bits in % " PRIxGENPADDR "-%" PRIxGENPADDR " failed",
         //          bits, minbase, maxlimit);
-        cap = NULL_CAP;
+        *cap = NULL_CAP;
     }
 
     /* Reply */
-    err = b->tx_vtbl.allocate_response(b, NOP_CONT, ret, cap);
+    err = b->tx_vtbl.allocate_response(b, MKCONT(allocate_response_done, cap),
+                                       ret, *cap);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct pending_reply *r = malloc(sizeof(struct pending_reply));
@@ -312,6 +291,7 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
             assert(err_is_ok(err));
         } else {
             DEBUG_ERR(err, "failed to reply to memory request");
+            allocate_response_done(cap);
         }
     }
 }
@@ -346,8 +326,6 @@ static void dump_ram_region(int index, struct mem_region* m)
 #endif // 0
 }
 
-
-
 // FIXME: error handling (not asserts) needed in this function
 static errval_t initialize_ram_alloc(void)
 {
@@ -379,7 +357,7 @@ static errval_t initialize_ram_alloc(void)
     assert(err_is_ok(err));
 
     err = mm_init(&mm_ram, ObjType_RAM, 0, MAXSIZEBITS, MAXCHILDBITS, NULL,
-                slot_alloc_prealloc, &ram_slot_alloc);
+                  slot_alloc_prealloc, &ram_slot_alloc, true);
     assert(err_is_ok(err));
 
     /* give MM allocator static storage to get it started */
@@ -456,7 +434,7 @@ static void export_callback(void *st, errval_t err, iref_t iref)
 static struct mem_rx_vtbl rx_vtbl = {
     .allocate_call = mem_allocate_handler,
     .available_call = mem_available_handler,
-    .free_call = mem_free_handler,
+    .free_monitor_call = mem_free_handler,
 };
 
 static errval_t connect_callback(void *st, struct mem_binding *b)
@@ -466,340 +444,67 @@ static errval_t connect_callback(void *st, struct mem_binding *b)
     return SYS_ERR_OK;
 }
 
-
-#if 0 // percore mem_serv hack
-
-/// MM per-core allocator instance data
-static struct mm mm_percore;
-
-/// Slot allocator for MM
-static struct slot_prealloc percore_slot_alloc;
-
-static iref_t percore_mem_serv_iref = 0xBAD;
-
-static errval_t percore_alloc(struct capref *ret, uint8_t bits,
-                              uint64_t minbase, uint64_t maxlimit,
-                              struct cspace_allocator **alloc)
-{
-    errval_t err;
-
-    assert(bits >= MINSIZEBITS);
-
-    if(maxlimit == 0) {
-        err = mm_alloc(&mm_percore, bits, ret, NULL);
-    } else {
-        err = mm_alloc_range(&mm_percore, bits, minbase, maxlimit, ret, NULL);
-    }
-
-    if (alloc != NULL) {
-        *alloc = NULL;
-    }
-
-    return err;
-}
-
-// FIXME: error handling (not asserts) needed in this function
-static void percore_allocate_handler(struct mem_binding *st,
-                                     uintptr_t bits,
-                                     uintptr_t minbase, uintptr_t maxlimit)
-{
-    struct capref cap;
-    errval_t err, ret;
-
-    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_ALLOC, bits);
-
-    /* refill slot allocator if needed */
-    err = slot_prealloc_refill(mm_percore.slot_alloc_inst);
-    assert(err_is_ok(err));
-
-
-    if (slab_freecount(&mm_percore.slabs) <= MINSPARENODES) {
-        //  printf("slabs=%ld\n", slab_freecount(&mm_percore.slabs));
-    }
-
-    /* refill slab allocator if needed */
-    if (0) {
-        /* XXX There is something wrong with this logic */
-        while (slab_freecount(&mm_percore.slabs) <= MINSPARENODES) {
-            sys_print("GROW\n", 5);
-            struct capref frame;
-            err = msa.a.alloc(&msa.a, &frame);
-            assert(err_is_ok(err));
-            err = frame_create(frame, BASE_PAGE_SIZE * 8, NULL);
-            assert(err_is_ok(err));
-            void *buf;
-            err = vspace_map_one_frame(&buf, BASE_PAGE_SIZE * 8, frame,
-                                       NULL, NULL);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "vspace_map_one_frame failed");
-                assert(buf);
-            }
-            slab_grow(&mm_percore.slabs, buf, BASE_PAGE_SIZE * 8);
-        }
-    }
-
-    ret = percore_alloc(&cap, bits, minbase, maxlimit, NULL);
-    if (err_is_fail(ret)){
-        sys_print("\nFAIL\n", 6);
-        cap = NULL_CAP;
-    }
-
-    /* Reply */
-    err = st->f->allocate(st, ret, cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to reply to memory request");
-    }
-}
-
-
-
-static errval_t initialize_percore_mem_serv(void)
-{
-    errval_t err;
-
-    /* Initialize slot allocator by passing a cnode cap for it to start with */
-    struct capref cnode_cap;
-
-    err = slot_alloc(&cnode_cap);
-    assert(err_is_ok(err));
-
-    struct capref cnode_start_cap = { .slot  = 0 };
-    struct capref ram;
-
-    err = ram_alloc(&ram, BASE_PAGE_BITS);
-    assert(err_is_ok(err));
-    err = cnode_create_from_mem(cnode_cap, ram, &cnode_start_cap.cnode,
-                                DEFAULT_CNODE_BITS);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create cnode from mem");
-        abort();
-    }
-    assert(err_is_ok(err));
-
-    /* location where slot allocator will place its top-level cnode */
-    struct capref top_slot_cap = {
-        .cnode = cnode_root,
-        .slot = ROOTCN_SLOT_MODULECN, // XXX: we don't have the module CNode
-    };
-
-    /* init slot allocator */
-    err = slot_prealloc_init(&percore_slot_alloc, top_slot_cap,
-                             MAXCHILDBITS,
-                             CNODE_BITS, cnode_start_cap,
-                             1UL << DEFAULT_CNODE_BITS, &mm_percore);
-    assert(err_is_ok(err));
-
-    /* XXX Base shouldn't need to be 0 ? */
-    err = mm_init(&mm_percore, ObjType_RAM,
-                  0, MAXSIZEBITS, MAXCHILDBITS, NULL,
-                  slot_alloc_prealloc, &percore_slot_alloc);
-    assert(err_is_ok(err));
-
-    /* give MM allocator static storage to get it started */
-    static char nodebuf[SLAB_STATIC_SIZE(MINSPARENODES,
-                                         MM_NODE_SIZE(MAXCHILDBITS))];
-    slab_grow(&mm_percore.slabs, nodebuf, sizeof(nodebuf));
-
-    size_t mem_total = 0, mem_avail = 0;
-    struct capref ramcap;
-    struct capability info;
-
-    // Need to bootstrap with a small cap first!
-    err = ram_alloc(&ramcap, 20);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get RAM from mem_serv.0");
-        abort();
-    }
-
-    err = debug_cap_identify(ramcap, &info);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to identify cap");
-        abort();
-    }
-
-    if (0) printf("Cap is type %d Frame base %"PRIxGENPADDR" Bits %d\n",
-                  info.type, info.u.frame.base, info.u.frame.bits);
-
-    mem_total += 1<<20;
-
-    err = mm_add(&mm_percore, ramcap, 20, info.u.frame.base);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to add RAM to allocator");
-        abort();
-    }
-    mem_avail += 1<<20;
-
-    /* try to refill slot allocator (may fail or do nothing) */
-    slot_prealloc_refill(mm_percore.slot_alloc_inst);
-
-    // Now get a serious chunk of RAM
-
-    // XXX we should try to do something sensible with affinity here
-    // uint64_t base = 0x100000000;
-    // ram_set_affinity(base, base + PERCORE_MEM);
-    err = ram_alloc(&ramcap, PERCORE_BITS);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get RAM from mem_serv.0");
-        abort();
-    }
-    //ram_set_affinity(0,0);
-
-    err = debug_cap_identify(ramcap, &info);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to identify cap");
-        abort();
-    }
-    if (0) printf("Cap is type %d Frame base %"PRIxGENPADDR" Bits %d\n",
-                  info.type, info.u.frame.base, info.u.frame.bits);
-
-    mem_total += PERCORE_MEM;
-
-    err = mm_add(&mm_percore, ramcap, PERCORE_BITS, info.u.frame.base);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to add RAM to allocator");
-        abort();
-    }
-    mem_avail += PERCORE_MEM;
-
-    /* try to refill slot allocator (may fail or do nothing) */
-    slot_prealloc_refill(mm_percore.slot_alloc_inst);
-
-    /* refill slab allocator if needed and possible */
-    if (slab_freecount(&mm_percore.slabs) <= MINSPARENODES
-        && mem_avail > (1UL << (CNODE_BITS + OBJBITS_CTE)) * 2
-        + 10 * BASE_PAGE_SIZE) {
-        slab_default_refill(&mm_percore.slabs); // may fail
-    }
-
-    err = slot_prealloc_refill(mm_percore.slot_alloc_inst);
-    if (err_is_fail(err)) {
-        printf("Fatal internal error in RAM allocator: failed to initialise "
-               "slot allocator\n");
-        DEBUG_ERR(err, "failed to init slot allocator");
-        abort();
-    }
-
-    printf("Percore RAM allocator initialised, %zd MB (of %zd MB) available\n",
-           mem_avail / 1024 / 1024, mem_total / 1024 / 1024);
-
-    return SYS_ERR_OK;
-}
-
-
-static void percore_listen_callback(struct mem_service *closure, iref_t iref)
-{
-    errval_t err;
-
-    assert(iref != 0);
-    percore_mem_serv_iref = iref;
-
-    // Notify the monitor of our iref
-    struct monitor_client_response *st = get_monitor_closure();
-    err = st->call_vtbl->
-        set_percore_iref_request(st, percore_mem_serv_iref);
-    assert(err_is_ok(err));
-}
-
-struct mem_server_call_vtbl percore_mem_server_call_vtbl = {
-    .allocate = percore_allocate_handler,
-    ._disconnect = NULL,
-    ._listening = percore_listen_callback,
-    ._connected = NULL,
-};
-
-struct mem_service percore_mem_service = {
-    .f = &percore_mem_server_call_vtbl,
-    .st = NULL,
-    .flags = 0 //SERV_NEW_CONN | SERV_MEMSERV_HACK,
-};
-
-#endif // percore
-// FIXME: error handling (not asserts) needed in this function
 int main(int argc, char ** argv)
 {
     errval_t err;
     struct waitset *ws = get_default_waitset();
 
+    if(argc < 2) {
+        fprintf(stderr, "Usage: %s <bootinfo_location>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
     // First argument contains the bootinfo location
     bi = (struct bootinfo*)strtol(argv[1], NULL, 10);
 
-    if (argc == 2) {
-        /* construct special-case LMP connection to monitor */
-        static struct monitor_lmp_binding mcb;
-        set_monitor_binding(&mcb.b);
+    /* construct special-case LMP connection to monitor */
+    static struct monitor_lmp_binding mcb;
+    set_monitor_binding(&mcb.b);
 
-        err = monitor_client_lmp_accept(&mcb, ws, DEFAULT_LMP_BUF_WORDS);
-        assert(err_is_ok(err));
+    err = monitor_client_lmp_accept(&mcb, ws, DEFAULT_LMP_BUF_WORDS);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_client_lmp_accept");
+    }
 
-        idc_init();
+    idc_init();
 
-        /* Send the cap for this endpoint to init, who will pass it to 
-           the monitor */
-        err = lmp_ep_send0(cap_initep, 0, mcb.chan.local_cap);
-        assert(err_is_ok(err));
+    /* Send the cap for this endpoint to init, who will pass it to 
+       the monitor */
+    err = lmp_ep_send0(cap_initep, 0, mcb.chan.local_cap);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "lmp_ep_send0");
+    }
 
-        // XXX: handle messages (ie. block) until the monitor binding is ready
-        while (capref_is_null(mcb.chan.remote_cap)) {
-            err = event_dispatch(ws);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "in event_dispatch while waiting for monitor");
-                return EXIT_FAILURE;
-            }
-        }
-
-        /* Initialize our own memory allocator */
-        err = ram_alloc_set(mymm_alloc, mymm_free);
-        assert(err_is_ok(err));
-
-        err = initialize_ram_alloc();
-        assert(err_is_ok(err));
-
-        /* Initialize self slot_allocator */
-        err = multi_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
-        assert(err_is_ok(err));
-
-        err = mem_export(NULL, export_callback, connect_callback, ws,
-                         IDC_EXPORT_FLAGS_DEFAULT);
-        assert(err_is_ok(err));
-
-    } else {
-        coreid_t core = disp_get_core_id();
-        printf("mem_serv on core %d\n", core);
-
-        assert(!"percore mem_serv support disabled");
-
-#if 0
-        /* Complete libbarrelfish initialization like a normal domain */
-        err = monitor_client_connect();
+    // XXX: handle messages (ie. block) until the monitor binding is ready
+    while (capref_is_null(mcb.chan.remote_cap)) {
+        err = event_dispatch(ws);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MONITOR_CLIENT_CONNECT);
+            DEBUG_ERR(err, "in event_dispatch while waiting for monitor");
+            return EXIT_FAILURE;
         }
+    }
 
-        /* Setup the channel with mem_serv.0 */
-        err = ram_alloc_set(NULL, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_RAM_ALLOC_SET);
-        }
+    /* Initialize our own memory allocator */
+    err = ram_alloc_set(mymm_alloc);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "ram_alloc_set");
+    }
 
-        /* Connect to name service */
-        err = chips_get_context()->init();
-        if (err_is_fail(err)) { // Chips fails with following error
-            if (err_no(err) != CHIPS_ERR_CONNECT_FAILED) {
-                return err_push(err, CHIPS_ERR_CHIPS_INIT);
-            }
-        }
+    err = initialize_ram_alloc();
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "initialize_ram_alloc");
+    }
 
-        /* Init the memory allocator */
-        err = initialize_percore_mem_serv();
-        assert(err_is_ok(err));
+    /* Initialize self slot_allocator */
+    err = multi_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "multi_slot_alloc_init");
+    }
 
-        /* Initialize self slot_allocator */
-        err = multi_slot_alloc_init(&msa, DEFAULT_CNODE_SLOTS, NULL);
-        assert(err_is_ok(err));
-
-        mem_listen(&percore_mem_service);
-        assert(err_is_ok(err));
-#endif
+    err = mem_export(NULL, export_callback, connect_callback, ws,
+                     IDC_EXPORT_FLAGS_DEFAULT);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "mem_export");
     }
 
     /* initialise tracing */

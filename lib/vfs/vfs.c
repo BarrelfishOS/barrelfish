@@ -287,7 +287,6 @@ errval_t vfs_write(vfs_handle_t handle, const void *buffer, size_t bytes,
 {
     struct vfs_handle *h = handle;
     struct vfs_mount *m = h->mount;
-
     assert(m->ops->write != NULL);
     return m->ops->write(m->st, handle, buffer, bytes, bytes_written);
 }
@@ -496,9 +495,10 @@ errval_t vfs_rmdir(const char *path)
  * \brief Initialise the VFS library
  *
  * This call initialises the VFS library. It must be called prior to any
- * other VFS functions being used.
+ * other VFS functions being used. We make it a GCC constructor.
  */
-void vfs_init(void)
+__attribute__((constructor, used))
+static void vfs_init(void)
 {
     assert(mounts == NULL);
     errval_t err;
@@ -512,4 +512,13 @@ void vfs_init(void)
         DEBUG_ERR(err, "error mounting ramfs");
         // continue anyway...
     }
+}
+
+
+
+void vfs_dummy(void);
+
+__attribute__((used))
+void vfs_dummy(void) {
+    //    debug_printf("vfs_dummy\n");
 }

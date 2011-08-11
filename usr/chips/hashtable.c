@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008,2009 ETH Zurich.
+ * Copyright (c) 2008,2009,2011 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -123,6 +123,20 @@ static int ht_put_word(struct dictionary *dict, char *key, uintptr_t value)
     return ht_put(dict, e);
 }
 
+static int ht_put_capability(struct dictionary *dict, char *key,
+                             struct capref cap)
+{
+    struct _ht_entry *e = malloc(sizeof(struct _ht_entry));
+    if (NULL == e) {
+        return 1;
+    }
+    e->key = key;
+    e->capvalue = cap;
+    e->type = TYPE_CAPABILITY;
+
+    return ht_put(dict, e);
+}
+
 static int ht_put_opaque(struct dictionary *dict, char *key, void *value)
 {
     struct _ht_entry *e = malloc(sizeof(struct _ht_entry));
@@ -156,12 +170,38 @@ static ENTRY_TYPE ht_get(struct dictionary *dict, char *key, void **value)
 
     while (NULL != _e) {
         if ((_hash_value == _e->hash_value) && (equals(key, _e->key))) {
+            assert(_e->type != TYPE_CAPABILITY);
             *value = _e->value;
             return _e->type;
         }
         _e = _e->next;
     }
     *value = NULL;
+    return 0;
+}
+
+static ENTRY_TYPE ht_get_capability(struct dictionary *dict, char *key,
+                                    struct capref *value)
+{
+    assert(dict != NULL);
+    assert(key != NULL);
+    assert(value != NULL);
+
+    struct hashtable *ht = (struct hashtable*) dict;
+
+    int _hash_value = hash(key);
+    int _index = index_for(ht->table_length, _hash_value);
+    struct _ht_entry *_e = ht->entries[_index];
+
+    while (NULL != _e) {
+        if ((_hash_value == _e->hash_value) && (equals(key, _e->key))) {
+            assert(_e->type == TYPE_CAPABILITY);
+            *value = _e->capvalue;
+            return _e->type;
+        }
+        _e = _e->next;
+    }
+    *value = NULL_CAP;
     return 0;
 }
 
@@ -208,6 +248,11 @@ void print_hashtable(FILE *stream, struct hashtable *ht)
                 break;
             case TYPE_OPAQUE:
                 fprintf(stream, "\t'%s'=opaque\n", (char*) e->key);
+                break;
+
+            case TYPE_CAPABILITY:
+                fprintf(stream, "\t'%s'=capability\n", (char *) e->key);
+                break;
             }
             e = e->next;
         }
@@ -260,7 +305,9 @@ static void ht_init(struct hashtable *_ht, int capacity, int load_factor)
     _ht->d.put_string = ht_put_string;
     _ht->d.put_word = ht_put_word;
     _ht->d.put_opaque = ht_put_opaque;
+    _ht->d.put_capability = ht_put_capability;
     _ht->d.get = ht_get;
+    _ht->d.get_capability = ht_get_capability;
     _ht->d.remove = ht_remove;
     _ht->d.get_key_set = ht_get_key_set;
 }

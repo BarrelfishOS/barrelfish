@@ -31,28 +31,24 @@
  */
 
 #include <stdio.h>
+#include <stdio_file.h>
 #include <stdarg.h>
 #include <assert.h>
+
+#include "local.h"
 
 int
 scanf(char const * __restrict fmt, ...)
 {
-#if 0
-    /*
-     * The way __svfscanf() works, it doesn't yet directly map onto
-     * our FILE structures, I believe, as it wants to modify the
-     * buffer size while it consumes characters.
-     */
 	int ret;
 	va_list ap;
 
 	va_start(ap, fmt);
-	FLOCKFILE(stdin);
+        lock_stream(stdin);
 	ret = __svfscanf(stdin, fmt, ap);
-	FUNLOCKFILE(stdin);
+        // XXX: This doesn't work with stdin...
+        __srefill(stdin);
+        unlock_stream(stdin);
 	va_end(ap);
 	return (ret);
-#endif
-        assert("!NYI");
-        return EOF;
 }

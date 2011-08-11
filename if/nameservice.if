@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,4 +19,14 @@ interface nameservice "Name server (chips) interface" {
     //rpc get_service_references(in string iface, in string filter, out srvref_seq srvrefs);
     rpc wait_for_service_reference(in string iface, out srvref ref);
     rpc get_service(in srvref srvref, out iref iref);
+
+    // Simple capability storage
+    rpc get_cap(in string key, out cap retcap, out errval reterr);
+    rpc put_cap(in string key, in cap storecap, out errval reterr);
+
+    // Shared-memory semaphores
+    rpc sem_new(in uint32 value, out uint32 sem, out errval reterr);
+    rpc sem_post(in uint32 sem);
+    rpc sem_wait(in uint32 sem);
+    rpc sem_trywait(in uint32 sem, out bool success);
 };

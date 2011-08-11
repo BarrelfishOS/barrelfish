@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -91,6 +91,12 @@ void flounder_support_monitor_mutex_enqueue(struct monitor_binding *mb,
 void flounder_support_monitor_mutex_unlock(struct monitor_binding *mb)
 {
     event_mutex_unlock(&mb->mutex);
+}
+
+void flounder_support_migrate_notify(struct waitset_chanstate *chan,
+                                     struct waitset *new_ws)
+{
+    waitset_chan_migrate(chan, new_ws);
 }
 
 static void cap_send_cont(void *arg)
@@ -368,7 +374,10 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
     struct ump_control ctrl;
     int msgpos;
 
-     while (flounder_stub_ump_can_send(s) && *pos < len) {
+    do {
+        if(!flounder_stub_ump_can_send(s)) {
+            break;
+        }
         msg = ump_chan_get_next(&s->chan, &ctrl);
         flounder_stub_ump_control_fill(s, &ctrl, msgnum);
 
@@ -389,7 +398,7 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
 
         flounder_stub_ump_barrier();
         msg->header.control = ctrl;
-    }
+    } while (*pos < len);
 
     // do we need to send more? if not, zero out our state for the next buffer
     if (*pos >= len) {

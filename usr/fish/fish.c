@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -30,10 +30,9 @@
 #include <skb/skb.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
-
-#include "ps.h"
-
 #include <if/pixels_defs.h>
+#include <if/spawn_rpcclient_defs.h>
+#include <if/mem_rpcclient_defs.h>
 
 #define MAX_LINE        512
 #define BOOTSCRIPT_NAME "/init.fish"
@@ -66,7 +65,7 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     vfs_handle_t vh;
     errval_t err;
 
-    // if the name contains a directory separator, assume it is relative to CWD
+    // if the name contains a directory separator, assume it is relative to PWD
     char *prog = argv[0];
     if (strchr(argv[0], VFS_PATH_SEP) != NULL) {
         prog = vfs_path_mkabsolute(cwd, argv[0]);
@@ -97,7 +96,6 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
         return -1;
     }
 
-    ps_add(*retdomainid, argv[0]);
     return 0;
 }
 
@@ -110,7 +108,7 @@ static int quit(int argc, char *argv[])
 
 static int print_cspace(int argc, char *argv[])
 {
-    debug_cspace(cap_root);
+    debug_my_cspace();
     return 0;
 }
 
@@ -153,23 +151,6 @@ static int printenv(int argc, char *argv[])
         }
     }
 
-    return 0;
-}
-
-static int ps(int argc, char *argv[])
-{
-    printf("Child processes\n");
-    printf("===============\n");
-
-    for(int i = 0; i < MAX_DOMAINS; i++) {
-        if(ps_exists(i)) {
-            struct ps_entry *e = ps_get(i);
-
-            if(e->name != NULL) {
-                printf("%s\n", e->name);
-            }
-        }
-    }
     return 0;
 }
 
@@ -341,22 +322,6 @@ static int oncore(int argc, char *argv[])
     return ret;
 }
 
-static int percore(int argc, char *argv[])
-{
-    errval_t err;
-
-    /* Spawn mem_serv on all remote cores */
-    char *spawnargv[] = {"mem_serv", "percore", NULL};
-    err = spawn_program_on_all_cores(false, spawnargv[0], spawnargv, NULL,
-                                     SPAWN_FLAGS_DEFAULT, NULL);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "error spawning other core");
-    }
-    printf("Done\n");
-
-    return 0;
-}
-
 static int spawnpixels(int argc, char *argv[])
 {
     errval_t err;
@@ -394,6 +359,77 @@ static int poweroff(int argc, char *argv[])
     }
 
     return pci_sleep(4);
+}
+
+static int ps(int argc, char *argv[])
+{
+    struct spawn_rpc_client *cl;
+    uint8_t *domains;
+    size_t len;
+    errval_t err;
+
+    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn_rpc_client");
+        return EXIT_FAILURE;
+    }
+    assert(cl != NULL);
+
+    err = cl->vtbl.get_domainlist(cl, &domains, &len);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "get_domainlist");
+        return EXIT_FAILURE;
+    }
+
+    printf("DOMAINID\tSTAT\tCOMMAND\n");
+    for(size_t i = 0; i < len; i++) {
+        spawn_ps_entry_t pse;
+        char *argbuf, status;
+        size_t arglen;
+        errval_t reterr;
+
+        err = cl->vtbl.status(cl, domains[i], &pse, &argbuf, &arglen, &reterr);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "status");
+            return EXIT_FAILURE;
+        }
+        if(err_is_fail(reterr)) {
+            if(err_no(err) == SPAWN_ERR_DOMAIN_NOTFOUND) {
+                continue;
+            }
+            DEBUG_ERR(reterr, "status");
+            return EXIT_FAILURE;
+        }
+
+        switch(pse.status) {
+        case 0:
+            status = 'R';
+            break;
+
+        case 1:
+            status = 'Z';
+            break;
+
+        default:
+            status = '?';
+            break;
+        }
+
+        printf("%-8u\t%c\t", domains[i], status);
+        size_t pos = 0;
+        for(int p = 0; pos < arglen && p < MAX_CMDLINE_ARGS;) {
+            printf("%s ", &argbuf[pos]);
+            char *end = memchr(&argbuf[pos], '\0', arglen - pos);
+            assert(end != NULL);
+            pos = end - argbuf + 1;
+        }
+        printf("\n");
+
+        free(argbuf);
+    }
+
+    free(domains);
+    return EXIT_SUCCESS;
 }
 
 static int skb(int argc, char *argv[])
@@ -876,13 +912,31 @@ static int src(int argc, char *argv[])
     return ret;
 }
 
+static int freecmd(int argc, char *argv[])
+{
+    struct mem_rpc_client *mc = get_mem_client();
+    assert(mc != NULL);
+    errval_t err;
+    genpaddr_t available, total;
+
+    err = mc->vtbl.available(mc, &available, &total);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "available");
+        return EXIT_FAILURE;
+    }
+
+    printf("Free memory: %" PRIuGENPADDR " bytes\n", available);
+    printf("Total memory: %" PRIuGENPADDR " bytes\n", total);
+
+    return EXIT_SUCCESS;
+}
+
 static struct cmd commands[] = {
     {"help", help, "Output usage information about given shell command"},
     {"print_cspace", print_cspace, "Debug print-out of my cspace"},
     {"quit", quit, "Quit the shell"},
     {"ps", ps, "List running processes"},
     {"demo", demo, "Run barrelfish demo"},
-    {"percore", percore, "Spawn mem_serv on all app cores"},
     {"pixels", spawnpixels, "Spawn pixels on all cores"},
     {"mnfs", mnfs, "Mount script for NFS on emmentaler"},
     {"oncore", oncore, "Start program on specified core"},
@@ -903,6 +957,7 @@ static struct cmd commands[] = {
     {"setenv", setenvcmd, "Set environment variables"},
     {"src", src, "Execute the list of commands in a file"},
     {"printenv", printenv, "Display environment variables"},
+    {"free", freecmd, "Display amount of free memory in the system"},
 };
 
 static void getline(char *input, size_t size)
@@ -980,6 +1035,11 @@ static int makeargs(char *cmdline, char *argv[])
     while (*p == ' ') {
         p++;
     }
+
+    if (*p == '\0') {
+        return 0;
+    }
+
     for(argv[argc++] = p; *p != '\0'; p++) {
         if (*p == '"') {
             inquote = !inquote;
@@ -1003,24 +1063,14 @@ static int makeargs(char *cmdline, char *argv[])
     return argc;
 }
 
-#if 0
-static void handle_domain_exit(domainid_t domain_id)
+static uint8_t wait_domain_id(domainid_t domainid)
 {
-    static spinlock_t lock = 0;
-/*     printf("fish: Dispatcher with domain ID %lu exited!\n", domain_id); */
-
-    acquire_spinlock(&lock);
-    ps_remove(domain_id);
-    release_spinlock(&lock);
-}
-#endif
-
-static void wait_domain_id(domainid_t domain_id)
-{
-    // Block until program exited
-    while(ps_exists(domain_id)) {
-        messages_wait_and_handle_next();
+    uint8_t exitcode;
+    errval_t err = spawn_wait(domainid, &exitcode, false);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawn_wait");
     }
+    return exitcode;
 }
 
 static void runbootscript(void)
@@ -1063,14 +1113,6 @@ int main(int argc, const char *argv[])
     // XXX: All the following calls should go away once we have stable APIs
     errval_t e = terminal_want_stdin(stdin_sources);
     assert(err_is_ok(e));
-
-    // init vfs library
-    vfs_init();
-
-    //user_panic("NYI");
-#if 0
-    spawn_register_notify(handle_domain_exit);
-#endif
 
     cwd = strdup("/");
 
@@ -1115,10 +1157,13 @@ int main(int argc, const char *argv[])
             domainid_t domain_id;
             exitcode = execute_program(my_core_id, cmd_argc, cmd_argv, &domain_id);
 
-            // wait if it suceeds
-            if(exitcode == 0 && wait && 0 /* wait NYI */) {
-                wait_domain_id(domain_id);
-                // TODO: grab exit code
+            // wait if it succeeds
+            if(exitcode == 0 && wait) {
+                exitcode = wait_domain_id(domain_id);
+                char exitstr[128];
+                snprintf(exitstr, 128, "%u", exitcode);
+                int r = setenv("EXITCODE", exitstr, 1);
+                assert(r == 0);
 
                 // Reacquire terminal for stdin
                 e = terminal_want_stdin(stdin_sources);

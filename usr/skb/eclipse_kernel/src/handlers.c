@@ -356,10 +356,6 @@ _handle_fatal(int n)
 static void
 _handle_async(int n)		 /* may be 0 */
 {
-//asq:
-#define SIGILL 4
-#define SIGSEGV 11
-    
     /* not InterruptsDisabled! */
 
 #if defined(SIGIO) || defined(SIGPOLL)
@@ -613,10 +609,6 @@ _install_int_handler(int i, int how, pri *proc)
     int res;
     sig_action_t action;
 
-//asq:
-#define SIG_DFL 0
-#define SIG_IGN 1
-
 #ifndef SIGIO
     if (i == ec_sigio)
     {
@@ -810,9 +802,6 @@ handlers_fini()
 #endif
 */
 }
-
-//asq:
-#define NSIG 64
 
 static int
 p_interrupt_id_det(value vnum, type tnum, value vname, type tname)
@@ -1321,31 +1310,26 @@ handlers_init(int flags)
 #ifdef SIGHUP
 	InterruptName[SIGHUP] = in_dict("hup", 0);
 #endif
-//asq:
-//	InterruptName[SIGINT] = in_dict("int", 0);
+	InterruptName[SIGINT] = in_dict("int", 0);
 #ifdef SIGQUIT
 	InterruptName[SIGQUIT] = in_dict("quit", 0);
 #endif
-//asq:
-//	InterruptName[SIGILL] = in_dict("ill", 0);
+	InterruptName[SIGILL] = in_dict("ill", 0);
 #ifdef SIGTRAP
 	InterruptName[SIGTRAP] = in_dict("trap", 0);
 #endif
-//asq:
-//	InterruptName[SIGABRT] = in_dict("abrt", 0);
+	InterruptName[SIGABRT] = in_dict("abrt", 0);
 #ifdef SIGEMT
 	InterruptName[SIGEMT] = in_dict("emt", 0);
 #endif
-//asq:
-//	InterruptName[SIGFPE] = in_dict("fpe", 0);
+	InterruptName[SIGFPE] = in_dict("fpe", 0);
 #ifdef SIGKILL
 	InterruptName[SIGKILL] = in_dict("kill", 0);
 #endif
 #ifdef SIGBUS
 	InterruptName[SIGBUS] = in_dict("bus", 0);
 #endif
-//asq:
-//	InterruptName[SIGSEGV] = in_dict("segv", 0);
+	InterruptName[SIGSEGV] = in_dict("segv", 0);
 #ifdef SIGSYS
 	InterruptName[SIGSYS] = in_dict("sys", 0);
 #endif
@@ -1358,8 +1342,7 @@ handlers_init(int flags)
 #else
 	ec_sigalrm = 0;	/* will be properly assigned below */
 #endif
-//asq:
-//	InterruptName[SIGTERM] = in_dict("term", 0);
+	InterruptName[SIGTERM] = in_dict("term", 0);
 #ifdef SIGUSR1
 	InterruptName[SIGUSR1] = in_dict("usr1", 0);
 #endif

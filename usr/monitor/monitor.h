@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -60,7 +60,6 @@ struct monitor_state {
     struct msg_queue queue;
 };
 
-/* extern struct intermon_binding the_intermon_service; */
 extern iref_t mem_serv_iref;
 extern iref_t name_serv_iref;
 extern iref_t monitor_rpc_iref;
@@ -69,6 +68,7 @@ extern bool bsp_monitor;
 extern struct capref trace_cap;
 extern struct bootinfo *bi;
 extern iref_t monitor_mem_iref;
+extern bool update_ram_alloc_binding;
 
 union capability_caprep_u {
     intermon_caprep_t caprep;

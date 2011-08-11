@@ -18,13 +18,8 @@
 
 static struct dcb *wakeup_queue;
 
-/// Set the wakeup time for the given DCB
-void wakeup_set(struct dcb *dcb, systime_t waketime)
+void wakeup_remove(struct dcb *dcb)
 {
-    assert(dcb != NULL);
-    assert(waketime > kernel_now);
-
-    // if we're already enqueued, remove first
     if (dcb->wakeup_time != 0) {
         if (dcb->wakeup_prev == NULL) {
             assert(wakeup_queue == dcb);
@@ -39,6 +34,18 @@ void wakeup_set(struct dcb *dcb, systime_t waketime)
         }
         dcb->wakeup_prev = dcb->wakeup_next = NULL;
     }
+
+    // No-Op if not in queue...
+}
+
+/// Set the wakeup time for the given DCB
+void wakeup_set(struct dcb *dcb, systime_t waketime)
+{
+    assert(dcb != NULL);
+    assert(waketime > kernel_now);
+
+    // if we're already enqueued, remove first
+    wakeup_remove(dcb);
 
     dcb->wakeup_time = waketime;
 

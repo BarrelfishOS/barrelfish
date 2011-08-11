@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007-2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.

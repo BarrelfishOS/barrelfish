@@ -108,6 +108,12 @@ struct capref cap_dispatcher = {
     .slot  = TASKCN_SLOT_DISPATCHER
 };
 
+/// Capability for dispatcher
+struct capref cap_dispframe = {
+    .cnode = TASK_CNODE_INIT,
+    .slot  = TASKCN_SLOT_DISPFRAME
+};
+
 #define ROOT_CNODE_INIT { \
     .address = CPTR_ROOTCN, \
     .address_bits = CPTR_BITS, \
@@ -124,6 +130,12 @@ struct capref cap_monitorep = {
 struct capref cap_kernel = {
     .cnode = TASK_CNODE_INIT,
     .slot  = TASKCN_SLOT_KERNELCAP
+};
+
+/// PerfMon CNode
+struct capref cap_perfmon = {
+    .cnode = TASK_CNODE_INIT,
+    .slot  = TASKCN_SLOT_PERF_MON
 };
 
 /// Capability for endpoint to init (only in monitor/mem_serv)
@@ -317,7 +329,7 @@ errval_t cap_destroy(struct capref cap)
     errval_t err;
     err = cap_delete(cap);
     if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_WHILE_DELETING);
+        return err;
     }
 
     err = slot_free(cap);

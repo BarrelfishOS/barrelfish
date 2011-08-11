@@ -78,10 +78,22 @@
  */
 
 #include <stdio.h>
+#include <stdio_file.h>
+#include <stdarg.h>
+
+#include "local.h"
 
 int
 fscanf(FILE *stream, const char *fmt, ...)
 {
-	return 0;
-}
+    int ret;
+    va_list ap;
 
+    va_start(ap, fmt);
+    lock_stream(stream);
+    ret = __svfscanf(stream, fmt, ap);
+    __srefill(stream);
+    unlock_stream(stream);
+    va_end(ap);
+    return (ret);
+}

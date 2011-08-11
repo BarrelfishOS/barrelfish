@@ -52,7 +52,7 @@ void slab_grow(struct slab_alloc *slabs, void *buf, size_t buflen)
     assert(buflen > sizeof(struct slab_head));
     struct slab_head *head = buf;
     buflen -= sizeof(struct slab_head);
-    buf += sizeof(struct slab_head);
+    buf = (char *)buf + sizeof(struct slab_head);
 
     /* calculate number of blocks in buffer */
     size_t headed_blocksize = slabs->blocksize + sizeof(struct block_head);
@@ -63,7 +63,7 @@ void slab_grow(struct slab_alloc *slabs, void *buf, size_t buflen)
     /* enqueue blocks in freelist */
     struct block_head *bh = head->blocks = buf;
     for (uint32_t i = head->total; i > 1; i--) {
-        buf += headed_blocksize;
+        buf = (char *)buf + headed_blocksize;
         bh->next = buf;
         bh = buf;
     }
@@ -126,7 +126,7 @@ void slab_free(struct slab_alloc *slabs, void *block)
         return;
     }
 
-    struct block_head *bh = block - sizeof(struct block_head);
+    struct block_head *bh = (struct block_head *)block - 1;
 
     /* find matching slab */
     struct slab_head *sh;

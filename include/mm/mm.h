@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, ETH Zurich.
+ * Copyright (c) 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -53,13 +53,15 @@ struct mm {
     enum objtype objtype;   ///< Type of capabilities stored
     uint8_t sizebits;       ///< Size of root node (in bits)
     uint8_t maxchildbits;   ///< Maximum number of children of every node (in bits)
+    bool delete_chunked;    ///< Delete chunked capabilities if true
 };
 
 void mm_debug_print(struct mmnode *mmnode, int space);
 errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
                  uint8_t sizebits, uint8_t maxchildbits,
                  slab_refill_func_t slab_refill_func,
-                 slot_alloc_t slot_alloc_func, void *slot_alloc_inst);
+                 slot_alloc_t slot_alloc_func, void *slot_alloc_inst,
+                 bool delete_chunked);
 void mm_destroy(struct mm *mm);
 errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits,
                 genpaddr_t base);
@@ -70,7 +72,8 @@ errval_t mm_alloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t minbase,
                         genpaddr_t *retbase);
 errval_t mm_realloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t base,
                           struct capref *retcap);
-errval_t mm_free(struct mm *mm, genpaddr_t base, uint8_t sizebits);
+errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base,
+                 uint8_t sizebits);
 
 /// Structure to record all information about a given memory region
 struct mem_cap {

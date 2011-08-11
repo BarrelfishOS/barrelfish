@@ -72,7 +72,7 @@ static struct sysret handle_dispatcher_properties(struct capability *to,
 static struct sysret handle_dispatcher_perfmon(struct capability *to,
                                                int cmd, uintptr_t *args)
 {
-#ifdef __scc__
+#if 1
     return SYSRET(SYS_ERR_PERFMON_NOT_AVAILABLE);
 
 #else
@@ -469,6 +469,32 @@ static struct sysret handle_frame_identify(struct capability *to,
     };
 }
 
+#ifdef __scc__
+static struct sysret handle_frame_scc_identify(struct capability *to,
+                                               int cmd, uintptr_t *args)
+{
+    // Return with physical base address of frame
+    // XXX: pack size into bottom bits of base address
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
+    assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
+    assert(to->u.frame.bits < BASE_PAGE_SIZE);
+
+    uint8_t route, subdest;
+    uint16_t addrbits;
+
+    errval_t err = rck_get_route(to->u.frame.base, 1 << to->u.frame.bits,
+                                 &route, &subdest, &addrbits);
+    if(err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = (addrbits << 16) | (subdest << 8) | route,
+    };
+}
+#endif
+
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint32_t    port = args[0];
@@ -580,10 +606,16 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_PerfMon] = handle_dispatcher_perfmon
     },
     [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify
+        [FrameCmd_Identify] = handle_frame_identify,
+#ifdef __scc__
+        [FrameCmd_SCC_Identify] = handle_frame_scc_identify
+#endif
     },
     [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify
+        [FrameCmd_Identify] = handle_frame_identify,
+#ifdef __scc__
+        [FrameCmd_SCC_Identify] = handle_frame_scc_identify
+#endif
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -827,6 +859,38 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
         case DEBUG_GET_TSC_PER_MS:
             retval.value = timing_get_tsc_per_ms();
+            break;
+
+        case DEBUG_FEIGN_FRAME_CAP:
+            {
+                uint8_t bits = args[2] & 0xff;
+                uint8_t cap_bits = (args[2] >> 8) & 0xff;
+                uint8_t recv_slot = (args[2] >> 16) & 0xff;
+                struct cte *slot;
+                struct capability *recv_cnode_cap;
+
+/*                printf("arg1 = %" PRIx64 ", arg2 = %" PRIx64 "\n",
+                        (uint64_t)args[1], (uint64_t)args[2]);
+*/
+                errval_t err = caps_lookup_cap(&dcb_current->cspace.cap,
+                      args[0], cap_bits, &recv_cnode_cap, CAPRIGHTS_READ_WRITE);
+                if(err_is_fail(err)) {
+                    retval.error = err;
+                    break;
+                }
+
+                // Check for cnode type
+                if (recv_cnode_cap->type != ObjType_CNode) {
+                    retval.error = SYS_ERR_LMP_CAPTRANSFER_DST_CNODE_INVALID;
+                    break;
+                }
+                // The slot within the cnode
+                slot = caps_locate_slot(recv_cnode_cap->u.cnode.cnode,
+                                        recv_slot);
+
+                retval.error = caps_create_new(ObjType_DevFrame, args[1], bits,
+                        bits, slot);
+            }
             break;
 
         default:

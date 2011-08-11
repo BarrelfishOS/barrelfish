@@ -196,7 +196,7 @@ __asm (
     "pushl 4*4(%esp) /* CS */                           \n\t"
     "pushl 6*4(%esp) /* EFLAGS */                       \n\t"
     "pushl 5*4(%esp) /* EIP */                          \n\t"
-    "pushl $0         /* ESP - TODO */                  \n\t"
+    "pushl %esp      /* ESP */                          \n\t"
     "pushl %ebp                                         \n\t"
     "pushl %edi                                         \n\t"
     "pushl %esi                                         \n\t"
@@ -569,21 +569,18 @@ static __attribute__ ((used,noreturn))
            rip - (uintptr_t)&_start_kernel + X86_32_START_KERNEL_PHYS);
 
     // Print some important registers
-    printf("EAX 0x%x EBX 0x%x ECX 0x%x EDX 0x%x ESP (bogus) 0x%x\n",
+    printf("EAX 0x%x EBX 0x%x ECX 0x%x EDX 0x%x ESP 0x%x\n",
            save_area->eax, save_area->ebx,
            save_area->ecx, save_area->edx,
            save_area->esp);
 
-    // XXX: Not supported yet (we don't have the stack pointer)
-#if 0
     // Print the top 10 stack words
     printf("Top o' stack:\n");
-    for(int i = 0; i < 10; i++) {
+    for(int i = 0; i < 20; i++) {
         unsigned long *p = (unsigned long *)save_area->esp + i;
         printf("0x%lx ", *p);
     }
     printf("\n");
-#endif
 
     // Drop to the debugger
     gdb_handle_exception(vec, (uintptr_t*)save_area);
@@ -652,11 +649,12 @@ void generic_handle_user_exception(uintptr_t *cpu_save_area,
 
         if(fpu_dcb->disabled) {
             fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
+	    dst->fpu_used = 1;
         } else {
             assert(!fpu_dcb->disabled);
             fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
+	    dst->fpu_used = 2;
         }
-        dst->fpu_used = 1;
 
         if(trap) {
             fpu_trap_on();
@@ -683,8 +681,8 @@ void generic_handle_user_exception(uintptr_t *cpu_save_area,
         }
         param = fault_address;
     } else if (vec == IDT_NM) {
-        debug(SUBSYS_DISPATCH, "FPU trap in %.*s at 0x%" PRIxPTR "\n",
-              DISP_NAME_LEN, disp->name, eip);
+        debug(SUBSYS_DISPATCH, "FPU trap in %.*s (%p) at 0x%" PRIxPTR ", %s\n",
+              DISP_NAME_LEN, disp->name, dcb_current, eip, disabled ? "DISABLED" : "ENABLED");
 
         /* Intel system programming part 1: 2.3.1, 2.5, 11, 12.5.1
          * clear the TS flag (flag that says, that the FPU is not available)
@@ -835,6 +833,10 @@ static __attribute__ ((used)) void handle_irq(int vector)
     else { // APIC device interrupt (or IPI)
         //printk(LOG_NOTE, "interrupt %d vector %d!\n", irq, vector);
         apic_eoi();
+#ifdef __scc__
+        // Gotta reset the line
+        rck_reset_lint1();
+#endif
         send_user_interrupt(irq);
     }
 

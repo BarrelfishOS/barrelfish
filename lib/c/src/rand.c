@@ -44,9 +44,6 @@ __FBSDID("$FreeBSD$");
 #include <stdio.h>
 #endif /* TEST */
 
-/* XXX: legacy types needed by rand. don't use these for new code */
-typedef unsigned long       u_long;
-
 static int
 do_rand(unsigned long *ctx)
 {

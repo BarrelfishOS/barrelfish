@@ -52,7 +52,8 @@
                         flounderDefs = [ "mem", "monitor" ],
                         flounderBindings = [ "monitor_mem", "intermon", "monitor_blocking" ],
                         flounderExtraBindings = [ ("monitor", ["loopback"]),
-                                                  ("monitor_mem", ["rpcclient"]) ],
+                                                  ("monitor_mem", ["rpcclient"]),
+                                                  ("mem", ["rpcclient"]) ],
                         addLinkFlags = if arch == "beehive" then
 				           []
 				       else

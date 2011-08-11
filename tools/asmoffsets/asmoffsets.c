@@ -74,9 +74,13 @@
 #include <corearea.h>
 #endif
 
-/* wrap everything inside a dummy function, to keep GCC happy */
+/* wrap everything inside a dummy function, to keep the compiler happy */
+#ifdef __ICC
+int main(void)
+#else
 void dummy(void);
 void dummy(void)
+#endif
 {
     /* preamble */
     __asm("\n#ifndef ASMOFFSETS_H\n#define ASMOFFSETS_H\n");

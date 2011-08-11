@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -11,7 +11,10 @@
 #define __BF_UNISTD_H
 
 #include <stddef.h>
-#include <sys/types.h> // for pid_t
+#include <sys/types.h>
+#include <pwd.h>
+#include <fcntl.h> // for pid_t
+#include <sys/socket.h>
 
 #define	R_OK 4
 #define	W_OK 2
@@ -22,36 +25,21 @@
 #define	STDOUT_FILENO 1
 #define	STDERR_FILENO 2
 
-#define O_RDONLY   00000
-#define O_WRONLY   00001
-#define O_RDWR     00002
-#define O_CREAT    00100
-#define O_EXCL     00200
-#define O_NOCTTY   00400
-#define O_TRUNC    01000	
-#define O_APPEND   02000
-#define O_NONBLOCK 04000
-#define O_SYNC    010000
-#define O_FSYNC	  O_SYNC
-#define O_ASYNC	  020000
-
 struct stat;
 extern char **environ;
 
 void _exit(int status);
-int open(const char*pathname, int flags, ...);
-int creat (char * file, int mode);
 int read(int fd, void *buf, int len);
 int write(int fd, const void *buf, int len);
 int close(int fd);
-int lseek(int fd, int offset, int whence);
-int stat(const char *pathname, struct stat *buf);
-int fstat(int fd, struct stat*buf);
+off_t lseek(int fd, off_t offset, int whence);
 int ftruncate(int fd, int length);
 int access(const char*pathname,int mode);
 int chdir(const char*pathname);
 int mkdir(const char*pathname,int mode);
 int rmdir(const char*pathname);
+int link(const char *oldpath, const char *newpath);
+int symlink(const char *oldpath, const char *newpath);
 int unlink(const char*pathname);
 int dup(int oldfd);
 int isatty(int fd);
@@ -59,7 +47,16 @@ int dup2(int oldfd, int newfd);
 int pipe(int pipefd[2]);
 char *getcwd(char *buf, size_t size);
 pid_t getpid(void);
+pid_t getppid(void);
 void *sbrk(intptr_t increment);
 long gethostid(void);
+uid_t geteuid(void);
+uid_t getuid(void);
+int fsync(int fd);
+pid_t fork(void);
+int execv(const char *path, char *const argv[]);
+int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
+           struct timeval *timeout);
+int chown(const char *path, uid_t owner, gid_t group);
 
 #endif // __BF_UNISTD_H

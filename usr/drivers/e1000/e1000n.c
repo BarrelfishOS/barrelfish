@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -20,9 +20,9 @@
 #include <ethersrv/ethersrv.h>
 #include "e1000n.h"
 #include <trace/trace.h>
-#if CONFIG_TRACE
-//#define TRACE_ETHERSRV_MODE 1
-#endif // CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ETHERSRV_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 /*****************************************************************
  * Data types:
@@ -30,6 +30,7 @@
 
 static uint8_t macaddr[6]; ///< buffers the card's MAC address upon card reset
 e1000_t d;  ///< Mackerel state
+static bool user_macaddr; /// True iff the user specified the MAC address
 static bool use_interrupt = true;
 
 //transmit
@@ -75,6 +76,22 @@ static void get_mac_address_fn(uint8_t *mac)
     memcpy(mac, macaddr, sizeof(macaddr));
 }
 
+static bool parse_mac(uint8_t *mac, const char *str)
+{
+    for (int i = 0; i < 6; i++) {
+        char *next = NULL;
+        unsigned long val = strtoul(str, &next, 16);
+        if (val > UINT8_MAX || next == NULL
+            || (i == 5 && *next != '\0')
+            || (i < 5 && (*next != ':' && *next != '-'))) {
+            return false; // parse error
+        }
+        mac[i] = val;
+        str = next + 1;
+    }
+
+    return true;
+}
 
 /*****************************************************************
  * Transmit logic
@@ -184,8 +201,8 @@ static bool check_for_free_TX_buffer(void)
 static int add_desc(uint64_t paddr)
 {
     union rx_desc r;
+    r.raw[0] = r.raw[1] = 0;
     r.rx_read_format.buffer_address = paddr;
-    r.raw[1] = 0;
 
     if(receive_free == RECEIVE_BUFFERS) {
     	//E1000N_DEBUG("no space to add a new receive pbuf\n");
@@ -291,13 +308,13 @@ static bool handle_next_received_packet(void)
     		goto end;
     	}
 
-//      E1000N_DEBUG("packet received..\n");
+        // E1000N_DEBUG("packet received of size %zu..\n", len);
 
     	buffer_address = (void*)rxd->rx_read_format.buffer_address;
 		data = (buffer_address - internal_memory_pa)
 			+ internal_memory_va;
 
-		if (data == NULL){
+		if (data == NULL || len == 0){
 			printf("ERROR: Incorrect packet\n");
 			// abort();
 			/* FIXME: What should I do when such errors occur. */
@@ -383,7 +400,8 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 {
 	E1000N_DEBUG("starting hardware init\n");
     e1000_hwinit(&d, bar_info, nr_allocated_bars, &transmit_ring, &receive_ring,
-                 RECEIVE_BUFFERS, TRANSMIT_BUFFERS, macaddr, use_interrupt);
+                 RECEIVE_BUFFERS, TRANSMIT_BUFFERS, macaddr, user_macaddr,
+                 use_interrupt);
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
     ethersrv_init(global_service_name, get_mac_address_fn,
@@ -432,6 +450,19 @@ int main(int argc, char **argv)
         if(strncmp(argv[i],"deviceid=",strlen("deviceid=")-1)==0) {
             deviceid = strtoul(argv[i] + strlen("deviceid="), NULL, 0);
             E1000N_DEBUG("deviceid = %u\n", deviceid);
+            printf("### deviceid = %u\n", deviceid);
+
+        }
+        if(strncmp(argv[i],"mac=",strlen("mac=")-1)==0) {
+            if (parse_mac(macaddr, argv[i] + strlen("mac="))) {
+                user_macaddr = true;
+                E1000N_DEBUG("MAC = %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+                             macaddr[0], macaddr[1], macaddr[2],
+                             macaddr[3], macaddr[4], macaddr[5]);
+            } else {
+                fprintf(stderr, "%s: Error parsing MAC address '%s'\n", argv[0], argv[i]);
+                return 1;
+            }
         }
         if(strcmp(argv[i],"noirq")==0) {
             use_interrupt = false;
@@ -458,6 +489,9 @@ int main(int argc, char **argv)
     E1000N_DEBUG("connected to pci\n");
 
     if(use_interrupt) {
+        printf("class %x: vendor %x, device %x, function %x\n",
+                PCI_CLASS_ETHERNET, PCI_VENDOR_INTEL, deviceid,
+                function);
         r = pci_register_driver_irq(e1000_init, PCI_CLASS_ETHERNET,
                                     PCI_DONT_CARE, PCI_DONT_CARE,
                                     PCI_VENDOR_INTEL, deviceid,
@@ -467,6 +501,9 @@ int main(int argc, char **argv)
         r = pci_register_driver_noirq(e1000_init, PCI_CLASS_ETHERNET, PCI_DONT_CARE,
                                       PCI_DONT_CARE, PCI_VENDOR_INTEL, deviceid,
                                       PCI_DONT_CARE, PCI_DONT_CARE, function);
+    }
+    if(err_is_fail(r)) {
+        DEBUG_ERR(r, "pci_register_driver");
     }
     assert(err_is_ok(r));
     E1000N_DEBUG("registered driver\n");

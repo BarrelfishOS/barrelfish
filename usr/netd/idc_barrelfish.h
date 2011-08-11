@@ -16,6 +16,6 @@
 
 #ifndef _IDC_BARRELFISH_H_
 #define _IDC_BARRELFISH_H_
-
-void init_filter_broker(char *cname);
+/* FIXME: check if you can remove this header file. */
+void init_controller_service(char *filter_controller, char *service_name);
 #endif

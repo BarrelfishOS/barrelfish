@@ -211,7 +211,6 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
   } else {
     len = 0;
   }
-
   if (sys_mbox_trypost(conn->recvmbox, p) != ERR_OK) {
     return ERR_MEM;
   } else {
@@ -367,9 +366,10 @@ accept_function(void *arg, struct tcp_pcb *newpcb, err_t err)
    * the new socket is unknown. conn->socket is marked as -1. */
   newconn = netconn_alloc(conn->type, conn->callback);
   if (newconn == NULL) {
-    return ERR_MEM;
+      return ERR_MEM;
   }
   newconn->pcb.tcp = newpcb;
+
   setup_tcp(newconn);
   newconn->err = err;
 
@@ -488,7 +488,7 @@ netconn_alloc(enum netconn_type t, netconn_callback callback)
 
   conn = memp_malloc(MEMP_NETCONN);
   if (conn == NULL) {
-    return NULL;
+      return NULL;
   }
 
   conn->err = ERR_OK;
@@ -738,6 +738,34 @@ do_bind(struct api_msg_msg *msg)
   TCPIP_APIMSG_ACK(msg);
 }
 
+void
+do_redirect(struct api_msg_msg *msg)
+{
+  if (!ERR_IS_FATAL(msg->conn->err)) {
+    if (msg->conn->pcb.tcp != NULL) {
+      switch (NETCONNTYPE_GROUP(msg->conn->type)) {
+#if LWIP_TCP
+      case NETCONN_TCP:
+        msg->conn->err = tcp_redirect(msg->conn->pcb.tcp, 
+                                      msg->msg.red.local_ip,
+                                      msg->msg.red.local_port,
+                                      msg->msg.red.remote_ip,
+                                      msg->msg.red.remote_port
+                                      );
+        break;
+#endif /* LWIP_TCP */
+      default:
+        break;
+      }
+    } else {
+      /* msg->conn->pcb is NULL */
+      msg->conn->err = ERR_VAL;
+    }
+  }
+  TCPIP_APIMSG_ACK(msg);
+}
+
+
 #if LWIP_TCP
 /**
  * TCP callback function if a connection (opened by tcp_connect/do_connect) has
@@ -760,7 +788,7 @@ do_connected(void *arg, struct tcp_pcb *pcb, err_t err)
 
   conn->err = err;
   if ((conn->type == NETCONN_TCP) && (err == ERR_OK)) {
-    setup_tcp(conn);
+      setup_tcp(conn);
   }
   conn->state = NETCONN_NONE;
   sys_sem_signal(conn->op_completed);
@@ -946,6 +974,9 @@ do_recv(struct api_msg_msg *msg)
 }
 
 #if LWIP_TCP
+
+extern bool lwip_in_packet_received;
+
 /**
  * See if more data needs to be written from a previous call to netconn_write.
  * Called initially from do_write. If the first call can't send all data
@@ -1031,8 +1062,16 @@ do_writemore(struct netconn *conn)
 #endif
     {
       sys_sem_signal(conn->op_completed);
+      if(lwip_in_packet_received) {
+          lwip_mutex_lock();
+      }
+    }
+  } else {
+    if(!lwip_in_packet_received) {
+      lwip_mutex_unlock();
     }
   }
+
 #if LWIP_TCPIP_CORE_LOCKING
   else
     return ERR_MEM;

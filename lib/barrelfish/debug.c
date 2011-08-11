@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -282,10 +282,23 @@ void debug_cspace(struct capref root)
     assert(err_is_ok(err));
 
     struct cnoderef cnode = {
-        .address = get_cnode_addr(root),
-        .address_bits = 0,
+        .address = get_cap_addr(root),
+        .address_bits = get_cap_valid_bits(root),
         .size_bits = cap.u.cnode.bits,
         .guard_size = cap.u.cnode.guard_size,
+    };
+
+    walk_cspace(cnode, 0);
+}
+
+void debug_my_cspace(void)
+{
+    // XXX: Assume my root CNode has a size of #DEFAULT_CNODE_BITS
+    struct cnoderef cnode = {
+        .address = 0,
+        .address_bits = 0,
+        .size_bits = DEFAULT_CNODE_BITS,
+        .guard_size = 0,
     };
 
     walk_cspace(cnode, 0);

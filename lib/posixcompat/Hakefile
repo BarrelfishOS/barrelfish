@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2009, ETH Zurich.
+-- Copyright (c) 2007-2009, 2011, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -15,9 +15,17 @@
                              "close.c", "lseek.c", "stat.c", "fstat.c", 
                              "ftruncate.c", "access.c", "chdir.c", "mkdir.c", 
                              "rmdir.c", "unlink.c", "dup.c", "chmod.c", 
-                             "umask.c", "isatty.c", "dup2.c", "pipe.c", 
+                             "umask.c", "isatty.c", "pipe.c", 
                              "utime.c", "dirent.c", "getcwd.c", "fileno.c", 
-                             "_exit.c", "process.c", "gethostid.c", "sbrk.c",
-			     "dlfcn.c", "fdtab.c", "signal.c" ]
+                             "_exit.c", "gethostid.c", "sbrk.c",
+			     "dlfcn.c", "fdtab.c", "signal.c", "kill.c",
+			     "wait.c", "geteuid.c", "gettimeofday.c",
+                             "setitimer.c", "fsync.c", "link.c", "semaphore.c",
+                             "shm.c", "getpid.c", "ioctl.c", "fcntl.c",
+                             "sockets.c", "select.c", "grp.c", "rename.c",
+			     "remove.c", "time.c", "random.c", "inheritance.c" ],
+                  flounderDefs = [ "unixsock", "nameservice" ],
+		  flounderBindings = [ "unixsock" ],
+                  flounderExtraBindings = [ ("nameservice", ["rpcclient"]) ]
                 }
 ]

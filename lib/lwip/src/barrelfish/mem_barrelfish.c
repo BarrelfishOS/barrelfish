@@ -37,14 +37,6 @@
 //     pbuf chain.
 #define RECEIVE_PBUF_SIZE 1514
 
-#ifdef CONFIG_QEMU_NETWORK
-//#define NR_PREALLOCATED_PBUFS 256
-#define NR_PREALLOCATED_PBUFS 127  // works for QEMU
-#else // CONFIG_QEMU_NETWORK
-#define NR_PREALLOCATED_PBUFS 2045
-#endif // CONFIG_QEMU_NETWORK
-
-
 //LWIP only needs two heaps. It allocates memory and pbufs from these two heaps.
 #define MAX_NR_BUFFERS 2
 
@@ -62,29 +54,41 @@ struct pbuf_desc {
 struct pbuf_desc pbufs[NR_PREALLOCATED_PBUFS];
 
 
-static struct bulk_transfer bt_packet_tx;
+
 
 //create a frame cap with at least size 'size', map it to vspace
 //and remember the corresponding cap. This function is used
 //to initialize (get memory) for LWIP's heaps.
 
-uint8_t *mem_barrelfish_alloc_and_register(size_t size, uint8_t binding_index)
+uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
 {
     errval_t err;
+    struct bulk_transfer bt_packet;
+
+    printf("@@@@@@ mem alloc %"PRIx32" for index %d\n", size, binding_index);
+
 
     struct buffer_desc *tmp = (struct buffer_desc*)
                                 malloc(sizeof(struct buffer_desc));
     assert(tmp != 0);
-    LWIPBF_DEBUG("allocating %lu bytes of memory.\n", size);
+    LWIPBF_DEBUG("allocating %"PRIx32" bytes of memory for index %u.\n",
+            size, binding_index);
 
-    err = bulk_create(size, PBUF_PKT_SIZE, &(tmp->cap), &bt_packet_tx);
-
+    printf("memp pbuf %x, pool size %x\n", MEMP_NUM_PBUF, PBUF_POOL_SIZE);
+    printf("allocating %"PRIx32" bytes of memory.\n", size);
+#if defined(__scc__) && !defined(RCK_EMU)
+    err = bulk_create(size, PBUF_PKT_SIZE, &(tmp->cap), &bt_packet, true);
+#else
+    err = bulk_create(size, PBUF_PKT_SIZE, &(tmp->cap), &bt_packet, false);
+#endif // defined(__scc__) && !defined(RCK_EMU)
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "bulk_create failed.");
         return NULL;
     }
+    printf("bulk_create success!!!\n");
 
-    tmp->va = bt_packet_tx.mem;
+
+    tmp->va = bt_packet.mem;
 
     struct frame_identity f;
     err = invoke_frame_identify(tmp->cap, &f);
@@ -134,11 +138,15 @@ void mem_barrelfish_pbuf_init(void)
     ptrdiff_t offset = 0;
     int i = 0;
     struct buffer_desc *buff_ptr;
+    printf("Allocating %d pbufs\n", NR_PREALLOCATED_PBUFS);
 
     for (i = 0; i < NR_PREALLOCATED_PBUFS; i++) {
         /* We allocate a pbuf chain of pbufs from the pool. */
         p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
         assert(p != 0);
+        if(p->next != 0) {
+            printf("Error in allocating %d'th pbuf\n", i);
+        }
         assert(p->next == 0); //make sure there is no chain for now...
         assert(p->tot_len == RECEIVE_PBUF_SIZE);
         assert(p->len == RECEIVE_PBUF_SIZE);
@@ -159,10 +167,14 @@ void mem_barrelfish_pbuf_init(void)
 
         //XXX: the msg handler should free the pbuf in case of an error
         //uint64_t r = idc_register_pbuf(i, paddr + offset, p->len);
+//        printf("############## register pbuf %d\n", i);
         idc_register_pbuf(i, buff_ptr->pa + offset, p->len);
     }
-    LWIPBF_DEBUG("pbuf is from buff %lu -------\n", buff_ptr->buffer_id);
+    LWIPBF_DEBUG("pbuf is from buff %"PRIx64" -------\n", buff_ptr->buffer_id);
     LWIPBF_DEBUG("Registered %d no. of pbufs for receiving -------\n", i);
+    printf("pbuf is from buff %"PRIx64" -------\n", buff_ptr->buffer_id);
+    printf("Registered %d no. of pbufs for receiving -------\n", i);
+
 }
 
 

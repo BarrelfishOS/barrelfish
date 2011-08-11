@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -25,6 +25,10 @@
 #include <paging_kernel_arch.h>
 #include <mdb.h>
 #include <trace/trace.h>
+#include <wakeup.h>
+
+/// Ignore remote capabilities if this is defined
+#define RCAPDB_NULL
 
 /// Sets the specified number of low-order bits to 1
 #define MASK(bits)      ((1UL << bits) - 1)
@@ -69,7 +73,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 26, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -125,6 +129,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     case ObjType_Domain:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
+    case ObjType_PerfMon:
         return 1;
 
     default:
@@ -155,7 +160,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 26, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs,
@@ -544,6 +549,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_Domain:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
+    case ObjType_PerfMon:
         // These types do not refer to a kernel object
         assert(lpaddr  == 0);
         assert(bits    == 0);
@@ -811,7 +817,7 @@ errval_t caps_retype(enum objtype type, size_t objbits,
     }
 
     /* Handle mapping */
-    insert_after(dest_cte, src_cte, numobjs, false);
+    insert_after(dest_cte, src_cte, numobjs);
 
     return SYS_ERR_OK;
 }
@@ -824,8 +830,10 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
         return SYS_ERR_INVALID_RETYPE;
     } else if (!is_revoked_first(src_cte, src_type)){
         return SYS_ERR_REVOKE_FIRST;
+#ifndef RCAPDB_NULL
     } else if (!from_monitor && is_cap_remote(src_cte)) {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
+#endif
     } else {
         return SYS_ERR_OK;
     }
@@ -875,7 +883,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
 
     // Handle mapping
-    insert_after(dest_cte, src_cte, 1, true);
+    insert_after(dest_cte, src_cte, 1);
 
     /* Copy is done */
     if(!mint) {
@@ -963,6 +971,9 @@ static void delete_cnode_or_dcb(struct capability *cap, bool from_monitor)
             dcb_current = NULL;
         }
 
+        // Remove from wakeup queue
+        wakeup_remove(dcb);
+
         // Notify monitor
         if (monitor_ep.u.endpoint.listener == dcb) {
             printk(LOG_ERR, "monitor terminated; expect badness!\n");
@@ -992,17 +1003,72 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
     assert(cte->mdbnode.next != NULL);
     assert(cte->mdbnode.prev != NULL);
 
+#ifndef RCAPDB_NULL
     if (!from_monitor && is_cap_remote(cte) && !has_copies(cte)) {
         // delete on the last copy of a remote cap, do this through the monitor
         // so we can inform other cores
         return SYS_ERR_RETRY_THROUGH_MONITOR;
     }
+#endif
 
     struct capability *cap = &cte->cap;
     // special handling for last copy of cnode and dispatcher types
     if ((cap->type == ObjType_CNode) || (cap->type == ObjType_Dispatcher)) {
         if (!has_copies(cte)) {
             delete_cnode_or_dcb(cap, from_monitor);
+        }
+    }
+
+    // If this was the last reference to an object, we might have to
+    // resurrect the RAM and send it back to the monitor
+    if(!has_copies(cte) && !has_descendants(cte) && !has_ancestors(cte)
+       && !is_cap_remote(cte) && monitor_ep.u.endpoint.listener != NULL) {
+        errval_t err;
+        struct RAM ram = { .bits = 0 };
+        size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1;
+
+        // List all RAM-backed capabilities here
+        // NB: ObjType_PhysAddr and ObjType_DevFrame caps are *not* RAM-backed!
+        switch(cap->type) {
+        case ObjType_RAM:
+            ram.base = cap->u.ram.base;
+            ram.bits = cap->u.ram.bits;
+            break;
+
+        case ObjType_Frame:
+            ram.base = cap->u.frame.base;
+            ram.bits = cap->u.frame.bits;
+            break;
+
+        case ObjType_CNode:
+            ram.base = cap->u.cnode.cnode;
+            ram.bits = cap->u.cnode.bits + OBJBITS_CTE;
+            break;
+
+        case ObjType_Dispatcher:
+            // Convert to genpaddr
+            ram.base = local_phys_to_gen_phys(mem_to_local_phys((lvaddr_t)cap->u.dispatcher.dcb));
+            ram.bits = OBJBITS_DISPATCHER;
+            break;
+
+        default:
+            // Handle VNodes here
+            if(type_is_vnode(cap->type)) {
+                // XXX: Assumes that all VNodes store base as first
+                // parameter and that it's a genpaddr_t
+                ram.base = cap->u.vnode_x86_64_pml4.base;
+                ram.bits = vnode_objbits(cap->type);
+            }
+            break;
+        }
+
+        if(ram.bits > 0) {
+            // Send back as RAM cap to monitor
+            // XXX: This looks pretty ugly. We need an interface.
+            err = lmp_deliver_payload(&monitor_ep, NULL,
+                                      (uintptr_t *)&ram,
+                                      len, false);
+            //assert(err_is_ok(err));
         }
     }
 
@@ -1026,9 +1092,11 @@ errval_t caps_revoke(struct cte *cte, bool from_monitor)
     assert(cte->mdbnode.next != NULL);
     assert(cte->mdbnode.prev != NULL);
 
+#ifndef RCAPDB_NULL
     if (!from_monitor && is_cap_remote(cte)) {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
     }
+#endif
 
     struct cte *walk;
     errval_t err = SYS_ERR_OK;

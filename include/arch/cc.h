@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -57,6 +57,7 @@ typedef uintptr_t       mem_ptr_t;
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 #define LWIP_PLATFORM_DIAG(x)   do {printf x;} while(0)
 #define LWIP_PLATFORM_ASSERT(x) do {printf("Assertion \"%s\" failed at line %d in %s\n", \

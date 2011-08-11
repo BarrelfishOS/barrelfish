@@ -88,6 +88,11 @@ void             tcp_err     (struct tcp_pcb *pcb,
 void             tcp_recved  (struct tcp_pcb *pcb, u16_t len);
 err_t            tcp_bind    (struct tcp_pcb *pcb, struct ip_addr *ipaddr,
                               u16_t port);
+err_t 		 tcp_redirect(struct tcp_pcb *pcb, 
+                              struct ip_addr *local_ip, 
+                              u16_t local_port,
+                              struct ip_addr *remote_ip, 
+                              u16_t remote_port);
 err_t            tcp_connect (struct tcp_pcb *pcb, struct ip_addr *ipaddr,
                               u16_t port, err_t (* connected)(void *arg,
                               struct tcp_pcb *tpcb,

@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -314,7 +314,20 @@ static errval_t find_node(struct mm *mm, bool do_realloc, uint8_t sizebits,
     return MM_ERR_NOT_FOUND;
 }
 
-/// Chunk up a node, returning the chunk including the desired region and size
+/**
+ * \brief Chunk up a node, returning the chunk including the desired region and size
+ *
+ * \param mm Memory allocator context
+ * \param sizebits Desired chunk size (number of valid bits), must be smaller than node's size
+ * \param minbase Base address of desired return chunk
+ * \param maxlimit Limit address of desired return chunk
+ * \param node Node to chunk up
+ * \param nodebase Input: Base address of node, Output: Base address of return chunk
+ * \param nodesizebits Input: Size of node, Output: Size of return chunk
+ * \param retnode Node to return chunk
+ *
+ * \return Error status (#SYS_ERR_OK on success).
+ */
 static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
                            genpaddr_t minbase, genpaddr_t maxlimit,
                            struct mmnode *node,
@@ -346,7 +359,17 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
 
     err = cap_retype(cap, node->cap, mm->objtype, *nodesizebits - childbits);
     if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
+        // This is only a failure if the node was free. Otherwise,
+        // the caller could've deleted the cap already.
+        // XXX: I have no way to find out whether cap_retype()
+        // failed due to source cap not found. The error stack
+        // convolutes the root cause of the error. I'm assuming here
+        // that that's the case.
+        if(node->type == NodeType_Free) {
+            return err_push(err, LIB_ERR_CAP_RETYPE);
+        }
+
+        // TODO: Should deallocate the unused slots from mm->slot_alloc()
     }
 
     /* construct child nodes */
@@ -358,6 +381,16 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
         node->children[i] = new;
         new->cap = cap;
         cap.slot++;
+    }
+
+    // If configured to delete chunked capabilities, we do so now
+    // The slot stays available so we could meld chunks later (NYI)
+    if(mm->delete_chunked) {
+        err = cap_delete(node->cap);
+        // Can fail if node was not free (e.g. deleted already)
+        if(err_is_fail(err) && node->type == NodeType_Free) {
+            DEBUG_ERR(err, "cap_delete for chunked cap failed?!? Ignoring.");
+        }
     }
 
     node->type = NodeType_Chunked;
@@ -428,6 +461,7 @@ void mm_debug_print(struct mmnode *mmnode, int space)
  *       If this is NULL, the caller must provide static storage with slab_grow.
  * \param slot_alloc_func Slot allocator function
  * \param slot_alloc_inst Slot allocator opaque instance pointer
+ * \param delete_chunked Whether to delete chunked caps
  *
  * \note Setting maxchildbits > 1 saves substantial space, but may lead to the
  * situation where an allocation request cannot be satisfied despite memory
@@ -437,7 +471,8 @@ void mm_debug_print(struct mmnode *mmnode, int space)
 errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
                  uint8_t sizebits, uint8_t maxchildbits,
                  slab_refill_func_t slab_refill_func,
-                 slot_alloc_t slot_alloc_func, void *slot_alloc_inst)
+                 slot_alloc_t slot_alloc_func, void *slot_alloc_inst,
+                 bool delete_chunked)
 {
     /* init fields */
     assert(mm != NULL);
@@ -450,6 +485,7 @@ errval_t mm_init(struct mm *mm, enum objtype objtype, genpaddr_t base,
     mm->root = NULL;
     mm->slot_alloc = slot_alloc_func;
     mm->slot_alloc_inst = slot_alloc_inst;
+    mm->delete_chunked = delete_chunked;
 
     /* init slab allocator */
     slab_init(&mm->slabs, MM_NODE_SIZE(maxchildbits), slab_refill_func);
@@ -552,6 +588,10 @@ errval_t mm_alloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t minbase,
                         genpaddr_t *retbase)
 {
     /* check bounds */
+    if(minbase + UNBITS_GENPA(sizebits) > maxlimit) {
+        printf("mm_alloc_range: mb %"PRIxGENPADDR" sizebits %x ,  <= max %"PRIxGENPADDR" \n",
+            minbase, sizebits, maxlimit);
+    }
     assert(minbase + UNBITS_GENPA(sizebits) <= maxlimit);
     if (minbase < mm->base ||
         maxlimit > mm->base + UNBITS_GENPA(mm->sizebits)) {
@@ -680,13 +720,13 @@ errval_t mm_realloc_range(struct mm *mm, uint8_t sizebits, genpaddr_t base,
  * \bug The user might not know (or care about) the base address.
  *
  * \param mm Memory manager instance
+ * \param cap Cap to re-insert (specify NULL_CAP if delete_chunked == false)
  * \param base Physical base address of region
  * \param sizebits Size of region
  */
-errval_t mm_free(struct mm *mm, genpaddr_t base, uint8_t sizebits)
+errval_t mm_free(struct mm *mm, struct capref cap, genpaddr_t base,
+                 uint8_t sizebits)
 {
-    //    USER_PANIC("NYI");
-
     // find node, then mark it as free
     genpaddr_t nodebase;
     uint8_t nodesizebits;
@@ -702,12 +742,24 @@ errval_t mm_free(struct mm *mm, genpaddr_t base, uint8_t sizebits)
     }
 
     assert(node != NULL);
-    if (node->type != NodeType_Allocated || nodesizebits != sizebits || 
-        nodebase != base) {
+    if (node->type != NodeType_Allocated || nodesizebits < sizebits
+        || nodebase > base) {
         return MM_ERR_NOT_FOUND;
     }
 
+    /* split up node until it fits */
+    // XXX: Is the while-loop still required? chunk_node() should
+    // immediately return the right chunk.
+    while (nodesizebits > sizebits) {
+        err = chunk_node(mm, sizebits, base, base + UNBITS_GENPA(sizebits), node,
+                         &nodebase, &nodesizebits, &node);
+        if (err_is_fail(err)) {
+            return err_push(err, MM_ERR_CHUNK_NODE);
+        }
+    }
+
     node->type = NodeType_Free;
+    node->cap = cap;
 
     return SYS_ERR_OK;
 }

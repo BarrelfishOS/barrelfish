@@ -67,8 +67,6 @@ static void get_bootmodules(void)
 {
     errval_t err;
 
-    vfs_init();
-
     vfs_handle_t vh;
     err = vfs_open("/bootmodules", &vh);
     if (err_is_fail(err)) {
@@ -142,6 +140,9 @@ int main(int argc, const char *argv[])
 
     // startup regular apps
     spawn_app_domains();
+
+    // startup apps listed in bootscript
+    spawn_bootscript_domains();
 
     return EXIT_SUCCESS;
 }

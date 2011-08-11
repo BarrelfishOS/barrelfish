@@ -87,11 +87,19 @@
 #define _TIME_H_
 
 #include <stddef.h> /* For NULL, size_t */
+#include <sys/_types.h>
 
 #define CLOCKS_PER_SEC 1 /* Arbitrary, 1s resolution */
 
-typedef long clock_t;
-typedef long time_t;
+#ifndef _CLOCK_T_DECLARED
+typedef	__clock_t	clock_t;
+#define	_CLOCK_T_DECLARED
+#endif
+
+#ifndef _TIME_T_DECLARED
+typedef	__time_t	time_t;
+#define	_TIME_T_DECLARED
+#endif
 
 struct tm {
 	int tm_sec;
@@ -126,5 +134,9 @@ char *ctime(const time_t *timer)
 
 size_t strftime(char *s, size_t maxsize, const char *format, 
 		const struct tm *timeptr);
+
+#ifdef _USE_XOPEN
+void tzset (void);
+#endif
 
 #endif /* _TIME_H_ */

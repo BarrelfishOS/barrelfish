@@ -46,9 +46,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <lwip/inet.h> /* for ntohl/htonl */
+#include <sys/types.h>
 
 /* nasty typedefs needed by RPC/XDR code */
-typedef unsigned int u_int;
 typedef int enum_t;
 typedef bool bool_t;
 

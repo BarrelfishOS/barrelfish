@@ -83,6 +83,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+int
+atexit(void (*func)(void))
+{
+  // XXX: Ignore for now and return success
+  printf("Warning: atexit(%p) ignored\n", func);
+  return 0;
+}
+
+#include <unistd.h> // for _exit
+
 void
 exit(int status)
 {
@@ -96,7 +106,7 @@ exit(int status)
 
 	/* Remove anything created by tmpfile() */
 
-	/* Call _Exit() */
-	_Exit(status);
+	/* Call _exit() */
+	_exit(status);
 }
 

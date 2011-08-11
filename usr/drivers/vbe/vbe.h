@@ -110,9 +110,9 @@ uint32_t vbe_mode_info(uint16_t mode, struct vbemodeinfoblock *mib);
 uint32_t vbe_setmode(uint16_t mode, bool linear, bool clear);
 uint32_t vbe_getmode(uint16_t *retmode, bool *retlinear);
 uint16_t *vbe_getmodes(void);
-int vbe_savestate(void);
-int vbe_restorestate(void);
-int vbe_get_framebuffer_cap(struct capref *cap);
+uint32_t vbe_savestate(void);
+uint32_t vbe_restorestate(void);
+errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *offset);
 void vbe_vsync(void);
 
 void vbe_init(struct device_mem *bar_info, int nr_mapped_regions);

@@ -103,8 +103,14 @@
 #endif
 #endif
 
-typedef __PTRDIFF_TYPE__ ptrdiff_t ;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
+
+#ifndef _SIZE_T_DECLARED
 typedef __SIZE_TYPE__ size_t;
+#define _SIZE_T_DECLARED
+#endif
+
+typedef long int ssize_t;
 #ifndef __cplusplus /* FIXME: This is the one concession to C++ programmers that I make.
 		       Allowing them to compile and use the standard C library. This is
 		       more because C++ people shouldn't be restricted from using wonderful

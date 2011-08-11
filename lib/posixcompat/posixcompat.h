@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,12 +15,11 @@
 struct vfs_fileinfo;
 struct stat;
 
-extern char *_posixcompat_cwd;
-void _posixcompat_cwd_init(void);
 void _posixcompat_vfs_info_to_stat(struct vfs_fileinfo *info, struct stat *buf);
 
 #if 0
 #define POSIXCOMPAT_DEBUG(x...) debug_printf(x)
+#define POSIXCOMPAT_DEBUG_ENABLED
 #else
 #define POSIXCOMPAT_DEBUG(x...) ((void)0)
 #endif

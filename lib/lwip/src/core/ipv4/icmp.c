@@ -54,11 +54,11 @@
 #include <string.h>
 
 /* Enable tracing based on the global settings. */
-#if CONFIG_TRACE
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
-//#define LWIP_TRACE_MODE 1
-#endif // CONFIG_TRACE
+#define LWIP_TRACE_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 
 /** Small optimization: set to 0 if incoming PBUF_POOL pbuf always can be

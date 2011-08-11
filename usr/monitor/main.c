@@ -42,6 +42,9 @@ coreid_t my_core_id = -1;
 /* Flag to indicate if monitor is running on bsp core */
 bool bsp_monitor = false;
 
+// Flag to indicate whether to update the ram_alloc binding
+bool update_ram_alloc_binding = false;
+
 struct bootinfo *bi;
 
 /**
@@ -63,9 +66,10 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     while (mem_serv_iref == 0) {
         messages_wait_and_handle_next();
     }
+    update_ram_alloc_binding = false;
 
     /* Can now connect to and use mem_serv */
-    err = ram_alloc_set(NULL, NULL);
+    err = ram_alloc_set(NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
@@ -268,5 +272,20 @@ int main(int argc, char *argv[])
 
     domain_mgmt_init();
 
-    messages_handler_loop();
+    for(;;) {
+        err = event_dispatch(get_default_waitset());
+        if(err_is_fail(err)) {
+            USER_PANIC_ERR(err, "event_dispatch");
+        }
+
+        if(update_ram_alloc_binding) {
+            update_ram_alloc_binding = false;
+
+            err = ram_alloc_set(NULL);
+            if(err_is_fail(err)) {
+                DEBUG_ERR(err, "ram_alloc_set to local allocator failed. "
+                          "Will stick with intermon memory allocation.");
+            }
+        }
+    }
 }

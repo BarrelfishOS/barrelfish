@@ -444,6 +444,7 @@ struct sysret sys_yield(caddr_t target)
         } else {
             panic("invalid type in yield cap");
         }
+
         make_runnable(target_dcb);
         dispatch(target_dcb);
     } else {

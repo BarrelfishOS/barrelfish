@@ -26,7 +26,7 @@
 #include <dispatch.h>
 #include <trace/trace.h>
 
-#define DEFAULT_LOGLEVEL        LOG_DEBUG
+#define DEFAULT_LOGLEVEL        LOG_NOTE
 #define DEFAULT_SUBSYSTEM_MASK  (~0L)
 
 /**
@@ -89,7 +89,7 @@ void panic(const char *msg, ...)
  */
 void printk(int level, const char *msg, ...)
 {
-    if(kernel_loglevel > level) {
+    if(kernel_loglevel >= level) {
         va_list ap;
         static char buf[256];
 

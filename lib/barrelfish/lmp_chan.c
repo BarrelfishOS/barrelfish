@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -393,6 +393,18 @@ errval_t lmp_chan_deregister_send(struct lmp_chan *lc)
 
     disp_enable(handle);
     return err;
+}
+
+/**
+ * \brief Migrate an event registration to a new waitset.
+ *
+ * \param lc LMP channel
+ * \param ws New waitset to migrate to
+ */
+void lmp_chan_migrate_send(struct lmp_chan *lc, struct waitset *ws)
+{
+    assert(lc != NULL);
+    waitset_chan_migrate(&lc->send_waitset, ws);
 }
 
 /**

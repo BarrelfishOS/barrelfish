@@ -14,11 +14,9 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-
 #if defined(LPC_TIMER_DEBUG) /* || defined(GLOBAL_DEBUG)  -- too noisy! */
 #define LPC_DEBUG(x...) printf("lpc_timer: " x)
 #else
 #define LPC_DEBUG(x...) ((void)0)
 #endif
-
 #endif // LPC_TIMER_DEBUG_H

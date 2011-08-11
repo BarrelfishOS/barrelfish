@@ -52,7 +52,6 @@
 #include "lwip/tcpip.h"
 #include "lwip/init.h"
 #include "netif/etharp.h"
-#include "netif/ppp_oe.h"
 
 /* global variables */
 static void (* tcpip_init_done)(void *arg);
@@ -450,7 +449,7 @@ err_t
 tcpip_apimsg(struct api_msg *apimsg)
 {
   struct tcpip_msg msg;
-  
+
   if (mbox != SYS_MBOX_NULL) {
     msg.type = TCPIP_MSG_API;
     msg.msg.apimsg = apimsg;
@@ -541,9 +540,9 @@ tcpip_netifapi_lock(struct netifapi_msg* netifapimsg)
  * @param arg argument to pass to initfunc
  */
 void
-tcpip_init(void (* initfunc)(void *), void *arg)
+tcpip_init(char *card_name, void (* initfunc)(void *), void *arg)
 {
-  lwip_init();
+  lwip_init(card_name);
 
   tcpip_init_done = initfunc;
   tcpip_init_done_arg = arg;

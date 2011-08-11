@@ -33,5 +33,15 @@ interface netd "Network Daemon" {
     rpc close_port(in port_type type, 
 		   in uint16 port_no,
                    out errval err);
+
+    rpc redirect(in port_type port,
+       		    in ipv4addr local_ip,		
+		    in uint16 local_port,
+		    in ipv4addr remote_ip,
+		    in uint16 remote_port,
+		     in bufid buffer_id_rx,
+		     in bufid buffer_id_tx,
+                     out errval err);
+
 };
 

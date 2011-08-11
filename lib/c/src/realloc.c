@@ -8,9 +8,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef void *(*alt_realloc_t)(void *p, size_t bytes);
+alt_realloc_t alt_realloc = NULL;
+
 void *
 realloc(void *ptr, size_t size)
 {
+    if (alt_realloc != NULL) {
+        return alt_realloc(ptr, size);
+    }
+
 	Header *bp;
 	void *new_ptr;
 	size_t old_size;

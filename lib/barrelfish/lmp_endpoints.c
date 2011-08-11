@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -179,7 +179,8 @@ void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
         assert_disabled(disp->lmp_hint < (1UL << DISPATCHER_FRAME_BITS));
 
         /* compute endpoint location */
-        ep = (void *)handle + disp->lmp_hint - offsetof(struct lmp_endpoint, k);
+        ep = (struct lmp_endpoint *)
+            ((char *)handle + disp->lmp_hint - offsetof(struct lmp_endpoint, k));
 
         // clear hint now we're about to look at it
         disp->lmp_hint = 0;
@@ -338,6 +339,17 @@ errval_t lmp_endpoint_deregister(struct lmp_endpoint *ep)
 }
 
 /**
+ * \brief Migrate an event registration made with lmp_endpoint_register() to a new waitset.
+ *
+ * \param ep LMP Endpoint
+ * \param ws New waitset
+ */
+void lmp_endpoint_migrate(struct lmp_endpoint *ep, struct waitset *ws)
+{
+    waitset_chan_migrate(&ep->waitset_state, ws);
+}
+
+/**
  * \brief Retrieve an LMP message from an endpoint, if possible
  *
  * \param ep  Endpoint
@@ -470,7 +482,7 @@ void lmp_endpoint_init(void)
 {
     dispatcher_handle_t handle = disp_disable();
     size_t dispsize = get_dispatcher_size();
-    void *buf = (void *)get_dispatcher_vaddr(handle) + dispsize;
+    void *buf = (char *)get_dispatcher_vaddr(handle) + dispsize;
     size_t buflen = (1UL << DISPATCHER_FRAME_BITS) - dispsize;
     struct dispatcher_generic *d = get_dispatcher_generic(handle);
 

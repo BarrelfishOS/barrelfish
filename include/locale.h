@@ -77,14 +77,17 @@
  * by the laws in force in New South Wales, Australia.
  */
 
+#ifndef _LOCALE_H_
+#define _LOCALE_H_
+
 #include <stddef.h>
 
 struct lconv {
 	char *decimal_point;
 	char *thousands_sep;
 	char *grouping;
-	char *mon_deciaml_point;
-	char *mon_thouasands_sep;
+	char *mon_decimal_point;
+	char *mon_thousands_sep;
 	char *mon_grouping;
 	char *positive_sign;
 	char *negative_sign;
@@ -119,3 +122,5 @@ struct lconv *localeconv(void);
 // For POSIX compatibility
 // From: The Open Group Base Specifications Issue 7, IEEE Std 1003.1-2008
 typedef void *locale_t;
+
+#endif

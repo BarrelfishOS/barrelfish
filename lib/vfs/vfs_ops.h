@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -21,8 +21,8 @@ struct vfs_ops {
     // operations on file handles
     errval_t (*read)(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
                      size_t *bytes_read);
-    errval_t (*write)(void *st, vfs_handle_t handle, const void *buffer,
-                      size_t bytes, size_t *bytes_written);
+    errval_t (*write)(void *st, vfs_handle_t handle, const void *buffer, size_t bytes,
+                      size_t *bytes_written);
     errval_t (*truncate)(void *st, vfs_handle_t handle, size_t bytes);
     errval_t (*seek)(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
                      off_t offset);
@@ -37,6 +37,18 @@ struct vfs_ops {
     errval_t (*dir_read_next)(void *st, vfs_handle_t dhandle,
                               char **name, struct vfs_fileinfo *info);
     errval_t (*closedir)(void *st, vfs_handle_t dhandle);
+
+#ifdef WITH_BUFFER_CACHE
+    // Buffer cache operations
+    errval_t (*get_bcache_key)(void *st, vfs_handle_t handle,
+                               char **retkey, size_t *keylen, size_t *retoffset);
+
+    // Block based operations
+    errval_t (*read_block)(void *st, vfs_handle_t handle, void *buffer,
+                           size_t *bytes_read);
+    errval_t (*write_block)(void *st, vfs_handle_t handle, const void *buffer,
+                            size_t bytes, size_t *bytes_written);
+#endif
 };
 
 #endif

@@ -33,31 +33,47 @@ static const char *service_name = "framebuffer";
 static int nmodes = 0;
 static struct mode modes[MAX_MODES];
 
-static void vbe_get_framebuffer(struct fb_binding *b)
+static errval_t vbe_to_errval(uint32_t retval)
 {
-    struct capref fbcap;
-
-    int r = vbe_get_framebuffer_cap(&fbcap);
-    assert(r == 0);
-
-    b->tx_vtbl.get_framebuffer_response(b, NOP_CONT, fbcap);
+    retval &= 0xffff;
+    if (retval == VBE_OK) {
+        return SYS_ERR_OK;
+    } else { // what do the error codes mean?
+        fprintf(stderr, "vbe: VBE BIOS call failed with code 0x%x\n", retval);
+        return VBE_ERR_BIOS_CALL_FAILED;
+    }
 }
 
-static void vbe_set_videomode(struct fb_binding *b, int xres, int yres, int bpp)
+static void vbe_get_framebuffer(struct fb_binding *b)
 {
-    int error = 1;
+    struct capref fbcap = NULL_CAP;
+    size_t fboffset = 0;
+
+    errval_t ret = vbe_get_framebuffer_cap(&fbcap, &fboffset);
+
+    assert(fboffset <= UINT32_MAX);
+
+    errval_t err = b->tx_vtbl.get_framebuffer_response(b, NOP_CONT, ret,
+                                                       fbcap, fboffset);
+    assert(err_is_ok(err));
+}
+
+static void vbe_set_videomode(struct fb_binding *b, uint16_t xres,
+                              uint16_t yres, uint8_t bpp)
+{
+    errval_t ret = VBE_ERR_MODE_NOT_FOUND;
 
     for(int i = 0; i < MAX_MODES; i++) {
-        if(xres == modes[i].xres && yres == modes[i].yres &&
-           bpp == modes[i].bpp) {
+        if (xres == modes[i].xres && yres == modes[i].yres
+            && bpp == modes[i].bpp) {
             uint32_t r = vbe_setmode(modes[i].mode, true, false);
-            assert(r == VBE_OK);
-            error = 0;
+            ret = vbe_to_errval(r);
             break;
         }
     }
 
-    b->tx_vtbl.set_videomode_response(b, NOP_CONT, error);
+    errval_t err = b->tx_vtbl.set_videomode_response(b, NOP_CONT, ret);
+    assert(err_is_ok(err));
 }
 
 static void get_vesamode(struct fb_binding *b)
@@ -66,51 +82,41 @@ static void get_vesamode(struct fb_binding *b)
     bool linear = 0;
     uint32_t r = vbe_getmode(&mode, &linear);
 
-    if (r == VBE_OK) {
-        r = 0; // bleh!
-    }
-
-    b->tx_vtbl.get_vesamode_response(b, NOP_CONT, mode, linear, r);
+    errval_t err = b->tx_vtbl.get_vesamode_response(b, NOP_CONT, mode, linear,
+                                                    vbe_to_errval(r));
+    assert(err_is_ok(err));
 }
 
 static void set_vesamode(struct fb_binding *b, uint16_t mode,
-                         int linear, int clear)
+                         bool linear, bool clear)
 {
     uint32_t r = vbe_setmode(mode, linear, clear);
-
-    if (r == VBE_OK) {
-        r = 0; // bleh!
-    }
-
-    b->tx_vtbl.set_vesamode_response(b, NOP_CONT, r);
+    errval_t err = b->tx_vtbl.set_vesamode_response(b, NOP_CONT,
+                                                    vbe_to_errval(r));
+    assert(err_is_ok(err));
 }
 
 static void save_vesastate(struct fb_binding *b)
 {
     uint32_t r = vbe_savestate();
-
-    if(r == VBE_OK) {
-        r = 0;
-    }
-
-    b->tx_vtbl.save_vesastate_response(b, NOP_CONT, r);
+    errval_t err = b->tx_vtbl.save_vesastate_response(b, NOP_CONT,
+                                                      vbe_to_errval(r));
+    assert(err_is_ok(err));
 }
 
 static void restore_vesastate(struct fb_binding *b)
 {
     uint32_t r = vbe_restorestate();
-
-    if(r == VBE_OK) {
-        r = 0;
-    }
-
-    b->tx_vtbl.restore_vesastate_response(b, NOP_CONT, r);
+    errval_t err = b->tx_vtbl.restore_vesastate_response(b, NOP_CONT,
+                                                         vbe_to_errval(r));
+    assert(err_is_ok(err));
 }
 
 static void vsync_handler(struct fb_binding *b)
 {
     vbe_vsync();
-    b->tx_vtbl.vsync_response(b, NOP_CONT);
+    errval_t err = b->tx_vtbl.vsync_response(b, NOP_CONT);
+    assert(err_is_ok(err));
 }
 
 static struct fb_rx_vtbl fb_rx_vtbl = {

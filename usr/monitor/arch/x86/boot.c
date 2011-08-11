@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -31,7 +31,7 @@ static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
 {
     struct monitor_allocate_state *s = state;
 
-    *retbase = s->vbase + base - s->elfbase;
+    *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
 }
 
@@ -81,6 +81,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
 
+    // Mark it remote
+    bool has_descendants;
+    err = monitor_cap_remote(frame, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     // map it in
     void *buf;
     err = vspace_map_one_frame(&buf, framesize, frame, NULL, NULL);
@@ -120,7 +127,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 #else
     err = intermon_ump_init(ump_binding, get_default_waitset(),
                             buf, MON_URPC_CHANNEL_LEN,
-                            buf + MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN);
 #endif
     if (err_is_fail(err)) {
@@ -227,6 +234,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     ram_set_affinity(old_minbase, old_maxlimit);
 #endif
 
+    // Mark memory as remote
+    err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     void *cpu_buf_memory;
     err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap, NULL, NULL);
     if(err_is_fail(err)) {
@@ -240,6 +253,11 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
+    // Mark memory as remote
+    err = monitor_cap_remote(spawn_memory_cap, true, &has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
     struct frame_identity spawn_memory_identity;
     err = invoke_frame_identify(spawn_memory_cap, &spawn_memory_identity);
     if (err_is_fail(err)) {
@@ -248,7 +266,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 
     /* Load cpu */
     struct monitor_allocate_state state;
-    state.vbase = cpu_buf_memory + arch_page_size;
+    state.vbase = (char *)cpu_buf_memory + arch_page_size;
     assert(sizeof(struct x86_core_data) <= arch_page_size);
     state.elfbase = elf_virtual_base(cpu_binary);
     genvaddr_t cpu_entry;
@@ -470,7 +488,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
     assert(umpb != NULL);
 
     err = intermon_ump_init(umpb, get_default_waitset(),
-                            buf + MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN,
                             buf, MON_URPC_CHANNEL_LEN);
 #endif

@@ -35,7 +35,11 @@ struct buffer_port_translation {
     uint64_t buffer_id_tx;
     uint64_t filter_id;
     uint64_t type;
-    uint16_t port;
+    uint16_t local_port;
+    uint32_t local_ip;
+    uint16_t remote_port;
+    uint32_t remote_ip;
+    bool redirected;
     bool active;
     bool bind;
     bool closing;
@@ -43,36 +47,36 @@ struct buffer_port_translation {
     struct buffer_port_translation* next;
 };
 
+
 /**
  * Represents a network user application. This can easily be extended later.
  */
 struct net_user {
 	struct cont_queue *q;
-    struct buffer_port_translation* open_ports;
+    struct buffer_port_translation *open_ports;
     bool died;
-    struct net_user* next;
+    struct net_user *next;
 };
 
+/* FIXME: check if you can remove any of following global variables. */
 /**
  * Networking daemon state
  */
-struct net_user* registerd_app_list;
+struct net_user *registerd_app_list;
 
 /*
  * The IP assigned to this netd and its card interface
  */
 struct ip_addr local_ip;
 
-struct ether_client_response* card_conn[2];
+struct ether_client_response *card_conn[2];
 
-char *card_name;
-char *card_netd_name;
 
 /** 
  * @brief initializes LWIP. not a lot left after I changed the subsystems
  * 
  * @param card_name the of the card. it is usualy "e1000" for now
  */
-void startlwip(char *card_name_, char * card_netd_name_);
+void startlwip(char *card_name);
 
 #endif

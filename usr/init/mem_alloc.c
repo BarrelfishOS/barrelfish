@@ -92,7 +92,7 @@ errval_t initialize_ram_alloc(void)
     assert(bi->regions[mem_region].mr_type != RegionType_Module);
     err = mm_init(&mymm, ObjType_RAM, bi->regions[mem_region].mr_base,
                   bi->regions[mem_region].mr_bits, MM_MAXCHILDBITS, NULL,
-                  slot_alloc_basecn, &init_slot_alloc);
+                  slot_alloc_basecn, &init_slot_alloc, true);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
@@ -109,7 +109,7 @@ errval_t initialize_ram_alloc(void)
     }
 
     // initialise generic RAM allocator to use local allocator
-    err = ram_alloc_set(mymm_alloc, NULL);
+    err = ram_alloc_set(mymm_alloc);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }

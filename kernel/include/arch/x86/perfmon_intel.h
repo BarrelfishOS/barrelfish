@@ -11,13 +11,15 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#include <errors/errno.h>
 
 #ifndef PERFMON_INTEL_H
 #define PERFMON_INTEL_H
 
-void perfmon_init(void);
+errval_t perfmon_intel_init(void);
 
-void perfmon_measure_start0(uint8_t event, uint8_t umask);
-uint64_t perfmon_measure_read0(void);
+void perfmon_intel_measure_start(uint8_t event, uint8_t umask);
+uint64_t perfmon_intel_measure_read(void);
+void perfmon_intel_measure_write(uint64_t val);
 
 #endif

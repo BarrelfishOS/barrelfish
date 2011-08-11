@@ -156,7 +156,7 @@ static const size_t memp_memory_size = (MEM_ALIGNMENT - 1
 );
 
 static u8_t *memp_memory = 0;
-u8_t * mem_barrelfish_alloc_and_register(uint64_t size, u8_t buf_index);
+u8_t * mem_barrelfish_alloc_and_register(uint8_t buf_index, uint32_t size);
 
 #if MEMP_SANITY_CHECK
 /**
@@ -272,7 +272,9 @@ memp_init(void)
   struct memp *memp;
   u16_t i, j;
 
-  memp_memory = mem_barrelfish_alloc_and_register(memp_memory_size, RX_BUFFER_ID);
+  printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
+          RX_BUFFER_ID);
+  memp_memory = mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
 
   if (memp_memory == 0) {
     fprintf(stderr, "could not allocate memory");

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -32,7 +32,7 @@ lvaddr_t vspace_genvaddr_to_lvaddr(genvaddr_t genvaddr)
     return vspace_layout_genvaddr_to_lvaddr(&vspace->layout, genvaddr);
 }
 
-errval_t vspace_unmap(void *buf)
+errval_t vspace_unmap(const void *buf)
 {
     errval_t err;
 
@@ -83,8 +83,7 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
         goto error;
     }
 
-    genvaddr_t gvaddr = vregion_get_base_addr(vregion);
-    *retaddr = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
+    *retaddr = (void*)vspace_genvaddr_to_lvaddr(vregion_get_base_addr(vregion));
     *ret_memobj = memobj;
     *ret_vregion = vregion;
 
@@ -326,8 +325,7 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
         goto error;
     }
 
-    genvaddr_t gvaddr = vregion_get_base_addr(vregion);
-    *retaddr = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
+    *retaddr = (void*)vspace_genvaddr_to_lvaddr(vregion_get_base_addr(vregion));
     if (retmemobj) {
         *retmemobj = memobj;
     }

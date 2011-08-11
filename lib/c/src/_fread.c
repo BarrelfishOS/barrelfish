@@ -48,14 +48,14 @@ __fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict fp)
 	 */
 	if ((resid = count * size) == 0)
 		return (0);
-	if (fp->buf_size < 0)
-		fp->buf_size = 0;
+	if (fp->rbuf_valid < 0)
+		fp->rbuf_valid = 0;
 	total = resid;
 	p = buf;
-	while (resid > (r = fp->buf_size)) {
-		(void)memcpy((void *)p, (void *)fp->buffer, (size_t)r);
-		fp->buffer += r;
-		/* fp->buf_size = 0 ... done in __srefill */
+	while (resid > (r = fp->rbuf_valid)) {
+		(void)memcpy((void *)p, (void *)fp->rbuf_pos, (size_t)r);
+		fp->rbuf_pos += r;
+		/* fp->rbuf_valid assigned in __srefill */
 		p += r;
 		resid -= r;
 		if (__srefill(fp)) {
@@ -63,8 +63,8 @@ __fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict fp)
 			return ((total - resid) / size);
 		}
 	}
-	(void)memcpy((void *)p, (void *)fp->buffer, resid);
-	fp->buf_size -= resid;
-	fp->buffer += resid;
+	(void)memcpy((void *)p, (void *)fp->rbuf_pos, resid);
+	fp->rbuf_valid -= resid;
+	fp->rbuf_pos += resid;
 	return (count);
 }

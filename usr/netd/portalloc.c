@@ -148,7 +148,7 @@ inline uint16_t alloc_specific_port(uint16_t port, netd_port_type_t type)
 {
     uint16_t pidx = port;
     uint64_t* free_ports;
-    NETD_DEBUG("allocating port %d with type %ld\n", port, type);
+    NETD_DEBUG("allocating port %u with type %d\n", port, type);
     if(type == netd_PORT_TCP) {
 	free_ports = free_tcp_ports;
     }

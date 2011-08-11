@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, ETH Zurich.
+ * Copyright (c) 2008, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -23,6 +23,7 @@
 struct _ht_entry {
     void* key;
     void* value;
+    struct capref capvalue;
     ENTRY_TYPE type;
     int hash_value;
     struct _ht_entry *next;

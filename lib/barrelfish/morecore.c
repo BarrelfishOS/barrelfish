@@ -36,8 +36,9 @@ extern morecore_free_func_t sys_morecore_free;
  * \brief Allocate some memory for malloc to use
  *
  * This function will keep trying with smaller and smaller frames till
- * it finds a set of frames that satisfy the requirement. retbytes
- * will be >= bytes.
+ * it finds a set of frames that satisfy the requirement. retbytes can
+ * be smaller than bytes if we were able to allocate a smaller memory
+ * region than requested for.
  */
 static void *morecore_alloc(size_t bytes, size_t *retbytes)
 {
@@ -75,9 +76,8 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
                     return NULL;
                 }
                 if (step < BASE_PAGE_SIZE) {
-                    debug_err(__FILE__, __func__, __LINE__, err,
-                              "vspace_mmu_aware_map fail (out of memory?)");
-                    return NULL;
+                    // Return whatever we have allocated until now
+                    break;
                 }
                 step /= 2;
                 continue;

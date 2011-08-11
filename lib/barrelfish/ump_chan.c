@@ -263,7 +263,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
     }
 
     // initialise channel state
-    err = ump_chan_init(uc, buf, inchanlen, buf + inchanlen, outchanlen);
+    err = ump_chan_init(uc, buf, inchanlen, (char *)buf + inchanlen, outchanlen);
     if (err_is_fail(err)) {
         vregion_destroy(uc->vregion);
         cap_destroy(uc->frame);
@@ -341,7 +341,7 @@ errval_t ump_chan_accept(struct ump_chan *uc, uintptr_t mon_id,
     }
 
     // initialise channel state
-    err = ump_chan_init(uc, buf + outchanlen, inchanlen, buf, outchanlen);
+    err = ump_chan_init(uc, (char *)buf + outchanlen, inchanlen, buf, outchanlen);
     if (err_is_fail(err)) {
         vregion_destroy(uc->vregion);
         cap_destroy(uc->frame);

@@ -92,10 +92,10 @@ static void send_command(lpc_kbd_cmd_t cmd)
 static void send_data(uint8_t val)
 {
     // ensure input buffer and output buffer are empty
-    // XXX: might need to wait for them to drain?
-    lpc_kbd_status_t st = lpc_kbd_status_rd(&kbd);
-    assert(!lpc_kbd_status_obf_extract(st));
-    assert(!lpc_kbd_status_ibf_extract(st));
+    lpc_kbd_status_t st;
+    do {
+        st = lpc_kbd_status_rd(&kbd);
+    } while (lpc_kbd_status_obf_extract(st) || lpc_kbd_status_ibf_extract(st));
 
     lpc_kbd_output_wr(&kbd, val);
 }

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -40,5 +40,7 @@ errval_t monitor_client_new_binding(monitor_bind_cont_fn *cont, void *st,
 
 
 errval_t monitor_client_blocking_rpc_init(void);
+
+errval_t monitor_cap_set_remote(struct capref cap, bool remote);
 
 #endif // BARRELFISH_MONITOR_CLIENT_H

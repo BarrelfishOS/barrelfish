@@ -3,7 +3,7 @@
 
   Part of Flounder: a message passing IDL for Barrelfish
    
-  Copyright (c) 2007-2010, ETH Zurich.
+  Copyright (c) 2007-2011, ETH Zurich.
   All rights reserved.
   
   This file is distributed under the terms in the attached LICENSE file.
@@ -386,7 +386,11 @@ change_waitset_fn_def ifn =
     C.FunctionDef C.Static (C.TypeName "errval_t") (change_waitset_fn_name ifn) params [
         localvar (C.Ptr $ C.Struct $ lmp_bind_type ifn)
             lmp_bind_var_name (Just $ C.Cast (C.Ptr C.Void) bindvar),
-        localvar (C.TypeName "errval_t") "err" Nothing,
+        C.SBlank,
+
+        C.SComment "Migrate register and TX continuation notifications",
+        C.Ex $ C.Call "flounder_support_migrate_notify" [register_chanstate, C.Variable "ws"],
+        C.Ex $ C.Call "flounder_support_migrate_notify" [tx_cont_chanstate, C.Variable "ws"],
         C.SBlank,
 
         C.SComment "change waitset on binding",
@@ -395,29 +399,16 @@ change_waitset_fn_def ifn =
             (C.Variable "ws"),
         C.SBlank,
 
-        C.SComment "re-register for receive (if previously registered)",
-        C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_deregister_recv" [chanaddr],
-        C.If (C.Binary C.And
-                (C.Call "err_is_fail" [errvar])
-                (C.Binary C.NotEquals (C.Call "err_no" [errvar])
-                                    (C.Variable "LIB_ERR_CHAN_NOT_REGISTERED")))
-            [C.Return $
-               C.Call "err_push" [errvar, C.Variable "LIB_ERR_CHAN_DEREGISTER_RECV"]]
-            [],
-        C.If (C.Call "err_is_ok" [errvar]) [
-            C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
-                [chanaddr, C.Variable "ws",
-                C.StructConstant "event_closure"
-                    [("handler", C.Variable $ rx_handler_name ifn),
-                     ("arg", lmp_bind_var)]],
-            C.If (C.Call "err_is_fail" [errvar])
-                [C.Return $
-                    C.Call "err_push" [errvar, C.Variable "LIB_ERR_CHAN_REGISTER_RECV"]]
-                []
-            ] [],
+        C.SComment "Migrate send and receive notifications",
+        C.Ex $ C.Call "lmp_chan_migrate_recv" [chanaddr, C.Variable "ws"],
+        C.Ex $ C.Call "lmp_chan_migrate_send" [chanaddr, C.Variable "ws"],
+        C.SBlank,
+
         C.Return $ C.Variable "SYS_ERR_OK"
     ]
     where
+        register_chanstate = C.AddressOf $ C.DerefField bindvar "register_chanstate"
+        tx_cont_chanstate = C.AddressOf $ C.DerefField bindvar "tx_cont_chanstate"
         chanaddr = C.AddressOf $ C.DerefField lmp_bind_var "chan"
         params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var,
                   C.Param (C.Ptr $ C.Struct "waitset") "ws"]

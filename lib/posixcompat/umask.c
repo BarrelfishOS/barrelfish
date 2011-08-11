@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,9 +9,11 @@
 
 #include <sys/stat.h>
 #include <barrelfish/barrelfish.h>
+#include <stdio.h>
+#include "posixcompat.h"
 
 mode_t umask(mode_t mask)
 {
-    USER_PANIC("umask() NYI");
+    POSIXCOMPAT_DEBUG("Warning: umask(%d) ignored\n", mask);
     return 0;
 }

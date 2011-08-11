@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -8,51 +8,108 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
+#include <unistd.h>
+#include <errno.h>
 #include "fdtab.h"
+#include "posixcompat.h"
 
-#define MIN_FD  3 // avoid using stdin/out/err FDs
-#define MAX_FD  32
+static struct fdtab_entry fdtab[MAX_FD] = {
+    [STDIN_FILENO] = {
+        .type = FDTAB_TYPE_STDIN,
+        .handle = NULL,
+    },
+    [STDOUT_FILENO] = {
+        .type = FDTAB_TYPE_STDOUT,
+        .handle = NULL,
+    },
+    [STDERR_FILENO] = {
+        .type = FDTAB_TYPE_STDERR,
+        .handle = NULL,
+    },
+};
 
-static vfs_handle_t fdtab[MAX_FD];
-
-int fdtab_alloc(vfs_handle_t h)
+int fdtab_alloc_from(struct fdtab_entry *h, int start)
 {
-    assert(h != NULL_VFS_HANDLE);
-    for (int fd = MIN_FD; fd < MAX_FD; fd++) {
-        if (fdtab[fd] == NULL_VFS_HANDLE) {
-            fdtab[fd] = h;
+    assert(h != NULL);
+    assert(start >= MIN_FD);
+
+    for (int fd = start; fd < MAX_FD; fd++) {
+        if (fdtab[fd].type == FDTAB_TYPE_AVAILABLE) {
+            fdtab[fd].inherited = 0; // Just precautionary
+            memcpy(&fdtab[fd], h, sizeof(struct fdtab_entry));
+
             return fd;
         }
     }
-    fprintf(stderr, "Warning: out of FDs in posixcompat lib\n");
-    return -1; // table full
+
+    // table full
+    errno = EMFILE;
+    return -1;
 }
 
-int fdtab_search_alloc(vfs_handle_t h)
+int fdtab_alloc(struct fdtab_entry *h)
 {
-    assert(h != NULL_VFS_HANDLE);
+    return fdtab_alloc_from(h, MIN_FD);
+}
+
+int fdtab_search(struct fdtab_entry *h)
+{
     for (int fd = MIN_FD; fd < MAX_FD; fd++) {
-        if (fdtab[fd] == h) {
-            return fd;
+        if (fdtab[fd].type == h->type) {
+            switch(h->type) {
+            case FDTAB_TYPE_LWIP_SOCKET:
+                if(fdtab[fd].fd == h->fd) {
+                    return fd;
+                }
+                break;
+
+            default:
+                if(fdtab[fd].handle == h->handle) {
+                    return fd;
+                }
+                break;
+            }
         }
     }
-    return fdtab_alloc(h);
+
+    return -1;
 }
 
-vfs_handle_t fdtab_get(int fd)
+int fdtab_search_alloc(struct fdtab_entry *h)
 {
-    if (fd < MIN_FD || fd >= MAX_FD) {
-        return NULL_VFS_HANDLE;
+    assert(h != NULL);
+
+    int fd = fdtab_search(h);
+
+    if(fd == -1) {
+        return fdtab_alloc(h);
     } else {
-        return fdtab[fd];
+        return fd;
+    }
+}
+
+struct fdtab_entry *fdtab_get(int fd)
+{
+    static struct fdtab_entry invalid = {
+        .type = FDTAB_TYPE_AVAILABLE,
+        .handle = NULL,
+        .inherited = 0,
+    };
+
+    if (fd < MIN_FD || fd >= MAX_FD) {
+        return &invalid;
+    } else {
+        return &fdtab[fd];
     }
 }
 
 void fdtab_free(int fd)
 {
     assert(fd >= MIN_FD && fd < MAX_FD);
-    assert(fdtab[fd] != NULL_VFS_HANDLE);
-    fdtab[fd] = NULL_VFS_HANDLE;
+    assert(fdtab[fd].type != FDTAB_TYPE_AVAILABLE);
+    fdtab[fd].type = FDTAB_TYPE_AVAILABLE;
+    fdtab[fd].inherited = 0;
 }

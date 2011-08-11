@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -138,7 +138,8 @@ static errval_t alloc_device_bar(uint8_t index,
             if (err_no(err) == MM_ERR_MISSING_CAPS && bits > PAGE_BITS) {
                 /* try again with smaller page-sized caps */
                 for (int j = 0; j < i; j++) {
-                    err = mm_free(&pci_mm_physaddr, base + j * framesize, bits);
+                    err = mm_free(&pci_mm_physaddr, c->phys_cap[i],
+                                  base + j * framesize, bits);
                     assert(err_is_ok(err));
                 }
 

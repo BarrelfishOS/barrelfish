@@ -268,6 +268,12 @@ struct dcb *spawn_module(struct spawn_state *st,
     err = caps_create_new(ObjType_Kernel, 0, 0, 0, kernelcap_cte);
     assert(err_is_ok(err));
 
+    // Create capability for performance monitoring
+    struct cte *perfmoncap_cte = caps_locate_slot(CNODE(st->taskcn),
+                                                   TASKCN_SLOT_PERF_MON);
+    err = caps_create_new(ObjType_PerfMon, 0, 0, 0, perfmoncap_cte);
+    assert(err_is_ok(err));
+
     // Map IRQ table in task cnode
     err = caps_create_new(ObjType_IRQTable, 0, 0, 0,
                           caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IRQ));

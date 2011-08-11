@@ -8,60 +8,39 @@
  */
 
 interface ether_control "Generic Ethernet Driver Control flow Interface" {
-    
-    alias errval_t uint64;
 
     call register_filter_memory_request(cap mem);
-    response register_filter_memory_response(errval_t err);
+    response register_filter_memory_response(errval err);
 
     call register_filter_request(uint64 id,
     		uint64 len_rx,
 			uint64 len_tx,
 			uint64 buffer_id_rx,
-			uint64 buffer_id_tx);
+			uint64 buffer_id_tx,
+			uint64 filter_type);
     response register_filter_response(uint64 id,
-    		errval_t err,
+    		errval err,
 			uint64 filter_id,
 			uint64 buffer_id_rx,
-			uint64 buffer_id_tx);
+			uint64 buffer_id_tx,
+			uint64 filter_type);
+
+    call re_register_filter_request(uint64 filter_id,
+            uint64 buffer_id_rx,
+            uint64 buffer_id_tx);
+    response re_register_filter_response(errval err,
+            uint64 filter_id,
+            uint64 buffer_id_rx,
+            uint64 buffer_id_tx);
 
     call deregister_filter_request(uint64 filter_id);
-    response deregister_filter_response(errval_t err,
+    response deregister_filter_response(errval err,
 			uint64 filter_id);
 
     call register_arp_filter_request(uint64 id, 
     		uint64 len_rx,
 			uint64 len_tx);
     response register_arp_filter_response(uint64 id, 
-    		errval_t err);
+    		errval err);
 
-/*
-    call register_netd_memory(cap mem);
-    response registered_netd_memory(errval_t err);
-
-    call register_filter(uint64 id,
-    		uint64 len_rx,
-			uint64 len_tx,
-			uint64 buffer_id_rx,
-			uint64 buffer_id_tx);
-    response registered_filter(uint64 id,
-    		errval_t err,
-			uint64 filter_id,
-			uint64 buffer_id_rx,
-			uint64 buffer_id_tx);
-
-    call deregister_filter(uint64 filter_id,
-			uint64 buffer_id_rx,
-			uint64 buffer_id_tx);
-    response deregistered_filter(errval_t err,
-			uint64 filter_id,
-			uint64 buffer_id_rx,
-			uint64 buffer_id_tx);
-
-    call register_arp_filter(uint64 id, 
-    		uint64 len_rx,
-			uint64 len_tx);
-    response registered_arp_filter(uint64 id, 
-    		errval_t err);
-  */  
 };

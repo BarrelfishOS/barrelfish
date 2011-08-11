@@ -177,7 +177,7 @@ struct mem {
 
 /** the heap. we need one struct mem at the end and some room for alignment */
 //static u8_t ram_heap[MEM_SIZE_ALIGNED + (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT];
-uint8_t *mem_barrelfish_alloc_and_register(uint64_t size, uint8_t buf_index);
+uint8_t *mem_barrelfish_alloc_and_register(uint8_t buf_index, uint32_t size);
 static u8_t *ram_heap = 0;
 /** pointer to the heap (ram_heap): for alignment, ram is now a pointer instead of an array */
 static u8_t *ram;
@@ -267,9 +267,12 @@ plug_holes(struct mem *mem)
 void
 mem_init(void)
 {
+  size_t bufsize = MEM_SIZE_ALIGNED + (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT;
   struct mem *mem;
-  ram_heap = mem_barrelfish_alloc_and_register(MEM_SIZE_ALIGNED +
-            (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT, TX_BUFFER_ID);
+  printf("@@@@@@ mem alloc %lx, %lx for index %d\n", MEM_SIZE_ALIGNED +
+          (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT, bufsize, TX_BUFFER_ID);
+
+  ram_heap = mem_barrelfish_alloc_and_register(1, bufsize);
 
   LWIP_ASSERT("Sanity check alignment",
     (SIZEOF_STRUCT_MEM & (MEM_ALIGNMENT-1)) == 0);

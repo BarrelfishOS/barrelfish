@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -29,7 +29,6 @@ void execute_string(char *string);
 int main(int argc, char**argv)
 {
     // we'll be needing this...
-    vfs_init();
     vfs_mkdir("/tmp");
 
 //make sure, that dlsym has the right table to the statically compiled-in

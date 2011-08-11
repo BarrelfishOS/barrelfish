@@ -79,8 +79,6 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
     errval_t err;
     struct pinned_state *state = get_current_pinned_state();
 
-    thread_mutex_lock(&state->mutex);
-
     // Select slab type
     struct slab_alloc *slab;
     switch(slab_type) {
@@ -91,45 +89,45 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         slab = &state->frame_list_slab;
         break;
     default:
-        thread_mutex_unlock(&state->mutex);
         return LIB_ERR_VSPACE_PINNED_INVALID_TYPE;
     }
 
+    thread_mutex_lock(&state->mutex);
+
     // Try allocating
     void *buf = slab_alloc(slab);
-    if (buf) {
-        goto finish;
+    if (buf == NULL) {
+        // Out of memory, grow
+        struct capref frame;
+        err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
+        if (err_is_fail(err)) {
+            thread_mutex_unlock(&state->mutex);
+            return err_push(err, LIB_ERR_FRAME_ALLOC);
+        }
+        err = state->memobj.m.f.fill((struct memobj*)&state->memobj,
+                                     state->offset, frame,
+                                     BASE_PAGE_SIZE);
+        if (err_is_fail(err)) {
+            thread_mutex_unlock(&state->mutex);
+            return err_push(err, LIB_ERR_MEMOBJ_FILL);
+        }
+
+        genvaddr_t gvaddr = vregion_get_base_addr(&state->vregion) +
+            state->offset;
+        void *slab_buf = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
+        slab_grow(slab, slab_buf, BASE_PAGE_SIZE);
+        state->offset += BASE_PAGE_SIZE;
+
+        // Try again
+        buf = slab_alloc(slab);
     }
 
-    // Out of memory, grow
-    struct capref frame;
-    err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
-    if (err_is_fail(err)) {
-        thread_mutex_unlock(&state->mutex);
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-    err = state->memobj.m.f.fill((struct memobj*)&state->memobj,
-                                  state->offset, frame,
-                                  BASE_PAGE_SIZE);
-    if (err_is_fail(err)) {
-        thread_mutex_unlock(&state->mutex);
-        return err_push(err, LIB_ERR_MEMOBJ_FILL);
-    }
-
-    genvaddr_t gvaddr = vregion_get_base_addr(&state->vregion) +
-        state->offset;
-    void *slab_buf = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
-    slab_grow(slab, slab_buf, BASE_PAGE_SIZE);
-    state->offset += BASE_PAGE_SIZE;
-
-    // Try again
-    buf = slab_alloc(slab);
-    if (!buf) {
-        thread_mutex_unlock(&state->mutex);
-        return LIB_ERR_SLAB_ALLOC_FAIL;
-    }
- finish:
-    *retbuf = buf;
     thread_mutex_unlock(&state->mutex);
-    return SYS_ERR_OK;
+
+    if (buf == NULL) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
+    } else {
+        *retbuf = buf;
+        return SYS_ERR_OK;
+    }
 }

@@ -953,6 +953,7 @@ dns_gethostbyname(const char *hostname, struct ip_addr *addr, dns_found_callback
 {
   /* not initialized or no valid server yet, or invalid addr pointer
    * or invalid hostname or invalid hostname length */
+  LWIP_DEBUGF(DNS_DEBUG, ("hostname %s, dns_pcb %p, addr %p\n", hostname, dns_pcb, addr));
   if ((dns_pcb == NULL) || (addr == NULL) ||
       (!hostname) || (!hostname[0]) ||
       (strlen(hostname) >= DNS_MAX_NAME_LENGTH)) {
@@ -965,14 +966,14 @@ dns_gethostbyname(const char *hostname, struct ip_addr *addr, dns_found_callback
     return ERR_OK;
   }
 #endif /* LWIP_HAVE_LOOPIF */
-
+  
   /* host name already in octet notation? set ip addr and return ERR_OK
    * already have this address cached? */
   if (((addr->addr = inet_addr(hostname)) != INADDR_NONE) ||
       ((addr->addr = dns_lookup(hostname)) != INADDR_NONE)) {
     return ERR_OK;
   }
-
+  LWIP_DEBUGF(DNS_DEBUG, ("about to dns enqueue with the specified callback %p!\n", callback_arg));
   /* queue query with specified callback */
   return dns_enqueue(hostname, found, callback_arg);
 }

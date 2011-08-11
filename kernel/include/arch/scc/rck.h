@@ -20,5 +20,8 @@ void rck_handle_notification(void);
 errval_t rck_register_notification(caddr_t cap, int chanid);
 errval_t rck_delete_notification(int chanid);
 int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_data);
+void rck_reset_lint1(void);
+errval_t rck_get_route(genpaddr_t base, size_t size, uint8_t *route,
+                       uint8_t *subdest, uint16_t *addrbits);
 
 #endif

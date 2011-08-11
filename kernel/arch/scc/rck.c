@@ -206,6 +206,50 @@ void rck_init(void)
             memset((void *)mpb[i], 0, 4 * BASE_PAGE_SIZE);
         }
     }
+
+    // Map more shared RAM (960MB more)
+    static int addr[19] = {0x28, 0x51, 0x7a, 0xa3, 0xcc, 0xf5, 0x11e, 0x147, 0x170, 0x199, 0x1c2, 0x1eb, 0x1ed, 0x1ee, 0x1ef, 0x1f0, 0x1f1, 0x1f2, 0x1f3};
+    for(int i = 0; i < 76; i++) {
+        int current_lut;
+        if(i < 60) {
+            current_lut = 132 + i;
+        } else {
+            current_lut = 127 - (i - 60);
+        }
+        rck_lute_t lut = {
+            .bypass = 0
+        };
+
+        switch(i / 19) {
+        case 0:
+            lut.route = 0;
+            lut.subdest = rck_mc1_sd;
+            break;
+
+        case 1:
+            lut.route = 5;
+            lut.subdest = rck_mc2_sd;
+            break;
+
+        case 2:
+            lut.route = 0x20;
+            lut.subdest = rck_mc1_sd;
+            break;
+
+        case 3:
+            lut.route = 0x25;
+            lut.subdest = rck_mc2_sd;
+            break;
+
+        default:
+            assert(!"shouldn't happen");
+        };
+
+        lut.addrbits = addr[i % 19];
+
+        rck_lut0_wr(&rck_own, current_lut, lut);
+        rck_lut1_wr(&rck_own, current_lut, lut);
+    }
 }
 
 #define NUM_ROWS 4
@@ -251,7 +295,7 @@ static void handle_channel(uintptr_t chanid)
         printk(LOG_WARN, "unhandled RCK channel %d\n", chanid);
         return;
     } else {
-        /* printf("handle_channel(%d)\n", chanid); */
+      /* printf("%d: handle_channel(%d)\n", my_core_id, chanid); */
     }
     assert(ep->type == ObjType_EndPoint);
 
@@ -302,7 +346,7 @@ void rck_send_notification(uint8_t dest, uintptr_t chanid)
     cl[6] = 0;
     cl[7] = 0;
 
-    /* printf("rck_send_notification(%u (%d, %d), %u), 0x%x\n", dest, tile, core, chanid, vaddr); */
+    /* printf("%d: rck_send_notification(%u (%d, %d), %u)\n", my_core_id, dest, tile, core, chanid); */
 
     assert(reader_pos != (writer_pos + 1) % RING_SIZE);
 
@@ -402,6 +446,57 @@ void rck_handle_notification(void)
     release_lock(myself);
 }
 
+void rck_reset_lint1(void)
+{
+    uint8_t myself = rck_get_coreid();
+    int tile = myself / 2, core = myself % 2;
+    uint32_t glcfg = rck_glcfg_rd_raw(&rck[tile], core);
+    glcfg &= ~1;
+    rck_glcfg_wr_raw(&rck[tile], core, glcfg);
+}
+
+errval_t rck_get_route(genpaddr_t base, size_t size, uint8_t *route,
+                       uint8_t *subdest, uint16_t *addrbits)
+{
+    uint8_t myself = rck_get_coreid();
+    int tile = myself / 2, core = myself % 2;
+    uint32_t lute;
+    genpaddr_t index = base >> 24;
+    assert(index < 256);
+    bool first = true;
+    assert(index + (size / LUT_SIZE) < 256);
+
+    // This is probably overkill. A device is probably only able to
+    // route to exactly one LUT mapping, and not multiple consecutive
+    // ones.
+    printf("#### base %"PRIxGENPADDR", %zu\n", base, size);
+    for(genpaddr_t i = 0; i <= size / LUT_SIZE; i++) {
+        if(core == 0) {
+            lute = rck_lut0_rd_raw(&rck[tile], index + i);
+        } else {
+            lute = rck_lut1_rd_raw(&rck[tile], index + i);
+        }
+
+        uint8_t myroute = (lute >> 13) & 0xff;
+        uint8_t mysubdest = (lute >> 10) & 0b111;
+        uint16_t myaddrbits = lute & 0x3ff;
+        printf("#### myroute = %x, %x %x\n", myroute, mysubdest, myaddrbits);
+        if(!first) {
+            if(myroute != *route || mysubdest != *subdest
+               || myaddrbits != *addrbits + i) {
+                return SYS_ERR_CROSS_MC;
+            }
+        } else {
+            *route = myroute;
+            *subdest = mysubdest;
+            *addrbits = myaddrbits;
+            first = false;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
 errval_t rck_register_notification(caddr_t ep, int chanid)
 {
     struct cte *recv;
@@ -447,9 +542,9 @@ errval_t rck_delete_notification(int chanid)
 }
 
 #define CORES_PER_QUADRANT      12
-#define LUTS_PER_CORE           20
-#define XCORE_LUT_BASE          20
-#define XCORE_PADDR_BASE        0x14000000
+/* #define LUTS_PER_CORE           20 */
+#define XCORE_LUT_BASE          41
+#define XCORE_PADDR_BASE        0x29000000
 
 struct mcdest {
     int route;
@@ -782,9 +877,9 @@ int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_
 
     int route = dests[coreid].route;
     rck_mcsubdests_t subdest = dests[coreid].subdest;
-    int addrbits = dests[coreid].addrbits * 0x14;
+    int addrbits = dests[coreid].addrbits * 0x29;
 
-    // Map core's memory at LUT entry 20
+    // Map core's memory at LUT entry 41
     // XXX: Something's utterly wrong here! The register isn't written correctly.
     // route is 11b, even though it should be 0.
 #if 0
@@ -808,7 +903,7 @@ int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_
     lvaddr_t mem = paging_map_device(xcore_paddr + 0x100000 - BASE_PAGE_SIZE, BASE_PAGE_SIZE);
     assert(mem != 0);
 
-    /* for(lpaddr_t base = XCORE_PADDR; base < XCORE_PADDR + LUT_SIZE; base += BASE_PAGE_SIZE) { */        
+    /* for(lpaddr_t base = XCORE_PADDR; base < XCORE_PADDR + LUT_SIZE; base += BASE_PAGE_SIZE) { */
     /* } */
 
     // XXX: Copy given core_data to destination

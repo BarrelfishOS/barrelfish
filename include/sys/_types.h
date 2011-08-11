@@ -47,21 +47,36 @@ typedef __uint16_t      u_int16_t;
 typedef __uint32_t      u_int32_t;
 typedef __uint64_t      u_int64_t;
 
-typedef unsigned char   u_char;
+typedef __uint8_t       __sa_family_t;
 
 typedef va_list         __va_list;
 typedef size_t          __size_t;
+
+typedef __uint32_t	__gid_t;
+typedef __uint32_t	__uid_t;
+typedef __int32_t	__clock_t;
 
 typedef int             __ct_rune_t;    /* arg type for ctype funcs */
 typedef __ct_rune_t     __rune_t;       /* rune_t (see above) */
 typedef __ct_rune_t     __wchar_t;      /* wchar_t (see above) */
 typedef __ct_rune_t     __wint_t;       /* wint_t (see above) */
 
+typedef __uint16_t      __mode_t;       /* permissions */
+typedef __int64_t       __off_t;        /* file offset */
+typedef __int32_t       __pid_t;        /* process [group] */
+typedef long            __key_t;        /* IPC key (for Sys V IPC) */
+
 typedef __uint32_t      __dev_t;        /* device number */
 
 typedef __uint32_t      __fixpt_t;      /* fixed point number */
 
 typedef int             __nl_item;
+
+#ifdef __x86_64__
+typedef __int64_t	__time_t;
+#else // XXX: All other archs get 32-bit __time_t
+typedef __int32_t	__time_t;
+#endif
 
 typedef union {
     char            __mbstate8[128];

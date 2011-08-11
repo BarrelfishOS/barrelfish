@@ -85,6 +85,7 @@ extern const char *lwip_strerr(err_t err);
 #endif
 
 #include <errors/errno.h>
+#include <errno.h>
 errval_t lwip_err_to_errval(err_t e);
 
 #endif /* __LWIP_ERR_H__ */

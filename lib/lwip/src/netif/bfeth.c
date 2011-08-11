@@ -129,7 +129,9 @@ static err_t
 low_level_output(struct netif *netif, struct pbuf *p)
 {
   //avoid that lwip frees this buffer before it has been sent by the network card.
-  pbuf_ref(p);
+  for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+      pbuf_ref(tmpp);
+  }
 
 #if ETH_PAD_SIZE
   pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
@@ -199,9 +201,9 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
   assert(packet_len != 0);
   p->len = packet_len;
   p->tot_len = packet_len;
+  ethhdr = p->payload;
 
   /* points to packet payload, which starts with an Ethernet header */
-  ethhdr = p->payload;
 
   switch (htons(ethhdr->type)) {
   /* IP or ARP packet? */
@@ -218,6 +220,7 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
           return;
       } else {
           /* full packet send to tcpip_thread to process */
+		assert(netif->input != NULL);
           if (netif->input(p, netif)!=ERR_OK)
               { LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: IP input error\n"));
                   pbuf_free(p);
@@ -227,6 +230,7 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
     break;
 
   default:
+      LWIP_DEBUGF(NETIF_DEBUG,("unknown type %x!!!!!\n", htons(ethhdr->type)));
     pbuf_free(p);
     p = NULL;
     break;

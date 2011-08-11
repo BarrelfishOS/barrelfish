@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -55,9 +55,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <kputchar.h>
-
-/* XXX: make BSD code below happy */
-typedef long ssize_t;
 
 #define TOCONS          (1 << 0)
 #define TOLOG           (1 << 1)

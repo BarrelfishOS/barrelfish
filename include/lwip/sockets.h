@@ -39,6 +39,7 @@
 #if LWIP_SOCKET /* don't build if not configured for use in lwipopts.h */
 
 #include <stddef.h> /* for size_t */
+#include <fcntl.h>
 
 #include "lwip/ip_addr.h"
 #include "lwip/inet.h"
@@ -76,14 +77,14 @@ struct sockaddr {
  */
 #define  SO_DEBUG       0x0001 /* Unimplemented: turn on debugging info recording */
 #define  SO_ACCEPTCONN  0x0002 /* socket has had listen() */
-#define  SO_REUSEADDR   0x0004 /* Unimplemented: allow local address reuse */
+//#define  SO_REUSEADDR   0x0004 /* Unimplemented: allow local address reuse */
 #define  SO_KEEPALIVE   0x0008 /* keep connections alive */
 #define  SO_DONTROUTE   0x0010 /* Unimplemented: just use interface addresses */
 #define  SO_BROADCAST   0x0020 /* permit to send and to receive broadcast messages (see IP_SOF_BROADCAST option) */
 #define  SO_USELOOPBACK 0x0040 /* Unimplemented: bypass hardware when possible */
 #define  SO_LINGER      0x0080 /* linger on close if data present */
 #define  SO_OOBINLINE   0x0100 /* Unimplemented: leave received OOB data in line */
-#define  SO_REUSEPORT   0x0200 /* Unimplemented: allow local address & port reuse */
+//#define  SO_REUSEPORT   0x0200 /* Unimplemented: allow local address & port reuse */
 
 #define SO_DONTLINGER   ((int)(~SO_LINGER))
 
@@ -286,7 +287,7 @@ typedef struct ip_mreq {
 /** LWIP_TIMEVAL_PRIVATE: if you want to use the struct timeval provided
  * by your system, set this to 0 and include <sys/time.h> in cc.h */ 
 #ifndef LWIP_TIMEVAL_PRIVATE
-#define LWIP_TIMEVAL_PRIVATE 1
+#define LWIP_TIMEVAL_PRIVATE 0
 #endif
 
 #if LWIP_TIMEVAL_PRIVATE
@@ -353,5 +354,6 @@ int lwip_ioctl(int s, long cmd, void *argp);
 #endif
 
 #endif /* LWIP_SOCKET */
+
 
 #endif /* __LWIP_SOCKETS_H__ */

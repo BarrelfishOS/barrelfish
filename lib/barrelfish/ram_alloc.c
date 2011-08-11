@@ -161,23 +161,13 @@ void ram_alloc_init(void)
     ram_alloc_state->base_capnum      = 0;
 }
 
-static errval_t ram_free_remote(struct capref ramcap);
-
 /**
  * \brief Set ram_alloc to the default ram_alloc_remote or to a given function
  *
- * Also need to provide a corresponding free function, or NULL. If
- * local_free is NULL, memory reclamation is disabled. Upon free(),
- * data will stay in malloc()'s free list. This is useful for special
- * initialization domains (e.g. the monitors) that cannot give back
- * memory and it is better to keep it in their free lists instead of
- * providing a no-op free function, which would leak memory.
- *
- * If local_allocator is NULL, local_free is ignored and both will be
- * initialized to the default remote allocator.
+ * If local_allocator is NULL, it will be initialized to the default
+ * remote allocator.
  */
-errval_t ram_alloc_set(ram_alloc_func_t local_allocator,
-                       ram_free_func_t local_free)
+errval_t ram_alloc_set(ram_alloc_func_t local_allocator)
 {
     errval_t err;
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
@@ -185,7 +175,6 @@ errval_t ram_alloc_set(ram_alloc_func_t local_allocator,
     /* Special case */
     if (local_allocator != NULL) {
         ram_alloc_state->ram_alloc_func = local_allocator;
-        ram_alloc_state->ram_free_func = local_free;
         return SYS_ERR_OK;
     }
 
@@ -204,41 +193,6 @@ errval_t ram_alloc_set(ram_alloc_func_t local_allocator,
 
     if (err_is_ok(ram_alloc_state->mem_connect_err)) {
         ram_alloc_state->ram_alloc_func = ram_alloc_remote;
-        ram_alloc_state->ram_free_func = ram_free_remote;
     }
     return ram_alloc_state->mem_connect_err;
-}
-
-/* remote (indirect through a channel) version of ram_free, for most domains */
-static errval_t ram_free_remote(struct capref ramcap)
-{
-    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-    errval_t err, result;
-
-    thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
-
-    struct mem_rpc_client *b = get_mem_client();
-    err = b->vtbl.free(b, ramcap, &result);
-
-    thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
-
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return result;
-}
-
-errval_t ram_free_fixed(struct capref ramcap)
-{
-    assert(!"NYI");
-    // can't free a cap from the fixed supply
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-
-errval_t ram_free(struct capref ramcap)
-{
-    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-    assert(ram_alloc_state->ram_free_func != NULL);
-    return ram_alloc_state->ram_free_func(ramcap);
 }

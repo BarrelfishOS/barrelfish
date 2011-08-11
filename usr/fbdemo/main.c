@@ -66,8 +66,7 @@ void wait_for_vsync(void)
 
 int main(int argc, char *argv[])
 {
-    errval_t err;
-    int r;
+    errval_t err, ret;
 
     // Parse commandline
     if(argc < 4) {
@@ -82,9 +81,9 @@ int main(int argc, char *argv[])
 
     fb_client_connect();
 
-    err = fb_client.vtbl.set_videomode(&fb_client, xres, yres, bpp, &r);
+    err = fb_client.vtbl.set_videomode(&fb_client, xres, yres, bpp, &ret);
     assert(err_is_ok(err));
-    if(r != 0) {
+    if(err_is_fail(ret)) {
         fprintf(stderr, "Error: failed to set video mode %dx%d %dbpp\n",
                 xres, yres, bpp);
         return EXIT_FAILURE;
@@ -92,8 +91,10 @@ int main(int argc, char *argv[])
 
     // Get and map framebuffer
     struct capref fbcap;
-    err = fb_client.vtbl.get_framebuffer(&fb_client, &fbcap);
+    uint32_t fboffset;
+    err = fb_client.vtbl.get_framebuffer(&fb_client, &ret, &fbcap, &fboffset);
     assert(err_is_ok(err));
+    assert(err_is_ok(ret));
 
     struct frame_identity fbid = { .base = 0, .bits = 0 };
     err = invoke_frame_identify(fbcap, &fbid);
@@ -102,6 +103,8 @@ int main(int argc, char *argv[])
     err = vspace_map_one_frame((void**)&vidmem, 1ul << fbid.bits, fbcap,
                                NULL, NULL);
     assert(err_is_ok(err));
+
+    vidmem += fboffset;
 
     vesa_demo(vidmem, xres, yres, bpp);
 
