@@ -32,6 +32,7 @@ data Attr =   RO      -- Read Only
 
 
 -- User can reasonably read from this register
+attr_user_can_read :: Attr -> Bool
 attr_user_can_read WO = False
 attr_user_can_read MBZ = False
 attr_user_can_read MB1 = False
@@ -39,6 +40,7 @@ attr_user_can_read RSVD = False
 attr_user_can_read _ = True
 
 -- User can reasonably write to this register
+attr_user_can_write :: Attr -> Bool
 attr_user_can_write RO = False
 attr_user_can_write RC = False
 attr_user_can_write ROS = False
@@ -47,6 +49,7 @@ attr_user_can_write MB1 = False
 attr_user_can_write RSVD = False
 attr_user_can_write _ = True
 
+attr_is_writeable :: Attr -> Bool
 attr_is_writeable RO = False
 attr_is_writeable WO = True
 attr_is_writeable RC = False
@@ -63,6 +66,7 @@ attr_is_writeable MB1 = False
 attr_is_writeable RSVD = False
 attr_is_writeable _  = False
 
+attr_is_readable :: Attr -> Bool
 attr_is_readable RO = True
 attr_is_readable WO = False
 attr_is_readable RC = True
@@ -79,6 +83,7 @@ attr_is_readable MB1 = False
 attr_is_readable RSVD = False
 attr_is_readable _  = False
 
+attr_is_writeonly :: Attr -> Bool
 attr_is_writeonly RO = False
 attr_is_writeonly WO = True
 attr_is_writeonly RC = False
@@ -96,10 +101,12 @@ attr_is_writeonly RSVD = False
 attr_is_writeonly _  = False
 
 -- Field must always be written with a value read from the register.
+attr_preserve_on_write :: Attr -> Bool
 attr_preserve_on_write RSVD = True
 attr_preserve_on_write _ = False
 
 -- Field can be preserved by reading from the register
+attr_can_init_from_reg :: Attr -> Bool
 attr_can_init_from_reg RW = True
 attr_can_init_from_reg RSVD = True
 attr_can_init_from_reg RWS = True
@@ -107,9 +114,11 @@ attr_can_init_from_reg RWL = True
 attr_can_init_from_reg _ = False
 
 -- Field must always be written as zero
+attr_zero_before_write :: Attr -> Bool
 attr_zero_before_write MBZ = True
 attr_zero_before_write _ = False
 
 -- Field must always be written as one
+attr_set_before_write :: Attr -> Bool
 attr_set_before_write MB1 = True
 attr_set_before_write _ = False

@@ -18,36 +18,39 @@ import Text.ParserCombinators.Parsec
 import Attr
 import qualified Fields as F
 import qualified TypeTable as TT
+import qualified TypeName as TN
 import qualified Space
 
 {--------------------------------------------------------------------
 Register table: list of all registers 
 --------------------------------------------------------------------}
 
-data Rec = Rec { name :: String,
-                 fl :: [F.Rec],
-                 tpe :: TT.Rec,
-                 origtype :: String,
-                 size :: Integer,
-                 also :: Bool,
-                 desc :: String,
-                 spc_id :: String,
-                 spc :: Space.Rec,
-                 base :: String,
-                 offset :: Integer,
-                 arr :: ArrayLoc,
-                 pos :: SourcePos
+data Rec = Rec { name :: String,        -- Unqualified name of register 
+                 fl :: [F.Rec],         -- List of fields (may be empty)
+                 tpe :: TT.Rec,         -- Type of this register
+                 origtype :: String,    -- Original name of register type
+                 size :: Integer,       -- Width in bits
+                 also :: Bool,          -- Only register at this address?
+                 desc :: String,        -- Description string
+                 spc_id :: String,      -- Address space identifier
+                 spc :: Space.Rec,      -- Address space record
+                 base :: String,        -- Base variable name
+                 offset :: Integer,     -- Offset of register from base
+                 arr :: ArrayLoc,       -- Array of locations
+                 pos :: SourcePos       -- Source code position
                }
          deriving Show
 
 --
 -- Building the register table
 --
-make_table :: [TT.Rec] -> [AST] -> BitOrder -> [Space.Rec] -> [Rec]
-make_table rtinfo decls order spt = 
-    concat [ (make_reginfo rtinfo d order spt) | d <- decls ]
+make_table :: [TT.Rec] -> [AST] -> String -> BitOrder -> [Space.Rec] -> [Rec]
+make_table rtinfo decls dn order spt = 
+    concat [ (make_reginfo rtinfo d dn order spt) | d <- decls ]
 
 
+make_regproto :: String -> Bool -> RegLoc -> String -> SourcePos -> [Space.Rec] -> TT.Rec
+                 -> Rec
 make_regproto n als rloc dsc p spt t =
     let (si, s, b, o) = get_location rloc spt
     in
@@ -65,27 +68,28 @@ make_regproto n als rloc dsc p spt t =
             arr = (ArrayListLoc []),
             pos = p } 
 
+make_reginfo :: [TT.Rec] -> AST -> String -> BitOrder -> [Space.Rec] -> [Rec]
 
-
-make_reginfo :: [TT.Rec] -> AST -> BitOrder -> [Space.Rec] -> [Rec]
-
-make_reginfo rtinfo (RegArray n attr als rloc aloc dsc (TypeDefn decls) p) order spt =
-    let r = make_regproto n als rloc dsc p spt (TT.get_rtrec rtinfo n)
+make_reginfo rtinfo (RegArray n attr als rloc aloc dsc (TypeDefn decls) p) dn order spt =
+    let t = (TT.get_rtrec rtinfo (TN.fromParts dn n))
+        r = make_regproto n als rloc dsc p spt t
     in
-      [ r { fl = F.make_list attr order 0 decls,
-            size = TT.tt_size (TT.get_rtrec rtinfo n),
+      [ r { fl = F.make_list dn attr order 0 decls,
+            size = TT.tt_size t,
             arr = aloc } ]
 
-make_reginfo rtinfo (RegArray n attr als rloc aloc dsc (TypeRef tname) p) order spt
-    | TT.is_builtin_type tname = 
-        let t = (TT.Primitive tname (TT.builtin_size tname) attr)
+make_reginfo rtinfo (RegArray n attr als rloc aloc dsc tr@(TypeRef tname dname) p) dn order spt = 
+  let tn = TN.fromRef tr dn
+  in
+   if TN.is_builtin_type tn then
+        let t = (TT.Primitive tn (TT.builtin_size tname) attr)
             r = make_regproto n als rloc dsc p spt t
         in [ r { fl = [],
                  origtype = tname,
                  size = (TT.tt_size t),
                  arr = aloc } ]
-    | otherwise = 
-        let rt = (TT.get_rtrec rtinfo tname)
+   else
+        let rt = (TT.get_rtrec rtinfo tn)
             r = make_regproto n als rloc dsc p spt rt
         in
           [ r { fl = F.inherit_list attr (TT.fields rt),
@@ -93,23 +97,27 @@ make_reginfo rtinfo (RegArray n attr als rloc aloc dsc (TypeRef tname) p) order 
                 size = (TT.tt_size rt),
                 arr = aloc } ]
 
-make_reginfo rtinfo (Register n attr als rloc dsc (TypeDefn decls) p) order spt =
-    let r = make_regproto n als rloc dsc p spt (TT.get_rtrec rtinfo n)
+make_reginfo rtinfo (Register n attr als rloc dsc (TypeDefn decls) p) dn order spt =
+    let tn = TN.fromParts dn n
+        td = TT.get_rtrec rtinfo tn
+        r = make_regproto n als rloc dsc p spt td
     in
-      [ r { fl = F.make_list attr order 0 decls,
-            size = TT.tt_size (TT.get_rtrec rtinfo n),
+      [ r { fl = F.make_list dn attr order 0 decls,
+            size = TT.tt_size td,
             arr = (ArrayListLoc []) } ]
 
-make_reginfo rtinfo (Register n attr als rloc dsc (TypeRef tname) p) order spt 
-    | TT.is_builtin_type tname = 
-        let t = (TT.Primitive tname (TT.builtin_size tname) attr)
+make_reginfo rtinfo (Register n attr als rloc dsc tr@(TypeRef tname dname) p) dn order spt =
+  let tn = TN.fromRef tr dn
+  in
+    if TN.is_builtin_type tn then
+        let t = (TT.Primitive tn (TT.builtin_size tname) attr)
             r = make_regproto n als rloc dsc p spt t
         in [ r { origtype = tname,
                  size = (TT.tt_size t),
                  arr = (ArrayListLoc []) } ]
 
-    | otherwise = 
-        let rt = (TT.get_rtrec rtinfo tname)
+    else
+        let rt = (TT.get_rtrec rtinfo tn)
             r = make_regproto n als rloc dsc p spt rt
         in
           [ r { fl = F.inherit_list attr (TT.fields rt),
@@ -117,7 +125,7 @@ make_reginfo rtinfo (Register n attr als rloc dsc (TypeRef tname) p) order spt
                 size = (TT.tt_size rt),
                 arr = (ArrayListLoc []) } ]
           
-make_reginfo rtinfo _ _ _ = []
+make_reginfo rtinfo _ _ _ _ = []
 
 get_location :: RegLoc -> [Space.Rec] -> ( String, Space.Rec, String, Integer )
 get_location (RegLoc s b o) spt = 
@@ -185,7 +193,7 @@ is_writeonly r =
 needs_shadow :: Rec -> Bool
 needs_shadow r = is_writeonly r
 
-typename :: Rec -> String
+typename :: Rec -> TN.Name
 typename r = (TT.tt_name (tpe r))
 
 is_array :: Rec -> Bool
@@ -199,12 +207,13 @@ num_elements Rec { arr = (ArrayStepLoc num _) } = num
 needs_read_before_write :: Rec -> Bool
 needs_read_before_write r = any F.is_rsvd (fl r)
 
-data Shadow = Shadow String String
+
+
+data Shadow = Shadow String TN.Name
 --                   name   type
 get_shadows :: [Rec] -> [Shadow]
 get_shadows reginfo = 
-    [ Shadow (name r) (TT.tt_name (tpe  r)) 
-          | r <- reginfo, needs_shadow r ]
+    [ Shadow (name r) (typename r) | r <- reginfo, needs_shadow r ]
 
 get_shadow_registers :: [Rec] -> [Rec]
 get_shadow_registers reginfo = [ r | r <- reginfo, needs_shadow r ]

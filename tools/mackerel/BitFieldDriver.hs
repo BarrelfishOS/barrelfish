@@ -28,18 +28,32 @@ import Checks
 import Attr
 import Space
 import qualified CSyntax as C
+import qualified TypeName as TN
 import qualified TypeTable as TT
 import qualified RegisterTable as RT
-import qualified ConstTable as CT
 import qualified Fields
 import qualified Dev
 import qualified Data.Maybe
 
+--
+-- Take a list of scope names and translate to a C identifier. 
+-- 
+
+qual_trec :: TT.Rec -> [ String ] -> String
+qual_trec t l = qual_name (TT.tt_name t) l 
+
+qual_name :: TN.Name -> [ String ] -> String
+qual_name (TN.Name dn tn) l = concat $ intersperse "_" ([dn] ++ l ++ [tn]) 
+
+--
+-- Language mapping: C type and name definitions
+--
 dev_t = "__DN(t)"
 dev_init = "__DN(initialize)"
 dev_pr = "__DP(pr)"
 dev_reg_ptr n = n ++ " *"
 dev_ptr = dev_t ++ " *"
+dev_tp d = d ++ "_t"
 
 reg_nm n         = "__DP(" ++ n ++ ")"      -- Name of a register 
 reg_wr n         = (reg_nm (n ++ "_wr"))    -- Fn to write a register
@@ -49,7 +63,7 @@ reg_init n       = (reg_nm (n ++ "_init"))
 reg_rd n         = (reg_nm (n ++ "_rd"))    -- Fn to read a register
 reg_rd_raw n     = (reg_nm (n ++ "_rd_raw"))    -- Fn to read a raw register
 reg_rds n        = (reg_nm (n ++ "_rd_shadow")) -- Read a register's shadow
-reg_pv n         = (reg_nm (n ++ "_prtval"))    -- Fn to print a regtype type
+reg_pv tn        = qual_name tn ["prtval"]    -- Fn to print a regtype type
 reg_pr n         = (reg_nm (n ++ "_pr"))    -- Fn to print a register contents
 reg_pri n         = (reg_nm (n ++ "_pri"))    -- Fn to print an array element
 reg_chk n        = (reg_nm (n ++ "_chk"))   -- Fn to check data type to be written on that register
@@ -57,14 +71,14 @@ reg_fd n         = (reg_nm (n ++ "_fd"))   -- field read access
 reg_addr n       = (reg_nm (n ++ "_addr"))
 reg_len n       = (reg_nm (n ++ "_length"))
 
-reg_t  n = (reg_nm (n ++ "_t"))         -- Name of a register type
-reg_un :: String -> String
-reg_un  n = (reg_nm (n ++ "_un"))         -- Name of a union type
+reg_t tn = qual_name tn ["t"]           -- Name of a register type
+reg_un  tn = qual_name tn ["un"]         -- Name of a union type
 
+enum_nm :: String -> String
 enum_nm n = "__DP(" ++ n ++ ")"
-enum_t n = (enum_nm (n ++ "_t"))
-enum_pr n = (enum_nm (n ++ "_prt"))
-enum_chk n = (enum_nm (n ++ "_chk"))
+enum_t tn = qual_name tn ["t"]
+enum_pr tn = qual_name tn ["prt"]
+enum_chk tn = qual_name tn ["chk"]
 
 shadow nm = nm ++ "_shadow"
 
@@ -96,19 +110,6 @@ compile infile outfile dev =
     let dd = device_def dev ""
     in (r_preamble dev) ++ (C.header_file (Dev.name dev) dd)
 
-render dev header = 
-    let dd = device_def dev header
-    in
-      output ((r_preamble dev) ++ C.header_file (Dev.name dev) dd) 0
-
-_success = exitWith ExitSuccess
-_fail = exitWith (ExitFailure 1)
-                            
-output s exit = if(exit == 0) then 
-                    (hPutStrLn stdout s) >> _success
-                else
-                    (hPutStrLn stderr s) >> _fail 
-
 -- translation function mapped to every argument, for generic conversion
 -- (eg. types or names) before rendering those arguments in C code
 
@@ -120,9 +121,9 @@ convert_arg (Arg "io" x) = Arg "mackerel_io_t" x
 device_def dev header = 
     unlines ( std_header_files ++
               (device_prefix_defs (Dev.name dev)) ++   -- Macros
-              (concat [ constants_decl d | d <- (Dev.cnstnts dev) ]) ++
-              (concat [ regtype_decl d | d <- (Dev.types dev) ]) ++
-              (concat [ datatype_decl d | d <- (Dev.dtypes dev) ]) ++
+              (concat [ constants_decl d | d@(TT.ConstType {}) <- (Dev.types dev)]) ++
+              (concat [ regtype_decl d | d@(TT.RegFormat {}) <- (Dev.types dev) ]) ++
+              (concat [ datatype_decl d | d@(TT.DataFormat {}) <- (Dev.types dev) ]) ++
               (device_struct_def dev) ++
               (device_init_def dev) ++
               (space_includes dev header) ++
@@ -173,17 +174,17 @@ device_struct_def d =
                                )
     
 device_struct_shadow (RT.Shadow n t) 
-    | TT.is_builtin_type t = C.struct_field (builtin_to_c t) (shadow n)
+    | TN.is_builtin_type t = C.struct_field (builtin_to_c t) (shadow n)
     | otherwise = C.struct_field (reg_un t) (shadow n)
 
 device_init_shadow (RT.Shadow n t)
-    | TT.is_builtin_type t = printf "_dev->%s = %s;" (shadow n) "0x0"
+    | TN.is_builtin_type t = printf "_dev->%s = %s;" (shadow n) "0x0"
     | otherwise = printf "_dev->%s.raw = %s;" (shadow n) "0x0" 
 
 -- Device init function 
 device_init_def :: Dev.Rec -> [String]
 device_init_def d = 
-    let tn = reg_t (Dev.name d)
+    let tn = dev_tp (Dev.name d)
         args = map convert_arg (Dev.args d)
     in
       [ C.multi_comment "Device Initialization function\n",
@@ -230,54 +231,55 @@ space_includes d header
 -- Render 'constants' declarations
 -------------------------------------------------------------------------
 
-constants_decl :: CT.Rec -> [String]
+constants_decl :: TT.Rec -> [String]
 constants_decl c = [ (constants_comment c),
                   (constants_typedef c),
                   (constants_print_fn c),
                   (constants_check_fn c) ]
       
 constants_comment c = 
-    C.multi_comment (printf "Constant definition: %s (%s)" (CT.name c) (CT.desc c))
+    C.multi_comment (printf "Constant definition: %s (%s)" (TT.type_name c) (TT.tt_desc c))
     
 constants_typedef c = 
-    C.enum (enum_t (CT.name c)) [ (enum_nm(CT.cname v), 
-                                   (C.expression (CT.cval v)) )
-                                  | v <- (CT.vals c) ]
+    C.enum (enum_t (TT.tt_name c)) [ (enum_nm(TT.cname v), 
+                                   (C.expression (TT.cval v)) )
+                                  | v <- (TT.tt_vals c) ]
 
 constants_print_fn c = 
-    let etype = enum_t (CT.name c)
+    let etype = enum_t (TT.tt_name c)
     in
       C.inline "int" 
-           (enum_pr (CT.name c))
+           (enum_pr (TT.tt_name c))
            [ ("char *","s"), ("size_t","sz"), (etype,"e") ]  
-            (constants_print_body etype (CT.vals c))
+            (constants_print_body etype (TT.tt_vals c))
 
 
 constants_print_body etype vals = 
     C.switch "e" 
-         [ ( (enum_nm (CT.cname v)), 
-             printf "return snprintf(s, sz, \"%%s\", \"%s\");" (CT.cdesc v) )
+         [ ( (enum_nm (TT.cname v)), 
+             printf "return snprintf(s, sz, \"%%s\", \"%s\");" (TT.cdesc v) )
                | v <- vals ]
          (printf "return snprintf(s, sz, \"Unknown \" __XTR(%s) \" value 0x%%\" PRIxPTR, (uintptr_t)e);" etype )
 
 constants_check_fn c =
-    let etype = enum_t (CT.name c)
+    let etype = enum_t (TT.tt_name c)
     in
       C.inline "int" 
-           (enum_chk (CT.name c))
+           (enum_chk (TT.tt_name c))
             [(etype,"e") ] 
-            (constants_check_body etype (CT.vals c))
+            (constants_check_body etype (TT.tt_vals c))
     
 constants_check_body etype vals =  
     C.switch "e"
-     [ ((enum_nm (CT.cname v)), "return 1;") | v <- vals ]
+     [ ((enum_nm (TT.cname v)), "return 1;") | v <- vals ]
      "return 0;" 
 
 -------------------------------------------------------------------------
 -- Render 'register type definitions
 -------------------------------------------------------------------------
 
-builtin_to_c t = (t ++ "_t")
+builtin_to_c :: TN.Name -> String
+builtin_to_c (TN.Name _ t) = (t ++ "_t")
 
 round_field_size w 
     | w <= 8 =                  "uint8_t" 
@@ -285,9 +287,9 @@ round_field_size w
     | ( w > 16 && w <= 32 ) =   "uint32_t" 
     | (w > 32 && w <= 64) =     "uint64_t"      
 
-regtype_decl (TT.Format tname size td desc _ _) =
+regtype_decl (TT.RegFormat tname size td desc _) =
     let rtype = reg_t tname
-        rname = reg_nm tname
+        rname = reg_nm $ TN.typeName tname
         rtype_ptr = dev_reg_ptr rtype 
         sz = round_field_size size
     in
@@ -327,7 +329,7 @@ field_type f
     | otherwise = reg_t $ Data.Maybe.fromJust $ Fields.tpe f
 
 -- Print out a value of the register type
-regtype_print_fn :: String -> String -> [Fields.Rec] -> String -> String
+regtype_print_fn :: TN.Name -> String -> [Fields.Rec] -> String -> String
 regtype_print_fn tn rtype td rname = 
     C.inline "int" (reg_pv tn) 
          ( [ ("char *","s"), ("size_t","sz"), (rtype, "v") ] )
@@ -367,9 +369,9 @@ percent_escape s = concat [ if c == '%' then "%%" else [c] | c <- s ]
 -- Render data type definitions
 -------------------------------------------------------------------------
 
-datatype_decl (TT.Format tname size td desc _ _) =
+datatype_decl (TT.RegFormat tname size td desc _) =
     let rtype = reg_t tname
-        rname = reg_nm tname
+        rname = reg_nm $ TN.typeName tname
         rtype_ptr = dev_reg_ptr rtype 
         sz = round_field_size size
     in
@@ -385,11 +387,11 @@ datatype_decl (TT.Format tname size td desc _ _) =
 register_decl :: RT.Rec -> [String]
 register_decl r =
     case (RT.tpe r) of 
-      (TT.Format tname sz _ tdesc _ _) -> 
+      (TT.RegFormat tname sz _ tdesc _) -> 
           [ C.multi_comment (printf "Register %s (%s); type %s (%s)" 
                                         (RT.name r)
                                         (RT.desc r)
-                                        (RT.typename r)
+                                        (TN.toString $ RT.typename r)
                                         (TT.tt_desc (RT.tpe r))),
             -- (show (RT.extents r)),
             (register_dump r),
@@ -405,7 +407,7 @@ register_decl r =
           [ (C.multi_comment (printf "Register %s (%s); type %s" 
                                      (RT.name r)
                                      (RT.desc r)
-                                     (RT.typename r))),
+                                     (TN.toString $ RT.typename r))),
             -- (show (RT.extents r)),
             (register_length r),
             (register_read_raw r),

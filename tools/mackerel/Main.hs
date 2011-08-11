@@ -12,13 +12,14 @@
 module Main where
  
 import System
-import System.Exit
 import System.IO
+import System.IO.Error
 import System.Console.GetOpt
 import System.FilePath
 import Data.Maybe
+import Data.List
 import Text.ParserCombinators.Parsec as Parsec
-
+import Text.Printf
 import qualified MackerelParser
 import qualified BitFieldDriver
 import qualified ShiftDriver
@@ -41,8 +42,9 @@ data Options = Options {
   opt_verbosity :: Integer
   } deriving (Show,Eq)
 
+defaultOptions :: Options
 defaultOptions = Options { 
-  opt_infilename = Nothing, 
+  opt_infilename = Nothing,
   opt_outfilename = Nothing,
   opt_includedirs = [],
   opt_target = ShiftDriver,
@@ -78,10 +80,17 @@ options =
 
 defaultOutput :: Options -> Options
 defaultOutput opts = 
-  if isJust $ opt_outfilename opts
-  then opts
-  else opts { opt_outfilename = 
-                 Just $ replaceExtension "dev.h" $ takeFileName $ fromJust $ opt_infilename opts }
+  case opt_outfilename opts of
+    (Just _) -> 
+      opts
+    Nothing  -> 
+      opts { opt_outfilename = 
+                Just (case opt_infilename opts of
+                         (Just i) -> 
+                           (replaceExtension (takeFileName i) "dev.h")
+                         Nothing -> "mackerel_output.h" 
+                     )
+           }
 
 defaultInput :: Options -> [String] -> IO (Options)
 defaultInput opts [f] = 
@@ -92,7 +101,7 @@ defaultInput opts [] =
   if (isJust $ opt_infilename opts)
   then return (defaultOutput opts)
   else usageError []
-defaultInput opts _ = usageError []
+defaultInput _ _ = usageError []
 
 compilerOpts :: [String] -> IO (Options)
 compilerOpts argv =
@@ -109,40 +118,84 @@ usageError errs =
 -- Processing source files
 ---
 
--- Parsing the input file into an AST
-parseFile :: (String -> IO (Either Parsec.ParseError a)) -> String -> IO a
-parseFile parsefn fname = do
-   input <- parsefn fname
-   case input of
-       Left err -> do
-           hPutStrLn stderr $ "Parse error at: " ++ (show err)
-           exitWith $ ExitFailure 1
-       Right x -> return x
-
 -- Perform run-time checks
+run_checks :: String -> Dev.Rec -> IO String
 run_checks input_fn dev =
     case (Checks.check_all input_fn dev) of
       Just errors ->
           do { (hPutStrLn stderr (unlines [ e ++ "\n"  | e <-errors]))
              ; exitWith (ExitFailure 1)
              }
-      Nothing ->do { return "" }
+      Nothing -> do { return "" }
+
+-- Parsing the input file into an AST
+parseFile :: String -> IO MackerelParser.DeviceFile
+parseFile fname = do
+    src <- readFile fname
+    case (runParser MackerelParser.devfile () fname src) of
+        Left err -> ioError $ userError ("Parse error at: " ++ (show err))
+        Right x -> return x
+
+-- Traverse the include path to find an import file
+findImport :: [String] -> String -> IO MackerelParser.DeviceFile
+findImport [] f = 
+  ioError (userError $ printf "Can't find import '%s'" f)
+findImport (d:t) f = 
+  do 
+    catch (parseFile (d </> f))
+      (\e -> (if isDoesNotExistError e then findImport t f else ioError e))
+
+-- Perform the transitive closure of all the imports
+
+resolveImports :: [MackerelParser.DeviceFile] -> [String] 
+                  -> IO [MackerelParser.DeviceFile]
+resolveImports dfl path = 
+  let allimports = nub $ concat [ il | (MackerelParser.DeviceFile _ il) <- dfl ]
+      gotimports = [ n | (MackerelParser.DeviceFile (MackerelParser.Device n _ _ _ _) _) <- dfl ]
+      required = allimports \\ gotimports
+  in
+   case required of
+     [] -> return dfl
+     (t:_) -> do { i <- (findImport path (t ++ ".dev"))
+                 ; resolveImports (dfl ++ [i]) path
+                 }
+
+testentry :: IO ()
+testentry = 
+  let input_fn = "../../devices/xapic.dev"
+      output_fn = "x2apic.dev.h"
+      includedirs = ["../../devices"]
+  in
+   do { hPutStrLn stdout ("IN: " ++ input_fn)
+      ; hPutStrLn stdout ("OUT: " ++ output_fn)
+      ; df  <- parseFile input_fn
+      ; dfl <- resolveImports [df] includedirs
+      ; let dev = make_dev df (tail dfl) in
+      do { _ <- run_checks input_fn dev
+         ; outFileD <- openFile output_fn WriteMode
+         ; hPutStr outFileD (ShiftDriver.compile input_fn output_fn dev)
+         ; hClose outFileD 
+         }
+      }
+  
 
 -- Main entry point of Mackernel 
 main :: IO ()
-main = do 
-       cli <- System.getArgs
-       opts <- compilerOpts cli
-       ast  <- parseFile MackerelParser.parse $ fromJust $ opt_infilename opts
-       let 
-         dev = Dev.make_dev ast
-         input_fn = fromJust $ opt_infilename opts
-         output_fn = fromJust $ opt_outfilename opts
-         in do
-         run_checks input_fn dev
-         outFileD <- openFile output_fn WriteMode
-         hPutStr outFileD ((case (opt_target opts) of
-                               ShiftDriver -> ShiftDriver.compile 
-                               BitFieldDriver -> BitFieldDriver.compile)
-                           input_fn output_fn dev)
-         hClose outFileD
+main = do { cli <- System.getArgs
+          ; opts <- compilerOpts cli
+          ; let input_fn = fromJust $ opt_infilename opts
+                output_fn = fromJust $ opt_outfilename opts
+            in 
+             do { df  <- parseFile input_fn
+                ; dfl <- resolveImports [df] (opt_includedirs opts)
+                ; let dev = make_dev df (tail dfl) in
+                do { _ <- run_checks input_fn dev
+                   ; outFileD <- openFile output_fn WriteMode
+                   ; hPutStr outFileD ((case (opt_target opts) of
+                                           ShiftDriver -> ShiftDriver.compile 
+                                           BitFieldDriver -> BitFieldDriver.compile)
+                                       input_fn output_fn dev)
+                   ; hClose outFileD          
+                   }
+                }
+          }

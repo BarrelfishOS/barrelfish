@@ -17,8 +17,8 @@ import MackerelParser
 import Text.ParserCombinators.Parsec
 import Text.Parsec.Pos
 import System.FilePath
+import qualified TypeName as TN
 import qualified TypeTable as TT
-import qualified ConstTable as CT
 import qualified RegisterTable as RT
 import qualified Space
 import qualified Dev
@@ -76,13 +76,13 @@ check_devname inf dev =
 
 check_rous :: Dev.Rec -> [ MacError ]
 check_rous d = 
-    [ make_rous_error t | t <- (Dev.types d), check_rous_type t ]
+    [ make_rous_error t | t@(TT.RegFormat {}) <- (Dev.types d), check_rous_type t ]
 
 check_rous_type t = notElem (TT.tt_size t) [ 8, 16, 32, 64 ]
 make_rous_error t = 
     (MacError (TT.pos t)
      (printf "Register type '%s' (%s) is a Register Of Unusual Size (%d bits)"
-                 (TT.tt_name t)
+                 (TT.type_name t)
                  (TT.tt_desc t)
                  (TT.tt_size t)))
       
@@ -92,25 +92,29 @@ make_rous_error t =
 
 check_dous :: Dev.Rec -> [ MacError ]
 check_dous d = 
-    [ make_dous_error t | t <- (Dev.dtypes d), check_dous_type t ]
+    [ make_dous_error t | t@(TT.DataFormat {}) <- (Dev.types d), check_dous_type t ]
 
 -- XXX Make this a bit more lenient. 
 check_dous_type t = notElem (TT.tt_size t) [ 8, 16, 32, 64, 96, 128, 160, 256 ] 
 make_dous_error t = 
     (MacError (TT.pos t)
      (printf "Data type '%s' (%s) is a Datatype Of Unusual Size (%d bits)"
-                 (TT.tt_name t)
+                 (TT.type_name t)
                  (TT.tt_desc t)
                  (TT.tt_size t)))
  
 -- 
--- Check for undefined constant types
+-- Check for undefined constant types: every use of a constant type in
+-- a register definition must have a corresponding constant type
+-- definition.
 --
 check_undef_consts :: Dev.Rec -> [ MacError ]
 check_undef_consts d = 
-    concat [ check_undef_consts_reg r [ CT.name c | c <- (Dev.cnstnts d)] 
-                 | r <- (Dev.registers d) ]
+    let clist = [ (TT.tt_name c) | c@(TT.ConstType {}) <- Dev.all_types d ]
+    in 
+    concat [ check_undef_consts_reg r clist | r <- (Dev.registers d) ]
            
+check_undef_consts_reg :: RT.Rec -> [ TN.Name ] -> [MacError]
 check_undef_consts_reg r clist = 
     [ make r f | f <- (RT.fl r), check r clist f ]
     where
@@ -121,7 +125,7 @@ check_undef_consts_reg r clist =
       make r f = 
           (MacError (Fields.pos f)
            (printf "Field '%s' (%s) of register '%s' (%s) is of undefined type '%s'"
-            (Fields.name f) (Fields.desc f) (RT.name r) (RT.desc r) (Data.Maybe.fromJust $ Fields.tpe f)))
+            (Fields.name f) (Fields.desc f) (RT.name r) (RT.desc r) (TN.toString $ Data.Maybe.fromJust $ Fields.tpe f)))
 
 -- 
 -- Check for undefined register types (every register must have a type)
@@ -130,7 +134,7 @@ check_undef_regtypes :: Dev.Rec -> [ MacError ]
 check_undef_regtypes d = 
     [ make r | r <- (Dev.registers d), not (check r (Dev.types d)) ]
     where
-      check r ttbl = TT.is_builtin_type (RT.typename r)
+      check r ttbl = TN.is_builtin_type (RT.typename r)
                      || elem (RT.typename r) [ (TT.tt_name t) | t <- (Dev.types d)]
       make r = (MacError (RT.pos r)
                 (printf "Register '%s' (%s) is of undefined type '%s'"
@@ -146,22 +150,18 @@ check_dups names errfn = [ errfn n | n <- names \\ nub names ]
 -- 
 check_dup_types :: Dev.Rec -> [ MacError ]
 check_dup_types d = 
-    check_dups ((map CT.name (Dev.cnstnts d)) 
-                ++ (map TT.tt_name (Dev.types d))
-                ++ (map TT.tt_name (Dev.dtypes d))) (make_dup_type_error d)
+    let names = map TT.tt_name (Dev.types d)
+        dups = [ n | n <- names \\ nub names ]
+    in [ make_dup_type_error d n | n <- dups ]
                    
-make_dup_type_error :: Dev.Rec -> String -> MacError
+make_dup_type_error :: Dev.Rec -> TN.Name -> MacError
 make_dup_type_error d n =
-    let cl = [ (CT.pos c, CT.desc c) | c <- (Dev.cnstnts d), (CT.name c) == n ]
-             ++
-             [ (TT.pos c, TT.tt_desc c) | c <- (Dev.types d), (TT.tt_name c) == n ]
-             ++
-             [ (TT.pos c, TT.tt_desc c) | c <- (Dev.dtypes d), (TT.tt_name c) == n ]
+    let cl = [ (TT.pos c, TT.tt_desc c) | c <- (Dev.types d), (TT.tt_name c) == n ]
         l = sort cl
         (p, _) = head l
     in
       (MacError p
-       (printf "Type name '%s' is multiply defined, as:%s" n
+       (printf "Type name '%s' is multiply defined, as:%s" (TN.toString n)
                (concat [ (printf "\n  '%s' (%s)" td (show tp))::String | (tp, td) <- l ])))
 
 -- 
@@ -186,11 +186,11 @@ make_dup_reg_error rtbl n =
 --
 check_dup_vals :: Dev.Rec -> [ MacError ]
 check_dup_vals d = 
-    let cvals = concat([ [ v | v <- CT.vals c ] | c <- (Dev.cnstnts d) ])
-    in check_dups (map CT.cname cvals) (make_dup_val_error cvals)
+    let cvals = concat([ [ v | v <- TT.tt_vals c ] | c@(TT.ConstType {}) <- (Dev.types d) ])
+    in check_dups (map TT.cname cvals) (make_dup_val_error cvals)
        
 make_dup_val_error cvl n =
-    let l = [ (CT.cpos c, CT.cdesc c) | c <- cvl, (CT.cname c) == n ]
+    let l = [ (TT.cpos c, TT.cdesc c) | c <- cvl, (TT.cname c) == n ]
         (p, _) = head l
     in
       (MacError p
