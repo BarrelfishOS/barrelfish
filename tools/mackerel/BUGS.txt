@@ -36,26 +36,7 @@
    'constants' types and register types are from the same namespace.
    This simplifies imports at least. 
 
- * Importing types (type imports are always qualified):
-      from xapic import ctl_reg; -- don't need this if everything is qualified!
-     import xapic;
-    
-   If we import a type such as type(xapic.ctl_reg), what C is
-   generated?  Probably a #include of the relevant .h file, followed
-   by simply refering to the xapic type. 
-
-   Referring to types: type(xapic.ctl_reg)
-
-   The alternative is to create a new C type identical to theinherited and 
-   referenced type.  But this only works if there is no
-   x2apci.ctl_reg, for instance, which would cause a C name clash.
-   Better to keep everything scoped with where it came from. 
-
-   This works for constants types.  What about register types?   Still
-   works, but the types in a register access signature are now a
-   mixture of current and imported types.  Seems OK. .
-
-   Then: how to we do device inheritance?  Clearly the new device is a
+   How will we do device inheritance?  Clearly the new device is a
    new type, but it also needs a new operation for every register,
    even those inherited from the base device type.  This suggests that
    register definitions should always be copied from the base type,

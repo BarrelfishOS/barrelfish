@@ -63,31 +63,31 @@ device_shadow_field_name :: RT.Rec -> String
 device_shadow_field_name rt = (RT.name rt) ++ "_shadow"
 
 device_initialize_fn_name :: Dev.Rec -> String
-device_initialize_fn_name d = scope_name [ "initialize" ]
+device_initialize_fn_name d = qual_devname d [ "initialize" ]
 
 device_print_fn_name :: Dev.Rec -> String
-device_print_fn_name d = scope_name [ "pr" ]
+device_print_fn_name d = qual_devname d [ "pr" ]
 
 device_prefix_macro_name :: Dev.Rec -> String
-device_prefix_macro_name d = (Dev.name d) ++ "_PREFIX"
+device_prefix_macro_name d = qual_devname d ["PREFIX"]
 
 device_initial_enum_name :: Dev.Rec -> String
-device_initial_enum_name d = (Dev.name d) ++ "_initials"
+device_initial_enum_name d = qual_devname d ["initials"]
 
 --
 -- Constants-related names
 --
 constants_c_name :: TT.Rec -> String
-constants_c_name c = qual_trec c ["t"]
+constants_c_name c = qual_typerec c ["t"]
 
 constants_elem_c_name :: TT.Val -> String
-constants_elem_c_name v = scope_name [ TN.devName $ TT.ctype v, TT.cname v ]
+constants_elem_c_name v = qual_device (TT.ctype v) [ TT.cname v ]
 
 constants_print_fn_name :: TN.Name -> String
-constants_print_fn_name c = qual_name c ["prtval"]
+constants_print_fn_name c = qual_typename c ["prtval"]
 
 constants_check_fn_name :: TT.Rec -> String
-constants_check_fn_name c = qual_trec c ["chk" ]
+constants_check_fn_name c = qual_typerec c ["chk" ]
 
 --
 -- Register and datatype-related names
@@ -95,40 +95,40 @@ constants_check_fn_name c = qual_trec c ["chk" ]
 regtype_c_name :: TT.Rec -> String
 regtype_c_name rt 
     | TT.is_builtin rt = (TT.type_name rt) ++ "_t"
-    | otherwise = qual_trec rt ["t"]
+    | otherwise = qual_typerec rt ["t"]
 
 regtype_initial_macro_name :: TT.Rec -> String
-regtype_initial_macro_name rt = qual_trec rt ["default"]
+regtype_initial_macro_name rt = qual_typerec rt ["default"]
 
 regtype_extract_fn_name :: TT.Rec -> Fields.Rec -> String
-regtype_extract_fn_name rt f = qual_trec rt [ Fields.name f, "extract" ]
+regtype_extract_fn_name rt f = qual_typerec rt [ Fields.name f, "extract" ]
 
 regtype_insert_fn_name :: TT.Rec -> Fields.Rec -> String
-regtype_insert_fn_name rt f = qual_trec rt [ Fields.name f, "insert" ]
+regtype_insert_fn_name rt f = qual_typerec rt [ Fields.name f, "insert" ]
 
 regtype_print_fn_name :: TT.Rec -> String
-regtype_print_fn_name rt = qual_trec rt [ "prtval"]
+regtype_print_fn_name rt = qual_typerec rt [ "prtval"]
 
 datatype_array_c_name :: TT.Rec -> String
-datatype_array_c_name rt = qual_trec rt [ "array", "t"]
+datatype_array_c_name rt = qual_typerec rt [ "array", "t"]
 
 datatype_size_macro_name :: TT.Rec -> String
-datatype_size_macro_name rt = qual_trec rt ["size"]
+datatype_size_macro_name rt = qual_typerec rt ["size"]
 
 --
 -- Register- and register array-related names
 --
 register_initial_name :: RT.Rec -> String
-register_initial_name r = scope_name [ RT.name r, "initial" ]
+register_initial_name r = qual_register r [ "initial" ]
 
 register_read_fn_name :: RT.Rec -> String
-register_read_fn_name r = scope_name [RT.name r, "rd" ]
+register_read_fn_name r = qual_register r ["rd"]
 
 register_write_fn_name :: RT.Rec -> String
-register_write_fn_name r = scope_name [RT.name r, "wr" ]
+register_write_fn_name r = qual_register r ["wr"]
 
 register_shadow_name :: RT.Rec -> String
-register_shadow_name r = (RT.name r) ++ "_shadow"
+register_shadow_name r = qual_register r ["shadow"]
 
 register_c_name :: RT.Rec -> String
 register_c_name r = regtype_c_name $ RT.tpe r
@@ -137,25 +137,26 @@ field_c_name :: Fields.Rec -> String
 field_c_name f = 
     case Fields.tpe f of 
       Nothing -> round_field_size $ Fields.size f
-      Just t -> qual_name t ["t"]
+      Just t -> qual_typename t ["t"]
 
 register_print_fn_name :: RT.Rec -> String
-register_print_fn_name rt = scope_name [ RT.name rt, "pr" ]
+register_print_fn_name rt = qual_register rt ["pr"]
 
 register_read_field_fn_name :: RT.Rec -> Fields.Rec -> String
-register_read_field_fn_name r f = scope_name [RT.name r, Fields.name f, "rdf"]
+register_read_field_fn_name r f = qual_register r [ Fields.name f, "rdf"]
 
 register_read_field_from_shadow_fn_name :: RT.Rec -> Fields.Rec -> String
-register_read_field_from_shadow_fn_name r f = scope_name [RT.name r, Fields.name f, "rd_shadow"]
+register_read_field_from_shadow_fn_name r f = 
+  qual_register r [Fields.name f, "rd", "shadow"]
 
 register_write_field_fn_name :: RT.Rec -> Fields.Rec -> String
-register_write_field_fn_name r f = scope_name [RT.name r, Fields.name f, "wrf"]
+register_write_field_fn_name r f = qual_register r [ Fields.name f, "wrf"]
 
 regarray_length_macro_name :: RT.Rec -> String
-regarray_length_macro_name r = scope_name [ RT.name r, "length" ]
+regarray_length_macro_name r = qual_register r [ "length" ]
 
 regarray_print_fn_name :: RT.Rec -> String
-regarray_print_fn_name rt = scope_name [ RT.name rt, "pri" ]
+regarray_print_fn_name rt = qual_register rt ["pri"]
 
 -------------------------------------------------------------------------
 -- Convenience functions for generating the C mapping
@@ -175,12 +176,23 @@ round_field_size w
 -- Take a list of scope names and translate to a C identifier. 
 -- 
 
-qual_trec :: TT.Rec -> [ String ] -> String
-qual_trec t l = qual_name (TT.tt_name t) l 
+qual_devname :: Dev.Rec -> [ String ] -> String
+qual_devname d l = 
+  concat $ intersperse "_" ([Dev.name d] ++ l)
 
-qual_name :: TN.Name -> [ String ] -> String
-qual_name (TN.Name dn tn) l = concat $ intersperse "_" ([dn, tn] ++ l)
+qual_device :: TN.Name -> [ String ] -> String
+qual_device t l =
+  concat $ intersperse "_" ([TN.devName t] ++ l)
 
+qual_typename :: TN.Name -> [ String ] -> String
+qual_typename (TN.Name dn tn) l = concat $ intersperse "_" ([dn, tn] ++ l)
+
+qual_typerec :: TT.Rec -> [ String ] -> String
+qual_typerec t l = qual_typename (TT.tt_name t) l 
+
+qual_register :: RT.Rec -> [ String ] -> String
+qual_register r l = qual_device (RT.typename r) ([RT.name r] ++ l)
+                    
 --
 -- Generate a simple automatic variable declaration with optional initializer.
 --
