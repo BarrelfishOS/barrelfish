@@ -175,19 +175,19 @@ lookup_size reginfo n = (size (lookup_reg reginfo n ))
 is_writeable :: Rec -> Bool
 is_writeable r = 
     case (tpe r) of
-      (TT.Primitive _ _ _ attr) -> attr_is_writeable attr
+      (TT.Primitive _ _ attr) -> attr_is_writeable attr
       _ -> any F.is_writeable (fl r)
 
 is_readable :: Rec -> Bool
 is_readable r = 
     case (tpe r) of
-      (TT.Primitive _ _ _ attr) -> attr_is_readable attr
+      (TT.Primitive _ _ attr) -> attr_is_readable attr
       _ -> any F.is_readable (fl r)
 
 is_writeonly :: Rec -> Bool
 is_writeonly r = 
     case (tpe r) of
-      (TT.Primitive _ _ _ attr) -> attr_is_writeonly attr
+      (TT.Primitive _ _ attr) -> attr_is_writeonly attr
       _ -> any F.is_writeonly (fl r)
 
 needs_shadow :: Rec -> Bool

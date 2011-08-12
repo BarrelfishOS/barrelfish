@@ -81,11 +81,7 @@ builtin_size "uint64" = 64
 make_rtypetable :: DeviceFile -> [Rec]
 make_rtypetable (DeviceFile (Device devname bitorder _ _ decls) _) = 
   concat [ make_rtrec d devname bitorder | d <- decls ]
-make_rtypetable :: [DeviceFile] -> [Rec]
-make_rtypetable dl = 
-  concat [ concat [ make_rtrec d devname bitorder | d <- decls ]
-           | (DeviceFile (Device devname bitorder _ _ decls) _) <- dl ]
-               tt_name = nm,
+
 make_rtrec :: AST -> String -> BitOrder -> [Rec]
 make_rtrec (RegType nm dsc (TypeDefn decls) p) dev order = 
     [ RegFormat { tt_name = TN.fromParts dev nm,
@@ -96,7 +92,6 @@ make_rtrec (RegType nm dsc (TypeDefn decls) p) dev order =
 
 make_rtrec (Register nm tt_attrib _ _ dsc (TypeDefn decls) p) dev order = 
     [ RegFormat { tt_name = TN.fromParts dev nm,
-               tt_name = nm,
                   tt_size = (calc_tt_size decls),
                   fields = F.make_list dev tt_attrib order 0 decls,
                   tt_desc = "Implicit type of " ++ dsc ++ " register",
@@ -104,19 +99,15 @@ make_rtrec (Register nm tt_attrib _ _ dsc (TypeDefn decls) p) dev order =
 
 make_rtrec (RegArray nm tt_attrib _ _ _ dsc (TypeDefn decls) p) dev order = 
     [ RegFormat { tt_name = TN.fromParts dev nm,
-               tt_name = nm,
                   tt_size = (calc_tt_size decls),
                   fields = F.make_list dev NOATTR order 0 decls,
                   tt_desc = "Implicit type of " ++ dsc ++ " register array",
                   pos = p } ]
-  concat [ concat [ make_dtrec d devname bitorder | d <- decls ]
-           | (DeviceFile (Device devname bitorder _ _ decls) _) <- dl ]
 
 make_rtrec (DataType nm dsc (TypeDefn decls) o w p) dev devorder = 
     let order = if o == NOORDER then devorder else o
     in
       [ DataFormat { tt_name = TN.fromParts dev nm,
-                 tt_name = nm,
                      tt_size = (calc_tt_size decls),
                      fields = F.make_list dev RW order w decls,
                      tt_desc = dsc,
@@ -146,8 +137,6 @@ get_rtrec rtinfo nm =
       if (length l) > 0
       then head l
       else RegFormat { tt_name = TN.null,
-            devname = "",
-            tt_name = "", -- never going to exist
                        tt_size = 32,
                        fields = [],
                        tt_desc = "Fictional non-existent type",

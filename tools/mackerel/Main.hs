@@ -20,7 +20,6 @@ import Data.Maybe
 import Data.List
 import Text.ParserCombinators.Parsec as Parsec
 import Text.Printf
-import qualified Text.Parsec.Prim
 import qualified MackerelParser
 import qualified BitFieldDriver
 import qualified ShiftDriver
@@ -118,7 +117,6 @@ usageError errs =
 --
 -- Processing source files
 ---
-
 
 -- Perform run-time checks
 run_checks :: String -> Dev.Rec -> IO String
