@@ -29,6 +29,7 @@ import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language( javaStyle )
 import Char
 import Data.Maybe
+import Data.Maybe
 import qualified Poly
 import qualified Space
 

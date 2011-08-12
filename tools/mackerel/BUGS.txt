@@ -42,9 +42,27 @@
    register definitions should always be copied from the base type,
    but register type definitions (and constant declarations) should
    simply be referenced. 
+   by simply refering to the xapic type. 
+
 
    New syntax for inheritance: 
      1) extends(xapic) as an extra device attribute. 
+     2) override register foo ... to override a register definition. 
+     3) elide register bar; removes defn of bar from the new device. 
+
+   This works for constants types.  What about register types?   Still
+   works, but the types in a register access signature are now a
+   mixture of current and imported types.  Seems OK. .
+
+   Then: how to we do device inheritance?  Clearly the new device is a
+   new type, but it also needs a new operation for every register,
+   even those inherited from the base device type.  This suggests that
+   register definitions should always be copied from the base type,
+   but register type definitions (and constant declarations) should
+   simply be referenced. 
+
+ * When specifying constant values, can use '1s' as a special value to
+   mean 'all 1s up to the width of the field'. 
      2) override register foo ... to override a register definition. 
      3) elide register bar; removes defn of bar from the new device. 
 
