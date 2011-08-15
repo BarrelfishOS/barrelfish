@@ -63,6 +63,7 @@ vfs_load_file_to_memory (const char *file, void **data, size_t *size)
 int main (int argc, char *argv[])
 {
     errval_t err;
+    char *cardName = NULL;
 
     const char *imagefile = IMAGEFILE;
     /*
@@ -72,22 +73,24 @@ int main (int argc, char *argv[])
     }
     */
 
-    if (argc < 2) {
-        printf("Usage: %s <vfs mount URI> [disk image path]\n", 
+    if (argc < 3) {
+        printf("Usage: %s <Network card Name> <vfs mount URI> [disk image path]\n",
                argv[0]);
         return 1;
     }
 
-    if(argc > 2) {
-        imagefile = argv[2];
+    if(argc > 3) {
+        imagefile = argv[3];
     }
 
+    cardName = argv[1];
     printf("vmkitmon: start\n");
-
+    printf("Ignoring the cardname [%s], and using the default one from vfs_mount\n",
+            cardName);
     vfs_mkdir(VFS_MOUNTPOINT);
-    err = vfs_mount(VFS_MOUNTPOINT, argv[1]);
+    err = vfs_mount(VFS_MOUNTPOINT, argv[2]);
     if (err_is_fail(err)) {
-        printf("vmkitmon: error mounting %s: %s\n", argv[1], err_getstring(err));
+        printf("vmkitmon: error mounting %s: %s\n", argv[2], err_getstring(err));
         return 1;
     }
 
