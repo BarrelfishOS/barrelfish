@@ -74,6 +74,8 @@ enum rpc_msg_type {
 extern struct thread_mutex *lwip_mutex;
 extern struct waitset *lwip_waitset;
 
+static uint8_t net_debug_state = 0;
+
 static int hash_function(uint32_t xid)
 {
     return (xid % RPC_HTABLE_SIZE);
@@ -244,7 +246,6 @@ out:
     }
 }
 
-static uint8_t net_debug_state = 0;
 static void traverse_hash_bucket(int hid, struct rpc_client *client)
 {
     struct rpc_call *call, *next, *prev = NULL;
@@ -266,10 +267,12 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 free(call);
                 freed_call = true;
             } else {
+/*              // Start debugging if it is not already on.
                 if(net_debug_state == 0) {
                     net_debug_state = 1;
                     lwip_start_net_debug(net_debug_state);
                 }
+*/
                 /* retransmit */
                 fprintf(stderr, "##### RPC: retransmit XID 0x%x\n", call->xid);
 
@@ -324,11 +327,12 @@ static void rpc_timer(void *arg)
 err_t rpc_init(struct rpc_client *client, struct ip_addr server)
 {
     errval_t err;
-
     client->pcb = udp_new();
     if (client->pcb == NULL) {
         return ERR_MEM;
     }
+
+    net_debug_state = 0;
 
     client->server = server;
 
