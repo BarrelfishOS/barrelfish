@@ -76,6 +76,7 @@ int main (int argc, char *argv[])
     if (argc < 3) {
         printf("Usage: %s <Network card Name> <vfs mount URI> [disk image path]\n",
                argv[0]);
+        printf("<Network card Name> value is ignored in this version\n");
         return 1;
     }
 
