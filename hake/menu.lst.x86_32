@@ -29,6 +29,7 @@ module  /x86_32/sbin/pci boot
 module  /x86_32/sbin/spawnd boot
 #bootapic-x86_32=1-15
 module  /x86_32/sbin/startd boot
+module /x86_32/sbin/routing_setup boot
 
 # General user domains
 module	/x86_32/sbin/serial

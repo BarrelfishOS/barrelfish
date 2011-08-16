@@ -322,6 +322,15 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
                 USER_PANIC_ERR(err, "failed to add core mapping to skb");
             }
         }
+
+#ifdef BARRELFISH_MULTIHOP_CHAN_H
+        // wait until routing tables are set up (for multi-hop routing)
+        err = nameservice_blocking_lookup("rts_done", &iref);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
+        }
+#endif // BARRELFISH_MULTIHOP_CHAN_H
+
     }
 
     for (int i = 0; i < MAX_CPUS; i++) {

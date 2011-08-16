@@ -37,6 +37,7 @@
 > import qualified UMP
 > import qualified UMP_IPI
 > import qualified BMP
+> import qualified Multihop
 > import qualified Loopback
 > import qualified RPCClient
 > import qualified MsgBuf
@@ -56,6 +57,8 @@
 >            | UMP_IPI_Stub
 >            | BMP_Header
 >            | BMP_Stub
+>  	     | Multihop_Stub
+>            | Multihop_Header
 >            | Loopback_Header
 >            | Loopback_Stub
 >            | RPCClient_Header
@@ -105,6 +108,11 @@ The following calls are deprecated:
 >     where arch = optArch opts
 > generator _ BMP_Header = BMP.header
 > generator _ BMP_Stub = BMP.stub
+> generator _ Multihop_Header = Multihop.header
+> generator opts Multihop_Stub
+>     | isNothing arch = error "no architecture specified for Multihop stubs"
+>     | otherwise = Multihop.stub (fromJust arch)
+>     where arch = optArch opts
 > generator _ Loopback_Header = Loopback.header
 > generator _ Loopback_Stub = Loopback.stub
 > generator _ RPCClient_Header = RPCClient.header
@@ -145,6 +153,8 @@ The following calls are deprecated:
 >             Option [] ["ump_ipi-stub"] (NoArg $ addTarget UMP_IPI_Stub)     "Create a stub file for UMP_IPI",
 >             Option [] ["bmp-header"] (NoArg $ addTarget BMP_Header) "Create a header file for BMP",
 >             Option [] ["bmp-stub"] (NoArg $ addTarget BMP_Stub)     "Create a stub file for BMP",
+>             Option [] ["multihop-header"] (NoArg $ addTarget Multihop_Header) "Create a header file for Multihop",
+>             Option [] ["multihop-stub"] (NoArg $ addTarget Multihop_Stub)     "Create a stub file for Multihop",
 >             Option [] ["loopback-header"] (NoArg $ addTarget Loopback_Header) "Create a header file for loopback",
 >             Option [] ["loopback-stub"] (NoArg $ addTarget Loopback_Stub) "Create a stub file for loopback",
 >             Option [] ["rpcclient-header"] (NoArg $ addTarget RPCClient_Header) "Create a header file for RPC",

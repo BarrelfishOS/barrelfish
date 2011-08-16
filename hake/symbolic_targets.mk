@@ -137,6 +137,9 @@ MODULES_x86_64= \
 	sbin/timer_test \
 	sbin/net_openport_test \
 	sbin/examples/xmpl-perfmon \
+	sbin/routing_setup \
+	sbin/multihoptest \
+	sbin/multihop_latency_bench \
 	$(BIN_CONSENSUS) \
 
 # the following are broken in the newidc system
@@ -170,6 +173,9 @@ MODULES_x86_32=\
 	sbin/thctest \
 	sbin/vbe \
 	sbin/mem_serv_dist \
+	sbin/routing_setup \
+	sbin/multihoptest \
+	sbin/multihop_latency_bench \
 
 # SCC-specific module to build by default
 MODULES_scc=\
