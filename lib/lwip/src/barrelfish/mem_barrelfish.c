@@ -65,7 +65,7 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
     errval_t err;
     struct bulk_transfer bt_packet;
 
-    printf("@@@@@@ mem alloc %"PRIx32" for index %d\n", size, binding_index);
+    LWIPBF_DEBUG("@@@@@@ mem alloc %"PRIx32" for index %d\n", size, binding_index);
 
 
     struct buffer_desc *tmp = (struct buffer_desc*)
@@ -74,8 +74,8 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
     LWIPBF_DEBUG("allocating %"PRIx32" bytes of memory for index %u.\n",
             size, binding_index);
 
-    printf("memp pbuf %x, pool size %x\n", MEMP_NUM_PBUF, PBUF_POOL_SIZE);
-    printf("allocating %"PRIx32" bytes of memory.\n", size);
+    LWIPBF_DEBUG("memp pbuf %x, pool size %x\n", MEMP_NUM_PBUF, PBUF_POOL_SIZE);
+    LWIPBF_DEBUG("allocating %"PRIx32" bytes of memory.\n", size);
 #if defined(__scc__) && !defined(RCK_EMU)
     err = bulk_create(size, PBUF_PKT_SIZE, &(tmp->cap), &bt_packet, true);
 #else
@@ -85,7 +85,7 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
         DEBUG_ERR(err, "bulk_create failed.");
         return NULL;
     }
-    printf("bulk_create success!!!\n");
+    LWIPBF_DEBUG("bulk_create success!!!\n");
 
 
     tmp->va = bt_packet.mem;

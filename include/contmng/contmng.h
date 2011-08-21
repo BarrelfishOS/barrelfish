@@ -37,12 +37,15 @@
 struct q_entry {
     void *binding_ptr;
     uint64_t plist[MAX_PARAMS]; /* Assuming max parameters are MAX_PARAMS */
-	struct capref cap;
+    struct capref cap;
     errval_t (*handler)(struct q_entry entry);
+    char *fname;    // for debugging: Name of the callback handler
+    int history;    // for debugging: To record the history of function which has touched this entry
 };
 
 struct cont_queue {
     char name[64]; /* for debugging purposes */
+    int running;
     int head;
     int tail;
     struct q_entry qelist[MAX_QUEUE_SIZE];
@@ -53,6 +56,8 @@ struct cont_queue {
 struct cont_queue *create_cont_q(char *name);
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry);
 void cont_queue_callback(void *arg);
+void cont_queue_show_queue(struct cont_queue *q);
+
 void show_binary_blob (void *data, int len);
 
 #endif // CONTMNG_H_
