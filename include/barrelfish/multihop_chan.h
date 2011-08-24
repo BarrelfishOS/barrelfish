@@ -19,7 +19,6 @@
 #include <flounder/flounder_support_caps.h>
 #include <barrelfish/monitor_client.h>
 
-
 // turn on / off debugging of the multi-hop interconnect driver
 #define MULTIHOP_DEBUG_ENABLED false
 
@@ -51,73 +50,71 @@
 #define MULTIHOP_DEBUG(x...) ((void)0)
 #endif
 
-
 ///////////////////////////////////////////////////////
 
 // CHANNEL STATE & MESSAGE HANDLER & BIND CONTINUATION
 
 ///////////////////////////////////////////////////////
 
-
 struct multihop_chan;
 
 // bind continuation handler
 struct multihop_bind_continuation {
-	/**
-	 * \brief Handler which runs when a binding succeeds or fails
-	 * \param st State pointer set in closure
-	 * \param err error code indicating success/failure of binding
-	 * \param mc On success, contains pointer to channel
-	 */
-	void (*handler)(void *st, errval_t err, struct multihop_chan *mc);
-	void *st;
+    /**
+     * \brief Handler which runs when a binding succeeds or fails
+     * \param st State pointer set in closure
+     * \param err error code indicating success/failure of binding
+     * \param mc On success, contains pointer to channel
+     */
+    void (*handler)(void *st, errval_t err, struct multihop_chan *mc);
+    void *st;
 };
 
 // message receive handler
 struct multihop_receive_handler {
-	void (*handler)(void *arg, uint8_t *message, uint64_t length);
-	void *arg;
+    void (*handler)(void *arg, uint8_t *message, uint64_t length);
+    void *arg;
 };
 
 // possible message types:
 // 1: a message containing payload
 // 2: a "dummy" message (used only for acknowledgments)
 enum {
-	MULTIHOP_MESSAGE_FLAG_DUMMY, MULTIHOP_MESSAGE_FLAG_PAYLOAD
+    MULTIHOP_MESSAGE_FLAG_DUMMY, MULTIHOP_MESSAGE_FLAG_PAYLOAD
 };
 
 // A bidirectional MULTIHOP channel
 struct multihop_chan {
 
-	// connection state
-	enum {
-		// Disconnected
-		MULTIHOP_DISCONNECTED,
+    // connection state
+    enum {
+        // Disconnected
+        MULTIHOP_DISCONNECTED,
 
-		// Waiting for a bind reply
-		MULTIHOP_BIND_WAIT,
+        // Waiting for a bind reply
+        MULTIHOP_BIND_WAIT,
 
-		// Connection established
-		MULTIHOP_CONNECTED,
-	} connstate;
+        // Connection established
+        MULTIHOP_CONNECTED,
+    } connstate;
 
-	iref_t iref; // IREF to which we bind
-	uint64_t my_vci; // my vci for this channel
-	uint64_t vci; // vci to use on outgoing messages
-	uint8_t direction; // direction information
+    iref_t iref; // IREF to which we bind
+    uint64_t my_vci; // my vci for this channel
+    uint64_t vci; // vci to use on outgoing messages
+    uint8_t direction; // direction information
 
-	struct monitor_binding *monitor_binding; // the monitor binding
-	struct multihop_bind_continuation bind_continuation; // Continuation for bind
+    struct monitor_binding *monitor_binding; // the monitor binding
+    struct multihop_bind_continuation bind_continuation; // Continuation for bind
 
-	//receive handler
-	struct multihop_receive_handler rx_handler;
+    //receive handler
+    struct multihop_receive_handler rx_handler;
 
-	// caps receive handler & caps reply message receive handler
-	struct monitor_cap_handlers cap_handlers;
+    // caps receive handler & caps reply message receive handler
+    struct monitor_cap_handlers cap_handlers;
 
-	// number of unacknowledged messages sent and received
-	uint32_t unacked_received;
-	uint32_t unacked_send;
+    // number of unacknowledged messages sent and received
+    uint32_t unacked_received;
+    uint32_t unacked_send;
 };
 
 ///////////////////////////////////////////////////////
@@ -128,13 +125,12 @@ struct multihop_chan {
 
 // bind to service
 errval_t multihop_chan_bind(struct multihop_chan *mc,
-		struct multihop_bind_continuation cont, iref_t iref,
-		struct waitset *waitset);
+        struct multihop_bind_continuation cont, iref_t iref,
+        struct waitset *waitset);
 
 // send bind reply back to the monitor
 void multihop_chan_send_bind_reply(struct multihop_chan *mc, errval_t err,
-		uint64_t vci, struct waitset *waitset);
-
+        uint64_t vci, struct waitset *waitset);
 
 ///////////////////////////////////////////////////////
 
@@ -145,27 +141,28 @@ void multihop_chan_send_bind_reply(struct multihop_chan *mc, errval_t err,
 //brief Initialize the multi-hop driver
 void multihop_init(void);
 
-
 // set the message receive handler
 inline static void multihop_chan_set_receive_handler(struct multihop_chan *mc,
-		struct multihop_receive_handler rx_handler) {
-	mc->rx_handler = rx_handler;
+        struct multihop_receive_handler rx_handler)
+{
+    mc->rx_handler = rx_handler;
 }
 
 // set the caps receive handler & the caps reply receive handler
 inline static void multihop_chan_set_caps_receive_handlers(
-		struct multihop_chan *mc, struct monitor_cap_handlers cap_handlers) {
-	mc->cap_handlers = cap_handlers;
+        struct multihop_chan *mc, struct monitor_cap_handlers cap_handlers)
+{
+    mc->cap_handlers = cap_handlers;
 }
 
 // change the waitset of the multi-hop channel
 errval_t multihop_chan_change_waitset(struct multihop_chan *mc,
-		struct waitset *ws);
+        struct waitset *ws);
 
 // register a continuation closure to be invoked on the given waitset when the
 // multi-hop channel may be able to accept the next message
 errval_t multihop_chan_register_send(struct multihop_chan *mc,
-		struct waitset *ws, struct event_closure cont);
+        struct waitset *ws, struct event_closure cont);
 
 // is the send window full?
 bool multihop_chan_is_window_full(struct multihop_chan *mc);
@@ -178,12 +175,11 @@ bool multihop_chan_is_window_full(struct multihop_chan *mc);
 
 // send a message over the multi-hop channel
 errval_t multihop_send_message(struct multihop_chan *mc,
-		struct event_closure _continuation, void *msg, uint64_t msglen);
+        struct event_closure _continuation, void *msg, uint64_t msglen);
 
 // send a capability over the multi-hop channel
 errval_t multihop_send_capability(struct multihop_chan *mc,
-		struct event_closure _continuation,
-		struct flounder_cap_state *cap_state, struct capref cap);
-
+        struct event_closure _continuation,
+        struct flounder_cap_state *cap_state, struct capref cap);
 
 #endif // BARRELFISH_MULTIHOP_CHAN_H
