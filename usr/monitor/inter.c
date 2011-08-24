@@ -402,6 +402,18 @@ static void span_domain_request(struct intermon_binding *st,
         return;
     }
 
+    bool has_descendants;
+    err = monitor_cap_remote(disp, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+    err = monitor_cap_remote(vroot, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+
     err = span_domain(vroot, disp);
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_SPAN_DOMAIN);

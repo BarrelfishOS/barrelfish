@@ -915,6 +915,18 @@ static void span_domain_request(struct monitor_binding *st,
         return;
     }
 
+    bool has_descendants;
+    err = monitor_cap_remote(disp, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+    err = monitor_cap_remote(vroot, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+
     /* Send msg to destination monitor */
     err = closure->tx_vtbl.span_domain_request(closure, NOP_CONT, state_id,
                                                vroot_cap.u.vnode_x86_64_pml4.base,
