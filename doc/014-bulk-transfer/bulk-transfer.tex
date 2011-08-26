@@ -157,13 +157,104 @@ with such a case in mind.  The problematic issues will be tracking
 which memory buffer is with which domain, and when the memory buffer
 can be reused.
 
+\subsubsection{More issues with current network stack implementation}
+Following issues are not exactly due to the bulk transfer mechanisms,
+but are mainly the implementation issues of network stack.  I am
+documenting them here for sake of completeness.  Also, knowing the
+issues in current stack will help in understanding the design
+decisions made.
+
+\paragraph{Favors the setup with driver on different core}
+It is optimized for the case where application and network driver are
+running on separate core.  It is reasonable to prefer such scenarios
+for multicore architectures where presence of large number of cores is
+assumed.  This preference has resulted on overly dependence on
+efficiency of UMP messages.  Current implementation sends around 2
+messages (send-packet, tx-done) for transmitting single packet
+assuming that packet fits into one pbuf.  Similarly on packet
+receiving side, each received packet involves 2 messages 
+(register-pbuf, packet-received).  The performance impact of these
+messages is not strongly visible when application and driver are on
+different core.  But there are cases like SCC where it is good idea 
+to run the driver on same core as an application.  In such scenarios
+LMP's are used for communication which involves doing context-switch in
+sending every message. This leads to lot of performance
+in-efficiencies when current network stack implementation is used in
+LMP contexts.  Specially on those hardware where cost of
+context-switch is relatively high.
+
+
+I have tried to measure the performance difference on \texttt{nos4-6}
+boxes with webserver cache loading test, but the performance
+difference was not significant.  I have not investigated the reasons
+behind them yet, but my preliminary guess was that context switches on
+these machines are quite efficient or webserver cache loading test
+does not stress the network stack enough to see any significant
+difference.
+
+
 \section{Questions to be asked about bulk transfer mechanisms}
 \begin{enumerate}
+  \item Does it uses memory efficiently?
+  \item Can it be used with mutually non-trusting domains?
+  \item Can it be used across more than two domains?
+  \item Can consumer/producer put a back-pressure on other side?
+  \item Can it support multiple producer and multiple consumers?
+  \item Can it allow implementation of \textit{True Zero Copy}
+  sending and receiving?
   \item Can it lead to deadlock if one domain is only sending without
   checking for arriving messages?
-  \item Can consumer/producer put a back-pressure on other side?
 \end{enumerate}
 
 \section{Desired properties from bulk transfer mechanisms}
+
+\section{Related work}
+The issues of bulk-transport has been investigated quite a few times
+in the past, so the solution of this problem is known to the large
+extent.  What this document is aiming is to choose right approach and
+right solution which will suit the needs of the Barrelfish.
+
+
+The work which has particularly influenced this design are
+\begin{enumerate}
+  \item F-bufs: Helped in clearly understanding the problems in
+  designing cross-domain transfer facility.
+  \item R-bufs: Helped in understanding how to implement
+  scatter-gather packet sending and receiving.
+  \item Beltway buffers: Gave clear idea of how to design a
+  ring-buffer style interface which can be easily interfaced with
+  hardware. 
+\end{enumerate}
+
+\section{Requirements of Barrelfish}
+
+\begin{enumerate}
+  \item Ability to batch the notifications.
+  \item True zero copy capability(scatter-gather packet
+  sending/receiving).
+  \item Should work with more than two domains.
+  \item Should work with multiple producers and multiple consumers.
+\end{enumerate}
+
+\chapter{Design}
+This chapter discusses the design of bulk-transport mechanism and
+protocol that will be implemented in future for Barrelfish network
+stack.
+
+
+\section{Bird's eye view of design}
+It will be a ring buffer, which supports scatter-gather I/O, sharing
+of packet with multiple applications, batched notifications.
+
+\section{Notification mechanism}
+Describe the notification mechanism.
+
+\section{Memory management mechanism}
+Describe the memory management mechanism
+
+\section{How sharing will happen}
+Details of how things will be managed when there are more than two
+applications. Can more than two applications work in sync with true 
+zero copy?
 
 \end{document}
