@@ -414,6 +414,7 @@ DOCS= \
 	./docs/TN-011-IDC.pdf \
 	./docs/TN-012-Services.pdf \
 	./docs/TN-013-CapabilityManagement.pdf \
+	./docs/TN-014-bulk-transfer.pdf \
 
 docs doc: $(DOCS)
 .PHONY: docs doc

@@ -1,0 +1,56 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2011, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,twoside]{report} % for a report (default)
+
+\usepackage{bftn} % You need this
+
+\title{Bulk Transfer}   % title of report
+\author{Pravin Shinde} % author
+\tnnumber{014}  % give the number of the tech report
+\tnkey{Bulk Transfer: The mechanism to transfer large data} 
+% Short title, will appear in footer
+
+% \date{Month Year} % Not needed - will be taken from version history
+
+\begin{document}
+\maketitle
+
+%
+% Include version history first
+%
+\begin{versionhistory}
+\vhEntry{1.0}{11.08.2011}{TR}{Initial version}
+\end{versionhistory}
+
+% \intro{Abstract}      % Insert abstract here
+% \intro{Acknowledgements}  % Uncomment (if needed) for acknowledgements
+% \tableofcontents        % Uncomment (if needed) for final draft
+% \listoffigures        % Uncomment (if needed) for final draft
+% \listoftables         % Uncomment (if needed) for final draft
+
+\chapter{Introduction}
+This technical note is aimed to document the design of ideal cross domain bulk
+transfer mechanism that we wish to have in Barrelfish.
+
+
+\section{Existing implementation in Barrelfish}
+There are two bulk transfer mechanisms that exist in the current(as of August
+2011) implementation of Barrelfish.
+\texttt{$lib/barrelfish/bulk\_transfer.c$}
+and \textit{pbufs} used in the network stack.  We will discuss them briefly in
+following two sub-sections.
+
+\subsection{$bulk\_transfer.c/h$}
+
+
+
+\section{Quick start}
+
+\end{document}
