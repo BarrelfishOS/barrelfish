@@ -48,9 +48,122 @@ and \textit{pbufs} used in the network stack.  We will discuss them briefly in
 following two sub-sections.
 
 \subsection{$bulk\_transfer.c/h$}
+This is the formal bulk transfer method supported by Barrelfish.  In brief, this 
+facility works by sharing a continuous piece of memory (in form of capability) 
+between two domains.  These domains then map this physical memory into their 
+virtual address-space.  The virtual address where this shared memory is loaded
+can be different.  So, participating processes can't exchange the virtual 
+addresses directly.  Bulk transfer mechanism works by dividing the entire 
+memory area into the blocks of fixed size.  The domain which initiated the 
+bulk transfer is responsible for managing these blocks.  This responsibility
+includes following.
+\begin{enumerate}
+  \item Allocation and deallocation of the blocks.
+  \item Maintaining the information about free and used blocks.
+\end{enumerate}
+So, this bulk transfer facility works in master-slave setup.  The master
+allocates the blocks and passes the index of the block to slave.  
+Once the block is passed to the slave, master should not touch it.  
+The slave can locate the block by adding the \texttt{(index*block-size)} to the
+virtual address pointing to the beginning of the shared memory area.
+Now slave can read/modify the contents in the memory area of this block.  Once
+the slave is done with accessing the block, it can pass the block-index
+back to the master.  Master can either access the block or release it,
+so that it will be added to the list of free blocks.
+
+\subsubsection{Limitations}
+\paragraph{Security}
+This transfer mechanism can only be used between domains which are
+co-operative and willing to follow the protocol set for using the bulk
+transfer mechanism.  Malicious domain can corrupt the data in shared memory
+or can refuse to return the blocks once passed to it.
+
+\paragraph{More than two domains}
+The design of this bulk transport does not stop you from using it with
+more than two domains as long as the protocol is followed.  But current
+implementation does not track which domain is holding the buffer. So,
+one can use the current implementation with multiple domains as long
+as the domains are co-operative and applications are willing to deal
+with added complexity of tracking which domains hold which buffers.
+
+\paragraph{Use}
+Due to the relatively simple nature of the implementation, its use is
+limited only to few places. And hence it is not throughly tested in
+various scenarios.  
+
+\subsection{pbufs}
+The network stack uses its own custom bulk transport mechanisms.  Lets
+call them pbufs.  These pbufs work in similar way to above mechanism,
+but are more flexible.  The application shares some piece of physical memory
+with network driver which is used as shared memory.  Then application
+creates a list of pbuf structures, each one of them holding an offset
+within shared memory, length, \textit{pbuf-id} and the shared memory id to
+which they belong.  The key difference here is that the these pbufs 
+may not hold consecutive memory locations even when \textit{pbuf-id}'s are
+consecutive.  In contrast with Barrelfish bulk-transfer where buffer-id
+value is enough to find the location of buffer within shared memory,
+pbuf needs to store the offset separately in another list.  So,
+pbufs just provide another layer of indirection to allow more
+flexible use of memory.
 
 
+The way this mechanism currently works is that, application creates
+pool of initial pbufs and registers them with network driver.  Both,
+application and network driver maintain the list of pbufs in their
+private memory.  This list is kept in synchronization by sending
+explicit messages.  Now each pbuf can in principle point to any
+buffer of any size, located anywhere in the shared memory.
 
-\section{Quick start}
+
+This flexibility is used by application when it receives a data from
+the network driver.  Application creates a new pbuf structure with
+same pbuf-id but pointing at new buffer location and send it back to
+the driver as new free pbuf to use.  And the location of previous
+buffer is used for processing the data.  This way, application can
+return the pbufs back to driver ASAP without getting affected by how
+long does the data processing takes.  When application is done with
+processing the data in that buffer, it releases that buffer.  This
+released buffer is then used to create new pbuf which will be
+registered again with driver in future. 
+
+\subsubsection{Limitations}
+
+\paragraph{Needs more memory}
+The shared memory needs to be bigger than the memory shared with
+network driver in form of registered pbufs.  This is because, at any
+given point in time, some pbufs will be in application data processing
+phase and hence can-not be used by driver to receive the new data.
+
+\paragraph{Data corruption}
+This bulk-transfer mechanism assumes co-operative domains.  Both
+domains have read/write access to the shared memory at all the time.
+This means that if they do not follow the protocol correctly, they may
+end up writing at same physical location, leading to data corruption.
+
+\paragraph{Complicated memory reclamation}
+The current implementation of pbufs assumes that application can have
+multiple threads and all of them can access the data in pbufs which
+are delivered to the application.  This complicates the problem of
+detecting when exactly all threads are done with accessing the
+particular pbuf.  The current implementation uses a reference count
+mechanism for this detection.  Even though this memory reclamation is
+functional, it is complicated and one can easily get it wrong, leading
+to memory leaks.
+
+\paragraph{Supporting more than two domains}
+In theory, this design can be used with more than two domains which
+are co-operating with each other, but implementation is not designed
+with such a case in mind.  The problematic issues will be tracking
+which memory buffer is with which domain, and when the memory buffer
+can be reused.
+
+\section{Questions to be asked about bulk transfer mechanisms}
+\begin{enumerate}
+  \item Can it lead to deadlock if one domain is only sending without
+  checking for arriving messages?
+  \item Can consumer/producer put a back-pressure on other side?
+\end{enumerate}
+
+\section{Desired properties from bulk transfer mechanisms}
 
 \end{document}
