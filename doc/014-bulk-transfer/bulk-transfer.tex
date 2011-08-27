@@ -229,6 +229,8 @@ The work which has particularly influenced this design are
 \section{Requirements of Barrelfish}
 
 \begin{enumerate}
+  \item Avoid data copy as much as possible, if can't avoid,
+  push it into user-space/user-core.
   \item Ability to batch the notifications.
   \item True zero copy capability(scatter-gather packet
   sending/receiving).
@@ -243,8 +245,195 @@ stack.
 
 
 \section{Bird's eye view of design}
-It will be a ring buffer, which supports scatter-gather I/O, sharing
-of packet with multiple applications, batched notifications.
+We are aiming to design a cross domain bulk transport mechanism,
+which supports following features.
+\begin{enumerate}
+  \item Should reduce the data copy as much as possible.
+  \item Should exploit the fact that complete isolation of data
+  is not always needed.
+  \item More than two separate domains should be able to share
+  the data without copying it.
+  \item Number of explicit notifications needed should be low.
+  \item It should work in \textit{single producer, single consumer}
+  and \textit{single producer, multiple consumers}
+\end{enumerate}
+
+\section{Terminology used}
+This section briefly explains the term used in the design 
+description.  This should help in reducing the ambiguity of the design.
+\begin{enumerate}
+  \item \textbf{Generator:} An entity which is generating the data.  It
+  can be software or hardware entity.  For example, Network
+  Interface Card(NIC) is a generator, or the application code
+  which is generating the packets to send over the NIC.
+  \item \textbf{data-element:} The data-element is what generator 
+  is generating. In case of NIC device, a packet will be a
+  data-element.
+  \item \textbf{Producer:} An entity which is managing the generated data.
+  This management contains providing access mitigation, notifying
+  interested consumers, reclaiming the memory when data-element
+  expires.  The example of producer will be \textit{NIC device
+  driver}.  
+
+
+  The distinction between generator and producer is
+  rather fine.  They are intentionally kept separate because
+  generators can have hardware constraints which does not allow
+  it to do all functionalities.
+  \item \textbf{Consumer:} An entity which is consuming the data-elements. 
+  \item \textbf{Slot:} The contiguous piece of memory where data-element is
+  entirely or partially stored. A data-element can span over
+  more than one slots. 
+  \item \textbf{Shared-memory:} A contiguous piece of memory accessible 
+   from producer in read/write mode and consumers in read only mode.
+  \item \textbf{Free slot:} A slot which is available, and can be given
+  to generator.
+  \item \textbf{In-generation slot:} A slot is given to generator. Only 
+  the generator should read/write this slot now.  This is the only
+  mode when data can be written in the slot.
+  \item \textbf{In-consumption slot:} One or more consumers are currently
+  consuming this slot.  In this mode, slot is strictly read-only
+  no one should modify the data in slot in this mode.
+  \item  
+\end{enumerate}
+
+\section{The Producer}
+This section describes the producer and generator together with
+their responsibilities.  Even though producer and generator can
+be a different entities internally, the consumers will only see
+the producer interface.
+
+\subsection{Generator}
+Lets make a rough sketch of typical generator.  Here we are aiming
+for the NIC devices.  Typically, these devices will have an
+internal queue (RX-queue) of slots where the packet received
+from wire will be copied.  These generators are also capable
+of generating a notification in form of interrupt.  Now the
+way RX-queues work on different devices differ in some way.
+Few devices expect contiguous memory in the slots whereas
+other devices are capable of DMAing the packet in non-contiguous
+memory as well.
+
+	
+The software generators like application
+logic which creates new packet to send out is much simpler than
+NIC devices but can have quirky behavior like above described
+NIC devices.
+
+
+\subsection{The Producer abstraction}
+The producer abstraction is what consumer sees and interacts with.
+The producer creates a 
+\textbf{shared-memory} area which is a contiguous piece of memory
+which is writable only by producer and can be mapped as read-only
+memory by consumers.  The virtual address where the shared-memory
+is mapped need not be same for the producer and consumers.
+
+\subsection{Shared-memory}
+Shared memory is the area where producer will generate the data
+and consumers will read it from. The producer breaks this
+shared memory area into \textit{slots}.  The size of slot
+is based on the capability of generator.  If generator needs
+continuous memory to produce data-element then the size of
+slot will be the size of biggest data-element.  If the
+generator can DMA the data-element into multiple non-contiguous
+memory locations then, the slot size should be based on
+the average data-element size.  In any case, the slot size
+must alway be a multiple of cache size and every slot should
+be cache aligned.  This is mostly due to the fact that each
+data element might get consumed by different consumer running
+on different cores, and we do not want cache conflicts when
+they are accessing different data-elements.
+
+
+The dis-advantage of having slots of size of largest data-element
+is that it leads to internal fragmentation and waste of memory 
+when packets are small.  On other hand, when slot size is small,
+we reduce the capacity of NIC hardware as typically RX-queue
+will have limited number of entries, and by using small sized
+slots, we will fill up the entries quickly.
+
+
+\paragraph{Ideal size of shared memory}
+Ideally, shared-memory should be big enough to accommodate the queue
+of the generator (ie. All the descriptors in RX-queue of NIC device)
+and all the data-elements which are with consumers and are not released 
+back (in-consumption state).  So, the total memory size should be
+proportional to the capacity of the generator(ie. NIC device) and 
+number of consumers.  As each consumer is allowed to keep only fixed 
+amount of in-consumption packets, slow consumers will not adversely 
+affect the fast consumers.
+
+
+This has other implications like, the number of possible applications
+should be known in advance for optimal use of memory.
+
+\subsubsection{A meta-slot structure}
+This structure hold the additional information about each slot in
+shared-memory.  It can be seen as index table on shared-memory.
+This structure is private to Producer and is used to manage the
+slots.  Following are the key elements of this structure.
+\begin{enumerate} 
+  \item \textbf{slot-id:} The slot identifier. This should help
+  in calculating the offset of slot within shared-memory.
+  \item \textbf{state:} The state of slot (Free, in-Generation, 
+  in-Consumption)
+  \item \textbf{data-len:} Size of valid data in the slot.
+  \item \textbf{Counter:} How many consumers are accessing it.
+  \item \textbf{Next, prev:} Used to maintain the list (eg. Free slots)
+\end{enumerate} 
+
+\paragraph{Producer initialization}
+At producer initialization, following steps will happen.
+\begin{enumerate} 
+  \item Shared-memory will be divided into slots.
+  \item A meta-slot list will be created and initialized in free state.
+  \item Add slots in generator queue (RX-queue for NIC) and change.
+  \item Create an empty list of consumers.
+\end{enumerate} 
+
+\paragraph{Possible events received by producer}
+\begin{enumerate} 
+  \item Data-element generated (from generator).
+  \item generator queue full (from generator).
+  \item Data-element consumed.
+  \item Increment data-element counter.
+  \item New consumer registered.
+  \item Consumer de-registered.
+  \item Consumer registers up-call for new data.
+\end{enumerate} 
+
+\paragraph{Possible events generated by producer}
+\begin{enumerate} 
+  \item add empty slot (to generator). 
+  \item New data element.
+  \item Consumer queue full. 
+\end{enumerate} 
+
+\section{Consumer}
+This section describes the internals of the consumer.
+
+\subsection{Consumer registration}
+As part of initialization process, consumer should register itself
+with producer.  This initialization process includes following steps.
+\begin{enumerate} 
+  \item Map the shared-memory block as read-only in the virtual
+  address space.
+  \item Create a contiguous memory slot to maintain a consumer-queue.
+  \item Initialize the this memory slot "appropriately".
+  \item Share this memory slot with producer.
+\end{enumerate} 
+
+
+\subsection{Consumer-queue}
+This section describes the consumer queue in details.
+
+\paragraph{Possible events received by consumer}
+This paragraph describes the event received by consumers and how
+to react to them.
+
+\paragraph{Possible events generated by consumer}
+This paragraph describes the events generated by consumers.
 
 \section{Notification mechanism}
 Describe the notification mechanism.
@@ -257,4 +446,5 @@ Details of how things will be managed when there are more than two
 applications. Can more than two applications work in sync with true 
 zero copy?
 
+\section{Overview}
 \end{document}
