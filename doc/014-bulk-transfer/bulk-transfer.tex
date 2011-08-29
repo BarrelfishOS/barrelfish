@@ -10,6 +10,7 @@
 \documentclass[a4paper,twoside]{report} % for a report (default)
 
 \usepackage{bftn} % You need this
+\usepackage{hyperref} % You need this
 
 \title{Bulk Transfer}   % title of report
 \author{Pravin Shinde} % author
@@ -36,8 +37,15 @@
 % \listoftables         % Uncomment (if needed) for final draft
 
 \chapter{Introduction}
+\label{chap:intro}
 This technical note is aimed to document the design of ideal cross domain bulk
-transfer mechanism that we wish to have in Barrelfish.
+transfer mechanism that we wish to have in Barrelfish.  This chapter
+mainly contains the details about existing implementation of
+bulk-transport in Barrelfish and reasoning about how it is not good
+enough.  The \autoref{chap:design} contains the actual
+details about the design.  So, if you are aware of need of
+bulk-transport in Barrelfish, then you can directly jump to the 
+\autoref{chap:design}
 
 
 \section{Existing implementation in Barrelfish}
@@ -245,6 +253,7 @@ The work which has particularly influenced this design are
 \end{enumerate}
 
 \chapter{Design}
+\label{chap:design}
 This chapter discusses the design of bulk-transport mechanism and
 protocol that will be implemented in future for Barrelfish network
 stack.
@@ -307,7 +316,7 @@ the ambiguity of the terms.
   \item \textbf{In-consumption slot:} One or more consumers are currently
   consuming this slot.  In this mode, slot is strictly read-only
   no one should modify the data in slot in this mode.
-  \item \textbf{slot-pointer:} A data-structure which holds enough
+  \item \textbf{Slot-pointer:} A data-structure which holds enough
   information to locate particular slot present in any shared-pool
   with producer.  These are typically used in cross domain
   communication to identify the exact slot.  A typical slot-pointer
@@ -354,7 +363,7 @@ shared-pool into \textit{slots}.  The size of slot
 is based on the capability of generator and should be multiple of
 cache-line size.  The details of how to choose
 the slot size and the side-effects of small or large size are
-discussed in the separate section at end of the document.
+discussed in \autoref{sec:slotsize}.
 
 
 The producer is responsible for managing these shared-pools, and it
@@ -422,19 +431,10 @@ Other than this, the producer also maintains the list of consumers who
 have registered.
 
 \section{Consumer}
-This section describes the internals of the consumer.
-
-\subsection{Consumer registration}
-As part of initialization process, consumer should register itself
-with producer.  This initialization process includes following steps.
-\begin{enumerate} 
-  \item Map the shared-pool as read-only in the virtual
-  address space.
-  \item Create a new contiguous memory block to maintain a consumer-queue.
-  \item Initialize this memory block with consumer-queue
-  data-structure. 
-  \item Share this memory block with producer.
-\end{enumerate} 
+This section describes the internals of the consumer.  Consumer mainly
+consist of a consumer-queue data-structure which allows sharing of
+slots between producer and consumer.  Consumer also has read-only 
+access to the shared-pools.
 
 
 \subsection{Consumer-queue}
@@ -687,17 +687,58 @@ between the producer and generator.  These notifications are aimed to
 maintain the generator-queue.
 
 \begin{enumerate} 
+  \item Add empty slot (from producer to generator). 
   \item Data-element generated (from generator to producer).
-  \item generator queue full (from generator to producer).
-  \item add empty slot (from producer to generator). 
+  \item Generator queue full (from generator to producer).
 \end{enumerate} 
 
 \subsection{The communication between consumers}
 TBD:  The communication between consumers is needed to share the
 slot-pointers between them.
 
+\section{Initialization}
+\label{sec:initialization}
+This section briefly provides the steps involved in initialization of
+producer and consumers.
+
+\subsection{Producer initialization}
+At producer initialization, following steps will happen.
+\begin{enumerate} 
+  \item Create and initialize the list of shared-pools and meta-slots.
+  \item Create and add the initial shared-pool big enough to satisfy 
+  generator needs.  
+  \item Divide the shared-pool into slots, create a meta-slots list
+  for this shared-pool and add it to meta-slots list.
+  \item Create an empty list of consumers.
+  \item Initialize the generator (if needed).  This might involve
+  populating the generator-queue with free slots so that generator can
+  start producing data.
+\end{enumerate} 
+
+
+
+\subsection{Consumer registration}
+As part of initialization process, consumer should register itself
+with the producer.  This initialization process includes following 
+steps.
+\begin{enumerate}
+  \item Create a new contiguous memory frame and provide it to
+  producer as new shared-pool frame.
+  \item Get the list of registered shared-pools from producer and 
+  map it as read-only in the virtual address-space of consumer.
+  \item Create a new contiguous memory block to maintain a 
+  consumer-queue.
+  \item Initialize this memory block with consumer-queue
+  data-structure. 
+  \item Share this memory block with producer.
+  \item Send a notification \textit{consumer-queue space available} to
+  the producer so that it will start sending data-elements.
+\end{enumerate} 
+
+
 
 \section{Memory management (slot management)}
+\label{sec:memory-management}
 The slots are most important aspect of this bulk transport mechanism.
 They hold the data which will be sent across the domains.  Now lets
 see how exactly these slots work.
@@ -815,6 +856,7 @@ proportional to the size of shared-pool that particular consumer has
 contributed.
 
 \subsection{slot size}
+\label{sec:slotsize}
 The size of the slot is greatly dictated by the capabilities of the
 generator.  If generator needs
 continuous memory to produce data-element then the size of
@@ -836,21 +878,31 @@ we reduce the capacity of NIC hardware as typically RX-queue
 will have limited number of entries, and by using small sized
 slots, we will fill up the entries quickly.
 
+\section{Adaptability with different hardware}
+This section particularly discusses the ability of this design to
+adapt with different designs and features of NIC hardwares.  The
+current solution shared all shared-pools with all applications in 
+read-only mode.  But if hardware can perform early classification then
+this design can be evolved into one-consumer one-producer setup.  By
+doing early classification, NIC and directly DMA the packet into the
+shared-pool provided by the consumer.  This way, there will be no need
+to give all consumers access to all shared-pools.  Each consumer will
+only have access to their own shared-queue and all the data elements
+will directly reach that consumer-queue.  This way, this design can
+cope with both normal NIC's as well has smart NIC's.
 
+\section{Conclusion}
+This chapter provides the details about the new cross-domain transfer
+facility design.  This facility allows zero-copy network
+implementation which can support sharing between more than two domains
+as well as multi-level sharing (sharing by consumers between
+consumers).  This solution also reduce the number of messages
+exchanged by sending them only when it is absolutely necessary.
 
 \end{document}
 
-\paragraph{Producer initialization}
-At producer initialization, following steps will happen.
-\begin{enumerate} 
-  \item Create and initialize the list of shared-pools and meta-slots.
-  \item Add the initial shared-pool big enough to satisfy generator
-  needs.  
-  \item Divide the shared-pool into slots, create a meta-slots list
-  for this shared-pool and add it to meta-slots list.
-  \item Create an empty list of consumers.
-  \item Initialize the generator (if needed).
-\end{enumerate} 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 
 
