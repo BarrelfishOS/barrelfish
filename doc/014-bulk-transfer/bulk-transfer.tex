@@ -351,37 +351,20 @@ the access to this shared resource.
 Shared-pool is the area where producer will generate the data
 and consumers will read it from. The producer breaks this
 shared-pool into \textit{slots}.  The size of slot
-is based on the capability of generator.  If generator needs
-continuous memory to produce data-element then the size of
-slot will be the size of biggest data-element.  If the
-generator can DMA the data-element into multiple non-contiguous
-memory locations then, the slot size should be based on
-the average data-element size.  In any case, the slot size
-must alway be a multiple of cache size and every slot should
-be cache aligned.  This is mostly due to the fact that each
-data element might get consumed by different consumer running
-on different cores, and we do not want cache conflicts when
-they are accessing different data-elements.
+is based on the capability of generator and should be multiple of
+cache-line size.  The details of how to choose
+the slot size and the side-effects of small or large size are
+discussed in the separate section at end of the document.
 
 
-The dis-advantage of having slots of size of largest data-element
-is that it leads to internal fragmentation and waste of memory 
-when packets are small.  On other hand, when slot size is small,
-we reduce the capacity of NIC hardware as typically RX-queue
-will have limited number of entries, and by using small sized
-slots, we will fill up the entries quickly.
+The producer is responsible for managing these shared-pools, and it
+does by maintaining the list of shared-pools.  At the time of producer
+initialization there will be only one shared-pool which is added by
+the producer itself.  As new consumers join the system, each one of 
+them will contribute an additional shared-pool.
 
 
-The producer creates an initial \textbf{shared-pool} area.  As new
-consumers join the system, each one of them will contribute an
-additional piece of shared-pool.
-
-
-The producer maintains the list of shared-pool and for every
-shared-pool, it also maintains the list of consumers who have access
-to it.  
-
-\paragraph{Releasing the shared-pool}
+\subsubsection{Releasing the shared-pool}
 If any consumer decides to leave the system, then producer
 stops using the shared-pool provided by him.  The producer will 
 wait till all the slots in that shared-pool are free and then it will
@@ -395,11 +378,11 @@ completion.  This process is not part of the critical path, it is part
 of tear-down part so some inefficiency can be tolerated here.
 
 
-The virtual address where the shared-pool is mapped need not be same for 
-the producer and consumers.
+%The virtual address where the shared-pool is mapped need not be same for 
+%the producer and consumers.
 
 
-\paragraph{Ideal size of production-pool}
+\subsubsection{Ideal size of production-pool}
 The production-pool is just a collection of all valid shared-pools
 available at given time.  Ideally, production-pool should be big enough 
 to accommodate the queue of the generator (ie. All the descriptors 
@@ -415,7 +398,7 @@ in-consumption packets, slow consumers will not adversely
 affect the fast consumers.
 
 
-\subsubsection{A meta-slot structure}
+\subsection{A meta-slot structure}
 This structure hold the additional information about each slot in
 a shared-pool.  It can be seen as index table on shared-pool.
 This structure is private to Producer and is used to manage the
@@ -431,61 +414,12 @@ this structure.
   \item \textbf{Next, prev:} Used to maintain the list (eg. Free slots)
 \end{enumerate} 
 
-\paragraph{Producer initialization}
-At producer initialization, following steps will happen.
-\begin{enumerate} 
-  \item Create and initialize the list of shared-pools and meta-slots.
-  \item Add the initial shared-pool big enough to satisfy generator
-  needs.  
-  \item Divide the shared-pool into slots, create a meta-slots list
-  for this shared-pool and add it to meta-slots list.
-  \item Create an empty list of consumers.
-  \item Initialize the generator (if needed).
-\end{enumerate} 
+The producer maintains a separate meta-slot list for very shared-pool
+available with the producer.  This setup enables producer to track 
+every slot and its state.
 
-\paragraph{Possible events received by producer}
-\begin{enumerate} 
-  \item \textbf{New consumer registered:}  This event shows the
-  successful completion of \textbf{consumer registration}.  The
-  consumer registration is multi-step process and broadly it involves
-  establishing communication/notification channel,
-  registering a new shared-pool from consumer,
-  giving read-only access to existing shared-pools to consumer,
-  creating a consumer-queue with consumer.  
-  The remaining document will give more details on each of the above
-  steps.
-
-  \item \textbf{Consumer de-register:} This event is request by
-  consumer to de-register itself.  The producer should not send any
-  more notifications to this consumer about new packet.  The producer
-  should also start the process or releasing the shared-pool which was
-  contributed by this consumer.
-
-  \item \textbf{Consumer-queue space available:} When this
-  notification is received from any consumer, that shows that the
-  consumer now has free space to receive more data-elements and
-  producer should resume sending data-element notifications to it.
-  Note here that producer will stop sending the data-notifications as
-  soon as the consumer-queue is full for that consumer. Producer will
-  not check the status of this consumer-queue until and unless it
-  receives this notification.  Consumer will also send this message in
-  the beginning when it is done with all the setup and ready to send
-  the message.  In simple sense, this message can be seen as telling
-  the producer that you are ready to receive data-elements.
-
-  \item Increment data-element counter.
-
-  \item Consumer registers up-call for new data.
-  \item Data-element generated (from generator).
-  \item generator queue full (from generator).
-\end{enumerate} 
-
-\paragraph{Possible events generated by producer}
-\begin{enumerate} 
-  \item add empty slot (to generator). 
-  \item New data element.
-  \item Consumer queue full. 
-\end{enumerate} 
+Other than this, the producer also maintains the list of consumers who
+have registered.
 
 \section{Consumer}
 This section describes the internals of the consumer.
@@ -610,14 +544,19 @@ which are used to manage the access the ring-buffer.
     else \{[write-index, (read-index - 1)]\} \newline
 \end{enumerate} 
 
-\paragraph{Possible events received by consumer}
-This paragraph describes the event received by consumers and how
-to react to them.
+\section{Events/notification/communication between consumer and
+producer}
+This section describes the communication between the consumer and the
+producer.  
+
+\subsection{From Producer to Consumer}
+This paragraph describes the events sent by producer to
+consumers.
 
 \begin{enumerate} 
-  \item \textbf{More data arrived:} This callback is triggered
-  whenever the queue was empty and new data arrived after queue being
-  empty.  This callback is not triggered for every arrival of data,
+  \item \textbf{More data arrived:} This notification is sent to
+  consumer whenever the consumer-queue is empty and new data-element 
+  arrived.  This callback is not triggered for every arrival of data,
   but only when consumer is not explicitly polling for data.  Whenever
   new data arrives on the empty queue, producer can assume that
   consumer is not polling the channel as queue is empty, and hence
@@ -628,16 +567,20 @@ to react to them.
   more elements to non-empty queue without sending explicit
   notifications should not break the consumer-logic.
 
-  \item \textbf{Consumer-queue full:}  This callback is triggered when
-  the consumer-queue is full and producer is not able to add new
-  data-elements to the queue.  Triggering of this callback means that
-  consumer is slow in consuming the data from the consumer-queue. And
-  result of this producer is going to drop the data-elements which
-  were aimed for this consumer till there is more free space with this
-  consumer.  
+  \item \textbf{Consumer-queue full:}  This notification is sent to
+  consumer whenever consumer-queue is full and producer is not able 
+  to add new data-elements to the consumer-queue.  Triggering of this
+  notification means that consumer is slow in consuming the data from 
+  the consumer-queue. And result of this producer is going to drop 
+  the data-elements which were aimed for this consumer till there 
+  is more free space with this consumer.  This message also means that
+  producer is not going to actively check if consumer-queue has a free
+  space or not.  It is a responsibility of consumer to send
+  a notification to the producer whenever it is ready to receive the
+  data.
  
   \item \textbf{Consumer-queue almost full:} This is an optional
-  event and is designed as refinement of the basic approach.
+  notification and is designed as refinement of the basic approach.
   This additional event can be 
   called when the number of free slot-pointers in the queue drops bellow
   certain threshold.  This notification can be used as a warning sign
@@ -645,14 +588,14 @@ to react to them.
   slot-pointers in consumer-queue, or producer will soon start dropping the
   data-elements designated to this consumer.
 
-  \item \textbf{Error event:}  This callback is called when something
-  unexpected goes wrong.  The information and severity of the error
-  will inform the consumer that if the error is transient or
-  permanent.  And based on the error type, consumer can take
+  \item \textbf{Error event:}  This notification is sent when something
+  unexpectedly goes wrong.  The information and severity of the error
+  will inform the consumer that if the problem is transient or
+  permanent.  And based on the problem type, consumer can take
   corrective actions.  Few samples of these errors are corruption of
   consumer-queue, fetal error in producer, etc.
 
-  \item \textbf{Add shared-pool:}  This is an optional message which
+  \item \textbf{Add shared-pool:}  This is an optional notification which
   allow producer to push the notifications about newly added
   shared-pools.  This message is optional because consumers
   can lazily ask for these new shared-pools whenever they 
@@ -663,7 +606,7 @@ to react to them.
   to increase the available shared-pools.  This can be classified as
   setup or maintenance path.
 
- \item \textbf{Remove shared-pool:}  This call is opposite of above
+ \item \textbf{Remove shared-pool:}  This notification is opposite of above
  \textit{add shared-pool} call.  It tells consumer is that producer
  will not be using a particular shared-pool from now onwards
  for whatever reason (eg. the consumer which gave that shared-pool
@@ -677,8 +620,9 @@ to react to them.
  classified into setup or maintenance path.
 \end{enumerate} 
 
-\paragraph{Possible events generated by consumer}
-This paragraph describes the events generated by consumers.
+\subsection{From Consumer to Producer}
+This paragraph describes the notifications sent by consumer to the
+producer.
 
 \begin{enumerate} 
   \item \textbf{Consumer-queue space available:} This notification is
@@ -732,23 +676,110 @@ This paragraph describes the events generated by consumers.
   Also, consumers should be careful in dealing this information as
   consumer-id and slot-pointers are valid in context of particular
   producer.
-
-
-
 \end{enumerate} 
 
-\subsubsection{Workflow}
-The typical working of consumer-queue will be as follows.  The queue
-will be initially created empty.  The producer will keep adding the
-slot-pointers pointing to the data-element into the queue and
-increment the write-index value.  It will also be generating the 
-notifications whenever necessary.  Producer will stop
-adding elements in the queue when it is full, and resume adding the
-elements only when it is non-full again.  The consumer should be 
-awaken by the queue non-empty event and it should start consuming 
-the data-elements as long as queue has any element.  
+\section{Memory management (slot management)}
+The slots are most important aspect of this bulk transport mechanism.
+They hold the data which will be sent across the domains.  Now lets
+see how exactly these slots work.
 
-\subsubsection{Freeing up the slots}
+
+\subsection{Slot creation}
+Slots are created by the producer in the memory provided by 
+shared-pools.  Once created, slot remains valid until and unless the
+shared-pool holding the slot needs to be freed.  In the lifetime of
+the slot, it goes through following states.
+\begin{enumerate}
+  \item \textbf{Free:} This is the initial state, in this state slot
+  is free and ready to be used.  The producer maintains a list of free
+  slots so that it can quickly find them whenever they are needed.
+
+  \item \textbf{In-generation:} This is the second stage of slot. In
+  this state, the slot is owned by the generator and no one should 
+  access it(not even in read state!).  This is the only state in which
+  the data will be written into the slot.
+
+  \item \textbf{In-classification:} This is the third and transient
+  state.  This is the state when generator returns the slot after it
+  has generated the data.  The producer will figure out which
+  consumers this data-element should go and accordingly it will update
+  the consumer-queues of each interested consumer with slot-pointer
+  and if needed, send them the notifications.  Once the slot-pointers
+  are added into consumer-queue, the state of slot is updated to the
+  \textbf{in-consumption}.
+  
+  If no consumer is interested, then the slot is marked as free and 
+  added back to the list of free slots.
+
+
+  This is the stage where \textbf{zero copy data access} is achieved.
+  As instead of actually copying the data from the slot, slot-pointers
+  are provided to the consumers.  These slot-pointers provide
+  zero-copy access and data-sharing capabilities.
+
+
+  \item \textbf{In-consumption:} This is the state in which data is
+  available to the consumers.  Here, consumer has multiple options
+  about what to do with this slot.
+  \begin{itemize}
+    \item \textbf{In-order consumption:} 
+    Consume the slot as quickly as possible, and once consumed
+    add it to freed slot by moving the read-index.  This is the simple
+    way of consumption where consumer don't need to implement
+    any additional free slot management.  Also in this way of
+    consumption, slots are freed in the same order in which they are
+    consumed. 
+
+    \item \textbf{Out-of-order consumption:} 
+    Save this slot pointer and replace it with other slot
+    pointer which has been previously consumed and then add this
+    replaced slot to freed slot by moving the read index.  This method
+    allows you to consume the slot at leisure.  It also allows you to
+    free up the slots which don't hold useful data quickly and release
+    the slots with important data later on.  This method gives much
+    more flexibility but at cost of added free-slot management within
+    consumer.  As consumer is releasing the slot in out-of-order of
+    their consumption, it has to maintain some state about which slots
+    are released and which are still in consumption.
+
+    \item \textbf{Private-mutable consumption:} 
+    If the application needs a private access to the slots where it
+    can modify it then it should make copy of this slot in it's
+    private memory and release the actual slot.  This way, application
+    is free to do anything it wants with the private slot.  This
+    solution scales well with large number of private-mutable
+    consumers because the data-copy operation is performed by
+    consumers and not by producer.  As data-copy operation is
+    typically most expensive, we want to push it out from producer
+    into consumers.  If consumers are running on separate cores then
+    the data-copy operation of one consumer will not affect other
+    consumers.
+  \end{itemize}
+  
+
+  Once the consumer is done with consumption, the slot will be
+  returned to the producer.  And when all consumers who are sharing
+  the slot report that they are done with consumption then producer
+  can mark the slot as free and add it to the list of free slots for
+  future reuse.
+\end{enumerate}
+
+\subsection{Slot management inside producer}
+The producer maintains a private meta-slot data-structure for each 
+slot to track these slots.  It also maintains the list of free,
+in-generation and in consumption slots.
+
+\subsection{Slot management inside consumer}
+The slot management is not needed in consumer if they are following
+in-order or private-mutable consumption.  In these two cases, the
+consumer-queue implicitly does the slot management for consumers.
+
+In case of out-of-order consumption, the consumer will have to
+maintain the list of all slot-pointers which are currently accessible
+and also the list of slot-pointers which are done with the use and can
+be released as free slots.
+
+\subsection{Freeing up the slots}
 Whenever consumer is done with accessing/consuming the data-element,
 it should be added back to the free-slot-pointers area of the consumer 
 queue.  It is important to note that the order in which slots will be
@@ -764,6 +795,17 @@ be using is that, the size of consumer-queue will be directly
 proportional to the size of shared-pool that particular consumer has
 contributed.
 
+\paragraph{Producer initialization}
+At producer initialization, following steps will happen.
+\begin{enumerate} 
+  \item Create and initialize the list of shared-pools and meta-slots.
+  \item Add the initial shared-pool big enough to satisfy generator
+  needs.  
+  \item Divide the shared-pool into slots, create a meta-slots list
+  for this shared-pool and add it to meta-slots list.
+  \item Create an empty list of consumers.
+  \item Initialize the generator (if needed).
+\end{enumerate} 
 
 \section{Notification mechanism}
 Describe the notification mechanism.
@@ -779,4 +821,90 @@ zero copy?
 \section{The communication between consumers}
 TBD:  The communication between consumers is needed to share the
 slot-pointers between them.
+
+\section{slot size}
+The size of the slot is greatly dictated by the capabilities of the
+generator.  If generator needs
+continuous memory to produce data-element then the size of
+slot will be the size of biggest data-element.  If the
+generator can DMA the data-element into multiple non-contiguous
+memory locations then, the slot size should be based on
+the average data-element size.  In any case, the slot size
+must alway be a multiple of cache size and every slot should
+be cache aligned.  This is mostly due to the fact that each
+data element might get consumed by different consumer running
+on different cores, and we do not want cache conflicts when
+they are accessing different data-elements.
+
+
+The dis-advantage of having slots of size of largest data-element
+is that it leads to internal fragmentation and waste of memory 
+when packets are small.  On other hand, when slot size is small,
+we reduce the capacity of NIC hardware as typically RX-queue
+will have limited number of entries, and by using small sized
+slots, we will fill up the entries quickly.
+
+
+
 \end{document}
+
+
+
+\subsubsection{Workflow}
+The typical working of consumer-queue will be as follows.  The queue
+will be initially created empty.  The producer will keep adding the
+slot-pointers pointing to the data-element into the queue and
+increment the write-index value.  It will also be generating the 
+notifications whenever necessary.  Producer will stop
+adding elements in the queue when it is full, and resume adding the
+elements only when it is non-full again.  The consumer should be 
+awaken by the queue non-empty event and it should start consuming 
+the data-elements as long as queue has any element.  
+
+
+
+\paragraph{Possible events received by producer}
+\begin{enumerate} 
+  \item \textbf{New consumer registered:}  This event shows the
+  successful completion of \textbf{consumer registration}.  The
+  consumer registration is multi-step process and broadly it involves
+  establishing communication/notification channel,
+  registering a new shared-pool from consumer,
+  giving read-only access to existing shared-pools to consumer,
+  creating a consumer-queue with consumer.  
+  The remaining document will give more details on each of the above
+  steps.
+
+  \item \textbf{Consumer de-register:} This event is request by
+  consumer to de-register itself.  The producer should not send any
+  more notifications to this consumer about new packet.  The producer
+  should also start the process or releasing the shared-pool which was
+  contributed by this consumer.
+
+  \item \textbf{Consumer-queue space available:} When this
+  notification is received from any consumer, that shows that the
+  consumer now has free space to receive more data-elements and
+  producer should resume sending data-element notifications to it.
+  Note here that producer will stop sending the data-notifications as
+  soon as the consumer-queue is full for that consumer. Producer will
+  not check the status of this consumer-queue until and unless it
+  receives this notification.  Consumer will also send this message in
+  the beginning when it is done with all the setup and ready to send
+  the message.  In simple sense, this message can be seen as telling
+  the producer that you are ready to receive data-elements.
+
+  \item Increment data-element counter.
+
+  \item Consumer registers up-call for new data.
+  \item Data-element generated (from generator).
+  \item generator queue full (from generator).
+\end{enumerate} 
+
+\paragraph{Possible events generated by producer}
+\begin{enumerate} 
+  \item add empty slot (to generator). 
+  \item New data element.
+  \item Consumer queue full. 
+\end{enumerate} 
+
+
