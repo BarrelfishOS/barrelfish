@@ -426,7 +426,56 @@ with producer.  This initialization process includes following steps.
 
 
 \subsection{Consumer-queue}
-This section describes the consumer queue in details.
+This section describes the consumer-queue in details.
+The consumer-queue is a shared data-structure between consumer and
+producer and it is exclusive between each pair of consumer-producer.
+This data-structure is also maintained on contiguous shared-memory 
+which is read/writable by both consumer and producer.  This
+data-structure is shared ring-buffer with few virtual-registers 
+which are used to manage the access the ring-buffer.
+
+\begin{enumerate} 
+  \item \textbf{write-register:} This virtual register is the first
+  element in the consumer-queue.  This element should be of size
+  cache-line to avoid any cache-conflicts.  This element can be
+  modified only by the producer and consumer can only read this value.
+  The value in this virtual-register contains the write-index for
+  consumer-queue.  \textit{The write-index points to the slot within
+  consumer-queue that producer will produce next.}
+
+  \item \textbf{read-register:} This virtual register is the second
+  element in the consumer-queue.  This element should be of size
+  cache-line to avoid any cache-conflicts.  This element can be
+  modified only by the consumer and producer can only read it.
+  The value in this virtual-register contains the read-index for
+  consumer-queue.  \textit{The read-index points to the slot within
+  consumer-queue that consumer will consume next.}
+
+  \item \textbf{queue-size:} This virtual register is the third
+  element in the consumer-queue.  This element can be modified by
+  producer and consumer can only read it.  The value in this
+  virtual-register indicate the number of slots present in the
+  consumer-queue.  This register allows dynamic adjustment queue-size
+  based on the current load.  Similar feature is implemented in the
+  \textit{beltway buffers} with the claim that keeping the size of 
+  queue as small as possible helps in cache friendliness.  This
+  feature is actually optional and will be added in later stages.
+  To implement this feature, one also need to made decision like when
+  the queue size should be reduced and when it should be increased
+  again.  Producer can make these decisions based on how much
+  preference it wants to give to this particular consumer over others.
+  \end{enumerate} 
+
+\subsubsection{Conditions on consumer-queue registers}
+
+\begin{enumerate} 
+  \item Queue empty condition: read-index == write-index
+  \item Queue full condition: ((write-index + 1)%size) == read-index 
+  \item Elements available to consume (assuming queue not empty): 
+  if (write-index = read-index)
+    then ([read-index,(write-index-1)])
+    else ([read-index,(size-1)], [0, (write-index-1)])
+\end{enumerate} 
 
 \paragraph{Possible events received by consumer}
 This paragraph describes the event received by consumers and how
@@ -445,6 +494,6 @@ Describe the memory management mechanism
 Details of how things will be managed when there are more than two
 applications. Can more than two applications work in sync with true 
 zero copy?
-
+ 
 \section{Overview}
 \end{document}
