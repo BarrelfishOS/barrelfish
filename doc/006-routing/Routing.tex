@@ -148,12 +148,12 @@ In addition to the forwarding table, each node maintains a routing table. The ro
 
 The virtual circuit switching approach would also allow to reserve some resources on the nodes for each channel. Per-channel reserved resources could include buffer space to save received, but not yet forwarded messages, or bandwidth on the ICD links. This is potentially very useful for congestion and flow control. Note that we cannot simply drop messages in case of congested links, as we want to provide a reliable messaging service. As of now, we do not reserve resources on the nodes, but allocate required resources dynamically.
 
-%% \begin{figure}[h]
-%% 	\begin{center}
-%%  	\includegraphics[scale=0.7]{overview_multihop_channel.pdf}
-%%  	\caption{Basic set-up}\label{fig:multihop-chan}
-%%  	\end{center}
-%% \end{figure}
+\begin{figure}[h]
+	\begin{center}
+ 	\includegraphics[scale=0.7]{overview_multihop_channel.pdf}
+ 	\caption{Basic set-up}\label{fig:multihop-chan}
+ 	\end{center}
+\end{figure}
 
 \section{Additional monitor bindings}
 A multi-hop channel is multiplexed over the available ICD links. However, for each multi-hop channel, there will be two additional ICD links: Two additional LMP channels will be created between the client's dispatcher and the monitor running on its core and between the service's dispatcher and the monitor on its core. LMP channels are rather cheap - they do not require polling and require only a small amount of memory. Therefore, this does not compromise our goal of optimizing resource usage. Figure~\ref{fig:multihop-chan} shows an example set-up of a multi-hop channel with the two additional LMP channels. 
@@ -171,12 +171,12 @@ An attacker sending messages with manipulated virtual circuit identifiers may be
 
 This design requires that each node on a multi-hop channel tells its neighbours what virtual circuit identifier they should use for messages sent over that particular channel. This happens in the set-up phase of a multi-hop channel (see section~\ref{section: set-up}).
 
-%% \begin{figure}[h]
-%% 	\begin{center}
-%%  	\includegraphics[scale=0.68]{vcis.pdf}
-%%  	\caption{Virtual circuit identifiers} \label{fig:vci}
-%%  	\end{center}
-%% \end{figure}
+\begin{figure}[h]
+	\begin{center}
+ 	\includegraphics[scale=0.68]{vcis.pdf}
+ 	\caption{Virtual circuit identifiers} \label{fig:vci}
+ 	\end{center}
+\end{figure}
 
 
 \section{Channel set-up}
