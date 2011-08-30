@@ -322,6 +322,12 @@ the ambiguity of the terms.
   communication to identify the exact slot.  A typical slot-pointer
   should have a shared-pool-id and offset within shared-pool to
   find the particular slot.
+  \item \textbf{Classification:} This term refers to the
+  classification of data-elements between consumers.  In other words,
+  it is a process of deciding which consumers should receive this
+  particular data-element.  In network stack parlance, this
+  classification will map to deciding which process should get the
+  received packet.
 \end{enumerate}
 
 \section{The Producer}
@@ -430,6 +436,37 @@ every slot and its state.
 Other than this, the producer also maintains the list of consumers who
 have registered.
 
+\subsection{shared and private data-structure}
+This section briefly describes which of above data-structures are
+private and which of them are shared with other entities.
+
+\subsubsection{Private data-structures}
+The producer maintains lot of state in private data-structures.  It
+includes following.
+\begin{enumerate}
+  \item List of consumers connected. 
+  \item List of shared-pool-meta-data. This meta-data includes
+  following information.
+    \begin{enumerate}
+      \item Consumers having access to this shared-pool.
+      \item meta-slot structure containing private information about
+      state of each slot in this shared-pool.
+      \item List of free slots in this shared-pool.
+  \item The generator-queue which is used by generator to create
+  data-elements is shared with generator. But as we treat generator as
+  internal entity, we mark this as private data instead of shared
+  data.
+    \end{enumerate}
+\end{enumerate}
+
+\subsubsection{Shared data-structures}
+The producer shares following data-structures with different entities.
+\begin{enumerate}
+  \item Shared-pools are shared with all consumers.
+  \item For every consumer, a consumer-queue (see 
+  \ref{sec:consumer-queue}) is pairwise shared with that consumer.
+\end{enumerate}
+
 \section{Consumer}
 This section describes the internals of the consumer.  Consumer mainly
 consist of a consumer-queue data-structure which allows sharing of
@@ -438,6 +475,7 @@ access to the shared-pools.
 
 
 \subsection{Consumer-queue}
+\label{sec:consumer-queue}
 This section describes the consumer-queue in details.
 The consumer-queue is a shared data-structure between consumer and
 producer and it is exclusive between each pair of consumer-producer.
@@ -544,6 +582,34 @@ which are used to manage the access the ring-buffer.
     else \{[write-index, (read-index - 1)]\} \newline
 \end{enumerate} 
 
+\subsection{shared and private data-structure}
+This section briefly describes which of above data-structures are
+private and which of them are shared with other entities.
+
+\subsubsection{Private data-structures}
+The consumer does not have to maintain lot of private state based on
+which model of slot-consumption is used (refer
+\ref{sec:memory-management}).  When doing out-of-order consumption
+it will have to maintain some state about which slots are in 
+consumption and which slots are free and ready to go back to producer.
+Every consumer will also need some private state to remember the state
+of the producer and the consumer-queue status.  If this consumer is
+directly communicating with other consumers then it will also need
+to maintain some private state about that communication (refer
+\ref{slot-forward}).
+
+
+\subsubsection{Shared data-structures}
+The consumer shares following data-structures with producer and other
+consumers.
+\begin{enumerate}
+  \item The shared-pool that it has contributed to producer and
+  potentially shared with all consumers. 
+  \item The consumer-queue is shared with producer. 
+\end{enumerate}
+
+
+
 \section{Events/notification/communication between consumer and
 producer}
 This section describes the communication between the consumer and the
@@ -642,8 +708,9 @@ producer.
   access to this shared-pool.  The producer should respond to
   this message with either with valid capability or with error.
 
-  \item \textbf{Forwarding slot-pointer to other consumer:}  This
-  message is related to the ability of consumers to forward
+  \item \textbf{Forwarding slot-pointer to other consumer:}  
+  \label{slot-forward} 
+  This message is related to the ability of consumers to forward
   slot-pointers within each other.  There are two cases here.  In
   first case, the consumer forwards the slot-pointer to other 
   consumer and then also collects it back before declaring it as free.
@@ -878,11 +945,127 @@ we reduce the capacity of NIC hardware as typically RX-queue
 will have limited number of entries, and by using small sized
 slots, we will fill up the entries quickly.
 
+\section{Security and trust model}
+\label{sec:security-trust}
+This section discusses the trust model assumed by this bulk transport
+design and it's security implications
+
+\subsection{Slot access security}
+\label{sec:slot-security}
+This bulk transport mechanism works by sharing the memory and it 
+needs security against invalid memory accesses.  This security is
+provided by the slot-pointers.  Slot-pointers are designed to be valid
+across the virtual address-spaces of all consumers.  Slot-pointers
+contain information like shared-pool-id which can be used to find the
+starting address and length of the pool.  When consumer is calculating
+actual pointer, it can always validate that pointer lies within
+shared-pool by making sure that offset is always smaller than
+shared-pool-size.
+
+\subsection{Security against memory invalidation}
+\label{sec:memory-security}
+The more problematic case is when one of the consumer dies or
+invalidate the memory given to producer without informing the
+producer.  This case can lead to invalid memory access in producer,
+generator and other consumers as one of the shared-pool is not
+accessible any longer.  The protection against such a case
+should be provided by operating system by not removing the memory
+frame as long as it is mapped by at-least one domain/process.  If
+operating system does not provide such an assurance and if the
+consumers are non-trustworthy then producer should somehow take the
+complete ownership of the memory provided by the consumer or provide
+all the memory itself. 
+
+
+From above discussion, it can be seen that the trust mainly lies with
+producer and not the consumer.  Consumers can't do much damage to
+producer are all the actions of consumers can be validated by the
+producer.  For example, when consumer frees up the slot, the producer
+can verify if this consumer really holds the slot or not.
+
+
+\subsection{Security against data sniffing}
+\label{sec:security-sniffing}
+The only damage that consumers can do is to try and read the
+data-elements which are not destined to them.  Consumers can do this
+as they have read-only access to entire production-pool.  Performing
+this type of snooping is not trivial as all the meta-data about the
+slots is maintained in the private memory by the producer, so consumer
+will have hard time making sense of data in slots.  But nevertheless
+data-sniffing is theoretically possible in this design for any
+consumer which is willing to put required efforts.
+
+This shortcoming can be overcome by sharing the shared-pool pairwise
+between consumer and producer and additional overhead of performing
+data-copy or by using generator capability to perform early
+classification of data elements.  The \ref{sec:privacy} will give more
+details about these more strict models.
+
+\section{Privacy model}
+\label{sec:privacy}
+This bulk transport is designed to work in relaxed privacy model with
+capability of tightening the privacy model using either early
+classification capabilities of generator or at added cost of
+data-copy.  This section describes all of these modes.
+
+\subsection{Relaxed privacy model}
+\label{sec:relaxed-privacy}
+The bulk-transport design described most of the above document is 
+based the relaxed privacy model.  The reason for describing this model
+in detail is that other models which gives better privacy (described
+in \ref{sec:data-copy-privacy},
+\ref{sec:generator-classification-privacy}) are sub-set of this model 
+hence they are easy to understand once this model is clear.  
+In this model, all consumers have read-only access to entire 
+production-pool.  And hence in theory one consumer can sniff the
+data-elements designated to other consumers.  The 
+\ref{sec:security-sniffing} gives some description of this issue from
+the security perspective.
+
+
+\subsection{Strict privacy model with additional data-copy}
+\label{sec:data-copy-privacy}
+In this model, shared-pools are not shared with all consumers, but
+every shared-pools is shared between producer and with only 
+one consumer (one who has contributed that shared-pool).  The initial
+shared-pool contributed by the producer itself is shared between
+producer and generator.  This shared-pool will not be directly 
+accessible to any consumer.  All the data generated in this pool which
+is private to producer and generator and then based on the
+classification of the data-element, it is explicitly copied into the
+shared-pool of the selected consumers.  This way, other consumers can
+never see the data-elements which are not destined to them.  This
+stricter privacy policy comes with the cost of additional data-copy.
+Also, as producer is performing this data-copy, this can adversely
+affect the throughput of the whole system.
+
+
+\subsection{Strict privacy model with early classification support
+from generator}
+\label{sec:generator-classification-privacy}
+In this model as well, shared-pools are not shared with all 
+consumers, but every shared-pools is shared between 
+producer and with only one consumer. 
+This model depends on the capabilities of generator to provide
+stricter privacy model.  If the generator is smart enough and can 
+classify the data-elements before they are created, then these
+data-elements can be directly created into the shared-pool of selected
+consumer.  This avoids additional copy from the producers pool to the
+shared-pool of the consumer.
+
+This is an ideal model which provides strict privacy without
+compromising on the performance.  But it needs smarter generators.
+The recent NIC hardwares like \textbf{Solarflair} and \textbf{e10000}
+are capable of performing such a classification.
+
+
 \section{Adaptability with different hardware}
 This section particularly discusses the ability of this design to
 adapt with different designs and features of NIC hardwares.  The
 current solution shared all shared-pools with all applications in 
-read-only mode.  But if hardware can perform early classification then
+read-only mode.  But as we have seen in 
+\ref{sec:generator-classification-privacy} if hardware can perform 
+early classification then
 this design can be evolved into one-consumer one-producer setup.  By
 doing early classification, NIC and directly DMA the packet into the
 shared-pool provided by the consumer.  This way, there will be no need
@@ -890,6 +1073,7 @@ to give all consumers access to all shared-pools.  Each consumer will
 only have access to their own shared-queue and all the data elements
 will directly reach that consumer-queue.  This way, this design can
 cope with both normal NIC's as well has smart NIC's.
+
 
 \section{Conclusion}
 This chapter provides the details about the new cross-domain transfer
@@ -903,61 +1087,5 @@ exchanged by sending them only when it is absolutely necessary.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
-
-\subsubsection{Workflow}
-The typical working of consumer-queue will be as follows.  The queue
-will be initially created empty.  The producer will keep adding the
-slot-pointers pointing to the data-element into the queue and
-increment the write-index value.  It will also be generating the 
-notifications whenever necessary.  Producer will stop
-adding elements in the queue when it is full, and resume adding the
-elements only when it is non-full again.  The consumer should be 
-awaken by the queue non-empty event and it should start consuming 
-the data-elements as long as queue has any element.  
-
-
-
-\paragraph{Possible events received by producer}
-\begin{enumerate} 
-  \item \textbf{New consumer registered:}  This event shows the
-  successful completion of \textbf{consumer registration}.  The
-  consumer registration is multi-step process and broadly it involves
-  establishing communication/notification channel,
-  registering a new shared-pool from consumer,
-  giving read-only access to existing shared-pools to consumer,
-  creating a consumer-queue with consumer.  
-  The remaining document will give more details on each of the above
-  steps.
-
-  \item \textbf{Consumer de-register:} This event is request by
-  consumer to de-register itself.  The producer should not send any
-  more notifications to this consumer about new packet.  The producer
-  should also start the process or releasing the shared-pool which was
-  contributed by this consumer.
-
-  \item \textbf{Consumer-queue space available:} When this
-  notification is received from any consumer, that shows that the
-  consumer now has free space to receive more data-elements and
-  producer should resume sending data-element notifications to it.
-  Note here that producer will stop sending the data-notifications as
-  soon as the consumer-queue is full for that consumer. Producer will
-  not check the status of this consumer-queue until and unless it
-  receives this notification.  Consumer will also send this message in
-  the beginning when it is done with all the setup and ready to send
-  the message.  In simple sense, this message can be seen as telling
-  the producer that you are ready to receive data-elements.
-
-  \item Increment data-element counter.
-
-  \item Consumer registers up-call for new data.
-\end{enumerate} 
-
-\paragraph{Possible events generated by producer}
-\begin{enumerate} 
-  \item New data element.
-  \item Consumer queue full. 
-\end{enumerate} 
 
 
