@@ -903,6 +903,18 @@ static void span_domain_request(struct monitor_binding *st,
         goto reply;
     }
 
+    bool has_descendants;
+    err = monitor_cap_remote(disp, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+    err = monitor_cap_remote(vroot, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+
     /* Send msg to destination monitor */
     err = closure->tx_vtbl.span_domain_request(closure, NOP_CONT, state_id,
                                                vroot_cap.u.vnode_x86_64_pml4.base,
@@ -1108,6 +1120,14 @@ errval_t monitor_server_init(struct monitor_binding *b)
         USER_PANIC_ERR(err, "bmp_monitor_init failed");
     }
 #endif
+
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+    errval_t err2;
+    err2 = multihop_monitor_init(b);
+    if (err_is_fail(err2)) {
+        USER_PANIC_ERR(err2, "multihop_monitor_init failed");
+    }
+#endif // CONFIG_INTERCONNECT_DRIVER_MULTIHOP
 
     return monitor_server_arch_init(b);
 }

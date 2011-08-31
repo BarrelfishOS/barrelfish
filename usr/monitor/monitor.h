@@ -240,6 +240,11 @@ errval_t ump_monitor_init(struct monitor_binding *mb);
 errval_t bmp_intermon_init(struct intermon_binding *ib);
 errval_t bmp_monitor_init(struct monitor_binding *mb);
 
+/* multihop_support.c */
+errval_t multihop_intermon_init(struct intermon_binding *ib);
+errval_t multihop_monitor_init(struct monitor_binding *mb);
+errval_t multihop_request_routing_table(struct intermon_binding *b);
+
 /* rck_support.c */
 errval_t rck_intermon_init(struct intermon_binding *ib);
 errval_t rck_monitor_init(struct monitor_binding *mb);

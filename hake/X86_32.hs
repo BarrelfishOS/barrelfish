@@ -61,8 +61,8 @@ options = (ArchDefaults.options arch archFamily) {
             optLibs = (ArchDefaults.stdLibs arch) ++ [ Str "-lgcc" ],
             optLdFlags = ldFlags,
             optLdCxxFlags = [],
-            optInterconnectDrivers = ["lmp", "ump"],
-            optFlounderBackends = ["lmp", "ump"]
+            optInterconnectDrivers = ["lmp", "ump", "multihop"],
+            optFlounderBackends = ["lmp", "ump", "multihop"]
           }
 
 --

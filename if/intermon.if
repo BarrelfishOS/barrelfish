@@ -147,4 +147,19 @@ interface intermon "The Interface between monitors" {
 	// message was sent, so other cores know what to relate
 	// relative timestamps to.
 	message rsrc_phase(rsrcid id, uint32 phase, uint64 timestamp);
+	
+	/* Multi-hop interconnect driver */
+	
+	// request routing table from monitor 0
+	call multihop_routing_table_request(coreid_t my_coreid);
+	response multihop_routing_table_response(int num_cores, coreid to[len]);
+
+    // set up a new multihop virtual circuit
+    call bind_multihop_intermon_request(iref iref, uint64 sender_vci, coreid core_id);         
+    response bind_multihop_intermon_reply(uint64 receiver_vci, uint64 sender_vci, errval err);
+
+    message multihop_message(uint64 vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
+		
+	call multihop_cap_send(uint64 vci, uint8 direction, uint32 capid, caprep cap, bool null_cap);
+	response multihop_cap_reply(uint64 vci, uint8 direction, uint32 capid, errval err);
 };

@@ -8,6 +8,7 @@
  */
 
 interface monitor "The monitor to client Interface" {
+
           call alloc_iref_request(
                         uintptr service_id);
 
@@ -167,4 +168,25 @@ interface monitor "The monitor to client Interface" {
 
           call num_cores_request();
           response num_cores_reply(uint8 num);
+          
+          /* Multi-hop interconnect driver */
+          
+          // Send routing table
+          call multihop_routing_table_set_request(int num_cores, coreid from, coreid to[len]);
+          response multihop_routing_table_response();
+
+          // Connection set-up between monitor and client
+          call multihop_bind_client_request(iref iref, uint64 sender_vci);
+          response multihop_bind_client_reply(uint64 receiver_vci, uint64 sender_vci, errval err);
+
+          // Connection set-up between monitor and service
+          call multihop_bind_service_request(uintptr service_id, uint64 sender_vci);
+          response multihop_bind_service_reply(uint64 receiver_vci , uint64 sender_vci, errval err);
+
+          // user message
+          message multihop_message(uint64 vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
+          
+          // cap transfer
+	  	  call multihop_cap_send(uint64 vci, uint8 direction, cap cap, uint32 capid);
+          response multihop_cap_reply(uint64 vci, uint8 direction, uint32 capid, errval err);
 };

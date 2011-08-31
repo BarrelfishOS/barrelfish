@@ -38,6 +38,28 @@ static bool enqueue_send(struct msg_queue *q, struct msg_queue_elem *m)
     return q->head == q->tail ? true : false;
 }
 
+/**
+ * \brief Enqueue an element on a waitset queue IN FRONT.
+ *
+ * \param qs    Pointer to queue to enqueue on
+ * \param ms    Pointer to element to enqueue
+ *
+ * \return true if queue was empty, false if not.
+ */
+static bool enqueue_send_at_front(struct msg_queue *q, struct msg_queue_elem *m)
+{
+    assert(m->next == NULL);
+    if(q->tail == NULL) {
+        assert(q->head == NULL);
+    	q->head = m;
+    	q->tail = m;
+    } else {
+    	m->next = q->head;
+    	q->head = m;
+    }
+    return q->head == q->tail ? true : false;
+}
+
 static struct msg_queue_elem *dequeue_send(struct msg_queue *q)
 {
     // Queue should have at least one element
@@ -86,6 +108,19 @@ errval_t intermon_enqueue_send(struct intermon_binding *b, struct msg_queue *q,
     }
 }
 
+errval_t intermon_enqueue_send_at_front(struct intermon_binding *b, struct msg_queue *q,
+                               struct waitset *ws, struct msg_queue_elem *ms)
+{
+    ms->next = NULL;
+
+    // If queue was empty, enqueue on waitset
+    if(enqueue_send_at_front(q, ms)) {
+        return b->register_send(b, ws, MKCONT(intermon_send_handler,b));
+    } else {
+        return SYS_ERR_OK;
+    }
+}
+
 static void monitor_send_handler(void *arg)
 {
     struct monitor_binding *b = arg;
@@ -114,6 +149,19 @@ errval_t monitor_enqueue_send(struct monitor_binding *b, struct msg_queue *q,
 
     // If queue was empty, enqueue on waitset
     if(enqueue_send(q, ms)) {
+        return b->register_send(b, ws, MKCONT(monitor_send_handler,b));
+    } else {
+        return SYS_ERR_OK;
+    }
+}
+
+errval_t monitor_enqueue_send_at_front(struct monitor_binding *b, struct msg_queue *q,
+                              struct waitset *ws, struct msg_queue_elem *ms)
+{
+    ms->next = NULL;
+
+    // If queue was empty, enqueue on waitset
+    if(enqueue_send_at_front(q, ms)) {
         return b->register_send(b, ws, MKCONT(monitor_send_handler,b));
     } else {
         return SYS_ERR_OK;

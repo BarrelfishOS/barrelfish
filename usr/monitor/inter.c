@@ -390,6 +390,18 @@ static void span_domain_request(struct intermon_binding *st,
         goto reply;
     }
 
+    bool has_descendants;
+    err = monitor_cap_remote(disp, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+    err = monitor_cap_remote(vroot, true, &has_descendants);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        return;
+    }
+
     err = span_domain(vroot, disp);
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_SPAN_DOMAIN);
@@ -783,6 +795,15 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "bmp_intermon_init failed");
     }
+#endif
+
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+    errval_t err2;
+    err2 = multihop_intermon_init(b);
+    if (err_is_fail(err2)) {
+      USER_PANIC_ERR(err2, "multihop_intermon_init failed");
+    }
+    return arch_intermon_init(b);
 #endif
 
     return arch_intermon_init(b);

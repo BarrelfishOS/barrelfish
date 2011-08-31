@@ -40,6 +40,9 @@ struct intermon_msg_queue_elem {
 errval_t intermon_enqueue_send(struct intermon_binding *b, struct msg_queue *q,
                                struct waitset *ws, struct msg_queue_elem *ms);
 
+errval_t intermon_enqueue_send_at_front(struct intermon_binding *b, struct msg_queue *q,
+                               struct waitset *ws, struct msg_queue_elem *ms);
+
 struct monitor_msg_queue_elem;
 typedef void (*monitor_msg_cont_handler_fn)(struct monitor_binding *b,
                                             struct monitor_msg_queue_elem *);
@@ -50,6 +53,9 @@ struct monitor_msg_queue_elem {
 };
 
 errval_t monitor_enqueue_send(struct monitor_binding *b, struct msg_queue *q,
+                              struct waitset *ws, struct msg_queue_elem *ms);
+
+errval_t monitor_enqueue_send_at_front(struct monitor_binding *b, struct msg_queue *q,
                               struct waitset *ws, struct msg_queue_elem *ms);
 
 

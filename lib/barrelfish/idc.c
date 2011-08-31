@@ -31,4 +31,7 @@ void idc_init(void)
 #if defined(CONFIG_FLOUNDER_BACKEND_UMP_IPI)
     ipi_init();
 #endif
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+    multihop_init();
+#endif
 }
