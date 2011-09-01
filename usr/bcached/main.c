@@ -28,14 +28,6 @@
 #include "bcached.h"
 #include <hashtable/hashtable.h>
 
-//#ifndef CONFIG_QEMU_NETWORK
-#if 1
-#       define CACHE_SIZE      (1U << 28)      // 256MB
-#else
-#       define CACHE_SIZE      (1U << 22)      // 4MB
-#endif
-#define NUM_BLOCKS      (CACHE_SIZE / BUFFER_CACHE_BLOCK_SIZE)
-
 struct lru_queue {
     struct lru_queue *prev, *next;
     uintptr_t index, block_length;

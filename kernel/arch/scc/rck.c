@@ -302,11 +302,11 @@ static void handle_channel(uintptr_t chanid)
     errval_t err = lmp_deliver_notification(ep);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
-            dispatcher_handle_t handle = ep->u.endpoint.listener->disp;
-            struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(handle);
-            printk(LOG_DEBUG, "%.*s: RCK message buffer overflow\n",
-                   DISP_NAME_LEN, disp->name);
+            /* dispatcher_handle_t handle = ep->u.endpoint.listener->disp; */
+            /* struct dispatcher_shared_generic *disp = */
+            /*     get_dispatcher_shared_generic(handle); */
+            /* printk(LOG_DEBUG, "%.*s: RCK message buffer overflow\n", */
+            /*        DISP_NAME_LEN, disp->name); */
         } else {
             printk(LOG_ERR, "Unexpected error delivering RCK notification\n");
         }

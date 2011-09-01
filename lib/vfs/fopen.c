@@ -216,7 +216,8 @@ barrelfish_fopen(const char *fname, const char *mode)
     newfile->buffer = NULL;
     newfile->buf_pos = 0;
     /* newfile->buf_size = 65536; */
-    newfile->buf_size = 262144;
+    //    newfile->buf_size = 262144;
+    newfile->buf_size = (1 * 1024 * 1024);
     newfile->unget_pos = 0;
     newfile->eof = 0;
     newfile->error = 0;
