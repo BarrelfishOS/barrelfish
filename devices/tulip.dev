@@ -43,7 +43,7 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	mabrt  = 0b001 "Master abort";
 	tabrt  = 0b010 "Target abort";
     };
-    constants tprocstate "Transmit process state" {
+    constants TPROCSTATE "Transmit process state" {
 	tpstop	= 0b000 "Stopped: reset cmd or tx jabber expired";
 	tprftd  = 0b001 "Running - fetching tx desc.";
 	tprwet  = 0b010 "Running - waiting for end of tx";

@@ -21,7 +21,7 @@
  *   both in Mackerel would be quite clunky).
  */
 
-device EC msbfirst (io data, io sc) "ACPI embedded controller" {
+device acpi_ec msbfirst (io data, io sc) "ACPI embedded controller" {
     // 12.2.1
     regtype status "Status" {
         _       1;

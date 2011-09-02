@@ -17,7 +17,7 @@
  * Datasheet", chapter 21, "LPC Interface Bridge Registers (D31:F0)".
  */
 
-device LPC_timer (io base) "LPC Timer" {
+device lpc_timer (io base) "LPC Timer" {
   //
   // Section 21.3: Timer I/O registers
   //

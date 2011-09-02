@@ -379,6 +379,8 @@ datatype_decl (TT.RegFormat tname size td desc _) =
         (regtype_struct rtype td),
         (regtype_print_fn tname rtype td rname)
       ] 
+      
+datatype_decl _ = []
 
 -------------------------------------------------------------------------
 -- Render register definitions

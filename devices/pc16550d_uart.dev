@@ -16,7 +16,7 @@
  * Semiconductor (TL/C/8652 and RRD-B30M75).
  */
 
-device PC16550D_UART lsbfirst ( io base ) "PC16550D UART" {
+device pc16550d_uart lsbfirst ( io base ) "PC16550D UART" {
   constants trigger_lvl "RCVR FIFO trigger level" {
     bytes1  = 0b00      "Every byte";
     bytes4  = 0b01      "Every 4th byte";

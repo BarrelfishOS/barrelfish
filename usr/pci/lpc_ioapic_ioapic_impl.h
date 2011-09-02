@@ -15,52 +15,52 @@
 #ifndef LPC_IOAPIC_IOAPIC_IMPL_H
 #define LPC_IOAPIC_IOAPIC_IMPL_H
 
-static inline uint32_t LPC_IOAPIC_ioapic_read_32(LPC_IOAPIC_t *dev,
+static inline uint32_t lpc_ioapic_ioapic_read_32(lpc_ioapic_t *dev,
                                                  size_t offset)
 {
     // Select address via index register
-    LPC_IOAPIC_ind_wr(dev, offset);
+    lpc_ioapic_ind_wr(dev, offset);
 
     // Return value from window register
-    return LPC_IOAPIC_wdw_rd(dev);
+    return lpc_ioapic_wdw_rd(dev);
 }
 
-static inline uint64_t LPC_IOAPIC_ioapic_read_64(LPC_IOAPIC_t *dev,
+static inline uint64_t lpc_ioapic_ioapic_read_64(lpc_ioapic_t *dev,
                                                  size_t offset)
 {
     uint64_t ret;
 
     // Read LSW
-    LPC_IOAPIC_ind_wr(dev, offset);
-    ret = LPC_IOAPIC_wdw_rd(dev);
+    lpc_ioapic_ind_wr(dev, offset);
+    ret = lpc_ioapic_wdw_rd(dev);
 
     // Read MSW
-    LPC_IOAPIC_ind_wr(dev, offset + 1);
-    ret |= (uint64_t)LPC_IOAPIC_wdw_rd(dev) << 32;
+    lpc_ioapic_ind_wr(dev, offset + 1);
+    ret |= (uint64_t)lpc_ioapic_wdw_rd(dev) << 32;
 
     return ret;
 }
 
-static inline void LPC_IOAPIC_ioapic_write_32(LPC_IOAPIC_t *dev, size_t offset,
+static inline void lpc_ioapic_ioapic_write_32(lpc_ioapic_t *dev, size_t offset,
                                               uint32_t value)
 {
     // Select address via index register
-    LPC_IOAPIC_ind_wr(dev, offset);
+    lpc_ioapic_ind_wr(dev, offset);
 
     // Write value to window register
-    LPC_IOAPIC_wdw_wr(dev, value);
+    lpc_ioapic_wdw_wr(dev, value);
 }
 
-static inline void LPC_IOAPIC_ioapic_write_64(LPC_IOAPIC_t *dev, size_t offset,
+static inline void lpc_ioapic_ioapic_write_64(lpc_ioapic_t *dev, size_t offset,
                                               uint64_t value)
 {
     // Write LSW
-    LPC_IOAPIC_ind_wr(dev, offset);
-    LPC_IOAPIC_wdw_wr(dev, value & 0xffffffff);
+    lpc_ioapic_ind_wr(dev, offset);
+    lpc_ioapic_wdw_wr(dev, value & 0xffffffff);
 
     // Write MSW
-    LPC_IOAPIC_ind_wr(dev, offset + 1);
-    LPC_IOAPIC_wdw_wr(dev, value >> 32);
+    lpc_ioapic_ind_wr(dev, offset + 1);
+    lpc_ioapic_wdw_wr(dev, value >> 32);
 }
 
 #endif
