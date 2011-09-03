@@ -25,20 +25,12 @@
 bool rdtscp_flag;
 #endif
 
-//#define ENABLE_RPC_DEBUGP 1
-/* FIXME: It might be a good idea to move ENABLE_RPC_DEBUGP to Config.hg */
-
-#ifdef ENABLE_RPC_DEBUGP
-#define RPC_DEBUGP(x...) printf("RPC: " x)
-#else
-#define RPC_DEBUGP(x...) ((void)0)
-#endif
-
 #define FALSE   false
 #define TRUE    true
 
 #include <nfs/xdr.h>
 #include "rpc.h"
+#include "rpc_debug.h"
 #include "xdr_pbuf.h"
 
 /// RPC authentication flavour
