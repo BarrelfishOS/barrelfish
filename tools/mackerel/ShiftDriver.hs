@@ -94,7 +94,7 @@ constants_check_fn_name c = qual_typerec c ["chk" ]
 --
 regtype_c_name :: TT.Rec -> String
 regtype_c_name rt 
-    | TT.is_builtin rt = (TT.type_name rt) ++ "_t"
+    | TT.is_builtin rt = (TN.typeName $ TT.tt_name rt) ++ "_t"
     | otherwise = qual_typerec rt ["t"]
 
 regtype_initial_macro_name :: TT.Rec -> String
@@ -890,7 +890,7 @@ register_c_type r = C.TypeName $ register_c_name r
 
 register_shadow_ref :: RT.Rec -> C.Expr
 register_shadow_ref r =
-    let deref = C.DerefField (C.Variable cv_dev) (register_shadow_name r)
+    let deref = C.DerefField (C.Variable cv_dev) (device_shadow_field_name r)
     in 
       if RT.is_array r then
           C.SubscriptOf deref (C.Variable cv_i)

@@ -917,24 +917,25 @@ This latter header file includes declarations for the low-level read
 and write functions that \Mac code requires, and some other
 preprocessor macros to ensure correct C code generation.   
 
-\Mac prefixes all declarations in the file with the
-name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
-most (though not all) declarations this prefix can be overridden by
-defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
 
-This is at first sight a little confusing.  Suppose we have a device
-called \texttt{pc16550d\_uart}.   By default, any declaration
-\texttt{foo} in \Mac file will correspond to
-\texttt{pc16550d\_uart\_foo} in the header file. 
+%% \Mac prefixes all declarations in the file with the
+%% name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
+%% most (though not all) declarations this prefix can be overridden by
+%% defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
 
-If, however, we include a line:
+%% This is at first sight a little confusing.  Suppose we have a device
+%% called \texttt{pc16550d\_uart}.   By default, any declaration
+%% \texttt{foo} in \Mac file will correspond to
+%% \texttt{pc16550d\_uart\_foo} in the header file. 
 
-\begin{quote}
- \texttt{\#define pc16550d\_uart\_PREFIX uart}
-\end{quote}
+%% If, however, we include a line:
 
--- before including the header file, that declaration is likely to now
-be \texttt{uart\_foo}. 
+%% \begin{quote}
+%%  \texttt{\#define pc16550d\_uart\_PREFIX uart}
+%% \end{quote}
+
+%% -- before including the header file, that declaration is likely to now
+%% be \texttt{uart\_foo}. 
 
 In the rest of this chapter, we'll use ``\texttt{DN\_}'' as the
 device prefix that cannot be redefined in this manner, and ``\texttt{DP\_}''
@@ -1341,23 +1342,26 @@ and write functions that \Mac code requires, and some other
 preprocessor macros to ensure correct C code generation.   
 
 \Mac prefixes all declarations in the file with the
-name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
-most (though not all) declarations this prefix can be overridden by
-defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
+name of the file plus an underscore (``\texttt{DEV\_}''). 
 
-This is at first sight a little confusing.  Suppose we have a device
-called \texttt{pc16550d\_uart}.   By default, any declaration
-\texttt{foo} in \Mac file will correspond to
-\texttt{pc16550d\_uart\_foo} in the header file. 
 
-If, however, we include a line:
+%%  However, for
+%% most (though not all) declarations this prefix can be overridden by
+%% defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
 
-\begin{quote}
- \texttt{\#define pc16550d\_uart\_PREFIX uart}
-\end{quote}
+%% This is at first sight a little confusing.  Suppose we have a device
+%% called \texttt{pc16550d\_uart}.   By default, any declaration
+%% \texttt{foo} in \Mac file will correspond to
+%% \texttt{pc16550d\_uart\_foo} in the header file. 
 
--- before including the header file, that declaration is likely to now
-be \texttt{uart\_foo}. 
+%% If, however, we include a line:
+
+%% \begin{quote}
+%%  \texttt{\#define pc16550d\_uart\_PREFIX uart}
+%% \end{quote}
+
+%% -- before including the header file, that declaration is likely to now
+%% be \texttt{uart\_foo}. 
 
 In the rest of this chapter, we'll use ``\texttt{DN\_}'' as the
 device prefix that cannot be redefined in this manner, and ``\texttt{DP\_}''

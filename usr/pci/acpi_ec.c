@@ -51,34 +51,34 @@
 #include "pci_debug.h"
 #include "acpi_ec_dev.h"
 
-#define EC_CMD(c)   (EC_cmd_t){ .cmd = c }
+#define EC_CMD(c)   (acpi_ec_cmd_t){ .cmd = c }
 
 struct ec {
     ACPI_HANDLE handle; ///< Handle to EC object
     ACPI_INTEGER uid;   ///< UID of this EC object
     bool use_glk;       ///< Whether to use the ACPI global lock
-    EC_t dev;           ///< Mackerel device status
+    acpi_ec_t dev;           ///< Mackerel device status
 };
 
 static ACPI_STATUS doread(struct ec *ec, uint8_t addr, uint8_t *data)
 {
     // spinwait for input buffer empty
-    while (EC_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
     // send the read command
-    EC_cmd_wr(&ec->dev, EC_CMD(EC_read));
+    acpi_ec_cmd_wr(&ec->dev, EC_CMD(acpi_ec_read));
 
     // spinwait for input buffer empty
-    while (EC_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
     // send the address
-    EC_data_wr(&ec->dev, addr);
+    acpi_ec_data_wr(&ec->dev, addr);
 
     // spinwait for output buffer full
-    while (!EC_status_rd(&ec->dev).obf) ;
+    while (!acpi_ec_status_rd(&ec->dev).obf) ;
 
     // read byte
-    *data = EC_data_rd(&ec->dev);
+    *data = acpi_ec_data_rd(&ec->dev);
 
     return AE_OK;
 }
@@ -86,24 +86,24 @@ static ACPI_STATUS doread(struct ec *ec, uint8_t addr, uint8_t *data)
 static ACPI_STATUS dowrite(struct ec *ec, uint8_t addr, uint8_t data)
 {
     // spinwait for input buffer empty
-    while (EC_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
     // send the write command
-    EC_cmd_wr(&ec->dev, EC_CMD(EC_write));
+    acpi_ec_cmd_wr(&ec->dev, EC_CMD(acpi_ec_write));
 
     // spinwait for input buffer empty
-    while (EC_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
-    EC_data_wr(&ec->dev, addr);
+    acpi_ec_data_wr(&ec->dev, addr);
 
     // spinwait for input buffer empty
-    while (EC_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
     // write byte
-    EC_data_wr(&ec->dev, data);
+    acpi_ec_data_wr(&ec->dev, data);
 
     // spinwait for input buffer empty
-    while (EC_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
     return AE_OK;
 }
@@ -114,18 +114,18 @@ static uint32_t gpe_handler(void *arg)
     ACPI_STATUS as;
 
     /* check if an SCI is pending */
-    if (EC_status_rd(&ec->dev).sci_evt) {
+    if (acpi_ec_status_rd(&ec->dev).sci_evt) {
         // spinwait for input buffer empty
-        while (EC_status_rd(&ec->dev).ibf) ;
+        while (acpi_ec_status_rd(&ec->dev).ibf) ;
 
         // send query command
-        EC_cmd_wr(&ec->dev, EC_CMD(EC_query));
+        acpi_ec_cmd_wr(&ec->dev, EC_CMD(acpi_ec_query));
 
         // spinwait for output buffer full
-        while (!EC_status_rd(&ec->dev).obf) ;
+        while (!acpi_ec_status_rd(&ec->dev).obf) ;
 
         // read data
-        uint8_t data = EC_data_rd(&ec->dev);
+        uint8_t data = acpi_ec_data_rd(&ec->dev);
 
         printf("EC: GPE query %X\n", data);
 
@@ -272,7 +272,7 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
     }
 
     // init mackerel state
-    EC_initialize(&ec->dev, ioports[0], ioports[1]);
+    acpi_ec_initialize(&ec->dev, ioports[0], ioports[1]);
 
     // register GPE handler
     as = AcpiInstallGpeHandler(NULL, gpe, ACPI_GPE_EDGE_TRIGGERED, gpe_handler,
@@ -342,7 +342,7 @@ void ec_probe_ecdt(void)
     // init mackerel state
     assert(ecdt->Control.SpaceId == ACPI_ADR_SPACE_SYSTEM_IO);
     assert(ecdt->Data.SpaceId == ACPI_ADR_SPACE_SYSTEM_IO);
-    EC_initialize(&ec->dev, ecdt->Data.Address, ecdt->Control.Address);
+    acpi_ec_initialize(&ec->dev, ecdt->Data.Address, ecdt->Control.Address);
 
     // register GPE handler
     as = AcpiInstallGpeHandler(NULL, ecdt->Gpe, ACPI_GPE_EDGE_TRIGGERED,

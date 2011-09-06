@@ -12,11 +12,7 @@
 
 -- Mackerel 1 device descriptions
 [ mackerel (options arch) f 
-  | f <- [ "ac97_base_audio", 
-           "ac97_ext_audio",
-           "ac97_ext_codec",
-           "ac97_ext_modem",
-           "acpi_ec",
+  | f <- [ "acpi_ec",
            "ahci_hba",
            "ahci_port",
            "amd_vmcb",
@@ -58,10 +54,14 @@
 
 -- Mackerel 2 device descriptions
 [ mackerel2 (options arch) f
-  | f <- ["pc16550d_uart",
-          "ixp2800_icp_pic",
-          "ixp2800_uart",
-          "ixp2800_icp_pit",
-          "lpc_kbd"
+  | f <- [ "ac97_base_audio", 
+           "ac97_ext_audio",
+           "ac97_ext_codec",
+           "ac97_ext_modem",
+           "pc16550d",
+           "ixp2800_icp_pic",
+           "ixp2800_uart",
+           "ixp2800_icp_pit",
+           "lpc_kbd"
          ], arch <- allArchitectures
 ]

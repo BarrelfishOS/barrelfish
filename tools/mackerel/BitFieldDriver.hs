@@ -43,7 +43,7 @@ qual_trec :: TT.Rec -> [ String ] -> String
 qual_trec t l = qual_name (TT.tt_name t) l 
 
 qual_name :: TN.Name -> [ String ] -> String
-qual_name (TN.Name dn tn) l = concat $ intersperse "_" ([dn] ++ l ++ [tn]) 
+qual_name (TN.Name dn tn) l = concat $ intersperse "_" ([dn, tn] ++ l) 
 
 --
 -- Language mapping: C type and name definitions
@@ -279,7 +279,7 @@ constants_check_body etype vals =
 -------------------------------------------------------------------------
 
 builtin_to_c :: TN.Name -> String
-builtin_to_c (TN.Name _ t) = (t ++ "_t")
+builtin_to_c tn = (TN.typeName tn) ++ "_t"
 
 round_field_size w 
     | w <= 8 =                  "uint8_t" 
