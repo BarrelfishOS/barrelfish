@@ -17,6 +17,10 @@ typedef enum spawn_flags {
     SPAWN_NEW_DOMAIN    = 1 << 0, ///< allocate a new domain ID
 } spawn_flags_t;
 
+struct spawn_ps_entry {
+    uint8_t status;
+};
+
 #define SPAWN_FLAGS_DEFAULT (0)
 
 /* XXX: utility function that doesn't really belong here */
@@ -36,5 +40,8 @@ errval_t spawn_kill(domainid_t domainid);
 errval_t spawn_exit(uint8_t exitcode);
 errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang);
 errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client);
+errval_t spawn_get_domain_list(uint8_t **domains, size_t *len);
+errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
+                          char **argbuf, size_t *arglen, errval_t *reterr);
 
 #endif // BARRELFISH_SPAWN_CLIENT_H
