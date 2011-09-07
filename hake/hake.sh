@@ -67,7 +67,7 @@ while [ $# -ne 0 ]; do
     shift
 done
 
-if [ -z "$INSTALLDIR"] ; then
+if [ -z "$INSTALLDIR" ] ; then
     echo "Install directory defaulting to '.'"
     INSTALLDIR="."
 else
