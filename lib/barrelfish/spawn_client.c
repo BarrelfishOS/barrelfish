@@ -413,3 +413,48 @@ errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
 
     return reterr;
 }
+
+/**
+ * \brief Get the list of domains for ps like implementation
+ */
+errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
+{
+    errval_t err;
+
+    struct spawn_rpc_client *cl;
+    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawn_rpc_client");
+    }
+    assert(cl != NULL);
+
+    err = cl->vtbl.get_domainlist(cl, domains, len);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_domainlist");
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Get the status of a domain for ps like implementation
+ */
+errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
+                          char **argbuf, size_t *arglen, errval_t *reterr)
+{
+    errval_t err;
+
+    struct spawn_rpc_client *cl;
+    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawn_rpc_client");
+    }
+    assert(cl != NULL);
+
+    err = cl->vtbl.status(cl, domain, (spawn_ps_entry_t*)pse, argbuf, arglen, reterr);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "status");
+    }
+
+    return SYS_ERR_OK;
+}

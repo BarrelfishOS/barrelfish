@@ -111,6 +111,20 @@ errval_t ram_alloc(struct capref *ret, uint8_t size_bits)
                        ram_alloc_state->default_maxlimit);
 }
 
+errval_t ram_available(genpaddr_t *available, genpaddr_t *total)
+{
+    errval_t err;
+
+    struct mem_rpc_client *mc = get_mem_client();
+
+    err = mc->vtbl.available(mc, available, total);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "available");
+    }
+
+    return SYS_ERR_OK;
+}
+
 static void bind_continuation(void *st, errval_t err, struct mem_binding *b)
 {
     struct ram_alloc_state *ram_alloc_state = st;

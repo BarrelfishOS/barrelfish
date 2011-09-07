@@ -31,8 +31,6 @@
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
 #include <if/pixels_defs.h>
-#include <if/spawn_rpcclient_defs.h>
-#include <if/mem_rpcclient_defs.h>
 
 #define MAX_LINE        512
 #define BOOTSCRIPT_NAME "/init.fish"
@@ -363,41 +361,33 @@ static int poweroff(int argc, char *argv[])
 
 static int ps(int argc, char *argv[])
 {
-    struct spawn_rpc_client *cl;
     uint8_t *domains;
     size_t len;
     errval_t err;
 
-    err = spawn_rpc_client(disp_get_core_id(), &cl);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "spawn_rpc_client");
-        return EXIT_FAILURE;
-    }
-    assert(cl != NULL);
-
-    err = cl->vtbl.get_domainlist(cl, &domains, &len);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "get_domainlist");
+    err = spawn_get_domain_list(&domains, &len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn_get_domain_list");
         return EXIT_FAILURE;
     }
 
     printf("DOMAINID\tSTAT\tCOMMAND\n");
     for(size_t i = 0; i < len; i++) {
-        spawn_ps_entry_t pse;
+        struct spawn_ps_entry pse;
         char *argbuf, status;
         size_t arglen;
         errval_t reterr;
 
-        err = cl->vtbl.status(cl, domains[i], &pse, &argbuf, &arglen, &reterr);
-        if(err_is_fail(err)) {
-            DEBUG_ERR(err, "status");
+        err = spawn_get_status(domains[i], &pse, &argbuf, &arglen, &reterr);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "spawn_get_status");
             return EXIT_FAILURE;
         }
         if(err_is_fail(reterr)) {
-            if(err_no(err) == SPAWN_ERR_DOMAIN_NOTFOUND) {
-                continue;
+            if(err_no(reterr) == SPAWN_ERR_DOMAIN_NOTFOUND) {
+                return reterr;
             }
-            DEBUG_ERR(reterr, "status");
+            DEBUG_ERR(err, "status");
             return EXIT_FAILURE;
         }
 
@@ -919,7 +909,7 @@ static int freecmd(int argc, char *argv[])
     errval_t err;
     genpaddr_t available, total;
 
-    err = mc->vtbl.available(mc, &available, &total);
+    err = ram_available(&available, &total);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "available");
         return EXIT_FAILURE;

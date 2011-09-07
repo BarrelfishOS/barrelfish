@@ -14,7 +14,6 @@
   		      cFiles = [ "fish.c", "font.c" ],
 		      addLibraries = [ "vfs", "nfs", "lwip", "contmng",
                                        "pci", "trace", "skb" ],
-  		      flounderBindings = [ "pixels" ],
-		      flounderExtraBindings = [ ("spawn", ["rpcclient"]) ]
+  		      flounderBindings = [ "pixels" ]
                     }
 ]
