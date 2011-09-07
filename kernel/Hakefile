@@ -125,9 +125,11 @@ in [
    -- xscale
    (let sfiles = [ "exceptions.S" ]
         cfiles = [ "exn.c", "exec.c", "init.c", "kludges.c", "misc.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
-        arch_sfiles = [ "boot.S", "ixp2800_uart.c", "ixp2800_paging.c", "kputchar.c" ]
-        arch_cfiles = [ "ixp2800_integrator.c" ]
-        mackerelFiles = [ "arm", "ixp2800_icp_pit", "ixp2800_icp_pic", "ixp2800_uart" ]
+        arch_sfiles = [ "boot.S" ]
+        arch_cfiles = [ "ixp2800_integrator.c", "ixp2800_uart.c", 
+                        "ixp2800_paging.c", "kputchar.c" ]
+        mackerelFiles = [ "arm", "ixp2800_icp_pit", "ixp2800_icp_pic0", 
+                          "ixp2800_uart" ]
         libs = [ "elf", "cpio" ]
     in mkrules "xscale" cfiles sfiles mackerelFiles libs [] [] arch_cfiles arch_sfiles),
 

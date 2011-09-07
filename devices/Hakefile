@@ -26,7 +26,7 @@
            "ehci_cap",
            "ehci_op",
            "hpet",
-           "ixp2800_icp_pic",
+           "ixp2800_icp_pic0",
            "ixp2800_icp_pit",
            "ixp2800_uart",
            "lpc_bridge",
