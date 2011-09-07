@@ -19,4 +19,5 @@ interface replay "Trace replay" {
 
 	message event(eventrec event);
 	message event_done(uint32 fnum);
+	message finished();
 };

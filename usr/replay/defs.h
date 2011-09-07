@@ -10,7 +10,8 @@ enum top {
     TOP_Read,
     TOP_Write,
     TOP_Close,
-    TOP_Exit
+    TOP_Exit,
+    TOP_End
 };
 
 enum flags {
@@ -32,5 +33,17 @@ struct trace_entry {
 
     struct trace_entry *next;
 };
+
+#ifdef __linux__
+struct _replay_eventrec__struct {
+    uint8_t op;
+    uint32_t fnumsize;
+    uint8_t fd;
+    uint8_t mode;
+    uint32_t fline;
+    uint16_t pid;
+};
+typedef struct _replay_eventrec__struct replay_eventrec_t;
+#endif
 
 #endif
