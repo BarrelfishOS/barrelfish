@@ -38,6 +38,7 @@
            "pc16550d",
            "rtl8029as_spaces",
            "tulip",
+           "uhci",
            "x2apic",
            "x86_64_pagetable"
          ], arch <- allArchitectures
@@ -53,7 +54,7 @@
            "arm_icp_pic",
            "arm_icp_pit",
            "cpuid",
-           "crb_sif"
+           "crb_sif",
            "e1000",
            "eMAC",
            "ht_config",
@@ -68,6 +69,6 @@
            "pl011_uart",
            "rck",
            "rtl8029as",
-           "xapic",
+           "xapic"
          ], arch <- allArchitectures
 ]
