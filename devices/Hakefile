@@ -46,12 +46,13 @@
 
 -- Mackerel 1 device descriptions
 -- 
--- DO NOT add new devices to this list - the interface is non-portable and liable to break with new C compiler versions!
+-- DO NOT add new devices to this list - the interface is non-portable
+-- and liable to break with new C compiler versions!
 -- 
 [ mackerel (options arch) f 
   | f <- [ "acpi_ec",
            "amd_vmcb",
-           "arm_icp_pic",
+           "arm_icp_pic0",
            "arm_icp_pit",
            "cpuid",
            "crb_sif",

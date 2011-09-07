@@ -7,7 +7,7 @@
  */
 
 /*
- * arm_icp_pic.dev
+ * arm_icp_pic0.dev
  *
  * DESCRIPTION: Primary interrupt controller for integrator/cp
  *
