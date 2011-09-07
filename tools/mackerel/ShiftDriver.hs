@@ -53,9 +53,6 @@ cv_e = "_e"             -- Enumeration type value
 -- Device-related names
 --
 
-scope_name :: [ String ] -> String
-scope_name l = "__DP(" ++ (concat $ intersperse "_" l) ++ ")"
-
 device_c_name :: String
 device_c_name = "__DN(t)"
 
@@ -408,8 +405,7 @@ device_c_type = C.TypeName device_c_name
 
 -- Undefine macros used by the header file
 device_prefix_undefs :: Dev.Rec -> [ C.Unit ]
-device_prefix_undefs d = 
-    [ C.Undef ("__" ++ n) | n <- [ "DN", "DP", "DP1", "DP2", "STR", "XTR" ] ] 
+device_prefix_undefs d = [ C.Undef "__DN" ]
 
 -- Define macros used by the header file
 device_prefix_defs :: Dev.Rec -> [ C.Unit ]
@@ -419,15 +415,7 @@ device_prefix_defs d =
     in
       (device_prefix_undefs d)
       ++
-      [ C.Define "__DN" ["x"] (name ++ " ## _ ## x"),
-        C.IfDef prefix
-              [ C.Define "__DP" ["x"] ( "__DP1(x," ++ prefix ++ ")" ),
-                C.Define "__DP1" ["x1","x2"] "__DP2(x1,x2)",
-                C.Define "__DP2" ["x1","x2"] "x2 ## x1" ]
-              [ C.Define "__DP" ["x"] ( name ++ "##_ ##x") ],
-        C.Define "__STR" ["x"] "#x",
-        C.Define "__XTR" ["x"] "__STR(x)"
-      ]
+      [ C.Define "__DN" ["x"] (name ++ " ## _ ## x") ]
 
 -- Header files info
 std_header_files :: Dev.Rec -> [ C.Unit ]
@@ -1065,8 +1053,8 @@ loc_read r =
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),
                   loc_array_offset r ]
       (Space.Defined n a _ t p) -> 
-          C.Call (scope_name [n,  "read", (show $ RT.size r)])
-                [ C.Variable cv_dev, loc_array_offset r ]
+          C.Call (register_read_fn_name r) [ C.Variable cv_dev, 
+                                             loc_array_offset r ]
 
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
@@ -1077,9 +1065,10 @@ loc_write r val =
                   loc_array_offset r,
                   C.Variable val ]
       (Space.Defined n a _ t p) -> 
-          C.Call (scope_name [n,  "write", (show $ RT.size r)])
-                [ C.Variable cv_dev, loc_array_offset r, C.Variable val ]
-
+          C.Call (register_write_fn_name r) [ C.Variable cv_dev, 
+                                              loc_array_offset r, 
+                                              C.Variable val ]
+    
 --
 -- Calculate the C expression for an appropriate offset for a register
 -- array element, taking into account whether the address space is

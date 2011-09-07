@@ -17,7 +17,7 @@
 #include <kernel.h>
 #include <stdio.h>
 #include <arch/x86/rtc.h>
-#include "lpc_rtc_dev.h"
+#include <dev/lpc_rtc_dev.h>
 
 static lpc_rtc_t rtc;
 
@@ -73,7 +73,7 @@ void rtc_read(struct rtc_time *t)
 
     // Convert in the case of BCD hours
     lpc_rtc_ndx_wr(&rtc, lpc_rtc_regb);
-    if ( lpc_rtc_regb_rd(&rtc).dm ) {
+    if ( lpc_rtc_regb_dm_rdf(&rtc) ) {
         t->hr = hr;
         t->min = min;
         t->sec = sec;

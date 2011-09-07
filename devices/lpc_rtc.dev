@@ -18,7 +18,7 @@
  * 
  */
 
-device lpc_rtc (io base) "LPC Real-Time Clock" {
+device lpc_rtc (io base) "LPC Real-Time Clock and CMOS RAM" {
   
   // 21.6
   register ndx rw io(base, 0x70) "Standard index" type(uint8);

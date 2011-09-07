@@ -59,7 +59,7 @@ in [
         absolute_cFiles = (map in_x86_dir x86_cFiles)
         absolute_sFiles = (map in_x86_dir x86_sFiles)
         mackerelFiles = [ "lpc_pic", "pc16550d", "ia32",
-                          "xapic", "cmos", "amd_vmcb", "cpuid", "lpc_rtc" ]
+                          "xapic", "amd_vmcb", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "x86_64" cfiles sfiles mackerelFiles libs absolute_cFiles absolute_sFiles [] []),
 
@@ -76,7 +76,7 @@ in [
         absolute_cFiles = (map in_x86_dir x86_cFiles)
         absolute_sFiles = (map in_x86_dir x86_sFiles)
         mackerelFiles = [ "lpc_pic", "pc16550d", "ia32",
-                          "xapic", "cmos", "cpuid", "lpc_rtc" ]
+                          "xapic", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "x86_32" cfiles sfiles mackerelFiles libs absolute_cFiles absolute_sFiles [] []),
 
@@ -106,11 +106,12 @@ in [
                 []
         indep_cFiles = (map in_x86_dir x86_cFiles)
         indep_sFiles = (map in_x86_dir x86_sFiles)
-        mackerelFiles =
+        mackerelFiles = 
             if Config.rck_emu then
-                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "lpc_pic", "cmos", "cpuid" ]
+                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "lpc_pic", 
+                  "lpc_rtc", "cpuid" ]
             else
-                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "cpuid" ]
+                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "scc" cfiles sfiles mackerelFiles libs indep_cFiles indep_sFiles arch_cfiles arch_sfiles),
 
