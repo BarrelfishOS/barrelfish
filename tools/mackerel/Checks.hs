@@ -15,7 +15,7 @@ module Checks where
 
 import MackerelParser
 import Text.ParserCombinators.Parsec
-import Text.Parsec.Pos
+import Text.ParserCombinators.Parsec.Pos
 import System.FilePath
 import qualified TypeName as TN
 import qualified TypeTable as TT
