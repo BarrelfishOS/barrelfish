@@ -158,6 +158,16 @@ static ssize_t send_buf(struct slave *s, replay_eventrec_t *er)
 
 static bool printall = false;
 
+#define MAX_DEPS        20
+
+struct pid_entry {
+    int pid;
+    struct trace_entry *trace;
+    struct pid_entry *depends, *dependents[MAX_DEPS];
+};
+
+static struct pid_entry *allpids[TOTAL_PIDS];
+
 int main(int argc, char *argv[])
 {
 #ifndef __linux__
@@ -183,12 +193,53 @@ int main(int argc, char *argv[])
 
     memset(slaves, 0, sizeof(struct slave) * MAX_SLAVES);
 
+    printf("reading dependency graph...\n");
+
+    FILE *f = fopen("taskgraph.txt", "r");
+    assert(f != NULL);
+    int linen = 0;
+    while(!feof(f)) {
+        char line[MAX_LINE];
+        if(fgets(line, MAX_LINE, f) == NULL) {
+            break;
+        }
+
+        if(sscanf(line, "%d", &pid) >= 1) {
+            struct pid_entry *te = malloc(sizeof(struct pid_entry));
+            assert(te != NULL);
+            memset(te, 0, sizeof(struct pid_entry));
+
+            // Insert new PID into allpids list
+            for(int i = 0; i < TOTAL_PIDS; i++) {
+                if(allpids[i] == NULL) {
+                    allpids[i] = te;
+                    break;
+                }
+            }
+            assert(i < TOTAL_PIDS);
+
+            te->pid = pid;
+        } else if(sscanf(line, "%d -> %d", &from, &to) >= 2) {
+            // Insert new PID into allpids list
+            for(int i = 0; i < TOTAL_PIDS && allpids[i] != NULL; i++) {
+                if(allpids[i]->pid == from) {
+                    break;
+                }
+            }
+            assert(i < TOTAL_PIDS);
+            assert(allpids[i] != NULL);
+        } else {
+            printf("Invalid line %d: %s\n", linen, line);
+            exit(EXIT_FAILURE);
+        }
+    }
+
     printf("reading tracefile...\n");
 
     // Parse trace file into memory records
     FILE *f = fopen(argv[1], "r");
     assert(f != NULL);
-    int linen = 0;
+    linen = 0;
     while(!feof(f)) {
         char line[MAX_LINE];
         if(fgets(line, MAX_LINE, f) == NULL) {

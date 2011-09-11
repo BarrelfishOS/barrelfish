@@ -2,6 +2,7 @@
 #define DEFS_H
 
 #define MAX_PIDS        64
+#define TOTAL_PIDS      256
 
 enum top {
     TOP_Open,
