@@ -200,6 +200,7 @@ int main(int argc, char *argv[])
     int linen = 0;
     while(!feof(f)) {
         char line[MAX_LINE];
+        int pid, from, to;
         if(fgets(line, MAX_LINE, f) == NULL) {
             break;
         }
@@ -210,7 +211,8 @@ int main(int argc, char *argv[])
             memset(te, 0, sizeof(struct pid_entry));
 
             // Insert new PID into allpids list
-            for(int i = 0; i < TOTAL_PIDS; i++) {
+            int i;
+            for(i = 0; i < TOTAL_PIDS; i++) {
                 if(allpids[i] == NULL) {
                     allpids[i] = te;
                     break;
@@ -221,7 +223,8 @@ int main(int argc, char *argv[])
             te->pid = pid;
         } else if(sscanf(line, "%d -> %d", &from, &to) >= 2) {
             // Insert new PID into allpids list
-            for(int i = 0; i < TOTAL_PIDS && allpids[i] != NULL; i++) {
+            int i;
+            for(i = 0; i < TOTAL_PIDS && allpids[i] != NULL; i++) {
                 if(allpids[i]->pid == from) {
                     break;
                 }
@@ -233,11 +236,12 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     }
+    fclose(f);
 
     printf("reading tracefile...\n");
 
     // Parse trace file into memory records
-    FILE *f = fopen(argv[1], "r");
+    f = fopen(argv[1], "r");
     assert(f != NULL);
     linen = 0;
     while(!feof(f)) {
