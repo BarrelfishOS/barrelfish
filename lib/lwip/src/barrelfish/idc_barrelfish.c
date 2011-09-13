@@ -859,6 +859,9 @@ static void start_client(char *card_name)
  *
  *****************************************************************/
 
+struct thread *trace_thread = NULL;
+void thread_debug_regs(struct thread *t);
+
 /**
  * \brief handle msgs on the tx, rx and then the rest connections in that priority
  */
@@ -871,6 +874,16 @@ void network_polling_loop(void)
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
+
+#if 0
+	if(trace_thread != NULL) {
+	  static int iter = 0;
+	  iter++;
+	  if(iter % 10 == 0) {
+	    thread_debug_regs(trace_thread);
+	  }
+	}
+#endif
     }
 }
 
