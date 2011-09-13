@@ -55,8 +55,8 @@ enum rpc_msg_type {
     RPC_REPLY = 1
 };
 
-//#define RPC_TIMER_PERIOD (5000 * 1000) ///< Time between RPC timer firings (us)
-#define RPC_TIMER_PERIOD (1000 * 1000) ///< Time between RPC timer firings (us)
+#define RPC_TIMER_PERIOD (5000 * 1000) ///< Time between RPC timer firings (us)
+//#define RPC_TIMER_PERIOD (1000 * 1000) ///< Time between RPC timer firings (us)
 #define RPC_RETRANSMIT_AFTER 6   ///< Number of timer firings before a retransmit
 #define RPC_MAX_RETRANSMIT  60  ///< Max number of retransmissions before giving up
 
@@ -255,7 +255,8 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
         if (++call->timers >= RPC_RETRANSMIT_AFTER) {
             if (call->retries++ == RPC_MAX_RETRANSMIT) {
                 /* admit failure */
-                fprintf(stderr, "##### RPC: timeout for XID 0x%x\n", call->xid);
+                printf("##### [%d][%d] RPC: timeout for XID 0x%x\n", disp_get_core_id(), 
+			           disp_get_domain_id(), call->xid);
                 pbuf_free(call->pbuf);
                 if (prev == NULL) {
                     client->call_hash[hid] = call->next;
@@ -267,14 +268,15 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 freed_call = true;
             } else {
                 if(net_debug_state == 0) {
-                    net_debug_state = 1;
-                    printf("starting the debug in network driver\n");
-                    lwip_start_net_debug(net_debug_state);
+                    //net_debug_state = 0;
+                    //printf("starting the debug in network driver\n");
+                    //lwip_start_net_debug(net_debug_state);
                 } else {
                     printf("already started the debug in network driver\n");
                 }
                 /* retransmit */
-                fprintf(stderr, "##### RPC: retransmit XID 0x%x\n", call->xid);
+                printf("###### [%d][%d] RPC: retransmit XID 0x%x\n", disp_get_core_id(),
+			disp_get_domain_id(), call->xid);
 
                 // throw away (hide) UDP/IP/ARP headers from previous transmission
                 err_t e = pbuf_header(call->pbuf,
@@ -342,7 +344,7 @@ err_t rpc_init(struct rpc_client *client, struct ip_addr server)
     /* XXX: (very) pseudo-random number for initial XID */
     client->nextxid = (uint32_t)bench_tsc();
 
-    RPC_DEBUGP("Initial sequence no. is %u 0x%x\n",
+    printf("###### Initial sequence no. is %u 0x%x\n",
     		client->nextxid, client->nextxid);
     udp_recv(client->pcb, rpc_recv_handler, client);
 
