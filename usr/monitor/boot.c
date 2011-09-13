@@ -180,6 +180,10 @@ void boot_initialize_request(struct monitor_binding *st)
 #       endif
 #endif
 
+	for(int i = 0; i < 5000000; i++) {
+		thread_yield();
+	}
+
     printf("all %d monitors up\n", num_monitors);
 
 #if !defined(__scc__) || defined(RCK_EMU)
