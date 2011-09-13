@@ -11,4 +11,5 @@ interface serial "Serial characters" {
     call output(char data[len]);
     response input(char data[len]);
     call associate_stdin();
+    rpc get_input_signal();
 };
