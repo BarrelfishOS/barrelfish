@@ -404,7 +404,7 @@ errval_t transmit_pbuf_list(struct client_closure *cl)
                 cl->len, TX_MAX_PKT_SIZE);
         /* FIXME: maintain the stats of packet dropping */
         /* FIXME: define better error to return here */
-        return ETHSRV_ERR_CANT_TRANSMIT;
+        return ETHERSRV_ERR_CANT_TRANSMIT;
     }
 //    assert(cl->len == cl->pbuf[0].len);
 //    uint8_t *src =((uint8_t *)cl->buffer_ptr->va) + cl->pbuf[0].offset;
