@@ -272,8 +272,9 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     if (err_is_ok(ret)) {
         mem_avail -= 1UL << bits;
     } else {
-        // DEBUG_ERR(ret, "allocation of %d bits in % " PRIxGENPADDR "-%" PRIxGENPADDR " failed",
-        //          bits, minbase, maxlimit);
+        ret = err_push(ret, MM_ERR_FIND_NODE);
+        /* DEBUG_ERR(ret, "allocation of %d bits in % " PRIxGENPADDR "-%" PRIxGENPADDR " failed", */
+        /* 		bits, minbase, maxlimit); */
         *cap = NULL_CAP;
     }
 
