@@ -268,6 +268,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_CNode:
         assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+	if(lvaddr == 0) {
+	  panic("Creating CNode in non-kernel memory");
+	}
         memset((void*)lvaddr, 0, 1UL << bits);
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
 
@@ -347,6 +350,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
+	if(lvaddr == 0) {
+	  panic("Creating PTABLE in non-kernel memory");
+	}
+
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
@@ -368,6 +375,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_x86_32_pdir:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+	if(lvaddr == 0) {
+	  panic("Creating PDIR in non-kernel memory");
+	}
 
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
@@ -396,6 +407,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_x86_32_pdpt:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+	if(lvaddr == 0) {
+	  panic("Creating PDPT in non-kernel memory");
+	}
 
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
@@ -521,6 +536,11 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_Dispatcher:
         assert((1UL << OBJBITS_DISPATCHER) >= sizeof(struct dcb));
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+
+	if(lvaddr == 0) {
+	  panic("Creating Dispatcher in non-kernel memory");
+	}
+
         memset((void*)lvaddr, 0, 1UL << bits);
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
 
@@ -1023,9 +1043,9 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
     // resurrect the RAM and send it back to the monitor
     if(!has_copies(cte) && !has_descendants(cte) && !has_ancestors(cte)
        && !is_cap_remote(cte) && monitor_ep.u.endpoint.listener != NULL) {
-        errval_t err;
+        /* errval_t err; */
         struct RAM ram = { .bits = 0 };
-        size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1;
+        /* size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1; */
 
         // List all RAM-backed capabilities here
         // NB: ObjType_PhysAddr and ObjType_DevFrame caps are *not* RAM-backed!
@@ -1065,9 +1085,9 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
         if(ram.bits > 0) {
             // Send back as RAM cap to monitor
             // XXX: This looks pretty ugly. We need an interface.
-            err = lmp_deliver_payload(&monitor_ep, NULL,
-                                      (uintptr_t *)&ram,
-                                      len, false);
+            /* err = lmp_deliver_payload(&monitor_ep, NULL, */
+            /*                           (uintptr_t *)&ram, */
+            /*                           len, false); */
             //assert(err_is_ok(err));
         }
     }

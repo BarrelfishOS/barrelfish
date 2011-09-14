@@ -129,9 +129,6 @@ errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
 		if (err_no(r) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
     		r = frame_alloc(shared_mem, size, &allocated_size);
     		if (err_is_fail(r)) {
-				if (err_no(r) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
-						disp_get_core_id(), disp_get_domain_id());
-				}
 	        	return err_push(r, LIB_ERR_FRAME_ALLOC);
 			}
 		} else {

@@ -91,7 +91,11 @@ static void bind_monitor_request_scc(struct intermon_binding *st,
         goto error;
     }
 
-    err = monitor_cap_create(frame, &cap_raw, core_id);
+    ram_set_affinity(cap_raw.u.frame.base, cap_raw.u.frame.base + ((genpaddr_t)1 << cap_raw.u.frame.bits));
+    err = frame_alloc(&frame, ((genpaddr_t)1 << cap_raw.u.frame.bits), NULL);
+    ram_set_affinity(0,0);
+    
+    /* err = monitor_cap_create(frame, &cap_raw, core_id); */
     if (err_is_fail(err)) {
         goto error;
     }

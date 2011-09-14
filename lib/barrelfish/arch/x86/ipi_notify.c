@@ -16,13 +16,17 @@
 #include <arch/x86/barrelfish/ipi_notify.h>
 #include "waitset_chan.h"
 #include <if/monitor_defs.h>
-
+#include <stdio.h>
 static void ipi_alloc_notify_reply(struct monitor_binding *b, uintptr_t st,
                                    struct capref notify_cap, errval_t err)
 {
     struct ipi_notify *uc = (void *)st;
     uc->my_notify_cap = notify_cap;
     assert(uc->cont.handler != NULL);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "ipi_alloc_notify_reply");
+	}
+	printf("------ pointer %p\n", uc->cont.handler);
     uc->cont.handler(uc->cont.st, err, uc);
 }
 
@@ -58,7 +62,7 @@ errval_t ipi_notify_alloc(struct ipi_notify *uc,
 {
     // Allocate receive endpoint
     // use minimum-sized endpoint buffer, as we don't care about its contents
-    errval_t err = endpoint_create(LMP_RECV_LENGTH, &uc->ep, &uc->iep);
+    errval_t err = endpoint_create(LMP_RECV_LENGTH * 8, &uc->ep, &uc->iep);
     assert(err_is_ok(err));
 
     // Initialize the rest
