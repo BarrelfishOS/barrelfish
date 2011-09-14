@@ -22,6 +22,9 @@
 #include <trace/trace.h>
 #include "spawn.h"
 #include "arch.h"
+#ifdef __scc__
+#include <barrelfish_kpi/shared_mem_arch.h>
+#endif
 
 #ifndef __BEEHIVE__
 #include <elf/elf.h>
@@ -304,7 +307,18 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Create dispatcher frame (in taskcn) */
     si->dispframe.cnode = si->taskcn;
     si->dispframe.slot  = TASKCN_SLOT_DISPFRAME;
+
+#ifdef __scc__
+	// XXX: This has to come from private memory
+	ram_set_affinity(0, PRIVATE_MEM_MAX);
+#endif
+
     err = frame_create(si->dispframe, (1 << DISPATCHER_FRAME_BITS), NULL);
+
+#ifdef __scc__
+	ram_set_affinity(0,0);
+#endif
+
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
     }
