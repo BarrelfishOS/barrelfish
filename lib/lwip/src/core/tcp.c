@@ -304,6 +304,20 @@ tcp_redirect(struct tcp_pcb *pcb, struct ip_addr *local_ip, u16_t local_port,
   return ERR_OK;
 }
 
+err_t
+tcp_pause(struct tcp_pcb *pcb, struct ip_addr *local_ip, u16_t local_port,
+          struct ip_addr *remote_ip, u16_t remote_port)
+{
+    printf("tcp_pause\n");
+
+    if(idc_pause_tcp(local_ip, local_port, remote_ip, remote_port) == ERR_USE) {
+     debug_printf("idc_redirect_tcp => ERR_USE\n");
+     return ERR_USE;
+  }
+
+  return ERR_OK;
+}
+
 
 #if LWIP_CALLBACK_API
 /**

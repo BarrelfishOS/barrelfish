@@ -37,11 +37,21 @@
  * common data-structures
  *****************************************************************/
 
+#define MAX_PAUSE_BUFFER        10
+
+struct bufdesc {
+    char pkt_data[1600];
+    size_t pkt_len;
+};
+
 struct filter {
     uint64_t filter_id;
     uint64_t filter_type;
     uint8_t *data;
     int32_t len;
+    bool paused;
+    struct bufdesc pause_buffer[MAX_PAUSE_BUFFER];
+    int pause_bufpos;
     struct buffer_descriptor *buffer;
     struct filter *next;
 };
@@ -158,7 +168,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len);
 bool handle_fragmented_packet(void* packet, size_t len);
 
 
-struct buffer_descriptor *execute_filters(void *data, size_t len);
+struct filter *execute_filters(void *data, size_t len);
 
 /* FIXME: put this into the local include file.  */
 bool copy_packet_to_user(struct buffer_descriptor* buffer,

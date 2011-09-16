@@ -765,6 +765,33 @@ do_redirect(struct api_msg_msg *msg)
   TCPIP_APIMSG_ACK(msg);
 }
 
+void
+do_pause(struct api_msg_msg *msg)
+{
+  if (!ERR_IS_FATAL(msg->conn->err)) {
+    if (msg->conn->pcb.tcp != NULL) {
+      switch (NETCONNTYPE_GROUP(msg->conn->type)) {
+#if LWIP_TCP
+      case NETCONN_TCP:
+        msg->conn->err = tcp_pause(msg->conn->pcb.tcp, 
+                                   msg->msg.red.local_ip,
+                                   msg->msg.red.local_port,
+                                   msg->msg.red.remote_ip,
+                                   msg->msg.red.remote_port
+                                   );
+        break;
+#endif /* LWIP_TCP */
+      default:
+        break;
+      }
+    } else {
+      /* msg->conn->pcb is NULL */
+      msg->conn->err = ERR_VAL;
+    }
+  }
+  TCPIP_APIMSG_ACK(msg);
+}
+
 
 #if LWIP_TCP
 /**

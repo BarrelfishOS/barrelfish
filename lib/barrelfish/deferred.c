@@ -117,6 +117,8 @@ errval_t deferred_event_register(struct deferred_event *event,
     return err;
 }
 
+#include <stdio.h>
+
 /**
  * \brief Cancel a deferred event that has not yet fired
  */
@@ -124,11 +126,19 @@ errval_t deferred_event_cancel(struct deferred_event *event)
 {
     dispatcher_handle_t dh = disp_disable();
     errval_t err = waitset_chan_deregister_disabled(&event->waitset_state);
-    if (err_is_ok(err)) {
+    if (err_is_ok(err) && (event->prev != NULL || event->next != NULL)) {
         // remove from dispatcher queue
         struct dispatcher_generic *disp = get_dispatcher_generic(dh);
         if (event->prev == NULL) {
-            assert(disp->deferred_events == event);
+            if(disp->deferred_events != event) {
+                char str[256];
+                snprintf(str, 256, "%p != %p, %p, %p, %p\n", disp->deferred_events, event,
+                         __builtin_return_address(0),
+                         __builtin_return_address(1),
+                         __builtin_return_address(2));
+                sys_print(str, 256);
+            }
+            assert_disabled(disp->deferred_events == event);
             disp->deferred_events = event->next;
         } else {
             event->prev->next = event->next;
@@ -190,12 +200,15 @@ errval_t periodic_event_cancel(struct periodic_event *event)
 void trigger_deferred_events_disabled(dispatcher_handle_t dh, systime_t now)
 {
     struct dispatcher_generic *dg = get_dispatcher_generic(dh);
-    struct deferred_event *e;
+    struct deferred_event *e, *nexte;
     errval_t err;
 
     now *= SYSTIME_MULTIPLIER;
 
-    for (e = dg->deferred_events; e != NULL && e->time <= now; e = e->next) {
+    for (e = dg->deferred_events; e != NULL && e->time <= now; e = nexte) {
+        nexte = e->next;
+        e->next = NULL;
+        e->prev = NULL;
         err = waitset_chan_trigger_disabled(&e->waitset_state, dh);
         assert(err_is_ok(err));
     }
