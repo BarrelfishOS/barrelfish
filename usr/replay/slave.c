@@ -24,6 +24,8 @@
 #endif
 #include "defs.h"
 
+#define RED(x) "\033[31m" x "\033[0m\n"
+
 static char *defdir;
 
 #ifndef __linux__
@@ -44,11 +46,11 @@ static int connsock = -1;
 
 static int pidconv[MAX_PIDS] = { 0 };
 static FILE *fdconv[MAX_PIDS][MAX_FD_CONV];
-static int fnumconv[MAX_PIDS][MAX_FD_CONV];
-static bool writerconv[MAX_PIDS][MAX_FD_CONV];
-static char data[MAX_DATA];
+//static int fnumconv[MAX_PIDS][MAX_FD_CONV];
+//static bool writerconv[MAX_PIDS][MAX_FD_CONV];
+//static char data[MAX_DATA];
 
-static int openfiles = 0;
+//static int openfiles = 0;
 
 #ifndef __linux__
 static void handle_event(struct replay_binding *b, replay_eventrec_t er)
@@ -58,6 +60,8 @@ static void handle_event(replay_eventrec_t er)
 {
     char fname[256];
     char *flags = NULL;
+    //printf("%s:%s() :: ENTER\n", __FILE__, __FUNCTION__);
+    static int pid = 0;
 
     switch(er.mode) {
     case FLAGS_RdOnly:
@@ -73,6 +77,7 @@ static void handle_event(replay_eventrec_t er)
         break;
     }
 
+    #if 0
     int mypid;
     for(mypid = 0; mypid < MAX_PIDS; mypid++) {
         if(pidconv[mypid] == er.pid) {
@@ -90,18 +95,32 @@ static void handle_event(replay_eventrec_t er)
         }
     }
     assert(mypid < MAX_PIDS);
+    #endif
 
     snprintf(fname, 256, "%s/%u", defdir, er.fnumsize);
-    FILE *f = fdconv[mypid][er.fd];
-    int ret;
+    //FILE *f = fdconv[mypid][er.fd];
+    //int ret;
 
     /* if(er.fline >= 41352 && er.fline <= 41365) { */
     /*     printf("%s is %p, %d, fline = %d, mypid = %d\n", fname, f, er.fd, er.fline, mypid); */
     /* } */
 
+    if (pid == 0 && !(er.op == TOP_Open || er.op == TOP_End))
+        printf(">>>>>>>>>>>>>>>>>>>. Unexpected op: %d [pid=%d]\n", er.op, er.pid);
+
+    if (pid != 0 && er.pid != pid && er.op != TOP_End)
+        printf(">>>>>>>>>>>>>>>>>>>. Unexpected pid on: %d [pid=%d,current pid=%d]\n", er.op, er.pid, pid);
+
+    //if (er.pid == 24873)
+    //    printf(">>>>>>>>>>>>>>>>>>>. op=%d pid=%d current pid=%d]\n", er.op, er.pid, pid);
+
     switch(er.op) {
     case TOP_Open:
     case TOP_Create:
+        if (pid == 0) {
+            printf("SLAVE[%u]: got new pid:%d\n", disp_get_core_id(), (pid = er.pid));
+        }
+        #if 0
         /* assert(f == NULL); */
         assert(flags != NULL);
         fdconv[mypid][er.fd] = fopen(fname, flags);
@@ -111,7 +130,6 @@ static void handle_event(replay_eventrec_t er)
         } else {
             writerconv[mypid][er.fd] = false;
         }
-        /* printf("open fname = %s, fd = %d, fline = %d, pid = %d, mypid = %d\n", fname, er.fd, er.fline, er.pid, mypid); */
         if(fdconv[mypid][er.fd] == NULL) {
 #ifndef __linux__
             printf("%d: open fname = %s, fd = %d, fline = %d, pid = %d, mypid = %d\n", disp_get_core_id(), fname, er.fd, er.fline, er.pid, mypid);
@@ -126,14 +144,18 @@ static void handle_event(replay_eventrec_t er)
         /* if(er.fline == 41352) { */
         /*     printf("file is open %d, %d = %p\n", mypid, er.fd, fdconv[mypid][er.fd]); */
         /* } */
+        #endif
         break;
 
     case TOP_Unlink:
+        #if 0
         ret = unlink(fname);
         assert(ret != -1);
+        #endif
         break;
 
     case TOP_Read:
+        #if 0
         if(er.fnumsize > MAX_DATA) {
             printf("er.fnumsize == %u\n", er.fnumsize);
         }
@@ -152,9 +174,11 @@ static void handle_event(replay_eventrec_t er)
         /*     printf("read: ret == %d, fnumsize == %d\n", ret, er.fnumsize); */
         /* } */
         /* assert(ret == er.fnumsize); */
+        #endif
         break;
 
     case TOP_Write:
+        #if 0
         assert(er.fnumsize <= MAX_DATA);
         if(f == NULL) {
 #ifndef __linux__
@@ -168,9 +192,11 @@ static void handle_event(replay_eventrec_t er)
         /*     printf("write: ret == %d, fnumsize == %d\n", ret, er.fnumsize); */
         /* } */
         /* assert(ret == er.fnumsize); */
+        #endif
         break;
 
     case TOP_Close:
+        #if 0
         /* printf("%d: close fd = %d, fline = %d, fname = %d\n", disp_get_core_id(), er.fd, er.fline, fnumconv[mypid][er.fd]); */
         /* if(f == NULL) { */
         /*     printf("%d: Warning: Double close: %d, %u, %d, %d\n", */
@@ -188,14 +214,24 @@ static void handle_event(replay_eventrec_t er)
         /*     errval_t err = b->tx_vtbl.event_done(b, NOP_CONT, fnumconv[mypid][er.fd]); */
         /*     assert(err_is_ok(err)); */
         /* } */
+        #endif
         break;
 
     case TOP_End:
+        printf("SLAVE[%u]: END\n", disp_get_core_id());
         {
             errval_t err = b->tx_vtbl.finished(b, NOP_CONT);
             assert(err_is_ok(err));
         }
         break;
+
+    case TOP_Exit: {
+        printf(RED("SLAVE[%u]: TOP_Exit on %d ***********************"), disp_get_core_id(), er.pid);
+        errval_t err = b->tx_vtbl.task_completed(b, NOP_CONT, er.pid);
+        pid = 0;
+        assert(err_is_ok(err));
+        break;
+    }
 
     default:
         printf("Invalid request: %d\n", er.op);
@@ -244,6 +280,7 @@ int main(int argc, char *argv[])
                         IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(err));
 
+    printf("%s:%s() :: slave starts servicing requests\n", __FILE__, __FUNCTION__);
     for(;;) {
         err = event_dispatch(get_default_waitset());
         assert(err_is_ok(err));

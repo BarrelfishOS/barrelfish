@@ -2,17 +2,17 @@
 #define DEFS_H
 
 #define MAX_PIDS        64
-#define TOTAL_PIDS      256
+#define TOTAL_PIDS      3000
 
 enum top {
-    TOP_Open,
-    TOP_Create,
-    TOP_Unlink,
-    TOP_Read,
-    TOP_Write,
-    TOP_Close,
-    TOP_Exit,
-    TOP_End
+    TOP_Open   = 0,
+    TOP_Create = 1,
+    TOP_Unlink = 2,
+    TOP_Read   = 3,
+    TOP_Write  = 4,
+    TOP_Close  = 5,
+    TOP_Exit   = 6,
+    TOP_End    = 7
 };
 
 enum flags {

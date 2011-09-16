@@ -17,7 +17,8 @@ interface replay "Trace replay" {
 	    uint16 pid;
         } eventrec;
 
-	message event(eventrec event);
-	message event_done(uint32 fnum);
-	message finished();
+    message event(eventrec event);
+    /* UNUSED: message event_done(uint32 fnum); */
+    message task_completed(uint16 pid);
+    message finished();
 };
