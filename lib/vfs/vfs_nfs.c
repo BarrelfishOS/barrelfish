@@ -613,6 +613,19 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
     assert(h != NULL);
     err_t e;
 
+    if((__builtin_return_address(2) < (void *)fclose ||
+        __builtin_return_address(2) > (void *)memcpy) &&
+       (__builtin_return_address(3) < (void *)fclose ||
+        __builtin_return_address(3) > (void *)memcpy) &&
+       (__builtin_return_address(4) < (void *)fclose ||
+        __builtin_return_address(4) > (void *)memcpy)) {
+        printf("vfs_nfs->write called not from fclose()! %p, %p, %p, %p\n",
+               __builtin_return_address(0),
+               __builtin_return_address(1),
+               __builtin_return_address(2),
+               __builtin_return_address(3));
+    }
+
     assert(!h->isdir);
 
     // set up the handle

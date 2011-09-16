@@ -15,6 +15,7 @@
 		      addLibraries = [ "vfs", "nfs", "lwip", "contmng",
                                        "pci", "trace", "skb" ],
   		      flounderBindings = [ "pixels" ],
-		      flounderExtraBindings = [ ("spawn", ["rpcclient"]) ]
+		      flounderExtraBindings = [ ("spawn", ["rpcclient"]),
+                                                ("mem", ["rpcclient"]) ]
                     }
 ]

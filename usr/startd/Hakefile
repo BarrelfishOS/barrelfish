@@ -14,6 +14,6 @@
   		      cFiles = [ "main.c", "spawn.c" ],
 		      addLibraries = [ "spawndomain", "elf", "trace", 
 		      		       "dist", 
-                                       "vfs", "nfs", "lwip", "contmng" ]
+                                       "vfs", "nfs", "lwip", "contmng", "hashtable" ]
                     }
 ]

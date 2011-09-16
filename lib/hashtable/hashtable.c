@@ -98,7 +98,7 @@ static int ht_put(struct dictionary *dict, struct _ht_entry *entry)
     return 0;
 }
 
-static int ht_put_word(struct dictionary *dict, char *key, size_t key_len,
+static int ht_put_word(struct dictionary *dict, const char *key, size_t key_len,
                        uintptr_t value)
 {
     struct _ht_entry *e = malloc(sizeof(struct _ht_entry));
@@ -119,7 +119,7 @@ static int ht_put_word(struct dictionary *dict, char *key, size_t key_len,
  * \param key the key. Has to be a zero-terminated string.
  * \return the value or NULL if there is no such key/value pair
  */
-static ENTRY_TYPE ht_get(struct dictionary *dict, char *key, size_t key_len,
+static ENTRY_TYPE ht_get(struct dictionary *dict, const char *key, size_t key_len,
                          void **value)
 {
     assert(dict != NULL);
@@ -184,16 +184,12 @@ static void ht_init(struct hashtable *_ht, int capacity, int load_factor)
     _ht->table_length = capacity;
     _ht->entries = malloc(_ht->table_length * sizeof(struct _ht_entry));
     assert(_ht->entries != NULL);
+    memset(_ht->entries, 0, _ht->table_length * sizeof(struct _ht_entry));
     _ht->threshold = (capacity * load_factor) / 100;
     _ht->d.size = ht_size;
-    /* _ht->d.put_string = ht_put_string; */
     _ht->d.put_word = ht_put_word;
-    /* _ht->d.put_opaque = ht_put_opaque; */
-    /* _ht->d.put_capability = ht_put_capability; */
     _ht->d.get = ht_get;
-    /* _ht->d.get_capability = ht_get_capability; */
     _ht->d.remove = ht_remove;
-    /* _ht->d.get_key_set = ht_get_key_set; */
 }
 
 // XXX TODO: loadFactor should be a float, 0.75 instead of 75

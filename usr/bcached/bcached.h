@@ -12,6 +12,14 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
+#include <vfs/vfs.h>
+
+#ifdef WITH_SHARED_CACHE
+#       define CACHE_SIZE      (1U << 28)      // 256MB
+#else
+#       define CACHE_SIZE      (1U << 22)      // 4MB
+#endif
+#define NUM_BLOCKS      (CACHE_SIZE / BUFFER_CACHE_BLOCK_SIZE)
 
 struct bcache_state {
     struct bulk_transfer bt;

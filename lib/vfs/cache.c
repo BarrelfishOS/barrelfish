@@ -30,7 +30,7 @@
 
 #include "vfs_backends.h"
 
-#define BCACHE_NAME     "bcache.0"
+#define BCACHE_NAME     "bcache"
 #define MAX_CACHES      10
 
 struct bcache_client {
@@ -48,7 +48,7 @@ struct bcache_state {
 static struct bcache_client *cache[MAX_CACHES];
 static size_t num_caches = 0;
 
-/* static size_t nopen, ncreate, ntruncate, nstat, nclose, nopendir, ndir_read_next, nclosedir, nmkdir, nrmdir, nremove; */
+static size_t nopen, ncreate, ntruncate, nstat, nclose, nopendir, ndir_read_next, nclosedir, nmkdir, nrmdir, nremove;
 
 #include <nfs/nfs.h>
 #include "vfs_nfs.h"
@@ -57,7 +57,7 @@ static size_t num_caches = 0;
 
 #ifdef CACHE_META_DATA
 
-#include "hashtable.h"
+#include <hashtable/hashtable.h>
 
 #define MAX_DIR         5000
 
@@ -94,13 +94,16 @@ static void meta_data_lookup(const char *fname,
 
         *haveit = true;
         *deleted = e->deleted;
-        *fh = malloc(sizeof(struct nfs_handle));
-        assert(*fh != NULL);
 
-        memcpy(*fh, e->fh, sizeof(struct nfs_handle));
+        if(!*deleted) {
+            *fh = malloc(sizeof(struct nfs_handle));
+            assert(*fh != NULL);
 
-        struct nfs_handle *dest = *fh, *src = e->fh;
-        nfs_copyfh(&dest->fh, src->fh);
+            memcpy(*fh, e->fh, sizeof(struct nfs_handle));
+
+            struct nfs_handle *dest = *fh, *src = e->fh;
+            nfs_copyfh(&dest->fh, src->fh);
+        }
 
         meta_hits++;
     } else {
@@ -169,8 +172,10 @@ static void meta_data_delete(const char *fname, bool *success)
 
     if(!e->deleted) {
         struct nfs_handle *dest = e->fh;
-        nfs_freefh(dest->fh);
-        free(e->fh);
+        if(dest != NULL) {
+            nfs_freefh(dest->fh);
+            free(e->fh);
+        }
         e->deleted = true;
         *success = true;
     } else {
@@ -181,7 +186,7 @@ static void meta_data_delete(const char *fname, bool *success)
 
 static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
 {
-    /* nopen++; */
+    nopen++;
     // Hand through...
     errval_t err = SYS_ERR_OK;
 #ifdef CACHE_META_DATA
@@ -219,7 +224,7 @@ static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
 
 static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
 {
-    /* ncreate++; */
+    ncreate++;
     // Hand through...
     errval_t err = SYS_ERR_OK;
 #ifdef CACHE_META_DATA
@@ -227,7 +232,7 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
 
     meta_data_lookup(path, &haveit, &deleted, rethandle);
 
-    if(!haveit) {
+    if(!haveit || deleted) {
 #endif
 
 #ifndef FAKE_SCALABLE_CACHE
@@ -247,9 +252,9 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
     }
 
     if(!haveit || deleted) {
-        if(haveit && deleted) {
-            assert(!"NYI");
-        }
+        /* if(haveit && deleted) { */
+        /*     assert(!"NYI"); */
+        /* } */
         meta_data_create(*rethandle, path);
     }
 #endif
@@ -261,7 +266,7 @@ static errval_t cache_remove(void *st, const char *path)
 {
     errval_t err = SYS_ERR_OK;
 
-    /* nremove++; */
+    nremove++;
     // Hand through...
 #ifdef CACHE_META_DATA
     bool success;
@@ -339,7 +344,9 @@ void cache_print_stats(void)
     errval_t err = bcc->rpc.vtbl.print_stats(&bcc->rpc);
     assert(err_is_ok(err));
 
-#if 0
+    printf("cache stats\n");
+
+#if 1
     printf("\n\n");
     printf("open        = %zu\n"
            "create      = %zu\n"
@@ -545,7 +552,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
 
 static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
 {
-    /* ntruncate++; */
+    ntruncate++;
 
 #ifdef CACHE_META_DATA
     struct nfs_handle *nh = handle;
@@ -568,7 +575,7 @@ static errval_t tell(void *st, vfs_handle_t handle, size_t *pos)
 
 static errval_t stat(void *st, vfs_handle_t inhandle, struct vfs_fileinfo *info)
 {
-    /* nstat++; */
+    nstat++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->stat(bst->orig_st, inhandle, info);
@@ -611,7 +618,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
 
 static errval_t close(void *st, vfs_handle_t inhandle)
 {
-    /* nclose++; */
+    nclose++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->close(bst->orig_st, inhandle);
@@ -619,7 +626,7 @@ static errval_t close(void *st, vfs_handle_t inhandle)
 
 static errval_t opendir(void *st, const char *path, vfs_handle_t *rethandle)
 {
-    /* nopendir++; */
+    nopendir++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->opendir(bst->orig_st, path, rethandle);
@@ -628,7 +635,7 @@ static errval_t opendir(void *st, const char *path, vfs_handle_t *rethandle)
 static errval_t dir_read_next(void *st, vfs_handle_t inhandle, char **retname,
                               struct vfs_fileinfo *info)
 {
-    /* ndir_read_next++; */
+    ndir_read_next++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->dir_read_next(bst->orig_st, inhandle, retname, info);
@@ -636,7 +643,7 @@ static errval_t dir_read_next(void *st, vfs_handle_t inhandle, char **retname,
 
 static errval_t closedir(void *st, vfs_handle_t dhandle)
 {
-    /* nclosedir++; */
+    nclosedir++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->closedir(bst->orig_st, dhandle);
@@ -644,7 +651,7 @@ static errval_t closedir(void *st, vfs_handle_t dhandle)
 
 static errval_t mkdir(void *st, const char *path)
 {
-    /* nmkdir++; */
+    nmkdir++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->mkdir(bst->orig_st, path);
@@ -652,7 +659,7 @@ static errval_t mkdir(void *st, const char *path)
 
 static errval_t rmdir(void *st, const char *path)
 {
-    /* nrmdir++; */
+    nrmdir++;
     // Hand through...
     struct bcache_state *bst = st;
     return bst->orig_ops->rmdir(bst->orig_st, path);
@@ -775,7 +782,18 @@ errval_t buffer_cache_enable(void **st, struct vfs_ops **ops)
 {
     errval_t err;
 
-    err = buffer_cache_connect(BCACHE_NAME);
+    char namebuf[32];
+#ifndef WITH_SHARED_CACHE
+    int name = disp_get_core_id();
+#else
+    int name = 0;
+#endif
+    size_t len = snprintf(namebuf, sizeof(namebuf), "%s.%d", BCACHE_NAME,
+                          name);
+    assert(len < sizeof(namebuf));
+    namebuf[sizeof(namebuf) - 1] = '\0';
+
+    err = buffer_cache_connect(namebuf);
     if(err_is_fail(err)) {
         return err;
     }

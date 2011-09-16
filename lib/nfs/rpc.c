@@ -244,7 +244,6 @@ out:
     }
 }
 
-static uint8_t net_debug_state = 0;
 static void traverse_hash_bucket(int hid, struct rpc_client *client)
 {
     struct rpc_call *call, *next, *prev = NULL;

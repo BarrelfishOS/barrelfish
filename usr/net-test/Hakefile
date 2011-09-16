@@ -12,7 +12,7 @@
 
 [ build application { target = "net-test",
   		      cFiles = [ "net-test.c" ],
-		      addLibraries = [ "posixcompat", "vfs", "nfs", "lwip", "contmng", "timer" ],
+		      addLibraries = [ "posixcompat", "vfs", "nfs", "lwip", "contmng", "timer", "hashtable" ],
 		      architectures = [ "x86_64", "scc" ]
                     }
 ]
