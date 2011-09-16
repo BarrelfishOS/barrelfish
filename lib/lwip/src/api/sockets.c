@@ -1990,8 +1990,6 @@ lwip_serialise_sock(int s, struct lwip_sockinfo *si)
   memcpy(&(si->tcp_state), sock->conn->pcb.tcp, sizeof(struct tcp_pcb));
 
   if(sock->conn->pcb.tcp->state == ESTABLISHED) {
-      printf("pausing socket\n");
-
       // Pause the socket, we're inheriting
       err_t err = netconn_pause(sock->conn, &si->local_ip, si->local_port,
                                 &si->remote_ip, si->remote_port);

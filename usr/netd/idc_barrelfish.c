@@ -482,8 +482,6 @@ static void idc_redirect_response(struct netd_binding *cc, errval_t err)
 */
 static void idc_redirect_pause_response(struct netd_binding *cc, errval_t err)
 {
-    printf("idc_redirect_pause_response: called\n");
-
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_paused;
@@ -670,9 +668,6 @@ find_filter_id_ex(struct buffer_port_translation *port_list,
                   uint64_t type)
 {
     while(port_list) {
-        printf("looking at local %u, remote %u, type %lu\n",
-               port_list->local_port, port_list->remote_port,
-               port_list->type);
         if (port_list->local_port == local_port_no &&
             port_list->remote_port == remote_port_no &&
             type == port_list->type) {
@@ -997,8 +992,6 @@ static errval_t send_filterID_for_pause(struct q_entry e)
     struct ether_control_binding *b = (struct ether_control_binding *)e.binding_ptr;
     struct client_closure_ND *ccnc = (struct client_closure_ND *)b->st;
 
-    printf("send pause\n");
-
     if (b->can_send(b)) {
         return b->tx_vtbl.pause(b,
             MKCONT(cont_queue_callback, ccnc->q),
@@ -1053,7 +1046,7 @@ static void redirect(struct netd_binding *cc, netd_port_type_t type,
 {
     errval_t err = SYS_ERR_OK; 
 
-    printf("redirect: called for local_port %" PRIu16 " remote_port %" PRIu16 " with RX[%" PRIu64 "] and TX[%" PRIu64 "], type = %d\n",
+    NETD_DEBUG("redirect: called for local_port %" PRIu16 " remote_port %" PRIu16 " with RX[%" PRIu64 "] and TX[%" PRIu64 "], type = %d\n",
            local_port, remote_port, buffer_id_rx, buffer_id_tx, type);
 
     /* we only support migrating TCP ports at the moment */
@@ -1090,7 +1083,6 @@ static void redirect(struct netd_binding *cc, netd_port_type_t type,
     }
     if(bp != NULL) {
         /* TODO: ask driver to change the buff_id, related to this filter id */
-        printf("redirect: sending to network driver id %lu, bp %p\n", bp->filter_id, bp);
         idc_unpause_filter(bp->filter_id, buffer_id_rx, buffer_id_tx);
     } else {
         printf("redirect: port not found\n");
@@ -1110,9 +1102,7 @@ static void redirect_pause(struct netd_binding *cc, netd_port_type_t type,
 {
     errval_t err = SYS_ERR_OK; 
 
-    printf("redirect_pause\n");
-
-    printf("redirect_pause: called for local_port %" PRIu16 " remote_port %" PRIu16 " with RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
+    NTED_DEBUG("redirect_pause: called for local_port %" PRIu16 " remote_port %" PRIu16 " with RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
                local_port, remote_port, buffer_id_rx, buffer_id_tx);
 
     /* we only support migrating TCP ports at the moment */
@@ -1160,7 +1150,6 @@ static void redirect_pause(struct netd_binding *cc, netd_port_type_t type,
     uint64_t bulk_id = populate_redirect_rx_tx_filter_mem(local_ip_addr,
             local_port, remote_ip_addr, remote_port, type, &len_rx, &len_tx);
 	
-    printf("registering the redirect filter now.\n");
     idc_register_filter(bulk_id, len_rx, len_tx, buffer_id_rx, buffer_id_tx,
                         REDIRECT_FILTER, 1);
 } /* end function: redirect */
@@ -1345,7 +1334,6 @@ static void deregister_filter_response(struct ether_control_binding *st,
 static void pause_response(struct ether_control_binding *st,
                            errval_t err, uint64_t filter_id)
 {
-    printf("pause_response\n");
     if(err_is_fail(err)){
         DEBUG_ERR(err, "pause_response");
     }
@@ -1364,7 +1352,7 @@ static void register_filter_response (struct ether_control_binding *st, uint64_t
                    uint64_t buffer_id_tx, uint64_t ftype)
 {
     assert(err_is_ok(err));
-    printf("NETD: filter at id [%"PRIu64"] type[%"PRIu64"] registered with filt_id %" PRIu64 ".\n",
+    NETD_DEBUG("NETD: filter at id [%"PRIu64"] type[%"PRIu64"] registered with filt_id %" PRIu64 ".\n",
                id, ftype, filter_id);
 
     /* Ensure that, after filter is successfully registered, callback
@@ -1402,12 +1390,9 @@ static void register_filter_response (struct ether_control_binding *st, uint64_t
                         err = FILTER_ERR_BUFF_NOT_FOUND;
                     }
 
-                    printf("Got bp %p for filter id %lu\n", bp, filter_id);
-
                     /* OK, we found the correct entry, now call the proper
                         function to inform app about registration */
                     if(bp->paused) {
-                        printf("is paused\n");
                         idc_redirect_pause_response(bp->st, err);
                     } else if(bp->redirected) {
                         idc_redirect_response(bp->st, err);
@@ -1640,8 +1625,6 @@ static errval_t send_filter_for_registration(struct q_entry e)
     struct ether_control_binding *b = (struct ether_control_binding *)e.binding_ptr;
     struct client_closure_ND *ccnc = (struct client_closure_ND *)b->st;
 
-    printf("send_filter_for_registration with %lu\n", e.plist[6]);
-
     if (b->can_send(b)) {
         return b->tx_vtbl.register_filter_request(b,
             MKCONT(cont_queue_callback, ccnc->q),
@@ -1663,7 +1646,7 @@ static void idc_register_filter(uint64_t id, uint64_t len_rx,
              uint64_t len_tx, uint64_t buffer_id_rx, uint64_t buffer_id_tx,
                                 uint8_t ftype, uint8_t paused)
 {
-    printf("idc_register_filter: called for id %" PRIu64 " and type %x, paused = %d\n",
+    NETD_DEBUG("idc_register_filter: called for id %" PRIu64 " and type %x, paused = %d\n",
            id, ftype, paused);
 
     struct q_entry entry;

@@ -1166,8 +1166,6 @@ static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
 
     errval_t err, msgerr;
 
-    printf("idc_pause\n");
-
     /* getting the proper buffer id's here */
     err = netd_rpc.vtbl.redirect_pause(&netd_rpc, port_type, local_ip->addr, local_port,
                                        remote_ip->addr, remote_port,
@@ -1187,8 +1185,6 @@ static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
     } else if (msgerr == PORT_ERR_REDIRECT) {
         return ERR_USE;  // TODO: correct error
     }
-
-    printf("no errors\n");
 
 // FIXME: other errors?
     return ERR_OK;

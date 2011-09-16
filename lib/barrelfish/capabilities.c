@@ -565,29 +565,7 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
     }
 
     struct capref ram;
-#ifdef __scc__
-    uint64_t minbase, maxlimit;
-    ram_get_affinity(&minbase, &maxlimit);
-    if(minbase == 0 && maxlimit == 0) {
-        // On SCC, we always try to get frame memory from the shared
-        // area, unless we have affinities set
-        struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
-        assert(ram_alloc_state->ram_alloc_func != NULL);
-        err = ram_alloc_state->
-            ram_alloc_func(&ram, bits, SHARED_MEM_MIN, SHARED_MEM_MAX);
-        if (err_is_fail(err)) {
-            if (err_no(err) == MM_ERR_NOT_FOUND ||
-                err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
-                // Try again with entire memory
-                err = ram_alloc(&ram, bits);
-            }
-        }
-    } else {
-        err = ram_alloc(&ram, bits);
-    }
-#else
     err = ram_alloc(&ram, bits);
-#endif
     if (err_is_fail(err)) {
         if (err_no(err) == MM_ERR_NOT_FOUND ||
             err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {

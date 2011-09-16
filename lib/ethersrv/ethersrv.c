@@ -788,7 +788,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
                             uint64_t buffer_id_tx, uint64_t ftype, uint64_t paused)
 {
 	errval_t err = SYS_ERR_OK;
-	printf("Register_filter: ID:%" PRIu64 " of type[%" PRIu64 "] buffers RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
+	ETHERSRV_DEBUG("Register_filter: ID:%" PRIu64 " of type[%" PRIu64 "] buffers RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
 	        id, ftype, buffer_id_rx, buffer_id_tx);
 
 	struct buffer_descriptor *buffer_rx = NULL;
@@ -903,9 +903,6 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 	new_filter_rx->filter_type = ftype;
 	new_filter_rx->buffer = buffer_rx;
 	new_filter_rx->next = rx_filters;
-        if(paused) {
-            printf("pausing receive side\n");
-        }
         new_filter_rx->paused = paused ? true : false;
 	rx_filters = new_filter_rx;
 	ETHERSRV_DEBUG("filter registered with id %" PRIu64 " and len %d\n",
@@ -1054,8 +1051,6 @@ static errval_t send_pause_filter_response(struct q_entry e) {
             (struct ether_control_binding *) e.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
-    printf("send_pause_filter_response\n");
-
     if (b->can_send(b)) {
         return b->tx_vtbl.pause_response(b,
                 MKCONT(cont_queue_callback, ccfm->q),
@@ -1131,6 +1126,7 @@ static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
         if(buffer->buffer_id == buffer_id) {
             return buffer;
         }
+        buffer = buffer->next;
     }
     return NULL;
 } /* end function: buffer_descriptor */
@@ -1188,7 +1184,7 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
                          uint64_t buffer_id_rx, uint64_t buffer_id_tx)
 {
     errval_t err = SYS_ERR_OK;
-    printf("(un)pause_filter: ID:%" PRIu64 "\n", filter_id);
+    ETHERSRV_DEBUG("(un)pause_filter: ID:%" PRIu64 "\n", filter_id);
 
     /* Create the filter data-structures */
     struct filter *rx_filter = NULL;
@@ -1198,24 +1194,14 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
     /* FIXME: delete the tx_filter from the filter list "buffer_rx->tx_filters" */
 //    tx_filter = delete_from_filter_list(tx_filters, filter_id);
 
-    printf("filter find done\n");
-
     if(rx_filter == NULL  /*|| tx_filter == NULL*/) {
-        printf("pause_filter: requested filter_ID [%" PRIu64 "] not found\n", filter_id);
+        ETHERSRV_DEBUG("pause_filter: requested filter_ID [%" PRIu64 "] not found\n", filter_id);
         err = FILTER_ERR_FILTER_NOT_FOUND;
         assert(!"NYI");
         /* wrapper_send_filter_re_register_msg(cc, err, filter_id, */
         /*         buffer_id_rx, buffer_id_tx); */
         return;
     }
-
-    printf("unpause_filter %p\n", rx_filter);
-    rx_filter->paused = false;
-    if(rx_filter->pause_bufpos > 0) {
-        printf("unhandled paused data!\n");
-    }
-
-    printf("new RX %lu, new TX %lu\n", buffer_id_rx, buffer_id_tx);
 
     /* Find the buffer with given buffer_id */
     struct buffer_descriptor *buffer_rx = find_buffer(buffer_id_rx);
@@ -1235,7 +1221,16 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
     /* reporting back the success/failure */
     wrapper_send_filter_pause_msg(cc, err, filter_id);
 
-    ETHERSRV_DEBUG("pause_filter: ID %" PRIu64 ": Done\n", filter_id);
+    rx_filter->paused = false;
+    if(rx_filter->pause_bufpos > 0) {
+        for(int i = 0; i < rx_filter->pause_bufpos; i++) {
+            struct bufdesc *bd = &rx_filter->pause_buffer[i];
+            copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len);
+        }
+    }
+    rx_filter->pause_bufpos = 0;
+
+    ETHERSRV_DEBUG("(un)pause_filter: ID %" PRIu64 ": Done\n", filter_id);
 
 } /* end function: re_register_filter */
 
@@ -1618,10 +1613,8 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
             buffer = filter->buffer;
 
-            printf("packet processed for %p\n", filter);
             if(filter->paused) {
                 assert(filter->pause_bufpos < MAX_PAUSE_BUFFER);
-                printf("packet to pause buffer pos %d\n", filter->pause_bufpos);
                 struct bufdesc *bd = &filter->pause_buffer[filter->pause_bufpos++];
                 memcpy(bd->pkt_data, pkt_data, pkt_len);
                 bd->pkt_len = pkt_len;
@@ -1632,7 +1625,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 		}
             }
 		//debug_printf("Application packet arrived for buff %lu\n", buffer->buffer_id);
-		return;
+            return;
 	}
 
 // add trace filter_execution_end_1
