@@ -266,13 +266,13 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 free(call);
                 freed_call = true;
             } else {
-                if(net_debug_state == 0) {
-                    //net_debug_state = 0;
-                    //printf("starting the debug in network driver\n");
-                    //lwip_start_net_debug(net_debug_state);
-                } else {
-                    printf("already started the debug in network driver\n");
-                }
+                /* if(net_debug_state == 0) { */
+                /*     //net_debug_state = 0; */
+                /*     //printf("starting the debug in network driver\n"); */
+                /*     //lwip_start_net_debug(net_debug_state); */
+                /* } else { */
+                /*     printf("already started the debug in network driver\n"); */
+                /* } */
                 /* retransmit */
                 printf("###### [%d][%d] RPC: retransmit XID 0x%x\n", disp_get_core_id(),
 			disp_get_domain_id(), call->xid);
