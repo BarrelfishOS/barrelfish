@@ -1102,7 +1102,7 @@ static void redirect_pause(struct netd_binding *cc, netd_port_type_t type,
 {
     errval_t err = SYS_ERR_OK; 
 
-    NTED_DEBUG("redirect_pause: called for local_port %" PRIu16 " remote_port %" PRIu16 " with RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
+    NETD_DEBUG("redirect_pause: called for local_port %" PRIu16 " remote_port %" PRIu16 " with RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
                local_port, remote_port, buffer_id_rx, buffer_id_tx);
 
     /* we only support migrating TCP ports at the moment */
