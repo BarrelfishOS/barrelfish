@@ -303,13 +303,16 @@ errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure)
     // if there are no pending events, poll all channels once
     if (ws->polled != NULL && pollcount++ == 0) {
         for (chan = ws->polled;
-             chan != NULL && chan->waitset == ws && chan->state == CHAN_POLLED
-                 && chan != ws->polled;
+             chan != NULL && chan->waitset == ws && chan->state == CHAN_POLLED;
              chan = chan->next) {
 
             poll_channel(chan);
             if (ws->pending != NULL) {
                 goto recheck;
+            }
+
+            if (chan->next == ws->polled) { // reached the start of the queue
+                break;
             }
         }
     }
