@@ -225,7 +225,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     }
 #endif
 
-    assert((void *)dcb >= (void *)0x80000000);
     dispatcher_handle_t handle = dcb->disp;
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
@@ -236,11 +235,8 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     disp->systime = kernel_now;
 
     if (dcb->disabled) {
-      if(!dispatcher_is_disabled_ip(handle,
-				    registers_get_ip(disabled_area))) {
-	printf("resume %.*s at 0x%" PRIxPTR "\n", DISP_NAME_LEN,
+        debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIxPTR "\n", DISP_NAME_LEN,
               disp->name, registers_get_ip(disabled_area));
-      }
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
         resume(disabled_area);

@@ -109,7 +109,6 @@ errval_t ram_alloc(struct capref *ret, uint8_t size_bits)
 {
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
     assert(ram_alloc_state->ram_alloc_func != NULL);
-    printf("ram_alloc of %d in %s (%d)\n", size_bits, disp_name(), disp_get_domain_id());
     errval_t err = ram_alloc_state->
         ram_alloc_func(ret, size_bits, ram_alloc_state->default_minbase,
                        ram_alloc_state->default_maxlimit);

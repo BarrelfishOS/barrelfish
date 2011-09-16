@@ -252,8 +252,8 @@ void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
                  PRIxGENPADDR " failed", bits, minbase, maxlimit);
         *cap = NULL_CAP;
     }
-	//*ret = MM_ERR_NOT_FOUND;
-	//*cap = NULL_CAP;
+//	*ret = MM_ERR_NOT_FOUND;
+//	*cap = NULL_CAP;
 }
 
 errval_t init_peers(coreid_t core, int len_cores, coreid_t *cores) 

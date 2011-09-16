@@ -278,9 +278,6 @@ static errval_t local_alloc(struct capref *ret, uint8_t bits,
   
     // then try the general percore memory
     if (err_is_fail(err)) {
-      if(maxlimit < SHARED_MEM_MIN) {
-	printf("%d: private memory exhausted, trying public\n", disp_get_core_id());
-      }
         err = percore_alloc(ret, bits, minbase, maxlimit);
     }
 #else

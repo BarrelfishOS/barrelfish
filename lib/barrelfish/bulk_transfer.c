@@ -123,24 +123,9 @@ errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
 #if defined(__scc__) && !defined(RCK_EMU)
     ram_set_affinity(0, 0);
 #endif
-
-#if defined(__scc__) && !defined(RCK_EMU) // FOR SCC	
-    if (err_is_fail(r)) {
-		if (err_no(r) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
-    		r = frame_alloc(shared_mem, size, &allocated_size);
-    		if (err_is_fail(r)) {
-	        	return err_push(r, LIB_ERR_FRAME_ALLOC);
-			}
-		} else {
-	        return err_push(r, LIB_ERR_FRAME_ALLOC);
-		}
-    }
-#else // for other platforms
-
     if (err_is_fail(r)) {
         return err_push(r, LIB_ERR_FRAME_ALLOC);
     }
-#endif
     assert(allocated_size >= size);
 
     // Map the frame in local memory
