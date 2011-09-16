@@ -143,6 +143,7 @@ void do_newconn         ( struct api_msg_msg *msg);
 void do_delconn         ( struct api_msg_msg *msg);
 void do_bind            ( struct api_msg_msg *msg);
 void do_redirect        ( struct api_msg_msg *msg);
+    void do_pause(struct api_msg_msg *msg);
 void do_connect         ( struct api_msg_msg *msg);
 void do_disconnect      ( struct api_msg_msg *msg);
 void do_listen          ( struct api_msg_msg *msg);

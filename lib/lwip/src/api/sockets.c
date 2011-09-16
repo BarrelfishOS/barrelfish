@@ -1988,9 +1988,24 @@ lwip_serialise_sock(int s, struct lwip_sockinfo *si)
   si->remote_port = sock->conn->pcb.tcp->remote_port;
   memcpy(&(si->netconn_state), sock->conn, sizeof(struct netconn));
   memcpy(&(si->tcp_state), sock->conn->pcb.tcp, sizeof(struct tcp_pcb));
+
+  if(sock->conn->pcb.tcp->state == ESTABLISHED) {
+      // Pause the socket, we're inheriting
+      err_t err = netconn_pause(sock->conn, &si->local_ip, si->local_port,
+                                &si->remote_ip, si->remote_port);
+
+      if (err != ERR_OK) {
+          LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_redirect(%d) failed, err=%d\n", s, err));
+          sock_set_errno(sock, err_to_errno(err));
+          return -1;
+      }
+  }
+
+  LWIP_DEBUGF(SOCKETS_DEBUG, ("lwip_redirect(%d) succeeded\n", s));
+  sock_set_errno(sock, 0);
+
   return 0;
 }
-
 
 static int
 lwip_redirect(int s, struct lwip_sockinfo *si)

@@ -43,6 +43,7 @@ struct buffer_port_translation {
     bool active;
     bool bind;
     bool closing;
+    bool paused;
     struct netd_binding* st;
     struct buffer_port_translation* next;
 };
