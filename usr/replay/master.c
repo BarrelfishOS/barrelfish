@@ -734,8 +734,7 @@ slave_push_work(struct slave *sl)
 
         if (sl->current_te->next == NULL) {
             //printf("\t => no more requests\n");
-            assert(sl->current_te->op = TOP_Exit);
-            assert(req.op == sl->current_te->op); /* weird bug */
+            assert(sl->current_te->op == TOP_Exit);
         }
 
         sl->current_te = sl->current_te->next;
