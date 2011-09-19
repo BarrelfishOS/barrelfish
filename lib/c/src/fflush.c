@@ -88,6 +88,11 @@ fflush(FILE *file)
         return 0;
     }
 
+    // write buffer is empty, just return
+    if (file->buf_pos == 0) {
+        return 0;
+    }
+
     lock_stream(file);
     if (file->write_fn(file->buffer, file->current_pos,
                          file->buf_pos, file->handle) == file->buf_pos) {
