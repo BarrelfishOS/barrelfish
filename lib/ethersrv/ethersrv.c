@@ -1100,8 +1100,8 @@ static void wrapper_send_filter_pause_msg(
     entry.binding_ptr = (void *) cc;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
 
-    entry.plist[0] = err;
-    entry.plist[1] = filter_id;
+    entry.plist[0] = filter_id;
+    entry.plist[1] = err;
 /*    e.plist[0], e.plist[1],  e.plist[2],     e.plist[2]
       e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
     enqueue_cont_q(ccfm->q, &entry);
