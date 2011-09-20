@@ -16,7 +16,9 @@
 typedef void *vfs_handle_t;
 #define NULL_VFS_HANDLE NULL
 
+/* XXX: remove this for partitioned cache */
 #define WITH_SHARED_CACHE
+
 #define WITH_BUFFER_CACHE
 //#define WITH_WRITE_BACK_CACHE
 #define WITH_META_DATA_CACHE

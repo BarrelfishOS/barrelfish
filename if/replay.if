@@ -10,7 +10,7 @@
 interface replay "Trace replay" {
         typedef struct {
             uint8 op;
-	    uint32 fnumsize;
+	    uint32 fnumsize; /* for Open/Create/Unlink -> fnum, for Read/Write -> size */
 	    uint8 fd;
 	    uint8 mode;
 	    uint32 fline;

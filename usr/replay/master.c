@@ -27,7 +27,6 @@
 #define MAX_SLAVES      64
 #define MAX_DEPS        60
 
-#define RED(x) "\033[31m" x "\033[0m\n"
 /* TRACE LIST */
 
 struct trace_list {
@@ -183,7 +182,7 @@ tg_complete(struct task_graph *tg, struct pid_entry *pe)
     assert(pe->completed == 0);
     pe->completed = 1;
     tg->pes_completed++;
-    printf("%s:%s() :: pe: %p (idx:%ld,pid:%d) completed (%d/%d)\n", __FILE__, __FUNCTION__, pe, (pe - tg->pes), pe->pid, tg->pes_completed, tg->pes_nr);
+    dmsg("\tpe: %p (idx:%ld,pid:%d) completed (%d/%d)\n", pe, (pe - tg->pes), pe->pid, tg->pes_completed, tg->pes_nr);
     for (int i=0; i < pe->children_nr; i++) {
         struct pid_entry *pe_child = pe->children[i];
         if (++pe_child->parents_completed == pe_child->parents_nr) {
@@ -243,7 +242,7 @@ task_completed_handler(struct replay_binding *b, uint16_t pid)
 
 static void finish_handler(struct replay_binding *b)
 {
-    printf(RED("%s:%s ENTER"), __FILE__, __FUNCTION__);
+    dmsg("ENTER\n");
     SlState.num_finished++;
 }
 
@@ -258,7 +257,7 @@ static void replay_bind_cont(void *st, errval_t err, struct replay_binding *b)
     struct slave *sl = &SlState.slaves[slavenum];
     slavenum++;
 
-    printf(RED("--- %s:%s: ENTER"), __FILE__, __FUNCTION__);
+    dmsg("ENTER\n");
     //printf("%s:%s MY TASKGRAPH IS %p\n", __FILE__, __FUNCTION__, &TG);
 
     assert(err_is_ok(err));
@@ -429,7 +428,7 @@ parse_tracefile(const char *tracefile, struct trace_list *tlist)
         trace_add_tail(tlist, tentry);
     }
     fclose(f);
-    printf("tracefile read [number of lines:%d\n", linen);
+    printf("tracefile read [number of lines:%d]\n", linen);
 }
 
 static void
@@ -580,6 +579,7 @@ static void slaves_connect(struct task_graph *tg);
 static void slave_push_work(struct slave *);
 static void slaves_wait(void);
 static void master_process_reqs(void);
+unsigned long tscperms;
 
 int main(int argc, char *argv[])
 {
@@ -589,6 +589,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
+    assert(err_is_ok(sys_debug_get_tsc_per_ms(&tscperms)));
     printf("---------- VFS MKDIR...\n");
     errval_t err = vfs_mkdir(argv[3]);
     assert(err_is_ok(err));
@@ -626,7 +627,7 @@ int main(int argc, char *argv[])
 
     // Build task graph. roots are nodes without dependencies
     #ifndef __linux__
-    printf(RED("== My cpu is %d"), disp_get_core_id());
+    msg("[MASTER] My cpu is: %d\n", disp_get_core_id());
     #endif
     memset(&TG, 0, sizeof(TG));
     build_taskgraph(&tlist, &TG);
@@ -634,12 +635,12 @@ int main(int argc, char *argv[])
     //print_taskgraph(&TG);
     //printf("TG entries:%d completed:%d stack_size:%d\n", TG.pes_nr, TG.pes_completed, TG.stack_nr);
 
-    printf(RED("---------------------------- SLAVES CONNECT..."));
+    msg("[MASTER] CONNECTING TO SLAVES...\n");
     slaves_connect(&TG);
-    printf(RED("--------------------------- DONE"));
+    msg("[MASTER] DONE\n");
 
-    printf(RED("---------- STARTING WORK..."));
-    uint64_t start = rdtsc();
+    msg("[MASTER] STARTING WORK...\n");
+    uint64_t ticks = rdtsc();
     for (;;) {
         /* enqueue work to the slaves */
         for (int sid=0; sid < SlState.num_slaves; sid++) {
@@ -652,7 +653,7 @@ int main(int argc, char *argv[])
                 }
                 sl->current_te = sl->pe->trace_l.head;
                 sl->pe->sl = sl;
-                printf(RED(" assigned pid:%d to sl:%d"), sl->pe->pid, sid);
+                dmsg("[MASTER] assigned pid:%d to sl:%d\n", sl->pe->pid, sid);
             }
 
             slave_push_work(sl);
@@ -663,11 +664,9 @@ int main(int argc, char *argv[])
             break;
     }
 
-    printf(RED("---------- WORK ENDED ..."));
     slaves_wait();
-    uint64_t end = rdtsc();
-
-    printf("replay done, took %" PRIu64" cycles\n", (end - start));
+    ticks = rdtsc() - ticks;
+    printf("[MASTER] replay done, took %" PRIu64" cycles (%lf ms)\n", ticks, (double)ticks/(double)tscperms);
     return 0;
 }
 
@@ -693,7 +692,7 @@ static void
 slaves_wait(void)
 {
     int err;
-    replay_eventrec_t end_req = { .op = TOP_End, .pid = 0 };
+    replay_eventrec_t end_req = {.op = TOP_End, .pid = 0};
 
     for (int sid=0; sid < SlState.num_slaves; sid++) {
         struct slave *sl = SlState.slaves + sid;
@@ -769,7 +768,7 @@ slaves_connect(struct task_graph *tg)
             assert(err_is_ok(err));
         }
 
-        printf("-------------------- bound to slave %d\n", sid);
+        msg("bound to slave %d\n", sid);
     }
 }
 #endif

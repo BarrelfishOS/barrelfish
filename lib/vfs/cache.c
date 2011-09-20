@@ -363,6 +363,7 @@ void cache_print_stats(void)
            nclosedir, nmkdir, nrmdir, nremove);
     printf("\n\n");
 
+    #ifdef CACHE_META_DATA
     printf("meta data\n"
            "=========\n"
            "hits        = %zu\n"
@@ -371,6 +372,7 @@ void cache_print_stats(void)
            "allocations = %u\n",
            meta_hits, meta_misses, meta_overwrites, alloc_ptr);
     printf("\n\n");
+    #endif
 #endif
 }
 

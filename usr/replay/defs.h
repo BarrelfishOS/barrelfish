@@ -47,4 +47,18 @@ struct _replay_eventrec__struct {
 typedef struct _replay_eventrec__struct replay_eventrec_t;
 #endif
 
+#define dbg_print_str__ "%s() [%s +%d]"
+#define dbg_print_arg__ __FUNCTION__, __FILE__, __LINE__
+#define dbg_print(msg ,fmt, args...)\
+    printf(dbg_print_str__ " " msg fmt , dbg_print_arg__ , ##args)
+
+//#define XDEBUG
+#define msg(fmt,args...)      dbg_print("msg:",fmt, ##args)
+#ifdef XDEBUG
+    #define dmsg(fmt,args...) dbg_print("dbg:",fmt, ##args)
+#else
+    #define dmsg(fmt,args...) do { } while (0)
+#endif
+
+
 #endif
