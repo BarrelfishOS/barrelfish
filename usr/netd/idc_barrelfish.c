@@ -1332,7 +1332,7 @@ static void deregister_filter_response(struct ether_control_binding *st,
 } /* end function: registered_filter */
 
 static void pause_response(struct ether_control_binding *st,
-                           errval_t err, uint64_t filter_id)
+                           uint64_t filter_id, errval_t err)
 {
     if(err_is_fail(err)){
         DEBUG_ERR(err, "pause_response");
