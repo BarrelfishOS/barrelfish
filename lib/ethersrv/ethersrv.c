@@ -78,14 +78,15 @@ static void register_filter_memory_request(struct ether_control_binding *cc,
 		struct capref mem_cap);
 static void register_filter(struct ether_control_binding *cc, uint64_t id,
             uint64_t len_rx, uint64_t len_tx, uint64_t buffer_id_rx,
-            uint64_t buffer_id_tx, uint64_t ftype);
+                            uint64_t buffer_id_tx, uint64_t ftype, uint64_t paused);
 static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 		uint64_t len_rx, uint64_t len_tx);
 static void deregister_filter(struct ether_control_binding *cc,
         uint64_t filter_id);
 static void re_register_filter(struct ether_control_binding *cc,
         uint64_t filter_id, uint64_t buffer_id_rx, uint64_t buffer_id_tx);
-
+static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
+                         uint64_t buffer_id_rx, uint64_t buffer_id_tx);
 
 
 /*****************************************************************
@@ -109,7 +110,9 @@ static struct ether_control_rx_vtbl rx_ether_control_vtbl = {
 		.register_filter_request = register_filter,
 		.re_register_filter_request = re_register_filter,
 		.deregister_filter_request = deregister_filter,
-		.register_arp_filter_request = register_arp_filter, };
+		.register_arp_filter_request = register_arp_filter,
+                .pause = pause_filter,
+};
 
 /*****************************************************************
  * Pointers to driver functionalities:
@@ -783,7 +786,7 @@ static void wrapper_send_filter_registered_msg(
  */
 static void register_filter(struct ether_control_binding *cc, uint64_t id,
 			uint64_t len_rx, uint64_t len_tx, uint64_t buffer_id_rx,
-			uint64_t buffer_id_tx, uint64_t ftype)
+                            uint64_t buffer_id_tx, uint64_t ftype, uint64_t paused)
 {
 	errval_t err = SYS_ERR_OK;
 	ETHERSRV_DEBUG("Register_filter: ID:%" PRIu64 " of type[%" PRIu64 "] buffers RX[%" PRIu64 "] and TX[%" PRIu64 "]\n",
@@ -901,6 +904,7 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 	new_filter_rx->filter_type = ftype;
 	new_filter_rx->buffer = buffer_rx;
 	new_filter_rx->next = rx_filters;
+        new_filter_rx->paused = paused ? true : false;
 	rx_filters = new_filter_rx;
 	ETHERSRV_DEBUG("filter registered with id %" PRIu64 " and len %d\n",
 			new_filter_rx->filter_id, new_filter_rx->len);
@@ -1042,6 +1046,26 @@ static errval_t send_re_register_filter_response(struct q_entry e) {
     }
 } /* end function: send_re_register_filter_response */
 
+static errval_t send_pause_filter_response(struct q_entry e) {
+    //    ETHERSRV_DEBUG("send_re_register_filter_response for ID %lu  -----\n", e.plist[0]);
+    struct ether_control_binding *b =
+            (struct ether_control_binding *) e.binding_ptr;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
+
+    if (b->can_send(b)) {
+        return b->tx_vtbl.pause_response(b,
+                MKCONT(cont_queue_callback, ccfm->q),
+                e.plist[0], e.plist[1]);
+             /* e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
+
+    } else {
+        ETHERSRV_DEBUG(
+                "send_re_register_filter_response: Filter_ID %" PRIu64 ": Flounder bsy will retry\n",
+                e.plist[1]);
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+} /* end function: send_re_register_filter_response */
+
 static void wrapper_send_filter_re_register_msg(
         struct ether_control_binding *cc, errval_t err, uint64_t filter_id,
         uint64_t buffer_id_rx, uint64_t buffer_id_tx)
@@ -1064,6 +1088,25 @@ static void wrapper_send_filter_re_register_msg(
     enqueue_cont_q(ccfm->q, &entry);
 } /* end function: wrapper_send_filter_re_register_msg */
 
+static void wrapper_send_filter_pause_msg(
+        struct ether_control_binding *cc, errval_t err, uint64_t filter_id)
+{
+
+    /* call registered_netd_memory with new IDC */
+
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_pause_filter_response;
+    entry.binding_ptr = (void *) cc;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
+
+    entry.plist[0] = err;
+    entry.plist[1] = filter_id;
+/*    e.plist[0], e.plist[1],  e.plist[2],     e.plist[2]
+      e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_rx */
+    enqueue_cont_q(ccfm->q, &entry);
+} /* end function: wrapper_send_filter_re_register_msg */
+
 
 static struct filter *find_from_filter_list(struct filter *head,
         uint64_t filter_id)
@@ -1072,6 +1115,7 @@ static struct filter *find_from_filter_list(struct filter *head,
         if(head->filter_id == filter_id){
             return head;
         } /* end if: filter_id found */
+        head = head->next;
     } /* end while: for each element in list */
     return NULL; /* could not not find the id. */
 }
@@ -1083,6 +1127,7 @@ static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
         if(buffer->buffer_id == buffer_id) {
             return buffer;
         }
+        buffer = buffer->next;
     }
     return NULL;
 } /* end function: buffer_descriptor */
@@ -1130,6 +1175,63 @@ static void re_register_filter(struct ether_control_binding *cc,
             buffer_id_tx);
 
     ETHERSRV_DEBUG("re_register_filter: ID %" PRIu64 ": Done\n", filter_id);
+
+} /* end function: re_register_filter */
+
+/**
+ * \brief: pause the filter with network driver
+ */
+static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
+                         uint64_t buffer_id_rx, uint64_t buffer_id_tx)
+{
+    errval_t err = SYS_ERR_OK;
+    ETHERSRV_DEBUG("(un)pause_filter: ID:%" PRIu64 "\n", filter_id);
+
+    /* Create the filter data-structures */
+    struct filter *rx_filter = NULL;
+//    struct filter *tx_filter = NULL;
+
+    rx_filter = find_from_filter_list(rx_filters, filter_id);
+    /* FIXME: delete the tx_filter from the filter list "buffer_rx->tx_filters" */
+//    tx_filter = delete_from_filter_list(tx_filters, filter_id);
+
+    if(rx_filter == NULL  /*|| tx_filter == NULL*/) {
+        ETHERSRV_DEBUG("pause_filter: requested filter_ID [%" PRIu64 "] not found\n", filter_id);
+        err = FILTER_ERR_FILTER_NOT_FOUND;
+        assert(!"NYI");
+        /* wrapper_send_filter_re_register_msg(cc, err, filter_id, */
+        /*         buffer_id_rx, buffer_id_tx); */
+        return;
+    }
+
+    /* Find the buffer with given buffer_id */
+    struct buffer_descriptor *buffer_rx = find_buffer(buffer_id_rx);
+    struct buffer_descriptor *buffer_tx = NULL;
+    buffer_tx = find_buffer(buffer_id_tx);
+    if(buffer_rx == NULL || buffer_rx == NULL) {
+        ETHERSRV_DEBUG("re_register_filter: provided buffer id's not found\n");
+        ETHERSRV_DEBUG("re_register_filter: rx=[[%" PRIu64 "] = %p], tx=[[%" PRIu64 "] = %p]\n",
+                buffer_id_rx, buffer_rx, buffer_id_tx, buffer_tx);
+        assert(!"NYI");
+        /* err =  FILTER_ERR_BUFFER_NOT_FOUND; /\* set error value *\/ */
+        /* wrapper_send_filter_re_register_msg(cc, err, filter_id, buffer_id_rx, */
+        /*         buffer_id_tx); */
+    }
+    rx_filter->buffer = buffer_rx;
+    /* FIXME: Also, set the new buffer for tx_filters */
+    /* reporting back the success/failure */
+    wrapper_send_filter_pause_msg(cc, err, filter_id);
+
+    rx_filter->paused = false;
+    if(rx_filter->pause_bufpos > 0) {
+        for(int i = 0; i < rx_filter->pause_bufpos; i++) {
+            struct bufdesc *bd = &rx_filter->pause_buffer[i];
+            copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len);
+        }
+    }
+    rx_filter->pause_bufpos = 0;
+
+    ETHERSRV_DEBUG("(un)pause_filter: ID %" PRIu64 ": Done\n", filter_id);
 
 } /* end function: re_register_filter */
 
@@ -1427,7 +1529,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 }
 
 
-struct buffer_descriptor *execute_filters(void *data, size_t len)
+struct filter *execute_filters(void *data, size_t len)
 {
 	struct filter *head = rx_filters;
 	int res, error;
@@ -1445,7 +1547,7 @@ struct buffer_descriptor *execute_filters(void *data, size_t len)
                 // reflected by the order in the list.
 	        ETHERSRV_DEBUG("##### Filter_id [%" PRIu64"] type[%" PRIu64"] matched giving buff [%"PRIu64"]..\n",
 					head->filter_id, head->filter_type, head->buffer->buffer_id);
-                return head->buffer;
+                return head;
 	    }
 	    head = head->next;
 	}
@@ -1502,19 +1604,30 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 #endif // TRACE_ETHERSRV_MODE
 
 	//	printf("normal non-SA mode packet\n");
-	buffer = execute_filters(pkt_data, pkt_len);
+	/* buffer = execute_filters(pkt_data, pkt_len); */
 
 	// executing filters to find the relevant buffer
-	if ((buffer = execute_filters(pkt_data, pkt_len)) != NULL){
+        struct filter *filter;
+	if ((filter = execute_filters(pkt_data, pkt_len)) != NULL){
 /*             printf("multiple app path with buff id %lu\n",
                                buffer->buffer_id);
 */
+
+            buffer = filter->buffer;
+
+            if(filter->paused) {
+                assert(filter->pause_bufpos < MAX_PAUSE_BUFFER);
+                struct bufdesc *bd = &filter->pause_buffer[filter->pause_bufpos++];
+                memcpy(bd->pkt_data, pkt_data, pkt_len);
+                bd->pkt_len = pkt_len;
+            } else {
 		bool ret = copy_packet_to_user(buffer, pkt_data, pkt_len);
 		if(ret == false) {
 //			printf("A: Copy packet to userspace failed\n");
 		}
+            }
 		//debug_printf("Application packet arrived for buff %lu\n", buffer->buffer_id);
-		return;
+            return;
 	}
 
 // add trace filter_execution_end_1

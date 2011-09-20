@@ -217,7 +217,7 @@ bool handle_fragmented_packet(void* packet, size_t len)
     if(is_fragmented(packet, len)) {
     	if(has_headers(packet, len)) {
     		E_IPFRAG_DEBUG("IP_FRAG: first fragment %lu\n", ip_id);
-    		buffer = execute_filters(packet, len);
+    		buffer = execute_filters(packet, len)->buffer;
     		if(buffer == NULL) {
     			E_IPFRAG_DEBUG("IP_FRAG: ERROR: issues with filter %lu\n",
     					ip_id);

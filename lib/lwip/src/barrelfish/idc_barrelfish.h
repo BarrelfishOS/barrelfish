@@ -64,5 +64,7 @@ err_t idc_close_udp_port(uint16_t port);
 err_t idc_close_tcp_port(uint16_t port);
 err_t idc_bind_udp_port(uint16_t port);
 err_t idc_bind_tcp_port(uint16_t port);
+err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
+                    struct ip_addr *remote_ip, u16_t remote_port);
 
 #endif // IDC_BARRELFISH_H_
