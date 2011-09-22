@@ -1501,7 +1501,7 @@ static errval_t send_filter_for_registration(struct q_entry e)
     if (b->can_send(b)) {
         return b->tx_vtbl.register_filter_request(b,
             MKCONT(cont_queue_callback, ccnc->q),
-            e.plist[0], e.plist[1], e.plist[2], e.plist[3],    e.plist[4], e.plist[4]);
+            e.plist[0], e.plist[1], e.plist[2], e.plist[3],    e.plist[4], e.plist[5]);
         /*  e.id,       e.len_rx,   e.len_tx,   e.buffer_id_rx, e.buffer_id_rx, e.ftype */
 
     } else {
