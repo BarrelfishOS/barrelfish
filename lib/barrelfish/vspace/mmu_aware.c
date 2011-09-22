@@ -227,6 +227,7 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
 
     // Reduce offset
     state->offset -= bytes;
+    state->consumed -= bytes;
     if (success) {
         state->mapoffset = min_offset;
     }
