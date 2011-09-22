@@ -15,7 +15,7 @@
 \title{Bulk Transfer}   % title of report
 \author{Pravin Shinde} % author
 \tnnumber{014}  % give the number of the tech report
-\tnkey{Bulk Transfer: The mechanism to transfer large data} 
+\tnkey{Bulk Transport: Cross-domain transfer facility for large data} 
 % Short title, will appear in footer
 
 % \date{Month Year} % Not needed - will be taken from version history
@@ -38,25 +38,25 @@
 
 \chapter{Introduction}
 \label{chap:intro}
-This technical note is aimed to document the design of ideal cross domain bulk
-transfer mechanism that we wish to have in Barrelfish.  This chapter
-mainly contains the details about existing implementation of
-bulk-transport in Barrelfish and reasoning about how it is not good
-enough.  The \autoref{chap:design} contains the actual
-details about the design.  So, if you are aware of need of
-bulk-transport in Barrelfish, then you can directly jump to the 
-\autoref{chap:design}
+This technical note is aimed to describe the design of suitable cross 
+domain bulk transport for Barrelfish.  This chapter gives a motivation 
+for this design by providing the details about existing
+implementations of bulk-transport in Barrelfish and reasoning 
+about why those are not good enough.  The \autoref{chap:design} 
+contains the actual details about the design.  So, if you are 
+already convinced of the need for better bulk-transport in 
+Barrelfish, then you can directly jump to the \autoref{chap:design}
 
 
 \section{Existing implementation in Barrelfish}
-There are two bulk transfer mechanisms that exist in the current(as of August
+There are two bulk transport mechanisms that exist in the current(as of August
 2011) implementation of Barrelfish.
 \texttt{$lib/barrelfish/bulk\_transfer.c$}
 and \textit{pbufs} used in the network stack.  We will discuss them briefly in
 following two sub-sections.
 
 \subsection{$bulk\_transfer.c/h$}
-This is the formal bulk transfer method supported by Barrelfish.  In brief, this 
+This is the official bulk transfer method supported by Barrelfish.  In brief, this 
 facility works by sharing a continuous piece of memory (in form of capability) 
 between two domains.  These domains then map this physical memory into their 
 virtual address-space.  The virtual address where this shared memory is loaded
@@ -76,14 +76,15 @@ The slave can locate the block by adding the \texttt{(index*block-size)} to the
 virtual address pointing to the beginning of the shared memory area.
 Now slave can read/modify the contents in the memory area of this block.  Once
 the slave is done with accessing the block, it can pass the block-index
-back to the master.  Master can either access the block or release it,
-so that it will be added to the list of free blocks.
+back to the master.  Master can either access the block or release it
+for future use.
 
 \subsubsection{Limitations}
 \paragraph{Security}
 This transfer mechanism can only be used between domains which are
 co-operative and willing to follow the protocol set for using the bulk
-transfer mechanism.  Malicious domain can corrupt the data in shared memory
+transfer mechanism.  Malicious domain can corrupt the data in shared
+memory by writing at random locations in it
 or can refuse to return the blocks once passed to it.
 
 \paragraph{More than two domains}
@@ -94,10 +95,10 @@ one can use the current implementation with multiple domains as long
 as the domains are co-operative and applications are willing to deal
 with added complexity of tracking which domains hold which buffers.
 
-\paragraph{Use}
+\paragraph{Current usage}
 Due to the relatively simple nature of the implementation, its use is
 limited only to few places. And hence it is not throughly tested in
-various scenarios.  
+various scenarios. 
 
 \subsection{pbufs}
 The network stack uses its own custom bulk transport mechanisms.  Lets
@@ -111,7 +112,7 @@ may not hold consecutive memory locations even when \textit{pbuf-id}'s are
 consecutive.  In contrast with Barrelfish bulk-transfer where buffer-id
 value is enough to find the location of buffer within shared memory,
 pbuf needs to store the offset separately in another list.  So,
-pbufs just provide another layer of indirection to allow more
+pbufs provide another layer of indirection to allow more
 flexible use of memory.
 
 
@@ -174,7 +175,7 @@ decisions made.
 
 \paragraph{Favors the setup with driver on different core}
 It is optimized for the case where application and network driver are
-running on separate core.  It is reasonable to prefer such scenarios
+running on separate core.  It is reasonable to prefer such cases 
 for multicore architectures where presence of large number of cores is
 assumed.  This preference has resulted on overly dependence on
 efficiency of UMP messages.  Current implementation sends around 2
@@ -183,8 +184,8 @@ assuming that packet fits into one pbuf.  Similarly on packet
 receiving side, each received packet involves 2 messages 
 (register-pbuf, packet-received).  The performance impact of these
 messages is not strongly visible when application and driver are on
-different core.  But there are cases like SCC where it is good idea 
-to run the driver on same core as an application.  In such scenarios
+different core.  But there are cases like SCC where you may end up
+running the driver on same core as an application.  In such scenarios
 LMP's are used for communication which involves doing context-switch in
 sending every message. This leads to lot of performance
 in-efficiencies when current network stack implementation is used in
@@ -192,70 +193,73 @@ LMP contexts.  Specially on those hardware where cost of
 context-switch is relatively high.
 
 
-I have tried to measure the performance difference on \texttt{nos4-6}
-boxes with webserver cache loading test, but the performance
-difference was not significant.  I have not investigated the reasons
-behind them yet, but my preliminary guess was that context switches on
-these machines are quite efficient or webserver cache loading test
-does not stress the network stack enough to see any significant
-difference.
+%I have tried to measure the performance difference on \texttt{nos4-6}
+%boxes with webserver cache loading test, but the performance
+%difference was not significant.  I have not investigated the reasons
+%behind them yet, but my preliminary guess was that context switches on
+%these machines are quite efficient or webserver cache loading test
+%does not stress the network stack enough to see any significant
+%difference.
 
 
-\section{Questions to be asked about bulk transfer mechanisms}
-\begin{enumerate}
-  \item Does it uses memory efficiently?
-  \item Can it be used with mutually non-trusting domains?
-  \item Can it be used across more than two domains?
-  \item Can consumer/producer put a back-pressure on other side?
-  \item Can it support multiple producer and multiple consumers?
-  \item Can it allow implementation of \textit{True Zero Copy}
-  sending and receiving?
-  \item Can it lead to deadlock if one domain is only sending without
-  checking for arriving messages?
-\end{enumerate}
-
-\section{Desired properties from bulk transfer mechanisms}
+%\section{Questions to be asked about bulk transfer mechanisms}
+%\begin{enumerate}
+%  \item Does it uses memory efficiently?
+%  \item Can it be used with mutually non-trusting domains?
+%  \item Can it be used across more than two domains?
+%  \item Can consumer/producer put a back-pressure on other side?
+%  \item Can it support multiple producer and multiple consumers?
+%  \item Can it allow implementation of \textit{True Zero Copy}
+%  sending and receiving?
+%  \item Can it lead to deadlock if one domain is only sending without
+%  checking for arriving messages?
+%\end{enumerate}
 
 \section{Related work}
 The issues of bulk-transport has been investigated quite a few times
-in the past, so the solution of this problem is known to the large
-extent.  What this document is aiming is to choose right approach and
-right solution which will suit the needs of the Barrelfish.
+in the past by work like \textit{F-bufs}, \textit{R-bufs} and
+\textit{Beltway buffers} so the solution of this problem is known to 
+the large extent.  What this document is aiming is to choose 
+right approach and right solution which will suit the 
+requirements of the Barrelfish.
 
 
-The work which has particularly influenced this design are
-\begin{enumerate}
-  \item F-bufs: Helped in clearly understanding the problems in
-  designing cross-domain transfer facility.
-  \item R-bufs: Helped in understanding how to implement
-  scatter-gather packet sending and receiving.
-  \item Beltway buffers: Gave clear idea of how to design a
-  system with multiple ring-buffer to get lot of flexibility.
-  The problem with beltway buffers is that they are
-  designed to be POSIX compatible and due to that, the whole
-  functionality of these buffers is pushed into trusted OS code-base.
-  The applications are unaware of these buffers.  Also, these buffers
-  can be used mostly to short-circuit the data path between different
-  trusted kernel sub-systems.  If applications are going to modify the
-  data then beltway buffers don't help much.
-\end{enumerate}
+%The work which has particularly influenced this design are
+%\begin{enumerate}
+%  \item F-bufs: Helped in clearly understanding the problems in
+%  designing cross-domain transfer facility.
+%  \item R-bufs: Helped in understanding how to implement
+%  scatter-gather packet sending and receiving.
+%  \item Beltway buffers: Gave clear idea of how to design a
+%  system with multiple ring-buffer to get lot of flexibility.
+%  The problem with beltway buffers is that they are
+%  designed to be POSIX compatible and due to that, the whole
+%  functionality of these buffers is pushed into trusted OS code-base.
+%  The applications are unaware of these buffers.  Also, these buffers
+%  can be used mostly to short-circuit the data path between different
+%  trusted kernel sub-systems.  If applications are going to modify the
+%  data then beltway buffers don't help much.
+%\end{enumerate}
 
 \section{Requirements of Barrelfish}
-
+Following are the ideal requirements from the bulk-transport
+mechanism.
 \begin{enumerate}
   \item Avoid data copy as much as possible, if can't avoid,
-  push it into user-space/user-core.
+  then try to push it into user-space/user-core.
   \item Ability to batch the notifications.
-  \item True zero copy capability(scatter-gather packet
-  sending/receiving).
   \item Should work with more than two domains.
   \item Should work with multiple producers and multiple consumers.
+  \item True zero copy capability(scatter-gather packet
+  sending/receiving).
 \end{enumerate}
+The solution that we are trying to design tried to satisfy as many 
+of these requirements as possible.
 
 \chapter{Design}
 \label{chap:design}
-This chapter discusses the design of bulk-transport mechanism and
-protocol that will be implemented in future for Barrelfish network
+This chapter discusses the design of bulk-transport mechanism 
+that will be implemented in future for Barrelfish network
 stack.
 
 
@@ -264,7 +268,7 @@ We are aiming to design a cross domain bulk transport mechanism,
 which supports following features.
 \begin{enumerate}
   \item Should reduce the data copy as much as possible.
-  \item Should exploit the fact that complete isolation of data
+  \item Should exploit the fact that complete data-isolation
   is not always needed.
   \item More than two separate domains should be able to share
   the data without copying it.
@@ -288,21 +292,21 @@ the ambiguity of the terms.
   \item \textbf{Producer:} An entity which is managing the generated data.
   This management contains providing access mitigation, notifying
   interested consumers, reclaiming the memory when data-element
-  expires.  The example of producer will be \textit{NIC device
+  is consumed.  The example of producer will be \textit{NIC device
   driver}.  
 
 
   The distinction between generator and producer is
   rather fine.  They are intentionally kept separate because
   generators can have hardware constraints which does not allow
-  it to do all functionalities.
+  it to provide all functionalities.
   \item \textbf{Consumer:} An entity which is consuming the data-elements. 
   \item \textbf{Slot:} The contiguous piece of memory where data-element is
   entirely or partially stored. A data-element can span over
   more than one slots. 
   \item \textbf{Shared-pool:} A contiguous piece of memory accessible 
-   from producer in read/write mode and consumers in read only mode.
-   This shared pool is divided into above slots.
+   in read/write mode to producer and accessible in read only mode to 
+   consumers.  Shared pools are divided into above slots.
   \item \textbf{Production-pool:} It is a collection of all
   shared-pools used by the particular producer.  The initial
   shared-pool is added by the producer, and later on every consumer
@@ -354,7 +358,12 @@ NIC devices but can have quirky behavior like above described
 NIC devices.
 
 
+From bulk-transport point-of-view we will be treating the generator as
+a part of producer.
+
 \subsection{The Producer abstraction}
+The producer abstraction is nothing but the combination of generator
+and remaining producer functionalities.
 The producer abstraction is what consumer sees and interacts with.
 It is responsible for managing the data produced by generator and
 using shared-pools to get that data till consumers.  It is also
@@ -389,8 +398,9 @@ release the pool and inform the consumer who contributed the
 shared-pool about completion of the process.
 
 This is rather long process and depends on all the consumers for it's
-completion.  This process is not part of the critical path, it is part
-of tear-down part so some inefficiency can be tolerated here.
+completion.  But this process is not part of the critical path, it is 
+only part of the tear-down process so some inefficiency can be 
+tolerated here.
 
 
 %The virtual address where the shared-pool is mapped need not be same for 
@@ -407,16 +417,18 @@ So, the total memory size should be proportional to the capacity of
 the generator(ie. NIC device) and number of consumers.  
 So, one way to look at this is that, producer will provide shared-pool
 which can satisfy the needs of generator and each consumer will
-contribute a shared-pool to allow in-consumption packets.
-As each consumer is allowed to keep only fixed amount of 
-in-consumption packets, slow consumers will not adversely 
-affect the fast consumers.
+contribute a shared-pool to allow in-consumption data-elements.
+Each consumer is allowed to keep only fixed amount of 
+in-consumption data-elements based on the size of shared-pool it
+contributed. This way, fixing the size of allowed pending
+in-consumption data-elements limits the ability to consumers to
+over-consume the slots from production-pool.
 
 
 \subsection{A meta-slot structure}
 This structure hold the additional information about each slot in
 a shared-pool.  It can be seen as index table on shared-pool.
-This structure is private to Producer and is used to manage the
+This structure is private to producer and is used to manage the
 slots within shared-pool.  Following are the key elements of 
 this structure.
 \begin{enumerate} 
@@ -444,7 +456,9 @@ private and which of them are shared with other entities.
 The producer maintains lot of state in private data-structures.  It
 includes following.
 \begin{enumerate}
-  \item List of consumers connected. 
+  \item List of consumers connected. This list also maintains the
+  state of each consumer with respect to the communication with
+  producer.
   \item List of shared-pool-meta-data. This meta-data includes
   following information.
     \begin{enumerate}
@@ -462,7 +476,7 @@ includes following.
 \subsubsection{Shared data-structures}
 The producer shares following data-structures with different entities.
 \begin{enumerate}
-  \item Shared-pools are shared with all consumers.
+  \item Shared-pools can be shared with any consumer. 
   \item For every consumer, a consumer-queue (see 
   \ref{sec:consumer-queue}) is pairwise shared with that consumer.
 \end{enumerate}
@@ -488,10 +502,10 @@ which are used to manage the access the ring-buffer.
   \item \textbf{write-register:} This virtual register is the first
   element in the consumer-queue.  This element should be of size
   cache-line to avoid any cache-conflicts.  This element can be
-  modified only by the producer and consumer can only read this value.
+  modified only by the producer and consumer can only read it. 
   The value in this virtual-register contains the write-index for
   consumer-queue.  \textit{The write-index points to the slot-pointer within
-  consumer-queue that producer will produce next.}
+  consumer-queue that producer will provide next.}
 
   \item \textbf{read-register:} This virtual register is the second
   element in the consumer-queue.  This element should be of size
@@ -504,8 +518,8 @@ which are used to manage the access the ring-buffer.
   \item \textbf{queue-size-register:} This virtual register is the third
   element in the consumer-queue.  This element can be modified by
   producer and consumer can only read it.  The value in this
-  virtual-register indicate the number of slot-pointers present in the
-  consumer-queue.  This register allows dynamic adjustment queue-size
+  virtual-register indicate the number of slot-pointers which are
+  valid in the consumer-queue.  This register allows dynamic adjustment queue-size
   based on the current load.  Similar feature is implemented in the
   \textit{beltway buffers} with the claim that keeping the size of 
   queue as small as possible helps in cache friendliness.  This
@@ -523,7 +537,7 @@ which are used to manage the access the ring-buffer.
   \begin{enumerate}
     \item \texttt{shared-pool-id:} Id of the shared-pool which is
     holding this particular slot.  These id's are given by the
-    producer and will be unique within that particular for given
+    producer and will be unique within that particular producer for given
     shared-pool.  As the shared-pools within particular
     producer may increase/decrease over time, the consumer may receive
     a slot-pointer with shared-pool-id which it has not mapped yet.
@@ -540,7 +554,7 @@ which are used to manage the access the ring-buffer.
     to detect it as meta-slot structure maintains the information
     about which all consumers are currently consuming the slot and
     whenever the producer reclaims the slots freed by consumer, it
-    validates if this consumer is in the list maintained in meta-slot.
+    validates if this consumer was consuming the slot being released.
     The reason for maintaining this information in slot-index even
     when it is not useful to consumer is because it speeds up the
     producer in relocating the slot within shared-pool when it is
@@ -559,7 +573,7 @@ which are used to manage the access the ring-buffer.
     important.  As we have only one producer which is adding the
     slot-pointers in \textit{available to consume} section and also
     this producer is dealing with one data-element at one time,
-    maintaining this order is possible.
+    maintaining this order is fairly simple.
   \end{enumerate} 
 
 \end{enumerate} 
@@ -605,7 +619,7 @@ consumers.
 \begin{enumerate}
   \item The shared-pool that it has contributed to producer and
   potentially shared with all consumers. 
-  \item The consumer-queue is shared with producer. 
+  \item The consumer-queue is exclusively shared with producer. 
 \end{enumerate}
 
 
@@ -629,7 +643,7 @@ consumers.
   producer should send this notification to consumer to wake it up.
   In other case where queue is non-empty, consumer is already aware of
   the presence of data-elements there.  Consumers are expected to
-  deal with growing dynamically growing of queue-size and hence adding
+  deal with dynamically growing of queue-size and hence adding
   more elements to non-empty queue without sending explicit
   notifications should not break the consumer-logic.
 
@@ -642,7 +656,7 @@ consumers.
   is more free space with this consumer.  This message also means that
   producer is not going to actively check if consumer-queue has a free
   space or not.  It is a responsibility of consumer to send
-  a notification to the producer whenever it is ready to receive the
+  a notification to the producer whenever it is ready to receive more
   data.
  
   \item \textbf{Consumer-queue almost full:} This is an optional
@@ -652,7 +666,7 @@ consumers.
   certain threshold.  This notification can be used as a warning sign
   to the consumer that either it takes some action to free up more
   slot-pointers in consumer-queue, or producer will soon start dropping the
-  data-elements designated to this consumer.
+  data-elements addressed to this consumer.
 
   \item \textbf{Error event:}  This notification is sent when something
   unexpectedly goes wrong.  The information and severity of the error
@@ -692,8 +706,8 @@ producer.
 
 \begin{enumerate} 
   \item \textbf{Consumer-queue space available:} This notification is
-  sent to the producer when queue was full and a free slot-pointer is
-  added.  Once the queue is full, producer is not expected to check
+  sent to the producer when consumer-queue is full and new free slot-pointer is
+  added creating new space.  Once the queue is full, producer is not expected to check
   the queue status until it receives this message saying that now
   application has more space to receive packet.  As an optimization,
   consumer might wait till some more free-space is accumulated before
@@ -716,32 +730,33 @@ producer.
   consumer and then also collects it back before declaring it as free.
   In this case, producer does not need to be informed at-all about
   this sharing as consumer is taking responsibility of properly
-  freeing the slot.  But in case, consumer just wants to forward the
+  freeing the slot.  But in case where consumer just wants to forward the
   slot-pointer and continue on it's own working without bothering
-  about when and how other consumer is going to stop the access to
+  about when and how other consumer is going to stop accessing 
   that slot, then it should inform the producer that it has forwarded
-  that slot to some other consumer.  This can be done with this
+  that slot to some other consumer.  It can be done with this
   message.  The reason we need this separate message is that, 
   because of sharing there will be two consumers which will be 
   releasing the slots and producer should be aware of them.  
   The information from this message is used to update the 
-  meta-slot structure for this slot with one more consumer.
+  meta-slot structure inside producer for given slot with one more consumer.
   This message contains the slot identification information
   and consumer identification information.  The other consumer can 
-  now release the slot whenever it is done using it's consumer-queue.  
+  now release the slot whenever it is done using it's consumer-queue,
+  and producer can validate and account that operation correctly.
 
 
   This forwarding has some more implications which are not fully
   explored in this document.  Here are few leads on that.  Firstly,
-  as this path allows consumer to receive the slots without being
-  initiated by producer, this slot will not be a part of
+  this path allows consumer to receive the slots without being
+  initiated by producer and this slot will not be a part of
   consumer-queue.  So, the producer need to somehow account for these
   slots so that it can maintain the fairness in the number of
   outstanding slots per consumer.  This mechanism also needs some way
-  in which two consumers can talk with each other and exchange the 
+  by which two consumers can talk with each other and exchange the 
   information like consumer-id's, producer-id and slot-pointers.
   Also, consumers should be careful in dealing this information as
-  consumer-id and slot-pointers are valid in context of particular
+  consumer-id and slot-pointers are only valid in context of particular
   producer.
 \end{enumerate} 
 
@@ -754,9 +769,16 @@ between the producer and generator.  These notifications are aimed to
 maintain the generator-queue.
 
 \begin{enumerate} 
-  \item Add empty slot (from producer to generator). 
-  \item Data-element generated (from generator to producer).
-  \item Generator queue full (from generator to producer).
+  \item Add empty slot (from producer to generator): This message will
+  add a new free slot into generator-queue.
+  \item Data-element generated (from generator to producer): This
+  message informs the producer that there is new data-element in the
+  generator queue that should be handled.  It is equivalent of
+  \textit{packet received interrupt} from NIC hardware to the device
+  driver.
+  \item Generator-queue full (from generator to producer): This
+  message tells the producer that there is no space left for generator
+  to create more data-elements.
 \end{enumerate} 
 
 \subsection{The communication between consumers}
@@ -771,7 +793,7 @@ producer and consumers.
 \subsection{Producer initialization}
 At producer initialization, following steps will happen.
 \begin{enumerate} 
-  \item Create and initialize the list of shared-pools and meta-slots.
+  \item Create and initialize the empty list of shared-pools and meta-slots.
   \item Create and add the initial shared-pool big enough to satisfy 
   generator needs.  
   \item Divide the shared-pool into slots, create a meta-slots list
@@ -780,6 +802,7 @@ At producer initialization, following steps will happen.
   \item Initialize the generator (if needed).  This might involve
   populating the generator-queue with free slots so that generator can
   start producing data.
+  \item Loop: wait for next event/message and process it accordingly.
 \end{enumerate} 
 
 
@@ -800,6 +823,7 @@ steps.
   \item Share this memory block with producer.
   \item Send a notification \textit{consumer-queue space available} to
   the producer so that it will start sending data-elements.
+  \item Loop: wait for next event/message and process it accordingly.
 \end{enumerate} 
 
 
@@ -811,7 +835,7 @@ They hold the data which will be sent across the domains.  Now lets
 see how exactly these slots work.
 
 
-\subsection{Slot creation}
+\subsection{Slot state machine}
 Slots are created by the producer in the memory provided by 
 shared-pools.  Once created, slot remains valid until and unless the
 shared-pool holding the slot needs to be freed.  In the lifetime of
@@ -828,12 +852,15 @@ the slot, it goes through following states.
 
   \item \textbf{In-classification:} This is the third and transient
   state.  This is the state when generator returns the slot after it
-  has generated the data.  The producer will figure out which
-  consumers this data-element should go and accordingly it will update
-  the consumer-queues of each interested consumer with slot-pointer
-  and if needed, send them the notifications.  Once the slot-pointers
-  are added into consumer-queue, the state of slot is updated to the
-  \textbf{in-consumption}.
+  has generated the data.  The producer will use the classification to
+  figure out which consumers this data-element should go.  The 
+  producer is free to use any type of classification that is needed.
+  The description of how that classification should happen is not in
+  the scope of this document.  Once classified, the producer will 
+  update the consumer-queues of each selected consumer with 
+  slot-pointer and if needed, send them the notifications.  Once the 
+  slot-pointers are added into consumer-queue, the state of slot is 
+  updated to the \textbf{in-consumption}.
   
   If no consumer is interested, then the slot is marked as free and 
   added back to the list of free slots.
@@ -851,17 +878,20 @@ the slot, it goes through following states.
   \begin{itemize}
     \item \textbf{In-order consumption:} 
     Consume the slot as quickly as possible, and once consumed
-    add it to freed slot by moving the read-index.  This is the simple
-    way of consumption where consumer don't need to implement
-    any additional free slot management.  Also in this way of
-    consumption, slots are freed in the same order in which they are
-    consumed. 
+    add it to freed slot by moving the read-index.  
+    As consumer is dealing with one data-element at a time,
+    there is no need for complex state management and 
+    free-slot management inside consumer-queue is sufficient enough
+    without needing any additional state machinery.
+
 
     \item \textbf{Out-of-order consumption:} 
-    Save this slot pointer and replace it with other slot
-    pointer which has been previously consumed and then add this
+    Saves the newly arrived slot-pointer and replace it with one of
+    the other slot-pointers which has been previously consumed and then add this
     replaced slot to freed slot by moving the read index.  This method
-    allows you to consume the slot at leisure.  It also allows you to
+    allows you to consume the slots at leisure and you can have more
+    than one data-elements in consumption at any given moment of time.
+    It also allows you to
     free up the slots which don't hold useful data quickly and release
     the slots with important data later on.  This method gives much
     more flexibility but at cost of added free-slot management within
@@ -899,7 +929,7 @@ in-generation and in consumption slots.
 \subsection{Slot management inside consumer}
 The slot management is not needed in consumer if they are following
 in-order or private-mutable consumption.  In these two cases, the
-consumer-queue implicitly does the slot management for consumers.
+consumer-queue implicitly does the slot management on behalf of consumers.
 
 In case of out-of-order consumption, the consumer will have to
 maintain the list of all slot-pointers which are currently accessible
@@ -922,7 +952,7 @@ be using is that, the size of consumer-queue will be directly
 proportional to the size of shared-pool that particular consumer has
 contributed.
 
-\subsection{slot size}
+\subsection{Slot size}
 \label{sec:slotsize}
 The size of the slot is greatly dictated by the capabilities of the
 generator.  If generator needs
@@ -948,7 +978,7 @@ slots, we will fill up the entries quickly.
 \section{Security and trust model}
 \label{sec:security-trust}
 This section discusses the trust model assumed by this bulk transport
-design and it's security implications
+design and it's security implications.
 
 \subsection{Slot access security}
 \label{sec:slot-security}
@@ -958,53 +988,53 @@ provided by the slot-pointers.  Slot-pointers are designed to be valid
 across the virtual address-spaces of all consumers.  Slot-pointers
 contain information like shared-pool-id which can be used to find the
 starting address and length of the pool.  When consumer is calculating
-actual pointer, it can always validate that pointer lies within
+actual pointer, it can always validate that the pointer lies within
 shared-pool by making sure that offset is always smaller than
-shared-pool-size.
+shared-pool size.
 
 \subsection{Security against memory invalidation}
 \label{sec:memory-security}
 The more problematic case is when one of the consumer dies or
-invalidate the memory given to producer without informing the
-producer.  This case can lead to invalid memory access in producer,
+invalidate the memory given to producer without informing first.
+This case can lead to invalid memory access in producer,
 generator and other consumers as one of the shared-pool is not
 accessible any longer.  The protection against such a case
 should be provided by operating system by not removing the memory
 frame as long as it is mapped by at-least one domain/process.  If
 operating system does not provide such an assurance and if the
 consumers are non-trustworthy then producer should somehow take the
-complete ownership of the memory provided by the consumer or provide
+complete ownership of the memory provided by the consumer, or provide
 all the memory itself. 
 
 
 From above discussion, it can be seen that the trust mainly lies with
 producer and not the consumer.  Consumers can't do much damage to
-producer are all the actions of consumers can be validated by the
-producer.  For example, when consumer frees up the slot, the producer
-can verify if this consumer really holds the slot or not.
+producer as all the actions of consumers can be validated by the
+producer.  For example, when any consumer tries to free up the slot, 
+the producer can verify if the consumer really holds that slot or not.
 
 
 \subsection{Security against data sniffing}
 \label{sec:security-sniffing}
-The only damage that consumers can do is to try and read the
-data-elements which are not destined to them.  Consumers can do this
+The only damage that consumer can do is to try and read the
+data-elements which are not destined to it.  Consumers can do this
 as they have read-only access to entire production-pool.  Performing
 this type of snooping is not trivial as all the meta-data about the
 slots is maintained in the private memory by the producer, so consumer
-will have hard time making sense of data in slots.  But nevertheless
-data-sniffing is theoretically possible in this design for any
-consumer which is willing to put required efforts.
+can only guess about location and type of data inside the other
+visible slots.  But nevertheless unauthorized data-sniffing between
+consumers is theoretically possible in this design.
 
 This shortcoming can be overcome by sharing the shared-pool pairwise
-between consumer and producer and additional overhead of performing
-data-copy or by using generator capability to perform early
-classification of data elements.  The \ref{sec:privacy} will give more
-details about these more strict models.
+between consumer and producer and then by either adding the overhead 
+of performing data-copy, or by using generator capability to perform 
+early classification of data elements.  The \ref{sec:privacy} will 
+give more details about these stricter privacy models.
 
 \section{Privacy model}
 \label{sec:privacy}
 This bulk transport is designed to work in relaxed privacy model with
-capability of tightening the privacy model using either early
+possibility of tightening the privacy model by either using early
 classification capabilities of generator or at added cost of
 data-copy.  This section describes all of these modes.
 
@@ -1017,8 +1047,8 @@ in \ref{sec:data-copy-privacy},
 \ref{sec:generator-classification-privacy}) are sub-set of this model 
 hence they are easy to understand once this model is clear.  
 In this model, all consumers have read-only access to entire 
-production-pool.  And hence in theory one consumer can sniff the
-data-elements designated to other consumers.  The 
+production-pool.  And hence in theory malicious consumers can sniff the
+data-elements addressed to other consumers.  The 
 \ref{sec:security-sniffing} gives some description of this issue from
 the security perspective.
 
@@ -1026,7 +1056,7 @@ the security perspective.
 \subsection{Strict privacy model with additional data-copy}
 \label{sec:data-copy-privacy}
 In this model, shared-pools are not shared with all consumers, but
-every shared-pools is shared between producer and with only 
+every shared-pool is pairwise shared between producer and with only 
 one consumer (one who has contributed that shared-pool).  The initial
 shared-pool contributed by the producer itself is shared between
 producer and generator.  This shared-pool will not be directly 
@@ -1044,7 +1074,7 @@ affect the throughput of the whole system.
 from generator}
 \label{sec:generator-classification-privacy}
 In this model as well, shared-pools are not shared with all 
-consumers, but every shared-pools is shared between 
+consumers, but every shared-pool is shared between 
 producer and with only one consumer. 
 This model depends on the capabilities of generator to provide
 stricter privacy model.  If the generator is smart enough and can 
@@ -1060,20 +1090,25 @@ are capable of performing such a classification.
 
 
 \section{Adaptability with different hardware}
-This section particularly discusses the ability of this design to
-adapt with different designs and features of NIC hardwares.  The
-current solution shared all shared-pools with all applications in 
-read-only mode.  But as we have seen in 
-\ref{sec:generator-classification-privacy} if hardware can perform 
-early classification then
-this design can be evolved into one-consumer one-producer setup.  By
-doing early classification, NIC and directly DMA the packet into the
-shared-pool provided by the consumer.  This way, there will be no need
-to give all consumers access to all shared-pools.  Each consumer will
-only have access to their own shared-queue and all the data elements
-will directly reach that consumer-queue.  This way, this design can
-cope with both normal NIC's as well has smart NIC's.
+This section discusses the ability of this design to
+adapt with different designs and features of NIC hardwares.  
+We believe that the interface
+provided by the producer is generic enough to cover most of the
+functionalities provided by the smarter generators.  And as we can
+control the integration between producer and generator without affecting
+the consumers, we can easily adapt to exploit the different hardware
+features provided by the generators.  One of the example of such an
+adaptation can be seen in \ref{sec:generator-classification-privacy},
+the design discussed here easily adapted to exploit the early
+classification capabilities of the generator to give stricter privacy
+based zero copy bulk transport.
 
+\section{Limitations}
+This design still misses some good features in favor of keeping the
+complexity reasonable.  These features include support for
+multiple-producer, multiple-consumer setup and ability for consumer to
+specify where data-element should be generated (true zero copy
+receive).
 
 \section{Conclusion}
 This chapter provides the details about the new cross-domain transfer
@@ -1082,6 +1117,7 @@ implementation which can support sharing between more than two domains
 as well as multi-level sharing (sharing by consumers between
 consumers).  This solution also reduce the number of messages
 exchanged by sending them only when it is absolutely necessary.
+
 
 \end{document}
 
