@@ -8,17 +8,19 @@
  */
 
 interface replay "Trace replay" {
-        typedef struct {
-            uint8 op;
-	    uint32 fnumsize; /* for Open/Create/Unlink -> fnum, for Read/Write -> size */
-	    uint8 fd;
-	    uint8 mode;
-	    uint32 fline;
-	    uint16 pid;
-        } eventrec;
 
-    message event(eventrec event);
+    message slave_init(cap shared_mem, uint32 size);
+    message slave_init_reply();
+
+    /* UNUSED: message event(eventrec event); */
     /* UNUSED: message event_done(uint32 fnum); */
-    message task_completed(uint16 pid);
-    message finished();
+
+    message new_task(uint64 bulk_id, uint32 size);
+    message task_completed(uint16 pid, uint64 bulk_id);
+
+    message slave_finish();
+    message slave_finish_reply();
+
+    message slave_print_stats();
+    message slave_print_stats_reply();
 };

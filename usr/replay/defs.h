@@ -11,8 +11,8 @@ enum top {
     TOP_Read   = 3,
     TOP_Write  = 4,
     TOP_Close  = 5,
-    TOP_Exit   = 6,
-    TOP_End    = 7
+    TOP_Exit   = 6
+    //TOP_End    = 7
 };
 
 enum flags {
@@ -20,6 +20,15 @@ enum flags {
     FLAGS_WrOnly,
     FLAGS_RdWr,
 };
+
+typedef struct {
+    uint8_t op;
+    uint32_t fnumsize; /* for Open/Create/Unlink -> fnum, for Read/Write -> size */
+    uint8_t fd;
+    uint8_t mode;
+    /* uint32 fline; */
+    uint16_t pid;
+} replay_eventrec_t;
 
 struct trace_entry {
     enum top op;
@@ -35,7 +44,7 @@ struct trace_entry {
     struct trace_entry *next;
 };
 
-#ifdef __linux__
+#if 0 //__linux__
 struct _replay_eventrec__struct {
     uint8_t op;
     uint32_t fnumsize;
@@ -47,7 +56,7 @@ struct _replay_eventrec__struct {
 typedef struct _replay_eventrec__struct replay_eventrec_t;
 #endif
 
-#define dbg_print_str__ "%s() [%s +%d]"
+#define dbg_print_str__ ">>>>>>>>>>>>>> %s() [%s +%d]"
 #define dbg_print_arg__ __FUNCTION__, __FILE__, __LINE__
 #define dbg_print(msg ,fmt, args...)\
     printf(dbg_print_str__ " " msg fmt , dbg_print_arg__ , ##args)

@@ -9,6 +9,7 @@
 #include <vfs/vfs.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/replay_defs.h>
+#include <barrelfish/bulk_transfer.h>
 #else
 #include <stdbool.h>
 #include <sys/types.h>
@@ -25,6 +26,8 @@
 #include "defs.h"
 
 static char *defdir;
+static uint64_t total_ticks=0;
+
 
 #ifndef __linux__
 static void export_cb(void *st, errval_t err, iref_t iref)
@@ -51,14 +54,51 @@ static int openfiles = 0;
 static FILE *fd2fptr[MAX_FD_CONV] = {0};
 static int  fd2fname[MAX_FD_CONV] = {0};
 static char data[MAX_DATA];
+static struct bulk_transfer_slave bulk_slave;
 static uint64_t tscperms;
 
 
 #ifndef __linux__
-static void handle_event(struct replay_binding *b, replay_eventrec_t er)
-#else
-static void handle_event(replay_eventrec_t er)
+static void handle_init(struct replay_binding *b, struct capref shared_mem, uint32_t size)
+{
+    errval_t err;
+
+    // Map the frame in local memory
+    void *pool;
+    err = vspace_map_one_frame_attr(&pool, size, shared_mem,
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL); /* XXX: Changeme for SCC */
+    assert(pool != NULL);
+    assert(err_is_ok(err));
+
+    // Init receiver
+    err = bulk_slave_init(pool, size, &bulk_slave);
+    assert(err_is_ok(err));
+    msg("%s:%s: done\n", __FILE__, __FUNCTION__);
+
+    err = b->tx_vtbl.slave_init_reply(b, NOP_CONT);
+    assert(err_is_ok(err));
+}
+
+static void handle_finish(struct replay_binding *b)
+{
+    errval_t err;
+    msg("SLAVE[%u]: END took %lu ticks (%lf ms)\n", disp_get_core_id(), total_ticks, (double)total_ticks/(double)tscperms);
+    err = b->tx_vtbl.slave_finish_reply(b, NOP_CONT);
+    assert(err_is_ok(err));
+}
+
+void cache_print_stats(void);
+static void handle_print_stats(struct replay_binding *b)
+{
+    errval_t err;
+    msg("SLAVE[%u]: CACHE STATISTICS\n", disp_get_core_id());
+    cache_print_stats();
+    err = b->tx_vtbl.slave_print_stats_reply(b, NOP_CONT);
+    assert(err_is_ok(err));
+}
 #endif
+
+static void handle_event(replay_eventrec_t *er)
 {
     static int pid = 0;
     static int op_id = 0;
@@ -66,12 +106,12 @@ static void handle_event(replay_eventrec_t er)
     //static int rdcnt = 0;
     //static int opencnt = 0;
     //static int closecnt = 0;
-    //static unsigned long total_ticks=0;
-    //unsigned long handle_ticks = rdtsc();
     /* pick a file for this operation */
     // (only needed for Open/Create/Unlink)
     char fname[256];
-    snprintf(fname, 256, "%s/%u", defdir, er.fnumsize);
+    snprintf(fname, 256, "%s/data/%u", defdir, er->fnumsize);
+
+    uint64_t handle_ticks = rdtsc();
 
     /* protocol:
      * - master will send consecutive operations with the same pid
@@ -80,14 +120,14 @@ static void handle_event(replay_eventrec_t er)
 
     // sanity chacks
     if (pid == 0) { // client is not associated with a pid
-        assert(er.op == TOP_Open || er.op == TOP_Create || er.op == TOP_End);
+        assert(er->op == TOP_Open || er->op == TOP_Create);
     } else {         // client is associated with a pid
-        assert(er.pid == pid);
+        assert(er->pid == pid);
     }
 
     op_id++;
-    dmsg("SLAVE[%u]: REQ pid:%d op:%d [op_id:%d]\n", disp_get_core_id(), er.pid, er.op, op_id);
-    switch(er.op) {
+    dmsg("SLAVE[%u]: REQ pid:%d op:%d [op_id:%d]\n", disp_get_core_id(), er->pid, er->op, op_id);
+    switch(er->op) {
     case TOP_Open:
     case TOP_Create: {
         //uint64_t ticks = rdtsc();
@@ -95,12 +135,12 @@ static void handle_event(replay_eventrec_t er)
 
         if (pid == 0) {
             // new pid
-            pid = er.pid;
+            pid = er->pid;
             dmsg("SLAVE[%u]: got new pid:%d\n", disp_get_core_id(), pid);
         }
 
         /* set flags */
-        switch(er.mode) {
+        switch(er->mode) {
         case FLAGS_RdOnly:
             flags = "r";
             break;
@@ -116,7 +156,7 @@ static void handle_event(replay_eventrec_t er)
 
         /* open the file */
 
-        /* assert(fd2fptr[er.fd] == NULL);
+        /* assert(fd2fptr[er->fd] == NULL);
          * seems that some close() miss from the file:
          *  $ egrep -c -e 'close' <kernelcompile.trace.anon
          *  10779
@@ -124,9 +164,9 @@ static void handle_event(replay_eventrec_t er)
          *  10974
          */
 
-        fd2fptr[er.fd] = fopen(fname, flags);
-        fd2fname[er.fd] = er.fnumsize;
-        if (fd2fptr[er.fd] != NULL) {
+        fd2fptr[er->fd] = fopen(fname, flags);
+        fd2fname[er->fd] = er->fnumsize;
+        if (fd2fptr[er->fd] != NULL) {
             openfiles++;
         } else {
             printf("Open file:%s (%s) failed\n", fname, flags);
@@ -145,15 +185,15 @@ static void handle_event(replay_eventrec_t er)
 
     case TOP_Read: {
         //uint64_t ticks = rdtsc();
-        if (er.fnumsize > MAX_DATA) {
-            printf("er.fnumsize == %u\n", er.fnumsize);
+        if (er->fnumsize > MAX_DATA) {
+            printf("er->fnumsize == %u\n", er->fnumsize);
             assert(0);
         }
-        FILE *fptr = fd2fptr[er.fd];
+        FILE *fptr = fd2fptr[er->fd];
         assert(fptr != NULL);
-        int ret = fread(data, 1, er.fnumsize, fptr);
-        if (ret != er.fnumsize) {
-            msg("SLAVE[%u] [R] op_id:%d er.fnumsize:%u, read:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", disp_get_core_id(), op_id, er.fnumsize, ret, fd2fname[er.fd], er.pid, ferror(fptr), feof(fptr), ftell(fptr));
+        int ret = fread(data, 1, er->fnumsize, fptr);
+        if (ret != er->fnumsize) {
+            msg("SLAVE[%u] [R] op_id:%d er->fnumsize:%u, read:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", disp_get_core_id(), op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
         }
         //ticks = rdtsc() - ticks;
         //msg("SLAVE[%d] READ %d took %lu ticks (%lf ms)\n", disp_get_core_id(), rdcnt++, ticks, (double)ticks/(double)tscperms);
@@ -161,21 +201,21 @@ static void handle_event(replay_eventrec_t er)
     }
 
     case TOP_Write: {
-        if (er.fnumsize > MAX_DATA) {
-            printf("er.fnumsize == %u\n", er.fnumsize);
+        if (er->fnumsize > MAX_DATA) {
+            printf("er->fnumsize == %u\n", er->fnumsize);
             assert(0);
         }
-        FILE *fptr = fd2fptr[er.fd];
+        FILE *fptr = fd2fptr[er->fd];
         assert(fptr != NULL);
-        int ret = fwrite(data, 1, er.fnumsize, fptr);
-        if (ret != er.fnumsize) {
-            msg("[W] op_id:%d er.fnumsize:%u, write:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er.fnumsize, ret, fd2fname[er.fd], er.pid, ferror(fptr), feof(fptr), ftell(fptr));
+        int ret = fwrite(data, 1, er->fnumsize, fptr);
+        if (ret != er->fnumsize) {
+            msg("[W] op_id:%d er->fnumsize:%u, write:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
         }
         break;
     }
 
     case TOP_Close: {
-        FILE *fptr = fd2fptr[er.fd];
+        FILE *fptr = fd2fptr[er->fd];
         assert(fptr != NULL);
         //uint64_t ticks = rdtsc();
         int ret = fclose(fptr);
@@ -183,11 +223,12 @@ static void handle_event(replay_eventrec_t er)
         //msg("SLAVE[%d] CLOSE %d took %lu ticks (%lf ms)\n", disp_get_core_id(), closecnt++, ticks, (double)ticks/(double)tscperms);
         assert(ret == 0);
         openfiles--;
-        fd2fptr[er.fd] = NULL;
-        fd2fname[er.fd] = 0;
+        fd2fptr[er->fd] = NULL;
+        fd2fname[er->fd] = 0;
         break;
     }
 
+    #if 0
     case TOP_End: {
         dmsg("SLAVE[%u]: END\n", disp_get_core_id());
         //total_ticks += (rdtsc() - handle_ticks);
@@ -196,27 +237,52 @@ static void handle_event(replay_eventrec_t er)
         assert(err_is_ok(err));
         break;
     }
+    #endif
 
     case TOP_Exit: {
-        dmsg("SLAVE[%u]: TOP_Exit on %d\n", disp_get_core_id(), er.pid);
-        errval_t err = b->tx_vtbl.task_completed(b, NOP_CONT, er.pid);
+        dmsg("SLAVE[%u]: TOP_Exit on %d\n", disp_get_core_id(), er->pid);
         pid = 0;
-        assert(err_is_ok(err));
         break;
     }
 
     default:
-        printf("Invalid request: %d\n", er.op);
+        printf("Invalid request: %d\n", er->op);
         assert(0);
         break;
     }
 
-    //total_ticks += (rdtsc() - handle_ticks);
+    total_ticks += (rdtsc() - handle_ticks);
 }
 
 #ifndef __linux__
+
+static void handle_new_task(struct replay_binding *b, uint64_t bulk_id, uint32_t tes_size)
+{
+    errval_t err;
+    replay_eventrec_t *tes;
+    size_t tes_nr;
+    int pid;
+
+    tes = bulk_slave_buf_get_mem(&bulk_slave, bulk_id, NULL);
+    tes_nr = tes_size / sizeof(replay_eventrec_t);
+    assert(tes_size % sizeof(replay_eventrec_t) == 0);
+
+    assert(tes->op == TOP_Open);
+    pid = tes->pid;
+    for (size_t i=0; i<tes_nr; i++) {
+        handle_event(tes + i);
+    }
+
+    err = b->tx_vtbl.task_completed(b, NOP_CONT, pid, bulk_id);
+    assert(err_is_ok(err));
+}
+
+
 static struct replay_rx_vtbl replay_vtbl = {
-    .event = handle_event,
+    .new_task          = handle_new_task,
+    .slave_init        = handle_init,
+    .slave_finish      = handle_finish,
+    .slave_print_stats = handle_print_stats
 };
 
 static errval_t connect_cb(void *st, struct replay_binding *b)
@@ -235,7 +301,7 @@ int main(int argc, char *argv[])
 #endif
     defdir = argv[1];
 
-    printf("replay slave up\n");
+    msg("replay slave up\n");
 #ifndef __linux__
     assert(err_is_ok(sys_debug_get_tsc_per_ms(&tscperms)));
 
@@ -253,7 +319,7 @@ int main(int argc, char *argv[])
                         IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(err));
 
-    printf("%s:%s() :: slave starts servicing requests\n", __FILE__, __FUNCTION__);
+    msg("%s:%s() :: slave starts servicing requests\n", __FILE__, __FUNCTION__);
     for(;;) {
         err = event_dispatch(get_default_waitset());
         assert(err_is_ok(err));
@@ -318,11 +384,13 @@ int main(int argc, char *argv[])
             pos += r;
         } while(remain > 0);
 
+        #if 0
         if(er.fline <= lastline) {
             printf("line repeat! %d <= %d\n", er.fline, lastline);
             return 1;
         }
         lastline = er.fline;
+        #endif
 
         handle_event(er);
     }

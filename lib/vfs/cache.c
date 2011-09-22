@@ -344,7 +344,7 @@ void cache_print_stats(void)
     errval_t err = bcc->rpc.vtbl.print_stats(&bcc->rpc);
     assert(err_is_ok(err));
 
-    printf("cache stats\n");
+    printf("cache[%d] stats\n", disp_get_core_id());
 
 #if 1
     printf("\n\n");
@@ -392,6 +392,7 @@ static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
         char *key;
         size_t key_len;
 
+        /* get a unique identifier (key) for the block */
         err = bst->orig_ops->get_bcache_key(bst->orig_st, handle, &key,
                                             &key_len, &block_offset);
         if(err_is_fail(err)) {

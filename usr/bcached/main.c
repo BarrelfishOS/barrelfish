@@ -55,7 +55,7 @@ static size_t partial_hits = 0, hits = 0, misses = 0, allocations = 0, evictions
 
 void print_stats(void)
 {
-    printf("cache statistics\n"
+    printf("cache statistics [%d]\n"
            "----------------\n"
            "cache size               = %u blocks * %u KB = %u MB\n"
            "hits                     = %zu\n"
@@ -63,6 +63,7 @@ void print_stats(void)
            "misses                   = %zu\n"
            "allocations              = %zu / %u blocks (%zu%% utilization)\n"
            "evictions (replacements) = %zu blocks\n",
+           disp_get_core_id(),
            NUM_BLOCKS, BUFFER_CACHE_BLOCK_SIZE / 1024, CACHE_SIZE / 1024 / 1024,
            hits, partial_hits, misses, allocations, NUM_BLOCKS,
            (allocations * 100) / NUM_BLOCKS, evictions);

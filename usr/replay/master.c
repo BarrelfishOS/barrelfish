@@ -6,6 +6,7 @@
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/bulk_transfer.h>
 #include <if/replay_defs.h>
 #include <errno.h>
 #else
@@ -26,6 +27,9 @@
 #define MAX_LINE        1024
 #define MAX_SLAVES      64
 #define MAX_DEPS        60
+#define BULK_BLOCK_SIZE (4096*16)
+#define BULK_BLOCKS_NR  32
+#define BULK_TOTAL_SIZE (BULK_BLOCK_SIZE*BULK_BLOCKS_NR)
 
 /* TRACE LIST */
 
@@ -52,6 +56,7 @@ struct slave; /* forward reference */
 struct pid_entry {
     int pid;
     struct trace_list trace_l;
+    size_t tentries_nr;
     /* list of children */
     struct pid_entry *children[MAX_DEPS];
     size_t children_nr;
@@ -59,7 +64,11 @@ struct pid_entry {
     struct pid_entry *parents[MAX_DEPS];
     size_t parents_nr;
 
-    size_t   parents_completed;
+    /* buffer for trace entries */
+    replay_eventrec_t *tes;
+    size_t tes_size;
+
+    size_t parents_completed;
     struct slave *sl;
     unsigned completed:1;
 };
@@ -69,10 +78,14 @@ struct pid_entry {
 struct slave {
     //int pid[MAX_PIDS];
     struct pid_entry *pe;
-    struct trace_entry *current_te;
+    //struct trace_entry *current_te;
     //struct qelem *queue, *qend;
 #ifndef __linux__
     struct replay_binding *b;
+    /* bulk transfer data */
+    struct capref        frame;
+    struct bulk_transfer bt;
+    uintptr_t            current_bid;
 #else
     int socket;
     ssize_t sentbytes;
@@ -86,8 +99,6 @@ static struct {
     int num_finished;
     struct slave slaves[MAX_SLAVES];
 } SlState;
-
-//void cache_print_stats(void);
 
 //struct qelem {
 //    replay_eventrec_t er;
@@ -182,7 +193,7 @@ tg_complete(struct task_graph *tg, struct pid_entry *pe)
     assert(pe->completed == 0);
     pe->completed = 1;
     tg->pes_completed++;
-    dmsg("\tpe: %p (idx:%ld,pid:%d) completed (%d/%d)\n", pe, (pe - tg->pes), pe->pid, tg->pes_completed, tg->pes_nr);
+    msg("\tpe: %p (idx:%ld,pid:%d) completed (%d/%d)\n", pe, (pe - tg->pes), pe->pid, tg->pes_completed, tg->pes_nr);
     for (int i=0; i < pe->children_nr; i++) {
         struct pid_entry *pe_child = pe->children[i];
         if (++pe_child->parents_completed == pe_child->parents_nr) {
@@ -194,7 +205,9 @@ tg_complete(struct task_graph *tg, struct pid_entry *pe)
 
 //static struct writer *writers = NULL;
 #ifndef __linux__
-static bool bound; /* XXX: make this volatile? */
+static bool bound; /* XXX: make this volatile? No, handler runs on the same context */
+static bool init_ok;
+static bool print_stats_ok;
 #endif
 
 #ifdef __linux__
@@ -227,7 +240,20 @@ static int sock[MAX_SLAVES];
 //}
 
 static void
-task_completed_handler(struct replay_binding *b, uint16_t pid)
+init_reply_handler(struct replay_binding *b)
+{
+    assert(!init_ok);
+    init_ok = true;
+}
+
+static void
+print_stats_reply_handler(struct replay_binding *b)
+{
+    assert(!print_stats_ok);
+    print_stats_ok = true;
+}
+static void
+task_completed_handler(struct replay_binding *b, uint16_t pid, uint64_t bulk_id)
 {
     struct task_graph *tg = b->st;
     struct slave *sl;
@@ -237,18 +263,22 @@ task_completed_handler(struct replay_binding *b, uint16_t pid)
     assert(pe != (void *)HASH_ENTRY_NOTFOUND);
     sl = pe->sl;
     tg_complete(tg, pe);
+    bulk_free(&sl->bt, bulk_id);
     sl->pe = NULL;
 }
 
-static void finish_handler(struct replay_binding *b)
+static void
+finish_reply_handler(struct replay_binding *b)
 {
     dmsg("ENTER\n");
     SlState.num_finished++;
 }
 
 static struct replay_rx_vtbl replay_vtbl = {
-    .task_completed = task_completed_handler,
-    .finished = finish_handler,
+    .task_completed           = task_completed_handler,
+    .slave_finish_reply      = finish_reply_handler,
+    .slave_init_reply        = init_reply_handler,
+    .slave_print_stats_reply = print_stats_reply_handler
 };
 
 static void replay_bind_cont(void *st, errval_t err, struct replay_binding *b)
@@ -464,6 +494,7 @@ build_taskgraph(struct trace_list *tl, struct task_graph *tg)
 
         // add trace entry into pid list
         trace_add_tail(&pe->trace_l, te);
+        pe->tentries_nr++;
 
         /* track dependencies:
          *  - look at open/create operations
@@ -520,11 +551,16 @@ print_taskgraph(struct task_graph *tg)
 }
 
 static void
-print_pid_entry(struct pid_entry *pe)
+print_pid_entry(struct pid_entry *pe, int print_ops)
 {
     struct trace_entry *te;
-    printf("pid entry (%p) pid:%d children:%zu parents:%zu completed:%d\n", pe, pe->pid, pe->children_nr, pe->parents_nr, pe->completed);
+    printf("pid entry (%p) pid:%d children:%zu parents:%zu completed:%d tentries:%zd\n", pe, pe->pid, pe->children_nr, pe->parents_nr, pe->completed, pe->tentries_nr);
     te = pe->trace_l.head;
+
+    if (!print_ops) {
+        return;
+    }
+
     do {
         printf("\t op:%d pid:%d\n", te->op, te->pid);
     } while ((te = te->next) != NULL);
@@ -537,11 +573,10 @@ print_task(struct task_graph *tg, int pid)
     for (int i=0; i<tg->pes_nr; i++) {
         struct pid_entry *pe = tg->pes + i;
         if (pe->pid == pid) {
-            print_pid_entry(pe);
+            print_pid_entry(pe, 0);
         }
     }
 }
-
 
 static void
 mk_replay_event_req(struct trace_entry *te, replay_eventrec_t *req)
@@ -549,7 +584,7 @@ mk_replay_event_req(struct trace_entry *te, replay_eventrec_t *req)
     req->op    = te->op;
     req->fd    = te->fd;
     req->mode  = te->mode;
-    req->fline = te->fline;
+    //req->fline = te->fline;
     req->pid   = te->pid;
 
     switch(te->op) {
@@ -574,10 +609,46 @@ mk_replay_event_req(struct trace_entry *te, replay_eventrec_t *req)
     }
 }
 
+
+static void
+trace_bufs_init(struct task_graph *tg)
+{
+    for (int i=0; i < tg->pes_nr; i++) {
+        struct pid_entry *pe = tg->pes + i;
+
+        size_t size = pe->tes_size = sizeof(replay_eventrec_t)*pe->tentries_nr;
+        if (size >= BULK_TOTAL_SIZE) {
+            msg("size for pid:%d [%zd] larger than %d\n", pe->pid, size, BULK_TOTAL_SIZE);
+            assert(0);
+        }
+
+        assert(size <= BULK_TOTAL_SIZE);
+        pe->tes = malloc(size);
+        assert(pe->tes);
+
+        struct trace_entry *te = pe->trace_l.head;
+        for (int ti=0; ti < pe->tentries_nr; ti++) {
+            mk_replay_event_req(te, pe->tes + ti);
+            te = te->next;
+        }
+        assert(te == NULL);
+    }
+}
+
+static void __attribute__((unused))
+print_all_tasks(struct task_graph *tg)
+{
+    for (int i=0; i<tg->pes_nr; i++) {
+        struct pid_entry *pe = tg->pes + i;
+        print_pid_entry(pe, 0);
+    }
+}
+
 /* functions to be implemented seperately by bfish/linux */
 static void slaves_connect(struct task_graph *tg);
 static void slave_push_work(struct slave *);
 static void slaves_wait(void);
+static void slaves_print_stats(void);
 static void master_process_reqs(void);
 unsigned long tscperms;
 
@@ -590,13 +661,10 @@ int main(int argc, char *argv[])
     }
 
     assert(err_is_ok(sys_debug_get_tsc_per_ms(&tscperms)));
-    printf("---------- VFS MKDIR...\n");
     errval_t err = vfs_mkdir(argv[3]);
     assert(err_is_ok(err));
 
-    printf("---------- VFS MOUNT (%s,%s)...\n", argv[3], argv[4]);
     err = vfs_mount(argv[3], argv[4]);
-    printf("---------- VFS MOUNT   RETURNED\n");
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_mount");
     }
@@ -631,13 +699,15 @@ int main(int argc, char *argv[])
     #endif
     memset(&TG, 0, sizeof(TG));
     build_taskgraph(&tlist, &TG);
-
+    //print_all_tasks(&TG);
     //print_taskgraph(&TG);
     //printf("TG entries:%d completed:%d stack_size:%d\n", TG.pes_nr, TG.pes_completed, TG.stack_nr);
 
+    msg("[MASTER] INITIALIZING BUFFERS...\n");
+    trace_bufs_init(&TG);
+
     msg("[MASTER] CONNECTING TO SLAVES...\n");
     slaves_connect(&TG);
-    msg("[MASTER] DONE\n");
 
     msg("[MASTER] STARTING WORK...\n");
     uint64_t ticks = rdtsc();
@@ -651,12 +721,10 @@ int main(int argc, char *argv[])
                 if (sl->pe == NULL) {
                     continue; /* no more tasks in the stack */
                 }
-                sl->current_te = sl->pe->trace_l.head;
-                sl->pe->sl = sl;
                 dmsg("[MASTER] assigned pid:%d to sl:%d\n", sl->pe->pid, sid);
+                sl->pe->sl = sl;
+                slave_push_work(sl);
             }
-
-            slave_push_work(sl);
             master_process_reqs();
         }
 
@@ -667,6 +735,10 @@ int main(int argc, char *argv[])
     slaves_wait();
     ticks = rdtsc() - ticks;
     printf("[MASTER] replay done, took %" PRIu64" cycles (%lf ms)\n", ticks, (double)ticks/(double)tscperms);
+    slaves_print_stats();
+    #ifndef __linux__
+    //cache_print_stats();
+    #endif
     return 0;
 }
 
@@ -692,16 +764,17 @@ static void
 slaves_wait(void)
 {
     int err;
-    replay_eventrec_t end_req = {.op = TOP_End, .pid = 0};
 
+    /* notify slaves */
     for (int sid=0; sid < SlState.num_slaves; sid++) {
         struct slave *sl = SlState.slaves + sid;
         do {
-            err = sl->b->tx_vtbl.event(sl->b, NOP_CONT, end_req);
+            err = sl->b->tx_vtbl.slave_finish(sl->b, NOP_CONT);
         } while (err_no(err) == FLOUNDER_ERR_TX_BUSY);
         assert(err_is_ok(err));
     }
 
+    /* wait for reply */
     do {
         err = event_dispatch(get_default_waitset());
         assert(err_is_ok(err));
@@ -709,35 +782,43 @@ slaves_wait(void)
 }
 
 static void
-slave_push_work(struct slave *sl)
+slaves_print_stats(void)
 {
-    replay_eventrec_t req;
     int err;
 
-    //printf("pushing work for slave: %ld (%p) pid:%d (completed:%d)\n", sl-slaves, sl, sl->pe->pid, sl->pe->completed);
-    while ( sl->current_te ) {
-        mk_replay_event_req(sl->current_te, &req);
-        assert(sl->current_te->pid == sl->pe->pid);
-        assert(sl->b != NULL);
-        //printf("%s:%s() :: sending a request (op=%d,te=%p) to slave sl:%ld\n", __FILE__, __FUNCTION__, req.op, sl->current_te, sl-SlState.slaves);
-
-        err = sl->b->tx_vtbl.event(sl->b, NOP_CONT, req);
-
-        // queue is full
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            //printf("\t => queue busy\n");
-            break;
-        }
-        //printf("\t=> request enqueued\n");
+    /* have slaves print stats synchronously */
+    for (int sid=0; sid < SlState.num_slaves; sid++) {
+        struct slave *sl = SlState.slaves + sid;
+        print_stats_ok = false;
+        err = sl->b->tx_vtbl.slave_print_stats(sl->b, NOP_CONT);
         assert(err_is_ok(err));
-
-        if (sl->current_te->next == NULL) {
-            //printf("\t => no more requests\n");
-            assert(sl->current_te->op == TOP_Exit);
+        while (!print_stats_ok) {
+            err = event_dispatch(get_default_waitset());
+            assert(err_is_ok(err));
         }
-
-        sl->current_te = sl->current_te->next;
     }
+}
+
+static void
+slave_push_work(struct slave *sl)
+{
+    int err;
+    struct bulk_buf *bb;
+    uint64_t bulk_id;
+
+    //dmsg("pushing work for slave: %ld (%p) pid:%d (completed:%d)\n", sl-slaves, sl, sl->pe->pid, sl->pe->completed);
+    bb = bulk_alloc(&sl->bt);
+    if (bb == NULL) {
+        return;
+    }
+    bulk_buf_copy(bb, sl->pe->tes, sl->pe->tes_size);
+    bulk_id = bulk_prepare_send(bb);
+    err = sl->b->tx_vtbl.new_task(sl->b, NOP_CONT, bulk_id, sl->pe->tes_size);
+    if (err == FLOUNDER_ERR_TX_BUSY) {
+        bulk_free(&sl->bt, bulk_id);
+        return;
+    }
+    assert(err_is_ok(err));
 }
 
 static void
@@ -749,6 +830,7 @@ slaves_connect(struct task_graph *tg)
 
     for (int sid=0; sid < SlState.num_slaves; sid++) {
         int r = snprintf(name, 128, "replay_slave.%u", sid + 1);
+        struct slave *sl = SlState.slaves + sid;
         assert(r != -1);
 
         err = nameservice_blocking_lookup(name, &iref);
@@ -757,18 +839,31 @@ slaves_connect(struct task_graph *tg)
             abort();
         }
 
+        /* bound to slave  */
         bound = false;
-        err = replay_bind(iref, replay_bind_cont, NULL, get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+        err = replay_bind(iref, replay_bind_cont, NULL,
+                          get_default_waitset(),
+                          IDC_BIND_FLAGS_DEFAULT);
         if(err_is_fail(err)) {
             DEBUG_ERR(err, "replay_bind");
         }
-
         while(!bound) {
             err = event_dispatch(get_default_waitset());
             assert(err_is_ok(err));
         }
-
         msg("bound to slave %d\n", sid);
+
+        /* initialize bulk transfer for slave */
+        init_ok = false;
+        err = bulk_create(BULK_TOTAL_SIZE, BULK_BLOCK_SIZE, &sl->frame, &sl->bt, false);
+        assert(err_is_ok(err));
+        err = sl->b->tx_vtbl.slave_init(sl->b, NOP_CONT, sl->frame, BULK_TOTAL_SIZE);
+        assert(err_is_ok(err));
+        while (!init_ok) {
+            err = event_dispatch(get_default_waitset());
+            assert(err_is_ok(err));
+        }
+        msg("slave %d initialized\n", sid);
     }
 }
 #endif
@@ -792,7 +887,7 @@ master_process_reqs(void)
 static void
 slaves_connect(struct task_graph *tg)
 {
-    printf("connecting to slaves...\n");
+    msg("connecting to slaves...\n");
     for(int i = 0; i < SlState.num_slaves; i++) {
         sock[i] = socket(AF_INET, SOCK_STREAM, 0);
         assert(sock[i] != -1);
@@ -810,6 +905,7 @@ slaves_connect(struct task_graph *tg)
         char host[128];
         snprintf(host, 128, "rck%02u", i + 1);
 
+        snprintf(host, 128, "localhost");
         printf("connecting to '%s'\n", host);
 
         struct hostent *h;
@@ -817,7 +913,7 @@ slaves_connect(struct task_graph *tg)
         assert(h != NULL && h->h_length == sizeof(struct in_addr));
 
         struct sockaddr_in sa;
-        sa.sin_port = htons(1234);
+        sa.sin_port = htons(1234 + 1);
         sa.sin_addr = *(struct in_addr *)h->h_addr_list[0];
 
         r = connect(sock[i], (struct sockaddr *)&sa, sizeof(sa));
@@ -1272,7 +1368,4 @@ slaves_connect(struct task_graph *tg)
 //
 //    printf("replay done, took %" PRIu64" ms\n", (end - start) / tscperms);
 //
-//#ifndef __linux__
-//    cache_print_stats();
-//#endif
 //
