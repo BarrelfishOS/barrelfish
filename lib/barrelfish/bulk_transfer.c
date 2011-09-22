@@ -61,7 +61,7 @@ errval_t bulk_init(void *mem, size_t size, size_t block_size,
     bt->size = size;
     bt->mem = mem;
 
-    memset(mem, 0, size);
+    memset(mem, 0, size); /* XXX: shouldn't this be the original size? */
 
     struct bulk_buf *current_pbuf = bt->free_list;
     for (int i = 0; i < size - 1; i++) {
@@ -164,6 +164,21 @@ struct bulk_buf *bulk_alloc(struct bulk_transfer *bt)
     } else {
         return NULL;
     }
+}
+
+/**
+ * \brief copy data from a buffer to a bulk buffer
+ *
+ * \param bb        bulk buffer to copy the data
+ * \param buf       (source) buffer
+ * \param buf_size  size of (source) buffer:
+ */
+void bulk_buf_copy(struct bulk_buf *bb, void *buf, size_t buf_size)
+{
+    void *dst;
+    assert(buf_size <= bb->size);
+    dst = bulk_buf_get_mem(bb);
+    memcpy(dst, buf, buf_size);
 }
 
 /**

@@ -47,6 +47,8 @@ errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
 struct bulk_buf *bulk_alloc(struct bulk_transfer *bt);
 errval_t bulk_free(struct bulk_transfer *bt, uintptr_t id);
 
+void bulk_buf_copy(struct bulk_buf *bb, void *buf, size_t buf_size);
+
 static inline void *bulk_buf_get_mem(struct bulk_buf *buf)
 {
     return buf->base;
