@@ -74,8 +74,9 @@ static size_t meta_hits = 0, meta_misses = 0, meta_overwrites = 0;
 
 static void meta_data_init(void)
 {
-    dir_hash = create_hashtable2(MAX_DIR, 75);
+    /*    dir_hash = create_hashtable2(MAX_DIR, 75);
     assert(dir_hash != NULL);
+    */
 }
 
 static void meta_data_lookup(const char *fname,
