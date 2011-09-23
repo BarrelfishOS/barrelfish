@@ -188,6 +188,7 @@ MODULES_scc=\
 	sbin/thctest \
 	sbin/mem_serv_dist \
 	sbin/net-test \
+	sbin/netthroughput \
 
 # ARM-specific modules to build by default
 MODULES_arm=\
