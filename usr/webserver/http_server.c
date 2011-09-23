@@ -101,6 +101,9 @@ static int parallel_connections = 0; /* number of connections alive at moment */
 static int request_counter = 0;  /* Total no. of requests received till now */
 /* above both are for debugging purpose only */
 
+// Variables for time measurement for performance
+static uint64_t last_ts = 0;
+
 
 static struct http_conn *http_conn_new(void)
 {
@@ -179,16 +182,22 @@ static void http_server_err(void *arg, err_t err)
 }
 
 
-static void http_server_close(struct tcp_pcb *tpcb, struct http_conn *conn)
+static void http_server_close(struct tcp_pcb *tpcb, struct http_conn *cs)
 {
-	/* replace TCP callbacks with NULL */
+    printf("%s %s %s %hu.%hu.%hu.%hu in %"PRIu64"\n",
+            cs->hbuff->data ? "200" : "404", cs->request, cs->filename,
+           ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
+           ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip),
+            get_time_delta(&cs->start_ts));
     DEBUGPRINT("%d: http_server_close freeing the connection\n",
         conn->request_no);
+
+    // replace TCP callbacks with NULL
     tcp_arg(tpcb, NULL);
     tcp_sent(tpcb, NULL);
     tcp_recv(tpcb, NULL);
-    if (conn != NULL) {
-        http_conn_invalidate (conn);
+    if (cs != NULL) {
+        http_conn_invalidate (cs);
     }
     tcp_close(tpcb);
 }
@@ -512,7 +521,7 @@ static err_t http_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
         conn->filename = (char *)uri;
         conn->callback = send_response;
         conn->pcb = tpcb;
-
+        conn->start_ts = rdtsc();
         /* for callback execution */
         err_t e = http_cache_lookup(uri, conn);
         if (e != ERR_OK) {
@@ -567,8 +576,10 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
     return ERR_OK;
 }
 
+
 static void realinit(void)
 {
+    printf("Cache loading time %"PRIu64"\n", get_time_delta(&last_ts));
     struct tcp_pcb *pcb = tcp_new();
 //    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));
     err_t e = tcp_bind(pcb, IP_ADDR_ANY, HTTP_PORT);
@@ -577,10 +588,23 @@ static void realinit(void)
     assert(pcb != NULL);
     tcp_arg(pcb, pcb);
     tcp_accept(pcb, http_server_accept);
+    printf("HTTP setup time %"PRIu64"\n", get_time_delta(&last_ts));
     printf("Starting webserver\n");
 }
 
 void http_server_init(struct ip_addr server, const char *path)
 {
+    last_ts = rdtsc();
     http_cache_init(server, path, realinit);
 }
+
+
+uint64_t get_time_delta(uint64_t *l_ts)
+{
+    uint64_t ct = rdtsc();
+    uint64_t delta = ct - *l_ts;
+    *l_ts = ct;
+    return delta;
+    //  return delta / (2800 * 1000);
+} // end function: get_time_delta
+

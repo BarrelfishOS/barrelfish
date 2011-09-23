@@ -26,46 +26,55 @@
 #include <barrelfish/waitset.h>
 
 #define DIRNAME   "/nfs"
-#define FILENAME   "/nfs/testfile.txt"
-#define MAX_DATA   512
+#define FILENAME   "/nfs/pravin/testfile.txt"
+#define MAX_DATA   (1330 * 8)
 int main(int argc, char**argv)
 {
 
-    if(argc < 2) {
-        printf("Usage: %s  mount-URL\n", argv[0]);
+    if(argc < 4) {
+        printf("Usage: %s mount-DIR  mount-URL filepath\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
-    errval_t err = vfs_mkdir(DIRNAME);
+    errval_t err = vfs_mkdir(argv[1]);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_mount");
     }
 
     printf("######## mkdir done\n");
-    err = vfs_mount(DIRNAME, argv[1]);
+    err = vfs_mount(argv[1], argv[2]);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_mount");
     }
     assert(err_is_ok(err));
     printf("######## mount done\n");
 
-    printf("######## reading file...\n");
+    printf("######## reading file [%s]\n", argv[3]);
 
     // Parse trace file into memory records
-    FILE *f = fopen(FILENAME, "r");
+    FILE *f = fopen(argv[3], "r");
     assert(f != NULL);
-    printf("######## file opened\n");
+    //    printf("######## file opened[%s]\n", argv[3]);
 
+    /* FIXME: record start time */
+    uint64_t total_size = 0;
+    uint64_t start = rdtsc();
     while(!feof(f)) {
         char data[MAX_DATA];
         int ret = fread(data, MAX_DATA, 1, f);
         if (ret <= 0) {
-            printf("fread returned %d, so EOF\n", ret);
+            //            printf("fread returned %d, so EOF\n", ret);
             break;
         }
-        printf("%s", data);
+        total_size += ret;
+        data[ret] = '\0';
+        //        printf("%s", data);
     }
+    uint64_t stop = rdtsc();
+    /* FIXME: record stop time */
     printf("######## Everythin done\n");
+    printf("Data size = %"PRIu64",  Processing time %"PRIu64"\n", 
+           total_size, (stop - start));
 
     struct waitset *ws = get_default_waitset();
     while (1) {
