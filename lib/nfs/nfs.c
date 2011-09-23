@@ -588,8 +588,8 @@ static void read_reply_handler(struct rpc_client *rpc_client, void *arg1,
 err_t nfs_read(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
                count3 count, nfs_read_callback_t callback, void *cbarg)
 {
-	NFSDEBUGPRINT("nfs read called on offset %lu and size %d\n",
-					offset, count);
+	NFSDEBUGPRINT("nfs read called on offset %"PRIu32" and size %d\n",
+                      (uint32_t)offset, count);
     assert(client->mount_state == NFS_INIT_COMPLETE);
 
     struct READ3args args = {
