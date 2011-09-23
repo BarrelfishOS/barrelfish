@@ -138,6 +138,7 @@ MODULES_x86_64= \
 	sbin/net_openport_test \
 	sbin/examples/xmpl-perfmon \
 	$(BIN_CONSENSUS) \
+	sbin/bcached \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \

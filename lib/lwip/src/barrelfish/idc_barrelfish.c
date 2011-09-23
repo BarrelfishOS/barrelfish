@@ -1155,6 +1155,41 @@ static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
     return ERR_OK;
 }
 
+static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
+                       struct ip_addr *remote_ip, u16_t remote_port, 
+                       netd_port_type_t port_type)
+{
+    if(is_owner) {
+        // redirecting doesn't make sense if we are the owner
+        return ERR_USE; // TODO: correct error
+    }
+
+    errval_t err, msgerr;
+
+    /* getting the proper buffer id's here */
+    err = netd_rpc.vtbl.redirect_pause(&netd_rpc, port_type, local_ip->addr, local_port,
+                                       remote_ip->addr, remote_port,
+                /* buffer for RX */
+                ((struct client_closure_NC *)
+                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id,
+                /* buffer for TX */
+                ((struct client_closure_NC *)
+                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id,
+                &msgerr);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending pause");
+    }
+
+    if(msgerr == PORT_ERR_IN_USE) {
+    	return ERR_USE;
+    } else if (msgerr == PORT_ERR_REDIRECT) {
+        return ERR_USE;  // TODO: correct error
+    }
+
+// FIXME: other errors?
+    return ERR_OK;
+}
+
 
 /*
 err_t idc_redirect_udp_port(uint16_t port)
@@ -1170,6 +1205,12 @@ err_t idc_redirect_tcp(struct ip_addr *local_ip, u16_t local_port,
                              netd_PORT_TCP);
 }
 
+err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
+                    struct ip_addr *remote_ip, u16_t remote_port)
+{
+    return idc_pause(local_ip, local_port, remote_ip, remote_port, 
+                     netd_PORT_TCP);
+}
 
 
 void perform_ownership_housekeeping(uint16_t (*alloc_tcp_ptr)(void),

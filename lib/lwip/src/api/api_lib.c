@@ -196,6 +196,25 @@ netconn_redirect(struct netconn *conn, struct ip_addr *local_ip,
   return conn->err;
 }
 
+err_t
+netconn_pause(struct netconn *conn, struct ip_addr *local_ip, 
+              u16_t local_port,
+              struct ip_addr *remote_ip, 
+              u16_t remote_port)
+{
+  struct api_msg msg;
+
+  LWIP_ERROR("netconn_redirect: invalid conn", (conn != NULL), return ERR_ARG;);
+
+  msg.function = do_pause;
+  msg.msg.conn = conn;
+  msg.msg.msg.red.local_ip = local_ip;
+  msg.msg.msg.red.local_port = local_port;
+  msg.msg.msg.red.remote_ip = remote_ip;
+  msg.msg.msg.red.remote_port = remote_port;
+  TCPIP_APIMSG(&msg);
+  return conn->err;
+}
 
 
 /**

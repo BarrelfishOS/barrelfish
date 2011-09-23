@@ -17,7 +17,8 @@ interface ether_control "Generic Ethernet Driver Control flow Interface" {
 			uint64 len_tx,
 			uint64 buffer_id_rx,
 			uint64 buffer_id_tx,
-			uint64 filter_type);
+			uint64 filter_type,
+			uint64 paused);
     response register_filter_response(uint64 id,
     		errval err,
 			uint64 filter_id,
@@ -43,4 +44,8 @@ interface ether_control "Generic Ethernet Driver Control flow Interface" {
     response register_arp_filter_response(uint64 id, 
     		errval err);
 
+    call pause(uint64 filter_id, uint64 buffer_id_rx, uint64 buffer_id_tx);
+    response pause_response(uint64 filter_id, errval err);
+    call unpause(uint64 filter_id);
+    response unpause_response(uint64 filter_id, errval err);
 };

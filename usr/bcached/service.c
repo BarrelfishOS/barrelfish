@@ -11,6 +11,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/bcache_defs.h>
+#include <vfs/vfs.h>
 #include "bcached.h"
 
 #include <string.h>
@@ -20,6 +21,17 @@
 
 #define ITERATIONS      100000
 #define MAXN            10
+
+struct wait_list {
+    struct bcache_binding *b;
+    struct wait_list *next;
+};
+
+#if 0
+// Doing the easiest thing here, just block out everyone when we're writing
+static bool inwrite[NUM_BLOCKS];
+static struct bcache_binding *waiting[NUM_BLOCKS];
+#endif
 
 static void get_start_handler(struct bcache_binding *b, char *key, size_t key_len)
 {
@@ -37,6 +49,20 @@ static void get_start_handler(struct bcache_binding *b, char *key, size_t key_le
         free(key);
     }
 
+#if 0
+    // Block everyone if we have a write on this block
+    if(inwrite[index]) {
+        struct wait_list *w = malloc(sizeof(struct wait_list));
+        w->b = b;
+        w->next = waiting[index];
+        waiting[index] = w;
+    }
+
+    if(write) {
+        inwrite[index] = true;
+    }
+#endif
+
     err = b->tx_vtbl.get_start_response(b, NOP_CONT, index, haveit,
                                         haveit ? 1 : 0, length);
     if(err_is_fail(err)) {
@@ -52,6 +78,14 @@ static void get_stop_handler(struct bcache_binding *b, uint64_t transid,
     if(transid == 0) {
         cache_update(index, length);
     }
+
+#if 0
+    if(inwrite[index]) {
+        // Wake up all waiters
+        
+        inwrite[index] = false;
+    }
+#endif
 
     err = b->tx_vtbl.get_stop_response(b, NOP_CONT);
     if(err_is_fail(err)) {
@@ -98,8 +132,11 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
     // construct name
     char namebuf[32];
-    /* int name = disp_get_core_id(); */
+#ifndef WITH_SHARED_CACHE
+    int name = disp_get_core_id();
+#else
     int name = 0;
+#endif
     size_t len = snprintf(namebuf, sizeof(namebuf), "%s.%d", SERVICE_BASENAME,
                           name);
     assert(len < sizeof(namebuf));

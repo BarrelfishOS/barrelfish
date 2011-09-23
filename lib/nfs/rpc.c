@@ -260,10 +260,6 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 freed_call = true;
             } else {
 /*              // Start debugging if it is not already on.
-                if(net_debug_state == 0) {
-                    net_debug_state = 1;
-                    lwip_start_net_debug(net_debug_state);
-                }
 */
                 /* retransmit */
                 fprintf(stderr, "##### RPC: retransmit XID 0x%x\n", call->xid);
