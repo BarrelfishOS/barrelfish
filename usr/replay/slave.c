@@ -26,8 +26,13 @@
 #include "defs.h"
 
 static char *defdir;
-static uint64_t total_ticks=0;
+static struct {
+    uint64_t op_ticks[TOPs_Total];
+    uint64_t op_count[TOPs_Total];
+    uint64_t total_ticks;
+} Stats = {{0}, {0}, 0};
 
+//static uint64_t total_ticks=0, open_ticks=0, read_ticks=0, unlink_ticks=0;
 
 #ifndef __linux__
 static void export_cb(void *st, errval_t err, iref_t iref)
@@ -82,7 +87,6 @@ static void handle_init(struct replay_binding *b, struct capref shared_mem, uint
 static void handle_finish(struct replay_binding *b)
 {
     errval_t err;
-    msg("SLAVE[%u]: END took %lu ticks (%lf ms)\n", disp_get_core_id(), total_ticks, (double)total_ticks/(double)tscperms);
     err = b->tx_vtbl.slave_finish_reply(b, NOP_CONT);
     assert(err_is_ok(err));
 }
@@ -91,6 +95,12 @@ void cache_print_stats(void);
 static void handle_print_stats(struct replay_binding *b)
 {
     errval_t err;
+    msg("SLAVE[%u]: END took %lu ticks (%lf ms)\n", disp_get_core_id(), Stats.total_ticks, (double)Stats.total_ticks/(double)tscperms);
+    for (int i=0; i<TOPs_Total; i++) {
+        uint64_t op_cnt = Stats.op_count[i];
+        double op_time = (double)Stats.op_ticks[i]/(double)tscperms;
+        msg(" op:%d cnt:%lu time:%lf avg:%lf\n", i, op_cnt, op_time, op_time/(double)op_cnt);
+    }
     msg("SLAVE[%u]: CACHE STATISTICS\n", disp_get_core_id());
     cache_print_stats();
     err = b->tx_vtbl.slave_print_stats_reply(b, NOP_CONT);
@@ -102,16 +112,12 @@ static void handle_event(replay_eventrec_t *er)
 {
     static int pid = 0;
     static int op_id = 0;
-    //static int wrcnt = 0;
-    //static int rdcnt = 0;
-    //static int opencnt = 0;
-    //static int closecnt = 0;
+
     /* pick a file for this operation */
     // (only needed for Open/Create/Unlink)
     char fname[256];
     snprintf(fname, 256, "%s/data/%u", defdir, er->fnumsize);
 
-    uint64_t handle_ticks = rdtsc();
 
     /* protocol:
      * - master will send consecutive operations with the same pid
@@ -126,8 +132,9 @@ static void handle_event(replay_eventrec_t *er)
     }
 
     op_id++;
-    dmsg("SLAVE[%u]: REQ pid:%d op:%d [op_id:%d]\n", disp_get_core_id(), er->pid, er->op, op_id);
-    switch(er->op) {
+    enum top op = er->op;
+    dmsg("SLAVE[%u]: REQ pid:%d op:%d [op_id:%d]\n", disp_get_core_id(), er->pid, op, op_id);
+    switch(op) {
     case TOP_Open:
     case TOP_Create: {
         //uint64_t ticks = rdtsc();
@@ -157,7 +164,7 @@ static void handle_event(replay_eventrec_t *er)
         /* open the file */
 
         /* assert(fd2fptr[er->fd] == NULL);
-         * seems that some close() miss from the file:
+         * seems that some close() operations are missing from the file:
          *  $ egrep -c -e 'close' <kernelcompile.trace.anon
          *  10779
          *  $ egrep -c -e '(open|creat)' <kernelcompile.trace.anon
@@ -246,12 +253,10 @@ static void handle_event(replay_eventrec_t *er)
     }
 
     default:
-        printf("Invalid request: %d\n", er->op);
+        printf("Invalid request: %d\n", op);
         assert(0);
         break;
     }
-
-    total_ticks += (rdtsc() - handle_ticks);
 }
 
 #ifndef __linux__
@@ -270,7 +275,17 @@ static void handle_new_task(struct replay_binding *b, uint64_t bulk_id, uint32_t
     assert(tes->op == TOP_Open);
     pid = tes->pid;
     for (size_t i=0; i<tes_nr; i++) {
-        handle_event(tes + i);
+        replay_eventrec_t *er = tes + i;
+        enum top op = er->op;
+
+        uint64_t handle_ticks = rdtsc();
+        handle_event(er);
+
+        /* update stats */
+        handle_ticks = (rdtsc() - handle_ticks);
+        Stats.total_ticks += handle_ticks;
+        Stats.op_count[op]++;
+        Stats.op_ticks[op] += handle_ticks;
     }
 
     err = b->tx_vtbl.task_completed(b, NOP_CONT, pid, bulk_id);

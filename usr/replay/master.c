@@ -647,7 +647,7 @@ print_all_tasks(struct task_graph *tg)
 /* functions to be implemented seperately by bfish/linux */
 static void slaves_connect(struct task_graph *tg);
 static void slave_push_work(struct slave *);
-static void slaves_wait(void);
+static void slaves_finalize(void);
 static void slaves_print_stats(void);
 static void master_process_reqs(void);
 unsigned long tscperms;
@@ -710,7 +710,7 @@ int main(int argc, char *argv[])
     slaves_connect(&TG);
 
     msg("[MASTER] STARTING WORK...\n");
-    uint64_t ticks = rdtsc();
+    uint64_t start_ticks = rdtsc();
     for (;;) {
         /* enqueue work to the slaves */
         for (int sid=0; sid < SlState.num_slaves; sid++) {
@@ -732,9 +732,10 @@ int main(int argc, char *argv[])
             break;
     }
 
-    slaves_wait();
-    ticks = rdtsc() - ticks;
-    printf("[MASTER] replay done, took %" PRIu64" cycles (%lf ms)\n", ticks, (double)ticks/(double)tscperms);
+    uint64_t work_ticks = rdtsc() - start_ticks;
+    slaves_finalize();
+    uint64_t total_ticks = rdtsc() - start_ticks;
+    printf("[MASTER] replay done, took %" PRIu64" cycles (%lf ms) [total time: %lfms]\n", work_ticks, (double)work_ticks/(double)tscperms, (double)total_ticks/(double)tscperms);
     slaves_print_stats();
     #ifndef __linux__
     //cache_print_stats();
@@ -761,7 +762,7 @@ master_process_reqs(void)
 }
 
 static void
-slaves_wait(void)
+slaves_finalize(void)
 {
     int err;
 
@@ -774,7 +775,7 @@ slaves_wait(void)
         assert(err_is_ok(err));
     }
 
-    /* wait for reply */
+    /* wait for their replies */
     do {
         err = event_dispatch(get_default_waitset());
         assert(err_is_ok(err));
@@ -875,7 +876,7 @@ slave_push_work(struct slave *sl)
 }
 
 static void
-slaves_wait(void)
+slaves_finalize(void)
 {
 }
 

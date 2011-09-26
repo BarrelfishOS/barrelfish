@@ -11,7 +11,8 @@ enum top {
     TOP_Read   = 3,
     TOP_Write  = 4,
     TOP_Close  = 5,
-    TOP_Exit   = 6
+    TOP_Exit   = 6,
+    TOPs_Total = 7
     //TOP_End    = 7
 };
 
