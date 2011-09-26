@@ -317,6 +317,12 @@ void spawn_bootscript_domains(void)
     char line[1024];
     while(fgets(line, 1024, f) != NULL) {
         int argc;
+
+        // ignore comments (#) and empty lines
+        if (line[0] == '#' || line[0] == '\n') {
+            continue;
+        }
+
         argv[0] = strtok(line, " \n");
         name = argv[0];
         for(argc = 1;; argc++) {
