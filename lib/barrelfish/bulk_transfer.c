@@ -63,6 +63,7 @@ errval_t bulk_init(void *mem, size_t size, size_t block_size,
 
     memset(mem, 0, size); /* XXX: shouldn't this be the original size? */
 
+    /* all, but the last buffer  */
     struct bulk_buf *current_pbuf = bt->free_list;
     for (int i = 0; i < size - 1; i++) {
         current_pbuf->offset = i * block_size;
@@ -78,7 +79,9 @@ errval_t bulk_init(void *mem, size_t size, size_t block_size,
         current_pbuf = tmp;
     }
 
+    /* do the last buffer */
     current_pbuf->offset = (size - 1) * block_size;
+    current_pbuf->size = block_size;
     current_pbuf->pool = bt;
     current_pbuf->base = (char *)mem + current_pbuf->offset;
     current_pbuf->next = NULL;
