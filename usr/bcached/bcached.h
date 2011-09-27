@@ -16,8 +16,9 @@
 
 #ifdef WITH_SHARED_CACHE
 #       define CACHE_SIZE      (1U << 28)      // 256MB
+//#       define CACHE_SIZE      (1U << 21)      // 2MB
 #else
-#       define CACHE_SIZE      (1U << 22)      // 4MB
+#       define CACHE_SIZE      (1U << 24)      // 16MB
 #endif
 #define NUM_BLOCKS      (CACHE_SIZE / BUFFER_CACHE_BLOCK_SIZE)
 

@@ -19,6 +19,12 @@ typedef void *vfs_handle_t;
 /* XXX: remove this for partitioned cache */
 #define WITH_SHARED_CACHE
 
+#ifdef WITH_SHARED_CACHE
+static const char vfs_cache_str[] = "single-shared";
+#else
+static const char vfs_cache_str[] = "partitioned";
+#endif
+
 #define WITH_BUFFER_CACHE
 //#define WITH_WRITE_BACK_CACHE
 #define WITH_META_DATA_CACHE

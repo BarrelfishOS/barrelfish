@@ -10,11 +10,15 @@
 #include <if/replay_defs.h>
 #include <errno.h>
 #else
+static const char vfs_cache_str[] = "linux (TCP/IP)";
+#include <unistd.h>
 #include <stdbool.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <poll.h>
 #include <netdb.h>
 #include <errno.h>
 #include <sched.h>
@@ -28,7 +32,7 @@
 #define MAX_SLAVES      64
 #define MAX_DEPS        60
 #define BULK_BLOCK_SIZE (4096*16)
-#define BULK_BLOCKS_NR  32
+#define BULK_BLOCKS_NR  1
 #define BULK_TOTAL_SIZE (BULK_BLOCK_SIZE*BULK_BLOCKS_NR)
 
 /* TRACE LIST */
@@ -66,7 +70,7 @@ struct pid_entry {
 
     /* buffer for trace entries */
     replay_eventrec_t *tes;
-    size_t tes_size;
+    size_t tes_size; /* size of tes buffer in bytes */
 
     size_t parents_completed;
     struct slave *sl;
@@ -89,8 +93,6 @@ struct slave {
 #else
     int socket;
     ssize_t sentbytes;
-    char sendbuf[256];
-    int num;
 #endif
 };
 
@@ -98,6 +100,9 @@ static struct {
     int num_slaves;
     int num_finished;
     struct slave slaves[MAX_SLAVES];
+#ifdef __linux__
+    struct pollfd pfds[MAX_SLAVES];
+#endif
 } SlState;
 
 //struct qelem {
@@ -193,7 +198,7 @@ tg_complete(struct task_graph *tg, struct pid_entry *pe)
     assert(pe->completed == 0);
     pe->completed = 1;
     tg->pes_completed++;
-    msg("\tpe: %p (idx:%ld,pid:%d) completed (%d/%d)\n", pe, (pe - tg->pes), pe->pid, tg->pes_completed, tg->pes_nr);
+    dmsg("\tpe: %p (idx:%ld,pid:%d) completed (%d/%d)\n", pe, (pe - tg->pes), pe->pid, tg->pes_completed, tg->pes_nr);
     for (int i=0; i < pe->children_nr; i++) {
         struct pid_entry *pe_child = pe->children[i];
         if (++pe_child->parents_completed == pe_child->parents_nr) {
@@ -211,7 +216,6 @@ static bool print_stats_ok;
 #endif
 
 #ifdef __linux__
-static int sock[MAX_SLAVES];
 #endif
 
 #ifndef __linux__
@@ -303,45 +307,6 @@ static inline uint64_t rdtsc(void)
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
     return ((uint64_t)edx << 32) | eax;
-}
-
-static ssize_t send_buf(struct slave *s, replay_eventrec_t *er)
-{
-    ssize_t r;
-
-    /* if(er->fline <= lastline) { */
-    /*     printf("master: line repeat! %d > %d\n", er->fline, lastline); */
-    /* } */
-    /* lastline = er->fline; */
-
-    if(s->sentbytes != -1) {
-        char *bufpos = s->sendbuf + s->sentbytes;
-        r = send(s->socket, bufpos, sizeof(replay_eventrec_t) - s->sentbytes, MSG_DONTWAIT);
-        if(r == -1) {
-            return r;
-        } else {
-            s->sentbytes += r;
-            assert(s->sentbytes <= sizeof(replay_eventrec_t));
-            if(s->sentbytes == sizeof(replay_eventrec_t)) {
-                s->sentbytes = -1;
-            }
-            errno = EAGAIN;
-            return -1;
-        }
-    }
-
-    r = send(s->socket, er, sizeof(replay_eventrec_t), MSG_DONTWAIT);
-    if(r == -1) {
-        return r;
-    }
-
-    if(r < sizeof(replay_eventrec_t)) {
-        memcpy(s->sendbuf, er, sizeof(replay_eventrec_t));
-        s->sentbytes = r;
-        return sizeof(replay_eventrec_t);
-    }
-    assert(r == sizeof(replay_eventrec_t));
-    return r;
 }
 #endif
 
@@ -650,7 +615,7 @@ static void slave_push_work(struct slave *);
 static void slaves_finalize(void);
 static void slaves_print_stats(void);
 static void master_process_reqs(void);
-unsigned long tscperms;
+uint64_t tscperms;
 
 int main(int argc, char *argv[])
 {
@@ -664,10 +629,12 @@ int main(int argc, char *argv[])
     errval_t err = vfs_mkdir(argv[3]);
     assert(err_is_ok(err));
 
+    printf("----------------------------------- VFS MOUNT\n");
     err = vfs_mount(argv[3], argv[4]);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_mount");
     }
+    printf("----------------------------------- VFS MOUNT DONE\n");
     assert(err_is_ok(err));
 #else
     if(argc < 3) {
@@ -677,7 +644,6 @@ int main(int argc, char *argv[])
 #endif
 
     memset(&SlState, 0, sizeof(SlState));
-    printf("sizeof(SlState) = %ld\n", sizeof(SlState));
     //SlState.waitset = get_default_waitset();
     //struct waitset ws;
     //waitset_init(&ws);
@@ -721,7 +687,8 @@ int main(int argc, char *argv[])
                 if (sl->pe == NULL) {
                     continue; /* no more tasks in the stack */
                 }
-                dmsg("[MASTER] assigned pid:%d to sl:%d\n", sl->pe->pid, sid);
+                dmsg("[MASTER] assigned pid:%d to sl:%d (stack_nr:%d completed:%d total:%d)\n",
+                      sl->pe->pid, sid, TG.stack_nr, TG.pes_completed, TG.pes_nr);
                 sl->pe->sl = sl;
                 slave_push_work(sl);
             }
@@ -735,11 +702,12 @@ int main(int argc, char *argv[])
     uint64_t work_ticks = rdtsc() - start_ticks;
     slaves_finalize();
     uint64_t total_ticks = rdtsc() - start_ticks;
-    printf("[MASTER] replay done, took %" PRIu64" cycles (%lf ms) [total time: %lfms]\n", work_ticks, (double)work_ticks/(double)tscperms, (double)total_ticks/(double)tscperms);
+    printf("[MASTER] replay done> cache:%s slaves:%d ticks:%" PRIu64
+           " (%lf ms) [total: %lfms]\n",
+            vfs_cache_str, SlState.num_slaves, work_ticks,
+            (double)work_ticks /(double)tscperms,
+            (double)total_ticks/(double)tscperms);
     slaves_print_stats();
-    #ifndef __linux__
-    //cache_print_stats();
-    #endif
     return 0;
 }
 
@@ -852,7 +820,7 @@ slaves_connect(struct task_graph *tg)
             err = event_dispatch(get_default_waitset());
             assert(err_is_ok(err));
         }
-        msg("bound to slave %d\n", sid);
+        msg("Bound to slave %d\n", sid);
 
         /* initialize bulk transfer for slave */
         init_ok = false;
@@ -864,7 +832,8 @@ slaves_connect(struct task_graph *tg)
             err = event_dispatch(get_default_waitset());
             assert(err_is_ok(err));
         }
-        msg("slave %d initialized\n", sid);
+
+        msg("Slave %d initialized\n", sid);
     }
 }
 #endif
@@ -873,25 +842,106 @@ slaves_connect(struct task_graph *tg)
 static void
 slave_push_work(struct slave *sl)
 {
+    int ret;
+
+    assert(sl->pe != NULL);
+    assert(sl->pe->tes_size > sl->sentbytes);
+
+    ret = send(sl->socket, sl->pe->tes, sl->pe->tes_size - sl->sentbytes, MSG_DONTWAIT);
+    if (ret <= 0) {
+        perror("send");
+        exit(1);
+    }
+    sl->sentbytes += ret;
 }
 
 static void
 slaves_finalize(void)
 {
+    for (int i=0; i<SlState.num_slaves; i++) {
+        struct slave *sl = SlState.slaves + i;
+        close(sl->socket);
+    }
 }
 
 static void
 master_process_reqs(void)
 {
+    static struct timespec t = {.tv_sec = 0, .tv_nsec = 0};
+
+    int ret = ppoll(SlState.pfds, SlState.num_slaves, &t, NULL);
+    if (ret == 0) {
+        return; // timeout -- no available fds
+    } else if (ret < 0) {
+        perror("ppol");
+        exit(1);
+    }
+
+    // read from available fds
+    for (int i=0; i<SlState.num_slaves; i++) {
+        struct pollfd *pfd = SlState.pfds + i;
+        if (pfd->revents & POLLIN) {
+            uint16_t rpid;
+            struct slave *sl = SlState.slaves + i;
+            int r = recv(sl->socket, &rpid, sizeof(rpid), MSG_DONTWAIT);
+            assert(r == sizeof(rpid));
+            assert(rpid == sl->pe->pid);
+            tg_complete(&TG, sl->pe);
+            sl->pe = NULL;
+            sl->sentbytes = 0;
+
+            if (--ret == 0) {
+                break;
+            }
+        #if 0 /* debug unexpected events */
+        } else if (pfd->revents & POLLPRI) {
+            assert(0);
+        } else if (pfd->revents & POLLRDNORM) {
+            assert(0);
+        } else if (pfd->revents & POLLRDBAND) {
+            assert(0);
+        } else if (pfd->revents & POLLWRNORM) {
+            assert(0);
+        } else if (pfd->revents & POLLWRNORM) {
+            assert(0);
+        } else if (pfd->revents & POLLOUT) {
+            assert(0);
+        } else if (pfd->revents & POLLRDHUP) {
+            assert(0);
+        } else if (pfd->revents & POLLERR) {
+            assert(0);
+        } else if (pfd->revents & POLLHUP) {
+            assert(0);
+        } else if (pfd->revents & POLLNVAL) {
+            assert(0);
+        #endif
+        } else if (pfd->revents != 0) {
+            assert(0);
+        }
+
+    }
 }
+
+static void slaves_print_stats(void)
+{
+}
+
+/* connection info */
 
 static void
 slaves_connect(struct task_graph *tg)
 {
     msg("connecting to slaves...\n");
     for(int i = 0; i < SlState.num_slaves; i++) {
-        sock[i] = socket(AF_INET, SOCK_STREAM, 0);
-        assert(sock[i] != -1);
+        int ret;
+        struct slave *sl = &SlState.slaves[i];
+        struct pollfd *pfd = SlState.pfds + i;
+
+        sl->socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (sl->socket == -1) {
+            perror("socket");
+            exit(1);
+        }
 
         struct sockaddr_in a = {
             .sin_family = PF_INET,
@@ -900,33 +950,41 @@ slaves_connect(struct task_graph *tg)
                 .s_addr = htonl(INADDR_ANY)
             }
         };
-        int r = bind(sock[i], (struct sockaddr *)&a, sizeof(a));
-        assert(r == 0);
 
+        ret = bind(sl->socket, (struct sockaddr *)&a, sizeof(a));
+        if (ret != 0) {
+            perror("bind");
+            exit(1);
+        }
+
+        int port = 1234;
         char host[128];
         snprintf(host, 128, "rck%02u", i + 1);
 
+        // FOR DEBUGGING!
         snprintf(host, 128, "localhost");
-        printf("connecting to '%s'\n", host);
+        printf("connecting to %s:%d ...\n", host, port);
+        port = 1234 + i;
 
         struct hostent *h;
         h = gethostbyname(host);
         assert(h != NULL && h->h_length == sizeof(struct in_addr));
 
-        struct sockaddr_in sa;
-        sa.sin_port = htons(1234 + 1);
-        sa.sin_addr = *(struct in_addr *)h->h_addr_list[0];
+        struct sockaddr_in sa = {
+            .sin_family = AF_INET,
+            .sin_port = htons(port),
+            .sin_addr = *(struct in_addr *)h->h_addr_list[0]
+        };
 
-        r = connect(sock[i], (struct sockaddr *)&sa, sizeof(sa));
-        if(r < 0) {
-            printf("connect: %s\n", strerror(errno));
+        ret = connect(sl->socket, (struct sockaddr *)&sa, sizeof(sa));
+        if (ret < 0) {
+            perror("connect");
+            exit(1);
         }
-        assert(r == 0);
 
-        struct slave *sl = &SlState.slaves[i];
-        sl->socket = sock[i];
-        sl->sentbytes = -1;
-        sl->num = i;
+        sl->sentbytes = 0;
+        pfd->fd = sl->socket;
+        pfd->events = POLLIN;
     }
 }
 #endif
