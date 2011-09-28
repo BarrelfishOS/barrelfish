@@ -36,17 +36,23 @@ static struct bcache_binding *waiting[NUM_BLOCKS];
 static void get_start_handler(struct bcache_binding *b, char *key, size_t key_len)
 {
     errval_t err;
-    bool haveit;
+    key_state_t ks;
     uintptr_t index, length = 0;
 
     assert(key > (char *)BASE_PAGE_SIZE);
 
-    haveit = cache_lookup(key, key_len, &index, &length);
+    ks = cache_lookup(key, key_len, &index, &length);
 
-    if(!haveit) {
-        index = cache_allocate(key, key_len);
-    } else {
+    if (ks == KEY_INTRANSIT) { // key is in transit: wait for it!
         free(key);
+        cache_register_wait(index, b);
+        return; // get_start_response() will be called when key arrives
+    } else if (ks == KEY_MISSING) {
+        index = cache_allocate(key, key_len);
+    } else if (ks == KEY_EXISTS) {
+        free(key);
+    } else {
+        assert(0);
     }
 
 #if 0
@@ -63,6 +69,7 @@ static void get_start_handler(struct bcache_binding *b, char *key, size_t key_le
     }
 #endif
 
+    bool haveit = (ks == KEY_EXISTS);
     err = b->tx_vtbl.get_start_response(b, NOP_CONT, index, haveit,
                                         haveit ? 1 : 0, length);
     if(err_is_fail(err)) {
@@ -87,9 +94,22 @@ static void get_stop_handler(struct bcache_binding *b, uint64_t transid,
     }
 #endif
 
+    /* notify issuer */
     err = b->tx_vtbl.get_stop_response(b, NOP_CONT);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_stop_response");
+    }
+
+    /* notify waiters */
+    if (transid == 0) {
+            struct bcache_binding *wb;
+            while ((wb = cache_get_next_waiter(index)) != NULL) {
+                uint64_t l = cache_get_block_length(index);
+                err = b->tx_vtbl.get_start_response(wb, NOP_CONT, index, true, 1, l);
+                if(err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "get_start_response");
+                }
+            }
     }
 }
 
