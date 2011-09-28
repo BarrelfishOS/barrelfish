@@ -174,7 +174,17 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {
-    return 1000;
+    uint64_t nr_free;
+    if (ether_transmit_index >= ether_transmit_bufptr) {
+        nr_free = TRANSMIT_BUFFERS -
+            ((ether_transmit_index - ether_transmit_bufptr) %
+                TRANSMIT_BUFFERS);
+    } else {
+        nr_free = (ether_transmit_bufptr - ether_transmit_index) %
+            TRANSMIT_BUFFERS;
+    }
+
+    return nr_free;
 } // end function: find_tx_queue_len
 
 static bool check_for_free_TX_buffer(void)

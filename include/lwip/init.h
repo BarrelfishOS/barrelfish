@@ -85,6 +85,7 @@ bool lwip_init_auto(void);
 void lwip_start_net_debug(uint8_t state);
 
 bool is_lwip_loaded(void);
+uint64_t lwip_packet_drop_count(void);
 
 #ifdef __cplusplus
 }

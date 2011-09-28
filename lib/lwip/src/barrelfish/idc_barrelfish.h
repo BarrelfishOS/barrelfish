@@ -50,6 +50,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p);
 void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index);
 void idc_get_mac_address(uint8_t *mac);
 int idc_check_capacity(int direction);
+uint64_t idc_check_driver_load(void);
+uint64_t idc_get_packet_drop_count(void);
+
 void idc_register_receive_callback(void (*f)
                                         (void*, uint64_t, uint64_t,
                                         uint64_t, uint64_t),

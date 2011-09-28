@@ -137,7 +137,19 @@ static void *lwip_rec_data;
  */
 static void (*lwip_free_handler)(struct pbuf *) = NULL;
 
+// Statistics about driver state
+static uint64_t pkt_dropped = 0; // pkts dropped by the driver
+static uint64_t driver_tx_slots_left = 0; // no. of free slots for TX
 
+uint64_t idc_check_driver_load(void)
+{
+    return driver_tx_slots_left;
+}
+
+uint64_t idc_get_packet_drop_count(void)
+{
+    return driver_tx_slots_left;
+}
 
 /*
  * @}
@@ -578,6 +590,12 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
     lwip_mutex_lock();
 
     // FIXME: use the slots_left and dropped info
+    if (dropped == 1) {
+        pkt_dropped = pkt_dropped + 1;
+    }
+
+    driver_tx_slots_left = slots_left;
+
 #if LWIP_TRACE_MODE
     /* FIXME: Need a way to find out the pbuf_id for this tx_done */
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AIR_R,

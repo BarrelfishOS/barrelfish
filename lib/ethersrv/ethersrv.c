@@ -395,8 +395,9 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 	r = ether_transmit_pbuf_list_ptr(closure);
 
 	if(err_is_fail(r)){
+                dropped_pkt_count++;
                 printf("Transmit_packet dropping %"PRIu64"\n",
-                        dropped_pkt_count++);
+                        dropped_pkt_count);
 		//if we have to drop the packet, we still need to send a tx_done
 		//to make sure that lwip frees the pbuf. If we drop it, the driver
 		//will never find it in the tx-ring from where the tx_dones

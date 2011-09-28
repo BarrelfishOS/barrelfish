@@ -465,6 +465,13 @@ void lwip_start_net_debug(uint8_t state)
 #define FREE_SLOT_THRESHOLD    100
 bool is_lwip_loaded(void)
 {
+    // Check for load on driver
+    uint64_t tx_slots_left = idc_check_driver_load();
+
+    if (tx_slots_left < FREE_SLOT_THRESHOLD) {
+        return true;
+    }
+
     int slots = idc_check_capacity(RECEIVE_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
 //        printf("Receive loaded: only %d slots left\n", slots);
@@ -478,3 +485,9 @@ bool is_lwip_loaded(void)
     }
     return false;
 }
+
+uint64_t lwip_packet_drop_count(void)
+{
+    return idc_get_packet_drop_count();
+} // end function: lwip_packet_drop_count
+
