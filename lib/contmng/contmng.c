@@ -100,19 +100,18 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
     qprintf(q, "enqueued");
 
     // If no continuations are running, then execute this one directly
-    if(q->running == 0){
 //    if (((q->tail + 1) % MAX_QUEUE_SIZE) == q->head) {
-    if(q->running == 0){
+    if (q->running == 0) {
         q->running = 1;
         qprintf(q, "directly-sending");
         cont_queue_send_next_message(q);
     }
     //otherwise continuation function will trigger sending next queue element
-} /* end function: enqueue_cont_q */
+} // end function: enqueue_cont_q
 
 
-/* called from continuation registered with flounder
-    WARN: should not be called directly */
+// called from continuation registered with flounder
+//    WARN: should not be called directly
 void cont_queue_callback(void *arg)
 {
     struct cont_queue *q = (struct cont_queue *)arg;
@@ -144,9 +143,7 @@ void cont_queue_send_next_message(struct cont_queue *q)
             qprintf(q, "sending:FLO-BUSY");
         } else {
             qprintf(q, "sending:FLO FAIL");
-            q->qelist[q->tail].history += 3;
             USER_PANIC_ERR(err, "cont_queue_send_next_message ");
-            q->qelist[q->tail].state += 3;
         }
     }
 } /* end function: cont_queue_send_next_message */

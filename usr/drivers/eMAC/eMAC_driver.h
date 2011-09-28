@@ -24,6 +24,6 @@
 
 errval_t transmit_pbuf_list(struct client_closure *cl);
 void eMAC_hwinit(uint8_t phy_id);
-void get_tx_free_slots_count(void);
+uint64_t get_tx_free_slots_count(void);
 
 #endif // _EMAC_DRIVER_H_

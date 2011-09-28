@@ -393,7 +393,7 @@ static uint64_t TX_pkt_counter = 0;
 
 // FIXME: dynamically calcluate this ring size
 #define eMAC_TX_RING_SIZE 1000
-void get_tx_free_slots_count(void)
+uint64_t get_tx_free_slots_count(void)
 {
     // FIXME: dynamically calcluate this ring size
     return eMAC_TX_RING_SIZE;
