@@ -87,7 +87,8 @@
 		    			      ("monitor_blocking", ["rpcclient"]),
                                               ("mem", ["rpcclient"]),
                                               ("nameservice", ["rpcclient"]),
-                                              ("spawn", ["rpcclient"])],
+                                              ("spawn", ["rpcclient"]),
+                                              ("serial", ["rpcclient"])],
                     addIncludes = [ "include", "include" ./. arch_dir ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }

@@ -272,7 +272,10 @@ mem_init(void)
   printf("@@@@@@ mem alloc %lx, %lx for index %d\n", MEM_SIZE_ALIGNED +
           (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT, bufsize, TX_BUFFER_ID);
 
+
+  printf("@@@@@@ before ram_heap\n");
   ram_heap = mem_barrelfish_alloc_and_register(1, bufsize);
+  printf("@@@@@@ after ram_heap\n");
 
   LWIP_ASSERT("Sanity check alignment",
     (SIZEOF_STRUCT_MEM & (MEM_ALIGNMENT-1)) == 0);
@@ -289,13 +292,15 @@ mem_init(void)
   ram_end->used = 1;
   ram_end->next = MEM_SIZE_ALIGNED;
   ram_end->prev = MEM_SIZE_ALIGNED;
-
+  printf("@@@@@ before mem_sem\n");
   mem_sem = sys_sem_new(1);
+  printf("@@@@@ after mem_sem\n");
 
   /* initialize the lowest-free pointer to the start of the heap */
   lfree = (struct mem *)ram;
 
-  MEM_STATS_AVAIL(avail, MEM_SIZE_ALIGNED);
+  printf("mem_init finished!\n");
+  MEM_STATS_AVAIL(avail, MEM_SIZE_ALIGNED);  
 }
 
 /**

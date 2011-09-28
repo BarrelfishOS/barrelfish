@@ -1,0 +1,11 @@
+.PHONY: all
+CC=gcc
+CFLAGS=-Wall -O2 -std=c99 -g -D_GNU_SOURCE #-DXDEBUG
+
+all: master slave
+
+master: hash.c master.c
+	$(CC) $(CFLAGS) $^ -o $@
+
+slave: hash.c slave.c
+	$(CC) $(CFLAGS) $^ -o $@

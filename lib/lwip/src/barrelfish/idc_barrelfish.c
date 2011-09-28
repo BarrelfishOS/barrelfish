@@ -57,6 +57,7 @@ static uint16_t (*alloc_udp_port)(void) = NULL;
 static uint16_t (*bind_port)(uint16_t port, netd_port_type_t type) = NULL;
 static void (*close_port)(uint16_t port, netd_port_type_t type) = NULL;
 
+static new_debug = 0;
 
 /*************************************************************//**
  * \defGroup LocalStates Local states
@@ -228,6 +229,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         struct q_entry entry;
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_transmit_request;
+        entry.fname = "send_transmit_request";
         struct ether_binding *b = buff_ptr->con;
         		// driver_connection[TRANSMIT_CONNECTION];
         /* FIXME: need better way of doing following */
@@ -243,7 +245,8 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q,
         		(uint32_t)entry.plist[4]);
 #endif // LWIP_TRACE_MODE
-
+		if(new_debug) printf("send_pkt: q len[%d]\n",
+ccnc->q->head - ccnc->q->tail);
         enqueue_cont_q(ccnc->q, &entry);
     }
     return 0;
@@ -268,10 +271,17 @@ static errval_t send_buffer_cap(struct q_entry e)
     	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_A_BUFC, 0);
 #endif // LWIP_TRACE_MODE
 */
-        return b->tx_vtbl.register_buffer(b,
+        printf("send_buffer_cap: sending register_buffer\n");
+        errval_t err = b->tx_vtbl.register_buffer(b,
             MKCONT(cont_queue_callback, ccnc->q),
                e.cap);
              /* cap */
+        if (err_is_fail(err)) {
+            printf("send_buffer_cap: failed\n");
+        } else {
+            printf("send_buffer_cap: success!!\n");
+        }
+        return err;
     } else {
     	LWIPBF_DEBUG("send_buffer_cap: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -286,9 +296,10 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
 	struct q_entry entry;
 
     LWIPBF_DEBUG("idc_register_buffer for binding %d called\n", binding_index);
-
-	memset(&entry, 0, sizeof(struct q_entry));
+    printf("idc_register_buffer for binding %d called\n", binding_index);
+    memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_buffer_cap;
+    entry.fname = "send_buffer_cap";
 
     struct ether_binding *b = driver_connection[binding_index];
     entry.binding_ptr = (void *)b;
@@ -296,13 +307,13 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
 
     /* put the buffer into client_closure_NC */
     if(ccnc->buff_ptr != NULL) {
-    	/* FIXME: this needs better error handing */
-    	LWIPBF_DEBUG("idc_register_buffer: one buffer is already registered\n");
-    	abort();
-    	/* On one channel, only one buffer is allowed to register.
-    	 * This restriction is not from the design, but the implementation.
-    	 * Specially the client_closure in network driver has only one pointer
-    	 * for storing the buffers related to it. */
+        /* FIXME: this needs better error handing */
+        printf("idc_register_buffer: one buffer is already registered\n");
+        abort();
+        /* On one channel, only one buffer is allowed to register.
+         * This restriction is not from the design, but the implementation.
+         * Specially the client_closure in network driver has only one pointer
+         * for storing the buffers related to it. */
     }
     buff_ptr->con = driver_connection[binding_index];
     ccnc->buff_ptr = buff_ptr;
@@ -310,7 +321,7 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
     enqueue_cont_q(ccnc->q, &entry);
 
     LWIPBF_DEBUG("idc_register_buffer: terminated\n");
-
+    printf("idc_register_buffer: terminated\n");
 }
 
 /**
@@ -349,6 +360,7 @@ void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len)
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_pbuf_request;
+    entry.fname = "send_pbuf_request";
     struct ether_binding *b = driver_connection[RECEIVE_CONNECTION];
 
     entry.binding_ptr = (void *)b;
@@ -439,6 +451,8 @@ void idc_print_statistics(void)
      struct q_entry entry;
      memset(&entry, 0, sizeof(struct q_entry));
      entry.handler = send_print_statistics_request;
+     entry.fname = "send_print_statistics_request";
+
      struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
 
      entry.binding_ptr = (void *)b;
@@ -472,6 +486,8 @@ void idc_print_cardinfo(void)
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_print_cardinfo_handler;
+    entry.fname = "send_print_cardinfo_handler";
+
     struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
 
     entry.binding_ptr = (void *)b;
@@ -488,7 +504,9 @@ static errval_t send_debug_status_request(struct q_entry e)
     struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
 
+printf("before Actually sending the debug msg\n");
     if (b->can_send(b)) {
+	printf("Actually sending the debug msg\n");
         return b->tx_vtbl.debug_status(b,
             MKCONT(cont_queue_callback, ccnc->q),
             (uint8_t)e.plist[0]);
@@ -502,18 +520,30 @@ static errval_t send_debug_status_request(struct q_entry e)
 void idc_debug_status(uint8_t state)
 {
      LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
+     printf("idc_debug_status:  called with status %x\n", state);
 
+	new_debug = state;
      struct q_entry entry;
      memset(&entry, 0, sizeof(struct q_entry));
      entry.handler = send_debug_status_request;
+     entry.fname = "send_debug_status_request";
      struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
      entry.binding_ptr = (void *)b;
      entry.plist[0] = state;
 
      struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+     printf("idc_debug_status: q size [%d]\n",
+             ccnc->q->head - ccnc->q->tail);
+     cont_queue_show_queue(ccnc->q);
      enqueue_cont_q(ccnc->q, &entry);
+     if (b->can_send(b)){
+         printf("idc_debug_status: can send packet right now!!\n");
+     } else {
+         printf("idc_debug_status: can't send packet, putting it in queue\n");
+     }
 
     LWIPBF_DEBUG("idc_debug_status: terminated\n");
+    printf("idc_debug_status: terminated\n");
 }
 
 
@@ -569,6 +599,9 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
     struct client_closure_NC *ccnc = (struct client_closure_NC *)st->st;
     ccnc->buff_ptr->buffer_id = buffer_id;
 //    assign_id_to_latest_buffer(buffer_id);
+    printf("[%d] new_buffer_id: buffer_id = %"PRIx64"\n",
+            disp_get_core_id(), buffer_id);
+
     LWIPBF_DEBUG("[%zu] new_buffer_id: buffer_id = %"PRIx64"\n",
             disp_get_core_id(), buffer_id);
     LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %"PRIx64"\n", buffer_id);
@@ -585,7 +618,8 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
         uint64_t slots_left, uint64_t dropped)
 {
     struct pbuf *done_pbuf = (struct pbuf *)(uintptr_t)client_data;
-/*    LWIPBF_DEBUG("tx_done: called\n");	*/
+
+	if (new_debug) printf("tx_done: called\n");
 
     lwip_mutex_lock();
 
@@ -603,7 +637,7 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
 
 #endif // LWIP_TRACE_MODE
 
-    LWIPBF_DEBUG("tx_done: %"PRIx64"\n", client_data);
+    if(new_debug) printf("tx_done: %"PRIx64"\n", client_data);
     if (lwip_free_handler != 0) {
         lwip_free_handler(done_pbuf);
     } else {
@@ -649,6 +683,8 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t)pbuf_id);
 #endif // LWIP_TRACE_MODE
 
+    if(new_debug) printf("%d.%d: packet_received: called paddr = %"PRIx64", len %"PRIx64"\n",
+	disp_get_core_id(), disp_get_domain_id(), paddr, pktlen);
     LWIPBF_DEBUG("packet_received: called\n");
 
     lwip_mutex_lock();
@@ -666,6 +702,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
         lwip_rec_handler(lwip_rec_data, pbuf_id, paddr, pbuf_len, pktlen);
     } else {
         LWIPBF_DEBUG("packet_received: no callback installed\n");
+        if(new_debug)("packet_received: no callback installed\n");
         //pbuf with received packet not consumed by lwip. It can be
         //reused as receive pbuf
         idc_register_pbuf(pbuf_id, paddr, pbuf_len);
@@ -841,6 +878,9 @@ static void start_client(char *card_name)
  *
  *****************************************************************/
 
+struct thread *trace_thread = NULL;
+void thread_debug_regs(struct thread *t);
+
 /**
  * \brief handle msgs on the tx, rx and then the rest connections in that priority
  */
@@ -853,6 +893,16 @@ void network_polling_loop(void)
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
+
+#if 0
+	if(trace_thread != NULL) {
+	  static int iter = 0;
+	  iter++;
+	  if(iter % 10 == 0) {
+	    thread_debug_regs(trace_thread);
+	  }
+	}
+#endif
     }
 }
 
@@ -905,8 +955,7 @@ void idc_connect_to_driver(char *card_name)
     conn_nr++;
 
     start_client(card_name);
-    /* FIXME: why there are two connections?
-        is it one for sending and one for receiving? */
+    /* one for sending and one for receiving */
     LWIPBF_DEBUG("idc_client_init: wait connection 1\n");
     while (!lwip_connected[conn_nr]) {
         messages_wait_and_handle_next();

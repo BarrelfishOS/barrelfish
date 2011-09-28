@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Realtek RTL8029(AS) driver.
+ * \brief Header file for ethersrv.h
  */
 
 /*
@@ -57,7 +57,7 @@ struct filter {
 };
 
 struct buffer_descriptor {
-	uint64_t buffer_id;
+    uint64_t buffer_id;
     struct ether_binding *con;
     struct capref cap;
     lpaddr_t pa;
@@ -180,5 +180,6 @@ bool copy_packet_to_user(struct buffer_descriptor* buffer,
 
 //debug
 void print_statistics(void);
+
 
 #endif // ETHERSRV_H

@@ -39,8 +39,8 @@ struct q_entry {
     uint64_t plist[MAX_PARAMS]; /* Assuming max parameters are MAX_PARAMS */
     struct capref cap;
     errval_t (*handler)(struct q_entry entry);
-    char *fname;    // for debugging: Name of the callback handler
-    int history;    // for debugging: To record the history of function which has touched this entry
+    char *fname;
+    int state;
 };
 
 struct cont_queue {

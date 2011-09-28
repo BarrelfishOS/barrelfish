@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "replay",
-  		      cFiles = [ "master.c" ],
+  		      cFiles = [ "master.c", "hash.c" ],
 		      flounderDefs = [ "replay" ],
 		      flounderBindings = [ "replay" ],
 		      addLibraries = [ "vfs", "nfs", "lwip", "contmng", "hashtable" ]

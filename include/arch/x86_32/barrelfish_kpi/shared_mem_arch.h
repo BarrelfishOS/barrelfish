@@ -18,11 +18,9 @@
 #ifdef __scc__
 #define SHARED_MEM_MIN          0x80000000
 #define SHARED_MEM_MAX          0xc0000000
-/* #define SHARED_MEM_MAX          0x84000000 */
 #define SHARED_MEM_SIZE         0x40000000
-/* #define SHARED_MEM_SIZE         0x4000000 */
-#define PERCORE_MEM_SIZE        0x1000000
-/* #define PERCORE_MEM_SIZE        0x100000 */
+// #define PERCORE_MEM_SIZE        0x1000000
+#define PERCORE_MEM_SIZE	0x4000000
 
 #define PRIVATE_MEM_MAX          0x27000000
 

@@ -20,7 +20,6 @@
 
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-//#include <if/ether_defs.h>
 
 #include <contmng/contmng.h>
 
@@ -58,6 +57,7 @@ struct cont_queue *create_cont_q(char *name)
         /* FIXME: introduce new error and return the error */
     }
     strncpy(ptr->name, name, 63);
+    ptr->running = 0;
     return ptr;
 }/* end function: create_cont_q */
 
@@ -89,9 +89,11 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
     q->qelist[q->head].binding_ptr = entry->binding_ptr;
     q->qelist[q->head].cap = entry->cap;
     q->qelist[q->head].handler = entry->handler;
-    q->qelist[q->head].history = 0;   // reset the history
+    q->qelist[q->head].state = 0;
+    q->qelist[q->head].fname = entry->fname;
+
     for(int i = 0; i < MAX_PARAMS; ++i) {
-    	q->qelist[q->head].plist[i] = entry->plist[i];
+        q->qelist[q->head].plist[i] = entry->plist[i];
     }
 
     q->head = (q->head + 1) % MAX_QUEUE_SIZE;
@@ -99,9 +101,9 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 
     // If no continuations are running, then execute this one directly
     if(q->running == 0){
+//    if (((q->tail + 1) % MAX_QUEUE_SIZE) == q->head) {
+    if(q->running == 0){
         q->running = 1;
-        q->qelist[q->head].history += 500; // For debugging: mark to trace the history
-        q->qelist[q->tail].history += 30; // For debugging: mark to trace the history
         qprintf(q, "directly-sending");
         cont_queue_send_next_message(q);
     }
@@ -117,7 +119,6 @@ void cont_queue_callback(void *arg)
 
     q->tail = (q->tail + 1) % MAX_QUEUE_SIZE;
     qprintf(q, "from-continuation");
-    q->qelist[q->tail].history += 100; // For debugging: mark to trace the history
     cont_queue_send_next_message(q);
 } /* end function: cont_queue_callback */
 
@@ -133,29 +134,26 @@ void cont_queue_send_next_message(struct cont_queue *q)
 
     if(q->head == q->tail){
         qprintf(q, "Queue-empty-Recursion-End!!");
-        q->qelist[q->tail].history += 1;
         q->running = 0;
         return;
     }
 
     errval_t err = q->qelist[q->tail].handler(q->qelist[q->tail]);
-    q->qelist[q->tail].history += 4;
     if (err_is_fail(err)) {
         if (err == FLOUNDER_ERR_TX_BUSY ) {
             qprintf(q, "sending:FLO-BUSY");
-            q->qelist[q->tail].history += 2;
         } else {
             qprintf(q, "sending:FLO FAIL");
             q->qelist[q->tail].history += 3;
             USER_PANIC_ERR(err, "cont_queue_send_next_message ");
+            q->qelist[q->tail].state += 3;
         }
     }
 } /* end function: cont_queue_send_next_message */
 
-// Function to show the content of the queue.
-// Note: It is to be used only for debug purposes.
 void cont_queue_show_queue(struct cont_queue *q)
 {
+/*
     int i = 0;
     int index = 0;
     int len = 0;
@@ -165,7 +163,7 @@ void cont_queue_show_queue(struct cont_queue *q)
     index = q->tail;
     while (index != q->head){
         printf("elem %d: [%s], state %u\n", index, q->qelist[index].fname,
-                q->qelist[index].history);
+                q->qelist[index].state);
         index = (index + 1) % MAX_QUEUE_SIZE;
     }
 
@@ -177,8 +175,10 @@ void cont_queue_show_queue(struct cont_queue *q)
             index = MAX_QUEUE_SIZE - 1;
         }
         printf("elem %d: [%s], state %d\n", index, q->qelist[index].fname,
-                q->qelist[index].history);
+                q->qelist[index].state);
+
     }
+*/
 } // end function: cont_queue_show_queue
 
 

@@ -589,6 +589,7 @@ static void realinit(void)
     tcp_arg(pcb, pcb);
     tcp_accept(pcb, http_server_accept);
     printf("HTTP setup time %"PRIu64"\n", get_time_delta(&last_ts));
+    printf("HTTP setup time %"PRIu64"\n", get_time_delta(&last_ts));
     printf("Starting webserver\n");
 }
 
