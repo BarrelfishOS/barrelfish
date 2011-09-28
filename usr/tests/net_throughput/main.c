@@ -28,6 +28,7 @@
 #define DIRNAME   "/nfs"
 #define FILENAME   "/nfs/pravin/testfile.txt"
 #define MAX_DATA   (1330 * 8)
+//#define MAX_DATA   (1U << 12)
 int main(int argc, char**argv)
 {
 
@@ -73,7 +74,7 @@ int main(int argc, char**argv)
     uint64_t stop = rdtsc();
     /* FIXME: record stop time */
     printf("######## Everythin done\n");
-    printf("Data size = %"PRIu64",  Processing time %"PRIu64"\n", 
+    printf("Data size = %"PRIu64",  Processing time %"PRIu64"\n",
            total_size, (stop - start));
 
     struct waitset *ws = get_default_waitset();

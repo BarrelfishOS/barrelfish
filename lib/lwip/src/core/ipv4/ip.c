@@ -1,7 +1,7 @@
 /**
  * @file
  * This is the IPv4 layer implementation for incoming and outgoing IP traffic.
- * 
+ *
  * @see ip_frag.c
  *
  */
@@ -207,7 +207,7 @@ ip_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
  * forwarded (using ip_forward). The IP checksum is always checked.
  *
  * Finally, the packet is sent to the upper layer protocol input function.
- * 
+ *
  * @param p the received IP packet (p->payload points to IP header)
  * @param inp the netif on which this packet was received
  * @return ERR_OK if the packet was processed (could return ERR_* if it wasn't
@@ -569,6 +569,7 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
 
       IP_STATS_INC(ip.err);
       snmp_inc_ipoutdiscards();
+    printf("netif->output() %d\n", __LINE__);
       return ERR_BUF;
     }
 
@@ -605,8 +606,9 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
 
 #if IP_FRAG
   /* don't fragment if interface has mtu set to 0 [loopif] */
-  if (netif->mtu && (p->tot_len > netif->mtu))
+  if (netif->mtu && (p->tot_len > netif->mtu)) {
     return ip_frag(p,netif,dest);
+  }
 #endif
 
   IP_STATS_INC(ip.xmit);
@@ -618,13 +620,11 @@ err_t ip_output_if_opt(struct pbuf *p, struct ip_addr *src, struct ip_addr *dest
   if (ip_addr_cmp(dest, &netif->ip_addr)) {
     /* Packet to self, enqueue it for loopback */
     LWIP_DEBUGF(IP_DEBUG, ("netif_loop_output()"));
-
     return netif_loop_output(netif, p, dest);
   } else
 #endif /* (LWIP_NETIF_LOOPBACK || LWIP_HAVE_LOOPIF) */
   {
     LWIP_DEBUGF(IP_DEBUG, ("netif->output()"));
-
     return netif->output(netif, p, dest);
   }
 }

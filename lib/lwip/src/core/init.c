@@ -247,7 +247,7 @@ lwip_sanity_check(void)
 
 static int is_ctl = 0;
 
-static void 
+static void
 remaining_lwip_initialization(char *card_name)
 {
     //asq: connect to the NIC driver, before doing anything else
@@ -425,7 +425,7 @@ bool lwip_init(const char *card_name)
 /**
  * Figure out the best NIC card to connect and initialize library network stack.
  */
-bool lwip_init_auto_ex(struct waitset *opt_waitset, 
+bool lwip_init_auto_ex(struct waitset *opt_waitset,
                        struct thread_mutex *opt_mutex)
 {
     char *card_name = NULL;
@@ -444,13 +444,13 @@ bool lwip_init_auto_ex(struct waitset *opt_waitset,
     snprintf(cid, sizeof(cid), "eMAC2_%u", disp_get_core_id());
     card_name = cid;
 #endif // __scc__
-        
+
         return lwip_init_ex(card_name, opt_waitset, opt_mutex);
 } // end function: lwip_init_auto_ex
 
 
 /**
- * 
+ *
  */
 bool lwip_init_auto(void)
 {
@@ -462,3 +462,19 @@ void lwip_start_net_debug(uint8_t state)
     idc_debug_status(state);
 } // end function: lwip_start_net_debug
 
+#define FREE_SLOT_THRESHOLD    100
+bool is_lwip_loaded(void)
+{
+    int slots = idc_check_capacity(RECEIVE_CONNECTION);
+    if (slots < FREE_SLOT_THRESHOLD) {
+//        printf("Receive loaded: only %d slots left\n", slots);
+        return true;
+    }
+
+    slots = idc_check_capacity(TRANSMIT_CONNECTION);
+    if (slots < FREE_SLOT_THRESHOLD) {
+//        printf("Transmit loaded: only %d slots left\n", slots);
+        return true;
+    }
+    return false;
+}

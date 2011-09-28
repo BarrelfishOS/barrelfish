@@ -20,6 +20,18 @@
 #include <barrelfish/barrelfish.h>
 #include <lwip/ip_addr.h>
 
+/**
+ * \brief Receive and transmit sides
+ *
+ * The link to the network driver is composed by two distinct
+ * channel. We identify these channels thanks to the following
+ * constants.
+ *
+ */
+#define RECEIVE_CONNECTION 0
+#define TRANSMIT_CONNECTION 1
+
+
 struct buffer_desc {
     struct capref cap;
     struct ether_binding *con;
@@ -37,6 +49,7 @@ void idc_connect_to_driver(char *card_name);
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p);
 void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index);
 void idc_get_mac_address(uint8_t *mac);
+int idc_check_capacity(int direction);
 void idc_register_receive_callback(void (*f)
                                         (void*, uint64_t, uint64_t,
                                         uint64_t, uint64_t),
@@ -57,7 +70,7 @@ void idc_just_to_test(void);
 void idc_get_ip(void);
 err_t idc_tcp_new_port(uint16_t *port_no);
 err_t idc_udp_new_port(uint16_t *port_no);
-err_t idc_redirect_tcp(struct ip_addr *local_ip, 
+err_t idc_redirect_tcp(struct ip_addr *local_ip,
                    uint16_t local_port, struct ip_addr *remote_ip,
                    uint16_t remote_port);
 err_t idc_close_udp_port(uint16_t port);

@@ -172,6 +172,11 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 	return SYS_ERR_OK;
 }
 
+static uint64_t find_tx_free_slot_count_fn(void)
+{
+    return 1000;
+} // end function: find_tx_queue_len
+
 static bool check_for_free_TX_buffer(void)
 {
     bool sent = false;
@@ -185,7 +190,8 @@ static bool check_for_free_TX_buffer(void)
         if (tx_pbuf[ether_transmit_bufptr].last == true) {
 
         	sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
-        			tx_pbuf[ether_transmit_bufptr].client_data);
+        			tx_pbuf[ether_transmit_bufptr].client_data,
+                                find_tx_free_slot_count_fn(), 0);
         }
         ether_transmit_bufptr = (ether_transmit_bufptr + 1) % TRANSMIT_BUFFERS;
     }
@@ -405,7 +411,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
     ethersrv_init(global_service_name, get_mac_address_fn,
-				transmit_pbuf_list_fn);
+		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn);
 }
 
 

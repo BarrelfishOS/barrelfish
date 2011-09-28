@@ -56,7 +56,6 @@ static void get_mac_address_fn(uint8_t *mac)
     }
 }
 
-
 static void EMAC_init(uint8_t phy_id, char *service_name)
 {
 
@@ -66,7 +65,8 @@ static void EMAC_init(uint8_t phy_id, char *service_name)
     EMAC_DEBUG("Done with hardware init\n");
 
     ethersrv_init(service_name, get_mac_address_fn,
-            EMAC_send_ethernet_packet_fn);
+            EMAC_send_ethernet_packet_fn,
+            get_tx_free_slots_count);
 }
 
 

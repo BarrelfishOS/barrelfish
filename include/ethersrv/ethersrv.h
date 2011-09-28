@@ -149,18 +149,21 @@ struct client_closure {
 typedef void (*ether_get_mac_address_t)(uint8_t *mac);
 
 typedef errval_t (*ether_transmit_pbuf_list_t)(struct client_closure *closure);
+typedef uint64_t (*ether_get_tx_free_slots)(void);
 
 
 /***************************************************************************/
 void ethersrv_init(char *service_name,
 		ether_get_mac_address_t get_mac_ptr,
-		ether_transmit_pbuf_list_t transmit_ptr);
+		ether_transmit_pbuf_list_t transmit_ptr,
+                ether_get_tx_free_slots tx_free_slots_ptr);
 
 bool waiting_for_netd(void);
 
 
-bool notify_client_free_tx(struct ether_binding *b, uint64_t client_data);
-
+bool notify_client_free_tx(struct ether_binding *b,
+        uint64_t client_data, uint64_t slots_left,
+        uint64_t dropped);
 
 void process_received_packet(void *pkt_data, size_t pkt_len);
 

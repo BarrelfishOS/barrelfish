@@ -17,7 +17,7 @@
 
 
 #ifndef CONTMNG_H_
-#define CONTMNG_H_ 
+#define CONTMNG_H_
 #include <stdio.h>
 
 /*********************************************************************/
@@ -57,6 +57,7 @@ struct cont_queue *create_cont_q(char *name);
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry);
 void cont_queue_callback(void *arg);
 void cont_queue_show_queue(struct cont_queue *q);
+int queue_free_slots(struct cont_queue *q);
 
 void show_binary_blob (void *data, int len);
 

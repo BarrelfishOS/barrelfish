@@ -45,7 +45,8 @@ static void qprintf (struct cont_queue *q, char *msg)
 
 }
 
-/* allocates the memory for continuation queue 
+
+/* allocates the memory for continuation queue
     It includes the memory for MAX_QUEUE_SIZE of elements also */
 struct cont_queue *create_cont_q(char *name)
 {
@@ -59,6 +60,19 @@ struct cont_queue *create_cont_q(char *name)
     strncpy(ptr->name, name, 63);
     return ptr;
 }/* end function: create_cont_q */
+
+/* Tells if queue has enough space to add more events,
+ * or if the producer should pause for a while */
+int queue_free_slots(struct cont_queue *q)
+{
+    if (((q->head + 1) % MAX_QUEUE_SIZE) > q->tail) {
+        return (MAX_QUEUE_SIZE -
+                    (((q->head + 1) % MAX_QUEUE_SIZE) - q->tail)
+               );
+    } else {
+        return q->tail - ((q->head + 1) % MAX_QUEUE_SIZE);
+    }
+} // end function
 
 
 /* Adds element to the queue */
@@ -95,7 +109,7 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 } /* end function: enqueue_cont_q */
 
 
-/* called from continuation registered with flounder 
+/* called from continuation registered with flounder
     WARN: should not be called directly */
 void cont_queue_callback(void *arg)
 {
@@ -108,7 +122,7 @@ void cont_queue_callback(void *arg)
 } /* end function: cont_queue_callback */
 
 
-/* Sends the top of queue msg 
+/* Sends the top of queue msg
     NOTE: this function does not increment the tail.  It calls handler,
         which registers "cont_queue_callback" as callback with flounder,
         and that callback function increments the tail!!!

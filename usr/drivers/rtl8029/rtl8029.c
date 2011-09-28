@@ -252,6 +252,13 @@ static inline void print_config(void)
     printf("%s", str);
 }
 
+#define RTL_TX_RING_SIZE   1000
+static uint64_t
+rtl_tx_slots_count_fn(void)
+{
+    return RTL_TX_RING_SIZE;
+}
+
 
 /**
  * \brief Send Ethernet packet.
@@ -286,7 +293,8 @@ static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
 
     // Tell the client we sent them!!!
     for (int i = 0; i < cl->rtpbuf; i++) {
-        notify_client_free_tx(cl->app_connection, cl->pbuf[i].client_data);
+        notify_client_free_tx(cl->app_connection,
+                cl->pbuf[i].client_data, RTL_TX_RING_SIZE, 0);
     }
 
     return SYS_ERR_OK;
@@ -553,7 +561,8 @@ static void rtl8029_init(void)
 	RTL8029_DEBUG("Done with hardware init\n");
 
 	ethersrv_init(service_name, get_mac_address_fn,
-			rtl8029_send_ethernet_packet_fn);
+			rtl8029_send_ethernet_packet_fn,
+                        rtl_tx_slots_count_fn);
 }
 
 /**

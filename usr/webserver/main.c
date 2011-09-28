@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007-11 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -42,7 +42,7 @@ int main(int argc, char**argv)
 
     struct in_addr server1;
     if (inet_aton(argv[2], &server1) == 0) {
-        printf("Invalid IP addr: %s\n", argv[1]);
+        printf("Invalid IP addr: %s\n", argv[2]);
         return 1;
     }
     serverip.addr = server1.s_addr; // XXX

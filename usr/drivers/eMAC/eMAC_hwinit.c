@@ -391,6 +391,14 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
 
 static uint64_t TX_pkt_counter = 0;
 
+// FIXME: dynamically calcluate this ring size
+#define eMAC_TX_RING_SIZE 1000
+void get_tx_free_slots_count(void)
+{
+    // FIXME: dynamically calcluate this ring size
+    return eMAC_TX_RING_SIZE;
+}
+
 errval_t transmit_pbuf_list(struct client_closure *cl)
 {
     uint8_t *addr = NULL;
@@ -535,8 +543,10 @@ again:
 
     // Tell the client we sent them!!!
     for (int i = 0; i < cl->rtpbuf; i++) {
-        notify_client_free_tx(cl->app_connection, cl->pbuf[i].client_data);
-    }
+        notify_client_free_tx(cl->app_connection,
+                cl->pbuf[i].client_data,  get_tx_free_slots_count(),
+                0);
+    } // end for:
 
 
 #if TRACE_ETHERSRV_MODE

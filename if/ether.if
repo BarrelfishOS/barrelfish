@@ -16,7 +16,8 @@ interface ether "Generic Ethernet Driver" {
                          uint64 len,
                          uint64 offset,
                          uint64 client_data);
-    response tx_done(uint64 client_data);
+    response tx_done(uint64 client_data, uint64 slots_left,
+                     uint64 dropped);
 
     call get_mac_address();
     response get_mac_address_response(uint64 hwaddr);
@@ -32,7 +33,7 @@ interface ether "Generic Ethernet Driver" {
     call metadata_size_request();
     response metadata_size(uint64 size);
 
-    call register_metadata_mem(uint64 buffer_id, 
+    call register_metadata_mem(uint64 buffer_id,
 			       cap mem);
     response registered_metadata_mem(errval_t err,
 				     uint64 buffer_id);

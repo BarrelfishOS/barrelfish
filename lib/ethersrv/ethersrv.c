@@ -57,7 +57,8 @@ static int debug_state = 0;
 #define NETD_BUF_NR 2
 static struct ether_binding *netd[NETD_BUF_NR];
 
-
+// Counter for dropped packets
+static uint64_t dropped_pkt_count = 0;
 /*****************************************************************
  * Prototypes
  *****************************************************************/
@@ -120,6 +121,7 @@ static struct ether_control_rx_vtbl rx_ether_control_vtbl = {
 static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
 //static ether_can_transmit_t ether_can_transmit_ptr = NULL;
 static ether_transmit_pbuf_list_t ether_transmit_pbuf_list_ptr = NULL;
+static ether_get_tx_free_slots tx_free_slots_fn_ptr = NULL;
 
 /*****************************************************************
  * Local states:
@@ -359,6 +361,8 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 		closure->len = 0;
 	}
 	closure->pbuf[closure->rtpbuf].buffer_id = buffer_id;
+	closure->pbuf[closure->rtpbuf].sr = cc;
+	closure->pbuf[closure->rtpbuf].cc = closure;
 	closure->pbuf[closure->rtpbuf].len = len;
 	closure->pbuf[closure->rtpbuf].offset = offset;
 	closure->pbuf[closure->rtpbuf].client_data = client_data;
@@ -391,21 +395,26 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 	r = ether_transmit_pbuf_list_ptr(closure);
 
 	if(err_is_fail(r)){
-
+                printf("Transmit_packet dropping %"PRIu64"\n",
+                        dropped_pkt_count++);
 		//if we have to drop the packet, we still need to send a tx_done
 		//to make sure that lwip frees the pbuf. If we drop it, the driver
 		//will never find it in the tx-ring from where the tx_dones
 		//are usually sent
 
-	    if(closure->debug_state) ethersrv_debug_printf(
-				"###transmit_packet dropping the packet buff_id %" PRIu64 "\n",
+	    if(closure->debug_state)
+                ethersrv_debug_printf(
+                        "###transmit_packet dropping the packet"
+                        " buff_id %" PRIu64 "\n",
 				closure->buffer_ptr->buffer_id);
 		/* BIG FIXME: This should free all the pbufs and not just pbuf[0].
 		 * Also, is it certain that all packets start with pbuf[0]??
 		 * Mostly this will lead to re-write of bulk-transfer mode.  */
 
+                assert(closure->pbuf[0].sr);
 		notify_client_free_tx(closure->pbuf[0].sr,
-				closure->pbuf[0].client_data);
+				closure->pbuf[0].client_data,
+                                tx_free_slots_fn_ptr(), 1);
 	}
 	//reset to indicate that a new packet will start
 	closure->nr_transmit_pbufs = 0;
@@ -509,7 +518,7 @@ static void error_handler(struct ether_binding *b, errval_t err)
 		struct buffer_descriptor *buffer = cc->buffer_ptr;
 		assert(buffer != NULL);
 		free(buffer);
-		free(cc);	
+		free(cc);
 	}
 	ETHERSRV_DEBUG("ether service error_handler: terminated\n");
 }
@@ -618,7 +627,8 @@ static errval_t connect_ether_control_cb(void *st,
  ****************************************************************/
 void ethersrv_init(char *service_name,
 		ether_get_mac_address_t get_mac_ptr,
-		ether_transmit_pbuf_list_t transmit_ptr)
+		ether_transmit_pbuf_list_t transmit_ptr,
+                ether_get_tx_free_slots tx_free_slots_ptr)
 {
 	errval_t err;
 
@@ -626,9 +636,11 @@ void ethersrv_init(char *service_name,
 	assert(service_name != NULL);
 	assert(get_mac_ptr != NULL);
 	assert(transmit_ptr != NULL);
+	assert(tx_free_slots_ptr != NULL);
 
 	ether_get_mac_address_ptr = get_mac_ptr;
 	ether_transmit_pbuf_list_ptr  = transmit_ptr;
+        tx_free_slots_fn_ptr = tx_free_slots_ptr;
 
 	my_service_name = service_name;
 
@@ -1315,29 +1327,34 @@ static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 
 
 /****************** Functions copied from e1000n.c *************************/
-static errval_t send_tx_done_handler(struct q_entry entry)
+static errval_t send_tx_done_handler(struct q_entry e)
 {
 //    ETHERSRV_DEBUG("send_tx_done_handler -----\n");
-    struct ether_binding *b = (struct ether_binding *)entry.binding_ptr;
+    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
     struct client_closure *ccl = (struct client_closure*)b->st;
     if (b->can_send(b)) {
         return b->tx_vtbl.tx_done(b, MKCONT(cont_queue_callback, ccl->q),
-                            entry.plist[0]);
+                          e.plist[0],    e.plist[1],   e.plist[2]);
+                        //  client_data,   slots_left, dropped
     } else {
         ETHERSRV_DEBUG("send_tx_done_handler Flounder busy.. retry --------\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
-
 }
 
-bool notify_client_free_tx(struct ether_binding *b, uint64_t client_data)
+bool notify_client_free_tx(struct ether_binding *b,
+        uint64_t client_data, uint64_t slots_left, uint64_t dropped)
 {
+        assert(b != NULL);
 	struct q_entry entry;
 	memset(&entry, 0, sizeof(struct q_entry));
 	entry.handler = send_tx_done_handler;
 	entry.binding_ptr = (void *)b;
 	struct client_closure *cc = (struct client_closure *)b->st;
 	entry.plist[0] = client_data;
+        // FIXME: Get the remaining slots value from the driver
+        entry.plist[1] = slots_left;
+        entry.plist[2] = dropped;
 	enqueue_cont_q(cc->q, &entry);
 	return true;
 }
@@ -1443,7 +1460,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     if(len <= 0 || data == NULL) {
             	ETHERSRV_DEBUG("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"PRIu64" and ptr [%p]\n",
                disp_get_core_id(), len, data);
-       
+
 //        abort();
 
     	return false;
