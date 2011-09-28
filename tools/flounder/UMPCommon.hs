@@ -533,6 +533,11 @@ change_waitset_fn_def p ifn =
         localvar (C.TypeName "errval_t") "err" Nothing,
         C.SBlank,
 
+        C.SComment "Migrate register and TX continuation notifications",
+        C.Ex $ C.Call "flounder_support_migrate_notify" [register_chanstate, C.Variable "ws"],
+        C.Ex $ C.Call "flounder_support_migrate_notify" [tx_cont_chanstate, C.Variable "ws"],
+        C.SBlank,
+
         C.SComment "change waitset on private monitor binding if we have one",
         C.If (C.Binary C.NotEquals (chanvar `C.FieldOf` "monitor_binding") (C.Call "get_monitor_binding" []))
             [C.Ex $ C.Assignment errvar $
@@ -551,25 +556,15 @@ change_waitset_fn_def p ifn =
             (C.Variable "ws"),
         C.SBlank,
 
-        C.SComment "re-register for receive (if previously registered)",
-        C.StmtList $ ump_deregister_recv p ifn,
-        C.If (C.Binary C.And
-                (C.Call "err_is_fail" [errvar])
-                (C.Binary C.NotEquals (C.Call "err_no" [errvar])
-                                    (C.Variable "LIB_ERR_CHAN_NOT_REGISTERED")))
-            [C.Return $
-               C.Call "err_push" [errvar, C.Variable "LIB_ERR_CHAN_DEREGISTER_RECV"]]
-            [],
-        C.If (C.Call "err_is_ok" [errvar]) [
-            C.StmtList $ ump_register_recv p ifn,
-            C.If (C.Call "err_is_fail" [errvar])
-                [C.Return $
-                    C.Call "err_push" [errvar, C.Variable "LIB_ERR_CHAN_REGISTER_RECV"]]
-                []
-            ] [],
+        C.SComment "Migrate send and receive notifications",
+        C.Ex $ C.Call "ump_chan_migrate_recv" [chanaddr, C.Variable "ws"],
+        C.SBlank,
+
         C.Return $ C.Variable "SYS_ERR_OK"
     ]
     where
+        register_chanstate = C.AddressOf $ C.DerefField bindvar "register_chanstate"
+        tx_cont_chanstate = C.AddressOf $ C.DerefField bindvar "tx_cont_chanstate"
         chanvar = my_bindvar `C.DerefField` "ump_state" `C.FieldOf` "chan"
         chanaddr = C.AddressOf $ chanvar
         params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var,
