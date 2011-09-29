@@ -100,9 +100,6 @@ static struct {
     int num_slaves;
     int num_finished;
     struct slave slaves[MAX_SLAVES];
-#ifdef __linux__
-    struct pollfd pfds[MAX_SLAVES];
-#endif
 } SlState;
 
 //struct qelem {
@@ -375,6 +372,7 @@ parse_tracefile_line(char *line, int linen, struct trace_entry *te)
 
         // There's always a PID
         te->pid = pid;
+        assert(pid != 0);
         te->fline = linen;
 
         // If we have flags, set them now
@@ -572,6 +570,8 @@ mk_replay_event_req(struct trace_entry *te, replay_eventrec_t *req)
         assert(0);
         break;
     }
+
+    assert(req->pid != 0);
 }
 
 
@@ -596,7 +596,7 @@ trace_bufs_init(struct task_graph *tg)
             mk_replay_event_req(te, pe->tes + ti);
             te = te->next;
         }
-        assert(te == NULL);
+        assert(te == NULL); // make sure the count is right!
     }
 }
 
@@ -687,8 +687,8 @@ int main(int argc, char *argv[])
                 if (sl->pe == NULL) {
                     continue; /* no more tasks in the stack */
                 }
-                dmsg("[MASTER] assigned pid:%d to sl:%d (stack_nr:%d completed:%d total:%d)\n",
-                      sl->pe->pid, sid, TG.stack_nr, TG.pes_completed, TG.pes_nr);
+                dmsg("[MASTER] assigned pid:%d to sl:%d (stack_nr:%d completed:%d total:%d bytes:%zd)\n",
+                      sl->pe->pid, sid, TG.stack_nr, TG.pes_completed, TG.pes_nr, sl->pe->tes_size);
                 sl->pe->sl = sl;
                 slave_push_work(sl);
             }
@@ -867,58 +867,32 @@ slaves_finalize(void)
 static void
 master_process_reqs(void)
 {
-    static struct timespec t = {.tv_sec = 0, .tv_nsec = 0};
-
-    int ret = ppoll(SlState.pfds, SlState.num_slaves, &t, NULL);
-    if (ret == 0) {
-        return; // timeout -- no available fds
-    } else if (ret < 0) {
-        perror("ppol");
-        exit(1);
-    }
-
+    uint16_t rpid;
     // read from available fds
     for (int i=0; i<SlState.num_slaves; i++) {
-        struct pollfd *pfd = SlState.pfds + i;
-        if (pfd->revents & POLLIN) {
-            uint16_t rpid;
-            struct slave *sl = SlState.slaves + i;
-            int r = recv(sl->socket, &rpid, sizeof(rpid), MSG_DONTWAIT);
-            assert(r == sizeof(rpid));
-            assert(rpid == sl->pe->pid);
-            tg_complete(&TG, sl->pe);
-            sl->pe = NULL;
-            sl->sentbytes = 0;
+        struct slave *sl = SlState.slaves + i;
 
-            if (--ret == 0) {
-                break;
-            }
-        #if 0 /* debug unexpected events */
-        } else if (pfd->revents & POLLPRI) {
-            assert(0);
-        } else if (pfd->revents & POLLRDNORM) {
-            assert(0);
-        } else if (pfd->revents & POLLRDBAND) {
-            assert(0);
-        } else if (pfd->revents & POLLWRNORM) {
-            assert(0);
-        } else if (pfd->revents & POLLWRNORM) {
-            assert(0);
-        } else if (pfd->revents & POLLOUT) {
-            assert(0);
-        } else if (pfd->revents & POLLRDHUP) {
-            assert(0);
-        } else if (pfd->revents & POLLERR) {
-            assert(0);
-        } else if (pfd->revents & POLLHUP) {
-            assert(0);
-        } else if (pfd->revents & POLLNVAL) {
-            assert(0);
-        #endif
-        } else if (pfd->revents != 0) {
-            assert(0);
+        if (sl->pe == NULL) {
+            continue;
         }
 
+        /* first check if we need to send more data to the slave
+         * (main loop will only call slave_push_work() once) */
+         if (sl->pe->tes_size > sl->sentbytes) {
+            slave_push_work(sl);
+         }
+
+        int r = recv(sl->socket, &rpid, sizeof(rpid), MSG_DONTWAIT);
+        if (r == -1) {
+            assert(errno == EWOULDBLOCK || errno == EAGAIN);
+            continue; /* no data here, move on */
+        }
+        /* slave is done with task */
+        assert(r == sizeof(rpid));
+        assert(rpid == sl->pe->pid);
+        tg_complete(&TG, sl->pe);
+        sl->pe = NULL;
+        sl->sentbytes = 0;
     }
 }
 
@@ -935,7 +909,6 @@ slaves_connect(struct task_graph *tg)
     for(int i = 0; i < SlState.num_slaves; i++) {
         int ret;
         struct slave *sl = &SlState.slaves[i];
-        struct pollfd *pfd = SlState.pfds + i;
 
         sl->socket = socket(AF_INET, SOCK_STREAM, 0);
         if (sl->socket == -1) {
@@ -983,8 +956,13 @@ slaves_connect(struct task_graph *tg)
         }
 
         sl->sentbytes = 0;
-        pfd->fd = sl->socket;
-        pfd->events = POLLIN;
+        #if 0 /* do a recv with MSG_DONTWAIT */
+        /* set non-blocking flag */
+        int sock_fl = fcntl(sl->socket, F_GETFD);
+        sock_fl |= O_NONBLOCK;
+        sock_fl = fcntl(sl->socket, F_SETFD, sock_fl);
+        assert(sock_fl & O_NONBLOCK);
+        #endif
     }
 }
 #endif
