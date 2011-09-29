@@ -316,7 +316,10 @@ static void handle_new_task(struct replay_binding *b, uint64_t bulk_id, uint32_t
     tes_nr = tes_size / sizeof(replay_eventrec_t);
     assert(tes_size % sizeof(replay_eventrec_t) == 0);
 
-    assert(tes->op == TOP_Open);
+    if (tes->op != TOP_Open && tes->op != TOP_Create) {
+        msg("ABORTING: task with pid:%d starts with op:%d\n", tes->pid, tes->op);
+        assert(false);
+    }
     pid = tes->pid;
     for (size_t i=0; i<tes_nr; i++) {
         replay_eventrec_t *er = tes + i;
