@@ -244,6 +244,16 @@ do_handle_event(replay_eventrec_t *er)
         break;
     }
 
+    case TOP_Seek: {
+        FILE *fptr = fd2fptr[er->fd];
+        assert(fptr != NULL);
+        int ret = fseek(fptr, er->fnumsize, SEEK_SET);
+        if (ret != 0) {
+            msg("[S] op_id:%d er->fnumsize:%u, seek:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+        }
+        break;
+    }
+
     case TOP_Close: {
         FILE *fptr = fd2fptr[er->fd];
         assert(fptr != NULL);

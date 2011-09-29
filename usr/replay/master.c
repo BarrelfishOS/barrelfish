@@ -356,6 +356,10 @@ parse_tracefile_line(char *line, int linen, struct trace_entry *te)
             te->op = TOP_Write;
             te->fd = fd;
             te->u.size = size;
+        } else if(sscanf(line, "seek %d %zu %u", &fd, &size, &pid) >= 3) {
+            te->op = TOP_Seek;
+            te->fd = fd;
+            te->u.size = size;
         } else if(sscanf(line, "creat %zu %s %d %u", &fnum, flags, &fd, &pid) >= 4) {
             te->op = TOP_Create;
             te->fd = fd;
@@ -559,6 +563,7 @@ mk_replay_event_req(struct trace_entry *te, replay_eventrec_t *req)
 
     case TOP_Read:
     case TOP_Write:
+    case TOP_Seek:
         req->fnumsize = te->u.size;
         break;
 
