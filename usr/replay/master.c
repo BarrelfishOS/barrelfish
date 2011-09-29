@@ -31,7 +31,7 @@ static const char vfs_cache_str[] = "linux (TCP/IP)";
 #define MAX_LINE        1024
 #define MAX_SLAVES      64
 #define MAX_DEPS        60
-#define BULK_BLOCK_SIZE (4096*16)
+#define BULK_BLOCK_SIZE (4096*256) // 1MiB
 #define BULK_BLOCKS_NR  1
 #define BULK_TOTAL_SIZE (BULK_BLOCK_SIZE*BULK_BLOCKS_NR)
 

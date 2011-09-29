@@ -51,7 +51,7 @@ static int connsock = -1;
 #endif
 
 #define MAX_FD_CONV     256
-#define MAX_DATA        (1 * 1024 * 1024)
+#define MAX_DATA        (2 * 1024 * 1024)
 
 //static int pidconv[MAX_PIDS] = { 0 };
 //static FILE *fdconv[MAX_PIDS][MAX_FD_CONV];
