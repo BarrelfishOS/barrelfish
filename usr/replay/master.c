@@ -847,16 +847,21 @@ slaves_connect(struct task_graph *tg)
 static void
 slave_push_work(struct slave *sl)
 {
-    int ret;
+    ssize_t ret;
 
     assert(sl->pe != NULL);
     assert(sl->pe->tes_size > sl->sentbytes);
 
-    ret = send(sl->socket, sl->pe->tes, sl->pe->tes_size - sl->sentbytes, MSG_DONTWAIT);
-    if (ret <= 0) {
+    dmsg("TRYING TO SEND: %zd bytes for pid=%u\n", sl->pe->tes_size - sl->sentbytes, sl->pe->pid);
+    ret = send(sl->socket,
+               (char *)sl->pe->tes + sl->sentbytes,
+               sl->pe->tes_size - sl->sentbytes,
+               0); /* setting MSG_DONTWAIT seems to cause problems */
+    if (ret <= 0 && errno != EAGAIN) {
         perror("send");
         exit(1);
     }
+    dmsg("SENT: %zd bytes for pid=%u\n", ret, sl->pe->pid);
     sl->sentbytes += ret;
 }
 

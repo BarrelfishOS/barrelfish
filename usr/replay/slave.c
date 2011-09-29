@@ -144,31 +144,29 @@ do_handle_event(replay_eventrec_t *er)
     snprintf(fname, 256, "%s/data/%u", defdir, er->fnumsize);
 
 
-    /* protocol:
-     * - master will send consecutive operations with the same pid
-     * - the pid will change after an an Op_Exit, and a subsequent Open/Create
-     */
-    // sanity chacks
-    if (pid == 0) { // client is not associated with a pid
-        assert(er->op == TOP_Open || er->op == TOP_Create);
-    } else {         // client is associated with a pid
-        assert(er->pid == pid);
-    }
-
     op_id++;
     enum top op = er->op;
-    dmsg("SLAVE[%u]: REQ pid:%d op:%d [op_id:%d]\n", disp_get_core_id(), er->pid, op, op_id);
+    dmsg("SLAVE[%u]: REQ pid:%d op:%d fd:%d fnumsize:%d [op_id:%d] er:%p\n", disp_get_core_id(), er->pid, op, er->fd, er->fnumsize, op_id, er);
+
+    /* - master will send consecutive operations with the same pid
+     * - the pid will change after an TOP_Exit, and a subsequent Open/Create */
+    if (pid == 0) {
+        assert(er->op == TOP_Open || er->op == TOP_Create);
+        pid = er->pid;
+        dmsg("SLAVE[%u]: got new pid:%d\n", disp_get_core_id(), pid);
+        op_id = 0;
+    } else if (er->pid != pid) {
+        printf("REQ does not match current pid (%u). Aborting\n", pid);
+        assert(0);
+    } else if (op == TOP_Exit) {
+        pid = 0;
+    }
+
     switch(op) {
     case TOP_Open:
     case TOP_Create: {
         //uint64_t ticks = rdtsc();
         char *flags = NULL;
-
-        if (pid == 0) {
-            // new pid
-            pid = er->pid;
-            dmsg("SLAVE[%u]: got new pid:%d\n", disp_get_core_id(), pid);
-        }
 
         /* set flags */
         switch(er->mode) {
@@ -281,7 +279,6 @@ do_handle_event(replay_eventrec_t *er)
 
     case TOP_Exit: {
         dmsg("SLAVE[%u]: TOP_Exit on %d\n", disp_get_core_id(), er->pid);
-        pid = 0;
         break;
     }
 
@@ -421,11 +418,13 @@ int main(int argc, char *argv[])
     printf("got connection from %d\n", from);
 
 
-    /* circular buffer for events */
-    const size_t er_size_elems = 2<<12; /* size in elements */
+    /* circular buffer:
+     *  - writer writes at byte grain
+     *  - reader reads at sizeof(replay_eventrec_t) grain */
+    const size_t er_size_elems = 1024;   /* size in elements */
     replay_eventrec_t ers[er_size_elems];
-    const size_t er_size = sizeof(ers);  /* size in bytes */
-    uint64_t er_r, er_w;                /* full indices (in bytes) */
+    const size_t er_size = sizeof(ers);   /* size in bytes */
+    uint64_t er_r, er_w;                  /* full indices (in bytes) */
 
     er_r = er_w = 0;
 
@@ -437,11 +436,12 @@ int main(int argc, char *argv[])
         char *xfer_start = (char *)ers + er_w_idx;
         size_t xfer_len = MIN(er_avail, er_size - er_w_idx);
 
-        /* fetch events */
-        dmsg("RECV: from:%zd len:%zd\n", er_w, xfer_len);
         if (xfer_len == 0) {
             continue;
         }
+
+        /* fetch events */
+        dmsg("RECV: from:%lu len:%zd\n", xfer_start - (char  *)ers, xfer_len);
         ssize_t ret = recv(connsock, xfer_start, xfer_len, 0);
         if(ret == -1) {
             perror("recv");
@@ -459,6 +459,7 @@ int main(int argc, char *argv[])
         while (er_w - er_r >= sizeof(replay_eventrec_t)) {
             size_t er_r_items = er_r / sizeof(replay_eventrec_t);
             replay_eventrec_t *er = ers + (er_r_items % er_size_elems);
+
             handle_event(er);
 
             // notify server that we are done with a task
