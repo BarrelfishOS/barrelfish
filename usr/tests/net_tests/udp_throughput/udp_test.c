@@ -25,6 +25,9 @@
 #define MAX_DATA   1330
 #define MULTIPLIER 10
 
+//#define TEST_BUFFER_MANAGEMENT      1
+
+
 static uint64_t pkt_count = 0;
 static uint64_t data_size = 0;
 static uint64_t recv_start_c = 0;
@@ -33,6 +36,20 @@ static uint64_t recv_stop_c = 0;
 static uint64_t iterations = 2;
 
 static struct waitset *ws = NULL;
+
+static void
+loop_forever(void)
+{
+    errval_t r;
+    // Loop forever
+    while (1) {
+        r = event_dispatch(ws);
+        if (err_is_fail(r)) {
+            DEBUG_ERR(r, "in event_dispatch");
+            break;
+        }
+    }
+}
 
 static void
 refresh_cache(struct ip_addr *dst_ip)
@@ -52,24 +69,71 @@ refresh_cache(struct ip_addr *dst_ip)
    } // end while: till arp not present
 }
 
+static uint64_t stats[10] = {0, 0, 0, 0};
+static    uint64_t start = 0;
+static    uint64_t iter = 0; // Iteration counter
+static    uint64_t failed = 0; // Failure counter
+
+static void stop_benchmark(void)
+{
+    // FIXME: Make sure that all data is gone
+    uint64_t stop = rdtsc();
+
+    // sending debug message marking the stop of benchmark
+    lwip_start_net_debug(2);
+
+
+    printf("Cycles taken %"PRIu64" to send %"PRIu64" packets"
+            "(%"PRIu64" failed)\n",
+            (stop - start), iter, failed);
+    for (int j = 0; j < 4; ++j) {
+        printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
+    }
+    loop_forever();
+}
+
 static void wait_for_lwip(void)
 {
    errval_t r;
-
-   while (is_lwip_loaded()) {
+    int ans;
+   while ( (ans = is_lwip_loaded()) > 0 ) {
+        ++stats[ans];
+/*        if(ans == 1) {
+            printf("stopping the benchmark as no more pbufs\n");
+            stop_benchmark();
+        }
+*/
         r = event_dispatch(ws);
         if (err_is_fail(r)) {
             DEBUG_ERR(r, "in event_dispatch");
             abort();
         }
    } // end while: lwip_loaded
+   ++stats[ans];
 } // end function: wait_for_lwip
 
+static struct pbuf *
+get_pbuf_wrapper(void)
+{
+    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, MAX_DATA, PBUF_POOL);
+    if (p == NULL){
+        printf("pbuf_alloc failed while counter %"PRIu16" \n",
+                free_pbuf_pool_count());
+    }
+    assert(p != NULL);
+    assert(p->payload != NULL);
+    assert(p->len == p->tot_len);
+    assert(p->len == MAX_DATA);
+//    memset(p->payload, 'd', p->len);
+    return p;
+
+} // end function: get_pbuf_wrapper
 
 static void
 udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         uint16_t recv_port)
 {
+    struct pbuf *p = NULL;
     printf("Going in UDP_SENDER mode\n");
 
     // connect with peer
@@ -78,54 +142,53 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         DEBUG_ERR(r, "udp_connect:");
     }
 
+#ifndef TEST_BUFFER_MANAGEMENT
     // create a pbuf
-    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, MAX_DATA, PBUF_POOL);
-    assert(p != NULL);
+    printf("Testing without buffer manager\n");
+    p = get_pbuf_wrapper();
     printf("pbuf len %"PRIu16", tot_len %"PRIu16"\n",
             p->len, p->tot_len);
-    assert(p->len == p->tot_len);
-    assert(p->len == MAX_DATA);
-    assert(p->payload != NULL);
     void *payload_ptr = p->payload;
 
     // Set the data to zero
     memset(p->payload, 'd', p->len);
+#else
+    printf("Testing *with* buffer manager!\n");
+#endif // TEST_BUFFER_MANAGEMENT
 
     refresh_cache(&recv_ip);
-    // take a time-stamp
-    uint64_t start = rdtsc();
 
     printf("Trying to send %"PRIu64" packets\n", iterations);
-    uint64_t i = 0; // Iteration counter
-    uint64_t failed = 0; // Failure counter
     // send data
-    for (i = 0; i < iterations; ++i) {
+    for (iter = 0; iter < iterations; ++iter) {
         wait_for_lwip();
+        if (iter == 0) {
+            // sending debug message marking the start of benchmark
+            lwip_start_net_debug(1);
+            // sending first packet
+            start = rdtsc();
+        }
+
+#ifdef TEST_BUFFER_MANAGEMENT
+        p = get_pbuf_wrapper();
+#else
         /* resetting the values as they will be changed by
          * pbuf_header function */
         p->len = MAX_DATA;
         p->tot_len = MAX_DATA;
         p->payload = payload_ptr;
+#endif // TEST_BUFFER_MANAGEMENT
+
         r = udp_send(upcb, p);
         if (err_is_fail(r)) {
             ++failed;
             DEBUG_ERR(r, "udp_send:");
-/*
-            printf("udp_send failed: for %"PRIu64" packet\n",
-                    i);
-*/
         } // end if: failed
 //        printf("Sent packet no. %"PRIu64"\n", i);
     } // end for :
 
-    // FIXME: Make sure that all data is gone
-    uint64_t stop = rdtsc();
-
-    printf("Cycles taken %"PRIu64" to send %"PRIu64" packets"
-            "(%"PRIu64" failed)\n",
-            (stop - start), i, failed);
+    stop_benchmark();
 } // end function: udp_sender
-
 
 static void
 udp_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
@@ -221,20 +284,24 @@ int main(int argc, char *argv[])
         return 1;
     } // end if : port validation
     iterations = iterations * MULTIPLIER;
-
-    printf("Performing [%"PRIu64"] iterations\n",
-                iterations);
-
+/*
     if (lwip_init_auto() == false) {
         printf("ERROR: lwip_init_auto failed!\n");
         return 1;
     }
-
+*/
+    lwip_init("e1000");
     // create pcb for connection
     struct udp_pcb *upcb;
     upcb = udp_new();
 
     assert(upcb != NULL);
+
+    printf("###############----------#######################\n");
+    printf("%d.%d: Performing [%"PRIu64"] iterations\n",
+                disp_get_core_id(), disp_get_domain_id(),
+                iterations);
+
 
     if(as_sender == 1) {
         udp_sender(upcb, peer_ip, port);

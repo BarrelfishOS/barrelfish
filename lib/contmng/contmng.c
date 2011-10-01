@@ -81,7 +81,15 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 
     if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail)
     {
-        printf("ERROR: Queue [%s] is full\n", q->name);
+        printf("ERROR: %s %d.%d  Queue [%s] is full\n", disp_name(),
+                disp_get_core_id(), disp_get_domain_id(), q->name);
+        printf("callstack: %p %p %p %p\n",
+	     __builtin_return_address(0),
+	     __builtin_return_address(1),
+	     __builtin_return_address(2),
+	     __builtin_return_address(3));
+        int *p = NULL;
+        *p = 43;
         abort();
     }
 

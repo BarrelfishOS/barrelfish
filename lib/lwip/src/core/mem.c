@@ -273,7 +273,7 @@ mem_init(void)
 //          (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT, bufsize, TX_BUFFER_ID);
 
 
-  ram_heap = mem_barrelfish_alloc_and_register(1, bufsize);
+  ram_heap = mem_barrelfish_alloc_and_register(TX_BUFFER_ID, bufsize);
 
   LWIP_ASSERT("Sanity check alignment",
     (SIZEOF_STRUCT_MEM & (MEM_ALIGNMENT-1)) == 0);

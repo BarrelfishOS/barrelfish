@@ -121,6 +121,12 @@ retry:
 #endif /* TCP_QUEUE_OOSEQ */
 
 
+uint16_t free_pbuf_pool_count(void)
+{
+    return memp_pbuf_peek();
+}
+
+
 #define PBUF_FIXED_SIZE		1
 /* FIXME: get rid of PBUF_FIXED_SIZE */
 
@@ -836,7 +842,7 @@ pbuf_copy(struct pbuf *p_to, struct pbuf *p_from)
  *
  * @param buf the pbuf from which to copy data
  * @param dataptr the application supplied buffer
- * @param len length of data to copy (dataptr must be big enough). No more 
+ * @param len length of data to copy (dataptr must be big enough). No more
  * than buf->tot_len will be copied, irrespective of len
  * @param offset offset into the packet buffer from where to begin copying len bytes
  * @return the number of bytes copied, or 0 on failure

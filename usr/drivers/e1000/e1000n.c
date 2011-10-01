@@ -33,9 +33,12 @@ e1000_t d;  ///< Mackerel state
 static bool user_macaddr; /// True iff the user specified the MAC address
 static bool use_interrupt = true;
 
+//#define DRIVER_TRANSMIT_BUFFER   (TRANSMIT_BUFFERS)
+#define DRIVER_TRANSMIT_BUFFER   (1024 * 8)
+
 //transmit
 static volatile struct tx_desc *transmit_ring;
-static struct pbuf_desc tx_pbuf[TRANSMIT_BUFFERS]; //remember the tx pbufs in use
+static struct pbuf_desc tx_pbuf[DRIVER_TRANSMIT_BUFFER]; //remember the tx pbufs in use
 
 //receive
 static volatile union rx_desc *receive_ring;
@@ -102,14 +105,14 @@ static bool parse_mac(uint8_t *mac, const char *str)
 static bool can_transmit(int numbufs)
 {
     uint64_t nr_free;
-    assert(numbufs < TRANSMIT_BUFFERS);
+    assert(numbufs < DRIVER_TRANSMIT_BUFFER);
     if (ether_transmit_index >= ether_transmit_bufptr) {
-        nr_free = TRANSMIT_BUFFERS -
+        nr_free = DRIVER_TRANSMIT_BUFFER -
             ((ether_transmit_index - ether_transmit_bufptr) %
-                TRANSMIT_BUFFERS);
+                DRIVER_TRANSMIT_BUFFER);
     } else {
         nr_free = (ether_transmit_bufptr - ether_transmit_index) %
-            TRANSMIT_BUFFERS;
+            DRIVER_TRANSMIT_BUFFER;
     }
     return (nr_free > numbufs);
 }
@@ -137,7 +140,7 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     tx_pbuf[ether_transmit_index].sr = sr;
     tx_pbuf[ether_transmit_index].client_data = client_data;
     tx_pbuf[ether_transmit_index].last = last;
-    ether_transmit_index = (ether_transmit_index + 1) % TRANSMIT_BUFFERS;
+    ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
     e1000_tdt_wr(&(d), 0, (e1000_dqval_t){ .val = ether_transmit_index });
 
     /* Actual place where packet is sent.  Adding trace_event here */
@@ -149,12 +152,17 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     return 0;
 }
 
+static bool check_for_free_TX_buffer(void);
 
 /* Send the buffer to device driver TX ring.
  * NOTE: This function will get called from ethersrv.c */
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
 	errval_t r;
+
+//        while(check_for_free_TX_buffer()){};
+        while(check_for_free_TX_buffer()){};
+
 	if (!can_transmit(cl->rtpbuf)){
 		return ETHERSRV_ERR_CANT_TRANSMIT;
 	}
@@ -176,12 +184,12 @@ static uint64_t find_tx_free_slot_count_fn(void)
 {
     uint64_t nr_free;
     if (ether_transmit_index >= ether_transmit_bufptr) {
-        nr_free = TRANSMIT_BUFFERS -
+        nr_free = DRIVER_TRANSMIT_BUFFER -
             ((ether_transmit_index - ether_transmit_bufptr) %
-                TRANSMIT_BUFFERS);
+                DRIVER_TRANSMIT_BUFFER);
     } else {
         nr_free = (ether_transmit_bufptr - ether_transmit_index) %
-            TRANSMIT_BUFFERS;
+            DRIVER_TRANSMIT_BUFFER;
     }
 
     return nr_free;
@@ -197,15 +205,15 @@ static bool check_for_free_TX_buffer(void)
 
     txd = &transmit_ring[ether_transmit_bufptr];
     if (txd->ctrl.legacy.sta_rsv.d.dd == 1) {
-        if (tx_pbuf[ether_transmit_bufptr].last == true) {
+//        if (tx_pbuf[ether_transmit_bufptr].last == true) {
 
         	sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
         			tx_pbuf[ether_transmit_bufptr].client_data,
                                 find_tx_free_slot_count_fn(), 0);
-        }
-        ether_transmit_bufptr = (ether_transmit_bufptr + 1) % TRANSMIT_BUFFERS;
+//        }
+        ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
     }
-    return sent;
+    return true;
 }
 
 
@@ -416,7 +424,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 {
 	E1000N_DEBUG("starting hardware init\n");
     e1000_hwinit(&d, bar_info, nr_allocated_bars, &transmit_ring, &receive_ring,
-                 RECEIVE_BUFFERS, TRANSMIT_BUFFERS, macaddr, user_macaddr,
+                 RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFER, macaddr, user_macaddr,
                  use_interrupt);
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();

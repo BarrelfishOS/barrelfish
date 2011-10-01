@@ -164,8 +164,8 @@ static errval_t send_new_buffer_id(struct q_entry entry) {
 	}
 }
 
-static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS
-		+ sizeof(struct tx_pbuf) * TRANSMIT_BUFFERS;
+static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
+//		+ sizeof(struct tx_pbuf) * TRANSMIT_BUFFERS;
 
 static void register_buffer(struct ether_binding *cc, struct capref cap)
 {
@@ -239,6 +239,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap)
 	}
 
 	memset(buffer->pbuf_metadata_ds, 0, metadata_size);
+        // FIXME: Where is following variable used?
 	buffer->pbuf_metadata_ds_tx = buffer->pbuf_metadata_ds
 			+ sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
 
@@ -347,15 +348,9 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 	struct client_closure *closure = (struct client_closure *) cc->st;
 	assert(closure != NULL);
 
-	if(closure->debug_state) ethersrv_debug_printf("ETHERSRV: transmit_packet: sending packet ------\n");
-	if(closure->debug_state) ethersrv_debug_printf("packet from buf %lu, of size %lu from clie %d\n",
-	 buffer_id, len, closure->cl_no);
-
-	if(closure->debug_state) ethersrv_debug_printf("transmit_packet with buff_id %lu, on buffer %lu\n",
-	        buffer_id, closure->buffer_ptr->buffer_id);
-
 	assert (closure->buffer_ptr->buffer_id == buffer_id);
 	assert(nr_pbufs <= MAX_NR_TRANSMIT_PBUFS);
+
 
 	if (closure->nr_transmit_pbufs == 0) {
 		closure->nr_transmit_pbufs = nr_pbufs;
@@ -391,38 +386,48 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 	/* FIXME: this design expects more than one msg when packet does not
 	 * fit into one pbuf, I feel that it is bad design */
 
+//        do {
+	    r = ether_transmit_pbuf_list_ptr(closure);
+//        } while (r == ETHERSRV_ERR_CANT_TRANSMIT);
+
 	//in case we cannot transmit, discard the _whole_ packet (just don't
 	//enqueue transmit descriptors in the network card's ring)
-	r = ether_transmit_pbuf_list_ptr(closure);
-
 	if(err_is_fail(r)){
+                ++ closure->dropped_pkt_count;
                 dropped_pkt_count++;
-                printf("Transmit_packet dropping %"PRIu64"\n",
-                        dropped_pkt_count);
+//                printf("Transmit_packet dropping %"PRIu64"\n",
+//                        dropped_pkt_count);
+
 		//if we have to drop the packet, we still need to send a tx_done
 		//to make sure that lwip frees the pbuf. If we drop it, the driver
 		//will never find it in the tx-ring from where the tx_dones
 		//are usually sent
 
-	    if(closure->debug_state)
-                ethersrv_debug_printf(
-                        "###transmit_packet dropping the packet"
-                        " buff_id %" PRIu64 "\n",
-				closure->buffer_ptr->buffer_id);
 		/* BIG FIXME: This should free all the pbufs and not just pbuf[0].
 		 * Also, is it certain that all packets start with pbuf[0]??
 		 * Mostly this will lead to re-write of bulk-transfer mode.  */
 
                 assert(closure->pbuf[0].sr);
-		notify_client_free_tx(closure->pbuf[0].sr,
+		bool ret = notify_client_free_tx(closure->pbuf[0].sr,
 				closure->pbuf[0].client_data,
                                 tx_free_slots_fn_ptr(), 1);
-	}
+                if (ret == false) {
+                    printf("Error: Bad things are happening."
+                         "TX packet dropped, TX_done MSG dropped\n");
+                    // This can lead to pbuf leak
+                    // FIXME: What type of error handling to use?
+                }
+	} else {
+            // successfull transfer!
+            ++ closure->pkt_count;
+            closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
+
+        }
+
 	//reset to indicate that a new packet will start
 	closure->nr_transmit_pbufs = 0;
 	closure->rtpbuf = 0;
 	closure->len = 0;
-
 }
 
 
@@ -527,8 +532,6 @@ static void error_handler(struct ether_binding *b, errval_t err)
 
 static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 	ETHERSRV_DEBUG("ether service got a connection!44\n");
-	struct frame_identity pa;
-	struct capref frame;
 	errval_t err = SYS_ERR_OK;
 
 	// copy my message receive handler vtable to the binding
@@ -561,8 +564,13 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 	cc->debug_state = 0; // Default debug state : no debug
 	cc->app_connection = b;
 
+	if (client_no < 2) {
+		netd[client_no] = b;
+	}
+	cc->cl_no = client_no++;
+
 	char name[64];
-	sprintf(name, "ether_c_%d", cc->cl_no);
+	sprintf(name, "ether_a_%d", cc->cl_no);
 	cc->q = create_cont_q(name);
 	if (cc->q == NULL) {
 		ETHERSRV_DEBUG("connection_service_logic: queue allocation failed\n");
@@ -571,13 +579,15 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 		return err;
 	}
 
+#if 0
+/*
 	err = frame_alloc(&frame, LAST_ACCESSED_BYTE_TRANSPORT * TRANSMIT_BUFFERS,
 			NULL);
 	if (err_is_fail(err)) {
 		ETHERSRV_DEBUG("connection_service_logic: frame_alloc failed\n");
 		free(buffer);
 		free(cc);
-		/* FIXME: free cc->q also */
+		// FIXME: free cc->q also
 		return err;
 	}
 
@@ -592,10 +602,9 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b) {
 		assert(!"vspace_map_one_frame failed");
 	}
 
-	if (client_no < 2) {
-		netd[client_no] = b;
-	}
-	cc->cl_no = client_no++;
+*/
+#endif // 0
+
 
 	// accept the connection (we could return an error to refuse it)
 	return SYS_ERR_OK;
@@ -1335,6 +1344,7 @@ static errval_t send_tx_done_handler(struct q_entry e)
     struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
     struct client_closure *ccl = (struct client_closure*)b->st;
     if (b->can_send(b)) {
+     //   ++ccl->tx_done_count;
         return b->tx_vtbl.tx_done(b, MKCONT(cont_queue_callback, ccl->q),
                           e.plist[0],    e.plist[1],   e.plist[2]);
                         //  client_data,   slots_left, dropped
@@ -1348,11 +1358,18 @@ bool notify_client_free_tx(struct ether_binding *b,
         uint64_t client_data, uint64_t slots_left, uint64_t dropped)
 {
         assert(b != NULL);
-	struct q_entry entry;
+	struct client_closure *cc = (struct client_closure *)b->st;
+/*        if(queue_free_slots(cc->q) < 10) {
+//            printf("sending TX_done too fast %d\n",
+//            queue_free_slots(cc->q));
+            return false;
+        }
+*/
+        ++cc->tx_done_count;
+        struct q_entry entry;
 	memset(&entry, 0, sizeof(struct q_entry));
 	entry.handler = send_tx_done_handler;
 	entry.binding_ptr = (void *)b;
-	struct client_closure *cc = (struct client_closure *)b->st;
 	entry.plist[0] = client_data;
         // FIXME: Get the remaining slots value from the driver
         entry.plist[1] = slots_left;
@@ -1409,9 +1426,17 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
 				struct pbuf_desc *rx_pbuf)
 {
 
+    struct client_closure *ccl = (struct client_closure*)buffer->con->st;
     if(buffer->pbuf_head == buffer->pbuf_head_msg) {
     	return false;
     }
+
+    if (queue_free_slots(ccl->q) < 10) {
+        printf("ETHERSRV: incoming pkt, no space in contmng %d\n",
+            queue_free_slots(ccl->q));
+        return false;
+    }
+
 
     assert(rx_pbuf);
 
@@ -1426,7 +1451,6 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_received_packet_handler;
     entry.binding_ptr = (void *)buffer->con;
-    struct client_closure *ccl = (struct client_closure*)buffer->con->st;
     entry.plist[0] = rx_pbuf->pbuf_id;
     entry.plist[1] = rx_pbuf->paddr; /* the physical address of pbuf payload */
     entry.plist[2] = rx_pbuf->len;
@@ -1716,10 +1740,34 @@ bool waiting_for_netd(void)
 
 static void debug_status(struct ether_binding *cc, uint8_t state)
 {
-	printf("setting the debug status to %x\n", state);
+    uint64_t ts;
+    printf("setting the debug status to %x\n", state);
     struct client_closure *cl = ((struct client_closure *)(cc->st));
     cl->debug_state = state;
     debug_state = state;
+    switch (state){
+        case 1:
+            printf("#### Starting MBM \n");
+            cl->start_ts = rdtsc();
+            cl->pkt_count = 0;
+            cl->dropped_pkt_count = 0;
+            cl->tx_done_count = 0;
+            cl->pbuf_count = 0;
+            break;
+
+        case 2:
+            ts = rdtsc() - cl->start_ts;
+            printf("#### Stopping MBM Cycles[%"PRIu64"],"
+                "Pbufs[%"PRIu64"], pkts[%"PRIu64"],  D[%"PRIu64"]"
+                "TX_DONE count [%"PRIu64"]\n",
+                ts, cl->pbuf_count,  cl->pkt_count,
+                cl->dropped_pkt_count, cl->tx_done_count);
+            break;
+
+        default:
+            printf("#### MBM: invalid state %x \n", state);
+    } // end switch:
+
 } // end function: debug_status
 
 

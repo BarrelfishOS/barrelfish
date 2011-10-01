@@ -134,6 +134,7 @@ static const u16_t memp_num[MEMP_MAX] = {
 #include "lwip/memp_std.h"
 };
 
+
 /** This array holds a textual description of each pool. */
 #ifdef LWIP_DEBUG
 static const char *memp_desc[MEMP_MAX] = {
@@ -261,6 +262,7 @@ memp_overflow_init(void)
 }
 #endif /* MEMP_OVERFLOW_CHECK */
 
+static u16_t pbuf_pool_counter = 0;
 /**
  * Initialize this module.
  *
@@ -271,15 +273,36 @@ memp_init(void)
 {
   struct memp *memp;
   u16_t i, j;
-
   printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
           RX_BUFFER_ID);
-  memp_memory = mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
 
+  memp_memory = mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
   if (memp_memory == 0) {
     fprintf(stderr, "could not allocate memory");
     abort();
   }
+
+#if 0
+    static u8_t *shared_memory = 0;
+    u16_t shared_mem_size = 0;
+    u16_t private_mem_size = 0;
+
+    shared_mem_size = memp_sizes[PBUF_POOL] * memp_num[PBUF_POOL];
+    private_mem_size = memp_memory_size - shared_mem_size;
+
+  memp_memory = malloc (private_mem_size);
+  if (memp_memory == 0) {
+    fprintf(stderr, "could not allocate memory");
+    abort();
+  }
+
+  shared_memory = mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
+  if (shared_memory == 0) {
+    fprintf(stderr, "could not allocate memory");
+    abort();
+  }
+
+#endif // 0
 
 
   for (i = 0; i < MEMP_MAX; ++i) {
@@ -289,9 +312,12 @@ memp_init(void)
     MEMP_STATS_AVAIL(avail, i, memp_num[i]);
   }
   memp = LWIP_MEM_ALIGN(memp_memory);
+  printf("memp_init: total types of pools %d\n", MEMP_MAX);
   /* for every pool: */
   for (i = 0; i < MEMP_MAX; ++i) {
     memp_tab[i] = NULL;
+    printf("memp_init: %"PRIu16"(%s) size %"PRIu16" num %"PRIu16"\n",
+            i, memp_desc[i], memp_sizes[i], memp_num[i]);
     /* create a linked list of memp elements */
     for (j = 0; j < memp_num[i]; ++j) {
       memp->next = memp_tab[i];
@@ -303,6 +329,9 @@ memp_init(void)
       );
     }
   }
+  // Set how many free pbuf_pools are there
+  printf("memp_num[PBUF_POOL] %"PRIu16"\n", memp_num[MEMP_MAX - 1]);
+  pbuf_pool_counter = 0;
 #if MEMP_OVERFLOW_CHECK
   memp_overflow_init();
   /* check everything a first time to see if it worked */
@@ -310,6 +339,11 @@ memp_init(void)
 #endif /* MEMP_OVERFLOW_CHECK */
 }
 
+// Returns the count of free pbufs available
+u16_t memp_pbuf_peek(void)
+{
+    return (memp_num[MEMP_MAX - 1]- pbuf_pool_counter);
+}
 /**
  * Get an element from a specific pool.
  *
@@ -342,6 +376,9 @@ memp_malloc_fn(memp_t type, const char* file, const int line)
 
   if (memp != NULL) {
     memp_tab[type] = memp->next;
+    ++pbuf_pool_counter;
+//    printf("memp_malloc: %s %"PRIu16" %"PRIu16" \n",
+//            disp_name(), type, pbuf_pool_counter);
 #if MEMP_OVERFLOW_CHECK
     memp->next = NULL;
     memp->file = file;
@@ -357,6 +394,13 @@ memp_malloc_fn(memp_t type, const char* file, const int line)
   }
 
   SYS_ARCH_UNPROTECT(old_level);
+  if(memp == NULL) {
+#if !MEMP_OVERFLOW_CHECK
+        printf("memp_malloc: %"PRIu16"\n", type);
+#else
+        printf("memp_malloc_fn:\n");
+#endif
+  }
   return memp;
 }
 
@@ -369,10 +413,13 @@ memp_malloc_fn(memp_t type, const char* file, const int line)
 void
 memp_free(memp_t type, void *mem)
 {
+//    printf("memp_free %s called for type %"PRIu16" with counter %"PRIu16"\n",
+//           disp_name(), type, pbuf_pool_counter);
   struct memp *memp;
   SYS_ARCH_DECL_PROTECT(old_level);
 
   if (mem == NULL) {
+      printf("memp_free: mem is NULL\n");
     return;
   }
   LWIP_ASSERT("memp_free: mem properly aligned",
@@ -393,6 +440,8 @@ memp_free(memp_t type, void *mem)
 
   memp->next = memp_tab[type];
   memp_tab[type] = memp;
+    assert(pbuf_pool_counter > 0);
+  --pbuf_pool_counter;
 
 #if MEMP_SANITY_CHECK
   LWIP_ASSERT("memp sanity", memp_sanity());

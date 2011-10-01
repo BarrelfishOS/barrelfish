@@ -190,7 +190,6 @@ static errval_t send_transmit_request(struct q_entry e)
 
 }
 
-
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 {
     ptrdiff_t offset;
@@ -219,7 +218,27 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 
         buff_ptr = mem_barrelfish_get_buffer_desc(tmpp->payload);
 
-//        assert(buff_ptr->buffer_id == driver_connection[TRANSMIT_CONNECTION]->);
+#if 0
+        // Added for debugging
+        // Specifically to see which path does the packet takes
+        // between RX and TX channels
+        if(buff_ptr->buffer_id ==
+                /* buffer for RX */
+                ((struct client_closure_NC *)
+                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id) {
+            printf("sending on TX connection\n");
+        } else {
+            if(buff_ptr->buffer_id ==
+                /* buffer for RX */
+                ((struct client_closure_NC *)
+                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id) {
+                printf("sending on RX connection\n");
+            } else {
+                printf("strange state of sending %"PRIu64" \n", buff_ptr->buffer_id);
+            }
+        }
+#endif // 0
+
         assert(buff_ptr != NULL);
 
         bulk_arch_prepare_send((void *)tmpp->payload, tmpp->len);
@@ -231,7 +250,6 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         entry.handler = send_transmit_request;
         entry.fname = "send_transmit_request";
         struct ether_binding *b = buff_ptr->con;
-        		// driver_connection[TRANSMIT_CONNECTION];
         /* FIXME: need better way of doing following */
         entry.binding_ptr = (void *)b;
         struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
@@ -504,9 +522,7 @@ static errval_t send_debug_status_request(struct q_entry e)
     struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
 
-printf("before Actually sending the debug msg\n");
     if (b->can_send(b)) {
-	printf("Actually sending the debug msg\n");
         return b->tx_vtbl.debug_status(b,
             MKCONT(cont_queue_callback, ccnc->q),
             (uint8_t)e.plist[0]);
@@ -519,31 +535,33 @@ printf("before Actually sending the debug msg\n");
 
 void idc_debug_status(uint8_t state)
 {
-     LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
-     printf("idc_debug_status:  called with status %x\n", state);
+   LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
+//     printf("idc_debug_status:  called with status %x\n", state);
 
-	new_debug = state;
-     struct q_entry entry;
-     memset(&entry, 0, sizeof(struct q_entry));
-     entry.handler = send_debug_status_request;
-     entry.fname = "send_debug_status_request";
-     struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
-     entry.binding_ptr = (void *)b;
-     entry.plist[0] = state;
+//    new_debug = state;
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_debug_status_request;
+    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    entry.binding_ptr = (void *)b;
+    entry.plist[0] = state;
 
-     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
-     printf("idc_debug_status: q size [%d]\n",
-             ccnc->q->head - ccnc->q->tail);
-     cont_queue_show_queue(ccnc->q);
-     enqueue_cont_q(ccnc->q, &entry);
-     if (b->can_send(b)){
-         printf("idc_debug_status: can send packet right now!!\n");
-     } else {
-         printf("idc_debug_status: can't send packet, putting it in queue\n");
-     }
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+/*    printf("idc_debug_status: q size [%d]\n",
+            ccnc->q->head - ccnc->q->tail);
+    cont_queue_show_queue(ccnc->q);
+*/
+    enqueue_cont_q(ccnc->q, &entry);
+/*
+    if (b->can_send(b)){
+        printf("idc_debug_status: can send packet right now!!\n");
+    } else {
+        printf("idc_debug_status: can't send packet, putting it in queue\n");
+    }
 
     LWIPBF_DEBUG("idc_debug_status: terminated\n");
     printf("idc_debug_status: terminated\n");
+*/
 }
 
 
@@ -813,7 +831,9 @@ static void bind_cb(void *st, errval_t err, struct ether_binding *b)
     memset (cc, 0, sizeof(struct client_closure_NC));
     b->st = cc;
 
-    cc->q = create_cont_q("appl");
+    char appname[200];
+    snprintf(appname, sizeof(appname), "appl_%d", conn_nr);
+    cc->q = create_cont_q(appname);
 
     /* FIXME: I should not need this afterwards */
     driver_connection[conn_nr] = b;

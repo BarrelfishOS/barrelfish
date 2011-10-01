@@ -387,7 +387,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     idc_connect_to_netd(card_controller_name);
     /* FIXME: name of the netd_server should also be passed to lwip_init */
 
-    DEBUGPRINTPS ("LWIP: lwip_init: done with connection setup\n");	
+    DEBUGPRINTPS ("LWIP: lwip_init: done with connection setup\n");
 	printf("LWIP: done with connection setup\n");
     remaining_lwip_initialization((char *)card_name);
 
@@ -468,33 +468,42 @@ bool lwip_init_auto(void)
 
 void lwip_start_net_debug(uint8_t state)
 {
-	printf("calling idc_debug_status\n");
+//	printf("calling idc_debug_status\n");
     idc_debug_status(state);
 } // end function: lwip_start_net_debug
 
+#include <contmng/contmng.h>
 #define FREE_SLOT_THRESHOLD    100
-bool is_lwip_loaded(void)
+int is_lwip_loaded(void)
 {
-    // Check for load on driver
-    uint64_t tx_slots_left = idc_check_driver_load();
-
-    if (tx_slots_left < FREE_SLOT_THRESHOLD) {
-        return true;
+    // Check for availability of free pbufs
+    if (free_pbuf_pool_count()  == 0) {
+        return 1;
     }
 
+    // Check load on RX connection
     int slots = idc_check_capacity(RECEIVE_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
-//        printf("Receive loaded: only %d slots left\n", slots);
-        return true;
+        return 2;
     }
 
+    // Check load on TX connection
     slots = idc_check_capacity(TRANSMIT_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
-//        printf("Transmit loaded: only %d slots left\n", slots);
-        return true;
+        return 3;
     }
-    return false;
-}
+
+    // Check for load the driver itself
+    uint64_t tx_slots_left = idc_check_driver_load();
+    if (tx_slots_left < (MAX_QUEUE_SIZE + 10)) {
+//        return 4;
+    }
+
+
+
+    // Everything is great!
+    return 0;
+} // end function: is_lwip_loaded?
 
 uint64_t lwip_packet_drop_count(void)
 {

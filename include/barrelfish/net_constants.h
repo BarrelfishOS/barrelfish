@@ -93,6 +93,7 @@
 
 
 #else // CONFIG_QEMU_NETWORK
+//  This is setup for n1000 card running on real hardware
 #ifndef MEM_SIZE
 #define MEM_SIZE                (60*1024*1024)
 #endif // MEM_SIZE
@@ -109,13 +110,14 @@
 
 /* NOTE: This value should be bigger than NR_PREALLOCATED_PBUFS of lwipopts.h */
 /* Used in the ethersrv.c and the driver. */
-#define RECEIVE_BUFFERS 2048
-#define TRANSMIT_BUFFERS 2048 //< Number of transmit descriptors
+
+#define RECEIVE_BUFFERS 48
+#define TRANSMIT_BUFFERS (800 * 8) //< Number of transmit descriptors
                               //< (must be multiple of 8)
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (4 * 2048)
+#define PBUF_POOL_BUFSIZE       (1600)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */

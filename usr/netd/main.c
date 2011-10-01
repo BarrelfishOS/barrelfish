@@ -11,22 +11,6 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-
-/* giving smaller sizes to use by lwip network stack */
-
-#define MEM_SIZE            (16*1024)
-
-/// Number of PBUF structs available
-#define MEMP_NUM_PBUF           128
-
-/// Number of PBUF buffers available
-#define PBUF_POOL_SIZE          128
-
-/// the size of the pool
-#define PBUF_POOL_BUFSIZE       (2 * 1027)
-
-#define MEM_CONF_LOC     "custom"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <barrelfish/barrelfish.h>
@@ -92,7 +76,7 @@ int main(int argc, char**argv)
     card_conn[0] = NULL;
     card_conn[1] = NULL;
 //    init_free_ports();
-    
+
     /* Read commandline args */
     for (int i = 0; i < argc; i++) {
         if(strncmp(argv[i],"affinitymin=",strlen("affinitymin="))==0) {

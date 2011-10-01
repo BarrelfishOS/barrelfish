@@ -66,7 +66,7 @@ struct buffer_descriptor {
 
     uint64_t type;
     void *pbuf_metadata_ds; // FIXME: why is it void *
-    void *pbuf_metadata_ds_tx;
+    void *pbuf_metadata_ds_tx; // FIXME: is it used?. Nope, not used. Remove it
     uint32_t pbuf_head;
     uint32_t pbuf_head_msg;
     uint32_t pbuf_tail;
@@ -125,8 +125,8 @@ struct client_closure {
 //    uintptr_t rtpbuf; ///< how many pbufs have we received so far?
     uint16_t rtpbuf; ///< how many pbufs have we received so far?
     struct tx_pbuf pbuf[MAX_NR_TRANSMIT_PBUFS];
-    uint64_t tx_private_mem_v;
-    uint64_t tx_private_mem_p;
+    uint64_t tx_private_mem_v;  // FIXME: un-used, remove it
+    uint64_t tx_private_mem_p;  // FIXME: un-used, remove  it
     uint64_t head;
     uint64_t tail;
     uint64_t len;
@@ -134,6 +134,11 @@ struct client_closure {
     struct ether_binding *app_connection; /* FIXME: Do I need this? */
     struct cont_queue *q;
     uint8_t debug_state;
+    uint64_t start_ts;
+    uint64_t pkt_count;
+    uint64_t tx_done_count;
+    uint64_t dropped_pkt_count;
+    uint64_t pbuf_count;
 }; /* holds info about how much data is transferred to NIC. */
 
 
