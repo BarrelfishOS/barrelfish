@@ -69,6 +69,7 @@ uint32_t deviceid = PCI_DONT_CARE;
 /* FIXME: most probably, I don't need this.  So, remove it.  */
 char *global_service_name = 0;
 
+static bool handle_free_TX_slot_fn(void);
 
 /*****************************************************************
  * MAC address
@@ -152,19 +153,19 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     return 0;
 }
 
-static bool check_for_free_TX_buffer(void);
 
 /* Send the buffer to device driver TX ring.
  * NOTE: This function will get called from ethersrv.c */
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
 	errval_t r;
-
-//        while(check_for_free_TX_buffer()){};
-        while(check_for_free_TX_buffer()){};
+        while(handle_free_TX_slot_fn());
 
 	if (!can_transmit(cl->rtpbuf)){
+            while(handle_free_TX_slot_fn());
+	    if (!can_transmit(cl->rtpbuf)){
 		return ETHERSRV_ERR_CANT_TRANSMIT;
+            }
 	}
 	for (int i = 0; i < cl->rtpbuf; i++) {
 		r = transmit_pbuf(cl->buffer_ptr->pa,
@@ -195,7 +196,7 @@ static uint64_t find_tx_free_slot_count_fn(void)
     return nr_free;
 } // end function: find_tx_queue_len
 
-static bool check_for_free_TX_buffer(void)
+static bool handle_free_TX_slot_fn(void)
 {
     bool sent = false;
     volatile struct tx_desc *txd;
@@ -213,7 +214,7 @@ static bool check_for_free_TX_buffer(void)
 //        }
         ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
     }
-    return true;
+    return sent;
 }
 
 
@@ -378,13 +379,14 @@ static void polling_loop(void)
     struct waitset *ws = get_default_waitset();
     while (1) {
 //    	printf("polling loop: waiting for event\n");
+        while(handle_free_TX_slot_fn());
         err = event_dispatch(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
 //        printf("polling loop: event handled\n");
-        check_for_free_TX_buffer();
+//        check_for_free_TX_buffer();
         if(!use_interrupt) {
             handle_next_received_packet();
 //            printf("polling loop: handled pending packets\n");
@@ -429,7 +431,8 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
     ethersrv_init(global_service_name, get_mac_address_fn,
-		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn);
+		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn);
 }
 
 

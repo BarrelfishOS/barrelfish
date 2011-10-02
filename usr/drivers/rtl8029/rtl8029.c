@@ -550,6 +550,11 @@ static void get_mac_address_fn(uint8_t *mac)
     memcpy(mac, rtl8029_mac, 6);
 }
 
+static bool handle_free_TX_slot_fn(void)
+{
+    return false;
+}
+
 static void rtl8029_init(void)
 {
 	/* FIXME: use correct name, and make apps and netd
@@ -561,8 +566,8 @@ static void rtl8029_init(void)
 	RTL8029_DEBUG("Done with hardware init\n");
 
 	ethersrv_init(service_name, get_mac_address_fn,
-			rtl8029_send_ethernet_packet_fn,
-                        rtl_tx_slots_count_fn);
+	    rtl8029_send_ethernet_packet_fn,
+            rtl_tx_slots_count_fn, handle_free_TX_slot_fn );
 }
 
 /**

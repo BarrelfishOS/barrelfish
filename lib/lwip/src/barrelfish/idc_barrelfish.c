@@ -533,7 +533,7 @@ static errval_t send_debug_status_request(struct q_entry e)
 }
 
 
-void idc_debug_status(uint8_t state)
+void idc_debug_status(int connection, uint8_t state)
 {
    LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
 //     printf("idc_debug_status:  called with status %x\n", state);
@@ -542,7 +542,7 @@ void idc_debug_status(uint8_t state)
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_debug_status_request;
-    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    struct ether_binding *b = driver_connection[connection];
     entry.binding_ptr = (void *)b;
     entry.plist[0] = state;
 
@@ -636,8 +636,6 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
         uint64_t slots_left, uint64_t dropped)
 {
     struct pbuf *done_pbuf = (struct pbuf *)(uintptr_t)client_data;
-
-	if (new_debug) printf("tx_done: called\n");
 
     lwip_mutex_lock();
 

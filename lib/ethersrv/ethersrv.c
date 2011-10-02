@@ -122,6 +122,7 @@ static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
 //static ether_can_transmit_t ether_can_transmit_ptr = NULL;
 static ether_transmit_pbuf_list_t ether_transmit_pbuf_list_ptr = NULL;
 static ether_get_tx_free_slots tx_free_slots_fn_ptr = NULL;
+static ether_handle_free_TX_slot handle_free_tx_slot_fn_ptr = NULL;
 
 /*****************************************************************
  * Local states:
@@ -421,6 +422,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
             // successfull transfer!
             ++ closure->pkt_count;
             closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
+//            printf("Counter incremented %"PRIu64"\n", closure->pbuf_count);
 
         }
 
@@ -428,6 +430,9 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 	closure->nr_transmit_pbufs = 0;
 	closure->rtpbuf = 0;
 	closure->len = 0;
+        // Now check if there are any free TX slot from the packets
+        // which are sent.
+        while(handle_free_tx_slot_fn_ptr());
 }
 
 
@@ -639,7 +644,8 @@ static errval_t connect_ether_control_cb(void *st,
 void ethersrv_init(char *service_name,
 		ether_get_mac_address_t get_mac_ptr,
 		ether_transmit_pbuf_list_t transmit_ptr,
-                ether_get_tx_free_slots tx_free_slots_ptr)
+                ether_get_tx_free_slots tx_free_slots_ptr,
+                ether_handle_free_TX_slot handle_free_tx_slot_ptr)
 {
 	errval_t err;
 
@@ -648,11 +654,12 @@ void ethersrv_init(char *service_name,
 	assert(get_mac_ptr != NULL);
 	assert(transmit_ptr != NULL);
 	assert(tx_free_slots_ptr != NULL);
+	assert(handle_free_tx_slot_ptr != NULL);
 
 	ether_get_mac_address_ptr = get_mac_ptr;
 	ether_transmit_pbuf_list_ptr  = transmit_ptr;
         tx_free_slots_fn_ptr = tx_free_slots_ptr;
-
+        handle_free_tx_slot_fn_ptr = handle_free_tx_slot_ptr;
 	my_service_name = service_name;
 
 	buffers_list = NULL;
@@ -1344,7 +1351,7 @@ static errval_t send_tx_done_handler(struct q_entry e)
     struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
     struct client_closure *ccl = (struct client_closure*)b->st;
     if (b->can_send(b)) {
-     //   ++ccl->tx_done_count;
+        ++ccl->tx_done_count;
         return b->tx_vtbl.tx_done(b, MKCONT(cont_queue_callback, ccl->q),
                           e.plist[0],    e.plist[1],   e.plist[2]);
                         //  client_data,   slots_left, dropped
@@ -1359,13 +1366,13 @@ bool notify_client_free_tx(struct ether_binding *b,
 {
         assert(b != NULL);
 	struct client_closure *cc = (struct client_closure *)b->st;
-/*        if(queue_free_slots(cc->q) < 10) {
+        if(queue_free_slots(cc->q) < 10) {
 //            printf("sending TX_done too fast %d\n",
 //            queue_free_slots(cc->q));
             return false;
         }
-*/
-        ++cc->tx_done_count;
+
+//        ++cc->tx_done_count;
         struct q_entry entry;
 	memset(&entry, 0, sizeof(struct q_entry));
 	entry.handler = send_tx_done_handler;
@@ -1747,7 +1754,7 @@ static void debug_status(struct ether_binding *cc, uint8_t state)
     debug_state = state;
     switch (state){
         case 1:
-            printf("#### Starting MBM \n");
+            printf("#### Starting MBM now \n");
             cl->start_ts = rdtsc();
             cl->pkt_count = 0;
             cl->dropped_pkt_count = 0;
@@ -1756,10 +1763,12 @@ static void debug_status(struct ether_binding *cc, uint8_t state)
             break;
 
         case 2:
+
+            handle_free_tx_slot_fn_ptr();
             ts = rdtsc() - cl->start_ts;
             printf("#### Stopping MBM Cycles[%"PRIu64"],"
-                "Pbufs[%"PRIu64"], pkts[%"PRIu64"],  D[%"PRIu64"]"
-                "TX_DONE count [%"PRIu64"]\n",
+                "Pbufs[%"PRIu64"], pkts[%"PRIu64"], D[%"PRIu64"], "
+                "TX_DONE[%"PRIu64"]\n",
                 ts, cl->pbuf_count,  cl->pkt_count,
                 cl->dropped_pkt_count, cl->tx_done_count);
             break;

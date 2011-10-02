@@ -142,26 +142,29 @@ struct client_closure {
 }; /* holds info about how much data is transferred to NIC. */
 
 
-/*****************************************************************************
+/*****************************************************************
  * Driver states
- * **************************************************************************/
+ * ***************************************************************/
 
 
-/***************************************************************************
- *  Following functions must be implemented by the driver which is using
- * the library.
- **************************************************************************/
+/*******************************************************************
+ *  Following functions must be implemented by the driver which is
+ *  using the library.
+ ******************************************************************/
 typedef void (*ether_get_mac_address_t)(uint8_t *mac);
 
-typedef errval_t (*ether_transmit_pbuf_list_t)(struct client_closure *closure);
+typedef errval_t (*ether_transmit_pbuf_list_t)
+                        (struct client_closure *closure);
 typedef uint64_t (*ether_get_tx_free_slots)(void);
+typedef bool (*ether_handle_free_TX_slot)(void);
 
 
-/***************************************************************************/
+/*****************************************************************/
 void ethersrv_init(char *service_name,
 		ether_get_mac_address_t get_mac_ptr,
 		ether_transmit_pbuf_list_t transmit_ptr,
-                ether_get_tx_free_slots tx_free_slots_ptr);
+                ether_get_tx_free_slots tx_free_slots_ptr,
+                ether_handle_free_TX_slot handle_free_tx_slots_ptr);
 
 bool waiting_for_netd(void);
 

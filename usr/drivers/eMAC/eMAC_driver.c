@@ -56,6 +56,13 @@ static void get_mac_address_fn(uint8_t *mac)
     }
 }
 
+static bool handle_free_TX_slot_fn(void)
+{
+    // FIXME: Need better implementation of this function
+    // FIXME: where is notify_client_next_free_tx for this driver
+    return false;
+}
+
 static void EMAC_init(uint8_t phy_id, char *service_name)
 {
 
@@ -66,7 +73,7 @@ static void EMAC_init(uint8_t phy_id, char *service_name)
 
     ethersrv_init(service_name, get_mac_address_fn,
             EMAC_send_ethernet_packet_fn,
-            get_tx_free_slots_count);
+            get_tx_free_slots_count, handle_free_TX_slot_fn);
 }
 
 

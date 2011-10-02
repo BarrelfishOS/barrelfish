@@ -466,10 +466,10 @@ bool lwip_init_auto(void)
     return lwip_init_auto_ex(NULL, NULL);
 }
 
-void lwip_start_net_debug(uint8_t state)
+void lwip_start_net_debug(int connection_type, uint8_t state)
 {
 //	printf("calling idc_debug_status\n");
-    idc_debug_status(state);
+    idc_debug_status(connection_type, state);
 } // end function: lwip_start_net_debug
 
 #include <contmng/contmng.h>

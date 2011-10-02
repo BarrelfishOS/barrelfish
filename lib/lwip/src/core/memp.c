@@ -410,11 +410,15 @@ memp_malloc_fn(memp_t type, const char* file, const int line)
  * @param type the pool where to put mem
  * @param mem the memp element to free
  */
+static uint64_t free_counter = 0;
 void
 memp_free(memp_t type, void *mem)
 {
-//    printf("memp_free %s called for type %"PRIu16" with counter %"PRIu16"\n",
-//           disp_name(), type, pbuf_pool_counter);
+    ++free_counter;
+/*    printf("memp_free %s called for type %"PRIu16" with counter "
+            "%"PRIu16", free counter %"PRIu64"\n",
+           disp_name(), type, pbuf_pool_counter, free_counter);
+*/
   struct memp *memp;
   SYS_ARCH_DECL_PROTECT(old_level);
 

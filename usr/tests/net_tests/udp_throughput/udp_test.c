@@ -27,6 +27,14 @@
 
 //#define TEST_BUFFER_MANAGEMENT      1
 
+#ifdef TEST_BUFFER_MANAGEMENT
+#define TEST_TYPE   "With BUFF Mng"
+#else
+#define TEST_TYPE   "Without BUFF Mng"
+#endif // TEST_BUFFER_MANAGEMENT
+
+static int connection_type = 0;  // 0 for using PBUF_POOL
+//static int connection_type = 1;  // 1 for using PBUF_RAM
 
 static uint64_t pkt_count = 0;
 static uint64_t data_size = 0;
@@ -73,22 +81,24 @@ static uint64_t stats[10] = {0, 0, 0, 0};
 static    uint64_t start = 0;
 static    uint64_t iter = 0; // Iteration counter
 static    uint64_t failed = 0; // Failure counter
-
 static void stop_benchmark(void)
 {
     // FIXME: Make sure that all data is gone
     uint64_t stop = rdtsc();
 
     // sending debug message marking the stop of benchmark
-    lwip_start_net_debug(2);
+    lwip_start_net_debug(connection_type, 2);
 
 
+    printf("Test [%s], PBUF type %s\n", TEST_TYPE,
+            connection_type?"PBUF_POOL":"PBUF_RAM");
     printf("Cycles taken %"PRIu64" to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
             (stop - start), iter, failed);
     for (int j = 0; j < 4; ++j) {
         printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
+
     loop_forever();
 }
 
@@ -115,7 +125,16 @@ static void wait_for_lwip(void)
 static struct pbuf *
 get_pbuf_wrapper(void)
 {
-    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, MAX_DATA, PBUF_POOL);
+    struct pbuf *p = NULL;
+    if (connection_type == 1) {
+        p = pbuf_alloc(PBUF_TRANSPORT, MAX_DATA, PBUF_RAM);
+    } else {
+        p = pbuf_alloc(PBUF_TRANSPORT, MAX_DATA, PBUF_POOL);
+        // setting ref to zero as we are using it for sending and
+        // not receiving
+//        p->ref = 0;
+//        pbuf_free(p);
+    }
     if (p == NULL){
         printf("pbuf_alloc failed while counter %"PRIu16" \n",
                 free_pbuf_pool_count());
@@ -164,7 +183,7 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         wait_for_lwip();
         if (iter == 0) {
             // sending debug message marking the start of benchmark
-            lwip_start_net_debug(1);
+            lwip_start_net_debug(connection_type, 1);
             // sending first packet
             start = rdtsc();
         }
@@ -185,6 +204,11 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
             DEBUG_ERR(r, "udp_send:");
         } // end if: failed
 //        printf("Sent packet no. %"PRIu64"\n", i);
+
+#ifdef TEST_BUFFER_MANAGEMENT
+        pbuf_free(p);
+#endif // TEST_BUFFER_MANAGEMENT
+
     } // end for :
 
     stop_benchmark();

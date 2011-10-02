@@ -553,7 +553,7 @@ pbuf_free(struct pbuf *p)
   u16_t type;
   struct pbuf *q;
   u8_t count;
-
+//    printf("pbuf_free called for %p\n", p);
   if (p == NULL) {
     LWIP_ASSERT("p != NULL", p != NULL);
     /* if assertions are disabled, proceed with debug output */
@@ -593,6 +593,8 @@ pbuf_free(struct pbuf *p)
     	ref = --(p->ref);
     }
 
+//   printf("pbuf_free: p->ref value is %u and type %u(%u)\n",
+//          p->ref, p->type, PBUF_POOL);
     SYS_ARCH_UNPROTECT(old_level);
     /* this pbuf is no longer referenced to? */
     if (ref == 0) {
