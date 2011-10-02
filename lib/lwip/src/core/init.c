@@ -72,7 +72,7 @@
 #define DEBUGPRINTPS(arg...) printf(arg)
 #else
 #define DEBUGPRINTPS(arg...) ((void)0)
-#endif /* MYDEBUGLWIP */
+#endif                          /* MYDEBUGLWIP */
 
 
 
@@ -80,175 +80,175 @@
  * These can be done independently of LWIP_DEBUG, without penalty.
  */
 #ifndef BYTE_ORDER
-  #error "BYTE_ORDER is not defined, you have to define it in your cc.h"
+#error "BYTE_ORDER is not defined, you have to define it in your cc.h"
 #endif
 #if (!IP_SOF_BROADCAST && IP_SOF_BROADCAST_RECV)
-  #error "If you want to use broadcast filter per pcb on recv operations, you have to define IP_SOF_BROADCAST=1 in your lwipopts.h"
+#error "If you want to use broadcast filter per pcb on recv operations, you have to define IP_SOF_BROADCAST=1 in your lwipopts.h"
 #endif
 #if (!LWIP_ARP && ARP_QUEUEING)
-  #error "If you want to use ARP Queueing, you have to define LWIP_ARP=1 in your lwipopts.h"
+#error "If you want to use ARP Queueing, you have to define LWIP_ARP=1 in your lwipopts.h"
 #endif
 #if (!LWIP_UDP && LWIP_UDPLITE)
-  #error "If you want to use UDP Lite, you have to define LWIP_UDP=1 in your lwipopts.h"
+#error "If you want to use UDP Lite, you have to define LWIP_UDP=1 in your lwipopts.h"
 #endif
 #if (!LWIP_UDP && LWIP_SNMP)
-  #error "If you want to use SNMP, you have to define LWIP_UDP=1 in your lwipopts.h"
+#error "If you want to use SNMP, you have to define LWIP_UDP=1 in your lwipopts.h"
 #endif
 #if (!LWIP_UDP && LWIP_DHCP)
-  #error "If you want to use DHCP, you have to define LWIP_UDP=1 in your lwipopts.h"
+#error "If you want to use DHCP, you have to define LWIP_UDP=1 in your lwipopts.h"
 #endif
 #if (!LWIP_UDP && LWIP_IGMP)
-  #error "If you want to use IGMP, you have to define LWIP_UDP=1 in your lwipopts.h"
+#error "If you want to use IGMP, you have to define LWIP_UDP=1 in your lwipopts.h"
 #endif
 #if (!LWIP_UDP && LWIP_DNS)
-  #error "If you want to use DNS, you have to define LWIP_UDP=1 in your lwipopts.h"
+#error "If you want to use DNS, you have to define LWIP_UDP=1 in your lwipopts.h"
 #endif
 #if (LWIP_ARP && (ARP_TABLE_SIZE > 0x7f))
-  #error "If you want to use ARP, ARP_TABLE_SIZE must fit in an s8_t, so, you have to reduce it in your lwipopts.h"
+#error "If you want to use ARP, ARP_TABLE_SIZE must fit in an s8_t, so, you have to reduce it in your lwipopts.h"
 #endif
 #if (LWIP_ARP && ARP_QUEUEING && (MEMP_NUM_ARP_QUEUE<=0))
-  #error "If you want to use ARP Queueing, you have to define MEMP_NUM_ARP_QUEUE>=1 in your lwipopts.h"
+#error "If you want to use ARP Queueing, you have to define MEMP_NUM_ARP_QUEUE>=1 in your lwipopts.h"
 #endif
 #if (LWIP_RAW && (MEMP_NUM_RAW_PCB<=0))
-  #error "If you want to use RAW, you have to define MEMP_NUM_RAW_PCB>=1 in your lwipopts.h"
+#error "If you want to use RAW, you have to define MEMP_NUM_RAW_PCB>=1 in your lwipopts.h"
 #endif
 #if (LWIP_UDP && (MEMP_NUM_UDP_PCB<=0))
-  #error "If you want to use UDP, you have to define MEMP_NUM_UDP_PCB>=1 in your lwipopts.h"
+#error "If you want to use UDP, you have to define MEMP_NUM_UDP_PCB>=1 in your lwipopts.h"
 #endif
 #if (LWIP_TCP && (MEMP_NUM_TCP_PCB<=0))
-  #error "If you want to use TCP, you have to define MEMP_NUM_TCP_PCB>=1 in your lwipopts.h"
+#error "If you want to use TCP, you have to define MEMP_NUM_TCP_PCB>=1 in your lwipopts.h"
 #endif
 #if (LWIP_TCP && (TCP_WND > 0xffff))
-  #error "If you want to use TCP, TCP_WND must fit in an u16_t, so, you have to reduce it in your lwipopts.h"
+#error "If you want to use TCP, TCP_WND must fit in an u16_t, so, you have to reduce it in your lwipopts.h"
 #endif
 #if (LWIP_TCP && (TCP_SND_QUEUELEN > 0xffff))
-  #error "If you want to use TCP, TCP_SND_QUEUELEN must fit in an u16_t, so, you have to reduce it in your lwipopts.h"
+#error "If you want to use TCP, TCP_SND_QUEUELEN must fit in an u16_t, so, you have to reduce it in your lwipopts.h"
 #endif
 #if (LWIP_TCP && ((TCP_MAXRTX > 12) || (TCP_SYNMAXRTX > 12)))
-  #error "If you want to use TCP, TCP_MAXRTX and TCP_SYNMAXRTX must less or equal to 12 (due to tcp_backoff table), so, you have to reduce them in your lwipopts.h"
+#error "If you want to use TCP, TCP_MAXRTX and TCP_SYNMAXRTX must less or equal to 12 (due to tcp_backoff table), so, you have to reduce them in your lwipopts.h"
 #endif
 #if (LWIP_TCP && TCP_LISTEN_BACKLOG && (TCP_DEFAULT_LISTEN_BACKLOG < 0) || (TCP_DEFAULT_LISTEN_BACKLOG > 0xff))
-  #error "If you want to use TCP backlog, TCP_DEFAULT_LISTEN_BACKLOG must fit into an u8_t"
+#error "If you want to use TCP backlog, TCP_DEFAULT_LISTEN_BACKLOG must fit into an u8_t"
 #endif
 #if (LWIP_IGMP && (MEMP_NUM_IGMP_GROUP<=1))
-  #error "If you want to use IGMP, you have to define MEMP_NUM_IGMP_GROUP>1 in your lwipopts.h"
+#error "If you want to use IGMP, you have to define MEMP_NUM_IGMP_GROUP>1 in your lwipopts.h"
 #endif
 #if (PPP_SUPPORT && (NO_SYS==1))
-  #error "If you want to use PPP, you have to define NO_SYS=0 in your lwipopts.h"
+#error "If you want to use PPP, you have to define NO_SYS=0 in your lwipopts.h"
 #endif
 #if (LWIP_NETIF_API && (NO_SYS==1))
-  #error "If you want to use NETIF API, you have to define NO_SYS=0 in your lwipopts.h"
+#error "If you want to use NETIF API, you have to define NO_SYS=0 in your lwipopts.h"
 #endif
 #if ((LWIP_SOCKET || LWIP_NETCONN) && (NO_SYS==1))
-  #error "If you want to use Sequential API, you have to define NO_SYS=0 in your lwipopts.h"
+#error "If you want to use Sequential API, you have to define NO_SYS=0 in your lwipopts.h"
 #endif
 #if ((LWIP_NETCONN || LWIP_SOCKET) && (MEMP_NUM_TCPIP_MSG_API<=0))
-  #error "If you want to use Sequential API, you have to define MEMP_NUM_TCPIP_MSG_API>=1 in your lwipopts.h"
+#error "If you want to use Sequential API, you have to define MEMP_NUM_TCPIP_MSG_API>=1 in your lwipopts.h"
 #endif
 #if (!LWIP_NETCONN && LWIP_SOCKET)
-  #error "If you want to use Socket API, you have to define LWIP_NETCONN=1 in your lwipopts.h"
+#error "If you want to use Socket API, you have to define LWIP_NETCONN=1 in your lwipopts.h"
 #endif
 #if (((!LWIP_DHCP) || (!LWIP_AUTOIP)) && LWIP_DHCP_AUTOIP_COOP)
-  #error "If you want to use DHCP/AUTOIP cooperation mode, you have to define LWIP_DHCP=1 and LWIP_AUTOIP=1 in your lwipopts.h"
+#error "If you want to use DHCP/AUTOIP cooperation mode, you have to define LWIP_DHCP=1 and LWIP_AUTOIP=1 in your lwipopts.h"
 #endif
 #if (((!LWIP_DHCP) || (!LWIP_ARP)) && DHCP_DOES_ARP_CHECK)
-  #error "If you want to use DHCP ARP checking, you have to define LWIP_DHCP=1 and LWIP_ARP=1 in your lwipopts.h"
+#error "If you want to use DHCP ARP checking, you have to define LWIP_DHCP=1 and LWIP_ARP=1 in your lwipopts.h"
 #endif
 #if (!LWIP_ARP && LWIP_AUTOIP)
-  #error "If you want to use AUTOIP, you have to define LWIP_ARP=1 in your lwipopts.h"
+#error "If you want to use AUTOIP, you have to define LWIP_ARP=1 in your lwipopts.h"
 #endif
 #if (LWIP_SNMP && (SNMP_CONCURRENT_REQUESTS<=0))
-  #error "If you want to use SNMP, you have to define SNMP_CONCURRENT_REQUESTS>=1 in your lwipopts.h"
+#error "If you want to use SNMP, you have to define SNMP_CONCURRENT_REQUESTS>=1 in your lwipopts.h"
 #endif
 #if (LWIP_SNMP && (SNMP_TRAP_DESTINATIONS<=0))
-  #error "If you want to use SNMP, you have to define SNMP_TRAP_DESTINATIONS>=1 in your lwipopts.h"
+#error "If you want to use SNMP, you have to define SNMP_TRAP_DESTINATIONS>=1 in your lwipopts.h"
 #endif
 #if (LWIP_TCP && ((LWIP_EVENT_API && LWIP_CALLBACK_API) || (!LWIP_EVENT_API && !LWIP_CALLBACK_API)))
-  #error "One and exactly one of LWIP_EVENT_API and LWIP_CALLBACK_API has to be enabled in your lwipopts.h"
+#error "One and exactly one of LWIP_EVENT_API and LWIP_CALLBACK_API has to be enabled in your lwipopts.h"
 #endif
 /* There must be sufficient timeouts, taking into account requirements of the subsystems. */
 #if ((NO_SYS==0) && (MEMP_NUM_SYS_TIMEOUT < (LWIP_TCP + IP_REASSEMBLY + LWIP_ARP + (2*LWIP_DHCP) + LWIP_AUTOIP + LWIP_IGMP + LWIP_DNS + PPP_SUPPORT)))
-  #error "MEMP_NUM_SYS_TIMEOUT is too low to accomodate all required timeouts"
+#error "MEMP_NUM_SYS_TIMEOUT is too low to accomodate all required timeouts"
 #endif
 #if (IP_REASSEMBLY && (MEMP_NUM_REASSDATA > IP_REASS_MAX_PBUFS))
-  #error "MEMP_NUM_REASSDATA > IP_REASS_MAX_PBUFS doesn't make sense since each struct ip_reassdata must hold 2 pbufs at least!"
+#error "MEMP_NUM_REASSDATA > IP_REASS_MAX_PBUFS doesn't make sense since each struct ip_reassdata must hold 2 pbufs at least!"
 #endif
 #if (MEM_LIBC_MALLOC && MEM_USE_POOLS)
-  #error "MEM_LIBC_MALLOC and MEM_USE_POOLS may not both be simultaneously enabled in your lwipopts.h"
+#error "MEM_LIBC_MALLOC and MEM_USE_POOLS may not both be simultaneously enabled in your lwipopts.h"
 #endif
 #if (MEM_USE_POOLS && !MEMP_USE_CUSTOM_POOLS)
-  #error "MEM_USE_POOLS requires custom pools (MEMP_USE_CUSTOM_POOLS) to be enabled in your lwipopts.h"
+#error "MEM_USE_POOLS requires custom pools (MEMP_USE_CUSTOM_POOLS) to be enabled in your lwipopts.h"
 #endif
 
 #if (PBUF_POOL_BUFSIZE <= MEM_ALIGNMENT)
-  #error "PBUF_POOL_BUFSIZE must be greater than MEM_ALIGNMENT or the offset may take the full first pbuf"
+#error "PBUF_POOL_BUFSIZE must be greater than MEM_ALIGNMENT or the offset may take the full first pbuf"
 #endif
 
 #if (TCP_QUEUE_OOSEQ && !LWIP_TCP)
-  #error "TCP_QUEUE_OOSEQ requires LWIP_TCP"
+#error "TCP_QUEUE_OOSEQ requires LWIP_TCP"
 #endif
 #if (DNS_LOCAL_HOSTLIST && !DNS_LOCAL_HOSTLIST_IS_DYNAMIC && !(defined(DNS_LOCAL_HOSTLIST_INIT)))
-  #error "you have to define define DNS_LOCAL_HOSTLIST_INIT {{'host1', 0x123}, {'host2', 0x234}} to initialize DNS_LOCAL_HOSTLIST"
+#error "you have to define define DNS_LOCAL_HOSTLIST_INIT {{'host1', 0x123}, {'host2', 0x234}} to initialize DNS_LOCAL_HOSTLIST"
 #endif
 
 
 /* Compile-time checks for deprecated options.
  */
 #ifdef MEMP_NUM_TCPIP_MSG
-  #error "MEMP_NUM_TCPIP_MSG option is deprecated. Remove it from your lwipopts.h."
+#error "MEMP_NUM_TCPIP_MSG option is deprecated. Remove it from your lwipopts.h."
 #endif
 #ifdef MEMP_NUM_API_MSG
-  #error "MEMP_NUM_API_MSG option is deprecated. Remove it from your lwipopts.h."
+#error "MEMP_NUM_API_MSG option is deprecated. Remove it from your lwipopts.h."
 #endif
 #ifdef TCP_REXMIT_DEBUG
-  #error "TCP_REXMIT_DEBUG option is deprecated. Remove it from your lwipopts.h."
+#error "TCP_REXMIT_DEBUG option is deprecated. Remove it from your lwipopts.h."
 #endif
 #ifdef RAW_STATS
-  #error "RAW_STATS option is deprecated. Remove it from your lwipopts.h."
+#error "RAW_STATS option is deprecated. Remove it from your lwipopts.h."
 #endif
 #ifdef ETHARP_QUEUE_FIRST
-  #error "ETHARP_QUEUE_FIRST option is deprecated. Remove it from your lwipopts.h."
+#error "ETHARP_QUEUE_FIRST option is deprecated. Remove it from your lwipopts.h."
 #endif
 #ifdef ETHARP_ALWAYS_INSERT
-  #error "ETHARP_ALWAYS_INSERT option is deprecated. Remove it from your lwipopts.h."
+#error "ETHARP_ALWAYS_INSERT option is deprecated. Remove it from your lwipopts.h."
 #endif
 #if SO_REUSE
 /* I removed the lot since this was an ugly hack. It broke the raw-API.
    It also came with many ugly goto's, Christiaan Simons. */
-  #error "SO_REUSE currently unavailable, this was a hack"
+#error "SO_REUSE currently unavailable, this was a hack"
 #endif
 
 #ifdef LWIP_DEBUG
-static void
-lwip_sanity_check(void)
+static void lwip_sanity_check(void)
 {
-  /* Warnings */
+    /* Warnings */
 #if LWIP_NETCONN
-  if (MEMP_NUM_NETCONN > (MEMP_NUM_TCP_PCB+MEMP_NUM_TCP_PCB_LISTEN+MEMP_NUM_UDP_PCB+MEMP_NUM_RAW_PCB))
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: MEMP_NUM_NETCONN should be less than the sum of MEMP_NUM_{TCP,RAW,UDP}_PCB+MEMP_NUM_TCP_PCB_LISTEN\n"));
-#endif /* LWIP_NETCONN */
+    if (MEMP_NUM_NETCONN >
+        (MEMP_NUM_TCP_PCB + MEMP_NUM_TCP_PCB_LISTEN + MEMP_NUM_UDP_PCB +
+         MEMP_NUM_RAW_PCB))
+        LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: MEMP_NUM_NETCONN should be less than the sum of MEMP_NUM_{TCP,RAW,UDP}_PCB+MEMP_NUM_TCP_PCB_LISTEN\n"));
+#endif                          /* LWIP_NETCONN */
 #if LWIP_TCP
-  if (MEMP_NUM_TCP_SEG < TCP_SND_QUEUELEN)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: MEMP_NUM_TCP_SEG should be at least as big as TCP_SND_QUEUELEN\n"));
-  if (TCP_SND_QUEUELEN < (2 * (TCP_SND_BUF/TCP_MSS)))
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_SND_QUEUELEN must be at least as much as (2 * TCP_SND_BUF/TCP_MSS) for things to work\n"));
-  if (TCP_SNDLOWAT > TCP_SND_BUF)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_SNDLOWAT must be less than or equal to TCP_SND_BUF.\n"));
-  if (TCP_WND > (PBUF_POOL_SIZE*PBUF_POOL_BUFSIZE))
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_WND is larger than space provided by PBUF_POOL_SIZE*PBUF_POOL_BUFSIZE\n"));
+    if (MEMP_NUM_TCP_SEG < TCP_SND_QUEUELEN)
+        LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: MEMP_NUM_TCP_SEG should be at least as big as TCP_SND_QUEUELEN\n"));
+    if (TCP_SND_QUEUELEN < (2 * (TCP_SND_BUF / TCP_MSS)))
+        LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_SND_QUEUELEN must be at least as much as (2 * TCP_SND_BUF/TCP_MSS) for things to work\n"));
+    if (TCP_SNDLOWAT > TCP_SND_BUF)
+        LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_SNDLOWAT must be less than or equal to TCP_SND_BUF.\n"));
+    if (TCP_WND > (PBUF_POOL_SIZE * PBUF_POOL_BUFSIZE))
+        LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_WND is larger than space provided by PBUF_POOL_SIZE*PBUF_POOL_BUFSIZE\n"));
 
-  if (TCP_WND < TCP_MSS)
-    LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_WND is smaller than MSS\n"));
-#endif /* LWIP_TCP */
+    if (TCP_WND < TCP_MSS)
+        LWIP_PLATFORM_DIAG(("lwip_sanity_check: WARNING: TCP_WND is smaller than MSS\n"));
+#endif                          /* LWIP_TCP */
 }
-#else  /* LWIP_DEBUG */
+#else                           /* LWIP_DEBUG */
 #define lwip_sanity_check()
-#endif /* LWIP_DEBUG */
+#endif                          /* LWIP_DEBUG */
 
 static int is_ctl = 0;
 
-static void
-remaining_lwip_initialization(char *card_name)
+static void remaining_lwip_initialization(char *card_name)
 {
     //asq: connect to the NIC driver, before doing anything else
     idc_connect_to_driver(card_name);
@@ -258,59 +258,59 @@ remaining_lwip_initialization(char *card_name)
     DEBUGPRINTPS("remaining_lwip_init: allocating pbuf memory\n");
 #ifdef CONFIG_QEMU_NETWORK
     printf("#### Networking with small amount of memory #####\n");
-#endif // CONFIG_QEMU_NETWORK
-    printf("#### [%u] [%s] [%d] MEM_SIZE[%d], MEMP_NUM_PBUF[%d],  PBUF_POOL_SIZE[%d], NR_PREALLOCATED_PBUFS[%d], PBUF_POOL_BUFSIZE[%d] ####\n",
-            disp_get_core_id(), MEM_CONF_LOC, is_ctl,
-            MEM_SIZE,  MEMP_NUM_PBUF, PBUF_POOL_SIZE,
-            NR_PREALLOCATED_PBUFS, PBUF_POOL_BUFSIZE);
+#endif                          // CONFIG_QEMU_NETWORK
+    printf
+      ("#### [%u] [%s] [%d] MEM_SIZE[%d], MEMP_NUM_PBUF[%d],  PBUF_POOL_SIZE[%d], NR_PREALLOCATED_PBUFS[%d], PBUF_POOL_BUFSIZE[%d] ####\n",
+       disp_get_core_id(), MEM_CONF_LOC, is_ctl, MEM_SIZE, MEMP_NUM_PBUF,
+       PBUF_POOL_SIZE, NR_PREALLOCATED_PBUFS, PBUF_POOL_BUFSIZE);
 
-    memp_init(); // 0'st buffer
+    memp_init();                // 0'st buffer
 
     DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
-	printf("LWIP: remaining_lwip_init: allocating memory for sending\n");
-    mem_init(); // 1'th buffer
+    printf("LWIP: remaining_lwip_init: allocating memory for sending\n");
+    mem_init();                 // 1'th buffer
 
     DEBUGPRINTPS("remaining_lwip_init: initing pbufs\n");
-	printf("LWIP: remaining_lwip_init: initing pbufs\n");
+    printf("LWIP: remaining_lwip_init: initing pbufs\n");
     pbuf_init();
     DEBUGPRINTPS("remaining_lwip_init: done with pbuf_init\n");
     // prefill receive descriptors.
     mem_barrelfish_pbuf_init();
     DEBUGPRINTPS("lwip_starting -- netif_init\n");
-	printf("LWIP: lwip_starting\n");
+    printf("LWIP: lwip_starting\n");
     netif_init();
 #if LWIP_SOCKET
     lwip_socket_init();
-#endif /* LWIP_SOCKET */
+#endif                          /* LWIP_SOCKET */
     ip_init();
 #if LWIP_ARP
     etharp_init();
-#endif /* LWIP_ARP */
+#endif                          /* LWIP_ARP */
 #if LWIP_RAW
     raw_init();
-#endif /* LWIP_RAW */
+#endif                          /* LWIP_RAW */
 #if LWIP_UDP
     udp_init();
-#endif /* LWIP_UDP */
+#endif                          /* LWIP_UDP */
 #if LWIP_TCP
     tcp_init();
-#endif /* LWIP_TCP */
+#endif                          /* LWIP_TCP */
 #if LWIP_SNMP
     snmp_init();
-#endif /* LWIP_SNMP */
+#endif                          /* LWIP_SNMP */
 #if LWIP_AUTOIP
     autoip_init();
-#endif /* LWIP_AUTOIP */
+#endif                          /* LWIP_AUTOIP */
 #if LWIP_IGMP
     igmp_init();
-#endif /* LWIP_IGMP */
+#endif                          /* LWIP_IGMP */
 #if LWIP_DNS
     dns_init();
-#endif /* LWIP_DNS */
+#endif                          /* LWIP_DNS */
     DEBUGPRINTPS("lwip_remaining_initialization -- done\n");
 }
 
-extern struct waitset *lwip_waitset; // idc_barrelfish.c
+extern struct waitset *lwip_waitset;    // idc_barrelfish.c
 extern struct thread_mutex *lwip_mutex; // idc_barrelfish.c
 
 /**
@@ -318,19 +318,18 @@ extern struct thread_mutex *lwip_mutex; // idc_barrelfish.c
  * In current implementation, it is netd.
  * Perform Sanity check of user-configurable values, and initialize all modules.
  */
-void
-owner_lwip_init(char *card_name)
+void owner_lwip_init(char *card_name)
 {
-    DEBUGPRINTPS ("owner_lwip_init: Inside lwip_init\n");
+    DEBUGPRINTPS("owner_lwip_init: Inside lwip_init\n");
     is_ctl = 1;
     lwip_waitset = get_default_waitset();
 
     /* Sanity check user-configurable values */
     lwip_sanity_check();
-    DEBUGPRINTPS ("owner_lwip_init: done with sanity check\n");
+    DEBUGPRINTPS("owner_lwip_init: done with sanity check\n");
 
     /* Modules initialization */
-    DEBUGPRINTPS ("LWIP: owner_lwip_init: done with connection setup\n");
+    DEBUGPRINTPS("LWIP: owner_lwip_init: done with connection setup\n");
     remaining_lwip_initialization(card_name);
 }
 
@@ -353,9 +352,10 @@ static void call_tcp_tmr(void)
 bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
                   struct thread_mutex *opt_mutex)
 {
-    DEBUGPRINTPS ("LWIP_other: Inside lwip_init\n");
-	printf("LWIP: in lwip_init\n");
+    DEBUGPRINTPS("LWIP_other: Inside lwip_init\n");
+    printf("LWIP: in lwip_init\n");
     static bool run_once;
+
     if (run_once) {
         return false;
     }
@@ -376,43 +376,47 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
 
     /* Sanity check user-configurable values */
     lwip_sanity_check();
-    DEBUGPRINTPS ("LWIP: lwip_init: done with sanity check\n");
-	printf("LWIP: done with sanity check\n");
+    DEBUGPRINTPS("LWIP: lwip_init: done with sanity check\n");
+    printf("LWIP: done with sanity check\n");
     /* Modules initialization */
     char card_controller_name[100];
+
     snprintf(card_controller_name, sizeof(card_controller_name), "%s%s",
-            card_name, CTL_SERVICE_SUFFIX);
+             card_name, CTL_SERVICE_SUFFIX);
 
     // Connecting to netd server
     idc_connect_to_netd(card_controller_name);
     /* FIXME: name of the netd_server should also be passed to lwip_init */
 
-    DEBUGPRINTPS ("LWIP: lwip_init: done with connection setup\n");
-	printf("LWIP: done with connection setup\n");
-    remaining_lwip_initialization((char *)card_name);
+    DEBUGPRINTPS("LWIP: lwip_init: done with connection setup\n");
+    printf("LWIP: done with connection setup\n");
+    remaining_lwip_initialization((char *) card_name);
 
     //k: we need ip... asking netd :)
-    DEBUGPRINTPS ("getting IP from netd\n");
-	printf("LWIP: getting IP from netd\n");
+    DEBUGPRINTPS("getting IP from netd\n");
+    printf("LWIP: getting IP from netd\n");
     idc_get_ip();
-    DEBUGPRINTPS ("ip requested\n");
-	printf("LWIP: IP requested\n");
+    DEBUGPRINTPS("ip requested\n");
+    printf("LWIP: IP requested\n");
 
     // Register timers... (TCP only)
     static struct periodic_event tcp_timer;
     errval_t err = periodic_event_create(&tcp_timer, lwip_waitset,
                                          TCP_TMR_INTERVAL * 1000,
-                                         MKCLOSURE((void (*)(void *))call_tcp_tmr, NULL));
+                                         MKCLOSURE((void (*)(void *))
+                                                   call_tcp_tmr, NULL));
     assert(err_is_ok(err));
 
     // Bring interface up
     static struct netif netif;
     struct ip_addr ipaddr, netmask, gw;
+
     ip_addr_set(&ipaddr, IP_ADDR_ANY);
     ip_addr_set(&netmask, IP_ADDR_ANY);
     ip_addr_set(&gw, IP_ADDR_ANY);
     struct netif *n = netif_add(&netif, &ipaddr, &netmask, &gw,
                                 NULL, bfeth_init, ethernet_input);
+
     assert(n != NULL);
 
     return true;
@@ -423,7 +427,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
  */
 bool lwip_init(const char *card_name)
 {
-    if(card_name == NULL) {
+    if (card_name == NULL) {
         return lwip_init_auto_ex(NULL, NULL);
     } else {
         return lwip_init_ex(card_name, NULL, NULL);
@@ -434,10 +438,11 @@ bool lwip_init(const char *card_name)
 /**
  * Figure out the best NIC card to connect and initialize library network stack.
  */
-bool lwip_init_auto_ex(struct waitset *opt_waitset,
-                       struct thread_mutex *opt_mutex)
+bool lwip_init_auto_ex(struct waitset * opt_waitset,
+                       struct thread_mutex * opt_mutex)
 {
     char *card_name = NULL;
+
     /* Figure out the best NIC card that can be used */
     /* FIXME: hardcoding the NIC card right now, will do smarter detection
        in future. */
@@ -447,15 +452,16 @@ bool lwip_init_auto_ex(struct waitset *opt_waitset,
     card_name = "rtl8029";
 #else
     card_name = "e1000";
-#endif // CONFIG_QEMU_NETWORK
+#endif                          // CONFIG_QEMU_NETWORK
 #else
     static char cid[100];
+
     snprintf(cid, sizeof(cid), "eMAC2_%u", disp_get_core_id());
     card_name = cid;
-#endif // __scc__
+#endif                          // __scc__
 
-        return lwip_init_ex(card_name, opt_waitset, opt_mutex);
-} // end function: lwip_init_auto_ex
+    return lwip_init_ex(card_name, opt_waitset, opt_mutex);
+}                               // end function: lwip_init_auto_ex
 
 
 /**
@@ -468,45 +474,42 @@ bool lwip_init_auto(void)
 
 void lwip_start_net_debug(int connection_type, uint8_t state)
 {
-//	printf("calling idc_debug_status\n");
+//      printf("calling idc_debug_status\n");
     idc_debug_status(connection_type, state);
-} // end function: lwip_start_net_debug
+}                               // end function: lwip_start_net_debug
 
 #include <contmng/contmng.h>
 #define FREE_SLOT_THRESHOLD    100
 int is_lwip_loaded(void)
 {
     // Check for availability of free pbufs
-    if (free_pbuf_pool_count()  == 0) {
+    if (free_pbuf_pool_count() == 0) {
         return 1;
     }
-
     // Check load on RX connection
     int slots = idc_check_capacity(RECEIVE_CONNECTION);
+
     if (slots < FREE_SLOT_THRESHOLD) {
         return 2;
     }
-
     // Check load on TX connection
     slots = idc_check_capacity(TRANSMIT_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
         return 3;
     }
-
     // Check for load the driver itself
     uint64_t tx_slots_left = idc_check_driver_load();
+
     if (tx_slots_left < (MAX_QUEUE_SIZE + 10)) {
 //        return 4;
     }
 
 
-
     // Everything is great!
     return 0;
-} // end function: is_lwip_loaded?
+}                               // end function: is_lwip_loaded?
 
 uint64_t lwip_packet_drop_count(void)
 {
     return idc_get_packet_drop_count();
-} // end function: lwip_packet_drop_count
-
+}                               // end function: lwip_packet_drop_count

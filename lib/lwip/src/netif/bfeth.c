@@ -82,8 +82,8 @@
  * But this is only an example, anyway...
  */
 struct bfeth {
-  struct eth_addr *ethaddr;
-  /* Add whatever per-interface state that is needed here. */
+    struct eth_addr *ethaddr;
+    /* Add whatever per-interface state that is needed here. */
 };
 
 /**
@@ -93,20 +93,20 @@ struct bfeth {
  * @param netif the already initialized lwip network interface structure
  *        for this bfeth
  */
-static void
-low_level_init(struct netif *netif)
+static void low_level_init(struct netif *netif)
 {
-  /* set MAC hardware address length */
-  netif->hwaddr_len = ETHARP_HWADDR_LEN;
+    /* set MAC hardware address length */
+    netif->hwaddr_len = ETHARP_HWADDR_LEN;
 
-  /* set MAC hardware address */
-  idc_get_mac_address(netif->hwaddr);
+    /* set MAC hardware address */
+    idc_get_mac_address(netif->hwaddr);
 
-  /* maximum transfer unit */
-  netif->mtu = 1500;
+    /* maximum transfer unit */
+    netif->mtu = 1500;
 
-  /* device capabilities */
-  netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
+    /* device capabilities */
+    netif->flags =
+      NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
 }
 
 /**
@@ -125,28 +125,27 @@ low_level_init(struct netif *netif)
  *       dropped because of memory failure (except for the TCP timers).
  */
 
-static err_t
-low_level_output(struct netif *netif, struct pbuf *p)
+static err_t low_level_output(struct netif *netif, struct pbuf *p)
 {
-  //avoid that lwip frees this buffer before it has been sent by the network card.
-  for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
-      pbuf_ref(tmpp);
-  }
+    //avoid that lwip frees this buffer before it has been sent by the network card.
+    for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+        pbuf_ref(tmpp);
+    }
 
 #if ETH_PAD_SIZE
-  pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
+    pbuf_header(p, -ETH_PAD_SIZE);      /* drop the padding word */
 #endif
-  //tell the network driver from which buffer and which offset to send the
-  //new data.
-  idc_send_packet_to_network_driver(p);
+    //tell the network driver from which buffer and which offset to send the
+    //new data.
+    idc_send_packet_to_network_driver(p);
 
 #if ETH_PAD_SIZE
-  pbuf_header(p, ETH_PAD_SIZE); /* reclaim the padding word */
+    pbuf_header(p, ETH_PAD_SIZE);       /* reclaim the padding word */
 #endif
 
-  LINK_STATS_INC(link.xmit);
+    LINK_STATS_INC(link.xmit);
 
-  return ERR_OK;
+    return ERR_OK;
 }
 
 static void bfeth_freeing_handler(struct pbuf *p)
@@ -155,7 +154,7 @@ static void bfeth_freeing_handler(struct pbuf *p)
     pbuf_free(p);
 }
 
-typedef void (*packetfilter_func_t)(struct pbuf *, struct netif *, uint64_t);
+typedef void (*packetfilter_func_t) (struct pbuf *, struct netif *, uint64_t);
 static packetfilter_func_t packetfilter = NULL;
 void bfeth_register_packetfilter(packetfilter_func_t filter);
 
@@ -177,77 +176,78 @@ void
 bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
             uint64_t packet_len)
 {
-  struct bfeth *bfeth;
-  struct eth_hdr *ethhdr;
-  struct pbuf *p;
+    struct bfeth *bfeth;
+    struct eth_hdr *ethhdr;
+    struct pbuf *p;
 
 
-  bfeth = netif->state;
+    bfeth = netif->state;
 
-  //asq: low_level_input is not needed anymore, because p was preallocated
-  //and filled with an arrived packet by the network card driver.
-  //We only need to find the original vaddr of p according to the received
-  //index.
-  //We have to adjust the len and tot_len fields. The packet is
-  //most probably shorter than pbuf's size.
-  //LWIP is freeing the memory by looking at the type, not by the len or
-  //tot_len fields, so that should be fine.
+    //asq: low_level_input is not needed anymore, because p was preallocated
+    //and filled with an arrived packet by the network card driver.
+    //We only need to find the original vaddr of p according to the received
+    //index.
+    //We have to adjust the len and tot_len fields. The packet is
+    //most probably shorter than pbuf's size.
+    //LWIP is freeing the memory by looking at the type, not by the len or
+    //tot_len fields, so that should be fine.
 
-  //get vaddr of p and adjust the length according to the packet length.
-  p = mem_barrelfish_get_pbuf(pbuf_id);
-  //* Buffer has to be found
-  assert(p != 0);
+    //get vaddr of p and adjust the length according to the packet length.
+    p = mem_barrelfish_get_pbuf(pbuf_id);
+    //* Buffer has to be found
+    assert(p != 0);
 
-  assert(packet_len != 0);
-  p->len = packet_len;
-  p->tot_len = packet_len;
-  ethhdr = p->payload;
+    assert(packet_len != 0);
+    p->len = packet_len;
+    p->tot_len = packet_len;
+    ethhdr = p->payload;
 
-  /* points to packet payload, which starts with an Ethernet header */
+    /* points to packet payload, which starts with an Ethernet header */
 
-  switch (htons(ethhdr->type)) {
-  /* IP or ARP packet? */
-  case ETHTYPE_IP:
-  case ETHTYPE_ARP:
+    switch (htons(ethhdr->type)) {
+            /* IP or ARP packet? */
+        case ETHTYPE_IP:
+        case ETHTYPE_ARP:
 #if PPPOE_SUPPORT
-  /* PPPoE packet? */
-  case ETHTYPE_PPPOEDISC:
-  case ETHTYPE_PPPOE:
-#endif /* PPPOE_SUPPORT */
-      LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: consuming the packet\n"));
-      if(packetfilter != NULL) {
-          packetfilter(p, netif, pbuf_id);
-          return;
-      } else {
-          /* full packet send to tcpip_thread to process */
-		assert(netif->input != NULL);
-          if (netif->input(p, netif)!=ERR_OK)
-              { LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: IP input error\n"));
-                  pbuf_free(p);
-                  p = NULL;
-              }
-      }
-    break;
+            /* PPPoE packet? */
+        case ETHTYPE_PPPOEDISC:
+        case ETHTYPE_PPPOE:
+#endif                          /* PPPOE_SUPPORT */
+            LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: consuming the packet\n"));
+            if (packetfilter != NULL) {
+                packetfilter(p, netif, pbuf_id);
+                return;
+            } else {
+                /* full packet send to tcpip_thread to process */
+                assert(netif->input != NULL);
+                if (netif->input(p, netif) != ERR_OK) {
+                    LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: IP input error\n"));
+                    pbuf_free(p);
+                    p = NULL;
+                }
+            }
+            break;
 
-  default:
-      LWIP_DEBUGF(NETIF_DEBUG,("unknown type %x!!!!!\n", htons(ethhdr->type)));
-    pbuf_free(p);
-    p = NULL;
-    break;
-  }
+        default:
+            LWIP_DEBUGF(NETIF_DEBUG,
+                        ("unknown type %x!!!!!\n", htons(ethhdr->type)));
+            pbuf_free(p);
+            p = NULL;
+            break;
+    }
 
-  //now we have consumed the preregistered pbuf containing a received packet
-  //which was processed in this function. Therefore we have to register a new
-  //free buffer for receiving packets. We can reuse the odl buffer's index
-  //and the corresponding data structures (i.e. array entries)
+    //now we have consumed the preregistered pbuf containing a received packet
+    //which was processed in this function. Therefore we have to register a new
+    //free buffer for receiving packets. We can reuse the odl buffer's index
+    //and the corresponding data structures (i.e. array entries)
 
-  mem_barrelfish_replace_pbuf(pbuf_id);
+    mem_barrelfish_replace_pbuf(pbuf_id);
 }
 
 static void bfeth_input_handler(void *data, uint64_t pbuf_id, uint64_t paddr,
                                 uint64_t len, uint64_t packet_len)
 {
-    bfeth_input((struct netif *)data, pbuf_id, paddr, len, packet_len);
+    bfeth_input((struct netif *) data, pbuf_id, paddr, len, packet_len);
 }
 
 
@@ -263,53 +263,51 @@ static void bfeth_input_handler(void *data, uint64_t pbuf_id, uint64_t paddr,
  *         ERR_MEM if private data couldn't be allocated
  *         any other err_t on error
  */
-err_t
-bfeth_init(struct netif *netif)
+err_t bfeth_init(struct netif *netif)
 {
-  struct bfeth *bfeth;
+    struct bfeth *bfeth;
 
-  LWIP_ASSERT("netif != NULL", (netif != NULL));
+    LWIP_ASSERT("netif != NULL", (netif != NULL));
 
-  bfeth = mem_malloc(sizeof(struct bfeth));
-  if (bfeth == NULL) {
-    LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_init: out of memory\n"));
-    return ERR_MEM;
-  }
-
+    bfeth = mem_malloc(sizeof(struct bfeth));
+    if (bfeth == NULL) {
+        LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_init: out of memory\n"));
+        return ERR_MEM;
+    }
 #if LWIP_NETIF_HOSTNAME
-  /* Initialize interface hostname */
-  netif->hostname = "lwip";
-#endif /* LWIP_NETIF_HOSTNAME */
+    /* Initialize interface hostname */
+    netif->hostname = "lwip";
+#endif                          /* LWIP_NETIF_HOSTNAME */
 
-  /*
-   * Initialize the snmp variables and counters inside the struct netif.
-   * The last argument should be replaced with your link speed, in units
-   * of bits per second.
-   */
-  NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, BFETH_NETSPEED);
+    /*
+     * Initialize the snmp variables and counters inside the struct netif.
+     * The last argument should be replaced with your link speed, in units
+     * of bits per second.
+     */
+    NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, BFETH_NETSPEED);
 
-  netif->state = bfeth;
-  netif->name[0] = IFNAME0;
-  netif->name[1] = IFNAME1;
-  /* We directly use etharp_output() here to save a function call.
-   * You can instead declare your own function an call etharp_output()
-   * from it if you have to do some checks before sending (e.g. if link
-   * is available...) */
-  netif->output = etharp_output;
-  netif->linkoutput = low_level_output;
+    netif->state = bfeth;
+    netif->name[0] = IFNAME0;
+    netif->name[1] = IFNAME1;
+    /* We directly use etharp_output() here to save a function call.
+     * You can instead declare your own function an call etharp_output()
+     * from it if you have to do some checks before sending (e.g. if link
+     * is available...) */
+    netif->output = etharp_output;
+    netif->linkoutput = low_level_output;
 
-  bfeth->ethaddr = (struct eth_addr *)&(netif->hwaddr[0]);
+    bfeth->ethaddr = (struct eth_addr *) &(netif->hwaddr[0]);
 
-  /* initialize the hardware */
-  low_level_init(netif);
+    /* initialize the hardware */
+    low_level_init(netif);
 
-  // register a callback to get notified of arrived packets
-  idc_register_receive_callback(bfeth_input_handler, (void*)netif);
+    // register a callback to get notified of arrived packets
+    idc_register_receive_callback(bfeth_input_handler, (void *) netif);
 
-  //register a function which is called if a transmit descriptor can be freed
-  //(which means the packet has been sent out of the network card and the buffer
-  //is free now)
-  idc_register_freeing_callback(bfeth_freeing_handler);
+    //register a function which is called if a transmit descriptor can be freed
+    //(which means the packet has been sent out of the network card and the buffer
+    //is free now)
+    idc_register_freeing_callback(bfeth_freeing_handler);
 
-  return ERR_OK;
+    return ERR_OK;
 }

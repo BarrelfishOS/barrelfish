@@ -37,14 +37,14 @@
 /* Enable tracing based on the global settings. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define LWIP_TRACE_MODE 1
-#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+#endif                          // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 struct waitset *lwip_waitset;
 
 /* closure for network card client */
 struct client_closure_NC {
-	struct cont_queue *q; /* queue to continuation */
-	struct buffer_desc *buff_ptr;
+    struct cont_queue *q;       /* queue to continuation */
+    struct buffer_desc *buff_ptr;
 };
 
 /*
@@ -52,14 +52,14 @@ struct client_closure_NC {
  */
 
 static bool is_owner = 0;
-static uint16_t (*alloc_tcp_port)(void) = NULL;
-static uint16_t (*alloc_udp_port)(void) = NULL;
-static uint16_t (*bind_port)(uint16_t port, netd_port_type_t type) = NULL;
-static void (*close_port)(uint16_t port, netd_port_type_t type) = NULL;
+static uint16_t(*alloc_tcp_port) (void) = NULL;
+static uint16_t(*alloc_udp_port) (void) = NULL;
+static uint16_t(*bind_port) (uint16_t port, netd_port_type_t type) = NULL;
+static void (*close_port) (uint16_t port, netd_port_type_t type) = NULL;
 
 static new_debug = 0;
 
-/*************************************************************//**
+                                                               /*************************************************************//**
  * \defGroup LocalStates Local states
  *
  * @{
@@ -87,7 +87,8 @@ static struct netd_rpc_client netd_rpc;
  * channel gets connected.
  *
  */
-static bool lwip_connected[2] = {false, false};
+static bool lwip_connected[2] = { false, false };
+
 static bool netd_service_connected = false;
 
 /**
@@ -118,7 +119,8 @@ static bool mac_received = false;
  *
  *
  */
-static void (*lwip_rec_handler)(void*, uint64_t, uint64_t, uint64_t, uint64_t) = NULL;
+static void (*lwip_rec_handler) (void *, uint64_t, uint64_t, uint64_t,
+                                 uint64_t) = NULL;
 
 
 /**
@@ -136,11 +138,11 @@ static void *lwip_rec_data;
  *
  *
  */
-static void (*lwip_free_handler)(struct pbuf *) = NULL;
+static void (*lwip_free_handler) (struct pbuf *) = NULL;
 
 // Statistics about driver state
-static uint64_t pkt_dropped = 0; // pkts dropped by the driver
-static uint64_t driver_tx_slots_left = 0; // no. of free slots for TX
+static uint64_t pkt_dropped = 0;        // pkts dropped by the driver
+static uint64_t driver_tx_slots_left = 0;       // no. of free slots for TX
 
 uint64_t idc_check_driver_load(void)
 {
@@ -158,7 +160,7 @@ uint64_t idc_get_packet_drop_count(void)
 
 static struct netif netif;
 
-/*************************************************************//**
+                                                               /*************************************************************//**
  * \defGroup RequestAPI Request API to e1000 drivers
  *
  * (...)
@@ -169,52 +171,55 @@ static struct netif netif;
 
 static errval_t send_transmit_request(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+
     if (b->can_send(b)) {
 #if LWIP_TRACE_MODE
         trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_S,
-        		(uint32_t)e.plist[4]);
-#endif // LWIP_TRACE_MODE
+                    (uint32_t) e.plist[4]);
+#endif                          // LWIP_TRACE_MODE
 //        printf("lwip: actually sending msg to on buff %lu at %lu\n",
-//        		e.plist[1], e.plist[4]);
+//                      e.plist[1], e.plist[4]);
         return b->tx_vtbl.transmit_packet(b,
-            MKCONT(cont_queue_callback, ccnc->q),
-               e.plist[0], e.plist[1], e.plist[2], e.plist[3], e.plist[4]);
-            /* numpbufs,   buffer_id,  len,         offset,    client_data */
+                                          MKCONT(cont_queue_callback, ccnc->q),
+                                          e.plist[0], e.plist[1], e.plist[2],
+                                          e.plist[3], e.plist[4]);
+        /* numpbufs,   buffer_id,  len,         offset,    client_data */
     } else {
-    	printf("send_transmit_request: Flounder busy,rtry+++++\n");
-    	LWIPBF_DEBUG("send_transmit_request: Flounder busy,rtry+++++\n");
+        printf("send_transmit_request: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("send_transmit_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 
 }
 
-uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
+uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 {
     ptrdiff_t offset;
     struct buffer_desc *buff_ptr;
 
-     assert(p != NULL);
+    assert(p != NULL);
     /*
      * Count the number of pbufs to be transmitted as a single message
      * to e1000
      */
     int numpbufs = 0;
-    for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+
+    for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
         numpbufs++;
     }
 
 
 #if !defined(__scc__)
-    mfence(); // ensure that we flush all of the packet payload
-#endif // !defined(__scc__)
+    mfence();                   // ensure that we flush all of the packet payload
+#endif                          // !defined(__scc__)
 
-    for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+    for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
 
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
-#endif // !defined(__scc__)
+#endif                          // !defined(__scc__)
 
         buff_ptr = mem_barrelfish_get_buffer_desc(tmpp->payload);
 
@@ -222,49 +227,54 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         // Added for debugging
         // Specifically to see which path does the packet takes
         // between RX and TX channels
-        if(buff_ptr->buffer_id ==
-                /* buffer for RX */
-                ((struct client_closure_NC *)
-                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id) {
+        if (buff_ptr->buffer_id ==
+            /* buffer for RX */
+            ((struct client_closure_NC *)
+             driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id) {
             printf("sending on TX connection\n");
         } else {
-            if(buff_ptr->buffer_id ==
+            if (buff_ptr->buffer_id ==
                 /* buffer for RX */
                 ((struct client_closure_NC *)
-                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id) {
+                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->
+                buffer_id) {
                 printf("sending on RX connection\n");
             } else {
-                printf("strange state of sending %"PRIu64" \n", buff_ptr->buffer_id);
+                printf("strange state of sending %" PRIu64 " \n",
+                       buff_ptr->buffer_id);
             }
         }
-#endif // 0
+#endif                          // 0
 
         assert(buff_ptr != NULL);
 
-        bulk_arch_prepare_send((void *)tmpp->payload, tmpp->len);
+        bulk_arch_prepare_send((void *) tmpp->payload, tmpp->len);
 
-        offset = (uintptr_t)tmpp->payload - (uintptr_t)(buff_ptr->va);
+        offset = (uintptr_t) tmpp->payload - (uintptr_t) (buff_ptr->va);
 
         struct q_entry entry;
+
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_transmit_request;
         entry.fname = "send_transmit_request";
         struct ether_binding *b = buff_ptr->con;
+
         /* FIXME: need better way of doing following */
-        entry.binding_ptr = (void *)b;
-        struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+        entry.binding_ptr = (void *) b;
+        struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+
         entry.plist[0] = numpbufs;
         entry.plist[1] = buff_ptr->buffer_id;
         entry.plist[2] = tmpp->len;
         entry.plist[3] = offset;
-        entry.plist[4] = (uintptr_t)tmpp;
+        entry.plist[4] = (uintptr_t) tmpp;
 
 #if LWIP_TRACE_MODE
         trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q,
-        		(uint32_t)entry.plist[4]);
-#endif // LWIP_TRACE_MODE
-		if(new_debug) printf("send_pkt: q len[%d]\n",
-ccnc->q->head - ccnc->q->tail);
+                    (uint32_t) entry.plist[4]);
+#endif                          // LWIP_TRACE_MODE
+        if (new_debug)
+            printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
         enqueue_cont_q(ccnc->q, &entry);
     }
     return 0;
@@ -280,8 +290,8 @@ ccnc->q->head - ccnc->q->tail);
 
 static errval_t send_buffer_cap(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
 /*
@@ -291,9 +301,11 @@ static errval_t send_buffer_cap(struct q_entry e)
 */
         printf("send_buffer_cap: sending register_buffer\n");
         errval_t err = b->tx_vtbl.register_buffer(b,
-            MKCONT(cont_queue_callback, ccnc->q),
-               e.cap);
-             /* cap */
+                                                  MKCONT(cont_queue_callback,
+                                                         ccnc->q),
+                                                  e.cap);
+
+        /* cap */
         if (err_is_fail(err)) {
             printf("send_buffer_cap: failed\n");
         } else {
@@ -301,7 +313,7 @@ static errval_t send_buffer_cap(struct q_entry e)
         }
         return err;
     } else {
-    	LWIPBF_DEBUG("send_buffer_cap: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("send_buffer_cap: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 
@@ -311,7 +323,7 @@ static errval_t send_buffer_cap(struct q_entry e)
 void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
 {
 
-	struct q_entry entry;
+    struct q_entry entry;
 
     LWIPBF_DEBUG("idc_register_buffer for binding %d called\n", binding_index);
     printf("idc_register_buffer for binding %d called\n", binding_index);
@@ -320,11 +332,12 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
     entry.fname = "send_buffer_cap";
 
     struct ether_binding *b = driver_connection[binding_index];
-    entry.binding_ptr = (void *)b;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+
+    entry.binding_ptr = (void *) b;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     /* put the buffer into client_closure_NC */
-    if(ccnc->buff_ptr != NULL) {
+    if (ccnc->buff_ptr != NULL) {
         /* FIXME: this needs better error handing */
         printf("idc_register_buffer: one buffer is already registered\n");
         abort();
@@ -351,22 +364,22 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
 
 static errval_t send_pbuf_request(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
 /* To see if pbuf requests are flying around or not. */
 
 #if LWIP_TRACE_MODE
-//    	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
-#endif // LWIP_TRACE_MODE
+//      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
+#endif                          // LWIP_TRACE_MODE
 
-    	return b->tx_vtbl.register_pbuf(b,
-            MKCONT(cont_queue_callback, ccnc->q),
-               e.plist[0], e.plist[1], e.plist[2]);
-             /* pbuf_id,   paddr,      len */
+        return b->tx_vtbl.register_pbuf(b,
+                                        MKCONT(cont_queue_callback, ccnc->q),
+                                        e.plist[0], e.plist[1], e.plist[2]);
+        /* pbuf_id,   paddr,      len */
     } else {
-    	LWIPBF_DEBUG("send_pbuf_request: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("send_pbuf_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 
@@ -376,14 +389,15 @@ void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len)
 {
 
     struct q_entry entry;
+
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_pbuf_request;
     entry.fname = "send_pbuf_request";
     struct ether_binding *b = driver_connection[RECEIVE_CONNECTION];
 
-    entry.binding_ptr = (void *)b;
+    entry.binding_ptr = (void *) b;
 
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     entry.plist[0] = pbuf_id;
     entry.plist[1] = paddr;
@@ -405,13 +419,14 @@ int idc_check_capacity(int direction)
 {
 //    RECEIVE_CONNECTION
     struct ether_binding *b = driver_connection[direction];
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+
     return queue_free_slots(ccnc->q);
 }
 
 
 
-void idc_get_mac_address(uint8_t *mac_client)
+void idc_get_mac_address(uint8_t * mac_client)
 {
 
     LWIPBF_DEBUG("idc_get_mac_address: called #######\n");
@@ -421,9 +436,10 @@ void idc_get_mac_address(uint8_t *mac_client)
 
     // FIXME: broken retry loop
     do {
-        err = driver_connection[TRANSMIT_CONNECTION]->tx_vtbl.
-                         get_mac_address(driver_connection[TRANSMIT_CONNECTION],
-                         NOP_CONT);
+        err =
+          driver_connection[TRANSMIT_CONNECTION]->
+          tx_vtbl.get_mac_address(driver_connection[TRANSMIT_CONNECTION],
+                                  NOP_CONT);
         if (err_is_fail(err)) {
             if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
                 err = event_dispatch(lwip_waitset);
@@ -431,12 +447,13 @@ void idc_get_mac_address(uint8_t *mac_client)
                     USER_PANIC_ERR(err, "in event_dispatch on LWIP waitset");
                 }
             } else {
-                USER_PANIC_ERR(err, "unhandled error sending get_mac_address request");
+                USER_PANIC_ERR(err,
+                               "unhandled error sending get_mac_address request");
             }
         }
     } while (err_is_fail(err) && err_no(err) == FLOUNDER_ERR_TX_BUSY);
 
-    while(!mac_received) {
+    while (!mac_received) {
         err = event_dispatch(lwip_waitset);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "in event_dispatch on LWIP waitset");
@@ -449,14 +466,15 @@ void idc_get_mac_address(uint8_t *mac_client)
 
 static errval_t send_print_statistics_request(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.print_statistics(b,
-            MKCONT(cont_queue_callback, ccnc->q));
+                                           MKCONT(cont_queue_callback,
+                                                  ccnc->q));
     } else {
-    	LWIPBF_DEBUG("send_print_stats_request: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("send_print_stats_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 }
@@ -464,19 +482,21 @@ static errval_t send_print_statistics_request(struct q_entry e)
 
 void idc_print_statistics(void)
 {
-     LWIPBF_DEBUG("idc_print_statistics: called\n");
+    LWIPBF_DEBUG("idc_print_statistics: called\n");
 
-     struct q_entry entry;
-     memset(&entry, 0, sizeof(struct q_entry));
-     entry.handler = send_print_statistics_request;
-     entry.fname = "send_print_statistics_request";
+    struct q_entry entry;
 
-     struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_print_statistics_request;
+    entry.fname = "send_print_statistics_request";
 
-     entry.binding_ptr = (void *)b;
+    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
 
-     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
-     enqueue_cont_q(ccnc->q, &entry);
+    entry.binding_ptr = (void *) b;
+
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+
+    enqueue_cont_q(ccnc->q, &entry);
 
     LWIPBF_DEBUG("idc_print_statistics: terminated\n");
 }
@@ -484,14 +504,14 @@ void idc_print_statistics(void)
 
 static errval_t send_print_cardinfo_handler(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.print_cardinfo(b,
-            MKCONT(cont_queue_callback, ccnc->q));
+                                         MKCONT(cont_queue_callback, ccnc->q));
     } else {
-    	LWIPBF_DEBUG("send_print_stats_request: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("send_print_stats_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 
@@ -502,15 +522,17 @@ void idc_print_cardinfo(void)
 {
     LWIPBF_DEBUG("idc_print_cardinfo: called\n");
     struct q_entry entry;
+
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_print_cardinfo_handler;
     entry.fname = "send_print_cardinfo_handler";
 
     struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
 
-    entry.binding_ptr = (void *)b;
+    entry.binding_ptr = (void *) b;
 
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+
     enqueue_cont_q(ccnc->q, &entry);
 
     LWIPBF_DEBUG("idc_print_statistics: terminated\n");
@@ -519,13 +541,13 @@ void idc_print_cardinfo(void)
 
 static errval_t send_debug_status_request(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.debug_status(b,
-            MKCONT(cont_queue_callback, ccnc->q),
-            (uint8_t)e.plist[0]);
+                                       MKCONT(cont_queue_callback, ccnc->q),
+                                       (uint8_t) e.plist[0]);
     } else {
         LWIPBF_DEBUG("send_debug_status_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -535,18 +557,21 @@ static errval_t send_debug_status_request(struct q_entry e)
 
 void idc_debug_status(int connection, uint8_t state)
 {
-   LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
+    LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
 //     printf("idc_debug_status:  called with status %x\n", state);
 
 //    new_debug = state;
     struct q_entry entry;
+
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_debug_status_request;
     struct ether_binding *b = driver_connection[connection];
-    entry.binding_ptr = (void *)b;
+
+    entry.binding_ptr = (void *) b;
     entry.plist[0] = state;
 
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+
 /*    printf("idc_debug_status: q size [%d]\n",
             ccnc->q->head - ccnc->q->tail);
     cont_queue_show_queue(ccnc->q);
@@ -572,9 +597,8 @@ void idc_debug_status(int connection, uint8_t state)
  *
  */
 void idc_register_receive_callback(void (*f)
-                                   (void*, uint64_t,
-                                    uint64_t, uint64_t, uint64_t),
-                                   void *data)
+                                    (void *, uint64_t,
+                                     uint64_t, uint64_t, uint64_t), void *data)
 {
 
     LWIPBF_DEBUG("idc_register_receive_callback: called\n");
@@ -588,7 +612,7 @@ void idc_register_receive_callback(void (*f)
 }
 
 
-void idc_register_freeing_callback(void (*f)(struct pbuf*))
+void idc_register_freeing_callback(void (*f) (struct pbuf *))
 {
 
     LWIPBF_DEBUG("idc_register_freeing_callback: called\n");
@@ -600,7 +624,7 @@ void idc_register_freeing_callback(void (*f)(struct pbuf*))
 }
 
 
-/*************************************************************//**
+                                                               /*************************************************************//**
  * \defGroup MessageHandlers Message Handlers
  *
  * (...)
@@ -614,15 +638,16 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
                           uint64_t buffer_id)
 {
     assert(err_is_ok(err));
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)st->st;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) st->st;
+
     ccnc->buff_ptr->buffer_id = buffer_id;
 //    assign_id_to_latest_buffer(buffer_id);
-    printf("[%d] new_buffer_id: buffer_id = %"PRIx64"\n",
-            disp_get_core_id(), buffer_id);
+    printf("[%d] new_buffer_id: buffer_id = %" PRIx64 "\n",
+           disp_get_core_id(), buffer_id);
 
-    LWIPBF_DEBUG("[%zu] new_buffer_id: buffer_id = %"PRIx64"\n",
-            disp_get_core_id(), buffer_id);
-    LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %"PRIx64"\n", buffer_id);
+    LWIPBF_DEBUG("[%zu] new_buffer_id: buffer_id = %" PRIx64 "\n",
+                 disp_get_core_id(), buffer_id);
+    LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %" PRIx64 "\n", buffer_id);
 }
 
 
@@ -633,9 +658,9 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
  *
  */
 static void tx_done(struct ether_binding *st, uint64_t client_data,
-        uint64_t slots_left, uint64_t dropped)
+                    uint64_t slots_left, uint64_t dropped)
 {
-    struct pbuf *done_pbuf = (struct pbuf *)(uintptr_t)client_data;
+    struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) client_data;
 
     lwip_mutex_lock();
 
@@ -649,16 +674,17 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
 #if LWIP_TRACE_MODE
     /* FIXME: Need a way to find out the pbuf_id for this tx_done */
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AIR_R,
-                (uint32_t)((uintptr_t)done_pbuf));
+                (uint32_t) ((uintptr_t) done_pbuf));
 
-#endif // LWIP_TRACE_MODE
+#endif                          // LWIP_TRACE_MODE
 
-    if(new_debug) printf("tx_done: %"PRIx64"\n", client_data);
+    if (new_debug)
+        printf("tx_done: %" PRIx64 "\n", client_data);
     if (lwip_free_handler != 0) {
         lwip_free_handler(done_pbuf);
     } else {
         fprintf(stderr, "idc_barrelfish: event_handler: no handler for "
-                        "freeing pbufs installed.\n");
+                "freeing pbufs installed.\n");
     }
 
     lwip_mutex_unlock();
@@ -673,12 +699,11 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
  *
  *
  */
-static void get_mac_address_response(struct ether_binding *st,
-                                      uint64_t hwaddr)
+static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
 {
     LWIPBF_DEBUG("get_mac_address_response: called\n");
 
-    *((uint64_t*)mac) = hwaddr;
+    *((uint64_t *) mac) = hwaddr;
     mac_received = true;
 
     LWIPBF_DEBUG("get_mac_address_response: terminated\n");
@@ -696,11 +721,13 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
                             uint64_t paddr, uint64_t pbuf_len, uint64_t pktlen)
 {
 #if LWIP_TRACE_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t)pbuf_id);
-#endif // LWIP_TRACE_MODE
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
+#endif                          // LWIP_TRACE_MODE
 
-    if(new_debug) printf("%d.%d: packet_received: called paddr = %"PRIx64", len %"PRIx64"\n",
-	disp_get_core_id(), disp_get_domain_id(), paddr, pktlen);
+    if (new_debug)
+        printf("%d.%d: packet_received: called paddr = %" PRIx64 ", len %"
+               PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(), paddr,
+               pktlen);
     LWIPBF_DEBUG("packet_received: called\n");
 
     lwip_mutex_lock();
@@ -709,16 +736,18 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
 
     /* FIXME: enable this.  It is disabled to avoid compiliation issues with ARM
      * Problem is due to use of unint64_t to store paddr. */
-//	bulk_arch_prepare_recv((void *)paddr, pbuf_len);
-    if(pbuf_len == 0) {
-        printf("### Received pbuf_id %"PRIu64" at %"PRIu64" of size %"PRIu64" "
-               "and len %"PRIu64"\n", pbuf_id, paddr, pbuf_len, pktlen);
+//      bulk_arch_prepare_recv((void *)paddr, pbuf_len);
+    if (pbuf_len == 0) {
+        printf("### Received pbuf_id %" PRIu64 " at %" PRIu64 " of size %"
+               PRIu64 " " "and len %" PRIu64 "\n", pbuf_id, paddr, pbuf_len,
+               pktlen);
     }
     if (lwip_rec_handler != 0) {
         lwip_rec_handler(lwip_rec_data, pbuf_id, paddr, pbuf_len, pktlen);
     } else {
         LWIPBF_DEBUG("packet_received: no callback installed\n");
-        if(new_debug)("packet_received: no callback installed\n");
+        if (new_debug)
+            ("packet_received: no callback installed\n");
         //pbuf with received packet not consumed by lwip. It can be
         //reused as receive pbuf
         idc_register_pbuf(pbuf_id, paddr, pbuf_len);
@@ -736,7 +765,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
  */
 
 
-/**************************************************************//**
+                                                                /**************************************************************//**
  * \defGroup netd_connectivity  Code to connect and work with netd.
  *
  * @{
@@ -773,12 +802,13 @@ static void init_netd_connection(char *service_name)
 
     errval_t err;
     iref_t iref;
+
     LWIPBF_DEBUG("init_netd_connection: resolving driver %s\n", service_name);
 
     err = nameservice_blocking_lookup(service_name, &iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err,  "lwip: could not connect to the netd driver.\n"
-                        "Terminating.\n");
+        DEBUG_ERR(err, "lwip: could not connect to the netd driver.\n"
+                  "Terminating.\n");
         abort();
     }
     assert(iref != 0);
@@ -786,8 +816,8 @@ static void init_netd_connection(char *service_name)
     LWIPBF_DEBUG("init_netd_connection: connecting\n");
 
     err = netd_bind(iref, netd_bind_cb, NULL, lwip_waitset,
-                   IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(err)); // XXX
+                    IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));     // XXX
 
     LWIPBF_DEBUG("init_netd_connection: terminated\n");
 }
@@ -795,7 +825,7 @@ static void init_netd_connection(char *service_name)
 
 
 
-/**************************************************************//**
+                                                                /**************************************************************//**
  * \defGroup FlounderVtables Flounder vtables
  *
  * @{
@@ -824,12 +854,13 @@ static void bind_cb(void *st, errval_t err, struct ether_binding *b)
     b->rx_vtbl = rx_vtbl;
 
     struct client_closure_NC *cc = (struct client_closure_NC *)
-         malloc(sizeof(struct client_closure_NC));
+      malloc(sizeof(struct client_closure_NC));
 
-    memset (cc, 0, sizeof(struct client_closure_NC));
+    memset(cc, 0, sizeof(struct client_closure_NC));
     b->st = cc;
 
     char appname[200];
+
     snprintf(appname, sizeof(appname), "appl_%d", conn_nr);
     cc->q = create_cont_q(appname);
 
@@ -867,21 +898,20 @@ static void start_client(char *card_name)
         card_name = "e1000";
     }
 
-    LWIPBF_DEBUG("start_client: resolving driver %s\n",  card_name);
+    LWIPBF_DEBUG("start_client: resolving driver %s\n", card_name);
 
     err = nameservice_blocking_lookup(card_name, &iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err,  "lwip: could not connect to the e1000 driver.\n"
-                        "Terminating.\n");
+        DEBUG_ERR(err, "lwip: could not connect to the e1000 driver.\n"
+                  "Terminating.\n");
         abort();
     }
     assert(iref != 0);
 
     LWIPBF_DEBUG("start_client: connecting\n");
 
-    err = ether_bind(iref, bind_cb, NULL, lwip_waitset,
-                   IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(err)); // XXX
+    err = ether_bind(iref, bind_cb, NULL, lwip_waitset, IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));     // XXX
 
     LWIPBF_DEBUG("start_client: terminated\n");
 
@@ -889,7 +919,7 @@ static void start_client(char *card_name)
 }
 
 
-/**************************************************************//**
+                                                                /**************************************************************//**
  * \defGroup IdcAPI Connection management
  *
  * @{
@@ -905,21 +935,22 @@ void thread_debug_regs(struct thread *t);
 void network_polling_loop(void)
 {
     errval_t err;
+
     while (1) {
         err = event_dispatch(lwip_waitset);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
-
 #if 0
-	if(trace_thread != NULL) {
-	  static int iter = 0;
-	  iter++;
-	  if(iter % 10 == 0) {
-	    thread_debug_regs(trace_thread);
-	  }
-	}
+        if (trace_thread != NULL) {
+            static int iter = 0;
+
+            iter++;
+            if (iter % 10 == 0) {
+                thread_debug_regs(trace_thread);
+            }
+        }
 #endif
     }
 }
@@ -944,8 +975,10 @@ void idc_connect_to_netd(char *server_name)
 
     // XXX: dispatch on default waitset until bound
     struct waitset *dws = get_default_waitset();
+
     while (!netd_service_connected) {
         errval_t err = event_dispatch(dws);
+
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "in event_dispatch while binding");
         }
@@ -979,7 +1012,7 @@ void idc_connect_to_driver(char *card_name)
         messages_wait_and_handle_next();
     }
     LWIPBF_DEBUG("idc_client_init: successfully connected with card [%s]\n",
-            card_name);
+                 card_name);
 }
 
 
@@ -990,32 +1023,33 @@ void idc_connect_to_driver(char *card_name)
 void idc_just_to_test(void)
 {
     if (lwip_connected[0]) {
-        printf ("TEST: ether[0] up\n");
+        printf("TEST: ether[0] up\n");
     } else {
-        printf ("TEST: ether[0] down!!!!\n");
-        printf ("Aborting remaining test\n");
+        printf("TEST: ether[0] down!!!!\n");
+        printf("Aborting remaining test\n");
         return;
     }
 
     if (lwip_connected[1]) {
-        printf ("TEST: ether[1] up\n");
+        printf("TEST: ether[1] up\n");
     } else {
-        printf ("TEST: ether[1] down!!!!\n");
-        printf ("Aborting remaining test\n");
+        printf("TEST: ether[1] down!!!!\n");
+        printf("Aborting remaining test\n");
         return;
     }
 
     if (netd_service_connected) {
-        printf ("TEST: netd up\n");
+        printf("TEST: netd up\n");
     } else {
-        printf ("TEST: netd down!!!!\n");
-        printf ("Aborting remaining test\n");
+        printf("TEST: netd down!!!!\n");
+        printf("Aborting remaining test\n");
         return;
     }
 
-    printf ("testing get_port\n");
+    printf("testing get_port\n");
 
 }
+
 /*
  * @}
  */
@@ -1023,22 +1057,38 @@ void idc_just_to_test(void)
 errval_t lwip_err_to_errval(err_t e)
 {
     switch (e) {
-    case ERR_OK        : return SYS_ERR_OK;
-    case ERR_MEM       : return LWIP_ERR_MEM;
-    case ERR_BUF       : return LWIP_ERR_BUF;
-    case ERR_TIMEOUT   : return LWIP_ERR_TIMEOUT;
-    case ERR_RTE       : return LWIP_ERR_RTE;
-    case ERR_ABRT      : return LWIP_ERR_ABRT;
-    case ERR_RST       : return LWIP_ERR_RST;
-    case ERR_CLSD      : return LWIP_ERR_CLSD;
-    case ERR_CONN      : return LWIP_ERR_CONN;
-    case ERR_VAL       : return LWIP_ERR_VAL;
-    case ERR_ARG       : return LWIP_ERR_ARG;
-    case ERR_USE       : return LWIP_ERR_USE;
-    case ERR_IF        : return LWIP_ERR_IF;
-    case ERR_ISCONN    : return LWIP_ERR_ISCONN;
-    case ERR_INPROGRESS: return LWIP_ERR_INPROGRESS;
-    default: USER_PANIC("unknown LWIP error in lwip_err_to_errval");
+        case ERR_OK:
+            return SYS_ERR_OK;
+        case ERR_MEM:
+            return LWIP_ERR_MEM;
+        case ERR_BUF:
+            return LWIP_ERR_BUF;
+        case ERR_TIMEOUT:
+            return LWIP_ERR_TIMEOUT;
+        case ERR_RTE:
+            return LWIP_ERR_RTE;
+        case ERR_ABRT:
+            return LWIP_ERR_ABRT;
+        case ERR_RST:
+            return LWIP_ERR_RST;
+        case ERR_CLSD:
+            return LWIP_ERR_CLSD;
+        case ERR_CONN:
+            return LWIP_ERR_CONN;
+        case ERR_VAL:
+            return LWIP_ERR_VAL;
+        case ERR_ARG:
+            return LWIP_ERR_ARG;
+        case ERR_USE:
+            return LWIP_ERR_USE;
+        case ERR_IF:
+            return LWIP_ERR_IF;
+        case ERR_ISCONN:
+            return LWIP_ERR_ISCONN;
+        case ERR_INPROGRESS:
+            return LWIP_ERR_INPROGRESS;
+        default:
+            USER_PANIC("unknown LWIP error in lwip_err_to_errval");
     }
 }
 
@@ -1049,7 +1099,7 @@ errval_t lwip_err_to_errval(err_t e)
 
 void idc_get_ip(void)
 {
-    if(is_owner) {
+    if (is_owner) {
         assert(!"owner of lwip should never ask for ip through API\n");
     }
     LWIPBF_DEBUG("On the way of getting IP\n");
@@ -1068,8 +1118,8 @@ void idc_get_ip(void)
     netif_set_up(&netif);
 
     LWIPBF_DEBUG("client: owner has the IP address %d.%d.%d.%d\n",
-        ip4_addr1(&netif.ip_addr), ip4_addr2(&netif.ip_addr),
-        ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
+                 ip4_addr1(&netif.ip_addr), ip4_addr2(&netif.ip_addr),
+                 ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
 }
 
 
@@ -1080,14 +1130,15 @@ void idc_get_ip(void)
 static err_t idc_close_port(uint16_t port, int port_type)
 {
     LWIPBF_DEBUG("idc_close_port: called\n");
-    if(is_owner) {
-    	close_port((uint64_t)port, port_type);
-    	return ERR_OK;
+    if (is_owner) {
+        close_port((uint64_t) port, port_type);
+        return ERR_OK;
     }
 
     LWIPBF_DEBUG("idc_close_port: called\n");
 
     errval_t err, msgerr;
+
     err = netd_rpc.vtbl.close_port(&netd_rpc, port_type, port, &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
@@ -1095,9 +1146,9 @@ static err_t idc_close_port(uint16_t port, int port_type)
 
     LWIPBF_DEBUG("idc_close_tcp_port: returning\n");
 
-    if(msgerr == PORT_ERR_IN_USE) {
-    	return ERR_USE;
-    } // FIXME: other errors?
+    if (msgerr == PORT_ERR_IN_USE) {
+        return ERR_USE;
+    }                           // FIXME: other errors?
     return ERR_OK;
 }
 
@@ -1115,7 +1166,7 @@ err_t idc_close_tcp_port(uint16_t port)
 
 static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
 {
-    if(is_owner) {
+    if (is_owner) {
         LWIPBF_DEBUG("idc_bind_port: called by owner\n");
         return bind_port(port, port_type);
     }
@@ -1126,22 +1177,23 @@ static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
 
     /* getting the proper buffer id's here */
     err = netd_rpc.vtbl.bind_port(&netd_rpc, port_type, port,
-                /* buffer for RX */
-                ((struct client_closure_NC *)
-                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id,
-                /* buffer for TX */
-                ((struct client_closure_NC *)
-                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id,
-                &msgerr);
+                                  /* buffer for RX */
+                                  ((struct client_closure_NC *)
+                                   driver_connection[RECEIVE_CONNECTION]->st)->
+                                  buff_ptr->buffer_id,
+                                  /* buffer for TX */
+                                  ((struct client_closure_NC *)
+                                   driver_connection[TRANSMIT_CONNECTION]->st)->
+                                  buff_ptr->buffer_id, &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
 
     LWIPBF_DEBUG("idc_new_tcp_port: terminated\n");
 
-    if(msgerr == PORT_ERR_IN_USE) {
-    	return ERR_USE;
-    } // FIXME: other errors?
+    if (msgerr == PORT_ERR_IN_USE) {
+        return ERR_USE;
+    }                           // FIXME: other errors?
     return ERR_OK;
 }
 
@@ -1157,10 +1209,10 @@ err_t idc_bind_tcp_port(uint16_t port)
     return idc_bind_port(port, netd_PORT_TCP);
 }
 
-static err_t idc_new_port(uint16_t *port_no, netd_port_type_t port_type)
+static err_t idc_new_port(uint16_t * port_no, netd_port_type_t port_type)
 {
     /* NOTE: function with same name exists in Kaver's code for reference
-            purpose */
+       purpose */
     errval_t err, msgerr;
 
     LWIPBF_DEBUG("idc_new_port: called\n");
@@ -1168,13 +1220,14 @@ static err_t idc_new_port(uint16_t *port_no, netd_port_type_t port_type)
 
     /* getting the proper buffer id's here */
     err = netd_rpc.vtbl.get_port(&netd_rpc, port_type,
-                /* buffer for RX */
-                ((struct client_closure_NC *)
-                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id,
-                /* buffer for TX */
-                ((struct client_closure_NC *)
-                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id,
-                &msgerr, port_no);
+                                 /* buffer for RX */
+                                 ((struct client_closure_NC *)
+                                  driver_connection[RECEIVE_CONNECTION]->st)->
+                                 buff_ptr->buffer_id,
+                                 /* buffer for TX */
+                                 ((struct client_closure_NC *)
+                                  driver_connection[TRANSMIT_CONNECTION]->st)->
+                                 buff_ptr->buffer_id, &msgerr, port_no);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
@@ -1183,23 +1236,22 @@ static err_t idc_new_port(uint16_t *port_no, netd_port_type_t port_type)
     return msgerr;
 }
 
-err_t idc_tcp_new_port(uint16_t *port_no)
+err_t idc_tcp_new_port(uint16_t * port_no)
 {
-    if(is_owner) {
-    	*port_no = alloc_tcp_port();
-    	return SYS_ERR_OK;
+    if (is_owner) {
+        *port_no = alloc_tcp_port();
+        return SYS_ERR_OK;
     }
 
     return idc_new_port(port_no, netd_PORT_TCP);
 }
 
 
-err_t idc_udp_new_port(uint16_t *port_no)
-
+err_t idc_udp_new_port(uint16_t * port_no)
 {
-    if(is_owner) {
-    	*port_no = alloc_udp_port();
-    	return SYS_ERR_OK;
+    if (is_owner) {
+        *port_no = alloc_udp_port();
+        return SYS_ERR_OK;
 
     }
 
@@ -1208,34 +1260,36 @@ err_t idc_udp_new_port(uint16_t *port_no)
 
 
 static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
-                              struct ip_addr *remote_ip, u16_t remote_port,
-                              netd_port_type_t port_type)
+                          struct ip_addr *remote_ip, u16_t remote_port,
+                          netd_port_type_t port_type)
 {
-    if(is_owner) {
+    if (is_owner) {
         // redirecting doesn't make sense if we are the owner
-        return ERR_USE; // TODO: correct error
+        return ERR_USE;         // TODO: correct error
     }
 
     errval_t err, msgerr;
 
     /* getting the proper buffer id's here */
-    err = netd_rpc.vtbl.redirect(&netd_rpc, port_type, local_ip->addr, local_port,
-                                 remote_ip->addr, remote_port,
-                /* buffer for RX */
-                ((struct client_closure_NC *)
-                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id,
-                /* buffer for TX */
-                ((struct client_closure_NC *)
-                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id,
-                &msgerr);
+    err =
+      netd_rpc.vtbl.redirect(&netd_rpc, port_type, local_ip->addr, local_port,
+                             remote_ip->addr, remote_port,
+                             /* buffer for RX */
+                             ((struct client_closure_NC *)
+                              driver_connection[RECEIVE_CONNECTION]->st)->
+                             buff_ptr->buffer_id,
+                             /* buffer for TX */
+                             ((struct client_closure_NC *)
+                              driver_connection[TRANSMIT_CONNECTION]->st)->
+                             buff_ptr->buffer_id, &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending redirect");
     }
 
-    if(msgerr == PORT_ERR_IN_USE) {
-    	return ERR_USE;
+    if (msgerr == PORT_ERR_IN_USE) {
+        return ERR_USE;
     } else if (msgerr == PORT_ERR_REDIRECT) {
-        return ERR_USE;  // TODO: correct error
+        return ERR_USE;         // TODO: correct error
     }
 // FIXME: other errors?
     return ERR_OK;
@@ -1245,33 +1299,34 @@ static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
                        struct ip_addr *remote_ip, u16_t remote_port,
                        netd_port_type_t port_type)
 {
-    if(is_owner) {
+    if (is_owner) {
         // redirecting doesn't make sense if we are the owner
-        return ERR_USE; // TODO: correct error
+        return ERR_USE;         // TODO: correct error
     }
 
     errval_t err, msgerr;
 
     /* getting the proper buffer id's here */
-    err = netd_rpc.vtbl.redirect_pause(&netd_rpc, port_type, local_ip->addr, local_port,
-                                       remote_ip->addr, remote_port,
-                /* buffer for RX */
-                ((struct client_closure_NC *)
-                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->buffer_id,
-                /* buffer for TX */
-                ((struct client_closure_NC *)
-                 driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id,
-                &msgerr);
+    err =
+      netd_rpc.vtbl.redirect_pause(&netd_rpc, port_type, local_ip->addr,
+                                   local_port, remote_ip->addr, remote_port,
+                                   /* buffer for RX */
+                                   ((struct client_closure_NC *)
+                                    driver_connection[RECEIVE_CONNECTION]->st)->
+                                   buff_ptr->buffer_id,
+                                   /* buffer for TX */
+                                   ((struct client_closure_NC *)
+                                    driver_connection[TRANSMIT_CONNECTION]->
+                                    st)->buff_ptr->buffer_id, &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending pause");
     }
 
-    if(msgerr == PORT_ERR_IN_USE) {
-    	return ERR_USE;
+    if (msgerr == PORT_ERR_IN_USE) {
+        return ERR_USE;
     } else if (msgerr == PORT_ERR_REDIRECT) {
-        return ERR_USE;  // TODO: correct error
+        return ERR_USE;         // TODO: correct error
     }
-
 // FIXME: other errors?
     return ERR_OK;
 }
@@ -1284,25 +1339,27 @@ err_t idc_redirect_udp_port(uint16_t port)
 }
 */
 
-err_t idc_redirect_tcp(struct ip_addr *local_ip, u16_t local_port,
-                       struct ip_addr *remote_ip, u16_t remote_port)
+err_t idc_redirect_tcp(struct ip_addr * local_ip, u16_t local_port,
+                       struct ip_addr * remote_ip, u16_t remote_port)
 {
     return idc_redirect(local_ip, local_port, remote_ip, remote_port,
-                             netd_PORT_TCP);
+                        netd_PORT_TCP);
 }
 
-err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
-                    struct ip_addr *remote_ip, u16_t remote_port)
+err_t idc_pause_tcp(struct ip_addr * local_ip, u16_t local_port,
+                    struct ip_addr * remote_ip, u16_t remote_port)
 {
     return idc_pause(local_ip, local_port, remote_ip, remote_port,
                      netd_PORT_TCP);
 }
 
 
-void perform_ownership_housekeeping(uint16_t (*alloc_tcp_ptr)(void),
-        uint16_t (*alloc_udp_ptr)(void),
-        uint16_t (*bind_port_ptr)(uint16_t, netd_port_type_t ),
-        void (*close_port_ptr)(uint16_t , netd_port_type_t ))
+void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
+                                    uint16_t(*alloc_udp_ptr) (void),
+                                    uint16_t(*bind_port_ptr) (uint16_t,
+                                                              netd_port_type_t),
+                                    void (*close_port_ptr) (uint16_t,
+                                                            netd_port_type_t))
 {
     is_owner = true;
     alloc_tcp_port = alloc_tcp_ptr;
