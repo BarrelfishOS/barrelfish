@@ -31,11 +31,10 @@
 void startlwip(char *card_name)
 {
 
-    NETD_DEBUG ("NETD is taking control of the LWIP for card[%s]\n", card_name);
+    NETD_DEBUG("NETD is taking control of the LWIP for card[%s]\n", card_name);
     perform_ownership_housekeeping(alloc_tcp_port, alloc_udp_port,
-        alloc_specific_port, free_port);
+                                   alloc_specific_port, free_port);
 
     /* take ownership of lwip */
     owner_lwip_init(card_name);
 }
-

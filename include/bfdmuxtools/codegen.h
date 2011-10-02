@@ -29,7 +29,6 @@
 #define INITIAL_ALLOC_SIZE 64 /**< Size of initially allocated filter code block */
 #define INCREMENTAL_ALLOC_SIZE 64 /**< Size of realloc'ed blocks if filter code doesn't fit */
 
-void            compile_filter(char *expression, uint8_t ** filter_code,
-							   int *filter_len);
+void compile_filter(char *expression, uint8_t ** filter_code, int *filter_len);
 
 #endif

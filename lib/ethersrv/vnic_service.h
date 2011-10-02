@@ -23,33 +23,33 @@
 typedef uint32_t uoffset_t;
 typedef uint32_t upbuf_len_t;
 
-struct CACHELINE{
-    uint8_t     bytes[CLINE_SIZE];
+struct CACHELINE {
+    uint8_t bytes[CLINE_SIZE];
 };
 
 /* Single slot in ring buffer.
  * Each slot will hold single pbuf entry
  * It should fit into single cacheline. */
 struct ring_slot {
-    uint16_t            buf_id; // buf_id tells which buffer this pbuf belongs
-    uoffset_t           offset; // offset within above buffer where pbuf starts
-    upbuf_len_t         len;    // length of pbuf starting from offset
-    uint8_t             flags;  // flags telling if there are more pbufs coming
+    uint16_t buf_id;            // buf_id tells which buffer this pbuf belongs
+    uoffset_t offset;           // offset within above buffer where pbuf starts
+    upbuf_len_t len;            // length of pbuf starting from offset
+    uint8_t flags;              // flags telling if there are more pbufs coming
 };
 
 struct vreg {
     union {
-        uint32_t            value;  // The register content
-        struct CACHELINE    place_holder; // to make it cacheline aligned
+        uint32_t value;         // The register content
+        struct CACHELINE place_holder;  // to make it cacheline aligned
     } cline;
 };
 
 
 struct buf_ring {
-    struct ring_slot    *slots; // Array of ring slots
-    struct vreg         *read;  // The read index
-    struct vreg         *write; // The write index
-    size_t              ring_size; // Size of the ring
+    struct ring_slot *slots;    // Array of ring slots
+    struct vreg *read;          // The read index
+    struct vreg *write;         // The write index
+    size_t ring_size;           // Size of the ring
 };
 
 
@@ -66,21 +66,21 @@ enum v_nic_states {
 
 // Virtual NIC device that will be exclusively used by the application
 struct v_nic {
-    uint64_t            id; // NIC id
-    uint64_t            magic_cooki; // magic no. to ensure that this is indeed vnic
-    enum v_nic_states   state; // State of the NIC
-    struct cont_queue   *q;     // Queue to manage continuation callbacks
-    struct buffer_desc  *buffer_list; // List of all buffers registered with this vNIC
-    struct capref       mem_cap; // shared mem where vregs and buffer rings are kept
-    struct buf_ring     *RX_ring;
-    struct buf_ring     *TX_ring;
-    uint32_t            ip_addr; // IP address for this V_NIC
-    uint64_t            mac_addr; // MAC address of this V_NIC
-    uint8_t             debug_state;
+    uint64_t id;                // NIC id
+    uint64_t magic_cooki;       // magic no. to ensure that this is indeed vnic
+    enum v_nic_states state;    // State of the NIC
+    struct cont_queue *q;       // Queue to manage continuation callbacks
+    struct buffer_desc *buffer_list;    // List of all buffers registered with this vNIC
+    struct capref mem_cap;      // shared mem where vregs and buffer rings are kept
+    struct buf_ring *RX_ring;
+    struct buf_ring *TX_ring;
+    uint32_t ip_addr;           // IP address for this V_NIC
+    uint64_t mac_addr;          // MAC address of this V_NIC
+    uint8_t debug_state;
 };
 
 
 void VNIC_service_init(char *service_name);
 
 
-#endif // VNIC_SERVICE_H
+#endif                          // VNIC_SERVICE_H

@@ -44,8 +44,8 @@ struct buffer_port_translation {
     bool bind;
     bool closing;
     bool paused;
-    struct netd_binding* st;
-    struct buffer_port_translation* next;
+    struct netd_binding *st;
+    struct buffer_port_translation *next;
 };
 
 
@@ -53,7 +53,7 @@ struct buffer_port_translation {
  * Represents a network user application. This can easily be extended later.
  */
 struct net_user {
-	struct cont_queue *q;
+    struct cont_queue *q;
     struct buffer_port_translation *open_ports;
     bool died;
     struct net_user *next;

@@ -61,7 +61,7 @@ static void run_timer(uint64_t duration_ms, void (*callback)(void))
  * netd main function
  ***************************************************************************/
 
-int main(int argc, char**argv)
+int main(int argc, char **argv)
 {
     char *card_name = NULL;
     char filter_controller_name[100];
@@ -79,36 +79,37 @@ int main(int argc, char**argv)
 
     /* Read commandline args */
     for (int i = 0; i < argc; i++) {
-        if(strncmp(argv[i],"affinitymin=",strlen("affinitymin="))==0) {
+        if (strncmp(argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
             NETD_DEBUG("minbase = %" PRIu64 "\n", minbase);
         }
-        if(strncmp(argv[i],"affinitymax=",strlen("affinitymax=")-1)==0) {
+        if (strncmp(argv[i], "affinitymax=", strlen("affinitymax=") - 1) == 0) {
             maxbase = atol(argv[i] + strlen("affinitymax="));
-            NETD_DEBUG("maxbase = %"PRIu64"\n", maxbase);
+            NETD_DEBUG("maxbase = %" PRIu64 "\n", maxbase);
         }
-        if(strncmp(argv[i],"cardname=",strlen("cardname=")-1)==0) {
+        if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
             card_name = argv[i] + strlen("cardname=");
             NETD_DEBUG("card name = %s\n", card_name);
         }
     }
 
     if (card_name == NULL) {
-        fprintf(stderr, "Error: netd: card name not specified, but it is required\n");
+        fprintf(stderr,
+                "Error: netd: card name not specified, but it is required\n");
         fprintf(stderr, "Hint: try \"netd cardname=e1000\"\n");
         return 1;
     }
 
     snprintf(filter_controller_name, sizeof(filter_controller_name), "%s%s",
-            card_name, FILTER_SERVICE_SUFFIX);
+             card_name, FILTER_SERVICE_SUFFIX);
 
     snprintf(net_ctrl_service_name, sizeof(net_ctrl_service_name), "%s%s",
-            card_name, CTL_SERVICE_SUFFIX);
+             card_name, CTL_SERVICE_SUFFIX);
 
 
     /* Set memory affinity if requested */
     if ((minbase != -1) && (maxbase != -1)) {
-	   ram_set_affinity(minbase, maxbase);
+        ram_set_affinity(minbase, maxbase);
     }
 
 /*    for (int i = 0; i < 0xfffff; i++) {
@@ -138,4 +139,3 @@ int main(int argc, char**argv)
     network_polling_loop();
     return 0;
 }
-

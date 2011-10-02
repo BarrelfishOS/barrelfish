@@ -37,8 +37,8 @@
 
 /* This enum is used to give buffer_id */
 enum buffer_memory_types {
-        RX_BUFFER_ID = 0,
-        TX_BUFFER_ID = 1,
+    RX_BUFFER_ID = 0,
+    TX_BUFFER_ID = 1,
 };
 
 #define LWIP_MAX(x , y)  (((x) > (y)) ? (x) : (y))
@@ -49,5 +49,4 @@ enum buffer_memory_types {
 #endif
 
 
-#endif /* __LWIP_DEF_H__ */
-
+#endif                          /* __LWIP_DEF_H__ */

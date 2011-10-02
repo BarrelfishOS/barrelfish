@@ -65,29 +65,32 @@ extern "C" {
 #define LWIP_VERSION   (LWIP_VERSION_MAJOR << 24   | LWIP_VERSION_MINOR << 16 | \
                         LWIP_VERSION_REVISION << 8 | LWIP_VERSION_RC)
 
-enum netd_port_type_t;
-void perform_ownership_housekeeping(uint16_t (*alloc_tcp_ptr)(void),
-        uint16_t (*alloc_udp_ptr)(void),
-        uint16_t (*bind_port_ptr)(uint16_t, enum netd_port_type_t),
-        void (*close_port_ptr)(uint16_t , enum netd_port_type_t));
+    enum netd_port_type_t;
+    void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
+                                        uint16_t(*alloc_udp_ptr) (void),
+                                        uint16_t(*bind_port_ptr) (uint16_t,
+                                                                  enum
+                                                                  netd_port_type_t),
+                                        void (*close_port_ptr) (uint16_t,
+                                                                enum
+                                                                netd_port_type_t));
 
 /* Modules initialization */
-struct waitset;
-struct thread_mutex;
-void owner_lwip_init(char *card_name);
-bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
-                  struct thread_mutex *opt_mutex);
-bool lwip_init(const char *card_name);
-bool lwip_init_auto_ex(struct waitset *opt_waitset,
-                       struct thread_mutex *opt_mutex);
-bool lwip_init_auto(void);
+    struct waitset;
+    struct thread_mutex;
+    void owner_lwip_init(char *card_name);
+    bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
+                      struct thread_mutex *opt_mutex);
+    bool lwip_init(const char *card_name);
+    bool lwip_init_auto_ex(struct waitset *opt_waitset,
+                           struct thread_mutex *opt_mutex);
+    bool lwip_init_auto(void);
 
-void lwip_start_net_debug(int connection_type, uint8_t state);
-int is_lwip_loaded(void);
-uint64_t lwip_packet_drop_count(void);
+    void lwip_start_net_debug(int connection_type, uint8_t state);
+    int is_lwip_loaded(void);
+    uint64_t lwip_packet_drop_count(void);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __LWIP_INIT_H__ */
+#endif                          /* __LWIP_INIT_H__ */

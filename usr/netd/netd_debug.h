@@ -20,7 +20,7 @@
 #define NETD_DEBUG(x...) printf("netd: " x)
 #else
 #define NETD_DEBUG(x...) ((void)0)
-#endif // defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#endif                          // defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 
 
-#endif // E1000_DEBUG_H_
+#endif                          // E1000_DEBUG_H_
