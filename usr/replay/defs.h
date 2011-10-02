@@ -16,6 +16,18 @@ enum top {
     TOPs_Total,
 };
 
+static char __attribute__((unused)) *top2str[] = {
+   [TOP_Open  ] = "open",
+   [TOP_Create] = "create",
+   [TOP_Unlink] = "unlink",
+   [TOP_Read  ] = "read",
+   [TOP_Write ] = "write",
+   [TOP_Close ] = "close",
+   [TOP_Exit  ] = "exit",
+   [TOP_Seek  ] = "seek",
+   [TOPs_Total] = "___YOU_SHOULD_NOT_SEE_THIS___"
+};
+
 enum flags {
     FLAGS_RdOnly,
     FLAGS_WrOnly,

@@ -123,7 +123,7 @@ static void handle_print_stats(struct replay_binding *b)
     for (int i=0; i<TOPs_Total; i++) {
         uint64_t op_cnt = Stats.op_count[i];
         double op_time = (double)Stats.op_ticks[i]/(double)tscperms;
-        msg(" op:%d cnt:%" PRIu64  " time:%lf avg:%lf\n", i, op_cnt, op_time, op_time/(double)op_cnt);
+        msg(" op:%-10s cnt:%8" PRIu64  " time:%13.2lf avg:%9.3lf\n", top2str[i], op_cnt, op_time, op_time/(double)op_cnt);
     }
     msg("SLAVE[%u]: CACHE STATISTICS\n", disp_get_core_id());
     cache_print_stats();
