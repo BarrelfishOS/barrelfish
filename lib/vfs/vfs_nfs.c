@@ -613,6 +613,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
     assert(h != NULL);
     err_t e;
 
+    #if 0
     if((__builtin_return_address(2) < (void *)fclose ||
         __builtin_return_address(2) > (void *)memcpy) &&
        (__builtin_return_address(3) < (void *)fclose ||
@@ -625,6 +626,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
                __builtin_return_address(2),
                __builtin_return_address(3));
     }
+    #endif
 
     assert(!h->isdir);
 

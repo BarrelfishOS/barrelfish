@@ -12,8 +12,20 @@ enum top {
     TOP_Write  = 4,
     TOP_Close  = 5,
     TOP_Exit   = 6,
-    TOPs_Total = 7
-    //TOP_End    = 7
+    TOP_Seek   = 7,
+    TOPs_Total,
+};
+
+static char __attribute__((unused)) *top2str[] = {
+   [TOP_Open  ] = "open",
+   [TOP_Create] = "create",
+   [TOP_Unlink] = "unlink",
+   [TOP_Read  ] = "read",
+   [TOP_Write ] = "write",
+   [TOP_Close ] = "close",
+   [TOP_Exit  ] = "exit",
+   [TOP_Seek  ] = "seek",
+   [TOPs_Total] = "___YOU_SHOULD_NOT_SEE_THIS___"
 };
 
 enum flags {
@@ -23,12 +35,12 @@ enum flags {
 };
 
 typedef struct {
+    uint32_t fnumsize; /* for Open/Create/Unlink -> fnum, for Read/Write/Seek -> offset */
+    uint16_t pid;
     uint8_t op;
-    uint32_t fnumsize; /* for Open/Create/Unlink -> fnum, for Read/Write -> size */
     uint8_t fd;
     uint8_t mode;
     /* uint32 fline; */
-    uint16_t pid;
 } replay_eventrec_t;
 
 struct trace_entry {

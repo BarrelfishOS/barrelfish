@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
 #ifndef __linux__
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
@@ -13,6 +14,7 @@
 #else
 #include <stdbool.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -23,6 +25,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
+
 #include "defs.h"
 
 #define MIN(x,y) (x < y ? x : y)
@@ -51,17 +54,64 @@ static int connsock = -1;
 #endif
 
 #define MAX_FD_CONV     256
-#define MAX_DATA        (1 * 1024 * 1024)
+#define MAX_DATA        (2*1024*1024)
+#define WBUF_SIZE       (16*1024*1024)
 
-//static int pidconv[MAX_PIDS] = { 0 };
-//static FILE *fdconv[MAX_PIDS][MAX_FD_CONV];
-//static int fnumconv[MAX_PIDS][MAX_FD_CONV];
-//static bool writerconv[MAX_PIDS][MAX_FD_CONV];
+struct wbuf;
 
-static int openfiles = 0;
-static FILE *fd2fptr[MAX_FD_CONV] = {0};
-static int  fd2fname[MAX_FD_CONV] = {0};
+struct wbuf_entry {
+    struct wbuf *next, *prev;
+};
+
+typedef struct wbuf {
+    int           w_fd;
+    size_t        w_i;
+    unsigned char w_buf[WBUF_SIZE];
+    struct wbuf   *next, *prev;
+} wbuf_t;
+
+static struct {
+    struct wbuf *head;
+    int cnt;
+} Wbufs = {
+    .head= NULL,
+    .cnt = 0
+};
+
+static void
+wb_add(wbuf_t *wb)
+{
+    if (Wbufs.head == NULL) {
+        assert(Wbufs.cnt == 0);
+        Wbufs.head = wb->next = wb->prev = wb;
+    } else {
+        struct wbuf *head = Wbufs.head;
+        wb->next = head;
+        wb->prev = head->prev;
+        head->prev->next = wb;
+        head->prev = wb;
+    }
+    Wbufs.cnt++;
+}
+
+static void
+wb_remove(wbuf_t *wb)
+{
+    if (Wbufs.cnt == 1) {
+        Wbufs.head = NULL;
+    } else {
+        wb->next->prev = wb->prev;
+        wb->prev->next = wb->next;
+    }
+    Wbufs.cnt--;
+}
+
+static int openfiles = 0, read_fails=0, write_fails=0, seek_fails=0;
+static int tfd2fd[MAX_FD_CONV] = {0};    /* trace fd -> fd */
+static int tfd2fname[MAX_FD_CONV] = {0}; /* trace fd -> name */
+wbuf_t    *tfd2wb[MAX_FD_CONV] = {0};    /* trace fd -> write buffer */
 static char data[MAX_DATA];
+
 #ifndef __linux__
 static struct bulk_transfer_slave bulk_slave;
 static uint64_t tscperms;
@@ -123,7 +173,7 @@ static void handle_print_stats(struct replay_binding *b)
     for (int i=0; i<TOPs_Total; i++) {
         uint64_t op_cnt = Stats.op_count[i];
         double op_time = (double)Stats.op_ticks[i]/(double)tscperms;
-        msg(" op:%d cnt:%" PRIu64  " time:%lf avg:%lf\n", i, op_cnt, op_time, op_time/(double)op_cnt);
+        msg(" op:%-10s cnt:%8" PRIu64  " time:%13.2lf avg:%9.3lf\n", top2str[i], op_cnt, op_time, op_time/(double)op_cnt);
     }
     msg("SLAVE[%u]: CACHE STATISTICS\n", disp_get_core_id());
     cache_print_stats();
@@ -137,6 +187,7 @@ do_handle_event(replay_eventrec_t *er)
 {
     static int pid = 0;
     static int op_id = 0;
+    const int open_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
     /* pick a file for this operation */
     // (only needed for Open/Create/Unlink)
@@ -144,45 +195,53 @@ do_handle_event(replay_eventrec_t *er)
     snprintf(fname, 256, "%s/data/%u", defdir, er->fnumsize);
 
 
-    /* protocol:
-     * - master will send consecutive operations with the same pid
-     * - the pid will change after an an Op_Exit, and a subsequent Open/Create
-     */
-    // sanity chacks
-    if (pid == 0) { // client is not associated with a pid
-        assert(er->op == TOP_Open || er->op == TOP_Create);
-    } else {         // client is associated with a pid
-        assert(er->pid == pid);
-    }
-
     op_id++;
     enum top op = er->op;
-    dmsg("SLAVE[%u]: REQ pid:%d op:%d [op_id:%d]\n", disp_get_core_id(), er->pid, op, op_id);
+    dmsg("SLAVE[%u]: REQ pid:%d op:%d fd:%d fnumsize:%d [op_id:%d] er:%p\n", disp_get_core_id(), er->pid, op, er->fd, er->fnumsize, op_id, er);
+
+    /* - master will send consecutive operations with the same pid
+     * - the pid will change after an TOP_Exit, and a subsequent Open/Create */
+    if (pid == 0) {
+        assert(er->op == TOP_Open || er->op == TOP_Create);
+        pid = er->pid;
+        dmsg("SLAVE[%u]: got new pid:%d\n", disp_get_core_id(), pid);
+        op_id = 0;
+    } else if (er->pid != pid) {
+        printf("REQ does not match current pid (%u). Aborting\n", pid);
+        assert(0);
+    } else if (op == TOP_Exit) {
+        pid = 0;
+    }
+
+    int open_flags = 0;
+
     switch(op) {
+    case TOP_Create:
+        open_flags = O_CREAT;
+    /* fallthrough */
     case TOP_Open:
-    case TOP_Create: {
-        //uint64_t ticks = rdtsc();
-        char *flags = NULL;
-
-        if (pid == 0) {
-            // new pid
-            pid = er->pid;
-            dmsg("SLAVE[%u]: got new pid:%d\n", disp_get_core_id(), pid);
-        }
-
         /* set flags */
         switch(er->mode) {
         case FLAGS_RdOnly:
-            flags = "r";
+            open_flags |= O_RDONLY;
             break;
 
         case FLAGS_WrOnly:
-            flags = "w";
+            open_flags |= O_WRONLY;
             break;
 
         case FLAGS_RdWr:
-            flags = "w+";
+            open_flags |= O_RDWR;
             break;
+        }
+
+        /* allocate a write buffer */
+        if (open_flags != O_RDONLY) {
+            wbuf_t *wb = tfd2wb[er->fd] = malloc(sizeof(wbuf_t));
+            assert(wb);
+            wb->w_i = 0;
+            wb->w_fd = er->fd;
+            wb_add(wb);
         }
 
         /* assert(fd2fptr[er->fd] == NULL);
@@ -194,18 +253,16 @@ do_handle_event(replay_eventrec_t *er)
          *  10974  */
 
         /* open the file */
-        fd2fptr[er->fd] = fopen(fname, flags);
-        fd2fname[er->fd] = er->fnumsize;
-        if (fd2fptr[er->fd] != NULL) {
+        tfd2fd[er->fd] = open(fname, open_flags, open_mode);
+        tfd2fname[er->fd] = er->fnumsize;
+        if (tfd2fd[er->fd] != -1) {
             openfiles++;
         } else {
-            printf("Open file:%s (%s) failed\n", fname, flags);
+            printf("Open file:%s (%d) failed\n", fname, open_flags);
+            perror(fname);
             assert(0);
         }
-        //ticks = rdtsc() - ticks;
-        //msg("SLAVE[%d] OPEN %d took %lu ticks (%lf ms)\n", disp_get_core_id(), opencnt++, ticks, (double)ticks/(double)tscperms);
         break;
-    }
 
     case TOP_Unlink: {
         int ret = unlink(fname);
@@ -219,11 +276,11 @@ do_handle_event(replay_eventrec_t *er)
             printf("er->fnumsize == %u\n", er->fnumsize);
             assert(0);
         }
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        int ret = fread(data, 1, er->fnumsize, fptr);
+        int fd = tfd2fd[er->fd];
+        int ret = read(fd, data, er->fnumsize);
         if (ret != er->fnumsize) {
-            msg("[R] op_id:%d er->fnumsize:%u, read:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+            dmsg("[R] op_id:%d er->fnumsize:%u, read:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+            read_fails++;
         }
         //ticks = rdtsc() - ticks;
         //msg("SLAVE[%d] READ %d took %lu ticks (%lf ms)\n", disp_get_core_id(), rdcnt++, ticks, (double)ticks/(double)tscperms);
@@ -235,43 +292,77 @@ do_handle_event(replay_eventrec_t *er)
             printf("er->fnumsize == %u\n", er->fnumsize);
             assert(0);
         }
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        int ret = fwrite(data, 1, er->fnumsize, fptr);
+        wbuf_t *wb = tfd2wb[er->fd];
+        int fd = tfd2fd[er->fd];
+        assert(wb);
+        size_t rem_bytes = er->fnumsize; /* remaining bytes to write */
+        for (;;) {
+            size_t buff_bytes = WBUF_SIZE - wb->w_i; /* wbuf available bytes */
+            if (buff_bytes > rem_bytes) {
+                memcpy(wb->w_buf + wb->w_i, data, rem_bytes);
+                wb->w_i += rem_bytes;
+                break;
+            } else {
+                memcpy(wb->w_buf + wb->w_i, data, buff_bytes);
+                int ret = write(fd, wb->w_buf, WBUF_SIZE);
+                if (ret != WBUF_SIZE) {
+                    write_fails++;
+                }
+                rem_bytes -= buff_bytes;
+                wb->w_i = 0;
+            }
+        }
+        break;
+    }
+
+    case TOP_Seek: {
+        int fd = tfd2fd[er->fd];
+        int ret = lseek(fd, er->fnumsize, SEEK_SET);
         if (ret != er->fnumsize) {
-            msg("[W] op_id:%d er->fnumsize:%u, write:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+            seek_fails++;
+            //msg("[S] op_id:%d er->fnumsize:%u, seek:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
         }
         break;
     }
 
     case TOP_Close: {
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        //uint64_t ticks = rdtsc();
-        int ret = fclose(fptr);
-        //ticks = rdtsc() - ticks;
-        //msg("SLAVE[%d] CLOSE %d took %lu ticks (%lf ms)\n", disp_get_core_id(), closecnt++, ticks, (double)ticks/(double)tscperms);
+        wbuf_t *wb = tfd2wb[er->fd];
+        int fd = tfd2fd[er->fd];
+        if (wb != NULL) {
+            /* flush write buffer */
+            int r = write(fd, wb->w_buf, wb->w_i);
+            if (r != wb->w_i) {
+                write_fails++;
+            }
+            wb_remove(wb);
+            free(wb);
+            tfd2wb[er->fd] = NULL;
+        }
+        int ret = close(fd);
         assert(ret == 0);
         openfiles--;
-        fd2fptr[er->fd] = NULL;
-        fd2fname[er->fd] = 0;
+        tfd2fd[er->fd] = 0;
+        tfd2fname[er->fd] = 0;
         break;
     }
-
-    #if 0
-    case TOP_End: {
-        dmsg("SLAVE[%u]: END\n", disp_get_core_id());
-        //total_ticks += (rdtsc() - handle_ticks);
-        //msg("SLAVE[%u]: END took %lu ticks (%lf ms)\n", disp_get_core_id(), total_ticks, (double)total_ticks/(double)tscperms);
-        errval_t err = b->tx_vtbl.finished(b, NOP_CONT);
-        assert(err_is_ok(err));
-        break;
-    }
-    #endif
 
     case TOP_Exit: {
+        wbuf_t *wb;
+        wb = Wbufs.head;
+        for (int i=0; i<Wbufs.cnt; i++) {
+            wbuf_t *wb_tmp = wb->next;
+            int fd = tfd2fd[wb->w_fd];
+            int r = write(fd, wb->w_buf, wb->w_i);
+            if (r != wb->w_i) {
+                write_fails++;
+            }
+            tfd2wb[wb->w_fd] = 0;
+            free(wb);
+            wb = wb_tmp;
+        }
+        Wbufs.cnt  = 0;
+        Wbufs.head = NULL;
         dmsg("SLAVE[%u]: TOP_Exit on %d\n", disp_get_core_id(), er->pid);
-        pid = 0;
         break;
     }
 
@@ -309,7 +400,10 @@ static void handle_new_task(struct replay_binding *b, uint64_t bulk_id, uint32_t
     tes_nr = tes_size / sizeof(replay_eventrec_t);
     assert(tes_size % sizeof(replay_eventrec_t) == 0);
 
-    assert(tes->op == TOP_Open);
+    if (tes->op != TOP_Open && tes->op != TOP_Create) {
+        msg("ABORTING: task with pid:%d starts with op:%d\n", tes->pid, tes->op);
+        assert(false);
+    }
     pid = tes->pid;
     for (size_t i=0; i<tes_nr; i++) {
         replay_eventrec_t *er = tes + i;
@@ -411,11 +505,13 @@ int main(int argc, char *argv[])
     printf("got connection from %d\n", from);
 
 
-    /* circular buffer for events */
-    const size_t er_size_elems = 2<<12; /* size in elements */
+    /* circular buffer:
+     *  - writer writes at byte grain
+     *  - reader reads at sizeof(replay_eventrec_t) grain */
+    const size_t er_size_elems = 1024;   /* size in elements */
     replay_eventrec_t ers[er_size_elems];
-    const size_t er_size = sizeof(ers);  /* size in bytes */
-    uint64_t er_r, er_w;                /* full indices (in bytes) */
+    const size_t er_size = sizeof(ers);   /* size in bytes */
+    uint64_t er_r, er_w;                  /* full indices (in bytes) */
 
     er_r = er_w = 0;
 
@@ -427,11 +523,12 @@ int main(int argc, char *argv[])
         char *xfer_start = (char *)ers + er_w_idx;
         size_t xfer_len = MIN(er_avail, er_size - er_w_idx);
 
-        /* fetch events */
-        dmsg("RECV: from:%zd len:%zd\n", er_w, xfer_len);
         if (xfer_len == 0) {
             continue;
         }
+
+        /* fetch events */
+        dmsg("RECV: from:%lu len:%zd\n", xfer_start - (char  *)ers, xfer_len);
         ssize_t ret = recv(connsock, xfer_start, xfer_len, 0);
         if(ret == -1) {
             perror("recv");
@@ -449,6 +546,7 @@ int main(int argc, char *argv[])
         while (er_w - er_r >= sizeof(replay_eventrec_t)) {
             size_t er_r_items = er_r / sizeof(replay_eventrec_t);
             replay_eventrec_t *er = ers + (er_r_items % er_size_elems);
+
             handle_event(er);
 
             // notify server that we are done with a task
