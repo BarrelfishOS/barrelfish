@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
 #ifndef __linux__
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
@@ -13,6 +14,7 @@
 #else
 #include <stdbool.h>
 #include <sys/types.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -23,6 +25,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #endif
+
 #include "defs.h"
 
 #define MIN(x,y) (x < y ? x : y)
@@ -51,17 +54,64 @@ static int connsock = -1;
 #endif
 
 #define MAX_FD_CONV     256
-#define MAX_DATA        (2 * 1024 * 1024)
+#define MAX_DATA        (2*1024*1024)
+#define WBUF_SIZE       (16*1024*1024)
 
-//static int pidconv[MAX_PIDS] = { 0 };
-//static FILE *fdconv[MAX_PIDS][MAX_FD_CONV];
-//static int fnumconv[MAX_PIDS][MAX_FD_CONV];
-//static bool writerconv[MAX_PIDS][MAX_FD_CONV];
+struct wbuf;
 
-static int openfiles = 0;
-static FILE *fd2fptr[MAX_FD_CONV] = {0};
-static int  fd2fname[MAX_FD_CONV] = {0};
+struct wbuf_entry {
+    struct wbuf *next, *prev;
+};
+
+typedef struct wbuf {
+    int           w_fd;
+    size_t        w_i;
+    unsigned char w_buf[WBUF_SIZE];
+    struct wbuf   *next, *prev;
+} wbuf_t;
+
+static struct {
+    struct wbuf *head;
+    int cnt;
+} Wbufs = {
+    .head= NULL,
+    .cnt = 0
+};
+
+static void
+wb_add(wbuf_t *wb)
+{
+    if (Wbufs.head == NULL) {
+        assert(Wbufs.cnt == 0);
+        Wbufs.head = wb->next = wb->prev = wb;
+    } else {
+        struct wbuf *head = Wbufs.head;
+        wb->next = head;
+        wb->prev = head->prev;
+        head->prev->next = wb;
+        head->prev = wb;
+    }
+    Wbufs.cnt++;
+}
+
+static void
+wb_remove(wbuf_t *wb)
+{
+    if (Wbufs.cnt == 1) {
+        Wbufs.head = NULL;
+    } else {
+        wb->next->prev = wb->prev;
+        wb->prev->next = wb->next;
+    }
+    Wbufs.cnt--;
+}
+
+static int openfiles = 0, read_fails=0, write_fails=0, seek_fails=0;
+static int tfd2fd[MAX_FD_CONV] = {0};    /* trace fd -> fd */
+static int tfd2fname[MAX_FD_CONV] = {0}; /* trace fd -> name */
+wbuf_t    *tfd2wb[MAX_FD_CONV] = {0};    /* trace fd -> write buffer */
 static char data[MAX_DATA];
+
 #ifndef __linux__
 static struct bulk_transfer_slave bulk_slave;
 static uint64_t tscperms;
@@ -137,6 +187,7 @@ do_handle_event(replay_eventrec_t *er)
 {
     static int pid = 0;
     static int op_id = 0;
+    const int open_mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
 
     /* pick a file for this operation */
     // (only needed for Open/Create/Unlink)
@@ -162,25 +213,35 @@ do_handle_event(replay_eventrec_t *er)
         pid = 0;
     }
 
-    switch(op) {
-    case TOP_Open:
-    case TOP_Create: {
-        //uint64_t ticks = rdtsc();
-        char *flags = NULL;
+    int open_flags = 0;
 
+    switch(op) {
+    case TOP_Create:
+        open_flags = O_CREAT;
+    /* fallthrough */
+    case TOP_Open:
         /* set flags */
         switch(er->mode) {
         case FLAGS_RdOnly:
-            flags = "r";
+            open_flags |= O_RDONLY;
             break;
 
         case FLAGS_WrOnly:
-            flags = "w";
+            open_flags |= O_WRONLY;
             break;
 
         case FLAGS_RdWr:
-            flags = "w+";
+            open_flags |= O_RDWR;
             break;
+        }
+
+        /* allocate a write buffer */
+        if (open_flags != O_RDONLY) {
+            wbuf_t *wb = tfd2wb[er->fd] = malloc(sizeof(wbuf_t));
+            assert(wb);
+            wb->w_i = 0;
+            wb->w_fd = er->fd;
+            wb_add(wb);
         }
 
         /* assert(fd2fptr[er->fd] == NULL);
@@ -192,18 +253,16 @@ do_handle_event(replay_eventrec_t *er)
          *  10974  */
 
         /* open the file */
-        fd2fptr[er->fd] = fopen(fname, flags);
-        fd2fname[er->fd] = er->fnumsize;
-        if (fd2fptr[er->fd] != NULL) {
+        tfd2fd[er->fd] = open(fname, open_flags, open_mode);
+        tfd2fname[er->fd] = er->fnumsize;
+        if (tfd2fd[er->fd] != -1) {
             openfiles++;
         } else {
-            printf("Open file:%s (%s) failed\n", fname, flags);
+            printf("Open file:%s (%d) failed\n", fname, open_flags);
+            perror(fname);
             assert(0);
         }
-        //ticks = rdtsc() - ticks;
-        //msg("SLAVE[%d] OPEN %d took %lu ticks (%lf ms)\n", disp_get_core_id(), opencnt++, ticks, (double)ticks/(double)tscperms);
         break;
-    }
 
     case TOP_Unlink: {
         int ret = unlink(fname);
@@ -217,11 +276,11 @@ do_handle_event(replay_eventrec_t *er)
             printf("er->fnumsize == %u\n", er->fnumsize);
             assert(0);
         }
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        int ret = fread(data, 1, er->fnumsize, fptr);
+        int fd = tfd2fd[er->fd];
+        int ret = read(fd, data, er->fnumsize);
         if (ret != er->fnumsize) {
-            msg("[R] op_id:%d er->fnumsize:%u, read:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+            dmsg("[R] op_id:%d er->fnumsize:%u, read:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+            read_fails++;
         }
         //ticks = rdtsc() - ticks;
         //msg("SLAVE[%d] READ %d took %lu ticks (%lf ms)\n", disp_get_core_id(), rdcnt++, ticks, (double)ticks/(double)tscperms);
@@ -233,51 +292,76 @@ do_handle_event(replay_eventrec_t *er)
             printf("er->fnumsize == %u\n", er->fnumsize);
             assert(0);
         }
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        int ret = fwrite(data, 1, er->fnumsize, fptr);
-        if (ret != er->fnumsize) {
-            msg("[W] op_id:%d er->fnumsize:%u, write:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+        wbuf_t *wb = tfd2wb[er->fd];
+        int fd = tfd2fd[er->fd];
+        assert(wb);
+        size_t rem_bytes = er->fnumsize; /* remaining bytes to write */
+        for (;;) {
+            size_t buff_bytes = WBUF_SIZE - wb->w_i; /* wbuf available bytes */
+            if (buff_bytes > rem_bytes) {
+                memcpy(wb->w_buf + wb->w_i, data, rem_bytes);
+                wb->w_i += rem_bytes;
+                break;
+            } else {
+                memcpy(wb->w_buf + wb->w_i, data, buff_bytes);
+                int ret = write(fd, wb->w_buf, WBUF_SIZE);
+                if (ret != WBUF_SIZE) {
+                    write_fails++;
+                }
+                rem_bytes -= buff_bytes;
+                wb->w_i = 0;
+            }
         }
         break;
     }
 
     case TOP_Seek: {
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        int ret = fseek(fptr, er->fnumsize, SEEK_SET);
-        if (ret != 0) {
-            msg("[S] op_id:%d er->fnumsize:%u, seek:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
+        int fd = tfd2fd[er->fd];
+        int ret = lseek(fd, er->fnumsize, SEEK_SET);
+        if (ret != er->fnumsize) {
+            seek_fails++;
+            //msg("[S] op_id:%d er->fnumsize:%u, seek:%d fname:%d pid:%d error:%d eof:%d pos:%ld\n", op_id, er->fnumsize, ret, fd2fname[er->fd], er->pid, ferror(fptr), feof(fptr), ftell(fptr));
         }
         break;
     }
 
     case TOP_Close: {
-        FILE *fptr = fd2fptr[er->fd];
-        assert(fptr != NULL);
-        //uint64_t ticks = rdtsc();
-        int ret = fclose(fptr);
-        //ticks = rdtsc() - ticks;
-        //msg("SLAVE[%d] CLOSE %d took %lu ticks (%lf ms)\n", disp_get_core_id(), closecnt++, ticks, (double)ticks/(double)tscperms);
+        wbuf_t *wb = tfd2wb[er->fd];
+        int fd = tfd2fd[er->fd];
+        if (wb != NULL) {
+            /* flush write buffer */
+            int r = write(fd, wb->w_buf, wb->w_i);
+            if (r != wb->w_i) {
+                write_fails++;
+            }
+            wb_remove(wb);
+            free(wb);
+            tfd2wb[er->fd] = NULL;
+        }
+        int ret = close(fd);
         assert(ret == 0);
         openfiles--;
-        fd2fptr[er->fd] = NULL;
-        fd2fname[er->fd] = 0;
+        tfd2fd[er->fd] = 0;
+        tfd2fname[er->fd] = 0;
         break;
     }
-
-    #if 0
-    case TOP_End: {
-        dmsg("SLAVE[%u]: END\n", disp_get_core_id());
-        //total_ticks += (rdtsc() - handle_ticks);
-        //msg("SLAVE[%u]: END took %lu ticks (%lf ms)\n", disp_get_core_id(), total_ticks, (double)total_ticks/(double)tscperms);
-        errval_t err = b->tx_vtbl.finished(b, NOP_CONT);
-        assert(err_is_ok(err));
-        break;
-    }
-    #endif
 
     case TOP_Exit: {
+        wbuf_t *wb;
+        wb = Wbufs.head;
+        for (int i=0; i<Wbufs.cnt; i++) {
+            wbuf_t *wb_tmp = wb->next;
+            int fd = tfd2fd[wb->w_fd];
+            int r = write(fd, wb->w_buf, wb->w_i);
+            if (r != wb->w_i) {
+                write_fails++;
+            }
+            tfd2wb[wb->w_fd] = 0;
+            free(wb);
+            wb = wb_tmp;
+        }
+        Wbufs.cnt  = 0;
+        Wbufs.head = NULL;
         dmsg("SLAVE[%u]: TOP_Exit on %d\n", disp_get_core_id(), er->pid);
         break;
     }
