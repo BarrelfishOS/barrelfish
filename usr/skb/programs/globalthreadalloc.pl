@@ -246,7 +246,7 @@ thread_alloc_create_datastructure(TaskList, CoreList) :-
 % instantiate a variable
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-labelall(TaskList) :-
+globalthreadalloc_labelall(TaskList) :-
     ( foreach(Task, TaskList),
       foreach(VarList, VarLists)
       do
@@ -415,7 +415,7 @@ haupt(TaskList) :-
     sum_max_parallel_threads(Sum),
     adjust_ax_parallel_threads(TaskList, NrRunningCores, Sum),
     numa_properties_per_task(TaskList),
-    labelall(TaskList).
+    globalthreadalloc_labelall(TaskList).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
