@@ -130,3 +130,12 @@ is_boot_perfmon_done(Status) :-
 	    Status=yes;
 	    Status=no
 	).
+
+
+get_cache_size(Level, Type, Size):-
+    ( is_predicate(cache/8), cache(_, _, Level, Type, Size, _, _, _) ->
+        true;
+        Size is 32768
+    ).
+
+        
