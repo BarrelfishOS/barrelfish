@@ -33,6 +33,9 @@ e1000_t d;  ///< Mackerel state
 static bool user_macaddr; /// True iff the user specified the MAC address
 static bool use_interrupt = true;
 
+#define DRIVER_RECEIVE_BUFFERS   (1024 * 8) // Number of buffers with driver
+#define RECEIVE_BUFFER_SIZE (1600) // MAX size of ethernet packet
+
 //#define DRIVER_TRANSMIT_BUFFER   (TRANSMIT_BUFFERS)
 #define DRIVER_TRANSMIT_BUFFER   (1024 * 8)
 
@@ -52,7 +55,7 @@ static uint32_t receive_free = 0;
 //remember the pbuf_id and the connection to the client which provided
 //the pbuf at the same index in the receive_ring as here, so that we can notify
 //the client in wich buffer there is new data.
-static struct pbuf_desc local_pbuf[RECEIVE_BUFFERS];
+static struct pbuf_desc local_pbuf[DRIVER_RECEIVE_BUFFERS];
 
 
 /*****************************************************************
@@ -229,7 +232,7 @@ static int add_desc(uint64_t paddr)
     r.raw[0] = r.raw[1] = 0;
     r.rx_read_format.buffer_address = paddr;
 
-    if(receive_free == RECEIVE_BUFFERS) {
+    if(receive_free == DRIVER_RECEIVE_BUFFERS) {
     	//E1000N_DEBUG("no space to add a new receive pbuf\n");
     	printf("no space to add a new receive pbuf\n");
     	/* FIXME: how can you return -1 as error here
@@ -245,7 +248,7 @@ static int add_desc(uint64_t paddr)
     local_pbuf[receive_index].event_sent = false;
 
 
-    receive_index = (receive_index + 1) % RECEIVE_BUFFERS;
+    receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
     e1000_rdt_wr(&d, 0, (e1000_dqval_t){ .val=receive_index } );
     receive_free++;
     return 0;
@@ -261,7 +264,7 @@ static void setup_internal_memory(void)
 
     E1000N_DEBUG("Setting up internal memory for receive\n");
     r = frame_alloc(&frame,
-	    (RECEIVE_BUFFERS - 1) * RECEIVE_BUFFER_SIZE, NULL);
+	    (DRIVER_RECEIVE_BUFFERS - 1) * RECEIVE_BUFFER_SIZE, NULL);
     if(err_is_fail(r)) {
     	assert(!"frame_alloc failed");
     }
@@ -273,13 +276,13 @@ static void setup_internal_memory(void)
     internal_memory_pa = (void*)mem;
 
     r = vspace_map_one_frame_attr(&internal_memory_va,
-	    (RECEIVE_BUFFERS - 1)* RECEIVE_BUFFER_SIZE, frame,
+	    (DRIVER_RECEIVE_BUFFERS - 1)* RECEIVE_BUFFER_SIZE, frame,
 	    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     if (err_is_fail(r)) {
     	assert(!"vspace_map_one_frame failed");
     }
 
-    for(i = 0; i < RECEIVE_BUFFERS - 1; i++) {
+    for(i = 0; i < DRIVER_RECEIVE_BUFFERS - 1; i++) {
     	int ret = add_desc((mem + (i * RECEIVE_BUFFER_SIZE)));
     	assert(ret == 0);
     }
@@ -361,7 +364,7 @@ static bool handle_next_received_packet(void)
 	if(ret < 0){
 		printf("ERROR: add_desc failed, so not able to re-use pbuf\n");
 	}
-	receive_bufptr = (receive_bufptr + 1) % RECEIVE_BUFFERS;
+	receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
 
 	return new_packet;
 }
@@ -426,7 +429,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 {
 	E1000N_DEBUG("starting hardware init\n");
     e1000_hwinit(&d, bar_info, nr_allocated_bars, &transmit_ring, &receive_ring,
-                 RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFER, macaddr, user_macaddr,
+                 DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFER, macaddr, user_macaddr,
                  use_interrupt);
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();

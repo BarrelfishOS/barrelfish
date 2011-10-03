@@ -59,7 +59,7 @@ static void (*close_port) (uint16_t port, netd_port_type_t type) = NULL;
 
 static new_debug = 0;
 
-                                                               /*************************************************************//**
+/*************************************************************
  * \defGroup LocalStates Local states
  *
  * @{
@@ -160,7 +160,7 @@ uint64_t idc_get_packet_drop_count(void)
 
 static struct netif netif;
 
-                                                               /*************************************************************//**
+/***************************************************************
  * \defGroup RequestAPI Request API to e1000 drivers
  *
  * (...)
@@ -547,7 +547,8 @@ static errval_t send_debug_status_request(struct q_entry e)
     if (b->can_send(b)) {
         return b->tx_vtbl.debug_status(b,
                                        MKCONT(cont_queue_callback, ccnc->q),
-                                       (uint8_t) e.plist[0]);
+                                       (uint8_t) e.plist[0], e.plist[1]);
+                                    //           status,     trigger
     } else {
         LWIPBF_DEBUG("send_debug_status_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -555,10 +556,12 @@ static errval_t send_debug_status_request(struct q_entry e)
 }
 
 
-void idc_debug_status(int connection, uint8_t state)
+void idc_debug_status(int connection, uint8_t state, uint64_t trigger)
 {
-    LWIPBF_DEBUG("idc_debug_status:  called with status %x\n", state);
-//     printf("idc_debug_status:  called with status %x\n", state);
+     LWIPBF_DEBUG("idc_debug_status:  called with status %x %[PRIu64]\n",
+     state, trigger);
+//     printf("idc_debug_status:  called with status %x %[PRIu64]\n",
+//     state, trigger);
 
 //    new_debug = state;
     struct q_entry entry;
@@ -569,6 +572,7 @@ void idc_debug_status(int connection, uint8_t state)
 
     entry.binding_ptr = (void *) b;
     entry.plist[0] = state;
+    entry.plist[1] = trigger;
 
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
@@ -624,7 +628,7 @@ void idc_register_freeing_callback(void (*f) (struct pbuf *))
 }
 
 
-                                                               /*************************************************************//**
+/*************************************************************
  * \defGroup MessageHandlers Message Handlers
  *
  * (...)
@@ -765,7 +769,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
  */
 
 
-                                                                /**************************************************************//**
+/****************************************************************
  * \defGroup netd_connectivity  Code to connect and work with netd.
  *
  * @{
@@ -825,7 +829,7 @@ static void init_netd_connection(char *service_name)
 
 
 
-                                                                /**************************************************************//**
+/****************************************************************
  * \defGroup FlounderVtables Flounder vtables
  *
  * @{
@@ -919,7 +923,7 @@ static void start_client(char *card_name)
 }
 
 
-                                                                /**************************************************************//**
+/****************************************************************
  * \defGroup IdcAPI Connection management
  *
  * @{

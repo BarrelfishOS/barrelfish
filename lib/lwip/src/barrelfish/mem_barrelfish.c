@@ -137,6 +137,23 @@ struct buffer_desc *mem_barrelfish_get_buffer_desc(void *p)
 
 }
 
+static void wait_for_receive_channel(void)
+{
+
+    errval_t r;
+    struct waitset *ws = get_default_waitset();
+    // Make sure that you are not registering pbufs too fast
+    // for continuation management!
+    while (idc_check_capacity(RECEIVE_CONNECTION) < 10 ) {
+        r = event_dispatch(ws);
+        if (err_is_fail(r)) {
+            DEBUG_ERR(r, "in event_dispatch");
+            break;
+        }
+    } // end while
+} // end function : wait_for_receive_channel
+
+
 void mem_barrelfish_pbuf_init(void)
 {
     struct pbuf *p;
@@ -170,7 +187,7 @@ void mem_barrelfish_pbuf_init(void)
 /*        LWIPBF_DEBUG("pbuf %lu is from buff %lu -------\n",
         		pbufs[i].pbuf_id, buff_ptr->buffer_id);
 */
-
+        wait_for_receive_channel();
         //XXX: the msg handler should free the pbuf in case of an error
         //uint64_t r = idc_register_pbuf(i, paddr + offset, p->len);
 //        printf("############## register pbuf %d\n", i);

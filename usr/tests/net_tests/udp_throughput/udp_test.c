@@ -87,7 +87,7 @@ static void stop_benchmark(void)
     uint64_t stop = rdtsc();
 
     // sending debug message marking the stop of benchmark
-    lwip_start_net_debug(connection_type, 2);
+    lwip_start_net_debug(connection_type, 2, 0);
 
 
     printf("Test [%s], PBUF type %s\n", TEST_TYPE,
@@ -183,7 +183,7 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         wait_for_lwip();
         if (iter == 0) {
             // sending debug message marking the start of benchmark
-            lwip_start_net_debug(connection_type, 1);
+            lwip_start_net_debug(connection_type, 1, 0);
             // sending first packet
             start = rdtsc();
         }
@@ -227,6 +227,7 @@ udp_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         recv_start_c = rdtsc();
     }
     ++pkt_count;
+    pbuf_free(pbuf);
 } // end function: udp_recv_handler
 
 
@@ -251,6 +252,7 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
         DEBUG_ERR(r, "udp_bind:");
     }
 
+    lwip_start_net_debug(connection_type, 1, iterations);
     udp_recv(upcb, udp_recv_handler, 0 /*client data, arg in callback*/);
 
     while (condition_not_meet()) {
@@ -276,7 +278,7 @@ int main(int argc, char *argv[])
 
     struct ip_addr peer_ip;  // IP address of peer
     uint16_t port = 0;  // Port number of the peer
-    int as_sender = 1; // Flag to choose between sender and receiver
+    int as_sender = 0; // Flag to choose between sender(1) and receiver(0)
 
     ws = get_default_waitset();
 

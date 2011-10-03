@@ -74,7 +74,8 @@ transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 static void get_mac_addr(struct ether_binding *cc);
 static void print_statistics_handler(struct ether_binding *cc);
 static void print_cardinfo_handler(struct ether_binding *cc);
-static void debug_status(struct ether_binding *cc, uint8_t state);
+static void debug_status(struct ether_binding *cc, uint8_t state,
+        uint64_t trigger);
 
 static void register_filter_memory_request(struct ether_control_binding *cc,
                                            struct capref mem_cap);
@@ -605,6 +606,21 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
     cc->rtpbuf = 0;
     cc->debug_state = 0;        // Default debug state : no debug
     cc->app_connection = b;
+    cc->start_ts = rdtsc();
+    cc->pkt_count = 0;
+    cc->dropped_pkt_count = 0;
+    cc->in_dropped_q_full = 0;
+    cc->in_dropped_invalid_pkt = 0;
+    cc->in_dropped_no_app = 0;
+    cc->in_dropped_app_buf_full = 0;
+    cc->in_dropped_app_invalid_buf = 0;
+    cc->in_dropped_notification_prob = 0;
+    cc->in_dropped_notification_prob2 = 0;
+    cc->tx_done_count = 0;
+    cc->pbuf_count = 0;
+    cc->in_dropped_q_full = 0;
+    cc->in_success = 0;
+    cc->in_trigger_counter = 0;
 
     if (client_no < 2) {
         netd[client_no] = b;
@@ -816,7 +832,7 @@ static void register_filter_memory_request(struct ether_control_binding *cc,
 /* Handler for sending response to register_filter */
 static errval_t send_register_filter_response(struct q_entry e)
 {
-    //    ETHERSRV_DEBUG("send_resigered_filter for ID %lu  -----\n", e.plist[0]);
+    //    ETHERSRV_DEBUG("send_resigered_filter for ID %lu  --\n", e.plist[0]);
     struct ether_control_binding *b =
       (struct ether_control_binding *) e.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
@@ -828,7 +844,8 @@ static errval_t send_register_filter_response(struct q_entry e)
                                                    e.plist[1], e.plist[2],
                                                    e.plist[3], e.plist[4],
                                                    e.plist[5]);
-        /* e.id,       e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_tx, e.filter_type */
+        /* e.id,       e.error,    e.filter_id, e.buffer_id_rx,
+         * e.buffer_id_tx, e.filter_type */
 
     } else {
         ETHERSRV_DEBUG("send_resigered_filter: ID %" PRIu64
@@ -860,8 +877,8 @@ static void wrapper_send_filter_registered_msg(struct ether_control_binding *cc,
     entry.plist[3] = buffer_id_rx;
     entry.plist[4] = buffer_id_tx;
     entry.plist[5] = ftype;
-    /* e.plist[0], e.plist[1], e.plist[2],  e.plist[3],     e.plist[4],     e.plist[5]);
-       e.id,       e.error,    e.filter_id, e.buffer_id_rx, e.buffer_id_tx, e.filter_type */
+    // e.plist[0], e.plist[1], e.plist[2],  e.plist[3], e.plist[4], e.plist[5])
+    // id, error, filter_id, buffer_id_rx, buffer_id_tx, filter_type
 
     enqueue_cont_q(ccfm->q, &entry);
 
@@ -1496,7 +1513,7 @@ static errval_t send_received_packet_handler(struct q_entry entry)
 			entry.plist[0], (void *)entry.plist[1]); */
 
     struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
+    struct client_closure *cl = (struct client_closure *) b->st;
 
     if (b->can_send(b)) {
         errval_t err;
@@ -1516,14 +1533,33 @@ static errval_t send_received_packet_handler(struct q_entry entry)
 #endif                          // TRACE_ETHERSRV_MODE
 
         err = b->tx_vtbl.packet_received(b,
-                                         MKCONT(cont_queue_callback, ccl->q),
+                                         MKCONT(cont_queue_callback, cl->q),
                                          entry.plist[0], entry.plist[1],
                                          entry.plist[2], entry.plist[3]);
         /* entry.pbuf_id,  entry.paddr,    entry.len,      entry.length */
 
+        if (err_is_fail(err)) {
+            if (cl->debug_state > 0) {
+             ++cl->in_dropped_notification_prob2;
+            }
+        } else {
+            ++cl->in_success;
+            if (cl->debug_state > 0) {
+                if (cl->in_success == 1) {
+                // This is the first packet, so record the start time!
+                    cl->start_ts = rdtsc();
+                }
+                if (cl->in_trigger_counter == 1) {
+                    debug_status(b, 2, 0);
+                }
+                --cl->in_trigger_counter;
+            } // end if : debug_state
+        } // end if : notification sent!
+
+
         /* FIXME: what is this? why is it here? */
         /* FIXME: I am assuming here that packet has been properly uploaded */
-        ccl->buffer_ptr->pbuf_head_msg = (ccl->buffer_ptr->pbuf_head_msg + 1)
+        cl->buffer_ptr->pbuf_head_msg = (cl->buffer_ptr->pbuf_head_msg + 1)
           % RECEIVE_BUFFERS;
 
         /* FIXME: As I have sent the msg here, shouldn't I treat this pbuf
@@ -1544,12 +1580,6 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     struct client_closure *ccl = (struct client_closure *) buffer->con->st;
 
     if (buffer->pbuf_head == buffer->pbuf_head_msg) {
-        return false;
-    }
-
-    if (queue_free_slots(ccl->q) < 10) {
-        printf("ETHERSRV: incoming pkt, no space in contmng %d\n",
-               queue_free_slots(ccl->q));
         return false;
     }
 
@@ -1600,6 +1630,17 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         printf("ERROR: copy_packet_to_user: Invalid buffer.\n");
         return false;
     }
+
+    struct client_closure *cl = (struct client_closure *) buffer->con->st;
+
+    if (queue_free_slots(cl->q) < 10) {
+        if (cl->debug_state > 0) {
+            ++cl->in_dropped_q_full;
+        }
+        return false;
+    }
+
+
 //    assert(buffer != NULL);
     struct pbuf_desc *pbuf_list =
       (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
@@ -1608,8 +1649,9 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         ETHERSRV_DEBUG("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"
                        PRIu64 " and ptr [%p]\n", disp_get_core_id(), len, data);
 
-//        abort();
-
+        if (cl->debug_state > 0) {
+            ++cl->in_dropped_invalid_pkt;
+        }
         return false;
         /* This is just another error, don't abort, ignore the packet
          * and continue. */
@@ -1628,6 +1670,9 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         /* pbufs are not yet registered, so can't send packet to userspace. */
         ETHERSRV_DEBUG
           ("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
+        if (cl->debug_state > 0) {
+            ++cl->in_dropped_no_app;
+        }
         return false;
     }
 
@@ -1636,6 +1681,9 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64
                        "]: phead[%u] ptail[%u]\n", disp_get_domain_id(),
                        buffer->buffer_id, buffer->pbuf_head, buffer->pbuf_tail);
+        if (cl->debug_state > 0) {
+            ++cl->in_dropped_app_buf_full;
+        }
         return false;
     }
 
@@ -1649,6 +1697,9 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     } else {
         // k: naughty client does not deserve a packet :)
         ETHERSRV_DEBUG("naughty client detected\n");
+        if (cl->debug_state > 0) {
+            ++cl->in_dropped_app_invalid_buf;
+        }
         return false;
     }
     // add trace pkt cpy
@@ -1661,8 +1712,13 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     upbuf->packet_size = len;
     phead = (phead + 1) % RECEIVE_BUFFERS;
     buffer->pbuf_head = phead;
-    ETHERSRV_DEBUG("packet copied to userspace\n");
-    return send_packet_received_notification(buffer, upbuf);
+    bool success = send_packet_received_notification(buffer, upbuf);
+    if (!success) {
+         if (cl->debug_state > 0) {
+            ++cl->in_dropped_notification_prob;
+        }
+    }
+    return success;
 }
 
 
@@ -1692,7 +1748,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 #if TRACE_ETHERSRV_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_ARP,
                 (uint32_t) (uintptr_t) data);
-#endif                          // TRACE_ETHERSRV_MODE
+#endif // TRACE_ETHERSRV_MODE
 
     copy_packet_to_user(buffer, data, len);
 }
@@ -1736,7 +1792,7 @@ static bool only_one_user_app(void)
     }
     return false;
 }
-#endif                          // 0
+#endif // 0
 
 void process_received_packet(void *pkt_data, size_t pkt_len)
 {
@@ -1764,7 +1820,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 		return;
 */
     }
-#endif                          // 0
+#endif // 0
 
     if (handle_fragmented_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
@@ -1861,51 +1917,75 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
 
 
-}                               /* end function: process_received_packet */
+} // end function: process_received_packet
 
 /* This function tells if netd is registered or not. */
 bool waiting_for_netd(void)
 {
     return ((netd[RECEIVE_CONNECTION] == NULL)
             || (netd[TRANSMIT_CONNECTION] == NULL));
-}                               /* end function: is_netd_registered */
+} // end function: is_netd_registered
 
 
-static void debug_status(struct ether_binding *cc, uint8_t state)
+static void debug_status(struct ether_binding *cc, uint8_t state,
+        uint64_t trigger)
 {
     uint64_t ts;
 
-    printf("setting the debug status to %x\n", state);
+    printf("setting the debug status to %x and trigger [%"PRIu64"]\n",
+            state, trigger);
     struct client_closure *cl = ((struct client_closure *) (cc->st));
 
     cl->debug_state = state;
     debug_state = state;
     switch (state) {
-        case 1:
-            printf("#### Starting MBM now \n");
-            cl->start_ts = rdtsc();
-            cl->pkt_count = 0;
-            cl->dropped_pkt_count = 0;
-            cl->tx_done_count = 0;
-            cl->pbuf_count = 0;
-            break;
 
         case 2:
-
-            handle_free_tx_slot_fn_ptr();
+//            handle_free_tx_slot_fn_ptr();
             ts = rdtsc() - cl->start_ts;
             printf("#### Stopping MBM Cycles[%" PRIu64 "],"
                    "Pbufs[%" PRIu64 "], pkts[%" PRIu64 "], D[%" PRIu64 "], "
                    "TX_DONE[%" PRIu64 "]\n",
                    ts, cl->pbuf_count, cl->pkt_count,
                    cl->dropped_pkt_count, cl->tx_done_count);
+            printf("### RX OK[%"PRIu64"], D_CQ_full[%"PRIu64"], "
+                  "D_invalid[%"PRIu64"], D_NO_APP[%"PRIu64"], "
+                  "D_APP_BUF_FULL[%"PRIu64"], D_APP_BUF_INV[%"PRIu64"]\n",
+                  cl->in_success, cl->in_dropped_q_full,
+                  cl->in_dropped_invalid_pkt, cl->in_dropped_no_app,
+                  cl->in_dropped_app_buf_full, cl->in_dropped_app_invalid_buf);
+            printf("### RX D_NTF_PROB[%"PRIu64"], D_NTF_PRO2[%"PRIu64"]\n",
+                  cl->in_dropped_notification_prob,
+                  cl->in_dropped_notification_prob2);
+        case 1:
+            printf("#### Starting MBM now \n");
+            if(trigger == 0) {
+                cl->start_ts = rdtsc();
+            } else {
+                cl->start_ts = 0;
+            }
+            cl->pkt_count = 0;
+            cl->dropped_pkt_count = 0;
+            cl->tx_done_count = 0;
+            cl->pbuf_count = 0;
+            cl->in_dropped_q_full = 0;
+            cl->in_dropped_invalid_pkt = 0;
+            cl->in_dropped_no_app = 0;
+            cl->in_dropped_app_buf_full = 0;
+            cl->in_dropped_app_invalid_buf = 0;
+            cl->in_dropped_notification_prob = 0;
+            cl->in_dropped_notification_prob2 = 0;
+
+            cl->in_success = 0;
+            cl->in_trigger_counter = trigger;
             break;
+
 
         default:
             printf("#### MBM: invalid state %x \n", state);
-    }                           // end switch:
+    } // end switch:
 
-}                               // end function: debug_status
+} // end function: debug_status
 
 
 void ethersrv_debug_printf(const char *fmt, ...)

@@ -24,7 +24,6 @@
 /*****************************************************************
  * Constants:
  *****************************************************************/
-#define RECEIVE_BUFFER_SIZE 2048 // user provided memory
 
 
 
@@ -139,6 +138,16 @@ struct client_closure {
     uint64_t tx_done_count;
     uint64_t dropped_pkt_count;
     uint64_t pbuf_count;
+    uint64_t in_dropped_q_full;
+    uint64_t in_dropped_invalid_pkt;
+    uint64_t in_dropped_no_app;
+    uint64_t in_dropped_app_buf_full;
+    uint64_t in_dropped_app_invalid_buf;
+    uint64_t in_dropped_notification_prob;
+    uint64_t in_dropped_notification_prob2;
+
+    uint64_t in_success;
+    uint64_t in_trigger_counter;
 }; /* holds info about how much data is transferred to NIC. */
 
 

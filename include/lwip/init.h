@@ -86,7 +86,7 @@ extern "C" {
                            struct thread_mutex *opt_mutex);
     bool lwip_init_auto(void);
 
-    void lwip_start_net_debug(int connection_type, uint8_t state);
+    void lwip_start_net_debug(int connection_type, uint8_t state, uint64_t trigger);
     int is_lwip_loaded(void);
     uint64_t lwip_packet_drop_count(void);
 
