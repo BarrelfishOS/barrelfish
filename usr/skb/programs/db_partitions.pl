@@ -1,4 +1,5 @@
 % :-include("../data/data_sbrinz1.txt").
+% :-include("../data/data_nos4.txt").
 
 :-include("globalthreadalloc.pl").
 
@@ -10,7 +11,7 @@
 %%         2.: Ignore and just return the same number of partitions as there are NUMA nodes
 
 
-get_optimal_number_of_partitions(_, _, NrPartitions, Partitions) :-
+partitions_get_optimal_number_of_partitions(_, _, NrPartitions, Partitions) :-
     task_register_function(987654321, 987654321, 0),
     task_config(987654321, 987654321, 0, 0, running),
     haupt(Plan),
@@ -32,10 +33,11 @@ get_optimal_number_of_partitions(_, _, NrPartitions, Partitions) :-
 
     
 
-get_optimal_resource_allocation(NrPartitions, independent, Partitions):-
+partitions_get_optimal_resource_allocation(NrPartitions, PartitionSize, independent, Partitions):-
     task_register_function(987654321, 987654321, 0),
     task_config(987654321, 987654321, 0, 0, running),
     task_set_max_parallel(987654321, 987654321, NrPartitions),
+    task_set_working_set_size(987654321, 987654321, PartitionSize),
     haupt(Plan),
     !,
     allocation_output(Plan, AllocatedCores),
@@ -51,6 +53,10 @@ get_optimal_resource_allocation(NrPartitions, independent, Partitions):-
         eclipse_language:max(AfH, RH),
         sum(Sizes, MaxSize)
     ).
+
+
+partitions_cleanup :-
+    task_remove_client(987654321).
 
 
 

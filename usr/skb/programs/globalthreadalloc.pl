@@ -65,33 +65,33 @@
 % HW data
 % cpu_affinity(APIC, LocalSApicEid, ProximityDomain).
 
-cpu_affinity(0, 0, 0).
-cpu_affinity(1, 0, 0).
-cpu_affinity(2, 0, 0).
-cpu_affinity(3, 0, 0).
-cpu_affinity(4, 0, 0).
-cpu_affinity(5, 0, 0).
+%cpu_affinity(0, 0, 0).
+%cpu_affinity(1, 0, 0).
+%cpu_affinity(2, 0, 0).
+%cpu_affinity(3, 0, 0).
+%cpu_affinity(4, 0, 0).
+%cpu_affinity(5, 0, 0).
 
-cpu_affinity(6, 0, 1).
-cpu_affinity(7, 0, 1).
-cpu_affinity(8, 0, 1).
-cpu_affinity(9, 0, 1).
-cpu_affinity(10, 0, 1).
-cpu_affinity(11, 0, 1).
+%cpu_affinity(6, 0, 1).
+%cpu_affinity(7, 0, 1).
+%cpu_affinity(8, 0, 1).
+%cpu_affinity(9, 0, 1).
+%cpu_affinity(10, 0, 1).
+%cpu_affinity(11, 0, 1).
 
-cpu_affinity(12, 0, 2).
-cpu_affinity(13, 0, 2).
-cpu_affinity(14, 0, 2).
-cpu_affinity(15, 0, 2).
-cpu_affinity(16, 0, 2).
-cpu_affinity(17, 0, 2).
+%cpu_affinity(12, 0, 2).
+%cpu_affinity(13, 0, 2).
+%cpu_affinity(14, 0, 2).
+%cpu_affinity(15, 0, 2).
+%cpu_affinity(16, 0, 2).
+%cpu_affinity(17, 0, 2).
 
-cpu_affinity(18, 0, 3).
-cpu_affinity(19, 0, 3).
-cpu_affinity(20, 0, 3).
-cpu_affinity(21, 0, 3).
-cpu_affinity(22, 0, 3).
-cpu_affinity(23, 0, 3).
+%cpu_affinity(18, 0, 3).
+%cpu_affinity(19, 0, 3).
+%cpu_affinity(20, 0, 3).
+%cpu_affinity(21, 0, 3).
+%cpu_affinity(22, 0, 3).
+%cpu_affinity(23, 0, 3).
 
 affinity_domain_list(Domains) :-
     findall(D, cpu_affinity(_,_,D),DomainList),
@@ -345,6 +345,9 @@ apply_numa_properties(taskname(FunctionAddress, ClID), NUMACoreList) :-
        is_predicate(task_numa/3),task_numa(FunctionAddress, ClID, compute) ->
         apply_numa_properties_compute(NUMACoreList)
       ;
+       is_predicate(task_working_set_size/3), task_working_set_size(FunctionAddress, ClID, WorkingSetSize) ->
+        apply_numa_properties_max_numa_size(NUMACoreList, WorkingSetSize)
+      ;
       true
     ).
 
@@ -374,7 +377,31 @@ apply_numa_properties_memory(NUMACoreList) :-
     ic:maxlist(NUMASums, Max),
     Diff $= Max - Min,
     Diff $=< 1.
-    
+
+apply_numa_properties_max_numa_size(NUMACoreList, WorkingSetSize) :-
+    ( foreach(NUMARegion, NUMACoreList),
+      foreach(Sum, NUMASums)
+      do
+        maplist(corelistvariable, NUMARegion, NUMARegionVars),
+        ic_global:sumlist(NUMARegionVars, Sum)
+    ),
+    findall(A, memory_affinity(_, _, A), AL),
+    sort(AL, ALS),
+    ( foreach(Af, ALS),
+      foreach(Sz, NodeSizes)
+      do
+        findall(Size, memory_affinity(_ , Size, Af), Sizes),
+        sum(Sizes, Sz)
+    ),
+    ( foreach(N, NodeSizes),
+      foreach(NSum, NUMASums),
+      param(WorkingSetSize)
+      do
+        AllocSize $= NSum * WorkingSetSize,
+        AllocSize $=< N
+    ).
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -564,6 +591,24 @@ task_set_max_parallel(FunctionAddress, ClID, MaxNr) :-
     assert(task_max_parallel(FunctionAddress, ClID, MaxNr)).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% set the working set size per core
+% This helps deciding whether the sum of the working set of all cores
+% belonging to the same NUMA node does not exceed the size of the NUMA
+% node
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+task_set_working_set_size(FunctionAddress, ClID, WorkingSetSize) :-
+    ( is_predicate(task_working_set_size/3) ->
+        retractall(task_working_set_size(FunctionAddress, ClID, _))
+        ;
+        true
+    ),
+    assert(task_working_set_size(FunctionAddress, ClID, WorkingSetSize)).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Register a function. Called by the resource manager
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -611,6 +656,11 @@ task_remove_client(ClID):-
     ),
     ( is_predicate(task_statistics/6),task_statistics(_, ClID, _, _, _, _) ->
         retract(task_statistics(_, ClID, _, _, _, _))
+        ;
+        true
+    ),
+    ( is_predicate(task_working_set_size/3), task_working_set_size(_, ClID, _) ->
+        retractall(task_working_set_size(FunctionAddress, ClID, _))
         ;
         true
     ).
