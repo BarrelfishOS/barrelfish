@@ -660,7 +660,7 @@ task_remove_client(ClID):-
         true
     ),
     ( is_predicate(task_working_set_size/3), task_working_set_size(_, ClID, _) ->
-        retractall(task_working_set_size(FunctionAddress, ClID, _))
+        retractall(task_working_set_size(_ , ClID, _))
         ;
         true
     ).
