@@ -169,6 +169,15 @@ struct client_closure {
     uint64_t in_dropped_app_invalid_buf;
     uint64_t in_dropped_notification_prob;
     uint64_t in_dropped_notification_prob2;
+    uint64_t in_other_pkts;
+    uint64_t in_arp_pkts;
+    uint64_t in_netd_pkts;
+    uint64_t in_paused_pkts;
+    uint64_t in_filter_matched;
+    uint64_t in_filter_matched_f;
+    uint64_t in_filter_matched_p;
+    uint64_t in_queue_len_n;
+    uint64_t in_queue_len_sum;
 
     uint64_t in_success;
     uint64_t in_trigger_counter;

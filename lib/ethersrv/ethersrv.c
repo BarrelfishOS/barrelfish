@@ -308,6 +308,35 @@ static void add_event_stat(struct pbuf_desc *pbuf_d, int event_type)
     // FIXME: collect stats for incremental events as well
 }
 
+static void reset_client_closure_stat(struct client_closure *cc)
+{
+    cc->start_ts = 0;
+    cc->pkt_count = 0;
+    cc->dropped_pkt_count = 0;
+    cc->in_dropped_q_full = 0;
+    cc->in_dropped_invalid_pkt = 0;
+    cc->in_dropped_no_app = 0;
+    cc->in_dropped_app_buf_full = 0;
+    cc->in_dropped_app_invalid_buf = 0;
+    cc->in_dropped_notification_prob = 0;
+    cc->in_dropped_notification_prob2 = 0;
+    cc->tx_done_count = 0;
+    cc->pbuf_count = 0;
+    cc->in_dropped_q_full = 0;
+    cc->in_success = 0;
+    cc->in_trigger_counter = 0;
+    cc->filter_matched = 0;
+    cc->in_other_pkts = 0;
+    cc->in_arp_pkts = 0;
+    cc->in_netd_pkts = 0;
+    cc->in_paused_pkts = 0;
+    cc->in_filter_matched = 0;
+    cc->in_filter_matched_p = 0;
+    cc->in_filter_matched_f = 0;
+    cc->in_queue_len_n = 0;
+    cc->in_queue_len_sum = 0;
+}
+
 
 static void register_buffer(struct ether_binding *cc, struct capref cap)
 {
@@ -714,7 +743,6 @@ static void error_handler(struct ether_binding *b, errval_t err)
     ETHERSRV_DEBUG("ether service error_handler: terminated\n");
 }
 
-
 static errval_t connect_ether_cb(void *st, struct ether_binding *b)
 {
     ETHERSRV_DEBUG("ether service got a connection!44\n");
@@ -749,22 +777,8 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
     cc->rtpbuf = 0;
     cc->debug_state = 0;        // Default debug state : no debug
     cc->app_connection = b;
+    reset_client_closure_stat(cc);
     cc->start_ts = rdtsc();
-    cc->pkt_count = 0;
-    cc->dropped_pkt_count = 0;
-    cc->in_dropped_q_full = 0;
-    cc->in_dropped_invalid_pkt = 0;
-    cc->in_dropped_no_app = 0;
-    cc->in_dropped_app_buf_full = 0;
-    cc->in_dropped_app_invalid_buf = 0;
-    cc->in_dropped_notification_prob = 0;
-    cc->in_dropped_notification_prob2 = 0;
-    cc->tx_done_count = 0;
-    cc->pbuf_count = 0;
-    cc->in_dropped_q_full = 0;
-    cc->in_success = 0;
-    cc->in_trigger_counter = 0;
-    cc->filter_matched = 0;
 
     if (client_no < 2) {
         netd[client_no] = b;
@@ -1509,6 +1523,13 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
         for (int i = 0; i < rx_filter->pause_bufpos; i++) {
             struct bufdesc *bd = &rx_filter->pause_buffer[i];
 
+            struct ether_binding *b = rx_filter->buffer->con;
+            assert(b != NULL);
+            struct client_closure *cl = (struct client_closure *)b->st;
+            assert(cl != NULL);
+            if (cl->debug_state == 4) {
+                ++cl->in_paused_pkts;
+            }
             copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len);
         }
     }
@@ -1690,18 +1711,25 @@ static errval_t send_received_packet_handler(struct q_entry entry)
         } else {
             // Following condition will filter out ARP packets
             // and non-debug state
-            if ((cl->debug_state > 2) && cl->filter_matched == 1) {
-                ++cl->in_success;
-                if (cl->in_success == 1) {
-                    assert(cl->debug_state == 3);
-                // This is the first packet, so record the start time!
-                    cl->start_ts = rdtsc();
-                    cl->debug_state = 4; // now setting the debugging
+            if ((cl->debug_state == 4) ) {
+//                if (cl->filter_matched == 1) {
+                if (entry.plist[4] == 1) {
+                    ++cl->in_success;
+                    if (cl->in_trigger_counter == 1) {
+                        debug_status(b, 2, 0);
+                    }
+                    --cl->in_trigger_counter;
+
+/*                    if (cl->in_success == 1) {
+                        assert(cl->debug_state == 3);
+                        // This is the first packet, so record the start time!
+                        cl->start_ts = rdtsc();
+                        cl->debug_state = 4; // now setting the debugging
+                    }
+*/
+                } else {
+                    ++cl->in_other_pkts;
                 }
-                if (cl->in_trigger_counter == 1) {
-                    debug_status(b, 2, 0);
-                }
-                --cl->in_trigger_counter;
             } // end if : debug_state
         } // end if : notification sent!
 
@@ -1752,6 +1780,7 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     entry.plist[1] = rx_pbuf->paddr;    /* the physical address of pbuf payload */
     entry.plist[2] = rx_pbuf->len;
     entry.plist[3] = rx_pbuf->packet_size;
+    entry.plist[4] = ccl->filter_matched;
     if (entry.plist[2] == 0 || entry.plist[1] == 0) {
         ETHERSRV_DEBUG("## trying to enqueue pbuf_id %" PRIx64 " at %" PRIx64
                        " of size %" PRIx64 " and len %" PRIx64 "\n",
@@ -1781,11 +1810,25 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         return false;
     }
 
-    struct ether_binding * b = buffer->con;
-    assert(b != NULL);
+    struct ether_binding *b = buffer->con;
+    if(b == NULL) {
+        printf("copy_packet_to_user: failed as b is NULL\n");
+        printf("callstack: %p %p %p %p\n",
+	     __builtin_return_address(0),
+	     __builtin_return_address(1),
+	     __builtin_return_address(2),
+	     __builtin_return_address(3));
+        assert(b != NULL);
+        return false;
+    }
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
-    if (queue_free_slots(cl->q) < 10) {
+    uint64_t queue_len = queue_free_slots(cl->q);
+    if (cl->debug_state == 4) {
+        ++cl->in_queue_len_n;
+        cl->in_queue_len_sum += queue_len;
+    }
+    if ( queue_len < 10) {
         if (cl->debug_state == 4) {
             ++cl->in_dropped_q_full;
         }
@@ -1894,6 +1937,9 @@ static void send_arp_to_all(void *data, uint64_t len)
         cl = (struct client_closure *) b->st;
         assert(cl != NULL);
         cl->filter_matched = 0;
+        if (cl->debug_state == 4) {
+            ++cl->in_arp_pkts;
+        }
 
         copy_packet_to_user(head->buffer, data, len);
         head = head->next;
@@ -1984,6 +2030,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
     if (handle_fragmented_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
+        printf("fragmented packet..\n");
         return;
     }
 
@@ -2008,6 +2055,14 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
         assert(b != NULL);
         struct client_closure *cl = (struct client_closure *) b->st;
         assert(cl != NULL);
+
+        if (cl->debug_state == 3) {
+            // Trigger to start the recording the stats
+            assert(cl->in_success == 0);
+            printf("Actually starting the tracking!!\n");
+            cl->start_ts = rdtsc();
+            cl->debug_state = 4;
+        }
         cl->filter_matched = 1;
 
         if (filter->paused) {
@@ -2017,13 +2072,24 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
             memcpy(bd->pkt_data, pkt_data, pkt_len);
             bd->pkt_len = pkt_len;
         } else {
-            bool ret = copy_packet_to_user(buffer, pkt_data, pkt_len);
-
-            if (ret == false) {
-//                      printf("A: Copy packet to userspace failed\n");
+            if (cl->debug_state == 4) {
+                ++cl->in_filter_matched;
             }
+            bool ret = copy_packet_to_user(buffer, pkt_data, pkt_len);
+            if (ret == false) {
+                if (cl->debug_state == 4) {
+                    ++cl->in_filter_matched_f;
+                }
+//                      printf("A: Copy packet to userspace failed\n");
+            } else {
+                if (cl->debug_state == 4) {
+                    ++cl->in_filter_matched_p;
+                }
+            }
+
         }
-        //debug_printf("Application packet arrived for buff %lu\n", buffer->buffer_id);
+        //debug_printf("Application packet arrived for buff %lu\n",
+        //buffer->buffer_id);
         return;
     }
 // add trace filter_execution_end_1
@@ -2070,6 +2136,14 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
 //    ETHERSRV_DEBUG("sending packet up.\n");
     /* copy the packet to userspace */
+
+    struct ether_binding *b = buffer->con;
+    assert(b != NULL);
+    struct client_closure *cl = (struct client_closure *)b->st;
+    assert(cl != NULL);
+    if (cl->debug_state == 4) {
+        ++cl->in_netd_pkts;
+    }
     if (copy_packet_to_user(buffer, pkt_data, pkt_len) == false) {
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
         /* AB: commented out printf here. If we're on a busy network
@@ -2119,26 +2193,21 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
                   cl->in_success, cl->in_dropped_q_full,
                   cl->in_dropped_invalid_pkt, cl->in_dropped_no_app,
                   cl->in_dropped_app_buf_full, cl->in_dropped_app_invalid_buf);
-            printf("### RX D_NTF_PROB[%"PRIu64"], D_NTF_PRO2[%"PRIu64"]\n",
+            printf("### RX D_NTF_PROB[%"PRIu64"], D_NTF_PRO2[%"PRIu64"], "
+                  "Other_pkt_OK[%"PRIu64"], in_ARP[%"PRIu64"], "
+                  "in_NETD[%"PRIu64"], in_paused[%"PRIu64"]\n",
                   cl->in_dropped_notification_prob,
-                  cl->in_dropped_notification_prob2);
+                  cl->in_dropped_notification_prob2, cl->in_other_pkts,
+                  cl->in_arp_pkts, cl->in_netd_pkts, cl->in_paused_pkts);
+            printf( "### RX FM[%"PRIu64"], FMF[%"PRIu64"], FMP[%"PRIu64"]\n",
+                  cl->in_filter_matched, cl->in_filter_matched_f,
+                  cl->in_filter_matched_p);
+            printf( "### RX AVG QL[%"PRIu64"] on [%"PRIu64"]calls\n",
+                (cl->in_queue_len_sum/cl->in_queue_len_n), cl->in_queue_len_n);
             print_app_stats(cl->buffer_ptr);
 
         case 1:  // Resetting stats, for new round of recording
-            cl->start_ts = 0;
-            cl->pkt_count = 0;
-            cl->dropped_pkt_count = 0;
-            cl->tx_done_count = 0;
-            cl->pbuf_count = 0;
-            cl->in_dropped_q_full = 0;
-            cl->in_dropped_invalid_pkt = 0;
-            cl->in_dropped_no_app = 0;
-            cl->in_dropped_app_buf_full = 0;
-            cl->in_dropped_app_invalid_buf = 0;
-            cl->in_dropped_notification_prob = 0;
-            cl->in_dropped_notification_prob2 = 0;
-            cl->filter_matched = 0;
-            cl->in_success = 0;
+            reset_client_closure_stat(cl);
             cl->in_trigger_counter = trigger;
             // Resetting receive path stats
             reset_app_stats(cl->buffer_ptr);
