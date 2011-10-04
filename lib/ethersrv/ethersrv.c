@@ -41,7 +41,31 @@
 #define LAST_ACCESSED_BYTE_ARP 12
 #define LAST_ACCESSED_BYTE_TRANSPORT 36
 
+#define MACHINE_CLK_UNIT    (1000000)
+#define MACHINE_CLOCK_SPEED  (2800)
+#define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
 
+#define CONVERT_TO_SEC
+
+#ifdef CONVERT_TO_SEC
+#define PU "f"
+float in_seconds(uint64_t cycles);
+float in_seconds(uint64_t cycles)
+{
+    float ans;
+    ans = cycles / MACHINE_CLOCK_SPEED;
+    ans = ans / MACHINE_CLK_UNIT;
+    return ans;
+}
+#else
+#define PU PRIu64
+uint64_t in_seconds(uint64_t cycles);
+uint64_t in_seconds(uint64_t cycles)
+{
+    return cycles;
+}
+
+#endif // CONVERT_TO_SEC
 
 /* This is client_closure for filter management */
 struct client_closure_FM {
@@ -175,7 +199,115 @@ static errval_t send_new_buffer_id(struct q_entry entry)
 
 static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
 
-//              + sizeof(struct tx_pbuf) * TRANSMIT_BUFFERS;
+static void print_app_stats(struct buffer_descriptor *buffer)
+{
+    uint16_t i = 0;
+    uint64_t avg = 0;
+    uint64_t sd = 0;
+
+    uint64_t n_sum = 0;
+    uint64_t stat_sum = 0;
+    uint64_t stat_min = 0;
+    uint64_t stat_max = 0;
+
+    struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
+
+
+    uint8_t et = PBUF_REGISTERED;  // event type
+    for (i = 0; i < RECEIVE_BUFFERS; ++i){
+        avg = pbuf[i].event_sum[et] / pbuf[i].event_n[et];
+        sd = (pbuf[i].event_sum2[et] - (pbuf[i].event_sum2[et]/avg) )/
+            (pbuf[i].event_n[et] - 1);
+/*
+        printf("pbuf %"PRIu16": N[%"PRIu64"], AVG[%"PRIu64"], SD[%"PRIu64"],"
+               "MAX[%"PRIu64"], MIN[%"PRIu64"]\n",
+                i, pbuf[i].event_n[et], avg, sd,
+                pbuf[i].event_max[et], pbuf[i].event_min[et]);
+*/
+
+        // Averaging above stats
+        n_sum += pbuf[i].event_n[et];
+        uint64_t to_avg = avg;
+        stat_sum += to_avg;
+        if (i == 0) {
+            stat_min = to_avg;
+            stat_max = to_avg;
+        } else {
+            if (to_avg > stat_max) {
+                stat_max = to_avg;
+            }
+            if (to_avg < stat_min) {
+                stat_min = to_avg;
+            }
+        }
+    } // end for
+/*
+    printf("For %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"],"
+            "MAX[%"PRIu64"], MIN[%"PRIu64"]\n",
+            "PBUF_REGISTER", et, (n_sum / (RECEIVE_BUFFERS)),
+            (stat_sum/RECEIVE_BUFFERS),
+            (stat_max), (stat_min));
+*/
+
+    printf("For %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"],"
+            "MAX[%"PU"], MIN[%"PU"]\n",
+            "PBUF_REGISTER", et, (n_sum / (RECEIVE_BUFFERS)),
+          in_seconds(stat_sum / (RECEIVE_BUFFERS)),
+          in_seconds(stat_max), in_seconds(stat_min));
+} // end function: reset_stats
+
+
+
+static void reset_app_stats(struct buffer_descriptor *buffer)
+{
+    int i = 0;
+    struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
+
+    for (i = 0; i < RECEIVE_BUFFERS; ++i){
+        for (int j = 0; j < MAX_STAT_EVENTS; ++j) {
+            pbuf[i].event_ts[j] = 0;
+            pbuf[i].event_n[j] = 0;
+            pbuf[i].event_sum[j] = 0;
+            pbuf[i].event_sum2[j] = 0;
+            pbuf[i].event_max[j] = 0;
+            pbuf[i].event_min[j] = 0;
+            pbuf[i].event_sum_i[j] = 0;
+            pbuf[i].event_sum2_i[j] = 0;
+            pbuf[i].event_max_i[j] = 0;
+            pbuf[i].event_min_i[j] = 0;
+        }
+    } // end for
+} // end function: reset_stats
+
+
+static void add_event_stat(struct pbuf_desc *pbuf_d, int event_type)
+{
+    uint64_t ts = rdtsc();
+    uint64_t delta = 0;
+//    uint64_t delta_i = 0;
+    if(pbuf_d->event_n[event_type] > 0) {
+        delta = ts - pbuf_d->event_ts[event_type];
+    }
+    pbuf_d->event_sum[event_type] += delta;
+    pbuf_d->event_sum2[event_type] += ( delta * delta);
+
+    // Recording max, min
+    if(pbuf_d->event_n[event_type] == 1) {
+        pbuf_d->event_max[event_type] = delta;
+        pbuf_d->event_min[event_type] = delta;
+    } else {
+        if (delta > pbuf_d->event_max[event_type]) {
+            pbuf_d->event_max[event_type] = delta;
+        }
+        if (delta < pbuf_d->event_min[event_type]) {
+            pbuf_d->event_max[event_type] = delta;
+        }
+    }
+    ++pbuf_d->event_n[event_type];
+    pbuf_d->event_ts[event_type] = ts;
+    // FIXME: collect stats for incremental events as well
+}
+
 
 static void register_buffer(struct ether_binding *cc, struct capref cap)
 {
@@ -275,14 +407,19 @@ static void register_buffer(struct ether_binding *cc, struct capref cap)
 }
 
 
+
 static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
                                      uint64_t vaddr, uint64_t len,
-                                     struct ether_binding *sr)
+                                     struct ether_binding *b)
 {
-    struct buffer_descriptor *buffer =
-      (struct buffer_descriptor *) ((struct client_closure *) (sr->st))->
+
+    struct client_closure *cc = (struct client_closure *)b->st;
+    struct buffer_descriptor *buffer = cc->buffer_ptr;
+
+/*      (struct buffer_descriptor *) ((struct client_closure *) (b->st))->
       buffer_ptr;
-    assert(buffer != NULL);
+*/
+      assert(buffer != NULL);
 
     struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
     uint32_t new_tail = (buffer->pbuf_tail + 1) % RECEIVE_BUFFERS;
@@ -307,12 +444,18 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
      * so prepare_recv is not strictly necessary. */
     bulk_arch_prepare_recv((void *) (uintptr_t) vaddr, len);
 
-    pbuf[buffer->pbuf_tail].sr = sr;
+    pbuf[buffer->pbuf_tail].sr = b;
     pbuf[buffer->pbuf_tail].pbuf_id = pbuf_id;
     pbuf[buffer->pbuf_tail].paddr = paddr;      // asq: remember for later freeing
     pbuf[buffer->pbuf_tail].vaddr = vaddr;
     pbuf[buffer->pbuf_tail].len = len;
     pbuf[buffer->pbuf_tail].event_sent = false;
+    // Set the statistics
+
+    if (cc->debug_state == 4) {
+        add_event_stat(&pbuf[buffer->pbuf_tail], PBUF_REGISTERED);
+    }
+
     buffer->pbuf_tail = new_tail;
     /*
        ETHERSRV_DEBUG("pbuf added head %u msg_hd %u tail %u in buffer %lu\n",
@@ -320,7 +463,6 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
        buffer->buffer_id);
      */
     return 0;
-
 }
 
 
@@ -572,6 +714,7 @@ static void error_handler(struct ether_binding *b, errval_t err)
     ETHERSRV_DEBUG("ether service error_handler: terminated\n");
 }
 
+
 static errval_t connect_ether_cb(void *st, struct ether_binding *b)
 {
     ETHERSRV_DEBUG("ether service got a connection!44\n");
@@ -621,6 +764,7 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
     cc->in_dropped_q_full = 0;
     cc->in_success = 0;
     cc->in_trigger_counter = 0;
+    cc->filter_matched = 0;
 
     if (client_no < 2) {
         netd[client_no] = b;
@@ -723,6 +867,7 @@ void ethersrv_init(char *service_name,
     filter_id_counter = 0;
     netd_buffer_count = 0;
     client_no = 0;
+
 
     /* FIXME: populate the receive ring of device driver with local pbufs */
 
@@ -1539,15 +1684,19 @@ static errval_t send_received_packet_handler(struct q_entry entry)
         /* entry.pbuf_id,  entry.paddr,    entry.len,      entry.length */
 
         if (err_is_fail(err)) {
-            if (cl->debug_state > 0) {
-             ++cl->in_dropped_notification_prob2;
+            if (cl->debug_state == 4) {
+                ++cl->in_dropped_notification_prob2;
             }
         } else {
-            ++cl->in_success;
-            if (cl->debug_state > 0) {
+            // Following condition will filter out ARP packets
+            // and non-debug state
+            if ((cl->debug_state > 2) && cl->filter_matched == 1) {
+                ++cl->in_success;
                 if (cl->in_success == 1) {
+                    assert(cl->debug_state == 3);
                 // This is the first packet, so record the start time!
                     cl->start_ts = rdtsc();
+                    cl->debug_state = 4; // now setting the debugging
                 }
                 if (cl->in_trigger_counter == 1) {
                     debug_status(b, 2, 0);
@@ -1562,6 +1711,7 @@ static errval_t send_received_packet_handler(struct q_entry entry)
         cl->buffer_ptr->pbuf_head_msg = (cl->buffer_ptr->pbuf_head_msg + 1)
           % RECEIVE_BUFFERS;
 
+        cl->filter_matched = 0;
         /* FIXME: As I have sent the msg here, shouldn't I treat this pbuf
          * as un-initialzed ?*/
         return err;
@@ -1631,10 +1781,12 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         return false;
     }
 
-    struct client_closure *cl = (struct client_closure *) buffer->con->st;
-
+    struct ether_binding * b = buffer->con;
+    assert(b != NULL);
+    struct client_closure *cl = (struct client_closure *) b->st;
+    assert(cl != NULL);
     if (queue_free_slots(cl->q) < 10) {
-        if (cl->debug_state > 0) {
+        if (cl->debug_state == 4) {
             ++cl->in_dropped_q_full;
         }
         return false;
@@ -1649,7 +1801,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         ETHERSRV_DEBUG("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"
                        PRIu64 " and ptr [%p]\n", disp_get_core_id(), len, data);
 
-        if (cl->debug_state > 0) {
+        if (cl->debug_state == 4) {
             ++cl->in_dropped_invalid_pkt;
         }
         return false;
@@ -1670,7 +1822,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         /* pbufs are not yet registered, so can't send packet to userspace. */
         ETHERSRV_DEBUG
           ("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
-        if (cl->debug_state > 0) {
+        if (cl->debug_state == 4) {
             ++cl->in_dropped_no_app;
         }
         return false;
@@ -1681,7 +1833,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64
                        "]: phead[%u] ptail[%u]\n", disp_get_domain_id(),
                        buffer->buffer_id, buffer->pbuf_head, buffer->pbuf_tail);
-        if (cl->debug_state > 0) {
+        if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }
         return false;
@@ -1697,7 +1849,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     } else {
         // k: naughty client does not deserve a packet :)
         ETHERSRV_DEBUG("naughty client detected\n");
-        if (cl->debug_state > 0) {
+        if (cl->debug_state == 4) {
             ++cl->in_dropped_app_invalid_buf;
         }
         return false;
@@ -1714,7 +1866,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     buffer->pbuf_head = phead;
     bool success = send_packet_received_notification(buffer, upbuf);
     if (!success) {
-         if (cl->debug_state > 0) {
+         if (cl->debug_state == 4) {
             ++cl->in_dropped_notification_prob;
         }
     }
@@ -1734,7 +1886,15 @@ static void send_arp_to_all(void *data, uint64_t len)
 
     /* FIXME: this code will send two copies or ARP if there are two filters
      * registered, which is incorrect.  Fix it. */
+    struct ether_binding *b = NULL;
+    struct client_closure *cl = NULL;
     while (head) {
+        b = head->buffer->con;
+        assert(b != NULL);
+        cl = (struct client_closure *) b->st;
+        assert(cl != NULL);
+        cl->filter_matched = 0;
+
         copy_packet_to_user(head->buffer, data, len);
         head = head->next;
     }
@@ -1844,6 +2004,11 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 */
 
         buffer = filter->buffer;
+        struct ether_binding *b = buffer->con;
+        assert(b != NULL);
+        struct client_closure *cl = (struct client_closure *) b->st;
+        assert(cl != NULL);
+        cl->filter_matched = 1;
 
         if (filter->paused) {
             assert(filter->pause_bufpos < MAX_PAUSE_BUFFER);
@@ -1932,21 +2097,21 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
 {
     uint64_t ts;
 
-    printf("setting the debug status to %x and trigger [%"PRIu64"]\n",
-            state, trigger);
+//    printf("setting the debug status to %x and trigger [%"PRIu64"]\n",
+//            state, trigger);
     struct client_closure *cl = ((struct client_closure *) (cc->st));
 
     cl->debug_state = state;
     debug_state = state;
     switch (state) {
 
-        case 2:
+        case 2:  // PRINTING stats
 //            handle_free_tx_slot_fn_ptr();
             ts = rdtsc() - cl->start_ts;
-            printf("#### Stopping MBM Cycles[%" PRIu64 "],"
+            printf("#### Stopping MBM Cycles[%"PU"],"
                    "Pbufs[%" PRIu64 "], pkts[%" PRIu64 "], D[%" PRIu64 "], "
                    "TX_DONE[%" PRIu64 "]\n",
-                   ts, cl->pbuf_count, cl->pkt_count,
+                   in_seconds(ts), cl->pbuf_count, cl->pkt_count,
                    cl->dropped_pkt_count, cl->tx_done_count);
             printf("### RX OK[%"PRIu64"], D_CQ_full[%"PRIu64"], "
                   "D_invalid[%"PRIu64"], D_NO_APP[%"PRIu64"], "
@@ -1957,13 +2122,10 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
             printf("### RX D_NTF_PROB[%"PRIu64"], D_NTF_PRO2[%"PRIu64"]\n",
                   cl->in_dropped_notification_prob,
                   cl->in_dropped_notification_prob2);
-        case 1:
-            printf("#### Starting MBM now \n");
-            if(trigger == 0) {
-                cl->start_ts = rdtsc();
-            } else {
-                cl->start_ts = 0;
-            }
+            print_app_stats(cl->buffer_ptr);
+
+        case 1:  // Resetting stats, for new round of recording
+            cl->start_ts = 0;
             cl->pkt_count = 0;
             cl->dropped_pkt_count = 0;
             cl->tx_done_count = 0;
@@ -1975,9 +2137,19 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
             cl->in_dropped_app_invalid_buf = 0;
             cl->in_dropped_notification_prob = 0;
             cl->in_dropped_notification_prob2 = 0;
-
+            cl->filter_matched = 0;
             cl->in_success = 0;
             cl->in_trigger_counter = trigger;
+            // Resetting receive path stats
+            reset_app_stats(cl->buffer_ptr);
+            printf("#### Starting MBM now \n");
+            if(trigger == 0) {
+                cl->start_ts = rdtsc();
+            } else {
+                // will turn on debuggin only after a trigger event!
+                cl->debug_state = 3;
+                debug_state = 3;
+            }
             break;
 
 

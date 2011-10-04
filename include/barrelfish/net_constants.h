@@ -114,7 +114,7 @@
 /* Used in the ethersrv.c and the driver. */
 
 //#define RECEIVE_BUFFERS    ((PBUF_POOL_SIZE) / 2)
-#define RECEIVE_BUFFERS     2000
+#define RECEIVE_BUFFERS     1024
 #define TRANSMIT_BUFFERS (800 * 8) //< Number of transmit descriptors
                               //< (must be multiple of 8)
 

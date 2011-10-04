@@ -33,6 +33,35 @@
 #define TEST_TYPE   "Without BUFF Mng"
 #endif // TEST_BUFFER_MANAGEMENT
 
+#define MACHINE_CLK_UNIT    (1000000)
+#define MACHINE_CLOCK_SPEED  (2800)
+#define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
+
+#define CONVERT_TO_SEC
+
+#ifdef CONVERT_TO_SEC
+#define PU "f"
+float in_seconds(uint64_t cycles);
+float in_seconds(uint64_t cycles)
+{
+    float ans;
+    ans = cycles / MACHINE_CLOCK_SPEED;
+    ans = ans / MACHINE_CLK_UNIT;
+    return ans;
+}
+#else
+#define PU PRIu64
+uint64_t in_seconds(uint64_t cycles);
+uint64_t in_seconds(uint64_t cycles)
+{
+    return cycles;
+}
+
+#endif // CONVERT_TO_SEC
+
+
+
+
 static int connection_type = 0;  // 0 for using PBUF_POOL
 //static int connection_type = 1;  // 1 for using PBUF_RAM
 
@@ -92,9 +121,9 @@ static void stop_benchmark(void)
 
     printf("Test [%s], PBUF type %s\n", TEST_TYPE,
             connection_type?"PBUF_POOL":"PBUF_RAM");
-    printf("Cycles taken %"PRIu64" to send %"PRIu64" packets"
+    printf("Time taken %"PU" to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
-            (stop - start), iter, failed);
+            in_seconds((stop - start)), iter, failed);
     for (int j = 0; j < 4; ++j) {
         printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
@@ -266,8 +295,8 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
     recv_stop_c = rdtsc();
 
     // print the statistics
-    printf("Time taken %"PRIu64" to recv %"PRIu64" data"
-            "(%"PRIu64" packets)\n", (recv_stop_c - recv_start_c),
+    printf("Time taken %"PU" to recv %"PRIu64" data"
+            "(%"PRIu64" packets)\n", in_seconds((recv_stop_c - recv_start_c)),
             data_size, pkt_count);
 
 }// end function: udp_receiver

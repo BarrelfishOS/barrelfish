@@ -83,6 +83,19 @@ struct pbuf {
 };
 
 
+enum pbuf_lifecycle {
+    PBUF_REGISTERED,
+    PKT_RECEIVED,
+    RECV_NOTIFICATION_GENERATED,
+    RECV_NOTIFICATION_SENT,
+    PKT_ARRIVED_APP, // From here bellow, everything will be in APP
+    PKT_REACHED_APP,
+    PBUF_REGISTER_STARTED,
+    PBUF_REGISTER_GENERATED,
+    PBUF_REGISTER_SENT
+};
+#define MAX_STAT_EVENTS   5   // This is the count of pbuf_lifecycle events
+
 struct pbuf_desc {
     uint64_t buffer_id; // k: we are gonna reference this from now on
     uint64_t pbuf_id;
@@ -95,6 +108,17 @@ struct pbuf_desc {
     bool event_sent; //the interrupt handler has to know wheter the client was
     //already notified about new data in this buffer.
     bool last;
+    // For Statistics
+    uint64_t event_ts[MAX_STAT_EVENTS];
+    uint64_t event_n[MAX_STAT_EVENTS];
+    uint64_t event_sum[MAX_STAT_EVENTS];
+    uint64_t event_sum2[MAX_STAT_EVENTS];
+    uint64_t event_max[MAX_STAT_EVENTS];
+    uint64_t event_min[MAX_STAT_EVENTS];
+    uint64_t event_sum_i[MAX_STAT_EVENTS];
+    uint64_t event_sum2_i[MAX_STAT_EVENTS];
+    uint64_t event_max_i[MAX_STAT_EVENTS];
+    uint64_t event_min_i[MAX_STAT_EVENTS];
 };
 
 struct client_closure;
@@ -148,6 +172,7 @@ struct client_closure {
 
     uint64_t in_success;
     uint64_t in_trigger_counter;
+    uint8_t  filter_matched;
 }; /* holds info about how much data is transferred to NIC. */
 
 
