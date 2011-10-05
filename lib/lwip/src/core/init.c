@@ -76,6 +76,10 @@
 
 
 
+
+
+
+
 /* Compile-time sanity checks for configuration errors.
  * These can be done independently of LWIP_DEBUG, without penalty.
  */
@@ -516,7 +520,21 @@ uint64_t lwip_packet_drop_count(void)
 
 
 
-// For recording stats
+// For recording statistics
+
+float in_seconds(uint64_t cycles)
+{
+    float ans;
+    ans = cycles / MACHINE_CLOCK_SPEED;
+    ans = ans / MACHINE_CLK_UNIT;
+    return ans;
+}
+#if 0
+uint64_t in_seconds(uint64_t cycles)
+{
+    return cycles;
+}
+#endif // CONVERT_TO_SEC
 
 
 static uint64_t stats[EVENT_LIST_SIZE][RDT_LIST_SIZE];
@@ -548,20 +566,42 @@ void lwip_record_event(uint8_t event_type, uint64_t delta)
     }
 } // end function: record_event
 
+void lwip_record_event_simple(uint8_t event_type, uint64_t ts)
+{
+    uint64_t delta = rdtsc() - ts;
+    lwip_record_event(event_type, delta);
+}
 void lwip_print_event_stat(uint8_t event_type, char *event_name)
 {
     uint8_t et = event_type;
+    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
+            "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
+            stats[et][RDT_COUNT],
+            in_seconds(stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            in_seconds(stats[et][RDT_MAX]),
+            in_seconds(stats[et][RDT_MIN]),
+            in_seconds(stats[et][RDT_SUM]));
+    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
+            "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
+            et, stats[et][RDT_COUNT],
+            (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            (stats[et][RDT_MAX]),
+            (stats[et][RDT_MIN]),
+            (stats[et][RDT_SUM]));
+/*
     printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
             "MAX[%"PRIu64"], MIN[%"PRIu64"]\n", event_name, et,
             stats[et][RDT_COUNT],
             (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
             stats[et][RDT_MAX],
             stats[et][RDT_MIN]);
+*/
 } // end function: print_event_stat
 
 void lwip_print_interesting_stats(void)
 {
     lwip_print_event_stat(RE_ALL, "ALL");
+    lwip_print_event_stat(RE_PBUF_REPLACE, "Replace pbuf");
 }
 
 

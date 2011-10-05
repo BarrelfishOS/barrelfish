@@ -759,10 +759,9 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     lwip_in_packet_received = false;
 
     lwip_mutex_unlock();
-    uint64_t delta = rdtsc() - ts;
 
     if(benchmark_mode > 0) {
-        lwip_record_event(RE_ALL, delta);
+        lwip_record_event_simple(RE_ALL, ts);
     }
 
 //  LWIPBF_DEBUG("packet_received: terminated\n");

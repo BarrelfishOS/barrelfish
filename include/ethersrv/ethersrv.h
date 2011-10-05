@@ -236,5 +236,30 @@ bool copy_packet_to_user(struct buffer_descriptor* buffer,
 //debug
 void print_statistics(void);
 
+// For recording statistics
+enum Recorded_Events {
+    RE_ALL = 0,
+    RE_FILTER = 1,
+    RE_COPY = 2,
+    RE_DROPPED = 3,
+    RE_USEFUL = 4,
+};
+#define EVENT_LIST_SIZE  10
+
+enum Recorded_DataTypes {
+    RDT_COUNT = 0,
+    RDT_SUM = 1,
+    RDT_MAX = 2,
+    RDT_MIN = 3,
+};
+#define RDT_LIST_SIZE   4
+
+void bm_reset_stats(void);
+void bm_record_event(uint8_t event_type, uint64_t delta);
+void bm_record_event_simple(uint8_t event_type, uint64_t ts);
+void bm_print_event_stat(uint8_t event_type, char *event_name);
+void bm_print_interesting_stats(void);
+
+
 
 #endif // ETHERSRV_H

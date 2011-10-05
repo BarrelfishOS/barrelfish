@@ -1914,7 +1914,12 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
                    (buffer->va + (1L << buffer->bits)));
 
     if ((dst < (buffer->va + (1L << buffer->bits))) && (dst >= buffer->va)) {
+        uint64_t ts = rdtsc();
         memcpy((void *) (uintptr_t) upbuf->vaddr, data, len);
+        if (cl->debug_state == 4) {
+            bm_record_event_simple(RE_COPY, ts);
+        }
+
     } else {
         // k: naughty client does not deserve a packet :)
         ETHERSRV_DEBUG("naughty client detected\n");
@@ -2070,8 +2075,10 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
     // executing filters to find the relevant buffer
     struct filter *filter;
-
-    if ((filter = execute_filters(pkt_data, pkt_len)) != NULL) {
+    uint64_t ts = rdtsc();
+    filter = execute_filters(pkt_data, pkt_len);
+    bm_record_event_simple(RE_FILTER, ts);
+    if (filter != NULL) {
 /*             printf("multiple app path with buff id %lu\n",
                                buffer->buffer_id);
 */
@@ -2105,11 +2112,13 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
             if (ret == false) {
                 if (cl->debug_state == 4) {
                     ++cl->in_filter_matched_f;
+                    bm_record_event_simple(RE_DROPPED, ts);
                 }
 //                      printf("A: Copy packet to userspace failed\n");
             } else {
                 if (cl->debug_state == 4) {
                     ++cl->in_filter_matched_p;
+                    bm_record_event_simple(RE_USEFUL, ts);
                 }
             }
 
@@ -2249,12 +2258,14 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
                     (cl->in_app_time_max),
                     (cl->in_app_time_min));
             print_app_stats(cl->buffer_ptr);
+            bm_print_interesting_stats();
 
         case 1:  // Resetting stats, for new round of recording
             reset_client_closure_stat(cl);
             cl->in_trigger_counter = trigger;
             // Resetting receive path stats
             reset_app_stats(cl->buffer_ptr);
+            bm_reset_stats();
             printf("#### Starting MBM now \n");
             if(trigger == 0) {
                 cl->start_ts = rdtsc();
@@ -2295,3 +2306,70 @@ void ethersrv_debug_printf(const char *fmt, ...)
     }
     sys_print(str, sizeof(str));
 }
+
+
+// ******************** For recording stats *******************
+// NOTE: Code duplication (Copied from lib/lwip/src/core/init.c)
+// FIXME:  Move to a library
+// For recording stats
+static uint64_t stats[EVENT_LIST_SIZE][RDT_LIST_SIZE];
+void bm_reset_stats(void)
+{
+    for (int i = 0; i < EVENT_LIST_SIZE; ++i) {
+        for (int j = 0; j < RDT_LIST_SIZE; ++j) {
+            stats[i][j] = 0;
+        }
+    }
+} // end function: reset_stats
+
+
+void bm_record_event(uint8_t event_type, uint64_t delta)
+{
+    uint8_t et = event_type;
+    ++stats[et][RDT_COUNT];
+    stats[et][RDT_SUM] += delta;
+    if (stats[et][RDT_COUNT] == 1) {
+        stats[et][RDT_MAX] = delta;
+        stats[et][RDT_MIN] = delta;
+    } else {
+        if (delta > stats[et][RDT_MAX]) {
+            stats[et][RDT_MAX]= delta;
+        }
+        if (delta < stats[et][RDT_MIN]) {
+            stats[et][RDT_MIN]= delta;
+        }
+    }
+} // end function: record_event
+
+void bm_record_event_simple(uint8_t event_type, uint64_t ts)
+{
+    uint64_t delta = rdtsc() - ts;
+    bm_record_event(event_type, delta);
+}
+void bm_print_event_stat(uint8_t event_type, char *event_name)
+{
+    uint8_t et = event_type;
+    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
+            "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
+            stats[et][RDT_COUNT],
+            in_seconds(stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            in_seconds(stats[et][RDT_MAX]),
+            in_seconds(stats[et][RDT_MIN]),
+            in_seconds(stats[et][RDT_SUM]));
+    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
+            "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
+            et, stats[et][RDT_COUNT],
+            (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            (stats[et][RDT_MAX]),
+            (stats[et][RDT_MIN]),
+            (stats[et][RDT_SUM]));
+} // end function: print_event_stat
+
+void bm_print_interesting_stats(void)
+{
+    bm_print_event_stat(RE_FILTER, "Filter time");
+    bm_print_event_stat(RE_COPY, "copy time");
+    bm_print_event_stat(RE_DROPPED, "dropped time");
+    bm_print_event_stat(RE_USEFUL, "useful time");
+}
+

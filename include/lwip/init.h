@@ -92,9 +92,28 @@ extern "C" {
 
 
 // For recording statistics
+#define MACHINE_CLK_UNIT    (1000000)
+#define MACHINE_CLOCK_SPEED  (2800)
+#define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
+
+#define CONVERT_TO_SEC
+
+
+
+//#ifdef CONVERT_TO_SEC
+#define PU "f"
+float in_seconds(uint64_t cycles);
+//#else
+#if 0
+#define PU PRIu64
+uint64_t in_seconds(uint64_t cycles);
+#endif // CONVERT_TO_SEC
+
+
 enum Recorded_Events {
     RE_ALL = 0,
     RE_REG_PBUF = 1,
+    RE_PBUF_REPLACE = 2,
 };
 #define EVENT_LIST_SIZE  10
 
@@ -108,10 +127,11 @@ enum Recorded_DataTypes {
 
 void lwip_reset_stats(void);
 void lwip_record_event(uint8_t event_type, uint64_t delta);
+void lwip_record_event_simple(uint8_t event_type, uint64_t ts);
 void lwip_print_event_stat(uint8_t event_type, char *event_name);
 void lwip_print_interesting_stats(void);
-
 #ifdef __cplusplus
 }
 #endif
+
 #endif                          /* __LWIP_INIT_H__ */

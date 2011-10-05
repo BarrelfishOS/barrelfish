@@ -33,34 +33,6 @@
 #define TEST_TYPE   "Without BUFF Mng"
 #endif // TEST_BUFFER_MANAGEMENT
 
-#define MACHINE_CLK_UNIT    (1000000)
-#define MACHINE_CLOCK_SPEED  (2800)
-#define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
-
-#define CONVERT_TO_SEC
-
-#ifdef CONVERT_TO_SEC
-#define PU "f"
-float in_seconds(uint64_t cycles);
-float in_seconds(uint64_t cycles)
-{
-    float ans;
-    ans = cycles / MACHINE_CLOCK_SPEED;
-    ans = ans / MACHINE_CLK_UNIT;
-    return ans;
-}
-#else
-#define PU PRIu64
-uint64_t in_seconds(uint64_t cycles);
-uint64_t in_seconds(uint64_t cycles)
-{
-    return cycles;
-}
-
-#endif // CONVERT_TO_SEC
-
-
-
 
 static int connection_type = 0;  // 0 for using PBUF_POOL
 //static int connection_type = 1;  // 1 for using PBUF_RAM
