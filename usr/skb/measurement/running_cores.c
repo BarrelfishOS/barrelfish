@@ -21,11 +21,13 @@
 #define MAXAPICIDS 256
 
 bool nr_cores_done;
+int nr_of_running_cores = 0;
 
 static void nr_running_cores(struct monitor_binding *st,
                              coreid_t nr_cores)
 {
     skb_add_fact("nr_running_cores(%u).", nr_cores);
+    nr_of_running_cores = nr_cores;
     nr_cores_done = true;
 }
 

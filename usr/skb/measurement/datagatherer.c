@@ -34,6 +34,7 @@ static bool bsp_datagatherer = false;
 static coreid_t core_id;
 
 extern bool rtt_done, nr_cores_done;
+extern int nr_of_running_cores;
 
 
 
@@ -79,6 +80,22 @@ int main(int argc, char **argv)
         }
     }
 
+    skb_add_fact("datagatherer_done.");
+
+    if (bsp_datagatherer) {
+        int length = nr_of_running_cores + 1;
+        while (length != nr_of_running_cores) {
+            skb_execute_query("findall(X, datagatherer_done, L),length(L,Len),write(Len).");
+            skb_read_output("%d", &length);
+            thread_yield();
+        }
+
+
+        errval_t err = nameservice_register("datagatherer_done", 0);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "nameservice_register failed");
+        }
+    }
     return 0;
 }
 

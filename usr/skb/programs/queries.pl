@@ -71,26 +71,26 @@ local_memory_affinity(CoreID, L) :-
 % 3. find core ID list which share same L2/L3 cache
 %    -> till now it looks like the only way to know that is from data sheets.
 
-cores_with_cache_sharing(Level,CoreIDs) :-
-    findall([C1,C2],cache_share(C1,C2,Level),CoreIDs).
+% cores_with_cache_sharing(Level,CoreIDs) :-
+%    findall([C1,C2],cache_share(C1,C2,Level),CoreIDs).
 
 
 % 4. find core IDs which do _not_ share caches
 
-cns(CPL) :-
-    core(X,_),core(Y,_),not X =:= Y,not cache_share(X,Y,_),not cache_share(Y,X,_),
-    CPL = [X,Y].
-
-cores_no_cache_sharing(CoreIDs) :-
-    findall(X,cns(X),CoreIDs).
+%cns(CPL) :-
+%    core(X,_),core(Y,_),not X =:= Y,not cache_share(X,Y,_),not cache_share(Y,X,_),
+%    CPL = [X,Y].
+%
+%cores_no_cache_sharing(CoreIDs) :-
+%    findall(X,cns(X),CoreIDs).
 
 % 5. find core IDs which are not on the same CPU
 
-cores_on_different_cpus(CoreIDs) :-
-    core(X,N1),
-    core(Y,N2),
-    not N1 =:= N2,
-    CoreIDs = [X,Y].
+%cores_on_different_cpus(CoreIDs) :-
+%    core(X,N1),
+%    core(Y,N2),
+%    not N1 =:= N2,
+%    CoreIDs = [X,Y].
 
 
 % 6. get a sorted list of all available APIC IDs
@@ -138,4 +138,14 @@ get_cache_size(Level, Type, Size):-
         Size is 32768
     ).
 
+
+
+
+%10. Figure out whether the datagatherer is done
+
+is_datagatherer_done(Status) :-
+    ( is_predicate(datagatherer_done/0) ->
+        Status=yes;
+        Status=no
+    ).
         
