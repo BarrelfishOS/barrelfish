@@ -18,5 +18,34 @@
                       cFiles = [ "map.c" ],
                       flounderDefs = [ "skb_map" ],
                       addLibraries = [ "skb" ]
+                    },
+
+  build application { target = "threadalloc", 
+                      cFiles = [ "threadalloc.c" ],
+                      addLibraries = [ "skb", "posixcompat" ]
+                    },
+
+  build application { target = "writemem", 
+                      cFiles = [ "writemem.c" ]
+                    },
+
+  build application { target = "cryptotest", 
+                      cFiles = [ "cryptotest.c" ],
+                      addLibraries = [ "crypto", "posixcompat" ],
+                      addIncludes = [ "openssl-1.0.0d/include" ]
+                    },
+
+  build application { target = "speed", 
+                      cFiles = [ "speed.c", "apps.c" ],
+                  omitCFlags = [ "-Werror", "-Wshadow",
+                                 "-Wstrict-prototypes",
+                                 "-Wold-style-definition",
+                                 "-Wmissing-prototypes",
+                                 "-Wmissing-declarations",
+                                 "-Wmissing-field-initializers",
+                                 "-Wredundant-decls", "-std=c99" ],
+                      addLibraries = [ "crypto", "posixcompat",
+                                       "vfs", "nfs", "timer", "lwip" ],
+                      addIncludes = [ "openssl-1.0.0d/include" ]
                     }
 ]
