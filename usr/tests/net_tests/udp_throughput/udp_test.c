@@ -293,7 +293,7 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
     }
     // Record the stop timer
     recv_stop_c = rdtsc();
-
+    lwip_print_interesting_stats();
     // print the statistics
     printf("Time taken %"PU" to recv %"PRIu64" data"
             "(%"PRIu64" packets)\n", in_seconds((recv_stop_c - recv_start_c)),

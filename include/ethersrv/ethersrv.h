@@ -179,6 +179,10 @@ struct client_closure {
     uint64_t in_queue_len_n;
     uint64_t in_queue_len_sum;
 
+    uint64_t in_app_time_n;
+    uint64_t in_app_time_sum;
+    uint64_t in_app_time_min;
+    uint64_t in_app_time_max;
     uint64_t in_success;
     uint64_t in_trigger_counter;
     uint8_t  filter_matched;

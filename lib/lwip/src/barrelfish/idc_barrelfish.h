@@ -53,6 +53,9 @@ int idc_check_capacity(int direction);
 uint64_t idc_check_driver_load(void);
 uint64_t idc_get_packet_drop_count(void);
 
+
+
+
 void idc_register_receive_callback(void (*f)
                                     (void *, uint64_t, uint64_t,
                                      uint64_t, uint64_t), void *data);
@@ -81,5 +84,7 @@ err_t idc_bind_udp_port(uint16_t port);
 err_t idc_bind_tcp_port(uint16_t port);
 err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
                     struct ip_addr *remote_ip, u16_t remote_port);
+
+
 
 #endif                          // IDC_BARRELFISH_H_

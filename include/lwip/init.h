@@ -90,6 +90,27 @@ extern "C" {
     int is_lwip_loaded(void);
     uint64_t lwip_packet_drop_count(void);
 
+
+// For recording statistics
+enum Recorded_Events {
+    RE_ALL = 0,
+    RE_REG_PBUF = 1,
+};
+#define EVENT_LIST_SIZE  10
+
+enum Recorded_DataTypes {
+    RDT_COUNT = 0,
+    RDT_SUM = 1,
+    RDT_MAX = 2,
+    RDT_MIN = 3,
+};
+#define RDT_LIST_SIZE   4
+
+void lwip_reset_stats(void);
+void lwip_record_event(uint8_t event_type, uint64_t delta);
+void lwip_print_event_stat(uint8_t event_type, char *event_name);
+void lwip_print_interesting_stats(void);
+
 #ifdef __cplusplus
 }
 #endif

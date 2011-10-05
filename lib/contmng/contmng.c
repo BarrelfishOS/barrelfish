@@ -45,6 +45,7 @@ static void qprintf (struct cont_queue *q, char *msg)
 }
 
 
+
 /* allocates the memory for continuation queue
     It includes the memory for MAX_QUEUE_SIZE of elements also */
 struct cont_queue *create_cont_q(char *name)
@@ -61,6 +62,15 @@ struct cont_queue *create_cont_q(char *name)
     return ptr;
 }/* end function: create_cont_q */
 
+void queue_set_canary(struct cont_queue *q, uint8_t canary_val)
+{
+   q->canary = canary_val;
+}
+
+uint8_t queue_get_canary(struct cont_queue *q)
+{
+   return q->canary;
+}
 /* Tells if queue has enough space to add more events,
  * or if the producer should pause for a while */
 int queue_free_slots(struct cont_queue *q)
@@ -79,6 +89,7 @@ int queue_free_slots(struct cont_queue *q)
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 {
 
+    q->canary = 13;
     if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail)
     {
         printf("ERROR: %s %d.%d  Queue [%s] is full\n", disp_name(),
@@ -114,6 +125,7 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
         qprintf(q, "directly-sending");
         cont_queue_send_next_message(q);
     }
+
     //otherwise continuation function will trigger sending next queue element
 } // end function: enqueue_cont_q
 
@@ -124,6 +136,7 @@ void cont_queue_callback(void *arg)
 {
     struct cont_queue *q = (struct cont_queue *)arg;
 
+    q->canary = 14;
     q->tail = (q->tail + 1) % MAX_QUEUE_SIZE;
     qprintf(q, "from-continuation");
     cont_queue_send_next_message(q);
@@ -138,6 +151,7 @@ void cont_queue_callback(void *arg)
 void cont_queue_send_next_message(struct cont_queue *q)
 {
     qprintf(q, "sending-msg");
+    q->canary = 15;
 
     if(q->head == q->tail){
         qprintf(q, "Queue-empty-Recursion-End!!");

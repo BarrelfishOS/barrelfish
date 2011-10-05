@@ -513,3 +513,55 @@ uint64_t lwip_packet_drop_count(void)
 {
     return idc_get_packet_drop_count();
 }                               // end function: lwip_packet_drop_count
+
+
+
+// For recording stats
+
+
+static uint64_t stats[EVENT_LIST_SIZE][RDT_LIST_SIZE];
+void lwip_reset_stats(void)
+{
+    for (int i = 0; i < EVENT_LIST_SIZE; ++i) {
+        for (int j = 0; j < RDT_LIST_SIZE; ++j) {
+            stats[i][j] = 0;
+        }
+    }
+} // end function: reset_stats
+
+
+void lwip_record_event(uint8_t event_type, uint64_t delta)
+{
+    uint8_t et = event_type;
+    ++stats[et][RDT_COUNT];
+    stats[et][RDT_SUM] += delta;
+    if (stats[et][RDT_COUNT] == 1) {
+        stats[et][RDT_MAX] = delta;
+        stats[et][RDT_MIN] = delta;
+    } else {
+        if (delta > stats[et][RDT_MAX]) {
+            stats[et][RDT_MAX]= delta;
+        }
+        if (delta < stats[et][RDT_MIN]) {
+            stats[et][RDT_MIN]= delta;
+        }
+    }
+} // end function: record_event
+
+void lwip_print_event_stat(uint8_t event_type, char *event_name)
+{
+    uint8_t et = event_type;
+    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
+            "MAX[%"PRIu64"], MIN[%"PRIu64"]\n", event_name, et,
+            stats[et][RDT_COUNT],
+            (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            stats[et][RDT_MAX],
+            stats[et][RDT_MIN]);
+} // end function: print_event_stat
+
+void lwip_print_interesting_stats(void)
+{
+    lwip_print_event_stat(RE_ALL, "ALL");
+}
+
+

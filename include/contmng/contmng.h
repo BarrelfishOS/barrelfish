@@ -49,6 +49,7 @@ struct cont_queue {
     int head;
     int tail;
     struct q_entry qelist[MAX_QUEUE_SIZE];
+    uint8_t canary;
 };
 
 /***** helper functions *****/
@@ -60,5 +61,7 @@ void cont_queue_show_queue(struct cont_queue *q);
 int queue_free_slots(struct cont_queue *q);
 
 void show_binary_blob (void *data, int len);
+void queue_set_canary(struct cont_queue *q, uint8_t canary_val);
+uint8_t queue_get_canary(struct cont_queue *q);
 
 #endif // CONTMNG_H_

@@ -37,7 +37,11 @@
 /* Enable tracing based on the global settings. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define LWIP_TRACE_MODE 1
-#endif                          // CONFIG_TRACE && NETWORK_STACK_TRACE
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
+
+static uint8_t new_debug = 0;
+static uint8_t benchmark_mode = 0;
 
 struct waitset *lwip_waitset;
 
@@ -57,7 +61,6 @@ static uint16_t(*alloc_udp_port) (void) = NULL;
 static uint16_t(*bind_port) (uint16_t port, netd_port_type_t type) = NULL;
 static void (*close_port) (uint16_t port, netd_port_type_t type) = NULL;
 
-static new_debug = 0;
 
 /*************************************************************
  * \defGroup LocalStates Local states
@@ -565,7 +568,8 @@ void idc_debug_status(int connection, uint8_t state, uint64_t trigger)
 
 //    new_debug = state;
     struct q_entry entry;
-
+    benchmark_mode = state;
+    lwip_reset_stats();
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_debug_status_request;
     struct ether_binding *b = driver_connection[connection];
@@ -715,19 +719,14 @@ static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
 
 bool lwip_in_packet_received = false;
 
-/**
- * \brief
- *
- *
- *
- */
+
 static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
                             uint64_t paddr, uint64_t pbuf_len, uint64_t pktlen)
 {
 #if LWIP_TRACE_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
 #endif                          // LWIP_TRACE_MODE
-
+    uint64_t ts = rdtsc();
     if (new_debug)
         printf("%d.%d: packet_received: called paddr = %" PRIx64 ", len %"
                PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(), paddr,
@@ -760,6 +759,11 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     lwip_in_packet_received = false;
 
     lwip_mutex_unlock();
+    uint64_t delta = rdtsc() - ts;
+
+    if(benchmark_mode > 0) {
+        lwip_record_event(RE_ALL, delta);
+    }
 
 //  LWIPBF_DEBUG("packet_received: terminated\n");
 }

@@ -335,6 +335,10 @@ static void reset_client_closure_stat(struct client_closure *cc)
     cc->in_filter_matched_f = 0;
     cc->in_queue_len_n = 0;
     cc->in_queue_len_sum = 0;
+    cc->in_app_time_n = 0;
+    cc->in_app_time_sum = 0;
+    cc->in_app_time_min = 0;
+    cc->in_app_time_max = 0;
 }
 
 
@@ -1698,12 +1702,20 @@ static errval_t send_received_packet_handler(struct q_entry entry)
                     (uint32_t) entry.plist[0]);
 #endif                          // TRACE_ETHERSRV_MODE
 
+       uint8_t canary_val = 6;
+        queue_set_canary(cl->q, canary_val);
+        uint64_t ts = rdtsc();
         err = b->tx_vtbl.packet_received(b,
                                          MKCONT(cont_queue_callback, cl->q),
                                          entry.plist[0], entry.plist[1],
                                          entry.plist[2], entry.plist[3]);
         /* entry.pbuf_id,  entry.paddr,    entry.len,      entry.length */
 
+        uint64_t delta = rdtsc() - ts;
+        uint8_t ans_canary = queue_get_canary(cl->q);
+        if (canary_val != ans_canary) {
+            printf("Something else happened inbetween! %"PRIu8"\n", ans_canary);
+        }
         if (err_is_fail(err)) {
             if (cl->debug_state == 4) {
                 ++cl->in_dropped_notification_prob2;
@@ -1715,6 +1727,20 @@ static errval_t send_received_packet_handler(struct q_entry entry)
 //                if (cl->filter_matched == 1) {
                 if (entry.plist[4] == 1) {
                     ++cl->in_success;
+                    // Updating stats
+                    ++cl->in_app_time_n;
+                    cl->in_app_time_sum += delta;
+                    if(cl->in_app_time_n == 1) {
+                        cl->in_app_time_max = delta;
+                        cl->in_app_time_min = delta;
+                    } else {
+                        if(delta > cl->in_app_time_max) {
+                            cl->in_app_time_max = delta;
+                        }
+                        if(delta < cl->in_app_time_min) {
+                            cl->in_app_time_min = delta;
+                        }
+                    }
                     if (cl->in_trigger_counter == 1) {
                         debug_status(b, 2, 0);
                     }
@@ -2136,9 +2162,17 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
 //    ETHERSRV_DEBUG("sending packet up.\n");
     /* copy the packet to userspace */
+    if(buffer == NULL) {
+        printf("netd buffer not present\n");
+        return;
+    }
 
     struct ether_binding *b = buffer->con;
-    assert(b != NULL);
+    if(b == NULL) {
+        printf("netd buffer->con not present\n");
+        return;
+    }
+
     struct client_closure *cl = (struct client_closure *)b->st;
     assert(cl != NULL);
     if (cl->debug_state == 4) {
@@ -2204,6 +2238,16 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
                   cl->in_filter_matched_p);
             printf( "### RX AVG QL[%"PRIu64"] on [%"PRIu64"]calls\n",
                 (cl->in_queue_len_sum/cl->in_queue_len_n), cl->in_queue_len_n);
+            printf( "### RX APP N[%"PRIu64"] avg[%"PU"], MAX[%"PU"]"
+                    "MAX[%"PU"]\n", cl->in_app_time_n,
+                    in_seconds((cl->in_app_time_sum/cl->in_app_time_n)),
+                    in_seconds(cl->in_app_time_max),
+                    in_seconds(cl->in_app_time_min));
+            printf( "### RX APP N[%"PRIu64"] avg[%"PRIu64"], MAX[%"PRIu64"] "
+                    "MIN[%"PRIu64"]\n", cl->in_app_time_n,
+                    ((cl->in_app_time_sum/cl->in_app_time_n)),
+                    (cl->in_app_time_max),
+                    (cl->in_app_time_min));
             print_app_stats(cl->buffer_ptr);
 
         case 1:  // Resetting stats, for new round of recording
