@@ -55,7 +55,7 @@
         "locale/wcstold.c", "locale/wcstoll.c", "locale/wcstombs.c",
         "locale/wcstoul.c", "locale/wcstoull.c", "locale/wcstoumax.c",
         "locale/wctob.c", "locale/wctomb.c", "locale/wctrans.c",
-        "locale/wctype.c" ]]
+        "locale/wctype.c", "string/strcasecmp.c" ]]
 
       -- architecture-dependent source files (relative to arch family)
       archfam_src a = [ ("src/arch-" ++ a) ./. f | f <- archfam_files a ]
