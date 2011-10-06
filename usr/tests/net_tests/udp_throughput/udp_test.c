@@ -38,7 +38,7 @@ static int connection_type = 0;  // 0 for using PBUF_POOL
 //static int connection_type = 1;  // 1 for using PBUF_RAM
 
 static uint64_t pkt_count = 0;
-static uint64_t data_size = 0;
+static uint64_t rx_data_size = 0;
 static uint64_t recv_start_c = 0;
 static uint64_t recv_stop_c = 0;
 
@@ -86,6 +86,7 @@ static void stop_benchmark(void)
 {
     // FIXME: Make sure that all data is gone
     uint64_t stop = rdtsc();
+    uint64_t delta = stop - start;
 
     // sending debug message marking the stop of benchmark
     lwip_start_net_debug(connection_type, 2, 0);
@@ -95,7 +96,10 @@ static void stop_benchmark(void)
             connection_type?"PBUF_POOL":"PBUF_RAM");
     printf("Time taken %"PU" to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
-            in_seconds((stop - start)), iter, failed);
+            in_seconds(delta), iter, failed);
+    uint64_t data_size = iter * MAX_DATA;
+    printf("TX speed = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+            data_size, in_seconds(delta), ((data_size/in_seconds(delta))/1024));
     for (int j = 0; j < 4; ++j) {
         printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
@@ -222,7 +226,7 @@ udp_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
     assert(pbuf != NULL);
     assert(pbuf->payload != NULL);
     assert(pbuf->tot_len > 0);
-    data_size = data_size + pbuf->tot_len;
+    rx_data_size = rx_data_size + pbuf->tot_len;
     if(pkt_count == 0){
         // record starting time
         recv_start_c = rdtsc();
@@ -235,7 +239,7 @@ udp_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
 static bool
 condition_not_meet(void)
 {
-    if (data_size < (iterations * MAX_DATA) ) {
+    if (rx_data_size < (iterations * MAX_DATA) ) {
         return true;
     } else {
         return false;
@@ -265,13 +269,16 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
     }
     // Record the stop timer
     recv_stop_c = rdtsc();
+    uint64_t delta = recv_stop_c - recv_start_c;
     lwip_print_interesting_stats();
     // print the statistics
     printf("Time taken %"PU" to recv %"PRIu64" data"
-            "(%"PRIu64" packets)\n", in_seconds((recv_stop_c - recv_start_c)),
-            data_size, pkt_count);
-
-}// end function: udp_receiver
+            "(%"PRIu64" packets)\n", in_seconds(delta),
+            rx_data_size, pkt_count);
+    printf("RX speed = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+           rx_data_size, in_seconds(delta),
+           ((rx_data_size/in_seconds(delta))/1024));
+} // end function: udp_receiver
 
 
 int main(int argc, char *argv[])
@@ -311,13 +318,13 @@ int main(int argc, char *argv[])
         return 1;
     } // end if : port validation
     iterations = iterations * MULTIPLIER;
-/*
+
     if (lwip_init_auto() == false) {
         printf("ERROR: lwip_init_auto failed!\n");
         return 1;
     }
-*/
-    lwip_init("e1000");
+
+//    lwip_init("e1000");
     // create pcb for connection
     struct udp_pcb *upcb;
     upcb = udp_new();

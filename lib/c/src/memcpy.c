@@ -7,7 +7,7 @@
 /// XXX: Compile without -fPIE !
 
 /****************************************************************************************
- * Put data into communication buffer. 
+ * Put data into communication buffer.
  ****************************************************************************************
  *
  * Author: Stefan Lankes, Carsten Clauss
@@ -15,26 +15,26 @@
  * Date:   11/03/2010
  *
  ****************************************************************************************
- * 
+ *
  * Written by the Chair for Operating Systems, RWTH Aachen University
- * 
+ *
  * NO Copyright (C) 2010, Stefan Lankes, Carsten Clauss,
  * consider these trivial functions to be public domain.
- * 
+ *
  * These functions are distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- */ 
+ */
 
 #if 1
 /*
  * A write access, which cache line is not present, doesn't perform (on the
- * current SCC architecture) a cache line fill. Therefore, the core writes 
- * in this case directly to the memory. 
+ * current SCC architecture) a cache line fill. Therefore, the core writes
+ * in this case directly to the memory.
  *
  * The following function copies from the on-die  memory (MPB) to the off-die
- * memory and prefetchs its destintation. Therefore, the  function avoids the 
+ * memory and prefetchs its destintation. Therefore, the  function avoids the
  * bad behavior of a "write miss".
- */ 
+ */
 void *memcpy(void *dest, const void *src, size_t count)
 {
 	int h, i, j, k, l, m;
@@ -75,14 +75,14 @@ void *memcpy(void *dest, const void *src, size_t count)
 #else
 
 /*
- * If the destination is located on on-die memory (MPB), classical prefetching 
+ * If the destination is located on on-die memory (MPB), classical prefetching
  * techniques will be used to increase the performance.
  */
 void *memcpy(void *dest, const void *src, size_t count)
 {
 	int i, j, k, l;
 
-	/* 
+	/*
 	 * We use the floating point registers to
 	 * prefetch up to 4096 = (DCACE_SIZE (16KB) / 4) bytes.
 	 */

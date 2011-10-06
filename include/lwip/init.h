@@ -93,7 +93,12 @@ extern "C" {
 
 // For recording statistics
 #define MACHINE_CLK_UNIT    (1000000)
+
+#if !defined(__scc__)
 #define MACHINE_CLOCK_SPEED  (2800)
+#else
+#define MACHINE_CLOCK_SPEED  (533)
+#endif // !defined(__scc__)
 #define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
 
 #define CONVERT_TO_SEC
