@@ -191,6 +191,7 @@ MODULES_scc=\
 	sbin/mem_serv_dist \
 	sbin/net-test \
 	sbin/netthroughput \
+	sbin/udp_throughput \
 
 # ARM-specific modules to build by default
 MODULES_arm=\
