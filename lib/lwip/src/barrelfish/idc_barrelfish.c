@@ -377,9 +377,24 @@ static errval_t send_pbuf_request(struct q_entry e)
 //      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
 #endif                          // LWIP_TRACE_MODE
 
-        return b->tx_vtbl.register_pbuf(b,
+        uint64_t cs_counter = get_switch_counter();
+        uint64_t ts = rdtsc();
+        uint8_t canary = 5357;
+        queue_set_canary(ccnc->q, canary);
+
+        errval_t err = b->tx_vtbl.register_pbuf(b,
                                         MKCONT(cont_queue_callback, ccnc->q),
-                                        e.plist[0], e.plist[1], e.plist[2]);
+                                        e.plist[0], e.plist[1], e.plist[2],
+                                        ts);
+        if(benchmark_mode > 0) {
+            if (canary != queue_get_canary(ccnc->q)) {
+                lwip_record_event_simple(RE_PBUF_REPLACE_3, ts);
+            }
+            lwip_record_event_simple(RE_PBUF_REPLACE_2, ts);
+            lwip_record_event_simple(RE_PBUF_QUEUE, e.plist[3]);
+        }
+        return err;
+
         /* pbuf_id,   paddr,      len */
     } else {
         LWIPBF_DEBUG("send_pbuf_request: Flounder busy,rtry+++++\n");
@@ -405,6 +420,7 @@ void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len)
     entry.plist[0] = pbuf_id;
     entry.plist[1] = paddr;
     entry.plist[2] = len;
+    entry.plist[3] = rdtsc();
     /* FIXME: Following call is not strictly needed, so one might
      * want to remove it as data is not modified in calling idc_register_pbuf */
 //    bulk_arch_prepare_send((void *)paddr, len);
@@ -721,8 +737,12 @@ bool lwip_in_packet_received = false;
 
 
 static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
-                            uint64_t paddr, uint64_t pbuf_len, uint64_t pktlen)
+                            uint64_t paddr, uint64_t pbuf_len,
+                            uint64_t pktlen, uint64_t rts)
 {
+    if(benchmark_mode > 0) {
+        lwip_record_event_simple(RE_PKT_RCV_CS, rts);
+    }
 #if LWIP_TRACE_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
 #endif                          // LWIP_TRACE_MODE

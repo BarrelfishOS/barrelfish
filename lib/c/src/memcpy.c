@@ -1,9 +1,10 @@
-//#define SCC_MEMCPY
 
-#ifdef SCC_MEMCPY
 #include <string.h>
 #include <stdint.h>
 
+
+#if defined(__scc__)
+#ifdef SCC_MEMCPY
 /// XXX: Compile without -fPIE !
 
 /****************************************************************************************
@@ -25,7 +26,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
 
-#if 1
 /*
  * A write access, which cache line is not present, doesn't perform (on the
  * current SCC architecture) a cache line fill. Therefore, the core writes
@@ -35,7 +35,7 @@
  * memory and prefetchs its destintation. Therefore, the  function avoids the
  * bad behavior of a "write miss".
  */
-void *memcpy(void *dest, const void *src, size_t count)
+void *memcpy_scc1(void *dest, const void *src, size_t count)
 {
 	int h, i, j, k, l, m;
 
@@ -72,13 +72,11 @@ void *memcpy(void *dest, const void *src, size_t count)
 	return dest;
 }
 
-#else
-
 /*
  * If the destination is located on on-die memory (MPB), classical prefetching
  * techniques will be used to increase the performance.
  */
-void *memcpy(void *dest, const void *src, size_t count)
+void *memcpy_scc2(void *dest, const void *src, size_t count)
 {
 	int i, j, k, l;
 
@@ -150,9 +148,8 @@ void *memcpy(void *dest, const void *src, size_t count)
 	return dest;
 }
 
-#endif
-
-#else
+#endif // SCC_MEMCPY
+#endif // defined(__scc__)
 
 /*-
  * Copyright (c) 1990 The Regents of the University of California.
@@ -185,8 +182,8 @@ void *memcpy(void *dest, const void *src, size_t count)
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include <string.h>
-#include <stdint.h>
+//#include <string.h>
+//#include <stdint.h>
 
 /*
  * sizeof(word) MUST BE A POWER OF TWO
@@ -280,4 +277,3 @@ done:
     return (dst0);
 }
 
-#endif

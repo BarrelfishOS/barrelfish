@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <lwip/tcp.h>
+#include <lwip/init.h>
 
 #include "http_cache.h"
 #include "webserver_network.h"
@@ -385,7 +386,7 @@ static const void *make_header(const char *uri, size_t *retlen)
     }
 }
 
-/* callback function to fetch file 
+/* callback function to fetch file
     This function is responsible for sending the fetched file */
 static void send_response(struct http_conn *cs)
 {
@@ -564,7 +565,7 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
         return ERR_MEM;
     }
     increment_http_conn_reference (conn);
-    /* NOTE: This initial increment marks the basic assess and it will be 
+    /* NOTE: This initial increment marks the basic assess and it will be
         decremented by http_server_invalidate */
 
     tcp_arg(tpcb, conn);
@@ -579,7 +580,7 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
 
 static void realinit(void)
 {
-    printf("Cache loading time %"PRIu64"\n", get_time_delta(&last_ts));
+    printf("Cache loading time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
     struct tcp_pcb *pcb = tcp_new();
 //    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));
     err_t e = tcp_bind(pcb, IP_ADDR_ANY, HTTP_PORT);
@@ -588,8 +589,8 @@ static void realinit(void)
     assert(pcb != NULL);
     tcp_arg(pcb, pcb);
     tcp_accept(pcb, http_server_accept);
-    printf("HTTP setup time %"PRIu64"\n", get_time_delta(&last_ts));
-    printf("HTTP setup time %"PRIu64"\n", get_time_delta(&last_ts));
+    printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
+    printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
     printf("Starting webserver\n");
 }
 

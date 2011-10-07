@@ -24,11 +24,13 @@ interface ether "Generic Ethernet Driver" {
 
     call register_pbuf(uint64 pbuf_id,
                        uint64 paddr,
-                       uint64 len);
+                       uint64 len,
+                       uint64 ts);
     response packet_received(uint64 pbuf_id,
                              uint64 paddr,
                              uint64 pbuf_len,
-                             uint64 packet_len);
+                             uint64 packet_len,
+                             uint64 ts);
 /*
     call metadata_size_request();
     response metadata_size(uint64 size);

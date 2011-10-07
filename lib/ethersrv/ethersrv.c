@@ -80,6 +80,10 @@ struct client_closure_FM {
 /* FIXME: this should contain the registered buffer ptr */
 };
 
+// Measurement purpose, counting interrupt numbers
+uint64_t interrupt_counter = 0;
+uint64_t interrupt_loop_counter = 0;
+
 /* ethersrv specific debug state indicator */
 static int debug_state = 0;
 
@@ -95,8 +99,8 @@ static uint64_t dropped_pkt_count = 0;
  *****************************************************************/
 
 static void register_buffer(struct ether_binding *cc, struct capref cap);
-static void register_pbuf(struct ether_binding *cc, uint64_t pbuf_id,
-                          uint64_t paddr, uint64_t len);
+static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
+                          uint64_t paddr, uint64_t len, uint64_t rts);
 static void
 transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
                 uint64_t buffer_id, uint64_t len, uint64_t offset,
@@ -505,8 +509,8 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
 }
 
 
-static void register_pbuf(struct ether_binding *cc, uint64_t pbuf_id,
-                          uint64_t paddr, uint64_t len)
+static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
+                          uint64_t paddr, uint64_t len, uint64_t rts)
 {
 
 #if TRACE_ETHERSRV_MODE
@@ -515,11 +519,17 @@ static void register_pbuf(struct ether_binding *cc, uint64_t pbuf_id,
 
     errval_t r;
 
+    uint64_t ts = rdtsc();
 /*	ETHERSRV_DEBUG("ETHERSRV: register_pbuf: %"PRIx64" registering ++++++++\n",
 	        pbuf_id);
 */
     struct buffer_descriptor *buffer = (struct buffer_descriptor *)
-      ((struct client_closure *) (cc->st))->buffer_ptr;
+      ((struct client_closure *) (b->st))->buffer_ptr;
+    struct client_closure *cl = (struct client_closure *)b->st;
+
+    if (cl->debug_state == 4) {
+        bm_record_event_simple(RE_PBUF_REG_CS, ts);
+    }
 
     /* Calculating the physical address of this pbuf. */
     uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + (paddr
@@ -532,8 +542,12 @@ static void register_pbuf(struct ether_binding *cc, uint64_t pbuf_id,
 	 pbuf_id, buffer->buffer_id);
 */
 
-    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, cc);
+    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, b);
     assert(err_is_ok(r));
+
+    if (cl->debug_state == 4) {
+        bm_record_event_simple(RE_PBUF_REG, ts);
+    }
 }
 
 
@@ -1714,9 +1728,15 @@ static errval_t send_received_packet_handler(struct q_entry entry)
         err = b->tx_vtbl.packet_received(b,
                                          MKCONT(cont_queue_callback, cl->q),
                                          entry.plist[0], entry.plist[1],
-                                         entry.plist[2], entry.plist[3]);
-        /* entry.pbuf_id,  entry.paddr,    entry.len,      entry.length */
+                                         entry.plist[2], entry.plist[3],
+                                         ts);
+        /* entry.pbuf_id,  entry.paddr,    entry.len,      entry.length,
+         * timestamp */
 
+        if ((cl->debug_state == 4) ) {
+            bm_record_event_simple(RE_PKT_RECV_MSG, ts);
+            bm_record_event_simple(RE_PKT_RECV_Q, entry.plist[5]);
+        }
         uint64_t delta = rdtsc() - ts;
         uint8_t ans_canary = queue_get_canary(cl->q);
         if (canary_val != ans_canary) {
@@ -1813,6 +1833,7 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     entry.plist[2] = rx_pbuf->len;
     entry.plist[3] = rx_pbuf->packet_size;
     entry.plist[4] = ccl->filter_matched;
+    entry.plist[5] = rdtsc();
     if (entry.plist[2] == 0 || entry.plist[1] == 0) {
         ETHERSRV_DEBUG("## trying to enqueue pbuf_id %" PRIx64 " at %" PRIx64
                        " of size %" PRIx64 " and len %" PRIx64 "\n",
@@ -1921,7 +1942,8 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 
     if ((dst < (buffer->va + (1L << buffer->bits))) && (dst >= buffer->va)) {
         uint64_t ts = rdtsc();
-        memcpy((void *) (uintptr_t) upbuf->vaddr, data, len);
+
+        memcpy_fast((void *) (uintptr_t) upbuf->vaddr, data, len);
         if (cl->debug_state == 4) {
             bm_record_event_simple(RE_COPY, ts);
         }
@@ -2101,6 +2123,8 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
             printf("Actually starting the tracking!!\n");
             cl->start_ts = rdtsc();
             cl->debug_state = 4;
+            interrupt_counter = 0;
+            interrupt_loop_counter = 0;
         }
         cl->filter_matched = 1;
 
@@ -2108,7 +2132,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
             assert(filter->pause_bufpos < MAX_PAUSE_BUFFER);
             struct bufdesc *bd = &filter->pause_buffer[filter->pause_bufpos++];
 
-            memcpy(bd->pkt_data, pkt_data, pkt_len);
+            memcpy_fast(bd->pkt_data, pkt_data, pkt_len);
             bd->pkt_len = pkt_len;
         } else {
             if (cl->debug_state == 4) {
@@ -2265,8 +2289,12 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
                     (cl->in_app_time_min));
             print_app_stats(cl->buffer_ptr);
             bm_print_interesting_stats();
+            printf("Interrupt count [%"PRIu64"], loop count[%"PRIu64"]\n",
+                    interrupt_counter, interrupt_loop_counter);
 
         case 1:  // Resetting stats, for new round of recording
+            interrupt_counter = 0;
+            interrupt_loop_counter = 0;
             reset_client_closure_stat(cl);
             cl->in_trigger_counter = trigger;
             // Resetting receive path stats
@@ -2355,27 +2383,46 @@ void bm_record_event_simple(uint8_t event_type, uint64_t ts)
 void bm_print_event_stat(uint8_t event_type, char *event_name)
 {
     uint8_t et = event_type;
-    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
+    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
             "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
             stats[et][RDT_COUNT],
             in_seconds(stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
             in_seconds(stats[et][RDT_MAX]),
             in_seconds(stats[et][RDT_MIN]),
             in_seconds(stats[et][RDT_SUM]));
-    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
+    /*
+    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
             "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
             et, stats[et][RDT_COUNT],
             (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
             (stats[et][RDT_MAX]),
             (stats[et][RDT_MIN]),
             (stats[et][RDT_SUM]));
+    */
 } // end function: print_event_stat
 
 void bm_print_interesting_stats(void)
 {
-    bm_print_event_stat(RE_FILTER, "Filter time");
-    bm_print_event_stat(RE_COPY, "copy time");
-    bm_print_event_stat(RE_DROPPED, "dropped time");
-    bm_print_event_stat(RE_USEFUL, "useful time");
+    bm_print_event_stat(RE_FILTER,       "D: Filter time");
+    bm_print_event_stat(RE_COPY,         "D: copy time");
+    bm_print_event_stat(RE_PBUF_REG,     "D: pbuf reg time");
+    bm_print_event_stat(RE_PKT_RECV_MSG, "D: pkt recv ntf");
+    bm_print_event_stat(RE_DROPPED,      "D: dropped time");
+    bm_print_event_stat(RE_USEFUL,       "D: useful time");
+    bm_print_event_stat(RE_PKT_RECV_Q,   "D: RX queue");
+    bm_print_event_stat(RE_PBUF_REG_CS,  "D: REG pbuf CS");
+}
+
+
+// Optimzed memcpy function which chooses proper memcpy function automatically.
+void *
+memcpy_fast(void *dst0, const void *src0, size_t length)
+{
+//    return memcpy(dst0, src0, length);
+#if defined(__scc__) && defined(SCC_MEMCPY)
+    return memcpy_scc2(dst0, src0, length);
+#else // defined(__scc__) && defined(SCC_MEMCPY)
+    return memcpy(dst0, src0, length);
+#endif // defined(__scc__) && defined(SCC_MEMCPY)
 }
 

@@ -28,6 +28,9 @@
  * Data types:
  *****************************************************************/
 
+extern uint64_t interrupt_counter;
+extern uint64_t interrupt_loop_counter;
+
 static uint8_t macaddr[6]; ///< buffers the card's MAC address upon card reset
 e1000_t d;  ///< Mackerel state
 static bool user_macaddr; /// True iff the user specified the MAC address
@@ -163,6 +166,7 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
 	errval_t r;
         while(handle_free_TX_slot_fn());
+//        handle_free_TX_slot_fn();
 
 	if (!can_transmit(cl->rtpbuf)){
             while(handle_free_TX_slot_fn());
@@ -383,6 +387,7 @@ static void polling_loop(void)
     while (1) {
 //    	printf("polling loop: waiting for event\n");
         while(handle_free_TX_slot_fn());
+//        handle_free_TX_slot_fn();
         err = event_dispatch(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
@@ -419,7 +424,11 @@ static void e1000_interrupt_handler(void *arg)
     	return;
     }
 
-    while(handle_next_received_packet());
+    ++interrupt_counter;
+    while(handle_next_received_packet()){
+            ++interrupt_loop_counter;
+    };
+//    handle_next_received_packet();
 }
 
 /*****************************************************************

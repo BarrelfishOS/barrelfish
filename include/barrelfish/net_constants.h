@@ -65,22 +65,22 @@
 
 /// Number of PBUF structs available
 #ifndef MEMP_NUM_PBUF
-#define MEMP_NUM_PBUF           2024
+#define MEMP_NUM_PBUF           4024
 #endif // MEMP_NUM_PBUF
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE          2024
+#define PBUF_POOL_SIZE          4024
 #endif // PBUF_POOL_SIZE
 
 /* Used in the ethersrv.c and the driver. */
-#define RECEIVE_BUFFERS 1024
+#define RECEIVE_BUFFERS 2024
 #define TRANSMIT_BUFFERS 1024 //< Number of transmit descriptors
                               //< (must be multiple of 8)
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (4 * 2048)
+#define PBUF_POOL_BUFSIZE       (1600)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */

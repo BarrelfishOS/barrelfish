@@ -25,12 +25,12 @@
  * Constants:
  *****************************************************************/
 
-
-
 #define MAX_NR_TRANSMIT_PBUFS 80
 
 #define RECEIVE_CONNECTION 0
 #define TRANSMIT_CONNECTION 1
+
+
 
 /*****************************************************************
  * common data-structures
@@ -243,6 +243,10 @@ enum Recorded_Events {
     RE_COPY = 2,
     RE_DROPPED = 3,
     RE_USEFUL = 4,
+    RE_PBUF_REG = 5,
+    RE_PKT_RECV_MSG = 6,
+    RE_PKT_RECV_Q = 7,
+    RE_PBUF_REG_CS = 8,
 };
 #define EVENT_LIST_SIZE  10
 
@@ -260,6 +264,10 @@ void bm_record_event_simple(uint8_t event_type, uint64_t ts);
 void bm_print_event_stat(uint8_t event_type, char *event_name);
 void bm_print_interesting_stats(void);
 
+// **************************************
+// Use of optimised memcpy for SCC
+
+void *memcpy_fast(void *dst0, const void *src0, size_t length);
 
 
 #endif // ETHERSRV_H

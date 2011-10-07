@@ -75,6 +75,7 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs);
 void disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
                  arch_registers_state_t *to_state);
 
+uint64_t get_switch_counter(void);
 
 /**
  * \brief Save the current register state and optionally yield the CPU

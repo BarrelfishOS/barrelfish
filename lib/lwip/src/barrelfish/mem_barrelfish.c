@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include "lwip/init.h"
 #include "lwip/pbuf.h"
 #include "mem_barrelfish.h"
 #include "idc_barrelfish.h"
@@ -225,7 +226,11 @@ void mem_barrelfish_replace_pbuf(uint64_t idx)
     pbufs[idx].pbuf_id = idx;
     //XXX: the msg handler should free the pbuf in case of an error.
     //uint64_t r = idc_register_pbuf(idx, paddr + offset, p->len);
+
+    uint64_t ts = rdtsc();
     idc_register_pbuf(idx, buff_ptr->pa + offset, p->len);
+    lwip_record_event_simple(RE_PBUF_REPLACE_1, ts);
+
 /*
         if (r != 0) {
             //registering the pbuf in the network driver failed. So free it again.

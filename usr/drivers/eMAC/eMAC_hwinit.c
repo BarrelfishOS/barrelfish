@@ -70,6 +70,11 @@ static void *TX_internal_memory_va = NULL;
 static uint32_t volatile TX_write_index = 0;
 static uint32_t TX_max_slots = SLOTS - 1;
 
+
+// For measurement of interrupts
+extern uint64_t interrupt_counter;
+extern uint64_t interrupt_loop_counter;
+
 /* MAC address */
 extern uint64_t eMAC_mac;
 
@@ -215,7 +220,7 @@ static void receive_frame_data(void)
             call_counter, RX_read_index,  wid);
 
     do {
-
+        ++interrupt_loop_counter;
         increment_RX_read_index();
 
         uint16_t frame_len = 0;
@@ -246,7 +251,7 @@ static void receive_frame_data(void)
         } else {
 
             EMAC_DEBUG("Broken packet received\n");
-            memcpy(dummy_pkt, pkt_ptr + 2, CSIZE - 2);
+            memcpy_fast(dummy_pkt, pkt_ptr + 2, CSIZE - 2);
             copied = CSIZE - 2;
 
             while (copied < frame_len) {
@@ -259,7 +264,7 @@ static void receive_frame_data(void)
                 increment_RX_read_index();
                 pkt_ptr = (uint8_t *)(buf + (RX_read_index * 32));
                 uint16_t to_copy = MIN((frame_len - copied), CSIZE);
-                memcpy(dummy_pkt + copied, pkt_ptr, to_copy);
+                memcpy_fast(dummy_pkt + copied, pkt_ptr, to_copy);
                 copied = copied + to_copy;
             }
             pkt_to_upload = dummy_pkt;
@@ -368,7 +373,8 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
         uint8_t *src =((uint8_t *)cl->buffer_ptr->va) + cl->pbuf[index].offset
                                 + pbuf_offset;
 
-        memcpy(dst + already_copied, src, copying);
+        // FIXME: may be I should use memcpy_fast here!!
+        memcpy_fast(dst + already_copied, src, copying);
         already_copied = already_copied + copying;
 
         if(already_copied == to_copy) {
@@ -1187,6 +1193,7 @@ static void interrupt_handler(void *dummy)
     if(can_handle_packet()){
         // Process packets
         EMAC_DEBUG("#### interrupt handling!\n");
+        ++interrupt_counter;
 #if TRACE_ETHERSRV_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_I, 0);
 #endif // TRACE_ETHERSRV_MODE

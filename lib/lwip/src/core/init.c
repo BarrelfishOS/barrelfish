@@ -366,10 +366,10 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     run_once = true;
 
     if (opt_waitset == NULL) {
-        printf("#### Going ahead with default wait-set\n");
+        printf("#### %s Going ahead with default wait-set\n", disp_name());
         lwip_waitset = get_default_waitset();
     } else {
-        printf("#### Going ahead with non-default wait-set\n");
+        printf("#### %s Going ahead with non-default wait-set\n", disp_name());
 //        lwip_waitset = get_default_waitset();
         lwip_waitset = opt_waitset;
     }
@@ -571,37 +571,38 @@ void lwip_record_event_simple(uint8_t event_type, uint64_t ts)
     uint64_t delta = rdtsc() - ts;
     lwip_record_event(event_type, delta);
 }
-void lwip_print_event_stat(uint8_t event_type, char *event_name)
+void lwip_print_event_stat(uint8_t event_type, char *event_name, int type)
 {
     uint8_t et = event_type;
-    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
+    if (type == 1) {
+    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
             "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
             stats[et][RDT_COUNT],
             in_seconds(stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
             in_seconds(stats[et][RDT_MAX]),
             in_seconds(stats[et][RDT_MIN]),
             in_seconds(stats[et][RDT_SUM]));
-    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
+    }
+    else {
+    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
             "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
             et, stats[et][RDT_COUNT],
-            (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            (stats[et][RDT_SUM]/*/stats[et][RDT_COUNT]*/),
             (stats[et][RDT_MAX]),
             (stats[et][RDT_MIN]),
             (stats[et][RDT_SUM]));
-/*
-    printf("Event %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
-            "MAX[%"PRIu64"], MIN[%"PRIu64"]\n", event_name, et,
-            stats[et][RDT_COUNT],
-            (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
-            stats[et][RDT_MAX],
-            stats[et][RDT_MIN]);
-*/
+    }
 } // end function: print_event_stat
 
 void lwip_print_interesting_stats(void)
 {
-    lwip_print_event_stat(RE_ALL, "ALL");
-    lwip_print_event_stat(RE_PBUF_REPLACE, "Replace pbuf");
+    lwip_print_event_stat(RE_ALL, "U: ALL", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE, "U: Replace pbuf", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE_1, "U: Replace pbuf_1", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE_2, "U: Replace pbuf_2", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE_3, "U: Replace pbuf_3", 0);
+    lwip_print_event_stat(RE_PBUF_QUEUE, "U: RPL PbufQ", 1);
+    lwip_print_event_stat(RE_PKT_RCV_CS, "U: PKT RCV CS", 1);
 }
 
 
