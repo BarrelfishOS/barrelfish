@@ -75,8 +75,6 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs);
 void disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
                  arch_registers_state_t *to_state);
 
-uint64_t get_switch_counter(void);
-
 /**
  * \brief Save the current register state and optionally yield the CPU
  *
@@ -101,6 +99,7 @@ void __attribute__((noreturn)) disp_yield_disabled(dispatcher_handle_t handle);
 dispatcher_handle_t disp_new(int core_id);
 
 const char *disp_name(void);
+uint64_t disp_run_counter(void);
 
 void disp_assert_fail(const char *exp, const char *file, const char *func,
                       const char *line) __attribute((noreturn));

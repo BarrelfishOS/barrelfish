@@ -377,7 +377,7 @@ static errval_t send_pbuf_request(struct q_entry e)
 //      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
 #endif                          // LWIP_TRACE_MODE
 
-        uint64_t cs_counter = get_switch_counter();
+        uint64_t cs_counter = disp_run_counter();
         uint64_t ts = rdtsc();
         uint8_t canary = 5357;
         queue_set_canary(ccnc->q, canary);
@@ -387,8 +387,10 @@ static errval_t send_pbuf_request(struct q_entry e)
                                         e.plist[0], e.plist[1], e.plist[2],
                                         ts);
         if(benchmark_mode > 0) {
-            if (canary != queue_get_canary(ccnc->q)) {
-                lwip_record_event_simple(RE_PBUF_REPLACE_3, ts);
+            uint64_t c_cs_counter = disp_run_counter();
+            if (cs_counter != c_cs_counter) {
+                lwip_record_event_simple(RE_PBUF_REPLACE_3,
+                        (c_cs_counter - cs_counter));
             }
             lwip_record_event_simple(RE_PBUF_REPLACE_2, ts);
             lwip_record_event_simple(RE_PBUF_QUEUE, e.plist[3]);

@@ -118,11 +118,6 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs)
     __asm volatile ("disp_resume_end:");
 }
 
-static uint64_t switch_counter = 0;
-uint64_t get_switch_counter(void)
-{
-    return switch_counter;
-}
 /**
  * \brief Switch execution between two register states, and turn off
  * disabled activations.
@@ -154,7 +149,6 @@ disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
     assert_disabled(disp->disabled);
     assert_disabled(disp->haswork);
 
-    ++switch_counter;
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
     struct registers_x86_64 *from_regs = (struct registers_x86_64*)from_state;
