@@ -112,8 +112,8 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
 
 
     // FIXME: For testing of compilation
-    struct shared_pool mysp;
-    sp_reset_pool(&mysp, 10);
+    struct shared_pool_private *mysp = sp_create_shared_pool(2045);
+    assert(mysp != NULL);
 
 //    struct waitset *ws = get_default_waitset();
     /* Wait for actually getting the ID back from driver */

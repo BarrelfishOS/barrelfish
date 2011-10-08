@@ -906,8 +906,8 @@ void ethersrv_init(char *service_name,
     client_no = 0;
 
     // FIXME: For testing of compilation
-    struct shared_pool mysp;
-    sp_reset_pool(&mysp, 10);
+    struct shared_pool_private *mysp = sp_create_shared_pool(2045);
+    assert(mysp != NULL);
 
 
     /* FIXME: populate the receive ring of device driver with local pbufs */

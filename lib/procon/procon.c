@@ -16,35 +16,46 @@
 
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/bulk_transfer.h>
 #include <procon/procon.h>
 
 // Checks for queue empty condition
-bool sp_queue_empty(struct shared_pool *sp)
+bool sp_queue_empty(struct shared_pool_private *spp)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     return (sp->read_reg.value == sp->write_reg.value);
 }
 
 
 // Check for queue full condition
-bool sp_queue_full(struct shared_pool *sp)
+bool sp_queue_full(struct shared_pool_private *spp)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
     return (((sp->write_reg.value + 1) % queue_size ) == sp->read_reg.value);
 }
 
 // Checks if given index is peekable or not
-bool sp_peekable_index(struct shared_pool *sp, uint64_t index)
+bool sp_peekable_index(struct shared_pool_private *spp, uint64_t index)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
     // Trivial case: index bigger than queue size
     if (index >= queue_size){
         return false;
     }
 
     // Trivial case: queue empty
-    if (sp_queue_empty(sp)) {
+    if (sp_queue_empty(spp)) {
         return false;
     }
 
@@ -65,11 +76,14 @@ bool sp_peekable_index(struct shared_pool *sp, uint64_t index)
 
 
 // Returns no. of elements available for consumption
-uint64_t sp_queue_elements_count(struct shared_pool *sp)
+uint64_t sp_queue_elements_count(struct shared_pool_private *spp)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
-    if (sp_queue_empty(sp)) {
+    if (sp_queue_empty(spp)) {
         return 0;
     }
 
@@ -85,11 +99,14 @@ uint64_t sp_queue_elements_count(struct shared_pool *sp)
 
 
 // Returns no. of free slots available for production
-uint64_t sp_queue_free_slots_count(struct shared_pool *sp)
+uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
-    if (sp_queue_empty(sp)) {
+    if (sp_queue_empty(spp)) {
         return queue_size;
     }
 
@@ -103,12 +120,19 @@ uint64_t sp_queue_free_slots_count(struct shared_pool *sp)
 } // end function: sp_queue_free_slots_count
 
 
-void sp_reset_pool(struct shared_pool *sp, uint64_t slot_count)
+void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     int i = 0;
     if (slot_count == 0) {
-        slot_count = MAX_SLOTS;
+        slot_count = TMP_SLOTS;
     }
+    // Esure that slot_count is <= alloted_slots
+    assert(slot_count <= spp->alloted_slots);
+
     sp->size_reg.value = slot_count;
     sp->read_reg.value = 0;
     sp->write_reg.value = 0;
@@ -118,10 +142,13 @@ void sp_reset_pool(struct shared_pool *sp, uint64_t slot_count)
 } // sp_reset_pool
 
 /*
-void sp_increment_write_index(struct shared_pool *sp)
+void sp_increment_write_index(struct shared_pool_private *spp)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
     // Incrementing write pointer
     sp->write_index = (sp->write_index + 1) % queue_size;
 }
@@ -150,11 +177,14 @@ static void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 }
 
 // Adds the data from parameter d into appropriate slot of shared pool queue
-bool sp_produce_slot(struct shared_pool *sp, struct slot_data *d)
+bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
-    if (sp_queue_full(sp)) {
+    if (sp_queue_full(spp)) {
         return false;
     }
 
@@ -169,19 +199,23 @@ bool sp_produce_slot(struct shared_pool *sp, struct slot_data *d)
 // To bu used by driver when it adds the packet in hardware queue for sending
 // but the packet is not yet sent.
 // when packet is actually done, then read pointer can be changed.
-bool sp_peek_slot(struct shared_pool *sp, struct slot_data *dst,
+bool sp_peek_slot(struct shared_pool_private *spp, struct slot_data *dst,
         uint64_t index)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     // Make sure that slot provided is proper
     assert(dst != NULL);
 
     // Make sure that there is slot available for consumption
-    if (sp_queue_empty(sp)) {
+    if (sp_queue_empty(spp)) {
         return false;
     }
 
     // Check if the requested peak is valid or not
-    if (!sp_peekable_index(sp, index))
+    if (!sp_peekable_index(spp, index))
     {
         return false;
     }
@@ -196,10 +230,13 @@ bool sp_peek_slot(struct shared_pool *sp, struct slot_data *dst,
 // consumption.
 // TO be used by application to receive packet and register new pbuf
 // at same time.
-bool sp_replace_slot(struct shared_pool *sp, struct slot_data *new_slot)
+bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
 
     // Make sure that slot provided is proper
     if (!validate_slot(new_slot)) {
@@ -207,7 +244,7 @@ bool sp_replace_slot(struct shared_pool *sp, struct slot_data *new_slot)
     }
 
     // Make sure that there is slot available for consumption
-    if (sp_queue_empty(sp)) {
+    if (sp_queue_empty(spp)) {
         return false;
     }
 
@@ -223,13 +260,67 @@ bool sp_replace_slot(struct shared_pool *sp, struct slot_data *new_slot)
     return true;
 } // end function: sp_consume_slot
 
-void sp_print_metadata(struct shared_pool *sp)
+
+// ************* memory allocation ***********************
+struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no)
 {
+
+
+    struct shared_pool_private *spp = (struct shared_pool_private *)
+                malloc(sizeof(struct shared_pool_private));
+    assert(spp != NULL);
+
+    errval_t err;
+    assert(slot_no > 2);
+    size_t size = (sizeof(struct shared_pool) +
+                ((sizeof(union slot)) * (slot_no - 2)));
+
+    // NOTE: using bulk create here because bulk_create code has
+    // been modified to suit the shared buffer allocation
+    // FIXME: code repetation with mem_barrelfish_alloc_and_register
+    struct bulk_transfer bt_sp;
+#if defined(__scc__) && !defined(RCK_EMU)
+    err = bulk_create(size, sizeof(union slot), &(spp->cap), &bt_sp, true);
+#else
+    err = bulk_create(size, sizeof(union slot), &(spp->cap), &bt_sp, false);
+#endif // defined(__scc__) && !defined(RCK_EMU)
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "bulk_create failed.");
+        return NULL;
+    }
+    spp->va = bt_sp.mem;
+    spp->sp = (struct shared_pool *)spp->va;
+
+    struct frame_identity f;
+
+    err = invoke_frame_identify(spp->cap, &f);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_identify failed");
+        return NULL;
+    }
+    spp->pa = f.base;
+    spp->mem_size = (1 << f.bits);
+    spp->alloted_slots = slot_no;
+    spp->sp_id = -1;
+    spp->peek_id = 0;
+    spp->is_creator = true;
+    sp_reset_pool(spp, slot_no);
+    return spp;
+} // end function: sp_create_shared_pool
+
+
+// ****************** For debugging purposes **************
+void sp_print_metadata(struct shared_pool_private *spp)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     printf("SP Q len[%"PRIu64"], RI[%"PRIu64"], WI[%"PRIu64"], elem[%"PRIu64"]"
             "free[%"PRIu64"]\n",
             sp->size_reg.value, sp->read_reg.value, sp->write_reg.value,
-            sp_queue_elements_count(sp),
-            sp_queue_free_slots_count(sp)
+            sp_queue_elements_count(spp),
+            sp_queue_free_slots_count(spp)
             );
 }
 
@@ -243,11 +334,14 @@ void sp_print_slot(struct slot_data *d)
 }
 
 // Code for testing and debugging the library
-void sp_print_pool(struct shared_pool *sp)
+void sp_print_pool(struct shared_pool_private *spp)
 {
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     uint64_t queue_size = sp->size_reg.value;
-//    uint64_t queue_size = MAX_SLOTS;
-    sp_print_metadata(sp);
+    sp_print_metadata(spp);
     int i = 0;
     for(i = 0; i < queue_size; ++i)  {
         sp_print_slot(&sp->slot_list[i].d);

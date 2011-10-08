@@ -32,7 +32,7 @@
 
 #define SLOT_SIZE ((sizeof(struct slot_data)) + (SLOT_PADDING))
 
-#define MAX_SLOTS   2048
+#define TMP_SLOTS 2
 
 
 // information inside the slot
@@ -65,24 +65,49 @@ struct shared_pool {
     union vreg write_reg; // slot-index that producer will produce next
     union vreg read_reg;  // slot-index that Consumer will consume next
     union vreg size_reg;
-    union slot slot_list[MAX_SLOTS];
+    union slot slot_list[TMP_SLOTS];
 };
 
-// Function prototypes
-void sp_reset_pool(struct shared_pool *sp, uint64_t slot_count);
-bool sp_queue_empty(struct shared_pool *sp);
-bool sp_queue_full(struct shared_pool *sp);
-bool sp_peekable_index(struct shared_pool *sp, uint64_t index);
-uint64_t sp_queue_elements_count(struct shared_pool *sp);
-uint64_t sp_queue_free_slots_count(struct shared_pool *sp);
-bool sp_produce_slot(struct shared_pool *sp, struct slot_data *d);
-bool sp_replace_slot(struct shared_pool *sp, struct slot_data *new_slot);
-bool sp_peek_slot(struct shared_pool *sp, struct slot_data *dst,
+struct shared_pool_private {
+    struct shared_pool *sp;
+    struct capref cap;
+//    struct ether_binding *con;
+    lpaddr_t pa;
+    void *va;
+    uint64_t mem_size;
+    uint64_t sp_id;         //as assigned by the network driver on registering
+    uint64_t alloted_slots;
+//    uint64_t read_id_cache;
+    uint64_t peek_id;
+//    uint64_t write_id_cache;
+//    uint64_t size_reg_cache;
+    bool    is_creator;
+    bool    producer;
+    bool    consumer;
+
+};
+
+// initialization function prototypes
+struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no);
+void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count);
+
+// State checking function prototypes
+bool sp_queue_empty(struct shared_pool_private *spp);
+bool sp_queue_full(struct shared_pool_private *spp);
+bool sp_peekable_index(struct shared_pool_private *spp, uint64_t index);
+uint64_t sp_queue_elements_count(struct shared_pool_private *spp);
+uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp);
+
+// State modifying function prototypes
+bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d);
+bool sp_replace_slot(struct shared_pool_private *spp,
+            struct slot_data *new_slot);
+bool sp_peek_slot(struct shared_pool_private *spp, struct slot_data *dst,
         uint64_t index);
 
 // Debugging functions
 void sp_print_slot(struct slot_data *d);
-void sp_print_metadata(struct shared_pool *sp);
-void sp_print_pool(struct shared_pool *sp);
+void sp_print_metadata(struct shared_pool_private *spp);
+void sp_print_pool(struct shared_pool_private *spp);
 
 #endif // PROCON_H_
