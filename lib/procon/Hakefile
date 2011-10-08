@@ -6,14 +6,11 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/startd
+-- Hakefile for lib/procon
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "startd",
-  		      cFiles = [ "main.c", "spawn.c" ],
-		      addLibraries = [ "spawndomain", "elf", "trace",
-		      		       "dist", "vfs", "nfs", "lwip",
-                                       "contmng", "procon", "hashtable" ]
-                    }
+[ build library { target = "procon",
+                  cFiles = [ "procon.c"]
+                }
 ]

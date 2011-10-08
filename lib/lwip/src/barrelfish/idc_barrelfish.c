@@ -23,6 +23,7 @@
 #include <netif/bfeth.h>
 #include <trace/trace.h>
 #include <contmng/contmng.h>
+#include <procon/procon.h>
 #include "lwip/pbuf.h"
 #include "lwip/init.h"
 #include "mem_barrelfish.h"

@@ -16,7 +16,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                   ++
                   find inDir "external_libraries/lib" ".eco"
     ramdisk = "skb_ramfs.cpio.gz"
-    args arch = application { 
+    args arch = application {
                         target = "skb",
   		        cFiles = [ "skb_main.c", "skb_service.c" ],
                         -- some include files cause problems...
@@ -27,13 +27,14 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         addIncludes = [ "eclipse_kernel/src"],
                         addLibraries = [ "eclipse", "shm", "dummies",
                                          "posixcompat", "msun",
-                                         "icsolver", "vfs", "nfs", "lwip", "contmng", "hashtable"],
+                                         "icsolver", "vfs", "nfs", "lwip",
+                                         "contmng", "procon", "hashtable"],
                         architectures = [ arch ]
                 }
 in
   [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32" ]],
-    Rule ( [ Str "bash", 
-             In SrcTree "src" "skripts/mkcpio", 
+    Rule ( [ Str "bash",
+             In SrcTree "src" "skripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]
              ++ [ In SrcTree "src" f | f <- ramfs_files ] )
   ]

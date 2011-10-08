@@ -483,6 +483,7 @@ void lwip_start_net_debug(int connection_type, uint8_t state, uint64_t trigger)
 }                               // end function: lwip_start_net_debug
 
 #include <contmng/contmng.h>
+#include <procon/procon.h>
 #define FREE_SLOT_THRESHOLD    100
 int is_lwip_loaded(void)
 {

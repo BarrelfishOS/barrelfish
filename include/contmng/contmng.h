@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief e1000 continuation management
+ * \brief continuation management
  *
  * This file provides a generic way of managing continuation for messages
  * of different types
@@ -23,11 +23,12 @@
 /*********************************************************************/
 /* Implementation of generic queue */
 
-/* !!!!!!!!!!!!!!!!! ASSUMPTIONS: READ THIS BEFORE USING IT  !!!!!!!!!!!!!!!!!!
+/* !!!!!!!!!!!!! ASSUMPTIONS: READ THIS BEFORE USING IT  !!!!!!!!!!!!!!!!!!
  * 1. There are less than MAX_PARAMS no. of parameters.
  * 2. All the data which is sent is of type uint64_t.
  * 3. Only exception is struct cap, which is dealt separately.
- * 4. The errval_t datatype is casted into uint64_t which is assumed to be lossless.
+ * 4. The errval_t datatype is casted into uint64_t which is
+ *    assumed to be lossless.
  * 5. void * pointers are casted to uint64_t which is assumed to be lossless.
  * */
 

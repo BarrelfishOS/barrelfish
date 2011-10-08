@@ -4,12 +4,11 @@
  * Current drivers using this server code are
  * -- e1000n
  * -- rtl8029
- *
- * This file exports the PCI Express e1000 card as a service
+ * -- eMAC
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-11 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -905,6 +904,10 @@ void ethersrv_init(char *service_name,
     filter_id_counter = 0;
     netd_buffer_count = 0;
     client_no = 0;
+
+    // FIXME: For testing of compilation
+    struct shared_pool mysp;
+    sp_reset_pool(&mysp, 10);
 
 
     /* FIXME: populate the receive ring of device driver with local pbufs */

@@ -13,7 +13,8 @@
 [ build application { target = "spawnd",
   		      cFiles = [ "main.c", "bsp_bootup.c", "service.c", "ps.c" ],
 		      addLibraries = [ "spawndomain", "elf", "trace", "skb",
-		      		       "dist", "vfs", "nfs", "lwip", "contmng", "hashtable"],
+		      		       "dist", "vfs", "nfs", "lwip",
+                                       "contmng", "procon", "hashtable"],
   		      flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraBindings = [ ("monitor_blocking",["rpcclient"]) ],
   		      flounderBindings = [ "spawn" ]

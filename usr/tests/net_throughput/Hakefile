@@ -12,6 +12,7 @@
 
 [ build application { target = "netthroughput",
                       cFiles = [ "main.c"],
-                      addLibraries = ["vfs", "nfs", "lwip", "contmng" ]
+                      addLibraries = ["vfs", "nfs", "lwip",
+                      "contmng", "procon" ]
                     }
 ]

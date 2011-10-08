@@ -13,6 +13,6 @@
 [ build application {
         target = "udp_throughput",
         cFiles = [ "udp_test.c"],
-        addLibraries = [ "lwip", "contmng", "trace" ]
+        addLibraries = [ "lwip", "contmng", "procon", "trace" ]
     }
 ]

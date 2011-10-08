@@ -25,6 +25,7 @@
 #include "lwip/pbuf.h"
 #include "mem_barrelfish.h"
 #include "idc_barrelfish.h"
+#include <procon/procon.h>
 
 #include "lwip_barrelfish_debug.h"
 
@@ -60,7 +61,6 @@ struct pbuf_desc pbufs[NR_PREALLOCATED_PBUFS];
 //create a frame cap with at least size 'size', map it to vspace
 //and remember the corresponding cap. This function is used
 //to initialize (get memory) for LWIP's heaps.
-
 uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
 {
     errval_t err;
@@ -109,6 +109,11 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
     buffer_list = tmp;
     /* FIXME: should buffer be also put in the client_closure_NC? */
     idc_register_buffer(tmp, binding_index);
+
+
+    // FIXME: For testing of compilation
+    struct shared_pool mysp;
+    sp_reset_pool(&mysp, 10);
 
 //    struct waitset *ws = get_default_waitset();
     /* Wait for actually getting the ID back from driver */

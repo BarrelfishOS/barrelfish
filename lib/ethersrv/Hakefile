@@ -7,12 +7,12 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/ethersrv
--- 
+--
 --------------------------------------------------------------------------
 
 [ build library { target = "ethersrv",
                   cFiles = [ "ethersrv.c", "frag.c", "vnic_service.c"],
                   flounderBindings = [ "ether", "ether_control", "v_nic" ],
-                  addLibraries = [ "contmng", "bfdmuxvm", "lwip" ]
+                  addLibraries = [ "contmng", "procon", "bfdmuxvm", "lwip" ]
                 }
 ]

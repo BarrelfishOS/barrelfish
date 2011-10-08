@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/e1000
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "e1000n",
@@ -15,7 +15,7 @@
                                  "e1000n_helpers.c", "e1000n_debug.c"],
                       flounderBindings = [ "ether", "ether_control" ],
                       mackerelDevices = [ "e1000" ],
-                      addLibraries = [ "pci", "ethersrv", "contmng", 
+                      addLibraries = [ "pci", "ethersrv", "contmng", "procon",
                                             "bfdmuxvm", "lwip" ]
                     }
 ]

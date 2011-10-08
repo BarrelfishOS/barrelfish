@@ -35,6 +35,7 @@
 #include <bfdmuxtools/tools.h>
 #include <bfdmuxtools/codegen.h>
 #include <contmng/contmng.h>
+#include <procon/procon.h>
 
 /* For ICMP benchmark */
 #include "lwip/icmp.h"
@@ -59,10 +60,10 @@ struct client_closure_ND {
  * \defGroup LocalStates Local states
  *
  * @{
- * 
+ *
  ****************************************************************/
 
-/* FIXME: This should not be needed, 
+/* FIXME: This should not be needed,
     arrange functions so that this prototype is not needed. */
 static void idc_register_filter(uint64_t id, uint64_t len_rx, uint64_t len_tx,
                                 uint64_t buffer_id_rx, uint64_t buffer_id_tx,
@@ -490,7 +491,7 @@ static errval_t send_paused(struct q_entry e)
 
 
 /**
-\brief : sending a redirected msg back to the app which requested the 
+\brief : sending a redirected msg back to the app which requested the
 * redirection with "redirect" msg.
 */
 static void idc_redirect_response(struct netd_binding *cc, errval_t err)
@@ -517,7 +518,7 @@ static void idc_redirect_response(struct netd_binding *cc, errval_t err)
 }                               /* end function: idc_redirect_response */
 
 /**
-\brief : sending a redirected msg back to the app which requested the 
+\brief : sending a redirected msg back to the app which requested the
 * redirection with "redirect" msg.
 */
 static void idc_redirect_pause_response(struct netd_binding *cc, errval_t err)
@@ -836,7 +837,7 @@ static void get_port(struct netd_binding *cc, netd_port_type_t type,
 
 
     /* create rx, tx filter around that port */
-    filter_mem_lock = true;     /* NOTE: filter memory is in use 
+    filter_mem_lock = true;     /* NOTE: filter memory is in use
                                    till "registered_filter" is called by filter_manager */
     uint64_t id = populate_rx_tx_filter_mem(port, type, &len_rx, &len_tx);
 
@@ -920,7 +921,7 @@ static void bind_port(struct netd_binding *cc, netd_port_type_t type,
     this_net_app->open_ports = bp;
 
     /* create rx, tx filter around that port */
-    filter_mem_lock = true;     /* NOTE: filter memory is in use 
+    filter_mem_lock = true;     /* NOTE: filter memory is in use
                                    till "registered_filter" is called by filter_manager */
 
     uint64_t id = populate_rx_tx_filter_mem(port, type, &len_rx, &len_tx);
@@ -1438,7 +1439,7 @@ static void pause_response(struct ether_control_binding *st,
 /**
 * \brief: called by driver when filter is registered.
         Responsible for calling appropriate callback in app, reporting the
-        status. It is some kind of IDC forwarding mechanism. 
+        status. It is some kind of IDC forwarding mechanism.
         (or a gateway for that matter)
 */
 static void register_filter_response(struct ether_control_binding *st,
@@ -1465,7 +1466,7 @@ static void register_filter_response(struct ether_control_binding *st,
     assert(err_is_ok(free_err));
     filter_mem_lock = false;    /* NOTE: filter memory can be used by others now */
 
-    /* We don't know yet what exactly the filter is registered for.  
+    /* We don't know yet what exactly the filter is registered for.
        So, find it out. */
     /* FIXME: modify the code to work without buffer_id_rx and buffer_id_tx.
      * Instead, use the id field to locate the request. */
@@ -1500,7 +1501,7 @@ static void register_filter_response(struct ether_control_binding *st,
 
                 // cleaning up
                 /* when err is not SYS_ERR_OK, one should release the bp
-                   as it seems that filter_registration is failed, 
+                   as it seems that filter_registration is failed,
                    and user should retry. */
                 if (!bp->active) {
                     if (prev == NULL) {
@@ -1508,7 +1509,7 @@ static void register_filter_response(struct ether_control_binding *st,
                     } else {
                         prev->next = bp->next;
                     }
-                    /* It is safe to release memory here, 
+                    /* It is safe to release memory here,
                        as idc_*_port makes the copy of all the info needed. */
                     free(bp);
                 }
@@ -1717,7 +1718,7 @@ void init_controller_service(char *filter_controller, char *service_name)
 {
     net_ctrl_service_name = service_name;
     connect_to_ether_filter_manager(filter_controller);
-//    share_common_memory_with_filter_manager(); 
+//    share_common_memory_with_filter_manager();
     /* it will be automatically called when connection is established */
 }
 
