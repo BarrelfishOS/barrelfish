@@ -261,7 +261,15 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
 } // end function: sp_consume_slot
 
 
-// ************* memory allocation ***********************
+// ************* Initialization functions ***********************
+
+static size_t calculate_shared_pool_size(uint64_t slot_no)
+{
+    return (sizeof(struct shared_pool) +
+                ((sizeof(union slot)) * (slot_no - 2)));
+}
+
+// Creates a new shared_pool area and initializes it as creator
 struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
         uint8_t role)
 {
@@ -273,8 +281,7 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
 
     errval_t err;
     assert(slot_no > 2);
-    size_t mem_size = (sizeof(struct shared_pool) +
-                ((sizeof(union slot)) * (slot_no - 2)));
+    size_t mem_size = calculate_shared_pool_size(slot_no);
 
     // NOTE: using bulk create here because bulk_create code has
     // been modified to suit the shared buffer allocation
@@ -307,13 +314,57 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
     spp->is_creator = true;
     spp->role = role;
     sp_reset_pool(spp, slot_no);
-    printf("Created shared_pool of size(%"PRIu64", %"PRIu64") "
+    printf("Created shared_pool of size(R %"PRIu64", A %"PRIu64") "
             "with role [%"PRIu8"] and slots [%"PRIu64"]\n",
             (uint64_t)mem_size, spp->mem_size, spp->role,
             spp->alloted_slots);
     return spp;
 } // end function: sp_create_shared_pool
 
+
+// Loads shared_pool area which is already created by some other creator
+errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
+        uint64_t slot_no, uint8_t role)
+{
+    errval_t err = SYS_ERR_OK;
+    assert(spp != NULL);
+    assert(spp->sp == NULL);
+    assert(slot_no > 2);
+    spp->cap = cap;
+    spp->alloted_slots = slot_no;
+    spp->role = role;
+    spp->is_creator = 0;
+
+    struct frame_identity f;
+
+    err = invoke_frame_identify(cap, &f);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke_frame_identify failed");
+        return err;
+    }
+    spp->pa = f.base;
+    spp->mem_size = (1 << f.bits);
+    size_t mem_size = calculate_shared_pool_size(slot_no);
+    assert(mem_size >= spp->mem_size);
+
+    err = vspace_map_one_frame_attr(&spp->va, (1L << f.bits), cap,
+                  VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame failed");
+        return err;
+    }
+
+    spp->sp = (struct shared_pool *)spp->va;
+    assert(spp->sp->size_reg.value == spp->alloted_slots);
+    spp->peek_id = spp->sp->read_reg.value;
+    printf("Mapped shared_pool of size(R %"PRIu64", A %"PRIu64") "
+            "with role [%"PRIu8"], slots[%"PRIu64"] and pool len[%"PRIu64"]\n",
+            (uint64_t)mem_size, spp->mem_size, spp->role, spp->alloted_slots,
+            spp->sp->size_reg.value);
+    return SYS_ERR_OK;
+
+} // end function: sp_map_shared_pool
 
 // ****************** For debugging purposes **************
 void sp_print_metadata(struct shared_pool_private *spp)

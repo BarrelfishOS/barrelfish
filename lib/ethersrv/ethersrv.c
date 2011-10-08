@@ -187,25 +187,7 @@ static struct filter arp_filter_tx;
 
 
 
-/*****************************************************************
- * Message handlers:
- ****************************************************************/
-static errval_t send_new_buffer_id(struct q_entry entry)
-{
-    //    ETHERSRV_DEBUG("send_new_buffer_id -----\n");
 
-    struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.new_buffer_id(b, MKCONT(cont_queue_callback, ccl->q),
-                                        entry.plist[0], entry.plist[1]);
-        /* entry.error,    entry.buffer_id */
-    } else {
-        ETHERSRV_DEBUG("send_new_buffer_id Flounder busy.. will retry\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
 
 static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
 
@@ -351,6 +333,40 @@ static void reset_client_closure_stat(struct client_closure *cc)
     cc->in_app_time_max = 0;
 }
 
+/*****************************************************************
+ * Message handlers:
+ ****************************************************************/
+static errval_t send_new_buffer_id(struct q_entry entry)
+{
+    //    ETHERSRV_DEBUG("send_new_buffer_id -----\n");
+
+    struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
+    struct client_closure *ccl = (struct client_closure *) b->st;
+
+    if (b->can_send(b)) {
+        return b->tx_vtbl.new_buffer_id(b, MKCONT(cont_queue_callback, ccl->q),
+                                        entry.plist[0], entry.plist[1]);
+        /* entry.error,    entry.buffer_id */
+    } else {
+        ETHERSRV_DEBUG("send_new_buffer_id Flounder busy.. will retry\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+static void report_register_buffer_result(struct ether_binding *cc,
+        errval_t err, uint64_t buffer_id)
+{
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_new_buffer_id;
+    entry.binding_ptr = (void *) cc;
+    struct client_closure *ccl = (struct client_closure *) cc->st;
+
+    entry.plist[0] = err;
+    entry.plist[1] = buffer_id;
+    //   error, buffer_id
+    enqueue_cont_q(ccl->q, &entry);
+}
 
 static void register_buffer(struct ether_binding *cc, struct capref cap,
                         struct capref sp, uint64_t slots, uint8_t role)
@@ -362,64 +378,35 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     struct buffer_descriptor *buffer = (struct buffer_descriptor *)
       ((struct client_closure *) (cc->st))->buffer_ptr;
 
-    /* FIXME: replace the name netd with control_channel */
-    for (i = 0; i < NETD_BUF_NR; i++) {
-        if (netd[i] == cc) {
-            ETHERSRV_DEBUG("buffer registered with netd connection\n");
-            netd_buffer_count++;
-        }
-    }
-
-    buffer_id_counter++;
-
-    buffer->buffer_id = buffer_id_counter;
-//      printf("buffer gets id %lu\n", buffer->buffer_id);
-    if (buffer->buffer_id == 3) {
-        first_app_b = buffer;
-//              printf("setting up first app %lu\n", first_app_b->buffer_id);
-    }
 
     buffer->role = role;
-    buffer->spp->cap = sp;
-    buffer->spp->alloted_slots = slots;
 
     // FIXME: Map the memory of sp into address-space as sp
 
-    /* Adding the buffer on the top of buffer list. */
-    buffer->next = buffers_list;
-    buffers_list = buffer;
     buffer->con = cc;
     buffer->cap = cap;
     //    buffer->type = type;
-    struct frame_identity pa;
 
+    struct frame_identity pa;
     err = invoke_frame_identify(cap, &pa);
     assert(err_is_ok(err));
     buffer->pa = pa.base;
     buffer->bits = pa.bits;
 
     err = vspace_map_one_frame_attr(&buffer->va, (1L << buffer->bits), cap,
-                                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL,
-                                    NULL);
-
+                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");
+        // FIXME: report more sensible error
+        report_register_buffer_result(cc, ETHERSRV_ERR_TOO_MANY_BUFFERS, 0);
+        return;
+    }
 
-        struct q_entry entry;
-
-        memset(&entry, 0, sizeof(struct q_entry));
-        entry.handler = send_new_buffer_id;
-        entry.binding_ptr = (void *) cc;
-        struct client_closure *ccl = (struct client_closure *) cc->st;
-
-        entry.plist[0] = ETHERSRV_ERR_TOO_MANY_BUFFERS;
-        /* FIXME: this is wrong error */
-        entry.plist[1] = 0;
-        /*   entry.plist[0], entry.plist[1]);
-           entry.error,    entry.buffer_id */
-
-        enqueue_cont_q(ccl->q, &entry);
-
+    err = sp_map_shared_pool(buffer->spp, sp, slots, role);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "sp_map_shared_pool failed");
+        // FIXME: report more sensible error
+        report_register_buffer_result(cc, err, 0);
         return;
     }
 
@@ -438,22 +425,31 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     buffer->pbuf_metadata_ds_tx = buffer->pbuf_metadata_ds
       + sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
 
-    struct q_entry entry;
+    /* FIXME: replace the name netd with control_channel */
+    for (i = 0; i < NETD_BUF_NR; i++) {
+        if (netd[i] == cc) {
+            ETHERSRV_DEBUG("buffer registered with netd connection\n");
+            netd_buffer_count++;
+        }
+    }
 
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_new_buffer_id;
-    entry.binding_ptr = (void *) cc;
-    struct client_closure *ccl = (struct client_closure *) cc->st;
+    buffer_id_counter++;
+    buffer->buffer_id = buffer_id_counter;
+//      printf("buffer gets id %lu\n", buffer->buffer_id);
+    if (buffer->buffer_id == 3) {
+        first_app_b = buffer;
+//              printf("setting up first app %lu\n", first_app_b->buffer_id);
+    }
 
-    entry.plist[0] = err;
-    entry.plist[1] = buffer->buffer_id;
-    /*   entry.plist[0], entry.plist[1]);
-       entry.error,    entry.buffer_id */
+    /* Adding the buffer on the top of buffer list. */
+    buffer->next = buffers_list;
+    buffers_list = buffer;
 
-    enqueue_cont_q(ccl->q, &entry);
     ETHERSRV_DEBUG("register_buffer:buff_id[%" PRIu64 "] pa[%" PRIuLPADDR
                    "] va[%p] bits[%" PRIu64 "]#####\n", buffer->buffer_id,
                    buffer->pa, buffer->va, buffer->bits);
+
+    report_register_buffer_result(cc, err, buffer->buffer_id);
 }
 
 

@@ -91,6 +91,8 @@ struct shared_pool_private {
 // initialization function prototypes
 struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
                                 uint8_t role);
+errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
+        uint64_t slot_no, uint8_t role);
 void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count);
 
 // State checking function prototypes
