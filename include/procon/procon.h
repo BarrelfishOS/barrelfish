@@ -82,13 +82,15 @@ struct shared_pool_private {
 //    uint64_t write_id_cache;
 //    uint64_t size_reg_cache;
     bool    is_creator;
+    uint8_t role;
     bool    producer;
     bool    consumer;
 
 };
 
 // initialization function prototypes
-struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no);
+struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
+                                uint8_t role);
 void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count);
 
 // State checking function prototypes

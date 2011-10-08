@@ -296,6 +296,9 @@ static errval_t send_buffer_cap(struct q_entry e)
 {
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+    struct shared_pool_private *spp = ccnc->buff_ptr->spp;
+    assert(spp != NULL);
+    uint8_t role = ccnc->buff_ptr->role;
 
     if (b->can_send(b)) {
 /*
@@ -305,11 +308,11 @@ static errval_t send_buffer_cap(struct q_entry e)
 */
         printf("send_buffer_cap: sending register_buffer\n");
         errval_t err = b->tx_vtbl.register_buffer(b,
-                                                  MKCONT(cont_queue_callback,
-                                                         ccnc->q),
-                                                  e.cap);
+                          MKCONT(cont_queue_callback, ccnc->q),
+                          e.cap, spp->cap, spp->sp->size_reg.value,
+                          role);
 
-        /* cap */
+        /* buf_cap, sp_cap, slot_no, role */
         if (err_is_fail(err)) {
             printf("send_buffer_cap: failed\n");
         } else {
@@ -320,7 +323,6 @@ static errval_t send_buffer_cap(struct q_entry e)
         LWIPBF_DEBUG("send_buffer_cap: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
-
 }
 
 
@@ -353,6 +355,7 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
     buff_ptr->con = driver_connection[binding_index];
     ccnc->buff_ptr = buff_ptr;
     entry.cap = buff_ptr->cap;
+    entry.plist[0] = binding_index;
     enqueue_cont_q(ccnc->q, &entry);
 
     LWIPBF_DEBUG("idc_register_buffer: terminated\n");

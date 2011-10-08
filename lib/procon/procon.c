@@ -262,7 +262,8 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
 
 
 // ************* memory allocation ***********************
-struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no)
+struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
+        uint8_t role)
 {
 
 
@@ -272,7 +273,7 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no)
 
     errval_t err;
     assert(slot_no > 2);
-    size_t size = (sizeof(struct shared_pool) +
+    size_t mem_size = (sizeof(struct shared_pool) +
                 ((sizeof(union slot)) * (slot_no - 2)));
 
     // NOTE: using bulk create here because bulk_create code has
@@ -280,9 +281,9 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no)
     // FIXME: code repetation with mem_barrelfish_alloc_and_register
     struct bulk_transfer bt_sp;
 #if defined(__scc__) && !defined(RCK_EMU)
-    err = bulk_create(size, sizeof(union slot), &(spp->cap), &bt_sp, true);
+    err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp, true);
 #else
-    err = bulk_create(size, sizeof(union slot), &(spp->cap), &bt_sp, false);
+    err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp, false);
 #endif // defined(__scc__) && !defined(RCK_EMU)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bulk_create failed.");
@@ -304,7 +305,12 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no)
     spp->sp_id = -1;
     spp->peek_id = 0;
     spp->is_creator = true;
+    spp->role = role;
     sp_reset_pool(spp, slot_no);
+    printf("Created shared_pool of size(%"PRIu64", %"PRIu64") "
+            "with role [%"PRIu8"] and slots [%"PRIu64"]\n",
+            (uint64_t)mem_size, spp->mem_size, spp->role,
+            spp->alloted_slots);
     return spp;
 } // end function: sp_create_shared_pool
 

@@ -19,6 +19,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <lwip/ip_addr.h>
+#include <procon/procon.h>
 
 /**
  * \brief Receive and transmit sides
@@ -38,7 +39,9 @@ struct buffer_desc {
     lpaddr_t pa;
     void *va;
     size_t size;
-    uint64_t buffer_id;         //as assigned by the network driver on registering
+    uint64_t buffer_id;  // Assigned by the network driver after registering
+    uint8_t  role;  // RX or TX buffer
+    struct shared_pool_private *spp;
     struct buffer_desc *next;
 };
 

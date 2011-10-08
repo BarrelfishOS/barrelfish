@@ -97,7 +97,8 @@ static uint64_t dropped_pkt_count = 0;
  * Prototypes
  *****************************************************************/
 
-static void register_buffer(struct ether_binding *cc, struct capref cap);
+static void register_buffer(struct ether_binding *cc, struct capref cap,
+                        struct capref sp, uint64_t slots, uint8_t role);
 static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
                           uint64_t paddr, uint64_t len, uint64_t rts);
 static void
@@ -351,7 +352,8 @@ static void reset_client_closure_stat(struct client_closure *cc)
 }
 
 
-static void register_buffer(struct ether_binding *cc, struct capref cap)
+static void register_buffer(struct ether_binding *cc, struct capref cap,
+                        struct capref sp, uint64_t slots, uint8_t role)
 {
 
     printf("ethersrv:register buffer called\n");
@@ -376,6 +378,12 @@ static void register_buffer(struct ether_binding *cc, struct capref cap)
         first_app_b = buffer;
 //              printf("setting up first app %lu\n", first_app_b->buffer_id);
     }
+
+    buffer->role = role;
+    buffer->spp->cap = sp;
+    buffer->spp->alloted_slots = slots;
+
+    // FIXME: Map the memory of sp into address-space as sp
 
     /* Adding the buffer on the top of buffer list. */
     buffer->next = buffers_list;
@@ -794,6 +802,17 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
     }
     memset(buffer, 0, sizeof(struct buffer_descriptor));
 
+    buffer->spp = (struct shared_pool_private *)
+                        malloc(sizeof(struct shared_pool_private));
+    if (buffer->spp == NULL) {
+        err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
+        ETHERSRV_DEBUG("connection_service_logic: out of memory\n");
+        free(cc);
+        free(buffer);
+        return err;
+    }
+    memset(buffer->spp, 0, sizeof(struct shared_pool_private));
+
     b->st = cc;
     cc->buffer_ptr = buffer;
     cc->nr_transmit_pbufs = 0;
@@ -906,7 +925,7 @@ void ethersrv_init(char *service_name,
     client_no = 0;
 
     // FIXME: For testing of compilation
-    struct shared_pool_private *mysp = sp_create_shared_pool(2045);
+    struct shared_pool_private *mysp = sp_create_shared_pool(2045, 0);
     assert(mysp != NULL);
 
 

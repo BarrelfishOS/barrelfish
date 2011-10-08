@@ -64,25 +64,27 @@ struct pbuf_desc pbufs[NR_PREALLOCATED_PBUFS];
 uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
 {
     errval_t err;
-    struct bulk_transfer bt_packet;
 
     LWIPBF_DEBUG("@@@@@@ mem alloc %" PRIx32 " for index %d\n", size,
                  binding_index);
 
 
-    struct buffer_desc *tmp = (struct buffer_desc *)
+    struct buffer_desc *buf = (struct buffer_desc *)
       malloc(sizeof(struct buffer_desc));
 
-    assert(tmp != 0);
+    assert(buf != NULL);
+    buf->role = binding_index;
+
     LWIPBF_DEBUG("allocating %" PRIx32 " bytes of memory for index %u.\n",
                  size, binding_index);
-
     LWIPBF_DEBUG("memp pbuf %x, pool size %x\n", MEMP_NUM_PBUF, PBUF_POOL_SIZE);
     LWIPBF_DEBUG("allocating %" PRIx32 " bytes of memory.\n", size);
+
+    struct bulk_transfer bt_packet;
 #if defined(__scc__) && !defined(RCK_EMU)
-    err = bulk_create(size, PBUF_PKT_SIZE, &(tmp->cap), &bt_packet, true);
+    err = bulk_create(size, PBUF_PKT_SIZE, &(buf->cap), &bt_packet, true);
 #else
-    err = bulk_create(size, PBUF_PKT_SIZE, &(tmp->cap), &bt_packet, false);
+    err = bulk_create(size, PBUF_PKT_SIZE, &(buf->cap), &bt_packet, false);
 #endif                          // defined(__scc__) && !defined(RCK_EMU)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bulk_create failed.");
@@ -91,33 +93,35 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
     LWIPBF_DEBUG("bulk_create success!!!\n");
 
 
-    tmp->va = bt_packet.mem;
+    buf->va = bt_packet.mem;
 
     struct frame_identity f;
 
-    err = invoke_frame_identify(tmp->cap, &f);
+    err = invoke_frame_identify(buf->cap, &f);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "frame_identify failed");
         return NULL;
     }
-    tmp->pa = f.base;
-    tmp->size = (1 << f.bits);
-    tmp->buffer_id = -1;        /* shows that buffer id is not yet known */
+    buf->pa = f.base;
+    buf->size = (1 << f.bits);
+    buf->buffer_id = -1;        /* shows that buffer id is not yet known */
 
     /* Put this new buffer on the top of buffers list */
-    tmp->next = buffer_list;
-    buffer_list = tmp;
+    buf->next = buffer_list;
+    buffer_list = buf;
+
+
+    // Creating shared_pool for communication
+    buf->spp = sp_create_shared_pool(2045, buf->role);
+    assert(buf->spp != NULL);
+
+
     /* FIXME: should buffer be also put in the client_closure_NC? */
-    idc_register_buffer(tmp, binding_index);
-
-
-    // FIXME: For testing of compilation
-    struct shared_pool_private *mysp = sp_create_shared_pool(2045);
-    assert(mysp != NULL);
+    idc_register_buffer(buf, binding_index);
 
 //    struct waitset *ws = get_default_waitset();
     /* Wait for actually getting the ID back from driver */
-    while (tmp->buffer_id == -1) {
+    while (buf->buffer_id == -1) {
         extern struct waitset *lwip_waitset;    // XXX: idc_barrelfish.c
 
         err = event_dispatch(lwip_waitset);
@@ -126,7 +130,8 @@ uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index, uint32_t size)
             USER_PANIC_ERR(err, "in event_dispatch on LWIP waitset");
         }
     }
-    return ((uint8_t *) tmp->va);
+
+    return ((uint8_t *) buf->va);
 }
 
 /* for given pointer p, find out the details of the buffer in which it lies. */

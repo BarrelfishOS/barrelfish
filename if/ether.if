@@ -8,15 +8,20 @@
  */
 
 interface ether "Generic Ethernet Driver" {
-    call register_buffer(cap buf);
-    response new_buffer_id(errval err, uint64 index);
+    call register_buffer(cap buf,
+                         cap sp,
+                         uint64 slots,
+                         uint8 role);
+    response new_buffer_id(errval err,
+                           uint64 index);
 
     call transmit_packet(uint64 nr_pbufs,
                          uint64 buffer_id,
                          uint64 len,
                          uint64 offset,
                          uint64 client_data);
-    response tx_done(uint64 client_data, uint64 slots_left,
+    response tx_done(uint64 client_data,
+                     uint64 slots_left,
                      uint64 dropped);
 
     call get_mac_address();

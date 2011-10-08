@@ -60,6 +60,8 @@ struct buffer_descriptor {
     uint64_t buffer_id;
     struct ether_binding *con;
     struct capref cap;
+    struct shared_pool_private *spp;
+    uint8_t role;
     lpaddr_t pa;
     uint64_t bits;
     void *va;
