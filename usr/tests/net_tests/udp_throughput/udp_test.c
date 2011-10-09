@@ -25,7 +25,7 @@
 #define MAX_DATA   1330
 #define MULTIPLIER 10
 
-//#define TEST_BUFFER_MANAGEMENT      1
+#define TEST_BUFFER_MANAGEMENT      1
 
 #ifdef TEST_BUFFER_MANAGEMENT
 #define TEST_TYPE   "With BUFF Mng"
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 
     struct ip_addr peer_ip;  // IP address of peer
     uint16_t port = 0;  // Port number of the peer
-    int as_sender = 0; // Flag to choose between sender(1) and receiver(0)
+    int as_sender = 1; // Flag to choose between sender(1) and receiver(0)
 
     ws = get_default_waitset();
 

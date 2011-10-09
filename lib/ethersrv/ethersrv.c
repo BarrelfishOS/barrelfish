@@ -188,9 +188,13 @@ static struct filter *rx_filters;
 static struct filter arp_filter_rx;
 static struct filter arp_filter_tx;
 
-
-
-
+static uint64_t my_avg(uint64_t sum, uint64_t n) {
+    if (n == 0) {
+        return sum;
+    } else {
+        return (sum/n);
+    }
+}
 
 static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
 
@@ -210,8 +214,8 @@ static void print_app_stats(struct buffer_descriptor *buffer)
 
     uint8_t et = PBUF_REGISTERED;  // event type
     for (i = 0; i < RECEIVE_BUFFERS; ++i){
-        avg = pbuf[i].event_sum[et] / pbuf[i].event_n[et];
-        sd = (pbuf[i].event_sum2[et] - (pbuf[i].event_sum2[et]/avg) )/
+        avg = my_avg(pbuf[i].event_sum[et], pbuf[i].event_n[et]);
+        sd = (pbuf[i].event_sum2[et] - (my_avg(pbuf[i].event_sum2[et], avg)) )/
             (pbuf[i].event_n[et] - 1);
 /*
         printf("pbuf %"PRIu16": N[%"PRIu64"], AVG[%"PRIu64"], SD[%"PRIu64"],"
@@ -246,8 +250,8 @@ static void print_app_stats(struct buffer_descriptor *buffer)
 
     printf("For %s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"],"
             "MAX[%"PU"], MIN[%"PU"]\n",
-            "PBUF_REGISTER", et, (n_sum / (RECEIVE_BUFFERS)),
-          in_seconds(stat_sum / (RECEIVE_BUFFERS)),
+            "PBUF_REGISTER", et, my_avg(n_sum, (RECEIVE_BUFFERS)),
+          in_seconds(my_avg(stat_sum, (RECEIVE_BUFFERS))),
           in_seconds(stat_max), in_seconds(stat_min));
 } // end function: reset_stats
 
@@ -2452,15 +2456,16 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
                   cl->in_filter_matched, cl->in_filter_matched_f,
                   cl->in_filter_matched_p);
             printf( "### RX AVG QL[%"PRIu64"] on [%"PRIu64"]calls\n",
-                (cl->in_queue_len_sum/cl->in_queue_len_n), cl->in_queue_len_n);
+                    my_avg(cl->in_queue_len_sum,cl->in_queue_len_n),
+                    cl->in_queue_len_n);
             printf( "### RX APP N[%"PRIu64"] avg[%"PU"], MAX[%"PU"]"
                     "MAX[%"PU"]\n", cl->in_app_time_n,
-                    in_seconds((cl->in_app_time_sum/cl->in_app_time_n)),
+                    in_seconds(my_avg(cl->in_app_time_sum,cl->in_app_time_n)),
                     in_seconds(cl->in_app_time_max),
                     in_seconds(cl->in_app_time_min));
             printf( "### RX APP N[%"PRIu64"] avg[%"PRIu64"], MAX[%"PRIu64"] "
                     "MIN[%"PRIu64"]\n", cl->in_app_time_n,
-                    ((cl->in_app_time_sum/cl->in_app_time_n)),
+                    (my_avg(cl->in_app_time_sum,cl->in_app_time_n)),
                     (cl->in_app_time_max),
                     (cl->in_app_time_min));
             print_app_stats(cl->buffer_ptr);
@@ -2562,7 +2567,7 @@ void bm_print_event_stat(uint8_t event_type, char *event_name)
     printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
             "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
             stats[et][RDT_COUNT],
-            in_seconds(stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            in_seconds(my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
             in_seconds(stats[et][RDT_MAX]),
             in_seconds(stats[et][RDT_MIN]),
             in_seconds(stats[et][RDT_SUM]));
