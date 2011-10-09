@@ -36,16 +36,12 @@ interface ether "Generic Ethernet Driver" {
                              uint64 pbuf_len,
                              uint64 packet_len,
                              uint64 ts);
-/*
-    call metadata_size_request();
-    response metadata_size(uint64 size);
 
-    call register_metadata_mem(uint64 buffer_id,
-			       cap mem);
-    response registered_metadata_mem(errval_t err,
-				     uint64 buffer_id);
+    call sp_notification_from_app(uint64 type,
+                         uint64 ts);
+    response sp_notification_from_driver(uint64 type,
+                         uint64 ts);
 
-*/
           call print_statistics();
           call print_cardinfo();
           call debug_status(uint8 state, uint64 trigger);

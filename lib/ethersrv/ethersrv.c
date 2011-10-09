@@ -101,10 +101,12 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
                         struct capref sp, uint64_t slots, uint8_t role);
 static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
                           uint64_t paddr, uint64_t len, uint64_t rts);
-static void
-transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
+static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
                 uint64_t buffer_id, uint64_t len, uint64_t offset,
                 uint64_t client_data);
+static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
+                uint64_t ts);
+
 static void get_mac_addr(struct ether_binding *cc);
 static void print_statistics_handler(struct ether_binding *cc);
 static void print_cardinfo_handler(struct ether_binding *cc);
@@ -137,6 +139,7 @@ static struct ether_rx_vtbl rx_ether_vtbl = {
     .register_buffer = register_buffer,
     .register_pbuf = register_pbuf,
     .transmit_packet = transmit_packet,
+    .sp_notification_from_app = sp_notification_from_app,
     .get_mac_address = get_mac_addr,
     .print_statistics = print_statistics_handler,
     .print_cardinfo = print_cardinfo_handler,
@@ -655,6 +658,161 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
     while (handle_free_tx_slot_fn_ptr());
 }
 
+static bool send_single_pkt_to_driver(struct ether_binding *cc)
+{
+    struct client_closure *closure = (struct client_closure *)cc->st;
+    assert(closure != NULL);
+    struct buffer_descriptor *buffer = closure->buffer_ptr;
+    assert(buffer != NULL);
+    struct shared_pool_private *spp = buffer->spp;
+    assert(spp != NULL);
+    assert(spp->sp != NULL);
+
+    errval_t r;
+    // FIXME: keep the copy of ghost_read_id so that it can be restored
+    // if something goes wrong
+    uint64_t ghost_read_id_copy = spp->ghost_read_id;
+    struct slot_data s;
+    if (!sp_ghost_read_slot(spp, &s)) {
+        return false;
+    }
+
+    // Some sanity checks
+    assert(closure->nr_transmit_pbufs == 0);
+    if (buffer->buffer_id != s.buffer_id) {
+        printf("PROB: %"PRIu64" != %"PRIu64", no%"PRIu64", %"PRIu64" \n",
+            buffer->buffer_id,  s.buffer_id, s.no_pbufs, s.len);
+        sp_print_metadata(spp);
+    }
+    assert(buffer->buffer_id == s.buffer_id);
+    assert(s.no_pbufs <= MAX_NR_TRANSMIT_PBUFS);
+
+    // FIXME: Make sure that there are s.no_pbuf slots available
+
+    closure->nr_transmit_pbufs = s.no_pbufs;
+    closure->len = 0;
+
+    do {
+        closure->pbuf[closure->rtpbuf].buffer_id = s.buffer_id;
+        closure->pbuf[closure->rtpbuf].sr = cc;
+        closure->pbuf[closure->rtpbuf].cc = closure;
+        closure->pbuf[closure->rtpbuf].len = s.len;
+        closure->pbuf[closure->rtpbuf].offset = s.offset;
+        closure->pbuf[closure->rtpbuf].client_data = s.client_data;
+        closure->len = closure->len + s.len;  /* total lengh of packet */
+        /* making the buffer memory cache coherent. */
+        bulk_arch_prepare_recv((void *) closure->buffer_ptr->pa + s.offset,
+                s.len);
+
+        closure->rtpbuf++;
+        if (closure->rtpbuf == closure->nr_transmit_pbufs) {
+            // If entire packet is here
+            break;
+        }
+
+        if (!sp_ghost_read_slot(spp, &s)) {
+            spp->ghost_read_id = ghost_read_id_copy;
+            closure->rtpbuf = 0;
+            closure->nr_transmit_pbufs = 0;
+
+            assert(!"half packet sent!");
+            return false;
+        }
+    } while(1);
+
+    r = ether_transmit_pbuf_list_ptr(closure);
+
+    if (err_is_fail(r)) {
+    //in case we cannot transmit, discard the _whole_ packet (just don't
+    //enqueue transmit descriptors in the network card's ring)
+        ++closure->dropped_pkt_count;
+        dropped_pkt_count++;
+//                printf("Transmit_packet dropping %"PRIu64"\n",
+//                        dropped_pkt_count);
+
+        //if we have to drop the packet, we still need to send a tx_done
+        //to make sure that lwip frees the pbuf. If we drop it, the driver
+        //will never find it in the tx-ring from where the tx_dones
+        //are usually sent
+
+        /* BIG FIXME: This should free all the pbufs and not just pbuf[0].
+         * Also, is it certain that all packets start with pbuf[0]??
+         * Mostly this will lead to re-write of bulk-transfer mode.  */
+
+        assert(closure->pbuf[0].sr);
+        bool ret = notify_client_free_tx(closure->pbuf[0].sr,
+                                         closure->pbuf[0].client_data,
+                                         tx_free_slots_fn_ptr(), 1);
+
+        if (ret == false) {
+            printf("Error: Bad things are happening."
+                   "TX packet dropped, TX_done MSG dropped\n");
+            // This can lead to pbuf leak
+            // FIXME: What type of error handling to use?
+        }
+    } else {
+        // successfull transfer!
+        ++closure->pkt_count;
+        closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
+/*        printf("successful transer, counter incremented %"PRIu64"\n",
+                closure->pbuf_count);
+*/
+    }
+
+    //reset to indicate that a new packet will start
+    closure->nr_transmit_pbufs = 0;
+    closure->rtpbuf = 0;
+    closure->len = 0;
+    return true;
+
+} // end function: send_single_pkt_to_driver
+
+static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
+                uint64_t ts)
+{
+
+    struct client_closure *closure = (struct client_closure *)cc->st;
+    assert(closure != NULL);
+    struct buffer_descriptor *buffer = closure->buffer_ptr;
+    assert(buffer != NULL);
+    struct shared_pool_private *spp = buffer->spp;
+    assert(spp != NULL);
+    assert(spp->sp != NULL);
+
+    if (!sp_queue_empty(spp)) {
+        // There are no packets
+        while (send_single_pkt_to_driver(cc)){
+            if(!sp_set_read_index(spp, spp->ghost_read_id)) {
+                printf("failed for %"PRIu64"\n", spp->ghost_read_id);
+                sp_print_metadata(spp);
+                assert(!"sp_set_read_index failed");
+            }
+        }
+    }
+
+    // FIXME: following should become part of handling free_tx
+//    printf("#### setting read index to GRI %"PRIu64"\n", spp->ghost_read_id);
+    if(!sp_set_read_index(spp, spp->ghost_read_id)) {
+        printf("failed for %"PRIu64"\n", spp->ghost_read_id);
+        sp_print_metadata(spp);
+        assert(!"sp_set_read_index failed");
+    }
+
+    // Check if there are any free TX slot from the packets which are sent.
+    while (handle_free_tx_slot_fn_ptr());
+
+    if (spp->notify_other_side) {
+        // FIXME: send notification to application, telling that there is
+        // no more data
+    }
+
+    if (sp_queue_full(spp)) {
+        // app is complaining about TX queue being full
+        // FIXME: Release TX_DONE
+        while (handle_free_tx_slot_fn_ptr());
+    }
+
+} // end function:  sp_notification_from_app
 
 static errval_t send_mac_addr_response(struct q_entry entry)
 {

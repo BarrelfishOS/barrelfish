@@ -39,9 +39,10 @@
 struct slot_data {
     uint64_t buffer_id;
     uint64_t pbuf_id;
-    uint64_t paddr;  // FIXME: replace it with offset!
+    uint64_t offset;
     uint64_t len;
     uint64_t no_pbufs;
+    uint64_t client_data;
     uint64_t ts;
 };
 
@@ -69,22 +70,20 @@ struct shared_pool {
 };
 
 struct shared_pool_private {
-    struct shared_pool *sp;
-    struct capref cap;
+    struct      shared_pool *sp;
+    struct      capref cap;
 //    struct ether_binding *con;
-    lpaddr_t pa;
-    void *va;
-    uint64_t mem_size;
-    uint64_t sp_id;         //as assigned by the network driver on registering
-    uint64_t alloted_slots;
-//    uint64_t read_id_cache;
-    uint64_t peek_id;
-//    uint64_t write_id_cache;
-//    uint64_t size_reg_cache;
-    bool    is_creator;
-    uint8_t role;
-    bool    producer;
-    bool    consumer;
+    lpaddr_t    pa;
+    void        *va;
+    uint64_t    mem_size;
+    uint64_t    alloted_slots;
+    bool        is_creator;
+    uint8_t     role;       // Producer or consumer?
+    uint64_t    ghost_read_id;
+    uint64_t    ghost_write_id;
+    uint64_t    notify_other_side; // Something has happened here
+    uint64_t    produce_counter;
+    uint64_t    consume_counter;
 
 };
 
@@ -96,9 +95,14 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
 void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count);
 
 // State checking function prototypes
+uint64_t sp_get_read_index(struct shared_pool_private *spp);
+uint64_t sp_get_write_index(struct shared_pool_private *spp);
+uint64_t sp_get_queue_size(struct shared_pool_private *spp);
 bool sp_queue_empty(struct shared_pool_private *spp);
 bool sp_queue_full(struct shared_pool_private *spp);
-bool sp_peekable_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_read_setable_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_write_peekable_index(struct shared_pool_private *spp, uint64_t index);
 uint64_t sp_queue_elements_count(struct shared_pool_private *spp);
 uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp);
 
@@ -106,8 +110,11 @@ uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp);
 bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d);
 bool sp_replace_slot(struct shared_pool_private *spp,
             struct slot_data *new_slot);
-bool sp_peek_slot(struct shared_pool_private *spp, struct slot_data *dst,
-        uint64_t index);
+bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst);
+bool sp_ghost_produce_slot(struct shared_pool_private *spp,
+        struct slot_data *d, uint64_t index);
+bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index);
 
 // Debugging functions
 void sp_print_slot(struct slot_data *d);

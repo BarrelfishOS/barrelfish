@@ -158,50 +158,33 @@ uint64_t idc_get_packet_drop_count(void)
     return driver_tx_slots_left;
 }
 
-/*
- * @}
- */
-
 static struct netif netif;
 
-/***************************************************************
- * \defGroup RequestAPI Request API to e1000 drivers
- *
- * (...)
- *
- * @{
- *
- ****************************************************************/
-
-static errval_t send_transmit_request(struct q_entry e)
+static errval_t  send_sp_notification_from_app(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
 
     if (b->can_send(b)) {
 #if LWIP_TRACE_MODE
-        trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_S,
-                    (uint32_t) e.plist[4]);
-#endif                          // LWIP_TRACE_MODE
-//        printf("lwip: actually sending msg to on buff %lu at %lu\n",
-//                      e.plist[1], e.plist[4]);
-        return b->tx_vtbl.transmit_packet(b,
-                                          MKCONT(cont_queue_callback, ccnc->q),
-                                          e.plist[0], e.plist[1], e.plist[2],
-                                          e.plist[3], e.plist[4]);
-        /* numpbufs,   buffer_id,  len,         offset,    client_data */
+        trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_S, 0);
+#endif // LWIP_TRACE_MODE
+        return b->tx_vtbl.sp_notification_from_app(b,
+                          MKCONT(cont_queue_callback, ccnc->q),
+                          e.plist[0], e.plist[1]);
+        // type, ts
     } else {
-        printf("send_transmit_request: Flounder busy,rtry+++++\n");
-        LWIPBF_DEBUG("send_transmit_request: Flounder busy,rtry+++++\n");
+        printf("sp_notification_from_app: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("sp_notification_from_app: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
-
 }
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 {
     ptrdiff_t offset;
     struct buffer_desc *buff_ptr;
+    struct slot_data s;
 
     assert(p != NULL);
     /*
@@ -210,87 +193,89 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
      */
     int numpbufs = 0;
 
-    for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+    for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
         numpbufs++;
     }
-
+    buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
+    if (sp_queue_free_slots_count(buff_ptr->spp) < numpbufs) {
+        printf("No space left in shared_pool\n");
+        assert(!"No space left in shared_pool\n");
+        return 0;
+    }
+    uint64_t ghost_write_index = sp_get_write_index(buff_ptr->spp);
+    uint64_t queue_size = sp_get_queue_size(buff_ptr->spp);
 
 #if !defined(__scc__)
     mfence();                   // ensure that we flush all of the packet payload
 #endif                          // !defined(__scc__)
 
+    int i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
 
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
-#endif                          // !defined(__scc__)
+#endif // !defined(__scc__)
 
-        buff_ptr = mem_barrelfish_get_buffer_desc(tmpp->payload);
-
-#if 0
-        // Added for debugging
-        // Specifically to see which path does the packet takes
-        // between RX and TX channels
-        if (buff_ptr->buffer_id ==
-            /* buffer for RX */
-            ((struct client_closure_NC *)
-             driver_connection[TRANSMIT_CONNECTION]->st)->buff_ptr->buffer_id) {
-            printf("sending on TX connection\n");
-        } else {
-            if (buff_ptr->buffer_id ==
-                /* buffer for RX */
-                ((struct client_closure_NC *)
-                 driver_connection[RECEIVE_CONNECTION]->st)->buff_ptr->
-                buffer_id) {
-                printf("sending on RX connection\n");
-            } else {
-                printf("strange state of sending %" PRIu64 " \n",
-                       buff_ptr->buffer_id);
-            }
-        }
-#endif                          // 0
-
-        assert(buff_ptr != NULL);
+        assert(buff_ptr == mem_barrelfish_get_buffer_desc(tmpp->payload));
 
         bulk_arch_prepare_send((void *) tmpp->payload, tmpp->len);
-
         offset = (uintptr_t) tmpp->payload - (uintptr_t) (buff_ptr->va);
 
-        struct q_entry entry;
+        s.buffer_id = buff_ptr->buffer_id;
+        s.no_pbufs = numpbufs - i++;
+        s.offset = offset;
+        s.len = tmpp->len;
+        s.client_data = (uintptr_t)tmpp;
+        s.ts = rdtsc();
 
-        memset(&entry, 0, sizeof(struct q_entry));
-        entry.handler = send_transmit_request;
-        entry.fname = "send_transmit_request";
-        struct ether_binding *b = buff_ptr->con;
+        if (!sp_ghost_produce_slot(buff_ptr->spp, &s, ghost_write_index)) {
+            printf("sp_ghost_produce_slot: failed, %"PRIu64"\n",
+                    ghost_write_index);
+            sp_print_metadata(buff_ptr->spp);
+            assert(!"sp_ghost_produce_slot: failed\n");
+            return 0;
+        }
+        ghost_write_index = (ghost_write_index + 1) % queue_size;
+    } // end for: for each pbuf in packet
 
-        /* FIXME: need better way of doing following */
-        entry.binding_ptr = (void *) b;
-        struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+    // Added all packets.  Now update the write_index to expose new data
+    if (!sp_set_write_index(buff_ptr->spp, ghost_write_index)) {
+        assert(!"sp_ghost_produce_slot: failed\n");
+        return 0;
+    }
 
-        entry.plist[0] = numpbufs;
-        entry.plist[1] = buff_ptr->buffer_id;
-        entry.plist[2] = tmpp->len;
-        entry.plist[3] = offset;
-        entry.plist[4] = (uintptr_t) tmpp;
+    // FIXME: check if there are any packets to read, or any other work to do
+
+    if (buff_ptr->spp->notify_other_side == 0) {
+        // Done with everything!
+        // FIXME: change the return value to reflect success/failure
+        return 0;
+    }
+
+    // It seems that there we should send a notification to other side
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_sp_notification_from_app;
+    struct ether_binding *b = buff_ptr->con;
 
 #if LWIP_TRACE_MODE
-        trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q,
-                    (uint32_t) entry.plist[4]);
-#endif                          // LWIP_TRACE_MODE
-        if (new_debug)
-            printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
-        enqueue_cont_q(ccnc->q, &entry);
-    }
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q, 0);
+#endif // LWIP_TRACE_MODE
+
+    entry.binding_ptr = (void *)b;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+
+    entry.plist[0] = numpbufs;
+    entry.plist[1] = rdtsc();
+    if (new_debug)
+         printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
+    enqueue_cont_q(ccnc->q, &entry);
+
+    // Done with even notification sending!
+    // FIXME: change the return value to reflect success/failure
     return 0;
 }
 
-
-/**
- * \brief
- *
- *
- *
- */
 
 static errval_t send_buffer_cap(struct q_entry e)
 {
@@ -383,7 +368,7 @@ static errval_t send_pbuf_request(struct q_entry e)
 
         uint64_t cs_counter = disp_run_counter();
         uint64_t ts = rdtsc();
-        uint8_t canary = 5357;
+        uint8_t canary = 57;
         queue_set_canary(ccnc->q, canary);
 
         errval_t err = b->tx_vtbl.register_pbuf(b,
@@ -401,7 +386,7 @@ static errval_t send_pbuf_request(struct q_entry e)
         }
         return err;
 
-        /* pbuf_id,   paddr,      len */
+        /* pbuf_id,   offset,      len */
     } else {
         LWIPBF_DEBUG("send_pbuf_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -776,7 +761,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     } else {
         LWIPBF_DEBUG("packet_received: no callback installed\n");
         if (new_debug)
-            ("packet_received: no callback installed\n");
+            printf("packet_received: no callback installed\n");
         //pbuf with received packet not consumed by lwip. It can be
         //reused as receive pbuf
         idc_register_pbuf(pbuf_id, paddr, pbuf_len);

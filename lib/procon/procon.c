@@ -19,6 +19,30 @@
 #include <barrelfish/bulk_transfer.h>
 #include <procon/procon.h>
 
+uint64_t sp_get_read_index(struct shared_pool_private *spp)
+{
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&spp->sp->read_reg, CACHESIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+    return (spp->sp->read_reg.value);
+}
+
+uint64_t sp_get_write_index(struct shared_pool_private *spp)
+{
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&spp->sp->write_reg, CACHESIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+    return (spp->sp->write_reg.value);
+}
+
+uint64_t sp_get_queue_size(struct shared_pool_private *spp)
+{
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&spp->sp->size_reg, CACHESIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+    return (spp->sp->size_reg.value);
+}
+
 // Checks for queue empty condition
 bool sp_queue_empty(struct shared_pool_private *spp)
 {
@@ -42,7 +66,7 @@ bool sp_queue_full(struct shared_pool_private *spp)
 }
 
 // Checks if given index is peekable or not
-bool sp_peekable_index(struct shared_pool_private *spp, uint64_t index)
+bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t index)
 {
     assert(spp != NULL);
     struct shared_pool *sp = spp->sp;
@@ -54,12 +78,22 @@ bool sp_peekable_index(struct shared_pool_private *spp, uint64_t index)
         return false;
     }
 
+
     // Trivial case: queue empty
     if (sp_queue_empty(spp)) {
         return false;
     }
 
-    if (sp->write_reg.value > sp->read_reg.value) {
+    // Trivial case: queue full
+    if (sp_queue_full(spp)) {
+        if (index == sp_get_write_index(spp)) {
+            return false;
+        }
+        return true;
+    }
+
+
+    if (sp->read_reg.value < sp->write_reg.value) {
         // simple, non-wrapped state of queue
         if ((sp->read_reg.value <= index) && (index < sp->write_reg.value)) {
             return true;
@@ -68,11 +102,54 @@ bool sp_peekable_index(struct shared_pool_private *spp, uint64_t index)
     }
 
     // wrapped queue, so more complicated!
-    if (index < sp->write_reg.value || sp->read_reg.value <= index) {
+    if ((index < sp->write_reg.value) || (sp->read_reg.value <= index)) {
         return true;
     }
     return false;
-} // end function: sp_peekable_index
+} // end function: sp_read_peekable_index
+
+// Checks if given index is settable for not for read_reg
+bool sp_read_setable_index(struct shared_pool_private *spp, uint64_t index)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+    // Trivial case: index bigger than queue size
+    if (index >= queue_size){
+        return false;
+    }
+
+
+    // Trivial case: queue empty
+    if (sp_queue_empty(spp)) {
+        return false;
+    }
+
+    // Trivial case: queue full
+    if (sp_queue_full(spp)) {
+        if (index == sp_get_write_index(spp)) {
+            return false;
+        }
+        return true;
+    }
+
+
+    if (sp->read_reg.value < sp->write_reg.value) {
+        // simple, non-wrapped state of queue
+        if ((sp->read_reg.value <= index) && (index <= sp->write_reg.value)) {
+            return true;
+        }
+        return false;
+    }
+
+    // wrapped queue, so more complicated!
+    if ((index <= sp->write_reg.value) || (sp->read_reg.value <= index)) {
+        return true;
+    }
+    return false;
+} // end function: sp_read_setable_index
 
 
 // Returns no. of elements available for consumption
@@ -95,6 +172,46 @@ uint64_t sp_queue_elements_count(struct shared_pool_private *spp)
     // wrapped queue, so more complicated!
     return ((queue_size - sp->read_reg.value) + sp->write_reg.value);
 } // end function: sp_queue_element_count
+
+// Checks if given index is write peekable or not
+bool sp_write_peekable_index(struct shared_pool_private *spp, uint64_t index)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+    // Trivial case: index bigger than queue size
+    if (index >= queue_size){
+        return false;
+    }
+
+    // Trivial case: queue full
+  if (sp_queue_full(spp)) {
+        return false;
+    }
+
+
+    // Trivial case: queue empty
+    if (sp_queue_empty(spp)) {
+        return true;
+    }
+
+
+    if (sp->read_reg.value < sp->write_reg.value) {
+        // simple, non-wrapped state of queue
+        if ((index < sp->read_reg.value) || (sp->write_reg.value <= index)) {
+            return true;
+        }
+        return false;
+    }
+
+    // wrapped queue, so more complicated!
+    if ((sp->write_reg.value <= index) && ( index < sp->read_reg.value)) {
+        return true;
+    }
+    return false;
+} // end function: sp_write_peekable_index
 
 
 
@@ -120,16 +237,27 @@ uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp)
 } // end function: sp_queue_free_slots_count
 
 
+
+
+
+// ************* Initialization functions ***********************
+
+
+static size_t calculate_shared_pool_size(uint64_t slot_no)
+{
+    return (sizeof(struct shared_pool) +
+                ((sizeof(union slot)) * (slot_no - TMP_SLOTS)));
+}
+
 void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
 {
     assert(spp != NULL);
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);
+    assert(slot_count > TMP_SLOTS);
 
     int i = 0;
-    if (slot_count == 0) {
-        slot_count = TMP_SLOTS;
-    }
+
     // Esure that slot_count is <= alloted_slots
     assert(slot_count <= spp->alloted_slots);
 
@@ -139,135 +267,14 @@ void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
     for(i = 0; i < slot_count; ++i)  {
        memset(&sp->slot_list[i], 0, sizeof(union slot));
     } // end for:
+
+    spp->notify_other_side = 0;
+    spp->ghost_read_id = sp->read_reg.value;
+    spp->ghost_write_id = sp->write_reg.value;
+    spp->produce_counter = 0;
+    spp->consume_counter = 0;
 } // sp_reset_pool
 
-/*
-void sp_increment_write_index(struct shared_pool_private *spp)
-{
-    assert(spp != NULL);
-    struct shared_pool *sp = spp->sp;
-    assert(sp != NULL);
-
-    uint64_t queue_size = sp->size_reg.value;
-    // Incrementing write pointer
-    sp->write_index = (sp->write_index + 1) % queue_size;
-}
-*/
-
-static bool validate_slot(struct slot_data *d)
-{
-    if (d == NULL) {
-        return false;
-    }
-
-    // FIXME: check if the buffer_id, pbuff_id, len and all are sensible!
-    return true;
-} // end function: validate_slot
-
-static void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
-{
-    assert(d != NULL);
-    assert(s != NULL);
-    d->buffer_id = s->buffer_id;
-    d->pbuf_id = s->pbuf_id;
-    d->paddr = s->paddr;
-    d->len = s->len;
-    d->no_pbufs = s->no_pbufs;
-    d->ts = s->ts;
-}
-
-// Adds the data from parameter d into appropriate slot of shared pool queue
-bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
-{
-    assert(spp != NULL);
-    struct shared_pool *sp = spp->sp;
-    assert(sp != NULL);
-
-    uint64_t queue_size = sp->size_reg.value;
-    if (sp_queue_full(spp)) {
-        return false;
-    }
-
-    uint64_t wi = sp->write_reg.value;
-    sp_copy_slot_data(&sp->slot_list[wi].d, d);
-    // Incrementing write pointer
-    sp->write_reg.value = (wi + 1) % queue_size;
-    return true;
-} // end function: sp_produce_slot
-
-// Peeks the requested slot without changing the read pointer
-// To bu used by driver when it adds the packet in hardware queue for sending
-// but the packet is not yet sent.
-// when packet is actually done, then read pointer can be changed.
-bool sp_peek_slot(struct shared_pool_private *spp, struct slot_data *dst,
-        uint64_t index)
-{
-    assert(spp != NULL);
-    struct shared_pool *sp = spp->sp;
-    assert(sp != NULL);
-
-    // Make sure that slot provided is proper
-    assert(dst != NULL);
-
-    // Make sure that there is slot available for consumption
-    if (sp_queue_empty(spp)) {
-        return false;
-    }
-
-    // Check if the requested peak is valid or not
-    if (!sp_peekable_index(spp, index))
-    {
-        return false;
-    }
-
-    // swapping the slot_data contents between ri and new_slot
-    sp_copy_slot_data(dst, &sp->slot_list[index].d);
-    return true;
-} // end function: sp_consume_slot
-
-
-// swaps the slot provided in parameter d with next available slot for
-// consumption.
-// TO be used by application to receive packet and register new pbuf
-// at same time.
-bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot)
-{
-    assert(spp != NULL);
-    struct shared_pool *sp = spp->sp;
-    assert(sp != NULL);
-
-    uint64_t queue_size = sp->size_reg.value;
-
-    // Make sure that slot provided is proper
-    if (!validate_slot(new_slot)) {
-        return false;
-    }
-
-    // Make sure that there is slot available for consumption
-    if (sp_queue_empty(spp)) {
-        return false;
-    }
-
-    uint64_t ri = sp->read_reg.value;
-    // swapping the slot_data contents between ri and new_slot
-    struct slot_data tmp;
-    sp_copy_slot_data(&tmp, &sp->slot_list[ri].d);
-    sp_copy_slot_data(&sp->slot_list[ri].d, new_slot);
-    sp_copy_slot_data(new_slot, &tmp);
-
-    // Incrementing read index
-    sp->read_reg.value = (ri + 1) % queue_size;
-    return true;
-} // end function: sp_consume_slot
-
-
-// ************* Initialization functions ***********************
-
-static size_t calculate_shared_pool_size(uint64_t slot_no)
-{
-    return (sizeof(struct shared_pool) +
-                ((sizeof(union slot)) * (slot_no - 2)));
-}
 
 // Creates a new shared_pool area and initializes it as creator
 struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
@@ -309,8 +316,8 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
     spp->pa = f.base;
     spp->mem_size = (1 << f.bits);
     spp->alloted_slots = slot_no;
-    spp->sp_id = -1;
-    spp->peek_id = 0;
+    spp->ghost_read_id = 0;
+    spp->ghost_write_id = 0;
     spp->is_creator = true;
     spp->role = role;
     sp_reset_pool(spp, slot_no);
@@ -357,7 +364,12 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
 
     spp->sp = (struct shared_pool *)spp->va;
     assert(spp->sp->size_reg.value == spp->alloted_slots);
-    spp->peek_id = spp->sp->read_reg.value;
+    spp->ghost_read_id = spp->sp->read_reg.value;
+    spp->ghost_write_id = spp->sp->write_reg.value;
+    spp->notify_other_side = 0;
+    spp->produce_counter = 0;
+    spp->consume_counter = 0;
+
     printf("Mapped shared_pool of size(R %"PRIu64", A %"PRIu64") "
             "with role [%"PRIu8"], slots[%"PRIu64"] and pool len[%"PRIu64"]\n",
             (uint64_t)mem_size, spp->mem_size, spp->role, spp->alloted_slots,
@@ -366,28 +378,298 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
 
 } // end function: sp_map_shared_pool
 
-// ****************** For debugging purposes **************
-void sp_print_metadata(struct shared_pool_private *spp)
+
+// *************************** State modifying functions *************
+/*
+void sp_increment_write_index(struct shared_pool_private *spp)
 {
     assert(spp != NULL);
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);
 
+    uint64_t queue_size = sp->size_reg.value;
+    // Incrementing write pointer
+    sp->write_index = (sp->write_index + 1) % queue_size;
+}
+*/
+
+static bool validate_slot(struct slot_data *d)
+{
+    if (d == NULL) {
+        return false;
+    }
+
+    // FIXME: check if the buffer_id, pbuff_id, len and all are sensible!
+    return true;
+} // end function: validate_slot
+
+static void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
+{
+    assert(d != NULL);
+    assert(s != NULL);
+    d->buffer_id = s->buffer_id;
+    d->pbuf_id = s->pbuf_id;
+    d->offset = s->offset;
+    d->len = s->len;
+    d->no_pbufs = s->no_pbufs;
+    d->client_data = s->client_data;
+    d->ts = s->ts;
+}
+
+// Set the value of read index
+// To be used with sp_read_peek_slot
+bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    // Trivial case:
+    if (sp_get_read_index(spp) == index) {
+        return true;
+    }
+
+    if (!sp_read_setable_index(spp, index)) {
+        // The value in index is invalid!
+        return false;
+    }
+
+    if (sp_queue_full(spp)) {
+        // Producer is assuming that there is no free space in this pool.
+        // As we have created some free space by reading, we should inform
+        // the producer to produce more!
+        // Typically means, I am slow!
+        ++spp->notify_other_side;
+    }
+
+    sp->read_reg.value = index;
+    spp->ghost_read_id = sp->read_reg.value;
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->read_reg, CACHESIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+//    printf("changing read_index!\n");
+    if (sp_queue_empty(spp)) {
+        // There is nothing more to consume,
+        // We should inform producer to produce quickly
+        // Typically means, Producer is slow!
+        ++spp->notify_other_side;
+    }
+
+    ++spp->consume_counter;
+
+    return true;
+} // end function: sp_set_read_index
+
+
+// Set the value of write index
+// To be used with sp_ghost_produce_slot
+bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    // Trivial case:
+    if (sp_get_write_index(spp) == index) {
+        return true;
+    }
+
+    if (!sp_write_peekable_index(spp, index)) {
+        // The value in index is invalid!
+        return false;
+    }
+
+    if (sp_queue_empty(spp)) {
+        // Consumer is assuming that there is no data in the pool
+        // As we have created new data, we should inform
+        // the consumer to consume more!
+        // Typically means, I am slow!
+        ++spp->notify_other_side;
+    }
+
+    sp->write_reg.value = index;
+    spp->ghost_write_id = sp->write_reg.value;
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->write_reg, CACHESIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+
+    if (sp_queue_full(spp)) {
+        // There no free space left to create new items.
+        // We should inform the consumer that it is slow!
+        // Typically means, consumer is slow!
+        ++spp->notify_other_side;
+    }
+
+    ++spp->produce_counter;
+    return true;
+} // end function: sp_set_write_index
+
+
+// Adds the data from parameter d into appropriate slot of shared pool queue
+bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+    if (sp_queue_full(spp)) {
+        return false;
+    }
+
+    uint64_t wi = sp->write_reg.value;
+    sp_copy_slot_data(&sp->slot_list[wi].d, d);
+
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->slot_list[wi].d, SLOT_SIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+
+    // Incrementing write pointer
+    assert(sp_set_write_index(spp, ((wi + 1) % queue_size)));
+    return true;
+} // end function: sp_produce_slot
+
+
+// Gost-add data into shared_pool
+// Add data into free slots, but don't increment write index
+// This allows adding multiple slots and then atomically increment write index
+bool sp_ghost_produce_slot(struct shared_pool_private *spp,
+        struct slot_data *d, uint64_t index)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    // Make sure that slot provided is proper
+    assert(d != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+    if (sp_queue_full(spp)) {
+//        printf("sp_ghost_produce_slot: queue full\n");
+        return false;
+    }
+
+    // Check if the requested peak is valid or not
+    if (!sp_write_peekable_index(spp, index))
+    {
+        return false;
+    }
+
+    sp_copy_slot_data(&sp->slot_list[index].d, d);
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->slot_list[index].d, SLOT_SIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+    // Incrementing write pointer
+    spp->ghost_write_id = (index + 1) % queue_size;
+    return true;
+} // end function: sp_produce_slot
+
+// Reads the slot without changing the read pointer, instead changes the local
+// ghost_read_id to know how much is read.
+// To bu used by driver when it adds the packet in hardware queue for sending
+// but the packet is not yet sent.
+// when packet is actually done, then read pointer can be changed.
+bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+
+    // Make sure that slot provided is proper
+    assert(dst != NULL);
+
+    // Make sure that there is slot available for consumption
+    if (sp_queue_empty(spp)) {
+        return false;
+    }
+
+    // Check if the requested peak is valid or not
+    if (!sp_read_peekable_index(spp, spp->ghost_read_id))
+    {
+        return false;
+    }
+
+    //  Copying the slot data contents into provided slot
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->slot_list[spp->ghost_read_id].d, SLOT_SIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+    sp_copy_slot_data(dst, &sp->slot_list[spp->ghost_read_id].d);
+    spp->ghost_read_id = (spp->ghost_read_id + 1) % queue_size;
+    return true;
+} // end function: sp_read_peak_slot
+
+
+// swaps the slot provided in parameter d with next available slot for
+// consumption.
+// TO be used by application to receive packet and register new pbuf
+// at same time.
+bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+
+    // Make sure that slot provided is proper
+    if (!validate_slot(new_slot)) {
+        return false;
+    }
+
+    // Make sure that there is slot available for consumption
+    if (sp_queue_empty(spp)) {
+        return false;
+    }
+
+    uint64_t ri = sp->read_reg.value;
+    // swapping the slot_data contents between ri and new_slot
+    struct slot_data tmp;
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->slot_list[ri].d, SLOT_SIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+    sp_copy_slot_data(&tmp, &sp->slot_list[ri].d);
+    sp_copy_slot_data(&sp->slot_list[ri].d, new_slot);
+    sp_copy_slot_data(new_slot, &tmp);
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(&sp->slot_list[ri].d, SLOT_SIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+
+    // Incrementing read index
+    sp->read_reg.value = (ri + 1) % queue_size;
+    sp_set_read_index(spp, ((ri + 1) % queue_size));
+    return true;
+} // end function: sp_consume_slot
+
+
+// ****************** For debugging purposes **************
+void sp_print_metadata(struct shared_pool_private *spp)
+{
+    assert(spp != NULL);
+    printf("SPP Q C[%"PRIu8"], R[%"PRIu8"], GRI[%"PRIu64"], GWI[%"PRIu64"]\n",
+            spp->is_creator?1:0, spp->role,
+            spp->ghost_read_id, spp->ghost_write_id);
+    printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"]\n",
+            spp->produce_counter, spp->consume_counter);
+
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
     printf("SP Q len[%"PRIu64"], RI[%"PRIu64"], WI[%"PRIu64"], elem[%"PRIu64"]"
-            "free[%"PRIu64"]\n",
+            " free[%"PRIu64"]\n",
             sp->size_reg.value, sp->read_reg.value, sp->write_reg.value,
             sp_queue_elements_count(spp),
-            sp_queue_free_slots_count(spp)
-            );
+            sp_queue_free_slots_count(spp));
 }
 
 
 void sp_print_slot(struct slot_data *d)
 {
-    printf("buf[%"PRIu64"], pbuf_id[%"PRIu64"], paddr[%"PRIu64"], "
-            "len[%"PRIu64"], n_p[%"PRIu64"], ts[%"PRIu64"]\n",
-            d->buffer_id, d->pbuf_id, d->paddr, d->len, d->no_pbufs,
-            d->ts);
+    printf("buf[%"PRIu64"], pbuf_id[%"PRIu64"], offset[%"PRIu64"], "
+            "len[%"PRIu64"], n_p[%"PRIu64"], CL[%"PRIu64"], ts[%"PRIu64"]\n",
+            d->buffer_id, d->pbuf_id, d->offset, d->len, d->no_pbufs,
+            d->client_data, d->ts);
 }
 
 // Code for testing and debugging the library
@@ -422,7 +704,7 @@ int main()
     int i = 0;
     d1.buffer_id = 1;
     d1.pbuf_id = start_id + i;
-    d1.paddr = 0;
+    d1.offset = 0;
     d1.len = 1500;
     d1.no_pbufs = 3;
     d1.ts = 0;
@@ -436,32 +718,32 @@ int main()
 
 
     test_id = 0;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
 
     test_id = 9;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 5;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 3;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 8;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
@@ -484,33 +766,33 @@ int main()
     sp_print_pool(&mysp);
 
     test_id = 0;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
 
     test_id = 9;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 5;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 3;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
 
     test_id = 8;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
@@ -528,33 +810,33 @@ int main()
 
 
     test_id = 0;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
 
     test_id = 9;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 5;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
     test_id = 3;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
     }
 
     test_id = 8;
-    if (sp_peekable_index(&mysp, test_id)) {
+    if (sp_read_peekable_index(&mysp, test_id)) {
         printf("id %"PRIu64" is peekable\n", test_id);
     } else {
         printf("id %"PRIu64" is not peekable\n", test_id);
