@@ -109,7 +109,7 @@ bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t index)
 } // end function: sp_read_peekable_index
 
 // Checks if given index is settable for not for read_reg
-bool sp_read_setable_index(struct shared_pool_private *spp, uint64_t index)
+bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t index)
 {
     assert(spp != NULL);
     struct shared_pool *sp = spp->sp;
@@ -124,6 +124,9 @@ bool sp_read_setable_index(struct shared_pool_private *spp, uint64_t index)
 
     // Trivial case: queue empty
     if (sp_queue_empty(spp)) {
+        if (index == sp_get_read_index(spp)) {
+            return true;
+        }
         return false;
     }
 
@@ -149,7 +152,7 @@ bool sp_read_setable_index(struct shared_pool_private *spp, uint64_t index)
         return true;
     }
     return false;
-} // end function: sp_read_setable_index
+} // end function: sp_validate_read_index
 
 
 // Returns no. of elements available for consumption
@@ -213,6 +216,46 @@ bool sp_write_peekable_index(struct shared_pool_private *spp, uint64_t index)
     return false;
 } // end function: sp_write_peekable_index
 
+// Checks if given index is valid for write or not
+bool sp_validate_write_index(struct shared_pool_private *spp, uint64_t index)
+{
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    uint64_t queue_size = sp->size_reg.value;
+    // Trivial case: index bigger than queue size
+    if (index >= queue_size){
+        return false;
+    }
+
+    // Trivial case: queue full
+  if (sp_queue_full(spp)) {
+        if (index == sp_get_write_index(spp)) {
+            return true;
+        }
+        return false;
+    }
+
+    // Trivial case: queue empty
+    if (sp_queue_empty(spp)) {
+        return true;
+    }
+
+    if (sp->read_reg.value < sp->write_reg.value) {
+        // simple, non-wrapped state of queue
+        if ((index < sp->read_reg.value) || (sp->write_reg.value <= index)) {
+            return true;
+        }
+        return false;
+    }
+
+    // wrapped queue, so more complicated!
+    if ((sp->write_reg.value <= index) && ( index < sp->read_reg.value)) {
+        return true;
+    }
+    return false;
+} // end function: sp_validate_write_index
 
 
 // Returns no. of free slots available for production
@@ -429,7 +472,7 @@ bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index)
         return true;
     }
 
-    if (!sp_read_setable_index(spp, index)) {
+    if (!sp_validate_read_index(spp, index)) {
         // The value in index is invalid!
         return false;
     }
@@ -474,7 +517,7 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
         return true;
     }
 
-    if (!sp_write_peekable_index(spp, index)) {
+    if (!sp_validate_write_index(spp, index)) {
         // The value in index is invalid!
         return false;
     }
@@ -600,6 +643,16 @@ bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst)
     return true;
 } // end function: sp_read_peak_slot
 
+
+
+bool sp_ghost_read_confirm(struct shared_pool_private *spp){
+    assert(spp != NULL);
+    struct shared_pool *sp = spp->sp;
+    assert(sp != NULL);
+
+    return (sp_set_read_index(spp, spp->ghost_read_id));
+
+}
 
 // swaps the slot provided in parameter d with next available slot for
 // consumption.

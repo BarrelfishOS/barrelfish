@@ -100,9 +100,10 @@ uint64_t sp_get_write_index(struct shared_pool_private *spp);
 uint64_t sp_get_queue_size(struct shared_pool_private *spp);
 bool sp_queue_empty(struct shared_pool_private *spp);
 bool sp_queue_full(struct shared_pool_private *spp);
-bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t index);
-bool sp_read_setable_index(struct shared_pool_private *spp, uint64_t index);
 bool sp_write_peekable_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_validate_write_index(struct shared_pool_private *spp, uint64_t index);
 uint64_t sp_queue_elements_count(struct shared_pool_private *spp);
 uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp);
 
@@ -111,6 +112,7 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d);
 bool sp_replace_slot(struct shared_pool_private *spp,
             struct slot_data *new_slot);
 bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst);
+bool sp_ghost_read_confirm(struct shared_pool_private *spp);
 bool sp_ghost_produce_slot(struct shared_pool_private *spp,
         struct slot_data *d, uint64_t index);
 bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index);
