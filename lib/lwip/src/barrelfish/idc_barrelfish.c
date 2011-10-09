@@ -162,6 +162,7 @@ static struct netif netif;
 
 static errval_t  send_sp_notification_from_app(struct q_entry e)
 {
+    uint64_t ts = rdtsc();
     struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
 
@@ -169,10 +170,20 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
 #if LWIP_TRACE_MODE
         trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_S, 0);
 #endif // LWIP_TRACE_MODE
-        return b->tx_vtbl.sp_notification_from_app(b,
+
+        if (benchmark_mode > 0) {
+            lwip_record_event_simple(TX_SN_WAIT, e.plist[1]);
+        }
+
+        errval_t err = b->tx_vtbl.sp_notification_from_app(b,
                           MKCONT(cont_queue_callback, ccnc->q),
-                          e.plist[0], e.plist[1]);
+                          e.plist[0], ts);
         // type, ts
+        if (benchmark_mode > 0) {
+            lwip_record_event_simple(TX_SN_SEND, ts);
+        }
+        return err;
+
     } else {
         printf("sp_notification_from_app: Flounder busy,rtry+++++\n");
         LWIPBF_DEBUG("sp_notification_from_app: Flounder busy,rtry+++++\n");
@@ -186,6 +197,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     struct buffer_desc *buff_ptr;
     struct slot_data s;
 
+    uint64_t ts = rdtsc();
     assert(p != NULL);
     /*
      * Count the number of pbufs to be transmitted as a single message
@@ -198,8 +210,12 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     }
     buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
     if (sp_queue_free_slots_count(buff_ptr->spp) < numpbufs) {
+        if (benchmark_mode > 0) {
+            lwip_record_event_no_ts(TX_SPP_FULL);
+        }
         printf("No space left in shared_pool\n");
         assert(!"No space left in shared_pool\n");
+        // free the pbuf
         return 0;
     }
     uint64_t ghost_write_index = sp_get_write_index(buff_ptr->spp);
@@ -249,6 +265,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     if (buff_ptr->spp->notify_other_side == 0) {
         // Done with everything!
         // FIXME: change the return value to reflect success/failure
+        if (benchmark_mode > 0) {
+            lwip_record_event_simple(TX_SP1, ts);
+        }
         return 0;
     }
 
@@ -262,14 +281,20 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q, 0);
 #endif // LWIP_TRACE_MODE
 
+//   printf("app: ending notification #############\n");
     entry.binding_ptr = (void *)b;
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
-
+    // Resetting the send_notification counter as we are sending
+    // the notification
+    buff_ptr->spp->notify_other_side = 0;
     entry.plist[0] = numpbufs;
     entry.plist[1] = rdtsc();
+    enqueue_cont_q(ccnc->q, &entry);
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_SP, ts);
+    }
     if (new_debug)
          printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
-    enqueue_cont_q(ccnc->q, &entry);
 
     // Done with even notification sending!
     // FIXME: change the return value to reflect success/failure
@@ -424,6 +449,14 @@ void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len)
 
 }
 
+int lwip_check_sp_capacity(int direction)
+{
+    struct ether_binding *b = driver_connection[direction];
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+    return sp_queue_free_slots_count(ccnc->buff_ptr->spp);
+}
+
+
 
 int idc_check_capacity(int direction)
 {
@@ -576,16 +609,19 @@ void idc_debug_status(int connection, uint8_t state, uint64_t trigger)
 //    new_debug = state;
     struct q_entry entry;
     benchmark_mode = state;
-    lwip_reset_stats();
+    if (state == 1) {
+        lwip_reset_stats();
+    }
+
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_debug_status_request;
     struct ether_binding *b = driver_connection[connection];
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     entry.binding_ptr = (void *) b;
     entry.plist[0] = state;
     entry.plist[1] = trigger;
 
-    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
 /*    printf("idc_debug_status: q size [%d]\n",
             ccnc->q->head - ccnc->q->tail);

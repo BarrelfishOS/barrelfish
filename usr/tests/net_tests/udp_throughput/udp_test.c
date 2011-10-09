@@ -93,14 +93,15 @@ static void stop_benchmark(void)
 
 
     printf("Test [%s], PBUF type %s\n", TEST_TYPE,
-            connection_type?"PBUF_POOL":"PBUF_RAM");
+            connection_type?"PBUF_RAM":"PBUF_POOL");
+    lwip_print_interesting_stats();
     printf("Time taken %"PU" to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
             in_seconds(delta), iter, failed);
     uint64_t data_size = iter * MAX_DATA;
     printf("TX speed = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
             data_size, in_seconds(delta), ((data_size/in_seconds(delta))/1024));
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < 6; ++j) {
         printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
 

@@ -190,6 +190,8 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {
+
+    uint64_t ts = rdtsc();
     uint64_t nr_free;
     if (ether_transmit_index >= ether_transmit_bufptr) {
         nr_free = DRIVER_TRANSMIT_BUFFER -
@@ -200,6 +202,7 @@ static uint64_t find_tx_free_slot_count_fn(void)
             DRIVER_TRANSMIT_BUFFER;
     }
 
+    bm_record_event_simple(RE_TX_DONE, ts);
     return nr_free;
 } // end function: find_tx_queue_len
 

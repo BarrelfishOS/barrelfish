@@ -124,8 +124,14 @@ enum Recorded_Events {
     RE_PBUF_QUEUE = 5,
     RE_PKT_RCV_CS = 6,
     RE_PBUF_REPLACE_3 = 7,
+    TX_SP = 8,
+    TX_SP1 = 9,
+    TX_SPP_FULL,
+    TX_SN_WAIT,
+    TX_SN_SEND,
+
 };
-#define EVENT_LIST_SIZE  10
+#define EVENT_LIST_SIZE  20
 
 enum Recorded_DataTypes {
     RDT_COUNT = 0,
@@ -140,6 +146,7 @@ void lwip_record_event(uint8_t event_type, uint64_t delta);
 void lwip_record_event_simple(uint8_t event_type, uint64_t ts);
 void lwip_print_event_stat(uint8_t event_type, char *event_name, int type);
 void lwip_print_interesting_stats(void);
+void lwip_record_event_no_ts(uint8_t event_type);
 #ifdef __cplusplus
 }
 #endif

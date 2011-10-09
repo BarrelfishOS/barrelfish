@@ -160,6 +160,7 @@ struct client_closure {
     struct ether_binding *app_connection; /* FIXME: Do I need this? */
     struct cont_queue *q;
     uint8_t debug_state;
+    uint8_t debug_state_tx;
     uint64_t start_ts;
     uint64_t pkt_count;
     uint64_t tx_done_count;
@@ -250,8 +251,12 @@ enum Recorded_Events {
     RE_PKT_RECV_MSG = 6,
     RE_PKT_RECV_Q = 7,
     RE_PBUF_REG_CS = 8,
+    RE_TX_NOTI_CS,
+    RE_TX_NOTI,
+    RE_TX_DONE,
+    RE_TX_NOTI_ALL,
 };
-#define EVENT_LIST_SIZE  10
+#define EVENT_LIST_SIZE  20
 
 enum Recorded_DataTypes {
     RDT_COUNT = 0,

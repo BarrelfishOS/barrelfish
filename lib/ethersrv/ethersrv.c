@@ -772,7 +772,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 } // end function: send_single_pkt_to_driver
 
 static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
-                uint64_t ts)
+                uint64_t rts)
 {
 
     struct client_closure *closure = (struct client_closure *)cc->st;
@@ -782,6 +782,11 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
     struct shared_pool_private *spp = buffer->spp;
     assert(spp != NULL);
     assert(spp->sp != NULL);
+
+    uint64_t ts = rdtsc();
+    if (closure->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_NOTI_CS, rts);
+    }
 
     if (!sp_queue_empty(spp)) {
         // There are no packets
@@ -802,6 +807,10 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
         assert(!"sp_set_read_index failed");
     }
 
+    if (closure->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_NOTI, ts);
+    }
+
     // Check if there are any free TX slot from the packets which are sent.
     while (handle_free_tx_slot_fn_ptr());
 
@@ -814,6 +823,10 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
         // app is complaining about TX queue being full
         // FIXME: Release TX_DONE
         while (handle_free_tx_slot_fn_ptr());
+    }
+
+    if (closure->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_NOTI_ALL, ts);
     }
 
 } // end function:  sp_notification_from_app
@@ -2483,6 +2496,7 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
             bm_reset_stats();
             printf("#### Starting MBM now \n");
             if(trigger == 0) {
+                cl->debug_state_tx = 3;
                 cl->start_ts = rdtsc();
             } else {
                 // will turn on debuggin only after a trigger event!
@@ -2584,14 +2598,18 @@ void bm_print_event_stat(uint8_t event_type, char *event_name)
 
 void bm_print_interesting_stats(void)
 {
-    bm_print_event_stat(RE_FILTER,       "D: Filter time");
-    bm_print_event_stat(RE_COPY,         "D: copy time");
-    bm_print_event_stat(RE_PBUF_REG,     "D: pbuf reg time");
-    bm_print_event_stat(RE_PKT_RECV_MSG, "D: pkt recv ntf");
-    bm_print_event_stat(RE_DROPPED,      "D: dropped time");
-    bm_print_event_stat(RE_USEFUL,       "D: useful time");
+    bm_print_event_stat(RE_FILTER,       "D: RX Filter time");
+    bm_print_event_stat(RE_COPY,         "D: RX copy time");
+    bm_print_event_stat(RE_PBUF_REG,     "D: RX pbuf reg time");
+    bm_print_event_stat(RE_PKT_RECV_MSG, "D: RX pkt recv ntf");
+    bm_print_event_stat(RE_DROPPED,      "D: RX dropped time");
+    bm_print_event_stat(RE_USEFUL,       "D: RX useful time");
     bm_print_event_stat(RE_PKT_RECV_Q,   "D: RX queue");
-    bm_print_event_stat(RE_PBUF_REG_CS,  "D: REG pbuf CS");
+    bm_print_event_stat(RE_PBUF_REG_CS,  "D: RX REG pbuf CS");
+    bm_print_event_stat(RE_TX_NOTI_CS,   "D: TX REG NOTI CS");
+    bm_print_event_stat(RE_TX_NOTI,      "D: TX NOTI");
+    bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
+    bm_print_event_stat(RE_TX_NOTI_ALL,  "D: TX NOTI_ALL");
 }
 
 

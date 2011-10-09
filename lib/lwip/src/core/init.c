@@ -483,7 +483,6 @@ void lwip_start_net_debug(int connection_type, uint8_t state, uint64_t trigger)
 }                               // end function: lwip_start_net_debug
 
 #include <contmng/contmng.h>
-#include <procon/procon.h>
 #define FREE_SLOT_THRESHOLD    100
 int is_lwip_loaded(void)
 {
@@ -491,22 +490,34 @@ int is_lwip_loaded(void)
     if (free_pbuf_pool_count() == 0) {
         return 1;
     }
-    // Check load on RX connection
-    int slots = idc_check_capacity(RECEIVE_CONNECTION);
 
+    int slots = lwip_check_sp_capacity(TRANSMIT_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
         return 2;
+    }
+
+    // for receivign connection, one should check if queue is free
+    slots = lwip_check_sp_capacity(RECEIVE_CONNECTION);
+    if (slots < FREE_SLOT_THRESHOLD) {
+        return 2;
+    }
+
+    // Check load on RX connection
+    slots = idc_check_capacity(RECEIVE_CONNECTION);
+
+    if (slots < FREE_SLOT_THRESHOLD) {
+        return 3;
     }
     // Check load on TX connection
     slots = idc_check_capacity(TRANSMIT_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
-        return 3;
+        return 4;
     }
     // Check for load the driver itself
     uint64_t tx_slots_left = idc_check_driver_load();
 
     if (tx_slots_left < (MAX_QUEUE_SIZE + 10)) {
-//        return 4;
+//        return 5;
     }
 
 
@@ -567,6 +578,20 @@ void lwip_record_event(uint8_t event_type, uint64_t delta)
     }
 } // end function: record_event
 
+static uint64_t my_avg(uint64_t sum, uint64_t n)
+{
+    if (n == 0) {
+        return sum;
+    }
+    return (sum/n);
+}
+
+void lwip_record_event_no_ts(uint8_t event_type)
+{
+    uint8_t et = event_type;
+    ++stats[et][RDT_COUNT];
+}
+
 void lwip_record_event_simple(uint8_t event_type, uint64_t ts)
 {
     uint64_t delta = rdtsc() - ts;
@@ -579,7 +604,7 @@ void lwip_print_event_stat(uint8_t event_type, char *event_name, int type)
     printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
             "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
             stats[et][RDT_COUNT],
-            in_seconds(stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            in_seconds(my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
             in_seconds(stats[et][RDT_MAX]),
             in_seconds(stats[et][RDT_MIN]),
             in_seconds(stats[et][RDT_SUM]));
@@ -588,7 +613,7 @@ void lwip_print_event_stat(uint8_t event_type, char *event_name, int type)
     printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
             "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
             et, stats[et][RDT_COUNT],
-            (stats[et][RDT_SUM]/*/stats[et][RDT_COUNT]*/),
+            (my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
             (stats[et][RDT_MAX]),
             (stats[et][RDT_MIN]),
             (stats[et][RDT_SUM]));
@@ -597,13 +622,19 @@ void lwip_print_event_stat(uint8_t event_type, char *event_name, int type)
 
 void lwip_print_interesting_stats(void)
 {
-    lwip_print_event_stat(RE_ALL, "U: ALL", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE, "U: Replace pbuf", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE_1, "U: Replace pbuf_1", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE_2, "U: Replace pbuf_2", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE_3, "U: Replace pbuf_3", 0);
-    lwip_print_event_stat(RE_PBUF_QUEUE, "U: RPL PbufQ", 1);
-    lwip_print_event_stat(RE_PKT_RCV_CS, "U: PKT RCV CS", 1);
+    lwip_print_event_stat(RE_ALL,               "U: RX ALL", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE,      "U: RX Replace pbuf", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE_1,    "U: RX Replace pbuf_1", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE_2,    "U: RX Replace pbuf_2", 1);
+    lwip_print_event_stat(RE_PBUF_REPLACE_3,    "U: RX Replace pbuf_3", 1);
+    lwip_print_event_stat(RE_PBUF_QUEUE,        "U: RX RPL PbufQ", 1);
+    lwip_print_event_stat(RE_PKT_RCV_CS,        "U: RX PKT RCV CS", 1);
+
+    lwip_print_event_stat(TX_SP,        "U: TX send-pt", 1);
+    lwip_print_event_stat(TX_SP1,       "U: TX send-pt no-noti", 1);
+    lwip_print_event_stat(TX_SPP_FULL,  "U: TX D SPP FUL", 0);
+    lwip_print_event_stat(TX_SN_WAIT,   "U: TX SN WAIT", 1);
+    lwip_print_event_stat(TX_SN_SEND,   "U: TX SN SEND", 1);
 }
 
 

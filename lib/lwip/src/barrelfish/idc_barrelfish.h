@@ -32,7 +32,6 @@
 #define RECEIVE_CONNECTION 0
 #define TRANSMIT_CONNECTION 1
 
-
 struct buffer_desc {
     struct capref cap;
     struct ether_binding *con;
@@ -52,6 +51,7 @@ void idc_connect_to_driver(char *card_name);
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p);
 void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index);
 void idc_get_mac_address(uint8_t * mac);
+int lwip_check_sp_capacity(int direction);
 int idc_check_capacity(int direction);
 uint64_t idc_check_driver_load(void);
 uint64_t idc_get_packet_drop_count(void);
