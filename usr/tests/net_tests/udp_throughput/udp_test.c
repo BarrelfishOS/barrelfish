@@ -35,7 +35,7 @@
 
 
 static int connection_type = 0;  // 0 for using PBUF_POOL
-//static int connection_type = 1;  // 1 for using PBUF_RAM
+//static int connection_type = 1;  // 1 for using PBUF_RAM // Horribly slow!!
 
 static uint64_t pkt_count = 0;
 static uint64_t rx_data_size = 0;

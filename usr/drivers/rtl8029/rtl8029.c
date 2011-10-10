@@ -294,7 +294,10 @@ static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
     // Tell the client we sent them!!!
     for (int i = 0; i < cl->rtpbuf; i++) {
         notify_client_free_tx(cl->app_connection,
-                cl->pbuf[i].client_data, RTL_TX_RING_SIZE, 0);
+                cl->pbuf[i].client_data,
+                cl->pbuf[i].spp_index,
+                cl->pbuf[i].ts,
+                RTL_TX_RING_SIZE, 0);
     }
 
     return SYS_ERR_OK;

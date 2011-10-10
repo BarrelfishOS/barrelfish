@@ -550,7 +550,10 @@ again:
     // Tell the client we sent them!!!
     for (int i = 0; i < cl->rtpbuf; i++) {
         notify_client_free_tx(cl->app_connection,
-                cl->pbuf[i].client_data,  get_tx_free_slots_count(),
+                cl->pbuf[i].client_data,
+                cl->pbuf[i].spp_index,
+                cl->pbuf[i].ts,
+                get_tx_free_slots_count(),
                 0);
     } // end for:
 

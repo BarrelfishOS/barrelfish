@@ -26,6 +26,7 @@
 #include <procon/procon.h>
 #include "lwip/pbuf.h"
 #include "lwip/init.h"
+#include <lwip/sys.h>
 #include "mem_barrelfish.h"
 #include "idc_barrelfish.h"
 #include <if/ether_defs.h>
@@ -191,12 +192,35 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
     }
 }
 
+static void sp_process_tx_done(struct buffer_desc *buff)
+{
+    assert(buff != NULL);
+    sp_reload_regs(buff->spp);
+    struct slot_data d;
+    assert(lwip_free_handler != 0);
+    uint64_t i = buff->spp->c_write_id;
+    // FIXME: use pre_write_id as cache of how much is already cleared
+//    i = buff->spp->pre_write_id;
+    while (!sp_gen_queue_full(buff->spp->c_read_id, i, buff->spp->c_size)) {
+
+        if (sp_is_slot_clear(buff->spp, i) != 0) {
+            sp_clear_slot(buff->spp, &d, i);
+            assert(d.client_data != 0);
+            struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
+            lwip_free_handler(done_pbuf);
+        }
+        buff->spp->pre_write_id = i;
+    } // end while:
+}
+
+
 uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 {
     ptrdiff_t offset;
     struct buffer_desc *buff_ptr;
     struct slot_data s;
 
+    printf("sending packet from userspace \n");
     uint64_t ts = rdtsc();
     assert(p != NULL);
     /*
@@ -212,12 +236,15 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     if (sp_queue_free_slots_count(buff_ptr->spp) < numpbufs) {
         if (benchmark_mode > 0) {
             lwip_record_event_no_ts(TX_SPP_FULL);
+            ++pkt_dropped;
         }
         printf("No space left in shared_pool\n");
+        sp_print_metadata(buff_ptr->spp);
         assert(!"No space left in shared_pool\n");
         // free the pbuf
         return 0;
     }
+
     uint64_t ghost_write_index = sp_get_write_index(buff_ptr->spp);
     uint64_t queue_size = sp_get_queue_size(buff_ptr->spp);
 
@@ -244,6 +271,11 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         s.client_data = (uintptr_t)tmpp;
         s.ts = rdtsc();
 
+        if (sp_is_slot_clear(buff_ptr->spp, ghost_write_index) != 0) {
+            sp_process_tx_done(buff_ptr);
+            assert(sp_is_slot_clear(buff_ptr->spp, ghost_write_index) == 0);
+        }
+
         if (!sp_ghost_produce_slot(buff_ptr->spp, &s, ghost_write_index)) {
             printf("sp_ghost_produce_slot: failed, %"PRIu64"\n",
                     ghost_write_index);
@@ -268,6 +300,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         if (benchmark_mode > 0) {
             lwip_record_event_simple(TX_SP1, ts);
         }
+
+        // check and process any tx_done's
+        sp_process_tx_done(buff_ptr);
         return 0;
     }
 
@@ -297,6 +332,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
          printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
 
     // Done with even notification sending!
+    // check and process any tx_done's
+    sp_process_tx_done(buff_ptr);
+
     // FIXME: change the return value to reflect success/failure
     return 0;
 }
@@ -611,6 +649,7 @@ void idc_debug_status(int connection, uint8_t state, uint64_t trigger)
     benchmark_mode = state;
     if (state == 1) {
         lwip_reset_stats();
+        pkt_dropped = 0;
     }
 
     memset(&entry, 0, sizeof(struct q_entry));
@@ -702,13 +741,34 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
 }
 
 
-/**
- * \brief
- *
- *
- *
- */
-static void tx_done(struct ether_binding *st, uint64_t client_data,
+static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
+        uint64_t rts)
+{
+    printf("inside app sp notification!\n");
+    lwip_mutex_lock();
+    uint64_t ts = rdtsc();
+    assert(b != NULL);
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    assert(ccnc != NULL);
+    struct buffer_desc *buff = ccnc->buff_ptr;
+    assert(buff != NULL);
+    assert(buff->spp != NULL);
+    assert(buff->spp->sp != NULL);
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_A_SP_RN_CS, rts);
+    }
+
+    // FIXME:  trigger the function which checks for released pbufs
+    // in form of tx_done and process them
+
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_A_SP_RN_T, ts);
+    }
+    lwip_mutex_unlock();
+} // end function: sp_notification_from_driver
+
+#if 0
+static void tx_done1(struct ether_binding *st, uint64_t client_data,
                     uint64_t slots_left, uint64_t dropped)
 {
     struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) client_data;
@@ -742,7 +802,7 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
 
 /*    LWIPBF_DEBUG("tx_done: terminated\n");	*/
 }
-
+#endif // 0
 
 /**
  * \brief
@@ -767,6 +827,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
                             uint64_t paddr, uint64_t pbuf_len,
                             uint64_t pktlen, uint64_t rts)
 {
+    printf("packet_received: called\n");
     if(benchmark_mode > 0) {
         lwip_record_event_simple(RE_PKT_RCV_CS, rts);
     }
@@ -774,7 +835,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
 #endif                          // LWIP_TRACE_MODE
     uint64_t ts = rdtsc();
-    if (new_debug)
+//    if (new_debug)
         printf("%d.%d: packet_received: called paddr = %" PRIx64 ", len %"
                PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(), paddr,
                pktlen);
@@ -889,7 +950,7 @@ static void init_netd_connection(char *service_name)
 
 static struct ether_rx_vtbl rx_vtbl = {
     .new_buffer_id = new_buffer_id,
-    .tx_done = tx_done,
+    .sp_notification_from_driver = sp_notification_from_driver,
     .get_mac_address_response = get_mac_address_response,
     .packet_received = packet_received,
 };

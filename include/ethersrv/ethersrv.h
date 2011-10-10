@@ -83,6 +83,8 @@ struct pbuf {
     uint64_t len;
     uint64_t offset;
     uint64_t client_data;
+//    uint64_t spp_index;
+//    uint64_t ts;
 };
 
 
@@ -111,6 +113,9 @@ struct pbuf_desc {
     bool event_sent; //the interrupt handler has to know wheter the client was
     //already notified about new data in this buffer.
     bool last;
+    uint64_t spp_index;
+    uint64_t ts;
+    // FIXME: Remove this from here! as we create large arrays of pbuf_desc!!
     // For Statistics
     uint64_t event_ts[MAX_STAT_EVENTS];
     uint64_t event_n[MAX_STAT_EVENTS];
@@ -137,6 +142,9 @@ struct tx_pbuf {
     uint64_t offset;
     uint64_t client_data;
     uint64_t buffer_id;
+    uint64_t spp_index;
+    uint64_t ts;
+
 };
 
 /* This is client_closure for network service */
@@ -219,10 +227,12 @@ void ethersrv_init(char *service_name,
 
 bool waiting_for_netd(void);
 
-
-bool notify_client_free_tx(struct ether_binding *b,
-        uint64_t client_data, uint64_t slots_left,
-        uint64_t dropped);
+bool notify_client_free_tx(struct ether_binding * b,
+                           uint64_t client_data,
+                           uint64_t spp_index,
+                           uint64_t rts,
+                           uint64_t slots_left,
+                           uint64_t dropped);
 
 void process_received_packet(void *pkt_data, size_t pkt_len);
 
@@ -255,7 +265,12 @@ enum Recorded_Events {
     RE_TX_NOTI,
     RE_TX_DONE,
     RE_TX_NOTI_ALL,
+    RE_TX_DONE_NN,
+    RE_TX_DONE_N,
+    RE_TX_SP_MSG,
+    RE_TX_SP_MSG_Q,
 };
+
 #define EVENT_LIST_SIZE  20
 
 enum Recorded_DataTypes {

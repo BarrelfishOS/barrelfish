@@ -635,6 +635,7 @@ void lwip_print_interesting_stats(void)
     lwip_print_event_stat(TX_SPP_FULL,  "U: TX D SPP FUL", 0);
     lwip_print_event_stat(TX_SN_WAIT,   "U: TX SN WAIT", 1);
     lwip_print_event_stat(TX_SN_SEND,   "U: TX SN SEND", 1);
+    lwip_print_event_stat(TX_A_SP_RN_CS,   "U: TX SP RN CS", 1);
+    lwip_print_event_stat(TX_A_SP_RN_T,   "U: TX SP RN T", 1);
 }
-
 

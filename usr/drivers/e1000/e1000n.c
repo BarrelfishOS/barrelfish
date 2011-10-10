@@ -126,7 +126,7 @@ static bool can_transmit(int numbufs)
 
 static uint64_t transmit_pbuf(lpaddr_t buffer_address,
                               size_t packet_len, uint64_t offset, bool last,
-                              uint64_t client_data,
+                              uint64_t client_data, uint64_t spp_index,
                               struct ether_binding *sr)
 {
 
@@ -146,6 +146,8 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     tx_pbuf[ether_transmit_index].event_sent = false;
     tx_pbuf[ether_transmit_index].sr = sr;
     tx_pbuf[ether_transmit_index].client_data = client_data;
+    tx_pbuf[ether_transmit_index].spp_index = spp_index;
+    tx_pbuf[ether_transmit_index].ts = rdtsc();
     tx_pbuf[ether_transmit_index].last = last;
     ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
     e1000_tdt_wr(&(d), 0, (e1000_dqval_t){ .val = ether_transmit_index });
@@ -176,9 +178,10 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 	}
 	for (int i = 0; i < cl->rtpbuf; i++) {
 		r = transmit_pbuf(cl->buffer_ptr->pa,
-				cl->pbuf[i].len, cl->pbuf[i].offset, i
-						== (cl->nr_transmit_pbufs - 1), //last?
-				cl->pbuf[i].client_data, cl->app_connection);
+				cl->pbuf[i].len, cl->pbuf[i].offset,
+                                i == (cl->nr_transmit_pbufs - 1), //last?
+				cl->pbuf[i].client_data,
+                                cl->pbuf[i].spp_index, cl->app_connection);
 		if(err_is_fail(r)) {
 			//E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
 			printf("ERROR:transmit_pbuf failed\n");
@@ -191,7 +194,6 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 static uint64_t find_tx_free_slot_count_fn(void)
 {
 
-    uint64_t ts = rdtsc();
     uint64_t nr_free;
     if (ether_transmit_index >= ether_transmit_bufptr) {
         nr_free = DRIVER_TRANSMIT_BUFFER -
@@ -202,12 +204,12 @@ static uint64_t find_tx_free_slot_count_fn(void)
             DRIVER_TRANSMIT_BUFFER;
     }
 
-    bm_record_event_simple(RE_TX_DONE, ts);
     return nr_free;
 } // end function: find_tx_queue_len
 
 static bool handle_free_TX_slot_fn(void)
 {
+    uint64_t ts = rdtsc();
     bool sent = false;
     volatile struct tx_desc *txd;
     if (ether_transmit_bufptr == ether_transmit_index) {
@@ -220,10 +222,13 @@ static bool handle_free_TX_slot_fn(void)
 
         	sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
         			tx_pbuf[ether_transmit_bufptr].client_data,
+                                tx_pbuf[ether_transmit_bufptr].spp_index,
+                                tx_pbuf[ether_transmit_bufptr].ts,
                                 find_tx_free_slot_count_fn(), 0);
 //        }
         ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
     }
+    bm_record_event_simple(RE_TX_DONE, ts);
     return sent;
 }
 

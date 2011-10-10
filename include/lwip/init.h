@@ -129,7 +129,8 @@ enum Recorded_Events {
     TX_SPP_FULL,
     TX_SN_WAIT,
     TX_SN_SEND,
-
+    TX_A_SP_RN_CS,
+    TX_A_SP_RN_T,
 };
 #define EVENT_LIST_SIZE  20
 

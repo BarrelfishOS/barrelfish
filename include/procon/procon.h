@@ -81,23 +81,29 @@ struct shared_pool_private {
     uint8_t     role;       // Producer or consumer?
     uint64_t    ghost_read_id;
     uint64_t    ghost_write_id;
+    uint64_t    pre_write_id;
     uint64_t    notify_other_side; // Something has happened here
     uint64_t    produce_counter;
     uint64_t    consume_counter;
+    uint64_t    c_read_id;
+    uint64_t    c_write_id;
+    uint64_t    c_size;
 
 };
 
-// initialization function prototypes
-struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
-                                uint8_t role);
-errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
-        uint64_t slot_no, uint8_t role);
-void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count);
+
+// generic queue based code
+bool sp_gen_queue_empty(uint64_t read, uint64_t write);
+bool sp_gen_queue_full(uint64_t read, uint64_t write, uint64_t size);
+bool sp_c_between(uint64_t start, uint64_t value, uint64_t end, uint64_t size);
+uint64_t sp_c_range_size(uint64_t start, uint64_t end, uint64_t size);
 
 // State checking function prototypes
 uint64_t sp_get_read_index(struct shared_pool_private *spp);
 uint64_t sp_get_write_index(struct shared_pool_private *spp);
 uint64_t sp_get_queue_size(struct shared_pool_private *spp);
+
+void sp_reload_regs(struct shared_pool_private *spp);
 bool sp_queue_empty(struct shared_pool_private *spp);
 bool sp_queue_full(struct shared_pool_private *spp);
 bool sp_write_peekable_index(struct shared_pool_private *spp, uint64_t index);
@@ -106,6 +112,16 @@ bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t index);
 bool sp_validate_write_index(struct shared_pool_private *spp, uint64_t index);
 uint64_t sp_queue_elements_count(struct shared_pool_private *spp);
 uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp);
+uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id);
+
+
+// initialization function prototypes
+struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
+                                uint8_t role);
+errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
+        uint64_t slot_no, uint8_t role);
+//void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count);
+
 
 // State modifying function prototypes
 bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d);
@@ -117,6 +133,8 @@ bool sp_ghost_produce_slot(struct shared_pool_private *spp,
         struct slot_data *d, uint64_t index);
 bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index);
 bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index);
+bool sp_clear_slot(struct shared_pool_private *spp, struct slot_data *d,
+        uint64_t id);
 
 // Debugging functions
 void sp_print_slot(struct slot_data *d);
