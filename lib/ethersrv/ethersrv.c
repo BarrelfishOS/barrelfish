@@ -635,18 +635,18 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
          * Mostly this will lead to re-write of bulk-transfer mode.  */
 
         assert(closure->pbuf[0].sr);
-        assert(!"NYI");
-/*
         bool ret = notify_client_free_tx(closure->pbuf[0].sr,
                                          closure->pbuf[0].client_data,
+                                         closure->pbuf[0].spp_index,
+                                         rdtsc(),
                                          tx_free_slots_fn_ptr(), 1);
+
         if (ret == false) {
             printf("Error: Bad things are happening."
                    "TX packet dropped, TX_done MSG dropped\n");
             // This can lead to pbuf leak
             // FIXME: What type of error handling to use?
         }
-*/
     } else {
         // successfull transfer!
         ++closure->pkt_count;
@@ -673,16 +673,13 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     struct shared_pool_private *spp = buffer->spp;
     assert(spp != NULL);
     assert(spp->sp != NULL);
-    printf("sending single pkt out\n");
+
     errval_t r;
     // FIXME: keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
     uint64_t ghost_read_id_copy = spp->ghost_read_id;
-    uint64_t current_spp_slot_id = spp->ghost_read_id;
     struct slot_data s;
-
     if (!sp_ghost_read_slot(spp, &s)) {
-        printf("no more pkts, contiune\n");
         return false;
     }
 
@@ -708,9 +705,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         closure->pbuf[closure->rtpbuf].len = s.len;
         closure->pbuf[closure->rtpbuf].offset = s.offset;
         closure->pbuf[closure->rtpbuf].client_data = s.client_data;
-        closure->pbuf[closure->rtpbuf].spp_index = current_spp_slot_id;
         closure->len = closure->len + s.len;  /* total lengh of packet */
-
         /* making the buffer memory cache coherent. */
         bulk_arch_prepare_recv((void *) closure->buffer_ptr->pa + s.offset,
                 s.len);
@@ -721,7 +716,6 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             break;
         }
 
-        current_spp_slot_id = spp->ghost_read_id;
         if (!sp_ghost_read_slot(spp, &s)) {
             spp->ghost_read_id = ghost_read_id_copy;
             closure->rtpbuf = 0;
@@ -768,9 +762,9 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         // successfull transfer!
         ++closure->pkt_count;
         closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
-        printf("successful transer, counter incremented %"PRIu64"\n",
+/*        printf("successful transer, counter incremented %"PRIu64"\n",
                 closure->pbuf_count);
-
+*/
     }
 
     //reset to indicate that a new packet will start
@@ -801,26 +795,21 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
     if (!sp_queue_empty(spp)) {
         // There are no packets
         while (send_single_pkt_to_driver(cc)){
-/*
             if(!sp_set_read_index(spp, spp->ghost_read_id)) {
                 printf("failed for %"PRIu64"\n", spp->ghost_read_id);
                 sp_print_metadata(spp);
                 assert(!"sp_set_read_index failed");
             }
-*/
         }
     }
 
     // FIXME: following should become part of handling free_tx
-    printf("####  done with sendign, queu stat\n");
-    sp_print_metadata(spp);
-/*
+//    printf("#### setting read index to GRI %"PRIu64"\n", spp->ghost_read_id);
     if(!sp_set_read_index(spp, spp->ghost_read_id)) {
         printf("failed for %"PRIu64"\n", spp->ghost_read_id);
         sp_print_metadata(spp);
         assert(!"sp_set_read_index failed");
     }
-*/
 
     if (closure->debug_state_tx == 3) {
         bm_record_event_simple(RE_TX_NOTI, ts);
@@ -844,7 +833,6 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
         bm_record_event_simple(RE_TX_NOTI_ALL, ts);
     }
 
-    printf("####  returning from sp_notification_from_app\n");
 } // end function:  sp_notification_from_app
 
 static errval_t send_mac_addr_response(struct q_entry entry)
@@ -1862,28 +1850,20 @@ static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 
 
 
-/******************  *************************/
-static errval_t send_sp_notification_from_driver(struct q_entry e)
+/****************** Functions copied from e1000n.c *************************/
+static errval_t send_tx_done_handler(struct q_entry e)
 {
-//    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
+//    ETHERSRV_DEBUG("send_tx_done_handler -----\n");
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
-    if (ccl->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_SP_MSG_Q, e.plist[1]);
-    }
-    uint64_t ts = rdtsc();
+
     if (b->can_send(b)) {
         ++ccl->tx_done_count;
-        errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
-                MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
-                // type, ts
-        if (ccl->debug_state_tx == 3) {
-            bm_record_event_simple(RE_TX_SP_MSG, ts);
-        }
-        return err;
+        return b->tx_vtbl.tx_done(b, MKCONT(cont_queue_callback, ccl->q),
+                                  e.plist[0], e.plist[1], e.plist[2]);
+        //  client_data,   slots_left, dropped
     } else {
-        ETHERSRV_DEBUG("send_sp_notification_from_driver: Flounder busy.."
-                "retry --------\n");
+        ETHERSRV_DEBUG("send_tx_done_handler Flounder busy.. retry --------\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 }
@@ -1895,50 +1875,25 @@ bool notify_client_free_tx(struct ether_binding * b,
                            uint64_t slots_left,
                            uint64_t dropped)
 {
-//    uint64_t ts = rdtsc();
     assert(b != NULL);
-    struct client_closure *cc = (struct client_closure *)b->st;
-    assert(cc != NULL);
-    struct buffer_descriptor *buffer = cc->buffer_ptr;
-    assert(buffer != NULL);
-    struct shared_pool_private *spp = buffer->spp;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
+    struct client_closure *cc = (struct client_closure *) b->st;
 
-    printf("Notifying the app for %"PRIu64"\n", spp_index);
-    if(!sp_set_read_index(spp, spp_index)) {
-        printf("failed for %"PRIu64"\n",spp_index);
-        sp_print_metadata(spp);
-        assert(!"sp_set_read_index failed");
-    }
-
-    if (spp->notify_other_side == 0) {
-
-        if (cc->debug_state_tx == 3) {
-            bm_record_event_simple(RE_TX_DONE_NN, rts);
-        }
-        return true;
-    }
-
-    // We need to send notification to other side saying that
-    // conditions are changed
-//    if (queue_free_slots(cc->q) < 10) {
+    if (queue_free_slots(cc->q) < 10) {
 //            printf("sending TX_done too fast %d\n",
 //            queue_free_slots(cc->q));
-//        return false;
-//    }
-
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_sp_notification_from_driver;
-    entry.binding_ptr = (void *) b;
-    entry.plist[0] = 1; // FIXME: will have to define these values
-    // FIXME: Get the remaining slots value from the driver
-    entry.plist[1] = rdtsc();
-    enqueue_cont_q(cc->q, &entry);
-    if (cc->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_DONE_N, rts);
+        return false;
     }
+//        ++cc->tx_done_count;
+    struct q_entry entry;
+
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_tx_done_handler;
+    entry.binding_ptr = (void *) b;
+    entry.plist[0] = client_data;
+    // FIXME: Get the remaining slots value from the driver
+    entry.plist[1] = slots_left;
+    entry.plist[2] = dropped;
+    enqueue_cont_q(cc->q, &entry);
     return true;
 }
 
@@ -2101,7 +2056,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 {
 
     uint32_t phead, ptail;
-//    printf("New packet came in, inside copy_pkt\n");
+
     if (buffer == NULL) {
         /* Invalid buffer */
         printf("ERROR: copy_packet_to_user: Invalid buffer.\n");
@@ -2662,10 +2617,6 @@ void bm_print_interesting_stats(void)
     bm_print_event_stat(RE_TX_NOTI,      "D: TX NOTI");
     bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
     bm_print_event_stat(RE_TX_NOTI_ALL,  "D: TX NOTI_ALL");
-    bm_print_event_stat(RE_TX_DONE_NN,   "D: TX DONE_NN");
-    bm_print_event_stat(RE_TX_DONE_N,    "D: TX DONE_N");
-    bm_print_event_stat(RE_TX_SP_MSG,    "D: TX SP_MSG");
-    bm_print_event_stat(RE_TX_SP_MSG_Q,  "D: TX SP_MSG_Q");
 }
 
 

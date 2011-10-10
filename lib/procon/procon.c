@@ -31,17 +31,17 @@ static uint64_t sp_atomic_read_reg(union vreg *reg)
     uint8_t tries = 0;
 
     for (tries = 0; tries < MAX_CACHE_READ_TRIES; ++tries) {
-
+/*
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
-
+*/
         v1 = reg->value;
-
+/*
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
-
+*/
         v2 = reg->value;
 
         if (v1 == v2) {
