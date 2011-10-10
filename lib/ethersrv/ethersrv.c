@@ -678,6 +678,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     // FIXME: keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
     uint64_t ghost_read_id_copy = spp->ghost_read_id;
+    uint64_t current_spp_slot_id = spp->ghost_read_id;
     struct slot_data s;
     if (!sp_ghost_read_slot(spp, &s)) {
         return false;
@@ -705,6 +706,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         closure->pbuf[closure->rtpbuf].len = s.len;
         closure->pbuf[closure->rtpbuf].offset = s.offset;
         closure->pbuf[closure->rtpbuf].client_data = s.client_data;
+        closure->pbuf[closure->rtpbuf].spp_index = current_spp_slot_id;
         closure->len = closure->len + s.len;  /* total lengh of packet */
         /* making the buffer memory cache coherent. */
         bulk_arch_prepare_recv((void *) closure->buffer_ptr->pa + s.offset,
@@ -716,6 +718,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             break;
         }
 
+        current_spp_slot_id = spp->ghost_read_id;
         if (!sp_ghost_read_slot(spp, &s)) {
             spp->ghost_read_id = ghost_read_id_copy;
             closure->rtpbuf = 0;
@@ -795,11 +798,12 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
     if (!sp_queue_empty(spp)) {
         // There are no packets
         while (send_single_pkt_to_driver(cc)){
-            if(!sp_set_read_index(spp, spp->ghost_read_id)) {
+/*            if(!sp_set_read_index(spp, spp->ghost_read_id)) {
                 printf("failed for %"PRIu64"\n", spp->ghost_read_id);
                 sp_print_metadata(spp);
                 assert(!"sp_set_read_index failed");
             }
+*/
         }
     }
 
@@ -1850,7 +1854,33 @@ static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 
 
 
-/****************** Functions copied from e1000n.c *************************/
+/******************  *************************/
+static errval_t send_sp_notification_from_driver(struct q_entry e)
+{
+//    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure *ccl = (struct client_closure *) b->st;
+    if (ccl->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_SP_MSG_Q, e.plist[1]);
+    }
+    uint64_t ts = rdtsc();
+    if (b->can_send(b)) {
+        ++ccl->tx_done_count;
+        errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
+                MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
+                // type, ts
+        if (ccl->debug_state_tx == 3) {
+            bm_record_event_simple(RE_TX_SP_MSG, ts);
+        }
+        return err;
+    } else {
+        ETHERSRV_DEBUG("send_sp_notification_from_driver: Flounder busy.."
+                "retry --------\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+
 static errval_t send_tx_done_handler(struct q_entry e)
 {
 //    ETHERSRV_DEBUG("send_tx_done_handler -----\n");
@@ -1866,6 +1896,60 @@ static errval_t send_tx_done_handler(struct q_entry e)
         ETHERSRV_DEBUG("send_tx_done_handler Flounder busy.. retry --------\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
+}
+
+bool notify_client_free_tx1(struct ether_binding * b,
+                           uint64_t client_data,
+                           uint64_t spp_index,
+                           uint64_t rts,
+                           uint64_t slots_left,
+                           uint64_t dropped)
+{
+//    uint64_t ts = rdtsc();
+    assert(b != NULL);
+    struct client_closure *cc = (struct client_closure *)b->st;
+    assert(cc != NULL);
+    struct buffer_descriptor *buffer = cc->buffer_ptr;
+    assert(buffer != NULL);
+    struct shared_pool_private *spp = buffer->spp;
+    assert(spp != NULL);
+    assert(spp->sp != NULL);
+
+    printf("Notifying the app for %"PRIu64"\n", spp_index);
+    if(!sp_set_read_index(spp, spp_index)) {
+        printf("failed for %"PRIu64"\n",spp_index);
+        sp_print_metadata(spp);
+        assert(!"sp_set_read_index failed");
+    }
+
+    if (spp->notify_other_side == 0) {
+
+        if (cc->debug_state_tx == 3) {
+            bm_record_event_simple(RE_TX_DONE_NN, rts);
+        }
+        return true;
+    }
+
+    // We need to send notification to other side saying that
+    // conditions are changed
+//    if (queue_free_slots(cc->q) < 10) {
+//            printf("sending TX_done too fast %d\n",
+//            queue_free_slots(cc->q));
+//        return false;
+//    }
+
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_sp_notification_from_driver;
+    entry.binding_ptr = (void *) b;
+    entry.plist[0] = 1; // FIXME: will have to define these values
+    // FIXME: Get the remaining slots value from the driver
+    entry.plist[1] = rdtsc();
+    enqueue_cont_q(cc->q, &entry);
+    if (cc->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_DONE_N, rts);
+    }
+    return true;
 }
 
 bool notify_client_free_tx(struct ether_binding * b,
@@ -1896,6 +1980,7 @@ bool notify_client_free_tx(struct ether_binding * b,
     enqueue_cont_q(cc->q, &entry);
     return true;
 }
+
 
 static errval_t send_received_packet_handler(struct q_entry entry)
 {
@@ -2617,6 +2702,10 @@ void bm_print_interesting_stats(void)
     bm_print_event_stat(RE_TX_NOTI,      "D: TX NOTI");
     bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
     bm_print_event_stat(RE_TX_NOTI_ALL,  "D: TX NOTI_ALL");
+    bm_print_event_stat(RE_TX_DONE_NN,   "D: TX DONE_NN");
+    bm_print_event_stat(RE_TX_DONE_N,    "D: TX DONE_N");
+    bm_print_event_stat(RE_TX_SP_MSG,    "D: TX SP_MSG");
+    bm_print_event_stat(RE_TX_SP_MSG_Q,  "D: TX SP_MSG_Q");
 }
 
 
