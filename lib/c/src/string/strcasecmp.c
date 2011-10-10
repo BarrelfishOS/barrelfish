@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <strings.h>
 
-//typedef unsigned char u_char;
+typedef unsigned char u_char;
 
 int
 strcasecmp(const char *s1, const char *s2)

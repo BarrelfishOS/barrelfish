@@ -60,8 +60,6 @@
  * for which no specific BIO method is available.
  * See ssl/ssltest.c for some hints on how this can be used. */
 
-//asq:
-typedef long ssize_t;
 
 /* BIO_DEBUG implies BIO_PAIR_DEBUG */
 #ifdef BIO_DEBUG
