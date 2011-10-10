@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1t.h>
 
 int i2d_ASN1_BOOLEAN(int a, unsigned char **pp)

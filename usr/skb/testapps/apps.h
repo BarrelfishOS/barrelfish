@@ -112,7 +112,7 @@
 #ifndef HEADER_APPS_H
 #define HEADER_APPS_H
 
-#include <local/e_os.h>
+#include <openssl/local/e_os.h>
 
 #include <openssl/bio.h>
 #include <openssl/x509.h>

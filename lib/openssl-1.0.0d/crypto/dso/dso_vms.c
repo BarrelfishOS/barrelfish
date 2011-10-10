@@ -59,7 +59,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/dso.h>
 #ifdef OPENSSL_SYS_VMS
 #pragma message disable DOLLARID

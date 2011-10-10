@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1t.h>
 #include <openssl/x509.h>
 #include "asn1_locl.h"

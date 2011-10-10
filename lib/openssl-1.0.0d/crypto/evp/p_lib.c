@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/bn.h>
 #include <openssl/err.h>
 #include <openssl/objects.h>
@@ -78,7 +78,7 @@
 #include <openssl/engine.h>
 #endif
 
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 
 static void EVP_PKEY_free_it(EVP_PKEY *x);
 

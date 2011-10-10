@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #ifndef OPENSSL_NO_DES
 #include <openssl/evp.h>
 #include <openssl/objects.h>

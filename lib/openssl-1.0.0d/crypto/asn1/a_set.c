@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1_mac.h>
 
 #ifndef NO_ASN1_OLD

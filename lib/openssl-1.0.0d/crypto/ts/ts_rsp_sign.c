@@ -56,7 +56,7 @@
  *
  */
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 
 #if defined(OPENSSL_SYS_UNIX)
 #include <sys/time.h>

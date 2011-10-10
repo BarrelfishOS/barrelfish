@@ -58,8 +58,8 @@
 
 #include <stdio.h>
 #include <time.h>
-#include <local/cryptlib.h>
-#include <local/o_time.h>
+#include <openssl/local/cryptlib.h>
+#include <openssl/local/o_time.h>
 #include <openssl/asn1.h>
 
 #if 0

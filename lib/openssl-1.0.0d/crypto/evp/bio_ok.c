@@ -120,7 +120,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <assert.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/buffer.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>

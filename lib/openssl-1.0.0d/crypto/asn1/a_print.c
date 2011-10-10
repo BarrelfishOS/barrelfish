@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1.h>
 
 int ASN1_PRINTABLE_type(const unsigned char *s, int len)

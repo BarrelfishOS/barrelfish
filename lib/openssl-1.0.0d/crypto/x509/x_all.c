@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <openssl/stack.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/buffer.h>
 #include <openssl/asn1.h>
 #include <openssl/evp.h>

@@ -62,7 +62,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/conf.h>
 #include <openssl/asn1.h>
 #include <openssl/asn1t.h>

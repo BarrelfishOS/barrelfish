@@ -48,7 +48,7 @@
 #include <openssl/sha.h>
 #include <openssl/opensslv.h>
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 
 const char SHA512_version[]="SHA-512" OPENSSL_VERSION_PTEXT;
 

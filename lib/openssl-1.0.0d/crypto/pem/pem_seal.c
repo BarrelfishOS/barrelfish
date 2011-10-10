@@ -59,7 +59,7 @@
 #include <openssl/opensslconf.h>	/* for OPENSSL_NO_RSA */
 #ifndef OPENSSL_NO_RSA
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/objects.h>

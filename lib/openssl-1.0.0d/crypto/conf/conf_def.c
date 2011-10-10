@@ -60,7 +60,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/stack.h>
 #include <openssl/lhash.h>
 #include <openssl/conf.h>

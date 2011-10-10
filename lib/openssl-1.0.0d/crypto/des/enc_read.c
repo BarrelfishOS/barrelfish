@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include "des_locl.h"
 
 /* This has some uglies in it but it works - even over sockets. */

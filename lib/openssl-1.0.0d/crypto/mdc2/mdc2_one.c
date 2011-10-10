@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/mdc2.h>
 
 unsigned char *MDC2(const unsigned char *d, size_t n, unsigned char *md)

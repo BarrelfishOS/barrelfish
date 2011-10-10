@@ -66,7 +66,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 
 #if defined(OPENSSL_SYS_WINCE)
 #elif defined(OPENSSL_SYS_WIN32)

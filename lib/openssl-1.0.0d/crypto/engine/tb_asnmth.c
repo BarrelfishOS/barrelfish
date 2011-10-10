@@ -53,7 +53,7 @@
  */
 
 #include "eng_int.h"
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 #include <openssl/evp.h>
 
 /* If this symbol is defined then ENGINE_get_pkey_asn1_meth_engine(), the

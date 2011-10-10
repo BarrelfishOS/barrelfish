@@ -110,7 +110,7 @@
  */
 
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include "bn_lcl.h"
 
 /* maximum precomputation table size for *variable* sliding windows */

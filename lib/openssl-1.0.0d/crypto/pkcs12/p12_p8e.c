@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/pkcs12.h>
 
 X509_SIG *PKCS8_encrypt(int pbe_nid, const EVP_CIPHER *cipher,

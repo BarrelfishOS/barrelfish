@@ -65,7 +65,7 @@
 #undef USE_SOCKETS
 #define OPENSSL_NO_SOCK
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/bio.h>
 #if defined(OPENSSL_SYS_NETWARE) && defined(NETWARE_BSDSOCK)
 #include <netdb.h>

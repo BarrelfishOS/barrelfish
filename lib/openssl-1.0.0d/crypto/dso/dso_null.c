@@ -60,7 +60,7 @@
  * no appropriate support for "shared-libraries". */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/dso.h>
 
 static DSO_METHOD dso_meth_null = {

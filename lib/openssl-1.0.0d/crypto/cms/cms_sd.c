@@ -51,14 +51,14 @@
  * ====================================================================
  */
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1t.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
 #include <openssl/err.h>
 #include <openssl/cms.h>
 #include "cms_lcl.h"
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 
 /* CMS SignedData Utilities */
 

@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/rand.h>
 #include <openssl/bio.h>
 

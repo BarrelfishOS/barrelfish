@@ -59,7 +59,7 @@
  * and PRIVATEKEYBLOB).
  */
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/bn.h>

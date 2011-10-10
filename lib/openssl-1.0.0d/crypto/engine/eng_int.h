@@ -64,7 +64,7 @@
 #ifndef HEADER_ENGINE_INT_H
 #define HEADER_ENGINE_INT_H
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 /* Take public definitions from engine.h */
 #include <openssl/engine.h>
 

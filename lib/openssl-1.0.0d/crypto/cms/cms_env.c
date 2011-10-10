@@ -51,7 +51,7 @@
  * ====================================================================
  */
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1t.h>
 #include <openssl/pem.h>
 #include <openssl/x509v3.h>
@@ -60,7 +60,7 @@
 #include <openssl/rand.h>
 #include <openssl/aes.h>
 #include "cms_lcl.h"
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 
 /* CMS EnvelopedData Utilities */
 

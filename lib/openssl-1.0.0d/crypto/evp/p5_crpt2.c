@@ -57,7 +57,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #if !defined(OPENSSL_NO_HMAC) && !defined(OPENSSL_NO_SHA)
 #include <openssl/x509.h>
 #include <openssl/evp.h>

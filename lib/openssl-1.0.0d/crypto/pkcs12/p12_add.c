@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/pkcs12.h>
 
 /* Pack an object into an OCTET STRING and turn into a safebag */

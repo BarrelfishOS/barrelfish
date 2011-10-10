@@ -56,7 +56,7 @@
  *
  */
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1.h>
 #include <openssl/x509v3.h>
 

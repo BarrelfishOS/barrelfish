@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #ifndef OPENSSL_NO_RSA
 #include <openssl/rsa.h>
 #include <openssl/objects.h>

@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/bio.h>
 
 static int mem_write(BIO *h, const char *buf, int num);

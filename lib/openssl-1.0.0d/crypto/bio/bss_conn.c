@@ -63,7 +63,7 @@
 #undef USE_SOCKETS
 #define OPENSSL_NO_SOCK
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/bio.h>
 
 #ifndef OPENSSL_NO_SOCK

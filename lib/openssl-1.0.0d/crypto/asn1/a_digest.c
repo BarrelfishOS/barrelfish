@@ -59,7 +59,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 
 #ifndef NO_SYS_TYPES_H
 # include <sys/types.h>

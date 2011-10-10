@@ -56,7 +56,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1t.h>
 #include <openssl/x509.h>
 #ifndef OPENSSL_NO_ENGINE

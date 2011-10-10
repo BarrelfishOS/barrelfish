@@ -91,7 +91,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include "bn_lcl.h"
 
 /* Maximum number of iterations before BN_GF2m_mod_solve_quad_arr should fail. */

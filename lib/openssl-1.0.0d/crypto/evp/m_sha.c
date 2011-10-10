@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 
 #if !defined(OPENSSL_NO_SHA) && !defined(OPENSSL_NO_SHA0)
 

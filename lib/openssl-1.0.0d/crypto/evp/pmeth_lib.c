@@ -58,13 +58,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/objects.h>
 #include <openssl/evp.h>
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
 #endif
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 #include "evp_locl.h"
 
 typedef int sk_cmp_fn_type(const char * const *a, const char * const *b);

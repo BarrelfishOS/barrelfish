@@ -112,7 +112,7 @@
 
 #define USE_SOCKETS
 #include "e_os.h"
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/rand.h>
 #include "rand_lcl.h"
 

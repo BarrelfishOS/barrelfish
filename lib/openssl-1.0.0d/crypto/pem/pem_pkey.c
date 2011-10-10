@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/buffer.h>
 #include <openssl/objects.h>
 #include <openssl/evp.h>
@@ -68,7 +68,7 @@
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
 #endif
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 
 int pem_check_suffix(const char *pem_str, const char *suffix);
 

@@ -57,7 +57,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/asn1t.h>
 #include <openssl/x509.h>
 #include <openssl/rsa.h>
@@ -65,7 +65,7 @@
 #ifndef OPENSSL_NO_CMS
 #include <openssl/cms.h>
 #endif
-#include <local/asn1_locl.h>
+#include <openssl/local/asn1_locl.h>
 
 static int rsa_pub_encode(X509_PUBKEY *pk, const EVP_PKEY *pkey)
 	{

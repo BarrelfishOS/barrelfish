@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/dso.h>
 
 #if !defined(OPENSSL_SYS_BEOS)

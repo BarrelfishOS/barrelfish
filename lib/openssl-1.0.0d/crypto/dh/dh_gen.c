@@ -62,7 +62,7 @@
  */
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/bn.h>
 #include <openssl/dh.h>
 

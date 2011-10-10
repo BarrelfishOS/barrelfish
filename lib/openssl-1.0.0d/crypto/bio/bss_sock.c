@@ -59,7 +59,7 @@
 #include <stdio.h>
 #include <errno.h>
 #define USE_SOCKETS
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 
 #ifndef OPENSSL_NO_SOCK
 

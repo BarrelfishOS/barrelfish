@@ -74,7 +74,7 @@
 #ifndef OPENSSL_NO_SHA
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/evp.h>
 #include <openssl/bn.h>
 #include <openssl/rand.h>

@@ -85,7 +85,7 @@
 
 /* 06-Apr-92 Luke Brennan    Support for VMS */
 #include "des_locl.h"
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>

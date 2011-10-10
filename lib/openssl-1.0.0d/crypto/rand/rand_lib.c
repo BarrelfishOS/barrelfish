@@ -58,7 +58,7 @@
 
 #include <stdio.h>
 #include <time.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/rand.h>
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>

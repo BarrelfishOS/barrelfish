@@ -59,7 +59,7 @@
 #include <string.h>
 
 #include <openssl/crypto.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/pem.h>
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>

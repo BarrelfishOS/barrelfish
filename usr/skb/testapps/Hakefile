@@ -46,6 +46,6 @@
                                  "-Wredundant-decls", "-std=c99" ],
                       addLibraries = [ "crypto", "posixcompat",
                                        "vfs", "nfs", "timer", "lwip" ],
-                      addIncludes = [ "openssl-1.0.0d" ]
+                      addIncludes = [ "openssl" ]
                     }
 ]

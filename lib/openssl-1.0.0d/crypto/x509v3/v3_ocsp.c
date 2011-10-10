@@ -59,7 +59,7 @@
 #ifndef OPENSSL_NO_OCSP
 
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/conf.h>
 #include <openssl/asn1.h>
 #include <openssl/ocsp.h>

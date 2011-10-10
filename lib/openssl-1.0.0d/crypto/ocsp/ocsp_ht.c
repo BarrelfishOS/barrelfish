@@ -60,7 +60,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <local/e_os.h>
+#include <openssl/local/e_os.h>
 #include <openssl/asn1.h>
 #include <openssl/ocsp.h>
 #include <openssl/err.h>

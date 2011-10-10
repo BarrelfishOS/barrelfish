@@ -58,7 +58,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/hmac.h>
 
 int HMAC_Init_ex(HMAC_CTX *ctx, const void *key, int len,

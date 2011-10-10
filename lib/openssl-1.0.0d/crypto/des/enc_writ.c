@@ -59,7 +59,7 @@
 #include <errno.h>
 #include <time.h>
 #include <stdio.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include "des_locl.h"
 #include <openssl/rand.h>
 

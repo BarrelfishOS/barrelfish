@@ -65,7 +65,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <local/cryptlib.h>
+#include <openssl/local/cryptlib.h>
 #include <openssl/bio.h>
 
 #include <iodef.h>		/* VMS IO$_ definitions */
