@@ -194,9 +194,28 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
 static void sp_process_tx_done(struct buffer_desc *buff)
 {
     assert(buff != NULL);
+    assert(lwip_free_handler != 0);
     sp_reload_regs(buff->spp);
+    struct slot_data d;
+    struct pbuf *done_pbuf;
     if (sp_queue_empty(buff->spp)) {
 //        printf("sp_process_tx_done, queue empty, stopping\n");
+        if (sp_is_slot_clear(buff->spp, buff->spp->c_write_id) != 0) {
+            assert(sp_clear_slot(buff->spp, &d, buff->spp->c_write_id));
+            /*
+            printf("sp_process_done for %"PRIu64"\n", i);
+            sp_print_slot(&buff->spp->sp->slot_list[i].d);
+            sp_print_slot(&d);
+            */
+            if (d.client_data == 0) {
+                printf("Failed for id %"PRIu64"\n", buff->spp->c_write_id);
+                sp_print_metadata(buff->spp);
+            }
+            assert(d.client_data != 0);
+            done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
+            lwip_free_handler(done_pbuf);
+        }
+
         return;
     }
 /*    else {
@@ -210,8 +229,6 @@ static void sp_process_tx_done(struct buffer_desc *buff)
 */
     uint64_t current_read = buff->spp->c_read_id;
 //    uint64_t current_write = buff->spp->c_write_id;
-    struct slot_data d;
-    assert(lwip_free_handler != 0);
     uint64_t i = buff->spp->c_write_id;
     // FIXME: use pre_write_id as cache of how much is already cleared
    i = buff->spp->pre_write_id;
@@ -232,7 +249,7 @@ static void sp_process_tx_done(struct buffer_desc *buff)
                 sp_print_metadata(buff->spp);
             }
             assert(d.client_data != 0);
-            struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
+            done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
             lwip_free_handler(done_pbuf);
  //           printf("Freed up pbuf slot %"PRIu64"\n", i);
         } // end if : sp_is_slot_clear
