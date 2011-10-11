@@ -394,7 +394,8 @@ static void polling_loop(void)
     struct waitset *ws = get_default_waitset();
     while (1) {
 //    	printf("polling loop: waiting for event\n");
-        while(handle_free_TX_slot_fn());
+//        while(handle_free_TX_slot_fn());
+        do_pending_work_for_all();
 //        handle_free_TX_slot_fn();
         err = event_dispatch(ws);
         if (err_is_fail(err)) {

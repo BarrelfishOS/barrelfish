@@ -30,7 +30,7 @@
 #include "ethersrv_debug.h"
 
 
-//#define USE_SPP_FOR_TX_DONE 1
+#define USE_SPP_FOR_TX_DONE 1
 
 /* Enable tracing based on the global settings. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
@@ -667,6 +667,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
     while (handle_free_tx_slot_fn_ptr());
 }
 
+
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
     struct client_closure *closure = (struct client_closure *)cc->st;
@@ -781,10 +782,9 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 
 } // end function: send_single_pkt_to_driver
 
-static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
-                uint64_t rts)
+static uint64_t send_packets_on_wire(struct ether_binding *cc)
 {
-
+    uint64_t pkts = 0;
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
@@ -794,43 +794,72 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
     assert(spp->sp != NULL);
 
     uint64_t ts = rdtsc();
-    if (closure->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_NOTI_CS, rts);
-    }
 
     sp_reload_regs(spp);
     if (!sp_queue_empty(spp)) {
         // There are no packets
         while (send_single_pkt_to_driver(cc));
         sp_reload_regs(spp);
+        ++pkts;
     }
-
-#ifndef USE_SPP_FOR_TX_DONE
-    // FIXME: following should become part of handling free_tx
-/*    printf("#### setting read index to GRI %"PRIu64"\n", spp->ghost_read_id);
-    for (uint64_t ii = spp->c_read_id; ii < spp->ghost_read_id; ++ii) {
-        printf("Consumed following slot with id %"PRIu64"\n", ii);
-        sp_print_slot(&spp->sp->slot_list[ii].d);
-    }
-    */
-    if(!sp_set_read_index(spp, spp->ghost_read_id)) {
-        printf("failed for %"PRIu64"\n", spp->ghost_read_id);
-        sp_print_metadata(spp);
-        assert(!"sp_set_read_index failed");
-    }
-#endif // USE_SPP_FOR_TX_DONE
 
     if (closure->debug_state_tx == 3) {
         bm_record_event_simple(RE_TX_NOTI, ts);
     }
 
-    // Check if there are any free TX slot from the packets which are sent.
+    return pkts;
+
+    if (closure->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_NOTI_ALL, ts);
+    }
+
+
+}
+
+static errval_t send_sp_notification_from_driver(struct q_entry e)
+{
+//    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
+    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct client_closure *ccl = (struct client_closure *) b->st;
+    if (ccl->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_SP_MSG_Q, e.plist[1]);
+    }
+    uint64_t ts = rdtsc();
+    if (b->can_send(b)) {
+        ++ccl->tx_done_count;
+        errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
+                MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
+                // type, ts
+        if (ccl->debug_state_tx == 3) {
+            bm_record_event_simple(RE_TX_SP_MSG, ts);
+        }
+        return err;
+    } else {
+        ETHERSRV_DEBUG("send_sp_notification_from_driver: Flounder busy.."
+                "retry --------\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+
+static void do_pending_work(struct ether_binding *b)
+{
+    struct client_closure *closure = (struct client_closure *)b->st;
+    assert(closure != NULL);
+    struct buffer_descriptor *buffer = closure->buffer_ptr;
+    assert(buffer != NULL);
+    struct shared_pool_private *spp = buffer->spp;
+    assert(spp != NULL);
+    assert(spp->sp != NULL);
+
+    // Check if there are more packets to be sent on wire
+    uint64_t pkts = 0;
+    pkts = send_packets_on_wire(b);
+
+//    printf("do_pending_work: sent packets[%"PRIu64"]\n", pkts);
+    // Check if there are more pbufs which are to be marked free
     while (handle_free_tx_slot_fn_ptr());
 
-    if (spp->notify_other_side) {
-        // FIXME: send notification to application, telling that there is
-        // no more data
-    }
 
     if (sp_queue_full(spp)) {
         // app is complaining about TX queue being full
@@ -838,9 +867,45 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
         while (handle_free_tx_slot_fn_ptr());
     }
 
-    if (closure->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_NOTI_ALL, ts);
+    if (spp->notify_other_side) {
+        // FIXME: send notification to application, telling that there is
+        // no more data
+        struct q_entry entry;
+        memset(&entry, 0, sizeof(struct q_entry));
+        entry.handler = send_sp_notification_from_driver;
+        entry.binding_ptr = (void *) b;
+        entry.plist[0] = 1; // FIXME: will have to define these values
+        // FIXME: Get the remaining slots value from the driver
+        entry.plist[1] = rdtsc();
+        enqueue_cont_q(closure->q, &entry);
+//        printf("notfify client 1: notification enqueued\n");
+        spp->notify_other_side = 0;
     }
+}
+
+
+void do_pending_work_for_all(void)
+{
+
+    struct buffer_descriptor *next_buf = buffers_list;
+    while (next_buf != NULL) {
+        do_pending_work(next_buf->con);
+        next_buf = next_buf->next;
+    }
+}
+
+
+static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
+                uint64_t rts)
+{
+
+    struct client_closure *closure = (struct client_closure *)cc->st;
+    assert(closure != NULL);
+    if (closure->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_NOTI_CS, rts);
+    }
+    // FIXME : call schedule work
+    do_pending_work(cc);
 
 } // end function:  sp_notification_from_app
 
@@ -1861,32 +1926,6 @@ static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 
 /******************  *************************/
 
-#ifdef USE_SPP_FOR_TX_DONE
-static errval_t send_sp_notification_from_driver(struct q_entry e)
-{
-//    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-    if (ccl->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_SP_MSG_Q, e.plist[1]);
-    }
-    uint64_t ts = rdtsc();
-    if (b->can_send(b)) {
-        ++ccl->tx_done_count;
-        errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
-                MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
-                // type, ts
-        if (ccl->debug_state_tx == 3) {
-            bm_record_event_simple(RE_TX_SP_MSG, ts);
-        }
-        return err;
-    } else {
-        ETHERSRV_DEBUG("send_sp_notification_from_driver: Flounder busy.."
-                "retry --------\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
 
 bool notify_client_free_tx(struct ether_binding * b,
                            uint64_t client_data,
@@ -1895,7 +1934,6 @@ bool notify_client_free_tx(struct ether_binding * b,
                            uint64_t slots_left,
                            uint64_t dropped)
 {
-    printf("Inside notfify client 1!\n");
 //    uint64_t ts = rdtsc();
     assert(b != NULL);
     struct client_closure *cc = (struct client_closure *)b->st;
@@ -1906,11 +1944,11 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
-    printf("Notifying the app for %"PRIu64"\n", spp_index);
-    if(!sp_set_read_index(spp, spp_index)) {
-        printf("failed for %"PRIu64"\n",spp_index);
-        sp_print_metadata(spp);
-        assert(!"sp_set_read_index failed");
+//    printf("Notifying the app for %"PRIu64"\n", spp_index);
+    if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
+//        printf("failed for %"PRIu64"\n",spp_index);
+//        sp_print_metadata(spp);
+//        assert(!"sp_set_read_index failed");
     }
 
     if (spp->notify_other_side == 0) {
@@ -1918,6 +1956,7 @@ bool notify_client_free_tx(struct ether_binding * b,
         if (cc->debug_state_tx == 3) {
             bm_record_event_simple(RE_TX_DONE_NN, rts);
         }
+//        printf("notfify client 1: sending no notifications!\n");
         return true;
     }
 
@@ -1929,82 +1968,11 @@ bool notify_client_free_tx(struct ether_binding * b,
 //        return false;
 //    }
 
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_sp_notification_from_driver;
-    entry.binding_ptr = (void *) b;
-    entry.plist[0] = 1; // FIXME: will have to define these values
-    // FIXME: Get the remaining slots value from the driver
-    entry.plist[1] = rdtsc();
-    enqueue_cont_q(cc->q, &entry);
     if (cc->debug_state_tx == 3) {
         bm_record_event_simple(RE_TX_DONE_N, rts);
     }
     return true;
 }
-#else // USE_SPP_FOR_TX_DONE
-
-static errval_t send_tx_done_handler(struct q_entry e)
-{
-//    ETHERSRV_DEBUG("send_tx_done_handler -----\n");
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-    if (b->can_send(b)) {
-        ++ccl->tx_done_count;
-        return b->tx_vtbl.tx_done(b, MKCONT(cont_queue_callback, ccl->q),
-                                  e.plist[0], e.plist[1], e.plist[2]);
-        //  client_data,   slots_left, dropped
-    } else {
-        ETHERSRV_DEBUG("send_tx_done_handler Flounder busy.. retry --------\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-
-bool notify_client_free_tx(struct ether_binding * b,
-                           uint64_t client_data,
-                           uint64_t spp_index,
-                           uint64_t rts,
-                           uint64_t slots_left,
-                           uint64_t dropped)
-{
-//    printf("Inside notfify client!\n");
-    assert(b != NULL);
-    struct client_closure *cc = (struct client_closure *) b->st;
-    assert(cc != NULL);
-    struct buffer_descriptor *buffer = cc->buffer_ptr;
-    assert(buffer != NULL);
-    struct shared_pool_private *spp = buffer->spp;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
-
-
-    if (queue_free_slots(cc->q) < 10) {
-//            printf("sending TX_done too fast %d\n",
-//            queue_free_slots(cc->q));
-        return false;
-    }
-//        ++cc->tx_done_count;
-    struct q_entry entry;
-
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_tx_done_handler;
-    entry.binding_ptr = (void *) b;
-    entry.plist[0] = client_data;
-    // FIXME: Get the remaining slots value from the driver
-    entry.plist[1] = slots_left;
-    entry.plist[2] = dropped;
-    enqueue_cont_q(cc->q, &entry);
-/*
-    printf("notfify client, checking slot 0 !\n");
-    sp_print_slot(&spp->sp->slot_list[0].d);
-    printf("notfify client, for CL %"PRIu64"\n", client_data);
-*/
-    return true;
-}
-#endif // USE_SPP_FOR_TX_DONE
 
 static errval_t send_received_packet_handler(struct q_entry entry)
 {

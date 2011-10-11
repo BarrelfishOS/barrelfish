@@ -209,12 +209,14 @@ static void sp_process_tx_done(struct buffer_desc *buff)
     sp_print_slot(&buff->spp->sp->slot_list[0].d);
 */
     uint64_t current_read = buff->spp->c_read_id;
+//    uint64_t current_write = buff->spp->c_write_id;
     struct slot_data d;
     assert(lwip_free_handler != 0);
     uint64_t i = buff->spp->c_write_id;
     // FIXME: use pre_write_id as cache of how much is already cleared
    i = buff->spp->pre_write_id;
-//    while (!sp_gen_queue_full(buff->spp->c_read_id, i, buff->spp->c_size)) {
+//    printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
+//            i, current_read);
     while (sp_c_between(buff->spp->c_write_id, i, current_read,
                 buff->spp->c_size)) {
 
@@ -231,11 +233,13 @@ static void sp_process_tx_done(struct buffer_desc *buff)
             }
             assert(d.client_data != 0);
             struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
-//            lwip_free_handler(done_pbuf);
+            lwip_free_handler(done_pbuf);
+ //           printf("Freed up pbuf slot %"PRIu64"\n", i);
         } // end if : sp_is_slot_clear
 //        buff->spp->pre_write_id = i;
         i = (i + 1) % buff->spp->c_size;
     } // end while:
+//    printf("sp_process_tx_done is done\n");
 }
 
 
@@ -357,6 +361,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     // check and process any tx_done's
     sp_process_tx_done(buff_ptr);
 
+//    printf("idc_send_packet_to_network_driver  is done\n");
         return 0;
     }
 
@@ -805,7 +810,6 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
 static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
         uint64_t rts)
 {
-    printf("inside app sp notification!\n");
     lwip_mutex_lock();
     uint64_t ts = rdtsc();
     assert(b != NULL);

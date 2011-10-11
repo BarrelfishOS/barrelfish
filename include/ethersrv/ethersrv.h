@@ -255,6 +255,7 @@ struct filter *execute_filters(void *data, size_t len);
 bool copy_packet_to_user(struct buffer_descriptor* buffer,
 				void *data, uint64_t len);
 
+void do_pending_work_for_all(void);
 
 //debug
 void print_statistics(void);
