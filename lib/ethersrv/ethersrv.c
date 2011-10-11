@@ -670,6 +670,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
+    uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
@@ -752,6 +753,10 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
          * Also, is it certain that all packets start with pbuf[0]??
          * Mostly this will lead to re-write of bulk-transfer mode.  */
 
+        if (closure->debug_state_tx == 3) {
+            bm_record_event_simple(RE_TX_SP_F, ts);
+        }
+
         assert(closure->pbuf[0].sr);
         bool ret = notify_client_free_tx(closure->pbuf[0].sr,
                                          closure->pbuf[0].client_data,
@@ -766,9 +771,13 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             // FIXME: What type of error handling to use?
         }
     } else {
-        // successfull transfer!
+        // successfull traInsfer!
         ++closure->pkt_count;
         closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
+        if (closure->debug_state_tx == 3) {
+            bm_record_event_simple(RE_TX_SP_S, ts);
+        }
+
 /*        printf("successful transer, counter incremented %"PRIu64"\n",
                 closure->pbuf_count);
 */
@@ -804,16 +813,9 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     }
 
     if (closure->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_NOTI, ts);
+        bm_record_event_simple(RE_TX_T, ts);
     }
-
     return pkts;
-
-    if (closure->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_NOTI_ALL, ts);
-    }
-
-
 }
 
 static errval_t send_sp_notification_from_driver(struct q_entry e)
@@ -844,6 +846,7 @@ static errval_t send_sp_notification_from_driver(struct q_entry e)
 
 static void do_pending_work(struct ether_binding *b)
 {
+    uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)b->st;
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
@@ -880,6 +883,10 @@ static void do_pending_work(struct ether_binding *b)
         enqueue_cont_q(closure->q, &entry);
 //        printf("notfify client 1: notification enqueued\n");
         spp->notify_other_side = 0;
+    }
+
+    if (closure->debug_state_tx == 3) {
+        bm_record_event_simple(RE_TX_W_ALL, ts);
     }
 }
 
@@ -1946,6 +1953,8 @@ bool notify_client_free_tx(struct ether_binding * b,
 
 //    printf("Notifying the app for %"PRIu64"\n", spp_index);
     if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
+        // FIXME:  This is dengarous!  I should increase read index,
+        // only when all the packets till that read index are sent!
 //        printf("failed for %"PRIu64"\n",spp_index);
 //        sp_print_metadata(spp);
 //        assert(!"sp_set_read_index failed");
@@ -2682,6 +2691,7 @@ void bm_print_event_stat(uint8_t event_type, char *event_name)
 
 void bm_print_interesting_stats(void)
 {
+    /*
     bm_print_event_stat(RE_FILTER,       "D: RX Filter time");
     bm_print_event_stat(RE_COPY,         "D: RX copy time");
     bm_print_event_stat(RE_PBUF_REG,     "D: RX pbuf reg time");
@@ -2690,10 +2700,13 @@ void bm_print_interesting_stats(void)
     bm_print_event_stat(RE_USEFUL,       "D: RX useful time");
     bm_print_event_stat(RE_PKT_RECV_Q,   "D: RX queue");
     bm_print_event_stat(RE_PBUF_REG_CS,  "D: RX REG pbuf CS");
+    */
     bm_print_event_stat(RE_TX_NOTI_CS,   "D: TX REG NOTI CS");
-    bm_print_event_stat(RE_TX_NOTI,      "D: TX NOTI");
+    bm_print_event_stat(RE_TX_T,         "D: TX T");
+    bm_print_event_stat(RE_TX_SP_S,      "D: TX SP_S");
+    bm_print_event_stat(RE_TX_SP_F,      "D: TX SP_F");
     bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
-    bm_print_event_stat(RE_TX_NOTI_ALL,  "D: TX NOTI_ALL");
+    bm_print_event_stat(RE_TX_W_ALL,     "D: TX W_ALL");
     bm_print_event_stat(RE_TX_DONE_NN,   "D: TX DONE_NN");
     bm_print_event_stat(RE_TX_DONE_N,    "D: TX DONE_N");
     bm_print_event_stat(RE_TX_SP_MSG,    "D: TX SP_MSG");

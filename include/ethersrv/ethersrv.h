@@ -271,17 +271,20 @@ enum Recorded_Events {
     RE_PKT_RECV_MSG = 6,
     RE_PKT_RECV_Q = 7,
     RE_PBUF_REG_CS = 8,
+
     RE_TX_NOTI_CS,
-    RE_TX_NOTI,
+    RE_TX_T,
+    RE_TX_SP_S,
+    RE_TX_SP_F,
     RE_TX_DONE,
-    RE_TX_NOTI_ALL,
+    RE_TX_W_ALL,
     RE_TX_DONE_NN,
     RE_TX_DONE_N,
     RE_TX_SP_MSG,
     RE_TX_SP_MSG_Q,
 };
 
-#define EVENT_LIST_SIZE  20
+#define EVENT_LIST_SIZE  30
 
 enum Recorded_DataTypes {
     RDT_COUNT = 0,
