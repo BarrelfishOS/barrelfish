@@ -195,20 +195,46 @@ static void sp_process_tx_done(struct buffer_desc *buff)
 {
     assert(buff != NULL);
     sp_reload_regs(buff->spp);
+    if (sp_queue_empty(buff->spp)) {
+//        printf("sp_process_tx_done, queue empty, stopping\n");
+        return;
+    }
+/*    else {
+        sp_print_metadata(buff->spp);
+        printf("sp_process_tx_done, queue not empty, procedding\n");
+    }
+*/
+
+/*    printf("inside sp_process_tx_done, slot 0\n");
+    sp_print_slot(&buff->spp->sp->slot_list[0].d);
+*/
+    uint64_t current_read = buff->spp->c_read_id;
     struct slot_data d;
     assert(lwip_free_handler != 0);
     uint64_t i = buff->spp->c_write_id;
     // FIXME: use pre_write_id as cache of how much is already cleared
-//    i = buff->spp->pre_write_id;
-    while (!sp_gen_queue_full(buff->spp->c_read_id, i, buff->spp->c_size)) {
+   i = buff->spp->pre_write_id;
+//    while (!sp_gen_queue_full(buff->spp->c_read_id, i, buff->spp->c_size)) {
+    while (sp_c_between(buff->spp->c_write_id, i, current_read,
+                buff->spp->c_size)) {
 
         if (sp_is_slot_clear(buff->spp, i) != 0) {
-            sp_clear_slot(buff->spp, &d, i);
+            assert(sp_clear_slot(buff->spp, &d, i));
+            /*
+            printf("sp_process_done for %"PRIu64"\n", i);
+            sp_print_slot(&buff->spp->sp->slot_list[i].d);
+            sp_print_slot(&d);
+            */
+            if (d.client_data == 0) {
+                printf("Failed for id %"PRIu64"\n", i);
+                sp_print_metadata(buff->spp);
+            }
             assert(d.client_data != 0);
             struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
-            lwip_free_handler(done_pbuf);
-        }
-        buff->spp->pre_write_id = i;
+//            lwip_free_handler(done_pbuf);
+        } // end if : sp_is_slot_clear
+//        buff->spp->pre_write_id = i;
+        i = (i + 1) % buff->spp->c_size;
     } // end while:
 }
 
@@ -218,6 +244,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     ptrdiff_t offset;
     struct buffer_desc *buff_ptr;
     struct slot_data s;
+
 
     uint64_t ts = rdtsc();
     assert(p != NULL);
@@ -231,6 +258,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         numpbufs++;
     }
     buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
+//    printf("to_network_driver 1, slot 0\n");
+//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+
     if (sp_queue_free_slots_count(buff_ptr->spp) < numpbufs) {
         if (benchmark_mode > 0) {
             lwip_record_event_no_ts(TX_SPP_FULL);
@@ -249,6 +279,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     mfence();                   // ensure that we flush all of the packet payload
 #endif                          // !defined(__scc__)
 
+//    printf("to_network_driver 2, slot 0\n");
+//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+
     int i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
 
@@ -256,23 +289,41 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         cache_flush_range(tmpp->payload, tmpp->len);
 #endif // !defined(__scc__)
 
+//    printf("to_network_driver 3, slot 0\n");
+//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+
         assert(buff_ptr == mem_barrelfish_get_buffer_desc(tmpp->payload));
+
+        assert(!sp_queue_full(buff_ptr->spp));
 
         bulk_arch_prepare_send((void *) tmpp->payload, tmpp->len);
         offset = (uintptr_t) tmpp->payload - (uintptr_t) (buff_ptr->va);
 
         s.buffer_id = buff_ptr->buffer_id;
         s.no_pbufs = numpbufs - i++;
+        s.pbuf_id = ghost_write_index;
         s.offset = offset;
         s.len = tmpp->len;
         s.client_data = (uintptr_t)tmpp;
         s.ts = rdtsc();
-/*
+
+//    printf("to_network_driver 4, slot 0\n");
+//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+//#ifdef USE_SPP_FOR_TX
         if (sp_is_slot_clear(buff_ptr->spp, ghost_write_index) != 0) {
+            /*
+            printf("############ trying to clear %"PRIu64"\n",
+                    ghost_write_index);
+            */
             sp_process_tx_done(buff_ptr);
-            assert(sp_is_slot_clear(buff_ptr->spp, ghost_write_index) == 0);
+
+            if (sp_is_slot_clear(buff_ptr->spp, ghost_write_index) != 0) {
+                printf("Slot not clear for index %"PRIu64"\n", ghost_write_index);
+                sp_print_metadata(buff_ptr->spp);
+                assert(!"Slot not clear!!!\n");
+            }
         }
-*/
+//#endif // USE_SPP_FOR_TX
 
         if (!sp_ghost_produce_slot(buff_ptr->spp, &s, ghost_write_index)) {
             printf("sp_ghost_produce_slot: failed, %"PRIu64"\n",
@@ -281,6 +332,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             assert(!"sp_ghost_produce_slot: failed\n");
             return 0;
         }
+//    printf("to_network_driver 5, slot 0\n");
+//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+
         ghost_write_index = (ghost_write_index + 1) % queue_size;
     } // end for: for each pbuf in packet
 
@@ -298,9 +352,18 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         if (benchmark_mode > 0) {
             lwip_record_event_simple(TX_SP1, ts);
         }
+//    printf("to_network_driver 6, slot 0\n");
+//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+    // check and process any tx_done's
+    sp_process_tx_done(buff_ptr);
+
         return 0;
     }
 
+    /*
+    printf("to_network_driver 7, slot 0\n");
+    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+    */
     // It seems that there we should send a notification to other side
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
@@ -327,8 +390,12 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
          printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
 
     // Done with even notification sending!
+/*
+    printf("to_network_driver 8, slot 0\n");
+    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+*/
     // check and process any tx_done's
-//    sp_process_tx_done(buff_ptr);
+    sp_process_tx_done(buff_ptr);
 
     // FIXME: change the return value to reflect success/failure
     return 0;
@@ -766,7 +833,17 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
                     uint64_t slots_left, uint64_t dropped)
 {
     struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) client_data;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)st->st;
+    assert(ccnc != NULL);
+    struct buffer_desc *buff = ccnc->buff_ptr;
+    assert(buff != NULL);
 
+    /*
+    printf("tx_done for %"PRIu64"\n", client_data);
+
+    printf("tx_done: and slot zero is \n" );
+    sp_print_slot(&buff->spp->sp->slot_list[0].d);
+    */
     lwip_mutex_lock();
 
     // FIXME: use the slots_left and dropped info
@@ -792,6 +869,10 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
                 "freeing pbufs installed.\n");
     }
 
+    /*
+    printf("tx_done: and slot zero after lwip_free_handler \n" );
+    sp_print_slot(&buff->spp->sp->slot_list[0].d);
+    */
     lwip_mutex_unlock();
 
 /*    LWIPBF_DEBUG("tx_done: terminated\n");	*/

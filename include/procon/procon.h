@@ -85,6 +85,7 @@ struct shared_pool_private {
     uint64_t    notify_other_side; // Something has happened here
     uint64_t    produce_counter;
     uint64_t    consume_counter;
+    uint64_t    clear_counter;
     uint64_t    c_read_id;
     uint64_t    c_write_id;
     uint64_t    c_size;

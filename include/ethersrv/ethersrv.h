@@ -233,13 +233,15 @@ bool notify_client_free_tx(struct ether_binding * b,
                            uint64_t rts,
                            uint64_t slots_left,
                            uint64_t dropped);
-
+/*
 bool notify_client_free_tx1(struct ether_binding * b,
                            uint64_t client_data,
                            uint64_t spp_index,
                            uint64_t rts,
                            uint64_t slots_left,
                            uint64_t dropped);
+*/
+
 
 void process_received_packet(void *pkt_data, size_t pkt_len);
 

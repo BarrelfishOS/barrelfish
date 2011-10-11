@@ -153,7 +153,7 @@ uint64_t sp_get_queue_size(struct shared_pool_private *spp)
 // Checks for queue empty condition
 bool sp_queue_empty(struct shared_pool_private *spp)
 {
-    sp_reload_regs(spp);
+//    sp_reload_regs(spp);
     return sp_gen_queue_empty(spp->c_read_id, spp->c_write_id);
 }
 
@@ -258,9 +258,10 @@ static void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
     spp->notify_other_side = 0;
     spp->ghost_read_id = spp->c_read_id;
     spp->ghost_write_id = spp->c_write_id;
-    spp->pre_write_id = spp->c_write_id;
+    spp->pre_write_id = spp->c_read_id;
     spp->produce_counter = 0;
     spp->consume_counter = 0;
+    spp->clear_counter = 0;
 } // sp_reset_pool
 
 
@@ -355,10 +356,11 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
 
     spp->ghost_read_id = spp->c_read_id;
     spp->ghost_write_id = spp->c_write_id;
-    spp->pre_write_id = spp->c_write_id;
+    spp->pre_write_id = spp->c_read_id;
     spp->notify_other_side = 0;
     spp->produce_counter = 0;
     spp->consume_counter = 0;
+    spp->clear_counter = 0;
 
     printf("Mapped shared_pool of size(R %"PRIu64", A %"PRIu64") "
             "with role [%"PRIu8"], slots[%"PRIu64"] and pool len[%"PRIu64"]\n",
@@ -473,10 +475,38 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
     return true;
 } // end function: sp_set_write_index
 
+
+
 uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
 {
     sp_reload_regs(spp);
-    assert(sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size));
+    if (!sp_queue_empty(spp)) {
+        if(!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
+            sp_print_metadata(spp);
+            printf("failed for id %"PRIu64"\n", id);
+            printf("callstack: %p %p %p %p\n",
+	         __builtin_return_address(0),
+	         __builtin_return_address(1),
+	         __builtin_return_address(2),
+	         __builtin_return_address(3));
+        }
+        assert(sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size));
+    }
+    /*
+    else {
+        // queue empty!
+        if (id == spp->c_write_id) {
+            sp_print_metadata(spp);
+            printf("failed for id %"PRIu64"\n", id);
+            printf("callstack: %p %p %p %p\n",
+	         __builtin_return_address(0),
+	         __builtin_return_address(1),
+	         __builtin_return_address(2),
+	         __builtin_return_address(3));
+        }
+        assert(id != spp->c_write_id);
+    }
+    */
     return spp->sp->slot_list[id].d.client_data;
 }
 
@@ -493,8 +523,14 @@ bool sp_clear_slot(struct shared_pool_private *spp, struct slot_data *d,
         return false;
     }
 
-    sp_copy_slot_data(&spp->sp->slot_list[id].d, d);
+    sp_copy_slot_data(d, &spp->sp->slot_list[id].d);
+    spp->pre_write_id = id;
+/*    printf("%s Slot %p with id %"PRIu64" is cleared and had %"PRIu64", %"PRIu64"\n",
+            disp_name(), &spp->sp->slot_list[id].d,
+            id, spp->sp->slot_list[id].d.client_data, d->client_data);
+*/
     spp->sp->slot_list[id].d.client_data = 0;
+    ++spp->clear_counter;
 
     return true;
 } // end function: sp_clear_slot
@@ -514,7 +550,7 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
     sp_copy_slot_data(&spp->sp->slot_list[wi].d, d);
 
 #if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(&spp->sp->slot_list[wi].d, SLOT_SIZE);
+        cache_flush_range(&spp->sp->slot_list[wi], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
 
     // Incrementing write pointer
@@ -547,10 +583,15 @@ bool sp_ghost_produce_slot(struct shared_pool_private *spp,
 
     sp_copy_slot_data(&spp->sp->slot_list[index].d, d);
 #if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(&spp->sp->slot_list[index].d, SLOT_SIZE);
+        cache_flush_range(&spp->sp->slot_list[index], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
     // Incrementing write pointer
     spp->ghost_write_id = (index + 1) % spp->c_size;
+    /*
+    printf("ghost produce slot, producing for %"PRIu64", val %"PRIu64"\n",
+            index, d->client_data);
+   sp_print_slot(&spp->sp->slot_list[index].d);
+   */
     return true;
 } // end function: sp_produce_slot
 
@@ -578,10 +619,15 @@ bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst)
     }
 
     //  Copying the slot data contents into provided slot
+/*
 #if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(&spp->sp->slot_list[spp->ghost_read_id].d, SLOT_SIZE);
+        cache_flush_range(&spp->sp->slot_list[spp->ghost_read_id], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
+*/
     sp_copy_slot_data(dst, &spp->sp->slot_list[spp->ghost_read_id].d);
+/*    printf("After copying data from id %"PRIu64"\n", spp->ghost_read_id);
+    sp_print_slot(&spp->sp->slot_list[spp->ghost_read_id].d);
+*/
     spp->ghost_read_id = (spp->ghost_read_id + 1) % spp->c_size;
     return true;
 } // end function: sp_read_peak_slot
@@ -616,13 +662,13 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
     // swapping the slot_data contents between ri and new_slot
     struct slot_data tmp;
 #if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(&spp->sp->slot_list[ri].d, SLOT_SIZE);
+        cache_flush_range(&spp->sp->slot_list[ri], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
     sp_copy_slot_data(&tmp, &spp->sp->slot_list[ri].d);
     sp_copy_slot_data(&spp->sp->slot_list[ri].d, new_slot);
     sp_copy_slot_data(new_slot, &tmp);
 #if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(&spp->sp->slot_list[ri].d, SLOT_SIZE);
+        cache_flush_range(&spp->sp->slot_list[ri], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
 
     // Incrementing read index
@@ -635,12 +681,15 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
 void sp_print_metadata(struct shared_pool_private *spp)
 {
     assert(spp != NULL);
-    sp_reload_regs(spp);
-    printf("SPP Q C[%"PRIu8"], R[%"PRIu8"], GRI[%"PRIu64"], GWI[%"PRIu64"]\n",
+//    sp_reload_regs(spp);
+    printf("SPP Q C[%"PRIu8"], R[%"PRIu8"], GRI[%"PRIu64"], GWI[%"PRIu64"] "
+            "pre_write_id[%"PRIu64"]\n",
             spp->is_creator?1:0, spp->role,
-            spp->ghost_read_id, spp->ghost_write_id);
-    printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"]\n",
-            spp->produce_counter, spp->consume_counter);
+            spp->ghost_read_id, spp->ghost_write_id, spp->pre_write_id);
+    printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
+            spp->produce_counter, spp->consume_counter, spp->clear_counter);
+    printf("SPP S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
+            spp->c_read_id, spp->c_write_id);
 
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);
@@ -655,10 +704,10 @@ void sp_print_metadata(struct shared_pool_private *spp)
 
 void sp_print_slot(struct slot_data *d)
 {
-    printf("buf[%"PRIu64"], pbuf_id[%"PRIu64"], offset[%"PRIu64"], "
+    printf("%s @%p, buf[%"PRIu64"], pbuf_id[%"PRIu64"], offset[%"PRIu64"], "
             "len[%"PRIu64"], n_p[%"PRIu64"], CL[%"PRIu64"], ts[%"PRIu64"]\n",
-            d->buffer_id, d->pbuf_id, d->offset, d->len, d->no_pbufs,
-            d->client_data, d->ts);
+            disp_name(), d, d->buffer_id, d->pbuf_id, d->offset, d->len,
+            d->no_pbufs, d->client_data, d->ts);
 }
 
 // Code for testing and debugging the library
