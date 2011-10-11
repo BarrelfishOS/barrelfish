@@ -284,7 +284,7 @@ enum Recorded_Events {
     RE_TX_SP_MSG_Q,
 };
 
-#define EVENT_LIST_SIZE  30
+#define EVENT_LIST_SIZE  20
 
 enum Recorded_DataTypes {
     RDT_COUNT = 0,

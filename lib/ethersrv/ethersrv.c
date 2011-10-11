@@ -104,9 +104,11 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
                         struct capref sp, uint64_t slots, uint8_t role);
 static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
                           uint64_t paddr, uint64_t len, uint64_t rts);
+/*
 static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
                 uint64_t buffer_id, uint64_t len, uint64_t offset,
                 uint64_t client_data);
+*/
 static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
                 uint64_t ts);
 
@@ -141,7 +143,7 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
 static struct ether_rx_vtbl rx_ether_vtbl = {
     .register_buffer = register_buffer,
     .register_pbuf = register_pbuf,
-    .transmit_packet = transmit_packet,
+//    .transmit_packet = transmit_packet,
     .sp_notification_from_app = sp_notification_from_app,
     .get_mac_address = get_mac_addr,
     .print_statistics = print_statistics_handler,
@@ -563,7 +565,7 @@ static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
     }
 }
 
-
+#if 0
 static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
                             uint64_t buffer_id, uint64_t len, uint64_t offset,
                             uint64_t client_data)
@@ -666,7 +668,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
     // which are sent.
     while (handle_free_tx_slot_fn_ptr());
 }
-
+#endif // 0
 
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
@@ -802,7 +804,7 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
-    uint64_t ts = rdtsc();
+//    uint64_t ts = rdtsc();
 
     sp_reload_regs(spp);
     if (!sp_queue_empty(spp)) {
@@ -813,7 +815,7 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     }
 
     if (closure->debug_state_tx == 3) {
-        bm_record_event_simple(RE_TX_T, ts);
+        bm_record_event_simple(RE_TX_T, pkts);
     }
     return pkts;
 }
@@ -2678,17 +2680,19 @@ void bm_print_event_stat(uint8_t event_type, char *event_name)
             in_seconds(stats[et][RDT_MAX]),
             in_seconds(stats[et][RDT_MIN]),
             in_seconds(stats[et][RDT_SUM]));
-    /*
+} // end function: print_event_stat
+
+static void bm_print_event_stat_no(uint8_t event_type, char *event_name)
+{
+    uint8_t et = event_type;
     printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
             "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
             et, stats[et][RDT_COUNT],
-            (stats[et][RDT_SUM]/stats[et][RDT_COUNT]),
+            (my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
             (stats[et][RDT_MAX]),
             (stats[et][RDT_MIN]),
             (stats[et][RDT_SUM]));
-    */
-} // end function: print_event_stat
-
+}
 void bm_print_interesting_stats(void)
 {
     /*
@@ -2702,7 +2706,7 @@ void bm_print_interesting_stats(void)
     bm_print_event_stat(RE_PBUF_REG_CS,  "D: RX REG pbuf CS");
     */
     bm_print_event_stat(RE_TX_NOTI_CS,   "D: TX REG NOTI CS");
-    bm_print_event_stat(RE_TX_T,         "D: TX T");
+    bm_print_event_stat_no(RE_TX_T,         "D: TX T");
     bm_print_event_stat(RE_TX_SP_S,      "D: TX SP_S");
     bm_print_event_stat(RE_TX_SP_F,      "D: TX SP_F");
     bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");

@@ -167,7 +167,7 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
 	errval_t r;
-        while(handle_free_TX_slot_fn());
+//        while(handle_free_TX_slot_fn());
 //        handle_free_TX_slot_fn();
 
 	if (!can_transmit(cl->rtpbuf)){
