@@ -188,7 +188,7 @@ uint64_t sp_queue_elements_count(struct shared_pool_private *spp)
 {
     sp_reload_regs(spp);
     return sp_c_range_size(spp->c_read_id, spp->c_write_id, spp->c_size);
-} // end function: sp_queue_element_count
+} // end function: sp_queue_elements_count
 
 // Checks if given index is write peekable or not
 bool sp_write_peekable_index(struct shared_pool_private *spp, uint64_t index)

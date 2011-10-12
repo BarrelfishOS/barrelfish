@@ -316,6 +316,9 @@ static void reset_client_closure_stat(struct client_closure *cc)
     cc->start_ts = 0;
     cc->start_ts_tx = 0;
     cc->pkt_count = 0;
+    cc->hw_queue = 0;
+    cc->tx_explicit_msg_needed = 0;
+    cc->tx_notification_sent = 0;
     cc->dropped_pkt_count = 0;
     cc->in_dropped_q_full = 0;
     cc->in_dropped_invalid_pkt = 0;
@@ -720,8 +723,8 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         closure->pbuf[closure->rtpbuf].offset = s.offset;
         closure->pbuf[closure->rtpbuf].client_data = s.client_data;
         closure->pbuf[closure->rtpbuf].spp_index = current_spp_slot_id;
-        closure->len = closure->len + s.len;  /* total lengh of packet */
-        /* making the buffer memory cache coherent. */
+        closure->len = closure->len + s.len;  // total lengh of packet
+        // making the buffer memory cache coherent.
         bulk_arch_prepare_recv((void *) closure->buffer_ptr->pa + s.offset,
                 s.len);
 
@@ -731,7 +734,6 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             break;
         }
 
-        printf("Multi-pbuf packet!!!\n");
         current_spp_slot_id = spp->ghost_read_id;
         if (!sp_ghost_read_slot(spp, &s)) {
             spp->ghost_read_id = ghost_read_id_copy;
@@ -743,6 +745,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         }
     } while(1);
 
+    closure->hw_queue = closure->hw_queue + closure->rtpbuf;
     r = ether_transmit_pbuf_list_ptr(closure);
 
     if (err_is_fail(r)) {
@@ -787,7 +790,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
 //                bm_record_event_simple(RE_TX_SP_S, ts);
             if (closure->pkt_count == closure->out_trigger_counter) {
-                benchmark_control_request(cc, 2, 0, 0);
+                benchmark_control_request(cc, BMS_STOP_REQUEST, 0, 0);
             }
         } else {
             if (closure->debug_state_tx == 3) {
@@ -891,8 +894,9 @@ static void do_pending_work(struct ether_binding *b)
     }
 
     if (spp->notify_other_side) {
-        // FIXME: send notification to application, telling that there is
+        // Send notification to application, telling that there is
         // no more data
+        ++closure->tx_notification_sent;
         struct q_entry entry;
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_sp_notification_from_driver;
@@ -1971,6 +1975,7 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
+    cc->hw_queue = cc->hw_queue - 1;
 //    printf("Notifying the app for %"PRIu64"\n", spp_index);
     if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
         // FIXME:  This is dengarous!  I should increase read index,
@@ -1997,6 +2002,7 @@ bool notify_client_free_tx(struct ether_binding * b,
 //        return false;
 //    }
 
+    cc->tx_explicit_msg_needed++;
     if (cc->debug_state_tx == 4) {
         bm_record_event_simple(RE_TX_DONE_N, rts);
     }
@@ -2074,7 +2080,7 @@ static errval_t send_received_packet_handler(struct q_entry entry)
                         }
                     }
                     if (cl->in_trigger_counter == 1) {
-                        benchmark_control_request(b, 2, 0, 0);
+                        benchmark_control_request(b, BMS_STOP_REQUEST, 0, 0);
                     }
                     --cl->in_trigger_counter;
 
@@ -2594,15 +2600,17 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
     debug_state = state;
     switch (state) {
 
-        case 2:  // PRINTING stats
-//            handle_free_tx_slot_fn_ptr();
+        case BMS_STOP_REQUEST:  // PRINTING stats
             ts = rdtsc() - cl->start_ts_tx;
-            send_benchmark_control(cc, 3, ts, trigger);
             printf("#### Stopping MBM Cycles[%"PU"],"
                    "Pbufs[%" PRIu64 "], pkts[%" PRIu64 "], D[%" PRIu64 "], "
-                   "TX_DONE[%" PRIu64 "]\n",
+                   "in SP Q[%" PRIu64 "], HW_Q[%"PRIu64"]\n",
                    in_seconds(ts), cl->pbuf_count, cl->pkt_count,
-                   cl->dropped_pkt_count, cl->tx_done_count);
+                   cl->dropped_pkt_count,
+                   sp_queue_elements_count(cl->buffer_ptr->spp),
+                   cl->hw_queue);
+            printf("TX Explicit msg needed [%"PRIu64"], sent[%"PRIu64"]\n",
+                    cl->tx_explicit_msg_needed, cl->tx_notification_sent);
             printf("### RX OK[%"PRIu64"], D_CQ_full[%"PRIu64"], "
                   "D_invalid[%"PRIu64"], D_NO_APP[%"PRIu64"], "
                   "D_APP_BUF_FULL[%"PRIu64"], D_APP_BUF_INV[%"PRIu64"]\n",
@@ -2636,10 +2644,17 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             printf("Interrupt count [%"PRIu64"], loop count[%"PRIu64"]\n",
                     interrupt_counter, interrupt_loop_counter);
 
-            send_benchmark_control(cc, 3, ts, trigger);
+            send_benchmark_control(cc, BMS_STOPPED, ts,
+                    (cl->pkt_count - cl->dropped_pkt_count));
+            cl->in_trigger_counter = trigger;
+            cl->out_trigger_counter = trigger;
+            cl->debug_state = BMS_STOPPED;
+            debug_state = BMS_STOPPED;
+            cl->debug_state_tx = BMS_STOPPED;
+
             break;
 
-        case 1:  // Resetting stats, for new round of recording
+        case BMS_START_REQUEST:  // Resetting stats, for new round of recording
             interrupt_counter = 0;
             interrupt_loop_counter = 0;
             reset_client_closure_stat(cl);
@@ -2655,7 +2670,7 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             printf("#### Starting MBM now \n");
             cl->start_ts = rdtsc();
             cl->start_ts_tx = rdtsc();
-            send_benchmark_control(cc, 2, cl->start_ts, trigger);
+            send_benchmark_control(cc, BMS_RUNNING, cl->start_ts, trigger);
             break;
 
 

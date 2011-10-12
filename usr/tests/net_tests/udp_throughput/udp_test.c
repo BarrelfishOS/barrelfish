@@ -82,29 +82,37 @@ static uint64_t stats[10] = {0, 0, 0, 0};
 static    uint64_t start_tx = 0;
 static    uint64_t iter = 0; // Iteration counter
 static    uint64_t failed = 0; // Failure counter
-static void stop_benchmark(uint64_t stop, uint64_t driver_runtime)
+static void stop_benchmark(uint64_t stop, uint64_t driver_runtime,
+        uint64_t drv_pkt_count)
 {
     // FIXME: Make sure that all data is gone
 //    uint64_t stop = rdtsc();
     uint64_t delta = stop - start_tx;
 
     // sending debug message marking the stop of benchmark
-//    lwip_benchmark_control(connection_type, 4, 0, 0);
+//    lwip_benchmark_control(connection_type, BMS_STOP_REQUEST, 0, 0);
 
 
     printf("Test [%s], PBUF type %s\n", TEST_TYPE,
             connection_type?"PBUF_RAM":"PBUF_POOL");
     lwip_print_interesting_stats();
-    printf("Time taken %"PU"(by driver %"PU") to send %"PRIu64" packets"
+    printf("Time taken by APP %"PU" to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
-            in_seconds(delta), in_seconds(driver_runtime), iter, failed);
+            in_seconds(delta), iter, failed);
+    if (driver_runtime > 0) {
+        printf("Time taken by DRV %"PU" to send %"PRIu64" packets\n",
+                in_seconds(driver_runtime), drv_pkt_count);
+    }
     uint64_t data_size = iter * MAX_DATA;
     printf("TX speed (app view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
             data_size, in_seconds(delta), ((data_size/in_seconds(delta))/1024));
-    data_size = iterations * MAX_DATA;
-    printf("TX speed (DRV view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+
+    if (driver_runtime > 0) {
+        data_size = drv_pkt_count * MAX_DATA;
+        printf("TX speed (DRV view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
             data_size, in_seconds(driver_runtime),
             ((data_size/in_seconds(driver_runtime))/1024));
+    }
     for (int j = 0; j < 6; ++j) {
         printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
@@ -143,8 +151,6 @@ get_pbuf_wrapper(void)
         p = pbuf_alloc(PBUF_TRANSPORT, MAX_DATA, PBUF_POOL);
         // setting ref to zero as we are using it for sending and
         // not receiving
-//        p->ref = 0;
-//        pbuf_free(p);
     }
     if (p == NULL){
         printf("pbuf_alloc failed while counter %"PRIu16" \n",
@@ -169,7 +175,7 @@ static bool wait_for_driver_ready(void)
 
     while (1) {
         ans = lwip_driver_benchmark_state(connection_type, &delta, &cl);
-        if (ans == 2) {
+        if (ans == BMS_RUNNING) {
             return true;
         }
         assert(ans == 1);
@@ -187,7 +193,7 @@ static bool check_for_driver_done(uint64_t *delta, uint64_t *cl)
 {
     uint8_t ans;
     ans = lwip_driver_benchmark_state(connection_type, delta, cl);
-    if (ans == 3) {
+    if (ans == BMS_STOPPED) {
         return true;
     }
     return false;
@@ -227,7 +233,7 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
 
     printf("Trying to send %"PRIu64" packets\n", iterations);
 
-    lwip_benchmark_control(connection_type, 1, iterations, 0);
+    lwip_benchmark_control(connection_type, BMS_START_REQUEST, iterations, 0);
     wait_for_driver_ready();
     start_tx = rdtsc();
 
@@ -261,18 +267,34 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         }
 //        printf("Sent packet no. %"PRIu64"\n", i);
 
+
 #ifdef TEST_BUFFER_MANAGEMENT
         pbuf_free(p);
 #endif // TEST_BUFFER_MANAGEMENT
+
+        if (iter == (iterations)) {
+            driver_delta = 0;
+            break;
+        }
+
         if (check_for_driver_done(&driver_delta, &cl) == true) {
             break;
         }
 
     } // end while :
 
+    lwip_benchmark_control(connection_type, BMS_STOP_REQUEST, 0, 0);
+
+    while (check_for_driver_done(&driver_delta, &cl) == false) {
+        r = event_dispatch(ws);
+        if (err_is_fail(r)) {
+            DEBUG_ERR(r, "in event_dispatch");
+            break;
+        }
+    }
+
     uint64_t stop_tx = rdtsc();
-    stop_benchmark(stop_tx, driver_delta);
-    check_for_driver_done(&driver_delta, &cl); // for supressing compilation warnings
+    stop_benchmark(stop_tx, driver_delta, cl);
     wait_for_lwip();
 } // end function: udp_sender
 
@@ -314,7 +336,8 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
         DEBUG_ERR(r, "udp_bind:");
     }
 
-    lwip_benchmark_control(connection_type, 1, iterations, rdtsc());
+    lwip_benchmark_control(connection_type, BMS_START_REQUEST,
+            iterations, rdtsc());
     udp_recv(upcb, udp_recv_handler, 0 /*client data, arg in callback*/);
 
     while (condition_not_meet()) {

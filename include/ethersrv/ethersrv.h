@@ -173,7 +173,10 @@ struct client_closure {
     uint64_t start_ts_tx;
     uint64_t pkt_count;
     uint64_t tx_done_count;
+    uint64_t tx_explicit_msg_needed;
+    uint64_t tx_notification_sent;
     uint64_t dropped_pkt_count;
+    uint64_t hw_queue;
     uint64_t pbuf_count;
     uint64_t in_dropped_q_full;
     uint64_t in_dropped_invalid_pkt;
@@ -262,7 +265,22 @@ void do_pending_work_for_all(void);
 //debug
 void print_statistics(void);
 
+
 // For recording statistics
+// FIXME: Move into library
+
+
+// Copy of this structure also exist in include/lwip/init.h
+// Make sure that these two have same values
+enum Benchmark_states {
+    BMS_INACTIVE = 0,
+    BMS_START_REQUEST = 1,
+    BMS_RUNNING = 2,
+    BMS_STOP_REQUEST = 3,
+    BMS_STOPPED = 4,
+};
+
+
 enum Recorded_Events {
     RE_ALL = 0,
     RE_FILTER = 1,

@@ -118,6 +118,15 @@ uint64_t in_seconds(uint64_t cycles);
 #endif // CONVERT_TO_SEC
 
 
+enum Benchmark_states {
+    BMS_INACTIVE = 0,
+    BMS_START_REQUEST = 1,
+    BMS_RUNNING = 2,
+    BMS_STOP_REQUEST = 3,
+    BMS_STOPPED = 4,
+};
+
+
 enum Recorded_Events {
     RE_ALL = 0,
     RE_REG_PBUF = 1,
