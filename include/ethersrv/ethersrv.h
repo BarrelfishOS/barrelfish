@@ -170,6 +170,7 @@ struct client_closure {
     uint8_t debug_state;
     uint8_t debug_state_tx;
     uint64_t start_ts;
+    uint64_t start_ts_tx;
     uint64_t pkt_count;
     uint64_t tx_done_count;
     uint64_t dropped_pkt_count;
@@ -197,6 +198,7 @@ struct client_closure {
     uint64_t in_app_time_max;
     uint64_t in_success;
     uint64_t in_trigger_counter;
+    uint64_t out_trigger_counter;
     uint8_t  filter_matched;
 }; /* holds info about how much data is transferred to NIC. */
 

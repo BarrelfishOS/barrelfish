@@ -79,28 +79,32 @@ refresh_cache(struct ip_addr *dst_ip)
 }
 
 static uint64_t stats[10] = {0, 0, 0, 0};
-static    uint64_t start = 0;
+static    uint64_t start_tx = 0;
 static    uint64_t iter = 0; // Iteration counter
 static    uint64_t failed = 0; // Failure counter
-static void stop_benchmark(void)
+static void stop_benchmark(uint64_t stop, uint64_t driver_runtime)
 {
     // FIXME: Make sure that all data is gone
-    uint64_t stop = rdtsc();
-    uint64_t delta = stop - start;
+//    uint64_t stop = rdtsc();
+    uint64_t delta = stop - start_tx;
 
     // sending debug message marking the stop of benchmark
-    lwip_start_net_debug(connection_type, 2, 0);
+//    lwip_benchmark_control(connection_type, 4, 0, 0);
 
 
     printf("Test [%s], PBUF type %s\n", TEST_TYPE,
             connection_type?"PBUF_RAM":"PBUF_POOL");
     lwip_print_interesting_stats();
-    printf("Time taken %"PU" to send %"PRIu64" packets"
+    printf("Time taken %"PU"(by driver %"PU") to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
-            in_seconds(delta), iter, failed);
+            in_seconds(delta), in_seconds(driver_runtime), iter, failed);
     uint64_t data_size = iter * MAX_DATA;
-    printf("TX speed = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+    printf("TX speed (app view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
             data_size, in_seconds(delta), ((data_size/in_seconds(delta))/1024));
+    data_size = iterations * MAX_DATA;
+    printf("TX speed (DRV view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+            data_size, in_seconds(driver_runtime),
+            ((data_size/in_seconds(driver_runtime))/1024));
     for (int j = 0; j < 6; ++j) {
         printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
@@ -154,10 +158,47 @@ get_pbuf_wrapper(void)
 
 } // end function: get_pbuf_wrapper
 
+
+static bool wait_for_driver_ready(void)
+{
+    errval_t r;
+    uint8_t ans;
+    uint64_t delta;
+    uint64_t cl;
+
+    while (1) {
+        ans = lwip_driver_benchmark_state(connection_type, &delta, &cl);
+        if (ans == 2) {
+            return true;
+        }
+        assert(ans == 1);
+
+        r = event_dispatch(ws);
+        if (err_is_fail(r)) {
+            DEBUG_ERR(r, "in event_dispatch");
+            abort();
+        }
+    } // end while: lwip_loaded
+    return false;
+}
+
+static bool check_for_driver_done(uint64_t *delta, uint64_t *cl)
+{
+    uint8_t ans;
+    ans = lwip_driver_benchmark_state(connection_type, delta, cl);
+    if (ans == 3) {
+        return true;
+    }
+    return false;
+}
+
 static void
 udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         uint16_t recv_port)
 {
+    uint64_t driver_delta;
+    uint64_t cl;
+
     struct pbuf *p = NULL;
     printf("Going in UDP_SENDER mode\n");
 
@@ -184,15 +225,15 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
     refresh_cache(&recv_ip);
 
     printf("Trying to send %"PRIu64" packets\n", iterations);
+
+    lwip_benchmark_control(connection_type, 1, iterations, 0);
+    wait_for_driver_ready();
+    start_tx = rdtsc();
+
     // send data
-    for (iter = 0; iter < iterations; ++iter) {
+//    for (iter = 0; iter < iterations; ++iter) {
+    for (iter = 0; 1; ++iter) {
         wait_for_lwip();
-        if (iter == 0) {
-            // sending debug message marking the start of benchmark
-            lwip_start_net_debug(connection_type, 1, 0);
-            // sending first packet
-            start = rdtsc();
-        }
 
 #ifdef TEST_BUFFER_MANAGEMENT
         p = get_pbuf_wrapper();
@@ -214,10 +255,15 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
 #ifdef TEST_BUFFER_MANAGEMENT
         pbuf_free(p);
 #endif // TEST_BUFFER_MANAGEMENT
+        if (check_for_driver_done(&driver_delta, &cl) == true) {
+            break;
+        }
 
     } // end for :
 
-    stop_benchmark();
+    uint64_t stop_tx = rdtsc();
+    stop_benchmark(stop_tx, driver_delta);
+    check_for_driver_done(&driver_delta, &cl); // for supressing compilation warnings
 } // end function: udp_sender
 
 static void
@@ -258,7 +304,7 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
         DEBUG_ERR(r, "udp_bind:");
     }
 
-    lwip_start_net_debug(connection_type, 1, iterations);
+    lwip_benchmark_control(connection_type, 1, iterations, rdtsc());
     udp_recv(upcb, udp_recv_handler, 0 /*client data, arg in callback*/);
 
     while (condition_not_meet()) {

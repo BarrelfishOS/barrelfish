@@ -476,11 +476,19 @@ bool lwip_init_auto(void)
     return lwip_init_auto_ex(NULL, NULL);
 }
 
-void lwip_start_net_debug(int connection_type, uint8_t state, uint64_t trigger)
+
+void lwip_benchmark_control(int direction, uint8_t state, uint64_t trigger,
+        uint64_t cl)
 {
-//      printf("calling idc_debug_status\n");
-    idc_debug_status(connection_type, state, trigger);
-}                               // end function: lwip_start_net_debug
+//  printf("calling lwip_benchmark_control\n");
+    idc_benchmark_control(direction, state, trigger, cl);
+}  // end function: lwip_benchmark_control
+
+uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,
+        uint64_t *cl)
+{
+   return get_driver_benchmark_state(direction, delta, cl);
+}
 
 #include <contmng/contmng.h>
 #define FREE_SLOT_THRESHOLD    100

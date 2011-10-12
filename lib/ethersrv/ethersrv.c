@@ -115,8 +115,8 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
 static void get_mac_addr(struct ether_binding *cc);
 static void print_statistics_handler(struct ether_binding *cc);
 static void print_cardinfo_handler(struct ether_binding *cc);
-static void debug_status(struct ether_binding *cc, uint8_t state,
-        uint64_t trigger);
+static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
+        uint64_t trigger, uint64_t cl);
 
 static void register_filter_memory_request(struct ether_control_binding *cc,
                                            struct capref mem_cap);
@@ -143,12 +143,11 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
 static struct ether_rx_vtbl rx_ether_vtbl = {
     .register_buffer = register_buffer,
     .register_pbuf = register_pbuf,
-//    .transmit_packet = transmit_packet,
     .sp_notification_from_app = sp_notification_from_app,
     .get_mac_address = get_mac_addr,
     .print_statistics = print_statistics_handler,
     .print_cardinfo = print_cardinfo_handler,
-    .debug_status = debug_status,
+    .benchmark_control_request = benchmark_control_request,
 };
 
 // Initialize interface for ether_control channel
@@ -315,6 +314,7 @@ static void add_event_stat(struct pbuf_desc *pbuf_d, int event_type)
 static void reset_client_closure_stat(struct client_closure *cc)
 {
     cc->start_ts = 0;
+    cc->start_ts_tx = 0;
     cc->pkt_count = 0;
     cc->dropped_pkt_count = 0;
     cc->in_dropped_q_full = 0;
@@ -329,6 +329,7 @@ static void reset_client_closure_stat(struct client_closure *cc)
     cc->in_dropped_q_full = 0;
     cc->in_success = 0;
     cc->in_trigger_counter = 0;
+    cc->out_trigger_counter = 0;
     cc->filter_matched = 0;
     cc->in_other_pkts = 0;
     cc->in_arp_pkts = 0;
@@ -672,7 +673,7 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
-    uint64_t ts = rdtsc();
+//    uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
@@ -680,6 +681,10 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     struct shared_pool_private *spp = buffer->spp;
     assert(spp != NULL);
     assert(spp->sp != NULL);
+
+    //reset to indicate that a new packet will start
+    closure->nr_transmit_pbufs = 0;
+    closure->rtpbuf = 0;
 
     errval_t r;
     // FIXME: keep the copy of ghost_read_id so that it can be restored
@@ -697,6 +702,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         printf("PROB: %"PRIu64" != %"PRIu64", no%"PRIu64", %"PRIu64" \n",
             buffer->buffer_id,  s.buffer_id, s.no_pbufs, s.len);
         sp_print_metadata(spp);
+        assert(!"pbuf from wrong buffer");
     }
     assert(buffer->buffer_id == s.buffer_id);
     assert(s.no_pbufs <= MAX_NR_TRANSMIT_PBUFS);
@@ -725,6 +731,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             break;
         }
 
+        printf("Multi-pbuf packet!!!\n");
         current_spp_slot_id = spp->ghost_read_id;
         if (!sp_ghost_read_slot(spp, &s)) {
             spp->ghost_read_id = ghost_read_id_copy;
@@ -741,7 +748,6 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     if (err_is_fail(r)) {
     //in case we cannot transmit, discard the _whole_ packet (just don't
     //enqueue transmit descriptors in the network card's ring)
-        ++closure->dropped_pkt_count;
         dropped_pkt_count++;
 //                printf("Transmit_packet dropping %"PRIu64"\n",
 //                        dropped_pkt_count);
@@ -755,8 +761,9 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
          * Also, is it certain that all packets start with pbuf[0]??
          * Mostly this will lead to re-write of bulk-transfer mode.  */
 
-        if (closure->debug_state_tx == 3) {
-            bm_record_event_simple(RE_TX_SP_F, ts);
+        if (closure->debug_state_tx == 4) {
+            ++closure->dropped_pkt_count;
+//            bm_record_event_simple(RE_TX_SP_F, ts);
         }
 
         assert(closure->pbuf[0].sr);
@@ -772,22 +779,33 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             // This can lead to pbuf leak
             // FIXME: What type of error handling to use?
         }
-    } else {
+    }
+    else {
         // successfull traInsfer!
-        ++closure->pkt_count;
-        closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
-        if (closure->debug_state_tx == 3) {
-            bm_record_event_simple(RE_TX_SP_S, ts);
+        if (closure->debug_state_tx == 4) {
+            ++closure->pkt_count;
+            closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
+//                bm_record_event_simple(RE_TX_SP_S, ts);
+            if (closure->pkt_count == closure->out_trigger_counter) {
+                benchmark_control_request(cc, 2, 0, 0);
+            }
+        } else {
+            if (closure->debug_state_tx == 3) {
+                ++closure->pkt_count;
+                if (closure->pkt_count == 1) {
+                    // This is the first packet, so lets restart the timer!!
+                    closure->start_ts_tx = rdtsc();
+                    closure->debug_state_tx = 4;
+                } else {
+                    assert(!"Not possible!");
+                }
+            }
         }
 
-/*        printf("successful transer, counter incremented %"PRIu64"\n",
-                closure->pbuf_count);
-*/
-    }
+//        printf("successful transer, counter incremented %"PRIu64"\n",
+//                closure->pbuf_count);
 
-    //reset to indicate that a new packet will start
-    closure->nr_transmit_pbufs = 0;
-    closure->rtpbuf = 0;
+    }
     closure->len = 0;
     return true;
 
@@ -814,7 +832,7 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
         ++pkts;
     }
 
-    if (closure->debug_state_tx == 3) {
+    if (closure->debug_state_tx == 4) {
         bm_record_event_simple(RE_TX_T, pkts);
     }
     return pkts;
@@ -825,7 +843,7 @@ static errval_t send_sp_notification_from_driver(struct q_entry e)
 //    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
-    if (ccl->debug_state_tx == 3) {
+    if (ccl->debug_state_tx == 4) {
         bm_record_event_simple(RE_TX_SP_MSG_Q, e.plist[1]);
     }
     uint64_t ts = rdtsc();
@@ -834,7 +852,7 @@ static errval_t send_sp_notification_from_driver(struct q_entry e)
         errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
                 MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
                 // type, ts
-        if (ccl->debug_state_tx == 3) {
+        if (ccl->debug_state_tx == 4) {
             bm_record_event_simple(RE_TX_SP_MSG, ts);
         }
         return err;
@@ -887,7 +905,7 @@ static void do_pending_work(struct ether_binding *b)
         spp->notify_other_side = 0;
     }
 
-    if (closure->debug_state_tx == 3) {
+    if (closure->debug_state_tx == 4) {
         bm_record_event_simple(RE_TX_W_ALL, ts);
     }
 }
@@ -910,7 +928,7 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
 
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
-    if (closure->debug_state_tx == 3) {
+    if (closure->debug_state_tx == 4) {
         bm_record_event_simple(RE_TX_NOTI_CS, rts);
     }
     // FIXME : call schedule work
@@ -1964,7 +1982,7 @@ bool notify_client_free_tx(struct ether_binding * b,
 
     if (spp->notify_other_side == 0) {
 
-        if (cc->debug_state_tx == 3) {
+        if (cc->debug_state_tx == 4) {
             bm_record_event_simple(RE_TX_DONE_NN, rts);
         }
 //        printf("notfify client 1: sending no notifications!\n");
@@ -1979,7 +1997,7 @@ bool notify_client_free_tx(struct ether_binding * b,
 //        return false;
 //    }
 
-    if (cc->debug_state_tx == 3) {
+    if (cc->debug_state_tx == 4) {
         bm_record_event_simple(RE_TX_DONE_N, rts);
     }
     return true;
@@ -2056,7 +2074,7 @@ static errval_t send_received_packet_handler(struct q_entry entry)
                         }
                     }
                     if (cl->in_trigger_counter == 1) {
-                        debug_status(b, 2, 0);
+                        benchmark_control_request(b, 2, 0, 0);
                     }
                     --cl->in_trigger_counter;
 
@@ -2527,8 +2545,44 @@ bool waiting_for_netd(void)
 } // end function: is_netd_registered
 
 
-static void debug_status(struct ether_binding *cc, uint8_t state,
-        uint64_t trigger)
+static errval_t send_benchmark_control_response(struct q_entry entry)
+{
+    //    ETHERSRV_DEBUG("send_mac_addr_response -----\n");
+    struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
+    struct client_closure *ccl = (struct client_closure *) b->st;
+
+    if (b->can_send(b)) {
+        return b->tx_vtbl.benchmark_control_response(b,
+                           MKCONT(cont_queue_callback, ccl->q),
+                           entry.plist[0], entry.plist[1], entry.plist[2]);
+                // state, delta, cl
+    } else {
+        ETHERSRV_DEBUG("send_benchmark_control_response Flounder busy.."
+                " will retry\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+static void send_benchmark_control(struct ether_binding *cc, uint64_t state,
+        uint64_t delta, uint64_t cl)
+{
+    struct q_entry entry;
+
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_benchmark_control_response;
+    entry.binding_ptr = (void *) cc;
+    struct client_closure *ccl = (struct client_closure *) cc->st;
+
+    entry.plist[0] = state;
+    entry.plist[1] = delta;
+    entry.plist[2] = cl;
+    /* entry.plist[0]);
+       entry.hwaddr */
+    enqueue_cont_q(ccl->q, &entry);
+}
+
+static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
+        uint64_t trigger, uint64_t cl_data)
 {
     uint64_t ts;
 
@@ -2542,7 +2596,8 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
 
         case 2:  // PRINTING stats
 //            handle_free_tx_slot_fn_ptr();
-            ts = rdtsc() - cl->start_ts;
+            ts = rdtsc() - cl->start_ts_tx;
+            send_benchmark_control(cc, 3, ts, trigger);
             printf("#### Stopping MBM Cycles[%"PU"],"
                    "Pbufs[%" PRIu64 "], pkts[%" PRIu64 "], D[%" PRIu64 "], "
                    "TX_DONE[%" PRIu64 "]\n",
@@ -2581,23 +2636,26 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
             printf("Interrupt count [%"PRIu64"], loop count[%"PRIu64"]\n",
                     interrupt_counter, interrupt_loop_counter);
 
+            send_benchmark_control(cc, 3, ts, trigger);
+            break;
+
         case 1:  // Resetting stats, for new round of recording
             interrupt_counter = 0;
             interrupt_loop_counter = 0;
             reset_client_closure_stat(cl);
             cl->in_trigger_counter = trigger;
+            cl->out_trigger_counter = trigger;
+            cl->debug_state = 3;
+            debug_state = 3;
+            cl->debug_state_tx = 3;
+            cl->pkt_count = 0;
             // Resetting receive path stats
             reset_app_stats(cl->buffer_ptr);
             bm_reset_stats();
             printf("#### Starting MBM now \n");
-            if(trigger == 0) {
-                cl->debug_state_tx = 3;
-                cl->start_ts = rdtsc();
-            } else {
-                // will turn on debuggin only after a trigger event!
-                cl->debug_state = 3;
-                debug_state = 3;
-            }
+            cl->start_ts = rdtsc();
+            cl->start_ts_tx = rdtsc();
+            send_benchmark_control(cc, 2, cl->start_ts, trigger);
             break;
 
 
@@ -2605,7 +2663,7 @@ static void debug_status(struct ether_binding *cc, uint8_t state,
             printf("#### MBM: invalid state %x \n", state);
     } // end switch:
 
-} // end function: debug_status
+} // end function: benchmark_control_request
 
 
 void ethersrv_debug_printf(const char *fmt, ...)

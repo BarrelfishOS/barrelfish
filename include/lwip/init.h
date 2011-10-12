@@ -86,10 +86,13 @@ extern "C" {
                            struct thread_mutex *opt_mutex);
     bool lwip_init_auto(void);
 
-    void lwip_start_net_debug(int connection_type, uint8_t state, uint64_t trigger);
     int is_lwip_loaded(void);
     uint64_t lwip_packet_drop_count(void);
 
+void lwip_benchmark_control(int connection, uint8_t state, uint64_t trigger,
+        uint64_t cl);
+uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,
+        uint64_t *cl);
 
 // For recording statistics
 #define MACHINE_CLK_UNIT    (1000000)

@@ -68,7 +68,10 @@ void idc_register_freeing_callback(void (*f) (struct pbuf *));
 void idc_print_statistics(void);
 void idc_print_cardinfo(void);
 void network_polling_loop(void);
-void idc_debug_status(int connection, uint8_t state, uint64_t trigger);
+void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
+        uint64_t cl);
+uint8_t get_driver_benchmark_state(int direction, uint64_t *delta,
+        uint64_t *cl);
 
 /* netd services */
 void idc_connect_netd(void);

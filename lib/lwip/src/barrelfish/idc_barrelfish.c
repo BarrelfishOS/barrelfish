@@ -50,6 +50,10 @@ struct waitset *lwip_waitset;
 struct client_closure_NC {
     struct cont_queue *q;       /* queue to continuation */
     struct buffer_desc *buff_ptr;
+
+    uint8_t benchmark_status;
+    uint64_t benchmark_delta;
+    uint64_t benchmark_cl;
 };
 
 /*
@@ -704,24 +708,25 @@ void idc_print_cardinfo(void)
 }
 
 
-static errval_t send_debug_status_request(struct q_entry e)
+static errval_t send_benchmark_control_request(struct q_entry e)
 {
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
-        return b->tx_vtbl.debug_status(b,
-                                       MKCONT(cont_queue_callback, ccnc->q),
-                                       (uint8_t) e.plist[0], e.plist[1]);
-                                    //           status,     trigger
+        return b->tx_vtbl.benchmark_control_request(b,
+                  MKCONT(cont_queue_callback, ccnc->q),
+                  (uint8_t) e.plist[0], e.plist[1], e.plist[2]);
+                  // status,     trigger,       cl
     } else {
-        LWIPBF_DEBUG("send_debug_status_request: Flounder busy,rtry+++++\n");
+        LWIPBF_DEBUG("send_benchmark_control_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 }
 
 
-void idc_debug_status(int connection, uint8_t state, uint64_t trigger)
+void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
+        uint64_t cl)
 {
      LWIPBF_DEBUG("idc_debug_status:  called with status %x %[PRIu64]\n",
      state, trigger);
@@ -737,13 +742,17 @@ void idc_debug_status(int connection, uint8_t state, uint64_t trigger)
     }
 
     memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_debug_status_request;
+    entry.handler = send_benchmark_control_request;
     struct ether_binding *b = driver_connection[connection];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
+    ccnc->benchmark_status = state;
+    ccnc->benchmark_delta = 0;
+    ccnc->benchmark_cl = cl;
     entry.binding_ptr = (void *) b;
     entry.plist[0] = state;
     entry.plist[1] = trigger;
+    entry.plist[2] = cl;
 
 
 /*    printf("idc_debug_status: q size [%d]\n",
@@ -900,12 +909,7 @@ static void tx_done(struct ether_binding *st, uint64_t client_data,
 }
 
 
-/**
- * \brief
- *
- *
- *
- */
+
 static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
 {
     LWIPBF_DEBUG("get_mac_address_response: called\n");
@@ -915,6 +919,35 @@ static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
 
     LWIPBF_DEBUG("get_mac_address_response: terminated\n");
 }
+
+
+uint8_t get_driver_benchmark_state(int direction,
+        uint64_t *delta, uint64_t *cl)
+{
+    struct ether_binding *b = driver_connection[direction];
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+    *delta = ccnc->benchmark_delta;
+    *cl = ccnc->benchmark_cl;
+    return ccnc->benchmark_status;
+}
+
+
+
+static void benchmark_control_response(struct ether_binding *b, uint8_t state,
+        uint64_t delta, uint64_t cl)
+{
+    LWIPBF_DEBUG("benchmark_control_response: called\n");
+    assert(b != NULL);
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    assert(ccnc != NULL);
+    struct buffer_desc *buff = ccnc->buff_ptr;
+    assert(buff != NULL);
+    ccnc->benchmark_status = state;
+    ccnc->benchmark_delta = delta;
+    ccnc->benchmark_cl = cl;
+    LWIPBF_DEBUG("benchmark_control_response: terminated\n");
+}
+
 
 bool lwip_in_packet_received = false;
 
@@ -1043,12 +1076,15 @@ static void init_netd_connection(char *service_name)
  *****************************************************************/
 
 
+
+
 static struct ether_rx_vtbl rx_vtbl = {
     .new_buffer_id = new_buffer_id,
     .sp_notification_from_driver = sp_notification_from_driver,
     .tx_done = tx_done,
     .get_mac_address_response = get_mac_address_response,
     .packet_received = packet_received,
+    .benchmark_control_response = benchmark_control_response,
 };
 
 
