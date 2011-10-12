@@ -116,7 +116,8 @@ static void wait_for_lwip(void)
 {
    errval_t r;
     int ans;
-   while ( (ans = is_lwip_loaded()) > 0 ) {
+   while ((ans = is_lwip_loaded()) > 0) {
+//       printf("is_lwip_loaded returned %d\n", ans);
         ++stats[ans];
 /*        if(ans == 1) {
             printf("stopping the benchmark as no more pbufs\n");
@@ -232,8 +233,9 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
 
     // send data
 //    for (iter = 0; iter < iterations; ++iter) {
-    for (iter = 0; 1; ++iter) {
-        wait_for_lwip();
+    iter = 0;
+    while (1) {
+//        wait_for_lwip();
 
 #ifdef TEST_BUFFER_MANAGEMENT
         p = get_pbuf_wrapper();
@@ -248,8 +250,15 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
         r = udp_send(upcb, p);
         if (err_is_fail(r)) {
             ++failed;
-            DEBUG_ERR(r, "udp_send:");
+//            printf("udp_send failed(%"PRIu64") for iter %"PRIu64"\n",
+//                    failed, iter);
+
+//            DEBUG_ERR(r, "udp_send:");
+            wait_for_lwip();
         } // end if: failed
+        else {
+            ++iter;
+        }
 //        printf("Sent packet no. %"PRIu64"\n", i);
 
 #ifdef TEST_BUFFER_MANAGEMENT
@@ -259,11 +268,12 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
             break;
         }
 
-    } // end for :
+    } // end while :
 
     uint64_t stop_tx = rdtsc();
     stop_benchmark(stop_tx, driver_delta);
     check_for_driver_done(&driver_delta, &cl); // for supressing compilation warnings
+    wait_for_lwip();
 } // end function: udp_sender
 
 static void

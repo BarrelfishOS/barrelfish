@@ -128,9 +128,11 @@ static void low_level_init(struct netif *netif)
 
 static err_t low_level_output(struct netif *netif, struct pbuf *p)
 {
+    uint8_t numpbuf = 0;
     //avoid that lwip frees this buffer before it has been sent by the network card.
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
         pbuf_ref(tmpp);
+        ++numpbuf;
     }
 
 #if ETH_PAD_SIZE
@@ -138,7 +140,7 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 #endif
     //tell the network driver from which buffer and which offset to send the
     //new data.
-    idc_send_packet_to_network_driver(p);
+    uint64_t ret = idc_send_packet_to_network_driver(p);
 
 #if ETH_PAD_SIZE
     pbuf_header(p, ETH_PAD_SIZE);       /* reclaim the padding word */
@@ -146,7 +148,10 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 
     LINK_STATS_INC(link.xmit);
 
-    return ERR_OK;
+    if (ret == numpbuf) {
+        return ERR_OK;
+    }
+    return ERR_IF;
 }
 
 static void bfeth_freeing_handler(struct pbuf *p)

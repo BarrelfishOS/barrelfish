@@ -195,6 +195,33 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
     }
 }
 
+static void wrapper_send_sp_notification_from_app(struct buffer_desc *buf)
+{
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_sp_notification_from_app;
+    struct ether_binding *b = buf->con;
+    uint64_t ts = rdtsc();
+
+#if LWIP_TRACE_MODE
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q, 0);
+#endif // LWIP_TRACE_MODE
+
+    entry.binding_ptr = (void *)b;
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    // Resetting the send_notification counter as we are sending
+    // the notification
+    buf->spp->notify_other_side = 0;
+    entry.plist[0] = 1;
+    entry.plist[1] = ts;
+    enqueue_cont_q(ccnc->q, &entry);
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_SP, ts);
+    }
+    if (new_debug)
+         printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
+}
+
 static void sp_process_tx_done(struct buffer_desc *buff)
 {
     assert(buff != NULL);
@@ -277,7 +304,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
      * Count the number of pbufs to be transmitted as a single message
      * to e1000
      */
-    int numpbufs = 0;
+    uint8_t numpbufs = 0;
 
     for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
         numpbufs++;
@@ -286,15 +313,24 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 //    printf("to_network_driver 1, slot 0\n");
 //    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
 
-    if (sp_queue_free_slots_count(buff_ptr->spp) < numpbufs) {
+    sp_reload_regs(buff_ptr->spp);
+    uint64_t free_slots_count = sp_queue_free_slots_count(buff_ptr->spp);
+
+    if (sp_queue_full(buff_ptr->spp) || (free_slots_count < numpbufs)
+            || (free_slots_count < 10) ) {
         if (benchmark_mode > 0) {
             lwip_record_event_no_ts(TX_SPP_FULL);
             ++pkt_dropped;
         }
-        printf("No space left in shared_pool\n");
+        // FIXME: send a msg to driver saying "READ Packets Quickly!"
+        wrapper_send_sp_notification_from_app(buff_ptr);
+/*
+        printf("Not enough (%"PRIu8") space left in shared_pool %"PRIu64"\n",
+               numpbufs, free_slots_count);
         sp_print_metadata(buff_ptr->spp);
         assert(!"No space left in shared_pool\n");
         // free the pbuf
+*/
         return 0;
     }
     uint64_t ghost_write_index = sp_get_write_index(buff_ptr->spp);
@@ -307,7 +343,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 //    printf("to_network_driver 2, slot 0\n");
 //    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
 
-    int i = 0;
+    uint8_t i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
 
 #if !defined(__scc__) && !defined(__i386__)
@@ -319,7 +355,14 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 
         assert(buff_ptr == mem_barrelfish_get_buffer_desc(tmpp->payload));
 
-        assert(!sp_queue_full(buff_ptr->spp));
+
+        if (sp_queue_full(buff_ptr->spp)) {
+            printf("Error state for pbuf part %"PRIu8", and old free slots "
+                    "are %"PRIu64", new %"PRIu64"\n", i, free_slots_count,
+                    sp_queue_free_slots_count(buff_ptr->spp));
+            assert(!"This should not happen!");
+            return 0;
+        }
 
         bulk_arch_prepare_send((void *) tmpp->payload, tmpp->len);
         offset = (uintptr_t) tmpp->payload - (uintptr_t) (buff_ptr->va);
@@ -355,7 +398,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
                     ghost_write_index);
             sp_print_metadata(buff_ptr->spp);
             assert(!"sp_ghost_produce_slot: failed\n");
-            return 0;
+            return numpbufs;
         }
 //    printf("to_network_driver 5, slot 0\n");
 //    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
@@ -377,54 +420,25 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         if (benchmark_mode > 0) {
             lwip_record_event_simple(TX_SP1, ts);
         }
-//    printf("to_network_driver 6, slot 0\n");
-//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
-    // check and process any tx_done's
-    sp_process_tx_done(buff_ptr);
+//      printf("to_network_driver 6, slot 0\n");
+//      sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+        // check and process any tx_done's
+        sp_process_tx_done(buff_ptr);
 
-//    printf("idc_send_packet_to_network_driver  is done\n");
-        return 0;
+//      printf("idc_send_packet_to_network_driver  is done\n");
+        return numpbufs;
     }
 
-    /*
-    printf("to_network_driver 7, slot 0\n");
-    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
-    */
     // It seems that there we should send a notification to other side
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_sp_notification_from_app;
-    struct ether_binding *b = buff_ptr->con;
+    wrapper_send_sp_notification_from_app(buff_ptr);
 
-#if LWIP_TRACE_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q, 0);
-#endif // LWIP_TRACE_MODE
-
-//   printf("app: ending notification #############\n");
-    entry.binding_ptr = (void *)b;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
-    // Resetting the send_notification counter as we are sending
-    // the notification
-    buff_ptr->spp->notify_other_side = 0;
-    entry.plist[0] = numpbufs;
-    entry.plist[1] = rdtsc();
-    enqueue_cont_q(ccnc->q, &entry);
-    if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_SP, ts);
-    }
-    if (new_debug)
-         printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
 
     // Done with even notification sending!
-/*
-    printf("to_network_driver 8, slot 0\n");
-    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
-*/
     // check and process any tx_done's
     sp_process_tx_done(buff_ptr);
 
     // FIXME: change the return value to reflect success/failure
-    return 0;
+    return numpbufs;
 }
 
 

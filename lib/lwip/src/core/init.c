@@ -507,6 +507,7 @@ int is_lwip_loaded(void)
     // for receivign connection, one should check if queue is free
     slots = lwip_check_sp_capacity(RECEIVE_CONNECTION);
     if (slots < FREE_SLOT_THRESHOLD) {
+//        printf("slots left are %d\n", slots);
         return 5;
     }
 
