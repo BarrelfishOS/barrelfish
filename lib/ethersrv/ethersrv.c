@@ -409,12 +409,19 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     buffer->pa = pa.base;
     buffer->bits = pa.bits;
 
+#ifdef __scc__
+    r = vspace_map_one_frame_attr(&buffer->va, (1L << buffer->bits), cap,
+                                  VREGION_FLAGS_READ_WRITE_MPB, NULL, NULL);
+#else
     err = vspace_map_one_frame(&buffer->va, (1L << buffer->bits), cap,
             NULL, NULL);
+#endif
+
 /*
     err = vspace_map_one_frame_attr(&buffer->va, (1L << buffer->bits), cap,
                     VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
 */
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");
         // FIXME: report more sensible error
