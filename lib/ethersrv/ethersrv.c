@@ -409,8 +409,12 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     buffer->pa = pa.base;
     buffer->bits = pa.bits;
 
+    err = vspace_map_one_frame(&buffer->va, (1L << buffer->bits), cap,
+            NULL, NULL);
+/*
     err = vspace_map_one_frame_attr(&buffer->va, (1L << buffer->bits), cap,
                     VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+*/
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");
         // FIXME: report more sensible error
@@ -1955,7 +1959,7 @@ static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
 
 
 
-/******************  *************************/
+/*******************************************/
 
 
 bool notify_client_free_tx(struct ether_binding * b,
@@ -2587,11 +2591,12 @@ static void send_benchmark_control(struct ether_binding *cc, uint64_t state,
     enqueue_cont_q(ccl->q, &entry);
 }
 
+
 static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
         uint64_t trigger, uint64_t cl_data)
 {
     uint64_t ts;
-
+    uint8_t bm_type = 0; // 0 = RX benchmark
 //    printf("setting the debug status to %x and trigger [%"PRIu64"]\n",
 //            state, trigger);
     struct client_closure *cl = ((struct client_closure *) (cc->st));
@@ -2601,7 +2606,12 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
     switch (state) {
 
         case BMS_STOP_REQUEST:  // PRINTING stats
-            ts = rdtsc() - cl->start_ts_tx;
+
+            if (bm_type == 0) {
+                ts = rdtsc() - cl->start_ts;
+            } else {
+                ts = rdtsc() - cl->start_ts_tx;
+            }
             printf("#### Stopping MBM Cycles[%"PU"],"
                    "Pbufs[%" PRIu64 "], pkts[%" PRIu64 "], D[%" PRIu64 "], "
                    "in SP Q[%" PRIu64 "], HW_Q[%"PRIu64"]\n",
@@ -2640,7 +2650,7 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
                     (cl->in_app_time_max),
                     (cl->in_app_time_min));
             print_app_stats(cl->buffer_ptr);
-            bm_print_interesting_stats();
+            bm_print_interesting_stats(bm_type);
             printf("Interrupt count [%"PRIu64"], loop count[%"PRIu64"]\n",
                     interrupt_counter, interrupt_loop_counter);
 
@@ -2766,28 +2776,36 @@ static void bm_print_event_stat_no(uint8_t event_type, char *event_name)
             (stats[et][RDT_MIN]),
             (stats[et][RDT_SUM]));
 }
-void bm_print_interesting_stats(void)
+void bm_print_interesting_stats(uint8_t type)
 {
-    /*
-    bm_print_event_stat(RE_FILTER,       "D: RX Filter time");
-    bm_print_event_stat(RE_COPY,         "D: RX copy time");
-    bm_print_event_stat(RE_PBUF_REG,     "D: RX pbuf reg time");
-    bm_print_event_stat(RE_PKT_RECV_MSG, "D: RX pkt recv ntf");
-    bm_print_event_stat(RE_DROPPED,      "D: RX dropped time");
-    bm_print_event_stat(RE_USEFUL,       "D: RX useful time");
-    bm_print_event_stat(RE_PKT_RECV_Q,   "D: RX queue");
-    bm_print_event_stat(RE_PBUF_REG_CS,  "D: RX REG pbuf CS");
-    */
-    bm_print_event_stat(RE_TX_NOTI_CS,   "D: TX REG NOTI CS");
-    bm_print_event_stat_no(RE_TX_T,         "D: TX T");
-    bm_print_event_stat(RE_TX_SP_S,      "D: TX SP_S");
-    bm_print_event_stat(RE_TX_SP_F,      "D: TX SP_F");
-    bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
-    bm_print_event_stat(RE_TX_W_ALL,     "D: TX W_ALL");
-    bm_print_event_stat(RE_TX_DONE_NN,   "D: TX DONE_NN");
-    bm_print_event_stat(RE_TX_DONE_N,    "D: TX DONE_N");
-    bm_print_event_stat(RE_TX_SP_MSG,    "D: TX SP_MSG");
-    bm_print_event_stat(RE_TX_SP_MSG_Q,  "D: TX SP_MSG_Q");
+    switch (type) {
+        case 0:
+            bm_print_event_stat(RE_FILTER,       "D: RX Filter time");
+            bm_print_event_stat(RE_COPY,         "D: RX copy time");
+            bm_print_event_stat(RE_PBUF_REG,     "D: RX pbuf reg time");
+            bm_print_event_stat(RE_PKT_RECV_MSG, "D: RX pkt recv ntf");
+            bm_print_event_stat(RE_DROPPED,      "D: RX dropped time");
+            bm_print_event_stat(RE_USEFUL,       "D: RX useful time");
+            bm_print_event_stat(RE_PKT_RECV_Q,   "D: RX queue");
+            bm_print_event_stat(RE_PBUF_REG_CS,  "D: RX REG pbuf CS");
+            break;
+
+        case 1:
+            bm_print_event_stat(RE_TX_NOTI_CS,   "D: TX REG NOTI CS");
+            bm_print_event_stat_no(RE_TX_T,         "D: TX T");
+            bm_print_event_stat(RE_TX_SP_S,      "D: TX SP_S");
+            bm_print_event_stat(RE_TX_SP_F,      "D: TX SP_F");
+            bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
+            bm_print_event_stat(RE_TX_W_ALL,     "D: TX W_ALL");
+            bm_print_event_stat(RE_TX_DONE_NN,   "D: TX DONE_NN");
+            bm_print_event_stat(RE_TX_DONE_N,    "D: TX DONE_N");
+            bm_print_event_stat(RE_TX_SP_MSG,    "D: TX SP_MSG");
+            bm_print_event_stat(RE_TX_SP_MSG_Q,  "D: TX SP_MSG_Q");
+        break;
+
+        default:
+            printf("Invalid type given to print stats\n");
+    } // end switch
 }
 
 

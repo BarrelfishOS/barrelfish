@@ -318,8 +318,7 @@ void bm_reset_stats(void);
 void bm_record_event(uint8_t event_type, uint64_t delta);
 void bm_record_event_simple(uint8_t event_type, uint64_t ts);
 void bm_print_event_stat(uint8_t event_type, char *event_name);
-void bm_print_interesting_stats(void);
-
+void bm_print_interesting_stats(uint8_t type);
 // **************************************
 // Use of optimised memcpy for SCC
 
