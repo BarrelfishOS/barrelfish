@@ -564,6 +564,7 @@ constants_typedef c =
                      
 
 -- XXX
+constants_eval (ExprConstant (-1)) = 0xffffffff
 constants_eval (ExprConstant i) = i
 
 constants_print_fn :: TT.Rec -> C.Unit

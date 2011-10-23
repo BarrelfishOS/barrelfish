@@ -78,8 +78,7 @@ make_list_from_word dn dflt LSBFIRST init_offset decls =
             foldl (\t (RegField _ s _ _ _ _) -> t ++ [(last t) + s]) [init_offset] decls
     in map (make_field dn dflt False) $ zip decls (add_sizes decls)
 make_list_from_word dn dflt MSBFIRST init_offset decls = 
-    make_list dn dflt LSBFIRST init_offset (reverse decls)
-
+    make_list_from_word dn dflt LSBFIRST init_offset (reverse decls)
 
 --
 -- Create a list of fields, in the right order, with the right 

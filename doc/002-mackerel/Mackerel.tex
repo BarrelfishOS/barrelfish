@@ -149,7 +149,7 @@ the convention opted by modern day programming languages like C and Java.\\
 
 \item[Identifiers:] Valid \Mac identifiers are sequences of numbers
   (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
-  must start must start with a letter or ``\texttt{\_}''.  
+  must start with a letter or ``\texttt{\_}''.  
   \begin{align*}
     identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_)^{\textrm{*}} \\
     letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
@@ -160,15 +160,19 @@ the convention opted by modern day programming languages like C and Java.\\
   ``don't care'' or anonymous identifier which is treated differently
   inside the language. 
   
-\item[Integer Literals:] A \Mac integer literals is a sequence of
+\item[Integer Literals:] A \Mac integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
   literals have no specifier and hexadecimal literals start with
   \texttt{0x}.  Binary literals start with \texttt{0b}. 
+
+  In addition, as a special case the string \texttt{1s} can be used to
+  indicate an integer which is composed entirely of binary 1's. 
 
 \begin{align*}
 digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
 hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
 binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
+allones & \rightarrow \textsf{1s}\\
 \end{align*}
 
 

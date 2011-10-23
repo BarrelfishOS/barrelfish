@@ -71,6 +71,7 @@ squares    = P.squares lexer
 semiSep    = P.semiSep lexer
 symbol     = P.symbol lexer
 integer    = try ((P.lexeme lexer) binLiteral) 
+             <|> try ((P.lexeme lexer) binOnes) 
              <|> P.integer lexer
 commaSep1 = P.commaSep1 lexer
 
@@ -93,6 +94,12 @@ binLiteral = do { _ <- char '0'
                 ; let n = foldl (\x d -> 2*x + (digitToInt d)) 0 digits
                 ; seq n (return (fromIntegral n))
                 }
+
+binOnes = do { _ <- char '1'
+             ; _ <- char 's'
+             ; let n = -1
+             ; seq n (return (fromIntegral n))
+             }
 
 data BitOrder = LSBFIRST | MSBFIRST | NOORDER
               deriving (Eq,Show)

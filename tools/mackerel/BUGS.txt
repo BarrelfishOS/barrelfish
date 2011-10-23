@@ -42,60 +42,51 @@
    register definitions should always be copied from the base type,
    but register type definitions (and constant declarations) should
    simply be referenced. 
-   by simply refering to the xapic type. 
-
 
    New syntax for inheritance: 
      1) extends(xapic) as an extra device attribute. 
      2) override register foo ... to override a register definition. 
      3) elide register bar; removes defn of bar from the new device. 
 
-   This works for constants types.  What about register types?   Still
-   works, but the types in a register access signature are now a
-   mixture of current and imported types.  Seems OK. .
-
-   Then: how to we do device inheritance?  Clearly the new device is a
-   new type, but it also needs a new operation for every register,
-   even those inherited from the base device type.  This suggests that
-   register definitions should always be copied from the base type,
-   but register type definitions (and constant declarations) should
-   simply be referenced. 
-
- * When specifying constant values, can use '1s' as a special value to
-   mean 'all 1s up to the width of the field'. 
-     2) override register foo ... to override a register definition. 
-     3) elide register bar; removes defn of bar from the new device. 
-
- * When specifying constant values, can use '1s' as a special value to
-   mean 'all 1s up to the width of the field'. 
-
  * Generalize register field attributes.  Specify fixed values
    properly, as either a literal, or a constant value name, or
-   (possibly) a compile-time expression.  Compile time expressions
-   should include "all ones".  Split up whether the driver 
+   (possibly) a compile-time expression.  Split up whether the driver
    can read or write the field, and in what way, from what
-   consequences there are of reading or writing the field. 
+   consequences there are of reading or writing the field.
 
-   Options for reading:
-     R : 'readable' Return any value to user (expose a read operation)
-     RN: 'no_read' Can't be read.
+   What is the difference between the read cycles permissible by the
+   hardware, and the read operations that the user might want to be able
+   to initiate?
+
+   Well, whether the hardware allows reads or not is simply a bit. 
+     Hardware-readable: boolean. False => never generate a read
+     cycle.   This is a property of a register, not a field!
+
+   What reads the user is allowed to perform is always one of:
+     R : 'read_value' :  Return any value to user (expose a read operation)
      RF: 'read_as' Always same constant value (expose sanity check to drivers)
+     RC: 'read_clears' Reads as some value, and also clears. 
+     RN: 'no_read' Can't be read.
+    These are properties of fields; register properties are templates
+     for these. 
+
+   Can you allow a hardware write or not? 
+     If you can, what are the constraints on this? These are field
+     properties, but might apply to the register as a whole. 
 
    Options for writing:
-     W : 'writeable' Set to any value of a type (expose a write operation)
-     WN: 'no_write' Cannot be written (not exposed to user)
+     W : 'write_value' Set to any value of a type (expose a write operation)
+     WN: 'no_write' Cannot be written/writes ignored (not exposed to user)
      WF: 'write_as' Must write a specific value (not exposed to user)
      WP: 'preserve' Must preserve previous value (not exposed to user)
+     WC: 'write_to_clear(v)' Must write a specific value to clear register
+     WS: 'write_to_set(v)' Must write a specific value to set register
 
    Options for other actions:
-     <default>: nothing special happens
-     read_clears: reads as some value, and also clears. 
      sticky: once written, value will never change. 
-     write_to_clear(v): 
 
    Shorthand:
-
-     rw		=> readable writeable
+     rw		=> read_value write_value
      ro		=> readable no_write
      wo		=> no_read writeable
      always(v)	=> read_as(v) write_as(v)
