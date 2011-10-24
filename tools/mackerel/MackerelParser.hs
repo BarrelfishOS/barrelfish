@@ -108,7 +108,7 @@ data DeviceFile = DeviceFile AST [String]
 
 data AST = Device String BitOrder [ AST ] String [ AST ]
 --                 name  lsbfirst   args   desc   defn
-         | Constants String String [ AST ] SourcePos
+         | Constants String String [ AST ] (Maybe Integer) SourcePos
          | ConstVal String Expr String SourcePos
          | RegField String Integer Attr AST String SourcePos
          | SpaceDecl Space.Rec
@@ -358,11 +358,17 @@ arrayContigSpec = do { base <- integer
 constants args = do { reserved "constants"
                     ; p <- getPosition
                     ; i <- identifier 
+                    ; w <- option Nothing constWidth 
                     ; d <- stringLit
                     ; f <- braces (many1 (constField args))
                     ; _ <- symbol ";"
-                    ; return (Constants i d f p)
+                    ; return (Constants i d f w p)
                     }
+
+constWidth = do { _ <- reserved "width"
+                ; i <- parens integer
+                ; return (Just i)
+                }
 
 constField args = do { i <- identifier
                      ; p <- getPosition

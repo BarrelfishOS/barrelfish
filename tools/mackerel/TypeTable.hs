@@ -44,6 +44,7 @@ data Rec = RegFormat  { tt_name :: TN.Name,
          | ConstType  { tt_name :: TN.Name,
                         tt_size :: Integer,
                         tt_vals :: [ Val ], 
+                        tt_width :: Maybe Integer,
                         tt_desc :: String,
                         pos  :: SourcePos }
          | Primitive  { tt_name :: TN.Name,
@@ -112,13 +113,14 @@ make_rtrec (DataType nm dsc (TypeDefn decls) o w p) dev devorder =
                      fields = F.make_list dev RW order w decls,
                      tt_desc = dsc,
                      pos = p } ]
-make_rtrec (Constants nm d vs p) dev devorder = 
+make_rtrec (Constants nm d vs w p) dev devorder = 
   let tn = TN.fromParts dev nm 
   in
    [ ConstType { tt_name = tn,
                  tt_size = 0,
                  tt_vals = [ make_val tn v | v <- vs ], 
                  tt_desc = d,
+                 tt_width = w,
                  pos = p } ]
 make_rtrec _ _ _ = []
                    

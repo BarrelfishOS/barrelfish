@@ -30,6 +30,7 @@ data Val = Val { cname :: String,
 data Rec = Rec { name :: String,
                  desc :: String,
                  vals :: [ Val ],
+                 width :: Maybe Integer,
                  pos  :: SourcePos }
 
 make_table :: [AST] -> [Rec]

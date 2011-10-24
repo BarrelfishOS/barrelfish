@@ -111,7 +111,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     };
 
     // 14.3.1.3 
-    constants mcg_ctl_val "Global MC control values" {
+    constants mcg_ctl_val width(64) "Global MC control values" {
 	mc_enable	= 0xffffffffffffffff;
 	mc_disable	= 0x0;
     };
