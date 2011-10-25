@@ -72,6 +72,17 @@ device_initial_enum_name :: Dev.Rec -> String
 device_initial_enum_name d = qual_devname d ["initials"]
 
 --
+-- Space-related names
+-- 
+space_read_fn_name :: Space.Rec -> Integer -> String
+space_read_fn_name s w = 
+  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "read", show w ])
+
+space_write_fn_name :: Space.Rec -> Integer -> String
+space_write_fn_name s w = 
+  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "write", show w ])
+
+--
 -- Constants-related names
 --
 constants_c_name :: TT.Rec -> String
@@ -606,7 +617,7 @@ constants_check_fn c =
           ]
 
 -------------------------------------------------------------------------
--- Render 'register type definitions
+-- Render register type definitions
 -------------------------------------------------------------------------
 
 regtype_c_type :: TT.Rec -> C.TypeSpec
@@ -1053,26 +1064,24 @@ register_arg_list pre r post
 loc_read :: RT.Rec -> C.Expr
 loc_read r = 
     case RT.spc r of
-      (Space.Builtin n _ t) -> 
-          C.Call (mackerel_read_fn_name n (RT.size r))
-                [ C.DerefField (C.Variable cv_dev) (RT.base r),
-                  loc_array_offset r ]
-      (Space.Defined n a _ t p) -> 
-          C.Call (register_read_fn_name r) [ C.Variable cv_dev, 
-                                             loc_array_offset r ]
+      Space.Builtin { Space.n = name } -> 
+          C.Call (mackerel_read_fn_name name (RT.size r))
+            [ C.DerefField (C.Variable cv_dev) (RT.base r), loc_array_offset r ]
+      s@Space.Defined {} -> 
+          C.Call (space_read_fn_name s (RT.size r))
+                [ C.Variable cv_dev, loc_array_offset r ]
 
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
     case RT.spc r of
-      (Space.Builtin n _ t) -> 
-          C.Call (mackerel_write_fn_name n (RT.size r))
+      Space.Builtin { Space.n = name } -> 
+          C.Call (mackerel_write_fn_name name (RT.size r))
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),
                   loc_array_offset r,
                   C.Variable val ]
-      (Space.Defined n a _ t p) -> 
-          C.Call (register_write_fn_name r) [ C.Variable cv_dev, 
-                                              loc_array_offset r, 
-                                              C.Variable val ]
+      s@Space.Defined {} -> 
+          C.Call (space_write_fn_name s (RT.size r)) 
+                [ C.Variable cv_dev, loc_array_offset r, C.Variable val ]
     
 --
 -- Calculate the C expression for an appropriate offset for a register
@@ -1261,12 +1270,14 @@ register_print_single r =
              ] ++ register_print_value r 
 
 register_print_value :: RT.Rec -> [ C.Stmt ] 
-register_print_value r
-    | TT.is_primitive (RT.tpe r) = 
-        [ register_print_primitive r ]
-    | otherwise =
-        [ snputs_like_call "\n" ] 
-        ++ [ field_print_block (RT.tpe r) f | f <- (RT.fl r) ]
+register_print_value r = 
+    case RT.tpe r of
+      TT.RegFormat {} -> [ snputs_like_call "\n" ] 
+                         ++ [ field_print_block (RT.tpe r) f | f <- (RT.fl r) ]
+      TT.DataFormat {} -> [ snputs_like_call "\n" ] 
+                         ++ [ field_print_block (RT.tpe r) f | f <- (RT.fl r) ]
+      TT.Primitive {} -> [ register_print_primitive r ]
+      TT.ConstType {} -> [ register_print_consttype r ]
 
 register_print_primitive :: RT.Rec -> C.Stmt 
 register_print_primitive r = 
@@ -1277,6 +1288,14 @@ register_print_primitive r =
                             C.NStr $ field_fmt_str $ RT.size r, 
                             C.QStr (extra ++ "\n") ]
     in snprintf_like_call "snprintf" [ fmt, C.Variable cv_regval ]
+
+register_print_consttype :: RT.Rec -> C.Stmt 
+register_print_consttype r = 
+    let extra = 
+            if RT.needs_shadow r then " (SHADOW copy)"
+            else ""
+        c = constants_print_fn_name $ TT.tt_name $ RT.tpe r
+    in snprintf_like_call c [ C.Variable cv_regval ]
 
 register_print_init :: RT.Rec -> C.Stmt
 register_print_init r =

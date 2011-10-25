@@ -440,7 +440,7 @@ loc_read r =
           (printf "mackerel_read_%s_%s(_dev->%s,%s)" 
                   n (show (RT.size r)) (RT.base r)
                         (loc_array_off t (RT.offset r) (RT.arr r) (RT.size r)))
-      (Defined n a _ t p) -> 
+      (Defined n a _ _ t p) -> 
           (printf "__DP(%s_read_%s)(_dev, %s)" 
                       n (show (RT.size r)) 
                       (loc_array_off t (RT.offset r) (RT.arr r) (RT.size r)))
@@ -469,7 +469,7 @@ loc_write r val =
                   (loc_array_off t (RT.offset r) (RT.arr r) (RT.size r))
                   val
           )
-      (Defined n a _ t p) -> 
+      (Defined n a _ _ t p) -> 
           (printf "__DP(%s_write_%s)(_dev, %s,%s)" 
                   n 
                   (show (RT.size r)) 

@@ -27,6 +27,7 @@ Register table: list of all registers
 
 data Rec = Rec { name :: String,        -- Unqualified name of register 
                  fl :: [F.Rec],         -- List of fields (may be empty)
+                 attr :: Attr,          -- Attribute (for non-field types)
                  tpe :: TT.Rec,         -- Type of this register
                  origtype :: String,    -- Original name of register type
                  size :: Integer,       -- Width in bits
@@ -49,15 +50,16 @@ make_table rtinfo decls dn order spt =
     concat [ (make_reginfo rtinfo d dn order spt) | d <- decls ]
 
 
-make_regproto :: String -> Bool -> RegLoc -> String -> SourcePos -> [Space.Rec] -> TT.Rec
+make_regproto :: String -> Attr -> Bool -> RegLoc -> String -> SourcePos -> [Space.Rec] -> TT.Rec -> String
                  -> Rec
-make_regproto n als rloc dsc p spt t =
+make_regproto n atrv als rloc dsc p spt t tname =
     let (si, s, b, o) = get_location rloc spt
     in
       Rec { name = n,
             fl = [],
+            attr =atrv, 
             tpe = t,
-            origtype = "",
+            origtype = tname,
             size = 0,
             also = als,
             desc = dsc, 
@@ -70,63 +72,55 @@ make_regproto n als rloc dsc p spt t =
 
 make_reginfo :: [TT.Rec] -> AST -> String -> BitOrder -> [Space.Rec] -> [Rec]
 
-make_reginfo rtinfo (RegArray n attr als rloc aloc dsc (TypeDefn decls) p) dn order spt =
+make_reginfo rtinfo (RegArray n atrv als rloc aloc dsc (TypeDefn decls) p) dn order spt =
     let t = (TT.get_rtrec rtinfo (TN.fromParts dn n))
-        r = make_regproto n als rloc dsc p spt t
+        r = make_regproto n atrv als rloc dsc p spt t "<inline>"
     in
-      [ r { fl = F.make_list dn attr order 0 decls,
+      [ r { fl = F.make_list dn atrv order 0 decls,
             size = TT.tt_size t,
             arr = aloc } ]
 
-make_reginfo rtinfo (RegArray n attr als rloc aloc dsc tr@(TypeRef tname dname) p) dn order spt = 
+make_reginfo rtinfo (RegArray n atrv als rloc aloc dsc tr@(TypeRef tname dname) p) dn order spt = 
   let tn = TN.fromRef tr dn
       rt = (TT.get_rtrec rtinfo tn)
-      r = make_regproto n als rloc dsc p spt rt
+      r = make_regproto n atrv als rloc dsc p spt rt tname
   in case rt of
-    t@(TT.Primitive {}) -> [ r { origtype = tname,
+    t@(TT.Primitive {}) -> [ r { size = (TT.tt_size rt),
+                                 arr = aloc } ]
+    t@(TT.RegFormat {}) -> [ r { fl = F.inherit_list atrv (TT.fields rt),
                                  size = (TT.tt_size rt),
                                  arr = aloc } ]
-    t@(TT.RegFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
-                                 origtype = tname,
+    t@(TT.DataFormat {}) -> [ r { fl = F.inherit_list atrv (TT.fields rt),
                                  size = (TT.tt_size rt),
                                  arr = aloc } ]
-    t@(TT.DataFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
-                                 origtype = tname,
-                                 size = (TT.tt_size rt),
-                                 arr = aloc } ]
-    t@(TT.ConstType {}) -> [ r { origtype = tname,
-                                 size = case (TT.tt_width rt) of
+    t@(TT.ConstType {}) -> [ r { size = case (TT.tt_width rt) of
                                    Nothing -> -1
                                    Just i  -> i,
                                  arr = aloc } ]
 
-make_reginfo rtinfo (Register n attr als rloc dsc (TypeDefn decls) p) dn order spt =
+make_reginfo rtinfo (Register n atrv als rloc dsc (TypeDefn decls) p) dn order spt =
     let tn = TN.fromParts dn n
         td = TT.get_rtrec rtinfo tn
-        r = make_regproto n als rloc dsc p spt td
+        r = make_regproto n atrv als rloc dsc p spt td "<inline>"
     in
-      [ r { fl = F.make_list dn attr order 0 decls,
+      [ r { fl = F.make_list dn atrv order 0 decls,
             size = TT.tt_size td,
             arr = (ArrayListLoc []) } ]
 
-make_reginfo rtinfo (Register n attr als rloc dsc tr@(TypeRef tname dname) p) dn order spt =
+make_reginfo rtinfo (Register n atrv als rloc dsc tr@(TypeRef tname dname) p) dn order spt =
   let tn = TN.fromRef tr dn
       rt = (TT.get_rtrec rtinfo tn)
-      r = make_regproto n als rloc dsc p spt rt
+      r = make_regproto n atrv als rloc dsc p spt rt tname
   in case rt of
-    t@(TT.Primitive {}) -> [ r { origtype = tname,
+    t@(TT.Primitive {}) -> [ r { size = (TT.tt_size rt),
+                                 arr = (ArrayListLoc []) } ]
+    t@(TT.RegFormat {}) -> [ r { fl = F.inherit_list atrv (TT.fields rt),
                                  size = (TT.tt_size rt),
                                  arr = (ArrayListLoc []) } ]
-    t@(TT.RegFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
-                                 origtype = tname,
+    t@(TT.DataFormat {}) -> [ r { fl = F.inherit_list atrv (TT.fields rt),
                                  size = (TT.tt_size rt),
                                  arr = (ArrayListLoc []) } ]
-    t@(TT.DataFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
-                                 origtype = tname,
-                                 size = (TT.tt_size rt),
-                                 arr = (ArrayListLoc []) } ]
-    t@(TT.ConstType {}) -> [ r { origtype = tname,
-                                 size = case (TT.tt_width rt) of
+    t@(TT.ConstType {}) -> [ r { size = case (TT.tt_width rt) of
                                    Nothing -> -1
                                    Just i  -> i,
                                  arr = (ArrayListLoc []) } ]
@@ -179,21 +173,24 @@ lookup_size reginfo n = (size (lookup_reg reginfo n ))
 --
 
 is_writeable :: Rec -> Bool
-is_writeable r = 
-    case (tpe r) of
-      (TT.Primitive _ _ attr) -> attr_is_writeable attr
+is_writeable r@Rec{ attr=a, tpe=t } = 
+    case t of
+      (TT.Primitive {} ) -> attr_is_writeable a
+      (TT.ConstType {} ) -> attr_is_writeable a
       _ -> any F.is_writeable (fl r)
 
 is_readable :: Rec -> Bool
-is_readable r = 
-    case (tpe r) of
-      (TT.Primitive _ _ attr) -> attr_is_readable attr
+is_readable r@Rec{ attr=a, tpe=t } = 
+    case t of
+      (TT.Primitive {} ) -> attr_is_readable a
+      (TT.ConstType {} ) -> attr_is_readable a
       _ -> any F.is_readable (fl r)
 
 is_writeonly :: Rec -> Bool
-is_writeonly r = 
-    case (tpe r) of
-      (TT.Primitive _ _ attr) -> attr_is_writeonly attr
+is_writeonly r@Rec{ attr=a, tpe=t } = 
+    case t of
+      (TT.Primitive {} ) -> attr_is_writeonly a
+      (TT.ConstType {} ) -> attr_is_writeonly a
       _ -> any F.is_writeonly (fl r)
 
 needs_shadow :: Rec -> Bool

@@ -24,13 +24,14 @@ data Rec = Builtin { n :: String,
          | Defined { n :: String,
                      a :: [ String ],
                      d :: String,
+                     devname :: String,
                      t :: SpaceType,
                      p :: SourcePos }
            deriving Show
 
 make :: String -> [String] -> String -> SpaceType -> SourcePos -> Rec
 make name args desc tpe pos = 
-    Defined { n = name, a = args, d = desc, t = tpe, p = pos }
+    Defined { n = name, a = args, d = desc, devname = "", t = tpe, p = pos }
 
 builtins :: [ Rec ]
 builtins = [ Builtin { n = "",
