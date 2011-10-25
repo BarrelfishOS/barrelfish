@@ -31,7 +31,7 @@ import Dev
 --
 
 -- Datatypes for carrying command options around
-data Target = BitFieldDriver | ShiftDriver deriving (Eq, Show)
+data Target = BitFieldDriver | ShiftDriver | NullDriver deriving (Eq, Show)
 
 data Options = Options {
   opt_infilename :: Maybe String,
@@ -69,6 +69,9 @@ options =
   , Option ['S'] ["shift-driver"]
     (NoArg (\ opts -> opts { opt_target = ShiftDriver } ))
      "use shift driver (default; preferred)"
+  , Option ['n'] ["null-driver"]
+    (NoArg (\ opts -> opts { opt_target = NullDriver } ))
+     "use null output driver (don't generate any C)"
   , Option ['B'] ["bitfield-driver"]
     (NoArg (\ opts -> opts { opt_target = BitFieldDriver } ))
      "use bitfield driver (deprecrated: do not use)"
@@ -117,6 +120,10 @@ usageError errs =
 --
 -- Processing source files
 ---
+
+-- Null compilation 
+nullCompiler :: String -> String -> Dev.Rec -> String
+nullCompiler _ _ _ = ""
 
 -- Perform run-time checks
 run_checks :: String -> Dev.Rec -> IO String
@@ -192,6 +199,7 @@ main = do { cli <- System.getArgs
                 do { _ <- run_checks input_fn dev
                    ; outFileD <- openFile output_fn WriteMode
                    ; hPutStr outFileD ((case (opt_target opts) of
+                                           NullDriver -> nullCompiler 
                                            ShiftDriver -> ShiftDriver.compile 
                                            BitFieldDriver -> BitFieldDriver.compile)
                                        input_fn output_fn dev)

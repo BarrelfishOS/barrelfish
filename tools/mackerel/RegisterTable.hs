@@ -80,22 +80,25 @@ make_reginfo rtinfo (RegArray n attr als rloc aloc dsc (TypeDefn decls) p) dn or
 
 make_reginfo rtinfo (RegArray n attr als rloc aloc dsc tr@(TypeRef tname dname) p) dn order spt = 
   let tn = TN.fromRef tr dn
-  in
-   if TN.is_builtin_type tn then
-        let t = (TT.Primitive tn (TT.builtin_size tname) attr)
-            r = make_regproto n als rloc dsc p spt t
-        in [ r { fl = [],
-                 origtype = tname,
-                 size = (TT.tt_size t),
-                 arr = aloc } ]
-   else
-        let rt = (TT.get_rtrec rtinfo tn)
-            r = make_regproto n als rloc dsc p spt rt
-        in
-          [ r { fl = F.inherit_list attr (TT.fields rt),
-                origtype = tname,
-                size = (TT.tt_size rt),
-                arr = aloc } ]
+      rt = (TT.get_rtrec rtinfo tn)
+      r = make_regproto n als rloc dsc p spt rt
+  in case rt of
+    t@(TT.Primitive {}) -> [ r { origtype = tname,
+                                 size = (TT.tt_size rt),
+                                 arr = aloc } ]
+    t@(TT.RegFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
+                                 origtype = tname,
+                                 size = (TT.tt_size rt),
+                                 arr = aloc } ]
+    t@(TT.DataFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
+                                 origtype = tname,
+                                 size = (TT.tt_size rt),
+                                 arr = aloc } ]
+    t@(TT.ConstType {}) -> [ r { origtype = tname,
+                                 size = case (TT.tt_width rt) of
+                                   Nothing -> -1
+                                   Just i  -> i,
+                                 arr = aloc } ]
 
 make_reginfo rtinfo (Register n attr als rloc dsc (TypeDefn decls) p) dn order spt =
     let tn = TN.fromParts dn n
@@ -108,23 +111,26 @@ make_reginfo rtinfo (Register n attr als rloc dsc (TypeDefn decls) p) dn order s
 
 make_reginfo rtinfo (Register n attr als rloc dsc tr@(TypeRef tname dname) p) dn order spt =
   let tn = TN.fromRef tr dn
-  in
-    if TN.is_builtin_type tn then
-        let t = (TT.Primitive tn (TT.builtin_size tname) attr)
-            r = make_regproto n als rloc dsc p spt t
-        in [ r { origtype = tname,
-                 size = (TT.tt_size t),
-                 arr = (ArrayListLoc []) } ]
+      rt = (TT.get_rtrec rtinfo tn)
+      r = make_regproto n als rloc dsc p spt rt
+  in case rt of
+    t@(TT.Primitive {}) -> [ r { origtype = tname,
+                                 size = (TT.tt_size rt),
+                                 arr = (ArrayListLoc []) } ]
+    t@(TT.RegFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
+                                 origtype = tname,
+                                 size = (TT.tt_size rt),
+                                 arr = (ArrayListLoc []) } ]
+    t@(TT.DataFormat {}) -> [ r { fl = F.inherit_list attr (TT.fields rt),
+                                 origtype = tname,
+                                 size = (TT.tt_size rt),
+                                 arr = (ArrayListLoc []) } ]
+    t@(TT.ConstType {}) -> [ r { origtype = tname,
+                                 size = case (TT.tt_width rt) of
+                                   Nothing -> -1
+                                   Just i  -> i,
+                                 arr = (ArrayListLoc []) } ]
 
-    else
-        let rt = (TT.get_rtrec rtinfo tn)
-            r = make_regproto n als rloc dsc p spt rt
-        in
-          [ r { fl = F.inherit_list attr (TT.fields rt),
-                origtype = tname,
-                size = (TT.tt_size rt),
-                arr = (ArrayListLoc []) } ]
-          
 make_reginfo rtinfo _ _ _ _ = []
 
 get_location :: RegLoc -> [Space.Rec] -> ( String, Space.Rec, String, Integer )

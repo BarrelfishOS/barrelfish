@@ -337,6 +337,7 @@ convert_arg (Arg "io" x) = Arg "mackerel_io_t" x
 -------------------------------------------------------------------------
 
 -- Top-level create-a-header-file
+compile :: String -> String -> Dev.Rec -> String
 compile infile outfile dev = 
     unlines $ C.pp_unit $ device_header_file dev infile
 
@@ -548,7 +549,10 @@ constants_c_type c = C.TypeName $ constants_c_name c
 
 constants_comment :: TT.Rec -> C.Unit      
 constants_comment c =
-    C.MultiComment [ printf "Constants defn: %s (%s)" (TN.toString $ TT.tt_name c) (TT.tt_desc c) ]
+    C.MultiComment [ printf "Constants defn: %s (%s)" (TN.toString $ TT.tt_name c) (TT.tt_desc c), 
+                     case TT.tt_width c of
+                       Nothing -> " - no width specified"
+                       Just w -> printf " - width %d bits" w ]
 
 constants_enum :: TT.Rec -> C.Unit
 constants_enum c = 

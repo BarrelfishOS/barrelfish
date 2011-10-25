@@ -112,11 +112,11 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 
     // 14.3.1.3 
     constants mcg_ctl_val width(64) "Global MC control values" {
-	mc_enable	= 0xffffffffffffffff;
+	mc_enable	= 1s;
 	mc_disable	= 0x0;
     };
     register mcg_ctl rw msr(0x17b) "Global machine check control" 
-	type(uint64);
+	type(mcg_ctl_val);
 
     // 14.3.2.5
     register mcg_rax rwzc msr(0x180) "State of RAX at MC" type(uint64);

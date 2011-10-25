@@ -445,7 +445,7 @@ and a textual description of its meaning.
 The syntax is:
 
 \begin{syntax}
-constants \synit{name} "\synit{description}" \verb+{+ 
+constants \synit{name} [width( \synit{width} )] "\synit{description}" \verb+{+ 
    \synit{name\(\sb{1}\)} = \synit{value\(\sb{1}\)} ["\synit{description\(\sb{1}\)}"] ;
    \ldots
 \verb+}+; 
@@ -456,6 +456,10 @@ constants \synit{name} "\synit{description}" \verb+{+
 \item[name] is an identifier for the constant type, and will be used to
   generate identifiers in the target language (typically C).  The
   scope of this identifier is the enclosing device specification.  
+
+\item[width] is optional, and specifies the width of the constant
+  value in bits.  This is useful, for example, when the type is used
+  as the type of a register. 
 
 \item [``description''] is a string literal in double quotes, which
   describes the constant type being specified, for example
