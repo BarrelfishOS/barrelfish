@@ -638,13 +638,20 @@ register \synit{name} [\synit{attr}] [also]
   If not present, it defaults to the name identifier.  
 
 \item[type] gives the format of the register.  It can consist of
-  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is either
-  the identifer of a register type previously declared with a
-  \texttt{regtype} declaration; one of the built in register
-  types \texttt{uint8}, \texttt{uint16}, \texttt{uint32}, or
-  \texttt{uint64}; or a qualified name of the form
-  \textit{device}\texttt{.}\textit{regtype}, where \textit{device} is
-  the name of a device definition previously imported. 
+  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is
+  either:
+  \begin{itemize}
+  \item the identifier of a register type previously declared with a
+    \texttt{regtype} declaration;
+  \item the identifier of a constants type previously declared with a
+    \texttt{constants} declaration which included an explicit
+    \texttt{width()} specifier;
+  \item one of the built in register types \texttt{uint8},
+    \texttt{uint16}, \texttt{uint32}, or \texttt{uint64}; or
+  \item a qualified name of the form
+    \textit{device}\texttt{.}\textit{type}, where \textit{device}
+    is the name of a device definition previously imported.  
+  \end{itemize}
 
   Alternatively, the type can be given as a sequence of fields in
   braces, exactly as in a \texttt{regtype} declaration.  In effect,
