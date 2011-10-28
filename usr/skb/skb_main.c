@@ -8,6 +8,7 @@
  */
 
 #include <eclipse.h>
+
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
@@ -25,6 +26,16 @@
 
 int skb_init(void);
 void execute_string(char *string);
+
+
+void test_function_call_ez(void) {
+	printf("test_function_call_ez\n");
+}
+
+void test_function_call(char* what) {
+	printf("what was: %s\n", what);
+}
+
 
 int main(int argc, char**argv)
 {
@@ -54,6 +65,9 @@ int main(int argc, char**argv)
     SKB_DEBUG("\nskb initialized\n");
 
     chdir(ECLIPSE_DIR);
+
+    ec_external(ec_did("string_to_list",2), p_string_to_list, ec_did("eclipse",0));
+
 
 //    execute_string("append([1,2,3],[5,6,7],L),write(output,L).");
     execute_string("[queries].");

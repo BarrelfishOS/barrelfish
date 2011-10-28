@@ -19,4 +19,9 @@
 
 void skb_server_init(void);
 void post_and_execute_string(void);
+
+void test_function_call_ez(void);
+void test_function_call(char* what);
+int p_string_to_list(void);
+
 #endif

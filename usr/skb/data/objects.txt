@@ -1,0 +1,20 @@
+object(person, []).
+
+object(men, [ ako :: [val person], hair::[val black] ]).
+
+object(john,
+      [ ako :: [val men],
+        weight :: [val 80],
+        address :: [ val "Gartenstrasse 12" ] ]).
+
+object(arnold,
+      [ ako :: [val men],
+        hair :: [val red],
+        weight :: [val 82],
+        age :: [val 28] ]).
+
+object(anna, 
+      [ ako :: [val person], 
+        hair :: [val blonde], 
+        age :: [val 28],
+        status :: [val married] ]).

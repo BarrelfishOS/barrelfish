@@ -30,7 +30,7 @@
  */
 
 #define EC_EXTERNAL
-#define EC_EMBED
+//#define EC_EMBED
 
 #ifdef _WIN32
 #include <windows.h>
