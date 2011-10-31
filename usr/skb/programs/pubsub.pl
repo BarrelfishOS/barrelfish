@@ -7,28 +7,34 @@
 %subscribed(object(_, [weight::20]), other).
 
 subscribed(object(msg,  [ hair::[ val blonde ]]), [], me).
-subscribed(object(msg,  [ hair::[ val blonde ]]), [], me).
 subscribed(object(msg,  [ hair::_, attr::[val bla]]), [], me).
 subscribed(object(_,    [ face::[ val test ]]), [], me).
 subscribed(object(name, [ face::[ val red ], age::_ ] ), [ constraint(age, '>', 10) ], subs).
-subscribed(object(_, [ age::_ ] ), [ constraint(age, '=<', 10) ], subs2).
-subscribed(object(_, [ age::_ ] ), [ constraint(age, '>=', 13) ], subs3).
+%subscribed(object(_, [ age::_ ] ), [ constraint(age, '=<', 10) ], subs2).
+%subscribed(object(_, [ age::_ ] ), [ constraint(age, '>=', 13) ], subs3).
+
 % FIXME: wrong order does not match
 subscribed(object(_, [ other::_, age::_ ] ), [ constraint(age, '>', 13) ], subs4).
 %
 
-find_subscribers(Message, Subscriber) :-
-    subscribed(Message, Constraints, Subscriber),
+find_subscriber(Message, Subscriber) :-
+    find_subscription(Message, Constraints, Subscriber),
     satisfy_constraints(Message, Constraints).
-    
-satisfy_constraints(Message, [C|Rest]) :-
-    satisfy_constraint(C, Message).
 
-satisfy_constraint(constraint(Attr, Comparator, Value), object(Name, SlotList)) :-
+find_subscription(Message, Constraints, Subscriber) :-
+    subscribed(Template, Constraints, Subscriber),
+    matches_template(Message, Template).
+    
+matches_template(object(OName, OSlotList), object(TName, TSlotList)) :-
+    slot_vals(OName, Attr::X, OSlotList),
+    slot_vals(TName, Attr::X, TSlotList).
+
+satisfy_constraints(Message, [C|Rest]) :-
+    satisfy_constraint(Message, C),
+    satisfy_constraints(Message, Rest).
+
+satisfy_constraint(object(Name, SlotList), constraint(Attr, Comparator, Value)) :-
     %get_object(Message, Attr::X),
     slot_vals(Name, Attr::X, SlotList),
     FX =.. [Comparator, X, Value],
-    call(FX).
-    
-    
-    
+    call(FX).    
