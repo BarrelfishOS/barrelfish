@@ -57,11 +57,9 @@ uint64_t idc_check_driver_load(void);
 uint64_t idc_get_packet_drop_count(void);
 
 
-
-
 void idc_register_receive_callback(void (*f)
-                                    (void *, uint64_t, uint64_t,
-                                     uint64_t, uint64_t), void *data);
+                                    (void *, uint64_t, uint64_t, uint64_t,
+                                     uint64_t, struct pbuf *), void *data);
 uint64_t idc_get_next_packet(uint8_t * packet);
 void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len);
 void idc_register_freeing_callback(void (*f) (struct pbuf *));

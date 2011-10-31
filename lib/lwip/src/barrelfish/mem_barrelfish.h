@@ -18,12 +18,14 @@
 #ifndef MEM_BARRELFISH_H_
 #define MEM_BARRELFISH_H_
 
-uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index,
-                                           uint32_t size);
+//uint8_t *mem_barrelfish_alloc_and_register(uint8_t binding_index,
+//                                           uint32_t size);
+
+uint8_t *mem_barrelfish_alloc(uint8_t binding_index, uint32_t size);
+uint8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size);
 struct buffer_desc *mem_barrelfish_get_buffer_desc(void *p);
 
-void mem_barrelfish_pbuf_init(void);
+//void mem_barrelfish_pbuf_init(void);
 struct pbuf *mem_barrelfish_get_pbuf(uint64_t pbuf_id);
-void mem_barrelfish_replace_pbuf(uint64_t idx);
-
-#endif                          // MEM_BARRELFISH_H_
+struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx);
+#endif // MEM_BARRELFISH_H_

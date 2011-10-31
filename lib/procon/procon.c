@@ -13,7 +13,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-
+#include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
@@ -276,7 +276,9 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
 
     errval_t err;
     assert(slot_no > 2);
-    size_t mem_size = calculate_shared_pool_size(slot_no);
+
+    // adding 1 more slot for safety
+    size_t mem_size = calculate_shared_pool_size((slot_no));
 
     // NOTE: using bulk create here because bulk_create code has
     // been modified to suit the shared buffer allocation
@@ -382,7 +384,26 @@ static bool validate_slot(struct slot_data *d)
     return true;
 } // end function: validate_slot
 
-static void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
+void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
+        uint64_t id, uint64_t offset, uint64_t len, uint64_t no_pbufs,
+        uint64_t client_data, uint64_t ts)
+{
+    assert(id < spp->c_size);
+    spp->sp->slot_list[id].d.buffer_id = buf_id;
+    spp->sp->slot_list[id].d.no_pbufs = no_pbufs;
+    spp->sp->slot_list[id].d.pbuf_id = id;
+    spp->sp->slot_list[id].d.offset = offset;
+    spp->sp->slot_list[id].d.len = len;
+    spp->sp->slot_list[id].d.client_data = client_data;
+    spp->sp->slot_list[id].d.ts = ts;
+    // copy the s into shared_pool
+#if !defined(__scc__) && !defined(__i386__)
+    cache_flush_range(&spp->sp->slot_list[id], SLOT_SIZE);
+#endif // !defined(__scc__) && !defined(__i386__)
+}
+
+
+void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 {
     assert(d != NULL);
     assert(s != NULL);

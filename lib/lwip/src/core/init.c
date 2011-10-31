@@ -263,9 +263,11 @@ static void remaining_lwip_initialization(char *card_name)
 #ifdef CONFIG_QEMU_NETWORK
     printf("#### Networking with small amount of memory #####\n");
 #endif                          // CONFIG_QEMU_NETWORK
-    printf
-      ("#### [%u] [%s] [%d] MEM_SIZE[%d], MEMP_NUM_PBUF[%d],  PBUF_POOL_SIZE[%d], NR_PREALLOCATED_PBUFS[%d], PBUF_POOL_BUFSIZE[%d] ####\n",
-       disp_get_core_id(), MEM_CONF_LOC, is_ctl, MEM_SIZE, MEMP_NUM_PBUF,
+    printf("#### [%u:%u:%s] [%s] [%d] MEM_SIZE[%d], MEMP_NUM_PBUF[%d], "
+            "PBUF_POOL_SIZE[%d], NR_PREALLOCATED_PBUFS[%d], "
+            "PBUF_POOL_BUFSIZE[%d] ####\n",
+       disp_get_core_id(), disp_get_domain_id(), disp_name(),
+       MEM_CONF_LOC, is_ctl, MEM_SIZE, MEMP_NUM_PBUF,
        PBUF_POOL_SIZE, NR_PREALLOCATED_PBUFS, PBUF_POOL_BUFSIZE);
 
     memp_init();                // 0'st buffer
@@ -273,14 +275,6 @@ static void remaining_lwip_initialization(char *card_name)
     DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
     printf("LWIP: remaining_lwip_init: allocating memory for sending\n");
     mem_init();                 // 1'th buffer
-
-    DEBUGPRINTPS("remaining_lwip_init: initing pbufs\n");
-    printf("LWIP: remaining_lwip_init: initing pbufs\n");
-    pbuf_init();
-    DEBUGPRINTPS("remaining_lwip_init: done with pbuf_init\n");
-    // prefill receive descriptors.
-    mem_barrelfish_pbuf_init();
-    DEBUGPRINTPS("lwip_starting -- netif_init\n");
     printf("LWIP: lwip_starting\n");
     netif_init();
 #if LWIP_SOCKET

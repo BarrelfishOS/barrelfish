@@ -13,7 +13,7 @@
 #include <lwip/netif.h>
 
 void bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr,
-                 uint64_t len, uint64_t packet_len);
+        uint64_t len, uint64_t packet_len, struct pbuf *pp);
 err_t bfeth_init(struct netif *netif);
 
 #endif

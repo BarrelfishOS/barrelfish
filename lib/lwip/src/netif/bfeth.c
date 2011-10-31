@@ -180,12 +180,11 @@ void bfeth_register_packetfilter(packetfilter_func_t filter)
  */
 void
 bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
-            uint64_t packet_len)
+            uint64_t packet_len, struct pbuf *pp)
 {
     struct bfeth *bfeth;
     struct eth_hdr *ethhdr;
     struct pbuf *p;
-
 
     bfeth = netif->state;
 
@@ -253,9 +252,10 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
 }
 
 static void bfeth_input_handler(void *data, uint64_t pbuf_id, uint64_t paddr,
-                                uint64_t len, uint64_t packet_len)
+                                uint64_t len, uint64_t packet_len,
+                                struct pbuf *p)
 {
-    bfeth_input((struct netif *) data, pbuf_id, paddr, len, packet_len);
+    bfeth_input((struct netif *) data, pbuf_id, paddr, len, packet_len, p);
 }
 
 

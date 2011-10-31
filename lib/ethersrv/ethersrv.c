@@ -29,6 +29,7 @@
 #include <if/ether_control_defs.h>
 #include "ethersrv_debug.h"
 
+#define APP_QUEUE_SIZE  (RECEIVE_BUFFERS + 1)
 
 #define USE_SPP_FOR_TX_DONE 1
 
@@ -200,7 +201,7 @@ static uint64_t my_avg(uint64_t sum, uint64_t n) {
     }
 }
 
-static uint64_t metadata_size = sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
+static uint64_t metadata_size = sizeof(struct pbuf_desc) * APP_QUEUE_SIZE;
 
 static void print_app_stats(struct buffer_descriptor *buffer)
 {
@@ -437,6 +438,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
         return;
     }
 
+
     /* FIXME: cheat, driver is allocating some memory on behalf of client.
      * but this memory should come from "register_metadata_mem"
      * I need to implement that */
@@ -450,7 +452,8 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     memset(buffer->pbuf_metadata_ds, 0, metadata_size);
     // FIXME: Where is following variable used?
     buffer->pbuf_metadata_ds_tx = buffer->pbuf_metadata_ds
-      + sizeof(struct pbuf_desc) * RECEIVE_BUFFERS;
+      + sizeof(struct pbuf_desc) * (APP_QUEUE_SIZE);
+
 
     /* FIXME: replace the name netd with control_channel */
     for (i = 0; i < NETD_BUF_NR; i++) {
@@ -473,12 +476,27 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     buffers_list = buffer;
 
     ETHERSRV_DEBUG("register_buffer:buff_id[%" PRIu64 "] pa[%" PRIuLPADDR
-                   "] va[%p] bits[%" PRIu64 "]#####\n", buffer->buffer_id,
-                   buffer->pa, buffer->va, buffer->bits);
+                   "] va[%p] bits[%" PRIu64 "] Role[%"PRIu8"]#####\n",
+                   buffer->buffer_id, buffer->pa, buffer->va, buffer->bits,
+                   buffer->role);
 
+    sp_reload_regs(buffer->spp);
+    if (buffer->role == RX_BUFFER_ID) {
+        struct slot_data sslot;
+        memset(&sslot, 0, sizeof(sslot));
+        // register all the pbufs
+        for (uint64_t id = 0; id < buffer->spp->c_size; ++id) {
+            (sp_copy_slot_data(&sslot, &buffer->spp->sp->slot_list[id].d));
+            assert(sslot.client_data != 0);
+            assert(sslot.len != 0);
+            assert(sslot.no_pbufs != 0);
+            // Assigning buffer id here because it was not known to application
+            buffer->spp->sp->slot_list[id].d.buffer_id = buffer->buffer_id;
+            register_pbuf(cc, sslot.pbuf_id, sslot.offset, sslot.len, sslot.ts);
+        } // end for:
+    }
     report_register_buffer_result(cc, err, buffer->buffer_id);
 }
-
 
 
 static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
@@ -492,10 +510,10 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
 /*      (struct buffer_descriptor *) ((struct client_closure *) (b->st))->
       buffer_ptr;
 */
-      assert(buffer != NULL);
+    assert(buffer != NULL);
 
     struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
-    uint32_t new_tail = (buffer->pbuf_tail + 1) % RECEIVE_BUFFERS;
+    uint32_t new_tail = (buffer->pbuf_tail + 1) % APP_QUEUE_SIZE;
 
     if (buffer->pbuf_metadata_ds == NULL) {
         ETHERSRV_DEBUG("memory is yet not provided by the client "
@@ -507,8 +525,9 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
      * insert the buffer */
     if (new_tail == buffer->pbuf_head_msg) {
         ETHERSRV_DEBUG("no space to add a new receive pbuf\n");
-        printf("no space to add a new receive pbuf new_tail %u msg_hd %u\n",
-               new_tail, buffer->pbuf_head_msg);
+        printf("no space to add a new receive pbuf[%"PRIu64"] new_tail"
+                " %u msg_hd %u\n",
+              pbuf_id, new_tail, buffer->pbuf_head_msg);
         return -1;
     }
 
@@ -519,7 +538,7 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
 
     pbuf[buffer->pbuf_tail].sr = b;
     pbuf[buffer->pbuf_tail].pbuf_id = pbuf_id;
-    pbuf[buffer->pbuf_tail].paddr = paddr;      // asq: remember for later freeing
+    pbuf[buffer->pbuf_tail].paddr = paddr; // asq: remember for later freeing
     pbuf[buffer->pbuf_tail].vaddr = vaddr;
     pbuf[buffer->pbuf_tail].len = len;
     pbuf[buffer->pbuf_tail].event_sent = false;
@@ -540,7 +559,7 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
 
 
 static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
-                          uint64_t paddr, uint64_t len, uint64_t rts)
+                          uint64_t offset, uint64_t len, uint64_t rts)
 {
 
 #if TRACE_ETHERSRV_MODE
@@ -562,10 +581,8 @@ static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
     }
 
     /* Calculating the physical address of this pbuf. */
-    uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + (paddr
-                                                                 -
-                                                                 (uint64_t)
-                                                                 buffer->pa);
+    uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + offset;
+    uint64_t paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
     /* NOTE: virtual address = virtual base + physical offset */
 /*
 	ETHERSRV_DEBUG("register_pbuf: pbuf id %"PRIx64" on buff_id %"PRIx64"\n",
@@ -700,6 +717,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     closure->nr_transmit_pbufs = 0;
     closure->rtpbuf = 0;
 
+    printf("Sending single packet on wire\n");
     errval_t r;
     // FIXME: keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
@@ -1214,11 +1232,6 @@ void ethersrv_init(char *service_name,
     filter_id_counter = 0;
     netd_buffer_count = 0;
     client_no = 0;
-
-    // FIXME: For testing of compilation
-    struct shared_pool_private *mysp = sp_create_shared_pool(2045, 0);
-    assert(mysp != NULL);
-
 
     /* FIXME: populate the receive ring of device driver with local pbufs */
 
@@ -2112,7 +2125,7 @@ static errval_t send_received_packet_handler(struct q_entry entry)
         /* FIXME: what is this? why is it here? */
         /* FIXME: I am assuming here that packet has been properly uploaded */
         cl->buffer_ptr->pbuf_head_msg = (cl->buffer_ptr->pbuf_head_msg + 1)
-          % RECEIVE_BUFFERS;
+          % APP_QUEUE_SIZE;
 
         cl->filter_matched = 0;
         /* FIXME: As I have sent the msg here, shouldn't I treat this pbuf
@@ -2247,7 +2260,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         return false;
     }
 
-    if (((phead + 1) % RECEIVE_BUFFERS) == ptail) {
+    if (((phead + 1) % APP_QUEUE_SIZE) == ptail) {
 
         ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64
                        "]: phead[%u] ptail[%u]\n", disp_get_domain_id(),
@@ -2287,7 +2300,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 #endif                          // TRACE_ETHERSRV_MODE
 
     upbuf->packet_size = len;
-    phead = (phead + 1) % RECEIVE_BUFFERS;
+    phead = (phead + 1) % APP_QUEUE_SIZE;
     buffer->pbuf_head = phead;
     bool success = send_packet_received_notification(buffer, upbuf);
     if (!success) {

@@ -175,7 +175,9 @@ struct mem {
 
 /** the heap. we need one struct mem at the end and some room for alignment */
 //static u8_t ram_heap[MEM_SIZE_ALIGNED + (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT];
-uint8_t *mem_barrelfish_alloc_and_register(uint8_t buf_index, uint32_t size);
+u8_t *mem_barrelfish_alloc(uint8_t buf_index, uint32_t size);
+u8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size);
+
 static u8_t *ram_heap = 0;
 
 /** pointer to the heap (ram_heap): for alignment, ram is now a pointer instead of an array */
@@ -274,7 +276,7 @@ void mem_init(void)
 //          (2*SIZEOF_STRUCT_MEM) + MEM_ALIGNMENT, bufsize, TX_BUFFER_ID);
 
 
-    ram_heap = mem_barrelfish_alloc_and_register(TX_BUFFER_ID, bufsize);
+    ram_heap = mem_barrelfish_alloc(TX_BUFFER_ID, bufsize);
 
     LWIP_ASSERT("Sanity check alignment",
                 (SIZEOF_STRUCT_MEM & (MEM_ALIGNMENT - 1)) == 0);
@@ -296,6 +298,7 @@ void mem_init(void)
     /* initialize the lowest-free pointer to the start of the heap */
     lfree = (struct mem *) ram;
     MEM_STATS_AVAIL(avail, MEM_SIZE_ALIGNED);
+    mem_barrelfish_register_buf(TX_BUFFER_ID, bufsize);
 }
 
 /**

@@ -17,10 +17,6 @@
 
 #ifndef PROCON_H_
 #define PROCON_H_
-#include <stdio.h>
-
-
-
 
 #ifdef __scc__
 #define CACHESIZE   32
@@ -136,6 +132,13 @@ bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index);
 bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index);
 bool sp_clear_slot(struct shared_pool_private *spp, struct slot_data *d,
         uint64_t id);
+
+
+// Helper functions
+void sp_copy_slot_data(struct slot_data *d, struct slot_data *s);
+void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
+        uint64_t id, uint64_t offset, uint64_t len, uint64_t no_pbufs,
+        uint64_t client_data, uint64_t ts);
 
 // Debugging functions
 void sp_print_slot(struct slot_data *d);

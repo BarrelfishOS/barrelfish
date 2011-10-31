@@ -20,7 +20,10 @@
 
 #define CTL_SERVICE_SUFFIX          "_CTRL"
 
-
+enum buffer_memory_types {
+    RX_BUFFER_ID = 0,
+    TX_BUFFER_ID = 1,
+};
 
 #ifdef CONFIG_QEMU_NETWORK
 
@@ -114,7 +117,7 @@
 /* Used in the ethersrv.c and the driver. */
 
 //#define RECEIVE_BUFFERS    ((PBUF_POOL_SIZE) / 2)
-#define RECEIVE_BUFFERS     1024
+#define RECEIVE_BUFFERS     (2044)
 #define TRANSMIT_BUFFERS (800 * 8) //< Number of transmit descriptors
                               //< (must be multiple of 8)
 

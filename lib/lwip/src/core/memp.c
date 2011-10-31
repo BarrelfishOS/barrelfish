@@ -157,7 +157,8 @@ static const size_t memp_memory_size = (MEM_ALIGNMENT - 1
   );
 
 static u8_t *memp_memory = 0;
-u8_t *mem_barrelfish_alloc_and_register(uint8_t buf_index, uint32_t size);
+u8_t *mem_barrelfish_alloc(uint8_t buf_index, uint32_t size);
+u8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size);
 
 #if MEMP_SANITY_CHECK
 /**
@@ -272,41 +273,29 @@ static u16_t pbuf_pool_counter = 0;
  */
 void memp_init(void)
 {
-    struct memp *memp;
-    u16_t i, j;
-
     printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
            RX_BUFFER_ID);
 
+    memp_memory = NULL;
     memp_memory =
-      mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
+      mem_barrelfish_alloc(RX_BUFFER_ID, memp_memory_size);
     if (memp_memory == 0) {
         fprintf(stderr, "could not allocate memory");
         abort();
     }
-#if 0
-    static u8_t *shared_memory = 0;
-    u16_t shared_mem_size = 0;
-    u16_t private_mem_size = 0;
+    printf("memp_init: allocated memory is at VA [%p]\n", memp_memory);
 
-    shared_mem_size = memp_sizes[PBUF_POOL] * memp_num[PBUF_POOL];
-    private_mem_size = memp_memory_size - shared_mem_size;
-
-    memp_memory = malloc(private_mem_size);
-    if (memp_memory == 0) {
-        fprintf(stderr, "could not allocate memory");
-        abort();
-    }
-
-    shared_memory =
-      mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
-    if (shared_memory == 0) {
-        fprintf(stderr, "could not allocate memory");
-        abort();
-    }
-#endif                          // 0
+    memp_initialize_pbuf_list();
+    mem_barrelfish_register_buf(RX_BUFFER_ID, memp_memory_size);
+}
 
 
+void memp_initialize_pbuf_list(void)
+{
+
+    assert(memp_memory != NULL);
+    struct memp *memp;
+    u16_t i, j;
     for (i = 0; i < MEMP_MAX; ++i) {
         MEMP_STATS_AVAIL(used, i, 0);
         MEMP_STATS_AVAIL(max, i, 0);
@@ -314,7 +303,11 @@ void memp_init(void)
         MEMP_STATS_AVAIL(avail, i, memp_num[i]);
     }
     memp = LWIP_MEM_ALIGN(memp_memory);
-    printf("memp_init: total types of pools %d\n", MEMP_MAX);
+    printf("memp_init: total types of pools %d\n", MEMP_MAX );
+    printf("memp_init: total types of pools %d, memp_mem %p\n",
+            MEMP_MAX, memp_memory);
+    printf("memp_init: total types of pools %d, memp %p\n", MEMP_MAX, memp);
+    memp->next = NULL;
     /* for every pool: */
     for (i = 0; i < MEMP_MAX; ++i) {
         memp_tab[i] = NULL;
@@ -322,6 +315,7 @@ void memp_init(void)
                i, memp_desc[i], memp_sizes[i], memp_num[i]);
         /* create a linked list of memp elements */
         for (j = 0; j < memp_num[i]; ++j) {
+            memp->next = NULL;
             memp->next = memp_tab[i];
             memp_tab[i] = memp;
             memp = (struct memp *) ((u8_t *) memp + MEMP_SIZE + memp_sizes[i]
@@ -339,6 +333,8 @@ void memp_init(void)
     /* check everything a first time to see if it worked */
     memp_overflow_check_all();
 #endif                          /* MEMP_OVERFLOW_CHECK */
+
+//    mem_barrelfish_register_buf(RX_BUFFER_ID, memp_memory_size);
 }
 
 // Returns the count of free pbufs available

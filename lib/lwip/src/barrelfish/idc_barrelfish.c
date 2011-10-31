@@ -128,7 +128,7 @@ static bool mac_received = false;
  *
  */
 static void (*lwip_rec_handler) (void *, uint64_t, uint64_t, uint64_t,
-                                 uint64_t) = NULL;
+                                 uint64_t, struct pbuf *) = NULL;
 
 
 /**
@@ -197,10 +197,12 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
 
 static void wrapper_send_sp_notification_from_app(struct buffer_desc *buf)
 {
+    assert(buf != NULL);
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_sp_notification_from_app;
     struct ether_binding *b = buf->con;
+    assert(b != NULL);
     uint64_t ts = rdtsc();
 
 #if LWIP_TRACE_MODE
@@ -209,6 +211,7 @@ static void wrapper_send_sp_notification_from_app(struct buffer_desc *buf)
 
     entry.binding_ptr = (void *)b;
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    assert(ccnc != NULL);
     // Resetting the send_notification counter as we are sending
     // the notification
     buf->spp->notify_other_side = 0;
@@ -794,8 +797,8 @@ void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
  *
  */
 void idc_register_receive_callback(void (*f)
-                                    (void *, uint64_t,
-                                     uint64_t, uint64_t, uint64_t), void *data)
+                                    (void *, uint64_t, uint64_t, uint64_t,
+                                     uint64_t, struct pbuf *), void *data)
 {
 
     LWIPBF_DEBUG("idc_register_receive_callback: called\n");
@@ -991,12 +994,12 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
      * Problem is due to use of unint64_t to store paddr. */
 //      bulk_arch_prepare_recv((void *)paddr, pbuf_len);
     if (pbuf_len == 0) {
-        printf("### Received pbuf_id %" PRIu64 " at %" PRIu64 " of size %"
-               PRIu64 " " "and len %" PRIu64 "\n", pbuf_id, paddr, pbuf_len,
-               pktlen);
+        printf("### Received pbuf_id %"PRIu64" at %"PRIu64" of size "
+                "%"PRIu64"  and len %"PRIu64"\n",
+                pbuf_id, paddr, pbuf_len, pktlen);
     }
     if (lwip_rec_handler != 0) {
-        lwip_rec_handler(lwip_rec_data, pbuf_id, paddr, pbuf_len, pktlen);
+        lwip_rec_handler(lwip_rec_data, pbuf_id, paddr, pbuf_len, pktlen, NULL);
     } else {
         LWIPBF_DEBUG("packet_received: no callback installed\n");
         if (new_debug)

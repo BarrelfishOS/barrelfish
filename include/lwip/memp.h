@@ -84,6 +84,7 @@ extern "C" {
 #include "mem.h"
 
 #define memp_init()
+#define memp_initialize_pbuf_list()
 #define memp_malloc(type)     mem_malloc(memp_sizes[type])
 #define memp_free(type, mem)  mem_free(mem)
 
@@ -98,6 +99,7 @@ extern "C" {
 
     void memp_init(void);
     u16_t memp_pbuf_peek(void);
+    void memp_initialize_pbuf_list(void);
 
 #if MEMP_OVERFLOW_CHECK
     void *memp_malloc_fn(memp_t type, const char *file, const int line);
