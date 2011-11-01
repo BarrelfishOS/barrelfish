@@ -389,7 +389,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
                         struct capref sp, uint64_t slots, uint8_t role)
 {
 
-    printf("ethersrv:register buffer called\n");
+    printf("ethersrv:register buffer called with slots %"PRIu64"\n", slots);
     errval_t err;
     int i;
     struct buffer_descriptor *buffer = (struct buffer_descriptor *)

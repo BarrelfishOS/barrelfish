@@ -17,6 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
+#include <barrelfish/sys_debug.h>
 #include <barrelfish/waitset.h>
 
 #include <assert.h>
@@ -54,7 +55,7 @@ struct pbuf_desc {
     uint64_t pbuf_id;
 };
 
-static struct pbuf_desc pbufs[NR_PREALLOCATED_PBUFS];
+static struct pbuf_desc pbufs[RECEIVE_BUFFERS];
 
 
 static void copy_data_into_slot_local(struct shared_pool_private *spp,
@@ -84,12 +85,19 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
     uint64_t i = 0;
     struct buffer_desc *buff_ptr;
     volatile struct buffer_desc *buffer_list_bak = buffer_list;
+    volatile void **pp;
 
+    pp = (void *)&buffer_list;
     uint64_t ts = rdtsc();
     sp_reload_regs(buf->spp);
     printf("Allocating %"PRIu64" pbufs\n", buf->spp->c_size);
 
-    printf("###### %u buffer_list  [%p]\n", __LINE__, buffer_list);
+//    sys_debug_set_breakpoint(&buffer_list, 1, 1);
+
+    printf("###### BP set!!! %u buffer_list [%p] sizeof(void *)[%lu]\n",
+            __LINE__, buffer_list, sizeof(void *));
+    printf("####  buf_list_addr [%p, %p], buf_list[%p, %p] spt[%p]\n",
+                &buffer_list, pp, buffer_list, *pp, &ts);
 
     for (i = 0; i < buf->spp->c_size; i++) {
         /* We allocate a pbuf chain of pbufs from the pool. */
@@ -130,8 +138,27 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
                 (uint64_t)p, ts);
 */
 
-        copy_data_into_slot(buf->spp, buf->buffer_id, i, offset, p->len,
-                1, (uint64_t)p, ts);
+        assert(buffer_list_bak == *pp);
+
+        if (i == 2043) {
+            int k = 44;
+            assert(buffer_list_bak == *pp);
+/*            printf("### i = %"PRIu64", sp %p, and heap %p\n",i,
+                    &k, &buffer_list);
+*/
+            printf("hello world\n");
+//            assert(buffer_list_bak == *pp);
+        }
+
+        if ( buffer_list_bak != *pp) {
+            printf("assert: i = %"PRIu64", orig %p, new %p, addr %p\n",
+                    i, buffer_list_bak, *pp, pp);
+
+        }
+        assert(buffer_list_bak == *pp);
+        copy_data_into_slot_dbg(buf->spp, buf->buffer_id, i, offset, p->len,
+                1, (uint64_t)p, ts, (void *)&buffer_list,
+                (void *)buffer_list_bak);
         /*
     struct shared_pool_private *spp = buf->spp;
     uint64_t id = i;
@@ -148,13 +175,19 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
 #endif // !defined(__scc__) && !defined(__i386__)
 */
         if (buffer_list_bak != buffer_list) {
-            printf("buffer_list overwritten %"PRIu64"\n", i);
+            printf("#### buffer_list overwritten %"PRIu64"\n", i);
             printf("spp has %"PRIu64", %"PRIu64" slots\n", buf->spp->c_size,
                     buf->spp->sp->size_reg.value);
-            printf("slot range [%p %p] and overwritten %p to %p\n",
+            printf("slot range [%p %p] \n",
                     &buf->spp->sp->slot_list[i],
-                   &buf->spp->sp->slot_list[i+1],
-                   buffer_list_bak, buffer_list);
+                   &buf->spp->sp->slot_list[i+1]);
+            printf("overwritten addr [%p] to %p from %p \n",
+                   &buffer_list, buffer_list,  buffer_list_bak);
+            printf("##### sizeof spp[%lu], sizeof sp[%lu]\n",
+                    sizeof(struct shared_pool_private),
+                    sizeof(struct shared_pool) );
+
+            printf("##### buffer_list addr [%p]\n", &buffer_list);
         }
         assert(buffer_list_bak == buffer_list);
     } // end for:
@@ -344,9 +377,9 @@ void mem_barrelfish_pbuf_init(void)
     int i = 0;
     struct buffer_desc *buff_ptr;
 
-    printf("Allocating %d pbufs\n", NR_PREALLOCATED_PBUFS);
+    printf("Allocating %d pbufs\n",RECEIVE_BUFFERS);
 
-    for (i = 0; i < NR_PREALLOCATED_PBUFS; i++) {
+    for (i = 0; i < RECEIVE_BUFFERS; i++) {
         /* We allocate a pbuf chain of pbufs from the pool. */
         p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
         assert(p != 0);
