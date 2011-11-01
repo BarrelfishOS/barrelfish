@@ -919,6 +919,15 @@ designed to be fairly readable to curious humans, and is worth
 examining to understand what \Mac is generating (and to find bugs in
 \Mac). 
 
+The file for a device called, say, \texttt{apic} is conventionally named
+\texttt{apic\_dev.h}, and in Barrelfish is usually found in
+the \texttt{dev} subdirectory of the main include directory; thus a C
+file would include it with:
+
+\begin{alltt}
+#include <dev/apic\_dev.h>
+\end{alltt}
+
 This chapter will describe the contents of this header file. 
 
 \section{Preamble}
