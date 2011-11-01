@@ -129,8 +129,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     register mcg_rsp rwzc msr(0x187) "State of RSP at MC" type(uint64);
     register mcg_rflags rwzc msr(0x188) "State of RFLAGS at MC" type(uint64);
     register mcg_rip rwzc msr(0x189) "State of RIP at MC" type(uint64);
-    register mcg_misc rwzc msr(0x18a) "Page fault/assist during DS" 
-	type(uint64);
+    register mcg_misc rwzc msr(0x18a) "Page fault/assist during DS" type(uint64);
     register mcg_r8 rwzc msr(0x190) "State of R8 at MC" type(uint64);
     register mcg_r9 rwzc msr(0x191) "State of R9 at MC" type(uint64);
     register mcg_r10 rwzc msr(0x192) "State of R10 at MC" type(uint64);

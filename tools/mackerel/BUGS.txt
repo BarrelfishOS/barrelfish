@@ -6,37 +6,10 @@
     };
     - again. 
 
- * You should be able to declare the width of a constants
-   declaration.   This is mandatory if the constant is used to define
-   the type of a register (as opposed to the type of a register
-   field).  Probably another attribute: width(32). 
-
-   This can be used to help fix the problem that register types can't be
-    declared constant types.  For example:  
-    constants mcg_ctl_val "Global MC control values" {
-	mc_enable	= 0xffffffffffffffff;
-	mc_disable	= 0x0;
-    };
-    register mcg_ctl rw msr(0x17b) "Global machine check control" 
-	type(msg_ctl_val);
-   - doesn't work.   And badly. 
-
-   Required additional checks are now:
+ * Required additional checks are now:
     - Constant values all fit into the bit width specified
-    - Constants used as register types must have a width.
-    - Constant types and register types (and datatypes) must have
-      disjoint names. 
 
- * What are the kinds of types we have?  A field has a type which is
-   either an (anonymous) integer or a 'constants' declaration.  A
-   register has a type which is either a regtype (including the
-   implicit type introduced by an explicit format), or an anonymous
-   integer type.  Therefore it should also be allowed to have a
-   'constants' (or constant) type.  This in turn implies that
-   'constants' types and register types are from the same namespace.
-   This simplifies imports at least. 
-
-   How will we do device inheritance?  Clearly the new device is a
+ * How will we do device inheritance?  Clearly the new device is a
    new type, but it also needs a new operation for every register,
    even those inherited from the base device type.  This suggests that
    register definitions should always be copied from the base type,
@@ -111,7 +84,6 @@
    appear in some variants.  There must be a way of determining which
    variant a format is
  
- * Back-end to simply do checks.
  * Back-end to print out memory map of device, or even pictures. 
  * Selectively enable/disable specific checks
  * Collect all parse errors before exiting. 
@@ -136,7 +108,7 @@
    that can only be accessed by sending messages using writes to
 
  * Register overlap checks should allow non-'also' registers to
-   overlap if one is non-writeable and the other is non-writeable.
+   overlap if one is non-writeable and the other is non-readable.
 
   * Compile time checks:
     - Duplicate register names
