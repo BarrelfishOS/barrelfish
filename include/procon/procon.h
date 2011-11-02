@@ -139,9 +139,7 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s);
 void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
         uint64_t id, uint64_t offset, uint64_t len, uint64_t no_pbufs,
         uint64_t client_data, uint64_t ts);
-void copy_data_into_slot_dbg(struct shared_pool_private *spp, uint64_t buf_id,
-        uint64_t id, uint64_t offset, uint64_t len, uint64_t no_pbufs,
-        uint64_t client_data, uint64_t ts, void *p1, void *p2);
+
 // Debugging functions
 void sp_print_slot(struct slot_data *d);
 void sp_print_metadata(struct shared_pool_private *spp);

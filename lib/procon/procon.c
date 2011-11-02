@@ -407,48 +407,6 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
 #endif // !defined(__scc__) && !defined(__i386__)
 }
 
-void copy_data_into_slot_dbg(struct shared_pool_private *spp, uint64_t buf_id,
-        uint64_t id, uint64_t offset, uint64_t len, uint64_t no_pbufs,
-        uint64_t client_data, uint64_t ts, void *p1, void *p2)
-{
-    int i = 44;
-    volatile void *pp1;
-    volatile void *pp2;
-    void **pp;
-    pp1 = p1;
-    pp2 = p2;
-    pp = p1;
-    assert(id < spp->c_size);
-    if (*pp != pp2) {
-        printf("#### id[%"PRIu64"] p1 [%p], pp[%p], *pp[%p], p2[%p] sp[%p]\n",
-                id, p1, pp, *pp, p2, &i);
-    }
-
-    assert(*pp == pp2);
-    if (id == 2043) {
-        printf("#### p1 [%p], *pp[%p] p2 [%p]\n", p1, *pp, p2);
-    }
-    spp->sp->slot_list[id].d.buffer_id = buf_id;
-    spp->sp->slot_list[id].d.no_pbufs = no_pbufs;
-    spp->sp->slot_list[id].d.pbuf_id = id;
-    spp->sp->slot_list[id].d.offset = offset;
-    spp->sp->slot_list[id].d.len = len;
-    spp->sp->slot_list[id].d.client_data = client_data;
-    spp->sp->slot_list[id].d.ts = ts;
-    assert(*pp == pp2);
-    if (id == 2043) {
-        printf("#### p1 [%p], *pp[%p] p2 [%p]\n", p1, *pp, p2);
-    }
-/*
-    // copy the s into shared_pool
-#if !defined(__scc__) && !defined(__i386__)
-    cache_flush_range(&spp->sp->slot_list[id], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-    assert(p1 == p2);
-*/
-}
-
-
 
 void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 {

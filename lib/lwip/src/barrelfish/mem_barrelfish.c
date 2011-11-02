@@ -58,46 +58,18 @@ struct pbuf_desc {
 static struct pbuf_desc pbufs[RECEIVE_BUFFERS];
 
 
-static void copy_data_into_slot_local(struct shared_pool_private *spp,
-        uint64_t buf_id, uint64_t id, uint64_t offset, uint64_t len,
-        uint64_t no_pbufs, uint64_t client_data, uint64_t ts)
-{
-    assert(id < spp->c_size);
-    spp->sp->slot_list[id].d.buffer_id = buf_id;
-    spp->sp->slot_list[id].d.no_pbufs = no_pbufs;
-    spp->sp->slot_list[id].d.pbuf_id = id;
-    spp->sp->slot_list[id].d.offset = offset;
-    spp->sp->slot_list[id].d.len = len;
-    spp->sp->slot_list[id].d.client_data = client_data;
-    spp->sp->slot_list[id].d.ts = ts;
-    // copy the s into shared_pool
-#if !defined(__scc__) && !defined(__i386__)
-    cache_flush_range(&spp->sp->slot_list[id], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-}
-
-
-
 static void rx_populate_sp_pbuf(struct buffer_desc *buf)
 {
     struct pbuf *p;
     ptrdiff_t offset = 0;
     uint64_t i = 0;
     struct buffer_desc *buff_ptr;
-    volatile struct buffer_desc *buffer_list_bak = buffer_list;
-    volatile void **pp;
 
-    pp = (void *)&buffer_list;
     uint64_t ts = rdtsc();
     sp_reload_regs(buf->spp);
     printf("Allocating %"PRIu64" pbufs\n", buf->spp->c_size);
 
 //    sys_debug_set_breakpoint(&buffer_list, 1, 1);
-
-    printf("###### BP set!!! %u buffer_list [%p] sizeof(void *)[%lu]\n",
-            __LINE__, buffer_list, sizeof(void *));
-    printf("####  buf_list_addr [%p, %p], buf_list[%p, %p] spt[%p]\n",
-                &buffer_list, pp, buffer_list, *pp, &ts);
 
     for (i = 0; i < buf->spp->c_size; i++) {
         /* We allocate a pbuf chain of pbufs from the pool. */
@@ -113,7 +85,6 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
         assert(p->next == 0);   //make sure there is no chain for now...
         assert(p->tot_len == RECEIVE_PBUF_SIZE);
         assert(p->len == RECEIVE_PBUF_SIZE);
-        assert(buffer_list_bak == buffer_list);
         //ignore the len returned here, because this is the len of the whole
         //static buffer (the frame cap size in bytes), not the pbuf
         buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
@@ -125,76 +96,11 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
         pbufs[i].p = p;
         pbufs[i].pbuf_id = i;
 
-        /* NOTE: comment it as it will occur with large frequencey */
-/*        LWIPBF_DEBUG("pbuf %lu is from buff %lu -------\n",
-        		pbufs[i].pbuf_id, buff_ptr->buffer_id);
-*/
-//        wait_for_receive_channel();
-        //XXX: the msg handler should free the pbuf in case of an error
-//        idc_register_pbuf(i, buff_ptr->pa + offset, p->len);
-        assert(buffer_list_bak == buffer_list);
-/*
         copy_data_into_slot(buf->spp, buf->buffer_id, i, offset, p->len, 1,
                 (uint64_t)p, ts);
-*/
-
-        assert(buffer_list_bak == *pp);
-
-        if (i == 2043) {
-            int k = 44;
-            assert(buffer_list_bak == *pp);
-/*            printf("### i = %"PRIu64", sp %p, and heap %p\n",i,
-                    &k, &buffer_list);
-*/
-            printf("hello world\n");
-//            assert(buffer_list_bak == *pp);
-        }
-
-        if ( buffer_list_bak != *pp) {
-            printf("assert: i = %"PRIu64", orig %p, new %p, addr %p\n",
-                    i, buffer_list_bak, *pp, pp);
-
-        }
-        assert(buffer_list_bak == *pp);
-        copy_data_into_slot_dbg(buf->spp, buf->buffer_id, i, offset, p->len,
-                1, (uint64_t)p, ts, (void *)&buffer_list,
-                (void *)buffer_list_bak);
-        /*
-    struct shared_pool_private *spp = buf->spp;
-    uint64_t id = i;
-    spp->sp->slot_list[id].d.buffer_id = buf->buffer_id;
-    spp->sp->slot_list[id].d.no_pbufs = 1;
-    spp->sp->slot_list[id].d.pbuf_id = id;
-    spp->sp->slot_list[id].d.offset = offset;
-    spp->sp->slot_list[id].d.len = p->len;
-    spp->sp->slot_list[id].d.client_data = (uint64_t)p;
-    spp->sp->slot_list[id].d.ts = ts;
-    // copy the s into shared_pool
-#if !defined(__scc__) && !defined(__i386__)
-    cache_flush_range(&spp->sp->slot_list[id], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-*/
-        if (buffer_list_bak != buffer_list) {
-            printf("#### buffer_list overwritten %"PRIu64"\n", i);
-            printf("spp has %"PRIu64", %"PRIu64" slots\n", buf->spp->c_size,
-                    buf->spp->sp->size_reg.value);
-            printf("slot range [%p %p] \n",
-                    &buf->spp->sp->slot_list[i],
-                   &buf->spp->sp->slot_list[i+1]);
-            printf("overwritten addr [%p] to %p from %p \n",
-                   &buffer_list, buffer_list,  buffer_list_bak);
-            printf("##### sizeof spp[%lu], sizeof sp[%lu]\n",
-                    sizeof(struct shared_pool_private),
-                    sizeof(struct shared_pool) );
-
-            printf("##### buffer_list addr [%p]\n", &buffer_list);
-        }
-        assert(buffer_list_bak == buffer_list);
     } // end for:
-    printf("pbuf is from buff %"PRIx64" -----\n", buf->buffer_id);
-    printf("Added %"PRIx64" no of pbufs for receiving in SP ---\n", i);
-    printf("### success ### %u buffer_list  [%p], [%p]\n", __LINE__, buffer_list,
-            buffer_list_bak);
+    printf("pbuf is from buff %"PRIu64" -----\n", buf->buffer_id);
+    printf("Added %"PRIu64" no of pbufs for receiving in SP ---\n", i);
 } // end function: put_pbufs_in_shared_pool
 
 
@@ -246,26 +152,14 @@ uint8_t *mem_barrelfish_alloc(uint8_t binding_index, uint32_t size)
     buf->size = (1 << f.bits);
     buf->buffer_id = -1;        /* shows that buffer id is not yet known */
 
-    printf("###### Adding buf[%"PRIu64", %p, %p] to buffer list [%"PRIu64", %p]\n",
-            buf->va, buf->va, buf, buffer_list, buffer_list);
     /* Put this new buffer on the top of buffers list */
     buf->next = buffer_list;
     buffer_list = buf;
 
-    printf("###### Added buf[%"PRIu64", %p, %p] to buffer list [%"PRIu64", %p],"
-           "next [%p]\n",
-            buf->va, buf->va, buf, buffer_list, buffer_list, buffer_list->next);
-
     // Creating shared_pool for communication
     buf->spp = sp_create_shared_pool(RECEIVE_BUFFERS, buf->role);
     assert(buf->spp != NULL);
-    printf("mem_barrelfish_alloc: shared pool with [%d] slots\n",
-            RECEIVE_BUFFERS);
     short_buf_list[binding_index] = buf;
-    printf("mem_barrelfish_alloc: returning VA addr [%p]\n", buf->va);
-    printf("###### buffer list [%p]\n", buffer_list);
-    printf("###### buffer address [%p]\n", buf);
-
     return ((uint8_t *) buf->va);
 }
 
@@ -274,15 +168,10 @@ uint8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size)
     struct buffer_desc *buf = short_buf_list[binding_index];
     errval_t err;
     assert(buf != NULL);
-    printf("###### buffer address [%p]\n", buf);
 
-    printf("###### %u buffer_list [%p]\n",
-            __LINE__, buffer_list);
     if (binding_index == RX_BUFFER_ID) {
         rx_populate_sp_pbuf(buf);
     }
-    printf("###### %u reg_buf populate done buffer list [%p]\n",
-            __LINE__, buffer_list);
 
     /* FIXME: should buffer be also put in the client_closure_NC? */
     idc_register_buffer(buf, binding_index);
@@ -298,22 +187,8 @@ uint8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size)
             USER_PANIC_ERR(err, "in event_dispatch on LWIP waitset");
         }
     }
-    printf("mem_barrelfish_alloc: returning2 VA addr [%p]\n", buf->va);
-    printf("###### reg_buf_done buffer list [%p]\n", buffer_list);
     return ((uint8_t *) buf->va);
 }
-
-/*
-uint8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size)
-{
-    struct buffer_desc *buf = short_buf_list[binding_index];
-    errval_t err;
-
-    printf("Dummy function called for index %"PRIu8"\n", binding_index);
-    assert(!"dummy function called");
-    return NULL;
-}
-*/
 
 /* for given pointer p, find out the details of the buffer in which it lies. */
 struct buffer_desc *mem_barrelfish_get_buffer_desc(void *p)
@@ -326,29 +201,6 @@ struct buffer_desc *mem_barrelfish_get_buffer_desc(void *p)
         tmp = tmp->next;
     }
     return tmp;
-}
-
-static struct buffer_desc *mem_barrelfish_get_buffer_desc_dbg(void *p)
-{
-    struct buffer_desc *tmp = buffer_list;
-    assert(buffer_list != NULL );
-
-    while(tmp != 0) {
-        if (((uintptr_t) p < (uintptr_t) tmp->va)
-                          || ((uintptr_t) p >
-                              ((uintptr_t) tmp->va + tmp->size))) {
-            printf("va[%p, %"PRIu64"] p[%p] va+size[%p, %"PRIu64"]\n",
-                    (uintptr_t)tmp->va, tmp->va, p,
-                    ((uintptr_t) tmp->va + tmp->size),
-                    ((uintptr_t) tmp->va + tmp->size));
-            tmp = tmp->next;
-        } else {
-            printf("buf Found\n");
-            break;
-        }
-    }
-    return tmp;
-
 }
 
 
@@ -439,12 +291,6 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
     //ignore the len returned here, because this is the len of the whole
     //static buffer (the frame cap size in bytes), not the pbuf
     buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
-    if (buff_ptr == NULL) {
-        // Debug this problem
-        printf("ERROR: pbuf replace ID[%"PRIu64"], p[%p], payload[%p]\n",
-                idx, p, p->payload);
-        buff_ptr = mem_barrelfish_get_buffer_desc_dbg(p->payload);
-    }
     assert(buff_ptr != NULL);
 //    assert(buf == buff_ptr);
     offset = (uintptr_t) p->payload - (uintptr_t) (buff_ptr->va);
@@ -469,13 +315,6 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
     pbufs[idx].pbuf_id = idx;
 
     return ((struct pbuf *)new_slot.client_data);
-/*
-        if (r != 0) {
-            //registering the pbuf in the network driver failed. So free it again.
-            pbuf_free(p);
-            pbufs[idx].p = 0;
-        }
-*/
 }
 
 struct pbuf *mem_barrelfish_get_pbuf(uint64_t pbuf_id)
