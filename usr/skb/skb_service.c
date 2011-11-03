@@ -35,6 +35,7 @@
 #include <if/skb_defs.h>
 #include <skb/skb.h>
 
+#include "dist/service.h"
 #include "skb_debug.h"
 
 #define BUFFER_SIZE (32 * 1024)
@@ -131,6 +132,8 @@ static void run(struct skb_binding *b, char *query)
 
 static struct skb_rx_vtbl rx_vtbl = {
     .run_call = run,
+    .get_call = get_object,
+    .set_call = set_object,
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)

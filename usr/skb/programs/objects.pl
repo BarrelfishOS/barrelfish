@@ -7,7 +7,7 @@
 :- op(500, xfx, ::).
 :- dynamic object/2.
 
-:- include("../data/objects.txt").
+%:- include("../data/objects.txt").
 
 omg(X) :- write("hey").
 
