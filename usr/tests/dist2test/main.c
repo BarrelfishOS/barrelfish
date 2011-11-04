@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 
 
 	printf("dist_get:\n");
-	char* data = NULL;
+	char* data;
 	err = dist_get("object1", &data);
 
 	printf("dist_get returned: %s\n", err_getstring(err));

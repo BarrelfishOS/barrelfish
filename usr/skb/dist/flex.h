@@ -325,7 +325,7 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 78 "scan.l"
+#line 84 "scan.l"
 
 
 #line 332 "flex.h"

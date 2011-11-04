@@ -3,23 +3,26 @@
 #include <string.h>
 #include <assert.h>
 
-#include "generator.h"
+#include "code_generator.h"
 #include "ast.h"
 #include "y.tab.h"
 #include "flex.h"
 
 
-static struct writer w;
+static struct parsed_object* po;
+static struct writer* w;
+
 extern void yyparse();
 
 #define INITIAL_OUTPUT_LEN 256
 
-
+#ifdef PARSER_DEBUG
 static void print_writer(struct writer* w) {
     printf("\tpos: %lu\n", w->pos);
     printf("\tlength: %lu\n", w->length);
     printf("\toutput: %s\n", w->output);
 }
+#endif
 
 
 static void emit(struct writer* w, char* to_append) {
@@ -53,11 +56,13 @@ int ex(struct nodeObject* p) {
     switch(p->type) {
         case nodeType_Object:
             assert(p->on.name != NULL);
+            w = &po->name;
 
             ex(p->on.name);
     
+            w = &po->attributes;
             if(p->on.attrs) {
-                emit(&w, " [ ");
+                emit(w, " [ ");
                 ex(p->on.attrs);
             }
         break;
@@ -67,11 +72,11 @@ int ex(struct nodeObject* p) {
 
             ex(p->an.attr);
             if(p->an.next != NULL) {
-                emit(&w, ", ");
+                emit(w, ", ");
                 ex(p->an.next);
             }
             else {
-                emit(&w, " ]");
+                emit(w, " ]");
             }
         break;
 
@@ -79,27 +84,26 @@ int ex(struct nodeObject* p) {
             assert(p->pn.left != NULL);
             assert(p->pn.right != NULL);
             ex(p->pn.left);
-            emit(&w, "::");
+            emit(w, "::");
             ex(p->pn.right);
         break;
 
         case nodeType_Float:
             sprintf(buf, "%f", p->fn.fl);
-            emit(&w, buf);
+            emit(w, buf);
         break;
 
         case nodeType_Constant:
             sprintf(buf, "%d", p->cn.value);      
-            emit(&w, buf);
+            emit(w, buf);
         break;
 
         case nodeType_String:
-            emit(&w, p->in.str);
+            emit(w, p->in.str);
         break;
    }
     return 0;
 }
-
 
 static void init_writer(struct writer* w) {
 	w->pos = 0;
@@ -107,20 +111,25 @@ static void init_writer(struct writer* w) {
 	w->output = NULL;
 }
 
+static void init_po(struct parsed_object* po) {
+	init_writer(&po->attributes);
+	init_writer(&po->constraints);
+	init_writer(&po->name);
+}
 
-char* transform_query(const char* input)
+
+struct parsed_object* transform_query(const char* input)
 {
-	init_writer(&w);
+	po = malloc(sizeof(struct parsed_object));
+	init_po(po);
+
     yy_scan_string(input);
     yyparse();
     yylex_destroy();
 
-    print_writer(&w);
+    //print_writer(&w);
 
-    char* result = w.output;
-    w.output = NULL;
-
-    return result;
+    return po;
 }
 
 

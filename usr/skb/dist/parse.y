@@ -4,7 +4,7 @@
 
 #include "y.tab.h"
 #include "ast.h"
-#include "generator.h"
+#include "code_generator.h"
 
 int yylex(void);
 void yyerror(char *);
