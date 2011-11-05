@@ -1,9 +1,14 @@
 %{
+#include <stdlib.h>
 #include <string.h>
 #include "y.tab.h"
 #include "ast.h"
 int charcount=0,linecount=0;
+char string_buf[100];
+char *string_buf_ptr;
 
+
+// not in C99 :-(
 char* strdup(const char*);
 %}
 
@@ -19,59 +24,108 @@ COLON \:
 COMMA ,
 
 ALPHA  [A-Za-z_]
+LALPHA [a-z]
 DIGIT  [0-9]
 DIGIT19 [1-9]
 DIGITS ({DIGIT})+
 
 ALPHA_NUMERIC {ALPHA}|{DIGIT}
-IDENT {ALPHA}({ALPHA_NUMERIC})*
+IDENT {LALPHA}({ALPHA_NUMERIC})*
+VARIABLE {ALPHA}({ALPHA_NUMERIC})*
 
 INTEGER {DIGIT}|{DIGIT19}{DIGITS}|-{DIGIT}|-{DIGIT19}{DIGITS}
 FRACTION \.{DIGITS}
-FLOAT {INTEGER}{FRACTION}|{FRACTION}
-NUMBER {INTEGER}|{FLOAT}
+FLOAT  {INTEGER}{FRACTION}|{FRACTION}
+NUMBER {INTEGER}
 BOOL  true|false
 
 SPACE ([\ \n\r\t\f])+
 
+UNESCAPEDCHAR [ -!#-\[\]-~]
+ESCAPEDCHAR \\['"\\bfnrt/]
+CHAR {UNESCAPEDCHAR}|{ESCAPEDCHAR}
+CHARS {CHAR}+
+QUOTE [']
+
+
+REGEX r{QUOTE}{QUOTE}|r{QUOTE}{CHARS}{QUOTE}
+%x STR
 %%
 {BOOL}      {
+                yylval.integer = (strcmp(yytext, "true") == 0) ? 1 : 0;
                 return BOOL;
             }
 
+{FLOAT}     {
+                yylval.dl = atof(yytext);
+                return FLOAT;
+            }
+
+{REGEX}     {
+                yylval.str = strdup(yytext+2);
+                if (yylval.str[yyleng-2] != '\'')
+                    printf("improperly terminated string\n");
+                else
+                    yylval.str[yyleng-2] = 0;
+                printf("found '%s'\n", yylval.str);
+                return REGEX;
+            }
+
+
+\'      string_buf_ptr = string_buf; BEGIN(STR);
+
+<STR>\'        { /* saw closing quote - all done */
+     BEGIN(INITIAL);
+     *string_buf_ptr = '\0';
+     yylval.str = strdup(string_buf);
+     return STRING;
+     }
+
+<STR>\n        {
+     /* error - unterminated string constant */
+     /* generate error message */
+     }
+
+<STR>\\n  *string_buf_ptr++ = '\n';
+<STR>\\t  *string_buf_ptr++ = '\t';
+<STR>\\r  *string_buf_ptr++ = '\r';
+<STR>\\b  *string_buf_ptr++ = '\b';
+<STR>\\f  *string_buf_ptr++ = '\f';
+
+<STR>\\(.|\n)  *string_buf_ptr++ = yytext[1];
+
+<STR>[^\\\n\']+        {
+     char *yptr = yytext;
+
+     while ( *yptr )
+             *string_buf_ptr++ = *yptr++;
+     }
+
+
+
 {IDENT}     { 
-                yylval.str = strdup(yytext); /* this may leak memory on parser error! */ 
+                yylval.str = strdup(yytext); /* TODO this may leak memory on parser error! */ 
                 return IDENT; 
-            }
-
-{RCURLY}    {
-                return RCURLY; 
-            }
-
-{LCURLY}    {
-                return LCURLY;
-            }
-
-{RBRACKET}  { 
-                return RBRACKET; 
-            }
-
-{COMMA}     {
-                return COMMA;
-            }
-
-{LBRACKET}  { 
-                return LBRACKET; 
-            }
-
-{COLON}     { 
-                return COLON;
             }
 
 {NUMBER}   {
                 yylval.integer = atoi(yytext);
                 return NUMBER;
             }
+
+{RCURLY}        return RCURLY; 
+{LCURLY}        return LCURLY;
+{RBRACKET}      return RBRACKET;
+{COMMA}         return COMMA;
+{LBRACKET}      return LBRACKET; 
+{COLON}         return COLON;
+
+">"             return GT;
+">="            return GE;
+"<"             return LT;
+"<="            return LE;
+"=="            return EQ;
+"!="            return NE;
 
 
 \n          { linecount++; }

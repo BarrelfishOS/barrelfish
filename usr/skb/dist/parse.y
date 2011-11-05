@@ -1,5 +1,5 @@
 %{
-#define YYERROR_VERBOSE 1
+
 #include<stdio.h>
 
 #include "y.tab.h"
@@ -9,17 +9,22 @@
 int yylex(void);
 void yyerror(char *);
 
-struct nodeObject* ident(char*);
-struct nodeObject* num(int);
-struct nodeObject* pair(struct nodeObject*, struct nodeObject*);
-struct nodeObject* attribute(struct nodeObject*, struct nodeObject*);
-struct nodeObject* object(struct nodeObject*, struct nodeObject*);
+static struct nodeObject* ident(char*);
+static struct nodeObject* boolean(int);
+static struct nodeObject* floatingpoint(double);
+static struct nodeObject* num(int);
+static struct nodeObject* pair(struct nodeObject*, struct nodeObject*);
+static struct nodeObject* attribute(struct nodeObject*, struct nodeObject*);
+static struct nodeObject* object(struct nodeObject*, struct nodeObject*);
+static struct nodeObject* constraints(size_t, struct nodeObject*);
+static struct nodeObject* regex(struct nodeObject*);
 void free_nodes(struct nodeObject*);
 %}
 
+%error-verbose
 %union {
     int integer;
-    float fl;
+    double dl;
     char* str;
     struct nodeObject* nPtr;
 };
@@ -30,14 +35,28 @@ void free_nodes(struct nodeObject*);
 %token LCURLY
 %token COLON
 %token COMMA
-%token BOOL
+%token GT
+%token GE
+%token LT
+%token LE
+%token EQ
+%token NE
+%token REGEX
+
+%token <integer> BOOL
+%token <dl> FLOAT
 %token <integer> NUMBER
 %token <str> IDENT
+%token <str> REGEX
+%token <str> STRING
+
+
 
 %type <nPtr> value
 %type <nPtr> attribute
 %type <nPtr> attributes
 %type <nPtr> object
+%type <nPtr> constraint
 %type <nPtr> program
 
 %%
@@ -56,17 +75,31 @@ attributes:
 
 attribute:
       IDENT COLON value              { $$ = pair(ident($1), $3); }
+    | IDENT COLON constraint         { $$ = pair(ident($1), $3); }
+
+constraint:
+      GT value                       { $$ = constraints(GT, $2);  }
+    | GE value                       { $$ = constraints(GE, $2); }
+    | LT value                       { $$ = constraints(LT, $2); }
+    | LE value                       { $$ = constraints(LE, $2); }
+    | EQ value                       { $$ = constraints(EQ, $2); }
+    | NE value                       { $$ = constraints(NE, $2); }
+    | REGEX                          { $$ = regex(ident($1)); }
 
 value:
-      IDENT                          { $$ = ident($1); }
+      STRING                         { $$ = ident($1); }
+    | IDENT                          { $$ = ident($1); }
     | NUMBER                         { $$ = num($1); }
-    | BOOL                           {}
+    | BOOL                           { $$ = boolean($1); }
+    | FLOAT                          { $$ = floatingpoint($1); }
+//    | VARIABLE                       { $$ = }
 %%
 
 void yyerror(char *s) 
 {
     fprintf(stderr, "yyerror says: %s\n", s);
 }
+
 
 static struct nodeObject* alloc_node(void) 
 {
@@ -78,7 +111,51 @@ static struct nodeObject* alloc_node(void)
     return p;
 }
 
-struct nodeObject* object(struct nodeObject* name, struct nodeObject* attrs) 
+static struct nodeObject* boolean(int value)
+{
+    struct nodeObject* p = alloc_node();
+    
+    p->type = nodeType_Boolean;
+    p->bn.value = value;
+
+    return p;
+}
+
+static struct nodeObject* regex(struct nodeObject* value)
+{
+    struct nodeObject* p = alloc_node();
+    
+    p->type = nodeType_Regex;
+    p->rn.value = value;
+
+    return p;
+}
+
+static struct nodeObject* constraints(size_t op, struct nodeObject* value)
+{
+    struct nodeObject* p = alloc_node();
+    
+    p->type = nodeType_Constraint;
+    p->cnsn.op = op;
+    p->cnsn.value = value;
+
+    return p;
+}
+
+
+
+static struct nodeObject* floatingpoint(double value)
+{
+    struct nodeObject* p = alloc_node();
+    
+    p->type = nodeType_Float;
+    p->fn.value = value;
+
+    return p;
+}
+
+
+static struct nodeObject* object(struct nodeObject* name, struct nodeObject* attrs) 
 {
     
     struct nodeObject* p = alloc_node();
@@ -91,7 +168,7 @@ struct nodeObject* object(struct nodeObject* name, struct nodeObject* attrs)
 }
 
 
-struct nodeObject* attribute(struct nodeObject* attribute, struct nodeObject* next) 
+static struct nodeObject* attribute(struct nodeObject* attribute, struct nodeObject* next) 
 {
     
     struct nodeObject* p = alloc_node();
@@ -104,7 +181,7 @@ struct nodeObject* attribute(struct nodeObject* attribute, struct nodeObject* ne
 }
 
 
-struct nodeObject* pair(struct nodeObject* left, struct nodeObject* right) 
+static struct nodeObject* pair(struct nodeObject* left, struct nodeObject* right) 
 {
 
     struct nodeObject* p = alloc_node();
@@ -117,7 +194,7 @@ struct nodeObject* pair(struct nodeObject* left, struct nodeObject* right)
 }
 
 
-struct nodeObject* ident(char* str) 
+static struct nodeObject* ident(char* str) 
 {
 
     struct nodeObject* p = alloc_node();
@@ -129,7 +206,7 @@ struct nodeObject* ident(char* str)
 }
 
 
-struct nodeObject* num(int value) 
+static struct nodeObject* num(int value) 
 {
 
     struct nodeObject* p = alloc_node();

@@ -14,7 +14,7 @@
 /*****************************************************************
  * Debug printer and its power-switch:
  *****************************************************************/
-#define SKB_SERVICE_DEBUG 1
+//#define SKB_SERVICE_DEBUG 1
 #if defined(SKB_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define SKB_DEBUG(x...) printf("skb_service: " x)
 #else
