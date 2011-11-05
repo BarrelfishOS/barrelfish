@@ -40,7 +40,7 @@ struct buffer_desc {
     size_t size;
     uint64_t buffer_id;  // Assigned by the network driver after registering
     uint8_t  role;  // RX or TX buffer
-    struct shared_pool_private *spp;
+    struct shared_pool_private *spp_prv;
     struct buffer_desc *next;
 };
 
@@ -49,7 +49,8 @@ void idc_connect_to_netd(char *server_name);
 void idc_connect_to_driver(char *card_name);
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p);
-void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index);
+void idc_register_buffer(struct buffer_desc *buff_ptr,
+        struct shared_pool_private *spp_ptr, uint8_t binding_index);
 void idc_get_mac_address(uint8_t * mac);
 int lwip_check_sp_capacity(int direction);
 int idc_check_capacity(int direction);

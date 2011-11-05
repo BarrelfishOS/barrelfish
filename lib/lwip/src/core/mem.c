@@ -310,6 +310,7 @@ void mem_init(void)
 void mem_free(void *rmem)
 {
 
+    printf("###### mem_free called for %p\n", rmem);
     struct mem *mem;
 
     LWIP_MEM_FREE_DECL_PROTECT();
@@ -322,6 +323,14 @@ void mem_free(void *rmem)
     LWIP_ASSERT("mem_free: sanity check alignment",
                 (((mem_ptr_t) rmem) & (MEM_ALIGNMENT - 1)) == 0);
 
+    if ((u8_t *) rmem >= (u8_t *) ram &&
+                (u8_t *) rmem < (u8_t *) ram_end) {
+        // everything is great
+    } else {
+        printf("assertion failef for rmem %p\n", rmem);
+        printf("condition was ram %p <= rmem %p < ram_end %p\n",
+                ram, rmem, ram_end);
+    }
     LWIP_ASSERT("mem_free: legal memory", (u8_t *) rmem >= (u8_t *) ram &&
                 (u8_t *) rmem < (u8_t *) ram_end);
 

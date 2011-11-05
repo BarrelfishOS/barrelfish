@@ -572,7 +572,6 @@ u8_t pbuf_free(struct pbuf * p)
     struct pbuf *q;
     u8_t count;
 
-//    printf("pbuf_free called for %p\n", p);
     if (p == NULL) {
         LWIP_ASSERT("p != NULL", p != NULL);
         /* if assertions are disabled, proceed with debug output */
@@ -604,7 +603,12 @@ u8_t pbuf_free(struct pbuf * p)
 
         /* decrease reference count (number of pointers to pbuf) */
         if (p->ref <= 0) {
-            printf("pbuf_free: p->ref value is %u\n", p->ref);
+            printf("pbuf_free:[%p] p->ref value is %u\n",p, p->ref);
+            printf("callstack: %p %p %p %p\n",
+	         __builtin_return_address(0),
+	         __builtin_return_address(1),
+	         __builtin_return_address(2),
+	         __builtin_return_address(3));
             /* FIXME: This state represents that something is seriously wrong,
              * This may lead to releasing the memory twice
              * or invalid memory accesses in future. */
@@ -625,14 +629,18 @@ u8_t pbuf_free(struct pbuf * p)
             LWIP_DEBUGF(PBUF_DEBUG | 2,
                         ("pbuf_free: deallocating %p\n", (void *) p));
             type = p->type;
+//            printf("pbuf_free: deallocating %p\n", (void *) p);
             /* is this a pbuf from the pool? */
             if (type == PBUF_POOL) {
+//                printf("pbuf_free: %p: PBUF_POOL\n", (void *) p);
                 memp_free(MEMP_PBUF_POOL, p);
                 /* is this a ROM or RAM referencing pbuf? */
             } else if (type == PBUF_ROM || type == PBUF_REF) {
+//                printf("pbuf_free: %p: PBUF_ROM || PBUF_REF\n", (void *) p);
                 memp_free(MEMP_PBUF, p);
                 /* type == PBUF_RAM */
             } else {
+//                printf("pbuf_free: %p: other\n", (void *) p);
                 mem_free(p);
             }
             count++;
@@ -644,12 +652,15 @@ u8_t pbuf_free(struct pbuf * p)
             LWIP_DEBUGF(PBUF_DEBUG | 2,
                         ("pbuf_free: %p has ref %" U16_F ", ending here.\n",
                          (void *) p, ref));
+//            printf("pbuf_free: %p has ref %" U16_F ", ending here.\n",
+//                         (void *) p, ref);
             /* stop walking through the chain */
             p = NULL;
         }
     }
     PERF_STOP("pbuf_free");
     /* return number of de-allocated pbufs */
+//    printf("pbuf_free: finished with [%p] and count %"PRIu8"\n", p, count);
     return count;
 }
 

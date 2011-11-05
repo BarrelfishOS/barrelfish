@@ -60,7 +60,7 @@ struct buffer_descriptor {
     uint64_t buffer_id;
     struct ether_binding *con;
     struct capref cap;
-    struct shared_pool_private *spp;
+    struct shared_pool_private *spp_prv;
     uint8_t role;
     lpaddr_t pa;
     uint64_t bits;
@@ -151,6 +151,7 @@ struct tx_pbuf {
 struct client_closure {
     int cl_no;
     struct buffer_descriptor *buffer_ptr;
+    struct shared_pool_private *spp_ptr;
 
     /* Following two are used by packet transmit logic */
     uintptr_t nr_transmit_pbufs; /*< how many pbufs belong to the packet to

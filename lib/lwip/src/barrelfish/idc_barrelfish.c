@@ -50,7 +50,7 @@ struct waitset *lwip_waitset;
 struct client_closure_NC {
     struct cont_queue *q;       /* queue to continuation */
     struct buffer_desc *buff_ptr;
-
+    struct shared_pool_private *spp_ptr;
     uint8_t benchmark_status;
     uint64_t benchmark_delta;
     uint64_t benchmark_cl;
@@ -214,7 +214,6 @@ static void wrapper_send_sp_notification_from_app(struct buffer_desc *buf)
     assert(ccnc != NULL);
     // Resetting the send_notification counter as we are sending
     // the notification
-    buf->spp->notify_other_side = 0;
     entry.plist[0] = 1;
     entry.plist[1] = ts;
     enqueue_cont_q(ccnc->q, &entry);
@@ -229,21 +228,27 @@ static void sp_process_tx_done(struct buffer_desc *buff)
 {
     assert(buff != NULL);
     assert(lwip_free_handler != 0);
-    sp_reload_regs(buff->spp);
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)
+        driver_connection[TRANSMIT_CONNECTION]->st;
+    struct shared_pool_private *spp_send = ccnc->spp_ptr;
+    assert(spp_send != NULL);
+
+
+    sp_reload_regs(spp_send);
     struct slot_data d;
     struct pbuf *done_pbuf;
-    if (sp_queue_empty(buff->spp)) {
+    if (sp_queue_empty(spp_send)) {
 //        printf("sp_process_tx_done, queue empty, stopping\n");
-        if (sp_is_slot_clear(buff->spp, buff->spp->c_write_id) != 0) {
-            assert(sp_clear_slot(buff->spp, &d, buff->spp->c_write_id));
+        if (sp_is_slot_clear(spp_send, spp_send->c_write_id) != 0) {
+            assert(sp_clear_slot(spp_send, &d, spp_send->c_write_id));
             /*
             printf("sp_process_done for %"PRIu64"\n", i);
             sp_print_slot(&buff->spp->sp->slot_list[i].d);
             sp_print_slot(&d);
             */
             if (d.client_data == 0) {
-                printf("Failed for id %"PRIu64"\n", buff->spp->c_write_id);
-                sp_print_metadata(buff->spp);
+                printf("Failed for id %"PRIu64"\n", spp_send->c_write_id);
+                sp_print_metadata(spp_send);
             }
             assert(d.client_data != 0);
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
@@ -261,34 +266,38 @@ static void sp_process_tx_done(struct buffer_desc *buff)
 /*    printf("inside sp_process_tx_done, slot 0\n");
     sp_print_slot(&buff->spp->sp->slot_list[0].d);
 */
-    uint64_t current_read = buff->spp->c_read_id;
+    uint64_t current_read = spp_send->c_read_id;
 //    uint64_t current_write = buff->spp->c_write_id;
-    uint64_t i = buff->spp->c_write_id;
+    uint64_t i = spp_send->c_write_id;
     // FIXME: use pre_write_id as cache of how much is already cleared
-   i = buff->spp->pre_write_id;
+   i = spp_send->pre_write_id;
 //    printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
 //            i, current_read);
-    while (sp_c_between(buff->spp->c_write_id, i, current_read,
-                buff->spp->c_size)) {
+    while (sp_c_between(spp_send->c_write_id, i, current_read,
+                spp_send->c_size)) {
 
-        if (sp_is_slot_clear(buff->spp, i) != 0) {
-            assert(sp_clear_slot(buff->spp, &d, i));
+        if (sp_is_slot_clear(spp_send, i) != 0) {
+            printf("#### problems in clearing the slot %"PRIu64"\n",
+                    i);
+            assert(sp_clear_slot(spp_send, &d, i));
             /*
             printf("sp_process_done for %"PRIu64"\n", i);
-            sp_print_slot(&buff->spp->sp->slot_list[i].d);
+            sp_print_slot(&spp_done->sp->slot_list[i].d);
             sp_print_slot(&d);
             */
             if (d.client_data == 0) {
                 printf("Failed for id %"PRIu64"\n", i);
-                sp_print_metadata(buff->spp);
+                sp_print_metadata(spp_send);
             }
             assert(d.client_data != 0);
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
+            printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
+                    i, done_pbuf);
             lwip_free_handler(done_pbuf);
  //           printf("Freed up pbuf slot %"PRIu64"\n", i);
         } // end if : sp_is_slot_clear
 //        buff->spp->pre_write_id = i;
-        i = (i + 1) % buff->spp->c_size;
+        i = (i + 1) % spp_send->c_size;
     } // end while:
 //    printf("sp_process_tx_done is done\n");
 }
@@ -299,7 +308,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     ptrdiff_t offset;
     struct buffer_desc *buff_ptr;
     struct slot_data s;
-
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)
+        driver_connection[TRANSMIT_CONNECTION]->st;
+    struct shared_pool_private *spp_send = ccnc->spp_ptr;
+    assert(spp_send != NULL);
 
     uint64_t ts = rdtsc();
     assert(p != NULL);
@@ -313,19 +325,23 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         numpbufs++;
     }
     buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
-//    printf("to_network_driver 1, slot 0\n");
-//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
+    if(buff_ptr->role != TRANSMIT_CONNECTION) {
+        printf("################# dealing with cornor case ##########\n");
+    }
 
-    sp_reload_regs(buff_ptr->spp);
-    uint64_t free_slots_count = sp_queue_free_slots_count(buff_ptr->spp);
+    assert(numpbufs == 1);
+    assert(p->next == NULL);
+    sp_reload_regs(spp_send);
+    uint64_t free_slots_count = sp_queue_free_slots_count(spp_send);
 
-    if (sp_queue_full(buff_ptr->spp) || (free_slots_count < numpbufs)
+    if (sp_queue_full(spp_send) || (free_slots_count < numpbufs)
             || (free_slots_count < 10) ) {
         if (benchmark_mode > 0) {
             lwip_record_event_no_ts(TX_SPP_FULL);
             ++pkt_dropped;
         }
-        // FIXME: send a msg to driver saying "READ Packets Quickly!"
+        // send a msg to driver saying "READ Packets Quickly!"
+        spp_send->notify_other_side = 0;
         wrapper_send_sp_notification_from_app(buff_ptr);
 /*
         printf("Not enough (%"PRIu8") space left in shared_pool %"PRIu64"\n",
@@ -336,8 +352,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 */
         return 0;
     }
-    uint64_t ghost_write_index = sp_get_write_index(buff_ptr->spp);
-    uint64_t queue_size = sp_get_queue_size(buff_ptr->spp);
+    uint64_t ghost_write_index = sp_get_write_index(spp_send);
+    uint64_t queue_size = sp_get_queue_size(spp_send);
+    printf("##### send_pkt_to_network: ghost_write_index [%"PRIu64"] for p %p\n",
+            ghost_write_index, p);
 
 #if !defined(__scc__)
     mfence();                   // ensure that we flush all of the packet payload
@@ -359,10 +377,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         assert(buff_ptr == mem_barrelfish_get_buffer_desc(tmpp->payload));
 
 
-        if (sp_queue_full(buff_ptr->spp)) {
+        if (sp_queue_full(spp_send)) {
             printf("Error state for pbuf part %"PRIu8", and old free slots "
                     "are %"PRIu64", new %"PRIu64"\n", i, free_slots_count,
-                    sp_queue_free_slots_count(buff_ptr->spp));
+                    sp_queue_free_slots_count(spp_send));
             assert(!"This should not happen!");
             return 0;
         }
@@ -379,45 +397,43 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         s.ts = rdtsc();
 
 //    printf("to_network_driver 4, slot 0\n");
-//    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
-//#ifdef USE_SPP_FOR_TX
-        if (sp_is_slot_clear(buff_ptr->spp, ghost_write_index) != 0) {
+        if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
             /*
             printf("############ trying to clear %"PRIu64"\n",
                     ghost_write_index);
             */
             sp_process_tx_done(buff_ptr);
 
-            if (sp_is_slot_clear(buff_ptr->spp, ghost_write_index) != 0) {
+            if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
                 printf("Slot not clear for index %"PRIu64"\n", ghost_write_index);
-                sp_print_metadata(buff_ptr->spp);
+                sp_print_metadata(spp_send);
                 assert(!"Slot not clear!!!\n");
             }
         }
-//#endif // USE_SPP_FOR_TX
 
-        if (!sp_ghost_produce_slot(buff_ptr->spp, &s, ghost_write_index)) {
+        if (!sp_ghost_produce_slot(spp_send, &s, ghost_write_index)) {
             printf("sp_ghost_produce_slot: failed, %"PRIu64"\n",
                     ghost_write_index);
-            sp_print_metadata(buff_ptr->spp);
+            sp_print_metadata(spp_send);
             assert(!"sp_ghost_produce_slot: failed\n");
             return numpbufs;
         }
-//    printf("to_network_driver 5, slot 0\n");
+        printf("#### to_network_driver, slot %"PRIu64" pbuf %p\n",
+                ghost_write_index, tmpp);
 //    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
 
         ghost_write_index = (ghost_write_index + 1) % queue_size;
     } // end for: for each pbuf in packet
 
     // Added all packets.  Now update the write_index to expose new data
-    if (!sp_set_write_index(buff_ptr->spp, ghost_write_index)) {
+    if (!sp_set_write_index(spp_send, ghost_write_index)) {
         assert(!"sp_ghost_produce_slot: failed\n");
         return 0;
     }
 
     // FIXME: check if there are any packets to read, or any other work to do
 
-    if (buff_ptr->spp->notify_other_side == 0) {
+    if (spp_send->notify_other_side == 0) {
         // Done with everything!
         // FIXME: change the return value to reflect success/failure
         if (benchmark_mode > 0) {
@@ -433,6 +449,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     }
 
     // It seems that there we should send a notification to other side
+    spp_send->notify_other_side = 0;
     wrapper_send_sp_notification_from_app(buff_ptr);
 
 
@@ -449,7 +466,7 @@ static errval_t send_buffer_cap(struct q_entry e)
 {
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
-    struct shared_pool_private *spp = ccnc->buff_ptr->spp;
+    struct shared_pool_private *spp = ccnc->spp_ptr;
     assert(spp != NULL);
     uint8_t role = ccnc->buff_ptr->role;
 
@@ -479,7 +496,9 @@ static errval_t send_buffer_cap(struct q_entry e)
 }
 
 
-void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
+
+void idc_register_buffer(struct buffer_desc *buff_ptr,
+        struct shared_pool_private *spp_ptr, uint8_t binding_index)
 {
 
     struct q_entry entry;
@@ -505,8 +524,21 @@ void idc_register_buffer(struct buffer_desc *buff_ptr, uint8_t binding_index)
          * Specially the client_closure in network driver has only one pointer
          * for storing the buffers related to it. */
     }
+
+
     buff_ptr->con = driver_connection[binding_index];
     ccnc->buff_ptr = buff_ptr;
+
+    /* put the buffer into client_closure_NC */
+    if (ccnc->spp_ptr != NULL) {
+        /* FIXME: this needs better error handing */
+        printf("idc_register_buffer: one spp is already registered\n");
+        abort();
+        /* On one channel, only one spp is allowed to register.
+         */
+    }
+    ccnc->spp_ptr = spp_ptr;
+
     entry.cap = buff_ptr->cap;
     entry.plist[0] = binding_index;
     enqueue_cont_q(ccnc->q, &entry);
@@ -589,14 +621,13 @@ void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len)
 				pbuf_id, ccnc->buff_ptr->buffer_id);
 */
     enqueue_cont_q(ccnc->q, &entry);
-
 }
 
 int lwip_check_sp_capacity(int direction)
 {
     struct ether_binding *b = driver_connection[direction];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
-    return sp_queue_free_slots_count(ccnc->buff_ptr->spp);
+    return sp_queue_free_slots_count(ccnc->spp_ptr);
 }
 
 
@@ -860,8 +891,8 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
     assert(ccnc != NULL);
     struct buffer_desc *buff = ccnc->buff_ptr;
     assert(buff != NULL);
-    assert(buff->spp != NULL);
-    assert(buff->spp->sp != NULL);
+    assert(ccnc->spp_ptr != NULL);
+    assert(ccnc->spp_ptr->sp != NULL);
     if (benchmark_mode > 0) {
         lwip_record_event_simple(TX_A_SP_RN_CS, rts);
     }
@@ -980,7 +1011,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
 #endif                          // LWIP_TRACE_MODE
     uint64_t ts = rdtsc();
-    if (new_debug)
+//    if (new_debug)
         printf("%d.%d: packet_received: called paddr = %" PRIx64 ", len %"
                PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(), paddr,
                pktlen);
@@ -1002,8 +1033,6 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
         lwip_rec_handler(lwip_rec_data, pbuf_id, paddr, pbuf_len, pktlen, NULL);
     } else {
         LWIPBF_DEBUG("packet_received: no callback installed\n");
-        if (new_debug)
-            printf("packet_received: no callback installed\n");
         //pbuf with received packet not consumed by lwip. It can be
         //reused as receive pbuf
         idc_register_pbuf(pbuf_id, paddr, pbuf_len);

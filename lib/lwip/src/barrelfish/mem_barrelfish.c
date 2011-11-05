@@ -66,12 +66,12 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
     struct buffer_desc *buff_ptr;
 
     uint64_t ts = rdtsc();
-    sp_reload_regs(buf->spp);
-    printf("Allocating %"PRIu64" pbufs\n", buf->spp->c_size);
+    sp_reload_regs(buf->spp_prv);
+    printf("Allocating %"PRIu64" pbufs\n", buf->spp_prv->c_size);
 
 //    sys_debug_set_breakpoint(&buffer_list, 1, 1);
 
-    for (i = 0; i < buf->spp->c_size; i++) {
+    for (i = 0; i < buf->spp_prv->c_size; i++) {
         /* We allocate a pbuf chain of pbufs from the pool. */
         p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
         if (p == 0) {
@@ -96,7 +96,7 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
         pbufs[i].p = p;
         pbufs[i].pbuf_id = i;
 
-        copy_data_into_slot(buf->spp, buf->buffer_id, i, offset, p->len, 1,
+        copy_data_into_slot(buf->spp_prv, buf->buffer_id, i, offset, p->len, 1,
                 (uint64_t)p, ts);
     } // end for:
     printf("pbuf is from buff %"PRIu64" -----\n", buf->buffer_id);
@@ -157,8 +157,8 @@ uint8_t *mem_barrelfish_alloc(uint8_t binding_index, uint32_t size)
     buffer_list = buf;
 
     // Creating shared_pool for communication
-    buf->spp = sp_create_shared_pool(RECEIVE_BUFFERS, buf->role);
-    assert(buf->spp != NULL);
+    buf->spp_prv = sp_create_shared_pool(RECEIVE_BUFFERS, buf->role);
+    assert(buf->spp_prv != NULL);
     short_buf_list[binding_index] = buf;
     return ((uint8_t *) buf->va);
 }
@@ -174,7 +174,7 @@ uint8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size)
     }
 
     /* FIXME: should buffer be also put in the client_closure_NC? */
-    idc_register_buffer(buf, binding_index);
+    idc_register_buffer(buf, buf->spp_prv, binding_index);
 
 //    struct waitset *ws = get_default_waitset();
     /* Wait for actually getting the ID back from driver */
@@ -280,8 +280,9 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
     struct slot_data new_slot;
     uint64_t ts = rdtsc();
 
-//    LWIPBF_DEBUG("Sending pbuf back for reuse ++++++++\n");
+    printf("mem_barrelfish_replace_pbuf %"PRIu64" ++++++++\n", idx);
     struct pbuf *p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
+    printf("Sending pbuf %p for reuse at id %"PRIu64" ++++++++\n", p, idx);
 
     assert(p != 0);
     assert(p->next == 0);       //make sure there is no chain for now...
@@ -304,8 +305,9 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
     new_slot.ts = rdtsc();
     //XXX: the msg handler should free the pbuf in case of an error.
     //uint64_t r = idc_register_pbuf(idx, paddr + offset, p->len);
-    bool ret = sp_replace_slot(buff_ptr->spp, &new_slot);
+    bool ret = sp_replace_slot(buff_ptr->spp_prv, &new_slot);
     if (!ret) {
+        printf("Error: receive spp is empty and can't add more free slots\n");
         pbuf_free(p);
         return NULL;
     }

@@ -392,9 +392,8 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     printf("ethersrv:register buffer called with slots %"PRIu64"\n", slots);
     errval_t err;
     int i;
-    struct buffer_descriptor *buffer = (struct buffer_descriptor *)
-      ((struct client_closure *) (cc->st))->buffer_ptr;
-
+    struct client_closure *closure = (struct client_closure *)cc->st;
+    struct buffer_descriptor *buffer = closure->buffer_ptr;
 
     buffer->role = role;
 
@@ -430,7 +429,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
         return;
     }
 
-    err = sp_map_shared_pool(buffer->spp, sp, slots, role);
+    err = sp_map_shared_pool(closure->spp_ptr, sp, slots, role);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "sp_map_shared_pool failed");
         // FIXME: report more sensible error
@@ -480,18 +479,18 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
                    buffer->buffer_id, buffer->pa, buffer->va, buffer->bits,
                    buffer->role);
 
-    sp_reload_regs(buffer->spp);
+    sp_reload_regs(closure->spp_ptr);
     if (buffer->role == RX_BUFFER_ID) {
         struct slot_data sslot;
         memset(&sslot, 0, sizeof(sslot));
         // register all the pbufs
-        for (uint64_t id = 0; id < buffer->spp->c_size; ++id) {
-            (sp_copy_slot_data(&sslot, &buffer->spp->sp->slot_list[id].d));
+        for (uint64_t id = 0; id < closure->spp_ptr->c_size; ++id) {
+            (sp_copy_slot_data(&sslot, &closure->spp_ptr->sp->slot_list[id].d));
             assert(sslot.client_data != 0);
             assert(sslot.len != 0);
             assert(sslot.no_pbufs != 0);
             // Assigning buffer id here because it was not known to application
-            buffer->spp->sp->slot_list[id].d.buffer_id = buffer->buffer_id;
+            closure->spp_ptr->sp->slot_list[id].d.buffer_id = buffer->buffer_id;
             register_pbuf(cc, sslot.pbuf_id, sslot.offset, sslot.len, sslot.ts);
         } // end for:
     }
@@ -702,14 +701,28 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 }
 #endif // 0
 
+
+static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
+{
+    struct buffer_descriptor *elem = buffers_list;
+    while(elem) {
+        if (elem->buffer_id == buffer_id) {
+            return elem;
+        }
+        elem = elem->next;
+    }
+    return NULL;
+} // end function: buffer_descriptor
+
+
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
 //    uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
-    struct buffer_descriptor *buffer = closure->buffer_ptr;
-    assert(buffer != NULL);
-    struct shared_pool_private *spp = buffer->spp;
+//    struct buffer_descriptor *buffer = closure->buffer_ptr;
+//    assert(buffer != NULL);
+    struct shared_pool_private *spp = closure->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
@@ -717,7 +730,6 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     closure->nr_transmit_pbufs = 0;
     closure->rtpbuf = 0;
 
-    printf("Sending single packet on wire\n");
     errval_t r;
     // FIXME: keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
@@ -729,7 +741,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     }
 
     // Some sanity checks
-    assert(closure->nr_transmit_pbufs == 0);
+/*
     if (buffer->buffer_id != s.buffer_id) {
         printf("PROB: %"PRIu64" != %"PRIu64", no%"PRIu64", %"PRIu64" \n",
             buffer->buffer_id,  s.buffer_id, s.no_pbufs, s.len);
@@ -737,6 +749,9 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         assert(!"pbuf from wrong buffer");
     }
     assert(buffer->buffer_id == s.buffer_id);
+*/
+
+    assert(closure->nr_transmit_pbufs == 0);
     assert(s.no_pbufs <= MAX_NR_TRANSMIT_PBUFS);
 
     // FIXME: Make sure that there are s.no_pbuf slots available
@@ -746,6 +761,8 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 
     do {
         closure->pbuf[closure->rtpbuf].buffer_id = s.buffer_id;
+        struct buffer_descriptor *buffer = find_buffer(s.buffer_id);
+        assert(buffer != NULL);
         closure->pbuf[closure->rtpbuf].sr = cc;
         closure->pbuf[closure->rtpbuf].cc = closure;
         closure->pbuf[closure->rtpbuf].len = s.len;
@@ -754,12 +771,15 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         closure->pbuf[closure->rtpbuf].spp_index = current_spp_slot_id;
         closure->len = closure->len + s.len;  // total lengh of packet
         // making the buffer memory cache coherent.
-        bulk_arch_prepare_recv((void *) closure->buffer_ptr->pa + s.offset,
+        bulk_arch_prepare_recv((void *) buffer->pa + s.offset,
                 s.len);
 
         closure->rtpbuf++;
         if (closure->rtpbuf == closure->nr_transmit_pbufs) {
             // If entire packet is here
+            printf("Sending packet with [%"PRIu16"]pbufs, offset [%"PRIu64"]"
+                    " and pbuf[%"PRIx64"]\n",
+                    closure->rtpbuf, s.offset, s.client_data);
             break;
         }
 
@@ -850,10 +870,13 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
     assert(buffer != NULL);
-    struct shared_pool_private *spp = buffer->spp;
+    struct shared_pool_private *spp = closure->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
-
+    if (buffer->role == RX_BUFFER_ID) {
+//        printf("####### ERROR: send_packets_on_wire called on wrong buff\n");
+            return 0;
+    }
 //    uint64_t ts = rdtsc();
 
     sp_reload_regs(spp);
@@ -903,7 +926,7 @@ static void do_pending_work(struct ether_binding *b)
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
     assert(buffer != NULL);
-    struct shared_pool_private *spp = buffer->spp;
+    struct shared_pool_private *spp = closure->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
@@ -1111,17 +1134,17 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
     }
     memset(buffer, 0, sizeof(struct buffer_descriptor));
 
-    buffer->spp = (struct shared_pool_private *)
+    cc->spp_ptr = (struct shared_pool_private *)
                         malloc(sizeof(struct shared_pool_private));
-    if (buffer->spp == NULL) {
+    if (cc->spp_ptr == NULL) {
         err = ETHERSRV_ERR_NOT_ENOUGH_MEM;
         ETHERSRV_DEBUG("connection_service_logic: out of memory\n");
         free(cc);
         free(buffer);
         return err;
     }
-    memset(buffer->spp, 0, sizeof(struct shared_pool_private));
-
+    memset(cc->spp_ptr, 0, sizeof(struct shared_pool_private));
+    buffer->spp_prv = cc->spp_ptr;
     b->st = cc;
     cc->buffer_ptr = buffer;
     cc->nr_transmit_pbufs = 0;
@@ -1754,19 +1777,6 @@ static struct filter *find_from_filter_list(struct filter *head,
     return NULL;                /* could not not find the id. */
 }
 
-static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
-{
-    struct buffer_descriptor *buffer = buffers_list;
-
-    while (buffer) {
-        if (buffer->buffer_id == buffer_id) {
-            return buffer;
-        }
-        buffer = buffer->next;
-    }
-    return NULL;
-}                               /* end function: buffer_descriptor */
-
 /**
  * \brief: re-registers the filter with network driver
  */
@@ -1995,7 +2005,7 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(cc != NULL);
     struct buffer_descriptor *buffer = cc->buffer_ptr;
     assert(buffer != NULL);
-    struct shared_pool_private *spp = buffer->spp;
+    struct shared_pool_private *spp = cc->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
@@ -2035,8 +2045,8 @@ bool notify_client_free_tx(struct ether_binding * b,
 
 static errval_t send_received_packet_handler(struct q_entry entry)
 {
-/*	ETHERSRV_DEBUG("send_received_packet_handler id %lu pbuf %p\n",
-			entry.plist[0], (void *)entry.plist[1]); */
+	printf("send_received_packet_handler id %lu pbuf %p\n",
+			entry.plist[0], (void *)entry.plist[1]);
 
     struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
     struct client_closure *cl = (struct client_closure *) b->st;
@@ -2317,7 +2327,7 @@ static void send_arp_to_all(void *data, uint64_t len)
     struct filter *head = rx_filters;
 
 //    ETHERSRV_DEBUG("### Sending the ARP packet to all....\n");
-//    printf("### Sending the ARP packet to all, %"PRIx64" \n", len);
+    printf("### Sending the ARP packet to all, %"PRIx64" \n", len);
     /* sending ARP packets to only those who have registered atleast one
      * filter with e1000n
      * */
@@ -2637,7 +2647,7 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
                    "in SP Q[%" PRIu64 "], HW_Q[%"PRIu64"]\n",
                    in_seconds(ts), cl->pbuf_count, cl->pkt_count,
                    cl->dropped_pkt_count,
-                   sp_queue_elements_count(cl->buffer_ptr->spp),
+                   sp_queue_elements_count(cl->spp_ptr),
                    cl->hw_queue);
             printf("TX Explicit msg needed [%"PRIu64"], sent[%"PRIu64"]\n",
                     cl->tx_explicit_msg_needed, cl->tx_notification_sent);
