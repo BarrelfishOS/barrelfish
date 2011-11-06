@@ -75,8 +75,6 @@ uint8_t get_driver_benchmark_state(int direction, uint64_t *delta,
 /* netd services */
 void idc_connect_netd(void);
 
-void idc_just_to_test(void);
-
 void idc_get_ip(void);
 err_t idc_tcp_new_port(uint16_t * port_no);
 err_t idc_udp_new_port(uint16_t * port_no);

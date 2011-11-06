@@ -353,6 +353,162 @@ static void reset_client_closure_stat(struct client_closure *cc)
 /*****************************************************************
  * Message handlers:
  ****************************************************************/
+
+static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
+{
+    struct buffer_descriptor *elem = buffers_list;
+    while(elem) {
+        if (elem->buffer_id == buffer_id) {
+            return elem;
+        }
+        elem = elem->next;
+    }
+    return NULL;
+} // end function: buffer_descriptor
+
+
+static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
+                                     uint64_t vaddr, uint64_t len,
+                                     uint64_t spp_index,
+                                     struct ether_binding *b)
+{
+
+    struct client_closure *cc = (struct client_closure *)b->st;
+    struct buffer_descriptor *buffer = cc->buffer_ptr;
+
+/*      (struct buffer_descriptor *) ((struct client_closure *) (b->st))->
+      buffer_ptr;
+*/
+    assert(buffer != NULL);
+
+    struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
+    uint32_t new_tail = (buffer->pbuf_tail + 1) % APP_QUEUE_SIZE;
+
+    if (buffer->pbuf_metadata_ds == NULL) {
+        ETHERSRV_DEBUG("memory is yet not provided by the client "
+                       "for pbuf management\n");
+        return -1;
+    }
+
+    /* check if there is a space in app ring before trying to
+     * insert the buffer */
+    if (new_tail == buffer->pbuf_head_msg) {
+        ETHERSRV_DEBUG("no space to add a new receive pbuf\n");
+        printf("no space to add a new receive pbuf[%"PRIu64"] new_tail"
+                " %u msg_hd %u\n",
+              pbuf_id, new_tail, buffer->pbuf_head_msg);
+        return -1;
+    }
+
+    /* FIXME: following is precautionary call.  This flow of code is not
+     * sending and data but only sending back the empty buffer,
+     * so prepare_recv is not strictly necessary. */
+    bulk_arch_prepare_recv((void *) (uintptr_t) vaddr, len);
+
+    pbuf[buffer->pbuf_tail].sr = b;
+    pbuf[buffer->pbuf_tail].pbuf_id = pbuf_id;
+    pbuf[buffer->pbuf_tail].paddr = paddr; // asq: remember for later freeing
+    pbuf[buffer->pbuf_tail].vaddr = vaddr;
+    pbuf[buffer->pbuf_tail].len = len;
+    pbuf[buffer->pbuf_tail].event_sent = false;
+    pbuf[buffer->pbuf_tail].spp_index = spp_index;
+    // Set the statistics
+
+    if (cc->debug_state == 4) {
+        add_event_stat(&pbuf[buffer->pbuf_tail], PBUF_REGISTERED);
+    }
+
+    buffer->pbuf_tail = new_tail;
+    /*
+       ETHERSRV_DEBUG("pbuf added head %u msg_hd %u tail %u in buffer %lu\n",
+       buffer->pbuf_head, buffer->pbuf_head_msg, buffer->pbuf_tail,
+       buffer->buffer_id);
+     */
+    return 0;
+}
+
+static void register_pbuf_v2(struct ether_binding *b, uint64_t buf_id,
+                    uint64_t pbuf_id, uint64_t offset, uint64_t len,
+                    uint64_t rts, uint64_t spp_index)
+{
+
+#if TRACE_ETHERSRV_MODE
+//      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_N_SPBUF, (uint32_t)pbuf_id);
+#endif                          // TRACE_ETHERSRV_MODE
+
+    errval_t r;
+
+    uint64_t ts = rdtsc();
+/*	ETHERSRV_DEBUG("ETHERSRV: register_pbuf: %"PRIx64" registering ++++++++\n",
+	        pbuf_id);
+*/
+    struct buffer_descriptor *buffer = find_buffer(buf_id);
+    assert(buffer != NULL);
+/*    struct buffer_descriptor *buffer = (struct buffer_descriptor *)
+      ((struct client_closure *) (b->st))->buffer_ptr;
+*/
+      struct client_closure *cl = (struct client_closure *)b->st;
+
+    if (cl->debug_state == 4) {
+        bm_record_event_simple(RE_PBUF_REG_CS, ts);
+    }
+
+    /* Calculating the physical address of this pbuf. */
+    uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + offset;
+    uint64_t paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
+    /* NOTE: virtual address = virtual base + physical offset */
+/*
+	ETHERSRV_DEBUG("register_pbuf: pbuf id %"PRIx64" on buff_id %"PRIx64"\n",
+	 pbuf_id, buffer->buffer_id);
+*/
+
+    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, spp_index, b);
+    assert(err_is_ok(r));
+
+    if (cl->debug_state == 4) {
+        bm_record_event_simple(RE_PBUF_REG, ts);
+    }
+}
+
+
+static uint64_t add_new_pbufs_2_app_ring(struct ether_binding *b,
+        struct shared_pool_private *spp_ptr,
+        uint64_t buffer_id)
+{
+    uint64_t count = 0; // no. of slots added to app ring
+
+    struct slot_data sslot; // temp slot to hold information
+    memset(&sslot, 0, sizeof(sslot));
+    // Check if ghost_write_id is valid
+
+    sp_reload_regs(spp_ptr);
+    while(1) {
+
+        // Check for terminating condition
+        if (((spp_ptr->ghost_write_id + 1) % spp_ptr->c_size)
+                == spp_ptr->c_read_id) {
+            return count;
+        }
+
+        sp_copy_slot_data(&sslot,
+                &spp_ptr->sp->slot_list[spp_ptr->ghost_write_id].d);
+        assert(sslot.client_data != 0);
+        assert(sslot.len != 0);
+        assert(sslot.no_pbufs != 0);
+        // Assigning buffer id here because it was not known to application
+        // FIXME: This should be done by the application
+        spp_ptr->sp->slot_list[spp_ptr->ghost_write_id].d.buffer_id = buffer_id;
+        sslot.buffer_id = buffer_id;
+        register_pbuf_v2(b, buffer_id, sslot.pbuf_id, sslot.offset,
+                            sslot.len, sslot.ts, spp_ptr->ghost_write_id);
+        spp_ptr->ghost_write_id = (spp_ptr->ghost_write_id + 1)
+            % spp_ptr->c_size;
+        ++count;
+    } // end while:
+
+    return count;
+} // end function: add_new_pbufs_2_app_ring
+
 static errval_t send_new_buffer_id(struct q_entry entry)
 {
     //    ETHERSRV_DEBUG("send_new_buffer_id -----\n");
@@ -389,7 +545,8 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
                         struct capref sp, uint64_t slots, uint8_t role)
 {
 
-    printf("ethersrv:register buffer called with slots %"PRIu64"\n", slots);
+    ETHERSRV_DEBUG("ethersrv:register buffer called with slots %"PRIu64"\n",
+            slots);
     errval_t err;
     int i;
     struct client_closure *closure = (struct client_closure *)cc->st;
@@ -481,81 +638,31 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 
     sp_reload_regs(closure->spp_ptr);
     if (buffer->role == RX_BUFFER_ID) {
+
+        uint64_t count = add_new_pbufs_2_app_ring(cc, closure->spp_ptr,
+                buffer->buffer_id);
+        printf("#### Register_buffer: added %"PRIu64" pbufs\n", count);
+/*
         struct slot_data sslot;
         memset(&sslot, 0, sizeof(sslot));
         // register all the pbufs
         for (uint64_t id = 0; id < closure->spp_ptr->c_size; ++id) {
-            (sp_copy_slot_data(&sslot, &closure->spp_ptr->sp->slot_list[id].d));
+            sp_copy_slot_data(&sslot, &closure->spp_ptr->sp->slot_list[id].d);
             assert(sslot.client_data != 0);
             assert(sslot.len != 0);
             assert(sslot.no_pbufs != 0);
             // Assigning buffer id here because it was not known to application
             closure->spp_ptr->sp->slot_list[id].d.buffer_id = buffer->buffer_id;
-            register_pbuf(cc, sslot.pbuf_id, sslot.offset, sslot.len, sslot.ts);
+            sslot.buffer_id = buffer->buffer_id;
+            register_pbuf_v2(cc, sslot.buffer_id, sslot.pbuf_id, sslot.offset,
+                    sslot.len, sslot.ts, id);
+            closure->spp_ptr->ghost_write_id = id;
         } // end for:
+*/
+
     }
     report_register_buffer_result(cc, err, buffer->buffer_id);
 }
-
-
-static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
-                                     uint64_t vaddr, uint64_t len,
-                                     struct ether_binding *b)
-{
-
-    struct client_closure *cc = (struct client_closure *)b->st;
-    struct buffer_descriptor *buffer = cc->buffer_ptr;
-
-/*      (struct buffer_descriptor *) ((struct client_closure *) (b->st))->
-      buffer_ptr;
-*/
-    assert(buffer != NULL);
-
-    struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
-    uint32_t new_tail = (buffer->pbuf_tail + 1) % APP_QUEUE_SIZE;
-
-    if (buffer->pbuf_metadata_ds == NULL) {
-        ETHERSRV_DEBUG("memory is yet not provided by the client "
-                       "for pbuf management\n");
-        return -1;
-    }
-
-    /* check if there is a space in app ring before trying to
-     * insert the buffer */
-    if (new_tail == buffer->pbuf_head_msg) {
-        ETHERSRV_DEBUG("no space to add a new receive pbuf\n");
-        printf("no space to add a new receive pbuf[%"PRIu64"] new_tail"
-                " %u msg_hd %u\n",
-              pbuf_id, new_tail, buffer->pbuf_head_msg);
-        return -1;
-    }
-
-    /* FIXME: following is precautionary call.  This flow of code is not
-     * sending and data but only sending back the empty buffer,
-     * so prepare_recv is not strictly necessary. */
-    bulk_arch_prepare_recv((void *) (uintptr_t) vaddr, len);
-
-    pbuf[buffer->pbuf_tail].sr = b;
-    pbuf[buffer->pbuf_tail].pbuf_id = pbuf_id;
-    pbuf[buffer->pbuf_tail].paddr = paddr; // asq: remember for later freeing
-    pbuf[buffer->pbuf_tail].vaddr = vaddr;
-    pbuf[buffer->pbuf_tail].len = len;
-    pbuf[buffer->pbuf_tail].event_sent = false;
-    // Set the statistics
-
-    if (cc->debug_state == 4) {
-        add_event_stat(&pbuf[buffer->pbuf_tail], PBUF_REGISTERED);
-    }
-
-    buffer->pbuf_tail = new_tail;
-    /*
-       ETHERSRV_DEBUG("pbuf added head %u msg_hd %u tail %u in buffer %lu\n",
-       buffer->pbuf_head, buffer->pbuf_head_msg, buffer->pbuf_tail,
-       buffer->buffer_id);
-     */
-    return 0;
-}
-
 
 static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
                           uint64_t offset, uint64_t len, uint64_t rts)
@@ -588,7 +695,8 @@ static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
 	 pbuf_id, buffer->buffer_id);
 */
 
-    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, b);
+    assert(!"NYI");
+    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, 0, b);
     assert(err_is_ok(r));
 
     if (cl->debug_state == 4) {
@@ -702,19 +810,6 @@ static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
 #endif // 0
 
 
-static struct buffer_descriptor *find_buffer(uint64_t buffer_id)
-{
-    struct buffer_descriptor *elem = buffers_list;
-    while(elem) {
-        if (elem->buffer_id == buffer_id) {
-            return elem;
-        }
-        elem = elem->next;
-    }
-    return NULL;
-} // end function: buffer_descriptor
-
-
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
 //    uint64_t ts = rdtsc();
@@ -763,6 +858,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         closure->pbuf[closure->rtpbuf].buffer_id = s.buffer_id;
         struct buffer_descriptor *buffer = find_buffer(s.buffer_id);
         assert(buffer != NULL);
+        closure->pbuf[closure->rtpbuf].buffer = buffer;
         closure->pbuf[closure->rtpbuf].sr = cc;
         closure->pbuf[closure->rtpbuf].cc = closure;
         closure->pbuf[closure->rtpbuf].len = s.len;
@@ -777,8 +873,8 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         closure->rtpbuf++;
         if (closure->rtpbuf == closure->nr_transmit_pbufs) {
             // If entire packet is here
-            printf("Sending packet with [%"PRIu16"]pbufs, offset [%"PRIu64"]"
-                    " and pbuf[%"PRIx64"]\n",
+            ETHERSRV_DEBUG("Sending packet with [%"PRIu16"]pbufs, offset "
+                   "[%"PRIu64"] and pbuf[%"PRIx64"]\n",
                     closure->rtpbuf, s.offset, s.client_data);
             break;
         }
@@ -2010,7 +2106,7 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(spp->sp != NULL);
 
     cc->hw_queue = cc->hw_queue - 1;
-//    printf("Notifying the app for %"PRIu64"\n", spp_index);
+    ETHERSRV_DEBUG("Notifying the app for %"PRIu64"\n", spp_index);
     if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
         // FIXME:  This is dengarous!  I should increase read index,
         // only when all the packets till that read index are sent!
@@ -2045,7 +2141,7 @@ bool notify_client_free_tx(struct ether_binding * b,
 
 static errval_t send_received_packet_handler(struct q_entry entry)
 {
-	printf("send_received_packet_handler id %lu pbuf %p\n",
+	ETHERSRV_DEBUG("send_received_packet_handler id %lu pbuf %p\n",
 			entry.plist[0], (void *)entry.plist[1]);
 
     struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
@@ -2158,7 +2254,6 @@ static bool send_packet_received_notification(struct buffer_descriptor *buffer,
     if (buffer->pbuf_head == buffer->pbuf_head_msg) {
         return false;
     }
-
 
     assert(rx_pbuf);
 
@@ -2307,11 +2402,24 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
 
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
-#endif                          // TRACE_ETHERSRV_MODE
+#endif // TRACE_ETHERSRV_MODE
 
     upbuf->packet_size = len;
+
+    // update the spp indicating the new packet
+    // need to increment write pointer
+    struct shared_pool_private *spp_ptr = cl->spp_ptr;
+    assert(validate_and_empty_produce_slot(spp_ptr, upbuf->spp_index));
     phead = (phead + 1) % APP_QUEUE_SIZE;
     buffer->pbuf_head = phead;
+
+    // add newly available pbuf slots into app-queue and hardware queue
+    uint64_t count = 0;
+    count = add_new_pbufs_2_app_ring(buffer->con, spp_ptr,
+            buffer->buffer_id);
+    ETHERSRV_DEBUG("cp_pkt_2_usr: added %"PRIu64" pbufs into app ring\n",
+            count);
+
     bool success = send_packet_received_notification(buffer, upbuf);
     if (!success) {
          if (cl->debug_state == 4) {
@@ -2326,8 +2434,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 {
     struct filter *head = rx_filters;
 
-//    ETHERSRV_DEBUG("### Sending the ARP packet to all....\n");
-    printf("### Sending the ARP packet to all, %"PRIx64" \n", len);
+    ETHERSRV_DEBUG("### Sending the ARP packet to all, %"PRIx64" \n", len);
     /* sending ARP packets to only those who have registered atleast one
      * filter with e1000n
      * */
@@ -2435,7 +2542,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
     if (handle_fragmented_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
-        printf("fragmented packet..\n");
+//        printf("fragmented packet..\n");
         return;
     }
 
@@ -2572,10 +2679,8 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
          */
         // printf("O:Copy packet to userspace failed\n");
     }
-
-
-
 } // end function: process_received_packet
+
 
 /* This function tells if netd is registered or not. */
 bool waiting_for_netd(void)

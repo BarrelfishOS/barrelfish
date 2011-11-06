@@ -280,9 +280,9 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
     struct slot_data new_slot;
     uint64_t ts = rdtsc();
 
-    printf("mem_barrelfish_replace_pbuf %"PRIu64" ++++++++\n", idx);
+    LWIPBF_DEBUG("mem_barrelfish_replace_pbuf %"PRIu64" ++++++++\n", idx);
     struct pbuf *p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
-    printf("Sending pbuf %p for reuse at id %"PRIu64" ++++++++\n", p, idx);
+    LWIPBF_DEBUG("Sending pbuf %p for reuse at id %"PRIu64" ++++++++\n", p, idx);
 
     assert(p != 0);
     assert(p->next == 0);       //make sure there is no chain for now...

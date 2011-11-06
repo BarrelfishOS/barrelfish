@@ -488,7 +488,7 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
 
     sp_atomic_set_reg(&spp->sp->write_reg, index);
     sp_reload_regs(spp);
-    spp->ghost_write_id = spp->c_write_id;
+//    spp->ghost_write_id = spp->c_write_id;
 
     if (sp_queue_full(spp)) {
         // There no free space left to create new items.
@@ -560,6 +560,22 @@ bool sp_clear_slot(struct shared_pool_private *spp, struct slot_data *d,
 
     return true;
 } // end function: sp_clear_slot
+
+bool validate_and_empty_produce_slot(struct shared_pool_private *spp,
+        uint64_t produced_slot_id)
+{
+    sp_reload_regs(spp);
+
+    if (sp_queue_full(spp)) {
+        return false;
+    }
+
+    uint64_t wi = spp->c_write_id;
+    assert(spp->c_write_id == produced_slot_id);
+    // If needed, mark the slot as produced
+    assert(sp_set_write_index(spp, ((wi + 1) % spp->c_size)));
+    return true;
+} // end function: validate_and_empty_produce_slot
 
 
 // Adds the data from parameter d into appropriate slot of shared pool queue

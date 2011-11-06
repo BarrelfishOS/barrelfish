@@ -26,6 +26,7 @@
 #include <procon/procon.h>
 #include "lwip/pbuf.h"
 #include "lwip/init.h"
+#include "lwip/sys.h"
 #include "mem_barrelfish.h"
 #include "idc_barrelfish.h"
 #include <if/ether_defs.h>
@@ -270,15 +271,15 @@ static void sp_process_tx_done(struct buffer_desc *buff)
 //    uint64_t current_write = buff->spp->c_write_id;
     uint64_t i = spp_send->c_write_id;
     // FIXME: use pre_write_id as cache of how much is already cleared
-   i = spp_send->pre_write_id;
-//    printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
+    i = spp_send->pre_write_id;
+ //   printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
 //            i, current_read);
     while (sp_c_between(spp_send->c_write_id, i, current_read,
                 spp_send->c_size)) {
 
         if (sp_is_slot_clear(spp_send, i) != 0) {
-            printf("#### problems in clearing the slot %"PRIu64"\n",
-                    i);
+ //          printf("#### problems in clearing the slot %"PRIu64"\n",
+ //                   i);
             assert(sp_clear_slot(spp_send, &d, i));
             /*
             printf("sp_process_done for %"PRIu64"\n", i);
@@ -291,10 +292,11 @@ static void sp_process_tx_done(struct buffer_desc *buff)
             }
             assert(d.client_data != 0);
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
-            printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
-                    i, done_pbuf);
+           // LWIPBF_DEBUG
+//            printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
+//                    i, done_pbuf);
             lwip_free_handler(done_pbuf);
- //           printf("Freed up pbuf slot %"PRIu64"\n", i);
+//            printf("Freed up pbuf slot %"PRIu64"\n", i);
         } // end if : sp_is_slot_clear
 //        buff->spp->pre_write_id = i;
         i = (i + 1) % spp_send->c_size;
@@ -325,9 +327,6 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         numpbufs++;
     }
     buff_ptr = mem_barrelfish_get_buffer_desc(p->payload);
-    if(buff_ptr->role != TRANSMIT_CONNECTION) {
-        printf("################# dealing with cornor case ##########\n");
-    }
 
     assert(numpbufs == 1);
     assert(p->next == NULL);
@@ -354,7 +353,8 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     }
     uint64_t ghost_write_index = sp_get_write_index(spp_send);
     uint64_t queue_size = sp_get_queue_size(spp_send);
-    printf("##### send_pkt_to_network: ghost_write_index [%"PRIu64"] for p %p\n",
+    LWIPBF_DEBUG("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
+            " for p %p\n",
             ghost_write_index, p);
 
 #if !defined(__scc__)
@@ -398,10 +398,8 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 
 //    printf("to_network_driver 4, slot 0\n");
         if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
-            /*
             printf("############ trying to clear %"PRIu64"\n",
                     ghost_write_index);
-            */
             sp_process_tx_done(buff_ptr);
 
             if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
@@ -418,8 +416,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             assert(!"sp_ghost_produce_slot: failed\n");
             return numpbufs;
         }
-        printf("#### to_network_driver, slot %"PRIu64" pbuf %p\n",
-                ghost_write_index, tmpp);
+        LWIPBF_DEBUG("#### to_network_driver, slot %"PRIu64" pbuf %p "
+                "of len %"PRIu64"\n",
+                ghost_write_index, tmpp, tmpp->len);
 //    sp_print_slot(&buff_ptr->spp->sp->slot_list[0].d);
 
         ghost_write_index = (ghost_write_index + 1) % queue_size;
@@ -427,6 +426,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 
     // Added all packets.  Now update the write_index to expose new data
     if (!sp_set_write_index(spp_send, ghost_write_index)) {
+        spp_send->ghost_write_id = ghost_write_index;
         assert(!"sp_ghost_produce_slot: failed\n");
         return 0;
     }
@@ -1011,7 +1011,7 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
 #endif                          // LWIP_TRACE_MODE
     uint64_t ts = rdtsc();
-//    if (new_debug)
+    if (new_debug)
         printf("%d.%d: packet_received: called paddr = %" PRIx64 ", len %"
                PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(), paddr,
                pktlen);
@@ -1035,7 +1035,8 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
         LWIPBF_DEBUG("packet_received: no callback installed\n");
         //pbuf with received packet not consumed by lwip. It can be
         //reused as receive pbuf
-        idc_register_pbuf(pbuf_id, paddr, pbuf_len);
+        struct pbuf *p = mem_barrelfish_replace_pbuf(pbuf_id);
+        pbuf_free(p);
     }
 
     lwip_in_packet_received = false;
@@ -1309,39 +1310,6 @@ void idc_connect_to_driver(char *card_name)
 }
 
 
-
-/**
-* \brief: this function is to be only used for testing purpose
-*/
-void idc_just_to_test(void)
-{
-    if (lwip_connected[0]) {
-        printf("TEST: ether[0] up\n");
-    } else {
-        printf("TEST: ether[0] down!!!!\n");
-        printf("Aborting remaining test\n");
-        return;
-    }
-
-    if (lwip_connected[1]) {
-        printf("TEST: ether[1] up\n");
-    } else {
-        printf("TEST: ether[1] down!!!!\n");
-        printf("Aborting remaining test\n");
-        return;
-    }
-
-    if (netd_service_connected) {
-        printf("TEST: netd up\n");
-    } else {
-        printf("TEST: netd down!!!!\n");
-        printf("Aborting remaining test\n");
-        return;
-    }
-
-    printf("testing get_port\n");
-
-}
 
 /*
  * @}

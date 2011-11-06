@@ -309,8 +309,6 @@ void mem_init(void)
  */
 void mem_free(void *rmem)
 {
-
-    printf("###### mem_free called for %p\n", rmem);
     struct mem *mem;
 
     LWIP_MEM_FREE_DECL_PROTECT();

@@ -152,6 +152,7 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
     e1000_tdt_wr(&(d), 0, (e1000_dqval_t){ .val = ether_transmit_index });
 
+    E1000N_DEBUG("ether_transmit_index %"PRIu32"\n", ether_transmit_index);
     /* Actual place where packet is sent.  Adding trace_event here */
 #if TRACE_ETHERSRV_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NO_S,
@@ -175,7 +176,7 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
             }
 	}
 	for (int i = 0; i < cl->rtpbuf; i++) {
-		r = transmit_pbuf(cl->buffer_ptr->pa,
+		r = transmit_pbuf(cl->pbuf[i].buffer->pa,
 				cl->pbuf[i].len, cl->pbuf[i].offset,
                                 i == (cl->nr_transmit_pbufs - 1), //last?
 				cl->pbuf[i].client_data,
@@ -185,6 +186,8 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 			printf("ERROR:transmit_pbuf failed\n");
 			return r;
 		}
+        E1000N_DEBUG("transmit_pbuf done for pbuf %"PRIx64", index %"PRIu64"\n",
+                cl->pbuf[i].client_data, cl->pbuf[i].spp_index);
 	}
 	return SYS_ERR_OK;
 }

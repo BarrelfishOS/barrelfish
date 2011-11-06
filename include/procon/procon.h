@@ -122,6 +122,8 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
 
 // State modifying function prototypes
 bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d);
+bool validate_and_empty_produce_slot(struct shared_pool_private *spp,
+        uint64_t produced_slot_id);
 bool sp_replace_slot(struct shared_pool_private *spp,
             struct slot_data *new_slot);
 bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst);
