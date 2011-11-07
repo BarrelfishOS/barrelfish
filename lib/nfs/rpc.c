@@ -202,7 +202,8 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         prev = call;
     }
     if (call == NULL) {
-        fprintf(stderr, "RPC:[%d] Unknown XID 0x%x in reply, dropped\n", disp_get_domain_id(), xid);
+        fprintf(stderr, "RPC:[%d:%s] Unknown XID 0x%x in reply, dropped\n",
+                disp_get_domain_id(), disp_name(), xid);
         goto out;
     } else if (prev == NULL) {
     	client->call_hash[hid] = call->next;
@@ -248,7 +249,7 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
         if (++call->timers >= RPC_RETRANSMIT_AFTER) {
             if (call->retries++ == RPC_MAX_RETRANSMIT) {
                 /* admit failure */
-                printf("##### [%d][%d] RPC: timeout for XID 0x%x\n", disp_get_core_id(), 
+                printf("##### [%d][%d] RPC: timeout for XID 0x%x\n", disp_get_core_id(),
 			           disp_get_domain_id(), call->xid);
                 pbuf_free(call->pbuf);
                 if (prev == NULL) {

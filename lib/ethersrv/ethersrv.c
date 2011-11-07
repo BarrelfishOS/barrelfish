@@ -2099,8 +2099,6 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(b != NULL);
     struct client_closure *cc = (struct client_closure *)b->st;
     assert(cc != NULL);
-    struct buffer_descriptor *buffer = cc->buffer_ptr;
-    assert(buffer != NULL);
     struct shared_pool_private *spp = cc->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
