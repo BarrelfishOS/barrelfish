@@ -407,7 +407,6 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
 #endif // !defined(__scc__) && !defined(__i386__)
 }
 
-
 void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 {
     assert(d != NULL);
@@ -420,6 +419,13 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
     d->client_data = s->client_data;
     d->ts = s->ts;
 }
+
+void sp_copy_slot_data_from_index(struct shared_pool_private *spp,
+        uint64_t index, struct slot_data *d)
+{
+    sp_copy_slot_data(d, &spp->sp->slot_list[index].d);
+} // end function: sp_copy_slot_data_index
+
 
 // Set the value of read index
 // To be used with sp_read_peek_slot

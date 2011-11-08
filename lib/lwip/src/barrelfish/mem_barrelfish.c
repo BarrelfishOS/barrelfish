@@ -282,7 +282,8 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
 
     LWIPBF_DEBUG("mem_barrelfish_replace_pbuf %"PRIu64" ++++++++\n", idx);
     struct pbuf *p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
-    LWIPBF_DEBUG("Sending pbuf %p for reuse at id %"PRIu64" ++++++++\n", p, idx);
+    LWIPBF_DEBUG("Sending pbuf %p for reuse at id %"PRIu64" ++++++++\n",
+            p, idx);
 
     assert(p != 0);
     assert(p->next == 0);       //make sure there is no chain for now...
@@ -308,6 +309,7 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
     bool ret = sp_replace_slot(buff_ptr->spp_prv, &new_slot);
     if (!ret) {
         printf("Error: receive spp is empty and can't add more free slots\n");
+        sp_print_metadata(buff_ptr->spp_prv);
         pbuf_free(p);
         return NULL;
     }

@@ -55,6 +55,7 @@ struct client_closure_NC {
     uint8_t benchmark_status;
     uint64_t benchmark_delta;
     uint64_t benchmark_cl;
+    uint8_t  role;  // RX or TX buffer
 };
 
 /*
@@ -223,7 +224,7 @@ static void wrapper_send_sp_notification_from_app(struct ether_binding *b)
          printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
 }
 
-static void sp_process_tx_done(void)
+static void sp_process_tx_done(bool debug)
 {
     assert(lwip_free_handler != 0);
     struct client_closure_NC *ccnc = (struct client_closure_NC *)
@@ -236,14 +237,9 @@ static void sp_process_tx_done(void)
     struct slot_data d;
     struct pbuf *done_pbuf;
     if (sp_queue_empty(spp_send)) {
-//        printf("sp_process_tx_done, queue empty, stopping\n");
+        if (debug) printf("sp_process_tx_done: queue empty\n");
         if (sp_is_slot_clear(spp_send, spp_send->c_write_id) != 0) {
             assert(sp_clear_slot(spp_send, &d, spp_send->c_write_id));
-            /*
-            printf("sp_process_done for %"PRIu64"\n", i);
-            sp_print_slot(&spp_send->sp->slot_list[i].d);
-            sp_print_slot(&d);
-            */
             if (d.client_data == 0) {
                 printf("Failed for id %"PRIu64"\n", spp_send->c_write_id);
                 sp_print_metadata(spp_send);
@@ -269,14 +265,16 @@ static void sp_process_tx_done(void)
     uint64_t i = spp_send->c_write_id;
     // FIXME: use pre_write_id as cache of how much is already cleared
     i = spp_send->pre_write_id;
- //   printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
-//            i, current_read);
+    if (debug)
+        printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
+            i, current_read);
     while (sp_c_between(spp_send->c_write_id, i, current_read,
                 spp_send->c_size)) {
 
+        if (debug) printf("inside while for %"PRIu64"\n", i);
         if (sp_is_slot_clear(spp_send, i) != 0) {
- //          printf("#### problems in clearing the slot %"PRIu64"\n",
- //                   i);
+           if (debug) printf("#### problems in clearing the slot %"PRIu64"\n",
+                    i);
             assert(sp_clear_slot(spp_send, &d, i));
             /*
             printf("sp_process_done for %"PRIu64"\n", i);
@@ -290,15 +288,16 @@ static void sp_process_tx_done(void)
             assert(d.client_data != 0);
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
            // LWIPBF_DEBUG
-//            printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
-//                    i, done_pbuf);
+            if(debug)
+              printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
+                    i, done_pbuf);
             lwip_free_handler(done_pbuf);
 //            printf("Freed up pbuf slot %"PRIu64"\n", i);
         } // end if : sp_is_slot_clear
 //        spp_send->pre_write_id = i;
         i = (i + 1) % spp_send->c_size;
     } // end while:
-//    printf("sp_process_tx_done is done\n");
+    if (debug) printf("sp_process_tx_done is stopped for %"PRIu64"\n", i);
 }
 
 
@@ -317,7 +316,7 @@ static void do_pending_work_TX_lwip(void)
     }
 
     // check and process any tx_done's
-    sp_process_tx_done();
+    sp_process_tx_done(false);
 } // end function: do_pending_work_lwip
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
@@ -408,11 +407,14 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
             printf("############ trying to clear %"PRIu64"\n",
                     ghost_write_index);
-            sp_process_tx_done();
+            sp_print_metadata(spp_send);
+            sp_print_slot(&spp_send->sp->slot_list[ghost_write_index].d);
+            sp_process_tx_done(true);
 
             if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
                 printf("Slot not clear for index %"PRIu64"\n", ghost_write_index);
                 sp_print_metadata(spp_send);
+                sp_print_slot(&spp_send->sp->slot_list[ghost_write_index].d);
                 assert(!"Slot not clear!!!\n");
             }
         }
@@ -520,7 +522,9 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
 
 
     buff_ptr->con = driver_connection[binding_index];
+
     ccnc->buff_ptr = buff_ptr;
+    ccnc->role = binding_index;
 
     /* put the buffer into client_closure_NC */
     if (ccnc->spp_ptr != NULL) {
@@ -874,31 +878,6 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
     LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %" PRIx64 "\n", buffer_id);
 }
 
-static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
-        uint64_t rts)
-{
-    lwip_mutex_lock();
-    uint64_t ts = rdtsc();
-    assert(b != NULL);
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
-    assert(ccnc != NULL);
-    struct buffer_desc *buff = ccnc->buff_ptr;
-    assert(buff != NULL);
-    assert(ccnc->spp_ptr != NULL);
-    assert(ccnc->spp_ptr->sp != NULL);
-    if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_A_SP_RN_CS, rts);
-    }
-
-    // FIXME:  trigger the function which checks for released pbufs
-    // in form of tx_done and process them
-
-    if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_A_SP_RN_T, ts);
-    }
-    lwip_mutex_unlock();
-} // end function: sp_notification_from_driver
-
 
 static void tx_done(struct ether_binding *st, uint64_t client_data,
                     uint64_t slots_left, uint64_t dropped)
@@ -1042,6 +1021,99 @@ static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
 
 //  LWIPBF_DEBUG("packet_received: terminated\n");
 }
+
+static uint32_t handle_incoming_packets(struct ether_binding *b)
+{
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    assert(ccnc != NULL);
+    struct buffer_desc *buff = ccnc->buff_ptr;
+    assert(buff != NULL);
+    assert(ccnc->spp_ptr != NULL);
+    assert(ccnc->spp_ptr->sp != NULL);
+/*
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_A_SP_RN_CS, rts);
+    }
+*/
+
+    // Read the slots which are available in spp
+
+    // FIXME: assuming that packet fits into one slot
+    struct slot_data sslot;
+    bool ans;
+    uint32_t count = 0;
+    lwip_in_packet_received = true;
+    while(1) {
+        ans = sp_ghost_read_slot(ccnc->spp_ptr, &sslot);
+        if (!ans) {
+            // No more slots to read
+            break;
+        }
+        if (new_debug)
+            printf("%d.%d: packet_received: called pbuf = %" PRIx64 ", len %"
+               PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(),
+               sslot.pbuf_id, sslot.len);
+
+     /* FIXME: enable this.  It is disabled to avoid compiliation issues with ARM
+     * Problem is due to use of unint64_t to store paddr. */
+//      bulk_arch_prepare_recv((void *)paddr, pbuf_len);
+        if (lwip_rec_handler == 0) {
+            printf("packet_received: no callback installed\n");
+            // pbuf with received packet not consumed by lwip. It can be
+            // reused as receive pbuf
+            struct pbuf *p = mem_barrelfish_replace_pbuf(sslot.pbuf_id);
+            pbuf_free(p);
+        } else {
+            assert(sslot.no_pbufs == 1);
+            lwip_rec_handler(lwip_rec_data, sslot.pbuf_id,
+                    sslot.offset, sslot.len, sslot.len, NULL);
+        }
+        assert(sp_ghost_read_confirm(ccnc->spp_ptr));
+/*
+        if(benchmark_mode > 0) {
+            lwip_record_event_simple(RE_ALL, ts);
+        }
+*/
+        ++count;
+
+    } // end while:
+
+    lwip_in_packet_received = false;
+    return count;
+} // end function: handle_incoming_packets
+
+static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
+        uint64_t rts)
+{
+    lwip_mutex_lock();
+    uint64_t ts = rdtsc();
+    assert(b != NULL);
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+    assert(ccnc != NULL);
+    struct buffer_desc *buff = ccnc->buff_ptr;
+    assert(buff != NULL);
+    assert(ccnc->spp_ptr != NULL);
+    assert(ccnc->spp_ptr->sp != NULL);
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_A_SP_RN_CS, rts);
+    }
+
+    if (ccnc->role == RECEIVE_CONNECTION) {
+        handle_incoming_packets(b);
+    }
+
+    if (ccnc->role == TRANSMIT_CONNECTION) {
+        // FIXME:  trigger the function which checks for released pbufs
+        // in form of tx_done and process them
+        sp_process_tx_done(false);
+    }
+
+    if (benchmark_mode > 0) {
+        lwip_record_event_simple(TX_A_SP_RN_T, ts);
+    }
+    lwip_mutex_unlock();
+} // end function: sp_notification_from_driver
+
 
 /*
  * @}

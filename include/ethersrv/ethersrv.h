@@ -69,9 +69,8 @@ struct buffer_descriptor {
     uint64_t type;
     void *pbuf_metadata_ds; // FIXME: why is it void *
     void *pbuf_metadata_ds_tx; // FIXME: is it used?. Nope, not used. Remove it
-    uint32_t pbuf_head;
-    uint32_t pbuf_head_msg;
-    uint32_t pbuf_tail;
+    uint32_t pbuf_head_rx;
+    uint32_t pbuf_tail_rx;
     uint32_t pbuf_head_tx;
     uint32_t pbuf_tail_tx;
     struct buffer_descriptor *next;
@@ -176,6 +175,7 @@ struct client_closure {
     uint64_t tx_done_count;
     uint64_t tx_explicit_msg_needed;
     uint64_t tx_notification_sent;
+    uint64_t rx_notification_sent;
     uint64_t dropped_pkt_count;
     uint64_t hw_queue;
     uint64_t pbuf_count;

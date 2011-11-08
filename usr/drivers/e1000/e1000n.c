@@ -438,6 +438,7 @@ static void e1000_interrupt_handler(void *arg)
     while(handle_next_received_packet()){
             ++interrupt_loop_counter;
     };
+    // FIXME: send an application, notification about packet arrival
 //    handle_next_received_packet();
 }
 
