@@ -236,30 +236,21 @@ static void sp_process_tx_done(bool debug)
     sp_reload_regs(spp_send);
     struct slot_data d;
     struct pbuf *done_pbuf;
-    if (sp_queue_empty(spp_send)) {
-        if (debug) printf("sp_process_tx_done: queue empty\n");
-        if (sp_is_slot_clear(spp_send, spp_send->c_write_id) != 0) {
-            assert(sp_clear_slot(spp_send, &d, spp_send->c_write_id));
-            if (d.client_data == 0) {
-                printf("Failed for id %"PRIu64"\n", spp_send->c_write_id);
-                sp_print_metadata(spp_send);
-            }
-            assert(d.client_data != 0);
+
+    // Slot pointed by write id should be always free!
+    if (sp_is_slot_clear(spp_send, spp_send->c_write_id) != 0) {
+        assert(sp_clear_slot(spp_send, &d, spp_send->c_write_id));
+        if (d.client_data != 0) {
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
             lwip_free_handler(done_pbuf);
         }
+    }
 
+    if (sp_queue_full(spp_send)) {
+        if (debug) printf("sp_process_tx_done: queue full\n");
         return;
     }
-/*    else {
-        sp_print_metadata(spp_send);
-        printf("sp_process_tx_done, queue not empty, procedding\n");
-    }
-*/
 
-/*    printf("inside sp_process_tx_done, slot 0\n");
-    sp_print_slot(&spp_send->sp->slot_list[0].d);
-*/
     uint64_t current_read = spp_send->c_read_id;
 //    uint64_t current_write = spp_send->c_write_id;
     uint64_t i = spp_send->c_write_id;
