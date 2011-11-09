@@ -57,6 +57,7 @@
 #       include <kernel.h>
 #       include <dispatch.h>
 #       include <trace/trace.h>
+#       include <timer.h> // update_sched_timer
 #endif
 
 #define SPECTRUM        1000000
@@ -70,7 +71,6 @@
 #define MAX(a, b)       ((a) > (b) ? (a) : (b))
 #define MIN(a, b)       ((a) < (b) ? (a) : (b))
 
-#include <timer.h> // update_sched_timer
 
 /**
  * Head and tail of the scheduling queue, respectively.
