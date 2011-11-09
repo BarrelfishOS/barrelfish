@@ -70,6 +70,8 @@
 #define MAX(a, b)       ((a) > (b) ? (a) : (b))
 #define MIN(a, b)       ((a) < (b) ? (a) : (b))
 
+#include <timer.h> // update_sched_timer
+
 /**
  * Head and tail of the scheduling queue, respectively.
  */
@@ -377,6 +379,11 @@ struct dcb *schedule(void)
 
         // Remember who we run next
         lastdisp = todisp;
+        #ifdef CONFIG_ONESHOT_TIMER
+        // we might be able to do better than that...
+        // (e.g., check if there is only one task in the queue)
+        update_sched_timer(kernel_now + (todisp->wcet - todisp->etime));
+        #endif
         return todisp;
     }
 
