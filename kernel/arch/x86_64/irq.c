@@ -219,7 +219,10 @@ __asm (
     /* (Device) interrupt. */
     "   .type hwirq_common ,@function                   \n\t"
     "hwirq_common:                                      \n\t"
-    /* If it happened in kernel_mode, simply make userspace runnable */
+    /* If it happened in kernel_mode, simply make userspace runnable.
+     * This is a special case, since interrupts are normally disabled when
+     * entering the kernel. However, they are enabled when there is nothing
+     * to do, and the kernel goes to sleep using wait_for_interrupts() */
     "testb $3, 16(%rsp) /* if CS.CPL == 0 */            \n\t"
     "jz call_handle_irq                                 \n\t"
 
@@ -799,6 +802,29 @@ static __attribute__ ((used))
     __asm volatile("" :: "r" (arg0), "r" (arg1), "r" (arg2), "r" (arg3));
 }
 
+static void
+update_kernel_now(void)
+{
+    uint64_t tsc_now = rdtsc();
+    #ifdef CONFIG_ONESHOT_TIMER
+    uint64_t ticks = tsc_now - tsc_lasttime;
+    kernel_now += ticks / timing_get_tsc_per_ms();
+    #else // !CONFIG_ONESHOT_TIMER
+    // maintain compatibility with old behaviour. Not sure if it is
+    // actually needed. -AKK
+    //
+    // Ignore timeslice if it happens too closely (less than half
+    // of the TSC ticks that are supposed to pass) to the last.
+    // In that case we have just synced timers and see a spurious
+    // APIC timer interrupt.
+    if(tsc_now - tsc_lasttime >
+       (kernel_timeslice * timing_get_tsc_per_ms()) / 2) {
+        kernel_now += kernel_timeslice;
+    }
+    #endif // CONFIG_ONESHOT_TIMER
+    tsc_lasttime = tsc_now;
+}
+
 /// Handle an IRQ that arrived, either while in user or kernel mode (HLT)
 static __attribute__ ((used)) void handle_irq(int vector)
 {
@@ -816,16 +842,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {
         apic_eoi();
         assert(kernel_ticks_enabled);
-        // Ignore timeslice if it happens too closely (less than half
-        // of the TSC ticks that are supposed to pass) to the last.
-        // In that case we have just synced timers and see a spurious
-        // APIC timer interrupt.
-        uint64_t tsc_now = rdtsc();
-        if(tsc_now - tsc_lasttime >
-           (kernel_timeslice * timing_get_tsc_per_ms()) / 2) {
-            kernel_now += kernel_timeslice;
-        }
-        tsc_lasttime = tsc_now;
+        update_kernel_now();
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_TIMER, kernel_now);
         wakeup_check(kernel_now);
     } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
