@@ -15,6 +15,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "dist/service.h"
+#include "dist/predicates.h"
 #include "include/skb_server.h"
 #include "shared_lib_dict.h"
 #include "skb_debug.h"
@@ -61,22 +63,27 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
+    event_server_init();
     skb_server_init();
     SKB_DEBUG("\nskb initialized\n");
 
     chdir(ECLIPSE_DIR);
 
-    //ec_external(ec_did("string_to_list",2), p_string_to_list, ec_did("eclipse",0));
 
+//  execute_string("append([1,2,3],[5,6,7],L),write(output,L).");
 
-//    execute_string("append([1,2,3],[5,6,7],L),write(output,L).");
+    // dist2 related stuff
     execute_string("[objects].");
+    execute_string("[pubsub].");
+    execute_string("[bindings].");
+    ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
+
     execute_string("[queries].");
 
-//    execute_string("get_local_affinity(1,B,L),write(output,[B,L]).");
+//  execute_string("get_local_affinity(1,B,L),write(output,[B,L]).");
 
-//    execute_string("lib(branch_and_bound).");
-//    execute_string("minimize(member(X,[4,1,2]),X),write(output,X).");
+//  execute_string("lib(branch_and_bound).");
+//  execute_string("minimize(member(X,[4,1,2]),X),write(output,X).");
 
     //don't terminate the skb domain
     messages_handler_loop();

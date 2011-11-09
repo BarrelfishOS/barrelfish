@@ -21,12 +21,12 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
   		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
                                    "dist/code_generator.c",
                                    "dist/parse.c", "dist/scan.c", 
-                                   "dist/service.c" ],
+                                   "dist/service.c", "dist/predicates.c" ],
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
                         -- force optimisations on, without them we blow the stack
                         addCFlags = [ "-O2", "-Wno-redundant-decls" ],
-                        flounderBindings = [ "skb" ],
+                        flounderBindings = [ "skb", "skb_events" ],
                         addIncludes = [ "eclipse_kernel/src"],
                         addLibraries = [ "eclipse", "shm", "dummies",
                                          "posixcompat", "msun",

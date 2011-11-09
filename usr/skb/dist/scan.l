@@ -24,7 +24,7 @@ COLON \:
 COMMA ,
 
 ALPHA  [A-Za-z_]
-LALPHA [a-z]
+LALPHA [a-z_]
 DIGIT  [0-9]
 DIGIT19 [1-9]
 DIGITS ({DIGIT})+
@@ -46,10 +46,11 @@ ESCAPEDCHAR \\['"\\bfnrt/]
 CHAR {UNESCAPEDCHAR}|{ESCAPEDCHAR}
 CHARS {CHAR}+
 QUOTE [']
+REGEX_START r{QUOTE}
 
-
-REGEX r{QUOTE}{QUOTE}|r{QUOTE}{CHARS}{QUOTE}
+%x REG
 %x STR
+
 %%
 {BOOL}      {
                 yylval.integer = (strcmp(yytext, "true") == 0) ? 1 : 0;
@@ -61,15 +62,34 @@ REGEX r{QUOTE}{QUOTE}|r{QUOTE}{CHARS}{QUOTE}
                 return FLOAT;
             }
 
-{REGEX}     {
-                yylval.str = strdup(yytext+2);
-                if (yylval.str[yyleng-2] != '\'')
-                    printf("improperly terminated string\n");
-                else
-                    yylval.str[yyleng-2] = 0;
-                printf("found '%s'\n", yylval.str);
-                return REGEX;
-            }
+{REGEX_START}      { string_buf_ptr = string_buf; BEGIN(REG); }
+
+<REG>\'        { /* saw closing quote - all done */
+     BEGIN(INITIAL);
+     *string_buf_ptr = '\0';
+     yylval.str = strdup(string_buf);
+     return REGEX;
+     }
+
+<REG>\n        {
+     /* error - unterminated string constant */
+     /* generate error message */
+     }
+
+<REG>\\n  *string_buf_ptr++ = '\n';
+<REG>\\t  *string_buf_ptr++ = '\t';
+<REG>\\r  *string_buf_ptr++ = '\r';
+<REG>\\b  *string_buf_ptr++ = '\b';
+<REG>\\f  *string_buf_ptr++ = '\f';
+
+<REG>\\(.|\n)  *string_buf_ptr++ = yytext[1];
+
+<REG>[^\\\n\']+        {
+     char *yptr = yytext;
+
+     while ( *yptr )
+             *string_buf_ptr++ = *yptr++;
+     }
 
 
 \'      string_buf_ptr = string_buf; BEGIN(STR);
@@ -81,9 +101,9 @@ REGEX r{QUOTE}{QUOTE}|r{QUOTE}{CHARS}{QUOTE}
      return STRING;
      }
 
-<STR>\n        {
-     /* error - unterminated string constant */
-     /* generate error message */
+<STR>\n     {
+         /* error - unterminated string constant */
+         /* generate error message */
      }
 
 <STR>\\n  *string_buf_ptr++ = '\n';

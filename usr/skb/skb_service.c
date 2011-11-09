@@ -184,6 +184,9 @@ static struct skb_rx_vtbl rx_vtbl = {
     .run_call = run,
     .get_call = get_object,
     .set_call = set_object,
+    .subscribe_call = subscribe,
+    .publish_call = publish,
+    .identify_call = identify_rpc_binding,
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)

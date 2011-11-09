@@ -4,12 +4,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h>
 #include <skb/skb.h>
-#include <if/skb_defs.h>
 #include <if/skb_rpcclient_defs.h>
 #include <dist2/getset.h>
 
+#include "common.h"
 
-#define MAX_OBJECT_LENGTH (5*1024)
+
 
 
 /**
@@ -31,6 +31,7 @@ static errval_t dist_del(char* name)
 errval_t dist_get_all(char* query, char** data)
 {
 	assert(!"TODO");
+	return SYS_ERR_OK;
 }
 
 
@@ -49,6 +50,7 @@ errval_t dist_get(char* query, char** data)
 	struct skb_state* skb_state  = get_skb_state();
 	assert(skb_state != NULL);
 	err = skb_state->skb->vtbl.get(skb_state->skb, query, data, &error, &error_code);
+	// TODO check error_code
 
 	debug_printf("dist_get: skberror %d: %s\n", error_code, error);
 	debug_printf("dist_get: data: %s\n", *data);
@@ -67,20 +69,14 @@ errval_t dist_get(char* query, char** data)
 errval_t dist_set(char* object, ...)
 {
 	assert(object != NULL);
-	va_list  args;
 	errval_t err = SYS_ERR_OK;
+	char* buf;
 
-	// Construct query
-	char* buf = malloc(MAX_OBJECT_LENGTH);
-	assert(buf != NULL); // TODO error
+	va_list  args;
 	va_start(args, object);
-	size_t bytes_written = vsnprintf(buf, MAX_OBJECT_LENGTH, object, args);
+	err = format_object(&buf, object, args);
+	assert(err_is_ok(err));
 	va_end(args);
-
-	if(bytes_written >= MAX_OBJECT_LENGTH) {
-		// TODO return error!
-		assert(!"Object string too big, return error!");
-	}
 
 	// Send to SKB
 	struct skb_state* skb_state  = get_skb_state();
@@ -88,6 +84,7 @@ errval_t dist_set(char* object, ...)
 	char* error = NULL;
 	int error_code;
 	err = skb_state->skb->vtbl.set(skb_state->skb, buf, &error, &error_code);
+	// TODO check error_code
 
 	debug_printf("dist_set: skberror %d: %s\n", error_code, error);
 

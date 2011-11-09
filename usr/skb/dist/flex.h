@@ -217,7 +217,8 @@ extern char *yytext;
 
 #ifdef YY_HEADER_EXPORT_START_CONDITIONS
 #define INITIAL 0
-#define STR 1
+#define REG 1
+#define STR 2
 
 #endif
 
@@ -326,9 +327,9 @@ extern int yylex (void);
 #undef YY_DECL
 #endif
 
-#line 138 "scan.l"
+#line 158 "scan.l"
 
 
-#line 333 "flex.h"
+#line 334 "flex.h"
 #undef yyIN_HEADER
 #endif /* yyHEADER_H */

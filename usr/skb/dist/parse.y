@@ -17,7 +17,8 @@ static struct nodeObject* pair(struct nodeObject*, struct nodeObject*);
 static struct nodeObject* attribute(struct nodeObject*, struct nodeObject*);
 static struct nodeObject* object(struct nodeObject*, struct nodeObject*);
 static struct nodeObject* constraints(size_t, struct nodeObject*);
-static struct nodeObject* regex(struct nodeObject*);
+static struct nodeObject* string(char*);
+
 void free_nodes(struct nodeObject*);
 %}
 
@@ -49,8 +50,6 @@ void free_nodes(struct nodeObject*);
 %token <str> IDENT
 %token <str> REGEX
 %token <str> STRING
-
-
 
 %type <nPtr> value
 %type <nPtr> attribute
@@ -84,10 +83,10 @@ constraint:
     | LE value                       { $$ = constraints(LE, $2); }
     | EQ value                       { $$ = constraints(EQ, $2); }
     | NE value                       { $$ = constraints(NE, $2); }
-    | REGEX                          { $$ = regex(ident($1)); }
+    | REGEX                          { $$ = constraints(REGEX, string($1)); }
 
 value:
-      STRING                         { $$ = ident($1); }
+      STRING                         { $$ = string($1); }
     | IDENT                          { $$ = ident($1); }
     | NUMBER                         { $$ = num($1); }
     | BOOL                           { $$ = boolean($1); }
@@ -121,15 +120,6 @@ static struct nodeObject* boolean(int value)
     return p;
 }
 
-static struct nodeObject* regex(struct nodeObject* value)
-{
-    struct nodeObject* p = alloc_node();
-    
-    p->type = nodeType_Regex;
-    p->rn.value = value;
-
-    return p;
-}
 
 static struct nodeObject* constraints(size_t op, struct nodeObject* value)
 {
@@ -199,8 +189,20 @@ static struct nodeObject* ident(char* str)
 
     struct nodeObject* p = alloc_node();
 
-    p->type = nodeType_String;
+    p->type = nodeType_Ident;
     p->in.str = str;
+
+    return p;
+}
+
+
+static struct nodeObject* string(char* str) 
+{
+
+    struct nodeObject* p = alloc_node();
+
+    p->type = nodeType_String;
+    p->sn.str = str;
 
     return p;
 }

@@ -43,6 +43,7 @@
                "serial",
                "skb",
                "skb_map",
+               "skb_events",               
                "spawn",
                "test",
                "timer",

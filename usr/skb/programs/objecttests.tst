@@ -2,7 +2,7 @@
 % TODO tests for add, edit, del handler calls
 
 % Test lookup
-get_object(doesNotExist,X) should_fail.
+get_object(doesNotExist, X, _) should_fail.
 get_object(men, X) should_give X=[ ako :: [val person], hair::[val black] ].
 
 % Single attribute lookup

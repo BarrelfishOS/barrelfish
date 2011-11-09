@@ -65,11 +65,22 @@ int ex(struct nodeObject* p) {
             ex(p->on.name);
     
             w = &po->attributes;
+			emit(w, "[ ");
+			emit(&po->constraints, "[ ");
             if(p->on.attrs) {
-                emit(w, " [ ");
-                emit(&po->constraints, " [ ");
                 ex(p->on.attrs);
             }
+			emit(w, " ]");
+
+            size_t len = strlen(po->constraints.output);
+            if(po->constraints.output[len-2] == ',') {
+				po->constraints.output[len-2] = ' ';
+				po->constraints.output[len-1] = ']';
+            }
+            else {
+            	emit(&po->constraints, " ]");
+            }
+
         break;
 
         case nodeType_Attribute:
@@ -80,6 +91,7 @@ int ex(struct nodeObject* p) {
                 emit(w, ", ");
                 ex(p->an.next);
             }
+            /*
             else {
                 emit(w, " ]");
                 if(strcmp(po->constraints.output, " [ ") == 0) {
@@ -91,7 +103,7 @@ int ex(struct nodeObject* p) {
                     po->constraints.output[len-2] = ' ';
                     po->constraints.output[len-1] = ']';
                 }
-            }
+            }*/
         break;
 
         case nodeType_Pair:
@@ -131,6 +143,9 @@ int ex(struct nodeObject* p) {
                 case NE:
                     operator = "=/=";
                 break;
+                case REGEX:
+                	operator = "match";
+				break;
                 default:
                     assert(!"OP code not supported");
                 break;
@@ -166,6 +181,12 @@ int ex(struct nodeObject* p) {
         break;
 
         case nodeType_String:
+            emit(w, "\'");
+            emit(w, p->sn.str);
+            emit(w, "\'");
+        break;
+
+        case nodeType_Ident:
             emit(w, p->in.str);
         break;
    }
@@ -219,16 +240,16 @@ int main(int argc, char** argv)
 */
 	p = transform_query("obj5 { reference: bla, integer: 12, str: '[]String!@#%^&*$&^*(_)(-=\\'', float: 12.0, bool: true }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
-/*
+
 	p = transform_query("obj5 { str1: 'String1', str2: 'String2' }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
 
 	p = transform_query("obj7 { c1: < 10, c1: > 11.0, c3: == 0, c4: >= 0, c5: <= .123 }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
 
-	p = transform_query("obj7 { c1: r'*' c2: r'abc*' }");
+	p = transform_query("obj7 { c1: r'abc', c2: r'^ab*ab$' }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
-*/
+
 	// dont care about free here!
     return 0;
 }

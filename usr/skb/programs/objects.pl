@@ -7,15 +7,31 @@
 :- op(500, xfx, ::).
 :- dynamic object/2.
 
+%lib(regex).
 %:- include("../data/objects.txt").
+
+object(john,
+      [ ako :: [val men],
+        weight :: [val 80],
+        address :: [ val "Gartenstrasse 12" ] ]).
 
 omg(X) :- write("hey").
 
 is_empty([]).
 
-get_object(Thing, ReqList) :-
+get_object(Thing, ReqList, ConsList, SlotList) :-
 	object(Thing, SlotList),
-	slot_vals(Thing, ReqList, SlotList).
+	slot_vals(Thing, ReqList, SlotList),
+	satisfy_constraints(ConsList, SlotList).
+
+satisfy_constraints([], _).
+satisfy_constraints([Constraint|Rest], SlotList) :-
+    satisfy_constraint(Constraint, SlotList).
+
+satisfy_constraint(constraint(Attr, Comparator, Value), SlotList) :-
+    slot_vals(Name, Attr::X, SlotList),
+    FX =.. [Comparator, X, Value],
+    call(FX).
 
 % Given name, want list of all attributes
 slot_vals(_, X, Z) :-
@@ -129,7 +145,7 @@ add_newval(Val, [H|T], [Val, H|T]).
 add_newval(_, Val, Val).
 */
 check_add_handler(req(T, S, F, V), FacetList) :-
-	get_object(T, S::add(Add)), !,
+	get_object(T, S::add(Add), _, _), !,
 	Add =.. [Functor | Args], 
 	AddFunc =.. [Functor, req(T, S, F, V) | Args], 
 	call(AddFunc).
@@ -183,7 +199,7 @@ del_facet(Req, _, _) :-
     error(['del_facet - unable to remove', Req]).
 
 check_del_handler(req(T, S, F, V), FacetList) :-
-	get_object(T, S::del(Del)), !, 
+	get_object(T, S::del(Del), _, _), !, 
 	Del =.. [Functor|Args], 
 	DelFunc =.. [Functor, req(T, S, F, V)|Args], 
 	call(DelFunc).

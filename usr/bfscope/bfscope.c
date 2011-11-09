@@ -367,7 +367,7 @@ static errval_t register_interrupt(int irqvector)
     err = invoke_irqtable_set(cap_irq, irqvector, epcap);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
-            printf("bfscope: Error registering IRQ, check that bfscope " \
+            printf("cope: Error registering IRQ, check that cope " \
                    "is spawned by the monitor by having 'boot' as its " \
                    "first argument\n");
         } else {

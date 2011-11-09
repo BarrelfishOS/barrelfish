@@ -6,10 +6,10 @@ enum nodeType {
     nodeType_Constant,
     nodeType_Boolean,
     nodeType_String,
+    nodeType_Ident,
     nodeType_Attribute,
     nodeType_Pair,
     nodeType_Constraint,
-    nodeType_Regex,
     nodeType_Object
 };
 
@@ -34,12 +34,12 @@ struct identNode {
     char* str;
 };
 
-struct constraintNode {
-    size_t op;
-    struct nodeObject* value;
+struct stringNode {
+    char* str;
 };
 
-struct regexNode {
+struct constraintNode {
+    size_t op;
     struct nodeObject* value;
 };
 
@@ -58,10 +58,10 @@ struct nodeObject {
     union {
         struct constantNode cn;
         struct constraintNode cnsn;
-        struct regexNode rn;
         struct booleanNode bn;
         struct floatNode fn;
         struct identNode in;
+        struct stringNode sn;
         struct attributeNode an;
         struct pairNode pn;
         struct objectNode on;
