@@ -147,7 +147,7 @@ static inline void context_switch(struct dcb *dcb)
             }
             fpu_dcb = dcb;
         }
-#endif
+#endif /* FPU_LAZY_CONTEXT_SWITCH */
 
 	/* 
 	 * The name of the function is somewhat misleading. we need an unused

@@ -219,7 +219,10 @@ __asm (
     /* (Device) interrupt. */
     "   .type hwirq_common ,@function                   \n\t"
     "hwirq_common:                                      \n\t"
-    /* If it happened in kernel_mode, simply make userspace runnable */
+    /* If it happened in kernel_mode, simply make userspace runnable.
+     * This is a special case, since interrupts are normally disabled when
+     * entering the kernel. However, they are enabled when there is nothing
+     * to do, and the kernel goes to sleep using wait_for_interrupts() */
     "testb $3, 16(%rsp) /* if CS.CPL == 0 */            \n\t"
     "jz call_handle_irq                                 \n\t"
 

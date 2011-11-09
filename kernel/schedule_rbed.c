@@ -20,6 +20,38 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+/**
+ * Implementation Notes
+ *
+ * real-time tasks:
+ *  the behaviour of real-time tasks is characterized by four parameters: wcet
+ *  (worst case execution time), period, deadline, and release_time.  Besides
+ *  release_time, the values of these parameters are not changed by the
+ *  scheduler. RT tasks are considered to be periodic. Note that the
+ *  interpretation of the parameters is a little different than the original RBED
+ *  paper.
+ *
+ *  ->release_time is the time that the task is ready to be scheduled. RT tasks
+ *  with ->release_time in the future are not effectively considered to be on
+ *  the runqueue and are ignored by the scheduler.  In order to meet its
+ *  deadline the task needs to be scheduled no later than ->release_time +
+ *  ->deadline. EDF guarantees this property, as long as the utilization rate
+ *  is <= 1.
+ *
+ *  The execution of an rt task for a particular period ends either when: (a)
+ *  the task runs outs of budget (->etime >= ->wcet), or (b) the task yields
+ *  using scheduler_yield(). When this happens the task's ->etime is reset to
+ *  0, while ->release_time is increased by ->period. Note that
+ *  scheduler_remove() does not finalize the current period of the task. Also,
+ *  note that depending on ->period, there might be a case that an rt task is
+ *  not executed, even if the CPU is idle.
+ *
+ * best-effort tasks:
+ *  for best-effort tasks the scheduler is responsible to assigns proper values
+ *  the RT parameters. Also, To prioritize between BE tasks, the scheduler uses
+ *  ->weight.
+ */
+
 #include <limits.h>
 #ifndef SCHEDULER_SIMULATOR
 #       include <kernel.h>
@@ -53,7 +85,10 @@ static struct dcb *lastdisp = NULL;
  * processes, as well as weight for best-effort processes. 'w_be'
  * counts only runnable tasks.
  */
-static unsigned int u_hrt = 0, u_srt = 0, w_be = 0, n_be = 0;
+static unsigned int u_hrt = 0; ///< utilization for hard real-time tasks
+static unsigned int u_srt = 0; ///< utilization for sort real-time tasks
+static unsigned int w_be = 0;  ///< aggregate weight over all best-effort tasks
+static unsigned int n_be = 0;  ///< number of best-efforst tasks
 
 /**
  * \brief Returns whether dcb is in scheduling queue.
@@ -278,7 +313,7 @@ struct dcb *schedule(void)
     // Assert we are never overloaded
     assert(u_hrt + u_srt + BETA <= SPECTRUM);
 
-    // Update executed time
+    // Update executed time of last dispatched task
     if(lastdisp != NULL) {
         assert(lastdisp->last_dispatch <= kernel_now);
         if(lastdisp->release_time <= kernel_now) {
@@ -319,8 +354,8 @@ struct dcb *schedule(void)
     if(todisp->type == TASK_TYPE_HARD_REALTIME && kernel_now > deadline(todisp)) {
         panic("Missed hard deadline: now = %zu, deadline = %lu", kernel_now,
               deadline(todisp));
+        assert(false && "HRT task missed a dead line!");
     }
-    assert(todisp->type != TASK_TYPE_HARD_REALTIME || kernel_now <= deadline(todisp));
 
     // Deadline's can't be in the past (or EDF wouldn't work properly)
     assert(deadline(todisp) >= kernel_now);
@@ -344,6 +379,9 @@ struct dcb *schedule(void)
         lastdisp = todisp;
         return todisp;
     }
+
+    /* we selected a task that is over budget. do the necessary bookkeeping, put
+     * it back on the queue and re-select a task */
 
     // Best-effort task consumed WCET
     // XXX: Don't understand this yet
@@ -461,6 +499,7 @@ void scheduler_remove(struct dcb *dcb)
         break;
 
     case TASK_TYPE_SOFT_REALTIME:
+        panic("Unimplemented!");
         break;
 
     case TASK_TYPE_HARD_REALTIME:
