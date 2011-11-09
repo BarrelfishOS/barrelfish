@@ -40,6 +40,7 @@ data Rec = RegFormat  { tt_name :: TN.Name,
                         tt_size :: Integer,
                         fields :: [F.Rec],
                         tt_desc :: String,
+                        wordsize :: Integer,
                         pos :: SourcePos }
          | ConstType  { tt_name :: TN.Name,
                         tt_size :: Integer,
@@ -113,11 +114,13 @@ make_rtrec (RegArray nm tt_attrib _ _ _ dsc (TypeDefn decls) p) dev order =
 
 make_rtrec (DataType nm dsc (TypeDefn decls) o w p) dev devorder = 
     let order = if o == NOORDER then devorder else o
+        sz = calc_tt_size decls
     in
       [ DataFormat { tt_name = TN.fromParts dev nm,
-                     tt_size = (calc_tt_size decls),
+                     tt_size = sz,
                      fields = F.make_list dev RW order w decls,
                      tt_desc = dsc,
+                     wordsize = if w == 0 then sz else w,
                      pos = p } ]
 make_rtrec (Constants nm d vs w p) dev devorder = 
   let tn = TN.fromParts dev nm 

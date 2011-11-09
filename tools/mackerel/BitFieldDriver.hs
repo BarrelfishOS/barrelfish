@@ -419,6 +419,12 @@ register_decl r =
             (register_write_fields r),
             (register_print_fn r)
           ] 
+      (TT.ConstType {}) -> 
+        []
+      (TT.DataFormat {}) -> 
+        []
+
+    
 
 -- Refer to a shadow copy of the register
 reg_shadow_ref r = "_dev->" ++

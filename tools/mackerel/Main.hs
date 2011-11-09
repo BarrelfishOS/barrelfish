@@ -90,7 +90,7 @@ defaultOutput opts =
       opts { opt_outfilename = 
                 Just (case opt_infilename opts of
                          (Just i) -> 
-                           (replaceExtension (takeFileName i) "dev.h")
+                           ((dropExtension $ takeFileName i) ++ "_dev.h")
                          Nothing -> "mackerel_output.h" 
                      )
            }

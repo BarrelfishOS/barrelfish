@@ -683,7 +683,7 @@ regtype_access_fns rt =
              | f <- TT.fields rt, not $ Fields.is_anon f ]
 
 --
--- Return the C type name for a field o a register
+-- Return the C type name for a field or a register
 --
 
 field_c_type :: Fields.Rec -> C.TypeSpec 
@@ -692,6 +692,7 @@ field_c_type f = C.TypeName $ field_c_name f
 --
 -- Emit a function to extract a field from a register type value
 --
+
 regtype_field_extract_fn :: TT.Rec -> Fields.Rec -> C.Unit
 regtype_field_extract_fn rt f = 
     let t = field_c_type f
@@ -700,11 +701,11 @@ regtype_field_extract_fn rt f =
         arg = C.Param (regtype_c_type rt) cv_regval
         -- ( r & (Fields.extract_mask f) ) >> (Fields.extract_shift f)
         body = C.Return $ 
-               C.Binary C.RightShift 
-                     (C.Binary C.BitwiseAnd 
-                            (C.Variable cv_regval) 
-                            (C.HexConstant $ Fields.extract_mask f sz))
-                       (C.NumConstant $ Fields.offset f)
+               C.Cast t (C.Binary C.RightShift 
+                         (C.Binary C.BitwiseAnd 
+                          (C.Variable cv_regval) 
+                          (C.HexConstant $ Fields.extract_mask f sz))
+                         (C.NumConstant $ Fields.offset f))
     in
       C.StaticInline t n [ arg ] [ body ]
 
@@ -719,7 +720,9 @@ regtype_field_insert_fn rt f =
         sz = TT.tt_size rt
         arg1 = C.Param rtn cv_regval
         arg2 = C.Param t cv_fieldval
-        -- return (r & Fields.insert_mask f) | (v << (Fields.offset f) & (Fields.insert_mask f))
+        -- return (r & Fields.insert_mask f) | ((rtn)v << (Fields.offset f) & (Fields.insert_mask f))
+        -- Note that we cast the field type to the register type, to
+        -- ensure that it's large enough when we do the shift
         body = C.Return $ 
                C.Binary C.BitwiseOr
                  (C.Binary C.BitwiseAnd
@@ -728,7 +731,7 @@ regtype_field_insert_fn rt f =
                  (C.Binary C.BitwiseAnd
                     (C.HexConstant $ Fields.extract_mask f sz)
                     (C.Binary C.LeftShift
-                       (C.Variable cv_fieldval)
+                       (C.Cast rtn (C.Variable cv_fieldval))
                        (C.NumConstant $ Fields.offset f)))
     in
       C.StaticInline rtn n [ arg1, arg2 ] [ body ]
@@ -825,14 +828,13 @@ datatype_field_extract_fn rt f =
     let t = field_c_type f
         n = regtype_extract_fn_name rt f
         arg = C.Param (regtype_c_type rt) cv_dtptr
-
         load_size = datatype_field_load_size f
         bits_offset = (Fields.offset f) `mod` load_size
         word_offset = ((Fields.offset f) - bits_offset) `div` 8
         mask = select_mask load_size bits_offset (Fields.size f)
         load_c_type = C.TypeName $ round_field_size load_size
         -- ( r & (Fields.extract_mask f) ) >> (Fields.extract_shift f)
-        body = C.Return $ 
+        body = C.Return $
                C.Binary C.RightShift 
                      (C.Binary C.BitwiseAnd 
                             (C.DerefPtr 
@@ -853,6 +855,7 @@ datatype_field_insert_fn :: TT.Rec -> Fields.Rec -> C.Unit
 datatype_field_insert_fn rt f = 
     let t = field_c_type f
         n = regtype_insert_fn_name rt f
+        rtn = C.TypeName $ round_field_size $ TT.wordsize rt
         arg1 = C.Param (regtype_c_type rt) cv_dtptr
         arg2 = C.Param t cv_fieldval
         load_size = datatype_field_load_size f
@@ -878,8 +881,8 @@ datatype_field_insert_fn rt f =
                             (C.Binary C.BitwiseAnd 
                                (C.HexConstant smask)
                                (C.Binary C.LeftShift
-                                      (C.Variable cv_fieldval)
-                                      (C.NumConstant bits_offset)
+                                (C.Variable cv_fieldval)
+                                (C.NumConstant bits_offset)
                                ))
                             )
    in
@@ -1155,6 +1158,7 @@ register_write_field_fn r f =
       name = register_write_field_fn_name r f
       fl = delete f $ RT.fl r
       size = RT.size r
+      rtn = regtype_c_type $ RT.tpe r
       nomask = 0xffffffffffffffff
       prsvmask :: Integer
       prsvmask = foldl (.|.) 0 [ Fields.extract_mask f' size | f' <- fl,
@@ -1172,7 +1176,7 @@ register_write_field_fn r f =
                               (Just $ (C.Binary C.BitwiseAnd
                                        (C.HexConstant $ Fields.extract_mask f size)
                                        (C.Binary C.LeftShift
-                                        (C.Variable cv_fieldval)
+                                        (C.Cast rtn (C.Variable cv_fieldval))
                                         (C.NumConstant $ Fields.offset f)))),
                (if prsvmask /= 0 then
                     (C.Ex $ C.Assignment 

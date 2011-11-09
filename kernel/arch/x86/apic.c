@@ -17,8 +17,9 @@
 #include <arch/x86/start_aps.h>
 #include <paging_kernel_arch.h>
 #include <x86.h>
-#include <ia32_dev.h>
-#include <xapic_dev.h>
+
+#include <dev/ia32_dev.h>
+#include <dev/xapic_dev.h>
 
 #define APIC_BASE_ADDRESS_MASK  0x000ffffffffff000
 #define APIC_PAGE_SIZE          4096
@@ -120,8 +121,7 @@ void apic_init(void)
 
 #if !defined(__scc__) || defined(RCK_EMU)
     ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
-    lpaddr_t apic_phys = (lpaddr_t)ia32_apic_base_rd_raw(NULL)
-                          & APIC_BASE_ADDRESS_MASK;
+    lpaddr_t apic_phys = ((lpaddr_t)apic_base_msr) & APIC_BASE_ADDRESS_MASK;
     lvaddr_t apic_base = paging_map_device(apic_phys, APIC_PAGE_SIZE);
 #else
     lpaddr_t apic_phys = (lpaddr_t)0xfee00000;
@@ -139,7 +139,7 @@ void apic_init(void)
 
 #if !defined(__scc__) || defined(RCK_EMU)
     debug(SUBSYS_APIC, "APIC ID=%hhu\n", xapic_id_rd(&apic).id );
-    if (apic_base_msr.bsp){
+    if (ia32_apic_base_bsp_extract(apic_base_msr)) {
         debug(SUBSYS_APIC, "APIC: bootstrap processor\n");
         bsp = true;
     } else {
@@ -233,8 +233,8 @@ void apic_init(void)
 
 #if !defined(__scc__) || defined(RCK_EMU)
     // enable the thing, if it wasn't already!
-    if (!apic_base_msr.global) {
-        apic_base_msr.global = 1;
+    if (!(ia32_apic_base_global_extract(apic_base_msr))) {
+        ia32_apic_base_global_insert(apic_base_msr, 1);
         ia32_apic_base_wr(NULL,apic_base_msr);
     }
 #endif
