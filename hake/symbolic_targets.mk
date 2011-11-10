@@ -140,6 +140,7 @@ MODULES_x86_64= \
 	sbin/routing_setup \
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
+	sbin/cryptotest \
 	$(BIN_CONSENSUS) \
 
 # the following are broken in the newidc system

@@ -522,7 +522,12 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Initialize local APIC timer
     if (kernel_ticks_enabled) {
         timing_calibrate();
-        apic_timer_init(false, true);
+        bool periodic = true;
+        #ifdef CONFIG_ONESHOT_TIMER
+        // we probably need a global variable like kernel_ticks_enabled
+        periodic = false;
+        #endif
+        apic_timer_init(false, periodic);
         timing_apic_timer_set_ms(kernel_timeslice);
     } else {
         printk(LOG_WARN, "APIC timer disabled: NO timeslicing\n");

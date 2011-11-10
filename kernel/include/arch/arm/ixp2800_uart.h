@@ -10,8 +10,8 @@
 #ifndef __IXP2800_UART_H__
 #define __IXP2800_UART_H__
 
-void ixp2800_uart_init(IXP2800_UART_t *uart, lvaddr_t base);
-void ixp2800_putchar(IXP2800_UART_t *uart, char c);
-char ixp2800_getchar(IXP2800_UART_t *uart);
+void ixp2800_uart_init(ixp2800_uart_t *uart, lvaddr_t base);
+void ixp2800_putchar(ixp2800_uart_t *uart, char c);
+char ixp2800_getchar(ixp2800_uart_t *uart);
 
 #endif // __IXP2800_UART_H__

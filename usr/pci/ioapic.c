@@ -39,15 +39,15 @@
 errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
                      uint32_t irqbase)
 {
-    LPC_IOAPIC_initialize(&a->dev, (void *)base);
+    lpc_ioapic_initialize(&a->dev, (void *)base);
 
     a->irqbase = irqbase;
 
     // Write I/O APIC ID
-    LPC_IOAPIC_id_wr(&a->dev, (LPC_IOAPIC_id_t) { .id = id });
+    lpc_ioapic_id_wr(&a->dev, (lpc_ioapic_id_t) { .id = id });
 
     // Check number of supported IRQs
-    a->nintis = LPC_IOAPIC_ver_rd(&a->dev).mre + 1;
+    a->nintis = lpc_ioapic_ver_rd(&a->dev).mre + 1;
     if (a->nintis == 1) {
         PCI_DEBUG("Warning: I/O APIC claims only to support a single interrupt!"
                   " This is probably going to break...\n");
@@ -66,22 +66,22 @@ errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
 void ioapic_toggle_inti(struct ioapic *a, int inti, bool enable)
 {
     assert(inti >= 0 && inti < a->nintis);
-    LPC_IOAPIC_redir_tbl_t tbl = LPC_IOAPIC_redirtbl_rd(&a->dev, inti);
+    lpc_ioapic_redir_tbl_t tbl = lpc_ioapic_redirtbl_rd(&a->dev, inti);
     tbl.mask = enable ? 0 : 1;
-    LPC_IOAPIC_redirtbl_wr(&a->dev, inti, tbl);
+    lpc_ioapic_redirtbl_wr(&a->dev, inti, tbl);
 }
 
-void ioapic_setup_inti(struct ioapic *a, int inti, LPC_IOAPIC_redir_tbl_t entry)
+void ioapic_setup_inti(struct ioapic *a, int inti, lpc_ioapic_redir_tbl_t entry)
 {
     assert(inti >= 0 && inti < a->nintis);
-    LPC_IOAPIC_redirtbl_wr(&a->dev, inti, entry);
+    lpc_ioapic_redirtbl_wr(&a->dev, inti, entry);
 }
 
 void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector, uint8_t dest)
 {
     assert(inti >= 0 && inti < a->nintis);
-    LPC_IOAPIC_redir_tbl_t tbl = LPC_IOAPIC_redirtbl_rd(&a->dev, inti);
+    lpc_ioapic_redir_tbl_t tbl = lpc_ioapic_redirtbl_rd(&a->dev, inti);
     tbl.vector = vector;
     tbl.dest = dest;
-    LPC_IOAPIC_redirtbl_wr(&a->dev, inti, tbl);
+    lpc_ioapic_redirtbl_wr(&a->dev, inti, tbl);
 }

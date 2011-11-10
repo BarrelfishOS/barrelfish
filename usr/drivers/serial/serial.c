@@ -15,18 +15,18 @@
 #include <barrelfish/barrelfish.h>
 #include <pci/pci.h>
 #include "serial.h"
-#include "pc16550d_uart_dev.h"
+#include "pc16550d_dev.h"
 
-static struct PC16550D_UART_t uart;
+static struct pc16550d_t uart;
 static uint16_t portbase;
 
 static void serial_interrupt(void *arg)
 {
-    PC16550D_UART_iir_t iir = PC16550D_UART_iir_rd(&uart);
+    pc16550d_iir_t iir = pc16550d_iir_rd(&uart);
 
     // Assert no error happened
-    assert(PC16550D_UART_iir_iid_extract(iir) != PC16550D_UART_rls
-           && PC16550D_UART_iir_iid_extract(iir) != PC16550D_UART_ms);
+    assert(pc16550d_iir_iid_extract(iir) != pc16550d_rls
+           && pc16550d_iir_iid_extract(iir) != pc16550d_ms);
 
     // Read serial port just like with polling
     serial_poll();
@@ -35,36 +35,36 @@ static void serial_interrupt(void *arg)
 static void real_init(void)
 {
     // Initialize Mackerel with base port
-    PC16550D_UART_initialize(&uart, portbase);
+    pc16550d_initialize(&uart, portbase);
 
     // enable interrupt
-    PC16550D_UART_ier_t ier = PC16550D_UART_ier_default;
-    ier = PC16550D_UART_ier_erbfi_insert(ier, 1);
-    PC16550D_UART_ier_wr(&uart, ier);
+    pc16550d_ier_t ier = pc16550d_ier_default;
+    ier = pc16550d_ier_erbfi_insert(ier, 1);
+    pc16550d_ier_wr(&uart, ier);
 
     // enable FIFOs
-    PC16550D_UART_fcr_t fcr = PC16550D_UART_fcr_default;
-    fcr = PC16550D_UART_fcr_fifoe_insert(fcr, 1);
+    pc16550d_fcr_t fcr = pc16550d_fcr_default;
+    fcr = pc16550d_fcr_fifoe_insert(fcr, 1);
     // FIFOs hold 14 bytes
-    fcr = PC16550D_UART_fcr_rtrigger_insert(fcr, PC16550D_UART_bytes14);
-    PC16550D_UART_fcr_wr(&uart, fcr);
+    fcr = pc16550d_fcr_rtrigger_insert(fcr, pc16550d_bytes14);
+    pc16550d_fcr_wr(&uart, fcr);
 
-    PC16550D_UART_lcr_t lcr = PC16550D_UART_lcr_default;
-    lcr = PC16550D_UART_lcr_wls_insert(lcr, PC16550D_UART_bits8); // 8 data bits
-    lcr = PC16550D_UART_lcr_stb_insert(lcr, 1); // 1 stop bit
-    lcr = PC16550D_UART_lcr_pen_insert(lcr, 0); // no parity
-    PC16550D_UART_lcr_wr(&uart, lcr);
+    pc16550d_lcr_t lcr = pc16550d_lcr_default;
+    lcr = pc16550d_lcr_wls_insert(lcr, pc16550d_bits8); // 8 data bits
+    lcr = pc16550d_lcr_stb_insert(lcr, 1); // 1 stop bit
+    lcr = pc16550d_lcr_pen_insert(lcr, 0); // no parity
+    pc16550d_lcr_wr(&uart, lcr);
 
     // set data terminal ready
-    PC16550D_UART_mcr_t mcr = PC16550D_UART_mcr_default;
-    mcr = PC16550D_UART_mcr_dtr_insert(mcr, 1);
-    mcr = PC16550D_UART_mcr_out_insert(mcr, 2);
-    PC16550D_UART_mcr_wr(&uart, mcr);
+    pc16550d_mcr_t mcr = pc16550d_mcr_default;
+    mcr = pc16550d_mcr_dtr_insert(mcr, 1);
+    mcr = pc16550d_mcr_out_insert(mcr, 2);
+    pc16550d_mcr_wr(&uart, mcr);
 
     // Set baudrate (XXX: hard-coded to 115200)
-    PC16550D_UART_lcr_dlab_wrf(&uart, 1);
-    PC16550D_UART_dl_wr(&uart, PC16550D_UART_baud115200);
-    PC16550D_UART_lcr_dlab_wrf(&uart, 0);
+    pc16550d_lcr_dlab_wrf(&uart, 1);
+    pc16550d_dl_wr(&uart, pc16550d_baud115200);
+    pc16550d_lcr_dlab_wrf(&uart, 0);
 
     // offer service now we're up
     start_service();
@@ -84,9 +84,9 @@ int serial_init(uint16_t portbase_arg, uint8_t irq)
 static void serial_putc(char c)
 {
     // Wait until FIFO can hold more characters
-    while(!PC16550D_UART_lsr_thre_rdf(&uart));
+    while(!pc16550d_lsr_thre_rdf(&uart));
     // Write character
-    PC16550D_UART_thr_wr(&uart, c);
+    pc16550d_thr_wr(&uart, c);
 }
 
 void serial_write(char *c, size_t len)
@@ -99,8 +99,8 @@ void serial_write(char *c, size_t len)
 void serial_poll(void)
 {
     // Read as many characters as possible from FIFO
-    while(PC16550D_UART_lsr_dr_rdf(&uart)) {
-        char c = PC16550D_UART_rbr_rd(&uart);
+    while(pc16550d_lsr_dr_rdf(&uart)) {
+        char c = pc16550d_rbr_rd(&uart);
         serial_input(&c, 1);
     }
 }

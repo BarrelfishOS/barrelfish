@@ -18,7 +18,7 @@
 #include "rtl8029.h"
 
 /// The only instance of the RTL8029AS we're handling
-static RTL8029AS_t      rtl;
+static rtl8029as_t      rtl;
 /// This buffers the card's MAC address upon card reset
 static uint8_t          rtl8029_mac[6];
 
@@ -58,12 +58,12 @@ static inline uint16_t page_to_mem(uint8_t page)
  *
  * \param page  Page to select.
  */
-static void page_select(RTL8029AS_ps_t page)
+static void page_select(rtl8029as_ps_t page)
 {
-    RTL8029AS_cr_wr(&rtl, (RTL8029AS_cr_t) {
+    rtl8029as_cr_wr(&rtl, (rtl8029as_cr_t) {
             .sta = 1,
             .ps = page,
-            .rd = RTL8029AS_acrdma
+            .rd = rtl8029as_acrdma
         });
 }
 
@@ -78,29 +78,29 @@ static void read_mem(uint8_t *dst, int src, int amount)
 {
     int remain = amount % 4;
     uint32_t *d = (uint32_t *)dst;
-    RTL8029AS_cr_t cr = {
+    rtl8029as_cr_t cr = {
         .sta = 1,
-        .rd = RTL8029AS_rrd
+        .rd = rtl8029as_rrd
     };
     int i;
 
-    RTL8029AS_rbcr_wr(&rtl, amount);    // Amount of bytes to transfer
-    RTL8029AS_rsar_wr(&rtl, src);       // Source in NIC mem
-    RTL8029AS_cr_wr(&rtl, cr);          // Start read
+    rtl8029as_rbcr_wr(&rtl, amount);    // Amount of bytes to transfer
+    rtl8029as_rsar_wr(&rtl, src);       // Source in NIC mem
+    rtl8029as_cr_wr(&rtl, cr);          // Start read
 
     // Read PIO 32-bit
     for(i = 0; i < amount - remain; i += 4, d++) {
-        *d = RTL8029AS_rdma32_rd(&rtl);
+        *d = rtl8029as_rdma32_rd(&rtl);
     }
 
     // Read remaining bytes
     for(; i < amount; i++) {
-        dst[i] = RTL8029AS_rdma8_rd(&rtl);
+        dst[i] = rtl8029as_rdma8_rd(&rtl);
     }
 
     // Stop read
-    cr.rd = RTL8029AS_acrdma;
-    RTL8029AS_cr_wr(&rtl, cr);
+    cr.rd = rtl8029as_acrdma;
+    rtl8029as_cr_wr(&rtl, cr);
 }
 
 
@@ -112,17 +112,17 @@ static void read_mem(uint8_t *dst, int src, int amount)
  */
 static inline void write_page(uint8_t page, struct client_closure *cl)
 {
-    RTL8029AS_cr_t cr = {
+    rtl8029as_cr_t cr = {
         .sta = 1,
-        .rd = RTL8029AS_rwr
+        .rd = rtl8029as_rwr
     };
     uint64_t pbuf_len = 0;
     uint16_t dst = page_to_mem(page);
 
     RTL8029_DEBUG("write page\n");
-    RTL8029AS_rbcr_wr(&rtl, cl->len);// Number of bytes to transfer
-    RTL8029AS_rsar_wr(&rtl, dst);       // Destination in NIC mem
-    RTL8029AS_cr_wr(&rtl, cr);          // Start write
+    rtl8029as_rbcr_wr(&rtl, cl->len);// Number of bytes to transfer
+    rtl8029as_rsar_wr(&rtl, dst);       // Destination in NIC mem
+    rtl8029as_cr_wr(&rtl, cr);          // Start write
 
 
 	for (int index = 0; index < cl->rtpbuf; index++) {
@@ -144,7 +144,7 @@ static inline void write_page(uint8_t page, struct client_closure *cl)
         /* write bytes until we reach word alignment in the card's memory */
         for (i = 0; dst % sizeof(uint32_t) != 0; i++, dst++) {
 //        	RTL8029_DEBUG("sending byte %d\n", i);
-            RTL8029AS_rdma8_wr(&rtl, src[i]);
+            rtl8029as_rdma8_wr(&rtl, src[i]);
         }
 //        RTL8029_DEBUG("sending %d %u for len %lu\n", i, dst, pbuf_len);
         /* write 32-bit words until we don't have any whole words left */
@@ -154,20 +154,20 @@ static inline void write_page(uint8_t page, struct client_closure *cl)
             		i, dst, &src[i], src[i]);
             RTL8029_DEBUG("base is 0x%x\n", rtl.base);
 */
-             RTL8029AS_rdma32_wr(&rtl, *(uint32_t*)&src[i]);
+             rtl8029as_rdma32_wr(&rtl, *(uint32_t*)&src[i]);
         }
 //        RTL8029_DEBUG("done with loop 1\n");
         // Write remaining bytes
         for(; i < pbuf_len; i++, dst++) {
-            RTL8029AS_rdma8_wr(&rtl, src[i]);
+            rtl8029as_rdma8_wr(&rtl, src[i]);
         }
     } /* end for : for each pbuf in the list (for single packet)*/
 
 //    RTL8029_DEBUG("stopping the write\n");
 
     // Stop write
-    cr.rd = RTL8029AS_acrdma;
-    RTL8029AS_cr_wr(&rtl, cr);
+    cr.rd = rtl8029as_acrdma;
+    rtl8029as_cr_wr(&rtl, cr);
     //RTL8029_DEBUG("finished writing page!\n");
 }
 
@@ -188,67 +188,67 @@ static inline void read_page(uint8_t *dst, uint8_t page, int amount)
  */
 static inline void rtl8029_reset(void)
 {
-    RTL8029AS_reset_rd(&rtl);
+    rtl8029as_reset_rd(&rtl);
 }
 
 static inline void print_config(void)
 {
     // Print configuration
-    page_select(RTL8029AS_rtl8029as);
+    page_select(rtl8029as_rtl8029as);
     char str[256];
-    RTL8029AS_config2_pr(str, sizeof(str), &rtl);
+    rtl8029as_config2_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    page_select(RTL8029AS_ne2000p0);
-    RTL8029AS_cr_pr(str, sizeof(str), &rtl);
+    page_select(rtl8029as_ne2000p0);
+    rtl8029as_cr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    RTL8029AS_isr_pr(str, sizeof(str), &rtl);
+    rtl8029as_isr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    page_select(RTL8029AS_ne2000p2);
-    RTL8029AS_imr_pr(str, sizeof(str), &rtl);
+    page_select(rtl8029as_ne2000p2);
+    rtl8029as_imr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    RTL8029AS_dcr_pr(str, sizeof(str), &rtl);
+    rtl8029as_dcr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    RTL8029AS_rcr_pr(str, sizeof(str), &rtl);
+    rtl8029as_rcr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    RTL8029AS_tcr_pr(str, sizeof(str), &rtl);
+    rtl8029as_tcr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    page_select(RTL8029AS_ne2000p0);
-    RTL8029AS_rsr_pr(str, sizeof(str), &rtl);
+    page_select(rtl8029as_ne2000p0);
+    rtl8029as_rsr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
-    RTL8029AS_tsr_pr(str, sizeof(str), &rtl);
-    printf("%s", str);
-
-    RTL8029AS_cntr0_pr(str, sizeof(str), &rtl);
-    printf("%s", str);
-    RTL8029AS_cntr1_pr(str, sizeof(str), &rtl);
-    printf("%s", str);
-    RTL8029AS_cntr2_pr(str, sizeof(str), &rtl);
+    rtl8029as_tsr_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    RTL8029AS_crda_pr(str, sizeof(str), &rtl);
+    rtl8029as_cntr0_pr(str, sizeof(str), &rtl);
     printf("%s", str);
-    RTL8029AS_clda_pr(str, sizeof(str), &rtl);
+    rtl8029as_cntr1_pr(str, sizeof(str), &rtl);
     printf("%s", str);
-
-    page_select(RTL8029AS_ne2000p2);
-    RTL8029AS_pstart_pr(str, sizeof(str), &rtl);
-    printf("%s", str);
-    RTL8029AS_pstop_pr(str, sizeof(str), &rtl);
+    rtl8029as_cntr2_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    page_select(RTL8029AS_ne2000p1);
-    RTL8029AS_curr_pr(str, sizeof(str), &rtl);
+    rtl8029as_crda_pr(str, sizeof(str), &rtl);
+    printf("%s", str);
+    rtl8029as_clda_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 
-    page_select(RTL8029AS_ne2000p0);
-    RTL8029AS_bnry_pr(str, sizeof(str), &rtl);
+    page_select(rtl8029as_ne2000p2);
+    rtl8029as_pstart_pr(str, sizeof(str), &rtl);
+    printf("%s", str);
+    rtl8029as_pstop_pr(str, sizeof(str), &rtl);
+    printf("%s", str);
+
+    page_select(rtl8029as_ne2000p1);
+    rtl8029as_curr_pr(str, sizeof(str), &rtl);
+    printf("%s", str);
+
+    page_select(rtl8029as_ne2000p0);
+    rtl8029as_bnry_pr(str, sizeof(str), &rtl);
     printf("%s", str);
 }
 
@@ -270,19 +270,19 @@ static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
 //    RTL8029_DEBUG("page written\n");
 
     // Set address & size
-    RTL8029AS_tpsr_wr(&rtl, WRITE_PAGE);
-    RTL8029AS_tbcr_wr(&rtl, cl->len);
+    rtl8029as_tpsr_wr(&rtl, WRITE_PAGE);
+    rtl8029as_tbcr_wr(&rtl, cl->len);
 //    RTL8029_DEBUG("address set\n");
     // Initiate send
-    RTL8029AS_cr_t cr = {
+    rtl8029as_cr_t cr = {
         .sta = 1,
         .txp = 1,
-        .rd = RTL8029AS_sp
+        .rd = rtl8029as_sp
     };
-    RTL8029AS_cr_wr(&rtl, cr);
+    rtl8029as_cr_wr(&rtl, cr);
 
     // Wait until done...
-    while(RTL8029AS_tsr_rd(&rtl).ptx == 0);
+    while(rtl8029as_tsr_rd(&rtl).ptx == 0);
 
     // Tell the client we sent them!!!
     for (int i = 0; i < cl->rtpbuf; i++) {
@@ -338,7 +338,7 @@ static void read_ring_buffer(uint8_t *dst, int src, int amount)
 static void rtl8029_receive_packet(void)
 {
     struct {
-        RTL8029AS_rsr_t rsr;
+        rtl8029as_rsr_t rsr;
         uint8_t         next_page;
         uint16_t        length;
     } __attribute__ ((packed)) status;
@@ -361,11 +361,11 @@ static void rtl8029_receive_packet(void)
 
     // Update boundary
     curr_page = status.next_page;
-    RTL8029AS_bnry_wr(&rtl, curr_page);
+    rtl8029as_bnry_wr(&rtl, curr_page);
 }
 
 /**
- * \brief RTL8029AS IRQ handler
+ * \brief rtl8029as IRQ handler
  *
  * This handler assumes the card is at page 0.
  *
@@ -379,10 +379,10 @@ static void rtl8029_handle_interrupt(void *arg)
 {
 //    thread_mutex_lock(&driver_lock);
 
-    RTL8029AS_irq_t isr = RTL8029AS_isr_rd(&rtl);
+    rtl8029as_irq_t isr = rtl8029as_isr_rd(&rtl);
     RTL8029_DEBUG("interrupt came in.\n");
     // 1. Acknowledge all interrupt causes
-    RTL8029AS_irq_t nisr = {
+    rtl8029as_irq_t nisr = {
         .prx = 1,
         .ptx = 1,
         .rxe = 1,
@@ -392,12 +392,12 @@ static void rtl8029_handle_interrupt(void *arg)
         .rdc = 1,
         .rst = 1
     };
-    RTL8029AS_isr_wr(&rtl, nisr);
+    rtl8029as_isr_wr(&rtl, nisr);
 
     // 2. Get card's current packet pointer
-    page_select(RTL8029AS_ne2000p1);
-    uint8_t curr = RTL8029AS_curr_rd(&rtl);
-    page_select(RTL8029AS_ne2000p0);
+    page_select(rtl8029as_ne2000p1);
+    uint8_t curr = rtl8029as_curr_rd(&rtl);
+    page_select(rtl8029as_ne2000p0);
 
     // 3. Process current interrupt causes
     if(isr.prx) {
@@ -446,46 +446,46 @@ static int rtl8029_initialize_card(void)
     uint32_t cbio = RTL8029_IOBASE;
 //    uint32_t cfit
     uint16_t portbase = cbio & ~0x1;
-    RTL8029AS_initialize(&rtl, portbase);
+    rtl8029as_initialize(&rtl, portbase);
 
     // Reset card
-    RTL8029AS_reset_rd(&rtl);
+    rtl8029as_reset_rd(&rtl);
 
-    // Identify RTL8029AS
+    // Identify rtl8029as
     char rtl8029id[2];
 
-    rtl8029id[0] = RTL8029AS_rtl8029id0_rd(&rtl);
-    rtl8029id[1] = RTL8029AS_rtl8029id1_rd(&rtl);
+    rtl8029id[0] = rtl8029as_rtl8029id0_rd(&rtl);
+    rtl8029id[1] = rtl8029as_rtl8029id1_rd(&rtl);
 
     if(rtl8029id[0] == 'P' && rtl8029id[1] == 'C') {
-        printf("RTL8029AS identified\n");
+        printf("rtl8029as identified\n");
     } else {
-        printf("This is not an RTL8029AS!\n");
+        printf("This is not an rtl8029as!\n");
         return -1;
     }
     printf("RTL base is %d\n",rtl.base);
 
     // Read my MAC address
-    page_select(RTL8029AS_ne2000p1);
-    rtl8029_mac[0] = RTL8029AS_par0_rd(&rtl);
-    rtl8029_mac[1] = RTL8029AS_par1_rd(&rtl);
-    rtl8029_mac[2] = RTL8029AS_par2_rd(&rtl);
-    rtl8029_mac[3] = RTL8029AS_par3_rd(&rtl);
-    rtl8029_mac[4] = RTL8029AS_par4_rd(&rtl);
-    rtl8029_mac[5] = RTL8029AS_par5_rd(&rtl);
+    page_select(rtl8029as_ne2000p1);
+    rtl8029_mac[0] = rtl8029as_par0_rd(&rtl);
+    rtl8029_mac[1] = rtl8029as_par1_rd(&rtl);
+    rtl8029_mac[2] = rtl8029as_par2_rd(&rtl);
+    rtl8029_mac[3] = rtl8029as_par3_rd(&rtl);
+    rtl8029_mac[4] = rtl8029as_par4_rd(&rtl);
+    rtl8029_mac[5] = rtl8029as_par5_rd(&rtl);
 
     printf("My MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
            rtl8029_mac[0], rtl8029_mac[1], rtl8029_mac[2], rtl8029_mac[3],
            rtl8029_mac[4], rtl8029_mac[5]);
 
     // Start the card
-    page_select(RTL8029AS_ne2000p0);
-    RTL8029AS_cr_t cr = RTL8029AS_cr_rd(&rtl);
+    page_select(rtl8029as_ne2000p0);
+    rtl8029as_cr_t cr = rtl8029as_cr_rd(&rtl);
     cr.stp = 0;
-    RTL8029AS_cr_wr(&rtl, cr);
+    rtl8029as_cr_wr(&rtl, cr);
 
     // Clear interrupt status register
-    RTL8029AS_irq_t isr = {
+    rtl8029as_irq_t isr = {
         .prx = 1,
         .ptx = 1,
         .rxe = 1,
@@ -495,7 +495,7 @@ static int rtl8029_initialize_card(void)
         .rdc = 1,
         .rst = 1
     };
-    RTL8029AS_isr_wr(&rtl, isr);
+    rtl8029as_isr_wr(&rtl, isr);
 
     /*
     // Register interrupt handler
@@ -512,26 +512,26 @@ static int rtl8029_initialize_card(void)
     }
 */
     // Set byte-wide PIO transfer
-    RTL8029AS_dcr_t dcr = {
+    rtl8029as_dcr_t dcr = {
         .wts = 0
     };
-    RTL8029AS_dcr_wr(&rtl, dcr);
+    rtl8029as_dcr_wr(&rtl, dcr);
 
     // Setup on-card receive ring-buffer
-    page_select(RTL8029AS_ne2000p1);
-    RTL8029AS_curr_wr(&rtl, READ_START_PAGE);
-    page_select(RTL8029AS_ne2000p0);
-    RTL8029AS_pstart_wr(&rtl, READ_START_PAGE);
-    RTL8029AS_pstop_wr(&rtl, READ_STOP_PAGE);
-    RTL8029AS_bnry_wr(&rtl, READ_START_PAGE);
+    page_select(rtl8029as_ne2000p1);
+    rtl8029as_curr_wr(&rtl, READ_START_PAGE);
+    page_select(rtl8029as_ne2000p0);
+    rtl8029as_pstart_wr(&rtl, READ_START_PAGE);
+    rtl8029as_pstop_wr(&rtl, READ_STOP_PAGE);
+    rtl8029as_bnry_wr(&rtl, READ_START_PAGE);
 
     // Enable interrupts (IRQ handler assumes we're at page 0!)
-    RTL8029AS_irq_t imr = {
+    rtl8029as_irq_t imr = {
         .prx = 1
 /*         .ptx = 1, */
 /*         .rdc = 1 */
     };
-    RTL8029AS_imr_wr(&rtl, imr);
+    rtl8029as_imr_wr(&rtl, imr);
 
 //    thread_mutex_unlock(&driver_lock);
     return 0;

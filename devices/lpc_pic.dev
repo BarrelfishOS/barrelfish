@@ -17,7 +17,7 @@
  * 
  */
 
-device LPC_PIC lsbfirst (io base) "LPC IHC PIC function" {
+device lpc_pic lsbfirst (io base) "LPC IHC PIC function" {
   //
   // 8259 PIC registers: section 21.4
   //

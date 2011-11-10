@@ -246,6 +246,16 @@ void timing_apic_timer_set_ms(unsigned int ms)
     apic_timer_set_count(ms * (tickspersec / 1000));
 }
 
+void arch_set_timer(systime_t t);
+void arch_set_timer(systime_t t)
+{
+    // systime_t is absolute time in ms,
+    // and the APIC time count registers are 32 bit
+    assert(t > kernel_now);
+    uint32_t ms = (t - kernel_now);
+    apic_timer_set_count(ms * (tickspersec / 1000));
+}
+
 uint32_t timing_get_apic_ticks_per_sec(void)
 {
     return tickspersec;

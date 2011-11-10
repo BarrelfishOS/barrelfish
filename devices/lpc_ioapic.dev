@@ -16,7 +16,7 @@
  * Datasheet", chapter 21, "LPC Interface Bridge Registers (D31:F0)". 
  */
 
-device LPC_IOAPIC lsbfirst (addr base) "LPC IHC I/O APIC function" {
+device lpc_ioapic lsbfirst (addr base) "LPC IHC I/O APIC function" {
   //
   // Advanced Programmable Interrupt Controller registers: section 21.5
   //

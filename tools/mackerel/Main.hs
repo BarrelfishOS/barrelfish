@@ -1,143 +1,201 @@
 {- 
    Mackerel: a strawman device definition DSL for Barrelfish
    
-  Copyright (c) 2007, 2008, ETH Zurich.
+  Copyright (c) 2007-2011, ETH Zurich.
   All rights reserved.
   
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 -}
-  
-
-{-
-  // Temp arrangement to check syntax of outb(...), a complete implementation will 
-  consist of generating unions and then writing sequentially to ports 
-  // FIX: Check Endianness  
-
--}
-
 
 module Main where
-
  
 import System
-import System.Environment
-import System.Exit
 import System.IO
+import System.IO.Error
 import System.Console.GetOpt
-import Data.Bits
-import Data.Word
-import Char 
-import Monad
-import Numeric
+import System.FilePath
+import Data.Maybe
 import Data.List
-import Text.Printf
 import Text.ParserCombinators.Parsec as Parsec
-
+import Text.Printf
 import qualified MackerelParser
 import qualified BitFieldDriver
 import qualified ShiftDriver
 import Checks
 import Dev
 
-import qualified TypeTable as TT
-import qualified RegisterTable as RT
-import qualified ConstTable as CT
+--
+-- Command line options and parsing code
+--
 
---
--- Internal options: Not really used yet...
---
+-- Datatypes for carrying command options around
+data Target = BitFieldDriver | ShiftDriver deriving (Eq, Show)
+
 data Options = Options {
-      optArch :: Maybe String,
-      optTargets :: [ Target ]
-}
-defaultOptions = Options { optArch = Nothing, optTargets = [] }
+  opt_infilename :: Maybe String,
+  opt_outfilename :: Maybe String,
+  opt_includedirs :: [String],
+  opt_target :: Target,
+  opt_usage_error :: Bool,
+  opt_verbosity :: Integer
+  } deriving (Show,Eq)
 
-data Target = BitFieldDriver | ShiftDriver deriving (Show)
+defaultOptions :: Options
+defaultOptions = Options { 
+  opt_infilename = Nothing,
+  opt_outfilename = Nothing,
+  opt_includedirs = [],
+  opt_target = ShiftDriver,
+  opt_usage_error = False,
+  opt_verbosity = 1 }
 
-generator :: Options -> Target -> (String -> String -> Dev.Rec -> String)
-generator _ BitFieldDriver = BitFieldDriver.compile
-generator _ ShiftDriver = ShiftDriver.compile
+-- For driving System.GetOpt
+options :: [OptDescr (Options -> Options)]
+options =
+  [ Option ['c'] ["input-file"] 
+    (ReqArg (\f opts -> opts { opt_infilename = Just f } ) "file")
+    "input file"
+  , Option ['I'] ["include-dir"]
+    (ReqArg (\ d opts -> opts { opt_includedirs = opt_includedirs opts ++ [d] }) "dir")
+    "include directory (can be given multiple times)"
+  , Option ['v'] ["verbose"]
+    (NoArg (\ opts -> opts { opt_verbosity = opt_verbosity opts + 1 } ))
+    "increase verbosity level"
+  , Option ['o'] ["output"]
+    (ReqArg (\ f opts -> opts { opt_outfilename = Just f }) "file")
+     "output file name"
+  , Option ['S'] ["shift-driver"]
+    (NoArg (\ opts -> opts { opt_target = ShiftDriver } ))
+     "use shift driver (default; preferred)"
+  , Option ['B'] ["bitfield-driver"]
+    (NoArg (\ opts -> opts { opt_target = BitFieldDriver } ))
+     "use bitfield driver (deprecrated: do not use)"
+  ]
 
+--
+-- Set the correct default input and output files
+--
 
-addTarget :: Target -> Options -> IO Options
-addTarget t o = return o { optTargets = (optTargets o) ++ [t] }
+defaultOutput :: Options -> Options
+defaultOutput opts = 
+  case opt_outfilename opts of
+    (Just _) -> 
+      opts
+    Nothing  -> 
+      opts { opt_outfilename = 
+                Just (case opt_infilename opts of
+                         (Just i) -> 
+                           (replaceExtension (takeFileName i) "dev.h")
+                         Nothing -> "mackerel_output.h" 
+                     )
+           }
 
-options :: [OptDescr (Options -> IO Options)]
-options = [ Option ['b'] ["bitfield-driver"] (NoArg $ addTarget BitFieldDriver) "Generate old-style bitfield-based header file (DEPRECATED)",
-            Option ['s'] ["shift-driver"] (NoArg $ addTarget ShiftDriver) "Generate driver header file using shifts and masks" ]
+defaultInput :: Options -> [String] -> IO (Options)
+defaultInput opts [f] = 
+  if isNothing $ opt_infilename opts
+  then return (defaultOutput (opts { opt_infilename = Just f }))
+  else usageError []
+defaultInput opts [] = 
+  if (isJust $ opt_infilename opts)
+  then return (defaultOutput opts)
+  else usageError []
+defaultInput _ _ = usageError []
 
+compilerOpts :: [String] -> IO (Options)
+compilerOpts argv =
+  case getOpt Permute options argv of
+    (o,n,[])   -> defaultInput (foldl (flip id) defaultOptions o) n
+    (_,_,errs) -> usageError errs
 
--- main :: IO() 
--- main = do { args <- System.getArgs
---           ; result <-  parse (head args)  
---           ; let header = if(length args == 2)then 
---                              (last args) 
---                          else ""
---             in 
---               case result of 
---                 Left err -> 
---                     do{ hPutStrLn stderr "parse error at: "
---                       ; hPutStrLn stderr (show err) 
---                       ; exitWith (ExitFailure 1)
---                       }
---                 Right ast -> 
---                     let
---                         Device name bitorder args desc decls = ast
---                         dev =  Dev.make_dev ast
---                     in
---                       do { run_checks dev
---                          ; BitFieldDriver.render dev header
---                          ; exitWith ExitSuccess
---                          }
---           }
+usageError :: [String] -> IO (Options)
+usageError errs = 
+  ioError (userError (concat errs ++ usageInfo usage options))
+  where usage = "Usage: mackerel <options> <input file>" 
 
-compile :: Options -> Target -> Dev.Rec -> String -> String -> Handle -> IO () 
-compile opts fl ast infile outfile outfiled =
-    hPutStr outfiled ( (generator opts fl) infile outfile ast )
-
-parseFile :: (String -> IO (Either Parsec.ParseError a)) -> String -> IO a
-parseFile parsefn fname = do
-   input <- parsefn fname
-   case input of
-       Left err -> do
-           hPutStrLn stderr $ "Parse error at: " ++ (show err)
-           exitWith $ ExitFailure 1
-       Right x -> return x
-
-makeDevice :: MackerelParser.AST -> IO Dev.Rec
-makeDevice ast = do return (Dev.make_dev ast)
-
--- Main entry point of Mackernel 
-main :: IO ()
-main = do 
-       argv <- System.getArgs
-       case getOpt RequireOrder options argv of
-         (optf, [ inFile, outFile ], []) -> do
-             opts <- foldM (flip id) defaultOptions optf
-             ast <- parseFile MackerelParser.parse inFile
-             dev <- makeDevice ast
-             run_checks dev
-             outFileD <- openFile outFile WriteMode
-             sequence_ $ map (\target ->
-                              compile opts target dev inFile outFile outFileD
-                 ) (optTargets opts)
-             hClose outFileD
-         (_, _, errors) -> do
-             hPutStr stderr (concat errors ++ usageInfo usage options)
-             exitWith (ExitFailure 1)
-      where
-          usage = "Usage: mackerel [OPTION...] input.dev output.h"
-
-
+--
+-- Processing source files
+---
 
 -- Perform run-time checks
-run_checks dev =
-    case (Checks.check_all dev) of
+run_checks :: String -> Dev.Rec -> IO String
+run_checks input_fn dev =
+    case (Checks.check_all input_fn dev) of
       Just errors ->
           do { (hPutStrLn stderr (unlines [ e ++ "\n"  | e <-errors]))
              ; exitWith (ExitFailure 1)
              }
-      Nothing ->do { return "" }
+      Nothing -> do { return "" }
 
+-- Parsing the input file into an AST
+parseFile :: String -> IO MackerelParser.DeviceFile
+parseFile fname = do
+    src <- readFile fname
+    case (runParser MackerelParser.devfile () fname src) of
+        Left err -> ioError $ userError ("Parse error at: " ++ (show err))
+        Right x -> return x
+
+-- Traverse the include path to find an import file
+findImport :: [String] -> String -> IO MackerelParser.DeviceFile
+findImport [] f = 
+  ioError (userError $ printf "Can't find import '%s'" f)
+findImport (d:t) f = 
+  do 
+    catch (parseFile (d </> f))
+      (\e -> (if isDoesNotExistError e then findImport t f else ioError e))
+
+-- Perform the transitive closure of all the imports
+
+resolveImports :: [MackerelParser.DeviceFile] -> [String] 
+                  -> IO [MackerelParser.DeviceFile]
+resolveImports dfl path = 
+  let allimports = nub $ concat [ il | (MackerelParser.DeviceFile _ il) <- dfl ]
+      gotimports = [ n | (MackerelParser.DeviceFile (MackerelParser.Device n _ _ _ _) _) <- dfl ]
+      required = allimports \\ gotimports
+  in
+   case required of
+     [] -> return dfl
+     (t:_) -> do { i <- (findImport path (t ++ ".dev"))
+                 ; resolveImports (dfl ++ [i]) path
+                 }
+
+testentry :: IO ()
+testentry = 
+  let input_fn = "../../devices/xapic.dev"
+      output_fn = "x2apic.dev.h"
+      includedirs = ["../../devices"]
+  in
+   do { hPutStrLn stdout ("IN: " ++ input_fn)
+      ; hPutStrLn stdout ("OUT: " ++ output_fn)
+      ; df  <- parseFile input_fn
+      ; dfl <- resolveImports [df] includedirs
+      ; let dev = make_dev df (tail dfl) in
+      do { _ <- run_checks input_fn dev
+         ; outFileD <- openFile output_fn WriteMode
+         ; hPutStr outFileD (ShiftDriver.compile input_fn output_fn dev)
+         ; hClose outFileD 
+         }
+      }
+  
+
+-- Main entry point of Mackernel 
+main :: IO ()
+main = do { cli <- System.getArgs
+          ; opts <- compilerOpts cli
+          ; let input_fn = fromJust $ opt_infilename opts
+                output_fn = fromJust $ opt_outfilename opts
+            in 
+             do { df  <- parseFile input_fn
+                ; dfl <- resolveImports [df] (opt_includedirs opts)
+                ; let dev = make_dev df (tail dfl) in
+                do { _ <- run_checks input_fn dev
+                   ; outFileD <- openFile output_fn WriteMode
+                   ; hPutStr outFileD ((case (opt_target opts) of
+                                           ShiftDriver -> ShiftDriver.compile 
+                                           BitFieldDriver -> BitFieldDriver.compile)
+                                       input_fn output_fn dev)
+                   ; hClose outFileD          
+                   }
+                }
+          }

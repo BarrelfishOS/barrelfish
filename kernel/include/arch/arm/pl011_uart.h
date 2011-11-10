@@ -10,8 +10,8 @@
 #ifndef __PL011_UART_H__
 #define __PL011_UART_H__
 
-void pl011_uart_init(PL011_UART_t *uart, lvaddr_t base);
-void pl011_putchar(PL011_UART_t *uart, char c);
-char pl011_getchar(PL011_UART_t *uart);
+void pl011_uart_init(pl011_uart_t *uart, lvaddr_t base);
+void pl011_putchar(pl011_uart_t *uart, char c);
+char pl011_getchar(pl011_uart_t *uart);
 
 #endif // __PL011_UART_H__

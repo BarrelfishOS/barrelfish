@@ -14,7 +14,7 @@
  * This is derived from http://www.intel.com/design/network/manuals/21140ahm.pdf 
  */
 
-device Tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
+device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
   
     register CSR0 rw io ( base, 0x00 ) "Bus mode" {
 	SWR     1 "Software reset";
@@ -38,12 +38,12 @@ device Tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
     register CSR3 rw io( base, 0x18 ) "Receive list base address" type(uint32);
     register CSR4 rw io( base, 0x20 ) "Transmit list base address" type(uint32);
     
-    constants fbebits "Fatal bus error bits" {
+    constants FBEBITS "Fatal bus error bits" {
 	parity = 0b000 "Parity error";
 	mabrt  = 0b001 "Master abort";
 	tabrt  = 0b010 "Target abort";
     };
-    constants tprocstate "Transmit process state" {
+    constants TPROCSTATE "Transmit process state" {
 	tpstop	= 0b000 "Stopped: reset cmd or tx jabber expired";
 	tprftd  = 0b001 "Running - fetching tx desc.";
 	tprwet  = 0b010 "Running - waiting for end of tx";
@@ -52,7 +52,7 @@ device Tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	tpsusp  = 0b110 "Suspended - tx fifo underflow, or unavail tx desc";
 	tprclo  = 0b111 "Running - closing tx desc";
     };
-    constants rprocstate "Receive process state" {
+    constants RPROCSTATE "Receive process state" {
 	rpstop	= 0b000 "Stopped: reset or stop rx command";
 	rprfrd  = 0b001 "Running - fetching rx desc.";
 	rprcep  = 0b010 "Running - checking for end of rx pkt";
@@ -80,9 +80,9 @@ device Tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	ERI	1 "Early receive interrupt";
 	AIS	1 "Abnormal interrupt summary";
 	NIS	1 "Normal interrupt summary";
-	RS	3 ro type(rprocstate) "Receive process state";
-	TS	3 ro type(tprocstate) "Transmission process state";
-	EB	3 ro type(fbebits) "Error bits";
+	RS	3 ro type(RPROCSTATE) "Receive process state";
+	TS	3 ro type(TPROCSTATE) "Transmission process state";
+	EB	3 ro type(FBEBITS) "Error bits";
 	_	6 mbz;
     } ;
 

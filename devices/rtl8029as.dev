@@ -16,7 +16,7 @@
  * (RTL8029AS Preliminary LS009.0 1997.01.16).
  */
 
-device RTL8029AS lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
+device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
 {
   /*
    * 5. REGISTER DESCRIPTIONS

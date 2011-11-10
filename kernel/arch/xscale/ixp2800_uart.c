@@ -19,62 +19,62 @@
 #include <ixp2800_uart.h>
 
 /** \brief Initialize uart  */
-void ixp2800_uart_init(IXP2800_UART_t *uart, lvaddr_t base)
+void ixp2800_uart_init(ixp2800_uart_t *uart, lvaddr_t base)
 {
-    IXP2800_UART_initialize(uart, (mackerel_addr_t) base);
+    ixp2800_uart_initialize(uart, (mackerel_addr_t) base);
 
-    IXP2800_UART_LCR_t lcr = IXP2800_UART_LCR_default;
+    ixp2800_uart_LCR_t lcr = ixp2800_uart_LCR_default;
     
-    lcr = IXP2800_UART_LCR_sb_insert(lcr, 0);
-    lcr = IXP2800_UART_LCR_eps_insert(lcr, 0);
-    lcr = IXP2800_UART_LCR_pen_insert(lcr, 0);
-    lcr = IXP2800_UART_LCR_wls_insert(lcr, IXP2800_UART_bits8);
-    lcr = IXP2800_UART_LCR_stkyp_insert(lcr, 0);
+    lcr = ixp2800_uart_LCR_sb_insert(lcr, 0);
+    lcr = ixp2800_uart_LCR_eps_insert(lcr, 0);
+    lcr = ixp2800_uart_LCR_pen_insert(lcr, 0);
+    lcr = ixp2800_uart_LCR_wls_insert(lcr, ixp2800_uart_bits8);
+    lcr = ixp2800_uart_LCR_stkyp_insert(lcr, 0);
     
-    IXP2800_UART_LCR_wr(uart, lcr);
+    ixp2800_uart_LCR_wr(uart, lcr);
 
 
     //Mask all interrupts
-    IXP2800_UART_IER_t ier = IXP2800_UART_IER_default;
+    ixp2800_uart_IER_t ier = ixp2800_uart_IER_default;
     
-    ier = IXP2800_UART_IER_ravie_insert(ier, 0);
-    ier = IXP2800_UART_IER_tie_insert(ier, 0);
-    ier = IXP2800_UART_IER_rlse_insert(ier, 0);
-    ier = IXP2800_UART_IER_rtoie_insert(ier, 0);
-    ier = IXP2800_UART_IER_nrze_insert(ier, 0);
-    ier = IXP2800_UART_IER_uue_insert(ier, 1);
+    ier = ixp2800_uart_IER_ravie_insert(ier, 0);
+    ier = ixp2800_uart_IER_tie_insert(ier, 0);
+    ier = ixp2800_uart_IER_rlse_insert(ier, 0);
+    ier = ixp2800_uart_IER_rtoie_insert(ier, 0);
+    ier = ixp2800_uart_IER_nrze_insert(ier, 0);
+    ier = ixp2800_uart_IER_uue_insert(ier, 1);
 
-    IXP2800_UART_IER_wr(uart, ier);
+    ixp2800_uart_IER_wr(uart, ier);
 
 
     //Check current baud rate setting
     
     //Set DLAB to high to access the divisor
-    IXP2800_UART_LCR_dlab_wrf(uart, 1);
+    ixp2800_uart_LCR_dlab_wrf(uart, 1);
     
     //Reset DLAB to low
-    IXP2800_UART_LCR_dlab_wrf(uart, 0);
+    ixp2800_uart_LCR_dlab_wrf(uart, 0);
 
 }
 
 /** \brief Prints a single character to the default serial port. */
-void ixp2800_putchar(IXP2800_UART_t *uart, char c)
+void ixp2800_putchar(ixp2800_uart_t *uart, char c)
 {
-    while(IXP2800_UART_LSR_tdrq_rdf(uart) == 0){ } //Spin until data transmission request
+    while(ixp2800_uart_LSR_tdrq_rdf(uart) == 0){ } //Spin until data transmission request
     
-    IXP2800_UART_THR_thr_wrf(uart, c);
+    ixp2800_uart_THR_thr_wrf(uart, c);
 }
 
 /** \brief Reads a single character from the default serial port.
  * This function spins waiting for a character to arrive.
  */
-char ixp2800_getchar(IXP2800_UART_t *uart)
+char ixp2800_getchar(ixp2800_uart_t *uart)
 {
     char c;
 
-    while (IXP2800_UART_LSR_dr_rdf(uart) == 0){ } //Spin until character is ready
+    while (ixp2800_uart_LSR_dr_rdf(uart) == 0){ } //Spin until character is ready
 
-    c = (char) IXP2800_UART_RBR_rbr_rdf(uart);
+    c = (char) ixp2800_uart_RBR_rbr_rdf(uart);
 
     return c;
 

@@ -16,10 +16,10 @@
 #define IOAPIC_H
 
 #include "lpc_ioapic_dev.h"
-#include "LPC_IOAPIC_ioapic_impl.h"
+#include "lpc_ioapic_ioapic_impl.h"
 
 struct ioapic {
-    LPC_IOAPIC_t        dev;
+    lpc_ioapic_t        dev;
     int                 nintis;
     uint32_t            irqbase;
 };
@@ -28,7 +28,7 @@ errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
                      uint32_t irqbase);
 void ioapic_toggle_inti(struct ioapic *a, int inti, bool enable);
 void ioapic_setup_inti(struct ioapic *a, int inti,
-                       LPC_IOAPIC_redir_tbl_t entry);
+                       lpc_ioapic_redir_tbl_t entry);
 void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector,
                        uint8_t dest);
 

@@ -22,6 +22,7 @@ import Data.List
 --
 
 
+tabstop :: String
 tabstop = "    " -- How much to indent
 
 indent_stmts :: [ Stmt ] -> [ String ] 
@@ -234,10 +235,10 @@ pp_unit (TypeDef ts s) = [ "typedef " ++ (pp_typespec ts s) ++ ";" ]
 pp_unit (FunctionDef sc ts n pl body) =
     [ (pp_scopespec sc) ++ " " ++ (pp_fnhead ts n pl) ] ++ (pp_fnbody body)
 pp_unit (StaticInline ts n pl body) = 
-    [ head ++ " __attribute__ ((always_inline));",
-      head ] ++ (pp_fnbody body)
+    [ hd ++ " __attribute__ ((always_inline));",
+      hd ] ++ (pp_fnbody body)
     where 
-      head = "static inline " ++ (pp_fnhead ts n pl)
+      hd = "static inline " ++ (pp_fnhead ts n pl)
 pp_unit (StructDecl s pl) = 
     [ printf "struct %s {" s ] ++ [ tabstop ++ (pp_param p) ++ ";" 
                                         | p <- pl ] ++ ["};"]
