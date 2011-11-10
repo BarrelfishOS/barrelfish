@@ -205,6 +205,14 @@ static void init_po(struct parsed_object* po) {
 	init_writer(&po->name);
 }
 
+void free_parsed_object(struct parsed_object* po)
+{
+	free(po->name.output);
+	free(po->attributes.output);
+	free(po->constraints.output);
+	free(po);
+}
+
 
 struct parsed_object* transform_query(const char* input)
 {

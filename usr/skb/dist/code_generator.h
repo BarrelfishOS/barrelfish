@@ -17,5 +17,7 @@ struct parsed_object {
 
 int ex(struct nodeObject*);
 struct parsed_object* transform_query(const char*);
+void free_parsed_object(struct parsed_object*);
+
 
 #endif // GENERATOR_H_

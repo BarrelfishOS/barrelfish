@@ -29,72 +29,56 @@
 
 #include <eclipse.h>
 #include <include/skb_server.h>
+#include <include/skb_debug.h>
+#include <include/queue.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <skb/skb.h>
 
-#include "queue.h"
-#include "dist/service.h"
-#include "skb_debug.h"
+static uint64_t refcount;
 
-/*
-void enqueue_state(struct skb_binding *b, struct state* st)
+errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
-    struct state** walk = (struct state**) &(b->st);
-    for(; *walk != NULL; walk = &(*walk)->next) {
-    	// continue
-    }
-    *walk = st;
-}
+	printf("refcount is:%lu\n", refcount++);
+	printf("1.1\n");
+	*srs = malloc(sizeof(struct skb_reply_state));
+	printf("1.2\n");
+	if(*srs == NULL) {
+		return LIB_ERR_MALLOC_FAIL;
+	}
 
-struct state* dequeue_state(struct skb_binding *b)
-{
-    // Head was sent successfully, free it
-    struct state *head = b->st;
-    struct state *point = b->st = head->next;
-    assert(head);
-    free(head);
+	printf("1.3\n");
+	(*srs)->rpc_reply = reply_handler;
+	(*srs)->next = NULL;
 
-    return point;
+	return SYS_ERR_OK;
 }
 
 
-static void run_done(void *arg)
+void free_reply_state(void* arg) {
+	refcount--;
+	struct skb_reply_state* srt = (struct skb_reply_state*) arg;
+	printf("free_reply_state\n");
+	assert(srt != NULL);
+	free(srt);
+}
+
+
+errval_t execute_query(char* query, struct skb_query_state* st)
 {
-    struct skb_binding *b = arg;
-    errval_t err;
-
-    struct state* point = dequeue_state(b);
-    // If more state in the queue, send them
-    if (point) {
-        // a send just finished so this one should succeed
-        err = b->tx_vtbl.
-            run_response(b, MKCONT(run_done,b), point->output_buffer,
-                         point->error_buffer, point->exec_res);
-        assert(err_is_ok(err));
-    }
-}*/
-
-
-struct state* execute_query(char* query)
-{
-	SKB_DEBUG("execute query: %s\n", query);
 	assert(query != NULL);
+    assert(st != NULL);
+	SKB_DEBUG("execute query: %s\n", query);
 
 	int res;
 
-    // Allocate the state for continuation
-    struct state *st = malloc(sizeof(struct state));
-    assert(st);
-    st->exec_res = PFLUSHIO;
+	st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
-    st->next = NULL;
 
     /* Processing */
     ec_post_string(query);
-
     while(st->exec_res == PFLUSHIO) {
         st->exec_res = ec_resume();
 
@@ -116,67 +100,38 @@ struct state* execute_query(char* query)
         st->error_buffer[st->error_output_length] = 0;
     }
 
-    return st;
+    return SYS_ERR_OK;
 }
 
 
-static void run_handler(struct skb_binding *b,
-                               struct skb_msg_queue_elem *e);
-
-
-struct run_request_state {
-    struct skb_msg_queue_elem elem;
-    struct skb_run_response__args args;
-};
-
-
-static void run_cont(struct skb_binding* skb_closure,
-		             char* output, char* error, int32_t error_code)
-{
+static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
     errval_t err;
-
-    /* Send the request to the monitor on the server's core */
-    err = skb_closure->tx_vtbl.
-          run_response(skb_closure, NOP_CONT, output, error, error_code);
-
+    err = b->tx_vtbl.run_response(b, MKCONT(free_reply_state, srt),
+			                      srt->skb.output_buffer,
+			                      srt->skb.error_buffer,
+			                      srt->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct run_request_state *me =
-                malloc(sizeof(struct run_request_state));
-            struct skb_queue_state *ist = skb_closure->st;
-            me->args.str_error = error;
-            me->args.int_error = error_code;
-            me->args.output = output;
-            me->elem.cont = run_handler;
-
-            err = skb_enqueue_send(skb_closure, &ist->queue,
-                                   get_default_waitset(), &me->elem.queue);
-            assert(err_is_ok(err));
-            return;
+        	enqueue_reply_state(b, srt);
+        	return;
         }
-
-        USER_PANIC_ERR(err, "SKB sending get_object response failed!");
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
-}
-
-
-static void run_handler(struct skb_binding *b,
-                        struct skb_msg_queue_elem *e)
-{
-    struct run_request_state *st = (struct run_request_state *)e;
-    run_cont(b, st->args.output, st->args.str_error,
-             st->args.int_error);
-    free(e);
 }
 
 
 static void run(struct skb_binding *b, char *query)
 {
-	struct state* st = execute_query(query);
-    // Query succeeded
-    free(query);
+	struct skb_reply_state* srt = NULL;
+	errval_t err = new_reply_state(&srt, run_reply);
+	assert(err_is_ok(err)); // TODO
 
-    run_cont(b, st->output_buffer, st->error_buffer, st->exec_res);
+
+	err = execute_query(query, &srt->skb);
+	assert(err_is_ok(err));
+
+    run_reply(b, srt);
+	free(query);
 }
 
 
@@ -188,6 +143,7 @@ static struct skb_rx_vtbl rx_vtbl = {
     .publish_call = publish,
     .identify_call = identify_rpc_binding,
 };
+
 
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
@@ -204,13 +160,11 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
+
 static errval_t connect_cb(void *st, struct skb_binding *b)
 {
 	// Set up continuation queue
-	struct skb_queue_state *sqt = malloc(sizeof(struct skb_queue_state));
-    assert(sqt != NULL);
-    sqt->queue.head = sqt->queue.tail = NULL;
-    b->st = sqt;
+    b->st = NULL;
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
@@ -218,6 +172,7 @@ static errval_t connect_cb(void *st, struct skb_binding *b)
     // accept the connection (we could return an error to refuse it)
     return SYS_ERR_OK;
 }
+
 
 void skb_server_init(void)
 {
