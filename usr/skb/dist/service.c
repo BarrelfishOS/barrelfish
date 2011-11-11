@@ -3,6 +3,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <skb/skb.h> // read list
 
 #include <if/skb_events_defs.h>
 
@@ -124,22 +125,24 @@ void set_object(struct skb_binding *b, char *query)
 static struct skb_events_binding* get_event_binding(struct skb_binding* b)
 {
 	errval_t err =  SYS_ERR_OK;
-	struct skb_query_state st;
+	struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+	assert(st != NULL);
 
 	char* format = "binding(_, X, %lu), write(X).";
 	size_t len = strlen(format) + 20; // TODO 20
 	char buf[len];
 	snprintf(buf, len, format, b); // TODO check return
-	err = execute_query(buf, &st);
+	err = execute_query(buf, st);
 	assert(err_is_ok(err)); // TODO err
 
-	debug_skb_output(&st);
+	debug_skb_output(st);
 	// TODO check error etc.
 
 	struct skb_events_binding* recipient = NULL;
-	sscanf(st.output_buffer, "%lu", (uintptr_t*) &recipient); // TODO
+	sscanf(st->output_buffer, "%lu", (uintptr_t*) &recipient); // TODO
 
 	assert(recipient != NULL); // TODO
+	free(st);
 	return recipient;
 }
 
@@ -148,6 +151,7 @@ static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs) 
     errval_t err;
     err = b->tx_vtbl.subscribe_response(b, MKCONT(free_reply_state, srs),
 			                            srs->skb.exec_res);
+
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         	enqueue_reply_state(b, srs);
@@ -183,9 +187,50 @@ void subscribe(struct skb_binding *b, char* query, uint64_t id)
 
 	subscribe_reply(b, srs);
 
+
 	free(query);
 	free_parsed_object(po);
+
 }
+
+
+static void unsubscribe_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+    errval_t err;
+    err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_reply_state, srs),
+			                              srs->skb.exec_res);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        	enqueue_reply_state(b, srs);
+        	return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+void unsubscribe(struct skb_binding *b, uint64_t id)
+{
+	errval_t err = SYS_ERR_OK;
+
+	SKBD_DEBUG("unsubscribe: id = %lu\n", id);
+
+	struct skb_reply_state* srs = NULL;
+	err = new_reply_state(&srs, unsubscribe_reply);
+	assert(err_is_ok(err)); // TODO
+
+	char* format = "delete_subscription(%lu, %lu).";
+	size_t len = strlen(format) + 50 + 1; // todo 50 :-(
+	char buf[len];
+	snprintf(buf, len, format, get_event_binding(b), id);
+	err = execute_query(buf, &srs->skb);
+	assert(err_is_ok(err)); // TODO
+
+	SKBD_DEBUG("buf: %s\n", buf);
+	debug_skb_output(&srs->skb);
+
+	unsubscribe_reply(b, srs);
+}
+
 
 
 static void send_subscribed_message(struct skb_events_binding* b,
@@ -223,7 +268,7 @@ void publish(struct skb_binding *b, char* object)
 	err = new_reply_state(&srs, publish_reply);
 	assert(err_is_ok(err)); // TODO
 
-	char* format = "find_subscriber(object(%s, %s), X), write(X).";
+	char* format = "findall(X, find_subscriber(object(%s, %s), X), L), write(L).";
 	size_t len = strlen(po->name.output) + strlen(po->attributes.output) \
 			     + strlen(format) + 1;
 	char buf[len];
@@ -238,13 +283,18 @@ void publish(struct skb_binding *b, char* object)
 	publish_reply(b, srs);
 
 	struct skb_events_binding* recipient = NULL;
-	uint64_t id;
-	sscanf(srs->skb.output_buffer, "subscriber(%lu, %lu)", (uintptr_t*) &recipient, &id);
-	SKBD_DEBUG("send msg to: %p %lu\n", recipient, id);
+	uint64_t id = 0;
 
-	send_subscribed_message(recipient, id, object);
+	struct list_parser_status status;
+    skb_read_list_init_offset(&status, srs->skb.output_buffer, 0);
 
-	//free(object); TODO
+	// Send to all subscribers
+    while(skb_read_list(&status, "subscriber(%lu, %lu)", (uintptr_t*) &recipient, &id) ) {
+    	SKBD_DEBUG("publish msg to: recipient:%p id:%lu\n", recipient, id);
+    	send_subscribed_message(recipient, id, object);
+    }
+
+	//free(object); TODO: used by send_subscribed_object
 	free_parsed_object(po);
 }
 
@@ -257,12 +307,15 @@ static void identify_events_binding(struct skb_events_binding* b, uint64_t id)
 	char buf[len];
 	snprintf(buf, len, format, id, b);
 
-	struct skb_query_state st;
-	errval_t err = execute_query(buf, &st);
+	struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+	assert(st != NULL);
+
+	errval_t err = execute_query(buf, st);
 	assert(err_is_ok(err)); // TODO
 
 	SKBD_DEBUG("identify_events_binding DONE\n");
-	debug_skb_output(&st);
+	debug_skb_output(st);
+	free(st);
 }
 
 
@@ -271,22 +324,24 @@ void identify_rpc_binding(struct skb_binding* b, uint64_t id)
 	SKBD_DEBUG("identify_rpc_binding\n");
 	// duplicated code from events binding!
 	char* format = "set_rpc_binding(%lu, %lu).";
-	size_t len = strlen(format) + 20; // TODO maxlength of two int?
+	size_t len = strlen(format) + 200; // TODO maxlength of two int?
 	char buf[len];
 	snprintf(buf, len, format, id, b);
 
 	assert(buf != NULL);
 
-	struct skb_query_state st;
+	struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+	assert(st != NULL);
 	printf("before exec q\n");
-	errval_t err = execute_query(buf, &st);
+	errval_t err = execute_query(buf, st);
 	assert(err_is_ok(err));
 	printf("after exec q\n");
 
 	SKBD_DEBUG("buf: %s\n", buf);
-	debug_skb_output(&st);
+	debug_skb_output(st);
 
 	SKBD_DEBUG("identify_rpc_binding DONE\n");
+	free(st);
 	// Returning is done by prolog predicate C function!
 }
 

@@ -8,7 +8,6 @@ check_notification(NewVal1, NewVal2) :-
     NewVal2 =\= 0,
     identification_complete(NewVal2).
 
-
 old_binding(Id, OldEventVal, OldRPCVal) :-
     binding(Thing, OldEventVal, OldRPCVal), 
     !.

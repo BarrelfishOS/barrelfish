@@ -122,9 +122,24 @@ static errval_t get_set_test(void)
 }
 
 
+size_t incoming_messages = 0;
 static void subhandler(subscription_t id, char* object)
 {
-	printf("subhandler: %lu: %s\n", id, object);
+	assert(object != NULL);
+
+	switch(id) {
+		case 0:
+			assert(strcmp(object, "publishIt { weight: 10, height: 20, depth: 30 }") == 0);
+		break;
+
+		case 1:
+			assert(strcmp(object, "publishIt { age: 10 }") == 0);
+
+		break;
+	}
+
+	printf("subhandler(%lu): id:%lu obj:%s\n", ++incoming_messages, id, object);
+	free(object);
 }
 
 
@@ -140,13 +155,75 @@ static errval_t pub_sub_test(void)
 	}
 	printf("subscription done with id: %lu\n", id);
 
-	err = dist_publish("publishIt { weight: %d, height: %d, depth: %d }", 10, 20, 30);
+	subscription_t id2 = 0;
+	err = dist_subscribe(subhandler, &id2, "_ { age: > %d }", 9);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_get failed!");
 		return err;
 	}
+	printf("subscription done with id: %lu\n", id2);
+
+	err = dist_publish("publishIt { weight: %d, height: %d, depth: %d }", 10, 20, 30);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_publish failed!");
+		return err;
+	}
+	messages_wait_and_handle_next();
+
+	err = dist_unsubscribe(id);
+
+	// Should not deliver
+	err = dist_publish("publishIt { weight: %d, height: %d }", 10, 9999);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_publish failed!");
+		return err;
+	}
+
+	// Should not deliver
+	err = dist_publish("publishIt { age: %d }", 9);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_publish failed!");
+		return err;
+	}
+
+	err = dist_publish("publishIt { age: %d }", 10);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_publish failed!");
+		return err;
+	}
+	messages_wait_and_handle_next();
 
 	return err;
+}
+
+
+static void subhandler2(subscription_t id, char* object)
+{
+	assert(object != NULL);
+	debug_printf("subhandler2(%lu): id:%lu obj:%s\n", ++incoming_messages, id, object);
+	free(object);
+}
+
+static void main_subscriber(void) {
+	errval_t err;
+
+	subscription_t id = 0;
+	err = dist_subscribe(subhandler2, &id, "_ { weight: %d }", 10);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_get failed!");
+		abort();
+	}
+	printf("subscription done with id: %lu\n", id);
+
+	subscription_t id2 = 0;
+	err = dist_subscribe(subhandler2, &id2, "_ { age: > %d }", 9);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_get failed!");
+		abort();
+	}
+	printf("subscription done with id: %lu\n", id2);
+
+	messages_handler_loop();
 }
 
 int main(int argc, char *argv[])
@@ -155,17 +232,18 @@ int main(int argc, char *argv[])
     skb_client_connect();
     dist_init();
 
-    printf("Start dist2 Tests:\n");
-    err = get_set_test();
-    assert(err_is_ok(err));
+    if (argc == 2 && strcmp(argv[1], "subscriber") == 0) {
+        main_subscriber();
+    } else {
+		printf("Start dist2 Tests:\n");
+		err = get_set_test();
+		assert(err_is_ok(err));
 
-    err = pub_sub_test();
-    assert(err_is_ok(err));
+		err = pub_sub_test();
+		assert(err_is_ok(err));
+    }
 
 
     printf("dist2test passed successfully!\n");
-
-    messages_handler_loop();
-
 	return EXIT_SUCCESS;
 }

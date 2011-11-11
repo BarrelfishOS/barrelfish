@@ -13,17 +13,9 @@ static struct skb_events_state {
 } skb_events_state;
 
 
-static void subscribed_message_handler(struct skb_events_binding* b,
-		                               uint64_t id, char* object)
-{
-	debug_printf("got message: %lu %s\n", id, object);
-	free(object);
-}
-
-
 struct skb_events_rx_vtbl rx_vtbl = {
 		.identify = NULL,
-		.subscribed_message = subscribed_message_handler
+		.subscribed_message = subscribed_message_handler,
 };
 
 

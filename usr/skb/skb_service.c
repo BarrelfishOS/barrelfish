@@ -24,31 +24,27 @@
 
 
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-
 #include <eclipse.h>
 #include <include/skb_server.h>
 #include <include/skb_debug.h>
 #include <include/queue.h>
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <skb/skb.h>
 
-static uint64_t refcount;
 
 errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
-	printf("refcount is:%lu\n", refcount++);
-	printf("1.1\n");
 	*srs = malloc(sizeof(struct skb_reply_state));
-	printf("1.2\n");
 	if(*srs == NULL) {
 		return LIB_ERR_MALLOC_FAIL;
 	}
+	memset(*srs, 0, sizeof(struct skb_reply_state));
 
-	printf("1.3\n");
 	(*srs)->rpc_reply = reply_handler;
 	(*srs)->next = NULL;
 
@@ -57,9 +53,7 @@ errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn repl
 
 
 void free_reply_state(void* arg) {
-	refcount--;
 	struct skb_reply_state* srt = (struct skb_reply_state*) arg;
-	printf("free_reply_state\n");
 	assert(srt != NULL);
 	free(srt);
 }
@@ -142,6 +136,7 @@ static struct skb_rx_vtbl rx_vtbl = {
     .subscribe_call = subscribe,
     .publish_call = publish,
     .identify_call = identify_rpc_binding,
+    .unsubscribe_call = unsubscribe,
 };
 
 

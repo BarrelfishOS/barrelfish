@@ -21,6 +21,6 @@ interface skb "SKB RPC Interface" {
 	rpc get(in string query, out string output, out string error, out int error_code);
 
     rpc subscribe(in string query, in uint64 id, out errval err);
+    rpc unsubscribe(in uint64 id, out errval err);
     rpc publish(in string object, out errval err);
-    message subscribed_message(uint64 id, string object);
 };

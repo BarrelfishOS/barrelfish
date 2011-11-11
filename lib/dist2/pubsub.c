@@ -23,6 +23,14 @@ static errval_t get_free_slot(subscription_t* slot)
 	return SYS_ERR_BMP_INVALID; // TODO proper error code
 }
 
+void subscribed_message_handler(struct skb_events_binding* b,
+		                        subscription_t id, char* object)
+{
+	assert(subscriber_table[id] != NULL);
+
+	subscriber_table[id](id, object);
+}
+
 
 errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, char* query, ...)
 {
@@ -64,9 +72,20 @@ errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, ch
 
 errval_t dist_unsubscribe(subscription_t id)
 {
+	assert(id < MAX_SUBSCRIPTIONS);
 
+	// send to skb
+	struct skb_state* skb_state  = get_skb_state();
+	assert(skb_state != NULL);
 
-	return SYS_ERR_OK;
+	errval_t error_code = SYS_ERR_OK;
+	errval_t err = skb_state->skb->vtbl.unsubscribe(skb_state->skb, id, &error_code);
+
+	if(err_is_ok(err)) { // TODO check error_code
+		subscriber_table[id] = NULL;
+	}
+
+	return err;
 }
 
 

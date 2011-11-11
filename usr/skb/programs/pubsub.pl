@@ -20,6 +20,9 @@
 create_object(template(Name, List), object(Name, Attributes)) :-
     add_slots(Name, List, [], Attributes).    
 
+delete_subscription(Binding, Id) :-
+    retract(subscribed(_, _, subscriber(Binding, Id))).
+
 add_subscription(Template, Constraints, Subscriber) :-
     create_object(Template, TemplateObject),
     asserta(subscribed(TemplateObject, Constraints, Subscriber)).
@@ -36,9 +39,10 @@ matches_template(object(OName, OSlotList), object(TName, TSlotList)) :-
     match_lists(TSlotList, OSlotList).
 
 match_lists([], _).
-match_lists([Attr::X|TRest], OList) :-
-    member(Attr::Y, OList),
-    (var(X)),
+match_lists([Attr::Item|TRest], OList) :-
+    facet_val(req(T, Attr, val, V), Item),
+    member(S::X, OList),
+    (var(V)),
     match_lists(TRest, OList).
 match_lists([Attr::X|TRest], OList) :-
     member(Attr::Y, OList),
@@ -53,6 +57,7 @@ satisfy_constraint_list(Message, [C|Rest]) :-
     satisfy_constraint_list(Message, Rest).
 satisfy_constraint2(object(Name, SlotList), constraint(Attr, Comparator, Value)) :-
     %get_object(Message, Attr::X),
-    slot_vals(Name, Attr::X, SlotList),
+    %slot_vals(Name, Attr::X, SlotList),
+    member(Attr::X, SlotList),
     FX =.. [Comparator, X, Value],
     call(FX).

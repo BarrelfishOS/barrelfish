@@ -13,5 +13,6 @@ void publish(struct skb_binding*, char*);
 
 void event_server_init(void);
 void identify_rpc_binding(struct skb_binding*, uint64_t);
+void unsubscribe(struct skb_binding*, uint64_t);
 
 #endif /* SERVICE_H_ */
