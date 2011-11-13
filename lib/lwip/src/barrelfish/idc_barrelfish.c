@@ -551,89 +551,12 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
     printf("idc_register_buffer: terminated\n");
 }
 
-/**
- * \brief
- *
- *
- *
- */
-
-static errval_t send_pbuf_request(struct q_entry e)
-{
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
-
-    if (b->can_send(b)) {
-/* To see if pbuf requests are flying around or not. */
-
-#if LWIP_TRACE_MODE
-//      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AOR_S, e.plist[0]);
-#endif                          // LWIP_TRACE_MODE
-
-        uint64_t cs_counter = disp_run_counter();
-        uint64_t ts = rdtsc();
-        uint8_t canary = 57;
-        queue_set_canary(ccnc->q, canary);
-
-        errval_t err = b->tx_vtbl.register_pbuf(b,
-                                        MKCONT(cont_queue_callback, ccnc->q),
-                                        e.plist[0], e.plist[1], e.plist[2],
-                                        ts);
-        if(benchmark_mode > 0) {
-            uint64_t c_cs_counter = disp_run_counter();
-            if (cs_counter != c_cs_counter) {
-                lwip_record_event_simple(RE_PBUF_REPLACE_3,
-                        (c_cs_counter - cs_counter));
-            }
-            lwip_record_event_simple(RE_PBUF_REPLACE_2, ts);
-            lwip_record_event_simple(RE_PBUF_QUEUE, e.plist[3]);
-        }
-        return err;
-
-        /* pbuf_id,   offset,      len */
-    } else {
-        LWIPBF_DEBUG("send_pbuf_request: Flounder busy,rtry+++++\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-
-}
-
-void idc_register_pbuf(uint64_t pbuf_id, uint64_t paddr, uint64_t len)
-{
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_pbuf_request;
-    entry.fname = "send_pbuf_request";
-    struct ether_binding *b = driver_connection[RECEIVE_CONNECTION];
-
-    entry.binding_ptr = (void *) b;
-
-    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
-
-    entry.plist[0] = pbuf_id;
-    entry.plist[1] = paddr;
-    entry.plist[2] = len;
-    entry.plist[3] = rdtsc();
-    /* FIXME: Following call is not strictly needed, so one might
-     * want to remove it as data is not modified in calling idc_register_pbuf */
-//    bulk_arch_prepare_send((void *)paddr, len);
-
-    /* NOTE: comment it as it will occur with large frequencey */
-/*    LWIPBF_DEBUG("idc_register_pbuf: pbuf %lu ==> buff chan %lu \n",
-				pbuf_id, ccnc->buff_ptr->buffer_id);
-*/
-    enqueue_cont_q(ccnc->q, &entry);
-}
-
 int lwip_check_sp_capacity(int direction)
 {
     struct ether_binding *b = driver_connection[direction];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
     return sp_queue_free_slots_count(ccnc->spp_ptr);
 }
-
 
 
 int idc_check_capacity(int direction)
@@ -644,7 +567,6 @@ int idc_check_capacity(int direction)
 
     return queue_free_slots(ccnc->q);
 }
-
 
 
 void idc_get_mac_address(uint8_t * mac_client)
@@ -885,57 +807,6 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
 }
 
 
-static void tx_done(struct ether_binding *st, uint64_t client_data,
-                    uint64_t slots_left, uint64_t dropped)
-{
-    struct pbuf *done_pbuf = (struct pbuf *) (uintptr_t) client_data;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)st->st;
-    assert(ccnc != NULL);
-    struct buffer_desc *buff = ccnc->buff_ptr;
-    assert(buff != NULL);
-
-    /*
-    printf("tx_done for %"PRIu64"\n", client_data);
-
-    printf("tx_done: and slot zero is \n" );
-    sp_print_slot(&buff->spp->sp->slot_list[0].d);
-    */
-    lwip_mutex_lock();
-
-    // FIXME: use the slots_left and dropped info
-    if (dropped == 1) {
-        pkt_dropped = pkt_dropped + 1;
-    }
-
-    driver_tx_slots_left = slots_left;
-
-#if LWIP_TRACE_MODE
-    /* FIXME: Need a way to find out the pbuf_id for this tx_done */
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AIR_R,
-                (uint32_t) ((uintptr_t) done_pbuf));
-
-#endif                          // LWIP_TRACE_MODE
-
-    if (new_debug)
-        printf("tx_done: %" PRIx64 "\n", client_data);
-    if (lwip_free_handler != 0) {
-        lwip_free_handler(done_pbuf);
-    } else {
-        fprintf(stderr, "idc_barrelfish: event_handler: no handler for "
-                "freeing pbufs installed.\n");
-    }
-
-    /*
-    printf("tx_done: and slot zero after lwip_free_handler \n" );
-    sp_print_slot(&buff->spp->sp->slot_list[0].d);
-    */
-    lwip_mutex_unlock();
-
-/*    LWIPBF_DEBUG("tx_done: terminated\n");	*/
-}
-
-
-
 static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
 {
     LWIPBF_DEBUG("get_mac_address_response: called\n");
@@ -976,57 +847,6 @@ static void benchmark_control_response(struct ether_binding *b, uint8_t state,
 
 
 bool lwip_in_packet_received = false;
-
-
-static void packet_received(struct ether_binding *st, uint64_t pbuf_id,
-                            uint64_t paddr, uint64_t pbuf_len,
-                            uint64_t pktlen, uint64_t rts)
-{
-    if(benchmark_mode > 0) {
-        lwip_record_event_simple(RE_PKT_RCV_CS, rts);
-    }
-#if LWIP_TRACE_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_A, (uint32_t) pbuf_id);
-#endif                          // LWIP_TRACE_MODE
-    uint64_t ts = rdtsc();
-    if (new_debug)
-        printf("%d.%d: packet_received: called paddr = %" PRIx64 ", len %"
-               PRIx64 "\n", disp_get_core_id(), disp_get_domain_id(), paddr,
-               pktlen);
-    LWIPBF_DEBUG("packet_received: called\n");
-
-    lwip_mutex_lock();
-
-    lwip_in_packet_received = true;
-
-    /* FIXME: enable this.  It is disabled to avoid compiliation issues with ARM
-     * Problem is due to use of unint64_t to store paddr. */
-//      bulk_arch_prepare_recv((void *)paddr, pbuf_len);
-    if (pbuf_len == 0) {
-        printf("### Received pbuf_id %"PRIu64" at %"PRIu64" of size "
-                "%"PRIu64"  and len %"PRIu64"\n",
-                pbuf_id, paddr, pbuf_len, pktlen);
-    }
-    if (lwip_rec_handler != 0) {
-        lwip_rec_handler(lwip_rec_data, pbuf_id, paddr, pbuf_len, pktlen, NULL);
-    } else {
-        LWIPBF_DEBUG("packet_received: no callback installed\n");
-        //pbuf with received packet not consumed by lwip. It can be
-        //reused as receive pbuf
-        struct pbuf *p = mem_barrelfish_replace_pbuf(pbuf_id);
-        pbuf_free(p);
-    }
-
-    lwip_in_packet_received = false;
-
-    lwip_mutex_unlock();
-
-    if(benchmark_mode > 0) {
-        lwip_record_event_simple(RE_ALL, ts);
-    }
-
-//  LWIPBF_DEBUG("packet_received: terminated\n");
-}
 
 static uint32_t handle_incoming_packets(struct ether_binding *b)
 {
@@ -1199,9 +1019,7 @@ static void init_netd_connection(char *service_name)
 static struct ether_rx_vtbl rx_vtbl = {
     .new_buffer_id = new_buffer_id,
     .sp_notification_from_driver = sp_notification_from_driver,
-    .tx_done = tx_done,
     .get_mac_address_response = get_mac_address_response,
-    .packet_received = packet_received,
     .benchmark_control_response = benchmark_control_response,
 };
 

@@ -92,8 +92,6 @@ static uint64_t dropped_pkt_count = 0;
 
 static void register_buffer(struct ether_binding *cc, struct capref cap,
                         struct capref sp, uint64_t slots, uint8_t role);
-static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
-                          uint64_t paddr, uint64_t len, uint64_t rts);
 static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
                 uint64_t ts);
 
@@ -110,7 +108,6 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
 // Initialize service
 static struct ether_rx_vtbl rx_ether_vtbl = {
     .register_buffer = register_buffer,
-    .register_pbuf = register_pbuf,
     .sp_notification_from_app = sp_notification_from_app,
     .get_mac_address = get_mac_addr,
     .print_statistics = print_statistics_handler,
@@ -587,45 +584,6 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     report_register_buffer_result(cc, err, buffer->buffer_id);
 }
 
-static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
-                          uint64_t offset, uint64_t len, uint64_t rts)
-{
-
-#if TRACE_ETHERSRV_MODE
-//      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_N_SPBUF, (uint32_t)pbuf_id);
-#endif                          // TRACE_ETHERSRV_MODE
-
-    errval_t r;
-
-    uint64_t ts = rdtsc();
-/*	ETHERSRV_DEBUG("ETHERSRV: register_pbuf: %"PRIx64" registering ++++++++\n",
-	        pbuf_id);
-*/
-    struct buffer_descriptor *buffer = (struct buffer_descriptor *)
-      ((struct client_closure *) (b->st))->buffer_ptr;
-    struct client_closure *cl = (struct client_closure *)b->st;
-
-    if (cl->debug_state == 4) {
-        bm_record_event_simple(RE_PBUF_REG_CS, ts);
-    }
-
-    /* Calculating the physical address of this pbuf. */
-    uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + offset;
-    uint64_t paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
-    /* NOTE: virtual address = virtual base + physical offset */
-/*
-	ETHERSRV_DEBUG("register_pbuf: pbuf id %"PRIx64" on buff_id %"PRIx64"\n",
-	 pbuf_id, buffer->buffer_id);
-*/
-
-    assert(!"NYI");
-    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, 0, b);
-    assert(err_is_ok(r));
-
-    if (cl->debug_state == 4) {
-        bm_record_event_simple(RE_PBUF_REG, ts);
-    }
-}
 
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
