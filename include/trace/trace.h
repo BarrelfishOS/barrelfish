@@ -226,6 +226,11 @@
 #define TRACE_EVENT_NET_NIR_REG_PBUF        0x0014 /* commented pbuf_id ( register_pbuf in NIC)*/
 
 
+#define TRACE_SUBSYS_MULTIHOP		     0x7000
+#define TRACE_EVENT_MULTIHOP_BENCH_START     0x0001
+#define TRACE_EVENT_MULTIHOP_BENCH_STOP      0x0002
+#define TRACE_EVENT_MULTIHOP_MESSAGE_SEND    0x0003
+#define TRACE_EVENT_MULTIHOP_MESSAGE_RECEIVE 0x0004
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 

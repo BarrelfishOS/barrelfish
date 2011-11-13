@@ -39,6 +39,10 @@ typedef errval_t bmp_connect_callback_fn(void *st, struct monitor_binding *mb,
                                          size_t remote_ep_len);
 #endif // CONFIG_INTERCONNECT_DRIVER_BMP
 
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+typedef errval_t multihop_connect_callback_fn(void *st, uint64_t vci);
+#endif // CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+
 struct idc_export {
     iref_t iref;
     idc_export_flags_t flags;
@@ -56,6 +60,9 @@ struct idc_export {
 #endif
 #ifdef CONFIG_INTERCONNECT_DRIVER_BMP
     bmp_connect_callback_fn *bmp_connect_callback;
+#endif
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+  multihop_connect_callback_fn *multihop_connect_callback;
 #endif
 };
 

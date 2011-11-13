@@ -16,7 +16,7 @@
  * Programmer's Reference Manual (November 2003), p. 364ff
  */
 
-device IXP2800_UART msbfirst ( addr base ) "Netronome UART Memory Represenation" {
+device ixp2800_uart msbfirst ( addr base ) "Netronome UART Memory Represenation" {
 
 
 

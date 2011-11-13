@@ -14,7 +14,7 @@
  */
 
 #include <arch/x86/cmos.h>
-#include "cmos_dev.h"
+#include <dev/lpc_rtc_dev.h>
 
 /** \brief This function reads the hardware clock.
     This function reads the hardware real time clock and fills the
@@ -24,33 +24,33 @@
 
 void cmos_write(int addr, uint8_t b)
 {
-    cmos_t rtc;
-    cmos_initialize(&rtc,0x00);
-    cmos_ndx_wr(&rtc,addr);
-    cmos_target_wr(&rtc,b);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_ndx_wr(&rtc,addr);
+    lpc_rtc_target_wr(&rtc,b);
 }
 
 void cmos_write_extended(int addr, uint8_t b)
 {
-    cmos_t rtc;
-    cmos_initialize(&rtc,0x00);
-    cmos_endx_wr(&rtc,addr);
-    cmos_etarget_wr(&rtc,b);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_endx_wr(&rtc,addr);
+    lpc_rtc_etarget_wr(&rtc,b);
 }
 
 uint8_t cmos_read(int addr)
 {
-    cmos_t rtc;
-    cmos_initialize(&rtc,0x00);
-    cmos_ndx_wr(&rtc,addr);
-    return cmos_target_rd(&rtc);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_ndx_wr(&rtc,addr);
+    return lpc_rtc_target_rd(&rtc);
 }
 
 uint8_t cmos_read_extended(int addr, uint8_t b)
 {
-    cmos_t rtc;
-    cmos_initialize(&rtc,0x00);
-    cmos_endx_wr(&rtc,addr);
-    return cmos_etarget_rd(&rtc);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_endx_wr(&rtc,addr);
+    return lpc_rtc_etarget_rd(&rtc);
 }
 

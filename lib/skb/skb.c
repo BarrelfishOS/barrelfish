@@ -24,7 +24,7 @@
 static void bind_cb(void *st, errval_t err, struct skb_binding *b)
 {
     struct skb_state *skb_state = get_skb_state();
-    
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bind failed");
         abort();

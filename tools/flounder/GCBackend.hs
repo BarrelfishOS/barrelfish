@@ -16,15 +16,22 @@ module GCBackend where
 import Data.Char
 
 import qualified CAbsSyntax as C
-import Syntax
+import Syntax (Interface (Interface))
 import GHBackend (flounder_backends, export_fn_name, bind_fn_name)
 import BackendCommon
 import LMP (lmp_bind_type, lmp_bind_fn_name)
 import qualified UMP (bind_type, bind_fn_name)
 import qualified UMP_IPI (bind_type, bind_fn_name)
 import qualified BMP (bind_type, bind_fn_name)
+import qualified Multihop (m_bind_type, m_bind_fn_name)
 
-bind_cont_name n = ifscope n "bind_continuation"
+-- name of the bind continuation function
+bind_cont_name :: String -> String
+bind_cont_name ifn = ifscope ifn "bind_continuation_direct"
+
+-- name of an alternative bind continuation function
+bind_cont_name2 :: String -> String
+bind_cont_name2 ifn = ifscope ifn "bind_contination_multihop"
 
 compile :: String -> String -> Interface -> String
 compile infile outfile interface = 
@@ -45,7 +52,9 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     C.Blank,
 
     C.MultiComment [ "Generic bind function" ],
-    bind_cont_def ifn,
+    -- the two bind functions use the idc drivers in a different order
+    bind_cont_def ifn (bind_cont_name ifn) (bind_backends ifn (bind_cont_name ifn)),
+    bind_cont_def ifn (bind_cont_name2 ifn) (multihop_bind_backends ifn (bind_cont_name2 ifn)),
     bind_fn_def ifn]
 
 export_fn_def :: String -> C.Unit
@@ -90,9 +99,15 @@ export_fn_def n =
         drv_connect_callback "ump_ipi" = drv_connect_callback "ump"
         drv_connect_callback drv = drv ++ "_connect_callback"
 
-bind_cont_def :: String -> C.Unit
-bind_cont_def ifn =
-    C.FunctionDef C.Static C.Void (bind_cont_name ifn) params [
+
+-- bind continuation function
+bind_cont_def :: String -> String -> [BindBackend] -> C.Unit
+bind_cont_def ifn fn_name backends =
+    C.FunctionDef C.Static C.Void fn_name params [
+	C.SComment "This bind cont function uses the different backends in the following order:",
+	C.SComment $ unwords $ map flounder_backend backends,
+	C.SBlank,
+
         localvar (C.Ptr $ C.Struct "flounder_generic_bind_attempt") "b"
             (Just $ C.Variable "st"),
         C.Switch driver_num cases
@@ -107,12 +122,11 @@ bind_cont_def ifn =
     where
         params = [ C.Param (C.Ptr $ C.Void) "st",
                    C.Param (C.TypeName "errval_t") "err",
-                   C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var ]
+                   C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
         driver_num = bindst `C.DerefField` "driver_num"
         bindst = C.Variable "b"
         cases = [ C.Case (C.NumConstant $ toInteger n) (mkcase n)
                   | n <- [0 .. length backends] ]
-        backends = bind_backends ifn
 
         mkcase n
             | n == 0 = try_next
@@ -180,6 +194,7 @@ bind_cont_def ifn =
 
                 success_callback = C.Goto "out"
 
+
 bind_fn_def :: String -> C.Unit
 bind_fn_def n = 
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (bind_fn_name n) params [
@@ -199,8 +214,9 @@ bind_fn_def n =
                         ("st", C.Variable "st"),
                         ("flags", C.Variable "flags")]],
         C.SBlank,
-        C.Ex $ C.Call (bind_cont_name n)
-                [C.Variable "b", C.Variable "SYS_ERR_OK", C.Variable "NULL"],
+        C.If (C.Binary C.BitwiseAnd (C.Variable "flags") (C.Variable "IDC_BIND_FLAG_MULTIHOP"))
+        [C.Ex $ C.Call (bind_cont_name2 n) [C.Variable "b", C.Variable "SYS_ERR_OK", C.Variable "NULL"]]
+        [C.Ex $ C.Call (bind_cont_name n) [C.Variable "b", C.Variable "SYS_ERR_OK", C.Variable "NULL"]],
         C.SBlank,
         C.Return $ C.Variable "SYS_ERR_OK"
     ]
@@ -214,7 +230,6 @@ bind_fn_def n =
 ----------------------------------------------------------------------------
 -- everything that we need to know about a backend to attempt a generic bind
 ----------------------------------------------------------------------------
-
 data BindBackend = BindBackend {
     flounder_backend :: String,     -- name of the flounder backend
     start_bind :: [C.Stmt],         -- code to attempt a bind
@@ -223,16 +238,40 @@ data BindBackend = BindBackend {
     cleanup_bind :: [C.Stmt]        -- code to cleanup a failed bind
 }
 
-bind_backends :: String -> [BindBackend]
-bind_backends ifn = [
-    BindBackend {
+-- the available bind backends
+-- Cation: order of list matters (we will try to bind in that order)
+bind_backends :: String -> String -> [BindBackend]
+bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name)) 
+                    [lmp_bind_backend, 
+                     ump_ipi_bind_backend, 
+                     ump_bind_backend, 
+                     bmp_bind_backend, 
+                     multihop_bind_backend]
+                                                     
+-- backends in different order (prefer multihop over ump, etc.)
+multihop_bind_backends :: String -> String -> [BindBackend]
+multihop_bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name))
+                    [lmp_bind_backend, 
+                     multihop_bind_backend, 
+                     ump_ipi_bind_backend, 
+                     ump_bind_backend, 
+                     bmp_bind_backend]
+
+bindst = C.Variable "b"
+binding = bindst `C.DerefField` "binding"
+iref = bindst `C.DerefField` "iref"        
+waitset = bindst `C.DerefField` "waitset"
+flags = bindst `C.DerefField` "flags"
+
+lmp_bind_backend ifn cont = 
+  BindBackend {
     flounder_backend = "lmp",
     start_bind = [
         C.Ex $ C.Assignment binding $
             C.Call "malloc" [C.SizeOfT $ C.Struct $ lmp_bind_type ifn],
         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
         C.Ex $ C.Assignment errvar $
-            C.Call (lmp_bind_fn_name ifn) [binding, iref, cont, bindst, waitset,
+            C.Call (lmp_bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
                                            flags,
                                            C.Variable "DEFAULT_LMP_BUF_WORDS"]
     ],
@@ -240,33 +279,17 @@ bind_backends ifn = [
     test_cb_try_next = C.Binary C.Equals (C.Call "err_no" [errvar])
                                          (C.Variable "MON_ERR_IDC_BIND_NOT_SAME_CORE"),
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
-    },
-
-    BindBackend {
-    flounder_backend = "ump_ipi",
-    start_bind = [
-        C.Ex $ C.Assignment binding $
-            C.Call "malloc" [C.SizeOfT $ C.Struct $ UMP_IPI.bind_type ifn],
-        C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
-        C.Ex $ C.Assignment errvar $
-            C.Call (UMP_IPI.bind_fn_name ifn) [binding, iref, cont, bindst, waitset,
-                                           flags,
-                                           C.Variable "DEFAULT_UMP_BUFLEN",
-                                           C.Variable "DEFAULT_UMP_BUFLEN"]
-    ],
-    test_cb_success = C.Call "err_is_ok" [errvar],
-    test_cb_try_next = C.Variable "true",
-    cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
-    },
-    
-    BindBackend {
+    }
+  
+ump_bind_backend ifn cont =   
+  BindBackend {
     flounder_backend = "ump",
     start_bind = [
         C.Ex $ C.Assignment binding $
             C.Call "malloc" [C.SizeOfT $ C.Struct $ UMP.bind_type ifn],
         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
         C.Ex $ C.Assignment errvar $
-            C.Call (UMP.bind_fn_name ifn) [binding, iref, cont, bindst, waitset,
+            C.Call (UMP.bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
                                            flags,
                                            C.Variable "DEFAULT_UMP_BUFLEN",
                                            C.Variable "DEFAULT_UMP_BUFLEN"]
@@ -274,27 +297,51 @@ bind_backends ifn = [
     test_cb_success = C.Call "err_is_ok" [errvar],
     test_cb_try_next = C.Variable "true",
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
-    },
-    
-    BindBackend {
+    }
+  
+ump_ipi_bind_backend ifn cont = 
+  BindBackend {
+    flounder_backend = "ump_ipi",
+    start_bind = [
+        C.Ex $ C.Assignment binding $
+            C.Call "malloc" [C.SizeOfT $ C.Struct $ UMP_IPI.bind_type ifn],
+        C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
+        C.Ex $ C.Assignment errvar $
+            C.Call (UMP_IPI.bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
+                                           flags,
+                                           C.Variable "DEFAULT_UMP_BUFLEN",
+                                           C.Variable "DEFAULT_UMP_BUFLEN"]
+    ],
+    test_cb_success = C.Call "err_is_ok" [errvar],
+    test_cb_try_next = C.Variable "true",
+    cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
+    }
+  
+bmp_bind_backend ifn cont = 
+  BindBackend {
     flounder_backend = "bmp",
     start_bind = [
         C.Ex $ C.Assignment binding $
             C.Call "malloc" [C.SizeOfT $ C.Struct $ BMP.bind_type ifn],
         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
         C.Ex $ C.Assignment errvar $
-            C.Call (BMP.bind_fn_name ifn) [binding, iref, cont, bindst, waitset,
+            C.Call (BMP.bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
                                            flags, C.Variable "DEFAULT_BMP_BUF_WORDS"]
     ],
     test_cb_success = C.Call "err_is_ok" [errvar],
     test_cb_try_next = C.Variable "true",
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
     }
-    ]
-    where
-        bindst = C.Variable "b"
-        binding = bindst `C.DerefField` "binding"
-        iref = bindst `C.DerefField` "iref"
-        cont = C.Variable $ bind_cont_name ifn
-        waitset = bindst `C.DerefField` "waitset"
-        flags = bindst `C.DerefField` "flags"
+  
+multihop_bind_backend ifn cont = 
+  BindBackend {
+    flounder_backend = "multihop",
+    start_bind = [C.Ex $ C.Assignment binding $
+                         C.Call "malloc" [C.SizeOfT $ C.Struct $ Multihop.m_bind_type ifn],
+                         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
+                         C.Ex $ C.Assignment errvar $
+                         C.Call (Multihop.m_bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset, flags]],
+    test_cb_success = C.Call "err_is_ok" [errvar],
+    test_cb_try_next = C.Variable "true",
+    cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
+    }

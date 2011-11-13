@@ -19,6 +19,9 @@
 #include <barrelfish/vspace_mmu_aware.h>
 #include <barrelfish/core_state.h>
 
+/// Minimum free memory before we return it to memory server
+#define MIN_MEM_FOR_FREE        (1 * 1024 * 1024)
+
 /**
  * \brief Initialize vspace_mmu_aware struct
  *
@@ -203,33 +206,38 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
     assert(vspace_lvaddr_to_genvaddr(base) > vregion_get_base_addr(&state->vregion));
     assert(base + bytes == (lvaddr_t)eaddr);
 
-    do {
-        // Unmap and return (via unfill) frames from base
-        err = state->memobj.m.f.unfill(&state->memobj.m, gen_base,
-                                       &frame, &offset);
-        if(err_is_fail(err) && err_no(err) != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET) {
-            return err_push(err, LIB_ERR_MEMOBJ_UNMAP_REGION);
-        }
-
-        // Delete frame cap
-        if(err_is_ok(err)) {
-            success = true;
-            if (min_offset == 0 || min_offset > offset) {
-                min_offset = offset;
-            }
-
-            err = cap_destroy(frame);
-            if(err_is_fail(err)) {
-                return err;
-            }
-        }
-    } while(err != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET);
-
     // Reduce offset
     state->offset -= bytes;
+    state->consumed -= bytes;
+
+    // Free only in bigger blocks
+    if(state->mapoffset - state->offset > MIN_MEM_FOR_FREE) {
+        do {
+            // Unmap and return (via unfill) frames from base
+            err = state->memobj.m.f.unfill(&state->memobj.m, gen_base,
+                                           &frame, &offset);
+            if(err_is_fail(err) && err_no(err) != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET) {
+                return err_push(err, LIB_ERR_MEMOBJ_UNMAP_REGION);
+            }
+
+            // Delete frame cap
+            if(err_is_ok(err)) {
+                success = true;
+                if (min_offset == 0 || min_offset > offset) {
+                    min_offset = offset;
+                }
+
+                err = cap_destroy(frame);
+                if(err_is_fail(err)) {
+                    return err;
+                }
+            }
+        } while(err != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET);
+
 //    state->consumed -= bytes;
-    if (success) {
-        state->mapoffset = min_offset;
+        if (success) {
+            state->mapoffset = min_offset;
+        }
     }
 
     return SYS_ERR_OK;

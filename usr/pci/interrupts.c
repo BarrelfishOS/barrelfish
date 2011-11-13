@@ -41,20 +41,20 @@ static struct ioapic ioapics[IOAPIC_MAX];
 static int interrupt_overrides[N_ISA_INTERRUPTS];
 
 /// I/O APIC redirection table entry template for ISA bus
-static LPC_IOAPIC_redir_tbl_t ioapic_redir_tmpl_isa = {
-    .mode = LPC_IOAPIC_fixed,
-    .destmode = LPC_IOAPIC_physical,
-    .polarity = LPC_IOAPIC_active_high,
-    .trigger = LPC_IOAPIC_edge,
+static lpc_ioapic_redir_tbl_t ioapic_redir_tmpl_isa = {
+    .mode = lpc_ioapic_fixed,
+    .destmode = lpc_ioapic_physical,
+    .polarity = lpc_ioapic_active_high,
+    .trigger = lpc_ioapic_edge,
     .mask = 1
 };
 
 /// I/O APIC redirection table entry template for PCI bus
-static LPC_IOAPIC_redir_tbl_t ioapic_redir_tmpl_pci = {
-    .mode = LPC_IOAPIC_fixed,
-    .destmode = LPC_IOAPIC_physical,
-    .polarity = LPC_IOAPIC_active_low,
-    .trigger = LPC_IOAPIC_edge, // XXX: Barrelfish cannot handle level
+static lpc_ioapic_redir_tbl_t ioapic_redir_tmpl_pci = {
+    .mode = lpc_ioapic_fixed,
+    .destmode = lpc_ioapic_physical,
+    .polarity = lpc_ioapic_active_low,
+    .trigger = lpc_ioapic_edge, // XXX: Barrelfish cannot handle level
                                 // triggered interrupts
     .mask = 1
 };
@@ -241,7 +241,7 @@ int init_all_apics(void)
                     break;
                 }
 
-                LPC_IOAPIC_redir_tbl_t entry = ioapic_redir_tmpl_isa;
+                lpc_ioapic_redir_tbl_t entry = ioapic_redir_tmpl_isa;
                 struct ioapic *a = find_ioapic(s->GlobalIrq);
                 if (a == NULL) {
                     PCI_DEBUG("Warning: unknown IOAPIC for GSI %d, ignored"
@@ -255,11 +255,11 @@ int init_all_apics(void)
 
                 switch(s->IntiFlags & ACPI_MADT_POLARITY_MASK) {
                 case ACPI_MADT_POLARITY_ACTIVE_HIGH:
-                    entry.polarity = LPC_IOAPIC_active_high;
+                    entry.polarity = lpc_ioapic_active_high;
                     break;
 
                 case ACPI_MADT_POLARITY_ACTIVE_LOW:
-                    entry.polarity = LPC_IOAPIC_active_low;
+                    entry.polarity = lpc_ioapic_active_low;
                     break;
                 }
 
@@ -269,12 +269,12 @@ int init_all_apics(void)
 
                 switch(s->IntiFlags & ACPI_MADT_TRIGGER_MASK) {
                 case ACPI_MADT_TRIGGER_EDGE:
-                    entry.trigger = LPC_IOAPIC_edge;
+                    entry.trigger = lpc_ioapic_edge;
                     break;
 
                 case ACPI_MADT_TRIGGER_LEVEL:
-                    // XXX: should be LPC_IOAPIC_level
-                    entry.trigger = LPC_IOAPIC_edge;
+                    // XXX: should be lpc_ioapic_level
+                    entry.trigger = lpc_ioapic_edge;
                     break;
                 }
 

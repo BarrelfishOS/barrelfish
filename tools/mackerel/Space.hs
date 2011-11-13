@@ -14,8 +14,6 @@
 module Space where
 
 import Text.ParserCombinators.Parsec
-import Text.ParserCombinators.Parsec.Pos
-
 
 data SpaceType = BYTEWISE Integer | VALUEWISE | UNDEF
                deriving (Show, Eq)
@@ -34,7 +32,7 @@ make :: String -> [String] -> String -> SpaceType -> SourcePos -> Rec
 make name args desc tpe pos = 
     Defined { n = name, a = args, d = desc, t = tpe, p = pos }
 
-
+builtins :: [ Rec ]
 builtins = [ Builtin { n = "",
                        d = "Undefined / unknown space",
                        t = UNDEF },

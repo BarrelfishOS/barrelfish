@@ -22,7 +22,6 @@
 
 #include "pci.h"
 #include <if/pci_defs.h>
-#include <lpc_bridge_dev.h>
 #include <mm/mm.h>
 
 #include "pci_debug.h"

@@ -16,7 +16,7 @@
 \usepackage{textcomp}
 \usepackage{amsmath}
 
-\title{Mackerel 1.2 User Guide}
+\title{Mackerel 1.3 User Guide}
 \author{Barrelfish project}
 % \date{\today}		% Uncomment (if needed) - date is automatic
 \tnnumber{2}
@@ -27,6 +27,8 @@
 
 \begin{versionhistory}
 \vhEntry{1.2}{31.05.2010}{TR}{Initial version under new formatting}
+\vhEntry{1.3}{15.08.2011}{TR}{Added support for imports and new
+  command-line options}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -76,7 +78,7 @@ Chapter \ref{chap:sourcetree}.
 
 To manually invoke \Mac, run:
 
-\verb~> mackerel --shift-driver devFile.dev devFile.h~
+\verb~> mackerel --shift-driver -c devFile.dev -o devFile.h~
 
 This will translate a device file into a single C header file containing all
 relevant functions for accessing the device, as described in
@@ -85,11 +87,47 @@ Chapter~\ref{chap:shiftdriver}.
 If you wish to use the (deprecated) bitfield-based back-end instead,
 you can use:
 
-\verb~> mackerel --bitfield-driver devFile.dev devFile.h~
+\verb~> mackerel --bitfield-driver -c devFile.dev -o devFile.h~
 
 This backend should not be used for new code, as it is not portable
 across compilers.  It is described in
 Chapter~\ref{chap:bitfielddriver}. 
+
+\section{Command-line options}
+
+The complete list of comand-line options supported by the current
+Mackerel compiler is as follows:
+\begin{itemize}
+\item \texttt{-c} \textit{filename} or
+  \texttt{--input-file=}\textit{filename}: This option is mandatory
+  and specifies the pathname to be read.  This pathname must specify
+  the file: the main input file will not be searched for along the
+  search path. 
+
+\item \texttt{-I} \textit{dir} or \texttt{--include-dir}
+  \textit{dir}: this option can be supplied multiple times and
+  specifies the search path for imported files. 
+
+\item \texttt{-v} or \texttt{--verbose}: Increases the verbosity level
+  of the compiler.
+
+\item \texttt{-o} \textit{filename} or \texttt{--output-file}
+  \textit{filename}: this option, if supplied, specifies the name of
+  the C header file which will be written by the compiler.  If not
+  given, the filename will be derived from the input filename by
+  removing all the directory components (i.e. it will reside in the
+  current working directory) and appending \texttt{.h}.
+
+\item \texttt{-S} or \texttt{shift-driver}: Specifies the shift driver
+  backend; this is the default. 
+
+\item \texttt{-B} or \texttt{bitfield-driver}: Specifies the bitfield
+  driver backend; this is deprecated.  Furthermore, imports are
+  (deliberately) not supported by the bitfield driver.  If multiple
+  \texttt{-S} and \texttt{-B} options are specified, the last one
+  determines the compiler output. 
+
+\end{itemize}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -140,7 +178,8 @@ binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
 xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \kill
 addr \> also \> bytewise \> constants \> datatype \> device \\
 io \> lsbfirst \> many \> msbfirst \> pci \> regarray  \\
-register \> regtype \> space \> stepwise \> type \> valuewise
+register \> regtype \> space \> stepwise \> type \> valuewise \\
+import 
   \end{tabbing}
 \end{alltt}
 
@@ -157,9 +196,31 @@ register \> regtype \> space \> stepwise \> type \> valuewise
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Declarations}\label{chap:declarations}
 
-A \Mac source file must consist of a single \textit{device
+A \Mac source file must consist of zero or more \textit{import}
+declarations, followed by a single \textit{device
   specification}, which itself consists of further specifications of
 registers, register types, etc. 
+
+\section{Imports}\label{sec:imports}
+
+An import declaration makes the definitions in a different device file
+available in the current device definition, as described below.  The
+syntax of an import declaration is as follows:
+
+\begin{syntax}
+import \synit{device};
+\end{syntax}
+
+\begin{description}
+\item[device] is the name of a device from which to import
+  definitions.  
+\end{description}
+
+The \Mac compiler will search for a file with the appropriate name and
+parse this at the same time as the main file, along with this file's
+imports, and so on.  Cyclic dependencies between device files will not
+cause errors, but at present are unlikely to result in C header files
+which will successfully compile. 
 
 \section{Devices}\label{sec:devices}
 
@@ -177,11 +238,11 @@ device \synit{name} [lsbfirst|msbfirst] ( \synit{args} ) "\synit{description}"
 
 \begin{description}
 \item[name] is an identifier for the device type, and will be used to
-  generate identifiers in the target language (typically C).  While
-  not enforced by the \Mac compiler, by
-  convention this should only differ from the name of the file in case
-  and suffix, e.g.\ the file \texttt{xapic.dev} defines a device type
-  of name \texttt{xAPIC}. 
+  generate identifiers in the target language (typically C).  
+  The name of the name of the device \emph{must} correspond to the
+  filename of the file, including case sensitivity: for example, 
+  the file \texttt{xapic.dev} will define a device type
+  of name \texttt{xapic}. 
 
 \item[lsbfirst or msbfirst] optionally specifies the \emph{bit order}
   of the declarations 
@@ -480,9 +541,11 @@ given starts at bit 0, etc.
 \item[width] is an integer giving the width of the field in bits. 
 
 \item[fieldtype] is an optional identifier giving the type of this field.
-  This must be the identifier of a \texttt{constants} declaration
+  This must be either the identifier of a \texttt{constants} declaration
   somewhere in the enclosing \texttt{device} declaration, for example
-  \texttt{type(vdm)}. 
+  \texttt{type(vdm)}, or a qualified name of the form
+  \textit{device}\texttt{.}\textit{constdef}, where \textit{device} is
+  the name of a device definition previously imported. 
 
 \item[attr] is an optional field
   attribute.  See section~\ref{sec:fieldattrs} for more information. 
@@ -569,9 +632,11 @@ register \synit{name} [\synit{attr}] [also]
 \item[type] gives the format of the register.  It can consist of
   \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is either
   the identifer of a register type previously declared with a
-  \texttt{regtype} declaration, or one of the built in register
+  \texttt{regtype} declaration; one of the built in register
   types \texttt{uint8}, \texttt{uint16}, \texttt{uint32}, or
-  \texttt{uint64}. 
+  \texttt{uint64}; or a qualified name of the form
+  \textit{device}\texttt{.}\textit{regtype}, where \textit{device} is
+  the name of a device definition previously imported. 
 
   Alternatively, the type can be given as a sequence of fields in
   braces, exactly as in a \texttt{regtype} declaration.  In effect,
@@ -852,24 +917,25 @@ This latter header file includes declarations for the low-level read
 and write functions that \Mac code requires, and some other
 preprocessor macros to ensure correct C code generation.   
 
-\Mac prefixes all declarations in the file with the
-name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
-most (though not all) declarations this prefix can be overridden by
-defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
 
-This is at first sight a little confusing.  Suppose we have a device
-called \texttt{pc16550d\_uart}.   By default, any declaration
-\texttt{foo} in \Mac file will correspond to
-\texttt{pc16550d\_uart\_foo} in the header file. 
+%% \Mac prefixes all declarations in the file with the
+%% name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
+%% most (though not all) declarations this prefix can be overridden by
+%% defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
 
-If, however, we include a line:
+%% This is at first sight a little confusing.  Suppose we have a device
+%% called \texttt{pc16550d\_uart}.   By default, any declaration
+%% \texttt{foo} in \Mac file will correspond to
+%% \texttt{pc16550d\_uart\_foo} in the header file. 
 
-\begin{quote}
- \texttt{\#define pc16550d\_uart\_PREFIX uart}
-\end{quote}
+%% If, however, we include a line:
 
--- before including the header file, that declaration is likely to now
-be \texttt{uart\_foo}. 
+%% \begin{quote}
+%%  \texttt{\#define pc16550d\_uart\_PREFIX uart}
+%% \end{quote}
+
+%% -- before including the header file, that declaration is likely to now
+%% be \texttt{uart\_foo}. 
 
 In the rest of this chapter, we'll use ``\texttt{DN\_}'' as the
 device prefix that cannot be redefined in this manner, and ``\texttt{DP\_}''
@@ -1276,23 +1342,26 @@ and write functions that \Mac code requires, and some other
 preprocessor macros to ensure correct C code generation.   
 
 \Mac prefixes all declarations in the file with the
-name of the file plus an underscore (``\texttt{DEV\_}'').  However, for
-most (though not all) declarations this prefix can be overridden by
-defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
+name of the file plus an underscore (``\texttt{DEV\_}''). 
 
-This is at first sight a little confusing.  Suppose we have a device
-called \texttt{pc16550d\_uart}.   By default, any declaration
-\texttt{foo} in \Mac file will correspond to
-\texttt{pc16550d\_uart\_foo} in the header file. 
 
-If, however, we include a line:
+%%  However, for
+%% most (though not all) declarations this prefix can be overridden by
+%% defining the macro ``\texttt{DEV\_PREFIX}'' before including the file. 
 
-\begin{quote}
- \texttt{\#define pc16550d\_uart\_PREFIX uart}
-\end{quote}
+%% This is at first sight a little confusing.  Suppose we have a device
+%% called \texttt{pc16550d\_uart}.   By default, any declaration
+%% \texttt{foo} in \Mac file will correspond to
+%% \texttt{pc16550d\_uart\_foo} in the header file. 
 
--- before including the header file, that declaration is likely to now
-be \texttt{uart\_foo}. 
+%% If, however, we include a line:
+
+%% \begin{quote}
+%%  \texttt{\#define pc16550d\_uart\_PREFIX uart}
+%% \end{quote}
+
+%% -- before including the header file, that declaration is likely to now
+%% be \texttt{uart\_foo}. 
 
 In the rest of this chapter, we'll use ``\texttt{DN\_}'' as the
 device prefix that cannot be redefined in this manner, and ``\texttt{DP\_}''

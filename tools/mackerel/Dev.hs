@@ -18,7 +18,6 @@ import MackerelParser
 
 import qualified TypeTable as TT
 import qualified RegisterTable as RT
-import qualified ConstTable as CT
 import qualified Space
 
 
@@ -30,26 +29,27 @@ data Rec = Rec { name :: String,
                  desc :: String,
                  args :: [ AST ],
                  types ::[ TT.Rec ],
-                 dtypes ::[ TT.Rec ],
-                 cnstnts ::[ CT.Rec ],
+                 all_types ::[ TT.Rec ],
                  registers ::[ RT.Rec ],
-                 spaces :: [ Space.Rec ]
+                 spaces :: [ Space.Rec ],
+                 imports :: [ String ]
                }
 
-make_dev :: AST -> Rec
-make_dev (Device n bitorder al d decls) =
-    let sptbl = Space.builtins ++ [ rec | (SpaceDecl rec) <- decls ]
-        ttbl = TT.make_rt_table decls bitorder
-        rtbl = RT.make_table ttbl decls bitorder sptbl
+-- Create a device record from a list of DeviceFile ASTs from the Parser.  The first is the actual device file, while the rest are imports
+make_dev :: DeviceFile -> [DeviceFile] -> Rec
+make_dev df@(DeviceFile (Device n bitorder al d decls) imps) dfl =
+    let ttbl = TT.make_rtypetable df
+        stbl = Space.builtins ++ [ rec | (SpaceDecl rec) <- decls ]
+        rtbl = RT.make_table ttbl decls n bitorder stbl
     in
       Rec { name = n, 
             desc = d, 
             args = al, 
             types = ttbl,
-            dtypes = TT.make_dt_table decls bitorder,
-            cnstnts = CT.make_table decls, 
+            all_types = ttbl ++ ( concat $ map TT.make_rtypetable dfl ),
             registers = rtbl,
-            spaces = sptbl
+            spaces = stbl,
+            imports = imps
         }
 
 shdws :: Rec -> [ RT.Shadow ]

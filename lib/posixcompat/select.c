@@ -29,8 +29,8 @@ static void timeout_fired(void *arg)
   struct timeout_event *toe = arg;
   assert(toe != NULL);
   toe->fired = true;
-  /* printf("%d: select() timeout fired\n", disp_get_domain_id()); */
 }
+
 
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
            struct timeval *timeout)

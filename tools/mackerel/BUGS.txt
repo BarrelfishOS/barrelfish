@@ -1,6 +1,18 @@
 
+ * Constants can't be bigger than 32 bits.  For example: 
+    constants mcg_ctl_val "Global MC control values" {
+	mc_enable	= 0xffffffffffffffff;
+	mc_disable	= 0x0;
+    };
+    - again. 
 
- * Register types can't be declared constant types.  For example: 
+ * You should be able to declare the width of a constants
+   declaration.   This is mandatory if the constant is used to define
+   the type of a register (as opposed to the type of a register
+   field).  Probably another attribute: width(32). 
+
+   This can be used to help fix the problem that register types can't be
+    declared constant types.  For example:  
     constants mcg_ctl_val "Global MC control values" {
 	mc_enable	= 0xffffffffffffffff;
 	mc_disable	= 0x0;
@@ -9,12 +21,11 @@
 	type(msg_ctl_val);
    - doesn't work.   And badly. 
 
- * Constants can't be bigger than 32 bits.  For example: 
-    constants mcg_ctl_val "Global MC control values" {
-	mc_enable	= 0xffffffffffffffff;
-	mc_disable	= 0x0;
-    };
-    - again. 
+   Required additional checks are now:
+    - Constant values all fit into the bit width specified
+    - Constants used as register types must have a width.
+    - Constant types and register types (and datatypes) must have
+      disjoint names. 
 
  * What are the kinds of types we have?  A field has a type which is
    either an (anonymous) integer or a 'constants' declaration.  A
@@ -25,16 +36,38 @@
    'constants' types and register types are from the same namespace.
    This simplifies imports at least. 
 
-   Importing types (type imports are always qualified):
-     from xapic import ctl_reg; -- don't need this if everything is qualified!
-     import xapic;
+   How will we do device inheritance?  Clearly the new device is a
+   new type, but it also needs a new operation for every register,
+   even those inherited from the base device type.  This suggests that
+   register definitions should always be copied from the base type,
+   but register type definitions (and constant declarations) should
+   simply be referenced. 
+   by simply refering to the xapic type. 
 
-   Referring to types: type(xapic.ctl_reg)
 
-   Inheritance?  Specify a single parent device, allow 'elide'
-   constructs to remove imported registers.  Inheritance also
-   implicitly 'imports' types from the parent. 
+   New syntax for inheritance: 
+     1) extends(xapic) as an extra device attribute. 
+     2) override register foo ... to override a register definition. 
+     3) elide register bar; removes defn of bar from the new device. 
 
+   This works for constants types.  What about register types?   Still
+   works, but the types in a register access signature are now a
+   mixture of current and imported types.  Seems OK. .
+
+   Then: how to we do device inheritance?  Clearly the new device is a
+   new type, but it also needs a new operation for every register,
+   even those inherited from the base device type.  This suggests that
+   register definitions should always be copied from the base type,
+   but register type definitions (and constant declarations) should
+   simply be referenced. 
+
+ * When specifying constant values, can use '1s' as a special value to
+   mean 'all 1s up to the width of the field'. 
+     2) override register foo ... to override a register definition. 
+     3) elide register bar; removes defn of bar from the new device. 
+
+ * When specifying constant values, can use '1s' as a special value to
+   mean 'all 1s up to the width of the field'. 
 
  * Generalize register field attributes.  Specify fixed values
    properly, as either a literal, or a constant value name, or
@@ -210,3 +243,18 @@ Experiences:
    the data sheet, so a good way of getting acquainted with the
    device. 
 
+-----------------------
+
+acpi_ec.dev:1:1: File acpi_ec.dev describes dev EC not acpi_ec
+arm_icp_pic.dev:1:1: File arm_icp_pic.dev describes dev arm_icp_pic0 not arm_icp_pic
+hpet.dev:1:1: File hpet.dev describes dev HPET not hpet
+ixp2800_icp_pic.dev:1:1: File ixp2800_icp_pic.dev describes dev ixp2800_icp_pic0 not ixp2800_icp_pic
+ixp2800_uart.dev:1:1: File ixp2800_uart.dev describes dev IXP2800_UART not ixp2800_uart
+lpc_dma.dev:1:1: File lpc_dma.dev describes dev LPC_dma not lpc_dma
+lpc_ioapic.dev:1:1: File lpc_ioapic.dev describes dev LPC_IOAPIC not lpc_ioapic
+lpc_pic.dev:1:1: File lpc_pic.dev describes dev LPC_PIC not lpc_pic
+lpc_rtc.dev:1:1: File lpc_rtc.dev describes dev LPC_rtc not lpc_rtc
+lpc_rtc_spaces.dev:1:1: File lpc_rtc_spaces.dev describes dev LPC_rtc not lpc_rtc_spaces
+lpc_timer.dev:1:1: File lpc_timer.dev describes dev LPC_timer not lpc_timer
+pc16550d_uart.dev:1:1: File pc16550d_uart.dev describes dev PC16550D_UART not pc16550d_uart
+pl011_uart.dev:1:1: File pl011_uart.dev describes dev PL011_UART not pl011_uart

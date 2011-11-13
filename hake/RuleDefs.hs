@@ -499,8 +499,8 @@ mackerel_generic opts dev flag =
     in
       Rule [ mackerelProgLoc,
              Str ("--" ++ flag), 
-             mackerelDevFileLoc dev,
-             Out arch (mackerelDevHdrPath dev) 
+             Str "-c", mackerelDevFileLoc dev,
+             Str "-o", Out arch (mackerelDevHdrPath dev) 
            ]
 
 mackerelDependencies :: Options -> String -> [String] -> HRule

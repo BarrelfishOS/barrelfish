@@ -29,6 +29,7 @@ module  /x86_64/sbin/pci boot
 module  /x86_64/sbin/spawnd boot
 #bootapic-x86_64=1-15
 module  /x86_64/sbin/startd boot
+module /x86_64/sbin/routing_setup boot
 
 ## For networking
 ## For qemu, enable rtl8029

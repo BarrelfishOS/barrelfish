@@ -178,6 +178,9 @@ nxe_paging = False
 rck_emu :: Bool
 rck_emu = False
 
+oneshot_timer :: Bool
+oneshot_timer = False
+
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [  
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
@@ -217,6 +220,7 @@ defines = [ Str ("-D" ++ d) | d <- [
              if pse_paging then "CONFIG_PSE" else "",
              if nxe_paging then "CONFIG_NXE" else "",
              if rck_emu then "RCK_EMU" else "",
+             if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
              "MAX_CPUS=" ++ show max_cpus
              ], d /= "" ]
 

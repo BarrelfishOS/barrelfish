@@ -32,6 +32,7 @@
           where
             getsrcs "lmp" = [ "lmp_chan.c", "lmp_endpoints.c" ]
             getsrcs "ump" = [ "ump_chan.c", "ump_endpoint.c" ]
+            getsrcs "multihop" = [ "multihop_chan.c" ]
             getsrcs _ = []
 
       -- sources specific to the architecture family

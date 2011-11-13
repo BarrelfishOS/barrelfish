@@ -1121,5 +1121,13 @@ errval_t monitor_server_init(struct monitor_binding *b)
     }
 #endif
 
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+    errval_t err2;
+    err2 = multihop_monitor_init(b);
+    if (err_is_fail(err2)) {
+        USER_PANIC_ERR(err2, "multihop_monitor_init failed");
+    }
+#endif // CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+
     return monitor_server_arch_init(b);
 }

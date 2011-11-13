@@ -66,12 +66,11 @@ int main (int argc, char *argv[])
     char *cardName = NULL;
 
     const char *imagefile = IMAGEFILE;
-    /*
+
     err = timer_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error initialising timer client library\n");
     }
-    */
 
     if (argc < 3) {
         printf("Usage: %s <Network card Name> <vfs mount URI> [disk image path]\n",

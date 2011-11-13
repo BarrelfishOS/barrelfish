@@ -296,6 +296,11 @@ errors libbarrelfish LIB_ERR_ {
     failure MONITOR_CAP_SEND    "Failed sending capability via monitor",
     failure MONITOR_RPC_BIND    "Error in monitor_rpc_init()",
 
+    // multihop
+    failure BIND_MULTIHOP_REQ   "Failed sending bind_multihop_request to monitor",
+    failure NO_MULTIHOP_BIND_HANDLER "MULTIHOP connection handler not registered for this service",    
+    failure BIND_MULTIHOP_SAME_CORE "Cannot create a multihop channel to service on the same core",
+    
     // Bulk transfer
     failure BULK_UNKNOWN_ID	"Unknown bulk transfer block ID",
 

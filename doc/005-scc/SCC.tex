@@ -652,6 +652,41 @@ executed this benchmark. All numbers presented are in machine cycles.
 \end{tabular}
 \end{center}
 
+\section{Thread Switch Time}
+
+In this benchmark two threads are yielding between each  other in a
+ping-pong like benchmark. Therefore, Barrelfish's
+thread\_yield\_dispatcher function is used. This function donates the
+callers time-slice to the dispatcher pointed to by the argument to this
+function.
+
+A call to this function requires an endpoint capability to the
+partner, which needs to be exchanged between the threads at
+startup. One of the dispatchers acts as a server, calling export to
+offer the service to the nameserver, the other one as a client calling
+the bind function.
+
+The waitloops are broken as soon as both partners have the required
+endpoint capabilities set up. When looking at the numbers given in
+this benchmark, it is important to keep in mind that the domains might
+run some event processing code on scheduling.
+
+The decision to include those numbers in the measurements is on
+purpose for this analysis.
+
+The number of cycles given is from one thread to the partner and back
+to the original thread and therefore needs to be divided by two to get
+an approximation for the actual thread switch time.
+
+\begin{center}
+\begin{tabular}{rl}
+thread & cycles \\
+\hline \\
+server & 6732.79\\
+client & 6636.08\\
+\end{tabular}
+\end{center}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Evaluation of the implementation}\label{chap:eval}

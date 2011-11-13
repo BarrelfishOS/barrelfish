@@ -183,6 +183,9 @@ extern bool kernel_ticks_enabled;
 
 /**
  * Current kernel epoch in number of kernel_timeslice elapsed.
+ *
+ * XXX AKK: shouldn't this be systime_t?
+ * (It seems to count ms and not ticks anyway)
  */
 extern size_t kernel_now;
 

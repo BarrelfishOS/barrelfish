@@ -514,6 +514,13 @@ errval_t boot_arch_app_core(int argc, char *argv[])
     err = request_name_serv_iref(&umpb->b);
     assert(err_is_ok(err));
 
+#ifdef BARRELFISH_MULTIHOP_CHAN_H
+        // request my part of the routing table
+    err = multihop_request_routing_table(&umpb->b);
+    assert(err_is_ok(err));
+#endif // BARRELFISH_MULTIHOP_CHAN_H
+
+
     /* initialize self ram alloc */
     err = mon_ram_alloc_init(core_id);
     if (err_is_fail(err)) {

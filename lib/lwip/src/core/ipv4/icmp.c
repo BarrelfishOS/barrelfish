@@ -378,7 +378,6 @@ static void icmp_send_response(struct pbuf *p, u8_t type, u8_t code)
     /* increase number of messages attempted to send */
     snmp_inc_icmpoutmsgs();
     /* increase number of destination unreachable messages attempted to send */
-    printf("Trying to send ICMP response back\n");
     snmp_inc_icmpouttimeexcds();
     ip_output(q, NULL, &(iphdr->src), ICMP_TTL, 0, IP_PROTO_ICMP);
     pbuf_free(q);

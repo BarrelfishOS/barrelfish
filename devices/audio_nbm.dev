@@ -7,7 +7,7 @@
  */
 
 /*
- * audio_ndm.dev
+ * audio_nbm.dev
  *
  * DESCRIPTION: Intel Native Audio Bus Master registers
  * 
@@ -15,7 +15,7 @@
  *  Controller Hub Datasheet 
  */
 
-device audio_ndm msbfirst ( io base ) "Native Audio Bus Master" {
+device audio_nbm msbfirst ( io base ) "Native Audio Bus Master" {
   
   // 19.2.1
   regtype bdbar "Buffer descriptor base address" {

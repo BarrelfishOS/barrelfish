@@ -37,6 +37,9 @@ typedef enum idc_bind_flags {
     IDC_BIND_FLAG_RPC_CAP_TRANSFER = 1 << 0,
     // Do not block on receipt notifications even if transport supports it
     IDC_BIND_FLAG_NO_NOTIFY = 1 << 1,
+
+    // request a multi-hop channel
+    IDC_BIND_FLAG_MULTIHOP = 1 << 2,
 } idc_bind_flags_t;
 
 #define IDC_BIND_FLAGS_DEFAULT 0
@@ -55,6 +58,10 @@ typedef enum idc_bind_flags {
 
 #if defined(CONFIG_FLOUNDER_BACKEND_UMP_IPI)
 #include <arch/x86/barrelfish/ipi_notify.h>
+#endif
+
+#ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+#include <barrelfish/multihop_chan.h>
 #endif
 
 void idc_init(void);

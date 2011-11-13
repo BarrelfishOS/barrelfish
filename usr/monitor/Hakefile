@@ -43,6 +43,12 @@
           where
             getsrcs "ump" = [ "ump_support.c" ]
             getsrcs "bmp" = [ "bmp_support.c" ]
+            getsrcs "multihop" = [ "multihop_support.c" ]
+            getsrcs _     = []
+            
+     idc_libraries = concat $ map getsrcs $ optInterconnectDrivers $ options arch
+          where
+            getsrcs "multihop" = [ "collections" ]
             getsrcs _     = []
                      
   in
@@ -60,8 +66,8 @@
 					   [ "-e _start_init" ],
                         addIncludes = [ "include" ./. a | a <- arch_dirs arch ],
                         addLibraries = if arch == "beehive" then
- 				           [ "spawndomain", "bench", "trace", "libroute" ] ++ rcap_db_libs 
+ 				           [ "spawndomain", "bench", "trace", "libroute" ] ++ rcap_db_libs ++ idc_libraries
         			       else
- 				           [ "spawndomain", "bench", "trace", "elf", "libroute" ] ++ rcap_db_libs 
+ 				           [ "spawndomain", "bench", "trace", "elf", "libroute" ] ++ rcap_db_libs ++ idc_libraries
                       }
  ) | arch <- allArchitectures ]

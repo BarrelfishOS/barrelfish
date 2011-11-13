@@ -81,7 +81,8 @@ stdLibs arch =
     [ In InstallTree arch "/lib/libbarrelfish.a",
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch "/lib/libc.a",
-      In InstallTree arch "/lib/crtend.o" ]
+      In InstallTree arch "/lib/crtend.o" ,
+      In InstallTree arch "/lib/libcollections.a"]
 
 stdCxxLibs arch = 
     [ In InstallTree arch "/lib/libcxx.a",
@@ -103,8 +104,8 @@ options arch archFamily = Options {
             optLdCxxFlags = ldCxxFlags arch,
             optLibs = stdLibs arch,
             optCxxLibs = stdCxxLibs arch,
-            optInterconnectDrivers = ["lmp", "ump"],
-            optFlounderBackends = ["lmp", "ump"],
+            optInterconnectDrivers = ["lmp", "ump", "multihop"],
+            optFlounderBackends = ["lmp", "ump", "multihop"],
             extraFlags = [],
             extraDefines = [],
             extraIncludes = [],

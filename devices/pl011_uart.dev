@@ -18,7 +18,7 @@
  *
  */
 
-device PL011_UART msbfirst ( addr base ) "PL011 UART" {
+device pl011_uart msbfirst ( addr base ) "PL011 UART" {
 
   constants word_len "Word Length" {
      bits5 = 0b00    "5 bits";

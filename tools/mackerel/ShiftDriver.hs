@@ -24,9 +24,9 @@ import Checks
 import Attr
 import qualified Space
 import qualified CAbsSyntax as C
+import qualified TypeName as TN
 import qualified TypeTable as TT
 import qualified RegisterTable as RT
-import qualified ConstTable as CT
 import qualified Fields
 import qualified Dev
 
@@ -52,6 +52,7 @@ cv_e = "_e"             -- Enumeration type value
 --
 -- Device-related names
 --
+
 device_c_name :: String
 device_c_name = "__DN(t)"
 
@@ -59,74 +60,72 @@ device_shadow_field_name :: RT.Rec -> String
 device_shadow_field_name rt = (RT.name rt) ++ "_shadow"
 
 device_initialize_fn_name :: Dev.Rec -> String
-device_initialize_fn_name d = scope_name [ "initialize" ]
+device_initialize_fn_name d = qual_devname d [ "initialize" ]
 
 device_print_fn_name :: Dev.Rec -> String
-device_print_fn_name d = scope_name [ "pr" ]
+device_print_fn_name d = qual_devname d [ "pr" ]
 
 device_prefix_macro_name :: Dev.Rec -> String
-device_prefix_macro_name d = (Dev.name d) ++ "_PREFIX"
+device_prefix_macro_name d = qual_devname d ["PREFIX"]
 
 device_initial_enum_name :: Dev.Rec -> String
-device_initial_enum_name d = (Dev.name d) ++ "_initials"
+device_initial_enum_name d = qual_devname d ["initials"]
 
 --
 -- Constants-related names
 --
-constants_c_name :: CT.Rec -> String
-constants_c_name c = scope_name [CT.name c, "t"]
+constants_c_name :: TT.Rec -> String
+constants_c_name c = qual_typerec c ["t"]
 
-constants_elem_c_name :: CT.Val -> String
-constants_elem_c_name v = scope_name [ (CT.cname v) ]
+constants_elem_c_name :: TT.Val -> String
+constants_elem_c_name v = qual_device (TT.ctype v) [ TT.cname v ]
 
-constants_print_fn_name :: String -> String
-constants_print_fn_name c = scope_name [ c, "prtval"]
+constants_print_fn_name :: TN.Name -> String
+constants_print_fn_name c = qual_typename c ["prtval"]
 
-constants_check_fn_name :: CT.Rec -> String
-constants_check_fn_name c = scope_name [CT.name c, "chk" ]
+constants_check_fn_name :: TT.Rec -> String
+constants_check_fn_name c = qual_typerec c ["chk" ]
 
 --
 -- Register and datatype-related names
 --
 regtype_c_name :: TT.Rec -> String
 regtype_c_name rt 
-    | TT.is_builtin rt = (TT.tt_name rt) ++ "_t"
-    | otherwise = scope_name [ TT.tt_name rt, "t" ]
+    | TT.is_builtin rt = (TN.typeName $ TT.tt_name rt) ++ "_t"
+    | otherwise = qual_typerec rt ["t"]
 
-regtype_initial_macro_name :: Dev.Rec -> TT.Rec -> String
-regtype_initial_macro_name d rt = 
-    concat $ intersperse "_" [ Dev.name d, TT.tt_name rt, "default"]
+regtype_initial_macro_name :: TT.Rec -> String
+regtype_initial_macro_name rt = qual_typerec rt ["default"]
 
 regtype_extract_fn_name :: TT.Rec -> Fields.Rec -> String
-regtype_extract_fn_name rt f 
-    = scope_name [TT.tt_name rt, Fields.name f, "extract" ]
+regtype_extract_fn_name rt f = qual_typerec rt [ Fields.name f, "extract" ]
+
 regtype_insert_fn_name :: TT.Rec -> Fields.Rec -> String
-regtype_insert_fn_name rt f 
-    = scope_name [ TT.tt_name rt, Fields.name f, "insert" ]
+regtype_insert_fn_name rt f = qual_typerec rt [ Fields.name f, "insert" ]
 
 regtype_print_fn_name :: TT.Rec -> String
-regtype_print_fn_name rt = scope_name [TT.tt_name rt, "prtval"]
+regtype_print_fn_name rt = qual_typerec rt [ "prtval"]
 
 datatype_array_c_name :: TT.Rec -> String
-datatype_array_c_name rt = scope_name [TT.tt_name rt, "array", "t"]
+datatype_array_c_name rt = qual_typerec rt [ "array", "t"]
 
 datatype_size_macro_name :: TT.Rec -> String
-datatype_size_macro_name rt = scope_name [TT.tt_name rt, "size"]
+datatype_size_macro_name rt = qual_typerec rt ["size"]
 
 --
 -- Register- and register array-related names
 --
 register_initial_name :: RT.Rec -> String
-register_initial_name r = scope_name [ RT.name r, "initial" ]
+register_initial_name r = qual_register r [ "initial" ]
 
 register_read_fn_name :: RT.Rec -> String
-register_read_fn_name r = scope_name [RT.name r, "rd" ]
+register_read_fn_name r = qual_register r ["rd"]
 
 register_write_fn_name :: RT.Rec -> String
-register_write_fn_name r = scope_name [RT.name r, "wr" ]
+register_write_fn_name r = qual_register r ["wr"]
 
 register_shadow_name :: RT.Rec -> String
-register_shadow_name r = (RT.name r) ++ "_shadow"
+register_shadow_name r = qual_register r ["shadow"]
 
 register_c_name :: RT.Rec -> String
 register_c_name r = regtype_c_name $ RT.tpe r
@@ -135,25 +134,26 @@ field_c_name :: Fields.Rec -> String
 field_c_name f = 
     case Fields.tpe f of 
       Nothing -> round_field_size $ Fields.size f
-      Just t -> scope_name [ t, "t" ]
+      Just t -> qual_typename t ["t"]
 
 register_print_fn_name :: RT.Rec -> String
-register_print_fn_name rt = scope_name [ RT.name rt, "pr" ]
+register_print_fn_name rt = qual_register rt ["pr"]
 
 register_read_field_fn_name :: RT.Rec -> Fields.Rec -> String
-register_read_field_fn_name r f = scope_name [RT.name r, Fields.name f, "rdf"]
+register_read_field_fn_name r f = qual_register r [ Fields.name f, "rdf"]
 
 register_read_field_from_shadow_fn_name :: RT.Rec -> Fields.Rec -> String
-register_read_field_from_shadow_fn_name r f = scope_name [RT.name r, Fields.name f, "rd_shadow"]
+register_read_field_from_shadow_fn_name r f = 
+  qual_register r [Fields.name f, "rd", "shadow"]
 
 register_write_field_fn_name :: RT.Rec -> Fields.Rec -> String
-register_write_field_fn_name r f = scope_name [RT.name r, Fields.name f, "wrf"]
+register_write_field_fn_name r f = qual_register r [ Fields.name f, "wrf"]
 
 regarray_length_macro_name :: RT.Rec -> String
-regarray_length_macro_name r = scope_name [ RT.name r, "length" ]
+regarray_length_macro_name r = qual_register r [ "length" ]
 
 regarray_print_fn_name :: RT.Rec -> String
-regarray_print_fn_name rt = scope_name [ RT.name rt, "pri" ]
+regarray_print_fn_name rt = qual_register rt ["pri"]
 
 -------------------------------------------------------------------------
 -- Convenience functions for generating the C mapping
@@ -172,9 +172,24 @@ round_field_size w
 --
 -- Take a list of scope names and translate to a C identifier. 
 -- 
-scope_name :: [ String ] -> String
-scope_name l = "__DP(" ++ (concat $ intersperse "_" l) ++ ")"
 
+qual_devname :: Dev.Rec -> [ String ] -> String
+qual_devname d l = 
+  concat $ intersperse "_" ([Dev.name d] ++ l)
+
+qual_device :: TN.Name -> [ String ] -> String
+qual_device t l =
+  concat $ intersperse "_" ([TN.devName t] ++ l)
+
+qual_typename :: TN.Name -> [ String ] -> String
+qual_typename (TN.Name dn tn) l = concat $ intersperse "_" ([dn, tn] ++ l)
+
+qual_typerec :: TT.Rec -> [ String ] -> String
+qual_typerec t l = qual_typename (TT.tt_name t) l 
+
+qual_register :: RT.Rec -> [ String ] -> String
+qual_register r l = qual_device (RT.typename r) ([RT.name r] ++ l)
+                    
 --
 -- Generate a simple automatic variable declaration with optional initializer.
 --
@@ -325,14 +340,6 @@ convert_arg (Arg "io" x) = Arg "mackerel_io_t" x
 compile infile outfile dev = 
     unlines $ C.pp_unit $ device_header_file dev infile
 
-_success = exitWith ExitSuccess
-_fail = exitWith (ExitFailure 1)
-                            
-output s exit = if(exit == 0) then 
-                    (hPutStrLn stdout s) >> _success
-                else
-                    (hPutStrLn stderr s) >> _fail 
-
 device_header_file_string :: Dev.Rec -> String -> String
 device_header_file_string d hdr
     = unlines $ C.pp_unit $ device_header_file d hdr
@@ -348,15 +355,18 @@ device_def :: Dev.Rec -> String -> [ C.Unit ]
 device_def dev header = 
                 ( [device_preamble dev]
                   ++
-                  std_header_files
+                  std_header_files dev
                   ++ 
                   device_prefix_defs dev
                   ++
-                  concat [ constants_decl d | d <- (Dev.cnstnts dev) ]
+                  concat [ constants_decl d 
+                         | d@(TT.ConstType {}) <- Dev.types dev]
                   ++
-                  concat [ regtype_decl dev d | d <- (Dev.types dev) ] 
+                  concat [ regtype_decl d 
+                         | d@(TT.RegFormat {}) <- Dev.types dev ] 
                   ++
-                  concat [ datatype_decl d | d <- (Dev.dtypes dev) ]
+                  concat [ datatype_decl d 
+                         | d@(TT.DataFormat {}) <- Dev.types dev]
                   ++ 
                   (device_struct_def dev)
                   ++
@@ -395,8 +405,7 @@ device_c_type = C.TypeName device_c_name
 
 -- Undefine macros used by the header file
 device_prefix_undefs :: Dev.Rec -> [ C.Unit ]
-device_prefix_undefs d = 
-    [ C.Undef ("__" ++ n) | n <- [ "DN", "DP", "DP1", "DP2", "STR", "XTR" ] ] 
+device_prefix_undefs d = [ C.Undef "__DN" ]
 
 -- Define macros used by the header file
 device_prefix_defs :: Dev.Rec -> [ C.Unit ]
@@ -406,20 +415,16 @@ device_prefix_defs d =
     in
       (device_prefix_undefs d)
       ++
-      [ C.Define "__DN" ["x"] (name ++ " ## _ ## x"),
-        C.IfDef prefix
-              [ C.Define "__DP" ["x"] ( "__DP1(x," ++ prefix ++ ")" ),
-                C.Define "__DP1" ["x1","x2"] "__DP2(x1,x2)",
-                C.Define "__DP2" ["x1","x2"] "x2 ## x1" ]
-              [ C.Define "__DP" ["x"] ( name ++ "##_ ##x") ],
-        C.Define "__STR" ["x"] "#x",
-        C.Define "__XTR" ["x"] "__STR(x)"
-      ]
+      [ C.Define "__DN" ["x"] (name ++ " ## _ ## x") ]
 
 -- Header files info
-std_header_files :: [ C.Unit ]
-std_header_files = 
-    map (C.Include C.Standard) [ "mackerel/mackerel.h", "inttypes.h" ]
+std_header_files :: Dev.Rec -> [ C.Unit ]
+std_header_files dev = 
+    map (C.Include C.Standard) inclist
+    where 
+      inclist = [ "mackerel/mackerel.h", "inttypes.h" ]
+                ++
+                [ i ++ ".dev.h" | i <- Dev.imports dev ] 
 
 -- Device representation structure generator              
 device_struct_def :: Dev.Rec -> [ C.Unit ]
@@ -530,7 +535,7 @@ device_space_includes d header
 -- Everything we need for a constants definition
 --
 
-constants_decl :: CT.Rec -> [ C.Unit ]
+constants_decl :: TT.Rec -> [ C.Unit ]
 constants_decl c = 
     [ constants_comment c, 
       constants_enum c,
@@ -538,21 +543,21 @@ constants_decl c =
       constants_print_fn c,
       constants_check_fn c ]
 
-constants_c_type :: CT.Rec -> C.TypeSpec
+constants_c_type :: TT.Rec -> C.TypeSpec
 constants_c_type c = C.TypeName $ constants_c_name c 
 
-constants_comment :: CT.Rec -> C.Unit      
+constants_comment :: TT.Rec -> C.Unit      
 constants_comment c =
-    C.MultiComment [ printf "Constants defn: %s (%s)" (CT.name c) (CT.desc c) ]
+    C.MultiComment [ printf "Constants defn: %s (%s)" (TN.toString $ TT.tt_name c) (TT.tt_desc c) ]
 
-constants_enum :: CT.Rec -> C.Unit
+constants_enum :: TT.Rec -> C.Unit
 constants_enum c = 
     let n = constants_c_name c
     in
       C.EnumDecl n [ C.EnumItem (constants_elem_c_name v)
-                      (Just $ C.HexConstant $ constants_eval $ CT.cval v) | v <- CT.vals c ]
+                      (Just $ C.HexConstant $ constants_eval $ TT.cval v) | v <- TT.tt_vals c ]
 
-constants_typedef :: CT.Rec -> C.Unit
+constants_typedef :: TT.Rec -> C.Unit
 constants_typedef c = 
     let n = constants_c_name c
     in C.TypeDef (C.Enum n) n
@@ -561,9 +566,9 @@ constants_typedef c =
 -- XXX
 constants_eval (ExprConstant i) = i
 
-constants_print_fn :: CT.Rec -> C.Unit
+constants_print_fn :: TT.Rec -> C.Unit
 constants_print_fn c = 
-    C.StaticInline (C.TypeName "int") (constants_print_fn_name $ CT.name c)
+    C.StaticInline (C.TypeName "int") (constants_print_fn_name $ TT.tt_name c)
           [ C.Param (C.Ptr $ C.TypeName "char") cv_s,
             C.Param (C.TypeName "size_t") cv_size,
             C.Param (constants_c_type c) cv_e ]
@@ -573,25 +578,25 @@ constants_print_fn c =
                 [ C.Variable cv_s, 
                   C.Variable cv_size, 
                   C.StringConstant "%s", 
-                  C.StringConstant $ CT.cdesc v ]
-              ] | v <- CT.vals c ]
+                  C.StringConstant $ TT.cdesc v ]
+              ] | v <- TT.tt_vals c ]
             [ C.Return $ C.Call "snprintf" 
               [ C.Variable cv_s, 
                 C.Variable cv_size,
                 C.StringConstant "Unknown constant %s value 0x%x",
-                C.StringConstant $ CT.name c,
+                C.StringConstant (constants_c_name c),
                 C.Variable cv_e ]
             ]
           ]
 
-constants_check_fn :: CT.Rec -> C.Unit
+constants_check_fn :: TT.Rec -> C.Unit
 constants_check_fn c =
     C.StaticInline (C.TypeName "int") (constants_check_fn_name c)
           [ C.Param (constants_c_type c) cv_e ]
           [ C.Switch (C.Variable cv_e) 
             [ C.Case (C.Variable $ constants_elem_c_name v)
               [ C.Return $ C.NumConstant 1 ]
-                  | v <- CT.vals c ]
+                  | v <- TT.tt_vals c ]
             [ C.Return $ C.NumConstant 0 ]
           ]
 
@@ -605,11 +610,11 @@ regtype_c_type rt = C.TypeName $ regtype_c_name rt
 --
 -- All the generated declarations for a register type.
 --
-regtype_decl :: Dev.Rec -> TT.Rec -> [ C.Unit ]
-regtype_decl dev rt = 
+regtype_decl :: TT.Rec -> [ C.Unit ]
+regtype_decl rt = 
     [ regtype_dump rt,
       regtype_typedef rt,
-      regtype_initial_macro dev rt
+      regtype_initial_macro rt
     ]
     ++
     (regtype_access_fns rt) 
@@ -624,14 +629,12 @@ regtype_decl dev rt =
 --
 regtype_dump :: TT.Rec -> C.Unit
 regtype_dump rt = 
-    let t = if (TT.is_reg rt) then "Register" else "Data"
-    in
-      C.MultiComment ([ t ++ " type: " ++ (regtype_c_name rt),
-                         "Description: " ++ (TT.tt_desc rt),
-                         "Fields:"
-                       ]
-                       ++ 
-                       [ field_dump f | f <- TT.fields rt ])
+    C.MultiComment ([ (TT.type_kind rt) ++ " type: " ++ (regtype_c_name rt),
+                      "Description: " ++ (TT.tt_desc rt),
+                      "Fields:"
+                    ]
+                    ++ 
+                    [ field_dump f | f <- TT.fields rt ])
 --
 -- Define the register type to be an unsigned integer of appropriate size
 --
@@ -645,12 +648,13 @@ regtype_typedef rt =
 -- Emit macro for initial register value
 --
 
-regtype_initial_macro :: Dev.Rec -> TT.Rec -> C.Unit
-regtype_initial_macro d rt@(TT.Format _ _ td _ _ _) =
+regtype_initial_macro :: TT.Rec -> C.Unit
+regtype_initial_macro rt =
     C.Define sym [] (C.pp_expr $ C.HexConstant val)
     where
-      sym = regtype_initial_macro_name d rt
-      val = foldl (.|.) 0 [ Fields.initial_mask f | f <- td ]
+      sym = regtype_initial_macro_name rt
+      fields = TT.fields rt
+      val = foldl (.|.) 0 [ Fields.initial_mask f | f <- fields ]
 
 --
 -- Emit functions to extract and insert each field from a value of
@@ -663,7 +667,7 @@ regtype_access_fns rt =
              | f <- TT.fields rt, not $ Fields.is_anon f ]
 
 --
--- Return the C type name for a field of a register
+-- Return the C type name for a field o a register
 --
 
 field_c_type :: Fields.Rec -> C.TypeSpec 
@@ -717,11 +721,12 @@ regtype_field_insert_fn rt f =
 -- Print out a value of the register or data type
 --
 regtype_print_fn :: TT.Rec -> C.Unit
-regtype_print_fn rt@(TT.Format tname size td desc _ _) =
+regtype_print_fn rt =
     snprintf_like_defn (regtype_print_fn_name rt) args body
     where
+        fields = TT.fields rt
         args = [ C.Param (regtype_c_type rt) cv_regval ]
-        body = [ field_print_block rt f | f <- td, not $ Fields.is_anon f ]
+        body = [ field_print_block rt f | f <- fields, not $ Fields.is_anon f ]
 
 --
 -- Return a statement (or list) which will correctly format a register
@@ -873,7 +878,7 @@ register_c_type r = C.TypeName $ register_c_name r
 
 register_shadow_ref :: RT.Rec -> C.Expr
 register_shadow_ref r =
-    let deref = C.DerefField (C.Variable cv_dev) (register_shadow_name r)
+    let deref = C.DerefField (C.Variable cv_dev) (device_shadow_field_name r)
     in 
       if RT.is_array r then
           C.SubscriptOf deref (C.Variable cv_i)
@@ -920,7 +925,7 @@ register_dump_comment r
       where title = if (RT.is_array r) then " array" else ""
             name = printf "Register%s %s: %s" title (RT.name r) (RT.desc r)
             typedesc = printf "Type: %s (%s)" 
-                         (RT.typename r)
+                         (TN.toString $ RT.typename r)
                          (if TT.is_primitive $ RT.tpe r
                           then "primitive type" 
                           else TT.tt_desc $ RT.tpe r)
@@ -1048,8 +1053,8 @@ loc_read r =
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),
                   loc_array_offset r ]
       (Space.Defined n a _ t p) -> 
-          C.Call (scope_name [n,  "read", (show $ RT.size r)])
-                [ C.Variable cv_dev, loc_array_offset r ]
+          C.Call (register_read_fn_name r) [ C.Variable cv_dev, 
+                                             loc_array_offset r ]
 
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
@@ -1060,9 +1065,10 @@ loc_write r val =
                   loc_array_offset r,
                   C.Variable val ]
       (Space.Defined n a _ t p) -> 
-          C.Call (scope_name [n,  "write", (show $ RT.size r)])
-                [ C.Variable cv_dev, loc_array_offset r, C.Variable val ]
-
+          C.Call (register_write_fn_name r) [ C.Variable cv_dev, 
+                                              loc_array_offset r, 
+                                              C.Variable val ]
+    
 --
 -- Calculate the C expression for an appropriate offset for a register
 -- array element, taking into account whether the address space is
