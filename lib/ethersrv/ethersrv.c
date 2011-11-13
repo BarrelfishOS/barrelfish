@@ -329,7 +329,6 @@ static void reset_client_closure_stat(struct client_closure *cc)
     cc->in_dropped_notification_prob = 0;
     cc->in_dropped_notification_prob2 = 0;
     cc->tx_done_count = 0;
-    cc->pbuf_count = 0;
     cc->in_dropped_q_full = 0;
     cc->in_success = 0;
     cc->in_trigger_counter = 0;
@@ -348,6 +347,7 @@ static void reset_client_closure_stat(struct client_closure *cc)
     cc->in_app_time_sum = 0;
     cc->in_app_time_min = 0;
     cc->in_app_time_max = 0;
+    cc->pbuf_count = 0;
 }
 
 /*****************************************************************
@@ -704,154 +704,35 @@ static void register_pbuf(struct ether_binding *b, uint64_t pbuf_id,
     }
 }
 
-#if 0
-static void transmit_packet(struct ether_binding *cc, uint64_t nr_pbufs,
-                            uint64_t buffer_id, uint64_t len, uint64_t offset,
-                            uint64_t client_data)
-{
-
-#if TRACE_ETHERSRV_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NO_A, (uint32_t) client_data);
-#endif                          // TRACE_ETHERSRV_MODE
-
-    errval_t r;
-    struct client_closure *closure = (struct client_closure *) cc->st;
-
-    assert(closure != NULL);
-
-    assert(closure->buffer_ptr->buffer_id == buffer_id);
-    assert(nr_pbufs <= MAX_NR_TRANSMIT_PBUFS);
-
-
-    if (closure->nr_transmit_pbufs == 0) {
-        closure->nr_transmit_pbufs = nr_pbufs;
-        closure->len = 0;
-    }
-    closure->pbuf[closure->rtpbuf].buffer_id = buffer_id;
-    closure->pbuf[closure->rtpbuf].sr = cc;
-    closure->pbuf[closure->rtpbuf].cc = closure;
-    closure->pbuf[closure->rtpbuf].len = len;
-    closure->pbuf[closure->rtpbuf].offset = offset;
-    closure->pbuf[closure->rtpbuf].client_data = client_data;
-    /* WARN: Most of this code is on assumption that app will send one
-     * packet at one time, and there will be no packet pipelining. */
-    closure->len = closure->len + len;  /* total lengh of packet */
-
-    /* making the buffer memory cache coherent. */
-    bulk_arch_prepare_recv((void *) closure->buffer_ptr->pa + offset, len);
-
-    closure->rtpbuf++;
-    if (closure->rtpbuf < closure->nr_transmit_pbufs) {
-        /* all pbufs are not arrived yet, waiting for more pbufs associated
-         * with this packet. */
-        return;
-    }
-
-
-    /*we are done receiving all the pbufs from the application network
-       stack and can transmit them finally */
-
-    /* FIXME: ideally, one should check if this sender is allowed to send
-     * this packet or not. */
-
-    /* FIXME: this design expects more than one msg when packet does not
-     * fit into one pbuf, I feel that it is bad design */
-
-//        do {
-    r = ether_transmit_pbuf_list_ptr(closure);
-//        } while (r == ETHERSRV_ERR_CANT_TRANSMIT);
-
-    //in case we cannot transmit, discard the _whole_ packet (just don't
-    //enqueue transmit descriptors in the network card's ring)
-    if (err_is_fail(r)) {
-        ++closure->dropped_pkt_count;
-        dropped_pkt_count++;
-//                printf("Transmit_packet dropping %"PRIu64"\n",
-//                        dropped_pkt_count);
-
-        //if we have to drop the packet, we still need to send a tx_done
-        //to make sure that lwip frees the pbuf. If we drop it, the driver
-        //will never find it in the tx-ring from where the tx_dones
-        //are usually sent
-
-        /* BIG FIXME: This should free all the pbufs and not just pbuf[0].
-         * Also, is it certain that all packets start with pbuf[0]??
-         * Mostly this will lead to re-write of bulk-transfer mode.  */
-
-        assert(closure->pbuf[0].sr);
-        bool ret = notify_client_free_tx(closure->pbuf[0].sr,
-                                         closure->pbuf[0].client_data,
-                                         closure->pbuf[0].spp_index,
-                                         rdtsc(),
-                                         tx_free_slots_fn_ptr(), 1);
-
-        if (ret == false) {
-            printf("Error: Bad things are happening."
-                   "TX packet dropped, TX_done MSG dropped\n");
-            // This can lead to pbuf leak
-            // FIXME: What type of error handling to use?
-        }
-    } else {
-        // successfull transfer!
-        ++closure->pkt_count;
-        closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
-//            printf("Counter incremented %"PRIu64"\n", closure->pbuf_count);
-
-    }
-
-    //reset to indicate that a new packet will start
-    closure->nr_transmit_pbufs = 0;
-    closure->rtpbuf = 0;
-    closure->len = 0;
-    // Now check if there are any free TX slot from the packets
-    // which are sent.
-    while (handle_free_tx_slot_fn_ptr());
-}
-#endif // 0
-
-
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
+    errval_t r;
 //    uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
-//    struct buffer_descriptor *buffer = closure->buffer_ptr;
-//    assert(buffer != NULL);
     struct shared_pool_private *spp = closure->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
-    //reset to indicate that a new packet will start
-    closure->nr_transmit_pbufs = 0;
-    closure->rtpbuf = 0;
 
-    errval_t r;
-    // FIXME: keep the copy of ghost_read_id so that it can be restored
+    sp_reload_regs(spp);
+    // Keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
     uint64_t ghost_read_id_copy = spp->ghost_read_id;
     uint64_t current_spp_slot_id = spp->ghost_read_id;
+
     struct slot_data s;
     if (!sp_ghost_read_slot(spp, &s)) {
         return false;
     }
 
     // Some sanity checks
-/*
-    if (buffer->buffer_id != s.buffer_id) {
-        printf("PROB: %"PRIu64" != %"PRIu64", no%"PRIu64", %"PRIu64" \n",
-            buffer->buffer_id,  s.buffer_id, s.no_pbufs, s.len);
-        sp_print_metadata(spp);
-        assert(!"pbuf from wrong buffer");
-    }
-    assert(buffer->buffer_id == s.buffer_id);
-*/
-
-    assert(closure->nr_transmit_pbufs == 0);
     assert(s.no_pbufs <= MAX_NR_TRANSMIT_PBUFS);
 
     // FIXME: Make sure that there are s.no_pbuf slots available
 
     closure->nr_transmit_pbufs = s.no_pbufs;
+    closure->rtpbuf = 0;
     closure->len = 0;
 
     do {
@@ -890,7 +771,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         }
     } while(1);
 
-    closure->hw_queue = closure->hw_queue + closure->rtpbuf;
+    closure->hw_queue = closure->hw_queue + closure->nr_transmit_pbufs;
     r = ether_transmit_pbuf_list_ptr(closure);
 
     if (err_is_fail(r)) {
@@ -927,36 +808,32 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             // This can lead to pbuf leak
             // FIXME: What type of error handling to use?
         }
-    }
-    else {
-        // successfull traInsfer!
-        if (closure->debug_state_tx == 4) {
-            ++closure->pkt_count;
-            closure->pbuf_count = closure->pbuf_count + closure->nr_transmit_pbufs;
-//                bm_record_event_simple(RE_TX_SP_S, ts);
-            if (closure->pkt_count == closure->out_trigger_counter) {
-                benchmark_control_request(cc, BMS_STOP_REQUEST, 0, 0);
-            }
-        } else {
-            if (closure->debug_state_tx == 3) {
-                ++closure->pkt_count;
-                if (closure->pkt_count == 1) {
-                    // This is the first packet, so lets restart the timer!!
-                    closure->start_ts_tx = rdtsc();
-                    closure->debug_state_tx = 4;
-                } else {
-                    assert(!"Not possible!");
-                }
-            }
+        return false;
+    } // end if: failed in transfer
+
+    // successfull transfer!
+    if (closure->debug_state_tx == 4) {
+        // Benchmarking mode is on
+        ++closure->pkt_count;
+        closure->pbuf_count = closure->pbuf_count +
+            closure->nr_transmit_pbufs;
+
+        if (closure->pkt_count == closure->out_trigger_counter) {
+            benchmark_control_request(cc, BMS_STOP_REQUEST, 0, 0);
         }
+    } // end if: benchmarking mode is on
 
-//        printf("successful transer, counter incremented %"PRIu64"\n",
-//                closure->pbuf_count);
+    if (closure->debug_state_tx == 3) {
+        // Benchmarking mode should be started here!
+        ++closure->pkt_count;
+        assert(closure->pkt_count == 1);
+        // This is the first packet, so lets restart the timer!!
+        closure->start_ts_tx = rdtsc();
+        closure->debug_state_tx = 4;
+        closure->pbuf_count = closure->nr_transmit_pbufs;
+    } // end if: Starting benchmarking mode
 
-    }
-    closure->len = 0;
     return true;
-
 } // end function: send_single_pkt_to_driver
 
 static uint64_t send_packets_on_wire(struct ether_binding *cc)
@@ -983,8 +860,10 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
         ++pkts;
     }
 
-    if (closure->debug_state_tx == 4) {
-        bm_record_event_simple(RE_TX_T, pkts);
+    if (pkts > 0) {
+        if (closure->debug_state_tx == 4) {
+            bm_record_event_no_ts(RE_TX_T, pkts);
+        }
     }
     return pkts;
 }
@@ -2103,14 +1982,23 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
+
     cc->hw_queue = cc->hw_queue - 1;
     ETHERSRV_DEBUG("Notifying the app for %"PRIu64"\n", spp_index);
+
+    if(spp->sp->read_reg.value != spp_index) {
+       printf("notify_client_free_tx: prob: read reg[%"PRIu64"] == "
+               "spp_index [%"PRIu64"]\n",
+               spp->sp->read_reg.value, spp_index);
+    }
+    assert(spp->sp->read_reg.value == spp_index);
+
     if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
         // FIXME:  This is dengarous!  I should increase read index,
         // only when all the packets till that read index are sent!
 //        printf("failed for %"PRIu64"\n",spp_index);
 //        sp_print_metadata(spp);
-//        assert(!"sp_set_read_index failed");
+        assert(!"sp_set_read_index failed");
     }
 
     if (spp->notify_other_side == 0) {
@@ -2721,7 +2609,7 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
         uint64_t trigger, uint64_t cl_data)
 {
     uint64_t ts;
-    uint8_t bm_type = 0; // 0 = RX benchmark
+    uint8_t bm_type = 1; // 0 = RX benchmark, 1 = TX benchmark
 //    printf("setting the debug status to %x and trigger [%"PRIu64"]\n",
 //            state, trigger);
     struct client_closure *cl = ((struct client_closure *) (cc->st));
@@ -2744,7 +2632,7 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
                    cl->dropped_pkt_count,
                    sp_queue_elements_count(cl->spp_ptr),
                    cl->hw_queue);
-            printf("TX Explicit msg needed [%"PRIu64"], sent[%"PRIu64"]\n",
+            printf("D TX Explicit msg needed [%"PRIu64"], sent[%"PRIu64"]\n",
                     cl->tx_explicit_msg_needed, cl->tx_notification_sent);
             printf("### RX OK[%"PRIu64"], D_CQ_full[%"PRIu64"], "
                   "D_invalid[%"PRIu64"], D_NO_APP[%"PRIu64"], "
@@ -2779,6 +2667,8 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             printf("Interrupt count [%"PRIu64"], loop count[%"PRIu64"]\n",
                     interrupt_counter, interrupt_loop_counter);
 
+            printf("Driver spp state");
+            sp_print_metadata(cl->spp_ptr);
             send_benchmark_control(cc, BMS_STOPPED, ts,
                     (cl->pkt_count - cl->dropped_pkt_count));
             cl->in_trigger_counter = trigger;
@@ -2793,6 +2683,14 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             interrupt_counter = 0;
             interrupt_loop_counter = 0;
             reset_client_closure_stat(cl);
+            // FIXME: Remove it, only for specific debugging!!!!
+            if (cl->spp_ptr->sp->read_reg.value != 0) {
+                printf("#### reset_client_closure_stat: read_reg == %"PRIu64""
+                    "instead of 0\n",
+                cl->spp_ptr->sp->read_reg.value);
+            }
+//            assert(cl->spp_ptr->sp->read_reg.value == 0);
+
             cl->in_trigger_counter = trigger;
             cl->out_trigger_counter = trigger;
             cl->debug_state = 3;
@@ -2878,6 +2776,13 @@ void bm_record_event_simple(uint8_t event_type, uint64_t ts)
     uint64_t delta = rdtsc() - ts;
     bm_record_event(event_type, delta);
 }
+
+void bm_record_event_no_ts(uint8_t event_type, uint64_t val)
+{
+    bm_record_event(event_type, val);
+}
+
+
 void bm_print_event_stat(uint8_t event_type, char *event_name)
 {
     uint8_t et = event_type;
@@ -2916,7 +2821,7 @@ void bm_print_interesting_stats(uint8_t type)
             break;
 
         case 1:
-            bm_print_event_stat(RE_TX_NOTI_CS,   "D: TX REG NOTI CS");
+            bm_print_event_stat(RE_TX_NOTI_CS,   "D: NOTI FROM APPLI");
             bm_print_event_stat_no(RE_TX_T,         "D: TX T");
             bm_print_event_stat(RE_TX_SP_S,      "D: TX SP_S");
             bm_print_event_stat(RE_TX_SP_F,      "D: TX SP_F");

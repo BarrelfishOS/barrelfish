@@ -303,16 +303,18 @@ void memp_initialize_pbuf_list(void)
         MEMP_STATS_AVAIL(avail, i, memp_num[i]);
     }
     memp = LWIP_MEM_ALIGN(memp_memory);
-    printf("memp_init: total types of pools %d\n", MEMP_MAX );
+/*    printf("memp_init: total types of pools %d\n", MEMP_MAX );
     printf("memp_init: total types of pools %d, memp_mem %p\n",
             MEMP_MAX, memp_memory);
     printf("memp_init: total types of pools %d, memp %p\n", MEMP_MAX, memp);
+*/
     memp->next = NULL;
     /* for every pool: */
     for (i = 0; i < MEMP_MAX; ++i) {
         memp_tab[i] = NULL;
-        printf("memp_init: %" PRIu16 "(%s) size %" PRIu16 " num %" PRIu16 "\n",
+/*      printf("memp_init: %" PRIu16 "(%s) size %" PRIu16 " num %" PRIu16 "\n",
                i, memp_desc[i], memp_sizes[i], memp_num[i]);
+*/
         /* create a linked list of memp elements */
         for (j = 0; j < memp_num[i]; ++j) {
             memp->next = NULL;

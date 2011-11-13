@@ -454,7 +454,7 @@ bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index)
     sp_atomic_set_reg(&spp->sp->read_reg, index);
     sp_reload_regs(spp);
 
-    spp->ghost_read_id = spp->c_read_id;
+//    spp->ghost_read_id = spp->c_read_id;
 //    printf("changing read_index!\n");
     if (sp_queue_empty(spp)) {
         // There is nothing more to consume,

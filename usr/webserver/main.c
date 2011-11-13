@@ -29,6 +29,7 @@
 static struct ip_addr serverip;
 static const char *serverpath;
 
+
 int main(int argc, char**argv)
 {
     errval_t err;
@@ -38,7 +39,7 @@ int main(int argc, char**argv)
         printf("Usage: %s CardName NFSIP NFSpath\n", argv[0]);
         return 1;
     }
-    char *card_name = argv[1];
+//    char *card_name = argv[1];
 
     struct in_addr server1;
     if (inet_aton(argv[2], &server1) == 0) {
@@ -52,8 +53,12 @@ int main(int argc, char**argv)
     SERVER_DEBUG("init start\n");
 
     SERVER_DEBUG("lwip_demo: lwip setup\n");
-    lwip_init(card_name);
+    if (lwip_init_auto() == false) {
+        printf("ERROR: lwip_init_auto failed!\n");
+        return 1;
+    }
 
+//    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     http_server_init(serverip, serverpath);
 
     SERVER_DEBUG("Init finished.\n");

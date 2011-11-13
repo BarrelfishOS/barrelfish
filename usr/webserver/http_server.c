@@ -185,11 +185,11 @@ static void http_server_err(void *arg, err_t err)
 
 static void http_server_close(struct tcp_pcb *tpcb, struct http_conn *cs)
 {
-    printf("%s %s %s %hu.%hu.%hu.%hu in %"PRIu64"\n",
+    printf("%s %s %s %hu.%hu.%hu.%hu in %"PU"\n",
             cs->hbuff->data ? "200" : "404", cs->request, cs->filename,
            ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
            ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip),
-            get_time_delta(&cs->start_ts));
+            in_seconds(get_time_delta(&cs->start_ts)));
     DEBUGPRINT("%d: http_server_close freeing the connection\n",
         conn->request_no);
 
@@ -580,6 +580,10 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
 
 static void realinit(void)
 {
+
+//    lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
+//    lwip_print_interesting_stats();
+//    lwip_debug_show_spp_status(1);
     printf("Cache loading time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
     struct tcp_pcb *pcb = tcp_new();
 //    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));

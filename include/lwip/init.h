@@ -93,6 +93,7 @@ void lwip_benchmark_control(int connection, uint8_t state, uint64_t trigger,
         uint64_t cl);
 uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,
         uint64_t *cl);
+void lwip_debug_show_spp_status(int connection);
 
 // For recording statistics
 #define MACHINE_CLK_UNIT    (1000000)
@@ -143,6 +144,8 @@ enum Recorded_Events {
     TX_SN_SEND,
     TX_A_SP_RN_CS,
     TX_A_SP_RN_T,
+    TX_SND_PKT_C,
+    TX_SND_PKT_S,
 };
 #define EVENT_LIST_SIZE  20
 

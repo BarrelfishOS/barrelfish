@@ -321,6 +321,11 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     uint64_t ts = rdtsc();
     assert(p != NULL);
 
+    if (benchmark_mode > 0) {
+        lwip_record_event_no_ts(TX_SND_PKT_C);
+    }
+
+
     // Find out no. of pbufs to send for single packet
     uint8_t numpbufs = 0;
     for (struct pbuf *tmpp = p; tmpp != 0; tmpp = tmpp->next) {
@@ -364,8 +369,13 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     mfence();                   // ensure that we flush all of the packet payload
 #endif                          // !defined(__scc__)
 
+
     uint8_t i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
+
+    if (benchmark_mode > 0) {
+        lwip_record_event_no_ts(TX_SND_PKT_S);
+    }
 
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
@@ -446,6 +456,12 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 } // end function: idc_send_packet_to_network_driver
 
 
+void debug_show_spp_status(int connection)
+{
+    struct ether_binding *b = driver_connection[connection];
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
+    sp_print_metadata(ccnc->spp_ptr);
+}
 
 
 static errval_t send_buffer_cap(struct q_entry e)
@@ -759,7 +775,6 @@ static errval_t send_benchmark_control_request(struct q_entry e)
         return FLOUNDER_ERR_TX_BUSY;
     }
 }
-
 
 void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
         uint64_t cl)

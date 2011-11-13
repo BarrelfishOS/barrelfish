@@ -471,6 +471,12 @@ bool lwip_init_auto(void)
 }
 
 
+void lwip_debug_show_spp_status(int connection)
+{
+    debug_show_spp_status(connection);
+}
+
+
 void lwip_benchmark_control(int direction, uint8_t state, uint64_t trigger,
         uint64_t cl)
 {
@@ -640,5 +646,7 @@ void lwip_print_interesting_stats(void)
     lwip_print_event_stat(TX_SN_SEND,   "U: TX SN SEND", 1);
     lwip_print_event_stat(TX_A_SP_RN_CS,   "U: TX SP RN CS", 1);
     lwip_print_event_stat(TX_A_SP_RN_T,   "U: TX SP RN T", 1);
+    lwip_print_event_stat(TX_SND_PKT_S,  "U: TX SND PKT SLOT", 0);
+    lwip_print_event_stat(TX_SND_PKT_C,  "U: TX SND PKTS", 0);
 }
 

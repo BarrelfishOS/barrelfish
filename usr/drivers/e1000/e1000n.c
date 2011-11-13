@@ -218,19 +218,19 @@ static bool handle_free_TX_slot_fn(void)
     }
 
     txd = &transmit_ring[ether_transmit_bufptr];
-    if (txd->ctrl.legacy.sta_rsv.d.dd == 1) {
-//        if (tx_pbuf[ether_transmit_bufptr].last == true) {
-
-        	sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
-        			tx_pbuf[ether_transmit_bufptr].client_data,
-                                tx_pbuf[ether_transmit_bufptr].spp_index,
-                                tx_pbuf[ether_transmit_bufptr].ts,
-                                find_tx_free_slot_count_fn(), 0);
-//        }
-        ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
+    if (txd->ctrl.legacy.sta_rsv.d.dd != 1) {
+        return false;
     }
+
+    sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
+            tx_pbuf[ether_transmit_bufptr].client_data,
+            tx_pbuf[ether_transmit_bufptr].spp_index,
+            tx_pbuf[ether_transmit_bufptr].ts,
+            find_tx_free_slot_count_fn(), 0);
+
+    ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
     bm_record_event_simple(RE_TX_DONE, ts);
-    return sent;
+    return true;
 }
 
 
