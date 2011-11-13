@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for if/
--- 
+--
 --------------------------------------------------------------------------
 
 -- whereas these are using the new-style bindings
@@ -49,7 +49,6 @@
                "trivfs",
                "usb_driver",
                "usb_manager",
-               "v_nic",
                "xcorecap",
                "xcorecapbench",
                "xmplcr",
