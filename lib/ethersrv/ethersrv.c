@@ -19,7 +19,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/net_constants.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <trace/trace.h>
@@ -30,50 +29,19 @@
 
 #define APP_QUEUE_SIZE  (RECEIVE_BUFFERS + 1)
 
-#define USE_SPP_FOR_TX_DONE 1
+#define USE_SPP_FOR_TX_DONE 1  // FIXME: I should not need this anymore
 
 /* Enable tracing based on the global settings. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
 #endif                          // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 /*****************************************************************
  * Constants:
  *****************************************************************/
 
 #define LAST_ACCESSED_BYTE_ARP 12
 #define LAST_ACCESSED_BYTE_TRANSPORT 36
-
-#define MACHINE_CLK_UNIT    (1000000)
-
-#if !defined(__scc__)
-#define MACHINE_CLOCK_SPEED  (2800)
-#else
-#define MACHINE_CLOCK_SPEED  (533)
-#endif // !defined(__scc__)
-
-#define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
-
-#define CONVERT_TO_SEC
-
-#ifdef CONVERT_TO_SEC
-#define PU "f"
-float in_seconds(uint64_t cycles);
-float in_seconds(uint64_t cycles)
-{
-    float ans;
-    ans = cycles / MACHINE_CLOCK_SPEED;
-    ans = ans / MACHINE_CLK_UNIT;
-    return ans;
-}
-#else
-#define PU PRIu64
-uint64_t in_seconds(uint64_t cycles);
-uint64_t in_seconds(uint64_t cycles)
-{
-    return cycles;
-}
-
-#endif // CONVERT_TO_SEC
 
 
 // Measurement purpose, counting interrupt numbers
@@ -1455,11 +1423,11 @@ void ethersrv_debug_printf(const char *fmt, ...)
 // NOTE: Code duplication (Copied from lib/lwip/src/core/init.c)
 // FIXME:  Move to a library
 // For recording stats
-static uint64_t stats[EVENT_LIST_SIZE][RDT_LIST_SIZE];
+static uint64_t stats[EVENT_LIST_SIZE][EVENT_ELEMENTS];
 void bm_reset_stats(void)
 {
     for (int i = 0; i < EVENT_LIST_SIZE; ++i) {
-        for (int j = 0; j < RDT_LIST_SIZE; ++j) {
+        for (int j = 0; j < EVENT_ELEMENTS; ++j) {
             stats[i][j] = 0;
         }
     }

@@ -729,7 +729,6 @@ void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
     entry.plist[1] = trigger;
     entry.plist[2] = cl;
 
-
 /*    printf("idc_debug_status: q size [%d]\n",
             ccnc->q->head - ccnc->q->tail);
     cont_queue_show_queue(ccnc->q);

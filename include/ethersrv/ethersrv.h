@@ -18,6 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
 #include <contmng/contmng.h>
+#include <contmng/netbench.h>
 #include <procon/procon.h>
 #include <if/ether_defs.h>
 #include <barrelfish/net_constants.h>
@@ -270,18 +271,6 @@ void print_statistics(void);
 // For recording statistics
 // FIXME: Move into library
 
-
-// Copy of this structure also exist in include/lwip/init.h
-// Make sure that these two have same values
-enum Benchmark_states {
-    BMS_INACTIVE = 0,
-    BMS_START_REQUEST = 1,
-    BMS_RUNNING = 2,
-    BMS_STOP_REQUEST = 3,
-    BMS_STOPPED = 4,
-};
-
-
 enum Recorded_Events {
     RE_ALL = 0,
     RE_FILTER = 1,
@@ -303,17 +292,8 @@ enum Recorded_Events {
     RE_TX_DONE_N,
     RE_TX_SP_MSG,
     RE_TX_SP_MSG_Q,
+    EVENT_LIST_SIZE
 };
-
-#define EVENT_LIST_SIZE  20
-
-enum Recorded_DataTypes {
-    RDT_COUNT = 0,
-    RDT_SUM = 1,
-    RDT_MAX = 2,
-    RDT_MIN = 3,
-};
-#define RDT_LIST_SIZE   4
 
 void bm_reset_stats(void);
 void bm_record_event(uint8_t event_type, uint64_t delta);
@@ -325,6 +305,5 @@ void bm_print_interesting_stats(uint8_t type);
 // Use of optimised memcpy for SCC
 
 void *memcpy_fast(void *dst0, const void *src0, size_t length);
-
 
 #endif // ETHERSRV_H
