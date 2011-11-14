@@ -20,7 +20,6 @@
 #include <stdio.h>
 
 #define PU "f"
-float in_seconds(uint64_t cycles);
 
 #if 0
 #define CONVERT_TO_SEC
@@ -91,5 +90,8 @@ void netbench_print_event_stat(struct netbench_details *nbp,
         uint8_t event_type, char *event_name, int type);
 void netbench_print_all_stats(struct netbench_details *nbp);
 
+// Utility functions
+uint64_t my_avg(uint64_t sum, uint64_t n);
+float in_seconds(uint64_t cycles);
 
 #endif // CONTMNG_H_

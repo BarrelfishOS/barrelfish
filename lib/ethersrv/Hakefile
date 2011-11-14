@@ -11,8 +11,8 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "ethersrv",
-                  cFiles = [ "ethersrv.c", "frag.c", "ethersrv_ctl.c" ],
---                               , "ethersrv_debug.c" ],
+                  cFiles = [ "ethersrv.c", "frag.c", "ethersrv_ctl.c",
+                               "ethersrv_support.c" ],
                   flounderBindings = [ "ether", "ether_control"],
                   addLibraries = [ "contmng", "procon", "bfdmuxvm", "lwip" ]
                 }

@@ -49,7 +49,7 @@ uint64_t in_seconds(uint64_t cycles)
 }
 #endif // CONVERT_TO_SEC
 
-static uint64_t my_avg(uint64_t sum, uint64_t n)
+uint64_t my_avg(uint64_t sum, uint64_t n)
 {
     if (n == 0) {
         return sum;

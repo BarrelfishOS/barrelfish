@@ -59,7 +59,7 @@ int main(int argc, char**argv)
         return 1;
     }
 
-//    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
+    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     http_server_init(serverip, serverpath);
 
     SERVER_DEBUG("Init finished.\n");

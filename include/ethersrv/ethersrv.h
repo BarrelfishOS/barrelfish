@@ -295,7 +295,7 @@ enum Recorded_Events {
 };
 
 extern struct netbench_details *bm;
-void bm_print_interesting_stats(uint8_t type);
+
 // **************************************
 // Use of optimised memcpy for SCC
 
