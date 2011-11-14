@@ -21,6 +21,8 @@
 #include <lwip/udp.h>
 #include <lwip/init.h>
 #include <netif/etharp.h>
+#include <contmng/netbench.h>
+
 //#define TOTAL_DATA_SIZE  629188608
 #define MAX_DATA   1330
 #define MULTIPLIER 10

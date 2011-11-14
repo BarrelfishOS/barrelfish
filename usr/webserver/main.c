@@ -22,6 +22,7 @@
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <netif/bfeth.h>
+#include <contmng/netbench.h>
 
 #include "webserver_network.h"
 #include "webserver_debug.h"

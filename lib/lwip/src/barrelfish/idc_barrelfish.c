@@ -23,6 +23,7 @@
 #include <netif/bfeth.h>
 #include <trace/trace.h>
 #include <contmng/contmng.h>
+#include <contmng/netbench.h>
 #include <procon/procon.h>
 #include "lwip/pbuf.h"
 #include "lwip/init.h"
@@ -178,7 +179,7 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
 #endif // LWIP_TRACE_MODE
 
         if (benchmark_mode > 0) {
-            lwip_record_event_simple(TX_SN_WAIT, e.plist[1]);
+            netbench_record_event_simple(nb, TX_SN_WAIT, e.plist[1]);
         }
 
         errval_t err = b->tx_vtbl.sp_notification_from_app(b,
@@ -186,7 +187,7 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
                           e.plist[0], ts);
         // type, ts
         if (benchmark_mode > 0) {
-            lwip_record_event_simple(TX_SN_SEND, ts);
+            netbench_record_event_simple(nb, TX_SN_SEND, ts);
         }
         return err;
 
@@ -218,7 +219,7 @@ static void wrapper_send_sp_notification_from_app(struct ether_binding *b)
     entry.plist[1] = ts;
     enqueue_cont_q(ccnc->q, &entry);
     if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_SP, ts);
+        netbench_record_event_simple(nb, TX_SP, ts);
     }
     if (new_debug)
          printf("send_pkt: q len[%d]\n", ccnc->q->head - ccnc->q->tail);
@@ -322,7 +323,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     assert(p != NULL);
 
     if (benchmark_mode > 0) {
-        lwip_record_event_no_ts(TX_SND_PKT_C);
+        netbench_record_event_no_ts(nb, TX_SND_PKT_C);
     }
 
 
@@ -342,7 +343,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     if (sp_queue_full(spp_send) || (free_slots_count < numpbufs)
             || (free_slots_count < 10) ) {
         if (benchmark_mode > 0) {
-            lwip_record_event_no_ts(TX_SPP_FULL);
+            netbench_record_event_no_ts(nb, TX_SPP_FULL);
             ++pkt_dropped;
         }
 
@@ -374,7 +375,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
 
     if (benchmark_mode > 0) {
-        lwip_record_event_no_ts(TX_SND_PKT_S);
+        netbench_record_event_no_ts(nb, TX_SND_PKT_S);
     }
 
 #if !defined(__scc__) && !defined(__i386__)
@@ -445,7 +446,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     }
 
     if (benchmark_mode > 0) {
-            lwip_record_event_simple(TX_SP1, ts);
+            netbench_record_event_simple(nb, TX_SP1, ts);
     }
 
 //  printf("idc_send_packet_to_network_driver  is done\n");
@@ -710,7 +711,8 @@ void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
     struct q_entry entry;
     benchmark_mode = state;
     if (state == 1) {
-        lwip_reset_stats();
+        netbench_reset(nb);
+        nb->status = 1;
         pkt_dropped = 0;
     }
 
@@ -858,7 +860,7 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
     assert(ccnc->spp_ptr->sp != NULL);
 /*
     if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_A_SP_RN_CS, rts);
+        netbench_record_event_simple(nb, TX_A_SP_RN_CS, rts);
     }
 */
 
@@ -897,7 +899,7 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
         assert(sp_ghost_read_confirm(ccnc->spp_ptr));
 /*
         if(benchmark_mode > 0) {
-            lwip_record_event_simple(RE_ALL, ts);
+            netbench_record_event_simple(nb, RE_ALL, ts);
         }
 */
         ++count;
@@ -921,7 +923,7 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
     assert(ccnc->spp_ptr != NULL);
     assert(ccnc->spp_ptr->sp != NULL);
     if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_A_SP_RN_CS, rts);
+        netbench_record_event_simple(nb, TX_A_SP_RN_CS, rts);
     }
 
     if (ccnc->role == RECEIVE_CONNECTION) {
@@ -935,7 +937,7 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
     }
 
     if (benchmark_mode > 0) {
-        lwip_record_event_simple(TX_A_SP_RN_T, ts);
+        netbench_record_event_simple(nb, TX_A_SP_RN_T, ts);
     }
     lwip_mutex_unlock();
 } // end function: sp_notification_from_driver

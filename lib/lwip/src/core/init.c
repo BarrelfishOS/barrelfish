@@ -63,6 +63,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/net_constants.h>
+#include <contmng/netbench.h>
 
 
 /* FIXME: Move this to config */
@@ -72,7 +73,7 @@
 #define DEBUGPRINTPS(arg...) printf(arg)
 #else
 #define DEBUGPRINTPS(arg...) ((void)0)
-#endif                          /* MYDEBUGLWIP */
+#endif // MYDEBUGLWIP
 
 
 
@@ -251,9 +252,11 @@ static void lwip_sanity_check(void)
 #endif                          /* LWIP_DEBUG */
 
 static int is_ctl = 0;
+struct netbench_details *nb = NULL;
 
 static void remaining_lwip_initialization(char *card_name)
 {
+    nb = netbench_alloc("app", RECORDED_EVENTS_COUNT);
     //asq: connect to the NIC driver, before doing anything else
     idc_connect_to_driver(card_name);
     DEBUGPRINTPS("Connected to driver [%s]\n", card_name);
@@ -540,113 +543,24 @@ uint64_t lwip_packet_drop_count(void)
 }                               // end function: lwip_packet_drop_count
 
 
-
-// For recording statistics
-
-float in_seconds(uint64_t cycles)
-{
-    float ans;
-    ans = cycles / MACHINE_CLOCK_SPEED;
-    ans = ans / MACHINE_CLK_UNIT;
-    return ans;
-}
-#if 0
-uint64_t in_seconds(uint64_t cycles)
-{
-    return cycles;
-}
-#endif // CONVERT_TO_SEC
-
-
-static uint64_t stats[EVENT_LIST_SIZE][RDT_LIST_SIZE];
-void lwip_reset_stats(void)
-{
-    for (int i = 0; i < EVENT_LIST_SIZE; ++i) {
-        for (int j = 0; j < RDT_LIST_SIZE; ++j) {
-            stats[i][j] = 0;
-        }
-    }
-} // end function: reset_stats
-
-
-void lwip_record_event(uint8_t event_type, uint64_t delta)
-{
-    uint8_t et = event_type;
-    ++stats[et][RDT_COUNT];
-    stats[et][RDT_SUM] += delta;
-    if (stats[et][RDT_COUNT] == 1) {
-        stats[et][RDT_MAX] = delta;
-        stats[et][RDT_MIN] = delta;
-    } else {
-        if (delta > stats[et][RDT_MAX]) {
-            stats[et][RDT_MAX]= delta;
-        }
-        if (delta < stats[et][RDT_MIN]) {
-            stats[et][RDT_MIN]= delta;
-        }
-    }
-} // end function: record_event
-
-static uint64_t my_avg(uint64_t sum, uint64_t n)
-{
-    if (n == 0) {
-        return sum;
-    }
-    return (sum/n);
-}
-
-void lwip_record_event_no_ts(uint8_t event_type)
-{
-    uint8_t et = event_type;
-    ++stats[et][RDT_COUNT];
-}
-
-void lwip_record_event_simple(uint8_t event_type, uint64_t ts)
-{
-    uint64_t delta = rdtsc() - ts;
-    lwip_record_event(event_type, delta);
-}
-void lwip_print_event_stat(uint8_t event_type, char *event_name, int type)
-{
-    uint8_t et = event_type;
-    if (type == 1) {
-    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
-            "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
-            stats[et][RDT_COUNT],
-            in_seconds(my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
-            in_seconds(stats[et][RDT_MAX]),
-            in_seconds(stats[et][RDT_MIN]),
-            in_seconds(stats[et][RDT_SUM]));
-    }
-    else {
-    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
-            "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
-            et, stats[et][RDT_COUNT],
-            (my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
-            (stats[et][RDT_MAX]),
-            (stats[et][RDT_MIN]),
-            (stats[et][RDT_SUM]));
-    }
-} // end function: print_event_stat
-
 void lwip_print_interesting_stats(void)
 {
-    lwip_print_event_stat(RE_ALL,               "U: RX ALL", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE,      "U: RX Replace pbuf", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE_1,    "U: RX Replace pbuf_1", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE_2,    "U: RX Replace pbuf_2", 1);
-    lwip_print_event_stat(RE_PBUF_REPLACE_3,    "U: RX Replace pbuf_3", 1);
-    lwip_print_event_stat(RE_PBUF_QUEUE,        "U: RX RPL PbufQ", 1);
-    lwip_print_event_stat(RE_PKT_RCV_CS,        "U: RX PKT RCV CS", 1);
+    netbench_print_event_stat(nb, RE_ALL,            "U: RX ALL", 1);
+    netbench_print_event_stat(nb, RE_PBUF_REPLACE,   "U: RX Replace pbuf", 1);
+    netbench_print_event_stat(nb, RE_PBUF_REPLACE_1, "U: RX Replace pbuf_1", 1);
+    netbench_print_event_stat(nb, RE_PBUF_REPLACE_2, "U: RX Replace pbuf_2", 1);
+    netbench_print_event_stat(nb, RE_PBUF_REPLACE_3, "U: RX Replace pbuf_3", 1);
+    netbench_print_event_stat(nb, RE_PBUF_QUEUE,     "U: RX RPL PbufQ", 1);
+    netbench_print_event_stat(nb, RE_PKT_RCV_CS,     "U: RX PKT RCV CS", 1);
 
-    lwip_print_event_stat(TX_SP,        "U: TX send-pt", 1);
-    lwip_print_event_stat(TX_SP1,       "U: TX send-pt no-noti", 1);
-    lwip_print_event_stat(TX_SPP_FULL,  "U: TX D SPP FUL", 0);
-    lwip_print_event_stat(TX_SN_WAIT,   "U: TX SN WAIT", 1);
-    lwip_print_event_stat(TX_SN_SEND,   "U: TX SN SEND", 1);
-    lwip_print_event_stat(TX_A_SP_RN_CS,   "U: TX SP RN CS", 1);
-    lwip_print_event_stat(TX_A_SP_RN_T,   "U: TX SP RN T", 1);
-    lwip_print_event_stat(TX_SND_PKT_S,  "U: TX SND PKT SLOT", 0);
-    lwip_print_event_stat(TX_SND_PKT_C,  "U: TX SND PKTS", 0);
+    netbench_print_event_stat(nb, TX_SP,         "U: TX send-pt", 1);
+    netbench_print_event_stat(nb, TX_SP1,        "U: TX send-pt no-noti", 1);
+    netbench_print_event_stat(nb, TX_SPP_FULL,   "U: TX D SPP FUL", 0);
+    netbench_print_event_stat(nb, TX_SN_WAIT,    "U: TX SN WAIT", 1);
+    netbench_print_event_stat(nb, TX_SN_SEND,    "U: TX SN SEND", 1);
+    netbench_print_event_stat(nb, TX_A_SP_RN_CS, "U: TX SP RN CS", 1);
+    netbench_print_event_stat(nb, TX_A_SP_RN_T,  "U: TX SP RN T", 1);
+    netbench_print_event_stat(nb, TX_SND_PKT_S,  "U: TX SND PKT SLOT", 0);
+    netbench_print_event_stat(nb, TX_SND_PKT_C,  "U: TX SND PKTS", 0);
 }
 

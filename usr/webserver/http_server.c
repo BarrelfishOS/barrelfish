@@ -21,6 +21,7 @@
 #include <barrelfish/barrelfish.h>
 #include <lwip/tcp.h>
 #include <lwip/init.h>
+#include <contmng/netbench.h>
 
 #include "http_cache.h"
 #include "webserver_network.h"

@@ -95,50 +95,17 @@ uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,
         uint64_t *cl);
 void lwip_debug_show_spp_status(int connection);
 
-// For recording statistics
-#define MACHINE_CLK_UNIT    (1000000)
-
-#if !defined(__scc__)
-#define MACHINE_CLOCK_SPEED  (2800)
-#else
-#define MACHINE_CLOCK_SPEED  (533)
-#endif // !defined(__scc__)
-#define IN_SECONDS(x)   (((x)/(MACHINE_CLOCK_SPEED))/(MACHINE_CLK_UNIT))
-
-#define CONVERT_TO_SEC
-
-
-
-//#ifdef CONVERT_TO_SEC
-#define PU "f"
-float in_seconds(uint64_t cycles);
-//#else
-#if 0
-#define PU PRIu64
-uint64_t in_seconds(uint64_t cycles);
-#endif // CONVERT_TO_SEC
-
-
-enum Benchmark_states {
-    BMS_INACTIVE = 0,
-    BMS_START_REQUEST = 1,
-    BMS_RUNNING = 2,
-    BMS_STOP_REQUEST = 3,
-    BMS_STOPPED = 4,
-};
-
-
 enum Recorded_Events {
-    RE_ALL = 0,
-    RE_REG_PBUF = 1,
-    RE_PBUF_REPLACE = 2,
-    RE_PBUF_REPLACE_1 = 3,
-    RE_PBUF_REPLACE_2 = 4,
-    RE_PBUF_QUEUE = 5,
-    RE_PKT_RCV_CS = 6,
-    RE_PBUF_REPLACE_3 = 7,
-    TX_SP = 8,
-    TX_SP1 = 9,
+    RE_ALL,
+    RE_REG_PBUF,
+    RE_PBUF_REPLACE,
+    RE_PBUF_REPLACE_1,
+    RE_PBUF_REPLACE_2,
+    RE_PBUF_QUEUE,
+    RE_PKT_RCV_CS,
+    RE_PBUF_REPLACE_3,
+    TX_SP,
+    TX_SP1,
     TX_SPP_FULL,
     TX_SN_WAIT,
     TX_SN_SEND,
@@ -146,25 +113,15 @@ enum Recorded_Events {
     TX_A_SP_RN_T,
     TX_SND_PKT_C,
     TX_SND_PKT_S,
+    RECORDED_EVENTS_COUNT  // MUST BE THE LAST ELEMENT!!
 };
-#define EVENT_LIST_SIZE  20
 
-enum Recorded_DataTypes {
-    RDT_COUNT = 0,
-    RDT_SUM = 1,
-    RDT_MAX = 2,
-    RDT_MIN = 3,
-};
-#define RDT_LIST_SIZE   4
-
-void lwip_reset_stats(void);
-void lwip_record_event(uint8_t event_type, uint64_t delta);
-void lwip_record_event_simple(uint8_t event_type, uint64_t ts);
-void lwip_print_event_stat(uint8_t event_type, char *event_name, int type);
+extern struct netbench_details *nb;
 void lwip_print_interesting_stats(void);
-void lwip_record_event_no_ts(uint8_t event_type);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif                          /* __LWIP_INIT_H__ */
+#endif // __LWIP_INIT_H__
+

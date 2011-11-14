@@ -248,7 +248,7 @@ struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
         return NULL;
     }
     buff_ptr->spp_prv->ghost_read_id = buff_ptr->spp_prv->c_read_id;
-    lwip_record_event_simple(RE_PBUF_REPLACE_1, ts);
+    netbench_record_event_simple(nb, RE_PBUF_REPLACE_1, ts);
 
     pbufs[idx].p = p;
     pbufs[idx].pbuf_id = idx;

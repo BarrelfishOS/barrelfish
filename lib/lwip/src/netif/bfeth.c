@@ -248,7 +248,7 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
 
     uint64_t ts = rdtsc();
     mem_barrelfish_replace_pbuf(pbuf_id);
-    lwip_record_event_simple(RE_PBUF_REPLACE, ts);
+    netbench_record_event_simple(nb, RE_PBUF_REPLACE, ts);
 }
 
 static void bfeth_input_handler(void *data, uint64_t pbuf_id, uint64_t paddr,
