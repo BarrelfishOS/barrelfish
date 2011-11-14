@@ -54,6 +54,7 @@ static int debug_state = 0;
 // Counter for dropped packets
 static uint64_t dropped_pkt_count = 0;
 
+struct netbench_details *bm = NULL;
 /*****************************************************************
  * Prototypes
  *****************************************************************/
@@ -356,7 +357,7 @@ static void register_pbuf_v2(struct ether_binding *b, uint64_t buf_id,
       struct client_closure *cl = (struct client_closure *)b->st;
 
     if (cl->debug_state == 4) {
-        bm_record_event_simple(RE_PBUF_REG_CS, ts);
+        netbench_record_event_simple(bm, RE_PBUF_REG_CS, ts);
     }
 
     /* Calculating the physical address of this pbuf. */
@@ -372,7 +373,7 @@ static void register_pbuf_v2(struct ether_binding *b, uint64_t buf_id,
     assert(err_is_ok(r));
 
     if (cl->debug_state == 4) {
-        bm_record_event_simple(RE_PBUF_REG, ts);
+        netbench_record_event_simple(bm, RE_PBUF_REG, ts);
     }
 }
 
@@ -641,7 +642,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 
         if (closure->debug_state_tx == 4) {
             ++closure->dropped_pkt_count;
-//            bm_record_event_simple(RE_TX_SP_F, ts);
+//            netbench_record_event_simple(bm, RE_TX_SP_F, ts);
         }
 
         assert(closure->pbuf[0].sr);
@@ -711,7 +712,7 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
 
     if (pkts > 0) {
         if (closure->debug_state_tx == 4) {
-            bm_record_event_no_ts(RE_TX_T, pkts);
+            netbench_record_event(bm, RE_TX_T, pkts);
         }
     }
     return pkts;
@@ -723,7 +724,7 @@ static errval_t send_sp_notification_from_driver(struct q_entry e)
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
     if (ccl->debug_state_tx == 4) {
-        bm_record_event_simple(RE_TX_SP_MSG_Q, e.plist[1]);
+        netbench_record_event_simple(bm, RE_TX_SP_MSG_Q, e.plist[1]);
     }
     uint64_t ts = rdtsc();
     if (b->can_send(b)) {
@@ -732,7 +733,7 @@ static errval_t send_sp_notification_from_driver(struct q_entry e)
                 MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
                 // type, ts
         if (ccl->debug_state_tx == 4) {
-            bm_record_event_simple(RE_TX_SP_MSG, ts);
+            netbench_record_event_simple(bm, RE_TX_SP_MSG, ts);
         }
         return err;
     } else {
@@ -786,7 +787,7 @@ static void do_pending_work(struct ether_binding *b)
     }
 
     if (closure->debug_state_tx == 4) {
-        bm_record_event_simple(RE_TX_W_ALL, ts);
+        netbench_record_event_simple(bm, RE_TX_W_ALL, ts);
     }
 }
 
@@ -809,7 +810,7 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
     if (closure->debug_state_tx == 4) {
-        bm_record_event_simple(RE_TX_NOTI_CS, rts);
+        netbench_record_event_simple(bm, RE_TX_NOTI_CS, rts);
     }
     // FIXME : call schedule work
     do_pending_work(cc);
@@ -1009,6 +1010,8 @@ void ethersrv_init(char *service_name,
     netd_buffer_count = 0;
     client_no = 0;
 
+    bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
+
     /* FIXME: populate the receive ring of device driver with local pbufs */
 
     /* exporting ether interface */
@@ -1062,7 +1065,7 @@ bool notify_client_free_tx(struct ether_binding * b,
     if (spp->notify_other_side == 0) {
 
         if (cc->debug_state_tx == 4) {
-            bm_record_event_simple(RE_TX_DONE_NN, rts);
+            netbench_record_event_simple(bm, RE_TX_DONE_NN, rts);
         }
 //        printf("notfify client 1: sending no notifications!\n");
         return true;
@@ -1078,7 +1081,7 @@ bool notify_client_free_tx(struct ether_binding * b,
 
     cc->tx_explicit_msg_needed++;
     if (cc->debug_state_tx == 4) {
-        bm_record_event_simple(RE_TX_DONE_N, rts);
+        netbench_record_event_simple(bm, RE_TX_DONE_N, rts);
     }
     return true;
 }
@@ -1178,7 +1181,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 
         memcpy_fast((void *) (uintptr_t) upbuf->vaddr, data, len);
         if (cl->debug_state == 4) {
-            bm_record_event_simple(RE_COPY, ts);
+            netbench_record_event_simple(bm, RE_COPY, ts);
         }
 
     } else {
@@ -1380,7 +1383,8 @@ static void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             cl->pkt_count = 0;
             // Resetting receive path stats
             reset_app_stats(cl->buffer_ptr);
-            bm_reset_stats();
+            netbench_reset(bm);
+            bm->status = 1;
             printf("#### Starting MBM now \n");
             cl->start_ts = rdtsc();
             cl->start_ts_tx = rdtsc();
@@ -1418,100 +1422,34 @@ void ethersrv_debug_printf(const char *fmt, ...)
     sys_print(str, sizeof(str));
 }
 
-
-// ******************** For recording stats *******************
-// NOTE: Code duplication (Copied from lib/lwip/src/core/init.c)
-// FIXME:  Move to a library
-// For recording stats
-static uint64_t stats[EVENT_LIST_SIZE][EVENT_ELEMENTS];
-void bm_reset_stats(void)
-{
-    for (int i = 0; i < EVENT_LIST_SIZE; ++i) {
-        for (int j = 0; j < EVENT_ELEMENTS; ++j) {
-            stats[i][j] = 0;
-        }
-    }
-} // end function: reset_stats
-
-
-void bm_record_event(uint8_t event_type, uint64_t delta)
-{
-    uint8_t et = event_type;
-    ++stats[et][RDT_COUNT];
-    stats[et][RDT_SUM] += delta;
-    if (stats[et][RDT_COUNT] == 1) {
-        stats[et][RDT_MAX] = delta;
-        stats[et][RDT_MIN] = delta;
-    } else {
-        if (delta > stats[et][RDT_MAX]) {
-            stats[et][RDT_MAX]= delta;
-        }
-        if (delta < stats[et][RDT_MIN]) {
-            stats[et][RDT_MIN]= delta;
-        }
-    }
-} // end function: record_event
-
-void bm_record_event_simple(uint8_t event_type, uint64_t ts)
-{
-    uint64_t delta = rdtsc() - ts;
-    bm_record_event(event_type, delta);
-}
-
-void bm_record_event_no_ts(uint8_t event_type, uint64_t val)
-{
-    bm_record_event(event_type, val);
-}
-
-
-void bm_print_event_stat(uint8_t event_type, char *event_name)
-{
-    uint8_t et = event_type;
-    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PU"], "
-            "MAX[%"PU"], MIN[%"PU"], TOTAL[%"PU"]\n", event_name, et,
-            stats[et][RDT_COUNT],
-            in_seconds(my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
-            in_seconds(stats[et][RDT_MAX]),
-            in_seconds(stats[et][RDT_MIN]),
-            in_seconds(stats[et][RDT_SUM]));
-} // end function: print_event_stat
-
-static void bm_print_event_stat_no(uint8_t event_type, char *event_name)
-{
-    uint8_t et = event_type;
-    printf("Event %20s (%"PRIu8"): N[%"PRIu64"], AVG[%"PRIu64"], "
-            "MAX[%"PRIu64"], MIN[%"PRIu64"], TOTAL[%"PRIu64"]\n", event_name,
-            et, stats[et][RDT_COUNT],
-            (my_avg(stats[et][RDT_SUM],stats[et][RDT_COUNT])),
-            (stats[et][RDT_MAX]),
-            (stats[et][RDT_MIN]),
-            (stats[et][RDT_SUM]));
-}
 void bm_print_interesting_stats(uint8_t type)
 {
     switch (type) {
         case 0:
-            bm_print_event_stat(RE_FILTER,       "D: RX Filter time");
-            bm_print_event_stat(RE_COPY,         "D: RX copy time");
-            bm_print_event_stat(RE_PBUF_REG,     "D: RX pbuf reg time");
-            bm_print_event_stat(RE_PKT_RECV_MSG, "D: RX pkt recv ntf");
-            bm_print_event_stat(RE_DROPPED,      "D: RX dropped time");
-            bm_print_event_stat(RE_USEFUL,       "D: RX useful time");
-            bm_print_event_stat(RE_PKT_RECV_Q,   "D: RX queue");
-            bm_print_event_stat(RE_PBUF_REG_CS,  "D: RX REG pbuf CS");
+            netbench_print_event_stat(bm, RE_FILTER,  "D: RX Filter time", 1);
+            netbench_print_event_stat(bm, RE_COPY, "D: RX copy time", 1);
+            netbench_print_event_stat(bm, RE_PBUF_REG, "D: RX pbuf reg time", 1);
+            netbench_print_event_stat(bm, RE_PKT_RECV_MSG,
+                    "D: RX pkt recv ntf", 1);
+            netbench_print_event_stat(bm, RE_DROPPED, "D: RX dropped time", 1);
+            netbench_print_event_stat(bm, RE_USEFUL, "D: RX useful time", 1);
+            netbench_print_event_stat(bm, RE_PKT_RECV_Q, "D: RX queue", 1);
+            netbench_print_event_stat(bm, RE_PBUF_REG_CS, "D: RX REG pbuf CS",
+                    1);
             break;
 
         case 1:
-            bm_print_event_stat(RE_TX_NOTI_CS,   "D: NOTI FROM APPLI");
-            bm_print_event_stat_no(RE_TX_T,         "D: TX T");
-            bm_print_event_stat(RE_TX_SP_S,      "D: TX SP_S");
-            bm_print_event_stat(RE_TX_SP_F,      "D: TX SP_F");
-            bm_print_event_stat(RE_TX_DONE,      "D: TX DONE");
-            bm_print_event_stat(RE_TX_W_ALL,     "D: TX W_ALL");
-            bm_print_event_stat(RE_TX_DONE_NN,   "D: TX DONE_NN");
-            bm_print_event_stat(RE_TX_DONE_N,    "D: TX DONE_N");
-            bm_print_event_stat(RE_TX_SP_MSG,    "D: TX SP_MSG");
-            bm_print_event_stat(RE_TX_SP_MSG_Q,  "D: TX SP_MSG_Q");
+            netbench_print_event_stat(bm, RE_TX_NOTI_CS,
+                    "D: NOTI FROM APPLI", 0);
+            netbench_print_event_stat(bm, RE_TX_T, "D: TX T", 0);
+            netbench_print_event_stat(bm, RE_TX_SP_S, "D: TX SP_S", 0);
+            netbench_print_event_stat(bm, RE_TX_SP_F, "D: TX SP_F", 0);
+            netbench_print_event_stat(bm, RE_TX_DONE, "D: TX DONE", 0);
+            netbench_print_event_stat(bm, RE_TX_W_ALL, "D: TX W_ALL", 0);
+            netbench_print_event_stat(bm, RE_TX_DONE_NN, "D: TX DONE_NN", 0);
+            netbench_print_event_stat(bm, RE_TX_DONE_N, "D: TX DONE_N", 0);
+            netbench_print_event_stat(bm, RE_TX_SP_MSG, "D: TX SP_MSG", 0);
+            netbench_print_event_stat(bm, RE_TX_SP_MSG_Q, "D: TX SP_MSG_Q", 0);
         break;
 
         default:

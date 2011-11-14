@@ -269,7 +269,6 @@ void print_statistics(void);
 
 
 // For recording statistics
-// FIXME: Move into library
 
 enum Recorded_Events {
     RE_ALL = 0,
@@ -295,11 +294,7 @@ enum Recorded_Events {
     EVENT_LIST_SIZE
 };
 
-void bm_reset_stats(void);
-void bm_record_event(uint8_t event_type, uint64_t delta);
-void bm_record_event_simple(uint8_t event_type, uint64_t ts);
-void bm_record_event_no_ts(uint8_t event_type, uint64_t val);
-void bm_print_event_stat(uint8_t event_type, char *event_name);
+extern struct netbench_details *bm;
 void bm_print_interesting_stats(uint8_t type);
 // **************************************
 // Use of optimised memcpy for SCC

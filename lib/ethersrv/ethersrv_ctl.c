@@ -976,13 +976,13 @@ static bool handle_application_packet(void *packet, size_t len)
         // Packet delivered to the application buffer
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_p;
-            bm_record_event_simple(RE_USEFUL, ts);
+            netbench_record_event_simple(bm, RE_USEFUL, ts);
         }
     } else {
         // Could not deliver the packet to application!
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_f;
-            bm_record_event_simple(RE_DROPPED, ts);
+            netbench_record_event_simple(bm, RE_DROPPED, ts);
         }
 //      printf("A: Copy packet to userspace failed\n");
     }

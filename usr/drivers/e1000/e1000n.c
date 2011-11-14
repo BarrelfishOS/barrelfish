@@ -44,7 +44,8 @@ static bool use_interrupt = true;
 
 //transmit
 static volatile struct tx_desc *transmit_ring;
-static struct pbuf_desc tx_pbuf[DRIVER_TRANSMIT_BUFFER]; //remember the tx pbufs in use
+static struct pbuf_desc tx_pbuf[DRIVER_TRANSMIT_BUFFER];
+//remember the tx pbufs in use
 
 //receive
 static volatile union rx_desc *receive_ring;
@@ -53,7 +54,9 @@ static void *internal_memory_pa = NULL;
 static void *internal_memory_va = NULL;
 
 static uint32_t ether_transmit_index = 0, ether_transmit_bufptr = 0;
-static uint32_t receive_index = 0, receive_bufptr = 0; /* TODO: check if these variables are used */
+/* TODO: check if these variables are used */
+static uint32_t receive_index = 0, receive_bufptr = 0;
+
 static uint32_t receive_free = 0;
 //remember the pbuf_id and the connection to the client which provided
 //the pbuf at the same index in the receive_ring as here, so that we can notify
@@ -229,7 +232,7 @@ static bool handle_free_TX_slot_fn(void)
             find_tx_free_slot_count_fn(), 0);
 
     ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
-    bm_record_event_simple(RE_TX_DONE, ts);
+    netbench_record_event_simple(bm, RE_TX_DONE, ts);
     return true;
 }
 
