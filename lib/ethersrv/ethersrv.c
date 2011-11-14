@@ -952,20 +952,7 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     }
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
-    uint64_t queue_len = queue_free_slots(cl->q);
-    if (cl->debug_state == 4) {
-        ++cl->in_queue_len_n;
-        cl->in_queue_len_sum += queue_len;
-    }
-    if ( queue_len < 10) {
-        if (cl->debug_state == 4) {
-            ++cl->in_dropped_q_full;
-        }
-        return false;
-    }
 
-
-//    assert(buffer != NULL);
     struct pbuf_desc *pbuf_list =
       (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
 
@@ -1042,6 +1029,8 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 
     upbuf->packet_size = len;
 
+    // ****************************************
+    // updating spp with new packet info
     sp_reload_regs(cl->spp_ptr);
     // Make sure that spp_index is the slot which will be next written
     assert(upbuf->spp_index == cl->spp_ptr->c_write_id);

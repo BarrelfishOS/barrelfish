@@ -942,81 +942,6 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
 } // end function: sp_notification_from_driver
 
 
-/*
- * @}
- */
-
-
-/****************************************************************
- * \defGroup netd_connectivity  Code to connect and work with netd.
- *
- * @{
- *
- *****************************************************************/
-/**
- * \brief Callback function when bind is successful.
- *  Code inspired (ie. copied) from "start_client" function.
- */
-static void netd_bind_cb(void *st, errval_t err, struct netd_binding *b)
-{
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "bind failed for netd");
-        abort();
-    }
-    LWIPBF_DEBUG("netd_bind_cb: called\n");
-
-    err = netd_rpc_client_init(&netd_rpc, b);
-    assert(err_is_ok(err));
-
-    netd_service_connected = true;
-    LWIPBF_DEBUG("netd_bind_cb: netd bind successful!\n");
-}
-
-/**
- * \brief Connects the lwip instance with netd daemon.
- *  Code inspired (ie. copied) from "start_client" function.
- */
-static void init_netd_connection(char *service_name)
-{
-    LWIPBF_DEBUG("init_netd_connection: called\n");
-    assert(service_name != NULL);
-    LWIPBF_DEBUG("init_netd_connection: connecting to [%s]\n", service_name);
-
-    errval_t err;
-    iref_t iref;
-
-    LWIPBF_DEBUG("init_netd_connection: resolving driver %s\n", service_name);
-
-    err = nameservice_blocking_lookup(service_name, &iref);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "lwip: could not connect to the netd driver.\n"
-                  "Terminating.\n");
-        abort();
-    }
-    assert(iref != 0);
-
-    LWIPBF_DEBUG("init_netd_connection: connecting\n");
-
-    err = netd_bind(iref, netd_bind_cb, NULL, lwip_waitset,
-                    IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(err));     // XXX
-
-    LWIPBF_DEBUG("init_netd_connection: terminated\n");
-}
-
-
-
-
-/****************************************************************
- * \defGroup FlounderVtables Flounder vtables
- *
- * @{
- *
- *****************************************************************/
-
-
-
-
 static struct ether_rx_vtbl rx_vtbl = {
     .new_buffer_id = new_buffer_id,
     .sp_notification_from_driver = sp_notification_from_driver,
@@ -1139,36 +1064,6 @@ void network_polling_loop(void)
     }
 }
 
-/*
-static void network_messages_wait_and_handle_next(void)
-{
-    errval_t err = event_dispatch(lwip_waitset);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "error in event_dispatch for network_messages_wait_and_handle_next hack");
-    }
-}
-*/
-
-
-void idc_connect_to_netd(char *server_name)
-{
-    LWIPBF_DEBUG("idc_connect_to_netd: wait for netd connection\n");
-
-    /* FIXME: decide if this is the best place to connect with netd */
-    init_netd_connection(server_name);
-
-    // XXX: dispatch on default waitset until bound
-    struct waitset *dws = get_default_waitset();
-
-    while (!netd_service_connected) {
-        errval_t err = event_dispatch(dws);
-
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "in event_dispatch while binding");
-        }
-    }
-    LWIPBF_DEBUG("idc_connect_to_netd: terminated\n");
-}
 
 
 /**
@@ -1204,7 +1099,7 @@ void idc_connect_to_driver(char *card_name)
 /*
  * @}
  */
-
+// FIXME: not used.  Remove it
 errval_t lwip_err_to_errval(err_t e)
 {
     switch (e) {
@@ -1247,6 +1142,86 @@ errval_t lwip_err_to_errval(err_t e)
 /***************************************************************
     Adding new code to communicate with netd server
 */
+
+/****************************************************************
+ * \defGroup netd_connectivity  Code to connect and work with netd.
+ *
+ * @{
+ *
+ *****************************************************************/
+/**
+ * \brief Callback function when bind is successful.
+ *  Code inspired (ie. copied) from "start_client" function.
+ */
+static void netd_bind_cb(void *st, errval_t err, struct netd_binding *b)
+{
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "bind failed for netd");
+        abort();
+    }
+    LWIPBF_DEBUG("netd_bind_cb: called\n");
+
+    err = netd_rpc_client_init(&netd_rpc, b);
+    assert(err_is_ok(err));
+
+    netd_service_connected = true;
+    LWIPBF_DEBUG("netd_bind_cb: netd bind successful!\n");
+}
+
+/**
+ * \brief Connects the lwip instance with netd daemon.
+ *  Code inspired (ie. copied) from "start_client" function.
+ */
+static void init_netd_connection(char *service_name)
+{
+    LWIPBF_DEBUG("init_netd_connection: called\n");
+    assert(service_name != NULL);
+    LWIPBF_DEBUG("init_netd_connection: connecting to [%s]\n", service_name);
+
+    errval_t err;
+    iref_t iref;
+
+    LWIPBF_DEBUG("init_netd_connection: resolving driver %s\n", service_name);
+
+    err = nameservice_blocking_lookup(service_name, &iref);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "lwip: could not connect to the netd driver.\n"
+                  "Terminating.\n");
+        abort();
+    }
+    assert(iref != 0);
+
+    LWIPBF_DEBUG("init_netd_connection: connecting\n");
+
+    err = netd_bind(iref, netd_bind_cb, NULL, lwip_waitset,
+                    IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));     // XXX
+
+    LWIPBF_DEBUG("init_netd_connection: terminated\n");
+}
+
+
+
+void idc_connect_to_netd(char *server_name)
+{
+    LWIPBF_DEBUG("idc_connect_to_netd: wait for netd connection\n");
+
+    /* FIXME: decide if this is the best place to connect with netd */
+    init_netd_connection(server_name);
+
+    // XXX: dispatch on default waitset until bound
+    struct waitset *dws = get_default_waitset();
+
+    while (!netd_service_connected) {
+        errval_t err = event_dispatch(dws);
+
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "in event_dispatch while binding");
+        }
+    }
+    LWIPBF_DEBUG("idc_connect_to_netd: terminated\n");
+}
+
 
 void idc_get_ip(void)
 {
