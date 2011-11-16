@@ -19,6 +19,7 @@
 #include <barrelfish/bulk_transfer.h>
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/waitset.h>
+#include <contmng/netbench.h>
 
 #include <assert.h>
 #include <stdlib.h>

@@ -18,8 +18,11 @@
 #define IDC_BARRELFISH_H_
 
 #include <barrelfish/barrelfish.h>
+#include "lwip/pbuf.h"
 #include <lwip/ip_addr.h>
 #include <procon/procon.h>
+#include <if/ether_defs.h>
+#include <contmng/contmng.h>
 
 /**
  * \brief Receive and transmit sides
@@ -43,6 +46,18 @@ struct buffer_desc {
     struct shared_pool_private *spp_prv;
     struct buffer_desc *next;
 };
+
+/* closure for network card client */
+struct client_closure_NC {
+    struct cont_queue *q;       /* queue to continuation */
+    struct buffer_desc *buff_ptr;
+    struct shared_pool_private *spp_ptr;
+    uint8_t benchmark_status;
+    uint64_t benchmark_delta;
+    uint64_t benchmark_cl;
+    uint8_t  role;  // RX or TX buffer
+};
+
 
 
 void idc_connect_to_netd(char *server_name);
