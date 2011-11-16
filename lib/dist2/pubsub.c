@@ -32,24 +32,32 @@ void subscribed_message_handler(struct skb_events_binding* b,
 }
 
 
-errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, char* query, ...)
+errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, char* object, ...)
 {
 	assert(function != NULL);
-	assert(query != NULL);
+	assert(object != NULL);
 	assert(id != NULL);
 	va_list  args;
 	errval_t err = SYS_ERR_OK;
-	char* buf = NULL;
 
 	err = get_free_slot(id);
 	if(err_is_fail(err)) {
 		return err;
 	}
 
-	va_start(args, query);
-	err = format_object(&buf, query, args);
-	assert(err_is_ok(err)); // TODO
+	size_t length = 0;
+	char* buf = NULL;
+	va_start(args, object);
+	err = allocate_string(object, args, &length, &buf);
 	va_end(args);
+	if(err_is_fail(err)) {
+		return err;
+	}
+
+	va_start(args, object);
+	size_t bytes_written = vsnprintf(buf, length+1, object, args);
+	va_end(args);
+	assert(bytes_written == length);
 
 	// send to skb
 	struct skb_state* skb_state  = get_skb_state();
@@ -95,12 +103,21 @@ errval_t dist_publish(char* object, ...)
 
 	va_list  args;
 	errval_t err = SYS_ERR_OK;
+
+	size_t length = 0;
 	char* buf = NULL;
+	va_start(args, object);
+	err = allocate_string(object, args, &length, &buf);
+	va_end(args);
+	if(err_is_fail(err)) {
+		return err;
+	}
 
 	va_start(args, object);
-	err = format_object(&buf, object, args);
-	assert(err_is_ok(err)); // TODO
+	size_t bytes_written = vsnprintf(buf, length+1, object, args);
 	va_end(args);
+	assert(bytes_written == length);
+
 
 	struct skb_state* skb_state  = get_skb_state();
 	assert(skb_state != NULL);

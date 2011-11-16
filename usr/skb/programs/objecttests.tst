@@ -48,7 +48,3 @@ del_object(arnold, [weight::_, age::_])
 should_give 
 (get_object(arnold, weight::X, [], _) should_fail),
 (get_object(arnold, age::X, [], _) should_fail).
-
-del_object(bob).
-del_object(bob) should_fail.
-get_object(bob, X, [], _) should_fail.

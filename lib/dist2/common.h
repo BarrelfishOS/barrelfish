@@ -1,5 +1,5 @@
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef DIST2_COMMON_H_
+#define DIST2_COMMON_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,29 +8,23 @@
 
 #include <barrelfish/barrelfish.h>
 
-#define MAX_OBJECT_LENGTH (5*1024)
+#define MAX_RECORD_LENGTH (5*1024)
 
-static inline errval_t format_object(char** out, char* fmt, va_list args)
+
+static inline errval_t allocate_string(char* object, va_list args, size_t* length, char** buf)
 {
-	assert(out != NULL);
-	assert(fmt != NULL);
-	errval_t err = SYS_ERR_OK;
+	*length = vsnprintf(NULL, 0, object, args);
 
-	// Construct query
-	*out = malloc(MAX_OBJECT_LENGTH);
-	if(*out == NULL) {
-		// TODO
-		assert(!"todo malloc error");
+	if(*length > MAX_RECORD_LENGTH) {
+		return DIST2_ERR_RECORD_SIZE;
 	}
 
-	size_t bytes_written = vsnprintf(*out, MAX_OBJECT_LENGTH, fmt, args);
-
-	if(bytes_written >= MAX_OBJECT_LENGTH) {
-		// TODO return error!
-		assert(!"Object string too big, return error!");
+	*buf = malloc((*length)+1); // include \0
+	if(buf == NULL) {
+		return LIB_ERR_MALLOC_FAIL;
 	}
 
-	return err;
+	return SYS_ERR_OK;
 }
 
-#endif /* COMMON_H_ */
+#endif /* DIST2_COMMON_H_ */

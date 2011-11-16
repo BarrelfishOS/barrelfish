@@ -1,5 +1,5 @@
-#ifndef PUBSUB_H_
-#define PUBSUB_H_
+#ifndef DIST2_PUBSUB_H_
+#define DIST2_PUBSUB_H_
 
 #define MAX_SUBSCRIPTIONS 255
 
@@ -15,4 +15,4 @@ errval_t dist_publish(char*, ...);
 void subscribed_message_handler(struct skb_events_binding*, subscription_t, char*);
 
 
-#endif /* PUBSUB_H_ */
+#endif /* DIST2_PUBSUB_H_ */

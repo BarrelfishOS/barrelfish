@@ -53,9 +53,13 @@ errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn repl
 
 
 void free_reply_state(void* arg) {
-	struct skb_reply_state* srt = (struct skb_reply_state*) arg;
-	assert(srt != NULL);
-	free(srt);
+	if(arg != NULL) {
+		struct skb_reply_state* srt = (struct skb_reply_state*) arg;
+		free(srt);
+	}
+	else {
+		assert(!"free_reply_state with NULL argument?");
+	}
 }
 
 
@@ -63,7 +67,7 @@ errval_t execute_query(char* query, struct skb_query_state* st)
 {
 	assert(query != NULL);
     assert(st != NULL);
-	SKB_DEBUG("execute query: %s\n", query);
+	SKBD_DEBUG("execute query: %s\n", query);
 
 	int res;
 
@@ -83,6 +87,7 @@ errval_t execute_query(char* query, struct skb_query_state* st)
             st->output_length += res;
         } while ((res != 0) && (st->output_length < BUFFER_SIZE));
         st->output_buffer[st->output_length] = 0;
+
         res = 0;
         do {
             res = ec_queue_read(2, st->error_buffer + st->error_output_length,
@@ -120,7 +125,6 @@ static void run(struct skb_binding *b, char *query)
 	errval_t err = new_reply_state(&srt, run_reply);
 	assert(err_is_ok(err)); // TODO
 
-
 	err = execute_query(query, &srt->skb);
 	assert(err_is_ok(err));
 
@@ -131,12 +135,15 @@ static void run(struct skb_binding *b, char *query)
 
 static struct skb_rx_vtbl rx_vtbl = {
     .run_call = run,
-    .get_call = get_object,
-    .set_call = set_object,
+    .get_call = get_handler,
+    .set_call = set_handler,
+    .del_call = del_handler,
     .subscribe_call = subscribe,
     .publish_call = publish,
     .identify_call = identify_rpc_binding,
     .unsubscribe_call = unsubscribe,
+    .lock_call = lock_handler,
+    .unlock_call = unlock_handler,
 };
 
 

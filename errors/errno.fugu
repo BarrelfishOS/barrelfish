@@ -6,6 +6,14 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+ 
+ 
+// errors using dist2 library
+errors libdist2  DIST2_ERR_ {
+    failure NO_RECORD           "No record exists matching the specified query.",
+    failure RECORD_SIZE         "Record is too big. Try to increase MAX_RECORD_LENGTH.",
+    failure SERVER_NO_MEMORY    "Server failed to allocate memory for the request.",
+};
 
 // Kernel/syscall errors
 errors kernel SYS_ERR_ {

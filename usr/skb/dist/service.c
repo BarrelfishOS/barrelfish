@@ -12,10 +12,8 @@
 #include <include/queue.h>
 
 #include "code_generator.h"
+#include "skb_query.h"
 #include "service.h"
-
-// TODO: find a more portable way, check if prolog can even retrieve unsigned long somehow
-STATIC_ASSERT(sizeof(uintptr_t) <= 8, "Otherwise need to change how pointers are stored in Prolog!");
 
 
 static void debug_skb_output(struct skb_query_state* st) {
@@ -26,9 +24,8 @@ static void debug_skb_output(struct skb_query_state* st) {
 static void get_reply(struct skb_binding* b, struct skb_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.get_response(b, MKCONT(free_reply_state, srt),
-			                      srt->skb.output_buffer,
-			                      srt->skb.error_buffer,
-			                      srt->skb.exec_res);
+    		                      srt->skb.output_buffer, srt->skb.error_buffer,
+    		                      srt->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         	enqueue_reply_state(b, srt);
@@ -39,50 +36,31 @@ static void get_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 }
 
 
-void get_object(struct skb_binding *b, char *query)
+void get_handler(struct skb_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
-	struct parsed_object* po = transform_query(query); // TODO error?
-	SKBD_DEBUG("get_object: transformed = %s\n", po->attributes.output);
-
-	char* name = po->name.output;
-	if (strcmp(po->name.output, "_") == 0) {
-		name = "X";
-	}
-	else {
-		name = po->name.output;
-	}
-	char* attributes = po->attributes.output;
-	char* constraints = po->constraints.output;
-
-	char* format = "get_object(%s, %s, %s, Y), write(%s), write(' '), write(Y).";
-	size_t len = 2*strlen(name) + strlen(attributes) + strlen(constraints) + strlen(format) + 1;
-	char buf[len];
-	snprintf(buf, len, format, name, attributes, constraints, name);
-
 	struct skb_reply_state* srt = NULL;
 	err = new_reply_state(&srt, get_reply);
-	assert(err_is_ok(err)); // TODO
+	assert(err_is_ok(err));
 
-	err = execute_query(buf, &srt->skb);
-	assert(err_is_ok(err)); // TODO
+	struct parsed_object* po = transform_query(query);
+	assert(po != NULL); // TODO error?
 
-	SKBD_DEBUG("buf: %s\n", buf);
-	debug_skb_output(&srt->skb);
+	err = get_record(po, &srt->skb);
+	srt->error = err;
+	srt->rpc_reply(b, srt);
 
-	get_reply(b, srt);
-
-	free(query);
 	free_parsed_object(po);
+	free(query);
 }
 
 
-static void set_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+static void set_reply(struct skb_binding* b, struct skb_reply_state* srs)
+{
     errval_t err;
     err = b->tx_vtbl.set_response(b, MKCONT(free_reply_state, srs),
-			                      srs->skb.error_buffer,
-			                      srs->skb.exec_res);
+    							  srs->skb.error_buffer, srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         	enqueue_reply_state(b, srs);
@@ -93,32 +71,58 @@ static void set_reply(struct skb_binding* b, struct skb_reply_state* srs) {
 }
 
 
-void set_object(struct skb_binding *b, char *query)
+void set_handler(struct skb_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
-	SKBD_DEBUG("set_object: query = %s\n", query);
-	struct parsed_object* po = transform_query(query); // TODO error
-	SKBD_DEBUG("set_object: transformed = %s\n", po->attributes.output);
-
 	struct skb_reply_state* srs = NULL;
 	err = new_reply_state(&srs, set_reply);
-	assert(err_is_ok(err)); // TODO
+	assert(err_is_ok(err));
 
-	char* format = "add_object(%s, %s).";
-	size_t len = strlen(po->name.output) + strlen(po->attributes.output) + strlen(format) + 1;
-	char buf[len];
-	snprintf(buf, len, format, po->name.output, po->attributes.output);
-	err = execute_query(buf, &srs->skb);
-	assert(err_is_ok(err)); // TODO
+	struct parsed_object* po = transform_query(query); // TODO error
 
-	SKBD_DEBUG("buf: %s\n", buf);
-	debug_skb_output(&srs->skb);
+	set_record(po, &srs->skb);
 
-	set_reply(b, srs);
+	srs->error = err;
+	srs->rpc_reply(b, srs);
 
 	free(query);
 	free_parsed_object(po);
+}
+
+
+static void del_reply(struct skb_binding* b, struct skb_reply_state* srs)
+{
+    errval_t err;
+    err = b->tx_vtbl.del_response(b, MKCONT(free_reply_state, srs),
+    		                      srs->error);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        	enqueue_reply_state(b, srs);
+        	return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+void del_handler(struct skb_binding* b, char* query)
+{
+	errval_t err = SYS_ERR_OK;
+
+	struct skb_reply_state* srs = NULL;
+	err = new_reply_state(&srs, del_reply);
+	assert(err_is_ok(err));
+
+	struct parsed_object* po = transform_query(query);
+	assert(po != NULL); // TODO error?
+
+	err = del_record(po, &srs->skb);
+	srs->error = err;
+	srs->rpc_reply(b, srs);
+
+	free_parsed_object(po);
+	free(query);
 }
 
 
@@ -147,10 +151,11 @@ static struct skb_events_binding* get_event_binding(struct skb_binding* b)
 }
 
 
-static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs)
+{
     errval_t err;
     err = b->tx_vtbl.subscribe_response(b, MKCONT(free_reply_state, srs),
-			                            srs->skb.exec_res);
+    		                            srs->error);
 
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -167,13 +172,13 @@ void subscribe(struct skb_binding *b, char* query, uint64_t id)
 	errval_t err = SYS_ERR_OK;
 
 	SKBD_DEBUG("subscribe: query = %s\n", query);
-	struct parsed_object* po = transform_query(query); // TODO error
-	SKBD_DEBUG("subscribe: transformed = %s\n", po->attributes.output);
 
 	struct skb_reply_state* srs = NULL;
 	err = new_reply_state(&srs, subscribe_reply);
-	assert(err_is_ok(err)); // TODO
+	assert(err_is_ok(err));
 
+	struct parsed_object* po = transform_query(query); // TODO error
+	SKBD_DEBUG("subscribe: transformed = %s\n", po->attributes.output);
 
 	char* format = "add_subscription(template(%s, %s), %s, subscriber(%lu, %lu)).";
 	size_t len = strlen(po->name.output) + strlen(po->attributes.output) + strlen(po->constraints.output) + strlen(format) + 1 + 50; // todo 50 :-(
@@ -185,7 +190,8 @@ void subscribe(struct skb_binding *b, char* query, uint64_t id)
 	SKBD_DEBUG("buf: %s\n", buf);
 	debug_skb_output(&srs->skb);
 
-	subscribe_reply(b, srs);
+	srs->error = err;
+	srs->rpc_reply(b, srs);
 
 
 	free(query);
@@ -232,7 +238,6 @@ void unsubscribe(struct skb_binding *b, uint64_t id)
 }
 
 
-
 static void send_subscribed_message(struct skb_events_binding* b,
 		                            uint64_t id,
 		                            char* object)
@@ -254,6 +259,7 @@ static void publish_reply(struct skb_binding* b, struct skb_reply_state* srs) {
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
 }
+
 
 void publish(struct skb_binding *b, char* object)
 {
@@ -296,6 +302,127 @@ void publish(struct skb_binding *b, char* object)
 
 	//free(object); TODO: used by send_subscribed_object
 	free_parsed_object(po);
+}
+
+
+static void lock_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+    errval_t err;
+    err = b->tx_vtbl.lock_response(b, MKCONT(free_reply_state, srs),
+			                          srs->skb.exec_res);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        	enqueue_reply_state(b, srs);
+        	return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+static void append_attr_ptr(struct writer* w, char* name, void* val) {
+	w->pos = w->pos-2;
+	if(strcmp(w->output, "[  ]") == 0) {
+		emit(w, "%s::%lu ]", name, val);
+	}
+	else {
+		emit(w, ", %s::%lu ]", name, val);
+	}
+
+	SKBD_DEBUG("append_attr_ptr w: %s\n", w->output);
+}
+
+
+static void append_attr_str(struct writer* w, char* name, char* val) {
+	w->pos = w->pos-2;
+	if(strcmp(w->output, "[  ]") == 0) {
+		emit(w, "%s::'%s' ]", name, val);
+	}
+	else {
+		emit(w, ", %s::'%s' ]", name, val);
+	}
+}
+
+
+static uint64_t enumerator = 0;
+void lock_handler(struct skb_binding* b, char* query)
+{
+	assert(query != NULL); // todo
+	errval_t err = SYS_ERR_OK;
+
+	struct skb_reply_state* srs = NULL;
+	err = new_reply_state(&srs, lock_reply);
+	assert(err_is_ok(err)); // TODO
+
+	struct parsed_object* po = transform_query(query);
+	SKBD_DEBUG("get_object: transformed = %s %s\n", po->name.output, po->attributes.output);
+	assert(po != NULL); // TODO error?
+
+	err = get_record(po, &srs->skb);
+	append_attr_ptr(&po->attributes, "owner", b);
+	if(err_no(err) == DIST2_ERR_NO_RECORD)
+	{
+		// Create new Lock
+		SKBD_DEBUG("lock did not exist, create!\n");
+		set_record(po, &srs->skb);
+		srs->rpc_reply(b, srs);
+	}
+	else {
+		// TODO if we already have the lock reply immediately
+
+		// Add to waiting list
+		SKBD_DEBUG("lock already exist, add waiting list record!\n");
+		char* lock_name = po->name.output;
+		append_attr_str(&po->attributes, "wait_for", lock_name);
+
+		// Generate new name
+		po->name.output = NULL;
+		emit(&po->name, "%s_%lu", lock_name, enumerator++);
+		free(lock_name);
+
+		set_record(po, &srs->skb);
+	}
+
+	/*
+	 * 	if not exists(lock_X)
+	 * 		set(lock_X { owner: &binding })
+	 * 		reply(&binding)
+	 *  else:
+	 *  	set(lock_X-{count} { wait: lock_X, owner: &binding }
+	 **/
+
+	free_parsed_object(po);
+	free(query);
+}
+
+
+void unlock_handler(struct skb_binding* b, char* query)
+{
+	assert(query != NULL); // todo
+	errval_t err = SYS_ERR_OK;
+
+	struct skb_reply_state* srs = NULL;
+	err = new_reply_state(&srs, lock_reply);
+	assert(err_is_ok(err)); // TODO
+
+	struct parsed_object* po = transform_query(query);
+	SKBD_DEBUG("get_object: transformed = %s\n", po->attributes.output);
+	assert(po != NULL); // TODO error?
+
+	get_record(po, &srs->skb);
+
+	/**
+	 * unlock(name}
+	 * 	get(lock_X)
+	 * 	if owner == &binding
+	 * 		data = getFirst( r'lock_X-[0-9]*' { wait: lock_X } )
+	 * 		if(data == NULL)
+	 * 			del(lock_X)
+	 * 		else
+	 * 			del(data[name])
+	 * 			set(lock_X, { owner: data[binding] })
+	 * 			reply(data[binding])
+	 * 	reply(owner)
+	 */
 }
 
 

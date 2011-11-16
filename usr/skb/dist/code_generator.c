@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 
 #include "code_generator.h"
 #include "ast.h"
@@ -28,9 +29,11 @@ static void print_writer(struct writer* w) {
 #endif
 
 
-static void emit(struct writer* w, char* to_append) {
+void emit(struct writer* w, const char* format, ...)
+{
 	assert(w != NULL);
-	assert(to_append != NULL);
+	assert(format != NULL);
+	va_list  args;
 
     if(w->output == NULL) {
         w->output = malloc(INITIAL_OUTPUT_LEN);
@@ -39,22 +42,27 @@ static void emit(struct writer* w, char* to_append) {
         w->length = INITIAL_OUTPUT_LEN;
     }
 
-    size_t append_len = strlen(to_append);
-    size_t new_length = w->pos+append_len;
+	va_start(args, format);
+	int append_len = vsnprintf(NULL, 0, format, args);
+    va_end(args);
 
-    if(new_length > w->length) {
-        w->output = realloc(w->output, new_length + 1); // include \0
-        w->length = new_length;
+    size_t occupied = w->pos + append_len;
+    if(w->length < occupied) {
+        w->output = realloc(w->output, occupied+1);
+        w->length = occupied;
     }
 
-    strcpy((w->output + w->pos), to_append);
-    w->pos = w->pos + append_len;
+    va_start(args, format);
+	int bytes_written = vsnprintf(w->output+w->pos, append_len+1, format, args);
+    va_end(args);
+    assert(bytes_written == append_len);
+
+    w->pos = occupied;
 }
 
 
 int ex(struct nodeObject* p) {
 
-    char buf[50];
     if (!p) return 0;
 
     switch(p->type) {
@@ -91,19 +99,6 @@ int ex(struct nodeObject* p) {
                 emit(w, ", ");
                 ex(p->an.next);
             }
-            /*
-            else {
-                emit(w, " ]");
-                if(strcmp(po->constraints.output, " [ ") == 0) {
-                    free(po->constraints.output);
-                    po->constraints.output = NULL;
-                }
-                if(po->constraints.output != NULL) {
-                    size_t len = strlen(po->constraints.output);
-                    po->constraints.output[len-2] = ' ';
-                    po->constraints.output[len-1] = ']';
-                }
-            }*/
         break;
 
         case nodeType_Pair:
@@ -153,8 +148,7 @@ int ex(struct nodeObject* p) {
             emit(w, "constraint(");
             ex(attribute_name);
             emit(w, ", ");
-            sprintf(buf, "'%s'", operator);
-            emit(w, buf);
+            emit(w, "'%s'", operator);
             emit(w, ", ");
             ex(p->cnsn.value);
             emit(w, "), ");    
@@ -162,8 +156,7 @@ int ex(struct nodeObject* p) {
         break;
 
         case nodeType_Float:
-            sprintf(buf, "%f", p->fn.value);
-            emit(w, buf);
+            emit(w, "%f", p->fn.value);
         break;
 
         case nodeType_Boolean:
@@ -176,8 +169,7 @@ int ex(struct nodeObject* p) {
         break;
 
         case nodeType_Constant:
-            sprintf(buf, "%d", p->cn.value);
-            emit(w, buf);
+            emit(w, "%d", p->cn.value);
         break;
 
         case nodeType_String:
@@ -235,6 +227,10 @@ struct parsed_object* transform_query(const char* input)
 #ifdef TEST_PARSER
 int main(int argc, char** argv) 
 {
+    printf("before snprintf:\n");
+    int n = snprintf(NULL, 0, "%s", "123");
+    printf("n = %d\n", n);
+
 	struct parsed_object* p;
 /*
 	p = transform_query("obj1");

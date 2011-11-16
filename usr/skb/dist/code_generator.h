@@ -15,6 +15,8 @@ struct parsed_object {
 	struct writer constraints;
 };
 
+void emit(struct writer*, const char*, ...);
+
 int ex(struct nodeObject*);
 struct parsed_object* transform_query(const char*);
 void free_parsed_object(struct parsed_object*);

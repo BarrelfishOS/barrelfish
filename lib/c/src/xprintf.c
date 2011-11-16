@@ -130,10 +130,14 @@ __printf_puts(struct __printf_io *io, const void *ptr, int len)
         return fwrite(ptr, 1, len, io->u.fp);
     } else {
         size_t writelen = MIN(len, io->u.buf.len);
-        memcpy(io->u.buf.p, ptr, writelen);
-        io->u.buf.len -= writelen;
-        io->u.buf.p += writelen;
-        return writelen;
+        if(io->u.buf.p == NULL && io->u.buf.len == 0) {
+        	return len;
+        }
+
+		memcpy(io->u.buf.p, ptr, writelen);
+		io->u.buf.len -= writelen;
+		io->u.buf.p += writelen;
+		return writelen;
     }
 }
 

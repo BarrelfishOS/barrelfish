@@ -17,10 +17,14 @@ interface skb "SKB RPC Interface" {
     /*  Used by dist2 library (move in extra interface?) */
     rpc identify(in uint64 id);
     
-	rpc set(in string input, out string error, out int error_code);
-	rpc get(in string query, out string output, out string error, out int error_code);
-
+	rpc get(in string query, out string output, out string error, out errval error_code);
+	rpc set(in string input, out string error, out errval error_code);
+	rpc del(in string query, out errval error_code);
+	
     rpc subscribe(in string query, in uint64 id, out errval err);
     rpc unsubscribe(in uint64 id, out errval err);
     rpc publish(in string object, out errval err);
+
+    rpc lock(in string object, out errval err);
+    rpc unlock(in string object, out errval err);
 };

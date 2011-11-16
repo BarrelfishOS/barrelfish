@@ -21,6 +21,45 @@
 #include <skb/skb.h>
 #include <dist2/dist2.h>
 
+
+
+static errval_t get_set_test1(void)
+{
+	printf("Running get_set_test()\n");
+	char* data = NULL;
+	errval_t err;
+
+	err = dist_set("object1 { weight: %d }", 20);
+	assert(err_is_ok(err));
+
+	err = dist_set("object2 { weight: 20, weight: 25 }");
+	assert(err_is_ok(err));
+
+	err = dist_get("object1", &data);
+	assert(err_is_ok(err));
+
+	err = dist_del("object1");
+	assert(err_is_ok(err));
+
+	err = dist_del("object2");
+	assert(err_is_ok(err));
+
+	err = dist_get("object1", &data);
+	assert(err_no(err) == DIST2_ERR_NO_RECORD);
+
+	err = dist_get("object2", &data);
+	//assert(err_is_ok(err));
+	assert(err_no(err) == DIST2_ERR_NO_RECORD);
+
+
+
+	printf("\tget_set_test() success.\n");
+	abort();
+	return SYS_ERR_OK;
+}
+
+
+
 static errval_t get_set_test(void)
 {
 	printf("Running get_set_test()\n");
@@ -103,26 +142,72 @@ static errval_t get_set_test(void)
 	assert(strcmp(data, "object4 [bool :: [val true], fl :: [val 12.0], weight :: [val 20], attr :: [val Somestring]]") == 0);
 	free(data);
 
-	/*
-	 * Not working atm. need GNU libc regex library
-	 *
-	err = dist_get("_ { pattern1: r'^12.*ab$' }", &data);
+
+	err = dist_del("object4");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_get failed!");
 		return err;
 	}
-	printf("data: %s\n", data);
-	//assert(strcmp(data, "object4 [bool :: [val true], fl :: [val 12.0], weight :: [val 20], attr :: [val Somestring]]") == 0);
+	err = dist_get("object4", &data);
+	assert(err_no(err) == DIST2_ERR_NO_RECORD);
+	//free(data);
+
+	err = dist_set("object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_set failed!");
+		return err;
+	}
+	err = dist_get("object4", &data);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_get failed!");
+		return err;
+	}
+	assert(strcmp(data, "object4 [bool :: [val true], fl :: [val 12.0], weight :: [val 20], attr :: [val Somestring]]") == 0);
 	free(data);
-	*/
+
+	err = dist_del("object1");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_get failed!");
+		return err;
+	}
+	err = dist_get("object1", &data);
+	printf("data: %s\n", data);
+	assert(err_no(err) == DIST2_ERR_NO_RECORD);
+
+
+
+	err = dist_get("object2 { weight: 25 }", &data);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_get failed!");
+		return err;
+	}
+	//printf("data: %s\n", data);
+	assert(strcmp(data, "object2 [weight :: [val 25]]") == 0);
+	free(data);
+
+
+	// TODO implement dist_del with constraints, attributes!
+
+
+	//Not working atm. need GNU libc regex library
+
+	//err = dist_get("_ { pattern1: r'^12.*ab$' }", &data);
+	//if(err_is_fail(err)) {
+	//	DEBUG_ERR(err, "dist_get failed!");
+	//	return err;
+	//}
+	//printf("data: %s\n", data);
+	//assert(strcmp(data, "object4 [bool :: [val true], fl :: [val 12.0], weight :: [val 20], attr :: [val Somestring]]") == 0);
+	//free(data);
+
 
 
 	printf("\tget_set_test() success.\n");
 	return SYS_ERR_OK;
 }
 
-
 size_t incoming_messages = 0;
+/*
 static void subhandler(subscription_t id, char* object)
 {
 	assert(object != NULL);
@@ -195,6 +280,7 @@ static errval_t pub_sub_test(void)
 
 	return err;
 }
+**/
 
 
 static void subhandler2(subscription_t id, char* object)
@@ -210,7 +296,7 @@ static void main_subscriber(void) {
 	subscription_t id = 0;
 	err = dist_subscribe(subhandler2, &id, "_ { weight: %d }", 10);
 	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "dist_get failed!");
+		DEBUG_ERR(err, "dist_subscribe failed!");
 		abort();
 	}
 	printf("subscription done with id: %lu\n", id);
@@ -218,7 +304,7 @@ static void main_subscriber(void) {
 	subscription_t id2 = 0;
 	err = dist_subscribe(subhandler2, &id2, "_ { age: > %d }", 9);
 	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "dist_get failed!");
+		DEBUG_ERR(err, "dist_subscribe failed!");
 		abort();
 	}
 	printf("subscription done with id: %lu\n", id2);
@@ -226,20 +312,55 @@ static void main_subscriber(void) {
 	messages_handler_loop();
 }
 
+
+static errval_t lock_test(void) {
+	debug_printf("lock!\n");
+	errval_t err = dist_lock("lock4 { attr: bla }");
+	debug_printf("lock returned?\n");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_lock failed!");
+		abort();
+	}
+
+	debug_printf("unlock!\n");
+	err = dist_unlock("lock4");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_lock failed!");
+		abort();
+	}
+
+	debug_printf("lock again!\n");
+	err = dist_lock("lock4");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_lock failed!");
+		abort();
+	}
+
+	return err;
+}
+
+
 int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
     skb_client_connect();
     dist_init();
 
+
     if (argc == 2 && strcmp(argv[1], "subscriber") == 0) {
         main_subscriber();
     } else {
 		printf("Start dist2 Tests:\n");
+		err = get_set_test1();
+
+
 		err = get_set_test();
 		assert(err_is_ok(err));
 
-		err = pub_sub_test();
+		//err = pub_sub_test();
+		//assert(err_is_ok(err));
+
+		err = lock_test();
 		assert(err_is_ok(err));
     }
 

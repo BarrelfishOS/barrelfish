@@ -8,14 +8,7 @@
 :- dynamic object/2.
 
 %lib(regex).
-:- include("../data/objects.txt").
-
-object(john,
-      [ ako :: [val men],
-        weight :: [val 80],
-        address :: [ val "Gartenstrasse 12" ] ]).
-
-omg(X) :- write("hey").
+%:- include("../data/objects.txt").
 
 is_empty([]).
 

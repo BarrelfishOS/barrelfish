@@ -1,5 +1,7 @@
-#include <include/queue.h>
+#include <stdio.h>
 
+#include <include/queue.h>
+#include <include/skb_debug.h>
 
 static void skb_send_next(void *arg)
 {
@@ -9,6 +11,7 @@ static void skb_send_next(void *arg)
 
     // If more state in the queue, send them
     if (current) {
+        SKBD_DEBUG("dequeue_reply_state: %s\n", current->skb.output_buffer);
     	current->rpc_reply(b, current);
     }
 }

@@ -12,7 +12,7 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "dist2",
-  		          cFiles = [ "dist2.c", "getset.c", "pubsub.c" ],
+  		          cFiles = [ "dist2.c", "getset.c", "pubsub.c", "locking.c" ],
   		          flounderBindings = [ "skb_events", "skb" ],
                   addLibraries = [ "skb" ] }
 ]

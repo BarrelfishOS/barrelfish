@@ -64,6 +64,8 @@ struct skb_reply_state {
 
 	struct skb_query_state skb;
 	rpc_reply_handler_fn rpc_reply;
+	errval_t error;
+
 	struct skb_reply_state *next;
 };
 
