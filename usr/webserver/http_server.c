@@ -582,9 +582,9 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
 static void realinit(void)
 {
 
-    lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
-    lwip_print_interesting_stats();
-    lwip_debug_show_spp_status(1);
+//    lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
+//    lwip_print_interesting_stats();
+//    lwip_debug_show_spp_status(1);
     printf("Cache loading time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
     struct tcp_pcb *pcb = tcp_new();
 //    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));
