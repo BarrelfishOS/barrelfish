@@ -39,11 +39,15 @@
 
 errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
+	debug_printf("before malloc\n");
 	*srs = malloc(sizeof(struct skb_reply_state));
+	debug_printf("after malloc\n");
 	if(*srs == NULL) {
 		return LIB_ERR_MALLOC_FAIL;
 	}
+	debug_printf("before memset\n");
 	memset(*srs, 0, sizeof(struct skb_reply_state));
+	debug_printf("after memset\n");
 
 	(*srs)->rpc_reply = reply_handler;
 	(*srs)->next = NULL;

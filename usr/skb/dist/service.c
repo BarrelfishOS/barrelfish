@@ -321,7 +321,18 @@ static void append_attr_str(struct writer* w, char* name, char* val) {
 }
 */
 
+static void append_attribute(struct ast_object* ast, struct ast_object* to_insert)
+{
+	struct ast_object** attr = &ast->on.attrs;
+	for(; *attr != NULL; attr = &(*attr)->an.next) {
+		// continue
+	}
+
+	*attr = to_insert;
+}
+
 //static uint64_t enumerator = 0;
+
 void lock_handler(struct skb_binding* b, char* query)
 {
 	assert(query != NULL); // todo
@@ -336,13 +347,20 @@ void lock_handler(struct skb_binding* b, char* query)
 	assert(err_is_ok(err));
 
 	err = get_record(ast, &srs->skb);
-	//append_attr_ptr(&po->attributes, "owner", b);
-
 	if(err_no(err) == DIST2_ERR_NO_RECORD)
 	{
-		// Create new Lock
 		SKBD_DEBUG("lock did not exist, create!\n");
-		set_record(ast, &srs->skb);
+
+		// TODO hack, should have ast entry for pointer?
+		char buf[20];
+		snprintf(buf, 20, "%lu", (uintptr_t)b);
+		append_attribute(ast, pair(ident("owner"), string(buf)));
+
+		// Create new Lock
+		// Overwrite err variable on purpose
+		err = set_record(ast, &srs->skb);
+
+		srs->error = err;
 		srs->rpc_reply(b, srs);
 	}
 	else {
@@ -360,14 +378,6 @@ void lock_handler(struct skb_binding* b, char* query)
 
 		set_record(ast, &srs->skb);
 	}
-
-	/*
-	 * 	if not exists(lock_X)
-	 * 		set(lock_X { owner: &binding })
-	 * 		reply(&binding)
-	 *  else:
-	 *  	set(lock_X-{count} { wait: lock_X, owner: &binding }
-	 **/
 
 	free_ast(ast);
 	free(query);
@@ -391,57 +401,63 @@ static void unlock_reply(struct skb_binding* b, struct skb_reply_state* srs)
 
 void unlock_handler(struct skb_binding* b, char* query)
 {
-	assert(query != NULL); // todo
+	assert(query != NULL); // TODO
 	errval_t err = SYS_ERR_OK;
 
 	struct skb_reply_state* srs = NULL;
+	debug_printf("before new_reply_state\n");
 	err = new_reply_state(&srs, unlock_reply);
-	assert(err_is_ok(err)); // TODO
+	debug_printf("after new_reply_state\n");
+	assert(err_is_ok(err));
 
 	struct ast_object* ast = NULL;
 	err = generate_ast(query, &ast);
-	assert(err_is_ok(err));
-
-	err = get_record(ast, &srs->skb);
 	if(err_is_ok(err)) {
-		// TODO Check owner
-		char* findChild = "_ { wait_for: '%s' }";
-		size_t length = snprintf(NULL, 0, findChild, ast->on.name->in.str);
-		char buf[length+1]; // TODO stack or heap?
-		snprintf(buf, length+1, findChild, ast->on.name->in.str);
 
-		struct ast_object* ast2 = NULL;
-		err = generate_ast(query, &ast2);
-		assert(err_is_ok(err));
-
-		struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
-
-		err = get_record(ast2, sqs);
+		err = get_record(ast, &srs->skb);
 		if(err_is_ok(err)) {
-			// set as new lock record
-			//set_record(po, sqs);
-			// TODO return lock() call of new owner
-			// append_attr_ptr(po2->attributes, "owner", owner in sqs);
-			del_record(ast2, sqs); // delete wait_for element
-			srs->error = SYS_ERR_OK;
+
+			// TODO Check owner
+			char* findChild = "_ { wait_for: '%s' }";
+			size_t length = snprintf(NULL, 0, findChild, ast->on.name->in.str);
+			char buf[length+1]; // TODO stack or heap?
+			snprintf(buf, length+1, findChild, ast->on.name->in.str);
+
+			struct ast_object* ast2 = NULL;
+			err = generate_ast(query, &ast2);
+			assert(err_is_ok(err));
+
+			struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
+
+			err = get_record(ast2, sqs);
+			if(err_is_ok(err)) {
+				// set as new lock record
+				//set_record(po, sqs);
+				// TODO return lock() call of new owner
+				// append_attr_ptr(po2->attributes, "owner", owner in sqs);
+				del_record(ast2, sqs); // delete wait_for element
+				srs->error = SYS_ERR_OK;
+
+			} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
+				// No one waits for lock, we're done.
+				srs->error = SYS_ERR_OK;
+			} else {
+				// Return to client?
+				assert(!"unlock_handler unexpected error code");
+			}
+
+			free_ast(ast2);
+			free(sqs);
 
 		} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
-			// No one waits for lock, we're done.
-			srs->error = SYS_ERR_OK;
+			srs->error = err_push(err, DIST2_ERR_NOT_LOCKED);
 		} else {
 			// Return to client?
 			assert(!"unlock_handler unexpected error code");
 		}
 
-		free_ast(ast2);
-		free(sqs);
-
-	} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
-		srs->error = err_push(err, DIST2_ERR_NOT_LOCKED);
-	} else {
-		// Return to client?
-		assert(!"unlock_handler unexpected error code");
 	}
+
 	free_ast(ast);
 	free(query);
 

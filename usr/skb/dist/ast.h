@@ -75,5 +75,119 @@ errval_t generate_ast(const char* input, struct ast_object** record);
 void free_ast(struct ast_object* p);
 
 
-#endif // AST_H_
+static inline struct ast_object* alloc_node(void)
+{
+    struct ast_object* p = malloc(sizeof(struct ast_object));
+    if (p == NULL) {
+        //yyerror("out of memory");
+    }
 
+    return p;
+}
+
+
+static inline struct ast_object* boolean(int value)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Boolean;
+    p->bn.value = value;
+
+    return p;
+}
+
+
+static inline struct ast_object* constraints(size_t op, struct ast_object* value)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Constraint;
+    p->cnsn.op = op;
+    p->cnsn.value = value;
+
+    return p;
+}
+
+
+
+static inline struct ast_object* floatingpoint(double value)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Float;
+    p->fn.value = value;
+
+    return p;
+}
+
+
+static inline struct ast_object* object(struct ast_object* name, struct ast_object* attrs)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Object;
+    p->on.name = name;
+    p->on.attrs = attrs;
+
+    return p;
+}
+
+
+static inline struct ast_object* attribute(struct ast_object* attribute, struct ast_object* next)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Attribute;
+    p->an.attr = attribute;
+    p->an.next = next;
+
+    return p;
+}
+
+
+static inline struct ast_object* pair(struct ast_object* left, struct ast_object* right)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Pair;
+    p->pn.left = left;
+    p->pn.right = right;
+
+    return p;
+}
+
+
+static inline struct ast_object* ident(char* str)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Ident;
+    p->in.str = str;
+
+    return p;
+}
+
+
+static inline struct ast_object* string(char* str)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_String;
+    p->sn.str = str;
+
+    return p;
+}
+
+
+static inline struct ast_object* num(int value)
+{
+    struct ast_object* p = alloc_node();
+
+    p->type = nodeType_Constant;
+    p->cn.value = value;
+
+    return p;
+}
+
+
+#endif // AST_H_
