@@ -67,8 +67,6 @@ errval_t execute_query(char* query, struct skb_query_state* st)
 {
 	assert(query != NULL);
     assert(st != NULL);
-	SKBD_DEBUG("execute query: %s\n", query);
-
 	int res;
 
 	st->exec_res = PFLUSHIO;

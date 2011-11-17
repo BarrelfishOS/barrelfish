@@ -1,25 +1,29 @@
 %{
+#include <stdio.h>
 
-#include<stdio.h>
+#include <barrelfish/barrelfish.h>
 
 #include "y.tab.h"
 #include "ast.h"
-#include "code_generator.h"
+#include "ast.h"
 
 int yylex(void);
 void yyerror(char *);
 
-static struct nodeObject* ident(char*);
-static struct nodeObject* boolean(int);
-static struct nodeObject* floatingpoint(double);
-static struct nodeObject* num(int);
-static struct nodeObject* pair(struct nodeObject*, struct nodeObject*);
-static struct nodeObject* attribute(struct nodeObject*, struct nodeObject*);
-static struct nodeObject* object(struct nodeObject*, struct nodeObject*);
-static struct nodeObject* constraints(size_t, struct nodeObject*);
-static struct nodeObject* string(char*);
+static struct ast_object* ident(char*);
+static struct ast_object* boolean(int);
+static struct ast_object* floatingpoint(double);
+static struct ast_object* num(int);
+static struct ast_object* pair(struct ast_object*, struct ast_object*);
+static struct ast_object* attribute(struct ast_object*, struct ast_object*);
+static struct ast_object* object(struct ast_object*, struct ast_object*);
+static struct ast_object* constraints(size_t, struct ast_object*);
+static struct ast_object* string(char*);
 
-void free_nodes(struct nodeObject*);
+void free_nodes(struct ast_object*);
+
+extern struct ast_object* dist2_parsed_ast;
+extern errval_t dist2_parser_error;
 %}
 
 %error-verbose
@@ -27,7 +31,7 @@ void free_nodes(struct nodeObject*);
     int integer;
     double dl;
     char* str;
-    struct nodeObject* nPtr;
+    struct ast_object* nPtr;
 };
 
 %token RBRACKET
@@ -60,7 +64,7 @@ void free_nodes(struct nodeObject*);
 
 %%
 program: 
-      object                         { ex($1); free_nodes($1); }
+      object                         { dist2_parsed_ast = $1; }
     | ;
 
 object: 
@@ -100,9 +104,9 @@ void yyerror(char *s)
 }
 
 
-static struct nodeObject* alloc_node(void) 
+static struct ast_object* alloc_node(void) 
 {
-    struct nodeObject* p = malloc(sizeof(struct nodeObject));
+    struct ast_object* p = malloc(sizeof(struct ast_object));
     if (p == NULL) {
         yyerror("out of memory");
     }
@@ -110,9 +114,9 @@ static struct nodeObject* alloc_node(void)
     return p;
 }
 
-static struct nodeObject* boolean(int value)
+static struct ast_object* boolean(int value)
 {
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
     
     p->type = nodeType_Boolean;
     p->bn.value = value;
@@ -121,9 +125,9 @@ static struct nodeObject* boolean(int value)
 }
 
 
-static struct nodeObject* constraints(size_t op, struct nodeObject* value)
+static struct ast_object* constraints(size_t op, struct ast_object* value)
 {
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
     
     p->type = nodeType_Constraint;
     p->cnsn.op = op;
@@ -134,9 +138,9 @@ static struct nodeObject* constraints(size_t op, struct nodeObject* value)
 
 
 
-static struct nodeObject* floatingpoint(double value)
+static struct ast_object* floatingpoint(double value)
 {
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
     
     p->type = nodeType_Float;
     p->fn.value = value;
@@ -145,10 +149,10 @@ static struct nodeObject* floatingpoint(double value)
 }
 
 
-static struct nodeObject* object(struct nodeObject* name, struct nodeObject* attrs) 
+static struct ast_object* object(struct ast_object* name, struct ast_object* attrs) 
 {
     
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
     
     p->type = nodeType_Object;
     p->on.name = name;
@@ -158,10 +162,10 @@ static struct nodeObject* object(struct nodeObject* name, struct nodeObject* att
 }
 
 
-static struct nodeObject* attribute(struct nodeObject* attribute, struct nodeObject* next) 
+static struct ast_object* attribute(struct ast_object* attribute, struct ast_object* next) 
 {
     
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
     
     p->type = nodeType_Attribute;
     p->an.attr = attribute;
@@ -171,10 +175,10 @@ static struct nodeObject* attribute(struct nodeObject* attribute, struct nodeObj
 }
 
 
-static struct nodeObject* pair(struct nodeObject* left, struct nodeObject* right) 
+static struct ast_object* pair(struct ast_object* left, struct ast_object* right) 
 {
 
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
     
     p->type = nodeType_Pair;
     p->pn.left = left;
@@ -184,10 +188,10 @@ static struct nodeObject* pair(struct nodeObject* left, struct nodeObject* right
 }
 
 
-static struct nodeObject* ident(char* str) 
+static struct ast_object* ident(char* str) 
 {
 
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
 
     p->type = nodeType_Ident;
     p->in.str = str;
@@ -196,10 +200,10 @@ static struct nodeObject* ident(char* str)
 }
 
 
-static struct nodeObject* string(char* str) 
+static struct ast_object* string(char* str) 
 {
 
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
 
     p->type = nodeType_String;
     p->sn.str = str;
@@ -208,10 +212,10 @@ static struct nodeObject* string(char* str)
 }
 
 
-static struct nodeObject* num(int value) 
+static struct ast_object* num(int value) 
 {
 
-    struct nodeObject* p = alloc_node();
+    struct ast_object* p = alloc_node();
 
     p->type = nodeType_Constant;
     p->cn.value = value;
@@ -220,7 +224,7 @@ static struct nodeObject* num(int value)
 }
 
 
-void free_nodes(struct nodeObject* p) 
+void free_nodes(struct ast_object* p) 
 {
     if (!p) return;
 

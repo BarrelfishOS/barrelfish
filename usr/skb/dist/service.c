@@ -11,6 +11,8 @@
 #include <include/skb_server.h>
 #include <include/queue.h>
 
+#include "ast.h"
+
 #include "code_generator.h"
 #include "skb_query.h"
 #include "service.h"
@@ -44,14 +46,16 @@ void get_handler(struct skb_binding *b, char *query)
 	err = new_reply_state(&srt, get_reply);
 	assert(err_is_ok(err));
 
-	struct parsed_object* po = transform_query(query);
-	assert(po != NULL); // TODO error?
+	struct ast_object* ast = NULL;
+	err = generate_ast(query, &ast);
+	if(err_is_ok(err)) {
+		err = get_record(ast, &srt->skb);
+	}
 
-	err = get_record(po, &srt->skb);
 	srt->error = err;
 	srt->rpc_reply(b, srt);
 
-	free_parsed_object(po);
+	free_ast(ast);
 	free(query);
 }
 
@@ -79,15 +83,17 @@ void set_handler(struct skb_binding *b, char *query)
 	err = new_reply_state(&srs, set_reply);
 	assert(err_is_ok(err));
 
-	struct parsed_object* po = transform_query(query); // TODO error
-
-	set_record(po, &srs->skb);
+	struct ast_object* ast = NULL;
+	err = generate_ast(query, &ast);
+	if(err_is_ok(err)) {
+		err = set_record(ast, &srs->skb);
+	}
 
 	srs->error = err;
 	srs->rpc_reply(b, srs);
 
+	free_ast(ast);
 	free(query);
-	free_parsed_object(po);
 }
 
 
@@ -114,41 +120,21 @@ void del_handler(struct skb_binding* b, char* query)
 	err = new_reply_state(&srs, del_reply);
 	assert(err_is_ok(err));
 
-	struct parsed_object* po = transform_query(query);
-	assert(po != NULL); // TODO error?
+	struct ast_object* ast = NULL;
+	err = generate_ast(query, &ast);
+	if(err_is_ok(err)) {
+		err = del_record(ast, &srs->skb);
+	}
 
-	err = del_record(po, &srs->skb);
 	srs->error = err;
 	srs->rpc_reply(b, srs);
 
-	free_parsed_object(po);
+	free_ast(ast);
 	free(query);
 }
 
 
-static struct skb_events_binding* get_event_binding(struct skb_binding* b)
-{
-	errval_t err =  SYS_ERR_OK;
-	struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
-	assert(st != NULL);
 
-	char* format = "binding(_, X, %lu), write(X).";
-	size_t len = strlen(format) + 20; // TODO 20
-	char buf[len];
-	snprintf(buf, len, format, b); // TODO check return
-	err = execute_query(buf, st);
-	assert(err_is_ok(err)); // TODO err
-
-	debug_skb_output(st);
-	// TODO check error etc.
-
-	struct skb_events_binding* recipient = NULL;
-	sscanf(st->output_buffer, "%lu", (uintptr_t*) &recipient); // TODO
-
-	assert(recipient != NULL); // TODO
-	free(st);
-	return recipient;
-}
 
 
 static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs)
@@ -177,26 +163,17 @@ void subscribe(struct skb_binding *b, char* query, uint64_t id)
 	err = new_reply_state(&srs, subscribe_reply);
 	assert(err_is_ok(err));
 
-	struct parsed_object* po = transform_query(query); // TODO error
-	SKBD_DEBUG("subscribe: transformed = %s\n", po->attributes.output);
-
-	char* format = "add_subscription(template(%s, %s), %s, subscriber(%lu, %lu)).";
-	size_t len = strlen(po->name.output) + strlen(po->attributes.output) + strlen(po->constraints.output) + strlen(format) + 1 + 50; // todo 50 :-(
-	char buf[len];
-	snprintf(buf, len, format, po->name.output, po->attributes.output, po->constraints.output, get_event_binding(b), id);
-	err = execute_query(buf, &srs->skb);
-	assert(err_is_ok(err)); // TODO
-
-	SKBD_DEBUG("buf: %s\n", buf);
-	debug_skb_output(&srs->skb);
+	struct ast_object* ast = NULL;
+	err = generate_ast(query, &ast);
+	if(err_is_ok(err)) {
+		err = add_subscription(b, ast, id, &srs->skb);
+	}
 
 	srs->error = err;
 	srs->rpc_reply(b, srs);
 
-
+	free_ast(ast);
 	free(query);
-	free_parsed_object(po);
-
 }
 
 
@@ -222,19 +199,12 @@ void unsubscribe(struct skb_binding *b, uint64_t id)
 
 	struct skb_reply_state* srs = NULL;
 	err = new_reply_state(&srs, unsubscribe_reply);
-	assert(err_is_ok(err)); // TODO
+	assert(err_is_ok(err));
 
-	char* format = "delete_subscription(%lu, %lu).";
-	size_t len = strlen(format) + 50 + 1; // todo 50 :-(
-	char buf[len];
-	snprintf(buf, len, format, get_event_binding(b), id);
-	err = execute_query(buf, &srs->skb);
-	assert(err_is_ok(err)); // TODO
+	err = del_subscription(b, id, &srs->skb);
 
-	SKBD_DEBUG("buf: %s\n", buf);
-	debug_skb_output(&srs->skb);
-
-	unsubscribe_reply(b, srs);
+	srs->error = err;
+	srs->rpc_reply(b, srs);
 }
 
 
@@ -263,23 +233,30 @@ static void publish_reply(struct skb_binding* b, struct skb_reply_state* srs) {
 
 void publish(struct skb_binding *b, char* object)
 {
+	SKBD_DEBUG("publish: query = %s\n", object);
 	errval_t err = SYS_ERR_OK;
 
-	SKBD_DEBUG("publish: query = %s\n", object);
-	struct parsed_object* po = transform_query(object); // TODO err?
-	SKBD_DEBUG("set_object: transformed = %s\n", po->attributes.output);
-	assert(strcmp(po->constraints.output, "[  ]") == 0); // TODO error if we have constraints here?
+	struct ast_object* ast = NULL;
+	err = generate_ast(object, &ast);
+	assert(err_is_ok(err));
+
+	struct skb_record* sr = NULL;
+	err = transform_record(ast, &sr);
+	assert(err_is_ok(err));
+
+	SKBD_DEBUG("set_object: transformed = %s\n", sr->attributes.output);
+	assert(strcmp(sr->constraints.output, "[  ]") == 0); // TODO error if we have constraints here?
 
 	struct skb_reply_state* srs = NULL;
 	err = new_reply_state(&srs, publish_reply);
 	assert(err_is_ok(err)); // TODO
 
 	char* format = "findall(X, find_subscriber(object(%s, %s), X), L), write(L).";
-	size_t len = strlen(po->name.output) + strlen(po->attributes.output) \
+	size_t len = strlen(sr->name.output) + strlen(sr->attributes.output) \
 			     + strlen(format) + 1;
 	char buf[len];
 	// TODO check return value
-	snprintf(buf, len, format, po->name.output, po->attributes.output);
+	snprintf(buf, len, format, sr->name.output, sr->attributes.output);
 	err = execute_query(buf, &srs->skb);
 	assert(err_is_ok(err)); // TODO
 
@@ -301,7 +278,8 @@ void publish(struct skb_binding *b, char* object)
     }
 
 	//free(object); TODO: used by send_subscribed_object
-	free_parsed_object(po);
+	free_parsed_object(sr);
+	free_ast(ast);
 }
 
 
@@ -318,7 +296,7 @@ static void lock_reply(struct skb_binding* b, struct skb_reply_state* srs) {
     }
 }
 
-
+/*
 static void append_attr_ptr(struct writer* w, char* name, void* val) {
 	w->pos = w->pos-2;
 	if(strcmp(w->output, "[  ]") == 0) {
@@ -341,9 +319,9 @@ static void append_attr_str(struct writer* w, char* name, char* val) {
 		emit(w, ", %s::'%s' ]", name, val);
 	}
 }
+*/
 
-
-static uint64_t enumerator = 0;
+//static uint64_t enumerator = 0;
 void lock_handler(struct skb_binding* b, char* query)
 {
 	assert(query != NULL); // todo
@@ -353,17 +331,18 @@ void lock_handler(struct skb_binding* b, char* query)
 	err = new_reply_state(&srs, lock_reply);
 	assert(err_is_ok(err)); // TODO
 
-	struct parsed_object* po = transform_query(query);
-	SKBD_DEBUG("get_object: transformed = %s %s\n", po->name.output, po->attributes.output);
-	assert(po != NULL); // TODO error?
+	struct ast_object* ast = NULL;
+	err = generate_ast(query, &ast);
+	assert(err_is_ok(err));
 
-	err = get_record(po, &srs->skb);
-	append_attr_ptr(&po->attributes, "owner", b);
+	err = get_record(ast, &srs->skb);
+	//append_attr_ptr(&po->attributes, "owner", b);
+
 	if(err_no(err) == DIST2_ERR_NO_RECORD)
 	{
 		// Create new Lock
 		SKBD_DEBUG("lock did not exist, create!\n");
-		set_record(po, &srs->skb);
+		set_record(ast, &srs->skb);
 		srs->rpc_reply(b, srs);
 	}
 	else {
@@ -371,15 +350,15 @@ void lock_handler(struct skb_binding* b, char* query)
 
 		// Add to waiting list
 		SKBD_DEBUG("lock already exist, add waiting list record!\n");
-		char* lock_name = po->name.output;
+		/*char* lock_name = po->name.output;
 		append_attr_str(&po->attributes, "wait_for", lock_name);
 
 		// Generate new name
 		po->name.output = NULL;
 		emit(&po->name, "%s_%lu", lock_name, enumerator++);
-		free(lock_name);
+		free(lock_name);*/
 
-		set_record(po, &srs->skb);
+		set_record(ast, &srs->skb);
 	}
 
 	/*
@@ -390,8 +369,23 @@ void lock_handler(struct skb_binding* b, char* query)
 	 *  	set(lock_X-{count} { wait: lock_X, owner: &binding }
 	 **/
 
-	free_parsed_object(po);
+	free_ast(ast);
 	free(query);
+}
+
+
+static void unlock_reply(struct skb_binding* b, struct skb_reply_state* srs)
+{
+    errval_t err;
+    err = b->tx_vtbl.unlock_response(b, MKCONT(free_reply_state, srs),
+			                          srs->error);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        	enqueue_reply_state(b, srs);
+        	return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
 }
 
 
@@ -401,28 +395,57 @@ void unlock_handler(struct skb_binding* b, char* query)
 	errval_t err = SYS_ERR_OK;
 
 	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, lock_reply);
+	err = new_reply_state(&srs, unlock_reply);
 	assert(err_is_ok(err)); // TODO
 
-	struct parsed_object* po = transform_query(query);
-	SKBD_DEBUG("get_object: transformed = %s\n", po->attributes.output);
-	assert(po != NULL); // TODO error?
+	struct ast_object* ast = NULL;
+	err = generate_ast(query, &ast);
+	assert(err_is_ok(err));
 
-	get_record(po, &srs->skb);
+	err = get_record(ast, &srs->skb);
+	if(err_is_ok(err)) {
+		// TODO Check owner
+		char* findChild = "_ { wait_for: '%s' }";
+		size_t length = snprintf(NULL, 0, findChild, ast->on.name->in.str);
+		char buf[length+1]; // TODO stack or heap?
+		snprintf(buf, length+1, findChild, ast->on.name->in.str);
 
-	/**
-	 * unlock(name}
-	 * 	get(lock_X)
-	 * 	if owner == &binding
-	 * 		data = getFirst( r'lock_X-[0-9]*' { wait: lock_X } )
-	 * 		if(data == NULL)
-	 * 			del(lock_X)
-	 * 		else
-	 * 			del(data[name])
-	 * 			set(lock_X, { owner: data[binding] })
-	 * 			reply(data[binding])
-	 * 	reply(owner)
-	 */
+		struct ast_object* ast2 = NULL;
+		err = generate_ast(query, &ast2);
+		assert(err_is_ok(err));
+
+		struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
+
+		err = get_record(ast2, sqs);
+		if(err_is_ok(err)) {
+			// set as new lock record
+			//set_record(po, sqs);
+			// TODO return lock() call of new owner
+			// append_attr_ptr(po2->attributes, "owner", owner in sqs);
+			del_record(ast2, sqs); // delete wait_for element
+			srs->error = SYS_ERR_OK;
+
+		} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
+			// No one waits for lock, we're done.
+			srs->error = SYS_ERR_OK;
+		} else {
+			// Return to client?
+			assert(!"unlock_handler unexpected error code");
+		}
+
+		free_ast(ast2);
+		free(sqs);
+
+	} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
+		srs->error = err_push(err, DIST2_ERR_NOT_LOCKED);
+	} else {
+		// Return to client?
+		assert(!"unlock_handler unexpected error code");
+	}
+	free_ast(ast);
+	free(query);
+
+	srs->rpc_reply(b, srs);
 }
 
 

@@ -1,7 +1,9 @@
 #ifndef AST_H_
 #define AST_H_
 
-enum nodeType { 
+#include <barrelfish/barrelfish.h>
+
+enum node_type { 
     nodeType_Float,
     nodeType_Constant,
     nodeType_Boolean,
@@ -13,60 +15,65 @@ enum nodeType {
     nodeType_Object
 };
 
-struct objectNode {
-    struct nodeObject* name;
-    struct nodeObject* attrs;
+struct node_record {
+    struct ast_object* name;
+    struct ast_object* attrs;
 };
 
-struct constantNode {
+struct node_constant {
     int value;
 };
 
-struct booleanNode {
+struct node_boolean {
     int value;
 };
 
-struct floatNode {
+struct node_float {
     double value;
 };
 
-struct identNode {
+struct node_ident {
     char* str;
 };
 
-struct stringNode {
+struct node_string {
     char* str;
 };
 
-struct constraintNode {
+struct node_constraint {
     size_t op;
-    struct nodeObject* value;
+    struct ast_object* value;
 };
 
-struct attributeNode {
-    struct nodeObject* attr;
-    struct nodeObject* next;
+struct node_attribute {
+    struct ast_object* attr;
+    struct ast_object* next;
 };
 
-struct pairNode {
-    struct nodeObject* left;
-    struct nodeObject* right;
+struct node_pair {
+    struct ast_object* left;
+    struct ast_object* right;
 };
 
-struct nodeObject {
-    enum nodeType type;
+struct ast_object {
+    enum node_type type;
+
     union {
-        struct constantNode cn;
-        struct constraintNode cnsn;
-        struct booleanNode bn;
-        struct floatNode fn;
-        struct identNode in;
-        struct stringNode sn;
-        struct attributeNode an;
-        struct pairNode pn;
-        struct objectNode on;
+        struct node_constant cn;
+        struct node_constraint cnsn;
+        struct node_boolean bn;
+        struct node_float fn;
+        struct node_ident in;
+        struct node_string sn;
+        struct node_attribute an;
+        struct node_pair pn;
+        struct node_record on;
     };
 };
+
+errval_t generate_ast(const char* input, struct ast_object** record);
+void free_ast(struct ast_object* p);
+
 
 #endif // AST_H_
 

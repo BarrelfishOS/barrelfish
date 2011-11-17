@@ -12,7 +12,29 @@
 
 is_empty([]).
 
-get_object(Thing, ReqList, ConsList, SlotList) :-
+print_object(object(Thing, SlotList)) :-
+    write(Thing),
+    write(' { '),
+    print_slots(SlotList),
+    !,
+    write(' }').
+    
+print_slots([]).
+print_slots([S]) :-
+    print_slot(S).
+print_slots([S|Rest]) :-
+    print_slot(S),
+    write(', '),
+    print_slots(Rest).
+
+print_slot(Attr::FacetList) :-
+    facet_val(req(_, Attr, val, X), FacetList), 
+    write(Attr),
+    write(': '),
+    write(X).
+
+
+get_object(Thing, ReqList, ConsList, object(Thing, SlotList)) :-
 	object(Thing, SlotList),
 	slot_vals(Thing, ReqList, SlotList),
 	satisfy_constraints(ConsList, SlotList).

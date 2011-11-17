@@ -33,27 +33,21 @@ errval_t dist_lock(char* object) {
 
 	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
 
-	debug_printf("locked!\n");
 	return err;
 }
 
 
-errval_t dist_unlock(char* name) {
+errval_t dist_unlock(char* object) {
+	assert(object != NULL);
 	errval_t err = SYS_ERR_OK;
 
-/***
- * unlock(name}
- * 	get(lock_X)
- * 	if owner == &binding
- * 		data = getFirst( r'lock_X-[0-9]*' { wait: lock_X } )
- * 		if(data == NULL)
- * 			del(lock_X)
- * 		else
- * 			del(data[name])
- * 			set(lock_X, { owner: data[binding] })
- * 			reply(data[binding])
- * 	reply(owner)
- ***/
+	struct skb_state* skb_state  = get_skb_state();
+	assert(skb_state != NULL);
+
+	errval_t error_code = SYS_ERR_OK;
+	err = skb_state->skb->vtbl.unlock(skb_state->skb, object, &error_code);
+
+	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
 
 	return err;
 }

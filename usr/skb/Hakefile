@@ -20,7 +20,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         target = "skb",
   		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
                                    "dist/code_generator.c",
-                                   "dist/parse.c", "dist/scan.c", 
+                                   "dist/parse.c", "dist/scan.c", "dist/ast.c",
                                    "dist/service.c", "dist/predicates.c", "dist/skb_query.c" ],
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],

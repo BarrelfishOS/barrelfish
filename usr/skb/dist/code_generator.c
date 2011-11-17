@@ -4,21 +4,20 @@
 #include <assert.h>
 #include <stdarg.h>
 
+#include <barrelfish/barrelfish.h>
+
 #include "code_generator.h"
 #include "ast.h"
 #include "y.tab.h"
 #include "flex.h"
 
+#define INITIAL_LENGTH 256
 
-static struct parsed_object* po;
-
-// Generator State
+// State used by tranlate()
+static struct skb_record* sr;
 static struct writer* w;
-struct nodeObject* attribute_name;
+struct ast_object* attribute_name;
 
-extern void yyparse();
-
-#define INITIAL_OUTPUT_LEN 256
 
 #ifdef PARSER_DEBUG
 static void print_writer(struct writer* w) {
@@ -36,10 +35,10 @@ void emit(struct writer* w, const char* format, ...)
 	va_list  args;
 
     if(w->output == NULL) {
-        w->output = malloc(INITIAL_OUTPUT_LEN);
+        w->output = malloc(INITIAL_LENGTH);
         assert(w->output != NULL);
         w->pos = 0;
-        w->length = INITIAL_OUTPUT_LEN;
+        w->length = INITIAL_LENGTH;
     }
 
 	va_start(args, format);
@@ -61,32 +60,32 @@ void emit(struct writer* w, const char* format, ...)
 }
 
 
-int ex(struct nodeObject* p) {
-
-    if (!p) return 0;
+static void translate(struct ast_object* p) {
+	assert(sr != NULL);
+    assert(p != NULL);
 
     switch(p->type) {
         case nodeType_Object:
             assert(p->on.name != NULL);
-            w = &po->name;
+            w = &sr->name;
             
-            ex(p->on.name);
+            translate(p->on.name);
     
-            w = &po->attributes;
+            w = &sr->attributes;
 			emit(w, "[ ");
-			emit(&po->constraints, "[ ");
+			emit(&sr->constraints, "[ ");
             if(p->on.attrs) {
-                ex(p->on.attrs);
+                translate(p->on.attrs);
             }
 			emit(w, " ]");
 
-            size_t len = strlen(po->constraints.output);
-            if(po->constraints.output[len-2] == ',') {
-				po->constraints.output[len-2] = ' ';
-				po->constraints.output[len-1] = ']';
+            size_t len = strlen(sr->constraints.output);
+            if(sr->constraints.output[len-2] == ',') {
+				sr->constraints.output[len-2] = ' ';
+				sr->constraints.output[len-1] = ']';
             }
             else {
-            	emit(&po->constraints, " ]");
+            	emit(&sr->constraints, " ]");
             }
 
         break;
@@ -94,10 +93,10 @@ int ex(struct nodeObject* p) {
         case nodeType_Attribute:
             assert(p->an.attr != NULL);
 
-            ex(p->an.attr);
+            translate(p->an.attr);
             if(p->an.next != NULL) {
                 emit(w, ", ");
-                ex(p->an.next);
+                translate(p->an.next);
             }
         break;
 
@@ -107,9 +106,9 @@ int ex(struct nodeObject* p) {
 
             attribute_name = p->pn.left;
 
-            ex(p->pn.left);
+            translate(p->pn.left);
             emit(w, "::");
-            ex(p->pn.right);
+            translate(p->pn.right);
         break;
 
         case nodeType_Constraint:
@@ -117,7 +116,7 @@ int ex(struct nodeObject* p) {
             // prolog variable, dont care about result, just make sure it's set
             emit(w, "_");
         
-            w = &po->constraints;
+            w = &sr->constraints;
             char* operator;
             switch(p->cnsn.op) {
                 case GT:
@@ -146,13 +145,13 @@ int ex(struct nodeObject* p) {
                 break;
             }
             emit(w, "constraint(");
-            ex(attribute_name);
+            translate(attribute_name);
             emit(w, ", ");
             emit(w, "'%s'", operator);
             emit(w, ", ");
-            ex(p->cnsn.value);
+            translate(p->cnsn.value);
             emit(w, "), ");    
-            w = &po->attributes;
+            w = &sr->attributes;
         break;
 
         case nodeType_Float:
@@ -182,8 +181,9 @@ int ex(struct nodeObject* p) {
             emit(w, p->in.str);
         break;
    }
-    return 0;
+
 }
+
 
 static void init_writer(struct writer* w) {
 	w->pos = 0;
@@ -191,13 +191,15 @@ static void init_writer(struct writer* w) {
 	w->output = NULL;
 }
 
-static void init_po(struct parsed_object* po) {
+
+static void init_record_writers(struct skb_record* po) {
 	init_writer(&po->attributes);
 	init_writer(&po->constraints);
 	init_writer(&po->name);
 }
 
-void free_parsed_object(struct parsed_object* po)
+
+void free_parsed_object(struct skb_record* po)
 {
 	free(po->name.output);
 	free(po->attributes.output);
@@ -206,42 +208,42 @@ void free_parsed_object(struct parsed_object* po)
 }
 
 
-struct parsed_object* transform_query(const char* input)
+errval_t transform_record(struct ast_object* ast, struct skb_record** record)
 {
-#ifdef TEST_PARSER
-	printf("transform: %s\n", input);
-#endif
-	po = malloc(sizeof(struct parsed_object));
-	init_po(po);
+	assert(ast != NULL);
 
-    yy_scan_string(input);
-    yyparse();
-    yylex_destroy();
+	sr = NULL;
+	sr = malloc(sizeof(struct skb_record));
+	if(sr == NULL) {
+		return LIB_ERR_MALLOC_FAIL;
+	}
 
-    //print_writer(&w);
+	init_record_writers(sr);
+	translate(ast);
+	*record = sr;
 
-    return po;
+    return SYS_ERR_OK;
 }
 
 
 #ifdef TEST_PARSER
 int main(int argc, char** argv) 
 {
-    printf("before snprintf:\n");
-    int n = snprintf(NULL, 0, "%s", "123");
-    printf("n = %d\n", n);
+	struct skb_record* p = NULL;
 
-	struct parsed_object* p;
-/*
+	// dont care about free here!
 	p = transform_query("obj1");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
+
 	p = transform_query("obj2 {}");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
+
 	p = transform_query("obj3 { int: -11, fl: 12.0}");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
+
 	p = transform_query("obj4 { int: 12, fl: .0012321, fl2: .22123100 }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
-*/
+
 	p = transform_query("obj5 { reference: bla, integer: 12, str: '[]String!@#%^&*$&^*(_)(-=\\'', float: 12.0, bool: true }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
 
@@ -254,7 +256,6 @@ int main(int argc, char** argv)
 	p = transform_query("obj7 { c1: r'abc', c2: r'^ab*ab$' }");
 	printf("result: %s:\n\t%s\n\t%s\n", p->name.output, p->attributes.output, p->constraints.output);
 
-	// dont care about free here!
     return 0;
 }
 #endif
