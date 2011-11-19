@@ -57,13 +57,16 @@ void free_ast(struct ast_object* p) {
 
 errval_t generate_ast(const char* input, struct ast_object** record)
 {
-    yy_scan_string(input);
+	printf("input before yacc is: %s\n", input);
+	yy_scan_string(input);
     yyparse();
     yylex_destroy();
+    printf("input after yacc is: %s\n", input);
 
     errval_t err = dist2_parser_error;
 
     if(err_is_ok(err)) {
+    	printf("dist2_parsed_ast for input %s is %p\n", input, dist2_parsed_ast);
 		*record = dist2_parsed_ast;
 		dist2_parsed_ast = NULL;
     }

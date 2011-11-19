@@ -387,6 +387,8 @@ void lock_handler(struct skb_binding* b, char* query)
 {
 	assert(query != NULL); // todo
 	errval_t err = SYS_ERR_OK;
+	SKBD_DEBUG("lock handler: %s\n", query);
+
 
 	struct skb_reply_state* srs = NULL;
 	err = new_reply_state(&srs, lock_reply); // TODO FIX we dont always reply in this case we loose some srs!
@@ -471,14 +473,16 @@ void unlock_handler(struct skb_binding* b, char* query)
 {
 	assert(query != NULL); // TODO
 	errval_t err = SYS_ERR_OK;
-	SKBD_DEBUG("unlock handler\n");
+	SKBD_DEBUG("unlock handler: %s\n", query);
 
 	struct skb_reply_state* srs = NULL;
 	err = new_reply_state(&srs, unlock_reply);
 	assert(err_is_ok(err));
 
+	printf("before generate ast for query = %s\n", query);
 	struct ast_object* query_ast = NULL;
 	err = generate_ast(query, &query_ast);
+	DEBUG_ERR(err, "generate ast for query = %s\n", query);
 	assert(query_ast != NULL);
 
 	if(err_is_ok(err)) {
@@ -512,40 +516,39 @@ void unlock_handler(struct skb_binding* b, char* query)
 			assert(next_child_ast != NULL);
 			assert(err_is_ok(err));
 
-			struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
+			struct skb_reply_state* child_srs = NULL;
+			err = new_reply_state(&child_srs, unlock_reply);
+			assert(err_is_ok(err));
 
 			SKBD_DEBUG("search wait_for element\n");
 
-			err = get_record(next_child_ast, sqs);
+			err = get_record(next_child_ast, &child_srs->skb);
 
 			free_ast(next_child_ast);
 			next_child_ast = NULL;
 
 			if(err_is_ok(err)) {
-				err = generate_ast(sqs->output_buffer, &next_child_ast);
+				err = generate_ast(child_srs->skb.output_buffer, &next_child_ast);
 				assert(err_is_ok(err));
 				assert(next_child_ast != NULL);
 
 				// delete wait_for element
-				del_record(next_child_ast, sqs);
+				del_record(next_child_ast, &child_srs->skb);
 
 				SKBD_DEBUG("remove wait_for\n");
+
 				struct ast_object* wait_for = remove_attribute(next_child_ast, "wait_for");
 				assert(wait_for != NULL);
+
 				free(next_child_ast->on.name->in.str);
-				debug_printf("before assign wait for name to rec name\n");
-				assert(wait_for->type == nodeType_Pair);
-				assert(wait_for->pn.right != NULL);
-				assert(wait_for->pn.right->type == nodeType_Ident);
-				next_child_ast->on.name->in.str =	wait_for->pn.right->sn.str;
-				debug_printf("after assign wait for name to rec name\n");
-				wait_for->pn.right->sn.str = NULL;
+				next_child_ast->on.name->in.str = wait_for->pn.right->in.str;
+				wait_for->pn.right->in.str = NULL;
 
 				free_ast(wait_for);
 
 				// Set new lock record
 				SKBD_DEBUG("set new lock obj\n");
-				set_record(next_child_ast, sqs);
+				set_record(next_child_ast, &child_srs->skb);
 
 				// return lock() call of new owner
 				struct ast_object* owner = find_attribute(next_child_ast, "owner");
@@ -553,7 +556,7 @@ void unlock_handler(struct skb_binding* b, char* query)
 				struct skb_binding* new_owner = (struct skb_binding*) owner->pn.right->cn.value;
 
 				srs->error = SYS_ERR_OK;
-				lock_reply(new_owner, srs);
+				child_srs->rpc_reply(new_owner, child_srs);
 
 			} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
 				// No one waits for lock, we're done.
@@ -564,7 +567,6 @@ void unlock_handler(struct skb_binding* b, char* query)
 			}
 
 			free_ast(next_child_ast);
-			free(sqs);
 
 		} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
 			srs->error = err_push(err, DIST2_ERR_NOT_LOCKED);

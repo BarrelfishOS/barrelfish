@@ -89,13 +89,15 @@ struct ast_object {
 errval_t generate_ast(const char* input, struct ast_object** record);
 void free_ast(struct ast_object* p);
 
-
+#include <string.h>
 static inline struct ast_object* alloc_node(void)
 {
     struct ast_object* p = malloc(sizeof(struct ast_object));
     if (p == NULL) {
         //yyerror("out of memory");
+    	assert(!"no more mem bad!\n");
     }
+    memset(p, 0, sizeof(struct ast_object));
 
     return p;
 }
