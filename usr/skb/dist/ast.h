@@ -1,9 +1,24 @@
 #ifndef AST_H_
 #define AST_H_
 
-#include <barrelfish/barrelfish.h>
+#include <stdlib.h>
 
-enum node_type { 
+#ifndef TEST_PARSER
+#include <barrelfish/barrelfish.h>
+#else
+
+#define SYS_ERR_OK 0
+typedef long errval_t;
+typedef long int64_t;
+static int err_is_ok(errval_t err) {
+	return err == 0;
+}
+#endif
+
+
+
+enum node_type {
+	nodeType_Unset, // To detect errors
     nodeType_Float,
     nodeType_Constant,
     nodeType_Boolean,
@@ -21,7 +36,7 @@ struct node_record {
 };
 
 struct node_constant {
-    int value;
+	int64_t value;
 };
 
 struct node_boolean {
@@ -179,7 +194,7 @@ static inline struct ast_object* string(char* str)
 }
 
 
-static inline struct ast_object* num(int value)
+static inline struct ast_object* num(int64_t value)
 {
     struct ast_object* p = alloc_node();
 

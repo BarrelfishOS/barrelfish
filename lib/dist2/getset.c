@@ -55,9 +55,6 @@ errval_t dist_get(char* query, char** data)
 		err = error_code;
 	}
 
-	debug_printf("dist_get: skberror %lu: %s\n", error_code, error);
-	debug_printf("dist_get: data: %s\n", *data);
-
 	free(error); // TODO can this be NULL?
 	// free(*data) on error? can be NULL?
 
@@ -95,8 +92,6 @@ errval_t dist_set(char* object, ...)
 	errval_t error_code;
 	err = skb_state->skb->vtbl.set(skb_state->skb, buf, &error, &error_code);
 	// TODO check error_code
-
-	debug_printf("dist_set: skberror %lu: %s\n", error_code, error);
 
 	free(buf);
 	free(error);

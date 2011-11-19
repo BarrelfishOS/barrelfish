@@ -15,6 +15,7 @@ interface skb "SKB RPC Interface" {
 
   
     /*  Used by dist2 library (move in extra interface?) */
+    rpc get_identifier(out uint64 id);
     rpc identify(in uint64 id);
     
 	rpc get(in string query, out string output, out string error, out errval error_code);

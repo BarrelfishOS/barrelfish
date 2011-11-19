@@ -62,6 +62,12 @@ REGEX_START r{QUOTE}
                 return FLOAT;
             }
 
+
+{IDENT}     { 
+                yylval.str = strdup(yytext); /* TODO this may leak memory on parser error! */ 
+                return IDENT; 
+            }
+
 {REGEX_START}      { string_buf_ptr = string_buf; BEGIN(REG); }
 
 <REG>\'        { /* saw closing quote - all done */
@@ -121,15 +127,8 @@ REGEX_START r{QUOTE}
              *string_buf_ptr++ = *yptr++;
      }
 
-
-
-{IDENT}     { 
-                yylval.str = strdup(yytext); /* TODO this may leak memory on parser error! */ 
-                return IDENT; 
-            }
-
 {NUMBER}   {
-                yylval.integer = atoi(yytext);
+                yylval.integer = atoll(yytext);
                 return NUMBER;
             }
 

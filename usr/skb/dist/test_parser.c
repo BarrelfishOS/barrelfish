@@ -1,22 +1,45 @@
-#include <stdlib.h>
+#ifdef TEST_PARSER
+
 #include <stdio.h>
-#include <string.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <string.h>
 
-#include <barrelfish/barrelfish.h>
 
-#include "code_generator.h"
 #include "ast.h"
 #include "y.tab.h"
-#include "flex.h"
 
-#define INITIAL_LENGTH 256
+
+#define INITIAL_LENGTH 255
+
+struct writer {
+    char* output;
+    size_t pos;
+    size_t length;
+};
+
+struct skb_record {
+	struct writer name;
+	struct writer attributes;
+	struct writer constraints;
+};
+
+void emit(struct writer*, const char*, ...);
+
 
 // State used by tranlate()
 static struct skb_record* sr;
 static struct writer* w;
 struct ast_object* attribute_name;
+
+
+#ifdef PARSER_DEBUG
+static void print_writer(struct writer* w) {
+    printf("\tpos: %lu\n", w->pos);
+    printf("\tlength: %lu\n", w->length);
+    printf("\toutput: %s\n", w->output);
+}
+#endif
 
 
 void emit(struct writer* w, const char* format, ...)
@@ -50,7 +73,6 @@ void emit(struct writer* w, const char* format, ...)
     w->pos = occupied;
 }
 
-
 static void translate(struct ast_object* p) {
 	assert(sr != NULL);
     assert(p != NULL);
@@ -59,13 +81,15 @@ static void translate(struct ast_object* p) {
         case nodeType_Object:
             assert(p->on.name != NULL);
             w = &sr->name;
-            
+
             translate(p->on.name);
-    
+
             w = &sr->attributes;
-			emit(w, "[ ");
+            emit(w, "[ ");
+
 			emit(&sr->constraints, "[ ");
             if(p->on.attrs) {
+
                 translate(p->on.attrs);
             }
 			emit(w, " ]");
@@ -106,7 +130,7 @@ static void translate(struct ast_object* p) {
             assert(p->cnsn.value != NULL);
             // prolog variable, dont care about result, just make sure it's set
             emit(w, "_");
-        
+
             w = &sr->constraints;
             char* operator;
             switch(p->cnsn.op) {
@@ -141,7 +165,7 @@ static void translate(struct ast_object* p) {
             emit(w, "'%s'", operator);
             emit(w, ", ");
             translate(p->cnsn.value);
-            emit(w, "), ");    
+            emit(w, "), ");
             w = &sr->attributes;
         break;
 
@@ -180,44 +204,100 @@ static void translate(struct ast_object* p) {
 }
 
 
-static void init_writer(struct writer* w) {
-	w->pos = 0;
-	w->length = 0;
-	w->output = NULL;
-}
-
-
-static void init_record_writers(struct skb_record* po) {
-	init_writer(&po->attributes);
-	init_writer(&po->constraints);
-	init_writer(&po->name);
-}
-
-
-void free_parsed_object(struct skb_record* po)
+static struct ast_object* remove_attribute(struct ast_object* ast, char* name)
 {
-	free(po->name.output);
-	free(po->attributes.output);
-	free(po->constraints.output);
-	free(po);
-}
+	struct ast_object** attr = &ast->on.attrs;
 
+	for(; *attr != NULL; attr = &(*attr)->an.next) {
 
-errval_t transform_record(struct ast_object* ast, struct skb_record** record)
-{
-	assert(ast != NULL);
+		assert((*attr)->type == nodeType_Attribute);
+		struct ast_object* pair = (*attr)->an.attr;
+		struct ast_object* left = pair->pn.left;
 
-	sr = NULL;
-	sr = malloc(sizeof(struct skb_record));
-	if(sr == NULL) {
-		return LIB_ERR_MALLOC_FAIL;
+		if(strcmp(left->in.str, name) == 0) {
+			struct ast_object* to_return = pair;
+			struct ast_object* current_attr = *attr;
+
+			*attr = current_attr->an.next;
+			current_attr->an.next = NULL;
+
+			free_ast(current_attr);
+			return pair;
+		}
+
 	}
 
-	init_record_writers(sr);
-	translate(ast);
-	*record = sr;
-
-    return SYS_ERR_OK;
+	return NULL;
 }
 
 
+static void walk_attributes(struct ast_object* ast) {
+	struct ast_object* attr = ast->on.attrs;
+
+	while(attr != NULL) {
+		assert(attr->type == nodeType_Attribute);
+
+		struct ast_object* pair = attr->an.attr;
+		assert(pair != NULL);
+		assert(pair->type == nodeType_Pair);
+
+		struct ast_object* left = pair->pn.left;
+		struct ast_object* right = pair->pn.right;;
+		assert(left != NULL);
+		assert(right != NULL);
+
+
+		attr = attr->an.next;
+	}
+}
+
+void transform_query(char* obj)
+{
+
+	struct ast_object* ast;
+	errval_t err = generate_ast(obj, &ast);
+	walk_attributes(ast);
+	struct ast_object* wait_for = remove_attribute(ast, "wait_for");
+
+	/*assert(wait_for->type == nodeType_Pair);
+	assert(wait_for->pn.right != NULL);
+	assert(wait_for->pn.right->type == nodeType_Ident);*/
+
+
+	sr = malloc(sizeof(struct skb_record));
+	memset(sr, 0, sizeof(struct skb_record));
+	translate(ast);
+}
+
+
+int main(int argc, char** argv)
+{
+	// dont care about free here!
+	transform_query("lock_test_1 { owner: 7144816, wait_for: lock_test }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	/*
+	transform_query("obj2 {}");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	transform_query("obj3 { int: -11, fl: 12.0}");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	transform_query("obj4 { int: 12, fl: .0012321, fl2: .22123100 }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	transform_query("obj5 { reference: bla, integer: 12, str: '[]String!@#%^&*$&^*(_)(-=\\'', float: 12.0, bool: true }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	transform_query("obj5 { str1: 'String1', str2: 'String2' }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	transform_query("obj7 { c1: < 10, c1: > 11.0, c3: == 0, c4: >= 0, c5: <= .123 }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+
+	transform_query("obj7 { c1: r'abc', c2: r'^ab*ab$' }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+*/
+    return 0;
+}
+#endif

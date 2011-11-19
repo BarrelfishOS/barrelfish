@@ -17,6 +17,8 @@
 #include "skb_query.h"
 #include "service.h"
 
+char* strdup(const char*);
+
 
 static void debug_skb_output(struct skb_query_state* st) {
 	SKBD_DEBUG("st->output: %s\nerror: %s\nerror_code: %d\n", st->output_buffer, st->error_buffer, st->exec_res);
@@ -328,10 +330,58 @@ static void append_attribute(struct ast_object* ast, struct ast_object* to_inser
 		// continue
 	}
 
-	*attr = to_insert;
+	struct ast_object* new_attr = alloc_node();
+	new_attr->type = nodeType_Attribute;
+	new_attr->an.attr = to_insert;
+	new_attr->an.next = NULL;
+	*attr = new_attr;
 }
 
-//static uint64_t enumerator = 0;
+static struct ast_object* find_attribute(struct ast_object* ast, char* name)
+{
+	struct ast_object** attr = &ast->on.attrs;
+
+	for(; *attr != NULL; attr = &(*attr)->an.next) {
+
+		assert((*attr)->type == nodeType_Attribute);
+		if(strcmp((*attr)->an.attr->pn.left->in.str, name) == 0) {
+			return (*attr)->an.attr;
+		}
+
+	}
+
+	return NULL;
+}
+
+
+static struct ast_object* remove_attribute(struct ast_object* ast, char* name)
+{
+	struct ast_object** attr = &ast->on.attrs;
+
+	for(; *attr != NULL; attr = &(*attr)->an.next) {
+
+		assert((*attr)->type == nodeType_Attribute);
+		struct ast_object* pair = (*attr)->an.attr;
+		struct ast_object* left = pair->pn.left;
+
+		if(strcmp(left->in.str, name) == 0) {
+			struct ast_object* current_attr = *attr;
+
+			*attr = current_attr->an.next;
+
+			current_attr->an.next = NULL;
+			current_attr->an.attr = NULL;
+			free_ast(current_attr);
+
+			return pair;
+		}
+
+	}
+
+	return NULL;
+}
+
+static uint64_t enumerator = 0;
 
 void lock_handler(struct skb_binding* b, char* query)
 {
@@ -339,7 +389,7 @@ void lock_handler(struct skb_binding* b, char* query)
 	errval_t err = SYS_ERR_OK;
 
 	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, lock_reply);
+	err = new_reply_state(&srs, lock_reply); // TODO FIX we dont always reply in this case we loose some srs!
 	assert(err_is_ok(err)); // TODO
 
 	struct ast_object* ast = NULL;
@@ -351,10 +401,7 @@ void lock_handler(struct skb_binding* b, char* query)
 	{
 		SKBD_DEBUG("lock did not exist, create!\n");
 
-		// TODO hack, should have ast entry for pointer?
-		char buf[20];
-		snprintf(buf, 20, "%lu", (uintptr_t)b);
-		append_attribute(ast, pair(ident("owner"), string(buf)));
+		append_attribute(ast, pair(ident(strdup("owner")), num( (int64_t)b) )); // TODO strdup
 
 		// Create new Lock
 		// Overwrite err variable on purpose
@@ -363,20 +410,41 @@ void lock_handler(struct skb_binding* b, char* query)
 		srs->error = err;
 		srs->rpc_reply(b, srs);
 	}
-	else {
-		// TODO if we already have the lock reply immediately
+	else if(err_is_ok(err)) {
 
-		// Add to waiting list
-		SKBD_DEBUG("lock already exist, add waiting list record!\n");
-		/*char* lock_name = po->name.output;
-		append_attr_str(&po->attributes, "wait_for", lock_name);
+		struct ast_object* ast2 = NULL;
+		err = generate_ast(srs->skb.output_buffer, &ast2);
+		assert(err_is_ok(err)); // TODO
 
-		// Generate new name
-		po->name.output = NULL;
-		emit(&po->name, "%s_%lu", lock_name, enumerator++);
-		free(lock_name);*/
+		struct ast_object* owner = find_attribute(ast2, "owner");
+		assert(owner != NULL);
 
-		set_record(ast, &srs->skb);
+		if( ((void*)owner->pn.right->cn.value) == b) { // TODO compare int64_t vs. pointer
+			// If we already have the lock reply immediately
+			SKBD_DEBUG("we already have the lock!\n");
+			srs->error = DIST2_ERR_LOCK_ALREADY_OWNED;
+			srs->rpc_reply(b, srs);
+		} else {
+			// Add to waiting list
+			SKBD_DEBUG("lock already exists, add to waiting list!\n");
+
+			char* lock_name = ast->on.name->in.str;
+			size_t length = snprintf(NULL, 0, "%s_%lu", lock_name, enumerator++);
+			char* wait_name = malloc(length+1);
+			snprintf(wait_name, length+1, "%s_%lu", lock_name, enumerator);
+
+			ast->on.name->in.str = wait_name;
+			// TODO strdup
+			append_attribute(ast, pair(ident(strdup("wait_for")), string(lock_name)));
+			append_attribute(ast, pair(ident(strdup("owner")), num( (int64_t)b) )); // TODO strdup
+
+			// free(lock_name); we don't need to do this because we put lock name back in the AST
+			// so it's freed on calling free_ast().
+
+			set_record(ast, &srs->skb);
+		}
+
+		free_ast(ast2);
 	}
 
 	free_ast(ast);
@@ -403,40 +471,89 @@ void unlock_handler(struct skb_binding* b, char* query)
 {
 	assert(query != NULL); // TODO
 	errval_t err = SYS_ERR_OK;
+	SKBD_DEBUG("unlock handler\n");
 
 	struct skb_reply_state* srs = NULL;
-	debug_printf("before new_reply_state\n");
 	err = new_reply_state(&srs, unlock_reply);
-	debug_printf("after new_reply_state\n");
 	assert(err_is_ok(err));
 
-	struct ast_object* ast = NULL;
-	err = generate_ast(query, &ast);
+	struct ast_object* query_ast = NULL;
+	err = generate_ast(query, &query_ast);
+	assert(query_ast != NULL);
+
 	if(err_is_ok(err)) {
 
-		err = get_record(ast, &srs->skb);
+		err = get_record(query_ast, &srs->skb);
 		if(err_is_ok(err)) {
+			SKBD_DEBUG("found lock\n");
 
-			// TODO Check owner
+			struct ast_object* lock_ast = NULL;
+			err = generate_ast(srs->skb.output_buffer, &lock_ast);// TODO free
+			assert(err_is_ok(err));
+			assert(lock_ast != NULL);
+
+			struct ast_object* owner = find_attribute(lock_ast, "owner");
+			assert(owner != NULL);
+
+			if( ((void*)owner->pn.right->cn.value) != b) { // TODO compare int64_t vs. pointer
+				// Cannot unlock if we're not the owner
+				srs->error = DIST2_ERR_LOCK_NOT_OWNED;
+				srs->rpc_reply(b, srs);
+			}
+			free_ast(lock_ast);
+
 			char* findChild = "_ { wait_for: '%s' }";
-			size_t length = snprintf(NULL, 0, findChild, ast->on.name->in.str);
+			size_t length = snprintf(NULL, 0, findChild, query_ast->on.name->in.str);
 			char buf[length+1]; // TODO stack or heap?
-			snprintf(buf, length+1, findChild, ast->on.name->in.str);
+			snprintf(buf, length+1, findChild, query_ast->on.name->in.str);
 
-			struct ast_object* ast2 = NULL;
-			err = generate_ast(query, &ast2);
+			struct ast_object* next_child_ast = NULL;
+			err = generate_ast(buf, &next_child_ast);
+			assert(next_child_ast != NULL);
 			assert(err_is_ok(err));
 
 			struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
 
-			err = get_record(ast2, sqs);
+			SKBD_DEBUG("search wait_for element\n");
+
+			err = get_record(next_child_ast, sqs);
+
+			free_ast(next_child_ast);
+			next_child_ast = NULL;
+
 			if(err_is_ok(err)) {
-				// set as new lock record
-				//set_record(po, sqs);
-				// TODO return lock() call of new owner
-				// append_attr_ptr(po2->attributes, "owner", owner in sqs);
-				del_record(ast2, sqs); // delete wait_for element
+				err = generate_ast(sqs->output_buffer, &next_child_ast);
+				assert(err_is_ok(err));
+				assert(next_child_ast != NULL);
+
+				// delete wait_for element
+				del_record(next_child_ast, sqs);
+
+				SKBD_DEBUG("remove wait_for\n");
+				struct ast_object* wait_for = remove_attribute(next_child_ast, "wait_for");
+				assert(wait_for != NULL);
+				free(next_child_ast->on.name->in.str);
+				debug_printf("before assign wait for name to rec name\n");
+				assert(wait_for->type == nodeType_Pair);
+				assert(wait_for->pn.right != NULL);
+				assert(wait_for->pn.right->type == nodeType_Ident);
+				next_child_ast->on.name->in.str =	wait_for->pn.right->sn.str;
+				debug_printf("after assign wait for name to rec name\n");
+				wait_for->pn.right->sn.str = NULL;
+
+				free_ast(wait_for);
+
+				// Set new lock record
+				SKBD_DEBUG("set new lock obj\n");
+				set_record(next_child_ast, sqs);
+
+				// return lock() call of new owner
+				struct ast_object* owner = find_attribute(next_child_ast, "owner");
+				assert(owner != NULL);
+				struct skb_binding* new_owner = (struct skb_binding*) owner->pn.right->cn.value;
+
 				srs->error = SYS_ERR_OK;
+				lock_reply(new_owner, srs);
 
 			} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
 				// No one waits for lock, we're done.
@@ -446,7 +563,7 @@ void unlock_handler(struct skb_binding* b, char* query)
 				assert(!"unlock_handler unexpected error code");
 			}
 
-			free_ast(ast2);
+			free_ast(next_child_ast);
 			free(sqs);
 
 		} else if(err_no(err) == DIST2_ERR_NO_RECORD) {
@@ -458,7 +575,7 @@ void unlock_handler(struct skb_binding* b, char* query)
 
 	}
 
-	free_ast(ast);
+	free_ast(query_ast);
 	free(query);
 
 	srs->rpc_reply(b, srs);
@@ -467,7 +584,7 @@ void unlock_handler(struct skb_binding* b, char* query)
 
 static void identify_events_binding(struct skb_events_binding* b, uint64_t id)
 {
-	SKBD_DEBUG("identify_events_binding\n");
+	SKBD_DEBUG("identify_events_binding start: %p id:%lu\n", b, id);
 	char* format = "set_event_binding(%lu, %lu).";
 	size_t len = strlen(format) + 50; // TODO maxlength of two int?
 	char buf[len];
@@ -479,15 +596,23 @@ static void identify_events_binding(struct skb_events_binding* b, uint64_t id)
 	errval_t err = execute_query(buf, st);
 	assert(err_is_ok(err)); // TODO
 
-	SKBD_DEBUG("identify_events_binding DONE\n");
+	SKBD_DEBUG("identify_events_binding done %s for: %p\n", buf, b);
 	debug_skb_output(st);
 	free(st);
+}
+
+static uint64_t current_id = 1;
+
+void get_identifier(struct skb_binding* b)
+{
+	errval_t err  = b->tx_vtbl.get_identifier_response(b, NOP_CONT, current_id++);
+	assert(err_is_ok(err));
 }
 
 
 void identify_rpc_binding(struct skb_binding* b, uint64_t id)
 {
-	SKBD_DEBUG("identify_rpc_binding\n");
+	SKBD_DEBUG("identify_rpc_binding start: %p id:%lu\n", b, id);
 	// duplicated code from events binding!
 	char* format = "set_rpc_binding(%lu, %lu).";
 	size_t len = strlen(format) + 200; // TODO maxlength of two int?
@@ -506,7 +631,7 @@ void identify_rpc_binding(struct skb_binding* b, uint64_t id)
 	SKBD_DEBUG("buf: %s\n", buf);
 	debug_skb_output(st);
 
-	SKBD_DEBUG("identify_rpc_binding DONE\n");
+	SKBD_DEBUG("identify_rpc_binding done for: %p\n", b);
 	free(st);
 	// Returning is done by prolog predicate C function!
 }

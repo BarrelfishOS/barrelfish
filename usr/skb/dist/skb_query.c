@@ -42,7 +42,7 @@ errval_t get_record(struct ast_object* ast, struct skb_query_state* sqs)
 
 		err = execute_query(buf, sqs);
 
-		SKBD_DEBUG("get_record: %s output was:\n", buf);
+		SKBD_DEBUG("get_record: %s\n", buf);
 		debug_skb_output(sqs);
 
 		free(buf);
@@ -77,7 +77,7 @@ errval_t set_record(struct ast_object* ast, struct skb_query_state* sqs)
 
 		err = execute_query(buf, sqs);
 
-		SKBD_DEBUG("set_record: %s output was:\n", buf);
+		SKBD_DEBUG("set_record: %s:\n", buf);
 		debug_skb_output(sqs);
 
 		free_parsed_object(sr);
@@ -109,7 +109,7 @@ errval_t del_record(struct ast_object* ast, struct skb_query_state* sqs)
 
 			err = execute_query(buf, sqs);
 
-			SKBD_DEBUG("del_record: %s output was:\n", buf);
+			SKBD_DEBUG("del_record: %s:\n", buf);
 			debug_skb_output(sqs);
 		}
 
@@ -163,7 +163,7 @@ errval_t add_subscription(struct skb_binding* b, struct ast_object* ast, uint64_
 				 sr->constraints.output, get_event_binding(b), id);
 		err = execute_query(buf, sqs);
 
-		SKBD_DEBUG("buf: %s\n", buf);
+		SKBD_DEBUG("add_subscription: %s\n", buf);
 		debug_skb_output(sqs);
 
 		free_parsed_object(sr);
@@ -183,7 +183,7 @@ errval_t del_subscription(struct skb_binding* b, uint64_t id, struct skb_query_s
 	snprintf(buf, len, format, get_event_binding(b), id);
 	err = execute_query(buf, sqs);
 
-	SKBD_DEBUG("buf: %s\n", buf);
+	SKBD_DEBUG("del_subscription: %s\n", buf);
 	debug_skb_output(sqs);
 
 	return err;

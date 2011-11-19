@@ -272,7 +272,13 @@ static void main_subscriber(void) {
 static errval_t lock_test(void) {
 	debug_printf("lock!\n");
 	errval_t err = dist_lock("lock4 { attr: bla }");
-	debug_printf("lock returned?\n");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_lock failed!");
+		abort();
+	}
+
+	debug_printf("lock!\n");
+	err = dist_lock("lock4 { attr: bla }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_lock failed!");
 		abort();
@@ -302,6 +308,8 @@ int main(int argc, char *argv[])
     skb_client_connect();
     dist_init();
 
+    lock_test();
+    abort();
 
     if (argc == 2 && strcmp(argv[1], "subscriber") == 0) {
         main_subscriber();

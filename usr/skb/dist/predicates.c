@@ -33,16 +33,14 @@ int p_identification_complete(void)         /* identification_complete(+Integer)
     ec_get_long(ec_arg(1), &id);
 
     struct skb_reply_state* srs = NULL;
-    printf("new_reply_state\n");
     errval_t err = new_reply_state(&srs, identification_complete_reply);
-    printf("new_reply_state done\n");
 
     assert(err_is_ok(err)); // TODO
 
     struct skb_binding* skb = (struct skb_binding*) id;
-    printf("2\n");
     identification_complete_reply(skb, srs);
-	SKBD_DEBUG("p_identification_complete DONE\n");
+
+    SKBD_DEBUG("p_identification_complete DONE\n");
 
     return PSUCCEED;
 }

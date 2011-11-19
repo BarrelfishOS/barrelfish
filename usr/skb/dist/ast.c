@@ -1,6 +1,5 @@
 #include <stdio.h>
-
-#include <barrelfish/barrelfish.h>
+#include <assert.h>
 
 #include "ast.h"
 #include "flex.h"
@@ -25,16 +24,32 @@ void free_ast(struct ast_object* p) {
         break;
 
         case nodeType_String:
-            free(p->in.str); // TODO: avoid leak memory if parser has error :-(
+            free(p->sn.str); // TODO: avoid leak memory if parser has error :-(
+        	p->sn.str = NULL;
         break;
+
+        case nodeType_Ident:
+            free(p->in.str); // TODO mem leaks on parser error
+        	p->in.str = NULL;
+       	break;
+
+        case nodeType_Constraint:
+        	free_ast(p->cnsn.value);
+		break;
 
         case nodeType_Pair:
             free_ast(p->pn.left);
             free_ast(p->pn.right);
         break;
 
-        default:
+        case nodeType_Unset:
+        	assert(!"nodeType_Unset encountered in free_ast!");
+        	abort();
         break;
+
+        default:
+        	// Nothing to do for value types
+       	break;
     }
 
     free (p);

@@ -33,7 +33,7 @@ errval_t dist_lock(char* object) {
 
 	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
 
-	return err;
+	return error_code;
 }
 
 

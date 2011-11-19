@@ -16,6 +16,7 @@ void lock_handler(struct skb_binding*, char*);
 void unlock_handler(struct skb_binding*, char*);
 
 void identify_rpc_binding(struct skb_binding*, uint64_t);
+void get_identifier(struct skb_binding*);
 
 void event_server_init(void);
 

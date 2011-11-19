@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
@@ -32,22 +34,24 @@ static void bind_cb(void *st, errval_t err, struct skb_events_binding *b)
         abort();
     }
 
+    struct skb_state* skb_rpc = get_skb_state();
     struct skb_events_state* skb_events = get_skb_events_binding();
     skb_events->binding = b;
 
+    uint64_t id = 0;
+    errval_t err2 = skb_rpc->skb->vtbl.get_identifier(skb_rpc->skb, &id);
+    assert(err_is_ok(err2));
+
     // Send SKB Pointer from both bindings to ensure proper identification
-    // TODO: Pointer is not really guaranteed to be unique among all
-    // connections, find a better value to send?
-    struct skb_state* skb_rpc = get_skb_state();
-    errval_t err2 = skb_events->binding->tx_vtbl.identify(
+    err2 = skb_events->binding->tx_vtbl.identify(
     		                 skb_events->binding, NOP_CONT,
-    		                 (uint64_t)skb_rpc->skb->b);
+    		                 id);
     assert(err_is_ok(err2));
     // Should not fail since this is the only message
     // we ever send on this interface
 
     // avoid race condition and wait until skb_events identify is handled
-    err2 = skb_rpc->skb->vtbl.identify(skb_rpc->skb, (uint64_t)skb_rpc->skb->b);
+    err2 = skb_rpc->skb->vtbl.identify(skb_rpc->skb, id);
     assert(err_is_ok(err2));
 
     skb_events->binding->rx_vtbl = rx_vtbl;

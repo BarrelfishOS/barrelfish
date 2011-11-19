@@ -13,5 +13,10 @@
 [ build application { target = "dist2test",
                       cFiles = [ "main.c" ],
                       addLibraries = [ "dist2", "skb" ]
+                    },
+                    
+ build application { target = "d2locking",
+                      cFiles = [ "locktest.c" ],
+                      addLibraries = [ "dist2", "skb" ]
                     }
 ]

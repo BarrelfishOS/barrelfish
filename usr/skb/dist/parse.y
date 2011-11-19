@@ -1,11 +1,9 @@
 %{
 #include <stdio.h>
 
-#include <barrelfish/barrelfish.h>
-
+#include "ast.h"
 #include "y.tab.h"
-#include "ast.h"
-#include "ast.h"
+typedef long int64_t;
 
 int yylex(void);
 void yyerror(char *);
@@ -13,7 +11,7 @@ void yyerror(char *);
 static struct ast_object* ident(char*);
 static struct ast_object* boolean(int);
 static struct ast_object* floatingpoint(double);
-static struct ast_object* num(int);
+static struct ast_object* num(int64_t);
 static struct ast_object* pair(struct ast_object*, struct ast_object*);
 static struct ast_object* attribute(struct ast_object*, struct ast_object*);
 static struct ast_object* object(struct ast_object*, struct ast_object*);
@@ -28,7 +26,7 @@ extern errval_t dist2_parser_error;
 
 %error-verbose
 %union {
-    int integer;
+    long long int integer;
     double dl;
     char* str;
     struct ast_object* nPtr;
@@ -46,7 +44,6 @@ extern errval_t dist2_parser_error;
 %token LE
 %token EQ
 %token NE
-%token REGEX
 
 %token <integer> BOOL
 %token <dl> FLOAT
@@ -90,8 +87,8 @@ constraint:
     | REGEX                          { $$ = constraints(REGEX, string($1)); }
 
 value:
-      STRING                         { $$ = string($1); }
-    | IDENT                          { $$ = ident($1); }
+      IDENT                          { $$ = ident($1); printf("got ident: %s\n", $1); }
+    | STRING                         { $$ = string($1); }
     | NUMBER                         { $$ = num($1); }
     | BOOL                           { $$ = boolean($1); }
     | FLOAT                          { $$ = floatingpoint($1); }
@@ -100,5 +97,5 @@ value:
 
 void yyerror(char *s) 
 {
-    fprintf(stderr, "yyerror says: %s\n", s);
+    printf("yyerror says: %s\n", s);
 }

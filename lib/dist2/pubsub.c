@@ -66,7 +66,6 @@ errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, ch
 	errval_t error_code = SYS_ERR_OK;
 	err = skb_state->skb->vtbl.subscribe(skb_state->skb, buf, *id, &error_code);
 
-	debug_printf("error code returned was: %lu\n", error_code);
 
 	// TODO check error_code
 	if(err_is_ok(err)) {
@@ -125,7 +124,6 @@ errval_t dist_publish(char* object, ...)
 	errval_t error_code = SYS_ERR_OK;
 	err = skb_state->skb->vtbl.publish(skb_state->skb, buf, &error_code);
 	// TODO check error_code
-	debug_printf("dist_publish completed!\n");
 
 	free(buf);
 	return err;
