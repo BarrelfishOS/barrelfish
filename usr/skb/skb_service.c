@@ -134,6 +134,7 @@ static void run(struct skb_binding *b, char *query)
 
 static struct skb_rx_vtbl rx_vtbl = {
     .run_call = run,
+    /*
     .get_call = get_handler,
     .set_call = set_handler,
     .del_call = del_handler,
@@ -144,6 +145,7 @@ static struct skb_rx_vtbl rx_vtbl = {
     .unsubscribe_call = unsubscribe_handler,
     .lock_call = lock_handler,
     .unlock_call = unlock_handler,
+    */
 };
 
 

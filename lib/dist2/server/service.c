@@ -5,28 +5,27 @@
 #include <barrelfish/nameservice_client.h>
 #include <skb/skb.h> // read list
 
-#include <if/skb_events_defs.h>
-
-#include <include/skb_debug.h>
-#include <include/queue.h>
+#include <if/dist_defs.h>
+#include <if/dist_event_defs.h>
 
 #include "ast.h"
 
 #include "code_generator.h"
 #include "skb_query.h"
 #include "service.h"
+#include "queue.h"
 
 char* strdup(const char*);
 
 
-static void get_reply(struct skb_binding* b, struct skb_reply_state* srt) {
+static void get_reply(struct dist_binding* b, struct skb_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.get_response(b, MKCONT(free_reply_state, srt),
     		                      srt->skb.output_buffer, srt->skb.error_buffer,
     		                      srt->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srt);
+        	dist_rpc_enqueue_reply(b, srt);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -34,7 +33,7 @@ static void get_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 }
 
 
-void get_handler(struct skb_binding *b, char *query)
+void get_handler(struct dist_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -56,14 +55,14 @@ void get_handler(struct skb_binding *b, char *query)
 }
 
 
-static void set_reply(struct skb_binding* b, struct skb_reply_state* srs)
+static void set_reply(struct dist_binding* b, struct skb_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.set_response(b, MKCONT(free_reply_state, srs),
     							  srs->skb.error_buffer, srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -71,7 +70,7 @@ static void set_reply(struct skb_binding* b, struct skb_reply_state* srs)
 }
 
 
-void set_handler(struct skb_binding *b, char *query)
+void set_handler(struct dist_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -93,14 +92,14 @@ void set_handler(struct skb_binding *b, char *query)
 }
 
 
-static void del_reply(struct skb_binding* b, struct skb_reply_state* srs)
+static void del_reply(struct dist_binding* b, struct skb_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.del_response(b, MKCONT(free_reply_state, srs),
     		                      srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -108,7 +107,7 @@ static void del_reply(struct skb_binding* b, struct skb_reply_state* srs)
 }
 
 
-void del_handler(struct skb_binding* b, char* query)
+void del_handler(struct dist_binding* b, char* query)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -133,7 +132,7 @@ void del_handler(struct skb_binding* b, char* query)
 
 
 
-static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs)
+static void subscribe_reply(struct dist_binding* b, struct skb_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.subscribe_response(b, MKCONT(free_reply_state, srs),
@@ -141,7 +140,7 @@ static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs)
 
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -149,7 +148,7 @@ static void subscribe_reply(struct skb_binding* b, struct skb_reply_state* srs)
 }
 
 
-void subscribe_handler(struct skb_binding *b, char* query, uint64_t id)
+void subscribe_handler(struct dist_binding *b, char* query, uint64_t id)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -173,13 +172,13 @@ void subscribe_handler(struct skb_binding *b, char* query, uint64_t id)
 }
 
 
-static void unsubscribe_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+static void unsubscribe_reply(struct dist_binding* b, struct skb_reply_state* srs) {
     errval_t err;
     err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_reply_state, srs),
 			                              srs->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -187,7 +186,7 @@ static void unsubscribe_reply(struct skb_binding* b, struct skb_reply_state* srs
 }
 
 
-void unsubscribe_handler(struct skb_binding *b, uint64_t id)
+void unsubscribe_handler(struct dist_binding *b, uint64_t id)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -204,7 +203,7 @@ void unsubscribe_handler(struct skb_binding *b, uint64_t id)
 }
 
 
-static void send_subscribed_message(struct skb_events_binding* b,
+static void send_subscribed_message(struct dist_event_binding* b,
 		                            uint64_t id,
 		                            char* object)
 {
@@ -213,13 +212,13 @@ static void send_subscribed_message(struct skb_events_binding* b,
 }
 
 
-static void publish_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+static void publish_reply(struct dist_binding* b, struct skb_reply_state* srs) {
     errval_t err;
     err = b->tx_vtbl.publish_response(b, MKCONT(free_reply_state, srs),
 			                          srs->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -227,7 +226,7 @@ static void publish_reply(struct skb_binding* b, struct skb_reply_state* srs) {
 }
 
 
-void publish_handler(struct skb_binding *b, char* object)
+void publish_handler(struct dist_binding *b, char* object)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -243,7 +242,7 @@ void publish_handler(struct skb_binding *b, char* object)
 
 	err = find_subscribers(ast, &srs->skb);
 	if(err_is_ok(err)) {
-        struct skb_events_binding* recipient = NULL;
+        struct dist_event_binding* recipient = NULL;
         uint64_t id = 0;
 
         // TODO remove list parser dependency
@@ -262,13 +261,13 @@ void publish_handler(struct skb_binding *b, char* object)
 }
 
 
-static void lock_reply(struct skb_binding* b, struct skb_reply_state* srs) {
+static void lock_reply(struct dist_binding* b, struct skb_reply_state* srs) {
     errval_t err;
     err = b->tx_vtbl.lock_response(b, MKCONT(free_reply_state, srs),
 			                          srs->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -277,7 +276,7 @@ static void lock_reply(struct skb_binding* b, struct skb_reply_state* srs) {
 
 static uint64_t enumerator = 0;
 
-void lock_handler(struct skb_binding* b, char* query)
+void lock_handler(struct dist_binding* b, char* query)
 {
 	assert(query != NULL); // todo
 	errval_t err = SYS_ERR_OK;
@@ -348,14 +347,14 @@ void lock_handler(struct skb_binding* b, char* query)
 }
 
 
-static void unlock_reply(struct skb_binding* b, struct skb_reply_state* srs)
+static void unlock_reply(struct dist_binding* b, struct skb_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.unlock_response(b, MKCONT(free_reply_state, srs),
 			                          srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        	enqueue_reply_state(b, srs);
+        	dist_rpc_enqueue_reply(b, srs);
         	return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -363,7 +362,7 @@ static void unlock_reply(struct skb_binding* b, struct skb_reply_state* srs)
 }
 
 
-void unlock_handler(struct skb_binding* b, char* query)
+void unlock_handler(struct dist_binding* b, char* query)
 {
 	assert(query != NULL); // TODO
 	errval_t err = SYS_ERR_OK;
@@ -447,7 +446,7 @@ void unlock_handler(struct skb_binding* b, char* query)
 				// return lock() call of new owner
 				struct ast_object* owner = find_attribute(next_child_ast, "owner");
 				assert(owner != NULL);
-				struct skb_binding* new_owner = (struct skb_binding*) owner->pn.right->cn.value;
+				struct dist_binding* new_owner = (struct dist_binding*) owner->pn.right->cn.value;
 
 				srs->error = SYS_ERR_OK;
 				child_srs->rpc_reply(new_owner, child_srs);
@@ -478,7 +477,7 @@ void unlock_handler(struct skb_binding* b, char* query)
 }
 
 
-static void identify_events_binding(struct skb_events_binding* b, uint64_t id)
+static void identify_events_binding(struct dist_event_binding* b, uint64_t id)
 {
 	errval_t err = set_events_binding(id, b);
 	assert(err_is_ok(err)); // TODO
@@ -486,14 +485,14 @@ static void identify_events_binding(struct skb_events_binding* b, uint64_t id)
 
 
 static uint64_t current_id = 1;
-void get_identifier(struct skb_binding* b)
+void get_identifier(struct dist_binding* b)
 {
 	errval_t err  = b->tx_vtbl.get_identifier_response(b, NOP_CONT, current_id++);
 	assert(err_is_ok(err));
 }
 
 
-void identify_rpc_binding(struct skb_binding* b, uint64_t id)
+void identify_rpc_binding(struct dist_binding* b, uint64_t id)
 {
     errval_t err = set_rpc_binding(id, b);
     assert(err_is_ok(err));
@@ -521,7 +520,7 @@ struct skb_events_rx_vtbl rx_vtbl = {
 };
 
 
-static errval_t connect_cb(void *st, struct skb_events_binding *b)
+static errval_t connect_cb(void *st, struct dist_event_binding *b)
 {
 	// Set up continuation queue
 

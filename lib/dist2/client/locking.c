@@ -1,6 +1,6 @@
 #include <barrelfish/barrelfish.h>
 #include <dist2/lock.h>
-#include <if/skb_rpcclient_defs.h>
+#include <if/dist_rpcclient_defs.h>
 
 /**
  * Locking using constraints?

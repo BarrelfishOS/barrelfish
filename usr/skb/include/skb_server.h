@@ -29,14 +29,6 @@ void post_and_execute_string(void);
 
 #define BUFFER_SIZE (32 * 1024)
 
-enum ReplyType {
-	ReplyType_RUN,
-	ReplyType_GET,
-	ReplyType_SET,
-	ReplyType_PUBLISH,
-	ReplyType_SUBSCRIBE,
-	ReplyType_UNSUBSCRIBE,
-};
 
 struct skb_query_state {
     char output_buffer[BUFFER_SIZE];
@@ -52,16 +44,6 @@ typedef void(*rpc_reply_handler_fn)(struct skb_binding*, struct skb_reply_state*
 //typedef void(*event_send_handler_fn)(struct skb_events_binding*, struct skb_reply_state*);
 
 struct skb_reply_state {
-/*
-	union {
-		struct run_reply run;
-		struct get_reply get;
-		struct set_reply set;
-		struct publish_reply pub;
-		struct subscribe_reply sub;
-		struct unsubscribe_reply unsub;
-	};*/
-
 	struct skb_query_state skb;
 	rpc_reply_handler_fn rpc_reply;
 	errval_t error;

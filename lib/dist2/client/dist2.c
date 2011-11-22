@@ -3,8 +3,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/skb_events_defs.h>
-#include <if/skb_rpcclient_defs.h>
+#include <if/dist_event_defs.h>
+#include <if/dist_rpcclient_defs.h>
 
 #include <dist2/dist2.h>
 

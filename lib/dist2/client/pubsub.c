@@ -2,7 +2,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <dist2/pubsub.h>
-#include <if/skb_rpcclient_defs.h>
+#include <if/dist_rpcclient_defs.h>
 
 #include "common.h"
 

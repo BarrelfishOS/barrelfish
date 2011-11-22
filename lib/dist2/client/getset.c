@@ -4,7 +4,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h>
 #include <skb/skb.h>
-#include <if/skb_rpcclient_defs.h>
+#include <if/dist_rpcclient_defs.h>
 #include <dist2/getset.h>
 
 #include "common.h"
