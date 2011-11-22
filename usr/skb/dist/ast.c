@@ -55,18 +55,76 @@ void free_ast(struct ast_object* p) {
     free (p);
 }
 
+
+void append_attribute(struct ast_object* ast, struct ast_object* to_insert)
+{
+    struct ast_object** attr = &ast->on.attrs;
+    for(; *attr != NULL; attr = &(*attr)->an.next) {
+        // continue
+    }
+
+    struct ast_object* new_attr = alloc_node();
+    new_attr->type = nodeType_Attribute;
+    new_attr->an.attr = to_insert;
+    new_attr->an.next = NULL;
+    *attr = new_attr;
+}
+
+
+struct ast_object* find_attribute(struct ast_object* ast, char* name)
+{
+    struct ast_object** attr = &ast->on.attrs;
+
+    for(; *attr != NULL; attr = &(*attr)->an.next) {
+
+        assert((*attr)->type == nodeType_Attribute);
+        if(strcmp((*attr)->an.attr->pn.left->in.str, name) == 0) {
+            return (*attr)->an.attr;
+        }
+
+    }
+
+    return NULL;
+}
+
+
+struct ast_object* remove_attribute(struct ast_object* ast, char* name)
+{
+    struct ast_object** attr = &ast->on.attrs;
+
+    for(; *attr != NULL; attr = &(*attr)->an.next) {
+
+        assert((*attr)->type == nodeType_Attribute);
+        struct ast_object* pair = (*attr)->an.attr;
+        struct ast_object* left = pair->pn.left;
+
+        if(strcmp(left->in.str, name) == 0) {
+            struct ast_object* current_attr = *attr;
+
+            *attr = current_attr->an.next;
+
+            current_attr->an.next = NULL;
+            current_attr->an.attr = NULL;
+            free_ast(current_attr);
+
+            return pair;
+        }
+
+    }
+
+    return NULL;
+}
+
+
 errval_t generate_ast(const char* input, struct ast_object** record)
 {
-	printf("input before yacc is: %s\n", input);
 	yy_scan_string(input);
     yyparse();
     yylex_destroy();
-    printf("input after yacc is: %s\n", input);
 
     errval_t err = dist2_parser_error;
 
     if(err_is_ok(err)) {
-    	printf("dist2_parsed_ast for input %s is %p\n", input, dist2_parsed_ast);
 		*record = dist2_parsed_ast;
 		dist2_parsed_ast = NULL;
     }

@@ -127,18 +127,20 @@ int
 __printf_puts(struct __printf_io *io, const void *ptr, int len)
 {
     if (io->to_file) {
-        return fwrite(ptr, 1, len, io->u.fp);
+        fwrite(ptr, 1, len, io->u.fp);
     } else {
         size_t writelen = MIN(len, io->u.buf.len);
-        if(io->u.buf.p == NULL && io->u.buf.len == 0) {
+
+        /*if(io->u.buf.p == NULL && io->u.buf.len == 0) {
         	return len;
-        }
+        }*/
 
 		memcpy(io->u.buf.p, ptr, writelen);
 		io->u.buf.len -= writelen;
 		io->u.buf.p += writelen;
-		return writelen;
     }
+
+    return len;
 }
 
 int

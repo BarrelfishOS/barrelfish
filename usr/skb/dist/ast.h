@@ -2,6 +2,7 @@
 #define AST_H_
 
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef TEST_PARSER
 #include <barrelfish/barrelfish.h>
@@ -14,7 +15,6 @@ static int err_is_ok(errval_t err) {
 	return err == 0;
 }
 #endif
-
 
 
 enum node_type {
@@ -86,10 +86,14 @@ struct ast_object {
     };
 };
 
+
 errval_t generate_ast(const char* input, struct ast_object** record);
 void free_ast(struct ast_object* p);
+void append_attribute(struct ast_object*, struct ast_object*);
+struct ast_object* find_attribute(struct ast_object*, char*);
+struct ast_object* remove_attribute(struct ast_object*, char*);
 
-#include <string.h>
+
 static inline struct ast_object* alloc_node(void)
 {
     struct ast_object* p = malloc(sizeof(struct ast_object));
@@ -205,6 +209,5 @@ static inline struct ast_object* num(int64_t value)
 
     return p;
 }
-
 
 #endif // AST_H_

@@ -188,3 +188,84 @@ errval_t del_subscription(struct skb_binding* b, uint64_t id, struct skb_query_s
 
 	return err;
 }
+
+
+errval_t find_subscribers(struct ast_object* ast, struct skb_query_state* sqs) {
+
+    errval_t err = SYS_ERR_OK;
+
+    struct skb_record* sr = NULL;
+    err = transform_record(ast, &sr);
+    if(err_is_fail(err)) {
+        return err;
+    }
+
+    assert(strcmp(sr->constraints.output, "[  ]") == 0); // TODO error if we have constraints here?
+
+    char* format = "findall(X, find_subscriber(object(%s, %s), X), L), write(L).";
+    size_t len = snprintf(NULL, 0, format, sr->name.output, sr->attributes.output);
+    char* buf = malloc(len+1);
+    snprintf(buf, len+1, format, sr->name.output, sr->attributes.output);
+
+    err = execute_query(buf, sqs);
+
+    SKBD_DEBUG("buf: %s\n", buf);
+    debug_skb_output(sqs);
+
+    free_parsed_object(sr);
+    free(buf);
+
+    return err;
+}
+
+
+errval_t set_events_binding(uint64_t id, struct skb_events_binding* b)
+{
+    errval_t err = SYS_ERR_OK;
+
+    char* format = "set_event_binding(%lu, %lu).";
+    size_t len = strlen(format) + 50; // TODO maxlength of two int?
+    char buf[len];
+    snprintf(buf, len, format, id, b);
+
+    struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+    assert(st != NULL);
+
+    err = execute_query(buf, st);
+    assert(err_is_ok(err)); // TODO
+
+    SKBD_DEBUG("identify_events_binding done %s for: %p\n", buf, b);
+    debug_skb_output(st);
+
+
+    free(st);
+
+    return err;
+}
+
+
+errval_t set_rpc_binding(uint64_t id, struct skb_binding* b)
+{
+    errval_t err = SYS_ERR_OK;
+
+    SKBD_DEBUG("identify_rpc_binding start: %p id:%lu\n", b, id);
+    // duplicated code from events binding!
+    char* format = "set_rpc_binding(%lu, %lu).";
+    size_t len = strlen(format) + 200; // TODO maxlength of two int?
+    char buf[len];
+    snprintf(buf, len, format, id, b);
+
+    assert(buf != NULL);
+
+    struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+    assert(st != NULL);
+    err = execute_query(buf, st);
+    assert(err_is_ok(err));
+
+    SKBD_DEBUG("identify_rpc_binding done for: %p\n", b);
+    debug_skb_output(st);
+
+    free(st);
+    return err;
+}
+

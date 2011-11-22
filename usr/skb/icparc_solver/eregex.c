@@ -29,8 +29,10 @@
 #include <sys/types.h>
 #include <stdlib.h>	/* for malloc() */
 #include <string.h>
-#include "regex.h"
+#include <pcre/pcreposix.h>
 #include "eclipse.h"
+
+#include <stdio.h>
 
 
 Extern stream_id Winapi	ec_stream_id(int);
@@ -132,6 +134,7 @@ ec_regmatch()		/* (+Pattern,+String,+Flags) */
     int err, cflags, eflags;
     regex_t compiled_reg, *preg;
     char *string;
+    printf("start ec_regmatch\n");
 
     err = ec_get_string(ec_arg(2), &string);
     if (err != PSUCCEED) return err;
@@ -140,10 +143,12 @@ ec_regmatch()		/* (+Pattern,+String,+Flags) */
     err = _get_compiled_pattern(ec_arg(1), cflags|REG_NOSUB, &compiled_reg, &preg);
     if (err != PSUCCEED) return err;
 
+    printf("ec_regmatch before regexec\n");
     err = regexec(preg, string, 0, 0, eflags);
     if (preg == &compiled_reg)
 	regfree(preg);
 
+    printf("ec_regmatch done\n");
     return err == 0 ? PSUCCEED
     	: err == REG_NOMATCH ? PFAIL
 	: _reg_error(err, preg);

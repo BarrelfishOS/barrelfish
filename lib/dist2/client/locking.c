@@ -21,7 +21,10 @@
  * 	in_range(0x000, 0x1000): a >= 0x000 and a <= 0x1000
  *
  */
-errval_t dist_lock(char* object) {
+
+
+errval_t dist_lock(char* object)
+{
 	assert(object != NULL);
 	errval_t err = SYS_ERR_OK;
 
@@ -37,7 +40,8 @@ errval_t dist_lock(char* object) {
 }
 
 
-errval_t dist_unlock(char* object) {
+errval_t dist_unlock(char* object)
+{
 	assert(object != NULL);
 	errval_t err = SYS_ERR_OK;
 
@@ -51,3 +55,19 @@ errval_t dist_unlock(char* object) {
 
 	return err;
 }
+
+
+/*
+errval_t dist_lock_async(char* object, lock_handler_fn lock_function)
+{
+    return SYS_ERR_OK;
+}
+
+
+// TODO just use dist_unlock()?
+errval_t dist_unlock_nb()
+{
+}
+
+*/
+
