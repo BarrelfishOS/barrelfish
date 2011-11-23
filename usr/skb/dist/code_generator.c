@@ -7,9 +7,6 @@
 #include <barrelfish/barrelfish.h>
 
 #include "code_generator.h"
-#include "ast.h"
-#include "y.tab.h"
-#include "flex.h"
 
 #define INITIAL_LENGTH 256
 
@@ -110,25 +107,25 @@ static void translate(struct ast_object* p) {
             w = &sr->constraints;
             char* operator;
             switch(p->cnsn.op) {
-                case GT:
+                case constraint_GT:
                     operator = ">";
                 break;
-                case GE:
+                case constraint_GE:
                     operator = ">=";
                 break;
-                case LT:
+                case constraint_LT:
                     operator = "<";
                 break;
-                case LE:
+                case constraint_LE:
                     operator = "=<";
                 break;
-                case EQ:
+                case constraint_EQ:
                     operator = "==";
                 break;
-                case NE:
+                case constraint_NE:
                     operator = "=/=";
                 break;
-                case REGEX:
+                case constraint_REGEX:
                 	operator = "match";
 				break;
                 default:

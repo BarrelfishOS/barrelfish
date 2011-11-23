@@ -21,13 +21,4 @@
 #define SKB_DEBUG(x...) ((void)0)
 #endif
 
-
-#define SKB_DIST_SERVICE_DEBUG 1
-#if defined(SKB_DIST_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define SKBD_DEBUG(x...) printf("dist_service: " x)
-#else
-#define SKBD_DEBUG(x...) ((void)0)
-#endif
-
-
 #endif // SKB_DEBUG_H_

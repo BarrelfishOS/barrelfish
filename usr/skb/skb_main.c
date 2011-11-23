@@ -18,6 +18,9 @@
 #include <include/skb_server.h>
 #include <include/skb_debug.h>
 
+#include <dist2_server/init.h>
+
+
 #include "dist/predicates.h"
 #include "shared_lib_dict.h"
 
@@ -54,7 +57,9 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
-    event_server_init();
+    errval_t err = dist_server_init();
+    assert(err_is_ok(err));
+
     skb_server_init();
     SKB_DEBUG("\nskb initialized\n");
 

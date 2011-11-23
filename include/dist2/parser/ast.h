@@ -16,6 +16,15 @@ static int err_is_ok(errval_t err) {
 }
 #endif
 
+enum constraint_type {
+    constraint_GT,
+    constraint_GE,
+    constraint_LT,
+    constraint_LE,
+    constraint_EQ,
+    constraint_NE,
+    constraint_REGEX
+};
 
 enum node_type {
 	nodeType_Unset, // To detect errors
@@ -56,7 +65,7 @@ struct node_string {
 };
 
 struct node_constraint {
-    size_t op;
+    enum constraint_type op;
     struct ast_object* value;
 };
 
@@ -89,12 +98,13 @@ struct ast_object {
 
 errval_t generate_ast(const char* input, struct ast_object** record);
 void free_ast(struct ast_object* p);
-void append_attribute(struct ast_object*, struct ast_object*);
-struct ast_object* find_attribute(struct ast_object*, char*);
-struct ast_object* remove_attribute(struct ast_object*, char*);
+
+void ast_append_attribute(struct ast_object*, struct ast_object*);
+struct ast_object* ast_find_attribute(struct ast_object*, char*);
+struct ast_object* ast_remove_attribute(struct ast_object*, char*);
 
 
-static inline struct ast_object* alloc_node(void)
+static inline struct ast_object* ast_alloc_node(void)
 {
     struct ast_object* p = malloc(sizeof(struct ast_object));
     if (p == NULL) {
@@ -107,9 +117,9 @@ static inline struct ast_object* alloc_node(void)
 }
 
 
-static inline struct ast_object* boolean(int value)
+static inline struct ast_object* ast_boolean(int value)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Boolean;
     p->bn.value = value;
@@ -118,9 +128,9 @@ static inline struct ast_object* boolean(int value)
 }
 
 
-static inline struct ast_object* constraints(size_t op, struct ast_object* value)
+static inline struct ast_object* ast_constraints(enum constraint_type op, struct ast_object* value)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Constraint;
     p->cnsn.op = op;
@@ -131,9 +141,9 @@ static inline struct ast_object* constraints(size_t op, struct ast_object* value
 
 
 
-static inline struct ast_object* floatingpoint(double value)
+static inline struct ast_object* ast_floatingpoint(double value)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Float;
     p->fn.value = value;
@@ -142,9 +152,9 @@ static inline struct ast_object* floatingpoint(double value)
 }
 
 
-static inline struct ast_object* object(struct ast_object* name, struct ast_object* attrs)
+static inline struct ast_object* ast_object(struct ast_object* name, struct ast_object* attrs)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Object;
     p->on.name = name;
@@ -154,21 +164,21 @@ static inline struct ast_object* object(struct ast_object* name, struct ast_obje
 }
 
 
-static inline struct ast_object* attribute(struct ast_object* attribute, struct ast_object* next)
+static inline struct ast_object* ast_attribute(struct ast_object* attr, struct ast_object* next)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Attribute;
-    p->an.attr = attribute;
+    p->an.attr = attr;
     p->an.next = next;
 
     return p;
 }
 
 
-static inline struct ast_object* pair(struct ast_object* left, struct ast_object* right)
+static inline struct ast_object* ast_pair(struct ast_object* left, struct ast_object* right)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Pair;
     p->pn.left = left;
@@ -178,9 +188,9 @@ static inline struct ast_object* pair(struct ast_object* left, struct ast_object
 }
 
 
-static inline struct ast_object* ident(char* str)
+static inline struct ast_object* ast_ident(char* str)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Ident;
     p->in.str = str;
@@ -189,9 +199,9 @@ static inline struct ast_object* ident(char* str)
 }
 
 
-static inline struct ast_object* string(char* str)
+static inline struct ast_object* ast_string(char* str)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_String;
     p->sn.str = str;
@@ -200,9 +210,9 @@ static inline struct ast_object* string(char* str)
 }
 
 
-static inline struct ast_object* num(int64_t value)
+static inline struct ast_object* ast_num(int64_t value)
 {
-    struct ast_object* p = alloc_node();
+    struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Constant;
     p->cn.value = value;

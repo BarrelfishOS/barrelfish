@@ -13,7 +13,8 @@ errval_t dist_subscribe(subscription_handler_fn, subscription_t*, char*, ...);
 errval_t dist_unsubscribe(subscription_t);
 errval_t dist_publish(char*, ...);
 
-errval_t dist_set_publish(char*, ...);
+//errval_t dist_publish_set(char*, ...);
+//errval_t dist_get_subscribe(char*, char**);
 
 void subscribed_message_handler(struct dist_event_binding*, subscription_t, char*);
 

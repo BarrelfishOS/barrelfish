@@ -308,6 +308,7 @@ int main(int argc, char *argv[])
     skb_client_connect();
     dist_init();
 
+
     if (argc == 2 && strcmp(argv[1], "subscriber") == 0) {
         main_subscriber();
     } else {

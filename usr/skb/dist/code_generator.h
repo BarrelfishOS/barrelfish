@@ -2,8 +2,7 @@
 #define CODE_GENERATOR_H_
 
 #include <barrelfish/barrelfish.h>
-
-#include "ast.h"
+#include <dist2/parser/ast.h>
 
 struct writer {
     char* output;

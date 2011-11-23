@@ -23,7 +23,7 @@ static errval_t get_free_slot(subscription_t* slot)
 	return SYS_ERR_BMP_INVALID; // TODO proper error code
 }
 
-void subscribed_message_handler(struct skb_events_binding* b,
+void subscribed_message_handler(struct dist_event_binding* b,
 		                        subscription_t id, char* object)
 {
 	assert(subscriber_table[id] != NULL);
@@ -60,11 +60,10 @@ errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, ch
 	assert(bytes_written == length);
 
 	// send to skb
-	struct skb_state* skb_state  = get_skb_state();
-	assert(skb_state != NULL);
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
-	err = skb_state->skb->vtbl.subscribe(skb_state->skb, buf, *id, &error_code);
+	err = rpc_client->vtbl.subscribe(rpc_client, buf, *id, &error_code);
 
 
 	// TODO check error_code
@@ -82,11 +81,10 @@ errval_t dist_unsubscribe(subscription_t id)
 	assert(id < MAX_SUBSCRIPTIONS);
 
 	// send to skb
-	struct skb_state* skb_state  = get_skb_state();
-	assert(skb_state != NULL);
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
-	errval_t err = skb_state->skb->vtbl.unsubscribe(skb_state->skb, id, &error_code);
+	errval_t err = rpc_client->vtbl.unsubscribe(rpc_client, id, &error_code);
 
 	if(err_is_ok(err)) { // TODO check error_code
 		subscriber_table[id] = NULL;
@@ -118,11 +116,10 @@ errval_t dist_publish(char* object, ...)
 	assert(bytes_written == length);
 
 
-	struct skb_state* skb_state  = get_skb_state();
-	assert(skb_state != NULL);
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
-	err = skb_state->skb->vtbl.publish(skb_state->skb, buf, &error_code);
+	err = rpc_client->vtbl.publish(rpc_client, buf, &error_code);
 	// TODO check error_code
 
 	free(buf);

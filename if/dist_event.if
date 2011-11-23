@@ -7,7 +7,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface skb_events "SKB Publish/Subscribe Events" {
+interface dist_event "dist2 Publish/Subscribe Events" {
     message identify(uint64 id);
     
     message subscribed_message(uint64 id, string object);

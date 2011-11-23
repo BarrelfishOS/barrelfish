@@ -18,8 +18,6 @@
 #include <barrelfish/barrelfish.h>
 
 #include <if/skb_defs.h>
-#include <if/skb_events_defs.h>
-
 
 #define POST_EXECUTE 1
 
@@ -54,7 +52,5 @@ struct skb_reply_state {
 errval_t new_reply_state(struct skb_reply_state**, rpc_reply_handler_fn);
 void free_reply_state(void*);
 errval_t execute_query(char*, struct skb_query_state*);
-
-#include "../dist/service.h"
 
 #endif

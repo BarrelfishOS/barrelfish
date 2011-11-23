@@ -8,19 +8,47 @@
 #include <if/dist_defs.h>
 #include <if/dist_event_defs.h>
 
-#include "ast.h"
+#include <dist2_server/service.h>
+#include <dist2_server/query.h>
+#include <dist2_server/debug.h>
 
-#include "code_generator.h"
-#include "skb_query.h"
-#include "service.h"
+#include <dist2/parser/ast.h>
+
 #include "queue.h"
 
 char* strdup(const char*);
 
 
-static void get_reply(struct dist_binding* b, struct skb_reply_state* srt) {
+static errval_t new_dist_reply_state(struct dist_reply_state** drt, dist_reply_handler_fn reply_handler)
+{
+    assert(*drt == NULL);
+    *drt = malloc(sizeof(struct dist_reply_state));
+    if(*drt == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memset(*drt, 0, sizeof(struct dist_reply_state));
+
+    (*drt)->rpc_reply = reply_handler;
+    (*drt)->next = NULL;
+
+    return SYS_ERR_OK;
+}
+
+
+static void free_dist_reply_state(void* arg) {
+    if(arg != NULL) {
+        struct dist_reply_state* drt = (struct dist_reply_state*) arg;
+        free(drt);
+    }
+    else {
+        assert(!"free_reply_state with NULL argument?");
+    }
+}
+
+
+static void get_reply(struct dist_binding* b, struct dist_reply_state* srt) {
     errval_t err;
-    err = b->tx_vtbl.get_response(b, MKCONT(free_reply_state, srt),
+    err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
     		                      srt->skb.output_buffer, srt->skb.error_buffer,
     		                      srt->error);
     if (err_is_fail(err)) {
@@ -37,8 +65,8 @@ void get_handler(struct dist_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
-	struct skb_reply_state* srt = NULL;
-	err = new_reply_state(&srt, get_reply);
+	struct dist_reply_state* srt = NULL;
+	err = new_dist_reply_state(&srt, get_reply);
 	assert(err_is_ok(err));
 
 	struct ast_object* ast = NULL;
@@ -55,10 +83,10 @@ void get_handler(struct dist_binding *b, char *query)
 }
 
 
-static void set_reply(struct dist_binding* b, struct skb_reply_state* srs)
+static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
-    err = b->tx_vtbl.set_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, srs),
     							  srs->skb.error_buffer, srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -74,8 +102,8 @@ void set_handler(struct dist_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, set_reply);
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, set_reply);
 	assert(err_is_ok(err));
 
 	struct ast_object* ast = NULL;
@@ -92,10 +120,10 @@ void set_handler(struct dist_binding *b, char *query)
 }
 
 
-static void del_reply(struct dist_binding* b, struct skb_reply_state* srs)
+static void del_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
-    err = b->tx_vtbl.del_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.del_response(b, MKCONT(free_dist_reply_state, srs),
     		                      srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -111,8 +139,8 @@ void del_handler(struct dist_binding* b, char* query)
 {
 	errval_t err = SYS_ERR_OK;
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, del_reply);
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, del_reply);
 	assert(err_is_ok(err));
 
 	struct ast_object* ast = NULL;
@@ -129,13 +157,55 @@ void del_handler(struct dist_binding* b, char* query)
 }
 
 
-
-
-
-static void subscribe_reply(struct dist_binding* b, struct skb_reply_state* srs)
+static void exists_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
-    err = b->tx_vtbl.subscribe_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, srs),
+                                     srs->skb.output_buffer,
+                                     srs->error);
+
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, srs);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+void exists_handler(struct dist_binding* b, char* query, bool block, bool return_record)
+{
+    errval_t err = SYS_ERR_OK;
+
+    struct dist_reply_state* drt = NULL;
+    err = new_dist_reply_state(&drt, exists_reply);
+    assert(err_is_ok(err));
+
+    struct ast_object* ast = NULL;
+    err = generate_ast(query, &ast);
+    if(err_is_ok(err)) {
+        err = get_record(ast, &drt->skb);
+        if(err_is_ok(err)) {
+            // return immediately
+            drt->error = err;
+            drt->rpc_reply(b, drt);
+        }
+        if(err_no(err) == DIST2_ERR_NO_RECORD && block) {
+            // register and wait until record available
+            err = set_trigger(ast, &drt->skb);
+        }
+    }
+
+    free_ast(ast);
+    free(query);
+}
+
+
+static void subscribe_reply(struct dist_binding* b, struct dist_reply_state* srs)
+{
+    errval_t err;
+    err = b->tx_vtbl.subscribe_response(b, MKCONT(free_dist_reply_state, srs),
     		                            srs->error);
 
     if (err_is_fail(err)) {
@@ -152,10 +222,10 @@ void subscribe_handler(struct dist_binding *b, char* query, uint64_t id)
 {
 	errval_t err = SYS_ERR_OK;
 
-	SKBD_DEBUG("subscribe: query = %s\n", query);
+	DIST2_DEBUG("subscribe: query = %s\n", query);
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, subscribe_reply);
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, subscribe_reply);
 	assert(err_is_ok(err));
 
 	struct ast_object* ast = NULL;
@@ -172,9 +242,9 @@ void subscribe_handler(struct dist_binding *b, char* query, uint64_t id)
 }
 
 
-static void unsubscribe_reply(struct dist_binding* b, struct skb_reply_state* srs) {
+static void unsubscribe_reply(struct dist_binding* b, struct dist_reply_state* srs) {
     errval_t err;
-    err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_dist_reply_state, srs),
 			                              srs->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -190,10 +260,10 @@ void unsubscribe_handler(struct dist_binding *b, uint64_t id)
 {
 	errval_t err = SYS_ERR_OK;
 
-	SKBD_DEBUG("unsubscribe: id = %lu\n", id);
+	DIST2_DEBUG("unsubscribe: id = %lu\n", id);
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, unsubscribe_reply);
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, unsubscribe_reply);
 	assert(err_is_ok(err));
 
 	err = del_subscription(b, id, &srs->skb);
@@ -212,9 +282,9 @@ static void send_subscribed_message(struct dist_event_binding* b,
 }
 
 
-static void publish_reply(struct dist_binding* b, struct skb_reply_state* srs) {
+static void publish_reply(struct dist_binding* b, struct dist_reply_state* srs) {
     errval_t err;
-    err = b->tx_vtbl.publish_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.publish_response(b, MKCONT(free_dist_reply_state, srs),
 			                          srs->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -230,8 +300,8 @@ void publish_handler(struct dist_binding *b, char* object)
 {
 	errval_t err = SYS_ERR_OK;
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, publish_reply);
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, publish_reply);
 	assert(err_is_ok(err));
 
 	struct ast_object* ast = NULL;
@@ -251,7 +321,7 @@ void publish_handler(struct dist_binding *b, char* object)
 
         // Send to all subscribers
         while(skb_read_list(&status, "subscriber(%lu, %lu)", (uintptr_t*) &recipient, &id) ) {
-            SKBD_DEBUG("publish msg to: recipient:%p id:%lu\n", recipient, id);
+            DIST2_DEBUG("publish msg to: recipient:%p id:%lu\n", recipient, id);
             send_subscribed_message(recipient, id, object);
         }
 	}
@@ -261,9 +331,9 @@ void publish_handler(struct dist_binding *b, char* object)
 }
 
 
-static void lock_reply(struct dist_binding* b, struct skb_reply_state* srs) {
+static void lock_reply(struct dist_binding* b, struct dist_reply_state* srs) {
     errval_t err;
-    err = b->tx_vtbl.lock_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.lock_response(b, MKCONT(free_dist_reply_state, srs),
 			                          srs->skb.exec_res);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -280,11 +350,11 @@ void lock_handler(struct dist_binding* b, char* query)
 {
 	assert(query != NULL); // todo
 	errval_t err = SYS_ERR_OK;
-	SKBD_DEBUG("lock handler: %s\n", query);
+	DIST2_DEBUG("lock handler: %s\n", query);
 
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, lock_reply); // TODO FIX we dont always reply in this case we loose some srs!
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, lock_reply); // TODO FIX we dont always reply in this case we loose some srs!
 	assert(err_is_ok(err)); // TODO
 
 	struct ast_object* ast = NULL;
@@ -294,9 +364,9 @@ void lock_handler(struct dist_binding* b, char* query)
 	err = get_record(ast, &srs->skb);
 	if(err_no(err) == DIST2_ERR_NO_RECORD)
 	{
-		SKBD_DEBUG("lock did not exist, create!\n");
+		DIST2_DEBUG("lock did not exist, create!\n");
 
-		append_attribute(ast, pair(ident(strdup("owner")), num( (int64_t)b) )); // TODO strdup
+		ast_append_attribute(ast, ast_pair(ast_ident(strdup("owner")), ast_num( (int64_t)b) )); // TODO strdup
 
 		// Create new Lock
 		// Overwrite err variable on purpose
@@ -311,17 +381,17 @@ void lock_handler(struct dist_binding* b, char* query)
 		err = generate_ast(srs->skb.output_buffer, &ast2);
 		assert(err_is_ok(err)); // TODO
 
-		struct ast_object* owner = find_attribute(ast2, "owner");
+		struct ast_object* owner = ast_find_attribute(ast2, "owner");
 		assert(owner != NULL);
 
 		if( ((void*)owner->pn.right->cn.value) == b) { // TODO compare int64_t vs. pointer
 			// If we already have the lock reply immediately
-			SKBD_DEBUG("we already have the lock!\n");
+			DIST2_DEBUG("we already have the lock!\n");
 			srs->error = DIST2_ERR_LOCK_ALREADY_OWNED;
 			srs->rpc_reply(b, srs);
 		} else {
 			// Add to waiting list
-			SKBD_DEBUG("lock already exists, add to waiting list!\n");
+			DIST2_DEBUG("lock already exists, add to waiting list!\n");
 
 			char* lock_name = ast->on.name->in.str;
 			size_t length = snprintf(NULL, 0, "%s_%lu", lock_name, enumerator++);
@@ -330,8 +400,8 @@ void lock_handler(struct dist_binding* b, char* query)
 
 			ast->on.name->in.str = wait_name;
 			// TODO strdup
-			append_attribute(ast, pair(ident(strdup("wait_for")), string(lock_name)));
-			append_attribute(ast, pair(ident(strdup("owner")), num( (int64_t)b) )); // TODO strdup
+			ast_append_attribute(ast, ast_pair(ast_ident(strdup("wait_for")), ast_string(lock_name)));
+			ast_append_attribute(ast, ast_pair(ast_ident(strdup("owner")), ast_num( (int64_t)b) )); // TODO strdup
 
 			// free(lock_name); we don't need to do this because we put lock name back in the AST
 			// so it's freed on calling free_ast().
@@ -347,10 +417,10 @@ void lock_handler(struct dist_binding* b, char* query)
 }
 
 
-static void unlock_reply(struct dist_binding* b, struct skb_reply_state* srs)
+static void unlock_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
-    err = b->tx_vtbl.unlock_response(b, MKCONT(free_reply_state, srs),
+    err = b->tx_vtbl.unlock_response(b, MKCONT(free_dist_reply_state, srs),
 			                          srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -366,10 +436,10 @@ void unlock_handler(struct dist_binding* b, char* query)
 {
 	assert(query != NULL); // TODO
 	errval_t err = SYS_ERR_OK;
-	SKBD_DEBUG("unlock handler: %s\n", query);
+	DIST2_DEBUG("unlock handler: %s\n", query);
 
-	struct skb_reply_state* srs = NULL;
-	err = new_reply_state(&srs, unlock_reply);
+	struct dist_reply_state* srs = NULL;
+	err = new_dist_reply_state(&srs, unlock_reply);
 	assert(err_is_ok(err));
 
 	printf("before generate ast for query = %s\n", query);
@@ -382,14 +452,14 @@ void unlock_handler(struct dist_binding* b, char* query)
 
 		err = get_record(query_ast, &srs->skb);
 		if(err_is_ok(err)) {
-			SKBD_DEBUG("found lock\n");
+			DIST2_DEBUG("found lock\n");
 
 			struct ast_object* lock_ast = NULL;
 			err = generate_ast(srs->skb.output_buffer, &lock_ast);// TODO free
 			assert(err_is_ok(err));
 			assert(lock_ast != NULL);
 
-			struct ast_object* owner = find_attribute(lock_ast, "owner");
+			struct ast_object* owner = ast_find_attribute(lock_ast, "owner");
 			assert(owner != NULL);
 
 			if( ((void*)owner->pn.right->cn.value) != b) { // TODO compare int64_t vs. pointer
@@ -409,11 +479,11 @@ void unlock_handler(struct dist_binding* b, char* query)
 			assert(next_child_ast != NULL);
 			assert(err_is_ok(err));
 
-			struct skb_reply_state* child_srs = NULL;
-			err = new_reply_state(&child_srs, unlock_reply);
+			struct dist_reply_state* child_srs = NULL;
+			err = new_dist_reply_state(&child_srs, unlock_reply);
 			assert(err_is_ok(err));
 
-			SKBD_DEBUG("search wait_for element\n");
+			DIST2_DEBUG("search wait_for element\n");
 
 			err = get_record(next_child_ast, &child_srs->skb);
 
@@ -428,9 +498,9 @@ void unlock_handler(struct dist_binding* b, char* query)
 				// delete wait_for element
 				del_record(next_child_ast, &child_srs->skb);
 
-				SKBD_DEBUG("remove wait_for\n");
+				DIST2_DEBUG("remove wait_for\n");
 
-				struct ast_object* wait_for = remove_attribute(next_child_ast, "wait_for");
+				struct ast_object* wait_for = ast_remove_attribute(next_child_ast, "wait_for");
 				assert(wait_for != NULL);
 
 				free(next_child_ast->on.name->in.str);
@@ -440,11 +510,11 @@ void unlock_handler(struct dist_binding* b, char* query)
 				free_ast(wait_for);
 
 				// Set new lock record
-				SKBD_DEBUG("set new lock obj\n");
+				DIST2_DEBUG("set new lock obj\n");
 				set_record(next_child_ast, &child_srs->skb);
 
 				// return lock() call of new owner
-				struct ast_object* owner = find_attribute(next_child_ast, "owner");
+				owner = ast_find_attribute(next_child_ast, "owner");
 				assert(owner != NULL);
 				struct dist_binding* new_owner = (struct dist_binding*) owner->pn.right->cn.value;
 
@@ -477,7 +547,7 @@ void unlock_handler(struct dist_binding* b, char* query)
 }
 
 
-static void identify_events_binding(struct dist_event_binding* b, uint64_t id)
+void identify_events_binding(struct dist_event_binding* b, uint64_t id)
 {
 	errval_t err = set_events_binding(id, b);
 	assert(err_is_ok(err)); // TODO
@@ -499,49 +569,4 @@ void identify_rpc_binding(struct dist_binding* b, uint64_t id)
 	// Returning is done by prolog predicate C function!
 }
 
-
-static void export_cb(void *st, errval_t err, iref_t iref)
-{
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "export failed");
-        abort();
-    }
-
-    // register this iref with the name service
-    err = nameservice_register("skb_events", iref);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
-    }
-}
-
-struct skb_events_rx_vtbl rx_vtbl = {
-		.identify = identify_events_binding,
-};
-
-
-static errval_t connect_cb(void *st, struct dist_event_binding *b)
-{
-	// Set up continuation queue
-
-
-    // copy my message receive handler vtable to the binding
-    b->rx_vtbl = rx_vtbl;
-
-    // accept the connection (we could return an error to refuse it)
-    return SYS_ERR_OK;
-}
-
-
-void event_server_init(void)
-{
-    errval_t err;
-    err = skb_events_export(NULL, export_cb, connect_cb,
-    		                get_default_waitset(),
-                            IDC_EXPORT_FLAGS_DEFAULT);
-    assert(err_is_ok(err));
-
-    // TODO make sure this blocks until nameservice register complete
-    // to avoid race conditions?
-}
 

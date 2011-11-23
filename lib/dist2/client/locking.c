@@ -1,6 +1,7 @@
 #include <barrelfish/barrelfish.h>
+
 #include <dist2/lock.h>
-#include <if/dist_rpcclient_defs.h>
+#include "common.h"
 
 /**
  * Locking using constraints?
@@ -28,11 +29,10 @@ errval_t dist_lock(char* object)
 	assert(object != NULL);
 	errval_t err = SYS_ERR_OK;
 
-	struct skb_state* skb_state  = get_skb_state();
-	assert(skb_state != NULL);
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
-	err = skb_state->skb->vtbl.lock(skb_state->skb, object, &error_code);
+	err = rpc_client->vtbl.lock(rpc_client, object, &error_code);
 
 	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
 
@@ -45,11 +45,10 @@ errval_t dist_unlock(char* object)
 	assert(object != NULL);
 	errval_t err = SYS_ERR_OK;
 
-	struct skb_state* skb_state  = get_skb_state();
-	assert(skb_state != NULL);
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
-	err = skb_state->skb->vtbl.unlock(skb_state->skb, object, &error_code);
+	err = rpc_client->vtbl.unlock(rpc_client, object, &error_code);
 
 	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
 

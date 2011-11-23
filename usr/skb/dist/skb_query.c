@@ -2,20 +2,65 @@
 #include <string.h>
 #include <eclipse.h>
 
+#include <barrelfish/barrelfish.h>
 #include <include/skb_debug.h>
 
+#include <if/dist_defs.h>
+#include <if/dist_event_defs.h>
+
+#include <include/skb_server.h>
+
+#include <dist2_server/debug.h>
+#include <dist2_server/query.h>
+#include <dist2/parser/ast.h>
+
 #include "code_generator.h"
-#include "ast.h"
-
-#include "skb_query.h"
 
 
-static void debug_skb_output(struct skb_query_state* st) {
-	SKBD_DEBUG("\nst->output: %s\nerror: %s\nerror_code: %d\n", st->output_buffer, st->error_buffer, st->exec_res);
+static errval_t query_eclipse(char* query, struct dist_query_state* st)
+{
+    assert(query != NULL);
+    assert(st != NULL);
+    int res;
+
+    st->exec_res = PFLUSHIO;
+    st->output_length = 0;
+    st->error_output_length = 0;
+
+    /* Processing */
+    ec_post_string(query);
+    while(st->exec_res == PFLUSHIO) {
+        st->exec_res = ec_resume();
+
+        res = 0;
+        do {
+            res = ec_queue_read(1, st->output_buffer + st->output_length,
+                                BUFFER_SIZE - res);
+            st->output_length += res;
+        } while ((res != 0) && (st->output_length < BUFFER_SIZE));
+        st->output_buffer[st->output_length] = 0;
+
+        res = 0;
+        do {
+            res = ec_queue_read(2, st->error_buffer + st->error_output_length,
+                                BUFFER_SIZE - res);
+            st->error_output_length += res;
+        } while ((res != 0) &&
+                    (st->error_output_length < BUFFER_SIZE));
+
+        st->error_buffer[st->error_output_length] = 0;
+    }
+
+    return SYS_ERR_OK;
 }
 
 
-errval_t get_record(struct ast_object* ast, struct skb_query_state* sqs)
+static void debug_skb_output(struct dist_query_state* st) {
+	DIST2_DEBUG("\nst->output: %s\nerror: %s\nerror_code: %d\n", st->output_buffer, st->error_buffer, st->exec_res);
+}
+
+
+errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
 {
 	assert(ast != NULL);
 	assert(sqs != NULL);
@@ -40,9 +85,9 @@ errval_t get_record(struct ast_object* ast, struct skb_query_state* sqs)
 		char* buf = malloc(len+1);
 		snprintf(buf, len+1, format, name, attributes, constraints, name); // TODO
 
-		err = execute_query(buf, sqs);
+		err = query_eclipse(buf, sqs);
 
-		SKBD_DEBUG("get_record: %s\n", buf);
+		DIST2_DEBUG("get_record: %s\n", buf);
 		debug_skb_output(sqs);
 
 		free(buf);
@@ -61,7 +106,7 @@ errval_t get_record(struct ast_object* ast, struct skb_query_state* sqs)
 }
 
 
-errval_t set_record(struct ast_object* ast, struct skb_query_state* sqs)
+errval_t set_record(struct ast_object* ast, struct dist_query_state* sqs)
 {
 	assert(ast != NULL);
 	assert(sqs != NULL);
@@ -75,9 +120,9 @@ errval_t set_record(struct ast_object* ast, struct skb_query_state* sqs)
 		char buf[len]; // TODO Stack or malloc?
 		snprintf(buf, len, format, sr->name.output, sr->attributes.output);
 
-		err = execute_query(buf, sqs);
+		err = query_eclipse(buf, sqs);
 
-		SKBD_DEBUG("set_record: %s:\n", buf);
+		DIST2_DEBUG("set_record: %s:\n", buf);
 		debug_skb_output(sqs);
 
 		free_parsed_object(sr);
@@ -87,7 +132,7 @@ errval_t set_record(struct ast_object* ast, struct skb_query_state* sqs)
 }
 
 
-errval_t del_record(struct ast_object* ast, struct skb_query_state* sqs)
+errval_t del_record(struct ast_object* ast, struct dist_query_state* sqs)
 {
 	assert(ast != NULL);
 	assert(sqs != NULL);
@@ -107,9 +152,9 @@ errval_t del_record(struct ast_object* ast, struct skb_query_state* sqs)
 			size_t written = snprintf(buf, write_length+1, format, sr->name.output);
 			assert(write_length == written);
 
-			err = execute_query(buf, sqs);
+			err = query_eclipse(buf, sqs);
 
-			SKBD_DEBUG("del_record: %s:\n", buf);
+			DIST2_DEBUG("del_record: %s:\n", buf);
 			debug_skb_output(sqs);
 		}
 
@@ -120,24 +165,54 @@ errval_t del_record(struct ast_object* ast, struct skb_query_state* sqs)
 	return err;
 }
 
+errval_t set_trigger(struct ast_object* ast, struct dist_query_state* dqs)
+{
+    errval_t err = SYS_ERR_OK;
+    struct skb_record* sr = NULL;
+    err = transform_record(ast, &sr);
+    if(err_is_ok(err)) {
+        char* format = "retract(object(%s, X)), write(X)."; // TODO attributes, constraints...
+        size_t write_length = snprintf(NULL, 0, format, sr->name.output);
+        char* buf = malloc(write_length+1);
+        if(buf == NULL) {
+            err = LIB_ERR_MALLOC_FAIL;
+        }
 
-static struct skb_events_binding* get_event_binding(struct skb_binding* b)
+        if(err_is_ok(err)) {
+            size_t written = snprintf(buf, write_length+1, format, sr->name.output);
+            assert(write_length == written);
+
+            err = query_eclipse(buf, dqs);
+
+            DIST2_DEBUG("del_record: %s:\n", buf);
+            debug_skb_output(dqs);
+        }
+
+        free(buf);
+        free_parsed_object(sr);
+    }
+
+    return err;
+}
+
+
+static struct dist_event_binding* get_event_binding(struct dist_binding* b)
 {
 	errval_t err =  SYS_ERR_OK;
-	struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+	struct dist_query_state* st = malloc(sizeof(struct dist_query_state));
 	assert(st != NULL);
 
 	char* format = "binding(_, X, %lu), write(X).";
 	size_t len = strlen(format) + 20; // TODO 20
 	char buf[len];
 	snprintf(buf, len, format, b); // TODO check return
-	err = execute_query(buf, st);
+	err = query_eclipse(buf, st);
 	assert(err_is_ok(err)); // TODO err
 
 	debug_skb_output(st);
 	// TODO check error etc.
 
-	struct skb_events_binding* recipient = NULL;
+	struct dist_event_binding* recipient = NULL;
 	sscanf(st->output_buffer, "%lu", (uintptr_t*) &recipient); // TODO
 
 	assert(recipient != NULL); // TODO
@@ -146,7 +221,7 @@ static struct skb_events_binding* get_event_binding(struct skb_binding* b)
 }
 
 
-errval_t add_subscription(struct skb_binding* b, struct ast_object* ast, uint64_t id, struct skb_query_state* sqs)
+errval_t add_subscription(struct dist_binding* b, struct ast_object* ast, uint64_t id, struct dist_query_state* sqs)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -161,9 +236,9 @@ errval_t add_subscription(struct skb_binding* b, struct ast_object* ast, uint64_
 		char buf[len]; // TODO heap?
 		snprintf(buf, len, format, sr->name.output, sr->attributes.output,
 				 sr->constraints.output, get_event_binding(b), id);
-		err = execute_query(buf, sqs);
+		err = query_eclipse(buf, sqs);
 
-		SKBD_DEBUG("add_subscription: %s\n", buf);
+		DIST2_DEBUG("add_subscription: %s\n", buf);
 		debug_skb_output(sqs);
 
 		free_parsed_object(sr);
@@ -173,7 +248,7 @@ errval_t add_subscription(struct skb_binding* b, struct ast_object* ast, uint64_
 }
 
 
-errval_t del_subscription(struct skb_binding* b, uint64_t id, struct skb_query_state* sqs)
+errval_t del_subscription(struct dist_binding* b, uint64_t id, struct dist_query_state* sqs)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -181,16 +256,16 @@ errval_t del_subscription(struct skb_binding* b, uint64_t id, struct skb_query_s
 	size_t len = strlen(format) + 50 + 1; // todo 50 :-(
 	char buf[len];
 	snprintf(buf, len, format, get_event_binding(b), id);
-	err = execute_query(buf, sqs);
+	err = query_eclipse(buf, sqs);
 
-	SKBD_DEBUG("del_subscription: %s\n", buf);
+	DIST2_DEBUG("del_subscription: %s\n", buf);
 	debug_skb_output(sqs);
 
 	return err;
 }
 
 
-errval_t find_subscribers(struct ast_object* ast, struct skb_query_state* sqs) {
+errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs) {
 
     errval_t err = SYS_ERR_OK;
 
@@ -207,9 +282,9 @@ errval_t find_subscribers(struct ast_object* ast, struct skb_query_state* sqs) {
     char* buf = malloc(len+1);
     snprintf(buf, len+1, format, sr->name.output, sr->attributes.output);
 
-    err = execute_query(buf, sqs);
+    err = query_eclipse(buf, sqs);
 
-    SKBD_DEBUG("buf: %s\n", buf);
+    DIST2_DEBUG("buf: %s\n", buf);
     debug_skb_output(sqs);
 
     free_parsed_object(sr);
@@ -219,7 +294,7 @@ errval_t find_subscribers(struct ast_object* ast, struct skb_query_state* sqs) {
 }
 
 
-errval_t set_events_binding(uint64_t id, struct skb_events_binding* b)
+errval_t set_events_binding(uint64_t id, struct dist_event_binding* b)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -228,13 +303,13 @@ errval_t set_events_binding(uint64_t id, struct skb_events_binding* b)
     char buf[len];
     snprintf(buf, len, format, id, b);
 
-    struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+    struct dist_query_state* st = malloc(sizeof(struct dist_query_state));
     assert(st != NULL);
 
-    err = execute_query(buf, st);
+    err = query_eclipse(buf, st);
     assert(err_is_ok(err)); // TODO
 
-    SKBD_DEBUG("identify_events_binding done %s for: %p\n", buf, b);
+    DIST2_DEBUG("identify_events_binding done %s for: %p\n", buf, b);
     debug_skb_output(st);
 
 
@@ -244,11 +319,11 @@ errval_t set_events_binding(uint64_t id, struct skb_events_binding* b)
 }
 
 
-errval_t set_rpc_binding(uint64_t id, struct skb_binding* b)
+errval_t set_rpc_binding(uint64_t id, struct dist_binding* b)
 {
     errval_t err = SYS_ERR_OK;
 
-    SKBD_DEBUG("identify_rpc_binding start: %p id:%lu\n", b, id);
+    DIST2_DEBUG("identify_rpc_binding start: %p id:%lu\n", b, id);
     // duplicated code from events binding!
     char* format = "set_rpc_binding(%lu, %lu).";
     size_t len = strlen(format) + 200; // TODO maxlength of two int?
@@ -257,12 +332,12 @@ errval_t set_rpc_binding(uint64_t id, struct skb_binding* b)
 
     assert(buf != NULL);
 
-    struct skb_query_state* st = malloc(sizeof(struct skb_query_state));
+    struct dist_query_state* st = malloc(sizeof(struct dist_query_state));
     assert(st != NULL);
-    err = execute_query(buf, st);
+    err = query_eclipse(buf, st);
     assert(err_is_ok(err));
 
-    SKBD_DEBUG("identify_rpc_binding done for: %p\n", b);
+    DIST2_DEBUG("identify_rpc_binding done for: %p\n", b);
     debug_skb_output(st);
 
     free(st);

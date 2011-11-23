@@ -8,6 +8,13 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <if/dist_event_defs.h>
+#include <if/dist_rpcclient_defs.h>
+
+
+struct dist_rpc_client* get_dist_rpc_client(void);
+struct dist_event_binding* get_dist_event_binding(void);
+
 #define MAX_RECORD_LENGTH (5*1024)
 
 

@@ -6,7 +6,12 @@
 #include <string.h>
 
 
-#include "ast.h"
+#ifdef TEST_PARSER
+#include "../../../include/dist2/parser/ast.h"
+#else
+#include <dist2/parser/ast.h>
+#endif
+
 #include "y.tab.h"
 
 
@@ -201,33 +206,6 @@ static void translate(struct ast_object* p) {
 		break;
    }
 
-}
-
-
-static struct ast_object* remove_attribute(struct ast_object* ast, char* name)
-{
-	struct ast_object** attr = &ast->on.attrs;
-
-	for(; *attr != NULL; attr = &(*attr)->an.next) {
-
-		assert((*attr)->type == nodeType_Attribute);
-		struct ast_object* pair = (*attr)->an.attr;
-		struct ast_object* left = pair->pn.left;
-
-		if(strcmp(left->in.str, name) == 0) {
-			struct ast_object* to_return = pair;
-			struct ast_object* current_attr = *attr;
-
-			*attr = current_attr->an.next;
-			current_attr->an.next = NULL;
-
-			free_ast(current_attr);
-			return pair;
-		}
-
-	}
-
-	return NULL;
 }
 
 

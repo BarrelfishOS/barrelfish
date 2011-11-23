@@ -27,8 +27,6 @@ static void identification_complete_reply(struct skb_binding* b, struct skb_repl
 
 int p_identification_complete(void)         /* identification_complete(+Integer) */
 {
-	SKBD_DEBUG("p_identification_complete\n");
-
 	long int id;
     ec_get_long(ec_arg(1), &id);
 
@@ -39,8 +37,6 @@ int p_identification_complete(void)         /* identification_complete(+Integer)
 
     struct skb_binding* skb = (struct skb_binding*) id;
     identification_complete_reply(skb, srs);
-
-    SKBD_DEBUG("p_identification_complete DONE\n");
 
     return PSUCCEED;
 }

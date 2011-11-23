@@ -1,8 +1,15 @@
 %{
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "y.tab.h"
-#include "ast.h"
+
+#ifdef TEST_PARSER
+#include "../../../include/dist2/parser/ast.h"
+#else
+#include <dist2/parser/ast.h>
+#endif
+
 int charcount=0,linecount=0;
 char string_buf[100];
 char *string_buf_ptr;
@@ -15,6 +22,7 @@ char* strdup(const char*);
 %option noyywrap
 %option nounput
 %option noinput
+%option never-interactive
 
 RBRACKET \[
 LBRACKET \]

@@ -1,24 +1,19 @@
 %{
+#include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
-#include "ast.h"
+#ifdef TEST_PARSER
+#include "../../../include/dist2/parser/ast.h"
+#else
+#include <dist2/parser/ast.h>
+#endif
+
 #include "y.tab.h"
 typedef long int64_t;
 
 int yylex(void);
 void yyerror(char *);
-
-static struct ast_object* ident(char*);
-static struct ast_object* boolean(int);
-static struct ast_object* floatingpoint(double);
-static struct ast_object* num(int64_t);
-static struct ast_object* pair(struct ast_object*, struct ast_object*);
-static struct ast_object* attribute(struct ast_object*, struct ast_object*);
-static struct ast_object* object(struct ast_object*, struct ast_object*);
-static struct ast_object* constraints(size_t, struct ast_object*);
-static struct ast_object* string(char*);
-
-void free_nodes(struct ast_object*);
 
 extern struct ast_object* dist2_parsed_ast;
 extern errval_t dist2_parser_error;
@@ -65,33 +60,33 @@ program:
     | ;
 
 object: 
-      IDENT                          { $$ = object(ident($1), NULL); } 
-    | IDENT RCURLY LCURLY            { $$ = object(ident($1), NULL); } 
-    | IDENT RCURLY attributes LCURLY { $$ = object(ident($1), $3); }
+      IDENT                          { $$ = ast_object(ast_ident($1), NULL); } 
+    | IDENT RCURLY LCURLY            { $$ = ast_object(ast_ident($1), NULL); } 
+    | IDENT RCURLY attributes LCURLY { $$ = ast_object(ast_ident($1), $3); }
 
 attributes:
-      attribute                      { $$ = attribute($1, NULL); }
-    | attribute COMMA attributes     { $$ = attribute($1, $3); }
+      attribute                      { $$ = ast_attribute($1, NULL); }
+    | attribute COMMA attributes     { $$ = ast_attribute($1, $3); }
 
 attribute:
-      IDENT COLON value              { $$ = pair(ident($1), $3); }
-    | IDENT COLON constraint         { $$ = pair(ident($1), $3); }
+      IDENT COLON value              { $$ = ast_pair(ast_ident($1), $3); }
+    | IDENT COLON constraint         { $$ = ast_pair(ast_ident($1), $3); }
 
 constraint:
-      GT value                       { $$ = constraints(GT, $2);  }
-    | GE value                       { $$ = constraints(GE, $2); }
-    | LT value                       { $$ = constraints(LT, $2); }
-    | LE value                       { $$ = constraints(LE, $2); }
-    | EQ value                       { $$ = constraints(EQ, $2); }
-    | NE value                       { $$ = constraints(NE, $2); }
-    | REGEX                          { $$ = constraints(REGEX, string($1)); }
+      GT value                       { $$ = ast_constraints(constraint_GT, $2);  }
+    | GE value                       { $$ = ast_constraints(constraint_GE, $2); }
+    | LT value                       { $$ = ast_constraints(constraint_LT, $2); }
+    | LE value                       { $$ = ast_constraints(constraint_LE, $2); }
+    | EQ value                       { $$ = ast_constraints(constraint_EQ, $2); }
+    | NE value                       { $$ = ast_constraints(constraint_NE, $2); }
+    | REGEX                          { $$ = ast_constraints(constraint_REGEX, ast_string($1)); }
 
 value:
-      IDENT                          { $$ = ident($1); printf("got ident: %s\n", $1); }
-    | STRING                         { $$ = string($1); }
-    | NUMBER                         { $$ = num($1); }
-    | BOOL                           { $$ = boolean($1); }
-    | FLOAT                          { $$ = floatingpoint($1); }
+      IDENT                          { $$ = ast_ident($1); }
+    | STRING                         { $$ = ast_string($1); }
+    | NUMBER                         { $$ = ast_num($1); }
+    | BOOL                           { $$ = ast_boolean($1); }
+    | FLOAT                          { $$ = ast_floatingpoint($1); }
 //    | VARIABLE                       { $$ = }
 %%
 

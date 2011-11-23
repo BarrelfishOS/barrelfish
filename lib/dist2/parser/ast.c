@@ -1,10 +1,15 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "ast.h"
+#ifdef TEST_PARSER
+    #include "../../../include/dist2/parser/ast.h"
+#else
+    #include <dist2/parser/ast.h>
+#endif
+
 #include "flex.h"
 
-extern void yyparse();
+extern void yyparse(void);
 
 struct ast_object* dist2_parsed_ast = NULL;
 errval_t dist2_parser_error = SYS_ERR_OK;
@@ -56,14 +61,14 @@ void free_ast(struct ast_object* p) {
 }
 
 
-void append_attribute(struct ast_object* ast, struct ast_object* to_insert)
+void ast_append_attribute(struct ast_object* ast, struct ast_object* to_insert)
 {
     struct ast_object** attr = &ast->on.attrs;
     for(; *attr != NULL; attr = &(*attr)->an.next) {
         // continue
     }
 
-    struct ast_object* new_attr = alloc_node();
+    struct ast_object* new_attr = ast_alloc_node();
     new_attr->type = nodeType_Attribute;
     new_attr->an.attr = to_insert;
     new_attr->an.next = NULL;
@@ -71,7 +76,7 @@ void append_attribute(struct ast_object* ast, struct ast_object* to_insert)
 }
 
 
-struct ast_object* find_attribute(struct ast_object* ast, char* name)
+struct ast_object* ast_find_attribute(struct ast_object* ast, char* name)
 {
     struct ast_object** attr = &ast->on.attrs;
 
@@ -88,7 +93,7 @@ struct ast_object* find_attribute(struct ast_object* ast, char* name)
 }
 
 
-struct ast_object* remove_attribute(struct ast_object* ast, char* name)
+struct ast_object* ast_remove_attribute(struct ast_object* ast, char* name)
 {
     struct ast_object** attr = &ast->on.attrs;
 

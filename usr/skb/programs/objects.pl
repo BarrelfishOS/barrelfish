@@ -8,7 +8,7 @@
 :- dynamic object/2.
 
 %lib(regex).
-%:- include("../data/objects.txt").
+:- include("../data/objects.txt").
 
 is_empty([]).
 
