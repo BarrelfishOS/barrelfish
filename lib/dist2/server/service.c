@@ -298,6 +298,7 @@ static void publish_reply(struct dist_binding* b, struct dist_reply_state* srs) 
 
 void publish_handler(struct dist_binding *b, char* object)
 {
+	DIST2_DEBUG("publish_handler\n");
 	errval_t err = SYS_ERR_OK;
 
 	struct dist_reply_state* srs = NULL;
@@ -310,10 +311,13 @@ void publish_handler(struct dist_binding *b, char* object)
 
 	srs->rpc_reply(b, srs);
 
+	DIST2_DEBUG("find_subscribers\n");
 	err = find_subscribers(ast, &srs->skb);
 	if(err_is_ok(err)) {
         struct dist_event_binding* recipient = NULL;
         uint64_t id = 0;
+
+    	DIST2_DEBUG("list_parser_status\n");
 
         // TODO remove list parser dependency
         struct list_parser_status status;

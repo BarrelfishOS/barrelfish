@@ -31,6 +31,7 @@ struct dist_reply_state {
 void get_handler(struct dist_binding*, char*);
 void set_handler(struct dist_binding*, char*);
 void del_handler(struct dist_binding*, char*);
+void exists_handler(struct dist_binding*, char*, bool, bool);
 
 void subscribe_handler(struct dist_binding*, char*, uint64_t);
 void publish_handler(struct dist_binding*, char*);

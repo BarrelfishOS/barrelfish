@@ -83,19 +83,16 @@
 int
 vsnprintf(char *str, size_t size, const char *format, va_list arg)
 {
-	if (size == 0 && str != NULL) {
-		return 0;
-	}
-	int r = format_string(str, NULL, 0, size, format, arg);
+    int r = format_string(str, NULL, 0, size, format, arg);
 
     /* ensure termination */
-	if(str != NULL) {
-		if (r < size) {
-			str[r] = '\0';
-		} else {
-			str[size - 1] = '\0';
-		}
-	}
+    if (str != NULL) {
+        if (r < size) {
+            str[r] = '\0';
+        } else {
+            str[size - 1] = '\0';
+        }
+    }
 
-	return r;
+    return r;
 }
