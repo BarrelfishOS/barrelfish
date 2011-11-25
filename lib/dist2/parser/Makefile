@@ -8,7 +8,7 @@ test_parser: $(objects)
 parse.o: parse.y
 scan.o: scan.l
 y.tab.h: parse.o scan.o ast.o
-test_parser.o: test_parser.c ast.c  y.tab.h
+test_parser.o: test_parser.c ast.c y.tab.h
 
 clean:
 	rm -f $(objects) parse.c scan.c test_parser
