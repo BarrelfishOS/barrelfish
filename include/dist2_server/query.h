@@ -10,6 +10,7 @@
 errval_t set_events_binding(uint64_t, struct dist_event_binding*);
 errval_t set_rpc_binding(uint64_t, struct dist_binding*);
 
+errval_t get_record_names(struct ast_object*, struct dist_query_state*);
 errval_t get_record(struct ast_object*, struct dist_query_state*);
 errval_t set_record(struct ast_object*, struct dist_query_state*);
 errval_t del_record(struct ast_object*, struct dist_query_state*);

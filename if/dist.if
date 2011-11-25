@@ -11,6 +11,7 @@ interface dist "dist2 RPC Interface" {
     rpc get_identifier(out uint64 id);
     rpc identify(in uint64 id);
     
+    rpc get_names(in string query, out string output, out errval error_code);
     rpc get(in string query, out string output, out string error, out errval error_code);
     rpc set(in string input, out string error, out errval error_code);
     rpc del(in string query, out errval error_code);

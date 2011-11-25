@@ -146,6 +146,29 @@ static errval_t get_set_test(void)
 	assert(strcmp(data, "object2 { weight: 25 }") == 0);
 	free(data);
 
+	char** names = NULL;
+	size_t size = 0;
+	err = dist_get_names(&names, &size, "_ { weight: _ }");
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "dist_get_names failed!");
+        return err;
+    }
+    assert(size == 3);
+    assert(strcmp(names[0], "object2") == 0);
+    assert(strcmp(names[1], "object3") == 0);
+    assert(strcmp(names[2], "object4") == 0);
+    dist_free_names(names, size); // XXX name strings not freed
+
+    err = dist_get_names(&names, &size, "_ { attr: _, bool: %s }", "true");
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "dist_get_names failed!");
+        return err;
+    }
+    assert(size == 1);
+    assert(strcmp(names[0], "object4") == 0);
+    dist_free_names(names, size); // XXX name strings not freed
+    abort();
+
 
 	// TODO implement dist_del with constraints, attributes!
 

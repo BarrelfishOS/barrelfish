@@ -27,7 +27,7 @@ struct dist_reply_state {
     struct dist_reply_state *next;
 };
 
-
+void get_names_handler(struct dist_binding*, char*);
 void get_handler(struct dist_binding*, char*);
 void set_handler(struct dist_binding*, char*);
 void del_handler(struct dist_binding*, char*);

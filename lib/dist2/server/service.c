@@ -83,6 +83,41 @@ void get_handler(struct dist_binding *b, char *query)
 }
 
 
+static void get_names_reply(struct dist_binding* b, struct dist_reply_state* srt) {
+    errval_t err;
+    err = b->tx_vtbl.get_names_response(b, MKCONT(free_dist_reply_state, srt),
+                                        srt->skb.output_buffer, srt->error);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, srt);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+void get_names_handler(struct dist_binding *b, char *query)
+{
+    errval_t err = SYS_ERR_OK;
+
+    struct dist_reply_state* srt = NULL;
+    err = new_dist_reply_state(&srt, get_names_reply);
+    assert(err_is_ok(err));
+
+    struct ast_object* ast = NULL;
+    err = generate_ast(query, &ast);
+    if(err_is_ok(err)) {
+        err = get_record_names(ast, &srt->skb);
+    }
+
+    srt->error = err;
+    srt->rpc_reply(b, srt);
+
+    free_ast(ast);
+    free(query);
+}
+
 static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;

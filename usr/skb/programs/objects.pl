@@ -12,6 +12,14 @@
 
 is_empty([]).
 
+print_names([]).
+print_names([X]) :-
+    write(X).
+print_names([X|Rest]) :-
+    write(X),
+    write(', '),
+    print_names(Rest).
+
 print_object(object(Thing, SlotList)) :-
     write(Thing),
     write(' { '),

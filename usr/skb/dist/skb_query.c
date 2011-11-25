@@ -16,7 +16,6 @@
 
 #include "code_generator.h"
 
-
 static errval_t query_eclipse(char* query, struct dist_query_state* st)
 {
     assert(query != NULL);
@@ -103,6 +102,46 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
 	}
 
 	return err;
+}
+
+
+errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
+{
+    assert(ast != NULL);
+    assert(dqs != NULL);
+
+    struct skb_record* sr = NULL;
+    errval_t err = transform_record(ast, &sr);
+    if(err_is_ok(err)) {
+
+        assert(strcmp(sr->name.output, "_") == 0); // TODO
+        char* attributes = sr->attributes.output;
+        char* constraints = sr->constraints.output;
+
+        char* format = "findall(X, get_object(X, %s, %s, _), L), print_names(L).";
+
+        size_t len = snprintf(NULL, 0, format, attributes, constraints);
+        char* buf = malloc(len+1);
+        snprintf(buf, len+1, format, attributes, constraints);
+
+        err = query_eclipse(buf, dqs);
+
+        DIST2_DEBUG("get_record_names: %s\n", buf);
+        debug_skb_output(dqs);
+
+        free(buf);
+        free_parsed_object(sr);
+    }
+
+    // TODO hack FIX! output seems to be undefined when goal fails
+    // (in our case always the same string)
+    char* hack = "nrelements(2)[[";
+    if(dqs->output_buffer[0] == '\0'
+       || strncmp(dqs->output_buffer, hack, strlen(hack)) == 0) {
+        return DIST2_ERR_NO_RECORD;
+    }
+
+    return err;
 }
 
 

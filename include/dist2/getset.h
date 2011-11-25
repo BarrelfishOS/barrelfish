@@ -1,7 +1,8 @@
 #ifndef DIST2_GETSET_H_
 #define DIST2_GETSET_H_
 
-errval_t dist_get_all(char*, char**); // TODO
+errval_t dist_get_names(char*** names, size_t*, char*, ...);
+void dist_free_names(char**, size_t);
 
 errval_t dist_get(char*, char**);
 errval_t dist_set(char*, ...);

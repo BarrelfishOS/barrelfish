@@ -18,6 +18,7 @@ static struct export_state {
 
 
 struct dist_rx_vtbl rpc_rx_vtbl = {
+    .get_names_call = get_names_handler,
     .get_call = get_handler,
     .set_call = set_handler,
     .del_call = del_handler,

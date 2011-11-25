@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -6,6 +7,7 @@
 #include <dist2/getset.h>
 #include "common.h"
 
+#define MAX_NAME_LENGTH 255
 
 /**
      #define STR(a) #a
@@ -46,13 +48,110 @@ static errval_t dist_del(char* name)
 }
 */
 
-/**
- * gets all objects satisfying query
- */
-errval_t dist_get_all(char* query, char** data)
+static char* mystrdup(char* data) {
+
+    char *p = malloc(strlen(data) + 1);
+    if (p == NULL) {
+        return NULL;
+    }
+
+    strcpy(p, data);
+    return p;
+}
+
+
+static int cmpstringp(const void *p1, const void *p2)
 {
-	assert(!"TODO");
-	return SYS_ERR_OK;
+    return strcmp(* (char * const *) p1, * (char * const *) p2);
+}
+
+
+/**
+ * Get names of all objects matching query
+ */
+errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
+{
+    assert(query != NULL);
+
+    errval_t err = SYS_ERR_OK;
+    va_list  args;
+
+    char* data = NULL;
+    char* buf = NULL;
+    FORMAT_QUERY(query, args, buf);
+
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+
+    errval_t error_code;
+    err = rpc_client->vtbl.get_names(rpc_client, buf, &data, &error_code);
+    if(err_is_ok(err)) {
+        err = error_code;
+
+        if(err_is_ok(error_code)) {
+            char *p = mystrdup(data);
+            if (p == NULL) {
+                err = LIB_ERR_MALLOC_FAIL;
+                goto out;
+            }
+
+            // first get the number of elements
+            size_t i;
+            char* tok = p;
+            for (i = 0; tok != NULL; i++, p = NULL) {
+                tok = strtok(p, ",");
+            }
+            free(p);
+            p = NULL;
+            *len = --i;
+
+            *names = malloc(sizeof(char*) * i);
+            memset(*names, 0, sizeof(char*) * i);
+            if (*names == NULL) {
+                *len = 0;
+                err = LIB_ERR_MALLOC_FAIL;
+                goto out;
+            }
+
+            // now get the actual elements
+            p = data;
+            tok = p;
+            for (i = 0; tok != NULL; i++, p = NULL) {
+                tok = strtok(p, ", ");
+                if (tok != NULL) {
+                    (*names)[i] = mystrdup(tok);
+                    if((*names)[i] == NULL) {
+                        dist_free_names(*names, i);
+                        *names = NULL;
+                        *len = 0;
+                        err = LIB_ERR_MALLOC_FAIL;
+                        goto out;
+                    }
+                } else {
+                    break;
+                }
+            }
+            qsort(*names, *len, sizeof(char*), cmpstringp);
+        }
+    }
+
+    // free(*data) on error? can be NULL?
+
+out:
+    free(buf);
+    free(data);
+
+    return err;
+}
+
+
+void dist_free_names(char** names, size_t len)
+{
+    assert(names != NULL);
+    for(size_t i=0; i<len; i++) {
+        free(names[i]);
+    }
+
+    free(names);
 }
 
 
