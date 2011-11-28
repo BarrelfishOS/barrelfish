@@ -7,8 +7,6 @@
 #include <dist2/getset.h>
 #include "common.h"
 
-#define MAX_NAME_LENGTH 255
-
 /**
      #define STR(a) #a
      #define R(var, re)  static char var##_[] = STR(re);\
@@ -183,7 +181,7 @@ errval_t dist_get(char* query, char** data)
 /**
  * sets one object
  */
-errval_t dist_set(char* object, ...)
+errval_t dist_set(dist_mode_t mode, char* object, ...)
 {
 	assert(object != NULL);
 	errval_t err = SYS_ERR_OK;
@@ -196,13 +194,16 @@ errval_t dist_set(char* object, ...)
 	// Send to Server
     struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
-    char* error = NULL;
+    char* record = NULL;
+
 	errval_t error_code;
-	err = rpc_client->vtbl.set(rpc_client, buf, &error, &error_code);
-	// TODO check error_code
+	err = rpc_client->vtbl.set(rpc_client, buf, mode, false, &record, &error_code);
+	assert(record == NULL);
+	if(err_is_ok(err)) {
+		err = error_code;
+	}
 
 	free(buf);
-	free(error);
 	return err;
 }
 

@@ -14,6 +14,9 @@
 
 #include <dist2/parser/ast.h>
 
+#include <dist2/getset.h>
+
+
 #include "queue.h"
 
 char* strdup(const char*);
@@ -122,7 +125,7 @@ static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, srs),
-    							  srs->skb.error_buffer, srs->error);
+    							  NULL, srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         	dist_rpc_enqueue_reply(b, srs);
@@ -132,8 +135,9 @@ static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
     }
 }
 
+static uint64_t current_sequence = 0;
 
-void set_handler(struct dist_binding *b, char *query)
+void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -144,6 +148,15 @@ void set_handler(struct dist_binding *b, char *query)
 	struct ast_object* ast = NULL;
 	err = generate_ast(query, &ast);
 	if(err_is_ok(err)) {
+		if(mode & SET_SEQUENTIAL) {
+			// exchange name
+			char* name = ast->on.name->in.str;
+			size_t len = snprintf(NULL, 0, "%s%lu", name, current_sequence);
+			char* buf = malloc(len+1);
+			snprintf(buf, len+1, "%s%lu", name, current_sequence++);
+			ast->on.name->in.str = buf;
+			free(name);
+		}
 		err = set_record(ast, &srs->skb);
 	}
 

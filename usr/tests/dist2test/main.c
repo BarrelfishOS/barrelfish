@@ -28,32 +28,38 @@ static errval_t get_set_test(void)
 	char* data = NULL;
 
 	// Set some data objects
-	errval_t err = dist_set("object1 { weight: %d }", 20);
+	errval_t err = dist_set(SET_DEFAULT, "object1 { weight: %d }", 20);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
 	}
 
 	// TODO: Do we want this?
-	err = dist_set("object2 { weight: 20, weight: 25 }");
+	err = dist_set(SET_DEFAULT, "object2 { weight: 20, weight: 25 }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
 	}
 
-	err = dist_set("object3 { attr: 'A text string.', weight: 9, fl: 12.0 }");
+	err = dist_set(SET_DEFAULT, "object3 { attr: 'A text string.', weight: 9, fl: 12.0 }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
 	}
 
-	err = dist_set("object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
+	err = dist_set(SET_DEFAULT, "object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
 	}
 
-	err = dist_set("object5 { pattern1: '123abab', pattern2: 'StringToTestRegexMatching', pattern3: '2010-10-10' }");
+	err = dist_set(SET_DEFAULT, "object5 { pattern1: '123abab', pattern2: 'StringToTestRegexMatching', pattern3: '2010-10-10' }");
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_set failed!");
+		return err;
+	}
+
+	err = dist_set(SET_SEQUENTIAL, "seq_ { desc: 'This is a sequential Object.' }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
@@ -114,7 +120,7 @@ static errval_t get_set_test(void)
 	assert(err_no(err) == DIST2_ERR_NO_RECORD);
 	//free(data); TODO??
 
-	err = dist_set("object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
+	err = dist_set(SET_DEFAULT, "object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
