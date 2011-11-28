@@ -7,6 +7,11 @@
 #include <dist2_server/service.h>
 #include <dist2/parser/ast.h>
 
+enum dist_trigger_type {
+    TRIGGER_EXISTS,
+    TRIGGER_NOT_EXISTS
+};
+
 errval_t set_events_binding(uint64_t, struct dist_event_binding*);
 errval_t set_rpc_binding(uint64_t, struct dist_binding*);
 
@@ -14,7 +19,7 @@ errval_t get_record_names(struct ast_object*, struct dist_query_state*);
 errval_t get_record(struct ast_object*, struct dist_query_state*);
 errval_t set_record(struct ast_object*, struct dist_query_state*);
 errval_t del_record(struct ast_object*, struct dist_query_state*);
-errval_t set_trigger(struct ast_object*, struct dist_query_state*);
+errval_t set_trigger(enum dist_trigger_type type, struct ast_object*, struct dist_reply_state*);
 
 errval_t add_subscription(struct dist_binding*, struct ast_object*, uint64_t id, struct dist_query_state*);
 errval_t del_subscription(struct dist_binding*, uint64_t, struct dist_query_state*);

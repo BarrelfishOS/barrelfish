@@ -29,8 +29,8 @@ static errval_t new_dist_reply_state(struct dist_reply_state** drt, dist_reply_h
     if(*drt == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    memset(*drt, 0, sizeof(struct dist_reply_state));
 
+    memset(*drt, 0, sizeof(struct dist_reply_state));
     (*drt)->rpc_reply = reply_handler;
     (*drt)->next = NULL;
 
@@ -205,16 +205,16 @@ void del_handler(struct dist_binding* b, char* query)
 }
 
 
-static void exists_reply(struct dist_binding* b, struct dist_reply_state* srs)
+static void exists_reply(struct dist_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, srs),
-                                     srs->skb.output_buffer,
-                                     srs->error);
+    err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, drs),
+                                     drs->skb.output_buffer,
+                                     drs->error);
 
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, srs);
+            dist_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -233,15 +233,71 @@ void exists_handler(struct dist_binding* b, char* query, bool block, bool return
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if(err_is_ok(err)) {
+        DIST2_DEBUG("exists_handler get record\n");
         err = get_record(ast, &drt->skb);
-        if(err_is_ok(err)) {
+        if(err_is_ok(err) || !block) {
             // return immediately
             drt->error = err;
             drt->rpc_reply(b, drt);
         }
-        if(err_no(err) == DIST2_ERR_NO_RECORD && block) {
+        if(err_no(err) == DIST2_ERR_NO_RECORD) {
+            DIST2_DEBUG("exists_handler set trigger\n");
             // register and wait until record available
-            err = set_trigger(ast, &drt->skb);
+            drt->return_record = return_record;
+            drt->binding = b;
+            err = set_trigger(TRIGGER_EXISTS, ast, drt);
+        }
+    }
+
+    free_ast(ast);
+    free(query);
+}
+
+
+static void exists_not_reply(struct dist_binding* b, struct dist_reply_state* drs)
+{
+    errval_t err;
+    err = b->tx_vtbl.exists_not_response(b, MKCONT(free_dist_reply_state, drs),
+                                         drs->error);
+
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, drs);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+void exists_not_handler(struct dist_binding* b, char* query, bool block)
+{
+    assert(query != NULL);
+    DIST2_DEBUG("exists_not_handler query: %s\n", query);
+
+    errval_t err = SYS_ERR_OK;
+    struct dist_reply_state* drt = NULL;
+    err = new_dist_reply_state(&drt, exists_not_reply);
+    assert(err_is_ok(err));
+
+    struct ast_object* ast = NULL;
+    err = generate_ast(query, &ast);
+    if(err_is_ok(err)) {
+        err = get_record(ast, &drt->skb);
+        if(err_is_ok(err)) {
+            // register and wait until record unavailable
+            drt->binding = b;
+            DIST2_DEBUG("exists_not_handler set trigger\n");
+            err = set_trigger(TRIGGER_NOT_EXISTS, ast, drt);
+        }
+        else if(err_no(err) == DIST2_ERR_NO_RECORD) {
+            // return immediately
+            drt->error = SYS_ERR_OK;
+            drt->rpc_reply(b, drt);
+        }
+        else {
+            DEBUG_ERR(err, "not_exists_handler unexpected error!");
+            abort();
         }
     }
 

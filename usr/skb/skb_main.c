@@ -71,6 +71,7 @@ int main(int argc, char**argv)
     execute_string("[pubsub].");
     execute_string("[bindings].");
     ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
+    ec_external(ec_did("notify_client", 2), p_notify_client, ec_did("eclipse",0));
 
     // SKB Hardware related
     execute_string("[queries].");

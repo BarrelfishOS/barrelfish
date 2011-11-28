@@ -87,7 +87,7 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
 		err = query_eclipse(buf, sqs);
 
 		DIST2_DEBUG("get_record: %s\n", buf);
-		debug_skb_output(sqs);
+		//debug_skb_output(sqs);
 
 		free(buf);
 		free_parsed_object(sr);
@@ -127,7 +127,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
         err = query_eclipse(buf, dqs);
 
         DIST2_DEBUG("get_record_names: %s\n", buf);
-        debug_skb_output(dqs);
+       // debug_skb_output(dqs);
 
         free(buf);
         free_parsed_object(sr);
@@ -162,7 +162,7 @@ errval_t set_record(struct ast_object* ast, struct dist_query_state* sqs)
 		err = query_eclipse(buf, sqs);
 
 		DIST2_DEBUG("set_record: %s:\n", buf);
-		debug_skb_output(sqs);
+		//debug_skb_output(sqs);
 
 		free_parsed_object(sr);
 	}
@@ -180,7 +180,7 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* sqs)
 	struct skb_record* sr = NULL;
 	err = transform_record(ast, &sr);
 	if(err_is_ok(err)) {
-		char* format = "retract(object(%s, X)), write(X)."; // TODO attributes, constraints...
+		char* format = "del_object(%s)."; // TODO attributes, constraints...
 		size_t write_length = snprintf(NULL, 0, format, sr->name.output);
 		char* buf = malloc(write_length+1);
 		if(buf == NULL) {
@@ -194,7 +194,7 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* sqs)
 			err = query_eclipse(buf, sqs);
 
 			DIST2_DEBUG("del_record: %s:\n", buf);
-			debug_skb_output(sqs);
+			//debug_skb_output(sqs);
 		}
 
 		free(buf);
@@ -204,27 +204,39 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* sqs)
 	return err;
 }
 
-errval_t set_trigger(struct ast_object* ast, struct dist_query_state* dqs)
+errval_t set_trigger(enum dist_trigger_type type, struct ast_object* ast, struct dist_reply_state* drs)
 {
     errval_t err = SYS_ERR_OK;
+
     struct skb_record* sr = NULL;
     err = transform_record(ast, &sr);
     if(err_is_ok(err)) {
-        char* format = "retract(object(%s, X)), write(X)."; // TODO attributes, constraints...
-        size_t write_length = snprintf(NULL, 0, format, sr->name.output);
+
+        char* format = NULL;
+        switch(type) {
+            case TRIGGER_EXISTS:
+                format = "asserta(exists(%s, triplet(%s, %s, %lu))).";
+            break;
+
+            case TRIGGER_NOT_EXISTS:
+                format = "asserta(exists_not(%s, triplet(%s, %s, %lu))).";
+            break;
+
+            default:
+                assert(!"Unsupported trigger type!");
+            break;
+        }
+        size_t write_length = snprintf(NULL, 0, format, sr->name.output, sr->attributes.output, sr->constraints.output, drs);
+
         char* buf = malloc(write_length+1);
         if(buf == NULL) {
             err = LIB_ERR_MALLOC_FAIL;
         }
 
         if(err_is_ok(err)) {
-            size_t written = snprintf(buf, write_length+1, format, sr->name.output);
-            assert(write_length == written);
-
-            err = query_eclipse(buf, dqs);
-
-            DIST2_DEBUG("del_record: %s:\n", buf);
-            debug_skb_output(dqs);
+            snprintf(buf, write_length+1, format, sr->name.output, sr->attributes.output, sr->constraints.output, drs);
+            err = query_eclipse(buf, &drs->skb);
+            //debug_skb_output(&drs->skb);
         }
 
         free(buf);
@@ -278,7 +290,7 @@ errval_t add_subscription(struct dist_binding* b, struct ast_object* ast, uint64
 		err = query_eclipse(buf, sqs);
 
 		DIST2_DEBUG("add_subscription: %s\n", buf);
-		debug_skb_output(sqs);
+		//debug_skb_output(sqs);
 
 		free_parsed_object(sr);
 	}
@@ -298,7 +310,7 @@ errval_t del_subscription(struct dist_binding* b, uint64_t id, struct dist_query
 	err = query_eclipse(buf, sqs);
 
 	DIST2_DEBUG("del_subscription: %s\n", buf);
-	debug_skb_output(sqs);
+	//debug_skb_output(sqs);
 
 	return err;
 }
@@ -323,8 +335,8 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs) 
 
     err = query_eclipse(buf, sqs);
 
-    DIST2_DEBUG("buf: %s\n", buf);
-    debug_skb_output(sqs);
+    DIST2_DEBUG("find_subscribers: %s\n", buf);
+    //debug_skb_output(sqs);
 
     free_parsed_object(sr);
     free(buf);
@@ -349,7 +361,7 @@ errval_t set_events_binding(uint64_t id, struct dist_event_binding* b)
     assert(err_is_ok(err)); // TODO
 
     DIST2_DEBUG("identify_events_binding done %s for: %p\n", buf, b);
-    debug_skb_output(st);
+    //debug_skb_output(st);
 
 
     free(st);
@@ -377,7 +389,7 @@ errval_t set_rpc_binding(uint64_t id, struct dist_binding* b)
     assert(err_is_ok(err));
 
     DIST2_DEBUG("identify_rpc_binding done for: %p\n", b);
-    debug_skb_output(st);
+    //debug_skb_output(st);
 
     free(st);
     return err;

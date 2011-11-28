@@ -1,5 +1,7 @@
 object(person, []).
 
+exists_not(bob, triplet([], [], 1234)).
+
 object(men, [ ako :: [val person], hair::[val black] ]).
 
 object(john,

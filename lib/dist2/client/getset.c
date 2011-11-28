@@ -230,7 +230,7 @@ errval_t dist_del(char* object, ...)
 }
 
 
-errval_t dist_exists(bool block, char* query, ...)
+errval_t dist_exists(bool watch, char** record, char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -241,11 +241,8 @@ errval_t dist_exists(bool block, char* query, ...)
 
     struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
-    char* record = NULL;
     errval_t error_code;
-
-    err = rpc_client->vtbl.exists(rpc_client, buf, block, false, &record, &error_code);
-    assert(record == NULL);
+    err = rpc_client->vtbl.exists(rpc_client, buf, watch, true, record, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }
@@ -255,11 +252,24 @@ errval_t dist_exists(bool block, char* query, ...)
 }
 
 
-errval_t dist_wait_for(char* query, char** data)
+errval_t dist_exists_not(bool watch, char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
+    va_list args;
 
+    char* buf = NULL;
+    FORMAT_QUERY(query, args, buf);
+
+    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+
+    errval_t error_code;
+    err = rpc_client->vtbl.exists_not(rpc_client, buf, watch, &error_code);
+    if(err_is_ok(err)) {
+        err = error_code;
+    }
+
+    free(buf);
     return err;
 }
 

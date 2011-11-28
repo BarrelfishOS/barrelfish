@@ -3,7 +3,7 @@
 
 % Test lookup
 get_object(doesNotExist, X, [], _) should_fail.
-get_object(men, [], [], X) should_give X=[ ako :: [val person], hair::[val black] ].
+get_object(men, [], [], X) should_give X=object(men, [ ako :: [val person], hair::[val black] ]).
 
 % Single attribute lookup
 get_object(men, [hair::X], [], _) should_give X=black.
@@ -33,11 +33,9 @@ add_object(bob, age::13)
 should_give
 get_object(bob, [age::X, ako::Y], [], _), X = 13, Y = john.
 
-add_object(bob, attr::(edit bla)). % TODO improve test
-
-add_object(bob, tt::[1,2,3]) 
+add_object(bob, [tt::1]) 
 should_give
-get_object(bob, tt::X, [], _), X=[1,2,3].
+get_object(bob, tt::X, [], Y), X = 1.
 
 
 % Delete/remove objects

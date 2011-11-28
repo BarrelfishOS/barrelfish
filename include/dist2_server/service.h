@@ -20,8 +20,11 @@ struct dist_query_state {
 typedef void(*dist_reply_handler_fn)(struct dist_binding*, struct dist_reply_state*);
 
 struct dist_reply_state {
+    struct dist_binding* binding;
+
     struct dist_query_state skb;
     dist_reply_handler_fn rpc_reply;
+    bool return_record;
     errval_t error;
 
     struct dist_reply_state *next;
@@ -32,6 +35,7 @@ void get_handler(struct dist_binding*, char*);
 void set_handler(struct dist_binding*, char*, uint64_t, bool);
 void del_handler(struct dist_binding*, char*);
 void exists_handler(struct dist_binding*, char*, bool, bool);
+void exists_not_handler(struct dist_binding* b, char*, bool);
 
 void subscribe_handler(struct dist_binding*, char*, uint64_t);
 void publish_handler(struct dist_binding*, char*);

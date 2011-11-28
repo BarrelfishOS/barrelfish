@@ -6,9 +6,12 @@
 
 :- op(500, xfx, ::).
 :- dynamic object/2.
+:- dynamic exists/2.
+:- dynamic exists_not/2.
+
 
 %lib(regex).
-:- include("../data/objects.txt").
+%:- include("../data/objects.txt").
 
 is_empty([]).
 
@@ -20,26 +23,62 @@ print_names([X|Rest]) :-
     write(', '),
     print_names(Rest).
 
-print_object(object(Thing, SlotList)) :-
-    write(Thing),
-    write(' { '),
-    print_slots(SlotList),
-    !,
-    write(' }').
-    
+print_object(X) :-
+	format_object(X, Out),
+	write(Out).
+
 print_slots([]).
 print_slots([S]) :-
     print_slot(S).
 print_slots([S|Rest]) :-
-    print_slot(S),
-    write(', '),
-    print_slots(Rest).
+	print_slot(S),
+	write(', '),
+	print_slots(Rest).
 
 print_slot(Attr::FacetList) :-
-    facet_val(req(_, Attr, val, X), FacetList), 
-    write(Attr),
-    write(': '),
-    write(X).
+	facet_val(req(_, Attr, val, X), FacetList), 
+	write(Attr),
+	write(': '),
+	write(X).
+
+
+
+
+format_object(object(Thing, SlotList), O4) :-
+    atom_string(Thing, StrThing),
+    append_strings("", StrThing, O1),
+    append_strings(O1, " { ", O2),
+    format_slots(SlotList, O2, O3),
+    !,
+    append_strings(O3, " }", O4).
+
+format_slots([], In, Out) :-
+    append_strings(In, "", Out).
+format_slots([S], In, Out) :-
+    format_slot(S, In, Out).
+format_slots([S|Rest], In, Out) :-
+    format_slot(S, In, Out2),
+    append_strings(Out2, ", ", Out3),
+    format_slots(Rest, Out3, Out).
+
+format_slot(Attr::FacetList, In, Out) :-
+    facet_val(req(_, Attr, val, X), FacetList),
+    atom_string(Attr, StrAttr),
+    append_strings(In, StrAttr, Out1),
+    append_strings(Out1, ": ", Out2),
+    format_slot_val(X, Out2, Out).
+
+format_slot_val(Val, In, Out) :-
+    number(Val),
+    number_string(Val, StrVal),
+    append_strings(In, StrVal, Out).
+format_slot_val(Val, In, Out) :-
+    atom(Val),
+    atom_string(Val, StrVal),
+    append_strings(In, StrVal, Out).
+format_slot_val(Val, In, Out) :-
+    append_strings(Out1, Val, Out).
+
 
 
 get_object(Thing, ReqList, ConsList, object(Thing, SlotList)) :-
@@ -120,7 +159,9 @@ add_object(Thing, UList) :-
 	old_slots(Thing, SlotList), 
 	add_slots(Thing, UList, SlotList, NewList), 
 	retract(object(Thing, _)), 
-	asserta(object(Thing, NewList)), !.
+	asserta(object(Thing, NewList)),
+	!,
+	check_triggers(object(Thing, NewList)).
 
 old_slots(Thing, SlotList) :-
 	object(Thing, SlotList), 
@@ -148,9 +189,7 @@ add_slot(req(T, S, F, V), SlotList, [S::FL2|SL2]) :-
 add_facet(req(T, S, F, V), FacetList, [FNew|FL2]) :-
 	FX =.. [F, OldVal],
 	remove(FX, FacetList, FL2),
-	%add_newval(OldVal, V, NewVal),
 	!,
-	check_add_handler(req(T, S, F, V), FacetList),
 	FNew =.. [F, V].
 
 
@@ -167,23 +206,18 @@ add_newval([H|T], Val, [Val, H|T]).
 add_newval(Val, [H|T], [Val, H|T]).
 add_newval(_, Val, Val).
 */
-check_add_handler(req(T, S, F, V), FacetList) :-
-	get_object(T, S::add(Add), _, _), !,
-	Add =.. [Functor | Args], 
-	AddFunc =.. [Functor, req(T, S, F, V) | Args], 
-	call(AddFunc).
-check_add_handler(_, _).
 
 
 del_object(Thing) :-
-    retract(object(Thing, _)).
-%del_object(Thing) :-
-%    throw(['No object', Thing, 'to delete']).
+    old_slots(Thing, SlotList),
+    retract(object(Thing, _)),
+    check_triggers(object(Thing, SlotList)).
 del_object(Thing, UList) :-
 	old_slots(Thing, SlotList), 
 	del_slots(Thing, UList, SlotList, NewList),
 	retract(object(Thing, _)), 
-	asserta(object(Thing, NewList)).
+	asserta(object(Thing, NewList)),
+	check_triggers(object(Thing, SlotList)).
 
 del_slots(T, [], X, X).
 del_slots(T, [U|Rest], SlotList, NewList) :-
@@ -209,21 +243,63 @@ del_slot(req(T, S, F, V), SlotList, [S::FL2|SL2]) :-
 del_facet(req(T, S, F, V), FacetList, FL) :-
 	FV =.. [F, V],
 	delete(FV, FacetList, FL),
-	!, 
-	check_del_handler(req(T, S, F, V), FacetList).
+	!.
 del_facet(req(T, S, F, V), FacetList, [FNew|FL]) :-
     FX =.. [F, OldVal], 
     delete(FX, FacetList, FL), 
     delete(V, OldVal, NewValList), 
     FNew =.. [F, NewValList], 
-    !, 
-    check_del_handler(req(T, S, F, V), FacetList).
+    !.
 del_facet(Req, _, _) :-
     error(['del_facet - unable to remove', Req]).
 
-check_del_handler(req(T, S, F, V), FacetList) :-
-	get_object(T, S::del(Del), _, _), !, 
-	Del =.. [Functor|Args], 
-	DelFunc =.. [Functor, req(T, S, F, V)|Args], 
-	call(DelFunc).
-check_del_handler(_, _).
+
+check_triggers(object(T, AttrList)) :-
+    find_exist_triggers(T, L1),
+    check_exist_triggers(object(T, AttrList), L1),
+    find_exist_not_triggers(T, L2),
+    check_exist_not_triggers(object(T, AttrList), L2).
+check_triggers(_).
+
+check_exist_triggers(_, []).
+check_exist_triggers(object(Name, AttrList), [triplet(Attrs, Constraints, ReplyState)|Rest]) :-
+    trigger_exist(Name, Attrs, Constraint, Object, ReplyState),
+    retract(exists(_, triplet(_, _, ReplyState))),
+    check_exist_triggers(Name, Rest).
+
+trigger_exist(Name, Attrs, Constraints, Object, ReplyState) :-
+    get_object(Name, Attrs, Constraints, Object), !,
+    format_object(Object, Output),
+    notify_client(Output, ReplyState).
+trigger_exist(_, _, _, _, _).
+
+check_exist_not_triggers(_, []).
+check_exist_not_triggers(object(Name, AttrList), [triplet(Attrs, Constraints, ReplyState)|Rest]) :-
+    trigger_exist_not(Name, Attrs, Constraint, object(Name, AttrList), ReplyState),
+    retract(exists_not(_, triplet(_, _, ReplyState))),
+    check_exist_not_triggers(Name, Rest).
+
+trigger_exist_not(Name, Attrs, Constraints, Object, ReplyState) :-
+    not(get_object(Name, Attrs, Constraints, _)), !,
+    format_object(Object, Output),
+    notify_client(Output, ReplyState).
+trigger_exist_not(_, _, _, _, _).
+
+
+notify_client(Object, ReplyState) :-
+    write(Object).
+
+%add_watch(Thing, Attrs, Constraints, Binding) :-
+%    asserta(exists(Thing, triplet(Attrs, Constraints, ReplyState))).
+
+find_exist_triggers(Name, L) :-
+    coverof(X, exists(Name, X), L).
+find_exist_triggers(_, []).
+
+find_exist_not_triggers(Name, L) :-
+    coverof(X, exists_not(Name, X), L).
+find_exist_not_triggers(_, []).
+
+
+
+

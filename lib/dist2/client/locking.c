@@ -31,6 +31,7 @@ errval_t dist_lock(char* object)
 
     struct dist_rpc_client* rpc_client = get_dist_rpc_client();
 
+
 	errval_t error_code = SYS_ERR_OK;
 	err = rpc_client->vtbl.lock(rpc_client, object, &error_code);
 

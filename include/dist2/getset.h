@@ -20,7 +20,7 @@ errval_t dist_get(char*, char**);
 errval_t dist_set(dist_mode_t, char*, ...);
 errval_t dist_del(char*, ...);
 
-errval_t dist_exists(bool, char*, ...);
-errval_t dist_wait_for(char*, char**);
+errval_t dist_exists(bool, char**, char*, ...);
+errval_t dist_exists_not(bool, char*, ...);
 
 #endif /* DIST2_GETSET_H_ */
