@@ -14,6 +14,6 @@
                     cFiles = [ "dist2.c", "getset.c", "pubsub.c", "locking.c" ],
   		            flounderBindings = [ "dist_event", "dist" ],
   		            flounderExtraBindings = [ ("dist", ["rpcclient"]) ],
-                    addLibraries = [ "skb" ] 
+                    addLibraries = [ "skb", "dist_parser" ] 
                   } 
 ]

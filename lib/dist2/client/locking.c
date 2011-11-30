@@ -1,6 +1,8 @@
 #include <barrelfish/barrelfish.h>
 
 #include <dist2/lock.h>
+#include <dist2/getset.h>
+
 #include "common.h"
 
 /**
@@ -22,36 +24,63 @@
  * 	in_range(0x000, 0x1000): a >= 0x000 and a <= 0x1000
  *
  */
+extern int id;
 
-
-errval_t dist_lock(char* object)
+errval_t dist_lock(char* ressource, char** lock_record)
 {
-	assert(object != NULL);
+	assert(ressource != NULL);
 	errval_t err = SYS_ERR_OK;
+	char* name = NULL;
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    err = dist_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }", ressource, ressource);
+    assert(err_is_ok(err));
+    debug_printf("id:%d dist_lock: %s\n", id, *lock_record);
 
+    err = dist_read(*lock_record, "%s", &name);
+    assert(err_is_ok(err));
 
-	errval_t error_code = SYS_ERR_OK;
-	err = rpc_client->vtbl.lock(rpc_client, object, &error_code);
+    char** names = NULL;
+    size_t len = 0;
 
-	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
+    while(true) {
+        err = dist_get_names(&names, &len, "_ { lock: '%s' }", ressource);
+        assert(err_is_ok(err));
 
-	return error_code;
+        size_t i = 0;
+        bool found = false;
+        for(; i < len; i++) {
+            //printf("names[%lu] = %s\n", i, names[i]);
+            if(strcmp(names[i], name) == 0) {
+                found = true;
+                break;
+            }
+        }
+        assert(found);
+
+        if(i == 0) {
+            // We are the lock owner
+            break;
+        }
+        else {
+            printf("id:%d before exists not: %s\n", id, names[i-1]);
+            err = dist_exists_not(true, "%s { lock: '%s' }", names[i-1], ressource);
+            assert(err_is_ok(err));
+        }
+
+        dist_free_names(names, len);
+    }
+
+    free(name);
+	return err;
 }
 
 
-errval_t dist_unlock(char* object)
+errval_t dist_unlock(char* lock_record)
 {
-	assert(object != NULL);
+	assert(lock_record != NULL);
 	errval_t err = SYS_ERR_OK;
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
-
-	errval_t error_code = SYS_ERR_OK;
-	err = rpc_client->vtbl.unlock(rpc_client, object, &error_code);
-
-	assert(err_is_ok(err) && err_is_ok(error_code)); // TODO
+	err = dist_del(lock_record);
 
 	return err;
 }

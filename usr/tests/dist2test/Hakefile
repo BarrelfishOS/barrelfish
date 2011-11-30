@@ -10,18 +10,28 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "dist2test",
-                      cFiles = [ "main.c" ],
-                      addLibraries = [ "dist2", "skb" ]
+[ build application { target = "d2getset",
+                      cFiles = [ "getset.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
                     },
   
-  build application { target = "dist2exist",
-                      cFiles = [ "existtest.c" ],
-                      addLibraries = [ "dist2", "skb" ]
+  build application { target = "d2exist",
+                      cFiles = [ "exist.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
                     },
                                         
   build application { target = "d2locking",
-                      cFiles = [ "locktest.c" ],
-                      addLibraries = [ "dist2", "skb" ]
+                      cFiles = [ "lockforever.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                    },
+
+  build application { target = "d2read",
+                      cFiles = [ "read.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                    },
+
+  build application { target = "d2locksimple",
+                      cFiles = [ "locksimple.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
                     }
 ]

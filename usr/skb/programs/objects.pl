@@ -161,7 +161,8 @@ add_object(Thing, UList) :-
 	retract(object(Thing, _)), 
 	asserta(object(Thing, NewList)),
 	!,
-	check_triggers(object(Thing, NewList)).
+	check_triggers(object(Thing, NewList)),
+	print_object(object(Thing, NewList)).
 
 old_slots(Thing, SlotList) :-
 	object(Thing, SlotList), 

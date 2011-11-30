@@ -46,7 +46,9 @@ INTEGER {DIGIT}|{DIGIT19}{DIGITS}|-{DIGIT}|-{DIGIT19}{DIGITS}
 FRACTION \.{DIGITS}
 FLOAT  {INTEGER}{FRACTION}|{FRACTION}
 NUMBER {INTEGER}
+SCAN [%]{ALPHA}
 BOOL  true|false
+
 
 SPACE ([\ \n\r\t\f])+
 
@@ -75,6 +77,11 @@ REGEX_START r{QUOTE}
 {IDENT}     { 
                 yylval.str = strdup(yytext); /* TODO this may leak memory on parser error! */ 
                 return IDENT; 
+            }
+
+{SCAN}      {
+                yylval.c = yytext[1];
+                return SCAN;
             }
 
 {REGEX_START}      { string_buf_ptr = string_buf; BEGIN(REG); }

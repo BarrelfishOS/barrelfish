@@ -1,7 +1,8 @@
 #ifndef DIST2_LOCK_H_
 #define DIST2_LOCK_H_
 
-errval_t dist_lock(char* name);
+errval_t dist_lock(char*, char**);
+
 errval_t dist_unlock(char* name);
 
 // Optional

@@ -172,6 +172,10 @@ static void translate(struct ast_object* p) {
         case nodeType_Unset:
         	assert(!"nodeType_Unset");
 		break;
+
+        case nodeType_Scan:
+            assert(!"Not allowed for queries!"); // TODO return error in this case!
+        break;
    }
 
 }

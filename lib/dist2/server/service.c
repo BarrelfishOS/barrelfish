@@ -123,9 +123,11 @@ void get_names_handler(struct dist_binding *b, char *query)
 
 static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
 {
+    char* record = srs->return_record ? srs->skb.output_buffer : NULL;
+
     errval_t err;
     err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, srs),
-    							  NULL, srs->error);
+                                  record, srs->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         	dist_rpc_enqueue_reply(b, srs);
@@ -161,6 +163,7 @@ void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 	}
 
 	srs->error = err;
+	srs->return_record = true;
 	srs->rpc_reply(b, srs);
 
 	free_ast(ast);
@@ -273,7 +276,6 @@ static void exists_not_reply(struct dist_binding* b, struct dist_reply_state* dr
 void exists_not_handler(struct dist_binding* b, char* query, bool block)
 {
     assert(query != NULL);
-    DIST2_DEBUG("exists_not_handler query: %s\n", query);
 
     errval_t err = SYS_ERR_OK;
     struct dist_reply_state* drt = NULL;
@@ -287,7 +289,7 @@ void exists_not_handler(struct dist_binding* b, char* query, bool block)
         if(err_is_ok(err)) {
             // register and wait until record unavailable
             drt->binding = b;
-            DIST2_DEBUG("exists_not_handler set trigger\n");
+            DIST2_DEBUG("exists_not_handler set: %s\n", query);
             err = set_trigger(TRIGGER_NOT_EXISTS, ast, drt);
         }
         else if(err_no(err) == DIST2_ERR_NO_RECORD) {

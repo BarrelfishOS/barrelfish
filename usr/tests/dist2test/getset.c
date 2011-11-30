@@ -21,6 +21,7 @@
 #include <skb/skb.h>
 #include <dist2/dist2.h>
 
+int id = 0;
 
 static errval_t get_set_test(void)
 {
@@ -195,7 +196,7 @@ static errval_t get_set_test(void)
 
 size_t incoming_messages = 0;
 
-static void subhandler(subscription_t id, char* object)
+static void subhandler(subscription_t id1, char* object)
 {
 	assert(object != NULL);
 
@@ -209,7 +210,7 @@ static void subhandler(subscription_t id, char* object)
 		break;
 	}
 
-	printf("subhandler(%lu): id:%lu obj:%s\n", ++incoming_messages, id, object);
+	printf("subhandler(%lu): id:%lu obj:%s\n", ++incoming_messages, id1, object);
 	free(object);
 }
 
@@ -218,13 +219,13 @@ static errval_t pub_sub_test(void)
 {
 	errval_t err = SYS_ERR_OK;
 
-	subscription_t id = 0;
-	err = dist_subscribe(subhandler, &id, "_ { weight: %d }", 10);
+	subscription_t id1 = 0;
+	err = dist_subscribe(subhandler, &id1, "_ { weight: %d }", 10);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_get failed!");
 		return err;
 	}
-	printf("subscription done with id: %lu\n", id);
+	printf("subscription done with id: %lu\n", id1);
 
 	subscription_t id2 = 0;
 	err = dist_subscribe(subhandler, &id2, "_ { age: > %d }", 9);
@@ -268,23 +269,23 @@ static errval_t pub_sub_test(void)
 }
 
 
-static void subhandler2(subscription_t id, char* object)
+static void subhandler2(subscription_t id1, char* object)
 {
 	assert(object != NULL);
-	debug_printf("subhandler2(%lu): id:%lu obj:%s\n", ++incoming_messages, id, object);
+	debug_printf("subhandler2(%lu): id:%lu obj:%s\n", ++incoming_messages, id1, object);
 	free(object);
 }
 
 static void main_subscriber(void) {
 	errval_t err;
 
-	subscription_t id = 0;
-	err = dist_subscribe(subhandler2, &id, "_ { weight: %d }", 10);
+	subscription_t id1 = 0;
+	err = dist_subscribe(subhandler2, &id1, "_ { weight: %d }", 10);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_subscribe failed!");
 		abort();
 	}
-	printf("subscription done with id: %lu\n", id);
+	printf("subscription done with id: %lu\n", id1);
 
 	subscription_t id2 = 0;
 	err = dist_subscribe(subhandler2, &id2, "_ { age: > %d }", 9);
@@ -295,39 +296,6 @@ static void main_subscriber(void) {
 	printf("subscription done with id: %lu\n", id2);
 
 	messages_handler_loop();
-}
-
-
-static errval_t lock_test(void) {
-	debug_printf("lock!\n");
-	errval_t err = dist_lock("lock4 { attr: bla }");
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "dist_lock failed!");
-		abort();
-	}
-
-	debug_printf("lock!\n");
-	err = dist_lock("lock4 { attr: bla }");
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "dist_lock failed!");
-		abort();
-	}
-
-	debug_printf("unlock!\n");
-	err = dist_unlock("lock4");
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "dist_lock failed!");
-		abort();
-	}
-
-	debug_printf("lock again!\n");
-	err = dist_lock("lock4");
-	if(err_is_fail(err)) {
-		DEBUG_ERR(err, "dist_lock failed!");
-		abort();
-	}
-
-	return err;
 }
 
 
@@ -346,9 +314,6 @@ int main(int argc, char *argv[])
 		assert(err_is_ok(err));
 
 		err = pub_sub_test();
-		assert(err_is_ok(err));
-
-		err = lock_test();
 		assert(err_is_ok(err));
     }
 

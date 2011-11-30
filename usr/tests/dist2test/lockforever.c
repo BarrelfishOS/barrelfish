@@ -26,21 +26,26 @@
 static struct periodic_event lock_timer;
 
 static bool locked = false;
+char* lock = NULL;
+
+int id = 0;
 
 static void lockit(void* arg) {
 
 	errval_t err = SYS_ERR_OK;
+
 	if(!locked) {
-		debug_printf("lock\n");
-		err = dist_lock("lock_test");
+		err = dist_lock("lock_test", &lock);
+		debug_printf("%d locked: %s\n", id, lock);
 		assert(err_is_ok(err));
 		locked = true;
 	}
 	else {
-		debug_printf("unlock\n");
-		err = dist_unlock("lock_test");
+	    debug_printf("%d unlock: %s\n", id, lock);
+		err = dist_unlock(lock);
 		assert(err_is_ok(err));
 		locked = false;
+		free(lock);
 	}
 }
 
@@ -52,6 +57,8 @@ int main(int argc, char *argv[])
     errval_t err = SYS_ERR_OK;
     skb_client_connect();
     dist_init();
+
+    id = atoi(argv[1]);
 
     debug_printf("create periodic event...\n");
     err = periodic_event_create(&lock_timer, get_default_waitset(),

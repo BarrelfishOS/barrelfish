@@ -13,7 +13,7 @@ interface dist "dist2 RPC Interface" {
     
     rpc get_names(in string query, out string output, out errval error_code);
     rpc get(in string query, out string output, out string error, out errval error_code);
-    rpc set(in string input, out string error, out errval error_code);
+    rpc set(in string query, in uint64 mode, in bool get, out string record, out errval error_code);
     rpc del(in string query, out errval error_code);
     
     rpc exists(in string query, in bool watch, in bool return_record, out string output, out errval error_code);

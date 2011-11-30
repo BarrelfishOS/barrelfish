@@ -24,6 +24,7 @@ extern errval_t dist2_parser_error;
     long long int integer;
     double dl;
     char* str;
+    char c;
     struct ast_object* nPtr;
 };
 
@@ -46,6 +47,7 @@ extern errval_t dist2_parser_error;
 %token <str> IDENT
 %token <str> REGEX
 %token <str> STRING
+%token <c> SCAN
 
 %type <nPtr> value
 %type <nPtr> attribute
@@ -53,6 +55,7 @@ extern errval_t dist2_parser_error;
 %type <nPtr> object
 %type <nPtr> constraint
 %type <nPtr> program
+%type <nPtr> name
 
 %%
 program: 
@@ -60,9 +63,13 @@ program:
     | ;
 
 object: 
-      IDENT                          { $$ = ast_object(ast_ident($1), NULL); } 
-    | IDENT RCURLY LCURLY            { $$ = ast_object(ast_ident($1), NULL); } 
-    | IDENT RCURLY attributes LCURLY { $$ = ast_object(ast_ident($1), $3); }
+      name                          { $$ = ast_object($1, NULL); } 
+    | name RCURLY LCURLY            { $$ = ast_object($1, NULL); } 
+    | name RCURLY attributes LCURLY { $$ = ast_object($1, $3); }
+
+name:
+      IDENT                         { $$ = ast_ident($1); }
+    | SCAN                          { $$ = ast_scan($1); }
 
 attributes:
       attribute                      { $$ = ast_attribute($1, NULL); }
@@ -87,10 +94,10 @@ value:
     | NUMBER                         { $$ = ast_num($1); }
     | BOOL                           { $$ = ast_boolean($1); }
     | FLOAT                          { $$ = ast_floatingpoint($1); }
-//    | VARIABLE                       { $$ = }
+    | SCAN                           { $$ = ast_scan($1); }
 %%
 
-void yyerror(char *s) 
+void yyerror(char *s)
 {
     printf("yyerror says: %s\n", s);
 

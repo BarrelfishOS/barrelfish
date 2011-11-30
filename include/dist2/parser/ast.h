@@ -36,7 +36,8 @@ enum node_type {
     nodeType_Attribute,
     nodeType_Pair,
     nodeType_Constraint,
-    nodeType_Object
+    nodeType_Object,
+    nodeType_Scan
 };
 
 struct node_record {
@@ -64,6 +65,10 @@ struct node_string {
     char* str;
 };
 
+struct node_scan {
+    char c;
+};
+
 struct node_constraint {
     enum constraint_type op;
     struct ast_object* value;
@@ -85,6 +90,7 @@ struct ast_object {
     union {
         struct node_constant cn;
         struct node_constraint cnsn;
+        struct node_scan scn;
         struct node_boolean bn;
         struct node_float fn;
         struct node_ident in;
@@ -147,6 +153,17 @@ static inline struct ast_object* ast_floatingpoint(double value)
 
     p->type = nodeType_Float;
     p->fn.value = value;
+
+    return p;
+}
+
+
+static inline struct ast_object* ast_scan(char c)
+{
+    struct ast_object* p = ast_alloc_node();
+
+    p->type = nodeType_Scan;
+    p->scn.c = c;
 
     return p;
 }

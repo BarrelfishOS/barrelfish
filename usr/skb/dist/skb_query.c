@@ -30,6 +30,9 @@ static errval_t query_eclipse(char* query, struct dist_query_state* st)
     ec_post_string(query);
     while(st->exec_res == PFLUSHIO) {
         st->exec_res = ec_resume();
+        assert(st->exec_res == PSUCCEED);
+
+        assert(ec_queue_avail(1) >= 0);
 
         res = 0;
         do {
@@ -95,9 +98,8 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
 
 	// TODO hack FIX! output seems to be undefined when goal fails
 	// (in our case always the same string)
-	char* hack = "nrelements(2)[[";
 	if(sqs->output_buffer[0] == '\0'
-	   || strncmp(sqs->output_buffer, hack, strlen(hack)) == 0) {
+	   || strcmp(sqs->output_buffer, "no record") == 0) {
 		return DIST2_ERR_NO_RECORD;
 	}
 
@@ -127,7 +129,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
         err = query_eclipse(buf, dqs);
 
         DIST2_DEBUG("get_record_names: %s\n", buf);
-       // debug_skb_output(dqs);
+        debug_skb_output(dqs);
 
         free(buf);
         free_parsed_object(sr);
@@ -135,9 +137,8 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
 
     // TODO hack FIX! output seems to be undefined when goal fails
     // (in our case always the same string)
-    char* hack = "nrelements(2)[[";
     if(dqs->output_buffer[0] == '\0'
-       || strncmp(dqs->output_buffer, hack, strlen(hack)) == 0) {
+       || strcmp(dqs->output_buffer, "no record") == 0) {
         return DIST2_ERR_NO_RECORD;
     }
 

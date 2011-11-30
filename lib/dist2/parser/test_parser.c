@@ -234,8 +234,7 @@ void transform_query(char* obj)
 
 	struct ast_object* ast;
 	errval_t err = generate_ast(obj, &ast);
-	walk_attributes(ast);
-	struct ast_object* wait_for = remove_attribute(ast, "wait_for");
+	//walk_attributes(ast);
 
 	/*assert(wait_for->type == nodeType_Pair);
 	assert(wait_for->pn.right != NULL);
@@ -251,7 +250,7 @@ void transform_query(char* obj)
 int main(int argc, char** argv)
 {
 	// dont care about free here!
-	transform_query("lock_test_1 { owner: 7144816, wait_for: lock_test }");
+	transform_query("lock_test_1 { owner: %s, wait_for: lock_test }");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
 	/*
