@@ -693,6 +693,7 @@ errors skb SKB_ERR_ {
     failure EXECUTION           "The SKB returned an error Check error code.",
     failure EVALUATE            "Failure in skb_evalute()",
     failure RUN                 "Failure in running rpc: run",
+    failure GOAL_FAILURE        "Posted goal could not be satisfied.",
 };
 
 // errors in a file system implementation

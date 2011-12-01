@@ -40,6 +40,7 @@ extern errval_t dist2_parser_error;
 %token LE
 %token EQ
 %token NE
+%token VARIABLE
 
 %token <integer> BOOL
 %token <dl> FLOAT
@@ -69,6 +70,7 @@ object:
 
 name:
       IDENT                         { $$ = ast_ident($1); }
+    | VARIABLE                      { $$ = ast_variable(); }
     | SCAN                          { $$ = ast_scan($1); }
 
 attributes:
@@ -95,6 +97,8 @@ value:
     | BOOL                           { $$ = ast_boolean($1); }
     | FLOAT                          { $$ = ast_floatingpoint($1); }
     | SCAN                           { $$ = ast_scan($1); }
+    | VARIABLE                       { $$ = ast_variable(); }
+    
 %%
 
 void yyerror(char *s)

@@ -75,6 +75,7 @@ void get_handler(struct dist_binding *b, char *query)
 	struct ast_object* ast = NULL;
 	err = generate_ast(query, &ast);
 	if(err_is_ok(err)) {
+	    DIST2_DEBUG("get handler: %s\n", query);
 		err = get_record(ast, &srt->skb);
 	}
 
@@ -159,6 +160,7 @@ void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 			ast->on.name->in.str = buf;
 			free(name);
 		}
+		DIST2_DEBUG("set record: %s\n", query);
 		err = set_record(ast, &srs->skb);
 	}
 

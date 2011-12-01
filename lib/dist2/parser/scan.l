@@ -33,14 +33,14 @@ COLON \:
 COMMA ,
 
 ALPHA  [A-Za-z_]
-LALPHA [a-z_]
+LALPHA [a-z]
 DIGIT  [0-9]
 DIGIT19 [1-9]
 DIGITS ({DIGIT})+
 
 ALPHA_NUMERIC {ALPHA}|{DIGIT}
 IDENT {LALPHA}({ALPHA_NUMERIC})*
-VARIABLE {ALPHA}({ALPHA_NUMERIC})*
+VARIABLE [_]
 
 INTEGER {DIGIT}|{DIGIT19}{DIGITS}|-{DIGIT}|-{DIGIT19}{DIGITS}
 FRACTION \.{DIGITS}
@@ -82,6 +82,10 @@ REGEX_START r{QUOTE}
 {SCAN}      {
                 yylval.c = yytext[1];
                 return SCAN;
+            }
+
+{VARIABLE}  {
+                return VARIABLE;
             }
 
 {REGEX_START}      { string_buf_ptr = string_buf; BEGIN(REG); }

@@ -7,7 +7,6 @@
 #ifndef TEST_PARSER
 #include <barrelfish/barrelfish.h>
 #else
-
 #define SYS_ERR_OK 0
 typedef long errval_t;
 typedef long int64_t;
@@ -37,12 +36,14 @@ enum node_type {
     nodeType_Pair,
     nodeType_Constraint,
     nodeType_Object,
-    nodeType_Scan
+    nodeType_Scan,
+    nodeType_Variable,
 };
 
 struct node_record {
     struct ast_object* name;
     struct ast_object* attrs;
+    struct ast_object* constraints;
 };
 
 struct node_constant {
@@ -67,6 +68,9 @@ struct node_string {
 
 struct node_scan {
     char c;
+};
+
+struct node_variable {
 };
 
 struct node_constraint {
@@ -98,6 +102,7 @@ struct ast_object {
         struct node_attribute an;
         struct node_pair pn;
         struct node_record on;
+        struct node_variable nv;
     };
 };
 
@@ -129,6 +134,16 @@ static inline struct ast_object* ast_boolean(int value)
 
     p->type = nodeType_Boolean;
     p->bn.value = value;
+
+    return p;
+}
+
+
+static inline struct ast_object* ast_variable(void)
+{
+    struct ast_object* p = ast_alloc_node();
+
+    p->type = nodeType_Variable;
 
     return p;
 }

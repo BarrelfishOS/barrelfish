@@ -77,7 +77,8 @@ format_slot_val(Val, In, Out) :-
     atom_string(Val, StrVal),
     append_strings(In, StrVal, Out).
 format_slot_val(Val, In, Out) :-
-    append_strings(Out1, Val, Out).
+    string(Val),
+    append_strings(In, Val, Out).
 
 
 
@@ -161,9 +162,8 @@ add_object(Thing, UList) :-
 	retract(object(Thing, _)), 
 	asserta(object(Thing, NewList)),
 	!,
-	check_triggers(object(Thing, NewList)),
-	print_object(object(Thing, NewList)).
-
+	check_triggers(object(Thing, NewList)).
+	
 old_slots(Thing, SlotList) :-
 	object(Thing, SlotList), 
 	!.

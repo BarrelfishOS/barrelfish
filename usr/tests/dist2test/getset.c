@@ -28,6 +28,9 @@ static errval_t get_set_test(void)
 	printf("Running get_set_test()\n");
 	char* data = NULL;
 
+	/*errval_t err2 = dist_get("loafjaksdfj", &data);
+	assert(err_no(err2) == DIST2_ERR_NO_RECORD);*/
+
 	// Set some data objects
 	errval_t err = dist_set(SET_DEFAULT, "object1 { weight: %d }", 20);
 	if(err_is_fail(err)) {
@@ -36,7 +39,7 @@ static errval_t get_set_test(void)
 	}
 
 	// TODO: Do we want this?
-	err = dist_set(SET_DEFAULT, "object2 { weight: 20, weight: 25 }");
+	err = dist_set(SET_DEFAULT, "object2 { weight: 25, weight: 20 }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
@@ -48,7 +51,7 @@ static errval_t get_set_test(void)
 		return err;
 	}
 
-	err = dist_set(SET_DEFAULT, "object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
+	err = dist_set(SET_DEFAULT, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
@@ -90,7 +93,7 @@ static errval_t get_set_test(void)
 		return err;
 	}
 	//printf("data: %s\n", data);
-	assert(strcmp(data, "object4 { bool: true, fl: 12.0, weight: 20, attr: Somestring }") == 0);
+	assert(strcmp(data, "object4 { attr: Somestring, weight: 20, fl: 12.0 }") == 0);
 	free(data);
 
 	err = dist_get("_ { weight: >= 10, fl: > 11.0 }", &data);
@@ -99,7 +102,7 @@ static errval_t get_set_test(void)
 		return err;
 	}
 	//printf("data: %s\n", data);
-	assert(strcmp(data, "object4 { bool: true, fl: 12.0, weight: 20, attr: Somestring }") == 0);
+	assert(strcmp(data, "object4 { attr: Somestring, weight: 20, fl: 12.0 }") == 0);
 	free(data);
 
 	err = dist_get("_ { weight: >= 10, fl: > 11.0 }", &data);
@@ -108,9 +111,8 @@ static errval_t get_set_test(void)
 		return err;
 	}
 	//printf("data: %s\n", data);
-	assert(strcmp(data, "object4 { bool: true, fl: 12.0, weight: 20, attr: Somestring }") == 0);
+	assert(strcmp(data, "object4 { attr: Somestring, weight: 20, fl: 12.0 }") == 0);
 	free(data);
-
 
 	err = dist_del("object4");
 	if(err_is_fail(err)) {
@@ -121,7 +123,7 @@ static errval_t get_set_test(void)
 	assert(err_no(err) == DIST2_ERR_NO_RECORD);
 	//free(data); TODO??
 
-	err = dist_set(SET_DEFAULT, "object4 { attr: 'Somestring', weight: 20, fl: 12.0, bool: true }");
+	err = dist_set(SET_DEFAULT, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_set failed!");
 		return err;
@@ -131,7 +133,7 @@ static errval_t get_set_test(void)
 		DEBUG_ERR(err, "dist_get failed!");
 		return err;
 	}
-	assert(strcmp(data, "object4 { bool: true, fl: 12.0, weight: 20, attr: Somestring }") == 0);
+	assert(strcmp(data, "object4 { attr: Somestring, weight: 20, fl: 12.0 }") == 0);
 	free(data);
 
 	err = dist_del("object1");
@@ -166,7 +168,7 @@ static errval_t get_set_test(void)
     assert(strcmp(names[2], "object4") == 0);
     dist_free_names(names, size); // XXX name strings not freed
 
-    err = dist_get_names(&names, &size, "_ { attr: _, bool: %s }", "true");
+    err = dist_get_names(&names, &size, "_ { attr: _, weight: %d }", 20);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "dist_get_names failed!");
         return err;
@@ -174,7 +176,6 @@ static errval_t get_set_test(void)
     assert(size == 1);
     assert(strcmp(names[0], "object4") == 0);
     dist_free_names(names, size); // XXX name strings not freed
-    abort();
 
 
 	// TODO implement dist_del with constraints, attributes!
@@ -200,8 +201,9 @@ static void subhandler(subscription_t id1, char* object)
 {
 	assert(object != NULL);
 
-	switch(id) {
+	switch(id1) {
 		case 0:
+		    printf("object: %s\n", object);
 			assert(strcmp(object, "publishIt { weight: 10, height: 20, depth: 30 }") == 0);
 		break;
 
