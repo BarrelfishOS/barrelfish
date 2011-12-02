@@ -7,7 +7,7 @@
 #ifndef TEST_PARSER
 #include <barrelfish/barrelfish.h>
 #else
-#define SYS_ERR_OK 0
+//#define SYS_ERR_OK 0
 typedef long errval_t;
 typedef long int64_t;
 static int err_is_ok(errval_t err) {

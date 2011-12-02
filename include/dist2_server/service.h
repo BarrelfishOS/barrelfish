@@ -9,11 +9,14 @@
 
 struct dist_reply_state;
 
+struct skb_writer {
+    char buffer[BUFFER_SIZE];
+    size_t length;
+};
+
 struct dist_query_state {
-    char output_buffer[BUFFER_SIZE];
-    char error_buffer[BUFFER_SIZE];
-    int output_length;
-    int error_output_length;
+    struct skb_writer stdout;
+    struct skb_writer stderr;
     int exec_res;
 };
 
@@ -22,7 +25,7 @@ typedef void(*dist_reply_handler_fn)(struct dist_binding*, struct dist_reply_sta
 struct dist_reply_state {
     struct dist_binding* binding;
 
-    struct dist_query_state skb;
+    struct dist_query_state query_state;
     dist_reply_handler_fn rpc_reply;
     bool return_record;
     errval_t error;

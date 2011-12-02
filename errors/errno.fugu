@@ -22,6 +22,7 @@ errors libdist2  DIST2_ERR_ {
     failure TYPE_MISMATCH       "AST type is not suitable for your specified scan argument.",
     failure INVALID_FORMAT      "The read format you have specified is not valid.",
     failure UNKNOWN_ATTRIBUTE   "An attribute in your format was not found in the record.",
+    failure UNSUPPORTED_BINDING "This binding is unsupported by the underlying implementation.",
 };
 
 // Kernel/syscall errors
@@ -694,6 +695,7 @@ errors skb SKB_ERR_ {
     failure EVALUATE            "Failure in skb_evalute()",
     failure RUN                 "Failure in running rpc: run",
     failure GOAL_FAILURE        "Posted goal could not be satisfied.",
+    failure UNEXPECTED_OUTPUT   "Query produced output but none was expected.",
     success IO_OUTPUT           "Read I/O Output from SKB.",
 };
 

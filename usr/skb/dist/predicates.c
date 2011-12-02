@@ -54,8 +54,8 @@ int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
     ec_get_long(ec_arg(2), (long int*) &drs); // TODO conversion to pointer?
     assert(strlen(str)+1 < BUFFER_SIZE); // TODO
 
-    strcpy(drs->skb.output_buffer, str);
-    debug_printf("p_notify_client: %s\n", drs->skb.output_buffer);
+    strcpy(drs->query_state.stdout.buffer, str);
+    debug_printf("p_notify_client: %s\n", drs->query_state.stdout.buffer);
 
     drs->error = SYS_ERR_OK;
     drs->rpc_reply(drs->binding, drs);

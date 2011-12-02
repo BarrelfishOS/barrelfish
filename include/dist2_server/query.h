@@ -12,8 +12,12 @@ enum dist_trigger_type {
     TRIGGER_NOT_EXISTS
 };
 
-errval_t set_events_binding(uint64_t, struct dist_event_binding*);
-errval_t set_rpc_binding(uint64_t, struct dist_binding*);
+enum dist_binding_type {
+    DIST_BINDING_RPC,
+    DIST_BINDING_EVENT
+};
+
+errval_t set_binding(enum dist_binding_type, uint64_t, void*);
 
 errval_t get_record_names(struct ast_object*, struct dist_query_state*);
 errval_t get_record(struct ast_object*, struct dist_query_state*);
