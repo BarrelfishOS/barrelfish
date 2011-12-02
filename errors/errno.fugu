@@ -694,6 +694,7 @@ errors skb SKB_ERR_ {
     failure EVALUATE            "Failure in skb_evalute()",
     failure RUN                 "Failure in running rpc: run",
     failure GOAL_FAILURE        "Posted goal could not be satisfied.",
+    success IO_OUTPUT           "Read I/O Output from SKB.",
 };
 
 // errors in a file system implementation

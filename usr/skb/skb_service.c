@@ -70,14 +70,20 @@ errval_t execute_query(char* query, struct skb_query_state* st)
     assert(st != NULL);
 	int res;
 
+    ec_ref Start = ec_ref_create_newvar();
+
 	st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
 
     /* Processing */
     ec_post_string(query);
+    // Flush manually
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
+
     while(st->exec_res == PFLUSHIO) {
-        st->exec_res = ec_resume();
+        st->exec_res = ec_resume1(Start);
 
         res = 0;
         do {
@@ -97,6 +103,13 @@ errval_t execute_query(char* query, struct skb_query_state* st)
 
         st->error_buffer[st->error_output_length] = 0;
     }
+
+    if(st->exec_res == PSUCCEED) {
+        ec_cut_to_chp(Start);
+        ec_resume();
+    }
+
+    ec_ref_destroy(Start);
 
     return SYS_ERR_OK;
 }
@@ -120,12 +133,19 @@ static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 
 static void run(struct skb_binding *b, char *query)
 {
+    //debug_printf("skb run: query = %s\n", query);
 	struct skb_reply_state* srt = NULL;
 	errval_t err = new_reply_state(&srt, run_reply);
 	assert(err_is_ok(err)); // TODO
 
 	err = execute_query(query, &srt->skb);
 	assert(err_is_ok(err));
+
+	/*
+	debug_printf("skb output was: %s\n", srt->skb.output_buffer);
+	debug_printf("skb error  was: %s\n", srt->skb.error_buffer);
+	debug_printf("skb exec res: %d\n", srt->skb.exec_res);
+	*/
 
     run_reply(b, srt);
 	free(query);

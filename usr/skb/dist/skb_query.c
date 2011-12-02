@@ -25,6 +25,10 @@ static errval_t transform_ec_error(int res)
             err = SYS_ERR_OK;
         break;
 
+        case PFLUSHIO:
+            err = SKB_ERR_IO_OUTPUT;
+        break;
+
         case PFAIL:
             err = SKB_ERR_GOAL_FAILURE;
         break;
@@ -59,12 +63,12 @@ static errval_t query_eclipse(char* query, struct dist_query_state* st, bool exp
 
     //debug_printf("query eclipse\n");
     // Process previously posted goals
+    //debug_printf("st->exec_res is: %d\n", st->exec_res);
+
     while(1) {
         st->exec_res = ec_resume1(Start);
-        //debug_printf("st->exec_res is: %d\n", st->exec_res);
 
         switch(st->exec_res) {
-
             case PFLUSHIO:
                 res = 0;
                 do {
@@ -91,11 +95,15 @@ static errval_t query_eclipse(char* query, struct dist_query_state* st, bool exp
             break;
 
             default:
-                ec_ref_destroy(Start);
-
-                return transform_ec_error(st->exec_res);
+                goto out;
             break;
         }
+    }
+
+out:
+    if(st->exec_res == PSUCCEED) {
+        ec_cut_to_chp(Start);
+        ec_resume();
     }
     ec_ref_destroy(Start);
 
@@ -127,11 +135,10 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
 		pword get_print_term = ec_term(ec_did("print_object", 1), print_var);
 		ec_post_goal(ec_term(ec_did(",", 2), get_object_term, get_print_term));
 
-
-
 		err = query_eclipse(NULL, sqs, true);
-		if(sqs->output_buffer[0] == '\0') {
-		    err = DIST2_ERR_NO_RECORD;
+		if(err_no(err) == SKB_ERR_GOAL_FAILURE) {
+		    err = err_push(err, DIST2_ERR_NO_RECORD);
+		    //err = DIST2_ERR_NO_RECORD;
 		}
 
 		DIST2_DEBUG(" get_record:\n");
@@ -183,11 +190,6 @@ errval_t set_record(struct ast_object* ast, struct dist_query_state* sqs)
 	assert(ast != NULL);
 	assert(sqs != NULL);
 
-	ec_ref Start = ec_ref_create_newvar();
-    dident fail = ec_did("fail",0);
-    ec_post_goal(ec_atom(fail));
-    assert(ec_resume1(Start) == PFAIL);
-    ec_ref_destroy(Start);
 
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
@@ -198,6 +200,7 @@ errval_t set_record(struct ast_object* ast, struct dist_query_state* sqs)
         ec_post_goal(add_object_term);
 
 		err = query_eclipse(NULL, sqs, true);
+
 
 		DIST2_DEBUG(" set_record:\n");
 		debug_skb_output(sqs);

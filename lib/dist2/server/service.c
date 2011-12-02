@@ -328,6 +328,7 @@ void exists_not_handler(struct dist_binding* b, char* query, bool block, int id)
 
     free_ast(ast);
     free(query);
+    DIST2_DEBUG("exists_not_handler done\n");
 }
 
 
@@ -547,6 +548,8 @@ void lock_handler(struct dist_binding* b, char* query)
 
 	free_ast(ast);
 	free(query);
+
+	debug_printf("lock handler done\n");
 }
 
 

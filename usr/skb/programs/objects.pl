@@ -19,6 +19,7 @@ print_names([]) :-
     flush(1),
     flush(2).
 print_names([X]) :-
+    !,
     write(X),
     flush(1),
     flush(2).
@@ -163,9 +164,9 @@ facet_val(req(T, S, val, V), FacetList) :-
 
 
 add_object(Thing, UList) :-
-	old_slots(Thing, SlotList), 
-	add_slots(Thing, UList, SlotList, NewList), 
-	retract(object(Thing, _)), 
+	old_slots(Thing, SlotList),
+	add_slots(Thing, UList, SlotList, NewList),
+	retract(object(Thing, _)),
 	asserta(object(Thing, NewList)),
 	!,
 	check_triggers(object(Thing, NewList)),
@@ -264,6 +265,7 @@ del_facet(Req, _, _) :-
 
 check_triggers(object(T, AttrList)) :-
     find_exist_triggers(T, L1),
+    !,
     check_exist_triggers(object(T, AttrList), L1),
     find_exist_not_triggers(T, L2),
     check_exist_not_triggers(object(T, AttrList), L2).

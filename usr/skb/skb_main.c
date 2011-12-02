@@ -125,6 +125,7 @@ int main(int argc, char**argv)
     execute_string("[objects].");
     execute_string("[pubsub].");
     execute_string("[bindings].");
+
     ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
     ec_external(ec_did("notify_client", 2), p_notify_client, ec_did("eclipse",0));
 
@@ -135,7 +136,19 @@ int main(int argc, char**argv)
     // execute_string("lib(branch_and_bound).");
     // execute_string("minimize(member(X,[4,1,2]),X),write(output,X).");
 
-    messages_handler_loop(); // Handle incoming requests
+
+    while (1) {
+        messages_wait_and_handle_next();
+
+        /*
+        ec_ref Start = ec_ref_create_newvar();
+        dident fail = ec_did("fail",0);
+        ec_post_goal(ec_atom(fail));
+        int res = ec_resume1(Start);
+        assert(res == PFAIL);
+        ec_ref_destroy(Start);
+        */
+    }
 }
 
 
