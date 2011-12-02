@@ -15,9 +15,13 @@
 
 is_empty([]).
 
-print_names([]).
+print_names([]) :-
+    flush(1),
+    flush(2).
 print_names([X]) :-
-    write(X).
+    write(X),
+    flush(1),
+    flush(2).
 print_names([X|Rest]) :-
     write(X),
     write(', '),
@@ -25,7 +29,9 @@ print_names([X|Rest]) :-
 
 print_object(X) :-
 	format_object(X, Out),
-	write(Out).
+	write(Out),
+	flush(1),
+	flush(2).
 
 print_slots([]).
 print_slots([S]) :-
@@ -162,7 +168,8 @@ add_object(Thing, UList) :-
 	retract(object(Thing, _)), 
 	asserta(object(Thing, NewList)),
 	!,
-	check_triggers(object(Thing, NewList)).
+	check_triggers(object(Thing, NewList)),
+	print_object(object(Thing, NewList)).
 	
 old_slots(Thing, SlotList) :-
 	object(Thing, SlotList), 
@@ -287,8 +294,8 @@ trigger_exist_not(Name, Attrs, Constraints, Object, ReplyState) :-
 trigger_exist_not(_, _, _, _, _).
 
 
-notify_client(Object, ReplyState) :-
-    write(Object).
+%notify_client(Object, ReplyState) :-
+%    write(Object).
 
 %add_watch(Thing, Attrs, Constraints, Binding) :-
 %    asserta(exists(Thing, triplet(Attrs, Constraints, ReplyState))).

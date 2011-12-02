@@ -101,8 +101,10 @@ static void get_names_reply(struct dist_binding* b, struct dist_reply_state* srt
 }
 
 
-void get_names_handler(struct dist_binding *b, char *query)
+void get_names_handler(struct dist_binding *b, char *query, int id)
 {
+    DIST2_DEBUG(" id:%d get_names_handler: %s\n", id, query);
+
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* srt = NULL;
@@ -140,8 +142,9 @@ static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
 
 static uint64_t current_sequence = 0;
 
-void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
+void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get, int id)
 {
+    DIST2_DEBUG(" id:%d set_handler: %s\n", id, query);
 	errval_t err = SYS_ERR_OK;
 
 	struct dist_reply_state* srs = NULL;
@@ -158,6 +161,7 @@ void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 			char* buf = malloc(len+1);
 			snprintf(buf, len+1, "%s%lu", name, current_sequence++);
 			ast->on.name->in.str = buf;
+			name[0] = 'a';
 			free(name);
 		}
 		DIST2_DEBUG("set record: %s\n", query);
@@ -188,8 +192,9 @@ static void del_reply(struct dist_binding* b, struct dist_reply_state* srs)
 }
 
 
-void del_handler(struct dist_binding* b, char* query)
+void del_handler(struct dist_binding* b, char* query, int id)
 {
+    DIST2_DEBUG(" id:%d del_handler: %s\n", id, query);
 	errval_t err = SYS_ERR_OK;
 
 	struct dist_reply_state* srs = NULL;
@@ -275,9 +280,10 @@ static void exists_not_reply(struct dist_binding* b, struct dist_reply_state* dr
 }
 
 
-void exists_not_handler(struct dist_binding* b, char* query, bool block)
+void exists_not_handler(struct dist_binding* b, char* query, bool block, int id)
 {
     assert(query != NULL);
+    DIST2_DEBUG(" id:%d exists not handler: %s\n", id, query);
 
     errval_t err = SYS_ERR_OK;
     struct dist_reply_state* drt = NULL;
@@ -290,12 +296,27 @@ void exists_not_handler(struct dist_binding* b, char* query, bool block)
         err = get_record(ast, &drt->skb);
         if(err_is_ok(err)) {
             // register and wait until record unavailable
+
+            if(drt->skb.output_buffer != NULL) {
+                // check
+                struct ast_object* ast2 = NULL;
+                err = generate_ast(drt->skb.output_buffer, &ast2);
+                if(strcmp(ast->on.name->in.str, ast2->on.name->in.str) != 0) {
+                    printf("exists not handler query was: %s\n", query);
+                    printf("found record name was: %s\n", ast2->on.name->in.str);
+                    abort();
+                }
+                free_ast(ast2);
+            }
+
             drt->binding = b;
             DIST2_DEBUG("exists_not_handler set: %s\n", query);
             err = set_trigger(TRIGGER_NOT_EXISTS, ast, drt);
         }
         else if(err_no(err) == DIST2_ERR_NO_RECORD) {
             // return immediately
+            DIST2_DEBUG("exists_not_handler return immediately for: %s\n", query);
+
             drt->error = SYS_ERR_OK;
             drt->rpc_reply(b, drt);
         }

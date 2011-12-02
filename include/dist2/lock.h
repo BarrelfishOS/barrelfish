@@ -3,6 +3,8 @@
 
 errval_t dist_lock(char*, char**);
 
+errval_t dist_lock2(char*);
+
 errval_t dist_unlock(char* name);
 
 // Optional

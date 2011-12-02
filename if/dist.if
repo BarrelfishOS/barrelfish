@@ -11,13 +11,13 @@ interface dist "dist2 RPC Interface" {
     rpc get_identifier(out uint64 id);
     rpc identify(in uint64 id);
     
-    rpc get_names(in string query, out string output, out errval error_code);
+    rpc get_names(in string query, in int id, out string output, out errval error_code);
     rpc get(in string query, out string output, out string error, out errval error_code);
-    rpc set(in string query, in uint64 mode, in bool get, out string record, out errval error_code);
-    rpc del(in string query, out errval error_code);
+    rpc set(in string query, in uint64 mode, in bool get, in int id, out string record, out errval error_code);
+    rpc del(in string query, in int id, out errval error_code);
     
     rpc exists(in string query, in bool watch, in bool return_record, out string output, out errval error_code);
-    rpc exists_not(in string query, in bool watch, out errval error_code);
+    rpc exists_not(in string query, in bool watch, in int id, out errval error_code);
     
     rpc subscribe(in string query, in uint64 id, out errval err);
     rpc unsubscribe(in uint64 id, out errval err);

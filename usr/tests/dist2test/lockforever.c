@@ -23,7 +23,7 @@
 #include <skb/skb.h>
 #include <dist2/dist2.h>
 
-static struct periodic_event lock_timer;
+//static struct periodic_event lock_timer;
 
 static bool locked = false;
 char* lock = NULL;
@@ -36,12 +36,10 @@ static void lockit(void* arg) {
 
 	if(!locked) {
 		err = dist_lock("lock_test", &lock);
-		debug_printf("%d locked: %s\n", id, lock);
 		assert(err_is_ok(err));
 		locked = true;
 	}
 	else {
-	    debug_printf("%d unlock: %s\n", id, lock);
 		err = dist_unlock(lock);
 		assert(err_is_ok(err));
 		locked = false;
@@ -54,17 +52,23 @@ static void lockit(void* arg) {
 
 int main(int argc, char *argv[])
 {
-    errval_t err = SYS_ERR_OK;
+    //errval_t err = SYS_ERR_OK;
     skb_client_connect();
     dist_init();
 
     id = atoi(argv[1]);
 
+    /*
     debug_printf("create periodic event...\n");
     err = periodic_event_create(&lock_timer, get_default_waitset(),
             (300 * 1000),
             MKCLOSURE(lockit, &lock_timer));
     assert(err_is_ok(err));
+    */
+
+    while(1) {
+        lockit(NULL);
+    }
 
     messages_handler_loop();
 

@@ -45,6 +45,8 @@ int p_identification_complete(void)         /* identification_complete(+Integer)
 
 int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
 {
+    printf("p_notify_client\n");
+
     struct dist_reply_state* drs;
     char* str = NULL;
 
