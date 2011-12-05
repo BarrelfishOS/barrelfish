@@ -16,7 +16,7 @@
                       flounderBindings = [ "ether", "ether_control" ],
                       mackerelDevices = [ "e1000" ],
                       addLibraries = [ "pci", "ethersrv", "contmng", "procon",
-                                            "bfdmuxvm", "lwip" ]
+                                            "bfdmuxvm", "lwip", "trace" ]
                     }
 ]
 

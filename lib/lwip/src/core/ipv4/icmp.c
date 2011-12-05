@@ -58,7 +58,7 @@
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
 #define LWIP_TRACE_MODE 1
-#endif                          // CONFIG_TRACE && NETWORK_STACK_TRACE
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 
 /** Small optimization: set to 0 if incoming PBUF_POOL pbuf always can be
@@ -111,7 +111,7 @@ void icmp_input(struct pbuf *p, struct netif *inp)
 #if LWIP_TRACE_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_P,
                 (uint32_t) ((uint64_t) p));
-#endif                          // LWIP_TRACE_MODE
+#endif // LWIP_TRACE_MODE
 
     iphdr = p->payload;
     hlen = IPH_HL(iphdr) * 4;
@@ -258,7 +258,7 @@ void icmp_input(struct pbuf *p, struct netif *inp)
 #if LWIP_TRACE_MODE
                 trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_C,
                             (uint32_t) ((uint64_t) p));
-#endif                          // LWIP_TRACE_MODE
+#endif // LWIP_TRACE_MODE
 
                 ret = ip_output_if(p, &(iphdr->src), IP_HDRINCL,
                                    ICMP_TTL, 0, IP_PROTO_ICMP, inp);

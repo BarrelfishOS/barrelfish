@@ -43,11 +43,6 @@
 #define LAST_ACCESSED_BYTE_ARP 12
 #define LAST_ACCESSED_BYTE_TRANSPORT 36
 
-
-// Measurement purpose, counting interrupt numbers
-uint64_t interrupt_counter = 0;
-uint64_t interrupt_loop_counter = 0;
-
 // Counter for dropped packets
 static uint64_t dropped_pkt_count = 0;
 
@@ -196,10 +191,6 @@ static void register_pbuf_v2(struct ether_binding *b, uint64_t buf_id,
       ((struct client_closure *) (b->st))->buffer_ptr;
 */
       struct client_closure *cl = (struct client_closure *)b->st;
-
-    if (cl->debug_state == 4) {
-        netbench_record_event_simple(bm, RE_PBUF_REG_CS, ts);
-    }
 
     /* Calculating the physical address of this pbuf. */
     uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + offset;
@@ -534,13 +525,18 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
     assert(buffer != NULL);
-    struct shared_pool_private *spp = closure->spp_ptr;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
     if (buffer->role == RX_BUFFER_ID) {
 //        printf("####### ERROR: send_packets_on_wire called on wrong buff\n");
             return 0;
     }
+
+    struct shared_pool_private *spp = closure->spp_ptr;
+    assert(spp != NULL);
+    assert(spp->sp != NULL);
+/*    if (sp_queue_empty(spp)) {
+        return 0;
+    }
+*/
 //    uint64_t ts = rdtsc();
 
     sp_reload_regs(spp);
@@ -559,7 +555,8 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     return pkts;
 }
 
-static errval_t send_sp_notification_from_driver(struct q_entry e)
+ errval_t send_sp_notification_from_driver(struct q_entry e);
+ errval_t send_sp_notification_from_driver(struct q_entry e)
 {
 //    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
@@ -602,14 +599,15 @@ static void do_pending_work(struct ether_binding *b)
 
 //    printf("do_pending_work: sent packets[%"PRIu64"]\n", pkts);
     // Check if there are more pbufs which are to be marked free
-    while (handle_free_tx_slot_fn_ptr());
-
-
-    if (sp_queue_full(spp)) {
-        // app is complaining about TX queue being full
-        // FIXME: Release TX_DONE
+//    if (pkts > 0) {
         while (handle_free_tx_slot_fn_ptr());
-    }
+
+        if (sp_queue_full(spp)) {
+            // app is complaining about TX queue being full
+            // FIXME: Release TX_DONE
+            while (handle_free_tx_slot_fn_ptr());
+        }
+//    }
 
     if (spp->notify_other_side) {
         // Send notification to application, telling that there is
@@ -971,9 +969,6 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     phead_rx = buffer->pbuf_head_rx;
     ptail_rx = buffer->pbuf_tail_rx;
 
-    ETHERSRV_DEBUG("Copy_packet_2_usr_buf [%" PRIu64 "]: phead[%u] ptail[%u]\n",
-                   buffer->buffer_id, pbuf_head_rx, pbuf_tail_rx);
-
     struct pbuf_desc *upbuf = &pbuf_list[phead_rx];
 
 //    assert(upbuf != NULL);
@@ -989,10 +984,14 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 
     if (((phead_rx + 1) % APP_QUEUE_SIZE) == ptail_rx) {
 
-        ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64
-                       "]: phead[%u] ptail[%u]\n", disp_get_domain_id(),
+        // FIXME: notify user apps about pending packets
+        //printf
+        ETHERSRV_DEBUG
+        ("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
+                "phead[%u] ptail[%u]\n", disp_get_domain_id(),
                        buffer->buffer_id, buffer->pbuf_head_rx,
                        buffer->pbuf_tail_rx);
+
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }
@@ -1059,6 +1058,13 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     if (cl->spp_ptr->notify_other_side) {
         // Send notification to application, telling that there is
         // no more data
+/*        if (cl->debug_state == 4) {
+            printf("copy_packet_to_user: notify other side [%"PRIu64"], "
+                    "notify [%"PRIu64"]\n", cl->in_filter_matched,
+                    cl->spp_ptr->notify_other_side);
+            sp_print_metadata(cl->spp_ptr);
+        }
+*/
         ++cl->rx_notification_sent;
         struct q_entry entry;
         memset(&entry, 0, sizeof(struct q_entry));
@@ -1070,8 +1076,9 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         enqueue_cont_q(cl->q, &entry);
         cl->spp_ptr->notify_other_side = 0;
     }
+
     return true;
-}
+} // end function: copy_packet_to_user
 
 
 /* This function tells if netd is registered or not. */

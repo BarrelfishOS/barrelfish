@@ -76,16 +76,16 @@ static void bm_print_interesting_stats(uint8_t type)
 {
     switch (type) {
         case 0:
+            netbench_print_event_stat(bm, RE_PROCESSING_ALL,
+                    "D: RX processing time", 1);
+            netbench_print_event_stat(bm, RE_USEFUL, "D: RX useful time", 1);
             netbench_print_event_stat(bm, RE_FILTER,  "D: RX Filter time", 1);
             netbench_print_event_stat(bm, RE_COPY, "D: RX copy time", 1);
-            netbench_print_event_stat(bm, RE_PBUF_REG, "D: RX pbuf reg time", 1);
-            netbench_print_event_stat(bm, RE_PKT_RECV_MSG,
-                    "D: RX pkt recv ntf", 1);
+            netbench_print_event_stat(bm, RE_PBUF_REG, "D: RX pbuf reg T", 1);
             netbench_print_event_stat(bm, RE_DROPPED, "D: RX dropped time", 1);
-            netbench_print_event_stat(bm, RE_USEFUL, "D: RX useful time", 1);
-            netbench_print_event_stat(bm, RE_PKT_RECV_Q, "D: RX queue", 1);
-            netbench_print_event_stat(bm, RE_PBUF_REG_CS, "D: RX REG pbuf CS",
-                    1);
+            netbench_print_event_stat(bm, RE_TX_SP_MSG, "D: SP_MSG", 1);
+            netbench_print_event_stat(bm, RE_TX_SP_MSG_Q, "D: SP_MSG_Q", 1);
+            netbench_print_event_stat(bm, RE_PENDING_WORK, "D: pending wrk", 1);
             break;
 
         case 1:
@@ -240,7 +240,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
         uint64_t trigger, uint64_t cl_data)
 {
     uint64_t ts;
-    uint8_t bm_type = 1; // 0 = RX benchmark, 1 = TX benchmark
+    uint8_t bm_type = 0; // 0 = RX benchmark, 1 = TX benchmark
 //    printf("setting the debug status to %x and trigger [%"PRIu64"]\n",
 //            state, trigger);
     struct client_closure *cl = ((struct client_closure *) (cc->st));
@@ -255,15 +255,26 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             } else {
                 ts = rdtsc() - cl->start_ts_tx;
             }
-            printf("#### Stopping MBM Cycles[%"PU"],"
-                   "Pbufs[%" PRIu64 "], pkts[%" PRIu64 "], D[%" PRIu64 "], "
+            printf("# D: Stopping MBM time[%"PU"],"
+                   "TX Pbufs[%" PRIu64 "], TX pkts[%" PRIu64 "], "
+                   "D[%" PRIu64 "], "
                    "in SP Q[%" PRIu64 "], HW_Q[%"PRIu64"]\n",
                    in_seconds(ts), cl->pbuf_count, cl->pkt_count,
                    cl->dropped_pkt_count,
                    sp_queue_elements_count(cl->spp_ptr),
                    cl->hw_queue);
-            printf("D TX Explicit msg needed [%"PRIu64"], sent[%"PRIu64"]\n",
-                    cl->tx_explicit_msg_needed, cl->tx_notification_sent);
+
+            printf( "# D: RX FM[%"PRIu64"], FMF[%"PRIu64"], FMP[%"PRIu64"]\n",
+                  cl->in_filter_matched, cl->in_filter_matched_f,
+                  cl->in_filter_matched_p);
+
+            uint64_t data_size = cl->in_filter_matched_p * 1330;
+            printf("# D: RX speed (D view) = data(%"PRIu64") / time(%"PU") "
+                    "= [%f] KB \n",
+                    data_size,
+                    in_seconds(ts), ((data_size/in_seconds(ts))/1024));
+
+/*
             printf("### RX OK[%"PRIu64"], D_CQ_full[%"PRIu64"], "
                   "D_invalid[%"PRIu64"], D_NO_APP[%"PRIu64"], "
                   "D_APP_BUF_FULL[%"PRIu64"], D_APP_BUF_INV[%"PRIu64"]\n",
@@ -276,45 +287,44 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
                   cl->in_dropped_notification_prob,
                   cl->in_dropped_notification_prob2, cl->in_other_pkts,
                   cl->in_arp_pkts, cl->in_netd_pkts, cl->in_paused_pkts);
-            printf( "### RX FM[%"PRIu64"], FMF[%"PRIu64"], FMP[%"PRIu64"]\n",
-                  cl->in_filter_matched, cl->in_filter_matched_f,
-                  cl->in_filter_matched_p);
-            printf( "### RX AVG QL[%"PRIu64"] on [%"PRIu64"]calls\n",
-                    my_avg(cl->in_queue_len_sum,cl->in_queue_len_n),
-                    cl->in_queue_len_n);
-            printf( "### RX APP N[%"PRIu64"] avg[%"PU"], MAX[%"PU"]"
+*/
+            printf( "# D: RX APP N[%"PRIu64"] avg[%"PU"], MAX[%"PU"]"
                     "MAX[%"PU"]\n", cl->in_app_time_n,
                     in_seconds(my_avg(cl->in_app_time_sum,cl->in_app_time_n)),
                     in_seconds(cl->in_app_time_max),
                     in_seconds(cl->in_app_time_min));
-            printf( "### RX APP N[%"PRIu64"] avg[%"PRIu64"], MAX[%"PRIu64"] "
-                    "MIN[%"PRIu64"]\n", cl->in_app_time_n,
-                    (my_avg(cl->in_app_time_sum,cl->in_app_time_n)),
-                    (cl->in_app_time_max),
-                    (cl->in_app_time_min));
+
             print_app_stats(cl->buffer_ptr);
             bm_print_interesting_stats(bm_type);
-            printf("Interrupt count [%"PRIu64"], loop count[%"PRIu64"]\n",
-                    interrupt_counter, interrupt_loop_counter);
 
-            printf("Driver spp state");
+            printf("D: Interrupt count [%"PRIu64"], loop count[%"PRIu64"], "
+                    "Time in interrupt handling [%"PU"]\n",
+                    interrupt_counter, total_rx_p_count,
+                    in_seconds(total_interrupt_time));
+
+            printf("D: Driver spp state");
             sp_print_metadata(cl->spp_ptr);
+
             send_benchmark_control(cc, BMS_STOPPED, ts,
                     (cl->pkt_count - cl->dropped_pkt_count));
+
             cl->in_trigger_counter = trigger;
             cl->out_trigger_counter = trigger;
+
             cl->debug_state = BMS_STOPPED;
             cl->debug_state_tx = BMS_STOPPED;
-
+            g_cl = NULL;
             break;
 
         case BMS_START_REQUEST:  // Resetting stats, for new round of recording
             interrupt_counter = 0;
-            interrupt_loop_counter = 0;
+            total_rx_p_count = 0;
+            total_interrupt_time = 0;
+            g_cl = cl;
             reset_client_closure_stat(cl);
             // FIXME: Remove it, only for specific debugging!!!!
             if (cl->spp_ptr->sp->read_reg.value != 0) {
-                printf("#### reset_client_closure_stat: read_reg == %"PRIu64""
+                printf("# D: reset_client_closure_stat: read_reg == %"PRIu64""
                     "instead of 0\n",
                 cl->spp_ptr->sp->read_reg.value);
             }
@@ -329,7 +339,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             reset_app_stats(cl->buffer_ptr);
             netbench_reset(bm);
             bm->status = 1;
-            printf("#### Starting MBM now \n");
+            printf("# D: Starting MBM now \n");
             cl->start_ts = rdtsc();
             cl->start_ts_tx = rdtsc();
             send_benchmark_control(cc, BMS_RUNNING, cl->start_ts, trigger);
@@ -337,7 +347,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
 
 
         default:
-            printf("#### MBM: invalid state %x \n", state);
+            printf("# D: MBM: invalid state %x \n", state);
     } // end switch:
 
 } // end function: benchmark_control_request

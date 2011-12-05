@@ -20,7 +20,10 @@ struct ether_binding *netd[NETD_BUF_NR];
 
 // Measurement purpose, counting interrupt numbers
 extern uint64_t interrupt_counter;
-extern uint64_t interrupt_loop_counter;
+extern uint64_t total_rx_p_count;
+extern uint64_t total_interrupt_time;
+extern struct client_closure *g_cl;
+extern uint64_t total_rx_datasize;
 
 // Function prototypes for ether services
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);

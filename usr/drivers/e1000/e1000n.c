@@ -20,16 +20,29 @@
 #include <ethersrv/ethersrv.h>
 #include "e1000n.h"
 #include <trace/trace.h>
+
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define TRACE_N_BM 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
+
+static bool local_debug = false;
+#define E1000N_DPRINT(x...) do{if(local_debug) printf("e1000n: " x); } while(0)
 
 /*****************************************************************
  * Data types:
  *****************************************************************/
 
 extern uint64_t interrupt_counter;
-extern uint64_t interrupt_loop_counter;
+extern uint64_t total_rx_p_count;
+extern uint64_t total_interrupt_time;
+extern struct client_closure *g_cl;
+extern uint64_t total_processing_time;
+extern uint64_t total_rx_datasize;
 
 static uint8_t macaddr[6]; ///< buffers the card's MAC address upon card reset
 e1000_t d;  ///< Mackerel state
@@ -306,6 +319,50 @@ static void setup_internal_memory(void)
 }
 
 
+static void print_rx_bm_stats(bool stop_trace)
+{
+    if (g_cl == NULL) {
+        return;
+    }
+
+    if (g_cl->debug_state != 4) {
+        return;
+    }
+
+    uint64_t cts = rdtsc();
+
+    if (stop_trace) {
+
+#if TRACE_N_BM
+    // stopping the tracing
+        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_STOP, 0);
+
+        /*
+        char *buf = malloc(4096*4096);
+        trace_dump(buf, 4096*4096);
+        printf("%s\n", buf);
+        */
+#endif // TRACE_N_BM
+
+    } // end if: stop_trace
+
+    uint64_t running_time = cts - g_cl->start_ts;
+    printf("D:I:%u: RX speed = [%"PRIu64"] packets "
+        "data(%"PRIu64") / time(%"PU") = [%f] MB/s ([%f]Mbps) = "
+        " [%f]mpps, INT [%"PRIu64"]\n",
+        disp_get_core_id(),
+        total_rx_p_count, total_rx_datasize, in_seconds(running_time),
+        ((total_rx_datasize/in_seconds(running_time))/(1024 * 1024)),
+        (((total_rx_datasize * 8)/in_seconds(running_time))/(1024 * 1024)),
+        ((total_rx_p_count/in_seconds(running_time))/(double)(1000000)),
+        interrupt_counter
+        );
+
+    netbench_print_event_stat(bm, RE_COPY, "D: RX CP T", 1);
+    netbench_print_event_stat(bm, RE_PROCESSING_ALL, "D: RX processing T", 1);
+} // end function: print_rx_bm_stats
+
+static char tmp_buf[2000];
 static bool handle_next_received_packet(void)
 {
     volatile union rx_desc *rxd;
@@ -314,8 +371,10 @@ static bool handle_next_received_packet(void)
     struct buffer_descriptor *buffer = NULL;
     size_t len = 0;
     bool new_packet = false;
+    tmp_buf[0] = 0; // FIXME: to avoid the warning of not using this variable
 
-//    E1000N_DEBUG("Potential packet receive!\n");
+    E1000N_DPRINT("Potential packet receive [%"PRIu64"!\n",
+            total_rx_p_count);
     if (receive_bufptr == receive_index) { //no packets received
         return false;
     }
@@ -324,96 +383,151 @@ static bool handle_next_received_packet(void)
     rxd = &receive_ring[receive_bufptr];
 
     if ((rxd->rx_read_format.info.status.dd) &&
-    		(rxd->rx_read_format.info.status.eop) &&
-    		(!local_pbuf[receive_bufptr].event_sent)) { /* valid packet received */
+            (rxd->rx_read_format.info.status.eop) &&
+            (!local_pbuf[receive_bufptr].event_sent)) {
+        // valid packet received
 
-    	new_packet = true;
+        new_packet = true;
 
-    	/* FIXME: following two conditions might be repeating, hence
-    	 * extra.  Check it out. */
-		if(internal_memory_pa == NULL || internal_memory_va == NULL) {
-//        	    E1000N_DEBUG("no internal memory yet#####.\n");
-			buffer = NULL;
-			/* FIXME: control should go out of parent if block */
-			goto end;
-		}
+        // FIXME: following two conditions might be repeating, hence
+        // extra.  Check it out.
+        if(internal_memory_pa == NULL || internal_memory_va == NULL) {
+        // E1000N_DEBUG("no internal memory yet#####.\n");
+            buffer = NULL;
+            // FIXME: control should go out of parent if block
+            goto end;
+        }
 
-		/* Ensures that netd is up and running */
-		if(waiting_for_netd()){
-			E1000N_DEBUG("still waiting for netd to register buffers\n");
-			buffer = NULL;
-			goto end;
-		}
+        // Ensures that netd is up and running
+        if(waiting_for_netd()){
+            E1000N_DEBUG("still waiting for netd to register buffers\n");
+            buffer = NULL;
+            goto end;
+        }
 
-
-    	len = rxd->rx_read_format.info.length;
-    	if (len < 0 || len > 1522) {
-    		E1000N_DEBUG("ERROR: pkt with len %zu\n", len);
-    		goto end;
-    	}
+        len = rxd->rx_read_format.info.length;
+        if (len < 0 || len > 1522) {
+            E1000N_DEBUG("ERROR: pkt with len %zu\n", len);
+            goto end;
+        }
+        total_rx_datasize += len;
 
         // E1000N_DEBUG("packet received of size %zu..\n", len);
 
-    	buffer_address = (void*)rxd->rx_read_format.buffer_address;
-		data = (buffer_address - internal_memory_pa)
-			+ internal_memory_va;
+        buffer_address = (void*)rxd->rx_read_format.buffer_address;
+        data = (buffer_address - internal_memory_pa) + internal_memory_va;
 
-		if (data == NULL || len == 0){
-			printf("ERROR: Incorrect packet\n");
-			// abort();
-			/* FIXME: What should I do when such errors occur. */
-			buffer = NULL;
-			goto end;
-		}
-		process_received_packet(data, len);
+        if (data == NULL || len == 0){
+            printf("ERROR: Incorrect packet\n");
+            // abort();
+            // FIXME: What should I do when such errors occur.
+            buffer = NULL;
+            goto end;
+        }
 
-    } /* end if: valid packet received */
+        // FIXME: only to measure performance of accepting incoming packets
+        if (g_cl != NULL) {
+            if (g_cl->debug_state == 4) {
+
+                uint64_t ts = rdtsc();
+//                memcpy_fast(tmp_buf, data, len);
+                process_received_packet(data, len);
+                total_processing_time = total_processing_time +
+                    (rdtsc() - ts);
+//                netbench_record_event_simple(bm, RE_COPY, ts);
+
+            } else {
+                process_received_packet(data, len);
+            }
+        } else {
+            process_received_packet(data, len);
+        }
+
+    } // end if: valid packet received
     else {
-    	/* false alarm. Something else happened, not packet arrival */
+    	// false alarm. Something else happened, not packet arrival
     	return false;
     }
 
     end:
-	local_pbuf[receive_bufptr].event_sent = true;
-	receive_free--;
-	int ret = add_desc(rxd->rx_read_format.buffer_address);
-	if(ret < 0){
-		printf("ERROR: add_desc failed, so not able to re-use pbuf\n");
-	}
-	receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
+    local_pbuf[receive_bufptr].event_sent = true;
+    receive_free--;
+    int ret = add_desc(rxd->rx_read_format.buffer_address);
+    if(ret < 0){
+        printf("ERROR: add_desc failed, so not able to re-use pbuf\n");
+    }
+    receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
+    return new_packet;
+} // end function: handle_next_received_packet
 
-	return new_packet;
-}
 
 
-/*****************************************************************
- * Polling loop. Called by main and never left again
- ****************************************************************/
-//this functions polls all the client's channels as well as the transmit and
-//receive descriptor rings
-static void polling_loop(void)
+static bool benchmark_complete = false;
+static uint64_t pkt_size_limit = (1024 * 1024 * 1024); // 1GB
+// static uint64_t pkt_limit = 810000;
+// static uint64_t start_pkt_limit = 13000;
+static uint64_t handle_multiple_packets(uint64_t upper_limit)
 {
-	printf("starting polling loop\n");
-    errval_t err;
-    struct waitset *ws = get_default_waitset();
-    while (1) {
-//    	printf("polling loop: waiting for event\n");
-//        while(handle_free_TX_slot_fn());
-        do_pending_work_for_all();
-//        handle_free_TX_slot_fn();
-        err = event_dispatch(ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
+    uint64_t ts = rdtsc();
+
+    uint8_t local_pkt_count = 0;
+
+    while(handle_next_received_packet()) {
+        ++total_rx_p_count;
+
+#if TRACE_N_BM
+        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_SEE,
+                total_rx_p_count);
+#endif // TRACE_N_BM
+
+//        if (total_rx_p_count == pkt_limit) {
+        if (total_rx_datasize > pkt_size_limit) {
+            if (!benchmark_complete) {
+                netbench_record_event_simple(bm, RE_PROCESSING_ALL, ts);
+                benchmark_complete = true;
+                print_rx_bm_stats(true);
+
+                ts = rdtsc();
+            }
+        }
+
+/*
+        if (total_rx_p_count % 50000 == 0) {
+            // print only if benchmark is over
+            if (total_rx_p_count > pkt_limit) {
+                print_rx_bm_stats(false);
+            }
+
+        }
+*/
+/*
+        if (total_rx_p_count == start_pkt_limit) {
             break;
         }
-//        printf("polling loop: event handled\n");
-//        check_for_free_TX_buffer();
-        if(!use_interrupt) {
-            handle_next_received_packet();
-//            printf("polling loop: handled pending packets\n");
+*/
+        ++local_pkt_count;
+        if (local_pkt_count == upper_limit) {
+            break;
         }
-    }
-}
+    } // end while:
+
+    netbench_record_event_simple(bm, RE_PROCESSING_ALL, ts);
+/*
+    if (total_rx_p_count == start_pkt_limit) {
+        if (g_cl != NULL) {
+            if (g_cl->debug_state == 4) {
+#if TRACE_N_BM
+                // stopping the tracing
+               trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_START, 0);
+#endif // TRACE_N_BM
+            }
+        }
+    } // end if: start_pkt_limit
+*/
+    return local_pkt_count;
+
+} // end function: handle_multiple_packets
+
 
 /*****************************************************************
  * Interrupt handler
@@ -427,33 +541,98 @@ static void e1000_interrupt_handler(void *arg)
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_I, 0);
 #endif // TRACE_ETHERSRV_MODE
 
+    ++interrupt_counter;
+
+#if TRACE_N_BM
+        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_INT,
+                interrupt_counter);
+#endif // TRACE_N_BM
+
+
+    E1000N_DPRINT("interrupt msg [%"PRIu64"]!\n", interrupt_counter);
 
     if(!icr.rxt0) {
         printf("no packet\n");
         return;
     }
-//    E1000N_DEBUG("#####Interrupt came in\n");
-    if(waiting_for_netd()){
-    	return;
-    }
+    handle_multiple_packets(0xff);
 
-    ++interrupt_counter;
-    while(handle_next_received_packet()){
-            ++interrupt_loop_counter;
-    };
-    // FIXME: send an application, notification about packet arrival
-//    handle_next_received_packet();
-}
+} // end function: e1000_interrupt_handler
+
+/*****************************************************************
+ * Polling loop. Called by main and never left again
+ ****************************************************************/
+//this functions polls all the client's channels as well as the transmit and
+//receive descriptor rings
+static void polling_loop(void)
+{
+//	printf("starting polling loop\n");
+    errval_t err;
+    uint64_t ts;
+    struct waitset *ws = get_default_waitset();
+    uint64_t poll_count = 0;
+    uint8_t jobless_iterations = 0;
+    bool no_work = true;
+    while (1) {
+        no_work = true;
+
+        ++poll_count;
+//    E1000N_DPRINT("polling_loop:  count [%"PRIu64"], pkt no. [%"PRIu64"]\n",
+//           poll_count, total_rx_p_count);
+
+//    	printf("polling loop: waiting for event\n");
+//        while(handle_free_TX_slot_fn());
+        ts = rdtsc();
+        do_pending_work_for_all();
+        netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
+//        handle_free_TX_slot_fn();
+
+
+//        err = event_dispatch(ws);
+        err = event_dispatch_non_block(ws);
+        if (err != LIB_ERR_NO_EVENT) {
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch_non_block");
+                break;
+            } else {
+                // Handled some event dispatch
+                no_work = false;
+            }
+        }
+
+
+#if TRACE_N_BM
+        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_POLL,
+                poll_count);
+#endif // TRACE_N_BM
+
+
+            if(handle_multiple_packets(0xff) > 0) {
+                no_work = false;
+            }
+//        }
+
+        if (no_work) {
+            ++jobless_iterations;
+            if (jobless_iterations == 10) {
+                if (use_interrupt) {
+                    thread_yield();
+                }
+            }
+        }
+
+    } // end while: 1
+} // end function : polling_loop
 
 /*****************************************************************
  * Init callback
  ****************************************************************/
 static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 {
-	E1000N_DEBUG("starting hardware init\n");
-    e1000_hwinit(&d, bar_info, nr_allocated_bars, &transmit_ring, &receive_ring,
-                 DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFER, macaddr, user_macaddr,
-                 use_interrupt);
+    E1000N_DEBUG("starting hardware init\n");
+    e1000_hwinit(&d, bar_info, nr_allocated_bars, &transmit_ring,
+            &receive_ring, DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFER,
+            macaddr, user_macaddr, use_interrupt);
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
     ethersrv_init(global_service_name, get_mac_address_fn,
@@ -519,8 +698,7 @@ int main(int argc, char **argv)
         }
         if(strcmp(argv[i],"noirq")==0) {
             use_interrupt = false;
-            E1000N_DEBUG("Polling mode\n");
-            USER_PANIC("e1000n: Polling mode doesn't work currently, see Ticket #172\n");
+            printf("Driver working in polling mode\n");
         }
     }
 

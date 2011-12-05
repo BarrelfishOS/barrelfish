@@ -70,6 +70,7 @@
 #  include <fpu.h>
 #endif
 
+
 /**
  * \brief Define IRQ handler number 'num'.
  *
@@ -379,6 +380,11 @@ static struct cte irq_dispatch[NDISPATCH];
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define TRACE_N_BM 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -387,6 +393,7 @@ static struct cte irq_dispatch[NDISPATCH];
  *
  * \param irq   IRQ# to send in notification.
  */
+static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
@@ -400,11 +407,16 @@ static void send_user_interrupt(int irq)
 
     if (irq == 0) {
 //    	printf("packet interrupt\n");
-#if TRACE_ETHERSRV_MODE
+        ++interrupt_count;
+#if TRACE_N_BM
 #include<trace/trace.h>
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_AI, 0);
-#endif // TRACE_ETHERSRV_MODE
-
+    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_I, interrupt_count);
+#endif // TRACE_N_BM
+/*
+        if (interrupt_count >= 60){
+            printf("interrupt number %"PRIu32"\n", interrupt_count);
+        }
+*/
     }
 //    printf("Interrupt %d\n", irq);
     // Otherwise, cap needs to be an endpoint
@@ -464,6 +476,8 @@ errval_t irq_table_set(unsigned int nidt, caddr_t endpoint)
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
         err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
+
+        printf("kernel: %u: installing handler for IRQ %d\n", my_core_id, nidt);
 #if 0
         if (err_is_ok(err)) {
             // Unmask interrupt if on PIC
@@ -862,7 +876,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
                 .ip = disp_save_area->rip
             };
             strncpy(data.name, disp->name, PERFMON_DISP_NAME_LEN);
-            
+
             // Call overflow handler represented by endpoint
             extern struct capability perfmon_callback_ep;
             errval_t err;
@@ -870,8 +884,8 @@ static __attribute__ ((used)) void handle_irq(int vector)
                 sizeof(uintptr_t)+1;
             err = lmp_deliver_payload(&perfmon_callback_ep,
                                       NULL,
-                                      (uintptr_t*) &data, 
-                                      payload_len, 
+                                      (uintptr_t*) &data,
+                                      payload_len,
                                       false);
 
             // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
@@ -898,9 +912,13 @@ static __attribute__ ((used)) void handle_irq(int vector)
 
         // Record the running domain at the start of a trace
 #ifdef TRACE_CSWITCH
+//#if TRACE_N_BM
+
+//#else
         trace_event(TRACE_SUBSYS_KERNEL,
                     TRACE_EVENT_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
+//#endif // TRACE_N_BM
 #endif
 
         apic_eoi();

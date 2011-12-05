@@ -63,6 +63,13 @@ static struct ether_control_rx_vtbl rx_ether_control_vtbl = {
 };
 
 
+// Measurement purpose, counting interrupt numbers
+uint64_t total_processing_time = 0;
+uint64_t interrupt_counter = 0;
+uint64_t total_rx_p_count = 0;
+uint64_t total_interrupt_time = 0;
+struct client_closure *g_cl = NULL;
+uint64_t total_rx_datasize = 0;
 
 /*****************************************************************
  * Local states:
@@ -863,6 +870,9 @@ static void send_arp_to_all(void *data, uint64_t len)
         head = head->next;
     }
 
+    if(waiting_for_netd()){
+    	return;
+    }
     // Forwarding it to netd as well.
     struct buffer_descriptor *buffer = ((struct client_closure *)
                                         (netd[RECEIVE_CONNECTION]->st))->
@@ -924,6 +934,8 @@ void init_ether_control_service(char *service_name)
 
 } // end function: init_ether_control_service
 
+ errval_t send_sp_notification_from_driver(struct q_entry e);
+
 
 // Checks if packet belongs to specific application and sends to it
 static bool handle_application_packet(void *packet, size_t len)
@@ -938,12 +950,17 @@ static bool handle_application_packet(void *packet, size_t len)
         return false;
     }
 
+
     // Matching filter found, sending packet to application
     struct buffer_descriptor *buffer = filter->buffer;
     struct ether_binding *b = buffer->con;
     assert(b != NULL);
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
+
+    if (cl->debug_state == 4) {
+        netbench_record_event_simple(bm, RE_FILTER, ts);
+    }
 
     if (cl->debug_state == 3) {
         // Trigger to start the recording the stats
@@ -952,7 +969,12 @@ static bool handle_application_packet(void *packet, size_t len)
         cl->start_ts = rdtsc();
         cl->debug_state = 4;
         interrupt_counter = 0;
-        interrupt_loop_counter = 0;
+        total_rx_p_count = 0;
+        total_interrupt_time = 0;
+        total_processing_time = 0;
+        total_rx_datasize = 0;
+        g_cl = cl;
+        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_START, 0);
     }
     cl->filter_matched = 1;
 
@@ -961,7 +983,7 @@ static bool handle_application_packet(void *packet, size_t len)
         assert(filter->pause_bufpos < MAX_PAUSE_BUFFER);
         struct bufdesc *bd = &filter->pause_buffer[filter->pause_bufpos++];
 
-        memcpy_fast(bd->pkt_data, packet, len);
+//        memcpy_fast(bd->pkt_data, packet, len);
         bd->pkt_len = len;
         return true;
     }
@@ -976,13 +998,30 @@ static bool handle_application_packet(void *packet, size_t len)
         // Packet delivered to the application buffer
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_p;
+/*
+            if ((cl->in_filter_matched_p % 1000 ) == 0 ) {
+                printf("D: %"PRIu64" packets arrived\n",
+                        cl->in_filter_matched_p);
+            }
+*/
             netbench_record_event_simple(bm, RE_USEFUL, ts);
         }
+
     } else {
         // Could not deliver the packet to application!
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_f;
             netbench_record_event_simple(bm, RE_DROPPED, ts);
+/*
+            printf("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
+                    "phead[%u] ptail[%u] notify[%"PRIu64"], FM[%"PRIu64"]\n",
+                       disp_get_domain_id(),
+                       buffer->buffer_id, buffer->pbuf_head_rx,
+                       buffer->pbuf_tail_rx,
+                       cl->spp_ptr->notify_other_side, cl->in_filter_matched);
+            sp_print_metadata(cl->spp_ptr);
+*/
+
         }
 //      printf("A: Copy packet to userspace failed\n");
     }
@@ -1015,6 +1054,10 @@ static bool handle_arp_packet(void *packet, size_t len)
 // give this packet to netd
 static bool handle_netd_packet(void *packet, size_t len)
 {
+    if(waiting_for_netd()){
+    	return false;
+    }
+
 //  ETHERSRV_DEBUG("No client wants, giving it to netd\n");
     struct buffer_descriptor *buffer = ((struct client_closure *)
               (netd[RECEIVE_CONNECTION]->st))->buffer_ptr;

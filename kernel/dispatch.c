@@ -149,7 +149,7 @@ static inline void context_switch(struct dcb *dcb)
         }
 #endif /* FPU_LAZY_CONTEXT_SWITCH */
 
-	/* 
+	/*
 	 * The name of the function is somewhat misleading. we need an unused
 	 * user register that always stores the pointer to the current
 	 * dispatcher. most ABIs define a register for thread-local storage,
@@ -172,6 +172,12 @@ static inline void context_switch(struct dcb *dcb)
 #ifdef __scc__
 struct dcb *run_next = NULL;
 #endif
+
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define TRACE_N_BM 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
+
 
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
@@ -208,11 +214,17 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     // Don't context switch if we are current already
     if (dcb_current != dcb) {
+
 #ifdef TRACE_CSWITCH
+//#if TRACE_N_BM
+
+//#else
         trace_event(TRACE_SUBSYS_KERNEL,
                     TRACE_EVENT_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
-#endif
+//#endif // TRACE_N_BM
+#endif // TRACE_CSWITCH
+
         context_switch(dcb);
         dcb_current = dcb;
     }

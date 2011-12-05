@@ -16,6 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
+#include <trace/trace.h>
 #include <stdio.h>
 #include <lwip/pbuf.h>
 #include <lwip/udp.h>
@@ -23,9 +24,15 @@
 #include <netif/etharp.h>
 #include <contmng/netbench.h>
 
+/* Enable tracing only when it is globally enabled */
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define UDP_BENCHMARK_TRACE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
+
 //#define TOTAL_DATA_SIZE  629188608
 #define MAX_DATA   1330
-#define MULTIPLIER 10
+#define MULTIPLIER 1
 
 #define TEST_BUFFER_MANAGEMENT      1
 
@@ -95,28 +102,28 @@ static void stop_benchmark(uint64_t stop, uint64_t driver_runtime,
 //    lwip_benchmark_control(connection_type, BMS_STOP_REQUEST, 0, 0);
 
 
-    printf("Test [%s], PBUF type %s\n", TEST_TYPE,
+    printf("U: Test [%s], PBUF type %s\n", TEST_TYPE,
             connection_type?"PBUF_RAM":"PBUF_POOL");
     lwip_print_interesting_stats();
-    printf("Time taken by APP %"PU" to send %"PRIu64" packets"
+    printf("U: Time taken by APP %"PU" to send %"PRIu64" packets"
             "(%"PRIu64" failed)\n",
             in_seconds(delta), iter, failed);
     if (driver_runtime > 0) {
-        printf("Time taken by DRV %"PU" to send %"PRIu64" packets\n",
+        printf("U: Time taken by DRV %"PU" to send %"PRIu64" packets\n",
                 in_seconds(driver_runtime), drv_pkt_count);
     }
     uint64_t data_size = iter * MAX_DATA;
-    printf("TX speed (app view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+    printf("U: TX speed (app view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
             data_size, in_seconds(delta), ((data_size/in_seconds(delta))/1024));
 
     if (driver_runtime > 0) {
         data_size = drv_pkt_count * MAX_DATA;
-        printf("TX speed (DRV view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+        printf("U: TX speed (DRV view) = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
             data_size, in_seconds(driver_runtime),
             ((data_size/in_seconds(driver_runtime))/1024));
     }
     for (int j = 0; j < 6; ++j) {
-        printf("Stats  %d: [%"PRIu64"] \n", j, stats[j]);
+        printf("U: Stats  %d: [%"PRIu64"] \n", j, stats[j]);
     }
 
     loop_forever();
@@ -209,7 +216,7 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
     uint64_t cl;
 
     struct pbuf *p = NULL;
-    printf("Going in UDP_SENDER mode\n");
+    printf("U: Going in UDP_SENDER mode\n");
 
     // connect with peer
     errval_t r = udp_connect(upcb, &recv_ip, recv_port);
@@ -219,21 +226,21 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
 
 #ifndef TEST_BUFFER_MANAGEMENT
     // create a pbuf
-    printf("Testing without buffer manager\n");
+    printf("U: Testing without buffer manager\n");
     p = get_pbuf_wrapper();
-    printf("pbuf len %"PRIu16", tot_len %"PRIu16"\n",
+    printf("U: pbuf len %"PRIu16", tot_len %"PRIu16"\n",
             p->len, p->tot_len);
     void *payload_ptr = p->payload;
 
     // Set the data to zero
     memset(p->payload, 'd', p->len);
 #else
-    printf("Testing *with* buffer manager!\n");
+    printf("U: Testing *with* buffer manager!\n");
 #endif // TEST_BUFFER_MANAGEMENT
 
     refresh_cache(&recv_ip);
 
-    printf("Trying to send %"PRIu64" packets\n", iterations);
+    printf("U: Trying to send %"PRIu64" packets\n", iterations);
 
     lwip_benchmark_control(connection_type, BMS_START_REQUEST, iterations, 0);
     wait_for_driver_ready();
@@ -300,6 +307,30 @@ udp_sender(struct udp_pcb *upcb, struct ip_addr recv_ip,
     wait_for_lwip();
 } // end function: udp_sender
 
+
+
+// ################################################ receiver benchmark ####
+
+static bool udp_recv_bm_shown = false;
+static void
+udp_receiver_done(void)
+{
+    // Record the stop timer
+    recv_stop_c = rdtsc();
+    uint64_t delta = recv_stop_c - recv_start_c;
+    lwip_benchmark_control(connection_type, BMS_STOP_REQUEST, 0, 0);
+
+    lwip_print_interesting_stats();
+    // print the statistics
+    printf("U: Time taken %"PU" to recv %"PRIu64" data"
+            "(%"PRIu64" packets)\n", in_seconds(delta),
+            rx_data_size, pkt_count);
+    printf("U: RX speed = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
+           rx_data_size, in_seconds(delta),
+           ((rx_data_size/in_seconds(delta))/1024));
+    udp_recv_bm_shown = true;
+} // end function: udp_receiver_done
+
 static void
 udp_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
                     struct ip_addr *addr, u16_t port)
@@ -313,25 +344,37 @@ udp_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         recv_start_c = rdtsc();
     }
     ++pkt_count;
+
+    /*
+    if (pkt_count % 1000 == 0) {
+        printf("U: APP %"PRIu64" packets in\n", pkt_count);
+    }
+*/
+
+#if UDP_BENCHMARK_TRACE
+    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_APP_SEE, pkt_count);
+#endif // UDP_BENCHMARK_TRACE
+
+    if (pkt_count >= 3300) {
+//        printf("APP %"PRIu64" packets in *\n", pkt_count);
+    }
+
+//    if (rx_data_size >= (iterations * MAX_DATA) ) {
+    if (rx_data_size >= (1024 * 1024 * 1024) ) {
+        // condition meet
+        if (!udp_recv_bm_shown) {
+            udp_receiver_done();
+        }
+    }
     pbuf_free(pbuf);
 } // end function: udp_recv_handler
 
-
-static bool
-condition_not_meet(void)
-{
-    if (rx_data_size < (iterations * MAX_DATA) ) {
-        return true;
-    } else {
-        return false;
-    }
-} // end function: condition_not_meet
 
 static void
 udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
         uint16_t listen_port)
 {
-    printf("Going in UDP_RECEIVER mode\n");
+    printf("U: Going in UDP_RECEIVER mode\n");
     // Bind to specified port
     errval_t r = udp_bind(upcb, listen_ip, listen_port);
     if (err_is_fail(r)) {
@@ -342,24 +385,13 @@ udp_receiver(struct udp_pcb *upcb, struct ip_addr *listen_ip,
             iterations, rdtsc());
     udp_recv(upcb, udp_recv_handler, 0 /*client data, arg in callback*/);
 
-    while (condition_not_meet()) {
+    while (true) {
         r = event_dispatch(ws);
         if (err_is_fail(r)) {
             DEBUG_ERR(r, "in event_dispatch");
             break;
         }
     }
-    // Record the stop timer
-    recv_stop_c = rdtsc();
-    uint64_t delta = recv_stop_c - recv_start_c;
-    lwip_print_interesting_stats();
-    // print the statistics
-    printf("Time taken %"PU" to recv %"PRIu64" data"
-            "(%"PRIu64" packets)\n", in_seconds(delta),
-            rx_data_size, pkt_count);
-    printf("RX speed = data(%"PRIu64") / time(%"PU") = [%f] KB \n",
-           rx_data_size, in_seconds(delta),
-           ((rx_data_size/in_seconds(delta))/1024));
 } // end function: udp_receiver
 
 
@@ -413,11 +445,22 @@ int main(int argc, char *argv[])
 
     assert(upcb != NULL);
 
-    printf("###############----------#######################\n");
-    printf("%d.%d: Performing [%"PRIu64"] iterations\n",
+    printf("U: #####################################\n");
+    printf("U: %d.%d: Performing [%"PRIu64"] iterations\n",
                 disp_get_core_id(), disp_get_domain_id(),
                 iterations);
 
+#if UDP_BENCHMARK_TRACE
+    errval_t err = trace_control(TRACE_EVENT(TRACE_SUBSYS_BNET,
+                                    TRACE_EVENT_BNET_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_BNET,
+                                    TRACE_EVENT_BNET_STOP, 0), 0);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trace_control failed");
+    }
+    printf("U: Tracing enabled!!!!\n");
+//    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_START, 0);
+#endif // UDP_BENCHMARK_TRACE
 
     if(as_sender == 1) {
         udp_sender(upcb, peer_ip, port);
@@ -426,7 +469,7 @@ int main(int argc, char *argv[])
     } // end else:
 
 
-    printf("Init finished.\n");
+    printf("U: Init finished.\n");
 
     while (1) {
         errval_t r = event_dispatch(ws);

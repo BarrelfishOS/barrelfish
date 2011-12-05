@@ -272,14 +272,14 @@ void print_statistics(void);
 
 enum Recorded_Events {
     RE_ALL = 0,
-    RE_FILTER = 1,
-    RE_COPY = 2,
-    RE_DROPPED = 3,
-    RE_USEFUL = 4,
-    RE_PBUF_REG = 5,
-    RE_PKT_RECV_MSG = 6,
-    RE_PKT_RECV_Q = 7,
-    RE_PBUF_REG_CS = 8,
+    RE_FILTER,
+    RE_COPY,
+    RE_DROPPED,
+    RE_USEFUL, // used
+    RE_PBUF_REG, // used
+    RE_PROCESSING_ALL, // used
+    RE_RX_ALL, // used
+    RE_PENDING_WORK,
 
     RE_TX_NOTI_CS,
     RE_TX_T,

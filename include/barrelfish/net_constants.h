@@ -133,8 +133,4 @@ enum buffer_memory_types {
 
 #endif // CONFIG_QEMU_NETWORK
 
-/* NOTE: This value should be smaller than RECEIVE_BUFFERS of ethersrv.h */
-#define NR_PREALLOCATED_PBUFS       ( RECEIVE_BUFFERS - 1)
-
-
 #endif // LIBBARRELFISH_NETCONSTANTS_H

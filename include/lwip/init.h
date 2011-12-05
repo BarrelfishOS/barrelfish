@@ -97,6 +97,7 @@ void lwip_debug_show_spp_status(int connection);
 
 enum Recorded_Events {
     RE_ALL,
+    RX_ALL_PROCESS,
     RE_REG_PBUF,
     RE_PBUF_REPLACE,
     RE_PBUF_REPLACE_1,

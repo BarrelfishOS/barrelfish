@@ -324,9 +324,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         spp_send->notify_other_side = 0;
         wrapper_send_sp_notification_from_app(b);
 
-        printf("Not enough (%"PRIu8") space left in shared_pool %"PRIu64"\n",
+/*        printf("Not enough (%"PRIu8") space left in shared_pool %"PRIu64"\n",
                numpbufs, free_slots_count);
         sp_print_metadata(spp_send);
+*/
 //        assert(!"No space left in shared_pool\n");
         // free the pbuf
         return 0;
@@ -894,12 +895,16 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
     assert(buff != NULL);
     assert(ccnc->spp_ptr != NULL);
     assert(ccnc->spp_ptr->sp != NULL);
+
     if (benchmark_mode > 0) {
         netbench_record_event_simple(nb, TX_A_SP_RN_CS, rts);
     }
 
     if (ccnc->role == RECEIVE_CONNECTION) {
         handle_incoming_packets(b);
+        if (benchmark_mode > 0) {
+            netbench_record_event_simple(nb, RX_ALL_PROCESS, rts);
+        }
     }
 
     if (ccnc->role == TRANSMIT_CONNECTION) {

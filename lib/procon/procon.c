@@ -730,10 +730,11 @@ void sp_print_metadata(struct shared_pool_private *spp)
 {
     assert(spp != NULL);
 //    sp_reload_regs(spp);
-    printf("SPP Q C[%"PRIu8"], R[%"PRIu8"], GRI[%"PRIu64"], GWI[%"PRIu64"] "
+/*    printf("SPP Q C[%"PRIu8"], R[%"PRIu8"], GRI[%"PRIu64"], GWI[%"PRIu64"] "
             "pre_write_id[%"PRIu64"]\n",
             spp->is_creator?1:0, spp->role,
             spp->ghost_read_id, spp->ghost_write_id, spp->pre_write_id);
+*/
     printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
             spp->produce_counter, spp->consume_counter, spp->clear_counter);
     printf("SPP S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
@@ -741,12 +742,13 @@ void sp_print_metadata(struct shared_pool_private *spp)
 
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);
-
+/*
     printf("SP Q len[%"PRIu64"], RI[%"PRIu64"], WI[%"PRIu64"], elem[%"PRIu64"]"
             " free[%"PRIu64"]\n",
             sp->size_reg.value, sp->read_reg.value, sp->write_reg.value,
             sp_queue_elements_count(spp),
             sp_queue_free_slots_count(spp));
+*/
 }
 
 

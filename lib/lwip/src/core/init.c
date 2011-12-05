@@ -546,13 +546,19 @@ uint64_t lwip_packet_drop_count(void)
 void lwip_print_interesting_stats(void)
 {
     netbench_print_event_stat(nb, RE_ALL,            "U: RX ALL", 1);
+    netbench_print_event_stat(nb, RX_ALL_PROCESS ,   "U: RX ALL process", 1);
     netbench_print_event_stat(nb, RE_PBUF_REPLACE,   "U: RX Replace pbuf", 1);
+    netbench_print_event_stat(nb, TX_A_SP_RN_CS, "U: Notification pending", 1);
+
+/*
     netbench_print_event_stat(nb, RE_PBUF_REPLACE_1, "U: RX Replace pbuf_1", 1);
     netbench_print_event_stat(nb, RE_PBUF_REPLACE_2, "U: RX Replace pbuf_2", 1);
     netbench_print_event_stat(nb, RE_PBUF_REPLACE_3, "U: RX Replace pbuf_3", 1);
     netbench_print_event_stat(nb, RE_PBUF_QUEUE,     "U: RX RPL PbufQ", 1);
     netbench_print_event_stat(nb, RE_PKT_RCV_CS,     "U: RX PKT RCV CS", 1);
+*/
 
+/*
     netbench_print_event_stat(nb, TX_SP,         "U: TX send-pt", 1);
     netbench_print_event_stat(nb, TX_SP1,        "U: TX send-pt no-noti", 1);
     netbench_print_event_stat(nb, TX_SPP_FULL,   "U: TX D SPP FUL", 0);
@@ -562,5 +568,7 @@ void lwip_print_interesting_stats(void)
     netbench_print_event_stat(nb, TX_A_SP_RN_T,  "U: TX SP RN T", 1);
     netbench_print_event_stat(nb, TX_SND_PKT_S,  "U: TX SND PKT SLOT", 0);
     netbench_print_event_stat(nb, TX_SND_PKT_C,  "U: TX SND PKTS", 0);
+*/
+
 }
 
