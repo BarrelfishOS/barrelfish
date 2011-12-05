@@ -533,19 +533,15 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     struct shared_pool_private *spp = closure->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
-/*    if (sp_queue_empty(spp)) {
-        return 0;
-    }
-*/
-//    uint64_t ts = rdtsc();
 
     sp_reload_regs(spp);
-    if (!sp_queue_empty(spp)) {
-        // There are no packets
-        while (send_single_pkt_to_driver(cc));
-        sp_reload_regs(spp);
-        ++pkts;
+    if (sp_queue_empty(spp)) {
+        return 0;
     }
+        // There are no packets
+    while (send_single_pkt_to_driver(cc));
+    sp_reload_regs(spp);
+    ++pkts;
 
     if (pkts > 0) {
         if (closure->debug_state_tx == 4) {
@@ -596,10 +592,15 @@ static void do_pending_work(struct ether_binding *b)
     // Check if there are more packets to be sent on wire
     uint64_t pkts = 0;
     pkts = send_packets_on_wire(b);
+    if (closure->debug_state == 4) {
+        netbench_record_event_simple(bm, RE_PENDING_1, ts);
+    }
+
 
 //    printf("do_pending_work: sent packets[%"PRIu64"]\n", pkts);
     // Check if there are more pbufs which are to be marked free
-//    if (pkts > 0) {
+    if (pkts > 0) {
+        uint64_t tts = rdtsc();
         while (handle_free_tx_slot_fn_ptr());
 
         if (sp_queue_full(spp)) {
@@ -607,7 +608,12 @@ static void do_pending_work(struct ether_binding *b)
             // FIXME: Release TX_DONE
             while (handle_free_tx_slot_fn_ptr());
         }
-//    }
+        if (closure->debug_state == 4) {
+        netbench_record_event_simple(bm, RE_PENDING_2, tts);
+    }
+
+
+    }
 
     if (spp->notify_other_side) {
         // Send notification to application, telling that there is

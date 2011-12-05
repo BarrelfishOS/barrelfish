@@ -49,6 +49,7 @@ e1000_t d;  ///< Mackerel state
 static bool user_macaddr; /// True iff the user specified the MAC address
 static bool use_interrupt = true;
 
+#define MAX_ALLOWED_PKT_PER_ITERATION    (0xff)
 #define DRIVER_RECEIVE_BUFFERS   (1024 * 8) // Number of buffers with driver
 #define RECEIVE_BUFFER_SIZE (1600) // MAX size of ethernet packet
 
@@ -555,7 +556,7 @@ static void e1000_interrupt_handler(void *arg)
         printf("no packet\n");
         return;
     }
-    handle_multiple_packets(0xff);
+    handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION);
 
 } // end function: e1000_interrupt_handler
 
@@ -607,7 +608,7 @@ static void polling_loop(void)
 #endif // TRACE_N_BM
 
 
-            if(handle_multiple_packets(0xff) > 0) {
+            if(handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION) > 0) {
                 no_work = false;
             }
 //        }

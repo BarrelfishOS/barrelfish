@@ -86,6 +86,10 @@ static void bm_print_interesting_stats(uint8_t type)
             netbench_print_event_stat(bm, RE_TX_SP_MSG, "D: SP_MSG", 1);
             netbench_print_event_stat(bm, RE_TX_SP_MSG_Q, "D: SP_MSG_Q", 1);
             netbench_print_event_stat(bm, RE_PENDING_WORK, "D: pending wrk", 1);
+            netbench_print_event_stat(bm, RE_PENDING_1, "D: pending 1", 1);
+            netbench_print_event_stat(bm, RE_PENDING_2, "D: pending 2", 1);
+            netbench_print_event_stat(bm, RE_PENDING_2, "D: pending 3", 1);
+            netbench_print_event_stat(bm, RE_PENDING_4, "D: pending 4", 1);
             break;
 
         case 1:

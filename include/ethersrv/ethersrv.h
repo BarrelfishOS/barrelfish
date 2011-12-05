@@ -280,6 +280,10 @@ enum Recorded_Events {
     RE_PROCESSING_ALL, // used
     RE_RX_ALL, // used
     RE_PENDING_WORK,
+    RE_PENDING_1,
+    RE_PENDING_2,
+    RE_PENDING_3,
+    RE_PENDING_4,
 
     RE_TX_NOTI_CS,
     RE_TX_T,

@@ -26,6 +26,7 @@
 static uint64_t sp_atomic_read_reg(union vreg *reg)
 {
 
+#if 0
     volatile uint64_t v1 = 0;
     volatile uint64_t v2 = 0;
     uint8_t tries = 0;
@@ -50,15 +51,18 @@ static uint64_t sp_atomic_read_reg(union vreg *reg)
     } // end for : retrying
     assert (!"atomic read of read index failed");
     return v1;
+#endif // 0
+    return reg->value;
 } // end function: sp_atomic_read_reg
 
 static void sp_atomic_set_reg(union vreg *reg, uint64_t value)
 {
     reg->value = value;
-
+/*
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
+*/
 }
 
 void sp_reload_regs(struct shared_pool_private *spp)
@@ -402,9 +406,11 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
     spp->sp->slot_list[id].d.client_data = client_data;
     spp->sp->slot_list[id].d.ts = ts;
     // copy the s into shared_pool
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
     cache_flush_range(&spp->sp->slot_list[id], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
+#endif // 0
 }
 
 void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
@@ -597,9 +603,11 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
     uint64_t wi = spp->c_write_id;
     sp_copy_slot_data(&spp->sp->slot_list[wi].d, d);
 
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[wi], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
+#endif // 0
 
     // Incrementing write pointer
     assert(sp_set_write_index(spp, ((wi + 1) % spp->c_size)));
@@ -630,9 +638,11 @@ bool sp_ghost_produce_slot(struct shared_pool_private *spp,
     }
 
     sp_copy_slot_data(&spp->sp->slot_list[index].d, d);
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[index], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
+#endif // 0
     // Incrementing write pointer
     spp->ghost_write_id = (index + 1) % spp->c_size;
     /*
@@ -709,16 +719,19 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
     uint64_t ri = spp->c_read_id;
     // swapping the slot_data contents between ri and new_slot
     struct slot_data tmp;
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[ri], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
+#endif // 0
     sp_copy_slot_data(&tmp, &spp->sp->slot_list[ri].d);
     sp_copy_slot_data(&spp->sp->slot_list[ri].d, new_slot);
     sp_copy_slot_data(new_slot, &tmp);
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[ri], SLOT_SIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
-
+#endif // 0
     // Incrementing read index
     assert(sp_set_read_index(spp, ((ri + 1) % spp->c_size)));
     return true;

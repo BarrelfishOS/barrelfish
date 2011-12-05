@@ -966,7 +966,8 @@ static bool handle_application_packet(void *packet, size_t len)
         // Trigger to start the recording the stats
         assert(cl->in_success == 0);
         printf("Actually starting the tracking!!\n");
-        cl->start_ts = rdtsc();
+        ts = rdtsc();
+        cl->start_ts = ts;
         cl->debug_state = 4;
         interrupt_counter = 0;
         total_rx_p_count = 0;
@@ -1071,7 +1072,7 @@ static bool handle_netd_packet(void *packet, size_t len)
 
     struct ether_binding *b = buffer->con;
     if(b == NULL) {
-        printf("netd buffer->con not present\n");
+//        printf("netd buffer->con not present\n");
         return false;
     }
 
