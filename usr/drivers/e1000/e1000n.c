@@ -49,7 +49,8 @@ e1000_t d;  ///< Mackerel state
 static bool user_macaddr; /// True iff the user specified the MAC address
 static bool use_interrupt = true;
 
-#define MAX_ALLOWED_PKT_PER_ITERATION    (0xff)
+//#define MAX_ALLOWED_PKT_PER_ITERATION    (0xff)  // working value
+#define MAX_ALLOWED_PKT_PER_ITERATION    (1023)
 #define DRIVER_RECEIVE_BUFFERS   (1024 * 8) // Number of buffers with driver
 #define RECEIVE_BUFFER_SIZE (1600) // MAX size of ethernet packet
 
@@ -320,6 +321,7 @@ static void setup_internal_memory(void)
 }
 
 
+void bm_print_interesting_stats(uint8_t type);
 static void print_rx_bm_stats(bool stop_trace)
 {
     if (g_cl == NULL) {
@@ -361,6 +363,7 @@ static void print_rx_bm_stats(bool stop_trace)
 
     netbench_print_event_stat(bm, RE_COPY, "D: RX CP T", 1);
     netbench_print_event_stat(bm, RE_PROCESSING_ALL, "D: RX processing T", 1);
+    bm_print_interesting_stats(0);
 } // end function: print_rx_bm_stats
 
 static char tmp_buf[2000];
