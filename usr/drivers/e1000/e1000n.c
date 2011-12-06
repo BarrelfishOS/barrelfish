@@ -49,8 +49,7 @@ e1000_t d;  ///< Mackerel state
 static bool user_macaddr; /// True iff the user specified the MAC address
 static bool use_interrupt = true;
 
-//#define MAX_ALLOWED_PKT_PER_ITERATION    (0xff)  // working value
-#define MAX_ALLOWED_PKT_PER_ITERATION    (1023)
+#define MAX_ALLOWED_PKT_PER_ITERATION    (0xff)  // working value
 #define DRIVER_RECEIVE_BUFFERS   (1024 * 8) // Number of buffers with driver
 #define RECEIVE_BUFFER_SIZE (1600) // MAX size of ethernet packet
 
@@ -308,7 +307,8 @@ static void setup_internal_memory(void)
 
     r = vspace_map_one_frame_attr(&internal_memory_va,
 	    (DRIVER_RECEIVE_BUFFERS - 1)* RECEIVE_BUFFER_SIZE, frame,
-	    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+//	    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+	    VREGION_FLAGS_READ_WRITE, NULL, NULL);
     if (err_is_fail(r)) {
     	assert(!"vspace_map_one_frame failed");
     }
@@ -429,11 +429,16 @@ static bool handle_next_received_packet(void)
             goto end;
         }
 
+#if !defined(__scc__) && !defined(__i386__)
+        cache_flush_range(data, len);
+#endif // !defined(__scc__) && !defined(__i386__)
+
         // FIXME: only to measure performance of accepting incoming packets
         if (g_cl != NULL) {
             if (g_cl->debug_state == 4) {
 
                 uint64_t ts = rdtsc();
+
 //                memcpy_fast(tmp_buf, data, len);
                 process_received_packet(data, len);
                 total_processing_time = total_processing_time +
