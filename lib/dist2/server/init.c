@@ -24,13 +24,14 @@ struct dist_rx_vtbl rpc_rx_vtbl = {
     .del_call = del_handler,
     .exists_call = exists_handler,
     .exists_not_call = exists_not_handler,
+    .watch_call = watch_handler,
     .subscribe_call = subscribe_handler,
     .publish_call = publish_handler,
     .identify_call = identify_rpc_binding,
     .get_identifier_call = get_identifier,
     .unsubscribe_call = unsubscribe_handler,
-    .lock_call = lock_handler,
-    .unlock_call = unlock_handler
+    //.lock_call = lock_handler,
+    //.unlock_call = unlock_handler
 };
 
 

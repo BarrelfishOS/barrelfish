@@ -17,7 +17,6 @@ struct dist_event_binding* get_dist_event_binding(void);
 
 #define MAX_RECORD_LENGTH (5*1024)
 
-
 static inline errval_t allocate_string(char* object, va_list args, size_t* length, char** buf)
 {
 	*length = vsnprintf(NULL, 0, object, args);

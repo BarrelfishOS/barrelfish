@@ -62,3 +62,47 @@ int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
 
     return PSUCCEED;
 }
+
+
+int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
+{
+    printf("p_trigger_watch\n");
+    int res;
+
+    // Get arguments
+    char* record = NULL;
+    res = ec_get_string(ec_arg(1), &record);
+    if (res != PSUCCEED) {
+        return res;
+    }
+    assert(strlen(record)+1 < BUFFER_SIZE); // TODO
+
+    long int mode = 0;
+    res = ec_get_long(ec_arg(2), &mode);
+    if (res != PSUCCEED) {
+        return res;
+    }
+
+    struct dist_reply_state* drs = NULL;
+    res = ec_get_long(ec_arg(3), (long int*) &drs);
+    if (res != PSUCCEED) {
+        return res;
+    }
+    assert(drs != NULL);
+
+    long int watch_id = 0;
+    res = ec_get_long(ec_arg(4), &watch_id);
+    if (res != PSUCCEED) {
+        return res;
+    }
+
+    strcpy(drs->query_state.stdout.buffer, record);
+    debug_printf("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
+
+    drs->error = SYS_ERR_OK;
+    drs->rpc_reply(drs->binding, drs);
+
+    long int retract = drs->type == dist_BINDING_RPC ? 1 : 0;
+    return ec_unify_arg(5, ec_long(retract));
+}
+

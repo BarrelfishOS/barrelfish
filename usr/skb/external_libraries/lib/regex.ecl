@@ -27,20 +27,39 @@
 :- comment(date, "$Date: 2009/02/19 05:45:20 $").
 :- comment(copyright, "Public domain").
 
-:- 	external(compile_pattern/3, ec_regcomp),% (Pattern,Options,Compiled)
+:- export
+	compile_pattern/3,
+	match/2, match/3,
+	match/4,
+	matchsub/4,
+	matchall/4,
+	split/4.
+
+:- get_flag(hostarch, Arch),
+   get_flag(object_suffix, SO),
+   concat_string([Arch,"/eregex.",SO], SOFile),
+   ( exists(SOFile) ->
+       load(SOFile),
+	external(compile_pattern/3, ec_regcomp),% (Pattern,Options,Compiled)
 	external(match/3, ec_regmatch),		% (Pattern,String,Options)
 	external(match/4, ec_regmatch4),	% (Pattern,String,Options,Match)
 	external(matchsub/4, ec_regmatchsub),	% (Pattern,String,Options,Subs)
 	external(matchall/4, ec_regmatchall),	% (Pattern,String,Options,All)
-	external(split/4, ec_regsplit).
-
-:- export
-    compile_pattern/3,
-    match/2, match/3,
-    match/4,
-    matchsub/4,
-    matchall/4,
-    split/4.
+	external(split/4, ec_regsplit)		% (Pattern,String,Options,All)
+   ;
+	% Because of libraries test, don't make error messages at load time
+   	compile_term([
+	    compile_pattern(P,O,C) :- error(141, compile_pattern(P,O,C)),
+	    match(P,S,O) :- error(141, match(P,S,O)),
+	    match(P,S,O,M) :- error(141, match(P,S,O,M)),
+	    matchsub(P,S,O,M) :- error(141, matchsub(P,S,O,M)),
+	    matchall(P,S,O,M) :- error(141, matchall(P,S,O,M)),
+	    split(P,S,O,M) :- error(141, split(P,S,O,M))
+	])
+%   	printf(error,
+%	    "Sorry, library(regex) currently not available on %s architecture%n",
+%	    [Arch])
+   ).
 
 match(Pattern, String) :-
 	match(Pattern, String, []).

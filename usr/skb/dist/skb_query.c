@@ -13,11 +13,14 @@
 #include <dist2_server/debug.h>
 #include <dist2_server/query.h>
 #include <dist2/parser/ast.h>
+#include <dist2/getset.h> // for SET_SEQUENTIAL define
 
 #include "code_generator.h"
 
 #define STDOUT_QID 1
 #define STDERR_QID 2
+static uint64_t watch_id = 0;
+
 
 static errval_t transform_ec_error(int res)
 {
@@ -170,7 +173,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
 }
 
 
-errval_t set_record(struct ast_object* ast, struct dist_query_state* sqs)
+errval_t set_record(struct ast_object* ast, uint64_t mode, struct dist_query_state* sqs)
 {
 	assert(ast != NULL);
 	assert(sqs != NULL);
@@ -180,7 +183,11 @@ errval_t set_record(struct ast_object* ast, struct dist_query_state* sqs)
     errval_t err = transform_record2(ast, &sr);
 	if(err_is_ok(err)) {
 	    // Calling add_object(Name, Attributes)
-        dident add_object = ec_did("add_object", 2);
+	    dident add_object = ec_did("add_object", 2);
+        if(mode & SET_SEQUENTIAL) {
+            add_object = ec_did("add_seq_object", 2);
+        }
+
         pword add_object_term = ec_term(add_object, sr.name, sr.attribute_list);
         ec_post_goal(add_object_term);
 
@@ -215,40 +222,34 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
 }
 
 
-errval_t set_trigger(enum dist_trigger_type type, struct ast_object* ast, struct dist_reply_state* drs)
+errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_state* drs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
     if(err_is_ok(err)) {
-        dident asserta = ec_did("asserta", 1);
-        dident exists = ec_did("exists", 2);
-        dident exists_not = ec_did("exists_not", 2);
-        dident triplet = ec_did("triplet", 3);
+        // Calling set_watch(Name, Attrs, Constraints, Mode,
+        //                   recipient(Binding, ReplyState, WatchId))
+        dident recipient = ec_did("recipient", 3);
+        dident set_watch = ec_did("set_watch", 5);
 
         pword drs_ptr = ec_long((long int) drs);
-        pword triplet_term = ec_term(triplet, sr.attribute_list, sr.constraint_list, drs_ptr);
+        pword binding_ptr = ec_long((long int) drs->binding);
+        pword mode_val = ec_long((long int) mode);
+        pword watch_id_val = ec_long((long int) ++watch_id);
+        pword recipient_term = ec_term(recipient, binding_ptr, drs_ptr, watch_id_val);
+        pword set_watch_term = ec_term(set_watch, sr.name, sr.attribute_list,
+                                       sr.constraint_list, mode_val,
+                                       recipient_term);
 
-        pword asserta_term;
+        ec_post_goal(set_watch_term);
 
-        switch(type) {
-        case TRIGGER_EXISTS:
-            // calling asserta(exists(Name, triplet(Attributes, Constraints, drs)))
-            asserta_term = ec_term(asserta,
-                           ec_term(exists, sr.name, triplet_term));
-            break;
-
-        case TRIGGER_NOT_EXISTS:
-            asserta_term = ec_term(asserta,
-                           ec_term(exists_not, sr.name, triplet_term));
-            break;
-
-        default:
-            assert(!"Unsupported trigger type!");
-            break;
+        err = run_eclipse(&drs->query_state);
+        if(err_is_ok(err)) {
+            drs->watch_id = watch_id;
         }
 
-        ec_post_goal(asserta_term);
-        err = run_eclipse(&drs->query_state);
+        DIST2_DEBUG(" del_record:\n");
+        debug_skb_output(&drs->query_state);
     }
 
     return err;
@@ -263,7 +264,7 @@ static struct dist_event_binding* get_event_binding(struct dist_binding* b)
 
 	// Calling binding(_, X, Binding), write(X).
 	dident binding = ec_did("binding", 3);
-	dident write = ec_did("write", 1);
+	dident write = ec_did("writeln", 1);
 
 	pword bind_term = ec_long((long int) b);
 	pword var_ = ec_newvar();
@@ -366,7 +367,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
 }
 
 
-errval_t set_binding(enum dist_binding_type type, uint64_t id, void* binding)
+errval_t set_binding(dist_binding_type_t type, uint64_t id, void* binding)
 {
     struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
     if(dqs == NULL) {
@@ -375,11 +376,11 @@ errval_t set_binding(enum dist_binding_type type, uint64_t id, void* binding)
 
     dident set_binding;
     switch(type) {
-    case DIST_BINDING_RPC:
+    case dist_BINDING_RPC:
         set_binding = ec_did("set_rpc_binding", 2);
         break;
 
-    case DIST_BINDING_EVENT:
+    case dist_BINDING_EVENT:
         set_binding = ec_did("set_event_binding", 2);
         break;
 

@@ -20,7 +20,6 @@
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
 #include <dist2/dist2.h>
-
 int id = 0;
 
 static errval_t get_set_test(void)

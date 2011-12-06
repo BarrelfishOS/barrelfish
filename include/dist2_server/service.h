@@ -30,15 +30,21 @@ struct dist_reply_state {
     bool return_record;
     errval_t error;
 
+    // For watch()
+    dist_binding_type_t type;
+    uint64_t client_id;
+    uint64_t watch_id;
+
     struct dist_reply_state *next;
 };
 
-void get_names_handler(struct dist_binding*, char*, int id);
+void get_names_handler(struct dist_binding*, char*);
 void get_handler(struct dist_binding*, char*);
-void set_handler(struct dist_binding*, char*, uint64_t, bool, int id);
-void del_handler(struct dist_binding*, char*, int id);
-void exists_handler(struct dist_binding*, char*, bool, bool);
-void exists_not_handler(struct dist_binding* b, char*, bool, int id);
+void set_handler(struct dist_binding*, char*, uint64_t, bool);
+void del_handler(struct dist_binding*, char*);
+void exists_handler(struct dist_binding*, char*, bool);
+void exists_not_handler(struct dist_binding* b, char*, bool);
+void watch_handler(struct dist_binding* b, char* query, uint64_t mode, dist_binding_type_t type, uint64_t client_id);
 
 void subscribe_handler(struct dist_binding*, char*, uint64_t);
 void publish_handler(struct dist_binding*, char*);

@@ -34,6 +34,12 @@ int main(int argc, char *argv[])
 
     char* obj = NULL;
 
+    err = dist_wait_for(DIST_ON_SET | DIST_ON_DEL, &obj, "object3");
+    DEBUG_ERR(err, "dist_wait_for returned");
+    assert(err_is_ok(err));
+    debug_printf("exist test got obj: %s\n", obj);
+    free(obj);
+
     err = dist_exists_not(true, "unexistingObjectname");
     assert(err_is_ok(err));
     printf("dist_exists_not done\n");
@@ -55,7 +61,7 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "dist_exists");
         abort();
     }
-    ASSERT_STRING(obj, "object3 { fl: 12.0, weight: 9, attr: A text string. }");
+    ASSERT_STRING(obj, "object3 { attr: A text string., weight: 9, fl: 12.0 }");
     free(obj);
 
     err = dist_exists_not(true, "object1");

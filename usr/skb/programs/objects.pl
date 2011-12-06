@@ -8,12 +8,13 @@
 :- dynamic object/2.
 :- dynamic exists/2.
 :- dynamic exists_not/2.
+:- dynamic watch/2.
 
-
-%lib(regex).
+%:- lib(regex).
 %:- include("../data/objects.txt").
 
 is_empty([]).
+last(List, Last) :- append(_, [Last], List).
 
 print_names([]) :-
     flush(1),
@@ -33,23 +34,6 @@ print_object(X) :-
 	write(Out),
 	flush(1),
 	flush(2).
-
-print_slots([]).
-print_slots([S]) :-
-    print_slot(S).
-print_slots([S|Rest]) :-
-	print_slot(S),
-	write(', '),
-	print_slots(Rest).
-
-print_slot(Attr::FacetList) :-
-	facet_val(req(_, Attr, val, X), FacetList), 
-	write(Attr),
-	write(': '),
-	write(X).
-
-
-
 
 format_object(object(Thing, SlotList), O4) :-
     atom_string(Thing, StrThing),
@@ -163,13 +147,41 @@ facet_val(req(T, S, val, V), FacetList) :-
 	call(CalcPred).
 
 
+next_sequence(Name, NextSeq) :-
+    findall(X, get_object(X, [], [], _), L),
+    get_sequences(Name, L, Seqs),
+    sort(Seqs, SortedSeqs),
+    last(SortedSeqs, LastSeq),
+    NextSeq is LastSeq + 1.
+next_sequence(Name, NextSeq) :- NextSeq is 0.
+
+get_sequences(_, [], []). 
+get_sequences(Name, [X|L], [SeqNr|Res]) :-
+    atom_string(Name, StrName),
+    atom_string(X, StrX),
+    substring(StrX, StrName, 1),
+    split(StrName, X, [], Splits),
+    length(Splits, SplitLen),
+    SplitLen == 3,
+    last(Splits, Seq),
+    number_string(SeqNr, Seq),
+    get_sequences(Name, L, Res).
+
+add_seq_object(Thing, UList) :-
+    next_sequence(Thing, Seq),
+    number_string(Seq, SeqStr),
+    atom_string(Thing, ThingStr),
+    append_strings(ThingStr, SeqStr, ThingSeqStr),
+    atom_string(ThingSeq, ThingSeqStr),
+    add_object(ThingSeq, UList).
+
 add_object(Thing, UList) :-
 	old_slots(Thing, SlotList),
 	add_slots(Thing, UList, SlotList, NewList),
 	retract(object(Thing, _)),
 	asserta(object(Thing, NewList)),
 	!,
-	check_triggers(object(Thing, NewList)),
+    trigger_watches(object(Thing, NewList), 1),
 	print_object(object(Thing, NewList)).
 	
 old_slots(Thing, SlotList) :-
@@ -220,13 +232,13 @@ add_newval(_, Val, Val).
 del_object(Thing) :-
     old_slots(Thing, SlotList),
     retract(object(Thing, _)),
-    check_triggers(object(Thing, SlotList)).
+    trigger_watches(object(Thing, SlotList), 2).
 del_object(Thing, UList) :-
 	old_slots(Thing, SlotList), 
 	del_slots(Thing, UList, SlotList, NewList),
 	retract(object(Thing, _)), 
 	asserta(object(Thing, NewList)),
-	check_triggers(object(Thing, SlotList)).
+	trigger_watches(object(Thing, SlotList), 2).
 
 del_slots(T, [], X, X).
 del_slots(T, [U|Rest], SlotList, NewList) :-
@@ -263,53 +275,40 @@ del_facet(Req, _, _) :-
     error(['del_facet - unable to remove', Req]).
 
 
-check_triggers(object(T, AttrList)) :-
-    find_exist_triggers(T, L1),
+%
+% Watches
+%
+%trigger_watch(Object, Mode, ReplyState, WatchId, Retract) :-
+%    write(Object), write(ReplyState),
+%    Retract is 0.
+
+set_watch(Name, Attrs, Constraints, Mode, Recipient) :-
+    asserta(watch(Name, triplet(template(Name, Attrs, Constraints), Mode, Recipient))).
+
+trigger_watches(Object, Mode) :-
+    find_watches(Object, Watches),
+    check_watches(Object, Mode, Watches).
+
+find_watches(object(Name, Attrs), L) :-
+    coverof(X, watch(Name, X), L), !.
+find_watches(_, []).
+
+check_watches(_, _, []).
+check_watches(Object, Mode, [W|Rest]) :-
+    check_watch(Object, Mode, W),
+    check_watches(Object, Mode, Rest).
+
+check_watch(object(Name, Attrs), Mode, triplet(template(Name, TAttrs, TConstraint), WMode, recipient(Binding, ReplyState, WatchId))) :-
+    Mode /\ WMode > 0,
+    slot_vals(Name, TAttrs, Attrs),
+    satisfy_constraints(TConstraint, Attrs),
     !,
-    check_exist_triggers(object(T, AttrList), L1),
-    find_exist_not_triggers(T, L2),
-    check_exist_not_triggers(object(T, AttrList), L2).
-check_triggers(_).
+    format_object(object(Name, Attrs), Output),
+    trigger_watch(Output, Mode, ReplyState, WatchId, Retract),
+    try_retract(Retract, WatchId).
+check_watch(_, _, _).
 
-check_exist_triggers(_, []).
-check_exist_triggers(object(Name, AttrList), [triplet(Attrs, Constraints, ReplyState)|Rest]) :-
-    trigger_exist(Name, Attrs, Constraint, Object, ReplyState),
-    retract(exists(_, triplet(_, _, ReplyState))),
-    check_exist_triggers(Name, Rest).
-
-trigger_exist(Name, Attrs, Constraints, Object, ReplyState) :-
-    get_object(Name, Attrs, Constraints, Object), !,
-    format_object(Object, Output),
-    notify_client(Output, ReplyState).
-trigger_exist(_, _, _, _, _).
-
-check_exist_not_triggers(_, []).
-check_exist_not_triggers(object(Name, AttrList), [triplet(Attrs, Constraints, ReplyState)|Rest]) :-
-    trigger_exist_not(Name, Attrs, Constraint, object(Name, AttrList), ReplyState),
-    retract(exists_not(_, triplet(_, _, ReplyState))),
-    check_exist_not_triggers(Name, Rest).
-
-trigger_exist_not(Name, Attrs, Constraints, Object, ReplyState) :-
-    not(get_object(Name, Attrs, Constraints, _)), !,
-    format_object(Object, Output),
-    notify_client(Output, ReplyState).
-trigger_exist_not(_, _, _, _, _).
-
-
-%notify_client(Object, ReplyState) :-
-%    write(Object).
-
-%add_watch(Thing, Attrs, Constraints, Binding) :-
-%    asserta(exists(Thing, triplet(Attrs, Constraints, ReplyState))).
-
-find_exist_triggers(Name, L) :-
-    coverof(X, exists(Name, X), L).
-find_exist_triggers(_, []).
-
-find_exist_not_triggers(Name, L) :-
-    coverof(X, exists_not(Name, X), L).
-find_exist_not_triggers(_, []).
-
-
-
-
+try_retract(1, WatchId) :-
+    retract(watch(_, triplet(_, _, recipient(_, _, WatchId)))).
+try_retract(0, _).    
+    
