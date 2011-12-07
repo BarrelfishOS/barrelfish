@@ -378,9 +378,10 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     sp_reload_regs(closure->spp_ptr);
     if (buffer->role == RX_BUFFER_ID) {
 
-        uint64_t count = add_new_pbufs_2_app_ring(cc, closure->spp_ptr,
+        uint64_t count = 0;
+        count = add_new_pbufs_2_app_ring(cc, closure->spp_ptr,
                 buffer->buffer_id);
-        printf("#### Register_buffer: added %"PRIu64" pbufs\n", count);
+//        printf("#### Register_buffer: added %"PRIu64" pbufs\n", count);
     }
     report_register_buffer_result(cc, err, buffer->buffer_id);
 }

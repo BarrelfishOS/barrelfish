@@ -453,7 +453,7 @@ static errval_t send_buffer_cap(struct q_entry e)
     	trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_A_BUFC, 0);
 #endif // LWIP_TRACE_MODE
 */
-        printf("send_buffer_cap: sending register_buffer\n");
+//        printf("send_buffer_cap: sending register_buffer\n");
         errval_t err = b->tx_vtbl.register_buffer(b,
                           MKCONT(cont_queue_callback, ccnc->q),
                           e.cap, spp->cap, spp->sp->size_reg.value,
@@ -462,8 +462,6 @@ static errval_t send_buffer_cap(struct q_entry e)
         /* buf_cap, sp_cap, slot_no, role */
         if (err_is_fail(err)) {
             printf("send_buffer_cap: failed\n");
-        } else {
-            printf("send_buffer_cap: success!!\n");
         }
         return err;
     } else {
@@ -481,7 +479,6 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
     struct q_entry entry;
 
     LWIPBF_DEBUG("idc_register_buffer for binding %d called\n", binding_index);
-    printf("idc_register_buffer for binding %d called\n", binding_index);
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_buffer_cap;
     entry.fname = "send_buffer_cap";
@@ -523,7 +520,6 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
     enqueue_cont_q(ccnc->q, &entry);
 
     LWIPBF_DEBUG("idc_register_buffer: terminated\n");
-    printf("idc_register_buffer: terminated\n");
 }
 
 int lwip_check_sp_capacity(int direction)

@@ -100,8 +100,9 @@ static void rx_populate_sp_pbuf(struct buffer_desc *buf)
         copy_data_into_slot(buf->spp_prv, buf->buffer_id, i, offset, p->len, 1,
                 (uint64_t)p, ts);
     } // end for:
-    printf("pbuf is from buff %"PRIu64" -----\n", buf->buffer_id);
-    printf("Added %"PRIu64" no of pbufs for receiving in SP ---\n", i);
+//    printf("pbuf is from buff %"PRIu64" -----\n", buf->buffer_id);
+//    printf("Added %"PRIu64" no of pbufs for receiving in SP ---\n", i);
+
 } // end function: put_pbufs_in_shared_pool
 
 
@@ -139,7 +140,7 @@ uint8_t *mem_barrelfish_alloc(uint8_t binding_index, uint32_t size)
     LWIPBF_DEBUG("bulk_create success!!!\n");
 
     buf->va = bt_packet.mem;
-    printf("mem_barrelfish_alloc: VA addr [%p]\n",
+    LWIPBF_DEBUG("mem_barrelfish_alloc: VA addr [%p]\n",
             buf->va);
 
     struct frame_identity f;

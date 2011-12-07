@@ -72,7 +72,7 @@ static void print_app_stats(struct buffer_descriptor *buffer)
 } // end function: reset_stats
 
 
-void bm_print_interesting_stats(uint8_t type)
+static void bm_print_interesting_stats(uint8_t type)
 {
     switch (type) {
         case 0:

@@ -273,8 +273,9 @@ static u16_t pbuf_pool_counter = 0;
  */
 void memp_init(void)
 {
-    printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
-           RX_BUFFER_ID);
+
+//    printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
+//           RX_BUFFER_ID);
 
     memp_memory = NULL;
     memp_memory =
@@ -283,7 +284,7 @@ void memp_init(void)
         fprintf(stderr, "could not allocate memory");
         abort();
     }
-    printf("memp_init: allocated memory is at VA [%p]\n", memp_memory);
+//    printf("memp_init: allocated memory is at VA [%p]\n", memp_memory);
 
     memp_initialize_pbuf_list();
     mem_barrelfish_register_buf(RX_BUFFER_ID, memp_memory_size);
@@ -328,7 +329,7 @@ void memp_initialize_pbuf_list(void)
         }
     }
     // Set how many free pbuf_pools are there
-    printf("memp_num[PBUF_POOL] %" PRIu16 "\n", memp_num[MEMP_MAX - 1]);
+//    printf("memp_num[PBUF_POOL] %" PRIu16 "\n", memp_num[MEMP_MAX - 1]);
     pbuf_pool_counter = 0;
 #if MEMP_OVERFLOW_CHECK
     memp_overflow_init();

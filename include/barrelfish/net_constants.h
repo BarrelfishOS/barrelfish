@@ -96,6 +96,8 @@ enum buffer_memory_types {
 
 
 #else // CONFIG_QEMU_NETWORK
+
+//  ##################################################################
 //  This is setup for n1000 card running on real hardware
 #ifndef MEM_SIZE
 #define MEM_SIZE                (60*1024*1024)

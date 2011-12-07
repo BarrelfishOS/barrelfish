@@ -319,9 +319,10 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
             (uint64_t)mem_size, spp->mem_size, spp->role,
             spp->alloted_slots);
 
-            printf("##### procon sizeof spp[%lu], sizeof sp[%lu]\n",
+/*            printf("##### procon sizeof spp[%lu], sizeof sp[%lu]\n",
                     sizeof(struct shared_pool_private),
                     sizeof(struct shared_pool) );
+*/
     return spp;
 } // end function: sp_create_shared_pool
 

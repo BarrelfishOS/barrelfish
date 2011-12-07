@@ -253,6 +253,7 @@ static void link_status_change(struct netif *nf)
         }
     } else {
         // warning: some regression tests depend upon the format of this message
+        printf("##########################################\n");
         printf("Interface up! IP address %d.%d.%d.%d\n",
                ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
                ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
@@ -309,12 +310,7 @@ int32_t filter_len_rx, filter_len_tx;
 
 static struct bulk_transfer bt_filter_tx;
 
-bool filter_mem_lock = false;   /* protects the above filter memory within netd */
-
-
-
-/*************************************************************/
-
+bool filter_mem_lock = false; // protects the above filter memory within netd
 
 
 /************************************************************************/

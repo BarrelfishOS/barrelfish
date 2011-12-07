@@ -321,7 +321,6 @@ static void setup_internal_memory(void)
 }
 
 
-void bm_print_interesting_stats(uint8_t type);
 static void print_rx_bm_stats(bool stop_trace)
 {
     if (g_cl == NULL) {
@@ -363,7 +362,6 @@ static void print_rx_bm_stats(bool stop_trace)
 
     netbench_print_event_stat(bm, RE_COPY, "D: RX CP T", 1);
     netbench_print_event_stat(bm, RE_PROCESSING_ALL, "D: RX processing T", 1);
-    bm_print_interesting_stats(0);
 } // end function: print_rx_bm_stats
 
 static char tmp_buf[2000];
@@ -433,7 +431,11 @@ static bool handle_next_received_packet(void)
         cache_flush_range(data, len);
 #endif // !defined(__scc__) && !defined(__i386__)
 
-        // FIXME: only to measure performance of accepting incoming packets
+        process_received_packet(data, len);
+
+#if 0
+        // This code is useful for RX micro-benchmark
+        // only to measures performance of accepting incoming packets
         if (g_cl != NULL) {
             if (g_cl->debug_state == 4) {
 
@@ -443,7 +445,6 @@ static bool handle_next_received_packet(void)
                 process_received_packet(data, len);
                 total_processing_time = total_processing_time +
                     (rdtsc() - ts);
-//                netbench_record_event_simple(bm, RE_COPY, ts);
 
             } else {
                 process_received_packet(data, len);
@@ -451,6 +452,7 @@ static bool handle_next_received_packet(void)
         } else {
             process_received_packet(data, len);
         }
+#endif // 0
 
     } // end if: valid packet received
     else {
@@ -475,11 +477,12 @@ static bool benchmark_complete = false;
 static uint64_t pkt_size_limit = (1024 * 1024 * 1024); // 1GB
 // static uint64_t pkt_limit = 810000;
 // static uint64_t start_pkt_limit = 13000;
+
 static uint64_t handle_multiple_packets(uint64_t upper_limit)
 {
     uint64_t ts = rdtsc();
-
-    uint8_t local_pkt_count = 0;
+    uint8_t local_pkt_count;
+    local_pkt_count = 0;
 
     while(handle_next_received_packet()) {
         ++total_rx_p_count;
@@ -500,20 +503,6 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
             }
         }
 
-/*
-        if (total_rx_p_count % 50000 == 0) {
-            // print only if benchmark is over
-            if (total_rx_p_count > pkt_limit) {
-                print_rx_bm_stats(false);
-            }
-
-        }
-*/
-/*
-        if (total_rx_p_count == start_pkt_limit) {
-            break;
-        }
-*/
         ++local_pkt_count;
         if (local_pkt_count == upper_limit) {
             break;
@@ -521,18 +510,6 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
     } // end while:
 
     netbench_record_event_simple(bm, RE_PROCESSING_ALL, ts);
-/*
-    if (total_rx_p_count == start_pkt_limit) {
-        if (g_cl != NULL) {
-            if (g_cl->debug_state == 4) {
-#if TRACE_N_BM
-                // stopping the tracing
-               trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_START, 0);
-#endif // TRACE_N_BM
-            }
-        }
-    } // end if: start_pkt_limit
-*/
     return local_pkt_count;
 
 } // end function: handle_multiple_packets
@@ -582,23 +559,17 @@ static void polling_loop(void)
     uint64_t poll_count = 0;
     uint8_t jobless_iterations = 0;
     bool no_work = true;
+
     while (1) {
         no_work = true;
-
         ++poll_count;
-//    E1000N_DPRINT("polling_loop:  count [%"PRIu64"], pkt no. [%"PRIu64"]\n",
-//           poll_count, total_rx_p_count);
 
-//    	printf("polling loop: waiting for event\n");
-//        while(handle_free_TX_slot_fn());
         ts = rdtsc();
         do_pending_work_for_all();
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
-//        handle_free_TX_slot_fn();
 
-
-//        err = event_dispatch(ws);
-        err = event_dispatch_non_block(ws);
+//        err = event_dispatch(ws); // blocking
+        err = event_dispatch_non_block(ws); // nonblocking
         if (err != LIB_ERR_NO_EVENT) {
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "in event_dispatch_non_block");
@@ -609,17 +580,15 @@ static void polling_loop(void)
             }
         }
 
-
 #if TRACE_N_BM
         trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_POLL,
                 poll_count);
 #endif // TRACE_N_BM
 
 
-            if(handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION) > 0) {
-                no_work = false;
-            }
-//        }
+        if(handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION) > 0) {
+            no_work = false;
+        }
 
         if (no_work) {
             ++jobless_iterations;
@@ -628,7 +597,7 @@ static void polling_loop(void)
                     thread_yield();
                 }
             }
-        }
+        } // end if: no work
 
     } // end while: 1
 } // end function : polling_loop
@@ -653,7 +622,6 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 /*****************************************************************
  * Main:
  ****************************************************************/
-
 int main(int argc, char **argv)
 {
     char *service_name = 0;
@@ -697,11 +665,12 @@ int main(int argc, char **argv)
         if(strncmp(argv[i],"mac=",strlen("mac=")-1)==0) {
             if (parse_mac(macaddr, argv[i] + strlen("mac="))) {
                 user_macaddr = true;
-                E1000N_DEBUG("MAC = %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+                E1000N_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
                              macaddr[0], macaddr[1], macaddr[2],
                              macaddr[3], macaddr[4], macaddr[5]);
             } else {
-                fprintf(stderr, "%s: Error parsing MAC address '%s'\n", argv[0], argv[i]);
+                fprintf(stderr, "%s: Error parsing MAC address '%s'\n",
+                        argv[0], argv[i]);
                 return 1;
             }
         }
@@ -738,9 +707,9 @@ int main(int argc, char **argv)
                                     PCI_DONT_CARE, PCI_DONT_CARE, function,
                                     e1000_interrupt_handler, NULL);
     } else {
-        r = pci_register_driver_noirq(e1000_init, PCI_CLASS_ETHERNET, PCI_DONT_CARE,
-                                      PCI_DONT_CARE, PCI_VENDOR_INTEL, deviceid,
-                                      PCI_DONT_CARE, PCI_DONT_CARE, function);
+        r = pci_register_driver_noirq(e1000_init, PCI_CLASS_ETHERNET,
+                    PCI_DONT_CARE, PCI_DONT_CARE, PCI_VENDOR_INTEL, deviceid,
+                    PCI_DONT_CARE, PCI_DONT_CARE, function);
     }
     if(err_is_fail(r)) {
         DEBUG_ERR(r, "pci_register_driver");
@@ -749,4 +718,5 @@ int main(int argc, char **argv)
     E1000N_DEBUG("registered driver\n");
 
     polling_loop(); //loop myself
-}
+} // end function: main
+
