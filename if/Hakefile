@@ -67,6 +67,8 @@
       | f <- [ "bench",
                "ping_pong",
                "mem",
-               "xmplthc" ],
+               "xmplthc",
+               "dist",
+               "dist_event" ],
              arch <- allArchitectures
 ]

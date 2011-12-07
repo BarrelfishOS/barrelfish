@@ -25,6 +25,21 @@
  *
  */
 
+
+/*
+typedef void(*dist_trigger_fn)(watchid_t id, char* record, void* arg);
+
+
+struct dist2_trigger {
+    uint64_t type; // ON_SET | ON_DEL
+    char* record;
+    void* state;
+
+    // Private state
+    bool handle_async;
+    dist_trigger_fn handler_func;
+};
+*/
 extern int id;
 
 errval_t dist_lock(char* ressource, char** lock_record)
@@ -33,7 +48,7 @@ errval_t dist_lock(char* ressource, char** lock_record)
 	errval_t err = SYS_ERR_OK;
 	char* name = NULL;
 
-    err = dist_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }", ressource, ressource, id);
+    err = dist_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }", ressource, ressource);
     assert(err_is_ok(err));
     debug_printf("id:%d set lock: %s\n", id, *lock_record);
 
@@ -45,7 +60,7 @@ errval_t dist_lock(char* ressource, char** lock_record)
     size_t len = 0;
 
     while(true) {
-        err = dist_get_names(&names, &len, "_ { lock: '%s' }", ressource, id);
+        err = dist_get_names(&names, &len, "_ { lock: '%s' }", ressource);
         assert(err_is_ok(err));
 
         debug_printf("id:%d lock queue:\n", id);
@@ -62,11 +77,12 @@ errval_t dist_lock(char* ressource, char** lock_record)
 
         if(i == 0) {
             // We are the lock owner
+            dist_free_names(names, len);
             break;
         }
         else {
             debug_printf("id:%d waiting for deletion: %s\n", id, names[i-1]);
-            err = dist_exists_not(true, "%s { lock: '%s' }", names[i-1], ressource, id);
+            err = dist_exists_not(true, "%s { lock: '%s' }", names[i-1], ressource);
             assert(err_is_ok(err));
         }
 

@@ -33,5 +33,13 @@
   build application { target = "d2locksimple",
                       cFiles = [ "locksimple.c" ],
                       addLibraries = [ "dist2", "dist_parser", "skb" ]
+                    },
+
+  build application { target = "d2thc",
+                      cFiles = [ "thc.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ],
+                      flounderDefs = [ "dist", "dist_event" ],
+                      flounderBindings = [ "dist", "dist_event" ],
+                      flounderTHCStubs = [ "dist", "dist_event" ]
                     }
 ]
