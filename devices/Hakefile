@@ -41,7 +41,7 @@
            "tulip",
            "uhci",
            "x2apic",
-           "x86_64_pagetable"
+           "amd64"
          ], arch <- allArchitectures
 ] ++
 

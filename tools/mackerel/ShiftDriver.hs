@@ -461,8 +461,9 @@ device_struct_shadow_field rt =
       C.Param t (device_shadow_field_name rt)
 
 device_initial_values :: Dev.Rec -> [ C.Unit ] 
+device_initial_values d@( Dev.Rec{ Dev.registers = [] } )
+    = [ C.Blank, C.Comment "No registers in this device", C.Blank ]
 device_initial_values d
-                      
     = [ C.Blank, 
         C.MultiComment ["Initial register values (currently 0)"],
         C.EnumDecl (device_initial_enum_name d)

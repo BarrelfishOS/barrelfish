@@ -116,7 +116,8 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	mc_disable	= 0x0;
     };
     register mcg_ctl rw msr(0x17b) "Global machine check control" 
-	type(mcg_ctl_val);
+	type(uint64);
+	// type(mcg_ctl_val);
 
     // 14.3.2.5
     register mcg_rax rwzc msr(0x180) "State of RAX at MC" type(uint64);
@@ -152,7 +153,10 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	ms_ec		16 "Model-specific error code";
 	other		21 "Other information";
 	tbes		2 type(tbtrk) "Threshold-based error status";
-	_		2;
+	_		2 mbz; // Seems to need to be written zero to
+			       // work (otherwise a GPF) but doesn't
+			       // always read as zero on 
+			       // some AMD-based processors. 
 	pcc		1 "Processor context corrupt";
 	addrv		1 "MCi_ADDR register valid";
 	miscv		1 "MCi_MISC register valid";

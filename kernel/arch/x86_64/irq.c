@@ -491,6 +491,36 @@ errval_t irq_table_delete(unsigned int nidt)
     }
 }
 
+
+static const char *exception_names[32] = {
+    "#DE: divide error",
+    "#DB: debug exception",
+    "NMI: non-maskable interrupt",
+    "#BP: breakpoint",
+    "#OF: overflow", 
+    "#BR: BOUND range exceeded",
+    "#UD: invalid opcode",
+    "#NM: device not available",
+
+    "#DF: double fault",
+    "CSO: coprocessor segment overrun",
+    "#TS: invalid TSS",
+    "#NP: segment not present",
+    "#SS: stack fault",
+    "#GP: general protection fault",
+    "#PF: page fault",
+    "<reserved to intel",
+   
+    "#MF: x87 FPU floating-point error",
+    "#AC: alignment check",
+    "#MC: machine check",
+    "#XF: SIMD floating-point exception",
+    "<reserved to intel",
+    "<reserved to intel",
+    "<reserved to intel",
+    "<reserved to intel"
+};
+
 /**
  * \brief Handles kernel exceptions
  *
@@ -499,62 +529,39 @@ errval_t irq_table_delete(unsigned int nidt)
  * \param gdb_save_frame Pointer to save area for registers stacked by trap handler
  */
 static __attribute__ ((used,noreturn))
-    void generic_handle_kernel_exception(int vec, uint64_t error,
+    void generic_handle_kernel_exception(uint64_t vec, uint64_t error,
                                          uintptr_t *gdb_save_frame)
 {
     lvaddr_t fault_address;
 
     if (vec == 666) {
-        panic("unhandled kernel exception");
+        panic("unhandled kernel exception (vector 666)");
     }
 
     assert(vec < NEXCEPTIONS);
 
-    printk(LOG_PANIC, "exception %d (error code 0x%lx): ", vec, error);
+    printk(LOG_PANIC, "exception %d (error code 0x%lx): ", (int)vec, error);
 
     switch(vec) {
     case 0:     // Divide Error (#DE)
-        printf("divide error\n");
-        break;
     case 1:     // Debug Exception (#DB)
-        printf("debug exception\n");
-        break;
     case 2:     // NMI Interrupt
-        printf("NMI Interrupt\n");
-        break;
     case 3:     // Breakpoint (#BP)
-        printf("breakpoint\n");
-        break;
     case 4:     // Overflow (#OF)
-        printf("overflow\n");
-        break;
     case 5:     // BOUND Range Exceeded (#BR)
-        printf("BOUND Range Exceeded\n");
-        break;
     case 6:     // Invalid Opcode (#UD)
-        printf("invalid opcode\n");
-        break;
     case 7:     // Device Not Available (#NM)
-        printf("device not available\n");
-        break;
     case 8:     // Double fault (#DF)
-        printf("double fault\n");
-        break;
     case 9:     // Coprocessor Segment Overrun
-        printf("coprocessor segment overrun\n");
-        break;
     case 10:    // Invalid TSS (#TS)
-        printf("invalid TSS\n");
-        break;
     case 11:    // Segment Not Present (#NP)
-        printf("segment not present\n");
-        break;
     case 12:    // Stack Fault (#SS)
-        printf("stack fault\n");
-        break;
     case 13:    // General Protection Fault (#GP)
-        printf("general protection fault\n");
+    case 17:    // Alignment Check Exception (#AC)
+    case 18:    // Machine check (#MC)
+        printf("%s\n", exception_names[vec]);
         break;
+	
     case 14:    // Page Fault (#PF)
         printf("%s page fault due to %s%s, while in %s mode%s\n",
                error & ERR_PF_READ_WRITE ? "write" : "read",
@@ -568,12 +575,6 @@ static __attribute__ ((used,noreturn))
                        : [fault_address] "=r" (fault_address));
         printf("Address that caused the fault: 0x%lx\n", fault_address);
         break;
-    case 17:    // Alignment Check Exception (#AC)
-        printf("alignment check exception\n");
-        break;
-    case 18:    // Machine check (#MC)
-        printf("machine check exception\n");
-        break;
 
     default:
         printf("unhandled exception!\n");
@@ -582,36 +583,42 @@ static __attribute__ ((used,noreturn))
 
     // Print faulting instruction pointer
     uintptr_t rip = gdb_save_frame[GDB_X86_64_RIP_REG];
-    printf("Faulting instruction pointer (or following instruction): "
-           "0x%lx (0x %lx in binary)\n", rip,
+    printf("Faulting instruction pointer (or next instruction): 0x%lx\n", rip);
+    printf("  => i.e. unrelocated kernel address 0x%lx\n", 
            rip - (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS);
-
-    // Print some important registers
-    printf("RAX %lx RBX %lx RCX %lx RDX %lx RSP %lx RDI %lx RSI %lx\n",
+    
+    printf("Registers:\n");
+    printf(" rax: 0x%016lx  r8 : 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RAX_REG],
+           gdb_save_frame[GDB_X86_64_R8_REG]);
+    printf(" rbx: 0x%016lx  r9 : 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RBX_REG],
+           gdb_save_frame[GDB_X86_64_R9_REG]);
+    printf(" rcx: 0x%016lx  r10: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RCX_REG],
+           gdb_save_frame[GDB_X86_64_R10_REG]);
+    printf(" rdx: 0x%016lx  r11: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RDX_REG],
+           gdb_save_frame[GDB_X86_64_R11_REG]);
+    printf(" rsp: 0x%016lx  r12: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RSP_REG],
+           gdb_save_frame[GDB_X86_64_R12_REG]);
+    printf(" rdi: 0x%016lx  r13: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RDI_REG],
-           gdb_save_frame[GDB_X86_64_RSI_REG]);
-    printf("R8-R15: %lx %lx %lx %lx %lx %lx %lx %lx\n",
-           gdb_save_frame[GDB_X86_64_R8_REG],
-           gdb_save_frame[GDB_X86_64_R9_REG],
-           gdb_save_frame[GDB_X86_64_R10_REG],
-           gdb_save_frame[GDB_X86_64_R11_REG],
-           gdb_save_frame[GDB_X86_64_R12_REG],
-           gdb_save_frame[GDB_X86_64_R13_REG],
-           gdb_save_frame[GDB_X86_64_R14_REG],
+           gdb_save_frame[GDB_X86_64_R13_REG]);
+    printf(" rsi: 0x%016lx  r14: 0x%016lx\n", 
+           gdb_save_frame[GDB_X86_64_RSI_REG],
+           gdb_save_frame[GDB_X86_64_R14_REG]);
+    printf(" rip: 0x%016lx  r15: 0x%016lx\n", 
+           gdb_save_frame[GDB_X86_64_RIP_REG],
            gdb_save_frame[GDB_X86_64_R15_REG]);
 
     // Print the top 10 stack words
     printf("Top o' stack:\n");
     for(int i = 0; i < 10; i++) {
         unsigned long *p = (unsigned long *)gdb_save_frame[GDB_X86_64_RSP_REG] + i;
-        printf("0x%lx ", *p);
+        printf(" %d \t 0x%016lx (%lu)\n", i, *p, *p);
     }
-    printf("\n");
 
     // Drop to the debugger
     gdb_handle_exception(vec, gdb_save_frame);

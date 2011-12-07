@@ -225,12 +225,6 @@ void apic_init(void)
     }
 #endif
 
-#if 0 // Dump the APIC
-    static char prtbuf[1000];
-    xapic_pr(prtbuf,sizeof(prtbuf),&apic);
-    printf("%.*s", (int)sizeof(prtbuf), prtbuf);
-#endif
-
 #if !defined(__scc__) || defined(RCK_EMU)
     // enable the thing, if it wasn't already!
     if (!(ia32_apic_base_global_extract(apic_base_msr))) {
