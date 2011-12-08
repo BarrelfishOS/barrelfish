@@ -186,11 +186,13 @@ static void http_server_err(void *arg, err_t err)
 
 static void http_server_close(struct tcp_pcb *tpcb, struct http_conn *cs)
 {
+/*
     printf("%s %s %s %hu.%hu.%hu.%hu in %"PU"\n",
             cs->hbuff->data ? "200" : "404", cs->request, cs->filename,
            ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
            ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip),
             in_seconds(get_time_delta(&cs->start_ts)));
+*/
     DEBUGPRINT("%d: http_server_close freeing the connection\n",
         conn->request_no);
 
