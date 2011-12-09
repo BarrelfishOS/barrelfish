@@ -66,6 +66,8 @@
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
 
+#include <dev/ia32_dev.h>
+
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 #  include <fpu.h>
 #endif
@@ -491,36 +493,6 @@ errval_t irq_table_delete(unsigned int nidt)
     }
 }
 
-
-static const char *exception_names[32] = {
-    "#DE: divide error",
-    "#DB: debug exception",
-    "NMI: non-maskable interrupt",
-    "#BP: breakpoint",
-    "#OF: overflow", 
-    "#BR: BOUND range exceeded",
-    "#UD: invalid opcode",
-    "#NM: device not available",
-
-    "#DF: double fault",
-    "CSO: coprocessor segment overrun",
-    "#TS: invalid TSS",
-    "#NP: segment not present",
-    "#SS: stack fault",
-    "#GP: general protection fault",
-    "#PF: page fault",
-    "<reserved to intel",
-   
-    "#MF: x87 FPU floating-point error",
-    "#AC: alignment check",
-    "#MC: machine check",
-    "#XF: SIMD floating-point exception",
-    "<reserved to intel",
-    "<reserved to intel",
-    "<reserved to intel",
-    "<reserved to intel"
-};
-
 /**
  * \brief Handles kernel exceptions
  *
@@ -533,6 +505,7 @@ static __attribute__ ((used,noreturn))
                                          uintptr_t *gdb_save_frame)
 {
     lvaddr_t fault_address;
+    char *descr;
 
     if (vec == 666) {
         panic("unhandled kernel exception (vector 666)");
@@ -541,28 +514,8 @@ static __attribute__ ((used,noreturn))
     assert(vec < NEXCEPTIONS);
 
     printk(LOG_PANIC, "exception %d (error code 0x%lx): ", (int)vec, error);
-
-    switch(vec) {
-    case 0:     // Divide Error (#DE)
-    case 1:     // Debug Exception (#DB)
-    case 2:     // NMI Interrupt
-    case 3:     // Breakpoint (#BP)
-    case 4:     // Overflow (#OF)
-    case 5:     // BOUND Range Exceeded (#BR)
-    case 6:     // Invalid Opcode (#UD)
-    case 7:     // Device Not Available (#NM)
-    case 8:     // Double fault (#DF)
-    case 9:     // Coprocessor Segment Overrun
-    case 10:    // Invalid TSS (#TS)
-    case 11:    // Segment Not Present (#NP)
-    case 12:    // Stack Fault (#SS)
-    case 13:    // General Protection Fault (#GP)
-    case 17:    // Alignment Check Exception (#AC)
-    case 18:    // Machine check (#MC)
-        printf("%s\n", exception_names[vec]);
-        break;
-	
-    case 14:    // Page Fault (#PF)
+    
+    if (vec == ia32_vec_pf) {
         printf("%s page fault due to %s%s, while in %s mode%s\n",
                error & ERR_PF_READ_WRITE ? "write" : "read",
                error & ERR_PF_PRESENT ? "access violation" : "page not present",
@@ -574,11 +527,11 @@ static __attribute__ ((used,noreturn))
         __asm volatile("mov %%cr2, %[fault_address]"
                        : [fault_address] "=r" (fault_address));
         printf("Address that caused the fault: 0x%lx\n", fault_address);
-        break;
 
-    default:
+    } else if ((descr = ia32_exc_vec_describe(vec))) {
+        printf("%s\n", descr);
+    } else {
         printf("unhandled exception!\n");
-        break;
     }
 
     // Print faulting instruction pointer

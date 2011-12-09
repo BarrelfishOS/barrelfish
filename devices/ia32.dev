@@ -16,7 +16,48 @@
 
 device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 
+    /*
+     * ***********************
+     * Exception vectors
+     * ***********************
+     */
+    constants exc_vec width(8) "Exception vectors" {
+	vec_de  = 0	"divide error";
+	vec_db  = 1	"debug exception";
+	vec_nmi = 2	"non-maskable interrupt";
+	vec_bp  = 3	"breakpoint";
+	vec_of  = 4	"overflow";
+	vec_br  = 5	"BOUND range exceeded";
+	vec_ud  = 6	"invalid opcode";
+	vec_nm  = 7	"device not available";
+
+	vec_df = 8	"double fault";
+	vec_cso = 9	"coprocessor segment overrun";
+	vec_ts = 10	"invalid TSS";
+	vec_np = 11	"segment not present";
+	vec_ss = 12	"stack fault";
+	vec_gp = 13	"general protection fault";
+	vec_pf = 14	"page fault";
+	//		15 reserved to intel
+   
+	vec_mf = 16	"x87 FPU floating-point error";
+	vec_ac = 17	"alignment check";
+	vec_mc = 18	"machine check";
+	vec_xf = 19	"SIMD floating-point exception";
+    };
+
+    /*
+     * ***********************
+     * Address space for model-Specific registers
+     * ***********************
+     */
     space msr(index) valuewise "Model-specific Registers";
+
+    /*
+     * ***********************
+     * Architectural MSRs
+     * ***********************
+     */
 
     // 7.11.5
     register mon_filter_size msr(0x06) "Monitor/Mwait filter size" type(uint64);
