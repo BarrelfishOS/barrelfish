@@ -9,30 +9,58 @@
 
 interface dist "dist2 RPC Interface" {
 
+    // TODO this stuff can be removed if we use THC
     typedef enum {BINDING_RPC, BINDING_EVENT} binding_type;
-
     rpc get_identifier(out uint64 id);
     rpc identify(in uint64 id);
     
+    //
     // Get/Set API
+    //
+    
+    // Returns the names of records matching the query as a string
+    // separated by commas. In case of an error output is NULL and
+    // error_code is set accordingly.
     rpc get_names(in string query, out string output, out errval error_code);
+    
+    // Returns a single record matching the given query.
+    // In case no record or multiple records are found output is NULL and
+    // error_code is set accordingly.
+    // TODO remove out string error
     rpc get(in string query, out string output, out string error, out errval error_code);
+    
+    // Sets a record specified in the query. Mode is used to set sequential names. 
+    // In case get is true the the record set record is returned.
+    // trigger: watches recordname
     rpc set(in string query, in uint64 mode, in bool get, out string record, out errval error_code);
+    
+    // Deletes a record specified by a given query.
+    // trigger: watches recordname
     rpc del(in string query, out errval error_code);
     
+    // Registers a given query in the System. Return as soon as one or more
+    // records for the given query exists
     rpc exists(in string query, in bool watch, out string output, out errval error_code);
+
+    // Registers a given query in the System. Returns as soon as there are no more
+    // records matching the query.
     rpc exists_not(in string query, in bool watch, out errval error_code);
     
+    
+    // Not really neede for anything yet...
     rpc watch(in string query, in uint64 mode, in binding_type type, in uint64 client_id_in,  
               out uint64 client_id_out, out uint64 watch_id, out string record, out errval error_code);
     rpc unwatch(in uint64 watch_id, out errval error_code);
     
+    // Experiment with this using IDC
+    message trigger(uint64 mode, string record, errval error_code);
+    message abort_trigger();
+    
+    
+    //
     // Publish/Subscribe API
+    //
     rpc subscribe(in string query, in uint64 id, out errval err);
     rpc unsubscribe(in uint64 id, out errval err);
     rpc publish(in string object, out errval err);
-
-    // TODO remove later
-    rpc lock(in string object, out errval err);
-    rpc unlock(in string object, out errval err);
 };

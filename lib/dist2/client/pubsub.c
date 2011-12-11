@@ -32,7 +32,7 @@ void subscribed_message_handler(struct dist_event_binding* b,
 }
 
 
-errval_t dist_subscribe(subscription_handler_fn function, subscription_t* id, char* object, ...)
+errval_t dist_subscribe(subscription_handler_fn function, void* state, subscription_t* id, char* object, ...)
 {
 	assert(function != NULL);
 	assert(object != NULL);

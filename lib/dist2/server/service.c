@@ -141,6 +141,23 @@ static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
 }
 
 
+static void send_trigger(struct dist_binding* b, struct dist_reply_state* srs) {
+
+    errval_t err;
+    err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, srs),
+    		                 0, srs->query_state.stdout.buffer,
+    		                 srs->error);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        	dist_rpc_enqueue_reply(b, srs);
+        	return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+
+}
+
+
 void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 {
     DIST2_DEBUG(" set_handler: %s\n", query);
@@ -160,6 +177,15 @@ void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 	srs->error = err;
 	srs->return_record = true;
 	srs->rpc_reply(b, srs);
+
+	// thc test
+	struct dist_reply_state* srs2 = NULL;
+	err = new_dist_reply_state(&srs2, send_trigger);
+	strcpy(srs2->query_state.stdout.buffer, query);
+	assert(err_is_ok(err));
+	srs2->rpc_reply(b, srs2);
+	// end
+
 
 	free_ast(ast);
 	free(query);

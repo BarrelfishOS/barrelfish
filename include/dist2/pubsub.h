@@ -7,9 +7,9 @@
 #include<if/dist_event_defs.h>
 
 typedef uint64_t subscription_t;
-typedef void(*subscription_handler_fn)(subscription_t id, char* object);
+typedef void(*subscription_handler_fn)(subscription_t id, char* object, void* state);
 
-errval_t dist_subscribe(subscription_handler_fn, subscription_t*, char*, ...);
+errval_t dist_subscribe(subscription_handler_fn, void*, subscription_t*, char*, ...);
 errval_t dist_unsubscribe(subscription_t);
 errval_t dist_publish(char*, ...);
 
