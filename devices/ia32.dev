@@ -157,8 +157,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	mc_disable	= 0x0;
     };
     register mcg_ctl rw msr(0x17b) "Global machine check control" 
-	type(uint64);
-	// type(mcg_ctl_val);
+	type(mcg_ctl_val);
 
     // 14.3.2.5
     register mcg_rax rwzc msr(0x180) "State of RAX at MC" type(uint64);
@@ -327,7 +326,8 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	_	7;
 	lme	1 rw "Long mode enable";
 	_	1;
-	lma	1 ro "Long mode active";
+	lma	1 rw "Long mode active"; // Should be rw, but must be
+					 // preserved in practice!
 	nxe	1 rw "No-execute enable";
 	_	52;
     };

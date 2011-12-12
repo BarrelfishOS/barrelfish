@@ -321,10 +321,12 @@ declaration must be one of the following:
 
 \section{Address spaces}\label{sec:spaces}
 
-Registers defined in a \Mac file (see Section~\ref{sec:registers})
-reside at specified addresses in an \emph{address space}.   There are
-currently 3 built-in address spaces that \Mac understands, and
-addresses in these spaces require both a base and an offset.  Base
+Registers defined in a \Mac file
+reside at specified addresses in an \emph{address space} (unless they
+are specified as \texttt{noaddr}, see Section~\ref{sec:registers}). 
+
+There are currently 3 built-in address spaces that \Mac understands,
+and addresses in these spaces require both a base and an offset.  Base 
 values are given as an arguments to the device specification, and so
 each device argument must be declared as being of one of the following
 types: 
@@ -606,7 +608,7 @@ on the device.
 
 \begin{syntax}
 register \synit{name} [\synit{attr}] [also] 
-             \synit{space}( \synit{address} ) ["\synit{description}"] \synit{type} ;
+             \{ noaddr | \synit{space}( \synit{address} ) \} ["\synit{description}"] \synit{type} ;
 \end{syntax}
 
 \begin{description}
@@ -633,6 +635,14 @@ register \synit{name} [\synit{attr}] [also]
   register at the same location, or at locations which overlap.  By
   preceding the address specifier with the \texttt{also} keyword, you
   can allow registers to coexist at the same location. 
+
+\item[noaddr] is an alternative to the address space definition, and
+  is used for registers which have no address (or, alternatively, an
+  implicit address).  A good example of this kind of register is a
+  coprocessor register which requires custom assembler instructions to
+  read and write.  Mackerel generates slightly different access code
+  for this type of register, specified later in this document, and
+  requires the developer to supply the raw register access functions. 
 
 \item[description] is an optional string in double quotes, giving a
   description of the register, for example \texttt{"Error status"}. 
@@ -664,20 +674,38 @@ register \synit{name} [\synit{attr}] [also]
 Here are some examples of \texttt{register} definitions:
 
 \begin{example}
-  register dfr rw at (base, 0x00e0) 
-              "Destination Format" \verb+{+
-    _		28 mb1;
-    model	4 type(model_type) "Model";
-\verb+  };+
+  register dfr rw at (base, 0x00e0) "Destination Format" \{
+    _           28 mb1;
+    model       4 type(model_type) "Model";
+  \};
 \end{example}
 \begin{example}
-  register apr ro at (base, 0x0090) 
-              "Arbitration priority" type(priority);
+  register apr ro at (base, 0x0090) "Arbitration priority" type(priority);
 \end{example}
 \begin{example}
-  register isr0 ro at (base, 0x0100) 
-              "ISR bits 0-31" type(uint32);
+  register isr0 ro at (base, 0x0100) "ISR bits 0-31" type(uint32);
 \end{example}
+\begin{example}
+  register cr4 noaddr "Control register 4" \{
+    _           49 mbz;
+    smxe        1 "SMX enable";
+    vmxe        1 "VMX enable";
+    _           2 mbz;
+    osxmmexcpt  1 "OS support for unmasked SIMD FP exceptions";
+    osfxsr      1 "OS support for FXSAVE and FXRSTOR instructions";
+    pce         1 "Performance-monitoring counter enable";
+    pge         1 "Page global enable";
+    mce         1 "Machine-check enable";
+    pae         1 "Physical address extensions";
+    pse         1 "Page size extensions";
+    de          1 "Debugging extensions";
+    tsd         1 "Time stamp disable";
+    pvi         1 "Protected-mode virtual interrupts";
+    vme         1 "Virtual 8086 mode extensions";
+  \};
+\end{example}
+
+
 
 \section{Register Arrays}\label{sec:regarrays}
 
@@ -1179,6 +1207,16 @@ generate some of the following:
     \texttt{DP\_REGTYPE\_t DP\_REG\_rd( DN\_t *dev );}
   \end{quote}
 
+\item If the register address is not given as \texttt{noaddr}, a function to
+  read the raw contents of the register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REG\_rawrd( DN\_t *dev );}
+  \end{quote}
+  On the other hand, if the register address is given as
+  \texttt{noaddr}, the developer is required to supply this function
+  herself -- Mackerel-generated code will use it to access the
+  register. 
+
 \item If the register has fields which are writeable, a function to
   write the contents of the register:
   \begin{quote}
@@ -1191,6 +1229,23 @@ generate some of the following:
   are meaningful to write according to the register specification.
   However, this function will not perform a read from the register
   unless the register contains reserved fields. 
+
+\item If the register address is not given as \texttt{noaddr}, a function to
+  write raw values to the register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REG\_rawwr( DN\_t *dev, DP\_REGTYPE\_t val );}
+  \end{quote}
+  This function is potentially dangerous, since it makes no guarantees
+  that certain fields of the register are set to zero or one, or
+  preserves the contents of reserved fields.  Use with caution. 
+
+  On the other hand, if the register address is given as
+  \texttt{noaddr}, the developer is required to supply this function
+  herself -- Mackerel-generated code will use it to access the
+  register.  Again, in this case, the function should not try to
+  preserve fields, since Mackerel will make sure that the
+  ``sanitized'' register and field writing functions will do this
+  correctly. 
 
 \item For every readable field \texttt{FLD} (of type \texttt{FLDTYPE})
   of the register, a function to read just that single field from the

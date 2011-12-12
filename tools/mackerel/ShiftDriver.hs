@@ -135,6 +135,12 @@ register_read_fn_name r = qual_register r ["rd"]
 register_write_fn_name :: RT.Rec -> String
 register_write_fn_name r = qual_register r ["wr"]
 
+register_rawread_fn_name :: RT.Rec -> String
+register_rawread_fn_name r = qual_register r ["rawrd"]
+
+register_rawwrite_fn_name :: RT.Rec -> String
+register_rawwrite_fn_name r = qual_register r ["rawwr"]
+
 register_shadow_name :: RT.Rec -> String
 register_shadow_name r = qual_register r ["shadow"]
 
@@ -923,10 +929,12 @@ regarray_shadow_ref rt
 register_decl :: RT.Rec -> [ C.Unit ]
 register_decl r = [ register_dump_comment r,
                     regarray_length_macro r,
+                    register_rawread_fn r,
                     register_read_fn r,
+                    register_rawwrite_fn r,
                     register_write_fn r
                   ] 
-                  ++ 
+                  ++
                   ( register_print_fn r)
                   ++ 
                   (if not $ TT.is_primitive $ RT.tpe r then
@@ -972,6 +980,22 @@ regarray_length_macro r
                (Just $ C.NumConstant $ RT.num_elements r))
     | otherwise = C.NoOp
 
+-- 
+-- Do a raw read from a register, if the address is available.
+-- 
+register_rawread_fn :: RT.Rec -> C.Unit
+register_rawread_fn r =
+    let 
+      rtn = regtype_c_type $ RT.tpe r
+      args = (register_arg_list [] r [])
+      n = register_rawread_fn_name r    
+    in
+     if RT.is_noaddr r then
+       C.Comment (printf "%s has no address, user must supply %s" 
+                 (RT.name r) n)
+     else
+       C.StaticInline rtn n args [ C.Return (loc_read r) ]
+
 --
 -- Read from the register, or from a shadow copy if it's not readable. 
 -- 
@@ -985,6 +1009,21 @@ register_read_fn r =
           C.StaticInline rtn name args [ C.Return (loc_read r) ]
       else 
           C.StaticInline rtn name args [ C.Return (register_shadow_ref r) ]
+
+-- 
+-- Do a write read top a register, if the address is available.
+-- 
+register_rawwrite_fn :: RT.Rec -> C.Unit
+register_rawwrite_fn r =
+    let 
+      args = register_arg_list [] r [ C.Param (regtype_c_type $ RT.tpe r) cv_regval ]
+      n = register_rawwrite_fn_name r    
+    in
+     if RT.is_noaddr r then
+       C.Comment (printf "%s has no address, user must supply %s" 
+                 (RT.name r) n)
+     else
+       C.StaticInline C.Void n args [ C.Ex $ loc_write r cv_regval ]
 
 --
 -- Write to register.  Harder than it sounds. 
@@ -1067,13 +1106,26 @@ register_arg_list pre r post
        )
        ++ post)
 
+register_callarg_list :: [C.Param] -> RT.Rec -> [C.Param] -> [C.Param]
+register_callarg_list pre r post 
+    = (pre ++ [ C.Param (C.Ptr device_c_type) cv_dev ] 
+       ++ 
+       (if RT.is_array r then 
+            [ C.Param (C.TypeName "int") cv_i ]
+        else [] 
+       )
+       ++ post)
+
 --
 -- Generate an expression for a read or write of a register,
 -- regardless of address space or whether it's an array or not.
 -- 
 loc_read :: RT.Rec -> C.Expr
 loc_read r = 
-    case RT.spc r of
+  case RT.spc r of
+      Space.NoSpace -> 
+          C.Call (register_rawread_fn_name r)
+            [ C.Variable cv_dev ]
       Space.Builtin { Space.n = name } -> 
           C.Call (mackerel_read_fn_name name (RT.size r))
             [ C.DerefField (C.Variable cv_dev) (RT.base r), loc_array_offset r ]
@@ -1084,6 +1136,9 @@ loc_read r =
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
     case RT.spc r of
+      Space.NoSpace -> 
+          C.Call (register_rawwrite_fn_name r)
+            [ C.Variable cv_dev, C.Variable val ]
       Space.Builtin { Space.n = name } -> 
           C.Call (mackerel_write_fn_name name (RT.size r))
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),
