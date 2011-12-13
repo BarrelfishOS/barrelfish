@@ -243,10 +243,14 @@
 #if defined(__x86_64__)
 #define TRACE_TIMESTAMP() rdtsc()
 
+// XXX These are defined in xapic.dev, not sure we should repro them here
+#ifndef xapic_none
 #define xapic_none 0x00
 #define xapic_self 0x01
 #define xapic_all_inc 0x02
 #define xapic_all_exc 0x03
+#endif
+
 #define IPI_TRACE_COMPLETE 62
 #define IPI_TRACE_START 63
 #define TRACE_COMPLETE_IPI_IRQ    (62-32)

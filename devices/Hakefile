@@ -33,6 +33,7 @@
            "lpc_bridge",
            "lpc_dma",
            "lpc_kbd",
+           "lpc_pic",
            "lpc_pci_config",
            "lpc_rtc",
            "lpr_rtc_spaces",
@@ -40,6 +41,7 @@
            "rtl8029as_spaces",
            "tulip",
            "uhci",
+           "xapic",
            "x2apic",
            "amd64"
          ], arch <- allArchitectures
@@ -61,7 +63,6 @@
            "eMAC",
            "ht_config",
            "lpc_ioapic",
-           "lpc_pic",
            "lpc_timer",
            "pc16550d_mem",
            "pci_hdr0",
@@ -69,7 +70,6 @@
            "pci_hdr1",
            "pl011_uart",
            "rck",
-           "rtl8029as",
-           "xapic"
+           "rtl8029as"
          ], arch <- allArchitectures
 ]

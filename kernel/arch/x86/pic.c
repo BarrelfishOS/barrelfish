@@ -14,7 +14,7 @@
 
 #include <kernel.h>
 #include <pic.h>
-#include <lpc_pic_dev.h>
+#include <dev/lpc_pic_dev.h>
 
 /// The dual PIC
 static lpc_pic_t pic;
@@ -25,15 +25,14 @@ static lpc_pic_t pic;
 void pic_eoi(int irq)
 {
     // Send specific end of interrupt message
-    static lpc_pic_ocw2_t eoi = {
-        .rsleoi = lpc_pic_seoi
-    };
+    lpc_pic_ocw2_t eoi = lpc_pic_ocw2_default;
+    lpc_pic_ocw2_rsleoi_insert(eoi, lpc_pic_seoi);
 
     if(irq < 8) {
-        eoi.level = irq;
+        lpc_pic_ocw2_level_insert(eoi, irq);
         lpc_pic_master_ocw2_wr(&pic, eoi);
     } else {
-        eoi.level = irq - 8;
+        lpc_pic_ocw2_level_insert(eoi, irq - 8);
         lpc_pic_slave_ocw2_wr(&pic, eoi);
     }
 }
@@ -43,17 +42,13 @@ void pic_eoi(int irq)
  */
 bool pic_have_interrupt(int irq)
 {
-    static const lpc_pic_ocw3_t read_is = {
-        .rrc = lpc_pic_read_is
-    };
-
     if(irq < 8) {
         // send read ISR command
-        lpc_pic_master_ocw3_wr(&pic, read_is);
+        lpc_pic_master_ocw3_rrc_wrf(&pic, lpc_pic_read_is);
         // read ISR and check bit
         return (lpc_pic_master_ocw3rd_rd(&pic) & (1 << irq)) != 0;
     } else {
-        lpc_pic_slave_ocw3_wr(&pic, read_is);
+        lpc_pic_slave_ocw3_rrc_wrf(&pic, lpc_pic_read_is);
         return (lpc_pic_slave_ocw3rd_rd(&pic) & (1 << (irq -8))) != 0;
     }
 }
@@ -75,21 +70,17 @@ static int mask_to_interrupt(uint8_t mask)
  */
 int pic_pending_interrupt(void)
 {
-    static const lpc_pic_ocw3_t read_is = {
-        .rrc = lpc_pic_read_is
-    };
-
     uint8_t isr;
 
     // try master first
-    lpc_pic_master_ocw3_wr(&pic, read_is);
+    lpc_pic_master_ocw3_rrc_wrf(&pic, lpc_pic_read_is);
     isr = lpc_pic_master_ocw3rd_rd(&pic);
     if (isr != 0) {
         return mask_to_interrupt(isr);
     }
 
     // try slave
-    lpc_pic_slave_ocw3_wr(&pic, read_is);
+    lpc_pic_slave_ocw3_rrc_wrf(&pic, lpc_pic_read_is);
     isr = lpc_pic_slave_ocw3rd_rd(&pic);
     if (isr != 0) {
         return mask_to_interrupt(isr) + 8;
@@ -113,57 +104,32 @@ void pic_init(void)
     // setup mackerel state
     lpc_pic_initialize(&pic, 0);
 
-    lpc_pic_icw1_t icw1 = { .ltim = 0 };
-    lpc_pic_pic_master_icw3_t master_icw3 = {
-        .cascade = 1    /* Slaves attached to IR line 2 */
-    };
-    lpc_pic_pic_slave_icw3_t slave_icw3 = {
-        .slave_id = 2   /* This slave in IR line 2 of master */
-    };
-    lpc_pic_icw4_t icw4 = {
-        .aeoi = 0,
-        .sfnm = 0
-    };
-
     // Setup 8259A PIC for proper protected mode interrupt delivery
     /* ICW1 */
-    lpc_pic_master_icw1_wr(&pic, icw1);
-    lpc_pic_slave_icw1_wr(&pic, icw1);
+    lpc_pic_master_icw1_ltim_wrf(&pic, 0);
+    lpc_pic_slave_icw1_ltim_wrf( &pic, 0);
 
     /* ICW2 */
-    lpc_pic_master_icw2_wr_raw(&pic, 0x20); // IDT offset 0x20
-    lpc_pic_slave_icw2_wr_raw(&pic, 0x28);  // IDT offset 0x28
+    lpc_pic_master_icw2_rawwr(&pic, 0x20); // IDT offset 0x20
+    lpc_pic_slave_icw2_rawwr(&pic, 0x28);  // IDT offset 0x28
 
     /* ICW3 */
-    lpc_pic_master_icw3_wr(&pic, master_icw3);
-    lpc_pic_slave_icw3_wr(&pic, slave_icw3);
+    lpc_pic_master_icw3_cascade_wrf(&pic, 1);
+    lpc_pic_slave_icw3_slave_id_wrf(&pic, 2);
 
     /* ICW4 */
+    lpc_pic_icw4_t icw4 = lpc_pic_icw4_default;
+    lpc_pic_icw4_aeoi_insert(icw4, 0);
+    lpc_pic_icw4_sfnm_insert(icw4, 0);
     lpc_pic_master_icw4_wr(&pic, icw4);
     lpc_pic_slave_icw4_wr(&pic, icw4);
 
     if (CPU_IS_M5_SIMULATOR) {
         printf("Warning: not setting elcr1 elcr2 on M5\n");
     } else {
-        // Set all interrupts to be edge triggered
-        lpc_pic_pic_master_trigger_t elcr1 = {
-            .irq3_ecl = 0,
-            .irq4_ecl = 0,
-            .irq5_ecl = 0,
-            .irq6_ecl = 0,
-            .irq7_ecl = 0
-        };
-        lpc_pic_master_trigger_wr(&pic, elcr1);
-
-        lpc_pic_pic_slave_trigger_t elcr2 = {
-            .irq9_ecl = 0,
-            .irq10_ecl = 0,
-            .irq11_ecl = 0,
-            .irq12_ecl = 0,
-            .irq14_ecl = 0,
-            .irq15_ecl = 0
-        };
-        lpc_pic_slave_trigger_wr(&pic, elcr2);
+        // Set all interrupts to be edge triggered (i.e. 0)
+        lpc_pic_master_trigger_rawwr(&pic, 0);
+        lpc_pic_slave_trigger_rawwr( &pic, 0);
     }
 
     // Mask all interrupts (except cascade IRQ 2)
