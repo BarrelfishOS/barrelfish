@@ -12,6 +12,7 @@
 
 [    build library { target = "dist_server",
                      cFiles = [ "service.c", "init.c", "queue.c" ],
-                     flounderBindings = [ "dist_event", "dist", "skb" ],
-                     addLibraries = [ "skb" ] }
+                     flounderBindings = [ "dist2", "dist_event"],
+                     addLibraries = [ "skb", "thc" ] 
+                   }
 ]

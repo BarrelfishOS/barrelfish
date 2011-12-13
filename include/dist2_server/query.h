@@ -2,7 +2,7 @@
 #define DIST2_QUERY_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist_defs.h>
+#include <if/dist2_defs.h>
 
 #include <dist2_server/service.h>
 #include <dist2/parser/ast.h>
@@ -12,7 +12,7 @@
  * flounder interface RPC is on a different waitset. This is not needed
  * anymore once I fully switched over to using THC.
  */
-errval_t set_binding(dist_binding_type_t, uint64_t, void*);
+errval_t set_binding(dist2_binding_type_t, uint64_t, void*);
 
 /**
  * Given a query (as AST) returns a number of record names matching
@@ -70,7 +70,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
  * @param id User supplied id to identify subscription.
  * @param dqs Returned result of query invocation.
  */
-errval_t add_subscription(struct dist_binding* b, struct ast_object* ast,
+errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
 		uint64_t id, struct dist_query_state* dqs);
 
 /**
@@ -80,7 +80,7 @@ errval_t add_subscription(struct dist_binding* b, struct ast_object* ast,
  * @param id Identifying? the subscription.
  * @param dqs Returned result of query invocation.
  */
-errval_t del_subscription(struct dist_binding* b, uint64_t id,
+errval_t del_subscription(struct dist2_binding* b, uint64_t id,
 		struct dist_query_state* dqs);
 
 /**

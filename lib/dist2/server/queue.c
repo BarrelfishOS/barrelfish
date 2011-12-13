@@ -3,7 +3,7 @@
 
 static void dist_rpc_send_next(void *arg)
 {
-    struct dist_binding *b = arg;
+    struct dist2_binding *b = arg;
 
     struct dist_reply_state* current = dist_rpc_dequeue_reply(b);
 
@@ -14,7 +14,7 @@ static void dist_rpc_send_next(void *arg)
 }
 
 
-void dist_rpc_enqueue_reply(struct dist_binding *b, struct dist_reply_state* st)
+void dist_rpc_enqueue_reply(struct dist2_binding *b, struct dist_reply_state* st)
 {
 	if(b->st == NULL) {
         struct waitset *ws = get_default_waitset();
@@ -29,7 +29,7 @@ void dist_rpc_enqueue_reply(struct dist_binding *b, struct dist_reply_state* st)
 }
 
 
-struct dist_reply_state* dist_rpc_dequeue_reply(struct dist_binding *b)
+struct dist_reply_state* dist_rpc_dequeue_reply(struct dist2_binding *b)
 {
     struct dist_reply_state* head = b->st;
     b->st = head->next;

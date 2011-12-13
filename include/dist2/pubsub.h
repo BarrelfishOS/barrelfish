@@ -4,7 +4,7 @@
 #define MAX_SUBSCRIPTIONS 255
 
 #include <stdint.h>
-#include<if/dist_event_defs.h>
+#include <if/dist2_defs.h>
 
 typedef uint64_t subscription_t;
 typedef void(*subscription_handler_fn)(subscription_t id, char* object, void* state);
@@ -16,7 +16,7 @@ errval_t dist_publish(char*, ...);
 //errval_t dist_publish_set(char*, ...);
 //errval_t dist_get_subscribe(char*, char**);
 
-void subscribed_message_handler(struct dist_event_binding*, subscription_t, char*);
+void subscribed_message_handler(struct dist2_binding*, subscription_t, char*);
 
 
 #endif /* DIST2_PUBSUB_H_ */

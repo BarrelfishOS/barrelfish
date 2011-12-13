@@ -5,7 +5,7 @@
 #include <barrelfish/barrelfish.h>
 #include <include/skb_debug.h>
 
-#include <if/dist_defs.h>
+#include <if/dist2_defs.h>
 #include <if/dist_event_defs.h>
 
 #include <include/skb_server.h>
@@ -256,7 +256,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_stat
 }
 
 
-static struct dist_event_binding* get_event_binding(struct dist_binding* b)
+static struct dist_event_binding* get_event_binding(struct dist2_binding* b)
 {
 	errval_t err =  SYS_ERR_OK;
 	struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
@@ -290,7 +290,7 @@ static struct dist_event_binding* get_event_binding(struct dist_binding* b)
 }
 
 
-errval_t add_subscription(struct dist_binding* b, struct ast_object* ast, uint64_t id, struct dist_query_state* sqs)
+errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast, uint64_t id, struct dist_query_state* sqs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
@@ -316,7 +316,7 @@ errval_t add_subscription(struct dist_binding* b, struct ast_object* ast, uint64
 }
 
 
-errval_t del_subscription(struct dist_binding* b, uint64_t id, struct dist_query_state* sqs)
+errval_t del_subscription(struct dist2_binding* b, uint64_t id, struct dist_query_state* sqs)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -367,7 +367,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
 }
 
 
-errval_t set_binding(dist_binding_type_t type, uint64_t id, void* binding)
+errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
 {
     struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
     if(dqs == NULL) {
@@ -376,11 +376,11 @@ errval_t set_binding(dist_binding_type_t type, uint64_t id, void* binding)
 
     dident set_binding;
     switch(type) {
-    case dist_BINDING_RPC:
+    case dist2_BINDING_RPC:
         set_binding = ec_did("set_rpc_binding", 2);
         break;
 
-    case dist_BINDING_EVENT:
+    case dist2_BINDING_EVENT:
         set_binding = ec_did("set_event_binding", 2);
         break;
 
@@ -395,6 +395,7 @@ errval_t set_binding(dist_binding_type_t type, uint64_t id, void* binding)
     ec_post_goal(set_term);
 
     errval_t err = run_eclipse(dqs);
+    debug_printf("error: %s\n", dqs->stderr.buffer);
     assert(err_is_ok(err));
     DIST2_DEBUG("set_binding: %p\n", binding);
     //debug_skb_output(st);

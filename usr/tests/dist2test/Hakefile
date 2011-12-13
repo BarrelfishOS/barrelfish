@@ -12,34 +12,36 @@
 
 [ build application { target = "d2getset",
                       cFiles = [ "getset.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
                     },
   
   build application { target = "d2exist",
                       cFiles = [ "exist.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
                     },
                                         
   build application { target = "d2locking",
                       cFiles = [ "lockforever.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
                     },
 
   build application { target = "d2read",
                       cFiles = [ "read.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
                     },
 
   build application { target = "d2locksimple",
                       cFiles = [ "locksimple.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
                     },
+
 
   build application { target = "d2thc",
                       cFiles = [ "thc.c" ],
                       addLibraries = [ "dist2", "dist_parser", "skb", "thc" ],
-                      flounderDefs = [ "dist", "dist_event" ],
-                      flounderBindings = [ "dist", "dist_event" ],
-                      flounderTHCStubs = [ "dist", "dist_event" ]
+                      flounderDefs = [ "dist2", "dist_event" ],
+                      flounderBindings = [ "dist2", "dist_event" ],
+                      flounderTHCStubs = [ "dist2", "dist_event" ]
                     }
+                   
 ]

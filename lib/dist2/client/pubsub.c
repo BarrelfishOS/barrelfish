@@ -2,7 +2,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <dist2/pubsub.h>
-#include <if/dist_rpcclient_defs.h>
+#include <if/dist2_rpcclient_defs.h>
 
 #include "common.h"
 
@@ -23,12 +23,12 @@ static errval_t get_free_slot(subscription_t* slot)
 	return SYS_ERR_BMP_INVALID; // TODO proper error code
 }
 
-void subscribed_message_handler(struct dist_event_binding* b,
+void subscribed_message_handler(struct dist2_binding* b,
 		                        subscription_t id, char* object)
 {
 	assert(subscriber_table[id] != NULL);
 
-	subscriber_table[id](id, object);
+	subscriber_table[id](id, object, NULL);
 }
 
 
@@ -60,7 +60,7 @@ errval_t dist_subscribe(subscription_handler_fn function, void* state, subscript
 	assert(bytes_written == length);
 
 	// send to skb
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
 	err = rpc_client->vtbl.subscribe(rpc_client, buf, *id, &error_code);
@@ -81,7 +81,7 @@ errval_t dist_unsubscribe(subscription_t id)
 	assert(id < MAX_SUBSCRIPTIONS);
 
 	// send to skb
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
 	errval_t err = rpc_client->vtbl.unsubscribe(rpc_client, id, &error_code);
@@ -116,7 +116,7 @@ errval_t dist_publish(char* object, ...)
 	assert(bytes_written == length);
 
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
 	errval_t error_code = SYS_ERR_OK;
 	err = rpc_client->vtbl.publish(rpc_client, buf, &error_code);

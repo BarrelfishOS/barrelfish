@@ -1,7 +1,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/dist_defs.h>
+#include <if/dist2_defs.h>
 #include <if/dist_event_defs.h>
 
 #include <dist2_server/init.h>
@@ -17,7 +17,7 @@ static struct export_state {
 } rpc_export, event_export;
 
 
-struct dist_rx_vtbl rpc_rx_vtbl = {
+struct dist2_rx_vtbl rpc_rx_vtbl = {
     .get_names_call = get_names_handler,
     .get_call = get_handler,
     .set_call = set_handler,
@@ -70,7 +70,7 @@ errval_t event_server_init(void)
     event_export.err = SYS_ERR_OK;
     event_export.is_done = false;
 
-    errval_t err = dist_event_export(&event_export, events_export_cb, events_connect_cb,
+    errval_t err = dist2_export(&event_export, events_export_cb, events_connect_cb,
                             get_default_waitset(),
                             IDC_EXPORT_FLAGS_DEFAULT);
     if(err_is_fail(err)) {
@@ -97,7 +97,7 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref)
 }
 
 
-static errval_t rpc_connect_cb(void *st, struct dist_binding *b)
+static errval_t rpc_connect_cb(void *st, struct dist2_binding *b)
 {
     // Set up continuation queue
     b->st = NULL;
@@ -115,7 +115,7 @@ errval_t rpc_server_init(void)
     rpc_export.err = SYS_ERR_OK;
     rpc_export.is_done = false;
 
-    errval_t err = dist_export(&rpc_export, rpc_export_cb, rpc_connect_cb,
+    errval_t err = dist2_export(&rpc_export, rpc_export_cb, rpc_connect_cb,
                             get_default_waitset(),
                             IDC_EXPORT_FLAGS_DEFAULT);
 

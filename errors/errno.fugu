@@ -23,6 +23,7 @@ errors libdist2  DIST2_ERR_ {
     failure INVALID_FORMAT      "The read format you have specified is not valid.",
     failure UNKNOWN_ATTRIBUTE   "An attribute in your format was not found in the record.",
     failure UNSUPPORTED_BINDING "This binding is unsupported by the underlying implementation.",
+    failure NO_TRIGGER_SLOT     "Too many triggers already registered, increase MAX_TRIGGERS.",
 };
 
 // Kernel/syscall errors

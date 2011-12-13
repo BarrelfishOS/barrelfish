@@ -68,7 +68,7 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
     err = rpc_client->vtbl.get_names(rpc_client, buf, &data, &error_code);
@@ -155,7 +155,7 @@ errval_t dist_get(char* query, char** data)
 	errval_t error_code;
 	errval_t err = SYS_ERR_OK;
 
-	struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+	struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 	err = rpc_client->vtbl.get(rpc_client, query, data, &error, &error_code);
 	if(err_is_ok(err)) {
 		err = error_code;
@@ -182,7 +182,7 @@ errval_t dist_set(dist_mode_t mode, char* object, ...)
 
 
 	// Send to Server
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     char* record = NULL;
 
@@ -210,7 +210,7 @@ errval_t dist_set_get(dist_mode_t mode, char** record, char* object, ...)
 
 
     // Send to Server
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
     err = rpc_client->vtbl.set(rpc_client, buf, mode, true, record, &error_code);
@@ -232,7 +232,7 @@ errval_t dist_del(char* object, ...)
 	char* buf = NULL;
 	FORMAT_QUERY(object, args, buf);
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 	errval_t error_code;
 	err = rpc_client->vtbl.del(rpc_client, buf, &error_code);
 
@@ -254,10 +254,10 @@ errval_t dist_exists(bool watch, char** record, char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
-    err = rpc_client->vtbl.exists(rpc_client, buf, watch, record, &error_code);
+    err = rpc_client->vtbl.exists(rpc_client, buf, NOP_TRIGGER, record, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }
@@ -276,10 +276,10 @@ errval_t dist_exists_not(bool watch, char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
-    err = rpc_client->vtbl.exists_not(rpc_client, buf, watch, &error_code);
+    err = rpc_client->vtbl.exists_not(rpc_client, buf, NOP_TRIGGER, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }
@@ -299,14 +299,14 @@ errval_t dist_wait_for(dist_mode_t mode, char** record, char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist_rpc_client* rpc_client = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     // IDs ignored for RPC
     uint64_t client_id = 0;
     watchid_t id = 0;
 
     errval_t error_code;
-    err = rpc_client->vtbl.watch(rpc_client, buf, mode, dist_BINDING_RPC, client_id, &client_id, &id, record, &error_code);
+    err = rpc_client->vtbl.watch(rpc_client, buf, mode, dist2_BINDING_RPC, client_id, &client_id, &id, record, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }

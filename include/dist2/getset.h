@@ -115,6 +115,5 @@ errval_t dist_wait_for(dist_mode_t, char**, char*, ...);
 errval_t dist_unwatch(uint64_t id);
 // end todo
 
-errval_t dist_read(char*, char*, ...);
 
 #endif /* DIST2_GETSET_H_ */

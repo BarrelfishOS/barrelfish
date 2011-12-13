@@ -9,11 +9,11 @@
 #include <barrelfish/barrelfish.h>
 
 #include <if/dist_event_defs.h>
-#include <if/dist_rpcclient_defs.h>
+#include <if/dist2_rpcclient_defs.h>
 
 
-struct dist_rpc_client* get_dist_rpc_client(void);
-struct dist_event_binding* get_dist_event_binding(void);
+struct dist2_rpc_client* get_dist_rpc_client(void);
+struct dist2_binding* get_dist_event_binding(void);
 
 #define MAX_RECORD_LENGTH (5*1024)
 
@@ -32,5 +32,8 @@ static inline errval_t allocate_string(char* object, va_list args, size_t* lengt
 
 	return SYS_ERR_OK;
 }
+
+#define NOP_TRIGGER     (dist2_trigger_t){ .id = 0, .in_case = 0, .m = 0 }
+
 
 #endif /* DIST2_COMMON_H_ */

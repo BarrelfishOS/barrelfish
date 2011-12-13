@@ -16,12 +16,12 @@
 #define DIST2_QUEUE_H
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist_defs.h>
+#include <if/dist2_defs.h>
 
 #include <dist2_server/service.h>
 
 
-void dist_rpc_enqueue_reply(struct dist_binding *b, struct dist_reply_state* st);
-struct dist_reply_state* dist_rpc_dequeue_reply(struct dist_binding *b);
+void dist_rpc_enqueue_reply(struct dist2_binding *b, struct dist_reply_state* st);
+struct dist_reply_state* dist_rpc_dequeue_reply(struct dist2_binding *b);
 
 #endif // DIST2_QUEUE_H

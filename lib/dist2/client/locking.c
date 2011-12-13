@@ -1,9 +1,20 @@
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/threads.h>
 
 #include <dist2/lock.h>
 #include <dist2/getset.h>
 
 #include "common.h"
+#include "trigger.h"
+
+
+
+static void parent_deleted(char* object, void* st)
+{
+    struct thread_cond* tc = (struct thread_cond*) st;
+    thread_cond_signal(tc);
+}
+
 
 errval_t dist_lock(char* lock_name, char** lock_record)
 {
@@ -44,9 +55,26 @@ errval_t dist_lock(char* lock_name, char** lock_record)
 			dist_free_names(names, len);
 			break;
 		} else {
-			err = dist_exists_not(true, "%s { lock: '%s' }", names[i - 1],
-					lock_name);
+		    struct dist2_rpc_client* cl = get_dist_rpc_client();
+
+		    struct thread_cond tc;
+		    thread_cond_init(&tc);
+
+		    size_t id = 0;
+		    err = dist_register_trigger(parent_deleted, &tc, &id);
+		    assert(err_is_ok(err));
+
+		    char* out = NULL;
+		    errval_t exist_err;
+		    dist2_trigger_t t = { .in_case = SYS_ERR_OK, .m = DIST_ON_DEL, .id = id, };
+		    err = cl->vtbl.exists(cl, names[i-1], t, &out, &exist_err);
 			assert(err_is_ok(err));
+		    free(out);
+
+		    if(err_is_ok(exist_err)) {
+		        thread_cond_wait(&tc, NULL);
+		    }
+
 		}
 
 		dist_free_names(names, len);

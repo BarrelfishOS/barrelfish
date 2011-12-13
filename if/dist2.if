@@ -7,12 +7,26 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface dist "dist2 RPC Interface" {
+// TODO: name dist2 instead of just dist because of name clash in THC generated enum
+interface dist2 "dist2 RPC Interface" {
 
-    // TODO this stuff can be removed if we use THC
+    alias mode uint64;
+
+    typedef struct {
+        uint64 id;
+        errval in_case;
+        mode m;
+    } trigger;
+
     typedef enum {BINDING_RPC, BINDING_EVENT} binding_type;
+
+
+    //
+    // Binding Identification
+    //
     rpc get_identifier(out uint64 id);
-    rpc identify(in uint64 id);
+    rpc identify(in uint64 id, in binding_type type);
+    
     
     //
     // Get/Set API
@@ -40,21 +54,17 @@ interface dist "dist2 RPC Interface" {
     
     // Registers a given query in the System. Return as soon as one or more
     // records for the given query exists
-    rpc exists(in string query, in bool watch, out string output, out errval error_code);
+    rpc exists(in string query, in trigger t, out string output, out errval error_code);
 
     // Registers a given query in the System. Returns as soon as there are no more
     // records matching the query.
-    rpc exists_not(in string query, in bool watch, out errval error_code);
+    rpc exists_not(in string query, in trigger t, out errval error_code);
     
     
-    // Not really neede for anything yet...
+    // TODO Not really needed for anything yet
     rpc watch(in string query, in uint64 mode, in binding_type type, in uint64 client_id_in,  
               out uint64 client_id_out, out uint64 watch_id, out string record, out errval error_code);
     rpc unwatch(in uint64 watch_id, out errval error_code);
-    
-    // Experiment with this using IDC
-    message trigger(uint64 mode, string record, errval error_code);
-    message abort_trigger();
     
     
     //
@@ -63,4 +73,12 @@ interface dist "dist2 RPC Interface" {
     rpc subscribe(in string query, in uint64 id, out errval err);
     rpc unsubscribe(in uint64 id, out errval err);
     rpc publish(in string object, out errval err);
+
+    
+    //
+    // Async Events (normally handled by 2nd binding in different thread)
+    //
+    message subscribed_message(uint64 id, string record);
+    message trigger(uint64 id, string record);
+    message watch_event(uint64 id, string record); // TODO
 };

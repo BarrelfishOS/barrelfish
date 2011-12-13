@@ -11,9 +11,10 @@
 --------------------------------------------------------------------------
 
 [    build library { target = "dist2",
-                    cFiles = [ "dist2.c", "getset.c", "pubsub.c", "locking.c", "strnatcmp.c", "read.c" ],
-  		            flounderBindings = [ "dist_event", "dist" ],
-  		            flounderExtraBindings = [ ("dist", ["rpcclient"]) ],
-                    addLibraries = [ "skb", "dist_parser" ] 
+                    cFiles = [ "dist2.c", "getset.c", "pubsub.c", "locking.c", "strnatcmp.c", "read.c", "trigger.c" ],
+  		            flounderBindings = [ "dist2",  "dist_event" ],
+                    flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                    flounderTHCStubs = [ "dist2" ],
+                    addLibraries = [ "skb", "dist_parser" ]
                   } 
 ]

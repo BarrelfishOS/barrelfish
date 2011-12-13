@@ -12,4 +12,6 @@ interface dist_event "dist2 Publish/Subscribe Events" {
     
     message subscribed_message(uint64 id, string record);
     message watch_event(uint64 id, string record);
+    
+    message trigger(uint64 id, string record);
 };

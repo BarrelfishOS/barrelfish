@@ -196,7 +196,7 @@ static errval_t get_set_test(void)
 
 size_t incoming_messages = 0;
 
-static void subhandler(subscription_t id1, char* object)
+static void subhandler(subscription_t id1, char* object, void* st)
 {
 	assert(object != NULL);
 
@@ -221,7 +221,7 @@ static errval_t pub_sub_test(void)
 	errval_t err = SYS_ERR_OK;
 
 	subscription_t id1 = 0;
-	err = dist_subscribe(subhandler, &id1, "_ { weight: %d }", 10);
+	err = dist_subscribe(subhandler, NULL, &id1, "_ { weight: %d }", 10);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_get failed!");
 		return err;
@@ -229,7 +229,7 @@ static errval_t pub_sub_test(void)
 	printf("subscription done with id: %lu\n", id1);
 
 	subscription_t id2 = 0;
-	err = dist_subscribe(subhandler, &id2, "_ { age: > %d }", 9);
+	err = dist_subscribe(subhandler, NULL, &id2, "_ { age: > %d }", 9);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_get failed!");
 		return err;
@@ -241,7 +241,6 @@ static errval_t pub_sub_test(void)
 		DEBUG_ERR(err, "dist_publish failed!");
 		return err;
 	}
-	messages_wait_and_handle_next();
 
 	err = dist_unsubscribe(id);
 
@@ -264,13 +263,12 @@ static errval_t pub_sub_test(void)
 		DEBUG_ERR(err, "dist_publish failed!");
 		return err;
 	}
-	messages_wait_and_handle_next();
 
 	return err;
 }
 
 
-static void subhandler2(subscription_t id1, char* object)
+static void subhandler2(subscription_t id1, char* object, void* st)
 {
 	assert(object != NULL);
 	debug_printf("subhandler2(%lu): id:%lu obj:%s\n", ++incoming_messages, id1, object);
@@ -281,7 +279,7 @@ static void main_subscriber(void) {
 	errval_t err;
 
 	subscription_t id1 = 0;
-	err = dist_subscribe(subhandler2, &id1, "_ { weight: %d }", 10);
+	err = dist_subscribe(subhandler2, NULL, &id1, "_ { weight: %d }", 10);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_subscribe failed!");
 		abort();
@@ -289,7 +287,7 @@ static void main_subscriber(void) {
 	printf("subscription done with id: %lu\n", id1);
 
 	subscription_t id2 = 0;
-	err = dist_subscribe(subhandler2, &id2, "_ { age: > %d }", 9);
+	err = dist_subscribe(subhandler2, NULL, &id2, "_ { age: > %d }", 9);
 	if(err_is_fail(err)) {
 		DEBUG_ERR(err, "dist_subscribe failed!");
 		abort();
@@ -318,6 +316,7 @@ int main(int argc, char *argv[])
 		assert(err_is_ok(err));
     }
 
+    messages_handler_loop(); // so it does not exit yet...
 
     printf("dist2test passed successfully!\n");
 	return EXIT_SUCCESS;

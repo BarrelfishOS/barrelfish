@@ -5,7 +5,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <skb/skb.h> // read list
 
-#include <if/dist_defs.h>
+#include <if/dist2_defs.h>
 #include <if/dist_event_defs.h>
 
 #include <dist2_server/service.h>
@@ -22,7 +22,7 @@
 char* strdup(const char*);
 
 
-static errval_t new_dist_reply_state(struct dist_reply_state** drt, dist_reply_handler_fn reply_handler)
+errval_t new_dist_reply_state(struct dist_reply_state** drt, dist_reply_handler_fn reply_handler)
 {
     assert(*drt == NULL);
     *drt = malloc(sizeof(struct dist_reply_state));
@@ -49,7 +49,7 @@ static void free_dist_reply_state(void* arg) {
 }
 
 
-static void get_reply(struct dist_binding* b, struct dist_reply_state* srt) {
+static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
     		                      srt->query_state.stdout.buffer, srt->query_state.stderr.buffer,
@@ -64,7 +64,7 @@ static void get_reply(struct dist_binding* b, struct dist_reply_state* srt) {
 }
 
 
-void get_handler(struct dist_binding *b, char *query)
+void get_handler(struct dist2_binding *b, char *query)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -87,7 +87,7 @@ void get_handler(struct dist_binding *b, char *query)
 }
 
 
-static void get_names_reply(struct dist_binding* b, struct dist_reply_state* srt) {
+static void get_names_reply(struct dist2_binding* b, struct dist_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.get_names_response(b, MKCONT(free_dist_reply_state, srt),
                                         srt->query_state.stdout.buffer, srt->error);
@@ -101,7 +101,7 @@ static void get_names_reply(struct dist_binding* b, struct dist_reply_state* srt
 }
 
 
-void get_names_handler(struct dist_binding *b, char *query)
+void get_names_handler(struct dist2_binding *b, char *query)
 {
     DIST2_DEBUG(" get_names_handler: %s\n", query);
 
@@ -124,7 +124,7 @@ void get_names_handler(struct dist_binding *b, char *query)
     free(query);
 }
 
-static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
+static void set_reply(struct dist2_binding* b, struct dist_reply_state* srs)
 {
     char* record = srs->return_record ? srs->query_state.stdout.buffer : NULL;
 
@@ -140,8 +140,8 @@ static void set_reply(struct dist_binding* b, struct dist_reply_state* srs)
     }
 }
 
-
-static void send_trigger(struct dist_binding* b, struct dist_reply_state* srs) {
+/*
+static void send_trigger(struct dist2_binding* b, struct dist_reply_state* srs) {
 
     errval_t err;
     err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, srs),
@@ -155,10 +155,9 @@ static void send_trigger(struct dist_binding* b, struct dist_reply_state* srs) {
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
 
-}
+}*/
 
-
-void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
+void set_handler(struct dist2_binding *b, char *query, uint64_t mode, bool get)
 {
     DIST2_DEBUG(" set_handler: %s\n", query);
 	errval_t err = SYS_ERR_OK;
@@ -178,21 +177,12 @@ void set_handler(struct dist_binding *b, char *query, uint64_t mode, bool get)
 	srs->return_record = true;
 	srs->rpc_reply(b, srs);
 
-	// thc test
-	struct dist_reply_state* srs2 = NULL;
-	err = new_dist_reply_state(&srs2, send_trigger);
-	strcpy(srs2->query_state.stdout.buffer, query);
-	assert(err_is_ok(err));
-	srs2->rpc_reply(b, srs2);
-	// end
-
-
 	free_ast(ast);
 	free(query);
 }
 
 
-static void del_reply(struct dist_binding* b, struct dist_reply_state* srs)
+static void del_reply(struct dist2_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.del_response(b, MKCONT(free_dist_reply_state, srs),
@@ -207,7 +197,7 @@ static void del_reply(struct dist_binding* b, struct dist_reply_state* srs)
 }
 
 
-void del_handler(struct dist_binding* b, char* query)
+void del_handler(struct dist2_binding* b, char* query)
 {
     DIST2_DEBUG(" del_handler: %s\n", query);
 	errval_t err = SYS_ERR_OK;
@@ -230,7 +220,7 @@ void del_handler(struct dist_binding* b, char* query)
 }
 
 
-static void watch_reply(struct dist_binding* b, struct dist_reply_state* drs)
+static void watch_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.watch_response(b, MKCONT(free_dist_reply_state, drs),
@@ -248,7 +238,7 @@ static void watch_reply(struct dist_binding* b, struct dist_reply_state* drs)
 }
 
 
-void watch_handler(struct dist_binding* b, char* query, uint64_t mode, dist_binding_type_t type, uint64_t client_id)
+void watch_handler(struct dist2_binding* b, char* query, uint64_t mode, dist2_binding_type_t type, uint64_t client_id)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -261,7 +251,7 @@ void watch_handler(struct dist_binding* b, char* query, uint64_t mode, dist_bind
     err = generate_ast(query, &ast);
     if(err_is_ok(err)) {
         switch(type) {
-        case dist_BINDING_RPC:
+        case dist2_BINDING_RPC:
             // TODO set on new_d_r_state()?
             drs->client_id = client_id;
             drs->binding = b;
@@ -269,7 +259,7 @@ void watch_handler(struct dist_binding* b, char* query, uint64_t mode, dist_bind
             err = set_watch(ast, mode, drs);
             break;
 
-        case dist_BINDING_EVENT:
+        case dist2_BINDING_EVENT:
             err = new_dist_reply_state(&drs_event, watch_reply);
             assert(err_is_ok(err));
 
@@ -289,7 +279,7 @@ void watch_handler(struct dist_binding* b, char* query, uint64_t mode, dist_bind
 }
 
 
-static void exists_reply(struct dist_binding* b, struct dist_reply_state* drs)
+static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, drs),
@@ -306,7 +296,17 @@ static void exists_reply(struct dist_binding* b, struct dist_reply_state* drs)
 }
 
 
-void exists_handler(struct dist_binding* b, char* query, bool block)
+static void trigger_send_handler(struct dist2_binding* b, struct dist_reply_state* drs)
+{
+    errval_t err;
+    err = b->tx_vtbl.trigger(b, NOP_CONT, drs->client_id, drs->query_state.stdout.buffer);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -319,21 +319,18 @@ void exists_handler(struct dist_binding* b, char* query, bool block)
     if(err_is_ok(err)) {
         DIST2_DEBUG("exists_handler get record\n");
         err = get_record(ast, &drt->query_state);
-        if(err_is_ok(err) || !block) {
-            // return immediately
-            drt->error = err;
-            drt->rpc_reply(b, drt);
-        }
-        if(err_no(err) == DIST2_ERR_NO_RECORD) {
-            DIST2_DEBUG("exists_handler set watch\n");
-            // register and wait until record available
-            drt->client_id = 0;
-            drt->type = dist_BINDING_RPC;
-            drt->binding = b;
 
-            err = set_watch(ast, DIST_ON_SET, drt);
-            assert(err_is_ok(err)); // TODO
+        if(trigger.m > 0 && trigger.in_case == err_no(err)) {
+            struct dist_reply_state* trigger_reply = NULL;
+
+            err = new_dist_reply_state(&trigger_reply, trigger_send_handler);
+            assert(err_is_ok(err));
+
+            err = set_watch(ast, trigger.m, trigger_reply);
         }
+
+        drt->error = err;
+        drt->rpc_reply(b, drt);
     }
 
     free_ast(ast);
@@ -341,7 +338,7 @@ void exists_handler(struct dist_binding* b, char* query, bool block)
 }
 
 
-static void exists_not_reply(struct dist_binding* b, struct dist_reply_state* drs)
+static void exists_not_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.exists_not_response(b, MKCONT(free_dist_reply_state, drs),
@@ -357,7 +354,7 @@ static void exists_not_reply(struct dist_binding* b, struct dist_reply_state* dr
 }
 
 
-void exists_not_handler(struct dist_binding* b, char* query, bool block) // TODO block arg
+void exists_not_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger) // TODO block arg
 {
     assert(query != NULL);
     DIST2_DEBUG(" exists not handler: %s\n", query);
@@ -376,7 +373,7 @@ void exists_not_handler(struct dist_binding* b, char* query, bool block) // TODO
             DIST2_DEBUG(" exists not handler set watch: %s\n", query);
 
             drt->client_id = 0;
-            drt->type = dist_BINDING_RPC;
+            drt->type = dist2_BINDING_RPC;
             drt->binding = b;
             err = set_watch(ast, DIST_ON_DEL, drt);
             assert(err_is_ok(err)); // TODO
@@ -397,7 +394,7 @@ void exists_not_handler(struct dist_binding* b, char* query, bool block) // TODO
 }
 
 
-static void subscribe_reply(struct dist_binding* b, struct dist_reply_state* srs)
+static void subscribe_reply(struct dist2_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.subscribe_response(b, MKCONT(free_dist_reply_state, srs),
@@ -413,7 +410,7 @@ static void subscribe_reply(struct dist_binding* b, struct dist_reply_state* srs
 }
 
 
-void subscribe_handler(struct dist_binding *b, char* query, uint64_t id)
+void subscribe_handler(struct dist2_binding *b, char* query, uint64_t id)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -437,7 +434,7 @@ void subscribe_handler(struct dist_binding *b, char* query, uint64_t id)
 }
 
 
-static void unsubscribe_reply(struct dist_binding* b, struct dist_reply_state* srs) {
+static void unsubscribe_reply(struct dist2_binding* b, struct dist_reply_state* srs) {
     errval_t err;
     err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_dist_reply_state, srs),
 			                              srs->query_state.exec_res);
@@ -451,7 +448,7 @@ static void unsubscribe_reply(struct dist_binding* b, struct dist_reply_state* s
 }
 
 
-void unsubscribe_handler(struct dist_binding *b, uint64_t id)
+void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -477,7 +474,7 @@ static void send_subscribed_message(struct dist_event_binding* b,
 }
 
 
-static void publish_reply(struct dist_binding* b, struct dist_reply_state* srs) {
+static void publish_reply(struct dist2_binding* b, struct dist_reply_state* srs) {
     errval_t err;
     err = b->tx_vtbl.publish_response(b, MKCONT(free_dist_reply_state, srs),
 			                          srs->query_state.exec_res);
@@ -491,7 +488,7 @@ static void publish_reply(struct dist_binding* b, struct dist_reply_state* srs) 
 }
 
 
-void publish_handler(struct dist_binding *b, char* object)
+void publish_handler(struct dist2_binding *b, char* object)
 {
 	DIST2_DEBUG("publish_handler\n");
 	errval_t err = SYS_ERR_OK;
@@ -530,7 +527,7 @@ void publish_handler(struct dist_binding *b, char* object)
 }
 
 /*
-static void lock_reply(struct dist_binding* b, struct dist_reply_state* srs) {
+static void lock_reply(struct dist2_binding* b, struct dist_reply_state* srs) {
     errval_t err;
     err = b->tx_vtbl.lock_response(b, MKCONT(free_dist_reply_state, srs),
 			                          srs->query_state.exec_res);
@@ -546,7 +543,7 @@ static void lock_reply(struct dist_binding* b, struct dist_reply_state* srs) {
 
 static uint64_t enumerator = 0;
 
-void lock_handler(struct dist_binding* b, char* query)
+void lock_handler(struct dist2_binding* b, char* query)
 {
 	assert(query != NULL); // todo
 	errval_t err = SYS_ERR_OK;
@@ -619,7 +616,7 @@ void lock_handler(struct dist_binding* b, char* query)
 }
 
 
-static void unlock_reply(struct dist_binding* b, struct dist_reply_state* srs)
+static void unlock_reply(struct dist2_binding* b, struct dist_reply_state* srs)
 {
     errval_t err;
     err = b->tx_vtbl.unlock_response(b, MKCONT(free_dist_reply_state, srs),
@@ -634,7 +631,7 @@ static void unlock_reply(struct dist_binding* b, struct dist_reply_state* srs)
 }
 
 
-void unlock_handler(struct dist_binding* b, char* query)
+void unlock_handler(struct dist2_binding* b, char* query)
 {
 	assert(query != NULL); // TODO
 	errval_t err = SYS_ERR_OK;
@@ -718,7 +715,7 @@ void unlock_handler(struct dist_binding* b, char* query)
 				// return lock() call of new owner
 				owner = ast_find_attribute(next_child_ast, "owner");
 				assert(owner != NULL);
-				struct dist_binding* new_owner = (struct dist_binding*) owner->pn.right->cn.value;
+				struct dist2_binding* new_owner = (struct dist2_binding*) owner->pn.right->cn.value;
 
 				srs->error = SYS_ERR_OK;
 				child_srs->rpc_reply(new_owner, child_srs);
@@ -752,23 +749,37 @@ void unlock_handler(struct dist_binding* b, char* query)
 
 
 static uint64_t current_id = 1;
-void get_identifier(struct dist_binding* b)
+void get_identifier(struct dist2_binding* b)
 {
 	errval_t err  = b->tx_vtbl.get_identifier_response(b, NOP_CONT, current_id++);
 	assert(err_is_ok(err));
 }
 
 
+void identification_complete_reply(struct dist2_binding* b, struct dist_reply_state* drs) {
+    errval_t err;
+
+    err = b->tx_vtbl.identify_response(b, MKCONT(free_dist_reply_state, drs));
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, drs);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+
+}
+
 void identify_events_binding(struct dist_event_binding* b, uint64_t id)
 {
-    errval_t err = set_binding(dist_BINDING_EVENT, id, b);
+    errval_t err = set_binding(dist2_BINDING_EVENT, id, b);
 	assert(err_is_ok(err)); // TODO
 }
 
 
-void identify_rpc_binding(struct dist_binding* b, uint64_t id)
+void identify_rpc_binding(struct dist2_binding* b, uint64_t id)
 {
-    errval_t err = set_binding(dist_BINDING_RPC, id, b);
+    errval_t err = set_binding(dist2_BINDING_RPC, id, b);
     assert(err_is_ok(err));
 	// Returning is done by prolog predicate C function!
 }

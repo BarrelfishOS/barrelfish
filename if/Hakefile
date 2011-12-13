@@ -43,7 +43,7 @@
                "serial",
                "skb",
                "skb_map",
-               "dist",               
+               "dist2",               
                "dist_event",
                "spawn",
                "test",
@@ -68,7 +68,7 @@
                "ping_pong",
                "mem",
                "xmplthc",
-               "dist",
+               "dist2",
                "dist_event" ],
              arch <- allArchitectures
 ]
