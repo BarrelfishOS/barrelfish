@@ -92,4 +92,8 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
  */
 errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* dqs);
 
+
+struct dist2_binding* get_event_binding(struct dist2_binding*);
+
+
 #endif /* DIST2_QUERY_H_ */

@@ -8,13 +8,12 @@
 #include "trigger.h"
 
 
-
-static void parent_deleted(char* object, void* st)
+static void trigger_lock_deleted(char* object, void* st)
 {
-    struct thread_cond* tc = (struct thread_cond*) st;
-    thread_cond_signal(tc);
+    struct thread_sem* ts = (struct thread_sem*) st;
+    debug_printf("object: %s has been deleted, send singal!\n", object);
+    thread_sem_post(ts);
 }
-
 
 errval_t dist_lock(char* lock_name, char** lock_record)
 {
@@ -57,24 +56,22 @@ errval_t dist_lock(char* lock_name, char** lock_record)
 		} else {
 		    struct dist2_rpc_client* cl = get_dist_rpc_client();
 
-		    struct thread_cond tc;
-		    thread_cond_init(&tc);
+		    struct thread_sem ts;
+		    thread_sem_init(&ts, 0);
 
-		    size_t id = 0;
-		    err = dist_register_trigger(parent_deleted, &tc, &id);
-		    assert(err_is_ok(err));
-
+		    dist2_trigger_t t = { .in_case = SYS_ERR_OK,
+		                          .m = DIST_ON_DEL,
+		                          .trigger = (uint64_t) trigger_lock_deleted,
+		                          .st = (uint64_t) &ts };
 		    char* out = NULL;
 		    errval_t exist_err;
-		    dist2_trigger_t t = { .in_case = SYS_ERR_OK, .m = DIST_ON_DEL, .id = id, };
 		    err = cl->vtbl.exists(cl, names[i-1], t, &out, &exist_err);
 			assert(err_is_ok(err));
 		    free(out);
 
 		    if(err_is_ok(exist_err)) {
-		        thread_cond_wait(&tc, NULL);
+		        thread_sem_wait(&ts);
 		    }
-
 		}
 
 		dist_free_names(names, len);

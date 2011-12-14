@@ -33,7 +33,7 @@ static inline errval_t allocate_string(char* object, va_list args, size_t* lengt
 	return SYS_ERR_OK;
 }
 
-#define NOP_TRIGGER     (dist2_trigger_t){ .id = 0, .in_case = 0, .m = 0 }
+#define NOP_TRIGGER     (dist2_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
 
 
 #endif /* DIST2_COMMON_H_ */

@@ -80,7 +80,7 @@ errval_t execute_query(char* query, struct skb_query_state* st)
     ec_post_string(query);
     // Flush manually
     ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
-    ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(2)));
 
     while(st->exec_res == PFLUSHIO) {
         st->exec_res = ec_resume1(Start);

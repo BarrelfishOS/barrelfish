@@ -24,16 +24,16 @@ typedef void(*dist_reply_handler_fn)(struct dist2_binding*, struct dist_reply_st
 
 struct dist_reply_state {
     struct dist2_binding* binding;
+    dist_reply_handler_fn reply;
 
     struct dist_query_state query_state;
-    dist_reply_handler_fn rpc_reply;
     bool return_record;
     errval_t error;
 
+    dist2_trigger_t trigger;
     // For watch()
-    dist2_binding_type_t type;
-    uint64_t client_id;
     uint64_t watch_id;
+    uint64_t client_id;
 
     struct dist_reply_state *next;
 };
@@ -52,12 +52,7 @@ void subscribe_handler(struct dist2_binding*, char*, uint64_t);
 void publish_handler(struct dist2_binding*, char*);
 void unsubscribe_handler(struct dist2_binding*, uint64_t);
 
-void lock_handler(struct dist2_binding*, char*);
-void unlock_handler(struct dist2_binding*, char*);
-
-void identify_rpc_binding(struct dist2_binding*, uint64_t);
 void get_identifier(struct dist2_binding*);
-void identify_events_binding(struct dist_event_binding*, uint64_t);
-void identification_complete_reply(struct dist2_binding*, struct dist_reply_state*);
+void identify_binding(struct dist2_binding*, uint64_t, dist2_binding_type_t);
 
 #endif /* DIST2_SERVICE_H_ */

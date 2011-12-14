@@ -7,6 +7,7 @@
 #include <dist2/dist2.h>
 
 #include "common.h"
+#include "trigger.h"
 
 static struct dist_state {
     struct dist2_binding* binding;
@@ -42,6 +43,7 @@ static void identify_response_handler(struct dist2_binding* b)
 struct dist2_rx_vtbl rx_vtbl = {
         .identify_response = identify_response_handler,
         .subscribed_message = subscribed_message_handler,
+        .trigger = trigger_handler,
 };
 
 
@@ -97,6 +99,8 @@ static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
         }
     } // else: Do nothing
 
+    printf("cb done!\n");
+
     assert(!rpc.is_done);
     rpc.is_done = true;
     rpc.err = err;
@@ -121,16 +125,19 @@ static errval_t init_binding(struct dist_state* state, dist2_bind_continuation_f
     }
 
     //  Wait for callback to complete
-    while (state->is_done) {
+    while (!state->is_done) {
         messages_wait_and_handle_next();
     }
 
     return state->err;
 }
 
+//extern struct thread_mutex trigger_mutex;
 
 errval_t dist_init(void)
 {
+    //thread_mutex_init(&trigger_mutex);
+
     errval_t err = SYS_ERR_OK;
     thread_cond_init(&tc);
 

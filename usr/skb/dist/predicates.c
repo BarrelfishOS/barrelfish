@@ -10,8 +10,8 @@
 #include <dist2_server/service.h>
 #include "predicates.h"
 
-
-int p_identification_complete(void)         /* identification_complete(+Integer) */
+/*
+int p_identification_complete(void)         // identification_complete(+Integer)
 {
 	long int id;
     ec_get_long(ec_arg(1), &id);
@@ -24,7 +24,7 @@ int p_identification_complete(void)         /* identification_complete(+Integer)
     drs->rpc_reply(b, drs);
 
     return PSUCCEED;
-}
+}*/
 
 
 int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
@@ -42,7 +42,7 @@ int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
     debug_printf("p_notify_client: %s\n", drs->query_state.stdout.buffer);
 
     drs->error = SYS_ERR_OK;
-    drs->rpc_reply(drs->binding, drs);
+    drs->reply(drs->binding, drs);
 
     return PSUCCEED;
 }
@@ -84,9 +84,9 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     debug_printf("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
 
     drs->error = SYS_ERR_OK;
-    drs->rpc_reply(drs->binding, drs);
+    drs->reply(drs->binding, drs);
 
-    long int retract = drs->type == dist2_BINDING_RPC ? 1 : 0;
+    long int retract = true;
     return ec_unify_arg(5, ec_long(retract));
 }
 

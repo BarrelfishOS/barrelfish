@@ -152,7 +152,8 @@ next_sequence(Name, NextSeq) :-
     get_sequences(Name, L, Seqs),
     sort(Seqs, SortedSeqs),
     last(SortedSeqs, LastSeq),
-    NextSeq is LastSeq + 1.
+    NextSeq is LastSeq + 1,
+    !.
 next_sequence(Name, NextSeq) :- NextSeq is 0.
 
 get_sequences(_, [], []). 

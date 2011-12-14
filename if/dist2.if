@@ -12,10 +12,14 @@ interface dist2 "dist2 RPC Interface" {
 
     alias mode uint64;
 
+    // XXX: No flounder support for pointers (heterogeneous cores :()
+    // Store function pointer/state ptr on client side but
+    // this leads to more complex API (register/deregister) triggers
     typedef struct {
-        uint64 id;
         errval in_case;
         mode m;
+        uint64 trigger;
+        uint64 st;
     } trigger;
 
     typedef enum {BINDING_RPC, BINDING_EVENT} binding_type;
@@ -78,7 +82,7 @@ interface dist2 "dist2 RPC Interface" {
     //
     // Async Events (normally handled by 2nd binding in different thread)
     //
-    message subscribed_message(uint64 id, string record);
-    message trigger(uint64 id, string record);
+    message trigger(uint64 trigger_fn, uint64 state, string record);
+    message subscribed_message(uint64 id, string record);    
     message watch_event(uint64 id, string record); // TODO
 };

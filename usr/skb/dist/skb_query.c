@@ -6,7 +6,6 @@
 #include <include/skb_debug.h>
 
 #include <if/dist2_defs.h>
-#include <if/dist_event_defs.h>
 
 #include <include/skb_server.h>
 
@@ -73,6 +72,8 @@ static errval_t run_eclipse(struct dist_query_state* st)
 
     // Contains Queue ID in case of PFLUSHIO
     ec_ref retval = ec_ref_create_newvar();
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(2)));
 
     while((st->exec_res = ec_resume1(retval)) == PFLUSHIO) {
         ec_get_long(ec_ref_get(retval), &qid);
@@ -89,9 +90,9 @@ static errval_t run_eclipse(struct dist_query_state* st)
     }
 
     // atm. ignore all subsequent results
-    if(st->exec_res == PSUCCEED) {
+   if(st->exec_res == PSUCCEED) {
         ec_cut_to_chp(retval);
-        ec_resume();
+        ec_resume1(retval);
     }
 
     ec_ref_destroy(retval);
@@ -256,15 +257,22 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_stat
 }
 
 
-static struct dist_event_binding* get_event_binding(struct dist2_binding* b)
+struct dist2_binding* get_event_binding(struct dist2_binding* b)
 {
 	errval_t err =  SYS_ERR_OK;
-	struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
+	struct dist_query_state* dqs = calloc(1, sizeof(struct dist_query_state));
 	assert(dqs != NULL);
+
+	ec_ref Start = ec_ref_create_newvar();
+    dident fail = ec_did("fail",0);
+    ec_post_goal(ec_atom(fail));
+    int res = ec_resume1(Start);
+    assert(res == PFAIL);
+    ec_ref_destroy(Start);
 
 	// Calling binding(_, X, Binding), write(X).
 	dident binding = ec_did("binding", 3);
-	dident write = ec_did("writeln", 1);
+	dident write = ec_did("write", 1);
 
 	pword bind_term = ec_long((long int) b);
 	pword var_ = ec_newvar();
@@ -275,12 +283,14 @@ static struct dist_event_binding* get_event_binding(struct dist2_binding* b)
 	ec_post_goal(binding_term);
 	ec_post_goal(write_term);
 
+
 	err = run_eclipse(dqs);
 	assert(err_is_ok(err)); // TODO err
+	debug_printf("get_event_binding\n");
 	debug_skb_output(dqs);
 	// TODO check error etc.
 
-	struct dist_event_binding* recipient = NULL;
+	struct dist2_binding* recipient = NULL;
 	sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient); // TODO
 
 	assert(recipient != NULL); // TODO

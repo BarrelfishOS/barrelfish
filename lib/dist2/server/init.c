@@ -7,17 +7,15 @@
 #include <dist2_server/init.h>
 #include <dist2_server/service.h>
 
-#define DIST2_EVENT_SERVICE_NAME "dist2_events"
+#define DIST2_EVENT_SERVICE_NAME "dist2_event"
 #define DIST2_RPC_SERVICE_NAME "dist2_rpc"
-
 
 static struct export_state {
     bool is_done;
     errval_t err;
 } rpc_export, event_export;
 
-
-struct dist2_rx_vtbl rpc_rx_vtbl = {
+static const struct dist2_rx_vtbl rpc_rx_vtbl = {
     .get_names_call = get_names_handler,
     .get_call = get_handler,
     .set_call = set_handler,
@@ -25,18 +23,17 @@ struct dist2_rx_vtbl rpc_rx_vtbl = {
     .exists_call = exists_handler,
     .exists_not_call = exists_not_handler,
     .watch_call = watch_handler,
+
     .subscribe_call = subscribe_handler,
-    .publish_call = publish_handler,
-    .identify_call = identify_rpc_binding,
-    .get_identifier_call = get_identifier,
     .unsubscribe_call = unsubscribe_handler,
-    //.lock_call = lock_handler,
-    //.unlock_call = unlock_handler
+    .publish_call = publish_handler,
+
+    .get_identifier_call = get_identifier,
+    .identify_call = identify_binding,
 };
 
-
-struct dist_event_rx_vtbl event_rx_vtbl = {
-        .identify = identify_events_binding,
+static const struct dist2_rx_vtbl event_rx_vtbl = {
+    .identify_call = identify_binding,
 };
 
 
@@ -52,7 +49,7 @@ static void events_export_cb(void *st, errval_t err, iref_t iref)
 }
 
 
-static errval_t events_connect_cb(void *st, struct dist_event_binding *b)
+static errval_t events_connect_cb(void *st, struct dist2_binding *b)
 {
     // Set up continuation queue
     b->st = NULL;
@@ -133,6 +130,7 @@ errval_t rpc_server_init(void)
 
 errval_t dist_server_init(void)
 {
+
     errval_t err = event_server_init();
     if(err_is_fail(err)) {
         return err;

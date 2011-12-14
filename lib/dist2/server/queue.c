@@ -9,7 +9,7 @@ static void dist_rpc_send_next(void *arg)
 
     // If more state in the queue, send them
     if (current) {
-    	current->rpc_reply(b, current);
+    	current->reply(b, current);
     }
 }
 

@@ -6,7 +6,6 @@
 #include <skb/skb.h> // read list
 
 #include <if/dist2_defs.h>
-#include <if/dist_event_defs.h>
 
 #include <dist2_server/service.h>
 #include <dist2_server/query.h>
@@ -31,7 +30,7 @@ errval_t new_dist_reply_state(struct dist_reply_state** drt, dist_reply_handler_
     }
 
     memset(*drt, 0, sizeof(struct dist_reply_state));
-    (*drt)->rpc_reply = reply_handler;
+    (*drt)->reply = reply_handler;
     (*drt)->next = NULL;
 
     return SYS_ERR_OK;
@@ -80,7 +79,7 @@ void get_handler(struct dist2_binding *b, char *query)
 	}
 
 	srt->error = err;
-	srt->rpc_reply(b, srt);
+	srt->reply(b, srt);
 
 	free_ast(ast);
 	free(query);
@@ -118,7 +117,7 @@ void get_names_handler(struct dist2_binding *b, char *query)
     }
 
     srt->error = err;
-    srt->rpc_reply(b, srt);
+    srt->reply(b, srt);
 
     free_ast(ast);
     free(query);
@@ -175,7 +174,7 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode, bool get)
 
 	srs->error = err;
 	srs->return_record = true;
-	srs->rpc_reply(b, srs);
+	srs->reply(b, srs);
 
 	free_ast(ast);
 	free(query);
@@ -213,7 +212,7 @@ void del_handler(struct dist2_binding* b, char* query)
 	}
 
 	srs->error = err;
-	srs->rpc_reply(b, srs);
+	srs->reply(b, srs);
 
 	free_ast(ast);
 	free(query);
@@ -269,7 +268,7 @@ void watch_handler(struct dist2_binding* b, char* query, uint64_t mode, dist2_bi
 
             err = set_watch(ast, mode, drs_event);
             drs->error = err;
-            drs->rpc_reply(b, drs);
+            drs->reply(b, drs);
             break;
         }
     }
@@ -299,7 +298,8 @@ static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 static void trigger_send_handler(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.trigger(b, NOP_CONT, drs->client_id, drs->query_state.stdout.buffer);
+    err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, drs),
+            drs->trigger.trigger, drs->trigger.st, drs->query_state.stdout.buffer);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
@@ -317,20 +317,23 @@ void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigge
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if(err_is_ok(err)) {
-        DIST2_DEBUG("exists_handler get record\n");
         err = get_record(ast, &drt->query_state);
+
+        debug_printf("exists check returned: %u %s\n", err_no(err), err_getstring(err));
 
         if(trigger.m > 0 && trigger.in_case == err_no(err)) {
             struct dist_reply_state* trigger_reply = NULL;
-
             err = new_dist_reply_state(&trigger_reply, trigger_send_handler);
             assert(err_is_ok(err));
+
+            trigger_reply->trigger = trigger;
+            trigger_reply->binding = get_event_binding(b);
 
             err = set_watch(ast, trigger.m, trigger_reply);
         }
 
         drt->error = err;
-        drt->rpc_reply(b, drt);
+        drt->reply(b, drt);
     }
 
     free_ast(ast);
@@ -373,7 +376,6 @@ void exists_not_handler(struct dist2_binding* b, char* query, dist2_trigger_t tr
             DIST2_DEBUG(" exists not handler set watch: %s\n", query);
 
             drt->client_id = 0;
-            drt->type = dist2_BINDING_RPC;
             drt->binding = b;
             err = set_watch(ast, DIST_ON_DEL, drt);
             assert(err_is_ok(err)); // TODO
@@ -381,7 +383,7 @@ void exists_not_handler(struct dist2_binding* b, char* query, dist2_trigger_t tr
         else if(err_no(err) == DIST2_ERR_NO_RECORD) {
             // return immediately
             drt->error = SYS_ERR_OK;
-            drt->rpc_reply(b, drt);
+            drt->reply(b, drt);
         }
         else {
             DEBUG_ERR(err, "not_exists_handler unexpected error!");
@@ -427,7 +429,7 @@ void subscribe_handler(struct dist2_binding *b, char* query, uint64_t id)
 	}
 
 	srs->error = err;
-	srs->rpc_reply(b, srs);
+	srs->reply(b, srs);
 
 	free_ast(ast);
 	free(query);
@@ -461,11 +463,11 @@ void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
 	err = del_subscription(b, id, &srs->query_state);
 
 	srs->error = err;
-	srs->rpc_reply(b, srs);
+	srs->reply(b, srs);
 }
 
 
-static void send_subscribed_message(struct dist_event_binding* b,
+static void send_subscribed_message(struct dist2_binding* b,
 		                            uint64_t id,
 		                            char* object)
 {
@@ -501,12 +503,12 @@ void publish_handler(struct dist2_binding *b, char* object)
 	err = generate_ast(object, &ast);
 	assert(err_is_ok(err));
 
-	srs->rpc_reply(b, srs);
+	srs->reply(b, srs);
 
 	DIST2_DEBUG("find_subscribers\n");
 	err = find_subscribers(ast, &srs->query_state);
 	if(err_is_ok(err)) {
-        struct dist_event_binding* recipient = NULL;
+        struct dist2_binding* recipient = NULL;
         uint64_t id = 0;
 
     	DIST2_DEBUG("list_parser_status\n");
@@ -756,7 +758,7 @@ void get_identifier(struct dist2_binding* b)
 }
 
 
-void identification_complete_reply(struct dist2_binding* b, struct dist_reply_state* drs) {
+static void identify_binding_reply(struct dist2_binding* b, struct dist_reply_state* drs) {
     errval_t err;
 
     err = b->tx_vtbl.identify_response(b, MKCONT(free_dist_reply_state, drs));
@@ -770,18 +772,18 @@ void identification_complete_reply(struct dist2_binding* b, struct dist_reply_st
 
 }
 
-void identify_events_binding(struct dist_event_binding* b, uint64_t id)
-{
-    errval_t err = set_binding(dist2_BINDING_EVENT, id, b);
-	assert(err_is_ok(err)); // TODO
-}
 
-
-void identify_rpc_binding(struct dist2_binding* b, uint64_t id)
+void identify_binding(struct dist2_binding* b, uint64_t id, dist2_binding_type_t type)
 {
-    errval_t err = set_binding(dist2_BINDING_RPC, id, b);
+    assert(id <= current_id);
+
+    struct dist_reply_state* drs = NULL;
+    errval_t err = new_dist_reply_state(&drs, identify_binding_reply);
     assert(err_is_ok(err));
-	// Returning is done by prolog predicate C function!
+
+    debug_printf("set binding: id=%lu type=%d\n", id, type);
+    drs->error = set_binding(type, id, b);
+    drs->reply(b, drs);
 }
 
 

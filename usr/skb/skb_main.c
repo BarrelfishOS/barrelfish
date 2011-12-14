@@ -128,7 +128,7 @@ int main(int argc, char**argv)
 
     ec_external(ec_did("notify_client", 2), p_notify_client, ec_did("eclipse",0));
     ec_external(ec_did("trigger_watch", 5), p_trigger_watch, ec_did("eclipse",0));
-    ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
+    //ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
 
     // regex hack TODO
     ec_external(ec_did("match", 3), (int (*)()) ec_regmatch, ec_did("eclipse",0));
