@@ -21,6 +21,7 @@
            "ac97_ext_modem",
            "ahci_hba",
            "ahci_port",
+           "acpi_ec",
            "arm",
            "audio_nbm",
            "ehci_cap",
@@ -53,8 +54,7 @@
 -- and liable to break with new C compiler versions!
 -- 
 [ mackerel (options arch) f 
-  | f <- [ "acpi_ec",
-           "amd_vmcb",
+  | f <- [ "amd_vmcb",
            "arm_icp_pic0",
            "arm_icp_pit",
            "cpuid",
