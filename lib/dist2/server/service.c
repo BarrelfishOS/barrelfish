@@ -310,15 +310,15 @@ void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigge
 {
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drt = NULL;
-    err = new_dist_reply_state(&drt, exists_reply);
+    struct dist_reply_state* drs = NULL;
+    err = new_dist_reply_state(&drs, exists_reply);
     assert(err_is_ok(err));
 
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if(err_is_ok(err)) {
-        err = get_record(ast, &drt->query_state);
-
+        err = get_record(ast, &drs->query_state);
+        drs->error = err;
         debug_printf("exists check returned: %u %s\n", err_no(err), err_getstring(err));
 
         if(trigger.m > 0 && trigger.in_case == err_no(err)) {
@@ -330,10 +330,12 @@ void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigge
             trigger_reply->binding = get_event_binding(b);
 
             err = set_watch(ast, trigger.m, trigger_reply);
+
+            // TODO h2 handle in case
+            assert(err_is_ok(err));
         }
 
-        drt->error = err;
-        drt->reply(b, drt);
+        drs->reply(b, drs);
     }
 
     free_ast(ast);

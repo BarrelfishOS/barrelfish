@@ -34,7 +34,11 @@
                       cFiles = [ "locksimple.c" ],
                       addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
                     },
-
+                    
+  build application { target = "d2barrier",
+                      cFiles = [ "barrier.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                    },
 
   build application { target = "d2thc",
                       cFiles = [ "thc.c" ],

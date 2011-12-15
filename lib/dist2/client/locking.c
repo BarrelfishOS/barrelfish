@@ -13,6 +13,7 @@ static void trigger_lock_deleted(char* object, void* st)
     struct thread_sem* ts = (struct thread_sem*) st;
     debug_printf("object: %s has been deleted, send singal!\n", object);
     thread_sem_post(ts);
+    free(object);
 }
 
 errval_t dist_lock(char* lock_name, char** lock_record)

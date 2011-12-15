@@ -8,5 +8,6 @@ errval_t dist_init(void);
 #include <dist2/getset.h>
 #include <dist2/pubsub.h>
 #include <dist2/lock.h>
+#include <dist2/barrier.h>
 
 #endif /* DIST2_H_ */
