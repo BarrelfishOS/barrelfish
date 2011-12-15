@@ -400,35 +400,37 @@ int main(int argc, char *argv[])
 
     struct ip_addr peer_ip;  // IP address of peer
     uint16_t port = 0;  // Port number of the peer
-    int as_sender = 0; // Flag to choose between sender(1) and receiver(0)
 
     ws = get_default_waitset();
 
      // Parse args
-    if (argc != 4) {
-        printf("Usage: %s IP Port packets\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s <direction> <IP> <Port> <packets>\n", argv[0]);
         return 1;
     }
 
+    // Flag to choose between sender(1) and receiver(0)
+    int as_sender = atoi(argv[1]);
+
     struct in_addr peer_ip_gen;
-    int ret = inet_aton(argv[1], &peer_ip_gen);
+    int ret = inet_aton(argv[2], &peer_ip_gen);
     if (ret == 0) {
-        printf("Invalid IP addr: %s\n", argv[1]);
+        printf("Invalid IP addr: %s\n", argv[2]);
         return 1;
     } // end if : ip validation
     peer_ip.addr = peer_ip_gen.s_addr;
 
-    port = atoi(argv[2]);
+    port = atoi(argv[3]);
     if (port <= 0) {
         printf("Invalid port given [%s] == [%"PRIu16"]\n",
-                argv[2], port);
+                argv[3], port);
         return 1;
     } // end if : port validation
 
-    iterations = atoi(argv[3]);
+    iterations = atoi(argv[4]);
     if (iterations <= 0) {
         printf("Invalid no. of iterations [%s] == [%"PRIu64"]\n",
-                argv[3], iterations);
+                argv[4], iterations);
         return 1;
     } // end if : port validation
     iterations = iterations * MULTIPLIER;

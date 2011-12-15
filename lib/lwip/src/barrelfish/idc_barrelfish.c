@@ -340,10 +340,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             " for p %p\n",
             ghost_write_index, p);
 
+
 #if !defined(__scc__)
     mfence();                   // ensure that we flush all of the packet payload
 #endif                          // !defined(__scc__)
-
 
     uint8_t i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
@@ -351,6 +351,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     if (benchmark_mode > 0) {
         netbench_record_event_no_ts(nb, TX_SND_PKT_S);
     }
+
 
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
