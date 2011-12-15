@@ -202,8 +202,10 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         prev = call;
     }
     if (call == NULL) {
-        fprintf(stderr, "RPC:[%d:%s] Unknown XID 0x%x in reply, dropped\n",
+        fprintf(stderr, "RPC: Unknown XID 0x%x in reply, dropped\n", xid);
+/*        fprintf(stderr, "RPC:[%d:%s] Unknown XID 0x%x in reply, dropped\n",
                 disp_get_domain_id(), disp_name(), xid);
+*/
         goto out;
     } else if (prev == NULL) {
     	client->call_hash[hid] = call->next;

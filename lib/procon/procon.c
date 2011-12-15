@@ -523,11 +523,13 @@ uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
         if(!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
             sp_print_metadata(spp);
             printf("failed for id %"PRIu64"\n", id);
+/*
             printf("callstack: %p %p %p %p\n",
 	         __builtin_return_address(0),
 	         __builtin_return_address(1),
 	         __builtin_return_address(2),
 	         __builtin_return_address(3));
+*/
         }
         assert(sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size));
     }
@@ -768,9 +770,9 @@ void sp_print_metadata(struct shared_pool_private *spp)
 
 void sp_print_slot(struct slot_data *d)
 {
-    printf("%s @%p, buf[%"PRIu64"], pbuf_id[%"PRIu64"], offset[%"PRIu64"], "
+    printf("@%p, buf[%"PRIu64"], pbuf_id[%"PRIu64"], offset[%"PRIu64"], "
             "len[%"PRIu64"], n_p[%"PRIu64"], CL[%"PRIu64"], ts[%"PRIu64"]\n",
-            disp_name(), d, d->buffer_id, d->pbuf_id, d->offset, d->len,
+            d, d->buffer_id, d->pbuf_id, d->offset, d->len,
             d->no_pbufs, d->client_data, d->ts);
 }
 

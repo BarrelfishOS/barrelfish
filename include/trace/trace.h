@@ -548,12 +548,14 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 }
 #else
 
+/*
 static inline coreid_t get_my_core_id(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic *disp = get_dispatcher_generic(handle);
     return disp->core_id;
 }
+*/
 
 // User-space version: gets trace buffer pointer out of the current dispatcher
 static inline errval_t trace_write_event(struct trace_event *ev)
@@ -668,9 +670,12 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 #endif // TRACE_ONLY_SUB_NET
 
 #if TRACE_ONLY_SUB_BNET
+/*
+    Recording the events only on the core where I are interested
     if (get_my_core_id() != 1) {
     	return SYS_ERR_OK;
     }
+*/
 #endif // TRACE_ONLY_SUB_NET
 
     return trace_write_event(&ev);
