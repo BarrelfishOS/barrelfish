@@ -2,69 +2,66 @@
 #include <assert.h>
 
 #ifdef TEST_PARSER
-    #include "../../../include/dist2/parser/ast.h"
+#include "../../../include/dist2/parser/ast.h"
 #else
-    #include <dist2/parser/ast.h>
+#include <dist2/parser/ast.h>
 #endif
 
+#include "y.tab.h"
 #include "flex.h"
 
-extern void yyparse(void);
+void free_ast(struct ast_object* p)
+{
+    if (!p)
+        return;
 
-struct ast_object* dist2_parsed_ast = NULL;
-errval_t dist2_parser_error = SYS_ERR_OK;
-
-void free_ast(struct ast_object* p) {
-    if (!p) return;
-
-    switch(p->type) {
-        case nodeType_Object:
-            free_ast(p->on.name);
-            free_ast(p->on.attrs);
+    switch (p->type) {
+    case nodeType_Object:
+        free_ast(p->on.name);
+        free_ast(p->on.attrs);
         break;
 
-        case nodeType_Attribute:
-            free_ast(p->an.attr);
-            free_ast(p->an.next);
+    case nodeType_Attribute:
+        free_ast(p->an.attr);
+        free_ast(p->an.next);
         break;
 
-        case nodeType_String:
-            free(p->sn.str); // TODO: avoid leak memory if parser has error :-(
-        	p->sn.str = NULL;
+    case nodeType_String:
+        free(p->sn.str);
+        p->sn.str = NULL;
         break;
 
-        case nodeType_Ident:
-            free(p->in.str); // TODO mem leaks on parser error
-        	p->in.str = NULL;
-       	break;
-
-        case nodeType_Constraint:
-        	free_ast(p->cnsn.value);
-		break;
-
-        case nodeType_Pair:
-            free_ast(p->pn.left);
-            free_ast(p->pn.right);
+    case nodeType_Ident:
+        free(p->in.str);
+        p->in.str = NULL;
         break;
 
-        case nodeType_Unset:
-        	assert(!"nodeType_Unset encountered in free_ast!");
-        	abort();
+    case nodeType_Constraint:
+        free_ast(p->cnsn.value);
         break;
 
-        default:
-        	// Nothing to do for value types
-       	break;
+    case nodeType_Pair:
+        free_ast(p->pn.left);
+        free_ast(p->pn.right);
+        break;
+
+    case nodeType_Unset:
+        assert(!"nodeType_Unset encountered in free_ast!");
+        abort();
+        break;
+
+    default:
+        // Nothing special to do for value nodes
+        break;
     }
 
-    free (p);
+    free(p);
 }
-
 
 void ast_append_attribute(struct ast_object* ast, struct ast_object* to_insert)
 {
     struct ast_object** attr = &ast->on.attrs;
-    for(; *attr != NULL; attr = &(*attr)->an.next) {
+    for (; *attr != NULL; attr = &(*attr)->an.next) {
         // continue
     }
 
@@ -75,15 +72,14 @@ void ast_append_attribute(struct ast_object* ast, struct ast_object* to_insert)
     *attr = new_attr;
 }
 
-
 struct ast_object* ast_find_attribute(struct ast_object* ast, char* name)
 {
     struct ast_object** attr = &ast->on.attrs;
 
-    for(; *attr != NULL; attr = &(*attr)->an.next) {
+    for (; *attr != NULL; attr = &(*attr)->an.next) {
 
         assert((*attr)->type == nodeType_Attribute);
-        if(strcmp((*attr)->an.attr->pn.left->in.str, name) == 0) {
+        if (strcmp((*attr)->an.attr->pn.left->in.str, name) == 0) {
             return (*attr)->an.attr;
         }
 
@@ -92,18 +88,17 @@ struct ast_object* ast_find_attribute(struct ast_object* ast, char* name)
     return NULL;
 }
 
-
 struct ast_object* ast_remove_attribute(struct ast_object* ast, char* name)
 {
     struct ast_object** attr = &ast->on.attrs;
 
-    for(; *attr != NULL; attr = &(*attr)->an.next) {
+    for (; *attr != NULL; attr = &(*attr)->an.next) {
 
         assert((*attr)->type == nodeType_Attribute);
         struct ast_object* pair = (*attr)->an.attr;
         struct ast_object* left = pair->pn.left;
 
-        if(strcmp(left->in.str, name) == 0) {
+        if (strcmp(left->in.str, name) == 0) {
             struct ast_object* current_attr = *attr;
 
             *attr = current_attr->an.next;
@@ -120,20 +115,30 @@ struct ast_object* ast_remove_attribute(struct ast_object* ast, char* name)
     return NULL;
 }
 
-
 errval_t generate_ast(const char* input, struct ast_object** record)
 {
-	yyscan_t scanner_state;
-	yy_scan_string(input, &scanner_state);
-    yyparse();
-    yylex_destroy(&scanner_state);
+    // Save re-entrant state for Flex/Bison
+    struct dist_parser_state p;
+    struct string_buffer buf;
 
-    errval_t err = dist2_parser_error;
-
-    if(err_is_ok(err)) {
-		*record = dist2_parsed_ast;
-		dist2_parsed_ast = NULL;
+    int res = yylex_init_extra(&buf, &p.scanner);
+    if (res != 0) {
+        goto out;
     }
 
-    return err;
+    // Run Lexer and Parser
+    yy_scan_string(input, p.scanner);
+    res = yyparse((void*) &p);
+    yylex_destroy(p.scanner);
+
+    if (res == 0) {
+        *record = p.ast;
+        p.ast = NULL;
+        return SYS_ERR_OK;
+    }
+
+    out:
+    // Memory got cleaned up by bison destructors...
+    *record = NULL;
+    return DIST2_ERR_PARSER_FAIL;
 }

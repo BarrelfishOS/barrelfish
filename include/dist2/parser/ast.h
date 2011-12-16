@@ -7,13 +7,28 @@
 #ifndef TEST_PARSER
 #include <barrelfish/barrelfish.h>
 #else
-//#define SYS_ERR_OK 0
+#define SYS_ERR_OK 0
+#define DIST2_ERR_PARSER_FAIL 2
 typedef long errval_t;
 typedef long int64_t;
-static int err_is_ok(errval_t err) {
-	return err == 0;
+static int err_is_ok(errval_t err)
+{
+    return err == 0;
 }
 #endif
+
+struct dist_parser_state {
+    void* scanner;
+    errval_t err;
+    struct ast_object* ast;
+};
+
+struct string_buffer {
+    // TODO check for buffer overflows in lexer! throw error!
+    // + find good buffer size
+    char buffer[100];
+    char* ptr;
+};
 
 enum constraint_type {
     constraint_GT,
@@ -26,7 +41,7 @@ enum constraint_type {
 };
 
 enum node_type {
-	nodeType_Unset, // To detect errors
+    nodeType_Unset, // To detect errors
     nodeType_Float,
     nodeType_Constant,
     nodeType_Boolean,
@@ -47,7 +62,7 @@ struct node_record {
 };
 
 struct node_constant {
-	int64_t value;
+    int64_t value;
 };
 
 struct node_boolean {
@@ -106,7 +121,6 @@ struct ast_object {
     };
 };
 
-
 errval_t generate_ast(const char* input, struct ast_object** record);
 void free_ast(struct ast_object* p);
 
@@ -114,19 +128,17 @@ void ast_append_attribute(struct ast_object*, struct ast_object*);
 struct ast_object* ast_find_attribute(struct ast_object*, char*);
 struct ast_object* ast_remove_attribute(struct ast_object*, char*);
 
-
 static inline struct ast_object* ast_alloc_node(void)
 {
     struct ast_object* p = malloc(sizeof(struct ast_object));
     if (p == NULL) {
         //yyerror("out of memory");
-    	assert(!"no more mem bad!\n");
+        assert(!"no more mem, bad!\n");
     }
     memset(p, 0, sizeof(struct ast_object));
 
     return p;
 }
-
 
 static inline struct ast_object* ast_boolean(int value)
 {
@@ -138,7 +150,6 @@ static inline struct ast_object* ast_boolean(int value)
     return p;
 }
 
-
 static inline struct ast_object* ast_variable(void)
 {
     struct ast_object* p = ast_alloc_node();
@@ -148,8 +159,8 @@ static inline struct ast_object* ast_variable(void)
     return p;
 }
 
-
-static inline struct ast_object* ast_constraints(enum constraint_type op, struct ast_object* value)
+static inline struct ast_object* ast_constraints(enum constraint_type op,
+        struct ast_object* value)
 {
     struct ast_object* p = ast_alloc_node();
 
@@ -159,8 +170,6 @@ static inline struct ast_object* ast_constraints(enum constraint_type op, struct
 
     return p;
 }
-
-
 
 static inline struct ast_object* ast_floatingpoint(double value)
 {
@@ -172,7 +181,6 @@ static inline struct ast_object* ast_floatingpoint(double value)
     return p;
 }
 
-
 static inline struct ast_object* ast_scan(char c)
 {
     struct ast_object* p = ast_alloc_node();
@@ -183,8 +191,8 @@ static inline struct ast_object* ast_scan(char c)
     return p;
 }
 
-
-static inline struct ast_object* ast_object(struct ast_object* name, struct ast_object* attrs)
+static inline struct ast_object* ast_object(struct ast_object* name,
+        struct ast_object* attrs)
 {
     struct ast_object* p = ast_alloc_node();
 
@@ -195,8 +203,8 @@ static inline struct ast_object* ast_object(struct ast_object* name, struct ast_
     return p;
 }
 
-
-static inline struct ast_object* ast_attribute(struct ast_object* attr, struct ast_object* next)
+static inline struct ast_object* ast_attribute(struct ast_object* attr,
+        struct ast_object* next)
 {
     struct ast_object* p = ast_alloc_node();
 
@@ -207,8 +215,8 @@ static inline struct ast_object* ast_attribute(struct ast_object* attr, struct a
     return p;
 }
 
-
-static inline struct ast_object* ast_pair(struct ast_object* left, struct ast_object* right)
+static inline struct ast_object* ast_pair(struct ast_object* left,
+        struct ast_object* right)
 {
     struct ast_object* p = ast_alloc_node();
 
@@ -218,7 +226,6 @@ static inline struct ast_object* ast_pair(struct ast_object* left, struct ast_ob
 
     return p;
 }
-
 
 static inline struct ast_object* ast_ident(char* str)
 {
@@ -230,7 +237,6 @@ static inline struct ast_object* ast_ident(char* str)
     return p;
 }
 
-
 static inline struct ast_object* ast_string(char* str)
 {
     struct ast_object* p = ast_alloc_node();
@@ -240,7 +246,6 @@ static inline struct ast_object* ast_string(char* str)
 
     return p;
 }
-
 
 static inline struct ast_object* ast_num(int64_t value)
 {

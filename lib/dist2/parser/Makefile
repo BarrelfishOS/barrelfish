@@ -1,7 +1,7 @@
 LEX     = flex --header-file=flex.h
-YACC    = bison
+YACC    = bison -d
 YFLAGS  = -d -y
-CFLAGS = -DTEST_PARSER -std=c99
+CFLAGS = -DTEST_PARSER -std=c99 
 objects = parse.o scan.o y.tab.h test_parser.o ast.o
 
 test_parser: $(objects)

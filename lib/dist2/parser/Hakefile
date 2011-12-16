@@ -11,6 +11,16 @@
 --------------------------------------------------------------------------
 
 [    build library { target = "dist_parser",
-                     addCFlags = [ "-Wno-unused-value", "-Wno-redundant-decls" ],
+                     addCFlags = [ "-Wno-unused-value", 
+                                   "-Wno-redundant-decls", 
+                                   "-Wno-missing-declarations",
+                                   "-Wno-missing-prototypes",
+                                   "-Wno-implicit-function-declaration" ],
                      cFiles = [ "ast.c", "parse.c", "scan.c" ] }
+     
+     -- no-missing-declarations & no-missing-prototypes Bug: 
+     -- https://bugzilla.redhat.com/show_bug.cgi?id=612465
+     
+     -- no-implicit-function-declaration:
+     -- warning: implicit declaration of function ‘yylex’
 ]

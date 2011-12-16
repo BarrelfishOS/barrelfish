@@ -232,28 +232,25 @@ static void walk_attributes(struct ast_object* ast) {
 void transform_query(char* obj)
 {
 
-	struct ast_object* ast;
+	struct ast_object* ast = NULL;
 	errval_t err = generate_ast(obj, &ast);
-	//walk_attributes(ast);
 
-	/*assert(wait_for->type == nodeType_Pair);
-	assert(wait_for->pn.right != NULL);
-	assert(wait_for->pn.right->type == nodeType_Ident);*/
+	if(err == 0) {
+	    printf("AST seems ok, translate...\n");
+        sr = malloc(sizeof(struct skb_record));
+        memset(sr, 0, sizeof(struct skb_record));
+        translate(ast);
+	}
 
-
-	sr = malloc(sizeof(struct skb_record));
-	memset(sr, 0, sizeof(struct skb_record));
-	translate(ast);
+	free_ast(ast);
 }
 
 
 int main(int argc, char** argv)
 {
-	// dont care about free here!
-	transform_query("lock_test_1 { owner: %s, wait_for: lock_test }");
-	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+	transform_query("lock_test_1 { owner: 12, wait_for: lock_test, string: '1231'asd, }");
+	//printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
-	/*
 	transform_query("obj2 {}");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
@@ -274,7 +271,7 @@ int main(int argc, char** argv)
 
 	transform_query("obj7 { c1: r'abc', c2: r'^ab*ab$' }");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
-*/
+
     return 0;
 }
 #endif

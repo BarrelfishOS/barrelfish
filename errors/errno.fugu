@@ -24,6 +24,7 @@ errors libdist2  DIST2_ERR_ {
     failure UNKNOWN_ATTRIBUTE   "An attribute in your format was not found in the record.",
     failure UNSUPPORTED_BINDING "This binding is unsupported by the underlying implementation.",
     failure NO_TRIGGER_SLOT     "Too many triggers already registered, increase MAX_TRIGGERS.",
+    failure PARSER_FAIL         "Record parser encountered syntax error.",
 };
 
 // Kernel/syscall errors

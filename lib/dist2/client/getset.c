@@ -87,7 +87,7 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
             size_t i;
             char* tok = p;
             for (i = 0; tok != NULL; i++, p = NULL) {
-                tok = strtok_r(p, ",", &saveptr);
+                tok = strtok(p, ",");
             }
             free(p);
             p = NULL;
@@ -106,7 +106,7 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
             p = data;
             tok = p;
             for (i = 0; tok != NULL; i++, p = NULL) {
-                tok = strtok_r(p, ", ", &saveptr);
+                tok = strtok(p, ", ");
                 if (tok != NULL) {
                     (*names)[i] = mystrdup(tok);
                     if((*names)[i] == NULL) {

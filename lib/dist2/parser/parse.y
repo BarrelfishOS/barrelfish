@@ -12,14 +12,16 @@
 #include "y.tab.h"
 typedef long int64_t;
 
-int yylex(void);
 void yyerror(char *);
 
-extern struct ast_object* dist2_parsed_ast;
-extern errval_t dist2_parser_error;
+#define YYPARSE_PARAM data
+#define YYLEX_PARAM   ((struct dist_parser_state*)data)->scanner
+
 %}
 
+%define api.pure
 %error-verbose
+
 %union {
     long long int integer;
     double dl;
@@ -41,6 +43,7 @@ extern errval_t dist2_parser_error;
 %token EQ
 %token NE
 %token VARIABLE
+%token EUNEXPECTED
 
 %token <integer> BOOL
 %token <dl> FLOAT
@@ -58,9 +61,12 @@ extern errval_t dist2_parser_error;
 %type <nPtr> program
 %type <nPtr> name
 
+%destructor { free_ast($$); } <nPtr>
+%destructor { free($$); } <str>
+
 %%
 program: 
-      object                         { dist2_parsed_ast = $1; }
+      object                         { ((struct dist_parser_state*) data)->ast = $1; YYACCEPT; }
     | ;
 
 object: 
@@ -104,5 +110,4 @@ value:
 void yyerror(char *s)
 {
     printf("yyerror says: %s\n", s);
-
 }

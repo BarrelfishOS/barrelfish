@@ -11,16 +11,11 @@
 #include <dist2/parser/ast.h>
 #endif
 
-int charcount=0,linecount=0;
-char string_buf[100];
-char *string_buf_ptr;
-
-
 // not in C99 :-(
 char* strdup(const char*);
 %}
-
 %option reentrant
+%option extra-type="struct string_buffer *"
 %option bison-bridge
 %option noyywrap
 %option nounput
@@ -66,23 +61,24 @@ REGEX_START r{QUOTE}
 
 %%
 {BOOL}      {
-                yylval.integer = (strcmp(yytext, "true") == 0) ? 1 : 0;
+                yylval->integer = (strcmp(yytext, "true") == 0) ? 1 : 0;
                 return BOOL;
             }
 
 {FLOAT}     {
-                yylval.dl = atof(yytext);
+                yylval->dl = atof(yytext);
                 return FLOAT;
             }
 
 
 {IDENT}     { 
-                yylval.str = strdup(yytext); /* TODO this may leak memory on parser error! */ 
+                printf("parsed ident: %s\n" , yytext);
+                yylval->str = strdup(yytext); 
                 return IDENT; 
             }
 
 {SCAN}      {
-                yylval.c = yytext[1];
+                yylval->c = yytext[1];
                 return SCAN;
             }
 
@@ -90,12 +86,12 @@ REGEX_START r{QUOTE}
                 return VARIABLE;
             }
 
-{REGEX_START}      { string_buf_ptr = string_buf; BEGIN(REG); }
+{REGEX_START}      { yyextra->ptr = yyextra->buffer; BEGIN(REG); }
 
 <REG>\'        { /* saw closing quote - all done */
      BEGIN(INITIAL);
-     *string_buf_ptr = '\0';
-     yylval.str = strdup(string_buf);
+     *(yyextra)->ptr = '\0';
+     yylval->str = strdup(yyextra->buffer);
      return REGEX;
      }
 
@@ -104,28 +100,28 @@ REGEX_START r{QUOTE}
      /* generate error message */
      }
 
-<REG>\\n  *string_buf_ptr++ = '\n';
-<REG>\\t  *string_buf_ptr++ = '\t';
-<REG>\\r  *string_buf_ptr++ = '\r';
-<REG>\\b  *string_buf_ptr++ = '\b';
-<REG>\\f  *string_buf_ptr++ = '\f';
+<REG>\\n  *yyextra->ptr++ = '\n';
+<REG>\\t  *yyextra->ptr++ = '\t';
+<REG>\\r  *yyextra->ptr++ = '\r';
+<REG>\\b  *yyextra->ptr++ = '\b';
+<REG>\\f  *yyextra->ptr++ = '\f';
 
-<REG>\\(.|\n)  *string_buf_ptr++ = yytext[1];
+<REG>\\(.|\n)  *yyextra->ptr++ = yytext[1];
 
 <REG>[^\\\n\']+        {
      char *yptr = yytext;
 
      while ( *yptr )
-             *string_buf_ptr++ = *yptr++;
+             *yyextra->ptr++ = *yptr++;
      }
 
 
-\'      string_buf_ptr = string_buf; BEGIN(STR);
+\'      yyextra->ptr = yyextra->buffer; BEGIN(STR);
 
 <STR>\'        { /* saw closing quote - all done */
      BEGIN(INITIAL);
-     *string_buf_ptr = '\0';
-     yylval.str = strdup(string_buf);
+     *yyextra->ptr = '\0';
+     yylval->str = strdup(yyextra->buffer);
      return STRING;
      }
 
@@ -134,23 +130,23 @@ REGEX_START r{QUOTE}
          /* generate error message */
      }
 
-<STR>\\n  *string_buf_ptr++ = '\n';
-<STR>\\t  *string_buf_ptr++ = '\t';
-<STR>\\r  *string_buf_ptr++ = '\r';
-<STR>\\b  *string_buf_ptr++ = '\b';
-<STR>\\f  *string_buf_ptr++ = '\f';
+<STR>\\n  *yyextra->ptr++ = '\n';
+<STR>\\t  *yyextra->ptr++ = '\t';
+<STR>\\r  *yyextra->ptr++ = '\r';
+<STR>\\b  *yyextra->ptr++ = '\b';
+<STR>\\f  *yyextra->ptr++ = '\f';
 
-<STR>\\(.|\n)  *string_buf_ptr++ = yytext[1];
+<STR>\\(.|\n)  *yyextra->ptr++ = yytext[1];
 
 <STR>[^\\\n\']+        {
      char *yptr = yytext;
 
      while ( *yptr )
-             *string_buf_ptr++ = *yptr++;
+             *yyextra->ptr++ = *yptr++;
      }
 
 {NUMBER}   {
-                yylval.integer = atoll(yytext);
+                yylval->integer = atoll(yytext);
                 return NUMBER;
             }
 
@@ -169,11 +165,12 @@ REGEX_START r{QUOTE}
 "!="            return NE;
 
 
-\n          { linecount++; }
+\n          { }
 {SPACE}     { /* eat up whitespace */ }
 
 .           {
                 printf("Unexpected: %c\n", *yytext);
                 printf("Deal with it!\n");
+                return EUNEXPECTED;
             }
 %%
