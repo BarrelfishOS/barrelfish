@@ -123,9 +123,10 @@ struct ast_object* ast_remove_attribute(struct ast_object* ast, char* name)
 
 errval_t generate_ast(const char* input, struct ast_object** record)
 {
-	yy_scan_string(input);
+	yyscan_t scanner_state;
+	yy_scan_string(input, &scanner_state);
     yyparse();
-    yylex_destroy();
+    yylex_destroy(&scanner_state);
 
     errval_t err = dist2_parser_error;
 

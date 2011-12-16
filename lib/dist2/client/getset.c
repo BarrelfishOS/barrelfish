@@ -83,10 +83,11 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
             }
 
             // first get the number of elements
+            char* saveptr = NULL;
             size_t i;
             char* tok = p;
             for (i = 0; tok != NULL; i++, p = NULL) {
-                tok = strtok(p, ",");
+                tok = strtok_r(p, ",", &saveptr);
             }
             free(p);
             p = NULL;
@@ -101,10 +102,11 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
             }
 
             // now get the actual elements
+            saveptr = NULL;
             p = data;
             tok = p;
             for (i = 0; tok != NULL; i++, p = NULL) {
-                tok = strtok(p, ", ");
+                tok = strtok_r(p, ", ", &saveptr);
                 if (tok != NULL) {
                     (*names)[i] = mystrdup(tok);
                     if((*names)[i] == NULL) {

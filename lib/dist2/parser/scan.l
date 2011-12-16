@@ -20,6 +20,8 @@ char *string_buf_ptr;
 char* strdup(const char*);
 %}
 
+%option reentrant
+%option bison-bridge
 %option noyywrap
 %option nounput
 %option noinput

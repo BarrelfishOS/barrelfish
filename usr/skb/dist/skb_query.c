@@ -249,7 +249,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_stat
             drs->watch_id = watch_id;
         }
 
-        DIST2_DEBUG(" del_record:\n");
+        DIST2_DEBUG(" set_watch:\n");
         debug_skb_output(&drs->query_state);
     }
 
