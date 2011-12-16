@@ -179,16 +179,13 @@ static errval_t get_set_test(void)
 
 	// TODO implement dist_del with constraints, attributes!
 
-	//Not working atm. need GNU libc regex library
-
-	//err = dist_get("_ { pattern1: r'^12.*ab$' }", &data);
-	//if(err_is_fail(err)) {
-	//	DEBUG_ERR(err, "dist_get failed!");
-	//	return err;
-	//}
-	//printf("data: %s\n", data);
-	//assert(strcmp(data, "object4 [bool :: [val true], fl :: [val 12.0], weight :: [val 20], attr :: [val Somestring]]") == 0);
-	//free(data);
+	err = dist_get("_ { pattern1: r'^12.*ab$' }", &data);
+	if(err_is_fail(err)) {
+		DEBUG_ERR(err, "dist_get failed!");
+		return err;
+	}
+	printf("data: %s\n", data);
+	free(data);
 
 	printf("\tget_set_test() success.\n");
 	return SYS_ERR_OK;

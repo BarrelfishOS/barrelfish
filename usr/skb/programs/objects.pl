@@ -10,7 +10,7 @@
 :- dynamic exists_not/2.
 :- dynamic watch/2.
 
-%:- lib(regex).
+%:- lib(regex)    
 %:- include("../data/objects.txt").
 
 is_empty([]).
@@ -82,10 +82,12 @@ satisfy_constraints([], _).
 satisfy_constraints([Constraint|Rest], SlotList) :-
     satisfy_constraint(Constraint, SlotList).
 
+distmatch(A, B) :- match(B, A, []).
 satisfy_constraint(constraint(Attr, Comparator, Value), SlotList) :-
     slot_vals(Name, Attr::X, SlotList),
     FX =.. [Comparator, X, Value],
     call(FX).
+    
 
 % Given name, want list of all attributes
 slot_vals(_, X, Z) :-
