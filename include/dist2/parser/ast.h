@@ -26,7 +26,7 @@ struct dist_parser_state {
 struct string_buffer {
     // TODO check for buffer overflows in lexer! throw error!
     // + find good buffer size
-    char buffer[100];
+    char buffer[1024];
     char* ptr;
 };
 

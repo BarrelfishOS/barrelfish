@@ -11,8 +11,8 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "d2getset",
-                      cFiles = [ "getset.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
+                      cFiles = [ "d2getset.c" ],
+                      addLibraries = [ "dist2", "dist_parser" ]
                     },
   
   build application { target = "d2exist",

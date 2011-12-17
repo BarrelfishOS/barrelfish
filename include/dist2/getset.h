@@ -34,7 +34,7 @@ void dist_free_names(char**, size_t);
  * @retval DIST2_ERR_NO_RECORD
  * TODO retvals
  */
-errval_t dist_get(char*, char**);
+errval_t dist_get(const char*, char**);
 
 /**
  * Stores a record in the DB.

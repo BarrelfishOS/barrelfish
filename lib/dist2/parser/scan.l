@@ -72,7 +72,6 @@ REGEX_START r{QUOTE}
 
 
 {IDENT}     { 
-                printf("parsed ident: %s\n" , yytext);
                 yylval->str = strdup(yytext); 
                 return IDENT; 
             }
@@ -92,6 +91,7 @@ REGEX_START r{QUOTE}
      BEGIN(INITIAL);
      *(yyextra)->ptr = '\0';
      yylval->str = strdup(yyextra->buffer);
+     printf("parsed regex: %s\n", yylval->str);
      return REGEX;
      }
 
@@ -100,13 +100,8 @@ REGEX_START r{QUOTE}
      /* generate error message */
      }
 
-<REG>\\n  *yyextra->ptr++ = '\n';
-<REG>\\t  *yyextra->ptr++ = '\t';
-<REG>\\r  *yyextra->ptr++ = '\r';
-<REG>\\b  *yyextra->ptr++ = '\b';
-<REG>\\f  *yyextra->ptr++ = '\f';
 
-<REG>\\(.|\n)  *yyextra->ptr++ = yytext[1];
+<REG>\\('|\n)   { printf("got escape skip to %c\n", yytext[1]); *yyextra->ptr++ = yytext[1]; }
 
 <REG>[^\\\n\']+        {
      char *yptr = yytext;

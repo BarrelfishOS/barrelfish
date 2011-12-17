@@ -139,25 +139,25 @@ static void translate(struct ast_object* p) {
             w = &sr->constraints;
             char* operator;
             switch(p->cnsn.op) {
-                case GT:
+                case constraint_GT:
                     operator = ">";
                 break;
-                case GE:
+                case constraint_GE:
                     operator = ">=";
                 break;
-                case LT:
+                case constraint_LT:
                     operator = "<";
                 break;
-                case LE:
+                case constraint_LE:
                     operator = "=<";
                 break;
-                case EQ:
+                case constraint_EQ:
                     operator = "==";
                 break;
-                case NE:
+                case constraint_NE:
                     operator = "=/=";
                 break;
-                case REGEX:
+                case constraint_REGEX:
                 	operator = "match";
 				break;
                 default:
@@ -266,10 +266,10 @@ int main(int argc, char** argv)
 	transform_query("obj5 { str1: 'String1', str2: 'String2' }");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
-	transform_query("obj7 { c1: < 10, c1: > 11.0, c3: == 0, c4: >= 0, c5: <= .123 }");
-	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+	//transform_query("obj7 { c1: < 10, c1: > 11.0, c3: == 0, c4: >= 0, c5: <= .123 }");
+	//printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
-	transform_query("obj7 { c1: r'abc', c2: r'^ab*ab$' }");
+	transform_query("obj7 { c1: r'abc', c2: r'^ \\\\ ab*ab$ \\' \n' }");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
     return 0;

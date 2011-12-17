@@ -170,6 +170,8 @@ errval_t dist_init(void)
     // Register rpc binding using identifier
     err = dist_rpc->vtbl.identify(dist_rpc, id, dist2_BINDING_RPC);
 
+    dist_pubsub_init();
+
     // Wait until event binding has registered itself
     thread_cond_wait(&tc, NULL);
     return err;
