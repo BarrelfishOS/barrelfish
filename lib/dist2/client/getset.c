@@ -144,17 +144,15 @@ errval_t dist_get(const char* query, char** data)
 {
 	assert(query != NULL);
 
-	char* error = NULL;
 	errval_t error_code;
 	errval_t err = SYS_ERR_OK;
 
 	struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-	err = rpc_client->vtbl.get(rpc_client, query, data, &error, &error_code);
+	err = rpc_client->vtbl.get(rpc_client, query, data, &error_code);
 	if(err_is_ok(err)) {
 		err = error_code;
 	}
 
-	free(error); // TODO can this be NULL?
 	// free(*data) on error? can be NULL?
 
 	return err;

@@ -51,7 +51,7 @@ static void free_dist_reply_state(void* arg) {
 static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
-    		                      srt->query_state.stdout.buffer, srt->query_state.stderr.buffer,
+    		                      srt->query_state.stdout.buffer,
     		                      srt->error);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {

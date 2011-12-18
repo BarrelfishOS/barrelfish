@@ -36,28 +36,38 @@ interface dist2 "dist2 RPC Interface" {
     // Get/Set API
     //
     
-    // Returns the names of records matching the query as a string
-    // separated by commas. In case of an error output is NULL and
-    // error_code is set accordingly.
+    /**
+     * Returns the names of all records matching the given query.
+     */
     rpc get_names(in string query, out string output, out errval error_code);
     
-    // Returns a single record matching the given query.
-    // In case no record or multiple records are found output is NULL and
-    // error_code is set accordingly.
-    // TODO remove out string error
-    rpc get(in string query, out string output, out string error, out errval error_code);
-    
-    // Sets a record specified in the query. Mode is used to set sequential names. 
-    // In case get is true the the record set record is returned.
-    // trigger: watches recordname
+    /**
+     * Tries to find a record matching the query. Trigger watches the 
+     * returned record for future events.
+     * TODO: Multiple Records
+     * Constraint in trigger can make sense -> obj not found no exact record
+     * name specified
+     */
+    rpc get(in string query, out string output, out errval error_code);
+        
+    /**
+     * Sets a record with the given attributes. In case the record already exists the update
+     * is only applied in case the constraints in query are met.
+     * Trigger watches for future events on that record.
+     */
     rpc set(in string query, in uint64 mode, in bool get, out string record, out errval error_code);
     
-    // Deletes a record specified by a given query.
-    // trigger: watches recordname
-    rpc del(in string query, out errval error_code);
+    /**
+     * Deletes all records matching the given query.
+     * Trigger watches for future events matching the query.
+     */
+    rpc del(in string query, out errval error_code);    
     
-    // Registers a given query in the System. Return as soon as one or more
-    // records for the given query exists
+    /**
+     * Evaluates a given query and returns a result.
+     * An additional trigger can be set to watch for future events 
+     * matching the query. 
+     */
     rpc exists(in string query, in trigger t, out errval error_code);
     
     
