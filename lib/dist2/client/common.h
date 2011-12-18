@@ -28,6 +28,9 @@
 struct dist2_rpc_client* get_dist_rpc_client(void);
 struct dist2_binding* get_dist_event_binding(void);
 
+#define LOCK_DIST_BINDING(cl)
+#define UNLOCK_DIST_BINDING(cl)
+
 #define NOP_TRIGGER     (dist2_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
 #define MAX_RECORD_LENGTH (5*1024)
 

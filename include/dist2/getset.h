@@ -76,18 +76,8 @@ errval_t dist_del(char*, ...);
  * @retval SYS_ERR_OK
  * @retval DIST2_ERR_NO_RECORD
  */
-errval_t dist_exists(bool, char**, char*, ...);
+errval_t dist_exists(char*, ...);
 
-/**
- * Tests if a given query has no result.
- *
- * @param watch In case this is true block until the query has no more results.
- * Otherwise return immediate result.
- * @param query
- *
- * @retval SYS_ERR_OK
- */
-errval_t dist_exists_not(bool, char*, ...);
 
 /**
  * Reads attributes from a given record.

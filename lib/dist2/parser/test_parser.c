@@ -269,7 +269,7 @@ int main(int argc, char** argv)
 	//transform_query("obj7 { c1: < 10, c1: > 11.0, c3: == 0, c4: >= 0, c5: <= .123 }");
 	//printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
-	transform_query("obj7 { c1: r'abc', c2: r'^ \\\\ ab*ab$ \\' \n' }");
+	transform_query("obj7 { c1: r'^12.*ab$', c2: r'^ \\\\ ab*ab$  asd \\naasdf' }");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
     return 0;

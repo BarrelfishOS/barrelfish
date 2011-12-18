@@ -64,11 +64,9 @@ errval_t dist_lock(char* lock_name, char** lock_record)
 		                          .m = DIST_ON_DEL,
 		                          .trigger = (uint64_t) trigger_lock_deleted,
 		                          .st = (uint64_t) &ts };
-		    char* out = NULL;
 		    errval_t exist_err;
-		    err = cl->vtbl.exists(cl, names[i-1], t, &out, &exist_err);
+		    err = cl->vtbl.exists(cl, names[i-1], t, &exist_err);
 			assert(err_is_ok(err));
-		    free(out);
 
 		    if(err_is_ok(exist_err)) {
 		        thread_sem_wait(&ts);

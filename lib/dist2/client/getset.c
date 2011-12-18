@@ -9,15 +9,6 @@
 
 #include "strnatcmp.h"
 #include "common.h"
-/**
-     #define STR(a) #a
-     #define R(var, re)  static char var##_[] = STR(re);\
-     const char * var = ( var##_[ sizeof(var##_) - 2] = '\0',  (var##_ + 1) );
-
-     R(re, "\w\d");
-     printf("Hello, world[%s]\n",  re);
-**/
-
 
 // Make sure args come right after query
 #define FORMAT_QUERY(query, args, buf) do {                         \
@@ -149,7 +140,7 @@ void dist_free_names(char** names, size_t len)
  * Gets one (the first?) found
  * returns error if ambigous query?
  */
-errval_t dist_get(char* query, char** data)
+errval_t dist_get(const char* query, char** data)
 {
 	assert(query != NULL);
 
@@ -247,7 +238,7 @@ errval_t dist_del(char* object, ...)
 }
 
 
-errval_t dist_exists(bool watch, char** record, char* query, ...)
+errval_t dist_exists(char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -259,7 +250,7 @@ errval_t dist_exists(bool watch, char** record, char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
-    err = rpc_client->vtbl.exists(rpc_client, buf, NOP_TRIGGER, record, &error_code);
+    err = rpc_client->vtbl.exists(rpc_client, buf, NOP_TRIGGER, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }
@@ -267,31 +258,6 @@ errval_t dist_exists(bool watch, char** record, char* query, ...)
     free(buf);
     return err;
 }
-
-
-errval_t dist_exists_not(bool watch, char* query, ...)
-{
-    assert(query != NULL);
-    errval_t err = SYS_ERR_OK;
-    va_list args;
-
-    char* buf = NULL;
-    FORMAT_QUERY(query, args, buf);
-
-    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-
-    errval_t error_code;
-    err = rpc_client->vtbl.exists_not(rpc_client, buf, NOP_TRIGGER, &error_code);
-    if(err_is_ok(err)) {
-        err = error_code;
-    }
-
-    free(buf);
-    return err;
-}
-
-
-
 
 errval_t dist_wait_for(dist_mode_t mode, char** record, char* query, ...)
 {

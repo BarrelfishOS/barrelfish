@@ -32,11 +32,10 @@ errval_t dist_barrier_enter(char* name, char** barrier_record, size_t wait_for) 
 	                          .m = DIST_ON_SET,
 	                          .trigger = (uint64_t) barrier_signal_sem,
 	                          .st = (uint64_t) &ts };
-	    char* out = NULL;
 	    errval_t exist_err;
-	    err = cl->vtbl.exists(cl, name, t, &out, &exist_err);
+	    err = cl->vtbl.exists(cl, name, t, &exist_err);
 		assert(err_is_ok(err));
-		free(out);
+
 		debug_printf("barrier exists: %s\n", err_getcode(err));
 	    if(err_no(exist_err) == DIST2_ERR_NO_RECORD) {
 	    	debug_printf("waiting for semaphore signal\n");
@@ -75,11 +74,9 @@ errval_t dist_barrier_leave(char* barrier_record) {
 		                          .m = DIST_ON_DEL,
 		                          .trigger = (uint64_t) barrier_signal_sem,
 		                          .st = (uint64_t) &ts };
-		    char* out = NULL;
 		    errval_t exist_err;
-		    err = cl->vtbl.exists(cl, barrier_name, t, &out, &exist_err);
+		    err = cl->vtbl.exists(cl, barrier_name, t, &exist_err);
 			assert(err_is_ok(err));
-			free(out);
 
 			if(err_is_ok(exist_err)) {
 		        thread_sem_wait(&ts);

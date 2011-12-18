@@ -10,7 +10,6 @@
 #include <dist2/dist2.h>
 
 #include "common.h"
-int id = 0;
 
 int main(int argc, char *argv[])
 {
@@ -19,38 +18,33 @@ int main(int argc, char *argv[])
 
     char* name = NULL;
     char* attr1 = NULL;
+    double d;
+    uint64_t i;
 
-    printf("1\n");
-    err = dist_read("record {}", "record {}");
-    ASSERT_ERR_OK(err);
-
-    printf("2\n");
-    err = dist_read("record", "record");
-    ASSERT_ERR_OK(err);
-
-    printf("3\n");
     err = dist_read("record", "%s", &name);
-    printf("name: %s\n", name);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(name, "record");
     free(name);
 
-    printf("4\n");
     err = dist_read("record {}", "%s {}", &name);
-    printf("name: %s\n", name);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(name, "record");
     free(name);
 
-    printf("5\n");
     err = dist_read("record { attr1: 'Test String 123' }", "%s { attr1: %s }", &name, &attr1);
-    printf("name: %s\n", name);
-    printf("attr: %s\n", attr1);
-    ASSERT_ERR_OK(err);
     ASSERT_STRING(name, "record");
     ASSERT_STRING(attr1, "Test String 123");
+    ASSERT_ERR_OK(err);
     free(name);
     free(attr1);
+
+    err = dist_read("record2 { str: 'string', float: 12.0, integer: 1212}",
+    		"_ { float: %f, str: %s, integer: %d }", &d, &attr1, &i);
+    ASSERT_ERR_OK(err);
+    ASSERT_STRING(attr1, "string");
+    assert(d == 12.0);
+    assert(i == 1212);
+
 
 
 

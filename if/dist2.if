@@ -12,9 +12,9 @@ interface dist2 "dist2 RPC Interface" {
 
     alias mode uint64;
 
-    // XXX: No flounder support for pointers (heterogeneous cores :()
+    // XXX: No flounder support for pointer values
     // Store function pointer/state ptr on client side but
-    // this leads to more complex API (register/deregister) triggers
+    // this leads to more complex API (register/deregister)
     typedef struct {
         errval in_case;
         mode m;
@@ -58,11 +58,7 @@ interface dist2 "dist2 RPC Interface" {
     
     // Registers a given query in the System. Return as soon as one or more
     // records for the given query exists
-    rpc exists(in string query, in trigger t, out string output, out errval error_code);
-
-    // Registers a given query in the System. Returns as soon as there are no more
-    // records matching the query.
-    rpc exists_not(in string query, in trigger t, out errval error_code);
+    rpc exists(in string query, in trigger t, out errval error_code);
     
     
     // TODO Not really needed for anything yet

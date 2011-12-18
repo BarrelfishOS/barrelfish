@@ -282,7 +282,6 @@ static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, drs),
-                                     drs->query_state.stdout.buffer,
                                      drs->error);
 
     if (err_is_fail(err)) {
@@ -336,61 +335,6 @@ void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigge
         }
 
         drs->reply(b, drs);
-    }
-
-    free_ast(ast);
-    free(query);
-}
-
-
-static void exists_not_reply(struct dist2_binding* b, struct dist_reply_state* drs)
-{
-    errval_t err;
-    err = b->tx_vtbl.exists_not_response(b, MKCONT(free_dist_reply_state, drs),
-                                         drs->error);
-
-    if (err_is_fail(err)) {
-        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
-            return;
-        }
-        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
-    }
-}
-
-
-void exists_not_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger) // TODO block arg
-{
-    assert(query != NULL);
-    DIST2_DEBUG(" exists not handler: %s\n", query);
-
-    errval_t err = SYS_ERR_OK;
-    struct dist_reply_state* drt = NULL;
-    err = new_dist_reply_state(&drt, exists_not_reply);
-    assert(err_is_ok(err));
-
-    struct ast_object* ast = NULL;
-    err = generate_ast(query, &ast);
-    if(err_is_ok(err)) {
-        err = get_record(ast, &drt->query_state);
-        if(err_is_ok(err)) {
-            // register and wait until record unavailable
-            DIST2_DEBUG(" exists not handler set watch: %s\n", query);
-
-            drt->client_id = 0;
-            drt->binding = b;
-            err = set_watch(ast, DIST_ON_DEL, drt);
-            assert(err_is_ok(err)); // TODO
-        }
-        else if(err_no(err) == DIST2_ERR_NO_RECORD) {
-            // return immediately
-            drt->error = SYS_ERR_OK;
-            drt->reply(b, drt);
-        }
-        else {
-            DEBUG_ERR(err, "not_exists_handler unexpected error!");
-            abort();
-        }
     }
 
     free_ast(ast);

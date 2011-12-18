@@ -122,7 +122,9 @@ static void get_records(void)
     printf("data: %s\n", data);
     free(data);
 
+    // Test long regex
     R(re, "_ { pattern3: r'^(((((((0?[13578])|(1[02]))[\.\-/]?((0?[1-9])|([12]\d)|(3[01])))|(((0?[469])|(11))[\.\-/]?((0?[1-9])|([12]\d)|(30)))|((0?2)[\.\-/]?((0?[1-9])|(1\d)|(2[0-8]))))[\.\-/]?(((19)|(20))?([\d][\d]))))|((0?2)[\.\-/]?(29)[\.\-/]?(((19)|(20))?(([02468][048])|([13579][26])))))$' }");
+    printf("re is: %s\n", re);
     err = dist_get(re, &data);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data,
@@ -162,6 +164,14 @@ static void set_records(void)
             "object5 { pattern1: '%s', pattern2: '%s', pattern3: '%s' }",
             pattern1, pattern2, pattern3);
     ASSERT_ERR_OK(err);
+
+    pattern1 = "123ababc";
+    pattern3 = "21-00-2900";
+    err = dist_set(0,
+            "object6 { pattern1: '%s', pattern2: '%s', pattern3: '%s' }",
+            pattern1, pattern2, pattern3);
+    ASSERT_ERR_OK(err);
+
 
     err = dist_set(SET_SEQUENTIAL, "seq_ {}");
     ASSERT_ERR_OK(err);

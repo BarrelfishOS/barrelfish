@@ -89,21 +89,12 @@ REGEX_START r{QUOTE}
 
 <REG>\'        { /* saw closing quote - all done */
      BEGIN(INITIAL);
-     *(yyextra)->ptr = '\0';
+     *yyextra->ptr = '\0';
      yylval->str = strdup(yyextra->buffer);
-     printf("parsed regex: %s\n", yylval->str);
      return REGEX;
      }
 
-<REG>\n        {
-     /* error - unterminated string constant */
-     /* generate error message */
-     }
-
-
-<REG>\\('|\n)   { printf("got escape skip to %c\n", yytext[1]); *yyextra->ptr++ = yytext[1]; }
-
-<REG>[^\\\n\']+        {
+<REG>[^\']+        {
      char *yptr = yytext;
 
      while ( *yptr )
