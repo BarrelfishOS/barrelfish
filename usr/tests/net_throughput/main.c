@@ -24,16 +24,20 @@
 #include <vfs/vfs.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/waitset.h>
+#include <contmng/netbench.h>
 
 #define DIRNAME   "/nfs"
 #define FILENAME   "/nfs/pravin/testfile.txt"
-#define MAX_DATA   (1330 * 8)
+//#define MAX_DATA   (1330 * 8)
+#define MAX_DATA   (1330)
 //#define MAX_DATA   (1U << 12)
 int main(int argc, char**argv)
 {
 
     if(argc < 4) {
         printf("Usage: %s mount-DIR  mount-URL filepath\n", argv[0]);
+        printf("Example: %s /nfs nfs://10.110.4.41/shared  /nfs/pravin/601.avi\n",
+                argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -64,7 +68,7 @@ int main(int argc, char**argv)
         char data[MAX_DATA];
         int ret = fread(data, MAX_DATA, 1, f);
         if (ret <= 0) {
-            //            printf("fread returned %d, so EOF\n", ret);
+            printf("fread returned %d, so EOF\n", ret);
             break;
         }
         total_size += ret;
@@ -74,8 +78,8 @@ int main(int argc, char**argv)
     uint64_t stop = rdtsc();
     /* FIXME: record stop time */
     printf("######## Everythin done\n");
-    printf("Data size = %"PRIu64",  Processing time %"PRIu64"\n",
-           total_size, (stop - start));
+    printf("Data size = %"PRIu64",  Processing time [%"PRIu64"] [%"PU"]\n",
+           total_size, (stop - start), in_seconds(stop - start));
 
     struct waitset *ws = get_default_waitset();
     while (1) {

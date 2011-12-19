@@ -19,8 +19,6 @@
 #include <barrelfish/barrelfish.h>
 #include <stdio.h>
 
-#define PU "f"
-
 #if 0
 #define CONVERT_TO_SEC
 
