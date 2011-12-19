@@ -202,7 +202,10 @@ static void register_pbuf_v2(struct ether_binding *b, uint64_t buf_id,
 */
 
     r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, spp_index, b);
-    assert(err_is_ok(r));
+    if(!err_is_ok(r)) {
+        printf("add_receive_pbuf_app failed\n");
+        abort();
+    }
 
     if (cl->debug_state == 4) {
         netbench_record_event_simple(bm, RE_PBUF_REG, ts);
@@ -301,7 +304,10 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 
     struct frame_identity pa;
     err = invoke_frame_identify(cap, &pa);
-    assert(err_is_ok(err));
+    if (!err_is_ok(err)) {
+        printf("invoke_frame_identify failed\n");
+        abort();
+    }
     buffer->pa = pa.base;
     buffer->bits = pa.bits;
 
@@ -1050,7 +1056,10 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 
     // update the spp indicating the new packet
     // need to increment write pointer
-    assert(sp_produce_slot(cl->spp_ptr, &sslot));
+    if(!sp_produce_slot(cl->spp_ptr, &sslot)) {
+        printf("sp_produce_slot failed\n");
+        abort();
+    }
 
     phead_rx = (phead_rx + 1) % APP_QUEUE_SIZE;
     buffer->pbuf_head_rx = phead_rx;

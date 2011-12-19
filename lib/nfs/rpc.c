@@ -387,7 +387,10 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     uint32_t xid;
 
     if (lwip_mutex != NULL) {
-        assert(!thread_mutex_trylock(lwip_mutex));
+        if(thread_mutex_trylock(lwip_mutex)) {
+           printf("rpc_call: thread_mutex_trylock failed\n");
+           abort();
+        }
     }
 
     rb = xdr_pbuf_create_send(&xdr, args_size + RPC_CALL_HEADER_LEN);

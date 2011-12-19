@@ -213,7 +213,10 @@ static void sp_process_tx_done(bool debug)
 
     // Slot pointed by write id should be always free!
     if (sp_is_slot_clear(spp_send, spp_send->c_write_id) != 0) {
-        assert(sp_clear_slot(spp_send, &d, spp_send->c_write_id));
+        if(!sp_clear_slot(spp_send, &d, spp_send->c_write_id)) {
+            printf("sp_clear_slot failed\n");
+            abort();
+        }
         if (d.client_data != 0) {
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
             lwip_free_handler(done_pbuf);
@@ -236,11 +239,15 @@ static void sp_process_tx_done(bool debug)
     while (sp_c_between(spp_send->c_write_id, i, current_read,
                 spp_send->c_size)) {
 
-        if (debug) printf("inside while for %"PRIu64"\n", i);
+        if (debug)
+            printf("inside while for %"PRIu64"\n", i);
         if (sp_is_slot_clear(spp_send, i) != 0) {
-           if (debug) printf("#### problems in clearing the slot %"PRIu64"\n",
-                    i);
-            assert(sp_clear_slot(spp_send, &d, i));
+           if (debug)
+            printf("#### problems in clearing the slot %"PRIu64"\n", i);
+            if (sp_clear_slot(spp_send, &d, i) == false) {
+                printf("ERROR: bulk_transport_logic: slot not clear\n");
+                abort();
+            }
             /*
             printf("sp_process_done for %"PRIu64"\n", i);
             sp_print_slot(&spp_done->sp->slot_list[i].d);
@@ -254,10 +261,11 @@ static void sp_process_tx_done(bool debug)
             done_pbuf = (struct pbuf *) (uintptr_t) d.client_data;
            // LWIPBF_DEBUG
             if(debug)
-              printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
+                printf("sp_process_done for slot %"PRIu64", freeing pbuf %p\n",
                     i, done_pbuf);
             lwip_free_handler(done_pbuf);
-//            printf("Freed up pbuf slot %"PRIu64"\n", i);
+            if(debug)
+                printf("Freed up pbuf slot %"PRIu64"\n", i);
         } // end if : sp_is_slot_clear
 //        spp_send->pre_write_id = i;
         i = (i + 1) % spp_send->c_size;
@@ -866,7 +874,10 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
             lwip_rec_handler(lwip_rec_data, sslot.pbuf_id,
                     sslot.offset, sslot.len, sslot.len, NULL);
         }
-        assert(sp_ghost_read_confirm(ccnc->spp_ptr));
+        if(!sp_ghost_read_confirm(ccnc->spp_ptr)) {
+            printf("handle incoming packet: error in confirming ghost read\n");
+            abort();
+        }
 /*
         if(benchmark_mode > 0) {
             netbench_record_event_simple(nb, RE_ALL, ts);

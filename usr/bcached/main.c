@@ -133,7 +133,7 @@ key_state_t cache_lookup(char *key, size_t key_len,
 {
     ENTRY_TYPE et;
     void *val;
-    key_state_t ret;
+    key_state_t ret = KEY_MISSING;
 
     et = cache_hash->d.get(&cache_hash->d, key, key_len, &val);
 

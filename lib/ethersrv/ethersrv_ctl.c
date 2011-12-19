@@ -167,7 +167,10 @@ static void register_filter_memory_request(struct ether_control_binding *cc,
     struct frame_identity pa;
 
     err = invoke_frame_identify(mem_cap, &pa);
-    assert(err_is_ok(err));
+    if(!err_is_ok(err)) {
+        printf("invoke_frame_identity failed\n");
+        abort();
+    }
 
     ETHERSRV_DEBUG("register_netd_memory: attempt to register memory\n");
     // 2 is rx + tx

@@ -520,7 +520,7 @@ uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
 {
     sp_reload_regs(spp);
     if (!sp_queue_empty(spp)) {
-        if(!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
+        if (!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
             sp_print_metadata(spp);
             printf("failed for id %"PRIu64"\n", id);
 /*
@@ -531,7 +531,11 @@ uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
 	         __builtin_return_address(3));
 */
         }
-        assert(sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size));
+        if (!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
+            printf("sp_c_between failed in sp_is_slot_clear\n");
+            abort();
+        }
+
     }
     /*
     else {
@@ -588,7 +592,11 @@ bool validate_and_empty_produce_slot(struct shared_pool_private *spp,
     uint64_t wi = spp->c_write_id;
     assert(spp->c_write_id == produced_slot_id);
     // If needed, mark the slot as produced
-    assert(sp_set_write_index(spp, ((wi + 1) % spp->c_size)));
+    if(!sp_set_write_index(spp, ((wi + 1) % spp->c_size))) {
+        printf("ERROR: validate_and_empty_produce_slot: sp_set_write_index "
+                "failed\n");
+        abort();
+    }
     return true;
 } // end function: validate_and_empty_produce_slot
 
@@ -613,7 +621,10 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
 #endif // 0
 
     // Incrementing write pointer
-    assert(sp_set_write_index(spp, ((wi + 1) % spp->c_size)));
+    if(!sp_set_write_index(spp, ((wi + 1) % spp->c_size))) {
+        printf("ERROR: sp_produce_slot: sp_set_write_index failed\n");
+        abort();
+    }
     return true;
 } // end function: sp_produce_slot
 
@@ -736,7 +747,10 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
 #endif // !defined(__scc__) && !defined(__i386__)
 #endif // 0
     // Incrementing read index
-    assert(sp_set_read_index(spp, ((ri + 1) % spp->c_size)));
+    if(!sp_set_read_index(spp, ((ri + 1) % spp->c_size))) {
+        printf("sp_set_read_index failed\n");
+        abort();
+    }
     return true;
 } // end function: sp_consume_slot
 

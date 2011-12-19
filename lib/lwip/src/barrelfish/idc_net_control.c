@@ -156,7 +156,10 @@ static void netd_bind_cb(void *st, errval_t err, struct netd_binding *b)
     LWIPBF_DEBUG("netd_bind_cb: called\n");
 
     err = netd_rpc_client_init(&netd_rpc, b);
-    assert(err_is_ok(err));
+    if (!err_is_ok(err)) {
+        printf("netd_bind_cb failed in init\n");
+        abort();
+    }
 
     netd_service_connected = true;
     LWIPBF_DEBUG("netd_bind_cb: netd bind successful!\n");
@@ -189,7 +192,10 @@ static void init_netd_connection(char *service_name)
 
     err = netd_bind(iref, netd_bind_cb, NULL, lwip_waitset,
                     IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(err));     // XXX
+    if (!err_is_ok(err)) {
+        printf("netd_bind_cb failed in init\n");
+        abort();
+    }
 
     LWIPBF_DEBUG("init_netd_connection: terminated\n");
 }
@@ -221,6 +227,7 @@ void idc_get_ip(void)
 {
     if (is_owner) {
         assert(!"owner of lwip should never ask for ip through API\n");
+        abort();
     }
     LWIPBF_DEBUG("On the way of getting IP\n");
 
