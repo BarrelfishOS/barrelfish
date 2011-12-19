@@ -39,7 +39,7 @@ interface dist2 "dist2 RPC Interface" {
     /**
      * Returns the names of all records matching the given query.
      */
-    rpc get_names(in string query, out string output, out errval error_code);
+    rpc get_names(in string query, in trigger t, out string output, out errval error_code);
     
     /**
      * Tries to find a record matching the query. Trigger watches the 
@@ -48,20 +48,20 @@ interface dist2 "dist2 RPC Interface" {
      * Constraint in trigger can make sense -> obj not found no exact record
      * name specified
      */
-    rpc get(in string query, out string output, out errval error_code);
+    rpc get(in string query, in trigger t, out string output, out errval error_code);
         
     /**
      * Sets a record with the given attributes. In case the record already exists the update
      * is only applied in case the constraints in query are met.
      * Trigger watches for future events on that record.
      */
-    rpc set(in string query, in uint64 mode, in bool get, out string record, out errval error_code);
+    rpc set(in string query, in uint64 mode, in trigger t, in bool get, out string record, out errval error_code);
     
     /**
      * Deletes all records matching the given query.
      * Trigger watches for future events matching the query.
      */
-    rpc del(in string query, out errval error_code);    
+    rpc del(in string query, in trigger t, out errval error_code);    
     
     /**
      * Evaluates a given query and returns a result.

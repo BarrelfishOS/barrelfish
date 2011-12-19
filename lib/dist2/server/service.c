@@ -48,6 +48,40 @@ static void free_dist_reply_state(void* arg) {
 }
 
 
+static void trigger_send_handler(struct dist2_binding* b, struct dist_reply_state* drs)
+{
+    errval_t err;
+    err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, drs),
+            drs->trigger.trigger, drs->trigger.st, drs->query_state.stdout.buffer);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+
+static inline errval_t install_trigger(struct dist2_binding* event_binding,
+		struct ast_object* ast, dist2_trigger_t trigger, errval_t error)
+{
+	errval_t err = SYS_ERR_OK;
+
+    if(trigger.m > 0 && trigger.in_case == err_no(error)) {
+        struct dist_reply_state* trigger_reply = NULL;
+        err = new_dist_reply_state(&trigger_reply, trigger_send_handler);
+        assert(err_is_ok(err));
+
+        trigger_reply->trigger = trigger;
+        trigger_reply->binding = event_binding;
+
+        err = set_watch(ast, trigger.m, trigger_reply);
+
+        // TODO h2 handle in case
+        assert(err_is_ok(err));
+    }
+
+    return err;
+}
+
+
 static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt) {
     errval_t err;
     err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
@@ -63,7 +97,8 @@ static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt) {
 }
 
 
-void get_handler(struct dist2_binding *b, char *query)
+void get_handler(struct dist2_binding *b, char *query,
+		dist2_trigger_t trigger)
 {
 	errval_t err = SYS_ERR_OK;
 
@@ -76,6 +111,9 @@ void get_handler(struct dist2_binding *b, char *query)
 	if(err_is_ok(err)) {
 	    DIST2_DEBUG("get handler: %s\n", query);
 		err = get_record(ast, &srt->query_state);
+
+		err = install_trigger(get_event_binding(b), ast, trigger, err);
+        err_is_ok(err); // TODO
 	}
 
 	srt->error = err;
@@ -100,7 +138,7 @@ static void get_names_reply(struct dist2_binding* b, struct dist_reply_state* sr
 }
 
 
-void get_names_handler(struct dist2_binding *b, char *query)
+void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
 {
     DIST2_DEBUG(" get_names_handler: %s\n", query);
 
@@ -114,6 +152,9 @@ void get_names_handler(struct dist2_binding *b, char *query)
     err = generate_ast(query, &ast);
     if(err_is_ok(err)) {
         err = get_record_names(ast, &srt->query_state);
+
+        err = install_trigger(get_event_binding(b), ast, t, err);
+        err_is_ok(err); // TODO
     }
 
     srt->error = err;
@@ -156,7 +197,8 @@ static void send_trigger(struct dist2_binding* b, struct dist_reply_state* srs) 
 
 }*/
 
-void set_handler(struct dist2_binding *b, char *query, uint64_t mode, bool get)
+void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
+		dist2_trigger_t trigger, bool get)
 {
     DIST2_DEBUG(" set_handler: %s\n", query);
 	errval_t err = SYS_ERR_OK;
@@ -170,6 +212,9 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode, bool get)
 	if(err_is_ok(err)) {
 		DIST2_DEBUG("set record: %s\n", query);
 		err = set_record(ast, mode, &srs->query_state);
+
+        err = install_trigger(get_event_binding(b), ast, trigger, err);
+        err_is_ok(err); // TODO
 	}
 
 	srs->error = err;
@@ -196,7 +241,7 @@ static void del_reply(struct dist2_binding* b, struct dist_reply_state* srs)
 }
 
 
-void del_handler(struct dist2_binding* b, char* query)
+void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
 {
     DIST2_DEBUG(" del_handler: %s\n", query);
 	errval_t err = SYS_ERR_OK;
@@ -209,6 +254,9 @@ void del_handler(struct dist2_binding* b, char* query)
 	err = generate_ast(query, &ast);
 	if(err_is_ok(err)) {
 		err = del_record(ast, &srs->query_state);
+
+        err = install_trigger(get_event_binding(b), ast, trigger, err);
+        assert(err_is_ok(err)); // h2 handle?
 	}
 
 	srs->error = err;
@@ -294,17 +342,6 @@ static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 }
 
 
-static void trigger_send_handler(struct dist2_binding* b, struct dist_reply_state* drs)
-{
-    errval_t err;
-    err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, drs),
-            drs->trigger.trigger, drs->trigger.st, drs->query_state.stdout.buffer);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
-    }
-}
-
-
 void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
@@ -318,21 +355,9 @@ void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigge
     if(err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
         drs->error = err;
-        debug_printf("exists check returned: %u %s\n", err_no(err), err_getstring(err));
 
-        if(trigger.m > 0 && trigger.in_case == err_no(err)) {
-            struct dist_reply_state* trigger_reply = NULL;
-            err = new_dist_reply_state(&trigger_reply, trigger_send_handler);
-            assert(err_is_ok(err));
-
-            trigger_reply->trigger = trigger;
-            trigger_reply->binding = get_event_binding(b);
-
-            err = set_watch(ast, trigger.m, trigger_reply);
-
-            // TODO h2 handle in case
-            assert(err_is_ok(err));
-        }
+        err = install_trigger(get_event_binding(b), ast, trigger, err);
+        assert(err_is_ok(err)); // h2 handle?
 
         drs->reply(b, drs);
     }

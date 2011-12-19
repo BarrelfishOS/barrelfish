@@ -62,7 +62,7 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
-    err = rpc_client->vtbl.get_names(rpc_client, buf, &data, &error_code);
+    err = rpc_client->vtbl.get_names(rpc_client, buf, NOP_TRIGGER, &data, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
 
@@ -148,7 +148,7 @@ errval_t dist_get(const char* query, char** data)
 	errval_t err = SYS_ERR_OK;
 
 	struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-	err = rpc_client->vtbl.get(rpc_client, query, data, &error_code);
+	err = rpc_client->vtbl.get(rpc_client, query, NOP_TRIGGER, data, &error_code);
 	if(err_is_ok(err)) {
 		err = error_code;
 	}
@@ -178,7 +178,7 @@ errval_t dist_set(dist_mode_t mode, char* object, ...)
     char* record = NULL;
 
 	errval_t error_code;
-	err = rpc_client->vtbl.set(rpc_client, buf, mode, false, &record, &error_code);
+	err = rpc_client->vtbl.set(rpc_client, buf, mode, NOP_TRIGGER, false, &record, &error_code);
 	//assert(record == NULL); TODO
 	free(record);
 	if(err_is_ok(err)) {
@@ -204,7 +204,7 @@ errval_t dist_set_get(dist_mode_t mode, char** record, char* object, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
-    err = rpc_client->vtbl.set(rpc_client, buf, mode, true, record, &error_code);
+    err = rpc_client->vtbl.set(rpc_client, buf, mode, NOP_TRIGGER, true, record, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }
@@ -225,7 +225,7 @@ errval_t dist_del(char* object, ...)
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 	errval_t error_code;
-	err = rpc_client->vtbl.del(rpc_client, buf, &error_code);
+	err = rpc_client->vtbl.del(rpc_client, buf, NOP_TRIGGER, &error_code);
 
     if(err_is_ok(err)) {
         err = error_code;
