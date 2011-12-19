@@ -149,7 +149,7 @@ the convention opted by modern day programming languages like C and Java.\\
 
 \item[Identifiers:] Valid \Mac identifiers are sequences of numbers
   (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
-  must start must start with a letter or ``\texttt{\_}''.  
+  must start with a letter or ``\texttt{\_}''.  
   \begin{align*}
     identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_)^{\textrm{*}} \\
     letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
@@ -160,15 +160,19 @@ the convention opted by modern day programming languages like C and Java.\\
   ``don't care'' or anonymous identifier which is treated differently
   inside the language. 
   
-\item[Integer Literals:] A \Mac integer literals is a sequence of
+\item[Integer Literals:] A \Mac integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
   literals have no specifier and hexadecimal literals start with
   \texttt{0x}.  Binary literals start with \texttt{0b}. 
+
+  In addition, as a special case the string \texttt{1s} can be used to
+  indicate an integer which is composed entirely of binary 1's. 
 
 \begin{align*}
 digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
 hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
 binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
+allones & \rightarrow \textsf{1s}\\
 \end{align*}
 
 
@@ -441,7 +445,7 @@ and a textual description of its meaning.
 The syntax is:
 
 \begin{syntax}
-constants \synit{name} "\synit{description}" \verb+{+ 
+constants \synit{name} [width( \synit{width} )] "\synit{description}" \verb+{+ 
    \synit{name\(\sb{1}\)} = \synit{value\(\sb{1}\)} ["\synit{description\(\sb{1}\)}"] ;
    \ldots
 \verb+}+; 
@@ -452,6 +456,10 @@ constants \synit{name} "\synit{description}" \verb+{+
 \item[name] is an identifier for the constant type, and will be used to
   generate identifiers in the target language (typically C).  The
   scope of this identifier is the enclosing device specification.  
+
+\item[width] is optional, and specifies the width of the constant
+  value in bits.  This is useful, for example, when the type is used
+  as the type of a register. 
 
 \item [``description''] is a string literal in double quotes, which
   describes the constant type being specified, for example
@@ -630,13 +638,20 @@ register \synit{name} [\synit{attr}] [also]
   If not present, it defaults to the name identifier.  
 
 \item[type] gives the format of the register.  It can consist of
-  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is either
-  the identifer of a register type previously declared with a
-  \texttt{regtype} declaration; one of the built in register
-  types \texttt{uint8}, \texttt{uint16}, \texttt{uint32}, or
-  \texttt{uint64}; or a qualified name of the form
-  \textit{device}\texttt{.}\textit{regtype}, where \textit{device} is
-  the name of a device definition previously imported. 
+  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is
+  either:
+  \begin{itemize}
+  \item the identifier of a register type previously declared with a
+    \texttt{regtype} declaration;
+  \item the identifier of a constants type previously declared with a
+    \texttt{constants} declaration which included an explicit
+    \texttt{width()} specifier;
+  \item one of the built in register types \texttt{uint8},
+    \texttt{uint16}, \texttt{uint32}, or \texttt{uint64}; or
+  \item a qualified name of the form
+    \textit{device}\texttt{.}\textit{type}, where \textit{device}
+    is the name of a device definition previously imported.  
+  \end{itemize}
 
   Alternatively, the type can be given as a sequence of fields in
   braces, exactly as in a \texttt{regtype} declaration.  In effect,
@@ -903,6 +918,15 @@ developers are not expected to look at this file in normal use, it is
 designed to be fairly readable to curious humans, and is worth
 examining to understand what \Mac is generating (and to find bugs in
 \Mac). 
+
+The file for a device called, say, \texttt{apic} is conventionally named
+\texttt{apic\_dev.h}, and in Barrelfish is usually found in
+the \texttt{dev} subdirectory of the main include directory; thus a C
+file would include it with:
+
+\begin{alltt}
+#include <dev/apic\_dev.h>
+\end{alltt}
 
 This chapter will describe the contents of this header file. 
 

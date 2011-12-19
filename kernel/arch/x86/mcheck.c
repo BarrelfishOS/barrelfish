@@ -16,15 +16,23 @@
 #include <x86.h>
 #include <arch/x86/mcheck.h>
 #include <dev/ia32_dev.h>
+#include <dev/amd64_dev.h>
 
 /// Sets the MCE bit (bit 6) in CR4 register to enable machine-check exceptions
 static inline void enable_cr4_mce(void)
 {
-    uintptr_t cr4;
+    amd64_cr4_t cr4;
     __asm volatile("mov %%cr4, %[cr4]" : [cr4] "=r" (cr4));
-    cr4 |= (1 << 6);
+    amd64_cr4_mce_insert(cr4, 1);     // was: cr4 |= (1 << 6);
     __asm volatile("mov %[cr4], %%cr4" :: [cr4] "r" (cr4));
 }
+
+// XXX FIXME: works around a current bug in Mackerel to do with not
+// supporting 64-bit enums or constants. 
+//
+// Remove this and replace with the lower-case version from ia32_dev.h
+// when the bug is fixed.
+#define IA32_MC_ENABLE ((uint64_t)(-1L))
 
 /**
  * \brief Enable machine check reporting, if supported
@@ -55,29 +63,32 @@ void mcheck_init(void)
 
         // if the ctl register is present, enable all MCA features
         ia32_mcg_cap_t mcg_cap = ia32_mcg_cap_rd(NULL);
-        if (mcg_cap.ctl_p) {
-            ia32_mcg_ctl_wr(NULL, (uint64_t)-1);
+
+	int num_banks = ia32_mcg_cap_count_extract(mcg_cap);
+
+        if (ia32_mcg_cap_ctl_p_extract(mcg_cap)) {
+            ia32_mcg_ctl_wr(NULL, IA32_MC_ENABLE);
         }
 
         if (proc_family == 0x6) {
             // enable logging of all errors except for mc0_ctl register
-            for (int i = 1; i < mcg_cap.count; i++) {
-                ia32_mc_ctl_wr(NULL, i, ia32_mc_enable);
+            for (int i = 1; i < num_banks; i++) {
+                ia32_mc_ctl_wr(NULL, i, IA32_MC_ENABLE);
             }
 
             // clear all errors
-            for (int i = 0; i < mcg_cap.count; i++) {
-                ia32_mc_status_wr_raw(NULL, i, 0);
+            for (int i = 0; i < num_banks; i++) {
+                ia32_mc_status_wr(NULL, i, 0UL);
             }
         } else if (proc_family == 0xf) { // any processor extended family
             // enable logging of all errors including mc0_ctl
-            for (int i = 0; i < mcg_cap.count; i++) {
-                ia32_mc_ctl_wr(NULL, i, ia32_mc_enable);
+            for (int i = 0; i < num_banks; i++) {
+                ia32_mc_ctl_wr(NULL, i, IA32_MC_ENABLE);
             }
 
             // clear all errors
-            for (int i = 0; i < mcg_cap.count; i++) {
-                ia32_mc_status_wr_raw(NULL, i, 0);
+            for (int i = 0; i < num_banks; i++) {
+                ia32_mc_status_wr(NULL, i, 0UL);
             }
         }
     }

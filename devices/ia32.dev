@@ -111,12 +111,13 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     };
 
     // 14.3.1.3 
-    constants mcg_ctl_val "Global MC control values" {
-	mc_enable	= 0xffffffffffffffff;
+    constants mcg_ctl_val width(64) "Global MC control values" {
+	mc_enable	= 1s;
 	mc_disable	= 0x0;
     };
     register mcg_ctl rw msr(0x17b) "Global machine check control" 
 	type(uint64);
+	// type(mcg_ctl_val);
 
     // 14.3.2.5
     register mcg_rax rwzc msr(0x180) "State of RAX at MC" type(uint64);
@@ -129,8 +130,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     register mcg_rsp rwzc msr(0x187) "State of RSP at MC" type(uint64);
     register mcg_rflags rwzc msr(0x188) "State of RFLAGS at MC" type(uint64);
     register mcg_rip rwzc msr(0x189) "State of RIP at MC" type(uint64);
-    register mcg_misc rwzc msr(0x18a) "Page fault/assist during DS" 
-	type(uint64);
+    register mcg_misc rwzc msr(0x18a) "Page fault/assist during DS" type(uint64);
     register mcg_r8 rwzc msr(0x190) "State of R8 at MC" type(uint64);
     register mcg_r9 rwzc msr(0x191) "State of R9 at MC" type(uint64);
     register mcg_r10 rwzc msr(0x192) "State of R10 at MC" type(uint64);
@@ -153,7 +153,10 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	ms_ec		16 "Model-specific error code";
 	other		21 "Other information";
 	tbes		2 type(tbtrk) "Threshold-based error status";
-	_		2;
+	_		2 mbz; // Seems to need to be written zero to
+			       // work (otherwise a GPF) but doesn't
+			       // always read as zero on 
+			       // some AMD-based processors. 
 	pcc		1 "Processor context corrupt";
 	addrv		1 "MCi_ADDR register valid";
 	miscv		1 "MCi_MISC register valid";

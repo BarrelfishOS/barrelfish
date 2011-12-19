@@ -72,6 +72,17 @@ device_initial_enum_name :: Dev.Rec -> String
 device_initial_enum_name d = qual_devname d ["initials"]
 
 --
+-- Space-related names
+-- 
+space_read_fn_name :: Space.Rec -> Integer -> String
+space_read_fn_name s w = 
+  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "read", show w ])
+
+space_write_fn_name :: Space.Rec -> Integer -> String
+space_write_fn_name s w = 
+  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "write", show w ])
+
+--
 -- Constants-related names
 --
 constants_c_name :: TT.Rec -> String
@@ -337,6 +348,7 @@ convert_arg (Arg "io" x) = Arg "mackerel_io_t" x
 -------------------------------------------------------------------------
 
 -- Top-level create-a-header-file
+compile :: String -> String -> Dev.Rec -> String
 compile infile outfile dev = 
     unlines $ C.pp_unit $ device_header_file dev infile
 
@@ -449,8 +461,9 @@ device_struct_shadow_field rt =
       C.Param t (device_shadow_field_name rt)
 
 device_initial_values :: Dev.Rec -> [ C.Unit ] 
+device_initial_values d@( Dev.Rec{ Dev.registers = [] } )
+    = [ C.Blank, C.Comment "No registers in this device", C.Blank ]
 device_initial_values d
-                      
     = [ C.Blank, 
         C.MultiComment ["Initial register values (currently 0)"],
         C.EnumDecl (device_initial_enum_name d)
@@ -548,7 +561,10 @@ constants_c_type c = C.TypeName $ constants_c_name c
 
 constants_comment :: TT.Rec -> C.Unit      
 constants_comment c =
-    C.MultiComment [ printf "Constants defn: %s (%s)" (TN.toString $ TT.tt_name c) (TT.tt_desc c) ]
+    C.MultiComment [ printf "Constants defn: %s (%s)" (TN.toString $ TT.tt_name c) (TT.tt_desc c), 
+                     case TT.tt_width c of
+                       Nothing -> " - no width specified"
+                       Just w -> printf " - width %d bits" w ]
 
 constants_enum :: TT.Rec -> C.Unit
 constants_enum c = 
@@ -564,6 +580,7 @@ constants_typedef c =
                      
 
 -- XXX
+constants_eval (ExprConstant (-1)) = 0xffffffff
 constants_eval (ExprConstant i) = i
 
 constants_print_fn :: TT.Rec -> C.Unit
@@ -601,7 +618,7 @@ constants_check_fn c =
           ]
 
 -------------------------------------------------------------------------
--- Render 'register type definitions
+-- Render register type definitions
 -------------------------------------------------------------------------
 
 regtype_c_type :: TT.Rec -> C.TypeSpec
@@ -667,7 +684,7 @@ regtype_access_fns rt =
              | f <- TT.fields rt, not $ Fields.is_anon f ]
 
 --
--- Return the C type name for a field o a register
+-- Return the C type name for a field or a register
 --
 
 field_c_type :: Fields.Rec -> C.TypeSpec 
@@ -676,6 +693,7 @@ field_c_type f = C.TypeName $ field_c_name f
 --
 -- Emit a function to extract a field from a register type value
 --
+
 regtype_field_extract_fn :: TT.Rec -> Fields.Rec -> C.Unit
 regtype_field_extract_fn rt f = 
     let t = field_c_type f
@@ -684,11 +702,11 @@ regtype_field_extract_fn rt f =
         arg = C.Param (regtype_c_type rt) cv_regval
         -- ( r & (Fields.extract_mask f) ) >> (Fields.extract_shift f)
         body = C.Return $ 
-               C.Binary C.RightShift 
-                     (C.Binary C.BitwiseAnd 
-                            (C.Variable cv_regval) 
-                            (C.HexConstant $ Fields.extract_mask f sz))
-                       (C.NumConstant $ Fields.offset f)
+               C.Cast t (C.Binary C.RightShift 
+                         (C.Binary C.BitwiseAnd 
+                          (C.Variable cv_regval) 
+                          (C.HexConstant $ Fields.extract_mask f sz))
+                         (C.NumConstant $ Fields.offset f))
     in
       C.StaticInline t n [ arg ] [ body ]
 
@@ -703,7 +721,9 @@ regtype_field_insert_fn rt f =
         sz = TT.tt_size rt
         arg1 = C.Param rtn cv_regval
         arg2 = C.Param t cv_fieldval
-        -- return (r & Fields.insert_mask f) | (v << (Fields.offset f) & (Fields.insert_mask f))
+        -- return (r & Fields.insert_mask f) | ((rtn)v << (Fields.offset f) & (Fields.insert_mask f))
+        -- Note that we cast the field type to the register type, to
+        -- ensure that it's large enough when we do the shift
         body = C.Return $ 
                C.Binary C.BitwiseOr
                  (C.Binary C.BitwiseAnd
@@ -712,7 +732,7 @@ regtype_field_insert_fn rt f =
                  (C.Binary C.BitwiseAnd
                     (C.HexConstant $ Fields.extract_mask f sz)
                     (C.Binary C.LeftShift
-                       (C.Variable cv_fieldval)
+                       (C.Cast rtn (C.Variable cv_fieldval))
                        (C.NumConstant $ Fields.offset f)))
     in
       C.StaticInline rtn n [ arg1, arg2 ] [ body ]
@@ -809,14 +829,13 @@ datatype_field_extract_fn rt f =
     let t = field_c_type f
         n = regtype_extract_fn_name rt f
         arg = C.Param (regtype_c_type rt) cv_dtptr
-
         load_size = datatype_field_load_size f
         bits_offset = (Fields.offset f) `mod` load_size
         word_offset = ((Fields.offset f) - bits_offset) `div` 8
         mask = select_mask load_size bits_offset (Fields.size f)
         load_c_type = C.TypeName $ round_field_size load_size
         -- ( r & (Fields.extract_mask f) ) >> (Fields.extract_shift f)
-        body = C.Return $ 
+        body = C.Return $
                C.Binary C.RightShift 
                      (C.Binary C.BitwiseAnd 
                             (C.DerefPtr 
@@ -837,6 +856,7 @@ datatype_field_insert_fn :: TT.Rec -> Fields.Rec -> C.Unit
 datatype_field_insert_fn rt f = 
     let t = field_c_type f
         n = regtype_insert_fn_name rt f
+        rtn = C.TypeName $ round_field_size $ TT.wordsize rt
         arg1 = C.Param (regtype_c_type rt) cv_dtptr
         arg2 = C.Param t cv_fieldval
         load_size = datatype_field_load_size f
@@ -862,8 +882,8 @@ datatype_field_insert_fn rt f =
                             (C.Binary C.BitwiseAnd 
                                (C.HexConstant smask)
                                (C.Binary C.LeftShift
-                                      (C.Variable cv_fieldval)
-                                      (C.NumConstant bits_offset)
+                                (C.Variable cv_fieldval)
+                                (C.NumConstant bits_offset)
                                ))
                             )
    in
@@ -1048,26 +1068,24 @@ register_arg_list pre r post
 loc_read :: RT.Rec -> C.Expr
 loc_read r = 
     case RT.spc r of
-      (Space.Builtin n _ t) -> 
-          C.Call (mackerel_read_fn_name n (RT.size r))
-                [ C.DerefField (C.Variable cv_dev) (RT.base r),
-                  loc_array_offset r ]
-      (Space.Defined n a _ t p) -> 
-          C.Call (register_read_fn_name r) [ C.Variable cv_dev, 
-                                             loc_array_offset r ]
+      Space.Builtin { Space.n = name } -> 
+          C.Call (mackerel_read_fn_name name (RT.size r))
+            [ C.DerefField (C.Variable cv_dev) (RT.base r), loc_array_offset r ]
+      s@Space.Defined {} -> 
+          C.Call (space_read_fn_name s (RT.size r))
+                [ C.Variable cv_dev, loc_array_offset r ]
 
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
     case RT.spc r of
-      (Space.Builtin n _ t) -> 
-          C.Call (mackerel_write_fn_name n (RT.size r))
+      Space.Builtin { Space.n = name } -> 
+          C.Call (mackerel_write_fn_name name (RT.size r))
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),
                   loc_array_offset r,
                   C.Variable val ]
-      (Space.Defined n a _ t p) -> 
-          C.Call (register_write_fn_name r) [ C.Variable cv_dev, 
-                                              loc_array_offset r, 
-                                              C.Variable val ]
+      s@Space.Defined {} -> 
+          C.Call (space_write_fn_name s (RT.size r)) 
+                [ C.Variable cv_dev, loc_array_offset r, C.Variable val ]
     
 --
 -- Calculate the C expression for an appropriate offset for a register
@@ -1141,6 +1159,7 @@ register_write_field_fn r f =
       name = register_write_field_fn_name r f
       fl = delete f $ RT.fl r
       size = RT.size r
+      rtn = regtype_c_type $ RT.tpe r
       nomask = 0xffffffffffffffff
       prsvmask :: Integer
       prsvmask = foldl (.|.) 0 [ Fields.extract_mask f' size | f' <- fl,
@@ -1158,7 +1177,7 @@ register_write_field_fn r f =
                               (Just $ (C.Binary C.BitwiseAnd
                                        (C.HexConstant $ Fields.extract_mask f size)
                                        (C.Binary C.LeftShift
-                                        (C.Variable cv_fieldval)
+                                        (C.Cast rtn (C.Variable cv_fieldval))
                                         (C.NumConstant $ Fields.offset f)))),
                (if prsvmask /= 0 then
                     (C.Ex $ C.Assignment 
@@ -1256,12 +1275,14 @@ register_print_single r =
              ] ++ register_print_value r 
 
 register_print_value :: RT.Rec -> [ C.Stmt ] 
-register_print_value r
-    | TT.is_primitive (RT.tpe r) = 
-        [ register_print_primitive r ]
-    | otherwise =
-        [ snputs_like_call "\n" ] 
-        ++ [ field_print_block (RT.tpe r) f | f <- (RT.fl r) ]
+register_print_value r = 
+    case RT.tpe r of
+      TT.RegFormat {} -> [ snputs_like_call "\n" ] 
+                         ++ [ field_print_block (RT.tpe r) f | f <- (RT.fl r) ]
+      TT.DataFormat {} -> [ snputs_like_call "\n" ] 
+                         ++ [ field_print_block (RT.tpe r) f | f <- (RT.fl r) ]
+      TT.Primitive {} -> [ register_print_primitive r ]
+      TT.ConstType {} -> [ register_print_consttype r ]
 
 register_print_primitive :: RT.Rec -> C.Stmt 
 register_print_primitive r = 
@@ -1272,6 +1293,14 @@ register_print_primitive r =
                             C.NStr $ field_fmt_str $ RT.size r, 
                             C.QStr (extra ++ "\n") ]
     in snprintf_like_call "snprintf" [ fmt, C.Variable cv_regval ]
+
+register_print_consttype :: RT.Rec -> C.Stmt 
+register_print_consttype r = 
+    let extra = 
+            if RT.needs_shadow r then " (SHADOW copy)"
+            else ""
+        c = constants_print_fn_name $ TT.tt_name $ RT.tpe r
+    in snprintf_like_call c [ C.Variable cv_regval ]
 
 register_print_init :: RT.Rec -> C.Stmt
 register_print_init r =

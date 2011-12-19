@@ -40,17 +40,19 @@ data Rec = RegFormat  { tt_name :: TN.Name,
                         tt_size :: Integer,
                         fields :: [F.Rec],
                         tt_desc :: String,
+                        wordsize :: Integer,
                         pos :: SourcePos }
          | ConstType  { tt_name :: TN.Name,
                         tt_size :: Integer,
                         tt_vals :: [ Val ], 
+                        tt_width :: Maybe Integer,
                         tt_desc :: String,
                         pos  :: SourcePos }
          | Primitive  { tt_name :: TN.Name,
                         tt_size :: Integer,
                         tt_attr :: Attr }
            deriving Show 
-
+              
 type_name :: Rec -> String
 type_name r = TN.toString $ tt_name r
 
@@ -63,9 +65,12 @@ type_kind DataFormat {} = "Data"
 type_kind ConstType  {} = "Constant"
 type_kind Primitive  {} = "Primitive"
 
-
+-- Is this a primitive (i.e. non-record-like) type.  A key issue here
+-- is that this includes constants types; otherwise this is equivalent
+-- to is_builtin below.
 is_primitive :: Rec -> Bool
 is_primitive Primitive {} = True
+is_primitive ConstType {} = True
 is_primitive _ = False
 
 is_builtin :: Rec -> Bool
@@ -80,7 +85,10 @@ builtin_size "uint64" = 64
 
 make_rtypetable :: DeviceFile -> [Rec]
 make_rtypetable (DeviceFile (Device devname bitorder _ _ decls) _) = 
-  concat [ make_rtrec d devname bitorder | d <- decls ]
+  (concat [ make_rtrec d devname bitorder | d <- decls ])
+  ++ 
+  [ Primitive (TN.fromParts devname ("uint" ++ (show w))) w NOATTR 
+  | w <- [ 8, 16, 32, 64 ] ] 
 
 make_rtrec :: AST -> String -> BitOrder -> [Rec]
 make_rtrec (RegType nm dsc (TypeDefn decls) p) dev order = 
@@ -106,19 +114,24 @@ make_rtrec (RegArray nm tt_attrib _ _ _ dsc (TypeDefn decls) p) dev order =
 
 make_rtrec (DataType nm dsc (TypeDefn decls) o w p) dev devorder = 
     let order = if o == NOORDER then devorder else o
+        sz = calc_tt_size decls
     in
       [ DataFormat { tt_name = TN.fromParts dev nm,
-                     tt_size = (calc_tt_size decls),
+                     tt_size = sz,
                      fields = F.make_list dev RW order w decls,
                      tt_desc = dsc,
+                     wordsize = if w == 0 then sz else w,
                      pos = p } ]
-make_rtrec (Constants nm d vs p) dev devorder = 
+make_rtrec (Constants nm d vs w p) dev devorder = 
   let tn = TN.fromParts dev nm 
   in
    [ ConstType { tt_name = tn,
-                 tt_size = 0,
+                 tt_size = case w of 
+                   Nothing -> (-1)
+                   Just t -> t,
                  tt_vals = [ make_val tn v | v <- vs ], 
                  tt_desc = d,
+                 tt_width = w,
                  pos = p } ]
 make_rtrec _ _ _ = []
                    
@@ -139,5 +152,5 @@ get_rtrec rtinfo nm =
       else RegFormat { tt_name = TN.null,
                        tt_size = 32,
                        fields = [],
-                       tt_desc = "Fictional non-existent type",
+                       tt_desc = "Failed to find type" ++ show nm,
                        pos = initialPos "no file" }

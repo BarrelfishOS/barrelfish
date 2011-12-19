@@ -76,15 +76,22 @@ check_devname inf dev =
 
 check_rous :: Dev.Rec -> [ MacError ]
 check_rous d = 
-    [ make_rous_error t | t@(TT.RegFormat {}) <- (Dev.types d), check_rous_type t ]
+    [ make_rous_error t 
+    | t@(TT.RegFormat {}) <- (Dev.types d), check_rous_type t ]
+    ++
+    [ make_rous_error t 
+    | RT.Rec { RT.tpe = t@(TT.ConstType {}) } <- (Dev.registers d), check_rous_type t ]
 
 check_rous_type t = notElem (TT.tt_size t) [ 8, 16, 32, 64 ]
 make_rous_error t = 
     (MacError (TT.pos t)
-     (printf "Register type '%s' (%s) is a Register Of Unusual Size (%d bits)"
-                 (TT.type_name t)
-                 (TT.tt_desc t)
-                 (TT.tt_size t)))
+     (if TT.tt_size t == -1 
+      then 
+        (printf "Register type '%s' (%s) has no width() specifier"
+         (TT.type_name t) (TT.tt_desc t))
+      else
+        (printf "Type '%s' (%s) is a Register Of Unusual Size (%d bits)"
+         (TT.type_name t) (TT.tt_desc t) (TT.tt_size t))))
       
 --
 -- Check for Data types of Unusual Size
