@@ -37,9 +37,9 @@
            "lpc_pic",
            "lpc_pci_config",
            "lpc_rtc",
-           "lpr_rtc_spaces",
+           "lpc_rtc_spaces",
            "pc16550d",
-           "rtl8029as_spaces",
+           "rtl8029as",
            "tulip",
            "uhci",
            "xapic",
@@ -69,7 +69,6 @@
            "pci_hdr0_mem",
            "pci_hdr1",
            "pl011_uart",
-           "rck",
-           "rtl8029as"
+           "rck"
          ], arch <- allArchitectures
 ]
