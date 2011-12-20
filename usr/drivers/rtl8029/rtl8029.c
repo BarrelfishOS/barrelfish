@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2011 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,6 +19,9 @@
 #include <string.h>
 #include <inttypes.h>
 
+/*
+ *  Code to provide page address space access for Mackerel definitions
+ */
 static void page_select(uint8_t page);
 
 #define PAGE_READ(_d,_a,_s,_p) (page_select(_p), mackerel_read_io_##_s(_d->base,_a))
@@ -46,20 +49,38 @@ static void page_select(uint8_t page);
 #include "rtl8029.h"
 #include <dev/rtl8029as_dev.h>
 
-/// The currently selected register page
-static uint8_t current_page = -1;
-
 /// The only instance of the RTL8029AS we're handling
 static rtl8029as_t      rtl;
+
 /// This buffers the card's MAC address upon card reset
 static uint8_t          rtl8029_mac[6];
 
-/* driver will initially copy the pacet here. */
+// driver will initially copy the packet here. 
 static uint8_t packetbuf[PACKET_SIZE];
 
-/* the length of packet copied into packetbuf */
+// the length of packet copied into packetbuf 
 static uint16_t packet_length;
 
+/**
+ * \brief Select an RTL8029(AS) register page.
+ *
+ * This selects one of the 4 RTL8029(AS) register pages.
+ *
+ * \param page  Page to select.
+ */
+static void page_select(uint8_t page)
+{
+    /// The currently selected register page
+    static uint8_t current_page = -1;
+    if (current_page != page) { 
+	rtl8029as_cr_t cr = rtl8029as_cr_default;
+	cr = rtl8029as_cr_sta_insert(cr, 1);
+	cr = rtl8029as_cr_rd_insert(cr, rtl8029as_acrdma);
+	cr = rtl8029as_cr_ps_insert(cr, page);
+	rtl8029as_cr_wr(&rtl, cr);
+	current_page = page;
+    }
+}
 
 /*
  * The RTL8029(AS) has 32K of memory, starting at address 0x4000.
@@ -81,25 +102,6 @@ static uint8_t curr_page = READ_START_PAGE;
 static inline uint16_t page_to_mem(uint8_t page)
 {
     return page << 8;
-}
-
-/**
- * \brief Select an RTL8029(AS) register page.
- *
- * This selects one of the 4 RTL8029(AS) register pages.
- *
- * \param page  Page to select.
- */
-static void page_select(uint8_t page)
-{
-    if (current_page != page) { 
-	rtl8029as_cr_t cr = rtl8029as_cr_default;
-	cr = rtl8029as_cr_sta_insert(cr, 1);
-	cr = rtl8029as_cr_rd_insert(cr, rtl8029as_acrdma);
-	cr = rtl8029as_cr_ps_insert(cr, page);
-	rtl8029as_cr_wr(&rtl, cr);
-	current_page = page;
-    }
 }
 
 /**
