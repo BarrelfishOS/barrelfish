@@ -48,7 +48,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
-    /* Pass IO cap to PCI (as a hack) */
+    /* Pass IO cap to PCI */
     if (!strcmp(name, "pci")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_IO;
@@ -60,7 +60,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
-    /* Pass IRQ cap to bfscope */
+    /* Pass IRQ cap to bfscope (XXX: kludge) */
     if (!strcmp(name, "bfscope")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_IRQ;
