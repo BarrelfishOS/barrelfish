@@ -607,7 +607,8 @@ constants_print_fn c =
         [ C.Return $ C.Call "snprintf" 
           [ C.Variable cv_s, 
             C.Variable cv_size,
-            C.StringConstant "Unknown constant %s value 0x%lx",
+            C.StringCat [ C.QStr "Unknown constant %s value 0x%", 
+                          C.NStr "PRIx64" ],
             C.StringConstant (constants_c_name c),
             C.Cast (C.TypeName "uint64_t") (C.Variable cv_e)
           ]
