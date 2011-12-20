@@ -901,7 +901,10 @@ errval_t buffer_cache_enable(void **st, struct vfs_ops **ops)
 
     char namebuf[32];
     memset(&Stats, 0, sizeof(Stats));
-    assert(err_is_ok(sys_debug_get_tsc_per_ms(&tscperms)));
+    err = sys_debug_get_tsc_per_ms(&tscperms);
+    if (!err_is_ok(err)) {
+       USER_PANIC_ERR("sys_debug_get_tsc_per_ms had problems\n");
+    }
 #ifndef WITH_SHARED_CACHE
     int name = disp_get_core_id();
 #else
