@@ -19,6 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/monitor_defs.h>
+#include <if/monitor_blocking_rpcclient_defs.h>
 #include <if/trivfs_defs.h>
 #include <spawndomain/spawndomain.h>
 #include "ramfs.h"
@@ -449,24 +450,31 @@ static void populate_multiboot(struct dirent *root, struct bootinfo *bi)
     debug_printf("ready\n");
 }
 
-static void bootinfo_reply(struct monitor_binding *st, struct capref frame,
-                           size_t size)
+// Get the bootinfo and map it in.
+static errval_t map_bootinfo(struct bootinfo **bootinfo)
 {
-    errval_t err;
+    errval_t err, msgerr;
 
-    struct bootinfo *bi;
-    err = vspace_map_one_frame((void**)&bi, size, frame, NULL, NULL);
+    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    assert(cl != NULL);
+
+    struct capref bootinfo_frame;
+    size_t bootinfo_size;
+
+    msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
+    if (err_is_fail(msgerr)) {
+        err = msgerr;
+    }
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed in get_bootinfo");
+        return err;
+    }
+
+    err = vspace_map_one_frame((void**)bootinfo, bootinfo_size, bootinfo_frame,
+                               NULL, NULL);
     assert(err_is_ok(err));
 
-    // Init ramfs
-    struct dirent *root = ramfs_init();
-
-    // Populate it with contents of multiboot
-    populate_multiboot(root, bi);
-
-    // Start the service
-    err = start_service(root);
-    assert(err_is_ok(err));
+    return err;
 }
 
 static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
@@ -478,7 +486,18 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
     // All multiboot caps received
     if (err_is_fail(msgerr)) {
         // Request bootinfo frame
-        err = st->tx_vtbl.bootinfo_request(st, NOP_CONT);
+        struct bootinfo *bi;
+        err = map_bootinfo(&bi);
+        assert(err_is_ok(err));
+
+        // Init ramfs
+        struct dirent *root = ramfs_init();
+
+        // Populate it with contents of multiboot
+        populate_multiboot(root, bi);
+
+        // Start the service
+        err = start_service(root);
         assert(err_is_ok(err));
         return;
     }
@@ -513,10 +532,9 @@ static void bootstrap(void)
         abort();
     }
 
-    // Set reply handler
+    // XXX: Set reply handler
     struct monitor_binding *st = get_monitor_binding();
     st->rx_vtbl.multiboot_cap_reply = multiboot_cap_reply;
-    st->rx_vtbl.bootinfo_reply = bootinfo_reply;
 
     // Make first multiboot cap request
     err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, 0);

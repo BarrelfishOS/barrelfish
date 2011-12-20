@@ -15,7 +15,7 @@
 		      addLibraries = [ "spawndomain", "elf", "trace", "skb",
 		      		       "dist", "vfs", "nfs", "lwip", "contmng"],
   		      flounderDefs = [ "monitor", "monitor_blocking" ],
-                      flounderExtraBindings = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
   		      flounderBindings = [ "spawn" ]
                     }
 ]

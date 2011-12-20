@@ -77,51 +77,6 @@ static void ms_multiboot_cap_request(struct monitor_binding *st, cslot_t slot)
 
 /* ----------------------- MULTIBOOT REQUEST CODE END ----------------------- */
 
-/* ----------------------- BOOTINFO REQUEST CODE START ---------------------- */
-
-static void ms_bootinfo_request(struct monitor_binding *st);
-
-static void ms_bootinfo_request_handler(struct monitor_binding *st,
-                                     struct monitor_msg_queue_elem *dumb)
-{
-    ms_bootinfo_request(st);
-    free(dumb);
-}
-
-static void ms_bootinfo_request(struct monitor_binding *st)
-{
-    errval_t err;
-
-    struct capref frame = {
-        .cnode = cnode_task,
-        .slot  = TASKCN_SLOT_BOOTINFO
-    };
-
-    struct frame_identity id = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(frame, &id);
-    assert(err_is_ok(err));
-
-    err = st->tx_vtbl.bootinfo_reply(st, NOP_CONT, frame, (size_t)1 << id.bits);
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct monitor_state *mon_state = st->st;
-            struct monitor_msg_queue_elem *ms =
-                malloc(sizeof(struct monitor_msg_queue_elem));
-            assert(ms);
-            ms->cont = ms_bootinfo_request_handler;
-            err = monitor_enqueue_send(st, &mon_state->queue,
-                                       get_default_waitset(), &ms->queue);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "monitor_enqueue_send failed");
-            }
-        }
-
-        USER_PANIC_ERR(err, "sending bootinfo_reply failed");
-    }
-}
-
-/* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
-
 static void alloc_iref_request(struct monitor_binding *st,
                                uintptr_t service_id)
 {
@@ -981,7 +936,6 @@ struct monitor_rx_vtbl the_table = {
 
     .boot_core_request = boot_core_request,
     .boot_initialize_request = boot_initialize_request,
-    .bootinfo_request = ms_bootinfo_request,
     .multiboot_cap_request = ms_multiboot_cap_request,
 
     .new_monitor_binding_request = new_monitor_binding_request,

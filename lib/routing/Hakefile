@@ -15,8 +15,6 @@
            { target = "libroute",
              cFiles = [ "routing.c", "internal.c", "ccast_record.c" ],
              flounderBindings = [ "routing" ],
- 	     -- this should really be a flounderDef, but presently there is no
-	     -- way to specify the rpcclient binding as a flounderDef
-             flounderExtraBindings = [ ("monitor_blocking",["rpcclient"]) ]
+             flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ]
            }
 ]

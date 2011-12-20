@@ -17,9 +17,11 @@ interface monitor "The monitor to client Interface" {
                         iref iref,
                         errval err);
 
+          /* TODO: move to monitor_blocking as RPC? */
 	  call boot_core_request(uint8 id, int hwid, int type, string cmdline);
 	  response boot_core_reply(errval err);
 
+          /* TODO: move to monitor_blocking as RPC? */
 	  call boot_initialize_request();
 	  response boot_initialize_reply();
 
@@ -31,10 +33,6 @@ interface monitor "The monitor to client Interface" {
                         cap ep,
                         uintptr st);
 
-	  // For special boot domains to request the bootinfo frame
-	  call bootinfo_request();
-	  response bootinfo_reply(cap frame, size frame_size);
-
          // a client sends this to the monitor to initiate a bind
          message bind_lmp_client_request(
                         iref iref,
@@ -44,6 +42,7 @@ interface monitor "The monitor to client Interface" {
 
 	 // Request multiboot caps from the monitor.
 	 // I imagine only a file system doing this.
+          /* TODO: move to monitor_blocking as RPC? */
          message multiboot_cap_request(uint32 slot);
          message multiboot_cap_reply(cap cap, errval err);
 
@@ -166,6 +165,7 @@ interface monitor "The monitor to client Interface" {
                         errval err,
                         uintptr domain_id);
 
+          /* TODO: move to monitor_blocking as RPC? */
           call num_cores_request();
           response num_cores_reply(uint8 num);
           

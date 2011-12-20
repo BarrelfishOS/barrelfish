@@ -16,6 +16,14 @@
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
 
+// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
+#if defined(__i386__) && defined(__GNUC__) \
+    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
+#define SAFEINLINE __attribute__((noinline))
+#else
+#define SAFEINLINE
+#endif
+
 /*-------------------------- Internal structures ----------------------------*/
 
 struct retype_st {
@@ -65,19 +73,10 @@ static void remote_cap_retype_phase_2(void * st_arg);
 static void remote_cap_delete_phase_2(void * st_arg);
 static void remote_cap_revoke_phase_2(void * st_arg);
 
-// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) struct retype_st *
+static SAFEINLINE struct retype_st *
 alloc_retype_st(struct monitor_blocking_binding *b, struct capref croot,
                 caddr_t src, uint64_t new_type, uint8_t size_bits,
                 caddr_t to, caddr_t slot, int dcn_vbits)
-#else
-static struct retype_st *alloc_retype_st(struct monitor_blocking_binding *b,
-                                        struct capref croot, caddr_t src, 
-                                        uint64_t new_type, uint8_t size_bits,
-                                        caddr_t to, caddr_t slot, int dcn_vbits)
-#endif
 {
     struct retype_st * st;
     if (static_retype_state_used) {
@@ -112,17 +111,9 @@ static void free_retype_st(struct retype_st * st)
     }
 }
 
-// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) struct delete_st *
+static SAFEINLINE struct delete_st *
 alloc_delete_st(struct monitor_blocking_binding *b, struct capref croot,
                 caddr_t src, uint8_t vbits)
-#else
-static struct delete_st* alloc_delete_st(struct monitor_blocking_binding *b,
-                                         struct capref croot, caddr_t src, 
-                                         uint8_t vbits)
-#endif
 {
     struct delete_st * st;
     if (static_delete_state_used) {
@@ -154,16 +145,9 @@ static void free_delete_st(struct delete_st * st)
 }
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) struct revoke_st *
+static SAFEINLINE struct revoke_st *
 alloc_revoke_st(struct monitor_blocking_binding *b, struct capref croot,
                 caddr_t src, uint8_t vbits)
-#else
-static struct revoke_st *alloc_revoke_st(struct monitor_blocking_binding *b,
-                                         struct capref croot, caddr_t src, 
-                                         uint8_t vbits)
-#endif
 {
     struct revoke_st * st;
     if (static_revoke_state_used) {
@@ -595,9 +579,43 @@ static void cap_set_remote(struct monitor_blocking_binding *b,
     }
 }
 
+/* ----------------------- BOOTINFO REQUEST CODE START ---------------------- */
+
+static void get_bootinfo(struct monitor_blocking_binding *b)
+{
+    errval_t err;
+
+    struct capref frame = {
+        .cnode = cnode_task,
+        .slot  = TASKCN_SLOT_BOOTINFO
+    };
+
+    struct frame_identity id = { .base = 0, .bits = 0 };
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.get_bootinfo_response(b, NOP_CONT, SYS_ERR_OK, frame,
+                                           (size_t)1 << id.bits);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_bootinfo, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_bootinfo_response failed");
+    }
+}
+
+/* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
+    .get_bootinfo_call = get_bootinfo,
+
     .remote_cap_retype_call  = remote_cap_retype,
     .remote_cap_delete_call  = remote_cap_delete,
     .remote_cap_revoke_call  = remote_cap_revoke,
@@ -631,10 +649,17 @@ static errval_t connect_callback(void *st, struct monitor_blocking_binding *b)
 
 errval_t monitor_rpc_init(void)
 {
-    errval_t err;
-    err = monitor_blocking_export(NULL, export_callback, connect_callback, 
-                                  get_default_waitset(), 
-                                  IDC_EXPORT_FLAGS_DEFAULT);
+    static struct monitor_blocking_export e = {
+        .connect_cb = connect_callback,
+        .common = {
+            .export_callback = export_callback,
+            .flags = IDC_EXPORT_FLAGS_DEFAULT,
+            .connect_cb_st = &e,
+            .lmp_connect_callback = monitor_blocking_lmp_connect_handler,
+        }
+    };
 
-    return err;
+    e.waitset = get_default_waitset();
+
+    return idc_export_service(&e.common);
 }

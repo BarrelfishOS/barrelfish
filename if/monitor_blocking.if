@@ -19,6 +19,9 @@ interface monitor_blocking "The monitor to client RPC interface" {
             uint64 w3;
         } caprep;
 
+        // For special boot domains to request the bootinfo frame
+        rpc get_bootinfo(out errval err, out cap frame, out size frame_size);
+
 	/* Remote cap operation messages */
         rpc remote_cap_retype(in cap croot, in uint32 src,
                               in uint64 objtype, in uint8 size_bits,

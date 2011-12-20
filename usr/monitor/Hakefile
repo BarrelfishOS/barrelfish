@@ -56,7 +56,7 @@
                         architectures = [arch],
                         cFiles = common_srcs ++ arch_srcs arch ++ idc_srcs,
                         flounderDefs = [ "mem", "monitor" ],
-                        flounderBindings = [ "monitor_mem", "intermon", "monitor_blocking" ],
+                        flounderBindings = [ "monitor_mem", "intermon" ],
                         flounderExtraBindings = [ ("monitor", ["loopback"]),
                                                   ("monitor_mem", ["rpcclient"]),
                                                   ("mem", ["rpcclient"]) ],

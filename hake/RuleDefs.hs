@@ -869,6 +869,9 @@ appBuildArch af tf args arch =
               ++
               [ flounderDefsDepend opts f csrcs | f <- Args.flounderDefs args ]
               ++
+              [ flounderDefsDependBackends opts f backends csrcs
+                | (f, backends) <- Args.flounderExtraDefs args ]
+              ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
               [ compileCFiles opts csrcs,
@@ -919,6 +922,9 @@ libBuildArch af tf args arch =
               [ flounderTHCStub opts f csrcs | f <- Args.flounderTHCStubs args ]
               ++
               [ flounderDefsDepend opts f csrcs | f <- Args.flounderDefs args ]
+              ++
+              [ flounderDefsDependBackends opts f backends csrcs
+                | (f, backends) <- Args.flounderExtraDefs args ]
               ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++

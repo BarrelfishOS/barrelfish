@@ -36,8 +36,8 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         name++;
     }
 
-    /* copy phys addr cnode cap to PCI */
-    if (!strcmp(name, "pci")) {
+    /* copy phys addr cnode cap to PCI and/or mic_slave */
+    if (strcmp(name, "pci") == 0 || strcmp(name, "mic_slave") == 0) {
         src.cnode = cnode_root;
         src.slot  = ROOTCN_SLOT_PACN;
         dest.cnode = si->rootcn;
