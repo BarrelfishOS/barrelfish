@@ -73,7 +73,6 @@ static uint32_t TX_max_slots = SLOTS - 1;
 
 // For measurement of interrupts
 extern uint64_t interrupt_counter;
-extern uint64_t interrupt_loop_counter;
 
 /* MAC address */
 extern uint64_t eMAC_mac;
@@ -220,7 +219,6 @@ static void receive_frame_data(void)
             call_counter, RX_read_index,  wid);
 
     do {
-        ++interrupt_loop_counter;
         increment_RX_read_index();
 
         uint16_t frame_len = 0;
