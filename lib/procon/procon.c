@@ -774,11 +774,9 @@ void sp_print_metadata(struct shared_pool_private *spp)
             spp->is_creator?1:0, spp->role,
             spp->ghost_read_id, spp->ghost_write_id, spp->pre_write_id);
 */
-    printf("SPP %s S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
-            disp_name(),
+    printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
             spp->produce_counter, spp->consume_counter, spp->clear_counter);
-    printf("SPP %s S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
-            disp_name(),
+    printf("SPP S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
             spp->c_read_id, spp->c_write_id);
 
     struct shared_pool *sp = spp->sp;
