@@ -400,6 +400,7 @@ memp_malloc_fn(memp_t type, const char *file, const int line)
     }
 
     SYS_ARCH_UNPROTECT(old_level);
+/*
     if (memp == NULL) {
 #if !MEMP_OVERFLOW_CHECK
         printf("memp_malloc: %" PRIu16 "\n", type);
@@ -407,6 +408,7 @@ memp_malloc_fn(memp_t type, const char *file, const int line)
         printf("memp_malloc_fn:\n");
 #endif
     }
+*/
     return memp;
 }
 
