@@ -94,8 +94,8 @@ constants_elem_c_name v = qual_device (TT.ctype v) [ TT.cname v ]
 constants_print_fn_name :: TN.Name -> String
 constants_print_fn_name c = qual_typename c ["prtval"]
 
-constants_check_fn_name :: TT.Rec -> String
-constants_check_fn_name c = qual_typerec c ["chk" ]
+constants_describe_fn_name :: TT.Rec -> String
+constants_describe_fn_name c = qual_typerec c ["describe" ]
 
 --
 -- Register and datatype-related names
@@ -134,6 +134,12 @@ register_read_fn_name r = qual_register r ["rd"]
 
 register_write_fn_name :: RT.Rec -> String
 register_write_fn_name r = qual_register r ["wr"]
+
+register_rawread_fn_name :: RT.Rec -> String
+register_rawread_fn_name r = qual_register r ["rawrd"]
+
+register_rawwrite_fn_name :: RT.Rec -> String
+register_rawwrite_fn_name r = qual_register r ["rawwr"]
 
 register_shadow_name :: RT.Rec -> String
 register_shadow_name r = qual_register r ["shadow"]
@@ -550,11 +556,12 @@ device_space_includes d header
 
 constants_decl :: TT.Rec -> [ C.Unit ]
 constants_decl c = 
-    [ constants_comment c, 
-      constants_enum c,
-      constants_typedef c,
-      constants_print_fn c,
-      constants_check_fn c ]
+    [ constants_comment c,
+      constants_typedef c ] ++
+    ( constants_enum c ) ++
+    [ C.Blank,
+      constants_describe_fn c,
+      constants_print_fn c ]
 
 constants_c_type :: TT.Rec -> C.TypeSpec
 constants_c_type c = C.TypeName $ constants_c_name c 
@@ -566,22 +573,20 @@ constants_comment c =
                        Nothing -> " - no width specified"
                        Just w -> printf " - width %d bits" w ]
 
-constants_enum :: TT.Rec -> C.Unit
+constants_enum :: TT.Rec -> [ C.Unit ]
 constants_enum c = 
-    let n = constants_c_name c
-    in
-      C.EnumDecl n [ C.EnumItem (constants_elem_c_name v)
-                      (Just $ C.HexConstant $ constants_eval $ TT.cval v) | v <- TT.tt_vals c ]
+  [ C.Define (constants_elem_c_name v) [] (constants_eval c v) | v <- TT.tt_vals c ]
 
 constants_typedef :: TT.Rec -> C.Unit
 constants_typedef c = 
-    let n = constants_c_name c
-    in C.TypeDef (C.Enum n) n
+    C.TypeDef (C.TypeName $ round_field_size $ TT.tt_size c) (constants_c_name c)
                      
-
--- XXX
-constants_eval (ExprConstant (-1)) = 0xffffffff
-constants_eval (ExprConstant i) = i
+constants_eval :: TT.Rec -> TT.Val -> String
+constants_eval c v = 
+  printf "((%s)%s)" (constants_c_name c) (case TT.cval v of 
+                                             ExprConstant (-1) -> "(-1LL)"
+                                             ExprConstant i -> printf "0x%x" i
+                                         )
 
 constants_print_fn :: TT.Rec -> C.Unit
 constants_print_fn c = 
@@ -589,33 +594,41 @@ constants_print_fn c =
           [ C.Param (C.Ptr $ C.TypeName "char") cv_s,
             C.Param (C.TypeName "size_t") cv_size,
             C.Param (constants_c_type c) cv_e ]
-          [ C.Switch (C.Variable cv_e) 
-            [ C.Case (C.Variable $ constants_elem_c_name v)
-              [ C.Return $ C.Call "snprintf" 
-                [ C.Variable cv_s, 
-                  C.Variable cv_size, 
-                  C.StringConstant "%s", 
-                  C.StringConstant $ TT.cdesc v ]
-              ] | v <- TT.tt_vals c ]
-            [ C.Return $ C.Call "snprintf" 
-              [ C.Variable cv_s, 
-                C.Variable cv_size,
-                C.StringConstant "Unknown constant %s value 0x%x",
-                C.StringConstant (constants_c_name c),
-                C.Variable cv_e ]
-            ]
+    [ C.VarDecl C.NoScope C.NonConst (C.Ptr $ C.TypeName "char") "d"
+      (Just $ C.Call (constants_describe_fn_name c) [ C.Variable cv_e ]),
+      C.If (C.Variable "d") 
+        [ C.Return $ C.Call "snprintf" 
+          [ C.Variable cv_s, 
+            C.Variable cv_size, 
+            C.StringConstant "%s", 
+            C.Variable "d" 
+          ] 
+        ]
+        [ C.Return $ C.Call "snprintf" 
+          [ C.Variable cv_s, 
+            C.Variable cv_size,
+            C.StringCat [ C.QStr "Unknown constant %s value 0x%", 
+                          C.NStr "PRIx64" ],
+            C.StringConstant (constants_c_name c),
+            C.Cast (C.TypeName "uint64_t") (C.Variable cv_e)
           ]
+        ]
+      ]   
 
-constants_check_fn :: TT.Rec -> C.Unit
-constants_check_fn c =
-    C.StaticInline (C.TypeName "int") (constants_check_fn_name c)
-          [ C.Param (constants_c_type c) cv_e ]
-          [ C.Switch (C.Variable cv_e) 
-            [ C.Case (C.Variable $ constants_elem_c_name v)
-              [ C.Return $ C.NumConstant 1 ]
-                  | v <- TT.tt_vals c ]
-            [ C.Return $ C.NumConstant 0 ]
-          ]
+constants_describe_fn :: TT.Rec -> C.Unit
+constants_describe_fn c =
+    let 
+      rep v = C.StringConstant $ printf "%s: %s" (TT.cname v) (TT.cdesc v)
+    in
+     C.StaticInline (C.Ptr $ C.TypeName "char") (constants_describe_fn_name c)
+     [ C.Param (constants_c_type c) cv_e ]
+     [ C.Switch (C.Variable cv_e) 
+       [ C.Case (C.Variable $ constants_elem_c_name v)
+         [ C.Return $ rep v ] 
+       | v <- TT.tt_vals c ]
+       [ C.Return $ C.Variable "NULL" ]
+     ]
+
 
 -------------------------------------------------------------------------
 -- Render register type definitions
@@ -917,10 +930,12 @@ regarray_shadow_ref rt
 register_decl :: RT.Rec -> [ C.Unit ]
 register_decl r = [ register_dump_comment r,
                     regarray_length_macro r,
+                    register_rawread_fn r,
                     register_read_fn r,
+                    register_rawwrite_fn r,
                     register_write_fn r
                   ] 
-                  ++ 
+                  ++
                   ( register_print_fn r)
                   ++ 
                   (if not $ TT.is_primitive $ RT.tpe r then
@@ -966,6 +981,22 @@ regarray_length_macro r
                (Just $ C.NumConstant $ RT.num_elements r))
     | otherwise = C.NoOp
 
+-- 
+-- Do a raw read from a register, if the address is available.
+-- 
+register_rawread_fn :: RT.Rec -> C.Unit
+register_rawread_fn r =
+    let 
+      rtn = regtype_c_type $ RT.tpe r
+      args = (register_arg_list [] r [])
+      n = register_rawread_fn_name r    
+    in
+     if RT.is_noaddr r then
+       C.Comment (printf "%s has no address, user must supply %s" 
+                 (RT.name r) n)
+     else
+       C.StaticInline rtn n args [ C.Return (loc_read r) ]
+
 --
 -- Read from the register, or from a shadow copy if it's not readable. 
 -- 
@@ -979,6 +1010,21 @@ register_read_fn r =
           C.StaticInline rtn name args [ C.Return (loc_read r) ]
       else 
           C.StaticInline rtn name args [ C.Return (register_shadow_ref r) ]
+
+-- 
+-- Do a write read top a register, if the address is available.
+-- 
+register_rawwrite_fn :: RT.Rec -> C.Unit
+register_rawwrite_fn r =
+    let 
+      args = register_arg_list [] r [ C.Param (regtype_c_type $ RT.tpe r) cv_regval ]
+      n = register_rawwrite_fn_name r    
+    in
+     if RT.is_noaddr r then
+       C.Comment (printf "%s has no address, user must supply %s" 
+                 (RT.name r) n)
+     else
+       C.StaticInline C.Void n args [ C.Ex $ loc_write r cv_regval ]
 
 --
 -- Write to register.  Harder than it sounds. 
@@ -1061,13 +1107,26 @@ register_arg_list pre r post
        )
        ++ post)
 
+register_callarg_list :: [C.Param] -> RT.Rec -> [C.Param] -> [C.Param]
+register_callarg_list pre r post 
+    = (pre ++ [ C.Param (C.Ptr device_c_type) cv_dev ] 
+       ++ 
+       (if RT.is_array r then 
+            [ C.Param (C.TypeName "int") cv_i ]
+        else [] 
+       )
+       ++ post)
+
 --
 -- Generate an expression for a read or write of a register,
 -- regardless of address space or whether it's an array or not.
 -- 
 loc_read :: RT.Rec -> C.Expr
 loc_read r = 
-    case RT.spc r of
+  case RT.spc r of
+      Space.NoSpace -> 
+          C.Call (register_rawread_fn_name r)
+            [ C.Variable cv_dev ]
       Space.Builtin { Space.n = name } -> 
           C.Call (mackerel_read_fn_name name (RT.size r))
             [ C.DerefField (C.Variable cv_dev) (RT.base r), loc_array_offset r ]
@@ -1078,6 +1137,9 @@ loc_read r =
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
     case RT.spc r of
+      Space.NoSpace -> 
+          C.Call (register_rawwrite_fn_name r)
+            [ C.Variable cv_dev, C.Variable val ]
       Space.Builtin { Space.n = name } -> 
           C.Call (mackerel_write_fn_name name (RT.size r))
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),

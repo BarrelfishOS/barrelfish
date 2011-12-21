@@ -49,9 +49,9 @@
 #include "pci.h"
 #include "pci_acpi.h"
 #include "pci_debug.h"
-#include "acpi_ec_dev.h"
 
-#define EC_CMD(c)   (acpi_ec_cmd_t){ .cmd = c }
+
+#include <dev/acpi_ec_dev.h>
 
 struct ec {
     ACPI_HANDLE handle; ///< Handle to EC object
@@ -63,19 +63,19 @@ struct ec {
 static ACPI_STATUS doread(struct ec *ec, uint8_t addr, uint8_t *data)
 {
     // spinwait for input buffer empty
-    while (acpi_ec_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
     // send the read command
-    acpi_ec_cmd_wr(&ec->dev, EC_CMD(acpi_ec_read));
+    acpi_ec_cmd_wr(&ec->dev, acpi_ec_read);
 
     // spinwait for input buffer empty
-    while (acpi_ec_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
     // send the address
     acpi_ec_data_wr(&ec->dev, addr);
 
     // spinwait for output buffer full
-    while (!acpi_ec_status_rd(&ec->dev).obf) ;
+    while (!acpi_ec_status_obf_rdf(&ec->dev)) ;
 
     // read byte
     *data = acpi_ec_data_rd(&ec->dev);
@@ -86,24 +86,24 @@ static ACPI_STATUS doread(struct ec *ec, uint8_t addr, uint8_t *data)
 static ACPI_STATUS dowrite(struct ec *ec, uint8_t addr, uint8_t data)
 {
     // spinwait for input buffer empty
-    while (acpi_ec_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
     // send the write command
-    acpi_ec_cmd_wr(&ec->dev, EC_CMD(acpi_ec_write));
+    acpi_ec_cmd_wr(&ec->dev, acpi_ec_write);
 
     // spinwait for input buffer empty
-    while (acpi_ec_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
     acpi_ec_data_wr(&ec->dev, addr);
 
     // spinwait for input buffer empty
-    while (acpi_ec_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
     // write byte
     acpi_ec_data_wr(&ec->dev, data);
 
     // spinwait for input buffer empty
-    while (acpi_ec_status_rd(&ec->dev).ibf) ;
+    while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
     return AE_OK;
 }
@@ -114,15 +114,15 @@ static uint32_t gpe_handler(void *arg)
     ACPI_STATUS as;
 
     /* check if an SCI is pending */
-    if (acpi_ec_status_rd(&ec->dev).sci_evt) {
+    if (acpi_ec_status_sci_evt_rdf(&ec->dev)) {
         // spinwait for input buffer empty
-        while (acpi_ec_status_rd(&ec->dev).ibf) ;
+        while (acpi_ec_status_ibf_rdf(&ec->dev)) ;
 
         // send query command
-        acpi_ec_cmd_wr(&ec->dev, EC_CMD(acpi_ec_query));
+        acpi_ec_cmd_wr(&ec->dev, acpi_ec_query);
 
         // spinwait for output buffer full
-        while (!acpi_ec_status_rd(&ec->dev).obf) ;
+        while (!acpi_ec_status_obf_rdf(&ec->dev)) ;
 
         // read data
         uint8_t data = acpi_ec_data_rd(&ec->dev);

@@ -128,6 +128,8 @@ make_reginfo rtinfo (Register n atrv als rloc dsc tr@(TypeRef tname dname) p) dn
 make_reginfo rtinfo _ _ _ _ = []
 
 get_location :: RegLoc -> [Space.Rec] -> ( String, Space.Rec, String, Integer )
+get_location RegNoLoc _ = 
+    ( "", Space.NoSpace, "", 0)
 get_location (RegLoc s b o) spt = 
     ( s, Space.lookup s spt, b, o)
 
@@ -139,8 +141,10 @@ overlap r1 r2
         any extent_overlap [ (e1, e2) | e1 <- extents r1, e2 <- extents r2 ]
 
 extents :: Rec -> [ (Integer, Integer) ]
-extents r = [ ((offset r) + o, (extentsz (Space.t (spc r)) (size r)))
-                  | o <- arrayoffsets (arr r) (size r)]
+extents r 
+  | spc r == Space.NoSpace = []
+  | otherwise = [ ((offset r) + o, (extentsz (Space.t (spc r)) (size r)))
+                | o <- arrayoffsets (arr r) (size r)]
 extentsz :: Space.SpaceType -> Integer -> Integer
 extentsz (Space.BYTEWISE s) sz = sz `div` 8 `div` s
 extentsz _ sz = 1
@@ -202,6 +206,10 @@ typename r = (TT.tt_name (tpe r))
 is_array :: Rec -> Bool
 is_array (Rec { arr = (ArrayListLoc []) } ) = False
 is_array r = True
+
+is_noaddr :: Rec -> Bool
+is_noaddr (Rec { spc = Space.NoSpace } ) = True
+is_noaddr _ = False
 
 num_elements :: Rec -> Integer
 num_elements Rec { arr = (ArrayListLoc l) } = toInteger (length l)

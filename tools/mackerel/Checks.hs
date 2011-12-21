@@ -210,7 +210,7 @@ make_dup_val_error cvl n =
 check_undef_spaces :: Dev.Rec -> [MacError ]
 check_undef_spaces d =
     let l = [ (RT.spc_id r, RT.pos r) 
-              | r <- (Dev.registers d), (Space.t (RT.spc r)) == Space.UNDEF ]
+              | r <- (Dev.registers d), (RT.spc r) == Space.UndefinedSpace ]
     in
       [ MacError p (printf "Undefined address space '%s'" n) 
         | (n,p) <- l ]

@@ -21,7 +21,7 @@ device amd64 msbfirst ( ) "Intel64 and AMD 64-bit architecture definitions" {
     //
     // Section 2.5: Control registers
     //
-    regtype cr0 "Control register 0" {
+    register cr0 noaddr "Control register 0" {
 	pg	1 "Paging";
 	cd	1 "Cache disable";
 	nw	1 "Not write-through";
@@ -40,9 +40,9 @@ device amd64 msbfirst ( ) "Intel64 and AMD 64-bit architecture definitions" {
 
     // Control register 1 is reserved.
     
-    // Control register 2 == Page-fault linear address
+    register cr2 noaddr "Page-fault linear address" type(uint64);
 	
-    regtype cr3 "Control register 3 (PDBR)" {
+    register cr3 noaddr "Control register 3 (PDBR)" {
 	pdb	52 "Page-directory base";
 	_	7;
 	pcd	1 "Page-level cache disable";
@@ -50,7 +50,7 @@ device amd64 msbfirst ( ) "Intel64 and AMD 64-bit architecture definitions" {
 	_	3;
     };
 
-    regtype cr4 "Control register 4" {
+    register cr4 noaddr "Control register 4" {
 	_		49 mbz;
 	smxe		1 "SMX enable";
 	vmxe		1 "VMX enable";

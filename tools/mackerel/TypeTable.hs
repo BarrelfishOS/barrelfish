@@ -124,17 +124,27 @@ make_rtrec (DataType nm dsc (TypeDefn decls) o w p) dev devorder =
                      pos = p } ]
 make_rtrec (Constants nm d vs w p) dev devorder = 
   let tn = TN.fromParts dev nm 
+      vl = [ make_val tn v | v <- vs ]
   in
    [ ConstType { tt_name = tn,
                  tt_size = case w of 
-                   Nothing -> (-1)
+                   Nothing -> calc_const_size vl
                    Just t -> t,
-                 tt_vals = [ make_val tn v | v <- vs ], 
+                 tt_vals = vl,
                  tt_desc = d,
                  tt_width = w,
                  pos = p } ]
 make_rtrec _ _ _ = []
                    
+calc_const_size :: [Val] -> Integer
+calc_const_size vs = 
+  let m = maximum [ i | t@Val { cval = (ExprConstant i) } <- vs ] 
+  in
+   if m <= 0xff then 8
+   else if m <= 0xffff then 16
+        else if m <= 0xffffffff then 32
+             else 64
+
 -- Building constant lists
 make_val :: TN.Name -> AST -> Val
 make_val tn (ConstVal i e d p) 
