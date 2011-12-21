@@ -82,7 +82,7 @@
 
 #if defined(__scc__)
  // Enable optimized memcpy for scc
-#define SCC_MEMCPY  1
+//#define SCC_MEMCPY  1
 #endif // defined(__scc__)
 
 #include <stddef.h>
