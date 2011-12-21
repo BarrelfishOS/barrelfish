@@ -19,6 +19,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
+#include <contmng/netbench.h>
 
 // XXX: kludge making it possible to use bench_tsc without -lbench
 #if defined(__i386__) || defined(__x86_64__)
@@ -263,13 +264,19 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 free(call);
                 freed_call = true;
             } else {
-                /*if(net_debug_state == 0) {
-                    //net_debug_state = 0;
-                    //printf("starting the debug in network driver\n");
-                    //lwip_start_net_debug(net_debug_state);
+                /*
+                if(net_debug_state == 0) {
+                    net_debug_state = 1;
+                    printf("starting the debug in network driver\n");
+                    lwip_benchmark_control(0, BMS_START_REQUEST,
+                            0, rdtsc());
+                    lwip_benchmark_control(1, BMS_START_REQUEST,
+                            0, rdtsc());
                 } else {
                     printf("already started the debug in network driver\n");
-                }*/
+                }
+                */
+
                 /* retransmit */
                 printf("###### [%d][%d] RPC: retransmit XID 0x%x\n", disp_get_core_id(),
 			disp_get_domain_id(), call->xid);

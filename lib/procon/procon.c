@@ -53,11 +53,13 @@ static uint64_t sp_atomic_read_reg(union vreg *reg)
     return v1;
 #endif // 0
     return reg->value;
+    mfence();
 } // end function: sp_atomic_read_reg
 
 static void sp_atomic_set_reg(union vreg *reg, uint64_t value)
 {
     reg->value = value;
+    mfence();
 /*
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
@@ -266,6 +268,7 @@ static void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
     spp->produce_counter = 0;
     spp->consume_counter = 0;
     spp->clear_counter = 0;
+    mfence();
 } // sp_reset_pool
 
 
@@ -323,6 +326,7 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
                     sizeof(struct shared_pool_private),
                     sizeof(struct shared_pool) );
 */
+    mfence();
     return spp;
 } // end function: sp_create_shared_pool
 
@@ -378,6 +382,7 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
             "with role [%"PRIu8"], slots[%"PRIu64"] and pool len[%"PRIu64"]\n",
             (uint64_t)mem_size, spp->mem_size, spp->role, spp->alloted_slots,
             spp->c_size);
+    mfence();
     return SYS_ERR_OK;
 
 } // end function: sp_map_shared_pool
@@ -406,6 +411,7 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
     spp->sp->slot_list[id].d.len = len;
     spp->sp->slot_list[id].d.client_data = client_data;
     spp->sp->slot_list[id].d.ts = ts;
+    mfence();
     // copy the s into shared_pool
 #if 0
 #if !defined(__scc__) && !defined(__i386__)
@@ -425,6 +431,7 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
     d->no_pbufs = s->no_pbufs;
     d->client_data = s->client_data;
     d->ts = s->ts;
+    mfence();
 }
 
 void sp_copy_slot_data_from_index(struct shared_pool_private *spp,
@@ -560,24 +567,26 @@ bool sp_clear_slot(struct shared_pool_private *spp, struct slot_data *d,
 {
     sp_reload_regs(spp);
 
-    if (!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
-        return false;
-    }
-
     if (sp_queue_full(spp)) {
         return false;
     }
 
-    sp_copy_slot_data(d, &spp->sp->slot_list[id].d);
-    spp->pre_write_id = id;
-/*    printf("%s Slot %p with id %"PRIu64" is cleared and had %"PRIu64", %"PRIu64"\n",
-            disp_name(), &spp->sp->slot_list[id].d,
-            id, spp->sp->slot_list[id].d.client_data, d->client_data);
-*/
-    spp->sp->slot_list[id].d.client_data = 0;
-    ++spp->clear_counter;
+    if (sp_queue_empty(spp) ||
+          sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
 
-    return true;
+        sp_copy_slot_data(d, &spp->sp->slot_list[id].d);
+        spp->pre_write_id = id;
+//      printf("%s Slot %p with id %"PRIu64" is cleared and had "
+//           "%"PRIu64", %"PRIu64"\n",
+//            disp_name(), &spp->sp->slot_list[id].d,
+//            id, spp->sp->slot_list[id].d.client_data, d->client_data);
+
+        spp->sp->slot_list[id].d.client_data = 0;
+        ++spp->clear_counter;
+        return true;
+    }
+
+    return false;
 } // end function: sp_clear_slot
 
 bool validate_and_empty_produce_slot(struct shared_pool_private *spp,
@@ -765,9 +774,11 @@ void sp_print_metadata(struct shared_pool_private *spp)
             spp->is_creator?1:0, spp->role,
             spp->ghost_read_id, spp->ghost_write_id, spp->pre_write_id);
 */
-    printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
+    printf("SPP %s S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
+            disp_name(),
             spp->produce_counter, spp->consume_counter, spp->clear_counter);
-    printf("SPP S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
+    printf("SPP %s S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
+            disp_name(),
             spp->c_read_id, spp->c_write_id);
 
     struct shared_pool *sp = spp->sp;

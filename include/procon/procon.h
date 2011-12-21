@@ -33,27 +33,27 @@
 
 // information inside the slot
 struct slot_data {
-    uint64_t buffer_id;
-    uint64_t pbuf_id;
-    uint64_t offset;
-    uint64_t len;
-    uint64_t no_pbufs;
-    uint64_t client_data;
-    uint64_t ts;
+    volatile uint64_t buffer_id;
+    volatile uint64_t pbuf_id;
+    volatile uint64_t offset;
+    volatile uint64_t len;
+    volatile uint64_t no_pbufs;
+    volatile uint64_t client_data;
+    volatile uint64_t ts;
 };
 
 
 // slot container
 union slot {
     struct slot_data d;
-    uint8_t raw[SLOT_SIZE];
+    volatile uint8_t raw[SLOT_SIZE];
 };
 
 
 // register to hold the indexes
 union vreg {
-    uint64_t value;
-    uint8_t raw[CACHESIZE];
+    volatile uint64_t value;
+    volatile uint8_t raw[CACHESIZE];
 };
 
 
@@ -66,7 +66,7 @@ struct shared_pool {
 };
 
 struct shared_pool_private {
-    struct      shared_pool *sp;
+    struct shared_pool *sp;
     struct      capref cap;
 //    struct ether_binding *con;
     lpaddr_t    pa;
@@ -85,7 +85,6 @@ struct shared_pool_private {
     uint64_t    c_read_id;
     uint64_t    c_write_id;
     uint64_t    c_size;
-
 };
 
 

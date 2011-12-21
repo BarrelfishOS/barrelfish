@@ -179,6 +179,7 @@ static void wrapper_send_sp_notification_from_app(struct ether_binding *b)
     entry.handler = send_sp_notification_from_app;
     uint64_t ts = rdtsc();
 
+
 #if LWIP_TRACE_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_Q, 0);
 #endif // LWIP_TRACE_MODE
@@ -200,12 +201,13 @@ static void wrapper_send_sp_notification_from_app(struct ether_binding *b)
 
 static void sp_process_tx_done(bool debug)
 {
-    assert(lwip_free_handler != 0);
+    if (lwip_free_handler == 0) {
+        return;
+    }
     struct client_closure_NC *ccnc = (struct client_closure_NC *)
         driver_connection[TRANSMIT_CONNECTION]->st;
     struct shared_pool_private *spp_send = ccnc->spp_ptr;
     assert(spp_send != NULL);
-
 
     sp_reload_regs(spp_send);
     struct slot_data d;
@@ -228,16 +230,32 @@ static void sp_process_tx_done(bool debug)
         return;
     }
 
-    uint64_t current_read = spp_send->c_read_id;
-//    uint64_t current_write = spp_send->c_write_id;
-    uint64_t i = spp_send->c_write_id;
-    // FIXME: use pre_write_id as cache of how much is already cleared
-    i = spp_send->pre_write_id;
+    uint64_t start_index;  // starting index to start clearing slot (included)
+    uint64_t stop_index;  // stopping index to stop clearing slot (excluded)
+
+    if (sp_queue_empty(spp_send)) {
+        if (debug) printf("sp_process_tx_done: queue empty\n");
+         start_index = spp_send->pre_write_id;
+         stop_index = spp_send->c_write_id;
+    } else {
+        // FIXME: Validate pre_write_id
+
+         start_index = spp_send->pre_write_id;
+         stop_index = spp_send->c_read_id;
+    }
+
+    if (start_index == stop_index) {
+        return;
+    }
+    uint64_t i = start_index;
     if (debug)
-        printf("sp_process_tx_done trying for range %"PRIu64" - %"PRIu64"\n",
-            i, current_read);
-    while (sp_c_between(spp_send->c_write_id, i, current_read,
-                spp_send->c_size)) {
+        printf("sp_process_tx_done trying for element %"PRIu64" in range "
+                "[%"PRIu64"- %"PRIu64"]\n",
+            i, start_index, stop_index);
+
+    if (debug) sp_print_metadata(spp_send);
+
+    while (sp_c_between(start_index, i, stop_index, spp_send->c_size)) {
 
         if (debug)
             printf("inside while for %"PRIu64"\n", i);
@@ -245,7 +263,7 @@ static void sp_process_tx_done(bool debug)
            if (debug)
             printf("#### problems in clearing the slot %"PRIu64"\n", i);
             if (sp_clear_slot(spp_send, &d, i) == false) {
-                printf("ERROR: bulk_transport_logic: slot not clear\n");
+                USER_PANIC("ERROR: bulk_transport_logic: slot not clear\n");
                 abort();
             }
             /*
@@ -271,7 +289,7 @@ static void sp_process_tx_done(bool debug)
         i = (i + 1) % spp_send->c_size;
     } // end while:
     if (debug) printf("sp_process_tx_done is stopped for %"PRIu64"\n", i);
-}
+} // end function: sp_process_tx_done
 
 
 static void do_pending_work_TX_lwip(void)
@@ -344,10 +362,13 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     // Add all pbufs of this packet into spp
     uint64_t ghost_write_index = sp_get_write_index(spp_send);
     uint64_t queue_size = sp_get_queue_size(spp_send);
-    LWIPBF_DEBUG("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
-            " for p %p\n",
-            ghost_write_index, p);
 
+    LWIPBF_DEBUG("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
+            " for p %p\n", ghost_write_index, p);
+
+    if (new_debug)
+        printf("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
+            " for p %p\n", ghost_write_index, p);
 
 #if !defined(__scc__)
     mfence();                   // ensure that we flush all of the packet payload
@@ -413,8 +434,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             return numpbufs;
         }
         LWIPBF_DEBUG("#### to_network_driver, slot %"PRIu64" pbuf %p "
-                "of len %"PRIu64"\n",
-                ghost_write_index, tmpp, tmpp->len);
+                "of len %"PRIu64"\n", ghost_write_index, tmpp, tmpp->len);
+        if (new_debug)
+            printf ("#### to_network_driver, slot %"PRIu64" pbuf %p "
+                "of len %"PRIu16"\n", ghost_write_index, tmpp, tmpp->len);
 
         // Increment the ghost write index
         // FIXME: Use the inbuilt spp->ghost_write_id instead of following var.
@@ -681,12 +704,12 @@ static errval_t send_benchmark_control_request(struct q_entry e)
 void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
         uint64_t cl)
 {
-     LWIPBF_DEBUG("idc_debug_status:  called with status %x %[PRIu64]\n",
+     LWIPBF_DEBUG("idc_debug_status:  called with status %x [%"PRIu64"]\n",
      state, trigger);
-//     printf("idc_debug_status:  called with status %x %[PRIu64]\n",
-//     state, trigger);
+     printf("idc_debug_status:  called with status %x [%"PRIu64"]\n",
+     state, trigger);
 
-//    new_debug = state;
+    new_debug = state;
     struct q_entry entry;
     benchmark_mode = state;
     if (state == 1) {
@@ -830,7 +853,10 @@ bool lwip_in_packet_received = false;
 
 static uint32_t handle_incoming_packets(struct ether_binding *b)
 {
-    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
+
+    struct client_closure_NC *ccnc = (struct client_closure_NC *)
+        driver_connection[RECEIVE_CONNECTION]->st;
+//    struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
     assert(ccnc != NULL);
     struct buffer_desc *buff = ccnc->buff_ptr;
     assert(buff != NULL);
@@ -842,6 +868,7 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
     }
 */
 
+    if (new_debug) printf("handle_incoming_pkts called\n");
     // Read the slots which are available in spp
 
     // FIXME: assuming that packet fits into one slot
@@ -853,6 +880,11 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
         ans = sp_ghost_read_slot(ccnc->spp_ptr, &sslot);
         if (!ans) {
             // No more slots to read
+
+            if (new_debug) {
+                printf("@@@@@ Processed %"PRIu32" slots\n", count);
+                sp_print_metadata(ccnc->spp_ptr);
+            }
             break;
         }
         if (new_debug)
@@ -894,6 +926,7 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
 static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
         uint64_t rts)
 {
+    if (new_debug) printf("news from driver arrived!!\n");
     lwip_mutex_lock();
     uint64_t ts = rdtsc();
     assert(b != NULL);
@@ -908,18 +941,8 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
         netbench_record_event_simple(nb, TX_A_SP_RN_CS, rts);
     }
 
-    if (ccnc->role == RECEIVE_CONNECTION) {
-        handle_incoming_packets(b);
-        if (benchmark_mode > 0) {
-            netbench_record_event_simple(nb, RX_ALL_PROCESS, rts);
-        }
-    }
-
-    if (ccnc->role == TRANSMIT_CONNECTION) {
-        // FIXME:  trigger the function which checks for released pbufs
-        // in form of tx_done and process them
-        sp_process_tx_done(false);
-    }
+    handle_incoming_packets(b);
+    sp_process_tx_done(false);
 
     if (benchmark_mode > 0) {
         netbench_record_event_simple(nb, TX_A_SP_RN_T, ts);

@@ -558,8 +558,8 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
     return pkts;
 }
 
- errval_t send_sp_notification_from_driver(struct q_entry e);
- errval_t send_sp_notification_from_driver(struct q_entry e)
+errval_t send_sp_notification_from_driver(struct q_entry e);
+errval_t send_sp_notification_from_driver(struct q_entry e)
 {
 //    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
@@ -575,6 +575,8 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
                 // type, ts
         if (ccl->debug_state_tx == 4) {
             netbench_record_event_simple(bm, RE_TX_SP_MSG, ts);
+//            printf("@@@@@ notification sent to the app %"PRIu64"\n",
+//                    ccl->tx_done_count);
         }
         return err;
     } else {
@@ -1074,13 +1076,16 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     if (cl->spp_ptr->notify_other_side) {
         // Send notification to application, telling that there is
         // no more data
-/*        if (cl->debug_state == 4) {
+
+        /*
+        if (cl->debug_state == 4) {
             printf("copy_packet_to_user: notify other side [%"PRIu64"], "
                     "notify [%"PRIu64"]\n", cl->in_filter_matched,
                     cl->spp_ptr->notify_other_side);
             sp_print_metadata(cl->spp_ptr);
         }
-*/
+        */
+
         ++cl->rx_notification_sent;
         struct q_entry entry;
         memset(&entry, 0, sizeof(struct q_entry));
@@ -1092,6 +1097,15 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         enqueue_cont_q(cl->q, &entry);
         cl->spp_ptr->notify_other_side = 0;
     }
+    /* else {
+         if (cl->debug_state == 4) {
+            printf("copy_packet_to_user: not notify other side [%"PRIu64"], "
+                    "notify [%"PRIu64"]\n", cl->in_filter_matched,
+                    cl->spp_ptr->notify_other_side);
+            sp_print_metadata(cl->spp_ptr);
+        }
+    }
+    */
 
     return true;
 } // end function: copy_packet_to_user

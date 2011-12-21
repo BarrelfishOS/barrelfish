@@ -962,13 +962,13 @@ static bool handle_application_packet(void *packet, size_t len)
     assert(cl != NULL);
 
     if (cl->debug_state == 4) {
+//        printf("packet for application arrived!!\n");
         netbench_record_event_simple(bm, RE_FILTER, ts);
     }
 
     if (cl->debug_state == 3) {
         // Trigger to start the recording the stats
         assert(cl->in_success == 0);
-        printf("Actually starting the tracking!!\n");
         ts = rdtsc();
         cl->start_ts = ts;
         cl->debug_state = 4;
@@ -1002,9 +1002,10 @@ static bool handle_application_packet(void *packet, size_t len)
         // Packet delivered to the application buffer
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_p;
+
 /*
             if ((cl->in_filter_matched_p % 1000 ) == 0 ) {
-                printf("D: %"PRIu64" packets arrived\n",
+                printf("@@@@@@ D: %"PRIu64" packets arrived\n",
                         cl->in_filter_matched_p);
             }
 */
@@ -1025,8 +1026,8 @@ static bool handle_application_packet(void *packet, size_t len)
                        cl->spp_ptr->notify_other_side, cl->in_filter_matched);
             sp_print_metadata(cl->spp_ptr);
 */
-
         }
+
 //      printf("A: Copy packet to userspace failed\n");
     }
     return true;
