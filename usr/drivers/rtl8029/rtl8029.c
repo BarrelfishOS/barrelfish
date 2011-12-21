@@ -49,6 +49,15 @@ static void page_select(uint8_t page);
 #include "rtl8029.h"
 #include <dev/rtl8029as_dev.h>
 
+
+
+// MAX number of outstanding TX packets allowed in hardware queue
+// This variable does not make sense for rtl driver, but is kept
+// there to be consistent with e1000 and other drivers
+// FIXME: This should be removed as it does not make sense in new design
+#define RTL_TX_RING_SIZE  1000
+
+
 /// The only instance of the RTL8029AS we're handling
 static rtl8029as_t      rtl;
 
@@ -226,6 +235,11 @@ static inline void read_page(uint8_t *dst, uint8_t page, int amount)
 static inline void rtl8029_reset(void)
 {
     rtl8029as_reset_rd(&rtl);
+}
+
+static uint64_t rtl_tx_slots_count_fn(void)
+{
+    return RTL_TX_RING_SIZE;
 }
 
 /**
