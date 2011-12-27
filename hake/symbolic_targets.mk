@@ -55,9 +55,6 @@ MODULES_COMMON= \
 	sbin/fscanf_test \
 	sbin/monitor \
 	sbin/ramfsd \
-	sbin/routetest \
-	sbin/route_bench \
-	sbin/radix_route_bench \
 	sbin/channel_cost_bench \
 	sbin/schedtest \
 	sbin/testerror \
@@ -74,7 +71,6 @@ MODULES_GENERIC= \
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
 	sbin/apicdrift_bench \
-	sbin/barrier_bench \
 	sbin/bench \
 	sbin/bfscope \
 	sbin/bomp_benchmark_cg \

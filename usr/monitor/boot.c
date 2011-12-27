@@ -187,37 +187,6 @@ void boot_initialize_request(struct monitor_binding *st)
     printf("all %d monitors up\n", num_monitors);
 
 #if !defined(__scc__) || defined(RCK_EMU)
-
-#if 0 /* The current routing library has been deprecated.  The code is
-         not removed as the multi-core cap mgmt code is closely
-         intertwined with it. Once we have a usable routing library,
-         we can adapt the cap mgmt code to it.
-       */
-    if (num_monitors > 32) {
-        printf("XXX: Not routing for %d cores. "
-               "Monitor runs out lmp endpoints. "
-               "Remote caps with routing will not work. "
-               "New routing lib will fix this.\n",
-               num_monitors);
-    } else {
-        if (num_monitors > 1) {
-            printf("monitor: initializing routes\n");
-            routes_up = false;
-            err = route_initialize_bsp(monitors_up);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "route_initialize failed");
-                abort();
-            }
-
-            while(!routes_up) {
-                // This waiting is fine, boot_manager will not send another msg
-                // till it gets a reply from this.
-                messages_wait_and_handle_next();
-            }
-        }
-    }
-#endif
-
     if(num_monitors > 1) {
         printf("monitor: synchronizing clocks\n");
         err = timing_sync_timer();

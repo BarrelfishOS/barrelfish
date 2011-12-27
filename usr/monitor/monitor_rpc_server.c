@@ -57,8 +57,6 @@ static bool static_delete_state_used = false;
 static struct revoke_st static_revoke_state;
 static bool static_revoke_state_used = false;
 
-static uint32_t current_route_id = 0;
-
 /*-------------------------- Helper Functions ------------------------------*/
 
 static void remote_cap_retype_phase_2(void * st_arg);
@@ -404,24 +402,6 @@ static void remote_cap_revoke_phase_2(void * st_arg)
     assert (err_is_ok(err));
 }
 
-
-routeid_t mon_allocate_route_id(void) 
-{
-    coreid_t coreid = disp_get_core_id();
-    assert (coreid < 0xff);
-    assert (++(current_route_id) < 0xffffff);   // XXX TODO - deal with rollover
-    
-    return (coreid << 24) | current_route_id;
-}
-
-static void allocate_route_id(struct monitor_blocking_binding *st)
-{
-    errval_t err;
-    uint32_t route_id = mon_allocate_route_id();
-    err = st->tx_vtbl.allocate_route_id_response(st, NOP_CONT, route_id);
-    assert (err_is_ok(err));
-}
-
 static void rsrc_manifest(struct monitor_blocking_binding *b,
                           struct capref dispcap, char *str)
 {
@@ -601,8 +581,6 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .remote_cap_retype_call  = remote_cap_retype,
     .remote_cap_delete_call  = remote_cap_delete,
     .remote_cap_revoke_call  = remote_cap_revoke,
-
-    .allocate_route_id_call  = allocate_route_id,
 
     .rsrc_manifest_call      = rsrc_manifest,
     .rsrc_join_call          = rpc_rsrc_join,

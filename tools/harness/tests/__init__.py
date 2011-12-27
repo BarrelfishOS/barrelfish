@@ -44,5 +44,5 @@ def add_test(t):
 
 import memtest, webserver, rpctests, splash_bomp, echoserver, \
     skew, tsctests, vmkit, \
-    rcce, routing, bulktests, tracing, buildall, bomp_sidebyside, \
+    rcce, bulktests, tracing, buildall, bomp_sidebyside, \
     monitortest, phases, clockdrift, channel_cost, fputest, TimerTest, multihoptests
