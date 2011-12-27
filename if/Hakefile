@@ -37,8 +37,6 @@
                "ping_pong",
                "pixels",
                "rcce",
-               "route", -- the new routing library
-               "route_coordinator",
                "routing",
                "serial",
                "skb",
