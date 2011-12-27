@@ -585,7 +585,6 @@ static void cap_send_request(struct monitor_binding *st,
                              uint32_t capid, uint8_t give_away)
 {
     errval_t err;
-    static struct capability null_capability;
     struct capability capability;
     bool has_descendants;
     coremask_t on_cores;
@@ -593,10 +592,10 @@ static void cap_send_request(struct monitor_binding *st,
     if (capref_is_null(cap)) {
         // we don't care about capabilities, has_descendants, or on_cores here,
         // make the compiler happy though
-        on_cores = 0; 
-        has_descendants = false;
+        static struct capability null_capability;
+        static coremask_t null_mask;
         cap_send_request_2(my_mon_id, cap, capid, null_capability,
-                           give_away, has_descendants, on_cores);
+                           give_away, false, null_mask);
         return;
     }
 
@@ -658,10 +657,10 @@ static void cap_send_request(struct monitor_binding *st,
         }
 
         // TODO ensure that no more copies of this cap are on this core
-        on_cores = 0;
+        static coremask_t null_mask;
         // call continuation directly
         cap_send_request_2(my_mon_id, cap, capid, capability, give_away, 
-                           has_descendants, on_cores);
+                           has_descendants, null_mask);
     }
 }
 
@@ -684,7 +683,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
 
     err = b->tx_vtbl.cap_send_request(b, NOP_CONT, st->your_mon_id, st->capid,
                                       st->caprep, st->give_away,
-                                      st->has_descendants, st->on_cores,
+                                      st->has_descendants, st->on_cores.bits,
                                       st->null_cap); 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -748,7 +747,7 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
 
     err = closure->tx_vtbl.
         cap_send_request(closure, NOP_CONT, your_mon_id, capid,
-                         caprep, give_away, has_descendants, on_cores,
+                         caprep, give_away, has_descendants, on_cores.bits,
                          null_cap);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {

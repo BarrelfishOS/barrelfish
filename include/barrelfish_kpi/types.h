@@ -77,12 +77,8 @@ typedef uint8_t	coreid_t;
 #define PRIuCOREID  PRIu8
 #define PRIxCOREID  PRIx8
 
-/* Core id bitmask type */
-typedef uint64_t       coremask_t;
-#define PRIxCOREMASK   PRIx64
-
-#ifdef MAX_CPUS
-STATIC_ASSERT(MAX_CPUS <= 64, "coremask only supports 64 bits");
+#ifndef MAX_COREID
+#define MAX_COREID  254 // maximum of coreid_t type (see comment above)
 #endif
 
 /* Resource id */

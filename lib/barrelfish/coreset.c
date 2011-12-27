@@ -21,9 +21,13 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/coreset.h>
+#include <string.h>
+
+#define CORESET_BITS_PER_WORD (sizeof(uintptr_t) * NBBY)
+#define CORESET_WORDS DIVIDE_ROUND_UP(MAX_COREID, CORESET_BITS_PER_WORD)
 
 struct coreset {
-    uint64_t set;
+    uintptr_t bits[CORESET_WORDS];
 };
 
 /**
@@ -37,7 +41,15 @@ struct coreset {
  */
 errval_t coreset_to_coremask(struct coreset *set, coremask_t *mask)
 {
-    *mask = set->set;
+    memset(mask->bits, 0, sizeof(mask->bits));
+
+    for (int i = 0; i < MAX_COREID; i++) {
+        if (coreset_test(set, i)) {
+            mask->bits[i % _COREMASK_BITS_PER_WORD]
+                |= (_coremask_word_t)1 << (i / _COREMASK_BITS_PER_WORD);
+        }
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -61,7 +73,13 @@ errval_t coreset_from_coremask(coremask_t mask, struct coreset **set)
         return err_push(err, LIB_ERR_CORESET_NEW);
     }
 
-    (*set)->set = mask;
+    for (int i = 0; i < MAX_COREID; i++) {
+        if (mask.bits[i % _COREMASK_BITS_PER_WORD]
+            & (_coremask_word_t)1 << (i / _COREMASK_BITS_PER_WORD)) {
+            coreset_add(*set, i);
+        }
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -79,7 +97,7 @@ errval_t coreset_new(struct coreset **retset)
     }
 
     // Initialize
-    set->set = 0;
+    memset(set->bits, 0, sizeof(set->bits));
 
     *retset = set;
     return SYS_ERR_OK;
@@ -104,7 +122,11 @@ void coreset_destroy(struct coreset *set)
  */
 errval_t coreset_add(struct coreset *set, coreid_t id)
 {
-    set->set |= (uint64_t)1 << id;
+    assert(id < MAX_COREID);
+    size_t nword = id / CORESET_BITS_PER_WORD;
+    size_t nbit = id % CORESET_BITS_PER_WORD;
+
+    set->bits[nword] |= (uintptr_t)1 << nbit;
 
     return SYS_ERR_OK;
 }
@@ -117,7 +139,11 @@ errval_t coreset_add(struct coreset *set, coreid_t id)
  */
 errval_t coreset_remove(struct coreset *set, coreid_t id)
 {
-    set->set &= (~(uint64_t)1 << id);
+    assert(id < MAX_COREID);
+    size_t nword = id / CORESET_BITS_PER_WORD;
+    size_t nbit = id % CORESET_BITS_PER_WORD;
+
+    set->bits[nword] &= ~((uintptr_t)1 << nbit);
 
     return SYS_ERR_OK;
 }
@@ -130,10 +156,11 @@ errval_t coreset_remove(struct coreset *set, coreid_t id)
  */
 bool coreset_test(struct coreset *set, coreid_t id)
 {
-    if (set->set & (uint64_t)1 << id) {
-        return true;
-    }
-    return false;
+    assert(id < MAX_COREID);
+    size_t nword = id / CORESET_BITS_PER_WORD;
+    size_t nbit = id % CORESET_BITS_PER_WORD;
+
+    return (set->bits[nword] & ((uintptr_t)1 << nbit)) != 0;
 }
 
 /**
@@ -158,9 +185,13 @@ errval_t coreset_get_next(struct coreset *set, coreset_token_t *token,
     (*token)++;
 
     // Count up in the set till the desired element is found
+
+    // FIXME: this is stupidly inefficient in the common case.
+    // Couldn't we store the last core ID in the token? -AB
+
     coreid_t count = 0;
     coreid_t i;
-    for (i = 0; i < 64; i++) {
+    for (i = 0; i < MAX_COREID; i++) {
         if (coreset_test(set, i)) {
             if (count == elem) {
                 *id = i;
@@ -189,7 +220,7 @@ errval_t coreset_get_next(struct coreset *set, coreset_token_t *token,
 errval_t coreset_iterate(struct coreset *set, void *st,
                          coreset_iterator_fn func)
 {
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < MAX_COREID; i++) {
         if (coreset_test(set, i)) {
             errval_t err = func(st, i);
             if (err_is_fail(err)) {

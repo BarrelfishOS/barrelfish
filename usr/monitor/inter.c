@@ -169,7 +169,7 @@ static void cap_send_request(struct intermon_binding *b,
                              mon_id_t my_mon_id, uint32_t capid,
                              intermon_caprep_t caprep, 
                              bool give_away, bool remote_has_desc,
-                             coremask_t on_cores, 
+                             intermon_coremask_t on_cores, 
                              bool null_cap) 
 {
     errval_t err, err2;
@@ -219,7 +219,9 @@ static void cap_send_request(struct intermon_binding *b,
                 // sending core didn't
                 assert(!kern_has_desc || remote_has_desc);
             
-                rcap_db_update_on_recv (capability, remote_has_desc, on_cores, 
+                coremask_t mask;
+                memcpy(mask.bits, on_cores, sizeof(intermon_coremask_t));
+                rcap_db_update_on_recv (capability, remote_has_desc, mask, 
                                         core_id);
                 if (err_is_fail(err)) {
                     // cleanup
@@ -228,7 +230,7 @@ static void cap_send_request(struct intermon_binding *b,
                 }
             } else {
                 // have already been sent this capability
-                assert (on_cores & get_coremask(my_core_id));
+                //assert (on_cores & get_coremask(my_core_id));
             }
         } else {
             bool kern_has_desc;
@@ -259,7 +261,8 @@ static void cap_send_request(struct intermon_binding *b,
         cap_receive_request_enqueue(domain_closure, domain_id, cap, capid,
                                     your_mon_id, b);
     }
-    return;
+
+    goto out;
 
 cleanup2:
     err2 = cap_destroy(cap);
@@ -273,6 +276,8 @@ cleanup1:
     }
 reply:
     cap_send_reply_cont(b, your_mon_id, capid, err);
+out:
+    free(on_cores);
 }
 
 struct monitor_cap_send_reply_state {

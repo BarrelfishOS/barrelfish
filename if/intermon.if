@@ -19,6 +19,9 @@ interface intermon "The Interface between monitors" {
         alias mon_id_t uint64;
         alias state_id_t uint64;
 
+        /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
+        typedef uint64 coremask[4];
+
         /* Struct to marshal caps between cores */
         typedef struct {
             uint64 w0;
