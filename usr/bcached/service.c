@@ -11,6 +11,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/bcache_defs.h>
+#include <vfs/vfs.h>
 #include "bcached.h"
 
 #include <string.h>
@@ -21,22 +22,54 @@
 #define ITERATIONS      100000
 #define MAXN            10
 
+struct wait_list {
+    struct bcache_binding *b;
+    struct wait_list *next;
+};
+
+#if 0
+// Doing the easiest thing here, just block out everyone when we're writing
+static bool inwrite[NUM_BLOCKS];
+static struct bcache_binding *waiting[NUM_BLOCKS];
+#endif
+
 static void get_start_handler(struct bcache_binding *b, char *key, size_t key_len)
 {
     errval_t err;
-    bool haveit;
+    key_state_t ks;
     uintptr_t index, length = 0;
 
     assert(key > (char *)BASE_PAGE_SIZE);
 
-    haveit = cache_lookup(key, key_len, &index, &length);
+    ks = cache_lookup(key, key_len, &index, &length);
 
-    if(!haveit) {
-        index = cache_allocate(key, key_len);
-    } else {
+    if (ks == KEY_INTRANSIT) { // key is in transit: wait for it!
         free(key);
+        cache_register_wait(index, b);
+        return; // get_start_response() will be called when key arrives
+    } else if (ks == KEY_MISSING) {
+        index = cache_allocate(key, key_len);
+    } else if (ks == KEY_EXISTS) {
+        free(key);
+    } else {
+        assert(0);
     }
 
+#if 0
+    // Block everyone if we have a write on this block
+    if(inwrite[index]) {
+        struct wait_list *w = malloc(sizeof(struct wait_list));
+        w->b = b;
+        w->next = waiting[index];
+        waiting[index] = w;
+    }
+
+    if(write) {
+        inwrite[index] = true;
+    }
+#endif
+
+    bool haveit = (ks == KEY_EXISTS);
     err = b->tx_vtbl.get_start_response(b, NOP_CONT, index, haveit,
                                         haveit ? 1 : 0, length);
     if(err_is_fail(err)) {
@@ -53,9 +86,30 @@ static void get_stop_handler(struct bcache_binding *b, uint64_t transid,
         cache_update(index, length);
     }
 
+#if 0
+    if(inwrite[index]) {
+        // Wake up all waiters
+        
+        inwrite[index] = false;
+    }
+#endif
+
+    /* notify issuer */
     err = b->tx_vtbl.get_stop_response(b, NOP_CONT);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_stop_response");
+    }
+
+    /* notify waiters */
+    if (transid == 0) {
+            struct bcache_binding *wb;
+            while ((wb = cache_get_next_waiter(index)) != NULL) {
+                uint64_t l = cache_get_block_length(index);
+                err = b->tx_vtbl.get_start_response(wb, NOP_CONT, index, true, 1, l);
+                if(err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "get_start_response");
+                }
+            }
     }
 }
 
@@ -98,8 +152,11 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
     // construct name
     char namebuf[32];
-    /* int name = disp_get_core_id(); */
+#ifndef WITH_SHARED_CACHE
+    int name = disp_get_core_id();
+#else
     int name = 0;
+#endif
     size_t len = snprintf(namebuf, sizeof(namebuf), "%s.%d", SERVICE_BASENAME,
                           name);
     assert(len < sizeof(namebuf));

@@ -31,6 +31,7 @@ static void timeout_fired(void *arg)
   toe->fired = true;
 }
 
+
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
            struct timeval *timeout)
 {
@@ -294,6 +295,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 
         // Wait on monitor?
         if(wait_monitor) {
+	        printf("%d: Need to wait on monitor\n", disp_get_domain_id());
             err = mb->change_waitset(mb, &ws);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor change_waitset");

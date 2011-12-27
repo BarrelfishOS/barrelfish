@@ -78,6 +78,7 @@ commaSep1 = P.commaSep1 lexer
 op = P.reservedOp lexer
 
 data RegLoc = RegLoc String String Integer 
+            | RegNoLoc
               deriving Show
 
 data ArrayLoc = ArrayListLoc [ Integer ]
@@ -320,7 +321,11 @@ binarySpace = do { reserved "addr" ; return "addr" }
               <|> do { reserved "io" ; return "io" }
               <|> do { reserved "pci" ; return "pci" }
 
-regLoc = do { sp <- binarySpace 
+regLoc = do { reserved "noaddr"
+            ; return RegNoLoc 
+            }
+         <|>
+         do { sp <- binarySpace 
             ; ( base, offset ) <- parens binLoc 
             ; return ( RegLoc sp base offset )
             }

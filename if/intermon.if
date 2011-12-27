@@ -9,10 +9,6 @@
 
 interface intermon "The Interface between monitors" {
 
-        /* from include/routing/routing.h */
-        alias routeid uint32;
-        alias recordid uint32;
-
         /* XXX Aliases for base system types */
         alias coreid_t uint8;
         alias chanid_t uint32;
@@ -30,13 +26,6 @@ interface intermon "The Interface between monitors" {
             uint64 w2;
             uint64 w3;
         } caprep;
-
-        /* used in route.c */
-        typedef enum
-        {
-            UNICAST_TREE,
-            MULTICAST_TREE
-        } ROUTE_TYPE;
 
         message spawnd_image_request();
         message spawnd_image_reply(genpaddr base, uint32 bytes);
@@ -126,14 +115,6 @@ interface intermon "The Interface between monitors" {
         message pingpong(uint64 data);
         message test_pingpong(uint64 w0, uint64 w1, uint64 w2, uint64 w3,
                               uint64 w4, uint64 w5, uint64 w6, uint64 w7);
-
-        /* Route setup calls */
-        call join_route(ROUTE_TYPE route_type, routeid route_id);
-        response route_done_join(routeid route_id, uint8 coreid,
-                                 errval err, iref iref);
-        call connect_neighbors(ROUTE_TYPE route_type, routeid route_id, 
-                               uint8 irefs[size]);
-        response route_done_connect(routeid route_id, errval err);
 
 	// Resource control
 	message rsrc_join(rsrcid id, uint8 coreid);

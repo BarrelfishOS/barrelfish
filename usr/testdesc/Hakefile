@@ -12,7 +12,8 @@
 
 [ build application { target = "testdesc",
                       cFiles = [ "testdesc.c" ],
-		      addLibraries = [ "posixcompat", "vfs" , "nfs", "lwip", "contmng", "timer" ],
+		      addLibraries = [ "posixcompat", "vfs" , "nfs", "lwip",
+                      "contmng", "procon", "timer" ],
 		      flounderBindings = [ "unixsock" ]
 --		      flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
                     },

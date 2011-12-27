@@ -12,7 +12,7 @@
 
 [ build application { target = "webserver",
                       cFiles = [ "main.c", "http_cache.c", "http_server.c" ],
-                      addLibraries = [ "lwip", "contmng", "nfs", "timer",
-                                    "trace" ]
+                      addLibraries = [ "lwip", "contmng", "procon", "nfs",
+                      "timer", "trace" ]
                     }
 ]

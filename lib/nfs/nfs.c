@@ -15,18 +15,10 @@
 #include <assert.h>
 #include <barrelfish/barrelfish.h>
 #include <nfs/nfs.h>
+#include "nfs_debug.h"
 #include "rpc.h"
 #include "portmap_rpc.h"
 
-
-/* FIXME: It might be a good idea to move DEBUGNFS configuration to Config.hs */
-//#define DEBUGNFS 1
-
-#ifdef DEBUGNFS
-#define NFSDEBUGPRINT(arg...) printf(arg)
-#else
-#define NFSDEBUGPRINT(arg...) ((void)0)
-#endif /* DEBUGWS */
 
 static err_t portmap_lookup(struct nfs_client *client, u_int prog, u_int vers);
 
@@ -596,8 +588,8 @@ static void read_reply_handler(struct rpc_client *rpc_client, void *arg1,
 err_t nfs_read(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
                count3 count, nfs_read_callback_t callback, void *cbarg)
 {
-	NFSDEBUGPRINT("NFS: nfs read called on offset %lu and size %d\n",
-					offset, count);
+	NFSDEBUGPRINT("nfs read called on offset %"PRIu32" and size %d\n",
+                      (uint32_t)offset, count);
     assert(client->mount_state == NFS_INIT_COMPLETE);
 
     struct READ3args args = {

@@ -393,6 +393,7 @@ struct sysret sys_yield(caddr_t target)
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
+
     debug(SUBSYS_DISPATCH, "%.*s yields%s\n", DISP_NAME_LEN, disp->name,
           !disp->haswork && disp->lmp_delivered == disp->lmp_seen
            ? " and is removed from the runq" : "");
@@ -445,9 +446,14 @@ struct sysret sys_yield(caddr_t target)
             panic("invalid type in yield cap");
         }
 
+//        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_YIELD,
+//            (uint32_t)(lvaddr_t)target_dcb & 0xFFFFFFFF);
         make_runnable(target_dcb);
         dispatch(target_dcb);
     } else {
+//        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_YIELD,
+//            0);
+
         /* undirected yield */
         dispatch(schedule());
     }

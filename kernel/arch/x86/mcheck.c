@@ -16,15 +16,7 @@
 #include <x86.h>
 #include <arch/x86/mcheck.h>
 #include <dev/ia32_dev.h>
-
-/// Sets the MCE bit (bit 6) in CR4 register to enable machine-check exceptions
-static inline void enable_cr4_mce(void)
-{
-    uintptr_t cr4;
-    __asm volatile("mov %%cr4, %[cr4]" : [cr4] "=r" (cr4));
-    cr4 |= (1 << 6);
-    __asm volatile("mov %[cr4], %%cr4" :: [cr4] "r" (cr4));
-}
+#include <dev/amd64_dev.h>
 
 /**
  * \brief Enable machine check reporting, if supported
@@ -70,7 +62,7 @@ void mcheck_init(void)
 
             // clear all errors
             for (int i = 0; i < num_banks; i++) {
-                ia32_mc_status_wr(NULL, i, 0);
+                ia32_mc_status_wr(NULL, i, 0UL);
             }
         } else if (proc_family == 0xf) { // any processor extended family
             // enable logging of all errors including mc0_ctl
@@ -80,11 +72,11 @@ void mcheck_init(void)
 
             // clear all errors
             for (int i = 0; i < num_banks; i++) {
-                ia32_mc_status_wr(NULL, i, 0);
+                ia32_mc_status_wr(NULL, i, 0UL);
             }
         }
     }
 
     // enable machine-check exceptions
-    enable_cr4_mce();
+    amd64_cr4_mce_wrf(NULL,1);
 }

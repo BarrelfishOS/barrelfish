@@ -28,7 +28,7 @@
                         Config.RCAP_DB_TWOPC  -> [ "collections", "cap_predicates" ]
      common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", 
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
-		     "boot.c", "queue.c", "route.c", "domain.c",
+		     "boot.c", "queue.c", "domain.c",
 		     "rcap_db_common.c", "resource_ctrl.c", "timing.c", rcap_db ]
 
      arch_srcs "x86_32"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
@@ -36,7 +36,7 @@
      arch_srcs "scc"     = [ "arch/scc/boot.c", "arch/scc/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "beehive" = [ "arch/beehive/inter.c" , "arch/beehive/boot.c" , "arch/beehive/monitor_server.c", "arch/beehive/endpoint.c" ]
      arch_srcs "arm"     = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
-     arch_srcs "xscale" = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
+     arch_srcs "xscale"  = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
      arch_srcs _         = []
 
      idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
@@ -65,9 +65,8 @@
 				       else
 					   [ "-e _start_init" ],
                         addIncludes = [ "include" ./. a | a <- arch_dirs arch ],
-                        addLibraries = if arch == "beehive" then
- 				           [ "spawndomain", "bench", "trace", "libroute" ] ++ rcap_db_libs ++ idc_libraries
-        			       else
- 				           [ "spawndomain", "bench", "trace", "elf", "libroute" ] ++ rcap_db_libs ++ idc_libraries
+                        addLibraries =
+ 			    ([ "spawndomain", "bench", "trace" ] ++ rcap_db_libs ++ idc_libraries
+                             ++ if arch == "beehive" then [] else [ "elf" ])
                       }
  ) | arch <- allArchitectures ]

@@ -1317,7 +1317,20 @@ static void exception_handler_wrapper(arch_registers_state_t *cpuframe,
     assert_disabled(disp_gen->current == me);
     disp_resume(dh, cpuframe);
 }
-
+#if 0
+void thread_debug_regs(struct thread *t);
+void thread_debug_regs(struct thread *t)
+{
+  printf("%d: RIP = %lx, RSP = %lx\n", disp_get_domain_id(),
+	 t->regs.rip, t->regs.rsp);
+  uint64_t *stack = (uint64_t *)t->regs.rsp;
+  printf("%d: ", disp_get_domain_id());
+  for(int i = 0; i < 30; i++) {
+    printf("%lx ", stack[i]);
+  }
+  printf("\n");
+}
+#endif
 /**
  * \brief Deliver an exception to the current thread, and resume.
  *

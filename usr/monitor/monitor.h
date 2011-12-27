@@ -24,7 +24,6 @@
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
 #include <if/intermon_defs.h>
-#include <routing/routing.h>
 #include <monitor_invocations.h>
 #include "rcap_db_common.h"
 #include "queue.h"
@@ -44,10 +43,11 @@ typedef uint64_t con_id_t;
 typedef uint32_t chanid_t;
 typedef uint8_t  bool_t;
 
+// XXX: from old routing library, to be removed
+typedef uint32_t recordid_t;
+
 //XXX used to wait until all monitors are up and connected. asq
 extern int seen_connections;
-//XXX used to wait on monitors joining route
-extern bool routes_up;
 
 struct intermon_state {
     struct msg_queue queue;
@@ -114,7 +114,6 @@ errval_t monitor_server_init(struct monitor_binding *b);
 
 /* monitor_rpc_server.c */
 errval_t monitor_rpc_init(void);
-routeid_t mon_allocate_route_id(void);
 
 /* invocations.c */
 bool monitor_can_send_cap(struct capability *cap);
@@ -134,35 +133,6 @@ errval_t monitor_retype_remote_cap(struct capref croot,
 errval_t monitor_delete_remote_cap(struct capref croot, caddr_t src, int bits);
 errval_t monitor_revoke_remote_cap(struct capref croot, caddr_t src, int bits);
 
-
-/* route.c */
-void route_done_join(struct intermon_binding *st, routeid_t id, 
-                            coreid_t core, errval_t err, iref_t iref);
-void route_done_connect(struct intermon_binding *st, routeid_t id, 
-                        errval_t err);
-errval_t route_initialize_bsp(bool monitors_up[MAX_CPUS]);
-errval_t route_join_app_core(struct intermon_binding *st,
-                             intermon_ROUTE_TYPE_t route_type, 
-                             routeid_t routeid);
-errval_t route_connect_app_core(intermon_ROUTE_TYPE_t route_type, 
-                          routeid_t routeid, iref_t * irefs, size_t size);
-errval_t route_rcap_lock_req(struct capability * cap, coremask_t send_to,
-                             coreid_t from_core, struct rcap_st * st, 
-                             bool recirsive);
-errval_t route_rcap_unlock(struct capability * cap, coremask_t send_to,
-                           coreid_t from_core, bool recirsive);
-errval_t route_rcap_new_core(struct capability * cap, coremask_t send_to,
-                             coreid_t send_core, coreid_t recv_core);
-errval_t route_rcap_send_details(struct capability * cap, coremask_t send_to,
-                                 bool has_desc);
-errval_t route_rcap_request_details(struct capability * cap, coremask_t send_to);
-errval_t route_rcap_lock_reply(errval_t reply_err, coremask_t locked_cores,
-                               bool has_desc, recordid_t ccast_recordid);
-errval_t route_rcap_retype(struct capability * cap, bool has_descendents, 
-                           coremask_t send_to);
-errval_t route_rcap_delete(struct capability * cap, coremask_t send_to);
-errval_t route_rcap_revoke(struct capability * cap);
-
 /* monitor_server.c */
 errval_t monitor_server_arch_init(struct monitor_binding *b);
 void set_monitor_rpc_iref(iref_t iref);
@@ -179,7 +149,6 @@ void perfmon_report_rtt_data(struct monitor_binding *st);
 void boot_core_request(struct monitor_binding *st, coreid_t id, int hwid,
                        int int_cpu_type, char *cmdline);
 void boot_initialize_request(struct monitor_binding *st);
-void boot_initialize_routes_request(struct monitor_binding *st);
 
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
                              const char *cmdline);

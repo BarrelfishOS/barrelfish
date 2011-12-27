@@ -41,8 +41,8 @@
  * - 3 severe
  */
 #define LWIP_DBG_LEVEL_OFF     0x00
-#define LWIP_DBG_LEVEL_WARNING 0x01 /* bad checksums, dropped packets, ... */
-#define LWIP_DBG_LEVEL_SERIOUS 0x02 /* memory allocation failures, ... */
+#define LWIP_DBG_LEVEL_WARNING 0x01     /* bad checksums, dropped packets, ... */
+#define LWIP_DBG_LEVEL_SERIOUS 0x02     /* memory allocation failures, ... */
 #define LWIP_DBG_LEVEL_SEVERE  0x03
 #define LWIP_DBG_MASK_LEVEL    0x03
 
@@ -63,15 +63,15 @@
 #ifndef LWIP_NOASSERT
 #define LWIP_ASSERT(message, assertion) do { if(!(assertion)) \
   LWIP_PLATFORM_ASSERT(message); } while(0)
-#else  /* LWIP_NOASSERT */
-#define LWIP_ASSERT(message, assertion) 
-#endif /* LWIP_NOASSERT */
+#else                           /* LWIP_NOASSERT */
+#define LWIP_ASSERT(message, assertion)
+#endif                          /* LWIP_NOASSERT */
 
 /** if "expression" isn't true, then print "message" and execute "handler" expression */
 #ifndef LWIP_ERROR
 #define LWIP_ERROR(message, expression, handler) do { if (!(expression)) { \
   LWIP_PLATFORM_ASSERT(message); handler;}} while(0)
-#endif /* LWIP_ERROR */
+#endif                          /* LWIP_ERROR */
 
 #ifdef LWIP_DEBUG
 /** print debug message only if debug message type is enabled...
@@ -89,9 +89,8 @@
                                } \
                              } while(0)
 
-#else  /* LWIP_DEBUG */
-#define LWIP_DEBUGF(debug, message) 
-#endif /* LWIP_DEBUG */
+#else                           /* LWIP_DEBUG */
+#define LWIP_DEBUGF(debug, message)
+#endif                          /* LWIP_DEBUG */
 
-#endif /* __LWIP_DEBUG_H__ */
-
+#endif                          /* __LWIP_DEBUG_H__ */

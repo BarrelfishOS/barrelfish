@@ -40,13 +40,13 @@
  * Please coordinate changes and requests with Dominik Spies
  * <kontakt@dspies.de>
  */
- 
+
 #ifndef __LWIP_AUTOIP_H__
 #define __LWIP_AUTOIP_H__
 
 #include "lwip/opt.h"
 
-#if LWIP_AUTOIP /* don't build if not configured for use in lwipopts.h */
+#if LWIP_AUTOIP                 /* don't build if not configured for use in lwipopts.h */
 
 #include "lwip/netif.h"
 #include "lwip/udp.h"
@@ -57,16 +57,16 @@
 #define AUTOIP_TICKS_PER_SECOND (1000 / AUTOIP_TMR_INTERVAL)
 
 /* RFC 3927 Constants */
-#define PROBE_WAIT               1   /* second   (initial random delay)                 */
-#define PROBE_MIN                1   /* second   (minimum delay till repeated probe)    */
-#define PROBE_MAX                2   /* seconds  (maximum delay till repeated probe)    */
-#define PROBE_NUM                3   /*          (number of probe packets)              */
-#define ANNOUNCE_NUM             2   /*          (number of announcement packets)       */
-#define ANNOUNCE_INTERVAL        2   /* seconds  (time between announcement packets)    */
-#define ANNOUNCE_WAIT            2   /* seconds  (delay before announcing)              */
-#define MAX_CONFLICTS            10  /*          (max conflicts before rate limiting)   */
-#define RATE_LIMIT_INTERVAL      60  /* seconds  (delay between successive attempts)    */
-#define DEFEND_INTERVAL          10  /* seconds  (min. wait between defensive ARPs)     */
+#define PROBE_WAIT               1      /* second   (initial random delay)                 */
+#define PROBE_MIN                1      /* second   (minimum delay till repeated probe)    */
+#define PROBE_MAX                2      /* seconds  (maximum delay till repeated probe)    */
+#define PROBE_NUM                3      /*          (number of probe packets)              */
+#define ANNOUNCE_NUM             2      /*          (number of announcement packets)       */
+#define ANNOUNCE_INTERVAL        2      /* seconds  (time between announcement packets)    */
+#define ANNOUNCE_WAIT            2      /* seconds  (delay before announcing)              */
+#define MAX_CONFLICTS            10     /*          (max conflicts before rate limiting)   */
+#define RATE_LIMIT_INTERVAL      60     /* seconds  (delay between successive attempts)    */
+#define DEFEND_INTERVAL          10     /* seconds  (min. wait between defensive ARPs)     */
 
 /* AutoIP client states */
 #define AUTOIP_STATE_OFF         0
@@ -74,14 +74,13 @@
 #define AUTOIP_STATE_ANNOUNCING  2
 #define AUTOIP_STATE_BOUND       3
 
-struct autoip
-{
-  struct ip_addr llipaddr;  /* the currently selected, probed, announced or used LL IP-Address */
-  u8_t state;               /* current AutoIP state machine state */
-  u8_t sent_num;            /* sent number of probes or announces, dependent on state */
-  u16_t ttw;                /* ticks to wait, tick is AUTOIP_TMR_INTERVAL long */
-  u8_t lastconflict;        /* ticks until a conflict can be solved by defending */
-  u8_t tried_llipaddr;      /* total number of probed/used Link Local IP-Addresses */
+struct autoip {
+    struct ip_addr llipaddr;    /* the currently selected, probed, announced or used LL IP-Address */
+    u8_t state;                 /* current AutoIP state machine state */
+    u8_t sent_num;              /* sent number of probes or announces, dependent on state */
+    u16_t ttw;                  /* ticks to wait, tick is AUTOIP_TMR_INTERVAL long */
+    u8_t lastconflict;          /* ticks until a conflict can be solved by defending */
+    u8_t tried_llipaddr;        /* total number of probed/used Link Local IP-Addresses */
 };
 
 
@@ -100,6 +99,6 @@ void autoip_arp_reply(struct netif *netif, struct etharp_hdr *hdr);
 /** Has to be called in loop every AUTOIP_TMR_INTERVAL milliseconds */
 void autoip_tmr(void);
 
-#endif /* LWIP_AUTOIP */
+#endif                          /* LWIP_AUTOIP */
 
-#endif /* __LWIP_AUTOIP_H__ */
+#endif                          /* __LWIP_AUTOIP_H__ */

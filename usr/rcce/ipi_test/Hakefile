@@ -6,13 +6,13 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/slideshow
+-- Hakefile for /usr/rcce/ipi_test
 --
 --------------------------------------------------------------------------
 
 [ build application { target = "ipirc_test",
                       cFiles = [ "mainrc.c" ],
-                      addLibraries = [ "rcce_nobulk", "libroute" ],
+                      addLibraries = [ "rcce_nobulk" ],
 		      flounderDefs = [ "rcce" ]
                     }
 ]

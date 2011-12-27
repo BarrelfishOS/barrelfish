@@ -12,8 +12,8 @@
 
 [ build application { target = "net_openport_test",
                       cFiles = [ "net_openport_test.c" ],
-                      flounderBindings = [ "netd" ],	
-                      addLibraries = [ "lwip", "contmng", "timer" ]
+                      flounderBindings = [ "netd" ],
+                      addLibraries = [ "lwip", "contmng", "procon", "timer" ]
                     }
 ]
- 
+

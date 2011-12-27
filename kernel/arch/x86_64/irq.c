@@ -66,9 +66,12 @@
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
 
+#include <dev/ia32_dev.h>
+
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 #  include <fpu.h>
 #endif
+
 
 /**
  * \brief Define IRQ handler number 'num'.
@@ -379,6 +382,11 @@ static struct cte irq_dispatch[NDISPATCH];
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define TRACE_N_BM 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -387,6 +395,7 @@ static struct cte irq_dispatch[NDISPATCH];
  *
  * \param irq   IRQ# to send in notification.
  */
+static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
@@ -400,11 +409,16 @@ static void send_user_interrupt(int irq)
 
     if (irq == 0) {
 //    	printf("packet interrupt\n");
-#if TRACE_ETHERSRV_MODE
+        ++interrupt_count;
+#if TRACE_N_BM
 #include<trace/trace.h>
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_AI, 0);
-#endif // TRACE_ETHERSRV_MODE
-
+    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_I, interrupt_count);
+#endif // TRACE_N_BM
+/*
+        if (interrupt_count >= 60){
+            printf("interrupt number %"PRIu32"\n", interrupt_count);
+        }
+*/
     }
 //    printf("Interrupt %d\n", irq);
     // Otherwise, cap needs to be an endpoint
@@ -464,6 +478,8 @@ errval_t irq_table_set(unsigned int nidt, caddr_t endpoint)
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
         err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
+
+        printf("kernel: %u: installing handler for IRQ %d\n", my_core_id, nidt);
 #if 0
         if (err_is_ok(err)) {
             // Unmask interrupt if on PIC
@@ -499,63 +515,21 @@ errval_t irq_table_delete(unsigned int nidt)
  * \param gdb_save_frame Pointer to save area for registers stacked by trap handler
  */
 static __attribute__ ((used,noreturn))
-    void generic_handle_kernel_exception(int vec, uint64_t error,
+    void generic_handle_kernel_exception(uint64_t vec, uint64_t error,
                                          uintptr_t *gdb_save_frame)
 {
     lvaddr_t fault_address;
+    char *descr;
 
     if (vec == 666) {
-        panic("unhandled kernel exception");
+        panic("unhandled kernel exception (vector 666)");
     }
 
     assert(vec < NEXCEPTIONS);
 
-    printk(LOG_PANIC, "exception %d (error code 0x%lx): ", vec, error);
-
-    switch(vec) {
-    case 0:     // Divide Error (#DE)
-        printf("divide error\n");
-        break;
-    case 1:     // Debug Exception (#DB)
-        printf("debug exception\n");
-        break;
-    case 2:     // NMI Interrupt
-        printf("NMI Interrupt\n");
-        break;
-    case 3:     // Breakpoint (#BP)
-        printf("breakpoint\n");
-        break;
-    case 4:     // Overflow (#OF)
-        printf("overflow\n");
-        break;
-    case 5:     // BOUND Range Exceeded (#BR)
-        printf("BOUND Range Exceeded\n");
-        break;
-    case 6:     // Invalid Opcode (#UD)
-        printf("invalid opcode\n");
-        break;
-    case 7:     // Device Not Available (#NM)
-        printf("device not available\n");
-        break;
-    case 8:     // Double fault (#DF)
-        printf("double fault\n");
-        break;
-    case 9:     // Coprocessor Segment Overrun
-        printf("coprocessor segment overrun\n");
-        break;
-    case 10:    // Invalid TSS (#TS)
-        printf("invalid TSS\n");
-        break;
-    case 11:    // Segment Not Present (#NP)
-        printf("segment not present\n");
-        break;
-    case 12:    // Stack Fault (#SS)
-        printf("stack fault\n");
-        break;
-    case 13:    // General Protection Fault (#GP)
-        printf("general protection fault\n");
-        break;
-    case 14:    // Page Fault (#PF)
+    printk(LOG_PANIC, "exception %d (error code 0x%lx): ", (int)vec, error);
+    
+    if (vec == ia32_vec_pf) {
         printf("%s page fault due to %s%s, while in %s mode%s\n",
                error & ERR_PF_READ_WRITE ? "write" : "read",
                error & ERR_PF_PRESENT ? "access violation" : "page not present",
@@ -567,51 +541,51 @@ static __attribute__ ((used,noreturn))
         __asm volatile("mov %%cr2, %[fault_address]"
                        : [fault_address] "=r" (fault_address));
         printf("Address that caused the fault: 0x%lx\n", fault_address);
-        break;
-    case 17:    // Alignment Check Exception (#AC)
-        printf("alignment check exception\n");
-        break;
-    case 18:    // Machine check (#MC)
-        printf("machine check exception\n");
-        break;
 
-    default:
+    } else if ((descr = ia32_exc_vec_describe(vec))) {
+        printf("%s\n", descr);
+    } else {
         printf("unhandled exception!\n");
-        break;
     }
 
     // Print faulting instruction pointer
     uintptr_t rip = gdb_save_frame[GDB_X86_64_RIP_REG];
-    printf("Faulting instruction pointer (or following instruction): "
-           "0x%lx (0x %lx in binary)\n", rip,
+    printf("Faulting instruction pointer (or next instruction): 0x%lx\n", rip);
+    printf("  => i.e. unrelocated kernel address 0x%lx\n", 
            rip - (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS);
-
-    // Print some important registers
-    printf("RAX %lx RBX %lx RCX %lx RDX %lx RSP %lx RDI %lx RSI %lx\n",
+    
+    printf("Registers:\n");
+    printf(" rax: 0x%016lx  r8 : 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RAX_REG],
+           gdb_save_frame[GDB_X86_64_R8_REG]);
+    printf(" rbx: 0x%016lx  r9 : 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RBX_REG],
+           gdb_save_frame[GDB_X86_64_R9_REG]);
+    printf(" rcx: 0x%016lx  r10: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RCX_REG],
+           gdb_save_frame[GDB_X86_64_R10_REG]);
+    printf(" rdx: 0x%016lx  r11: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RDX_REG],
+           gdb_save_frame[GDB_X86_64_R11_REG]);
+    printf(" rsp: 0x%016lx  r12: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RSP_REG],
+           gdb_save_frame[GDB_X86_64_R12_REG]);
+    printf(" rdi: 0x%016lx  r13: 0x%016lx\n", 
            gdb_save_frame[GDB_X86_64_RDI_REG],
-           gdb_save_frame[GDB_X86_64_RSI_REG]);
-    printf("R8-R15: %lx %lx %lx %lx %lx %lx %lx %lx\n",
-           gdb_save_frame[GDB_X86_64_R8_REG],
-           gdb_save_frame[GDB_X86_64_R9_REG],
-           gdb_save_frame[GDB_X86_64_R10_REG],
-           gdb_save_frame[GDB_X86_64_R11_REG],
-           gdb_save_frame[GDB_X86_64_R12_REG],
-           gdb_save_frame[GDB_X86_64_R13_REG],
-           gdb_save_frame[GDB_X86_64_R14_REG],
+           gdb_save_frame[GDB_X86_64_R13_REG]);
+    printf(" rsi: 0x%016lx  r14: 0x%016lx\n", 
+           gdb_save_frame[GDB_X86_64_RSI_REG],
+           gdb_save_frame[GDB_X86_64_R14_REG]);
+    printf(" rip: 0x%016lx  r15: 0x%016lx\n", 
+           gdb_save_frame[GDB_X86_64_RIP_REG],
            gdb_save_frame[GDB_X86_64_R15_REG]);
 
     // Print the top 10 stack words
     printf("Top o' stack:\n");
     for(int i = 0; i < 10; i++) {
         unsigned long *p = (unsigned long *)gdb_save_frame[GDB_X86_64_RSP_REG] + i;
-        printf("0x%lx ", *p);
+        printf(" %d \t 0x%016lx (%lu)\n", i, *p, *p);
     }
-    printf("\n");
 
     // Drop to the debugger
     gdb_handle_exception(vec, gdb_save_frame);
@@ -862,7 +836,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
                 .ip = disp_save_area->rip
             };
             strncpy(data.name, disp->name, PERFMON_DISP_NAME_LEN);
-            
+
             // Call overflow handler represented by endpoint
             extern struct capability perfmon_callback_ep;
             errval_t err;
@@ -870,8 +844,8 @@ static __attribute__ ((used)) void handle_irq(int vector)
                 sizeof(uintptr_t)+1;
             err = lmp_deliver_payload(&perfmon_callback_ep,
                                       NULL,
-                                      (uintptr_t*) &data, 
-                                      payload_len, 
+                                      (uintptr_t*) &data,
+                                      payload_len,
                                       false);
 
             // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
@@ -898,9 +872,13 @@ static __attribute__ ((used)) void handle_irq(int vector)
 
         // Record the running domain at the start of a trace
 #ifdef TRACE_CSWITCH
+//#if TRACE_N_BM
+
+//#else
         trace_event(TRACE_SUBSYS_KERNEL,
                     TRACE_EVENT_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
+//#endif // TRACE_N_BM
 #endif
 
         apic_eoi();

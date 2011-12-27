@@ -29,8 +29,6 @@
 > import qualified Syntax            
 > import qualified Arch
 > import qualified Backend
-> import qualified CodeBackend
-> import qualified HeaderBackend
 > import qualified GHBackend
 > import qualified GCBackend
 > import qualified LMP
@@ -44,10 +42,7 @@
 > import qualified THCBackend
 > import qualified THCStubsBackend
 
-> data Target = ClientStub
->            | ServerStub
->            | Header
->            | GenericHeader
+> data Target = GenericHeader
 >            | GenericCode
 >            | LMP_Header
 >            | LMP_Stub
@@ -77,18 +72,7 @@
 
 > defaultOptions = Options { optTargets = [], optArch = Nothing, optIncludes = [] }
 
-The following calls are deprecated:
-
-> writeClientStub :: Syntax.Interface -> String -> Handle -> IO ()
-> writeClientStub ast@(Syntax.Interface name _ _) infile fileClientC =
->     hPutStr fileClientC $ CodeBackend.compile infile name Backend.ClientSide ast
-
-> writeServerStub :: Syntax.Interface -> String -> Handle -> IO ()
-> writeServerStub ast@(Syntax.Interface name _ _) infile fileServerC =
->     hPutStr fileServerC $ CodeBackend.compile infile name Backend.ServerSide ast
-
 > generator :: Options -> Target -> (String -> String -> Syntax.Interface -> String)
-> generator _ Header = HeaderBackend.compile
 > generator _ GenericHeader = GHBackend.compile
 > generator _ GenericCode = GCBackend.compile
 > generator _ LMP_Header = LMP.header
@@ -137,10 +121,7 @@ The following calls are deprecated:
 > addInclude s o = return o { optIncludes = (optIncludes o) ++ [s] }
 
 > options :: [OptDescr (Options -> IO Options)]
-> options = [ Option ['C'] ["client-stub"] (NoArg $ addTarget ClientStub) "Generate old client stub C file",
->             Option ['S'] ["server-stub"] (NoArg $ addTarget ServerStub) "Generate old server stub C file",
->             Option ['h'] ["header"] (NoArg $ addTarget Header)          "Generate old common header file",
-
+> options = [ 
 >             Option ['G'] ["generic-header"] (NoArg $ addTarget GenericHeader) "Create a generic header file",
 >             Option [] ["generic-stub"] (NoArg $ addTarget GenericCode) "Create generic part of stub implemention",
 >             Option ['a'] ["arch"] (ReqArg setArch "ARCH")           "Architecture for stubs",
@@ -197,11 +178,9 @@ The following calls are deprecated:
 >              ast <- parseFile (Parser.parse_intf includeDecls) inFile
 >              outFileD <- openFile outFile WriteMode
 >              checkFilename ast inFile
->              sequence_ $ map (\target -> case target of 
->                    ClientStub -> writeClientStub ast inFile outFileD
->                    ServerStub -> writeServerStub ast inFile outFileD
->                    otherwise -> compile opts target ast inFile outFile outFileD
->                  ) (optTargets opts)
+>              sequence_ $ map (\target
+>                               -> compile opts target ast inFile outFile outFileD)
+>                            (optTargets opts)
 >              hClose outFileD
 >          (_, _, errors) -> do
 >              hPutStr stderr (concat errors ++ usageInfo usage options)

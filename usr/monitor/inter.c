@@ -609,25 +609,6 @@ static void monitor_mem_iref_reply(struct intermon_binding *st, iref_t iref)
     monitor_mem_iref = iref;
 }
 
-static void join_route(struct intermon_binding *st, intermon_ROUTE_TYPE_t rt, 
-                       routeid_t id)
-{
-    errval_t err = route_join_app_core(st, rt, id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "route_join_app_core failed");
-    }
-}
-
-static void connect_neighbors(struct intermon_binding *st, intermon_ROUTE_TYPE_t rt, 
-                              routeid_t id, uint8_t * irefs_list, size_t size)
-{
-    errval_t err = route_connect_app_core(rt, id, (iref_t *)irefs_list, 
-                                          size / BYTES_IN_IREF);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "route_join_app_core failed");
-    }
-}
-
 static void inter_rsrc_join(struct intermon_binding *b,
                             rsrcid_t id, uint8_t coreid)
 {
@@ -757,11 +738,6 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
 
     .pingpong                  = pingpong,
     .test_pingpong             = test_pingpong,
-
-    .join_route                = join_route,
-    .connect_neighbors         = connect_neighbors,
-    .route_done_join           = route_done_join,
-    .route_done_connect        = route_done_connect,
 
     .rsrc_join                 = inter_rsrc_join,
     .rsrc_join_complete        = inter_rsrc_join_complete,

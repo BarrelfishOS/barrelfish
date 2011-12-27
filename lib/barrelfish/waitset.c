@@ -342,6 +342,31 @@ errval_t event_dispatch(struct waitset *ws)
 }
 
 /**
+ * \brief check and dispatch next event on given waitset
+ *
+ * Check if there is any pending activity on some channel, or deferred
+ * call, and then call the corresponding closure.
+ *
+ * Do not wait!  In case of no pending events, return err LIB_ERR_NO_EVENT.
+ *
+ * \param ws Waitset
+ */
+errval_t event_dispatch_non_block(struct waitset *ws)
+{
+    struct event_closure closure;
+    errval_t err = check_for_event(ws, &closure);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    assert(closure.handler != NULL);
+    closure.handler(closure.arg);
+    return SYS_ERR_OK;
+}
+
+
+/**
  * \privatesection
  * "Private" functions that are called only by the channel implementations
  */

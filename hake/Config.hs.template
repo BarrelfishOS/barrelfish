@@ -130,6 +130,12 @@ sqlite_debug = False
 sqlite_backend_debug :: Bool
 sqlite_backend_debug = False
 
+nfs_debug :: Bool
+nfs_debug = False
+
+rpc_debug :: Bool
+rpc_debug = False
+
 loopback_debug :: Bool
 loopback_debug = False
 
@@ -204,6 +210,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if sqlclient_debug then "SQL_CLIENT_DEBUG" else "",
              if sqlite_debug then "SQL_SERVICE_DEBUG" else "",
              if sqlite_backend_debug then "SQL_BACKEND_DEBUG" else "",
+             if nfs_debug then "NFS_CLIENT_DEBUG" else "",
+             if rpc_debug then "RPC_DEBUG" else "",
              if loopback_debug then "LOOPBACK_DEBUG" else "",
              if debug_deadlocks then "CONFIG_DEBUG_DEADLOCKS" else "",
              if memserv_percore then "CONFIG_MEMSERV_PERCORE" else "",

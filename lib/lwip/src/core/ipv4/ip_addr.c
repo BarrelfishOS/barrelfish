@@ -57,28 +57,27 @@ const struct ip_addr ip_addr_broadcast = { IP_ADDR_BROADCAST_VALUE };
  */
 u8_t ip_addr_isbroadcast(struct ip_addr *addr, struct netif *netif)
 {
-  u32_t addr2test;
+    u32_t addr2test;
 
-  addr2test = addr->addr;
-  /* all ones (broadcast) or all zeroes (old skool broadcast) */
-  if ((~addr2test == IP_ADDR_ANY_VALUE) ||
-      (addr2test == IP_ADDR_ANY_VALUE))
-    return 1;
-  /* no broadcast support on this network interface? */
-  else if ((netif->flags & NETIF_FLAG_BROADCAST) == 0)
-    /* the given address cannot be a broadcast address
-     * nor can we check against any broadcast addresses */
-    return 0;
-  /* address matches network interface address exactly? => no broadcast */
-  else if (addr2test == netif->ip_addr.addr)
-    return 0;
-  /*  on the same (sub) network... */
-  else if (ip_addr_netcmp(addr, &(netif->ip_addr), &(netif->netmask))
-         /* ...and host identifier bits are all ones? =>... */
-          && ((addr2test & ~netif->netmask.addr) ==
-           (IP_ADDR_BROADCAST_VALUE & ~netif->netmask.addr)))
-    /* => network broadcast address */
-    return 1;
-  else
-    return 0;
+    addr2test = addr->addr;
+    /* all ones (broadcast) or all zeroes (old skool broadcast) */
+    if ((~addr2test == IP_ADDR_ANY_VALUE) || (addr2test == IP_ADDR_ANY_VALUE))
+        return 1;
+    /* no broadcast support on this network interface? */
+    else if ((netif->flags & NETIF_FLAG_BROADCAST) == 0)
+        /* the given address cannot be a broadcast address
+         * nor can we check against any broadcast addresses */
+        return 0;
+    /* address matches network interface address exactly? => no broadcast */
+    else if (addr2test == netif->ip_addr.addr)
+        return 0;
+    /*  on the same (sub) network... */
+    else if (ip_addr_netcmp(addr, &(netif->ip_addr), &(netif->netmask))
+             /* ...and host identifier bits are all ones? =>... */
+             && ((addr2test & ~netif->netmask.addr) ==
+                 (IP_ADDR_BROADCAST_VALUE & ~netif->netmask.addr)))
+        /* => network broadcast address */
+        return 1;
+    else
+        return 0;
 }
