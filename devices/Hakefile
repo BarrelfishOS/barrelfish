@@ -24,6 +24,8 @@
            "acpi_ec",
            "arm",
            "audio_nbm",
+           "e10k",
+           "e10k_q",
            "ehci_cap",
            "ehci_op",
            "hpet",
