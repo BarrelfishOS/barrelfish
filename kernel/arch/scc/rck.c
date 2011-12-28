@@ -469,7 +469,7 @@ errval_t rck_get_route(genpaddr_t base, size_t size, uint8_t *route,
     // This is probably overkill. A device is probably only able to
     // route to exactly one LUT mapping, and not multiple consecutive
     // ones.
-    printf("#### base %"PRIxGENPADDR", %zu\n", base, size);
+    printf("#### base %"PRIxGENPADDR", %lu\n", base, size);
     for(genpaddr_t i = 0; i <= size / LUT_SIZE; i++) {
         if(core == 0) {
             lute = rck_lut0_rd_raw(&rck[tile], index + i);

@@ -1146,7 +1146,7 @@ static errval_t get_bcache_key(void *st, vfs_handle_t inhandle,
         strcat(*retkey, str);
         assert(strlen(*retkey) < 200);
     }
-    snprintf(str, 20, "/%zx", blockid);
+    snprintf(str, 20, "/%lx", blockid);
     strcat(*retkey, str);
 #else
     *keylen = h->fh.data_len + sizeof(blockid);

@@ -77,7 +77,7 @@ malloc(size_t nbytes)
 #endif
 #ifdef CONFIG_MALLOC_DEBUG_INTERNAL
 			if (__malloc_check() != 0) {
-				printf("malloc %zu %p\n", nbytes, (void *) (p + 1));
+				printf("malloc %lu %p\n", nbytes, (void *) (p + 1));
 				__malloc_dump();
 				assert(__malloc_check() == 0);
 			}

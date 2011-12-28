@@ -1242,7 +1242,7 @@ dhcp_unfold_reply(struct dhcp *dhcp)
   /** copy the DHCP message without options */
   ret = pbuf_copy_partial(dhcp->p, dhcp->msg_in, sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN, 0);
   LWIP_ASSERT("ret == sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN", ret == sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN);
-  LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_unfold_reply(): copied %zu bytes into dhcp->msg_in[]\n",
+  LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_unfold_reply(): copied %lu bytes into dhcp->msg_in[]\n",
      sizeof(struct dhcp_msg) - DHCP_OPTIONS_LEN));
 
   if (dhcp->options_in != NULL) {

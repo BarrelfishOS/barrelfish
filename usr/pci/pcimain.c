@@ -94,14 +94,14 @@ static errval_t init_allocators(void)
     for (int i = 0; i < bootinfo->regions_length; i++) {
 	struct mem_region *mrp = &bootinfo->regions[i];
 	if (mrp->mr_type == RegionType_Module) {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
+	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%lu,%u,%tu).",
                     mrp->mr_base,
                     0,
                     mrp->mrmod_size,
                     mrp->mr_type,
                     mrp->mrmod_data);
 	} else {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
+	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%lu,%u,%tu).",
                     mrp->mr_base,
                     mrp->mr_bits,
                     ((size_t)1) << mrp->mr_bits,

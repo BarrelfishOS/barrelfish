@@ -272,7 +272,7 @@ memp_init(void)
   struct memp *memp;
   u16_t i, j;
 
-  printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
+  printf("memp_init: allocating %lx memory for index %d\n", memp_memory_size,
           RX_BUFFER_ID);
   memp_memory = mem_barrelfish_alloc_and_register(RX_BUFFER_ID, memp_memory_size);
 

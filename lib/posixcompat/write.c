@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/terminal.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <lwip/sys.h>
@@ -29,7 +30,7 @@ int write(int fd, const void *buf, size_t len)
     case FDTAB_TYPE_FILE:
         {
             errval_t err = vfs_write((vfs_handle_t)e->handle, buf, len, &retlen);
-            POSIXCOMPAT_DEBUG("write(%d, %d) = %zu\n", fd, len, retlen);
+            POSIXCOMPAT_DEBUG("write(%d, %d) = %lu\n", fd, len, retlen);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "error in vfs_write");
                 return -1;
@@ -38,11 +39,12 @@ int write(int fd, const void *buf, size_t len)
         break;
 
     case FDTAB_TYPE_STDOUT:
-        retlen = fwrite(buf, 1, len, stdout);
+        /* only support writting to terminal */
+        retlen = terminal_write((const char*) buf, len);
         break;
 
     case FDTAB_TYPE_STDERR:
-        retlen = fwrite(buf, 1, len, stderr);
+        retlen = terminal_write((const char*) buf, len);
         break;
 
     case FDTAB_TYPE_LWIP_SOCKET:

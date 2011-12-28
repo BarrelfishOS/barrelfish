@@ -558,7 +558,7 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
     struct client_closure_NC *ccnc = (struct client_closure_NC *)st->st;
     ccnc->buff_ptr->buffer_id = buffer_id;
 //    assign_id_to_latest_buffer(buffer_id);
-    LWIPBF_DEBUG("[%zu] new_buffer_id: buffer_id = %"PRIx64"\n",
+    LWIPBF_DEBUG("[%lu] new_buffer_id: buffer_id = %"PRIx64"\n",
             disp_get_core_id(), buffer_id);
     LWIPBF_DEBUG("new_buffer_id: EEEEEEE buffer_id = %"PRIx64"\n", buffer_id);
 }

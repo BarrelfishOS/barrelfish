@@ -38,7 +38,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
                     size_t *retoff, size_t *retsize)
 {
     PMAP_DEBUG("pmap_beehive.c map: vaddr=%" PRIxGENVADDR
-               " offset=%zu size=%zu flags=%" PRIuVREGIONFLAGS "\n",
+               " offset=%lu size=%lu flags=%" PRIuVREGIONFLAGS "\n",
                vaddr, offset, size, flags);
 
     errval_t err;

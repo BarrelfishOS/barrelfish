@@ -313,7 +313,7 @@ int debug_print_capref(char *buf, size_t len, struct capref cap)
 
 void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr)
 {
-    debug_printf("Dumping memory in range 0x%zx to 0x%zx:\n",
+    debug_printf("Dumping memory in range 0x%lx to 0x%lx:\n",
                  start_addr, end_addr);
 
     for (uintptr_t *p = (void *)start_addr; (uintptr_t)p < end_addr; p++) {
@@ -324,7 +324,7 @@ void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr)
             bufpos += snprintf(&buf[bufpos], sizeof(buf) - bufpos, "%02x ", bytes[i]);
             assert(bufpos < sizeof(buf));
         }
-        debug_printf("%p: %.*s %*zx\n", p, (int)sizeof(buf), buf,
+        debug_printf("%p: %.*s %*lx\n", p, (int)sizeof(buf), buf,
                      (int)sizeof(uintptr_t) * 2, *p);
     }
 }

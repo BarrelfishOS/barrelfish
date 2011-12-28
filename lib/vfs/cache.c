@@ -341,26 +341,26 @@ void cache_print_stats(void)
 
 #if 0
     printf("\n\n");
-    printf("open        = %zu\n"
-           "create      = %zu\n"
-           "truncate    = %zu\n"
-           "stat        = %zu\n"
-           "close       = %zu\n"
-           "opendir     = %zu\n"
-           "dir_read_next= %zu\n"
-           "closedir    = %zu\n"
-           "mkdir       = %zu\n"
-           "rmdir       = %zu\n"
-           "remove      = %zu\n",
+    printf("open        = %lu\n"
+           "create      = %lu\n"
+           "truncate    = %lu\n"
+           "stat        = %lu\n"
+           "close       = %lu\n"
+           "opendir     = %lu\n"
+           "dir_read_next= %lu\n"
+           "closedir    = %lu\n"
+           "mkdir       = %lu\n"
+           "rmdir       = %lu\n"
+           "remove      = %lu\n",
            nopen, ncreate, ntruncate, nstat, nclose, nopendir, ndir_read_next,
            nclosedir, nmkdir, nrmdir, nremove);
     printf("\n\n");
 
     printf("meta data\n"
            "=========\n"
-           "hits        = %zu\n"
-           "misses      = %zu\n"
-           "overwrites  = %zu\n"
+           "hits        = %lu\n"
+           "misses      = %lu\n"
+           "overwrites  = %lu\n"
            "allocations = %u\n",
            meta_hits, meta_misses, meta_overwrites, alloc_ptr);
     printf("\n\n");
@@ -597,7 +597,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
 
         // Fake via a setting seek
         if((off_t)nh->cached_filesize < 0) {
-            printf("filesize = %zu\n", nh->cached_filesize);
+            printf("filesize = %lu\n", nh->cached_filesize);
         }
         assert((off_t)nh->cached_filesize + offset >= 0);
         return bst->orig_ops->seek(bst->orig_st, handle, VFS_SEEK_SET,

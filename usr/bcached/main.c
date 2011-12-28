@@ -56,10 +56,10 @@ void print_stats(void)
     printf("cache statistics\n"
            "----------------\n"
            "cache size               = %u blocks * %u KB = %u MB\n"
-           "hits                     = %zu\n"
-           "misses                   = %zu\n"
-           "allocations              = %zu / %u blocks (%zu%% utilization)\n"
-           "evictions (replacements) = %zu blocks\n",
+           "hits                     = %lu\n"
+           "misses                   = %lu\n"
+           "allocations              = %lu / %u blocks (%lu%% utilization)\n"
+           "evictions (replacements) = %lu blocks\n",
            NUM_BLOCKS, BUFFER_CACHE_BLOCK_SIZE / 1024, CACHE_SIZE / 1024 / 1024,
            hits, misses, allocations, NUM_BLOCKS,
            (allocations * 100) / NUM_BLOCKS, evictions);

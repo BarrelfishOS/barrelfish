@@ -142,7 +142,7 @@ errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *retoffset)
     size_t fbsize = (size_t)mib.xresolution * mib.yresolution
                     * (mib.bitsperpixel / 8);
 
-    printf("vbe: looking for BAR cap with PA %zx-%zx\n",
+    printf("vbe: looking for BAR cap with PA %lx-%lx\n",
            fbphys, fbphys + fbsize);
 
     for(int i = 0; i < nbars; i++) {

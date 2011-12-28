@@ -126,7 +126,7 @@ static void experiment(void)
             char *buf = malloc(4096*4096);
             size_t length = trace_dump(buf, 4096*4096);
             printf("%s\n", buf);
-            printf("length of buffer %zu\n", length);
+            printf("length of buffer %lu\n", length);
         }
 #endif
 

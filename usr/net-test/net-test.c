@@ -22,6 +22,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/spawn_client.h>
 #include <posixcompat.h>
+#include <vfs/vfs.h>
 
 #define NET_DRIVER "rtl8029"
 #define SERVER_PORT 8080
@@ -298,6 +299,8 @@ static void do_child(void)
 int main(int argc, char *argv[])
 {
     coreid_t mycore = disp_get_core_id();
+    
+    vfs_init();
     
     debug_printf("[%d]main(): This is %s on core %d with %d args\n",
             disp_get_domain_id(), argv[0], mycore, argc);

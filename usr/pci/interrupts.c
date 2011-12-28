@@ -159,7 +159,7 @@ int init_all_apics(void)
 
     // Parse main table entries
     PCI_DEBUG("Local APIC is at 0x%x\n", madt->Address);
-    skb_add_fact("memory_region(%" PRIu32 ",%u,%zu, %u,%u).",
+    skb_add_fact("memory_region(%" PRIu32 ",%u,%lu, %u,%u).",
                  madt->Address,
                  APIC_BITS, //from documentation
                  ((size_t)1) << APIC_BITS, //from documentation
@@ -204,7 +204,7 @@ int init_all_apics(void)
                        "INTI base = %d\n", s->Id, s->Address, s->GlobalIrqBase);
 
                 skb_add_fact("ioapic(%d,%u,%d).", s->Id, s->Address, s->GlobalIrqBase);
-                skb_add_fact("memory_region(%u,%u,%zu, %u,%u).",
+                skb_add_fact("memory_region(%u,%u,%lu, %u,%u).",
                              s->Address,
                              BASE_PAGE_BITS, //as used elswhere in acpi.c
                              ((size_t)1) << BASE_PAGE_BITS, //as used elswhere in acpi.c

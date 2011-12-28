@@ -147,7 +147,7 @@ int shmget(key_t key, size_t size, int shmflg)
     s->used = true;
     s->key = key; 
 
-    POSIXCOMPAT_DEBUG("shmget(%ld, %zu, %d) = %d\n",
+    POSIXCOMPAT_DEBUG("shmget(%ld, %lu, %d) = %d\n",
                       key, size, shmflg, i);
 
     return i;

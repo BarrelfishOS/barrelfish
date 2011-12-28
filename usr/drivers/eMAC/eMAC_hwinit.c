@@ -352,10 +352,10 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
         if(pbuf_offset < 0){
             EMAC_DEBUG("index %d, pbufs = %u, total len %"PRIu64"\n",
                     index, cl->rtpbuf, cl->len);
-            EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset, to_copy);
-            EMAC_DEBUG("pbuf_offset %d = start_offset(%zu) - pbuf_len (%"PRIu64")\n",
+            EMAC_DEBUG("start offset %lu, to_copy %lu\n", start_offset, to_copy);
+            EMAC_DEBUG("pbuf_offset %d = start_offset(%lu) - pbuf_len (%"PRIu64")\n",
                     pbuf_offset, start_offset, pbuf_len);
-            EMAC_DEBUG("pbuflen (%"PRIu64") + (%"PRIu64") < start_offset(%zu)\n",
+            EMAC_DEBUG("pbuflen (%"PRIu64") + (%"PRIu64") < start_offset(%lu)\n",
                     pbuf_len, cl->pbuf[index].len, start_offset);
             EMAC_DEBUG("prev pbuf len (%"PRIu64"), already copied %d, left %d\n",
                     cl->pbuf[0].len, already_copied, data_left);
@@ -376,14 +376,14 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
         }
         pbuf_len = (pbuf_len + cl->pbuf[index].len);
     } /* end for: */
-    EMAC_DEBUG("ERROR: pbuf_list_memcpy: not enough data [%zu] in client_closure\n",
+    EMAC_DEBUG("ERROR: pbuf_list_memcpy: not enough data [%lu] in client_closure\n",
             to_copy);
     EMAC_DEBUG("pbufs = %u, total len %"PRIu64"\n", cl->rtpbuf, cl->len);
     EMAC_DEBUG("already copied %d, left %d\n",already_copied, data_left);
     for (int index = 0; index < cl->rtpbuf; index++) {
         EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", index, cl->pbuf[index].len);
     }
-    EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset, to_copy);
+    EMAC_DEBUG("start offset %lu, to_copy %lu\n", start_offset, to_copy);
 
     assert(!"Not enough data in pbuf_list to send");
 } /* end function: pbuf_list_memcpy */

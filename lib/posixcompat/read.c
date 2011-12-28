@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/terminal.h>
 #include <vfs/vfs.h>
 #include <lwip/sys.h>
 #include <lwip/sockets.h>
@@ -29,7 +30,7 @@ int read(int fd, void *buf, size_t len)
     case FDTAB_TYPE_FILE:
         {
             errval_t err = vfs_read((vfs_handle_t)e->handle, buf, len, &retlen);
-            POSIXCOMPAT_DEBUG("%d : read(%d, %d) = %zu\n", disp_get_domain_id(), fd, len, retlen);
+            POSIXCOMPAT_DEBUG("%d : read(%d, %d) = %lu\n", disp_get_domain_id(), fd, len, retlen);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "error in vfs_read");
                 return -1;
@@ -38,7 +39,7 @@ int read(int fd, void *buf, size_t len)
         break;
 
     case FDTAB_TYPE_STDIN:
-        retlen = fread(buf, 1, len, stdin);
+        retlen = terminal_read((char *)buf, len);
         break;
 
     case FDTAB_TYPE_LWIP_SOCKET:

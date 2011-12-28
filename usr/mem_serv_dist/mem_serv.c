@@ -105,7 +105,7 @@ static void dump_ram_region(int index, struct mem_region* m)
     }
 
     printf("RAM region %d: 0x%" PRIxPTR
-           " - 0x%" PRIxPTR " (%zu %cB, %u bits)\n",
+           " - 0x%" PRIxPTR " (%lu %cB, %u bits)\n",
            index, start, limit, quantity, prefix, m->mr_bits);
 }
 #endif // 0

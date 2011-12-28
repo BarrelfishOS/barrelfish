@@ -64,7 +64,7 @@ static void rx_slow_op(struct ping_pong_binding *b, uint64_t val)
 static void rx_slow_reply(struct ping_pong_binding *b, uint64_t val)
 {
     printf("rx_slow_reply %" PRIu64 "\n", val);
-    printf("rx_slow_reply locally %zu\n", icachetest_run(20));
+    printf("rx_slow_reply locally %lu\n", icachetest_run(20));
 }
 
 static void rx_stop(struct ping_pong_binding *b)
@@ -139,7 +139,7 @@ static void send_cont(void *arg)
     else {
 	BEE_SIMCTRL(BEE_SIMCTRL_CACHE_STAT);
 	cycles_t cy = icachetest_run(20);
-	printf("cy=%zu\n", cy);
+	printf("cy=%lu\n", cy);
 	BEE_SIMCTRL(BEE_SIMCTRL_CACHE_STAT);
 	printf("client all done\n");
 	err = trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0); 
@@ -150,7 +150,7 @@ static void send_cont(void *arg)
 
 	void *dump = malloc(1000000);
 	size_t dumpsize = trace_dump(dump, 1000000);
-	printf("trace_dump: resulted in %zu bytes\n", dumpsize);
+	printf("trace_dump: resulted in %lu bytes\n", dumpsize);
 	sys_print(dump, dumpsize);
 	printf("Cycles times for %u ping operations\n", REPEAT_BASIC);
 	for(int i=0; i<REPEAT_BASIC; i++)

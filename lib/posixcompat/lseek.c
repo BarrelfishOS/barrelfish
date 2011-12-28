@@ -52,7 +52,7 @@ off_t lseek(int fd, off_t offset, int whence)
                 return -1;
             }
 
-            POSIXCOMPAT_DEBUG("lseek(%d, %lld, %d) = %zu\n",
+            POSIXCOMPAT_DEBUG("lseek(%d, %lld, %d) = %lu\n",
                               fd, offset, whence, retpos);
 
             return retpos;

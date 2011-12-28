@@ -109,7 +109,7 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
     if (trace_sent >= trace_length) {
         /* No more events */
         uint64_t timestamp_stop = rdtsc();
-        DEBUG("bfscope: done (%zu bytes) in %ld cycles\n", 
+        DEBUG("bfscope: done (%lu bytes) in %ld cycles\n", 
                trace_sent, timestamp_stop - timestamp_start);
         trace_length = 0;
         trace_sent = 0;
@@ -148,7 +148,7 @@ static void bfscope_trace_complete(void)
     /* Format the trace into global trace buffer */
     trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN);
 
-    DEBUG("bfscope: trace length %zu\n", trace_length);
+    DEBUG("bfscope: trace length %lu\n", trace_length);
 
     /* Send length field */
     char tmpbuf[10];

@@ -69,7 +69,7 @@ static size_t copy_lwip_fd(void *dest, genpaddr_t offset, struct fd_store *fds)
     debug_printf("remote port and ip: %u\n", si.remote_port);
     debug_ipaddr_print(&si.remote_ip);
 
-    printf("copying %zu bytes from %p to %p\n", size, &fds->handle, dest);
+    printf("copying %lu bytes from %p to %p\n", size, &fds->handle, dest);
     memcpy(dest, &si, size);
     fds->handle = (void *)(uintptr_t)(offset);
     printf("fd %d fixed handle is: %d\n", fds->num, fds->fd);

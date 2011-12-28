@@ -112,7 +112,7 @@ filter_t create_filter(char *str)
                     continue;
                 } else {
                     fprintf(stderr, "PARSE ERROR: Surplus left parenthesis at "
-                        "position %zu, %s\n", i, str);
+                        "position %lu, %s\n", i, str);
                     cleanup(filter, stack);
                     return NULL;
                 }
@@ -142,7 +142,7 @@ filter_t create_filter(char *str)
                         && parent->node.complex.f1 != NULL) {
                     fprintf(stderr,
                             "PARSE ERROR: Unexpected literal after NOT "
-                                "operator at position %zu in '%s'\n", i, str);
+                                "operator at position %lu in '%s'\n", i, str);
                     cleanup(filter, stack);
                     return NULL;
                 }
@@ -156,7 +156,7 @@ filter_t create_filter(char *str)
                 if (nextChar == '\0') {
                     fprintf(stderr,
                             "PARSE ERROR: Missing right parenthesis at "
-                                "position %zu in '%s'\n", i, str);
+                                "position %lu in '%s'\n", i, str);
                     cleanup(filter, stack);
                     return NULL;
                 }
@@ -190,7 +190,7 @@ filter_t create_filter(char *str)
                         return filter;
                     } else {
                         fprintf(stderr, "PARSE ERROR: Unexpected token at "
-                            "position %zu in '%s'\n", i, str);
+                            "position %lu in '%s'\n", i, str);
                         cleanup(filter, stack);
                         return NULL;
                     }
@@ -232,7 +232,7 @@ filter_t create_filter(char *str)
                 } else {
                     fprintf(stderr,
                             "PARSE ERROR: Unexpected character '%c' at "
-                                "position %zu in '%s'\n", str[i + 1], i + 1,
+                                "position %lu in '%s'\n", str[i + 1], i + 1,
                             str);
                     cleanup(filter, stack);
                     return NULL;
@@ -247,7 +247,7 @@ filter_t create_filter(char *str)
                 } else {
                     fprintf(stderr,
                             "PARSE ERROR: Unexpected character '%c' at "
-                                "position %zu in '%s'\n", str[i + 1], i + 1,
+                                "position %lu in '%s'\n", str[i + 1], i + 1,
                             str);
                     cleanup(filter, stack);
                     return NULL;
@@ -262,7 +262,7 @@ filter_t create_filter(char *str)
                 } else {
                     fprintf(stderr,
                             "PARSE ERROR: Unexpected character '%c' at "
-                                "position %zu in '%s'\n", str[i + 1], i + 1,
+                                "position %lu in '%s'\n", str[i + 1], i + 1,
                             str);
                     cleanup(filter, stack);
                     return NULL;

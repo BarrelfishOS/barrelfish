@@ -321,7 +321,7 @@ static void dump_ram_region(int index, struct mem_region* m)
     }
 
     printf("RAM region %d: 0x%" PRIxPTR
-           " - 0x%" PRIxPTR " (%zu %cB, %u bits)\n",
+           " - 0x%" PRIxPTR " (%lu %cB, %u bits)\n",
            index, start, limit, quantity, prefix, m->mr_bits);
 #endif // 0
 }
@@ -417,7 +417,7 @@ static errval_t initialize_ram_alloc(void)
         abort();
     }
 
-    printf("RAM allocator initialised, %zd MB (of %zd MB) available\n",
+    printf("RAM allocator initialised, %lu MB (of %lu MB) available\n",
            mem_avail / 1024 / 1024, mem_total / 1024 / 1024);
 
     return SYS_ERR_OK;

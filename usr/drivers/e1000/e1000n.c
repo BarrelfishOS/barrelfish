@@ -304,11 +304,11 @@ static bool handle_next_received_packet(void)
 
     	len = rxd->rx_read_format.info.length;
     	if (len < 0 || len > 1522) {
-    		E1000N_DEBUG("ERROR: pkt with len %zu\n", len);
+    		E1000N_DEBUG("ERROR: pkt with len %lu\n", len);
     		goto end;
     	}
 
-        // E1000N_DEBUG("packet received of size %zu..\n", len);
+        // E1000N_DEBUG("packet received of size %lu..\n", len);
 
     	buffer_address = (void*)rxd->rx_read_format.buffer_address;
 		data = (buffer_address - internal_memory_pa)

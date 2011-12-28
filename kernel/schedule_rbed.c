@@ -354,7 +354,7 @@ struct dcb *schedule(void)
 
     // Assert we never miss a hard deadline
     if(todisp->type == TASK_TYPE_HARD_REALTIME && kernel_now > deadline(todisp)) {
-        panic("Missed hard deadline: now = %zu, deadline = %lu", kernel_now,
+        panic("Missed hard deadline: now = %lu, deadline = %lu", kernel_now,
               deadline(todisp));
         assert(false && "HRT task missed a dead line!");
     }
@@ -467,7 +467,7 @@ void make_runnable(struct dcb *dcb)
     }
 
     if(dcb->release_time < kernel_now) {
-        panic("Released in the past! now = %zu, release_time = %lu\n",
+        panic("Released in the past! now = %lu, release_time = %lu\n",
               kernel_now, dcb->release_time);
     }
     /* assert(dcb->release_time >= kernel_now); */

@@ -495,10 +495,10 @@ errval_t vfs_rmdir(const char *path)
  * \brief Initialise the VFS library
  *
  * This call initialises the VFS library. It must be called prior to any
- * other VFS functions being used. We make it a GCC constructor.
+ * other VFS functions being used. It doesn't need to be a constructor
+ * We call it explicitly..
  */
-__attribute__((constructor, used))
-static void vfs_init(void)
+void vfs_init(void)
 {
     assert(mounts == NULL);
     errval_t err;

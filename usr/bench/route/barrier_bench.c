@@ -312,7 +312,7 @@ static void experiment(void)
 #endif
 
         for (int j = MAX_COUNT / 10; j < MAX_COUNT; j++) {
-            printf("page %d took %zu\n", j,
+            printf("page %d took %lu\n", j,
                    timestamps[j].time1 - timestamps[j].time0);
         }
 

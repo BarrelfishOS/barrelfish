@@ -31,7 +31,7 @@ static int thread_mod(void *arg)
 
     for(;;) {
         if (mytest % 100000 == 0) {
-            debug_printf("%zd: %d\n", tid, mytest);
+            debug_printf("%lu: %d\n", tid, mytest);
         }
         test_init++;
         mytest++;

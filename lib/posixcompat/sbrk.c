@@ -12,8 +12,7 @@
 
 #if __SIZEOF_POINTER__ == 8
 //need lot of memory...
-// Really? 61 Gigabytes??!? -AB
-#define SBRK_REGION_BYTES (61*256*1024UL * BASE_PAGE_SIZE)
+#define SBRK_REGION_BYTES (1*256*1024UL * BASE_PAGE_SIZE)
 #else // still huge, but slightly more achievable in a 32-bit address space!
 #define SBRK_REGION_BYTES (256 * 1024 * 1024)
 #endif
@@ -21,33 +20,54 @@
 void *sbrk(intptr_t increment)
 {
     errval_t err;
-
+    size_t orig_offset;
+    
     static void *base;
-    static size_t offset;
+    static size_t offset = 0;
+    static size_t goffset = 0;
+    static struct memobj_anon memobj_;
     static struct memobj *memobj = NULL;
+    static struct vregion vregion_;
     static struct vregion *vregion = NULL;
 
     if (!memobj) { // Initialize
-        err = vspace_map_anon_attr(&base, &memobj, &vregion, SBRK_REGION_BYTES,
-                                   NULL, VREGION_FLAGS_READ_WRITE);
+        err = vspace_map_anon_aligned(&base, (struct memobj *) &memobj_,
+                                      &vregion_, SBRK_REGION_BYTES,
+                                      NULL, VREGION_FLAGS_READ_WRITE, 0);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "vspace_map_anon_attr failed");
             return (void *)-1;
         }
+        memobj = (struct memobj *) &memobj_;
+        vregion = &vregion_;
     }
 
     if (increment < 0) {
-        USER_PANIC("sbrk() called with negative increment - NYI");
+      if (-increment > offset) {
+        USER_PANIC("sbrk() called with negative increment beyond offset");
+      } else {
+        orig_offset = offset;
+        offset += increment;
+        
+        void *ret = base + orig_offset;
+        return ret;
+      }
     } else if (increment == 0) {
         return base + offset;
     } else if (offset + increment > SBRK_REGION_BYTES) {
-        debug_printf("sbrk() exceeded static region limit of %zu bytes\n",
-                     (size_t)SBRK_REGION_BYTES);
+        debug_printf("sbrk() exceeded static region limit of %lu bytes, offset: %lu\n",
+                     (size_t)SBRK_REGION_BYTES, offset);
         return (void *)-1;
+    } else if (offset + increment <= goffset) {
+        orig_offset = offset;
+        offset += increment;
+        
+        void *ret = base + orig_offset;
+        return ret;
     }
 
-    size_t inc_bytes = increment;
-    size_t orig_offset = offset;
+    size_t inc_bytes = offset + increment - goffset;
+    orig_offset = offset;
 
     struct capref frame;
     err = frame_alloc(&frame, inc_bytes, &inc_bytes);
@@ -56,15 +76,16 @@ void *sbrk(intptr_t increment)
         return (void *)-1;
     }
 
-    err = memobj->f.fill(memobj, offset, frame, inc_bytes);
+    err = memobj->f.fill(memobj, goffset, frame, inc_bytes);
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err, "memobj->f.fill failed");
         cap_destroy(frame);
         return (void *)-1;
     }
 
-    err = memobj->f.pagefault(memobj, vregion, offset, 0);
-    offset += inc_bytes;
+    err = memobj->f.pagefault(memobj, vregion, goffset, 0);
+    goffset += inc_bytes;
+    offset = goffset;
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err,
                   "memobj->f.pagefault failed");
