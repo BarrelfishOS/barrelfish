@@ -125,8 +125,8 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 --
 -- Create a library from a set of object files
 --
-archive :: Options -> [String] -> String -> [ RuleToken ]
-archive opts objs libname =
+archive :: Options -> [String] -> [String] -> String -> [ RuleToken ]
+archive opts objs libs libname =
     [ Str "rm -f ", Out arch libname ]
     ++ 
     [ NL, Str (ar ++ " cr "), Out arch libname ] 

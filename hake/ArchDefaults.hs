@@ -250,14 +250,29 @@ assembler arch compiler opts src obj =
 --
 -- Create a library from a set of object files
 --
-archive :: String -> Options -> [String] -> String -> [ RuleToken ]
-archive arch opts objs libname =
+archive :: String -> Options -> [String] -> [String] -> String -> [ RuleToken ]
+archive arch opts objs libs libname =
     [ Str "rm -f ", Out arch libname ]
     ++ 
     [ NL, Str "ar cr ", Out arch libname ] 
     ++ 
     [ In BuildTree arch o | o <- objs ]
-    ++ 
+    ++
+    if libs == [] then []
+                  else (
+      [ NL, Str "rm -fr tmp; mkdir tmp" ]
+      ++
+      [ NL, Str "cd tmp; for i in " ]
+      ++
+      [ In BuildTree arch a | a <- libs ]
+      ++
+      [ Str "; do ar x ../$$i; done" ]
+      ++
+      [ NL, Str "ar q ", Out arch libname, Str " tmp/*.o" ]
+      ++
+      [ NL, Str "rm -fr tmp" ]
+    )
+    ++
     [ NL, Str "ranlib ", Out arch libname ]
 
 --

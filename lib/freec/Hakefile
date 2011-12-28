@@ -87,5 +87,5 @@
   in
     Rules [Rules [compileCFile (mkopts s)  s | s <- (Args.cFiles args)],
            assembleSFiles defaultopts (Args.assemblyFiles args),
-           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args)]
+           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) [] ]
 ) | a <- allArchitectures ]

@@ -242,15 +242,15 @@ assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
-archive :: Options -> [String] -> String -> [ RuleToken ]
-archive opts objs libname
-    | optArch opts == "x86_64"  = X86_64.archive opts objs libname
-    | optArch opts == "x86_32"  = X86_32.archive opts objs libname
-    | optArch opts == "scc"     = SCC.archive opts objs libname
-    | optArch opts == "arm"     = ARM.archive opts objs libname
-    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libname
-    | optArch opts == "beehive" = Beehive.archive opts objs libname
-    | optArch opts == "xscale" = XScale.archive opts objs libname
+archive :: Options -> [String] -> [String] -> String -> [ RuleToken ]
+archive opts objs libs libname
+    | optArch opts == "x86_64"  = X86_64.archive opts objs libs libname
+    | optArch opts == "x86_32"  = X86_32.archive opts objs libs libname
+    | optArch opts == "scc"     = SCC.archive opts objs libs libname
+    | optArch opts == "arm"     = ARM.archive opts objs libs libname
+    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs libname
+    | optArch opts == "beehive" = Beehive.archive opts objs libs libname
+    | optArch opts == "xscale" = XScale.archive opts objs libs libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -370,9 +370,9 @@ assemble opts src =
 --
 -- Create a library from a set of object files
 --
-archiveLibrary :: Options -> String -> [String] -> [ RuleToken ]
-archiveLibrary opts name objs =
-    archive opts objs (libraryPath name)
+archiveLibrary :: Options -> String -> [String] -> [String] -> [ RuleToken ]
+archiveLibrary opts name objs libs =
+    archive opts objs libs (libraryPath name)
 
 --
 -- Link an executable
@@ -668,7 +668,7 @@ hamletFile opts file =
                     Out arch cfile, 
                     Out arch usercfile ],
               compileGeneratedCFile opts usercfile,
-              Rule (archive opts [ ofile ] afile)
+              Rule (archive opts [ ofile ] [] afile)
          ]
 
 --
@@ -722,9 +722,9 @@ assembleSFiles opts srcs = Rules [ assembleSFile opts s | s <- srcs ]
 --
 -- Archive a bunch of objects into a library
 --
-staticLibrary :: Options -> String -> [String] -> HRule
-staticLibrary opts libpath objs = 
-    Rule (archiveLibrary opts libpath objs)
+staticLibrary :: Options -> String -> [String] -> [String] -> HRule
+staticLibrary opts libpath objs libs =
+    Rule (archiveLibrary opts libpath objs libs)
 
 --
 -- Compile a Haskell binary (for the host architecture)
@@ -794,7 +794,7 @@ buildTechNoteWithDeps input output bib figs deps =
 ----------------------------------------------------------------------
    
 allObjectPaths :: Options -> Args.Args -> [String]
-allObjectPaths opts args = 
+allObjectPaths opts args =
     [objectFilePath opts g 
          | g <- (Args.cFiles args)++(Args.cxxFiles args)++(Args.assemblyFiles args)]
     ++ 
@@ -926,6 +926,6 @@ libBuildArch af tf args arch =
               [ compileCFiles opts csrcs,
                 compileCxxFiles opts cxxsrcs,
                 assembleSFiles opts (Args.assemblyFiles args),
-                staticLibrary opts (Args.target args) (allObjectPaths opts args)
+                staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths args)
               ]
             )
