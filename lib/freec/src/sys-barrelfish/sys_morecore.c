@@ -13,7 +13,7 @@
  */
 
 #include <assert.h>
-#include "../k_r_malloc.h"
+#include <k_r_malloc.h>
 #include <stddef.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h>

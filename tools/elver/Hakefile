@@ -37,7 +37,7 @@ let arch = "x86_64"
                           ++ [ Str "-imacros",
                                NoDep SrcTree "src" "/include/deputy/nodeputy.h" ],
              optIncludes = [ NoDep SrcTree "src" "/include",
-                             NoDep SrcTree "src" "/include/c", 
+                             NoDep SrcTree "src" "/include/freec", 
                              NoDep SrcTree "src" "/include/arch/x86_32",
                              NoDep BuildTree arch "/include" ],
              optDefines = [],

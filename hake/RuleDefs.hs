@@ -118,7 +118,7 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/kernel/include/arch" ./. archFamily arch,
                     "/kernel/include",
                     "/include",
-                    "/include/c",
+                    ("/include/" ++ Config.libc),
                     "/include/arch" ./. archFamily arch,
                     "/include/target" ./. archFamily arch]]
 

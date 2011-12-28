@@ -31,6 +31,10 @@ architectures :: [String]
 cOptFlags :: String
 cOptFlags = "-g -O2"
 
+-- Selects which libc to compile with, "freec" or "newlib"
+libc :: String
+libc = "freec"
+
 -- Use a frame pointer
 use_fp :: Bool
 use_fp = True
