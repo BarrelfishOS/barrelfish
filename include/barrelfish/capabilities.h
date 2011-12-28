@@ -66,9 +66,9 @@ cap_mint(struct capref dest, struct capref src, uint64_t param1,
          uint64_t param2)
 {
     uint8_t dcn_vbits = get_cnode_valid_bits(dest);
-    caddr_t dcn_addr = get_cnode_addr(dest);
+    capaddr_t dcn_addr = get_cnode_addr(dest);
     uint8_t scp_vbits = get_cap_valid_bits(src);
-    caddr_t scp_addr = get_cap_addr(src) >> (CPTR_BITS - scp_vbits);
+    capaddr_t scp_addr = get_cap_addr(src) >> (CPTR_BITS - scp_vbits);
 
     return invoke_cnode_mint(cap_root, dcn_addr, dest.slot, scp_addr, dcn_vbits,
                              scp_vbits, param1, param2);
@@ -84,13 +84,13 @@ cap_mint(struct capref dest, struct capref src, uint64_t param1,
  * \param off Offset from source frame to map (must be page-aligned)
  */
 static inline errval_t
-vnode_map(struct capref dest, struct capref src, caddr_t slot,
+vnode_map(struct capref dest, struct capref src, capaddr_t slot,
           uint64_t attr, uint64_t off)
 {
     uint8_t dvbits = get_cap_valid_bits(dest);
-    caddr_t daddr = get_cap_addr(dest) >> (CPTR_BITS - dvbits);
+    capaddr_t daddr = get_cap_addr(dest) >> (CPTR_BITS - dvbits);
     uint8_t svbits = get_cap_valid_bits(src);
-    caddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
+    capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
 
     return invoke_cnode_mint(cap_root, daddr, slot, saddr, dvbits, svbits,
                              attr, off);
@@ -111,9 +111,9 @@ static inline errval_t cap_copy(struct capref dest, struct capref src)
 {
     errval_t err;
     uint8_t dcn_vbits = get_cnode_valid_bits(dest);
-    caddr_t dcn_addr = get_cnode_addr(dest);
+    capaddr_t dcn_addr = get_cnode_addr(dest);
     uint8_t scp_vbits = get_cap_valid_bits(src);
-    caddr_t scp_addr = get_cap_addr(src) >> (CPTR_BITS - scp_vbits);
+    capaddr_t scp_addr = get_cap_addr(src) >> (CPTR_BITS - scp_vbits);
 
     err = invoke_cnode_copy(cap_root, dcn_addr, dest.slot, scp_addr, dcn_vbits,
                             scp_vbits);

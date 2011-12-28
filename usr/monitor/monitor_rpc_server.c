@@ -22,11 +22,11 @@ struct retype_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint64_t new_type;
     uint8_t size_bits;
-    caddr_t to;
-    caddr_t slot; 
+    capaddr_t to;
+    capaddr_t slot; 
     int dcn_vbits;
 };
 
@@ -34,7 +34,7 @@ struct delete_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint8_t vbits;
 };
 
@@ -42,7 +42,7 @@ struct revoke_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint8_t vbits;
 };
 
@@ -70,13 +70,13 @@ static void remote_cap_revoke_phase_2(void * st_arg);
     && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
 static __attribute__((noinline)) struct retype_st *
 alloc_retype_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint64_t new_type, uint8_t size_bits,
-                caddr_t to, caddr_t slot, int dcn_vbits)
+                capaddr_t src, uint64_t new_type, uint8_t size_bits,
+                capaddr_t to, capaddr_t slot, int dcn_vbits)
 #else
 static struct retype_st *alloc_retype_st(struct monitor_blocking_binding *b,
-                                        struct capref croot, caddr_t src, 
+                                        struct capref croot, capaddr_t src, 
                                         uint64_t new_type, uint8_t size_bits,
-                                        caddr_t to, caddr_t slot, int dcn_vbits)
+                                        capaddr_t to, capaddr_t slot, int dcn_vbits)
 #endif
 {
     struct retype_st * st;
@@ -117,10 +117,10 @@ static void free_retype_st(struct retype_st * st)
     && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
 static __attribute__((noinline)) struct delete_st *
 alloc_delete_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint8_t vbits)
+                capaddr_t src, uint8_t vbits)
 #else
 static struct delete_st* alloc_delete_st(struct monitor_blocking_binding *b,
-                                         struct capref croot, caddr_t src, 
+                                         struct capref croot, capaddr_t src, 
                                          uint8_t vbits)
 #endif
 {
@@ -158,10 +158,10 @@ static void free_delete_st(struct delete_st * st)
     && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
 static __attribute__((noinline)) struct revoke_st *
 alloc_revoke_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint8_t vbits)
+                capaddr_t src, uint8_t vbits)
 #else
 static struct revoke_st *alloc_revoke_st(struct monitor_blocking_binding *b,
-                                         struct capref croot, caddr_t src, 
+                                         struct capref croot, capaddr_t src, 
                                          uint8_t vbits)
 #endif
 {
@@ -200,9 +200,9 @@ static void free_revoke_st(struct revoke_st * st)
 
 
 static void remote_cap_retype(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, 
+                              struct capref croot, capaddr_t src, 
                               uint64_t new_type, uint8_t size_bits,
-                              caddr_t to, caddr_t slot, int dcn_vbits) 
+                              capaddr_t to, capaddr_t slot, int dcn_vbits) 
 {
     errval_t err;
     bool has_descendants;
@@ -284,7 +284,7 @@ static void remote_cap_retype_phase_2(void * st_arg)
 
 
 static void remote_cap_delete(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t vbits)
 {
     errval_t err;
 
@@ -345,7 +345,7 @@ static void remote_cap_delete_phase_2(void * st_arg)
 
 
 static void remote_cap_revoke(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t vbits)
 {
     errval_t err;
     /* Save state for stackripped reply */

@@ -41,12 +41,12 @@ extern uint64_t user_stack_save;
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              int cmd, uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int depth    = args[1];
-    caddr_t vptr = args[2];
-    caddr_t dptr = args[3];
+    capaddr_t vptr = args[2];
+    capaddr_t dptr = args[3];
     bool run = args[4];
-    caddr_t odptr = args[5];
+    capaddr_t odptr = args[5];
 
     return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
 }
@@ -94,9 +94,9 @@ static struct sysret copy_or_mint(struct capability *root,
                                   uintptr_t *args, bool mint)
 {
     /* Retrive arguments */
-    caddr_t  destcn_cptr   = args[0];
+    capaddr_t  destcn_cptr   = args[0];
     uint64_t dest_slot     = args[1];
-    caddr_t  source_cptr   = args[2];
+    capaddr_t  source_cptr   = args[2];
     int      destcn_vbits  = args[3];
     int      source_vbits  = args[4];
     uint64_t param1, param2;
@@ -129,7 +129,7 @@ static struct sysret handle_delete_common(struct capability *root,
                                    uintptr_t *args,
                                    bool from_monitor)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits     = args[1];
     return sys_delete(root, cptr, bits, from_monitor);
 }
@@ -145,7 +145,7 @@ static struct sysret handle_revoke_common(struct capability *root,
                                           uintptr_t *args,
                                           bool from_monitor)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits     = args[1];
     return sys_revoke(root, cptr, bits, from_monitor);
 }
@@ -171,8 +171,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -191,8 +191,8 @@ static struct sysret monitor_handle_delete(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -211,8 +211,8 @@ static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -228,7 +228,7 @@ static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
                                              int cmd, uintptr_t *args)
 {
-    caddr_t ep_caddr = args[0];
+    capaddr_t ep_caddr = args[0];
     return sys_monitor_register(ep_caddr);
 }
 
@@ -261,7 +261,7 @@ static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,
                                                  struct capability *root,
                                                  uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     uint8_t bits = args[1];
     struct capability *retbuf = (void *)args[2];
 
@@ -279,8 +279,8 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -298,7 +298,7 @@ static struct sysret monitor_remote_cap(struct capability *kernel_cap,
                                         int cmd, uintptr_t *args)
 {
     struct capability *root = &dcb_current->cspace.cap;
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits = args[1];
     bool remote = args[2];
 
@@ -330,7 +330,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     }
 
     /* Create the cap in the destination */
-    caddr_t cnode_cptr = args[pos];
+    capaddr_t cnode_cptr = args[pos];
     int cnode_vbits    = args[pos + 1];
     size_t slot        = args[pos + 2];
 
@@ -342,7 +342,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     uint8_t bits = args[1];
 
     return sys_monitor_nullify_cap(cptr, bits);
@@ -364,7 +364,7 @@ static struct sysret monitor_iden_cnode_get_cap(struct capability *kern_cap,
         return SYSRET(err);
     }
 
-    caddr_t slot = args[pos];
+    capaddr_t slot = args[pos];
     struct cte* cte = caps_locate_slot(cnode_copy->u.cnode.cnode, slot);
 
     // XXX: Write cap data directly back to user-space
@@ -410,10 +410,10 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     errval_t err;
     struct dcb *dcb = to->u.dispatcher.dcb;
 
-    caddr_t epp = args[0];
-    caddr_t vnodep = args[1];
-    caddr_t vmcbp = args[2];
-    caddr_t ctrlp = args[3];
+    capaddr_t epp = args[0];
+    capaddr_t vnodep = args[1];
+    capaddr_t vmcbp = args[2];
+    capaddr_t ctrlp = args[3];
 
     // 0. Enable VM extensions
     err = vmkit_enable_virtualization();
@@ -496,7 +496,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 static struct sysret monitor_handle_domain_id(struct capability *monitor_cap,
                                               int cmd, uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     domainid_t domain_id = args[1];
 
     return sys_monitor_domain_id(cptr, domain_id);
@@ -512,7 +512,7 @@ static struct sysret handle_trace_setup(struct capability *cap,
     errval_t err;
 
     /* lookup passed cap */
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, CPTR_BITS, &frame,
                           CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
@@ -548,7 +548,7 @@ static struct sysret kernel_ipi_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
 {
     assert(cap->type == ObjType_Kernel);
-    caddr_t ep = args[0];
+    capaddr_t ep = args[0];
     int chanid = args[1];
     return SYSRET(ipi_register_notification(ep, chanid));
 }
@@ -587,7 +587,7 @@ static struct sysret performance_counter_activate(struct capability *cap,
     uint8_t counter_id = args[2];
     bool kernel = args[3];
     uint64_t counter_value = args[4];
-    caddr_t ep_addr = args[5];
+    capaddr_t ep_addr = args[5];
 
     errval_t err;
     struct capability *ep;
@@ -724,7 +724,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
     case SYSCALL_INVOKE: /* Handle capability invocation */
     {
         // unpack "header" word
-        caddr_t invoke_cptr = arg0 >> 32;
+        capaddr_t invoke_cptr = arg0 >> 32;
         uint8_t send_bits = arg0 >> 24;
         uint8_t invoke_bits = arg0 >> 16;
         uint8_t length_words = arg0 >> 8;
@@ -840,7 +840,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Yield the CPU to the next dispatcher
     case SYSCALL_YIELD:
-        retval = sys_yield((caddr_t)arg0);
+        retval = sys_yield((capaddr_t)arg0);
         break;
 
         // NOP system call for benchmarking purposes

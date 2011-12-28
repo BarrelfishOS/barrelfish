@@ -47,7 +47,7 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 }
 
 static inline errval_t
-invoke_monitor_identify_cap(caddr_t cap, int bits, struct capability *out)
+invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
     struct idc_send_msg msg;
 
@@ -61,7 +61,7 @@ invoke_monitor_identify_cap(caddr_t cap, int bits, struct capability *out)
 }
 
 static inline errval_t
-invoke_monitor_nullify_cap(caddr_t cap, int bits)
+invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 {
     struct idc_send_msg msg;
 
@@ -74,7 +74,7 @@ invoke_monitor_nullify_cap(caddr_t cap, int bits)
 }
 
 static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, caddr_t caddr, int bits, caddr_t slot)
+invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot)
 {
     struct idc_send_msg msg;
 
@@ -89,7 +89,7 @@ invoke_monitor_create_cap(uint64_t *raw, caddr_t caddr, int bits, caddr_t slot)
 }
 
 static inline errval_t
-invoke_monitor_cap_remote(caddr_t cap, int bits, bool is_remote, 
+invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote, 
                           bool * has_descendents)
 {
     struct idc_send_msg msg;
@@ -117,7 +117,7 @@ invoke_monitor_register(struct capref ep)
 }
 
 static inline errval_t
-invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, caddr_t slot,
+invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, capaddr_t slot,
                                       struct capability *out)
 {
     USER_PANIC("NYI");
@@ -168,8 +168,8 @@ invoke_domain_id(struct capref cap, uint64_t domain_id)
 #endif
 }
 static inline errval_t 
-invoke_monitor_identify_domains_cap(caddr_t root_cap, int root_bits,
-                                    caddr_t cap, int bits,
+invoke_monitor_identify_domains_cap(capaddr_t root_cap, int root_bits,
+                                    capaddr_t cap, int bits,
                                     struct capability *out)
 {
     struct idc_send_msg msg;
@@ -186,9 +186,9 @@ invoke_monitor_identify_domains_cap(caddr_t root_cap, int root_bits,
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_retype(caddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 caddr_t src, enum objtype newtype,
-                                 int objbits, caddr_t to, caddr_t slot,
+invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+                                 capaddr_t src, enum objtype newtype,
+                                 int objbits, capaddr_t to, capaddr_t slot,
                                  int bits)
 {
     struct idc_send_msg msg;
@@ -210,8 +210,8 @@ invoke_monitor_remote_cap_retype(caddr_t rootcap_addr, uint8_t rootcap_vbits,
 
 
 static inline errval_t
-invoke_monitor_remote_cap_delete(caddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 caddr_t src, int bits) 
+invoke_monitor_remote_cap_delete(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+                                 capaddr_t src, int bits) 
 {
     struct idc_send_msg msg;
     
@@ -226,8 +226,8 @@ invoke_monitor_remote_cap_delete(caddr_t rootcap_addr, uint8_t rootcap_vbits,
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_revoke(caddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 caddr_t src, int bits) 
+invoke_monitor_remote_cap_revoke(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+                                 capaddr_t src, int bits) 
 {
     struct idc_send_msg msg;
 

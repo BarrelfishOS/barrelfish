@@ -27,7 +27,7 @@
  *
  * \return Syscall error code (#SYS_ERR_OK on success).
  */
-errval_t sys_yield(caddr_t target);
+errval_t sys_yield(capaddr_t target);
 
 /* Debug/Benchmarking system calls */
 errval_t sys_nop(void);

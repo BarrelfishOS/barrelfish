@@ -37,10 +37,10 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
                                    uintptr_t arg4)
 {
     uint8_t invoke_bits = get_cap_valid_bits(ep);
-    caddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
 
     uint8_t send_bits = get_cap_valid_bits(send_cap);
-    caddr_t send_cptr = get_cap_addr(send_cap) >> (CPTR_BITS - send_bits);
+    capaddr_t send_cptr = get_cap_addr(send_cap) >> (CPTR_BITS - send_bits);
 
     assert(length_words <= LMP_MSG_LENGTH);
 

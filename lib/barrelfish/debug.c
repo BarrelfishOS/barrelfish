@@ -227,7 +227,7 @@ static void walk_cspace(struct cnoderef cnode, uint8_t level)
     }
 
     // Walk through all the slots in the CNode
-    for (pos.slot = 0; pos.slot < (((caddr_t)1) << cnode.size_bits); pos.slot++) {
+    for (pos.slot = 0; pos.slot < (((capaddr_t)1) << cnode.size_bits); pos.slot++) {
         // Get cap data
         err = debug_cap_identify(pos, &cap);
 

@@ -19,7 +19,7 @@
 #define NBBY            8
 
 /// Capability NULL pointer
-#define CPTR_NULL       ((caddr_t)0)
+#define CPTR_NULL       ((capaddr_t)0)
 
 #ifndef __ASSEMBLER__
 
@@ -58,15 +58,15 @@ typedef genvaddr_t forvaddr_t;
 #define PRIxFORVADDR PRIxGENVADDR
 
 /* capability addresses */
-typedef uint32_t caddr_t;
+typedef uint32_t capaddr_t;
 #define PRIuCADDR PRIu32
 #define PRIxCADDR PRIx32
 
 /// Number of bits in a cspace address
-#define CPTR_BITS       (sizeof(caddr_t) * NBBY)
+#define CPTR_BITS       (sizeof(capaddr_t) * NBBY)
 
 /* slot number */
-typedef caddr_t cslot_t;
+typedef capaddr_t cslot_t;
 #define PRIuCSLOT PRIuCADDR
 #define PRIxCSLOT PRIxCADDR
 

@@ -27,7 +27,7 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
                                        uintptr_t arg10)
 {
     uint8_t invoke_bits = get_cap_valid_bits(to);
-    caddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
 
     return syscall(SYSCALL_INVOKE, (uint64_t)invoke_cptr << 32 |
                    (uint64_t)invoke_bits << 16 | 10 << 8, 0,
@@ -76,9 +76,9 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_retype(struct capref root, caddr_t cap,
+static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
                                            enum objtype newtype, int objbits,
-                                           caddr_t to, caddr_t slot, int bits)
+                                           capaddr_t to, capaddr_t slot, int bits)
 {
     assert(cap != CPTR_NULL);
     return cap_invoke7(root, CNodeCmd_Retype, cap, newtype, objbits, to,
@@ -105,8 +105,8 @@ static inline errval_t invoke_cnode_retype(struct capref root, caddr_t cap,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_mint(struct capref root, caddr_t to,
-                                         caddr_t slot, caddr_t from, int tobits,
+static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
+                                         capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits, uint64_t param1,
                                          uint64_t param2)
 {
@@ -132,8 +132,8 @@ static inline errval_t invoke_cnode_mint(struct capref root, caddr_t to,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_copy(struct capref root, caddr_t to,
-                                         caddr_t slot, caddr_t from, int tobits,
+static inline errval_t invoke_cnode_copy(struct capref root, capaddr_t to,
+                                         capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits)
 {
     return cap_invoke6(root, CNodeCmd_Copy, to, slot, from,
@@ -152,13 +152,13 @@ static inline errval_t invoke_cnode_copy(struct capref root, caddr_t to,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_delete(struct capref root, caddr_t cap,
+static inline errval_t invoke_cnode_delete(struct capref root, capaddr_t cap,
                                            int bits)
 {
     return cap_invoke3(root, CNodeCmd_Delete, cap, bits).error;
 }
 
-static inline errval_t invoke_cnode_revoke(struct capref root, caddr_t cap,
+static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
                                            int bits)
 {
     return cap_invoke3(root, CNodeCmd_Revoke, cap, bits).error;
@@ -233,10 +233,10 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
                   struct capref dispframe, bool run)
 {
     uint8_t root_vbits = get_cap_valid_bits(cspace);
-    caddr_t root_caddr = get_cap_addr(cspace) >> (CPTR_BITS - root_vbits);
-    caddr_t vtree_caddr = get_cap_addr(vspace);
-    caddr_t disp_caddr = get_cap_addr(dispframe);
-    caddr_t dd_caddr = get_cap_addr(domdispatcher);
+    capaddr_t root_caddr = get_cap_addr(cspace) >> (CPTR_BITS - root_vbits);
+    capaddr_t vtree_caddr = get_cap_addr(vspace);
+    capaddr_t disp_caddr = get_cap_addr(dispframe);
+    capaddr_t dd_caddr = get_cap_addr(domdispatcher);
 
     return cap_invoke7(dispatcher, DispatcherCmd_Setup, root_caddr,
                        root_vbits, vtree_caddr, disp_caddr, run,
@@ -291,7 +291,7 @@ static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
                                                uint8_t event, uint8_t perf_umask, 
                                                bool kernel, uint8_t counter_id,
                                                uint64_t counter_value, 
-                                               caddr_t ep_addr)
+                                               capaddr_t ep_addr)
 {
     return cap_invoke7(perfmon_cap, PerfmonCmd_Activate, 
                        event, perf_umask, counter_id, kernel, 

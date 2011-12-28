@@ -39,7 +39,7 @@ static uint64_t notifytail[MAX_CPUS];
 
 static uint8_t my_arch_id;
 
-errval_t ipi_register_notification(caddr_t ep, int chanid)
+errval_t ipi_register_notification(capaddr_t ep, int chanid)
 {
     struct cte *recv;
     errval_t err;

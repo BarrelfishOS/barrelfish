@@ -119,20 +119,20 @@ routeid_t mon_allocate_route_id(void);
 /* invocations.c */
 bool monitor_can_send_cap(struct capability *cap);
 errval_t monitor_cap_identify(struct capref cap, struct capability *out);
-errval_t monitor_domains_cap_identify(struct capref croot, caddr_t cap,
+errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
                                       int vbits, struct capability *out);
 errval_t monitor_cap_remote(struct capref cap, bool is_remote, bool * has_dep);
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
                             coreid_t core_id);
 errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 
-                                        caddr_t slot, struct capability *ret);
+                                        capaddr_t slot, struct capability *ret);
 errval_t monitor_nullify_cap(struct capref cap);
 errval_t monitor_retype_remote_cap(struct capref croot, 
-                                   caddr_t src, enum objtype newtype, 
-                                   int objbits, caddr_t to, caddr_t slot, 
+                                   capaddr_t src, enum objtype newtype, 
+                                   int objbits, capaddr_t to, capaddr_t slot, 
                                    int bits);
-errval_t monitor_delete_remote_cap(struct capref croot, caddr_t src, int bits);
-errval_t monitor_revoke_remote_cap(struct capref croot, caddr_t src, int bits);
+errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits);
+errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits);
 
 
 /* route.c */

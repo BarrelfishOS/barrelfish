@@ -272,11 +272,11 @@ struct sysret bmp_table_set(struct capability *to, struct idc_recv_msg *msg)
 {
     errval_t err;
     unsigned int associd;
-    caddr_t cptr;
+    capaddr_t cptr;
     struct cte *recv;
 
     associd = idc_msg_decode_word_or_zero(msg);
-    cptr    = (caddr_t)idc_msg_decode_word_or_zero(msg);
+    cptr    = (capaddr_t)idc_msg_decode_word_or_zero(msg);
 
     err = caps_lookup_slot(&dcb_current->cspace.cap, cptr,
                            CPTR_BITS, &recv, CAPRIGHTS_WRITE);

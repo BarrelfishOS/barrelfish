@@ -42,12 +42,12 @@ static struct sysret handle_invocation(struct capability *to,
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              struct idc_recv_msg *msg)
 {
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     int depth    = idc_msg_decode_word_or_zero(msg);
-    caddr_t vptr = idc_msg_decode_word_or_zero(msg); // CPTR_NULL
-    caddr_t dptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t vptr = idc_msg_decode_word_or_zero(msg); // CPTR_NULL
+    capaddr_t dptr = idc_msg_decode_word_or_zero(msg);
     bool run = idc_msg_decode_word_or_zero(msg);
-    caddr_t odptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t odptr = idc_msg_decode_word_or_zero(msg);
 
     // The generic code checks that vspace is initialized
     struct dcb *dcb = to->u.dispatcher.dcb;
@@ -81,11 +81,11 @@ static struct sysret handle_retype_common(struct capability *root,
                                           struct idc_recv_msg *msg,
                                           bool from_monitor)
 {
-    caddr_t source_cptr     = idc_msg_decode_word_or_zero(msg);
+    capaddr_t source_cptr     = idc_msg_decode_word_or_zero(msg);
     enum objtype type       = idc_msg_decode_word_or_zero(msg);
     uint8_t objbits         = idc_msg_decode_word_or_zero(msg);
-    caddr_t dest_cnode_cptr = idc_msg_decode_word_or_zero(msg);
-    caddr_t dest_slot       = idc_msg_decode_word_or_zero(msg);
+    capaddr_t dest_cnode_cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t dest_slot       = idc_msg_decode_word_or_zero(msg);
     uint8_t dest_vbits      = idc_msg_decode_word_or_zero(msg);
 
     return sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
@@ -105,9 +105,9 @@ static struct sysret copy_or_mint(struct capability *root,
                                   struct idc_recv_msg *msg, bool mint)
 {
     /* Retrive arguments */
-    caddr_t  destcn_cptr   = idc_msg_decode_word_or_zero(msg);
+    capaddr_t  destcn_cptr   = idc_msg_decode_word_or_zero(msg);
     cslot_t dest_slot     = idc_msg_decode_word_or_zero(msg);
-    caddr_t  source_cptr   = idc_msg_decode_word_or_zero(msg);
+    capaddr_t  source_cptr   = idc_msg_decode_word_or_zero(msg);
     int      destcn_vbits  = idc_msg_decode_word_or_zero(msg);
     int      source_vbits  = idc_msg_decode_word_or_zero(msg);
     uintptr_t param1, param2;
@@ -139,7 +139,7 @@ static struct sysret handle_delete_common(struct capability *root,
                                           struct idc_recv_msg *msg,
                                           bool from_monitor)
 {
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     int bits     = idc_msg_decode_word_or_zero(msg);
     return sys_delete(root, cptr, bits, from_monitor);
 }
@@ -154,7 +154,7 @@ static struct sysret handle_revoke_common(struct capability *root,
                                           struct idc_recv_msg *msg,
                                           bool from_monitor)
 {
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     int bits     = idc_msg_decode_word_or_zero(msg);
     return sys_revoke(root, cptr, bits, from_monitor);
 }
@@ -170,8 +170,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
-    caddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -189,8 +189,8 @@ static struct sysret monitor_handle_delete(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
-    caddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -208,8 +208,8 @@ static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
-    caddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -224,7 +224,7 @@ static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
                                              struct idc_recv_msg *msg)
 {
-    caddr_t ep_caddr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t ep_caddr = idc_msg_decode_word_or_zero(msg);
     return sys_monitor_register(ep_caddr);
 }
 
@@ -315,7 +315,7 @@ static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,
                                                  struct capability *root,
                                                  struct idc_recv_msg *msg)
 {
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     uint8_t bits = idc_msg_decode_word_or_zero(msg);
     struct capability *retbuf = (void *)idc_msg_decode_word_or_zero(msg);
 
@@ -333,8 +333,8 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
-    caddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_caddr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t root_vbits = idc_msg_decode_word_or_zero(msg);
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -350,7 +350,7 @@ static struct sysret monitor_remote_cap(struct capability *kernel_cap,
                                         struct idc_recv_msg *msg)
 {
     struct capability *root = &dcb_current->cspace.cap;
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     int bits = idc_msg_decode_word_or_zero(msg);
     bool remote = (bool)idc_msg_decode_word_or_zero(msg);
     bool * has_desc = (bool *)idc_msg_decode_word_or_zero(msg);
@@ -383,7 +383,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     }
 
     /* Create the cap in the destination */
-    caddr_t cnode_cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cnode_cptr = idc_msg_decode_word_or_zero(msg);
     int cnode_vbits    = idc_msg_decode_word_or_zero(msg);
     size_t slot        = idc_msg_decode_word_or_zero(msg);
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
@@ -394,7 +394,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
                                          struct idc_recv_msg *msg)
 {
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     uint8_t bits = idc_msg_decode_word_or_zero(msg);
 
     return sys_monitor_nullify_cap(cptr, bits);
@@ -420,7 +420,7 @@ static struct sysret monitor_iden_cnode_get_cap(struct capability *kern_cap,
         return SYSRET(err);
     }
 
-    caddr_t slot = idc_msg_decode_word_or_zero(msg);
+    capaddr_t slot = idc_msg_decode_word_or_zero(msg);
     struct cte* cte = caps_locate_slot(cnode_copy->u.cnode.cnode, slot);
 
     // XXX: Write cap data directly back to user-space
@@ -449,7 +449,7 @@ static struct sysret handle_frame_identify(struct capability *to,
 static struct sysret monitor_handle_domain_id(struct capability *monitor_cap,
                                               struct idc_recv_msg *msg)
 {
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     domainid_t domain_id = idc_msg_decode_word_or_zero(msg);
 
     return sys_monitor_domain_id(cptr, domain_id);
@@ -465,7 +465,7 @@ static struct sysret handle_trace_setup(struct capability *cap,
     errval_t err;
 
     /* lookup passed cap */
-    caddr_t cptr = idc_msg_decode_word_or_zero(msg);
+    capaddr_t cptr = idc_msg_decode_word_or_zero(msg);
     err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, CPTR_BITS, &frame,
                           CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
@@ -673,9 +673,9 @@ static struct sysret handle_invocation(struct capability *to,
  * modification in the assember.
  */
 errval_t sys_invoke(uintptr_t *const pvalue,
-                    uint8_t validbits, caddr_t cptr,
+                    uint8_t validbits, capaddr_t cptr,
                     struct idc_send_msg *msg);
-errval_t sys_beehive_yield(caddr_t target);
+errval_t sys_beehive_yield(capaddr_t target);
 errval_t sys_lrpc(void);
 errval_t sys_reboot(void);
 errval_t sys_nop(void);
@@ -714,7 +714,7 @@ STATIC_ASSERT_SIZEOF(syscalls, (sizeof(void*) * (SYSCALL_COUNT+1)));
 
 // XXX TODO: Should be typedef for these, not uint8_t
 errval_t sys_invoke(uintptr_t *const pvalue,
-                    uint8_t validbits, caddr_t cptr, struct idc_send_msg *msg)
+                    uint8_t validbits, capaddr_t cptr, struct idc_send_msg *msg)
 {
     //printf("sys_invoke: called %u 0x%" PRIxCADDR "\n", validbits, cptr);
 
@@ -749,7 +749,7 @@ errval_t sys_lrpc(void)
     panic("sys_lrpc: called\n");
 }
 
-errval_t sys_beehive_yield(caddr_t target)
+errval_t sys_beehive_yield(capaddr_t target)
 {
     return sys_yield(target).error;
 }

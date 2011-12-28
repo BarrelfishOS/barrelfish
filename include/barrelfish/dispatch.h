@@ -93,7 +93,7 @@ void disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
  * \param yield_to Endpoint capability for dispatcher to which we want to yield
  */
 void disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
-               bool yield, caddr_t yield_to);
+               bool yield, capaddr_t yield_to);
 
 
 void __attribute__((noreturn)) disp_yield_disabled(dispatcher_handle_t handle);

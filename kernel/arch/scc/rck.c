@@ -497,7 +497,7 @@ errval_t rck_get_route(genpaddr_t base, size_t size, uint8_t *route,
     return SYS_ERR_OK;
 }
 
-errval_t rck_register_notification(caddr_t ep, int chanid)
+errval_t rck_register_notification(capaddr_t ep, int chanid)
 {
     struct cte *recv;
     errval_t err;

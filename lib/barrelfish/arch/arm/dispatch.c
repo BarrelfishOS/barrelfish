@@ -155,7 +155,7 @@ void disp_switch(dispatcher_handle_t handle,
  */
 void disp_save(dispatcher_handle_t handle,
                arch_registers_state_t *state,
-               bool yield, caddr_t yield_to)
+               bool yield, capaddr_t yield_to)
 {
     struct dispatcher_shared_arm *disp =
         get_dispatcher_shared_arm(handle);

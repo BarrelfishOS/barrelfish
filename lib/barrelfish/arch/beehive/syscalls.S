@@ -22,7 +22,7 @@
 #include <asmoffsets.h>
 
 /*
- * extern errval_t sys_yield(caddr_t target);
+ * extern errval_t sys_yield(capaddr_t target);
  */
 	.globl _sys_yield
 _sys_yield:
@@ -60,7 +60,7 @@ _sys_print:
 /*
  * extern errval_t sys_invoke(uintptr_t *const pvalue,
  *	uint8_t invokebits,
- *	caddr_t invokecptr,
+ *	capaddr_t invokecptr,
  *	struct idc_send_msg *const msg);
  */
 	.globl _sys_invoke

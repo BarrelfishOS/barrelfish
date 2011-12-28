@@ -262,7 +262,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
  * \return      Error code
  */
 static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
-                                 caddr_t send_cptr, uint8_t send_bits)
+                                 capaddr_t send_cptr, uint8_t send_bits)
 {
     errval_t err;
     /* Parameter checking */
@@ -455,7 +455,7 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
  */
 errval_t lmp_deliver(struct capability *ep, struct dcb *send,
                      uintptr_t *payload, size_t len,
-                     caddr_t send_cptr, uint8_t send_bits)
+                     capaddr_t send_cptr, uint8_t send_bits)
 {
     bool captransfer;
     assert(ep != NULL);

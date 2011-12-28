@@ -22,7 +22,7 @@
 
 #error "you should have compiled syscall.S instead"
 
-errval_t sys_yield(caddr_t target)
+errval_t sys_yield(capaddr_t target)
 {
     // This is painful, perhaps we should just write it all in assembler
     struct sysret retval;

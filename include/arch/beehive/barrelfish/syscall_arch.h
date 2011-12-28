@@ -21,14 +21,14 @@
 // Implemented in assembler
 
 #if 0 // these are already declared in include/barrelfish/syscalls.h
-extern errval_t sys_yield(caddr_t target);
+extern errval_t sys_yield(capaddr_t target);
 extern errval_t sys_nop(void);
 extern errval_t sys_print(const char *string, size_t length);
 #endif
 
 extern errval_t sys_invoke(uintptr_t *const pvalue,
 			   uint8_t invokebits,
-			   caddr_t invokecptr,
+			   capaddr_t invokecptr,
 			   struct idc_send_msg *const msg);
 
 
@@ -54,7 +54,7 @@ cap_invoke(struct capref to, struct idc_send_msg *msg)
 {
     // TODO: XXX: This should have a typedef not a uint8_t
     uint8_t invokebits = get_cap_valid_bits(to);
-    caddr_t invokecptr = get_cap_addr(to) >> (CPTR_BITS - invokebits);
+    capaddr_t invokecptr = get_cap_addr(to) >> (CPTR_BITS - invokebits);
 
     struct sysret retval;
     retval.error = sys_invoke(&retval.value, invokebits, invokecptr, msg);

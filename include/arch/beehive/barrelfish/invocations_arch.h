@@ -35,9 +35,9 @@
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_retype(struct capref root, caddr_t cap,
+static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
                                            enum objtype newtype, int objbits,
-                                           caddr_t to, caddr_t slot, int bits)
+                                           capaddr_t to, capaddr_t slot, int bits)
 {
     assert(cap != CPTR_NULL);
     struct idc_send_msg msg;
@@ -74,8 +74,8 @@ static inline errval_t invoke_cnode_retype(struct capref root, caddr_t cap,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_mint(struct capref root, caddr_t to,
-                                         caddr_t slot, caddr_t from, int tobits,
+static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
+                                         capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits, uint64_t param1,
                                          uint64_t param2)
 {
@@ -119,8 +119,8 @@ static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_copy(struct capref root, caddr_t to,
-                                         caddr_t slot, caddr_t from, int tobits,
+static inline errval_t invoke_cnode_copy(struct capref root, capaddr_t to,
+                                         capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits)
 {
     struct idc_send_msg msg;
@@ -148,7 +148,7 @@ static inline errval_t invoke_cnode_copy(struct capref root, caddr_t to,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_delete(struct capref root, caddr_t cap,
+static inline errval_t invoke_cnode_delete(struct capref root, capaddr_t cap,
                                            int bits)
 {
     struct idc_send_msg msg;
@@ -161,7 +161,7 @@ static inline errval_t invoke_cnode_delete(struct capref root, caddr_t cap,
     return cap_invoke(root, &msg).error;
 }
 
-static inline errval_t invoke_cnode_revoke(struct capref root, caddr_t cap,
+static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
                                            int bits)
 {
     struct idc_send_msg msg;
@@ -251,10 +251,10 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
                   struct capref dispframe, bool run)
 {
     uint8_t root_vbits = get_cap_valid_bits(cspace);
-    caddr_t root_caddr = get_cap_addr(cspace) >> (CPTR_BITS - root_vbits);
-    caddr_t vtree_caddr = get_cap_addr(vspace);
-    caddr_t disp_caddr = get_cap_addr(dispframe);
-    caddr_t dd_caddr = get_cap_addr(domdispatcher);
+    capaddr_t root_caddr = get_cap_addr(cspace) >> (CPTR_BITS - root_vbits);
+    capaddr_t vtree_caddr = get_cap_addr(vspace);
+    capaddr_t disp_caddr = get_cap_addr(dispframe);
+    capaddr_t dd_caddr = get_cap_addr(domdispatcher);
 
     struct idc_send_msg msg;
     idc_msg_init(&msg);
@@ -274,10 +274,10 @@ invoke_dispatcher(struct capref dispatcher, struct capref domdispatcher,
  * \param dcb       Dispatcher capability
  */
 static inline errval_t invoke_dispatcher_setup_guest(struct capref dispatcher,
-                                                     caddr_t ep_cap,
-                                                     caddr_t vnode,
-                                                     caddr_t vmkit_guest,
-                                                     caddr_t guest_control_cap)
+                                                     capaddr_t ep_cap,
+                                                     capaddr_t vnode,
+                                                     capaddr_t vmkit_guest,
+                                                     capaddr_t guest_control_cap)
 {
     struct idc_send_msg msg;
     idc_msg_init(&msg);

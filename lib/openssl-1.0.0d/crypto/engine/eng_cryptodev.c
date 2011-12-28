@@ -240,7 +240,7 @@ get_cryptodev_ciphers(const int **cnids)
 		return (0);
 	}
 	memset(&sess, 0, sizeof(sess));
-	sess.key = (caddr_t)"123456789abcdefghijklmno";
+	sess.key = (capaddr_t)"123456789abcdefghijklmno";
 
 	for (i = 0; ciphers[i].id && count < CRYPTO_ALGORITHM_MAX; i++) {
 		if (ciphers[i].nid == NID_undef)
@@ -280,7 +280,7 @@ get_cryptodev_digests(const int **cnids)
 		return (0);
 	}
 	memset(&sess, 0, sizeof(sess));
-	sess.mackey = (caddr_t)"123456789abcdefghijklmno";
+	sess.mackey = (capaddr_t)"123456789abcdefghijklmno";
 	for (i = 0; digests[i].id && count < CRYPTO_ALGORITHM_MAX; i++) {
 		if (digests[i].nid == NID_undef)
 			continue;
@@ -373,14 +373,14 @@ cryptodev_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 	cryp.ses = sess->ses;
 	cryp.flags = 0;
 	cryp.len = inl;
-	cryp.src = (caddr_t) in;
-	cryp.dst = (caddr_t) out;
+	cryp.src = (capaddr_t) in;
+	cryp.dst = (capaddr_t) out;
 	cryp.mac = 0;
 
 	cryp.op = ctx->encrypt ? COP_ENCRYPT : COP_DECRYPT;
 
 	if (ctx->cipher->iv_len) {
-		cryp.iv = (caddr_t) ctx->iv;
+		cryp.iv = (capaddr_t) ctx->iv;
 		if (!ctx->encrypt) {
 			iiv = in + inl - ctx->cipher->iv_len;
 			memcpy(save_iv, iiv, ctx->cipher->iv_len);
@@ -431,7 +431,7 @@ cryptodev_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 	if ((state->d_fd = get_dev_crypto()) < 0)
 		return (0);
 
-	sess->key = (caddr_t)key;
+	sess->key = (capaddr_t)key;
 	sess->keylen = ctx->key_len;
 	sess->cipher = cipher;
 
@@ -731,9 +731,9 @@ static int cryptodev_digest_update(EVP_MD_CTX *ctx, const void *data,
 	cryp.ses = sess->ses;
 	cryp.flags = 0;
 	cryp.len = count;
-	cryp.src = (caddr_t) data;
+	cryp.src = (capaddr_t) data;
 	cryp.dst = NULL;
-	cryp.mac = (caddr_t) state->digest_res;
+	cryp.mac = (capaddr_t) state->digest_res;
 	if (ioctl(state->d_fd, CIOCCRYPT, &cryp) < 0) {
 		printf("cryptodev_digest_update: digest failed\n");
 		return (0);
@@ -764,7 +764,7 @@ static int cryptodev_digest_final(EVP_MD_CTX *ctx, unsigned char *md)
 		cryp.len = state->mac_len;
 		cryp.src = state->mac_data;
 		cryp.dst = NULL;
-		cryp.mac = (caddr_t)md;
+		cryp.mac = (capaddr_t)md;
 
 		if (ioctl(state->d_fd, CIOCCRYPT, &cryp) < 0) {
 			printf("cryptodev_digest_final: digest failed\n");
@@ -909,7 +909,7 @@ bn2crparam(const BIGNUM *a, struct crparam *crp)
 		return (1);
 	memset(b, 0, bytes);
 
-	crp->crp_p = (caddr_t) b;
+	crp->crp_p = (capaddr_t) b;
 	crp->crp_nbits = bits;
 
 	for (i = 0, j = 0; i < a->top; i++) {
@@ -1162,7 +1162,7 @@ cryptodev_dsa_do_sign(const unsigned char *dgst, int dlen, DSA *dsa)
 	kop.crk_op = CRK_DSA_SIGN;
 
 	/* inputs: dgst dsa->p dsa->q dsa->g dsa->priv_key */
-	kop.crk_param[0].crp_p = (caddr_t)dgst;
+	kop.crk_param[0].crp_p = (capaddr_t)dgst;
 	kop.crk_param[0].crp_nbits = dlen * 8;
 	if (bn2crparam(dsa->p, &kop.crk_param[1]))
 		goto err;
@@ -1202,7 +1202,7 @@ cryptodev_dsa_verify(const unsigned char *dgst, int dlen,
 	kop.crk_op = CRK_DSA_VERIFY;
 
 	/* inputs: dgst dsa->p dsa->q dsa->g dsa->pub_key sig->r sig->s */
-	kop.crk_param[0].crp_p = (caddr_t)dgst;
+	kop.crk_param[0].crp_p = (capaddr_t)dgst;
 	kop.crk_param[0].crp_nbits = dlen * 8;
 	if (bn2crparam(dsa->p, &kop.crk_param[1]))
 		goto err;
@@ -1280,7 +1280,7 @@ cryptodev_dh_compute_key(unsigned char *key, const BIGNUM *pub_key, DH *dh)
 		goto err;
 	kop.crk_iparams = 3;
 
-	kop.crk_param[3].crp_p = (caddr_t) key;
+	kop.crk_param[3].crp_p = (capaddr_t) key;
 	kop.crk_param[3].crp_nbits = keylen * 8;
 	kop.crk_oparams = 1;
 

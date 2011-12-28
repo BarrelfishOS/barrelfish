@@ -41,13 +41,13 @@ handle_dispatcher_setup(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    caddr_t   odptr    = sa->arg2;
-    caddr_t   cptr     = sa->arg3;
+    capaddr_t   odptr    = sa->arg2;
+    capaddr_t   cptr     = sa->arg3;
     uintptr_t rundepth = sa->arg4;
     int       depth    = rundepth & 0xff;
     int       run      = rundepth >> 8;
-    caddr_t   vptr     = sa->arg5;
-    caddr_t   dptr     = sa->arg6;
+    capaddr_t   vptr     = sa->arg5;
+    capaddr_t   dptr     = sa->arg6;
 
     return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
 }
@@ -110,9 +110,9 @@ handle_mint(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    caddr_t destcn_cptr  = sa->arg2;
-    caddr_t source_cptr  = sa->arg3;
-    caddr_t dest_slot    = sa->arg4 >> 16;
+    capaddr_t destcn_cptr  = sa->arg2;
+    capaddr_t source_cptr  = sa->arg3;
+    capaddr_t dest_slot    = sa->arg4 >> 16;
     int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
     int     source_vbits = sa->arg4 & 0xff;
 
@@ -131,9 +131,9 @@ handle_copy(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    caddr_t destcn_cptr  = sa->arg2;
-    caddr_t source_cptr  = sa->arg3;
-    caddr_t dest_slot    = sa->arg4 >> 16;
+    capaddr_t destcn_cptr  = sa->arg2;
+    capaddr_t source_cptr  = sa->arg3;
+    capaddr_t dest_slot    = sa->arg4 >> 16;
     int     destcn_vbits = (sa->arg4 >> 8) & 0xff;
     int     source_vbits = sa->arg4 & 0xff;
 
@@ -154,16 +154,16 @@ handle_retype_common(
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     // Source capability cptr
-    caddr_t source_cptr      = sa->arg2;
+    capaddr_t source_cptr      = sa->arg2;
     uintptr_t word           = sa->arg3;
     // Type to retype to
     enum objtype type        = word >> 16;
     // Object bits for variable-sized types
     uint8_t objbits          = (word >> 8) & 0xff;
     // Destination cnode cptr
-    caddr_t  dest_cnode_cptr = sa->arg4;
+    capaddr_t  dest_cnode_cptr = sa->arg4;
     // Destination slot number
-    caddr_t dest_slot        = sa->arg5;
+    capaddr_t dest_slot        = sa->arg5;
     // Valid bits in destination cnode cptr
     uint8_t dest_vbits       = (word & 0xff);
 
@@ -192,7 +192,7 @@ handle_delete(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    caddr_t cptr = (caddr_t)sa->arg2;
+    capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
     return sys_delete(root, cptr, bits, false);
@@ -209,7 +209,7 @@ handle_revoke(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    caddr_t cptr = (caddr_t)sa->arg2;
+    capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
     return sys_revoke(root, cptr, bits, false);
@@ -238,7 +238,7 @@ monitor_handle_register(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    caddr_t ep_caddr = (caddr_t)sa->arg2;
+    capaddr_t ep_caddr = (capaddr_t)sa->arg2;
 
     return sys_monitor_register(ep_caddr);
 }
@@ -257,7 +257,7 @@ monitor_create_cap(
     printf("%d: %d, %d, %d, %d, %d, %d\n", argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
 
     /* Create the cap in the destination */
-    caddr_t cnode_cptr = sa->arg2;
+    capaddr_t cnode_cptr = sa->arg2;
     int cnode_vbits    = sa->arg3;
     size_t slot        = sa->arg4;
     struct capability *src =
@@ -315,7 +315,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
     //
     uint8_t  flags       = (sa->arg0 >> 24) & 0xf;
     uint16_t invoke_bits = (sa->arg0 >> 16) & 0xffff;
-    caddr_t  invoke_cptr = sa->arg1;
+    capaddr_t  invoke_cptr = sa->arg1;
 
     debug(SUBSYS_SYSCALL, "sys_invoke(0x%x(%d))\n", invoke_cptr, invoke_bits);
 
@@ -338,7 +338,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
             if (listener->disp) {
                 uint8_t length_words = (sa->arg0 >> 28) & 0xff;
                 uint8_t send_bits = (sa->arg0 >> 8) & 0xff;
-                caddr_t send_cptr = sa->arg2;
+                capaddr_t send_cptr = sa->arg2;
                 /* limit length of message from buggy/malicious sender */
                 length_words = min(length_words, LMP_MSG_LENGTH);
 
@@ -492,7 +492,7 @@ void sys_syscall(arch_registers_state_t* context)
         case SYSCALL_YIELD:
             if (argc == 2)
             {
-                r = sys_yield((caddr_t)sa->arg1);
+                r = sys_yield((capaddr_t)sa->arg1);
             }
             break;
 

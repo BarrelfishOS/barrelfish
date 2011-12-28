@@ -16,7 +16,7 @@
 #define ARCH_X86_32_BARRELFISH_KPI_SYSCALL_OVERFLOW_H
 
 struct remote_retype_syscall_overflow {
-    caddr_t rootcap_addr;
+    capaddr_t rootcap_addr;
     uint8_t rootcap_vbits;
 };
 

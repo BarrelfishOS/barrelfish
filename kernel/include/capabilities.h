@@ -50,7 +50,7 @@ static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
 
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
                          size_t objbits, struct cte *caps);
-errval_t caps_create_from_existing(struct capability *root, caddr_t cnode_cptr,
+errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
                                    int cnode_vbits, cslot_t dest_slot,
                                    struct capability *src);
 errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
@@ -75,10 +75,10 @@ errval_t is_retypeable(struct cte *src_cte,
 errval_t caps_delete(struct cte *cte, bool from_monitor);
 errval_t caps_revoke(struct cte *cte, bool from_monitor);
 
-errval_t caps_lookup_cap(struct capability *cnode_cap, caddr_t cptr,
+errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          uint8_t vbits, struct capability **ret,
                          CapRights rights);
-errval_t caps_lookup_slot(struct capability *cnode_cap, caddr_t cptr,
+errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights);
 void mdb_remove_recursively(struct cte *cte);
 void mdb_insert_recursively(struct cte *cte);
