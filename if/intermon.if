@@ -18,6 +18,9 @@ interface intermon "The Interface between monitors" {
         alias con_id_t uint64;
         alias mon_id_t uint64;
         alias state_id_t uint64;
+        alias vci_t uint64;
+
+        alias capid_t uint32;
 
         /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
         typedef uint64 coremask[4];
@@ -98,14 +101,14 @@ interface intermon "The Interface between monitors" {
                                uint32 ep_len);
 
         message cap_send_request(con_id_t con_id,
-                                 uint32 capid,
+                                 capid_t capid,
                                  caprep cap,
                                  bool give_away,
                                  bool has_descendents,
                                  coremask on_cores,
 				 bool null_cap);
         message cap_send_reply(con_id_t con_id,
-                               uint32 capid,
+                               capid_t capid,
                                errval err);
 
         message span_domain_request(state_id_t state_id,
@@ -120,7 +123,7 @@ interface intermon "The Interface between monitors" {
                               uint64 w4, uint64 w5, uint64 w6, uint64 w7);
 
 	// Resource control
-	message rsrc_join(rsrcid id, uint8 coreid);
+	message rsrc_join(rsrcid id, coreid_t coreid);
 	message rsrc_join_complete(rsrcid id);
 	message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
 	message rsrc_timer_sync(uint64 timestamp);
@@ -139,11 +142,10 @@ interface intermon "The Interface between monitors" {
 	response multihop_routing_table_response(int num_cores, coreid to[len]);
 
     // set up a new multihop virtual circuit
-    call bind_multihop_intermon_request(iref iref, uint64 sender_vci, coreid core_id);         
-    response bind_multihop_intermon_reply(uint64 receiver_vci, uint64 sender_vci, errval err);
+    message bind_multihop_intermon_request(iref iref, vci_t sender_vci, coreid core_id);
+    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci, errval err);
 
-    message multihop_message(uint64 vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
-		
-	call multihop_cap_send(uint64 vci, uint8 direction, uint32 capid, caprep cap, bool null_cap);
-	response multihop_cap_reply(uint64 vci, uint8 direction, uint32 capid, errval err);
+    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
+    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, caprep cap, bool null_cap);
+    message multihop_cap_reply(vci_t vci, uint8 direction, capid_t capid, errval err);
 };

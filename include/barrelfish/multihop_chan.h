@@ -58,6 +58,8 @@
 
 struct multihop_chan;
 
+typedef uint64_t multihop_vci_t; ///< Virtual circuit identifier
+
 // bind continuation handler
 struct multihop_bind_continuation {
     /**
@@ -72,7 +74,7 @@ struct multihop_bind_continuation {
 
 // message receive handler
 struct multihop_receive_handler {
-    void (*handler)(void *arg, uint8_t *message, uint64_t length);
+    void (*handler)(void *arg, uint8_t *message, size_t length);
     void *arg;
 };
 
@@ -99,8 +101,8 @@ struct multihop_chan {
     } connstate;
 
     iref_t iref; // IREF to which we bind
-    uint64_t my_vci; // my vci for this channel
-    uint64_t vci; // vci to use on outgoing messages
+    multihop_vci_t my_vci; // my vci for this channel
+    multihop_vci_t vci; // vci to use on outgoing messages
     uint8_t direction; // direction information
 
     struct monitor_binding *monitor_binding; // the monitor binding
@@ -130,7 +132,7 @@ errval_t multihop_chan_bind(struct multihop_chan *mc,
 
 // send bind reply back to the monitor
 void multihop_chan_send_bind_reply(struct multihop_chan *mc, errval_t err,
-        uint64_t vci, struct waitset *waitset);
+        multihop_vci_t vci, struct waitset *waitset);
 
 ///////////////////////////////////////////////////////
 
@@ -175,7 +177,7 @@ bool multihop_chan_is_window_full(struct multihop_chan *mc);
 
 // send a message over the multi-hop channel
 errval_t multihop_send_message(struct multihop_chan *mc,
-        struct event_closure _continuation, void *msg, uint64_t msglen);
+        struct event_closure _continuation, void *msg, size_t msglen);
 
 // send a capability over the multi-hop channel
 errval_t multihop_send_capability(struct multihop_chan *mc,
