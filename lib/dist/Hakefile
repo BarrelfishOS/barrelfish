@@ -13,7 +13,5 @@
 
 [ build library { target = "dist",
   		  cFiles = [ "barrier.c", "args.c", "skb.c", "service.c", 
-		  	     "start.c" ],
-                  addLibraries = [ "skb" ]    		  
-                }
+		  	     "start.c" ] }
 ]

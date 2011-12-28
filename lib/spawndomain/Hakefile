@@ -25,7 +25,6 @@
                     addIncludes = [ "/lib/barrelfish/include/arch" 
                                     ./. archFamily arch ],
                     flounderDefs = [ "monitor" ],
-                    architectures = [ arch ],
-                    addLibraries = [ "trace" ]
+                    architectures = [ arch ]
                 }
  )  | arch <- allArchitectures ]
