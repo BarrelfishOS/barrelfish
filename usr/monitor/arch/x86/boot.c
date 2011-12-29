@@ -42,7 +42,8 @@ struct xcore_bind_handler {
 };
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
-                             const char *cmdline)
+                             const char *cmdline,
+                             struct intermon_binding **ret_binding)
 {
     const char *monitorname = NULL, *cpuname = NULL;
     genpaddr_t arch_page_size;
@@ -135,6 +136,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
         return err_push(err, LIB_ERR_UMP_CHAN_BIND);
     }
 
+    *ret_binding = &ump_binding->b;
+
     // Identify UMP frame for tracing
     struct frame_identity umpid;
     err = invoke_frame_identify(frame, &umpid);
@@ -142,16 +145,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     ump_binding->ump_state.chan.recvid = (uintptr_t)umpid.base;
     ump_binding->ump_state.chan.sendid =
         (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
-
-    err = intermon_init(&ump_binding->b, coreid);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "intermon_init failed");
-    }
-
-    err = intern_set(&ump_binding->b, false, coreid);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "intern_set failed");
-    }
 
     /* Look up modules */
     struct mem_region *cpu_region = multiboot_find_module(bi, cpuname);
@@ -407,7 +400,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 /**
  * \brief Initialize monitor running on app cores
  */
-errval_t boot_arch_app_core(int argc, char *argv[])
+errval_t boot_arch_app_core(int argc, char *argv[],
+                            coreid_t *ret_parent_coreid,
+                            struct intermon_binding **ret_binding)
+
 {
     errval_t err;
 
@@ -415,6 +411,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
 
     // core_id of the core that booted this core
     coreid_t core_id = strtol(argv[1], NULL, 10);
+    *ret_parent_coreid = core_id;
 
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     // other monitor's channel id
@@ -502,30 +499,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
     umpb->ump_state.chan.recvid =
         (uintptr_t)(frameid.base + MON_URPC_CHANNEL_LEN);
 
-    // connect it to our request handlers
-    intermon_init(&umpb->b, core_id);
-
-    err = intern_set(&umpb->b, true, core_id);
-    assert(err_is_ok(err));
-
-    /* Request memserv and nameserv iref */
-    err = request_mem_serv_iref(&umpb->b);
-    assert(err_is_ok(err));
-    err = request_name_serv_iref(&umpb->b);
-    assert(err_is_ok(err));
-
-#ifdef BARRELFISH_MULTIHOP_CHAN_H
-        // request my part of the routing table
-    err = multihop_request_routing_table(&umpb->b);
-    assert(err_is_ok(err));
-#endif // BARRELFISH_MULTIHOP_CHAN_H
-
-
-    /* initialize self ram alloc */
-    err = mon_ram_alloc_init(core_id);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_RAM_ALLOC_SET);
-    }
+    *ret_binding = &umpb->b;
 
     return SYS_ERR_OK;
 }

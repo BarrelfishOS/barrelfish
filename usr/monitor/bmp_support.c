@@ -341,7 +341,7 @@ static void bind_bmp_service_request_handler(struct monitor_binding *b,
     free(e);
 }
 
-static void intermon_bind_bmp_request(struct intermon_binding *closure,
+static void intermon_bind_bmp_request(struct intermon_binding *binding,
                                       iref_t iref, con_id_t your_mon_id,
                                       uint32_t chanid, uint32_t eplen)
 {
@@ -358,8 +358,8 @@ static void intermon_bind_bmp_request(struct intermon_binding *closure,
     assert(err_is_ok(err)); // XXX
 
     /* Get the server's connection */
-    struct monitor_binding *domain_closure = NULL;
-    err = iref_get_closure(iref, &domain_closure);
+    struct monitor_binding *domain_binding = NULL;
+    err = iref_get_binding(iref, &domain_binding);
     assert(err_is_ok(err));
 
     /* Get the service id */
@@ -375,10 +375,10 @@ static void intermon_bind_bmp_request(struct intermon_binding *closure,
 
     // Set the monitor portion of it
     con->mon_id = your_mon_id;
-    con->mon_closure = closure;
+    con->mon_closure = binding;
 
-    bind_bmp_service_request_cont(domain_closure, service_id, my_mon_id,
-                                  bee_ep, eplen, closure, your_mon_id);
+    bind_bmp_service_request_cont(domain_binding, service_id, my_mon_id,
+                                  bee_ep, eplen, binding, your_mon_id);
 }
 
 /******* stack-ripped intermon_bind_bmp_reply *******/

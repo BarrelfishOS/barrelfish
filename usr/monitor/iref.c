@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief
+ * \brief IREF allocation/management
  */
 
 /*
@@ -15,29 +15,27 @@
 #include "monitor.h"
 
 struct iref_service {
-    struct monitor_binding *closure;
+    struct monitor_binding *binding;
     uintptr_t service_id;
 };
 
 #define MAX_IREF_PERCORE 256
-
-extern struct iref_service iref_table[MAX_IREF_PERCORE];
+static struct iref_service iref_table[MAX_IREF_PERCORE];
 
 /**
  * \brief Allocate a new iref
  *
  * Associate it with the server's connection and service id.
  */
-static inline errval_t
-iref_alloc(struct monitor_binding *closure, uintptr_t service_id,
-           iref_t *iref)
+errval_t iref_alloc(struct monitor_binding *binding, uintptr_t service_id,
+                    iref_t *iref)
 {
-    assert(closure != NULL);
+    assert(binding != NULL);
 
     // find a free slot in the local table
     for (iref_t i = 0; i < MAX_IREF_PERCORE; i++) {
-        if (iref_table[i].closure == NULL) {
-            iref_table[i].closure = closure;
+        if (iref_table[i].binding == NULL) {
+            iref_table[i].binding = binding;
             iref_table[i].service_id = service_id;
             // XXX: avoid zero being a valid iref
             *iref = MAX_IREF_PERCORE * my_core_id + i + 1;
@@ -53,8 +51,7 @@ iref_alloc(struct monitor_binding *closure, uintptr_t service_id,
  *
  * The core_id is stored in the iref itself.
  */
-static inline errval_t
-iref_get_core_id(iref_t iref, coreid_t *core_id)
+errval_t iref_get_core_id(iref_t iref, coreid_t *core_id)
 {
     *core_id = (iref - 1) / MAX_IREF_PERCORE;
     return SYS_ERR_OK;
@@ -63,15 +60,14 @@ iref_get_core_id(iref_t iref, coreid_t *core_id)
 /**
  * \brief Return conn
  */
-static inline errval_t
-iref_get_closure(iref_t iref, struct monitor_binding **closure)
+errval_t iref_get_binding(iref_t iref, struct monitor_binding **binding)
 {
     if ((iref - 1) / MAX_IREF_PERCORE != my_core_id) {
         return MON_ERR_INVALID_CORE_ID;
     }
 
-    *closure = iref_table[(iref - 1) % MAX_IREF_PERCORE].closure;
-    if (*closure == NULL) {
+    *binding = iref_table[(iref - 1) % MAX_IREF_PERCORE].binding;
+    if (*binding == NULL) {
         return MON_ERR_INVALID_IREF;
     } else {
         return SYS_ERR_OK;
@@ -81,8 +77,7 @@ iref_get_closure(iref_t iref, struct monitor_binding **closure)
 /**
  * \brief Return service_id
  */
-static inline errval_t
-iref_get_service_id(iref_t iref, uintptr_t *service_id)
+errval_t iref_get_service_id(iref_t iref, uintptr_t *service_id)
 {
     if ((iref - 1) / MAX_IREF_PERCORE != my_core_id) {
         return MON_ERR_INVALID_CORE_ID;

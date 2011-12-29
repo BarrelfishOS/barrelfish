@@ -26,9 +26,9 @@
                         Config.RCAP_DB_NULL   -> []
                         Config.RCAP_DB_CENTRAL-> [ "collections" ]
                         Config.RCAP_DB_TWOPC  -> [ "collections", "cap_predicates" ]
-     common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", 
+     common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
-		     "boot.c", "queue.c", "domain.c",
+		     "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
 		     "rcap_db_common.c", "resource_ctrl.c", "timing.c", rcap_db ]
 
      arch_srcs "x86_32"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]

@@ -22,12 +22,6 @@
 bool __barrelfish_initialisation_domain = 1;
 #endif
 
-/* Data structure to hold state for other monitors */
-struct intern intern[MAX_CPUS] = {{NULL, false}};
-
-/* IREF table for this core */
-struct iref_service iref_table[MAX_IREF_PERCORE];
-
 /* irefs for mem server and name service */
 iref_t mem_serv_iref = 0;
 iref_t name_serv_iref = 0;
@@ -115,6 +109,8 @@ static errval_t boot_bsp_core(int argc, char *argv[])
 
 static errval_t boot_app_core(int argc, char *argv[])
 {
+    coreid_t parent_core_id;
+    struct intermon_binding *intermon_binding;
     errval_t err;
 
 #if !defined(__scc__) || defined(RCK_EMU)
@@ -126,10 +122,35 @@ static errval_t boot_app_core(int argc, char *argv[])
     }
 #endif
 
-    err = boot_arch_app_core(argc, argv);
+    err = boot_arch_app_core(argc, argv, &parent_core_id, &intermon_binding);
     if(err_is_fail(err)) {
         return err;
     }
+
+    // connect it to our request handlers
+    intermon_init(intermon_binding, parent_core_id);
+
+    /* Request memserv and nameserv iref */
+#if !defined(__scc__) || defined(RCK_EMU)
+    err = request_mem_serv_iref(intermon_binding);
+    assert(err_is_ok(err));
+#endif
+    err = request_name_serv_iref(intermon_binding);
+    assert(err_is_ok(err));
+
+#ifdef BARRELFISH_MULTIHOP_CHAN_H
+    // request my part of the routing table
+    err = multihop_request_routing_table(intermon_binding);
+    assert(err_is_ok(err));
+#endif // BARRELFISH_MULTIHOP_CHAN_H
+
+#if !defined(__scc__) || defined(RCK_EMU)
+    /* initialize self ram alloc */
+    err = mon_ram_alloc_init(parent_core_id, intermon_binding);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_RAM_ALLOC_SET);
+    }
+#endif
 
     /* initialise rcap_db */
     err = rcap_db_init();
@@ -143,26 +164,20 @@ static errval_t boot_app_core(int argc, char *argv[])
         return err;
     }
 
-    // Get back-channel to monitor that booted us
-    coreid_t core_id = strtol(argv[1], NULL, 10);
-    struct intermon_binding *b;
-    err = intern_get_closure(core_id, &b);
-    assert(err_is_ok(err));
-
 #ifdef TRACING_EXISTS
     // Request trace caps
-    err = request_trace_caps(b);
+    err = request_trace_caps(intermon_binding);
     assert(err_is_ok(err));
 #endif
 
     // Spawn local spawnd
-    err = spawn_spawnd(b);
+    err = spawn_spawnd(intermon_binding);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning spawnd");
     }
 
     /* Signal the monitor that booted us that we have initialized */
-    err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
+    err = intermon_binding->tx_vtbl.monitor_initialized(intermon_binding, NOP_CONT);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SEND_REMOTE_MSG);
     }

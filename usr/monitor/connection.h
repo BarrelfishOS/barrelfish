@@ -12,11 +12,12 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "monitor.h"
+struct monitor_binding;
+struct intermon_binding;
 
 struct lmp_conn_state {
     uintptr_t domain_id;
-    struct monitor_binding *domain_closure;
+    struct monitor_binding *domain_binding;
 };
 
 static inline errval_t
@@ -48,9 +49,9 @@ lmp_conn_lookup(uintptr_t con_id)
 
 struct remote_conn_state {
     uintptr_t domain_id;
-    struct monitor_binding *domain_closure;
+    struct monitor_binding *domain_binding;
     uintptr_t mon_id;
-    struct intermon_binding *mon_closure;
+    struct intermon_binding *mon_binding;
     coreid_t core_id;                       // core id of other side of channel
     
     // type-specific data
@@ -99,7 +100,7 @@ remote_conn_lookup(uintptr_t con_id)
 struct span_state {
     uint8_t core_id;
     struct capref vroot;
-    struct monitor_binding *st;
+    struct monitor_binding *mb;
     uintptr_t domain_id;
 };
 

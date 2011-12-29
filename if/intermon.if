@@ -117,11 +117,6 @@ interface intermon "The Interface between monitors" {
                                     uint8      framebits);
         message span_domain_reply(state_id_t state_id, errval err);
 
-        /* Inter-monitor ping pong test messages */
-        message pingpong(uint64 data);
-        message test_pingpong(uint64 w0, uint64 w1, uint64 w2, uint64 w3,
-                              uint64 w4, uint64 w5, uint64 w6, uint64 w7);
-
 	// Resource control
 	message rsrc_join(rsrcid id, coreid_t coreid);
 	message rsrc_join_complete(rsrcid id);

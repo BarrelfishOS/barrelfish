@@ -107,9 +107,6 @@ static void bind_monitor_request_bmp(struct intermon_binding *st,
     // connect it to our request handlers
     intermon_init(&ibb->b, core_id);
 
-    err = intern_set(&ibb->b, true, core_id);
-    assert(err_is_ok(err));
-
     /* Send reply */
     assert(ibb != NULL);
     bind_monitor_reply_bmp_cont(&ibb->b, err, mychanid);
@@ -254,9 +251,6 @@ static void new_monitor_notify(struct intermon_binding *st,
     intermon_bmp_setup(bmp_binding, NULL_CAP, iep, ep);
 
     err = intermon_init(&bmp_binding->b, core_id);
-    assert(err_is_ok(err));
-
-    err = intern_set(&bmp_binding->b, true, core_id);
     assert(err_is_ok(err));
 
     /* reply to the sending monitor to proxy request */

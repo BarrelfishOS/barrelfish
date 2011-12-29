@@ -155,12 +155,6 @@ static void bind_monitor_request_scc(struct intermon_binding *st,
     err = intermon_init(&umpb->b, core_id);
     assert(err_is_ok(err));
 
-    err = intern_set(&umpb->b, true, core_id);
-    if (err_is_fail(err)) {
-        err = err_push(err, MON_ERR_INTERN_SET);
-        goto error;
-    }
-
     /* Send reply */
 reply:
     assert(umpb != NULL);
@@ -351,9 +345,6 @@ static void new_monitor_notify(struct intermon_binding *st,
         (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
 
     err = intermon_init(&ump_binding->b, core_id);
-    assert(err_is_ok(err));
-
-    err = intern_set(&ump_binding->b, true, core_id);
     assert(err_is_ok(err));
 
     /* Identify the frame cap */
