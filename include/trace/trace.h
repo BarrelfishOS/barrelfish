@@ -249,12 +249,17 @@
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 
+/* XXX: this is a temp kludge. The tracing code wants to allocate a fixed buffer
+ * for every possible core ID, but this is now too large for sanity, so I've
+ * limited it here. -AB 20111229
+ */
+#define TRACE_COREID_LIMIT        64
 #define TRACE_EVENT_SIZE          16
 #define TRACE_MAX_EVENTS          8000        // max number of events
 #define TRACE_PERCORE_BUF_SIZE    0x1ff00
 // (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer flags)))
 
-#define TRACE_BUF_SIZE (MAX_CPUS*TRACE_PERCORE_BUF_SIZE)
+#define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)
 
 
 #if defined(__x86_64__)
@@ -439,6 +444,7 @@ errval_t trace_my_setup(void);
  */
 static inline lvaddr_t compute_trace_buf_addr(uint8_t core_id)
 {
+    assert(core_id < TRACE_COREID_LIMIT);
     lvaddr_t addr = trace_buffer_master + (core_id * TRACE_PERCORE_BUF_SIZE);
 
     return addr;
@@ -510,7 +516,7 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 #ifdef TRACING_EXISTS
     struct trace_buffer *master = (struct trace_buffer *)kernel_trace_buf;
 
-    if (kernel_trace_buf == 0) {
+    if (kernel_trace_buf == 0 || my_core_id >= TRACE_COREID_LIMIT) {
         return TRACE_ERR_NO_BUFFER;
     }
 

@@ -46,7 +46,7 @@ void trace_reset_buffer(void)
  */
 void trace_reset_all(void)
 {
-    for (int core = 0; core < MAX_CPUS; core++) {
+    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
         struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(core);
         tbuf->head_index = 0;
         tbuf->tail_index = 0;
@@ -130,7 +130,7 @@ size_t trace_dump(char *buf, size_t buflen)
                    master->t0, master->duration, master->stop_time);
     ptr += len; totlen += len;
 
-    for (int core = 0; core < MAX_CPUS; core++) {
+    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
         struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(core);
         if (tbuf->head_index == 0) continue;
 
