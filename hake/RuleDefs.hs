@@ -583,7 +583,7 @@ flounderBindingHelper :: Options -> String -> [String] -> String -> [String] -> 
 flounderBindingHelper opts ifn backends cfile srcs = Rules $
     [ flounderRule opts $ args ++ [flounderIfFileLoc ifn, Out arch cfile ],
         compileGeneratedCFile opts cfile,
-        flounderDefsDependBackends opts ifn allbackends srcs]
+        flounderDefsDepend opts ifn allbackends srcs]
     ++ [extraGeneratedCDependency opts (flounderIfDrvDefsPath ifn d) cfile
         | d <- allbackends]
     where
@@ -624,14 +624,40 @@ flounderTHCStub opts ifn srcs =
 -- Create a dependency on a Flounder header file for a set of files,
 -- but don't actually build either stub (useful for libraries)
 --
-flounderDefsDependBackends :: Options -> String -> [String] -> [String] -> HRule
-flounderDefsDependBackends opts ifn backends srcs = Rules $
+flounderDefsDepend :: Options -> String -> [String] -> [String] -> HRule
+flounderDefsDepend opts ifn backends srcs = Rules $
     (extraCDependencies opts (flounderIfDefsPath ifn) srcs) :
     [extraCDependencies opts (flounderIfDrvDefsPath ifn drv) srcs
            | drv <- backends, drv /= "generic" ]
 
--- default set of backends
-flounderDefsDepend o i s = flounderDefsDependBackends o i (optFlounderBackends o) s
+--
+-- Emit all the Flounder-related rules/dependencies for a given target
+--
+
+flounderRules :: Options -> Args.Args -> [String] -> [HRule]
+flounderRules opts args csrcs = 
+    ([ flounderBinding opts f csrcs | f <- Args.flounderBindings args ]
+     ++
+     [ flounderExtraBinding opts f backends csrcs
+       | (f, backends) <- Args.flounderExtraBindings args ]
+     ++
+     [ flounderTHCStub opts f csrcs | f <- Args.flounderTHCStubs args ]
+     ++
+     -- Flounder extra defs (header files) also depend on the base
+     -- Flounder headers for the same interface
+     [ flounderDefsDepend opts f baseBackends csrcs | f <- allIf ]
+     ++
+     -- Extra defs only for non-base backends (those were already emitted above)
+     [ flounderDefsDepend opts f (backends \\ baseBackends) csrcs
+       | (f, backends) <- Args.flounderExtraDefs args ]
+    )
+    where
+      -- base backends enabled by default
+      baseBackends = optFlounderBackends opts
+
+      -- all interfaces mentioned in flounderDefs or ExtraDefs
+      allIf = nub $ Args.flounderDefs args ++ [f | (f,_) <- Args.flounderExtraDefs args]
+
 
 --
 -- Build a Fugu library 
@@ -813,7 +839,6 @@ allLibraryPaths args =
     [ libraryPath l | l <- Args.addLibraries args ]
 
 
-    
 ---------------------------------------------------------------------
 --
 -- Very large-scale macros
@@ -860,17 +885,7 @@ appBuildArch af tf args arch =
         -- contains C++ files, we have to use the C++ linker.
         mylink = if cxxsrcs == [] then link else linkCxx
     in
-      Rules ( [ flounderBinding opts f csrcs | f <- Args.flounderBindings args ]
-              ++
-              [ flounderExtraBinding opts f backends csrcs
-                | (f, backends) <- Args.flounderExtraBindings args ]
-              ++
-              [ flounderTHCStub opts f csrcs | f <- Args.flounderTHCStubs args ]
-              ++
-              [ flounderDefsDepend opts f csrcs | f <- Args.flounderDefs args ]
-              ++
-              [ flounderDefsDependBackends opts f backends csrcs
-                | (f, backends) <- Args.flounderExtraDefs args ]
+      Rules ( flounderRules opts args csrcs
               ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
@@ -914,17 +929,7 @@ libBuildArch af tf args arch =
         csrcs = Args.cFiles args 
         cxxsrcs = Args.cxxFiles args 
     in
-      Rules ( [ flounderBinding opts f csrcs | f <- Args.flounderBindings args ]
-              ++
-              [ flounderExtraBinding opts f backends csrcs
-                | (f, backends) <- Args.flounderExtraBindings args ]
-              ++
-              [ flounderTHCStub opts f csrcs | f <- Args.flounderTHCStubs args ]
-              ++
-              [ flounderDefsDepend opts f csrcs | f <- Args.flounderDefs args ]
-              ++
-              [ flounderDefsDependBackends opts f backends csrcs
-                | (f, backends) <- Args.flounderExtraDefs args ]
+      Rules ( flounderRules opts args csrcs
               ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
