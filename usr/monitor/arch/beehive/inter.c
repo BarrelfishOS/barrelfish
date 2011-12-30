@@ -36,25 +36,25 @@ struct bind_monitor_reply_bmp_state {
     struct intermon_bind_monitor_reply_bmp__args args;
 };
 
-static void bind_monitor_reply_bmp_cont(struct intermon_binding *st,
+static void bind_monitor_reply_bmp_cont(struct intermon_binding *b,
                                         errval_t err, chanid_t chanid)
 {
     errval_t err2;
 
-    err2 = st->tx_vtbl.bind_monitor_reply_bmp(st, NOP_CONT, err,
-                                              chanid, my_core_id);
+    err2 = b->tx_vtbl.bind_monitor_reply_bmp(b, NOP_CONT, err,
+                                             chanid, my_core_id);
     if (err_is_fail(err2)) {
         if(err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
             struct bind_monitor_reply_bmp_state *me =
                 malloc(sizeof(struct bind_monitor_reply_bmp_state));
             assert(me != NULL);
-            struct intermon_state *ist = st->st;
+            struct intermon_state *ist = b->st;
             assert(ist != NULL);
             me->args.err = err;
             me->args.chan_id = chanid;
             me->elem.cont = bind_monitor_reply_bmp_handler;
 
-            err = intermon_enqueue_send(st, &ist->queue,
+            err = intermon_enqueue_send(b, &ist->queue,
                                         get_default_waitset(), &me->elem.queue);
             assert(err_is_ok(err));
             return;
@@ -76,7 +76,7 @@ static void bind_monitor_reply_bmp_handler(struct intermon_binding *b,
  * \brief A monitor receives request to setup a connection
  * with another newly booted monitor from a third monitor
  */
-static void bind_monitor_request_bmp(struct intermon_binding *st,
+static void bind_monitor_request_bmp(struct intermon_binding *b,
                                      coreid_t core_id, 
                                      chanid_t chan_id, 
                                      coreid_t from_core_id)
@@ -117,11 +117,11 @@ static void bind_monitor_request_bmp(struct intermon_binding *st,
  * \brief The monitor that proxied the request for one monitor to
  * setup a connection with another monitor gets the reply
  */
-static void bind_monitor_reply_bmp(struct intermon_binding *closure,
+static void bind_monitor_reply_bmp(struct intermon_binding *binding,
                                    errval_t err, chanid_t chan_id,
                                    coreid_t core_id)
 {
-    struct intermon_bmp_binding *b = (struct intermon_bmp_binding *)closure;
+    struct intermon_bmp_binding *b = (struct intermon_bmp_binding *)binding;
 
     // Create a way to send beehive messages to new core
     err = beehive_create_cap(core_id, chan_id, &b->bmp_state.chan.outepcap);
@@ -138,29 +138,29 @@ struct bind_monitor_request_bmp_state {
     struct intermon_bind_monitor_request_bmp__args args;
 };
 
-static void bind_monitor_request_bmp_cont(struct intermon_binding *dst_closure,
+static void bind_monitor_request_bmp_cont(struct intermon_binding *dst_binding,
                                           coreid_t src_core_id,
                                           chanid_t chan_id,
                                           coreid_t core_id)
 {
     errval_t err;
 
-    err = dst_closure->tx_vtbl.
-        bind_monitor_request_bmp(dst_closure, NOP_CONT, src_core_id, 
+    err = dst_binding->tx_vtbl.
+        bind_monitor_request_bmp(dst_binding, NOP_CONT, src_core_id, 
                                  chan_id, core_id);
     if (err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct bind_monitor_request_bmp_state *me =
                 malloc(sizeof(struct bind_monitor_request_bmp_state));
             assert(me != NULL);
-            struct intermon_state *ist = dst_closure->st;
+            struct intermon_state *ist = dst_binding->st;
             assert(ist != NULL);
             me->args.core_id = src_core_id;
             me->args.chan_id = chan_id;
             me->args.from_core_id = core_id;
             me->elem.cont = bind_monitor_request_bmp_handler;
 
-            err = intermon_enqueue_send(dst_closure, &ist->queue,
+            err = intermon_enqueue_send(dst_binding, &ist->queue,
                                         get_default_waitset(), &me->elem.queue);
             assert(err_is_ok(err));
             return;
@@ -183,7 +183,7 @@ static void bind_monitor_request_bmp_handler(struct intermon_binding *b,
  * \brief A monitor asks this monitor to proxy
  * its request to bind to another monitor
  */
-static void bind_monitor_proxy_bmp(struct intermon_binding *st,
+static void bind_monitor_proxy_bmp(struct intermon_binding *b,
                                    coreid_t dst_core_id,
                                    chanid_t chan_id,
                                    coreid_t core_id)
@@ -192,21 +192,17 @@ static void bind_monitor_proxy_bmp(struct intermon_binding *st,
     errval_t err;
 
     /* Get source monitor's core id */
-    coreid_t src_core_id = 0;
-    err = intern_get_core_id(st, &src_core_id);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "intern_get_core_id failed");
-    }
+    coreid_t src_core_id = ((struct intermon_state *)b->st)->core_id;
 
     /* Get destination monitor */
-    struct intermon_binding *dst_closure = NULL;
-    err = intern_get_closure(dst_core_id, &dst_closure);
+    struct intermon_binding *dst_binding = NULL;
+    err = intermon_binding_get(dst_core_id, &dst_binding);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "intern_get_closure failed");
+        DEBUG_ERR(err, "intermon_binding_get failed");
     }
 
     // Proxy the request
-    bind_monitor_request_bmp_cont(dst_closure, src_core_id, 
+    bind_monitor_request_bmp_cont(dst_binding, src_core_id, 
                                   chan_id, core_id);
 }
 
@@ -215,7 +211,7 @@ static void bind_monitor_proxy_bmp(struct intermon_binding *st,
  *  Setup our connection and request the sender to proxy
  *  the bind request to the monitor
  */
-static void new_monitor_notify(struct intermon_binding *st,
+static void new_monitor_notify(struct intermon_binding *b,
                                coreid_t core_id)
 {
     errval_t err;
@@ -254,8 +250,8 @@ static void new_monitor_notify(struct intermon_binding *st,
     assert(err_is_ok(err));
 
     /* reply to the sending monitor to proxy request */
-    err = st->tx_vtbl.bind_monitor_proxy_bmp(st, NOP_CONT, core_id,
-                                             chanid, my_core_id);
+    err = b->tx_vtbl.bind_monitor_proxy_bmp(b, NOP_CONT, core_id,
+                                            chanid, my_core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bind proxy request failed");
     }
