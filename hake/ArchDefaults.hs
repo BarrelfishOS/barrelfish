@@ -53,8 +53,9 @@ cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH" ]]
                    ++ Config.defines
                    ++ Config.arch_defines options
 
-cStdIncs arch archFamily = 
+cStdIncs arch archFamily =
     [ NoDep SrcTree "src" "/include",
+      NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/arch" ./. archFamily),
       NoDep SrcTree "src" ("/include/target" ./. archFamily),
       NoDep SrcTree "src" "/include/ipv4", -- XXX
