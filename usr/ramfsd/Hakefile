@@ -13,6 +13,7 @@
 [ build application { target = "ramfsd",
                       cFiles = [ "main.c", "ramfs.c", "service.c" ],
 		      flounderDefs = ["monitor"],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderBindings = [ "trivfs" ],
 		      addLibraries = [ "spawndomain", "zlib", "cpio" ]
                     }

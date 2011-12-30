@@ -55,7 +55,7 @@
     build application { target = "monitor",
                         architectures = [arch],
                         cFiles = common_srcs ++ arch_srcs arch ++ idc_srcs,
-                        flounderDefs = [ "mem", "monitor" ],
+                        flounderDefs = [ "mem", "monitor", "monitor_blocking" ],
                         flounderBindings = [ "monitor_mem", "intermon" ],
                         flounderExtraBindings = [ ("monitor", ["loopback"]),
                                                   ("monitor_mem", ["rpcclient"]),
