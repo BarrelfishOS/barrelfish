@@ -10,7 +10,8 @@
 #include <barrelfish/barrelfish.h>
 #include <unistd.h>
 #include <errno.h>
-#include "fdtab.h"
+#include <fcntl.h>
+#include <posixcompat/fdtab.h>
 
 int dup(int oldfd)
 {

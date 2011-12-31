@@ -12,13 +12,12 @@
 
 [ build application { target = "testdesc",
                       cFiles = [ "testdesc.c" ],
-		      addLibraries = [ "posixcompat", "vfs" , "nfs", "lwip", "contmng", "timer" ],
+		      addLibraries = [ "vfs" , "nfs", "lwip", "contmng", "timer" ],
 		      flounderBindings = [ "unixsock" ]
 --		      flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
                     },
   build application { target = "testdesc-child",
                       cFiles = [ "testdesc-child.c" ],
-		      addLibraries = [ "posixcompat" ],
 		      flounderBindings = [ "unixsock" ]
 --		      flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
                     }

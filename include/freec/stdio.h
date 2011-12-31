@@ -87,8 +87,6 @@ Author: Ben Leslie
 #include <stddef.h>
 #include <stdarg.h>
 
-#define __UNGET_SIZE 10
-
 struct __file;
 typedef struct __file FILE; /* This needs to be done correctly */
 typedef long fpos_t; /* same */

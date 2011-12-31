@@ -11,7 +11,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <errno.h>
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 #include "unixsock.h"
 

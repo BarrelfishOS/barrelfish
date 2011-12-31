@@ -367,7 +367,7 @@ m5script.py: $(SRCDIR)/tools/molly/m5script.py
 m5_kernel: $(MODULES) menu.lst.m5 tools/bin/molly m5script.py
 	$(SRCDIR)/tools/molly/build_data_files.sh menu.lst.m5 m5_tmp
 	tools/bin/molly menu.lst.m5 m5_kernel.c
-	cc -std=c99 -Wl,-N -pie -fno-builtin -nostdlib -Wl,--build-id=none -Wl,--fatal-warnings -m64 -fPIC -T$(SRCDIR)/tools/molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/x86_64 -I./x86_64/include -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/molly/molly_boot.S $(SRCDIR)/tools/molly/molly_init.c ./m5_kernel.c $(SRCDIR)/lib/elf/elf64.c ./m5_tmp/* -o m5_kernel	
+	cc -std=gnu99 -Wl,-N -pie -fno-builtin -nostdlib -Wl,--build-id=none -Wl,--fatal-warnings -m64 -fPIC -T$(SRCDIR)/tools/molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/x86_64 -I./x86_64/include -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/molly/molly_boot.S $(SRCDIR)/tools/molly/molly_init.c ./m5_kernel.c $(SRCDIR)/lib/elf/elf64.c ./m5_tmp/* -o m5_kernel	
 	@echo "Now invoke m5, e.g. as 'm5.fast m5script.py  --num_cpus=2 --kernel=m5_kernel'"
 
 m5: m5_kernel m5script.py

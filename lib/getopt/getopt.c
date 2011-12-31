@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <limits.h>
 #include <getopt/getopt.h>
 
 static int handle_int(int *var, const char *val)

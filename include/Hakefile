@@ -14,9 +14,7 @@
       | f <- [ 
    "bexec.h",
    "cpiobin.h",
-   "dirent.h",
    "dlfcn.h",
-   "getopt.h",
    "lwipopts.h",
    "multicast.h",
    "utime.h",

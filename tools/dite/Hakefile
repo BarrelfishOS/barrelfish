@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ compileNativeC "dite" ["dite.c", "elf32.c", "elf64.c"] ["-std=c99", "-g"] [] ]
+[ compileNativeC "dite" ["dite.c", "elf32.c", "elf64.c"] ["-std=gnu99", "-g"] [] ]

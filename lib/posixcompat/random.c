@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD$");
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "posixcompat.h"
 /* #include <unistd.h>            /\* for srandomdev() *\/ */
 /* #include "un-namespace.h" */
 

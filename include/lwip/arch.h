@@ -180,7 +180,7 @@ extern "C" {
 #define  ENOBUFS    105  /* No buffer space available */
 #define  EISCONN    106  /* Transport endpoint is already connected */
 #define  ENOTCONN  107  /* Transport endpoint is not connected */
-#define  ESHUTDOWN  108  /* Cannot send after transport endpoint shutdown */
+
 #define  ETOOMANYREFS  109  /* Too many references: cannot splice */
 #define  ETIMEDOUT  110  /* Connection timed out */
 #define  ECONNREFUSED  111  /* Connection refused */
@@ -199,8 +199,15 @@ extern "C" {
 #define  ENOMEDIUM  123  /* No medium found */
 #define  EMEDIUMTYPE  124  /* Wrong medium type */
 
+#ifndef errno
+extern int errno;
+#endif
+
+#endif /* LWIP_PROVIDE_ERRNO */
+
 
 #define ENSROK    0 /* DNS server returned answer with no data */
+#define  ESHUTDOWN  108  /* Cannot send after transport endpoint shutdown */
 #define ENSRNODATA  160 /* DNS server returned answer with no data */
 #define ENSRFORMERR 161 /* DNS server claims query was misformatted */
 #define ENSRSERVFAIL 162  /* DNS server returned general failure */
@@ -220,11 +227,6 @@ extern "C" {
 #define ENSRQUERYDOMAINTOOLONG  176 /* Domain name is too long */
 #define ENSRCNAMELOOP 177 /* Domain name is too long */
 
-#ifndef errno
-extern int errno;
-#endif
-
-#endif /* LWIP_PROVIDE_ERRNO */
 
 #ifdef __cplusplus
 }

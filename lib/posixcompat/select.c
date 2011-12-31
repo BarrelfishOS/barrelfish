@@ -14,8 +14,10 @@
 #include <assert.h>
 #include <unistd.h>
 #include <lwip/sys.h>
+#include <lwip/sockets.h>
+#include <syscalls.h>
 #include "unixsock.h"
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
 #define	MAX(a,b) (((a)>(b))?(a):(b))

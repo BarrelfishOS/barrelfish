@@ -216,14 +216,14 @@ errval_t rsrc_join(rsrcid_t id, struct capref dispcap,
 
 errval_t rsrc_new(rsrcid_t *id)
 {
-    static int index = 0;
+    static int idx = 0;
 
-    if(index >= MAX_RSRC_DOMAINS) {
+    if(idx >= MAX_RSRC_DOMAINS) {
         return MON_ERR_RSRC_ALLOC;
     }
 
-    *id = (my_core_id << 16) | index;
-    index++;
+    *id = (my_core_id << 16) | idx;
+    idx++;
     return SYS_ERR_OK;
 }
 

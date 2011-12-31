@@ -103,7 +103,7 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fno-unwind-tables",
                                 "-nostdinc",
-                                "-std=c99",
+                                "-std=gnu99",
                                 "-mcpu=arm926ej-s",
                                 "-mapcs",
                                 "-mabi=aapcs-linux",

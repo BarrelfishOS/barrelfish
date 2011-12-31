@@ -55,6 +55,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <kputchar.h>
+#include <sys/types.h>
 
 #define TOCONS          (1 << 0)
 #define TOLOG           (1 << 1)
@@ -68,6 +69,9 @@ static const char HEXDIGITS[] = "0123456789ABCDEF";
 #define KPRINTF_MUTEX_ENTER()  kprintf_begin()
 #define KPRINTF_MUTEX_EXIT()   kprintf_end()
 
+#ifdef putchar
+#undef putchar
+#endif
 
 int
 putchar(int c)
@@ -191,9 +195,6 @@ vsnprintf(char *bf, size_t size, const char *fmt, va_list ap)
  */
 
 /* XXX: legacy types needed by kprintf. don't use these for new code */
-typedef unsigned short      u_short;
-typedef unsigned int        u_int;
-typedef unsigned long       u_long;
 typedef signed long long    quad_t;
 typedef unsigned long long  u_quad_t;
 

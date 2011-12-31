@@ -159,10 +159,10 @@ barrelfish_close(void *handle)
     return err_is_ok(err) ? 0 : EOF;
 }
 
-static FILE *
+static struct __file *
 barrelfish_fopen(const char *fname, const char *mode)
 {
-    FILE *newfile;
+    struct __file *newfile;
     vfs_handle_t vh;
     errval_t err;
 
@@ -195,7 +195,7 @@ barrelfish_fopen(const char *fname, const char *mode)
         }
     }
 
-    newfile = malloc(sizeof(FILE));
+    newfile = malloc(sizeof(struct __file));
     if (newfile == NULL) {
         vfs_close(vh);
         return NULL;
@@ -230,7 +230,7 @@ barrelfish_fopen(const char *fname, const char *mode)
     return newfile;
 }
 
-extern FILE *(*_libc_fopen_func)(const char *fname, const char *prot);
+extern struct __file *(*_libc_fopen_func)(const char *fname, const char *prot);
 
 void vfs_fopen_init(void)
 {

@@ -21,7 +21,7 @@ interface trivfs "Trivial file system interface" {
 
     // read the name/type/size of the i'th entry in the given directory
     // (yes, there's no protection against concurrent addition/deletion)
-    rpc readdir(in fh dir, in uint32 index,
+    rpc readdir(in fh dir, in uint32 idx,
                 out errval err, out string name, out bool isdir, out fsize size);
 
     // look for a named entry in the given directory, return the fh if found

@@ -46,11 +46,6 @@ typedef	unsigned long	wctype_t;
 #define	_WCTYPE_T
 #endif
 
-#ifndef _WINT_T_DECLARED
-typedef	__wint_t	wint_t;
-#define	_WINT_T_DECLARED
-#endif
-
 #ifndef WEOF
 #define	WEOF	((wint_t)-1)
 #endif

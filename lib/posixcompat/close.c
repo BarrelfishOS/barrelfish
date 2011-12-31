@@ -10,7 +10,9 @@
 #include <unistd.h>
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
-#include "fdtab.h"
+#include <stdio.h>
+#include <lwip/sockets.h>
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
 int close(int fd)

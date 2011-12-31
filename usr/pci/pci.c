@@ -89,29 +89,29 @@ void pci_init_datastructures(void)
     memset(dev_caps, 0, sizeof(dev_caps));
 }
 
-int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index)
+int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx)
 {
-    return(dev_caps[bus][dev][fun][index].nr_caps);
+    return(dev_caps[bus][dev][fun][idx].nr_caps);
 }
 
 struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                     uint8_t index, int cap_nr)
+                                     uint8_t idx, int cap_nr)
 {
-    return(dev_caps[bus][dev][fun][index].frame_cap[cap_nr]);
+    return(dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
 }
 uint8_t pci_get_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                    uint8_t index)
+                                    uint8_t idx)
 {
-    return(dev_caps[bus][dev][fun][index].type);
+    return(dev_caps[bus][dev][fun][idx].type);
 }
 
 
-static errval_t alloc_device_bar(uint8_t index,
+static errval_t alloc_device_bar(uint8_t idx,
                                  uint8_t bus, uint8_t dev, uint8_t fun,
                                  uint8_t BAR, pciaddr_t base, pciaddr_t high,
                                  pcisize_t size)
 {
-    struct device_caps *c = &dev_caps[bus][dev][fun][index];
+    struct device_caps *c = &dev_caps[bus][dev][fun][idx];
     errval_t err;
 
     // first try with maximally-sized caps (we'll reduce this if it doesn't work)
@@ -179,23 +179,23 @@ static errval_t alloc_device_bar(uint8_t index,
 
 //XXX: FIXME: HACK: BAD!!! Only needed to allocate a full I/O range cap to
 //                         the VESA graphics driver
-static errval_t assign_complete_io_range(uint8_t index,
+static errval_t assign_complete_io_range(uint8_t idx,
                                          uint8_t bus, uint8_t dev, uint8_t fun,
                                          uint8_t BAR)
 {
-    dev_caps[bus][dev][fun][index].frame_cap = (struct capref*)
+    dev_caps[bus][dev][fun][idx].frame_cap = (struct capref*)
         malloc(sizeof(struct capref));
-    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][index].frame_cap[0]));
+    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][idx].frame_cap[0]));
     assert(err_is_ok(err));
-    err = cap_copy(dev_caps[bus][dev][fun][index].frame_cap[0], cap_io);
+    err = cap_copy(dev_caps[bus][dev][fun][idx].frame_cap[0], cap_io);
     assert(err_is_ok(err));
 
 
-    dev_caps[bus][dev][fun][index].bits = 16;
-    dev_caps[bus][dev][fun][index].bar_nr = BAR;
-    dev_caps[bus][dev][fun][index].assigned = true;
-    dev_caps[bus][dev][fun][index].type = 1;
-    dev_caps[bus][dev][fun][index].nr_caps = 1;
+    dev_caps[bus][dev][fun][idx].bits = 16;
+    dev_caps[bus][dev][fun][idx].bar_nr = BAR;
+    dev_caps[bus][dev][fun][idx].assigned = true;
+    dev_caps[bus][dev][fun][idx].type = 1;
+    dev_caps[bus][dev][fun][idx].nr_caps = 1;
     return SYS_ERR_OK;
 }
 

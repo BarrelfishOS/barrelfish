@@ -28,27 +28,27 @@ typedef int mackerel_msr_t;
  * understand why it should not be changed, as long as we are
  * compiling with GCC.
  */
-static inline uint32_t ia32_msr_read_32(ia32_t *base, mackerel_msr_t index)
+static inline uint32_t ia32_msr_read_32(ia32_t *base, mackerel_msr_t idx)
 {
-    volatile uint32_t r = rdmsr(index);
+    volatile uint32_t r = rdmsr(idx);
     return r;
 }
-static inline uint64_t ia32_msr_read_64(ia32_t *base, mackerel_msr_t index)
+static inline uint64_t ia32_msr_read_64(ia32_t *base, mackerel_msr_t idx)
 {
-    volatile uint64_t r = rdmsr(index);
+    volatile uint64_t r = rdmsr(idx);
     return r;
 }
 
 /*
  * Writing to Model-Specific Registers
  */
-static inline void ia32_msr_write_32(ia32_t *base, mackerel_msr_t index, uint32_t v)
+static inline void ia32_msr_write_32(ia32_t *base, mackerel_msr_t idx, uint32_t v)
 {
-    wrmsr(index, v);
+    wrmsr(idx, v);
 }
-static inline void ia32_msr_write_64(ia32_t *base, mackerel_msr_t index, uint64_t v)
+static inline void ia32_msr_write_64(ia32_t *base, mackerel_msr_t idx, uint64_t v)
 {
-    wrmsr(index, v);
+    wrmsr(idx, v);
 }
 
 #endif // __IA32_MSR_H

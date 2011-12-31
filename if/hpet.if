@@ -11,5 +11,5 @@ interface hpet "The HPET Interface" {
         message counter_request();
         message counter_reply(
                  cap cap,
-                 uint64 index);
+                 uint64 idx);
 };

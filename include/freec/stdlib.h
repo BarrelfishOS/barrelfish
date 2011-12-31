@@ -127,7 +127,6 @@ static inline uintmax_t strtoumax(const char *s, char **endp, int base)
     return strtoull(s, endp, base);
 }
 
-
 /* 7.20.1-1 atof function */
 #ifndef IN_KERNEL
 static inline double atof(const char *nptr)
@@ -157,12 +156,6 @@ static inline long long atoll(const char *nptr)
 int rand(void);
 void srand(unsigned int seed);
 int rand_r(unsigned int *ctx);
-
-/* from POSIX */
-void srandom(unsigned long x);
-char *initstate(unsigned long seed, char *arg_state, long n);
-char *setstate(char *arg_state);
-long random(void);
 
 /* 7.20.3 Memory management functions */
 

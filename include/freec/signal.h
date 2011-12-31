@@ -116,7 +116,6 @@ typedef __sigset_t      sigset_t;
 #define SIG_SETMASK     3       /* set specified signal set */
 
 signalhandler_t signal(int sugnum, signalhandler_t handler);
-int kill(pid_t pid, int sig);
 int sigprocmask(int how, const sigset_t *set, sigset_t *oset);
 
 int sigaddset(sigset_t *set, int signo);

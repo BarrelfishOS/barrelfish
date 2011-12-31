@@ -125,19 +125,19 @@ static inline void write_page(uint8_t page, struct client_closure *cl)
     rtl8029as_cr_wr(&rtl, cr);          // Start write
 
 
-	for (int index = 0; index < cl->rtpbuf; index++) {
+	for (int idx = 0; idx < cl->rtpbuf; idx++) {
 /*
-		RTL8029_DEBUG("sending %dth rx_pbuf\n", index);
+		RTL8029_DEBUG("sending %dth rx_pbuf\n", idx);
 
 	    RTL8029_DEBUG("pa %p va %p offset %lu\n",
-	    		(void *)cl->buffer_ptr->pa, cl->buffer_ptr->va, cl->pbuf[index].offset);
+	    		(void *)cl->buffer_ptr->pa, cl->buffer_ptr->va, cl->pbuf[idx].offset);
 */
 #if defined(__i386__)
-		uint8_t *src = (uint8_t *) ((uintptr_t)(cl->buffer_ptr->va + cl->pbuf[index].offset));
+		uint8_t *src = (uint8_t *) ((uintptr_t)(cl->buffer_ptr->va + cl->pbuf[idx].offset));
 #else
-        uint8_t *src = (uint8_t *) ((uint64_t)cl->buffer_ptr->va + cl->pbuf[index].offset);
+        uint8_t *src = (uint8_t *) ((uint64_t)cl->buffer_ptr->va + cl->pbuf[idx].offset);
 #endif
-        pbuf_len = cl->pbuf[index].len;
+        pbuf_len = cl->pbuf[idx].len;
 
         uint32_t i = 0;
 

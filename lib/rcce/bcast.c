@@ -91,11 +91,11 @@ static void client_connected(void *st, errval_t err, struct rcce_binding *b)
     assert(err_is_ok(err));
 }
 
-static void connect(coreid_t index)
+static void connect(coreid_t idx)
 {
     errval_t err;
     char id[100];
-    snprintf(id, sizeof(id), "%s%d", my_name, index);
+    snprintf(id, sizeof(id), "%s%d", my_name, idx);
 
     iref_t iref;
     err = nameservice_blocking_lookup(id, &iref);
@@ -108,7 +108,7 @@ static void connect(coreid_t index)
     struct rcce_state *st = malloc(sizeof(struct rcce_state));
     assert(st != NULL);
     memset(st, 0, sizeof(struct rcce_state));
-    st->index = index;
+    st->index = idx;
     st->request_done = false;
 
     /* printf("%s: rcce_bind\n", my_name); */
@@ -222,7 +222,7 @@ static void monitor_reply(struct monitor_binding *st, errval_t msgerr)
 static void set_present(char *str)
 {
     while (*str != '\0') {
-        if (!isdigit(*str)) {
+        if (!isdigit((int)*str)) {
             str++;
             continue;
         }

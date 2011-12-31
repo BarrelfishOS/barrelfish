@@ -9,7 +9,7 @@
 
 interface ether "Generic Ethernet Driver" {
     call register_buffer(cap buf);
-    response new_buffer_id(errval err, uint64 index);
+    response new_buffer_id(errval err, uint64 idx);
 
     call transmit_packet(uint64 nr_pbufs,
                          uint64 buffer_id,

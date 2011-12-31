@@ -14,8 +14,28 @@
 
 #include <stddef.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <assert.h>
+
+/*
+ * Copied here, as there are conflicting types between freec and newlib
+ */
+static inline int
+isdigit(int c)
+{
+        return '0' <= c && c <= '9';
+}
+
+static inline int
+isxdigit(int c)
+{
+        return isdigit(c) || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f');
+}
+
+static inline int
+islower(int c)
+{
+        return 'a' <= c && c <= 'z';
+}
 
 /**
  * \brief Convert ASCII digit to integer.
@@ -52,7 +72,7 @@ long int strtol(const char *nptr, char **endptr, int base)
     long int retval = 0;
 
     for(int i = 0;
-        (base == 10 && isdigit(nptr[i])) || (base == 16 && isxdigit(nptr[i]));
+        (base == 10 && isdigit((int)nptr[i])) || (base == 16 && isxdigit((int)nptr[i]));
         i++) {
         // Shift and add a digit
         retval = retval * base + ascii_to_int(nptr[i]);

@@ -46,7 +46,9 @@ extern size_t (*_libc_terminal_write_func)(const char *, size_t);
 extern void (*_libc_exit_func)(int);
 extern void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
-static void libc_exit(int status)
+void libc_exit(int);
+
+void libc_exit(int status)
 {
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {

@@ -13,7 +13,8 @@
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
 #include <errno.h>
-#include "fdtab.h"
+#include <fcntl.h>
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
 //XXX: flags are ignored...

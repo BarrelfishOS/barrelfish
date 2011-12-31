@@ -26,7 +26,7 @@
 #include <if/monitor_defs.h>
 #include "queries.h"
 
-static int index;
+static int idx;
 static int num_cores;
 
 static char my_name[128];
@@ -104,7 +104,7 @@ static void process_neighbor(char *result, int parent, int neighbor)
         p++;
 
         // Empty reachable
-        if (!isdigit(*p)) {
+        if (!isdigit((int)*p)) {
             break;
         }
 
@@ -143,7 +143,7 @@ static void process_result(char *result)
         p = strchr(p, '[');
         p++;
 
-        if (isdigit(*p)) { // Has neighbors
+        if (isdigit((int)*p)) { // Has neighbors
             while(1) {
                 int neighbor = strtol(p, &p, 10);
                 //printf("%d has neighbor %d\n", coreid, neighbor);
@@ -209,12 +209,12 @@ static __attribute__((unused)) void skb_init(void)
     }
 
     char *result;
-    result = queries[num_cores][index].str[1];
+    result = queries[num_cores][idx].str[1];
     assert(result);
     process_result(result);
 
 /*     for (int i = 0; i < num_cores; i++) { */
-/*         result = queries[num_cores][index].str[i]; */
+/*         result = queries[num_cores][idx].str[i]; */
 /*         assert(result); */
 /*         process_result(result); */
 /*     } */
@@ -429,7 +429,7 @@ static errval_t spawn_other_cores(void)
     errval_t err;
 
     char indexstr[16], routeidstr[16];
-    snprintf(indexstr, sizeof(indexstr), "%d", index);
+    snprintf(indexstr, sizeof(indexstr), "%d", idx);
     indexstr[sizeof(indexstr) - 1] = '\0';
     snprintf(routeidstr, sizeof(routeidstr), "%d", routeid);
     routeidstr[sizeof(routeidstr) - 1] = '\0';
@@ -534,7 +534,7 @@ int main(int argc, char *argv[])
         abort();
     }
 
-    index = strtol(argv[1], NULL, 10);
+    idx = strtol(argv[1], NULL, 10);
 
     bench_init();
     queries_init();
@@ -588,7 +588,7 @@ int main(int argc, char *argv[])
     if (my_core_id == 1) {
         printf("%d turning on nagling\n", my_core_id);
 
-        printf("radix is %d\n", queries[num_cores][index].radix);
+        printf("radix is %d\n", queries[num_cores][idx].radix);
         experiment();
     }
 

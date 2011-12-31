@@ -23,7 +23,7 @@
 static struct timestamps *timestamps;
 static struct timestamps *overhead;
 
-void experiment(coreid_t index)
+void experiment(coreid_t idx)
 {
     timestamps = malloc(sizeof(struct timestamps) * MAX_COUNT);
     assert(timestamps != NULL);
@@ -32,7 +32,7 @@ void experiment(coreid_t index)
 
     dispatcher_handle_t my_dispatcher = curdispatcher();
 
-    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[index];
+    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[idx];
     struct flounder_ump_state *fus = &bu->ump_state;
     struct ump_chan *chan = &fus->chan;
 
@@ -42,7 +42,7 @@ void experiment(coreid_t index)
     struct ump_control ctrl;
 
     printf("Running latency_cache between core %d and core %d\n",
-           my_core_id, index);
+           my_core_id, idx);
 
     for (int j = 0; j < 2; j++) { /* Pick event type */
         uint64_t event;

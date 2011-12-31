@@ -36,7 +36,7 @@ static struct timestamp timestamp[MAX_COUNT];
 static bool request_done, is_server;
 static const char *my_service_name = "channel_cost_bench";
 static struct ping_pong_binding *my_b = NULL;
-static int index;
+static int idx;
 static void start_client(void);
 
 static rsrcid_t my_rsrc_id;
@@ -65,7 +65,7 @@ static void pong(struct ping_pong_binding *b, uint64_t arg)
 {
     trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_BCAST_WITH_CCAST_SEND, 0);
     request_done = true;
-    timestamp[index].time1 = bench_tsc();
+    timestamp[idx].time1 = bench_tsc();
 }
 
 static void experiment(void)
@@ -99,10 +99,10 @@ static void experiment(void)
 
         trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_ROUTE_BENCH_START, 0);
 
-        for (index = 0; index < MAX_COUNT; index++) {
+        for (idx = 0; idx < MAX_COUNT; idx++) {
 
 
-            timestamp[index].time0 = bench_tsc();
+            timestamp[idx].time0 = bench_tsc();
             request_done = false;
             err = my_b->tx_vtbl.ping(my_b, NOP_CONT, 0);
             if (err_is_fail(err)) {
@@ -116,9 +116,9 @@ static void experiment(void)
 
         trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_ROUTE_BENCH_STOP, 0);
 
-        for (index = MAX_COUNT / 10; index < MAX_COUNT; index++) {
-            printf("%d %"PRIuCYCLES"\n", index, timestamp[index].time1 -
-                   timestamp[index].time0 - bench_tscoverhead());
+        for (idx = MAX_COUNT / 10; idx < MAX_COUNT; idx++) {
+            printf("%d %"PRIuCYCLES"\n", idx, timestamp[idx].time1 -
+                   timestamp[idx].time0 - bench_tscoverhead());
         }
 
 #if CONFIG_TRACE

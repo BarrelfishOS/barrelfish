@@ -12,10 +12,11 @@
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
 #include <lwip/sys.h>
-#include "fdtab.h"
+#include <lwip/sockets.h>
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
-int read(int fd, void *buf, int len)
+int read(int fd, void *buf, size_t len)
 {
     struct fdtab_entry *e = fdtab_get(fd);
     if (e->type == FDTAB_TYPE_AVAILABLE) {

@@ -81,7 +81,7 @@ options = (ArchDefaults.options arch archFamily) {
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fno-omit-frame-pointer",
                                 "-nostdinc",
-                                "-std=c99",
+                                "-std=gnu99",
                                 "-Wall",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
@@ -125,15 +125,31 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 --
 -- Create a library from a set of object files
 --
-archive :: Options -> [String] -> [String] -> String -> [ RuleToken ]
-archive opts objs libs libname =
+archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
+archive opts objs libs name libname =
     [ Str "rm -f ", Out arch libname ]
     ++ 
     [ NL, Str (ar ++ " cr "), Out arch libname ] 
     ++ 
     [ In BuildTree arch o | o <- objs ]
-    ++ 
+    ++
+    if libs == [] then []
+                  else (
+      [ NL, Str ("rm -fr tmp-" ++ name ++ "; mkdir tmp-" ++ name) ]
+      ++
+      [ NL, Str ("cd tmp-" ++ name ++ "; for i in ") ]
+      ++
+      [ In BuildTree arch a | a <- libs ]
+      ++
+      [ Str ("; do " ++ ar ++ " x ../$$i; done") ]
+      ++
+      [ NL, Str (ar ++ " q "), Out arch libname, Str (" tmp-" ++ name ++ "/*.o") ]
+      ++
+      [ NL, Str ("rm -fr tmp-" ++ name) ]
+    )
+    ++
     [ NL, Str ranlib, Out arch libname ]
+
 
 --
 -- Create C file dependencies
@@ -149,7 +165,7 @@ makeDepend opts phase src obj depfile =
       [ Str ('@':cpp), Str cpp_undef,
         Str "-imacros", NoDep SrcTree "src" "/hake/beehive-dM-noSTDC.txt" ]
       ++ filter (\f -> not (isPrefixOf "-Wmissing-field-initializers" (formatToken f))) flags
-      ++ [ Str "-nostdinc -std=c99 -imacros" ] 
+      ++ [ Str "-nostdinc -std=gnu99 -imacros" ] 
       ++ [ NoDep SrcTree "src" "/include/deputy/nodeputy.h" ]
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ (optDependencies opts) ++ (extraDependencies opts)

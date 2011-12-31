@@ -14,6 +14,6 @@
   		      cFiles = [ "demo.c", "main.c" ],
   		      flounderBindings = [ "fb" ],
 		      flounderExtraBindings = [ ("fb", ["rpcclient"]) ],
-                      addLibraries = [ "msun" ]
+          omitCFlags = [ "-Wredundant-decls" ]
                     }
 ]

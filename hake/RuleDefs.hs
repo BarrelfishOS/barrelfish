@@ -118,8 +118,9 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/kernel/include/arch" ./. archFamily arch,
                     "/kernel/include",
                     "/include",
-                    ("/include/" ++ Config.libc),
                     "/include/arch" ./. archFamily arch,
+                    Config.libcInc,
+                    "/include/c",
                     "/include/target" ./. archFamily arch]]
 
 kernelOptions arch = Options { 
@@ -242,15 +243,15 @@ assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
-archive :: Options -> [String] -> [String] -> String -> [ RuleToken ]
-archive opts objs libs libname
-    | optArch opts == "x86_64"  = X86_64.archive opts objs libs libname
-    | optArch opts == "x86_32"  = X86_32.archive opts objs libs libname
-    | optArch opts == "scc"     = SCC.archive opts objs libs libname
-    | optArch opts == "arm"     = ARM.archive opts objs libs libname
-    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs libname
-    | optArch opts == "beehive" = Beehive.archive opts objs libs libname
-    | optArch opts == "xscale" = XScale.archive opts objs libs libname
+archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
+archive opts objs libs name libname
+    | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
+    | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
+    | optArch opts == "scc"     = SCC.archive opts objs libs name libname
+    | optArch opts == "arm"     = ARM.archive opts objs libs name libname
+    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
+    | optArch opts == "beehive" = Beehive.archive opts objs libs name libname
+    | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -372,7 +373,7 @@ assemble opts src =
 --
 archiveLibrary :: Options -> String -> [String] -> [String] -> [ RuleToken ]
 archiveLibrary opts name objs libs =
-    archive opts objs libs (libraryPath name)
+    archive opts objs libs name (libraryPath name)
 
 --
 -- Link an executable
@@ -660,6 +661,7 @@ hamletFile opts file =
         cfile = "cap_predicates.c"
         usercfile = "user_cap_predicates.c"
         ofile = "user_cap_predicates.o"
+        nfile = "cap_predicates"
         afile = "/lib/libcap_predicates.a"
     in
       Rules [ Rule [In InstallTree "tools" "/bin/hamlet",
@@ -668,7 +670,7 @@ hamletFile opts file =
                     Out arch cfile, 
                     Out arch usercfile ],
               compileGeneratedCFile opts usercfile,
-              Rule (archive opts [ ofile ] [] afile)
+              Rule (archive opts [ ofile ] [] nfile afile)
          ]
 
 --

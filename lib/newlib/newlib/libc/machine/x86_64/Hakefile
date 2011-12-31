@@ -1,0 +1,13 @@
+if Config.libc == "newlib" then
+[ build library { 
+  target = "x86_64",
+  cFiles = [ 
+          "setjmp.S",
+          "memcpy.S",
+          "memset.S"
+        ],
+  addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES" ],
+  omitCFlags = [ "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+   }
+]
+else []

@@ -22,7 +22,7 @@
 
   build application { target = "threadalloc", 
                       cFiles = [ "threadalloc.c" ],
-                      addLibraries = [ "skb", "posixcompat" ]
+                      addLibraries = [ "skb" ]
                     },
 
   build application { target = "writemem", 
@@ -31,7 +31,7 @@
 
   build application { target = "cryptotest", 
                       cFiles = [ "cryptotest.c" ],
-                      addLibraries = [ "crypto", "posixcompat" ],
+                      addLibraries = [ "crypto" ],
                       addIncludes = [ "openssl-1.0.0d/include" ]
                     },
 
@@ -43,8 +43,8 @@
                                  "-Wmissing-prototypes",
                                  "-Wmissing-declarations",
                                  "-Wmissing-field-initializers",
-                                 "-Wredundant-decls", "-std=c99" ],
-                      addLibraries = [ "crypto", "posixcompat",
+                                 "-Wredundant-decls" ],
+                      addLibraries = [ "crypto",
                                        "vfs", "nfs", "timer", "lwip" ],
                       addIncludes = [ "openssl" ]
                     }

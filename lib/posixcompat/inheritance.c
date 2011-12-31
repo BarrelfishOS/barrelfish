@@ -15,7 +15,7 @@
 #include <barrelfish/spawn_client.h>
 #include <posixcompat.h>
 #include <lwip/sock_serialise.h>
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 
 struct fd_store {
     int num;

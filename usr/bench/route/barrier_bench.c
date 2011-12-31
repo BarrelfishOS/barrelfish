@@ -25,7 +25,7 @@
 #include <skb/skb.h>
 #include "queries.h"
 
-static int index;
+static int idx;
 static int num_cores;
 
 static bool is_bsp;
@@ -69,7 +69,7 @@ struct ccast_record {
 static void set_skb_present(char *str)
 {
     while (*str != '\0') {
-        if (!isdigit(*str)) {
+        if (!isdigit((int)*str)) {
             str++;
             continue;
         }
@@ -103,7 +103,7 @@ static void process_neighbor(char *result, int parent, int neighbor)
         p++;
 
         // Empty reachable
-        if (!isdigit(*p)) {
+        if (!isdigit((int)*p)) {
             break;
         }
 
@@ -142,7 +142,7 @@ static void process_result(char *result)
         p = strchr(p, '[');
         p++;
 
-        if (isdigit(*p)) { // Has neighbors
+        if (isdigit((int)*p)) { // Has neighbors
             while(1) {
                 int neighbor = strtol(p, &p, 10);
                 //printf("%d has neighbor %d\n", coreid, neighbor);
@@ -223,13 +223,13 @@ static __attribute__ ((unused)) void skb_init(void)
     free(result);
     free(str_err);
 
-    result = queries[num_cores][index].str[0];
+    result = queries[num_cores][idx].str[0];
     process_result(result);
-    result = queries[num_cores][index].str[1];
+    result = queries[num_cores][idx].str[1];
     process_result(result);
-    result = queries[num_cores][index].str[2];
+    result = queries[num_cores][idx].str[2];
     process_result(result);
-    result = queries[num_cores][index].str[3];
+    result = queries[num_cores][idx].str[3];
     process_result(result);
 
 #endif
@@ -435,7 +435,7 @@ static errval_t spawn_other_cores(void)
     errval_t err;
 
     char indexstr[10];
-    snprintf(indexstr, sizeof(indexstr), "%d", index);
+    snprintf(indexstr, sizeof(indexstr), "%d", idx);
     indexstr[sizeof(indexstr) - 1] = '\0';
 
     char routeidstr[10];
@@ -507,7 +507,7 @@ int main(int argc, char *argv[])
     errval_t err;
 
     strcpy(my_name, argv[0]);
-    index = strtol(argv[1], NULL, 10);
+    idx = strtol(argv[1], NULL, 10);
 
     // Initialize globals
     my_core_id = disp_get_core_id();
@@ -580,7 +580,7 @@ int main(int argc, char *argv[])
 
     // run experiments
     if (is_bsp) {
-        printf("radix is %d\n", queries[num_cores][index].radix);
+        printf("radix is %d\n", queries[num_cores][idx].radix);
 
         // Tell everyone when to start
         start_time = bench_tsc() + TIME_OFFSET;

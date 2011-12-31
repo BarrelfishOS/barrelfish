@@ -23,7 +23,7 @@ let commonCFlags = [ "-DCOPPERRIDGE", "-Wno-unused",
                  "print_results.c", "proc_grid.c", "read_input.c",
                  "rhs.c", "setbv.c", "setcoeff.c", "setiv.c",
                  "ssor.c", "subdomain.c", "timers.c", "verify.c" ],
-      addLibraries = [ "rcce", "libroute", "msun" ],
+      addLibraries = [ "rcce", "libroute" ],
       addIncludes = [ "/include/rcce" ]
       }
 

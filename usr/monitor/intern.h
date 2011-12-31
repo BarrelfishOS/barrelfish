@@ -27,53 +27,53 @@ extern struct intern unicast_route[];
 extern int unicast_route_coreid[];
 
 static inline errval_t
-intern_set(struct intermon_binding *closure, bool flag, uint8_t index)
+intern_set(struct intermon_binding *closure, bool flag, uint8_t idx)
 {
-    intern[index].closure = closure;
-    intern[index].initialized = flag;
+    intern[idx].closure = closure;
+    intern[idx].initialized = flag;
 
     return SYS_ERR_OK;
 }
 
 static inline errval_t
-intern_set_initialize(uint8_t index, bool flag)
+intern_set_initialize(uint8_t idx, bool flag)
 {
-    if (index >= MAX_CPUS) {
+    if (idx >= MAX_CPUS) {
         return MON_ERR_INVALID_CORE_ID;
     }
 
-    intern[index].initialized = flag;
+    intern[idx].initialized = flag;
     return SYS_ERR_OK;
 }
 
 static inline errval_t
-intern_get_initialize(uint8_t index, bool *flag)
+intern_get_initialize(uint8_t idx, bool *flag)
 {
-    if (index >= MAX_CPUS) {
+    if (idx >= MAX_CPUS) {
         return MON_ERR_INVALID_CORE_ID;
     }
 
-    *flag = intern[index].initialized;
+    *flag = intern[idx].initialized;
     return SYS_ERR_OK;
 }
 
 static inline errval_t
-intern_get_closure(uint8_t index, struct intermon_binding** closure)
+intern_get_closure(uint8_t idx, struct intermon_binding** closure)
 {
     errval_t err = SYS_ERR_OK;
-    if (index >= MAX_CPUS) {
+    if (idx >= MAX_CPUS) {
         *closure = NULL;
         err = MON_ERR_INVALID_CORE_ID;
         goto ret;
     }
 
-    if (intern[index].closure == NULL) {
+    if (intern[idx].closure == NULL) {
         *closure = NULL;
         err = MON_ERR_NO_MONITOR_FOR_CORE;
         goto ret;
     }
 
-    *closure = intern[index].closure;
+    *closure = intern[idx].closure;
  ret:
     return err;
 }

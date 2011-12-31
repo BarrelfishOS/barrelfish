@@ -10,7 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <unistd.h>
 #include <vfs/vfs.h>
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
 off_t lseek(int fd, off_t offset, int whence)

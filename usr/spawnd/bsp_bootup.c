@@ -196,7 +196,7 @@ static void state_machine(void)
 static void set_skb_present(char *str)
 {
     while (*str != '\0') {
-        if (!isdigit(*str)) {
+        if (!isdigit((int)*str)) {
             str++;
             continue;
         }

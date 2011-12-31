@@ -9,6 +9,7 @@
 -- Hakefile for /lib/c
 --
 --------------------------------------------------------------------------
+if Config.libc == "freec" then
 [(
   let
       -- architecture independent source files
@@ -19,7 +20,7 @@
         "clearerr.c",   "gdtoa/dmisc.c",   "gmtime.c",    "setbuf.c",   "strspn.c",
         "clock.c",      "gdtoa/dtoa.c",    "locale.c",    "snprintf.c", "strstr.c",
         "difftime.c",   "gdtoa/gdtoa.c",   "localtime.c", "sprintf.c",  "strtok.c",
-        "errno.c",      "gdtoa/gethex.c",  "malloc.c",    "strtol.c",
+        "errno.c",      "gdtoa/gethex.c",  "malloc.c",    "strtol.c",   "fileno.c",
         "exit.c",       "gdtoa/gmisc.c",   "memchr.c",    "_srefill.c", "strtoll.c",
         "fclose.c",     "gdtoa/hd_init.c", "memcmp.c",    "sscanf.c",   "strtoul.c",
         "feof.c",       "gdtoa/_hdtoa.c",  "memcpy.c",    "strcat.c",   "system.c",
@@ -63,7 +64,7 @@
       archfam_files "x86_32" = ["flt_rounds.c"]
       archfam_files _ = []
 
-      args = library { target = "c",
+      args = library { target = "freec",
                     cFiles = generic_src ++ (archfam_src (archFamily a)),
                     architectures = [a],
                     addIncludes = [ "src/gdtoa", "src/gdtoa" ./. archFamily a,
@@ -87,5 +88,7 @@
   in
     Rules [Rules [compileCFile (mkopts s)  s | s <- (Args.cFiles args)],
            assembleSFiles defaultopts (Args.assemblyFiles args),
-           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) [] ]
+           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) 
+             [ libraryPath "msun" ] ]
 ) | a <- allArchitectures ]
+else []

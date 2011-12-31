@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
 struct _shm {

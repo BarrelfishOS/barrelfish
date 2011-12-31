@@ -12,6 +12,6 @@
 
 [ build application { target = "semtest",
                       cFiles = [ "semtest.c" ],
-		      addLibraries = [ "posixcompat", "vfs_nonfs" ]
+		      addLibraries = [ "vfs_nonfs" ]
                     }
 ]

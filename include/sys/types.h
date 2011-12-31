@@ -52,6 +52,7 @@
 #define _SYS_TYPES_H
 
 #include <stdint.h>
+#include <sys/cdefs.h>
 #include <sys/_types.h>
 #include <barrelfish/types.h>
 
@@ -84,5 +85,28 @@ typedef	__off_t		off_t;
 typedef	__pid_t		pid_t;
 #define	_PID_T_DECLARED
 #endif
+
+#ifndef _CLOCK_T_DECLARED
+typedef __clock_t clock_t;
+#define _CLOCK_T_DECLARED
+#endif
+
+#ifndef _TIME_T_DECLARED
+typedef __time_t  time_t;
+#define _TIME_T_DECLARED
+#endif
+
+#ifndef _UID_T_DECLARED
+typedef __uid_t   uid_t;
+#define _UID_T_DECLARED
+#endif
+
+#ifndef _GID_T_DECLARED
+typedef __gid_t gid_t;
+#define _GID_T_DECLARED
+#endif
+
+typedef unsigned long useconds_t;
+typedef long suseconds_t;
 
 #endif // _SYS_TYPES_H

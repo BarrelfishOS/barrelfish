@@ -13,7 +13,7 @@
 #include <vfs/vfs.h>
 #include <unistd.h>
 #include <errno.h>
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
 static struct fdtab_entry fdtab[MAX_FD] = {

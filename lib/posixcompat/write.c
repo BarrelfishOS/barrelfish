@@ -11,11 +11,12 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <lwip/sys.h>
+#include <lwip/sockets.h>
 #include <vfs/vfs.h>
-#include "fdtab.h"
+#include <posixcompat/fdtab.h>
 #include "posixcompat.h"
 
-int write(int fd, const void *buf, int len)
+int write(int fd, const void *buf, size_t len)
 {
     struct fdtab_entry *e = fdtab_get(fd);
     if (e->type == FDTAB_TYPE_AVAILABLE) {

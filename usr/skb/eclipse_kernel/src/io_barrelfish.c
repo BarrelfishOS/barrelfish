@@ -182,6 +182,8 @@
 
 #include <stdio.h>	/* for sprintf, readline */
 #include <errno.h>	/* for EMFILE */
+#include <fcntl.h>
+#include <limits.h>
 
 //asq:
 #include <sys/types.h>

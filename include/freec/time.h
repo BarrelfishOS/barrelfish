@@ -87,19 +87,10 @@
 #define _TIME_H_
 
 #include <stddef.h> /* For NULL, size_t */
-#include <sys/_types.h>
+#include <sys/types.h>
 
 #define CLOCKS_PER_SEC 1 /* Arbitrary, 1s resolution */
 
-#ifndef _CLOCK_T_DECLARED
-typedef	__clock_t	clock_t;
-#define	_CLOCK_T_DECLARED
-#endif
-
-#ifndef _TIME_T_DECLARED
-typedef	__time_t	time_t;
-#define	_TIME_T_DECLARED
-#endif
 
 struct tm {
 	int tm_sec;

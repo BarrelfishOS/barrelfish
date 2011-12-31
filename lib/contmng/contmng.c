@@ -143,27 +143,27 @@ void cont_queue_send_next_message(struct cont_queue *q)
 void cont_queue_show_queue(struct cont_queue *q)
 {
     int i = 0;
-    int index = 0;
+    int idx = 0;
     int len = 0;
     len = q->head - q->tail;
     printf("Showing the cont queue status for queue[%s]\n", q->name);
     printf("queue len [%d]==> head [%d] - tail [%d]\n", len, q->head, q->tail);
-    index = q->tail;
-    while (index != q->head){
-        printf("elem %d: [%s], state %u\n", index, q->qelist[index].fname,
-                q->qelist[index].history);
-        index = (index + 1) % MAX_QUEUE_SIZE;
+    idx = q->tail;
+    while (idx != q->head){
+        printf("elem %d: [%s], state %u\n", idx, q->qelist[idx].fname,
+                q->qelist[idx].history);
+        idx = (idx + 1) % MAX_QUEUE_SIZE;
     }
 
     printf("Showing elements which are already sent!!\n");
-    index = q->tail;
+    idx = q->tail;
     for (i = 0; i < 10; ++i){
-        index = (index - 1);
-        if (index < 0) {
-            index = MAX_QUEUE_SIZE - 1;
+        idx = (idx - 1);
+        if (idx < 0) {
+            idx = MAX_QUEUE_SIZE - 1;
         }
-        printf("elem %d: [%s], state %d\n", index, q->qelist[index].fname,
-                q->qelist[index].history);
+        printf("elem %d: [%s], state %d\n", idx, q->qelist[idx].fname,
+                q->qelist[idx].history);
     }
 } // end function: cont_queue_show_queue
 

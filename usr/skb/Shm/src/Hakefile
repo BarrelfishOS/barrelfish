@@ -22,7 +22,7 @@
                                  "-Wmissing-prototypes",
                                  "-Wmissing-declarations",
                                  "-Wmissing-field-initializers",
-                                 "-Wredundant-decls", "-std=c99" ],
+                                 "-Wredundant-decls" ],
                  architectures = [ "x86_64", "x86_32" ]
                 }
 ]

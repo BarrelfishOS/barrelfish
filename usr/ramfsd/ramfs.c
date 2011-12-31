@@ -104,7 +104,7 @@ size_t ramfs_get_size(struct dirent *e)
     return e->isdir ? e->u.dir.nentries : e->u.file.size;
 }
 
-errval_t ramfs_readdir(struct dirent *dir, uint32_t index, struct dirent **ret)
+errval_t ramfs_readdir(struct dirent *dir, uint32_t idx, struct dirent **ret)
 {
     assert(dir->islive && dir->refcount > 0);
 
@@ -113,12 +113,12 @@ errval_t ramfs_readdir(struct dirent *dir, uint32_t index, struct dirent **ret)
     }
 
     struct dirent *e = dir->u.dir.entries;
-    while (e != NULL && index > 0) {
+    while (e != NULL && idx > 0) {
         e = e->next;
-        index--;
+        idx--;
     }
 
-    if (index > 0 || e == NULL) {
+    if (idx > 0 || e == NULL) {
         return FS_ERR_INDEX_BOUNDS;
     }
 
