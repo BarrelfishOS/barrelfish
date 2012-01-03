@@ -204,7 +204,11 @@ its canonical definition:
 >         d -> d
 >     where
 >         -- I'm assuming there must be exactly one definition for the type name
->         [def] = [t | t <- types, typedef_name t == name]
+>         def
+>             | null defs = error $ "lookup_type_name: " ++ name ++ " not defined"
+>             | null $ tail defs = head defs
+>             | otherwise = error $ "lookup_type_name: " ++ name ++ " multiply defined"
+>         defs = [t | t <- types, typedef_name t == name]
 > 
 >         typedef_name :: TypeDef -> String
 >         typedef_name (TStruct n _) = n
