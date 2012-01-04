@@ -1,3 +1,17 @@
+/**
+ * \file
+ * \brief Implementation of the interface as described in <dist2_server/query.h>.
+ */
+
+/*
+ * Copyright (c) 2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <stdio.h>
 #include <string.h>
 //#include <eclipse.h>
@@ -13,19 +27,17 @@
 #include <dist2_server/query.h>
 #include <dist2/parser/ast.h>
 #include <dist2/getset.h> // for SET_SEQUENTIAL define
-
 #include "code_generator.h"
 
 #define STDOUT_QID 1
 #define STDERR_QID 2
 static uint64_t watch_id = 0;
 
-
 static errval_t transform_ec_error(int res)
 {
     errval_t err = SYS_ERR_OK;
 
-    switch(res) {
+    switch (res) {
     case PSUCCEED:
         err = SYS_ERR_OK;
         break;
@@ -51,7 +63,6 @@ static errval_t transform_ec_error(int res)
     return err;
 }
 
-
 static void read_eclipse_queue(int qid, struct skb_writer* w)
 {
     int res = 0;
@@ -64,7 +75,6 @@ static void read_eclipse_queue(int qid, struct skb_writer* w)
     w->buffer[w->length] = '\0';
 }
 
-
 static errval_t run_eclipse(struct dist_query_state* st)
 {
     assert(st != NULL);
@@ -72,13 +82,13 @@ static errval_t run_eclipse(struct dist_query_state* st)
 
     // Contains Queue ID in case of PFLUSHIO
     ec_ref retval = ec_ref_create_newvar();
-    ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
-    ec_post_goal(ec_term(ec_did("flush",1), ec_long(2)));
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_long(1)));
+    ec_post_goal(ec_term(ec_did("flush", 1), ec_long(2)));
 
-    while((st->exec_res = ec_resume1(retval)) == PFLUSHIO) {
+    while ((st->exec_res = ec_resume1(retval)) == PFLUSHIO) {
         ec_get_long(ec_ref_get(retval), &qid);
 
-        switch(qid) {
+        switch (qid) {
         case STDOUT_QID:
             read_eclipse_queue(STDOUT_QID, &st->stdout);
             break;
@@ -90,7 +100,7 @@ static errval_t run_eclipse(struct dist_query_state* st)
     }
 
     // atm. ignore all subsequent results
-   if(st->exec_res == PSUCCEED) {
+    if (st->exec_res == PSUCCEED) {
         ec_cut_to_chp(retval);
         ec_resume1(retval);
     }
@@ -99,44 +109,43 @@ static errval_t run_eclipse(struct dist_query_state* st)
     return transform_ec_error(st->exec_res);
 }
 
-
-static void debug_skb_output(struct dist_query_state* st) {
-	DIST2_DEBUG(" output: %s error: %s error_code: %d\n",
-	            st->stdout.buffer, st->stderr.buffer, st->exec_res);
+static void debug_skb_output(struct dist_query_state* st)
+{
+    DIST2_DEBUG(
+            " output: %s error: %s error_code: %d\n", st->stdout.buffer, st->stderr.buffer, st->exec_res);
 }
-
 
 errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
 {
-	assert(ast != NULL);
-	assert(sqs != NULL);
+    assert(ast != NULL);
+    assert(sqs != NULL);
 
-	struct skb_ec_terms sr;
-	errval_t err = transform_record2(ast, &sr);
-	if(err_is_ok(err)) {
-		// Calling get_object(Name, Attrs, Constraints, Y), print_object(Y).
-		dident get_object = ec_did("get_object", 4);
-		dident print_object = ec_did("print_object", 1);
+    struct skb_ec_terms sr;
+    errval_t err = transform_record2(ast, &sr);
+    if (err_is_ok(err)) {
+        // Calling get_object(Name, Attrs, Constraints, Y), print_object(Y).
+        dident get_object = ec_did("get_object", 4);
+        dident print_object = ec_did("print_object", 1);
 
-		pword print_var = ec_newvar();
-		pword get_object_term = ec_term(get_object, sr.name, sr.attribute_list, sr.constraint_list, print_var);
-		pword print_term = ec_term(print_object, print_var);
+        pword print_var = ec_newvar();
+        pword get_object_term = ec_term(get_object, sr.name, sr.attribute_list,
+                sr.constraint_list, print_var);
+        pword print_term = ec_term(print_object, print_var);
 
-		ec_post_goal(get_object_term);
-		ec_post_goal(print_term);
+        ec_post_goal(get_object_term);
+        ec_post_goal(print_term);
 
-		err = run_eclipse(sqs);
-		if(err_no(err) == SKB_ERR_GOAL_FAILURE) {
-		    err = err_push(err, DIST2_ERR_NO_RECORD);
-		}
+        err = run_eclipse(sqs);
+        if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            err = err_push(err, DIST2_ERR_NO_RECORD);
+        }
 
-		DIST2_DEBUG(" get_record:\n");
-		debug_skb_output(sqs);
-	}
+        DIST2_DEBUG(" get_record:\n");
+        debug_skb_output(sqs);
+    }
 
-	return err;
+    return err;
 }
-
 
 errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
 {
@@ -145,7 +154,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
 
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
-    if(err_is_ok(err)) {
+    if (err_is_ok(err)) {
         // Calling findall(X, get_object(X, Attrs, Constraints, _), L), print_names(L).
         dident findall = ec_did("findall", 3);
         dident get_object = ec_did("get_object", 4);
@@ -154,7 +163,8 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
         pword var_x = ec_newvar();
         pword var_l = ec_newvar();
         pword var_attr = ec_newvar();
-        pword get_object_term = ec_term(get_object, var_x, sr.attribute_list, sr.constraint_list, var_attr);
+        pword get_object_term = ec_term(get_object, var_x, sr.attribute_list,
+                sr.constraint_list, var_attr);
         pword findall_term = ec_term(findall, var_x, get_object_term, var_l);
         pword print_names_term = ec_term(print_names, var_l);
 
@@ -162,7 +172,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
         ec_post_goal(print_names_term);
 
         err = run_eclipse(dqs);
-        if(err_is_fail(err)) {
+        if (err_is_fail(err)) {
             err_push(err, DIST2_ERR_NO_RECORD); // TODO ok here?
         }
 
@@ -173,61 +183,59 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
     return err;
 }
 
-
-errval_t set_record(struct ast_object* ast, uint64_t mode, struct dist_query_state* sqs)
+errval_t set_record(struct ast_object* ast, uint64_t mode,
+        struct dist_query_state* sqs)
 {
-	assert(ast != NULL);
-	assert(sqs != NULL);
-
+    assert(ast != NULL);
+    assert(sqs != NULL);
 
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
-	if(err_is_ok(err)) {
-	    // Calling add_object(Name, Attributes)
-	    dident add_object = ec_did("add_object", 2);
-        if(mode & SET_SEQUENTIAL) {
+    if (err_is_ok(err)) {
+        // Calling add_object(Name, Attributes)
+        dident add_object = ec_did("add_object", 2);
+        if (mode & SET_SEQUENTIAL) {
             add_object = ec_did("add_seq_object", 2);
         }
 
         pword add_object_term = ec_term(add_object, sr.name, sr.attribute_list);
         ec_post_goal(add_object_term);
 
-		err = run_eclipse(sqs);
-		DIST2_DEBUG(" set_record:\n");
-		debug_skb_output(sqs);
-	}
+        err = run_eclipse(sqs);
+        DIST2_DEBUG(" set_record:\n");
+        debug_skb_output(sqs);
+    }
 
-	return err;
+    return err;
 }
-
 
 errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
 {
-	assert(ast != NULL);
-	assert(dqs != NULL);
+    assert(ast != NULL);
+    assert(dqs != NULL);
 
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
-	if(err_is_ok(err)) {
-	    // Calling del_object(Name)
-	    dident del_object = ec_did("del_object", 1);
-	    pword del_object_term = ec_term(del_object, sr.name);
-	    ec_post_goal(del_object_term); // TODO what happens to unused sr.attributes, sr.constraints etc. :-(
+    if (err_is_ok(err)) {
+        // Calling del_object(Name)
+        dident del_object = ec_did("del_object", 1);
+        pword del_object_term = ec_term(del_object, sr.name);
+        ec_post_goal(del_object_term); // TODO what happens to unused sr.attributes, sr.constraints etc. :-(
 
-	    err = run_eclipse(dqs);
+        err = run_eclipse(dqs);
         DIST2_DEBUG(" del_record:\n");
         debug_skb_output(dqs);
-	}
+    }
 
-	return err;
+    return err;
 }
 
-
-errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_state* drs)
+errval_t set_watch(struct ast_object* ast, uint64_t mode,
+        struct dist_reply_state* drs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
-    if(err_is_ok(err)) {
+    if (err_is_ok(err)) {
         // Calling set_watch(Name, Attrs, Constraints, Mode,
         //                   recipient(Binding, ReplyState, WatchId))
         dident recipient = ec_did("recipient", 3);
@@ -237,15 +245,15 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_stat
         pword binding_ptr = ec_long((long int) drs->binding);
         pword mode_val = ec_long((long int) mode);
         pword watch_id_val = ec_long((long int) ++watch_id);
-        pword recipient_term = ec_term(recipient, binding_ptr, drs_ptr, watch_id_val);
+        pword recipient_term = ec_term(recipient, binding_ptr, drs_ptr,
+                watch_id_val);
         pword set_watch_term = ec_term(set_watch, sr.name, sr.attribute_list,
-                                       sr.constraint_list, mode_val,
-                                       recipient_term);
+                sr.constraint_list, mode_val, recipient_term);
 
         ec_post_goal(set_watch_term);
 
         err = run_eclipse(&drs->query_state);
-        if(err_is_ok(err)) {
+        if (err_is_ok(err)) {
             drs->watch_id = watch_id;
         }
 
@@ -256,101 +264,102 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode, struct dist_reply_stat
     return err;
 }
 
-
 struct dist2_binding* get_event_binding(struct dist2_binding* b)
 {
-	errval_t err =  SYS_ERR_OK;
-	struct dist_query_state* dqs = calloc(1, sizeof(struct dist_query_state));
-	assert(dqs != NULL);
+    errval_t err = SYS_ERR_OK;
+    struct dist_query_state* dqs = calloc(1, sizeof(struct dist_query_state));
+    assert(dqs != NULL);
 
-	ec_ref Start = ec_ref_create_newvar();
-    dident fail = ec_did("fail",0);
+    ec_ref Start = ec_ref_create_newvar();
+    dident fail = ec_did("fail", 0);
     ec_post_goal(ec_atom(fail));
     int res = ec_resume1(Start);
     assert(res == PFAIL);
     ec_ref_destroy(Start);
 
-	// Calling binding(_, X, Binding), write(X).
-	dident binding = ec_did("binding", 3);
-	dident write = ec_did("write", 1);
+    // Calling binding(_, X, Binding), write(X).
+    dident binding = ec_did("binding", 3);
+    dident write = ec_did("write", 1);
 
-	pword bind_term = ec_long((long int) b);
-	pword var_ = ec_newvar();
-	pword var_x = ec_newvar();
-	pword binding_term = ec_term(binding, var_, var_x, bind_term);
-	pword write_term = ec_term(write, var_x);
+    pword bind_term = ec_long((long int) b);
+    pword var_ = ec_newvar();
+    pword var_x = ec_newvar();
+    pword binding_term = ec_term(binding, var_, var_x, bind_term);
+    pword write_term = ec_term(write, var_x);
 
-	ec_post_goal(binding_term);
-	ec_post_goal(write_term);
+    ec_post_goal(binding_term);
+    ec_post_goal(write_term);
 
+    err = run_eclipse(dqs);
+    assert(err_is_ok(err));
+    // TODO err
+    debug_printf("get_event_binding\n");
+    debug_skb_output(dqs);
+    // TODO check error etc.
 
-	err = run_eclipse(dqs);
-	assert(err_is_ok(err)); // TODO err
-	debug_printf("get_event_binding\n");
-	debug_skb_output(dqs);
-	// TODO check error etc.
+    struct dist2_binding* recipient = NULL;
+    sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient); // TODO
 
-	struct dist2_binding* recipient = NULL;
-	sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient); // TODO
+    assert(recipient != NULL);
+    // TODO
+    free(dqs);
 
-	assert(recipient != NULL); // TODO
-	free(dqs);
-
-	return recipient;
+    return recipient;
 }
 
-
-errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast, uint64_t id, struct dist_query_state* sqs)
+errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
+        uint64_t id, struct dist_query_state* sqs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
-	if(err_is_ok(err)) {
-	    // Calling add_subscription(template(Name, Attributes) Constraints, subscriber(EventBinding, Id))
-	    dident add_subscription = ec_did("add_subscription", 3);
-	    dident template = ec_did("template", 2);
-	    dident subscriber = ec_did("subscriber", 2);
+    if (err_is_ok(err)) {
+        // Calling add_subscription(template(Name, Attributes) Constraints, subscriber(EventBinding, Id))
+        dident add_subscription = ec_did("add_subscription", 3);
+        dident template = ec_did("template", 2);
+        dident subscriber = ec_did("subscriber", 2);
 
-	    pword binding_term = ec_long((long int)get_event_binding(b));
-	    pword template_term = ec_term(template, sr.name, sr.attribute_list);
-	    pword subscriber_term = ec_term(subscriber, binding_term, ec_long(id));
-	    pword subscribe_term = ec_term(add_subscription, template_term, sr.constraint_list, subscriber_term);
+        pword binding_term = ec_long((long int) get_event_binding(b));
+        pword template_term = ec_term(template, sr.name, sr.attribute_list);
+        pword subscriber_term = ec_term(subscriber, binding_term, ec_long(id));
+        pword subscribe_term = ec_term(add_subscription, template_term,
+                sr.constraint_list, subscriber_term);
 
-	    ec_post_goal(subscribe_term);
+        ec_post_goal(subscribe_term);
 
-		err = run_eclipse(sqs);
-		DIST2_DEBUG("add_subscription\n");
-		debug_skb_output(sqs);
-	}
+        err = run_eclipse(sqs);
+        DIST2_DEBUG("add_subscription\n");
+        debug_skb_output(sqs);
+    }
 
-	return err;
+    return err;
 }
 
-
-errval_t del_subscription(struct dist2_binding* b, uint64_t id, struct dist_query_state* sqs)
+errval_t del_subscription(struct dist2_binding* b, uint64_t id,
+        struct dist_query_state* sqs)
 {
-	errval_t err = SYS_ERR_OK;
+    errval_t err = SYS_ERR_OK;
 
-	dident delete_subscription = ec_did("delete_subscription", 2);
-	pword id_term = ec_long(id);
-	pword binding_term = ec_long((long int) get_event_binding(b));
-	pword delete_subscription_term = ec_term(delete_subscription, binding_term, id_term);
+    dident delete_subscription = ec_did("delete_subscription", 2);
+    pword id_term = ec_long(id);
+    pword binding_term = ec_long((long int) get_event_binding(b));
+    pword delete_subscription_term = ec_term(delete_subscription, binding_term,
+            id_term);
 
-	ec_post_goal(delete_subscription_term);
-	err = run_eclipse(sqs);
+    ec_post_goal(delete_subscription_term);
+    err = run_eclipse(sqs);
 
-	DIST2_DEBUG("del_subscription:\n");
-	debug_skb_output(sqs);
+    DIST2_DEBUG("del_subscription:\n");
+    debug_skb_output(sqs);
 
-	return err;
+    return err;
 }
-
 
 errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
     // TODO error if we have constraints here?
-    if(err_is_ok(err)) {
+    if (err_is_ok(err)) {
         // Calling findall(X, find_subscriber(object(Name, Attributes), X), L), write(L)
         dident findall = ec_did("findall", 3);
         dident find_subscriber = ec_did("find_subscriber", 2);
@@ -376,16 +385,15 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
     return err;
 }
 
-
 errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
 {
     struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
-    if(dqs == NULL) {
+    if (dqs == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
     dident set_binding;
-    switch(type) {
+    switch (type) {
     case dist2_BINDING_RPC:
         set_binding = ec_did("set_rpc_binding", 2);
         break;
@@ -396,7 +404,7 @@ errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
 
     default:
         return DIST2_ERR_UNSUPPORTED_BINDING;
-    break;
+        break;
     }
 
     pword id_term = ec_long(id);

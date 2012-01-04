@@ -1,3 +1,19 @@
+/**
+ * \file
+ * \brief Code to initialize the dist2 server.
+ *
+ * Sets up bindings and vtables.
+ */
+
+/*
+ * Copyright (c) 2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
@@ -16,37 +32,34 @@ static struct export_state {
 } rpc_export, event_export;
 
 static const struct dist2_rx_vtbl rpc_rx_vtbl = {
-    .get_names_call = get_names_handler,
-    .get_call = get_handler,
-    .set_call = set_handler,
-    .del_call = del_handler,
-    .exists_call = exists_handler,
-    .watch_call = watch_handler,
+        .get_names_call = get_names_handler,
+        .get_call = get_handler,
+        .set_call = set_handler,
+        .del_call = del_handler,
+        .exists_call = exists_handler,
 
-    .subscribe_call = subscribe_handler,
-    .unsubscribe_call = unsubscribe_handler,
-    .publish_call = publish_handler,
+        .subscribe_call = subscribe_handler,
+        .unsubscribe_call = unsubscribe_handler,
+        .publish_call = publish_handler,
 
-    .get_identifier_call = get_identifier,
-    .identify_call = identify_binding,
+        .get_identifier_call = get_identifier,
+        .identify_call = identify_binding,
 };
 
 static const struct dist2_rx_vtbl event_rx_vtbl = {
-    .identify_call = identify_binding,
+        .identify_call = identify_binding,
 };
-
 
 static void events_export_cb(void *st, errval_t err, iref_t iref)
 {
     event_export.is_done = true;
     event_export.err = err;
 
-    if(err_is_ok(err)) {
+    if (err_is_ok(err)) {
         // register this iref with the name service
         event_export.err = nameservice_register(DIST2_EVENT_SERVICE_NAME, iref);
     }
 }
-
 
 static errval_t events_connect_cb(void *st, struct dist2_binding *b)
 {
@@ -60,38 +73,34 @@ static errval_t events_connect_cb(void *st, struct dist2_binding *b)
     return SYS_ERR_OK;
 }
 
-
 errval_t event_server_init(void)
 {
     event_export.err = SYS_ERR_OK;
     event_export.is_done = false;
 
-    errval_t err = dist2_export(&event_export, events_export_cb, events_connect_cb,
-                            get_default_waitset(),
-                            IDC_EXPORT_FLAGS_DEFAULT);
-    if(err_is_fail(err)) {
+    errval_t err = dist2_export(&event_export, events_export_cb,
+            events_connect_cb, get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
         return err;
     }
 
-    while(!event_export.is_done) {
+    while (!event_export.is_done) {
         messages_wait_and_handle_next();
     }
 
     return event_export.err;
 }
 
-
 static void rpc_export_cb(void *st, errval_t err, iref_t iref)
 {
     rpc_export.is_done = true;
     rpc_export.err = err;
 
-    if(err_is_ok(err)) {
+    if (err_is_ok(err)) {
         // register this iref with the name service
         rpc_export.err = nameservice_register(DIST2_RPC_SERVICE_NAME, iref);
     }
 }
-
 
 static errval_t rpc_connect_cb(void *st, struct dist2_binding *b)
 {
@@ -105,33 +114,36 @@ static errval_t rpc_connect_cb(void *st, struct dist2_binding *b)
     return SYS_ERR_OK;
 }
 
-
 errval_t rpc_server_init(void)
 {
     rpc_export.err = SYS_ERR_OK;
     rpc_export.is_done = false;
 
     errval_t err = dist2_export(&rpc_export, rpc_export_cb, rpc_connect_cb,
-                            get_default_waitset(),
-                            IDC_EXPORT_FLAGS_DEFAULT);
+            get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
 
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
-    while(!rpc_export.is_done) {
+    while (!rpc_export.is_done) {
         messages_wait_and_handle_next();
     }
 
     return rpc_export.err;
 }
 
-
+/**
+ * \brief Sets up bindings for the dist2 server and registers them in the
+ * nameserver.
+ *
+ * \retval SYS_ERR_OK
+ */
 errval_t dist_server_init(void)
 {
 
     errval_t err = event_server_init();
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 

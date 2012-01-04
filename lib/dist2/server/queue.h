@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Queue for stack-ripped inter-monitor code
+ * \brief Queue for stack-ripped dist2 server-side handler code
  */
 
 /*
@@ -20,8 +20,8 @@
 
 #include <dist2_server/service.h>
 
-
-void dist_rpc_enqueue_reply(struct dist2_binding *b, struct dist_reply_state* st);
+void dist_rpc_enqueue_reply(struct dist2_binding *b,
+        struct dist_reply_state* st);
 struct dist_reply_state* dist_rpc_dequeue_reply(struct dist2_binding *b);
 
 #endif // DIST2_QUEUE_H
