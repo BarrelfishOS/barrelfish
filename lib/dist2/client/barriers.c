@@ -43,7 +43,7 @@ errval_t dist_barrier_enter(char* name, char** barrier_record, size_t wait_for) 
 	    }
 
 	} else {
-		err = dist_set(SET_DEFAULT, "%s", name);
+		err = dist_set("%s", name);
 	}
 
 	return err;

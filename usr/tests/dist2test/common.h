@@ -3,7 +3,7 @@
 
 #define ASSERT_STRING(a, b) do {										\
 	if(strcmp((a), (b)) != 0) {											\
-		printf("FAILED: ASSERT_STRING(%s, %s) in %s on line %d.",		\
+		printf("FAILED: ASSERT_STRING(%s, %s) in %s on line %d.\n",		\
     		a, b, __FILE__, __LINE__);									\
 	}																	\
 } while(0);

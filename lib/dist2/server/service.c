@@ -59,10 +59,11 @@ static void trigger_send_handler(struct dist2_binding* b, struct dist_reply_stat
 }
 
 
-static inline errval_t install_trigger(struct dist2_binding* event_binding,
+static inline void install_trigger(struct dist2_binding* binding,
 		struct ast_object* ast, dist2_trigger_t trigger, errval_t error)
 {
-	errval_t err = SYS_ERR_OK;
+
+    errval_t err;
 
     if(trigger.m > 0 && trigger.in_case == err_no(error)) {
         struct dist_reply_state* trigger_reply = NULL;
@@ -70,15 +71,12 @@ static inline errval_t install_trigger(struct dist2_binding* event_binding,
         assert(err_is_ok(err));
 
         trigger_reply->trigger = trigger;
-        trigger_reply->binding = event_binding;
+        trigger_reply->binding = get_event_binding(binding);
 
         err = set_watch(ast, trigger.m, trigger_reply);
-
-        // TODO h2 handle in case
         assert(err_is_ok(err));
     }
 
-    return err;
 }
 
 
@@ -110,13 +108,11 @@ void get_handler(struct dist2_binding *b, char *query,
 	err = generate_ast(query, &ast);
 	if(err_is_ok(err)) {
 	    DIST2_DEBUG("get handler: %s\n", query);
-		err = get_record(ast, &srt->query_state);
+		srt->error = get_record(ast, &srt->query_state);
 
-		err = install_trigger(get_event_binding(b), ast, trigger, err);
-        err_is_ok(err); // TODO
+		install_trigger(b, ast, trigger, err);
 	}
 
-	srt->error = err;
 	srt->reply(b, srt);
 
 	free_ast(ast);
@@ -153,8 +149,7 @@ void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
     if(err_is_ok(err)) {
         err = get_record_names(ast, &srt->query_state);
 
-        err = install_trigger(get_event_binding(b), ast, t, err);
-        err_is_ok(err); // TODO
+        install_trigger(b, ast, t, err);
     }
 
     srt->error = err;
@@ -213,8 +208,7 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
 		DIST2_DEBUG("set record: %s\n", query);
 		err = set_record(ast, mode, &srs->query_state);
 
-        err = install_trigger(get_event_binding(b), ast, trigger, err);
-        err_is_ok(err); // TODO
+        install_trigger(b, ast, trigger, err);
 	}
 
 	srs->error = err;
@@ -254,9 +248,7 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
 	err = generate_ast(query, &ast);
 	if(err_is_ok(err)) {
 		err = del_record(ast, &srs->query_state);
-
-        err = install_trigger(get_event_binding(b), ast, trigger, err);
-        assert(err_is_ok(err)); // h2 handle?
+        install_trigger(b, ast, trigger, err);
 	}
 
 	srs->error = err;
@@ -354,11 +346,9 @@ void exists_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigge
     err = generate_ast(query, &ast);
     if(err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
+        install_trigger(b, ast, trigger, err);
+
         drs->error = err;
-
-        err = install_trigger(get_event_binding(b), ast, trigger, err);
-        assert(err_is_ok(err)); // h2 handle?
-
         drs->reply(b, drs);
     }
 

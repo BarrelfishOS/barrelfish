@@ -69,8 +69,9 @@ format_slot_val(Val, In, Out) :-
     append_strings(In, StrVal, Out).
 format_slot_val(Val, In, Out) :-
     string(Val),
-    append_strings(In, Val, Out).
-
+    append_strings(In, "'", Out1),
+    append_strings(Out1, Val, Out2),
+    append_strings(Out2, "'", Out).
 
 
 get_object(Thing, ReqList, ConsList, object(Thing, SlotList)) :-
