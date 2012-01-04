@@ -1,3 +1,20 @@
+/**
+ * \file
+ * \brief Initialization functions for the dist2 client library.
+ *
+ * We use two bindings: One for communication with the server using RPC calls,
+ * and one for asynchronous events coming from the server.
+ */
+
+/*
+ * Copyright (c) 2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <stdlib.h>
 
 #include <barrelfish/barrelfish.h>
@@ -19,13 +36,11 @@ static struct dist_state {
 
 static struct thread_cond tc;
 
-
 struct dist2_binding* get_dist_event_binding(void)
 {
     assert(event.binding != NULL);
-	return event.binding;
+    return event.binding;
 }
-
 
 struct dist2_rpc_client* get_dist_rpc_client(void)
 {
@@ -33,19 +48,14 @@ struct dist2_rpc_client* get_dist_rpc_client(void)
     return rpc.rpc_client;
 }
 
-
 static void identify_response_handler(struct dist2_binding* b)
 {
     thread_cond_signal(&tc);
 }
 
-
-struct dist2_rx_vtbl rx_vtbl = {
-        .identify_response = identify_response_handler,
-        .subscribed_message = subscribed_message_handler,
-        .trigger = trigger_handler,
-};
-
+struct dist2_rx_vtbl rx_vtbl = { .identify_response = identify_response_handler,
+        .subscribed_message = subscribed_message_handler, .trigger =
+                trigger_handler, };
 
 static int event_handler_thread(void* st)
 {
@@ -62,13 +72,13 @@ static int event_handler_thread(void* st)
     while (1) {
         err = event_dispatch(&event.ws);
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "error in event_dispatch for dist2 event binding");
+            USER_PANIC_ERR(err,
+                    "error in event_dispatch for dist2 event binding");
         }
     }
 
     return SYS_ERR_OK;
 }
-
 
 static void event_bind_cb(void *st, errval_t err, struct dist2_binding *b)
 {
@@ -80,12 +90,11 @@ static void event_bind_cb(void *st, errval_t err, struct dist2_binding *b)
     event.binding = b;
     event.binding->rx_vtbl = rx_vtbl;
 
-out:
+    out:
     assert(!event.is_done);
     event.is_done = true;
     event.err = err;
 }
-
 
 static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
 {
@@ -106,8 +115,8 @@ static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
     rpc.err = err;
 }
 
-
-static errval_t init_binding(struct dist_state* state, dist2_bind_continuation_fn bind_fn, char* service_name)
+static errval_t init_binding(struct dist_state* state,
+        dist2_bind_continuation_fn bind_fn, char* service_name)
 {
     errval_t err = SYS_ERR_OK;
     iref_t iref = 0;
@@ -119,7 +128,7 @@ static errval_t init_binding(struct dist_state* state, dist2_bind_continuation_f
 
     state->is_done = false;
     err = dist2_bind(iref, bind_fn, NULL, get_default_waitset(),
-                    IDC_BIND_FLAGS_DEFAULT);
+            IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err_push(err, FLOUNDER_ERR_BIND);
     }
@@ -132,8 +141,15 @@ static errval_t init_binding(struct dist_state* state, dist2_bind_continuation_f
     return state->err;
 }
 
-//extern struct thread_mutex trigger_mutex;
-
+/**
+ * \brief Initializes the dist2 client library.
+ *
+ * Sets up the rpc and event binding for communication
+ * with the server. Events on the event binding are handled
+ * on a separate thread.
+ *
+ * \note Call this before you call any other dist2 functions.
+ */
 errval_t dist_init(void)
 {
     //thread_mutex_init(&trigger_mutex);
@@ -142,12 +158,12 @@ errval_t dist_init(void)
     thread_cond_init(&tc);
 
     err = init_binding(&rpc, rpc_bind_cb, "dist2_rpc");
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
     err = init_binding(&event, event_bind_cb, "dist2_event");
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
@@ -159,12 +175,12 @@ errval_t dist_init(void)
     struct dist2_rpc_client* dist_rpc = get_dist_rpc_client();
     uint64_t id = 0;
     err = dist_rpc->vtbl.get_identifier(dist_rpc, &id);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
     // Spawn event handler thread (handles asynchronous messages from server)
-    struct thread* t = thread_create(event_handler_thread, (void*)id);
+    struct thread* t = thread_create(event_handler_thread, (void*) id);
     assert(t != NULL);
 
     // Register rpc binding using identifier

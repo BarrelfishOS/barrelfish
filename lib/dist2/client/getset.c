@@ -26,6 +26,7 @@
 
 #include "strnatcmp.h"
 #include "common.h"
+#include "trigger.h"
 
 // Make sure args come right after query
 #define FORMAT_QUERY(query, args, buf) do {                         \

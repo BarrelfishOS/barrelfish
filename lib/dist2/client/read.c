@@ -22,13 +22,19 @@
 #include <dist2/parser/ast.h>
 
 /**
- * TODO doc
- * dist_read(record, "%s { attribute1: %s, attr2: %lu, attr3: %l, attr4: %f, attr5: '%s' }
+ * \brief Reads the content of a record string based on the provided format.
  *
- * DIST2_ERR_ATTRIBUTE_NOT_FOUND
- * DIST2_ERR_TYPE_MISMATCH
- * DIST2_ERR_RECORD_NAME_MISMATCH
- * DIST2_ERR_ATTRIBUTE_MISMATCH
+ * TODO: more detailed docs!
+ *
+ * \param record Record to read.
+ * \param format What you want to read.
+ * \param ... Values read are stored in the provided arguments.
+ *
+ * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_ATTRIBUTE_NOT_FOUND
+ * \retval DIST2_ERR_TYPE_MISMATCH
+ * \retval DIST2_ERR_RECORD_NAME_MISMATCH
+ * \retval DIST2_ERR_ATTRIBUTE_MISMATCH
  */
 errval_t dist_read(char* record, char* format, ...)
 {

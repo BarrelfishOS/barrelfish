@@ -50,9 +50,22 @@ void subscribed_message_handler(struct dist2_binding *b, subscription_t id,
 {
     assert(subscriber_table[id] != NULL);
 
+    // TODO pass on state
     subscriber_table[id](id, record, NULL);
 }
 
+/**
+ * \brief Subscribe for a given type of message.
+ *
+ * \param[in] function Handler function in case a matching record is
+ * published.
+ * \param[in] state State passed on to handler function.
+ * \param[out] id Id of the subscription.
+ * \param record What type of records you want to subscribe.
+ * \param ... Additional arguments to format the record using vsprintf.
+ *
+ * \retval SYS_ERR_OK
+ */
 errval_t dist_subscribe(subscription_handler_fn function, void *state,
         subscription_t *id, char *record, ...)
 {
@@ -100,6 +113,13 @@ errval_t dist_subscribe(subscription_handler_fn function, void *state,
     return err;
 }
 
+/**
+ * \brief Unsubscribes a subscription.
+ *
+ * \param id Id of the subscription (as provided by dist_subscribe).
+ *
+ * \retval SYS_ERR_OK
+ */
 errval_t dist_unsubscribe(subscription_t id)
 {
     assert(id < MAX_SUBSCRIPTIONS);
@@ -119,6 +139,14 @@ errval_t dist_unsubscribe(subscription_t id)
     return err;
 }
 
+/**
+ * \brief Publishes a record.
+ *
+ * \param record The record to publish.
+ * \param ... Additional arguments to format the record using vsprintf.
+ *
+ * \retval SYS_ERR_OK
+ */
 errval_t dist_publish(char *record, ...)
 {
     assert(record != NULL);
@@ -150,6 +178,9 @@ errval_t dist_publish(char *record, ...)
     return err;
 }
 
+/**
+ * \brief Initialized publish/subscribe system.
+ */
 void dist_pubsub_init(void)
 {
     thread_mutex_init(&subscriber_table_lock);
