@@ -146,8 +146,8 @@ static inline struct ast_object* ast_alloc_node(void)
 {
     struct ast_object* p = malloc(sizeof(struct ast_object));
     if (p == NULL) {
-        //yyerror("out of memory");
         assert(!"no more mem, bad!\n");
+        // TODO how to abort parsing here to free up space?
     }
     memset(p, 0, sizeof(struct ast_object));
 

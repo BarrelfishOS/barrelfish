@@ -48,7 +48,19 @@ static void get_names(void)
     ASSERT_STRING(names[0], "object4");
     dist_free_names(names, size);
 
-    printf("get_names() SUCCESS!\n");
+    names = NULL;
+    size = 0;
+    err = dist_get_names(&names, &size, "asdfasd", 20);
+    assert(names == NULL);
+    assert(size == 0);
+    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+
+    err = dist_get_names(&names, &size, "}+_df}");
+    assert(names == NULL);
+    assert(size == 0);
+    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+
+    printf("get_names() done!\n");
 }
 
 static void get_records(void)
@@ -56,9 +68,14 @@ static void get_records(void)
     errval_t err = SYS_ERR_OK;
     char* data = NULL;
 
-    //err = dist_get("recordDoesNotExist", &data);
-    //ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
-    //assert(data == NULL); TODO
+    err = dist_get("recordDoesNotExist", &data);
+    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    assert(data == NULL);
+
+    err = dist_get("parser { error, m, }", &data);
+    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+    assert(data == NULL);
+
 
     err = dist_get("object1", &data);
     ASSERT_ERR_OK(err);
@@ -134,12 +151,27 @@ static void get_records(void)
 
     // TODO implement dist_del with constraints, attributes!
 
-    printf("get_records() SUCCESS!\n");
+    printf("get_records() done!\n");
+}
+
+static void exist_records(void)
+{
+    errval_t err = dist_exists("././12");
+    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+
+    err = dist_exists("recordDoesNotExist");
+    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+
+    err = dist_exists("object3 { fl: > 10, weight: _ }");
+    ASSERT_ERR_OK(err);
 }
 
 static void set_records(void)
 {
-    errval_t err = dist_set("object1 { weight: %d }", 20);
+    errval_t err = dist_set("q{weqw1,.");
+    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+
+    err = dist_set("object1 { weight: %d }", 20);
     ASSERT_ERR_OK(err);
 
     // TODO: Do we want this?
@@ -171,10 +203,8 @@ static void set_records(void)
     ASSERT_ERR_OK(err);
 
 
-    printf("set_records() SUCCESS!\n");
+    printf("set_records() done!\n");
 }
-
-
 
 int main(int argc, char *argv[])
 {
@@ -182,6 +212,7 @@ int main(int argc, char *argv[])
 
     // Run Tests
     set_records();
+    exist_records();
     get_records();
     get_names();
 

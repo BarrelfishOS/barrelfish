@@ -33,6 +33,9 @@
 #define STDERR_QID 2
 static uint64_t watch_id = 0;
 
+STATIC_ASSERT(sizeof(long int) >= sizeof(uintptr_t),
+        "Storage for pointers in SKB must be big enough");
+
 static errval_t transform_ec_error(int res)
 {
     errval_t err = SYS_ERR_OK;
@@ -82,8 +85,8 @@ static errval_t run_eclipse(struct dist_query_state* st)
 
     // Contains Queue ID in case of PFLUSHIO
     ec_ref retval = ec_ref_create_newvar();
-    ec_post_goal(ec_term(ec_did("flush", 1), ec_long(1)));
-    ec_post_goal(ec_term(ec_did("flush", 1), ec_long(2)));
+    //ec_post_goal(ec_term(ec_did("flush", 1), ec_long(1)));
+    //ec_post_goal(ec_term(ec_did("flush", 1), ec_long(2)));
 
     while ((st->exec_res = ec_resume1(retval)) == PFLUSHIO) {
         ec_get_long(ec_ref_get(retval), &qid);
@@ -106,7 +109,13 @@ static errval_t run_eclipse(struct dist_query_state* st)
     }
 
     ec_ref_destroy(retval);
-    return transform_ec_error(st->exec_res);
+
+    errval_t err = transform_ec_error(st->exec_res);
+    if (err_no(err) == SKB_ERR_EXECUTION) {
+        err_push(err, DIST2_ERR_ENGINE_FAIL);
+    }
+
+    return err;
 }
 
 static void debug_skb_output(struct dist_query_state* st)
@@ -155,25 +164,33 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
     struct skb_ec_terms sr;
     errval_t err = transform_record2(ast, &sr);
     if (err_is_ok(err)) {
-        // Calling findall(X, get_object(X, Attrs, Constraints, _), L), print_names(L).
+        // Calling findall(X, get_object(X, Attrs, Constraints, _), L),
+        // prune_instances(L, PL), print_names(PL).
+        dident prune_instances = ec_did("prune_instances", 2);
         dident findall = ec_did("findall", 3);
         dident get_object = ec_did("get_object", 4);
         dident print_names = ec_did("print_names", 1);
 
-        pword var_x = ec_newvar();
         pword var_l = ec_newvar();
+        pword var_pl = ec_newvar();
         pword var_attr = ec_newvar();
-        pword get_object_term = ec_term(get_object, var_x, sr.attribute_list,
+        pword get_object_term = ec_term(get_object, sr.name, sr.attribute_list,
                 sr.constraint_list, var_attr);
-        pword findall_term = ec_term(findall, var_x, get_object_term, var_l);
-        pword print_names_term = ec_term(print_names, var_l);
+        pword findall_term = ec_term(findall, sr.name, get_object_term, var_l);
+        pword prune_results = ec_term(prune_instances, var_l, var_pl);
+        pword print_names_term = ec_term(print_names, var_pl);
 
         ec_post_goal(findall_term);
+        ec_post_goal(prune_results);
         ec_post_goal(print_names_term);
 
         err = run_eclipse(dqs);
-        if (err_is_fail(err)) {
-            err_push(err, DIST2_ERR_NO_RECORD); // TODO ok here?
+        if (err_is_ok(err) && dqs->stdout.buffer[0] == '\0') {
+            err = DIST2_ERR_NO_RECORD;
+        }
+        else if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            assert(!"findall failed - should not happen!");
+            // see http://eclipseclp.org/doc/bips/kernel/allsols/findall-3.html
         }
 
         DIST2_DEBUG(" get_record_names:\n");
@@ -202,6 +219,13 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
         ec_post_goal(add_object_term);
 
         err = run_eclipse(sqs);
+        if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            DIST2_DEBUG("Goal failure during set record. Should not happen!");
+            assert(!"SKB_ERR_GOAL_FAILURE during set?");
+            // In case assertions are disabled we can just pass on the error
+            // however it may be better to introduce a dist2 error for this
+        }
+
         DIST2_DEBUG(" set_record:\n");
         debug_skb_output(sqs);
     }
@@ -211,6 +235,9 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
 
 errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
 {
+    // TODO sr.attributes, sr.constraints currently not used for delete
+    // it's just based on the name
+    // Think about how to constraints / attributes behave with del
     assert(ast != NULL);
     assert(dqs != NULL);
 
@@ -220,9 +247,12 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
         // Calling del_object(Name)
         dident del_object = ec_did("del_object", 1);
         pword del_object_term = ec_term(del_object, sr.name);
-        ec_post_goal(del_object_term); // TODO what happens to unused sr.attributes, sr.constraints etc. :-(
+        ec_post_goal(del_object_term);
 
         err = run_eclipse(dqs);
+        if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            err_push(err, DIST2_ERR_NO_RECORD);
+        }
         DIST2_DEBUG(" del_record:\n");
         debug_skb_output(dqs);
     }
@@ -256,6 +286,10 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
         if (err_is_ok(err)) {
             drs->watch_id = watch_id;
         }
+        else if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            DIST2_DEBUG("Watch could not be set, check prolog code!");
+            assert(!"set_watch failed - should not happen!");
+        }
 
         DIST2_DEBUG(" set_watch:\n");
         debug_skb_output(&drs->query_state);
@@ -268,14 +302,10 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
 {
     errval_t err = SYS_ERR_OK;
     struct dist_query_state* dqs = calloc(1, sizeof(struct dist_query_state));
-    assert(dqs != NULL);
-
-    ec_ref Start = ec_ref_create_newvar();
-    dident fail = ec_did("fail", 0);
-    ec_post_goal(ec_atom(fail));
-    int res = ec_resume1(Start);
-    assert(res == PFAIL);
-    ec_ref_destroy(Start);
+    if (dqs == NULL) {
+        DIST2_DEBUG("Server out of memory.");
+        return NULL;
+    }
 
     // Calling binding(_, X, Binding), write(X).
     dident binding = ec_did("binding", 3);
@@ -291,19 +321,21 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
     ec_post_goal(write_term);
 
     err = run_eclipse(dqs);
-    assert(err_is_ok(err));
-    // TODO err
+    if (err_is_fail(err)) {
+        DIST2_DEBUG("No event binding found for client.");
+        assert(!"Should not happen - check client initialization code!");
+
+        return NULL;
+    }
+
     debug_printf("get_event_binding\n");
     debug_skb_output(dqs);
-    // TODO check error etc.
 
     struct dist2_binding* recipient = NULL;
-    sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient); // TODO
+    // TODO pointer size vs. long int in skb :-(
+    sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient);
 
-    assert(recipient != NULL);
-    // TODO
     free(dqs);
-
     return recipient;
 }
 
@@ -327,6 +359,11 @@ errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
         ec_post_goal(subscribe_term);
 
         err = run_eclipse(sqs);
+        if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            DIST2_DEBUG("Subscription failed, check prolog code!");
+            assert(!"add_subscription failed - should not happen!");
+        }
+
         DIST2_DEBUG("add_subscription\n");
         debug_skb_output(sqs);
     }
@@ -347,6 +384,9 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
 
     ec_post_goal(delete_subscription_term);
     err = run_eclipse(sqs);
+    if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+        err_push(err, DIST2_ERR_NO_SUBSCRIPTION);
+    }
 
     DIST2_DEBUG("del_subscription:\n");
     debug_skb_output(sqs);
@@ -377,6 +417,9 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
         ec_post_goal(write_term);
 
         err = run_eclipse(sqs);
+        if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+            err_push(err, DIST2_ERR_NO_SUBSCRIBERS);
+        }
     }
 
     DIST2_DEBUG("find_subscribers\n");
@@ -413,10 +456,8 @@ errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
     ec_post_goal(set_term);
 
     errval_t err = run_eclipse(dqs);
-    debug_printf("error: %s\n", dqs->stderr.buffer);
-    assert(err_is_ok(err));
     DIST2_DEBUG("set_binding: %p\n", binding);
-    //debug_skb_output(st);
+    debug_printf("error: %s\n", dqs->stderr.buffer);
 
     free(dqs);
     return err;

@@ -256,16 +256,16 @@ void transform_query(char* obj)
         translate(ast);
 	}
 
-	free_ast(ast);
+	//free_ast(ast);
 }
 
 
 int main(int argc, char** argv)
 {
-	transform_query("lock_test_1 { owner: 12, wait_for: lock_test, string: '1231'asd, }");
-	//printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
+	transform_query(";parser { error:, m, }");
+	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
-	transform_query("obj2 {}");
+	/*transform_query("obj2 {}");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
 	transform_query("obj3 { int: -11, fl: 12.0}");
@@ -285,7 +285,7 @@ int main(int argc, char** argv)
 
 	transform_query("obj7 { c1: r'^12.*ab$', c2: r'^ \\\\ ab*ab$  asd \\naasdf' }");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
-
+*/
     return 0;
 }
 #endif

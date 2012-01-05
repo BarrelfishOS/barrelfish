@@ -65,6 +65,9 @@ void subscribed_message_handler(struct dist2_binding *b, subscription_t id,
  * \param ... Additional arguments to format the record using vsprintf.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
+ * TODO: if id already registered give error? currently overwrite.
  */
 errval_t dist_subscribe(subscription_handler_fn function, void *state,
         subscription_t *id, char *record, ...)

@@ -72,7 +72,7 @@ REGEX_START r{QUOTE}
 
 
 {IDENT}     { 
-                yylval->str = strdup(yytext); 
+                yylval->str = strdup(yytext);
                 return IDENT; 
             }
 

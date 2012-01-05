@@ -36,6 +36,9 @@
  * \param binding Pointer value of binding
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_UNSUPPORTED_BINDING
+ * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval LIB_ERR_MALLOC_FAIL
  */
 errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding);
 
@@ -49,6 +52,7 @@ errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding);
  *
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_NO_RECORD
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs);
 
@@ -60,6 +64,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs);
  *
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_NO_RECORD
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t get_record(struct ast_object* ast, struct dist_query_state* dqs);
 
@@ -71,6 +76,7 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* dqs);
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t set_record(struct ast_object* ast, uint64_t mode,
         struct dist_query_state* dqs);
@@ -83,6 +89,7 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
  *
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_NO_RECORD
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t del_record(struct ast_object*, struct dist_query_state*);
 
@@ -96,6 +103,7 @@ errval_t del_record(struct ast_object*, struct dist_query_state*);
  * \param drs Reply state used to reply to the client.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t set_watch(struct ast_object* ast, uint64_t mode,
         struct dist_reply_state* drs);
@@ -109,6 +117,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
         uint64_t id, struct dist_query_state* dqs);
@@ -121,6 +130,8 @@ errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_NO_SUBSCRIPTION
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t del_subscription(struct dist2_binding* b, uint64_t id,
         struct dist_query_state* dqs);
@@ -133,6 +144,8 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_NO_SUBSCRIBERS
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* dqs);
 
@@ -140,7 +153,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* dqs);
  * \brief Find the event binding of the client based on his RPC binding.
  *
  * \param binding RPC binding
- * \return Pointer of event binding or NULL if no corresponding binding found.
+ * \return Pointer of event binding or NULL on error.
  */
 struct dist2_binding* get_event_binding(struct dist2_binding* binding);
 

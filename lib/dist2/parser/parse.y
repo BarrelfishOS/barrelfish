@@ -58,7 +58,6 @@ void yyerror(char *);
 %type <nPtr> attributes
 %type <nPtr> object
 %type <nPtr> constraint
-%type <nPtr> program
 %type <nPtr> name
 
 %destructor { free_ast($$); } <nPtr>
@@ -70,9 +69,9 @@ program:
     | ;
 
 object: 
-      name                          { $$ = ast_object($1, NULL); } 
-    | name RCURLY LCURLY            { $$ = ast_object($1, NULL); } 
-    | name RCURLY attributes LCURLY { $$ = ast_object($1, $3); }
+      name                          { $$ = ast_object($1, NULL);  } 
+    | name RCURLY LCURLY            { $$ = ast_object($1, NULL);  } 
+    | name RCURLY attributes LCURLY { $$ = ast_object($1, $3);  }
 
 name:
       IDENT                         { $$ = ast_ident($1); }
@@ -109,5 +108,7 @@ value:
 
 void yyerror(char *s)
 {
-    printf("yyerror says: %s\n", s);
+#ifdef DIST2_DEBUG
+    fprintf("dist2_parser: %s\n", s);
+#endif
 }

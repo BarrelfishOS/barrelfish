@@ -63,14 +63,17 @@ static int cmpstringp(const void *p1, const void *p2)
 /**
  * \brief Retrieve all record names matching a given query.
  *
- * @param[out] names Names of all records matching the query.
- * Needs to be freed by the client (use dist_free_names).
- * @param[out] size Number of records matching the query.
- * @param[in] query Query sent to the server
- * @param ... Parameters used to build query with help of vsprintf.
+ * \param[out] names Names of all records matching the query.
+ * Needs to be freed by the client (use dist_free_names) in
+ * case of SYS_ERR_OK.
+ * \param[out] size Number of records matching the query.
+ * \param[in] query Query sent to the server
+ * \param ... Parameters used to build query with help of vsprintf.
  *
- * @retval SYS_ERR_OK
- * TODO all retvals here
+ * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_NO_RECORD
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
 {
@@ -90,59 +93,60 @@ errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
             &error_code);
     if (err_is_ok(err)) {
         err = error_code;
+    }
 
-        if (err_is_ok(error_code)) {
-            char *p = mystrdup(data);
-            if (p == NULL) {
-                err = LIB_ERR_MALLOC_FAIL;
-                goto out;
-            }
-
-            // first get the number of elements
-            char* saveptr = NULL;
-            size_t i;
-            char* tok = p;
-            for (i = 0; tok != NULL; i++, p = NULL) {
-                tok = strtok(p, ",");
-            }
-            free(p);
-            p = NULL;
-            *len = --i;
-
-            *names = malloc(sizeof(char*) * i);
-            memset(*names, 0, sizeof(char*) * i);
-            if (*names == NULL) {
-                *len = 0;
-                err = LIB_ERR_MALLOC_FAIL;
-                goto out;
-            }
-
-            // now get the actual elements
-            saveptr = NULL;
-            p = data;
-            tok = p;
-            for (i = 0; tok != NULL; i++, p = NULL) {
-                tok = strtok(p, ", ");
-                if (tok != NULL) {
-                    (*names)[i] = mystrdup(tok);
-                    if ((*names)[i] == NULL) {
-                        dist_free_names(*names, i);
-                        *names = NULL;
-                        *len = 0;
-                        err = LIB_ERR_MALLOC_FAIL;
-                        goto out;
-                    }
-                } else {
-                    break;
-                }
-            }
-            qsort(*names, *len, sizeof(char*), cmpstringp);
+    if (err_is_ok(err)) {
+        char *p = mystrdup(data);
+        if (p == NULL) {
+            err = LIB_ERR_MALLOC_FAIL;
+            goto out;
         }
+
+        // first get the number of elements
+        char* saveptr = NULL;
+        size_t i;
+        char* tok = p;
+        for (i = 0; tok != NULL; i++, p = NULL) {
+            tok = strtok(p, ",");
+        }
+        free(p);
+        p = NULL;
+        *len = --i;
+
+        *names = malloc(sizeof(char*) * i);
+        memset(*names, 0, sizeof(char*) * i);
+        if (*names == NULL) {
+            *len = 0;
+            err = LIB_ERR_MALLOC_FAIL;
+            goto out;
+        }
+
+        // now get the actual elements
+        saveptr = NULL;
+        p = data;
+        tok = p;
+        for (i = 0; tok != NULL; i++, p = NULL) {
+            tok = strtok(p, ", ");
+            if (tok != NULL) {
+                (*names)[i] = mystrdup(tok);
+                if ((*names)[i] == NULL) {
+                    dist_free_names(*names, i);
+                    *names = NULL;
+                    *len = 0;
+                    err = LIB_ERR_MALLOC_FAIL;
+                    goto out;
+                }
+            } else {
+                break;
+            }
+        }
+        qsort(*names, *len, sizeof(char*), cmpstringp);
     }
 
     // free(*data) on error? can be NULL?
 
-    out: free(buf);
+out:
+    free(buf);
     free(data);
 
     return err;
@@ -220,8 +224,8 @@ errval_t dist_set(char* query, ...)
     errval_t error_code;
     err = rpc_client->vtbl.set(rpc_client, buf, SET_DEFAULT, NOP_TRIGGER, false,
             &record, &error_code);
-    //assert(record == NULL); TODO
-    free(record);
+    assert(record == NULL);
+
     if (err_is_ok(err)) {
         err = error_code;
     }

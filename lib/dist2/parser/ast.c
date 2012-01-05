@@ -26,8 +26,9 @@
 
 void free_ast(struct ast_object* p)
 {
-    if (!p)
+    if (p == NULL) {
         return;
+    }
 
     switch (p->type) {
     case nodeType_Object:
@@ -133,7 +134,13 @@ errval_t generate_ast(const char* input, struct ast_object** record)
 {
     // Save re-entrant state for Flex/Bison
     struct dist_parser_state p;
+    p.ast = NULL;
+    p.err = SYS_ERR_OK;
+    p.scanner = NULL;
+
     struct string_buffer buf;
+    memset(buf.buffer, 0, 1024);
+    buf.ptr = NULL;
 
     int res = yylex_init_extra(&buf, &p.scanner);
     if (res != 0) {
@@ -144,7 +151,6 @@ errval_t generate_ast(const char* input, struct ast_object** record)
     yy_scan_string(input, p.scanner);
     res = yyparse((void*) &p);
     yylex_destroy(p.scanner);
-
     if (res == 0) {
         *record = p.ast;
         p.ast = NULL;
