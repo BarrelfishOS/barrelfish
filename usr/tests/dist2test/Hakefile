@@ -14,6 +14,11 @@
                       cFiles = [ "d2getset.c" ],
                       addLibraries = [ "dist2", "dist_parser" ]
                     },
+
+  build application { target = "d2pubsub",
+                      cFiles = [ "d2pubsub.c" ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
   
   build application { target = "d2exist",
                       cFiles = [ "exist.c" ],

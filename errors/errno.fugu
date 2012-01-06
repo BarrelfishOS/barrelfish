@@ -27,7 +27,8 @@ errors libdist2  DIST2_ERR_ {
     failure PARSER_FAIL         "Record parser encountered syntax error.",
     failure ENGINE_FAIL         "Database error during query execution.",
     failure NO_SUBSCRIPTION     "No subscription found matching the query.",
-    failure NO_SUBSCRIBERS     "No subscription found matching the query.",   
+    failure NO_SUBSCRIBERS      "No subscription found matching the query.",
+    failure MAX_SUBSCRIPTIONS   "Failed to register subscription. Try to increase MAX_SUBSCRIPTIONS.",  
 };
 
 // Kernel/syscall errors

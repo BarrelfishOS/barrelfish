@@ -56,8 +56,18 @@ satisfy_constraint_list(Message, [C|Rest]) :-
     satisfy_constraint2(Message, C),
     satisfy_constraint_list(Message, Rest).
 satisfy_constraint2(object(Name, SlotList), constraint(Attr, Comparator, Value)) :-
+    atom_string(Comparator, "distmatch"), % hack: does not work when put in constraint?
+    !,
+    member(Attr::X, SlotList),
+    (string(X) ;  atom(X)),
+    (string(Value) ; atom(Value)),
+    match(X, Value, []).
+satisfy_constraint2(object(Name, SlotList), constraint(Attr, Comparator, Value)) :-
     %get_object(Message, Attr::X),
     %slot_vals(Name, Attr::X, SlotList),
+    writeln(Comparator),
     member(Attr::X, SlotList),
+    number(X),
+    number(Value),
     FX =.. [Comparator, X, Value],
     call(FX).

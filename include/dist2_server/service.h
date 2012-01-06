@@ -59,7 +59,6 @@ void get_handler(struct dist2_binding*, char*, dist2_trigger_t);
 void set_handler(struct dist2_binding*, char*, uint64_t, dist2_trigger_t, bool);
 void del_handler(struct dist2_binding*, char*, dist2_trigger_t);
 void exists_handler(struct dist2_binding*, char*, dist2_trigger_t);
-void watch_handler(struct dist2_binding* b, char* query, uint64_t mode, dist2_binding_type_t type, uint64_t client_id);
 
 void subscribe_handler(struct dist2_binding*, char*, uint64_t);
 void publish_handler(struct dist2_binding*, char*);

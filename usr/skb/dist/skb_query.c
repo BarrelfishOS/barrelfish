@@ -309,7 +309,7 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
 
     // Calling binding(_, X, Binding), write(X).
     dident binding = ec_did("binding", 3);
-    dident write = ec_did("write", 1);
+    dident write = ec_did("writeln", 1);
 
     pword bind_term = ec_long((long int) b);
     pword var_ = ec_newvar();
@@ -404,7 +404,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
         dident findall = ec_did("findall", 3);
         dident find_subscriber = ec_did("find_subscriber", 2);
         dident object = ec_did("object", 2);
-        dident write = ec_did("write", 1);
+        dident write = ec_did("writeln", 1);
 
         pword var_x = ec_newvar();
         pword var_l = ec_newvar();

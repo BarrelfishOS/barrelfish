@@ -44,7 +44,7 @@ static void barrier_signal_sem(char* record, void* state)
  *
  * \retval SYS_ERR_OK
  */
-errval_t dist_barrier_enter(char* name, char** barrier_record, size_t wait_for)
+errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait_for)
 {
     errval_t err = dist_set_get(SET_SEQUENTIAL, barrier_record,
             "%s_ { barrier: '%s' }", name, name);
@@ -93,7 +93,7 @@ errval_t dist_barrier_enter(char* name, char** barrier_record, size_t wait_for)
  *
  * \retval SYS_ERR_OK
  */
-errval_t dist_barrier_leave(char* barrier_record)
+errval_t dist_barrier_leave(const char* barrier_record)
 {
     char* rec_name = NULL;
     char* barrier_name = NULL;

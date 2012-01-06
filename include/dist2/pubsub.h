@@ -24,10 +24,10 @@ typedef uint64_t subscription_t;
 typedef void(*subscription_handler_fn)(subscription_t id, char *object,
         void *state);
 
-errval_t dist_subscribe(subscription_handler_fn, void*, subscription_t*, char*,
-        ...);
+errval_t dist_subscribe(subscription_handler_fn, const void*, subscription_t*,
+        const char*, ...);
 errval_t dist_unsubscribe(subscription_t);
-errval_t dist_publish(char*, ...);
+errval_t dist_publish(const char*, ...);
 
 void subscribed_message_handler(struct dist2_binding*, subscription_t, char*);
 void dist_pubsub_init(void);

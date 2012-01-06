@@ -28,21 +28,6 @@
 #include "common.h"
 #include "trigger.h"
 
-// Make sure args come right after query
-#define FORMAT_QUERY(query, args, buf) do {                         \
-    size_t length = 0;                                              \
-    va_start(args, query);                                          \
-    err = allocate_string(query, args, &length, &buf);              \
-    va_end(args);                                                   \
-    if(err_is_fail(err)) {                                          \
-        return err;                                                 \
-    }                                                               \
-    va_start(args, query);                                          \
-    size_t bytes_written = vsnprintf(buf, length+1, query, args);   \
-    va_end(args);                                                   \
-    assert(bytes_written == length);                                \
-} while (0)
-
 static char* mystrdup(char* data)
 {
 
@@ -75,7 +60,7 @@ static int cmpstringp(const void *p1, const void *p2)
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_get_names(char*** names, size_t* len, char* query, ...)
+errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
 {
     assert(query != NULL);
 
@@ -183,22 +168,24 @@ void dist_free_names(char** names, size_t len)
  * \retval DIST2_ERR_NO_RECORD No record matching the query was found.
  * \retval DIST2_ERR_AMBIGOUS_QUERY TODO!
  */
-errval_t dist_get(const char* query, char** data)
+errval_t dist_get(char** data, const char* query, ...)
 {
     assert(query != NULL);
-
     errval_t error_code;
     errval_t err = SYS_ERR_OK;
+    va_list args;
+
+    char* buf = NULL;
+    FORMAT_QUERY(query, args, buf);
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-    err = rpc_client->vtbl.get(rpc_client, query, NOP_TRIGGER, data,
+    err = rpc_client->vtbl.get(rpc_client, buf, NOP_TRIGGER, data,
             &error_code);
     if (err_is_ok(err)) {
         err = error_code;
     }
 
-    // free(*data) on error? can be NULL?
-
+    free(buf);
     return err;
 }
 
@@ -208,7 +195,7 @@ errval_t dist_get(const char* query, char** data)
  * \param query The record to set.
  * \param ... Additional arguments to format the query using vsprintf.
  */
-errval_t dist_set(char* query, ...)
+errval_t dist_set(const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -251,7 +238,7 @@ errval_t dist_set(char* query, ...)
  * TODO maybe remove this function completely and let all use rpc call for set
  * directly if they want to a non-trivial set?
  */
-errval_t dist_set_get(dist_mode_t mode, char** record, char* query, ...)
+errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -285,7 +272,7 @@ errval_t dist_set_get(dist_mode_t mode, char** record, char* query, ...)
  *
  * TODO: Atm only name of record is included in del query on server.
  */
-errval_t dist_del(char* query, ...)
+errval_t dist_del(const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -315,7 +302,7 @@ errval_t dist_del(char* query, ...)
  * \retval SYS_ERR_OK One or more records exist matching the query.
  * \retval DIST2_ERR_NO_RECORD No records exists matching the query.
  */
-errval_t dist_exists(char* query, ...)
+errval_t dist_exists(const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;

@@ -68,36 +68,36 @@ static void get_records(void)
     errval_t err = SYS_ERR_OK;
     char* data = NULL;
 
-    err = dist_get("recordDoesNotExist", &data);
+    err = dist_get(&data, "recordDoesNotExist");
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
     assert(data == NULL);
 
-    err = dist_get("parser { error, m, }", &data);
+    err = dist_get(&data, "parser { error, m, }");
     ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
     assert(data == NULL);
 
 
-    err = dist_get("object1", &data);
+    err = dist_get(&data, "object1");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object1 { weight: 20 }");
     free(data);
 
-    err = dist_get("object2 { weight: 20 }", &data);
+    err = dist_get(&data, "object2 { weight: 20 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object2 { weight: 20 }");
     free(data);
 
-    err = dist_get("object4", &data);
+    err = dist_get(&data, "object4");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
     free(data);
 
-    err = dist_get("_ { weight: >= 10, fl: > 11.0 }", &data);
+    err = dist_get(&data, "_ { weight: >= 10, fl: > 11.0 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
     free(data);
 
-    err = dist_get("_ { weight: >= 10, fl: > 11.0 }", &data);
+    err = dist_get(&data, "_ { weight: >= 10, fl: > 11.0 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
     free(data);
@@ -105,14 +105,14 @@ static void get_records(void)
     err = dist_del("object4");
     ASSERT_ERR_OK(err);
 
-    err = dist_get("object4", &data);
+    err = dist_get(&data, "object4");
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
     //free(data); TODO??
 
     err = dist_set("object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
     ASSERT_ERR_OK(err);
 
-    err = dist_get("object4", &data);
+    err = dist_get(&data, "object4");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
     free(data);
@@ -120,17 +120,17 @@ static void get_records(void)
     err = dist_del("object1");
     ASSERT_ERR_OK(err);
 
-    err = dist_get("object1", &data);
+    err = dist_get(&data, "object1");
     printf("data: %s\n", data);
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
     // TODO free(data);?
 
-    err = dist_get("object2 { weight: 20 }", &data);
+    err = dist_get(&data, "object2 { weight: 20 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object2 { weight: 20 }");
     free(data);
 
-    err = dist_get("_ { pattern1: r'^12.*ab$' }", &data);
+    err = dist_get(&data, "_ { pattern1: r'^12.*ab$' }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data,
             "object5 { pattern1: '123abab', pattern2: " \
@@ -140,7 +140,7 @@ static void get_records(void)
 
     // Test long regex
     R(re, "_ { pattern3: r'^(((((((0?[13578])|(1[02]))[\.\-/]?((0?[1-9])|([12]\d)|(3[01])))|(((0?[469])|(11))[\.\-/]?((0?[1-9])|([12]\d)|(30)))|((0?2)[\.\-/]?((0?[1-9])|(1\d)|(2[0-8]))))[\.\-/]?(((19)|(20))?([\d][\d]))))|((0?2)[\.\-/]?(29)[\.\-/]?(((19)|(20))?(([02468][048])|([13579][26])))))$' }");
-    err = dist_get(re, &data);
+    err = dist_get(&data, re);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data,
             "object5 { pattern1: '123abab', pattern2: " \

@@ -83,9 +83,17 @@ satisfy_constraints([], _).
 satisfy_constraints([Constraint|Rest], SlotList) :-
     satisfy_constraint(Constraint, SlotList).
 
-distmatch(A, B) :- match(B, A, []).
+satisfy_constraint(constraint(Attr, Comparator, Value), SlotList) :-
+    atom_string(Comparator, "distmatch"), % hack: does not work when put in constraint?
+    !,
+    slot_vals(Name, Attr::X, SlotList),
+    (string(X) ; atom(X)),
+    (string(Value) ; atom(Value)),
+    match(X, Value, []).
 satisfy_constraint(constraint(Attr, Comparator, Value), SlotList) :-
     slot_vals(Name, Attr::X, SlotList),
+    number(X),
+    number(Value),
     FX =.. [Comparator, X, Value],
     call(FX).
     

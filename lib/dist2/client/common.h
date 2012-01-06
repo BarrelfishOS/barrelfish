@@ -33,10 +33,25 @@ struct dist2_binding* get_dist_event_binding(void);
 
 #define MAX_RECORD_LENGTH (5*1024)
 
-static inline errval_t allocate_string(char *object, va_list args,
+// Make sure args come right after query
+#define FORMAT_QUERY(query, args, buf) do {                         \
+    size_t length = 0;                                              \
+    va_start(args, query);                                          \
+    err = allocate_string(query, args, &length, &buf);              \
+    va_end(args);                                                   \
+    if(err_is_fail(err)) {                                          \
+        return err;                                                 \
+    }                                                               \
+    va_start(args, query);                                          \
+    size_t bytes_written = vsnprintf(buf, length+1, query, args);   \
+    va_end(args);                                                   \
+    assert(bytes_written == length);                                \
+} while (0)
+
+static inline errval_t allocate_string(const char *fmt, va_list args,
         size_t *length, char **buf)
 {
-    *length = vsnprintf(NULL, 0, object, args);
+    *length = vsnprintf(NULL, 0, fmt, args);
 
     if (*length > MAX_RECORD_LENGTH) {
         return DIST2_ERR_RECORD_SIZE;

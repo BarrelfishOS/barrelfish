@@ -36,7 +36,7 @@
  * \retval DIST2_ERR_RECORD_NAME_MISMATCH
  * \retval DIST2_ERR_ATTRIBUTE_MISMATCH
  */
-errval_t dist_read(char* record, char* format, ...)
+errval_t dist_read(const char* record, const char* format, ...)
 {
 	errval_t err = SYS_ERR_OK;
 	va_list args;

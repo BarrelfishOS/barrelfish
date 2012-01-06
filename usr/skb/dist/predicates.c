@@ -88,6 +88,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         return res;
     }
     assert(drs != NULL);
+    debug_printf("drs is: %p\n", drs);
 
     long int watch_id = 0;
     res = ec_get_long(ec_arg(4), &watch_id);
@@ -97,10 +98,13 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
 
     strcpy(drs->query_state.stdout.buffer, record);
     debug_printf("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
+    debug_printf("drs->binding: %p\n", drs->binding);
+    debug_printf("drs->reply: %p\n", drs->reply);
 
     drs->error = SYS_ERR_OK;
     drs->reply(drs->binding, drs);
 
+    debug_printf("p_trigger_watch done\n");
     long int retract = true;
     return ec_unify_arg(5, ec_long(retract));
 }

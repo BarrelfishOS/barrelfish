@@ -46,7 +46,7 @@ static void trigger_lock_deleted(char* object, void* st)
  *
  * \retval SYS_ERR_OK Client holds the lock.
  */
-errval_t dist_lock(char* lock_name, char** lock_record)
+errval_t dist_lock(const char* lock_name, char** lock_record)
 {
     assert(lock_name != NULL);
     errval_t err = SYS_ERR_OK;
@@ -77,7 +77,8 @@ errval_t dist_lock(char* lock_name, char** lock_record)
                 found = true;
                 break;
             }
-        }assert(found);
+        }
+        assert(found);
 
         if (i == 0) {
             // We are the lock owner
@@ -120,7 +121,7 @@ errval_t dist_lock(char* lock_name, char** lock_record)
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_NO_RECORD
  */
-errval_t dist_unlock(char* lock_record)
+errval_t dist_unlock(const char* lock_record)
 {
     assert(lock_record != NULL);
     errval_t err = SYS_ERR_OK;
