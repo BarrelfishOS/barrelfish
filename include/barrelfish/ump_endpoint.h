@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -29,7 +29,7 @@ errval_t ump_endpoint_init(struct ump_endpoint *ep, volatile void *buf,
 errval_t ump_endpoint_register(struct ump_endpoint *ep, struct waitset *ws,
                                 struct event_closure closure);
 errval_t ump_endpoint_deregister(struct ump_endpoint *ep);
-
+void ump_endpoint_migrate(struct ump_endpoint *ep, struct waitset *ws);
 
 /**
  * \brief Returns true iff there is a message pending on the given UMP endpoint

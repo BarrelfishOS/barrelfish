@@ -34,8 +34,8 @@ static struct cte endpoints[MAX_CHANIDS];
 static char my_notify_page[BASE_PAGE_SIZE];
 
 // Private head/tail pointers for notify FIFOs
-static uint64_t notifyhead[MAX_CPUS]; 
-static uint64_t notifytail[MAX_CPUS];
+static uint64_t notifyhead[MAX_COREID]; 
+static uint64_t notifytail[MAX_COREID];
 
 static uint8_t my_arch_id;
 
@@ -77,7 +77,7 @@ void ipi_handle_notify(void)
 {
     uint64_t val = 0;
 
-    for(coreid_t srccore = 0; srccore < MAX_CPUS; srccore++) {
+    for(coreid_t srccore = 0; srccore < MAX_COREID; srccore++) {
         volatile uint64_t *fifo = (void *)&my_notify_page[NOTIFY_FIFO_BYTES * srccore];
 
         if (global->notify[my_arch_id] == 0) {
@@ -109,7 +109,7 @@ struct sysret ipi_raise_notify(coreid_t coreid, uintptr_t chanid)
 {
     char *notify_page = (char *)local_phys_to_mem(global->notify[coreid]);
 
-    if (notify_page == NULL || coreid >= MAX_CPUS) {
+    if (notify_page == NULL || coreid >= MAX_COREID) {
         printf("UMPNOTIFY ERROR!\n");
         return SYSRET(SYS_ERR_ILLEGAL_INVOCATION);
     }

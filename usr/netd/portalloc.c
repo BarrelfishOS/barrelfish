@@ -35,6 +35,7 @@ static uint64_t free_udp_ports[UDP_ARRAY_SIZE];
 void init_free_ports(void)
 {
     uint64_t i;
+
     for (i = 0; i < TCP_ARRAY_SIZE; i++) {
         free_tcp_ports[i] = M64;
     }
@@ -52,8 +53,8 @@ void init_free_ports(void)
  * 
  * @return the proposed port number or 0 in case all ports are allocated
  */
-static uint16_t alloc_port(uint64_t* free_ports, netd_port_type_t type, 
-	uint16_t pstart)
+static uint16_t alloc_port(uint64_t * free_ports, netd_port_type_t type,
+                           uint16_t pstart)
 {
     //k: asq did this to be generic?
     //uint32_t v32;
@@ -65,30 +66,29 @@ static uint16_t alloc_port(uint64_t* free_ports, netd_port_type_t type,
     uint64_t len;
     uint64_t start;
 
-    if(type == netd_PORT_TCP) {
-	len = TCP_ARRAY_SIZE;
-	start = TCP_LOCAL_PORT_RANGE_START / 64;
-    }
-    else {
-	len = UDP_ARRAY_SIZE;
-	start = UDP_LOCAL_PORT_RANGE_START / 64;
+    if (type == netd_PORT_TCP) {
+        len = TCP_ARRAY_SIZE;
+        start = TCP_LOCAL_PORT_RANGE_START / 64;
+    } else {
+        len = UDP_ARRAY_SIZE;
+        start = UDP_LOCAL_PORT_RANGE_START / 64;
     }
 
     for (int i = start; i < len; i++) {
         //find a 64bit word which has at least 1 bit set (=1 free port)
         if (free_ports[i]) {
-	    v = free_ports[i];
+            v = free_ports[i];
             //binary search the 1-bit
             while (m > 0) {
-		if (v & m) {
+                if (v & m) {
                     v = v & m;
                 } else {
                     v = (v >> s) & m;
                     bitnr += s;
                 }
-                if(s != 1) {
-		    s /= 2;
-		}
+                if (s != 1) {
+                    s /= 2;
+                }
                 m >>= s;
             }
             //bitnr is now the bitposition within the current 64 bit word which
@@ -97,11 +97,11 @@ static uint16_t alloc_port(uint64_t* free_ports, netd_port_type_t type,
             //mark the port as allocated
             free_ports[i] &= ~(1 << bitnr);
             //return the port number
-            
-	    return (bitnr + i * sizeof(uint64_t) * 8 + pstart);
+
+            return (bitnr + i * sizeof(uint64_t) * 8 + pstart);
         }
     }
-    return (0); //no port could be allocated
+    return (0);                 //no port could be allocated
 }
 
 /** 
@@ -110,7 +110,8 @@ static uint16_t alloc_port(uint64_t* free_ports, netd_port_type_t type,
  */
 uint16_t alloc_tcp_port(void)
 {
-    return alloc_port(free_tcp_ports, netd_PORT_TCP, TCP_LOCAL_PORT_RANGE_START);
+    return alloc_port(free_tcp_ports, netd_PORT_TCP,
+                      TCP_LOCAL_PORT_RANGE_START);
 }
 
 /** 
@@ -119,7 +120,8 @@ uint16_t alloc_tcp_port(void)
  */
 uint16_t alloc_udp_port(void)
 {
-	return alloc_port(free_udp_ports, netd_PORT_UDP, UDP_LOCAL_PORT_RANGE_START);
+    return alloc_port(free_udp_ports, netd_PORT_UDP,
+                      UDP_LOCAL_PORT_RANGE_START);
 }
 
 /** 
@@ -130,9 +132,10 @@ uint16_t alloc_udp_port(void)
  * 
  * @return true in case the port is free and otherwise false
  */
-static inline bool check_free(uint64_t* free_ports, uint16_t port)
+static inline bool check_free(uint64_t * free_ports, uint16_t port)
 {
     uint16_t pidx = port;
+
     return (free_ports[pidx / 64] & (1 << (pidx % 64)));
 }
 
@@ -147,13 +150,13 @@ static inline bool check_free(uint64_t* free_ports, uint16_t port)
 inline uint16_t alloc_specific_port(uint16_t port, netd_port_type_t type)
 {
     uint16_t pidx = port;
-    uint64_t* free_ports;
+    uint64_t *free_ports;
+
     NETD_DEBUG("allocating port %u with type %d\n", port, type);
-    if(type == netd_PORT_TCP) {
-	free_ports = free_tcp_ports;
-    }
-    else {
-	free_ports = free_udp_ports;
+    if (type == netd_PORT_TCP) {
+        free_ports = free_tcp_ports;
+    } else {
+        free_ports = free_udp_ports;
     }
     if (free_ports[pidx / 64] & (1 << (pidx % 64))) {
         free_ports[pidx / 64] &= ~(1 << (pidx % 64));
@@ -171,8 +174,7 @@ inline uint16_t alloc_specific_port(uint16_t port, netd_port_type_t type)
  */
 inline void free_port(uint16_t port, netd_port_type_t type)
 {
-    uint64_t* free_ports = (type == netd_PORT_TCP) ? free_tcp_ports : free_udp_ports;
+    uint64_t *free_ports =
+      (type == netd_PORT_TCP) ? free_tcp_ports : free_udp_ports;
     free_ports[port / 64] |= (1 << (port % 64));
 }
-
-

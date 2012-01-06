@@ -269,7 +269,7 @@ to the serial output, or a proper serial server if one is available).
 \begin{verbatim}
 #include <stdio.h> 
 int main(void) {
-    printf("Hellow World\n");
+    printf("Hello World\n");
     return 0;
 }
 \end{verbatim}
@@ -493,7 +493,7 @@ the binding.
 be sent in two phases. The non-cap message is sent as normal. The capability
 must be sent through the monitor as only the monitor is able to invoke a syscall
 to serialise and deserialise a capability. the sender sends the capability with
-a request to the monitor, the monitor serialises ait and sends it to the
+a request to the monitor, the monitor serialises it and sends it to the
 destination monitor, where it is deserialised, and send through LMP to the
 destination.
 

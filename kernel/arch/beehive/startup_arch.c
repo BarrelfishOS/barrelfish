@@ -130,7 +130,7 @@ extern void _data_iafter(void);
 	bootinfo->regions[bootinfo->regions_length] = (struct mem_region){ .mr_base = (base), .mr_type = (type), .mr_bits = find_highest_set32(size) + (population_count(size) > 1 ? 1 : 0), .mrmod_size = (size), .mrmod_data = (_string) }; \
 	bootinfo->regions_length++; \
 	location = (base) + (size); \
-        printf("Region 0x%08X size %lu to 0x%08X type %d\n", (base), (size), (location), (type)); \
+        printf("Region 0x%08X size %zu to 0x%08X type %d\n", (base), (size), (location), (type)); \
     } while(0)
 
 #define AddRegion(_base, _size, _type) AddRegionStr(_base, _size, _type, 0)

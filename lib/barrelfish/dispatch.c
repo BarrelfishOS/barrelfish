@@ -60,6 +60,11 @@ static inline void assert_print(const char *str)
     sys_print(str, strlen(str));
 }
 
+static uint64_t run_counter = 0;
+uint64_t disp_run_counter(void)
+{
+    return run_counter;
+}
 /**
  * \brief Run entry point
  *
@@ -75,7 +80,7 @@ void disp_run(dispatcher_handle_t handle)
         get_dispatcher_shared_generic(handle);
 
     assert_disabled(disp->disabled);
-
+    ++run_counter;
     disp_gen->timeslice++;
     // Never let 0 be a valid timeslice number
     if(disp_gen->timeslice == 0) {

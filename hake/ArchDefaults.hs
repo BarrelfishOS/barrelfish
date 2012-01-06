@@ -30,7 +30,8 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-imacros" ] ]
          ++ [ NoDep SrcTree "src" "/include/deputy/nodeputy.h" ]
 
-commonCFlags = [ Str s | s <- [ "-std=gnu99",
+commonCFlags = [ Str s | s <- [ "-std=c99",
+                                "-U__STRICT_ANSI__", -- for newlib headers
                                 "-Wstrict-prototypes",
                                 "-Wold-style-definition",
                                 "-Wmissing-prototypes" ] ]
@@ -90,6 +91,7 @@ stdLibs arch =
       In InstallTree arch "/lib/liblwip.a",
       In InstallTree arch "/lib/libbarrelfish.a",
       In InstallTree arch "/lib/libcontmng.a",
+      In InstallTree arch "/lib/libprocon.a",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
       In InstallTree arch "/lib/crtend.o" ,
       In InstallTree arch "/lib/libcollections.a" ]

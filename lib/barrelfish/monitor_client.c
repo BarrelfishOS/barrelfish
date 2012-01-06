@@ -360,12 +360,18 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
 static void get_monitor_rpc_iref_reply(struct monitor_binding *mb, iref_t iref,
                                        uintptr_t st_arg)
 {
+    errval_t err;
+
     struct bind_state *st = (void *)st_arg;
     assert(iref != 0);
 
-    errval_t err = monitor_blocking_bind(iref, monitor_rpc_bind_continuation, 
-                                         st, get_default_waitset(),
-                                         IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+    struct monitor_blocking_lmp_binding *mbb = malloc(sizeof(*mbb));
+    assert(mbb != NULL);
+
+    err = monitor_blocking_lmp_bind(mbb, iref, monitor_rpc_bind_continuation,
+                                    st, get_default_waitset(),
+                                    IDC_BIND_FLAG_RPC_CAP_TRANSFER,
+                                    LMP_RECV_LENGTH);
     if (err_is_fail(err)) {
         st->err  = err;
         st->done = true;

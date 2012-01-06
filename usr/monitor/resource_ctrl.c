@@ -139,7 +139,7 @@ static void send_phase_data_handler(struct intermon_binding *b,
 static void send_phase_data(rsrcid_t id, coreid_t coreid)
 {
     struct intermon_binding *b = NULL;
-    errval_t err = intern_get_closure(coreid, &b);
+    errval_t err = intermon_binding_get(coreid, &b);
     assert(err_is_ok(err));
 
     send_phase_data_cont(b, id);
@@ -205,7 +205,7 @@ errval_t rsrc_join(rsrcid_t id, struct capref dispcap,
     coreid_t coreid = get_rsrc_coreid(id);
     if(!coordinator(id)) {
         struct intermon_binding *b = NULL;
-        errval_t err = intern_get_closure(coreid, &b);
+        errval_t err = intermon_binding_get(coreid, &b);
         assert(err_is_ok(err));
         err = b->tx_vtbl.rsrc_join(b, NOP_CONT, id, my_core_id);
         assert(err_is_ok(err));
@@ -386,10 +386,10 @@ errval_t rsrc_set_phase_inter(rsrcid_t id, uintptr_t phase, uint64_t timestamp)
     }
 
     // Coordinator: Change the phase globally
-    for(int i = 0; i < MAX_CPUS; i++) {
+    for(int i = 0; i <= MAX_COREID; i++) {
         if(d->joined[i]) {
             struct intermon_binding *b = NULL;
-            errval_t err = intern_get_closure(i, &b);
+            errval_t err = intermon_binding_get(i, &b);
             assert(err_is_ok(err));
             rsrc_phase_cont(b, id, phase, timestamp);
         }
@@ -419,7 +419,7 @@ errval_t rsrc_set_phase(rsrcid_t id, uintptr_t phase)
         // Satellite: Tell coordinator
         coreid_t coreid = get_rsrc_coreid(id);
         struct intermon_binding *b = NULL;
-        errval_t err = intern_get_closure(coreid, &b);
+        errval_t err = intermon_binding_get(coreid, &b);
         assert(err_is_ok(err));
         err = b->tx_vtbl.rsrc_phase(b, NOP_CONT, id, phase);
         assert(err_is_ok(err));

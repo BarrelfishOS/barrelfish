@@ -390,7 +390,7 @@ errval_t lmp_endpoint_recv(struct lmp_endpoint *ep, struct lmp_recv_buf *buf,
     /* check for space in the user's buffer */
     if (header.x.length > buf->buflen) {
         disp_enable(handle);
-        debug_printf("lmp_endpoint_recv: recv buf (%lu words @ %p) overflow"
+        debug_printf("lmp_endpoint_recv: recv buf (%zu words @ %p) overflow"
                      " by pending message (%u words @ %"PRIu32")."
                      " delivered=%"PRIu32" consumed=%"PRIu32" len=%"PRIu32"\n",
                      buf->buflen, &buf, header.x.length, pos,

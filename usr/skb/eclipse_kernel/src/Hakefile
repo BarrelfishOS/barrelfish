@@ -15,7 +15,8 @@ let includes = ["../../include" ]
     unflags= [ "-Werror", "-Wshadow", "-Wstrict-prototypes",
                "-Wold-style-definition", "-Wmissing-prototypes",
                "-Wmissing-declarations",
-               "-Wmissing-field-initializers", "-Wredundant-decls" ]
+               "-Wmissing-field-initializers", "-Wredundant-decls",
+               "-std=c99" ]
 
 in
   [ build library { target = "eclipse", 

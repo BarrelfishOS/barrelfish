@@ -234,6 +234,7 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
             }
         } while(err != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET);
 
+//    state->consumed -= bytes;
         if (success) {
             state->mapoffset = min_offset;
         }

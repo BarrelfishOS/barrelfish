@@ -112,12 +112,6 @@ static void bind_monitor_request(struct intermon_binding *b,
     err = intermon_init(&umpb->b, core_id);
     assert(err_is_ok(err));
 
-    err = intern_set(&umpb->b, true, core_id);
-    if (err_is_fail(err)) {
-        err = err_push(err, MON_ERR_INTERN_SET);
-        goto error;
-    }
-
     /* Send reply */
 reply:
     send_bind_monitor_reply(b, err);
@@ -172,26 +166,22 @@ static void bind_monitor_proxy(struct intermon_binding *b,
     errval_t err;
 
     /* Get source monitor's core id */
-    coreid_t src_core_id = 0;
-    err = intern_get_core_id(b, &src_core_id);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "intern_get_core_id failed");
-    }
+    coreid_t src_core_id = ((struct intermon_state *)b->st)->core_id;
 
     /* Get destination monitor */
-    struct intermon_binding *dst_closure = NULL;
-    err = intern_get_closure(dst_core_id, &dst_closure);
+    struct intermon_binding *dst_binding = NULL;
+    err = intermon_binding_get(dst_core_id, &dst_binding);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "intern_get_closure failed");
+        DEBUG_ERR(err, "intermon_binding_get failed");
     }
 
     // Proxy the request
-    err = dst_closure->tx_vtbl.
-        bind_monitor_request(dst_closure, NOP_CONT, src_core_id,
+    err = dst_binding->tx_vtbl.
+        bind_monitor_request(dst_binding, NOP_CONT, src_core_id,
                              caprep);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct intermon_state *is = dst_closure->st;
+            struct intermon_state *is = dst_binding->st;
             struct bind_monitor_proxy_state *st =
                 malloc(sizeof(struct bind_monitor_proxy_state));
             assert(st);
@@ -201,7 +191,7 @@ static void bind_monitor_proxy(struct intermon_binding *b,
             st->dst_core_id = dst_core_id;
             st->caprep = caprep;
 
-            err = intermon_enqueue_send(dst_closure, &is->queue,
+            err = intermon_enqueue_send(dst_binding, &is->queue,
                                         get_default_waitset(), &st->elem.queue);
             assert(err_is_ok(err));
 
@@ -260,9 +250,6 @@ static void new_monitor_notify(struct intermon_binding *st,
         (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
 
     err = intermon_init(&ump_binding->b, core_id);
-    assert(err_is_ok(err));
-
-    err = intern_set(&ump_binding->b, true, core_id);
     assert(err_is_ok(err));
 
     /* Identify the frame cap */

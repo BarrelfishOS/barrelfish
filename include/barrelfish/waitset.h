@@ -90,5 +90,6 @@ errval_t waitset_destroy(struct waitset *ws);
 errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t event_dispatch(struct waitset *ws);
+errval_t event_dispatch_non_block(struct waitset *ws);
 
 #endif // BARRELFISH_WAITSET_H

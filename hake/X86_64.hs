@@ -69,7 +69,7 @@ options = (ArchDefaults.options arch archFamily) {
 
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
-                                "-std=gnu99",
+                                "-std=c99",
                                 "-m64",
                                 "-mno-red-zone",
                                 "-fPIE",

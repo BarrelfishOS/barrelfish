@@ -146,22 +146,19 @@ static void bind_cont(void *st, errval_t err, struct monitor_mem_binding *b)
     }
 }
 
-errval_t mon_ram_alloc_init(uint8_t core_id)
+errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b)
 {
 #if defined(__scc__) && !defined(RCK_EMU)
     assert(!"Should not be calling this from real SCC");
 #endif
 
-    struct intermon_binding *st = NULL;
     errval_t err;
 
     /* Set memcore_id */
     mem_core_id = core_id;
 
     // Get service IREF from core
-    err = intern_get_closure(core_id, &st);
-    assert(err_is_ok(err));
-    err = st->tx_vtbl.monitor_mem_iref_request(st, NOP_CONT);
+    err = b->tx_vtbl.monitor_mem_iref_request(b, NOP_CONT);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SEND_REMOTE_MSG);
     }

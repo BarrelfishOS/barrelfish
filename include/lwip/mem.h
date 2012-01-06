@@ -40,9 +40,9 @@ extern "C" {
 
 #if MEM_LIBC_MALLOC
 
-#include <stddef.h> /* for size_t */
+#include <stddef.h>             /* for size_t */
 
-typedef size_t mem_size_t;
+    typedef size_t mem_size_t;
 
 /* aliases for C library malloc() */
 #define mem_init()
@@ -59,22 +59,21 @@ typedef size_t mem_size_t;
 #define mem_calloc calloc
 #endif
 #ifndef mem_realloc
-static void *mem_realloc(void *mem, mem_size_t size)
-{
-  LWIP_UNUSED_ARG(size);
-  return mem;
-}
+    static void *mem_realloc(void *mem, mem_size_t size) {
+        LWIP_UNUSED_ARG(size);
+        return mem;
+    }
 #endif
-#else /* MEM_LIBC_MALLOC */
+#else                           /* MEM_LIBC_MALLOC */
 
 /* MEM_SIZE would have to be aligned, but using 64000 here instead of
  * 65535 leaves some room for alignment...
  */
 #if MEM_SIZE > 64000l
-typedef u32_t mem_size_t;
+    typedef u32_t mem_size_t;
 #else
-typedef u16_t mem_size_t;
-#endif /* MEM_SIZE > 64000 */
+    typedef u16_t mem_size_t;
+#endif                          /* MEM_SIZE > 64000 */
 
 #if MEM_USE_POOLS
 /** mem_init is not used when using pools instead of a heap */
@@ -82,15 +81,15 @@ typedef u16_t mem_size_t;
 /** mem_realloc is not used when using pools instead of a heap:
     we can't free part of a pool element and don't want to copy the rest */
 #define mem_realloc(mem, size) (mem)
-#else /* MEM_USE_POOLS */
+#else                           /* MEM_USE_POOLS */
 /* lwIP alternative malloc */
-void  mem_init(void);
-void *mem_realloc(void *mem, mem_size_t size);
-#endif /* MEM_USE_POOLS */
-void *mem_malloc(mem_size_t size);
-void *mem_calloc(mem_size_t count, mem_size_t size);
-void  mem_free(void *mem);
-#endif /* MEM_LIBC_MALLOC */
+    void mem_init(void);
+    void *mem_realloc(void *mem, mem_size_t size);
+#endif                          /* MEM_USE_POOLS */
+    void *mem_malloc(mem_size_t size);
+    void *mem_calloc(mem_size_t count, mem_size_t size);
+    void mem_free(void *mem);
+#endif                          /* MEM_LIBC_MALLOC */
 
 #ifndef LWIP_MEM_ALIGN_SIZE
 #define LWIP_MEM_ALIGN_SIZE(size) (((size) + MEM_ALIGNMENT - 1) & ~(MEM_ALIGNMENT-1))
@@ -103,5 +102,4 @@ void  mem_free(void *mem);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __LWIP_MEM_H__ */
+#endif                          /* __LWIP_MEM_H__ */

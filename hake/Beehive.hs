@@ -81,7 +81,7 @@ options = (ArchDefaults.options arch archFamily) {
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fno-omit-frame-pointer",
                                 "-nostdinc",
-                                "-std=gnu99",
+                                "-std=c99",
                                 "-Wall",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
@@ -165,7 +165,7 @@ makeDepend opts phase src obj depfile =
       [ Str ('@':cpp), Str cpp_undef,
         Str "-imacros", NoDep SrcTree "src" "/hake/beehive-dM-noSTDC.txt" ]
       ++ filter (\f -> not (isPrefixOf "-Wmissing-field-initializers" (formatToken f))) flags
-      ++ [ Str "-nostdinc -std=gnu99 -imacros" ] 
+      ++ [ Str "-nostdinc -std=c99 -imacros" ] 
       ++ [ NoDep SrcTree "src" "/include/deputy/nodeputy.h" ]
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ (optDependencies opts) ++ (extraDependencies opts)

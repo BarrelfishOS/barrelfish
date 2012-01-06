@@ -349,7 +349,7 @@ static void client_work(void) {
         if (max > 50 *pc50) {
           debug_printf("%2d %s ******\n", config, config_name[config]);
         } else {
-          debug_printf("%2d %s min %5lu 5%%-ile %5lu median %5lu 95%%-ile %5lu max %5lu per %4lu\n",  
+          debug_printf("%2d %s min %5zd 5%%-ile %5zd median %5zd 95%%-ile %5zd max %5zd per %4zd\n",  
                        config, config_name[config], (size_t)min, (size_t)pc5, (size_t)pc50, (size_t)pc95, (size_t)max, (size_t)per);
         }
       }

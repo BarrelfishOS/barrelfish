@@ -70,7 +70,8 @@ void intermon_bmp_setup(struct intermon_bmp_binding *b, struct capref bmp_cap,
 }
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int nopid, enum cpu_type cpu_type,
-                             const char *cmdline /* XXX: currently ignored */)
+                             const char *cmdline /* XXX: currently ignored */,
+                             struct intermon_binding **ret_binding)
 {
     errval_t err;
 
@@ -242,11 +243,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int nopid, enum cpu_type cpu_type,
     // init our end of the binding and channel
     intermon_bmp_setup(bmp_binding, beehive_cap, iep, ep);
 
-    err = intermon_init(&bmp_binding->b, coreid);
-    assert(err_is_ok(err));
-
-    err = intern_set(&bmp_binding->b, false, coreid);
-    assert(err_is_ok(err));
+    *ret_binding = &bmp_binding->b;
 
     return SYS_ERR_OK;
 }
@@ -254,7 +251,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int nopid, enum cpu_type cpu_type,
 /**
  * \brief Initialize monitor running on app cores
  */
-errval_t boot_arch_app_core(int argc, char *argv[])
+errval_t boot_arch_app_core(int argc, char *argv[],
+                            coreid_t *ret_parent_coreid,
+                            struct intermon_binding **ret_binding)
 {
     errval_t err;
 
@@ -265,6 +264,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
 
     // core_id of the core that booted this core
     coreid_t core_id = strtol(argv[1], NULL, 10);
+    *ret_parent_coreid = core_id;
 
     // other monitor's channel id
     assert(strncmp("chanid", argv[2], strlen("chanid")) == 0);
@@ -329,24 +329,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
 
     intermon_bmp_setup(ibb, beehive_cap, iep, ep);
 
-    // connect it to our request handlers
-    intermon_init(&ibb->b, core_id);
-
-    err = intern_set(&ibb->b, true, core_id);
-    assert(err_is_ok(err));
-
-    /* Request memserv and nameserv iref */
-    err = request_mem_serv_iref(&ibb->b);
-    assert(err_is_ok(err));
-    
-    err = request_name_serv_iref(&ibb->b);
-    assert(err_is_ok(err));
-
-    /* initialize self ram alloc */
-    err = mon_ram_alloc_init(core_id);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_RAM_ALLOC_SET);
-    }
+    *ret_binding = &ibb->b;
 
     return SYS_ERR_OK;
 }

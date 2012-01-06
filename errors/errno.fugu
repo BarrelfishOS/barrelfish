@@ -608,17 +608,15 @@ errors init INIT_ERR_ {
     failure NO_MATCHING_RAM_CAP "No suitably-sized RAM cap found when initialising local memory allocator",
 };
 
-//errors in e1000
-errors e1000 E1000_ERR_ {
-    failure TOO_MANY_BUFFERS    "e1000_server failed to allocate a new buffer descriptor in register_buffer",
-    failure BUFFER_NOT_FOUND    "server did not find the buff given filter reg",
-    failure NOT_ENOUGH_MEM      "not enough internal memory with driver",
-    
-};
-
 //errors in ethersrv
-errors ethersrv ETHSRV_ERR_ {
+errors ethersrv ETHERSRV_ERR_ {
+    failure TOO_MANY_BUFFERS    "ethersrv failed to allocate a new buffer descriptor in register_buffer",
+    failure TOO_MANY_VNICS      "MAX_VNICS reached, can't create more VNICS",
+    failure BUFFER_NOT_FOUND    "ethersrv did not find the buff given filter reg",
+    failure NOT_ENOUGH_MEM      "not enough internal memory with driver",
     failure CANT_TRANSMIT       "Cant transmit the packet",
+    failure INVALID_STATE       "VNIC is in invalid state for current operation",
+    failure FRAME_CAP_MAP       "Cant map the frame cap in address space",
 };
 
 

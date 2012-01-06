@@ -43,7 +43,8 @@ struct xcore_bind_handler {
 #endif
 
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
-                             const char *cmdline /* XXX: currently ignored */)
+                             const char *cmdline /* XXX: currently ignored */,
+                             struct intermon_binding **ret_binding)
 {
 #ifdef RCK_EMU
     const char *monitorname = NULL, *cpuname = NULL;
@@ -130,6 +131,8 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
         return err_push(err, LIB_ERR_UMP_CHAN_BIND);
     }
 
+    *ret_binding = &binding->b;
+
     // Identify UMP frame for tracing
     struct frame_identity umpid;
     err = invoke_frame_identify(frame, &umpid);
@@ -137,12 +140,6 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     binding->ump_state.chan.recvid = (uintptr_t)umpid.base;
     binding->ump_state.chan.sendid =
         (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
-
-    err = intermon_init(&binding->b, id);
-    assert(err_is_ok(err));
-
-    err = intern_set(&binding->b, false, id);
-    assert(err_is_ok(err));
 
 #ifdef RCK_EMU
     /* Look up modules */
@@ -322,7 +319,9 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     return SYS_ERR_OK;
 }
 
-errval_t boot_arch_app_core(int argc, char *argv[])
+errval_t boot_arch_app_core(int argc, char *argv[],
+                            coreid_t *ret_parent_coreid,
+                            struct intermon_binding **ret_binding)
 {
     errval_t err;
     int argn = 1;
@@ -338,6 +337,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
 
     // core_id of the core that booted this core
     coreid_t core_id = strtol(argv[argn++], NULL, 10);
+    *ret_parent_coreid = core_id;
 
     // other monitor's channel id
     assert(strncmp("chanid", argv[argn], strlen("chanid")) == 0);
@@ -434,27 +434,7 @@ errval_t boot_arch_app_core(int argc, char *argv[])
     rckb->ump_state.chan.recvid =
         (uintptr_t)(frameid.base + MON_URPC_CHANNEL_LEN);
 
-    // connect it to our request handlers
-    intermon_init(&rckb->b, core_id);
-
-    err = intern_set(&rckb->b, true, core_id);
-    assert(err_is_ok(err));
-
-    /* Request memserv and nameserv iref */
-#ifdef RCK_EMU
-    err = request_mem_serv_iref(&rckb->b);
-    assert(err_is_ok(err));
-#endif
-    err = request_name_serv_iref(&rckb->b);
-    assert(err_is_ok(err));
-
-#ifdef RCK_EMU
-    /* initialize self ram alloc */
-    err = mon_ram_alloc_init(core_id);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_RAM_ALLOC_SET);
-    }
-#endif
+    *ret_binding = &rckb->b;
 
     return SYS_ERR_OK;
 }

@@ -52,8 +52,13 @@
  * This will reduce the amount of events recorded, and hence allows
  * recording for longer time. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
-#define TRACE_ONLY_SUB_NET 1
+//#define TRACE_ONLY_SUB_NET 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define TRACE_ONLY_SUB_BNET 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
 
 /**
  * \brief Constants for trace subsystems and events.
@@ -225,28 +230,49 @@
 #define TRACE_EVENT_NET_AOR_S               0x000D /* added, pbuf_id ( register_pbuf from APP)*/
 #define TRACE_EVENT_NET_NIR_REG_PBUF        0x0014 /* commented pbuf_id ( register_pbuf in NIC)*/
 
-
 #define TRACE_SUBSYS_MULTIHOP		     0x7000
 #define TRACE_EVENT_MULTIHOP_BENCH_START     0x0001
 #define TRACE_EVENT_MULTIHOP_BENCH_STOP      0x0002
 #define TRACE_EVENT_MULTIHOP_MESSAGE_SEND    0x0003
 #define TRACE_EVENT_MULTIHOP_MESSAGE_RECEIVE 0x0004
 
+/* Following constants are used in network benchmark. */
+#define TRACE_SUBSYS_BNET                    0x8000
+#define TRACE_EVENT_BNET_START               0x0001
+#define TRACE_EVENT_BNET_STOP                0x0002
+#define TRACE_EVENT_BNET_DRV_SEE             0x0003
+#define TRACE_EVENT_BNET_APP_SEE             0x0004
+#define TRACE_EVENT_BNET_DRV_INT             0x0005
+#define TRACE_EVENT_BNET_DRV_POLL            0x0006
+#define TRACE_EVENT_BNET_YIELD               0x0007
+#define TRACE_EVENT_BNET_I                   0x0008
+
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 
+/* XXX: this is a temp kludge. The tracing code wants to allocate a fixed buffer
+ * for every possible core ID, but this is now too large for sanity, so I've
+ * limited it here. -AB 20111229
+ */
+#define TRACE_COREID_LIMIT        64
 #define TRACE_EVENT_SIZE          16
-#define TRACE_MAX_EVENTS          3000        // max number of events
-#define TRACE_PERCORE_BUF_SIZE    0xc000
-#define TRACE_BUF_SIZE (MAX_CPUS*TRACE_PERCORE_BUF_SIZE)
+#define TRACE_MAX_EVENTS          8000        // max number of events
+#define TRACE_PERCORE_BUF_SIZE    0x1ff00
+// (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer flags)))
+
+#define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)
 
 
 #if defined(__x86_64__)
 #define TRACE_TIMESTAMP() rdtsc()
 
+// XXX These are defined in xapic.dev, not sure we should repro them here
+#ifndef xapic_none
 #define xapic_none 0x00
 #define xapic_self 0x01
 #define xapic_all_inc 0x02
 #define xapic_all_exc 0x03
+#endif
+
 #define IPI_TRACE_COMPLETE 62
 #define IPI_TRACE_START 63
 #define TRACE_COMPLETE_IPI_IRQ    (62-32)
@@ -418,6 +444,7 @@ errval_t trace_my_setup(void);
  */
 static inline lvaddr_t compute_trace_buf_addr(uint8_t core_id)
 {
+    assert(core_id < TRACE_COREID_LIMIT);
     lvaddr_t addr = trace_buffer_master + (core_id * TRACE_PERCORE_BUF_SIZE);
 
     return addr;
@@ -478,6 +505,10 @@ static inline uintptr_t trace_reserve_and_fill_slot(struct trace_event *ev,
 
 #ifdef IN_KERNEL
 
+static inline coreid_t get_my_core_id(void)
+{
+    return my_core_id;
+}
 
 // Kernel-version: uses the global trace buffer variable
 static inline errval_t trace_write_event(struct trace_event *ev)
@@ -485,7 +516,7 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 #ifdef TRACING_EXISTS
     struct trace_buffer *master = (struct trace_buffer *)kernel_trace_buf;
 
-    if (kernel_trace_buf == 0) {
+    if (kernel_trace_buf == 0 || my_core_id >= TRACE_COREID_LIMIT) {
         return TRACE_ERR_NO_BUFFER;
     }
 
@@ -500,7 +531,8 @@ static inline errval_t trace_write_event(struct trace_event *ev)
             return SYS_ERR_OK;
         }
     }
-    struct trace_buffer *trace_buf = (struct trace_buffer*) (kernel_trace_buf + my_core_id * TRACE_PERCORE_BUF_SIZE);
+    struct trace_buffer *trace_buf = (struct trace_buffer*) (kernel_trace_buf
+            + my_core_id * TRACE_PERCORE_BUF_SIZE);
     if (!trace_buf->done_rundown) {
 	/* We set it before we trace_snapshot since we only want one,
 	 * and in particular because trace_snapshot uses
@@ -525,6 +557,15 @@ static inline errval_t trace_write_event(struct trace_event *ev)
     return SYS_ERR_OK;
 }
 #else
+
+/*
+static inline coreid_t get_my_core_id(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic *disp = get_dispatcher_generic(handle);
+    return disp->core_id;
+}
+*/
 
 // User-space version: gets trace buffer pointer out of the current dispatcher
 static inline errval_t trace_write_event(struct trace_event *ev)
@@ -587,6 +628,9 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 
     return SYS_ERR_OK;
 }
+
+
+
 #endif
 
 
@@ -603,6 +647,7 @@ static inline errval_t trace_event_raw(uint64_t raw)
 	/* we do not want the stats about actual messages sent */
 	return SYS_ERR_OK;
 #endif // TRACE_ONLY_SUB_NET
+
 
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();
@@ -632,6 +677,15 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
     if (subsys != TRACE_SUBSYS_NET) {
     	return SYS_ERR_OK;
     }
+#endif // TRACE_ONLY_SUB_NET
+
+#if TRACE_ONLY_SUB_BNET
+/*
+    Recording the events only on the core where I are interested
+    if (get_my_core_id() != 1) {
+    	return SYS_ERR_OK;
+    }
+*/
 #endif // TRACE_ONLY_SUB_NET
 
     return trace_write_event(&ev);

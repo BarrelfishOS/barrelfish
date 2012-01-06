@@ -29,17 +29,17 @@ struct multiboot_cap_state {
     cslot_t slot;
 };
 
-static void ms_multiboot_cap_request(struct monitor_binding *st, cslot_t slot);
+static void ms_multiboot_cap_request(struct monitor_binding *b, cslot_t slot);
 
-static void ms_multiboot_cap_request_handler(struct monitor_binding *st,
+static void ms_multiboot_cap_request_handler(struct monitor_binding *b,
                                              struct monitor_msg_queue_elem *e)
 {
     struct multiboot_cap_state *ms = (struct multiboot_cap_state*)e;
-    ms_multiboot_cap_request(st, ms->slot);
+    ms_multiboot_cap_request(b, ms->slot);
     free(ms);
 }
 
-static void ms_multiboot_cap_request(struct monitor_binding *st, cslot_t slot)
+static void ms_multiboot_cap_request(struct monitor_binding *b, cslot_t slot)
 {
     errval_t err1, err2;
 
@@ -52,19 +52,19 @@ static void ms_multiboot_cap_request(struct monitor_binding *st, cslot_t slot)
     struct frame_identity id;
     err1 = invoke_frame_identify(cap, &id);
     if (err_is_fail(err1)) {
-        err2 = st->tx_vtbl.multiboot_cap_reply(st, NOP_CONT, NULL_CAP, err1);
+        err2 = b->tx_vtbl.multiboot_cap_reply(b, NOP_CONT, NULL_CAP, err1);
     } else {
-        err2 = st->tx_vtbl.multiboot_cap_reply(st, NOP_CONT, cap, err1);
+        err2 = b->tx_vtbl.multiboot_cap_reply(b, NOP_CONT, cap, err1);
     }
     if (err_is_fail(err2)) {
         if (err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
-            struct monitor_state *mon_state = st->st;
+            struct monitor_state *mon_state = b->st;
             struct multiboot_cap_state *ms =
                 malloc(sizeof(struct multiboot_cap_state));
             assert(ms);
             ms->slot = slot;
             ms->elem.cont = ms_multiboot_cap_request_handler;
-            err1 = monitor_enqueue_send(st, &mon_state->queue,
+            err1 = monitor_enqueue_send(b, &mon_state->queue,
                                        get_default_waitset(), &ms->elem.queue);
             if (err_is_fail(err1)) {
                 USER_PANIC_ERR(err1, "monitor_enqueue_send failed");
@@ -77,59 +77,14 @@ static void ms_multiboot_cap_request(struct monitor_binding *st, cslot_t slot)
 
 /* ----------------------- MULTIBOOT REQUEST CODE END ----------------------- */
 
-/* ----------------------- BOOTINFO REQUEST CODE START ---------------------- */
-
-static void ms_bootinfo_request(struct monitor_binding *st);
-
-static void ms_bootinfo_request_handler(struct monitor_binding *st,
-                                     struct monitor_msg_queue_elem *dumb)
-{
-    ms_bootinfo_request(st);
-    free(dumb);
-}
-
-static void ms_bootinfo_request(struct monitor_binding *st)
-{
-    errval_t err;
-
-    struct capref frame = {
-        .cnode = cnode_task,
-        .slot  = TASKCN_SLOT_BOOTINFO
-    };
-
-    struct frame_identity id = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(frame, &id);
-    assert(err_is_ok(err));
-
-    err = st->tx_vtbl.bootinfo_reply(st, NOP_CONT, frame, (size_t)1 << id.bits);
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct monitor_state *mon_state = st->st;
-            struct monitor_msg_queue_elem *ms =
-                malloc(sizeof(struct monitor_msg_queue_elem));
-            assert(ms);
-            ms->cont = ms_bootinfo_request_handler;
-            err = monitor_enqueue_send(st, &mon_state->queue,
-                                       get_default_waitset(), &ms->queue);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "monitor_enqueue_send failed");
-            }
-        }
-
-        USER_PANIC_ERR(err, "sending bootinfo_reply failed");
-    }
-}
-
-/* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
-
-static void alloc_iref_request(struct monitor_binding *st,
+static void alloc_iref_request(struct monitor_binding *b,
                                uintptr_t service_id)
 {
     errval_t err, reterr;
 
     iref_t iref = 0;
-    reterr = iref_alloc(st, service_id, &iref);
-    err = st->tx_vtbl.alloc_iref_reply(st, NOP_CONT, service_id, iref, reterr);
+    reterr = iref_alloc(b, service_id, &iref);
+    err = b->tx_vtbl.alloc_iref_reply(b, NOP_CONT, service_id, iref, reterr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
     }
@@ -143,33 +98,33 @@ static void bind_lmp_client_request_error_handler(struct monitor_binding *b,
 struct bind_lmp_client_request_error_state {
     struct monitor_msg_queue_elem elem;
     struct monitor_bind_lmp_reply_client__args args;
-    struct monitor_binding *serv_closure;
+    struct monitor_binding *serv_binding;
     struct capref ep;
 };
 
-static void bind_lmp_client_request_error(struct monitor_binding *st,
+static void bind_lmp_client_request_error(struct monitor_binding *b,
                                           errval_t err, uintptr_t domain_id,
-                                          struct monitor_binding *serv_closure,
+                                          struct monitor_binding *serv_binding,
                                           struct capref ep)
 {
     errval_t err2;
 
-    err2 = st->tx_vtbl.bind_lmp_reply_client(st, NOP_CONT, err, 0, domain_id,
-                                             NULL_CAP);
+    err2 = b->tx_vtbl.bind_lmp_reply_client(b, NOP_CONT, err, 0, domain_id,
+                                            NULL_CAP);
     if (err_is_fail(err2)) {
         if(err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
             struct bind_lmp_client_request_error_state *me =
                 malloc(sizeof(struct bind_lmp_client_request_error_state));
             assert(me != NULL);
-            struct monitor_state *ist = st->st;
+            struct monitor_state *ist = b->st;
             assert(ist != NULL);
             me->args.err = err;
             me->args.conn_id = domain_id;
-            me->serv_closure = serv_closure;
+            me->serv_binding = serv_binding;
             me->ep = ep;
             me->elem.cont = bind_lmp_client_request_error_handler;
 
-            err = monitor_enqueue_send(st, &ist->queue,
+            err = monitor_enqueue_send(b, &ist->queue,
                                        get_default_waitset(), &me->elem.queue);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor_enqueue_send failed");
@@ -183,7 +138,7 @@ static void bind_lmp_client_request_error(struct monitor_binding *st,
 
     /* Delete the EP cap */
     // Do not delete the cap if client or service is monitor itself
-    if (st != &monitor_self_binding && serv_closure != &monitor_self_binding) {
+    if (b != &monitor_self_binding && serv_binding != &monitor_self_binding) {
         err = cap_destroy(ep);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "cap_destroy failed");
@@ -196,7 +151,7 @@ static void bind_lmp_client_request_error_handler(struct monitor_binding *b,
 {
     struct bind_lmp_client_request_error_state *st = (struct bind_lmp_client_request_error_state *)e;
     bind_lmp_client_request_error(b, st->args.err, st->args.conn_id,
-                                  st->serv_closure, st->ep);
+                                  st->serv_binding, st->ep);
     free(e);
 }
 
@@ -206,30 +161,30 @@ static void bind_lmp_service_request_handler(struct monitor_binding *b,
 struct bind_lmp_service_request_state {
     struct monitor_msg_queue_elem elem;
     struct monitor_bind_lmp_service_request__args args;
-    struct monitor_binding *st;
+    struct monitor_binding *b;
     uintptr_t domain_id;
 };
 
-static void bind_lmp_service_request_cont(struct monitor_binding *serv_closure,
+static void bind_lmp_service_request_cont(struct monitor_binding *serv_binding,
                                           uintptr_t service_id, uintptr_t con_id,
                                           size_t buflen, struct capref ep,
-                                          struct monitor_binding *st,
+                                          struct monitor_binding *b,
                                           uintptr_t domain_id)
 {
     errval_t err, err2;
 
-    struct monitor_state *ist = serv_closure->st;
+    struct monitor_state *ist = serv_binding->st;
     struct event_closure send_cont = NOP_CONT;
     struct capref *capp = NULL;
 
-    if (serv_closure != &monitor_self_binding && st != &monitor_self_binding) {
+    if (serv_binding != &monitor_self_binding && b != &monitor_self_binding) {
         // save EP cap to be destroyed after the send is done
         capp = caprefdup(ep);
         send_cont = MKCONT(destroy_outgoing_cap, capp);
     }
 
-    err = serv_closure->tx_vtbl.
-        bind_lmp_service_request(serv_closure, send_cont, service_id,
+    err = serv_binding->tx_vtbl.
+        bind_lmp_service_request(serv_binding, send_cont, service_id,
                                  con_id, buflen, ep);
     if (err_is_fail(err)) {
         free(capp);
@@ -242,11 +197,11 @@ static void bind_lmp_service_request_cont(struct monitor_binding *serv_closure,
             me->args.mon_id = con_id;
             me->args.buflen = buflen;
             me->args.ep = ep;
-            me->st = st;
+            me->b = b;
             me->domain_id = domain_id;
             me->elem.cont = bind_lmp_service_request_handler;
 
-            err = monitor_enqueue_send(serv_closure, &ist->queue,
+            err = monitor_enqueue_send(serv_binding, &ist->queue,
                                        get_default_waitset(), &me->elem.queue);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor_enqueue_send failed");
@@ -258,7 +213,7 @@ static void bind_lmp_service_request_cont(struct monitor_binding *serv_closure,
         if (err_is_fail(err2)) {
             USER_PANIC_ERR(err2, "lmp_conn_free failed");
         }
-        bind_lmp_client_request_error(st, err, domain_id, serv_closure, ep);
+        bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
         return;
     }
 }
@@ -268,37 +223,37 @@ static void bind_lmp_service_request_handler(struct monitor_binding *b,
 {
     struct bind_lmp_service_request_state *st = (struct bind_lmp_service_request_state *)e;
     bind_lmp_service_request_cont(b, st->args.service_id, st->args.mon_id,
-                                  st->args.buflen, st->args.ep, st->st,
+                                  st->args.buflen, st->args.ep, st->b,
                                   st->domain_id);
     free(e);
 }
 
-static void bind_lmp_client_request(struct monitor_binding *st,
+static void bind_lmp_client_request(struct monitor_binding *b,
                                     iref_t iref, uintptr_t domain_id,
                                     size_t buflen, struct capref ep)
 {
     errval_t err;
-    struct monitor_binding *serv_closure = NULL;
+    struct monitor_binding *serv_binding = NULL;
 
     /* Look up core_id from the iref */
     uint8_t core_id;
     err = iref_get_core_id(iref, &core_id);
     if (err_is_fail(err)) {
-        bind_lmp_client_request_error(st, err, domain_id, serv_closure, ep);
+        bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
         return;
     }
 
     // Return error if service on different core
     if (core_id != my_core_id) {
         err = MON_ERR_IDC_BIND_NOT_SAME_CORE;
-        bind_lmp_client_request_error(st, err, domain_id, serv_closure, ep);
+        bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
         return;
     }
 
     /* Lookup the server's connection to monitor */
-    err = iref_get_closure(iref, &serv_closure);
+    err = iref_get_binding(iref, &serv_binding);
     if (err_is_fail(err)) {
-        bind_lmp_client_request_error(st, err, domain_id, serv_closure, ep);
+        bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
         return;
     }
 
@@ -306,7 +261,7 @@ static void bind_lmp_client_request(struct monitor_binding *st,
     uintptr_t service_id;
     err = iref_get_service_id(iref, &service_id);
     if (err_is_fail(err)) {
-        bind_lmp_client_request_error(st, err, domain_id, serv_closure, ep);
+        bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
         return;
     }
 
@@ -315,16 +270,16 @@ static void bind_lmp_client_request(struct monitor_binding *st,
     struct lmp_conn_state *conn;
     err = lmp_conn_alloc(&conn, &con_id);
     if (err_is_fail(err)) {
-        bind_lmp_client_request_error(st, err, domain_id, serv_closure, ep);
+        bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
         return;
     }
 
     conn->domain_id = domain_id;
-    conn->domain_closure = st;
+    conn->domain_binding = b;
 
     /* Send request to the server */
-    bind_lmp_service_request_cont(serv_closure, service_id, con_id, buflen, ep,
-                                  st, domain_id);
+    bind_lmp_service_request_cont(serv_binding, service_id, con_id, buflen, ep,
+                                  b, domain_id);
 }
 
 /******* stack-ripped bind_lmp_reply *******/
@@ -335,29 +290,29 @@ static void bind_lmp_reply_client_handler(struct monitor_binding *b,
 struct bind_lmp_reply_client_state {
     struct monitor_msg_queue_elem elem;
     struct monitor_bind_lmp_reply_client__args args;
-    struct monitor_binding *st;
+    struct monitor_binding *b;
 };
 
-static void bind_lmp_reply_client_cont(struct monitor_binding *client_closure,
+static void bind_lmp_reply_client_cont(struct monitor_binding *client_binding,
                                        errval_t msgerr, uintptr_t mon_conn_id,
                                        uintptr_t client_conn_id,
                                        struct capref ep,
-                                       struct monitor_binding *st)
+                                       struct monitor_binding *b)
 {
     errval_t err;
 
-    struct monitor_state *ist = client_closure->st;
+    struct monitor_state *ist = client_binding->st;
     struct event_closure send_cont = NOP_CONT;
     struct capref *capp = NULL;
 
-    if (client_closure != &monitor_self_binding && st != &monitor_self_binding) {
+    if (client_binding != &monitor_self_binding && b != &monitor_self_binding) {
         // save EP cap to be destroyed after the send is done
         capp = caprefdup(ep);
         send_cont = MKCONT(destroy_outgoing_cap, capp);
     }
 
-    err = client_closure->tx_vtbl.
-        bind_lmp_reply_client(client_closure, send_cont,
+    err = client_binding->tx_vtbl.
+        bind_lmp_reply_client(client_binding, send_cont,
                               SYS_ERR_OK, mon_conn_id, client_conn_id, ep);
     if (err_is_fail(err)) {
         free(capp);
@@ -370,10 +325,10 @@ static void bind_lmp_reply_client_cont(struct monitor_binding *client_closure,
             me->args.mon_id = mon_conn_id;
             me->args.conn_id = client_conn_id;
             me->args.ep = ep;
-            me->st = st;
+            me->b = b;
             me->elem.cont = bind_lmp_reply_client_handler;
 
-            err = monitor_enqueue_send(client_closure, &ist->queue,
+            err = monitor_enqueue_send(client_binding, &ist->queue,
                                        get_default_waitset(), &me->elem.queue);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor_enqueue_send failed");
@@ -394,16 +349,16 @@ static void bind_lmp_reply_client_handler(struct monitor_binding *b,
 {
     struct bind_lmp_reply_client_state *st = (struct bind_lmp_reply_client_state *)e;
     bind_lmp_reply_client_cont(b, st->args.err, st->args.mon_id, st->args.conn_id,
-                               st->args.ep, st->st);
+                               st->args.ep, st->b);
     free(e);
 }
 
-static void bind_lmp_reply(struct monitor_binding *st,
+static void bind_lmp_reply(struct monitor_binding *b,
                            errval_t msgerr, uintptr_t mon_conn_id,
                            uintptr_t user_conn_id, struct capref ep)
 {
     errval_t err;
-    struct monitor_binding *client_closure = NULL;
+    struct monitor_binding *client_binding = NULL;
 
     struct lmp_conn_state *conn = lmp_conn_lookup(mon_conn_id);
     if (conn == NULL) {
@@ -411,25 +366,25 @@ static void bind_lmp_reply(struct monitor_binding *st,
         goto cleanup;
     }
 
-    client_closure = conn->domain_closure;
+    client_binding = conn->domain_binding;
     uintptr_t client_conn_id = conn->domain_id;
 
     err = lmp_conn_free(mon_conn_id);
     assert(err_is_ok(err));
 
     if (err_is_fail(msgerr)) {
-        bind_lmp_reply_client_cont(client_closure, msgerr, 0, client_conn_id,
-                                   ep, st);
+        bind_lmp_reply_client_cont(client_binding, msgerr, 0, client_conn_id,
+                                   ep, b);
     } else {
-        bind_lmp_reply_client_cont(client_closure, SYS_ERR_OK, mon_conn_id,
-                                   client_conn_id, ep, st);
+        bind_lmp_reply_client_cont(client_binding, SYS_ERR_OK, mon_conn_id,
+                                   client_conn_id, ep, b);
     }
     return;
 
 cleanup:
     /* Delete the ep cap */
     // XXX: Do not delete the cap if client or service is monitor
-    if (client_closure != &monitor_self_binding && st != &monitor_self_binding) {
+    if (client_binding != &monitor_self_binding && b != &monitor_self_binding) {
         err = cap_destroy(ep);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "cap_destroy failed");
@@ -520,14 +475,14 @@ out:
 
 /* ---------------------- NEW MONITOR BINDING CODE END ---------------------- */
 
-static void get_mem_iref_request(struct monitor_binding *st)
+static void get_mem_iref_request(struct monitor_binding *b)
 {
     errval_t err;
 
     // Mem serv not registered yet
     assert(mem_serv_iref != 0);
 
-    err = st->tx_vtbl.get_mem_iref_reply(st, NOP_CONT, mem_serv_iref);
+    err = b->tx_vtbl.get_mem_iref_reply(b, NOP_CONT, mem_serv_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
     }
@@ -543,14 +498,14 @@ static void get_name_iref_request(struct monitor_binding *b, uintptr_t st)
     }
 }
 
-static void set_mem_iref_request(struct monitor_binding *st, 
+static void set_mem_iref_request(struct monitor_binding *b, 
                                  iref_t iref)
 {
     mem_serv_iref = iref;
     update_ram_alloc_binding = true;
 }
 
-static void get_monitor_rpc_iref_request(struct monitor_binding *st, 
+static void get_monitor_rpc_iref_request(struct monitor_binding *b, 
                                          uintptr_t st_arg)
 {
     errval_t err;
@@ -558,8 +513,8 @@ static void get_monitor_rpc_iref_request(struct monitor_binding *st,
     // monitor rpc not registered yet
     assert(monitor_rpc_iref != 0);
 
-    err = st->tx_vtbl.get_monitor_rpc_iref_reply(st, NOP_CONT,
-                                                 monitor_rpc_iref, st_arg);
+    err = b->tx_vtbl.get_monitor_rpc_iref_reply(b, NOP_CONT,
+                                                monitor_rpc_iref, st_arg);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
     }
@@ -578,7 +533,7 @@ void set_monitor_rpc_iref(iref_t iref)
 }
 
 
-static void set_name_iref_request(struct monitor_binding *st, 
+static void set_name_iref_request(struct monitor_binding *b, 
                                   iref_t iref)
 {
     if (name_serv_iref != 0) {
@@ -625,12 +580,11 @@ static void cap_send_request_cb(void * st_arg) {
 
 /// FIXME: If on the same core, fail. (Why? -AB)
 /// XXX: size of capability is arch specific
-static void cap_send_request(struct monitor_binding *st,
+static void cap_send_request(struct monitor_binding *b,
                              uintptr_t my_mon_id, struct capref cap,
                              uint32_t capid, uint8_t give_away)
 {
     errval_t err;
-    static struct capability null_capability;
     struct capability capability;
     bool has_descendants;
     coremask_t on_cores;
@@ -638,10 +592,10 @@ static void cap_send_request(struct monitor_binding *st,
     if (capref_is_null(cap)) {
         // we don't care about capabilities, has_descendants, or on_cores here,
         // make the compiler happy though
-        on_cores = 0; 
-        has_descendants = false;
+        static struct capability null_capability;
+        static coremask_t null_mask;
         cap_send_request_2(my_mon_id, cap, capid, null_capability,
-                           give_away, has_descendants, on_cores);
+                           give_away, false, null_mask);
         return;
     }
 
@@ -653,8 +607,8 @@ static void cap_send_request(struct monitor_binding *st,
 
     if (!monitor_can_send_cap(&capability)) {
         struct remote_conn_state *rcs = remote_conn_lookup(my_mon_id);
-        err = st->tx_vtbl.cap_send_reply(st, NOP_CONT, rcs->domain_id, capid,
-                                         MON_ERR_CAP_SEND);
+        err = b->tx_vtbl.cap_send_reply(b, NOP_CONT, rcs->domain_id, capid,
+                                        MON_ERR_CAP_SEND);
         assert(err_is_ok(err));
         return;
     }
@@ -703,10 +657,10 @@ static void cap_send_request(struct monitor_binding *st,
         }
 
         // TODO ensure that no more copies of this cap are on this core
-        on_cores = 0;
+        static coremask_t null_mask;
         // call continuation directly
         cap_send_request_2(my_mon_id, cap, capid, capability, give_away, 
-                           has_descendants, on_cores);
+                           has_descendants, null_mask);
     }
 }
 
@@ -729,7 +683,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
 
     err = b->tx_vtbl.cap_send_request(b, NOP_CONT, st->your_mon_id, st->capid,
                                       st->caprep, st->give_away,
-                                      st->has_descendants, st->on_cores,
+                                      st->has_descendants, st->on_cores.bits,
                                       st->null_cap); 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -773,7 +727,7 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
         return;
     }
 
-    struct intermon_binding *closure = conn->mon_closure;
+    struct intermon_binding *binding = conn->mon_binding;
     uintptr_t your_mon_id = conn->mon_id;
 
 
@@ -791,13 +745,13 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
         }
     }
 
-    err = closure->tx_vtbl.
-        cap_send_request(closure, NOP_CONT, your_mon_id, capid,
-                         caprep, give_away, has_descendants, on_cores,
+    err = binding->tx_vtbl.
+        cap_send_request(binding, NOP_CONT, your_mon_id, capid,
+                         caprep, give_away, has_descendants, on_cores.bits,
                          null_cap);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct intermon_state *intermon_state = closure->st;
+            struct intermon_state *intermon_state = binding->st;
             struct cap_send_request_state *ms =
                 malloc(sizeof(struct cap_send_request_state));
             assert(ms);
@@ -811,7 +765,7 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
             ms->null_cap = null_cap;
             ms->elem.cont = cap_send_request_2_handler;
 
-            errval_t err1 = intermon_enqueue_send(closure, &intermon_state->queue,
+            errval_t err1 = intermon_enqueue_send(binding, &intermon_state->queue,
                                                   get_default_waitset(),
                                                   &ms->elem.queue);
             if (err_is_fail(err1)) {
@@ -827,7 +781,7 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
 #if 0
 struct capref domains[MAX_DOMAINS];
 
-static void assign_domain_id_request(struct monitor_binding *st, uintptr_t ust,
+static void assign_domain_id_request(struct monitor_binding *b, uintptr_t ust,
                                      struct capref disp, struct capref ep)
 {
     for(domainid_t id = 1; id < MAX_DOMAINS; id++) {
@@ -836,7 +790,7 @@ static void assign_domain_id_request(struct monitor_binding *st, uintptr_t ust,
             errval_t err = invoke_domain_id(disp, id);
             assert(err_is_ok(err));
 
-            err = st->tx_vtbl.assign_domain_id_reply(st, NOP_CONT, ust, id);
+            err = b->tx_vtbl.assign_domain_id_reply(b, NOP_CONT, ust, id);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "assign domain ID failed\n");
             }
@@ -845,14 +799,14 @@ static void assign_domain_id_request(struct monitor_binding *st, uintptr_t ust,
     }
 
     // Return error
-    errval_t err = st->tx_vtbl.assign_domain_id_reply(st, NOP_CONT, ust, 0);
+    errval_t err = b->tx_vtbl.assign_domain_id_reply(b, NOP_CONT, ust, 0);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "assign domain ID failed\n");
     }
 }
 #endif
 
-static void span_domain_request(struct monitor_binding *st,
+static void span_domain_request(struct monitor_binding *mb,
                                 uintptr_t domain_id, uint8_t core_id,
                                 struct capref vroot, struct capref disp)
 {
@@ -871,14 +825,14 @@ static void span_domain_request(struct monitor_binding *st,
 
     state->core_id   = core_id;
     state->vroot     = vroot;
-    state->st        = st;
+    state->mb        = mb;
     state->domain_id = domain_id;
 
     trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_SPAN1, core_id);
 
     /* Look up the destination monitor */
-    struct intermon_binding *closure;
-    err = intern_get_closure(core_id, &closure);
+    struct intermon_binding *ib;
+    err = intermon_binding_get(core_id, &ib);
     if (err_is_fail(err)) {
         goto reply;
     }
@@ -916,9 +870,9 @@ static void span_domain_request(struct monitor_binding *st,
     }
 
     /* Send msg to destination monitor */
-    err = closure->tx_vtbl.span_domain_request(closure, NOP_CONT, state_id,
-                                               vroot_cap.u.vnode_x86_64_pml4.base,
-                                               frameid.base, frameid.bits);
+    err = ib->tx_vtbl.span_domain_request(ib, NOP_CONT, state_id,
+                                          vroot_cap.u.vnode_x86_64_pml4.base,
+                                          frameid.base, frameid.bits);
 
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_SEND_REMOTE_MSG);
@@ -927,7 +881,7 @@ static void span_domain_request(struct monitor_binding *st,
     goto cleanup;
 
  reply:
-    err2 = st->tx_vtbl.span_domain_reply(st, NOP_CONT, err, domain_id);
+    err2 = mb->tx_vtbl.span_domain_reply(mb, NOP_CONT, err, domain_id);
     if (err_is_fail(err2)) {
         // XXX: Cleanup?
         USER_PANIC_ERR(err2, "Failed to reply to the user domain");
@@ -950,24 +904,18 @@ static void span_domain_request(struct monitor_binding *st,
     }
 }
 
-static int num_cores(void) {
-    /* Count number of cores that are up */
-    int count = 0;
-    for (int i = 0; i < MAX_CPUS; i++) {
-        if (intern[i].closure) {
-            count++;
-        }
-    }
-    // Add one to include self
-    return ++count;
-}
-
-static void num_cores_request(struct monitor_binding *st)
+static void num_cores_request(struct monitor_binding *b)
 {
-    int count = num_cores();
+    /* XXX: This is deprecated and shouldn't be used: there's nothing useful you
+     * can do with the result, unless you assume that core IDs are contiguous
+     * and start from zero, which is a false assumption! Go ask the SKB...
+     */
+
+    debug_printf("Application invoked deprecated num_cores_request() API."
+                 " Please fix it!\n");
 
     /* Send reply */
-    errval_t err = st->tx_vtbl.num_cores_reply(st, NOP_CONT, count);
+    errval_t err = b->tx_vtbl.num_cores_reply(b, NOP_CONT, num_monitors);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "sending num_cores_reply failed");
     }
@@ -981,7 +929,6 @@ struct monitor_rx_vtbl the_table = {
 
     .boot_core_request = boot_core_request,
     .boot_initialize_request = boot_initialize_request,
-    .bootinfo_request = ms_bootinfo_request,
     .multiboot_cap_request = ms_multiboot_cap_request,
 
     .new_monitor_binding_request = new_monitor_binding_request,

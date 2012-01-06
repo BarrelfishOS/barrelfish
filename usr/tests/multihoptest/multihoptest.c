@@ -220,7 +220,7 @@ static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
         USER_PANIC("received wrong argument in \"buf\" message!\n");
     }
 
-    printf("%s rx_buf (%lu bytes)\n", get_role_name(), buflen);
+    printf("%s rx_buf (%zu bytes)\n", get_role_name(), buflen);
     free(buf);
 
     /**

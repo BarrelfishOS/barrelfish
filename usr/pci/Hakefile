@@ -12,7 +12,8 @@
 
 [ build application { target = "pci",
   	              flounderBindings = [ "pci" ],
-                      flounderDefs = [ "monitor" ],
+                      flounderDefs = [ "monitor", "monitor_blocking" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
 		      mackerelDevices = [ "pci_hdr0", "pci_hdr1",
                                           "lpc_ioapic", "ht_config",
                                           "lpc_bridge", "acpi_ec" ],

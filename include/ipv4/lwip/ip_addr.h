@@ -41,37 +41,33 @@ extern "C" {
 #endif
 
 #ifdef PACK_STRUCT_USE_INCLUDES
-#  include "arch/bpstruct.h"
+#include "arch/bpstruct.h"
 #endif
-PACK_STRUCT_BEGIN
-struct ip_addr {
-  PACK_STRUCT_FIELD(u32_t addr);
-} PACK_STRUCT_STRUCT;
-PACK_STRUCT_END
+    PACK_STRUCT_BEGIN struct ip_addr {
+        PACK_STRUCT_FIELD(u32_t addr);
+    } PACK_STRUCT_STRUCT;
+     PACK_STRUCT_END
 #ifdef PACK_STRUCT_USE_INCLUDES
-#  include "arch/epstruct.h"
+#include "arch/epstruct.h"
 #endif
-
 /*
  * struct ipaddr2 is used in the definition of the ARP packet format in
  * order to support compilers that don't have structure packing.
  */
 #ifdef PACK_STRUCT_USE_INCLUDES
-#  include "arch/bpstruct.h"
+#include "arch/bpstruct.h"
 #endif
-PACK_STRUCT_BEGIN
-struct ip_addr2 {
-  PACK_STRUCT_FIELD(u16_t addrw[2]);
-} PACK_STRUCT_STRUCT;
-PACK_STRUCT_END
+     PACK_STRUCT_BEGIN struct ip_addr2 {
+        PACK_STRUCT_FIELD(u16_t addrw[2]);
+    } PACK_STRUCT_STRUCT;
+     PACK_STRUCT_END
 #ifdef PACK_STRUCT_USE_INCLUDES
-#  include "arch/epstruct.h"
+#include "arch/epstruct.h"
 #endif
+      struct netif;
 
-struct netif;
-
-extern const struct ip_addr ip_addr_any;
-extern const struct ip_addr ip_addr_broadcast;
+    extern const struct ip_addr ip_addr_any;
+    extern const struct ip_addr ip_addr_broadcast;
 
 /** IP_ADDR_ can be used as a fixed IP address
  *  for the wildcard and the broadcast address
@@ -102,15 +98,15 @@ extern const struct ip_addr ip_addr_broadcast;
 #define IN_CLASSC_HOST      (0xffffffff & ~IN_CLASSC_NET)
 
 #define IN_CLASSD(a)        (((u32_t)(a) & 0xf0000000UL) == 0xe0000000UL)
-#define IN_CLASSD_NET       0xf0000000          /* These ones aren't really */
-#define IN_CLASSD_NSHIFT    28                  /*   net and host fields, but */
-#define IN_CLASSD_HOST      0x0fffffff          /*   routing needn't know. */
+#define IN_CLASSD_NET       0xf0000000  /* These ones aren't really */
+#define IN_CLASSD_NSHIFT    28  /*   net and host fields, but */
+#define IN_CLASSD_HOST      0x0fffffff  /*   routing needn't know. */
 #define IN_MULTICAST(a)     IN_CLASSD(a)
 
 #define IN_EXPERIMENTAL(a)  (((u32_t)(a) & 0xf0000000UL) == 0xf0000000UL)
 #define IN_BADCLASS(a)      (((u32_t)(a) & 0xf0000000UL) == 0xf0000000UL)
 
-#define IN_LOOPBACKNET      127                 /* official! */
+#define IN_LOOPBACKNET      127 /* official! */
 
 #define IP4_ADDR(ipaddr, a,b,c,d) \
         (ipaddr)->addr = htonl(((u32_t)((a) & 0xff) << 24) | \
@@ -137,7 +133,7 @@ extern const struct ip_addr ip_addr_broadcast;
 
 #define ip_addr_isany(addr1) ((addr1) == NULL || (addr1)->addr == 0)
 
-u8_t ip_addr_isbroadcast(struct ip_addr *, struct netif *);
+    u8_t ip_addr_isbroadcast(struct ip_addr *, struct netif *);
 
 #define ip_addr_ismulticast(addr1) (((addr1)->addr & ntohl(0xf0000000UL)) == ntohl(0xe0000000UL))
 
@@ -164,5 +160,4 @@ u8_t ip_addr_isbroadcast(struct ip_addr *, struct netif *);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __LWIP_IP_ADDR_H__ */
+#endif                          /* __LWIP_IP_ADDR_H__ */

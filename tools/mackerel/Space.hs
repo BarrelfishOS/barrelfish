@@ -24,19 +24,19 @@ data Rec = Builtin { n :: String,
          | Defined { n :: String,
                      a :: [ String ],
                      d :: String,
+                     devname :: String,
                      t :: SpaceType,
                      p :: SourcePos }
-           deriving Show
+         | UndefinedSpace
+         | NoSpace
+           deriving (Eq,Show)
 
 make :: String -> [String] -> String -> SpaceType -> SourcePos -> Rec
 make name args desc tpe pos = 
-    Defined { n = name, a = args, d = desc, t = tpe, p = pos }
+    Defined { n = name, a = args, d = desc, devname = "", t = tpe, p = pos }
 
 builtins :: [ Rec ]
-builtins = [ Builtin { n = "",
-                       d = "Undefined / unknown space",
-                       t = UNDEF },
-             Builtin { n = "addr",
+builtins = [ Builtin { n = "addr",
                        d = "Physical address space", 
                        t = BYTEWISE 1},
              Builtin { n = "io", 
@@ -50,7 +50,7 @@ builtins = [ Builtin { n = "",
 lookup :: String -> [Rec] -> Rec
 lookup sn spt = 
     let rl = [ s | s <- spt, (n s) == sn ]
-    in if length rl == 0 then head builtins else head rl
+    in if length rl == 0 then UndefinedSpace else head rl
 
 is_builtin :: Rec -> Bool
 is_builtin (Builtin _ _ _) = True

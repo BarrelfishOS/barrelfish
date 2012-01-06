@@ -8,37 +8,23 @@
  */
 
 interface ether "Generic Ethernet Driver" {
-    call register_buffer(cap buf);
-    response new_buffer_id(errval err, uint64 idx);
-
-    call transmit_packet(uint64 nr_pbufs,
-                         uint64 buffer_id,
-                         uint64 len,
-                         uint64 offset,
-                         uint64 client_data);
-    response tx_done(uint64 client_data);
+    call register_buffer(cap buf,
+                         cap sp,
+                         uint64 slots,
+                         uint8 role);
+    response new_buffer_id(errval err,
+                           uint64 idx);
 
     call get_mac_address();
     response get_mac_address_response(uint64 hwaddr);
 
-    call register_pbuf(uint64 pbuf_id,
-                       uint64 paddr,
-                       uint64 len);
-    response packet_received(uint64 pbuf_id,
-                             uint64 paddr,
-                             uint64 pbuf_len,
-                             uint64 packet_len);
-/*
-    call metadata_size_request();
-    response metadata_size(uint64 size);
+    call sp_notification_from_app(uint64 type,
+                         uint64 ts);
+    response sp_notification_from_driver(uint64 type,
+                         uint64 ts);
 
-    call register_metadata_mem(uint64 buffer_id, 
-			       cap mem);
-    response registered_metadata_mem(errval_t err,
-				     uint64 buffer_id);
-
-*/
-          call print_statistics();
-          call print_cardinfo();
-          call debug_status(uint8 state);
+    call print_statistics();
+    call print_cardinfo();
+    call benchmark_control_request(uint8 state, uint64 trigger, uint64 cl);
+    response benchmark_control_response(uint8 state, uint64 delta, uint64 cl);
 };

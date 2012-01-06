@@ -17,19 +17,17 @@
 #include <stdbool.h>
 #include <string.h>
 #include <arch/x86/perfmon_amd.h>
-#include "cpuid_dev.h"
-#include "ia32_dev.h"
+
+#include <dev/cpuid_dev.h>
+#include <dev/ia32_dev.h>
 
 static struct cpuid_t mycpuid;
-static struct ia32_t ia32_0, ia32_1, ia32_2, ia32_3;
+static struct ia32_t ia32;
 
 void perfmon_amd_init(void)
 {
     cpuid_initialize(&mycpuid);
-    ia32_initialize(&ia32_0);
-    ia32_initialize(&ia32_1);
-    ia32_initialize(&ia32_2);
-    ia32_initialize(&ia32_3);
+    ia32_initialize(&ia32);
 }
 
 bool perfmon_amd_supported(void)
@@ -58,21 +56,21 @@ bool perfmon_amd_supported(void)
 
 void perfmon_amd_measure_stop(uint8_t idx)
 {
-    ia32_amd_perfevtsel_t sel = {
-	.en = 0
-    };
+    ia32_amd_perfevtsel_t sel = ia32_amd_perfevtsel_default;
+    ia32_amd_perfevtsel_en_insert(sel,0);
+
     switch(idx) {
     case 0:
-        ia32_amd_perfevtsel0_wr(&ia32_0, sel);
+        ia32_amd_perfevtsel0_wr(&ia32, sel);
         break;
     case 1:
-        ia32_amd_perfevtsel1_wr(&ia32_1, sel);
+        ia32_amd_perfevtsel1_wr(&ia32, sel);
         break;
     case 2:
-        ia32_amd_perfevtsel2_wr(&ia32_2, sel);
+        ia32_amd_perfevtsel2_wr(&ia32, sel);
         break;
     case 3:
-        ia32_amd_perfevtsel3_wr(&ia32_3, sel);
+        ia32_amd_perfevtsel3_wr(&ia32, sel);
         break;
     }
 }
@@ -80,27 +78,28 @@ void perfmon_amd_measure_stop(uint8_t idx)
 void perfmon_amd_measure_start(uint16_t event, uint8_t umask, bool os, 
                                uint8_t idx, bool intr)
 {
-    ia32_amd_perfevtsel_t sel = {
-	.evsel = event & 0xff,
-	.umask = umask,
-	.usr = 1,
-	.os = os ? 1 : 0,
-        .intr = intr ? 1 : 0,
-	.en = 1,
-	.evsel_hi = (event >> 8) & 0xf
-    };
+    ia32_amd_perfevtsel_t sel = ia32_amd_perfevtsel_default;
+
+    ia32_amd_perfevtsel_evsel_insert(sel,event & 0xff);
+    ia32_amd_perfevtsel_umask_insert(sel,umask);
+    ia32_amd_perfevtsel_usr_insert(sel,1);
+    ia32_amd_perfevtsel_os_insert(sel,os ? 1 : 0);
+    ia32_amd_perfevtsel_intr_insert(sel,intr ? 1 : 0);
+    ia32_amd_perfevtsel_en_insert(sel,1);
+    ia32_amd_perfevtsel_evsel_hi_insert(sel, (event >> 8) & 0xf);
+
     switch(idx) {
     case 0:
-        ia32_amd_perfevtsel0_wr(&ia32_0, sel);
+        ia32_amd_perfevtsel0_wr(&ia32, sel);
         break;
     case 1:
-        ia32_amd_perfevtsel1_wr(&ia32_1, sel);
+        ia32_amd_perfevtsel1_wr(&ia32, sel);
         break;
     case 2:
-        ia32_amd_perfevtsel2_wr(&ia32_2, sel);
+        ia32_amd_perfevtsel2_wr(&ia32, sel);
         break;
     case 3:
-        ia32_amd_perfevtsel3_wr(&ia32_3, sel);
+        ia32_amd_perfevtsel3_wr(&ia32, sel);
         break;
     }
 }
@@ -109,13 +108,13 @@ uint64_t perfmon_amd_measure_read(uint8_t idx)
 {
     switch(idx) {
     case 0:
-        return ia32_perfctr0_rd(&ia32_0);
+        return ia32_perfctr0_rd(&ia32);
     case 1:
-        return ia32_perfctr1_rd(&ia32_1);
+        return ia32_perfctr1_rd(&ia32);
     case 2:
-        return ia32_perfctr2_rd(&ia32_2);	    
+        return ia32_perfctr2_rd(&ia32);	    
     case 3:
-        return ia32_perfctr3_rd(&ia32_3);	    
+        return ia32_perfctr3_rd(&ia32);	    
     }
     return 0;
 }
@@ -125,16 +124,16 @@ void perfmon_amd_measure_write(uint64_t val, uint8_t idx)
 {
     switch(idx) {
     case 0:
-        ia32_perfctr0_wr(&ia32_0, val);
+        ia32_perfctr0_wr(&ia32, val);
         break;
     case 1:
-        ia32_perfctr1_wr(&ia32_1, val);
+        ia32_perfctr1_wr(&ia32, val);
         break;
     case 2:
-        ia32_perfctr2_wr(&ia32_2, val);
+        ia32_perfctr2_wr(&ia32, val);
         break;
     case 3:
-        ia32_perfctr3_wr(&ia32_3, val);
+        ia32_perfctr3_wr(&ia32, val);
         break;
     }
 }

@@ -116,6 +116,11 @@ errval_t trace_my_setup(void)
         .slot   = TASKCN_SLOT_TRACEBUF
     };
 
+    if (disp_get_core_id() >= TRACE_COREID_LIMIT) {
+        // can't support tracing on this core. sorry :(
+        return SYS_ERR_OK;
+    }
+
 #ifdef __BEEHIVE__ // whatever SAS is called
     struct frame_identity id = { .base = 0, .bits = 0 };
     err = invoke_frame_identify(cap, &id);

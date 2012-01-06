@@ -106,7 +106,7 @@ static void handle_notification(void *arg)
                  */
 #endif
             } else {
-                printf("%s: Unknown kernel notification of length %lu received\n",
+                printf("%s: Unknown kernel notification of length %zu received\n",
                        disp_name(), msg.buf.msglen);
             }
         } else if (err_no(err) != LIB_ERR_NO_LMP_MSG) {

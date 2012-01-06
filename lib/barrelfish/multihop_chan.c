@@ -64,19 +64,19 @@ static inline void multihop_chan_init_mapping_table(void)
 }
 
 // insert entry in the mapping table and return VCI
-static inline uint64_t multihop_chan_mapping_insert(
+static inline multihop_vci_t multihop_chan_mapping_insert(
         struct multihop_chan *chan_state)
 {
 
     assert(chan_state != NULL);
-    uint64_t vci;
+    multihop_vci_t vci;
 
     multihop_chan_init_mapping_table();
 
     do {
         // we assign VCIs randomly, but need
         // to make sure that it is not yet taken
-        vci = (uint64_t) rand();
+        vci = (multihop_vci_t) rand();
     } while (hash_find(mappings, vci) != NULL);
 
     // insert into forwarding table
@@ -85,14 +85,14 @@ static inline uint64_t multihop_chan_mapping_insert(
 }
 
 // delete entry from forwarding table
-static inline void multihop_chan_mapping_delete(uint64_t vci)
+static inline void multihop_chan_mapping_delete(multihop_vci_t vci)
 {
     assert(is_mapping_table_initialized);
     hash_delete(mappings, vci);
 }
 
 // get entry from the mapping table
-static inline struct multihop_chan* multihop_chan_mappings_lookup(uint64_t vci)
+static inline struct multihop_chan* multihop_chan_mappings_lookup(multihop_vci_t vci)
 {
 
     assert(is_mapping_table_initialized);
@@ -205,7 +205,7 @@ static void multihop_chan_bind_cont(void *st)
  * \param outgoing_vci virtual circuit identifier to use for outgoing messages
  */
 static void multihop_bind_reply_handler(struct monitor_binding *monitor_binding,
-        uint64_t ingoing_vci, uint64_t outgoing_vci, errval_t msgerr)
+        multihop_vci_t ingoing_vci, multihop_vci_t outgoing_vci, errval_t msgerr)
 {
     MULTIHOP_DEBUG("dispatcher has received bind reply!\n");
 
@@ -257,7 +257,7 @@ struct bind_multihop_reply_state {
 
 static void multihop_bind_service_request_handler(
         struct monitor_binding *monitor_binding, uintptr_t service_id,
-        uint64_t vci)
+        multihop_vci_t vci)
 {
     errval_t err;
     struct idc_export *e = (void *) service_id;
@@ -285,7 +285,7 @@ static void multihop_bind_service_request_handler(
  * \param waitset waitset to use for the channel
  */
 void multihop_chan_send_bind_reply(struct multihop_chan *mc, errval_t msgerr,
-        uint64_t vci, struct waitset *waitset)
+        multihop_vci_t vci, struct waitset *waitset)
 {
 
     errval_t err;
@@ -441,7 +441,7 @@ static void multihop_send_dummy_message(struct multihop_chan *mc)
  *
  */
 errval_t multihop_send_message(struct multihop_chan *mc,
-        struct event_closure _continuation, void *msg, uint64_t msglen)
+        struct event_closure _continuation, void *msg, size_t msglen)
 {
 
     errval_t err;
@@ -515,7 +515,7 @@ errval_t multihop_send_capability(struct multihop_chan *mc,
  *
  */
 static void handle_multihop_message(struct monitor_binding *mon_closure,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *buf, size_t buflen)
 {
 
@@ -565,7 +565,7 @@ static void handle_multihop_message(struct monitor_binding *mon_closure,
  *
  */
 static void multihop_handle_capability(struct monitor_binding *mon_closure,
-        uint64_t vci, uint8_t direction, struct capref cap, uint32_t capid)
+        multihop_vci_t vci, uint8_t direction, struct capref cap, uint32_t capid)
 {
 
     struct multihop_chan *mc = multihop_chan_mappings_lookup(vci);
@@ -580,7 +580,7 @@ static void multihop_handle_capability(struct monitor_binding *mon_closure,
  * \ brief Handle a capability reply
  */
 static void multihop_handle_capability_reply(
-        struct monitor_binding *mon_closure, uint64_t vci, uint8_t direction,
+        struct monitor_binding *mon_closure, multihop_vci_t vci, uint8_t direction,
         uint32_t capid, errval_t msgerr)
 {
 

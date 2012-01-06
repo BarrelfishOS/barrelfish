@@ -85,7 +85,7 @@ static void rx_caps(struct test_binding *b, uint32_t arg,
 
 static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
 {
-    printf("rx_buf (%lu bytes)\n", buflen);
+    printf("rx_buf (%zu bytes)\n", buflen);
     free(buf);
 }
 

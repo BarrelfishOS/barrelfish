@@ -20,10 +20,11 @@
 #include <barrelfish/barrelfish.h>
 #include <nfs/nfs.h>
 #include <lwip/ip_addr.h>
-#include "webserver_session.h"
-#include "http_cache.h"
 #include <trace/trace.h>
 #include <timer/timer.h>
+#include "webserver_debug.h"
+#include "webserver_session.h"
+#include "http_cache.h"
 
 /* NOTE: enable following #def if you want cache to be preloaded */
 #define PRELOAD_WEB_CACHE 1
@@ -40,6 +41,7 @@
 #define MAX_STALENESS ((cycles_t)9000000)
 
 static void (*init_callback)(void);
+
 
 struct http_cache_entry {
     int                 valid;      /* flag for validity of the data */
@@ -573,7 +575,6 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     struct timer *cache_timer;      /* timer for triggering cache timeouts */
     init_callback = callback;
 
-
     /* FIXME: Start the trace */
 #if ENABLE_WEB_TRACING
     printf("Starting tracing\n");
@@ -607,4 +608,5 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     DEBUGPRINT ("http_cache_init done\n");
     return ERR_OK;
 } /* end function: http_cache_init */
+
 

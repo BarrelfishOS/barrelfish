@@ -189,7 +189,7 @@ multihop_rx_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
 
 multihop_rx_handler_params :: [C.Param]
 multihop_rx_handler_params = [C.Param (C.Ptr C.Void) "arg",
-			      C.Param (C.Ptr (C.TypeName "uint8_t")) "message", C.Param (C.TypeName "uint64_t") "message_len"]
+			      C.Param (C.Ptr (C.TypeName "uint8_t")) "message", C.Param (C.TypeName "size_t") "message_len"]
 
 multihop_connect_handler_proto :: String -> C.Unit
 multihop_connect_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
@@ -199,7 +199,7 @@ multihop_connect_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
 multihop_connect_handler_params :: [C.Param]
 multihop_connect_handler_params
     = [C.Param (C.Ptr $ C.Void) "st",
-       C.Param (C.TypeName "uint64_t") "vci"]
+       C.Param (C.TypeName "multihop_vci_t") "vci"]
 
 multihop_caps_rx_handler_proto :: String -> C.Unit
 multihop_caps_rx_handler_proto ifn = C.GVarDecl C.Extern C.NonConst

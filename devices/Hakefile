@@ -21,26 +21,30 @@
            "ac97_ext_modem",
            "ahci_hba",
            "ahci_port",
+           "acpi_ec",
            "arm",
            "audio_nbm",
            "ehci_cap",
            "ehci_op",
            "hpet",
+           "ia32",
            "ixp2800_icp_pic0",
            "ixp2800_icp_pit",
            "ixp2800_uart",
            "lpc_bridge",
            "lpc_dma",
            "lpc_kbd",
+           "lpc_pic",
            "lpc_pci_config",
            "lpc_rtc",
-           "lpr_rtc_spaces",
+           "lpc_rtc_spaces",
            "pc16550d",
-           "rtl8029as_spaces",
+           "rtl8029as",
            "tulip",
            "uhci",
+           "xapic",
            "x2apic",
-           "x86_64_pagetable"
+           "amd64"
          ], arch <- allArchitectures
 ] ++
 
@@ -50,8 +54,7 @@
 -- and liable to break with new C compiler versions!
 -- 
 [ mackerel (options arch) f 
-  | f <- [ "acpi_ec",
-           "amd_vmcb",
+  | f <- [ "amd_vmcb",
            "arm_icp_pic0",
            "arm_icp_pit",
            "cpuid",
@@ -59,17 +62,13 @@
            "e1000",
            "eMAC",
            "ht_config",
-           "ia32",
            "lpc_ioapic",
-           "lpc_pic",
            "lpc_timer",
            "pc16550d_mem",
            "pci_hdr0",
            "pci_hdr0_mem",
            "pci_hdr1",
            "pl011_uart",
-           "rck",
-           "rtl8029as",
-           "xapic"
+           "rck"
          ], arch <- allArchitectures
 ]

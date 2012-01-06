@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mm/mm.h>
-#include <if/monitor_defs.h>
+#include <if/monitor_blocking_rpcclient_defs.h>
 
 #include <skb/skb.h>
 
@@ -32,22 +32,7 @@
  */
 #define PCI_CNODE_SLOTS 2048
 
-static struct bootinfo *bootinfo;
-static bool request_done;
-
 uintptr_t my_apic_id;
-
-static void bootinfo_reply(struct monitor_binding *st, struct capref frame,
-                           size_t size)
-{
-    errval_t err;
-
-    err = vspace_map_one_frame((void**)&bootinfo, size, frame, NULL, NULL);
-    assert(err_is_ok(err));
-
-    assert(!request_done);
-    request_done = true;
-}
 
 // cnoderef for the phyaddrcn
 static struct cnoderef cnode_phyaddr = {
@@ -62,7 +47,24 @@ struct mm pci_mm_physaddr;
 
 static errval_t init_allocators(void)
 {
-    errval_t err;
+    errval_t err, msgerr;
+
+    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    assert(cl != NULL);
+
+    // Get the bootinfo and map it in.
+    struct capref bootinfo_frame;
+    size_t bootinfo_size;
+    struct bootinfo *bootinfo;
+
+    msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
+    if (err_is_fail(msgerr) || err_is_fail(err)) {
+        USER_PANIC_ERR(err_is_fail(msgerr) ? msgerr : err, "failed in get_bootinfo");
+    }
+
+    err = vspace_map_one_frame((void**)&bootinfo, bootinfo_size, bootinfo_frame,
+                               NULL, NULL);
+    assert(err_is_ok(err));
 
     /* Initialize the memory allocator to handle PhysAddr caps */
     static struct range_slot_allocator slot_allocator;
@@ -94,14 +96,14 @@ static errval_t init_allocators(void)
     for (int i = 0; i < bootinfo->regions_length; i++) {
 	struct mem_region *mrp = &bootinfo->regions[i];
 	if (mrp->mr_type == RegionType_Module) {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%lu,%u,%tu).",
+	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
                     mrp->mr_base,
                     0,
                     mrp->mrmod_size,
                     mrp->mr_type,
                     mrp->mrmod_data);
 	} else {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%lu,%u,%tu).",
+	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
                     mrp->mr_base,
                     mrp->mr_bits,
                     ((size_t)1) << mrp->mr_bits,
@@ -133,20 +135,6 @@ struct capref biosmem;
 int main(int argc, char *argv[])
 {
     errval_t err;
-    struct monitor_binding *st = get_monitor_binding();
-    int r;
-
-    // Get the bootinfo and map it in.
-    st->rx_vtbl.bootinfo_reply = bootinfo_reply;
-    request_done = false;
-    err = st->tx_vtbl.bootinfo_request(st, NOP_CONT);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "sending bootinfo_request failed");
-    }
-    assert(err_is_ok(err));
-    while(!request_done) {
-        messages_wait_and_handle_next();
-    }
 
     bool do_video_init = false;
     bool got_apic_id = false;
@@ -199,45 +187,45 @@ int main(int argc, char *argv[])
     skb_add_fact("mem_region_type(%d,apic).", RegionType_LocalAPIC);
     skb_add_fact("mem_region_type(%d,ioapic).", RegionType_IOAPIC);
 
-    r = init_allocators();
-    assert(r == 0);
+    err = init_allocators();
+    assert(err_is_ok(err));
 
     // Get a copy of the VBE BIOS before ACPI touches it
     {
         struct capref bioscap, biosframe;
 
-        r = mm_alloc_range(&pci_mm_physaddr, BIOS_BITS, 0,
+        err = mm_alloc_range(&pci_mm_physaddr, BIOS_BITS, 0,
                            1UL << BIOS_BITS, &bioscap, NULL);
-        assert(r == 0);
+        assert(err_is_ok(err));
 
-        r = devframe_type(&biosframe, bioscap, BIOS_BITS);
-        assert(r == 0);
+        err = devframe_type(&biosframe, bioscap, BIOS_BITS);
+        assert(err_is_ok(err));
 
         void *origbios;
-        r = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, biosframe,
+        err = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, biosframe,
                                  NULL, NULL);
-        assert(r == 0);
+        assert(err_is_ok(err));
 
-        r = frame_alloc(&biosmem, 1 << BIOS_BITS, NULL);
-        assert(r == 0);
+        err = frame_alloc(&biosmem, 1 << BIOS_BITS, NULL);
+        assert(err_is_ok(err));
 
         void *newbios;
-        r = vspace_map_one_frame(&newbios, 1 << BIOS_BITS, biosmem, NULL, NULL);
-        assert(r == 0);
+        err = vspace_map_one_frame(&newbios, 1 << BIOS_BITS, biosmem, NULL, NULL);
+        assert(err_is_ok(err));
 
         memcpy(newbios, origbios, 1 << BIOS_BITS);
 
         // TODO: Unmap both vspace regions again
 
-        r = cap_delete(biosframe);
-        assert(r == 0);
+        err = cap_delete(biosframe);
+        assert(err_is_ok(err));
 
         // TODO: Implement mm_free()
-/*         r = mm_free(&AcpiGbl_PlatMemMgr, 0, BIOS_BITS); */
-/*         assert(r == 0); */
+/*         err = mm_free(&AcpiGbl_PlatMemMgr, 0, BIOS_BITS); */
+/*         assert(err_is_ok(err)); */
     }
 
-    r = init_acpi();
+    int r = init_acpi();
     assert(r == 0);
 
     buttons_init();

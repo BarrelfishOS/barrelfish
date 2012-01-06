@@ -685,13 +685,13 @@
  */
 #ifndef DNS_LOCAL_HOSTLIST
 #define DNS_LOCAL_HOSTLIST              0
-#endif /* DNS_LOCAL_HOSTLIST */
+#endif                          /* DNS_LOCAL_HOSTLIST */
 
 /** If this is turned on, the local host-list can be dynamically changed
  *  at runtime. */
 #ifndef DNS_LOCAL_HOSTLIST_IS_DYNAMIC
 #define DNS_LOCAL_HOSTLIST_IS_DYNAMIC   0
-#endif /* DNS_LOCAL_HOSTLIST_IS_DYNAMIC */
+#endif                          /* DNS_LOCAL_HOSTLIST_IS_DYNAMIC */
 
 /*
    ---------------------------------
@@ -744,7 +744,7 @@
  */
 #ifndef TCP_WND
 #define TCP_WND                         2048
-#endif 
+#endif
 
 /**
  * TCP_MAXRTX: Maximum number of retransmissions of data segments.
@@ -857,7 +857,7 @@
 #ifndef LWIP_EVENT_API
 #define LWIP_EVENT_API                  0
 #define LWIP_CALLBACK_API               1
-#else 
+#else
 #define LWIP_EVENT_API                  1
 #define LWIP_CALLBACK_API               0
 #endif
@@ -977,7 +977,7 @@
  */
 #ifndef LWIP_NETIF_TX_SINGLE_PBUF
 #define LWIP_NETIF_TX_SINGLE_PBUF             0
-#endif /* LWIP_NETIF_TX_SINGLE_PBUF */
+#endif                          /* LWIP_NETIF_TX_SINGLE_PBUF */
 
 /*
    ------------------------------------
@@ -1354,7 +1354,7 @@
 #define SYS_STATS                       0
 #define LWIP_STATS_DISPLAY              0
 
-#endif /* LWIP_STATS */
+#endif                          /* LWIP_STATS */
 
 /*
    ---------------------------------
@@ -1498,24 +1498,24 @@
  * (XXX - these constants should simply be shared by lcp.c instead
  *    of living in lcp.h)
  */
-#define PPP_MTU                         1500     /* Default MTU (size of Info field) */
+#define PPP_MTU                         1500    /* Default MTU (size of Info field) */
 #ifndef PPP_MAXMTU
 /* #define PPP_MAXMTU  65535 - (PPP_HDRLEN + PPP_FCSLEN) */
-#define PPP_MAXMTU                      1500 /* Largest MTU we allow */
+#define PPP_MAXMTU                      1500    /* Largest MTU we allow */
 #endif
 #define PPP_MINMTU                      64
-#define PPP_MRU                         1500     /* default MRU = max length of info field */
-#define PPP_MAXMRU                      1500     /* Largest MRU we allow */
+#define PPP_MRU                         1500    /* default MRU = max length of info field */
+#define PPP_MAXMRU                      1500    /* Largest MRU we allow */
 #ifndef PPP_DEFMRU
-#define PPP_DEFMRU                      296             /* Try for this */
+#define PPP_DEFMRU                      296     /* Try for this */
 #endif
-#define PPP_MINMRU                      128             /* No MRUs below this */
+#define PPP_MINMRU                      128     /* No MRUs below this */
 
 
 #define MAXNAMELEN                      256     /* max length of hostname or name for auth */
 #define MAXSECRETLEN                    256     /* max length of password or secret */
 
-#endif /* PPP_SUPPORT */
+#endif                          /* PPP_SUPPORT */
 
 /*
    --------------------------------------
@@ -1528,28 +1528,28 @@
 #ifndef CHECKSUM_GEN_IP
 #define CHECKSUM_GEN_IP                 1
 #endif
- 
+
 /**
  * CHECKSUM_GEN_UDP==1: Generate checksums in software for outgoing UDP packets.
  */
 #ifndef CHECKSUM_GEN_UDP
 #define CHECKSUM_GEN_UDP                1
 #endif
- 
+
 /**
  * CHECKSUM_GEN_TCP==1: Generate checksums in software for outgoing TCP packets.
  */
 #ifndef CHECKSUM_GEN_TCP
 #define CHECKSUM_GEN_TCP                1
 #endif
- 
+
 /**
  * CHECKSUM_CHECK_IP==1: Check checksums in software for incoming IP packets.
  */
 #ifndef CHECKSUM_CHECK_IP
 #define CHECKSUM_CHECK_IP               1
 #endif
- 
+
 /**
  * CHECKSUM_CHECK_UDP==1: Check checksums in software for incoming UDP packets.
  */
@@ -1818,4 +1818,4 @@
 #define DNS_DEBUG                       LWIP_DBG_OFF
 #endif
 
-#endif /* __LWIP_OPT_H__ */
+#endif                          /* __LWIP_OPT_H__ */

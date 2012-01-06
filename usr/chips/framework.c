@@ -61,7 +61,7 @@ static void process_pending_lookups(void)
         ref = get_service_reference(p->iface);
         if (ref != NULL) { // found entry: reply and remove from queue
             assert(p != NULL);
-            printf("chips: notifying client about %s\n", p->iface);
+            printf("%d chips: notifying client about %s\n", disp_get_domain_id(), p->iface);
             err = p->b->tx_vtbl.wait_for_service_reference_response(p->b,
                                 NOP_CONT, (nameservice_srvref_t)(uintptr_t)ref);
             assert(err_is_ok(err)); // XXX
@@ -178,7 +178,7 @@ static void wait_for_service_reference_handler(
 
     // if we didn't find anything, add it to the pending lookups queue
     if (ref == NULL) {
-        printf("chips: client waiting for %s\n", iface);
+        printf("%d chips: client waiting for %s\n", disp_get_domain_id(), iface);
         struct pending_lookup *pending = malloc(sizeof(struct pending_lookup));
         assert(pending != NULL);
         pending->iface = iface;
@@ -345,13 +345,13 @@ static void sem_post_handler(struct nameservice_binding *b, uint32_t sem)
     assert(s->allocated);
     errval_t err;
 
-    printf("chips: sem_post %u, %u\n", sem, s->value);
-
+    //printf("%d chips: sem_post %u, %u\n", disp_get_domain_id(), sem, s->value);
+    
     if(s->value == 0) {
         for(int i = 0; i < MAX_QUEUE; i++) {
             if(s->queue[i] != NULL) {
                 // Wakeup one
-	      printf("chips: waking up one\n");
+	        //printf("%d chips: waking up one\n", disp_get_domain_id());
                 err = s->queue[i]->tx_vtbl.sem_wait_response(s->queue[i], NOP_CONT);
                 assert(err_is_ok(err));
                 s->queue[i] = NULL;
@@ -366,7 +366,7 @@ static void sem_post_handler(struct nameservice_binding *b, uint32_t sem)
     s->value++;
 
  out:
-    printf("chips: sem_post done\n");
+    //printf("%d chips: sem_post done\n", disp_get_domain_id());
     err = b->tx_vtbl.sem_post_response(b, NOP_CONT);
     assert(err_is_ok(err));
 }
@@ -378,12 +378,11 @@ static void sem_wait_handler(struct nameservice_binding *b, uint32_t sem)
     assert(s->allocated);
     errval_t err;
 
-    printf("chips: sem_wait %u, %u\n", sem, s->value);
-
+    //printf("%d chips: sem_wait %u, %u\n", disp_get_domain_id(), sem, s->value);
     if(s->value == 0) {
       int i;
 
-      printf("chips: waiting\n");
+      //printf("%d chips: waiting\n", disp_get_domain_id());
 
 /* Try to avoid the deadlock of Postgres processes entering the wait section
  * recursively.
@@ -405,7 +404,7 @@ static void sem_wait_handler(struct nameservice_binding *b, uint32_t sem)
 	assert(i < MAX_QUEUE);
     } else {
         // Decrement and continue
-      printf("chips: continuing\n");
+      //printf("%d chips: continuing\n", disp_get_domain_id());
         s->value--;
         err = b->tx_vtbl.sem_wait_response(b, NOP_CONT);
         assert(err_is_ok(err));
@@ -427,7 +426,7 @@ static void sem_trywait_handler(struct nameservice_binding *b, uint32_t sem)
         success = true;
     }
 
-    printf("chips: trywait %u, %s\n", sem, success ? "yes" : "no");
+    //printf("%d chips: trywait %u, %s\n", disp_get_domain_id(), sem, success ? "yes" : "no");
 
     err = b->tx_vtbl.sem_trywait_response(b, NOP_CONT, success);
     assert(err_is_ok(err));

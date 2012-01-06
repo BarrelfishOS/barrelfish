@@ -55,9 +55,6 @@ MODULES_COMMON= \
 	sbin/fscanf_test \
 	sbin/monitor \
 	sbin/ramfsd \
-	sbin/routetest \
-	sbin/route_bench \
-	sbin/radix_route_bench \
 	sbin/channel_cost_bench \
 	sbin/schedtest \
 	sbin/testerror \
@@ -74,7 +71,6 @@ MODULES_GENERIC= \
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
 	sbin/apicdrift_bench \
-	sbin/barrier_bench \
 	sbin/bench \
 	sbin/bfscope \
 	sbin/bomp_benchmark_cg \
@@ -103,6 +99,7 @@ MODULES_x86_64= \
 	sbin/mem_affinity \
 	sbin/mem_serv_dist \
 	sbin/net-test \
+	sbin/netthroughput \
 	sbin/pci \
 	sbin/placement_bench \
 	sbin/phases_bench \
@@ -124,6 +121,7 @@ MODULES_x86_64= \
 	sbin/thctest \
 	sbin/tsc_bench \
 	sbin/tweedtest \
+	sbin/udp_throughput \
 	sbin/ump_latency \
 	sbin/ump_exchange \
 	sbin/ump_latency_cache \
@@ -142,6 +140,7 @@ MODULES_x86_64= \
 	sbin/multihop_latency_bench \
 	sbin/cryptotest \
 	$(BIN_CONSENSUS) \
+	sbin/bcached \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -194,6 +193,8 @@ MODULES_scc=\
 	sbin/thctest \
 	sbin/mem_serv_dist \
 	sbin/net-test \
+	sbin/netthroughput \
+	sbin/udp_throughput \
 
 # ARM-specific modules to build by default
 MODULES_arm=\
@@ -264,7 +265,7 @@ else ifeq ($(ARCH),arm)
 	ARM_QEMU_CMD=qemu-system-arm -kernel arm/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd arm/romfs.cpio
 	GDB=xterm -e arm-none-linux-gnueabi-gdb
 simulate: $(MODULES) arm/romfs.cpio
-	$(ARM_QEMU_CMD)     
+	$(ARM_QEMU_CMD)
 .PHONY: simulate
 
 arm/tools/debug.arm.gdb: $(SRCDIR)/tools/debug.arm.gdb
@@ -367,7 +368,7 @@ m5script.py: $(SRCDIR)/tools/molly/m5script.py
 m5_kernel: $(MODULES) menu.lst.m5 tools/bin/molly m5script.py
 	$(SRCDIR)/tools/molly/build_data_files.sh menu.lst.m5 m5_tmp
 	tools/bin/molly menu.lst.m5 m5_kernel.c
-	cc -std=gnu99 -Wl,-N -pie -fno-builtin -nostdlib -Wl,--build-id=none -Wl,--fatal-warnings -m64 -fPIC -T$(SRCDIR)/tools/molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/x86_64 -I./x86_64/include -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/molly/molly_boot.S $(SRCDIR)/tools/molly/molly_init.c ./m5_kernel.c $(SRCDIR)/lib/elf/elf64.c ./m5_tmp/* -o m5_kernel	
+	cc -std=c99 -Wl,-N -pie -fno-builtin -nostdlib -Wl,--build-id=none -Wl,--fatal-warnings -m64 -fPIC -T$(SRCDIR)/tools/molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/x86_64 -I./x86_64/include -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/molly/molly_boot.S $(SRCDIR)/tools/molly/molly_init.c ./m5_kernel.c $(SRCDIR)/lib/elf/elf64.c ./m5_tmp/* -o m5_kernel
 	@echo "Now invoke m5, e.g. as 'm5.fast m5script.py  --num_cpus=2 --kernel=m5_kernel'"
 
 m5: m5_kernel m5script.py
@@ -421,6 +422,7 @@ DOCS= \
 	./docs/TN-011-IDC.pdf \
 	./docs/TN-012-Services.pdf \
 	./docs/TN-013-CapabilityManagement.pdf \
+	./docs/TN-014-bulk-transfer.pdf \
 
 docs doc: $(DOCS)
 .PHONY: docs doc

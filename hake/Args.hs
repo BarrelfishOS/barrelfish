@@ -24,6 +24,7 @@ data Args = Args {
       assemblyFiles :: [String],
       flounderDefs :: [String],
       flounderBindings :: [String], -- built stubs for all enabled backends
+      flounderExtraDefs :: [(String, [String])],
       flounderExtraBindings :: [(String, [String])], -- build stubs for specific backends
       flounderTHCDefs :: [String], -- TODO: this can probably be subsumed into the above?
       flounderTHCStubs :: [String], -- TODO: this can probably be subsumed into the above?
@@ -50,6 +51,7 @@ defaultArgs = Args {
       assemblyFiles = [],
       flounderDefs = [],
       flounderBindings = [],
+      flounderExtraDefs = [],
       flounderExtraBindings = [],
       flounderTHCDefs = [],
       flounderTHCStubs = [],
@@ -88,6 +90,7 @@ showArgs prefix a =
     ++ "\n  assemblyFiles:         " ++ (show $ assemblyFiles a)
     ++ "\n  flounderDefs:          " ++ (show $ flounderDefs a)
     ++ "\n  flounderBindings:      " ++ (show $ flounderBindings a)
+    ++ "\n  flounderExtraDefs:     " ++ (show $ flounderExtraDefs a)
     ++ "\n  flounderExtraBindings: " ++ (show $ flounderExtraBindings a)
     ++ "\n  flounderTHCDefs:       " ++ (show $ flounderTHCDefs a)
     ++ "\n  flounderTHCStubs:      " ++ (show $ flounderTHCStubs a)

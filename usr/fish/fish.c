@@ -564,7 +564,7 @@ static int cat2(int argc, char *argv[])
                 return 1;
             }
             if (output_size != size) {
-                printf("Wanted to write %lu but only wrote %lu, aborting\n",
+                printf("Wanted to write %zu but only wrote %zu, aborting\n",
                        size, output_size);
                 // XXX: Close any files that might be open
                 return 1;
@@ -735,7 +735,7 @@ static int ls(int argc, char *argv[])
             char *name;
             err = vfs_dir_read_next(vh, &name, &info);
             if (err_is_ok(err)) {
-                printf("%8lu %c %s\n", info.size, vfs_type_char(info.type),
+                printf("%8zu %c %s\n", info.size, vfs_type_char(info.type),
                        name);
                 free(name);
             }

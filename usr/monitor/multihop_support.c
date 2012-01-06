@@ -264,12 +264,12 @@ static inline void init_forwarding_table(void)
 }
 
 // insert entry in forwarding table and return VCI
-static inline uint64_t forwarding_table_insert(
+static inline multihop_vci_t forwarding_table_insert(
         struct monitor_multihop_chan_state *chan_state)
 {
 
     assert(chan_state != NULL);
-    uint64_t vci;
+    multihop_vci_t vci;
 
     // we call initialize before we insert an entry
     init_forwarding_table();
@@ -277,7 +277,7 @@ static inline uint64_t forwarding_table_insert(
     do {
         // we assign VCIs randomly, but need to
         // make sure, that it is not yet taken
-        vci = (uint64_t) rand();
+        vci = (multihop_vci_t) rand();
     } while (hash_find(forwarding_table, vci) != NULL);
 
     // insert into forwarding table
@@ -286,7 +286,7 @@ static inline uint64_t forwarding_table_insert(
 }
 
 // delete entry from forwarding table
-static inline void forwarding_table_delete(uint64_t vci)
+static inline void forwarding_table_delete(multihop_vci_t vci)
 {
     assert(is_forwarding_table_initialized);
     hash_delete(forwarding_table, vci);
@@ -294,7 +294,7 @@ static inline void forwarding_table_delete(uint64_t vci)
 
 // get entry from the forwarding table
 static inline struct monitor_multihop_chan_state* forwarding_table_lookup(
-        uint64_t vci)
+        multihop_vci_t vci)
 {
 
     assert(is_forwarding_table_initialized);
@@ -321,7 +321,7 @@ struct monitor_multihop_chan_state {
         // communication partner is a monitor on another core
         } type;
 
-        uint64_t vci; // the virtual circuit identifier to use on outgoing messages
+        multihop_vci_t vci; // the virtual circuit identifier to use on outgoing messages
 
         // bindings to the "next hop"
         union {
@@ -331,7 +331,7 @@ struct monitor_multihop_chan_state {
     } dir1, dir2;
 
     // temporary storage for a virtual circuit identifier
-    uint64_t tmp_vci;
+    multihop_vci_t tmp_vci;
 
     // connection state
     enum {
@@ -386,7 +386,7 @@ multihop_monitor_bind_request_busy_cont(struct intermon_binding *b,
 static void
 multihop_monitor_bind_request_cont(
         struct monitor_multihop_chan_state *chan_state, iref_t iref,
-        uint8_t core);
+        coreid_t core);
 
 static void
 multihop_bind_service_request(uintptr_t service_id,
@@ -394,11 +394,11 @@ multihop_bind_service_request(uintptr_t service_id,
 
 static void
 multihop_intermon_bind_reply_cont(struct intermon_binding *intermon_binding,
-        uint64_t receiver_vci, uint64_t sender_vci, errval_t msgerr);
+        multihop_vci_t receiver_vci, multihop_vci_t sender_vci, errval_t msgerr);
 
 static void
-multihop_monitor_bind_reply_client(struct monitor_binding *domain_closure,
-        uint64_t receiver_vci, uint64_t sender_vci, errval_t msgerr);
+multihop_monitor_bind_reply_client(struct monitor_binding *domain_binding,
+        multihop_vci_t receiver_vci, multihop_vci_t sender_vci, errval_t msgerr);
 
 static inline void
 multihop_monitor_request_error(struct monitor_multihop_chan_state *chan_state,
@@ -412,11 +412,11 @@ multihop_monitor_request_error(struct monitor_multihop_chan_state *chan_state,
  * \param vci The vci of the local dispatcher (this vci should be used for messages sent to the dispatcher)
  */
 static void multihop_monitor_bind_request_handler(struct monitor_binding *b,
-        iref_t iref, uint64_t vci)
+        iref_t iref, multihop_vci_t vci)
 {
 
     errval_t err;
-    uint8_t core_id;
+    coreid_t core_id;
     struct monitor_multihop_chan_state *chan_state = NULL;
 
     MULTIHOP_DEBUG(
@@ -454,11 +454,11 @@ static void multihop_monitor_bind_request_handler(struct monitor_binding *b,
     coreid_t next_hop = get_next_hop(core_id);
 
     // Get connection to the monitor to forward request to
-    err = intern_get_closure(next_hop,
+    err = intermon_binding_get(next_hop,
             &chan_state->dir1.binding.intermon_binding);
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err,
-                "intern_get_closure failed");
+                "intermon_binding_get failed");
         multihop_monitor_request_error(chan_state, err);
         forwarding_table_delete(chan_state->tmp_vci);
         return;
@@ -472,7 +472,7 @@ struct multihop_monitor_bind_request_state {
     struct intermon_msg_queue_elem elem;
     struct monitor_multihop_chan_state *chan_state;
     iref_t iref;
-    uint8_t core;
+    coreid_t core;
 };
 
 // called when channel is no longer busy
@@ -498,23 +498,23 @@ static void multihop_monitor_bind_request_cont(
 {
 
     errval_t err;
-    struct intermon_binding *mon_closure =
+    struct intermon_binding *mon_binding =
             chan_state->dir1.binding.intermon_binding;
 
     // send request to next hop
-    err = mon_closure->tx_vtbl.bind_multihop_intermon_request(mon_closure,
+    err = mon_binding->tx_vtbl.bind_multihop_intermon_request(mon_binding,
             NOP_CONT, iref, chan_state->tmp_vci, core);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct multihop_monitor_bind_request_state *me = malloc(
                     sizeof(struct multihop_monitor_bind_request_state));
-            struct intermon_state *ist = mon_closure->st;
+            struct intermon_state *ist = mon_binding->st;
             me->chan_state = chan_state;
             me->iref = iref;
             me->elem.cont = multihop_monitor_bind_request_busy_cont;
 
-            err = intermon_enqueue_send(mon_closure, &ist->queue,
+            err = intermon_enqueue_send(mon_binding, &ist->queue,
                     get_default_waitset(), &me->elem.queue);
             assert(err_is_ok(err));
             return;
@@ -534,7 +534,7 @@ static void multihop_monitor_bind_request_cont(
  * \param the core ID of the service
  */
 static void multihop_intermon_bind_request_handler(struct intermon_binding *b,
-        iref_t iref, uint64_t vci, coreid_t core)
+        iref_t iref, multihop_vci_t vci, coreid_t core)
 {
     errval_t err;
 
@@ -554,10 +554,10 @@ static void multihop_intermon_bind_request_handler(struct intermon_binding *b,
         // service is on same core than this monitor, therefore we forward to local dispatcher
 
         // get the service's connection
-        err = iref_get_closure(iref, &chan_state->dir1.binding.monitor_binding);
+        err = iref_get_binding(iref, &chan_state->dir1.binding.monitor_binding);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err,
-                    "Multihop set-up: could not get domain-closure for iref");
+                    "Multihop set-up: could not get domain-binding for iref");
         }
 
         // get the service id
@@ -574,14 +574,14 @@ static void multihop_intermon_bind_request_handler(struct intermon_binding *b,
     } else {
         // we have to forward the request to another monitor
         // we get the core id of the next hop from the routing table
-        uint8_t next_hop = get_next_hop(core);
+        coreid_t next_hop = get_next_hop(core);
 
         // get connection to the "next-hop" monitor
-        err = intern_get_closure(next_hop,
+        err = intermon_binding_get(next_hop,
                 &chan_state->dir1.binding.intermon_binding);
         if (err_is_fail(err)) {
             debug_err(__FILE__, __func__, __LINE__, err,
-                    "intern_get_closure failed");
+                    "intermon_binding_get failed");
             multihop_monitor_request_error(chan_state, err);
             forwarding_table_delete(chan_state->tmp_vci);
             return;
@@ -612,7 +612,7 @@ static void multihop_bind_service_busy_cont(struct monitor_binding *b,
 /**
  * \brief Forward bind request to service's dispatcher
  *
- * \param domain_closure binding to service
+ * \param domain_binding binding to service
  * \param service_id Id of the service
  * \param vci my vci
  */
@@ -652,14 +652,14 @@ static void multihop_bind_service_request(uintptr_t service_id,
 /**
  * \brief Handle a reply message coming from service's dispatcher
  *
- * \param mon_closure Binding to service's dispatcher
+ * \param mon_binding Binding to service's dispatcher
  * \param my_vci my virtual circuit identifier
  * \param sender_vci virtual circuit identifier of the sender
  * \param msgerr error code
  */
 static void multihop_monitor_service_bind_reply_handler(
-        struct monitor_binding *mon_closure, uint64_t receiver_vci,
-        uint64_t sender_vci, errval_t msgerr)
+        struct monitor_binding *mon_binding, multihop_vci_t receiver_vci,
+        multihop_vci_t sender_vci, errval_t msgerr)
 {
     MULTIHOP_DEBUG(
             "monitor on core %d received bind reply message. Status: %s. my_vci: %d\n", my_core_id, err_is_ok(msgerr) ? "success" : "failed", (int) receiver_vci);
@@ -669,13 +669,13 @@ static void multihop_monitor_service_bind_reply_handler(
 
     assert(chan_state->connstate == MONITOR_MULTIHOP_BIND_WAIT);
 
-    uint64_t next_receiver_vci = chan_state->dir2.vci;
-    struct intermon_binding *next_hop_closure =
+    multihop_vci_t next_receiver_vci = chan_state->dir2.vci;
+    struct intermon_binding *next_hop_binding =
             chan_state->dir2.binding.intermon_binding;
     if (err_is_ok(msgerr)) { /* bind succeeded */
         chan_state->dir1.type = MULTIHOP_ENDPOINT;
         chan_state->dir1.vci = sender_vci;
-        chan_state->dir1.binding.monitor_binding = mon_closure;
+        chan_state->dir1.binding.monitor_binding = mon_binding;
         chan_state->connstate = MONITOR_MULTIHOP_CONNECTED;
     } else {
         // delete entry from forwarding table
@@ -683,7 +683,7 @@ static void multihop_monitor_service_bind_reply_handler(
     }
 
     // (stack-ripped) forward reply to next monitor
-    multihop_intermon_bind_reply_cont(next_hop_closure, next_receiver_vci,
+    multihop_intermon_bind_reply_cont(next_hop_binding, next_receiver_vci,
             receiver_vci, msgerr);
 }
 
@@ -706,11 +706,11 @@ static void multihop_intermon_bind_reply_busy_cont(struct intermon_binding *b,
 /**
  * \brief Forward a bind reply message to the next monitor
  *
- * \param intermon_closure binding to the next monitor
+ * \param intermon_binding binding to the next monitor
  */
 static void multihop_intermon_bind_reply_cont(
-        struct intermon_binding *intermon_binding, uint64_t receiver_vci,
-        uint64_t sender_vci, errval_t msgerr)
+        struct intermon_binding *intermon_binding, multihop_vci_t receiver_vci,
+        multihop_vci_t sender_vci, errval_t msgerr)
 {
     errval_t err;
     MULTIHOP_DEBUG("monitor on core %d is forwarding reply\n", my_core_id);
@@ -738,14 +738,14 @@ static void multihop_intermon_bind_reply_cont(
 /**
  * \brief Handles a reply message from another monitor
  *
- * \param closure Binding to the other monitor
+ * \param binding Binding to the other monitor
  * \param my_vci My virtual circuit identifier
  * \param sender_vci virtual circuit identifier of the sender
  * \param msgerr error code
  */
 static void multihop_intermon_bind_reply_handler(
-        struct intermon_binding *closure, uint64_t receiver_vci,
-        uint64_t sender_vci, errval_t msgerr)
+        struct intermon_binding *binding, multihop_vci_t receiver_vci,
+        multihop_vci_t sender_vci, errval_t msgerr)
 {
     MULTIHOP_DEBUG(
             "monitor on core %d has received a bind reply\n", my_core_id);
@@ -756,7 +756,7 @@ static void multihop_intermon_bind_reply_handler(
 
     if (err_is_ok(msgerr)) {
         chan_state->dir1.type = MULTIHOP_NODE;
-        chan_state->dir1.binding.intermon_binding = closure;
+        chan_state->dir1.binding.intermon_binding = binding;
         chan_state->dir1.vci = sender_vci;
         chan_state->connstate = MONITOR_MULTIHOP_CONNECTED;
 
@@ -807,32 +807,32 @@ static void multihop_monitor_bind_reply_busy_cont(struct monitor_binding *b,
 /**
  * \brief Send a reply to the dispatcher who originally sent the request
  *
- * \param domain_closure The monitor_binding to use
+ * \param domain_binding The monitor_binding to use
  * \param receiver_vci The VCI of the receiver
  * \param sender_vci The VCI of the sender
  * \param msgerr The error code
  */
 static void multihop_monitor_bind_reply_client(
-        struct monitor_binding *domain_closure, uint64_t receiver_vci,
-        uint64_t sender_vci, errval_t msgerr)
+        struct monitor_binding *domain_binding, multihop_vci_t receiver_vci,
+        multihop_vci_t sender_vci, errval_t msgerr)
 {
     errval_t err;
     MULTIHOP_DEBUG(
             "monitor on core %d is sending reply to dispatcher\n", my_core_id);
-    err = domain_closure->tx_vtbl.multihop_bind_client_reply(domain_closure,
+    err = domain_binding->tx_vtbl.multihop_bind_client_reply(domain_binding,
             NOP_CONT, receiver_vci, sender_vci, msgerr);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct multihop_monitor_bind_reply_state *me = malloc(
                     sizeof(struct multihop_monitor_bind_reply_state));
             assert(me != NULL);
-            struct monitor_state *ist = domain_closure->st;
+            struct monitor_state *ist = domain_binding->st;
             me->args.receiver_vci = receiver_vci;
             me->args.sender_vci = sender_vci;
             me->args.err = msgerr;
             me->elem.cont = multihop_monitor_bind_reply_busy_cont;
 
-            err = monitor_enqueue_send(domain_closure, &ist->queue,
+            err = monitor_enqueue_send(domain_binding, &ist->queue,
                     get_default_waitset(), &me->elem.queue);
             assert(err_is_ok(err));
             return;
@@ -871,14 +871,14 @@ static inline void multihop_monitor_request_error(
 ///////////////////////////////////////////////////////
 
 static inline void multihop_message_monitor_forward(struct monitor_binding *b,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *payload, size_t size, bool first_try);
 
 static void multihop_message_forward_continue(struct monitor_binding *b,
         struct monitor_msg_queue_elem *e);
 
 static inline void multihop_message_intermon_forward(struct intermon_binding *b,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *payload, size_t size, bool first_try);
 
 static void multihop_message_intermon_forward_cont(struct intermon_binding *b,
@@ -900,7 +900,7 @@ struct intermon_message_forwarding_state {
  * \brief Handle a multi-hop message coming from a local dispatcher.
  *        The message must be forwarded to the next hop.
  *
- * \param mon_closure the monitor binding
+ * \param mon_binding the monitor binding
  * \param vci the virtual circuit identifier of the message
  * \param direction direction of the message
  * \param flags message flags
@@ -909,8 +909,8 @@ struct intermon_message_forwarding_state {
  * \size size of the message payload
  *
  */
-static void multihop_message_handler(struct monitor_binding *mon_closure,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+static void multihop_message_handler(struct monitor_binding *mon_binding,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *payload, size_t size)
 {
 
@@ -970,7 +970,7 @@ static void multihop_message_intermon_forward_cont(struct intermon_binding *b,
  *
  */
 static inline void multihop_message_intermon_forward(struct intermon_binding *b,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *payload, size_t size, bool first_try)
 {
 
@@ -1019,7 +1019,7 @@ static inline void multihop_message_intermon_forward(struct intermon_binding *b,
  *        to forward the message either to another monitor or
  *        to a dispatcher
  *
- * \param mon_closure the monitor binding
+ * \param mon_binding the monitor binding
  * \param vci the virtual circuit identifier of the message
  * \param direction direction of the message
  * \param flags message flags
@@ -1027,8 +1027,8 @@ static inline void multihop_message_intermon_forward(struct intermon_binding *b,
  * \param payload pointer to the message payload
  * \size size of the message payload
  */
-static void intermon_multihop_message_handler(struct intermon_binding *closure,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+static void intermon_multihop_message_handler(struct intermon_binding *binding,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *payload, size_t size)
 {
 
@@ -1117,7 +1117,7 @@ static void multihop_message_forward_continue(struct monitor_binding *b,
  * \brief Forward a message to a dispatcher
  */
 static inline void multihop_message_monitor_forward(struct monitor_binding *b,
-        uint64_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
+        multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
         uint8_t *payload, size_t size, bool first_try)
 {
 
@@ -1167,20 +1167,20 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
         struct intermon_msg_queue_elem *e);
 
 static inline void multihop_cap_send_intermon_forward(
-        struct intermon_binding *b, uint64_t vci, uint8_t direction,
+        struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
         uint32_t capid, intermon_caprep_t caprep, bool null_cap);
 
 static void multihop_cap_send_forward_cont(struct monitor_binding *b,
         struct monitor_msg_queue_elem *e);
 
 inline static void multihop_cap_send_forward(struct monitor_binding *b,
-        uint64_t vci, uint8_t direction, uint32_t capid, struct capref cap);
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, struct capref cap);
 
 inline static void multihop_intermon_cap_send_reply(struct intermon_binding *b,
-        uint64_t vci, uint8_t direction, uint32_t capid, errval_t err);
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t err);
 
 inline static void multihop_monitor_cap_send_reply(
-        struct monitor_binding *mon_binding, uint64_t vci, uint8_t direction,
+        struct monitor_binding *mon_binding, multihop_vci_t vci, uint8_t direction,
         uint32_t capid, errval_t msgerr);
 
 // intermonitor capability forwarding state
@@ -1207,7 +1207,7 @@ struct multihop_capability_forwarding_state {
  *
  */
 static void multihop_cap_send_request_handler(
-        struct monitor_binding *monitor_binding, uint64_t vci,
+        struct monitor_binding *monitor_binding, multihop_vci_t vci,
         uint8_t direction, struct capref cap, uint32_t capid)
 {
 
@@ -1297,7 +1297,7 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
  *
  */
 static inline void multihop_cap_send_intermon_forward(
-        struct intermon_binding *b, uint64_t vci, uint8_t direction,
+        struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
         uint32_t capid, intermon_caprep_t caprep, bool null_cap)
 {
 
@@ -1338,7 +1338,7 @@ static inline void multihop_cap_send_intermon_forward(
  *
  */
 static void multihop_intermon_cap_send_handler(
-        struct intermon_binding *intermon_binding, uint64_t vci,
+        struct intermon_binding *intermon_binding, multihop_vci_t vci,
         uint8_t direction, uint32_t capid, intermon_caprep_t caprep,
         bool null_cap)
 {
@@ -1454,7 +1454,7 @@ static void multihop_cap_send_forward_cont(struct monitor_binding *b,
  *
  */
 inline static void multihop_cap_send_forward(struct monitor_binding *b,
-        uint64_t vci, uint8_t direction, uint32_t capid, struct capref cap)
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, struct capref cap)
 {
     errval_t err;
 
@@ -1505,7 +1505,7 @@ static void multihop_intermon_cap_send_reply_busy_cont(
  * Forward a reply to next monitor
  */
 inline static void multihop_intermon_cap_send_reply(struct intermon_binding *b,
-        uint64_t vci, uint8_t direction, uint32_t capid, errval_t err)
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t err)
 {
 
     errval_t err2;
@@ -1556,7 +1556,7 @@ static void multihop_monitor_cap_send_reply_busy_cont(struct monitor_binding *b,
  * Forward a reply message to a local dispatcher
  */
 inline static void multihop_monitor_cap_send_reply(
-        struct monitor_binding *mon_binding, uint64_t vci, uint8_t direction,
+        struct monitor_binding *mon_binding, multihop_vci_t vci, uint8_t direction,
         uint32_t capid, errval_t msgerr)
 {
 
@@ -1588,7 +1588,7 @@ inline static void multihop_monitor_cap_send_reply(
  * \brief Handler a capability reply coming from another monitor
  */
 static void multihop_intermon_cap_reply_handler(
-        struct intermon_binding *intermon_binding, uint64_t vci,
+        struct intermon_binding *intermon_binding, multihop_vci_t vci,
         uint8_t direction, uint32_t capid, errval_t msgerr)
 {
     struct monitor_multihop_chan_state *chan_state = forwarding_table_lookup(

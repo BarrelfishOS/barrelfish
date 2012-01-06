@@ -16,7 +16,7 @@
 \usepackage{textcomp}
 \usepackage{amsmath}
 
-\title{Mackerel 1.3 User Guide}
+\title{Mackerel 1.4 User Guide}
 \author{Barrelfish project}
 % \date{\today}		% Uncomment (if needed) - date is automatic
 \tnnumber{2}
@@ -29,6 +29,7 @@
 \vhEntry{1.2}{31.05.2010}{TR}{Initial version under new formatting}
 \vhEntry{1.3}{15.08.2011}{TR}{Added support for imports and new
   command-line options}
+\vhEntry{1.4}{09.12.2011}{TR}{New mapping for constants}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -149,7 +150,7 @@ the convention opted by modern day programming languages like C and Java.\\
 
 \item[Identifiers:] Valid \Mac identifiers are sequences of numbers
   (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
-  must start must start with a letter or ``\texttt{\_}''.  
+  must start with a letter or ``\texttt{\_}''.  
   \begin{align*}
     identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_)^{\textrm{*}} \\
     letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
@@ -160,15 +161,19 @@ the convention opted by modern day programming languages like C and Java.\\
   ``don't care'' or anonymous identifier which is treated differently
   inside the language. 
   
-\item[Integer Literals:] A \Mac integer literals is a sequence of
+\item[Integer Literals:] A \Mac integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
   literals have no specifier and hexadecimal literals start with
   \texttt{0x}.  Binary literals start with \texttt{0b}. 
+
+  In addition, as a special case the string \texttt{1s} can be used to
+  indicate an integer which is composed entirely of binary 1's. 
 
 \begin{align*}
 digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
 hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
 binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
+allones & \rightarrow \textsf{1s}\\
 \end{align*}
 
 
@@ -316,10 +321,12 @@ declaration must be one of the following:
 
 \section{Address spaces}\label{sec:spaces}
 
-Registers defined in a \Mac file (see Section~\ref{sec:registers})
-reside at specified addresses in an \emph{address space}.   There are
-currently 3 built-in address spaces that \Mac understands, and
-addresses in these spaces require both a base and an offset.  Base
+Registers defined in a \Mac file
+reside at specified addresses in an \emph{address space} (unless they
+are specified as \texttt{noaddr}, see Section~\ref{sec:registers}). 
+
+There are currently 3 built-in address spaces that \Mac understands,
+and addresses in these spaces require both a base and an offset.  Base 
 values are given as an arguments to the device specification, and so
 each device argument must be declared as being of one of the following
 types: 
@@ -441,7 +448,7 @@ and a textual description of its meaning.
 The syntax is:
 
 \begin{syntax}
-constants \synit{name} "\synit{description}" \verb+{+ 
+constants \synit{name} [width( \synit{width} )] "\synit{description}" \verb+{+ 
    \synit{name\(\sb{1}\)} = \synit{value\(\sb{1}\)} ["\synit{description\(\sb{1}\)}"] ;
    \ldots
 \verb+}+; 
@@ -452,6 +459,10 @@ constants \synit{name} "\synit{description}" \verb+{+
 \item[name] is an identifier for the constant type, and will be used to
   generate identifiers in the target language (typically C).  The
   scope of this identifier is the enclosing device specification.  
+
+\item[width] is optional, and specifies the width of the constant
+  value in bits.  This is useful, for example, when the type is used
+  as the type of a register. 
 
 \item [``description''] is a string literal in double quotes, which
   describes the constant type being specified, for example
@@ -597,7 +608,7 @@ on the device.
 
 \begin{syntax}
 register \synit{name} [\synit{attr}] [also] 
-             \synit{space}( \synit{address} ) ["\synit{description}"] \synit{type} ;
+             \{ noaddr | \synit{space}( \synit{address} ) \} ["\synit{description}"] \synit{type} ;
 \end{syntax}
 
 \begin{description}
@@ -625,18 +636,33 @@ register \synit{name} [\synit{attr}] [also]
   preceding the address specifier with the \texttt{also} keyword, you
   can allow registers to coexist at the same location. 
 
+\item[noaddr] is an alternative to the address space definition, and
+  is used for registers which have no address (or, alternatively, an
+  implicit address).  A good example of this kind of register is a
+  coprocessor register which requires custom assembler instructions to
+  read and write.  Mackerel generates slightly different access code
+  for this type of register, specified later in this document, and
+  requires the developer to supply the raw register access functions. 
+
 \item[description] is an optional string in double quotes, giving a
   description of the register, for example \texttt{"Error status"}. 
   If not present, it defaults to the name identifier.  
 
 \item[type] gives the format of the register.  It can consist of
-  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is either
-  the identifer of a register type previously declared with a
-  \texttt{regtype} declaration; one of the built in register
-  types \texttt{uint8}, \texttt{uint16}, \texttt{uint32}, or
-  \texttt{uint64}; or a qualified name of the form
-  \textit{device}\texttt{.}\textit{regtype}, where \textit{device} is
-  the name of a device definition previously imported. 
+  \texttt{type(}\textit{name}\texttt{)}, where \textit{name} is
+  either:
+  \begin{itemize}
+  \item the identifier of a register type previously declared with a
+    \texttt{regtype} declaration;
+  \item the identifier of a constants type previously declared with a
+    \texttt{constants} declaration which included an explicit
+    \texttt{width()} specifier;
+  \item one of the built in register types \texttt{uint8},
+    \texttt{uint16}, \texttt{uint32}, or \texttt{uint64}; or
+  \item a qualified name of the form
+    \textit{device}\texttt{.}\textit{type}, where \textit{device}
+    is the name of a device definition previously imported.  
+  \end{itemize}
 
   Alternatively, the type can be given as a sequence of fields in
   braces, exactly as in a \texttt{regtype} declaration.  In effect,
@@ -648,20 +674,38 @@ register \synit{name} [\synit{attr}] [also]
 Here are some examples of \texttt{register} definitions:
 
 \begin{example}
-  register dfr rw at (base, 0x00e0) 
-              "Destination Format" \verb+{+
-    _		28 mb1;
-    model	4 type(model_type) "Model";
-\verb+  };+
+  register dfr rw at (base, 0x00e0) "Destination Format" \{
+    _           28 mb1;
+    model       4 type(model_type) "Model";
+  \};
 \end{example}
 \begin{example}
-  register apr ro at (base, 0x0090) 
-              "Arbitration priority" type(priority);
+  register apr ro at (base, 0x0090) "Arbitration priority" type(priority);
 \end{example}
 \begin{example}
-  register isr0 ro at (base, 0x0100) 
-              "ISR bits 0-31" type(uint32);
+  register isr0 ro at (base, 0x0100) "ISR bits 0-31" type(uint32);
 \end{example}
+\begin{example}
+  register cr4 noaddr "Control register 4" \{
+    _           49 mbz;
+    smxe        1 "SMX enable";
+    vmxe        1 "VMX enable";
+    _           2 mbz;
+    osxmmexcpt  1 "OS support for unmasked SIMD FP exceptions";
+    osfxsr      1 "OS support for FXSAVE and FXRSTOR instructions";
+    pce         1 "Performance-monitoring counter enable";
+    pge         1 "Page global enable";
+    mce         1 "Machine-check enable";
+    pae         1 "Physical address extensions";
+    pse         1 "Page size extensions";
+    de          1 "Debugging extensions";
+    tsd         1 "Time stamp disable";
+    pvi         1 "Protected-mode virtual interrupts";
+    vme         1 "Virtual 8086 mode extensions";
+  \};
+\end{example}
+
+
 
 \section{Register Arrays}\label{sec:regarrays}
 
@@ -904,6 +948,15 @@ designed to be fairly readable to curious humans, and is worth
 examining to understand what \Mac is generating (and to find bugs in
 \Mac). 
 
+The file for a device called, say, \texttt{apic} is conventionally named
+\texttt{apic\_dev.h}, and in Barrelfish is usually found in
+the \texttt{dev} subdirectory of the main include directory; thus a C
+file would include it with:
+
+\begin{alltt}
+#include <dev/apic\_dev.h>
+\end{alltt}
+
 This chapter will describe the contents of this header file. 
 
 \section{Preamble}
@@ -1007,21 +1060,49 @@ For a constants declaration of type \texttt{CNSTS}, having fields
 
 \begin{enumerate}
 
-\item An enumeration type \texttt{DP\_CNSTS\_t} with fields
-  \texttt{DP\_FIELD1} and \texttt{DP\_FIELD2}.  Note that the field
-  names are not prefixed by the enumeration name, only the device
-  prefix. 
+\item A type definition which defines type \texttt{DP\_CNSTS\_t} to be
+  an unsigned integer type (e.g.\ \texttt{uint8\_t} or
+  \texttt{uint64\_t}).  The type is the smallest such type large
+  enough to hold the largest value in the constants declaration, or
+  (if the width is explicitly given) the smallest such type wider than
+  the given width. 
 
-\item An \texttt{snprintf}-like function to pretty-print values of the
-  enumeration, with prototype:
+\item A set of CPP macro definitions \texttt{DP\_FIELD1} and
+  \texttt{DP\_FIELD2}, each of which expands to a C expression
+  consisting of the field value cast to type \texttt{DP\_CNSTS\_t}.  
+
+  If the field value is specified as \texttt{1s}, the macro will
+  expand to the C value \texttt{-1LL} cast to type
+  \texttt{DP\_CNSTS\_t}.  
+
+  Note that the field names are not prefixed by the constants name,
+  only the device prefix. 
+
+  The motivation for using CPP macros (rather than C enumerations, as
+  in an earlier version of Mackerel) is that \texttt{enum} types are
+  only the size of C \texttt{int}s, whereas Mackerel can specify
+  values in \texttt{constants} declarations which are larger than
+  this (such as 64-bit values). 
+
+  The motivation for not using constant unsigned integer declarations
+  is that macros allow us to only generate a header file, without
+  cluttering up the data segment with multiple copies of constants if
+  the generated header file is included more than once. 
+      
+\item A function which takes an argument of type \texttt{DP\_CNSTS\_t}
+  and returns a pointer to a string containing the description of the
+  field value, or NULL if the argument does not correspond to a field
+  value:
+  \begin{quote}
+    \texttt{int DP\_CNSTS\_describe(DP\_CNSTS\_t e);}
+  \end{quote}
+  Note that this function can also simply be used as a test of whether
+  the value is valid. 
+
+\item An \texttt{snprintf}-like function to pretty-print values of
+  type \texttt{DP\_CNSTS\_t}, with prototype:
   \begin{quote}
     \texttt{int DP\_CNSTS\_prtval(char *s, size\_t sz, DP\_CNSTS\_t e);}
-  \end{quote}
-      
-\item A function which returns 1 if an enumeration value is valid, 0
-  if otherwise:
-  \begin{quote}
-    \texttt{int DP\_CNSTS\_chk(DP\_CNSTS\_t e);}
   \end{quote}
 
 \end{enumerate}
@@ -1126,6 +1207,16 @@ generate some of the following:
     \texttt{DP\_REGTYPE\_t DP\_REG\_rd( DN\_t *dev );}
   \end{quote}
 
+\item If the register address is not given as \texttt{noaddr}, a function to
+  read the raw contents of the register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REG\_rawrd( DN\_t *dev );}
+  \end{quote}
+  On the other hand, if the register address is given as
+  \texttt{noaddr}, the developer is required to supply this function
+  herself -- Mackerel-generated code will use it to access the
+  register. 
+
 \item If the register has fields which are writeable, a function to
   write the contents of the register:
   \begin{quote}
@@ -1138,6 +1229,23 @@ generate some of the following:
   are meaningful to write according to the register specification.
   However, this function will not perform a read from the register
   unless the register contains reserved fields. 
+
+\item If the register address is not given as \texttt{noaddr}, a function to
+  write raw values to the register:
+  \begin{quote}
+    \texttt{DP\_REGTYPE\_t DP\_REG\_rawwr( DN\_t *dev, DP\_REGTYPE\_t val );}
+  \end{quote}
+  This function is potentially dangerous, since it makes no guarantees
+  that certain fields of the register are set to zero or one, or
+  preserves the contents of reserved fields.  Use with caution. 
+
+  On the other hand, if the register address is given as
+  \texttt{noaddr}, the developer is required to supply this function
+  herself -- Mackerel-generated code will use it to access the
+  register.  Again, in this case, the function should not try to
+  preserve fields, since Mackerel will make sure that the
+  ``sanitized'' register and field writing functions will do this
+  correctly. 
 
 \item For every readable field \texttt{FLD} (of type \texttt{FLDTYPE})
   of the register, a function to read just that single field from the
@@ -1715,11 +1823,12 @@ In addition, comments in the generated file are intended to help you
 find the relevant declarations quickly if you need to. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Migrating from bit-field based version of Mackerel}\label{chap:migrating}
+\chapter{Migrating from the bit-field based version of Mackerel}
+\label{chap:migrating}
 
 Previous versions of Mackerel generated a C API by defining packed C
 bitfield structs for register types.  This version of Mackerel avoids
-this in favour of masks and shifts, hidden behind inline functions.
+this in favor of masks and shifts, hidden behind inline functions.
 This chapter gives some hints for migrating code written using the old
 Mackerel to the new version. 
 
@@ -1812,24 +1921,23 @@ The \Mac source directory contains the files listed below.
 
 \begin{description}
 
-\item[Main.hs] Top level file, which is used to run \Mac.
-\item[MackerelParser.hs] ParSec parser for language.
-\item[CAbsSyntax.hs] Contains combinators for rendering C code.
-\item[Checks.hs] Compile-time checks.
-\item[ConstTable.hs] Constants definitions.
-\item[Dev.hs] Overall device representation.
-\item[Fields.hs] Representing register fields.
 \item[Attr.hs] Dealing with register field attributes.
-\item[RegisterTable.hs] Representing registers and register arrays.
-\item[ShiftDriver.hs] Code generator for device drivers using shifts
-  and masks.
-\item[Space.hs] Representing address spaces.
-\item[TypeTable.hs] Representing register types.
-\item[CSyntax.hs] Old-style C combinators, deprecated.
 \item[BitFieldDriver.hs] Old code generator for device drivers using
   bitfields, deprecated.
+\item[CAbsSyntax.hs] Contains combinators for rendering C code.
+\item[CSyntax.hs] Old-style C combinators, deprecated.
+\item[Checks.hs] Compile-time checks.
+\item[Dev.hs] Overall device representation.
+\item[Fields.hs] Representing register fields.
+\item[MackerelParser.hs] ParSec parser for language.
+\item[Main.hs] Top level file, which is used to run \Mac.
 \item[Poly.hs] Polynomial arithmetic for compile-time expression
   reduction (currently unused)
+\item[RegisterTable.hs] Representing registers and register arrays.
+\item[ShiftDriver.hs] Code generator for device drivers using shifts and masks.
+\item[Space.hs] Representing address spaces.
+\item[TypeName.hs] Data type for scoping type names when importing.
+\item[TypeTable.hs] Representing register, data, and constants types.
 \end{description}
 
 \end{document}

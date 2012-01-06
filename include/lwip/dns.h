@@ -36,7 +36,7 @@
 
 #include "lwip/opt.h"
 
-#if LWIP_DNS /* don't build if not configured for use in lwipopts.h */
+#if LWIP_DNS                    /* don't build if not configured for use in lwipopts.h */
 
 /** DNS timer period */
 #define DNS_TMR_INTERVAL          1000
@@ -73,25 +73,26 @@
  *        or NULL if the name could not be found (or on any other error).
  * @param callback_arg a user-specified callback argument passed to dns_gethostbyname
 */
-typedef void (*dns_found_callback)(const char *name, struct ip_addr *ipaddr, void *callback_arg);
+typedef void (*dns_found_callback) (const char *name, struct ip_addr * ipaddr,
+                                    void *callback_arg);
 
 
-void           dns_init(void);
+void dns_init(void);
 
-void           dns_tmr(void);
+void dns_tmr(void);
 
-void           dns_setserver(u8_t numdns, struct ip_addr *dnsserver);
+void dns_setserver(u8_t numdns, struct ip_addr *dnsserver);
 
 struct ip_addr dns_getserver(u8_t numdns);
 
-err_t          dns_gethostbyname(const char *hostname, struct ip_addr *addr,
-                                 dns_found_callback found, void *callback_arg);
+err_t dns_gethostbyname(const char *hostname, struct ip_addr *addr,
+                        dns_found_callback found, void *callback_arg);
 
 #if DNS_LOCAL_HOSTLIST && DNS_LOCAL_HOSTLIST_IS_DYNAMIC
-int            dns_local_removehost(const char *hostname, const struct ip_addr *addr);
-err_t          dns_local_addhost(const char *hostname, const struct ip_addr *addr);
-#endif /* DNS_LOCAL_HOSTLIST && DNS_LOCAL_HOSTLIST_IS_DYNAMIC */
+int dns_local_removehost(const char *hostname, const struct ip_addr *addr);
+err_t dns_local_addhost(const char *hostname, const struct ip_addr *addr);
+#endif                          /* DNS_LOCAL_HOSTLIST && DNS_LOCAL_HOSTLIST_IS_DYNAMIC */
 
-#endif /* LWIP_DNS */
+#endif                          /* LWIP_DNS */
 
-#endif /* __LWIP_DNS_H__ */
+#endif                          /* __LWIP_DNS_H__ */

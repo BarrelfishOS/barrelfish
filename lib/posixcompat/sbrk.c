@@ -21,7 +21,7 @@ void *sbrk(intptr_t increment)
 {
     errval_t err;
     size_t orig_offset;
-    
+
     static void *base;
     static size_t offset = 0;
     static size_t goffset = 0;
@@ -48,20 +48,20 @@ void *sbrk(intptr_t increment)
       } else {
         orig_offset = offset;
         offset += increment;
-        
+
         void *ret = base + orig_offset;
         return ret;
       }
     } else if (increment == 0) {
         return base + offset;
     } else if (offset + increment > SBRK_REGION_BYTES) {
-        debug_printf("sbrk() exceeded static region limit of %lu bytes, offset: %lu\n",
+        debug_printf("sbrk() exceeded static region limit of %zu bytes, offset: %zu\n",
                      (size_t)SBRK_REGION_BYTES, offset);
         return (void *)-1;
     } else if (offset + increment <= goffset) {
         orig_offset = offset;
         offset += increment;
-        
+
         void *ret = base + orig_offset;
         return ret;
     }

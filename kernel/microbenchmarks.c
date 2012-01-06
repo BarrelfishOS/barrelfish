@@ -46,7 +46,7 @@ static int microbenchmarks_run(struct microbench *benchs, size_t nbenchs)
         struct microbench       *mb;
 
         mb = &benchs[i];
-        printk(LOG_NOTE, "Running benchmark %lu/%lu: %s\n", i + 1, nbenchs,
+        printk(LOG_NOTE, "Running benchmark %zu/%zu: %s\n", i + 1, nbenchs,
                mb->name);
         r = mb->run_func(mb);
 

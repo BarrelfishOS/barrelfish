@@ -95,6 +95,9 @@ errval_t ram_alloc_fixed(struct capref *ret, uint8_t size_bits,
     }
 }
 
+#include <stdio.h>
+#include <string.h>
+
 /**
  * \brief Allocates memory in the form of a RAM capability
  *
@@ -106,9 +109,21 @@ errval_t ram_alloc(struct capref *ret, uint8_t size_bits)
 {
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
     assert(ram_alloc_state->ram_alloc_func != NULL);
-    return ram_alloc_state->
+    errval_t err = ram_alloc_state->
         ram_alloc_func(ret, size_bits, ram_alloc_state->default_minbase,
                        ram_alloc_state->default_maxlimit);
+    if(err_is_fail(err)) {
+      DEBUG_ERR(err, "ram_alloc");
+      /*
+      printf("callstack: %p %p %p %p\n",
+	     __builtin_return_address(0),
+	     __builtin_return_address(1),
+	     __builtin_return_address(2),
+	     __builtin_return_address(3));
+    */
+
+    }
+    return err;
 }
 
 errval_t ram_available(genpaddr_t *available, genpaddr_t *total)

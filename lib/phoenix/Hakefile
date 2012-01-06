@@ -17,11 +17,11 @@
                                  "-Wmissing-declarations",
                                  "-Werror", "-Wold-style-definitions",
                                  "-Wmissing-field-initializers",
-                                 "-Wredundant-decls" ],
+                                 "-Wredundant-decls", "-std=c99" ],
                   addCFlags = [ "-Wno-unused", 
                                 "-Wno-old-style-definition", 
                                 "-Wno-implicit-function-declaration", 
-                                "-Wno-aggregate-return" ],
+                                "-Wno-aggregate-return", "-std=gnu99" ],
                   architectures = [ "x86_64" ]
                 }
 ]

@@ -30,38 +30,38 @@
 /**
  * \brief Set the current function name for well-arranged debug messages.
  */
-#define PDEBUG_FNAME(x)		char* __DEBUG__CURRENT_FUNCTION_NAME = x; int __DEBUG__OMIT = 0; if (__DEBUG__OMIT) {};	// avoids
-																													// compilers 
-																													// 
-																													// 
-																													// 'unused 
-																													// 
-																													// 
-																													// variable' 
-																													// 
-																													// 
-																													// warning 
-																													// 
-																													// 
-																													// in 
-																													// 
-																													// 
-																													// functions 
-																													// 
-																													// 
-																													// only 
-																													// 
-																													// 
-																													// using 
-																													// 
-																													// 
-																													// error 
-																													// 
-																													// 
-																													// debug 
-																													// 
-																													// 
-																													// messages
+#define PDEBUG_FNAME(x)		char* __DEBUG__CURRENT_FUNCTION_NAME = x; int __DEBUG__OMIT = 0; if (__DEBUG__OMIT) {}; // avoids
+                                                                                                                                                                                                                                        // compilers 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 'unused 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // variable' 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // warning 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // in 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // functions 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // only 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // using 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // error 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // debug 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // 
+                                                                                                                                                                                                                                        // messages
 
 /**
  * \brief When calling this makro, all debug messages for the caller function will be omitted.

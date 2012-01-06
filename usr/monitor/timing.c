@@ -56,7 +56,7 @@ errval_t timing_sync_timer(void)
 
         for(int i = 0; i < MAX_CPUS; i++) {
             struct intermon_binding *b = NULL;
-            err = intern_get_closure(i, &b);
+            err = intermon_binding_get(i, &b);
             if(err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
                 continue;
             }
@@ -112,11 +112,10 @@ void timing_sync_bench(void)
     }
 
     int nthreads = 0;
-    for(int i = 0; i < MAX_CPUS; i++) {
+    for(int i = 0; i <= MAX_COREID; i++) {
         struct intermon_binding *b = NULL;
-        errval_t err = intern_get_closure(i, &b);
-        assert(err_is_ok(err));
-        if(b != NULL) {
+        errval_t err = intermon_binding_get(i, &b);
+        if(err_is_ok(err) && b != NULL) {
             nthreads++;
         }
     }
