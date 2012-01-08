@@ -26,6 +26,7 @@ static struct thread_sem ts;
 static void message_handler(subscription_t id, char* record, void* st)
 {
     static const char* receive_order[] = { "msg_2", "msg_4", "msg_5", "msg_5" };
+    static size_t to_receive = sizeof(receive_order) / sizeof(char*);
     char* name = NULL;
     size_t* received = (size_t*) st;
 
@@ -36,7 +37,7 @@ static void message_handler(subscription_t id, char* record, void* st)
     ASSERT_STRING(receive_order[*received], name);
     *received = *received + 1;
 
-    if(*received == 4) {
+    if(*received == to_receive) {
         thread_sem_post(&ts);
     }
 
