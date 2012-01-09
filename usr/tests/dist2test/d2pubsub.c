@@ -25,7 +25,8 @@ static struct thread_sem ts;
 
 static void message_handler(subscription_t id, char* record, void* st)
 {
-    static const char* receive_order[] = { "msg_2", "msg_4", "msg_5", "msg_5" };
+    static const char* receive_order[] =
+    { "msg_2", "msg_4", "msg_5", "msg_5", "msg_6", "msg_7" };
     static size_t to_receive = sizeof(receive_order) / sizeof(char*);
     char* name = NULL;
     size_t* received = (size_t*) st;
@@ -35,9 +36,9 @@ static void message_handler(subscription_t id, char* record, void* st)
     errval_t err = dist_read(record, "%s", &name);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(receive_order[*received], name);
-    *received = *received + 1;
+    (*received)++;
 
-    if(*received == to_receive) {
+    if (*received == to_receive) {
         thread_sem_post(&ts);
     }
 
@@ -51,6 +52,7 @@ static void subscriber(void)
     subscription_t id1 = 0;
     subscription_t id2 = 0;
     subscription_t id3 = 0;
+    subscription_t id4 = 0;
     size_t received = 0;
     char* barrier_record = NULL;
 
@@ -72,6 +74,10 @@ static void subscriber(void)
             9);
     ASSERT_ERR_OK(err);
 
+    err = dist_subscribe(message_handler, &received, &id4,
+            "r'^msg_(6|7)$'");
+    ASSERT_ERR_OK(err);
+
     // Synchronize with publisher
     dist_barrier_enter(barrier_name, &barrier_record, 2);
 
@@ -85,11 +91,12 @@ static void subscriber(void)
     ASSERT_ERR_OK(err);
     err = dist_unsubscribe(id3);
     ASSERT_ERR_OK(err);
-
-    // TODO check what happens:
-    err = dist_unsubscribe(id1);
+    err = dist_unsubscribe(id4);
     ASSERT_ERR_OK(err);
 
+    err = dist_unsubscribe(id1); // TODO give error?
+    ASSERT_ERR_OK(err);
+    printf("subscriber before leave\n");
     dist_barrier_leave(barrier_record);
     free(barrier_record);
 
@@ -119,6 +126,13 @@ static void publisher(void)
     err = dist_publish("msg_5 { str: 'test.txt', attr: 10, fl: 1.01 }");
     ASSERT_ERR_OK(err);
 
+    err = dist_publish("msg_6 { type: 'test', pattern: '123123' }");
+    ASSERT_ERR_OK(err);
+
+    err = dist_publish("msg_7 { type: 'test' }");
+    ASSERT_ERR_OK(err);
+
+    printf("publisher before leave\n");
     dist_barrier_leave(barrier_record);
     free(barrier_record);
 

@@ -55,6 +55,9 @@ satisfy_constraint_list(Message, []).
 satisfy_constraint_list(Message, [C|Rest]) :-
     satisfy_constraint2(Message, C),
     satisfy_constraint_list(Message, Rest).
+satisfy_constraint2(object(Thing, SlotList), name_constraint(Value)) :-
+    (string(Value) ; atom(Value)),
+    match(Value, Thing, []).
 satisfy_constraint2(object(Name, SlotList), constraint(Attr, Comparator, Value)) :-
     atom_string(Comparator, "distmatch"), % hack: does not work when put in constraint?
     !,

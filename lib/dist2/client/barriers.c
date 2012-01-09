@@ -110,8 +110,10 @@ errval_t dist_barrier_leave(const char* barrier_record)
         err = dist_get_names(&names, &remaining_barriers, "_ { barrier: '%s' }",
                 barrier_name);
 
-        if (remaining_barriers == 0) {
-            dist_del("%s", barrier_name);
+        debug_printf("remaining barriers is: %lu\n", remaining_barriers);
+
+        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+            err = dist_del("%s", barrier_name);
         } else {
             struct dist2_rpc_client* cl = get_dist_rpc_client();
             struct thread_sem ts;

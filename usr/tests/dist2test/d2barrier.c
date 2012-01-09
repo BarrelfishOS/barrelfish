@@ -19,6 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <dist2/dist2.h>
 
+#include "common.h"
 
 int main(int argc, char *argv[])
 {
@@ -40,7 +41,7 @@ int main(int argc, char *argv[])
     	abort();
     }
     err = dist_barrier_leave(record);
-    assert(err_is_ok(err));
+    ASSERT_ERR_OK(err);
 
     debug_printf("Process no longer inside barrier.\n");
 

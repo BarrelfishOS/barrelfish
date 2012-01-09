@@ -52,7 +52,7 @@ static int cmpstringp(const void *p1, const void *p2)
  * \param[out] names Names of all records matching the query.
  * Needs to be freed by the client (use dist_free_names) in
  * case of SYS_ERR_OK.
- * \param[out] size Number of records matching the query.
+ * \param[out] size Number of records matching the query. 0 in case of error.
  * \param[in] query Query sent to the server
  * \param ... Parameters used to build query with help of vsprintf.
  *
@@ -60,6 +60,7 @@ static int cmpstringp(const void *p1, const void *p2)
  * \retval DIST2_ERR_NO_RECORD
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval LIB_ERR_MALLOC_FAIL
  */
 errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
 {
@@ -70,6 +71,8 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
 
     char* data = NULL;
     char* buf = NULL;
+    *len = 0;
+
     FORMAT_QUERY(query, args, buf);
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
