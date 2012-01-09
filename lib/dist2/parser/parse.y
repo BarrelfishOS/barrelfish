@@ -69,14 +69,15 @@ program:
     | ;
 
 object: 
-      name                          { $$ = ast_object($1, NULL);  } 
-    | name RCURLY LCURLY            { $$ = ast_object($1, NULL);  } 
-    | name RCURLY attributes LCURLY { $$ = ast_object($1, $3);  }
+      name                           { $$ = ast_object($1, NULL);  } 
+    | name RCURLY LCURLY             { $$ = ast_object($1, NULL);  } 
+    | name RCURLY attributes LCURLY  { $$ = ast_object($1, $3);  }
 
 name:
-      IDENT                         { $$ = ast_ident($1); }
-    | VARIABLE                      { $$ = ast_variable(); }
-    | SCAN                          { $$ = ast_scan($1); }
+      IDENT                          { $$ = ast_ident($1); }
+    | VARIABLE                       { $$ = ast_variable(); }
+    | SCAN                           { $$ = ast_scan($1); }
+    | REGEX                          { $$ = ast_constraints(constraint_REGEX, ast_string($1)); }
 
 attributes:
       attribute                      { $$ = ast_attribute($1, NULL); }

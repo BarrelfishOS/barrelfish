@@ -29,7 +29,4 @@ errval_t dist_subscribe(subscription_handler_fn, const void*, subscription_t*,
 errval_t dist_unsubscribe(subscription_t);
 errval_t dist_publish(const char*, ...);
 
-void subscribed_message_handler(struct dist2_binding*, subscription_t, char*);
-void dist_pubsub_init(void);
-
 #endif /* DIST2_PUBSUB_H_ */

@@ -130,7 +130,7 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
     assert(sqs != NULL);
 
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling get_object(Name, Attrs, Constraints, Y), print_object(Y).
         dident get_object = ec_did("get_object", 4);
@@ -162,7 +162,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
     assert(dqs != NULL);
 
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling findall(X, get_object(X, Attrs, Constraints, _), L),
         // prune_instances(L, PL), print_names(PL).
@@ -174,6 +174,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
         pword var_l = ec_newvar();
         pword var_pl = ec_newvar();
         pword var_attr = ec_newvar();
+
         pword get_object_term = ec_term(get_object, sr.name, sr.attribute_list,
                 sr.constraint_list, var_attr);
         pword findall_term = ec_term(findall, sr.name, get_object_term, var_l);
@@ -207,7 +208,7 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
     assert(sqs != NULL);
 
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling add_object(Name, Attributes)
         dident add_object = ec_did("add_object", 2);
@@ -242,7 +243,7 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
     assert(dqs != NULL);
 
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling del_object(Name)
         dident del_object = ec_did("del_object", 1);
@@ -264,7 +265,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
         struct dist_reply_state* drs)
 {
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling set_watch(Name, Attrs, Constraints, Mode,
         //                   recipient(Binding, ReplyState, WatchId))
@@ -343,7 +344,7 @@ errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
         uint64_t id, struct dist_query_state* sqs)
 {
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling add_subscription(template(Name, Attributes) Constraints, subscriber(EventBinding, Id))
         dident add_subscription = ec_did("add_subscription", 3);
@@ -397,7 +398,7 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
 errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
 {
     struct skb_ec_terms sr;
-    errval_t err = transform_record2(ast, &sr);
+    errval_t err = transform_record(ast, &sr);
     // TODO error if we have constraints here?
     if (err_is_ok(err)) {
         // Calling findall(X, find_subscriber(object(Name, Attributes), X), L), write(L)

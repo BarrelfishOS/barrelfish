@@ -21,12 +21,13 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <dist2/init.h>
 #include <dist2/getset.h>
 #include <dist2/parser/ast.h>
+#include <dist2/trigger.h>
 
 #include "strnatcmp.h"
 #include "common.h"
-#include "trigger.h"
 
 static char* mystrdup(char* data)
 {
@@ -194,6 +195,11 @@ errval_t dist_get(char** data, const char* query, ...)
  *
  * \param query The record to set.
  * \param ... Additional arguments to format the query using vsprintf.
+ *
+ * \retval SYS_ERR_OK
+ * \retvak DIST2_ERR_NO_RECORD_NAME
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t dist_set(const char* query, ...)
 {

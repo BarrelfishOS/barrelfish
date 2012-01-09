@@ -15,6 +15,8 @@
 #ifndef DIST2_GETSET_H_
 #define DIST2_GETSET_H_
 
+#include <barrelfish/barrelfish.h>
+
 typedef uint64_t dist_mode_t;
 
 #define SET_DEFAULT		(0x0)       /*!< Normal set mode for records. */

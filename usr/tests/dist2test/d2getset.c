@@ -206,6 +206,43 @@ static void set_records(void)
     printf("set_records() done!\n");
 }
 
+static void regex_name(void)
+{
+    errval_t err = SYS_ERR_OK;
+    char* rec = NULL;
+
+    err = dist_set("obj123 { attr: 12 }");
+    ASSERT_ERR_OK(err);
+
+    err = dist_set("obj1 { attr: 12 }");
+    ASSERT_ERR_OK(err);
+
+    err = dist_set("obj134 { attr: 12 }");
+    ASSERT_ERR_OK(err);
+
+    err = dist_get(&rec, "r'obj.$' { attr: 12 }");
+    DEBUG_ERR(err, "dist_get: %s\n", rec);
+    ASSERT_ERR_OK(err);
+
+    err = dist_set("r'obj.$' { attr: 12 }");
+    DEBUG_ERR(err, "dist_set using regex: %s\n", rec);
+    ASSERT_ERR(err, DIST2_ERR_NO_RECORD_NAME);
+
+    char** names = NULL;
+    size_t len = 0;
+    err = dist_get_names(&names, &len, "r'^obj.$' { attr: _ }");
+    ASSERT_ERR_OK(err);
+    assert(len == 1);
+    DEBUG_ERR(err, "dist_get_names, found: %lu\n", len);
+    dist_free_names(names, len);
+
+    err = dist_del("r'obj.$' { attr: 12}");
+    DEBUG_ERR(err, "dist_del using regex\n");
+    ASSERT_ERR(err, DIST2_ERR_NO_RECORD_NAME);
+
+    printf("regex_name() done!\n");
+}
+
 int main(int argc, char *argv[])
 {
     dist_init();
@@ -215,6 +252,7 @@ int main(int argc, char *argv[])
     exist_records();
     get_records();
     get_names();
+    regex_name();
 
     printf("d2getset SUCCESS!\n");
     return EXIT_SUCCESS;

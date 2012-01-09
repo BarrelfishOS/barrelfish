@@ -16,8 +16,10 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <dist2/init.h>
 #include <dist2/barrier.h>
 #include <dist2/getset.h>
+#include <dist2/trigger.h>
 
 #include "common.h"
 
@@ -61,8 +63,8 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
         struct thread_sem ts;
         thread_sem_init(&ts, 0);
         struct dist2_rpc_client* cl = get_dist_rpc_client();
-        dist2_trigger_t t = { .in_case = DIST2_ERR_NO_RECORD, .m = DIST_ON_SET,
-                .trigger = (uint64_t) barrier_signal_sem, .st = (uint64_t) &ts };
+        dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET,
+                barrier_signal_sem, &ts);
         errval_t exist_err;
         err = cl->vtbl.exists(cl, name, t, &exist_err);
         assert(err_is_ok(err));
@@ -115,9 +117,8 @@ errval_t dist_barrier_leave(const char* barrier_record)
             struct thread_sem ts;
             thread_sem_init(&ts, 0);
 
-            dist2_trigger_t t = { .in_case = SYS_ERR_OK, .m = DIST_ON_DEL,
-                    .trigger = (uint64_t) barrier_signal_sem, .st =
-                            (uint64_t) &ts };
+            dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
+                    barrier_signal_sem, &ts);
             errval_t exist_err;
             err = cl->vtbl.exists(cl, barrier_name, t, &exist_err);
             assert(err_is_ok(err));

@@ -23,9 +23,11 @@
 #include <barrelfish/threads.h>
 #include <if/dist2_rpcclient_defs.h>
 
+#include <dist2/init.h>
 #include <dist2/pubsub.h>
 
 #include "common.h"
+#include "handler.h"
 
 struct subscription {
     subscription_handler_fn handler;

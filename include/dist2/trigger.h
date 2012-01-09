@@ -19,11 +19,10 @@
 
 #include <if/dist2_defs.h>
 
-#define MAX_TRIGGERS 256
 #define NOP_TRIGGER     (dist2_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
 
 typedef void(*trigger_handler_fn)(char* object, void* state);
-
-void trigger_handler(struct dist2_binding*, uint64_t, uint64_t, char*);
+dist2_trigger_t dist_mktrigger(errval_t, dist2_mode_t, trigger_handler_fn,
+        void*);
 
 #endif /* DIST2_TRIGGER_H_ */

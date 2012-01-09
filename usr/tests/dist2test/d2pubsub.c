@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Tests for dist2 get/set/del API
+ * \brief Tests for dist2 publish/subscribe API
  */
 
 /*

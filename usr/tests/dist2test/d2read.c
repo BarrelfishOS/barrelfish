@@ -1,3 +1,17 @@
+/**
+ * \file
+ * \brief Tests dist_read call
+ */
+
+/*
+ * Copyright (c) 2011, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -44,9 +58,6 @@ int main(int argc, char *argv[])
     ASSERT_STRING(attr1, "string");
     assert(d == 12.0);
     assert(i == 1212);
-
-
-
 
     return EXIT_SUCCESS;
 }

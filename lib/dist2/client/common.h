@@ -21,13 +21,6 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include <barrelfish/barrelfish.h>
-#include <if/dist2_defs.h>
-#include <if/dist2_rpcclient_defs.h>
-
-struct dist2_rpc_client* get_dist_rpc_client(void);
-struct dist2_binding* get_dist_event_binding(void);
-
 #define LOCK_DIST_BINDING(cl)
 #define UNLOCK_DIST_BINDING(cl)
 

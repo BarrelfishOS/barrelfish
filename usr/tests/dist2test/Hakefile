@@ -20,37 +20,23 @@
                       addLibraries = [ "dist2", "dist_parser" ]
                     },
   
-  build application { target = "d2exist",
-                      cFiles = [ "exist.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
+  build application { target = "d2trigger",
+                      cFiles = [ "d2trigger.c" ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+
+  build application { target = "d2barrier",
+                      cFiles = [ "d2barrier.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb" ]
                     },
                                         
-  build application { target = "d2locking",
-                      cFiles = [ "lockforever.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
-                    },
-
-  build application { target = "d2read",
-                      cFiles = [ "read.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
-                    },
-
   build application { target = "d2locksimple",
-                      cFiles = [ "locksimple.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
-                    },
-                    
-  build application { target = "d2barrier",
-                      cFiles = [ "barrier.c" ],
+                      cFiles = [ "d2locksimple.c" ],
                       addLibraries = [ "dist2", "dist_parser", "skb" ]
                     },
 
-  build application { target = "d2thc",
-                      cFiles = [ "thc.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ],
-                      flounderDefs = [ "dist2", "dist_event" ],
-                      flounderBindings = [ "dist2", "dist_event" ],
-                      flounderTHCStubs = [ "dist2", "dist_event" ]
-                    }
-                   
+  build application { target = "d2read",
+                      cFiles = [ "d2read.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
+                    }                   
 ]

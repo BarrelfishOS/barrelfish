@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief start for libdist2 tests
+ * \brief Simple Barrier test
  */
 
 /*
@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
     	abort();
     }
     err = dist_barrier_leave(record);
-    DEBUG_ERR(err, "Leaving Barrier");
     assert(err_is_ok(err));
 
     debug_printf("Process no longer inside barrier.\n");

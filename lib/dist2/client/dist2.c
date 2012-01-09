@@ -21,10 +21,10 @@
 #include <barrelfish/threads.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <dist2/dist2.h>
+#include <dist2/init.h>
 
+#include "handler.h"
 #include "common.h"
-#include "trigger.h"
 
 static struct dist_state {
     struct dist2_binding* binding;
@@ -34,7 +34,7 @@ static struct dist_state {
     bool is_done;
 } rpc, event;
 
-static struct thread_cond tc;
+static struct thread_sem ts;
 
 struct dist2_binding* get_dist_event_binding(void)
 {
@@ -50,12 +50,14 @@ struct dist2_rpc_client* get_dist_rpc_client(void)
 
 static void identify_response_handler(struct dist2_binding* b)
 {
-    thread_cond_signal(&tc);
+    thread_sem_post(&ts);
 }
 
-struct dist2_rx_vtbl rx_vtbl = { .identify_response = identify_response_handler,
-        .subscribed_message = subscribed_message_handler, .trigger =
-                trigger_handler, };
+struct dist2_rx_vtbl rx_vtbl = {
+        .identify_response = identify_response_handler,
+        .subscribed_message = subscribed_message_handler,
+        .trigger = trigger_handler
+};
 
 static int event_handler_thread(void* st)
 {
@@ -155,7 +157,7 @@ errval_t dist_init(void)
     //thread_mutex_init(&trigger_mutex);
 
     errval_t err = SYS_ERR_OK;
-    thread_cond_init(&tc);
+    thread_sem_init(&ts, 0);
 
     err = init_binding(&rpc, rpc_bind_cb, "dist2_rpc");
     if (err_is_fail(err)) {
@@ -189,6 +191,6 @@ errval_t dist_init(void)
     dist_pubsub_init();
 
     // Wait until event binding has registered itself
-    thread_cond_wait(&tc, NULL);
+    thread_sem_wait(&ts);
     return err;
 }

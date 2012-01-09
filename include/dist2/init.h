@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Code generator header file
+ * \brief Header file for the dist2 initialization/general functions.
  */
 
 /*
@@ -12,19 +12,15 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef CODE_GENERATOR_H_
-#define CODE_GENERATOR_H_
+#ifndef INIT_H_
+#define INIT_H_
 
 #include <barrelfish/barrelfish.h>
-#include <dist2/parser/ast.h>
-#include <eclipse.h>
+#include <if/dist2_defs.h>
+#include <if/dist2_rpcclient_defs.h>
 
-struct skb_ec_terms {
-    pword name;
-    pword attribute_list;
-    pword constraint_list;
-};
+errval_t dist_init(void);
+struct dist2_rpc_client* get_dist_rpc_client(void);
+struct dist2_binding* get_dist_event_binding(void);
 
-errval_t transform_record(struct ast_object* ast, struct skb_ec_terms* record);
-
-#endif // GENERATOR_H_
+#endif /* INIT_H_ */

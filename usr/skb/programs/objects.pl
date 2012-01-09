@@ -77,26 +77,28 @@ format_slot_val(Val, In, Out) :-
 get_object(Thing, ReqList, ConsList, object(Thing, SlotList)) :-
 	object(Thing, SlotList),
 	slot_vals(Thing, ReqList, SlotList),
-	satisfy_constraints(ConsList, SlotList).
+	satisfy_constraints(ConsList, object(Thing, SlotList)).
 
 satisfy_constraints([], _).
-satisfy_constraints([Constraint|Rest], SlotList) :-
-    satisfy_constraint(Constraint, SlotList).
+satisfy_constraints([Constraint|Rest], Obj) :-
+    satisfy_constraint(Constraint, Obj).
 
-satisfy_constraint(constraint(Attr, Comparator, Value), SlotList) :-
+satisfy_constraint(name_constraint(Value), object(Thing, SlotList)) :-
+    (string(Value) ; atom(Value)),
+    match(Value, Thing, []).
+satisfy_constraint(constraint(Attr, Comparator, Value), object(Thing, SlotList)) :-
     atom_string(Comparator, "distmatch"), % hack: does not work when put in constraint?
     !,
     slot_vals(Name, Attr::X, SlotList),
     (string(X) ; atom(X)),
     (string(Value) ; atom(Value)),
-    match(X, Value, []).
-satisfy_constraint(constraint(Attr, Comparator, Value), SlotList) :-
+    match(Value, X, []).
+satisfy_constraint(constraint(Attr, Comparator, Value), object(Thing, SlotList)) :-
     slot_vals(Name, Attr::X, SlotList),
     number(X),
     number(Value),
     FX =.. [Comparator, X, Value],
     call(FX).
-    
 
 % Given name, want list of all attributes
 slot_vals(_, X, Z) :-
@@ -313,7 +315,7 @@ check_watches(Object, Mode, [W|Rest]) :-
 check_watch(object(Name, Attrs), Mode, triplet(template(Name, TAttrs, TConstraint), WMode, recipient(Binding, ReplyState, WatchId))) :-
     Mode /\ WMode > 0,
     slot_vals(Name, TAttrs, Attrs),
-    satisfy_constraints(TConstraint, Attrs),
+    satisfy_constraints(TConstraint, object(Name, Attrs)),
     !,
     format_object(object(Name, Attrs), Output),
     trigger_watch(Output, Mode, ReplyState, WatchId, Retract),

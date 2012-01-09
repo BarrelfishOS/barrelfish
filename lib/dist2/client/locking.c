@@ -15,11 +15,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 
+#include <dist2/init.h>
 #include <dist2/lock.h>
 #include <dist2/getset.h>
+#include <dist2/trigger.h>
 
 #include "common.h"
-#include "trigger.h"
 
 static void trigger_lock_deleted(char* object, void* st)
 {
@@ -90,9 +91,8 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
             struct thread_sem ts;
             thread_sem_init(&ts, 0);
 
-            dist2_trigger_t t = { .in_case = SYS_ERR_OK, .m = DIST_ON_DEL,
-                    .trigger = (uint64_t) trigger_lock_deleted, .st =
-                            (uint64_t) &ts };
+            dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
+                    trigger_lock_deleted, &ts);
             errval_t exist_err;
             err = cl->vtbl.exists(cl, names[i - 1], t, &exist_err);
             assert(err_is_ok(err));

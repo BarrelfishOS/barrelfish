@@ -200,8 +200,17 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        err = set_record(ast, mode, &srs->query_state);
-        install_trigger(b, ast, trigger, err);
+        if (ast->on.name->type == nodeType_Ident) {
+            err = set_record(ast, mode, &srs->query_state);
+            install_trigger(b, ast, trigger, err);
+        }
+        else {
+            // Since we don't have any ACLs atm. we do not
+            // allow name to be a regex/variable, because
+            // we it's not guaranteed which records get
+            // modified in this case.
+            err = DIST2_ERR_NO_RECORD_NAME;
+        }
     }
 
     srs->error = err;
@@ -238,8 +247,16 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        err = del_record(ast, &srs->query_state);
-        install_trigger(b, ast, trigger, err);
+        if (ast->on.name->type == nodeType_Ident) {
+            err = del_record(ast, &srs->query_state);
+            install_trigger(b, ast, trigger, err);
+        }
+        else {
+            // Since we don't have any ACLs atm. we do not
+            // allow name to be a regex/variable
+            // (see set_handler).
+            err = DIST2_ERR_NO_RECORD_NAME;
+        }
     }
 
     srs->error = err;
