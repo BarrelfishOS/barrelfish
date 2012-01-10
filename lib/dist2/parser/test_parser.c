@@ -98,18 +98,18 @@ static void translate(struct ast_object* p) {
 
     switch(p->type) {
         case nodeType_Object:
-            assert(p->on.name != NULL);
+            assert(p->u.on.name != NULL);
             w = &sr->name;
 
-            translate(p->on.name);
+            translate(p->u.on.name);
 
             w = &sr->attributes;
             emit(w, "[ ");
 
 			emit(&sr->constraints, "[ ");
-            if(p->on.attrs) {
+            if(p->u.on.attrs) {
 
-                translate(p->on.attrs);
+                translate(p->u.on.attrs);
             }
 			emit(w, " ]");
 
@@ -125,34 +125,34 @@ static void translate(struct ast_object* p) {
         break;
 
         case nodeType_Attribute:
-            assert(p->an.attr != NULL);
+            assert(p->u.an.attr != NULL);
 
-            translate(p->an.attr);
-            if(p->an.next != NULL) {
+            translate(p->u.an.attr);
+            if(p->u.an.next != NULL) {
                 emit(w, ", ");
-                translate(p->an.next);
+                translate(p->u.an.next);
             }
         break;
 
         case nodeType_Pair:
-            assert(p->pn.left != NULL);
-            assert(p->pn.right != NULL);
+            assert(p->u.pn.left != NULL);
+            assert(p->u.pn.right != NULL);
 
-            attribute_name = p->pn.left;
+            attribute_name = p->u.pn.left;
 
-            translate(p->pn.left);
+            translate(p->u.pn.left);
             emit(w, "::");
-            translate(p->pn.right);
+            translate(p->u.pn.right);
         break;
 
         case nodeType_Constraint:
-            assert(p->cnsn.value != NULL);
+            assert(p->u.cnsn.value != NULL);
             // prolog variable, dont care about result, just make sure it's set
             emit(w, "_");
 
             w = &sr->constraints;
             char* operator;
-            switch(p->cnsn.op) {
+            switch(p->u.cnsn.op) {
                 case constraint_GT:
                     operator = ">";
                 break;
@@ -183,17 +183,17 @@ static void translate(struct ast_object* p) {
             emit(w, ", ");
             emit(w, "'%s'", operator);
             emit(w, ", ");
-            translate(p->cnsn.value);
+            translate(p->u.cnsn.value);
             emit(w, "), ");
             w = &sr->attributes;
         break;
 
         case nodeType_Float:
-            emit(w, "%f", p->fn.value);
+            emit(w, "%f", p->u.fn.value);
         break;
 
         case nodeType_Boolean:
-            if(p->bn.value) {
+            if(p->u.bn.value) {
             	emit(w, "true");
             }
             else {
@@ -202,17 +202,17 @@ static void translate(struct ast_object* p) {
         break;
 
         case nodeType_Constant:
-            emit(w, "%d", p->cn.value);
+            emit(w, "%d", p->u.cn.value);
         break;
 
         case nodeType_String:
             emit(w, "\'");
-            emit(w, p->sn.str);
+            emit(w, p->u.sn.str);
             emit(w, "\'");
         break;
 
         case nodeType_Ident:
-            emit(w, p->in.str);
+            emit(w, p->u.in.str);
         break;
 
         case nodeType_Unset:
@@ -224,22 +224,22 @@ static void translate(struct ast_object* p) {
 
 
 static void walk_attributes(struct ast_object* ast) {
-	struct ast_object* attr = ast->on.attrs;
+	struct ast_object* attr = ast->u.on.attrs;
 
 	while(attr != NULL) {
 		assert(attr->type == nodeType_Attribute);
 
-		struct ast_object* pair = attr->an.attr;
+		struct ast_object* pair = attr->u.an.attr;
 		assert(pair != NULL);
 		assert(pair->type == nodeType_Pair);
 
-		struct ast_object* left = pair->pn.left;
-		struct ast_object* right = pair->pn.right;;
+		struct ast_object* left = pair->u.pn.left;
+		struct ast_object* right = pair->u.pn.right;;
 		assert(left != NULL);
 		assert(right != NULL);
 
 
-		attr = attr->an.next;
+		attr = attr->u.an.next;
 	}
 }
 

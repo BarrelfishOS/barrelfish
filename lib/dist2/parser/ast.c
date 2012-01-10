@@ -32,32 +32,32 @@ void free_ast(struct ast_object* p)
 
     switch (p->type) {
     case nodeType_Object:
-        free_ast(p->on.name);
-        free_ast(p->on.attrs);
+        free_ast(p->u.on.name);
+        free_ast(p->u.on.attrs);
         break;
 
     case nodeType_Attribute:
-        free_ast(p->an.attr);
-        free_ast(p->an.next);
+        free_ast(p->u.an.attr);
+        free_ast(p->u.an.next);
         break;
 
     case nodeType_String:
-        free(p->sn.str);
-        p->sn.str = NULL;
+        free(p->u.sn.str);
+        p->u.sn.str = NULL;
         break;
 
     case nodeType_Ident:
-        free(p->in.str);
-        p->in.str = NULL;
+        free(p->u.in.str);
+        p->u.in.str = NULL;
         break;
 
     case nodeType_Constraint:
-        free_ast(p->cnsn.value);
+        free_ast(p->u.cnsn.value);
         break;
 
     case nodeType_Pair:
-        free_ast(p->pn.left);
-        free_ast(p->pn.right);
+        free_ast(p->u.pn.left);
+        free_ast(p->u.pn.right);
         break;
 
     case nodeType_Unset:
@@ -75,27 +75,27 @@ void free_ast(struct ast_object* p)
 
 void ast_append_attribute(struct ast_object* ast, struct ast_object* to_insert)
 {
-    struct ast_object** attr = &ast->on.attrs;
-    for (; *attr != NULL; attr = &(*attr)->an.next) {
+    struct ast_object** attr = &ast->u.on.attrs;
+    for (; *attr != NULL; attr = &(*attr)->u.an.next) {
         // continue
     }
 
     struct ast_object* new_attr = ast_alloc_node();
     new_attr->type = nodeType_Attribute;
-    new_attr->an.attr = to_insert;
-    new_attr->an.next = NULL;
+    new_attr->u.an.attr = to_insert;
+    new_attr->u.an.next = NULL;
     *attr = new_attr;
 }
 
 struct ast_object* ast_find_attribute(struct ast_object* ast, char* name)
 {
-    struct ast_object** attr = &ast->on.attrs;
+    struct ast_object** attr = &ast->u.on.attrs;
 
-    for (; *attr != NULL; attr = &(*attr)->an.next) {
+    for (; *attr != NULL; attr = &(*attr)->u.an.next) {
 
         assert((*attr)->type == nodeType_Attribute);
-        if (strcmp((*attr)->an.attr->pn.left->in.str, name) == 0) {
-            return (*attr)->an.attr;
+        if (strcmp((*attr)->u.an.attr->u.pn.left->u.in.str, name) == 0) {
+            return (*attr)->u.an.attr;
         }
 
     }
@@ -105,21 +105,21 @@ struct ast_object* ast_find_attribute(struct ast_object* ast, char* name)
 
 struct ast_object* ast_remove_attribute(struct ast_object* ast, char* name)
 {
-    struct ast_object** attr = &ast->on.attrs;
+    struct ast_object** attr = &ast->u.on.attrs;
 
-    for (; *attr != NULL; attr = &(*attr)->an.next) {
+    for (; *attr != NULL; attr = &(*attr)->u.an.next) {
 
         assert((*attr)->type == nodeType_Attribute);
-        struct ast_object* pair = (*attr)->an.attr;
-        struct ast_object* left = pair->pn.left;
+        struct ast_object* pair = (*attr)->u.an.attr;
+        struct ast_object* left = pair->u.pn.left;
 
-        if (strcmp(left->in.str, name) == 0) {
+        if (strcmp(left->u.in.str, name) == 0) {
             struct ast_object* current_attr = *attr;
 
-            *attr = current_attr->an.next;
+            *attr = current_attr->u.an.next;
 
-            current_attr->an.next = NULL;
-            current_attr->an.attr = NULL;
+            current_attr->u.an.next = NULL;
+            current_attr->u.an.attr = NULL;
             free_ast(current_attr);
 
             return pair;

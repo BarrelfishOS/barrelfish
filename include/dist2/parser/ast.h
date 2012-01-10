@@ -132,7 +132,7 @@ struct ast_object {
         struct node_pair pn;
         struct node_record on;
         struct node_variable nv;
-    };
+    } u;
 };
 
 errval_t generate_ast(const char* input, struct ast_object** record);
@@ -159,7 +159,7 @@ static inline struct ast_object* ast_boolean(int value)
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Boolean;
-    p->bn.value = value;
+    p->u.bn.value = value;
 
     return p;
 }
@@ -179,8 +179,8 @@ static inline struct ast_object* ast_constraints(enum constraint_type op,
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Constraint;
-    p->cnsn.op = op;
-    p->cnsn.value = value;
+    p->u.cnsn.op = op;
+    p->u.cnsn.value = value;
 
     return p;
 }
@@ -190,7 +190,7 @@ static inline struct ast_object* ast_floatingpoint(double value)
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Float;
-    p->fn.value = value;
+    p->u.fn.value = value;
 
     return p;
 }
@@ -200,7 +200,7 @@ static inline struct ast_object* ast_scan(char c)
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Scan;
-    p->scn.c = c;
+    p->u.scn.c = c;
 
     return p;
 }
@@ -211,8 +211,8 @@ static inline struct ast_object* ast_object(struct ast_object* name,
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Object;
-    p->on.name = name;
-    p->on.attrs = attrs;
+    p->u.on.name = name;
+    p->u.on.attrs = attrs;
 
     return p;
 }
@@ -223,8 +223,8 @@ static inline struct ast_object* ast_attribute(struct ast_object* attr,
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Attribute;
-    p->an.attr = attr;
-    p->an.next = next;
+    p->u.an.attr = attr;
+    p->u.an.next = next;
 
     return p;
 }
@@ -235,8 +235,8 @@ static inline struct ast_object* ast_pair(struct ast_object* left,
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Pair;
-    p->pn.left = left;
-    p->pn.right = right;
+    p->u.pn.left = left;
+    p->u.pn.right = right;
 
     return p;
 }
@@ -246,7 +246,7 @@ static inline struct ast_object* ast_ident(char* str)
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Ident;
-    p->in.str = str;
+    p->u.in.str = str;
 
     return p;
 }
@@ -256,7 +256,7 @@ static inline struct ast_object* ast_string(char* str)
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_String;
-    p->sn.str = str;
+    p->u.sn.str = str;
 
     return p;
 }
@@ -266,7 +266,7 @@ static inline struct ast_object* ast_num(int64_t value)
     struct ast_object* p = ast_alloc_node();
 
     p->type = nodeType_Constant;
-    p->cn.value = value;
+    p->u.cn.value = value;
 
     return p;
 }

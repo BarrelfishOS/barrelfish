@@ -39,20 +39,20 @@ static inline struct pword_pair visit_attribute_right(struct ast_object* p)
 
     switch (p->type) {
     case nodeType_Ident:
-        terms.value = ec_atom(ec_did(p->in.str, 0));
+        terms.value = ec_atom(ec_did(p->u.in.str, 0));
         break;
 
     case nodeType_String:
-        assert(p->sn.str != NULL);
-        terms.value = ec_string(p->sn.str);
+        assert(p->u.sn.str != NULL);
+        terms.value = ec_string(p->u.sn.str);
         break;
 
     case nodeType_Float:
-        terms.value = ec_double(p->fn.value);
+        terms.value = ec_double(p->u.fn.value);
         break;
 
     case nodeType_Constant:
-        terms.value = ec_long(p->cn.value);
+        terms.value = ec_long(p->u.cn.value);
         break;
 
     case nodeType_Variable:
@@ -77,10 +77,10 @@ static inline struct pword_pair create_constraint(struct ast_object* p)
     assert(p != NULL);
     assert(p->type == nodeType_Constraint);
 
-    struct pword_pair terms = visit_attribute_right(p->cnsn.value);
+    struct pword_pair terms = visit_attribute_right(p->u.cnsn.value);
     terms.is_attribute = false;
 
-    switch (p->cnsn.op) {
+    switch (p->u.cnsn.op) {
     case constraint_GT:
         terms.op = ec_atom(ec_did(">", 2));
         break;
@@ -125,20 +125,20 @@ static void translate(struct ast_object* p, struct skb_ec_terms* ss)
     ss->attribute_list = ec_nil();
     ss->constraint_list = ec_nil();
 
-    struct ast_object* name = p->on.name;
+    struct ast_object* name = p->u.on.name;
 
     if (name->type == nodeType_Ident) {
-        dident name_id = ec_did(name->in.str, 0);
+        dident name_id = ec_did(name->u.in.str, 0);
         ss->name = ec_atom(name_id);
     } else if (name->type == nodeType_Variable) {
         ss->name = ec_newvar();
     } else if (name->type == nodeType_Constraint) {
-        assert(name->cnsn.op == constraint_REGEX);
+        assert(name->u.cnsn.op == constraint_REGEX);
         ss->name = ec_newvar();
 
         // Construct match term for name regex
         dident constraint = ec_did("name_constraint", 1);
-        pword regex = ec_string(name->cnsn.value->sn.str);
+        pword regex = ec_string(name->u.cnsn.value->u.sn.str);
         pword constraint_term = ec_term(constraint, regex);
 
         ss->constraint_list = ec_list(constraint_term, ss->constraint_list);
@@ -148,13 +148,13 @@ static void translate(struct ast_object* p, struct skb_ec_terms* ss)
     }
 
 
-    struct ast_object* iter = p->on.attrs;
-    for (; iter != NULL; iter = iter->an.next) {
+    struct ast_object* iter = p->u.on.attrs;
+    for (; iter != NULL; iter = iter->u.an.next) {
         assert(iter->type == nodeType_Attribute);
-        struct ast_object* left = iter->an.attr->pn.left;
-        struct ast_object* right = iter->an.attr->pn.right;
+        struct ast_object* left = iter->u.an.attr->u.pn.left;
+        struct ast_object* right = iter->u.an.attr->u.pn.right;
 
-        dident attr_id = ec_did(left->in.str, 0);
+        dident attr_id = ec_did(left->u.in.str, 0);
         pword left_term = ec_atom(attr_id);
 
         struct pword_pair right_terms = visit_attribute_right(right);
