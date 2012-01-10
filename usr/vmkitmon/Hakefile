@@ -18,7 +18,7 @@
                       mackerelDevices = [ "amd_vmcb", "lpc_timer",
                                           "pc16550d_mem", "pci_hdr0_mem" ],
                       addLibraries = [ "spawndomain", "x86emu",
-                                       "vfs", "nfs", "lwip", "contmng",
+                                       "vfs", "nfs", "ahci", "lwip", "contmng",
                                        "procon", "timer" ],
                       architectures = ["x86_64"]
                     }

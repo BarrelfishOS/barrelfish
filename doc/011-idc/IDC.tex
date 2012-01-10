@@ -23,6 +23,7 @@
 \vhEntry{0.0}{06.08.2010}{AB}{Initial version}
 \vhEntry{0.1}{01.09.2010}{AB}{Documented Flounder IDL, stub API and waitset}
 \vhEntry{0.2}{21.10.2010}{AB}{Completed runtime support chapter}
+\vhEntry{0.3}{05.12.2011}{MN}{Added meta-parameter note, AHCI references}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -232,6 +233,7 @@ previously-defined or builtin type.
 A simple message specification takes the form:
 
 \begin{syntax}
+@\synit{context}\verb+(+\synit{name}\verb+=+\synit{value}, \ldots \verb+)+ \synit{(optional)}
 message|call|response \synit{name} \verb+(+\synit{argdecl}, \ldots \verb+)+;
 \end{syntax}
 
@@ -239,6 +241,10 @@ The three identifiers \texttt{message}, \texttt{call}, and \texttt{response}
 exist for legacy reasons, and are treated identically by the stub compiler.
 They may be used as a simple form of documentation, when messages are intended
 to travel in a particular direction between client and server.
+
+The meta-parameters beginning with the context identifier are optional and may
+be used by individual stub compilers for additional information about messages
+that is not part of the payload. Multiple such contexts may also be provided.
 
 Message arguments use a comma-separated C-like syntax, and may take one of the
 following forms:
@@ -264,6 +270,7 @@ integers (ie. a data buffer).
 \subsection{RPC}\label{sec:lang:rpc}
 
 \begin{syntax}
+@\synit{context}\verb+(+\synit{name}\verb+=+\synit{value}, \ldots \verb+)+ \synit{(optional)}
 rpc \synit{name} \verb+(+in|out \synit{argdecl}, \ldots \verb+)+;
 \end{syntax}
 
@@ -318,6 +325,8 @@ Usage: flounder [OPTION...] input.if output
            --msgbuf-stub       Create a stub file for message buffers
   -T       --thc-header        Create a THC header file
   -B       --thc-stubs         Create a THC stubs C file
+           --ahci-header       Create a header file for AHCI
+           --ahci-stub         Create a stub file for AHCI
 \end{verbatim}
 
 Zero or more files may be specified as \emph{imports}. An import file
@@ -993,6 +1002,10 @@ The process of indirect transmission of capabilities is as follows:
 \section{THC}
 \label{sec:thc}
 
+\section{AHCI Command Translator}
+\label{sec:ahci}
+
+This backend is documented in the AHCI TN.
 
 \chapter{Name service}
 \label{cha:nameservice}

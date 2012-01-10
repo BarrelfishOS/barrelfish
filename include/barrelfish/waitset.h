@@ -41,6 +41,7 @@ enum ws_chantype {
     CHANTYPE_DEFERRED, ///< Timer events
     CHANTYPE_EVENT_QUEUE,
     CHANTYPE_FLOUNDER,
+    CHANTYPE_AHCI,
     CHANTYPE_OTHER
 };
 

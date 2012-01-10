@@ -73,7 +73,7 @@ allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "beehive", "scc" ]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends
-    = [ "lmp", "ump", "ump_ipi", "bmp", "loopback", "rpcclient", "msgbuf", "multihop" ]
+    = [ "lmp", "ump", "ump_ipi", "bmp", "loopback", "rpcclient", "msgbuf", "multihop", "ahci" ]
 
 defaultBuildFn :: [String] -> String -> Args -> HRule
 defaultBuildFn _ f _ = 

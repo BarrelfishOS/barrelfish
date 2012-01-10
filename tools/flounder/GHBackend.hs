@@ -152,13 +152,13 @@ msg_signature_generic dirn ifname typedefs firstparam m = case dirn of
     -- need a continuation only for non-RPC TX
     opt_continuation = case dirn of
         TX -> case m of
-            RPC _ _ -> []
+            RPC _ _ _ -> []
             otherwise -> [ continuation ]
         RX -> []
     params = [ firstparam ] ++ opt_continuation ++ concat payload
     payload = case m of
-        Message _ _ args -> [ msg_argdecl dirn ifname a | a <- args ]
-        RPC s args       -> [ rpc_argdecl2 ifname typedefs a | a <- args ]
+        Message _ _ args _ -> [ msg_argdecl dirn ifname a | a <- args ]
+        RPC s args _       -> [ rpc_argdecl2 ifname typedefs a | a <- args ]
 
 msg_signature :: Direction -> String -> MessageDef -> C.Unit
 msg_signature dir ifn = msg_signature_generic dir ifn [] (binding_param ifn)
@@ -168,11 +168,11 @@ msg_signature dir ifn = msg_signature_generic dir ifn [] (binding_param ifn)
 -- Generate a struct to hold the arguments of a message while it's being sent.
 -- 
 msg_argstruct :: String -> [TypeDef] -> MessageDef -> C.Unit
-msg_argstruct ifname typedefs m@(RPC n args) = 
+msg_argstruct ifname typedefs m@(RPC n args _) = 
     C.StructDecl (msg_argstruct_name ifname n) 
          (concat [ rpc_argdecl ifname a | a <- args ])
-msg_argstruct ifname typedefs m@(Message _ n []) = C.NoOp
-msg_argstruct ifname typedefs m@(Message _ n args) =
+msg_argstruct ifname typedefs m@(Message _ n [] _) = C.NoOp
+msg_argstruct ifname typedefs m@(Message _ n args _) =
     let tn = msg_argstruct_name ifname n
     in
       C.StructDecl tn (concat [ msg_argstructdecl ifname typedefs a
@@ -185,10 +185,10 @@ intf_union :: String -> [MessageDef] -> C.Unit
 intf_union ifn msgs = 
     C.UnionDecl (binding_arg_union_type ifn)
          ([ C.Param (C.Struct $ msg_argstruct_name ifn n) n
-            | m@(Message _ n a) <- msgs, 0 /= length a ]
+            | m@(Message _ n a _) <- msgs, 0 /= length a ]
           ++
           [ C.Param (C.Struct $ msg_argstruct_name ifn n) n
-            | m@(RPC n a) <- msgs, 0 /= length a ]
+            | m@(RPC n a _) <- msgs, 0 /= length a ]
          )
 
 --
@@ -374,7 +374,7 @@ bind_function n =
 --
 
 tx_wrapper :: String -> MessageDef -> C.Unit
-tx_wrapper ifn (Message _ mn args)
+tx_wrapper ifn (Message _ mn args _)
     = C.StaticInline (C.TypeName "errval_t") (tx_wrapper_name ifn mn)
         ([ binding_param ifn, continuation ] ++ concat payload_params)
         [ C.Return $ C.CallInd (bindvar `C.DerefField` "tx_vtbl" `C.FieldOf` mn)

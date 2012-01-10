@@ -530,7 +530,7 @@ tx_handler_case arch ifn mn (LMPMsgFragment (OverflowFragment (BufferFragment _ 
         pos_arg = C.AddressOf $ C.DerefField bindvar "tx_str_pos"
 
 tx_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
-tx_fn ifn typedefs msg@(Message _ n args) =
+tx_fn ifn typedefs msg@(Message _ n args _) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name ifn n) params body
     where
         params = [binding_param ifn, cont_param] ++ (
@@ -646,7 +646,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
 
-        msgnum_case msgdef@(Message _ _ msgargs) (LMPMsgSpec mn frags) = [
+        msgnum_case msgdef@(Message _ _ msgargs _) (LMPMsgSpec mn frags) = [
             C.Switch rx_msgfrag_field
                 [C.Case (C.NumConstant $ toInteger i) $
                     (if i == 0 then start_recv drvname ifn typedefs mn msgargs
@@ -663,7 +663,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
                       C.Goto "out"]
 
         msgfrag_case :: MessageDef -> LMPMsgFragment -> Bool -> [C.Stmt]
-        msgfrag_case msg@(Message _ mn _) (LMPMsgFragment (MsgFragment wl) cap) isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (LMPMsgFragment (MsgFragment wl) cap) isLast = [
             C.SComment "check length",
             -- XXX: LRPC always delivers a message of a fixed size
             C.If (if (length wl < lrpc_words arch)
@@ -685,7 +685,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
             msgfrag_case_prolog msg isLast,
             C.Break]
 
-        msgfrag_case msg@(Message _ mn _) (LMPMsgFragment (OverflowFragment (StringFragment af)) _) isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (LMPMsgFragment (OverflowFragment (StringFragment af)) _) isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_lmp_recv_string" args),
             C.If (C.Call "err_is_ok" [errvar])
                 [msgfrag_case_prolog msg isLast]
@@ -704,7 +704,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
                 pos_arg = C.AddressOf $ C.DerefField bindvar "rx_str_pos"
                 len_arg = C.AddressOf $ C.DerefField bindvar "rx_str_len"
 
-        msgfrag_case msg@(Message _ mn _) (LMPMsgFragment (OverflowFragment (BufferFragment _ afn afl)) _) isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (LMPMsgFragment (OverflowFragment (BufferFragment _ afn afl)) _) isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_lmp_recv_buf" args),
             C.If (C.Call "err_is_ok" [errvar])
                 [msgfrag_case_prolog msg isLast]
@@ -729,5 +729,5 @@ rx_handler arch ifn typedefs msgdefs msgs =
             = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
 
         -- last fragment: call handler and zero message number
-        msgfrag_case_prolog (Message _ mn msgargs) True
+        msgfrag_case_prolog (Message _ mn msgargs _) True
             = C.StmtList $ finished_recv drvname ifn typedefs mn msgargs

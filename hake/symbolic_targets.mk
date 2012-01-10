@@ -70,6 +70,8 @@ MODULES_GENERIC= \
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/ahci_bench \
+	sbin/ata_rw28_test \
 	sbin/apicdrift_bench \
 	sbin/bench \
 	sbin/bfscope \
@@ -84,6 +86,7 @@ MODULES_x86_64= \
 	sbin/boot_perfmon \
 	sbin/bulkbench \
 	sbin/datagatherer \
+	sbin/ahcid \
 	sbin/e1000n \
 	sbin/rtl8029 \
 	sbin/netd \
@@ -251,10 +254,15 @@ sim: simulate
 
 QEMU=unknown-arch-error
 GDB=unknown-arch-error
+CLEAN_HD=
+
+DISK=hd.img
+AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user  -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=x86_64-pc-linux-gdb
+	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
         QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
@@ -297,6 +305,7 @@ endif
 ifdef QEMU_CMD
 
 simulate: $(MODULES)
+	$(CLEAN_HD)
 	$(QEMU_CMD)
 .PHONY : simulate
 
@@ -423,6 +432,7 @@ DOCS= \
 	./docs/TN-012-Services.pdf \
 	./docs/TN-013-CapabilityManagement.pdf \
 	./docs/TN-014-bulk-transfer.pdf \
+	./docs/TN-015-DiskDriverArchitecture.pdf \
 
 docs doc: $(DOCS)
 .PHONY: docs doc

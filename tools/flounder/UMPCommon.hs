@@ -806,7 +806,7 @@ tx_handler_case p ifn mn (OverflowFragment (BufferFragment _ afn afl)) =
         pos_arg = C.AddressOf $ C.DerefField bindvar "tx_str_pos"
 
 tx_fn :: UMPParams -> String -> [TypeDef] -> MessageDef -> MsgSpec -> C.Unit
-tx_fn p ifn typedefs msg@(Message _ n args) (MsgSpec _ _ caps) =
+tx_fn p ifn typedefs msg@(Message _ n args _) (MsgSpec _ _ caps) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name p ifn n) params body
     where
         params = [binding_param ifn, cont_param] ++ (
@@ -977,7 +977,7 @@ rx_handler p ifn typedefs msgdefs msgs =
         msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
 
-        msgnum_case msgdef@(Message _ _ msgargs) (MsgSpec mn frags caps) = [
+        msgnum_case msgdef@(Message _ _ msgargs _) (MsgSpec mn frags caps) = [
             C.Switch rx_msgfrag_field
                 [C.Case (C.NumConstant $ toInteger i) $
                  (if i == 0 then
@@ -1003,14 +1003,14 @@ rx_handler p ifn typedefs msgdefs msgs =
                       C.Goto "out"]
 
         msgfrag_case :: MessageDef -> MsgFragment -> [CapFieldTransfer] -> Bool -> [C.Stmt]
-        msgfrag_case msg@(Message _ mn _) (MsgFragment wl) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (MsgFragment wl) caps isLast = [
             C.StmtList $ concat [store_arg_frags (ump_arch p) ifn mn msgdata word 0 afl
                                  | (afl, word) <- zip wl [0..]],
             C.SBlank,
             C.StmtList $ msgfrag_case_prolog msg caps isLast,
             C.Break]
 
-        msgfrag_case msg@(Message _ mn _) (OverflowFragment (StringFragment af)) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (StringFragment af)) caps isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_recv_string" args),
             C.If (C.Call "err_is_ok" [errvar])
                 (msgfrag_case_prolog msg caps isLast)
@@ -1029,7 +1029,7 @@ rx_handler p ifn typedefs msgdefs msgs =
                 pos_arg = C.AddressOf $ C.DerefField bindvar "rx_str_pos"
                 len_arg = C.AddressOf $ C.DerefField bindvar "rx_str_len"
 
-        msgfrag_case msg@(Message _ mn _) (OverflowFragment (BufferFragment _ afn afl)) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (BufferFragment _ afn afl)) caps isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_recv_buf" args),
             C.If (C.Call "err_is_ok" [errvar])
                 (msgfrag_case_prolog msg caps isLast)
@@ -1055,7 +1055,7 @@ rx_handler p ifn typedefs msgdefs msgs =
 
         -- last fragment: call handler and zero message number
         -- if we're expecting any caps, only do so if we've received them all
-        msgfrag_case_prolog (Message _ mn msgargs) caps True
+        msgfrag_case_prolog (Message _ mn msgargs _) caps True
             | caps == [] = finished_recv (ump_drv p) ifn typedefs mn msgargs
             | otherwise = [
                 rx_fragment_increment,
@@ -1112,7 +1112,7 @@ cap_rx_handler p ifn typedefs msgdefs msgspecs
                  | (MsgSpec mn frags caps, msgdef) <- zip msgspecs msgdefs, caps /= []]
 
 cap_rx_handler_case :: UMPParams -> String -> [TypeDef] -> String -> MessageDef -> Int -> [CapFieldTransfer] -> [C.Stmt]
-cap_rx_handler_case p ifn typedefs mn (Message _ _ msgargs) nfrags caps = [
+cap_rx_handler_case p ifn typedefs mn (Message _ _ msgargs _) nfrags caps = [
     C.SComment "Switch on current incoming cap",
     C.Switch (C.PostInc $ capst `C.FieldOf` "rx_capnum") cases
             [C.Ex $ C.Call "assert"

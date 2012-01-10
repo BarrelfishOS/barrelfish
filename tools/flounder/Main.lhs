@@ -41,6 +41,7 @@
 > import qualified MsgBuf
 > import qualified THCBackend
 > import qualified THCStubsBackend
+> import qualified AHCI
 
 > data Target = GenericHeader
 >            | GenericCode
@@ -62,6 +63,8 @@
 >            | MsgBuf_Stub
 >            | THCHeader
 >            | THCStubs
+>            | AHCI_Header
+>            | AHCI_Stub
 >            deriving (Show)
 
 > data Options = Options {
@@ -72,7 +75,7 @@
 
 > defaultOptions = Options { optTargets = [], optArch = Nothing, optIncludes = [] }
 
-> generator :: Options -> Target -> (String -> String -> Syntax.Interface -> String)
+> generator :: Options -> Target -> String -> String -> Syntax.Interface -> String
 > generator _ GenericHeader = GHBackend.compile
 > generator _ GenericCode = GCBackend.compile
 > generator _ LMP_Header = LMP.header
@@ -105,6 +108,8 @@
 > generator _ MsgBuf_Stub = MsgBuf.stub
 > generator _ THCHeader = THCBackend.compile
 > generator _ THCStubs = THCStubsBackend.compile
+> generator _ AHCI_Header = AHCI.header
+> generator _ AHCI_Stub = AHCI.stub
 
 > addTarget :: Target -> Options -> IO Options
 > addTarget t o = return o { optTargets = (optTargets o) ++ [t] }
@@ -144,11 +149,13 @@
 >             Option [] ["msgbuf-stub"] (NoArg $ addTarget MsgBuf_Stub) "Create a stub file for message buffers",
 
 >             Option ['T'] ["thc-header"] (NoArg $ addTarget THCHeader)             "Create a THC header file",
->             Option ['B'] ["thc-stubs"] (NoArg $ addTarget THCStubs)               "Create a THC stubs C file" ]
+>             Option ['B'] ["thc-stubs"] (NoArg $ addTarget THCStubs)               "Create a THC stubs C file",
+>             Option [] ["ahci-header"] (NoArg $ addTarget AHCI_Header) "Create a header file for AHCI",
+>             Option [] ["ahci-stub"] (NoArg $ addTarget AHCI_Stub)     "Create a stub file for AHCI" ]
 
-> compile :: Options -> Target -> Syntax.Interface -> String -> String -> Handle -> IO () 
+> compile :: Options -> Target -> Syntax.Interface -> String -> String -> Handle -> IO ()
 > compile opts fl ast infile outfile outfiled =
->     hPutStr outfiled ( (generator opts fl) infile outfile ast )
+>     hPutStr outfiled $ (generator opts fl) infile outfile ast
 
 > parseFile :: (String -> IO (Either Parsec.ParseError a)) -> String -> IO a
 > parseFile parsefn fname = do
