@@ -785,11 +785,11 @@ compileNativeC prog cfiles cflags ldflags =
 --
 -- Build a Technical Note
 --
-buildTechNote :: String -> String -> Bool -> [String] -> HRule
-buildTechNote input output bib figs = 
-    buildTechNoteWithDeps input output bib figs []
-buildTechNoteWithDeps :: String -> String -> Bool -> [String] -> [RuleToken] -> HRule
-buildTechNoteWithDeps input output bib figs deps = 
+buildTechNote :: String -> String -> Bool -> Bool -> [String] -> HRule
+buildTechNote input output bib glo figs = 
+    buildTechNoteWithDeps input output bib glo figs []
+buildTechNoteWithDeps :: String -> String -> Bool -> Bool -> [String] -> [RuleToken] -> HRule
+buildTechNoteWithDeps input output bib glo figs deps = 
     let
         working_dir = NoDep BuildTree "tools" "/tmp/"
         style_files = [ "bfish-logo.pdf", "bftn.sty", "defs.bib", "barrelfish.bib" ]
@@ -809,7 +809,8 @@ buildTechNoteWithDeps input output bib figs deps =
                Str "--texinput", NoDep SrcTree "src" "/doc/style",
                Str "--bibinput", NoDep SrcTree "src" "/doc/style"
              ]
-             ++ if bib then [ Str "--has-bib" ] else []
+             ++ (if bib then [ Str "--has-bib" ] else [])
+             ++ (if glo then [ Str "--has-glo" ] else [])
            )
 
 ---------------------------------------------------------------------

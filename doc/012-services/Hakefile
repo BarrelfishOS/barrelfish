@@ -10,7 +10,7 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Services.tex" "TN-012-Services.pdf" False [] ]
+[ buildTechNote "Services.tex" "TN-012-Services.pdf" False False [] ]
 --                    [ "cap_heirarchy", "cap_translation",
 --                      "dcb", "LMP", "os-arch", "UMP" ] 
 --]

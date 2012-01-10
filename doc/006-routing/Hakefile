@@ -10,7 +10,7 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Routing.tex" "TN-006-Routing.pdf" True 
+[ buildTechNote "Routing.tex" "TN-006-Routing.pdf" True False
                     [ "client-monitor", 
                       "client-server", 
                       "many-to-many" ]

@@ -10,5 +10,5 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "bulk-transfer.tex" "TN-014-bulk-transfer.pdf" False [] ]
+[ buildTechNote "bulk-transfer.tex" "TN-014-bulk-transfer.pdf" False False [] ]
 

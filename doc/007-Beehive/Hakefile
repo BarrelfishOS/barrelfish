@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Beehive.tex" "TN-007-Beehive.pdf" True [] ]
+[ buildTechNote "Beehive.tex" "TN-007-Beehive.pdf" True False [] ]

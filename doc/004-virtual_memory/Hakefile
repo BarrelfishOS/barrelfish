@@ -10,5 +10,5 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "VirtualMemory.tex" "TN-004-VirtualMemory.pdf" False [] ]
+[ buildTechNote "VirtualMemory.tex" "TN-004-VirtualMemory.pdf" False False [] ]
 
