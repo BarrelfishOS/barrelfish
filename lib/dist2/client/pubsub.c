@@ -98,7 +98,9 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
     struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
 
     errval_t error_code = SYS_ERR_OK;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.subscribe(rpc_client, buf, *id, &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -131,7 +133,9 @@ errval_t dist_unsubscribe(subscription_t id)
     struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
 
     errval_t error_code = SYS_ERR_OK;
+    DIST_LOCK_BINDING(rpc_client);
     errval_t err = rpc_client->vtbl.unsubscribe(rpc_client, id, &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -168,7 +172,9 @@ errval_t dist_publish(const char *record, ...)
     struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
 
     errval_t error_code = SYS_ERR_OK;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.publish(rpc_client, buf, &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     if(err_is_ok(err)) {
         err = error_code;
     }

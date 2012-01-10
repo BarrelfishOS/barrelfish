@@ -23,7 +23,7 @@
 
 /**
  * \brief Reads the content of a record string based on the provided format.
- *
+ * Currently supported %d (int64_t*), %f (double*?), %s (char**).
  * TODO: more detailed docs!
  *
  * \param record Record to read.

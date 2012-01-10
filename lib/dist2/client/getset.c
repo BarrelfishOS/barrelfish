@@ -78,8 +78,10 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.get_names(rpc_client, buf, NOP_TRIGGER, &data,
             &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -185,8 +187,11 @@ errval_t dist_get(char** data, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.get(rpc_client, buf, NOP_TRIGGER, data,
             &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
+
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -220,8 +225,10 @@ errval_t dist_set(const char* query, ...)
     char* record = NULL;
 
     errval_t error_code;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.set(rpc_client, buf, SET_DEFAULT, NOP_TRIGGER, false,
             &record, &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     assert(record == NULL);
 
     if (err_is_ok(err)) {
@@ -264,8 +271,10 @@ errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.set(rpc_client, buf, mode, NOP_TRIGGER, true, record,
             &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -299,7 +308,10 @@ errval_t dist_del(const char* query, ...)
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
     errval_t error_code;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.del(rpc_client, buf, NOP_TRIGGER, &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
+
 
     if (err_is_ok(err)) {
         err = error_code;
@@ -332,7 +344,9 @@ errval_t dist_exists(const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
+    DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.exists(rpc_client, buf, NOP_TRIGGER, &error_code);
+    DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
     }
