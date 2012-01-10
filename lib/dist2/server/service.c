@@ -200,7 +200,7 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        if (ast->on.name->type == nodeType_Ident) {
+        if (ast->u.on.name->type == nodeType_Ident) {
             err = set_record(ast, mode, &srs->query_state);
             install_trigger(b, ast, trigger, err);
         }
@@ -247,7 +247,7 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        if (ast->on.name->type == nodeType_Ident) {
+        if (ast->u.on.name->type == nodeType_Ident) {
             err = del_record(ast, &srs->query_state);
             install_trigger(b, ast, trigger, err);
         }

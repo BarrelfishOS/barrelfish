@@ -60,17 +60,17 @@ errval_t dist_read(const char* record, const char* format, ...)
 	}
 
 	// Scan Name
-	struct ast_object* format_name = format_ast->on.name;
+	struct ast_object* format_name = format_ast->u.on.name;
 	switch(format_name->type) {
 	case nodeType_Scan:
-		if(format_name->scn.c != 's') {
+		if(format_name->u.scn.c != 's') {
 			err = DIST2_ERR_INVALID_FORMAT;
 			goto out;
 		}
 		s = va_arg(args, char**);
-		*s = ast->on.name->in.str;
+		*s = ast->u.on.name->u.in.str;
 		// Remove from AST so client has to free it
-		ast->on.name->in.str = NULL;
+		ast->u.on.name->u.in.str = NULL;
 		break;
 
 	case nodeType_Variable:
@@ -84,37 +84,38 @@ errval_t dist_read(const char* record, const char* format, ...)
 	}
 
 	// Scan Attributes
-	struct ast_object* attr = format_ast->on.attrs;
-	for(; attr != NULL; attr = attr->an.next) {
+	struct ast_object* attr = format_ast->u.on.attrs;
+	for(; attr != NULL; attr = attr->u.an.next) {
 
-		struct ast_object* format_attr = attr->an.attr;
+		struct ast_object* format_attr = attr->u.an.attr;
 
 		// Enforced by Parser
 		assert(format_attr->type == nodeType_Pair);
-		assert(format_attr->pn.left->type == nodeType_Ident);
-		if(format_attr->pn.right->type != nodeType_Scan) {
+		assert(format_attr->u.pn.left->type == nodeType_Ident);
+		if(format_attr->u.pn.right->type != nodeType_Scan) {
 			err = DIST2_ERR_INVALID_FORMAT;
 			goto out;
 		}
 
 		// Try to find attribute in record AST
-		struct ast_object* record_attr = ast_find_attribute(ast, format_attr->pn.left->in.str);
+		struct ast_object* record_attr = ast_find_attribute(ast,
+		        format_attr->u.pn.left->u.in.str);
 		if(record_attr == NULL) {
 			err = DIST2_ERR_UNKNOWN_ATTRIBUTE;
 			goto out;
 		}
-		struct ast_object* value = record_attr->pn.right;
+		struct ast_object* value = record_attr->u.pn.right;
 
-		switch(format_attr->pn.right->scn.c) {
+		switch(format_attr->u.pn.right->u.scn.c) {
 		case 's':
 			s = va_arg(args, char**);
 			if(value->type == nodeType_Ident) {
-				*s = value->in.str;
-				value->in.str = NULL;
+				*s = value->u.in.str;
+				value->u.in.str = NULL;
 			}
 			else if(value->type == nodeType_String) {
-				*s = value->sn.str;
-				value->sn.str = NULL;
+				*s = value->u.sn.str;
+				value->u.sn.str = NULL;
 			}
 			else {
 				err = DIST2_ERR_INVALID_FORMAT;
@@ -125,7 +126,7 @@ errval_t dist_read(const char* record, const char* format, ...)
 		case 'd':
 			i = va_arg(args, int64_t*);
 			if(value->type == nodeType_Constant) {
-				*i = value->cn.value;
+				*i = value->u.cn.value;
 			}
 			else {
 				*i = 0;
@@ -137,7 +138,7 @@ errval_t dist_read(const char* record, const char* format, ...)
 		case 'f':
 			d = va_arg(args, double*);
 			if(value->type == nodeType_Float) {
-				*d = value->fn.value;
+				*d = value->u.fn.value;
 			}
 			else {
 				*d = 0.0;
