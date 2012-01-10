@@ -43,39 +43,45 @@ static void barrier_signal_sem(char* record, void* state)
  * \param[in] name Name of the barrier.
  * \param[out] barrier_record Record created for each client.
  * \param[in] wait_for Number of clients entering the barrier.
- *
- * \retval SYS_ERR_OK
  */
 errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait_for)
 {
     errval_t err = dist_set_get(SET_SEQUENTIAL, barrier_record,
             "%s_ { barrier: '%s' }", name, name);
 
-    char** names;
+    char** names = NULL;
     size_t current_barriers = 0;
     err = dist_get_names(&names, &current_barriers, "_ { barrier: '%s' }",
             name);
     dist_free_names(names, current_barriers);
+    if (err_is_fail(err)) {
+        return err;
+    }
     debug_printf("current_barriers: %lu wait_for: %lu\n", current_barriers,
             wait_for);
 
     if (current_barriers != wait_for) {
         struct thread_sem ts;
         thread_sem_init(&ts, 0);
+
         struct dist2_rpc_client* cl = get_dist_rpc_client();
         dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET,
                 barrier_signal_sem, &ts);
         errval_t exist_err;
         err = cl->vtbl.exists(cl, name, t, &exist_err);
-        assert(err_is_ok(err));
-
-        debug_printf("barrier exists: %s\n", err_getcode(err));
-        if (err_no(exist_err) == DIST2_ERR_NO_RECORD) {
+        if (err_is_fail(err)) {
+            return err;
+        }
+        err = exist_err;
+        if (err_no(err) == DIST2_ERR_NO_RECORD) {
             debug_printf("waiting for semaphore signal\n");
             thread_sem_wait(&ts);
+            err = SYS_ERR_OK;
         }
-
-    } else {
+    }
+    else {
+        // We are the last to enter the barrier,
+        // wake up the others
         err = dist_set(name);
     }
 
@@ -92,29 +98,30 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
  *
  * \param barrier_record Clients own record as provided by
  * dist_barrier_enter.
- *
- * \retval SYS_ERR_OK
  */
 errval_t dist_barrier_leave(const char* barrier_record)
 {
     char* rec_name = NULL;
     char* barrier_name = NULL;
-    printf("leaving: %s\n", barrier_record);
+    debug_printf("leaving: %s\n", barrier_record);
     errval_t err = dist_read(barrier_record, "%s { barrier: %s }", &rec_name,
             &barrier_name);
 
     if (err_is_ok(err)) {
         err = dist_del(rec_name);
-        char** names;
-        size_t remaining_barriers;
+        if (err_is_fail(err)) {
+            goto out;
+        }
+
+        char** names = NULL;
+        size_t remaining_barriers = 0;
         err = dist_get_names(&names, &remaining_barriers, "_ { barrier: '%s' }",
                 barrier_name);
+        dist_free_names(names, remaining_barriers);
 
         debug_printf("remaining barriers is: %lu\n", remaining_barriers);
 
-        if (err_no(err) == DIST2_ERR_NO_RECORD) {
-            err = dist_del("%s", barrier_name);
-        } else {
+        if (err_is_ok(err)) {
             struct dist2_rpc_client* cl = get_dist_rpc_client();
             struct thread_sem ts;
             thread_sem_init(&ts, 0);
@@ -123,15 +130,26 @@ errval_t dist_barrier_leave(const char* barrier_record)
                     barrier_signal_sem, &ts);
             errval_t exist_err;
             err = cl->vtbl.exists(cl, barrier_name, t, &exist_err);
-            assert(err_is_ok(err));
+            if (err_is_fail(err)) {
+                goto out;
+            }
+            err = exist_err;
 
-            if (err_is_ok(exist_err)) {
+            if (err_is_ok(err)) {
+                // Wait until everyone has left the barrier
                 thread_sem_wait(&ts);
             }
-
+        }
+        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+            // We are the last one to leave the barrier,
+            // wake-up all others
+            err = dist_del("%s", barrier_name);
+        } else {
+            // Don't do anything in case of other errors
         }
     }
 
+out:
     free(rec_name);
     free(barrier_name);
     return err;

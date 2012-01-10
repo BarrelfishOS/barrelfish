@@ -7,7 +7,6 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-// TODO: name dist2 instead of just dist because of name clash in THC generated enum
 interface dist2 "dist2 RPC Interface" {
 
     alias mode uint64;
@@ -102,9 +101,8 @@ interface dist2 "dist2 RPC Interface" {
 
     
     //
-    // Async Events (normally handled by 2nd binding in different thread)
+    // Async events (sent by server to client)
     //
     message trigger(uint64 trigger_fn, uint64 state, string record);
     message subscribed_message(uint64 id, string record);    
-    message watch_event(uint64 id, string record); // TODO
 };

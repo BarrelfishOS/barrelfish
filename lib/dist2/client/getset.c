@@ -51,7 +51,7 @@ static int cmpstringp(const void *p1, const void *p2)
  *
  * \param[out] names Names of all records matching the query.
  * Needs to be freed by the client (use dist_free_names) in
- * case of SYS_ERR_OK.
+ * case of SYS_ERR_OK/LIB_ERR_MALLOC_FAIL.
  * \param[out] size Number of records matching the query. 0 in case of error.
  * \param[in] query Query sent to the server
  * \param ... Parameters used to build query with help of vsprintf.
@@ -153,7 +153,7 @@ out:
  */
 void dist_free_names(char** names, size_t len)
 {
-    assert(names != NULL);
+    //assert(names != NULL);
     for (size_t i = 0; i < len; i++) {
         free(names[i]);
     }
@@ -168,9 +168,11 @@ void dist_free_names(char** names, size_t len)
  * \param[in] query The query sent to the server.
  * \param ... Additional arguments to format the query using vsprintf.
  *
- * \retval SYS_ERR_OK A record was found.
- * \retval DIST2_ERR_NO_RECORD No record matching the query was found.
+ * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_NO_RECORD
  * \retval DIST2_ERR_AMBIGOUS_QUERY TODO!
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t dist_get(char** data, const char* query, ...)
 {
@@ -200,7 +202,7 @@ errval_t dist_get(char** data, const char* query, ...)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retvak DIST2_ERR_NO_RECORD_NAME
+ * \retval DIST2_ERR_NO_RECORD_NAME
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
@@ -236,13 +238,15 @@ errval_t dist_set(const char* query, ...)
  *
  * Additonally the mode how a record is set can be specified.
  *
- * \param mode A combination of mode bits can be set here (see getset.h).
+ * \param mode A combination of mode bits (see getset.h).
  * \param[out] record The new record.
  * \param[in] query The record to set.
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval TODO
+ * \retval DIST2_ERR_NO_RECORD_NAME
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
  *
  * TODO maybe remove this function completely and let all use rpc call for set
  * directly if they want to a non-trivial set?
@@ -276,8 +280,11 @@ errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
  * \param query Specifies the record(s) to be deleted.
  * \param ... Additional arguments to format the query using vsprintf.
  *
- * \retval SYS_ERR_OK Record(s) have been deleted.
- * \retval DIST2_ERR_NO_RECORD No record was found matching the given query.
+ * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_NO_RECORD
+ * \retval DIST2_ERR_NO_RECORD_NAME
+ * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval DIST2_ERR_PARSER_FAIL
  *
  * TODO: Atm only name of record is included in del query on server.
  */
@@ -308,9 +315,11 @@ errval_t dist_del(const char* query, ...)
  * \param query Results are searched based on the query.
  * \param ... Additional arguments to format the query using vsprintf.
  *
- * \retval SYS_ERR_OK One or more records exist matching the query.
- * \retval DIST2_ERR_NO_RECORD No records exists matching the query.
- */
+ * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_NO_RECORD
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
+ **/
 errval_t dist_exists(const char* query, ...)
 {
     assert(query != NULL);

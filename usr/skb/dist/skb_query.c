@@ -458,7 +458,7 @@ errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
 
     errval_t err = run_eclipse(dqs);
     DIST2_DEBUG("set_binding: %p\n", binding);
-    debug_printf("error: %s\n", dqs->stderr.buffer);
+    DIST2_DEBUG("error: %s\n", dqs->stderr.buffer);
 
     free(dqs);
     return err;

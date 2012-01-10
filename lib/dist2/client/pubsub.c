@@ -71,6 +71,7 @@ void subscribed_message_handler(struct dist2_binding *b, subscription_t id,
  * \param ... Additional arguments to format the record using vsprintf.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_MAX_SUBSCRIPTIONS
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
@@ -118,6 +119,8 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
  * \param id Id of the subscription (as provided by dist_subscribe).
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t dist_unsubscribe(subscription_t id)
 {
@@ -149,6 +152,8 @@ errval_t dist_unsubscribe(subscription_t id)
  * \param ... Additional arguments to format the record using vsprintf.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_PARSER_FAIL
+ * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t dist_publish(const char *record, ...)
 {

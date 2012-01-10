@@ -149,7 +149,7 @@ int main(int argc, char** argv)
     } else if (strcmp(argv[1], "publisher") == 0) {
         publisher();
     } else {
-        printf("Wrong arguments (Valid choices are subscriber/publisher).");
+        printf("Bad arguments (Valid choices are subscriber/publisher).");
     }
 
     return EXIT_SUCCESS;
