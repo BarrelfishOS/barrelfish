@@ -87,6 +87,7 @@ static errval_t run_eclipse(struct dist_query_state* st)
     ec_ref retval = ec_ref_create_newvar();
     //ec_post_goal(ec_term(ec_did("flush", 1), ec_long(1)));
     //ec_post_goal(ec_term(ec_did("flush", 1), ec_long(2)));
+    ec_post_goal(ec_term(ec_did("garbage_collect", 0)));
 
     while ((st->exec_res = ec_resume1(retval)) == PFLUSHIO) {
         ec_get_long(ec_ref_get(retval), &qid);

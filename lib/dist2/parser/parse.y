@@ -10,7 +10,6 @@
 #endif
 
 #include "y.tab.h"
-typedef long int64_t;
 
 void yyerror(char *);
 

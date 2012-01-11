@@ -35,10 +35,12 @@ static void lockit(void* arg)
 
     if (!locked) {
         err = dist_lock("lock_test", &lock);
+	DEBUG_ERR(err, "lock");
         assert(err_is_ok(err));
         locked = true;
     } else {
         err = dist_unlock(lock);
+	DEBUG_ERR(err, "unlock");
         assert(err_is_ok(err));
         locked = false;
         free(lock);
