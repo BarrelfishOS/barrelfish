@@ -24,11 +24,11 @@ errval_t ahci_dma_region_alloc_aligned(size_t size, size_t alignment_requirement
 errval_t ahci_dma_region_free(struct ahci_dma_region *region);
 
 static inline void *ahci_dma_region_copy_in(struct ahci_dma_region *region, const void *buf, genvaddr_t offset, size_t size) {
-    void *dest = (void *)(((genvaddr_t) region->vaddr) + offset);
+    void *dest = region->vaddr + offset;
     return memcpy(dest, buf, size);
 }
 static inline void *ahci_dma_region_copy_out(struct ahci_dma_region *region, void *buf, genvaddr_t offset, size_t size) {
-    void *src_ = (void *)(((genvaddr_t) region->vaddr) + offset);
+    void *src_ = region->vaddr + offset;
     return memcpy(buf, src_, size);
 }
 
