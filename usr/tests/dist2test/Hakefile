@@ -27,16 +27,21 @@
 
   build application { target = "d2barrier",
                       cFiles = [ "d2barrier.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser" ]
                     },
                                         
   build application { target = "d2locksimple",
                       cFiles = [ "d2locksimple.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser" ]
                     },
 
   build application { target = "d2read",
                       cFiles = [ "d2read.c" ],
-                      addLibraries = [ "dist2", "dist_parser", "skb", "thc" ]
-                    }                   
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+                    
+  build application { target = "d2mem",
+                      cFiles = [ "d2mem.c" ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    }          
 ]
