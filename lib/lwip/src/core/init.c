@@ -531,10 +531,11 @@ int is_lwip_loaded(void)
 //        return 5;
     }
 
-
     // Everything is great!
     return 0;
 }                               // end function: is_lwip_loaded?
+
+
 
 uint64_t lwip_packet_drop_count(void)
 {
@@ -542,12 +543,38 @@ uint64_t lwip_packet_drop_count(void)
 }                               // end function: lwip_packet_drop_count
 
 
+// ******************************************************************
+// Functions to assist in benchmarking the network path
+
+
+// Records the time (ts) spent in the event (event_type)
+// Simplified version of netbench_record_event_simple by giving default
+// nbp pointer
+void lwip_record_event_simple(uint8_t event_type, uint64_t ts)
+{
+    netbench_record_event_simple(nb, event_type, ts);
+} // end function: lwip_record_event_simple
+
 void lwip_print_interesting_stats(void)
 {
+
+    netbench_print_event_stat(nb, RPC_CALL_T,  "U: RPC_CALL_T", 1);
+    netbench_print_event_stat(nb, NFS_READCB_T,  "U: NFS_READCB_T", 1);
+    netbench_print_event_stat(nb, NFS_READ_T,  "U: NFS_READ_T", 1);
+    netbench_print_event_stat(nb, NFS_READ_1_T,  "U: NFS_READ_1_T", 1);
+    netbench_print_event_stat(nb, NFS_READ_w_T,  "U: NFS_READ_w_T", 1);
+    /*
+    netbench_print_event_stat(nb, RPC_RECV_T, "U: RPC_RECV_T", 1);
+    netbench_print_event_stat(nb, RPC_CALLBACK_T, "U: RPC_CALLBACK_T", 1);
+    netbench_print_event_stat(nb, RPC_RECV_OUT_T, "U: RPC_RECV_OUT_T", 1);
+    */
+
+/*
     netbench_print_event_stat(nb, RE_ALL,            "U: RX ALL", 1);
     netbench_print_event_stat(nb, RX_ALL_PROCESS ,   "U: RX ALL process", 1);
     netbench_print_event_stat(nb, RE_PBUF_REPLACE,   "U: RX Replace pbuf", 1);
     netbench_print_event_stat(nb, TX_A_SP_RN_CS, "U: Notification pending", 1);
+*/
 
 /*
     netbench_print_event_stat(nb, RE_PBUF_REPLACE_1, "U: RX Replace pbuf_1", 1);

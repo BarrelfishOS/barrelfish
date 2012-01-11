@@ -168,6 +168,8 @@ static err_t xdr_skip_auth(XDR *xdr)
 static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
                              struct ip_addr *addr, u16_t port)
 {
+
+//    uint64_t ts = rdtsc();
     uint32_t replystat, acceptstat;
     XDR xdr;
     err_t r;
@@ -231,15 +233,20 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         acceptstat = -1;
     }
 
+//    lwip_record_event_simple(RPC_RECV_T, ts);
+//    ts = rdtsc();
     call->callback(client, call->cbarg1, call->cbarg2, replystat, acceptstat,
                    &xdr);
+//    lwip_record_event_simple(RPC_CALLBACK_T, ts);
 
 out:
+//    ts = rdtsc();
     pbuf_free(pbuf);
     if (call != NULL) {
         pbuf_free(call->pbuf);
         free(call);
     }
+//    lwip_record_event_simple(RPC_RECV_OUT_T, ts);
 }
 
 static void traverse_hash_bucket(int hid, struct rpc_client *client)
@@ -388,6 +395,8 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
                size_t args_size, rpc_callback_t callback, void *cbarg1,
                void *cbarg2)
 {
+
+    uint64_t ts = rdtsc();
     XDR xdr;
     err_t r;
     bool rb;
@@ -461,6 +470,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
         free(call);
     }
 
+    lwip_record_event_simple(RPC_CALL_T, ts);
     return r;
 }
 

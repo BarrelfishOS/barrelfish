@@ -709,7 +709,7 @@ void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
      printf("idc_debug_status:  called with status %x [%"PRIu64"]\n",
      state, trigger);
 
-    new_debug = state;
+//    new_debug = state;
     struct q_entry entry;
     benchmark_mode = state;
     if (state == 1) {

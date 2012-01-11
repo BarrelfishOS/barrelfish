@@ -19,9 +19,12 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <nfs/nfs.h>
+#include <lwip/init.h>
 #include <lwip/ip_addr.h>
 #include <trace/trace.h>
 #include <timer/timer.h>
+#include <contmng/netbench.h>
+#include "webserver_network.h"
 #include "webserver_debug.h"
 #include "webserver_session.h"
 #include "http_cache.h"
@@ -73,6 +76,9 @@ static int cache_loading_probs = 0;
 static void handle_cache_load_done(void);
 #endif // PRELOAD_WEB_CACHE
 
+// Variables for time measurement for performance
+static uint64_t last_ts = 0;
+
 /* allocate the buffer and initialize it. */
 static struct buff_holder *allocate_buff_holder (size_t len)
 {
@@ -98,7 +104,7 @@ static long increment_buff_holder_ref (struct buff_holder *bh)
     return (bh->r_counter);
 } /* end Function: increment_buff_holder_ref */
 
-/* Decrements value of the ref_counter for bh 
+/* Decrements value of the ref_counter for bh
     if r_counter reaches zero then free all the memory */
 long decrement_buff_holder_ref (struct buff_holder *bh)
 {
@@ -140,7 +146,7 @@ static void create_404_page_cache (void)
     error_cache->valid = 1;
 } /* end function: create_404_page_cache */
 
-/* adds the http connection cs at the end of the list of connections waiting   
+/* adds the http connection cs at the end of the list of connections waiting
     for the arrival of the data on this cacheline e. */
 static void add_connection(struct http_cache_entry *e, struct http_conn *cs)
 {
@@ -270,7 +276,7 @@ static void read_callback (void *arg, struct nfs_client *client,
 
     assert (e->hbuff != NULL);
     assert (e->hbuff->data != NULL );
-   
+
     assert (e->hbuff->len >= e->copied + res->data.data_len);
     memcpy (e->hbuff->data + e->copied, res->data.data_val, res->data.data_len);
     e->copied += res->data.data_len;
@@ -419,7 +425,7 @@ err_t http_cache_lookup (const char *name, struct http_conn *cs)
     e = find_cacheline(name);
     if (e->valid == 1) {
         /* fresh matching cache-entry found */
-        DEBUGPRINT ("%d: Fresh cache-entry, returning page [%s]\n", 
+        DEBUGPRINT ("%d: Fresh cache-entry, returning page [%s]\n",
                 cs->request_no, name);
         trigger_callback (cs, e);
         return ERR_OK;
@@ -480,6 +486,10 @@ static void readdir_callback(void *arg, struct nfs_client *client,
     DEBUGPRINT ("readdir_callback came in\n");
     assert(result != NULL && result->status == NFS3_OK);
 
+    // FIXME: start here the measurement of file loading time
+
+    last_ts = rdtsc();
+//    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     // initiate a lookup for every entry
     for (entry3 *e = resok->reply.entries; e != NULL; e = e->nextentry) {
         ++cache_lookups_started;
@@ -533,6 +543,12 @@ static void handle_cache_load_done(void)
     printf("%s\n", buf);
 
 #endif // ENABLE_WEB_TRACING
+
+
+    // lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
+    // Report the cache loading time
+    printf("Cache loading time %"PU"\n", in_seconds(rdtsc() - last_ts));
+//    lwip_print_interesting_stats();
 
     /* continue with the web-server initialization. */
     init_callback(); /* do remaining initialization! */

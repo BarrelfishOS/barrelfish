@@ -103,8 +103,6 @@ static int parallel_connections = 0; /* number of connections alive at moment */
 static int request_counter = 0;  /* Total no. of requests received till now */
 /* above both are for debugging purpose only */
 
-// Variables for time measurement for performance
-static uint64_t last_ts = 0;
 
 
 static struct http_conn *http_conn_new(void)
@@ -584,10 +582,7 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
 static void realinit(void)
 {
 
-//    lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
-//    lwip_print_interesting_stats();
-//    lwip_debug_show_spp_status(1);
-    printf("Cache loading time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
+    uint64_t ts = rdtsc();
     struct tcp_pcb *pcb = tcp_new();
 //    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));
     err_t e = tcp_bind(pcb, IP_ADDR_ANY, HTTP_PORT);
@@ -596,14 +591,12 @@ static void realinit(void)
     assert(pcb != NULL);
     tcp_arg(pcb, pcb);
     tcp_accept(pcb, http_server_accept);
-    printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
-    printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
+    printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&ts)));
     printf("Starting webserver\n");
 }
 
 void http_server_init(struct ip_addr server, const char *path)
 {
-    last_ts = rdtsc();
     http_cache_init(server, path, realinit);
 }
 

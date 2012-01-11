@@ -35,7 +35,8 @@
 
 //#define MAX_NFS_READ_BYTES   14000 /* 1330 */
 #define MAX_NFS_READ_BYTES   1330 /*14000*//*workaround for breakage in lwip*/
-#define MAX_NFS_READ_CHUNKS  50
+//#define MAX_NFS_READ_CHUNKS  50
+#define MAX_NFS_READ_CHUNKS  5000
 #define MAX_NFS_WRITE_BYTES  1330 /* workaround for breakage in lwip */
 #define MAX_NFS_WRITE_CHUNKS 1    /* workaround for breakage in lwip */
 #define NFS_WRITE_STABILITY  UNSTABLE
@@ -221,7 +222,7 @@ static void read_callback(void *arg, struct nfs_client *client, READ3res *result
     struct nfs_file_parallel_io_handle *pfh = arg;
 
     assert(result != NULL);
-
+    uint64_t ts = rdtsc();
     // error
     if (result->status != NFS3_OK) {
         pfh->fh->status = result->status;
@@ -284,12 +285,13 @@ static void read_callback(void *arg, struct nfs_client *client, READ3res *result
 out:
     pfh->fh->chunks_in_progress--;
 
-    // allow the request thread to resume if we're the last chunk 
+    // allow the request thread to resume if we're the last chunk
     if (pfh->fh->chunks_in_progress == 0) {
         signal_condition();
     }
     // free arguments
     xdr_READ3res(&xdr_free, result);
+    lwip_record_event_simple(NFS_READCB_T, ts);
 }
 
 static void write_callback(void *arg, struct nfs_client *client, WRITE3res *result)
@@ -538,9 +540,10 @@ static errval_t opendir(void *st, const char *path, vfs_handle_t *rethandle)
     }
 }
 
-static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes,
-                     size_t *bytes_read)
+static errval_t read(void *st, vfs_handle_t inhandle, void *buffer,
+        size_t bytes, size_t *bytes_read)
 {
+    uint64_t ts = rdtsc();
     struct nfs_state *nfs = st;
     struct nfs_handle *h = inhandle;
     assert(h != NULL);
@@ -584,12 +587,16 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes
         assert(e == ERR_OK);
         chunks++;
     }
+    lwip_record_event_simple(NFS_READ_1_T, ts);
+    uint64_t ts1 = rdtsc();
     wait_for_condition();
+    lwip_record_event_simple(NFS_READ_w_T, ts1);
 
     lwip_mutex_unlock();
 
     // check result
     if (fh.status != NFS3_OK) {
+        printf("read:vfs_nfs: fh.status issue %u\n", fh.status);
         return nfsstat_to_errval(fh.status);
     }
 
@@ -597,8 +604,12 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes
     h->u.file.pos += fh.size;
     *bytes_read = fh.size;
 
-    if (fh.size < bytes) {
+    lwip_record_event_simple(NFS_READ_T, ts);
+    if (fh.size == 0) {
         /* XXX: assuming this means EOF, but we really do know from NFS */
+        printf("read:vfs_nfs: EOF marking %"PRIuPTR" < %"PRIuPTR","
+                "parallel NFS chunks [%u]\n",
+                fh.size, bytes, MAX_NFS_READ_CHUNKS);
         return VFS_ERR_EOF;
     } else {
         return SYS_ERR_OK;
@@ -722,7 +733,7 @@ static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
 
     lwip_mutex_lock();
     // We only set the size field for now
-    
+
     sattr3 new_attributes;
     new_attributes.mode.set_it = FALSE;
     new_attributes.uid.set_it = FALSE;
@@ -733,8 +744,8 @@ static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
     new_attributes.size.set_size3_u.size = bytes;
 
 
-    e = nfs_setattr(nfs->client, h->fh, 
-                    new_attributes, false, 
+    e = nfs_setattr(nfs->client, h->fh,
+                    new_attributes, false,
                     setattr_callback, NULL);
     assert(e == ERR_OK);
     wait_for_condition();
