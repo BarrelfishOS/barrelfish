@@ -21,6 +21,12 @@ import qualified Backend
 import qualified GHBackend as GH
 import qualified CAbsSyntax as C
 
+
+-- handle printing of error values
+ahci_err_fmt = C.NStr "PRIxPTR"
+ahci_printf_error msg err = C.Ex $ C.Call "printf" [fmt, err]
+    where fmt = C.StringCat [C.QStr (msg ++ ": 0x%"), ahci_err_fmt, C.QStr "\n"]
+
 ------------------------------------------------------------------------
 -- Language mapping: C identifier names
 ------------------------------------------------------------------------
@@ -509,7 +515,7 @@ tx_fn ifn types msg@(RPC name rpcargs metaargs) =
                     C.SComment "setup DMA region",
                     C.Ex $ C.Assignment errvar $ C.Call "ahci_dma_region_alloc" [ (C.Variable "dma_region_size"), C.AddressOf pr_region_var ],
                     C.If (C.Call "err_is_fail" [errvar]) [
-                        C.Ex $ C.Call "printf" [C.StringConstant "alloc_region failed: %lu\n", errvar],
+                        ahci_printf_error "alloc_region failed" errvar,
                         C.Goto "cleanup"
                         ] [],
                     C.SBlank
@@ -533,7 +539,7 @@ tx_fn ifn types msg@(RPC name rpcargs metaargs) =
             localvar (C.TypeName "size_t") fis_size_var_n Nothing,
             C.Ex $ C.Assignment errvar $ C.Call "sata_alloc_h2d_register_fis" [(C.AddressOf fis_var), (C.AddressOf $ C.Variable fis_size_var_n)],
             C.If (C.Call "err_is_fail" [errvar]) [
-                C.Ex $ C.Call "printf" [C.StringConstant "sata_alloc_h2d_register_fis failed: %lu\n", errvar],
+                ahci_printf_error "sata_alloc_h2d_register_fis failed" errvar,
                 C.Goto "cleanup"
                 ] [],
             C.Ex $ C.Call "sata_set_command" [fis_var, meta_arg_expr_hex "ata" "command"],
@@ -557,7 +563,7 @@ tx_fn ifn types msg@(RPC name rpcargs metaargs) =
                 if has_dma then dma_size_var else C.NumConstant 0
                 ],
             C.If (C.Call "err_is_fail" [errvar]) [
-                C.Ex $ C.Call "printf" [C.StringConstant "ahci_issue_command failed: %lu\n", errvar],
+                ahci_printf_error "ahci_issue_command failed"  errvar,
                 C.Goto "cleanup"
                 ] [],
             C.SBlank,
