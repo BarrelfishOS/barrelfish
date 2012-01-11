@@ -1,45 +1,69 @@
-
-#include "mdb.h"
+#include <mdb.h>
+#include <assert.h>
 
 #ifndef MIN
 #define MIN ((a)<(b)?(a):(b))
 #endif
+#ifndef MAX
+#define MIN ((a)>(b)?(a):(b))
+#endif
 
-struct mdb_node *root = NULL;
+#ifdef N
+#undef N
+#endif
+#define N(cte) (&(cte)->mdbnode)
+#ifdef C
+#undef C
+#endif
+#define C(cte) (&(cte)->cap)
+
+struct cte *root = NULL;
+
+/*
+ * invariants
+ */
 
 static int
-check_subtree_invariants(mdb_node *node)
+mdb_check_subtree_invariants(struct cte *cte)
 {
     int err;
 
-    if (!node) {
+    if (!cte) {
         return MDB_INVARIANT_OK;
     }
+
+    struct mdbnode *node = N(cte);
 
     if (node->level > 0 && !(node->left && node->right)) {
         return MDB_INVARIANT_BOTHCHILDREN;
     }
-    if (node->left && !(node->left->level < node->level)) {
+    if (node->left && !(N(node->left)->level < node->level)) {
         return MDB_INVARIANT_LEFT_LEVEL_LESS;
     }
-    if (node->right && !(node->right->level <= node->level)) {
+    if (node->right && !(N(node->right)->level <= node->level)) {
         return MDB_INVARIANT_RIGHT_LEVEL_LEQ;
     }
-    if (node->right && node->right->right &&
-        !(node->right->right->level < node->level)) {
+    if (node->right && N(node->right)->right &&
+        !(N(N(node->right)->right)->level < node->level)) {
         return MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS;
     }
-    if (node->right && node->right->left &&
-        !(node->right->left->level < node->level)) {
+    if (node->right && N(node->right)->left &&
+        !(N(N(node->right)->left)->level < node->level)) {
         return MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS;
     }
+    if (caps_has_address(cte) && !(node->end ==
+        MAX(caps_address(cte)+caps_size(cte),
+            MAX((node->left ? N(node->left)->end : 0),
+                (node->right ? N(node->right)->end : 0))))) {
+        return MDBTREE_INVARIANT_END_IS_MAX;
+    }
 
-    err = check_subtree_invariants(node->left);
+    err = mdb_check_subtree_invariants(node->left);
     if (err) {
         return err;
     }
 
-    err = check_subtree_invariants(node->right);
+    err = mdb_check_subtree_invariants(node->right);
     if (err) {
         return err;
     }
@@ -48,13 +72,37 @@ check_subtree_invariants(mdb_node *node)
 }
 
 int
-check_invariants()
+mdb_check_invariants()
 {
-    return check_subtree_invariants(root)
+    return mdb_check_subtree_invariants(root)
 }
 
-static mdb_node*
-skew(struct mdb_node *node)
+/*
+ * general internal helpers
+ */
+
+static void
+mdb_update_end(struct cte *cte)
+{
+    if (!cte) {
+        return;
+    }
+    struct mdbnode *node = N(cte);
+    if (!caps_has_address(cte)) {
+        node->end = 0;
+        return;
+    }
+    node->end = caps_address(cte) + caps_size(cte);
+    if (node->left) {
+        node->end = MAX(node->end, N(node->left)->end);
+    }
+    if (node->right) {
+        node->end = MAX(node->end, N(node->right)->end);
+    }
+}
+
+static cte*
+mdb_skew(struct cte *node)
 {
     /* transform invalid state
      *
@@ -71,13 +119,15 @@ skew(struct mdb_node *node)
      *   |A|    |B|   |R|
      *
      */
-    if (!node || !node->left) {
+    if (!node || !N(node)->left) {
         return node;
     }
-    else if (node->level == node->left->level) {
-        struct mdb_node *left = node->left;
-        node->left = left->right;
-        left->right = node;
+    else if (N(node)->level == N(N(node)->left)->level) {
+        struct cte *left = N(node)->left;
+        N(node)->left = N(left)->right;
+        N(left)->right = node;
+        mdb_update_end(node);
+        mdb_update_end(left);
         return left;
     }
     else {
@@ -85,8 +135,8 @@ skew(struct mdb_node *node)
     }
 }
 
-static mdb_node*
-split(struct mdb_node *node)
+static cte*
+mdb_split(struct cte *node)
 {
     /* transform invalid state
      *
@@ -105,14 +155,16 @@ split(struct mdb_node *node)
      *      |A|   |B|
      *
      */
-    if (!node || !node->right || !node->right->right) {
+    if (!node || !N(node)->right || !N(N(node)->right)->right) {
         return node;
     }
-    else if (node->level == node->right->right->level) {
-        struct mdb_node *right = node->right;
-        node->right = right->left;
-        right->left = node;
-        right->level += 1;
+    else if (N(node)->level == N(N(N(node)->right)->right)->level) {
+        struct cte *right = N(node)->right;
+        N(node)->right = N(right)->left;
+        N(right)->left = cte;
+        N(right)->level += 1;
+        mdb_update_end(node);
+        mdb_update_end(right);
         return right;
     }
     else {
@@ -121,119 +173,120 @@ split(struct mdb_node *node)
 }
 
 static void
-decrease_level(struct mdb_node *node)
+mdb_decrease_level(struct cte *node)
 {
     assert(node);
 
     mdb_level_t expected;
-    if (!node->left || !node->right) {
+    if (!N(node)->left || !N(node)->right) {
         expected = 0;
     }
     else {
-        expected = MIN(node->left->level, node->right->level) + 1;
+        expected = MIN(N(N(node)->left)->level, N(N(node)->right)->level) + 1;
     }
 
-    if (expected < node->level) {
-        node->level = expected;
-        if (node->right && expected < node->right->level) {
-            node->right->level = expected;
+    if (expected < N(node)->level) {
+        N(node)->level = expected;
+        if (N(node)->right && expected < N(N(node)->right)->level) {
+            N(N(node)->right)->level = expected;
         }
     }
 }
 
-static mdb_node*
-rebalance(mdb_node *node)
+static cte*
+mdb_rebalance(struct cte *node)
 {
-    decrease_level(node);
-    node = skew(node);
-    node->right = skew(node->right);
-    if (node->right) {
-        node->right->right = skew(node->right->right);
+    assert(node);
+    mdb_update_end(node);
+    mdb_decrease_level(node);
+    node = mdb_skew(node);
+    N(node)->right = mdb_skew(N(node)->right);
+    if (N(node)->right) {
+        N(N(node)->right)->right = mdb_skew(N(N(node)->right)->right);
     }
-    node = split(node);
-    node->right = split(node->right);
+    node = mdb_split(node);
+    N(node)->right = mdb_split(N(node)->right);
     return node;
 }
 
-static errval_t
-subtree_insert(struct mdb_node *new_node, struct mdb_node **current)
-{
-    assert(new_node);
-    assert(current);
-
-    struct mdb_node *curr = *current;
-
-    if (!curr) {
-        *current = new_node;
-        return SYS_ERR_OK;
-    }
-
-    int compare = COMPARE(KEY(new_node), KEY(curr));
-    if (compare < 0) {
-        // new_node < current
-        return subtree_insert(new_node, &curr->left);
-    }
-    else if (compare > 0) {
-        // new_node > current
-        return subtree_insert(new_node, &curr->right);
-    }
-    else {
-        return MDB_ERR_DUPLICATE;
-    }
-
-    curr = skew(curr);
-    curr = split(curr);
-    *current = curr;
-
-    return SYS_ERR_OK;
-}
-
-errval_t
-insert(struct mdb_node *new_node)
-{
-    return subtree_insert(new_node, &root);
-}
-
 static bool
-is_child(struct mdb_node *child,
-                     struct mdb_node *parent)
+mdb_is_child(struct cte *child, struct cte *parent)
 {
     if (!parent) {
         return root == child;
     }
     else {
-        return parent->left == child || parent->right == child;
+        return N(parent)->left == child || N(parent)->right == child;
     }
 }
 
-static mdb_node*
-rebalance(mdb_node *node)
+static bool
+mdb_is_inside(genpaddr_t outer_begin, genpaddr_t outer_end,
+              genpaddr_t inner_begin, genpaddr_t inner_end)
 {
-    decrease_level(node);
-    node = skew(node);
-    node->right = skew(node->right);
-    if (node->right) {
-        node->right->right = skew(node->right->right);
+    return
+        (inner_begin >= outer_begin && inner_end < outer_end) ||
+        (inner_begin > outer_begin && inner_end <= outer_end);
+}
+
+/*
+ * operations and operation-specific helpers
+ */
+
+static errval_t
+mdb_sub_insert(struct cte *new_node, struct cte **current)
+{
+    assert(new_node);
+    assert(current);
+
+    struct cte *current_ = *current;
+
+    if (!current_) {
+        *current = new_node;
+        return SYS_ERR_OK;
     }
-    node = split(node);
-    node->right = split(node->right);
-    return node;
+
+    int compare = caps_compare(C(new_node), C(current_));
+    if (compare < 0) {
+        // new_node < current
+        return mdb_sub_insert(new_node, &N(current_)->left);
+    }
+    else if (compare > 0) {
+        // new_node > current
+        return mdb_sub_insert(new_node, &N(current_)->right);
+    }
+    else {
+        return MDB_ERR_DUPLICATE;
+    }
+
+    mdb_update_end(current_);
+    current_ = mdb_skew(current_);
+    current_ = mdb_split(current_);
+    *current = current_;
+
+    return SYS_ERR_OK;
+}
+
+errval_t
+mdb_insert(struct cte *new_node)
+{
+    return mdb_sub_insert(new_node, &root);
 }
 
 static void
-exchange_child(struct mdb_node *first, struct mdb_node *first_parent,
-               struct mdb_node *second)
+mdb_exchange_child(struct cte *first, struct cte *first_parent,
+                   struct cte *second)
 {
-    assert(is_child(first, first_parent));
+    assert(mdb_is_child(first, first_parent));
 
     if (!first_parent) {
         root = second;
     }
-    else if (first_parent->left == first) {
-        first_parent->left = second;
+    else if (N(first_parent)->left == first) {
+        N(first_parent)->left = second;
     }
-    else if (first_parent->right == first) {
-        first_parent->right = second;
+    else if (N(first_parent)->right == first) {
+        N(first_parent)->right = second;
     }
     else {
         USER_PANIC("first is not child of first_parent");
@@ -241,32 +294,35 @@ exchange_child(struct mdb_node *first, struct mdb_node *first_parent,
 }
 
 static void
-exchange_nodes(struct mdb_node *first, struct mdb_node *first_parent,
-               struct mdb_node *second, struct mdb_node *second_parent)
+mdb_exchange_nodes(struct cte *first, struct cte *first_parent,
+                   struct cte *second, struct cte *second_parent)
 {
-    struct mdb_node *tmp_node;
+    struct cte *tmp_node;
     mdb_level_t tmp_level;
 
-    exchange_child(first, first_parent, second);
-    exchange_child(second, second_parent, first);
+    mdb_exchange_child(first, first_parent, second);
+    mdb_exchange_child(second, second_parent, first);
 
-    tmp_node = first->left;
-    first->left = second->left;
-    second->left = tmp_node;
+    tmp_node = N(first)->left;
+    N(first)->left = N(second)->left;
+    N(second)->left = tmp_node;
 
-    tmp_node = first->right;
-    first->right = second->right;
-    second->right = tmp_node;
+    tmp_node = N(first)->right;
+    N(first)->right = N(second)->right;
+    N(second)->right = tmp_node;
 
-    tmp_level = first->level;
-    first->level = second->level;
-    second->level = tmp_level;
+    tmp_level = N(first)->level;
+    N(first)->level = N(second)->level;
+    N(second)->level = tmp_level;
+
+    mdb_update_end(first);
+    mdb_update_end(second);
 }
 
 static void
-exchange_remove(struct mdb_node *target, struct mdb_node *target_parent,
-                struct mdb_node **current, struct mdb_node *parent,
-                int dir, struct mdb_node **ret_target)
+mdb_exchange_remove(struct cte *target, struct cte *target_parent,
+                    struct cte **current, struct cte *parent,
+                    int dir, struct cte **ret_target)
 {
     errval_t err;
     assert(current);
@@ -276,54 +332,54 @@ exchange_remove(struct mdb_node *target, struct mdb_node *target_parent,
     assert(ret_target);
     assert(!*ret_target);
     assert(dir != 0);
-    assert(check_subtree_invariants(*current) == 0);
-    assert(COMPARE(KEY(target), KEY(*current)) != 0);
-    assert(is_child(target, target_parent));
-    assert(is_child(*current, parent));
+    assert(mdb_check_subtree_invariants(*current) == 0);
+    assert(caps_compare(C(target), C(*current)) != 0);
+    assert(mdb_is_child(target, target_parent));
+    assert(mdb_is_child(*current, parent));
 
-    struct mdb_node *current_ = *current;
+    struct cte *current_ = *current;
 
     if (dir > 0) {
         if (parent == target) {
-            assert(parent->left == current_);
+            assert(N(parent)->left == current_);
         }
         else {
-            assert(parent->right == current_);
+            assert(N(parent)->right == current_);
         }
 
-        if (current_->right) {
-            exchange_remove(target, target_parent, &current_->right,
-                            current_, dir, ret_target);
-            assert(check_subtree_invariants(current_->right));
+        if (N(current_)->right) {
+            mdb_exchange_remove(target, target_parent, &N(current_)->right,
+                                current_, dir, ret_target);
+            assert(mdb_check_subtree_invariants(N(current_)->right));
         }
     }
     else if (dir < 0) {
         if (parent == target) {
-            assert(parent->right == current_);
+            assert(N(parent)->right == current_);
         }
         else {
-            assert(parent->left == current_);
+            assert(N(parent)->left == current_);
         }
 
         if (current_->left) {
-            exchange_remove(target, target_parent, &current_->left,
-                            current_, dir, ret_target);
-            assert(check_subtree_invariants(current_->left));
+            mdb_exchange_remove(target, target_parent, &N(current_)->left,
+                                current_, dir, ret_target);
+            assert(mdb_check_subtree_invariants(N(current_)->left));
         }
         else if (current_->right) {
             // right is null, left non-null -> current is level 0 node with
             // horizontal right link, and is also the successor of the target.
             // in this case, exchange current and current right, then current
             // (at its new position) and the target.
-            struct mdb_node *new_current = current_->right;
-            exchange_nodes(current_, parent, current_->right, current_);
-            exchange_nodes(target, target_parent, current_, new_current);
+            struct cte *new_current = N(current_)->right;
+            mdb_exchange_nodes(current_, parent, N(current_)->right, current_);
+            mdb_exchange_nodes(target, target_parent, current_, new_current);
             // "current" is now located where the target was, further up in the
             // tree. "new_current" is the node where current was. "target" is
             // where current->right was, and is a leaf, so can be dropped.
-            assert(new_current->right == target);
+            assert(N(new_current)->right == target);
             new_current->right = NULL;
-            assert(check_subtree_invariants(new_current));
+            assert(mdb_check_subtree_invariants(new_current));
             *ret_target = current_;
             *current = new_current;
             return;
@@ -332,14 +388,14 @@ exchange_remove(struct mdb_node *target, struct mdb_node *target_parent,
 
     if (*ret_target) {
         // implies we recursed further down to find a leaf. need to rebalance.
-        current_ = rebalance(current_);
-        assert(check_subtree_invariants(current_));
+        current_ = mdb_rebalance(current_);
+        assert(mdb_check_subtree_invariants(current_));
         *current = current_;
     }
     else {
         // found successor/predecessor leaf, exchange with target
         assert(!current->right && !current->left);
-        exchange_nodes(target, target_parent, current, parent);
+        mdb_exchange_nodes(target, target_parent, current, parent);
 
         // "current" is now where target was, so set as ret_target
         *ret_target = current;
@@ -351,77 +407,78 @@ exchange_remove(struct mdb_node *target, struct mdb_node *target_parent,
 }
 
 static errval_t
-subtree_remove(struct mdb_node *target, struct mdb_node **current,
-               struct mdb_node *parent)
+mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
 {
     errval_t err;
     assert(current);
-    struct mdb_node *current_ = *current;
-    assert(check_subtree_invariants(current_));
+    struct cte *current_ = *current;
+    assert(mdb_check_subtree_invariants(current_));
     if (!current_) {
         return MDB_ERR_NOTFOUND;
     }
 
-    int compare = COMPARE(KEY(target), KEY(*current));
+    int compare = caps_compare(C(target), C(current_));
     if (compare > 0) {
-        return subtree_remove(target, &current_->right, current_);
+        return mdb_subtree_remove(target, &N(current_)->right, current_);
     }
     else if (compare < 0) {
-        return subtree_remove(target, &current_->right, current_);
+        return mdb_subtree_remove(target, &N(current_)->right, current_);
     }
     else {
         assert(current_ == target);
-        if (!current_->left && !current_->right) {
+        if (!N(current_)->left && !N(current_)->right) {
             // target is leaf, just remove
             *current = NULL;
             return SYS_ERR_OK;
         }
-        else if (!current_->left) {
+        else if (!N(current_)->left) {
             // move to right child then go left (dir=-1)
-            struct mdb_node *new_current = NULL;
-            struct mdb_node *new_right = current_->right;
-            exchange_remove(target, parent, &new_right, current_, -1, &new_current);
+            struct cte *new_current = NULL;
+            struct cte *new_right = N(current_)->right;
+            mdb_exchange_remove(target, parent, &new_right, current_, -1,
+                                &new_current);
             assert(new_current);
             current_ = new_current;
-            current_->right = new_right;
+            N(current_)->right = new_right;
         }
         else {
             // move to left child then go right (dir=1)
-            struct mdb_node *new_current = NULL;
-            struct mdb_node *new_left = current_->left;
-            exchange_remove(target, parent, &new_left, current_, -1, &new_current);
+            struct cte *new_current = NULL;
+            struct cte *new_left = N(current_)->left;
+            mdb_exchange_remove(target, parent, &new_left, current_, -1,
+                                &new_current);
             assert(new_current);
             current_ = new_current;
-            current_->left = new_left;
+            N(current_)->left = new_left;
         }
     }
 
     // rebalance after remove from subtree
-    current_ = rebalance(current_);
-    assert(check_subtree_invariants(current_));
+    current_ = mdb_rebalance(current_);
+    assert(mdb_check_subtree_invariants(current_));
     *current = current_;
 }
 
 errval_t
-remove(struct mdb_node *target)
+mdb_remove(struct cte *target)
 {
-    return subtree_remove(target, &root, NULL);
+    return mdb_subtree_remove(target, &root, NULL);
 }
 
-static mdb_node*
-subtree_find_last_le(void *key, struct mdb_node* current)
+static struct cte*
+mdb_sub_find_last_le(struct capability *cap, struct cte* current)
 {
     if (!current) {
         return NULL
     }
-    int compare = COMPARE(key, KEY(current));
+    int compare = caps_compare(cap, C(current));
     if (compare < 0) {
         // current is gt key, look for smaller node
-        return subtree_find_last_le(key, current->left);
+        return mdb_sub_find_last_le(cap, N(current)->left);
     }
     else if (compare > 0) {
         // current is lt key, attempt to find bigger current
-        struct mdb_node *res = subtree_find_last_le(key, current->right);
+        struct mdbnode *res = mdb_sub_find_last_le(cap, N(current)->right);
         if (res) {
             return res;
         }
@@ -434,22 +491,22 @@ subtree_find_last_le(void *key, struct mdb_node* current)
     }
 }
 
-mdb_node*
-find_last_le(void *key)
+struct cte*
+mdb_find_last_le(struct capability *cap)
 {
-    return subtree_find_last_le(key, root);
+    return mdb_sub_find_last_le(cap, root);
 }
 
-static mdb_node*
-subtree_find_first_gt(void *key, struct mdb_node *current)
+static cte*
+mdb_sub_find_first_gt(struct capability *cap, struct cte *current)
 {
     if (!current) {
         return NULL;
     }
-    int compare = COMPARE(key, KEY(current));
+    int compare = caps_compare(cap, C(current));
     if (compare < 0) {
         // current is gt key, attempt to find smaller node
-        struct mdb_node *res = subtree_find_first_gt(key, current->left);
+        struct cte *res = mdb_sub_find_first_gt(cap, N(current)->left);
         if (res) {
             return res;
         }
@@ -458,12 +515,265 @@ subtree_find_first_gt(void *key, struct mdb_node *current)
     }
     else if (compare >= 0) {
         // current is lte key, look for greater node
-        return subtree_find_first_gt(key, current->right);
+        return mdb_sub_find_first_gt(cap, N(current)->right);
     }
 }
 
-mdb_node*
-find_first_gt(void *key)
+struct cte*
+mdb_find_first_gt(struct capability *cap)
 {
-    return subtree_find_first_gt(key, root);
+    return mdb_sub_find_first_gt(cap, root);
+}
+
+static cte*
+mdb_choose_surrounding(genpaddr_t address, size_t size,
+                       struct capability* first, struct capability* second)
+{
+    assert(first);
+    assert(second);
+#ifndef NDEBUG
+    genpaddr_t beg = address, end = address + size;
+    genpaddr_t fst_beg = cap_address(first);
+    genpaddr_t snd_beg = cap_address(second);
+    genpaddr_t fst_end = fst_beg + cap_size(first);
+    genpaddr_t snd_end = snd_beg + cap_size(second);
+    assert(fst_beg <= beg && fst_end >= end);
+    assert(snd_beg <= beg && snd_end >= end);
+#endif
+
+    if (cap_compare(first, second) >= 0) {
+        return first;
+    }
+    else {
+        return second;
+    }
+}
+
+static cte*
+mdb_choose_inner(genpaddr_t address, size_t size, struct capability* first,
+                 struct capability* second)
+{
+    assert(first);
+    assert(second);
+#ifndef NDEBUG
+    genpaddr_t beg = address, end = address + size;
+    genpaddr_t fst_beg = cap_address(first);
+    genpaddr_t snd_beg = cap_address(second);
+    genpaddr_t fst_end = fst_beg + cap_size(first);
+    genpaddr_t snd_end = snd_beg + cap_size(second);
+    assert(mdb_is_inside(address, size, fst_beg, fst_end));
+    assert(mdb_is_inside(address, size, snd_beg, snd_end));
+#endif
+
+    if (cap_compare(first, second) <= 0) {
+        return first;
+    }
+    else {
+        return second;
+    }
+}
+
+static cte*
+mdb_choose_partial(genpaddr_t address, size_t size, struct capability* first,
+                   struct capability *second)
+{
+    assert(first);
+    assert(second);
+#ifndef NDEBUG
+    genpaddr_t beg = address, end = address + size;
+    genpaddr_t fst_beg = cap_address(first);
+    genpaddr_t snd_beg = cap_address(second);
+    genpaddr_t fst_end = fst_beg + cap_size(first);
+    genpaddr_t snd_end = snd_beg + cap_size(second);
+    assert(fst_beg < end);
+    assert(snd_beg < end);
+    assert(fst_end > beg);
+    assert(snd_end > beg);
+    assert(fst_beg != beg);
+    assert(snd_beg != beg);
+    assert(fst_end != end);
+    assert(snd_end != end);
+    assert((fst_beg < beg) == (fst_end < end));
+    assert((snd_beg < beg) == (snd_end < end));
+#endif
+
+    if (fst_beg < beg && snd_beg > beg) {
+        return first;
+    }
+    else if (snd_beg < beg && fst_beg > beg) {
+        return second;
+    }
+    else {
+        if (cap_compare(first, second) >= 0) {
+            return first;
+        }
+        else {
+            return second;
+        }
+    }
+}
+
+static struct cte*
+mdb_choose_result(genpaddr_t address, size_t size, int ret, struct cte* first,
+                  struct cte* second)
+{
+    struct cte* result = NULL;
+    switch (ret) {
+    case MDB_RANGE_NOT_FOUND:
+        break;
+    case MDB_RANGE_FOUND_SURROUNDING:
+        result = mdb_choose_surrounding(address, size, first, second);
+        break;
+    case MDB_RANGE_FOUND_INNER:
+        result = mdb_choose_inner(address, size, first, second);
+        break;
+    case MDB_RANGE_FOUND_PARTIAL:
+        result = mdb_choose_partial(address, size, first, second);
+        break;
+    default:
+        USER_PANIC_ERR("Unhandled enum value for mdb_find_range result");
+        break;
+    }
+    return result;
+}
+
+static void
+mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
+                         struct cte *sub, int *ret, struct cte **result)
+{
+    assert(sub);
+    assert(ret);
+    assert(result);
+    assert(*ret <= max_precision);
+    assert((!*result) == (*ret == MDB_RANGE_NOT_FOUND));
+
+    struct cte *sub_result = NULL;
+    int sub_ret = mdb_sub_find_range(address, size, max_precision,
+                                     sub, &sub_result);
+    if (sub_ret > max_precision) {
+        *ret = NULL;
+        return sub_ret;
+    }
+    else if (sub_ret > *ret) {
+        *result = sub_result;
+        *ret = sub_ret;
+    }
+    else if (sub_ret == *ret) {
+        switch (ret) {
+        case MDB_RANGE_NOT_FOUND:
+            break;
+        case MDB_RANGE_FOUND_SURROUNDING:
+            *result = mdb_choose_surrounding(address, size, *result, sub_result);
+            break;
+        case MDB_RANGE_FOUND_INNER:
+            *result = mdb_choose_inner(address, size, *result, sub_result);
+            break;
+        case MDB_RANGE_FOUND_PARTIAL:
+            *result = mdb_choose_partial(address, size, *result, sub_result);
+            break;
+        default:
+            USER_PANIC_ERR("Unhandled enum value for mdb_find_range result");
+            break;
+        }
+    }
+    // else ret > sub_ret, keep ret & result as is
+}
+
+static int
+mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
+                   struct cte *current, struct cte **ret_node)
+{
+    assert(max_precision >= 0);
+
+    if (!current) {
+        *ret_node = NULL;
+        return MDB_RANGE_NOT_FOUND;
+    }
+
+    if (N(current)->end <= address) {
+        *ret_node = NULL;
+        return MDB_RANGE_NOT_FOUND;
+    }
+
+    genpaddr_t current_address = cap_address(C(current));
+    genpaddr_t current_end = current_address + cap_size(C(current));
+    genpaddr_t search_end = address + size;
+
+    struct cte *result = NULL;
+    int ret = MDB_RANGE_NOT_FOUND;
+
+    if (ret < MDB_RANGE_FOUND_PARTIAL &&
+        current_address > address &&
+        current_address < search_end &&
+        current_end > search_end)
+    {
+        result = current;
+        ret = MDB_RANGE_FOUND_PARTIAL;
+    }
+    if (ret < MDB_RANGE_FOUND_PARTIAL &&
+        current_end > address &&
+        current_end < search_end &&
+        current_address < address)
+    {
+        result = current;
+        ret = MDB_RANGE_FOUND_PARTIAL;
+    }
+    if (ret < MDB_RANGE_FOUND_INNER &&
+        mdb_is_inside(address, search_end, current_address, current_end))
+    {
+        result = current;
+        ret = MDB_RANGE_FOUND_INNER;
+    }
+    if (ret < MDB_RANGE_FOUND_SURROUNDING &&
+        (current_address <= address && current_end >= search_end))
+    {
+        result = current;
+        ret = MDB_RANGE_FOUND_SURROUNDING;
+    }
+    if (ret > max_precision) {
+        *ret_node = NULL;
+        return ret;
+    }
+
+    if (N(current)->left) {
+        mdb_sub_find_range_merge(address, size, max_precision,
+                                 N(current)->left, &ret, &result);
+        if (ret > max_precision) {
+            *ret_node = NULL;
+            return ret;
+        }
+    }
+
+    if (N(current)->right && search_end > current_address) {
+        mdb_sub_find_range_merge(address, size, max_precision,
+                                 N(current)->right, &ret, &result);
+        if (ret > max_precision) {
+            *ret_node = NULL;
+            return ret;
+        }
+    }
+
+    *ret_node = result;
+    return ret;
+
+}
+
+errval_t
+mdb_find_range(genpaddr_t address, size_t size, int max_result,
+               struct cte **ret_node, int *result)
+{
+    if (max_result < MDB_RANGE_NOT_FOUND || max_result > MDB_RANGE_FOUND_PARTIAL) {
+        return SYS_ERR_INVALID_ARGS;
+    }
+    if (max_result > MDB_RANGE_NOT_FOUND && !ret_node) {
+        return SYS_ERR_INVALID_ARGS;
+    }
+
+    struct cte *alt_ret_node;
+    if (!ret_node) {
+        ret_node = &alt_ret_node;
+    }
+
+    *result = mdb_sub_find_range(address, size, max_result, root, ret_node);
+    return SYS_ERR_OK;
 }
