@@ -161,12 +161,14 @@ facet_val(req(T, S, val, V), FacetList) :-
 	call(CalcPred).
 
 
-next_sequence(Name, Seq) :-
+next_sequence(Name, NextSeq) :-
     object_seq(Name, Seq),
+    !,
     retract(object_seq(Name, _)),
     NextSeq is Seq + 1,
     asserta(object_seq(Name, NextSeq)).
-next_sequence(Name, NextSeq) :- 
+next_sequence(Name, NextSeq) :-
+    !,
     NextSeq is 0,
     asserta(object_seq(Name, NextSeq)).
 
