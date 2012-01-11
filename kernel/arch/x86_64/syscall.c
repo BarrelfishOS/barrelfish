@@ -254,7 +254,7 @@ static struct sysret monitor_get_core_id(struct capability *kernel_cap,
 static struct sysret monitor_get_arch_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
-    return (struct sysret){.error = SYS_ERR_OK, .value = apic_get_id()};
+    return (struct sysret){.error = SYS_ERR_OK, .value = apic_id};
 }
 
 static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,

@@ -30,12 +30,12 @@ void apic_send_init_deassert(void);
 void apic_send_start_up(uint8_t destination,
                         uint8_t destination_shorthand,
                         uint8_t realmode_startpage);
-
-extern bool bsp;
+extern uint8_t apic_id;
+extern bool apic_bsp;
 
 static inline bool apic_is_bsp(void)
 {
-    return bsp;
+    return apic_bsp;
 }
 
 void apic_send_std_ipi(uint8_t destination, uint8_t destination_shorthand, uint8_t vector);

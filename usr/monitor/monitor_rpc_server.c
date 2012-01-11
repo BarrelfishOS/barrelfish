@@ -495,6 +495,21 @@ static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep
     assert(err_is_ok(err2));
 }
 
+static void get_arch_core_id(struct monitor_blocking_binding *b)
+{
+    static uintptr_t arch_id = -1;
+    errval_t err;
+
+    if (arch_id == -1) {
+        err = invoke_monitor_get_arch_id(&arch_id);
+        assert(err_is_ok(err));
+        assert(arch_id != -1);
+    }
+
+    err = b->tx_vtbl.get_arch_core_id_response(b, NOP_CONT, arch_id);
+    assert(err_is_ok(err));
+}
+
 static void cap_set_remote_done(void *arg)
 {
     struct capref *tmpcap = arg;
@@ -607,6 +622,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .alloc_monitor_ep_call   = alloc_monitor_ep,
     .cap_identify_call       = cap_identify,
     .irq_handle_call         = irq_handle_call,
+    .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,
 };

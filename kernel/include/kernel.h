@@ -189,11 +189,6 @@ extern bool kernel_ticks_enabled;
  */
 extern size_t kernel_now;
 
-/**
- * Processor number (using IAPC terminology).
- */
-extern uint8_t apic_id;
-
 extern lvaddr_t kernel_trace_buf;
 
 extern struct capability monitor_ep;

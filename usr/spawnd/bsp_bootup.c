@@ -41,13 +41,14 @@
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-struct mapping {
+struct coreid_mapping {
     int arch_id;
     bool present;
 };
 
-static struct mapping mappings[MAX_CPUS];
-static int num_cores = 0;
+static struct coreid_mapping coreid_mappings[MAX_COREID + 1];
+static coreid_t coreid_offset;
+
 static const char *kernel_cmdline;
 
 static void state_machine(void);
@@ -119,34 +120,23 @@ static void state_machine(void)
         // Fall through
 
     case 1: { // Boot all present cores
-        static int mapping_index = 0;
+        static int coreid = 0;
 
-        while (1) {
-            if (mapping_index == MAX_CPUS) {
-                break;
-            }
-            if (!mappings[mapping_index].present) {
-                mapping_index++;
-                continue;
-            }
-            if (mapping_index == my_core_id) {
-                mapping_index++;
-                continue;
-            }
-            break;
+        // find next core to boot
+        while (coreid <= MAX_COREID
+               && (coreid == my_core_id || !coreid_mappings[coreid].present)) {
+            coreid++;
         }
 
-        if (mapping_index != MAX_CPUS) {
-            err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, mapping_index,
-                                                mappings[mapping_index].arch_id,
-                                                CURRENT_CPU_TYPE,
-                                                kernel_cmdline);
+        if (coreid <= MAX_COREID) {
+            err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, coreid,
+                                                coreid_mappings[coreid].arch_id,
+                                                CURRENT_CPU_TYPE, kernel_cmdline);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "sending boot core request");
             }
 
-            mapping_index++;
-            break;
+            coreid++;
         } else { // Send boot_initialize_request message
             err = mb->tx_vtbl.boot_initialize_request(mb, NOP_CONT);
             if (err_is_fail(err)) {
@@ -154,14 +144,15 @@ static void state_machine(void)
             }
 
             state_id++;
-            break;
         }
+
+        break;
     }
 
     case 2: { // wait for all spawnd's to come up
 
-        for (coreid_t c = 0; c < MAX_CPUS; c++) {
-            if (mappings[c].present && c != my_core_id) {
+        for (uintptr_t c = 0; c <= MAX_COREID; c++) {
+            if (coreid_mappings[c].present && c != my_core_id) {
                 err = nsb_wait_n(c, SERVICE_BASENAME);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "nameservice barrier wait for %s.%d",
@@ -193,22 +184,43 @@ static void state_machine(void)
 
 /* -------------------------- MAIN ------------------------------- */
 
-static void set_skb_present(char *str)
+static void mappings_from_skb(uintptr_t my_arch_id, char *str)
 {
+    // insert mapping for self
+    coreid_mappings[my_core_id].arch_id = my_arch_id;
+    coreid_mappings[my_core_id].present = true;
+
+    coreid_t n = 0;
+    if (n == my_core_id) {
+        n++;
+    }
+
     while (*str != '\0') {
         if (!isdigit(*str)) {
             str++;
             continue;
         }
-        mappings[num_cores].arch_id = strtol(str, &str, 10);
-        mappings[num_cores].present = true;
-        num_cores++;
+        uintptr_t arch_id = strtol(str, &str, 10);
+        if (arch_id != my_arch_id) {
+            coreid_mappings[n].arch_id = arch_id;
+            coreid_mappings[n].present = true;
+            if (++n == my_core_id) {
+                n++;
+            }
+        }
     }
 }
 
-static void set_cmdline_present(const char *str)
+static void mappings_from_cmdline(uintptr_t my_arch_id, const char *str)
 {
-    num_cores = 1; // include self
+    // insert mapping for self
+    coreid_mappings[my_core_id].arch_id = my_arch_id;
+    coreid_mappings[my_core_id].present = true;
+
+    coreid_t next = coreid_offset;
+    if (next == my_core_id) {
+        next++;
+    }
 
     char *p = strchr(str, '=');
     assert(p != NULL);
@@ -225,13 +237,15 @@ static void set_cmdline_present(const char *str)
         }
         for(int i = id_from; i <= id_to; i++) {
             if (CURRENT_CPU_TYPE == CPU_BEEHIVE) {
-                mappings[i].arch_id = i;
-                mappings[i].present = true;
-                num_cores++;
-            } else {
-                mappings[num_cores].arch_id = i;
-                mappings[num_cores].present = true;
-                num_cores++;
+                coreid_mappings[i].arch_id = i;
+                coreid_mappings[i].present = true;
+            } else if (i != my_arch_id) {
+                assert(next <= MAX_COREID);
+                coreid_mappings[next].arch_id = i;
+                coreid_mappings[next].present = true;
+                if (++next == my_core_id) {
+                    next++;
+                }
             }
         }
     }
@@ -239,6 +253,8 @@ static void set_cmdline_present(const char *str)
 
 void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
 {
+    const char *cmdline_mappings = NULL;
+    uintptr_t my_arch_id = 0;
     errval_t err;
 
     // Find kernel cmdline
@@ -247,41 +263,37 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
         USER_PANIC_ERR(err, "invalid kernel cmdline");
     }
 
-    bool use_skb = true;
+    /* This is all a bit silly. We do not yet support heterogeneous systems so
+       only one cmdline arg is expected, but in anticipation of that, we
+       support passing different names for that argument. */
     for (int i = 1; i < argc; i++) {
         if(!strncmp(argv[i],"bootapic-x86_64=",strlen("bootapic-x86_64="))) {
-            use_skb = false;
-            set_cmdline_present(argv[i]);
-            break; // XXX: We do not yet support heterogeneous systems so only one cmdline arg is expected
+            cmdline_mappings = argv[i];
+        } else if(!strncmp(argv[i],"bootapic-x86_32=",strlen("bootapic-x86_32="))) {
+            cmdline_mappings = argv[i];
+        } else if(!strncmp(argv[i],"bootscc=",strlen("bootscc="))) {
+            cmdline_mappings = argv[i];
+        } else if(!strncmp(argv[i],"bootbees=",strlen("bootbees="))) {
+            cmdline_mappings = argv[i];
+        } else if(!strcmp(argv[i],"bootarm")) {
+            cmdline_mappings = argv[i];
+        } else if (strncmp(argv[i], "coreid_offset=", sizeof("coreid_offset")) == 0) {
+            coreid_offset = strtol(argv[i] + sizeof("coreid_offset"), NULL, 10);
+        } else if (strncmp(argv[i], "apicid=", sizeof("apicid")) == 0) {
+            my_arch_id = strtol(argv[i] + sizeof("apicid"), NULL, 10);
+        } else if(!strcmp(argv[i],"boot")) {
+            // ignored
+        } else {
+            debug_printf("Invalid arg (%s) or architecture not supported.\n",
+                         argv[i]);
+            abort();
         }
-        if(!strncmp(argv[i],"bootapic-x86_32=",strlen("bootapic-x86_32="))) {
-            use_skb = false;
-            set_cmdline_present(argv[i]);
-            break; // XXX: We do not yet support heterogeneous systems so only one cmdline arg is expected
-        }
-        if(!strncmp(argv[i],"bootscc=",strlen("bootscc="))) {
-            use_skb = false;
-            set_cmdline_present(argv[i]);
-            break; // XXX: We do not yet support heterogeneous systems so only one cmdline arg is expected
-        }
-        if(!strncmp(argv[i],"bootbees=",strlen("bootbees="))) {
-            use_skb = false;
-            set_cmdline_present(argv[i]);
-            break; // XXX: We do not yet support heterogeneous systems so only one cmdline arg is expected
-        }
-        if(!strcmp(argv[i],"bootarm")) {
-            use_skb = false;
-            break; // XXX: We do not yet support heterogeneous systems so only one cmdline arg is expected
-        }
-        if(!strcmp(argv[i],"boot")) {
-            continue;
-        }
-        debug_printf("Invalid arg (%s) or architecture not supported.\n",
-               argv[i]);
-        abort();
     }
 
-    if (use_skb) {
+    if (cmdline_mappings != NULL) {
+        mappings_from_cmdline(my_arch_id, cmdline_mappings);
+    } else {
+        // Use SKB to boot all cores
         err = skb_client_connect();
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "skb_client_connect failed");
@@ -306,18 +318,18 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "skb_evaluate failed");
         }
-        set_skb_present(result);
+        mappings_from_skb(my_arch_id, result);
         free(result);
         free(str_err);
 
-        /* Add the mapping to the skb */
-        for (int i = 0; i < MAX_CPUS; i++) {
-            if (!mappings[i].present) {
+        /* Add the mappings to the skb */
+        for (int i = 0; i <= MAX_COREID; i++) {
+            if (!coreid_mappings[i].present) {
                 continue;
             }
 
             err = skb_add_fact("corename(%d, x86_64, apic(%d)).",
-                               i, mappings[i].arch_id);
+                               i, coreid_mappings[i].arch_id);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "failed to add core mapping to skb");
             }
@@ -333,9 +345,10 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
 
     }
 
-    for (int i = 0; i < MAX_CPUS; i++) {
-        if (mappings[i].present) {
-            debug_printf("coreid %d is arch id %d\n", i, mappings[i].arch_id);
+    for (int i = 0; i <= MAX_COREID; i++) {
+        if (coreid_mappings[i].present) {
+            debug_printf("coreid %d is arch id %d\n", i,
+                         coreid_mappings[i].arch_id);
         }
     }
 

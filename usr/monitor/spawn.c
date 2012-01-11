@@ -247,15 +247,14 @@ errval_t spawn_all_domains(void)
             return err_push(err, SPAWN_ERR_GET_CMDLINE_ARGS);
         }
 
-        // Pass the local arch-specific core ID to the PCI domain
-        if(!strcmp(short_name, "pci")) {
+        // Pass the local arch-specific core ID to the PCI and spawnd domains
+        if(strcmp(short_name, "pci") == 0 || strcmp(short_name, "spawnd") == 0) {
             // Get hardware core ID
             uintptr_t my_arch_id = 0;
             err = invoke_monitor_get_arch_id(&my_arch_id);
             assert(err_is_ok(err));
 
             char *myargs = malloc(strlen(args) + 50);
-            strcpy(myargs, args);
             snprintf(myargs, strlen(args) + 50, "%s apicid=%" PRIuPTR,
                      args, my_arch_id);
             free(args);
