@@ -135,7 +135,7 @@ errval_t blockdevfs_ahci_flush(void *handle)
     err = ahci_issue_command(h->binding, NOP_CONT, 0,
             (uint8_t*)&fis, sizeof(fis), false, NULL, 0);
     if (err_is_fail(err)) {
-        printf("bdfs_ahci: read load_fis failed: %lu\n", err);
+        printf("bdfs_ahci: read load_fis failed: 0x%" PRIxPTR "\n", err);
         h->waiting = false;
         goto cleanup;
     }
@@ -173,7 +173,7 @@ errval_t blockdevfs_ahci_read(void *handle, size_t pos, void *buffer, size_t
     struct ahci_dma_region *bufregion = NULL;
     err = ahci_dma_region_alloc(aligned_bytes, &bufregion);
     if (err_is_fail(err)) {
-        printf("bdfs_ahci: read alloc_region failed: %lu\n", err);
+        printf("bdfs_ahci: read alloc_region failed: 0x%" PRIxPTR  "\n", err);
         return err;
     }
     VFS_BLK_DEBUG("bdfs_ahci_read: bufregion = %p\n", bufregion);
@@ -198,7 +198,7 @@ errval_t blockdevfs_ahci_read(void *handle, size_t pos, void *buffer, size_t
     err = ahci_issue_command(h->binding, NOP_CONT, 0,
             (uint8_t*)&read_fis, sizeof(read_fis), false, bufregion, aligned_bytes);
     if (err_is_fail(err)) {
-        printf("bdfs_ahci: read load_fis failed: %lu\n", err);
+        printf("bdfs_ahci: read load_fis failed: 0x%" PRIxPTR  "\n", err);
         h->waiting = false;
         goto cleanup;
     }
