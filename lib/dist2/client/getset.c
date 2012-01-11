@@ -73,13 +73,13 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
     char* buf = NULL;
     *len = 0;
 
-    FORMAT_QUERY(query, args, buf);
+    FORMAT_QUERY(query, args, buf); // buf
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
     DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.get_names(rpc_client, buf, NOP_TRIGGER, &data,
+    err = rpc_client->vtbl.get_names(rpc_client, buf, NOP_TRIGGER, &data, // data
             &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
@@ -96,28 +96,30 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
         // first get the number of elements
         char* saveptr = NULL;
         size_t i;
-        char* tok = p;
-        for (i = 0; tok != NULL; i++, p = NULL) {
-            tok = strtok(p, ",");
+        char* tok = p; // just make sure it's non-null
+        char* first = p;
+        for (i = 0; tok != NULL; i++, first = NULL) {
+            tok = strtok(first, ",");
         }
+        assert(p != NULL);
         free(p);
         p = NULL;
         *len = --i;
 
         *names = malloc(sizeof(char*) * i);
-        memset(*names, 0, sizeof(char*) * i);
         if (*names == NULL) {
             *len = 0;
             err = LIB_ERR_MALLOC_FAIL;
             goto out;
         }
+        memset(*names, 0, sizeof(char*) * i);
 
         // now get the actual elements
         saveptr = NULL;
-        p = data;
-        tok = p;
-        for (i = 0; tok != NULL; i++, p = NULL) {
-            tok = strtok(p, ", ");
+        tok = data; // just make sure it's non-null
+        first = data;
+        for (i = 0; tok != NULL; i++, first = NULL) {
+            tok = strtok(first, ", ");
             if (tok != NULL) {
                 (*names)[i] = mystrdup(tok);
                 if ((*names)[i] == NULL) {
