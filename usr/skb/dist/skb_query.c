@@ -211,9 +211,12 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
     errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling add_object(Name, Attributes)
-        dident add_object = ec_did("add_object", 2);
+        dident add_object;
         if (mode & SET_SEQUENTIAL) {
             add_object = ec_did("add_seq_object", 2);
+        }
+        else {
+            add_object = ec_did("add_object", 2);
         }
 
         pword add_object_term = ec_term(add_object, sr.name, sr.attribute_list);
