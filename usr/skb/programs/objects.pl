@@ -9,6 +9,7 @@
 :- dynamic exists/2.
 :- dynamic exists_not/2.
 :- dynamic watch/2.
+:- dynamic object_seq/2.
 
 %:- lib(regex)    
 %:- include("../data/objects.txt").
@@ -160,26 +161,26 @@ facet_val(req(T, S, val, V), FacetList) :-
 	call(CalcPred).
 
 
-next_sequence(Name, NextSeq) :-
-    findall(X, get_object(X, [], [], _), L),
-    get_sequences(Name, L, Seqs),
-    sort(Seqs, SortedSeqs),
-    last(SortedSeqs, LastSeq),
-    NextSeq is LastSeq + 1,
-    !.
-next_sequence(Name, NextSeq) :- NextSeq is 0.
+next_sequence(Name, Seq) :-
+    object_seq(Name, Seq),
+    retract(object_seq(Name, _)),
+    NextSeq is Seq + 1,
+    asserta(object_seq(Name, NextSeq)).
+next_sequence(Name, NextSeq) :- 
+    NextSeq is 0,
+    asserta(object_seq(Name, NextSeq)).
 
-get_sequences(_, [], []). 
-get_sequences(Name, [X|L], [SeqNr|Res]) :-
-    atom_string(Name, StrName),
-    atom_string(X, StrX),
-    substring(StrX, StrName, 1),
-    split(StrName, X, [], Splits),
-    length(Splits, SplitLen),
-    SplitLen == 3,
-    last(Splits, Seq),
-    number_string(SeqNr, Seq),
-    get_sequences(Name, L, Res).
+%get_sequences(_, [], []). 
+%get_sequences(Name, [X|L], [SeqNr|Res]) :-
+%    atom_string(Name, StrName),
+%    atom_string(X, StrX),
+%    substring(StrX, StrName, 1),
+%    split(StrName, X, [], Splits),
+%    length(Splits, SplitLen),
+%    SplitLen == 3,
+%    last(Splits, Seq),
+%    number_string(SeqNr, Seq),
+%    get_sequences(Name, L, Res).
 
 add_seq_object(Thing, UList) :-
     next_sequence(Thing, Seq),
