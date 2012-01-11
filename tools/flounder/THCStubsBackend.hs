@@ -356,11 +356,11 @@ init_thc_binding_var side ifn =
 --     }
 
 bh_recv_function :: Side -> String -> MessageDef -> C.Unit
-bh_recv_function side ifn m@(Message _ n args) = 
+bh_recv_function side ifn m@(Message _ n args _) = 
    let pb = C.AddressOf $ C.DerefField (C.Variable intf_bind_var) THC.thc_per_binding_state_name
        perrx_ nm = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ nm) 
-       perrx m@(Message _ n args) = perrx_ $ recvEnum side ifn n
-       perrx m@(RPC n args) = perrx_ $ recvEnum side ifn n
+       perrx m@(Message _ n args _) = perrx_ $ recvEnum side ifn n
+       perrx m@(RPC n args _) = perrx_ $ recvEnum side ifn n
        recvEnum ClientSide = THC.resp_msg_enum_elem_name
        recvEnum ServerSide = THC.call_msg_enum_elem_name
        common = C.Variable intf_bh_idc_bind_var
@@ -395,11 +395,11 @@ bh_recv_function side ifn m@(Message _ n args) =
           recv_function_body;
 
 
-bh_recv_function side ifn m@(RPC n args) = 
+bh_recv_function side ifn m@(RPC n args _) = 
    let pb = C.AddressOf $ C.DerefField (C.Variable intf_bind_var) THC.thc_per_binding_state_name
        perrx_ nm = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ nm) 
-       perrx m@(Message _ n args) = perrx_ $ recvEnum side ifn n
-       perrx m@(RPC n args) = perrx_ $ recvEnum side ifn n
+       perrx m@(Message _ n args _) = perrx_ $ recvEnum side ifn n
+       perrx m@(RPC n args _) = perrx_ $ recvEnum side ifn n
        recvEnum ClientSide = THC.resp_msg_enum_elem_name
        recvEnum ServerSide = THC.call_msg_enum_elem_name
        common = C.Variable intf_bh_idc_bind_var
@@ -470,7 +470,7 @@ bh_recv_function side ifn m@(RPC n args) =
 --     }
 
 send_function :: Cancelable -> Side -> String -> MessageDef -> C.Unit
-send_function cb side ifn m@(Message _ n args) = 
+send_function cb side ifn m@(Message _ n args _) = 
    let fn_name CANCELABLE = send_fn_name_x side ifn n
        fn_name NONCANCELABLE = send_fn_name side ifn n
        sidename = show side
@@ -515,7 +515,7 @@ send_function cb side ifn m@(Message _ n args) =
           send_function_args
           send_function_body;
 
-send_function cb side ifn m@(RPC n args) = 
+send_function cb side ifn m@(RPC n args _) = 
    let fn_name = (case cb of 
                     CANCELABLE -> send_fn_name_x side ifn n
                     NONCANCELABLE -> send_fn_name side ifn n)
@@ -589,43 +589,43 @@ init_function side ifn messages =
                 C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifn (show side)) intf_bind_var,
                 C.Param (C.Ptr $ C.Struct $ BC.intf_bind_type ifn) intf_init_c2s_idc_bind_var,
                 C.Param (C.Ptr $ C.Struct $ BC.intf_bind_type ifn) intf_init_s2c_idc_bind_var ]
-        init_send_fn CANCELABLE m@(Message _ n args) = 
+        init_send_fn CANCELABLE m@(Message _ n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "send_x") n) (C.AddressOf $ C.Variable $ send_fn_name_x side ifn n)
-        init_send_fn CANCELABLE m@(RPC n args) = 
+        init_send_fn CANCELABLE m@(RPC n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "send_x") n) (C.AddressOf $ C.Variable $ send_fn_name_x side ifn n)
-        init_send_fn NONCANCELABLE m@(Message _ n args) = 
+        init_send_fn NONCANCELABLE m@(Message _ n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "send") n) (C.AddressOf $ C.Variable $ send_fn_name side ifn n)
-        init_send_fn NONCANCELABLE m@(RPC n args) = 
+        init_send_fn NONCANCELABLE m@(RPC n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "send") n) (C.AddressOf $ C.Variable $ send_fn_name side ifn n)
         init_recv_ n = C.Ex $ C.Call thc_init_per_recv_state [ C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ n) ]
-        init_recv m@(Message _ n args) = init_recv_ $ recvEnum side ifn n
-        init_recv m@(RPC n args) = init_recv_ $ recvEnum side ifn n
-        init_bh m@(Message _ n args) = 
+        init_recv m@(Message _ n args _) = init_recv_ $ recvEnum side ifn n
+        init_recv m@(RPC n args _) = init_recv_ $ recvEnum side ifn n
+        init_bh m@(Message _ n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable (intf_init_idc_bind_var side BC.RX)) "rx_vtbl") n) (C.AddressOf $ C.Variable $ bh_recv_fn_name side ifn n)
-        init_bh m@(RPC n args) = 
+        init_bh m@(RPC n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable (intf_init_idc_bind_var side BC.RX)) "rx_vtbl") (opname side n)) (C.AddressOf $ C.Variable $ bh_recv_fn_name side ifn n)
-        init_recv_fn NONCANCELABLE m@(Message _ n args) = 
+        init_recv_fn NONCANCELABLE m@(Message _ n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "recv") n) (C.AddressOf $ C.Variable $ recv_fn_name side ifn n)
-        init_recv_fn NONCANCELABLE m@(RPC n args) = 
+        init_recv_fn NONCANCELABLE m@(RPC n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "recv") n) (C.AddressOf $ C.Variable $ recv_fn_name side ifn n)
-        init_recv_fn CANCELABLE m@(Message _ n args) = 
+        init_recv_fn CANCELABLE m@(Message _ n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "recv_x") n) (C.AddressOf $ C.Variable $ recv_fn_name_x side ifn n)
-        init_recv_fn CANCELABLE m@(RPC n args) = 
+        init_recv_fn CANCELABLE m@(RPC n args _) = 
                 C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "recv_x") n) (C.AddressOf $ C.Variable $ recv_fn_name_x side ifn n)
         init_rpc_seq _ ServerSide _ = []
-        init_rpc_seq NONCANCELABLE ClientSide m@(RPC n _) =
+        init_rpc_seq NONCANCELABLE ClientSide m@(RPC n _ _) =
            [ C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "call_seq") n) (C.Variable $ call_seq_fn_name ifn n) ]
-        init_rpc_seq CANCELABLE ClientSide m@(RPC n _) =
+        init_rpc_seq CANCELABLE ClientSide m@(RPC n _ _) =
            [ C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "call_seq_x") n) (C.Variable $ call_seq_fn_name_x ifn n) ]
         init_rpc_fifo _ ServerSide _ = []
-        init_rpc_fifo NONCANCELABLE ClientSide m@(RPC n _) =
+        init_rpc_fifo NONCANCELABLE ClientSide m@(RPC n _ _) =
            [ C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "call_fifo") n) (C.Variable $ call_fifo_fn_name ifn n) ]
-        init_rpc_fifo CANCELABLE ClientSide m@(RPC n _) =
+        init_rpc_fifo CANCELABLE ClientSide m@(RPC n _ _) =
            [ C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "call_fifo_x") n) (C.Variable $ call_fifo_fn_name_x ifn n) ]
         init_rpc_ooo _ ServerSide _ = []
-        init_rpc_ooo NONCANCELABLE ClientSide m@(RPC n (_:_:args)) =
+        init_rpc_ooo NONCANCELABLE ClientSide m@(RPC n (_:_:args) _) =
            [ C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "call") n) (C.Variable $ call_ooo_fn_name ifn n) ]
-        init_rpc_ooo CANCELABLE ClientSide m@(RPC n (_:_:args)) =
+        init_rpc_ooo CANCELABLE ClientSide m@(RPC n (_:_:args) _) =
            [ C.Ex $ C.Assignment (C.FieldOf (C.DerefField (C.Variable intf_bind_var) "call_x") n) (C.Variable $ call_ooo_fn_name_x ifn n) ]
         client_only ServerSide _ = []
         client_only ClientSide x = [x]
@@ -668,12 +668,12 @@ init_function side ifn messages =
 -- Generate a struct to hold the arguments of a message while it's being sent.
 -- 
 msg_argstruct :: String -> MessageDef -> C.Unit
-msg_argstruct ifname m@(Message _ n []) = C.NoOp
-msg_argstruct ifname m@(Message _ n args) =
+msg_argstruct ifname m@(Message _ n [] _) = C.NoOp
+msg_argstruct ifname m@(Message _ n args _) =
     let tn = ptr_msg_argstruct_name ifname n
     in
       C.StructDecl tn (concat [ ptr_msg_argdecl ifname a | a <- args ])
-msg_argstruct ifname m@(RPC n args) = 
+msg_argstruct ifname m@(RPC n args _) = 
     C.UnitList [
       C.StructDecl (ptr_rpc_argstruct_name ifname n "in") 
            (concat [ ptr_rpc_argdecl ClientSide ifname a | a <- args ]),
@@ -692,10 +692,10 @@ intf_struct :: String -> [MessageDef] -> C.Unit
 intf_struct ifn msgs = 
     C.StructDecl (ptr_binding_arg_struct_type ifn)
          ([ C.Param (C.Struct $ ptr_msg_argstruct_name ifn n) n
-            | m@(Message _ n a) <- msgs, 0 /= length a ]
+            | m@(Message _ n a _) <- msgs, 0 /= length a ]
           ++
           [ C.Param (C.Union $ ptr_rpc_union_name ifn n) n 
-            | m@(RPC n a) <- msgs, 0 /= length a ])
+            | m@(RPC n a _) <- msgs, 0 /= length a ])
 
 ptr_msg_argdecl :: String -> MessageArgument -> [C.Param]
 ptr_msg_argdecl ifn (Arg tr (Name n)) = 
@@ -712,7 +712,7 @@ ptr_rpc_argdecl ServerSide ifn (RPCArgIn _ _) = []
 
 -- Generate recv functions
 
-recv_function_rpc_body assign cb side std_receive_fn ifn m@(RPC n args) = 
+recv_function_rpc_body assign cb side std_receive_fn ifn m@(RPC n args _) = 
    let pb = C.AddressOf $ C.DerefField (C.Variable intf_bind_var) THC.thc_per_binding_state_name
        sidename = show side
        recvEnum ClientSide = THC.resp_msg_enum_elem_name
@@ -745,7 +745,7 @@ recv_function_rpc_body assign cb side std_receive_fn ifn m@(RPC n args) =
          ]
 
 recv_function :: Cancelable -> Side -> String -> MessageDef -> C.Unit
-recv_function cb side ifn m@(Message _ n args) = 
+recv_function cb side ifn m@(Message _ n args _) = 
    let fn_name CANCELABLE = recv_fn_name_x side ifn n
        fn_name NONCANCELABLE = recv_fn_name side ifn n
        std_receive_fn_name CANCELABLE = receive_fn_name_x
@@ -782,7 +782,7 @@ recv_function cb side ifn m@(Message _ n args) =
           recv_function_args
           recv_function_body;
 
-recv_function cb side ifn m@(RPC n args) = 
+recv_function cb side ifn m@(RPC n args _) = 
    let fn_name CANCELABLE = recv_fn_name_x side ifn n
        fn_name NONCANCELABLE = recv_fn_name side ifn n
        std_receive_fn_name CANCELABLE = receive_fn_name_x
@@ -840,9 +840,9 @@ gen_receive_any_fn cb side ifn ms =
              C.Ex $ C.Call (receive_any_wait_fn_name) [ pb, C.AddressOf $ C.Variable "_rxi" ]
         end = show side
         pb = C.AddressOf $ C.DerefField (C.Variable intf_bind_var) THC.thc_per_binding_state_name
-        interested m@(Message _ mn _) stmts = 
+        interested m@(Message _ mn _ _) stmts = 
              C.If (C.Binary C.NotEquals (C.FieldOf (C.Variable "ops") mn) (C.NumConstant 0) )  stmts []
-        interested m@(RPC mn _) stmts = 
+        interested m@(RPC mn _ _) stmts = 
              C.If (C.Binary C.NotEquals (C.FieldOf (C.Variable "ops") mn) (C.NumConstant 0) )  stmts []
         recvEnum ClientSide = THC.resp_msg_enum_elem_name
         recvEnum ServerSide = THC.call_msg_enum_elem_name
@@ -851,8 +851,8 @@ gen_receive_any_fn cb side ifn ms =
              C.Param (C.Ptr $ C.Struct $ THC.rx_any_struct_name ifn end) "msg",
              C.Param (C.Struct $ THC.intf_selector_type ifn end) "ops"            
           ]
-        per_rx_state m@(RPC n args) = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ recvEnum side ifn n)
-        per_rx_state m@(Message _ n args) = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ recvEnum side ifn n)
+        per_rx_state m@(RPC n args _) = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ recvEnum side ifn n)
+        per_rx_state m@(Message _ n args _) = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ recvEnum side ifn n)
         p_rxi = C.AddressOf $ C.Variable "_rxi"
         rpc_assignment n (RPCArgIn _ (Name an)) =
            [ C.Ex $ C.Assignment (((C.FieldOf (C.FieldOf (C.FieldOf (C.Variable "_args") n) "in") an))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) "in") an) ]
@@ -871,8 +871,8 @@ gen_receive_any_fn cb side ifn ms =
              C.Ex $ C.Assignment (((C.FieldOf ((C.FieldOf (C.Variable "_args") n)) al))) $ C.AddressOf (C.FieldOf (C.FieldOf (C.DerefField (C.Variable "msg") "args") n) al) ]
         dir_args ServerSide args = [ a | a@(RPCArgIn _ _) <- args ]
         dir_args ClientSide args = [ a | a@(RPCArgOut _ _) <- args ]
-        assignments m@(RPC n args) = concat [ rpc_assignment n a | a <- dir_args side args ]
-        assignments m@(Message _ n args) = concat [ message_assignment n a | a <- args ]
+        assignments m@(RPC n args _) = concat [ rpc_assignment n a | a <- dir_args side args ]
+        assignments m@(Message _ n args _) = concat [ message_assignment n a | a <- args ]
         start_receiving m = (assignments m) ++ [
             C.Ex $ C.Call start_receive_case_fn_name [ pb, per_rx_state m, p_rxi ]
          ]
@@ -897,7 +897,7 @@ gen_receive_any_fn cb side ifn ms =
 
 -- RPC layer
 
-gen_call_seq cb ifn m@(RPC n args) = 
+gen_call_seq cb ifn m@(RPC n args _) = 
    let fn_name CANCELABLE = call_seq_fn_name_x ifn n
        fn_name NONCANCELABLE = call_seq_fn_name ifn n
        call_function_args  = 
@@ -945,7 +945,7 @@ gen_call_seq cb ifn m@(RPC n args) =
           ( call_function_body cb )
 
 
-gen_call_fifo cb ifn m@(RPC n args) = 
+gen_call_fifo cb ifn m@(RPC n args _) = 
    let fn_name CANCELABLE = call_fifo_fn_name_x ifn n
        fn_name NONCANCELABLE = call_fifo_fn_name ifn n
        call_function_args  = 
@@ -954,7 +954,7 @@ gen_call_fifo cb ifn m@(RPC n args) =
            (concat [ call_rpc_argdecl ifn a | a <- args ]) ]
        pb = C.AddressOf $ C.DerefField (C.Variable intf_bind_var) THC.thc_per_binding_state_name
        perrx_ nm = C.AddressOf $ C.SubscriptOf (C.DerefField (C.Variable intf_bind_var) THC.thc_per_recv_state_name) (C.Variable $ nm) 
-       perrx m@(RPC n args) = perrx_ $ recvEnum ClientSide ifn n
+       perrx m@(RPC n args _) = perrx_ $ recvEnum ClientSide ifn n
        recvEnum ClientSide = THC.resp_msg_enum_elem_name
        call_function_body CANCELABLE = [ 
             C.VarDecl C.NoScope C.NonConst (C.TypeName "uint64_t") "_bailed" Nothing,
@@ -1023,7 +1023,7 @@ gen_call_fifo cb ifn m@(RPC n args) =
           ( call_function_body cb )
 
 
-gen_call_ooo cb ifn m@(RPC n (_:_:args)) = 
+gen_call_ooo cb ifn m@(RPC n (_:_:args) _) = 
    let fn_name CANCELABLE = call_ooo_fn_name_x ifn n
        fn_name NONCANCELABLE = call_ooo_fn_name ifn n
        pb = C.AddressOf $ C.DerefField (C.Variable intf_bind_var) THC.thc_per_binding_state_name

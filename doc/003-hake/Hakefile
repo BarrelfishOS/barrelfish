@@ -10,5 +10,5 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Hake.tex" "TN-003-Hake.pdf" False [] ]
+[ buildTechNote "Hake.tex" "TN-003-Hake.pdf" False False [] ]
 

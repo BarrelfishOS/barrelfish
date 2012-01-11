@@ -713,7 +713,7 @@ tx_handler_case ifn mn (OverflowFragment (BufferFragment _ afn afl)) =
 
 
 tx_fn :: String -> [TypeDef] -> MessageDef -> MsgSpec -> C.Unit
-tx_fn ifn typedefs msg@(Message _ n args) (MsgSpec _ _ caps) =
+tx_fn ifn typedefs msg@(Message _ n args _) (MsgSpec _ _ caps) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name ifn n) params body
     where
         params = [binding_param ifn, cont_param] ++ (
@@ -878,7 +878,7 @@ rx_handler ifn typedefs msgdefs msgs =
         msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
 
-        msgnum_case msgdef@(Message _ _ msgargs) (MsgSpec mn frags caps) = [
+        msgnum_case msgdef@(Message _ _ msgargs _) (MsgSpec mn frags caps) = [
             C.Switch rx_msgfrag_field
                 [C.Case (C.NumConstant $ toInteger i) $
                  (if i == 0 then
@@ -904,14 +904,14 @@ rx_handler ifn typedefs msgdefs msgs =
                       C.Goto "out"]
 
         msgfrag_case :: MessageDef -> MsgFragment -> [CapFieldTransfer] -> Bool -> [C.Stmt]
-        msgfrag_case msg@(Message _ mn _) (MsgFragment wl) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (MsgFragment wl) caps isLast = [
             C.StmtList $ concat [store_arg_frags arch ifn mn msgwords word 0 afl
                                  | (afl, word) <- zip wl [1..]],
             C.SBlank,
             C.StmtList $ msgfrag_case_prolog msg caps isLast,
             C.Break]
 
-        msgfrag_case msg@(Message _ mn _) (OverflowFragment ofrag) caps isLast = [
+        msgfrag_case msg@(Message _ mn _ _) (OverflowFragment ofrag) caps isLast = [
             C.Ex $ C.Assignment errvar (C.Call func args),
             C.If (C.Call "err_is_ok" [errvar])
                 (msgfrag_case_prolog msg caps isLast)
@@ -945,7 +945,7 @@ rx_handler ifn typedefs msgdefs msgs =
 
         -- last fragment: call handler and zero message number
         -- if we're expecting any caps, only do so if we've received them all
-        msgfrag_case_prolog (Message _ mn msgargs) caps True
+        msgfrag_case_prolog (Message _ mn msgargs _) caps True
             | caps == [] = finished_recv drvname ifn typedefs mn msgargs
             | otherwise = [
                 rx_fragment_increment,
@@ -1002,7 +1002,7 @@ cap_rx_handler ifn typedefs msgdefs msgspecs
                  | (MsgSpec mn frags caps, msgdef) <- zip msgspecs msgdefs, caps /= []]
 
 cap_rx_handler_case :: String -> [TypeDef] -> String -> MessageDef -> Int -> [CapFieldTransfer] -> [C.Stmt]
-cap_rx_handler_case ifn typedefs mn (Message _ _ msgargs) nfrags caps = [
+cap_rx_handler_case ifn typedefs mn (Message _ _ msgargs _) nfrags caps = [
     C.SComment "Switch on current incoming cap",
     C.Switch (C.PostInc $ capst `C.FieldOf` "rx_capnum") cases
             [C.Ex $ C.Call "assert"

@@ -61,14 +61,14 @@ msg_enum_elem_name ifn mn = idscope ifn mn "msgnum"
 
 -- Name of the type of a message function
 msg_sig_type :: String -> MessageDef -> Direction -> String
-msg_sig_type ifn m@(RPC _ _) _ = idscope ifn (msg_name m) "rpc_method_fn"
+msg_sig_type ifn m@(RPC _ _ _) _ = idscope ifn (msg_name m) "rpc_method_fn"
 msg_sig_type ifn m TX = idscope ifn (msg_name m) "tx_method_fn"
 msg_sig_type ifn m RX =  idscope ifn (msg_name m) "rx_method_fn"
 
 -- Name of a given message definition
 msg_name :: MessageDef -> String
-msg_name (Message _ n _) = n
-msg_name (RPC n _) = n
+msg_name (Message _ n _ _) = n
+msg_name (RPC n _ _) = n
 
 -- Name of the static inline wrapper for sending messages
 tx_wrapper_name :: String -> String -> String
@@ -176,8 +176,8 @@ rpcs_to_msgs :: [MessageDef] -> [MessageDef]
 rpcs_to_msgs ml = concat $ map rpc_to_msgs ml
 
 rpc_to_msgs :: MessageDef -> [MessageDef]
-rpc_to_msgs (RPC n rpcargs) = [Message MCall (rpc_call_name n) inargs,
-                               Message MResponse (rpc_resp_name n) outargs]
+rpc_to_msgs (RPC n rpcargs bckargs) = [Message MCall (rpc_call_name n) inargs bckargs,
+                                       Message MResponse (rpc_resp_name n) outargs bckargs]
     where
         (inargs, outargs) = partition_rpc_args rpcargs
 rpc_to_msgs m = [m]

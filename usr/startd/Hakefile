@@ -13,7 +13,7 @@
 [ build application { target = "startd",
   		      cFiles = [ "main.c", "spawn.c" ],
 		      addLibraries = [ "spawndomain", "elf", "trace",
-		      		       "dist", "vfs", "nfs", "lwip",
+		      		       "dist", "vfs", "nfs", "ahci", "lwip",
                                        "contmng", "procon", "hashtable" ]
                     }
 ]

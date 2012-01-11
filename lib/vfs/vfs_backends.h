@@ -20,6 +20,8 @@ struct vfs_handle {
 
 errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops);
 errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops);
+errval_t vfs_blockdevfs_mount(const char *uri, void **retst, struct vfs_ops **retops);
+errval_t vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops);
 
 void vfs_fopen_init(void);
 

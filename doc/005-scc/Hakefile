@@ -10,7 +10,7 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "SCC.tex" "TN-005-SCC.pdf" True
+[ buildTechNote "SCC.tex" "TN-005-SCC.pdf" True False
                     [ "figures/exp1", "figures/exp2",
                       "plots/mpbbench/mpbbench_oneway", 
                       "plots/rcce_bench/rcce_bt",

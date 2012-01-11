@@ -729,7 +729,7 @@ tx_frags arch ifn mn frags  =
 
 
 tx_fn :: String -> [TypeDef] ->  MessageDef -> C.Unit
-tx_fn ifn typedefs msg@(Message _ n args) =
+tx_fn ifn typedefs msg@(Message _ n args _) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name ifn n) params body
     where
         params = [binding_param ifn, cont_param] ++ (
@@ -991,7 +991,7 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
           = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
 
         -- last fragment: call handler and zero message number
-        msgfrag_case_prolog ifn typedefs (Message _ mn msgargs) True
+        msgfrag_case_prolog ifn typedefs (Message _ mn msgargs _) True
           = C.StmtList $ finished_recv drvname ifn typedefs mn msgargs
 	  
 -- receive caps
@@ -1020,7 +1020,7 @@ caps_rx_handler arch ifn typedefs msgdefs msgs =
 
 -- receive the capabilities of one message
 cap_rx_handler_case :: Arch -> String -> [TypeDef] -> String -> MessageDef -> Int -> [CapFieldTransfer] -> [C.Stmt]
-cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs) nfrags caps = 
+cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps = 
   [
     C.SComment "Switch on current incoming cap",
     C.Switch (C.PostInc $ capst `C.FieldOf` "rx_capnum") cases
