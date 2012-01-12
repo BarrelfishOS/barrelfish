@@ -55,7 +55,7 @@ mdb_check_subtree_invariants(struct cte *cte)
         MAX(caps_address(cte)+caps_size(cte),
             MAX((node->left ? N(node->left)->end : 0),
                 (node->right ? N(node->right)->end : 0))))) {
-        return MDBTREE_INVARIANT_END_IS_MAX;
+        return MDB_INVARIANT_END_IS_MAX;
     }
 
     err = mdb_check_subtree_invariants(node->left);
@@ -246,7 +246,7 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
         return SYS_ERR_OK;
     }
 
-    int compare = caps_compare(C(new_node), C(current_));
+    int compare = caps_compare(C(new_node), C(current_), true);
     if (compare < 0) {
         // new_node < current
         return mdb_sub_insert(new_node, &N(current_)->left);
@@ -333,7 +333,7 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
     assert(!*ret_target);
     assert(dir != 0);
     assert(mdb_check_subtree_invariants(*current) == 0);
-    assert(caps_compare(C(target), C(*current)) != 0);
+    assert(caps_compare(C(target), C(*current)) != 0, true);
     assert(mdb_is_child(target, target_parent));
     assert(mdb_is_child(*current, parent));
 
@@ -417,7 +417,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
         return CAPS_ERR_MDB_ENTRY_NOTFOUND;
     }
 
-    int compare = caps_compare(C(target), C(current_));
+    int compare = caps_compare(C(target), C(current_), true);
     if (compare > 0) {
         err = mdb_subtree_remove(target, &N(current_)->right, current_);
         if (err != SYS_ERR_OK) {
@@ -477,7 +477,7 @@ mdb_sub_find_last_le(struct capability *cap, struct cte* current)
     if (!current) {
         return NULL
     }
-    int compare = caps_compare(cap, C(current));
+    int compare = caps_compare(cap, C(current), false);
     if (compare < 0) {
         // current is gt key, look for smaller node
         return mdb_sub_find_last_le(cap, N(current)->left);
@@ -509,7 +509,7 @@ mdb_sub_find_first_gt(struct capability *cap, struct cte *current)
     if (!current) {
         return NULL;
     }
-    int compare = caps_compare(cap, C(current));
+    int compare = caps_compare(cap, C(current), false);
     if (compare < 0) {
         // current is gt key, attempt to find smaller node
         struct cte *res = mdb_sub_find_first_gt(cap, N(current)->left);
