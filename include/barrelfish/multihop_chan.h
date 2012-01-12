@@ -20,10 +20,10 @@
 #include <barrelfish/monitor_client.h>
 
 // turn on / off debugging of the multi-hop interconnect driver
-#define MULTIHOP_DEBUG_ENABLED false
+#define MULTIHOP_DEBUG_ENABLED 0
 
 // set this to true in order to use flow control in the multi-hop channel
-#define MULTIHOP_FLOW_CONTROL true
+#define MULTIHOP_FLOW_CONTROL 1
 
 // the window size (only effective if flow control is turned on)
 #define MULTIHOP_WINDOW_SIZE 100
