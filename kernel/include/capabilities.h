@@ -21,9 +21,10 @@
  * \brief A mapping database node.
  */
 struct mdbnode {
-    struct cte          *prev, *next;
-    bool                revocable;
-    bool                remote_relations;
+	struct cte *left, *right;
+	genpaddr_t end;
+	uint8_t end_root;
+	uint8_t level; 
 };
 
 /**

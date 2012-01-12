@@ -256,7 +256,7 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
         return mdb_sub_insert(new_node, &N(current_)->right);
     }
     else {
-        return MDB_ERR_DUPLICATE;
+        return CAPS_ERR_MDB_DUPLICATE_ENTRY;
     }
 
     mdb_update_end(current_);
@@ -414,15 +414,21 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
     struct cte *current_ = *current;
     assert(mdb_check_subtree_invariants(current_));
     if (!current_) {
-        return MDB_ERR_NOTFOUND;
+        return CAPS_ERR_MDB_ENTRY_NOTFOUND;
     }
 
     int compare = caps_compare(C(target), C(current_));
     if (compare > 0) {
-        return mdb_subtree_remove(target, &N(current_)->right, current_);
+        err = mdb_subtree_remove(target, &N(current_)->right, current_);
+        if (err != SYS_ERR_OK) {
+            return err;
+        }
     }
     else if (compare < 0) {
-        return mdb_subtree_remove(target, &N(current_)->right, current_);
+        err = mdb_subtree_remove(target, &N(current_)->right, current_);
+        if (err != SYS_ERR_OK) {
+            return err;
+        }
     }
     else {
         assert(current_ == target);
