@@ -174,8 +174,10 @@ interface monitor "The monitor to client Interface" {
           /* Multi-hop interconnect driver */
           
           // Send routing table
-          call multihop_routing_table_set_request(int num_cores, coreid from, coreid to[len]);
-          response multihop_routing_table_response();
+          // First message, which describes the set of valid core IDs
+          call multihop_routing_table_new(coreid max_coreid, coreid nentries);
+          // Subsequent messages (repeated) which each contain a portion of the routing table from a single core
+          call multihop_routing_table_set(coreid from, coreid to[len]);
 
           // Connection set-up between monitor and client
           call multihop_bind_client_request(iref iref, vci_t sender_vci);

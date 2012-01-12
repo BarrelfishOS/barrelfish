@@ -130,11 +130,17 @@ interface intermon "The Interface between monitors" {
 	// relative timestamps to.
 	message rsrc_phase(rsrcid id, uint32 phase, uint64 timestamp);
 	
-	/* Multi-hop interconnect driver */
+    /* Multi-hop interconnect driver */
 	
-	// request routing table from monitor 0
-	call multihop_routing_table_request(coreid_t my_coreid);
-	response multihop_routing_table_response(int num_cores, coreid to[len]);
+    // request portion of routing table from another monitor
+    call multihop_routing_table_request(coreid source_coreid);
+    response multihop_routing_table_response(errval err,
+                                             coreid source_coreid,
+                                             coreid max_coreid,
+                                             coreid to[len]);
+
+    // grow the routing table to a set of desination cores, via a given forwarder
+    message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
 
     // set up a new multihop virtual circuit
     message bind_multihop_intermon_request(iref iref, vci_t sender_vci, coreid core_id);

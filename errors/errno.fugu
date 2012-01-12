@@ -441,6 +441,7 @@ errors monitor MON_ERR_ {
     failure UNICAST_INIT        "Failure in initing unicast path",
     failure MULTICAST_INIT      "Failure in initing multicast path",
     failure SPAWN_XCORE_MONITOR "Failure in spawn_xcore_monitor()",
+    failure INCOMPLETE_ROUTE    "(Portion of) routing table not present",
 
     // Resource controller
     failure RSRC_ALLOC		"Out of resource domains",
