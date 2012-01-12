@@ -91,6 +91,7 @@
 // allow 260, so be on the safe side
 #define LFN_CHAR_COUNT 260
 #define LFN_MAX_LENGTH 255
+#define DOSFN_MAX_LEN_UTF8 40
 
 #define ASCII_MAX 127
 
@@ -598,7 +599,9 @@ find_path(struct fat_mount *mount, const char *path,
                 buf[len] = 0;
             }
             else {
-                dos2unixfn((const unsigned char*)dosfn, (unsigned char*)buf, 0);
+                if (dos2unixfn((const unsigned char*)dosfn, (unsigned char*)buf, LFN_CHAR_COUNT)) {
+                    // TODO: handle error
+                }
             }
 
             FAT_DEBUG_F("comparing part to %s", buf);
@@ -970,8 +973,8 @@ dir_read_next(void *st, vfs_handle_t dhandle, char **name, struct vfs_fileinfo *
         *name = buf;
     }
     else {
-        char *buf = malloc(13);
-        dos2unixfn((const unsigned char*)dosfn, (unsigned char*)buf, 0);
+        char *buf = malloc(DOSFN_MAX_LEN_UTF8);
+        dos2unixfn((const unsigned char*)dosfn, (unsigned char*)buf, DOSFN_MAX_LEN_UTF8);
         *name = buf;
     }
 
