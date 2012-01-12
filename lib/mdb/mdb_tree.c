@@ -758,11 +758,13 @@ errval_t
 mdb_find_range(genpaddr_t address, size_t size, int max_result,
                /*out*/ struct cte **ret_node, /*out*/ int *result)
 {
-    if (max_result < MDB_RANGE_NOT_FOUND || max_result > MDB_RANGE_FOUND_PARTIAL) {
-        return SYS_ERR_INVALID_ARGS;
+    if (max_result < MDB_RANGE_NOT_FOUND ||
+        max_result > MDB_RANGE_FOUND_PARTIAL)
+    {
+        return CAPS_ERR_INVALID_ARGS;
     }
     if (max_result > MDB_RANGE_NOT_FOUND && !ret_node) {
-        return SYS_ERR_INVALID_ARGS;
+        return CAPS_ERR_INVALID_ARGS;
     }
 
     struct cte *alt_ret_node;
