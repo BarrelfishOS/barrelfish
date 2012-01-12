@@ -117,14 +117,14 @@ static void multihop_routing_table_new(struct monitor_binding *b,
 
 // receive a part of the routing table from RTS (routing table set-up dispatcher)
 static void multihop_routing_table_set(struct monitor_binding *b,
-                                       coreid_t from, coreid_t *to, size_t bytelen)
+                                       coreid_t from, coreid_t *to, size_t len)
 {
     // sanity-check input (FIXME: report errors!)
     // FIXME: we don't yet support changes to the existing routing table
     assert(routing_table != NULL);
     assert(from <= routing_table_max_coreid);
     assert(routing_table[from] == NULL);
-    assert(bytelen == (routing_table_max_coreid + 1) * sizeof(coreid_t));
+    assert(len == routing_table_max_coreid + 1);
     routing_table[from] = to;
 
     if (--routing_table_nentries == 0) {
@@ -168,8 +168,7 @@ static void multihop_handle_routing_table_request(struct intermon_binding *b,
         // if we have a routing table, send routing table to other core
         err = b->tx_vtbl.multihop_routing_table_response(b, NOP_CONT,
                 SYS_ERR_OK, core_id, routing_table_max_coreid,
-                routing_table[core_id],
-                sizeof(coreid_t) * (routing_table_max_coreid + 1));
+                routing_table[core_id], routing_table_max_coreid + 1);
     } else {
         // if we don't have a routing table, send an error reply
         err = b->tx_vtbl.multihop_routing_table_response(b, NOP_CONT,
@@ -185,7 +184,7 @@ static void multihop_handle_routing_table_response(struct intermon_binding *b,
                                                    errval_t err,
                                                    coreid_t source_coreid,
                                                    coreid_t max_coreid,
-                                                   coreid_t *to, size_t bytelen)
+                                                   coreid_t *to, size_t len)
 {
     assert(routing_table == NULL);
     assert(source_coreid == my_core_id);
@@ -196,7 +195,7 @@ static void multihop_handle_routing_table_response(struct intermon_binding *b,
         assert(routing_table != NULL);
         routing_table_max_coreid = max_coreid;
 
-        assert(bytelen == (max_coreid + 1) * sizeof(coreid_t));
+        assert(len == max_coreid + 1);
         assert(source_coreid <= max_coreid);
         routing_table[source_coreid] = to;
     } else {
@@ -213,10 +212,9 @@ static void multihop_handle_routing_table_response(struct intermon_binding *b,
 // grow the routing table to a set of desination cores, via a given forwarder
 static void multihop_routing_table_grow(struct intermon_binding *b,
                                         coreid_t forwarder,
-                                        coreid_t *destinations, size_t bytelen)
+                                        coreid_t *destinations, size_t ndests)
 {
-    assert(bytelen > 0 && bytelen % sizeof(coreid_t) == 0);
-    size_t ndests = bytelen / sizeof(coreid_t);
+    assert(ndests > 0);
 
     // check the max core ID in the destinations
     coreid_t max_coreid = my_core_id;

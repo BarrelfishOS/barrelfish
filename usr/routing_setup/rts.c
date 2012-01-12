@@ -202,7 +202,7 @@ static void send_table_to_monitor(void *arg)
         // send a part of the routing table
         err = monitor_multihop_routing_table_set__tx(b, cont, current_core,
                                                      routing_table[current_core],
-                                                     sizeof(coreid_t) * num_cores);
+                                                     num_cores);
         if (err_is_ok(err)) {
             if (++current_core == num_cores) {
                 phase = DONE;
