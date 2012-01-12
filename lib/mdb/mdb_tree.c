@@ -26,12 +26,11 @@ struct cte *root = NULL;
 static int
 mdb_check_subtree_invariants(struct cte *cte)
 {
-    int err;
-
     if (!cte) {
         return MDB_INVARIANT_OK;
     }
 
+    int err;
     struct mdbnode *node = N(cte);
 
     if (node->level > 0 && !(node->left && node->right)) {
@@ -44,17 +43,45 @@ mdb_check_subtree_invariants(struct cte *cte)
         return MDB_INVARIANT_RIGHT_LEVEL_LEQ;
     }
     if (node->right && N(node->right)->right &&
-        !(N(N(node->right)->right)->level < node->level)) {
+        !(N(N(node->right)->right)->level < node->level))
+    {
         return MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS;
     }
     if (node->right && N(node->right)->left &&
-        !(N(N(node->right)->left)->level < node->level)) {
+        !(N(N(node->right)->left)->level < node->level))
+    {
         return MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS;
     }
-    if (caps_has_address(cte) && !(node->end ==
-        MAX(caps_address(cte)+caps_size(cte),
-            MAX((node->left ? N(node->left)->end : 0),
-                (node->right ? N(node->right)->end : 0))))) {
+
+    // build expected end root for current node
+    mdb_root_t expected_end_root = caps_root(cte);
+    if (node->left) {
+        expected_end_root = MAX(expected_end_root, N(node->left)->end_root);
+    }
+    if (node->right) {
+        expected_end_root = MAX(expected_end_root, N(node->right)->end_root);
+    }
+    if (node->end_root != expected_end_root) {
+        return MDB_INVARIANT_END_IS_MAX;
+    }
+
+    // build expected end for current node. this is complex because the root
+    // acts as an address prefix, so only ends where the corresponding root is
+    // the maximum may be considered.
+    genpaddr_t expected_end = 0;
+    if (caps_root(cte) == node->end_root) {
+        // only consider current cte's end if its root is node->end_root
+        expected_end = caps_address(cte)+caps_size(cte);
+    }
+    if (node->left && N(node->left)->end_root == node->end_root) {
+        // only consider left child end if its end_root is node->end_root
+        expected_end = MAX(expected_end, N(node->left)->end);
+    }
+    if (node->right && N(node->right)->end_root == node->end_root) {
+        // only consider right child end if its end_root is node->end_root
+        expected_end = MAX(expected_end, N(node->right)->end);
+    }
+    if (node->end != expected_en) {
         return MDB_INVARIANT_END_IS_MAX;
     }
 
@@ -98,17 +125,34 @@ mdb_update_end(struct cte *cte)
         return;
     }
     struct mdbnode *node = N(cte);
-    if (!caps_has_address(cte)) {
-        node->end = 0;
-        return;
-    }
-    node->end = caps_address(cte) + caps_size(cte);
+
+    // build end root for current node
+    mdb_root_t end_root = caps_root(cte);
     if (node->left) {
-        node->end = MAX(node->end, N(node->left)->end);
+        end_root = MAX(end_root, N(node->left)->end_root);
     }
     if (node->right) {
-        node->end = MAX(node->end, N(node->right)->end);
+        end_root = MAX(end_root, N(node->right)->end_root);
     }
+    cte->end_root = end_root;
+
+    // build end address for current node. this is complex because the root
+    // acts as an address prefix, so only ends where the corresponding root is
+    // the maximum may be considered.
+    genpaddr_t end = 0;
+    if (caps_root(cte) == node->end_root) {
+        // only consider current cte's end if its root is node->end_root
+        end = caps_address(cte)+caps_size(cte);
+    }
+    if (node->left && N(node->left)->end_root == node->end_root) {
+        // only consider left child end if its end_root is node->end_root
+        end = MAX(end, N(node->left)->end);
+    }
+    if (node->right && N(node->right)->end_root == node->end_root) {
+        // only consider right child end if its end_root is node->end_root
+        end = MAX(end, N(node->right)->end);
+    }
+    node->end = end;
 }
 
 static cte*
@@ -461,7 +505,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
             // move to left child then go right (dir=1)
             struct cte *new_current = NULL;
             struct cte *new_left = N(current_)->left;
-            mdb_exchange_remove(target, parent, &new_left, current_, -1,
+            mdb_exchange_remove(target, parent, &new_left, current_, 1,
                                 &new_current);
             assert(new_current);
             current_ = new_current;
@@ -547,6 +591,7 @@ mdb_choose_surrounding(genpaddr_t address, size_t size,
 {
     assert(first);
     assert(second);
+    assert(caps_root(first) == caps_root(second));
 #ifndef NDEBUG
     genpaddr_t beg = address, end = address + size;
     genpaddr_t fst_beg = cap_address(first);
@@ -571,6 +616,7 @@ mdb_choose_inner(genpaddr_t address, size_t size, struct capability* first,
 {
     assert(first);
     assert(second);
+    assert(caps_root(first) == caps_root(second));
 #ifndef NDEBUG
     genpaddr_t beg = address, end = address + size;
     genpaddr_t fst_beg = cap_address(first);
@@ -595,6 +641,7 @@ mdb_choose_partial(genpaddr_t address, size_t size, struct capability* first,
 {
     assert(first);
     assert(second);
+    assert(caps_root(first) == caps_root(second));
 #ifndef NDEBUG
     genpaddr_t beg = address, end = address + size;
     genpaddr_t fst_beg = cap_address(first);
@@ -630,19 +677,19 @@ mdb_choose_partial(genpaddr_t address, size_t size, struct capability* first,
 }
 
 static void
-mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
-                         struct cte *sub, /*inout*/ int *ret,
-                         /*inout*/ struct cte **result)
+mdb_sub_find_range_merge(mdb_root_t root, genpaddr_t address, size_t size,
+                         int max_precision, struct cte *sub,
+                         /*inout*/ int *ret, /*inout*/ struct cte **result)
 {
     assert(sub);
     assert(ret);
     assert(result);
+    assert(max_precision >= 0);
     assert(*ret <= max_precision);
-    assert((!*result) == (*ret == MDB_RANGE_NOT_FOUND));
 
     struct cte *sub_result = NULL;
-    int sub_ret = mdb_sub_find_range(address, size, max_precision,
-                                     sub, &sub_result);
+    int sub_ret = mdb_sub_find_range(root, address, size, max_precision, sub,
+                                     &sub_result);
     if (sub_ret > max_precision) {
         *ret = NULL;
         return sub_ret;
@@ -673,8 +720,9 @@ mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
 }
 
 static int
-mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
-                   struct cte *current, /*out*/ struct cte **ret_node)
+mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
+                   int max_precision, struct cte *current,
+                   /*out*/ struct cte **ret_node)
 {
     assert(max_precision >= 0);
     assert(ret_node)
@@ -684,53 +732,61 @@ mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
         return MDB_RANGE_NOT_FOUND;
     }
 
-    if (N(current)->end <= address) {
+    if (N(current)->end_root < root) {
+        *ret_node = NULL;
+        return MDB_RANGE_NOT_FOUND;
+    }
+    if (N(current)->end_root == root && N(current)->end <= address) {
         *ret_node = NULL;
         return MDB_RANGE_NOT_FOUND;
     }
 
-    genpaddr_t current_address = cap_address(C(current));
-    genpaddr_t current_end = current_address + cap_size(C(current));
-    genpaddr_t search_end = address + size;
+    genpaddr_t current_root = cap_root(C(current));
 
     struct cte *result = NULL;
     int ret = MDB_RANGE_NOT_FOUND;
 
-    if (ret < MDB_RANGE_FOUND_PARTIAL &&
-        current_address > address &&
-        current_address < search_end &&
-        current_end > search_end)
-    {
-        result = current;
-        ret = MDB_RANGE_FOUND_PARTIAL;
-    }
-    if (ret < MDB_RANGE_FOUND_PARTIAL &&
-        current_end > address &&
-        current_end < search_end &&
-        current_address < address)
-    {
-        result = current;
-        ret = MDB_RANGE_FOUND_PARTIAL;
-    }
-    if (ret < MDB_RANGE_FOUND_INNER &&
-        mdb_is_inside(address, search_end, current_address, current_end))
-    {
-        result = current;
-        ret = MDB_RANGE_FOUND_INNER;
-    }
-    if (ret < MDB_RANGE_FOUND_SURROUNDING &&
-        (current_address <= address && current_end >= search_end))
-    {
-        result = current;
-        ret = MDB_RANGE_FOUND_SURROUNDING;
-    }
-    if (ret > max_precision) {
-        *ret_node = NULL;
-        return ret;
+    if (current_root == root) {
+        genpaddr_t current_address = cap_address(C(current));
+        genpaddr_t current_end = current_address + cap_size(C(current));
+        genpaddr_t search_end = address + size;
+
+        if (ret < MDB_RANGE_FOUND_PARTIAL &&
+            current_address > address &&
+            current_address < search_end &&
+            current_end > search_end)
+        {
+            result = current;
+            ret = MDB_RANGE_FOUND_PARTIAL;
+        }
+        if (ret < MDB_RANGE_FOUND_PARTIAL &&
+            current_end > address &&
+            current_end < search_end &&
+            current_address < address)
+        {
+            result = current;
+            ret = MDB_RANGE_FOUND_PARTIAL;
+        }
+        if (ret < MDB_RANGE_FOUND_INNER &&
+            mdb_is_inside(address, search_end, current_address, current_end))
+        {
+            result = current;
+            ret = MDB_RANGE_FOUND_INNER;
+        }
+        if (ret < MDB_RANGE_FOUND_SURROUNDING &&
+            (current_address <= address && current_end >= search_end))
+        {
+            result = current;
+            ret = MDB_RANGE_FOUND_SURROUNDING;
+        }
+        if (ret > max_precision) {
+            *ret_node = NULL;
+            return ret;
+        }
     }
 
     if (N(current)->left) {
-        mdb_sub_find_range_merge(address, size, max_precision,
+        mdb_sub_find_range_merge(root, address, size, max_precision,
                                  N(current)->left, /*inout*/&ret,
                                  /*inout*/&result);
         if (ret > max_precision) {
@@ -739,8 +795,8 @@ mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
         }
     }
 
-    if (N(current)->right && search_end > current_address) {
-        mdb_sub_find_range_merge(address, size, max_precision,
+    if (N(current)->right && root >= current_root && search_end > current_address) {
+        mdb_sub_find_range_merge(root, address, size, max_precision,
                                  N(current)->right, /*inout*/&ret,
                                  /*inout*/&result);
         if (ret > max_precision) {
@@ -755,8 +811,9 @@ mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
 }
 
 errval_t
-mdb_find_range(genpaddr_t address, size_t size, int max_result,
-               /*out*/ struct cte **ret_node, /*out*/ int *result)
+mdb_find_range(mdb_root_t root, genpaddr_t address, size_t size,
+               int max_result, /*out*/ struct cte **ret_node,
+               /*out*/ int *result)
 {
     if (max_result < MDB_RANGE_NOT_FOUND ||
         max_result > MDB_RANGE_FOUND_PARTIAL)
@@ -772,6 +829,6 @@ mdb_find_range(genpaddr_t address, size_t size, int max_result,
         ret_node = &alt_ret_node;
     }
 
-    *result = mdb_sub_find_range(address, size, max_result, root, ret_node);
+    *result = mdb_sub_find_range(root, address, size, max_result, root, ret_node);
     return SYS_ERR_OK;
 }
