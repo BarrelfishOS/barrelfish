@@ -640,13 +640,13 @@ mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
         case MDB_RANGE_NOT_FOUND:
             break;
         case MDB_RANGE_FOUND_SURROUNDING:
-            *result = mdb_choose_surrounding(address, size, *result, sub_result);
+            *result = mdb_choose_surrounding(address, size, C(*result), C(sub_result));
             break;
         case MDB_RANGE_FOUND_INNER:
-            *result = mdb_choose_inner(address, size, *result, sub_result);
+            *result = mdb_choose_inner(address, size, C(*result), C(sub_result));
             break;
         case MDB_RANGE_FOUND_PARTIAL:
-            *result = mdb_choose_partial(address, size, *result, sub_result);
+            *result = mdb_choose_partial(address, size, C(*result), C(sub_result));
             break;
         default:
             USER_PANIC_ERR("Unhandled enum value for mdb_find_range result");
