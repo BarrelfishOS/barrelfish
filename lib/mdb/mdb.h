@@ -24,5 +24,7 @@ enum {
 int mdb_check_invariants();
 errval_t mdb_insert(struct cte *new_node);
 errval_t mdb_remove(struct cte *node);
+struct cte *mdb_find_last_le(struct capability *cap);
+struct cte *mdb_find_first_gt(struct capability *cap);
 errval_t mdb_find_range(mdb_root_t root, genpaddr_t address, size_t size,
                         int max_result, struct cte **ret_node, int *result);
