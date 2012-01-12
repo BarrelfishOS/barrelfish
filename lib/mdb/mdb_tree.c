@@ -613,30 +613,6 @@ mdb_choose_partial(genpaddr_t address, size_t size, struct capability* first,
     }
 }
 
-static struct cte*
-mdb_choose_result(genpaddr_t address, size_t size, int ret, struct cte* first,
-                  struct cte* second)
-{
-    struct cte* result = NULL;
-    switch (ret) {
-    case MDB_RANGE_NOT_FOUND:
-        break;
-    case MDB_RANGE_FOUND_SURROUNDING:
-        result = mdb_choose_surrounding(address, size, first, second);
-        break;
-    case MDB_RANGE_FOUND_INNER:
-        result = mdb_choose_inner(address, size, first, second);
-        break;
-    case MDB_RANGE_FOUND_PARTIAL:
-        result = mdb_choose_partial(address, size, first, second);
-        break;
-    default:
-        USER_PANIC_ERR("Unhandled enum value for mdb_find_range result");
-        break;
-    }
-    return result;
-}
-
 static void
 mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
                          struct cte *sub, int *ret, struct cte **result)
