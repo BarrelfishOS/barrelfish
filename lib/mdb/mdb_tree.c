@@ -615,7 +615,8 @@ mdb_choose_partial(genpaddr_t address, size_t size, struct capability* first,
 
 static void
 mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
-                         struct cte *sub, int *ret, struct cte **result)
+                         struct cte *sub, /*inout*/ int *ret,
+                         /*inout*/ struct cte **result)
 {
     assert(sub);
     assert(ret);
@@ -657,9 +658,10 @@ mdb_sub_find_range_merge(genpaddr_t address, size_t size, int max_precision,
 
 static int
 mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
-                   struct cte *current, struct cte **ret_node)
+                   struct cte *current, /*out*/ struct cte **ret_node)
 {
     assert(max_precision >= 0);
+    assert(ret_node)
 
     if (!current) {
         *ret_node = NULL;
@@ -713,7 +715,8 @@ mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
 
     if (N(current)->left) {
         mdb_sub_find_range_merge(address, size, max_precision,
-                                 N(current)->left, &ret, &result);
+                                 N(current)->left, /*inout*/&ret,
+                                 /*inout*/&result);
         if (ret > max_precision) {
             *ret_node = NULL;
             return ret;
@@ -722,7 +725,8 @@ mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
 
     if (N(current)->right && search_end > current_address) {
         mdb_sub_find_range_merge(address, size, max_precision,
-                                 N(current)->right, &ret, &result);
+                                 N(current)->right, /*inout*/&ret,
+                                 /*inout*/&result);
         if (ret > max_precision) {
             *ret_node = NULL;
             return ret;
@@ -736,7 +740,7 @@ mdb_sub_find_range(genpaddr_t address, size_t size, int max_precision,
 
 errval_t
 mdb_find_range(genpaddr_t address, size_t size, int max_result,
-               struct cte **ret_node, int *result)
+               /*out*/ struct cte **ret_node, /*out*/ int *result)
 {
     if (max_result < MDB_RANGE_NOT_FOUND || max_result > MDB_RANGE_FOUND_PARTIAL) {
         return SYS_ERR_INVALID_ARGS;
