@@ -58,14 +58,24 @@ mdb_check_subtree_invariants(struct cte *cte)
         return MDB_INVARIANT_END_IS_MAX;
     }
 
-    err = mdb_check_subtree_invariants(node->left);
-    if (err) {
-        return err;
+    if (node->left) {
+        if (caps_compare(C(node->left), C(cte), true) >= 0) {
+            return MDB_INVARIANT_LEFT_SMALLER;
+        }
+        err = mdb_check_subtree_invariants(node->left);
+        if (err) {
+            return err;
+        }
     }
 
-    err = mdb_check_subtree_invariants(node->right);
-    if (err) {
-        return err;
+    if (node->right) {
+        if (caps_compare(C(node->right), C(cte), true) <= 0) {
+            return MDB_INVARIANT_RIGHT_GREATER;
+        }
+        err = mdb_check_subtree_invariants(node->right);
+        if (err) {
+            return err;
+        }
     }
 
     return MDB_INVARIANT_OK;
