@@ -326,13 +326,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             total_interrupt_time = 0;
             g_cl = cl;
             reset_client_closure_stat(cl);
-            // FIXME: Remove it, only for specific debugging!!!!
-            if (cl->spp_ptr->sp->read_reg.value != 0) {
-                printf("# D: reset_client_closure_stat: read_reg == %"PRIu64""
-                    "instead of 0\n",
-                cl->spp_ptr->sp->read_reg.value);
-            }
-//            assert(cl->spp_ptr->sp->read_reg.value == 0);
+//          assert(cl->spp_ptr->sp->read_reg.value == 0);
 
             cl->in_trigger_counter = trigger;
             cl->out_trigger_counter = trigger;
