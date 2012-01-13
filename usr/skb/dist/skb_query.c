@@ -29,6 +29,8 @@
 #include <dist2/getset.h> // for SET_SEQUENTIAL define
 #include "code_generator.h"
 
+#include <bench/bench.h>
+
 #define STDOUT_QID 1
 #define STDERR_QID 2
 static uint64_t watch_id = 0;
@@ -87,8 +89,9 @@ static errval_t run_eclipse(struct dist_query_state* st)
     ec_ref retval = ec_ref_create_newvar();
     //ec_post_goal(ec_term(ec_did("flush", 1), ec_long(1)));
     //ec_post_goal(ec_term(ec_did("flush", 1), ec_long(2)));
-    ec_post_goal(ec_term(ec_did("garbage_collect", 0)));
+    //ec_post_goal(ec_term(ec_did("garbage_collect", 0)));
 
+    cycles_t start = bench_tsc();
     while ((st->exec_res = ec_resume1(retval)) == PFLUSHIO) {
         ec_get_long(ec_ref_get(retval), &qid);
 
@@ -110,6 +113,8 @@ static errval_t run_eclipse(struct dist_query_state* st)
     }
 
     ec_ref_destroy(retval);
+    cycles_t stop = bench_tsc();
+    debug_printf("Eclipse CLP Cycles: %"PRIuCYCLES"", stop-start-bench_tscoverhead());
 
     errval_t err = transform_ec_error(st->exec_res);
     if (err_no(err) == SKB_ERR_EXECUTION) {

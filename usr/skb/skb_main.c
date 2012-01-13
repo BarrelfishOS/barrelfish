@@ -20,6 +20,7 @@
 
 #include <dist2_server/init.h>
 
+#include <bench/bench.h>
 
 #include "dist/predicates.h"
 #include "shared_lib_dict.h"
@@ -112,6 +113,7 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
+    bench_init();
     errval_t err = dist_server_init();
     assert(err_is_ok(err));
 

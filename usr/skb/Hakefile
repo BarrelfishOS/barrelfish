@@ -30,7 +30,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         addIncludes = [ "eclipse_kernel/src" ],
                         addLibraries = [ "eclipse", "shm", "dummies", "skb",
                                          "posixcompat", "msun", "dist_server", "dist_parser", "skb",
-                                         "icsolver", "vfs", "nfs", "lwip", "contmng", "pcre"],
+                                         "icsolver", "vfs", "nfs", "lwip", "contmng", "pcre", "bench"],
                         architectures = [ arch ]
                 }
 in

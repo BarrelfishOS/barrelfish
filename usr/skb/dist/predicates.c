@@ -20,31 +20,14 @@
 #include <barrelfish/barrelfish.h>
 #include <if/skb_defs.h>
 #include <include/skb_server.h>
-#include <include/skb_debug.h>
 
+#include <dist2_server/debug.h>
 #include <dist2_server/service.h>
 #include "predicates.h"
 
-/*
-int p_identification_complete(void)         // identification_complete(+Integer)
-{
-	long int id;
-    ec_get_long(ec_arg(1), &id);
-
-    struct dist_reply_state* drs = NULL;
-    errval_t err = new_dist_reply_state(&drs, identification_complete_reply);
-    assert(err_is_ok(err)); // TODO
-
-    struct dist2_binding* b = (struct dist2_binding*) id;
-    drs->rpc_reply(b, drs);
-
-    return PSUCCEED;
-}*/
-
-
 int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
 {
-    printf("p_notify_client\n");
+    DIST2_DEBUG("p_notify_client\n");
 
     struct dist_reply_state* drs;
     char* str = NULL;
@@ -65,7 +48,6 @@ int p_notify_client(void)         /* p_notify_client(+String, ReplyState) */
 
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
 {
-    printf("p_trigger_watch\n");
     int res;
 
     // Get arguments
@@ -88,7 +70,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         return res;
     }
     assert(drs != NULL);
-    debug_printf("drs is: %p\n", drs);
+    DIST2_DEBUG("drs is: %p\n", drs);
 
     long int watch_id = 0;
     res = ec_get_long(ec_arg(4), &watch_id);
@@ -97,14 +79,13 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     }
 
     strcpy(drs->query_state.stdout.buffer, record);
-    debug_printf("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
-    debug_printf("drs->binding: %p\n", drs->binding);
-    debug_printf("drs->reply: %p\n", drs->reply);
+    DIST2_DEBUG("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
+    DIST2_DEBUG("drs->binding: %p\n", drs->binding);
+    DIST2_DEBUG("drs->reply: %p\n", drs->reply);
 
     drs->error = SYS_ERR_OK;
     drs->reply(drs->binding, drs);
 
-    debug_printf("p_trigger_watch done\n");
     long int retract = true;
     return ec_unify_arg(5, ec_long(retract));
 }
