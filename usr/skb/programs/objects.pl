@@ -184,15 +184,15 @@ next_sequence(Name, NextSeq) :-
 %    number_string(SeqNr, Seq),
 %    get_sequences(Name, L, Res).
 
-add_seq_object(Thing, UList) :-
+add_seq_object(Thing, UList, CList) :-
     next_sequence(Thing, Seq),
     number_string(Seq, SeqStr),
     atom_string(Thing, ThingStr),
     append_strings(ThingStr, SeqStr, ThingSeqStr),
     atom_string(ThingSeq, ThingSeqStr),
-    add_object(ThingSeq, UList).
+    add_object(ThingSeq, UList, CList).
 
-add_object(Thing, UList) :-
+add_object(Thing, UList, CList) :-
 	old_slots(Thing, SlotList),
 	add_slots(Thing, UList, SlotList, NewList),
 	retract(object(Thing, _)),
@@ -246,17 +246,16 @@ add_newval(_, Val, Val).
 */
 
 
-del_object(Thing) :-
+del_object(Thing, UList, CList) :-
     old_slots(Thing, SlotList),
     retract(object(Thing, _)),
-    trigger_watches(object(Thing, SlotList), 2),
-    garbage_collect.
-del_object(Thing, UList) :-
-	old_slots(Thing, SlotList), 
-	del_slots(Thing, UList, SlotList, NewList),
-	retract(object(Thing, _)), 
-	asserta(object(Thing, NewList)),
-	trigger_watches(object(Thing, SlotList), 2).
+    trigger_watches(object(Thing, SlotList), 2).
+%del_object(Thing, UList) :-
+%	old_slots(Thing, SlotList), 
+%	del_slots(Thing, UList, SlotList, NewList),
+%	retract(object(Thing, _)), 
+%	asserta(object(Thing, NewList)),
+%	trigger_watches(object(Thing, SlotList), 2).
 
 del_slots(T, [], X, X).
 del_slots(T, [U|Rest], SlotList, NewList) :-

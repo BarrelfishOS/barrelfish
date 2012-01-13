@@ -214,13 +214,14 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
         // Calling add_object(Name, Attributes)
         dident add_object;
         if (mode & SET_SEQUENTIAL) {
-            add_object = ec_did("add_seq_object", 2);
+            add_object = ec_did("add_seq_object", 3);
         }
         else {
-            add_object = ec_did("add_object", 2);
+            add_object = ec_did("add_object", 3);
         }
 
-        pword add_object_term = ec_term(add_object, sr.name, sr.attribute_list);
+        pword add_object_term = ec_term(add_object, sr.name, sr.attribute_list,
+                sr.constraint_list);
         ec_post_goal(add_object_term);
 
         err = run_eclipse(sqs);
@@ -250,8 +251,9 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
     errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling del_object(Name)
-        dident del_object = ec_did("del_object", 1);
-        pword del_object_term = ec_term(del_object, sr.name);
+        dident del_object = ec_did("del_object", 3);
+        pword del_object_term = ec_term(del_object, sr.name,
+                sr.attribute_list, sr.constraint_list);
         ec_post_goal(del_object_term);
 
         err = run_eclipse(dqs);
