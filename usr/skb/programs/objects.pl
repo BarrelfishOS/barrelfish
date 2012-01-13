@@ -248,8 +248,8 @@ add_newval(_, Val, Val).
 
 del_object(Thing, UList, CList) :-
     old_slots(Thing, SlotList),
-    retract(object(Thing, _)),
-    trigger_watches(object(Thing, SlotList), 2).
+    trigger_watches(object(Thing, SlotList), 2),
+    retract(object(Thing, _)).
 %del_object(Thing, UList) :-
 %	old_slots(Thing, SlotList), 
 %	del_slots(Thing, UList, SlotList, NewList),

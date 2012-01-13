@@ -43,5 +43,10 @@
   build application { target = "d2mem",
                       cFiles = [ "d2mem.c" ],
                       addLibraries = [ "dist2", "dist_parser", "skb" ]
-                    }          
+                    },
+
+  build application { target = "d2bench",
+                      cFiles = [ "d2bench.c" ],
+                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                    }    
 ]
