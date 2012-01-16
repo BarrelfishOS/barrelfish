@@ -80,6 +80,11 @@ get_object(Thing, ReqList, ConsList, object(Thing, SlotList)) :-
 	slot_vals(Thing, ReqList, SlotList),
 	satisfy_constraints(ConsList, object(Thing, SlotList)).
 
+get_first_object(Thing, ReqList, ConsList, object(Thing, SlotList)) :-
+    object(Thing, SlotList),
+    slot_vals(Thing, ReqList, SlotList),
+    satisfy_constraints(ConsList, object(Thing, SlotList)), !.
+
 satisfy_constraints([], _).
 satisfy_constraints([Constraint|Rest], Obj) :-
     satisfy_constraint(Constraint, Obj).
