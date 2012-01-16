@@ -103,7 +103,7 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
             if (err_is_ok(exist_err)) {
                 thread_sem_wait(&ts);
             }
-            else {
+            else if (err_no(err) != DIST2_ERR_NO_RECORD) {
                 dist_free_names(names, len);
                 goto out;
             }
@@ -111,8 +111,6 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
 
         dist_free_names(names, len);
     }
-
-    //debug_printf("id:%d locked: %s\n", id, *lock_record);
 
 out:
     free(name);

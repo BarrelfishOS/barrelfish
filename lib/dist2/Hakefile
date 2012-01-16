@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [    build library { target = "dist2",
-                     addCFlags = [ "-O2", "-NDEBUG" ],
+                     addCFlags = [ "-O2" ],
                     cFiles = [ "client/dist2.c", "client/getset.c", "client/pubsub.c", 
                                "client/barriers.c", "client/trigger.c",
                                "client/locking.c", "client/strnatcmp.c", "client/read.c" ],
@@ -22,7 +22,7 @@
                   },
                   
     build library { target = "dist_server",
-                    addCFlags = [ "-O2", "-NDEBUG" ],
+                    addCFlags = [ "-O2" ],
                     cFiles = [ "server/service.c", "server/init.c", "server/queue.c" ],
                     flounderBindings = [ "dist2" ],
                     addLibraries = [ "skb", "thc" ] 
@@ -30,7 +30,6 @@
     
     build library { target = "dist_parser",
                     addCFlags = [ "-O3",
-                                  "-NDEBUG",
                                   "-Wno-unused-value", 
                                   "-Wno-redundant-decls", 
                                   "-Wno-missing-declarations",

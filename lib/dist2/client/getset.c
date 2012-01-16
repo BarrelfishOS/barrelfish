@@ -189,9 +189,10 @@ errval_t dist_get(char** data, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
+    cycles_t time;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.get(rpc_client, buf, NOP_TRIGGER, data,
-            &error_code);
+            &error_code, &time);
     DIST_UNLOCK_BINDING(rpc_client);
 
     if (err_is_ok(err)) {

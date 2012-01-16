@@ -76,10 +76,16 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
         }
         err = exist_err;
 
+        if (err_is_ok(err)) {
+            // Barrier already exists
+        }
         if (err_no(err) == DIST2_ERR_NO_RECORD) {
-            debug_printf("waiting for semaphore signal\n");
+            // Wait until barrier record is created
             thread_sem_wait(&ts);
             err = SYS_ERR_OK;
+        }
+        else {
+            // Some other error happend, return it
         }
     }
     else {
@@ -144,13 +150,18 @@ errval_t dist_barrier_leave(const char* barrier_record)
                 // Wait until everyone has left the barrier
                 thread_sem_wait(&ts);
             }
+            else if (err_no(err) == DIST2_ERR_NO_RECORD) {
+                // barrier already deleted
+                err = SYS_ERR_OK;
+            }
         }
-        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        else if (err_no(err) == DIST2_ERR_NO_RECORD) {
             // We are the last one to leave the barrier,
             // wake-up all others
             err = dist_del("%s", barrier_name);
-        } else {
-            // Don't do anything in case of other errors
+        }
+        else {
+            // Just return the error
         }
     }
 

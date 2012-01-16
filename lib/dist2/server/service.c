@@ -27,6 +27,8 @@
 #include <dist2/parser/ast.h>
 #include <dist2/getset.h>
 
+#include <bench/bench.h>
+
 #include "queue.h"
 
 static uint64_t current_id = 1;
@@ -97,7 +99,7 @@ static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt)
     char* reply = err_is_ok(srt->error) ?
             srt->query_state.stdout.buffer : NULL;
     err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
-            reply, srt->error);
+            reply, srt->error, srt->time);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             dist_rpc_enqueue_reply(b, srt);
@@ -117,11 +119,14 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
+    cycles_t time0 = 0, time1 = 0;
     if (err_is_ok(err)) {
+        time0 = bench_tsc();
         err = get_record(ast, &srt->query_state);
+        time1 = bench_tsc();
         install_trigger(b, ast, trigger, err);
     }
-
+    srt->time = time1 - time0 - bench_tscoverhead();
     srt->error = err;
     srt->reply(b, srt);
 
