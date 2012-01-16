@@ -75,7 +75,7 @@
 >                    Just (CapName fromName) ->
 >                        text "From:" <+> text fromName <> text (if fromSelf then " and self" else "")
 >                $+$
->                text "Fields:" $+$
+>                text "Fields:" <> text (if null fields then " None" else "") $+$
 >                nest 4 (vcat' (map pretty fields)) $+$
 >                (case rangeExpr of
 >                     Nothing -> text "Not addressable"
