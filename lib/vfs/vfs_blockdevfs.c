@@ -223,7 +223,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
         break;
 
     case VFS_SEEK_CUR:
-        assert(h->pos + offset >= 0);
+        assert(offset >= 0 || -offset <= h->pos);
         h->pos += offset;
         break;
 
@@ -232,7 +232,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
         if (err_is_fail(err)) {
             return err;
         }
-        assert(info.size + offset >= 0);
+        assert(offset >= 0 || -offset <= info.size);
         h->pos = info.size + offset;
         break;
 

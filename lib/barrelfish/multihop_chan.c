@@ -525,8 +525,8 @@ static void handle_multihop_message(struct monitor_binding *mon_closure,
     if (flags == MULTIHOP_MESSAGE_FLAG_DUMMY) {
         // this is a dummy message
         MULTIHOP_DEBUG("received dummy message, acked: %d\n", ack);
+        assert(ack <= mc->unacked_send);
         mc->unacked_send = mc->unacked_send - ack;
-        assert(mc->unacked_send >= 0);
 
         // we need to execute the message receive handler,
         // because the flounder-stubs might be waiting to
@@ -539,8 +539,8 @@ static void handle_multihop_message(struct monitor_binding *mon_closure,
 
         // update flow control information
         mc->unacked_received = mc->unacked_received + 1;
+        assert(ack <= mc->unacked_send);
         mc->unacked_send = mc->unacked_send - ack;
-        assert(mc->unacked_send >= 0);
 
 #endif // MULTIHOP_FLOW_CONTROL
         // deliver message to the message handler

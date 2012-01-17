@@ -124,7 +124,7 @@ static void ahci_mgmt_open_cb(struct ahci_mgmt_binding *b, errval_t status,
         DEBUG_ERR(err, "vspace_map_one_frame failed: '%s'", err_getstring(err));
         goto error_map_controller;
     }
-    port->port_base = port->mapped_vaddr + offset;
+    port->port_base = (char *)port->mapped_vaddr + offset;
 
     // destroy controller mem cap
     cleanup_err = cap_destroy(controller_mem);

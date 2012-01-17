@@ -765,7 +765,7 @@ read(void *st, vfs_handle_t fhandle, void *buffer, size_t bytes, size_t *bytes_r
         }
 
         // update variables for successful read
-        buffer += read_size;
+        buffer = (char *)buffer + read_size;
         remaining -= read_size;
         *bytes_read += read_size;
         offset += read_size;
