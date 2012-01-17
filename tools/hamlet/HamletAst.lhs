@@ -88,7 +88,7 @@
 >                text "Equality fields:" <+> (text $ intercalate ", " $ map (\(NameField n) -> n) eqFields))
 
 > data CapName = CapName !String
->              deriving Show
+>              deriving (Show, Eq)
 
 > data CapField = CapField !Type !NameField 
 >               deriving Show

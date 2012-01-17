@@ -276,37 +276,26 @@ Generate code to calculate the "size" property of a cap.
 >             ((ofObjTypeEnum $ name capType), mkGetProp defineList capType cap)
 >         defineList = mkDefineList $ defines caps
 
-> {-
-
 \section{Is well founded}
 
 \subsection{Compute Well-found-ness Relation}
 
+validPaths maps all ObjTypeEnum values to the ObjTypeEnum values of their
+children (according to the Retype relationship).
 
-> validPaths :: [Capability] -> 
->              [(PureExpr, [PureExpr])]
-> validPaths !caps =
->     {-# SCC "1val" #-}
->     validPaths' [] caps
->     where validPath cap =
->               {-# SCC "2validPath" #-}
->               obj `seq` chds `seq` (obj,  chds )
->               where obj = ofObjTypeEnum $ name cap
->                     chds = childs [] (retypePath cap) 
->           childs !acc [] = 
->               {-# SCC "3childsnil" #-}
->               acc
->           childs !acc ((RetypePath childName _):xs) = 
->               {-# SCC "4childsacc" #-}
->               chdname `seq`
->               childs (chdname : acc) xs
->                      where chdname = ofObjTypeEnum childName
->           validPaths' !acc [] = 
->               {-# SCC "5validPathsnil" #-}
->               acc
->           validPaths' !acc (x:xs) = 
->               {-# SCC "6validPathsacc" #-}
->               validPaths' (validPath x:acc) xs
+> validPaths :: [Capability] ->
+>               [(PureExpr, [PureExpr])]
+> validPaths caps =
+>     [ (ofObjTypeEnum $ name c, map (\x -> ofObjTypeEnum $ name x) ch) |
+>       (c, ch) <- vPaths ]
+>     where
+>       vPaths = [ (c, getChildren c) | c <- caps ]
+>       getChildren cap = [ c | c <- caps, isChild c cap ] ++
+>                          (if fromSelf cap then [cap] else [])
+>       isChild :: Capability -> Capability -> Bool
+>       isChild c p = case (from c) of
+>                          Nothing -> False
+>                          Just cn -> (name p) == cn
 
 \subsection{Generate Code}
 
@@ -340,6 +329,8 @@ Generate code to calculate the "size" property of a cap.
 >                  (do returnc $ condition validTypesP))
 >     where condition validTypes = foldl' orType false validTypes
 >           orType acc srcType = acc .|. (destType .==. srcType)
+
+> {-
 
 > is_equal_types :: FoFCode PureExpr
 > is_equal_types =

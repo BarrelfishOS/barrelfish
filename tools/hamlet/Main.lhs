@@ -147,4 +147,5 @@
 >         dummy <- newEnum "objtype" enums "ObjType_Num"
 >         getAddress <- get_address caps
 >         getSize <- get_size caps
+>         isWellFounded <- is_well_founded (capabilities caps)
 >         return false
