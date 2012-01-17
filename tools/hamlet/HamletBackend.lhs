@@ -176,7 +176,6 @@ i.e. {\tt (((gensize\_t)1) << bits)}
 > mkSize bits = (cast gensizeT (uint64 1)) .<<. bits
 
 > readCapAttr :: PureExpr -> String -> FoFCode PureExpr
-> readCapAttr cap attr | trace (show cap ++ "->" ++ attr) False = undefined
 > readCapAttr cap attr = readRef cap >>= readRef >>= (\c -> readStruct c attr)
 
 Try and look up a name in a definitions and failing that generated code to look
@@ -188,7 +187,7 @@ it up in the fields of a cap.
 >       Nothing  -> do
 >                     capU <- readCapAttr cap "u"
 >                     capCStruct <- readUnion capU $ lower $ capType
->                     trace (show capCStruct) $ readStruct capCStruct name
+>                     readStruct capCStruct name
 >       Just val -> return $ uint64 $ toInteger val
 
 Generate code to calculate the result of an expression.
@@ -275,6 +274,120 @@ Generate code to calculate the "size" property of a cap.
 >         mkGetPropCase cap capType =
 >             ((ofObjTypeEnum $ name capType), mkGetProp defineList capType cap)
 >         defineList = mkDefineList $ defines caps
+
+\section{Compare}
+
+$get\_type\_root$ gets a number indicating which tree root of the type forest a
+given type belongs to.
+
+> get_type_root :: Capabilities -> FoFCode PureExpr
+> get_type_root caps =
+>     def [] "get_type_root"
+>         get_type_root_int
+>         uint8T
+>         [(objtypeT, Nothing)]
+>     where
+>         get_type_root_int [typ] =
+>           -- big switch over all types, each just returns the result
+>           switch typ cases (assert false >> returnc false)
+>         cases = map (mkCase . name) $ capTypes
+>         mkCase capName = (ofObjTypeEnum capName, mkGetRoot capName)
+>         -- case body just returns the calculated number
+>         mkGetRoot capName = returnc $ uint8 $ fromIntegral $ fromJust $ elemIndex (typeRoot capName) rootTypeNames
+>         capTypes = capabilities caps
+>         -- cap name -> cap lookup list
+>         capTypesLookup = map (\c -> (name c, c)) capTypes
+>         -- list of names of root types. the index in this list is the final
+>         -- root index
+>         rootTypeNames = map name $ filter (isNothing . from) capTypes
+>         typeRoot capName =
+>           -- recursively walk up retype relations
+>           case from $ fromJust $ lookup capName capTypesLookup of
+>             Just n -> typeRoot n
+>             Nothing -> capName
+
+$compare\_caps$ returns -1, 0 or 1 indicating the ordering of the given caps.
+
+\texttt{compare\_caps(left, right) $op$ 0} implies \texttt{left $op$ right}, where op is a numerical comparison.
+
+> compare_caps :: Capabilities ->
+>                 PureExpr ->
+>                 PureExpr ->
+>                 PureExpr ->
+>                 FoFCode PureExpr
+> compare_caps caps get_type_root get_address get_size =
+>     def [] "compare_caps"
+>         (compare_caps_int caps get_type_root get_address get_size)
+>         int8T
+>         [(ptrT $ ptrT $ capsStructT caps, Just "left"),
+>          (ptrT $ ptrT $ capsStructT caps, Just "right"),
+>          (boolT, Just "tiebreak")]
+
+> compare_caps_int :: Capabilities ->
+>                     PureExpr ->
+>                     PureExpr ->
+>                     PureExpr ->
+>                     [PureExpr] ->
+>                     FoFCode PureExpr
+> compare_caps_int caps get_type_root get_address get_size
+>                  [left_cap_pp, right_cap_pp, tiebreak] =
+>     do
+>       leftCap <- getCap left_cap_pp
+>       rightCap <- getCap right_cap_pp
+>       leftType <- readStruct leftCap "type"
+>       rightType <- readStruct rightCap "type"
+>       -- perform a bunch of global tests
+>       sequence $ map (doCmp left_cap_pp leftCap leftType
+>                             right_cap_pp rightCap rightType) tests
+>       -- at this point we know the caps are the same type
+>       -- also, they are at the same address and have the same size
+>       -- if the cap type has additional "eq" attributes, we now compare those
+>       let haveEqCaps = filter (not . null . eqFields) $ capabilities caps
+>           mkCase capType = ((ofObjTypeEnum $ name capType),
+>                             (mkEqCmp leftCap rightCap capType))
+>           eqCases = map mkCase haveEqCaps
+>       switch leftType eqCases (return false)
+>       -- finally, if the tie break param is true we compare the pointers
+>       ifc (return tiebreak) (mkCmp left_cap_pp right_cap_pp (.<.)) (return false)
+>       returnc $ int8 0
+>     where
+>       getCap cap_pp = (readRef cap_pp >>= readRef)
+>
+>       -- type-independant tests
+>       tests = [(getRoot, (.<.)),
+>                (getAddr, (.<.)),
+>                (getSize, (.>.)), -- note reversed ordering
+>                (getType, (.<.))]
+>       getRoot cpp c ct = call get_type_root [ct]
+>       getAddr cpp c ct = call get_address [cpp]
+>       getSize cpp c ct = call get_size [cpp]
+>       getType cpp c ct = return ct
+>
+>       -- comparison code generators
+>       mkCmp left right op =
+>         ifc (return (left .!=. right)) 
+>             (returnc $ test (left `op` right) (int8 (-1)) (int8 1))
+>             (return false)
+>       doCmp lcpp lc lct rcpp rc rct (f, op) =
+>         do
+>           l <- f lcpp lc lct
+>           r <- f rcpp rc rct
+>           mkCmp l r op
+>       mkEqCmp leftCap rightCap capType =
+>         do
+>           let eqs = map (\(NameField n) -> n) $ eqFields capType
+>           leftCapU <- readStruct leftCap "u"
+>           rightCapU <- readStruct rightCap "u"
+>           let capName = case name capType of CapName n -> n
+>           leftCapS <- readUnion leftCapU $ lower capName
+>           rightCapS <- readUnion rightCapU $ lower capName
+>           sequence $ map (doFieldCmp leftCapS rightCapS) eqs
+>           return false
+>       doFieldCmp lc rc n =
+>         do
+>           l <- readStruct lc n
+>           r <- readStruct rc n
+>           mkCmp l r (.<.)
 
 \section{Is well founded}
 

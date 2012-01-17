@@ -148,4 +148,6 @@
 >         getAddress <- get_address caps
 >         getSize <- get_size caps
 >         isWellFounded <- is_well_founded (capabilities caps)
+>         getTypeRoot <- get_type_root caps
+>         compareCaps <- compare_caps caps getTypeRoot getAddress getSize
 >         return false
