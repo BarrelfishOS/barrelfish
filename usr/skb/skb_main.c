@@ -113,6 +113,10 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
+    debug_printf("dist_server_init\n");
+    //execute_string("set_flag(gc, off).");
+    //execute_string("set_flag(enable_interrupts, off).");
+    //execute_string("set_flag(debug_compile, off).");
     bench_init();
     errval_t err = dist_server_init();
     assert(err_is_ok(err));
@@ -124,8 +128,8 @@ int main(int argc, char**argv)
 
 
     // dist2 related stuff
-    execute_string("[objects].");
-    execute_string("[pubsub].");
+    execute_string("[objects2].");
+    //execute_string("[pubsub].");
     execute_string("[bindings].");
 
     ec_external(ec_did("notify_client", 2), p_notify_client, ec_did("eclipse",0));

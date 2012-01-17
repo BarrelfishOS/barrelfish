@@ -160,7 +160,7 @@ static void translate(struct ast_object* p, struct skb_ec_terms* ss)
         struct pword_pair right_terms = visit_attribute_right(right);
 
         if (right_terms.is_attribute) {
-            pword entry = ec_term(ec_did("::", 2), left_term,
+            pword entry = ec_term(ec_did("val", 2), left_term,
                     right_terms.value);
             ss->attribute_list = ec_list(entry, ss->attribute_list);
         } else { // is constraint

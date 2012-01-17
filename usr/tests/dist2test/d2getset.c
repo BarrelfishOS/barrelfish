@@ -82,24 +82,24 @@ static void get_records(void)
     ASSERT_STRING(data, "object1 { weight: 20 }");
     free(data);
 
-    err = dist_get(&data, "object2 { weight: 20 }");
+    err = dist_get(&data, "object2 { weight: 25 }");
     ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object2 { weight: 20 }");
+    ASSERT_STRING(data, "object2 { weight: 25 }");
     free(data);
 
     err = dist_get(&data, "object4");
     ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
+    ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
 
     err = dist_get(&data, "_ { weight: >= 10, fl: > 11.0 }");
     ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
+    ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
 
     err = dist_get(&data, "_ { weight: >= 10, fl: > 11.0 }");
     ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
+    ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
 
     err = dist_del("object4");
@@ -109,12 +109,12 @@ static void get_records(void)
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
     //free(data); TODO??
 
-    err = dist_set("object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
+    err = dist_set("object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     ASSERT_ERR_OK(err);
 
     err = dist_get(&data, "object4");
     ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object4 { attr: 'Somestring', weight: 20, fl: 12.0 }");
+    ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
 
     err = dist_del("object1");
@@ -125,9 +125,9 @@ static void get_records(void)
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
     // TODO free(data);?
 
-    err = dist_get(&data, "object2 { weight: 20 }");
+    err = dist_get(&data, "object2 { weight: 25 }");
     ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object2 { weight: 20 }");
+    ASSERT_STRING(data, "object2 { weight: 25 }");
     free(data);
 
     err = dist_get(&data, "_ { pattern1: r'^12.*ab$' }");
@@ -172,6 +172,7 @@ static void set_records(void)
     ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
 
     err = dist_set("object1 { weight: %d }", 20);
+    DEBUG_ERR(err, "Set");
     ASSERT_ERR_OK(err);
 
     // TODO: Do we want this?
