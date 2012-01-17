@@ -198,8 +198,7 @@ capTypeField = do
 addressExprP = (reserved "mem_to_phys" >> parens exprP >>= (return . MemToPhysOp))
                <|> (exprP >>= (return . AddressExpr))
 -- parse size expression
-sizeExprP = (reserved "sizeof" >> identifier >>= (return . SizeOfOp))
-            <|> (exprP >>= (return . SizeExpr))
+sizeExprP = exprP >>= (return . SizeExpr)
 -- parse size_bits expression
 sizeBitsExprP = exprP >>= (return . SizeBitsExpr)
 -- parse subexpression for the above

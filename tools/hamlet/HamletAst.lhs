@@ -132,11 +132,10 @@
 >     pretty (AddressExpr e) = pretty e
 >     pretty (MemToPhysOp e) = text "mem_to_phys(" <> pretty e <> text ")"
 
-> data SizeExpr = SizeExpr Expr | SizeOfOp String | SizeBitsExpr Expr
+> data SizeExpr = SizeExpr Expr | SizeBitsExpr Expr
 >               deriving Show
 > instance Pretty SizeExpr where
 >     pretty (SizeExpr e) = pretty e
->     pretty (SizeOfOp n) = text ("sizeof(" ++ n ++ ")")
 >     pretty (SizeBitsExpr e) = text "2^(" <> pretty e <> char ')'
 
 > data Expr = AddExpr String String | NameExpr String
