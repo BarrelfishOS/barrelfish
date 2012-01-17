@@ -74,6 +74,9 @@
 > genpaddrT :: TypeExpr
 > genpaddrT = typedef uint64T "genpaddr_t"
 
+> gensizeT :: TypeExpr
+> gensizeT = typedef uint64T "gensize_t"
+
 \section{|Objtype| Enumeration}
 
 > {-
@@ -138,22 +141,20 @@
 >      ("u", capUnionT)]
 >     where capUnionT = unionST "capability_u" ((map' (\cap -> (lower $ capNameOf cap, mkCapStructT cap))
 >                                                  (capabilities caps)) )
->                      -- XXX: this is broken -AB
->                      -- fof generates uint64_t *raw, but we need uintptr_t raw[WORDS]
->                      --      ++ [("raw", arrayST (capWordSize caps) uint64T)])
 >                      -- XXX: Why do I need to define types here when they are already
 >                      -- defined somewhere else? Also as hamlet doesn't handle uintptr_t,
 >                      --  lvaddr is defined as uint64 although that is not always the case.
 >                      -- Using a type not defined here will generate "type"*
 >                      -- which is obviously broken. -Akhi
 >           mkCapStructT cap = structST (capNameOf cap) (map' mkCapField (fields cap))
->           mkCapField (CapField _ typ (NameField name)) = (name, toFofType typ)
+>           mkCapField (CapField typ (NameField name)) = (name, toFofType typ)
 >           toFofType UInt8 = uint8T
 >           toFofType UInt16 = uint16T
 >           toFofType UInt32 = uint32T
 >           toFofType UInt64 = uint64T
 >           toFofType Int = int32T
 >           toFofType GenPAddr = typedef uint64T "genpaddr_t"
+>           toFofType GenSize = typedef uint64T "gensize_t"
 >           toFofType LPAddr   = typedef uint64T "lpaddr_t"
 >           toFofType GenVAddr = typedef uint64T "genvaddr_t"
 >           toFofType LVAddr   = typedef uint64T "lvaddr_t"
@@ -163,6 +164,119 @@
 
 > capsStructT :: Capabilities -> TypeExpr
 > capsStructT cap = structST  "capability" (mkCapsStruct cap)
+
+\section{Get address and size}
+
+\subsection{Convert common expressions}
+
+Generate an expression for the size of a value expressed in "bits"
+i.e. {\tt (((gensize\_t)1) << bits)}
+
+> mkSize :: PureExpr -> PureExpr
+> mkSize bits = (cast gensizeT (uint64 1)) .<<. bits
+
+> readCapAttr :: PureExpr -> String -> FoFCode PureExpr
+> readCapAttr cap attr | trace (show cap ++ "->" ++ attr) False = undefined
+> readCapAttr cap attr = readRef cap >>= readRef >>= (\c -> readStruct c attr)
+
+Try and look up a name in a definitions and failing that generated code to look
+it up in the fields of a cap.
+
+> lookupName :: [(String, Int)] -> PureExpr -> String -> String -> FoFCode PureExpr
+> lookupName defs cap capType name =
+>     case (name `lookup` defs) of
+>       Nothing  -> do
+>                     capU <- readCapAttr cap "u"
+>                     capCStruct <- readUnion capU $ lower $ capType
+>                     trace (show capCStruct) $ readStruct capCStruct name
+>       Just val -> return $ uint64 $ toInteger val
+
+Generate code to calculate the result of an expression.
+
+> exprCode :: [(String, Int)] -> PureExpr -> String -> Expr -> FoFCode PureExpr
+> exprCode defs cap capType (NameExpr n) = lookupName defs cap capType n
+> exprCode defs cap capType (AddExpr left right) =
+>     do
+>       lval <- lookupName defs cap capType left
+>       rval <- lookupName defs cap capType right
+>       return (lval .+. rval)
+
+Generate code to calculate the "address" property of a cap.
+
+> addressExprCode :: [(String, Int)] -> PureExpr -> String -> AddressExpr -> FoFCode PureExpr
+> addressExprCode defs cap capType (MemToPhysOp expr) =
+>     do
+>       lval <- exprCode defs cap capType expr
+>       mem_to_phys $ cast lvaddrT lval
+> addressExprCode defs cap capType (AddressExpr expr) =
+>       exprCode defs cap capType expr
+
+Generate code to calculate the "size" property of a cap.
+
+> sizeExprCode :: [(String, Int)] -> PureExpr -> String -> SizeExpr -> FoFCode PureExpr
+> sizeExprCode defs cap capType (SizeExpr expr) = exprCode defs cap capType expr
+> sizeExprCode defs cap capType (SizeBitsExpr expr) =
+>     do
+>       bitsExpr <- exprCode defs cap capType expr
+>       return $ mkSize $ bitsExpr
+
+\subsection{get\_address}
+
+> get_address :: Capabilities -> FoFCode PureExpr
+> get_address caps =
+>     def [] "get_address"
+>         (mkGetPropSwitch caps mkGetAddr)
+>         genpaddrT
+>         [(ptrT $ ptrT $ capsStructT caps, Nothing)]
+>     where
+>         nullptr = cast genpaddrT $ uint64 0
+>         mkGetAddr :: [(String, Int)] -> Capability -> PureExpr -> FoFCode PureExpr
+>         mkGetAddr defines capType cap =
+>             case rangeExpr capType of
+>               Just expr -> mkGetAddrExpr defines capType cap $ fst expr
+>               Nothing   -> returnc nullptr
+>         mkGetAddrExpr defines capType cap expr = 
+>           do
+>             res <- addressExprCode defines cap capName expr
+>             returnc res
+>           where
+>             capName = case name capType of (CapName s) -> s
+
+> get_size :: Capabilities -> FoFCode PureExpr
+> get_size caps =
+>     def [] "get_size"
+>         (mkGetPropSwitch caps mkGetSize)
+>         gensizeT
+>         [(ptrT $ ptrT $ capsStructT caps, Nothing)]
+>     where
+>         mkGetSize :: [(String, Int)] -> Capability -> PureExpr -> FoFCode PureExpr
+>         mkGetSize defines capType cap =
+>             case rangeExpr capType of
+>               Just expr -> mkGetSizeExpr defines capType cap $ snd expr
+>               Nothing   -> returnc $ cast gensizeT $ uint64 0
+>         mkGetSizeExpr defines capType cap expr = 
+>           do
+>             res <- sizeExprCode defines cap capName expr
+>             returnc res
+>           where
+>             capName = case name capType of (CapName s) -> s
+
+> mkGetPropSwitch :: Capabilities
+>                    -> ([(String, Int)] -> Capability -> PureExpr -> FoFCode PureExpr)
+>                    -> ([PureExpr] -> FoFCode PureExpr)
+> mkGetPropSwitch caps mkGetProp = get_prop_int
+>       where
+>         get_prop_int :: [PureExpr] -> FoFCode PureExpr
+>         get_prop_int (cap : []) = 
+>           do
+>             let cases = map (mkGetPropCase cap) (capabilities caps)
+>             capTypeInt <- readCapAttr cap "type"
+>             switch capTypeInt cases ((assert false) >> (returnc $ uint64 0))
+>         mkGetPropCase cap capType =
+>             ((ofObjTypeEnum $ name capType), mkGetProp defineList capType cap)
+>         defineList = mkDefineList $ defines caps
+
+> {-
 
 \section{Is well founded}
 
@@ -548,12 +662,6 @@
 >                                                   child) cases
 
 
-> -- Generate an expression for the size of a value expressed in "bits"
-> -- i.e. (((genpaddr_t)1) << bits)
-> mkSize :: PureExpr -> PureExpr
-> mkSize bits = (cast genpaddrT (uint64 1)) .<<. bits
-
-
 > revokeCaseSwitchCase :: [Define] ->
 >                         PureExpr ->
 >                         PureExpr ->
@@ -703,3 +811,5 @@
 >           where iswf = {-# SCC "iswf" #-} is_well_founded capList 
 >                 capList = {-# SCC "capList" #-} capabilities caps
 >                 enums = mkObjTypeEnum capList
+
+> -}

@@ -30,6 +30,7 @@
 > import Expressions
 > import Compile
 > import PureExpressions
+> import Constructs.Enumerations
 > import IL.Paka.Paka
 > import IL.Paka.Syntax
 > import IL.Paka.Compile 
@@ -48,10 +49,7 @@
 >           fi = fields 1000000 []
 > -}
 
-strict $! map (\i -> (show i, i)) nums
-           nums = strict [1..1000000]
-
-> loop () = loop ()
+> {- loop () = loop ()
 
 > main :: IO ()
 > main =
@@ -118,3 +116,35 @@ strict $! map (\i -> (show i, i)) nums
 >      _ -> do
 >            hPutStrLn stderr "Usage: hamlet INPUT_CAPDEFS.hl OUTPUT_DEFS.h OUTPUT_CODE.c OUTPUT_USERCODE.c"
 >            exitWith (ExitFailure 1)
+> -}
+
+
+> main :: IO ()
+> main =
+>    do
+>    input <- parseCaps "test.hl"
+>    case input of
+>      Left err ->
+>          do
+>          hPutStrLn stderr "parse error at: "
+>          hPutStrLn stderr (show err) 
+>          exitWith (ExitFailure 1)
+>      Right ast ->
+>          do
+>          let compiledCode = compile (backend ast)
+>          putStrLn "///////////////// types //////////////"
+>          putStrLn $ show $ vcat' $ extractM $ types compiledCode
+>          putStrLn "///////////// declarations ///////////"
+>          putStrLn $ show $ vcat' $ extractL $ declarations compiledCode
+>          putStrLn "///////////////// code ///////////////"
+>          putStrLn $ show $ compiledCode {declarations = [], 
+>                                        types = Map.empty,
+>                                        prototypes = Map.empty}
+>   where
+>     backend caps =
+>       do
+>         let enums = mkObjTypeEnum $ capabilities caps
+>         dummy <- newEnum "objtype" enums "ObjType_Num"
+>         getAddress <- get_address caps
+>         getSize <- get_size caps
+>         return false

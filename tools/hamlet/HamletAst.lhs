@@ -50,6 +50,8 @@
 > instance Pretty Define where
 >     pretty (Define name val) = text name <+> char '=' <+> int val
 
+> mkDefineList :: [Define] -> [(String, Int)]
+> mkDefineList = map (\(Define s i) -> (s, i))
 
 > data Capability = Capability { name :: !CapName,
 >                                generalEquality :: !(Maybe Bool),
@@ -103,6 +105,7 @@
 >           | UInt64
 >           | Int
 >           | GenPAddr
+>           | GenSize
 >           | LPAddr
 >           | GenVAddr
 >           | LVAddr
