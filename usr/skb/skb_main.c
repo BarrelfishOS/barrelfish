@@ -25,7 +25,7 @@
 #include "dist/predicates.h"
 #include "shared_lib_dict.h"
 
-#define MEMORY_SIZE 1024*1024*1024
+#define MEMORY_SIZE 30*1024*1024
 #define ECLIPSE_DIR "/skb"
 
 #define RESULT_BUF_SIZE 1024
@@ -113,19 +113,19 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
-    if(disp_get_core_id() == 3) {
-    debug_printf("dist_server_init\n");
-    //execute_string("set_flag(gc, off).");
-    //execute_string("set_flag(enable_interrupts, off).");
-    execute_string("set_flag(debug_compile, off).");
-    bench_init();
-    errval_t err = dist_server_init();
-    assert(err_is_ok(err));
-    }
-    else {
+    if(disp_get_core_id() == 0) {
+        debug_printf("dist_server_init\n");
+        execute_string("set_flag(gc, off).");
+        execute_string("set_flag(enable_interrupts, off).");
+        execute_string("set_flag(debug_compile, off).");
 
-    skb_server_init();
-    SKB_DEBUG("\nskb initialized\n");
+        bench_init();
+        errval_t err = dist_server_init();
+        assert(err_is_ok(err));
+    }
+    if (disp_get_core_id() == 0) {
+        skb_server_init();
+        SKB_DEBUG("\nskb initialized\n");
     }
     chdir(ECLIPSE_DIR);
 

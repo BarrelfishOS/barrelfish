@@ -76,7 +76,6 @@ static void trigger_send_handler(struct dist2_binding* b,
 static inline void install_trigger(struct dist2_binding* binding,
         struct ast_object* ast, dist2_trigger_t trigger, errval_t error)
 {
-
     errval_t err;
 
     if (trigger.m > 0 && trigger.in_case == err_no(error)) {
@@ -121,10 +120,9 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-	time0 = bench_tsc();
+        time0 = bench_tsc();
         err = get_record(ast, &srt->query_state);
         time1 = bench_tsc();
-
         install_trigger(b, ast, trigger, err);
     }
     srt->error = err;

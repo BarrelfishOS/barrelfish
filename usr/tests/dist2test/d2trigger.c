@@ -54,8 +54,9 @@ int main(int argc, char *argv[])
     errval_t error_code = SYS_ERR_OK;
     char* output = NULL;
     cycles_t time;
+    uint8_t busy;
     err = c->vtbl.get(c, "r'^obj.$' { attr: 3 } ", record_deleted, &output,
-            &error_code, &time);
+            &error_code, &time, &busy);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
     ASSERT_STRING(output, "obj3 { attr: 3 }");
