@@ -519,128 +519,55 @@ false otherwise.
 >                                      (returnc false)
 >                                      (returnc true))))
 
-> {-
-
 \section{Is copy}
 
-\subsection{Extract Equality Deciding Fields}
-
-> data EqualityParams = OnFields [String]
->                     | AlwaysEqual
->                     | AlwaysDistinct
-
-> {-
-> instance DeepSeq EqualityParams where
->     deepSeq (OnFields s) y = deepSeq s y
->     deepSeq AlwaysEqual y = y
->     deepSeq AlwaysDistinct y = y
-> -}
-
-> equalityFields :: [Capability] -> 
->                   [(String, PureExpr, EqualityParams)]
-> equalityFields caps = equalityFields' [] caps
->     where equalityFields' !acc [] = acc
->           equalityFields' !acc (cap:xs) =
->               equalityFields' (equalityField cap : acc) xs
->           equalityField cap = 
->               case generalEquality cap of
->                 Just True -> strict (capNameOf cap,
->                                      ofObjTypeEnum $ name cap ,
->                                      AlwaysEqual)
->                 Just False -> strict (capNameOf cap,
->                                       ofObjTypeEnum $ name cap ,
->                                       AlwaysDistinct)
->                 Nothing ->
->                    case eqFields of
->                       [] -> error "equalityFields: undefined Equality"
->                       _ -> strict (capNameOf cap,
->                                    ofObjTypeEnum $ name cap ,
->                                    OnFields $ map' (\(CapField _ _ (NameField name)) -> name) 
->                                               eqFields)
->               where eqFields = strict $! filter (\(CapField decideEq _ _) -> 
->                                                  decideEq == DecideEquality)
->                                                 (fields cap)
-
-\subsection{Implement Is Copy}
-
+Check whether two capabilities represent the same object. This is different
+from \texttt{compare\_caps(left, right, false) == 0} in that it respects
+general equality specifiers like \texttt{is\_always\_copy} and
+\texttt{is\_never\_copy}.
 
 > is_copy ::  Capabilities -> 
+>             PureExpr ->
 >             FoFCode PureExpr
-> is_copy caps =
+> is_copy caps compare_caps =
 >     def [] 
 >         "is_copy" 
->         (is_copy_int caps)
+>         (is_copy_int caps compare_caps)
 >         boolT
->         [(ptrT $ ptrT thisCapsStructT, Nothing),
->          (ptrT $ ptrT thisCapsStructT, Nothing)]
+>         [(ptrT $ ptrT thisCapsStructT, Just "left"),
+>          (ptrT $ ptrT thisCapsStructT, Just "right")]
 >     where thisCapsStructT = capsStructT caps 
 
-
 > is_copy_int :: Capabilities -> 
+>                PureExpr ->
 >                [PureExpr] ->
 >                FoFCode PureExpr
-> is_copy_int caps (cap1PP : cap2PP : []) =
+> is_copy_int caps compare_caps (leftPP : rightPP : []) =
 >     do 
->     cap1P <- readRef cap1PP
->     cap2P <- readRef cap2PP
->     cap1 <- readRef cap1P
->     cap2 <- readRef cap2P
->     typeCap1 <- readStruct cap1 "type"
->     typeCap2 <- readStruct cap2 "type"
->     ifc (return $! (typeCap1 .!=. typeCap2))
->        (do
->          returnc false)
->        (do
->          return $! void)
->     copyCasesV <- sequence $ copyCases
->     switch typeCap1
->            copyCasesV
->            defaultCase
->         where defaultCase = 
->                   do
->                   assert false
->                   returnc false
->               copyCases = map' (copyCase cap1PP cap2PP) $!
->                           equalityFields (capabilities caps)
+>       -- compare types
+>       leftCap <- getCap leftPP
+>       rightCap <- getCap rightPP
+>       leftType <- readStruct leftCap "type"
+>       rightType <- readStruct rightCap "type"
+>       ifc (return (leftType .!=. rightType))
+>           (returnc false) (return false)
+>       -- we now have equal types, check general equality for the type
+>       switch leftType generalEqCases (return false)
+>       -- don't have general equality, call compare_caps with tiebreak = false
+>       res <- call compare_caps [leftPP, rightPP, false]
+>       returnc (res .==. (int8 0))
+>     where
+>       getCap cap_pp = (readRef cap_pp >>= readRef)
+>       -- in general equality switch, only handle cases with such an equality
+>       generalEqCases = map mkGeqCase $
+>                        filter (isJust . generalEquality) $
+>                        capabilities caps
+>       -- case body: just return the value of the equality
+>       mkGeqCase capType = ((ofObjTypeEnum $ name capType),
+>                            (returnc $ fofBool $ fromJust $ generalEquality capType))
+>       fofBool b = if b then true else false
 
-> copyCase :: PureExpr -> PureExpr ->
->             (String , PureExpr, EqualityParams) ->
->             FoFCode (PureExpr, FoFCode PureExpr)
-> copyCase cap1PP cap2PP (typeCap, caseCodeV, OnFields fields) =
->     condition `seq`
->     do
->       return $! (caseCodeV, do c <- condition; returnc c)
->           where condition = foldl' andTest (return $! true) tests
->                 andTest acc x =
->                     (do
->                       accV <- acc
->                       xV <- x
->                       return $! accV .&. xV)
->                 tests = map' mkTest fields 
->                 mkTest field = (do 
->                                 cap1P <- readRef cap1PP
->                                 cap1 <- readRef cap1P
->                                 uCap1 <- readStruct cap1 "u"
->                                 cap1Struct <- readUnion uCap1 $! lower $! typeCap
->                                 fieldCap1 <- readStruct cap1Struct field
->                         
->                                 cap2P <- readRef cap2PP
->                                 cap2 <- readRef cap2P
->                                 uCap2 <- readStruct cap2 "u"
->                                 cap2Struct <- readUnion uCap2 $! lower $! typeCap
->                                 fieldCap2 <- readStruct cap2Struct field
->                                
->                                 return $! fieldCap1 .==. fieldCap2)
->
-> copyCase _ _ (_, caseCodeV, AlwaysEqual) =
->     do 
->       return $! (caseCodeV,
->                  returnc true)
->
-> copyCase _ _ (_, caseCodeV, AlwaysDistinct) =
->     do 
->       return $! (caseCodeV,
->                  returnc false)
+> {-
 
 \section{Is Ancestor}
 
