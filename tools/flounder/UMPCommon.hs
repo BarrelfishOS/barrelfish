@@ -895,7 +895,13 @@ rx_handler p ifn typedefs msgdefs msgs =
         C.Ex $ C.Variable "__attribute__((unused))",
 
         C.SComment "run our send process, if we need to",
-        C.If tx_is_busy [run_tx] []
+        C.If tx_is_busy [run_tx] [
+              C.SComment "otherwise send a forced ack if the channel is now full",
+              C.If (C.Call "flounder_stub_ump_needs_ack" [stateaddr])
+                   [C.Ex $ C.Call "flounder_stub_ump_send_ack" [stateaddr],
+                    C.StmtList $ ump_notify p]
+                   []
+             ]
         ]
     where
         loopbody = [
@@ -924,19 +930,9 @@ rx_handler p ifn typedefs msgdefs msgs =
                      C.Variable "msg" `C.DerefField` "header" `C.FieldOf` "control"],
             C.SBlank,
 
-            C.SComment "send a forced ack if the channel is now full",
-            C.If (C.Call "flounder_stub_ump_needs_ack" [stateaddr])
-                [C.SComment "run our send process if we need to",
-                 C.If tx_is_busy
-                    [run_tx]
-                    [C.Ex $ C.Call "flounder_stub_ump_send_ack" [stateaddr],
-                     C.StmtList $ ump_notify p]
-                ] [],
-            C.SBlank,
-
             C.SComment "is this a dummy message (ACK)?",
             C.If (C.Binary C.Equals (C.Variable "msgnum") (C.Variable "FL_UMP_ACK"))
-                [C.Continue] [],
+                [C.Goto "loopnext"] [],
             C.SBlank,
 
             C.SComment "is this a cap ack for a pending tx message",
@@ -945,7 +941,7 @@ rx_handler p ifn typedefs msgdefs msgs =
                  C.Ex $ C.Assignment (capst `C.FieldOf` "rx_cap_ack") (C.Variable "true"),
                  C.If (capst `C.FieldOf` "monitor_mutex_held")
                     [C.Ex $ C.Call (tx_cap_handler_name p ifn) [my_bindvar]] [],
-                 C.Continue]
+                 C.Goto "loopnext"]
                 [],
             C.SBlank,
 
@@ -957,7 +953,19 @@ rx_handler p ifn typedefs msgdefs msgs =
             C.SBlank,
 
             C.SComment "switch on message number and fragment number",
-            C.Switch rx_msgnum_field msgnum_cases bad_msgnum]
+            C.Switch rx_msgnum_field msgnum_cases bad_msgnum,
+            C.SBlank,
+
+            C.Label "loopnext",
+            C.SComment "send an ack if the channel is now full",
+            C.If (C.Call "flounder_stub_ump_needs_ack" [stateaddr])
+                 [C.SComment "run our send process if we need to",
+                  C.If tx_is_busy
+                       [run_tx]
+                       [C.Ex $ C.Call "flounder_stub_ump_send_ack" [stateaddr],
+                        C.StmtList $ ump_notify p]
+                 ] []
+            ]
 
         tx_is_busy = C.Binary C.Or
                         (capst `C.FieldOf` "tx_cap_ack")
