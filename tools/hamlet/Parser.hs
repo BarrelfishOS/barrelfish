@@ -40,6 +40,7 @@ lexer = P.makeTokenParser $! (javaStyle
                               { P.reservedNames = [ "is_always_copy"
                                                   , "is_never_copy"
                                                   , "from"
+                                                  , "can_retype_multiple"
                                                   ]
                               , P.reservedOpNames = ["+"]
                               , P.identLetter = C.alphaNum <|> C.char '_'
@@ -87,9 +88,9 @@ capabilitiesDef =
       geq <- generalEqualityP name
       from <- if isNothing geq then fromP name else return Nothing
       fromSelf <- if isNothing geq then fromSelfP name else return False
-      (fields, rangeExpr, eqFields) <- braces $ capabilityDef name
+      (fields, rangeExpr, eqFields, multi) <- braces $ capabilityDef name
       missingSep ("cap " ++ name ++ " definition")
-      return $! Capability (CapName name) geq from fromSelf fields rangeExpr eqFields
+      return $! Capability (CapName name) geq from fromSelf multi fields rangeExpr eqFields
 
 -- parse optional general equality (always/never copy)
 generalEqualityP name = do
@@ -110,6 +111,11 @@ fromSelfP name = (reserved "from_self" >> (return True)) <|> (return False)
 -- parse the body of a capability definition
 capabilityDef name = do
 
+    -- check for "can_retype_multiple"
+    multi <- (do reserved "can_retype_multiple"
+                 missingSep ("can_retype_multiple in " ++ name)
+                 return True)
+             <|> (return False)
     -- read sequence of field, address, size, and equality definitions
     annotatedFields <- many $ capFieldOrExpr name
     (fields, addresses, sizes, eqExprs) <- return $ unzipDefs annotatedFields
@@ -133,7 +139,7 @@ capabilityDef name = do
 
     -- merged address and size expressions if present
     return $ let rangeExpr = if null addresses then Nothing else Just (head addresses, head sizes)
-                 in (fields, rangeExpr, eqExprs)
+                 in (fields, rangeExpr, eqExprs, multi)
 
   where
     -- un-maybe lists from capfields parsing

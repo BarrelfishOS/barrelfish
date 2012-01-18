@@ -150,4 +150,5 @@
 >         isWellFounded <- is_well_founded (capabilities caps)
 >         getTypeRoot <- get_type_root caps
 >         compareCaps <- compare_caps caps getTypeRoot getAddress getSize
+>         isRevokedFirst <- is_revoked_first (capabilities caps)
 >         return false

@@ -57,6 +57,7 @@
 >                                generalEquality :: !(Maybe Bool),
 >                                from :: !(Maybe CapName),
 >                                fromSelf :: Bool,
+>                                multiRetype :: Bool,
 >                                fields :: ![CapField],
 >                                rangeExpr :: !(Maybe (AddressExpr, SizeExpr)),
 >                                eqFields :: ![NameField] }
@@ -67,6 +68,7 @@
 >                        genEq 
 >                        from
 >                        fromSelf
+>                        multiRetype
 >                        fields
 >                        rangeExpr
 >                        eqFields) =
@@ -78,6 +80,7 @@
 >                        text "From:" <+> text fromName <> text (if fromSelf then " and self" else "")
 >                $+$
 >                text "Fields:" <> text (if null fields then " None" else "") $+$
+>                text (if multiRetype then "Can be retyped multiple times." else "") $+$
 >                nest 4 (vcat' (map pretty fields)) $+$
 >                (case rangeExpr of
 >                     Nothing -> text "Not addressable"

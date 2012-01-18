@@ -391,6 +391,19 @@ $compare\_caps$ returns -1, 0 or 1 indicating the ordering of the given caps.
 
 \section{Is well founded}
 
+\subsection{Get children}
+
+\verb|getChildren| computes the direct children of a cap.
+\verb|isChild| returns True iff c is a child of p.
+
+> getChildren cap capabilities =
+>     [ c | c <- capabilities, isChild c cap ] ++
+>     (if fromSelf cap then [cap] else [])
+> isChild :: Capability -> Capability -> Bool
+> isChild c p = case (from c) of
+>                   Nothing -> False
+>                   Just cn -> (name p) == cn
+
 \subsection{Compute Well-found-ness Relation}
 
 validPaths maps all ObjTypeEnum values to the ObjTypeEnum values of their
@@ -402,13 +415,7 @@ children (according to the Retype relationship).
 >     [ (ofObjTypeEnum $ name c, map (\x -> ofObjTypeEnum $ name x) ch) |
 >       (c, ch) <- vPaths ]
 >     where
->       vPaths = [ (c, getChildren c) | c <- caps ]
->       getChildren cap = [ c | c <- caps, isChild c cap ] ++
->                          (if fromSelf cap then [cap] else [])
->       isChild :: Capability -> Capability -> Bool
->       isChild c p = case (from c) of
->                          Nothing -> False
->                          Just cn -> (name p) == cn
+>       vPaths = [ (c, getChildren c caps) | c <- caps ]
 
 \subsection{Generate Code}
 
@@ -443,8 +450,6 @@ children (according to the Retype relationship).
 >     where condition validTypes = foldl' orType false validTypes
 >           orType acc srcType = acc .|. (destType .==. srcType)
 
-> {-
-
 > is_equal_types :: FoFCode PureExpr
 > is_equal_types =
 >     def [] "is_equal_type"
@@ -456,19 +461,24 @@ children (according to the Retype relationship).
 
 \section{Is revoked first}
 
+This function queries if the given capability can be retyped in its current
+state.
+
 \subsection{Compute Revocation Paths}
 
+The Boolean value in the tuples indicates whether the cap can be retyped
+multiple times.
+
 > revokePaths :: [Capability] -> 
->                [(PureExpr, Maybe Multiplicity)]
+>                [(PureExpr, Maybe Bool)]
 > revokePaths caps = revokePaths' [] caps
 >     where revokePaths' !acc [] = acc
 >           revokePaths' !acc (x:xs) = 
 >               revokePaths' (revokePath x:acc) xs
->           revokePath cap = strict ( ofObjTypeEnum $ name cap, retypeCap $ cap )
->     
+>           revokePath cap = strict ( ofObjTypeEnum $ name cap, multiRet cap)
+>           multiRet cap = if null (getChildren cap caps) then Nothing else Just $ multiRetype cap
 
 \subsection{Generate Code}
-
 
 > is_revoked_first :: [Capability] ->
 >                     FoFCode PureExpr
@@ -479,7 +489,6 @@ children (according to the Retype relationship).
 >         boolT
 >         [(ctePtrT, Nothing),
 >          (objtypeT, Nothing)]
->         
 
 > is_revoked_first_int :: [Capability] ->
 >                         [PureExpr] ->
@@ -491,24 +500,26 @@ children (according to the Retype relationship).
 >            casesV
 >            (do
 >             returnc false)
->         where revokeP = [(st, rp) | (st, rp) <- revokePaths caps, isJust rp]
+>         -- revokeP contains all cap types that can be retyped
+>         where revokeP = [(st, fromJust rp) | (st, rp) <- revokePaths caps, isJust rp]
 
+Return true if cte has type that is multi-retypable or cap has no descendants,
+false otherwise.
 
 > revokeCode :: PureExpr ->
->               (PureExpr, Maybe Multiplicity) ->
+>               (PureExpr, Bool) ->
 >               FoFCode (PureExpr, FoFCode PureExpr)
 > revokeCode cte (codeV,mult) =
 >                   (do
 >                     return $! (codeV, 
->                             case mult of
->                             Nothing -> returnc false
->                             Just Multiple -> returnc true
->                             Just Unique -> 
+>                             if mult then returnc true else
 >                                 (do
 >                                  b <- has_descendants cte
->                                  ifc (do return $! b)
->                                      (do returnc false)
->                                      (do returnc true))))
+>                                  ifc (return $! b)
+>                                      (returnc false)
+>                                      (returnc true))))
+
+> {-
 
 \section{Is copy}
 
