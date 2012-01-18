@@ -358,7 +358,7 @@ errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char **strp,
 
 void flounder_stub_ump_state_init(struct flounder_ump_state *s, void *binding)
 {
-    s->sent_id = 0;
+    s->next_id = 1;
     s->seq_id = 0;
     s->ack_id = 0;
     s->last_ack = 0;
