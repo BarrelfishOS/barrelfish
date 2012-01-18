@@ -21,7 +21,7 @@
 #include <dist2/dist2.h>
 #include <skb/skb.h>
 
-#define MAX_ITERATIONS 100
+#define MAX_ITERATIONS 1000
 struct timestamp {
     cycles_t time0;
     cycles_t time1;
@@ -30,7 +30,7 @@ struct timestamp {
 };
 struct timestamp timestamps[MAX_ITERATIONS] = { { 0, 0, 0, 0 } };
 static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
-        4000, 5000 }; //, 6000, 7000, 8000, 9000, 10000, 12000  };
+        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000  };
 
 static void variable_records_skb(void)
 {
@@ -86,10 +86,10 @@ static void variable_records(void)
 {
     size_t exps = sizeof(records) / sizeof(size_t);
     for (size_t i = 1; i < exps; i++) {
-        //printf("# Run experiment with %lu records:\n", records[i]);
+        printf("# Run experiment with %lu records:\n", records[i]);
 
         for (size_t j = records[i - 1]; j < records[i]; j++) {
-            errval_t err = dist_set("object%lu", j);
+            errval_t err = dist_set("object%lu { attr: 'object%lu' }", j, j);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "set");
                 exit(0);

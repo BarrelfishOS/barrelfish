@@ -1,8 +1,6 @@
-:- lib(hash).
-:- hash_create(X), setval(rh, X).
-:- hash_create(X), setval(sequenceTable, X).
+:- local store(rh).
+:- local store(sequenceTable).
 :- dynamic watch/2.
-
 
 %
 % Output
@@ -66,13 +64,11 @@ format_slot_val(Val, In, Out) :-
 % Get Record
 %
 get_object(Name, AList, CList, object(Name, SList)) :-
-    getval(rh, HT),
-    hash_entry(HT, Name, SList),
+    store_get(rh, Name, SList),
     match_attributes(AList, SList),
     match_constraints(CList, object(Name, SList)).
 get_first_object(Name, AList, CList, object(Name, SList)) :-
-    getval(rh, HT),
-    hash_entry(HT, Name, SList),
+    store_get(rh, Name, SList),
     match_attributes(AList, SList),
     match_constraints(CList, object(Name, SList)), 
     !.
@@ -134,16 +130,12 @@ match_constraint([constraint(AKey, Comparator, Value)|Rest], object(Name, [val(S
 %
 % Add Record
 %
-next_sequence(Name, N1) :-
-    getval(sequenceTable, SQT),
-    hash_update(SQT, Name, N0, N1),
+next_sequence(Name, Next) :-
+    store_get(sequenceTable, Name, Next),
     !,
-    N1 is N0 + 1,
-    setval(sequenceTable, SQT).
+    store_inc(sequenceTable, Name).
 next_sequence(Name, 0) :-
-    getval(sequenceTable, SQT),
-    hash_add(SQT, Name, 0),
-    setval(sequenceTable, SQT).
+    store_inc(sequenceTable, Name).
 
 add_seq_object(Name, UList, CList) :-
     next_sequence(Name, Seq),
@@ -153,25 +145,21 @@ add_seq_object(Name, UList, CList) :-
     atom_string(NameSeq, NameSeqStr),
     add_object(NameSeq, UList, CList).
 add_object(Name, UList, CList) :-
-    getval(rh, HT),
-    hash_entry(HT, Name, SList),
+    get_object(Name, [], CList, SList),
     !,
-    match_constraints(CList, object(Name, SList)),
     transform_attributes(UList, USList),
-    save_object(HT, Name, USList).
+    save_object(Name, USList).
 add_object(Name, UList, CList) :- % record does not exist yet
-    getval(rh, HT),
     length(CList, 0), % No constraints would match in this case
     !,
     transform_attributes(UList, USList),
-    save_object(HT, Name, USList).
+    save_object(Name, USList).
 
-save_object(HT, Name, SList) :-
-    hash_set(HT, Name, SList),
-    setval(rh, HT),
+save_object(Name, SList) :-
+    store_set(rh, Name, SList),
     !,
-    trigger_watches(object(Name, SList), 1),
-    print_object(object(Name, SList)).
+    trigger_watches(object(Name, SList), 1).
+%    print_object(object(Name, SList)).
 
 transform_attributes(AList, RNDList) :-
     sort(AList, RList),
@@ -190,12 +178,9 @@ filter_duplicates([val(Key1, X), val(Key2, Y)|Rest], [val(Key1, X)|Out]) :-
 %
 del_object(Name, AList, CList) :-
     get_object(Name, AList, CList, Object),
-    getval(rh, HT),
-    hash_delete(HT, Name),
-    setval(rh, HT),
+    store_delete(rh, Name),
     trigger_watches(Object, 2).
     
-
 %
 % Watches
 %

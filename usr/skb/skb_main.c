@@ -25,7 +25,7 @@
 #include "dist/predicates.h"
 #include "shared_lib_dict.h"
 
-#define MEMORY_SIZE 30*1024*1024
+#define MEMORY_SIZE 1024*1024*1024
 #define ECLIPSE_DIR "/skb"
 
 #define RESULT_BUF_SIZE 1024
@@ -113,11 +113,15 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
-    if(disp_get_core_id() == 0) {
+    if(disp_get_core_id() == 3) {
         debug_printf("dist_server_init\n");
-        execute_string("set_flag(gc, off).");
-        execute_string("set_flag(enable_interrupts, off).");
-        execute_string("set_flag(debug_compile, off).");
+        //execute_string("set_flag(gc, off).");
+        //execute_string("set_flag(gc_policy, fixed).");
+        //execute_string("set_flat(gc_interval, 536870912)."); // 512 mb
+        //execute_string("set_flag(gc_interval_dict, 10000).");
+        //execute_string("set_flag(enable_interrupts, off).");
+        //execute_string("set_flag(debug_compile, off).");
+        //execute_string("set_flag(debugging, nodebug).");
 
         bench_init();
         errval_t err = dist_server_init();
