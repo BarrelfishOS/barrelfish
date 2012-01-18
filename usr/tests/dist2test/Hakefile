@@ -63,6 +63,6 @@
                       cFiles = [ "d2bench.c" ],
                       flounderBindings = [ "dist2" ],
                       flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                      addLibraries = [ "dist2", "dist_parser", "bench", "skb" ]
                     }    
 ]

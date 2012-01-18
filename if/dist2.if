@@ -49,7 +49,7 @@ interface dist2 "dist2 RPC Interface" {
      * \param output Retrieved record or NULL on error.
      * \param error_code Error value of request.
      */
-    rpc get(in string query, in trigger t, out string output, out errval error_code, out cycles time);
+    rpc get(in string query, in trigger t, out string output, out errval error_code, out cycles time, out uint8 busy);
         
     /**
      * \param query Record to set.

@@ -19,52 +19,111 @@
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 #include <dist2/dist2.h>
-
-#include <dist2_server/debug.h> // for benchmarking
+#include <skb/skb.h>
 
 #define MAX_ITERATIONS 100
 struct timestamp {
     cycles_t time0;
     cycles_t time1;
     cycles_t server;
+    uint8_t busy;
 };
-struct timestamp timestamps[MAX_ITERATIONS] = {{ 0, 0, 0 }};
+struct timestamp timestamps[MAX_ITERATIONS] = {{ 0, 0, 0, 0 }};
+static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500, 4000, 5000 }; //, 6000, 7000, 8000, 9000, 10000, 12000  };
 
-//static size_t records[] = { 1, 4, 8, 16, 256, 65536 };
+static void variable_records_skb(void)
+{
+    size_t exps = sizeof(records) / sizeof(size_t);
+    for (size_t i=1; i < exps; i++) {
+        //printf("# Run experiment with %lu records:\n", records[i]);
+       char* res = NULL;
+       char* error = NULL;
+       int ierr = 0;
 
-/*
+        for (size_t j = records[i-1]; j < records[i]; j++) {
+           char buf[100];
+           sprintf(buf, "add_object(\"object%lu\", [], []).", j);
+           errval_t err = skb_evaluate(buf, &res, &error, &ierr);
+           //printf("skb: %s, result: %s\n", buf, res);
+           assert(err_is_ok(err));
+           assert(ierr == 0);
+           free(res);
+           free(error);
+        }
+
+        struct dist2_rpc_client* cl = get_dist_rpc_client();
+        assert(cl != NULL);
+        
+        for(size_t k=0; k < MAX_ITERATIONS; k++) {
+            size_t get_nr = k % records[i];
+            char buf[100];
+            sprintf(buf, "get_object(\"object%lu\", [], [], X), writeln(X).", get_nr);
+
+            timestamps[k].time0 = bench_tsc();
+            errval_t err = skb_evaluate(buf, &res, &error, &ierr);
+            timestamps[k].time1 = bench_tsc();
+    
+            assert(err_is_ok(err));
+            assert(ierr == 0);
+            free(res);
+            free(error);
+        }
+
+        for(size_t k=0; k < MAX_ITERATIONS; k++) {
+            printf("%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n", k,
+                    timestamps[k].time1 - timestamps[k].time0 - bench_tscoverhead(),
+                    timestamps[k].server, timestamps[k].busy, records[i]);
+        }
+    }
+}
+
+
 static void variable_records(void)
 {
     size_t exps = sizeof(records) / sizeof(size_t);
+    for (size_t i=1; i < exps; i++) {
+        //printf("# Run experiment with %lu records:\n", records[i]);
 
-    for (size_t i=0; i < exps; i++) {
-        errval_t err = dist_set("object%lu", i);
-        assert(err_is_ok(err));
+        for (size_t j = records[i-1]; j < records[i]; j++) {
+            errval_t err = dist_set("object%lu", j);
+            if(err_is_fail(err)) { DEBUG_ERR(err, "set"); exit(0); }
+        }
+
+        errval_t error_code;
+        char* data = NULL;
+
+        struct dist2_rpc_client* cl = get_dist_rpc_client();
+	assert(cl != NULL);
+	
+        for(size_t k=0; k < MAX_ITERATIONS; k++) {
+            size_t get_nr = k % records[i];
+            char buf[100];
+            sprintf(buf, "object%lu", get_nr);
+
+            timestamps[k].time0 = bench_tsc();
+            cl->vtbl.get(cl, buf, NOP_TRIGGER, &data, &error_code, &timestamps[k].server, &timestamps[k].busy);
+            timestamps[k].time1 = bench_tsc();
+	    if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "get");  exit(0); }
+            free(data);
+        }
+
+        for(size_t k=0; k < MAX_ITERATIONS; k++) {
+            printf("%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n", k,
+                    timestamps[k].time1 - timestamps[k].time0 - bench_tscoverhead(),
+                    timestamps[k].server, timestamps[k].busy, records[i]);
+        }
+
+    char* res; char* error; int ierr;
+    skb_evaluate("getval(rh, HT), hash_stat(HT).", &res, &error, &ierr);
+    printf("skbresult:\n%s\n%s\n", res, error);
+
     }
+}
 
-
-    errval_t error_code;
-    char* data = NULL;
-
-    struct dist2_rpc_client* cl = get_dist_rpc_client();
-
-    for(size_t i=0; i < MAX_ITERATIONS; i++) {
-        timestamps[i].time0 = bench_tsc();
-        cl->vtbl.get(cl, "object1", NOP_TRIGGER, &data, &error_code);
-        timestamps[i].time1 = bench_tsc();
-
-        free(data);
-    }
-
-    for(size_t i=0; i < MAX_ITERATIONS; i++) {
-        printf("%lu %"PRIuCYCLES"\n", i,
-                timestamps[i].time1 - timestamps[i].time0 - bench_tscoverhead());
-    }
-}*/
 
 static void one_record(void)
 {
-    errval_t err = dist_set("object1");
+    errval_t err = dist_set("object0");
     assert(err_is_ok(err));
 
     errval_t error_code;
@@ -74,21 +133,30 @@ static void one_record(void)
 
     for(size_t i=0; i < MAX_ITERATIONS; i++) {
         timestamps[i].time0 = bench_tsc();
-        cl->vtbl.get(cl, "object1", NOP_TRIGGER, &data, &error_code, &timestamps[i].server);
+        cl->vtbl.get(cl, "object0", NOP_TRIGGER, &data, &error_code, &timestamps[i].server, &timestamps[i].busy);
         timestamps[i].time1 = bench_tsc();
-
+        printf("got: %s\n", data);
+        data[0] = '\0';
+	assert(err_is_ok(error_code));
         free(data);
     }
 
     for(size_t i=0; i < MAX_ITERATIONS; i++) {
-        printf("%lu %"PRIuCYCLES" %"PRIuCYCLES"\n", i,
-                timestamps[i].time1 - timestamps[i].time0 - bench_tscoverhead(), timestamps[i].server);
+        printf("%lu %"PRIuCYCLES" %"PRIuCYCLES" %d\n", i,
+                timestamps[i].time1 - timestamps[i].time0 - bench_tscoverhead(), timestamps[i].server, timestamps[i].busy);
     }
 }
 
 int main(int argc, char** argv) {
     dist_init();
     bench_init();
+    skb_client_connect();
 
-    one_record();
+    if(0) one_record();
+    variable_records();
+    if(0) variable_records_skb();    
+
+    char* res; char* error; int ierr;
+    skb_evaluate("get_stat(X).", &res, &error, &ierr);
+    printf("skbresult:\n%s\n%s\n", res, error);
 }

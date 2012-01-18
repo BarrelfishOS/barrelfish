@@ -99,9 +99,10 @@ static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt)
     char* reply = err_is_ok(srt->error) ?
             srt->query_state.stdout.buffer : NULL;
     err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
-            reply, srt->error, srt->time);
+            reply, srt->error, srt->time, srt->busy);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            srt->busy = 1;
             dist_rpc_enqueue_reply(b, srt);
             return;
         }
@@ -112,22 +113,23 @@ static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt)
 void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
-
+    cycles_t time0 = 0, time1 = 0;
     struct dist_reply_state* srt = NULL;
     err = new_dist_reply_state(&srt, get_reply);
     assert(err_is_ok(err));
 
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
-    cycles_t time0 = 0, time1 = 0;
     if (err_is_ok(err)) {
-        time0 = bench_tsc();
+	time0 = bench_tsc();
         err = get_record(ast, &srt->query_state);
         time1 = bench_tsc();
+
         install_trigger(b, ast, trigger, err);
     }
-    srt->time = time1 - time0 - bench_tscoverhead();
     srt->error = err;
+    srt->time = time1 - time0 - bench_tscoverhead();
+
     srt->reply(b, srt);
 
     free_ast(ast);
