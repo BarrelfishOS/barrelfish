@@ -125,6 +125,7 @@
 >         | s == "uint64" = [(UInt64, "")]
 >         | s == "int" = [(Int, "")]
 >         | s == "genpaddr" = [(GenPAddr, "")]
+>         | s == "gensize" = [(GenSize, "")]
 >         | s == "lpaddr" = [(LPAddr, "")]
 >         | s == "genvaddr" = [(GenVAddr, "")]
 >         | s == "lvaddr" = [(LVAddr, "")]
