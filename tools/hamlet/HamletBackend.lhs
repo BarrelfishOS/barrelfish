@@ -406,49 +406,33 @@ $compare\_caps$ returns -1, 0 or 1 indicating the ordering of the given caps.
 
 \subsection{Compute Well-found-ness Relation}
 
-validPaths maps all ObjTypeEnum values to the ObjTypeEnum values of their
-children (according to the Retype relationship).
-
-> validPaths :: [Capability] ->
->               [(PureExpr, [PureExpr])]
-> validPaths caps =
->     [ (ofObjTypeEnum $ name c, map (\x -> ofObjTypeEnum $ name x) ch) |
->       (c, ch) <- vPaths ]
->     where
->       vPaths = [ (c, getChildren c caps) | c <- caps ]
-
-\subsection{Generate Code}
+{\tt is\_well\_founded} checks if {\tt src\_type} can be retyped to {\tt
+dest\_type}.
 
 > is_well_founded :: [Capability] ->
 >                    FoFCode PureExpr
 > is_well_founded caps =
->     validP `seq`
->     def [] "is_well_founded" 
->             ({-# SCC "is_wf_int" #-} is_well_founded_int caps)
->             boolT 
->             [(objtypeT, Nothing), 
->              (objtypeT, Nothing)]
->         where  is_well_founded_int caps (src_type : dest_type : []) =
->                    {-# SCC "is_well_founded_int" #-} 
->                   do
->                   cases <- sequence validateRetypeCases
->                   switch src_type
->                          cases
->                          defaultCode
->                     where defaultCode = returnc $ false
->                           validateRetype = {-# SCC "validateRetype" #-} validateRetypeCode dest_type
->                           validateRetypeCases = {-# SCC "validateRetypeCases" #-} mapp validateRetype validP
->                validP = {-# SCC "validP" #-} [ (st, vp) | (st, vp) <- validPaths caps, vp /= [] ]
+>     def [] "is_well_founded"
+>             (is_well_founded_int caps)
+>             boolT
+>             [(objtypeT, Just "src_type"),
+>              (objtypeT, Just "dest_type")]
 
-> validateRetypeCode :: PureExpr ->
->                       (PureExpr, [PureExpr]) ->
->                       FoFCode (PureExpr, FoFCode PureExpr)
-> validateRetypeCode destType (srcTypeV, validTypesP) =
->     do 
->       return $! (srcTypeV,
->                  (do returnc $ condition validTypesP))
->     where condition validTypes = foldl' orType false validTypes
->           orType acc srcType = acc .|. (destType .==. srcType)
+> is_well_founded_int caps (src_type : dest_type : []) =
+>     do
+>       switch dest_type cases (assert false >> returnc false)
+>     where
+>       cases = map mkCase caps
+>       mkCase capType = ((ofObjTypeEnum $ name capType), (checkIsParent src_type capType))
+>       checkIsParent parent capType = returnc ((checkIsFrom parent capType)  .|. (checkIsFromSelf parent capType))
+>       checkIsFrom parent capType =
+>         case from capType of
+>           Just capName -> (parent .==. (ofObjTypeEnum capName))
+>           Nothing      -> false
+>       checkIsFromSelf parent capType =
+>         if fromSelf capType
+>            then (parent .==. (ofObjTypeEnum $ name capType))
+>            else false
 
 > is_equal_types :: FoFCode PureExpr
 > is_equal_types =
