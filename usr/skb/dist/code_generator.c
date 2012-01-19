@@ -102,11 +102,11 @@ static inline struct pword_pair create_constraint(struct ast_object* p)
         break;
 
     case constraint_NE:
-        terms.op = ec_atom(ec_did("=/=", 2));
+        terms.op = ec_atom(ec_did("=\=", 2));
         break;
 
     case constraint_REGEX:
-        terms.op = ec_atom(ec_did("distmatch", 2));
+        terms.op = ec_atom(ec_did("match", 0));
         break;
 
     default:

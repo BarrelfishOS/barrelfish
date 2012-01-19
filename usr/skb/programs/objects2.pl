@@ -1,6 +1,10 @@
 :- local store(rh).
 :- local store(sequenceTable).
+:- local store(attributeIndex).
+
 :- dynamic watch/2.
+:- lib(ordset).
+:- lib(lists).
 
 %
 % Output
@@ -63,68 +67,109 @@ format_slot_val(Val, In, Out) :-
 %
 % Get Record
 %
-get_object(Name, AList, CList, object(Name, SList)) :-
-    store_get(rh, Name, SList),
-    match_attributes(AList, SList),
-    match_constraints(CList, object(Name, SList)).
-get_first_object(Name, AList, CList, object(Name, SList)) :-
-    store_get(rh, Name, SList),
-    match_attributes(AList, SList),
-    match_constraints(CList, object(Name, SList)), 
-    !.
+get_object(Name, AList, CList, Object) :-
+    var(Name),
+    convert_attributes(AList, ACList),
+    append(ACList, CList, Constraints),
+    sort(Constraints, SConstraints),
+    find_candidates(Name, SConstraints, CandidateLists),
+    ord_intersection(CandidateLists, Candidates),
+    match_objects(Candidates, SConstraints, Objects). 
 
-match_attributes(AList, SList) :-
-    sort(AList, SAList),
-    match_attribute(SAList, SList).
-match_attribute([], _).
-match_attribute([val(Key, QVal)|QRest], [val(Key, SVal)|SRest]) :-
-    nonvar(QVal),
-    !,
-    (QVal == SVal),
-    match_attribute(QRest, [val(Key, SVal)|SRest]).
-match_attribute([val(Key, QVal)|QRest], [val(Key, SVal)|SRest]) :-
-    var(QVal),
-    !,
-    QVal = SVal,
-    match_attribute(QRest, [val(Key, SVal)|SRest]).
-match_attribute([val(AKey, QVal)|QRest], [val(SKey, SVal)|SRest]) :-
-    compare(>, AKey, SKey),
-    match_attribute([val(AKey, QVal)|QRest], SRest).
+
+match_objects([Name|Rest], Constraints, Object) :-
+    store_get(rh, Name, SList),
+    Object = object(Name, SList),
+    (match_constraint(Constraints, Object) ; match_objects(Rest, Constraints, Object)).
+
+%find_candidates(Name, CList, Candidates) :-
+%    var(Name), length(CList, 0), !,
+%    stored_keys(rh, Candidates).
+find_candidates(Name, [constraint(Attribute, _, Value)|Rest], [IdxList|Cur]) :-
+    number(Value), !,
+    concat_atoms('n', Attribute, Key), 
+    store_get(attributeIndex, Key, IdxList),
+    find_candidates(Name, Rest, Cur).
+find_candidates(Name, [constraint(Attribute, _, Value)|Rest], [IdxList|Cur]) :-
+    (string(Value) ; atom(Value)), !,
+    concat_atoms('s', Attribute, Key), 
+    store_get(attributeIndex, Key, IdxList),
+    find_candidates(Name, Rest, Cur).
+find_candidates(_, [], []).
+
+iterative_ord_intersect([], X, X) :- !.
+iterative_ord_intersect(Initial, New, Intersection) :-
+    ord_intersect(Initial, New, Intersection).
+
+retrieve_index(constraint(Attribute, _, Value), IdxList) :-
+    number(Value),
+    append_strings("n", Attribute, Key),
+    store_get(attributeIndex, Key, IdxList).
+retrieve_index(constraint(Attribute, _, Value), IdxList) :-
+    (string(Value) ; atom(Value)),
+    append_strings("s", Attribute, Key),
+    store_get(attributeIndex, Key, IdxList).
+retrieve_index(constraint(_, _, _), []).
+
+    
+    
+
+%
+% Attribute/Constraint Matching
+%
+string_compare(C, A, B) :-
+    atom(A), !,
+    atom_string(A, SA),
+    string_compare(C, SA, B).
+string_compare(C, A, B) :-
+    atom(B), !,
+    atom_string(B, SB),
+    string_compare(C, A, SB).
+string_compare(==, A, B) :- !,
+    compare(=, A, B).
+string_compare(=/=, A, B) :- !,
+    (compare(<, A, B), ! ; compare(>, A, B), !).
+string_compare(>=, A, B) :- !,
+    (compare(>, A, B), ! ; compare(=, A, B), !).
+string_compare(=<, A, B) :- !,
+    (compare(<, A, B), ! ; compare(=, A, B), !).
+string_compare(C, A, B) :- !,
+    compare(C, A, B).
 
 match_constraints(CList, Object) :-
-    sort(CList, SCList),
-    match_constraint(SCList, Object).
+    match_constraint(CList, Object).
 
 match_constraint([], _).
 match_constraint([name_constraint(Value)|Rest], object(Name, SList)) :-
-    !,
-    (string(Value) ; atom(Value)),
-    match(Value, Name, []),
-    match_constraint(Rest, SList).
+    !, match_constraint(Rest, SList). % Ignore name constraint at this point
+% Number comparison
 match_constraint([constraint(Key, Comparator, Value)|Rest], object(Name, [val(Key, SVal)|SRest])) :-
-    atom_string(Comparator, "distmatch"), % hack: does not work when put in constraint?
-    !,
-    (string(SVal) ; atom(SVal)),
-    (string(Value) ; atom(Value)),
-    match(Value, SVal, []),
-    match_constraint(Rest, object(Name, [val(Key, SVal)|SRest])).
-match_constraint([constraint(Key, Comparator, Value)|Rest], object(Name, [val(Key, SVal)|SRest])) :-
-    number(SVal),
-    number(Value),
-    !,
+    number(SVal), number(Value), !,
     FX =.. [Comparator, SVal, Value],
     call(FX),
     match_constraint(Rest, object(Name, [val(Key, SVal)|SRest])).
+% String comparison
+match_constraint([constraint(Key, Comparator, Value)|Rest], object(Name, [val(Key, SVal)|SRest])) :-
+    ( (string(Value) ; atom(Value)), (string(SVal) ; atom(SVal)) ), !,
+    string_compare(Comparator, Value, SVal),
+    match_constraint(Rest, object(Name, [val(Key, SVal)|SRest])).
+% Regular Expression
+match_constraint([constraint(Key, match, Value)|Rest], object(Name, [val(Key, SVal)|SRest])) :-
+    !, ( (string(SVal) ; atom(SVal)), (string(Value) ; atom(Value)) ),
+    match(Value, SVal, []),
+    match_constraint(Rest, object(Name, [val(Key, SVal)|SRest])).
+% Skip to next relevant Slot in List
 match_constraint([constraint(AKey, Comparator, Value)|Rest], object(Name, [val(SKey, SVal)|SRest])) :-
-    compare(>, AKey, SKey),
-    !,
+    compare(>, AKey, SKey), !, % continue to next entry in slotlist
     match_constraint([constraint(AKey, Comparator, Value)|Rest], object(Name, SRest)).
 
-%[eclipse 75]: sort([val('ab', 1), val(aaa, 2)], X).
-%X = [val(aaa, 2), val(ab, 1)]
-%Yes (0.00s cpu)
-
-
+% Helper functions to convert attributes in constraint and match them against object
+prepare_constraint(val(Key, QVal), constraint(Key, ==, QVal)).
+convert_attributes(AList, CList) :-
+    maplist(prepare_constraint, AList, CList).
+match_attributes(AList, Object) :-
+    convert_attributes(AList, CList),
+    match_constraints(CList, Object).
 
 
 %
@@ -146,20 +191,19 @@ add_seq_object(Name, UList, CList) :-
     add_object(NameSeq, UList, CList).
 add_object(Name, UList, CList) :-
     get_object(Name, [], CList, SList),
-    !,
-    transform_attributes(UList, USList),
-    save_object(Name, USList).
+    !, save_object(Name, UList).
 add_object(Name, UList, CList) :- % record does not exist yet
     length(CList, 0), % No constraints would match in this case
-    !,
-    transform_attributes(UList, USList),
-    save_object(Name, USList).
+    !, save_object(Name, UList).
 
 save_object(Name, SList) :-
-    store_set(rh, Name, SList),
+    transform_attributes(SList, USList),
+    store_set(rh, Name, USList),
+    set_attribute_index(Name, USList),
     !,
-    trigger_watches(object(Name, SList), 1).
+    trigger_watches(object(Name, USList), 1).
 %    print_object(object(Name, SList)).
+
 
 transform_attributes(AList, RNDList) :-
     sort(AList, RList),
@@ -172,6 +216,49 @@ filter_duplicates([val(Key, X),val(Key, Y)|Rest], Out) :-
 filter_duplicates([val(Key1, X), val(Key2, Y)|Rest], [val(Key1, X)|Out]) :-
     Key1 \= Key2,
     filter_duplicates([val(Key2, Y)|Rest], Out).
+
+%
+% Attribute Index
+%
+set_attribute_index(Name, SList) :-
+    ( foreach(Slot, SList), param(Name) do add_index(Name, Slot) ).
+
+del_attribute_index(Name, SList) :-
+    ( foreach(Slot, SList), param(Name) do del_index(Name, Slot) ).
+
+add_index(Name, val(Attribute, Value)) :-
+   number(Value), !,
+   concat_atoms('n', Attribute, Key),
+   save_index(Key, Name).
+add_index(Name, val(Attribute, Value)) :-
+   (string(Value) ; atom(Value)), !,
+   concat_atoms('s', Attribute, Key),
+   save_index(Key, Name).
+
+save_index(Idx, Name) :-
+    store_get(attributeIndex, Idx, NameList),
+    !,
+    ord_insert(NameList, Name, NewList),
+    store_set(attributeIndex, Idx, NewList).
+save_index(Idx, Name) :-
+    store_set(attributeIndex, Idx, [Name]).
+
+del_index(Name, val(Attribute, Value)) :-
+   number(Value), !,
+   append_strings("n", Attribute, Key),
+   remove_index(Key, Name).
+del_index(Name, val(Attribute, Value)) :-
+   (string(Value) ; atom(Value)), !,
+   append_strings("s", Attribute, Key),
+   remove_index(Key, Name).
+
+remove_index(Idx, Name) :-
+   store_get(attributeIndex, Idx, NameList),
+   !,
+   ord_del_element(NameList, Name, NewNameList),
+   store_set(attributeIndex, Idx, NewNameList).
+
+
     
 %
 % Delete Record
@@ -179,6 +266,8 @@ filter_duplicates([val(Key1, X), val(Key2, Y)|Rest], [val(Key1, X)|Out]) :-
 del_object(Name, AList, CList) :-
     get_object(Name, AList, CList, Object),
     store_delete(rh, Name),
+    !,
+    del_attribute_index(Name, AList),
     trigger_watches(Object, 2).
     
 %
@@ -213,3 +302,19 @@ check_watch(_, _, _).
 try_retract(1, WatchId) :-
     retract(watch(_, triplet(_, _, recipient(_, _, WatchId)))).
 try_retract(0, _). 
+
+
+
+
+
+
+:- add_object(o0, [ val(a, 0), val(mix, 1.0)            ], []).
+:- add_object(o1, [ val(a, 1), val(mix, 20)             ], []).
+:- add_object(o2, [ val(a, 2), val(mix, 'attr1')        ], []).
+:- add_object(o3, [ val(a, 3), val(mix, "attr2")        ], []).
+:- add_object(o4, [ val(a, 4), val(mix, "test str")     ], []).
+:- add_object(o5, [ val(a, 5), val(mix, "12")           ], []).
+%:- add_object(o6, [ val(a, 6), val(mix, X)              ], []).
+:- add_object(o7, [ val(a, 7), val(mix, "test str 123") ], []).
+:- add_object(o8, [ val(a, 8), val(mix, "12")           ], []).
+:- add_object(o9, [ val(a, 9), val(mix, 1.0992)         ], []).
