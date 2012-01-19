@@ -152,4 +152,5 @@
 >         compareCaps <- compare_caps caps getTypeRoot getAddress getSize
 >         isRevokedFirst <- is_revoked_first (capabilities caps)
 >         isCopy <- is_copy caps compareCaps
+>         isAncestor <- is_ancestor caps isWellFounded getAddress getSize
 >         return false

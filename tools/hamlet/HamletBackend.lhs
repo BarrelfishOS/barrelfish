@@ -77,6 +77,8 @@
 > gensizeT :: TypeExpr
 > gensizeT = typedef uint64T "gensize_t"
 
+> getCap cap_pp = (readRef cap_pp >>= readRef)
+
 \section{|Objtype| Enumeration}
 
 > {-
@@ -351,7 +353,6 @@ $compare\_caps$ returns -1, 0 or 1 indicating the ordering of the given caps.
 >       ifc (return tiebreak) (mkCmp left_cap_pp right_cap_pp (.<.)) (return false)
 >       returnc $ int8 0
 >     where
->       getCap cap_pp = (readRef cap_pp >>= readRef)
 >
 >       -- type-independant tests
 >       tests = [(getRoot, (.<.)),
@@ -541,7 +542,6 @@ general equality specifiers like \texttt{is\_always\_copy} and
 >       res <- call compare_caps [leftPP, rightPP, false]
 >       returnc (res .==. (int8 0))
 >     where
->       getCap cap_pp = (readRef cap_pp >>= readRef)
 >       -- in general equality switch, only handle cases with such an equality
 >       generalEqCases = map mkGeqCase $
 >                        filter (isJust . generalEquality) $
@@ -551,259 +551,69 @@ general equality specifiers like \texttt{is\_always\_copy} and
 >                            (returnc $ fofBool $ fromJust $ generalEquality capType))
 >       fofBool b = if b then true else false
 
-> {-
-
 \section{Is Ancestor}
 
-\subsection{}
-
-> ancestorPath :: [Capability] ->
->                 [((String, DecideLeq, PureExpr), 
->                   [(String, PureExpr, DecideLeq)])]
-> ancestorPath caps  = mapp ancestorPathCap caps
->     where ancestorPathCap cap = cancestors `seq`
->               (strict ( capNameOf cap, 
->                         mkParentDecideLeq cap,
->                         ofObjTypeEnum (name cap)),
->                cancestors)
->                   where cancestors = ancestors [] (retypePath cap)
->           ancestors !acc [] = acc
->           ancestors !acc ((RetypePath (CapName nameCap) decideLeq):xs) =
->               obj `seq`
->               ancestors ((nameCap, obj, decideLeq):acc) xs
->                   where obj = ofObjTypeEnum $ CapName nameCap
-
-
-> mkParentDecideLeq :: Capability -> DecideLeq
-> mkParentDecideLeq cap = 
->     case decideFields of
->       [CapField _ _ f] -> Address f
->       [CapField _ _ (NameField f1),
->        CapField _ _ (NameField f2)] -> Interval (LeqName f1)
->                                                 (LeqName f2)
->       _ -> NoDecideLeq
->     where decideFields = filter (\(CapField decide _ _) ->
->                                   decide == DecideEquality)
->                                 (fields cap)
-
-\subsection{}
+{\tt is\_ancestor} checks if one cap is an immediate ancestor of another (note:
+if ancestor and child are of the same type, a non-immediate ancestor will also
+count).
 
 > is_ancestor :: Capabilities ->
 >                PureExpr ->
 >                PureExpr ->
+>                PureExpr ->
 >                FoFCode PureExpr
-> is_ancestor caps is_well_founded is_equal_types =
+> is_ancestor caps is_well_founded get_address get_size =
 >     def [] 
 >         "is_ancestor" 
->         (is_ancestor_int caps is_well_founded is_equal_types)
+>         (is_ancestor_int caps is_well_founded get_address get_size)
 >         boolT
->         [(ptrT $ ptrT thisCapsStructT, Nothing),
->          (ptrT $ ptrT thisCapsStructT, Nothing)] 
+>         [(ptrT $ ptrT thisCapsStructT, Just "child"),
+>          (ptrT $ ptrT thisCapsStructT, Just "parent")] 
 >     where thisCapsStructT = capsStructT caps 
-
 
 > is_ancestor_int :: Capabilities ->
 >                    PureExpr ->
 >                    PureExpr ->
+>                    PureExpr ->
 >                    [PureExpr] ->
 >                    FoFCode PureExpr
-> is_ancestor_int caps is_well_founded is_equal_types (childPP : parentPP : []) =
->     ancestors `seq`
+> is_ancestor_int caps is_well_founded get_address get_size (childPP : parentPP : []) =
 >     do
->       childP <- readRef childPP
->       child <- readRef childP
->       parentP <- readRef parentPP
->       parent <- readRef parentP
+>       child <- getCap childPP
+>       parent <- getCap parentPP
 >       childType <- readStruct child "type"
 >       parentType <- readStruct parent "type"
->       isWellFounded <- call is_well_founded [parentType, childType]
->       isEqualTypes <- call is_equal_types [parentType, childType]
->       ifc (return $! isWellFounded .==. false)
->           (do
->             returnc false)
->            (do
->              return $! void)
->       let code = map' (revokeCase (defines caps) isEqualTypes parent child childType) $!
->                       ancestors
->       casesV <- sequence $ code `seq` code
-> 
->       switch parentType
->              casesV
->              (do
->                returnc false)
->       returnc false
->           where ancestors = ancestorPath (capabilities caps)
-
-
-> revokeCase :: [Define] ->
->               PureExpr ->
->               PureExpr ->
->               PureExpr ->
->               PureExpr ->
->               ((String, DecideLeq , PureExpr), 
->                [(String, PureExpr, DecideLeq)]) ->
->               FoFCode (PureExpr, FoFCode PureExpr)
-> revokeCase defines
->            isEqualTypes
->            parent 
->            child 
->            childType 
->            ((typeParentCap, decideParentLeq, parentTypeV), cases) =
->     code `seq`
->     do
->     return $! (parentTypeV, code)
->         where code = revokeCaseSwitch defines isEqualTypes parent decideParentLeq
->                                  child childType typeParentCap cases
-
-> revokeCaseSwitch :: [Define] ->
->                     PureExpr ->
->                     PureExpr ->
->                     DecideLeq ->
->                     PureExpr ->
->                     PureExpr ->
->                     String ->
->                     [(String, PureExpr, DecideLeq)] ->
->                     FoFCode PureExpr
-> revokeCaseSwitch defines 
->                  isEqualTypes
->                  parent
->                  decideParentLeq
->                  child 
->                  childType 
->                  typeParentCap 
->                  cases =
->     code `seq`
->     do
->       casesV <- sequence code
->       switch childType
->              casesV
->              (do
->                returnc false)
->       returnc false
->           where code = mapp (revokeCaseSwitchCase defines
->                                                   isEqualTypes
->                                                   parent 
->                                                   decideParentLeq
->                                                   typeParentCap
->                                                   child) cases
-
-
-> revokeCaseSwitchCase :: [Define] ->
->                         PureExpr ->
->                         PureExpr ->
->                         DecideLeq ->
->                         String ->
->                         PureExpr ->
->                         (String, PureExpr, DecideLeq) ->
->                         FoFCode (PureExpr, FoFCode PureExpr)
-> revokeCaseSwitchCase _
->                      isEqualTypes
->                      parent
->                      (Address (NameField parentAddr))
->                      typeParentCap 
->                      child 
->                      (typeChildCap, childTypeV, Address (NameField field)) = 
->     do
->     return $! (childTypeV,
->             do
->               parentU <- readStruct parent "u"
->               parentCStruct <- readUnion parentU $! lower $! typeParentCap
->               parentAddr <- readStruct parentCStruct parentAddr
->               
->               childU <- readStruct child "u"
->               childCStruct <- readUnion childU $! lower $! typeChildCap
->               childAddr <- readStruct childCStruct field
 >
->               returnc (comp(isEqualTypes) .&. (parentAddr .==. childAddr)))
->               
-
-> revokeCaseSwitchCase defines
->                      isEqualTypes
->                      parent 
->                      (Interval parentBase parentOffset)
->                      typeParentCap
->                      child
->                      (typeChildCap, childTypeV, Interval base
->                                                         offset) = 
->     defs `seq`
->     do
->       return $! (childTypeV,
->               do
->                 parentBaseV <- computeVal defs
->                                          parent
->                                          typeParentCap
->                                          parentBase
->                 parentOffsetV <- computeVal defs
->                                            parent
->                                            typeParentCap
->                                            parentOffset
->                 
->                 childBaseV <- computeVal defs 
->                                         child
->                                         typeChildCap
->                                         base
->                 childOffsetV <- computeVal defs
->                                           child
->                                           typeChildCap
->                                           offset
->                                
->                 let parentEndV = parentBaseV .+. mkSize parentOffsetV
->                 let childEndV = childBaseV .+. mkSize childOffsetV
+>       -- fail if relationship is not "well founded"
+>       wellFounded <- call is_well_founded [parentType, childType]
+>       ifc (return $ neg $ wellFounded)
+>           (returnc false) (return void)
 >
->                 ifc (return isEqualTypes)
->                  (do
->                     returnc (((parentBaseV .<. childBaseV) .&.
->                               (parentEndV .>=. childEndV)) .|.
->                              ((parentBaseV .<=. childBaseV) .&.
->                               (parentEndV .>. childEndV))))
->                  (do
->                     returnc ((parentBaseV .<=. childBaseV) .&.
->                              (parentEndV .>=. childEndV))))
->           where defs = map' (\(Define x y) -> (x,y)) defines
-
-> revokeCaseSwitchCase defines
->                      isEqualTypes
->                      parent 
->                      NoDecideLeq
->                      typeParentCap
->                      child
->                      (typeChildCap, childTypeV, x) = 
->     do
->       return $! (childTypeV,
->                  do
->                  returnc false)
-
-
-> computeVal :: [(String, Int)] ->
->               PureExpr -> String ->
->               LeqField ->
->               FoFCode PureExpr
-> computeVal defs cap typeCap (LeqName x) =
->     case (x `lookup` defs) of
->       Nothing -> do
->                  capU <- readStruct cap "u"
->                  capCStruct <- readUnion capU $! lower $! typeCap
->                  xV <- readStruct capCStruct x
->                  return $! xV
->       Just xV -> do 
->                  return $! uint64 $ toInteger xV
-> computeVal _ cap typeCap (MemToPhysOp x) =
->     do
->       capU <- readStruct cap "u"
->       capCStruct <- readUnion capU $! lower $! typeCap
->       xV <- readStruct capCStruct x
->       xVV <- mem_to_phys $ cast lvaddrT xV
->       return $! xVV
-> computeVal _ _ _ (SizeOfOp x) = 
->     do
->       return $! (sizeof $ voidT) -- not really that size
-> computeVal defs cap typeCap (Sum x y) =
->     do
->       xV <- computeVal defs cap typeCap (LeqName x)
->       yV <- computeVal defs cap typeCap (LeqName y)
->       return $! xV .+. yV
+>       -- compute begin and end of parent and child
+>       parentAddr <- call get_address [parent]
+>       childAddr <- call get_address [child]
+>       parentSize <- call get_size [parent]
+>       childSize <- call get_size [child]
+>       parentEnd <- return $ parentAddr .+. parentSize
+>       childEnd <- return $ childAddr .+. childSize
+>
+>       -- check that the child is inside the parent
+>       ifc (return (childType .==. parentType))
+>           -- for self-retypes the ancestor must be strictly greater than the child
+>           (checkStrictInside parentAddr parentEnd childAddr childEnd)
+>           (checkInside parentAddr parentEnd childAddr childEnd)
+>
+>     where
+>       checkStrictInside parentAddr parentEnd childAddr childEnd =
+>         do returnc (((parentAddr .<. childAddr) .&. (parentEnd .>=. childEnd))
+>                     .|. ((parentAddr .<=. childAddr) .&. (parentEnd .>. childEnd)))
+>       checkInside parentAddr parentEnd childAddr childEnd =
+>         do returnc ((parentAddr .<=. childAddr) .&. (parentEnd .>=. childEnd))
+>
 
 \section{Back-end}
+
+> {-
 
 > backend :: Capabilities -> FoFCode PureExpr
 > backend caps =
