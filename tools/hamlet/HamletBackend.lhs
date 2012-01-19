@@ -590,10 +590,10 @@ count).
 >           (returnc false) (return void)
 >
 >       -- compute begin and end of parent and child
->       parentAddr <- call get_address [parent]
->       childAddr <- call get_address [child]
->       parentSize <- call get_size [parent]
->       childSize <- call get_size [child]
+>       parentAddr <- call get_address [parentPP]
+>       childAddr <- call get_address [childPP]
+>       parentSize <- call get_size [parentPP]
+>       childSize <- call get_size [childPP]
 >       parentEnd <- return $ parentAddr .+. parentSize
 >       childEnd <- return $ childAddr .+. childSize
 >
