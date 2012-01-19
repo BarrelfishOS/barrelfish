@@ -613,39 +613,33 @@ count).
 
 \section{Back-end}
 
-> {-
-
 > backend :: Capabilities -> FoFCode PureExpr
 > backend caps =
->     capList `seq`
->     iswf `seq`
->     enums `seq`
->     do
->     dummy <- newEnum "objtype" enums "ObjType_Num"
->     isWellFounded <- {-# SCC "iswfd" #-} iswf
->     isEqualTypes <- is_equal_types
->     isRevokedFirst <- is_revoked_first capList
->     isCopy <- is_copy caps 
->     isAncestor <- is_ancestor caps isWellFounded isEqualTypes
->     return false
->           where iswf = {-# SCC "iswf" #-} is_well_founded capList 
->                 capList = {-# SCC "capList" #-} capabilities caps
->                 enums = mkObjTypeEnum capList
->
+>     do dummy <- newEnum "objtype" enums "ObjType_Num"
+>        getAddress <- get_address caps
+>        getSize <- get_size caps
+>        getTypeRoot <- get_type_root caps
+>        compareCaps <- compare_caps caps getTypeRoot getAddress getSize
+>        isWellFounded <- is_well_founded capList
+>        isEqualTypes <- is_equal_types
+>        isRevokedFirst <- is_revoked_first capList
+>        isCopy <- is_copy caps compareCaps
+>        isAncestor <- is_ancestor caps isWellFounded getAddress getSize
+>        return void
+>     where capList = capabilities caps
+>           enums = mkObjTypeEnum capList
+
 > userbackend :: Capabilities -> FoFCode PureExpr
 > userbackend caps =
->     capList `seq`
->     iswf `seq`
->     enums `seq`
->     do
->     dummy <- newEnum "objtype" enums "ObjType_Num"
->     isWellFounded <- {-# SCC "iswfd" #-} iswf
->     isEqualTypes <- is_equal_types
->     isCopy <- is_copy caps 
->     isAncestor <- is_ancestor caps isWellFounded isEqualTypes
->     return false
->           where iswf = {-# SCC "iswf" #-} is_well_founded capList 
->                 capList = {-# SCC "capList" #-} capabilities caps
->                 enums = mkObjTypeEnum capList
-
-> -}
+>     do dummy <- newEnum "objtype" enums "ObjType_Num"
+>        getAddress <- get_address caps
+>        getSize <- get_size caps
+>        getTypeRoot <- get_type_root caps
+>        compareCaps <- compare_caps caps getTypeRoot getAddress getSize
+>        isWellFounded <- is_well_founded capList
+>        isEqualTypes <- is_equal_types
+>        isCopy <- is_copy caps compareCaps
+>        isAncestor <- is_ancestor caps isWellFounded getAddress getSize
+>        return void
+>     where capList = capabilities caps
+>           enums = mkObjTypeEnum capList
