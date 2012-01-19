@@ -39,7 +39,7 @@ The e1000n driver should work with most recent Intel gigabit ethernet
 controllers (see the list in devices/e1000.dev). We've mostly used the
 82572EI (PCI device ID 0x1082).
 
-You should also be able to boot Barrelfish on a recent version of QEMU (0.10);
+You should also be able to boot Barrelfish on a recent version of QEMU (0.14);
 note that the e1000 device emulated by QEMU is not supported by our driver.
 
 

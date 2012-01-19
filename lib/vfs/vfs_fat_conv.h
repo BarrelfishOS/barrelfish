@@ -7,5 +7,6 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-int dos2unixfn(const unsigned char dn[11], unsigned char *un, int lower);
-int unix2dosfn(const unsigned char *un, unsigned char dn[12], int unlen, unsigned int gen);
+#include <barrelfish/types.h>
+
+int dos2unixfn(const unsigned char *dosfn, unsigned char *buf, size_t buflen);
