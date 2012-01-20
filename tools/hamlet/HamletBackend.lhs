@@ -203,7 +203,7 @@ Generate code to calculate the "size" property of a cap.
 >     def [] "get_address"
 >         (mkGetPropSwitch caps mkGetAddr)
 >         genpaddrT
->         [(ptrT $ ptrT $ capsStructT caps, Nothing)]
+>         [(ptrT $ ptrT $ capsStructT caps, Just "cap")]
 >     where
 >         nullptr = cast genpaddrT $ uint64 0
 >         mkGetAddr :: [(String, Int)] -> Capability -> PureExpr -> FoFCode PureExpr
@@ -225,7 +225,7 @@ Generate code to calculate the "size" property of a cap.
 >     def [] "get_size"
 >         (mkGetPropSwitch caps mkGetSize)
 >         gensizeT
->         [(ptrT $ ptrT $ capsStructT caps, Nothing)]
+>         [(ptrT $ ptrT $ capsStructT caps, Just "cap")]
 >     where
 >         mkGetSize :: [(String, Int)] -> Capability -> PureExpr -> FoFCode PureExpr
 >         mkGetSize defines capType cap =
@@ -270,7 +270,7 @@ given type belongs to.
 >     def [] "get_type_root"
 >         get_type_root_int
 >         uint8T
->         [(objtypeT, Nothing)]
+>         [(objtypeT, Just "type")]
 >     where
 >         get_type_root_int [typ] =
 >           -- big switch over all types, each just returns the result
@@ -414,7 +414,8 @@ dest\_type}.
 >     def [] "is_equal_type"
 >         is_equal_int
 >         boolT
->         [(objtypeT, Nothing), (objtypeT, Nothing)]
+>         [(objtypeT, Just "left_type"),
+>          (objtypeT, Just "right_type")]
 >     where is_equal_int (src_type : dest_type : []) =
 >             do returnc (src_type .==. dest_type)
 
@@ -448,8 +449,8 @@ can be retyped multiple times.
 >         "is_revoked_first"
 >         (is_revoked_first_int caps)
 >         boolT
->         [(ctePtrT, Nothing),
->          (objtypeT, Nothing)]
+>         [(ctePtrT, Just "src_cte"),
+>          (objtypeT, Just "src_type")]
 
 > is_revoked_first_int :: [Capability] ->
 >                         [PureExpr] ->
