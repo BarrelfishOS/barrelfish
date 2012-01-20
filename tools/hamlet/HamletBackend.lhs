@@ -392,19 +392,6 @@ $compare\_caps$ returns -1, 0 or 1 indicating the ordering of the given caps.
 
 \section{Is well founded}
 
-\subsection{Get children}
-
-\verb|getChildren| computes the direct children of a cap.
-\verb|isChild| returns True iff c is a child of p.
-
-> getChildren cap capabilities =
->     [ c | c <- capabilities, isChild c cap ] ++
->     (if fromSelf cap then [cap] else [])
-> isChild :: Capability -> Capability -> Bool
-> isChild c p = case (from c) of
->                   Nothing -> False
->                   Just cn -> (name p) == cn
-
 \subsection{Compute Well-found-ness Relation}
 
 {\tt is\_well\_founded} checks if {\tt src\_type} can be retyped to {\tt
@@ -462,6 +449,12 @@ multiple times.
 >               revokePaths' (revokePath x:acc) xs
 >           revokePath cap = strict ( ofObjTypeEnum $ name cap, multiRet cap)
 >           multiRet cap = if null (getChildren cap caps) then Nothing else Just $ multiRetype cap
+> 	    getChildren cap capabilities =
+> 	        [ c | c <- capabilities, isChild c cap ] ++
+> 	        (if fromSelf cap then [cap] else [])
+> 	    isChild c p = case (from c) of
+> 	                      Nothing -> False
+> 	                      Just cn -> (name p) == cn
 
 \subsection{Generate Code}
 
