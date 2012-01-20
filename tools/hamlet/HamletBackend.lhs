@@ -395,9 +395,9 @@ dest\_type}.
 
 > is_well_founded_int caps (src_type : dest_type : []) =
 >     do
->       switch dest_type cases (assert false >> returnc false)
+>       switch dest_type cases (returnc false)
 >     where
->       cases = map mkCase caps
+>       cases = map mkCase $ filter (\c -> (isJust $ from c) || (fromSelf c)) caps
 >       mkCase capType = ((ofObjTypeEnum $ name capType), (checkIsParent src_type capType))
 >       checkIsParent parent capType = returnc ((checkIsFrom parent capType)  .|. (checkIsFromSelf parent capType))
 >       checkIsFrom parent capType =
