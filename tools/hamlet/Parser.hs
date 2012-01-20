@@ -57,7 +57,7 @@ commaSep   = P.commaSep lexer
 commaSep1  = P.commaSep1 lexer
 parens     = P.parens lexer
 braces     = P.braces lexer
-brackets    = P.brackets lexer
+brackets   = P.brackets lexer
 semiSep    = P.semiSep lexer
 symbol     = P.symbol lexer
 
@@ -68,8 +68,12 @@ capsFile =
     do 
       whiteSpace
       defs <- many definesCst
-      caps <- many1 capabilitiesDef
-      return $! Capabilities defs caps
+      caps <- capDefFold []
+      return $ Capabilities defs caps
+    where
+      capDefFold caps = do cap <- capabilitiesDef caps
+                           capDefFold (cap:caps)
+                        <|> (return $ reverse caps)
 
 -- parse global definition
 definesCst =
@@ -81,16 +85,16 @@ definesCst =
       return $! Define name (fromInteger val)
 
 -- parse a single capability definition
-capabilitiesDef = 
+capabilitiesDef caps =
     do 
       reserved "cap"
       name <- identifier
       geq <- generalEqualityP name
-      from <- if isNothing geq then fromP name else return Nothing
+      from <- if isNothing geq then fromP caps else return Nothing
       fromSelf <- if isNothing geq then fromSelfP name else return False
       (fields, rangeExpr, eqFields, multi) <- braces $ capabilityDef name
       missingSep ("cap " ++ name ++ " definition")
-      return $! Capability (CapName name) geq from fromSelf multi fields rangeExpr eqFields
+      return $ Capability (CapName name) geq from fromSelf multi fields rangeExpr eqFields
 
 -- parse optional general equality (always/never copy)
 generalEqualityP name = do
@@ -99,11 +103,12 @@ generalEqualityP name = do
     <|> (return Nothing)
 
 -- parse optional "from <base cap name>"
-fromP name = withFromP <|> return Nothing
+fromP caps = withFromP <|> return Nothing
     where withFromP = do
             reserved "from"
-            from <- identifier
+            from <- choice $ map (\s -> reserved s >> return s) capNames
             return $ Just $ CapName from
+          capNames = map (\(CapName n) -> n) $ map name caps
 
 -- parse optional "from_self"
 fromSelfP name = (reserved "from_self" >> (return True)) <|> (return False)

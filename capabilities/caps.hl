@@ -57,7 +57,6 @@ cap PhysAddr from_self {
 
 };
 
-
 /** The following caps are similar to the previous one **/
 
 cap RAM from PhysAddr from_self {
@@ -67,7 +66,6 @@ cap RAM from PhysAddr from_self {
     size_bits uint8 bits; /* Address bits that untyped region bears */
 
 };
-
 
 cap CNode from RAM {
     /* CNode table, stores further capabilities */
