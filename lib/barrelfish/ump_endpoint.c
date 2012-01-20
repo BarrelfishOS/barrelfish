@@ -38,6 +38,14 @@ errval_t ump_endpoint_init(struct ump_endpoint *ep, volatile void *buf,
 }
 
 /**
+ * \brief Destroy the local state associated with a given UMP endpoint
+ */
+void ump_endpoint_destroy(struct ump_endpoint *ep)
+{
+    waitset_chanstate_destroy(&ep->waitset_state);
+}
+
+/**
  * \brief Register an event handler to be notified when messages can be received
  *
  * In the future, call the closure on the given waitset when it is likely that

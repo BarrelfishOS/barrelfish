@@ -26,6 +26,7 @@ struct ump_endpoint {
 
 errval_t ump_endpoint_init(struct ump_endpoint *ep, volatile void *buf,
                            size_t bufsize);
+void ump_endpoint_destroy(struct ump_endpoint *ep);
 errval_t ump_endpoint_register(struct ump_endpoint *ep, struct waitset *ws,
                                 struct event_closure closure);
 errval_t ump_endpoint_deregister(struct ump_endpoint *ep);
