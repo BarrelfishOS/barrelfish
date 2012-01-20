@@ -139,9 +139,10 @@
 >     pretty (AddressExpr e) = pretty e
 >     pretty (MemToPhysOp e) = text "mem_to_phys(" <> pretty e <> text ")"
 
-> data SizeExpr = SizeExpr Expr | SizeBitsExpr Expr
+> data SizeExpr = ZeroSize | SizeExpr Expr | SizeBitsExpr Expr
 >               deriving Show
 > instance Pretty SizeExpr where
+>     pretty (ZeroSize) = text "0"
 >     pretty (SizeExpr e) = pretty e
 >     pretty (SizeBitsExpr e) = text "2^(" <> pretty e <> char ')'
 

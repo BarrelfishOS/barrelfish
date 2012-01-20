@@ -28,12 +28,6 @@ define dispatcher_size 9;
 define vnode_size 12; /* BASE_PAGE_BITS */
 
 /**
-   XXX: this is for the Dispatcher/Endpoint hack (see corresponding cap
-   definitions) and should be removed as soon as that is resolved -MN
-**/
-define zero 0;
-
-/**
     The capabilities of the whole system are listed thereafter.
     The minimal definition consists of a name and an empty body.
 **/
@@ -118,10 +112,6 @@ cap Dispatcher from RAM {
     /**
       The Dispatcher is a special case that can be retyped several
       times to an end-point
-
-      The comparison function for a singleton ptr, the formula is
-      simply:
-      "parent->ptr == child->ptr"
     **/
     /** Note: This must be the first statement */
     can_retype_multiple;
@@ -130,14 +120,11 @@ cap Dispatcher from RAM {
       We allow the use of unknow structures. However, equality will
       be defined by address, not by structure.
     **/
-
     "struct dcb" dcb;       /* Pointer to kernel DCB */
 
     address { mem_to_phys(dcb) };
     size_bits { dispatcher_size };
 };
-
-/** Then, we go back to routine **/
 
 cap EndPoint from Dispatcher {
     /* IDC endpoint */
@@ -147,12 +134,10 @@ cap EndPoint from Dispatcher {
     uint32 epbuflen;        /* Length of endpoint buffer in words */
 
     address { mem_to_phys(listener) };
-    /* XXX: see note before dispatcher -MN */
-    size { zero };
 
-    /**
-       preferable definitions for address and size, should be used as soon as
-       the whole multi retype hack stuff is fixed:
+    /** XXX
+       Preferable definitions for address and size would be as below. These
+       should be used as soon as the whole multi retype hack stuff is fixed:
 
        address { mem_to_phys(listener + epoffset) };
        size { epbuflen };
@@ -161,6 +146,7 @@ cap EndPoint from Dispatcher {
     **/
 };
 
+/** Then, we go back to routine **/
 
 cap Frame from RAM from_self {
     /* Mappable memory frame */

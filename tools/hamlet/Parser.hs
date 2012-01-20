@@ -121,7 +121,8 @@ capabilityDef name = do
     (fields, addresses, sizes, eqExprs) <- return $ unzipDefs annotatedFields
 
     -- lengths to check
-    (numAddrs, numSizes) <- return (length addresses, length sizes)
+    let numAddrs = length addresses
+        numSizes = length sizes
 
     -- check that there are either 0 or 1 of both address and size definitions
     if numAddrs > 1
@@ -130,16 +131,18 @@ capabilityDef name = do
     if numSizes > 1
        then unexpected ("multiple size definitions for cap " ++ name)
        else return ()
-    if numAddrs > 0 && numSizes < 1
-       then unexpected ("have address definition but no size definition for cap " ++ name)
-       else return ()
     if numAddrs < 1 && numSizes > 0
        then unexpected ("have size definition but no address definition for cap " ++ name)
        else return ()
 
-    -- merged address and size expressions if present
-    return $ let rangeExpr = if null addresses then Nothing else Just (head addresses, head sizes)
-                 in (fields, rangeExpr, eqExprs, multi)
+    -- merge address and size expressions if present
+    let rangeExpr = if null addresses
+                       then Nothing
+                       else Just $
+                         if null sizes
+                            then (head addresses, ZeroSize)
+                            else (head addresses, head sizes)
+    return (fields, rangeExpr, eqExprs, multi)
 
   where
     -- un-maybe lists from capfields parsing

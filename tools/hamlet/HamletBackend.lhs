@@ -215,6 +215,7 @@ Generate code to calculate the "address" property of a cap.
 Generate code to calculate the "size" property of a cap.
 
 > sizeExprCode :: [(String, Int)] -> PureExpr -> String -> SizeExpr -> FoFCode PureExpr
+> sizeExprCode defs cap capType (ZeroSize) = return $ uint64 0
 > sizeExprCode defs cap capType (SizeExpr expr) = exprCode defs cap capType expr
 > sizeExprCode defs cap capType (SizeBitsExpr expr) =
 >     do
