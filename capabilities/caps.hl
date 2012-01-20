@@ -81,6 +81,7 @@ cap CNode from RAM {
       expressions.
     **/
 
+    /* Shouldn't this be mem_to_phys(cnode)? (causes breakage) -MN */
     address { cnode };
     size_bits { bits + cte_size };
 
