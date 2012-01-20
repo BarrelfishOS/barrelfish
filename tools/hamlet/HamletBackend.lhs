@@ -79,17 +79,9 @@
 
 > getCap cap_pp = (readRef cap_pp >>= readRef)
 
+> lower = map toLower
+
 \section{|Objtype| Enumeration}
-
-> {-
-> ofObjTypeEnum :: Enumeration ->
->                  CapName -> 
->                  FoFCode PureExpr
-> ofObjTypeEnum !enums (CapName x) = strict $! newEnum "objtype" enums name
->     where name = "ObjType_" ++ x
-> {-# INLINE ofObjTypeEnum #-}
-> -}
-
 
 > ofObjTypeEnum :: CapName -> PureExpr
 > ofObjTypeEnum (CapName x) =  CLRef Global uint64T (Provided ("ObjType_" ++ x))
@@ -108,9 +100,6 @@
 >           objTypeNum = ("ObjType_Num",n)
 
 
-> -- objType :: [Capability] -> PureExpr
-> -- objType caps = TEnum "objtype" $ mkObjTypeEnum caps
-
 \section{Capabality Structure}
 
 > capRightsT :: TypeExpr
@@ -121,34 +110,19 @@
 > capNameOf cap = capName
 >     where CapName capName = name cap
 
-> lower :: String -> String
-> lower = map' $! toLower
-
-> map' f ![] = []
-> map' f !(x:xs) = l `seq` l
->     where k = map' f xs
->           l = f x : k
-> mapp = map'' []
->        where
->        map'' !acc !f ![] = acc
->        map'' !acc !f !(x:xs) = 
->            x' `seq`
->            map'' (x':acc) f xs
->                where x' = f x
-
 > mkCapsStruct :: Capabilities -> TFieldList
 > mkCapsStruct caps = strict
 >     [("type", objtypeT),
 >      ("rights", capRightsT),
 >      ("u", capUnionT)]
->     where capUnionT = unionST "capability_u" ((map' (\cap -> (lower $ capNameOf cap, mkCapStructT cap))
+>     where capUnionT = unionST "capability_u" ((map (\cap -> (lower $ capNameOf cap, mkCapStructT cap))
 >                                                  (capabilities caps)) )
 >                      -- XXX: Why do I need to define types here when they are already
 >                      -- defined somewhere else? Also as hamlet doesn't handle uintptr_t,
 >                      --  lvaddr is defined as uint64 although that is not always the case.
 >                      -- Using a type not defined here will generate "type"*
 >                      -- which is obviously broken. -Akhi
->           mkCapStructT cap = structST (capNameOf cap) (map' mkCapField (fields cap))
+>           mkCapStructT cap = structST (capNameOf cap) (map mkCapField (fields cap))
 >           mkCapField (CapField typ (NameField name)) = (name, toFofType typ)
 >           toFofType UInt8 = uint8T
 >           toFofType UInt16 = uint16T
@@ -178,7 +152,7 @@ i.e. {\tt (((gensize\_t)1) << bits)}
 > mkSize bits = (cast gensizeT (uint64 1)) .<<. bits
 
 > readCapAttr :: PureExpr -> String -> FoFCode PureExpr
-> readCapAttr cap attr = readRef cap >>= readRef >>= (\c -> readStruct c attr)
+> readCapAttr cap attr = getCap cap >>= (\c -> readStruct c attr)
 
 Try and look up a name in a definitions and failing that generated code to look
 it up in the fields of a cap.
@@ -244,6 +218,8 @@ Generate code to calculate the "size" property of a cap.
 >           where
 >             capName = case name capType of (CapName s) -> s
 
+\subsection{get\_size}
+
 > get_size :: Capabilities -> FoFCode PureExpr
 > get_size caps =
 >     def [] "get_size"
@@ -262,6 +238,12 @@ Generate code to calculate the "size" property of a cap.
 >             returnc res
 >           where
 >             capName = case name capType of (CapName s) -> s
+
+\subsection{Generate switch on enum objtype}
+
+\verb|mkGetPropSwitch| generates a switch statement that switches on the
+objtype of the cap argument and uses mkGetProp to generate code for the
+different cases.
 
 > mkGetPropSwitch :: Capabilities
 >                    -> ([(String, Int)] -> Capability -> PureExpr -> FoFCode PureExpr)
@@ -355,10 +337,14 @@ $compare\_caps$ returns -1, 0 or 1 indicating the ordering of the given caps.
 >       returnc $ int8 0
 >     where
 >
->       -- type-independant tests
+>       -- type-independent tests
+>       -- Note the reversed ordering on the capability size: Ordering
+>       -- capabilities by descending size makes parents that have the same
+>       -- starting address as their children appear before those children in
+>       -- the order.
 >       tests = [(getRoot, (.<.)),
 >                (getAddr, (.<.)),
->                (getSize, (.>.)), -- note reversed ordering
+>                (getSize, (.>.)),
 >                (getType, (.<.))]
 >       getRoot cpp c ct = call get_type_root [ct]
 >       getAddr cpp c ct = call get_address [cpp]
@@ -439,23 +425,19 @@ state.
 
 \subsection{Compute Revocation Paths}
 
-The Boolean value in the tuples indicates whether the cap can be retyped
-multiple times.
+\verb|revokePaths| indicates for all capability types if the type
+can be retyped multiple times.
 
 > revokePaths :: [Capability] -> 
 >                [(PureExpr, Maybe Bool)]
-> revokePaths caps = revokePaths' [] caps
->     where revokePaths' !acc [] = acc
->           revokePaths' !acc (x:xs) = 
->               revokePaths' (revokePath x:acc) xs
->           revokePath cap = strict ( ofObjTypeEnum $ name cap, multiRet cap)
+> revokePaths caps = map revokePath caps
+>     where revokePath cap = strict ( ofObjTypeEnum $ name cap, multiRet cap)
 >           multiRet cap = if null (getChildren cap caps) then Nothing else Just $ multiRetype cap
+>           -- this returns a list of children in the type order for the capability `cap'.
 > 	    getChildren cap capabilities =
 > 	        [ c | c <- capabilities, isChild c cap ] ++
 > 	        (if fromSelf cap then [cap] else [])
-> 	    isChild c p = case (from c) of
-> 	                      Nothing -> False
-> 	                      Just cn -> (name p) == cn
+> 	    isChild c p = if isJust (from c) then name p == (fromJust $ from c) else False
 
 \subsection{Generate Code}
 
@@ -474,29 +456,21 @@ multiple times.
 >                         FoFCode PureExpr
 > is_revoked_first_int caps (src_cte : src_type : []) =
 >     do
->     casesV <- sequence $ map' (revokeCode src_cte) revokeP
+>     let cases = map (mkRevokeCase src_cte) revokeP
 >     switch src_type
->            casesV
+>            cases
 >            (do
 >             returnc false)
 >         -- revokeP contains all cap types that can be retyped
 >         where revokeP = [(st, fromJust rp) | (st, rp) <- revokePaths caps, isJust rp]
-
-Return true if cte has type that is multi-retypable or cap has no descendants,
-false otherwise.
-
-> revokeCode :: PureExpr ->
->               (PureExpr, Bool) ->
->               FoFCode (PureExpr, FoFCode PureExpr)
-> revokeCode cte (codeV,mult) =
->                   (do
->                     return $! (codeV, 
->                             if mult then returnc true else
->                                 (do
->                                  b <- has_descendants cte
->                                  ifc (return $! b)
->                                      (returnc false)
->                                      (returnc true))))
+>               mkRevokeCase cte (rType, mult) = (rType, caseCode cte mult)
+>               -- return true if type of cte is multi-retypable or cte has no descendants,
+>               -- else false
+>  		caseCode cte mult = do if mult then returnc true
+>                                              else do b <- has_descendants cte
+>                                                      ifc (return b)
+>                                                          (returnc false)
+>                                                          (returnc true)
 
 \section{Is copy}
 
