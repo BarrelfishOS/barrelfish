@@ -20,7 +20,8 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         target = "skb",
   		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
                                    "dist/code_generator.c",
-                                   "dist/predicates.c", "dist/skb_query.c" ],
+                                   "dist/predicates.c", "dist/skb_query.c", 
+                                   "dist/skiplist.c", "dist/fnv.c" ],
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
                         -- force optimisations on, without them we blow the stack
@@ -30,7 +31,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         addIncludes = [ "eclipse_kernel/src" ],
                         addLibraries = [ "eclipse", "shm", "dummies", "skb",
                                          "posixcompat", "msun", "dist_server", "dist_parser", "skb",
-                                         "icsolver", "vfs", "nfs", "lwip", "contmng", "pcre", "bench"],
+                                         "icsolver", "vfs", "nfs", "lwip", "contmng", "pcre", "bench", "collections"],
                         architectures = [ arch ]
                 }
 in

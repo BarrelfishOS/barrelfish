@@ -4,7 +4,7 @@
 
 :- dynamic watch/2.
 
-:- lib(regex).
+%:- lib(regex).
 :- lib(lists).
 :- lib(ordset).
 
@@ -19,7 +19,7 @@ get_object(Name, AList, CList, Object) :-
         get_by_name(Name, SConstraints, Object)
         ;
         get_by_constraints(Name, SConstraints, Object)
-    ).
+    ), !.
 
 get_by_constraints(Name, Constraints, Object) :-
     (length(Constraints, 0) *->
@@ -49,10 +49,27 @@ match_object(Name, Constraints, object(Name, SList)) :-
     store_get(rh, Name, SList),
     match_constraints(Constraints, SList).
 
-find_candidates([Constraint|Rest], [IdxList|Cur]) :-
+constraint_name(constraint(Key, _, _), Key).
+get_attribute_names(CList, AList) :-
+    maplist(constraint_name, CList, AList).
+
+find_candidates(Constraints, RecordName) :-
+    get_attribute_names(Constraints, AttributeList),
+    
     retrieve_index(Constraint, IdxList),
     find_candidates(Rest, Cur).
 find_candidates([], []).
+
+find_next_candidate(AttributeList) :-
+    index_intersect_aux(AttributeList, 0).
+
+index_intersect_aux(AttributeList, OldState) :-
+    index_intersect(ThisAttributeList, OldState, NewState),
+    (
+        AttributeList = ThisAttributeList
+    ;
+        index_intersect_aux(AttributeList, NewState)
+    ). 
 
 %
 % Attribute/Constraint Matching
@@ -189,13 +206,13 @@ add_index(Name, val(Attribute, Value)) :-
    concat_atoms('s', Attribute, Key),
    save_index(Key, Name).
 
-save_index(Idx, Name) :-
-    store_get(attributeIndex, Idx, NameList),
-    !,
-    ord_insert(NameList, Name, NewList),
-    store_set(attributeIndex, Idx, NewList).
-save_index(Idx, Name) :-
-    store_set(attributeIndex, Idx, [Name]).
+%save_index(Idx, Name) :-
+%    store_get(attributeIndex, Idx, NameList),
+%    !,
+%    ord_insert(NameList, Name, NewList),
+%    store_set(attributeIndex, Idx, NewList).
+%save_index(Idx, Name) :-
+%    store_set(attributeIndex, Idx, [Name]).
 
 del_index(Name, val(Attribute, Value)) :-
    number(Value), !,
@@ -206,11 +223,11 @@ del_index(Name, val(Attribute, Value)) :-
    concat_atoms('s', Attribute, Key),
    remove_index(Key, Name).
 
-remove_index(Idx, Name) :-
-   store_get(attributeIndex, Idx, NameList),
-   !,
-   ord_del_element(NameList, Name, NewNameList),
-   store_set(attributeIndex, Idx, NewNameList).
+%remove_index(Idx, Name) :-
+%   store_get(attributeIndex, Idx, NameList),
+%   !,
+%   ord_del_element(NameList, Name, NewNameList),
+%   store_set(attributeIndex, Idx, NewNameList).
 
 retrieve_index(constraint(Attribute, _, Value), IdxList) :-
     number(Value), !,
@@ -330,18 +347,3 @@ format_slot_val(Val, In, Out) :-
     append_strings(In, "'", Out1),
     append_strings(Out1, Val, Out2),
     append_strings(Out2, "'", Out).
-
-
-:- add_object(o0, [ val(a, 0), val(mix, 1.0)            ], []).
-:- add_object(o1, [ val(a, 1), val(mix, 20)             ], []).
-:- add_object(o2, [ val(a, 2), val(mix, 'attr1')        ], []).
-:- add_object(o3, [ val(a, 3), val(mix, "attr2")        ], []).
-:- add_object(o4, [ val(a, 4), val(mix, "test str")     ], []).
-:- add_object(o5, [ val(a, 5), val(mix, "12")           ], []).
-%:- add_object(o6, [ val(a, 6), val(mix, X)              ], []).
-:- add_object(o7, [ val(a, 7), val(mix, "test str 123") ], []).
-:- add_object(o8, [ val(a, 8), val(mix, "12")           ], []).
-:- add_object(o9, [ val(a, 9), val(mix, 1.0992)         ], []).
-
-padd :-
-    (for(_,1,10000) do add_seq_object('o_', [val(mix,"attr1")], [])). 

@@ -135,7 +135,7 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
     errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling get_object(Name, Attrs, Constraints, Y), print_object(Y).
-        dident get_object = ec_did("get_first_object", 4);
+        dident get_object = ec_did("get_object", 4);
         dident print_object = ec_did("print_object", 1);
 
         pword print_var = ec_newvar();

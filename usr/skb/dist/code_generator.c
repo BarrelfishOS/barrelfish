@@ -94,7 +94,7 @@ static inline struct pword_pair create_constraint(struct ast_object* p)
         break;
 
     case constraint_LE:
-        terms.op = ec_atom(ec_did("=<", 2));
+        terms.op = ec_atom(ec_did("<=", 2));
         break;
 
     case constraint_EQ:
@@ -102,7 +102,7 @@ static inline struct pword_pair create_constraint(struct ast_object* p)
         break;
 
     case constraint_NE:
-        terms.op = ec_atom(ec_did("=\=", 2));
+        terms.op = ec_atom(ec_did("!=", 2));
         break;
 
     case constraint_REGEX:
@@ -134,14 +134,11 @@ static void translate(struct ast_object* p, struct skb_ec_terms* ss)
         ss->name = ec_newvar();
     } else if (name->type == nodeType_Constraint) {
         assert(name->u.cnsn.op == constraint_REGEX);
-        ss->name = ec_newvar();
-
         // Construct match term for name regex
         dident constraint = ec_did("name_constraint", 1);
         pword regex = ec_string(name->u.cnsn.value->u.sn.str);
         pword constraint_term = ec_term(constraint, regex);
-
-        ss->constraint_list = ec_list(constraint_term, ss->constraint_list);
+        ss->name = constraint_term;
     }
     else {
         assert(!"Scan types not allowed here");
