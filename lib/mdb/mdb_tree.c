@@ -54,7 +54,7 @@ mdb_check_subtree_invariants(struct cte *cte)
     }
 
     // build expected end root for current node
-    mdb_root_t expected_end_root = caps_get_root(cte);
+    mdb_root_t expected_end_root = get_type_root(C(cte)->type);
     if (node->left) {
         expected_end_root = MAX(expected_end_root, N(node->left)->end_root);
     }
@@ -69,9 +69,9 @@ mdb_check_subtree_invariants(struct cte *cte)
     // acts as an address prefix, so only ends where the corresponding root is
     // the maximum may be considered.
     genpaddr_t expected_end = 0;
-    if (caps_get_root(cte) == node->end_root) {
+    if (get_type_root(C(cte)->type) == node->end_root) {
         // only consider current cte's end if its root is node->end_root
-        expected_end = caps_get_address(cte)+caps_get_size(cte);
+        expected_end = get_address(C(cte))+get_size(C(cte));
     }
     if (node->left && N(node->left)->end_root == node->end_root) {
         // only consider left child end if its end_root is node->end_root
@@ -86,7 +86,7 @@ mdb_check_subtree_invariants(struct cte *cte)
     }
 
     if (node->left) {
-        if (caps_compare(C(node->left), C(cte), true) >= 0) {
+        if (compare_caps(C(node->left), C(cte), true) >= 0) {
             return MDB_INVARIANT_LEFT_SMALLER;
         }
         err = mdb_check_subtree_invariants(node->left);
@@ -96,7 +96,7 @@ mdb_check_subtree_invariants(struct cte *cte)
     }
 
     if (node->right) {
-        if (caps_compare(C(node->right), C(cte), true) <= 0) {
+        if (compare_caps(C(node->right), C(cte), true) <= 0) {
             return MDB_INVARIANT_RIGHT_GREATER;
         }
         err = mdb_check_subtree_invariants(node->right);
@@ -127,7 +127,7 @@ mdb_update_end(struct cte *cte)
     struct mdbnode *node = N(cte);
 
     // build end root for current node
-    mdb_root_t end_root = caps_get_root(cte);
+    mdb_root_t end_root = get_type_root(C(cte)->.type);
     if (node->left) {
         end_root = MAX(end_root, N(node->left)->end_root);
     }
@@ -140,9 +140,9 @@ mdb_update_end(struct cte *cte)
     // acts as an address prefix, so only ends where the corresponding root is
     // the maximum may be considered.
     genpaddr_t end = 0;
-    if (caps_get_root(cte) == node->end_root) {
+    if (get_type_root(C(cte)->type) == node->end_root) {
         // only consider current cte's end if its root is node->end_root
-        end = caps_get_address(cte)+caps_get_size(cte);
+        end = get_address(C(cte))+get_size(C(cte));
     }
     if (node->left && N(node->left)->end_root == node->end_root) {
         // only consider left child end if its end_root is node->end_root
@@ -300,7 +300,7 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
         return SYS_ERR_OK;
     }
 
-    int compare = caps_compare(C(new_node), C(current_), true);
+    int compare = compare_caps(C(new_node), C(current_), true);
     if (compare < 0) {
         // new_node < current
         return mdb_sub_insert(new_node, &N(current_)->left);
@@ -387,7 +387,7 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
     assert(!*ret_target);
     assert(dir != 0);
     assert(mdb_check_subtree_invariants(*current) == 0);
-    assert(caps_compare(C(target), C(*current)) != 0, true);
+    assert(compare_caps(C(target), C(*current)) != 0, true);
     assert(mdb_is_child(target, target_parent));
     assert(mdb_is_child(*current, parent));
 
@@ -471,7 +471,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
         return CAPS_ERR_MDB_ENTRY_NOTFOUND;
     }
 
-    int compare = caps_compare(C(target), C(current_), true);
+    int compare = compare_caps(C(target), C(current_), true);
     if (compare > 0) {
         err = mdb_subtree_remove(target, &N(current_)->right, current_);
         if (err != SYS_ERR_OK) {
@@ -531,7 +531,7 @@ mdb_sub_find_last_le(struct capability *cap, struct cte* current)
     if (!current) {
         return NULL
     }
-    int compare = caps_compare(cap, C(current), false);
+    int compare = compare_caps(cap, C(current), false);
     if (compare < 0) {
         // current is gt key, look for smaller node
         return mdb_sub_find_last_le(cap, N(current)->left);
@@ -563,7 +563,7 @@ mdb_sub_find_first_gt(struct capability *cap, struct cte *current)
     if (!current) {
         return NULL;
     }
-    int compare = caps_compare(cap, C(current), false);
+    int compare = compare_caps(cap, C(current), false);
     if (compare < 0) {
         // current is gt key, attempt to find smaller node
         struct cte *res = mdb_sub_find_first_gt(cap, N(current)->left);
@@ -591,13 +591,13 @@ mdb_choose_surrounding(genpaddr_t address, size_t size,
 {
     assert(first);
     assert(second);
-    assert(caps_get_root(first) == caps_get_root(second));
+    assert(get_type_root(first->type) == get_type_root(second->type));
 #ifndef NDEBUG
     genpaddr_t beg = address, end = address + size;
-    genpaddr_t fst_beg = caps_get_address(first);
-    genpaddr_t snd_beg = caps_get_address(second);
-    genpaddr_t fst_end = fst_beg + caps_get_size(first);
-    genpaddr_t snd_end = snd_beg + caps_get_size(second);
+    genpaddr_t fst_beg = get_address(first);
+    genpaddr_t snd_beg = get_address(second);
+    genpaddr_t fst_end = fst_beg + get_size(first);
+    genpaddr_t snd_end = snd_beg + get_size(second);
     assert(fst_beg <= beg && fst_end >= end);
     assert(snd_beg <= beg && snd_end >= end);
 #endif
@@ -616,13 +616,13 @@ mdb_choose_inner(genpaddr_t address, size_t size, struct capability* first,
 {
     assert(first);
     assert(second);
-    assert(caps_get_root(first) == caps_get_root(second));
+    assert(get_type_root(first->type) == get_type_root(second->type));
 #ifndef NDEBUG
     genpaddr_t beg = address, end = address + size;
-    genpaddr_t fst_beg = caps_get_address(first);
-    genpaddr_t snd_beg = caps_get_address(second);
-    genpaddr_t fst_end = fst_beg + caps_get_size(first);
-    genpaddr_t snd_end = snd_beg + caps_get_size(second);
+    genpaddr_t fst_beg = get_address(first);
+    genpaddr_t snd_beg = get_address(second);
+    genpaddr_t fst_end = fst_beg + get_size(first);
+    genpaddr_t snd_end = snd_beg + get_size(second);
     assert(mdb_is_inside(address, size, fst_beg, fst_end));
     assert(mdb_is_inside(address, size, snd_beg, snd_end));
 #endif
@@ -641,13 +641,13 @@ mdb_choose_partial(genpaddr_t address, size_t size, struct capability* first,
 {
     assert(first);
     assert(second);
-    assert(caps_get_root(first) == caps_get_root(second));
+    assert(get_type_root(first->type) == get_type_root(second->type));
 #ifndef NDEBUG
     genpaddr_t beg = address, end = address + size;
-    genpaddr_t fst_beg = caps_get_address(first);
-    genpaddr_t snd_beg = caps_get_address(second);
-    genpaddr_t fst_end = fst_beg + caps_get_size(first);
-    genpaddr_t snd_end = snd_beg + caps_get_size(second);
+    genpaddr_t fst_beg = get_address(first);
+    genpaddr_t snd_beg = get_address(second);
+    genpaddr_t fst_end = fst_beg + get_size(first);
+    genpaddr_t snd_end = snd_beg + get_size(second);
     assert(fst_beg < end);
     assert(snd_beg < end);
     assert(fst_end > beg);
@@ -747,8 +747,8 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
     int ret = MDB_RANGE_NOT_FOUND;
 
     if (current_root == root) {
-        genpaddr_t current_address = caps_get_address(C(current));
-        genpaddr_t current_end = current_address + caps_get_size(C(current));
+        genpaddr_t current_address = get_address(C(current));
+        genpaddr_t current_end = current_address + get_size(C(current));
         genpaddr_t search_end = address + size;
 
         if (ret < MDB_RANGE_FOUND_PARTIAL &&
