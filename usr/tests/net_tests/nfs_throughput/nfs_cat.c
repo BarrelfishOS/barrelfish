@@ -64,9 +64,13 @@ static int cat(char *path)
     uint64_t stop = rdtsc();
     printf("Everythin done\n");
     lwip_print_interesting_stats();
+    double speed = ((filesize/in_seconds(stop - start))/(1024 * 1024));
+    if (speed < 50) {
+        printf("Warning: NFS throughput too low!! [%f]\n", speed);
+    }
     printf("## Data size = %f MB,  Processing time [%"PU"], speed [%f] MB/s\n",
            filesize/(double)(1024 * 1024), in_seconds(stop - start),
-           ((filesize/in_seconds(stop - start))/(1024 * 1024)));
+           speed);
 
     err = vfs_close(vh);
     if (err_is_fail(err)) {
