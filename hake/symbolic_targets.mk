@@ -89,6 +89,7 @@ MODULES_x86_64= \
 	sbin/bulkbench \
 	sbin/datagatherer \
 	sbin/e1000n \
+	sbin/e10k \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \

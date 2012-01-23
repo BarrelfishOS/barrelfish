@@ -59,6 +59,9 @@
 #define TRACE_ONLY_SUB_BNET 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
+#if CONFIG_TRACE
+#define TRACE_ONLY_SUB_NNET 1
+#endif
 
 /**
  * \brief Constants for trace subsystems and events.
@@ -246,6 +249,41 @@
 #define TRACE_EVENT_BNET_DRV_POLL            0x0006
 #define TRACE_EVENT_BNET_YIELD               0x0007
 #define TRACE_EVENT_BNET_I                   0x0008
+
+
+/* Following constans are used for profiling modified stack */
+#define TRACE_SUBSYS_NNET                    0x9000
+#define TRACE_EVENT_NNET_START               0x0001
+#define TRACE_EVENT_NNET_STOP                0x0002
+#define TRACE_EVENT_NNET_RXDRVSEE            0x0003 // Driver saw pkg (RX)
+#define TRACE_EVENT_NNET_RXESVSEE            0x0004 // Ethersrv saw pkg
+#define TRACE_EVENT_NNET_RXESVFRGDONE        0x0005 // Ethersrv checked frag
+#define TRACE_EVENT_NNET_RXESVAPPFDONE       0x0006 // Ethersrv app filtered
+#define TRACE_EVENT_NNET_RXESVAPPCSTART      0x0007 // Ethersrv app c2u started
+#define TRACE_EVENT_NNET_RXESVCOPIED         0x0008 // Ethersrv copied pkg
+#define TRACE_EVENT_NNET_RXESVSPPDONE        0x000D // Ethersrv spp produce done
+#define TRACE_EVENT_NNET_RXESVAPPNOTIF       0x0009 // Ethersrv app notify
+#define TRACE_EVENT_NNET_RXLWIINCOM          0x000A // LWIP handle_incoming_
+#define TRACE_EVENT_NNET_RXLWIRECH           0x000B // LWIP call rec_handler
+#define TRACE_EVENT_NNET_RXAPPRCV            0x000C // APP received
+
+#define TRACE_EVENT_NNET_TXAPPSNT            0x0020 // APP sent
+#define TRACE_EVENT_NNET_TXLWISEE            0x0021 // LWIP idc_send_packet
+#define TRACE_EVENT_NNET_TXLWIBFFENCE        0x0029 // LWIP before mfence
+#define TRACE_EVENT_NNET_TXLWIAFFENCE        0x002A // LWIP after mfence
+#define TRACE_EVENT_NNET_TXLWIFLUSHED        0x002B // LWIP payload flushed
+#define TRACE_EVENT_NNET_TXLWIBDESC          0x002C // LWIP bufferdesc fetched
+#define TRACE_EVENT_NNET_TXLWISPPSND         0x0022 // LWIP spp produced
+#define TRACE_EVENT_NNET_TXLWISPPIDX         0x0023 // LWIP update spp index
+#define TRACE_EVENT_NNET_TXLWITXWORK         0x002D // LWIP pending TX work
+#define TRACE_EVENT_NNET_TXLWINOTIF          0x0024 // LWIP notify driver
+#define TRACE_EVENT_NNET_TXESVNOTIF          0x0025 // Ethersrv notify recieved
+#define TRACE_EVENT_NNET_TXESVSPOW           0x002E // Ethersrv send_pkt_on_w..
+#define TRACE_EVENT_NNET_TXESVSSPOW          0x0026 // Ethersrv send_sng_pkt..
+#define TRACE_EVENT_NNET_TXDRVADD            0x0027 // Driver add pkg (TX)
+#define TRACE_EVENT_NNET_TXDRVSEE            0x0028 // Driver saw pkg done (TX)
+
+
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 
