@@ -13,7 +13,6 @@
 [ includeFile (options arch) f
       | f <- [ 
    "assert.h",
-   "bexec.h",
    "complex.h",
    "cpiobin.h",
    "ctype.h",

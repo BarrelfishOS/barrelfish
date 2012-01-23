@@ -30,10 +30,9 @@ on each new machine we test. The following systems are known to work:
  * Lenovo X200 and X301 laptops
  * ASUS Eee PC 1015PEM netbooks
 
-In addition, ports to the ARM and Beehive processor architectures are in
-progress. These are less complete than the x86 and SCC ports, and are
-not described in this document, but feel free to ask for help on the
-mailing list.
+In addition, a port to the ARM architectures is in progress. This is 
+less complete than the x86 and SCC ports, and not described in this 
+document, but feel free to ask for help on the mailing list.
 
 The e1000n driver should work with most recent Intel gigabit ethernet
 controllers (see the list in devices/e1000.dev). We've mostly used the

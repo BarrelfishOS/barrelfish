@@ -50,9 +50,6 @@
                                  "vspace/arch/x86_64/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c"]
-      archfam_srcs "beehive" = [ "arch/beehive/debug.c", "arch/beehive/dispatch.c",
-                              "arch/beehive/pmap_arch.c", "arch/beehive/bmp_chan.c",
-                              "vspace/arch/beehive/layout.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c", 
                                  "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
@@ -64,14 +61,10 @@
       arch_srcs "scc" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
-      arch_srcs "beehive" = [ "arch/beehive/dcachergn.c" ]
       arch_srcs _     = []
 
       arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
       arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
-      arch_assembly "beehive" = [ "arch/beehive/cswitch.S" , "arch/beehive/entry.S",
-                                  "arch/beehive/dcache.S",
-                                  "arch/beehive/syscalls.S", "arch/beehive/findbits.S" ]
       arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
       arch_assembly _         = []
 

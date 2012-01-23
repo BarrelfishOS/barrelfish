@@ -46,9 +46,7 @@ struct morecore_state {
     Header *header_freep;
     struct vspace_mmu_aware mmu_state;
 #if 0 // DELETEME
-#ifndef NOTRANS
     struct captrack track_frames[MAX_TRACK_FRAMES];
-#endif
 #endif // 0 DELETEME
 };
 

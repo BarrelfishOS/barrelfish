@@ -30,10 +30,6 @@
 # include <barrelfish/lmp_chan.h>
 #endif
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-# include <barrelfish/bmp_chan.h>
-#endif
-
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 #  include <arch/fpu.h>
 #endif
@@ -99,11 +95,6 @@ void disp_run(dispatcher_handle_t handle)
     // Trigger any send events for LMP channels
     lmp_channels_retry_send_disabled(handle);
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
-
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    // Trigger any send events for BMP channels
-    bmp_channels_retry_send_disabled(handle);
-#endif // CONFIG_INTERCONNECT_DRIVER_BMP
 
     // Run, saving state of previous thread if required
     thread_run_disabled(handle);

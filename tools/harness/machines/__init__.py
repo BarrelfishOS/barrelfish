@@ -95,7 +95,7 @@ def add_machine(machine):
     all_machines.append(machine)
     return machine
 
-# Assume that QEMU/Bsim works everywhere if invoked
-import qemu, bsim
+# Assume that QEMU works everywhere if invoked
+import qemu
 
 # Other site-specific modules will be loaded by the siteconfig module

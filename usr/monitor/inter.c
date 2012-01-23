@@ -720,14 +720,6 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
     }
 #endif
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    err = bmp_intermon_init(b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "bmp_intermon_init failed");
-        return err;
-    }
-#endif
-
 #ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
     err = multihop_intermon_init(b);
     if (err_is_fail(err)) {

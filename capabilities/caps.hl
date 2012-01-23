@@ -302,17 +302,6 @@ cap Notify_IPI {
     eq uint16 chanid;
 };
 
-/* Beehive HW message passing endpoint */
-cap BMPEndPoint {
-    eq uint8 coreid;
-    eq uint16 chanid;
-};
-
-cap BMPTable {
-    /* BMP association table */
-    is_always_copy;
-};
-
 cap Domain {
     /* Domain capability (opaque type, used by the monitors) */
     eq uint32 domainid;

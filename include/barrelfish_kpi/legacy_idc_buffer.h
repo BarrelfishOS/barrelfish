@@ -51,8 +51,6 @@ typedef unsigned int idc_flag_t;
 typedef unsigned int idc_flag_t;
 #elif __arm__
 typedef uint8_t idc_flag_t;
-#elif __BEEHIVE__
-typedef uint8_t idc_flag_t;
 #else
 #error "Unknown architecture."
 #endif

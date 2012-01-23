@@ -69,18 +69,6 @@ bool arch_core_is_bsp(void);
  * \return Highest exponent (bits) for the blocksize to use next
  */
 
-#if defined(__BEEHIVE__)
-extern int find_least_set32(uint32_t value);
-extern int find_highest_set32(uint32_t value);
-
-static inline int bitaddralign(size_t size, size_t base)
-{
-    int lo = find_least_set32(base);
-    int hi = find_highest_set32(size);
-    int res = min(lo, hi);
-    return res;
-}
-#else // !beehive
 /// Computes the floor of log_2 of the given number
 static inline uint8_t log2flr(uintptr_t num)
 {
@@ -103,7 +91,6 @@ static inline int bitaddralign(size_t n, lpaddr_t base_addr)
     }
     return((1UL << exponent) > n ? log2flr(n) : exponent);
 }
-#endif
 
 /**
  * Kernel subsystems.

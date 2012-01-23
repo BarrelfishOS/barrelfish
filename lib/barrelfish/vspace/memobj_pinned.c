@@ -175,10 +175,6 @@ errval_t memobj_create_pinned(struct memobj_pinned *pinned, size_t size,
 {
     struct memobj *memobj = &pinned->m;
 
-#ifdef NOTRANS
-    assert(!"Cannot be used for MMUs with no translation ability");
-#endif
-
     /* Generic portion */
     memobj->f.map_region   = map_region;
     memobj->f.unmap_region = unmap_region;

@@ -27,7 +27,7 @@
  *
  * \param state   The struct to initialize
  * \param init    The buffer to use to initialize the struct
- * \param size    The size of anon memobj to create (Not needed for NOTRANS MMU)
+ * \param size    The size of anon memobj to create
  *
  * Initializes the struct according to the type of MMU
  */
@@ -36,12 +36,6 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
     state->size = size;
     state->consumed = 0;
 
-#ifdef NOTRANS
-    state->head = &state->init_list;
-    state->head->next = NULL;
-    state->memobj = (struct memobj*)&state->init_memobj;
-
-#else
     errval_t err;
 
     size = ROUND_UP(size, BASE_PAGE_SIZE);
@@ -58,7 +52,6 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
     }
     state->offset = state->mapoffset = 0;
 
-#endif
     return SYS_ERR_OK;
 }
 
@@ -82,52 +75,6 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
 {
     errval_t err;
 
-#ifdef NOTRANS
-    // Create frame of appropriate size
-    size_t blocksize = sizeof(struct memobj_one_frame_one_map) +
-        sizeof(struct vspace_mmu_vregion_list);
-    size_t size = req_size + blocksize;
-
-    err = frame_create(frame, size, &size);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_CREATE);
-    }
-
-    if (state->consumed + size - blocksize > state->size) {
-        err = cap_delete(frame);
-        if (err_is_fail(err)) {
-            debug_err(__FILE__, __func__, __LINE__, err,
-                      "cap_delete failed");
-        }
-        return LIB_ERR_VSPACE_MMU_AWARE_NO_SPACE;
-    }
-
-    // Map it in
-    err = vspace_map_one_frame_one_map((struct memobj_one_frame_one_map*)state->memobj,
-                                       &state->head->vregion, size, frame);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VSPACE_MAP);
-    }
-
-    // Reserve memory for next memobj and vregion
-    struct memobj *memobj = (void*)(lvaddr_t)vregion_get_base_addr(&state->head->vregion);
-    struct vspace_mmu_vregion_list *walk =
-        (void*)(lvaddr_t)(vregion_get_base_addr(&state->head->vregion) +
-                          sizeof(struct memobj_one_frame_one_map));
-
-    // Buffer to return
-    *retbuf = (void*)(lvaddr_t)(vregion_get_base_addr(&state->head->vregion) +
-                                sizeof(struct memobj_one_frame_one_map) +
-                                sizeof(struct vspace_mmu_vregion_list));
-    *retsize = size - blocksize;
-    state->consumed += *retsize;
-
-    // Reserve space for next growth
-    state->memobj  = memobj;
-    walk->next = state->head;
-    state->head = walk;
-
-#else
     // Calculate how much still to map in
     size_t origsize = req_size;
     assert(state->mapoffset >= state->offset);
@@ -181,18 +128,12 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     state->offset = state->mapoffset;
     state->consumed += req_size;
 
-#endif
     return SYS_ERR_OK;
 }
 
 errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
                                 lvaddr_t base, size_t bytes)
 {
-#ifdef NOTRANS
-    // Not implemented on Beehive
-    return LIB_ERR_NOT_IMPLEMENTED;
-
-#else
     errval_t err;
     struct capref frame;
     genvaddr_t gvaddr = vregion_get_base_addr(&state->vregion) + state->offset;
@@ -241,5 +182,4 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
     }
 
     return SYS_ERR_OK;
-#endif
 }

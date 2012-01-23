@@ -34,7 +34,6 @@
 > import qualified LMP
 > import qualified UMP
 > import qualified UMP_IPI
-> import qualified BMP
 > import qualified Multihop
 > import qualified Loopback
 > import qualified RPCClient
@@ -51,8 +50,6 @@
 >            | UMP_Stub
 >            | UMP_IPI_Header
 >            | UMP_IPI_Stub
->            | BMP_Header
->            | BMP_Stub
 >  	     | Multihop_Stub
 >            | Multihop_Header
 >            | Loopback_Header
@@ -93,8 +90,6 @@
 >     | isNothing arch = error "no architecture specified for UMP_IPI stubs"
 >     | otherwise = UMP_IPI.stub (fromJust arch)
 >     where arch = optArch opts
-> generator _ BMP_Header = BMP.header
-> generator _ BMP_Stub = BMP.stub
 > generator _ Multihop_Header = Multihop.header
 > generator opts Multihop_Stub
 >     | isNothing arch = error "no architecture specified for Multihop stubs"
@@ -137,8 +132,6 @@
 >             Option [] ["ump-stub"] (NoArg $ addTarget UMP_Stub)     "Create a stub file for UMP",
 >             Option [] ["ump_ipi-header"] (NoArg $ addTarget UMP_IPI_Header) "Create a header file for UMP_IPI",
 >             Option [] ["ump_ipi-stub"] (NoArg $ addTarget UMP_IPI_Stub)     "Create a stub file for UMP_IPI",
->             Option [] ["bmp-header"] (NoArg $ addTarget BMP_Header) "Create a header file for BMP",
->             Option [] ["bmp-stub"] (NoArg $ addTarget BMP_Stub)     "Create a stub file for BMP",
 >             Option [] ["multihop-header"] (NoArg $ addTarget Multihop_Header) "Create a header file for Multihop",
 >             Option [] ["multihop-stub"] (NoArg $ addTarget Multihop_Stub)     "Create a stub file for Multihop",
 >             Option [] ["loopback-header"] (NoArg $ addTarget Loopback_Header) "Create a header file for loopback",

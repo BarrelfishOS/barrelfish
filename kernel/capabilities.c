@@ -73,7 +73,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -124,8 +124,6 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     case ObjType_IRQTable:
     case ObjType_IO:
     case ObjType_EndPoint:
-    case ObjType_BMPEndPoint:
-    case ObjType_BMPTable:
     case ObjType_Domain:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
@@ -160,18 +158,13 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs,
                             struct cte *dest_caps)
 {
     errval_t err;
-#if 0
-#ifdef __BEEHIVE__
-    extern void debug_print_cap(struct capability *cap);
-#endif
-#endif
 
     /* Parameter checking */
     assert(dest_caps != NULL);
@@ -245,11 +238,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
             if (err_is_fail(err)) {
                 return err;
             }
-#if 0
-#ifdef __BEEHIVE__
-            debug_print_cap(&dest_caps[i].cap);
-#endif
-#endif
         }
         return SYS_ERR_OK;
     case ObjType_DevFrame:
@@ -544,8 +532,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_Kernel:
     case ObjType_IRQTable:
     case ObjType_EndPoint:
-    case ObjType_BMPTable:
-    case ObjType_BMPEndPoint:
     case ObjType_Domain:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:

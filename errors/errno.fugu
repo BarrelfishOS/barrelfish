@@ -31,9 +31,6 @@ errors kernel SYS_ERR_ {
     failure LRPC_NOT_ENDPOINT   "Slot specified for LRPC does not contain an endpoint cap",
     failure INVALID_EPLEN       "Endpoint buffer has invalid length",
 
-    // BMP (Beehive messaging)
-    failure BMP_TX_BUSY         "BMP send failed; insufficient TX credits to remote core",
-
     // XXX: this should go away -AB
     failure IDC_MSG_BOUNDS      "Attempted to retrieve a word beyond the size of an LMP message structure",
 
@@ -80,12 +77,6 @@ errors kernel SYS_ERR_ {
 
     // IO capability
     failure IO_PORT_INVALID     "IO port out of range",
-
-    // errors related to BMP table
-    failure BMP_LOOKUP          "Specified capability was not found while inserting in IRQ table",
-    failure BMP_NOT_ENDPOINT    "Specified capability is not an endpoint cap",
-    failure BMP_NO_LISTENER     "No listener on specified endpoint cap", // ??
-    failure BMP_INVALID         "BMP association ID out of range",
 
     // Dispatcher setup and spawn core invocations
     failure DISP_CSPACE_ROOT    "Error setting CSpace root on dispatcher",
@@ -244,7 +235,7 @@ errors libbarrelfish LIB_ERR_ {
     failure CORESET_NEW             "Failure in coreset_new()",
     failure CORESET_GET_NEXT_DONE   "No more elements left in coreset_get_next()",
 
-    // IDC (and LMP/UMP/BMP channels)
+    // IDC (and LMP/UMP channels)
     failure NO_LMP_MSG          "No LMP message available",
     failure LMP_RECV_BUF_OVERFLOW "LMP message in endpoint is longer than user-provided buffer",
     failure NO_UMP_MSG          "No UMP message available",
@@ -261,18 +252,13 @@ errors libbarrelfish LIB_ERR_ {
     failure CHAN_DEREGISTER_RECV "Failure in *_chan_deregister_recv()",
     failure LMP_CHAN_INIT       "Failure in lmp_chan_init()",
     failure UMP_CHAN_INIT       "Failure in ump_chan_init()",
-    failure BMP_CHAN_INIT       "Failure in bmp_chan_init()",
     failure LMP_CHAN_RECV       "Failure in lmp_chan_recv()",
     failure UMP_CHAN_RECV       "Failure in ump_chan_recv()",
-    failure BMP_CHAN_RECV       "Failure in bmp_chan_recv()",
     failure LMP_CHAN_SEND       "Failure in lmp_chan_send()",
-    failure BMP_CHAN_SEND       "Failure in bmp_chan_send()",
     failure LMP_CHAN_BIND       "Failure in lmp_chan_bind()",
     failure UMP_CHAN_BIND       "Failure in ump_chan_bind()",
-    failure BMP_CHAN_BIND       "Failure in bmp_chan_bind()",
     failure LMP_CHAN_ACCEPT     "Failure in lmp_chan_accept()",
     failure UMP_CHAN_ACCEPT     "Failure in ump_chan_accept()",
-    failure BMP_CHAN_ACCEPT     "Failure in bmp_chan_accept()",
     failure LMP_ALLOC_RECV_SLOT "Failure in lmp_chan_alloc_recv_slot()",
     failure LMP_NOT_CONNECTED   "Channel is disconnected",
     failure MSGBUF_OVERFLOW     "Attempted to demarshall beyond bounds of message buffer",
@@ -286,13 +272,10 @@ errors libbarrelfish LIB_ERR_ {
     failure NAMESERVICE_NOT_BOUND "Name service client is not bound",
     failure BIND_LMP_REQ        "Failure sending bind_lmp_request to monitor",
     failure BIND_UMP_REQ        "Failure sending bind_ump_request to monitor",
-    failure BIND_BMP_REQ        "Failure sending bind_bmp_request to monitor",
     failure BIND_LMP_REPLY      "Failure sending bind_lmp_reply to monitor",
     failure BIND_UMP_REPLY      "Failure sending bind_ump_reply to monitor",
-    failure BIND_BMP_REPLY      "Failure sending bind_bmp_reply to monitor",
     failure NO_LMP_BIND_HANDLER "LMP connection handler not registered for this service",
     failure NO_UMP_BIND_HANDLER "UMP connection handler not registered for this service",
-    failure NO_BMP_BIND_HANDLER "BMP connection handler not registered for this service",
     failure MONITOR_CAP_SEND    "Failed sending capability via monitor",
     failure MONITOR_RPC_BIND    "Error in monitor_rpc_init()",
 
@@ -604,7 +587,6 @@ errors init INIT_ERR_ {
     failure COPY_PACN_CAP       "Failed to copy phys addr CNode cap to monitor",
     failure COPY_IRQ_CAP        "Failed to copy IRQ cap to monitor",
     failure COPY_IO_CAP         "Failed to copy IO cap to monitor",
-    failure COPY_BMP_CAP        "Failed to copy BMP cap to monitor",
     failure COPY_UMP_CAP        "Failed to copy UMP cap to monitor",
     failure NO_MATCHING_RAM_CAP "No suitably-sized RAM cap found when initialising local memory allocator",
 };

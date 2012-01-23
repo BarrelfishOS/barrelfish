@@ -332,16 +332,10 @@ errval_t spawn_spawnd(struct intermon_binding *b)
     // map the image in
     // XXX: leak memobj/region
     void *image;
-#ifdef __BEEHIVE__
-    // FIXME: why does the map fail below for beehive? -AB
-    // it thinks the cap I just magiced up doesn't exist
-    image = (void *)(lvaddr_t)spawnd_image.base;
-#else
     err = vspace_map_one_frame(&image, spawnd_image.bytes, frame, NULL, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
-#endif
 
     // spawn!
     char *argv[] = { "spawnd", NULL };

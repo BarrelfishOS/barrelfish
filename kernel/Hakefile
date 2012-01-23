@@ -138,12 +138,5 @@ in [
    (let sfiles = [ "boot.S", "exceptions.S", "paging_cp.S" ]
         cfiles = [ "exn.c", "exec.c", "init.c", "integrator.c", "kludges.c", "kputchar.c", "misc.c", "pl011_uart.c", "paging.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
         mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic0", "pl011_uart" ]
-    in mkrules "arm11mp" cfiles sfiles mackerelFiles [] [] [] [] []),
-
-   -- beehive
-   (let sfiles = [ "boot.S", "ringtest.S", "findbits.S", "context.S", "dcache.S" ]
-        cfiles = ["exec.c", "gdb_arch.c", "init.c", "misc.c", "serial.c", "startup_arch.c",
-                  "syscall.c", "page_mappings_arch.c", "ringbmp.c", "kputchar.c" ] ++ microbench
-        mackerelFiles = []
-    in mkrules "beehive" cfiles sfiles mackerelFiles [] [] [] [] [])
+    in mkrules "arm11mp" cfiles sfiles mackerelFiles [] [] [] [] [])
   ]

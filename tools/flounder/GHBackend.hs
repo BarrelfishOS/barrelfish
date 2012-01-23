@@ -390,7 +390,7 @@ tx_wrapper ifn (Message _ mn args _)
 -- Include the right files for different backends
 --
 
-flounder_backends = [ "lmp", "ump", "ump_ipi", "bmp", "multihop" ]
+flounder_backends = [ "lmp", "ump", "ump_ipi", "multihop" ]
 
 backend_includes :: String -> [ C.Unit ] 
 backend_includes n = 

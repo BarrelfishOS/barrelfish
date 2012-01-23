@@ -31,8 +31,6 @@
 # else
 #  define CACHELINE_BYTES 64
 # endif
-#elif defined(__BEEHIVE__)
-#  define CACHELINE_BYTES 32
 #elif defined(__arm__)
 #  define CACHELINE_BYTES 32
 #else

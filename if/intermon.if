@@ -90,16 +90,6 @@ interface intermon "The Interface between monitors" {
                                errval err,
                                caprep notify);
 
-        message bind_bmp_request(iref iref,
-                                 mon_id_t mon_id,
-                                 uint32 chanid,
-                                 uint32 ep_len);
-        message bind_bmp_reply(con_id_t con_id,
-                               mon_id_t mon_id,
-                               errval err,
-                               uint32 chanid,
-                               uint32 ep_len);
-
         message cap_send_request(con_id_t con_id,
                                  capid_t capid,
                                  caprep cap,

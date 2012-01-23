@@ -1060,14 +1060,6 @@ errval_t monitor_server_init(struct monitor_binding *b)
     }
 #endif
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    errval_t err;
-    err = bmp_monitor_init(b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "bmp_monitor_init failed");
-    }
-#endif
-
 #ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
     errval_t err2;
     err2 = multihop_monitor_init(b);

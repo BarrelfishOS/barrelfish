@@ -211,16 +211,6 @@ MODULES_xscale=\
 MODULES_arm11mp=\
 	sbin/cpu.bin
 
-# Beehive-specific modules to build by default
-MODULES_beehive=\
-	sbin/hyper \
-	sbin/bmp_bench \
-	sbin/bulkbench \
-	sbin/thc_v_flounder_empty \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/thctest \
-
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
                                   $(foreach m,$(MODULES_COMMON),$(a)/$(m))) \
@@ -285,20 +275,6 @@ debugsim: $(MODULES) arm/romfs.cpio arm/tools/debug.arm.gdb
 else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-none-linux-gnueabi-gdb
-else ifeq ($(ARCH),beehive)
-
-simulate: ./beehive/sbin/spliced.img
-	Bsimimg -slave=$(SRCDIR)/kernel/arch/beehive/slavecode.mem -noaddrcheck -ncores=3 -ibase=1000 -datarota=2 ./beehive/sbin/spliced.img
-.PHONY : simulate
-
-trace: ./beehive/sbin/spliced.img
-	Bsimimg -slave=$(SRCDIR)/kernel/arch/beehive/slavecode.mem -noaddrcheck -ncores=3 -ibase=1000 -datarota=2 -instructions=instructions.txt -events=events.txt -cache=cache.txt ./beehive/sbin/spliced.img | tee sim.out
-
-.PHONY : trace
-
-./beehive/sbin/spliced.img: ./menu.lst $(MODULES)
-	Bsplice -o ./beehive/sbin/spliced.img -s ./beehive/sbin/beehive.splice -i menu.lst
-
 endif
 
 
@@ -424,7 +400,6 @@ DOCS= \
 	./docs/TN-004-VirtualMemory.pdf \
 	./docs/TN-005-SCC.pdf \
 	./docs/TN-006-Routing.pdf \
-	./docs/TN-007-Beehive.pdf \
 	./docs/TN-008-Tracing.pdf \
 	./docs/TN-009-Notifications.pdf \
 	./docs/TN-010-Spec.pdf \

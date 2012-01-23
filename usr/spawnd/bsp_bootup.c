@@ -236,10 +236,7 @@ static void mappings_from_cmdline(uintptr_t my_arch_id, const char *str)
             p++;
         }
         for(int i = id_from; i <= id_to; i++) {
-            if (CURRENT_CPU_TYPE == CPU_BEEHIVE) {
-                coreid_mappings[i].arch_id = i;
-                coreid_mappings[i].present = true;
-            } else if (i != my_arch_id) {
+            if (i != my_arch_id) {
                 assert(next <= MAX_COREID);
                 coreid_mappings[next].arch_id = i;
                 coreid_mappings[next].present = true;
@@ -272,8 +269,6 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
         } else if(!strncmp(argv[i],"bootapic-x86_32=",strlen("bootapic-x86_32="))) {
             cmdline_mappings = argv[i];
         } else if(!strncmp(argv[i],"bootscc=",strlen("bootscc="))) {
-            cmdline_mappings = argv[i];
-        } else if(!strncmp(argv[i],"bootbees=",strlen("bootbees="))) {
             cmdline_mappings = argv[i];
         } else if(!strcmp(argv[i],"bootarm")) {
             cmdline_mappings = argv[i];

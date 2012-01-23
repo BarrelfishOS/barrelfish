@@ -55,14 +55,11 @@ struct remote_conn_state {
     coreid_t core_id;                       // core id of other side of channel
     
     // type-specific data
-    enum remote_conn_type { REMOTE_CONN_UMP, REMOTE_CONN_BMP } type;
+    enum remote_conn_type { REMOTE_CONN_UMP } type;
     union {
         struct {
             struct capref frame; // shared frame
         } ump;
-        struct {
-            /* nothing needed? */
-        } bmp;
     } x;
 };
 

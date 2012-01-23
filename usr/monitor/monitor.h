@@ -200,10 +200,6 @@ errval_t rcap_db_remote_revoke (struct capability * cap, coreid_t from_core);
 errval_t ump_intermon_init(struct intermon_binding *ib);
 errval_t ump_monitor_init(struct monitor_binding *mb);
 
-/* bmp_support.c */
-errval_t bmp_intermon_init(struct intermon_binding *ib);
-errval_t bmp_monitor_init(struct monitor_binding *mb);
-
 /* multihop_support.c */
 errval_t multihop_intermon_init(struct intermon_binding *ib);
 errval_t multihop_monitor_init(struct monitor_binding *mb);

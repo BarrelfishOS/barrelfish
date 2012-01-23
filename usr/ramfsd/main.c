@@ -25,10 +25,6 @@
 #include "ramfs.h"
 #include <cpiobin.h>
 
-#ifdef __BEEHIVE__
-#include <bexec.h>
-#endif
-
 #define BOOTSCRIPT_FILE_NAME "bootmodules"
 
 static errval_t write_directory(struct dirent *root, const char *path);
@@ -342,20 +338,6 @@ static const char *remove_prefix(const char *path)
 static errval_t getimage(struct mem_region *region, size_t *retlen,
                          lvaddr_t *retdata)
 {
-#ifdef __BEEHIVE__
-    // construct a dummy "image" for Beehive that is just a pointer to the module
-    static struct bimgref_file imgheader = {
-        .magic = BIMGREF_MAGIC,
-        .region = NULL
-    };
-    imgheader.region = region;
-
-    // XXX: return pointer to static buffer
-    // assuming caller will copy it into RAMFS before calling us next
-    *retlen = sizeof(imgheader);
-    *retdata = (lvaddr_t)&imgheader;
-    return SYS_ERR_OK;
-#else // not beehive
     // map in the real module (FIXME: leaking it afterwards)
     size_t len;
     errval_t err = spawn_map_module(region, &len, retdata, NULL);
@@ -364,7 +346,6 @@ static errval_t getimage(struct mem_region *region, size_t *retlen,
         *retlen = region->mrmod_size;
     }
     return err;
-#endif // __BEEHIVE__
 }
 
 static void populate_multiboot(struct dirent *root, struct bootinfo *bi)
