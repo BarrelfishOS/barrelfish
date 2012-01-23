@@ -27,6 +27,8 @@
 struct skip_node {
     char* element;
     struct skip_node** forward;
+
+    uint8_t data[0];
 };
 
 
@@ -99,7 +101,7 @@ static inline size_t random_level(void)
 /**
  * \brief Create a new skip list element.
  */
-static errval_t new_node(struct skip_node** sn, char* index, size_t level)
+static errval_t new_node(struct skip_node** sn, void* element, size_t level)
 {
     *sn = malloc(sizeof(struct skip_node));
     if (*sn == NULL) {
@@ -114,7 +116,7 @@ static errval_t new_node(struct skip_node** sn, char* index, size_t level)
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    (*sn)->element = index;
+    (*sn)->element = element;
 
     return SYS_ERR_OK;
 }
@@ -132,6 +134,7 @@ errval_t skip_create_list(struct skip_list** ss)
     errval_t err = new_node(&(*ss)->header, NULL, MAX_LEVEL);
     if (err_is_ok(err)) {
         (*ss)->level = 0;
+        (*ss)->entries = 0;
     }
     else {
         free(*ss);
@@ -235,6 +238,8 @@ void skip_insert(struct skip_list* ss, char* to_insert) {
             cur->forward[i] = update[i]->forward[i];
             update[i]->forward[i] = cur;
         }
+
+        ss->entries++; // maintain list count
     }
 }
 
@@ -264,16 +269,26 @@ char* skip_delete(struct skip_list* ss, char* to_delete) {
             update[i]->forward[i] = cur->forward[i];
         }
         char* to_return = cur->element;
+        free(cur->forward);
         free(cur);
 
         while(ss->level > 0 && ss->header->forward[ss->level] == NULL) {
             ss->level--;
         }
 
+        ss->entries--;
         return to_return;
     }
 
     return NULL; // element not found
+}
+
+static int compare_entry_count(const void* s1, const void* s2) {
+
+    struct skip_list* list1 = *(struct skip_list* const*) s1;
+    struct skip_list* list2 = *(struct skip_list* const*) s2;
+
+    return list1->entries - list2->entries;
 }
 
 /**
@@ -292,9 +307,12 @@ char* skip_intersect(struct skip_list** sets, size_t set_count, char* next)
     static struct skip_node** state = NULL;
     if (next == NULL) {
         free(state);
-        state = calloc(set_count, sizeof(struct skip_node));
+        state = calloc(set_count, sizeof(struct skip_node*));
 
-        // TODO Improvement: Sort skip lists based on their amount of stored elements
+        // Improvement: Sort skip lists based on their amount of stored elements
+        // saves some time doing actual intersection in case
+        // the first lists have the most entries...
+        qsort(sets, set_count, sizeof(struct skip_list*), compare_entry_count);
 
         for (size_t i = 0; i < set_count; i++) {
             state[i] = sets[i]->header;

@@ -113,14 +113,15 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
  *
  * \param b RPC binding of subscriber.
  * \param ast Subscription template (to match with published records).
- * \param id User supplied id to identify subscription.
+ * \param id Identifies subscription in system.
+ * \param client_state Additional state argument supplied by client.
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t id, struct dist_query_state* dqs);
+        uint64_t client_state, uint64_t id, struct dist_query_state* dqs);
 
 /**
  * \brief Deletes a subscription for a given (Binding, Id) pair.

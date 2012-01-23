@@ -1,75 +1,73 @@
 :- local store(rh).
 :- local store(sequenceTable).
-:- local store(attributeIndex).
 
-:- dynamic watch/2.
+:- dynamic watch/1.
 
-%:- lib(regex).
+%:- lib(regex). % enable when regex.ecl is loading correctly / remove manually loading match/3 in skb_main.c
 :- lib(lists).
-:- lib(ordset).
 
 %
 % Get Record
 %
 get_object(Name, AList, CList, Object) :-
-    convert_attributes(AList, ACList),
-    append(ACList, CList, Constraints),
-    sort(Constraints, SConstraints),
-    (atom(Name) *-> 
+    make_all_constraints(AList, CList, SConstraints),
+    (atom(Name) -> 
         get_by_name(Name, SConstraints, Object)
         ;
         get_by_constraints(Name, SConstraints, Object)
-    ), !.
+    ).
 
 get_by_constraints(Name, Constraints, Object) :-
-    (length(Constraints, 0) *->
-        stored_keys(rh, NameKeys)
-    ;
-        find_candidates(Constraints, CandidateLists),
-        ord_intersection(CandidateLists, NameKeys)
-    ),
-    (not var(Name) *-> 
+    find_candidates(Constraints, Candidate),
+    ( not var(Name) ->
         Name = name_constraint(Value),
-        (foreach(X, NameKeys), fromto(Candidates,Out,In,[]), param(Value) do
-            match(Value, X, []) -> Out=[X|In] ; Out=In)
-    ;
-        Candidates = NameKeys
-    ),
-    find_matching_object(Candidates, Constraints, Object).
+        match(Value, Candidate, []) 
+    ; true ),
+    match_object(Candidate, Constraints, Object).
 
 get_by_name(Name, Constraints, Object) :-
     atom(Name),
-    find_matching_object([Name], Constraints, Object).
-
-find_matching_object([Name|Rest], Constraints, Object) :-
-    match_object(Name, Constraints, Object) ; 
-    find_matching_object(Rest, Constraints, Object).
+    match_object(Name, Constraints, Object).
 
 match_object(Name, Constraints, object(Name, SList)) :-
     store_get(rh, Name, SList),
     match_constraints(Constraints, SList).
 
-constraint_name(constraint(Key, _, _), Key).
-get_attribute_names(CList, AList) :-
-    maplist(constraint_name, CList, AList).
-
 find_candidates(Constraints, RecordName) :-
-    get_attribute_names(Constraints, AttributeList),
-    
-    retrieve_index(Constraint, IdxList),
-    find_candidates(Rest, Cur).
-find_candidates([], []).
+    length(Constraints, 0), !,
+    stored_keys(rh, AllNames),
+    iterate_candidates(AllNames, RecordName).
+find_candidates(Constraints, RecordName) :-
+    not length(Constraints, 0), !,
+    get_index_names(Constraints, IdxList),
+    find_next_candidate(IdxList, RecordName).
 
-find_next_candidate(AttributeList) :-
-    index_intersect_aux(AttributeList, 0).
+find_next_candidate(AttributeList, NextItem) :-
+    index_intersect_aux(AttributeList, 0, NextItem).
 
-index_intersect_aux(AttributeList, OldState) :-
-    index_intersect(ThisAttributeList, OldState, NewState),
+% This makes our C predicate non-deterministic
+index_intersect_aux(AttributeList, OldState, Item) :-
+    index_intersect(AttributeList, OldState, NewItem),
     (
-        AttributeList = ThisAttributeList
+        Item = NewItem
     ;
-        index_intersect_aux(AttributeList, NewState)
+        index_intersect_aux(AttributeList, NewItem, Item)
     ). 
+
+iterate_candidates([Cur|Rest], RecordName) :- 
+    (RecordName = Cur ; 
+    iterate_candidates(Rest, RecordName)).
+
+get_index_names([], []).
+get_index_names([Cur|CList], [Attribute|AList]) :-
+    (Cur = constraint(Attribute, _, _) ; Cur = val(Attribute, _)),
+    get_index_names(CList, AList).
+
+make_all_constraints(CList, AList, SConstraints) :
+    convert_attributes(AList, ACList),
+    append(ACList, CList, Constraints),
+    sort(Constraints, SConstraints). % Sorting allows us to do matching in linear time
+
 
 %
 % Attribute/Constraint Matching
@@ -125,13 +123,13 @@ match_constraints([constraint(Key, Comparator, Value)|Rest], [val(Key, SVal)|SRe
 
 % Variable
 match_constraints([constraint(Key, '==', Value)|Rest], [val(Key, SVal)|SRest]) :-
-    var(Value), !,
+    var(Value),  !,
     Value = SVal,
     match_constraints(Rest, [val(Key, SVal)|SRest]).
 
 % Skip to next relevant Slot in List
 match_constraints([constraint(AKey, Comparator, Value)|Rest], [val(SKey, SVal)|SRest]) :-
-    compare(>, AKey, SKey), !, % continue to next entry in slotlist
+    compare(>, AKey, SKey), !,
     match_constraints([constraint(AKey, Comparator, Value)|Rest], SRest).
 
 % Helper functions to convert attributes in constraint and match them against object
@@ -192,101 +190,63 @@ filter_duplicates([val(Key1, X), val(Key2, Y)|Rest], [val(Key1, X)|Out]) :-
 %
 set_attribute_index(Name, SList) :-
     ( foreach(Slot, SList), param(Name) do add_index(Name, Slot) ).
-
 del_attribute_index(Name, SList) :-
     ( foreach(Slot, SList), param(Name) do del_index(Name, Slot) ).
 
 add_index(Name, val(Attribute, Value)) :-
-   number(Value), !,
-   concat_atoms('n', Attribute, Key),
-   save_index(Key, Name).
-   
-add_index(Name, val(Attribute, Value)) :-
-   (string(Value) ; atom(Value)), !,
-   concat_atoms('s', Attribute, Key),
-   save_index(Key, Name).
-
-%save_index(Idx, Name) :-
-%    store_get(attributeIndex, Idx, NameList),
-%    !,
-%    ord_insert(NameList, Name, NewList),
-%    store_set(attributeIndex, Idx, NewList).
-%save_index(Idx, Name) :-
-%    store_set(attributeIndex, Idx, [Name]).
-
+   save_index(Attribute, Name).
 del_index(Name, val(Attribute, Value)) :-
-   number(Value), !,
-   concat_atoms('n', Attribute, Key),
-   remove_index(Key, Name).
-del_index(Name, val(Attribute, Value)) :-
-   (string(Value) ; atom(Value)), !,
-   concat_atoms('s', Attribute, Key),
-   remove_index(Key, Name).
+   remove_index(Attribute, Name).
 
-%remove_index(Idx, Name) :-
-%   store_get(attributeIndex, Idx, NameList),
-%   !,
-%   ord_del_element(NameList, Name, NewNameList),
-%   store_set(attributeIndex, Idx, NewNameList).
-
-retrieve_index(constraint(Attribute, _, Value), IdxList) :-
-    number(Value), !,
-    concat_atoms('n', Attribute, Key),
-    store_get(attributeIndex, Key, IdxList).
-retrieve_index(constraint(Attribute, _, Value), IdxList) :-
-    (string(Value) ; atom(Value)), !,
-    concat_atoms('s', Attribute, Key),
-    store_get(attributeIndex, Key, IdxList).
-retrieve_index(constraint(Attribute, _, Value), IdxList) :-
-    var(Value), !,
-    retrieve_index(constraint(Attribute, _, 0), IdxList1),
-    retrieve_index(constraint(Attribute, _, "s"), IdxList2),
-    ord_union(IdxList1, IdxList2, IdxList).
-retrieve_index(constraint(_, _, _), []).
-
-  
 %
 % Delete Record
 %
-del_object(Name, AList, CList) :-
-    get_object(Name, AList, CList, Object),
+del_object(Thing, AList, CList) :-
+    get_object(Thing, AList, CList, object(Name, SList)),
     store_delete(rh, Name),
     !,
-    del_attribute_index(Name, AList),
-    trigger_watches(Object, 2).
-
+    del_attribute_index(Name, SList),
+    trigger_watches(object(Name, SList), 2).
 
 %
 % Watches
 %
-set_watch(Name, Attrs, Constraints, Mode, Recipient) :-
-    asserta(watch(Name, triplet(template(Name, Attrs, Constraints), Mode, Recipient))).
+set_watch(Name, AList, CList, Mode, Recipient) :-
+    convert_attributes(AList, ACList),
+    append(ACList, CList, Constraints),
+    sort(Constraints, SConstraints),    
+    asserta(watch(triplet(template(Name, SConstraints), Mode, Recipient))).
 
 trigger_watches(Object, Mode) :-
     find_watches(Object, Watches),
     check_watches(Object, Mode, Watches).
 
+% no optimzation atm. as long as 
+% the amount of concurrent watches is small this is fine
 find_watches(object(Name, Attrs), L) :-
-    coverof(X, watch(Name, X), L), !.
+    coverof(X, watch(X), L), !.
 find_watches(_, []).
 
 check_watches(_, _, []).
-check_watches(Object, Mode, [W|Rest]) :-
-    check_watch(Object, Mode, W),
+check_watches(Object, Mode, [T|Rest]) :-
+    check_watch(Object, Mode, T),
     check_watches(Object, Mode, Rest).
 
-check_watch(object(Name, Attrs), Mode, triplet(template(Name, TAttrs, TConstraint), WMode, recipient(Binding, ReplyState, WatchId))) :-
+check_watch(object(Name, Attrs), Mode, triplet(template(TName, Constraints), WMode, recipient(Binding, ReplyState, WatchId))) :-
     Mode /\ WMode > 0,
-    slot_vals(Name, TAttrs, Attrs),
-    satisfy_constraints(TConstraint, object(Name, Attrs)),
+    ( (not var(TName), not atom(TName)) ->
+        TName = name_constraint(Value),
+        match(Value, Name, [])
+    ; Name = TName ),
+    match_constraints(Constraints, Attrs),
     !,
     format_object(object(Name, Attrs), Output),
     trigger_watch(Output, Mode, ReplyState, WatchId, Retract),
     try_retract(Retract, WatchId).
-check_watch(_, _, _).
+check_watch(_, _, _). % Checking watches should never fail
 
 try_retract(1, WatchId) :-
-    retract(watch(_, triplet(_, _, recipient(_, _, WatchId)))).
+    retract(watch(triplet(_, _, recipient(_, _, WatchId)))).
 try_retract(0, _). 
 
 
@@ -296,12 +256,12 @@ try_retract(0, _).
 print_names([]) :-
     flush(1),
     flush(2).
-print_names([X]) :-
+print_names([object(X, _)]) :-
     !,
     write(X),
     flush(1),
     flush(2).
-print_names([X|Rest]) :-
+print_names([object(X, _)|Rest]) :-
     write(X),
     write(', '),
     print_names(Rest).

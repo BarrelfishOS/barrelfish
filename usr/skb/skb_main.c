@@ -206,12 +206,12 @@ void execute_string(char *string)
         if ((n >=0) && (n < RESULT_BUF_SIZE)) {
             buf[n] = 0;
         }
-        SKB_DEBUG("eclipse returned: %s with length %d.\n", buf,n);
+        printf("eclipse returned: %s with length %d.\n", buf,n);
 
         n = ec_queue_read(2, buf, RESULT_BUF_SIZE);
         if ((n >=0) && (n < RESULT_BUF_SIZE)) {
             buf[n] = 0;
         }
-        SKB_DEBUG("eclipse error returned: %s with length %d.\n", buf,n);
+        printf("eclipse error returned: %s with length %d.\n", buf,n);
     }
 }

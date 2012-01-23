@@ -47,7 +47,7 @@ struct dist2_rpc_client* get_dist_rpc_client(void)
     assert(rpc.rpc_client != NULL);
     return rpc.rpc_client;
 }
-/*
+
 static void identify_response_handler(struct dist2_binding* b)
 {
     thread_sem_post(&ts);
@@ -96,7 +96,7 @@ static void event_bind_cb(void *st, errval_t err, struct dist2_binding *b)
     assert(!event.is_done);
     event.is_done = true;
     event.err = err;
-}*/
+}
 
 static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
 {
@@ -164,10 +164,10 @@ errval_t dist_init(void)
         return err;
     }
 
-    /*err = init_binding(&event, event_bind_cb, "dist2_event");
+    err = init_binding(&event, event_bind_cb, "dist2_event");
     if (err_is_fail(err)) {
         return err;
-    }*/
+    }
 
     // TODO: Hack. Tell the server that these bindings belong together
     // We can't use the same binding in 2 different threads with
@@ -182,8 +182,8 @@ errval_t dist_init(void)
     }
 
     // Spawn event handler thread (handles asynchronous messages from server)
-    /*struct thread* t = thread_create(event_handler_thread, (void*) id);
-    assert(t != NULL);*/
+    struct thread* t = thread_create(event_handler_thread, (void*) id);
+    assert(t != NULL);
 
     // Register rpc binding using identifier
     err = dist_rpc->vtbl.identify(dist_rpc, id, dist2_BINDING_RPC);
@@ -191,6 +191,6 @@ errval_t dist_init(void)
     dist_pubsub_init();
 
     // Wait until event binding has registered itself
-    //thread_sem_wait(&ts);
+    thread_sem_wait(&ts);
     return err;
 }

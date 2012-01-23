@@ -32,6 +32,7 @@
 #include "queue.h"
 
 static uint64_t current_id = 1;
+static uint64_t subscription_id = 1;
 
 errval_t new_dist_reply_state(struct dist_reply_state** drt,
         dist_reply_handler_fn reply_handler)
@@ -69,6 +70,10 @@ static void trigger_send_handler(struct dist2_binding* b,
             drs->trigger.trigger, drs->trigger.st,
             drs->query_state.stdout.buffer);
     if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, drs);
+            return;
+        }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
 }
@@ -85,6 +90,11 @@ static inline void install_trigger(struct dist2_binding* binding,
 
         trigger_reply->trigger = trigger;
         trigger_reply->binding = get_event_binding(binding);
+        if (trigger_reply->binding == NULL) {
+            // In case no event binding is set, try to notify
+            // over regular binding
+            trigger_reply->binding = binding;
+        }
 
         err = set_watch(ast, trigger.m, trigger_reply);
         assert(err_is_ok(err));
@@ -314,7 +324,7 @@ static void subscribe_reply(struct dist2_binding* b,
 {
     errval_t err;
     err = b->tx_vtbl.subscribe_response(b, MKCONT(free_dist_reply_state, srs),
-            srs->error);
+            srs->server_id, srs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -325,7 +335,7 @@ static void subscribe_reply(struct dist2_binding* b,
     }
 }
 
-void subscribe_handler(struct dist2_binding *b, char* query, uint64_t id)
+void subscribe_handler(struct dist2_binding *b, char* query, uint64_t client_id)
 {
     DIST2_DEBUG("subscribe: query = %s\n", query);
     errval_t err = SYS_ERR_OK;
@@ -337,7 +347,9 @@ void subscribe_handler(struct dist2_binding *b, char* query, uint64_t id)
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        err = add_subscription(b, ast, id, &drs->query_state);
+        drs->server_id = subscription_id++;
+        err = add_subscription(b, ast, client_id,
+                drs->server_id, &drs->query_state);
     }
 
     drs->error = err;
@@ -383,6 +395,14 @@ static void send_subscribed_message(struct dist2_binding* b, uint64_t id,
 {
     errval_t err;
     err = b->tx_vtbl.subscribed_message(b, NOP_CONT, id, object);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            // TODO
+            //return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+
 }
 
 static void publish_reply(struct dist2_binding* b, struct dist_reply_state* srs)

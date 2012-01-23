@@ -47,7 +47,7 @@ struct dist_reply_state {
     dist2_trigger_t trigger;
     // For watch()
     uint64_t watch_id;
-    uint64_t client_id;
+    uint64_t server_id;
 
     cycles_t time;
     uint8_t busy;

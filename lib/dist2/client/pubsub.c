@@ -32,10 +32,11 @@
 struct subscription {
     subscription_handler_fn handler;
     const void* state;
+    uint64_t server_id;
 };
 
 static struct subscription subscriber_table[MAX_SUBSCRIPTIONS] = {
-        { NULL, NULL } };
+        { NULL, NULL, 0 } };
 static struct thread_mutex subscriber_table_lock;
 
 static errval_t get_free_slot(subscription_t *slot)
@@ -56,8 +57,18 @@ static errval_t get_free_slot(subscription_t *slot)
 void subscribed_message_handler(struct dist2_binding *b, subscription_t id,
         char *record)
 {
-    assert(subscriber_table[id].handler != NULL);
-    subscriber_table[id].handler(id, record, (void*)subscriber_table[id].state);
+    thread_mutex_lock(&subscriber_table_lock);
+
+    if (subscriber_table[id].handler != NULL) {
+        subscriber_table[id].handler(id, record, (void*)subscriber_table[id].state);
+    }
+    else {
+        fprintf(stderr, "Incoming message (%s) for subscription: %lu not delivered. "
+                        "Handler not set.", record, id);
+        free(record);
+    }
+
+    thread_mutex_unlock(&subscriber_table_lock);
 }
 
 /**
@@ -98,8 +109,9 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
     struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
 
     errval_t error_code = SYS_ERR_OK;
+    uint64_t server_id = 0;
     DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.subscribe(rpc_client, buf, *id, &error_code);
+    err = rpc_client->vtbl.subscribe(rpc_client, buf, *id, &server_id, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
@@ -107,7 +119,8 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
 
     if (err_is_ok(err)) {
         subscriber_table[*id] =
-                (struct subscription) {.handler = function, .state = state};
+                (struct subscription) {.handler = function, .state = state,
+            .server_id = server_id};
     }
 
     free(buf);
@@ -127,6 +140,7 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
 errval_t dist_unsubscribe(subscription_t id)
 {
     assert(id < MAX_SUBSCRIPTIONS);
+    assert(subscriber_table[id].handler != NULL);
     thread_mutex_lock(&subscriber_table_lock);
 
     // send to skb
@@ -134,7 +148,8 @@ errval_t dist_unsubscribe(subscription_t id)
 
     errval_t error_code = SYS_ERR_OK;
     DIST_LOCK_BINDING(rpc_client);
-    errval_t err = rpc_client->vtbl.unsubscribe(rpc_client, id, &error_code);
+    errval_t err = rpc_client->vtbl.unsubscribe(rpc_client,
+            subscriber_table[id].server_id, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
@@ -143,6 +158,7 @@ errval_t dist_unsubscribe(subscription_t id)
     if (err_is_ok(err)) {
         subscriber_table[id].handler = NULL;
         subscriber_table[id].state = NULL;
+        subscriber_table[id].server_id = 0;
     }
 
     thread_mutex_unlock(&subscriber_table_lock);

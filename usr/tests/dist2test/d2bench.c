@@ -158,6 +158,25 @@ static void one_record(void)
     }
 }
 
+static void unnamed_record(void)
+{
+    errval_t err = dist_set("object0 { attr1: 'bla', attr2: 12.0 }");
+    assert(err_is_ok(err));
+
+    char* data = NULL;
+    err = dist_get(&data, "_ { }");
+    if (err_is_fail(err)) DEBUG_ERR(err, "get");
+    printf("dist_get returned: %s\n", data);
+    free(data);
+    assert(err_is_ok(err));
+
+    err = dist_get(&data, "_ { attr2: 12.0 }");
+    if (err_is_fail(err)) DEBUG_ERR(err, "get");
+    printf("dist_get returned: %s\n", data);
+    free(data);
+    assert(err_is_ok(err));
+}
+
 int main(int argc, char** argv)
 {
     dist_init();
@@ -165,6 +184,8 @@ int main(int argc, char** argv)
     skb_client_connect();
 
     if (0) one_record();
-    variable_records();
+    if (0) variable_records();
     if (0) variable_records_skb();
+
+    unnamed_record();
 }

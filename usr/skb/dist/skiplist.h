@@ -20,6 +20,7 @@
 struct skip_list {
     struct skip_node* header;
     size_t level;
+    size_t entries; // used to sort lists based on #entries for intersect
 };
 
 errval_t skip_create_list(struct skip_list**);

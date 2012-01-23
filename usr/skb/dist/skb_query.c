@@ -175,11 +175,11 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
 
         pword var_l = ec_newvar();
         pword var_pl = ec_newvar();
-        pword var_attr = ec_newvar();
+        pword var_rec = ec_newvar();
 
         pword get_object_term = ec_term(get_object, sr.name, sr.attribute_list,
-                sr.constraint_list, var_attr);
-        pword findall_term = ec_term(findall, sr.name, get_object_term, var_l);
+                sr.constraint_list, var_rec);
+        pword findall_term = ec_term(findall, var_rec, get_object_term, var_l);
         pword prune_results = ec_term(prune_instances, var_l, var_pl);
         pword print_names_term = ec_term(print_names, var_pl);
 
@@ -348,21 +348,22 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
 }
 
 errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t id, struct dist_query_state* sqs)
+        uint64_t client_state, uint64_t id, struct dist_query_state* sqs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
-        // Calling add_subscription(template(Name, Attributes) Constraints, subscriber(EventBinding, Id))
+        // Calling add_subscription(ServerID, template(Name, Attributes, Constraints), subscriber(EventBinding, ClientState))
         dident add_subscription = ec_did("add_subscription", 3);
-        dident template = ec_did("template", 2);
+        dident template = ec_did("template", 3);
         dident subscriber = ec_did("subscriber", 2);
 
         pword binding_term = ec_long((long int) get_event_binding(b));
-        pword template_term = ec_term(template, sr.name, sr.attribute_list);
-        pword subscriber_term = ec_term(subscriber, binding_term, ec_long(id));
-        pword subscribe_term = ec_term(add_subscription, template_term,
-                sr.constraint_list, subscriber_term);
+        pword id_term = ec_long((long int) id);
+
+        pword template_term = ec_term(template, sr.name, sr.attribute_list, sr.constraint_list);
+        pword subscriber_term = ec_term(subscriber, binding_term, ec_long(client_state));
+        pword subscribe_term = ec_term(add_subscription, id_term, template_term, subscriber_term);
 
         ec_post_goal(subscribe_term);
 
@@ -384,11 +385,9 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
 {
     errval_t err = SYS_ERR_OK;
 
-    dident delete_subscription = ec_did("delete_subscription", 2);
+    dident delete_subscription = ec_did("delete_subscription", 1);
     pword id_term = ec_long(id);
-    pword binding_term = ec_long((long int) get_event_binding(b));
-    pword delete_subscription_term = ec_term(delete_subscription, binding_term,
-            id_term);
+    pword delete_subscription_term = ec_term(delete_subscription, id_term);
 
     ec_post_goal(delete_subscription_term);
     err = run_eclipse(sqs);

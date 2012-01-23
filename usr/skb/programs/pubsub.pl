@@ -1,6 +1,8 @@
-:-include("objects.pl").
-
+:- include("objects.pl").
 :- dynamic subscribed/3.
+
+:- local store(sh).
+
 
 %filter([ attr::name, weight::20 ]).
 

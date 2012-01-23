@@ -82,10 +82,11 @@ interface dist2 "dist2 RPC Interface" {
     
     /**
      * \param query
-     * \param id Identifier for this subscription by the client.
+     * \param client_state Additional state supplied by client.
+     * \param id Identifier for this subscription supplied by server.
      * \param error_code Status of request.
      */
-    rpc subscribe(in string query, in uint64 id, out errval error_code);
+    rpc subscribe(in string query, in uint64 client_state, out uint64 id, out errval error_code);
     
     /**
      * \param id Id for the subscription

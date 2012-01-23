@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
 
     dist_del("obj3");
     while (received != 1) {
+        // busy waiting
     }
 
     printf("d2trigger SUCCESS!\n");

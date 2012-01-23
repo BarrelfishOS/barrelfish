@@ -31,6 +31,7 @@
 
 #define HASH_INDEX_BUCKETS 6151
 static hash_table* record_index = NULL;
+static hash_table* subscriber_index = NULL;
 
 static char* mystrdup(char* data)
 {
@@ -46,31 +47,44 @@ static char* mystrdup(char* data)
 
 int p_save_index(void)
 {
-    char* key = NULL;
-    char* value = NULL;
-    ec_get_string(ec_arg(1), &key);
-    ec_get_string(ec_arg(2), &value);
-
     if(record_index == NULL) {
         hash_create_with_buckets(&record_index, HASH_INDEX_BUCKETS, NULL);
     }
+    if(subscriber_index == NULL) {
+        hash_create_with_buckets(&subscriber_index, HASH_INDEX_BUCKETS, NULL);
+    }
 
+    // Select hash-table
+    char* indexType = NULL;
+    ec_get_string(ec_arg(1), &indexType);
+    hash_table* ht = NULL;
+    if (strcmp(indexType, "rh") == 0) {
+        ht = record_index;
+    }
+    else {
+        ht = subscriber_index;
+    }
+
+    // Retrieve Index from hash-table
+    char* key = NULL;
+    ec_get_string(ec_arg(2), &key);
     uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
-    struct skip_list* sl = (struct skip_list*) hash_find(record_index, hash_key);
+    struct skip_list* sl = (struct skip_list*) hash_find(ht, hash_key);
     if (sl == NULL) {
         errval_t err = skip_create_list(&sl);
         if (err_is_fail(err)) {
             return PFAIL;
         }
-        hash_insert(record_index, hash_key, sl);
+        hash_insert(ht, hash_key, sl);
     }
-    // else: List already in hash table
+    // else: List already in hash-table
 
-    // Add our value into the index
+    // Add value into index
+    char* value = NULL;
+    ec_get_string(ec_arg(3), &value);
     skip_insert(sl, mystrdup(value));
 
     skip_print_list(sl);
-
     return PSUCCEED;
 }
 
@@ -86,7 +100,7 @@ int p_remove_index(void)
     struct skip_list* sl = hash_find(record_index, hash_key);
     assert(sl != NULL);
 
-    char* elem = skip_delete(sl, mystrdup(value));
+    char* elem = skip_delete(sl, value);
     assert(elem != NULL);
     free(elem);
 
@@ -97,6 +111,7 @@ int p_remove_index(void)
 
 int p_index_intersect(void) /* p_index_intersect(-[Attributes], -Current, +Next) */
 {
+    DIST2_DEBUG("p_index_intersect\n");
     static struct skip_list** sets = NULL;
     static char* next = NULL;
 
@@ -104,8 +119,9 @@ int p_index_intersect(void) /* p_index_intersect(-[Attributes], -Current, +Next)
     char* key;
     size_t i = 0;
 
-    res = ec_get_string(ec_arg(0), &next);
+    res = ec_get_string(ec_arg(2), &next);
     if (res != PSUCCEED) {
+        DIST2_DEBUG("state is not a string, find skip lists\n");
         free(sets);
         pword list, cur, rest;
 
@@ -126,6 +142,7 @@ int p_index_intersect(void) /* p_index_intersect(-[Attributes], -Current, +Next)
             if (sl == NULL) {
                 return PFAIL;
             }
+            DIST2_DEBUG("skip_intersect found skip list for key: %s\n", key);
 
             sets[i] = sl;
             i++;
@@ -134,8 +151,13 @@ int p_index_intersect(void) /* p_index_intersect(-[Attributes], -Current, +Next)
     }
 
     next = skip_intersect(sets, i, next);
-    dident item = ec_did(next, 0);
-    return ec_unify_arg(3, ec_atom(item));
+    DIST2_DEBUG("skip_intersect found next: %s\n", next);
+    if(next != NULL) {
+        dident item = ec_did(next, 0);
+        return ec_unify_arg(3, ec_atom(item));
+    }
+
+    return PFAIL;
 }
 
 int p_notify_client(void) /* p_notify_client(+String, ReplyState) */
@@ -197,7 +219,13 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     DIST2_DEBUG("drs->reply: %p\n", drs->reply);
 
     drs->error = SYS_ERR_OK;
-    drs->reply(drs->binding, drs);
+    if (drs->binding != NULL) {
+        drs->reply(drs->binding, drs);
+    }
+    else {
+        // Ignore sending trigger messages
+        DIST2_DEBUG("No event binding found for watch_id: %lu", watch_id);
+    }
 
     long int retract = true;
     return ec_unify_arg(5, ec_long(retract));
