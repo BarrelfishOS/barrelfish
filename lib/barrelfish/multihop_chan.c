@@ -489,7 +489,9 @@ errval_t multihop_send_capability(struct multihop_chan *mc,
 
     // send the message
     err = mon_binding->tx_vtbl.multihop_cap_send(mon_binding, _continuation,
-            mc->vci, mc->direction, cap, cap_state->tx_capnum);
+                                                 mc->vci, mc->direction,
+                                                 SYS_ERR_OK, cap,
+                                                 cap_state->tx_capnum);
 
     if (err_is_ok(err)) {
         // increase capability number
@@ -565,7 +567,8 @@ static void handle_multihop_message(struct monitor_binding *mon_closure,
  *
  */
 static void multihop_handle_capability(struct monitor_binding *mon_closure,
-        multihop_vci_t vci, uint8_t direction, struct capref cap, uint32_t capid)
+        multihop_vci_t vci, uint8_t direction, errval_t msgerr,
+        struct capref cap, uint32_t capid)
 {
 
     struct multihop_chan *mc = multihop_chan_mappings_lookup(vci);
@@ -573,21 +576,7 @@ static void multihop_handle_capability(struct monitor_binding *mon_closure,
     assert(mc->cap_handlers.cap_receive_handler != NULL);
 
     // deliver capability to the handler
-    mc->cap_handlers.cap_receive_handler(mc->cap_handlers.st, cap, capid);
-}
-
-/**
- * \ brief Handle a capability reply
- */
-static void multihop_handle_capability_reply(
-        struct monitor_binding *mon_closure, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr)
-{
-
-    struct multihop_chan *mc = multihop_chan_mappings_lookup(vci);
-    assert(mc->connstate == MULTIHOP_CONNECTED);
-    assert(mc->cap_handlers.cap_send_reply_handler != NULL);
-    mc->cap_handlers.cap_send_reply_handler(mc->cap_handlers.st, capid, msgerr);
+    mc->cap_handlers.cap_receive_handler(mc->cap_handlers.st, msgerr, cap, capid);
 }
 
 ///////////////////////////////////////////////////////
@@ -649,5 +638,4 @@ void multihop_init(void)
     mb->rx_vtbl.multihop_bind_client_reply = &multihop_bind_reply_handler; // handler for incoming reply messages from the monitor
     mb->rx_vtbl.multihop_message = &handle_multihop_message; // handler for incoming messages from the monitor
     mb->rx_vtbl.multihop_cap_send = &multihop_handle_capability; // handler for incoming capabilities from the monitor
-    mb->rx_vtbl.multihop_cap_reply = &multihop_handle_capability_reply; // handler for capability reply messages
 }

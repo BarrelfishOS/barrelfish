@@ -100,7 +100,6 @@ rx_handler_name ifn = ifscope ifn "multihop_rx_handler"
 -- Name of the caps receive handlers
 caps_rx_handler_name :: String -> String
 caps_rx_handler_name ifn = ifscope ifn "multihop_caps_rx_handler"
-caps_rx_reply_handler_name ifn = ifscope ifn "multihop_caps_reply_handler"
 
 -- Names of the control functions
 change_waitset_fn_name, control_fn_name :: String -> String
@@ -137,7 +136,6 @@ multihop_header_body infile interface@(Interface name descr decls) = [
     multihop_connect_handler_proto name,
     multihop_rx_handler_proto name,
     multihop_caps_rx_handler_proto name,
-    multihop_caps_reply_rx_handler_proto name,
     C.Blank
     ]
 
@@ -208,18 +206,10 @@ multihop_caps_rx_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
 
 multihop_caps_rx_handler_params :: [C.Param]
 multihop_caps_rx_handler_params = [C.Param (C.Ptr C.Void) "arg",
+                                   C.Param (C.TypeName "errval_t") "success",
                                    C.Param (C.Struct "capref") "cap",
                                    C.Param (C.TypeName "uint32_t") "capid"]
-                                  
-multihop_caps_reply_rx_handler_proto :: String -> C.Unit
-multihop_caps_reply_rx_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
-                                           (C.Function C.NoScope C.Void multihop_caps_reply_rx_handler_params)
-                                           (caps_rx_reply_handler_name ifn) Nothing
-                                           
-multihop_caps_reply_rx_handler_params = [C.Param (C.Ptr C.Void) "arg",
-                                         C.Param (C.TypeName "uint32_t") "capid",
-                                         C.Param (C.TypeName "errval_t") "success"]
-                                  
+
 ------------------------------------------------------------------------
 -- Language mapping: Create the stub (implementation) for this interconnect driver
 ------------------------------------------------------------------------
@@ -284,7 +274,6 @@ multihop_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
 
       C.MultiComment [ "Cap receive handlers" ],
       caps_rx_handler arch ifn types messages msg_specs,
-      caps_reply_rx_handler arch ifn,
       C.Blank,
 
       C.MultiComment [ "Message sender functions" ],
@@ -402,8 +391,7 @@ multihop_bind_cont_fn ifn =
        [C.AddressOf $ C.DerefField multihop_bind_var "chan",
         C.StructConstant "monitor_cap_handlers"
         [("st", C.Variable "st"),
-         ("cap_receive_handler", C.Variable (caps_rx_handler_name ifn)),
-         ("cap_send_reply_handler", C.Variable (caps_rx_reply_handler_name ifn))
+         ("cap_receive_handler", C.Variable (caps_rx_handler_name ifn))
         ]]]
       
       [ C.Ex $ C.Call (multihop_destroy_fn_name ifn) [multihop_bind_var]],
@@ -462,8 +450,7 @@ multihop_connect_handler_fn ifn =
     [C.AddressOf $ C.DerefField multihop_bind_var "chan",
      C.StructConstant "monitor_cap_handlers"
      [("st", multihop_bind_var),
-      ("cap_receive_handler", C.Variable (caps_rx_handler_name ifn)),
-      ("cap_send_reply_handler", C.Variable (caps_rx_reply_handler_name ifn))
+      ("cap_receive_handler", C.Variable (caps_rx_handler_name ifn))
      ]],
     C.SBlank,
     
@@ -1005,6 +992,14 @@ caps_rx_handler arch ifn typedefs msgdefs msgs =
       C.Ex $ C.Call "assert" [C.Binary C.Equals (C.Variable "capid") (capst `C.FieldOf` "rx_capnum")],
       C.SBlank, 
      
+      C.SComment "Check if there's an associated error",
+      C.SComment "FIXME: how should we report this to the user? at present we just deliver a NULL capref",
+      C.If (C.Call "err_is_fail" [C.Variable "success"])
+           [C.Ex $ C.Call "DEBUG_ERR" 
+                 [C.Variable "success", C.StringConstant "could not send cap over multihop channel"]
+           ] [],
+      C.SBlank,
+
       C.SComment "Switch on current incoming message",
       C.Switch (C.DerefField bindvar "rx_msgnum") cases
       [C.Ex $ C.Call "assert"
@@ -1049,18 +1044,3 @@ cap_rx_handler_case arch ifn typedefs mn (Message _ _ msgargs _) nfrags caps =
           rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
           
           is_last = (ncap + 1 == length caps)
-
--- handle a caps reply message
-caps_reply_rx_handler :: Arch -> String -> C.Unit
-caps_reply_rx_handler arch ifn = 
-  C.FunctionDef C.NoScope C.Void (caps_rx_reply_handler_name ifn) multihop_caps_reply_rx_handler_params 
-  [  
-    localvar (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var (Just $ C.Variable "arg"),
-    C.SBlank,
-  
-    C.If (C.Call "err_is_fail" [C.Variable "success"])
-    [C.Ex $ C.Call "DEBUG_ERR" 
-     [C.Variable "success", C.StringConstant "could not send cap over multihop channel"],
-     report_user_err $ C.Variable "success"
-    ] [] 
-  ]

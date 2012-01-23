@@ -1234,20 +1234,14 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
 
 static inline void multihop_cap_send_intermon_forward(
         struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, intermon_caprep_t caprep, bool null_cap);
+        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap);
 
 static void multihop_cap_send_forward_cont(struct monitor_binding *b,
         struct monitor_msg_queue_elem *e);
 
 inline static void multihop_cap_send_forward(struct monitor_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, struct capref cap);
-
-inline static void multihop_intermon_cap_send_reply(struct intermon_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t err);
-
-inline static void multihop_monitor_cap_send_reply(
-        struct monitor_binding *mon_binding, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr);
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t msgerr,
+        struct capref cap);
 
 // intermonitor capability forwarding state
 struct multihop_intermon_capability_forwarding_state {
@@ -1274,7 +1268,7 @@ struct multihop_capability_forwarding_state {
  */
 static void multihop_cap_send_request_handler(
         struct monitor_binding *monitor_binding, multihop_vci_t vci,
-        uint8_t direction, struct capref cap, uint32_t capid)
+        uint8_t direction, errval_t msgerr, struct capref cap, uint32_t capid)
 {
 
     MULTIHOP_DEBUG(
@@ -1287,6 +1281,9 @@ static void multihop_cap_send_request_handler(
     bool null_cap = capref_is_null(cap);
     bool has_descendants;
 
+    // XXX: this field is ignored when the local dispatcher originates the cap
+    msgerr = SYS_ERR_OK;
+
     // get forwarding information
     struct monitor_multihop_chan_state *chan_state = forwarding_table_lookup(
             vci);
@@ -1294,7 +1291,6 @@ static void multihop_cap_send_request_handler(
     struct intermon_binding *b = dir->binding.intermon_binding;
 
     if (!null_cap) {
-
         // get binary representation of capability
         err = monitor_cap_identify(cap, &capability);
         if (err_is_fail(err)) {
@@ -1302,16 +1298,16 @@ static void multihop_cap_send_request_handler(
             return;
         }
 
+        // if we can't transfer the cap, it is delivered as NULL
         if (!monitor_can_send_cap(&capability)) {
-
-            // if we can't send this capability, we send an reply back
-            // the the dispatcher
-            direction = multihop_get_opposite_direction(chan_state, direction,
-                    &dir);
-            multihop_monitor_cap_send_reply(dir->binding.monitor_binding,
-                    dir->vci, direction, capid, MON_ERR_CAP_SEND);
-            return;
+            cap = NULL_CAP;
+            null_cap = true;
+            msgerr = MON_ERR_CAP_SEND;
         }
+    }
+
+    if (!null_cap) {
+        // FIXME: this seems to be totally bogus. it assumes a give_away cap -AB
 
         // mark capability as remote
         err = monitor_cap_remote(cap, true, &has_descendants);
@@ -1338,6 +1334,7 @@ static void multihop_cap_send_request_handler(
     me->args.vci = dir->vci;
     me->args.direction = direction;
     me->args.capid = capid;
+    me->args.err = msgerr;
     me->args.cap = caprep;
     me->args.null_cap = null_cap;
     me->elem.cont = multihop_cap_send_intermon_forward_cont;
@@ -1354,7 +1351,7 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
     struct multihop_intermon_capability_forwarding_state *st =
             (struct multihop_intermon_capability_forwarding_state *) e;
     multihop_cap_send_intermon_forward(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.cap, st->args.null_cap);
+        st->args.capid, st->args.err, st->args.cap, st->args.null_cap);
     free(e);
 }
 
@@ -1364,13 +1361,13 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
  */
 static inline void multihop_cap_send_intermon_forward(
         struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, intermon_caprep_t caprep, bool null_cap)
+        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap)
 {
 
     errval_t err;
 
     // try to forward
-    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, capid,
+    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, capid, msgerr,
             caprep, null_cap);
 
     if (err_is_fail(err)) {
@@ -1382,6 +1379,7 @@ static inline void multihop_cap_send_intermon_forward(
             me->args.vci = vci;
             me->args.direction = direction;
             me->args.capid = capid;
+            me->args.err = msgerr;
             me->args.cap = caprep;
             me->args.null_cap = null_cap;
             me->elem.cont = multihop_cap_send_intermon_forward_cont;
@@ -1405,8 +1403,8 @@ static inline void multihop_cap_send_intermon_forward(
  */
 static void multihop_intermon_cap_send_handler(
         struct intermon_binding *intermon_binding, multihop_vci_t vci,
-        uint8_t direction, uint32_t capid, intermon_caprep_t caprep,
-        bool null_cap)
+        uint8_t direction, uint32_t capid, errval_t msgerr,
+        intermon_caprep_t caprep, bool null_cap)
 {
 
     MULTIHOP_DEBUG(
@@ -1430,13 +1428,11 @@ static void multihop_intermon_cap_send_handler(
             err = slot_alloc(&cap);
             if (err_is_fail(err)) {
 
-                // send a reply back indicating that we failed
+                // send a msg indicating that we failed
                 // to allocate a slot for the capability
-                direction = multihop_get_opposite_direction(chan_state,
-                        direction, &dir);
-                multihop_intermon_cap_send_reply(dir->binding.intermon_binding,
-                        direction, dir->vci, capid, err);
-                return;
+                cap = NULL_CAP;
+                msgerr = err;
+                goto do_send;
             }
 
             // create capability
@@ -1446,14 +1442,11 @@ static void multihop_intermon_cap_send_handler(
             if (err_is_fail(err)) {
                 slot_free(cap);
 
-                // send a reply back indicating that we failed
+                // send a msg indicating that we failed
                 // to create the capability
-                err = err_push(err, MON_ERR_CAP_CREATE);
-                direction = multihop_get_opposite_direction(chan_state,
-                        direction, &dir);
-                multihop_intermon_cap_send_reply(dir->binding.intermon_binding,
-                        dir->vci, direction, capid, err);
-                return;
+                cap = NULL_CAP;
+                msgerr = err_push(err, MON_ERR_CAP_CREATE);
+                goto do_send;
             }
 
             // mark capability as remote
@@ -1465,6 +1458,7 @@ static void multihop_intermon_cap_send_handler(
             }
         }
 
+do_send: ;
         // enqueue the capability in order to be forwarded to
         // the local dispatcher
         struct monitor_binding *b = dir->binding.monitor_binding;
@@ -1476,6 +1470,7 @@ static void multihop_intermon_cap_send_handler(
         me->args.direction = direction;
         me->args.cap = cap;
         me->args.capid = capid;
+        me->args.err = msgerr;
         me->elem.cont = multihop_cap_send_forward_cont;
 
         err = monitor_enqueue_send(b, &ist->queue, get_default_waitset(),
@@ -1493,6 +1488,7 @@ static void multihop_intermon_cap_send_handler(
         me->args.vci = dir->vci;
         me->args.direction = direction;
         me->args.capid = capid;
+        me->args.err = msgerr;
         me->args.cap = caprep;
         me->args.null_cap = null_cap;
         me->elem.cont = multihop_cap_send_intermon_forward_cont;
@@ -1511,7 +1507,7 @@ static void multihop_cap_send_forward_cont(struct monitor_binding *b,
     struct multihop_capability_forwarding_state *st =
             (struct multihop_capability_forwarding_state *) e;
     multihop_cap_send_forward(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.cap);
+                              st->args.capid, st->args.err, st->args.cap);
     free(e);
 }
 
@@ -1520,12 +1516,14 @@ static void multihop_cap_send_forward_cont(struct monitor_binding *b,
  *
  */
 inline static void multihop_cap_send_forward(struct monitor_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, struct capref cap)
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t msgerr,
+        struct capref cap)
 {
     errval_t err;
 
 // try to send
-    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, cap, capid);
+    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, msgerr,
+                                       cap, capid);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -1537,6 +1535,7 @@ inline static void multihop_cap_send_forward(struct monitor_binding *b,
             me->args.direction = direction;
             me->args.cap = cap;
             me->args.capid = capid;
+            me->args.err = msgerr;
             me->elem.cont = multihop_cap_send_forward_cont;
 
             err = monitor_enqueue_send_at_front(b, &ist->queue,
@@ -1547,127 +1546,6 @@ inline static void multihop_cap_send_forward(struct monitor_binding *b,
 
         USER_PANIC_ERR(err,
                 "failed to forward capability over multi-hop channel\n");
-    }
-}
-
-// intermonitor capability reply forwarding state
-struct multihop_intermon_cap_send_reply_state {
-    struct intermon_msg_queue_elem elem;
-    struct intermon_multihop_cap_reply__args args;
-};
-
-// continue function for intermonitor capability reply forwarding
-static void multihop_intermon_cap_send_reply_busy_cont(
-        struct intermon_binding *b, struct intermon_msg_queue_elem *e)
-{
-    struct multihop_intermon_cap_send_reply_state *st =
-            (struct multihop_intermon_cap_send_reply_state *) e;
-    multihop_intermon_cap_send_reply(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.err);
-    free(e);
-}
-
-/**
- * Forward a reply to next monitor
- */
-inline static void multihop_intermon_cap_send_reply(struct intermon_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t err)
-{
-
-    errval_t err2;
-    err2 = b->tx_vtbl.multihop_cap_reply(b, NOP_CONT, vci, direction, capid,
-            err);
-
-    if (err_is_fail(err2)) {
-        if (err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
-
-            struct multihop_intermon_cap_send_reply_state *me = malloc(
-                    sizeof(struct multihop_intermon_cap_send_reply_state));
-            struct intermon_state *ist = b->st;
-            me->args.vci = vci;
-            me->args.direction = direction;
-            me->args.capid = capid;
-            me->args.err = err;
-            me->elem.cont = multihop_intermon_cap_send_reply_busy_cont;
-
-            err2 = intermon_enqueue_send(b, &ist->queue, get_default_waitset(),
-                    &me->elem.queue);
-            assert(err_is_ok(err2));
-            return;
-        }
-
-        USER_PANIC_ERR(err2,
-                "Could not forward cap reply over multi-hop channel\n");
-    }
-}
-
-// struct for reply monitor forwarding state
-struct multihop_monitor_cap_send_reply_state {
-    struct monitor_msg_queue_elem elem;
-    struct monitor_multihop_cap_reply__args args;
-};
-
-// continue function for monitor capability reply forwarding
-static void multihop_monitor_cap_send_reply_busy_cont(struct monitor_binding *b,
-        struct monitor_msg_queue_elem *e)
-{
-    struct multihop_monitor_cap_send_reply_state *st =
-            (struct multihop_monitor_cap_send_reply_state *) e;
-    multihop_monitor_cap_send_reply(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.err);
-    free(e);
-}
-
-/**
- * Forward a reply message to a local dispatcher
- */
-inline static void multihop_monitor_cap_send_reply(
-        struct monitor_binding *mon_binding, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr)
-{
-
-    errval_t err;
-    err = mon_binding->tx_vtbl.multihop_cap_reply(mon_binding, NOP_CONT, vci,
-            direction, capid, msgerr);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct multihop_monitor_cap_send_reply_state *me = malloc(
-                    sizeof(struct multihop_monitor_cap_send_reply_state));
-            assert(me != NULL);
-            struct monitor_state *ist = mon_binding->st;
-            me->args.vci = vci;
-            me->args.direction = direction;
-            me->args.capid = capid;
-            me->args.err = msgerr;
-            me->elem.cont = multihop_monitor_cap_send_reply_busy_cont;
-
-            err = monitor_enqueue_send(mon_binding, &ist->queue,
-                    get_default_waitset(), &me->elem.queue);
-            assert(err_is_ok(err));
-            return;
-        }
-    }
-}
-
-/**
- * \brief Handler a capability reply coming from another monitor
- */
-static void multihop_intermon_cap_reply_handler(
-        struct intermon_binding *intermon_binding, multihop_vci_t vci,
-        uint8_t direction, uint32_t capid, errval_t msgerr)
-{
-    struct monitor_multihop_chan_state *chan_state = forwarding_table_lookup(
-            vci);
-    struct direction *dir = multihop_get_direction(chan_state, direction);
-
-    if (dir->type == MULTIHOP_ENDPOINT) { // we have to forward the reply to a local dispatcher
-        multihop_monitor_cap_send_reply(dir->binding.monitor_binding, dir->vci,
-                direction, capid, msgerr);
-    } else {
-        // we have to forward the reply to the next hop
-        multihop_intermon_cap_send_reply(dir->binding.intermon_binding,
-                dir->vci, direction, capid, msgerr);
     }
 }
 
@@ -1686,7 +1564,6 @@ errval_t multihop_intermon_init(struct intermon_binding *ib)
             &multihop_intermon_bind_reply_handler;
     ib->rx_vtbl.multihop_message = &intermon_multihop_message_handler;
     ib->rx_vtbl.multihop_cap_send = &multihop_intermon_cap_send_handler;
-    ib->rx_vtbl.multihop_cap_reply = &multihop_intermon_cap_reply_handler;
     ib->rx_vtbl.multihop_routing_table_request =
             &multihop_handle_routing_table_request;
     ib->rx_vtbl.multihop_routing_table_response =

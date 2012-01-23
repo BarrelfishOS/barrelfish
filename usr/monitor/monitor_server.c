@@ -552,12 +552,14 @@ struct send_cap_st {
     uint32_t capid;
     uint8_t give_away;
     struct capability capability;
+    errval_t msgerr;
     bool has_descendants;
     coremask_t on_cores;
 };
 
 static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
                                uint32_t capid, struct capability capability,
+                               errval_t msgerr,
                                uint8_t give_away, bool has_descendants,
                                coremask_t on_cores);
 
@@ -574,7 +576,8 @@ static void cap_send_request_cb(void * st_arg) {
         assert (err_is_ok(err));
     } else {
         cap_send_request_2(st->my_mon_id, st->cap, st->capid, st->capability,
-                           st->give_away, st->has_descendants, st->on_cores);
+                           st->msgerr, st->give_away, st->has_descendants,
+                           st->on_cores);
     }
 }
 
@@ -584,10 +587,24 @@ static void cap_send_request(struct monitor_binding *b,
                              uintptr_t my_mon_id, struct capref cap,
                              uint32_t capid, uint8_t give_away)
 {
-    errval_t err;
+    errval_t err, msgerr = SYS_ERR_OK;
     struct capability capability;
     bool has_descendants;
     coremask_t on_cores;
+
+    if (!capref_is_null(cap)) {
+        err = monitor_cap_identify(cap, &capability);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "monitor_cap_identify failed, ignored");
+            return;
+        }
+
+        // if we can't transfer the cap, it is delivered as NULL
+        if (!monitor_can_send_cap(&capability)) {
+            cap = NULL_CAP;
+            msgerr = MON_ERR_CAP_SEND;
+        }
+    }
 
     if (capref_is_null(cap)) {
         // we don't care about capabilities, has_descendants, or on_cores here,
@@ -595,25 +612,8 @@ static void cap_send_request(struct monitor_binding *b,
         static struct capability null_capability;
         static coremask_t null_mask;
         cap_send_request_2(my_mon_id, cap, capid, null_capability,
-                           give_away, false, null_mask);
-        return;
-    }
-
-    err = monitor_cap_identify(cap, &capability);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "monitor_cap_identify failed, ignored");
-        return;
-    }
-
-    if (!monitor_can_send_cap(&capability)) {
-        struct remote_conn_state *rcs = remote_conn_lookup(my_mon_id);
-        err = b->tx_vtbl.cap_send_reply(b, NOP_CONT, rcs->domain_id, capid,
-                                        MON_ERR_CAP_SEND);
-        assert(err_is_ok(err));
-        return;
-    }
-
-    if (!give_away) {
+                           msgerr, give_away, false, null_mask);
+    } else if (!give_away) {
         if (!rcap_db_exists(&capability)) {
             err = monitor_cap_remote(cap, true, &has_descendants);
             if (err_is_fail(err)) {
@@ -641,6 +641,7 @@ static void cap_send_request(struct monitor_binding *b,
         send_cap_st->cap        = cap;
         send_cap_st->capability = capability;
         send_cap_st->capid      = capid;
+        send_cap_st->msgerr     = msgerr;
         send_cap_st->give_away  = give_away;
         send_cap_st->has_descendants = has_descendants;
         send_cap_st->on_cores   = on_cores;
@@ -649,7 +650,7 @@ static void cap_send_request(struct monitor_binding *b,
         assert (err_is_ok(err));
         // continues in cap_send_request_2 (after cap_send_request_cb)
 
-    } else {
+    } else { // give_away cap
         err = monitor_cap_remote(cap, true, &has_descendants);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "monitor_cap_remote failed");
@@ -659,7 +660,7 @@ static void cap_send_request(struct monitor_binding *b,
         // TODO ensure that no more copies of this cap are on this core
         static coremask_t null_mask;
         // call continuation directly
-        cap_send_request_2(my_mon_id, cap, capid, capability, give_away, 
+        cap_send_request_2(my_mon_id, cap, capid, capability, msgerr, give_away,
                            has_descendants, null_mask);
     }
 }
@@ -668,6 +669,7 @@ struct cap_send_request_state {
     struct intermon_msg_queue_elem elem;
     uintptr_t your_mon_id;
     uint32_t capid;
+    errval_t msgerr;
     intermon_caprep_t caprep;
     uint8_t give_away;
     bool has_descendants;
@@ -682,7 +684,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
     struct cap_send_request_state *st = (struct cap_send_request_state*)e;
 
     err = b->tx_vtbl.cap_send_request(b, NOP_CONT, st->your_mon_id, st->capid,
-                                      st->caprep, st->give_away,
+                                      st->caprep, st->msgerr, st->give_away,
                                       st->has_descendants, st->on_cores.bits,
                                       st->null_cap); 
     if (err_is_fail(err)) {
@@ -695,6 +697,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
             ms->your_mon_id = st->your_mon_id;
             ms->capid = st->capid;
             ms->caprep = st->caprep;
+            ms->msgerr = st->msgerr;
             ms->give_away = st->give_away;
             ms->has_descendants = st->has_descendants;
             ms->on_cores = st->on_cores;
@@ -717,6 +720,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
 
 static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
                                uint32_t capid, struct capability capability,
+                               errval_t msgerr,
                                uint8_t give_away, bool has_descendants,
                                coremask_t on_cores)
 {
@@ -747,7 +751,7 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
 
     err = binding->tx_vtbl.
         cap_send_request(binding, NOP_CONT, your_mon_id, capid,
-                         caprep, give_away, has_descendants, on_cores.bits,
+                         caprep, msgerr, give_away, has_descendants, on_cores.bits,
                          null_cap);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -759,6 +763,7 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
             ms->your_mon_id = your_mon_id;
             ms->capid = capid;
             ms->caprep = caprep;
+            ms->msgerr = msgerr;
             ms->give_away = give_away;
             ms->has_descendants = has_descendants;
             ms->on_cores = on_cores;

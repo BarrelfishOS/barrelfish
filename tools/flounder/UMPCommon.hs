@@ -110,7 +110,6 @@ rx_handler_name p ifn = ump_ifscope p ifn "rx_handler"
 
 -- Name of the cap send/recv handlers
 cap_rx_handler_name p ifn = ump_ifscope p ifn "cap_rx_handler"
-cap_tx_reply_handler_name p ifn = ump_ifscope p ifn "cap_tx_reply_handler"
 
 -- Names of the control functions
 change_waitset_fn_name p ifn = ump_ifscope p ifn "change_waitset"
@@ -246,7 +245,6 @@ stub_body p infile intf@(Interface ifn descr decls) = C.UnitList [
 
       C.MultiComment [ "Cap send/receive handlers" ],
       cap_rx_handler p ifn types messages msg_specs,
-      cap_tx_reply_handler p ifn,
       C.Blank,
 
       C.UnitList $ if has_caps then
@@ -1077,41 +1075,34 @@ rx_handler p ifn typedefs msgdefs msgs =
         rx_fragment_increment
             = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
 
-cap_tx_reply_handler :: UMPParams -> String -> C.Unit
-cap_tx_reply_handler p ifn
-    = C.FunctionDef C.Static C.Void (cap_tx_reply_handler_name p ifn)
-        [C.Param (C.Ptr C.Void) "st",
-         C.Param (C.TypeName "uint32_t") "capid",
-         C.Param (C.TypeName "errval_t") "err"]
-        [
-        localvar (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var (Just $ C.Variable "st"),
-        C.If (C.Call "err_is_fail" [errvar])
-            [C.Ex $ C.Call "DEBUG_ERR" [errvar,
-                        C.StringConstant "monitor refused to accept cap for UMP send"],
-             report_user_tx_err $
-                    C.Call "err_push" [errvar, C.Variable "LIB_ERR_MONITOR_CAP_SEND"]] []
-        ]
-
 cap_rx_handler :: UMPParams -> String -> [TypeDef] -> [MessageDef] -> [MsgSpec] -> C.Unit
 cap_rx_handler p ifn typedefs msgdefs msgspecs
     = C.FunctionDef C.Static C.Void (cap_rx_handler_name p ifn)
         [C.Param (C.Ptr C.Void) "arg",
+         C.Param (C.TypeName "errval_t") "success",
          C.Param (C.Struct "capref") "cap",
          C.Param (C.TypeName "uint32_t") "capid"]
-        [
-        handler_preamble p ifn,
+        [handler_preamble p ifn,
 
-        C.Ex $ C.Call "assert" [C.Binary C.Equals
+         C.Ex $ C.Call "assert" [C.Binary C.Equals
                                        (C.Variable "capid")
                                        (capst `C.FieldOf` "rx_capnum")],
-        C.SBlank,
+         C.SBlank,
 
-        C.SComment "Switch on current incoming message",
-        C.Switch (C.DerefField bindvar "rx_msgnum") cases
+         C.SComment "Check if there's an associated error",
+         C.SComment "FIXME: how should we report this to the user? at present we just deliver a NULL capref",
+         C.If (C.Call "err_is_fail" [C.Variable "success"])
+              [C.Ex $ C.Call "DEBUG_ERR" [errvar,
+                                          C.StringConstant "error in cap transfer"]]
+              [],
+         C.SBlank,
+
+         C.SComment "Switch on current incoming message",
+         C.Switch (C.DerefField bindvar "rx_msgnum") cases
             [C.Ex $ C.Call "assert"
                     [C.Unary C.Not $ C.StringConstant "invalid message number"],
              report_user_err (C.Variable "FLOUNDER_ERR_INVALID_STATE")]
-    ]
+        ]
     where
         umpst = C.DerefField my_bindvar "ump_state"
         capst = umpst `C.FieldOf` "capst"
@@ -1164,9 +1155,7 @@ setup_cap_handlers p ifn = [
     C.SComment "setup cap handlers",
     C.Ex $ C.Assignment (C.FieldOf handlers "st") my_bindvar,
     C.Ex $ C.Assignment (C.FieldOf handlers "cap_receive_handler")
-                        (C.Variable $ cap_rx_handler_name p ifn),
-    C.Ex $ C.Assignment (C.FieldOf handlers "cap_send_reply_handler")
-                        (C.Variable $ cap_tx_reply_handler_name p ifn) ]
+                        (C.Variable $ cap_rx_handler_name p ifn) ]
     where
         chanvar = my_bindvar `C.DerefField` "ump_state" `C.FieldOf` "chan"
         handlers = chanvar `C.FieldOf` "cap_handlers"

@@ -93,13 +93,11 @@ interface intermon "The Interface between monitors" {
         message cap_send_request(con_id_t con_id,
                                  capid_t capid,
                                  caprep cap,
+                                 errval err,
                                  bool give_away,
                                  bool has_descendents,
                                  coremask on_cores,
 				 bool null_cap);
-        message cap_send_reply(con_id_t con_id,
-                               capid_t capid,
-                               errval err);
 
         message span_domain_request(state_id_t state_id,
                                     genpaddr vnodebase,
@@ -137,6 +135,5 @@ interface intermon "The Interface between monitors" {
     message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci, errval err);
 
     message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
-    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, caprep cap, bool null_cap);
-    message multihop_cap_reply(vci_t vci, uint8 direction, capid_t capid, errval err);
+    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err, caprep cap, bool null_cap);
 };

@@ -125,12 +125,9 @@ interface monitor "The monitor to client Interface" {
                         cap cap,
                         capid_t capid,
  			uint8 give_away);
-          response cap_send_reply(
-                        uintptr conn_id,
-                        capid_t capid,
-			errval err);
           response cap_receive_request(
                         uintptr conn_id,
+                        errval err,
                         cap cap,
                         capid_t capid);
 
@@ -167,6 +164,5 @@ interface monitor "The monitor to client Interface" {
           message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
           
           // cap transfer
-          call multihop_cap_send(vci_t vci, uint8 direction, cap cap, capid_t capid);
-          response multihop_cap_reply(vci_t vci, uint8 direction, capid_t capid, errval err);
+          call multihop_cap_send(vci_t vci, uint8 direction, errval err, cap cap, capid_t capid);
 };

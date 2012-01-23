@@ -70,8 +70,6 @@ static void monitor_initialized(struct intermon_binding *b)
 
 static void cap_receive_request_handler(struct monitor_binding *b,
                                         struct monitor_msg_queue_elem *e);
-static void cap_send_reply_handler(struct intermon_binding *b,
-                                   struct intermon_msg_queue_elem *e);
 
 struct cap_receive_request_state {
     struct monitor_msg_queue_elem elem;
@@ -80,54 +78,12 @@ struct cap_receive_request_state {
     struct intermon_binding *b;
 };
 
-struct cap_send_reply_state {
-    struct intermon_msg_queue_elem elem;
-    struct intermon_cap_send_reply__args args;
-};
-
-static void cap_send_reply_cont(struct intermon_binding *b,
-                                uintptr_t your_mon_id, uint32_t capid,
-                                errval_t err)
-{
-    errval_t err2;
-
-    /* Send reply back to the requesting monitor */
-    err2 = b->tx_vtbl.cap_send_reply(b, NOP_CONT, your_mon_id, capid, err);
-    if (err_is_fail(err2)) {
-        if(err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
-            struct cap_send_reply_state *me =
-                malloc(sizeof(struct cap_send_reply_state));
-            struct intermon_state *st = b->st;
-            me->args.con_id = your_mon_id;
-            me->args.capid = capid;
-            me->args.err = err;
-            me->elem.cont = cap_send_reply_handler;
-
-            err = intermon_enqueue_send(b, &st->queue, get_default_waitset(),
-                                        &me->elem.queue);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "intermon_enqueue_send failed");
-            }
-            return;
-        }
-
-        USER_PANIC_ERR(err, "cap send reply to monitor failed");
-    }
-}
-
-static void cap_send_reply_handler(struct intermon_binding *b,
-                                   struct intermon_msg_queue_elem *e)
-{
-    struct cap_send_reply_state *st = (struct cap_send_reply_state *)e;
-    cap_send_reply_cont(b, st->args.con_id, st->args.capid, st->args.err);
-    free(e);
-}
-
 static void
 cap_receive_request_enqueue(struct monitor_binding *domain_binding,
-                         uintptr_t domain_id, struct capref cap,
-                         uint32_t capid, uintptr_t your_mon_id,
-                         struct intermon_binding *b)
+                            uintptr_t domain_id, errval_t msgerr,
+                            struct capref cap, uint32_t capid,
+                            uintptr_t your_mon_id,
+                            struct intermon_binding *b)
 {
     errval_t err;
 
@@ -135,6 +91,7 @@ cap_receive_request_enqueue(struct monitor_binding *domain_binding,
         malloc(sizeof(struct cap_receive_request_state));
     assert(me != NULL);
     me->args.conn_id = domain_id;
+    me->args.err = msgerr;
     me->args.cap = cap;
     me->args.capid = capid;
     me->your_mon_id = your_mon_id;
@@ -151,7 +108,8 @@ cap_receive_request_enqueue(struct monitor_binding *domain_binding,
 
 static void
 cap_receive_request_cont(struct monitor_binding *domain_binding,
-                         uintptr_t domain_id, struct capref cap,
+                         uintptr_t domain_id, errval_t msgerr,
+                         struct capref cap,
                          uint32_t capid, uintptr_t your_mon_id,
                          struct intermon_binding *b)
 {
@@ -165,29 +123,23 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
         cont = MKCONT(destroy_outgoing_cap, capp);
     }
     err = domain_binding->tx_vtbl.
-        cap_receive_request(domain_binding, cont, domain_id, cap, capid);
+        cap_receive_request(domain_binding, cont, domain_id, msgerr, cap, capid);
 
     if (err_is_fail(err)) {
         free(capp);
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            cap_receive_request_enqueue(domain_binding, domain_id, cap, capid,
-                                        your_mon_id, b);
-            return;
-        }
-
-        if (!capref_is_null(cap)) {
-            err2 = cap_destroy(cap);
-            if (err_is_fail(err2)) {
-                USER_PANIC_ERR(err, "cap_destroy failed");
+            cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap,
+                                        capid, your_mon_id, b);
+        } else {
+            if (!capref_is_null(cap)) {
+                err2 = cap_destroy(cap);
+                if (err_is_fail(err2)) {
+                    USER_PANIC_ERR(err, "cap_destroy failed");
+                }
             }
-            err = err_push(err, MON_ERR_CAP_SEND);
-        } 
-        goto reply;
-    }
-
-reply:
-    if(err_is_fail(err)) {
-        cap_send_reply_cont(b, your_mon_id, capid, err);
+            // TODO: handle sanely: kill dispatcher/teardown binding/etc.
+            USER_PANIC_ERR(err, "error delivering cap to local dispatcher");
+        }
     }
 }
 
@@ -196,14 +148,14 @@ static void cap_receive_request_handler(struct monitor_binding *b,
 {
     struct cap_receive_request_state *st =
         (struct cap_receive_request_state *)e;
-    cap_receive_request_cont(b, st->args.conn_id, st->args.cap, st->args.capid,
-                             st->your_mon_id, st->b);
+    cap_receive_request_cont(b, st->args.conn_id, st->args.err, st->args.cap,
+                             st->args.capid, st->your_mon_id, st->b);
     free(e);
 }
 
 static void cap_send_request(struct intermon_binding *b,
                              mon_id_t my_mon_id, uint32_t capid,
-                             intermon_caprep_t caprep, 
+                             intermon_caprep_t caprep, errval_t msgerr,
                              bool give_away, bool remote_has_desc,
                              intermon_coremask_t on_cores, 
                              bool null_cap) 
@@ -228,7 +180,7 @@ static void cap_send_request(struct intermon_binding *b,
         err = slot_alloc(&cap);
         if (err_is_fail(err)) {
             err = err_push(err, LIB_ERR_SLOT_ALLOC);
-            goto reply;
+            goto send_error;
         }
 
         err = monitor_cap_create(cap, capability, core_id);
@@ -280,6 +232,7 @@ static void cap_send_request(struct intermon_binding *b,
 
     }
 
+do_send: ;
     /* Get the user domain's connection and connection id */
     struct monitor_binding *domain_binding = conn->domain_binding;
     uintptr_t domain_id = conn->domain_id;
@@ -287,15 +240,16 @@ static void cap_send_request(struct intermon_binding *b,
     /* Try to send cap to the user domain, but only if the queue is empty */
     struct monitor_state *mst = domain_binding->st;
     if (msg_queue_is_empty(&mst->queue)) {
-        cap_receive_request_cont(domain_binding, domain_id, cap, capid,
+        cap_receive_request_cont(domain_binding, domain_id, msgerr, cap, capid,
                                  your_mon_id, b);
     } else {
         // don't allow sends to bypass the queue
-        cap_receive_request_enqueue(domain_binding, domain_id, cap, capid,
+        cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap, capid,
                                     your_mon_id, b);
     }
 
-    goto out;
+    free(on_cores);
+    return;
 
 cleanup2:
     err2 = cap_destroy(cap);
@@ -307,71 +261,10 @@ cleanup1:
     if (err_is_fail(err2)) {
         USER_PANIC_ERR(err2, "slot_free failed");
     }
-reply:
-    cap_send_reply_cont(b, your_mon_id, capid, err);
-out:
-    free(on_cores);
-}
-
-struct monitor_cap_send_reply_state {
-    struct monitor_msg_queue_elem elem;
-    struct monitor_cap_send_reply__args args;
-};
-
-static void monitor_cap_send_reply_handler(struct monitor_binding *b,
-                                           struct monitor_msg_queue_elem *e);
-
-static void monitor_cap_send_reply_cont(struct monitor_binding *domain_binding,
-                                        uintptr_t domain_id, uint32_t capid,
-                                        errval_t msgerr)
-{
-    errval_t err;
-
-    err = domain_binding->tx_vtbl.cap_send_reply(domain_binding, NOP_CONT,
-                                                 domain_id, capid, msgerr);
-    if (err_is_fail(err)) {
-        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct monitor_cap_send_reply_state *me =
-                malloc(sizeof(struct monitor_cap_send_reply_state));
-            struct monitor_state *st = domain_binding->st;
-            me->args.conn_id = domain_id;
-            me->args.capid = capid;
-            me->args.err = msgerr;
-            me->elem.cont = monitor_cap_send_reply_handler;
-
-            err = monitor_enqueue_send(domain_binding, &st->queue,
-                                       get_default_waitset(), &me->elem.queue);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "monitor_enqueue_send failed");
-            }
-            return;
-        }
-
-        USER_PANIC_ERR(err, "cap send reply to user failed");
-    }
-}
-
-static void monitor_cap_send_reply_handler(struct monitor_binding *b,
-                                           struct monitor_msg_queue_elem *e)
-{
-    struct monitor_cap_send_reply_state *st =
-        (struct monitor_cap_send_reply_state *)e;
-    monitor_cap_send_reply_cont(b, st->args.conn_id,
-                                st->args.capid, st->args.err);
-    free(e);
-}
-
-static void cap_send_reply(struct intermon_binding *binding,
-                           con_id_t con_id, uint32_t capid,
-                           errval_t msgerr)
-{
-    struct remote_conn_state *conn = remote_conn_lookup(con_id);
-    assert(conn != NULL);
-
-    /* Forward reply */
-    uintptr_t domain_id = conn->domain_id;
-    struct monitor_binding *domain_binding = conn->domain_binding;
-    monitor_cap_send_reply_cont(domain_binding, domain_id, capid, msgerr);
+send_error:
+    msgerr = err;
+    cap = NULL_CAP;
+    goto do_send;
 }
 
 static void span_domain_request(struct intermon_binding *b,
@@ -684,7 +577,6 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .spawnd_image_request      = spawnd_image_request,
 
     .cap_send_request          = cap_send_request,
-    .cap_send_reply            = cap_send_reply,
 
     .span_domain_request       = span_domain_request,
     .span_domain_reply         = span_domain_reply,
