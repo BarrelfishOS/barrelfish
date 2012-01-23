@@ -256,19 +256,19 @@ cap IO {
 
 /* really RCK notify caps */
 cap Notify_RCK {
-    eq uint8 coreid;
+    eq coreid coreid;
     eq uint16 chanid;
 };
 
 /* IPI notify caps */
 cap Notify_IPI {
-    eq uint8 coreid;
+    eq coreid coreid;
     eq uint16 chanid;
 };
 
 /* Beehive HW message passing endpoint */
 cap BMPEndPoint {
-    eq uint8 coreid;
+    eq coreid coreid;
     eq uint16 chanid;
 };
 
