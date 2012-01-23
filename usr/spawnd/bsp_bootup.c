@@ -271,7 +271,8 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
         } else if(!strncmp(argv[i],"bootscc=",strlen("bootscc="))) {
             cmdline_mappings = argv[i];
         } else if(!strcmp(argv[i],"bootarm")) {
-            cmdline_mappings = argv[i];
+            // ARM doesn't suport multicore boot yet; this is a temp kludge
+            cmdline_mappings = "dummy=";
         } else if (strncmp(argv[i], "coreid_offset=", sizeof("coreid_offset")) == 0) {
             coreid_offset = strtol(argv[i] + sizeof("coreid_offset"), NULL, 10);
         } else if (strncmp(argv[i], "apicid=", sizeof("apicid")) == 0) {

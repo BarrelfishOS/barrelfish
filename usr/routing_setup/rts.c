@@ -214,6 +214,11 @@ static void send_table_to_monitor(void *arg)
         done = true;
         err = SYS_ERR_OK;
         break;
+
+    /* XXX: if -DNDEBUG is set, gcc fails to deduce that err is always set.
+     *      The code below makes it obvious */
+    default:
+        USER_PANIC("Unexpected value of phase:%u", phase);
     }
 
     if (err_is_fail(err)) {
