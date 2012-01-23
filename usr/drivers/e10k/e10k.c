@@ -15,10 +15,12 @@
 #include <pci/pci.h>
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
+#include <trace/trace.h>
 
 #include "e10k.h"
 
-#define DEBUG(x...) printf("e10k: " x)
+//#define DEBUG(x...) printf("e10k: " x)
+#define DEBUG(x...) do {} while(0)
 
 
 
@@ -26,6 +28,8 @@ static e10k_t* d;
 static e10k_queue_t* q[2];
 uint64_t d_mac;
 static int initialized = 0;
+static int use_interrupts = 1;
+struct txbuf* txbufs;
 
 #define NTXDESCS 256
 #define NRXDESCS 256
@@ -127,8 +131,8 @@ static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
     int i;
     struct tx_pbuf* pbuf;
     uint64_t paddr;
-    //struct txbuf* buf;
-    struct tx_pbuf* buf;
+    struct txbuf* buf;
+    uint64_t client_data = 0;
 
     DEBUG("Add buffer callback %d:\n", cl->rtpbuf);
 
@@ -139,13 +143,22 @@ static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
 
         // Add info to free memory
         // TODO: Is this copy really necessary?
-        buf = malloc(sizeof(*buf));
-        *buf = *pbuf;
+        buf = txbufs + q[0]->tx_tail;
+        buf->eb = pbuf->sr;
+        client_data = buf->data = pbuf->client_data;
+        buf->spp_index = pbuf->spp_index;
+        buf->ts = pbuf->ts;
 
         e10k_queue_add_txbuf(q[0], paddr, pbuf->len, buf,
             (i == cl->rtpbuf - 1));
     }
+
     e10k_queue_bump_txtail(q[0]);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVADD,
+                (uint32_t) client_data);
+#endif // TRACE_ONLY_SUB_NNET
 
     return SYS_ERR_OK;
 }
@@ -162,18 +175,23 @@ static bool handle_free_tx_slot_fn(void)
     e10k_queue_t* queue = q[qi];
     void* op;
     int last;
-    struct tx_pbuf* buf;
+    struct txbuf* buf;
 
     if (e10k_queue_get_txbuf(queue, &op, &last) != 0) {
         return false;
     }
 
     DEBUG("Packet done (q=%d)\n", qi);
-    //stats_dump();
+
     buf = op;
-    notify_client_free_tx(buf->sr, buf->client_data, buf->spp_index, buf->ts,
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVSEE,
+                (uint32_t) buf->data);
+#endif // TRACE_ONLY_SUB_NNET
+
+    notify_client_free_tx(buf->eb, buf->data, buf->spp_index, buf->ts,
         find_tx_free_slot_count_fn(), 0);
-    free(buf);
 
     return true;
 }
@@ -206,8 +224,14 @@ static void check_for_new_packets(int qi)
     // arrive faster than they can be processed.
     count = 0;
     while (e10k_queue_get_rxbuf(queue, &op, &len, &last) == 0) {
-        DEBUG("New packet (q=%d)\n", qi);
         buf = op;
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXDRVSEE,
+                    (uint32_t) len);
+#endif // TRACE_ONLY_SUB_NNET
+
+        DEBUG("New packet (q=%d)\n", qi);
 
         if(waiting_for_netd()){
             DEBUG("still waiting for netd to register buffers\n");
@@ -230,11 +254,11 @@ static void interrupt_handler(void* arg)
 
     e10k_eicr_wr(d, eicr);
 
-    if (eicr >> 16) {
+    if (eicr >> 16 || !use_interrupts) {
         DEBUG("Interrupt: %x\n", eicr);
     }
 
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < 1; i++) {
         check_for_new_packets(i);
         check_for_free_txbufs(i);
     }
@@ -290,6 +314,8 @@ static e10k_queue_t* setup_queue(int n, int enable_global)
     r = invoke_frame_identify(frame, &frameid);
     assert(err_is_ok(r));
     tx_phys = frameid.base;
+
+    txbufs = calloc(NTXDESCS, sizeof(*txbufs));
 
     rx_size = e10k_q_rdesc_legacy_size * NRXDESCS;
     rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, rx_size,
@@ -835,6 +861,7 @@ static void e10k_init(struct device_mem* bar_info, int bar_count)
     milli_sleep(200);
 
     // Wait for DMA initialization
+    // Is in spec, but hangs
     //while (e10k_rdrxctl_dma_initok_rdf(d) == 0); // TODO: Timeout
     //DEBUG("DMA initialization done\n");
 
@@ -853,14 +880,14 @@ static void e10k_init(struct device_mem* bar_info, int bar_count)
     milli_sleep(50);
 
     // Initialize interrupts
-
     e10k_eicr_wr(d, 0xffffffff);
-    e10k_gpie_eimen_wrf(d, 1);
+    if (use_interrupts) {
+        e10k_gpie_eimen_wrf(d, 1);
 
-    e10k_eimc_wr(d, e10k_eims_rd(d));
-    e10k_eims_cause_wrf(d, 0x7fffffff);
+        e10k_eimc_wr(d, e10k_eims_rd(d));
+        e10k_eims_cause_wrf(d, 0x7fffffff);
+    }
 
-    //e10k_eics_cause_wrf(d, 0x1);
 
     // Initialize RX filters
     for (i = 1; i < 128; i++) {
@@ -921,30 +948,9 @@ static void e10k_init(struct device_mem* bar_info, int bar_count)
     // Initialize queue and RX/TX
     q[0] = setup_queue(0, 1);
 
-    // Add second queue and l2-filter for an UDP port to test it
-    q[1] = setup_queue(1, 0);
-
-    /*struct e10k_filter flt_a = {
-        .mask = MASK_SRCIP | MASK_DSTIP | MASK_SRCPORT | MASK_DSTPORT |
-            MASK_L4PROTO,
-    };
-    e10k_flt_ftqf_setup(0, 0, &flt_a, 1);
-    */
-    struct e10k_filter flt_b = {
-        .src_port = 1234,
-        .dst_port = 1234,
-        .src_ip = 0x0a6e0423,
-        .dst_ip = 0x0a6e0426,
-        .mask = MASK_SRCPORT | MASK_SRCIP,
-        .l4_type = L4_UDP,
-    };
-    e10k_flt_ftqf_setup(0, 1, &flt_b, 1);
-    //e10k_flt_etype_setup(0, 1, 0x0806);
-    //e10k_flt_etype_setup(1, 0, 0x0800);
 
     milli_sleep(200);
 
-    //e10k_rxfeccerr0_eccflt_en_wrf(d, 1);
     DEBUG("Card initialized\n");
 
     initialized = 1;
@@ -957,7 +963,12 @@ static void polling_loop(void)
 {
     struct waitset *ws = get_default_waitset();
     while (1) {
-        event_dispatch(ws);
+        event_dispatch_non_block(ws);
+        do_pending_work_for_all();
+        if (!use_interrupts) {
+            check_for_new_packets(0);
+            check_for_free_txbufs(0);
+        }
     }
 }
 
@@ -975,6 +986,9 @@ int main(int argc, char** argv)
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0) {
             pci_function = atol(argv[i] + strlen("function="));
+        }
+        if (strncmp(argv[i], "polling", strlen("polling") - 1) == 0) {
+            use_interrupts = 0;
         }
     }
 

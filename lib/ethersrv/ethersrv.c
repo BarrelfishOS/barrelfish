@@ -403,6 +403,11 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
 
     sp_reload_regs(spp);
     // Keep the copy of ghost_read_id so that it can be restored
@@ -537,6 +542,11 @@ static uint64_t send_packets_on_wire(struct ether_binding *cc)
             return 0;
     }
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSPOW,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
     struct shared_pool_private *spp = closure->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
@@ -564,6 +574,12 @@ errval_t send_sp_notification_from_driver(struct q_entry e)
 //    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
     struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVAPPNOTIF,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
     if (ccl->debug_state_tx == 4) {
         netbench_record_event_simple(bm, RE_TX_SP_MSG_Q, e.plist[1]);
     }
@@ -666,6 +682,12 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
     if (closure->debug_state_tx == 4) {
         netbench_record_event_simple(bm, RE_TX_NOTI_CS, rts);
     }
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVNOTIF,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
     // FIXME : call schedule work
     do_pending_work(cc);
 
@@ -1040,6 +1062,11 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
 
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
+#if TRACE_ONLY_SUB_NNET
+    uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVCOPIED,
+                pkt_location);
+#endif // TRACE_ONLY_SUB_NNET
 
     upbuf->packet_size = len;
 
@@ -1072,6 +1099,12 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
             buffer->buffer_id);
     ETHERSRV_DEBUG("cp_pkt_2_usr: added %"PRIu64" pbufs into app ring\n",
             count);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSPPDONE,
+                pkt_location);
+#endif // TRACE_ONLY_SUB_NNET
+
 
     if (cl->spp_ptr->notify_other_side) {
         // Send notification to application, telling that there is

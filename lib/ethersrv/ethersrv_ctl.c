@@ -953,6 +953,11 @@ static bool handle_application_packet(void *packet, size_t len)
         return false;
     }
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVAPPFDONE,
+                (uint32_t) ((uintptr_t) packet));
+#endif // TRACE_ONLY_SUB_NNET
+
 
     // Matching filter found, sending packet to application
     struct buffer_descriptor *buffer = filter->buffer;
@@ -996,6 +1001,11 @@ static bool handle_application_packet(void *packet, size_t len)
     if (cl->debug_state == 4) {
         ++cl->in_filter_matched;
     }
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVAPPCSTART,
+                (uint32_t) ((uintptr_t) packet));
+#endif // TRACE_ONLY_SUB_NNET
 
     bool ret = copy_packet_to_user(buffer, packet, len);
     if (ret) {
@@ -1099,6 +1109,11 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
     uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_A, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSEE,
+                    (uint32_t) ((uintptr_t) pkt_data));
+#endif // TRACE_ONLY_SUB_NNET
+
 
     // check for fragmented packet
     if (handle_fragmented_packet(pkt_data, pkt_len)) {
@@ -1106,6 +1121,11 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 //        printf("fragmented packet..\n");
         return;
     }
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVFRGDONE,
+                    (uint32_t) ((uintptr_t) pkt_data));
+#endif // TRACE_ONLY_SUB_NNET
 
     // check for application specific packet
     if (handle_application_packet(pkt_data, pkt_len)) {

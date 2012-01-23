@@ -40,6 +40,7 @@
 #define LWIP_TRACE_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
+//#define SPP_CARELESS
 
 static uint8_t new_debug = 0;
 static uint8_t benchmark_mode = 0;
@@ -299,12 +300,26 @@ static void do_pending_work_TX_lwip(void)
     struct shared_pool_private *spp_send = ccnc->spp_ptr;
     assert(spp_send != NULL);
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWITXWORK,
+                    0);
+#endif // TRACE_ONLY_SUB_NNET
+
     if (spp_send->notify_other_side != 0) {
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWINOTIF,
+                    0);
+#endif // TRACE_ONLY_SUB_NNET
 
         // It seems that there we should send a notification to other side
         spp_send->notify_other_side = 0;
         wrapper_send_sp_notification_from_app(b);
     }
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWITXWORK,
+                    1);
+#endif // TRACE_ONLY_SUB_NNET
 
     // check and process any tx_done's
     sp_process_tx_done(false);
@@ -325,6 +340,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         netbench_record_event_no_ts(nb, TX_SND_PKT_C);
     }
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISEE,
+                (uint32_t) ((uintptr_t)p->payload));
+#endif // TRACE_ONLY_SUB_NNET
 
     // Find out no. of pbufs to send for single packet
     uint8_t numpbufs = 0;
@@ -338,7 +357,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     // Make sure that spp has enough slots to accomodate this packet
     sp_reload_regs(spp_send);
     uint64_t free_slots_count = sp_queue_free_slots_count(spp_send);
-
+    // 4 mfence
     if (sp_queue_full(spp_send) || (free_slots_count < numpbufs)
             || (free_slots_count < 10) ) {
         if (benchmark_mode > 0) {
@@ -361,7 +380,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 
     // Add all pbufs of this packet into spp
     uint64_t ghost_write_index = sp_get_write_index(spp_send);
+    // 8 mfence
     uint64_t queue_size = sp_get_queue_size(spp_send);
+    // 12
 
     LWIPBF_DEBUG("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
             " for p %p\n", ghost_write_index, p);
@@ -370,9 +391,19 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         printf("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
             " for p %p\n", ghost_write_index, p);
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIBFFENCE,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
 #if !defined(__scc__)
     mfence();                   // ensure that we flush all of the packet payload
 #endif                          // !defined(__scc__)
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIAFFENCE,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
 
     uint8_t i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
@@ -386,6 +417,13 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         cache_flush_range(tmpp->payload, tmpp->len);
 #endif // !defined(__scc__)
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIFLUSHED,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
+
+#ifndef SPP_CARELESS
         // sanity check: but we have already checked above if there is enough space
         if (sp_queue_full(spp_send)) {
             printf("Error state for pbuf part %"PRIu8", and old free slots "
@@ -394,9 +432,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             assert(!"This should not happen!");
             return 0;
         }
+#endif
 
         // Get all info about pbuf, and put it in slot data-structure
         struct buffer_desc *buf_p = mem_barrelfish_get_buffer_desc(p->payload);
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIBDESC,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
+
         bulk_arch_prepare_send((void *) tmpp->payload, tmpp->len);
         offset = (uintptr_t) tmpp->payload - (uintptr_t) (buf_p->va);
 
@@ -408,6 +454,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         s.client_data = (uintptr_t)tmpp;
         s.ts = rdtsc();
 
+#ifndef SPP_CARELESS
         // Again, sanity check!
         // Making sure that the slot is not active anymore
         if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
@@ -424,6 +471,14 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
                 assert(!"Slot not clear!!!\n");
             }
         }
+#endif
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISPPSND,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
+        // 16 mfence
 
         // Copy the slot in spp
         if (!sp_ghost_produce_slot(spp_send, &s, ghost_write_index)) {
@@ -439,10 +494,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             printf ("#### to_network_driver, slot %"PRIu64" pbuf %p "
                 "of len %"PRIu16"\n", ghost_write_index, tmpp, tmpp->len);
 
+        // 25 mfence
+
         // Increment the ghost write index
         // FIXME: Use the inbuilt spp->ghost_write_id instead of following var.
         ghost_write_index = (ghost_write_index + 1) % queue_size;
     } // end for: for each pbuf in packet
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISPPIDX,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
 
     // Added all packets.  Now update the write_index to expose new data
     if (!sp_set_write_index(spp_send, ghost_write_index)) {
@@ -451,9 +513,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         return 0;
     }
 
+    // 34 mfence
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISPPIDX,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
     if (benchmark_mode > 0) {
             netbench_record_event_simple(nb, TX_SP1, ts);
     }
+
 
 //  printf("idc_send_packet_to_network_driver  is done\n");
     // FIXME: check if there are any packets to send or receive
@@ -868,6 +938,11 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
     }
 */
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXLWIINCOM,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
     if (new_debug) printf("handle_incoming_pkts called\n");
     // Read the slots which are available in spp
 
@@ -903,6 +978,12 @@ static uint32_t handle_incoming_packets(struct ether_binding *b)
             pbuf_free(p);
         } else {
             assert(sslot.no_pbufs == 1);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXLWIINCOM,
+                (uint32_t) sslot.pbuf_id);
+#endif // TRACE_ONLY_SUB_NNET
+
             lwip_rec_handler(lwip_rec_data, sslot.pbuf_id,
                     sslot.offset, sslot.len, sslot.len, NULL);
         }

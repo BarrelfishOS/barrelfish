@@ -23,6 +23,10 @@
 // *******************  cache coherency specific code
 #define MAX_CACHE_READ_TRIES  3
 
+// Hack for profiling to see how much mfence slows the code down
+// should probably not be disabled.
+//#define DISABLE_MFENCE
+
 static uint64_t sp_atomic_read_reg(union vreg *reg)
 {
 
@@ -53,20 +57,24 @@ static uint64_t sp_atomic_read_reg(union vreg *reg)
     return v1;
 #endif // 0
     return reg->value;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 } // end function: sp_atomic_read_reg
 
 static void sp_atomic_set_reg(union vreg *reg, uint64_t value)
 {
     reg->value = value;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 /*
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
 */
 }
-
+// 3 mfence
 void sp_reload_regs(struct shared_pool_private *spp)
 {
     assert(spp != NULL);
@@ -137,6 +145,7 @@ bool sp_c_between(uint64_t start, uint64_t value, uint64_t end, uint64_t size)
 
 // ******************* spp queue code for condition checking
 
+// 4 mfence
 uint64_t sp_get_read_index(struct shared_pool_private *spp)
 {
     sp_reload_regs(spp);
@@ -156,6 +165,7 @@ uint64_t sp_get_queue_size(struct shared_pool_private *spp)
 }
 
 
+// 0 mfence
 // Checks for queue empty condition
 bool sp_queue_empty(struct shared_pool_private *spp)
 {
@@ -221,7 +231,7 @@ bool sp_validate_write_index(struct shared_pool_private *spp, uint64_t index)
     return sp_write_peekable_index(spp, index);
 } // end function: sp_validate_write_index
 
-
+// 4 mfence
 // Returns no. of free slots available for production
 uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp)
 {
@@ -241,6 +251,7 @@ static size_t calculate_shared_pool_size(uint64_t slot_no)
                 ((sizeof(union slot)) * (slot_no - TMP_SLOTS)));
 }
 
+// 4 mfence
 static void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
 {
     assert(spp != NULL);
@@ -268,7 +279,9 @@ static void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
     spp->produce_counter = 0;
     spp->consume_counter = 0;
     spp->clear_counter = 0;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 } // sp_reset_pool
 
 
@@ -326,7 +339,9 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
                     sizeof(struct shared_pool_private),
                     sizeof(struct shared_pool) );
 */
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
     return spp;
 } // end function: sp_create_shared_pool
 
@@ -382,7 +397,10 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
             "with role [%"PRIu8"], slots[%"PRIu64"] and pool len[%"PRIu64"]\n",
             (uint64_t)mem_size, spp->mem_size, spp->role, spp->alloted_slots,
             spp->c_size);
+
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
     return SYS_ERR_OK;
 
 } // end function: sp_map_shared_pool
@@ -411,7 +429,10 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
     spp->sp->slot_list[id].d.len = len;
     spp->sp->slot_list[id].d.client_data = client_data;
     spp->sp->slot_list[id].d.ts = ts;
+
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
     // copy the s into shared_pool
 #if 0
 #if !defined(__scc__) && !defined(__i386__)
@@ -431,7 +452,9 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
     d->no_pbufs = s->no_pbufs;
     d->client_data = s->client_data;
     d->ts = s->ts;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 }
 
 void sp_copy_slot_data_from_index(struct shared_pool_private *spp,
@@ -482,6 +505,7 @@ bool sp_set_read_index(struct shared_pool_private *spp, uint64_t index)
 } // end function: sp_set_read_index
 
 
+// 9 mfence
 // Set the value of write index
 // To be used with sp_ghost_produce_slot
 bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
@@ -638,6 +662,7 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
 } // end function: sp_produce_slot
 
 
+// 9 mfence
 // Gost-add data into shared_pool
 // Add data into free slots, but don't increment write index
 // This allows adding multiple slots and then atomically increment write index
