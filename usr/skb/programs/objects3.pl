@@ -17,6 +17,14 @@ get_object(Name, AList, CList, Object) :-
         get_by_constraints(Name, SConstraints, Object)
     ).
 
+get_first_object(Name, AList, CList, Object) :-
+    make_all_constraints(AList, CList, SConstraints),
+    (atom(Name) -> 
+        get_by_name(Name, SConstraints, Object)
+        ;
+        get_by_constraints(Name, SConstraints, Object)
+    ), !.
+
 get_by_constraints(Name, Constraints, Object) :-
     find_candidates(Constraints, Candidate),
     ( not var(Name) ->
@@ -47,7 +55,7 @@ find_next_candidate(AttributeList, NextItem) :-
 
 % This makes our C predicate non-deterministic
 index_intersect_aux(AttributeList, OldState, Item) :-
-    index_intersect(AttributeList, OldState, NewItem),
+    index_intersect(rh, AttributeList, OldState, NewItem),
     (
         Item = NewItem
     ;
@@ -63,7 +71,7 @@ get_index_names([Cur|CList], [Attribute|AList]) :-
     (Cur = constraint(Attribute, _, _) ; Cur = val(Attribute, _)),
     get_index_names(CList, AList).
 
-make_all_constraints(CList, AList, SConstraints) :
+make_all_constraints(AList, CList, SConstraints) :-
     convert_attributes(AList, ACList),
     append(ACList, CList, Constraints),
     sort(Constraints, SConstraints). % Sorting allows us to do matching in linear time
@@ -168,8 +176,8 @@ save_object(Name, SList) :-
     store_set(rh, Name, USList),
     set_attribute_index(Name, USList),
     !,
-    trigger_watches(object(Name, USList), 1).
-%    print_object(object(Name, SList)).
+    trigger_watches(object(Name, USList), 1),
+    print_object(object(Name, SList)).
 
 
 transform_attributes(AList, RNDList) :-
@@ -194,9 +202,9 @@ del_attribute_index(Name, SList) :-
     ( foreach(Slot, SList), param(Name) do del_index(Name, Slot) ).
 
 add_index(Name, val(Attribute, Value)) :-
-   save_index(Attribute, Name).
+   save_index(rh, Attribute, Name).
 del_index(Name, val(Attribute, Value)) :-
-   remove_index(Attribute, Name).
+   remove_index(rh, Attribute, Name).
 
 %
 % Delete Record

@@ -23,6 +23,11 @@ struct skip_list {
     size_t entries; // used to sort lists based on #entries for intersect
 };
 
+struct skip_node {
+    char* element;
+    struct skip_node** forward;
+};
+
 errval_t skip_create_list(struct skip_list**);
 void skip_insert(struct skip_list*, char*);
 bool skip_contains(struct skip_list*, char*);

@@ -22,5 +22,7 @@ int p_trigger_watch(void);
 int p_save_index(void);
 int p_remove_index(void);
 int p_index_intersect(void);
+int p_index_union(void);
+
 
 #endif /* PREDICATES_H_ */

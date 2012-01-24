@@ -489,7 +489,7 @@ void identify_binding(struct dist2_binding* b, uint64_t id,
     errval_t err = new_dist_reply_state(&drs, identify_binding_reply);
     assert(err_is_ok(err));
 
-    debug_printf("set binding: id=%lu type=%d\n", id, type);
+    DIST2_DEBUG("set binding: id=%lu type=%d\n", id, type);
     drs->error = set_binding(type, id, b);
     drs->reply(b, drs);
 }

@@ -24,14 +24,6 @@
 #define SKIP_LEVEL_PROBABILITY 0.5
 #define MAX_LEVEL 9
 
-struct skip_node {
-    char* element;
-    struct skip_node** forward;
-
-    uint8_t data[0];
-};
-
-
 /**
  * \brief This code reads the cycle counter
  *

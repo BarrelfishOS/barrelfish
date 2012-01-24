@@ -32,56 +32,6 @@ struct timestamp timestamps[MAX_ITERATIONS] = { { 0, 0, 0, 0 } };
 static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
         4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000  };
 
-static void variable_records_skb(void)
-{
-    size_t exps = sizeof(records) / sizeof(size_t);
-    for (size_t i = 1; i < exps; i++) {
-        //printf("# Run experiment with %lu records:\n", records[i]);
-        char* res = NULL;
-        char* error = NULL;
-        int ierr = 0;
-
-        for (size_t j = records[i - 1]; j < records[i]; j++) {
-            char buf[100];
-            sprintf(buf, "add_object(\"object%lu\", [], []).", j);
-            errval_t err = skb_evaluate(buf, &res, &error, &ierr);
-            //printf("skb: %s, result: %s\n", buf, res);
-            assert(err_is_ok(err));
-            assert(ierr == 0);
-            free(res);
-            free(error);
-        }
-
-        struct dist2_rpc_client* cl = get_dist_rpc_client();
-        assert(cl != NULL);
-
-        for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            size_t get_nr = k % records[i];
-            char buf[100];
-            sprintf(buf, "get_object(\"object%lu\", [], [], X), writeln(X).",
-                    get_nr);
-
-            timestamps[k].time0 = bench_tsc();
-            errval_t err = skb_evaluate(buf, &res, &error, &ierr);
-            timestamps[k].time1 = bench_tsc();
-
-            assert(err_is_ok(err));
-            assert(ierr == 0);
-            free(res);
-            free(error);
-        }
-
-        for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            printf(
-                    "%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n",
-                    k,
-                    timestamps[k].time1 - timestamps[k].time0
-                            - bench_tscoverhead(), timestamps[k].server,
-                    timestamps[k].busy, records[i]);
-        }
-    }
-}
-
 static void variable_records(void)
 {
     size_t exps = sizeof(records) / sizeof(size_t);
@@ -163,29 +113,28 @@ static void unnamed_record(void)
     errval_t err = dist_set("object0 { attr1: 'bla', attr2: 12.0 }");
     assert(err_is_ok(err));
 
-    char* data = NULL;
-    err = dist_get(&data, "_ { }");
-    if (err_is_fail(err)) DEBUG_ERR(err, "get");
-    printf("dist_get returned: %s\n", data);
-    free(data);
-    assert(err_is_ok(err));
+    while(1) {
+        char* data = NULL;
+        err = dist_get(&data, "_ { }");
+        if (err_is_fail(err)) DEBUG_ERR(err, "get");
+        printf("dist_get returned: %s\n", data);
+        free(data);
+        assert(err_is_ok(err));
 
-    err = dist_get(&data, "_ { attr2: 12.0 }");
-    if (err_is_fail(err)) DEBUG_ERR(err, "get");
-    printf("dist_get returned: %s\n", data);
-    free(data);
-    assert(err_is_ok(err));
+        err = dist_get(&data, "_ { attr2: 12.0 }");
+        if (err_is_fail(err)) DEBUG_ERR(err, "get");
+        printf("dist_get returned: %s\n", data);
+        free(data);
+        assert(err_is_ok(err));
+    }
 }
 
 int main(int argc, char** argv)
 {
-    dist_init();
     bench_init();
-    skb_client_connect();
+    dist_init();
 
     if (0) one_record();
     if (0) variable_records();
-    if (0) variable_records_skb();
-
     unnamed_record();
 }

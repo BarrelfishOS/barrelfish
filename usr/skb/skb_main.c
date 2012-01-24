@@ -136,14 +136,15 @@ int main(int argc, char**argv)
 
     // dist2 related stuff
     execute_string("[objects3].");
-    //execute_string("[pubsub].");
+    execute_string("[pubsub3].");
     execute_string("[bindings].");
 
     ec_external(ec_did("notify_client", 2), p_notify_client, ec_did("eclipse",0));
     ec_external(ec_did("trigger_watch", 5), p_trigger_watch, ec_did("eclipse",0));
-    ec_external(ec_did("save_index", 2), p_save_index, ec_did("eclipse",0));
-    ec_external(ec_did("remove_index", 2), p_remove_index, ec_did("eclipse",0));
-    ec_external(ec_did("index_intersect", 3), p_index_intersect, ec_did("eclipse",0));
+    ec_external(ec_did("save_index", 3), p_save_index, ec_did("eclipse",0));
+    ec_external(ec_did("remove_index", 3), p_remove_index, ec_did("eclipse",0));
+    ec_external(ec_did("index_intersect", 4), p_index_intersect, ec_did("eclipse",0));
+    ec_external(ec_did("index_union", 4), p_index_union, ec_did("eclipse",0));
 
     //ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
 
@@ -206,12 +207,12 @@ void execute_string(char *string)
         if ((n >=0) && (n < RESULT_BUF_SIZE)) {
             buf[n] = 0;
         }
-        printf("eclipse returned: %s with length %d.\n", buf,n);
+        SKB_DEBUG("eclipse returned: %s with length %d.\n", buf,n);
 
         n = ec_queue_read(2, buf, RESULT_BUF_SIZE);
         if ((n >=0) && (n < RESULT_BUF_SIZE)) {
             buf[n] = 0;
         }
-        printf("eclipse error returned: %s with length %d.\n", buf,n);
+        SKB_DEBUG("eclipse error returned: %s with length %d.\n", buf,n);
     }
 }

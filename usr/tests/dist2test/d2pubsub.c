@@ -79,7 +79,9 @@ static void subscriber(void)
     ASSERT_ERR_OK(err);
 
     // Synchronize with publisher
-    dist_barrier_enter(barrier_name, &barrier_record, 2);
+    err = dist_barrier_enter(barrier_name, &barrier_record, 2);
+    if (err_is_fail(err)) DEBUG_ERR(err, "barrier enter");
+    assert(err_is_ok(err));
 
     // Wait until all messages received
     thread_sem_wait(&ts);
@@ -109,7 +111,9 @@ static void publisher(void)
     char* barrier_record = NULL;
 
     // Synchronize with subscriber
-    dist_barrier_enter(barrier_name, &barrier_record, 2);
+    err = dist_barrier_enter(barrier_name, &barrier_record, 2);
+    if (err_is_fail(err)) DEBUG_ERR(err, "barrier enter");
+    assert(err_is_ok(err));
 
     err = dist_publish("msg_1 { age: %d }", 9);
     ASSERT_ERR_OK(err);

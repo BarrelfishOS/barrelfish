@@ -30,17 +30,25 @@ const char * var = ( var##_[ sizeof(var##_) - 2] = '\0',  (var##_ + 1) );
 static void get_names(void)
 {
     errval_t err = SYS_ERR_OK;
-
     char** names = NULL;
     size_t size = 0;
-/*
+
+    err = dist_get_names(&names, &size, "_");
+    ASSERT_ERR_OK(err);
+    assert(size == 4);
+    ASSERT_STRING(names[0], "object3");
+    ASSERT_STRING(names[1], "object4");
+    ASSERT_STRING(names[2], "object5");
+    ASSERT_STRING(names[3], "object6");
+    dist_free_names(names, size);
+
     err = dist_get_names(&names, &size, "_ { weight: _ }");
     ASSERT_ERR_OK(err);
-    assert(size == 3);
-    ASSERT_STRING(names[0], "object2");
-    ASSERT_STRING(names[1], "object3");
-    ASSERT_STRING(names[2], "object4");
-    dist_free_names(names, size);*/
+    assert(size == 2);
+    //ASSERT_STRING(names[0], "object2");
+    ASSERT_STRING(names[0], "object3");
+    ASSERT_STRING(names[1], "object4");
+    dist_free_names(names, size);
 
     err = dist_get_names(&names, &size, "_ { attr: _, weight: %d }", 20);
     ASSERT_ERR_OK(err);
@@ -82,17 +90,12 @@ static void get_records(void)
     ASSERT_STRING(data, "object1 { weight: 20 }");
     free(data);
 
-    err = dist_get(&data, "object2 { weight: 25 }");
+    /*err = dist_get(&data, "object2 { weight: 25 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object2 { weight: 25 }");
-    free(data);
+    free(data);*/
 
     err = dist_get(&data, "object4");
-    ASSERT_ERR_OK(err);
-    ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
-    free(data);
-
-    err = dist_get(&data, "_ { weight: >= 10, fl: > 11.0 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
@@ -121,21 +124,21 @@ static void get_records(void)
     ASSERT_ERR_OK(err);
 
     err = dist_get(&data, "object1");
-    printf("data: %s\n", data);
+    //printf("data: %s\n", data);
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
     // TODO free(data);?
 
-    err = dist_get(&data, "object2 { weight: 25 }");
+    /*err = dist_get(&data, "object2 { weight: 25 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object2 { weight: 25 }");
-    free(data);
+    free(data);*/
 
     err = dist_get(&data, "_ { pattern1: r'^12.*ab$' }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data,
             "object5 { pattern1: '123abab', pattern2: " \
             "'StringToTestRegexMatching', pattern3: '10-10-2010' }");
-    printf("data: %s\n", data);
+    //printf("data: %s\n", data);
     free(data);
 
     // Test long regex
@@ -145,7 +148,7 @@ static void get_records(void)
     ASSERT_STRING(data,
             "object5 { pattern1: '123abab', pattern2: " \
             "'StringToTestRegexMatching', pattern3: '10-10-2010' }");
-    printf("data: %s\n", data);
+    //printf("data: %s\n", data);
     free(data);
 
 
@@ -172,12 +175,12 @@ static void set_records(void)
     ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
 
     err = dist_set("object1 { weight: %d }", 20);
-    DEBUG_ERR(err, "Set");
     ASSERT_ERR_OK(err);
 
     // TODO: Do we want this?
+    /*
     err = dist_set("object2 { weight: %lu, weight: %lu }", 20, 25);
-    ASSERT_ERR_OK(err);
+    ASSERT_ERR_OK(err);*/
 
     char* str = "A text string.";
     err = dist_set("object3 { attr: '%s', weight: 9, fl: 12.0 }",
@@ -222,23 +225,20 @@ static void regex_name(void)
     ASSERT_ERR_OK(err);
 
     err = dist_get(&rec, "r'obj.$' { attr: 12 }");
-    DEBUG_ERR(err, "dist_get: %s\n", rec);
     ASSERT_ERR_OK(err);
 
     err = dist_set("r'obj.$' { attr: 12 }");
-    DEBUG_ERR(err, "dist_set using regex: %s\n", rec);
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD_NAME);
 
     char** names = NULL;
     size_t len = 0;
-    err = dist_get_names(&names, &len, "r'^obj.$' { attr: _ }");
+    err = dist_get_names(&names, &len, "r'^obj.$'");
     ASSERT_ERR_OK(err);
     assert(len == 1);
-    DEBUG_ERR(err, "dist_get_names, found: %lu\n", len);
+    ASSERT_STRING("obj1", names[0]);
     dist_free_names(names, len);
 
     err = dist_del("r'obj.$' { attr: 12}");
-    DEBUG_ERR(err, "dist_del using regex\n");
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD_NAME);
 
     printf("regex_name() done!\n");
@@ -250,10 +250,10 @@ int main(int argc, char *argv[])
 
     // Run Tests
     set_records();
-    if (0) exist_records();
+    exist_records();
     get_records();
     get_names();
-    if (0) regex_name();
+    regex_name();
 
     printf("d2getset SUCCESS!\n");
     return EXIT_SUCCESS;
