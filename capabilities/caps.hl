@@ -93,7 +93,7 @@ cap FCNode {
      eq genpaddr cnode;	    /* Base address of CNode */
      eq uint8 bits;    	    /* Number of bits this CNode resolves */
      caprights rightsmask;
-     eq uint8 core_id; 	    /* The core the cap is local on */
+     eq coreid core_id;     /* The core the cap is local on */
      uint8 guard_size; 	    /* Number of bits in guard */
      caddr guard;           /* Bitmask already resolved when reaching this CNode */
 };
