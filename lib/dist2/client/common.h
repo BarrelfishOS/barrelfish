@@ -23,14 +23,15 @@
 
 #include <barrelfish/event_mutex.h>
 
+#include <dist2/definitions.h>
+
 // TODO saw some TODOs in event_mutex_* so this will probably not work
 // as expected right now
 // TODO: Barrier/Lock code calls this a number of times because
-// we currently reuse the existing API
+// we currently use the existing getset API there
 #define DIST_LOCK_BINDING(cl) event_mutex_threaded_lock(&(cl)->b->mutex)
 #define DIST_UNLOCK_BINDING(cl) event_mutex_unlock(&(cl)->b->mutex)
 
-#define MAX_RECORD_LENGTH (5*1024)
 
 // Make sure args come right after query
 #define FORMAT_QUERY(query, args, buf) do {                         \
@@ -52,8 +53,8 @@ static inline errval_t allocate_string(const char *fmt, va_list args,
 {
     *length = vsnprintf(NULL, 0, fmt, args);
 
-    if (*length > MAX_RECORD_LENGTH) {
-        return DIST2_ERR_RECORD_SIZE;
+    if (*length >= MAX_QUERY_LENGTH) {
+        return DIST2_ERR_QUERY_SIZE;
     }
 
     *buf = malloc((*length) + 1); // include \0

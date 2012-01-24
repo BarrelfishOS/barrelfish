@@ -12,7 +12,7 @@
 errors libdist2  DIST2_ERR_ {
     failure NO_RECORD           "No record exists matching the specified query.",
     failure NO_RECORD_NAME      "Your query needs to specify a designated record name (no regex/variable allowed).",
-    failure RECORD_SIZE         "Record is too big. Try to increase MAX_RECORD_LENGTH.",
+    failure QUERY_SIZE          "Query is too big. Try to increase MAX_QUERY_LENGTH.",
     failure INVALID_FORMAT      "The read format you have specified is not valid.",
     failure UNKNOWN_ATTRIBUTE   "An attribute in your format was not found in the record.",
     failure UNSUPPORTED_BINDING "This binding is unsupported by the underlying implementation.",

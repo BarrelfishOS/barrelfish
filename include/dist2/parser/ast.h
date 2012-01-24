@@ -20,7 +20,9 @@
 
 #ifndef TEST_PARSER
 #include <barrelfish/barrelfish.h>
+#include <dist2/definitions.h>
 #else
+#define MAX_QUERY_LENGTH (5*1024)
 #define SYS_ERR_OK 0
 #define DIST2_ERR_PARSER_FAIL 2
 typedef long errval_t;
@@ -38,9 +40,9 @@ struct dist_parser_state {
 };
 
 struct string_buffer {
-    // TODO check for buffer overflows in lexer! throw error!
-    // + find good buffer size
-    char buffer[1024];
+    // Buffer overflow should not be a problem as long as
+    // we always check client input against MAX_QUERY_LENGTH
+    char buffer[MAX_QUERY_LENGTH];
     char* ptr;
 };
 

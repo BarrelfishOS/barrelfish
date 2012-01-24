@@ -139,7 +139,6 @@ errval_t generate_ast(const char* input, struct ast_object** record)
     p.scanner = NULL;
 
     struct string_buffer buf;
-    memset(buf.buffer, 0, 1024); // TODO buffer length
     buf.ptr = NULL;
 
     int res = yylex_init_extra(&buf, &p.scanner);
