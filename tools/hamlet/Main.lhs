@@ -55,6 +55,7 @@
 >                    fileDefs <- openFile filenameDefs WriteMode
 >                    hPutStrLn fileDefs "#ifndef CAPBITS_H"
 >                    hPutStrLn fileDefs "#define CAPBITS_H"
+>                    hPutStrLn fileDefs "#include <barrelfish_kpi/capabilities.h>"
 >                    hPutStrLn fileDefs $! show $ vcat' $ extractM $ types compiledCode
 >                    hPutStrLn fileDefs $! show $ vcat' $ extractL $ declarations compiledCode
 >                    hPutStrLn fileDefs "#endif // CAPBITS_H"
