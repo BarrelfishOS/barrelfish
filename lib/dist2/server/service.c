@@ -43,7 +43,16 @@ errval_t new_dist_reply_state(struct dist_reply_state** drt,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    memset(*drt, 0, sizeof(struct dist_reply_state));
+    //memset(*drt, 0, sizeof(struct dist_reply_state));
+    (*drt)->query_state.stdout.buffer[0] = '\0';
+    (*drt)->query_state.stdout.length = 0;
+    (*drt)->query_state.stderr.buffer[0] = '\0';
+    (*drt)->query_state.stderr.length = 0;
+    (*drt)->binding = 0;
+    (*drt)->return_record = false;
+    (*drt)->error = 0;
+    (*drt)->watch_id = 0;
+    (*drt)->server_id = 0;
     (*drt)->reply = reply_handler;
     (*drt)->next = NULL;
 
