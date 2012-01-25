@@ -125,8 +125,8 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     *retbuf = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
     *retsize = origsize;
     state->mapoffset += req_size;
-    state->offset = state->mapoffset;
-    state->consumed += req_size;
+    state->offset += origsize;
+    state->consumed += origsize;
 
     return SYS_ERR_OK;
 }
@@ -146,6 +146,9 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
 
     assert(vspace_lvaddr_to_genvaddr(base) > vregion_get_base_addr(&state->vregion));
     assert(base + bytes == (lvaddr_t)eaddr);
+
+    assert(bytes < state->consumed);
+    assert(bytes < state->offset);
 
     // Reduce offset
     state->offset -= bytes;
