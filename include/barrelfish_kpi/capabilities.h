@@ -43,6 +43,7 @@ typedef uint8_t         CapRights;
 struct dcb;
 
 #include <barrelfish_kpi/capbits.h>
+#include <assert.h>
 
 static inline bool type_is_vnode(enum objtype type)
 {

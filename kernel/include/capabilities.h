@@ -16,16 +16,10 @@
 #define CAPABILITIES_H
 
 #include <barrelfish_kpi/capabilities.h>
+#include <mdb/mdb.h>
+#include <offsets.h>
 
-/**
- * \brief A mapping database node.
- */
-struct mdbnode {
-	struct cte *left, *right;
-	genpaddr_t end;
-	uint8_t end_root;
-	uint8_t level; 
-};
+STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)) <= (1UL << OBJBITS_CTE), "cap+mdbnode fit in cte");
 
 /**
  * \brief A CTE (Capability Table Entry).

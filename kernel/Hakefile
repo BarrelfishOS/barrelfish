@@ -17,9 +17,10 @@ let
     microbench = if Config.microbenchmarks then ["microbenchmarks.c"] else []
     timer = if Config.oneshot_timer then ["timer.c"] else []
     indep_cfiles = [ "gdb_stub.c", "capabilities.c", "dispatch.c",
-                     "mdb.c", scheduler, "memset.c", "memmove.c", "printf.c",
-                     "startup.c", "stdlib.c", "string.c", "syscall.c",
-                     "wakeup.c" ] ++ microbench ++ timer
+                     "/lib/mdb/mdb.c", "/lib/mdb/mdb_tree.c", scheduler,
+                     "memset.c", "memmove.c", "printf.c", "startup.c",
+                     "stdlib.c", "string.c", "syscall.c", "wakeup.c" ]
+                     ++ microbench ++ timer
     hamlet_cfile = "/capabilities/cap_predicates.c"
     indep_libs = [ "getopt" ]
     mkrules arch arch_cfiles arch_sfiles mackerelFiles arch_libs arch_absolute_cfiles arch_absolute_sfiles realarch_cfiles realarch_sfiles = (

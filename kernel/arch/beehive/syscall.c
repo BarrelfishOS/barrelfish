@@ -20,7 +20,7 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <dispatch.h> // for dcb_current
 #include <syscall.h> // kernel generic syscalls
-#include <mdb.h> // for remove_mapping
+#include <mdb/mdb.h> // for remove_mapping
 #include <barrelfish_kpi/legacy_idc_buffer.h>
 #include <barrelfish_kpi/lmp.h>
 #include <target/beehive/barrelfish_kpi/dispatcher_shared_target.h>

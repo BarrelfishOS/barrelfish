@@ -23,7 +23,8 @@
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
-#include <mdb.h>
+#include <mdb/mdb.h>
+#include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 #include <wakeup.h>
 
@@ -817,7 +818,9 @@ errval_t caps_retype(enum objtype type, size_t objbits,
     }
 
     /* Handle mapping */
-    insert_after(dest_cte, src_cte, numobjs);
+    for (size_t i = 0; i < numobjs; i++) {
+        mdb_insert(&dest_cte[i]);
+    }
 
     return SYS_ERR_OK;
 }
@@ -829,6 +832,10 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     if (!is_well_founded(src_type, dest_type)) {
         return SYS_ERR_INVALID_RETYPE;
     } else if (!is_revoked_first(src_cte, src_type)){
+        printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
+        if (2 == src_type) {
+            mdb_dump_all_the_things();
+        }
         return SYS_ERR_REVOKE_FIRST;
 #ifndef RCAPDB_NULL
     } else if (!from_monitor && is_cap_remote(src_cte)) {
@@ -883,7 +890,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
 
     // Handle mapping
-    insert_after(dest_cte, src_cte, 1);
+    mdb_insert(dest_cte);
 
     /* Copy is done */
     if(!mint) {
@@ -1000,8 +1007,6 @@ static void delete_cnode_or_dcb(struct capability *cap, bool from_monitor)
 errval_t caps_delete(struct cte *cte, bool from_monitor)
 {
     assert(cte != NULL);
-    assert(cte->mdbnode.next != NULL);
-    assert(cte->mdbnode.prev != NULL);
 
 #ifndef RCAPDB_NULL
     if (!from_monitor && is_cap_remote(cte) && !has_copies(cte)) {
@@ -1089,8 +1094,6 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
 errval_t caps_revoke(struct cte *cte, bool from_monitor)
 {
     assert(cte != NULL);
-    assert(cte->mdbnode.next != NULL);
-    assert(cte->mdbnode.prev != NULL);
 
 #ifndef RCAPDB_NULL
     if (!from_monitor && is_cap_remote(cte)) {
@@ -1101,9 +1104,9 @@ errval_t caps_revoke(struct cte *cte, bool from_monitor)
     struct cte *walk;
     errval_t err = SYS_ERR_OK;
     // Traverse forward
-    walk = cte->mdbnode.next;
-    while(walk != cte && err_is_ok(err)) {
-        struct cte *next = walk->mdbnode.next;
+    walk = mdb_successor(cte);
+    while(walk && walk != cte && err_is_ok(err)) {
+        struct cte *next = mdb_successor(walk);
         if (is_ancestor(&walk->cap, &cte->cap)) {
             err = caps_delete(walk, from_monitor);
         } else if(is_copy(&walk->cap, &cte->cap)) {
@@ -1115,9 +1118,9 @@ errval_t caps_revoke(struct cte *cte, bool from_monitor)
     }
 
     // Traverse backwards
-    walk = cte->mdbnode.prev;
-    while(walk != cte && err_is_ok(err)) {
-        struct cte *prev = walk->mdbnode.prev;
+    walk = mdb_predecessor(cte);
+    while(walk && walk != cte && err_is_ok(err)) {
+        struct cte *prev = mdb_predecessor(walk);
         if (is_ancestor(&walk->cap, &cte->cap)) {
             err = caps_delete(walk, from_monitor);
         } else if(is_copy(&walk->cap, &cte->cap)) {

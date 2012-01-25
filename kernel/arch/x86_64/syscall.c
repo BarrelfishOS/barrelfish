@@ -15,7 +15,7 @@
 #include <kernel.h>
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
-#include <mdb.h>
+#include <mdb/mdb.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
 #include <exec.h>
