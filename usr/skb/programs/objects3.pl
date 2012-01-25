@@ -169,6 +169,7 @@ add_object(Name, UList, CList) :-
     del_attribute_index(Name, SList),
     !, save_object(Name, UList).
 add_object(Name, UList, CList) :-
+    length(CList, 0),
     save_object(Name, UList).
 
 save_object(Name, SList) :-

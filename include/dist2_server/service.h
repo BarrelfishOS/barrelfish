@@ -18,13 +18,14 @@
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
 #include <if/dist_event_defs.h>
+#include <dist2/definitions.h>
 
 #define BUFFER_SIZE (32 * 1024)
 
 struct dist_reply_state;
 
 struct skb_writer {
-    char buffer[BUFFER_SIZE];
+    char buffer[MAX_QUERY_LENGTH]; // TODO can be bigger than max query length...
     size_t length;
 };
 

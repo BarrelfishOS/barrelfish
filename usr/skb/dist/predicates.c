@@ -113,6 +113,9 @@ int p_remove_index(void)
     char* value = NULL;
     char* index_type = NULL;
 
+    init_index();
+
+
     res = ec_get_string(ec_arg(1), &index_type);
     if (res != PSUCCEED) {
         return res;
@@ -136,6 +139,7 @@ int p_remove_index(void)
     assert(elem != NULL);
     free(elem);
 
+    DIST2_DEBUG("remove %s from index[%s]=", value, key);
     //skip_print_list(sl);
     return PSUCCEED;
 }

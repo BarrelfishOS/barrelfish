@@ -22,7 +22,10 @@
 #include "skiplist.h"
 
 #define SKIP_LEVEL_PROBABILITY 0.5
-#define MAX_LEVEL 9
+// With probability 0.5 use log2(n) as MAX_LEVEL (n = amount of elements
+// to be expected for index). 2**14 = 16384
+#define MAX_LEVEL 14
+
 
 /**
  * \brief This code reads the cycle counter
