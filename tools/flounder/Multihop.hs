@@ -938,11 +938,12 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
                                     C.Variable "msg",
                                     C.NumConstant m_size_type_bytes ],
             C.Ex $ C.Assignment (argfield_expr RX mn argfield)
-            (C.Cast (C.Ptr $ C.TypeName "char") (C.Call "malloc" [C.Variable "o_frag_size"])),
+            (C.Call "malloc" [C.Binary C.Plus (C.Variable "o_frag_size") (C.NumConstant 1)]),
             C.Ex $ C.Call "memcpy" [argfield_expr RX mn argfield, 
                                     C.Binary C.Plus (C.Variable "msg") 
                                     (C.NumConstant m_size_type_bytes),
                                     C.Variable "o_frag_size"],
+            C.Ex $ C.Assignment (argfield_expr RX mn argfield `C.SubscriptOf` (C.Variable "o_frag_size")) (C.NumConstant 0),
             C.Ex $ C.Assignment (C.Variable "msg") (C.Binary C.Plus
                                                     (C.Binary C.Plus (C.Variable "msg") 
                                                      (C.Variable "o_frag_size"))
