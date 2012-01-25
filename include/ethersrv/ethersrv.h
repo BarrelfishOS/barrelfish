@@ -116,17 +116,6 @@ struct pbuf_desc {
     uint64_t spp_index;
     uint64_t ts;
     // FIXME: Remove this from here! as we create large arrays of pbuf_desc!!
-    // For Statistics
-    uint64_t event_ts[MAX_STAT_EVENTS];
-    uint64_t event_n[MAX_STAT_EVENTS];
-    uint64_t event_sum[MAX_STAT_EVENTS];
-    uint64_t event_sum2[MAX_STAT_EVENTS];
-    uint64_t event_max[MAX_STAT_EVENTS];
-    uint64_t event_min[MAX_STAT_EVENTS];
-    uint64_t event_sum_i[MAX_STAT_EVENTS];
-    uint64_t event_sum2_i[MAX_STAT_EVENTS];
-    uint64_t event_max_i[MAX_STAT_EVENTS];
-    uint64_t event_min_i[MAX_STAT_EVENTS];
 };
 
 struct client_closure;
@@ -156,55 +145,31 @@ struct client_closure {
     /* Following two are used by packet transmit logic */
     uintptr_t nr_transmit_pbufs; /*< how many pbufs belong to the packet to
                                         transmit now? */
+    uint64_t tx_index;  // index of which is next slot to be sent
+    uint64_t rx_index;  // index of which is next slot to be received
+
     /* FIXME: following should be a number */
-//    uintptr_t rtpbuf; ///< how many pbufs have we received so far?
     uint16_t rtpbuf; ///< how many pbufs have we received so far?
+    uint64_t len; // length of a total packet (even across multiple pbufs)
     struct tx_pbuf pbuf[MAX_NR_TRANSMIT_PBUFS];
-    uint64_t tx_private_mem_v;  // FIXME: un-used, remove it
-    uint64_t tx_private_mem_p;  // FIXME: un-used, remove  it
-    uint64_t head;
-    uint64_t tail;
-    uint64_t len;
 
     struct ether_binding *app_connection; /* FIXME: Do I need this? */
     struct cont_queue *q;
-    uint8_t debug_state;
-    uint8_t debug_state_tx;
-    uint64_t start_ts;
-    uint64_t start_ts_tx;
-    uint64_t pkt_count;
-    uint64_t tx_done_count;
-    uint64_t tx_explicit_msg_needed;
-    uint64_t tx_notification_sent;
-    uint64_t rx_notification_sent;
-    uint64_t dropped_pkt_count;
-    uint64_t hw_queue;
-    uint64_t pbuf_count;
-    uint64_t in_dropped_q_full;
-    uint64_t in_dropped_invalid_pkt;
-    uint64_t in_dropped_no_app;
-    uint64_t in_dropped_app_buf_full;
-    uint64_t in_dropped_app_invalid_buf;
-    uint64_t in_dropped_notification_prob;
-    uint64_t in_dropped_notification_prob2;
-    uint64_t in_other_pkts;
-    uint64_t in_arp_pkts;
-    uint64_t in_netd_pkts;
-    uint64_t in_paused_pkts;
-    uint64_t in_filter_matched;
-    uint64_t in_filter_matched_f;
-    uint64_t in_filter_matched_p;
-    uint64_t in_queue_len_n;
-    uint64_t in_queue_len_sum;
+    uint64_t pkt_count;  // # packets
 
-    uint64_t in_app_time_n;
-    uint64_t in_app_time_sum;
-    uint64_t in_app_time_min;
-    uint64_t in_app_time_max;
-    uint64_t in_success;
-    uint64_t in_trigger_counter;
-    uint64_t out_trigger_counter;
-    uint8_t  filter_matched;
+    uint64_t in_filter_matched;  // # total filters matched
+    uint64_t in_filter_matched_f; // # failed processing of matched filter
+    uint64_t in_filter_matched_p; // # successful processing of matched filter
+
+    uint8_t debug_state;  // debug state for rx benchmark
+    uint8_t debug_state_tx; // debug state of tx benchmark
+    uint64_t start_ts;  // timestap of start of rx benchmark
+    uint64_t start_ts_tx; // timestamp of start of tx benchmark
+
+    uint64_t dropped_pkt_count;  // # packets dropped (for no space in hw-queue)
+    uint64_t pbuf_count;  // # pbufs sent
+    uint64_t in_dropped_app_buf_full; // # packets dropped for lack of buffers
+    uint64_t out_trigger_counter;  // index marking when to stop tx benchmark
 }; /* holds info about how much data is transferred to NIC. */
 
 

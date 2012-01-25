@@ -198,6 +198,8 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
         return;
     }
 
+   closure->tx_index = closure->spp_ptr->c_write_id;
+   closure->rx_index = closure->spp_ptr->c_read_id;
 
     /* FIXME: cheat, driver is allocating some memory on behalf of client.
      * but this memory should come from "register_metadata_mem"
@@ -258,9 +260,9 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
     errval_t r;
 //    uint64_t ts = rdtsc();
-    struct client_closure *closure = (struct client_closure *)cc->st;
-    assert(closure != NULL);
-    struct shared_pool_private *spp = closure->spp_ptr;
+    struct client_closure *cl = (struct client_closure *)cc->st;
+    assert(cl != NULL);
+    struct shared_pool_private *spp = cl->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
@@ -272,16 +274,13 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     sp_reload_regs(spp);
     // Keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
-    uint64_t ghost_read_id_copy = spp->ghost_read_id;
-    uint64_t c_slot_id = spp->ghost_read_id;
+    uint64_t revert_tx_id = cl->tx_index;
 
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 3);
 #endif // TRACE_ONLY_SUB_NNET
 
-//    struct slot_data s;
-//    if (!sp_ghost_read_slot(spp, &s)) {
-    if (c_slot_id == spp->c_write_id) {  // FIXME: not tested yet
+    if (cl->tx_index == spp->c_write_id) {  // FIXME: not tested yet
         return false;
     }
 
@@ -290,29 +289,29 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 #endif // TRACE_ONLY_SUB_NNET
 
     // FIXME: Make sure that there are s.no_pbuf slots available
-    struct slot_data *sld = &spp->sp->slot_list[c_slot_id].d;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
 
-//    closure->nr_transmit_pbufs = spp->sp->slot_list[c_slot_id].d.no_pbufs;
-    closure->nr_transmit_pbufs = sld->no_pbufs;
-    closure->rtpbuf = 0;
-    closure->len = 0;
+//    cl->nr_transmit_pbufs = spp->sp->slot_list[cl->tx_index].d.no_pbufs;
+    cl->nr_transmit_pbufs = sld->no_pbufs;
+    cl->rtpbuf = 0;
+    cl->len = 0;
 
     // Some sanity checks
-    assert(closure->nr_transmit_pbufs <= MAX_NR_TRANSMIT_PBUFS);
+    assert(cl->nr_transmit_pbufs <= MAX_NR_TRANSMIT_PBUFS);
 
     do {
         uint64_t buffer_id = sld->buffer_id;
-        closure->pbuf[closure->rtpbuf].buffer_id = buffer_id;
+        cl->pbuf[cl->rtpbuf].buffer_id = buffer_id;
         struct buffer_descriptor *buffer = find_buffer(buffer_id);
         assert(buffer != NULL);
-        closure->pbuf[closure->rtpbuf].buffer = buffer;
-        closure->pbuf[closure->rtpbuf].sr = cc;
-        closure->pbuf[closure->rtpbuf].cc = closure;
-        closure->pbuf[closure->rtpbuf].len = sld->len;
-        closure->pbuf[closure->rtpbuf].offset = sld->offset;
-        closure->pbuf[closure->rtpbuf].client_data = sld->client_data;
-        closure->pbuf[closure->rtpbuf].spp_index = c_slot_id;
-        closure->len = closure->len + sld->len;  // total lengh of packet
+        cl->pbuf[cl->rtpbuf].buffer = buffer;
+        cl->pbuf[cl->rtpbuf].sr = cc;
+        cl->pbuf[cl->rtpbuf].cc = cl;
+        cl->pbuf[cl->rtpbuf].len = sld->len;
+        cl->pbuf[cl->rtpbuf].offset = sld->offset;
+        cl->pbuf[cl->rtpbuf].client_data = sld->client_data;
+        cl->pbuf[cl->rtpbuf].spp_index = cl->tx_index;
+        cl->len = cl->len + sld->len;  // total lengh of packet
 
 
         // FIXME: is it needed when memory is already cache coherent?
@@ -320,38 +319,39 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 //        bulk_arch_prepare_recv((void *) buffer->pa + s.offset,
 //                s.len);
 
-        closure->rtpbuf++;
-        if (closure->rtpbuf == closure->nr_transmit_pbufs) {
+        cl->tx_index = (cl->tx_index + 1) % spp->c_size;
+        cl->rtpbuf++;
+        if (cl->rtpbuf == cl->nr_transmit_pbufs) {
             // If entire packet is here
             ETHERSRV_DEBUG("Sending packet with [%"PRIu16"]pbufs, offset "
                    "[%"PRIu64"] and pbuf[%"PRIx64"]\n",
-                    closure->rtpbuf, sld->offset, sld->client_data);
+                    cl->rtpbuf, sld->offset, sld->client_data);
             break;
         }
-        c_slot_id = (c_slot_id + 1) % spp->c_size;
-//        if (!sp_ghost_read_slot(spp, &s)) {
-        if (c_slot_id == spp->c_write_id) {
 
-            spp->ghost_read_id = ghost_read_id_copy;
-            closure->rtpbuf = 0;
-            closure->nr_transmit_pbufs = 0;
+        if (cl->tx_index == spp->c_write_id) {
+            cl->tx_index = revert_tx_id;
+
+            cl->len = 0;
+            // FIXME: only one of following two is needed
+            cl->rtpbuf = 0;
+            cl->nr_transmit_pbufs = 0;
 
             assert(!"half packet sent!");
             return false;
         }
-        sld = &spp->sp->slot_list[c_slot_id].d;
+        sld = &spp->sp->slot_list[cl->tx_index].d;
     } while(1);
 
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 2);
 #endif // TRACE_ONLY_SUB_NNET
 
-    closure->hw_queue = closure->hw_queue + closure->nr_transmit_pbufs;
-    r = ether_transmit_pbuf_list_ptr(closure);
+    r = ether_transmit_pbuf_list_ptr(cl);
 
     if (err_is_fail(r)) {
-    //in case we cannot transmit, discard the _whole_ packet (just don't
-    //enqueue transmit descriptors in the network card's ring)
+        //in case we cannot transmit, discard the _whole_ packet (just don't
+        //enqueue transmit descriptors in the network card's ring)
         dropped_pkt_count++;
 //                printf("Transmit_packet dropping %"PRIu64"\n",
 //                        dropped_pkt_count);
@@ -365,15 +365,15 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
          * Also, is it certain that all packets start with pbuf[0]??
          * Mostly this will lead to re-write of bulk-transfer mode.  */
 
-        if (closure->debug_state_tx == 4) {
-            ++closure->dropped_pkt_count;
+        if (cl->debug_state_tx == 4) {
+            ++cl->dropped_pkt_count;
 //            netbench_record_event_simple(bm, RE_TX_SP_F, ts);
         }
 
-        assert(closure->pbuf[0].sr);
-        bool ret = notify_client_free_tx(closure->pbuf[0].sr,
-                                         closure->pbuf[0].client_data,
-                                         closure->pbuf[0].spp_index,
+        assert(cl->pbuf[0].sr);
+        bool ret = notify_client_free_tx(cl->pbuf[0].sr,
+                                         cl->pbuf[0].client_data,
+                                         cl->pbuf[0].spp_index,
                                          rdtsc(),
                                          tx_free_slots_fn_ptr(), 1);
 
@@ -387,25 +387,25 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     } // end if: failed in transfer
 
     // successfull transfer!
-    if (closure->debug_state_tx == 4) {
+    if (cl->debug_state_tx == 4) {
         // Benchmarking mode is on
-        ++closure->pkt_count;
-        closure->pbuf_count = closure->pbuf_count +
-            closure->nr_transmit_pbufs;
+        ++cl->pkt_count;
+        cl->pbuf_count = cl->pbuf_count +
+            cl->nr_transmit_pbufs;
 
-        if (closure->pkt_count == closure->out_trigger_counter) {
+        if (cl->pkt_count == cl->out_trigger_counter) {
             benchmark_control_request(cc, BMS_STOP_REQUEST, 0, 0);
         }
     } // end if: benchmarking mode is on
 
-    if (closure->debug_state_tx == 3) {
+    if (cl->debug_state_tx == 3) {
         // Benchmarking mode should be started here!
-        ++closure->pkt_count;
-        assert(closure->pkt_count == 1);
+        ++cl->pkt_count;
+        assert(cl->pkt_count == 1);
         // This is the first packet, so lets restart the timer!!
-        closure->start_ts_tx = rdtsc();
-        closure->debug_state_tx = 4;
-        closure->pbuf_count = closure->nr_transmit_pbufs;
+        cl->start_ts_tx = rdtsc();
+        cl->debug_state_tx = 4;
+        cl->pbuf_count = cl->nr_transmit_pbufs;
     } // end if: Starting benchmarking mode
 
     return true;
@@ -466,14 +466,11 @@ errval_t send_sp_notification_from_driver(struct q_entry e)
     }
     uint64_t ts = rdtsc();
     if (b->can_send(b)) {
-        ++ccl->tx_done_count;
         errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
                 MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
                 // type, ts
         if (ccl->debug_state_tx == 4) {
             netbench_record_event_simple(bm, RE_TX_SP_MSG, ts);
-//            printf("@@@@@ notification sent to the app %"PRIu64"\n",
-//                    ccl->tx_done_count);
         }
         return err;
     } else {
@@ -524,7 +521,6 @@ static void do_pending_work(struct ether_binding *b)
     if (spp->notify_other_side) {
         // Send notification to application, telling that there is
         // no more data
-        ++closure->tx_notification_sent;
         struct q_entry entry;
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_sp_notification_from_driver;
@@ -801,7 +797,6 @@ bool notify_client_free_tx(struct ether_binding * b,
     assert(spp->sp != NULL);
 
 
-    cc->hw_queue = cc->hw_queue - 1;
     ETHERSRV_DEBUG("Notifying the app for %"PRIu64"\n", spp_index);
 
     if(spp->sp->read_reg.value != spp_index) {
@@ -836,7 +831,6 @@ bool notify_client_free_tx(struct ether_binding * b,
 //        return false;
 //    }
 
-    cc->tx_explicit_msg_needed++;
     if (cc->debug_state_tx == 4) {
         netbench_record_event_simple(bm, RE_TX_DONE_N, rts);
     }
@@ -920,7 +914,6 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
         // Send notification to application, telling that there is
         // no more data
 
-        ++cl->rx_notification_sent;
         struct q_entry entry;
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_sp_notification_from_driver;

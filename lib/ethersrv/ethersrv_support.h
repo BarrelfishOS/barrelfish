@@ -21,7 +21,6 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
         uint64_t trigger, uint64_t cl_data);
 
 
-void add_event_stat(struct pbuf_desc *pbuf_d, int event_type);
 void reset_client_closure_stat(struct client_closure *cc);
 
 #endif // ETHERSRV_BM_SUPPORT_H_
