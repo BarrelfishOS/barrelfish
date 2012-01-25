@@ -308,7 +308,8 @@ static e10k_queue_t* setup_queue(int n, int enable_global)
 
     // Allocate memory for descriptor rings
     tx_size = e10k_q_tdesc_legacy_size * NTXDESCS;
-    tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, tx_size,
+//    tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, tx_size,
+    tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size,
         &frame);
     assert(tx_virt != NULL);
     r = invoke_frame_identify(frame, &frameid);
@@ -318,7 +319,8 @@ static e10k_queue_t* setup_queue(int n, int enable_global)
     txbufs = calloc(NTXDESCS, sizeof(*txbufs));
 
     rx_size = e10k_q_rdesc_legacy_size * NRXDESCS;
-    rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, rx_size,
+//    rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, rx_size,
+    rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size,
         &frame);
     assert(rx_virt != NULL);
     r = invoke_frame_identify(frame, &frameid);
@@ -372,7 +374,7 @@ static e10k_queue_t* setup_queue(int n, int enable_global)
 
 
     // Add RX Buffers
-    b = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE,
+    b = alloc_map_frame(VREGION_FLAGS_READ_WRITE,
         RXBUFSZ * (NRXDESCS - 1), &frame);
     assert(b != NULL);
     r = invoke_frame_identify(frame, &frameid);

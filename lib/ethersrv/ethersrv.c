@@ -110,147 +110,6 @@ struct buffer_descriptor *find_buffer(uint64_t buffer_id)
 } // end function: buffer_descriptor
 
 
-static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
-                                     uint64_t vaddr, uint64_t len,
-                                     uint64_t spp_index,
-                                     struct ether_binding *b)
-{
-
-    struct client_closure *cc = (struct client_closure *)b->st;
-    struct buffer_descriptor *buffer = cc->buffer_ptr;
-
-/*      (struct buffer_descriptor *) ((struct client_closure *) (b->st))->
-      buffer_ptr;
-*/
-    assert(buffer != NULL);
-
-    struct pbuf_desc *pbuf = (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
-    uint32_t new_tail = (buffer->pbuf_tail_rx + 1) % APP_QUEUE_SIZE;
-
-    if (buffer->pbuf_metadata_ds == NULL) {
-        ETHERSRV_DEBUG("memory is yet not provided by the client "
-                       "for pbuf management\n");
-        return -1;
-    }
-
-    /* check if there is a space in app ring before trying to
-     * insert the buffer */
-    if (new_tail == buffer->pbuf_head_rx) {
-        ETHERSRV_DEBUG("no space to add a new receive pbuf\n");
-        printf("no space to add a new receive pbuf[%"PRIu64"] new_tail"
-                " %u msg_hd %u\n",
-              pbuf_id, new_tail, buffer->pbuf_head_rx);
-        return -1;
-    }
-
-    /* FIXME: following is precautionary call.  This flow of code is not
-     * sending and data but only sending back the empty buffer,
-     * so prepare_recv is not strictly necessary. */
-    bulk_arch_prepare_recv((void *) (uintptr_t) vaddr, len);
-
-    pbuf[buffer->pbuf_tail_rx].sr = b;
-    pbuf[buffer->pbuf_tail_rx].pbuf_id = pbuf_id;
-    pbuf[buffer->pbuf_tail_rx].paddr = paddr; // asq: remember for later freeing
-    pbuf[buffer->pbuf_tail_rx].vaddr = vaddr;
-    pbuf[buffer->pbuf_tail_rx].len = len;
-    pbuf[buffer->pbuf_tail_rx].event_sent = false;
-    pbuf[buffer->pbuf_tail_rx].spp_index = spp_index;
-    // Set the statistics
-
-    if (cc->debug_state == 4) {
-        add_event_stat(&pbuf[buffer->pbuf_tail_rx], PBUF_REGISTERED);
-    }
-
-    buffer->pbuf_tail_rx = new_tail;
-    /*
-       ETHERSRV_DEBUG("pbuf added head %u msg_hd %u tail %u in buffer %lu\n",
-       buffer->pbuf_head, buffer->pbuf_head_msg, buffer->pbuf_tail,
-       buffer->buffer_id);
-     */
-    return 0;
-}
-
-static void register_pbuf_v2(struct ether_binding *b, uint64_t buf_id,
-                    uint64_t pbuf_id, uint64_t offset, uint64_t len,
-                    uint64_t rts, uint64_t spp_index)
-{
-
-#if TRACE_ETHERSRV_MODE
-//      trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_N_SPBUF, (uint32_t)pbuf_id);
-#endif                          // TRACE_ETHERSRV_MODE
-
-    errval_t r;
-
-    uint64_t ts = rdtsc();
-/*	ETHERSRV_DEBUG("ETHERSRV: register_pbuf: %"PRIx64" registering ++++++++\n",
-	        pbuf_id);
-*/
-    struct buffer_descriptor *buffer = find_buffer(buf_id);
-    assert(buffer != NULL);
-/*    struct buffer_descriptor *buffer = (struct buffer_descriptor *)
-      ((struct client_closure *) (b->st))->buffer_ptr;
-*/
-      struct client_closure *cl = (struct client_closure *)b->st;
-
-    /* Calculating the physical address of this pbuf. */
-    uint64_t virtual_addr = (uint64_t) (uintptr_t) buffer->va + offset;
-    uint64_t paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
-    /* NOTE: virtual address = virtual base + physical offset */
-/*
-	ETHERSRV_DEBUG("register_pbuf: pbuf id %"PRIx64" on buff_id %"PRIx64"\n",
-	 pbuf_id, buffer->buffer_id);
-*/
-
-    r = add_receive_pbuf_app(pbuf_id, paddr, virtual_addr, len, spp_index, b);
-    if(!err_is_ok(r)) {
-        printf("add_receive_pbuf_app failed\n");
-        abort();
-    }
-
-    if (cl->debug_state == 4) {
-        netbench_record_event_simple(bm, RE_PBUF_REG, ts);
-    }
-}
-
-
-static uint64_t add_new_pbufs_2_app_ring(struct ether_binding *b,
-        struct shared_pool_private *spp_ptr,
-        uint64_t buffer_id)
-{
-    uint64_t count = 0; // no. of slots added to app ring
-
-    struct slot_data sslot; // temp slot to hold information
-    memset(&sslot, 0, sizeof(sslot));
-    // Check if ghost_write_id is valid
-
-    sp_reload_regs(spp_ptr);
-    while(1) {
-
-        // Check for terminating condition
-        if (((spp_ptr->ghost_write_id + 1) % spp_ptr->c_size)
-                == spp_ptr->c_read_id) {
-            return count;
-        }
-
-        sp_copy_slot_data(&sslot,
-                &spp_ptr->sp->slot_list[spp_ptr->ghost_write_id].d);
-        assert(sslot.client_data != 0);
-        assert(sslot.len != 0);
-        assert(sslot.no_pbufs != 0);
-        // Assigning buffer id here because it was not known to application
-        // FIXME: This should be done by the application
-        spp_ptr->sp->slot_list[spp_ptr->ghost_write_id].d.buffer_id = buffer_id;
-        sslot.buffer_id = buffer_id;
-        register_pbuf_v2(b, buffer_id, sslot.pbuf_id, sslot.offset,
-                            sslot.len, sslot.ts, spp_ptr->ghost_write_id);
-        spp_ptr->ghost_write_id = (spp_ptr->ghost_write_id + 1)
-            % spp_ptr->c_size;
-        ++count;
-    } // end while:
-
-    return count;
-} // end function: add_new_pbufs_2_app_ring
-
 static errval_t send_new_buffer_id(struct q_entry entry)
 {
     //    ETHERSRV_DEBUG("send_new_buffer_id -----\n");
@@ -384,9 +243,11 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     sp_reload_regs(closure->spp_ptr);
     if (buffer->role == RX_BUFFER_ID) {
 
+        /*
         uint64_t count = 0;
         count = add_new_pbufs_2_app_ring(cc, closure->spp_ptr,
                 buffer->buffer_id);
+        */
 //        printf("#### Register_buffer: added %"PRIu64" pbufs\n", count);
     }
     report_register_buffer_result(cc, err, buffer->buffer_id);
@@ -404,8 +265,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     assert(spp->sp != NULL);
 
 #if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
-                0);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 0);
 #endif // TRACE_ONLY_SUB_NNET
 
 
@@ -413,49 +273,65 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     // Keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
     uint64_t ghost_read_id_copy = spp->ghost_read_id;
-    uint64_t current_spp_slot_id = spp->ghost_read_id;
+    uint64_t c_slot_id = spp->ghost_read_id;
 
-    struct slot_data s;
-    if (!sp_ghost_read_slot(spp, &s)) {
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 3);
+#endif // TRACE_ONLY_SUB_NNET
+
+//    struct slot_data s;
+//    if (!sp_ghost_read_slot(spp, &s)) {
+    if (c_slot_id == spp->c_write_id) {  // FIXME: not tested yet
         return false;
     }
 
-    // Some sanity checks
-    assert(s.no_pbufs <= MAX_NR_TRANSMIT_PBUFS);
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 1);
+#endif // TRACE_ONLY_SUB_NNET
 
     // FIXME: Make sure that there are s.no_pbuf slots available
+    struct slot_data *sld = &spp->sp->slot_list[c_slot_id].d;
 
-    closure->nr_transmit_pbufs = s.no_pbufs;
+//    closure->nr_transmit_pbufs = spp->sp->slot_list[c_slot_id].d.no_pbufs;
+    closure->nr_transmit_pbufs = sld->no_pbufs;
     closure->rtpbuf = 0;
     closure->len = 0;
 
+    // Some sanity checks
+    assert(closure->nr_transmit_pbufs <= MAX_NR_TRANSMIT_PBUFS);
+
     do {
-        closure->pbuf[closure->rtpbuf].buffer_id = s.buffer_id;
-        struct buffer_descriptor *buffer = find_buffer(s.buffer_id);
+        uint64_t buffer_id = sld->buffer_id;
+        closure->pbuf[closure->rtpbuf].buffer_id = buffer_id;
+        struct buffer_descriptor *buffer = find_buffer(buffer_id);
         assert(buffer != NULL);
         closure->pbuf[closure->rtpbuf].buffer = buffer;
         closure->pbuf[closure->rtpbuf].sr = cc;
         closure->pbuf[closure->rtpbuf].cc = closure;
-        closure->pbuf[closure->rtpbuf].len = s.len;
-        closure->pbuf[closure->rtpbuf].offset = s.offset;
-        closure->pbuf[closure->rtpbuf].client_data = s.client_data;
-        closure->pbuf[closure->rtpbuf].spp_index = current_spp_slot_id;
-        closure->len = closure->len + s.len;  // total lengh of packet
+        closure->pbuf[closure->rtpbuf].len = sld->len;
+        closure->pbuf[closure->rtpbuf].offset = sld->offset;
+        closure->pbuf[closure->rtpbuf].client_data = sld->client_data;
+        closure->pbuf[closure->rtpbuf].spp_index = c_slot_id;
+        closure->len = closure->len + sld->len;  // total lengh of packet
+
+
+        // FIXME: is it needed when memory is already cache coherent?
         // making the buffer memory cache coherent.
-        bulk_arch_prepare_recv((void *) buffer->pa + s.offset,
-                s.len);
+//        bulk_arch_prepare_recv((void *) buffer->pa + s.offset,
+//                s.len);
 
         closure->rtpbuf++;
         if (closure->rtpbuf == closure->nr_transmit_pbufs) {
             // If entire packet is here
             ETHERSRV_DEBUG("Sending packet with [%"PRIu16"]pbufs, offset "
                    "[%"PRIu64"] and pbuf[%"PRIx64"]\n",
-                    closure->rtpbuf, s.offset, s.client_data);
+                    closure->rtpbuf, sld->offset, sld->client_data);
             break;
         }
+        c_slot_id = (c_slot_id + 1) % spp->c_size;
+//        if (!sp_ghost_read_slot(spp, &s)) {
+        if (c_slot_id == spp->c_write_id) {
 
-        current_spp_slot_id = spp->ghost_read_id;
-        if (!sp_ghost_read_slot(spp, &s)) {
             spp->ghost_read_id = ghost_read_id_copy;
             closure->rtpbuf = 0;
             closure->nr_transmit_pbufs = 0;
@@ -463,7 +339,12 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
             assert(!"half packet sent!");
             return false;
         }
+        sld = &spp->sp->slot_list[c_slot_id].d;
     } while(1);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 2);
+#endif // TRACE_ONLY_SUB_NNET
 
     closure->hw_queue = closure->hw_queue + closure->nr_transmit_pbufs;
     r = ether_transmit_pbuf_list_ptr(closure);
@@ -962,72 +843,25 @@ bool notify_client_free_tx(struct ether_binding * b,
     return true;
 }
 
-bool copy_packet_to_user(struct buffer_descriptor * buffer,
+bool copy_packet_to_user(struct buffer_descriptor *buffer,
                          void *data, uint64_t len)
 {
-
-    uint32_t phead_rx, ptail_rx;
-
-    if (buffer == NULL) {
-        /* Invalid buffer */
-        printf("ERROR: copy_packet_to_user: Invalid buffer.\n");
-        return false;
-    }
-
+    assert(len > 0);
+    assert(data != NULL);
+    assert(buffer != NULL);
     struct ether_binding *b = buffer->con;
-    if(b == NULL) {
-        printf("copy_packet_to_user: failed as b is NULL\n");
-        printf("callstack: %p %p %p %p\n",
-	     __builtin_return_address(0),
-	     __builtin_return_address(1),
-	     __builtin_return_address(2),
-	     __builtin_return_address(3));
-        assert(b != NULL);
-        return false;
-    }
+    assert(b != NULL);
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
+    struct shared_pool_private *spp = cl->spp_ptr;
+    assert(spp != NULL);
 
-    struct pbuf_desc *pbuf_list =
-      (struct pbuf_desc *) (buffer->pbuf_metadata_ds);
-
-    if (len <= 0 || data == NULL) {
-        ETHERSRV_DEBUG("[%d]ERROR: copy_packet_to_user: Invalid packet of len %"
-                       PRIu64 " and ptr [%p]\n", disp_get_core_id(), len, data);
-
-        if (cl->debug_state == 4) {
-            ++cl->in_dropped_invalid_pkt;
-        }
-        return false;
-        /* This is just another error, don't abort, ignore the packet
-         * and continue. */
-    }
-
-    phead_rx = buffer->pbuf_head_rx;
-    ptail_rx = buffer->pbuf_tail_rx;
-
-    struct pbuf_desc *upbuf = &pbuf_list[phead_rx];
-
-//    assert(upbuf != NULL);
-    if (upbuf == NULL) {
-        /* pbufs are not yet registered, so can't send packet to userspace. */
-        ETHERSRV_DEBUG
-          ("ERROR: copy_packet_to_user: No pbufs registered for selected buffer\n");
-        if (cl->debug_state == 4) {
-            ++cl->in_dropped_no_app;
-        }
-        return false;
-    }
-
-    if (((phead_rx + 1) % APP_QUEUE_SIZE) == ptail_rx) {
-
-        // FIXME: notify user apps about pending packets
+    sp_reload_regs(spp);
+    if (sp_queue_full(spp)) {
         //printf
-        ETHERSRV_DEBUG
-        ("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
-                "phead[%u] ptail[%u]\n", disp_get_domain_id(),
-                       buffer->buffer_id, buffer->pbuf_head_rx,
-                       buffer->pbuf_tail_rx);
+        ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
+                "read[%"PRIu64"] write[%"PRIu64"]\n", disp_get_domain_id(),
+                buffer->buffer_id, spp->c_read_id, spp->c_write_id);
 
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
@@ -1035,70 +869,46 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         return false;
     }
 
-    void *dst = (void *) (uintptr_t) upbuf->vaddr;
+    uint64_t offset = spp->sp->slot_list[spp->c_write_id].d.offset;
+    assert(offset < (1L << buffer->bits));
+    void *dst = (void *) (uintptr_t) buffer->va + offset;
 
     ETHERSRV_DEBUG("Copy packet pos %p %p %p\n", buffer->va, dst,
                    (buffer->va + (1L << buffer->bits)));
 
-    if ((dst < (buffer->va + (1L << buffer->bits))) && (dst >= buffer->va)) {
-        uint64_t ts = rdtsc();
+    uint64_t ts = rdtsc();
 
-        memcpy_fast((void *) (uintptr_t) upbuf->vaddr, data, len);
-        if (cl->debug_state == 4) {
-            netbench_record_event_simple(bm, RE_COPY, ts);
-        }
-
-    } else {
-        // k: naughty client does not deserve a packet :)
-        ETHERSRV_DEBUG("naughty client detected\n");
-        if (cl->debug_state == 4) {
-            ++cl->in_dropped_app_invalid_buf;
-        }
-        return false;
+    memcpy_fast((void *) (uintptr_t)dst, data, len);
+    if (cl->debug_state == 4) {
+        netbench_record_event_simple(bm, RE_COPY, ts);
     }
+
     // add trace pkt cpy
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
 
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
+
 #if TRACE_ONLY_SUB_NNET
     uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVCOPIED,
                 pkt_location);
 #endif // TRACE_ONLY_SUB_NNET
 
-    upbuf->packet_size = len;
-
-    // ****************************************
-    // updating spp with new packet info
-    sp_reload_regs(cl->spp_ptr);
-    // Make sure that spp_index is the slot which will be next written
-    assert(upbuf->spp_index == cl->spp_ptr->c_write_id);
-
     // update the length of packet in sslot.len field
-    struct slot_data sslot;
-    sp_copy_slot_data_from_index(cl->spp_ptr, upbuf->spp_index, &sslot);
-    sslot.len = len;
-    sslot.no_pbufs = 1;
-    sslot.ts = rdtsc();
+    spp->sp->slot_list[spp->c_write_id].d.len = len;
+    spp->sp->slot_list[spp->c_write_id].d.no_pbufs = 1;
+//  spp->sp->slot_list[spp->c_write_id].d.ts = rdtsc();
 
-    // update the spp indicating the new packet
-    // need to increment write pointer
-    if(!sp_produce_slot(cl->spp_ptr, &sslot)) {
-        printf("sp_produce_slot failed\n");
+
+//    if(!sp_set_write_index(spp,((spp->c_write_id + 1) % spp->c_size))){
+    if(!sp_increment_write_index(spp)){
+        printf("########### ERROR: cp_pkt_2_usr: sp_set_write_index failed\n");
+        USER_PANIC("increment_write_index problem\n");
         abort();
+        return false;
     }
-
-    phead_rx = (phead_rx + 1) % APP_QUEUE_SIZE;
-    buffer->pbuf_head_rx = phead_rx;
-
-    // add newly available pbuf slots into app-queue and hardware queue
-    uint64_t count = 0;
-    count = add_new_pbufs_2_app_ring(buffer->con, cl->spp_ptr,
-            buffer->buffer_id);
-    ETHERSRV_DEBUG("cp_pkt_2_usr: added %"PRIu64" pbufs into app ring\n",
-            count);
 
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSPPDONE,
@@ -1109,15 +919,6 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
     if (cl->spp_ptr->notify_other_side) {
         // Send notification to application, telling that there is
         // no more data
-
-        /*
-        if (cl->debug_state == 4) {
-            printf("copy_packet_to_user: notify other side [%"PRIu64"], "
-                    "notify [%"PRIu64"]\n", cl->in_filter_matched,
-                    cl->spp_ptr->notify_other_side);
-            sp_print_metadata(cl->spp_ptr);
-        }
-        */
 
         ++cl->rx_notification_sent;
         struct q_entry entry;
@@ -1130,16 +931,6 @@ bool copy_packet_to_user(struct buffer_descriptor * buffer,
         enqueue_cont_q(cl->q, &entry);
         cl->spp_ptr->notify_other_side = 0;
     }
-    /* else {
-         if (cl->debug_state == 4) {
-            printf("copy_packet_to_user: not notify other side [%"PRIu64"], "
-                    "notify [%"PRIu64"]\n", cl->in_filter_matched,
-                    cl->spp_ptr->notify_other_side);
-            sp_print_metadata(cl->spp_ptr);
-        }
-    }
-    */
-
     return true;
 } // end function: copy_packet_to_user
 

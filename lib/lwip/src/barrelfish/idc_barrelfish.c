@@ -412,10 +412,11 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         netbench_record_event_no_ts(nb, TX_SND_PKT_S);
     }
 
-
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
 #endif // !defined(__scc__)
+#endif // 0
 
 #if TRACE_ONLY_SUB_NNET
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIFLUSHED,

@@ -20,42 +20,13 @@
 #include <procon/procon.h>
 
 
-// *******************  cache coherency specific code
-#define MAX_CACHE_READ_TRIES  3
 
 // Hack for profiling to see how much mfence slows the code down
 // should probably not be disabled.
-//#define DISABLE_MFENCE
+#define DISABLE_MFENCE    1
 
 static uint64_t sp_atomic_read_reg(union vreg *reg)
 {
-
-#if 0
-    volatile uint64_t v1 = 0;
-    volatile uint64_t v2 = 0;
-    uint8_t tries = 0;
-
-    for (tries = 0; tries < MAX_CACHE_READ_TRIES; ++tries) {
-/*
-#if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(reg, CACHESIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-*/
-        v1 = reg->value;
-/*
-#if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(reg, CACHESIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-*/
-        v2 = reg->value;
-
-        if (v1 == v2) {
-            return v1;
-        }
-    } // end for : retrying
-    assert (!"atomic read of read index failed");
-    return v1;
-#endif // 0
     return reg->value;
 #ifndef DISABLE_MFENCE
     mfence();
@@ -445,6 +416,8 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 {
     assert(d != NULL);
     assert(s != NULL);
+    *d = *s;
+    /*
     d->buffer_id = s->buffer_id;
     d->pbuf_id = s->pbuf_id;
     d->offset = s->offset;
@@ -455,6 +428,7 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 #ifndef DISABLE_MFENCE
     mfence();
 #endif
+*/
 }
 
 void sp_copy_slot_data_from_index(struct shared_pool_private *spp,
@@ -545,6 +519,33 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
     return true;
 } // end function: sp_set_write_index
 
+bool sp_increment_write_index(struct shared_pool_private *spp)
+{
+    sp_reload_regs(spp);
+    uint64_t index = ((spp->c_write_id + 1) % spp->c_size);
+
+    if (sp_queue_empty(spp)) {
+        // Consumer is assuming that there is no data in the pool
+        // As we have created new data, we should inform
+        // the consumer to consume more!
+        // Typically means, I am slow!
+        ++spp->notify_other_side;
+    }
+
+
+    sp_atomic_set_reg(&spp->sp->write_reg, index);
+    spp->c_write_id = index;
+
+     if (sp_queue_full(spp)) {
+        // There no free space left to create new items.
+        // We should inform the consumer that it is slow!
+        // Typically means, consumer is slow!
+        ++spp->notify_other_side;
+    }
+
+    ++spp->produce_counter;
+    return true;
+} // end function: sp_increment_write_index
 
 
 uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
