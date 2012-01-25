@@ -375,9 +375,10 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
     int msgpos;
 
     do {
-        if(!flounder_stub_ump_can_send(s)) {
-            break;
+        if (!flounder_stub_ump_can_send(s)) {
+            return FLOUNDER_ERR_BUF_SEND_MORE;
         }
+
         msg = ump_chan_get_next(&s->chan, &ctrl);
         flounder_stub_ump_control_fill(s, &ctrl, msgnum);
 
@@ -400,13 +401,11 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
         msg->header.control = ctrl;
     } while (*pos < len);
 
-    // do we need to send more? if not, zero out our state for the next buffer
-    if (*pos >= len) {
-        *pos = 0;
-        return SYS_ERR_OK;
-    } else {
-        return FLOUNDER_ERR_BUF_SEND_MORE;
-    }
+    // we're done. zero out our state for the next buffer
+    assert(*pos >= len);
+    *pos = 0;
+
+    return SYS_ERR_OK;
 }
 
 errval_t flounder_stub_ump_recv_buf(volatile struct ump_message *msg,
