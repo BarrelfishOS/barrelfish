@@ -35,8 +35,7 @@ static hash_table* subscriber_index = NULL;
 
 static char* mystrdup(char* data)
 {
-
-    char *p = malloc(strlen(data) + 1);
+    char *p = malloc(strlen(data)+1);
     if (p == NULL) {
         return NULL;
     }
@@ -98,7 +97,9 @@ int p_save_index(void)
 
     // Add value into index
     char* value = NULL;
-    ec_get_string(ec_arg(3), &value);
+    int res = ec_get_string(ec_arg(3), &value);
+    assert(res == PSUCCEED);
+
     skip_insert(sl, mystrdup(value));
     DIST2_DEBUG("insert %s into index[%s]=", value, key);
     //skip_print_list(sl);
