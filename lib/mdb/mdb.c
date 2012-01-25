@@ -13,13 +13,12 @@
  */
 
 #include <stdio.h>
-#include <kernel.h>
 #include <string.h>
+#include <errors/errno.h>
+#include <barrelfish/types.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
 #include <cap_predicates.h>
-#include <dispatch.h>
-#include <paging_kernel_arch.h>
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
 
@@ -171,43 +170,3 @@ void remove_mapping(struct cte *cte)
     mdb_remove(cte);
 }
 
-/// Recursively remove the cnode and the caps it contains from the mapping db.
-void mdb_remove_recursively(struct cte *cte)
-{
-    // Parameter checking
-    assert(cte != NULL);
-
-    // Remove this cte
-    mdb_remove(cte);
-
-    // Handler inner ctes
-    switch (cte->cap.type) {
-
-    case ObjType_Dispatcher:
-        // Remove specific fields from the dcb
-        mdb_remove_recursively(&cte->cap.u.dispatcher.dcb->cspace);
-        remove_mapping(&cte->cap.u.dispatcher.dcb->disp_cte);
-        break;
-
-    case ObjType_CNode:
-        {
-            // Number of slots in the cnode
-            uint64_t max_slots = 1UL << cte->cap.u.cnode.bits;
-
-            // Remove each cap stored in the cnode
-            for(cslot_t slot_no = 0; slot_no < max_slots; slot_no++) {
-                struct cte *cte_in_cnode = caps_locate_slot(cte->cap.u.cnode.cnode,
-                                                            slot_no);
-                if (cte_in_cnode->cap.type == ObjType_Null) {
-                    continue;
-                }
-                mdb_remove_recursively(cte_in_cnode);
-            }
-            break;
-        }
-
-    default:
-        break;
-
-    }
-}

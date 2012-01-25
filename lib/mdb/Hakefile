@@ -13,7 +13,7 @@
 [
   build library {
     target = "mdb",
-    cFiles = [ "mdb_tree.c" ],
+    cFiles = [ "mdb_tree.c", "mdb.c" ],
     addLibraries = [ "barrelfish" ],
     addIncludes = [ "/include/barrelfish" ]
   }
