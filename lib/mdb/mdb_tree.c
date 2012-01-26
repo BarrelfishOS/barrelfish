@@ -54,10 +54,10 @@ mdb_dump(struct cte *cte, int indent)
     for (int i = 0; i < indent; i++) { putchar('\t'); }
     printf("%p{left=%p,right=%p,end=0x%08"PRIxGENPADDR",end_root=%"PRIu8","
             "level=%"PRIu8",address=0x%08"PRIxGENPADDR",size=0x%08"PRIx64","
-            "type=%"PRIu8"}\n",
+            "type=%"PRIu8",remote_rels=%d}\n",
             cte, node->left, node->right, node->end, node->end_root,
             node->level, get_address(C(cte)), get_size(C(cte)),
-            (uint8_t)C(cte)->type);
+            (uint8_t)C(cte)->type, N(cte)->remote_relations);
 
     if (node->right) {
         if (node->right == cte) {

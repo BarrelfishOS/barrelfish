@@ -833,9 +833,6 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
         return SYS_ERR_INVALID_RETYPE;
     } else if (!is_revoked_first(src_cte, src_type)){
         printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
-        if (2 == src_type) {
-            mdb_dump_all_the_things();
-        }
         return SYS_ERR_REVOKE_FIRST;
 #ifndef RCAPDB_NULL
     } else if (!from_monitor && is_cap_remote(src_cte)) {

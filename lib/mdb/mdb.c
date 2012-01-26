@@ -40,6 +40,16 @@ void set_cap_remote(struct cte *cte, bool is_remote)
         }
         next = mdb_successor(next);
     }
+
+    struct cte *prev = mdb_predecessor(cte);
+    while(prev != cte) {
+        if (is_copy(&prev->cap, &cte->cap)) {
+            prev->mdbnode.remote_relations = is_remote;
+        } else {
+            break;
+        }
+        prev = mdb_predecessor(prev);
+    }
 }
 
 bool is_cap_remote(struct cte *cte) 
