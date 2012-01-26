@@ -23,6 +23,47 @@
 #endif
 #define C(cte) (&(cte)->cap)
 
+#ifdef MDB_FAIL_INVARIANTS
+static void
+mdb_dump_and_fail(struct cte *cte, int failure)
+{
+    mdb_dump(cte, 0);
+    printf("failed on cte %p with failure %d\n", cte, failure);
+    assert(false);
+}
+#define MDB_RET_INVARIANT(cte, failure) mdb_dump_and_fail(cte, failure)
+#else
+#define MDB_RET_INVARIANT(cte, failure) return failure
+#endif
+
+#ifdef MDB_RECHECK_INVARIANTS
+#define CHECK_INVARIANTS(cte) mdb_check_subtree_invariants(cte)
+#else
+#define CHECK_INVARIANTS(cte) ((void)0)
+#endif
+
+#ifdef MDB_TRACE
+#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) do { \
+    printf("enter " __func__ "(" args_fmt ")\n", __VA_ARGS__); \
+    CHECK_INVARIANTS(valid_cte); \
+    while (0)
+#define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
+    CHECK_INVARIANTS(valid_cte); \
+    printf("leave " __func__); \
+    return; \
+    while (0)
+#define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
+    CHECK_INVARIANTS(valid_cte); \
+    printf("leave " __func__ "->" ret_fmt, (ret)); \
+    return (ret); \
+    while (0)
+#else
+#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) ((void)0)
+#define MDB_TRACE_LEAVE_SUB(valid_cte) do { return; } while (0)
+#define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) \
+    do { return (ret); } while (0)
+#endif
+
 struct cte *mdb_root = NULL;
 
 void
@@ -70,14 +111,6 @@ mdb_dump(struct cte *cte, int indent)
     }
 }
 
-__attribute__((used))
-static void
-mdb_dump_and_fail(struct cte *cte, int failure)
-{
-    mdb_dump(cte, 0);
-    printf("failed on cte %p with failure %d\n", cte, failure);
-    assert(false);
-}
 
 /*
  * invariants
@@ -95,28 +128,23 @@ mdb_check_subtree_invariants(struct cte *cte)
     struct mdbnode *node = N(cte);
 
     if (node->level > 0 && !(node->left && node->right)) {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_BOTHCHILDREN);
-        return MDB_INVARIANT_BOTHCHILDREN;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_BOTHCHILDREN);
     }
     if (node->left && !(N(node->left)->level < node->level)) {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_LEFT_LEVEL_LESS);
-        return MDB_INVARIANT_LEFT_LEVEL_LESS;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_LEFT_LEVEL_LESS);
     }
     if (node->right && !(N(node->right)->level <= node->level)) {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_RIGHT_LEVEL_LEQ);
-        return MDB_INVARIANT_RIGHT_LEVEL_LEQ;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_RIGHT_LEVEL_LEQ);
     }
     if (node->right && N(node->right)->right &&
         !(N(N(node->right)->right)->level < node->level))
     {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS);
-        return MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS);
     }
     if (node->right && N(node->right)->left &&
         !(N(N(node->right)->left)->level < node->level))
     {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS);
-        return MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS);
     }
 
     // build expected end root for current node
@@ -128,8 +156,7 @@ mdb_check_subtree_invariants(struct cte *cte)
         expected_end_root = MAX(expected_end_root, N(node->right)->end_root);
     }
     if (node->end_root != expected_end_root) {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_END_IS_MAX);
-        return MDB_INVARIANT_END_IS_MAX;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_END_IS_MAX);
     }
 
     // build expected end for current node. this is complex because the root
@@ -149,15 +176,13 @@ mdb_check_subtree_invariants(struct cte *cte)
         expected_end = MAX(expected_end, N(node->right)->end);
     }
     if (node->end != expected_end) {
-        mdb_dump_and_fail(cte, MDB_INVARIANT_END_IS_MAX);
-        return MDB_INVARIANT_END_IS_MAX;
+        MDB_RET_INVARIANT(cte, MDB_INVARIANT_END_IS_MAX);
     }
 
     if (node->left) {
         assert(node->left != cte);
         if (compare_caps(C(node->left), C(cte), true) >= 0) {
-            mdb_dump_and_fail(cte, MDB_INVARIANT_LEFT_SMALLER);
-            return MDB_INVARIANT_LEFT_SMALLER;
+            MDB_RET_INVARIANT(cte, MDB_INVARIANT_LEFT_SMALLER);
         }
         err = mdb_check_subtree_invariants(node->left);
         if (err) {
@@ -168,8 +193,7 @@ mdb_check_subtree_invariants(struct cte *cte)
     if (node->right) {
         assert(node->right != cte);
         if (compare_caps(C(node->right), C(cte), true) <= 0) {
-            mdb_dump_and_fail(cte, MDB_INVARIANT_RIGHT_GREATER);
-            return MDB_INVARIANT_RIGHT_GREATER;
+            MDB_RET_INVARIANT(cte, MDB_INVARIANT_RIGHT_GREATER);
         }
         err = mdb_check_subtree_invariants(node->right);
         if (err) {
@@ -369,6 +393,7 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     errval_t err;
     assert(new_node);
     assert(current);
+    MDB_TRACE_ENTER(*current, "%p, %p (*%p)", new_node, *current, current);
 
     struct cte *current_ = *current;
 
@@ -402,15 +427,15 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     current_ = mdb_split(current_);
     *current = current_;
 
-    return SYS_ERR_OK;
+    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, SYS_ERR_OK, current_);
 }
 
 errval_t
 mdb_insert(struct cte *new_node)
 {
+    MDB_TRACE_ENTER(mdb_root, "%p", new_node);
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
-    assert(C(new_node)->type != 0);
-    assert(mdb_check_invariants() == 0);
+    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
     return ret;
 }
 
@@ -465,8 +490,8 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
                     struct cte **current, struct cte *parent,
                     int dir, struct cte **ret_target)
 {
-    //printf("mdb_exchange_remove(%p, %p, %p, %p, %d)\n", target, target_parent, *current, parent, dir);
     assert(current);
+    MDB_TRACE_ENTER(*current, "%p, %p, %p (*%p), %p, %d", target, target_parent, *current, current, parent, dir);
     assert(target);
     assert(*current);
     assert(parent);
@@ -476,7 +501,6 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
     assert(ret_target);
     assert(!*ret_target);
     assert(dir != 0);
-    assert(mdb_check_subtree_invariants(*current) == 0);
     assert(compare_caps(C(target), C(*current), true) != 0);
     assert(mdb_is_child(target, target_parent));
     assert(mdb_is_child(*current, parent));
@@ -526,16 +550,15 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
             assert(mdb_check_subtree_invariants(new_current) == 0);
             *ret_target = current_;
             *current = new_current;
-            //printf("leave mdb_exchange_remove\n");
-            return;
+            MDB_TRACE_LEAVE_SUB(NULL);
         }
     }
 
     if (*ret_target) {
         // implies we recursed further down to find a leaf. need to rebalance.
         current_ = mdb_rebalance(current_);
-        assert(mdb_check_subtree_invariants(current_) == 0);
         *current = current_;
+        MDB_TRACE_LEAVE_SUB(current_);
     }
     else {
         //printf("found leaf %p\n", current_);
@@ -549,46 +572,34 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
         // current to null. This also sets parent's corresponding child to
         // null by recursion.
         *current = NULL;
+        MDB_TRACE_LEAVE_SUB(NULL);
     }
-
-    assert(C(target)->type != 0);
-    assert(*current == NULL || C(*current)->type != 0);
-    assert(C(parent)->type != 0);
-
-    //printf("leave mdb_exchange_remove\n");
 }
 
 static errval_t
 mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
 {
-    //printf("enter mdb_subtree_remove\n");
-    assert(C(target)->type != 0);
-    assert(!*current || C(*current)->type != 0);
-    assert(!parent || C(parent)->type != 0);
+    assert(current);
+    MDB_TRACE_ENTER(*current, "%p, %p (*%p), %p", target, *current, current, parent);
 
     errval_t err;
-    assert(current);
     struct cte *current_ = *current;
-    assert(mdb_check_subtree_invariants(current_) == 0);
     if (!current_) {
-        //printf("leave mdb_subtree_remove\n");
-        return CAPS_ERR_MDB_ENTRY_NOTFOUND;
+        MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, CAPS_ERR_MDB_ENTRY_NOTFOUND, current_);
     }
 
     int compare = compare_caps(C(target), C(current_), true);
-    //printf("compare_caps(%p, %p) -> %d\n", target, current_, compare);
     if (compare > 0) {
         err = mdb_subtree_remove(target, &N(current_)->right, current_);
         if (err != SYS_ERR_OK) {
-            //printf("leave mdb_subtree_remove\n");
+            MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
             return err;
         }
     }
     else if (compare < 0) {
         err = mdb_subtree_remove(target, &N(current_)->left, current_);
         if (err != SYS_ERR_OK) {
-            //printf("leave mdb_subtree_remove\n");
-            return err;
+            MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
         }
     }
     else {
@@ -597,7 +608,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
             // target is leaf, just remove
             *current = NULL;
             //printf("leave mdb_subtree_remove\n");
-            return SYS_ERR_OK;
+            MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, SYS_ERR_OK, NULL);
         }
         else if (!N(current_)->left) {
             // move to right child then go left (dir=-1)
@@ -629,21 +640,15 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
     assert(C(target)->type != 0);
     assert(!*current || C(*current)->type != 0);
 
-    //printf("leave mdb_subtree_remove\n");
-    return SYS_ERR_OK;
+    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, SYS_ERR_OK, current_);
 }
 
 errval_t
 mdb_remove(struct cte *target)
 {
-    //printf("mdb_remove(%p)\n", target);
-    //mdb_dump(mdb_root, 0);
-    assert(C(target)->type != 0);
+    MDB_TRACE_ENTER(mdb_root, "%p", target);
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
-    if (err_is_fail(err)) {
-        printf("mdb_remove -> err:%08"PRIxPTR"\n", err);
-    }
-    return err;
+    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
 }
 
 static struct cte*
