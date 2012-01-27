@@ -16,5 +16,32 @@
     cFiles = [ "mdb_tree.c", "mdb.c" ],
     addLibraries = [ "barrelfish" ],
     addIncludes = [ "/include/barrelfish" ]
-  }
+  },
+
+  let
+    buildKernelMdbFn allfiles filename args =
+      Rules [ buildKernelMdb allfiles filename args arch
+              | arch <- architectures args ]
+    buildKernelMdb allfiles filename args arch =
+      let kopts = kernelOptions arch
+          libopts = libGetOptionsForArch arch args
+          opts = kopts {
+              extraIncludes = extraIncludes libopts,
+              optSuffix = optSuffix libopts
+            }
+          predicatesFile = "/capabilities/cap_predicates.c"
+          predicatesObj = objectFilePath opts predicatesFile
+          csrcs = cFiles args
+          objectFiles = predicatesObj : (allObjectPaths opts args)
+      in Rules [
+        compileCFiles opts csrcs,
+        compileGeneratedCFile opts predicatesFile,
+        staticLibrary opts (target args) (objectFiles)
+      ]
+  in
+    build Args.defaultArgs {
+      buildFunction = buildKernelMdbFn,
+      target = "mdb_kernel",
+      cFiles = [ "mdb_tree.c", "mdb.c" ]
+    }
 ]
