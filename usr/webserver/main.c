@@ -66,6 +66,17 @@ int main(int argc, char**argv)
 
     struct waitset *ws = get_default_waitset();
     while (1) {
+        // check for any event without blocking
+        err = event_dispatch_non_block(ws);
+        if (err != LIB_ERR_NO_EVENT) {
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch");
+                break;
+            }
+        }
+
+        // Check if lwip has any pending work to finish
+        wrapper_perform_lwip_work();
         err = event_dispatch(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");

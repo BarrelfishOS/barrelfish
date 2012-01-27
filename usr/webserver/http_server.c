@@ -601,6 +601,7 @@ static void realinit(void)
     printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
     printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&last_ts)));
     printf("Starting webserver\n");
+
 }
 
 void http_server_init(struct ip_addr server, const char *path)

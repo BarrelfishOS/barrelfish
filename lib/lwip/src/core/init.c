@@ -478,6 +478,11 @@ void lwip_debug_show_spp_status(int connection)
     debug_show_spp_status(connection);
 }
 
+uint64_t wrapper_perform_lwip_work(void)
+{
+    return perform_lwip_work();
+}
+
 
 void lwip_benchmark_control(int direction, uint8_t state, uint64_t trigger,
         uint64_t cl)
