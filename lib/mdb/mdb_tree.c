@@ -23,12 +23,15 @@
 #endif
 #define C(cte) (&(cte)->cap)
 
+// PP switch to change behaviour if invariants fail
 #ifdef MDB_FAIL_INVARIANTS
+// on failure, dump mdb and terminate
 static void
 mdb_dump_and_fail(struct cte *cte, int failure)
 {
     mdb_dump(cte, 0);
     printf("failed on cte %p with failure %d\n", cte, failure);
+    // XXX: what is "proper" way to always terminate?
     assert(false);
 }
 #define MDB_RET_INVARIANT(cte, failure) mdb_dump_and_fail(cte, failure)
@@ -36,12 +39,14 @@ mdb_dump_and_fail(struct cte *cte, int failure)
 #define MDB_RET_INVARIANT(cte, failure) return failure
 #endif
 
+// PP switch to toggle checking of invariants by default
 #ifdef MDB_RECHECK_INVARIANTS
 #define CHECK_INVARIANTS(cte) mdb_check_subtree_invariants(cte)
 #else
 #define CHECK_INVARIANTS(cte) ((void)0)
 #endif
 
+// printf tracing and entry/exit invariant checking
 #ifdef MDB_TRACE
 #define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) do { \
     printf("enter " __func__ "(" args_fmt ")\n", __VA_ARGS__); \
@@ -66,6 +71,10 @@ mdb_dump_and_fail(struct cte *cte, int failure)
 
 struct cte *mdb_root = NULL;
 
+/*
+ * Debug printing.
+ */
+
 void
 mdb_dump_all_the_things(void)
 {
@@ -75,6 +84,9 @@ mdb_dump_all_the_things(void)
 void
 mdb_dump(struct cte *cte, int indent)
 {
+    // Print a tree with root on the left, the smallest element at the top and the
+    // largest at the bottom.
+
     if (!cte) {
         printf("NULL{}\n");
         return;
@@ -113,7 +125,7 @@ mdb_dump(struct cte *cte, int indent)
 
 
 /*
- * invariants
+ * Invariant checking.
  */
 
 static int
@@ -215,7 +227,7 @@ mdb_check_invariants(void)
 }
 
 /*
- * general internal helpers
+ * General internal helpers.
  */
 
 static void
@@ -384,7 +396,7 @@ mdb_is_inside(genpaddr_t outer_begin, genpaddr_t outer_end,
 }
 
 /*
- * operations and operation-specific helpers
+ * Operations and operation-specific helpers.
  */
 
 static errval_t
@@ -398,6 +410,7 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     struct cte *current_ = *current;
 
     if (!current_) {
+        // we've reached an empty leaf, insert here
         *current = new_node;
         mdb_update_end(new_node);
         return SYS_ERR_OK;
@@ -436,7 +449,6 @@ mdb_insert(struct cte *new_node)
     MDB_TRACE_ENTER(mdb_root, "%p", new_node);
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
-    return ret;
 }
 
 static void
@@ -651,6 +663,10 @@ mdb_remove(struct cte *target)
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
 }
 
+/*
+ * Queries on the ordering.
+ */
+
 static struct cte*
 mdb_sub_find_equal(struct capability *cap, struct cte *current)
 {
@@ -795,6 +811,10 @@ mdb_successor(struct cte *current)
     // "successor" into a O(log(n)) operation, instead of the expected O(1).
     return mdb_sub_find_greater(C(current), mdb_root, false, true);
 }
+
+/*
+ * The range query.
+ */
 
 static struct cte*
 mdb_choose_surrounding(genpaddr_t address, size_t size, struct cte *first,
