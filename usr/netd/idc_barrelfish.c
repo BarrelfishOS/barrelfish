@@ -1085,7 +1085,7 @@ static errval_t send_filterID_for_pause(struct q_entry e)
 static void idc_unpause_filter(uint64_t filter_id, uint64_t buffer_id_rx,
                                uint64_t buffer_id_tx)
 {
-    NETD_DEBUG("idc_pause_filter: called for id %" PRIu64 "\n", id);
+    NETD_DEBUG("idc_pause_filter: called for id %" PRIu64 "\n", filter_id);
 
     struct q_entry entry;
 
@@ -1673,7 +1673,6 @@ static void idc_register_filter_memory(struct capref cap)
     enqueue_cont_q(ccnc->q, &entry);
 
     NETD_DEBUG("##### idc_register_filter_memory: terminated\n");
-
 }
 
 

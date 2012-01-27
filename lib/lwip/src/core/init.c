@@ -307,7 +307,7 @@ static void remaining_lwip_initialization(char *card_name)
 #if LWIP_DNS
     dns_init();
 #endif                          /* LWIP_DNS */
-    DEBUGPRINTPS("lwip_remaining_initialization -- done\n");
+    printf("LWIP: lwip_started\n");
 }
 
 extern struct waitset *lwip_waitset;    // idc_barrelfish.c

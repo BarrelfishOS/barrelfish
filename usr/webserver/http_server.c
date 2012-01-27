@@ -194,7 +194,7 @@ static void http_server_close(struct tcp_pcb *tpcb, struct http_conn *cs)
             in_seconds(get_time_delta(&cs->start_ts)));
 */
     DEBUGPRINT("%d: http_server_close freeing the connection\n",
-        conn->request_no);
+        cs->request_no);
 
     // replace TCP callbacks with NULL
     tcp_arg(tpcb, NULL);
@@ -448,6 +448,7 @@ static err_t http_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
 {
     struct http_conn *conn = arg;
 
+    DEBUGPRINT("%d, http_server_recv called\n", conn->request_no);
     if (err != ERR_OK) {
         SERVER_DEBUG("http_server_recv called with err %d\n", err);
         return ERR_OK;
@@ -567,6 +568,7 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
         DEBUGPRINT("http_accept: Out of memory\n");
         return ERR_MEM;
     }
+    SERVER_DEBUG("accpet called: %s\n", conn->request);
     increment_http_conn_reference (conn);
     /* NOTE: This initial increment marks the basic assess and it will be
         decremented by http_server_invalidate */

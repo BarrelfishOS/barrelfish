@@ -26,23 +26,24 @@
 /* QUEUE_DEBUG enables the debug statements */
 //#define QUEUE_DEBUG 1
 
+static void cont_queue_send_next_message(struct cont_queue *q);
+
+#ifdef QUEUE_DEBUG
+static void qprintf_mac(struct cont_queue *q, char *msg)
+{
+    if (q->debug) {
+        printf("CQ: %s [%d] [%d] qqqqqq\n", msg, q->head, q->tail);
+    }
+}
+#define qprintf(x...) qprintf_mac(x)
+
+#else
+#define qprintf(x...) ((void)0)
+#endif /* QUEUE_DEBUG */
+
 //****************************************************************************
 /************** Generic continuation queue implementation *******************/
 /* WARN: use only when your responses contains only integers */
-
-static void cont_queue_send_next_message(struct cont_queue *q);
-
-static void qprintf (struct cont_queue *q, char *msg)
-{
-
-#ifdef QUEUE_DEBUG
-    if (q->name[0]) { /* show debug msg, only if queue name is present */
-        printf("CQ: [%s] %s [%d] [%d] qqqqqq\n",
-                    q->name, msg, q->head, q->tail);
-    }
-#endif /* QUEUE_DEBUG */
-
-}
 
 
 
@@ -57,20 +58,11 @@ struct cont_queue *create_cont_q(char *name)
         abort();
         /* FIXME: introduce new error and return the error */
     }
-    strncpy(ptr->name, name, 63);
-    ptr->running = 0;
+    memset(ptr, 0, sizeof(struct cont_queue));
     return ptr;
 }/* end function: create_cont_q */
 
-void queue_set_canary(struct cont_queue *q, uint8_t canary_val)
-{
-   q->canary = canary_val;
-}
 
-uint8_t queue_get_canary(struct cont_queue *q)
-{
-   return q->canary;
-}
 /* Tells if queue has enough space to add more events,
  * or if the producer should pause for a while */
 int queue_free_slots(struct cont_queue *q)
@@ -89,7 +81,7 @@ int queue_free_slots(struct cont_queue *q)
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 {
 
-    q->canary = 13;
+    qprintf(q, "enqueue started");
     if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail)
     {
         printf("ERROR:  Queue [%s] is full\n", q->name);
@@ -139,7 +131,6 @@ void cont_queue_callback(void *arg)
 {
     struct cont_queue *q = (struct cont_queue *)arg;
 
-    q->canary = 14;
     q->tail = (q->tail + 1) % MAX_QUEUE_SIZE;
     qprintf(q, "from-continuation");
     cont_queue_send_next_message(q);
@@ -154,14 +145,12 @@ void cont_queue_callback(void *arg)
 void cont_queue_send_next_message(struct cont_queue *q)
 {
     qprintf(q, "sending-msg");
-    q->canary = 15;
 
     if(q->head == q->tail){
         qprintf(q, "Queue-empty-Recursion-End!!");
         q->running = 0;
         return;
     }
-
     errval_t err = q->qelist[q->tail].handler(q->qelist[q->tail]);
     if (err_is_fail(err)) {
         if (err == FLOUNDER_ERR_TX_BUSY ) {
