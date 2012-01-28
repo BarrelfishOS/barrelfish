@@ -30,7 +30,7 @@ struct timestamp {
 };
 struct timestamp timestamps[MAX_ITERATIONS] = { { 0, 0, 0, 0 } };
 static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
-        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000  };
+        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 20000 };
 
 static void variable_records(void)
 {
@@ -99,6 +99,7 @@ static void one_record(void)
 
         assert(err_is_ok(error_code));
         free(data);
+        for(size_t j=0; j<1<<20; j++) {}
     }
 
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
@@ -134,7 +135,7 @@ int main(int argc, char** argv)
     bench_init();
     dist_init();
 
-    if (0) one_record();
+    one_record();
     if (0) variable_records();
-    unnamed_record();
+    if (0) unnamed_record();
 }
