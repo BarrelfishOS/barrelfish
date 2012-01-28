@@ -52,10 +52,6 @@ typedef enum idc_bind_flags {
 #include <barrelfish/ump_chan.h>
 #endif
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-#include <barrelfish/bmp_chan.h>
-#endif
-
 #if defined(CONFIG_FLOUNDER_BACKEND_UMP_IPI)
 #include <arch/x86/barrelfish/ipi_notify.h>
 #endif

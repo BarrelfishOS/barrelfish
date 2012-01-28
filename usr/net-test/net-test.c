@@ -243,7 +243,7 @@ static void do_server(void)
     #endif // UDP_TEST
 
         // now echo incoming data
-        provide_echo_service(c_sock, 1);
+        //        provide_echo_service(c_sock, 1);
 
         if(FORKING_SERVER) {
             debug_printf("[%d]do_server(): ^^^^^^^^^^^^^^^^ ##### server_1: Forking\n",

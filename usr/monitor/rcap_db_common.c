@@ -21,10 +21,6 @@
 
 uint64_t hash_cap(struct capability * cap)
 {
-#ifdef __BEEHIVE__
-    // XXX Avoid compiler error
-    return 0;
-#else
     // Based upon MurmurHash
     uint64_t hash = 3 ^ (sizeof(struct capability) * HASH_M);
 
@@ -60,5 +56,4 @@ uint64_t hash_cap(struct capability * cap)
     hash ^= hash >> HASH_R;
 
     return hash;
-#endif // BEEHIVE
 }

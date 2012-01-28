@@ -114,6 +114,8 @@ class WebserverTest(WebCommon):
         s = 'Test: %s%s\t%s\n' % (func.__name__, str(args),
                                  'FAIL' if exception else 'PASS')
         if exception:
+            debug.verbose('Exception while running test: %s\n'
+                          % traceback.format_exc())
             s += 'Error was: %s\n' % traceback.format_exc()
         self.testlog.write(s)
 

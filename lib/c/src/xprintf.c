@@ -126,21 +126,30 @@ __printf_flush(struct __printf_io *io)
 int
 __printf_puts(struct __printf_io *io, const void *ptr, int len)
 {
+    int ret;
+
+    /**
+     * __printf_puts is used from two paths:
+     *  1) printf and friends   (->to_file is true)
+     *  2) snprintf and friends (->to_file is not true)
+     *
+     * In 1) we need to return the number of characters printed (which is what
+     * printf returns).
+     * in 2) we need to return the number of characters, which would have been
+     * written to the final string if enough space had been available (which is
+     * what snprintf returns).
+     */
     if (io->to_file) {
-        fwrite(ptr, 1, len, io->u.fp);
+        ret = fwrite(ptr, 1, len, io->u.fp);
     } else {
         size_t writelen = MIN(len, io->u.buf.len);
-
-        /*if(io->u.buf.p == NULL && io->u.buf.len == 0) {
-        	return len;
-        }*/
-
-		memcpy(io->u.buf.p, ptr, writelen);
-		io->u.buf.len -= writelen;
-		io->u.buf.p += writelen;
+        memcpy(io->u.buf.p, ptr, writelen);
+        io->u.buf.len -= writelen;
+        io->u.buf.p += writelen;
+        ret = len;
     }
 
-    return len;
+    return ret;
 }
 
 int

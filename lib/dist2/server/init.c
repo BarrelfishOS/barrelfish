@@ -18,7 +18,6 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <if/dist2_defs.h>
-#include <if/dist_event_defs.h>
 
 #include <dist2_server/init.h>
 #include <dist2_server/service.h>

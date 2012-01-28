@@ -60,17 +60,7 @@ arm = Arch {
     lrpc_words = 0
 }
 
-beehive = Arch {
-    archname = "beehive",
-    wordsize = 32,
-    ptrsize = 32,
-    sizesize = 32,
-    enum_type = Int32,
-    lmp_words = 9,
-    lrpc_words = 0
-}
-
-all_archs = [x86_64, x86_32, arm, beehive]
+all_archs = [x86_64, x86_32, arm]
 
 -- for option parsing: find the matching arch info
 parse_arch :: String -> Maybe Arch

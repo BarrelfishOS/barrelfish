@@ -16,7 +16,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                   ++
                   find inDir "external_libraries/lib" ".eco"
     ramdisk = "skb_ramfs.cpio.gz"
-    args arch = application { 
+    args arch = application {
                         target = "skb",
   		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
                                    "dist/code_generator.c",
@@ -25,19 +25,21 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
                         -- force optimisations on, without them we blow the stack
-                        addCFlags = [ "-O2", "-Wno-redundant-decls" ],
-                        
-                        flounderBindings = [ "skb", "dist2", "dist_event" ],
-                        addIncludes = [ "eclipse_kernel/src" ],
-                        addLibraries = [ "eclipse", "shm", "dummies", "skb",
-                                         "posixcompat", "msun", "dist_server", "dist_parser", "skb",
-                                         "icsolver", "vfs", "nfs", "lwip", "contmng", "pcre", "bench", "collections"],
+                        addCFlags = [ "-O2" ],
+                        flounderBindings = [ "skb" ],
+                        addIncludes = [ "eclipse_kernel/src"],
+                        addLibraries = [ "eclipse", "shm", "dummies",
+                                         "posixcompat", "msun",
+                                         "icsolver", "vfs", "nfs", "ahci", "lwip",
+                                         "contmng", "procon", "hashtable", "pcre", 
+                                         "dist_server", "dist_parser", "skb",
+                                         "bench", "collections"],
                         architectures = [ arch ]
                 }
 in
   [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32" ]],
-    Rule ( [ Str "bash", 
-             In SrcTree "src" "skripts/mkcpio", 
+    Rule ( [ Str "bash",
+             In SrcTree "src" "skripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]
              ++ [ In SrcTree "src" f | f <- ramfs_files ] )
   ]

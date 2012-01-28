@@ -101,7 +101,7 @@
 #define TASKCN_SLOT_TRACEBUF    9   ///< Trace buffer cap in task cnode
 #define TASKCN_SLOT_ARGSPAGE    10  ///< ?
 #define TASKCN_SLOT_MON_URPC    11  ///< Frame cap for urpc comm.
-#define TASKCN_SLOT_BMP_TABLE   12  ///< cap to access BMP association table
+/* slot 12 is free */
 #define TASKCN_SLOT_FDSPAGE     13  ///< cap for performance monitoring
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
 #define TASKCN_SLOTS_USER       15  ///< First free slot in taskcn for user

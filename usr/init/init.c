@@ -30,19 +30,11 @@ static coreid_t my_core_id;
 #elif defined(__i386__)
 #       define MONITOR_NAME  "x86_32/sbin/monitor"
 #       define MEM_SERV_NAME "x86_32/sbin/mem_serv"
-#elif defined(__BEEHIVE__)
-#       define MONITOR_NAME  "beehive/sbin/monitor"
-#       define MEM_SERV_NAME "beehive/sbin/mem_serv"
 #elif defined(__arm__)
 #       define MONITOR_NAME  "arm/sbin/monitor"
 #       define MEM_SERV_NAME "arm/sbin/mem_serv"
 #else
 #       error Unknown architecture
-#endif
-
-#ifdef __BEEHIVE__
-// Flag this as an initialisation domain for systems without ELF entry
-bool __barrelfish_initialisation_domain = 1;
 #endif
 
 const char *multiboot_strings;

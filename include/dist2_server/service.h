@@ -17,7 +17,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
-#include <if/dist_event_defs.h>
 #include <dist2/definitions.h>
 
 #define BUFFER_SIZE (32 * 1024)

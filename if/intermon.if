@@ -9,10 +9,6 @@
 
 interface intermon "The Interface between monitors" {
 
-        /* from include/routing/routing.h */
-        alias routeid uint32;
-        alias recordid uint32;
-
         /* XXX Aliases for base system types */
         alias coreid_t uint8;
         alias chanid_t uint32;
@@ -22,6 +18,12 @@ interface intermon "The Interface between monitors" {
         alias con_id_t uint64;
         alias mon_id_t uint64;
         alias state_id_t uint64;
+        alias vci_t uint64;
+
+        alias capid_t uint32;
+
+        /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
+        typedef uint64 coremask[4];
 
         /* Struct to marshal caps between cores */
         typedef struct {
@@ -30,13 +32,6 @@ interface intermon "The Interface between monitors" {
             uint64 w2;
             uint64 w3;
         } caprep;
-
-        /* used in route.c */
-        typedef enum
-        {
-            UNICAST_TREE,
-            MULTICAST_TREE
-        } ROUTE_TYPE;
 
         message spawnd_image_request();
         message spawnd_image_reply(genpaddr base, uint32 bytes);
@@ -95,26 +90,14 @@ interface intermon "The Interface between monitors" {
                                errval err,
                                caprep notify);
 
-        message bind_bmp_request(iref iref,
-                                 mon_id_t mon_id,
-                                 uint32 chanid,
-                                 uint32 ep_len);
-        message bind_bmp_reply(con_id_t con_id,
-                               mon_id_t mon_id,
-                               errval err,
-                               uint32 chanid,
-                               uint32 ep_len);
-
         message cap_send_request(con_id_t con_id,
-                                 uint32 capid,
+                                 capid_t capid,
                                  caprep cap,
+                                 errval err,
                                  bool give_away,
                                  bool has_descendents,
                                  coremask on_cores,
 				 bool null_cap);
-        message cap_send_reply(con_id_t con_id,
-                               uint32 capid,
-                               errval err);
 
         message span_domain_request(state_id_t state_id,
                                     genpaddr vnodebase,
@@ -122,21 +105,8 @@ interface intermon "The Interface between monitors" {
                                     uint8      framebits);
         message span_domain_reply(state_id_t state_id, errval err);
 
-        /* Inter-monitor ping pong test messages */
-        message pingpong(uint64 data);
-        message test_pingpong(uint64 w0, uint64 w1, uint64 w2, uint64 w3,
-                              uint64 w4, uint64 w5, uint64 w6, uint64 w7);
-
-        /* Route setup calls */
-        call join_route(ROUTE_TYPE route_type, routeid route_id);
-        response route_done_join(routeid route_id, uint8 coreid,
-                                 errval err, iref iref);
-        call connect_neighbors(ROUTE_TYPE route_type, routeid route_id, 
-                               uint8 irefs[size]);
-        response route_done_connect(routeid route_id, errval err);
-
 	// Resource control
-	message rsrc_join(rsrcid id, uint8 coreid);
+	message rsrc_join(rsrcid id, coreid_t coreid);
 	message rsrc_join_complete(rsrcid id);
 	message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
 	message rsrc_timer_sync(uint64 timestamp);
@@ -148,18 +118,22 @@ interface intermon "The Interface between monitors" {
 	// relative timestamps to.
 	message rsrc_phase(rsrcid id, uint32 phase, uint64 timestamp);
 	
-	/* Multi-hop interconnect driver */
+    /* Multi-hop interconnect driver */
 	
-	// request routing table from monitor 0
-	call multihop_routing_table_request(coreid_t my_coreid);
-	response multihop_routing_table_response(int num_cores, coreid to[len]);
+    // request portion of routing table from another monitor
+    call multihop_routing_table_request(coreid source_coreid);
+    response multihop_routing_table_response(errval err,
+                                             coreid source_coreid,
+                                             coreid max_coreid,
+                                             coreid to[len]);
+
+    // grow the routing table to a set of desination cores, via a given forwarder
+    message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
 
     // set up a new multihop virtual circuit
-    call bind_multihop_intermon_request(iref iref, uint64 sender_vci, coreid core_id);         
-    response bind_multihop_intermon_reply(uint64 receiver_vci, uint64 sender_vci, errval err);
+    message bind_multihop_intermon_request(iref iref, vci_t sender_vci, coreid core_id);
+    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci, errval err);
 
-    message multihop_message(uint64 vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
-		
-	call multihop_cap_send(uint64 vci, uint8 direction, uint32 capid, caprep cap, bool null_cap);
-	response multihop_cap_reply(uint64 vci, uint8 direction, uint32 capid, errval err);
+    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
+    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err, caprep cap, bool null_cap);
 };

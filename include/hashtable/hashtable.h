@@ -21,7 +21,7 @@
  * \brief an entry of a hashtable
  */
 struct _ht_entry {
-    void* key;
+    const void* key;
     size_t key_len;
     void* value;
     struct capref capvalue;

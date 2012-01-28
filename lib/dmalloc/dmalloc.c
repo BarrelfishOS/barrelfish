@@ -1606,7 +1606,8 @@ static void *my_morecore(intptr_t nb)
     static void *end_brk = NULL;
 
     if (nb > 0) {
-        intptr_t orignb = nb;
+        intptr_t orignb;
+        orignb = nb;  // FIXME: hack to avoid the warning of unused variable orignb
         size_t snb = (size_t)nb;
         void *up;
         // Allocate requested number of pages
@@ -1625,7 +1626,7 @@ static void *my_morecore(intptr_t nb)
 #ifndef MORECORE_CANNOT_TRIM
         nb = -nb;
         // HACK: assume it's always possible. this is dangerous!
-        // especially if the system malloc is used and calls 
+        // especially if the system malloc is used and calls
         // sys_morecore_alloc then we might inadvertently free up its memory!
         void *p = end_brk - nb;
         assert(sys_morecore_free);
@@ -2002,7 +2003,7 @@ static FORCEINLINE int bf_acquire_lock (MLOCK_T *sl) {
     thread_mutex_lock(sl);
     return 0; // success
 }
-    
+
 static FORCEINLINE int bf_release_lock (MLOCK_T *sl) {
     thread_mutex_unlock(sl);
     return 0; // success

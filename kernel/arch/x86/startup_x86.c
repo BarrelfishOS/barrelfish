@@ -38,6 +38,9 @@
 #       include <rck.h>
 #endif
 
+/// Optional core ID to use for the BSP core (command-line argument)
+static int bsp_coreid;
+
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     (cte)->cap.u.cnode.cnode
 
@@ -238,6 +241,7 @@ static struct cmdarg cmdargs[] = {
 #ifndef __scc__ // FIXME: why not?
     {"serial", ArgType_Int, { .integer = &serial_portbase }},
 #endif
+    {"bsp_coreid", ArgType_Int, { .integer = &bsp_coreid }},
     {NULL, 0, {NULL}}
 };
 
@@ -288,6 +292,10 @@ void kernel_startup(void)
     struct dcb *init_dcb;
 
     if (apic_is_bsp()) {
+        if (bsp_coreid != 0) {
+            my_core_id = bsp_coreid;
+        }
+
         /* Initialize the location to allocate phys memory from */
         bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 

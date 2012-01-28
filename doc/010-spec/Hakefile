@@ -17,7 +17,7 @@ let
     dot f = [ Str "dot", Str "-Tpdf",
               In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
 in
-  [ buildTechNoteWithDeps "Spec.tex" "TN-010-Spec.pdf" True []
+  [ buildTechNoteWithDeps "Spec.tex" "TN-010-Spec.pdf" True False []
     (concat [dot "app_cspace", circo "disp_states_simple",
              dot "disp_states_simple_save_area_analysis", dot "init_cspace"]
     ++ [ Str "hg", Str "-R", NoDep SrcTree "src" "/",

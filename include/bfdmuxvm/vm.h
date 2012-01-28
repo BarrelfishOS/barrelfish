@@ -21,7 +21,7 @@
 #include <stdbool.h>
 //#include <arpa/inet.h>
 
-#endif							// DOXYGEN
+#endif                          // DOXYGEN
 
 #include <bfdmuxtools/filter.h>
 
@@ -38,7 +38,6 @@
  */
 typedef uint8_t op_t;
 
-bool            execute_filter(uint8_t * filter_code, int filter_len,
-							   uint8_t * packet_data, int packet_len,
-							   int *error_out);
+bool execute_filter(uint8_t * filter_code, int filter_len,
+                    uint8_t * packet_data, int packet_len, int *error_out);
 #endif

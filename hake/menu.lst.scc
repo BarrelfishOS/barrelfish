@@ -30,6 +30,13 @@ module  /scc/sbin/startd boot
 # module  /scc/sbin/eMAC core=1
 # module  /scc/sbin/netd core=1 cardname=eMAC2_1
 
+# Test for network throughput
+# module  /scc/sbin/netthroughput core=1 /nfs nfs://10.110.4.41/shared /nfs/pravin/testfile.txt
+
+# For webserver
+# module  /scc/sbin/webserver core=1 eMAC2_1 10.110.4.41 /shared/pravin/sw
+
+
 # RCK memory map
 # Everything up til VGA is private RAM (maybe we want to throw it away)
 mmap	map	0x0		0xa000		2

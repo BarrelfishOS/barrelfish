@@ -2,7 +2,7 @@
  * \file
  * \brief Intel e1000 driver: Initialize the hardware
  *
- * 
+ *
  */
 
 /*

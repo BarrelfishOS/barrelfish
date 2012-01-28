@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -35,6 +35,14 @@ errval_t ump_endpoint_init(struct ump_endpoint *ep, volatile void *buf,
 
     waitset_chanstate_init(&ep->waitset_state, CHANTYPE_UMP_IN);
     return SYS_ERR_OK;
+}
+
+/**
+ * \brief Destroy the local state associated with a given UMP endpoint
+ */
+void ump_endpoint_destroy(struct ump_endpoint *ep)
+{
+    waitset_chanstate_destroy(&ep->waitset_state);
 }
 
 /**
@@ -70,4 +78,15 @@ errval_t ump_endpoint_deregister(struct ump_endpoint *ep)
 {
     assert(ep);
     return waitset_chan_deregister(&ep->waitset_state);
+}
+
+/**
+ * \brief Migrate an event registration made with ump_endpoint_register() to a new waitset.
+ *
+ * \param ep LMP Endpoint
+ * \param ws New waitset
+ */
+void ump_endpoint_migrate(struct ump_endpoint *ep, struct waitset *ws)
+{
+    waitset_chan_migrate(&ep->waitset_state, ws);
 }

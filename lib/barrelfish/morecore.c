@@ -20,10 +20,8 @@
 /// Amount of virtual space for malloc
 #ifdef __x86_64__
 #       define HEAP_REGION (2UL * 1024 * 1024 * 1024) /* 2GB */
-#elif defined(__i386__) || defined(__arm__) || defined(__BEEHIVE__)
-#       define HEAP_REGION (512UL * 1024 * 1024) /* 512MB */
 #else
-#       error "HEAP_REGION needs to be defined for this system."
+#       define HEAP_REGION (512UL * 1024 * 1024) /* 512MB */
 #endif
 
 typedef void *(*morecore_alloc_func_t)(size_t bytes, size_t *retbytes);

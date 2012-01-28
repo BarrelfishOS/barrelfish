@@ -18,7 +18,6 @@
 #include <barrelfish/barrelfish.h>
 #include <pci/pci.h>
 #include <if/ether_defs.h>
-#include "rtl8029as_dev.h"
 #include "rtl8029_debug.h"
 
 

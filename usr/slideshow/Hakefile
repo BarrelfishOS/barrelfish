@@ -11,10 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "slideshow",
-                      cFiles = [ "main.c", "slideshow.c", "bmp.c", 
+                      cFiles = [ "main.c", "slideshow.c", "bmp.c",
                                  "zlib_load.c" ],
 		      flounderBindings = [ "keyboard", "fb" ],
 		      flounderExtraBindings = [ ("fb", ["rpcclient"]) ],
-                      addLibraries = [ "vfs", "nfs", "lwip", "contmng", "zlib" ]
+                      addLibraries = [ "vfs", "nfs", "ahci", "lwip", "contmng",
+                      "procon", "zlib" ]
                     }
 ]

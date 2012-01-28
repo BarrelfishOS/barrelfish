@@ -376,6 +376,8 @@ errval_t percore_allocate_handler_common(uint8_t bits,
 
     if (err_is_fail(ret)) {
         // debug_printf("percore_alloc(%d (%lu)) failed\n", bits, 1UL << bits);
+		printf("[%d][%d] percore_alloc failed, going to steal\n",
+					disp_get_core_id(), disp_get_domain_id());
         try_steal(&ret, &cap, bits, minbase, maxlimit);
     }
 

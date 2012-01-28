@@ -51,33 +51,6 @@ const char *getopt_module(struct mem_region *module)
     return optstring;
 }
 
-#if defined(__BEEHIVE__)
-extern int find_least_set32(uint32_t value);
-extern int find_highest_set32(uint32_t value);
-
-/**
- * \brief Align block at base_addr with size n to power of two
- * alignable at its size
- *
- * Compute the highest exponent x of n so that 2^x < n _and_
- * the base_addr is aligned at its size.
- * For example: n = 20, base_addr = 4 => size can be 1, 2 or 4.
- * Biggest possible block is 4 => x = 2
- *
- * \param n         Size of the block to split in bytes
- * \param base_addr Base address of the block to split
- *
- * \return Highest exponent (bits) for the blocksize to use next
- */
-static int bitaddralign(size_t size, size_t base)
-{
-    int lo = find_least_set32(base);
-    int hi = find_highest_set32(size);
-    int res = min(lo, hi);
-    return res;
-}
-#endif
-
 /// Map in the frame caps for a module into our vspace, return their location
 errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
                           lvaddr_t *retaddr, genpaddr_t *retpaddr)
@@ -93,41 +66,6 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     struct memobj *memobj;
     struct vregion *vregion;
  
-#ifdef NOTRANS
-    struct capref frame = {
-        .cnode = cnode_module,
-        .slot  = module->mrmod_slot,
-    };
-
-    lpaddr_t base_addr = module->mr_base;
-    while (size > 0) {
-	assert((base_addr & BASE_PAGE_MASK) == 0);
-	assert((size & BASE_PAGE_MASK) == 0);
-	
-	uint8_t block_size = bitaddralign(size, base_addr);
-
-	err = vspace_map_one_frame(&base, (1UL << block_size), frame, &memobj, &vregion);
-	if (err_is_fail(err)) {
-	    printf("vspace_map_one_frame failed!\n");
-	    return err_push(err, LIB_ERR_VSPACE_MAP);
-	}
-	
-	frame.slot ++;
-	size -= (1UL << block_size);
-	base_addr += (1UL << block_size);
-    }
-    
-    if (retsize != NULL) {
-        *retsize = module->mrmod_size;
-    }
-
-    if (retaddr != NULL) {
-	*retaddr = (lpaddr_t)module->mr_base;
-    }
-
-    return SYS_ERR_OK;
-
-#else
     err = vspace_map_anon_attr(&base, &memobj, &vregion, size, &size,
                                VREGION_FLAGS_READ);
     if (err_is_fail(err)) {
@@ -174,7 +112,6 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     }
 
     return SYS_ERR_OK;
-#endif
 }
 
 

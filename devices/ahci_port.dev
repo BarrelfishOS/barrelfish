@@ -202,8 +202,8 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	en	1 rw "Enable";
     };
 
-    // 4.2.2
-    datatype cls msbfirst(32) "Command list structure" {
+    // 4.2.2 Command List Structure, elements are Command Headers
+    datatype chdr msbfirst(32) "Command Header" {
 	prdtl	16 "Physical region descriptor table length";
 	pmp	4  "Port multiplier port";
 	_	1;
@@ -226,8 +226,8 @@ device ahci_port msbfirst (addr b) "AHCI port" {
 	_	32;
     };
 
-    // 4.2.3.3
-    datatype prdte msbfirst(32) "Physical region descriptor" {
+    // 4.2.3.3 Physical Region Descriptor Table
+    datatype prd msbfirst(32) "Physical region descriptor" {
 	dba	32 "Data base address";
 	dbau	32 "Data base address upper";
 	_	32;

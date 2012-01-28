@@ -199,11 +199,6 @@ extern int _end_text_nx;
 #define KILL_CALLEE_SAVES()						\
   __asm__ volatile ("" : : : "ebx", "edi", "esi", "esp", "memory", "cc")
 #endif
-#elif defined(__BEEHIVE__)
-#define KILL_CALLEE_SAVES()				                \
-  __asm__ volatile ("" : : : "r9", "r10", "r11", "r12", "r13",		\
-		    "r14", "r15", "r16", "r17", "r18", "r19",		\
-		    "r20", "r21", "r22", "sp", "memory", "cc")
 #elif defined(__arm__)
 #define KILL_CALLEE_SAVES assert(0 && "THC not yet implemented on ARM")
 #else
@@ -228,10 +223,6 @@ extern int _end_text_nx;
 #elif defined(__i386__)                             
 #define FORCE_ARGS_STACK      
 #define FORCE_ARGS_STACK_CALL 
-#elif defined(__BEEHIVE__)
-#define FORCE_ARGS_STACK      void*__a, void*__b, void*__c, void*__d, \
-                              void*__e, void*__f,
-#define FORCE_ARGS_STACK_CALL NULL, NULL, NULL, NULL, NULL, NULL,
 #elif defined(__arm__)
 #define FORCE_ARGS_STACK assert(0 && "THC not yet implemented on ARM")
 #define FORCE_ARGS_STACK_CALL assert(0 && "THC not yet implemented on ARM")
@@ -258,15 +249,6 @@ extern int _end_text_nx;
 #define RESTORE_OLD_STACK_POINTER(OLD_STACK_PTR)			\
   __asm__ volatile ("movl %0, %%esp       \n\t"				\
 		    : : "m"(OLD_STACK_PTR))
-#elif defined(__BEEHIVE__)
-#define GET_STACK_POINTER(STACK_PTR)					\
-  __asm__ volatile("aqw_add vb, %0, 0       \n\t"			\
-		   "ld      wq, sp          \n\t"			\
-		   : : "r"(&(STACK_PTR)) )
-#define RESTORE_OLD_STACK_POINTER(OLD_STACK_PTR)			\
-  __asm__ volatile("aqr_add vb, %0, 0       \n\t"			\
-		   "ld      sp, rq          \n\t"			\
-		   : : "r"(&(OLD_STACK_PTR)) )
 #elif defined(__arm__)
 #define GET_STACK_POINTER(_) assert(0 && "THC not yet implemented on ARM")
 #define RESTORE_OLD_STACK_POINTER(_) assert(0 && "THC not yet implemented on ARM")
@@ -306,29 +288,6 @@ extern int _end_text_nx;
     " popl %ebp                  \n\t" /* restore ebp                */ \
     " addl $4, %esp              \n\t" /* clean up stack for callee  */ \
     " jmp  " JMP_ADDR "          \n\t" /* jump to continuation       */ \
-    );
-#define GET_LAZY_AWE(FRAME_PTR)						\
-    *((FRAME_PTR)+2)   /* was passed as first arg */
-#elif defined(__BEEHIVE__)
-#define INIT_LAZY_AWE(AWE_PTR, LAZY_MARKER)				\
-  __asm__ volatile (							\
-    " aqr_add vb, fp, 4          \n\t"					\
-    " ld   link, rq              \n\t"					\
-    " aqw_add vb, %0, 0          \n\t"				        \
-    " ld   wq, link              \n\t" /* EIP   (our return address) */ \
-    " aqr_add vb, fp, 0          \n\t"					\
-    " ld   link, rq              \n\t"					\
-    " aqw_add vb, %0, 4          \n\t"				        \
-    " ld   wq, link                \n\t" /* EBP */			\
-    " aqw_add vb, fp, 4          \n\t"					\
-    " ld   wq, %1                \n\t"	/* put marker as ret address  */\
-    : : "r"((AWE_PTR)), "r"((LAZY_MARKER)) : "vb" );
-#define RETURN_CONT(JMP_ADDR)			                        \
-  __asm__ volatile (							\
-    " ld   sp, fp                \n\t" /* free frame                 */ \
-    " aqr_ld  vb, sp             \n\t"					\
-    " ld   fp, rq                \n\t" /* restore frame pointer      */	\
-    " j " JMP_ADDR "             \n\t"	                                \
     );
 #define GET_LAZY_AWE(FRAME_PTR)						\
     *((FRAME_PTR)+2)   /* was passed as first arg */
@@ -404,22 +363,6 @@ extern int _end_text_nx;
                      :							\
                      : "m" (_NS)                                        \
                      : "memory", "cc", "eax", "edx");			\
-  }									
-#elif defined(__BEEHIVE__)
-#define SWIZZLE_DEF(_NAME,_NS,_FN)                                      \
-  __attribute__((noinline)) void _NAME(void) {                          \
-    __asm__ volatile("aqr_add vb, %0, 0       \n\t"			\
-                     "ld      r3, rq          \n\t"			\
-                     "sub     r3, r3, 4       \n\t"                     \
-                     "aqw_add vb, r3, 0       \n\t"                     \
-                     "ld      wq, sp          \n\t"                     \
-                     "ld      sp, r3          \n\t"                     \
-                     "long_call " _FN "       \n\t"                     \
-                     "aqr_add vb, sp, 0       \n\t"                     \
-                     "ld      sp, rq          \n\t"                     \
-                     :							\
-                     : "r" (&(_NS))                                     \
-                     : "memory", "cc", "r2", "r3");			\
   }									
 #elif defined(__arm__)
 #define SWIZZLE_DEF(_NAME,_NS,_FN) assert(0 && "THC not yet implemented on ARM")

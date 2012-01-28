@@ -21,7 +21,6 @@ Tree with the definition of some handy combinators.
 > module Syntax where
 
 
-
 \subsection{Interface Header}
 
 
@@ -48,6 +47,10 @@ And, the more common, a documented interface:
 > interface name description declarations = 
 >     generalInterface (Just description) name declarations
 
+Finally, various getters:
+
+> interfaceName :: Interface -> String
+> interfaceName (Interface name _ _) = name
 
 \subsection{Declarations}
 
@@ -204,7 +207,11 @@ its canonical definition:
 >         d -> d
 >     where
 >         -- I'm assuming there must be exactly one definition for the type name
->         [def] = [t | t <- types, typedef_name t == name]
+>         def
+>             | null defs = error $ "lookup_type_name: " ++ name ++ " not defined"
+>             | null $ tail defs = head defs
+>             | otherwise = error $ "lookup_type_name: " ++ name ++ " multiply defined"
+>         defs = [t | t <- types, typedef_name t == name]
 > 
 >         typedef_name :: TypeDef -> String
 >         typedef_name (TStruct n _) = n
@@ -274,17 +281,17 @@ A @message@ is identified by a @name@ and is either a @Call@, a
 carry some arguments, which are described by a list of
 @MessageArgument@, in @msgArgs@. Hence the following definition:
 
-> data MessageDef = Message MessageType String [ MessageArgument ]
->                 | RPC String [ RPCArgument ]
+> data MessageDef = Message MessageType String [ MessageArgument ] [(String, [(String, MetaArgument)])]
+>                 | RPC String [ RPCArgument ] [(String, [(String, MetaArgument)])]
 >
 > data MessageType = MMessage 
 >                  | MCall
 >                  | MResponse
 >
 > message, call, response :: String -> [ MessageArgument ] -> Declaration
-> message name args = Messagedef $ Message MMessage name args
-> call name args = Messagedef $ Message MCall name args
-> response name args = Messagedef $ Message MResponse name args
+> message name args = Messagedef $ Message MMessage name args []
+> call name args = Messagedef $ Message MCall name args []
+> response name args = Messagedef $ Message MResponse name args []
 
 As for the arguments passed to a message, they are simply the type @typeArg@ and
 the @identifier@ of the argument:
@@ -311,3 +318,10 @@ parameter is used \emph{in} or \emph{out}.
 
 > data RPCArgument = RPCArgIn TypeRef Variable
 >                  | RPCArgOut TypeRef Variable
+
+The meta-parameters allow passing additional information to individual
+backends. The paramaters are a mapping from names to either an identifier,
+which should match a message argument, or a value:
+
+> data MetaArgument = BackendInt Integer
+>                   | BackendMsgArg String

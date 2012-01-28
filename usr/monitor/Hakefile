@@ -26,23 +26,21 @@
                         Config.RCAP_DB_NULL   -> []
                         Config.RCAP_DB_CENTRAL-> [ "collections" ]
                         Config.RCAP_DB_TWOPC  -> [ "collections", "cap_predicates" ]
-     common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", 
+     common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
-		     "boot.c", "queue.c", "route.c", "domain.c",
+		     "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
 		     "rcap_db_common.c", "resource_ctrl.c", "timing.c", rcap_db ]
 
      arch_srcs "x86_32"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "x86_64"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "scc"     = [ "arch/scc/boot.c", "arch/scc/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
-     arch_srcs "beehive" = [ "arch/beehive/inter.c" , "arch/beehive/boot.c" , "arch/beehive/monitor_server.c", "arch/beehive/endpoint.c" ]
      arch_srcs "arm"     = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
-     arch_srcs "xscale" = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
+     arch_srcs "xscale"  = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
      arch_srcs _         = []
 
      idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
           where
             getsrcs "ump" = [ "ump_support.c" ]
-            getsrcs "bmp" = [ "bmp_support.c" ]
             getsrcs "multihop" = [ "multihop_support.c" ]
             getsrcs _     = []
             
@@ -55,19 +53,15 @@
     build application { target = "monitor",
                         architectures = [arch],
                         cFiles = common_srcs ++ arch_srcs arch ++ idc_srcs,
-                        flounderDefs = [ "mem", "monitor" ],
-                        flounderBindings = [ "monitor_mem", "intermon", "monitor_blocking" ],
+                        flounderDefs = [ "mem", "monitor", "monitor_blocking" ],
+                        flounderBindings = [ "monitor_mem", "intermon" ],
                         flounderExtraBindings = [ ("monitor", ["loopback"]),
                                                   ("monitor_mem", ["rpcclient"]),
                                                   ("mem", ["rpcclient"]) ],
-                        addLinkFlags = if arch == "beehive" then
-				           []
-				       else
-					   [ "-e _start_init" ],
+                        addLinkFlags = [ "-e _start_init" ],
                         addIncludes = [ "include" ./. a | a <- arch_dirs arch ],
-                        addLibraries = if arch == "beehive" then
- 				           [ "spawndomain", "bench", "trace", "libroute" ] ++ rcap_db_libs ++ idc_libraries
-        			       else
- 				           [ "spawndomain", "bench", "trace", "elf", "libroute" ] ++ rcap_db_libs ++ idc_libraries
+                        addLibraries = (
+ 			    [ "spawndomain", "bench", "trace", "elf" ]
+                            ++ rcap_db_libs ++ idc_libraries)
                       }
  ) | arch <- allArchitectures ]

@@ -39,27 +39,15 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
 
-#include "xapic_dev.h" // XXX
+#include <dev/xapic_dev.h> // XXX
+#include <dev/ia32_dev.h>
+#include <dev/amd64_dev.h>
 
 /**
  * Used to store the address of global struct passed during boot across kernel
  * relocations.
  */
 static uint64_t addr_global;
-
-/**
- * RFLAGS mask for fast system calls. Put values to mask out here.
- * We mask out everything (including interrupts).
- */
-#define SYSCALL_FMASK   (~(RFLAGS_ALWAYS1) & 0xffffffff)
-
-/**
- * Segment selector bases for both kernel- and user-space for fast
- * system calls
- */
-#define SYSCALL_STAR \
-    ((((uint64_t)GSEL(KSTACK_SEL, SEL_UPL)) << 48) | \
-     ((uint64_t)GSEL(KCODE_SEL, SEL_KPL) << 32))
 
 /**
  * \brief Kernel stack.
@@ -363,29 +351,22 @@ relocate_stack(lvaddr_t offset)
  */
 static inline void enable_fast_syscalls(void)
 {
-    // Set IA32_STAR MSR to point to user-space base selector
-    wrmsr(MSR_IA32_STAR, SYSCALL_STAR);
+    // Segment selector bases for both kernel- and user-space for fast
+    // system calls 
+    ia32_star_t star = ia32_star_rd(NULL);
+    star = ia32_star_call_insert(star, GSEL(KCODE_SEL,  SEL_KPL));
+    star = ia32_star_ret_insert( star, GSEL(KSTACK_SEL, SEL_UPL));
+    ia32_star_wr(NULL, star);
 
-    // Set IA32_LSTAR MSR to point to kernel-space system call multiplexer
-    wrmsr(MSR_IA32_LSTAR, (lvaddr_t)syscall_entry);
+    // Set ia32_lstar MSR to point to kernel-space system call multiplexer
+    ia32_lstar_wr(NULL, (lvaddr_t)syscall_entry);
 
     // Set IA32_FMASK MSR for our OSes EFLAGS mask
-    wrmsr(MSR_IA32_FMASK, SYSCALL_FMASK);
+    // We mask out everything (including interrupts).
+    ia32_fmask_v_wrf(NULL, ~(RFLAGS_ALWAYS1) );
 
     // Enable fast system calls
-    addmsr(MSR_IA32_EFER, IA32_EFER_SCE);
-}
-
-#define CR4_PCE (1 << 8)
-#define CR4_PGE (1 << 7)
-
-static inline void enable_user_rdpmc(void)
-{
-    uint64_t cr4;
-
-    __asm volatile("mov %%cr4, %[cr4]" : [cr4] "=r" (cr4));
-    cr4 |= CR4_PCE;
-    __asm volatile("mov %[cr4], %%cr4" :: [cr4] "r" (cr4));
+    ia32_efer_sce_wrf(NULL, 1);
 }
 
 static inline void enable_tlb_flush_filter(void)
@@ -405,18 +386,7 @@ static inline void enable_tlb_flush_filter(void)
     }
 
     debug(SUBSYS_STARTUP, "Enabling TLB flush filter\n");
-    uint64_t hwcr = rdmsr(MSR_AMD_HWCR);
-    hwcr &= ~AMD_HWCR_FFDIS;
-    wrmsr(MSR_AMD_HWCR, hwcr);
-}
-
-static inline void enable_pge(void)
-{
-    uint64_t cr4;
-
-    __asm volatile("mov %%cr4, %[cr4]" : [cr4] "=r" (cr4));
-    cr4 |= CR4_PGE;
-    __asm volatile("mov %[cr4], %%cr4" :: [cr4] "r" (cr4));
+    ia32_amd_hwcr_ffdis_wrf(NULL, 1);
 }
 
 static inline void enable_monitor_mwait(void)
@@ -506,7 +476,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Initialize local APIC
     apic_init();
-    apic_id = apic_get_id();
 
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
@@ -541,19 +510,19 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     enable_fast_syscalls();
 
     // Enable "no execute" page-level protection bit
-    addmsr(MSR_IA32_EFER, IA32_EFER_NXE);
+    ia32_efer_nxe_wrf(NULL, 1);
 
     // Enable FPU and MMX
     enable_fpu();
 
     // Enable user-mode RDPMC opcode
-    enable_user_rdpmc();
+    amd64_cr4_pce_wrf(NULL, 1);
 
     // AMD64: Check if TLB flush filter is enabled
     enable_tlb_flush_filter();
 
     // Enable global pages
-    enable_pge();
+    amd64_cr4_pge_wrf(NULL, 1);
 
     // Check/Enable MONITOR/MWAIT opcodes
     enable_monitor_mwait();

@@ -30,7 +30,7 @@
 
 #include "vfs_backends.h"
 
-#define BCACHE_NAME     "bcache.0"
+#define BCACHE_NAME     "bcache"
 #define MAX_CACHES      10
 
 struct bcache_client {
@@ -48,7 +48,77 @@ struct bcache_state {
 static struct bcache_client *cache[MAX_CACHES];
 static size_t num_caches = 0;
 
-/* static size_t nopen, ncreate, ntruncate, nstat, nclose, nopendir, ndir_read_next, nclosedir, nmkdir, nrmdir, nremove; */
+enum cacheOps {
+    cacheOpen,
+    cacheCreate,
+    cacheRead,
+    cacheWrite,
+    cacheClose,
+    cacheTruncate,
+    cacheStat,
+    cacheOpendir,
+    cacheDirNext,
+    cacheClosedir,
+    cacheMkdir,
+    cacheRmdir,
+    cacheUnlink,
+    cacheTell,
+    cacheSeek,
+    cacheTotalOps
+};
+
+static char *cacheOpsName[] = {
+    [cacheOpen    ] = "open",
+    [cacheCreate  ] = "create",
+    [cacheTruncate] = "truncate",
+    [cacheStat    ] = "stat",
+    [cacheClose   ] = "close",
+    [cacheOpendir ] = "opendir",
+    [cacheDirNext ] = "dirnext",
+    [cacheClosedir] = "closedir",
+    [cacheMkdir   ] = "mkdir",
+    [cacheRmdir   ] = "rmdir",
+    [cacheUnlink  ] = "unlink",
+    [cacheRead    ] = "read",
+    [cacheWrite   ] = "write",
+    [cacheTell    ] = "tell",
+    [cacheSeek    ] = "seek",
+    [cacheTotalOps] = "___YOU_SHOULD_NOT_SEE_THIS___",
+};
+
+
+static inline void stats_update(enum cacheOps op, int hit, uint64_t ticks);
+static inline void start_stats(void);
+static inline void end_stats(enum cacheOps op, int hit);
+
+static struct {
+    size_t cnt;
+   uint64_t ticks;
+} Stats[cacheTotalOps][2];
+
+uint64_t ticks0__;
+uint64_t tscperms;
+
+static inline void
+stats_update(enum cacheOps op, int hit, uint64_t ticks)
+{
+    hit = !!hit;
+    Stats[op][hit].cnt++;
+    Stats[op][hit].ticks += ticks;
+}
+
+static inline void
+start_stats(void)
+{
+    ticks0__ = rdtsc();
+}
+
+static inline void
+end_stats(enum cacheOps op, int hit)
+{
+    stats_update(op, hit, rdtsc() - ticks0__);
+}
+
 
 #include <nfs/nfs.h>
 #include "vfs_nfs.h"
@@ -57,7 +127,7 @@ static size_t num_caches = 0;
 
 #ifdef CACHE_META_DATA
 
-#include "hashtable.h"
+#include <hashtable/hashtable.h>
 
 #define MAX_DIR         5000
 
@@ -74,8 +144,9 @@ static size_t meta_hits = 0, meta_misses = 0, meta_overwrites = 0;
 
 static void meta_data_init(void)
 {
-    dir_hash = create_hashtable2(MAX_DIR, 75);
+    /*    dir_hash = create_hashtable2(MAX_DIR, 75);
     assert(dir_hash != NULL);
+    */
 }
 
 static void meta_data_lookup(const char *fname,
@@ -94,13 +165,16 @@ static void meta_data_lookup(const char *fname,
 
         *haveit = true;
         *deleted = e->deleted;
-        *fh = malloc(sizeof(struct nfs_handle));
-        assert(*fh != NULL);
 
-        memcpy(*fh, e->fh, sizeof(struct nfs_handle));
+        if(!*deleted) {
+            *fh = malloc(sizeof(struct nfs_handle));
+            assert(*fh != NULL);
 
-        struct nfs_handle *dest = *fh, *src = e->fh;
-        nfs_copyfh(&dest->fh, src->fh);
+            memcpy(*fh, e->fh, sizeof(struct nfs_handle));
+
+            struct nfs_handle *dest = *fh, *src = e->fh;
+            nfs_copyfh(&dest->fh, src->fh);
+        }
 
         meta_hits++;
     } else {
@@ -169,8 +243,10 @@ static void meta_data_delete(const char *fname, bool *success)
 
     if(!e->deleted) {
         struct nfs_handle *dest = e->fh;
-        nfs_freefh(dest->fh);
-        free(e->fh);
+        if(dest != NULL) {
+            nfs_freefh(dest->fh);
+            free(e->fh);
+        }
         e->deleted = true;
         *success = true;
     } else {
@@ -181,7 +257,8 @@ static void meta_data_delete(const char *fname, bool *success)
 
 static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
 {
-    /* nopen++; */
+    start_stats();
+    bool hit = false;
     // Hand through...
     errval_t err = SYS_ERR_OK;
 #ifdef CACHE_META_DATA
@@ -189,6 +266,7 @@ static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
 
     meta_data_lookup(path, &haveit, &deleted, rethandle);
 
+    hit = haveit;
     if(!haveit) {
 #endif
 
@@ -196,7 +274,7 @@ static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
         struct bcache_state *bst = st;
         err = bst->orig_ops->open(bst->orig_st, path, rethandle);
         if(err_is_fail(err)) {
-            return err;
+            goto end;
         }
 #else
         *rethandle = malloc(sizeof(struct nfs_handle));
@@ -214,12 +292,15 @@ static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
     }
 #endif
 
+end:
+    end_stats(cacheOpen, hit);
     return err;
 }
 
 static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
 {
-    /* ncreate++; */
+    start_stats();
+    bool hit = false;
     // Hand through...
     errval_t err = SYS_ERR_OK;
 #ifdef CACHE_META_DATA
@@ -227,14 +308,15 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
 
     meta_data_lookup(path, &haveit, &deleted, rethandle);
 
-    if(!haveit) {
+    hit = haveit;
+    if(!haveit || deleted) {
 #endif
 
 #ifndef FAKE_SCALABLE_CACHE
         struct bcache_state *bst = st;
         err = bst->orig_ops->create(bst->orig_st, path, rethandle);
         if(err_is_fail(err)) {
-            return err;
+            goto end;
         }
 #else
         *rethandle = malloc(sizeof(struct nfs_handle));
@@ -247,13 +329,15 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
     }
 
     if(!haveit || deleted) {
-        if(haveit && deleted) {
-            assert(!"NYI");
-        }
+        /* if(haveit && deleted) { */
+        /*     assert(!"NYI"); */
+        /* } */
         meta_data_create(*rethandle, path);
     }
 #endif
 
+end:
+    end_stats(cacheCreate, hit);
     return err;
 }
 
@@ -261,7 +345,7 @@ static errval_t cache_remove(void *st, const char *path)
 {
     errval_t err = SYS_ERR_OK;
 
-    /* nremove++; */
+    start_stats();
     // Hand through...
 #ifdef CACHE_META_DATA
     bool success;
@@ -276,6 +360,7 @@ static errval_t cache_remove(void *st, const char *path)
     err = bst->orig_ops->remove(bst->orig_st, path);
 #endif
 
+    end_stats(cacheUnlink, false);
     return err;
 }
 
@@ -339,23 +424,28 @@ void cache_print_stats(void)
     errval_t err = bcc->rpc.vtbl.print_stats(&bcc->rpc);
     assert(err_is_ok(err));
 
-#if 0
-    printf("\n\n");
-    printf("open        = %zu\n"
-           "create      = %zu\n"
-           "truncate    = %zu\n"
-           "stat        = %zu\n"
-           "close       = %zu\n"
-           "opendir     = %zu\n"
-           "dir_read_next= %zu\n"
-           "closedir    = %zu\n"
-           "mkdir       = %zu\n"
-           "rmdir       = %zu\n"
-           "remove      = %zu\n",
-           nopen, ncreate, ntruncate, nstat, nclose, nopendir, ndir_read_next,
-           nclosedir, nmkdir, nrmdir, nremove);
-    printf("\n\n");
+    printf("cache[%d] stats\n", disp_get_core_id());
 
+    double total_misses_time, total_hits_time;
+    total_misses_time = total_hits_time = 0;
+    for (int i=0; i<cacheTotalOps; i++) {
+        size_t misses_cnt = Stats[i][0].cnt;
+        size_t hits_cnt = Stats[i][1].cnt;
+        double misses_time = (double)Stats[i][0].ticks/(double)tscperms;
+        double hits_time =   (double)Stats[i][1].ticks/(double)tscperms;
+        double total_time = misses_time + hits_time;
+        total_hits_time += hits_time;
+        total_misses_time += misses_time;
+        printf(" %-12s:  MISSES[cnt:%6zu time:%12.3lf avg:%12.3lf] | HITS[cnt:%6zu time:%12.3lf avg:%12.3lf] TOTAL:%12.3lf\n",
+               cacheOpsName[i],
+               misses_cnt, misses_time, misses_cnt != 0 ? misses_time/(double)misses_cnt : 0,
+               hits_cnt,   hits_time,   hits_cnt   != 0 ? hits_time  /(double)hits_cnt   : 0,
+               total_time);
+    }
+    printf("==== TOTAL:  MISSES[time:%12.3lf] | HITS[time:%12.3lf ] TOTAL:%12.3lf\n",
+            total_misses_time, total_hits_time, total_misses_time + total_hits_time);
+
+    #ifdef CACHE_META_DATA
     printf("meta data\n"
            "=========\n"
            "hits        = %zu\n"
@@ -363,8 +453,7 @@ void cache_print_stats(void)
            "overwrites  = %zu\n"
            "allocations = %u\n",
            meta_hits, meta_misses, meta_overwrites, alloc_ptr);
-    printf("\n\n");
-#endif
+    #endif
 }
 
 static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
@@ -380,9 +469,15 @@ static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
     size_t restbytes = bytes;
     size_t didread;
     for(size_t offset = 0; offset < bytes; offset += BUFFER_CACHE_BLOCK_SIZE - block_offset) {
+
+        start_stats();
         char *key;
         size_t key_len;
 
+        bool hit = false;
+        start_stats();
+
+        /* get a unique identifier (key) for the block */
         err = bst->orig_ops->get_bcache_key(bst->orig_st, handle, &key,
                                             &key_len, &block_offset);
         if(err_is_fail(err)) {
@@ -411,6 +506,7 @@ static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
                 didread = toread;
             }
         } else {
+            hit = true;
             // Cache has it -- do we need to emulate EOF?
             if(block_length < toread + block_offset) {
                 if(block_length < block_offset) {
@@ -438,6 +534,7 @@ static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
         restbytes -= didread;
         *bytes_read += didread;
 
+        end_stats(cacheRead, hit);
         if(didread < toread) {
             assert(err_no(err) == VFS_ERR_EOF);
             // The file ended prematurely
@@ -469,6 +566,8 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
     for(size_t offset = 0; offset < bytes; offset += BUFFER_CACHE_BLOCK_SIZE - block_offset) {
         char *key;
         size_t key_len;
+
+        start_stats();
 
         err = bst->orig_ops->get_bcache_key(bst->orig_st, handle, &key,
                                             &key_len, &block_offset);
@@ -508,6 +607,8 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
         err = bst->orig_ops->seek(bst->orig_st, handle, VFS_SEEK_CUR,
                                   towrite);
         assert(err_is_ok(err));
+
+        end_stats(cacheWrite, false);
     }
 
 #ifndef WITH_WRITE_BACK_CACHE
@@ -545,7 +646,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
 
 static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
 {
-    /* ntruncate++; */
+    start_stats();
 
 #ifdef CACHE_META_DATA
     struct nfs_handle *nh = handle;
@@ -556,28 +657,38 @@ static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
 
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->truncate(bst->orig_st, handle, bytes);
+    errval_t ret = bst->orig_ops->truncate(bst->orig_st, handle, bytes);
+
+    end_stats(cacheTruncate, false);
+    return ret;
 }
 
 static errval_t tell(void *st, vfs_handle_t handle, size_t *pos)
 {
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->tell(bst->orig_st, handle, pos);
+    errval_t err = bst->orig_ops->tell(bst->orig_st, handle, pos);
+    end_stats(cacheTell, false);
+    return err;
 }
 
 static errval_t stat(void *st, vfs_handle_t inhandle, struct vfs_fileinfo *info)
 {
-    /* nstat++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->stat(bst->orig_st, inhandle, info);
+    errval_t ret = bst->orig_ops->stat(bst->orig_st, inhandle, info);
+    end_stats(cacheStat, false);
+    return ret;
 }
 
 static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
                      off_t offset)
 {
+    start_stats();
     struct bcache_state *bst = st;
+    errval_t err;
 
 #ifdef CACHE_META_DATA
     if(whence == VFS_SEEK_END) {
@@ -585,7 +696,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
 
         if(!nh->filesize_cached) {
             struct vfs_fileinfo info;
-            errval_t err = bst->orig_ops->stat(bst->orig_st, handle, &info);
+            err = bst->orig_ops->stat(bst->orig_st, handle, &info);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "stat");
             }
@@ -600,62 +711,75 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
             printf("filesize = %zu\n", nh->cached_filesize);
         }
         assert((off_t)nh->cached_filesize + offset >= 0);
-        return bst->orig_ops->seek(bst->orig_st, handle, VFS_SEEK_SET,
-                                   nh->cached_filesize + offset);
+        offset = nh->cached_filesize + offset;
     }
 #endif
 
     // Hand through...
-    return bst->orig_ops->seek(bst->orig_st, handle, whence, offset);
+    err = bst->orig_ops->seek(bst->orig_st, handle, whence, offset);
+    end_stats(cacheSeek, false);
+    return err;
 }
 
 static errval_t close(void *st, vfs_handle_t inhandle)
 {
-    /* nclose++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->close(bst->orig_st, inhandle);
+    errval_t err = bst->orig_ops->close(bst->orig_st, inhandle);
+    end_stats(cacheClose, false);
+    return err;
 }
 
 static errval_t opendir(void *st, const char *path, vfs_handle_t *rethandle)
 {
-    /* nopendir++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->opendir(bst->orig_st, path, rethandle);
+    errval_t err = bst->orig_ops->opendir(bst->orig_st, path, rethandle);
+    end_stats(cacheOpendir, false);
+    return err;
 }
 
 static errval_t dir_read_next(void *st, vfs_handle_t inhandle, char **retname,
                               struct vfs_fileinfo *info)
 {
-    /* ndir_read_next++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->dir_read_next(bst->orig_st, inhandle, retname, info);
+    errval_t err = bst->orig_ops->dir_read_next(bst->orig_st, inhandle, retname, info);
+    end_stats(cacheDirNext, false);
+    return err;
 }
 
 static errval_t closedir(void *st, vfs_handle_t dhandle)
 {
-    /* nclosedir++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->closedir(bst->orig_st, dhandle);
+    errval_t err = bst->orig_ops->closedir(bst->orig_st, dhandle);
+    end_stats(cacheClosedir, false);
+    return err;
 }
 
 static errval_t mkdir(void *st, const char *path)
 {
-    /* nmkdir++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->mkdir(bst->orig_st, path);
+    errval_t err = bst->orig_ops->mkdir(bst->orig_st, path);
+    end_stats(cacheMkdir, false);
+    return err;
 }
 
 static errval_t rmdir(void *st, const char *path)
 {
-    /* nrmdir++; */
+    start_stats();
     // Hand through...
     struct bcache_state *bst = st;
-    return bst->orig_ops->rmdir(bst->orig_st, path);
+    errval_t err = bst->orig_ops->rmdir(bst->orig_st, path);
+    end_stats(cacheRmdir, false);
+    return err;
 }
 
 static struct vfs_ops bcache_ops = {
@@ -775,7 +899,25 @@ errval_t buffer_cache_enable(void **st, struct vfs_ops **ops)
 {
     errval_t err;
 
-    err = buffer_cache_connect(BCACHE_NAME);
+    char namebuf[32];
+    memset(&Stats, 0, sizeof(Stats));
+    err = sys_debug_get_tsc_per_ms(&tscperms);
+    if (!err_is_ok(err)) {
+       USER_PANIC_ERR("sys_debug_get_tsc_per_ms had problems\n");
+    }
+#ifndef WITH_SHARED_CACHE
+    int name = disp_get_core_id();
+#else
+    int name = 0;
+#endif
+    size_t len = snprintf(namebuf, sizeof(namebuf), "%s.%d", BCACHE_NAME,
+                          name);
+    assert(len < sizeof(namebuf));
+    namebuf[sizeof(namebuf) - 1] = '\0';
+
+    printf("VFS_CACHE: %s:%s(): core:%d: Connecting to %s\n",
+            __FILE__, __FUNCTION__, disp_get_core_id(), namebuf);
+    err = buffer_cache_connect(namebuf);
     if(err_is_fail(err)) {
         return err;
     }
