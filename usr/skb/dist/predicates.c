@@ -85,6 +85,7 @@ int p_save_index(void)
     assert(res == PSUCCEED);
 
     char* record_name = strdup(value);
+    bool inserted = false;
 
     pword list, cur, rest;
     pword attribute_term;
@@ -98,6 +99,11 @@ int p_save_index(void)
         uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
         int res = skip_index_insert(record_index, key, record_name);
         assert(res == PSUCCEED);
+        inserted = true;
+    }
+
+    if (!inserted) {
+        free(record_name);
     }
 
     return PSUCCEED;
