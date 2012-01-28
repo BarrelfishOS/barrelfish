@@ -12,6 +12,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#define _USE_XOPEN /* for strdup() */
 
 #include <stdio.h>
 #include <string.h>
@@ -31,44 +32,47 @@
 
 #define HASH_INDEX_BUCKETS 6151
 static hash_table* record_index = NULL;
-static hash_table* subscriber_index = NULL;
-
-static char* mystrdup(char* data)
-{
-    char *p = malloc(strlen(data)+1);
-    if (p == NULL) {
-        return NULL;
-    }
-
-    strcpy(p, data);
-    return p;
-}
 
 static inline void init_index(void) {
     if(record_index == NULL) {
         hash_create_with_buckets(&record_index, HASH_INDEX_BUCKETS, NULL);
     }
-
-    if(subscriber_index == NULL) {
-        hash_create_with_buckets(&subscriber_index, HASH_INDEX_BUCKETS, NULL);
-    }
 }
 
-static inline hash_table* choose_index(char* index) {
-    hash_table* ht = NULL;
+static int skip_index_insert(hash_table* ht, uint64_t key, char* value)
+{
+    assert(ht != NULL);
+    assert(value != NULL);
 
-    if (strcmp(index, "rh") == 0) {
-        ht = record_index;
-    }
-    else if (strcmp(index, "sh") == 0) {
-        ht = subscriber_index;
-    }
-    else {
-        DIST2_DEBUG("Invalid index name!\n");
-        assert(!"Fix your prolog code.\n");
+    struct skip_list* sl = (struct skip_list*) hash_find(ht, key);
+    if (sl == NULL) {
+        errval_t err = skip_create_list(&sl);
+        if (err_is_fail(err)) {
+            return PFAIL;
+        }
+        hash_insert(ht, key, sl);
     }
 
-    return ht;
+    skip_insert(sl, value);
+    //skip_print_list(sl);
+
+    return PSUCCEED;
+}
+
+static char* skip_index_remove(hash_table* ht, uint64_t key, char* value)
+{
+    assert(ht != NULL);
+    assert(value != NULL);
+
+    struct skip_list* sl = (struct skip_list*) hash_find(ht, key);
+    if (sl == NULL) {
+        return NULL;
+    }
+
+    char* record_name = skip_delete(sl, value);
+
+    //skip_print_list(sl);
+    return record_name;
 }
 
 int p_save_index(void)
@@ -76,33 +80,25 @@ int p_save_index(void)
     DIST2_DEBUG("p_save_index\n");
     init_index();
 
-    // Select hash-table
-    char* index_type = NULL;
-    ec_get_string(ec_arg(1), &index_type);
-    hash_table* ht = choose_index(index_type);
-
-    // Retrieve Index from hash-table
-    char* key = NULL;
-    ec_get_string(ec_arg(2), &key);
-    uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
-    struct skip_list* sl = (struct skip_list*) hash_find(ht, hash_key);
-    if (sl == NULL) {
-        errval_t err = skip_create_list(&sl);
-        if (err_is_fail(err)) {
-            return PFAIL;
-        }
-        hash_insert(ht, hash_key, sl);
-    }
-    // else: List already in hash-table
-
-    // Add value into index
     char* value = NULL;
     int res = ec_get_string(ec_arg(3), &value);
     assert(res == PSUCCEED);
 
-    skip_insert(sl, mystrdup(value));
-    DIST2_DEBUG("insert %s into index[%s]=", value, key);
-    //skip_print_list(sl);
+    char* record_name = strdup(value);
+
+    pword list, cur, rest;
+    pword attribute_term;
+    for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
+        ec_get_arg(1, cur, &attribute_term);
+
+        char* attribute;
+        ec_get_string(attribute_term, &attribute);
+
+        DIST2_DEBUG("insert %s(%p) into index[%s]=", record_name, record_name, attribute);
+        uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
+        int res = skip_index_insert(record_index, key, record_name);
+        assert(res == PSUCCEED);
+    }
 
     return PSUCCEED;
 }
@@ -110,38 +106,29 @@ int p_save_index(void)
 int p_remove_index(void)
 {
     int res;
-    char* key = NULL;
-    char* value = NULL;
-    char* index_type = NULL;
-
+    char* to_free = NULL;
     init_index();
 
+    char* name = NULL;
+    res = ec_get_string(ec_arg(3), &name);
+    assert(res == PSUCCEED);
 
-    res = ec_get_string(ec_arg(1), &index_type);
-    if (res != PSUCCEED) {
-        return res;
+    pword list, cur, rest;
+    pword attribute_term;
+    for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
+        ec_get_arg(1, cur, &attribute_term);
+
+        char* attribute;
+        res = ec_get_string(attribute_term, &attribute);
+        assert(res == PSUCCEED);
+
+        uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
+        to_free = skip_index_remove(record_index, key, name);
+        DIST2_DEBUG("removed %s(%p) from index[%s]=", name, to_free, attribute);
+        assert(to_free != NULL);
     }
-    hash_table* ht = choose_index(index_type);
 
-    res = ec_get_string(ec_arg(2), &key);
-    if (res != PSUCCEED) {
-        return res;
-    }
-    uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
-    struct skip_list* sl = hash_find(ht, hash_key);
-    assert(sl != NULL);
-
-    res = ec_get_string(ec_arg(3), &value);
-    if (res != PSUCCEED) {
-        return res;
-    }
-
-    char* elem = skip_delete(sl, value);
-    assert(elem != NULL);
-    free(elem);
-
-    DIST2_DEBUG("remove %s from index[%s]=", value, key);
-    //skip_print_list(sl);
+    free(to_free);
     return PSUCCEED;
 }
 
@@ -162,7 +149,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
     if (res != PSUCCEED) {
         return res;
     }
-    hash_table* ht = choose_index(index_type);
+    hash_table* ht = record_index;
 
     res = ec_get_string(ec_arg(3), &next);
     if (res != PSUCCEED) {
@@ -222,7 +209,7 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
     if (res != PSUCCEED) {
         return res;
     }
-    hash_table* ht = choose_index(index_type);
+    hash_table* ht = record_index; // TODO broken
 
     res = ec_get_string(ec_arg(3), &next);
     if (res != PSUCCEED) {

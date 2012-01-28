@@ -198,14 +198,9 @@ filter_duplicates([val(Key1, X), val(Key2, Y)|Rest], [val(Key1, X)|Out]) :-
 % Attribute Index
 %
 set_attribute_index(Name, SList) :-
-    ( foreach(Slot, SList), param(Name) do add_index(Name, Slot) ).
+    save_index(rh, SList, Name).
 del_attribute_index(Name, SList) :-
-    ( foreach(Slot, SList), param(Name) do del_index(Name, Slot) ).
-
-add_index(Name, val(Attribute, Value)) :-
-   save_index(rh, Attribute, Name).
-del_index(Name, val(Attribute, Value)) :-
-   remove_index(rh, Attribute, Name).
+    remove_index(rh, SList, Name).
 
 %
 % Delete Record
