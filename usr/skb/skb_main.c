@@ -25,7 +25,7 @@
 #include "dist/predicates.h"
 #include "shared_lib_dict.h"
 
-#define MEMORY_SIZE 32*1024*1024
+#define MEMORY_SIZE 512*1024*1024
 #define ECLIPSE_DIR "/skb"
 
 #define RESULT_BUF_SIZE 1024
@@ -82,8 +82,27 @@ static void test(void)
 }
 */
 
+#include <dmalloc/dmalloc.h>
+
+typedef void *(*alt_malloc_t)(size_t bytes);
+extern alt_malloc_t alt_malloc;
+
+typedef void (*alt_free_t)(void *p);
+extern alt_free_t alt_free;
+
+typedef void *(*alt_realloc_t)(void *p, size_t bytes);
+extern alt_realloc_t alt_realloc;
+
+static void init_dmalloc(void)
+{
+    alt_malloc = &dlmalloc;
+    alt_free = &dlfree;
+    alt_realloc = &dlrealloc;
+}
+
 int main(int argc, char**argv)
 {
+    init_dmalloc();
     // we'll be needing this...
     vfs_mkdir("/tmp");
 
@@ -113,15 +132,15 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
-    if(disp_get_core_id() == 0) {
+    if(disp_get_core_id() == 3) {
         debug_printf("dist_server_init\n");
-        //execute_string("set_flag(gc, off).");
+        execute_string("set_flag(gc, off).");
         //execute_string("set_flag(gc_policy, fixed).");
         //execute_string("set_flat(gc_interval, 536870912)."); // 512 mb
         //execute_string("set_flag(gc_interval_dict, 10000).");
-        //execute_string("set_flag(enable_interrupts, off).");
-        //execute_string("set_flag(debug_compile, off).");
-        //execute_string("set_flag(debugging, nodebug).");
+        execute_string("set_flag(enable_interrupts, off).");
+        execute_string("set_flag(debug_compile, off).");
+        execute_string("set_flag(debugging, nodebug).");
 
         bench_init();
         errval_t err = dist_server_init();

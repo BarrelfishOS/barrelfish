@@ -141,10 +141,11 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
     cycles_t time0 = 0, time1 = 0;
+    //time0 = bench_tsc();
     struct dist_reply_state* srt = NULL;
     err = new_dist_reply_state(&srt, get_reply);
     assert(err_is_ok(err));
-
+    //time1 = bench_tsc();
     err = check_query_length(query);
     if (err_is_fail(err)) {
         goto out;
@@ -161,8 +162,9 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 
 out:
     srt->error = err;
+    //time1 = bench_tsc();
     srt->time = time1 - time0 - bench_tscoverhead();
-
+    srt->busy = 0;
     srt->reply(b, srt);
 
     free_ast(ast);

@@ -33,7 +33,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                                          "icsolver", "vfs", "nfs", "ahci", "lwip",
                                          "contmng", "procon", "hashtable", "pcre", 
                                          "dist_server", "dist_parser", "skb",
-                                         "bench", "collections"],
+                                         "bench", "collections", "dmalloc"],
                         architectures = [ arch ]
                 }
 in

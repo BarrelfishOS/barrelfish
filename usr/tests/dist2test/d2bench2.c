@@ -30,7 +30,7 @@ struct timestamp {
 };
 struct timestamp timestamps[MAX_ITERATIONS] = {{ 0, 0 }};
 static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
-        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000  };
+        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 20000  };
 
 static inline uint64_t get_cycle_counter(void)
 {
