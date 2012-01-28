@@ -53,7 +53,7 @@ static void variable_records(void)
         assert(cl != NULL);
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            size_t get_nr = k % records[i];
+            size_t get_nr = bench_tsc() % records[i];
             char buf[100];
             sprintf(buf, "object%lu", get_nr);
 
@@ -135,7 +135,7 @@ int main(int argc, char** argv)
     bench_init();
     dist_init();
 
-    one_record();
-    if (0) variable_records();
+    if (0) one_record();
+    variable_records();
     if (0) unnamed_record();
 }
