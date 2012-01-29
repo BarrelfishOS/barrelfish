@@ -110,7 +110,7 @@
  *----------------------------------------------------------------------*/
 
 #define HTABLE_MIN_SIZE		16
-#define HTABLE_MAX_SIZE		1048576
+#define HTABLE_MAX_SIZE		2097152
 #define HTABLE_EXPAND_FACTOR	4
 
 

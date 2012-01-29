@@ -114,6 +114,8 @@ int main(int argc, char**argv)
     ec_set_option_int(EC_OPTION_IO, MEMORY_IO);
     ec_set_option_ptr(EC_OPTION_ECLIPSEDIR, ECLIPSE_DIR);
     ec_set_option_long(EC_OPTION_GLOBALSIZE, MEMORY_SIZE);
+    //ec_set_option_long(EC_OPTION_PRIVATESIZE, MEMORY_SIZE);
+
 
 	// ec_.m.vm_flags |= 8;
     int n = ec_init();
@@ -134,7 +136,7 @@ int main(int argc, char**argv)
 
     if(disp_get_core_id() == 3) {
         debug_printf("dist_server_init\n");
-        execute_string("set_flag(gc, off).");
+        //execute_string("set_flag(gc, off).");
         //execute_string("set_flag(gc_policy, fixed).");
         //execute_string("set_flat(gc_interval, 536870912)."); // 512 mb
         //execute_string("set_flag(gc_interval_dict, 10000).");

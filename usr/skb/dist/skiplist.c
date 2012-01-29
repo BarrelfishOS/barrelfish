@@ -24,7 +24,7 @@
 #define SKIP_LEVEL_PROBABILITY 0.5
 // With probability 0.5 use log2(n) as MAX_LEVEL (n = amount of elements
 // to be expected for index). 2**14 = 16384
-#define MAX_LEVEL 14
+#define MAX_LEVEL 14 
 
 
 /**

@@ -131,7 +131,7 @@ int p_remove_index(void)
         uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
         to_free = skip_index_remove(record_index, key, name);
         DIST2_DEBUG("removed %s(%p) from index[%s]=", name, to_free, attribute);
-        assert(to_free != NULL);
+        //assert(to_free != NULL);
     }
 
     free(to_free);

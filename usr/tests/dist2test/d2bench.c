@@ -29,8 +29,14 @@ struct timestamp {
     uint8_t busy;
 };
 struct timestamp timestamps[MAX_ITERATIONS] = { { 0, 0, 0, 0 } };
-static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
-        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 20000 };
+//static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
+//        4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 20000 };
+
+static size_t records[] = { 0, 1, 50000, 100000, 150000, 200000, 400000, 600000, 800000, 1000000, 1200000,
+1400000 };
+
+static size_t add_records[] = { 0, 1, 50000, 100000, 150000, 200000, 400000, 600000, 800000, 1000000, 1200000,
+1400000 };
 
 static void variable_records(void)
 {
@@ -78,6 +84,56 @@ static void variable_records(void)
         }
 
     }
+}
+
+static void add_record(void) {
+    size_t exps = sizeof(add_records) / sizeof(size_t);
+    struct dist2_rpc_client* cl = get_dist_rpc_client();
+    assert(cl != NULL);
+
+    errval_t error_code;
+    char* ret = NULL;
+    char* record = "rec_ { attribute: 1 }";
+
+    for (size_t i = 1; i < exps; i++) {
+        printf("# Run add_record with %lu records:\n", add_records[i]);
+
+        for (size_t j = add_records[i - 1]; j < add_records[i]; j++) {
+            //printf("add to system: %s\n", record);
+            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &error_code);
+            assert(ret == NULL);
+            if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "add"); exit(0); }
+        }
+
+        char* to_add = "zzz { attribute: 1 }";
+        char* data;
+        for (size_t k = 0; k < MAX_ITERATIONS; k++) {
+            timestamps[k].time0 = bench_tsc();
+            cl->vtbl.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &error_code);
+            timestamps[k].time1 = bench_tsc();
+            if (err_is_fail(error_code)) {
+                DEBUG_ERR(error_code, "set");
+                exit(0);
+            }
+            free(data);
+
+            cl->vtbl.del(cl, "zzz", NOP_TRIGGER, &error_code);
+            if (err_is_fail(error_code)) {
+                DEBUG_ERR(error_code, "del");
+                exit(0);
+            }
+        }
+
+        for (size_t k = 0; k < MAX_ITERATIONS; k++) {
+            printf(
+                    "%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n",
+                    k,
+                    timestamps[k].time1 - timestamps[k].time0
+                            - bench_tscoverhead(), timestamps[k].server,
+                    timestamps[k].busy, add_records[i]);
+        }
+    }
+
 }
 
 static void one_record(void)
@@ -136,6 +192,7 @@ int main(int argc, char** argv)
     dist_init();
 
     if (0) one_record();
-    variable_records();
+    if (0) variable_records();
+    add_record();
     if (0) unnamed_record();
 }
