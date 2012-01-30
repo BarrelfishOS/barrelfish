@@ -576,7 +576,7 @@ static int acpi_init(void)
 
     as = AcpiLoadTables();
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiLoadTables failed\n");
+        PCI_DEBUG("AcpiLoadTables failed %s\n", AcpiFormatException(as));
         return -1;
     }
 
@@ -586,7 +586,7 @@ static int acpi_init(void)
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiEnableSubsystem failed\n");
+        PCI_DEBUG("AcpiEnableSubsystem failed %s\n", AcpiFormatException(as));
         return -1;
     }
 
