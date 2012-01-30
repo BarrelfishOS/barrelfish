@@ -60,7 +60,6 @@ static struct thread_cond wait_cond = THREAD_COND_INITIALIZER;
 // XXX: lwip idc_barrelfish.c
 extern struct waitset *lwip_waitset;
 
-//#ifdef NONBLOCKING_NFS_READ
 static void check_and_handle_other_events(void)
 {
     if (lwip_mutex == NULL) { // single-threaded
@@ -78,7 +77,6 @@ static void check_and_handle_other_events(void)
         assert(!"NYI: ");
     }
 }
-//#endif // NONBLOCKING_NFS_READ
 
 static void wait_for_condition(void)
 {

@@ -88,7 +88,7 @@ static err_t echo_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
                           TRACE_EVENT(TRACE_SUBSYS_NNET,
                                       TRACE_EVENT_NNET_STOP, 0), 0);
             trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_START, 0);
-        } else if (n64b == 6) {
+        } else if (n64b == 8) {
             trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_STOP, 0);
             char* trbuf = malloc(4096*4096);
             size_t length = trace_dump(trbuf, 4096*4096);
@@ -107,13 +107,30 @@ static err_t echo_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
     r = tcp_write(tpcb, p->payload, p->len, TCP_WRITE_FLAG_COPY);
     assert(r == ERR_OK);
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_WRITE, 0);
+#endif
+
     // make sure data gets sent immediately
     r = tcp_output(tpcb);
     assert(r == ERR_OK);
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_OUTPUT, 0);
+#endif
+
     tcp_recved(tpcb, p->len);
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_RECV, 0);
+#endif
+
+
     //now we can advertise a bigger window
     pbuf_free(p);
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_FREE, 0);
+#endif
+
 
     return ERR_OK;
 }

@@ -258,6 +258,51 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 
 static bool send_single_pkt_to_driver(struct ether_binding *cc)
 {
+    errval_t err;
+
+    // sanity checks: making sure function is not called with invalid parameters
+    struct client_closure *cl = (struct client_closure *)cc->st;
+    assert(cl != NULL);
+    struct shared_pool_private *spp = cl->spp_ptr;
+    assert(spp != NULL);
+    assert(spp->sp != NULL);
+
+    if (cl->tx_index == spp->c_write_id) {
+        return false;
+    }
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
+            (uint32_t)cl->tx_index);
+#endif // TRACE_ONLY_SUB_NNET
+
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+
+    // check if there are all pbufs needed for this packet
+    uint64_t available_slots = sp_c_range_size(cl->tx_index, spp->c_write_id,
+            spp->c_size);
+    if (available_slots < sld->no_pbufs) {
+        USER_PANIC("Incomplete packet sent by app!");
+        return false;
+    }
+    // TODO: send the list to driver
+    err = ether_transmit_pbuf_list_ptr(cl);
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
+            (uint32_t)cl->tx_index);
+#endif // TRACE_ONLY_SUB_NNET
+    cl->tx_index = (cl->tx_index + sld->no_pbufs) % spp->c_size;
+
+    if (err_is_fail(err)) {
+        dropped_pkt_count++;
+        return false;
+    }
+    return true;
+} // end function:
+
+#if 0
+static bool send_single_pkt_to_driver_old(struct ether_binding *cc)
+{
     errval_t r;
 //    uint64_t ts = rdtsc();
     struct client_closure *cl = (struct client_closure *)cc->st;
@@ -266,30 +311,41 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     assert(spp != NULL);
     assert(spp->sp != NULL);
 
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 0);
-#endif // TRACE_ONLY_SUB_NNET
-
-
-    sp_reload_regs(spp);
     // Keep the copy of ghost_read_id so that it can be restored
     // if something goes wrong
     uint64_t revert_tx_id = cl->tx_index;
 
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 3);
-#endif // TRACE_ONLY_SUB_NNET
-
-    if (cl->tx_index == spp->c_write_id) {  // FIXME: not tested yet
+    if (cl->tx_index == spp->c_write_id) {
         return false;
     }
 
 #if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 1);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
+            (uint32_t)cl->tx_index);
 #endif // TRACE_ONLY_SUB_NNET
 
-    // FIXME: Make sure that there are s.no_pbuf slots available
+
     struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+
+    // check if there are all pbufs needed for this packet
+    uint64_t available_slots = sp_c_range_size(cl->tx_index, spp->c_write_id,
+            spp->c_size);
+    if (available_slots < sld->no_pbufs) {
+        USER_PANIC("Incomplete packet sent by app!");
+        return false;
+    }
+    // TODO: send the list to driver
+    r = ether_transmit_pbuf_list_ptr(cl);
+
+    if (err_is_fail(r)) {
+
+
+    }
+    // TODO: Increment tx_index with no. of pbufs sent
+//    cl->tx_index = (cl->tx_index + sld->no_pbufs) % spp->c_size;
+
+
+    // FIXME: Make sure that there are s.no_pbuf slots available
 
 //    cl->nr_transmit_pbufs = spp->sp->slot_list[cl->tx_index].d.no_pbufs;
     cl->nr_transmit_pbufs = sld->no_pbufs;
@@ -344,7 +400,8 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
     } while(1);
 
 #if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW, 2);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
+            (uint32_t)cl->tx_index);
 #endif // TRACE_ONLY_SUB_NNET
 
     r = ether_transmit_pbuf_list_ptr(cl);
@@ -410,6 +467,8 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 
     return true;
 } // end function: send_single_pkt_to_driver
+#endif // 0
+
 
 static uint64_t send_packets_on_wire(struct ether_binding *cc)
 {
@@ -782,11 +841,12 @@ void ethersrv_init(char *service_name,
 
 /*******************************************/
 bool notify_client_free_tx(struct ether_binding * b,
-                           uint64_t client_data,
+                           uint64_t client_data, // FIXME: not used, remove
                            uint64_t spp_index,
-                           uint64_t rts,
-                           uint64_t slots_left,
-                           uint64_t dropped)
+                           uint64_t rts,  // FIXME: not very useful, remove
+                           uint64_t slots_left, // FIXME: not used, remove
+                           uint64_t dropped// FIXME: not used, remove
+        )
 {
 //    uint64_t ts = rdtsc();
     assert(b != NULL);

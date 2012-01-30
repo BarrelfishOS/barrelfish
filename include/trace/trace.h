@@ -282,8 +282,12 @@
 #define TRACE_EVENT_NNET_TXESVSSPOW          0x0026 // Ethersrv send_sng_pkt..
 #define TRACE_EVENT_NNET_TXDRVADD            0x0027 // Driver add pkg (TX)
 #define TRACE_EVENT_NNET_TXDRVSEE            0x0028 // Driver saw pkg done (TX)
-
-
+#define TRACE_EVENT_NNET_TX_TCP_WRITE        0x0030 // tcp_write done
+#define TRACE_EVENT_NNET_TX_TCP_OUTPUT       0x0031 // tcp_output done
+#define TRACE_EVENT_NNET_TX_TCP_RECV         0x0032 // tcp_recved done
+#define TRACE_EVENT_NNET_TX_TCP_FREE         0x0033 // tx pbuf freed
+#define TRACE_EVENT_NNET_TX_MEMP             0x0034 // tx pbuf memp start
+#define TRACE_EVENT_NNET_TX_MEMP_D           0x0035 // tx pbuf memp done
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 

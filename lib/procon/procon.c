@@ -25,6 +25,7 @@
 // should probably not be disabled.
 #define DISABLE_MFENCE    1
 
+#if 0
 static uint64_t sp_atomic_read_reg(union vreg *reg)
 {
     return reg->value;
@@ -32,6 +33,7 @@ static uint64_t sp_atomic_read_reg(union vreg *reg)
     mfence();
 #endif
 } // end function: sp_atomic_read_reg
+#endif // 0
 
 static void sp_atomic_set_reg(union vreg *reg, uint64_t value)
 {
@@ -51,9 +53,12 @@ void sp_reload_regs(struct shared_pool_private *spp)
     assert(spp != NULL);
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);
-    spp->c_read_id = sp_atomic_read_reg(&spp->sp->read_reg);
-    spp->c_write_id = sp_atomic_read_reg(&spp->sp->write_reg);
-    spp->c_size = sp_atomic_read_reg(&spp->sp->size_reg);
+    spp->c_read_id = spp->sp->read_reg.value;
+    spp->c_write_id = spp->sp->write_reg.value;
+    spp->c_size = spp->sp->size_reg.value;
+//    spp->c_read_id = sp_atomic_read_reg(&spp->sp->read_reg);
+//    spp->c_write_id = sp_atomic_read_reg(&spp->sp->write_reg);
+//    spp->c_size = sp_atomic_read_reg(&spp->sp->size_reg);
 }
 
 

@@ -129,6 +129,49 @@ static void get_mac_address_fn(uint8_t* mac)
 static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
 {
     int i;
+    uint64_t paddr;
+    struct txbuf* buf;
+    uint64_t client_data = 0;
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
+
+    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
+    DEBUG("Add buffer callback %"PRIu64":\n", rtpbuf);
+
+    // TODO: Make sure there is room in TX queue
+    for (i = 0; i < rtpbuf; i++) {
+        sld = &spp->sp->slot_list[cl->tx_index + i].d;
+        assert(buffer->buffer_id == sld->buffer_id);
+        paddr = (uint64_t) buffer->pa + sld->offset;
+
+        // Add info to free memory
+        // TODO: Is this copy really necessary?
+        buf = txbufs + q[0]->tx_tail;
+        buf->eb = cl->app_connection;
+        buf->spp_index = cl->tx_index + i;
+//        client_data = sld->client_data;
+//        buf->ts = pbuf->ts;
+
+        e10k_queue_add_txbuf(q[0], paddr, sld->len, buf,
+            (i == rtpbuf - 1));
+    }
+
+    e10k_queue_bump_txtail(q[0]);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVADD,
+                (uint32_t) client_data);
+#endif // TRACE_ONLY_SUB_NNET
+
+    return SYS_ERR_OK;
+}
+
+#if 0
+/** Callback to add a buffer to TX ring. */
+static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
+{
+    int i;
     struct tx_pbuf* pbuf;
     uint64_t paddr;
     struct txbuf* buf;
@@ -162,6 +205,7 @@ static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
 
     return SYS_ERR_OK;
 }
+#endif // 0
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {

@@ -214,6 +214,7 @@ bool notify_client_free_tx1(struct ether_binding * b,
                            uint64_t dropped);
 */
 
+struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 void process_received_packet(void *pkt_data, size_t pkt_len);
 

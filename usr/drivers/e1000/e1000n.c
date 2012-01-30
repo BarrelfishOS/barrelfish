@@ -159,13 +159,14 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     /* FIXME: the packet should be copied into separate location, so that
      * application can't temper with it. */
     transmit_ring[ether_transmit_index] = tdesc;
-    tx_pbuf[ether_transmit_index].paddr = (uint64_t)buffer_address + offset;
-    tx_pbuf[ether_transmit_index].event_sent = false;
     tx_pbuf[ether_transmit_index].sr = sr;
-    tx_pbuf[ether_transmit_index].client_data = client_data;
     tx_pbuf[ether_transmit_index].spp_index = spp_index;
-    tx_pbuf[ether_transmit_index].ts = rdtsc();
-    tx_pbuf[ether_transmit_index].last = last;
+
+//    tx_pbuf[ether_transmit_index].paddr = (uint64_t)buffer_address + offset;
+//    tx_pbuf[ether_transmit_index].event_sent = false;
+//    tx_pbuf[ether_transmit_index].client_data = client_data;
+//    tx_pbuf[ether_transmit_index].ts = rdtsc();
+//    tx_pbuf[ether_transmit_index].last = last;
     ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
     e1000_tdt_wr(&(d), 0, (e1000_dqval_t){ .val = ether_transmit_index });
 
@@ -182,32 +183,83 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
 
 /* Send the buffer to device driver TX ring.
  * NOTE: This function will get called from ethersrv.c */
+static errval_t transmit_pbuf_list_fn_v2(struct client_closure *cl)
+{
+    errval_t r;
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
+    if (!can_transmit(rtpbuf)){
+        while(handle_free_TX_slot_fn());
+        if (!can_transmit(rtpbuf)){
+            return ETHERSRV_ERR_CANT_TRANSMIT;
+        }
+    }
+    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
+    // FIXME: code should work with following assert enable.
+    // Current problem is that, ARP request packets are reused to send the
+    // response, and hence having different buffer_id than of tx buffer
+//    assert(buffer == cl->buffer_ptr);
+    for (int i = 0; i < rtpbuf; i++) {
+        sld = &spp->sp->slot_list[cl->tx_index + i].d;
+        assert(buffer->buffer_id == sld->buffer_id);
+
+        r = transmit_pbuf(buffer->pa, sld->len, sld->offset,
+                    i == (rtpbuf - 1), //last?
+                    sld->client_data,
+                    (cl->tx_index + i), cl->app_connection);
+        if(err_is_fail(r)) {
+            //E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
+            printf("ERROR:transmit_pbuf failed\n");
+            return r;
+        }
+        E1000N_DEBUG("transmit_pbuf done for pbuf %"PRIx64", index %"PRIu64"\n",
+            sld->client_data, cl->tx_index + i);
+    } // end for: for each pbuf
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
+        (uint32_t)0);
+#endif // TRACE_ONLY_SUB_NNET
+
+    return SYS_ERR_OK;
+} // end function: transmit_pbuf_list_fn
+
+
+#if 0
+/* Send the buffer to device driver TX ring.
+ * NOTE: This function will get called from ethersrv.c */
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
-	errval_t r;
-
-	if (!can_transmit(cl->rtpbuf)){
-            while(handle_free_TX_slot_fn());
-	    if (!can_transmit(cl->rtpbuf)){
-		return ETHERSRV_ERR_CANT_TRANSMIT;
-            }
-	}
-	for (int i = 0; i < cl->rtpbuf; i++) {
-		r = transmit_pbuf(cl->pbuf[i].buffer->pa,
-				cl->pbuf[i].len, cl->pbuf[i].offset,
-                                i == (cl->nr_transmit_pbufs - 1), //last?
-				cl->pbuf[i].client_data,
-                                cl->pbuf[i].spp_index, cl->app_connection);
-		if(err_is_fail(r)) {
-			//E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
-			printf("ERROR:transmit_pbuf failed\n");
-			return r;
-		}
+    errval_t r;
+    if (!can_transmit(cl->rtpbuf)){
+        while(handle_free_TX_slot_fn());
+        if (!can_transmit(cl->rtpbuf)){
+            return ETHERSRV_ERR_CANT_TRANSMIT;
+        }
+    }
+    for (int i = 0; i < cl->rtpbuf; i++) {
+        r = transmit_pbuf(cl->pbuf[i].buffer->pa,
+                    cl->pbuf[i].len, cl->pbuf[i].offset,
+                    i == (cl->nr_transmit_pbufs - 1), //last?
+                    cl->pbuf[i].client_data,
+                    cl->pbuf[i].spp_index, cl->app_connection);
+        if(err_is_fail(r)) {
+            //E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
+            printf("ERROR:transmit_pbuf failed\n");
+            return r;
+        }
         E1000N_DEBUG("transmit_pbuf done for pbuf %"PRIx64", index %"PRIu64"\n",
-                cl->pbuf[i].client_data, cl->pbuf[i].spp_index);
-	}
-	return SYS_ERR_OK;
-}
+            cl->pbuf[i].client_data, cl->pbuf[i].spp_index);
+    } // end for: for each pbuf
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
+        (uint32_t)0);
+#endif // TRACE_ONLY_SUB_NNET
+
+    return SYS_ERR_OK;
+} // end function: transmit_pbuf_list_fn
+
+#endif // 0
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {
@@ -239,11 +291,18 @@ static bool handle_free_TX_slot_fn(void)
         return false;
     }
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVSEE,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
+
     sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
-            tx_pbuf[ether_transmit_bufptr].client_data,
+            0, // tx_pbuf[ether_transmit_bufptr].client_data,
             tx_pbuf[ether_transmit_bufptr].spp_index,
-            tx_pbuf[ether_transmit_bufptr].ts,
-            find_tx_free_slot_count_fn(), 0);
+            0, // tx_pbuf[ether_transmit_bufptr].ts,
+            0, // find_tx_free_slot_count_fn(),
+            0);
 
     ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
     netbench_record_event_simple(bm, RE_TX_DONE, ts);
@@ -414,6 +473,12 @@ static bool handle_next_received_packet(void)
         }
         total_rx_datasize += len;
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXDRVSEE,
+                    (uint32_t) len);
+#endif // TRACE_ONLY_SUB_NNET
+
+
         // E1000N_DEBUG("packet received of size %zu..\n", len);
 
         buffer_address = (void*)rxd->rx_read_format.buffer_address;
@@ -491,6 +556,7 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
         trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_SEE,
                 total_rx_p_count);
 #endif // TRACE_N_BM
+
 
 //        if (total_rx_p_count == pkt_limit) {
         if (total_rx_datasize > pkt_size_limit) {
@@ -614,7 +680,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
     ethersrv_init(global_service_name, get_mac_address_fn,
-		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+		  transmit_pbuf_list_fn_v2, find_tx_free_slot_count_fn,
                   handle_free_TX_slot_fn);
 }
 

@@ -119,6 +119,13 @@ netmap = { 0x0001: 'Start',
            0x0026: 'Ethersrv send_sng_pkt..',
            0x0027: 'Driver add pkg (TX)',
            0x0028: 'Driver saw pkg done (TX)',
+
+           0x0030: 'tcp_write done',
+           0x0031: 'tcp_output done',
+           0x0032: 'tcp_recved done',
+           0x0033: 'tx pbuf freed',
+           0x0034: 'tx pbuf memp start',
+           0x0035: 'tx pbuf memp done',
            }
 
 
@@ -151,6 +158,11 @@ NIC_OUT_EVENTS = {
 0X000C: "reply sent by NIC"
 }
 
+machine_speeds = {
+        'nos6' : 2799.877,
+        'sbrinz1' : 2511.0,
+        'ziger1' : 2400.367,
+        }
 #packet_boundries = [0X0012]
 #LOGICAL_ORDER = [0x012, 0x0010, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
 #				0x0008, 0x0009, 0x000A, 0x000b, 0x000c]
@@ -165,11 +177,14 @@ LOGICAL_ORDER = [0x0010, 0x0003, 0x0015, 0x0016, # 0x0019, 0x001a, 0x001b, 0x001
 #				0x000b, 0x000c]
 
 
+
 MAX_EVENT_NOREPLY = 9
 MAX_EVENTS = 0x00FF
 
 DEBUG = False
 #DEBUG = True
+
+MACHINE = 'ziger1'
 
 def dprint (args):
 	if DEBUG:
@@ -177,7 +192,7 @@ def dprint (args):
 
 def c2t (cycles):
 #	return (cycles)  # cycles
-	return ( cycles / (2511.0 ))  # micro seconds
+	return ( cycles / (machine_speeds[MACHINE]))  # micro seconds
 
 def print_event(event):
 	print "%-15f %-12f %-10s %-45s %-4s %-15x" % (c2t(event['TS']),
