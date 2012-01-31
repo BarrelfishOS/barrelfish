@@ -131,7 +131,7 @@ static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
     int i;
     uint64_t paddr;
     struct txbuf* buf;
-    uint64_t client_data = 0;
+//    uint64_t client_data = 0;
     struct shared_pool_private *spp = cl->spp_ptr;
     struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
     uint64_t rtpbuf = sld->no_pbufs;
