@@ -334,8 +334,12 @@ arminstall:
 	install -p $(ARCH)/romfs.cpio ${INSTALL_PREFIX}/$(ARCH)/romfs.cpio
 .PHONY: arminstall
 
-scc: all tools/bin/dite
-	strip -d scc/sbin/*
+# Copy the scc-specific menu.lst from the source directory to the build directory
+menu.lst.scc: $(SRCDIR)/hake/menu.lst.scc
+	cp $< $@
+
+scc: all tools/bin/dite menu.lst.scc
+	$(shell find scc/sbin -type f -print0 | xargs -0 strip -d)
 	tools/bin/dite -32 -o bigimage.dat menu.lst.scc
 	cp $(SRCDIR)/tools/scc/bootvector.dat .
 	bin2obj -m $(SRCDIR)/tools/scc/bigimage.map -o barrelfish0.obj
