@@ -156,6 +156,7 @@ struct client_closure {
     struct ether_binding *app_connection; /* FIXME: Do I need this? */
     struct cont_queue *q;
     uint64_t pkt_count;  // # packets
+    uint8_t debug_print;
 
     uint64_t in_filter_matched;  // # total filters matched
     uint64_t in_filter_matched_f; // # failed processing of matched filter

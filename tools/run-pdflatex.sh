@@ -82,6 +82,7 @@ INPUT_TEX=
 WORKING_DIR=
 OUTPUT_PDF=
 HAS_BIB=
+HAS_GLO=
 
 #
 # Argument processing.
@@ -100,6 +101,8 @@ while [ -n "$*" ]; do
 	    shift; BIBINPUTS=`cons_inputs "$BIBINPUTS" "$1"` ;;
 	--has-bib)
 	    HAS_BIB=Yes ;;
+	--has-glo)
+	    HAS_GLO=Yes ;;
 	*)
 	    usage ;;
     esac
@@ -137,6 +140,9 @@ TOC_FILE="$WORKING_DIR/${JOB_NAME}.toc"
 BBL_FILE="$WORKING_DIR/${JOB_NAME}.bbl"
 BLG_FILE="$WORKING_DIR/${JOB_NAME}.blg"
 VER_FILE="$WORKING_DIR/${JOB_NAME}.ver"
+GLO_FILE="$WORKING_DIR/${JOB_NAME}.glo"
+ACN_FILE="$WORKING_DIR/${JOB_NAME}.acn"
+IST_FILE="$WORKING_DIR/${JOB_NAME}.ist"
 PDF_FILE="$WORKING_DIR/${JOB_NAME}.pdf"
 
 #
@@ -145,11 +151,11 @@ PDF_FILE="$WORKING_DIR/${JOB_NAME}.pdf"
 # bibtex on cygwin can be miktex which always 0 exit code
 run_latex
 if [ -n "$HAS_BIB" ]; then (bibtex $AUX_FILE_WITHOUT_AUX && test -r $BBL_FILE)  || exit; echo run_latex; fi
-if [ -e "$TOC_FILE" -o -e "$BBL_FILE" -o -e "$VER_FILE" ]; then run_latex; fi
-if egrep Rerun "$LOG_FILE" ; then run_latex ; fi
-if egrep Rerun "$LOG_FILE" ; then run_latex ; fi
-if egrep Rerun "$LOG_FILE" ; then run_latex ; fi
+if [ -n "$HAS_GLO" ]; then (makeglossaries -s $IST_FILE $GLO_FILE && makeglossaries -s $IST_FILE $ACN_FILE && test -r $GLO_FILE)  || exit; echo run_latex; fi
+if [ -e "$TOC_FILE" -o -e "$BBL_FILE" -o -e "$VER_FILE" -o -e "$GLO_FILE" -o -e "$ACN_FILE" ]; then run_latex; fi
+while egrep Rerun "$LOG_FILE"; do run_latex; done
 rm -f "$AUX_FILE" "$HST_FILE" "$LOG_FILE" "$TOC_FILE" "$BBL_FILE" 
 rm -f "$BLG_FILE" "$VER_FILE" 
+rm -f "$GLO_FILE" "$ACN_FILE" "$IST_FILE"
 mv "$PDF_FILE" "$OUTPUT_PDF"
 echo "Output file is in $OUTPUT_PDF"

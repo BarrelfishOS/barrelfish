@@ -25,9 +25,6 @@ void idc_init(void)
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP
     ump_init();
 #endif
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    bmp_init();
-#endif
 #if defined(CONFIG_FLOUNDER_BACKEND_UMP_IPI)
     ipi_init();
 #endif

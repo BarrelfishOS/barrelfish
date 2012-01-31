@@ -86,9 +86,6 @@ static inline bool havework_disabled(dispatcher_handle_t handle)
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
             || disp->lmp_send_events_list != NULL
 #endif
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-            || disp->bmp_send_events_list != NULL
-#endif
             ;
 }
 

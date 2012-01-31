@@ -56,6 +56,7 @@ static void bm_print_interesting_stats(uint8_t type)
 
 void reset_client_closure_stat(struct client_closure *cc)
 {
+    cc->debug_print = 0;
     cc->start_ts = 0;
     cc->start_ts_tx = 0;
     cc->pkt_count = 0;
@@ -120,6 +121,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
     struct client_closure *cl = ((struct client_closure *) (cc->st));
 
     cl->debug_state = state;
+    cl->debug_print = state;
     switch (state) {
 
         case BMS_STOP_REQUEST:  // PRINTING stats

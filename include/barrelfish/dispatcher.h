@@ -21,7 +21,6 @@
 #include <barrelfish/threads.h>
 
 struct lmp_chan;
-struct bmp_chan;
 struct deferred_event;
 
 // Architecture generic user only dispatcher struct
@@ -50,11 +49,6 @@ struct dispatcher_generic {
     /// LMP endpoint heap state
     struct heap lmp_endpoint_heap;
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
-
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    /// List of BMP channels waiting to retry a send
-    struct bmp_chan *bmp_send_events_list;
-#endif
 
     /// Queue of deferred events (i.e. timers)
     struct deferred_event *deferred_events;

@@ -10,7 +10,7 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Notify.tex" "TN-009-Notifications.pdf" False 
+[ buildTechNote "Notify.tex" "TN-009-Notifications.pdf" False False
                     [ "umpnotify" ] 
 ]
 

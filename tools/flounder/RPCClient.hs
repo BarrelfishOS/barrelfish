@@ -90,7 +90,7 @@ rpc_header_body infile interface@(Interface name descr decls) = [
     C.Blank]
     where
         (types, messagedecls) = Backend.partitionTypesMessages decls
-        rpcs = [m | m@(RPC _ _) <- messagedecls]
+        rpcs = [m | m@(RPC _ _ _) <- messagedecls]
 
 rpc_vtbl_decl :: String -> [MessageDef] -> C.Unit
 rpc_vtbl_decl n ml = 
@@ -157,10 +157,10 @@ rpc_stub_body infile intf@(Interface ifn descr decls) = C.UnitList [
     rpc_init_fn ifn rpcs]
     where
         (types, messagedecls) = Backend.partitionTypesMessages decls
-        rpcs = [m | m@(RPC _ _) <- messagedecls]
+        rpcs = [m | m@(RPC _ _ _) <- messagedecls]
 
 rpc_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
-rpc_fn ifn typedefs msg@(RPC n args) =
+rpc_fn ifn typedefs msg@(RPC n args _) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (rpc_fn_name ifn n) params [
         localvar (C.TypeName "errval_t") errvar_name (Just $ C.Variable "SYS_ERR_OK"),
         C.Ex $ C.Call "assert" [C.Unary C.Not rpc_progress_var],
@@ -224,7 +224,7 @@ rpc_vtbl ifn ml =
         fields = [let mn = msg_name m in (mn, rpc_fn_name ifn mn) | m <- ml]
 
 rpc_rx_handler_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
-rpc_rx_handler_fn ifn typedefs msg@(RPC mn args) =
+rpc_rx_handler_fn ifn typedefs msg@(RPC mn args _) =
     C.FunctionDef C.Static C.Void (rpc_rx_handler_fn_name ifn mn) params [
         C.SComment "get RPC client state pointer",
         localvar (C.Ptr $ C.Struct $ rpc_bind_type ifn) rpc_bind_var $
@@ -314,7 +314,7 @@ rpc_init_fn ifn ml = C.FunctionDef C.NoScope (C.TypeName "errval_t")
      C.SComment "Set RX handlers on binding object for RPCs",
      C.StmtList [C.Ex $ C.Assignment (C.FieldOf (C.DerefField bindvar "rx_vtbl")
                                         (rpc_resp_name mn))
-         (C.Variable $ rpc_rx_handler_fn_name ifn mn) | RPC mn _  <- ml],
+         (C.Variable $ rpc_rx_handler_fn_name ifn mn) | RPC mn _ _ <- ml],
      C.SBlank,
      C.SComment "Set error handler on binding object",
      C.Ex $ C.Assignment (bindvar `C.DerefField` "error_handler")

@@ -24,6 +24,7 @@ data Args = Args {
       assemblyFiles :: [String],
       flounderDefs :: [String],
       flounderBindings :: [String], -- built stubs for all enabled backends
+      flounderExtraDefs :: [(String, [String])],
       flounderExtraBindings :: [(String, [String])], -- build stubs for specific backends
       flounderTHCDefs :: [String], -- TODO: this can probably be subsumed into the above?
       flounderTHCStubs :: [String], -- TODO: this can probably be subsumed into the above?
@@ -50,6 +51,7 @@ defaultArgs = Args {
       assemblyFiles = [],
       flounderDefs = [],
       flounderBindings = [],
+      flounderExtraDefs = [],
       flounderExtraBindings = [],
       flounderTHCDefs = [],
       flounderTHCStubs = [],
@@ -66,12 +68,12 @@ defaultArgs = Args {
       architectures = allArchitectures
 }
 
-allArchitectures = [ "x86_64", "x86_32", "arm", "arm11mp", "beehive", "scc", "xscale" ]
-allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "beehive", "scc" ]
+allArchitectures = [ "x86_64", "x86_32", "arm", "arm11mp", "scc", "xscale" ]
+allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "scc" ]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends
-    = [ "lmp", "ump", "ump_ipi", "bmp", "loopback", "rpcclient", "msgbuf", "multihop" ]
+    = [ "lmp", "ump", "ump_ipi", "loopback", "rpcclient", "msgbuf", "multihop", "ahci" ]
 
 defaultBuildFn :: [String] -> String -> Args -> HRule
 defaultBuildFn _ f _ = 
@@ -88,6 +90,7 @@ showArgs prefix a =
     ++ "\n  assemblyFiles:         " ++ (show $ assemblyFiles a)
     ++ "\n  flounderDefs:          " ++ (show $ flounderDefs a)
     ++ "\n  flounderBindings:      " ++ (show $ flounderBindings a)
+    ++ "\n  flounderExtraDefs:     " ++ (show $ flounderExtraDefs a)
     ++ "\n  flounderExtraBindings: " ++ (show $ flounderExtraBindings a)
     ++ "\n  flounderTHCDefs:       " ++ (show $ flounderTHCDefs a)
     ++ "\n  flounderTHCStubs:      " ++ (show $ flounderTHCStubs a)

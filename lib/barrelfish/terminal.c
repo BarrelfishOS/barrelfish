@@ -368,6 +368,16 @@ errval_t terminal_want_stdin(unsigned sources)
         state->kbd_bound = true;
     }
 
+    // XXX: I don't believe this waiting is correct. It changes this from a 
+    // non-blocking to a blocking API call. The caller should dispatch
+    // the default waitset, and the bind will eventually complete. -AB
+    while ((sources & TERMINAL_SOURCE_SERIAL) && state->serial == NULL) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "event_dispatch on default waitset failed.");
+        }
+    }
+
     if (sources & TERMINAL_SOURCE_SERIAL && state->serial != NULL) {
         err = state->serial->tx_vtbl.associate_stdin(state->serial, NOP_CONT);
         if (err_is_fail(err)) {

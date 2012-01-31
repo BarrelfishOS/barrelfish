@@ -89,6 +89,7 @@ extern "C" {
     int is_lwip_loaded(void);
     uint64_t lwip_packet_drop_count(void);
 
+
 uint64_t wrapper_perform_lwip_work(void);
 
 void lwip_benchmark_control(int connection, uint8_t state, uint64_t trigger,

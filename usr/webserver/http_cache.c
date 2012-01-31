@@ -281,8 +281,8 @@ static void read_callback (void *arg, struct nfs_client *client,
     memcpy (e->hbuff->data + e->copied, res->data.data_val, res->data.data_len);
     e->copied += res->data.data_len;
 
-    DEBUGPRINT ("got response of len %d, filesize %lu\n",
-    			res->data.data_len, e->copied);
+//    DEBUGPRINT ("got response of len %d, filesize %lu\n",
+//    			res->data.data_len, e->copied);
 
     // free arguments
     xdr_READ3res(&xdr_free, result);

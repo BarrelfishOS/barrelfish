@@ -519,10 +519,6 @@ uint64_t thc_seq_ticket(thc_seq_t *seq) {
 #ifdef _MSC_VER
     C_ASSERT(sizeof(LONGLONG) == sizeof(seq->n));
     return InterlockedIncrement64(reinterpret_cast<volatile LONGLONG*>(&seq->n)) - 1;
-#elif defined(__BEEHIVE__)
-  uint64_t result = seq->n;
-  seq->n ++;
-  return result;
 #else
   uint64_t result;
   do {

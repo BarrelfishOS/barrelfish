@@ -24,17 +24,10 @@ struct vspace_mmu_vregion_list {
 struct vspace_mmu_aware {
     size_t size;
     size_t consumed;
-#ifdef NOTRANS
-    struct vspace_mmu_vregion_list *head;
-    struct memobj *memobj;
-    struct vspace_mmu_vregion_list init_list;    ///< One to initialize
-    struct memobj_one_frame_one_map init_memobj; ///< One to initialize
-#else
     struct vregion vregion;           ///< Needs just one vregion
     struct memobj_anon memobj;        ///< Needs just one memobj
     lvaddr_t offset;    ///< Offset of free space in anon
     lvaddr_t mapoffset; ///< Offset into the anon that has been mapped in
-#endif
 };
 
 errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size);

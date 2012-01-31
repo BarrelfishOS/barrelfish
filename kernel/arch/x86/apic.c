@@ -25,13 +25,22 @@
 #define APIC_PAGE_SIZE          4096
 #define APIC_DEFAULT_PRIORITY   0x0000
 
+/**
+ * The kernel's APIC ID.
+ */
+uint8_t apic_id;
+
+/**
+ * True iff we're on the BSP
+ */
+bool apic_bsp = true;
+
 // global pointers used in init_ap.S
 extern uint64_t x86_64_start_ap;
 extern uint64_t x86_64_init_ap_wait;
 extern uint64_t x86_32_start_ap;
 extern uint64_t x86_32_init_ap_wait;
 
-bool bsp = true;
 static xapic_t apic;
 
 /**
@@ -132,13 +141,14 @@ void apic_init(void)
     xapic_initialize(&apic, (void *)apic_base);
 
 #if !defined(__scc__) || defined(RCK_EMU)
-    debug(SUBSYS_APIC, "APIC ID=%hhu\n", xapic_id_id_rdf(&apic) );
+    apic_id = apic_get_id();
+    debug(SUBSYS_APIC, "APIC ID=%hhu\n", apic_id);
     if (ia32_apic_base_bsp_extract(apic_base_msr)) {
         debug(SUBSYS_APIC, "APIC: bootstrap processor\n");
-        bsp = true;
+        apic_bsp = true;
     } else {
         debug(SUBSYS_APIC, "APIC: application processor\n");
-        bsp = false;
+        apic_bsp = false;
         *ap_wait = AP_STARTED;
     }
 #endif
@@ -405,7 +415,7 @@ void apic_unmask_timer(void)
 
 bool arch_core_is_bsp(void)
 {
-    return bsp;
+    return apic_is_bsp();
 }
 
 xapic_esr_t apic_get_esr(void)

@@ -66,7 +66,20 @@ local_memory_affinity(CoreID, L) :-
             ),
             L).
 
+extractbase(range(X,_),X).
+extractlimit(range(_,X),X).
 
+local_memory_affinity(CoreID, Base, Limit) :-
+    local_memory_affinity(CoreID, L),
+    ( not L=[] ->
+        maplist(extractbase, L, Bases),
+        maplist(extractlimit, L, Limits),
+        min(Bases, Base),
+        max(Limits, Limit)
+      ;
+        Base=0,
+        Limit=0
+    ).
 
 % 3. find core ID list which share same L2/L3 cache
 %    -> till now it looks like the only way to know that is from data sheets.

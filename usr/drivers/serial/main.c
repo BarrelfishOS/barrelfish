@@ -63,30 +63,8 @@ static void tx_handler(void *arg)
     }
 }
 
-static void rpc_handler(void *arg)
-{
-	printf("in rpc_handler\n");
-	struct serial_binding *b = arg;
-	errval_t err;
-	//int i = 1;
-	err = serial_get_input_signal_response__tx(b, NOP_CONT);
-	if (err_is_fail(err)) {
-		if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-			b->register_send(b, get_default_waitset(), NOP_CONT);
-			if (err_is_fail(err)) {
-				printf("register_send on binding failed");
-			}
-		} else {
-			printf("error sending reply!\n");
-		}	
-	} 
-}
-
 void serial_input(char *data, size_t length)
 {
-	//if (rpc_caller != NULL) 
-	rpc_handler(terminal);
-
     if (inbuf[ninbuf].buf == NULL) { // allocate a buffer
         inbuf[ninbuf].buf = malloc(length);
         assert(inbuf[ninbuf].buf != NULL);
@@ -120,27 +98,13 @@ static void associate_stdin_handler(struct serial_binding *b)
     }
 }
 
-
-
-static void get_input_signal_handler(struct serial_binding *b)
-{
-	terminal = b;
-	printf("Get input signal handler has been called, and is now processing the request\n");
-    //respond the caller, if we received an input
-    if (inbuf[ninbuf].buf != NULL) {
-		rpc_handler(b);
-    }
-}
-
 static struct serial_rx_vtbl serial_rx_vtbl = {
     .output = output_handler,
     .associate_stdin = associate_stdin_handler,
-	.get_input_signal_call = get_input_signal_handler,
 };
 
 static errval_t connect_cb(void *st, struct serial_binding *b)
 {
-	printf("client connected\n");
     b->rx_vtbl = serial_rx_vtbl;
     return SYS_ERR_OK;
 }

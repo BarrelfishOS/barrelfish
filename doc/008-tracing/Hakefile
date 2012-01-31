@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Tracing.tex" "TN-008-Tracing.pdf" False [] ]
+[ buildTechNote "Tracing.tex" "TN-008-Tracing.pdf" False False [] ]

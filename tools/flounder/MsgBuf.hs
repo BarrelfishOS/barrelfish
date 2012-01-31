@@ -67,7 +67,7 @@ tx_fn_proto ifn msg =
          (tx_fn_name ifn (msg_name msg)) Nothing
 
 tx_fn_params :: String -> MessageDef -> [C.Param]
-tx_fn_params ifn (Message _ _ args)
+tx_fn_params ifn (Message _ _ args _)
     = [ C.Param (C.Ptr $ C.Struct "msgbuf") msgbuf_name ]
       ++ concat [ msg_argdecl TX ifn a | a <- args ]
 
@@ -112,7 +112,7 @@ stub_body infile intf@(Interface ifn descr decls) = C.UnitList [
         (types, msgs) = Backend.partitionTypesMessages decls
 
 tx_fn :: String -> MessageDef -> C.Unit
-tx_fn ifn msg@(Message _ mn args) =
+tx_fn ifn msg@(Message _ mn args _) =
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (tx_fn_name ifn mn) (tx_fn_params ifn msg)
     [
         localvar (C.TypeName "errval_t") errvar_name Nothing,
@@ -157,7 +157,7 @@ rx_fn ifn msgs =
         C.Return $ C.Variable "SYS_ERR_OK"
     ] where
         cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) [handle_msg mn args]
-                 | Message _ mn args <- msgs]
+                 | Message _ mn args _ <- msgs]
 
         handle_msg :: String -> [MessageArgument] -> C.Stmt
         handle_msg mn args = C.Block [

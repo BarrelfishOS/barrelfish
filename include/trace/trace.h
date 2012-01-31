@@ -15,7 +15,7 @@
 #ifndef LIBBARRELFISH_TRACE_H
 #define LIBBARRELFISH_TRACE_H
 
-#if defined(__x86_64__) || defined(__BEEHIVE__)
+#if defined(__x86_64__)
 #define TRACING_EXISTS 1
 #endif
 
@@ -29,16 +29,6 @@
 #include <arch/x86/apic.h> // XXX!
 #endif // IN_KERNEL
 #endif // __x86_64__
-
-#ifdef __BEEHIVE__
-#include <bench/bench_arch.h>
-#ifndef IN_KERNEL
-/* XXX: private includes from libbarrelfish */
-#include <barrelfish/dispatcher_arch.h>
-#include <barrelfish/curdispatcher_arch.h>
-#include <barrelfish/syscall_arch.h>
-#endif // IN_KERNEL
-#endif // __BEEHIVE__
 
 #include <barrelfish/sys_debug.h>
 
@@ -83,13 +73,6 @@
 #define TRACE_EVENT_SCHED_YIELD         0xED02
 #define TRACE_EVENT_SCHED_SCHEDULE      0xED03
 #define TRACE_EVENT_SCHED_CURRENT       0xED04
-
-#define TRACE_EVENT_BMP_RX              0xBEE1
-#define TRACE_EVENT_BMP_PRE_DELIVER     0xBEE2
-#define TRACE_EVENT_BMP_POST_DELIVER    0xBEE3
-#define TRACE_EVENT_BMP_PUMP            0xBEE4
-#define TRACE_EVENT_BMP_SEND            0xBEE5
-
 
 #define TRACE_SUBSYS_THREADS            0xEEEE
 
@@ -291,12 +274,17 @@
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 
+/* XXX: this is a temp kludge. The tracing code wants to allocate a fixed buffer
+ * for every possible core ID, but this is now too large for sanity, so I've
+ * limited it here. -AB 20111229
+ */
+#define TRACE_COREID_LIMIT        64
 #define TRACE_EVENT_SIZE          16
 #define TRACE_MAX_EVENTS          8000        // max number of events
 #define TRACE_PERCORE_BUF_SIZE    0x1ff00
 // (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer flags)))
 
-#define TRACE_BUF_SIZE (MAX_CPUS*TRACE_PERCORE_BUF_SIZE)
+#define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)
 
 
 #if defined(__x86_64__)
@@ -356,51 +344,6 @@ static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
 }
 
 #define TRACE_TIMESTAMP() 0
-
-
-#elif defined(__BEEHIVE__)
-
-static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
-        uintptr_t nw)
-{
-    uintptr_t discardable;
-    uintptr_t difference; // 0 if old was still old
-    /* We write the new value somewhere.  Possibly to *address and
-     * possibly to discardable.  Putting the new value in wq while we
-     * do the test causes this to be (single core) atomic. */
-    __asm volatile("ld wq, %[nw]\n\t"
-		   "aqr_ld zero, %[addr]\n\t"
-		   "sub %[diff], rq, %[old]\n\t"
-		   "jnz . + 3\n\t"
-		   "aqw_ld zero, %[addr]\n\t"
-		   "j . + 2\n\t"
-		   "aqw_ld zero, %[discard]\n"
-		   : [diff] "=&r" (difference)
-		   : [addr] "r" (address)
-		   , [nw] "r" (nw)
-		   , [old] "r" (old)
-		   , [discard] "r" (&discardable)
-		   : "memory", "cc");
-    return (difference == 0);
-}
-
-#define TRACE_TIMESTAMP() bench_tsc()
-
-static inline int arch_is_simulator(void)
-{
-    volatile unsigned int *ptr = (void*)0x02;
-    unsigned int val = *ptr;
-
-    val >>= 18;
-    val &= 0x7f;
-    return val == 2 ? 1 : 0;
-}
-
-extern void simtrace(uint32_t word1, uint32_t word2);
-
-
-__asm("_simtrace: simctrl 11; j link");
-
 
 
 #else
@@ -481,6 +424,7 @@ errval_t trace_my_setup(void);
  */
 static inline lvaddr_t compute_trace_buf_addr(uint8_t core_id)
 {
+    assert(core_id < TRACE_COREID_LIMIT);
     lvaddr_t addr = trace_buffer_master + (core_id * TRACE_PERCORE_BUF_SIZE);
 
     return addr;
@@ -500,13 +444,6 @@ void trace_init_disp(void);
 static inline uintptr_t trace_reserve_and_fill_slot(struct trace_event *ev,
                                                    struct trace_buffer *buf)
 {
-#ifdef __BEEHIVE__
-    /* Top bit is rundown event which must be reprocessed later */
-    if (arch_is_simulator() && ((ev->timestamp >> 63) == 0)) {
-	simtrace(ev->u.w32.word1, ev->u.w32.word2);
-	return SYS_ERR_OK;
-    }
-#endif
     uintptr_t i, nw;
     struct trace_event *slot;
 
@@ -552,7 +489,7 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 #ifdef TRACING_EXISTS
     struct trace_buffer *master = (struct trace_buffer *)kernel_trace_buf;
 
-    if (kernel_trace_buf == 0) {
+    if (kernel_trace_buf == 0 || my_core_id >= TRACE_COREID_LIMIT) {
         return TRACE_ERR_NO_BUFFER;
     }
 
@@ -574,9 +511,6 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 	 * and in particular because trace_snapshot uses
 	 * trace_write_event... */
 	trace_buf->done_rundown = true;
-#ifdef __BEEHIVE__
-	trace_snapshot();
-#endif
     }
     (void) trace_reserve_and_fill_slot(ev, trace_buf);
 
@@ -646,9 +580,6 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 	 * and in particular because sys_rundown uses
 	 * trace_write_event... */
 	trace_buf->done_rundown = true;
-#ifdef __BEEHIVE__
-	(void) sys_rundown();
-#endif
     }
     (void) trace_reserve_and_fill_slot(ev, trace_buf);
 
@@ -699,14 +630,9 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 #ifdef CONFIG_TRACE
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();
-#ifdef __BEEHIVE__
-    ev.u.w32.word1 = arg;
-    ev.u.w32.word2 = (subsys << 16) | event;
-#else
     ev.u.ev.subsystem = subsys;
     ev.u.ev.event     = event;
     ev.u.ev.arg       = arg;
-#endif
 
 #if TRACE_ONLY_SUB_NET
     /* NOTE: This will ensure that only network related messages are logged. PS */
