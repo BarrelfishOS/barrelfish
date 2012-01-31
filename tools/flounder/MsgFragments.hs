@@ -89,7 +89,7 @@ msg_code_type :: TypeBuiltin
 msg_code_type = UInt16
 
 build_msg_spec :: Arch -> Int -> Bool -> [TypeDef] -> MessageDef -> MsgSpec
-build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args)
+build_msg_spec arch words_per_frag contains_msgcode types (Message _ mn args _)
     -- ensure that we don't produce a completely empty message
     | (msg_frags ++ overflow_frags) == [] = MsgSpec mn [MsgFragment []] capfield_transfers
     | otherwise  = MsgSpec mn (msg_frags ++ overflow_frags) capfield_transfers

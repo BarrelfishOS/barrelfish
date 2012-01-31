@@ -56,6 +56,7 @@ braces     = P.braces lexer
 squares    = P.squares lexer
 semiSep    = P.semiSep lexer
 symbol     = P.symbol lexer
+natural    = P.natural lexer
 
 builtinTypes = map show [UInt8 ..] ++ ["int"] -- int is legacy -AB
 
@@ -117,25 +118,24 @@ typeDeclaration typeDcls = do {
                                Just x -> typeDeclaration (x : typeDcls)
                            }       
 
-mesg typeDcls = do { msg typeDcls 
-                     <|> rpc typeDcls 
+mesg typeDcls = do { bckArgs <- many backendParams
+                   ; def <- msg typeDcls bckArgs <|> rpc typeDcls bckArgs
+                   ; return $ Messagedef def
                    }
 
-msg typeDcls = do { whiteSpace
-                   ; t <- msgtype                      
-                   ; i <- identifier 
-                   ; a <- parens $ commaSep (marg typeDcls)
-                   ; symbol ";"
-                   ; return (Messagedef $ Message t i a)
-                   }
+msg typeDcls bckArgs = do { t <- msgtype
+                          ; i <- identifier
+                          ; a <- parens $ commaSep (marg typeDcls)
+                          ; symbol ";"
+                          ; return $ Message t i a bckArgs
+                          }
 
-rpc typeDcls = do { whiteSpace
-                  ; _ <- rpctype
-                  ; i <- identifier
-                  ; a <- parens $ commaSep (rpcArg typeDcls)
-                  ; symbol ";"
-                  ; return $ Messagedef $ RPC i a
-                  }
+rpc typeDcls bckArgs= do { _ <- rpctype
+                         ; i <- identifier
+                         ; a <- parens $ commaSep (rpcArg typeDcls)
+                         ; symbol ";"
+                         ; return $ RPC i a bckArgs
+                         }
 
 rpctype = do { reserved "rpc"
              ; return () }
@@ -149,6 +149,17 @@ rpcArg typeDcls = do { reserved "in"
                        ; return $ RPCArgOut b n
                        }
 
+backendParams = do { char '@'
+                   ; i <- identifier
+                   ; p <- parens $ commaSep backendParam
+                   ; return (i, p)
+                   }
+
+backendParam = do { name <- identifier
+                  ; symbol "="
+                  ;     do { num <- natural ; return $ (name, BackendInt num) }
+                    <|> do { arg <- identifier ; return $ (name, BackendMsgArg arg) }
+                  }
 
 msgtype = do { reserved "message"; return MMessage }
           <|> do  { reserved "call"; return MCall }

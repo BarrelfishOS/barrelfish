@@ -52,9 +52,10 @@ void user_panic_fn(const char *file, const char *func, int line,
 /**
  * \brief Prints out a string, errval and then aborts the domain
  */
-#define USER_PANIC_ERR(err, msg...)                    \
+#define USER_PANIC_ERR(err, msg...) do {               \
     debug_err(__FILE__, __func__, __LINE__, err, msg); \
-    abort();
+    abort();                                           \
+} while (0)
 
 /**
  * \brief Prints out a string and abort the domain

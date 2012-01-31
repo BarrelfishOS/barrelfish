@@ -29,6 +29,7 @@ struct vfs_ops {
     errval_t (*tell)(void *st, vfs_handle_t handle, size_t *pos);
     errval_t (*stat)(void *st, vfs_handle_t handle, struct vfs_fileinfo *info);
     errval_t (*close)(void *st, vfs_handle_t handle);
+    errval_t (*flush)(void *st, vfs_handle_t handle);
 
     // manipulation of directories
     errval_t (*mkdir)(void *st, const char *path); // fail if already present

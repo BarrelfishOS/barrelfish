@@ -15,12 +15,6 @@
                       flounderDefs = [ "monitor", "mem" ],
                       addLibraries = [ "mm", "trace" ],
                       addLinkFlags = [ "-e _start_init"],
-                      architectures = [ arch | arch <- allArchitectures, arch /= "beehive" ] 
-                    },
-  build application { target = "mem_serv",
-  		      cFiles = [ "mem_serv.c" ],
-                      flounderDefs = [ "monitor", "mem" ],
-                      addLibraries = [ "mm", "trace" ],
-                      architectures = [ "beehive" ] 
+                      architectures = allArchitectures
                     }
 ]

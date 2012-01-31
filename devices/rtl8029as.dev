@@ -50,6 +50,11 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
     ne2000p2   = 0b10  "NE2000 compatible page 2";
     rtl8029as  = 0b11  "RTL8029AS configuration page 3";
   };
+  space page0(addr) bytewise "NE2000 compatible page 0";
+  space page1(addr) bytewise "NE2000 compatible page 1";
+  space page2(addr) bytewise "NE2000 compatible page 2";
+  space p2p0(addr) bytewise "Write page 0, read page 2";
+  space rtlp(addr) bytewise "RTL8029AS configuration page 3";
 
   constants lpconf "Loopback configuration" {
     normal  	   = 0b00    "Normal operation";
@@ -90,7 +95,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Type=R/W in Page0.
    */
-  register isr rw io ( base, 0x7 ) "Interrupt Status" type(irq);
+  register isr rw page0( 0x7 ) "Interrupt Status" type(irq);
 
   /*
    * All bits correspond to the bits in the ISR register. POWER UP=all
@@ -99,10 +104,10 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Type=W in Page0, Type=R in Page2.
    */
-  register imr rw io ( base, 0xf ) "Interrupt Mask" type(irq);
+  register imr rw p2p0( 0xf ) "Interrupt Mask" type(irq);
 
   /* Type=W in Page0, Type=R in Page2. */
-  register dcr rw io ( base, 0xe ) "Data Configuration" {
+  register dcr rw p2p0( 0xe ) "Data Configuration" {
     wts	   1   "Word transfer select";
     bos	   1   "Byte order select";
     _	   1   mbz;
@@ -113,7 +118,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
   };
 
   /* Type=W in Page0, Type=R in Page2 */
-  register tcr rw io ( base, 0xd ) "Transmit Configuration" {
+  register tcr rw p2p0 ( 0xd ) "Transmit Configuration" {
     crc	   1   "Inhibit CRC generation";
     lb	   2   type(lpconf) "Loopback configuration";
     atd	   1   "Auto transmit disable";
@@ -126,7 +131,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Type=R in Page0.
    */
-  register tsr ro io ( base, 0x4 ) "Transmit Status" {
+  register tsr ro page0( 0x4 ) "Transmit Status" {
     ptx	   1   "Transmission completed";
     _	   1   mb1;
     col	   1   "Collision";
@@ -138,7 +143,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
   };
 
   /* Type=W in Page0, Type=R in Page2. */
-  register rcr rw io ( base, 0xc ) "Receive Configuration" {
+  register rcr rw p2p0( 0xc ) "Receive Configuration" {
     sep	   1   "Accept packets with receive errors";
     ar	   1   "Accept length < 64 bytes";
     ab	   1   "Accept broadcast destination address";
@@ -149,7 +154,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
   };
 
   /* Type=R in Page0. */
-  register rsr ro also io ( base, 0xc ) "Receive Status" {
+  register rsr ro page0( 0xc ) "Receive Status" {
     prx	   1   "Packet received correctly";
     crc	   1   "CRC mismatch";
     fae	   1   "Frame alignment error";
@@ -166,7 +171,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Type=R in Page0.
    */
-  register clda ro also io ( base, 0x1 ) "Current Local DMA" type(uint16);
+  register clda ro page0 ( 0x1 ) "Current Local DMA" type(uint16);
 
   /*
    * The Page Start register sets the start page address of the
@@ -174,7 +179,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Type=W in Page0, Type=R in Page 2.
    */
-  register pstart rw io ( base, 0x1 ) "Page Start" type(uint8);
+  register pstart rw p2p0( 0x1 ) "Page Start" type(uint8);
 
   /*
    * PSTOP: Page Stop Register (02H; Type=W in Page0, Type=R in Page2)
@@ -182,7 +187,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * The Page Stop register sets the stop page address of the receive
    * buffer ring.
    */
-   register pstop rw io ( base, 0x2 ) "Page Stop" type(uint8);
+  register pstop rw p2p0( 0x2 ) "Page Stop" type(uint8);
 
   /*
    * BNRY: Boundary Register (03H; Type=R/W in Page0)
@@ -191,7 +196,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * ring. It is typically used as a pointer indicating the last receive
    * buffer page the host has read.
    */
-   register bnry rw io ( base, 0x3 ) "Boundary" type(uint8);
+   register bnry rw page0( 0x3 ) "Boundary" type(uint8);
 
   /*
    * TPSR: Transmit Page Start Register (04H; Type=W in Page0)
@@ -199,7 +204,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * This register sets the start page address of the packet to the
    * transmitted.
    */
-  register tpsr wo also io ( base, 0x4 ) "Transmit Page Start" type(uint8);
+   register tpsr wo also page0( 0x4 ) "Transmit Page Start" type(uint8);
 
   /*
    * TBCR0,1: Transmit Byte Count Registers (05H & 06H; Type=W in
@@ -208,7 +213,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * These two registers set the byte counts of the packet to be
    * transmitted.
    */
-  register tbcr wo also io ( base, 0x5 ) "Transmit Byte Count" type(uint16);
+   register tbcr wo also page0( 0x5 ) "Transmit Byte Count" type(uint16);
 
   /*
    * NCR: Number of Collisions Register (05H; Type=R in Page0)
@@ -216,7 +221,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * The register records the number of collisions a node experiences
    * during a packet transmission.
    */
-  register ncr ro io ( base, 0x5 ) "Number of Collisions" type(uint8);
+  register ncr ro page0( 0x5 ) "Number of Collisions" type(uint8);
 
   /*
    * FIFO: First In First Out Register (06H; Type=R in Page0)
@@ -224,7 +229,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * This register allows the host to examine the contents of the FIFO
    * after loopback.
    */
-  register fifo ro io ( base, 0x6 ) "FIFO" type(uint8);
+  register fifo ro page0( 0x6 ) "FIFO" type(uint8);
 
   /*
    * CRDA0,1: Current Remote DMA Address registers (08H & 09H;
@@ -233,38 +238,38 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * These two registers contain the current address of remote
    * DMA.
    */
-  register crda ro io ( base, 0x8 ) "Current Remote DMA Address" type(uint16);
+  register crda ro page0( 0x8 ) "Current Remote DMA Address" type(uint16);
 
   /*
    * RSAR0,1: Remote Start Address Registers (08H & 09H; Type=W in Page0)
    *
    * These two registers set the start address of remote DMA.
    */
-  register rsar wo also io ( base, 0x8 ) "Remote Start Address" type(uint16);
+  register rsar wo also page0( 0x8 ) "Remote Start Address" type(uint16);
 
   /*
    * RBCR0,1: Remote Byte Count Registers (0AH & 0BH; Type=W in Page0)
    *
    * These two registers set the data byte counts of remote DMA.
    */
-  register rbcr wo io ( base, 0xa ) "Remote Byte Count" type(uint16);
+  register rbcr wo also page0( 0xa ) "Remote Byte Count" type(uint16);
 
   /*
    * CNTR0: Frame Alignment Error Tally Counter Register (0DH;
    * Type=R in Page0)
    */
-  register cntr0 ro also io ( base, 0xd ) "Frame Alignment Error Tally Counter" type(uint8);
+  register cntr0 ro page0( 0xd ) "Frame Alignment Error Tally Counter" type(uint8);
 
   /*
    * CNTR1: CRC Error Tally Counter Register (0EH; Type=R in Page0)
    */
-  register cntr1 ro also io ( base, 0xe ) "CRC Error Tally Counter" type(uint8);
+  register cntr1 ro page0( 0xe ) "CRC Error Tally Counter" type(uint8);
 
   /*
    * CNTR2: Missed Packet Tally Counter Register (0FH; Type=R in
    * Page0)
    */
-  register cntr2 ro also io ( base, 0xf ) "Missed Packet Tally Counter" type(uint8);
+  register cntr2 ro page0( 0xf ) "Missed Packet Tally Counter" type(uint8);
 
   /*
    * PAR0-5: Physical Address Registers (01H - 06H; Type=R/W in Page1)
@@ -273,12 +278,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * to compare the destination address of incoming packets for
    * acceptation or rejection.
    */
-  register par0 rw also io ( base, 0x1 ) "Physical Address Field 0" type(uint8);
-  register par1 rw also io ( base, 0x2 ) "Physical Address Field 1" type(uint8);
-  register par2 rw also io ( base, 0x3 ) "Physical Address Field 2" type(uint8);
-  register par3 rw also io ( base, 0x4 ) "Physical Address Field 3" type(uint8);
-  register par4 rw also io ( base, 0x5 ) "Physical Address Field 4" type(uint8);
-  register par5 rw also io ( base, 0x6 ) "Physical Address Field 5" type(uint8);
+  regarray par rw page1( 0x1 )[6] "Physical Address" type(uint8);
 
   /*
    * CURR: Current Page Register (07H; Type=R/W in Page1)
@@ -286,7 +286,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * This register points to the page address of the first receive
    * buffer page to be used for a packet reception.
    */
-  register curr rw also io ( base, 0x7 ) "Current Page" type(uint8);
+  register curr rw page1 ( 0x7 ) "Current Page" type(uint8);
 
   /*
    * MAR0-7: Multicast Address Register (08H - 0FH; Type=R/W in
@@ -295,14 +295,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * These registers provide filtering bits of multicast addresses
    * hashed by the CRC logic.
    */
-  register mar0 rw also io ( base, 0x8 ) "Multicast Address Field 0" type(uint8);
-  register mar1 rw also io ( base, 0x9 ) "Multicast Address Field 1" type(uint8);
-  register mar2 rw also io ( base, 0xa ) "Multicast Address Field 2" type(uint8);
-  register mar3 rw also io ( base, 0xb ) "Multicast Address Field 3" type(uint8);
-  register mar4 rw also io ( base, 0xc ) "Multicast Address Field 4" type(uint8);
-  register mar5 rw also io ( base, 0xd ) "Multicast Address Field 5" type(uint8);
-  register mar6 rw also io ( base, 0xe ) "Multicast Address Field 6" type(uint8);
-  register mar7 rw also io ( base, 0xf ) "Multicast Address Field 7" type(uint8);
+  regarray mar rw page1( 0x8 )[8] "Multicast Address" type(uint8);
 
   /*
    * 5.1.2.2. RTL8029AS Defined Registers
@@ -316,8 +309,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Address 0x0a reads ASCII "P", address 0x0b reads ASCII "C".
    */
-  register rtl8029id0 ro also io ( base, 0xa ) "RTL8029AS Chip ID 0" type(uint8);
-  register rtl8029id1 ro also io ( base, 0xb ) "RTL8029AS Chip ID 1" type(uint8);
+  regarray chipid ro page0( 0xa )[2] "RTL8029AS Chip ID" type(uint8);
 
   /*
    * Page 3 (PS1=1, PS0=1).
@@ -331,7 +323,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
   };
 
   /* 9346CR: 9346 Command Register (01H; Type=R/W except Bit0=R) */
-  register cr9346 rw also io ( base, 0x1 ) "9346 Command" {
+  register cr9346 rw also rtlp( 0x1 ) "9346 Command" {
     eedo   1;
     eedi   1;
     eesk   1;
@@ -341,7 +333,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
   };
 
   /* CONFIG0: RTL8029AS Configuration Register 0 (03H; Type=R) */
-  register config0 ro also io ( base, 0x3 ) "RTL8029AS Configuration 0" {
+  register config0 ro rtlp( 0x3 ) "RTL8029AS Configuration 0" {
     _	   2	     mbz;
     bnc    1	     "10Base2 thin cable connected";
     _	   5;
@@ -365,12 +357,12 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * CONFIG2: RTL8029AS Configuration Register 2 (05H; Type=R except
    * Bit[7:5]=R/W)
    */
-  register config2 rw also io ( base, 0x5 ) "RTL8029AS Configuration 2" {
-    bs	   2	type(bromsize)  "Boot ROM size";
+  register config2 rtlp( 0x5 ) "RTL8029AS Configuration 2" {
+    bs	   2	ro type(bromsize)  "Boot ROM size";
     _	   2;
-    pf     1	"Pause flag";
-    fce    1	"Flow control enable";
-    pl     2	type(medium)	"Network medium select";
+    pf     1	ro "Pause flag";
+    fce    1	rw "Flow control enable";
+    pl     2	rw type(medium)	"Network medium select";
   };
 
   constants leds "LED Control" {
@@ -384,7 +376,7 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * CONFIG3: RTL8029AS Configuration Register 3 (06H; Type=R except
    * Bit[6,2:1]=R/W)
    */
-  register config3 rw also io ( base, 0x6 ) "RTL8029AS Configuration 3" {
+  register config3 rw rtlp( 0x6 ) "RTL8029AS Configuration 3" {
     _	   1;
     pwrdn  1	"Power down mode";
     sleep  1	"Sleep mode";
@@ -408,10 +400,10 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * CONFIG3 register is zero.) The data written to this register
    * determines the RTL8029AS's power down mode.
    */
-  register hltclk wo also io ( base, 0x9 ) "Halt Clock" type(uint8);
+  register hltclk wo rtlp( 0x9 ) "Halt Clock" type(uint8);
 
   /* 8029ASID0,1: RTL8029AS ID = 8029H (0E,0FH; Type=R) */
-  register rtl8029asid ro also io ( base, 0xe ) "8029AS ID" type(uint16);
+  register asid ro rtlp( 0xe ) "8029AS ID" type(uint16);
 
   /*
    * 6.2.2 ID PROM Contents
@@ -466,18 +458,11 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    * RAM start is at offset 0x4000.
    */
    /*
-  register rdma rw io ( base, 0x10 ) "Remote DMA 0" type(uint8);
-  register rdma1 rw io ( base, 0x11 ) "Remote DMA 1" type(uint8);
-  register rdma2 rw io ( base, 0x12 ) "Remote DMA 2" type(uint8);
-  register rdma3 rw io ( base, 0x13 ) "Remote DMA 3" type(uint8);
-  register rdma4 rw io ( base, 0x14 ) "Remote DMA 4" type(uint8);
-  register rdma5 rw io ( base, 0x15 ) "Remote DMA 5" type(uint8);
-  register rdma6 rw io ( base, 0x16 ) "Remote DMA 6" type(uint8);
-  register rdma7 rw io ( base, 0x17 ) "Remote DMA 7" type(uint8);
+  regarray rdma rw rtlp( 0x10 )[8] "Remote DMA 0" type(uint8);
   */
-  register rdma32 rw io ( base, 0x10 ) "Remote DMA 32-bit" type(uint32);
-  register rdma16 rw also io ( base, 0x10 ) "Remote DMA 16-bit" type(uint16);
-  register rdma8 rw also io ( base, 0x10 ) "Remote DMA 8-bit" type(uint8);
+  register rdma32 rw rtlp( 0x10 ) "Remote DMA 32-bit" type(uint32);
+  register rdma16 rw also rtlp( 0x10 ) "Remote DMA 16-bit" type(uint16);
+  register rdma8 rw also rtlp( 0x10 ) "Remote DMA 8-bit" type(uint8);
 
   /*
    * Reset Port
@@ -487,5 +472,5 @@ device rtl8029as lsbfirst ( io base ) "RTL8029AS Ethernet Controller"
    *
    * Reading from the reset port causes the card to be reset.
    */
-  register reset ro io ( base, 0x1f ) "Reset" type(uint8);
+  register reset rc rtlp( 0x1f ) "Reset" type(uint8);
 };

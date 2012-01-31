@@ -16,13 +16,6 @@
 #ifndef LIBBARRELFISH_BARRELFISH_H
 #define LIBBARRELFISH_BARRELFISH_H
 
-/* Beehive does not support translation
- * XXX Should really be defined in a plaform config file
- */
-#ifdef __BEEHIVE__
-#define NOTRANS
-#endif
-
 /* standard libc types and assert */
 #include <stdint.h>
 #include <stddef.h>

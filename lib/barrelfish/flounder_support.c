@@ -128,7 +128,7 @@ errval_t flounder_stub_send_cap(struct flounder_cap_state *s,
     }
 }
 
-#if defined(CONFIG_INTERCONNECT_DRIVER_UMP) || defined(CONFIG_INTERCONNECT_DRIVER_BMP)
+#if defined(CONFIG_INTERCONNECT_DRIVER_UMP)
 static void flounder_stub_cap_state_init(struct flounder_cap_state *s, void *binding)
 {
     s->tx_cap_ack = false;
@@ -138,7 +138,7 @@ static void flounder_stub_cap_state_init(struct flounder_cap_state *s, void *bin
     s->rx_capnum = 0;
     s->binding = binding;
 }
-#endif // UMP || BMP
+#endif // UMP
 
 static uintptr_t getword(const uint8_t *buf, size_t *pos, size_t len)
 {
@@ -358,7 +358,7 @@ errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char **strp,
 
 void flounder_stub_ump_state_init(struct flounder_ump_state *s, void *binding)
 {
-    s->sent_id = 0;
+    s->next_id = 1;
     s->seq_id = 0;
     s->ack_id = 0;
     s->last_ack = 0;
@@ -375,9 +375,10 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
     int msgpos;
 
     do {
-        if(!flounder_stub_ump_can_send(s)) {
-            break;
+        if (!flounder_stub_ump_can_send(s)) {
+            return FLOUNDER_ERR_BUF_SEND_MORE;
         }
+
         msg = ump_chan_get_next(&s->chan, &ctrl);
         flounder_stub_ump_control_fill(s, &ctrl, msgnum);
 
@@ -400,13 +401,11 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
         msg->header.control = ctrl;
     } while (*pos < len);
 
-    // do we need to send more? if not, zero out our state for the next buffer
-    if (*pos >= len) {
-        *pos = 0;
-        return SYS_ERR_OK;
-    } else {
-        return FLOUNDER_ERR_BUF_SEND_MORE;
-    }
+    // we're done. zero out our state for the next buffer
+    assert(*pos >= len);
+    *pos = 0;
+
+    return SYS_ERR_OK;
 }
 
 errval_t flounder_stub_ump_recv_buf(volatile struct ump_message *msg,
@@ -474,139 +473,3 @@ errval_t flounder_stub_ump_recv_string(volatile struct ump_message *msg,
 }
 
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
-
-
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-
-#include <flounder/flounder_support_bmp.h>
-
-void flounder_stub_bmp_state_init(struct flounder_bmp_state *s, void *binding)
-{
-    s->sent_id = 0;
-    s->seq_id = 0;
-    s->ack_id = 0;
-    s->last_ack = 0;
-    flounder_stub_cap_state_init(&s->capst, binding);
-}
-
-errval_t flounder_stub_bmp_send_buf(struct flounder_bmp_state *s,
-                                    int msgnum, const void *bufp,
-                                    size_t len, size_t *pos)
-{
-    const uint8_t *buf = bufp;
-    uintptr_t msg[BMP_MSG_LENGTH];
-    errval_t err;
-
-    do {
-        // store initial position for retry
-        size_t restartpos = *pos;
-
-        // get header
-        msg[0] = flounder_stub_bmp_mkheader(s, msgnum);
-
-        int msgpos;
-        // is this the start of the string?
-        if (*pos == 0) {
-            // if so, send the length in the next word
-            msg[1] = len;
-            msgpos = 2;
-        } else {
-            // otherwise use it for payload
-            msgpos = 1;
-        }
-
-        // fill message payload
-        for (; msgpos < BMP_MSG_LENGTH && *pos < len; msgpos++) {
-            msg[msgpos] = getword(buf, pos, len);
-        }
-
-        // can we send this message?
-        if (!flounder_stub_bmp_can_send(s, msgpos)) {
-            *pos = restartpos;
-            return FLOUNDER_ERR_BUF_SEND_MORE;
-        }
-
-        // try to send
-        err = flounder_stub_bmp_send(s, msg, msgpos);
-        if (err_is_fail(err)) {
-            *pos = restartpos;
-            return err;
-        }
-    } while (*pos < len);
-
-    // we're done. zero out our state for the next send
-    assert(*pos == len);
-    *pos = 0;
-
-    return SYS_ERR_OK;
-}
-
-errval_t flounder_stub_bmp_recv_buf(struct bmp_recv_msg *msg,
-                                    void **bufp, size_t *len, size_t *pos)
-{
-    int msgpos;
-
-    if (msg->buf.msglen < 1) {
-        return FLOUNDER_ERR_RX_INVALID_LENGTH;
-    }
-
-    // is this the first fragment?
-    // if so, unmarshall the length and allocate a buffer
-    if (*pos == 0) {
-        *len = msg->words[1];
-        if (*len == 0) {
-            *bufp = NULL;
-        } else {
-            *bufp = malloc(*len);
-            if (*bufp == NULL) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-        }
-
-        // skip header
-        msgpos = 2;
-    } else {
-        msgpos = 1;
-    }
-
-    uint8_t *buf = *bufp;
-
-    // copy remainder of fragment to buffer
-    for (; msgpos < msg->buf.msglen && *pos < *len; msgpos++) {
-        putword(msg->words[msgpos], buf, pos, *len);
-    }
-
-    // are we done?
-    if (*pos < *len) {
-        return FLOUNDER_ERR_BUF_RECV_MORE;
-    } else {
-        // reset state for next buffer
-        *pos = 0;
-        return SYS_ERR_OK;
-    }
-}
-
-errval_t flounder_stub_bmp_send_string(struct flounder_bmp_state *s,
-                                       int msgnum, const char *str,
-                                       size_t *pos, size_t *len)
-{
-    // compute length, if this is the first call
-    if (*pos == 0) {
-        if (str == NULL) {
-            *len = 0;
-        } else {
-            // send the '\0', making it easy to reuse the buffer code
-            *len = strlen(str) + 1;
-        }
-    }
-
-    return flounder_stub_bmp_send_buf(s, msgnum, str, *len, pos);
-}
-
-errval_t flounder_stub_bmp_recv_string(struct bmp_recv_msg *msg,
-                                       char **strp, size_t *pos, size_t *len)
-{
-    return flounder_stub_bmp_recv_buf(msg, (void **)strp, len, pos);
-}
-
-#endif // CONFIG_INTERCONNECT_DRIVER_BMP

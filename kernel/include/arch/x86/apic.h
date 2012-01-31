@@ -30,12 +30,12 @@ void apic_send_init_deassert(void);
 void apic_send_start_up(uint8_t destination,
                         uint8_t destination_shorthand,
                         uint8_t realmode_startpage);
-
-extern bool bsp;
+extern uint8_t apic_id;
+extern bool apic_bsp;
 
 static inline bool apic_is_bsp(void)
 {
-    return bsp;
+    return apic_bsp;
 }
 
 void apic_send_std_ipi(uint8_t destination, uint8_t destination_shorthand, uint8_t vector);
@@ -48,7 +48,7 @@ void apic_perfcnt_init(void);
 void apic_perfcnt_stop(void);
 void apic_timer_set_count(uint32_t count);
 uint32_t apic_timer_get_count(void);
-void apic_timer_set_divide(enum xapic_divide_t divide);
+void apic_timer_set_divide(xapic_divide_t divide);
 void apic_mask_timer(void);
 void apic_unmask_timer(void);
 xapic_esr_t apic_get_esr(void);

@@ -20,7 +20,10 @@
 
 #define CTL_SERVICE_SUFFIX          "_CTRL"
 
-
+enum buffer_memory_types {
+    RX_BUFFER_ID = 0,
+    TX_BUFFER_ID = 1,
+};
 
 #ifdef CONFIG_QEMU_NETWORK
 
@@ -65,22 +68,22 @@
 
 /// Number of PBUF structs available
 #ifndef MEMP_NUM_PBUF
-#define MEMP_NUM_PBUF           2024
+#define MEMP_NUM_PBUF           4024
 #endif // MEMP_NUM_PBUF
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE          2024
+#define PBUF_POOL_SIZE          4024
 #endif // PBUF_POOL_SIZE
 
 /* Used in the ethersrv.c and the driver. */
-#define RECEIVE_BUFFERS 1024
+#define RECEIVE_BUFFERS 2024
 #define TRANSMIT_BUFFERS 1024 //< Number of transmit descriptors
                               //< (must be multiple of 8)
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (4 * 2048)
+#define PBUF_POOL_BUFSIZE       (1600)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */
@@ -93,6 +96,9 @@
 
 
 #else // CONFIG_QEMU_NETWORK
+
+//  ##################################################################
+//  This is setup for n1000 card running on real hardware
 #ifndef MEM_SIZE
 #define MEM_SIZE                (60*1024*1024)
 #endif // MEM_SIZE
@@ -100,22 +106,26 @@
 /// Number of PBUF structs available
 #ifndef MEMP_NUM_PBUF
 #define MEMP_NUM_PBUF           16384
+//#define MEMP_NUM_PBUF           128
 #endif // MEMP_NUM_PBUF
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE          16384
+#define PBUF_POOL_SIZE         16384
+//#define PBUF_POOL_SIZE          128
 #endif // PBUF_POOL_SIZE
 
 /* NOTE: This value should be bigger than NR_PREALLOCATED_PBUFS of lwipopts.h */
 /* Used in the ethersrv.c and the driver. */
-#define RECEIVE_BUFFERS 2048
-#define TRANSMIT_BUFFERS 2048 //< Number of transmit descriptors
+
+//#define RECEIVE_BUFFERS    ((PBUF_POOL_SIZE) / 2)
+#define RECEIVE_BUFFERS     (2044)
+#define TRANSMIT_BUFFERS (800 * 8) //< Number of transmit descriptors
                               //< (must be multiple of 8)
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (4 * 2048)
+#define PBUF_POOL_BUFSIZE       (1600)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */
@@ -124,9 +134,5 @@
 #endif // MEM_CONF_LOC
 
 #endif // CONFIG_QEMU_NETWORK
-
-/* NOTE: This value should be smaller than RECEIVE_BUFFERS of ethersrv.h */
-#define NR_PREALLOCATED_PBUFS       ( RECEIVE_BUFFERS - 1)
-
 
 #endif // LIBBARRELFISH_NETCONSTANTS_H

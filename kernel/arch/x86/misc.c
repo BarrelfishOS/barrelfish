@@ -22,7 +22,6 @@
 #include <barrelfish_kpi/cpu.h>
 #include <exec.h>
 #include <misc.h>
-#include <arch/x86/apic.h>
 #include <dispatch.h>
 #include <trace/trace.h>
 
@@ -53,11 +52,6 @@ bool kernel_ticks_enabled = true;
 size_t kernel_now = 0;
 
 /**
- * The kernel's APIC ID.
- */
-uint8_t apic_id;
-
-/**
  * \brief Print a message and halt the kernel.
  *
  * Something irrecoverably bad happened. Print a panic message, then halt.
@@ -71,7 +65,7 @@ void panic(const char *msg, ...)
     vsnprintf(buf, sizeof(buf), msg, ap);
     va_end(ap);
 
-    printf("kernel %d PANIC! %.*s\n", apic_id, (int)sizeof(buf), buf);
+    printf("kernel %d PANIC! %.*s\n", my_core_id, (int)sizeof(buf), buf);
 
     breakpoint();
     halt();

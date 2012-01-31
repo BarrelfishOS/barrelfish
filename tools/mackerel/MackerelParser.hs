@@ -71,12 +71,14 @@ squares    = P.squares lexer
 semiSep    = P.semiSep lexer
 symbol     = P.symbol lexer
 integer    = try ((P.lexeme lexer) binLiteral) 
+             <|> try ((P.lexeme lexer) binOnes) 
              <|> P.integer lexer
 commaSep1 = P.commaSep1 lexer
 
 op = P.reservedOp lexer
 
 data RegLoc = RegLoc String String Integer 
+            | RegNoLoc
               deriving Show
 
 data ArrayLoc = ArrayListLoc [ Integer ]
@@ -94,6 +96,12 @@ binLiteral = do { _ <- char '0'
                 ; seq n (return (fromIntegral n))
                 }
 
+binOnes = do { _ <- char '1'
+             ; _ <- char 's'
+             ; let n = -1
+             ; seq n (return (fromIntegral n))
+             }
+
 data BitOrder = LSBFIRST | MSBFIRST | NOORDER
               deriving (Eq,Show)
 
@@ -101,7 +109,7 @@ data DeviceFile = DeviceFile AST [String]
 
 data AST = Device String BitOrder [ AST ] String [ AST ]
 --                 name  lsbfirst   args   desc   defn
-         | Constants String String [ AST ] SourcePos
+         | Constants String String [ AST ] (Maybe Integer) SourcePos
          | ConstVal String Expr String SourcePos
          | RegField String Integer Attr AST String SourcePos
          | SpaceDecl Space.Rec
@@ -313,7 +321,11 @@ binarySpace = do { reserved "addr" ; return "addr" }
               <|> do { reserved "io" ; return "io" }
               <|> do { reserved "pci" ; return "pci" }
 
-regLoc = do { sp <- binarySpace 
+regLoc = do { reserved "noaddr"
+            ; return RegNoLoc 
+            }
+         <|>
+         do { sp <- binarySpace 
             ; ( base, offset ) <- parens binLoc 
             ; return ( RegLoc sp base offset )
             }
@@ -351,11 +363,17 @@ arrayContigSpec = do { base <- integer
 constants args = do { reserved "constants"
                     ; p <- getPosition
                     ; i <- identifier 
+                    ; w <- option Nothing constWidth 
                     ; d <- stringLit
                     ; f <- braces (many1 (constField args))
                     ; _ <- symbol ";"
-                    ; return (Constants i d f p)
+                    ; return (Constants i d f w p)
                     }
+
+constWidth = do { _ <- reserved "width"
+                ; i <- parens integer
+                ; return (Just i)
+                }
 
 constField args = do { i <- identifier
                      ; p <- getPosition

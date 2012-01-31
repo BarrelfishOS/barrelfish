@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/lwip
--- 
+--
 --------------------------------------------------------------------------
 
 
@@ -22,6 +22,6 @@ in
                     flounderExtraBindings = [ ("netd", ["rpcclient"]) ],
                     addCFlags =  [ "-Wno-redundant-decls" ],
                     addIncludes = [ "src/barrelfish" ],
-                    addLibraries = [ "contmng" ]
+                    addLibraries = [ "contmng", "procon"]
                   }
   ]

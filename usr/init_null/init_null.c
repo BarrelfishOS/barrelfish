@@ -16,11 +16,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#ifdef __BEEHIVE__
-// Flag this as an initialisation domain for systems without ELF entry
-bool __barrelfish_initialisation_domain = 1;
-#endif
-
 int main(void)
 {
     printf ("init_null: Hello World\n");

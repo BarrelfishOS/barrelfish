@@ -27,11 +27,6 @@
 
 size_t mem_total = 0, mem_avail = 0;
 
-#ifdef __BEEHIVE__
-// Flag this as an initialisation domain for systems without ELF entry
-bool __barrelfish_initialisation_domain = 1;
-#endif
-
 /* parameters for size of supported RAM and thus required storage */
 
 // XXX: Even though we could manage an arbitrary amount of RAM on any
@@ -41,9 +36,6 @@ bool __barrelfish_initialisation_domain = 1;
 #       define MAXSIZEBITS     38              ///< Max size of memory in allocator
 #elif defined(__i386__)
 #       define MAXSIZEBITS     32
-#elif defined(__BEEHIVE__)
-/* XXX This is better if < 32! - but there were no compile time warnings! */
-#       define MAXSIZEBITS     31
 #elif defined(__arm__)
 /* XXX This is better if < 32! - but there were no compile time warnings! */
 #       define MAXSIZEBITS     31

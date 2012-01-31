@@ -47,7 +47,6 @@ errval_t vspace_unmap(const void *buf)
     return SYS_ERR_OK;
 }
 
-#ifndef NOTRANS
 /// Map with an alignment constraint
 errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
                                  struct vregion **ret_vregion, size_t size,
@@ -177,7 +176,6 @@ error:
     }
     return err1;
 }
-#endif
 
 /**
  * \brief Wrapper for creating and mapping a memory object of type one frame

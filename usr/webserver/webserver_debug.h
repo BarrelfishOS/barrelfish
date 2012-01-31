@@ -23,4 +23,5 @@
 #endif
 
 
+uint64_t get_time_delta(uint64_t *last_ts);
 #endif // WEBSERVER_H_

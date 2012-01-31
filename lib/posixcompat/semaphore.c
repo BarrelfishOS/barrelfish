@@ -58,10 +58,11 @@ int sem_destroy(sem_t *sem)
 
 int sem_wait(sem_t *sem)
 {
-  	POSIXCOMPAT_DEBUG("%d: sem_wait(%p, %u): %p\n%p\n%p\n", disp_get_domain_id(), sem, sem->id,
+  	POSIXCOMPAT_DEBUG("%d: sem_wait(%p, %u):\n %p %p %p %p\n", disp_get_domain_id(), sem, sem->id,
 	 __builtin_return_address(0),
 	 __builtin_return_address(1),
-	 __builtin_return_address(2));
+	 __builtin_return_address(2),
+     __builtin_return_address(3));
 
     if(!sem->pshared) {
         thread_sem_wait(&sem->thread_sem);
@@ -116,10 +117,11 @@ int sem_trywait(sem_t *sem)
 
 int sem_post(sem_t *sem)
 {
-  	POSIXCOMPAT_DEBUG("%d: sem_post(%p, %u): %p %p %p\n", disp_get_domain_id(), sem, sem->id,
+  	POSIXCOMPAT_DEBUG("%d: sem_post(%p, %u): %p %p %p %p\n", disp_get_domain_id(), sem, sem->id,
 	 __builtin_return_address(0),
 	 __builtin_return_address(1),
-	 __builtin_return_address(2));
+	 __builtin_return_address(2),
+     __builtin_return_address(3));
 
     if(!sem->pshared) {
         thread_sem_post(&sem->thread_sem);

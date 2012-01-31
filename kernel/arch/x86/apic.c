@@ -17,12 +17,23 @@
 #include <arch/x86/start_aps.h>
 #include <paging_kernel_arch.h>
 #include <x86.h>
-#include <ia32_dev.h>
-#include <xapic_dev.h>
+
+#include <dev/ia32_dev.h>
+#include <dev/xapic_dev.h>
 
 #define APIC_BASE_ADDRESS_MASK  0x000ffffffffff000
 #define APIC_PAGE_SIZE          4096
 #define APIC_DEFAULT_PRIORITY   0x0000
+
+/**
+ * The kernel's APIC ID.
+ */
+uint8_t apic_id;
+
+/**
+ * True iff we're on the BSP
+ */
+bool apic_bsp = true;
 
 // global pointers used in init_ap.S
 extern uint64_t x86_64_start_ap;
@@ -30,7 +41,6 @@ extern uint64_t x86_64_init_ap_wait;
 extern uint64_t x86_32_start_ap;
 extern uint64_t x86_32_init_ap_wait;
 
-bool bsp = true;
 static xapic_t apic;
 
 /**
@@ -41,13 +51,11 @@ static xapic_t apic;
  */
 void apic_timer_init(bool masked, bool periodic)
 {
-    // Set APIC timer to periodic ticker mode
-    xapic_lvt_timer_wr(&apic, (xapic_lvt_timer_t) {
-            .vector = APIC_TIMER_INTERRUPT_VECTOR,
-            .mask = masked ? xapic_masked : xapic_not_masked,
-            .mode = periodic ? xapic_periodic : xapic_one_shot
-            }
-        );
+    xapic_lvt_timer_t t = xapic_lvt_timer_initial;
+    t = xapic_lvt_timer_vector_insert(t, APIC_TIMER_INTERRUPT_VECTOR);
+    t = xapic_lvt_timer_mask_insert(t, masked ? xapic_masked : xapic_not_masked );
+    t = xapic_lvt_timer_mode_insert(t, periodic ? xapic_periodic : xapic_one_shot);
+    xapic_lvt_timer_wr(&apic, t);
 }
 
 /**
@@ -57,12 +65,11 @@ void apic_timer_init(bool masked, bool periodic)
 void apic_perfcnt_init(void)
 {
     // Activate use of APIC performance counter interrupts
-    xapic_lvt_perf_cnt_wr(&apic, (xapic_lvt_mon_t) {
-            .vector = APIC_PERFORMANCE_INTERRUPT_VECTOR,
-                .msgType = 0,
-                .mask = 0
-            }
-        );
+    xapic_lvt_mon_t t = xapic_lvt_perf_cnt_initial;
+    t = xapic_lvt_mon_vector_insert(t, APIC_PERFORMANCE_INTERRUPT_VECTOR);
+    t = xapic_lvt_mon_msgType_insert(t, 0);
+    t = xapic_lvt_mon_mask_insert(t, 0);
+    xapic_lvt_perf_cnt_wr(&apic, t);
 }
 /**
  * \brief Initializes performance counter overflow interrupt
@@ -70,13 +77,13 @@ void apic_perfcnt_init(void)
  */
 void apic_perfcnt_stop(void)
 {
+    // Deactivate use of APIC performance counter interrupts
     // Activate use of APIC performance counter interrupts
-    xapic_lvt_perf_cnt_wr(&apic, (xapic_lvt_mon_t) {
-            .vector = APIC_PERFORMANCE_INTERRUPT_VECTOR,
-                .msgType = 0,
-                .mask = 1
-            }
-        );
+    xapic_lvt_mon_t t = xapic_lvt_perf_cnt_initial;
+    t = xapic_lvt_mon_vector_insert(t, APIC_PERFORMANCE_INTERRUPT_VECTOR);
+    t = xapic_lvt_mon_msgType_insert(t, 0);
+    t = xapic_lvt_mon_mask_insert(t, 1);
+    xapic_lvt_perf_cnt_wr(&apic, t);
 }
 
 void apic_timer_set_count(uint32_t count)
@@ -91,9 +98,7 @@ uint32_t apic_timer_get_count(void)
 
 void apic_timer_set_divide(xapic_divide_t divide)
 {
-    xapic_dcr_wr(&apic, (xapic_dcr_t) {
-            .div_val = divide
-        });
+    xapic_dcr_div_val_wrf(&apic, divide);
 }
 
 /** \brief This function initializes the local APIC.
@@ -120,13 +125,11 @@ void apic_init(void)
 
 #if !defined(__scc__) || defined(RCK_EMU)
     ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
-    lpaddr_t apic_phys = (lpaddr_t)ia32_apic_base_rd_raw(NULL)
-                          & APIC_BASE_ADDRESS_MASK;
+    lpaddr_t apic_phys = ((lpaddr_t)apic_base_msr) & APIC_BASE_ADDRESS_MASK;
     lvaddr_t apic_base = paging_map_device(apic_phys, APIC_PAGE_SIZE);
 #else
     lpaddr_t apic_phys = (lpaddr_t)0xfee00000;
-    lvaddr_t apic_base =
-        paging_map_device((lpaddr_t)0xfee00000, APIC_PAGE_SIZE);
+    lvaddr_t apic_base = paging_map_device((lpaddr_t)0xfee00000, APIC_PAGE_SIZE);
 #endif
 
     if(apic_base == 0) {
@@ -138,81 +141,104 @@ void apic_init(void)
     xapic_initialize(&apic, (void *)apic_base);
 
 #if !defined(__scc__) || defined(RCK_EMU)
-    debug(SUBSYS_APIC, "APIC ID=%hhu\n", xapic_id_rd(&apic).id );
-    if (apic_base_msr.bsp){
+    apic_id = apic_get_id();
+    debug(SUBSYS_APIC, "APIC ID=%hhu\n", apic_id);
+    if (ia32_apic_base_bsp_extract(apic_base_msr)) {
         debug(SUBSYS_APIC, "APIC: bootstrap processor\n");
-        bsp = true;
+        apic_bsp = true;
     } else {
         debug(SUBSYS_APIC, "APIC: application processor\n");
-        bsp = false;
+        apic_bsp = false;
         *ap_wait = AP_STARTED;
     }
 #endif
 
     // initialize spurious interrupt register
     // no focus, software enabled
-    xapic_svr_wr(&apic, (xapic_svr_t) {
-                .vector = APIC_SPURIOUS_INTERRUPT_VECTOR,
-                .enable = 1,
-                .focus = 1 } );
+    {
+	xapic_svr_t t = xapic_svr_initial; 
+	t = xapic_svr_vector_insert(t, APIC_SPURIOUS_INTERRUPT_VECTOR);
+	t = xapic_svr_enable_insert(t, 1);
+	t = xapic_svr_focus_insert( t, 1);
+	xapic_svr_wr(&apic, t);
+    }
 
     // Task priority
-    xapic_tpr_wr(&apic, (xapic_priority_t) {
-                .sub_class = APIC_DEFAULT_PRIORITY,
-                .priority = APIC_DEFAULT_PRIORITY
-                } );
+    {
+	xapic_priority_t t = xapic_tpr_initial;
+	t = xapic_priority_sub_class_insert(t, APIC_DEFAULT_PRIORITY);
+	t = xapic_priority_priority_insert( t, APIC_DEFAULT_PRIORITY);
+	xapic_tpr_wr(&apic, t);
+    }
 
     //LVT timer register
     //set vector number and disable reception of this interrupt
-    xapic_lvt_timer_wr(&apic, (xapic_lvt_timer_t) {
-                .vector = APIC_TIMER_INTERRUPT_VECTOR,
-                .mask = xapic_masked } );
+    {
+	xapic_lvt_timer_t t = xapic_lvt_timer_initial;
+	t = xapic_lvt_timer_vector_insert(t, APIC_TIMER_INTERRUPT_VECTOR);
+	t = xapic_lvt_timer_mask_insert(  t, xapic_masked);
+	xapic_lvt_timer_wr(&apic, t);
+    }
 
     //thermal sensor
-    xapic_lvt_thermal_wr(&apic, (xapic_lvt_mon_t) {
-                .vector = APIC_THERMAL_INTERRUPT_VECTOR,
-                .mask = xapic_masked } );
+    {
+	xapic_lvt_mon_t t = xapic_lvt_thermal_initial;
+	t = xapic_lvt_timer_vector_insert(t, APIC_THERMAL_INTERRUPT_VECTOR);
+	t = xapic_lvt_timer_mask_insert(  t, xapic_masked);
+	xapic_lvt_thermal_wr(&apic, t);
+    }
 
 #if defined(__scc__) && !defined(RCK_EMU)
     //LINT0: inter-core interrupt
     //generate fixed int
-    xapic_lvt_lint0_wr(&apic, (xapic_lvt_lint_t) {
-                .vector = APIC_INTER_CORE_VECTOR,
-                .dlv_mode = xapic_fixed,
-                .trig_mode = xapic_edge,
-		.mask = xapic_not_masked } );
+    {
+	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
+	xapic_lvt_lint_vector_insert(   t, APIC_INTER_CORE_VECTOR);
+	xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
+	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
+	xapic_lvt_lint0_wr(&apic, t);
 
-    //LINT1: usually used to generate an NMI
-    //generate device interrupt
-    xapic_lvt_lint1_wr(&apic, (xapic_lvt_lint_t) {
-                .vector = 32,
-		.dlv_mode = xapic_fixed,
-                .trig_mode = xapic_edge,
-                .mask = xapic_not_masked } );
+	//LINT1: usually used to generate an NMI
+	//generate device interrupt
+	t = xapic_lvt_lint1_initial;
+	xapic_lvt_lint_vector_insert(   t, 32);
+	xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
+	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
+	xapic_lvt_lint1_wr(&apic, t);
+    }
 #else
     //LINT0: external interrupts, delivered by the 8259 PIC
     //generate extInt as if INTR pin were activated
     //disabled (we use IOAPICs exclusively)
-    xapic_lvt_lint0_wr(&apic, (xapic_lvt_lint_t) {
-                .vector = 0,
-                .dlv_mode = xapic_extint,
-                .trig_mode = xapic_edge,
-		.mask = xapic_masked } );
+    {
+	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
+	xapic_lvt_lint_vector_insert(   t, 0);
+	xapic_lvt_lint_dlv_mode_insert( t, xapic_extint);
+	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	xapic_lvt_lint_mask_insert(     t, xapic_masked);
+	xapic_lvt_lint0_wr(&apic, t);
 
-    //LINT1: usually used to generate an NMI
-    //generate NMI
-    //disabled (FIXME?)
-    xapic_lvt_lint1_wr(&apic, (xapic_lvt_lint_t) {
-                .vector = 0,
-		.dlv_mode = xapic_extint, //xapic_nmi,
-                .trig_mode = xapic_edge,
-                .mask = xapic_masked } );
+	//LINT1: usually used to generate an NMI
+	//generate NMI
+	//disabled (FIXME?)
+	t = xapic_lvt_lint1_initial;
+	xapic_lvt_lint_vector_insert(   t, 0);
+	xapic_lvt_lint_dlv_mode_insert( t, xapic_extint); //xapic_nmi,
+	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	xapic_lvt_lint_mask_insert(     t, xapic_masked);
+	xapic_lvt_lint1_wr(&apic, t);
+    }
 #endif
 
     //error interrupt register
-    xapic_lvt_err_wr(&apic, (xapic_lvt_err_t) {
-            .vector = APIC_ERROR_INTERRUPT_VECTOR,
-		.mask = xapic_not_masked } );
+    {
+	xapic_lvt_err_t t = xapic_lvt_err_initial;
+	xapic_lvt_err_vector_insert(t, APIC_ERROR_INTERRUPT_VECTOR);
+	xapic_lvt_err_mask_insert(  t, xapic_not_masked);
+	xapic_lvt_err_wr(&apic, t);
+    }
 
 #if 0 // this doesn't seem necessary, and causes problems on non-AMD HW -AB
     //we need to enable this bit in the AMD case, but not in the Intel case.
@@ -220,21 +246,15 @@ void apic_init(void)
         printf("Warning: not setting xapic_eacr_wr on M5\n");
     } else {
         //    if (strcmp(cpuid_res.cpu_vendor,"AuthenticAMD")==0) {
-        xapic_eacr_wr(&apic, (xapic_eacr_t) { .iern = 1 } );
+        xapic_eacr_iern_wrf(&apic, 1);
         //    }
     }
 #endif
 
-#if 0 // Dump the APIC
-    static char prtbuf[1000];
-    xapic_pr(prtbuf,sizeof(prtbuf),&apic);
-    printf("%.*s", (int)sizeof(prtbuf), prtbuf);
-#endif
-
 #if !defined(__scc__) || defined(RCK_EMU)
     // enable the thing, if it wasn't already!
-    if (!apic_base_msr.global) {
-        apic_base_msr.global = 1;
+    if (!(ia32_apic_base_global_extract(apic_base_msr))) {
+        ia32_apic_base_global_insert(apic_base_msr, 1);
         ia32_apic_base_wr(NULL,apic_base_msr);
     }
 #endif
@@ -254,20 +274,19 @@ void apic_init(void)
 
 static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 {
-    xapic_icr_lo_un u;
-    u.val = cmd;
-
     //clear the previous error, if nobody was interested before.
     //otherwise it isn't possible to send another IPI
-    xapic_esr_wr_raw(&apic,0);
-    xapic_esr_wr_raw(&apic,0);
+    xapic_esr_rawwr(&apic,0);
+    xapic_esr_rawwr(&apic,0);
 
     //send the IPI
-    xapic_icr_hi_wr(&apic, (xapic_icr_hi_t) { .dest = destination } );
-    xapic_icr_lo_wr_raw(&apic, u.raw);
+    xapic_icr_hi_t t = xapic_icr_hi_initial;
+    t = xapic_icr_hi_dest_insert(t, destination);
+    xapic_icr_hi_rawwr(&apic, t);
+    xapic_icr_lo_rawwr(&apic, cmd);
 
     // Wait for delivery
-    while( wait && xapic_icr_lo_rd(&apic).dlv_stat );
+    while( wait && xapic_icr_lo_dlv_stat_rdf(&apic) );
 }
 
 /** \brief Send an INIT IPI (assert mode)
@@ -280,13 +299,14 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 
 void apic_send_init_assert(uint8_t destination, uint8_t destination_shorthand)
 {
-    apic_send_ipi( (xapic_icr_lo_t) { .vector = 0,
-                .dlv_mode = xapic_init,
-                .dst_mode = xapic_dst_phys,
-                .level = xapic_lvl_set,
-                .trig_mode = xapic_level,
-                .dst_short = destination_shorthand
-        }, destination, true );
+    xapic_icr_lo_t t = xapic_icr_lo_initial;
+    t = xapic_icr_lo_vector_insert(   t, 0);
+    t = xapic_icr_lo_dlv_mode_insert( t, xapic_init);
+    t = xapic_icr_lo_dst_mode_insert( t, xapic_dst_phys);
+    t = xapic_icr_lo_level_insert(    t, xapic_lvl_set);
+    t = xapic_icr_lo_trig_mode_insert(t, xapic_level);
+    t = xapic_icr_lo_dst_short_insert(t, destination_shorthand);
+    apic_send_ipi( t, destination, true );
 }
 
 /** \brief Send an INIT IPI (de-assert mode)
@@ -297,12 +317,14 @@ void apic_send_init_assert(uint8_t destination, uint8_t destination_shorthand)
 
 void apic_send_init_deassert(void)
 {
-    apic_send_ipi( (xapic_icr_lo_t) { .vector = 0,
-                .dlv_mode = xapic_init,
-                .dst_mode = xapic_dst_phys,
-                .level = xapic_lvl_clr,
-                .trig_mode = xapic_level,
-                .dst_short = xapic_all_inc }, 0, true );
+    xapic_icr_lo_t t = xapic_icr_lo_initial;
+    t = xapic_icr_lo_vector_insert(   t, 0);
+    t = xapic_icr_lo_dlv_mode_insert( t, xapic_init);
+    t = xapic_icr_lo_dst_mode_insert( t, xapic_dst_phys);
+    t = xapic_icr_lo_level_insert(    t, xapic_lvl_clr);
+    t = xapic_icr_lo_trig_mode_insert(t, xapic_level);
+    t = xapic_icr_lo_dst_short_insert(t, xapic_all_inc);
+    apic_send_ipi( t, 0, true );
 }
 
 
@@ -319,12 +341,14 @@ void apic_send_start_up(uint8_t destination,
                         uint8_t destination_shorthand,
                         uint8_t realmode_startpage)
 {
-    apic_send_ipi( (xapic_icr_lo_t) { .vector = realmode_startpage,
-                .dlv_mode = xapic_startup,
-                .dst_mode = xapic_dst_phys,
-                .level = xapic_lvl_set,
-                .trig_mode = xapic_edge,
-                .dst_short = destination_shorthand }, destination, true );
+    xapic_icr_lo_t t = xapic_icr_lo_initial;
+    t = xapic_icr_lo_vector_insert(   t, realmode_startpage);
+    t = xapic_icr_lo_dlv_mode_insert( t, xapic_startup);
+    t = xapic_icr_lo_dst_mode_insert( t, xapic_dst_phys);
+    t = xapic_icr_lo_level_insert(    t, xapic_lvl_set);
+    t = xapic_icr_lo_trig_mode_insert(t, xapic_edge);
+    t = xapic_icr_lo_dst_short_insert(t, destination_shorthand);
+    apic_send_ipi( t, destination, true );
 }
 
 
@@ -339,12 +363,14 @@ void apic_send_std_ipi(uint8_t destination,
                        uint8_t destination_shorthand,
                        uint8_t vector)
 {
-    apic_send_ipi( (xapic_icr_lo_t) { .vector = vector,
-                .dlv_mode = xapic_fixed,
-                .dst_mode = xapic_dst_phys,
-                .level = xapic_lvl_clr,
-                .trig_mode = xapic_edge,
-                .dst_short = destination_shorthand }, destination, false );
+    xapic_icr_lo_t t = xapic_icr_lo_initial;
+    t = xapic_icr_lo_vector_insert(   t, vector);
+    t = xapic_icr_lo_dlv_mode_insert( t, xapic_fixed);
+    t = xapic_icr_lo_dst_mode_insert( t, xapic_dst_phys);
+    t = xapic_icr_lo_level_insert(    t, xapic_lvl_clr);
+    t = xapic_icr_lo_trig_mode_insert(t, xapic_edge);
+    t = xapic_icr_lo_dst_short_insert(t, destination_shorthand);
+    apic_send_ipi( t, destination, false );
 }
 
 /** \brief This function sends an EOI to the local APIC
@@ -363,12 +389,12 @@ void apic_eoi(void)
 */
 void apic_seoi(uint8_t int_nr)
 {
-    xapic_seoi_wr(&apic, (xapic_seoi_t) { .vector = int_nr } );
+    xapic_seoi_vector_wrf(&apic, int_nr);
 }
 
 uint8_t apic_get_id(void)
 {
-    return xapic_id_rd(&apic).id;
+    return xapic_id_id_rdf(&apic);
 }
 
 /**
@@ -376,9 +402,7 @@ uint8_t apic_get_id(void)
  */
 void apic_mask_timer(void)
 {
-    xapic_lvt_timer_t tv = xapic_lvt_timer_rd(&apic);
-    tv.mask = xapic_masked;
-    xapic_lvt_timer_wr(&apic,tv);
+    xapic_lvt_timer_mask_wrf(&apic, xapic_masked);
 }
 
 /**
@@ -386,19 +410,17 @@ void apic_mask_timer(void)
  */
 void apic_unmask_timer(void)
 {
-    xapic_lvt_timer_t tv = xapic_lvt_timer_rd(&apic);
-    tv.mask = xapic_not_masked;
-    xapic_lvt_timer_wr(&apic,tv);
+    xapic_lvt_timer_mask_wrf(&apic, xapic_not_masked);
 }
 
 bool arch_core_is_bsp(void)
 {
-    return bsp;
+    return apic_is_bsp();
 }
 
 xapic_esr_t apic_get_esr(void)
 {
     // 10.5.3: Have to write to ESR before reading it
-    xapic_esr_wr_raw(&apic, 0);
+    xapic_esr_rawwr(&apic, 0);
     return xapic_esr_rd(&apic);
 }

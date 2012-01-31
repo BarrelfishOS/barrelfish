@@ -35,7 +35,7 @@ device acpi_ec msbfirst (io data, io sc) "ACPI embedded controller" {
     };
 
     // 12.3
-    constants commands "Command encodings" {
+    constants commands width(8) "Command encodings" {
         read      = 0x80 "Read";
         write     = 0x81 "Write";
         burst_en  = 0x82 "Burst enable";
@@ -47,9 +47,7 @@ device acpi_ec msbfirst (io data, io sc) "ACPI embedded controller" {
     register status ro io(sc, 0) "Status" type(status);
 
     // 12.2.2
-    register cmd wo also io(sc, 0) "Command" {
-        cmd 8 type(commands);
-    };
+    register cmd wo also io(sc, 0) "Command" type(commands);
 
     // 12.2.3
     register data rw io(data, 0) "Data" type(uint8);

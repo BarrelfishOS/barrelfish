@@ -30,7 +30,7 @@ struct global {
 
     uint32_t tickspersec;
 
-    genpaddr_t notify[MAX_CPUS];
+    genpaddr_t notify[MAX_COREID];
 };
 
 extern struct global *global;

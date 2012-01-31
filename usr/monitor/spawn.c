@@ -36,8 +36,8 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         name++;
     }
 
-    /* copy phys addr cnode cap to PCI */
-    if (!strcmp(name, "pci")) {
+    /* copy phys addr cnode cap to PCI and/or mic_slave */
+    if (strcmp(name, "pci") == 0 || strcmp(name, "mic_slave") == 0) {
         src.cnode = cnode_root;
         src.slot  = ROOTCN_SLOT_PACN;
         dest.cnode = si->rootcn;
@@ -48,7 +48,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
-    /* Pass IO cap to PCI (as a hack) */
+    /* Pass IO cap to PCI */
     if (!strcmp(name, "pci")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_IO;
@@ -60,7 +60,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
-    /* Pass IRQ cap to bfscope */
+    /* Pass IRQ cap to bfscope (XXX: kludge) */
     if (!strcmp(name, "bfscope")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_IRQ;
@@ -247,15 +247,14 @@ errval_t spawn_all_domains(void)
             return err_push(err, SPAWN_ERR_GET_CMDLINE_ARGS);
         }
 
-        // Pass the local arch-specific core ID to the PCI domain
-        if(!strcmp(short_name, "pci")) {
+        // Pass the local arch-specific core ID to the PCI and spawnd domains
+        if(strcmp(short_name, "pci") == 0 || strcmp(short_name, "spawnd") == 0) {
             // Get hardware core ID
             uintptr_t my_arch_id = 0;
             err = invoke_monitor_get_arch_id(&my_arch_id);
             assert(err_is_ok(err));
 
             char *myargs = malloc(strlen(args) + 50);
-            strcpy(myargs, args);
             snprintf(myargs, strlen(args) + 50, "%s apicid=%" PRIuPTR,
                      args, my_arch_id);
             free(args);
@@ -333,16 +332,10 @@ errval_t spawn_spawnd(struct intermon_binding *b)
     // map the image in
     // XXX: leak memobj/region
     void *image;
-#ifdef __BEEHIVE__
-    // FIXME: why does the map fail below for beehive? -AB
-    // it thinks the cap I just magiced up doesn't exist
-    image = (void *)(lvaddr_t)spawnd_image.base;
-#else
     err = vspace_map_one_frame(&image, spawnd_image.bytes, frame, NULL, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
-#endif
 
     // spawn!
     char *argv[] = { "spawnd", NULL };

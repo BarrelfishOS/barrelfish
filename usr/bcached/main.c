@@ -28,20 +28,22 @@
 #include "bcached.h"
 #include <hashtable/hashtable.h>
 
-//#ifndef CONFIG_QEMU_NETWORK
-#if 1
-#       define CACHE_SIZE      (1U << 28)      // 256MB
-#else
-#       define CACHE_SIZE      (1U << 22)      // 4MB
-#endif
-#define NUM_BLOCKS      (CACHE_SIZE / BUFFER_CACHE_BLOCK_SIZE)
+struct waitlist {
+    struct waitlist *next;
+    void *ptr;
+};
 
 struct lru_queue {
     struct lru_queue *prev, *next;
     uintptr_t index, block_length;
-    bool inuse;
     char *key;
     size_t key_len;
+    /* notify when transit is finished */
+    struct {
+        struct waitlist *start, *end;
+    } waiters;
+    bool in_transit;
+    bool in_use;
 };
 
 struct capref cache_memory;
@@ -49,20 +51,27 @@ size_t cache_size, block_size = BUFFER_CACHE_BLOCK_SIZE;
 void *cache_pool;
 static struct hashtable *cache_hash = NULL;
 static struct lru_queue *lru_start, *lru_end, *lru;
-static size_t hits = 0, misses = 0, allocations = 0, evictions = 0;
+static size_t partial_hits = 0, hits = 0, misses = 0, allocations = 0, evictions = 0;
 
 void print_stats(void)
 {
-    printf("cache statistics\n"
+    printf("cache statistics [%d]\n"
            "----------------\n"
            "cache size               = %u blocks * %u KB = %u MB\n"
            "hits                     = %zu\n"
+           "part. hits (in transit)  = %zu\n"
            "misses                   = %zu\n"
            "allocations              = %zu / %u blocks (%zu%% utilization)\n"
            "evictions (replacements) = %zu blocks\n",
+           disp_get_core_id(),
            NUM_BLOCKS, BUFFER_CACHE_BLOCK_SIZE / 1024, CACHE_SIZE / 1024 / 1024,
-           hits, misses, allocations, NUM_BLOCKS,
+           hits, partial_hits, misses, allocations, NUM_BLOCKS,
            (allocations * 100) / NUM_BLOCKS, evictions);
+}
+
+static struct lru_queue *lru_get_untouched(uintptr_t index)
+{
+    return lru + index;
 }
 
 static struct lru_queue *lru_use(uintptr_t index)
@@ -112,39 +121,100 @@ static void lru_init(void)
     lru_start->prev = lru_end->next = NULL;
 }
 
-bool cache_lookup(char *key, size_t key_len, uintptr_t *index,
-                  uintptr_t *length)
+uint64_t cache_get_block_length(uintptr_t index)
+{
+    index /= BUFFER_CACHE_BLOCK_SIZE;
+    struct lru_queue *l = lru_get_untouched(index);
+    return l->block_length;
+}
+
+key_state_t cache_lookup(char *key, size_t key_len,
+                         uintptr_t *index, uintptr_t *length)
 {
     ENTRY_TYPE et;
     void *val;
+    key_state_t ret = KEY_MISSING;
 
     et = cache_hash->d.get(&cache_hash->d, key, key_len, &val);
-    assert(et == TYPE_WORD || et == 0);
 
-    if(et == TYPE_WORD) {
+    if (et == 0)  {
+        misses++;
+        ret = KEY_MISSING;
+    } else if (et == TYPE_WORD) {
         *index = (uintptr_t)val;
         struct lru_queue *l = lru_use(*index);
         *length = l->block_length;
 
-        hits++;
+        if (l->in_transit) {
+            partial_hits++;
+            ret = KEY_INTRANSIT;
+        } else {
+            hits++;
+            ret = KEY_EXISTS;
+        }
     } else {
-        misses++;
+        assert(et == TYPE_WORD || et == 0);
     }
 
-    // Convert to byte offset from start of cache
+    // Convert to byte offset from start of cache (XXX does this make sense when et == 0?)
     *index *= BUFFER_CACHE_BLOCK_SIZE;
 
     /* printf("cache_lookup(\"%s\", %" PRIuPTR ") = %s\n", key, *index, */
     /*        et == TYPE_WORD ? "true" : "false"); */
+    return ret;
+}
 
-    return et == TYPE_WORD ? true : false;
+void
+cache_register_wait(uintptr_t index, void *ptr)
+{
+    struct waitlist *wl;
+    struct lru_queue *e;
+
+    assert(ptr != NULL);
+
+    wl = malloc(sizeof(struct waitlist));
+    assert(wl);
+    wl->ptr = ptr;
+    wl->next = NULL;
+
+    index /= BUFFER_CACHE_BLOCK_SIZE;
+    e = lru_get_untouched(index);
+    if (e->waiters.start == NULL) {
+        e->waiters.start = e->waiters.end = wl;
+    } else {
+        assert(e->waiters.end->next == NULL);
+        e->waiters.end->next = wl;
+        e->waiters.end = wl;
+    }
+}
+
+void *
+cache_get_next_waiter(uintptr_t index)
+{
+    struct waitlist *wl;
+    void *ret;
+    index /= BUFFER_CACHE_BLOCK_SIZE;
+    struct lru_queue *e = lru_get_untouched(index);
+    if (e->waiters.start == NULL) {
+        return NULL;
+    }
+
+    wl = e->waiters.start;
+    e->waiters.start = wl->next;
+
+    ret = wl->ptr;
+    free(wl);
+
+    return ret;
 }
 
 uintptr_t cache_allocate(char *key, size_t key_len)
 {
     struct lru_queue *e = lru_get();
 
-    if(e->inuse) {
+    assert(!e->in_transit);
+
+    if(e->in_use) {
         // Cache is write-through, so we just have to delete the old entry
         int r = cache_hash->d.remove(&cache_hash->d, e->key, e->key_len);
         assert(r == 0);
@@ -159,10 +229,12 @@ uintptr_t cache_allocate(char *key, size_t key_len)
         allocations++;
     }
 
-    e->inuse = true;
+    e->in_use = true;
+    e->in_transit = true;
     e->key = key;
     e->key_len = key_len;
     e->block_length = 0;
+    e->waiters.start = e->waiters.end = NULL;
 
     int r = cache_hash->d.put_word(&cache_hash->d, key, key_len, e->index);
     assert(r == 0);
@@ -177,6 +249,7 @@ void cache_update(uintptr_t index, uintptr_t length)
     index /= BUFFER_CACHE_BLOCK_SIZE;
     struct lru_queue *l = lru_use(index);
     l->block_length = length;
+    l->in_transit = false;
 }
 
 static errval_t create_cache_mem(size_t size)

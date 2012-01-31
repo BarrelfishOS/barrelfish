@@ -15,7 +15,7 @@
   build application { target = "mem_serv_dist_ns",
                       cFiles = [ "mem_serv.c", "no_steal.c", "hybrid_support.c", "skb.c", "args.c", "memtest_trace.c" ],
                       flounderDefs = [ "monitor", "monitor_blocking", "mem", "spawn" ],
-                      flounderExtraBindings = [ ("mem", ["rpcclient"]), 
+                      flounderExtraDefs = [ ("mem", ["rpcclient"]), 
                                                 ("spawn", ["rpcclient"]),
                                                 ("monitor_blocking", ["rpcclient"])],
                       addLibraries = [ "mm", "trace", "skb", "dist" ]
@@ -25,11 +25,11 @@
 		      cFiles = [ "mem_serv.c", "steal.c", "hybrid_support.c", "skb.c", "args.c", "memtest_trace.c" ],
                       flounderDefs = [ "monitor", "monitor_blocking", "mem", "spawn" ],
                       flounderTHCStubs = [ "mem" ],
-                      flounderExtraBindings = [ ("mem", ["rpcclient"]),
+                      flounderExtraDefs = [ ("mem", ["rpcclient"]),
                                                 ("spawn", ["rpcclient"]), 
                                                 ("monitor_blocking", ["rpcclient"])],
                       addLibraries = [ "mm", "trace", "skb", "dist", "thc" ],
-		      architectures = [ "x86_64", "x86_32", "scc", "beehive" ]
+		      architectures = [ "x86_64", "x86_32", "scc" ]
                     },
 
 -- fully thc
@@ -37,11 +37,11 @@
 		      cFiles = [ "mem_serv.c", "steal.c", "thc_support.c", "skb.c", "args.c", "memtest_trace.c" ],
                       flounderDefs = [ "monitor", "monitor_blocking", "mem", "spawn" ],
                       flounderTHCStubs = [ "mem" ],
-                      flounderExtraBindings = [ ("mem", ["rpcclient"]),
+                      flounderExtraDefs = [ ("mem", ["rpcclient"]),
                                                 ("spawn", ["rpcclient"]),
                                                 ("monitor_blocking", ["rpcclient"])],
                       addLibraries = [ "mm", "trace", "skb", "dist", "thc" ],
-                      architectures = [ "x86_64", "x86_32", "scc", "beehive" ]
+                      architectures = [ "x86_64", "x86_32", "scc" ]
                     },
   build application { target = "mem_bench",
   		      cFiles = [ "mem_bench.c", "memtest_trace.c" ],

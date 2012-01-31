@@ -49,18 +49,17 @@
  * @return ERR_OK if the loopif is initialized
  *         ERR_MEM if private data couldn't be allocated
  */
-err_t
-loopif_init(struct netif *netif)
+err_t loopif_init(struct netif * netif)
 {
-  /* initialize the snmp variables and counters inside the struct netif
-   * ifSpeed: no assumption can be made!
-   */
-  NETIF_INIT_SNMP(netif, snmp_ifType_softwareLoopback, 0);
+    /* initialize the snmp variables and counters inside the struct netif
+     * ifSpeed: no assumption can be made!
+     */
+    NETIF_INIT_SNMP(netif, snmp_ifType_softwareLoopback, 0);
 
-  netif->name[0] = 'l';
-  netif->name[1] = 'o';
-  netif->output = netif_loop_output;
-  return ERR_OK;
+    netif->name[0] = 'l';
+    netif->name[1] = 'o';
+    netif->output = netif_loop_output;
+    return ERR_OK;
 }
 
-#endif /* LWIP_HAVE_LOOPIF */
+#endif                          /* LWIP_HAVE_LOOPIF */

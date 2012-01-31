@@ -565,6 +565,11 @@ errval_t mm_add(struct mm *mm, struct capref cap, uint8_t sizebits, genpaddr_t b
 errval_t mm_alloc(struct mm *mm, uint8_t sizebits, struct capref *retcap,
                   genpaddr_t *retbase)
 {
+    /* check bounds, before we hit the debug assertion in mm_alloc_range */
+    if (sizebits > mm->sizebits) {
+        return MM_ERR_NOT_FOUND;
+    }
+
     return mm_alloc_range(mm, sizebits, mm->base,
                           mm->base + UNBITS_GENPA(mm->sizebits), retcap, retbase);
 }

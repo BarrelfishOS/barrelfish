@@ -12,6 +12,6 @@
 
 [ build application { target = "bfscope",
                       cFiles = [ "bfscope.c" ],
-                      addLibraries = [ "lwip", "contmng", "trace" ]
+                      addLibraries = [ "lwip", "contmng", "procon", "trace" ]
                     }
 ]

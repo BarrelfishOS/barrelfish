@@ -28,8 +28,8 @@
 \include{intro}
 \include{Syntax}
 \include{Backend}
-\include{HeaderBackend}
-\include{CodeBackend}
+%% \include{HeaderBackend}
+%% \include{CodeBackend}
 \include{Main}
 
 \end{document}

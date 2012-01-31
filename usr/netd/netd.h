@@ -23,11 +23,12 @@
 #include <if/netd_defs.h>
 
 #include <contmng/contmng.h>
+#include <procon/procon.h>
 
 
-/** 
- * This is the structure used to hold all of the ports allocated to a 
- * networking application and their relavanet buffer. This also keeps the 
+/**
+ * This is the structure used to hold all of the ports allocated to a
+ * networking application and their relavanet buffer. This also keeps the
  * state of the filter registration/deregistration sequence.
  */
 struct buffer_port_translation {
@@ -43,8 +44,9 @@ struct buffer_port_translation {
     bool active;
     bool bind;
     bool closing;
-    struct netd_binding* st;
-    struct buffer_port_translation* next;
+    bool paused;
+    struct netd_binding *st;
+    struct buffer_port_translation *next;
 };
 
 
@@ -52,7 +54,7 @@ struct buffer_port_translation {
  * Represents a network user application. This can easily be extended later.
  */
 struct net_user {
-	struct cont_queue *q;
+    struct cont_queue *q;
     struct buffer_port_translation *open_ports;
     bool died;
     struct net_user *next;
@@ -72,9 +74,9 @@ struct ip_addr local_ip;
 struct ether_client_response *card_conn[2];
 
 
-/** 
+/**
  * @brief initializes LWIP. not a lot left after I changed the subsystems
- * 
+ *
  * @param card_name the of the card. it is usualy "e1000" for now
  */
 void startlwip(char *card_name);

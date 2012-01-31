@@ -32,6 +32,14 @@ static inline void cache_flush_range(void *base, size_t len)
     assert(!"cache_flush_range() NYI for ARM");
 }
 
+
+static inline uint64_t rdtsc(void)
+{
+    assert(!"rdtsc() NYI for ARM");
+    return 0;
+}
+
+
 #endif
 
 #endif // ARCH_ARM_BARRELFISH_KPI_UNKNOWN_H

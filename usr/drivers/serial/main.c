@@ -92,7 +92,6 @@ static void output_handler(struct serial_binding *b, char *c, size_t len)
 static void associate_stdin_handler(struct serial_binding *b)
 {
     terminal = b;
-
     // try to send something, if we have it ready
     if (inbuf[ninbuf].buf != NULL) {
         tx_handler(b);

@@ -150,7 +150,7 @@ change_waitset_fn_def ifn =
                   C.Param (C.Ptr $ C.Struct "waitset") "ws"]
 
 tx_fn :: String -> MessageDef -> C.Unit
-tx_fn ifn msg@(Message _ mn args) =
+tx_fn ifn msg@(Message _ mn args _) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (tx_fn_name ifn mn) params body
     where
         params = [binding_param ifn, cont_param] ++ (

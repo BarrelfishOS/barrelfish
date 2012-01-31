@@ -42,12 +42,11 @@ extern "C" {
 
 #if !LWIP_NETIF_LOOPBACK_MULTITHREADING
 #define loopif_poll netif_poll
-#endif /* !LWIP_NETIF_LOOPBACK_MULTITHREADING */
+#endif                          /* !LWIP_NETIF_LOOPBACK_MULTITHREADING */
 
-err_t loopif_init(struct netif *netif);
+    err_t loopif_init(struct netif *netif);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __NETIF_LOOPIF_H__ */
+#endif                          /* __NETIF_LOOPIF_H__ */

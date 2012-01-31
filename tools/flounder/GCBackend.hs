@@ -22,7 +22,6 @@ import BackendCommon
 import LMP (lmp_bind_type, lmp_bind_fn_name)
 import qualified UMP (bind_type, bind_fn_name)
 import qualified UMP_IPI (bind_type, bind_fn_name)
-import qualified BMP (bind_type, bind_fn_name)
 import qualified Multihop (m_bind_type, m_bind_fn_name)
 
 -- name of the bind continuation function
@@ -245,7 +244,6 @@ bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name))
                     [lmp_bind_backend, 
                      ump_ipi_bind_backend, 
                      ump_bind_backend, 
-                     bmp_bind_backend, 
                      multihop_bind_backend]
                                                      
 -- backends in different order (prefer multihop over ump, etc.)
@@ -254,8 +252,7 @@ multihop_bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_n
                     [lmp_bind_backend, 
                      multihop_bind_backend, 
                      ump_ipi_bind_backend, 
-                     ump_bind_backend, 
-                     bmp_bind_backend]
+                     ump_bind_backend]
 
 bindst = C.Variable "b"
 binding = bindst `C.DerefField` "binding"
@@ -311,22 +308,6 @@ ump_ipi_bind_backend ifn cont =
                                            flags,
                                            C.Variable "DEFAULT_UMP_BUFLEN",
                                            C.Variable "DEFAULT_UMP_BUFLEN"]
-    ],
-    test_cb_success = C.Call "err_is_ok" [errvar],
-    test_cb_try_next = C.Variable "true",
-    cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
-    }
-  
-bmp_bind_backend ifn cont = 
-  BindBackend {
-    flounder_backend = "bmp",
-    start_bind = [
-        C.Ex $ C.Assignment binding $
-            C.Call "malloc" [C.SizeOfT $ C.Struct $ BMP.bind_type ifn],
-        C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
-        C.Ex $ C.Assignment errvar $
-            C.Call (BMP.bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
-                                           flags, C.Variable "DEFAULT_BMP_BUF_WORDS"]
     ],
     test_cb_success = C.Call "err_is_ok" [errvar],
     test_cb_try_next = C.Variable "true",

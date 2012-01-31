@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2001-2004 Swedish Institute of Computer Science.
- * All rights reserved. 
- * 
- * Redistribution and use in source and binary forms, with or without modification, 
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
  *
  * 1. Redistributions of source code must retain the above copyright notice,
@@ -11,21 +11,21 @@
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
  * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission. 
+ *    derived from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED 
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT 
- * SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
- * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY 
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+ * SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
  * OF SUCH DAMAGE.
  *
  * This file is part of the lwIP TCP/IP stack.
- * 
+ *
  * Author: Adam Dunkels <adam@sics.se>
  *
  */
@@ -65,27 +65,67 @@ extern "C" {
 #define LWIP_VERSION   (LWIP_VERSION_MAJOR << 24   | LWIP_VERSION_MINOR << 16 | \
                         LWIP_VERSION_REVISION << 8 | LWIP_VERSION_RC)
 
-enum netd_port_type_t;
-void perform_ownership_housekeeping(uint16_t (*alloc_tcp_ptr)(void),
-        uint16_t (*alloc_udp_ptr)(void),
-        uint16_t (*bind_port_ptr)(uint16_t, enum netd_port_type_t),
-        void (*close_port_ptr)(uint16_t , enum netd_port_type_t));
+    enum netd_port_type_t;
+    void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
+                                        uint16_t(*alloc_udp_ptr) (void),
+                                        uint16_t(*bind_port_ptr) (uint16_t,
+                                                                  enum
+                                                                  netd_port_type_t),
+                                        void (*close_port_ptr) (uint16_t,
+                                                                enum
+                                                                netd_port_type_t));
 
 /* Modules initialization */
-struct waitset;
-struct thread_mutex;
-void owner_lwip_init(char *card_name);
-bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
-                  struct thread_mutex *opt_mutex);
-bool lwip_init(const char *card_name);
-bool lwip_init_auto_ex(struct waitset *opt_waitset, 
-                       struct thread_mutex *opt_mutex);
-bool lwip_init_auto(void);
+    struct waitset;
+    struct thread_mutex;
+    void owner_lwip_init(char *card_name);
+    bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
+                      struct thread_mutex *opt_mutex);
+    bool lwip_init(const char *card_name);
+    bool lwip_init_auto_ex(struct waitset *opt_waitset,
+                           struct thread_mutex *opt_mutex);
+    bool lwip_init_auto(void);
 
-void lwip_start_net_debug(uint8_t state);
+    int is_lwip_loaded(void);
+    uint64_t lwip_packet_drop_count(void);
+
+
+uint64_t wrapper_perform_lwip_work(void);
+
+void lwip_benchmark_control(int connection, uint8_t state, uint64_t trigger,
+        uint64_t cl);
+uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,
+        uint64_t *cl);
+void lwip_debug_show_spp_status(int connection);
+
+enum Recorded_Events {
+    RE_ALL,
+    RX_ALL_PROCESS,
+    RE_REG_PBUF,
+    RE_PBUF_REPLACE,
+    RE_PBUF_REPLACE_1,
+    RE_PBUF_REPLACE_2,
+    RE_PBUF_QUEUE,
+    RE_PKT_RCV_CS,
+    RE_PBUF_REPLACE_3,
+    TX_SP,
+    TX_SP1,
+    TX_SPP_FULL,
+    TX_SN_WAIT,
+    TX_SN_SEND,
+    TX_A_SP_RN_CS,
+    TX_A_SP_RN_T,
+    TX_SND_PKT_C,
+    TX_SND_PKT_S,
+    RECORDED_EVENTS_COUNT  // MUST BE THE LAST ELEMENT!!
+};
+
+extern struct netbench_details *nb;
+void lwip_print_interesting_stats(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __LWIP_INIT_H__ */
+#endif // __LWIP_INIT_H__
+

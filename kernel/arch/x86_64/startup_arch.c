@@ -154,33 +154,236 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
     lpaddr_t last_end_addr = 0;
 
-    for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;) {
+#define PRINT_REGIONS(map, map_length) do {\
+        for(char * printcur = map; printcur < map + map_length;) {\
+            struct multiboot_mmap * printcurmmap = (struct multiboot_mmap * SAFE)TC(printcur);\
+            printf("\t0x%08lx - 0x%08lx Type: %d Length: 0x%lx\n", printcurmmap->base_addr, printcurmmap->base_addr + printcurmmap->length, printcurmmap->type, printcurmmap->length);\
+            printcur += printcurmmap->size + 4;\
+        }\
+    } while (0)
+
+    printf("Raw MMAP from BIOS\n");
+    PRINT_REGIONS(mmap_addr, glbl_core_data->mmap_length);
+
+    // normalize memory regions
+    char *clean_mmap_addr = MBADDR_ASSTRING(init_alloc_addr); // FIXME: Hack!!!! TODO: properly get memory form somewhere
+    assert(glbl_core_data->mmap_length < BOOTINFO_SIZE);
+    uint32_t clean_mmap_length = glbl_core_data->mmap_length;
+
+    memcpy(clean_mmap_addr, mmap_addr, glbl_core_data->mmap_length);
+
+    // first of all, sort regions by base address
+    // yes, it's a bubble sort, but the dataset is small and usually in the right order
+    bool swapped;
+    do {
+        swapped = false;
+
+        for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
+            struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
+            if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
+                break; // do not try to move this check into the forloop as entries do not have to be the same length
+
+            struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
+
+            if (nextmmap->base_addr < curmmap->base_addr ||
+                (nextmmap->base_addr == curmmap->base_addr && nextmmap->length > curmmap->length)) {
+                // swap
+                assert(curmmap->size == 20); // FIXME: The multiboot specification does not require this size
+                assert(nextmmap->size == 20);
+
+                struct multiboot_mmap tmp;
+                tmp = *curmmap;
+                *curmmap = *nextmmap;
+                *nextmmap = tmp;
+
+                swapped = true;
+            }
+
+            cur += curmmap->size + 4;
+        }
+    } while(swapped);
+
+    printf("Sorted MMAP\n");
+    PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
+
+    // now merge consecutive memory regions of the same or lower type
+    for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
+        struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
+        if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
+            break; // do not try to move this check into the forloop as entries do not have to be the same length
+
+        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
+
+#define DISCARD_NEXT_MMAP do {\
+    uint32_t discardsize = nextmmap->size + 4;\
+    memmove(cur + curmmap->size + 4, cur + curmmap->size + 4 + discardsize, clean_mmap_length - (cur - clean_mmap_addr) - curmmap->size - 4 - discardsize);\
+    clean_mmap_length -= discardsize;\
+    } while (0)
+
+#define BUBBLE_NEXT_MMAP do {\
+    for (char * bubblecur = cur + curmmap->size + 4; bubblecur < clean_mmap_addr + clean_mmap_length;){\
+        struct multiboot_mmap * bubblecur_mmap = (struct multiboot_mmap * SAFE)TC(bubblecur);\
+        if (bubblecur + bubblecur_mmap->size + 4 >= clean_mmap_addr + clean_mmap_length)\
+            break;\
+        struct multiboot_mmap * bubblenext_mmap = (struct multiboot_mmap * SAFE)TC(bubblecur + bubblecur_mmap->size + 4);\
+        if (bubblenext_mmap->base_addr < bubblecur_mmap->base_addr || (bubblecur_mmap->base_addr == bubblenext_mmap->base_addr && bubblenext_mmap->length > bubblecur_mmap->length)) {\
+            struct multiboot_mmap bubbletmp; bubbletmp = *bubblecur_mmap; *bubblecur_mmap = *bubblenext_mmap; *bubblenext_mmap = bubbletmp;\
+        } else break;\
+    }} while(0)
+
+
+        bool reduced = false;
+        do {
+            reduced = false;
+
+            if (curmmap->base_addr == nextmmap->base_addr) {
+                // regions start at the same location
+                if (curmmap->length == nextmmap->length) {
+                    // trivial case. They are the same. Choose higher type and discard next
+                    curmmap->type = max(curmmap->type, nextmmap->type);
+
+                    DISCARD_NEXT_MMAP;
+
+                    reduced = true;
+                    continue;
+                } else {
+                    // next region is smaller (we sorted that way)
+                    if (nextmmap->type <= curmmap->type) {
+                        // next regions type is the same or smaller. discard
+                        DISCARD_NEXT_MMAP;
+
+                        reduced = true;
+                        continue;
+                    } else {
+                        // next regions type is higher, so it gets priority
+                        // change type of current region and shrink next
+                        uint32_t tmptype = curmmap->type;
+                        uint64_t newlength = curmmap->length - nextmmap->length;
+                        curmmap->type = nextmmap->type;
+                        curmmap->length = nextmmap->length;
+                        nextmmap->type = tmptype;
+                        nextmmap->base_addr += nextmmap->length;
+                        nextmmap->length = newlength;
+
+                        // now we need to bubble next to the right place to restore order
+                        BUBBLE_NEXT_MMAP;
+
+                        reduced = true;
+                        continue;
+                    }
+                }
+            }
+
+            // regions overlap
+            if (nextmmap->base_addr > curmmap->base_addr && nextmmap->base_addr < curmmap->base_addr + curmmap->length) {
+                // same type
+                if (curmmap->type == nextmmap->type) {
+                    // simple. just extend if necessary and discard next
+                    if (nextmmap->base_addr + nextmmap->length > curmmap->base_addr + curmmap->length)
+                        curmmap->length = (nextmmap->base_addr + nextmmap->length) - curmmap->base_addr;
+
+                    DISCARD_NEXT_MMAP;
+
+                    reduced = true;
+                    continue;
+                } else {
+                    // type is not the same
+                    if (nextmmap->base_addr + nextmmap->length < curmmap->base_addr + curmmap->length) {
+                        // there is a chunk at the end. create a new region
+                        struct multiboot_mmap tmpmmap;
+                        tmpmmap.size = 20;
+                        tmpmmap.base_addr = nextmmap->base_addr + nextmmap->length;
+                        tmpmmap.length = (curmmap->base_addr + curmmap->length) - (nextmmap->base_addr + nextmmap->length);
+                        tmpmmap.type = curmmap->type;
+
+                        // move everything to make room
+                        assert(clean_mmap_length + tmpmmap.length + 4 < BOOTINFO_SIZE);
+                        memmove(cur + curmmap->size + 4 + tmpmmap.size + 4, cur + curmmap->size + 4, clean_mmap_length - ((cur - clean_mmap_addr) + curmmap->size + 4));
+                        clean_mmap_length += tmpmmap.size + 4;
+
+                        // insert new
+                        *nextmmap = tmpmmap;
+
+                        // restore order
+                        BUBBLE_NEXT_MMAP;
+
+                        reduced = true;
+                    }
+
+                    // after the previous step, the next region either ends
+                    // at the same location as the current or is longer
+                    uint64_t overlap = (curmmap->base_addr + curmmap->length) - nextmmap->base_addr;
+
+                    if (curmmap-> type > nextmmap->type) {
+                        // current has priority, shrink next and extend current
+                        nextmmap->length -= overlap;
+                        nextmmap->base_addr += overlap;
+                        curmmap->length += overlap;
+
+                        if (nextmmap->length == 0)
+                            DISCARD_NEXT_MMAP;
+
+                        reduced = true;
+                        continue;
+                    } else {
+                        // next has priority, shrink current and extend next
+                        nextmmap->length += overlap;
+                        nextmmap->base_addr -= overlap;
+                        curmmap->length -= overlap;
+
+                        reduced = true;
+                        continue;
+                    }
+                }
+            }
+        } while (reduced);
+
+        cur += curmmap->size + 4;
+
+#undef DISCARD_NEXT_MMAP
+#undef BUBBLE_NEXT_MMAP
+    }
+
+    printf("Preprocessed MMAP\n");
+    PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
+
+    // we can only map pages. Therefore page align regions
+    for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
+        struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
+        if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
+            break; // do not try to move this check into the forloop as entries do not have to be the same length
+
+        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
+
+        if (nextmmap->base_addr & BASE_PAGE_MASK) {
+            uint64_t offset = nextmmap->base_addr - ((nextmmap->base_addr >> BASE_PAGE_BITS) << BASE_PAGE_BITS);
+
+            // round in favour of higher type
+            if (curmmap->type > nextmmap->type) {
+                curmmap->length += BASE_PAGE_SIZE - offset;
+                nextmmap->base_addr += BASE_PAGE_SIZE - offset;
+                nextmmap->length -= BASE_PAGE_SIZE - offset;
+            } else {
+                curmmap->length -= offset;
+                nextmmap->base_addr -= offset;
+                nextmmap->length += offset;
+            }
+        }
+
+        cur += curmmap->size + 4;
+    }
+
+    printf("Pagealigned MMAP\n");
+    PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
+
+#undef PRINT_REGIONS
+
+    for(char *m = clean_mmap_addr; m < clean_mmap_addr + clean_mmap_length;) {
         struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
         debug(SUBSYS_STARTUP, "MMAP %lx--%lx Type %u\n",
               mmap->base_addr, mmap->base_addr + mmap->length,
               mmap->type);
-
-#if 0
-        // XXX: Remove intersecting regions
-        bool skip = false;
-        for(int i = 0; i < bootinfo->regions_length; i++) {
-            struct mem_region *r = &bootinfo->regions[i];
-
-            // Remove intersecting regions (earlier additions take precedence)
-            if((r->base + (1 << r->bits) >= mmap->base_addr
-                && r->base + (1 << r->bits) <= mmap->base_addr + mmap->length)
-               || (r->base >= mmap->base_addr
-                   && r->base <= mmap->base_addr + mmap->length)) {
-                skip = true;
-                break;
-            }
-        }
-
-        if(skip) {
-            continue;
-        }
-#endif
 
         if (last_end_addr >= init_alloc_addr
             && mmap->base_addr > last_end_addr) {

@@ -10,6 +10,5 @@
 alias iref uint32;
 
 /* from types.h */
-alias coremask uint64;
 alias coreid uint8;
 alias domainid uint32;

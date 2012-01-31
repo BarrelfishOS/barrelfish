@@ -15,7 +15,7 @@
 --    cFiles = [ "main.c", "lwipinit.c", "idc_barrelfish.c" ],
                       flounderBindings = [ "netd" , "ether_control" ],
 		      flounderDefs = [ "ether" ],
-		      addLibraries = [ "lwip", "bfdmuxtools", "contmng", "timer",
-		                           "trace" ]
+		      addLibraries = [ "lwip", "bfdmuxtools", "contmng",
+                      "procon", "timer", "trace" ]
                     }
 ]

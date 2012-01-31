@@ -115,26 +115,6 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/pci" % a, ["boot"])
 	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
 
-    # beehive-specific stuff
-    elif a == "beehive":
-        m.set_hypervisor("beehive/sbin/hyper")
-
-        kernargs = machine.get_kernel_args()
-        if kernargs is None:
-            kernargs = []
-
-        # add cpu, monitor and spawnd for each core
-        m.del_module("%s/sbin/cpu" % a)
-        extracores = machine.get_coreids()[1:]
-        for c in extracores:
-            m.add_module("%s/sbin/cpu|%d" % (a, c), kernargs+["nospawn"])
-            m.add_module("%s/sbin/monitor|%d" % (a, c), ["nospawn"])
-            m.add_module("%s/sbin/spawnd|%d" % (a, c), ["nospawn"])
-
-        # tell BSP spawnd what to boot
-        m.add_module_arg("spawnd",
-                         "bootbees=" + ','.join(map(str,extracores)))
-
     # ARM-specific stuff
     elif a == "arm":
         m.add_module_arg("spawnd", "bootarm")

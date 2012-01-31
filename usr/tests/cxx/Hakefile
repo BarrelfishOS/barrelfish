@@ -12,7 +12,7 @@
 
 [ build application { target = "cxxtest",
                       cxxFiles = [ "test.cpp" ],
-                      addLibraries = [ "vfs", "nfs", "lwip", "timer" ],
+                      addLibraries = [ "vfs", "nfs", "ahci", "lwip", "timer" ],
 		      architectures = [ "x86_64" ]
                     }
 ]

@@ -1035,7 +1035,6 @@ struct vspace *get_current_vspace(void)
     return &disp->core_state.vspace_state.vspace;
 }
 
-#ifndef __BEEHIVE__ // XXX: Implement arch specific domain.c
 /**
  * \brief Returns a pointer to the current pinned state on the dispatcher priv
  */
@@ -1045,7 +1044,6 @@ struct pinned_state *get_current_pinned_state(void)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return &disp->core_state.pinned_state;
 }
-#endif
 
 /**
  * \brief Returns a pointer to the current pmap on the dispatcher priv

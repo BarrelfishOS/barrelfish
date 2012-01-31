@@ -31,7 +31,7 @@ enum flounder_ump_msgtype {
 struct flounder_ump_state {
     struct ump_chan chan;
 
-    ump_index_t sent_id;   ///< Sequence number of next message to be sent
+    ump_index_t next_id;   ///< Sequence number of next message to be sent
     ump_index_t seq_id;    ///< Last sequence number received from remote
     ump_index_t ack_id;    ///< Last sequence number acknowledged by remote
     ump_index_t last_ack;  ///< Last acknowledgement we sent to remote
@@ -57,7 +57,7 @@ errval_t flounder_stub_ump_recv_buf(volatile struct ump_message *msg,
 
 /// Computes (from seq/ack numbers) whether we can currently send on the channel
 static inline bool flounder_stub_ump_can_send(struct flounder_ump_state *s) {
-    return (ump_index_t)(s->sent_id - s->ack_id) < s->chan.max_send_msgs;
+    return (ump_index_t)(s->next_id - s->ack_id) <= s->chan.max_send_msgs;
 }
 
 #define ENABLE_MESSAGE_PASSING_TRACE 1
@@ -69,13 +69,13 @@ static inline void flounder_stub_ump_control_fill(struct flounder_ump_state *s,
 #if ENABLE_MESSAGE_PASSING_TRACE
     trace_event_raw((((uint64_t)0xEA)<<56) | 
                     ((uint64_t)s->chan.sendid << 12) | 
-                    (s->sent_id & 0xffff));
+                    (s->next_id & 0xffff));
 #endif // ENABLE_MESSAGE_PASSING_TRACE
     assert(s->chan.sendid != 0);
     assert(msgtype < (1 << FL_UMP_MSGTYPE_BITS)); // check for overflow
     ctrl->header = ((uintptr_t)msgtype << UMP_INDEX_BITS) | (uintptr_t)s->seq_id;
     s->last_ack = s->seq_id;
-    s->sent_id++;
+    s->next_id++;
 }
 
 /// Process a "control" word

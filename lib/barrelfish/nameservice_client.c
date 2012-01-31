@@ -129,7 +129,7 @@ errval_t nameservice_get_capability(const char *key, struct capref *retcap)
 	printf("ERROR!\n");
         return err_push(err, CHIPS_ERR_GET_CAP);
     }
-    printf("about to return\n");
+    printf("nameservice_get_capability: about to return\n");
     return reterr;
 }
 

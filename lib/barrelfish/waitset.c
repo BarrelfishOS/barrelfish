@@ -303,13 +303,16 @@ errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure)
     // if there are no pending events, poll all channels once
     if (ws->polled != NULL && pollcount++ == 0) {
         for (chan = ws->polled;
-             chan != NULL && chan->waitset == ws && chan->state == CHAN_POLLED
-                 && chan != ws->polled;
+             chan != NULL && chan->waitset == ws && chan->state == CHAN_POLLED;
              chan = chan->next) {
 
             poll_channel(chan);
             if (ws->pending != NULL) {
                 goto recheck;
+            }
+
+            if (chan->next == ws->polled) { // reached the start of the queue
+                break;
             }
         }
     }
@@ -337,6 +340,31 @@ errval_t event_dispatch(struct waitset *ws)
     closure.handler(closure.arg);
     return SYS_ERR_OK;
 }
+
+/**
+ * \brief check and dispatch next event on given waitset
+ *
+ * Check if there is any pending activity on some channel, or deferred
+ * call, and then call the corresponding closure.
+ *
+ * Do not wait!  In case of no pending events, return err LIB_ERR_NO_EVENT.
+ *
+ * \param ws Waitset
+ */
+errval_t event_dispatch_non_block(struct waitset *ws)
+{
+    struct event_closure closure;
+    errval_t err = check_for_event(ws, &closure);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    assert(closure.handler != NULL);
+    closure.handler(closure.arg);
+    return SYS_ERR_OK;
+}
+
 
 /**
  * \privatesection

@@ -31,24 +31,14 @@ static void error_handler(struct monitor_binding *b, errval_t err)
 /// Handler for incoming LMP messages from the monitor binding with an
 /// indirected cap for a UMP/BMP/... channel
 static void cap_receive_request_handler(struct monitor_binding *b,
-                                        uintptr_t conn_id,
+                                        uintptr_t conn_id, errval_t success,
                                         struct capref cap, uint32_t capid)
 {
     /* XXX: this relies on the monitor_cap_handlers table being the first thing
      * in every channel state struct */
     struct monitor_cap_handlers *h = (void *)conn_id;
     assert(h->cap_receive_handler != NULL);
-    h->cap_receive_handler(h->st, cap, capid);
-}
-
-static void cap_send_reply_handler(struct monitor_binding *b, uintptr_t conn_id,
-                                   uint32_t capid, errval_t err)
-{
-    /* XXX: this relies on the monitor_cap_handlers table being the first thing
-     * in every channel state struct */
-    struct monitor_cap_handlers *h = (void *)conn_id;
-    assert(h->cap_send_reply_handler != NULL);
-    h->cap_send_reply_handler(h->st, capid, err);
+    h->cap_receive_handler(h->st, success, cap, capid);
 }
 
 /// vtable for handlers declared in this file
@@ -56,7 +46,6 @@ static void cap_send_reply_handler(struct monitor_binding *b, uintptr_t conn_id,
 // functions after we bind to the monitor
 static struct monitor_rx_vtbl monitor_rx_vtbl = {
     .cap_receive_request = cap_receive_request_handler,
-    .cap_send_reply = cap_send_reply_handler,
 };
 
 static void monitor_accept_recv_handler(void *arg)
@@ -360,12 +349,18 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
 static void get_monitor_rpc_iref_reply(struct monitor_binding *mb, iref_t iref,
                                        uintptr_t st_arg)
 {
+    errval_t err;
+
     struct bind_state *st = (void *)st_arg;
     assert(iref != 0);
 
-    errval_t err = monitor_blocking_bind(iref, monitor_rpc_bind_continuation, 
-                                         st, get_default_waitset(),
-                                         IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+    struct monitor_blocking_lmp_binding *mbb = malloc(sizeof(*mbb));
+    assert(mbb != NULL);
+
+    err = monitor_blocking_lmp_bind(mbb, iref, monitor_rpc_bind_continuation,
+                                    st, get_default_waitset(),
+                                    IDC_BIND_FLAG_RPC_CAP_TRANSFER,
+                                    LMP_RECV_LENGTH);
     if (err_is_fail(err)) {
         st->err  = err;
         st->done = true;

@@ -119,17 +119,5 @@ errval_t initialize_monitor(struct spawninfo *si)
 #endif
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    /* Give monitor BMP table */
-    dest.cnode = si->taskcn;
-    dest.slot  = TASKCN_SLOT_BMP_TABLE;
-    src.cnode = cnode_task;
-    src.slot  = TASKCN_SLOT_BMP_TABLE;
-    err = cap_copy(dest, src);
-    if (err_is_fail(err)) {
-        return err_push(err, INIT_ERR_COPY_BMP_CAP);
-    }
-#endif
-
     return SYS_ERR_OK;
 }

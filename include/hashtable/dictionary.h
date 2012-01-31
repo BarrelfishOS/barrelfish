@@ -28,8 +28,8 @@ typedef enum uint8_t {
  *   datastructures that are able to store key/value pairs
  */
 struct dictionary {
-    int (*put_word)(struct dictionary*, char*, size_t, uintptr_t);
-    ENTRY_TYPE (*get)(struct dictionary*, char*, size_t, void**);
+    int (*put_word)(struct dictionary*, const char*, size_t, uintptr_t);
+    ENTRY_TYPE (*get)(struct dictionary*, const char*, size_t, void**);
     int (*size)(struct dictionary*);
     int (*remove)(struct dictionary*, char*, size_t);
 };

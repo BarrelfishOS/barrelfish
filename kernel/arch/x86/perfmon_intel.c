@@ -14,8 +14,10 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include "cpuid_dev.h"
-#include "ia32_dev.h"
+
+#include <dev/cpuid_dev.h>
+#include <dev/ia32_dev.h>
+
 #include <arch/x86/perfmon_intel.h>
 
 static struct cpuid_t mycpuid;
@@ -53,13 +55,13 @@ errval_t perfmon_intel_init(void)
 
 void perfmon_intel_measure_start(uint8_t event, uint8_t umask)
 {
-    ia32_perfevtsel_t sel0 = {
-        .evsel = event,
-        .umask = umask,
-        .usr = 1,
-        .os = 0,
-        .en = 1
-    };
+    ia32_perfevtsel_t sel0 = ia32_perfevtsel_default;
+
+    ia32_perfevtsel_evsel_insert(sel0, event);
+    ia32_perfevtsel_umask_insert(sel0, umask);
+    ia32_perfevtsel_usr_insert  (sel0, 1);
+    ia32_perfevtsel_os_insert   (sel0, 0);
+    ia32_perfevtsel_en_insert   (sel0, 1);
 
     ia32_perfevtsel0_wr(&ia32, sel0);
 }
