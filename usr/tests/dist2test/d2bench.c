@@ -21,7 +21,7 @@
 #include <dist2/dist2.h>
 #include <skb/skb.h>
 
-#define MAX_ITERATIONS 1000
+#define MAX_ITERATIONS 500
 struct timestamp {
     cycles_t time0;
     cycles_t time1;
@@ -94,22 +94,23 @@ static void add_record(void) {
     errval_t error_code;
     char* ret = NULL;
     char* record = "rec_ { attribute: 1 }";
-
+    uint8_t busy;
     for (size_t i = 1; i < exps; i++) {
         printf("# Run add_record with %lu records:\n", add_records[i]);
 
         for (size_t j = add_records[i - 1]; j < add_records[i]; j++) {
             //printf("add to system: %s\n", record);
-            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &error_code);
+            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &busy, &error_code);
             assert(ret == NULL);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "add"); exit(0); }
         }
 
-        char* to_add = "zzz { attribute: 1 }";
+        char to_add[100];
+        sprintf(to_add, "zzz { attribute: 1 }");
         char* data;
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &error_code);
+            cl->vtbl.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &timestamps[k].busy, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "set");
@@ -117,11 +118,12 @@ static void add_record(void) {
             }
             free(data);
 
-            cl->vtbl.del(cl, "zzz", NOP_TRIGGER, &error_code);
+            cl->vtbl.del(cl, to_add, NOP_TRIGGER, &error_code);
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "del");
                 exit(0);
             }
+            if (timestamps[k].busy == 1) k--; // ignore the ones that were busy on send
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
@@ -129,7 +131,7 @@ static void add_record(void) {
                     "%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n",
                     k,
                     timestamps[k].time1 - timestamps[k].time0
-                            - bench_tscoverhead(), timestamps[k].server,
+                    - bench_tscoverhead(), timestamps[k].server,
                     timestamps[k].busy, add_records[i]);
         }
     }
@@ -170,19 +172,28 @@ static void unnamed_record(void)
     errval_t err = dist_set("object0 { attr1: 'bla', attr2: 12.0 }");
     assert(err_is_ok(err));
 
-    while(1) {
-        char* data = NULL;
-        err = dist_get(&data, "_ { }");
-        if (err_is_fail(err)) DEBUG_ERR(err, "get");
-        printf("dist_get returned: %s\n", data);
-        free(data);
-        assert(err_is_ok(err));
+    struct dist2_rpc_client* cl = get_dist_rpc_client();
+    assert(cl != NULL);
 
-        err = dist_get(&data, "_ { attr2: 12.0 }");
-        if (err_is_fail(err)) DEBUG_ERR(err, "get");
-        printf("dist_get returned: %s\n", data);
+    char* data = NULL;
+    errval_t error_code;
+    for (size_t i = 0; i < MAX_ITERATIONS; i++) {
+
+        timestamps[i].time0 = bench_tsc();
+        cl->vtbl.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &error_code,
+                &timestamps[i].server, &timestamps[i].busy);
+        timestamps[i].time1 = bench_tsc();
+
+        assert(err_is_ok(error_code));
         free(data);
-        assert(err_is_ok(err));
+
+        for(size_t j=0; j<1<<20; j++) {}
+    }
+
+    for (size_t i = 0; i < MAX_ITERATIONS; i++) {
+        printf("%lu %"PRIuCYCLES" %"PRIuCYCLES" %d\n", i,
+                timestamps[i].time1 - timestamps[i].time0 - bench_tscoverhead(),
+                timestamps[i].server, timestamps[i].busy);
     }
 }
 

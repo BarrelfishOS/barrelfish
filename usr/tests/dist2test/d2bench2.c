@@ -23,12 +23,14 @@
 #include <dist2/dist2.h>
 #include <skb/skb.h>
 
-#define MAX_ITERATIONS 1000
+#define MAX_ITERATIONS 500
 struct timestamp {
     cycles_t time0;
     cycles_t time1;
+    uint8_t busy;
+    size_t count;
 };
-struct timestamp timestamps[MAX_ITERATIONS] = {{ 0, 0 }};
+struct timestamp timestamps[MAX_ITERATIONS] = {{ 0, 0, 0, 0 }};
 static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
         4000, 5000, 6000, 7000, 8000, 9000, 10000, 12000, 20000  };
 
@@ -71,11 +73,11 @@ static char* attrs[] = {
         "port",
         "iref",
         "description",
-        "portrange",
+/*        "portrange",
         "from",
         "to",
         "version",
-        "owner",
+        "owner",*/
 };
 
 static char* values[] = {
@@ -102,131 +104,71 @@ static void construct_record(size_t attributes) {
 
     int pos = 0;
     pos += sprintf(buf+pos, "%s {", name);
+    uint64_t map = 0; // ensure attributes are unique
 
-    for(size_t i=0; i<attributes; i++) {
-        if(i > 0) {
-            pos += sprintf(buf+pos, ", ");
-        }
+    for(size_t i=0; i<attributes;) {
 
         size_t idx = my_random() % (sizeof(attrs) / sizeof(char*));
-        pos += sprintf(buf+pos, "%s: ", attrs[idx]);
+        if ( (map & (1 << idx)) == 0) {
+            if(i > 0) {
+                pos += sprintf(buf+pos, ", ");
+            }
+            map |= 1 << idx;
+            pos += sprintf(buf+pos, "%s: ", attrs[idx]);
 
-        idx = my_random() % (sizeof(values) / sizeof(char*));
-        pos += sprintf(buf+pos, "%s", values[idx]);
+            idx = my_random() % (sizeof(values) / sizeof(char*));
+            pos += sprintf(buf+pos, "%s", values[idx]);
+            
+            i++;
+        }
+
     }
 
     pos += sprintf(buf+pos, "}");
 
 }
 
-static void construct_query(size_t attributes) {
-
-    int pos = 0;
-    pos += sprintf(buf+pos, "_ {");
-
-    for(size_t i=0; i<attributes; i++) {
-        if(i > 0) {
-            pos += sprintf(buf+pos, ", ");
-        }
-
-        size_t idx = my_random() % (sizeof(attrs) / sizeof(char*));
-        pos += sprintf(buf+pos, "%s: _", attrs[idx]);
-    }
-
-    pos += sprintf(buf+pos, "}");
-}
-
-static void add_workload(void) {
-
-    size_t exps = sizeof(records) / sizeof(size_t);
-    struct dist2_rpc_client* cl = get_dist_rpc_client();
-    assert(cl != NULL);
-
-    errval_t error_code;
-    char* ret = NULL;
-
-    char record[100];
-    construct_record(2);
-    strcpy(record, buf);
-    printf("record: %s\n", record);
-
-    char add_record[100];
-    //construct_record(2);
-    strcpy(add_record, buf);
-    printf("add_record: %s\n", add_record);
-
-    for (size_t i = 1; i < exps; i++) {
-        printf("# Run add_workload with %lu records:\n", records[i]);
-
-        for (size_t j = records[i - 1]; j < records[i]; j++) {
-            //printf("add to system: %s\n", record);
-            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &error_code);
-            assert(ret == NULL);
-            if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "add"); exit(0); }
-        }
-
-        /*
-        for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            //printf("set: %s\n", add_record);
-            timestamps[k].time0 = bench_tsc();
-            cl->vtbl.set(cl, add_record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &error_code);
-            timestamps[k].time1 = bench_tsc();
-            assert(ret == NULL);
-            if (err_is_fail(error_code)) { DEBUG_ERR(error_code, "measure add"); exit(0); };
-        }
-
-        for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            printf("%lu %"PRIuCYCLES" %lu\n",
-                    k,
-                    timestamps[k].time1 - timestamps[k].time0 - bench_tscoverhead(),
-                    records[i]);
-        }*/
-    }
-
-
-}
-
-static void no_name_get_workload(void)
+static void no_name_get_worstcase(void)
 {
+    // reference record to measure retrieve time
+    errval_t err = dist_set("zzz { weight: 999, value: 'high', attr: 999, bench: 1234.123, rand: '1' }");
+    char* query = "_ { weight: 999, value: 'high', attr: 999, bench: 1234.123, rand: '1' }";
+    assert(err_is_ok(err));
+
     size_t exps = sizeof(records) / sizeof(size_t);
     for (size_t i = 1; i < exps; i++) {
-        printf("# Run no_name_get_workload with %lu records:\n", records[i]);
+        printf("# Run no_name_get_worstcase with %lu records:\n", records[i]);
 
         struct dist2_rpc_client* cl = get_dist_rpc_client();
         assert(cl != NULL);
         errval_t error_code;
         char* record;
-
+	uint8_t busy;
         for (size_t j = records[i - 1]; j < records[i]; j++) {
             construct_record(5);
-            cl->vtbl.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &error_code);
+            cl->vtbl.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &busy, &error_code);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "set"); exit(0); }
         }
 
-        // construct_query(2); ?
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            construct_query(2);
-
             cycles_t server;
-            uint8_t busy;
+            //uint8_t busy;
 
-            //printf("get: %s\n", buf);
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.get(cl, buf, NOP_TRIGGER, &record, &error_code,
-                    &server, &busy);
-            //printf("got: %s\n", record);
+            cl->vtbl.get(cl, query, NOP_TRIGGER, &record, &error_code,
+                    &server, &timestamps[k].busy);
             timestamps[k].time1 = bench_tsc();
-            if (err_is_fail(error_code) && err_no(error_code) != DIST2_ERR_NO_RECORD) {
-                DEBUG_ERR(error_code, "get"); exit(0);
-            }
+            if (err_is_fail(error_code)) { DEBUG_ERR(error_code, "get"); exit(0); }
+            //printf("record is: %s\n", record);
+            timestamps[k].count = atoll(strrchr(record, '}')+1);
             free(record);
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            printf("%lu %"PRIuCYCLES" %lu\n",
+            printf("%lu %"PRIuCYCLES" %u %lu %lu\n",
                     k,
                     timestamps[k].time1 - timestamps[k].time0 - bench_tscoverhead(),
-                    records[i]);
+                    timestamps[k].busy, timestamps[k].count, records[i]);
         }
 
     }
@@ -237,7 +179,6 @@ int main(int argc, char** argv)
     dist_init();
     bench_init();
 
-    if (0) no_name_get_workload();
-    add_workload();
-
+    no_name_get_worstcase();
 }
+
