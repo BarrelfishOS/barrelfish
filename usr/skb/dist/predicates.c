@@ -143,10 +143,10 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
     DIST2_DEBUG("p_index_intersect\n");
     static struct skip_list** sets = NULL;
     static char* next = NULL;
+    static size_t elems = 0;
 
     int res;
     char* key;
-    size_t i = 0;
 
     init_index();
 
@@ -163,12 +163,13 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
         free(sets);
         pword list, cur, rest;
 
-        size_t elems = 0;
+        elems = 0;
         for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
             elems++;
         }
         sets = malloc(sizeof(struct skip_list*) * elems);
 
+        size_t i = 0;
         for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
             res = ec_get_string(cur, &key);
             if (res != PSUCCEED) {
@@ -189,7 +190,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
         next = NULL;
     }
 
-    next = skip_intersect(sets, i, next);
+    next = skip_intersect(sets, elems, next);
     DIST2_DEBUG("skip_intersect found next: %s\n", next);
     if(next != NULL) {
         dident item = ec_did(next, 0);
