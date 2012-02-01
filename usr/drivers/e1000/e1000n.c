@@ -18,8 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ethersrv/ethersrv.h>
-#include "e1000n.h"
+#include <if/ether_defs.h>
 #include <trace/trace.h>
+#include "e1000n.h"
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
@@ -29,9 +30,13 @@
 #define TRACE_N_BM 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
-
-static bool local_debug = false;
+//#define ENABLE_DEBUGGING_E1000 1
+#ifdef ENABLE_DEBUGGING_E1000
+static bool local_debug = true;
 #define E1000N_DPRINT(x...) do{if(local_debug) printf("e1000n: " x); } while(0)
+#else
+#define E1000N_DPRINT(x...) ((void)0)
+#endif // ENABLE_DEBUGGING_E1000
 
 /*****************************************************************
  * Data types:
@@ -53,12 +58,17 @@ static bool use_interrupt = true;
 #define DRIVER_RECEIVE_BUFFERS   (1024 * 8) // Number of buffers with driver
 #define RECEIVE_BUFFER_SIZE (1600) // MAX size of ethernet packet
 
-//#define DRIVER_TRANSMIT_BUFFER   (TRANSMIT_BUFFERS)
 #define DRIVER_TRANSMIT_BUFFER   (1024 * 8)
 
 //transmit
 static volatile struct tx_desc *transmit_ring;
-static struct pbuf_desc tx_pbuf[DRIVER_TRANSMIT_BUFFER];
+
+// Data-structure to map sent buffer slots back to application slots
+struct pbuf_desc {
+    struct ether_binding *sr; // which application binding
+    uint64_t spp_index;  // which slot within spp
+};
+static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFER];
 //remember the tx pbufs in use
 
 //receive
@@ -72,10 +82,6 @@ static uint32_t ether_transmit_index = 0, ether_transmit_bufptr = 0;
 static uint32_t receive_index = 0, receive_bufptr = 0;
 
 static uint32_t receive_free = 0;
-//remember the pbuf_id and the connection to the client which provided
-//the pbuf at the same index in the receive_ring as here, so that we can notify
-//the client in wich buffer there is new data.
-static struct pbuf_desc local_pbuf[DRIVER_RECEIVE_BUFFERS];
 
 
 /*****************************************************************
@@ -159,14 +165,9 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
     /* FIXME: the packet should be copied into separate location, so that
      * application can't temper with it. */
     transmit_ring[ether_transmit_index] = tdesc;
-    tx_pbuf[ether_transmit_index].sr = sr;
-    tx_pbuf[ether_transmit_index].spp_index = spp_index;
+    pbuf_list_tx[ether_transmit_index].sr = sr;
+    pbuf_list_tx[ether_transmit_index].spp_index = spp_index;
 
-//    tx_pbuf[ether_transmit_index].paddr = (uint64_t)buffer_address + offset;
-//    tx_pbuf[ether_transmit_index].event_sent = false;
-//    tx_pbuf[ether_transmit_index].client_data = client_data;
-//    tx_pbuf[ether_transmit_index].ts = rdtsc();
-//    tx_pbuf[ether_transmit_index].last = last;
     ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
     e1000_tdt_wr(&(d), 0, (e1000_dqval_t){ .val = ether_transmit_index });
 
@@ -225,42 +226,6 @@ static errval_t transmit_pbuf_list_fn_v2(struct client_closure *cl)
 } // end function: transmit_pbuf_list_fn
 
 
-#if 0
-/* Send the buffer to device driver TX ring.
- * NOTE: This function will get called from ethersrv.c */
-static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
-{
-    errval_t r;
-    if (!can_transmit(cl->rtpbuf)){
-        while(handle_free_TX_slot_fn());
-        if (!can_transmit(cl->rtpbuf)){
-            return ETHERSRV_ERR_CANT_TRANSMIT;
-        }
-    }
-    for (int i = 0; i < cl->rtpbuf; i++) {
-        r = transmit_pbuf(cl->pbuf[i].buffer->pa,
-                    cl->pbuf[i].len, cl->pbuf[i].offset,
-                    i == (cl->nr_transmit_pbufs - 1), //last?
-                    cl->pbuf[i].client_data,
-                    cl->pbuf[i].spp_index, cl->app_connection);
-        if(err_is_fail(r)) {
-            //E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
-            printf("ERROR:transmit_pbuf failed\n");
-            return r;
-        }
-        E1000N_DEBUG("transmit_pbuf done for pbuf %"PRIx64", index %"PRIu64"\n",
-            cl->pbuf[i].client_data, cl->pbuf[i].spp_index);
-    } // end for: for each pbuf
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
-        (uint32_t)0);
-#endif // TRACE_ONLY_SUB_NNET
-
-    return SYS_ERR_OK;
-} // end function: transmit_pbuf_list_fn
-
-#endif // 0
-
 static uint64_t find_tx_free_slot_count_fn(void)
 {
 
@@ -297,14 +262,10 @@ static bool handle_free_TX_slot_fn(void)
 #endif // TRACE_ONLY_SUB_NNET
 
 
-    sent = notify_client_free_tx(tx_pbuf[ether_transmit_bufptr].sr,
-            0, // tx_pbuf[ether_transmit_bufptr].client_data,
-            tx_pbuf[ether_transmit_bufptr].spp_index,
-            0, // tx_pbuf[ether_transmit_bufptr].ts,
-            0, // find_tx_free_slot_count_fn(),
-            0);
+    sent = notify_client_free_tx(pbuf_list_tx[ether_transmit_bufptr].sr,
+            pbuf_list_tx[ether_transmit_bufptr].spp_index);
 
-    ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
+    ether_transmit_bufptr = (ether_transmit_bufptr + 1)%DRIVER_TRANSMIT_BUFFER;
     netbench_record_event_simple(bm, RE_TX_DONE, ts);
     return true;
 }
@@ -329,13 +290,8 @@ static int add_desc(uint64_t paddr)
     	return -1;
     }
 
-    receive_ring[receive_index] = r;
-    local_pbuf[receive_index].sr = NULL;
-    local_pbuf[receive_index].pbuf_id = 0;
-    local_pbuf[receive_index].paddr = paddr; //remember for later freeing
-    local_pbuf[receive_index].len = RECEIVE_BUFFER_SIZE;
-    local_pbuf[receive_index].event_sent = false;
 
+    receive_ring[receive_index] = r;
 
     receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
     e1000_rdt_wr(&d, 0, (e1000_dqval_t){ .val=receive_index } );
@@ -434,8 +390,6 @@ static bool handle_next_received_packet(void)
     bool new_packet = false;
     tmp_buf[0] = 0; // FIXME: to avoid the warning of not using this variable
 
-    E1000N_DPRINT("Potential packet receive [%"PRIu64"!\n",
-            total_rx_p_count);
     if (receive_bufptr == receive_index) { //no packets received
         return false;
     }
@@ -444,10 +398,13 @@ static bool handle_next_received_packet(void)
     rxd = &receive_ring[receive_bufptr];
 
     if ((rxd->rx_read_format.info.status.dd) &&
-            (rxd->rx_read_format.info.status.eop) &&
-            (!local_pbuf[receive_bufptr].event_sent)) {
+            (rxd->rx_read_format.info.status.eop)
+//            && (!local_pbuf[receive_bufptr].event_sent)
+            ) {
         // valid packet received
 
+    E1000N_DPRINT("Potential packet receive [%"PRIu32"]!\n",
+            receive_bufptr);
         new_packet = true;
 
         // FIXME: following two conditions might be repeating, hence
@@ -526,7 +483,7 @@ static bool handle_next_received_packet(void)
     }
 
     end:
-    local_pbuf[receive_bufptr].event_sent = true;
+//    local_pbuf[receive_bufptr].event_sent = true;
     receive_free--;
     int ret = add_desc(rxd->rx_read_format.buffer_address);
     if(ret < 0){

@@ -58,35 +58,18 @@ struct filter {
 };
 
 struct buffer_descriptor {
-    uint64_t buffer_id;
-    struct ether_binding *con;
-    struct capref cap;
-    struct shared_pool_private *spp_prv;
-    uint8_t role;
-    lpaddr_t pa;
-    uint64_t bits;
-    void *va;
+    uint64_t buffer_id;  // buffer identifier
+    struct ether_binding *con; // binding to which buffer belongs
+    struct capref cap; // cap backing the buffer memory
+    struct shared_pool_private *spp_prv; // shared producer consumer pool
+    uint8_t role;  // Role of buffer (RX/TX)
+    lpaddr_t pa;    // Physical address of buffer
+    uint64_t bits;  // Size of buffer (encoded in bits)
+    void *va;       // Virtual address of buffer
 
-    uint64_t type;
-    void *pbuf_metadata_ds; // FIXME: why is it void *
-    void *pbuf_metadata_ds_tx; // FIXME: is it used?. Nope, not used. Remove it
-    uint32_t pbuf_head_rx;
-    uint32_t pbuf_tail_rx;
-    uint32_t pbuf_head_tx;
-    uint32_t pbuf_tail_tx;
-    struct buffer_descriptor *next;
-    struct filter* tx_filters;
+    struct buffer_descriptor *next; // The next buffer (in singly linked list)
+    struct filter* tx_filters;  // List of filters associated with this buf
 };
-
-struct pbuf {
-    uint64_t buffer_id;
-    uint64_t len;
-    uint64_t offset;
-    uint64_t client_data;
-//    uint64_t spp_index;
-//    uint64_t ts;
-};
-
 
 enum pbuf_lifecycle {
     PBUF_REGISTERED,
@@ -101,76 +84,38 @@ enum pbuf_lifecycle {
 };
 #define MAX_STAT_EVENTS   5   // This is the count of pbuf_lifecycle events
 
-struct pbuf_desc {
-    uint64_t buffer_id; // k: we are gonna reference this from now on
-    uint64_t pbuf_id;
-    uint64_t vaddr; // k: we need virtual memory from now on :)
-    uint64_t paddr; // k: we also need to provide this for card for DMA
-    uint64_t client_data;
-    uint64_t len;
-    uint64_t packet_size;
-    struct ether_binding *sr;
-    bool event_sent; //the interrupt handler has to know wheter the client was
-    //already notified about new data in this buffer.
-    bool last;
-    uint64_t spp_index;
-    uint64_t ts;
-    // FIXME: Remove this from here! as we create large arrays of pbuf_desc!!
-};
-
-struct client_closure;
-
-struct tx_pbuf {
-    struct buffer_descriptor *buffer;
-    struct ether_binding *sr;
-    struct client_closure *cc;
-    bool is_priv;
-    bool can_send;
-    bool last;
-    uint64_t len;
-    uint64_t offset;
-    uint64_t client_data;
-    uint64_t buffer_id;
-    uint64_t spp_index;
-    uint64_t ts;
-
-};
 
 /* This is client_closure for network service */
 struct client_closure {
-    int cl_no;
-    struct buffer_descriptor *buffer_ptr;
-    struct shared_pool_private *spp_ptr;
+    int cl_no;  // Client indentifier
+    struct buffer_descriptor *buffer_ptr; // buffer associated with client
+    struct shared_pool_private *spp_ptr; // shared pool associted with client
 
     /* Following two are used by packet transmit logic */
-    uintptr_t nr_transmit_pbufs; /*< how many pbufs belong to the packet to
-                                        transmit now? */
     uint64_t tx_index;  // index of which is next slot to be sent
     uint64_t rx_index;  // index of which is next slot to be received
 
-    /* FIXME: following should be a number */
-    uint16_t rtpbuf; ///< how many pbufs have we received so far?
-    uint64_t len; // length of a total packet (even across multiple pbufs)
-    struct tx_pbuf pbuf[MAX_NR_TRANSMIT_PBUFS];
+    struct ether_binding *app_connection; // Binding pointer to talk back
+    struct cont_queue *q; // Cont management queue to report events
 
-    struct ether_binding *app_connection; /* FIXME: Do I need this? */
-    struct cont_queue *q;
-    uint64_t pkt_count;  // # packets
-    uint8_t debug_print;
-
-    uint64_t in_filter_matched;  // # total filters matched
-    uint64_t in_filter_matched_f; // # failed processing of matched filter
-    uint64_t in_filter_matched_p; // # successful processing of matched filter
-
+    // For debugging and benchmarking help
+    uint8_t debug_print; // To control connection level debug prints
     uint8_t debug_state;  // debug state for rx benchmark
     uint8_t debug_state_tx; // debug state of tx benchmark
     uint64_t start_ts;  // timestap of start of rx benchmark
     uint64_t start_ts_tx; // timestamp of start of tx benchmark
+    uint64_t out_trigger_counter;  // index marking when to stop tx benchmark
+
+
+    // Some statistics.  Not needed for functionality
+    uint64_t pkt_count;  // # packets
+    uint64_t in_filter_matched;  // # total filters matched
+    uint64_t in_filter_matched_f; // # failed processing of matched filter
+    uint64_t in_filter_matched_p; // # successful processing of matched filter
 
     uint64_t dropped_pkt_count;  // # packets dropped (for no space in hw-queue)
     uint64_t pbuf_count;  // # pbufs sent
     uint64_t in_dropped_app_buf_full; // # packets dropped for lack of buffers
-    uint64_t out_trigger_counter;  // index marking when to stop tx benchmark
 }; /* holds info about how much data is transferred to NIC. */
 
 
@@ -200,21 +145,7 @@ void ethersrv_init(char *service_name,
 
 bool waiting_for_netd(void);
 
-bool notify_client_free_tx(struct ether_binding * b,
-                           uint64_t client_data,
-                           uint64_t spp_index,
-                           uint64_t rts,
-                           uint64_t slots_left,
-                           uint64_t dropped);
-/*
-bool notify_client_free_tx1(struct ether_binding * b,
-                           uint64_t client_data,
-                           uint64_t spp_index,
-                           uint64_t rts,
-                           uint64_t slots_left,
-                           uint64_t dropped);
-*/
-
+bool notify_client_free_tx(struct ether_binding * b, uint64_t spp_index);
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 void process_received_packet(void *pkt_data, size_t pkt_len);

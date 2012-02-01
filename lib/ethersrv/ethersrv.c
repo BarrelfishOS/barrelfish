@@ -94,8 +94,6 @@ static uint64_t netd_buffer_count = 0;
 
 static struct buffer_descriptor *first_app_b = NULL;
 
-static uint64_t metadata_size = sizeof(struct pbuf_desc) * APP_QUEUE_SIZE;
-
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id)
 {
@@ -159,7 +157,6 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 
     buffer->con = cc;
     buffer->cap = cap;
-    //    buffer->type = type;
 
     struct frame_identity pa;
     err = invoke_frame_identify(cap, &pa);
@@ -201,22 +198,6 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
    closure->tx_index = closure->spp_ptr->c_write_id;
    closure->rx_index = closure->spp_ptr->c_read_id;
 
-    /* FIXME: cheat, driver is allocating some memory on behalf of client.
-     * but this memory should come from "register_metadata_mem"
-     * I need to implement that */
-
-    buffer->pbuf_metadata_ds = malloc(metadata_size);
-    if (buffer->pbuf_metadata_ds == NULL) {
-        printf("CHEAT part: not enough internal memory to support buffer\n");
-        abort();
-    }
-
-    memset(buffer->pbuf_metadata_ds, 0, metadata_size);
-    // FIXME: Where is following variable used?
-    buffer->pbuf_metadata_ds_tx = buffer->pbuf_metadata_ds
-      + sizeof(struct pbuf_desc) * (APP_QUEUE_SIZE);
-
-
     /* FIXME: replace the name netd with control_channel */
     for (i = 0; i < NETD_BUF_NR; i++) {
         if (netd[i] == cc) {
@@ -230,7 +211,6 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 //      printf("buffer gets id %lu\n", buffer->buffer_id);
     if (buffer->buffer_id == 3) {
         first_app_b = buffer;
-//              printf("setting up first app %lu\n", first_app_b->buffer_id);
     }
 
     /* Adding the buffer on the top of buffer list. */
@@ -245,12 +225,6 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     sp_reload_regs(closure->spp_ptr);
     if (buffer->role == RX_BUFFER_ID) {
 
-        /*
-        uint64_t count = 0;
-        count = add_new_pbufs_2_app_ring(cc, closure->spp_ptr,
-                buffer->buffer_id);
-        */
-//        printf("#### Register_buffer: added %"PRIu64" pbufs\n", count);
     }
     report_register_buffer_result(cc, err, buffer->buffer_id);
 }
@@ -295,161 +269,14 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 
     if (err_is_fail(err)) {
         dropped_pkt_count++;
+        // FIXME: Need to mark the spp slot as free
         return false;
     }
-    return true;
-} // end function:
-
-#if 0
-static bool send_single_pkt_to_driver_old(struct ether_binding *cc)
-{
-    errval_t r;
-//    uint64_t ts = rdtsc();
-    struct client_closure *cl = (struct client_closure *)cc->st;
-    assert(cl != NULL);
-    struct shared_pool_private *spp = cl->spp_ptr;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
-
-    // Keep the copy of ghost_read_id so that it can be restored
-    // if something goes wrong
-    uint64_t revert_tx_id = cl->tx_index;
-
-    if (cl->tx_index == spp->c_write_id) {
-        return false;
-    }
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
-            (uint32_t)cl->tx_index);
-#endif // TRACE_ONLY_SUB_NNET
-
-
-    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-
-    // check if there are all pbufs needed for this packet
-    uint64_t available_slots = sp_c_range_size(cl->tx_index, spp->c_write_id,
-            spp->c_size);
-    if (available_slots < sld->no_pbufs) {
-        USER_PANIC("Incomplete packet sent by app!");
-        return false;
-    }
-    // TODO: send the list to driver
-    r = ether_transmit_pbuf_list_ptr(cl);
-
-    if (err_is_fail(r)) {
-
-
-    }
-    // TODO: Increment tx_index with no. of pbufs sent
-//    cl->tx_index = (cl->tx_index + sld->no_pbufs) % spp->c_size;
-
-
-    // FIXME: Make sure that there are s.no_pbuf slots available
-
-//    cl->nr_transmit_pbufs = spp->sp->slot_list[cl->tx_index].d.no_pbufs;
-    cl->nr_transmit_pbufs = sld->no_pbufs;
-    cl->rtpbuf = 0;
-    cl->len = 0;
-
-    // Some sanity checks
-    assert(cl->nr_transmit_pbufs <= MAX_NR_TRANSMIT_PBUFS);
-
-    do {
-        uint64_t buffer_id = sld->buffer_id;
-        cl->pbuf[cl->rtpbuf].buffer_id = buffer_id;
-        struct buffer_descriptor *buffer = find_buffer(buffer_id);
-        assert(buffer != NULL);
-        cl->pbuf[cl->rtpbuf].buffer = buffer;
-        cl->pbuf[cl->rtpbuf].sr = cc;
-        cl->pbuf[cl->rtpbuf].cc = cl;
-        cl->pbuf[cl->rtpbuf].len = sld->len;
-        cl->pbuf[cl->rtpbuf].offset = sld->offset;
-        cl->pbuf[cl->rtpbuf].client_data = sld->client_data;
-        cl->pbuf[cl->rtpbuf].spp_index = cl->tx_index;
-        cl->len = cl->len + sld->len;  // total lengh of packet
-
-
-        // FIXME: is it needed when memory is already cache coherent?
-        // making the buffer memory cache coherent.
-//        bulk_arch_prepare_recv((void *) buffer->pa + s.offset,
-//                s.len);
-
-        cl->tx_index = (cl->tx_index + 1) % spp->c_size;
-        cl->rtpbuf++;
-        if (cl->rtpbuf == cl->nr_transmit_pbufs) {
-            // If entire packet is here
-            ETHERSRV_DEBUG("Sending packet with [%"PRIu16"]pbufs, offset "
-                   "[%"PRIu64"] and pbuf[%"PRIx64"]\n",
-                    cl->rtpbuf, sld->offset, sld->client_data);
-            break;
-        }
-
-        if (cl->tx_index == spp->c_write_id) {
-            cl->tx_index = revert_tx_id;
-
-            cl->len = 0;
-            // FIXME: only one of following two is needed
-            cl->rtpbuf = 0;
-            cl->nr_transmit_pbufs = 0;
-
-            assert(!"half packet sent!");
-            return false;
-        }
-        sld = &spp->sp->slot_list[cl->tx_index].d;
-    } while(1);
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
-            (uint32_t)cl->tx_index);
-#endif // TRACE_ONLY_SUB_NNET
-
-    r = ether_transmit_pbuf_list_ptr(cl);
-
-    if (err_is_fail(r)) {
-        //in case we cannot transmit, discard the _whole_ packet (just don't
-        //enqueue transmit descriptors in the network card's ring)
-        dropped_pkt_count++;
-//                printf("Transmit_packet dropping %"PRIu64"\n",
-//                        dropped_pkt_count);
-
-        //if we have to drop the packet, we still need to send a tx_done
-        //to make sure that lwip frees the pbuf. If we drop it, the driver
-        //will never find it in the tx-ring from where the tx_dones
-        //are usually sent
-
-        /* BIG FIXME: This should free all the pbufs and not just pbuf[0].
-         * Also, is it certain that all packets start with pbuf[0]??
-         * Mostly this will lead to re-write of bulk-transfer mode.  */
-
-        if (cl->debug_state_tx == 4) {
-            ++cl->dropped_pkt_count;
-//            netbench_record_event_simple(bm, RE_TX_SP_F, ts);
-        }
-
-        assert(cl->pbuf[0].sr);
-        bool ret = notify_client_free_tx(cl->pbuf[0].sr,
-                                         cl->pbuf[0].client_data,
-                                         cl->pbuf[0].spp_index,
-                                         rdtsc(),
-                                         tx_free_slots_fn_ptr(), 1);
-
-        if (ret == false) {
-            printf("Error: Bad things are happening."
-                   "TX packet dropped, TX_done MSG dropped\n");
-            // This can lead to pbuf leak
-            // FIXME: What type of error handling to use?
-        }
-        return false;
-    } // end if: failed in transfer
 
     // successfull transfer!
     if (cl->debug_state_tx == 4) {
         // Benchmarking mode is on
         ++cl->pkt_count;
-        cl->pbuf_count = cl->pbuf_count +
-            cl->nr_transmit_pbufs;
-
         if (cl->pkt_count == cl->out_trigger_counter) {
             benchmark_control_request(cc, BMS_STOP_REQUEST, 0, 0);
         }
@@ -462,12 +289,11 @@ static bool send_single_pkt_to_driver_old(struct ether_binding *cc)
         // This is the first packet, so lets restart the timer!!
         cl->start_ts_tx = rdtsc();
         cl->debug_state_tx = 4;
-        cl->pbuf_count = cl->nr_transmit_pbufs;
     } // end if: Starting benchmarking mode
 
+
     return true;
-} // end function: send_single_pkt_to_driver
-#endif // 0
+} // end function:
 
 
 static uint64_t send_packets_on_wire(struct ether_binding *cc)
@@ -764,8 +590,6 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
     buffer->spp_prv = cc->spp_ptr;
     b->st = cc;
     cc->buffer_ptr = buffer;
-    cc->nr_transmit_pbufs = 0;
-    cc->rtpbuf = 0;
     cc->debug_state = 0;        // Default debug state : no debug
     cc->app_connection = b;
     reset_client_closure_stat(cc);
@@ -840,15 +664,9 @@ void ethersrv_init(char *service_name,
 
 
 /*******************************************/
-bool notify_client_free_tx(struct ether_binding * b,
-                           uint64_t client_data, // FIXME: not used, remove
-                           uint64_t spp_index,
-                           uint64_t rts,  // FIXME: not very useful, remove
-                           uint64_t slots_left, // FIXME: not used, remove
-                           uint64_t dropped// FIXME: not used, remove
-        )
+bool notify_client_free_tx(struct ether_binding * b, uint64_t spp_index)
 {
-//    uint64_t ts = rdtsc();
+    uint64_t rts = rdtsc();
     assert(b != NULL);
     struct client_closure *cc = (struct client_closure *)b->st;
     assert(cc != NULL);
@@ -882,14 +700,6 @@ bool notify_client_free_tx(struct ether_binding * b,
 //        printf("notfify client 1: sending no notifications!\n");
         return true;
     }
-
-    // We need to send notification to other side saying that
-    // conditions are changed
-//    if (queue_free_slots(cc->q) < 10) {
-//            printf("sending TX_done too fast %d\n",
-//            queue_free_slots(cc->q));
-//        return false;
-//    }
 
     if (cc->debug_state_tx == 4) {
         netbench_record_event_simple(bm, RE_TX_DONE_N, rts);
@@ -953,10 +763,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     // update the length of packet in sslot.len field
     spp->sp->slot_list[spp->c_write_id].d.len = len;
     spp->sp->slot_list[spp->c_write_id].d.no_pbufs = 1;
-//  spp->sp->slot_list[spp->c_write_id].d.ts = rdtsc();
 
-
-//    if(!sp_set_write_index(spp,((spp->c_write_id + 1) % spp->c_size))){
     if(!sp_increment_write_index(spp)){
         printf("########### ERROR: cp_pkt_2_usr: sp_set_write_index failed\n");
         USER_PANIC("increment_write_index problem\n");

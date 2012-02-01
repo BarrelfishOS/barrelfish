@@ -50,14 +50,6 @@ static void page_select(uint8_t page);
 #include <dev/rtl8029as_dev.h>
 
 
-
-// MAX number of outstanding TX packets allowed in hardware queue
-// This variable does not make sense for rtl driver, but is kept
-// there to be consistent with e1000 and other drivers
-// FIXME: This should be removed as it does not make sense in new design
-#define RTL_TX_RING_SIZE  1000
-
-
 /// The only instance of the RTL8029AS we're handling
 static rtl8029as_t      rtl;
 
@@ -154,15 +146,23 @@ static void read_mem(uint8_t *dst, int src, int amount)
  * \brief Write packet to memory at a particular page.
  *
  * \param page          Destination start page in ASIC memory.
- * \param p             Packet buffer chain to write.
+ * \param p             client_closure which is to be used to get the next
+ *                      packet.
+ *                      (FIXME: Actually only spp and cl->tx_index is needed)
+ * \param pkt_len       Length of packet to be sent next.
  */
-static inline void write_page(uint8_t page, struct client_closure *cl)
+static inline void write_page(uint8_t page, struct client_closure *cl,
+        uint64_t pkt_len)
 {
     uint64_t pbuf_len = 0;
     uint16_t dst = page_to_mem(page);
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
+
 
     RTL8029_DEBUG("write page\n");
-    rtl8029as_rbcr_wr(&rtl, cl->len);// Number of bytes to transfer
+    rtl8029as_rbcr_wr(&rtl, pkt_len);// Number of bytes to transfer
     rtl8029as_rsar_wr(&rtl, dst);       // Destination in NIC mem
 
     // Start write
@@ -172,19 +172,18 @@ static inline void write_page(uint8_t page, struct client_closure *cl)
     rtl8029as_cr_wr(&rtl, cr);
 
 
-    for (int index = 0; index < cl->rtpbuf; index++) {
-	/*
-	  RTL8029_DEBUG("sending %dth rx_pbuf\n", index);
+    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
 
-	  RTL8029_DEBUG("pa %p va %p offset %lu\n",
-	  (void *)cl->buffer_ptr->pa, cl->buffer_ptr->va, cl->pbuf[index].offset);
-	*/
+    for (int index = 0; index < rtpbuf; index++) {
+        sld = &spp->sp->slot_list[cl->tx_index + index].d;
+        assert(buffer->buffer_id == sld->buffer_id);
+
 #if defined(__i386__)
-	uint8_t *src = (uint8_t *) ((uintptr_t)(cl->buffer_ptr->va + cl->pbuf[index].offset));
+	uint8_t *src = (uint8_t *) ((uintptr_t)(buffer->va + sld->offset));
 #else
-        uint8_t *src = (uint8_t *) ((uint64_t)cl->buffer_ptr->va + cl->pbuf[index].offset);
+        uint8_t *src = (uint8_t *) ((uint64_t)buffer->va + sld->offset);
 #endif
-        pbuf_len = cl->pbuf[index].len;
+        pbuf_len = sld->len;
 
         uint32_t i = 0;
 
@@ -237,9 +236,11 @@ static inline void rtl8029_reset(void)
     rtl8029as_reset_rd(&rtl);
 }
 
+
+// FIXME: This is just a placeholder function.  Should be removed
 static uint64_t rtl_tx_slots_count_fn(void)
 {
-    return RTL_TX_RING_SIZE;
+    return 1000; // RTL_TX_RING_SIZE;
 }
 
 /**
@@ -251,16 +252,27 @@ static uint64_t rtl_tx_slots_count_fn(void)
  */
 static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
 {
+
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
+
+    // Find the length of entire packet
+    uint64_t pkt_len = 0;
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        pkt_len += spp->sp->slot_list[cl->tx_index + idx].d.len;
+    }
+
     // RTL8029_DEBUG("sending ethernet packet\n");
-    assert(cl->len <= WRITE_BUF_SIZE);
+    assert(pkt_len <= WRITE_BUF_SIZE);
 
     // Write packet to ASIC memory
-    write_page(WRITE_PAGE, cl);
+    write_page(WRITE_PAGE, cl, pkt_len);
     // RTL8029_DEBUG("page written\n");
 
     // Set address & size
     rtl8029as_tpsr_wr(&rtl, WRITE_PAGE);
-    rtl8029as_tbcr_wr(&rtl, cl->len);
+    rtl8029as_tbcr_wr(&rtl, pkt_len);
     // RTL8029_DEBUG("address set\n");
 
 
@@ -275,32 +287,13 @@ static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
     while(rtl8029as_tsr_ptx_rdf(&rtl) == 0);
 
     // Tell the client we sent them!!!
-    for (int i = 0; i < cl->rtpbuf; i++) {
-        notify_client_free_tx(cl->app_connection,
-                cl->pbuf[i].client_data,
-                cl->pbuf[i].spp_index,
-                cl->pbuf[i].ts,
-                RTL_TX_RING_SIZE, 0);
-    }
+    for (int i = 0; i < rtpbuf; i++) {
+        notify_client_free_tx(cl->app_connection, (cl->tx_index + i));
+
+    } // end for:
 
     return SYS_ERR_OK;
 }
-
-
-#if 0
-uint16_t ethernet_get_next_packet(uint8_t *packet)
-{
-    memcpy(packet, packetbuf, packet_length);
-    return packet_length;
-}
-
-void ethernet_register_handler(InputPacket input, void *data)
-{
-    handler = input;
-    handler_data = data;
-}
-
-#endif // 0
 
 
 static void read_ring_buffer(uint8_t *dst, int src, int amount)
@@ -343,7 +336,8 @@ static void rtl8029_receive_packet(void)
     assert(rtl8029as_rsr_prx_extract(status.rsr) == 1);
     assert(status.length <= PACKET_SIZE);
     int pos = curr_page + ((status.length + 4 + 255) >> 8);
-    assert(status.next_page == (pos >= READ_STOP_PAGE ? pos - (READ_BUF_SIZE >> 8) : pos));
+    assert(status.next_page == (pos >= READ_STOP_PAGE ? pos -
+                (READ_BUF_SIZE >> 8) : pos));
 
     // Read packet
     packet_length = status.length - sizeof(status);
@@ -402,7 +396,7 @@ static void rtl8029_handle_interrupt(void *arg)
 
         	/* Ensures that netd is up and running */
         	if(waiting_for_netd()){
-        		RTL8029_DEBUG("still waiting for netd to register buffers\n");
+        		RTL8029_DEBUG("still waiting for netd to reg buf\n");
         		return;
         	}
 			/* FIXME: Not sure if its good idea to call
@@ -430,13 +424,7 @@ static int rtl8029_initialize_card(void)
 //    thread_mutex_lock(&driver_lock);
     printf("Initializing RTL8029(AS)...\n");
 
-//    uint32_t cbio = pci_read_conf_header(net_card_address, BAR_OFFSET);
-/*     printf("My CBIO=0x%x\n", cbio); */
-//    uint32_t cfit = pci_read_conf_header(net_card_address, PCI_CONFIG_HDR_CFIT/4);
-/*     printf("My CFIT=0x%x\n", cfit & 0xf); */
-
     uint32_t cbio = RTL8029_IOBASE;
-//    uint32_t cfit
     uint16_t portbase = cbio & ~0x1;
     rtl8029as_initialize(&rtl, portbase);
 

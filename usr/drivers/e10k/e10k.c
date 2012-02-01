@@ -161,51 +161,12 @@ static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
 
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVADD,
-                (uint32_t) client_data);
+                (uint32_t)0);
 #endif // TRACE_ONLY_SUB_NNET
 
     return SYS_ERR_OK;
 }
 
-#if 0
-/** Callback to add a buffer to TX ring. */
-static errval_t transmit_pbuf_list_fn(struct client_closure* cl)
-{
-    int i;
-    struct tx_pbuf* pbuf;
-    uint64_t paddr;
-    struct txbuf* buf;
-    uint64_t client_data = 0;
-
-    DEBUG("Add buffer callback %d:\n", cl->rtpbuf);
-
-    // TODO: Make sure there is room in TX queue
-    for (i = 0; i < cl->rtpbuf; i++) {
-        pbuf = cl->pbuf + i;
-        paddr = (uint64_t) pbuf->buffer->pa + pbuf->offset;
-
-        // Add info to free memory
-        // TODO: Is this copy really necessary?
-        buf = txbufs + q[0]->tx_tail;
-        buf->eb = pbuf->sr;
-        client_data = buf->data = pbuf->client_data;
-        buf->spp_index = pbuf->spp_index;
-        buf->ts = pbuf->ts;
-
-        e10k_queue_add_txbuf(q[0], paddr, pbuf->len, buf,
-            (i == cl->rtpbuf - 1));
-    }
-
-    e10k_queue_bump_txtail(q[0]);
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVADD,
-                (uint32_t) client_data);
-#endif // TRACE_ONLY_SUB_NNET
-
-    return SYS_ERR_OK;
-}
-#endif // 0
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {
@@ -234,8 +195,7 @@ static bool handle_free_tx_slot_fn(void)
                 (uint32_t) buf->data);
 #endif // TRACE_ONLY_SUB_NNET
 
-    notify_client_free_tx(buf->eb, buf->data, buf->spp_index, buf->ts,
-        find_tx_free_slot_count_fn(), 0);
+    notify_client_free_tx(buf->eb, buf->spp_index);
 
     return true;
 }
@@ -1049,3 +1009,4 @@ int main(int argc, char** argv)
 
     polling_loop();
 }
+
