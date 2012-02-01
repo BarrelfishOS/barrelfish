@@ -2,9 +2,15 @@
 :- local store(sequenceTable).
 
 :- dynamic watch/1.
-
-%:- lib(regex). % enable when regex.ecl is loading correctly / remove manually loading match/3 in skb_main.c
 :- lib(lists).
+
+% This can be enabled when external/2 and lib(regex) works correctly (don't
+% forget to remove the stuff in skb_main.c in that case)...
+%:- lib(regex).
+%:- external(save_index/3, p_save_index).
+%:- external(remove_index/3, p_remove_index).
+%:- external(remove_index/3, p_remove_index).
+%:- external(index_intersect/4, p_index_intersect).
 
 %
 % Get Record

@@ -33,7 +33,6 @@
 #include "queue.h"
 
 static uint64_t current_id = 1;
-static uint64_t subscription_id = 1;
 
 static inline errval_t check_query_length(char* query) {
     if (strlen(query) >= MAX_QUERY_LENGTH) {
@@ -403,9 +402,7 @@ void subscribe_handler(struct dist2_binding *b, char* query, uint64_t client_id)
     struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        drs->server_id = subscription_id++;
-        err = add_subscription(b, ast, client_id,
-                drs->server_id, &drs->query_state);
+        err = add_subscription(b, ast, client_id, drs);
     }
 
 out:

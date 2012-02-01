@@ -17,12 +17,14 @@
 
 int p_notify_client(void);
 int p_trigger_watch(void);
-//int p_identification_complete(void);
 
 int p_save_index(void);
 int p_remove_index(void);
 int p_index_intersect(void);
 int p_index_union(void);
 
+int p_bitfield_add(void);
+int p_bitfield_remove(void);
+int p_bitfield_union(void);
 
 #endif /* PREDICATES_H_ */

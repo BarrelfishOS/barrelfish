@@ -25,7 +25,7 @@
 #include "dist/predicates.h"
 #include "shared_lib_dict.h"
 
-#define MEMORY_SIZE 512*1024*1024
+#define MEMORY_SIZE 32*1024*1024
 #define ECLIPSE_DIR "/skb"
 
 #define RESULT_BUF_SIZE 1024
@@ -134,7 +134,7 @@ int main(int argc, char**argv)
 
     execute_string("set_flag(print_depth,100).");
 
-    if(disp_get_core_id() == 3) {
+    if(disp_get_core_id() == 0) {
         debug_printf("dist_server_init\n");
         //execute_string("set_flag(gc, off).");
         //execute_string("set_flag(gc_policy, fixed).");
@@ -159,17 +159,14 @@ int main(int argc, char**argv)
     execute_string("[objects3].");
     execute_string("[pubsub3].");
     execute_string("[bindings].");
-
     ec_external(ec_did("notify_client", 2), p_notify_client, ec_did("eclipse",0));
     ec_external(ec_did("trigger_watch", 5), p_trigger_watch, ec_did("eclipse",0));
     ec_external(ec_did("save_index", 3), p_save_index, ec_did("eclipse",0));
     ec_external(ec_did("remove_index", 3), p_remove_index, ec_did("eclipse",0));
     ec_external(ec_did("index_intersect", 4), p_index_intersect, ec_did("eclipse",0));
-    ec_external(ec_did("index_union", 4), p_index_union, ec_did("eclipse",0));
-
-    //ec_external(ec_did("identification_complete", 1), p_identification_complete, ec_did("eclipse",0));
-
-    // regex hack TODO
+    ec_external(ec_did("bitfield_add", 3), p_bitfield_add, ec_did("eclipse",0));
+    ec_external(ec_did("bitfield_remove", 3), p_bitfield_remove, ec_did("eclipse",0));
+    ec_external(ec_did("bitfield_union", 4), p_bitfield_union, ec_did("eclipse",0));
     ec_external(ec_did("match", 3), (int (*)()) ec_regmatch, ec_did("eclipse",0));
     ec_external(ec_did("split", 4), (int (*)()) ec_regsplit, ec_did("eclipse",0));
     // end
