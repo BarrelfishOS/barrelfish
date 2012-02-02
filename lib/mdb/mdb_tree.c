@@ -49,24 +49,29 @@ mdb_dump_and_fail(struct cte *cte, int failure)
 // printf tracing and entry/exit invariant checking
 #ifdef MDB_TRACE
 #define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) do { \
-    printf("enter " __func__ "(" args_fmt ")\n", __VA_ARGS__); \
+    printf("enter %s(" args_fmt ")\n", __func__, __VA_ARGS__); \
     CHECK_INVARIANTS(valid_cte); \
-    while (0)
+} while (0)
 #define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
     CHECK_INVARIANTS(valid_cte); \
-    printf("leave " __func__); \
+    printf("leave %s\n", __func__); \
     return; \
-    while (0)
+} while (0)
 #define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
     CHECK_INVARIANTS(valid_cte); \
-    printf("leave " __func__ "->" ret_fmt, (ret)); \
+    printf("leave %s->" ret_fmt "\n", __func__, (ret)); \
     return (ret); \
-    while (0)
+} while (0)
 #else
-#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) ((void)0)
-#define MDB_TRACE_LEAVE_SUB(valid_cte) do { return; } while (0)
-#define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) \
-    do { return (ret); } while (0)
+#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) CHECK_INVARIANTS(valid_cte)
+#define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
+    CHECK_INVARIANTS(valid_cte); \
+    return; \
+} while (0)
+#define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
+    CHECK_INVARIANTS(valid_cte); \
+    return (ret); \
+} while (0)
 #endif
 
 struct cte *mdb_root = NULL;
@@ -440,7 +445,8 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     current_ = mdb_split(current_);
     *current = current_;
 
-    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, SYS_ERR_OK, current_);
+    err = SYS_ERR_OK;
+    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
 }
 
 errval_t
@@ -597,7 +603,8 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
     errval_t err;
     struct cte *current_ = *current;
     if (!current_) {
-        MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, CAPS_ERR_MDB_ENTRY_NOTFOUND, current_);
+        err = CAPS_ERR_MDB_ENTRY_NOTFOUND;
+        MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
     }
 
     int compare = compare_caps(C(target), C(current_), true);
@@ -619,8 +626,8 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
         if (!N(current_)->left && !N(current_)->right) {
             // target is leaf, just remove
             *current = NULL;
-            //printf("leave mdb_subtree_remove\n");
-            MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, SYS_ERR_OK, NULL);
+            err = SYS_ERR_OK;
+            MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, NULL);
         }
         else if (!N(current_)->left) {
             // move to right child then go left (dir=-1)
@@ -652,7 +659,8 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
     assert(C(target)->type != 0);
     assert(!*current || C(*current)->type != 0);
 
-    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, SYS_ERR_OK, current_);
+    err = SYS_ERR_OK;
+    MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
 }
 
 errval_t
