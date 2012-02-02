@@ -43,7 +43,7 @@ static inline cycles_t cyclecount(void)
 #endif
 
 // FIXME: bogus default value. need to measure this at boot time
-#define WAITSET_POLL_CYCLES_DEFAULT 192000
+#define WAITSET_POLL_CYCLES_DEFAULT 784298 
 
 /// Maximum number of cycles to spend polling channels before yielding CPU
 cycles_t waitset_poll_cycles = WAITSET_POLL_CYCLES_DEFAULT;

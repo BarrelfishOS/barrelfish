@@ -65,6 +65,13 @@
                       flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
                       addLibraries = [ "dist2", "dist_parser", "bench", "skb" ]
                     },
+
+  build application { target = "d2bench1",
+                      cFiles = [ "d2bench1.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser", "bench", "skb" ]
+                    },
                     
   build application { target = "d2bench2",
                       cFiles = [ "d2bench2.c" ],
