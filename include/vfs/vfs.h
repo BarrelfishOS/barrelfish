@@ -66,6 +66,7 @@ errval_t vfs_seek(vfs_handle_t handle, enum vfs_seekpos whence, off_t offset);
 errval_t vfs_tell(vfs_handle_t handle, size_t *pos);
 errval_t vfs_stat(vfs_handle_t handle, struct vfs_fileinfo *info);
 errval_t vfs_close(vfs_handle_t handle);
+errval_t vfs_flush(vfs_handle_t handle);
 
 // manipulation of directories
 errval_t vfs_mkdir(const char *path); // fail if already present

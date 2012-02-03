@@ -38,9 +38,6 @@ static inline void thc_latch_acquire(struct thc_latch *l) {
     while (InterlockedCompareExchange(reinterpret_cast<volatile long*>(&l->c), 1L, 0L) == 1) {
     }
     ;
-#elif defined(__BEEHIVE__)
- assert(l->c == 0);
- l->c = 1;
 #else
   do {
     if (__sync_bool_compare_and_swap(&l->c, 0, 1)) {

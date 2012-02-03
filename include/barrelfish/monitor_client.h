@@ -20,8 +20,8 @@ struct monitor_lmp_binding;
 /// Handlers for incoming/outgoing capabilities on the monitor binding
 struct monitor_cap_handlers {
     void *st; ///< state pointer passed to handler functions
-    void (*cap_receive_handler)(void *st, struct capref cap, uint32_t capid);
-    void (*cap_send_reply_handler)(void *st, uint32_t capid, errval_t success);
+    void (*cap_receive_handler)(void *st, errval_t success, struct capref cap,
+                                uint32_t capid);
 };
 
 /* XXX: duplicate of monitor_bind_continuation_fn in generated code */

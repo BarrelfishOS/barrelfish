@@ -24,14 +24,12 @@ static CDtor ctors[1]
 __attribute__ ((unused, section(".ctors"), aligned(sizeof(CDtor))))
     = { (CDtor)(-1) };
 
-#ifndef __BEEHIVE__
 /**
  * Symbols provided by linker that point to the first and after the
  * last entry of the .init_array section, respectively.
  */
 extern CDtor __init_array_start __attribute__ ((visibility ("hidden")));
 extern CDtor __init_array_end __attribute__ ((visibility ("hidden")));
-#endif
 
 int _main(int argc, char *argv[]);
 int main(int argc, char *argv[]);
@@ -60,7 +58,6 @@ static void call_global_ctors(void)
     }
 }
 
-#ifndef __BEEHIVE__
 /**
  * \brief Call global (static) constructors, listed in .init_array
  *
@@ -75,13 +72,10 @@ static void call_init_array(void)
         (*ctor)();
     }
 }
-#endif
 
 int _main(int argc, char *argv[])
 {
     call_global_ctors();
-#ifndef __BEEHIVE__
     call_init_array();
-#endif
     return main(argc, argv);
 }

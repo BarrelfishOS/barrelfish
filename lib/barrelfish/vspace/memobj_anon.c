@@ -372,10 +372,6 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
 {
     struct memobj *memobj = &anon->m;
 
-#ifdef NOTRANS
-    assert(!"Cannot be used for MMUs with no translation ability");
-#endif
-
     /* Generic portion */
     memobj->f.map_region   = map_region;
     memobj->f.unmap_region = unmap_region;

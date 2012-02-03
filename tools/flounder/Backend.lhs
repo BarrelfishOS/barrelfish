@@ -121,9 +121,9 @@ Messages can either go Forward or Backward:
 This defines the following relation:
 
 > isForward, isBackward :: MessageDef -> Bool
-> isForward (Message MResponse _ _) = False
+> isForward (Message MResponse _ _ _) = False
 > isForward _ = True
-> isBackward (Message MCall _ _) = False
+> isBackward (Message MCall _ _ _) = False
 > isBackward _ = True
 
 The distinction between \emph{service} and \emph{client} handler
@@ -142,7 +142,7 @@ difference is materialized by the following data-type:
 To compile the list of arguments of messages, we use:
 
 > compileCommonDefinitionArgs :: String -> Side -> MessageDef -> [(String,String)]
-> compileCommonDefinitionArgs interfaceName side message@(Message _ _ messageArgs) = 
+> compileCommonDefinitionArgs interfaceName side message@(Message _ _ messageArgs _) = 
 >     [("struct " ++ interfaceName ++ "_" ++ show side ++ "_response *", "st")]
 >  ++ [(constType typeArg ++ " " ++ qualifyType interfaceName typeArg, nameOf arg)
 >      | Arg typeArg arg <- messageArgs ]
@@ -189,5 +189,5 @@ pass the @length@ parameter.
 
 
 > callNameOf :: MessageDef -> String
-> callNameOf (Message _ messageName _) = messageName
-> callNameOf (RPC name _) = name
+> callNameOf (Message _ messageName _ _) = messageName
+> callNameOf (RPC name _ _) = name

@@ -65,9 +65,8 @@ struct dcb *fpu_dcb = NULL;
 static inline void context_switch(struct dcb *dcb)
 {
     assert(dcb != NULL);
-#ifndef __BEEHIVE__ // XXX Single Address Space
     assert(dcb->vspace != 0);
-#endif
+
     // VM guests do not have a user space dispatcher
     if (!dcb->is_vm_guest) {
         assert(dcb->disp != 0);

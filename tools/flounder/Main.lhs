@@ -34,13 +34,13 @@
 > import qualified LMP
 > import qualified UMP
 > import qualified UMP_IPI
-> import qualified BMP
 > import qualified Multihop
 > import qualified Loopback
 > import qualified RPCClient
 > import qualified MsgBuf
 > import qualified THCBackend
 > import qualified THCStubsBackend
+> import qualified AHCI
 
 > data Target = GenericHeader
 >            | GenericCode
@@ -50,8 +50,6 @@
 >            | UMP_Stub
 >            | UMP_IPI_Header
 >            | UMP_IPI_Stub
->            | BMP_Header
->            | BMP_Stub
 >  	     | Multihop_Stub
 >            | Multihop_Header
 >            | Loopback_Header
@@ -62,6 +60,8 @@
 >            | MsgBuf_Stub
 >            | THCHeader
 >            | THCStubs
+>            | AHCI_Header
+>            | AHCI_Stub
 >            deriving (Show)
 
 > data Options = Options {
@@ -72,7 +72,7 @@
 
 > defaultOptions = Options { optTargets = [], optArch = Nothing, optIncludes = [] }
 
-> generator :: Options -> Target -> (String -> String -> Syntax.Interface -> String)
+> generator :: Options -> Target -> String -> String -> Syntax.Interface -> String
 > generator _ GenericHeader = GHBackend.compile
 > generator _ GenericCode = GCBackend.compile
 > generator _ LMP_Header = LMP.header
@@ -90,8 +90,6 @@
 >     | isNothing arch = error "no architecture specified for UMP_IPI stubs"
 >     | otherwise = UMP_IPI.stub (fromJust arch)
 >     where arch = optArch opts
-> generator _ BMP_Header = BMP.header
-> generator _ BMP_Stub = BMP.stub
 > generator _ Multihop_Header = Multihop.header
 > generator opts Multihop_Stub
 >     | isNothing arch = error "no architecture specified for Multihop stubs"
@@ -105,6 +103,8 @@
 > generator _ MsgBuf_Stub = MsgBuf.stub
 > generator _ THCHeader = THCBackend.compile
 > generator _ THCStubs = THCStubsBackend.compile
+> generator _ AHCI_Header = AHCI.header
+> generator _ AHCI_Stub = AHCI.stub
 
 > addTarget :: Target -> Options -> IO Options
 > addTarget t o = return o { optTargets = (optTargets o) ++ [t] }
@@ -132,8 +132,6 @@
 >             Option [] ["ump-stub"] (NoArg $ addTarget UMP_Stub)     "Create a stub file for UMP",
 >             Option [] ["ump_ipi-header"] (NoArg $ addTarget UMP_IPI_Header) "Create a header file for UMP_IPI",
 >             Option [] ["ump_ipi-stub"] (NoArg $ addTarget UMP_IPI_Stub)     "Create a stub file for UMP_IPI",
->             Option [] ["bmp-header"] (NoArg $ addTarget BMP_Header) "Create a header file for BMP",
->             Option [] ["bmp-stub"] (NoArg $ addTarget BMP_Stub)     "Create a stub file for BMP",
 >             Option [] ["multihop-header"] (NoArg $ addTarget Multihop_Header) "Create a header file for Multihop",
 >             Option [] ["multihop-stub"] (NoArg $ addTarget Multihop_Stub)     "Create a stub file for Multihop",
 >             Option [] ["loopback-header"] (NoArg $ addTarget Loopback_Header) "Create a header file for loopback",
@@ -144,11 +142,13 @@
 >             Option [] ["msgbuf-stub"] (NoArg $ addTarget MsgBuf_Stub) "Create a stub file for message buffers",
 
 >             Option ['T'] ["thc-header"] (NoArg $ addTarget THCHeader)             "Create a THC header file",
->             Option ['B'] ["thc-stubs"] (NoArg $ addTarget THCStubs)               "Create a THC stubs C file" ]
+>             Option ['B'] ["thc-stubs"] (NoArg $ addTarget THCStubs)               "Create a THC stubs C file",
+>             Option [] ["ahci-header"] (NoArg $ addTarget AHCI_Header) "Create a header file for AHCI",
+>             Option [] ["ahci-stub"] (NoArg $ addTarget AHCI_Stub)     "Create a stub file for AHCI" ]
 
-> compile :: Options -> Target -> Syntax.Interface -> String -> String -> Handle -> IO () 
+> compile :: Options -> Target -> Syntax.Interface -> String -> String -> Handle -> IO ()
 > compile opts fl ast infile outfile outfiled =
->     hPutStr outfiled ( (generator opts fl) infile outfile ast )
+>     hPutStr outfiled $ (generator opts fl) infile outfile ast
 
 > parseFile :: (String -> IO (Either Parsec.ParseError a)) -> String -> IO a
 > parseFile parsefn fname = do

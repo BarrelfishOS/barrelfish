@@ -15,7 +15,7 @@ let
   dot f = [ Str "dot", Str "-Tpdf",
             In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
   in
- [ buildTechNoteWithDeps "CapMgmt.tex" "TN-013-CapabilityManagement.pdf" True [] 
+ [ buildTechNoteWithDeps "CapMgmt.tex" "TN-013-CapabilityManagement.pdf" True False [] 
    (concat [dot "cap_types"])
  ]
 

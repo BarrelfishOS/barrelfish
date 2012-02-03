@@ -308,11 +308,7 @@ static struct sysret monitor_get_arch_id(struct capability *kernel_cap,
 {
     return (struct sysret) {
         .error = SYS_ERR_OK,
-#ifdef __scc__
         .value = apic_id
-#else
-        .value = apic_get_id()
-#endif
     };
 }
 

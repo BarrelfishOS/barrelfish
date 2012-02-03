@@ -14,11 +14,6 @@
   		      cFiles = [ "mem_alloc.c", "spawn.c", "init.c" ],
                       addLinkFlags = [ "-e _start_init"],
 		      addLibraries = [ "spawndomain", "mm", "getopt", "trace", "elf" ],
-                      architectures = [ arch | arch <- allArchitectures, arch /= "beehive" ] 
-                    },
-  build application { target = "init",
-  		      cFiles = [ "mem_alloc.c", "spawn.c", "init.c" ],
-		      addLibraries = [ "spawndomain", "mm", "getopt", "trace" ],
-                      architectures = [ "beehive" ]
+                      architectures = allArchitectures
                     }
 ]

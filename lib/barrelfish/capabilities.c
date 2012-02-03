@@ -84,12 +84,6 @@ struct capref cap_irq = {
     .slot  = TASKCN_SLOT_IRQ
 };
 
-/// Capability for BMP table
-struct capref cap_bmptable = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_BMP_TABLE
-};
-
 /// Capability for legacy IO
 struct capref cap_io = {
     .cnode = TASK_CNODE_INIT,

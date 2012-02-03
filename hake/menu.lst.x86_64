@@ -31,6 +31,9 @@ module  /x86_64/sbin/spawnd boot
 module  /x86_64/sbin/startd boot
 module /x86_64/sbin/routing_setup boot
 
+#ahci
+module /x86_64/sbin/ahcid
+
 ## For networking
 ## For qemu, enable rtl8029
 # module	/x86_64/sbin/rtl8029

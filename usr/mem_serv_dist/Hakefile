@@ -29,7 +29,7 @@
                                                 ("spawn", ["rpcclient"]), 
                                                 ("monitor_blocking", ["rpcclient"])],
                       addLibraries = [ "mm", "trace", "skb", "dist", "thc" ],
-		      architectures = [ "x86_64", "x86_32", "scc", "beehive" ]
+		      architectures = [ "x86_64", "x86_32", "scc" ]
                     },
 
 -- fully thc
@@ -41,7 +41,7 @@
                                                 ("spawn", ["rpcclient"]),
                                                 ("monitor_blocking", ["rpcclient"])],
                       addLibraries = [ "mm", "trace", "skb", "dist", "thc" ],
-                      architectures = [ "x86_64", "x86_32", "scc", "beehive" ]
+                      architectures = [ "x86_64", "x86_32", "scc" ]
                     },
   build application { target = "mem_bench",
   		      cFiles = [ "mem_bench.c", "memtest_trace.c" ],

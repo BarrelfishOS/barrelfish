@@ -121,7 +121,6 @@ struct sysret ipi_raise_notify(coreid_t coreid, uintptr_t chanid)
     // Make sure the next slot is empty
     if (fifo[slot] != 0) {
         panic("FULL");
-        return SYSRET(SYS_ERR_BMP_TX_BUSY);
     }
 
     // Update notify fifo

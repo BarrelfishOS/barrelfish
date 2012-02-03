@@ -14,5 +14,5 @@
   		      cFiles = [ "main.c", "spawn.c" ],
 		      addLibraries = libDeps [ "spawndomain", "elf", "trace",
                                        "dist", "vfs"]
-                    }
+                   }
 ]

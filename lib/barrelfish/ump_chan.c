@@ -73,7 +73,7 @@ errval_t ump_chan_init(struct ump_chan *uc,
 /// Destroy the local state associated with a given channel
 void ump_chan_destroy(struct ump_chan *uc)
 {
-    USER_PANIC("NYI");
+    ump_endpoint_destroy(&uc->endpoint);
 }
 
 /// Handler for UMP bind reply messages from the Monitor

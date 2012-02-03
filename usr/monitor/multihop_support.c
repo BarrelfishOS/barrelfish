@@ -38,108 +38,99 @@
  * is this case.
  */
 
-// the routing table (as two dimensional array)
+// the routing table (as two dimensional array indexed by source and dest core)
 static coreid_t **routing_table;
 
-// is the routing table initialized?
-// the routing table is initialized during startup
-static bool is_routing_table_initialized = false;
+// the maximum source core ID in the routing table
+static coreid_t routing_table_max_coreid;
 
-// is the routing table available?
-// if there is no routing table available, we use
-// direct routing.
-static bool is_routing_table_available = false;
+// the number of outstanding entries to expect in the routing table
+// (this is a kludge used while receiving entries from the rts program)
+static coreid_t routing_table_nentries;
 
-// number of cores in the system
-static int sys_num_cores = 0;
+// hack for synchronisation when requesting routing table from another monitor
+static bool saw_routing_table_response;
 
 /*
- *  Print the routing table of a monitor.
- *  This method should only be called if the routing
- *  table is available.
+ *  Print the routing table of a monitor, if present.
  */
 static void multihop_print_routing_table(void)
 {
-
-    assert(is_routing_table_initialized && is_routing_table_available);
-    assert(sys_num_cores > 0);
-
 #if MULTIHOP_DEBUG_ENABLED
-    int buffer_size = sys_num_cores * 15;
-    char buffer[buffer_size];
-
-    // convert (my part of) the routing table into a single string
-    char *p = buffer;
-    int total_char = 0, w_char = 0;
-    for (int i = 0; i < sys_num_cores; i++) {
-        w_char = snprintf(p, buffer_size - total_char, "[%d: %d] ", i,
-                routing_table[my_core_id][i]);
-        assert(w_char > 0);
-        total_char += w_char - 1;
-        p += w_char - 1;
+    if (routing_table == NULL) {
+        MULTIHOP_DEBUG("routing table not present on core %u\n", my_core_id);
+        return;
     }
 
-    MULTIHOP_DEBUG("routing table of monitor %d: %s\n", my_core_id, buffer);
+    size_t buffer_size = (((size_t)routing_table_max_coreid) + 1) * 5;
+    char buffer[buffer_size];
 
+    // Print the header
+    MULTIHOP_DEBUG("routing table of monitor %u:\n", my_core_id);
+    {
+        char *p = buffer;
+        for (unsigned i = 0; i <= routing_table_max_coreid; i++) {
+            p += sprintf(p, " %3u", i);
+        }
+        MULTIHOP_DEBUG("      To:%s\n", buffer);
+    }
+
+    // Print each line
+    for (unsigned src = 0; src <= routing_table_max_coreid; src++) {
+        if (routing_table[src] == NULL) {
+            continue;
+        }
+
+        // convert (my part of) the routing table into a single string
+        char *p = buffer;
+        int total_char = 0, w_char = 0;
+        for (unsigned i = 0; i <= routing_table_max_coreid; i++) {
+            w_char = snprintf(p, buffer_size - total_char, " %3u",
+                              routing_table[src][i]);
+            assert(w_char > 0);
+            total_char += w_char;
+            p += w_char;
+        }
+        MULTIHOP_DEBUG("From %3u:%s\n", src, buffer);
+    }
 #endif // MULTIHOP_DEBUG_ENABLED
 }
 
-// allocate the routing table
-static void allocate_routing_table(int num_cores)
+// start to receive a new routing table from the RTS
+static void multihop_routing_table_new(struct monitor_binding *b,
+                                       coreid_t max_coreid, coreid_t nentries)
 {
-    static bool is_allocated = false;
+    // sanity-check input (FIXME: report errors!)
+    assert(max_coreid >= my_core_id);
+    assert(nentries > 0 && nentries <= (max_coreid + 1));
 
-    if (!is_allocated) {
-        is_allocated = true;
-        routing_table = malloc(sizeof(coreid_t *) * num_cores);
-    }
-}
+    // FIXME: we don't yet support changes to the existing routing table
+    assert(routing_table == NULL);
 
-// send an acknowledgment to RTS (routing table set-up dispatcher)
-static void multihop_rts_send_ack(void *arg)
-{
+    routing_table_max_coreid = max_coreid;
+    routing_table_nentries = nentries;
 
-    errval_t err;
-    struct monitor_binding *b = arg;
-    err = monitor_multihop_routing_table_response__tx(b, NOP_CONT);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            b->register_send(b, get_default_waitset(),
-                    MKCONT(multihop_rts_send_ack, b));
-            return;
-        }
-
-        USER_PANIC_ERR(
-                err,
-                "Could not send ack to RTS (routing table set-up dispatcher)\n");
-    }
+    // allocate space for the max core ID
+    routing_table = calloc(((uintptr_t)max_coreid) + 1, sizeof(coreid_t *));
+    assert(routing_table != NULL);
 }
 
 // receive a part of the routing table from RTS (routing table set-up dispatcher)
-static void multihop_set_routing_table_request(struct monitor_binding *b,
-        int num_cores, coreid_t from, coreid_t *to, size_t len)
+static void multihop_routing_table_set(struct monitor_binding *b,
+                                       coreid_t from, coreid_t *to, size_t len)
 {
+    // sanity-check input (FIXME: report errors!)
+    // FIXME: we don't yet support changes to the existing routing table
+    assert(routing_table != NULL);
+    assert(from <= routing_table_max_coreid);
+    assert(routing_table[from] == NULL);
+    assert(len == routing_table_max_coreid + 1);
+    routing_table[from] = to;
 
-    static int received_parts = 0;
-    assert(!is_routing_table_initialized);
-    assert(num_cores == len / sizeof(coreid_t));
-    assert(received_parts <= num_cores);
-
-    // allocate routing table and save received part
-    allocate_routing_table(num_cores);
-    routing_table[received_parts++] = to;
-    sys_num_cores = num_cores;
-
-    // send acknowledgment to RTS (routing table set-up dispatcher)
-    multihop_rts_send_ack(b);
-
-    if (num_cores == received_parts) {
+    if (--routing_table_nentries == 0) {
         // we have received the complete table!
-        is_routing_table_initialized = true;
-        is_routing_table_available = true;
-        MULTIHOP_DEBUG(
-                "monitor on core %d has received the complete routing table (from RTS)\n", my_core_id);
+        MULTIHOP_DEBUG("monitor on core %d has received the complete"
+                       " routing table (from RTS)\n", my_core_id);
         multihop_print_routing_table();
     }
 }
@@ -159,54 +150,128 @@ errval_t multihop_request_routing_table(struct intermon_binding *b)
     }
 
     // wait until we have received a reply
-    while (is_routing_table_initialized == false) {
+    while (!saw_routing_table_response) {
         messages_wait_and_handle_next();
     }
 
     return SYS_ERR_OK;
 }
 
-// handle request for the routing table from another monitor
+// handle request for a portion of the routing table from another monitor
 static void multihop_handle_routing_table_request(struct intermon_binding *b,
-        coreid_t core_id)
+                                                  coreid_t core_id)
 {
     errval_t err;
 
-    if (is_routing_table_available) {
+    if (routing_table != NULL && core_id <= routing_table_max_coreid
+        && routing_table[core_id] != NULL) {
         // if we have a routing table, send routing table to other core
         err = b->tx_vtbl.multihop_routing_table_response(b, NOP_CONT,
-                sys_num_cores, routing_table[core_id],
-                sizeof(coreid_t) * sys_num_cores);
+                SYS_ERR_OK, core_id, routing_table_max_coreid,
+                routing_table[core_id], routing_table_max_coreid + 1);
     } else {
-        // if we don't have a routing table, sent dummy message
-        err = b->tx_vtbl.multihop_routing_table_response(b, NOP_CONT, 0,
-                (void *) &sys_num_cores, 1);
+        // if we don't have a routing table, send an error reply
+        err = b->tx_vtbl.multihop_routing_table_response(b, NOP_CONT,
+                MON_ERR_INCOMPLETE_ROUTE, core_id, routing_table_max_coreid,
+                NULL, 0);
     }
+
+    assert(err_is_ok(err)); // FIXME
 }
 
 // handle the response to a routing table request from the other monitor
 static void multihop_handle_routing_table_response(struct intermon_binding *b,
-        int num_cores, coreid_t *to, size_t len)
+                                                   errval_t err,
+                                                   coreid_t source_coreid,
+                                                   coreid_t max_coreid,
+                                                   coreid_t *to, size_t len)
 {
-    assert(!is_routing_table_initialized);
-    is_routing_table_initialized = true;
+    assert(routing_table == NULL);
+    assert(source_coreid == my_core_id);
 
-    if (num_cores > 0) {
-        assert(len / sizeof(coreid_t) == num_cores);
-        // call initialize on routing table and save received part
-        allocate_routing_table(num_cores);
-        routing_table[my_core_id] = to;
-        sys_num_cores = num_cores;
-        is_routing_table_available = true;
+    if (err_is_ok(err)) {
+        assert(to != NULL);
+        routing_table = calloc(((uintptr_t)max_coreid) + 1, sizeof(coreid_t *));
+        assert(routing_table != NULL);
+        routing_table_max_coreid = max_coreid;
 
-        MULTIHOP_DEBUG(
-                "monitor on core %d has received its part of the routing table\n", my_core_id);
-        multihop_print_routing_table();
-
+        assert(len == max_coreid + 1);
+        assert(source_coreid <= max_coreid);
+        routing_table[source_coreid] = to;
     } else {
-        MULTIHOP_DEBUG(
-                "monitor on core %d is using direct routing, as it could not get its routing table\n", my_core_id);
+        assert(to == NULL);
+
+        if (err_no(err) != MON_ERR_INCOMPLETE_ROUTE) {
+            DEBUG_ERR(err, "unexpected error retrieving routing table");
+        }
     }
+
+    saw_routing_table_response = true;
+}
+
+// grow the routing table to a set of desination cores, via a given forwarder
+static void multihop_routing_table_grow(struct intermon_binding *b,
+                                        coreid_t forwarder,
+                                        coreid_t *destinations, size_t ndests)
+{
+    assert(ndests > 0);
+
+    // check the max core ID in the destinations
+    coreid_t max_coreid = my_core_id;
+    for (unsigned i = 0; i < ndests; i++) {
+        if (destinations[i] > max_coreid) {
+            max_coreid = destinations[i];
+        }
+    }
+
+    // ensure we have an allocated routing table; if necessary, grow it
+    if (routing_table == NULL) {
+        routing_table = calloc(((uintptr_t)max_coreid) + 1, sizeof(coreid_t *));
+        assert(routing_table != NULL);
+        routing_table_max_coreid = max_coreid;
+    } else if (max_coreid > routing_table_max_coreid) {
+        for (unsigned i = 0; i <= routing_table_max_coreid; i++) {
+            if (routing_table[i] != NULL) {
+                routing_table[i] = realloc(routing_table[i],
+                                           (((uintptr_t)max_coreid) + 1)
+                                           * sizeof(coreid_t));
+                assert(routing_table[i] != NULL);
+                // XXX: the default for the unconfigured part of the routing
+                // table is direct routing
+                for (unsigned j = routing_table_max_coreid + 1; j <= max_coreid; j++) {
+                    routing_table[i][j] = j;
+                }
+            }
+        }
+
+        routing_table = realloc(routing_table, (((uintptr_t)max_coreid) + 1)
+                                               * sizeof(coreid_t *));
+        assert(routing_table != NULL);
+        memset(&routing_table[routing_table_max_coreid + 1], 0,
+               (max_coreid - routing_table_max_coreid) * sizeof(coreid_t *));
+        routing_table_max_coreid = max_coreid;
+    }
+
+    // ensure I have my own routes (the default is direct routing)
+    if (routing_table[my_core_id] == NULL) {
+        routing_table[my_core_id] = malloc((((uintptr_t)routing_table_max_coreid) + 1)
+                                           * sizeof(coreid_t));
+        assert(routing_table[my_core_id] != NULL);
+        for (unsigned i = 0; i <= routing_table_max_coreid; i++) {
+            routing_table[my_core_id][i] = i;
+        }
+    }
+
+    // update routes to destinations for all origins in my routing table and myself
+    for (unsigned src = 0; src <= routing_table_max_coreid; src++) {
+        if (routing_table[src] != NULL) {
+            for (unsigned i = 0; i < ndests; i++) {
+                routing_table[src][destinations[i]] = routing_table[src][forwarder];
+            }
+        }
+    }
+
+    free(destinations);
 }
 
 // return the next hop (based on the routing table)
@@ -215,10 +280,11 @@ static inline coreid_t get_next_hop(coreid_t dest)
 
     assert(dest != my_core_id);
 
-    if (is_routing_table_available) {
+    if (routing_table != NULL
+        && my_core_id <= routing_table_max_coreid
+        && dest <= routing_table_max_coreid
+        && routing_table[my_core_id] != NULL) {
         // if we have a routing table, look up next hop
-        assert(is_routing_table_initialized);
-        assert(routing_table[my_core_id] != NULL);
         return routing_table[my_core_id][dest];
     } else {
         // if we don't have a routing table, route directly
@@ -1168,20 +1234,14 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
 
 static inline void multihop_cap_send_intermon_forward(
         struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, intermon_caprep_t caprep, bool null_cap);
+        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap);
 
 static void multihop_cap_send_forward_cont(struct monitor_binding *b,
         struct monitor_msg_queue_elem *e);
 
 inline static void multihop_cap_send_forward(struct monitor_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, struct capref cap);
-
-inline static void multihop_intermon_cap_send_reply(struct intermon_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t err);
-
-inline static void multihop_monitor_cap_send_reply(
-        struct monitor_binding *mon_binding, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr);
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t msgerr,
+        struct capref cap);
 
 // intermonitor capability forwarding state
 struct multihop_intermon_capability_forwarding_state {
@@ -1208,7 +1268,7 @@ struct multihop_capability_forwarding_state {
  */
 static void multihop_cap_send_request_handler(
         struct monitor_binding *monitor_binding, multihop_vci_t vci,
-        uint8_t direction, struct capref cap, uint32_t capid)
+        uint8_t direction, errval_t msgerr, struct capref cap, uint32_t capid)
 {
 
     MULTIHOP_DEBUG(
@@ -1221,6 +1281,9 @@ static void multihop_cap_send_request_handler(
     bool null_cap = capref_is_null(cap);
     bool has_descendants;
 
+    // XXX: this field is ignored when the local dispatcher originates the cap
+    msgerr = SYS_ERR_OK;
+
     // get forwarding information
     struct monitor_multihop_chan_state *chan_state = forwarding_table_lookup(
             vci);
@@ -1228,7 +1291,6 @@ static void multihop_cap_send_request_handler(
     struct intermon_binding *b = dir->binding.intermon_binding;
 
     if (!null_cap) {
-
         // get binary representation of capability
         err = monitor_cap_identify(cap, &capability);
         if (err_is_fail(err)) {
@@ -1236,16 +1298,16 @@ static void multihop_cap_send_request_handler(
             return;
         }
 
+        // if we can't transfer the cap, it is delivered as NULL
         if (!monitor_can_send_cap(&capability)) {
-
-            // if we can't send this capability, we send an reply back
-            // the the dispatcher
-            direction = multihop_get_opposite_direction(chan_state, direction,
-                    &dir);
-            multihop_monitor_cap_send_reply(dir->binding.monitor_binding,
-                    dir->vci, direction, capid, MON_ERR_CAP_SEND);
-            return;
+            cap = NULL_CAP;
+            null_cap = true;
+            msgerr = MON_ERR_CAP_SEND;
         }
+    }
+
+    if (!null_cap) {
+        // FIXME: this seems to be totally bogus. it assumes a give_away cap -AB
 
         // mark capability as remote
         err = monitor_cap_remote(cap, true, &has_descendants);
@@ -1272,6 +1334,7 @@ static void multihop_cap_send_request_handler(
     me->args.vci = dir->vci;
     me->args.direction = direction;
     me->args.capid = capid;
+    me->args.err = msgerr;
     me->args.cap = caprep;
     me->args.null_cap = null_cap;
     me->elem.cont = multihop_cap_send_intermon_forward_cont;
@@ -1288,7 +1351,7 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
     struct multihop_intermon_capability_forwarding_state *st =
             (struct multihop_intermon_capability_forwarding_state *) e;
     multihop_cap_send_intermon_forward(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.cap, st->args.null_cap);
+        st->args.capid, st->args.err, st->args.cap, st->args.null_cap);
     free(e);
 }
 
@@ -1298,13 +1361,13 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
  */
 static inline void multihop_cap_send_intermon_forward(
         struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, intermon_caprep_t caprep, bool null_cap)
+        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap)
 {
 
     errval_t err;
 
     // try to forward
-    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, capid,
+    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, capid, msgerr,
             caprep, null_cap);
 
     if (err_is_fail(err)) {
@@ -1316,6 +1379,7 @@ static inline void multihop_cap_send_intermon_forward(
             me->args.vci = vci;
             me->args.direction = direction;
             me->args.capid = capid;
+            me->args.err = msgerr;
             me->args.cap = caprep;
             me->args.null_cap = null_cap;
             me->elem.cont = multihop_cap_send_intermon_forward_cont;
@@ -1339,8 +1403,8 @@ static inline void multihop_cap_send_intermon_forward(
  */
 static void multihop_intermon_cap_send_handler(
         struct intermon_binding *intermon_binding, multihop_vci_t vci,
-        uint8_t direction, uint32_t capid, intermon_caprep_t caprep,
-        bool null_cap)
+        uint8_t direction, uint32_t capid, errval_t msgerr,
+        intermon_caprep_t caprep, bool null_cap)
 {
 
     MULTIHOP_DEBUG(
@@ -1364,13 +1428,11 @@ static void multihop_intermon_cap_send_handler(
             err = slot_alloc(&cap);
             if (err_is_fail(err)) {
 
-                // send a reply back indicating that we failed
+                // send a msg indicating that we failed
                 // to allocate a slot for the capability
-                direction = multihop_get_opposite_direction(chan_state,
-                        direction, &dir);
-                multihop_intermon_cap_send_reply(dir->binding.intermon_binding,
-                        direction, dir->vci, capid, err);
-                return;
+                cap = NULL_CAP;
+                msgerr = err;
+                goto do_send;
             }
 
             // create capability
@@ -1380,14 +1442,11 @@ static void multihop_intermon_cap_send_handler(
             if (err_is_fail(err)) {
                 slot_free(cap);
 
-                // send a reply back indicating that we failed
+                // send a msg indicating that we failed
                 // to create the capability
-                err = err_push(err, MON_ERR_CAP_CREATE);
-                direction = multihop_get_opposite_direction(chan_state,
-                        direction, &dir);
-                multihop_intermon_cap_send_reply(dir->binding.intermon_binding,
-                        dir->vci, direction, capid, err);
-                return;
+                cap = NULL_CAP;
+                msgerr = err_push(err, MON_ERR_CAP_CREATE);
+                goto do_send;
             }
 
             // mark capability as remote
@@ -1399,6 +1458,7 @@ static void multihop_intermon_cap_send_handler(
             }
         }
 
+do_send: ;
         // enqueue the capability in order to be forwarded to
         // the local dispatcher
         struct monitor_binding *b = dir->binding.monitor_binding;
@@ -1410,6 +1470,7 @@ static void multihop_intermon_cap_send_handler(
         me->args.direction = direction;
         me->args.cap = cap;
         me->args.capid = capid;
+        me->args.err = msgerr;
         me->elem.cont = multihop_cap_send_forward_cont;
 
         err = monitor_enqueue_send(b, &ist->queue, get_default_waitset(),
@@ -1427,6 +1488,7 @@ static void multihop_intermon_cap_send_handler(
         me->args.vci = dir->vci;
         me->args.direction = direction;
         me->args.capid = capid;
+        me->args.err = msgerr;
         me->args.cap = caprep;
         me->args.null_cap = null_cap;
         me->elem.cont = multihop_cap_send_intermon_forward_cont;
@@ -1445,7 +1507,7 @@ static void multihop_cap_send_forward_cont(struct monitor_binding *b,
     struct multihop_capability_forwarding_state *st =
             (struct multihop_capability_forwarding_state *) e;
     multihop_cap_send_forward(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.cap);
+                              st->args.capid, st->args.err, st->args.cap);
     free(e);
 }
 
@@ -1454,12 +1516,14 @@ static void multihop_cap_send_forward_cont(struct monitor_binding *b,
  *
  */
 inline static void multihop_cap_send_forward(struct monitor_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, struct capref cap)
+        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t msgerr,
+        struct capref cap)
 {
     errval_t err;
 
 // try to send
-    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, cap, capid);
+    err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, msgerr,
+                                       cap, capid);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -1471,6 +1535,7 @@ inline static void multihop_cap_send_forward(struct monitor_binding *b,
             me->args.direction = direction;
             me->args.cap = cap;
             me->args.capid = capid;
+            me->args.err = msgerr;
             me->elem.cont = multihop_cap_send_forward_cont;
 
             err = monitor_enqueue_send_at_front(b, &ist->queue,
@@ -1481,127 +1546,6 @@ inline static void multihop_cap_send_forward(struct monitor_binding *b,
 
         USER_PANIC_ERR(err,
                 "failed to forward capability over multi-hop channel\n");
-    }
-}
-
-// intermonitor capability reply forwarding state
-struct multihop_intermon_cap_send_reply_state {
-    struct intermon_msg_queue_elem elem;
-    struct intermon_multihop_cap_reply__args args;
-};
-
-// continue function for intermonitor capability reply forwarding
-static void multihop_intermon_cap_send_reply_busy_cont(
-        struct intermon_binding *b, struct intermon_msg_queue_elem *e)
-{
-    struct multihop_intermon_cap_send_reply_state *st =
-            (struct multihop_intermon_cap_send_reply_state *) e;
-    multihop_intermon_cap_send_reply(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.err);
-    free(e);
-}
-
-/**
- * Forward a reply to next monitor
- */
-inline static void multihop_intermon_cap_send_reply(struct intermon_binding *b,
-        multihop_vci_t vci, uint8_t direction, uint32_t capid, errval_t err)
-{
-
-    errval_t err2;
-    err2 = b->tx_vtbl.multihop_cap_reply(b, NOP_CONT, vci, direction, capid,
-            err);
-
-    if (err_is_fail(err2)) {
-        if (err_no(err2) == FLOUNDER_ERR_TX_BUSY) {
-
-            struct multihop_intermon_cap_send_reply_state *me = malloc(
-                    sizeof(struct multihop_intermon_cap_send_reply_state));
-            struct intermon_state *ist = b->st;
-            me->args.vci = vci;
-            me->args.direction = direction;
-            me->args.capid = capid;
-            me->args.err = err;
-            me->elem.cont = multihop_intermon_cap_send_reply_busy_cont;
-
-            err2 = intermon_enqueue_send(b, &ist->queue, get_default_waitset(),
-                    &me->elem.queue);
-            assert(err_is_ok(err2));
-            return;
-        }
-
-        USER_PANIC_ERR(err2,
-                "Could not forward cap reply over multi-hop channel\n");
-    }
-}
-
-// struct for reply monitor forwarding state
-struct multihop_monitor_cap_send_reply_state {
-    struct monitor_msg_queue_elem elem;
-    struct monitor_multihop_cap_reply__args args;
-};
-
-// continue function for monitor capability reply forwarding
-static void multihop_monitor_cap_send_reply_busy_cont(struct monitor_binding *b,
-        struct monitor_msg_queue_elem *e)
-{
-    struct multihop_monitor_cap_send_reply_state *st =
-            (struct multihop_monitor_cap_send_reply_state *) e;
-    multihop_monitor_cap_send_reply(b, st->args.vci, st->args.direction,
-            st->args.capid, st->args.err);
-    free(e);
-}
-
-/**
- * Forward a reply message to a local dispatcher
- */
-inline static void multihop_monitor_cap_send_reply(
-        struct monitor_binding *mon_binding, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr)
-{
-
-    errval_t err;
-    err = mon_binding->tx_vtbl.multihop_cap_reply(mon_binding, NOP_CONT, vci,
-            direction, capid, msgerr);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct multihop_monitor_cap_send_reply_state *me = malloc(
-                    sizeof(struct multihop_monitor_cap_send_reply_state));
-            assert(me != NULL);
-            struct monitor_state *ist = mon_binding->st;
-            me->args.vci = vci;
-            me->args.direction = direction;
-            me->args.capid = capid;
-            me->args.err = msgerr;
-            me->elem.cont = multihop_monitor_cap_send_reply_busy_cont;
-
-            err = monitor_enqueue_send(mon_binding, &ist->queue,
-                    get_default_waitset(), &me->elem.queue);
-            assert(err_is_ok(err));
-            return;
-        }
-    }
-}
-
-/**
- * \brief Handler a capability reply coming from another monitor
- */
-static void multihop_intermon_cap_reply_handler(
-        struct intermon_binding *intermon_binding, multihop_vci_t vci,
-        uint8_t direction, uint32_t capid, errval_t msgerr)
-{
-    struct monitor_multihop_chan_state *chan_state = forwarding_table_lookup(
-            vci);
-    struct direction *dir = multihop_get_direction(chan_state, direction);
-
-    if (dir->type == MULTIHOP_ENDPOINT) { // we have to forward the reply to a local dispatcher
-        multihop_monitor_cap_send_reply(dir->binding.monitor_binding, dir->vci,
-                direction, capid, msgerr);
-    } else {
-        // we have to forward the reply to the next hop
-        multihop_intermon_cap_send_reply(dir->binding.intermon_binding,
-                dir->vci, direction, capid, msgerr);
     }
 }
 
@@ -1620,11 +1564,12 @@ errval_t multihop_intermon_init(struct intermon_binding *ib)
             &multihop_intermon_bind_reply_handler;
     ib->rx_vtbl.multihop_message = &intermon_multihop_message_handler;
     ib->rx_vtbl.multihop_cap_send = &multihop_intermon_cap_send_handler;
-    ib->rx_vtbl.multihop_cap_reply = &multihop_intermon_cap_reply_handler;
     ib->rx_vtbl.multihop_routing_table_request =
             &multihop_handle_routing_table_request;
     ib->rx_vtbl.multihop_routing_table_response =
             &multihop_handle_routing_table_response;
+    ib->rx_vtbl.multihop_routing_table_grow =
+            &multihop_routing_table_grow;
 
     return SYS_ERR_OK;
 }
@@ -1638,8 +1583,10 @@ errval_t multihop_monitor_init(struct monitor_binding *mb)
             &multihop_monitor_service_bind_reply_handler;
     mb->rx_vtbl.multihop_message = &multihop_message_handler;
     mb->rx_vtbl.multihop_cap_send = &multihop_cap_send_request_handler;
-    mb->rx_vtbl.multihop_routing_table_set_request =
-            &multihop_set_routing_table_request;
+    mb->rx_vtbl.multihop_routing_table_new =
+            &multihop_routing_table_new;
+    mb->rx_vtbl.multihop_routing_table_set =
+            &multihop_routing_table_set;
 
     return SYS_ERR_OK;
 }

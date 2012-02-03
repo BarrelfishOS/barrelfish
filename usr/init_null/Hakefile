@@ -14,11 +14,6 @@
   		      cFiles = [ "init_null.c" ],
                       addLinkFlags = [ "-e _start_init"],
 		      addLibraries = [ "mm", "getopt", "trace", "elf" ],
-		      architectures = [ arch | arch <- allArchitectures, arch /= "beehive" ]
-                    },
-  build application { target = "init_null",
-  		      cFiles = [ "init_null.c" ],
-		      addLibraries = [ ],
-		      architectures = [ "beehive" ]
+		      architectures = allArchitectures
                     }
 ]

@@ -98,30 +98,6 @@ interface monitor "The monitor to client Interface" {
                         errval err,
 			cap notify);
 
-          message bind_bmp_client_request(
-                        iref iref,
-                        uintptr conn_id,
-                        cap lmp_ep);
-
-          message bind_bmp_service_request(
-                        uintptr service_id,
-                        uintptr mon_id,
-                        cap bee_ep,
-                        size remote_ep_len);
-
-          call bind_bmp_reply_monitor(
-                        uintptr mon_id,
-                        uintptr conn_id,
-                        cap lmp_ep,
-                        errval err);
-
-          response bind_bmp_reply_client(
-                        uintptr mon_id,
-                        uintptr conn_id,
-                        cap bee_ep,
-                        size remote_ep_len,
-                        errval err);
-
           call ipi_alloc_notify_request(cap ep, uintptr state);
 	  response ipi_alloc_notify_reply(uintptr state, cap notify, errval err);
 
@@ -149,12 +125,9 @@ interface monitor "The monitor to client Interface" {
                         cap cap,
                         capid_t capid,
  			uint8 give_away);
-          response cap_send_reply(
-                        uintptr conn_id,
-                        capid_t capid,
-			errval err);
           response cap_receive_request(
                         uintptr conn_id,
+                        errval err,
                         cap cap,
                         capid_t capid);
 
@@ -174,8 +147,10 @@ interface monitor "The monitor to client Interface" {
           /* Multi-hop interconnect driver */
           
           // Send routing table
-          call multihop_routing_table_set_request(int num_cores, coreid from, coreid to[len]);
-          response multihop_routing_table_response();
+          // First message, which describes the set of valid core IDs
+          call multihop_routing_table_new(coreid max_coreid, coreid nentries);
+          // Subsequent messages (repeated) which each contain a portion of the routing table from a single core
+          call multihop_routing_table_set(coreid from, coreid to[len]);
 
           // Connection set-up between monitor and client
           call multihop_bind_client_request(iref iref, vci_t sender_vci);
@@ -189,6 +164,5 @@ interface monitor "The monitor to client Interface" {
           message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
           
           // cap transfer
-          call multihop_cap_send(vci_t vci, uint8 direction, cap cap, capid_t capid);
-          response multihop_cap_reply(vci_t vci, uint8 direction, capid_t capid, errval err);
+          call multihop_cap_send(vci_t vci, uint8 direction, errval err, cap cap, capid_t capid);
 };

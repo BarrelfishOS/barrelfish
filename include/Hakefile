@@ -12,7 +12,6 @@
 
 [ includeFile (options arch) f
       | f <- [ 
-   "bexec.h",
    "cpiobin.h",
    "dlfcn.h",
    "lwipopts.h",

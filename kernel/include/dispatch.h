@@ -38,11 +38,7 @@ struct guest {
  */
 struct dcb {
     dispatcher_handle_t disp;           ///< User-mode dispatcher frame pointer
-#ifdef __BEEHIVE__
-    unsigned int	disabled;	///< Was dispatcher disabled when last saved?
-#else
     bool                disabled;       ///< Was dispatcher disabled when last saved?
-#endif
     struct cte          cspace;         ///< Cap slot for CSpace
     lpaddr_t            vspace;         ///< Address of VSpace root
     struct cte          disp_cte;

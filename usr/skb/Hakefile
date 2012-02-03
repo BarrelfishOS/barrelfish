@@ -28,7 +28,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         addLibraries = libDeps [ "eclipse", "shm", "dummies",
                                                  "icsolver", "vfs",
                                                  "posixcompat" ],
-                        architectures = [ arch ]
+                       architectures = [ arch ]
                 }
 in
   [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32" ]],

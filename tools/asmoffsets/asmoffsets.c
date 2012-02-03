@@ -70,10 +70,6 @@
 
 #include <barrelfish/dispatcher_arch.h>
 
-#ifdef __BEEHIVE__
-#include <corearea.h>
-#endif
-
 /* wrap everything inside a dummy function, to keep the compiler happy */
 #ifdef __ICC
 int main(void)
@@ -135,11 +131,6 @@ void dummy(void)
     DECL(DISP_X86_32_TRAP_AREA, struct dispatcher_shared_x86_32, trap_save_area);
 #endif
 
-#if defined(__BEEHIVE__)
-    DECL(DISP_ENABLED_AREA, struct dispatcher_shared_beehive, enabled_save_area);
-    DECL(DISP_DISABLED_AREA, struct dispatcher_shared_beehive, disabled_save_area);
-#endif // __BEEHIVE__
-
 #if defined(__arm__)
     DECL(DISP_CRIT_PC_LOW, struct dispatcher_shared_arm, crit_pc_low);
     DECL(DISP_CRIT_PC_HIGH, struct dispatcher_shared_arm, crit_pc_high);
@@ -181,8 +172,6 @@ void dummy(void)
     ASSERT(sizeof(struct dispatcher_x86_64) <= (1 << DISPATCHER_FRAME_BITS));
 #elif defined __i386__
     ASSERT(sizeof(struct dispatcher_x86_32) <= (1 << DISPATCHER_FRAME_BITS));
-#elif defined __BEEHIVE__
-    ASSERT(sizeof(struct dispatcher_beehive) <= (1 << DISPATCHER_FRAME_BITS));
 #elif defined __arm__
     ASSERT(sizeof(struct dispatcher_arm) <= (1 << DISPATCHER_FRAME_BITS));
 #else
@@ -197,25 +186,6 @@ void dummy(void)
     ASSERT(sizeof(rcvheader) == sizeof(rcvheader.raw));
 
     EMIT(SIZEOF_STRUCT_SYSRET, sizeof(struct sysret));
-
-#ifdef __BEEHIVE__
-    DECL(COREAREA_RQ_AREA, struct corearea, rqarea);
-
-    DECL(COREAREA_MASTER, struct corearea, master_stops);
-    DECL(COREAREA_MASTER_STOPS, struct corearea, master_stops);
-    DECL(COREAREA_MASTER_TICKS, struct corearea, master_ticks);
-
-    DECL(COREAREA_SLAVE, struct corearea, slave_stops);
-    DECL(COREAREA_SLAVE_STOPS, struct corearea, slave_stops);
-    DECL(COREAREA_SLAVE_TICKS, struct corearea, slave_ticks);
-
-    DECL(COREAREA_KERNEL_BEGINS, struct corearea, kernel_begins);
-    DECL(COREAREA_KERNEL_ENDS, struct corearea, kernel_ends);
-    DECL(COREAREA_KERNEL_TICKER, struct corearea, kernel_ticker);
-    DECL(COREAREA_KERNEL_PENDING, struct corearea, kernel_pending);
-
-    DECL(COREAREA_SYSCALL, struct corearea, syscall);
-#endif // BEEHIVE
 
     /* footer */
     __asm("\n#endif /* ASMOFFSETS_H */\n");

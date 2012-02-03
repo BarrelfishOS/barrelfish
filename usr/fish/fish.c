@@ -659,6 +659,189 @@ out:
     return ret;
 }
 
+static int dd(int argc, char *argv[])
+{
+    // parse options
+    char *source = NULL;
+    char *target = NULL;
+
+    vfs_handle_t source_vh = NULL;
+    vfs_handle_t target_vh = NULL;
+    
+    size_t blocksize = 512;
+    size_t count = 0;
+    size_t skip = 0;
+    size_t seek = 0;
+
+    size_t rsize = 0;
+    size_t wsize = 0;
+    size_t blocks_written = 0;
+
+    size_t total_bytes_read = 0;
+    size_t total_bytes_written = 0;
+
+    size_t progress = 0;
+
+    errval_t err;
+    int ret = 0;
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (!strncmp(argv[i], "bs=", 3))
+            blocksize = atoi(argv[i] + 3);
+
+        else if (!strncmp(argv[i], "count=", 6))
+            count = atoi(argv[i] + 6);
+
+        else if (!strncmp(argv[i], "skip=", 5))
+            skip = atoi(argv[i] + 5);
+
+        else if (!strncmp(argv[i], "seek=", 5))
+            seek = atoi(argv[i] + 5);
+
+        else if (!strncmp(argv[i], "if=", 3))
+            source = (argv[i] + 3);
+
+        else if (!strncmp(argv[i], "of=", 3))
+            target = (argv[i] + 3);
+        else if (!strncmp(argv[i], "progress", 8))
+            progress = 1;
+    }
+
+    size_t one_per_cent = (blocksize * count) / 100;
+
+    printf("from: %s to: %s bs=%zd count=%zd seek=%zd skip=%zd\n", source, target, blocksize, count, seek, skip);
+
+    if (source != NULL)
+    {
+        char *path = vfs_path_mkabsolute(cwd, source);
+        err = vfs_open(path, &source_vh);
+        free(path);
+        if (err_is_fail(err)) {
+            printf("%s: %s\n", source, err_getstring(err));
+            return 1;
+        }
+
+        if (skip != 0)
+        {
+            // TODO: skip
+        }
+    }
+
+    if (target != NULL)
+    {
+        char *path = vfs_path_mkabsolute(cwd, target);
+        err = vfs_create(path, &target_vh);
+        free(path);
+        if (err_is_fail(err)) {
+            // close source handle
+            if (source_vh != NULL)
+                vfs_close(source_vh);
+            printf("%s: %s\n", target, err_getstring(err));
+            return 1;
+        }
+
+        if (seek != 0)
+        {
+            // TODO: seek
+        }
+    }
+
+    uint8_t * buffer = malloc(blocksize);
+
+#if defined(__x86_64__) || defined(__i386__)
+    uint64_t tscperms;
+    err = sys_debug_get_tsc_per_ms(&tscperms);
+    assert(err_is_ok(err));
+
+    //printf("ticks per millisec: %" PRIu64 "\n", tscperms);
+    uint64_t start = rdtsc();
+#endif
+
+    if (buffer == NULL)
+    {
+        ret = 2;
+        printf("failed to allocate buffer of size %zd\n", blocksize);
+        goto out;
+    }
+
+    do
+    {
+        //printf("copying block\n");
+        size_t read_bytes = 0;
+        do {
+            err = vfs_read(source_vh, buffer, blocksize, &rsize);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "error reading file");
+                ret = 1;
+                goto out;
+            }
+
+            total_bytes_read += rsize;
+            read_bytes += rsize;
+
+            size_t wpos = 0;
+            while (wpos < rsize) {
+                if (wpos > 0)
+                    printf("was unable to write the whole chunk of size %zd. Now at pos: %zd of buffer\n", rsize, wpos);
+
+                err = vfs_write(target_vh, &buffer[wpos], rsize - wpos, &wsize);
+                if (err_is_fail(err) || wsize == 0) {
+                    DEBUG_ERR(err, "error writing file");
+                    ret = 1;
+                    goto out;
+                }
+                wpos += wsize;
+                total_bytes_written += wsize;
+            }
+        } while(read_bytes < blocksize);
+
+        blocks_written++;
+
+        if (progress && one_per_cent && total_bytes_written % one_per_cent == 0) {
+            printf(".");
+        }
+
+        //printf("block successfully copied. read: %zd. blocks written: %zd\n", rsize, blocks_written);
+    } while (rsize > 0 && !(count > 0 && blocks_written >= count));
+
+    if (progress) printf("\n");
+
+out:
+    if (buffer != NULL)
+        free(buffer);
+    
+    if (source_vh != NULL) {
+        err = vfs_close(source_vh);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in vfs_close");
+        }
+    }
+
+    if (target_vh != NULL) {
+        err = vfs_close(target_vh);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in vfs_close");
+        }
+    }
+
+#if defined(__x86_64__) || defined(__i386__)
+    uint64_t stop = rdtsc();
+    uint64_t elapsed_msecs = ((stop - start) / tscperms);
+    double elapsed_secs = (double)elapsed_msecs/1000.0;
+
+    printf("start: %" PRIu64 " stop: %" PRIu64 "\n", start, stop);
+
+    double kbps = ((double)total_bytes_written / 1024.0) / elapsed_secs;
+
+    printf("%zd bytes read. %zd bytes written. %f s, %f kB/s\n", total_bytes_read, total_bytes_written, elapsed_secs, kbps); 
+#else
+    printf("%zd bytes read. %zd bytes written.\n", total_bytes_read, total_bytes_written); 
+#endif
+
+    return ret;
+}
+
 static int touch(int argc, char *argv[])
 {
     if(argc < 2) {
@@ -940,6 +1123,7 @@ static struct cmd commands[] = {
     {"touch", touch, "Create an empty file"},
     {"cat", cat, "Print the contents of file(s)"},
     {"cat2", cat2, "Print the contents of file(s) into another file"},
+    {"dd", dd, "copy stuff"},
     {"cp", cp, "Copy files"},
     {"rm", rm, "Remove files"},
     {"mkdir", mkdir, "Create a new directory"},
@@ -1076,6 +1260,7 @@ static void runbootscript(void)
         help(cmd_argc, cmd_argv);
     }
 }
+
 
 int main(int argc, const char *argv[])
 {

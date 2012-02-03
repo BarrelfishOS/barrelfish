@@ -476,7 +476,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Initialize local APIC
     apic_init();
-    apic_id = apic_get_id();
 
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);

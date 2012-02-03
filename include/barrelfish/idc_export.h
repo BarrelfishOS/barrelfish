@@ -33,12 +33,6 @@ typedef errval_t ump_connect_callback_fn(void *st, struct monitor_binding *mb,
                                          struct capref notify_cap);
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-typedef errval_t bmp_connect_callback_fn(void *st, struct monitor_binding *mb,
-                                         uintptr_t mon_id, struct capref bee_ep,
-                                         size_t remote_ep_len);
-#endif // CONFIG_INTERCONNECT_DRIVER_BMP
-
 #ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
 typedef errval_t multihop_connect_callback_fn(void *st, uint64_t vci);
 #endif // CONFIG_INTERCONNECT_DRIVER_MULTIHOP
@@ -57,9 +51,6 @@ struct idc_export {
 #endif
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP
     ump_connect_callback_fn *ump_connect_callback;
-#endif
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    bmp_connect_callback_fn *bmp_connect_callback;
 #endif
 #ifdef CONFIG_INTERCONNECT_DRIVER_MULTIHOP
   multihop_connect_callback_fn *multihop_connect_callback;

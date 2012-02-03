@@ -74,24 +74,22 @@ intf_bind_var = "_thc_binding"
 
 -- Name of the type of a message function
 msg_sig_type :: String -> String -> String -> MessageDef -> String
-msg_sig_type ifn sender sendrecv m@(Message _ n _) = idscope ifn n "thc_" ++ sender ++ "_" ++ sendrecv ++ "_t"
-msg_sig_type ifn sender sendrecv m@(RPC n _) =  idscope ifn n "thc_" ++ sender ++ "_" ++ sendrecv ++ "_t"
+msg_sig_type ifn sender sendrecv m = idscope ifn (BC.msg_name m) "thc_" ++ sender ++ "_" ++ sendrecv ++ "_t"
 msg_sig_type_x :: String -> String -> String -> MessageDef -> String
-msg_sig_type_x ifn sender sendrecv m@(Message _ n _) = idscope ifn n "thc_" ++ sender ++ "_" ++ sendrecv ++ "_t_x"
-msg_sig_type_x ifn sender sendrecv m@(RPC n _) =  idscope ifn n "thc_" ++ sender ++ "_" ++ sendrecv ++ "_t_x"
+msg_sig_type_x ifn sender sendrecv m = idscope ifn (BC.msg_name m) "thc_" ++ sender ++ "_" ++ sendrecv ++ "_t_x"
 
 -- Name of the type of an RPC call function
 call_sig_type :: String -> MessageDef -> String
-call_sig_type ifn m@(RPC n _) = idscope ifn n "thc_call__t"
+call_sig_type ifn m@(RPC n _ _) = idscope ifn n "thc_call__t"
 
 call_sig_type_x :: String -> MessageDef -> String
-call_sig_type_x ifn m@(RPC n _) = idscope ifn n "thc_call__t_x"
+call_sig_type_x ifn m@(RPC n _ _) = idscope ifn n "thc_call__t_x"
 
 call_ooo_sig_type :: String -> MessageDef -> String
-call_ooo_sig_type ifn m@(RPC n _) = idscope ifn n "thc_ooo_call__t"
+call_ooo_sig_type ifn m@(RPC n _ _) = idscope ifn n "thc_ooo_call__t"
 
 call_ooo_sig_type_x :: String -> MessageDef -> String
-call_ooo_sig_type_x ifn m@(RPC n _) = idscope ifn n "thc_ooo_call__t_x"
+call_ooo_sig_type_x ifn m@(RPC n _ _) = idscope ifn n "thc_ooo_call__t_x"
 
 -- Name of the type of a receive-any function
 rx_any_sig_type :: String -> String -> String
@@ -332,11 +330,11 @@ intf_thc_header_body infile interface@(Interface name descr decls) =
          ]
 
 isRPC :: MessageDef -> Bool
-isRPC (RPC _ _) = True
+isRPC (RPC _ _ _) = True
 isRPC _ = False
 
 isOOORPC :: MessageDef -> Bool
-isOOORPC (RPC _ ((RPCArgIn (Builtin UInt64) (Name "seq_in")):(RPCArgOut (Builtin UInt64) (Name "seq_out")):_)) = True
+isOOORPC (RPC _ ((RPCArgIn (Builtin UInt64) (Name "seq_in")):(RPCArgOut (Builtin UInt64) (Name "seq_out")):_) _) = True
 isOOORPC _ = False
 
 binding_struct :: Side -> String -> [MessageDef] -> C.Unit
@@ -389,53 +387,47 @@ receive_any_types ifn receiver =
      ]
 
 rpc_seq_vtbl_op :: String -> MessageDef -> C.Param
-rpc_seq_vtbl_op ifn m@(RPC n _) =
+rpc_seq_vtbl_op ifn m@(RPC n _ _) =
     C.Param (C.TypeName $ call_sig_type ifn m) n
 
 rpc_fifo_vtbl_op :: String -> MessageDef -> C.Param
-rpc_fifo_vtbl_op ifn m@(RPC n _) =
+rpc_fifo_vtbl_op ifn m@(RPC n _ _) =
     C.Param (C.TypeName $ call_sig_type ifn m) n
 
 rpc_ooo_vtbl_op :: String -> MessageDef -> C.Param
-rpc_ooo_vtbl_op ifn m@(RPC n _) =
+rpc_ooo_vtbl_op ifn m@(RPC n _ _) =
     C.Param (C.TypeName $ call_ooo_sig_type ifn m) n
 
 rpc_seq_vtbl_op_x :: String -> MessageDef -> C.Param
-rpc_seq_vtbl_op_x ifn m@(RPC n _) =
+rpc_seq_vtbl_op_x ifn m@(RPC n _ _) =
     C.Param (C.TypeName $ call_sig_type_x ifn m) n
 
 rpc_fifo_vtbl_op_x :: String -> MessageDef -> C.Param
-rpc_fifo_vtbl_op_x ifn m@(RPC n _) =
+rpc_fifo_vtbl_op_x ifn m@(RPC n _ _) =
     C.Param (C.TypeName $ call_sig_type_x ifn m) n
 
 rpc_ooo_vtbl_op_x :: String -> MessageDef -> C.Param
-rpc_ooo_vtbl_op_x ifn m@(RPC n _) =
+rpc_ooo_vtbl_op_x ifn m@(RPC n _ _) =
     C.Param (C.TypeName $ call_ooo_sig_type_x ifn m) n
 
 intf_vtbl_op :: String -> String -> String -> MessageDef -> C.Param
-intf_vtbl_op ifn sender sendrecv m@(Message _ n _) =
-    C.Param (C.TypeName $ msg_sig_type ifn sender sendrecv m) n
-intf_vtbl_op ifn sender sendrecv m@(RPC n _) =
-    C.Param (C.TypeName $ msg_sig_type ifn sender sendrecv m) n
+intf_vtbl_op ifn sender sendrecv m =
+    C.Param (C.TypeName $ msg_sig_type ifn sender sendrecv m) (BC.msg_name m)
 
 intf_vtbl_op_x :: String -> String -> String -> MessageDef -> C.Param
-intf_vtbl_op_x ifn sender sendrecv m@(Message _ n _) =
-    C.Param (C.TypeName $ msg_sig_type_x ifn sender sendrecv m) n
-intf_vtbl_op_x ifn sender sendrecv m@(RPC n _) =
-    C.Param (C.TypeName $ msg_sig_type_x ifn sender sendrecv m) n
+intf_vtbl_op_x ifn sender sendrecv m =
+    C.Param (C.TypeName $ msg_sig_type_x ifn sender sendrecv m) (BC.msg_name m)
 
 intf_selector_op :: String -> String -> String -> MessageDef -> C.Param
-intf_selector_op ifn sender sendrecv m@(Message _ n _) =
-    C.Param (C.TypeName "int") n
-intf_selector_op ifn sender sendrecv m@(RPC n _) =
-    C.Param (C.TypeName "int") n
+intf_selector_op ifn sender sendrecv m =
+    C.Param (C.TypeName "int") (BC.msg_name m)
 
 -- Should do this properly rather than string munging.
 fnptr :: String -> String
 fnptr s = "(*" ++ s ++ ")"
 
 call_signature :: String -> MessageDef -> C.Unit
-call_signature ifname m@(RPC s args) =
+call_signature ifname m@(RPC s args _) =
     let name = call_sig_type ifname m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
                   intf_bind_var 
@@ -444,7 +436,7 @@ call_signature ifname m@(RPC s args) =
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 call_signature_x :: String -> MessageDef -> C.Unit
-call_signature_x ifname m@(RPC s args) =
+call_signature_x ifname m@(RPC s args _) =
     let name = call_sig_type_x ifname m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
                   intf_bind_var 
@@ -453,7 +445,7 @@ call_signature_x ifname m@(RPC s args) =
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 call_ooo_signature :: String -> MessageDef -> C.Unit
-call_ooo_signature ifname m@(RPC s args) =
+call_ooo_signature ifname m@(RPC s args _) =
     let name = call_ooo_sig_type ifname m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
                   intf_bind_var 
@@ -462,7 +454,7 @@ call_ooo_signature ifname m@(RPC s args) =
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
 call_ooo_signature_x :: String -> MessageDef -> C.Unit
-call_ooo_signature_x ifname m@(RPC s args) =
+call_ooo_signature_x ifname m@(RPC s args _) =
     let name = call_ooo_sig_type_x ifname m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname "client") 
                   intf_bind_var 
@@ -472,7 +464,7 @@ call_ooo_signature_x ifname m@(RPC s args) =
 
 send_signature :: Side -> String -> String -> MessageDef -> C.Unit
 
-send_signature side sender ifname m@(Message dir _ args) =
+send_signature side sender ifname m@(Message dir _ args _) =
     let name = msg_sig_type ifname sender "send" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
                   intf_bind_var 
@@ -480,7 +472,7 @@ send_signature side sender ifname m@(Message dir _ args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-send_signature side sender ifname m@(RPC s args) =
+send_signature side sender ifname m@(RPC s args _) =
     let name = msg_sig_type ifname sender "send" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
                   intf_bind_var 
@@ -488,7 +480,7 @@ send_signature side sender ifname m@(RPC s args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-receive_signature side receiver ifname m@(Message dir _ args) =
+receive_signature side receiver ifname m@(Message dir _ args _) =
     let name = msg_sig_type ifname receiver "recv" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
                   intf_bind_var 
@@ -496,7 +488,7 @@ receive_signature side receiver ifname m@(Message dir _ args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-receive_signature side receiver ifname m@(RPC s args) =
+receive_signature side receiver ifname m@(RPC s args _) =
     let name = msg_sig_type ifname receiver "recv" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
                   intf_bind_var 
@@ -504,7 +496,7 @@ receive_signature side receiver ifname m@(RPC s args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-send_signature_x side sender ifname m@(Message dir _ args) =
+send_signature_x side sender ifname m@(Message dir _ args _) =
     let name = msg_sig_type_x ifname sender "send" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
                   intf_bind_var 
@@ -512,7 +504,7 @@ send_signature_x side sender ifname m@(Message dir _ args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-send_signature_x side sender ifname m@(RPC s args) =
+send_signature_x side sender ifname m@(RPC s args _) =
     let name = msg_sig_type_x ifname sender "send" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname sender) 
                   intf_bind_var 
@@ -520,7 +512,7 @@ send_signature_x side sender ifname m@(RPC s args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-receive_signature_x side receiver ifname m@(Message dir _ args) =
+receive_signature_x side receiver ifname m@(Message dir _ args _) =
     let name = msg_sig_type_x ifname receiver "recv" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
                   intf_bind_var 
@@ -528,7 +520,7 @@ receive_signature_x side receiver ifname m@(Message dir _ args) =
     in
       C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) $ fnptr name
 
-receive_signature_x side receiver ifname m@(RPC s args) =
+receive_signature_x side receiver ifname m@(RPC s args _) =
     let name = msg_sig_type_x ifname receiver "recv" m
         binding = C.Param (C.Ptr $ C.TypeName $ intf_bind_type ifname receiver) 
                   intf_bind_var 
@@ -563,22 +555,22 @@ msg_enums :: (String -> String) -> (String -> String -> String) -> String -> [Me
 msg_enums enum element ifname msgs = 
     C.EnumDecl (enum ifname) 
          ([ C.EnumItem (element ifname n) Nothing 
-                | m@(Message _ n _) <- msgs ]
+                | m@(Message _ n _ _) <- msgs ]
           ++
           [ C.EnumItem (element ifname n) Nothing 
-                | m@(RPC n _) <- msgs ]
+                | m@(RPC n _ _) <- msgs ]
          )
 
 --
 -- Generate a struct to hold the arguments of a message while it's being sent.
 -- 
 msg_argstruct :: String -> MessageDef -> C.Unit
-msg_argstruct ifname m@(Message _ n []) = C.NoOp
-msg_argstruct ifname m@(Message _ n args) =
+msg_argstruct ifname m@(Message _ n [] _) = C.NoOp
+msg_argstruct ifname m@(Message _ n args _) =
     let tn = msg_argstruct_name ifname n
     in
       C.StructDecl tn (concat [ BC.msg_argdecl BC.RX ifname a | a <- args ])
-msg_argstruct ifname m@(RPC n args) = 
+msg_argstruct ifname m@(RPC n args _) = 
     C.UnitList [
       C.StructDecl (rpc_argstruct_name ifname n "in") 
            (concat [ rpc_argdecl ClientSide ifname a | a <- args ]),
@@ -597,10 +589,10 @@ intf_union :: String -> [MessageDef] -> C.Unit
 intf_union ifn msgs = 
     C.UnionDecl (binding_arg_union_type ifn)
          ([ C.Param (C.Struct $ msg_argstruct_name ifn n) n
-            | m@(Message _ n a) <- msgs, 0 /= length a ]
+            | m@(Message _ n a _) <- msgs, 0 /= length a ]
           ++
           [ C.Param (C.Union $ rpc_union_name ifn n) n 
-            | m@(RPC n a) <- msgs, 0 /= length a ])
+            | m@(RPC n a _) <- msgs, 0 /= length a ])
 
 rpc_argdecl :: Side -> String -> RPCArgument -> [C.Param]
 rpc_argdecl ClientSide ifn (RPCArgIn tr v) = BC.msg_argdecl BC.RX ifn (Arg tr v)

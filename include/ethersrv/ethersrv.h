@@ -169,6 +169,7 @@ struct client_closure {
     struct ether_binding *app_connection; /* FIXME: Do I need this? */
     struct cont_queue *q;
     uint8_t debug_state;
+    uint8_t debug_print;
     uint8_t debug_state_tx;
     uint64_t start_ts;
     uint64_t start_ts_tx;

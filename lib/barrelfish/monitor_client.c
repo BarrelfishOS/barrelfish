@@ -31,24 +31,14 @@ static void error_handler(struct monitor_binding *b, errval_t err)
 /// Handler for incoming LMP messages from the monitor binding with an
 /// indirected cap for a UMP/BMP/... channel
 static void cap_receive_request_handler(struct monitor_binding *b,
-                                        uintptr_t conn_id,
+                                        uintptr_t conn_id, errval_t success,
                                         struct capref cap, uint32_t capid)
 {
     /* XXX: this relies on the monitor_cap_handlers table being the first thing
      * in every channel state struct */
     struct monitor_cap_handlers *h = (void *)conn_id;
     assert(h->cap_receive_handler != NULL);
-    h->cap_receive_handler(h->st, cap, capid);
-}
-
-static void cap_send_reply_handler(struct monitor_binding *b, uintptr_t conn_id,
-                                   uint32_t capid, errval_t err)
-{
-    /* XXX: this relies on the monitor_cap_handlers table being the first thing
-     * in every channel state struct */
-    struct monitor_cap_handlers *h = (void *)conn_id;
-    assert(h->cap_send_reply_handler != NULL);
-    h->cap_send_reply_handler(h->st, capid, err);
+    h->cap_receive_handler(h->st, success, cap, capid);
 }
 
 /// vtable for handlers declared in this file
@@ -56,7 +46,6 @@ static void cap_send_reply_handler(struct monitor_binding *b, uintptr_t conn_id,
 // functions after we bind to the monitor
 static struct monitor_rx_vtbl monitor_rx_vtbl = {
     .cap_receive_request = cap_receive_request_handler,
-    .cap_send_reply = cap_send_reply_handler,
 };
 
 static void monitor_accept_recv_handler(void *arg)

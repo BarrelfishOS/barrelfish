@@ -228,6 +228,19 @@ monitor_get_core_id(
 }
 
 static struct sysret
+monitor_get_arch_id(
+    struct capability* to,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(2 == argc);
+
+    // TODO: ARM doesn't support multicore yet...
+    return (struct sysret) { .error = SYS_ERR_OK, .value = my_core_id };
+}
+
+static struct sysret
 monitor_handle_register(
     struct capability* to,
     arch_registers_state_t* context,
@@ -300,6 +313,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id] = monitor_get_core_id,
+        [KernelCmd_Get_arch_id] = monitor_get_arch_id,
         [KernelCmd_Register]    = monitor_handle_register,
         [KernelCmd_Create_cap]  = monitor_create_cap,
     }

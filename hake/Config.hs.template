@@ -77,6 +77,15 @@ eMAC_debug = False
 rtl8029_debug :: Bool
 rtl8029_debug = False
 
+ahcid_debug :: Bool
+ahcid_debug = False
+
+libahci_debug :: Bool
+libahci_debug = False
+
+vfs_debug :: Bool
+vfs_debug = False
+
 ethersrv_debug :: Bool
 ethersrv_debug = False
 
@@ -191,6 +200,9 @@ defines = [ Str ("-D" ++ d) | d <- [
              if trace_disable_lrpc then "TRACE_DISABLE_LRPC" else "",
              if global_debug then "GLOBAL_DEBUG" else "",
              if e1000n_debug then "E1000N_SERVICE_DEBUG" else "",
+             if ahcid_debug then "AHCI_SERVICE_DEBUG" else "",
+             if libahci_debug then "AHCI_LIB_DEBUG" else "",
+             if vfs_debug then "VFS_DEBUG" else "",
              if eMAC_debug then "EMAC_SERVICE_DEBUG" else "",
              if rtl8029_debug then "RTL8029_SERVICE_DEBUG" else "",
              if ethersrv_debug then "ETHERSRV_SERVICE_DEBUG" else "",

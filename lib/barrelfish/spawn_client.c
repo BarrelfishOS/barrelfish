@@ -43,11 +43,10 @@ static void spawn_bind_cont(void *st, errval_t err, struct spawn_binding *b)
 /* XXX: utility function that doesn't really belong here */
 const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 5, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 4, "knowledge of all CPU types here");
     switch(cpu_type) {
     case CPU_X86_64:    return "x86_64";
     case CPU_X86_32:    return "x86_32";
-    case CPU_BEEHIVE:   return "beehive";
     case CPU_SCC:       return "scc";
     case CPU_ARM:       return "arm";
     default:            USER_PANIC("cpu_type_to_pathstr: %d unknown", cpu_type);

@@ -19,7 +19,6 @@ import qualified X86_32
 import qualified SCC
 import qualified ARM
 import qualified ARM11MP
-import qualified Beehive
 import qualified XScale
 import HakeTypes
 import qualified Args
@@ -81,7 +80,6 @@ options "x86_32" = X86_32.options
 options "scc" = SCC.options
 options "arm" = ARM.options
 options "arm11mp" = ARM11MP.options
-options "beehive" = Beehive.options
 options "xscale" = XScale.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
@@ -89,7 +87,6 @@ kernelCFlags "x86_32" = X86_32.kernelCFlags
 kernelCFlags "scc" = SCC.kernelCFlags
 kernelCFlags "arm" = ARM.kernelCFlags
 kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
-kernelCFlags "beehive" = Beehive.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
@@ -97,7 +94,6 @@ kernelLdFlags "x86_32" = X86_32.kernelLdFlags
 kernelLdFlags "scc" = SCC.kernelLdFlags
 kernelLdFlags "arm" = ARM.kernelLdFlags
 kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
-kernelLdFlags "beehive" = Beehive.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
 
 archFamily :: String -> String
@@ -170,13 +166,11 @@ cCompiler opts phase src obj
     | optArch opts == "scc"     = SCC.cCompiler opts phase src obj
     | optArch opts == "arm"     = ARM.cCompiler opts phase src obj
     | optArch opts == "arm11mp" = ARM11MP.cCompiler opts phase src obj
-    | optArch opts == "beehive" = Beehive.cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 cPreprocessor :: Options -> String -> String -> String -> [ RuleToken ]
 cPreprocessor opts phase src obj
-    | optArch opts == "beehive" = Beehive.cPreprocessor opts phase src obj
     | otherwise = [ ErrorMsg ("no C preprocessor for " ++ (optArch opts)) ]
 
 --
@@ -185,7 +179,6 @@ cPreprocessor opts phase src obj
 cxxCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cxxCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cxxCompiler opts phase src obj
-    | optArch opts == "beehive" = Beehive.cxxCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C++ compiler for " ++ (optArch opts)) ]
 
 
@@ -204,8 +197,6 @@ makeDepend opts phase src obj depfile
         ARM.makeDepend opts phase src obj depfile
     | optArch opts == "arm11mp" = 
         ARM11MP.makeDepend opts phase src obj depfile
-    | optArch opts == "beehive" = 
-        Beehive.makeDepend opts phase src obj depfile
     | optArch opts == "xscale" = 
         XScale.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
@@ -214,8 +205,6 @@ makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken 
 makeCxxDepend opts phase src obj depfile
     | optArch opts == "x86_64" = 
         X86_64.makeCxxDepend opts phase src obj depfile
-    | optArch opts == "beehive" = 
-        Beehive.makeCxxDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no C++ dependency generator for " ++ (optArch opts)) ]
 
 cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -225,7 +214,6 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "scc"     = SCC.cToAssembler opts phase src afile objdepfile
     | optArch opts == "arm"     = ARM.cToAssembler opts phase src afile objdepfile
     | optArch opts == "arm11mp" = ARM11MP.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "beehive" = Beehive.cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
@@ -239,7 +227,6 @@ assembler opts src obj
     | optArch opts == "scc"     = SCC.assembler opts src obj
     | optArch opts == "arm"     = ARM.assembler opts src obj
     | optArch opts == "arm11mp" = ARM11MP.assembler opts src obj
-    | optArch opts == "beehive" = Beehive.assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
@@ -250,7 +237,6 @@ archive opts objs libs name libname
     | optArch opts == "scc"     = SCC.archive opts objs libs name libname
     | optArch opts == "arm"     = ARM.archive opts objs libs name libname
     | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
-    | optArch opts == "beehive" = Beehive.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
@@ -261,7 +247,6 @@ linker opts objs libs bin
     | optArch opts == "scc"    = SCC.linker opts objs libs bin
     | optArch opts == "arm" = ARM.linker opts objs libs bin
     | optArch opts == "arm11mp" = ARM11MP.linker opts objs libs bin
-    | optArch opts == "beehive" = Beehive.linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
@@ -723,7 +708,6 @@ linkKernel opts name objs libs
     | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "arm" = ARM.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "beehive" = Beehive.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | otherwise = 
         Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
@@ -788,11 +772,11 @@ compileNativeC prog cfiles cflags ldflags =
 --
 -- Build a Technical Note
 --
-buildTechNote :: String -> String -> Bool -> [String] -> HRule
-buildTechNote input output bib figs = 
-    buildTechNoteWithDeps input output bib figs []
-buildTechNoteWithDeps :: String -> String -> Bool -> [String] -> [RuleToken] -> HRule
-buildTechNoteWithDeps input output bib figs deps = 
+buildTechNote :: String -> String -> Bool -> Bool -> [String] -> HRule
+buildTechNote input output bib glo figs = 
+    buildTechNoteWithDeps input output bib glo figs []
+buildTechNoteWithDeps :: String -> String -> Bool -> Bool -> [String] -> [RuleToken] -> HRule
+buildTechNoteWithDeps input output bib glo figs deps = 
     let
         working_dir = NoDep BuildTree "tools" "/tmp/"
         style_files = [ "bfish-logo.pdf", "bftn.sty", "defs.bib", "barrelfish.bib" ]
@@ -812,7 +796,8 @@ buildTechNoteWithDeps input output bib figs deps =
                Str "--texinput", NoDep SrcTree "src" "/doc/style",
                Str "--bibinput", NoDep SrcTree "src" "/doc/style"
              ]
-             ++ if bib then [ Str "--has-bib" ] else []
+             ++ (if bib then [ Str "--has-bib" ] else [])
+             ++ (if glo then [ Str "--has-glo" ] else [])
            )
 
 ---------------------------------------------------------------------

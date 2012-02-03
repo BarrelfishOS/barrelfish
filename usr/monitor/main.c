@@ -17,11 +17,6 @@
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
 
-#ifdef __BEEHIVE__
-// Flag this as an initialisation domain for systems without ELF entry
-bool __barrelfish_initialisation_domain = 1;
-#endif
-
 /* irefs for mem server and name service */
 iref_t mem_serv_iref = 0;
 iref_t name_serv_iref = 0;

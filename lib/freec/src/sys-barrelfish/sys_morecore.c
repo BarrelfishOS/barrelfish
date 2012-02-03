@@ -67,8 +67,8 @@ Header *morecore(unsigned nu)
  */
 void lesscore(void)
 {
-#if defined(NOTRANS) || defined(__arm__)
-    // Not implemented without translation hardware
+#if defined(__arm__)
+    // Not implemented
 
 #else
     struct morecore_state *state = get_morecore_state();

@@ -175,7 +175,6 @@ errval_t spawn_vspace_map_fixed_one_frame(struct spawninfo *si, genvaddr_t addr,
     return err;
 }
 
-#ifndef NOTRANS
 /**
  * \brief Return memobj and vregion for anonymous type mapping
  */
@@ -222,4 +221,3 @@ errval_t spawn_vspace_map_anon_fixed_attr(struct spawninfo *si, genvaddr_t addr,
     }
     return err;
 }
-#endif

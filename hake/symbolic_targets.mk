@@ -70,6 +70,8 @@ MODULES_GENERIC= \
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/ahci_bench \
+	sbin/ata_rw28_test \
 	sbin/apicdrift_bench \
 	sbin/bench \
 	sbin/bfscope \
@@ -84,6 +86,7 @@ MODULES_x86_64= \
 	sbin/boot_perfmon \
 	sbin/bulkbench \
 	sbin/datagatherer \
+	sbin/ahcid \
 	sbin/e1000n \
 	sbin/rtl8029 \
 	sbin/netd \
@@ -208,16 +211,6 @@ MODULES_xscale=\
 MODULES_arm11mp=\
 	sbin/cpu.bin
 
-# Beehive-specific modules to build by default
-MODULES_beehive=\
-	sbin/hyper \
-	sbin/bmp_bench \
-	sbin/bulkbench \
-	sbin/thc_v_flounder_empty \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/thctest \
-
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
                                   $(foreach m,$(MODULES_COMMON),$(a)/$(m))) \
@@ -251,10 +244,15 @@ sim: simulate
 
 QEMU=unknown-arch-error
 GDB=unknown-arch-error
+CLEAN_HD=
+
+DISK=hd.img
+AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user  -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=x86_64-pc-linux-gdb
+	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
         QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
@@ -277,26 +275,13 @@ debugsim: $(MODULES) arm/romfs.cpio arm/tools/debug.arm.gdb
 else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-none-linux-gnueabi-gdb
-else ifeq ($(ARCH),beehive)
-
-simulate: ./beehive/sbin/spliced.img
-	Bsimimg -slave=$(SRCDIR)/kernel/arch/beehive/slavecode.mem -noaddrcheck -ncores=3 -ibase=1000 -datarota=2 ./beehive/sbin/spliced.img
-.PHONY : simulate
-
-trace: ./beehive/sbin/spliced.img
-	Bsimimg -slave=$(SRCDIR)/kernel/arch/beehive/slavecode.mem -noaddrcheck -ncores=3 -ibase=1000 -datarota=2 -instructions=instructions.txt -events=events.txt -cache=cache.txt ./beehive/sbin/spliced.img | tee sim.out
-
-.PHONY : trace
-
-./beehive/sbin/spliced.img: ./menu.lst $(MODULES)
-	Bsplice -o ./beehive/sbin/spliced.img -s ./beehive/sbin/beehive.splice -i menu.lst
-
 endif
 
 
 ifdef QEMU_CMD
 
 simulate: $(MODULES)
+	$(CLEAN_HD)
 	$(QEMU_CMD)
 .PHONY : simulate
 
@@ -349,8 +334,12 @@ arminstall:
 	install -p $(ARCH)/romfs.cpio ${INSTALL_PREFIX}/$(ARCH)/romfs.cpio
 .PHONY: arminstall
 
-scc: all tools/bin/dite
-	strip -d scc/sbin/*
+# Copy the scc-specific menu.lst from the source directory to the build directory
+menu.lst.scc: $(SRCDIR)/hake/menu.lst.scc
+	cp $< $@
+
+scc: all tools/bin/dite menu.lst.scc
+	$(shell find scc/sbin -type f -print0 | xargs -0 strip -d)
 	tools/bin/dite -32 -o bigimage.dat menu.lst.scc
 	cp $(SRCDIR)/tools/scc/bootvector.dat .
 	bin2obj -m $(SRCDIR)/tools/scc/bigimage.map -o barrelfish0.obj
@@ -415,7 +404,6 @@ DOCS= \
 	./docs/TN-004-VirtualMemory.pdf \
 	./docs/TN-005-SCC.pdf \
 	./docs/TN-006-Routing.pdf \
-	./docs/TN-007-Beehive.pdf \
 	./docs/TN-008-Tracing.pdf \
 	./docs/TN-009-Notifications.pdf \
 	./docs/TN-010-Spec.pdf \
@@ -423,6 +411,7 @@ DOCS= \
 	./docs/TN-012-Services.pdf \
 	./docs/TN-013-CapabilityManagement.pdf \
 	./docs/TN-014-bulk-transfer.pdf \
+	./docs/TN-015-DiskDriverArchitecture.pdf \
 
 docs doc: $(DOCS)
 .PHONY: docs doc

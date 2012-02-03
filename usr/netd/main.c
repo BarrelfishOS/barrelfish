@@ -133,9 +133,6 @@ int main(int argc, char **argv)
     /* connect with NIC_ctrl interface of driver */
     init_controller_service(filter_controller_name, net_ctrl_service_name);
 
-
-
-    NETD_DEBUG("starting network loop...\n");
     network_polling_loop();
     return 0;
 }

@@ -49,4 +49,7 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
         /* Allocate local IRQ vector */
         rpc irq_handle(in cap ep, out errval err, out uint32 vector);
+
+        /* Retrieve local arch-specific core ID (e.g. APIC ID on x86)*/
+        rpc get_arch_core_id(out uintptr id);
 };

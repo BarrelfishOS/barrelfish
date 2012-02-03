@@ -23,15 +23,8 @@
 
 #include "waitset_chan.h"
 
-// this macro hides two kludges:
-//  1. the kernel currently reports time in ms rather than us
-//  2. Beehive is apparently incapable of multiplying a 64-bit value by 1000
-//  (internal compiler error: in simplify_const_unary_operation, at simplify-rtx.c:1108)
-#ifdef __BEEHIVE__
-#define SYSTIME_MULTIPLIER 1
-#else
+// kludge: the kernel currently reports time in ms rather than us
 #define SYSTIME_MULTIPLIER 1000
-#endif
 
 static void update_wakeup_disabled(dispatcher_handle_t dh)
 {

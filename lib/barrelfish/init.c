@@ -31,15 +31,7 @@
 #include "init.h"
 
 /// Are we the init domain (and thus need to take some special paths)?
-#ifdef __BEEHIVE__
-// We dont have ELF to mess with entry points, so we rely on
-// initialisation domains to initialise this global symbol; if they dont
-// it will end up in as a common symbol in the bss and hence zero.
-bool __barrelfish_initialisation_domain;
-#define init_domain __barrelfish_initialisation_domain
-#else
 static bool init_domain;
-#endif
 
 extern size_t (*_libc_terminal_read_func)(char *, size_t);
 extern size_t (*_libc_terminal_write_func)(const char *, size_t);
@@ -121,24 +113,13 @@ errval_t trace_my_setup(void)
         return SYS_ERR_OK;
     }
 
-#ifdef __BEEHIVE__ // whatever SAS is called
-    struct frame_identity id = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(cap, &id);
-    if (err_is_fail(err)) {
-	DEBUG_ERR(err, "frame_identify failed");
-	return err;
-    }
-    // TODO: XXX Here be many bugs; should do some kind of mapping?
-    trace_buffer_master = id.base;
-#else
     err = vspace_map_one_frame((void**)&trace_buffer_master, TRACE_BUF_SIZE,
                                cap, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");
         return err;
     }
-#endif
-    assert(err_is_ok(err));
+
     trace_buffer_va = trace_buffer_master +
         (disp_get_core_id() * TRACE_PERCORE_BUF_SIZE);
 
@@ -309,14 +290,6 @@ static void monitor_bind_cont(void *st, errval_t err, struct monitor_binding *b)
  * setup. We can't call anything that needs to be enabled (ie. cap invocations)
  * or uses threads. This is called from crt0.
  */
-#ifdef __BEEHIVE__
-void barrelfish_init_disabled(dispatcher_handle_t handle);
-void barrelfish_init_disabled(dispatcher_handle_t handle)
-{
-    disp_init_disabled(handle);
-    thread_init_disabled(handle, init_domain);
-}
-#else
 void barrelfish_init_disabled(dispatcher_handle_t handle, bool init_dom_arg);
 void barrelfish_init_disabled(dispatcher_handle_t handle, bool init_dom_arg)
 {
@@ -324,4 +297,3 @@ void barrelfish_init_disabled(dispatcher_handle_t handle, bool init_dom_arg)
     disp_init_disabled(handle);
     thread_init_disabled(handle, init_dom_arg);
 }
-#endif
