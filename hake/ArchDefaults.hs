@@ -81,18 +81,18 @@ ldCxxFlags arch =
       Str "-nostdlib" ]
 
 
+-- Libraries that are linked to all applications.
 stdLibs arch = 
     [ In InstallTree arch "/lib/libbarrelfish.a",
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
-      In InstallTree arch "/lib/libposixcompat.a",
-      In InstallTree arch "/lib/libvfs.a",
-      In InstallTree arch "/lib/libnfs.a",
-      In InstallTree arch "/lib/liblwip.a",
-      In InstallTree arch "/lib/libbarrelfish.a",
-      In InstallTree arch "/lib/libcontmng.a",
-      In InstallTree arch "/lib/libprocon.a",
-      In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
+      --In InstallTree arch "/lib/libposixcompat.a",
+      --In InstallTree arch "/lib/libvfs.a",
+      --In InstallTree arch "/lib/libnfs.a",
+      --In InstallTree arch "/lib/liblwip.a",
+      --In InstallTree arch "/lib/libbarrelfish.a",
+      --In InstallTree arch "/lib/libcontmng.a",
+      --In InstallTree arch "/lib/libprocon.a",
       In InstallTree arch "/lib/crtend.o" ,
       In InstallTree arch "/lib/libcollections.a" ]
 

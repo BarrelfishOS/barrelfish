@@ -21,6 +21,7 @@ in
 		    omitCFlags = [ "-Werror" ],
                     flounderExtraBindings = [ ("netd", ["rpcclient"]) ],
                     addCFlags =  [ "-Wno-redundant-decls" ],
-                    addIncludes = [ "src/barrelfish" ]
+                    addIncludes = [ "src/barrelfish" ],
+                    addLibraries = [ "contmng", "procon"]
                   }
   ]

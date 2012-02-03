@@ -16,7 +16,8 @@
 
 [ build application { target = "net-test",
   		      cFiles = [ "net-test.c" ],
-		      addLibraries = [ "vfs", "nfs", "lwip", "contmng", "timer" ],
+                     addLibraries = [ "posixcompat", "vfs", "nfs", "lwip",
+                                      "contmng", "timer" ],
 		      architectures = [ "x86_64", "scc" ]
           -- omitCFlags = [ "-Wredundant-decls" ]
                     }
