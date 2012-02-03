@@ -202,6 +202,8 @@ void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* srt = NULL;
+    struct ast_object* ast = NULL;
+
     err = new_dist_reply_state(&srt, get_names_reply);
     assert(err_is_ok(err));
 
@@ -210,7 +212,6 @@ void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
         goto out;
     }
 
-    struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         err = get_record_names(ast, &srt->query_state);
@@ -249,6 +250,8 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* srs = NULL;
+    struct ast_object* ast = NULL;
+
     err = new_dist_reply_state(&srs, set_reply);
     assert(err_is_ok(err));
 
@@ -257,7 +260,6 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
         goto out;
     }
 
-    struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         if (ast->u.on.name->type == nodeType_Ident) {
@@ -302,6 +304,8 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* srs = NULL;
+    struct ast_object* ast = NULL;
+
     err = new_dist_reply_state(&srs, del_reply);
     assert(err_is_ok(err));
 
@@ -310,7 +314,6 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
         goto out;
     }
 
-    struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         if (ast->u.on.name->type == nodeType_Ident) {
@@ -354,6 +357,8 @@ void exists_handler(struct dist2_binding* b, char* query,
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* drs = NULL;
+    struct ast_object* ast = NULL;
+
     err = new_dist_reply_state(&drs, exists_reply);
     assert(err_is_ok(err));
 
@@ -362,17 +367,16 @@ void exists_handler(struct dist2_binding* b, char* query,
         goto out;
     }
 
-    struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
         install_trigger(b, ast, trigger, err);
     }
 
+out:
     drs->error = err;
     drs->reply(b, drs);
 
-out:
     free_ast(ast);
     free(query);
 }
@@ -399,6 +403,8 @@ void subscribe_handler(struct dist2_binding *b, char* query, uint64_t client_id)
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* drs = NULL;
+    struct ast_object* ast = NULL;
+
     err = new_dist_reply_state(&drs, subscribe_reply);
     assert(err_is_ok(err));
 
@@ -407,7 +413,6 @@ void subscribe_handler(struct dist2_binding *b, char* query, uint64_t client_id)
         goto out;
     }
 
-    struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         err = add_subscription(b, ast, client_id, drs);
@@ -489,7 +494,6 @@ void publish_handler(struct dist2_binding *b, char* record)
     struct dist_reply_state* srs = NULL;
     err = new_dist_reply_state(&srs, publish_reply);
     assert(err_is_ok(err));
-
 
     err = check_query_length(record);
     if (err_is_fail(err)) {
