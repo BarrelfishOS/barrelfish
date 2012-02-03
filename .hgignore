@@ -3,6 +3,10 @@ syntax: glob
 *~
 *.pyc
 .emacs.desktop*
+.*.swp
+
+*.orig
+*.rej
 
 
 syntax: regexp
