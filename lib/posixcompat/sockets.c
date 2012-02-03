@@ -14,7 +14,7 @@
 #include <barrelfish/barrelfish.h>
 #include <lwip/sys.h>
 #include "posixcompat.h"
-#include <posixcompat/fdtab.h>
+#include <vfs/fdtab.h>
 #include "unixsock.h"
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))

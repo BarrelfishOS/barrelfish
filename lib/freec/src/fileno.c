@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdio_file.h>
 #include <barrelfish/barrelfish.h>
-#include <posixcompat/fdtab.h>
+#include <vfs/fdtab.h>
 
 int fileno(FILE *f)
 {

@@ -17,9 +17,7 @@
 				 "pci_host.c", "pci_hostbridge.c" ],
                       mackerelDevices = [ "amd_vmcb", "lpc_timer",
                                           "pc16550d_mem", "pci_hdr0_mem" ],
-                      addLibraries = [ "spawndomain", "x86emu",
-                                       "vfs", "nfs", "lwip", "contmng",
-                                       "procon", "timer" ],
+                      addLibraries = libDeps [ "spawndomain", "x86emu", "vfs"],
                       architectures = ["x86_64"]
                     }
 ]

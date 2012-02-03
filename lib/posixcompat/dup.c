@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <posixcompat/fdtab.h>
+#include <vfs/fdtab.h>
 
 int dup(int oldfd)
 {

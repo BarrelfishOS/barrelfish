@@ -17,7 +17,7 @@
 #include <lwip/sockets.h>
 #include <syscalls.h>
 #include "unixsock.h"
-#include <posixcompat/fdtab.h>
+#include <vfs/fdtab.h>
 #include "posixcompat.h"
 
 #define	MAX(a,b) (((a)>(b))?(a):(b))

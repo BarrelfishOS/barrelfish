@@ -13,8 +13,7 @@
 #include <vfs/vfs.h>
 #include <unistd.h>
 #include <errno.h>
-#include <posixcompat/fdtab.h>
-#include "posixcompat.h"
+#include <vfs/fdtab.h>
 
 static struct fdtab_entry fdtab[MAX_FD] = {
     [STDIN_FILENO] = {

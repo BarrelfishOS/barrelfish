@@ -15,7 +15,6 @@
                                  "zlib_load.c" ],
 		      flounderBindings = [ "keyboard", "fb" ],
 		      flounderExtraBindings = [ ("fb", ["rpcclient"]) ],
-                      addLibraries = [ "vfs", "nfs", "lwip", "contmng",
-                      "procon", "zlib" ]
+              addLibraries = libDeps ["zlib", "vfs" ]
                     }
 ]

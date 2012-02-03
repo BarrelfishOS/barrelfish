@@ -25,10 +25,9 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         addCFlags = [ "-O2" ],
                         flounderBindings = [ "skb" ],
                         addIncludes = [ "eclipse_kernel/src"],
-                        addLibraries = [ "eclipse", "shm", "dummies",
-                                         "icsolver", "vfs", "nfs", "lwip",
-                                         "contmng", "procon", "hashtable",
-                                         "posixcompat"],
+                        addLibraries = libDeps [ "eclipse", "shm", "dummies",
+                                                 "icsolver", "vfs",
+                                                 "posixcompat" ],
                         architectures = [ arch ]
                 }
 in
