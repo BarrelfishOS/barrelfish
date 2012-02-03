@@ -64,8 +64,7 @@ static void variable_records(void)
             sprintf(buf, "object%lu", get_nr);
 
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.get(cl, buf, NOP_TRIGGER, &data, &error_code,
-                    &timestamps[k].server);
+            cl->vtbl.get(cl, buf, NOP_TRIGGER, &data, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "get");
@@ -94,13 +93,12 @@ static void add_record(void) {
     errval_t error_code;
     char* ret = NULL;
     char* record = "rec_ { attribute: 1 }";
-    uint8_t busy;
     for (size_t i = 1; i < exps; i++) {
         printf("# Run add_record with %lu records:\n", add_records[i]);
 
         for (size_t j = add_records[i - 1]; j < add_records[i]; j++) {
             //printf("add to system: %s\n", record);
-            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &busy, &error_code);
+            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &error_code);
             assert(ret == NULL);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "add"); exit(0); }
         }
@@ -151,8 +149,7 @@ static void one_record(void)
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
         timestamps[i].time0 = bench_tsc();
-        cl->vtbl.get(cl, "object0", NOP_TRIGGER, &data, &error_code,
-                &timestamps[i].server);
+        cl->vtbl.get(cl, "object0", NOP_TRIGGER, &data, &error_code);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
@@ -180,8 +177,7 @@ static void unnamed_record(void)
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
         timestamps[i].time0 = bench_tsc();
-        cl->vtbl.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &error_code,
-                &timestamps[i].server);
+        cl->vtbl.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &error_code);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
