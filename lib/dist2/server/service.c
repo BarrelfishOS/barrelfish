@@ -224,9 +224,10 @@ static void set_reply(struct dist2_binding* b, struct dist_reply_state* srs)
 
     errval_t err;
     err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, srs), record,
-            srs->error);
+            srs->busy, srs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            srs->busy = 1;
             dist_rpc_enqueue_reply(b, srs);
             return;
         }
@@ -266,6 +267,7 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     }
 
 out:
+    srs->busy = 0;
     srs->error = err;
     srs->return_record = get;
     srs->reply(b, srs);

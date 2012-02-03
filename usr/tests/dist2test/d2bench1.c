@@ -22,7 +22,8 @@
 #include <dist2/dist2.h>
 #include <skb/skb.h>
 
-static bool stopped = false;
+#define EXP_RUNTIME_MS 10000
+
 int main(int argc, char** argv)
 {
 	int clients = atoi(argv[1]);
@@ -33,6 +34,8 @@ int main(int argc, char** argv)
 
     char payload[256] = { 'a' };
     payload[255] = '\0';
+
+    dist_set("rec { attr: '1' }");
 
     struct dist2_rpc_client* cl = get_dist_rpc_client();
     assert(cl != NULL);

@@ -204,6 +204,14 @@ int main(int argc, char** argv)
 
     if (0) one_record();
     if (0) variable_records();
-    add_record();
+    if (0) add_record();
     if (0) unnamed_record();
+
+    debug_printf("1000000000 cycles in ms: %lu\n", bench_tsc_to_ms(1000000000));
+    debug_printf(" 100000000 cycles in ms: %lu\n", bench_tsc_to_ms( 100000000));
+    debug_printf("  10000000 cycles in ms: %lu\n", bench_tsc_to_ms(  10000000));
+    debug_printf("   3333333 cycles in ms: %lu\n", bench_tsc_to_ms(   3333333));
+    debug_printf("   2800000 cycles in ms: %lu\n", bench_tsc_to_ms(   2800000));
+    debug_printf("   2700000 cycles in ms: %lu\n", bench_tsc_to_ms(   2700000));
+
 }
