@@ -942,3 +942,60 @@ libBuildArch af tf args arch =
                 staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths args)
               ]
             )
+
+--
+-- Library dependecies
+--
+
+-- The following code is under heavy construction, and also somewhat ugly
+data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
+
+-- manually add dependencies for now (it would be better if each library
+-- defined each own dependencies locally, but that does not seem to be an
+-- easy thing to do currently
+libposixcompat_deps = LibDeps $ [ LibDep x | x <- deps ]
+    where deps = ["vfsfd", "posixcompat"]
+liblwip_deps        = LibDeps $ [ LibDep x | x <- deps ]
+    where deps = ["lwip" ,"contmng" ,"procon" ,"timer" ,"hashtable"]
+libnet_deps         = LibDeps $ [liblwip_deps, libposixcompat_deps]
+libnfs_deps         = LibDeps $ [ LibDep "nfs", libnet_deps]
+
+-- we need to make vfs more modular to make this actually useful
+data VFSModules = VFS_RamFS | VFS_NFS
+vfsdeps :: [VFSModules] -> [LibDepTree]
+vfsdeps [] = [LibDep "vfs"]
+vfsdeps (VFS_RamFS:xs) = [] ++ vfsdeps xs
+vfsdeps (VFS_NFS:xs) =   [libnfs_deps] ++ vfsdeps xs
+
+libvfs_deps_all   = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS]
+libvfs_deps_nfs   = LibDeps $ vfsdeps [VFS_NFS]
+libvfs_deps_ramfs = LibDeps $ vfsdeps [VFS_RamFS]
+
+-- flatten the dependency tree
+flat :: [LibDepTree] -> [LibDepTree]
+flat [] = []
+flat ((LibDep  l):xs) = [LibDep l] ++ flat xs
+flat ((LibDeps t):xs) = flat t ++ flat xs
+
+str2dep :: String -> LibDepTree
+str2dep  str
+    | str == "vfs"         = libvfs_deps_all
+    | str == "posixcompat" = libposixcompat_deps
+    | str == "lwip"        = liblwip_deps
+    | str == "net"         = libnet_deps
+    | otherwise            = LibDep str
+
+-- get library depdencies
+--   we need a specific order for the .a, so we define a total order
+libDeps :: [String] -> [String]
+libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
+    where xord = [ "vfs"
+                  , "nfs"
+                  , "posixcompat"
+                  , "lwip"
+                  , "contmng"
+                  , "procon"
+                  , "vfsfd"
+                  , "timer"
+                  , "hashtable"]
+          xcmp (LibDep a) (LibDep b) = compare (elemIndex a xord) (elemIndex b xord)
