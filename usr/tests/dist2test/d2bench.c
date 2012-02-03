@@ -65,7 +65,7 @@ static void variable_records(void)
 
             timestamps[k].time0 = bench_tsc();
             cl->vtbl.get(cl, buf, NOP_TRIGGER, &data, &error_code,
-                    &timestamps[k].server, &timestamps[k].busy);
+                    &timestamps[k].server);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "get");
@@ -110,7 +110,7 @@ static void add_record(void) {
         char* data;
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &timestamps[k].busy, &error_code);
+            cl->vtbl.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "set");
@@ -152,7 +152,7 @@ static void one_record(void)
 
         timestamps[i].time0 = bench_tsc();
         cl->vtbl.get(cl, "object0", NOP_TRIGGER, &data, &error_code,
-                &timestamps[i].server, &timestamps[i].busy);
+                &timestamps[i].server);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
@@ -181,7 +181,7 @@ static void unnamed_record(void)
 
         timestamps[i].time0 = bench_tsc();
         cl->vtbl.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &error_code,
-                &timestamps[i].server, &timestamps[i].busy);
+                &timestamps[i].server);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
@@ -207,11 +207,12 @@ int main(int argc, char** argv)
     if (0) add_record();
     if (0) unnamed_record();
 
+    /*
     debug_printf("1000000000 cycles in ms: %lu\n", bench_tsc_to_ms(1000000000));
     debug_printf(" 100000000 cycles in ms: %lu\n", bench_tsc_to_ms( 100000000));
     debug_printf("  10000000 cycles in ms: %lu\n", bench_tsc_to_ms(  10000000));
     debug_printf("   3333333 cycles in ms: %lu\n", bench_tsc_to_ms(   3333333));
     debug_printf("   2800000 cycles in ms: %lu\n", bench_tsc_to_ms(   2800000));
-    debug_printf("   2700000 cycles in ms: %lu\n", bench_tsc_to_ms(   2700000));
+    debug_printf("   2700000 cycles in ms: %lu\n", bench_tsc_to_ms(   2700000));*/
 
 }

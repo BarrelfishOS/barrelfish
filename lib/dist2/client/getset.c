@@ -189,11 +189,9 @@ errval_t dist_get(char** data, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-    cycles_t time;
-    uint8_t busy;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.get(rpc_client, buf, NOP_TRIGGER, data,
-            &error_code, &time, &busy);
+            &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
 
     if (err_is_ok(err)) {
@@ -228,11 +226,10 @@ errval_t dist_set(const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
     char* record = NULL;
 
-    uint8_t busy;
     errval_t error_code;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.set(rpc_client, buf, SET_DEFAULT, NOP_TRIGGER, false,
-            &record, &busy, &error_code);
+            &record, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     assert(record == NULL);
 
@@ -275,11 +272,10 @@ errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
     // Send to Server
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
-    uint8_t busy;
     errval_t error_code;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.set(rpc_client, buf, mode, NOP_TRIGGER, true, record,
-            &busy, &error_code);
+            &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;

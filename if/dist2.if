@@ -49,7 +49,7 @@ interface dist2 "dist2 RPC Interface" {
      * \param output Retrieved record or NULL on error.
      * \param error_code Error value of request.
      */
-    rpc get(in string query, in trigger t, out string output, out errval error_code, out cycles time, out uint8 busy);
+    rpc get(in string query, in trigger t, out string output, out errval error_code);
         
     /**
      * \param query Record to set.
@@ -60,7 +60,7 @@ interface dist2 "dist2 RPC Interface" {
      * contains record, otherwise NULL
      * \param error_code Error value of request
      */
-    rpc set(in string query, in uint64 mode, in trigger t, in bool get, out string record, out uint8 busy, out errval error_code);
+    rpc set(in string query, in uint64 mode, in trigger t, in bool get, out string record, out errval error_code);
     
     /**
      * \param query Record(s) to delete.

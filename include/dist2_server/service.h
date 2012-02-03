@@ -49,9 +49,6 @@ struct dist_reply_state {
     uint64_t watch_id;
     uint64_t server_id;
 
-    cycles_t time;
-    uint8_t busy;
-
     struct dist_reply_state *next;
 };
 

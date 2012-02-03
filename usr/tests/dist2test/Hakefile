@@ -56,21 +56,21 @@
                       cFiles = [ "d2mem.c" ],
                       flounderBindings = [ "dist2" ],
                       flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser" ]
                     },
 
   build application { target = "d2bench",
                       cFiles = [ "d2bench.c" ],
                       flounderBindings = [ "dist2" ],
                       flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "bench", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "bench" ]
                     },
 
   build application { target = "d2bench1",
                       cFiles = [ "d2bench1.c" ],
                       flounderBindings = [ "dist2" ],
                       flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "bench", "skb" ]
+                      addLibraries = [ "dist2", "dist_parser", "bench" ]
                     },
                     
   build application { target = "d2bench2",

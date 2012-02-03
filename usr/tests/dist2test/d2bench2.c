@@ -143,24 +143,19 @@ static void no_name_get_worstcase(void)
         assert(cl != NULL);
         errval_t error_code;
         char* record;
-	uint8_t busy;
+
         for (size_t j = records[i - 1]; j < records[i]; j++) {
             construct_record(5);
-            cl->vtbl.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &busy, &error_code);
+            cl->vtbl.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &error_code);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "set"); exit(0); }
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            cycles_t server;
-            //uint8_t busy;
-
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.get(cl, query, NOP_TRIGGER, &record, &error_code,
-                    &server, &timestamps[k].busy);
+            cl->vtbl.get(cl, query, NOP_TRIGGER, &record, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) { DEBUG_ERR(error_code, "get"); exit(0); }
-            //printf("record is: %s\n", record);
-            timestamps[k].count = atoll(strrchr(record, '}')+1);
+            //timestamps[k].count = atoll(strrchr(record, '}')+1);
             free(record);
         }
 

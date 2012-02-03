@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Benchmark publish / subscribe throughput.
+ * \brief Benchmark get/set throughput.
  */
 
 /*
@@ -22,43 +22,48 @@
 #include <dist2/dist2.h>
 #include <skb/skb.h>
 
-#define EXP_RUNTIME_MS 10000
-
+/**
+ * Usage: d2bench1 <#clients> <get|set>
+ */
 int main(int argc, char** argv)
 {
 	int clients = atoi(argv[1]);
 	assert(clients > 0);
 
     dist_init();
-    bench_init();
 
-    char payload[256] = { 'a' };
-    payload[255] = '\0';
-
-    dist_set("rec { attr: '1' }");
+    char payload[256] = { [0 ... 254] = 'a', [255] = '\0' };
 
     struct dist2_rpc_client* cl = get_dist_rpc_client();
     assert(cl != NULL);
-    errval_t err = dist_set("rec { attr: '%s' }", payload);
+
+    char record[300];
+    sprintf(record, "rec { attr: '%s' }", payload);
+    printf("record is: %s\n", record);
+
+    errval_t err = dist_set(record);
     assert(err_is_ok(err));
 
     char* barrier = NULL;
     err = dist_barrier_enter("d2bench1", &barrier, clients);
     assert(err_is_ok(err));
 
-    char* record;
+    char* reply;
     errval_t error_code;
-    cycles_t server;
-    uint8_t busy;
 
+    bool stopped = false;
     if (strcmp(argv[2], "get") == 0) {
 		while ( !stopped ) {
-			cl->vtbl.get(cl, "rec", NOP_TRIGGER, &record, &error_code, &server, &busy);
+			cl->vtbl.get(cl, "rec", NOP_TRIGGER, &reply, &error_code);
+			free(reply);
+			//DEBUG_ERR(error_code, "got record");
 		}
     }
     else if (strcmp(argv[2], "set") == 0) {
 		while ( !stopped ) {
-			//cl->vtbl.set(cl, "rec", NOP_TRIGGER, &record, &error_code, &server, &busy);
+			cl->vtbl.set(cl, record, SET_DEFAULT, NOP_TRIGGER, false, &reply, &error_code);
+			//assert(reply == NULL);
+			//DEBUG_ERR(error_code, "set record");
 		}
     }
     else {
