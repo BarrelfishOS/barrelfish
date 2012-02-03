@@ -13,14 +13,12 @@
 
 [ build library { target = "vfs",
   		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c", "vfs_nfs.c", "vfs_ramfs.c", "cache.c" ],
-                  omitCFlags = [ "-Wshadow" ],
                   flounderBindings = [ "trivfs", "bcache" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]), ("bcache", ["rpcclient"]) ],
                   flounderDefs = [ "monitor" ]
                 },
   build library { target = "vfs_nonfs",
   		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c", "cache.c" ],
-                  omitCFlags = [ "-Wshadow" ],
                   addCFlags = [ "-DDISABLE_NFS" ],
                   flounderBindings = [ "trivfs", "bcache" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]), ("bcache", ["rpcclient"]) ],

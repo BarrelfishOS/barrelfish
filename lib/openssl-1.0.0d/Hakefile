@@ -609,7 +609,7 @@
                                  "-Wmissing-prototypes",
                                  "-Wmissing-declarations",
                                  "-Wmissing-field-initializers",
-                                 "-Wredundant-decls" ],
+                                 "-Wredundant-decls", "-std=c99" ],
                  addIncludes = [ "include", "local" ],
                  architectures = [ "x86_64", "x86_32" ]
                 }
