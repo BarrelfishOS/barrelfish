@@ -61,6 +61,7 @@ cStdIncs arch archFamily =
       NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/target" ./. archFamily),
       NoDep SrcTree "src" "/include/ipv4", -- XXX
+      NoDep SrcTree "src" "/include/posixcompat", -- XXX
       NoDep InstallTree arch "/include",
       NoDep InstallTree arch "/include/dev",
       NoDep SrcTree "src" ".",

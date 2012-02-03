@@ -38,7 +38,7 @@ in
       "fgetpos.c",
       "fgets.c",
       "fileno.c",
-      "findfp.c",
+      --"findfp.c",
       "fiprintf.c",
       "flags.c",
       "fopen.c",

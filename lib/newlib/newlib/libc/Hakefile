@@ -1,7 +1,20 @@
 if Config.libc == "newlib" then
 [ build library { 
   target = "newc",
-  addLibraries = [ "ctype", "search", "string", "argz", "stdlib", "stdio", "signal", "time", "locale", "reent", "errno", "misc", "x86_64", "sys" ]
+  addLibraries = [ "ctype",
+                   "search",
+                   "string",
+                   "argz",
+                   "stdlib",
+                   "stdio",
+                   -- "signal",
+                   "time",
+                   "locale",
+                   "reent",
+                   "errno",
+                   "misc",
+                   "x86_64",
+                   "sys" ]
    }
 ]
 else []

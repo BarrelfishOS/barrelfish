@@ -14,15 +14,11 @@
 #include <stdio.h>
 #include "posixcompat.h"
 
-#ifdef FREEC
-
 signalhandler_t signal(int signum, signalhandler_t handler)
 {
     POSIXCOMPAT_DEBUG("Warning: signal(%d, %p) ignored\n", signum, handler);
     return SIG_DFL;
 }
-
-#endif /* FREEC */
 
 int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
 {
@@ -67,8 +63,6 @@ int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
  *
  *      @(#)sigsetops.c 8.1 (Berkeley) 6/4/93
  */
-
-#ifdef FREEC
 
 int sigaddset(sigset_t *set, int signo)
 {
@@ -116,5 +110,3 @@ int sigismember(const sigset_t *set, int signo)
     }
     return ((set->__bits[_SIG_WORD(signo)] & _SIG_BIT(signo)) ? 1 : 0);
 }
-
-#endif /* FREEC */

@@ -86,6 +86,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+/* VFS support for fopen() and friends in freec / newlib */
+
 #define _USE_XOPEN // for strdup()
 #include <string.h>
 #include <stdio.h>
@@ -95,8 +97,10 @@
 #include <vfs/vfs_path.h>
 #include <errno.h>
 #include "vfs_backends.h"
+#include <vfs/vfs_fd.h>
 
-static long int barrelfish_eof(void *handle)
+static long int
+barrelfish_eof(void *handle)
 {
     /* contrary to what its name may imply, the purpose of this function is to
      * return the size of the file (see the fseek() implementation) */
@@ -159,8 +163,8 @@ barrelfish_close(void *handle)
     return err_is_ok(err) ? 0 : EOF;
 }
 
-static struct __file *
-barrelfish_fopen(const char *fname, const char *mode)
+ __attribute__((unused)) static struct __file *
+barrelfish_freec_fopen(const char *fname, const char *mode)
 {
     struct __file *newfile;
     vfs_handle_t vh;
@@ -231,12 +235,35 @@ barrelfish_fopen(const char *fname, const char *mode)
     return newfile;
 }
 
-extern struct __file *(*_libc_fopen_func)(const char *fname, const char *prot);
+#ifdef FREEC
+extern struct __file *(*_freec_fopen_func)(const char *fname, const char *prot);
+#endif
+
+#ifdef NEWLIB
+typedef int   fsopen_fn_t(const char *, int);
+typedef int   fsread_fn_t(int, void *buf, size_t);
+typedef int   fswrite_fn_t(int, const void *, size_t);
+typedef int   fsclose_fn_t(int);
+typedef off_t fslseek_fn_t(int, off_t, int);
+void
+newlib_register_fsops__(fsopen_fn_t *open_fn,
+                        fsread_fn_t *read_fn,
+                        fswrite_fn_t *write_fn,
+                        fsclose_fn_t *close_fn,
+                        fslseek_fn_t *lseek_fn);
+#endif
 
 void vfs_fopen_init(void)
 {
-    /* set the function pointer that libc calls through */
-    _libc_fopen_func = barrelfish_fopen;
+    /* set the function pointer that freec libc calls through */
+    #ifdef FREEC
+    _freec_fopen_func = barrelfish_freec_fopen;
+    #endif
+
+    #ifdef NEWLIB
+    newlib_register_fsops__(vfsfd_open, vfsfd_read, vfsfd_write,
+                            vfsfd_close, vfsfd_lseek);
+    #endif
 
     // Initialize working directory if not set already
     int r = setenv("PWD", "/", 0);

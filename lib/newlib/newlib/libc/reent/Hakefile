@@ -2,28 +2,28 @@ if Config.libc == "newlib" then
 [ build library { 
   target = "reent",
   cFiles = [ 
-    "closer.c",
     "reent.c",
     "impure.c",
     "fcntlr.c",
-    "fstatr.c",
     "getreent.c",
     "gettimeofdayr.c",
     "isattyr.c",
     "linkr.c",
-    "lseekr.c",
     "mkdirr.c",
-    "openr.c",
-    "readr.c",
     "renamer.c",
     "signalr.c",
     "signgam.c",
     "sbrkr.c",
     "statr.c",
-    "timesr.c",
-    "unlinkr.c",
-    "writer.c",
-    "execr.c"
+    "timesr.c"
+    --"openr.c",
+    --"fstatr.c",
+    --"unlinkr.c",
+    --"lseekr.c",
+    --"writer.c",
+    --"closer.c",
+    --"readr.c",
+    --"execr.c"
         ],
       addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES" ],
   omitCFlags = [ "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]

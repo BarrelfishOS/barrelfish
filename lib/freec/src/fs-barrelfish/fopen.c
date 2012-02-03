@@ -11,15 +11,15 @@
 #include <string.h>
 #include <stdlib.h>
 
-FILE *(*_libc_fopen_func)(const char *fname, const char *prot);
+FILE *(*_freec_fopen_func)(const char *fname, const char *prot);
 
 FILE *fopen(const char *fname, const char *prot)
 {
-    if (_libc_fopen_func == NULL) {
-        fprintf(stderr, "Warning: fopen() called with _libc_fopen_func unset\n");
+    if (_freec_fopen_func == NULL) {
+        fprintf(stderr, "Warning: fopen() called with _freec_fopen_func unset\n");
         return NULL;
     } else {
-        return _libc_fopen_func(fname, prot);
+        return _freec_fopen_func(fname, prot);
     }
 }
 
