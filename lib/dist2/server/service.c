@@ -119,6 +119,19 @@ static inline void install_trigger(struct dist2_binding* binding,
 
 }
 
+static inline void arrival_rate(void)
+{
+    static cycles_t measure_time = 10000;
+    static uint64_t arrivals = 0;
+    static cycles_t start = 0;
+    arrivals++;
+    if ( (arrivals % 100) == 0 && bench_tsc_to_ms(bench_tsc() - start) > measure_time) {
+        printf("Get Rate per sec: %lu\n", arrivals / (measure_time / 1000));
+        start = bench_tsc();
+        arrivals = 0;
+    }
+}
+
 static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt)
 {
     errval_t err;
@@ -140,6 +153,7 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* srt = NULL;
+    struct ast_object* ast = NULL;
     err = new_dist_reply_state(&srt, get_reply);
     assert(err_is_ok(err));
 
@@ -148,7 +162,6 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
         goto out;
     }
 
-    struct ast_object* ast = NULL;
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         err = get_record(ast, &srt->query_state);
@@ -159,15 +172,7 @@ out:
     srt->error = err;
     srt->reply(b, srt);
 
-    static cycles_t measure_time = 10000;
-    static uint64_t arrivals = 0;
-    static cycles_t start = 0;
-    arrivals++;
-    if ( (arrivals % 1000) == 0 && bench_tsc_to_ms(bench_tsc() - start) > measure_time) {
-        printf("Get Rate per sec: %lu\n", arrivals / (measure_time / 1000));
-        start = bench_tsc();
-        arrivals = 0;
-    }
+    arrival_rate();
 
     free_ast(ast);
     free(query);
