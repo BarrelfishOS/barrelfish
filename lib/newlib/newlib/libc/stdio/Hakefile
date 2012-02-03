@@ -1,5 +1,5 @@
 let
-  common_cflags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES", "-D__BSD_VISIBLE" ]
+  common_cflags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES", "-D__BSD_VISIBLE", "-D_WANT_IO_C99_FORMATS"]
   common_omitcflags = [ "-std=c99", "-Wredundant-decls", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
 in
   if Config.libc == "newlib" then
