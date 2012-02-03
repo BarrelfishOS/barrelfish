@@ -121,7 +121,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
  * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t client_state, uint64_t id, struct dist_query_state* dqs);
+        uint64_t client_state, struct dist_reply_state* dqs);
 
 /**
  * \brief Deletes a subscription for a given (Binding, Id) pair.

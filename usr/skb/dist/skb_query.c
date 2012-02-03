@@ -28,12 +28,15 @@
 #include <dist2/parser/ast.h>
 #include <dist2/getset.h> // for SET_SEQUENTIAL define
 #include "code_generator.h"
+#include "bitfield.h"
 
 #include <bench/bench.h>
 
 #define STDOUT_QID 1
 #define STDERR_QID 2
 static uint64_t watch_id = 0;
+
+static struct bitfield* subscriber_ids = NULL;
 
 STATIC_ASSERT(sizeof(long int) >= sizeof(uintptr_t),
         "Storage for pointers in SKB must be big enough");
@@ -347,19 +350,53 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
     return recipient;
 }
 
-errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t client_state, uint64_t id, struct dist_query_state* sqs)
+static errval_t allocate_subscriber_id(struct bitfield* bf, uint64_t* id)
 {
+    for (size_t i=0; i<BITFIELD_MAX; i++) {
+        if (!bitfield_get(bf, i)) {
+            bitfield_on(bf, i);
+            *id = i;
+            return SYS_ERR_OK;
+        }
+    }
+
+    return DIST2_ERR_MAX_SUBSCRIPTIONS;
+}
+
+static errval_t init_subscriber_field(void)
+{
+    errval_t err = SYS_ERR_OK;
+    if (subscriber_ids == NULL) {
+        err = bitfield_create(&subscriber_ids);
+    }
+
+    return err;
+}
+
+errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
+        uint64_t client_state, struct dist_reply_state* drs)
+{
+    errval_t err = init_subscriber_field();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = allocate_subscriber_id(subscriber_ids, &drs->server_id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     struct skb_ec_terms sr;
-    errval_t err = transform_record(ast, &sr);
+    err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
         // Calling add_subscription(ServerID, template(Name, Attributes, Constraints), subscriber(EventBinding, ClientState))
+        pword binding_term = ec_long((long int) get_event_binding(b));
+
         dident add_subscription = ec_did("add_subscription", 3);
         dident template = ec_did("template", 3);
         dident subscriber = ec_did("subscriber", 2);
 
-        pword binding_term = ec_long((long int) get_event_binding(b));
-        pword id_term = ec_long((long int) id);
+        pword id_term = ec_long((long int) drs->server_id);
 
         pword template_term = ec_term(template, sr.name, sr.attribute_list, sr.constraint_list);
         pword subscriber_term = ec_term(subscriber, binding_term, ec_long(client_state));
@@ -367,14 +404,15 @@ errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
 
         ec_post_goal(subscribe_term);
 
-        err = run_eclipse(sqs);
+        err = run_eclipse(&drs->query_state);
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
             DIST2_DEBUG("Subscription failed, check prolog code!");
             assert(!"add_subscription failed - should not happen!");
+            bitfield_off(subscriber_ids, drs->server_id);
         }
 
         DIST2_DEBUG("add_subscription\n");
-        debug_skb_output(sqs);
+        debug_skb_output(&drs->query_state);
     }
 
     return err;
@@ -384,13 +422,18 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
         struct dist_query_state* sqs)
 {
     errval_t err = SYS_ERR_OK;
+    pword binding_term = ec_long((long int) get_event_binding(b));
 
-    dident delete_subscription = ec_did("delete_subscription", 1);
+    dident delete_subscription = ec_did("delete_subscription", 2);
     pword id_term = ec_long(id);
-    pword delete_subscription_term = ec_term(delete_subscription, id_term);
+    pword delete_subscription_term = ec_term(delete_subscription, id_term, binding_term);
 
     ec_post_goal(delete_subscription_term);
     err = run_eclipse(sqs);
+    if (err_is_ok(err)) {
+        assert(subscriber_ids != NULL); // should not happen if eclipse succeeds
+        bitfield_off(subscriber_ids, id);
+    }
     if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
         err_push(err, DIST2_ERR_NO_SUBSCRIPTION);
     }

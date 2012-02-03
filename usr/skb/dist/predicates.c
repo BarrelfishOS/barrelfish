@@ -28,16 +28,25 @@
 
 #include "predicates.h"
 #include "skiplist.h"
+#include "bitfield.h"
 #include "fnv.h"
 
 #define HASH_INDEX_BUCKETS 6151
 static hash_table* record_index = NULL;
+static hash_table* subscriber_index = NULL;
+static struct bitfield* no_attr_subscriptions = NULL;
 
 static inline void init_index(void) {
     if(record_index == NULL) {
         hash_create_with_buckets(&record_index, HASH_INDEX_BUCKETS, NULL);
     }
+
+    if(subscriber_index == NULL) {
+        hash_create_with_buckets(&subscriber_index, HASH_INDEX_BUCKETS, NULL);
+        bitfield_create(&no_attr_subscriptions);
+    }
 }
+
 
 static int skip_index_insert(hash_table* ht, uint64_t key, char* value)
 {
@@ -269,6 +278,156 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
         hash_traverse_end(union_ht);
         return PFAIL;
     }
+}
+
+
+
+static int bitfield_index_insert(hash_table* ht, uint64_t key, long int id)
+{
+    assert(ht != NULL);
+
+    struct bitfield* bf = (struct bitfield*) hash_find(ht, key);
+    if (bf == NULL) {
+        errval_t err = bitfield_create(&bf);
+        if (err_is_fail(err)) {
+            return PFAIL;
+        }
+        hash_insert(ht, key, bf);
+    }
+
+    bitfield_on(bf, id);
+    return PSUCCEED;
+}
+
+static int bitfield_index_remove(hash_table* ht, uint64_t key, long int id)
+{
+    assert(ht != NULL);
+
+    struct bitfield* bf = (struct bitfield*) hash_find(ht, key);
+    if (bf != NULL) {
+        bitfield_off(bf, id);
+    }
+
+    return PSUCCEED;
+}
+
+int p_bitfield_add(void) /* p_bitfield_add(+Name, +[AttributeList], +Id) */
+{
+    init_index();
+    int res = 0;
+    long int id;
+    bool inserted = false;
+
+    res = ec_get_long(ec_arg(3), &id);
+    if (res != PSUCCEED) {
+        return PFAIL;
+    }
+
+    pword list, cur, rest;
+    pword attribute_term;
+    for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
+        ec_get_arg(1, cur, &attribute_term);
+
+        char* attribute;
+        ec_get_string(attribute_term, &attribute);
+        DIST2_DEBUG("insert %ld into index[%s]\n", id, attribute);
+        uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
+
+        int res = bitfield_index_insert(subscriber_index, key, id);
+        assert(res == PSUCCEED);
+        inserted = true;
+    }
+
+    if (!inserted) {
+        bitfield_on(no_attr_subscriptions, id);
+    }
+
+    return PSUCCEED;
+}
+
+int p_bitfield_remove(void) /* p_bitfield_remove(+Name, +[AttributeList], +Id) */
+{
+    init_index();
+
+    int res = 0;
+    long int id;
+    res = ec_get_long(ec_arg(3), &id);
+    if (res != PSUCCEED) {
+        return PFAIL;
+    }
+
+    pword list, cur, rest;
+    pword attribute_term;
+    for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
+        ec_get_arg(1, cur, &attribute_term);
+
+        char* attribute;
+        res = ec_get_string(attribute_term, &attribute);
+        assert(res == PSUCCEED);
+
+        uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
+        bitfield_index_remove(subscriber_index, key, id);
+        DIST2_DEBUG("removed %lu from bitfield[%s]\n", id, attribute);
+    }
+
+    bitfield_off(no_attr_subscriptions, id);
+    return PSUCCEED;
+}
+
+int p_bitfield_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) */
+{
+    DIST2_DEBUG("p_bitfield_union\n");
+    static struct bitfield** sets = NULL;
+    static long int next = -1;
+    static size_t elems = 0;
+
+    int res;
+    char* key;
+
+    init_index();
+    hash_table* ht = subscriber_index;
+
+    res = ec_get_long(ec_arg(3), &next);
+    if (res != PSUCCEED) {
+        DIST2_DEBUG("state is not a id, find bitmaps\n");
+        free(sets);
+        pword list, cur, rest;
+
+        elems = 0;
+        for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
+            elems++;
+        }
+        sets = calloc(elems+1, sizeof(struct bitfield*));
+        sets[0] = no_attr_subscriptions;
+
+        elems = 1;
+        for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
+            res = ec_get_string(cur, &key);
+            if (res != PSUCCEED) {
+                return res;
+            }
+
+            uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
+            struct bitfield* sl = hash_find(ht, hash_key);
+            if (sl != NULL) {
+                DIST2_DEBUG("bitfield_union found bitfield for key: %s\n", key);
+                sets[elems++] = sl;
+            }
+            // else: no record with this attribute, just ignore
+
+        }
+        next = -1;
+    }
+
+    DIST2_DEBUG("elems: %lu, next:%ld\n", elems, next);
+    next = bitfield_union(sets, elems, next);
+    DIST2_DEBUG("bitfield_union found next: %ld\n", next);
+    if(next != -1) {
+        pword item = ec_long(next);
+        return ec_unify_arg(4, item);
+    }
+
+    return PFAIL;
 }
 
 int p_notify_client(void) /* p_notify_client(+String, ReplyState) */

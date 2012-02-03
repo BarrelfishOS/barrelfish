@@ -1,26 +1,29 @@
 :- dynamic subscribed/3.
 
 :- local store(sh).
+%:- external(bitfield_add/3, p_bitfield_add).
+%:- external(bitfield_remove/3, p_bitfield_remove).
+%:- external(bitfield_union/4, p_bitfield_union).
 
-% TODO we currently convert Ids to atoms (i.e. strings) as a hack to see if everything works
-% need to change skiplist to support numbers as well
 add_subscription(Id, Template, Subscriber) :-
-    integer_atom(Id, Ids),
     Template = template(Name, AList, CList),
     make_all_constraints(AList, CList, Constraints),
-    store_set(sh, Ids, subscription(Name, Constraints, Subscriber)),
-    set_constraint_index(Ids, Constraints).    
+    store_set(sh, Id, subscription(Name, Constraints, Subscriber)),
+    bitfield_add(sub, Constraints, Id).
 
-delete_subscription(Id) :-
-    integer_atom(Id, Ids),
-    store_get(sh, Ids, subscription(_, Constraints, _)),
-    store_del(sh, Ids),
-    del_constraint_index(Ids, Constraints).
+delete_subscription(Id, Binding) :-
+    store_get(sh, Id, subscription(_, Constraints, Subscriber)),
+    Subscriber = subscriber(Binding, _),
+    store_delete(sh, Id),
+    bitfield_remove(sub, Constraints, Id).
 
 find_subscriber(Message, Subscriber) :-
-    find_subscription_candidates(Message, Candidate),
+    Message = object(Name, AList),
+    sort(AList, SAList),
+    SMessage = object(Name, SAList),
+    find_subscription_candidates(SMessage, Candidate),
     store_get(sh, Candidate, Subscription),
-    match_message(Message, Subscription),
+    match_message(SMessage, Subscription),
     Subscription = subscription(_, _, Subscriber).
 
 find_subscription_candidates(Message, Ids) :-
@@ -30,11 +33,11 @@ find_subscription_candidates(Message, Ids) :-
     find_next_subscriber(IdxList, Ids).
 
 find_next_subscriber(AttributeList, NextItem) :-
-    index_union_aux(AttributeList, 0, NextItem).
+    index_union_aux(AttributeList, "s", NextItem).
 
 % This makes our C predicate non-deterministic
 index_union_aux(AttributeList, OldState, Item) :-
-    index_union(sh, AttributeList, OldState, NewItem),
+    bitfield_union(sh, AttributeList, OldState, NewItem),
     (
         Item = NewItem
     ;
@@ -42,10 +45,13 @@ index_union_aux(AttributeList, OldState, Item) :-
     ).
 
 match_message(Message, Subscription) :-
-    Message = object(Name, AList),
-    Subscription = subscription(_, Constraints, _),
-    sort(AList, SAList),
-    match_attributes(SAList, Constraints).
+    Message = object(MName, AList),
+    Subscription = subscription(SName, Constraints, _),
+    ( not var(SName) ->
+        SName = name_constraint(Value),
+        match(Value, MName, [])
+    ; true ),
+    match_attributes(AList, Constraints).
 
 % Similar to match_constraints in objects code but works the other
 % way around: we match attributs against constraints
@@ -79,14 +85,3 @@ match_attributes([val(Key, AValue)|Rest], [constraint(Key, '==', CValue)|CRest])
 match_attributes([val(AKey, AValue)|Rest], [constraint(CKey, Comparator, CValue)|SRest]) :-
     compare(>, CKey, AKey), !,
     match_attributes(Rest, [constraint(CKey, Comparator, CValue)|SRest]).
-
-
-%
-% Attribute Index
-%
-set_constraint_index(Id, SList) :-
-    ( foreach(constraint(Attribute, _, _), SList), param(Id) do
-        save_index(sh, Attribute, Id) ).
-del_constraint_index(Id, SList) :-
-    ( foreach(constraint(Attribute, _, _), SList), param(Id) do
-        remove_index(sh, Attribute, Id) ).
