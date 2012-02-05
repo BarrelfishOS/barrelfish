@@ -683,7 +683,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
                 //32bit BAR
                 skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
                              addr.bus, addr.device, addr.function,
-                             i, barorigaddr.base << 7, bar_mapping_size(bar),
+                             i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar),
                              (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
                              type);
             }
@@ -693,7 +693,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
             skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
                          "nonprefetchable, 32).",
                          addr.bus, addr.device, addr.function,
-                         i, barorigaddr.base << 7, bar_mapping_size(bar));
+                         i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar));
         }
     }
 }
