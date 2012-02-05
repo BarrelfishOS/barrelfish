@@ -216,7 +216,7 @@ static void reset_handler(struct pci_binding *b)
     }
 }
 
-static void sleep_handler(struct pci_binding *b, int state)
+static void sleep_handler(struct pci_binding *b, int32_t state)
 {
     printf("Entering S%d sleep state via ACPI...\n", state);
     ACPI_STATUS as = AcpiEnterSleepStatePrep(state);

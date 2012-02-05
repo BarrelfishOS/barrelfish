@@ -106,8 +106,8 @@ static void fsb_init_msg(struct bench_binding *b, coreid_t id)
 }
 
 static void fsb_payload_reply(struct bench_binding *b,
-                              int payload0, int payload1,
-                              int payload2, int payload3)
+                              int32_t payload0, int32_t payload1,
+                              int32_t payload2, int32_t payload3)
 {
     experiment();
 }
@@ -118,36 +118,36 @@ static void fsb_empty_reply(struct bench_binding *b)
 }
 
 static void fsb_payload1_reply(struct bench_binding *b,
-                               int p0)
+                               int32_t p0)
 {
     experiment();
 }
 
 static void fsb_payload2_reply(struct bench_binding *b,
-                               int p0, int p1)
+                               int32_t p0, int32_t p1)
 {
     experiment();
 }
 
 static void fsb_payload8_reply(struct bench_binding *b,
-                               int p0, int p1, int p2, int p3,
-                               int p4, int p5, int p6, int p7)
+                               int32_t p0, int32_t p1, int32_t p2, int32_t p3,
+                               int32_t p4, int32_t p5, int32_t p6, int32_t p7)
 {
     experiment();
 }
 
 static void fsb_payload16_reply(struct bench_binding *b,
-                                int p0, int p1, int p2, int p3,
-                                int p4, int p5, int p6, int p7,
-                                int p8, int p9, int p10, int p11,
-                                int p12, int p13, int p14, int p15)
+                                int32_t p0, int32_t p1, int32_t p2, int32_t p3,
+                                int32_t p4, int32_t p5, int32_t p6, int32_t p7,
+                                int32_t p8, int32_t p9, int32_t p10, int32_t p11,
+                                int32_t p12, int32_t p13, int32_t p14, int32_t p15)
 {
     experiment();
 }
 
 static void fsb_payload_request(struct bench_binding *b,
-                              int payload0, int payload1,
-                              int payload2, int payload3)
+                              int32_t payload0, int32_t payload1,
+                              int32_t payload2, int32_t payload3)
 {
     errval_t err;
     err = b->tx_vtbl.fsb_payload_reply(b, NOP_CONT, 1, 2, 3, 4);
@@ -162,7 +162,7 @@ static void fsb_empty_request(struct bench_binding *b)
 }
 
 static void fsb_payload1_request(struct bench_binding *b,
-                              int payload0)
+                              int32_t payload0)
 {
     errval_t err;
     err = b->tx_vtbl.fsb_payload1_reply(b, NOP_CONT, 1);
@@ -170,7 +170,7 @@ static void fsb_payload1_request(struct bench_binding *b,
 }
 
 static void fsb_payload2_request(struct bench_binding *b,
-                                 int payload0, int payload1)
+                                 int32_t payload0, int32_t payload1)
 {
     errval_t err;
     err = b->tx_vtbl.fsb_payload2_reply(b, NOP_CONT, 1, 2);
@@ -178,10 +178,10 @@ static void fsb_payload2_request(struct bench_binding *b,
 }
 
 static void fsb_payload8_request(struct bench_binding *b,
-                                 int payload0, int payload1,
-                                 int payload2, int payload3,
-                                 int payload4, int payload5,
-                                 int payload6, int payload7)
+                                 int32_t payload0, int32_t payload1,
+                                 int32_t payload2, int32_t payload3,
+                                 int32_t payload4, int32_t payload5,
+                                 int32_t payload6, int32_t payload7)
 {
     errval_t err;
     err = b->tx_vtbl.fsb_payload8_reply(b, NOP_CONT, 1, 2, 3, 4, 5, 6, 7, 8);
@@ -189,14 +189,14 @@ static void fsb_payload8_request(struct bench_binding *b,
 }
 
 static void fsb_payload16_request(struct bench_binding *b,
-                                  int payload0, int payload1,
-                                  int payload2, int payload3,
-                                  int payload4, int payload5,
-                                  int payload6, int payload7,
-                                  int payload8, int payload9,
-                                  int payload10, int payload11,
-                                  int payload12, int payload13,
-                                  int payload14, int payload15)
+                                  int32_t payload0, int32_t payload1,
+                                  int32_t payload2, int32_t payload3,
+                                  int32_t payload4, int32_t payload5,
+                                  int32_t payload6, int32_t payload7,
+                                  int32_t payload8, int32_t payload9,
+                                  int32_t payload10, int32_t payload11,
+                                  int32_t payload12, int32_t payload13,
+                                  int32_t payload14, int32_t payload15)
 {
     errval_t err;
     err = b->tx_vtbl.fsb_payload16_reply(b, NOP_CONT, 1, 2, 3, 4, 5, 6, 7, 8,

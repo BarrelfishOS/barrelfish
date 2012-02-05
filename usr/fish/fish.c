@@ -437,12 +437,12 @@ static int skb(int argc, char *argv[])
     }
 
     char *result = NULL, *str_err = NULL;
-    int int_err;
+    int32_t int_err;
 
     skb_evaluate(argv[1], &result, &str_err, &int_err);
 
     if (int_err != 0 || (str_err != NULL && str_err[0] != '\0')) {
-        printf("SKB error returned: %d %s\n", int_err, str_err);
+        printf("SKB error returned: %"PRIu32" %s\n", int_err, str_err);
     } else {
         printf("SKB returned: %s\n", result);
     }

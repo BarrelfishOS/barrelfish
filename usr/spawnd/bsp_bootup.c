@@ -308,7 +308,7 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
 
         /* Get the list of APIC IDs */
         char *result, *str_err;
-        int int_err;
+        int32_t int_err;
         err = skb_evaluate("get_apic_id_list(L),write(L).",
                            &result, &str_err, &int_err);
         if (err_is_fail(err)) {

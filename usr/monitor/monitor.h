@@ -138,8 +138,8 @@ errval_t monitor_server_arch_init(struct monitor_binding *b);
 void set_monitor_rpc_iref(iref_t iref);
 
 /* boot.c */
-void boot_core_request(struct monitor_binding *st, coreid_t id, int hwid,
-                       int int_cpu_type, char *cmdline);
+void boot_core_request(struct monitor_binding *st, coreid_t id, int32_t hwid,
+                       int32_t int_cpu_type, char *cmdline);
 void boot_initialize_request(struct monitor_binding *st);
 
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,

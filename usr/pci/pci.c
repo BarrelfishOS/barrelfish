@@ -1045,7 +1045,7 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
              "[\"irq_routing.pl\"], assigndeviceirq(addr(%u, %u, %u)).",
              bus, dev, fun);
     char *output, *error_out;
-    int int_err;
+    int32_t int_err;
     errval_t err = skb_evaluate(str, &output, &error_out, &int_err);
     assert(output != NULL);
     assert(err_is_ok(err));

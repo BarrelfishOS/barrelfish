@@ -163,7 +163,7 @@ errval_t get_cores_skb(coreid_t **cores, int *n_cores)
     errval_t err;
 
     char *result, *str_err;
-    int int_err;
+    int32_t int_err;
 
     err = skb_client_connect();
     if (err_is_fail(err)) {

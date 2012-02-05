@@ -344,7 +344,7 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
 
     // Resolve destination core ID to APIC ID
     char *result = NULL, *str_error = NULL, query[256];
-    int int_error = 0;
+    int32_t int_error = 0;
     int r = snprintf(query, 256, "corename(%d, _, apic(A)), write(A).", dest);
     assert(r >= 0 && r < 256);
     errval_t err = skb_evaluate(query, &result, &str_error, &int_error);

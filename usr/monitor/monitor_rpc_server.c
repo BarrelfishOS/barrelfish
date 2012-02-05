@@ -184,7 +184,7 @@ static void free_revoke_st(struct revoke_st * st)
 static void remote_cap_retype(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, 
                               uint64_t new_type, uint8_t size_bits,
-                              capaddr_t to, capaddr_t slot, int dcn_vbits) 
+                              capaddr_t to, capaddr_t slot, int32_t dcn_vbits) 
 {
     errval_t err;
     bool has_descendants;
