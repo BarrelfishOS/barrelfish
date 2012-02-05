@@ -239,7 +239,8 @@ typedef uint64_t  	uint_least32_t;
  * GCC doesn't provide an appropriate macro for [u]intptr_t
  * For now, use __PTRDIFF_TYPE__
  */
-#if defined(__PTRDIFF_TYPE__)
+//#if defined(__PTRDIFF_TYPE__)
+#if 0 /* XXX: Barrelfish hack (see commit) */
 typedef signed __PTRDIFF_TYPE__ intptr_t;
 typedef unsigned __PTRDIFF_TYPE__ uintptr_t;
 #define INTPTR_MAX PTRDIFF_MAX

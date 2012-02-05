@@ -243,6 +243,7 @@
 #define SCNxMAX		__SCNMAX(x)
 
 /* ptr types */
+#if 0
 #if __have_long64
 #define __PRIPTR(x) __STRINGIFY(l##x)
 #define __SCNPTR(x) __STRINGIFY(l##x)
@@ -252,6 +253,11 @@
 #else
 #define __PRIPTR(x) __STRINGIFY(x)
 #define __SCNPTR(x) __STRINGIFY(x)
+#endif
+#else
+/* XXX: Barrelfish hack (see commit) */
+#define __PRIPTR(x) __STRINGIFY(l##x)
+#define __SCNPTR(x) __STRINGIFY(l##x)
 #endif
 
 #define PRIdPTR		__PRIPTR(d)
