@@ -250,7 +250,7 @@ static void walk_cspace(struct cnoderef cnode, uint8_t level)
             assert(prpos < sizeof(buf));
         }
         prpos += snprintf(&buf[prpos], sizeof(buf) - prpos,
-                          "slot %u caddr 0x%x (%u bits) is a ",
+                          "slot %" PRIuCADDR " caddr 0x%" PRIxCADDR " (%u bits) is a ",
                           pos.slot, get_cap_addr(pos), get_cap_valid_bits(pos));
         assert(prpos < sizeof(buf));
         prpos += debug_print_cap(&buf[prpos], sizeof(buf) - prpos, &cap);
@@ -306,14 +306,16 @@ void debug_my_cspace(void)
 
 int debug_print_capref(char *buf, size_t len, struct capref cap)
 {
-    return snprintf(buf, len, "CNode addr %x, vbits = %d, slot %u, vbits = %d",
+    return snprintf(buf, len, "CNode addr 0x%" PRIxCADDR
+                              ", vbits = %d, slot %" PRIuCADDR ", vbits = %d",
                     get_cnode_addr(cap),  get_cnode_valid_bits(cap), cap.slot,
                     get_cap_valid_bits(cap));
 }
 
 void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr)
 {
-    debug_printf("Dumping memory in range 0x%zx to 0x%zx:\n",
+    debug_printf("Dumping memory in range 0x%" PRIuLVADDR
+                 " to 0x%" PRIuLVADDR ":\n",
                  start_addr, end_addr);
 
     for (uintptr_t *p = (void *)start_addr; (uintptr_t)p < end_addr; p++) {
@@ -324,7 +326,7 @@ void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr)
             bufpos += snprintf(&buf[bufpos], sizeof(buf) - bufpos, "%02x ", bytes[i]);
             assert(bufpos < sizeof(buf));
         }
-        debug_printf("%p: %.*s %*zx\n", p, (int)sizeof(buf), buf,
+        debug_printf("%p: %.*s %*" PRIxPTR "\n", p, (int)sizeof(buf), buf,
                      (int)sizeof(uintptr_t) * 2, *p);
     }
 }

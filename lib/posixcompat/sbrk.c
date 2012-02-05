@@ -17,7 +17,7 @@
 #define SBRK_REGION_BYTES (256 * 1024 * 1024)
 #endif
 
-void *sbrk(intptr_t increment)
+void *sbrk(ptrdiff_t increment)
 {
     errval_t err;
     size_t orig_offset;

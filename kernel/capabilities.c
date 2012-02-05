@@ -599,7 +599,8 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
         & MASK(cnode_cap->u.cnode.guard_size);
     if (cptr_guard != cnode_cap->u.cnode.guard) {
         debug(SUBSYS_CAPS, "caps_lookup_slot: guard check failed\n"
-              "Computed guard = %x, Cnode guard = %x, bits = %u\n",
+              "Computed guard = %"PRIuCADDR", "
+              "Cnode guard = %"PRIxCADDR", bits = %u\n",
               cptr_guard, cnode_cap->u.cnode.guard,
               cnode_cap->u.cnode.guard_size);
         return SYS_ERR_GUARD_MISMATCH;

@@ -692,7 +692,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
         uint8_t invoke_bits = (arg0 >> 16) & 0xff;
         capaddr_t invoke_cptr = arg1;
 
-        debug(SUBSYS_SYSCALL, "sys_invoke(0x%x(%d))\n",
+        debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n",
               invoke_cptr, invoke_bits);
 
         // Capability to invoke
@@ -896,7 +896,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
     default:
         printk(LOG_ERR, "sys_syscall: Illegal system call! "
-               "(0x%x, 0x%x)\n", syscall, arg1);
+               "(0x%x, 0x%"PRIxPTR")\n", syscall, arg1);
         retval.error = SYS_ERR_ILLEGAL_SYSCALL;
         break;
     }
@@ -908,7 +908,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
     }
 
     if (syscall == SYSCALL_INVOKE) {
-        debug(SUBSYS_SYSCALL, "invoke returning 0x%x 0x%x\n",
+        debug(SUBSYS_SYSCALL, "invoke returning 0x%"PRIxERRV" 0x%"PRIxPTR"\n",
               retval.error, retval.value);
     }
 

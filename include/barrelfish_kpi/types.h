@@ -105,6 +105,9 @@ typedef uint64_t systime_t;
 #define PRIxSYSTIME PRIx64
 #define PRIXSYSTIME PRIX64
 
+#define PRIxERRV    PRIxPTR
+#define PRIuERRV    PRIuPTR
+
 #endif // __ASSEMBLER__
 
 #endif // BARRELFISH_KPI_TYPES_H

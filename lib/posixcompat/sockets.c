@@ -429,7 +429,7 @@ int listen(int sockfd, int backlog)
         us->u.passive.backlog = calloc(backlog, sizeof(struct unixsock_binding *));
 
         char str[128];
-        snprintf(str, 128, "%u", us->u.passive.listen_iref);
+        snprintf(str, 128, "%"PRIuIREF, us->u.passive.listen_iref);
         err = vfs_write(us->vfs_handle, str, strlen(str), NULL);
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "vfs_write");

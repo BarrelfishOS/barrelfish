@@ -236,7 +236,7 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
 void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
                genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    printf("[%d][%d]: failed percore alloc request: bits: %d going to STEAL\n",
+    printf("[%d][%"PRIuDOMAINID"]: failed percore alloc request: bits: %d going to STEAL\n",
             disp_get_core_id(), disp_get_domain_id(), bits);
 	printf("%p %p %p %p %p %p\n",	__builtin_return_address(0),
 								 	__builtin_return_address(1),

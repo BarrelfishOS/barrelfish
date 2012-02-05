@@ -203,7 +203,7 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         prev = call;
     }
     if (call == NULL) {
-        fprintf(stderr, "RPC: Unknown XID 0x%x in reply, dropped\n", xid);
+        fprintf(stderr, "RPC: Unknown XID 0x%" PRIx32 " in reply, dropped\n", xid);
 /*        fprintf(stderr, "RPC:[%d:%s] Unknown XID 0x%x in reply, dropped\n",
                 disp_get_domain_id(), disp_name(), xid);
 */
@@ -252,8 +252,9 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
         if (++call->timers >= RPC_RETRANSMIT_AFTER) {
             if (call->retries++ == RPC_MAX_RETRANSMIT) {
                 /* admit failure */
-                printf("##### [%d][%d] RPC: timeout for XID 0x%x\n", disp_get_core_id(),
-			           disp_get_domain_id(), call->xid);
+                printf("##### [%d][%"PRIuDOMAINID"] "
+                       "RPC: timeout for XID 0x%"PRIu32"\n",
+                       disp_get_core_id(), disp_get_domain_id(), call->xid);
                 pbuf_free(call->pbuf);
                 if (prev == NULL) {
                     client->call_hash[hid] = call->next;
@@ -278,8 +279,9 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 */
 
                 /* retransmit */
-                printf("###### [%d][%d] RPC: retransmit XID 0x%x\n", disp_get_core_id(),
-			disp_get_domain_id(), call->xid);
+                printf("###### [%d][%"PRIuDOMAINID"] "
+                       "RPC: retransmit XID 0x%"PRIu32"\n",
+                       disp_get_core_id(), disp_get_domain_id(), call->xid);
 
                 // throw away (hide) UDP/IP/ARP headers from previous transmission
                 err_t e = pbuf_header(call->pbuf,
@@ -348,7 +350,7 @@ err_t rpc_init(struct rpc_client *client, struct ip_addr server)
     /* XXX: (very) pseudo-random number for initial XID */
     client->nextxid = (uint32_t)bench_tsc();
 
-    printf("###### Initial sequence no. is %u 0x%x\n",
+    printf("###### Initial sequence no. is %"PRIu32" 0x%"PRIx32"\n",
     		client->nextxid, client->nextxid);
     udp_recv(client->pcb, rpc_recv_handler, client);
 

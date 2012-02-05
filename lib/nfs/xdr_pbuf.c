@@ -49,7 +49,7 @@ static inline int32_t *make_space(XDR *xdr, size_t size)
     }
     if (xdr->x_handy + size > ((struct pbuf *)xdr->x_base)->len) {
         fprintf(stderr, "xdr_pbuf: make_space(%zu) failing (%zu available)\n",
-                size, ((size_t)((struct pbuf *)xdr->x_base)->len) - xdr->x_handy);
+                size, ((size_t)((struct pbuf *)xdr->x_base)->len) - (size_t)xdr->x_handy);
         return NULL;
     } else {
         int32_t *ret = (int32_t *)((char *)((struct pbuf *)xdr->x_base)->payload + xdr->x_handy);

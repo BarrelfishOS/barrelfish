@@ -30,7 +30,7 @@ errval_t perfmon_intel_init(void)
 
     if(cpuid_max_biv_rd(&mycpuid) < 0xa) {
         printf("Intel Architectural Performance Monitoring not supported!"
-               "cpuid_max_biv_rd is %d\n", cpuid_max_biv_rd(&mycpuid));
+               "cpuid_max_biv_rd is %"PRIu32"\n", cpuid_max_biv_rd(&mycpuid));
         return SYS_ERR_PERFMON_NOT_AVAILABLE;
     }
 

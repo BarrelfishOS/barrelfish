@@ -205,7 +205,7 @@ static void reset_handler(struct pci_binding *b)
         printf("Resetting machine via ACPI...\n");
         ACPI_STATUS as = AcpiReset();
         if (ACPI_FAILURE(as)) {
-            printf("ACPI reset failed: 0x%x\n", as);
+            printf("ACPI reset failed: 0x%"PRIx32"\n", as);
         }
     }
 
@@ -218,7 +218,7 @@ static void reset_handler(struct pci_binding *b)
 
 static void sleep_handler(struct pci_binding *b, int32_t state)
 {
-    printf("Entering S%d sleep state via ACPI...\n", state);
+    printf("Entering S%"PRIu32" sleep state via ACPI...\n", state);
     ACPI_STATUS as = AcpiEnterSleepStatePrep(state);
     if (!ACPI_SUCCESS(as)) {
         printf("AcpiEnterSleepStatePrep failed\n");

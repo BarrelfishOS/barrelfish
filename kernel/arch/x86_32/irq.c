@@ -486,7 +486,7 @@ static __attribute__ ((used,noreturn))
     // CS.CPL == 0, ie. a kernel-mode fault
     assert((save_area->cs & 0x3) == 0);
 
-    printk(LOG_PANIC, "exception %d (error code 0x%x): ", vec, error);
+    printk(LOG_PANIC, "exception %d (error code 0x%"PRIx32"): ", vec, error);
 
     switch(vec) {
     case 0:     // Divide Error (#DE)
@@ -542,7 +542,7 @@ static __attribute__ ((used,noreturn))
 
         __asm volatile("mov %%cr2, %[fault_address]"
                        : [fault_address] "=r" (fault_address));
-        printf("Address that caused the fault: 0x%x\n", fault_address);
+        printf("Address that caused the fault: 0x%"PRIxLVADDR"\n", fault_address);
         break;
     case 17:    // Alignment Check Exception (#AC)
         printf("alignment check exception\n");
@@ -565,11 +565,12 @@ static __attribute__ ((used,noreturn))
 
     // Print faulting instruction pointer
     printf("Faulting instruction pointer (or following instruction): "
-           "0x%x (0x %x in binary)\n", rip,
+           "0x%"PRIxPTR" (0x %"PRIxPTR" in binary)\n", rip,
            rip - (uintptr_t)&_start_kernel + X86_32_START_KERNEL_PHYS);
 
     // Print some important registers
-    printf("EAX 0x%x EBX 0x%x ECX 0x%x EDX 0x%x ESP 0x%x\n",
+    printf("EAX 0x%"PRIx32" EBX 0x%"PRIx32" ECX 0x%"PRIx32
+          " EDX 0x%"PRIx32" ESP 0x%"PRIx32"\n",
            save_area->eax, save_area->ebx,
            save_area->ecx, save_area->edx,
            save_area->esp);
@@ -666,7 +667,8 @@ void generic_handle_user_exception(uintptr_t *cpu_save_area,
         __asm volatile("mov %%cr2, %[fault_address]"
                        : [fault_address] "=r" (fault_address));
 
-        printk(LOG_WARN, "user page fault%s in '%.*s': addr %x IP %x error %x\n",
+        printk(LOG_WARN, "user page fault%s in '%.*s': addr %"PRIxLVADDR
+                         " IP %"PRIxPTR"  error %"PRIx32"\n",
                disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
                disp->name, fault_address, eip, error);
 
@@ -714,14 +716,15 @@ void generic_handle_user_exception(uintptr_t *cpu_save_area,
 
         __asm volatile("fnstsw %0" : "=a" (fpu_status));
 
-        printk(LOG_WARN, "FPU error%s in '%.*s': IP %x FPU status %x\n",
+        printk(LOG_WARN, "FPU error%s in '%.*s': IP %"PRIxPTR" FPU status %x\n",
                disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
                disp->name, eip, fpu_status);
 
         handler = disp->dispatcher_trap;
         param = vec;
     } else { // All other traps
-        printk(LOG_WARN, "user trap #%d in '%.*s': IP %x, error %x\n",
+        printk(LOG_WARN, "user trap #%d in '%.*s': IP %"PRIxPTR
+                         ", error %"PRIu32"\n",
                vec, DISP_NAME_LEN, disp->name, eip, error);
         assert(disp_save_area == dispatcher_get_trap_save_area(handle));
         if(vec != 1) {

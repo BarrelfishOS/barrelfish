@@ -218,42 +218,42 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
     pcisize_t bar_size;
 
     if (*bus != PCI_DONT_CARE) {
-        snprintf(s_bus, sizeof(s_bus), "%u", *bus);
+        snprintf(s_bus, sizeof(s_bus), "%"PRIu32, *bus);
     } else {
         strncpy(s_bus, "Bus", sizeof(s_bus));
     }
     if (*dev != PCI_DONT_CARE) {
-        snprintf(s_dev, sizeof(s_dev), "%u", *dev);
+        snprintf(s_dev, sizeof(s_dev), "%"PRIu32, *dev);
     } else {
         strncpy(s_dev, "Dev", sizeof(s_dev));
     }
     if (*fun != PCI_DONT_CARE) {
-        snprintf(s_fun, sizeof(s_fun), "%u", *fun);
+        snprintf(s_fun, sizeof(s_fun), "%"PRIu32, *fun);
     } else {
         strncpy(s_fun, "Fun", sizeof(s_fun));
     }
     if (vendor_id != PCI_DONT_CARE) {
-        snprintf(s_vendor_id, sizeof(s_vendor_id), "%u", vendor_id);
+        snprintf(s_vendor_id, sizeof(s_vendor_id), "%"PRIu32, vendor_id);
     } else {
         strncpy(s_vendor_id, "Ven", sizeof(s_vendor_id));
     }
     if (device_id != PCI_DONT_CARE) {
-        snprintf(s_device_id, sizeof(s_device_id), "%u", device_id);
+        snprintf(s_device_id, sizeof(s_device_id), "%"PRIu32, device_id);
     } else {
         strncpy(s_device_id, "DevID", sizeof(s_device_id));
     }
     if (class_code != PCI_DONT_CARE) {
-        snprintf(s_class_code, sizeof(s_class_code), "%u", class_code);
+        snprintf(s_class_code, sizeof(s_class_code), "%"PRIu32, class_code);
     } else {
         strncpy(s_class_code, "Cl", sizeof(s_class_code));
     }
     if (sub_class != PCI_DONT_CARE) {
-        snprintf(s_sub_class, sizeof(s_sub_class), "%u", sub_class);
+        snprintf(s_sub_class, sizeof(s_sub_class), "%"PRIu32, sub_class);
     } else {
         strncpy(s_sub_class, "Sub", sizeof(s_sub_class));
     }
     if (prog_if != PCI_DONT_CARE) {
-        snprintf(s_prog_if, sizeof(s_prog_if), "%u", prog_if);
+        snprintf(s_prog_if, sizeof(s_prog_if), "%"PRIu32, prog_if);
     } else {
         strncpy(s_prog_if, "ProgIf", sizeof(s_prog_if));
     }
@@ -281,7 +281,8 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         return PCI_ERR_DEVICE_INIT;
     }
 
-    err = skb_read_output("d(%[a-z], %u, %u, %u, %u, %u, %u, %u, %u).",
+    err = skb_read_output("d(%[a-z], %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32
+                          ",%"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32").",
                     s_pcie, bus, dev, fun, &vendor_id,
                     &device_id, &class_code, &sub_class, &prog_if);
 
@@ -302,7 +303,8 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                 *bus, *dev, *fun);
 //get the implemented BARs for the found device
     error_code = skb_execute_query(
-        "pci_get_implemented_BAR_addresses(%u,%u,%u,%u,%u,%u,%u,%u,L),"
+        "pci_get_implemented_BAR_addresses(%"PRIu32",%"PRIu32",%"PRIu32
+        ",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",L),"
         "length(L,Len),writeln(L)",
         *bus, *dev, *fun, vendor_id, device_id, class_code, sub_class, prog_if);
 
@@ -1042,7 +1044,8 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
     char str[256], ldev[128];
 
     snprintf(str, 256,
-             "[\"irq_routing.pl\"], assigndeviceirq(addr(%u, %u, %u)).",
+             "[\"irq_routing.pl\"], assigndeviceirq(addr(%"PRIu32
+             ", %"PRIu32", %"PRIu32")).",
              bus, dev, fun);
     char *output, *error_out;
     int32_t int_err;
@@ -1089,7 +1092,7 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
         break;
 
     default:
-        printf("Unknown resource type: %d\n", res->Type);
+        printf("Unknown resource type: %"PRIu32"\n", res->Type);
         USER_PANIC("NYI");
     }
 
