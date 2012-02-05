@@ -158,8 +158,8 @@ typedef int fp_rnd;
 #define FP_RP 2		/* Round up 			*/
 #define FP_RZ 3		/* Round to zero (trunate) 	*/
 
-fp_rnd _EXFUN(fpgetround,(void));
-fp_rnd _EXFUN(fpsetround, (fp_rnd));
+//fp_rnd _EXFUN(fpgetround,(void));
+//fp_rnd _EXFUN(fpsetround, (fp_rnd));
 
 /* EXCEPTIONS */
 

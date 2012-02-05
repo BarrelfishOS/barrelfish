@@ -21,7 +21,10 @@ let includes = ["../../include" ]
 in
   [ build library { target = "eclipse", 
                     -- force optimisations on, without them we blow the stack
-                    addCFlags = [ "-O2", "-DPRINTAM" ],
+                    addCFlags = [ "-O2", "-DPRINTAM" ] ++
+                                if Config.libc == "newlib"
+                                then ["-DHAVE_FINITE"]
+                                else [],
                     cFiles = [ "dict.c", "read.c", "lex.c", "emu.c",
   	                       "proc_desc.c", "bip_tconv.c",
   	                       "io_barrelfish.c", "write.c",
