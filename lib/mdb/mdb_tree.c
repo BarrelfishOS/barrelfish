@@ -1055,7 +1055,7 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
 }
 
 errval_t
-mdb_find_range(mdb_root_t root, genpaddr_t address, size_t size,
+mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
                int max_result, /*out*/ struct cte **ret_node,
                /*out*/ int *result)
 {
