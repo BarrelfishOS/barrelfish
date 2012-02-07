@@ -42,8 +42,9 @@ void set_cap_remote(struct cte *cte, bool is_remote)
     }
 
     struct cte *prev = mdb_predecessor(cte);
-    while(prev != cte) {
-        if (is_copy(&prev->cap, &cte->cap)) {
+    while (prev) {
+        if (is_copy(&prev->cap, &cte->cap) || is_ancestor(&prev->cap, &cte->cap)
+            || is_ancestor(&cte->cap, &prev->cap)) {
             prev->mdbnode.remote_relations = is_remote;
         } else {
             break;
@@ -64,7 +65,6 @@ bool has_descendants(struct cte *cte)
     assert(cte != NULL);
 
     struct cte *next = mdb_successor(cte);
-
     while (next) {
         if (is_ancestor(&next->cap, &cte->cap)) {
             return true;
@@ -73,6 +73,17 @@ bool has_descendants(struct cte *cte)
             break;
         }
         next = mdb_successor(next);
+    }
+
+    struct cte *prev = mdb_predecessor(cte);
+    while (prev) {
+        if (is_ancestor(&prev->cap, &cte->cap)) {
+            return true;
+        }
+        if (!is_copy(&prev->cap, &cte->cap)) {
+            break;
+        }
+        prev = mdb_predecessor(prev);
     }
 
     return false;
@@ -84,9 +95,21 @@ bool has_ancestors(struct cte *cte)
 {
     assert(cte != NULL);
 
-    struct cte *prev = mdb_predecessor(cte);
+    // XXX: Is walking forward needed here? (doing it because we walk
+    // backwards in has_descendants())
+    struct cte *next = mdb_successor(cte);
+    while (next) {
+        if (is_ancestor(&cte->cap, &next->cap)) {
+            return true;
+        }
+        if (!is_copy(&next->cap, &cte->cap)) {
+            break;
+        }
+        next = mdb_successor(next);
+    }
 
-    while(prev) {
+    struct cte *prev = mdb_predecessor(cte);
+    while (prev) {
         if (is_ancestor(&cte->cap, &prev->cap)) {
             return true;
         }
