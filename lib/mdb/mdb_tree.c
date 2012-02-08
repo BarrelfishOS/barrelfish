@@ -880,10 +880,11 @@ mdb_choose_partial(genpaddr_t address, size_t size, struct cte *first,
     assert(first);
     assert(second);
     assert(get_type_root(C(first)->type) == get_type_root(C(second)->type));
-    genpaddr_t beg = address, end = address + size;
+    genpaddr_t beg = address;
     genpaddr_t fst_beg = get_address(C(first));
     genpaddr_t snd_beg = get_address(C(second));
 #ifndef NDEBUG
+    genpaddr_t end = address + size;
     genpaddr_t fst_end = fst_beg + get_size(C(first));
     genpaddr_t snd_end = snd_beg + get_size(C(second));
     assert(fst_beg < end);
