@@ -597,7 +597,7 @@ generator. This is just like writing C code, so don't be shy.
 >   # instr (\[e] -> text "assert" <> parens e <> semi) [pakaValName e]
 >
 > compileFFI nameCall [varName, param] | nameCall == "has_descendants" =
->   include "<mdb.h>"
+>   include "<mdb/mdb.h>"
 >   # include "<capabilities.h>" 
 >   # include "<stdbool.h>"
 >   # localVar (show $ toC varName)
