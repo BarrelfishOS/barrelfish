@@ -16,6 +16,7 @@
 #include <vfs/vfs_path.h>
 #include <if/trivfs_defs.h>
 #include <if/trivfs_rpcclient_defs.h>
+#include <if/monitor_defs.h>
 #ifdef __scc__
 #       include <barrelfish_kpi/shared_mem_arch.h>
 #endif
@@ -769,10 +770,15 @@ static void bind_cb(void *st, errval_t err, struct trivfs_binding *b)
     cl->bound = true;
 }
 
+static void get_ramfs_iref_reply(struct monitor_binding* mb, iref_t iref,
+        uintptr_t state){
+    *(iref_t*)state = iref;
+}
+
 errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
 {
     errval_t err, msgerr;
-    iref_t iref;
+    iref_t iref = 0;
 
     // skip over protocol part of URI to get service name
     char *service = strstr(uri, "://");
@@ -786,11 +792,17 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
         service = "ramfs";
     }
 
-    err = nameservice_blocking_lookup(service, &iref);
+    // XXX: broken :-( uintptr_t + message_wait_and_handle_next()
+    struct monitor_binding *mb = get_monitor_binding();
+    mb->rx_vtbl.get_ramfs_iref_reply = get_ramfs_iref_reply;
+    err = mb->tx_vtbl.get_ramfs_iref_request(mb, NOP_CONT, (uintptr_t)&iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_blocking_lookup for ramfs");
-        return err; // FIXME
+        return err_push(err, LIB_ERR_GET_NAME_IREF);
     }
+    while (iref == 0) {
+        messages_wait_and_handle_next();
+    }
+
 
     struct ramfs_client *client = malloc(sizeof(struct ramfs_client));
     assert(client != NULL);

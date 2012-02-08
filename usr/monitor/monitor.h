@@ -61,6 +61,7 @@ struct monitor_state {
 
 extern iref_t mem_serv_iref;
 extern iref_t name_serv_iref;
+extern iref_t ramfs_serv_iref;
 extern iref_t monitor_rpc_iref;
 extern iref_t monitor_mem_iref;
 extern coreid_t my_core_id;

@@ -18,6 +18,8 @@
 #include <barrelfish/bulk_transfer.h>
 #include <barrelfish/vregion.h>
 #include <if/trivfs_defs.h>
+#include <if/monitor_defs.h>
+
 #include "ramfs.h"
 
 #define SERVICE_NAME    "ramfs"
@@ -935,10 +937,10 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register(SERVICE_NAME, iref);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.set_ramfs_iref_request(mb, NOP_CONT, iref);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send set_ramfs_iref_request to monitor");
     }
 }
 

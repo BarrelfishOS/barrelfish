@@ -143,9 +143,10 @@ int main(int argc, char**argv)
         execute_string("set_flag(enable_interrupts, off).");
         execute_string("set_flag(debug_compile, off).");
         execute_string("set_flag(debugging, nodebug).");
-
         bench_init();
+        debug_printf("dist server init\n");
         errval_t err = dist_server_init();
+        debug_printf("dist server init done\n");
         assert(err_is_ok(err));
     }
     if (disp_get_core_id() == 0) {

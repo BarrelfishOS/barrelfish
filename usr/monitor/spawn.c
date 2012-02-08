@@ -233,7 +233,8 @@ errval_t spawn_all_domains(void)
 
         /* Do not spawn special domains */
         if(!strcmp(short_name, "init") ||
-           !strcmp(short_name, "chips") ||
+           !strcmp(short_name, "skb") ||
+           !strcmp(short_name, "ramfsd") ||
            !strcmp(short_name, "cpu") ||
            !strcmp(short_name, "monitor") ||
            !strcmp(short_name, "mem_serv")) {

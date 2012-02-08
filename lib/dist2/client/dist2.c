@@ -21,6 +21,8 @@
 #include <barrelfish/threads.h>
 #include <barrelfish/nameservice_client.h>
 
+#include <if/monitor_defs.h>
+
 #include <dist2/init.h>
 
 #include "handler.h"
@@ -30,6 +32,7 @@ static struct dist_state {
     struct dist2_binding* binding;
     struct dist2_rpc_client* rpc_client;
     struct waitset ws;
+    iref_t iref;
     errval_t err;
     bool is_done;
 } rpc, event;
@@ -44,16 +47,16 @@ struct dist2_binding* get_dist_event_binding(void)
 
 struct dist2_rpc_client* get_dist_rpc_client(void)
 {
-    assert(rpc.rpc_client != NULL);
+    //assert(rpc.rpc_client != NULL);
     return rpc.rpc_client;
 }
-
+/*
 static void identify_response_handler(struct dist2_binding* b)
 {
     thread_sem_post(&ts);
 }
 
-struct dist2_rx_vtbl rx_vtbl = {
+static struct dist2_rx_vtbl rx_vtbl = {
         .identify_response = identify_response_handler,
         .subscribed_message = subscribed_message_handler,
         .trigger = trigger_handler
@@ -96,7 +99,7 @@ static void event_bind_cb(void *st, errval_t err, struct dist2_binding *b)
     assert(!event.is_done);
     event.is_done = true;
     event.err = err;
-}
+}*/
 
 static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
 {
@@ -117,19 +120,43 @@ static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
     rpc.err = err;
 }
 
+static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
+                                uintptr_t state)
+{
+    struct dist_state* ds = (struct dist_state*)state;
+    ds->iref = iref;
+    ds->is_done = true;
+
+
+    if (iref == 0) {
+        ds->err = LIB_ERR_GET_NAME_IREF;
+    }
+    else {
+        ds->err = SYS_ERR_OK;
+    }
+}
+
 static errval_t init_binding(struct dist_state* state,
-        dist2_bind_continuation_fn bind_fn, char* service_name)
+        dist2_bind_continuation_fn bind_fn)
 {
     errval_t err = SYS_ERR_OK;
-    iref_t iref = 0;
+    struct monitor_binding *mb = get_monitor_binding();
 
-    err = nameservice_blocking_lookup(service_name, &iref);
+    state->is_done = false;
+    mb->rx_vtbl.get_name_iref_reply = get_name_iref_reply;
+    err = mb->tx_vtbl.get_name_iref_request(mb, NOP_CONT, (uintptr_t)state);
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_REFERENCE);
+        return err;
+    }
+    while (!state->is_done) {
+        messages_wait_and_handle_next();
+    }
+    if (err_is_fail(state->err)) {
+        return state->err;
     }
 
     state->is_done = false;
-    err = dist2_bind(iref, bind_fn, NULL, get_default_waitset(),
+    err = dist2_bind(state->iref, bind_fn, NULL, get_default_waitset(),
             IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err_push(err, FLOUNDER_ERR_BIND);
@@ -159,15 +186,15 @@ errval_t dist_init(void)
     errval_t err = SYS_ERR_OK;
     thread_sem_init(&ts, 0);
 
-    err = init_binding(&rpc, rpc_bind_cb, "dist2_rpc");
+    err = init_binding(&rpc, rpc_bind_cb);
     if (err_is_fail(err)) {
         return err;
     }
 
-    err = init_binding(&event, event_bind_cb, "dist2_event");
+    /*err = init_binding(&event, event_bind_cb);
     if (err_is_fail(err)) {
         return err;
-    }
+    }*/
 
     // TODO: Hack. Tell the server that these bindings belong together
     // We can't use the same binding in 2 different threads with
@@ -182,8 +209,8 @@ errval_t dist_init(void)
     }
 
     // Spawn event handler thread (handles asynchronous messages from server)
-    struct thread* t = thread_create(event_handler_thread, (void*) id);
-    assert(t != NULL);
+    /*struct thread* t = thread_create(event_handler_thread, (void*) id);
+    assert(t != NULL);*/
 
     // Register rpc binding using identifier
     err = dist_rpc->vtbl.identify(dist_rpc, id, dist2_BINDING_RPC);
@@ -191,6 +218,6 @@ errval_t dist_init(void)
     dist_pubsub_init();
 
     // Wait until event binding has registered itself
-    thread_sem_wait(&ts);
+    //thread_sem_wait(&ts);
     return err;
 }

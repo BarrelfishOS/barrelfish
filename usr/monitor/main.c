@@ -17,8 +17,9 @@
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
 
-/* irefs for mem server and name service */
+/* irefs for mem server name service and ramfs */
 iref_t mem_serv_iref = 0;
+iref_t ramfs_serv_iref = 0;
 iref_t name_serv_iref = 0;
 iref_t monitor_rpc_iref = 0;
 
@@ -74,16 +75,31 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         return err;
     }
 
-    /* Spawn chips before other domains */
-    err = spawn_domain("chips");
+    /* SKB needs vfs for ECLiPSe so we need to start ramfsd as well... */
+    err = spawn_domain("ramfsd");
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed spawning chips");
+        DEBUG_ERR(err, "failed spawning ramfsd");
+        return err;
+    }
+    // XXX: Wait for ramfsd to initialize
+    while (ramfs_serv_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+    debug_printf("got ramfsd_serv_iref: %d\n", ramfs_serv_iref);
+
+
+    /* Spawn skb (new nameserver) before other domains */
+    err = spawn_domain("skb");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed spawning skb");
         return err;
     }
     // XXX: Wait for name_server to initialize
     while (name_serv_iref == 0) {
         messages_wait_and_handle_next();
     }
+    debug_printf("got name_serv_iref: %d\n", name_serv_iref);
+
 
     /* initialise rcap_db */
     err = rcap_db_init(); 

@@ -18,6 +18,7 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <if/dist2_defs.h>
+#include <if/monitor_defs.h>
 
 #include <dist2_server/init.h>
 #include <dist2_server/service.h>
@@ -29,7 +30,7 @@
 static struct export_state {
     bool is_done;
     errval_t err;
-} rpc_export, event_export;
+} rpc_export;
 
 static const struct dist2_rx_vtbl rpc_rx_vtbl = {
         .get_names_call = get_names_handler,
@@ -46,59 +47,18 @@ static const struct dist2_rx_vtbl rpc_rx_vtbl = {
         .identify_call = identify_binding,
 };
 
-static const struct dist2_rx_vtbl event_rx_vtbl = {
-        .identify_call = identify_binding,
-};
-
-static void events_export_cb(void *st, errval_t err, iref_t iref)
-{
-    event_export.is_done = true;
-    event_export.err = err;
-
-    if (err_is_ok(err)) {
-        // register this iref with the name service
-        event_export.err = nameservice_register(DIST2_EVENT_SERVICE_NAME, iref);
-    }
-}
-
-static errval_t events_connect_cb(void *st, struct dist2_binding *b)
-{
-    // Set up continuation queue
-    b->st = NULL;
-
-    // copy my message receive handler vtable to the binding
-    b->rx_vtbl = event_rx_vtbl;
-
-    // accept the connection (we could return an error to refuse it)
-    return SYS_ERR_OK;
-}
-
-errval_t event_server_init(void)
-{
-    event_export.err = SYS_ERR_OK;
-    event_export.is_done = false;
-
-    errval_t err = dist2_export(&event_export, events_export_cb,
-            events_connect_cb, get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    while (!event_export.is_done) {
-        messages_wait_and_handle_next();
-    }
-
-    return event_export.err;
-}
-
 static void rpc_export_cb(void *st, errval_t err, iref_t iref)
 {
     rpc_export.is_done = true;
     rpc_export.err = err;
 
     if (err_is_ok(err)) {
-        // register this iref with the name service
-        rpc_export.err = nameservice_register(DIST2_RPC_SERVICE_NAME, iref);
+        struct monitor_binding *mb = get_monitor_binding();
+        debug_printf("dist2 rpc iref is: %d\n", iref);
+        err = mb->tx_vtbl.set_name_iref_request(mb, NOP_CONT, iref);
+        if(err_is_fail(err)) {
+            USER_PANIC_ERR(err, "failed to send set_name_iref_request to monitor");
+        }
     }
 }
 
@@ -126,6 +86,7 @@ errval_t rpc_server_init(void)
         return err;
     }
 
+    // XXX: broken
     while (!rpc_export.is_done) {
         messages_wait_and_handle_next();
     }
@@ -141,13 +102,6 @@ errval_t rpc_server_init(void)
  */
 errval_t dist_server_init(void)
 {
-
-    errval_t err = event_server_init();
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = rpc_server_init();
-
+    errval_t err = rpc_server_init();
     return err;
 }
