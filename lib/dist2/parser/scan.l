@@ -29,14 +29,14 @@ LCURLY \}
 COLON \:
 COMMA ,
 
-ALPHA  [A-Za-z_]
+ALPHA  [A-Za-z]
 LALPHA [a-z]
 DIGIT  [0-9]
 DIGIT19 [1-9]
 DIGITS ({DIGIT})+
 
 ALPHA_NUMERIC {ALPHA}|{DIGIT}
-IDENT {LALPHA}({ALPHA_NUMERIC})*
+IDENT {LALPHA}({ALPHA_NUMERIC}|[._-])*
 VARIABLE [_]
 
 INTEGER {DIGIT}|{DIGIT19}{DIGITS}|-{DIGIT}|-{DIGIT19}{DIGITS}
@@ -66,6 +66,7 @@ REGEX_START r{QUOTE}
             }
 
 {FLOAT}     {
+                printf("float: %s\n", yytext);
                 yylval->dl = atof(yytext);
                 return FLOAT;
             }
@@ -154,9 +155,10 @@ REGEX_START r{QUOTE}
 \n          { }
 {SPACE}     { /* eat up whitespace */ }
 
+<<EOF>>     return END_OF_INPUT;
+
 .           {
-                printf("Unexpected: %c\n", *yytext);
-                printf("Deal with it!\n");
-                return EUNEXPECTED;
+                yyerror("Unexpected input!");
             }
+            
 %%

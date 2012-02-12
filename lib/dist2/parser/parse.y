@@ -43,6 +43,7 @@ void yyerror(char *);
 %token NE
 %token VARIABLE
 %token EUNEXPECTED
+%token END_OF_INPUT
 
 %token <integer> BOOL
 %token <dl> FLOAT
@@ -55,7 +56,7 @@ void yyerror(char *);
 %type <nPtr> value
 %type <nPtr> attribute
 %type <nPtr> attributes
-%type <nPtr> object
+%type <nPtr> record
 %type <nPtr> constraint
 %type <nPtr> name
 
@@ -63,14 +64,13 @@ void yyerror(char *);
 %destructor { free($$); } <str>
 
 %%
-program: 
-      object                         { ((struct dist_parser_state*) data)->ast = $1; YYACCEPT; }
-    | ;
-
-object: 
-      name                           { $$ = ast_object($1, NULL);  } 
-    | name RCURLY LCURLY             { $$ = ast_object($1, NULL);  } 
-    | name RCURLY attributes LCURLY  { $$ = ast_object($1, $3);  }
+program:
+      record                         { ((struct dist_parser_state*) data)->ast = $1; YYACCEPT;  }
+    
+record: 
+      name END_OF_INPUT              { $$ = ast_object($1, NULL); }
+    | name RCURLY LCURLY             { $$ = ast_object($1, NULL); } 
+    | name RCURLY attributes LCURLY  { $$ = ast_object($1, $3); }
 
 name:
       IDENT                          { $$ = ast_ident($1); }
@@ -102,13 +102,12 @@ value:
     | BOOL                           { $$ = ast_boolean($1); }
     | FLOAT                          { $$ = ast_floatingpoint($1); }
     | SCAN                           { $$ = ast_scan($1); }
-    | VARIABLE                       { $$ = ast_variable(); }
-    
+    | VARIABLE                       { $$ = ast_variable(); }  
 %%
 
 void yyerror(char *s)
 {
 #ifdef DIST2_DEBUG
-    fprintf("dist2_parser: %s\n", s);
+    fprintf(stderr, "dist2_parser: %s\n", s);
 #endif
 }
