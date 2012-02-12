@@ -149,6 +149,10 @@ static errval_t boot_app_core(int argc, char *argv[])
     err = request_name_serv_iref(intermon_binding);
     assert(err_is_ok(err));
 
+    err = request_ramfs_serv_iref(intermon_binding);
+    assert(err_is_ok(err));
+
+
 #ifdef BARRELFISH_MULTIHOP_CHAN_H
     // request my part of the routing table
     err = multihop_request_routing_table(intermon_binding);
@@ -232,6 +236,19 @@ errval_t request_name_serv_iref(struct intermon_binding *st)
     }
     return SYS_ERR_OK;
 }
+
+errval_t request_ramfs_serv_iref(struct intermon_binding *st)
+{
+    errval_t err = st->tx_vtbl.ramfs_serv_iref_request(st, NOP_CONT);
+    if (err_is_fail(err)) {
+        return err_push(err, MON_ERR_SEND_REMOTE_MSG);
+    }
+    while(ramfs_serv_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+    return SYS_ERR_OK;
+}
+
 
 void ipi_test(void);
 

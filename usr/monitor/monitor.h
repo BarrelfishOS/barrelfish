@@ -154,6 +154,7 @@ errval_t boot_arch_app_core(int argc, char *argv[],
 errval_t request_trace_caps(struct intermon_binding *st);
 errval_t request_mem_serv_iref(struct intermon_binding *st);
 errval_t request_name_serv_iref(struct intermon_binding *st);
+errval_t request_ramfs_serv_iref(struct intermon_binding *st);
 
 /* inter.c */
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid);
