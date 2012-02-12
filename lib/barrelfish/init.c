@@ -244,18 +244,8 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
 #endif
 
-    // try to connect to name service (may fail if we are chips!)
-    /*
-    err = nameservice_client_blocking_bind();
-    if (err_is_fail(err)) { // Chips fails with following error
-        if (err_no(err) == LIB_ERR_GET_NAME_IREF) {
-            // skip everything else if we don't have a nameservice
-            return SYS_ERR_OK;
-        } else {
-            return err_push(err, LIB_ERR_NAMESERVICE_CLIENT_INIT);
-        }
-    }*/
-    err = dist_init();
+    // try to connect to name service (may fail if we are the skb or ramfsd!)
+    err = dist_rpc_init();
     if (err_is_fail(err)) {
         if (err_no(err) == LIB_ERR_GET_NAME_IREF) {
             // skip everything else if we don't have a nameservice
@@ -264,7 +254,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
             return err_push(err, LIB_ERR_NAMESERVICE_CLIENT_INIT);
         }
     }
-    DEBUG_ERR(err, "dist init");
 
     // init terminal
     err = terminal_init();

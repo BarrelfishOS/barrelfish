@@ -20,6 +20,8 @@
 #include <if/dist2_rpcclient_defs.h>
 
 errval_t dist_init(void);
+errval_t dist_rpc_init(void);
+
 struct dist2_rpc_client* get_dist_rpc_client(void);
 struct dist2_binding* get_dist_event_binding(void);
 
