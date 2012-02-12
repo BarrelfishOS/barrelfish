@@ -306,6 +306,7 @@ errors libbarrelfish LIB_ERR_ {
     failure GET_MON_BLOCKING_IREF  "Error while retrieving monitor's blocking channel service IREF from monitor",
     failure GET_MEM_IREF           "Failure sending memory iref request",
     failure GET_NAME_IREF          "Error while retrieving name service IREF from monitor",
+    failure GET_RAMFS_IREF         "Error while retrieving ramfsd service IREF from monitor",
     failure NAMESERVICE_CLIENT_INIT "Failure initialising nameservice client",
     failure SERIAL_BIND            "Failed binding to serial driver",
     failure KBD_BIND            "Failed binding to keyboard driver",
