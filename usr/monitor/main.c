@@ -75,7 +75,7 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         return err;
     }
 
-    /* SKB needs vfs for ECLiPSe so we need to start ramfsd as well... */
+    /* SKB needs vfs for ECLiPSe so we need to start ramfsd first... */
     err = spawn_domain("ramfsd");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed spawning ramfsd");
@@ -85,8 +85,6 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     while (ramfs_serv_iref == 0) {
         messages_wait_and_handle_next();
     }
-    debug_printf("got ramfsd_serv_iref: %d\n", ramfs_serv_iref);
-
 
     /* Spawn skb (new nameserver) before other domains */
     err = spawn_domain("skb");
@@ -98,8 +96,6 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     while (name_serv_iref == 0) {
         messages_wait_and_handle_next();
     }
-    debug_printf("got name_serv_iref: %d\n", name_serv_iref);
-
 
     /* initialise rcap_db */
     err = rcap_db_init(); 

@@ -491,7 +491,6 @@ static void get_mem_iref_request(struct monitor_binding *b)
 static void get_name_iref_request(struct monitor_binding *b, uintptr_t st)
 {
     errval_t err;
-    debug_printf("get_name_iref_request replies with: %d\n", name_serv_iref);
     err = b->tx_vtbl.get_name_iref_reply(b, NOP_CONT, name_serv_iref, st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
@@ -501,7 +500,6 @@ static void get_name_iref_request(struct monitor_binding *b, uintptr_t st)
 static void get_ramfs_iref_request(struct monitor_binding *b, uintptr_t st)
 {
     errval_t err;
-
     err = b->tx_vtbl.get_ramfs_iref_reply(b, NOP_CONT, ramfs_serv_iref, st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
