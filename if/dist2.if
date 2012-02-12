@@ -76,7 +76,7 @@ interface dist2 "dist2 RPC Interface" {
      */
     rpc exists(in string query, in trigger t, out errval error_code);
     
-    //rpc wait_for(in string query, out string record, out errval error_code);
+    rpc wait_for(in string query, out string record, out errval error_code);
     
     
     //
