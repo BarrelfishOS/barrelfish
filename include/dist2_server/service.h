@@ -59,6 +59,7 @@ void get_handler(struct dist2_binding*, char*, dist2_trigger_t);
 void set_handler(struct dist2_binding*, char*, uint64_t, dist2_trigger_t, bool);
 void del_handler(struct dist2_binding*, char*, dist2_trigger_t);
 void exists_handler(struct dist2_binding*, char*, dist2_trigger_t);
+void wait_for_handler(struct dist2_binding*, char*);
 
 void subscribe_handler(struct dist2_binding*, char*, uint64_t);
 void publish_handler(struct dist2_binding*, char*);

@@ -165,11 +165,18 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register("skb", iref);
+    char buf[100];
+    sprintf(buf, "add_object(skb, [val(iref, %d)], []).", iref);
+
+    struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
+    err = execute_query(buf, sqs);
+    //debug_printf("sqs->res: %d sqs->error: %s\n", sqs->exec_res, sqs->error_buffer);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
+        DEBUG_ERR(err, "nameservice register failed");
         abort();
     }
+
+    free(sqs);
 }
 
 

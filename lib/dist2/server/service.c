@@ -381,6 +381,61 @@ out:
     free(query);
 }
 
+static void wait_for_reply(struct dist2_binding* b, struct dist_reply_state* drs)
+{
+    errval_t err;
+    err = b->tx_vtbl.wait_for_response(b, MKCONT(free_dist_reply_state, drs),
+            drs->query_state.stdout.buffer, drs->error);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, drs);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+// XXX: For compatibility reasons with nameserver API
+void wait_for_handler(struct dist2_binding* b, char* query) {
+    errval_t err = SYS_ERR_OK;
+    errval_t set_watch_err = SYS_ERR_OK;
+
+    struct dist_reply_state* drs = NULL;
+    struct ast_object* ast = NULL;
+
+    err = new_dist_reply_state(&drs, wait_for_reply);
+    drs->binding = b;
+    assert(err_is_ok(err));
+
+    err = check_query_length(query);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    err = generate_ast(query, &ast);
+    if (err_is_ok(err)) {
+        err = get_record(ast, &drs->query_state);
+        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+            debug_printf("waiting for: %s\n", query);
+            set_watch_err = set_watch(ast, DIST_ON_SET, drs);
+        }
+    }
+
+out:
+    if (err_no(err) != DIST2_ERR_NO_RECORD || err_is_fail(set_watch_err)) {
+        drs->error = err;
+        if (err_is_fail(set_watch_err)) {
+            // implies err = DIST2_ERR_NO_RECORD
+            drs->error = set_watch_err;
+        }
+        drs->reply(b, drs);
+    }
+
+    free_ast(ast);
+    free(query);
+}
+
 static void subscribe_reply(struct dist2_binding* b,
         struct dist_reply_state* srs)
 {

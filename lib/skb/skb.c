@@ -51,7 +51,7 @@ errval_t skb_client_connect(void)
 
     err = nameservice_blocking_lookup("skb", &iref);
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_REFERENCE);
+        return err;
     }
 
     skb_state->request_done = false;

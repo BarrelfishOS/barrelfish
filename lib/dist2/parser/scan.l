@@ -66,6 +66,7 @@ REGEX_START r{QUOTE}
             }
 
 {FLOAT}     {
+                printf("float: %s\n", yytext);
                 yylval->dl = atof(yytext);
                 return FLOAT;
             }

@@ -107,6 +107,10 @@ interface monitor "The monitor to client Interface" {
 
           call get_name_iref_request(uintptr st);
           response get_name_iref_reply(iref iref, uintptr st);
+          
+          call get_ramfs_iref_request(uintptr st);
+          response get_ramfs_iref_reply(iref iref, uintptr st);
+          call set_ramfs_iref_request(iref iref);
 
           call set_mem_iref_request(
                         iref iref);
