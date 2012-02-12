@@ -772,6 +772,7 @@ static void bind_cb(void *st, errval_t err, struct trivfs_binding *b)
 
 static void get_ramfs_iref_reply(struct monitor_binding* mb, iref_t iref,
         uintptr_t state){
+    assert(iref != 0);
     *(iref_t*)state = iref;
 }
 
@@ -792,6 +793,7 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
         service = "ramfs";
     }
 
+
     // XXX: broken :-( uintptr_t + message_wait_and_handle_next()
     struct monitor_binding *mb = get_monitor_binding();
     mb->rx_vtbl.get_ramfs_iref_reply = get_ramfs_iref_reply;
@@ -799,6 +801,7 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_GET_NAME_IREF);
     }
+    debug_printf("wait to get vfs iref\n");
     while (iref == 0) {
         messages_wait_and_handle_next();
     }
