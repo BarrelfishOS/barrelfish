@@ -248,21 +248,22 @@ void transform_query(char* obj)
 
 	struct ast_object* ast = NULL;
 	errval_t err = generate_ast(obj, &ast);
-
 	if(err == 0) {
 	    printf("AST seems ok, translate...\n");
         sr = malloc(sizeof(struct skb_record));
         memset(sr, 0, sizeof(struct skb_record));
         translate(ast);
 	}
-
+	else {
+	    assert(!"ast generation failed");
+	}
 	//free_ast(ast);
 }
 
 
 int main(int argc, char** argv)
 {
-	transform_query(";parser { error:, m, }");
+	transform_query("spawn.1.ready");
 	printf("result: %s:\n\t%s\n\t%s\n", sr->name.output, sr->attributes.output, sr->constraints.output);
 
 	/*transform_query("obj2 {}");
