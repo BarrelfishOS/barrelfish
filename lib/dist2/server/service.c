@@ -417,6 +417,7 @@ void wait_for_handler(struct dist2_binding* b, char* query) {
     if (err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
         if (err_no(err) == DIST2_ERR_NO_RECORD) {
+            debug_printf("waiting for: %s\n", query);
             set_watch_err = set_watch(ast, DIST_ON_SET, drs);
         }
     }
