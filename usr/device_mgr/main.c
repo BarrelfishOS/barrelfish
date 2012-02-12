@@ -1,6 +1,9 @@
 /**
  * \file
- * \brief Device manager for barrelfish.
+ * \brief Device manager for Barrelfish.
+ *
+ * Interacts with the SKB / PCI to start cores, drivers etc.
+ *
  */
 
 /*
@@ -15,9 +18,16 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <assert.h>
+
+#include <dist2/init.h>
+#include <errors/errno.h>
 
 int main(void)
 {
-    printf("Hello World\n");
+    errval_t err = dist_init();
+    assert(err_is_ok(err));
+
+    printf("Hello World this is device manager\n");
     return EXIT_SUCCESS;
 }
