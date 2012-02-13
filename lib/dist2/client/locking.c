@@ -22,7 +22,7 @@
 
 #include "common.h"
 
-static void trigger_lock_deleted(char* object, void* st)
+static void trigger_lock_deleted(dist2_mode_t m, char* object, void* st)
 {
     struct thread_sem* ts = (struct thread_sem*) st;
     debug_printf("object: %s has been deleted, send singal!\n", object);
@@ -97,8 +97,9 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
             dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
                     trigger_lock_deleted, &ts);
             errval_t exist_err;
+            dist2_trigger_id_t tid;
             DIST_LOCK_BINDING(cl);
-            err = cl->vtbl.exists(cl, names[i - 1], t, &exist_err);
+            err = cl->vtbl.exists(cl, names[i - 1], t, &tid, &exist_err);
             DIST_UNLOCK_BINDING(cl);
             if (err_is_ok(exist_err)) {
                 thread_sem_wait(&ts);

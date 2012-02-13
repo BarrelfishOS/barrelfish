@@ -91,8 +91,8 @@ int main(int argc, char**argv)
         execute_string("[bindings].");
         execute_string("[pci_db].");
         dident e = ec_did("eclipse", 0);
-        ec_external(ec_did("notify_client", 2), p_notify_client, e);
-        ec_external(ec_did("trigger_watch", 5), p_trigger_watch, e);
+        //ec_external(ec_did("notify_client", 2), p_notify_client, e);
+        ec_external(ec_did("trigger_watch", 6), p_trigger_watch, e);
         ec_external(ec_did("save_index", 3), p_save_index, e);
         ec_external(ec_did("remove_index", 3), p_remove_index, e);
         ec_external(ec_did("index_intersect", 4), p_index_intersect, e);

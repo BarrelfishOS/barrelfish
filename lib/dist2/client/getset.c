@@ -78,9 +78,10 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
+    dist2_trigger_id_t tid;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.get_names(rpc_client, buf, NOP_TRIGGER, &data, // data
-            &error_code);
+            &tid, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
@@ -183,6 +184,7 @@ errval_t dist_get(char** data, const char* query, ...)
     assert(query != NULL);
     errval_t error_code;
     errval_t err = SYS_ERR_OK;
+    dist2_trigger_id_t tid;
     va_list args;
 
     char* buf = NULL;
@@ -191,7 +193,7 @@ errval_t dist_get(char** data, const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.get(rpc_client, buf, NOP_TRIGGER, data,
-            &error_code);
+            &tid, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
 
     if (err_is_ok(err)) {
@@ -227,9 +229,10 @@ errval_t dist_set(const char* query, ...)
     char* record = NULL;
 
     errval_t error_code;
+    dist2_trigger_id_t tid;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.set(rpc_client, buf, SET_DEFAULT, NOP_TRIGGER, false,
-            &record, &error_code);
+            &record, &tid, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     assert(record == NULL);
 
@@ -273,9 +276,10 @@ errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
+    dist2_trigger_id_t tid;
     DIST_LOCK_BINDING(rpc_client);
     err = rpc_client->vtbl.set(rpc_client, buf, mode, NOP_TRIGGER, true, record,
-            &error_code);
+            &tid, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
@@ -310,8 +314,9 @@ errval_t dist_del(const char* query, ...)
 
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
     errval_t error_code;
+    dist2_trigger_id_t tid;
     DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.del(rpc_client, buf, NOP_TRIGGER, &error_code);
+    err = rpc_client->vtbl.del(rpc_client, buf, NOP_TRIGGER, &tid, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
 
 
@@ -346,8 +351,9 @@ errval_t dist_exists(const char* query, ...)
     struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
 
     errval_t error_code;
+    dist2_trigger_id_t tid;
     DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.exists(rpc_client, buf, NOP_TRIGGER, &error_code);
+    err = rpc_client->vtbl.exists(rpc_client, buf, NOP_TRIGGER, &tid, &error_code);
     DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;

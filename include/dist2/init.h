@@ -19,6 +19,9 @@
 #include <if/dist2_defs.h>
 #include <if/dist2_rpcclient_defs.h>
 
+STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
+        "Sending pointers might fail :-(.");
+
 errval_t dist_init(void);
 errval_t dist_rpc_init(void);
 

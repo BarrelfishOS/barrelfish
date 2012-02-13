@@ -25,7 +25,7 @@
 #include <dist2_server/debug.h>
 
 #include <dist2/parser/ast.h>
-#include <dist2/getset.h>
+#include <dist2/trigger.h>
 #include <dist2/definitions.h>
 
 #include <bench/bench.h>
@@ -56,11 +56,20 @@ errval_t new_dist_reply_state(struct dist_reply_state** drt,
     (*drt)->query_state.stdout.length = 0;
     (*drt)->query_state.stderr.buffer[0] = '\0';
     (*drt)->query_state.stderr.length = 0;
+
     (*drt)->binding = 0;
     (*drt)->return_record = false;
     (*drt)->error = 0;
+
+    // For set_watch()
+    (*drt)->mode = 0;
+    (*drt)->client_state = 0;
+    (*drt)->client_handler = 0;
     (*drt)->watch_id = 0;
+
+    // For pubsub() TODO
     (*drt)->server_id = 0;
+
     (*drt)->reply = reply_handler;
     (*drt)->next = NULL;
 
@@ -82,10 +91,14 @@ static void free_dist_reply_state(void* arg)
 static void trigger_send_handler(struct dist2_binding* b,
         struct dist_reply_state* drs)
 {
+    char* record = drs->query_state.stdout.buffer[0] != '\0' ?
+            drs->query_state.stdout.buffer : NULL;
+
     errval_t err;
     err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, drs),
-            drs->trigger.trigger, drs->trigger.st,
-            drs->query_state.stdout.buffer);
+            drs->mode,
+            drs->client_handler, drs->client_state,
+            record);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             dist_rpc_enqueue_reply(b, drs);
@@ -95,28 +108,64 @@ static void trigger_send_handler(struct dist2_binding* b,
     }
 }
 
-static inline void install_trigger(struct dist2_binding* binding,
+static inline bool can_install_trigger(dist2_trigger_t trigger, errval_t error)
+{
+    return trigger.trigger > 0 &&
+           (trigger.in_case == err_no(error) ||
+           (trigger.m & DIST_ALWAYS_SET) != 0 );
+}
+
+static inline uint64_t install_trigger(struct dist2_binding* binding,
         struct ast_object* ast, dist2_trigger_t trigger, errval_t error)
 {
     errval_t err;
+    uint64_t watch_id = 0;
 
-    if (trigger.m > 0 && trigger.in_case == err_no(error)) {
+    if (can_install_trigger(trigger, error)) {
         struct dist_reply_state* trigger_reply = NULL;
         err = new_dist_reply_state(&trigger_reply, trigger_send_handler);
         assert(err_is_ok(err));
 
-        trigger_reply->trigger = trigger;
+        trigger_reply->client_handler = trigger.trigger;
+        trigger_reply->client_state = trigger.st;
         trigger_reply->binding = get_event_binding(binding);
         if (trigger_reply->binding == NULL) {
-            // In case no event binding is set, try to notify
-            // over regular binding
+            DIST2_DEBUG("No event binding for trigger, send events "
+                        "over regular binding.");
             trigger_reply->binding = binding;
         }
 
-        err = set_watch(ast, trigger.m, trigger_reply);
+        err = set_watch(ast, trigger.m, trigger_reply, &watch_id);
         assert(err_is_ok(err));
     }
 
+    return watch_id;
+}
+
+static void remove_trigger_reply(struct dist2_binding* b,
+        struct dist_reply_state* drs)
+{
+    errval_t err;
+    err = b->tx_vtbl.remove_trigger_response(b,
+            MKCONT(free_dist_reply_state, drs),
+            drs->error);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, drs);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+void remove_trigger_handler(struct dist2_binding *b, dist2_trigger_id_t tid)
+{
+    struct dist_reply_state* drs = NULL;
+    errval_t err = new_dist_reply_state(&drs, remove_trigger_reply);
+    assert(err_is_ok(err));
+
+    drs->error = del_watch(get_event_binding(b), tid, &drs->query_state);
+    drs->reply(b, drs);
 }
 
 static inline void arrival_rate(void)
@@ -132,16 +181,16 @@ static inline void arrival_rate(void)
     }
 }
 
-static void get_reply(struct dist2_binding* b, struct dist_reply_state* srt)
+static void get_reply(struct dist2_binding* b, struct dist_reply_state* drt)
 {
     errval_t err;
-    char* reply = err_is_ok(srt->error) ?
-            srt->query_state.stdout.buffer : NULL;
-    err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, srt),
-            reply, srt->error);
+    char* reply = err_is_ok(drt->error) ?
+            drt->query_state.stdout.buffer : NULL;
+    err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, drt),
+            reply, drt->watch_id, drt->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, srt);
+            dist_rpc_enqueue_reply(b, drt);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -152,9 +201,9 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* srt = NULL;
+    struct dist_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
-    err = new_dist_reply_state(&srt, get_reply);
+    err = new_dist_reply_state(&drs, get_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -164,13 +213,13 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        err = get_record(ast, &srt->query_state);
-        install_trigger(b, ast, trigger, err);
+        err = get_record(ast, &drs->query_state);
+        drs->watch_id = install_trigger(b, ast, trigger, err);
     }
 
 out:
-    srt->error = err;
-    srt->reply(b, srt);
+    drs->error = err;
+    drs->reply(b, drs);
 
     arrival_rate();
 
@@ -179,16 +228,16 @@ out:
 }
 
 static void get_names_reply(struct dist2_binding* b,
-        struct dist_reply_state* srt)
+        struct dist_reply_state* drt)
 {
     errval_t err;
-    char* reply = err_is_ok(srt->error) ?
-            srt->query_state.stdout.buffer : NULL;
-    err = b->tx_vtbl.get_names_response(b, MKCONT(free_dist_reply_state, srt),
-            reply, srt->error);
+    char* reply = err_is_ok(drt->error) ?
+            drt->query_state.stdout.buffer : NULL;
+    err = b->tx_vtbl.get_names_response(b, MKCONT(free_dist_reply_state, drt),
+            reply, drt->watch_id, drt->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, srt);
+            dist_rpc_enqueue_reply(b, drt);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -201,10 +250,10 @@ void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
 
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* srt = NULL;
+    struct dist_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&srt, get_names_reply);
+    err = new_dist_reply_state(&drs, get_names_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -214,29 +263,29 @@ void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
 
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
-        err = get_record_names(ast, &srt->query_state);
-        install_trigger(b, ast, t, err);
+        err = get_record_names(ast, &drs->query_state);
+        drs->watch_id = install_trigger(b, ast, t, err);
     }
 
 out:
-    srt->error = err;
-    srt->reply(b, srt);
+    drs->error = err;
+    drs->reply(b, drs);
 
     free_ast(ast);
     free(query);
 }
 
-static void set_reply(struct dist2_binding* b, struct dist_reply_state* srs)
+static void set_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
-    char* record = err_is_ok(srs->error) && srs->return_record ?
-            srs->query_state.stdout.buffer : NULL;
+    char* record = err_is_ok(drs->error) && drs->return_record ?
+            drs->query_state.stdout.buffer : NULL;
 
     errval_t err;
-    err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, srs), record,
-            srs->error);
+    err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, drs), record,
+            drs->watch_id, drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, srs);
+            dist_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -249,10 +298,10 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     DIST2_DEBUG(" set_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* srs = NULL;
+    struct dist_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&srs, set_reply);
+    err = new_dist_reply_state(&drs, set_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -263,8 +312,8 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         if (ast->u.on.name->type == nodeType_Ident) {
-            err = set_record(ast, mode, &srs->query_state);
-            install_trigger(b, ast, trigger, err);
+            err = set_record(ast, mode, &drs->query_state);
+            drs->watch_id = install_trigger(b, ast, trigger, err);
         }
         else {
             // Since we don't have any ACLs atm. we do not
@@ -276,22 +325,22 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     }
 
 out:
-    srs->error = err;
-    srs->return_record = get;
-    srs->reply(b, srs);
+    drs->error = err;
+    drs->return_record = get;
+    drs->reply(b, drs);
 
     free_ast(ast);
     free(query);
 }
 
-static void del_reply(struct dist2_binding* b, struct dist_reply_state* srs)
+static void del_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.del_response(b, MKCONT(free_dist_reply_state, srs),
-            srs->error);
+    err = b->tx_vtbl.del_response(b, MKCONT(free_dist_reply_state, drs),
+            drs->watch_id, drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, srs);
+            dist_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -303,10 +352,10 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     DIST2_DEBUG(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* srs = NULL;
+    struct dist_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&srs, del_reply);
+    err = new_dist_reply_state(&drs, del_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -317,8 +366,8 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         if (ast->u.on.name->type == nodeType_Ident) {
-            err = del_record(ast, &srs->query_state);
-            install_trigger(b, ast, trigger, err);
+            err = del_record(ast, &drs->query_state);
+            drs->watch_id = install_trigger(b, ast, trigger, err);
         }
         else {
             // Since we don't have any ACLs atm. we do not
@@ -329,8 +378,8 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     }
 
 out:
-    srs->error = err;
-    srs->reply(b, srs);
+    drs->error = err;
+    drs->reply(b, drs);
 
     free_ast(ast);
     free(query);
@@ -340,7 +389,7 @@ static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, drs),
-            drs->error);
+            drs->watch_id, drs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -370,7 +419,7 @@ void exists_handler(struct dist2_binding* b, char* query,
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
-        install_trigger(b, ast, trigger, err);
+        drs->watch_id = install_trigger(b, ast, trigger, err);
     }
 
 out:
@@ -418,7 +467,8 @@ void wait_for_handler(struct dist2_binding* b, char* query) {
         err = get_record(ast, &drs->query_state);
         if (err_no(err) == DIST2_ERR_NO_RECORD) {
             debug_printf("waiting for: %s\n", query);
-            set_watch_err = set_watch(ast, DIST_ON_SET, drs);
+            uint64_t wid;
+            set_watch_err = set_watch(ast, DIST_ON_SET, drs, &wid);
         }
     }
 

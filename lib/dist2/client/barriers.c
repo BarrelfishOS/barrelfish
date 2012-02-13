@@ -23,7 +23,7 @@
 
 #include "common.h"
 
-static void barrier_signal_sem(char* record, void* state)
+static void barrier_signal_sem(dist2_mode_t m, char* record, void* state)
 {
     debug_printf("barrier_signal_sem\n");
     struct thread_sem* ts = (struct thread_sem*) state;
@@ -68,8 +68,9 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
         dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET,
                 barrier_signal_sem, &ts);
         errval_t exist_err;
+        dist2_trigger_id_t tid;
         DIST_LOCK_BINDING(cl);
-        err = cl->vtbl.exists(cl, name, t, &exist_err);
+        err = cl->vtbl.exists(cl, name, t, &tid, &exist_err);
         DIST_UNLOCK_BINDING(cl);
         if (err_is_fail(err)) {
             return err;
@@ -138,8 +139,9 @@ errval_t dist_barrier_leave(const char* barrier_record)
             dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
                     barrier_signal_sem, &ts);
             errval_t exist_err;
+            dist2_trigger_id_t tid;
             DIST_LOCK_BINDING(cl);
-            err = cl->vtbl.exists(cl, barrier_name, t, &exist_err);
+            err = cl->vtbl.exists(cl, barrier_name, t, &tid, &exist_err);
             DIST_UNLOCK_BINDING(cl);
             if (err_is_fail(err)) {
                 goto out;

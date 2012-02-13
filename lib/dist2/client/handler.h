@@ -20,7 +20,7 @@
 
 #include <dist2/pubsub.h>
 
-void trigger_handler(struct dist2_binding*, uint64_t, uint64_t, char*);
+void trigger_handler(struct dist2_binding*, dist2_mode_t, uint64_t, uint64_t, char*);
 void subscribed_message_handler(struct dist2_binding*, subscription_t, char*);
 
 void dist_pubsub_init(void);

@@ -24,7 +24,7 @@
 
 #include <dist2_server/debug.h>
 #include <dist2_server/service.h>
-
+#include <dist2/trigger.h> // for trigger modes
 
 #include "predicates.h"
 #include "skiplist.h"
@@ -439,7 +439,7 @@ int p_notify_client(void) /* p_notify_client(+String, ReplyState) */
 
     ec_get_string(ec_arg(1), &str);
     ec_get_long(ec_arg(2), (long int*) &drs); // TODO conversion to pointer?
-    assert(strlen(str)+1 < BUFFER_SIZE); // TODO
+    assert(strlen(str)+1 < MAX_QUERY_LENGTH);
 
     strcpy(drs->query_state.stdout.buffer, str);
     debug_printf("p_notify_client: %s\n", drs->query_state.stdout.buffer);
@@ -454,23 +454,33 @@ int p_notify_client(void) /* p_notify_client(+String, ReplyState) */
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
 {
     int res;
+    DIST2_DEBUG("\np_trigger_watch: start\n");
 
     // Get arguments
     char* record = NULL;
     res = ec_get_string(ec_arg(1), &record);
     if (res != PSUCCEED) {
+        assert(ec_is_var(ec_arg(1)) == PSUCCEED);
+        // record will be null
+        // can happen in case we send DIST_REMOVED
+    }
+
+    // Action that triggered the event
+    long int action = 0;
+    res = ec_get_long(ec_arg(2), &action);
+    if (res != PSUCCEED) {
         return res;
     }
-    assert(strlen(record)+1 < BUFFER_SIZE); // TODO
 
-    long int mode = 0;
-    res = ec_get_long(ec_arg(2), &mode);
+    // Mode of watch
+    long int watch_mode = 0;
+    res = ec_get_long(ec_arg(3), &watch_mode);
     if (res != PSUCCEED) {
         return res;
     }
 
     struct dist_reply_state* drs = NULL;
-    res = ec_get_long(ec_arg(3), (long int*) &drs);
+    res = ec_get_long(ec_arg(4), (long int*) &drs);
     if (res != PSUCCEED) {
         return res;
     }
@@ -478,25 +488,44 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     DIST2_DEBUG("drs is: %p\n", drs);
 
     long int watch_id = 0;
-    res = ec_get_long(ec_arg(4), &watch_id);
+    res = ec_get_long(ec_arg(5), &watch_id);
     if (res != PSUCCEED) {
         return res;
     }
 
-    strcpy(drs->query_state.stdout.buffer, record);
-    DIST2_DEBUG("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
+    DIST2_DEBUG("p_trigger_watch: %s\n", record);
     DIST2_DEBUG("drs->binding: %p\n", drs->binding);
     DIST2_DEBUG("drs->reply: %p\n", drs->reply);
 
+
     drs->error = SYS_ERR_OK;
-    if (drs->binding != NULL) {
+    bool retract = !(watch_mode & DIST_PERSIST);
+    if (record != NULL) {
+        assert(strlen(record)+1 < MAX_QUERY_LENGTH);
+        strcpy(drs->query_state.stdout.buffer, record);
+    }
+    else {
+        drs->query_state.stdout.buffer[0] = '\0';
+        drs->query_state.stdout.length = 0;
+    }
+
+    if (drs->binding != NULL && drs->reply != NULL) {
+
+        if (!retract) {
+            // Copy reply state because the trigger will stay intact
+            struct dist_reply_state* drs_copy = NULL;
+            errval_t err = new_dist_reply_state(&drs_copy, NULL);
+            assert(err_is_ok(err));
+            memcpy(drs_copy, drs, sizeof(struct dist_reply_state));
+            drs = drs_copy; // overwrite drs
+        }
+
+        drs->mode = (retract) ? (action | DIST_REMOVED) : action;
         drs->reply(drs->binding, drs);
     }
     else {
-        // Ignore sending trigger messages
-        DIST2_DEBUG("No event binding found for watch_id: %lu", watch_id);
+        USER_PANIC("No binding set for watch_id: %lu", watch_id);
     }
 
-    long int retract = true;
-    return ec_unify_arg(5, ec_long(retract));
+    return ec_unify_arg(6, ec_long(retract));
 }

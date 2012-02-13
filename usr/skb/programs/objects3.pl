@@ -233,6 +233,7 @@ trigger_watches(Object, Mode) :-
 
 % no optimzation atm. as long as 
 % the amount of concurrent watches is small this is fine
+% TODO: this is nothing else than a subscription, need to combine this with pubsub somehow
 find_watches(object(Name, Attrs), L) :-
     coverof(X, watch(X), L), !.
 find_watches(_, []).
@@ -242,8 +243,8 @@ check_watches(Object, Mode, [T|Rest]) :-
     check_watch(Object, Mode, T),
     check_watches(Object, Mode, Rest).
 
-check_watch(object(Name, Attrs), Mode, triplet(template(TName, Constraints), WMode, recipient(Binding, ReplyState, WatchId))) :-
-    Mode /\ WMode > 0,
+check_watch(object(Name, Attrs), Action, triplet(template(TName, Constraints), WMode, recipient(_, ReplyState, WatchId))) :-
+    Action /\ WMode > 0,
     ( (not var(TName), not atom(TName)) ->
         TName = name_constraint(Value),
         match(Value, Name, [])
@@ -251,13 +252,17 @@ check_watch(object(Name, Attrs), Mode, triplet(template(TName, Constraints), WMo
     match_constraints(Constraints, Attrs),
     !,
     format_object(object(Name, Attrs), Output),
-    trigger_watch(Output, Mode, ReplyState, WatchId, Retract),
+    trigger_watch(Output, Action, WMode, ReplyState, WatchId, Retract),
     try_retract(Retract, WatchId).
 check_watch(_, _, _). % Checking watches should never fail
 
 try_retract(1, WatchId) :-
     retract(watch(triplet(_, _, recipient(_, _, WatchId)))).
 try_retract(0, _). 
+
+remove_watch(Binding, WatchId) :-
+    retract(watch(triplet(_, _, recipient(Binding, ReplyState, WatchId)))),
+    trigger_watch(_, 16, 0, ReplyState, WatchId, _). % 16 is DIST_REMOVED
 
 
 %

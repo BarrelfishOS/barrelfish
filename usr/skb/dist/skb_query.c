@@ -117,7 +117,7 @@ static errval_t run_eclipse(struct dist_query_state* st)
 
     errval_t err = transform_ec_error(st->exec_res);
     if (err_no(err) == SKB_ERR_EXECUTION) {
-        err_push(err, DIST2_ERR_ENGINE_FAIL);
+        err = err_push(err, DIST2_ERR_ENGINE_FAIL);
     }
 
     return err;
@@ -262,7 +262,7 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
 
         err = run_eclipse(dqs);
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            err_push(err, DIST2_ERR_NO_RECORD);
+            err = err_push(err, DIST2_ERR_NO_RECORD);
         }
         DIST2_DEBUG(" del_record:\n");
         debug_skb_output(dqs);
@@ -272,8 +272,10 @@ errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
 }
 
 errval_t set_watch(struct ast_object* ast, uint64_t mode,
-        struct dist_reply_state* drs)
+        struct dist_reply_state* drs, uint64_t* wid)
 {
+    *wid = 0;
+
     struct skb_ec_terms sr;
     errval_t err = transform_record(ast, &sr);
     if (err_is_ok(err)) {
@@ -296,6 +298,7 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
         err = run_eclipse(&drs->query_state);
         if (err_is_ok(err)) {
             drs->watch_id = watch_id;
+            *wid = watch_id;
         }
         else if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
             DIST2_DEBUG("Watch could not be set, check prolog code!");
@@ -305,6 +308,26 @@ errval_t set_watch(struct ast_object* ast, uint64_t mode,
         DIST2_DEBUG(" set_watch:\n");
         debug_skb_output(&drs->query_state);
     }
+
+    return err;
+}
+
+errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
+        struct dist_query_state* dqs)
+{
+    dident remove_watch = ec_did("remove_watch", 2);
+    pword binding_ptr = ec_long((long int) b);
+    pword watch_id_val = ec_long((long int) id);
+    pword remove_watch_term = ec_term(remove_watch, binding_ptr, watch_id_val);
+    ec_post_goal(remove_watch_term);
+
+    errval_t err = run_eclipse(dqs);
+    if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
+        err = err_push(err, DIST2_ERR_INVALID_ID);
+    }
+
+    DIST2_DEBUG(" del_trigger id is %lu:\n", id);
+    debug_skb_output(dqs);
 
     return err;
 }
@@ -435,7 +458,7 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
         bitfield_off(subscriber_ids, id);
     }
     if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-        err_push(err, DIST2_ERR_NO_SUBSCRIPTION);
+        err = err_push(err, DIST2_ERR_NO_SUBSCRIPTION);
     }
 
     DIST2_DEBUG("del_subscription:\n");
@@ -468,7 +491,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
 
         err = run_eclipse(sqs);
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            err_push(err, DIST2_ERR_NO_SUBSCRIBERS);
+            err = err_push(err, DIST2_ERR_NO_SUBSCRIBERS);
         }
     }
 

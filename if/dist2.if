@@ -10,6 +10,7 @@
 interface dist2 "dist2 RPC Interface" {
 
     alias mode uint64;
+    alias trigger_id uint64;
 
     // XXX: No flounder support for pointer values
     // Store function pointer/state ptr on client side but
@@ -39,17 +40,19 @@ interface dist2 "dist2 RPC Interface" {
      * \param query Records to find.
      * \param t Additional trigger to watch for future events.
      * \param output Comma separated string of record names or NULL on error.
+     * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc get_names(in string query, in trigger t, out string output, out errval error_code);
+    rpc get_names(in string query, in trigger t, out string output, out trigger_id tid, out errval error_code);
     
     /**
      * \param query Record to find.
      * \param t Additional trigger to watch for future events.
      * \param output Retrieved record or NULL on error.
+     * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc get(in string query, in trigger t, out string output, out errval error_code);
+    rpc get(in string query, in trigger t, out string output, out trigger_id tid, out errval error_code);
         
     /**
      * \param query Record to set.
@@ -58,23 +61,26 @@ interface dist2 "dist2 RPC Interface" {
      * \param get Return record if it has been set.
      * \param record In case get is true and no error_code is ok 
      * contains record, otherwise NULL
+     * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request
      */
-    rpc set(in string query, in uint64 mode, in trigger t, in bool get, out string record, out errval error_code);
+    rpc set(in string query, in uint64 mode, in trigger t, in bool get, out string record, out trigger_id tid, out errval error_code);
     
     /**
      * \param query Record(s) to delete.
      * \param t Additional trigger to watch for future events.
+     * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request
      */
-    rpc del(in string query, in trigger t, out errval error_code);    
+    rpc del(in string query, in trigger t, out trigger_id tid, out errval error_code);    
     
     /**
      * \param query
      * \param t Additional trigger to watch for future events.
+     * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc exists(in string query, in trigger t, out errval error_code);
+    rpc exists(in string query, in trigger t, out trigger_id tid, out errval error_code);
     
     /**
      * \brief Blocks until a record matching the provided query is registered.
@@ -90,6 +96,18 @@ interface dist2 "dist2 RPC Interface" {
      */
     rpc wait_for(in string query, out string record, out errval error_code);
     
+    /**
+     * \brief Used to remove Triggers in case they are not needed anymore.
+     *
+     * Note that non persistent trigger are removed automatically after 
+     * they have fired. For persistent triggers be aware that you might
+     * still get a notification after the trigger has been removed because
+     * trigger events are sent over another binding.
+     *
+     * \param id Trigger ID to remove
+     * \param error_code Error of operation
+     */
+    rpc remove_trigger(in uint64 id, out errval error_code);
     
     //
     // Publish/Subscribe API
@@ -118,6 +136,7 @@ interface dist2 "dist2 RPC Interface" {
     //
     // Async events (sent by server to client)
     //
-    message trigger(uint64 trigger_fn, uint64 state, string record);
+    message trigger(mode m, uint64 trigger_fn, uint64 state, string record);
+    
     message subscribed_message(uint64 id, string record);    
 };

@@ -28,9 +28,6 @@ typedef uint64_t dist_mode_t;
 // TODO SET_TRANSIENT NYI Due to limitations of barrelfish:
 // (can't figure out if a domain is done/crashed...).
 
-#define DIST_ON_SET (0x1)           /*!< Trigger checked for set events. */
-#define DIST_ON_DEL (0x1 << 1)      /*!< Trigger checked for del events. */
-
 errval_t dist_get_names(char*** names, size_t*, const char*, ...);
 void dist_free_names(char**, size_t);
 
