@@ -1,63 +1,66 @@
 :- dynamic subscribed/3.
 
-:- local store(sh).
+:- local store(ps). % stores subscriptions
+:- local store(trigger). % stores triggers
 %:- external(bitfield_add/3, p_bitfield_add).
 %:- external(bitfield_remove/3, p_bitfield_remove).
 %:- external(bitfield_union/4, p_bitfield_union).
 
-add_subscription(Id, Template, Subscriber) :-
+add_subscription(Storage, Id, Template, Subscriber) :-
     Template = template(Name, AList, CList),
     make_all_constraints(AList, CList, Constraints),
-    store_set(sh, Id, subscription(Name, Constraints, Subscriber)),
-    bitfield_add(sub, Constraints, Id).
+    store_set(Storage, Id, subscription(Name, Constraints, Subscriber)),
+    bitfield_add(Storage, Constraints, Id).
 
-delete_subscription(Id, Binding) :-
-    store_get(sh, Id, subscription(_, Constraints, Subscriber)),
-    Subscriber = subscriber(Binding, _),
-    store_delete(sh, Id),
-    bitfield_remove(sub, Constraints, Id).
+delete_subscription(Storage, Id, Binding) :-
+    store_get(Storage, Id, subscription(_, Constraints, Subscriber)),
+    arg(1, Subscriber, Binding),
+    store_delete(Storage, Id),
+    bitfield_remove(Storage, Constraints, Id).
 
-find_subscriber(Message, Subscriber) :-
+find_subscriber(Storage, Message, Subscriber) :-
     Message = object(Name, AList),
     sort(AList, SAList),
     SMessage = object(Name, SAList),
-    find_subscription_candidates(SMessage, Candidate),
-    store_get(sh, Candidate, Subscription),
+    find_subscription_candidates(Storage, SMessage, Candidate),
+    store_get(Storage, Candidate, Subscription),
     match_message(SMessage, Subscription),
     Subscription = subscription(_, _, Subscriber).
 
-find_subscription_candidates(Message, Ids) :-
+find_subscription_candidates(Storage, Message, Ids) :-
     Message = object(Name, Attributes),
     (not length(Attributes, 0) ; atom(Name)), !, % TODO
     get_index_names(Attributes, IdxList),
-    find_next_subscriber(IdxList, Ids).
+    find_next_subscriber(Storage, IdxList, Ids).
 
-find_next_subscriber(AttributeList, NextItem) :-
-    index_union_aux(AttributeList, "s", NextItem).
+find_next_subscriber(Storage, AttributeList, NextItem) :-
+    index_union_aux(Storage, AttributeList, "s", NextItem).
 
 % This makes our C predicate non-deterministic
-index_union_aux(AttributeList, OldState, Item) :-
-    bitfield_union(sh, AttributeList, OldState, NewItem),
+index_union_aux(Storage, AttributeList, OldState, Item) :-
+    bitfield_union(Storage, AttributeList, OldState, NewItem),
     (
         Item = NewItem
     ;
-        index_union_aux(AttributeList, NewItem, Item)
+        index_union_aux(Storage, AttributeList, NewItem, Item)
     ).
 
 match_message(Message, Subscription) :-
     Message = object(MName, AList),
     Subscription = subscription(SName, Constraints, _),
     ( not var(SName) ->
-        SName = name_constraint(Value),
-        match(Value, MName, [])
+        ( not atom(SName) ->
+            SName = name_constraint(Value),
+            match(Value, MName, [])
+        ; SName = MName )
     ; true ),
     match_attributes(AList, Constraints).
 
 % Similar to match_constraints in objects code but works the other
 % way around: we match attributs against constraints
-% Number comparison
 match_attributes(_, []).
 
+% Number comparison
 match_attributes([val(Key, AValue)|Rest], [constraint(Key, Comparator, CValue)|CRest]) :-
     number(AValue), number(CValue), !,
     number_compare(Comparator, AValue, CValue),

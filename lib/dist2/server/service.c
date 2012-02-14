@@ -67,9 +67,6 @@ errval_t new_dist_reply_state(struct dist_reply_state** drt,
     (*drt)->client_handler = 0;
     (*drt)->watch_id = 0;
 
-    // For pubsub() TODO
-    (*drt)->server_id = 0;
-
     (*drt)->reply = reply_handler;
     (*drt)->next = NULL;
 
@@ -491,7 +488,7 @@ static void subscribe_reply(struct dist2_binding* b,
 {
     errval_t err;
     err = b->tx_vtbl.subscribe_response(b, MKCONT(free_dist_reply_state, srs),
-            srs->server_id, srs->error);
+            srs->watch_id, srs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {

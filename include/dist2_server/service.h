@@ -50,7 +50,6 @@ struct dist_reply_state {
 
     // For watch()
     uint64_t watch_id;
-    uint64_t server_id;
 
     struct dist_reply_state *next;
 };

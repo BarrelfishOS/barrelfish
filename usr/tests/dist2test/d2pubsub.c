@@ -35,20 +35,15 @@ static void message_handler(subscription_t id, char* record, void* st)
 
     errval_t err = dist_read(record, "%s", &name);
     ASSERT_ERR_OK(err);
-    debug_printf("after read received: %p %lu %s\n", received, *received, name);
     ASSERT_STRING(receive_order[*received], name);
     (*received)++;
-    debug_printf("before post\n");
-
 
     if (*received == to_receive) {
         thread_sem_post(&ts);
     }
 
-    debug_printf("after post\n");
     free(name);
     free(record);
-    debug_printf("end message_handler\n");
 }
 
 static void subscriber(void)
@@ -105,7 +100,6 @@ static void subscriber(void)
     err = dist_unsubscribe(id4);
     ASSERT_ERR_OK(err);
 
-    printf("subscriber before leave\n");
     dist_barrier_leave(barrier_record);
     free(barrier_record);
 
@@ -143,7 +137,6 @@ static void publisher(void)
     err = dist_publish("msg_7 { type: 'test' }");
     ASSERT_ERR_OK(err);
 
-    printf("publisher before leave\n");
     dist_barrier_leave(barrier_record);
     free(barrier_record);
 

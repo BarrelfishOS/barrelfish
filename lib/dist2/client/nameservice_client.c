@@ -41,7 +41,6 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
 {
     errval_t err;
-    debug_printf("nameservice_blocking_lookup: %s\n", iface);
     struct dist2_rpc_client *r = get_dist_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
