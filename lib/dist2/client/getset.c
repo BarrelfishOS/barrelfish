@@ -47,6 +47,73 @@ static int cmpstringp(const void *p1, const void *p2)
 }
 
 /**
+ * \brief Parses output from get_names call and stores it in an array.
+ *
+ * \note Use dist_free_names() to free names array.
+ *
+ * \param[in] input Comma separated string of names
+ * \param[out] names Array of strings containing all names
+ * \param[out] len Size of array.
+ *
+ * \retval LIB_ERR_MALLOC_FAIL
+ * \retval SYS_ERR_OK
+ */
+errval_t dist_parse_names(char* input, char*** names, size_t* len)
+{
+    errval_t err = SYS_ERR_OK;
+
+    char *p = mystrdup(input);
+    if (p == NULL) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto out;
+    }
+
+    // first get the number of elements
+    char* saveptr = NULL;
+    size_t i;
+    char* tok = p; // just make sure it's non-null
+    char* first = p;
+    for (i = 0; tok != NULL; i++, first = NULL) {
+        tok = strtok(first, ",");
+    }
+    assert(p != NULL);
+    free(p);
+    p = NULL;
+    *len = --i;
+
+    *names = malloc(sizeof(char*) * i);
+    if (*names == NULL) {
+        *len = 0;
+        err = LIB_ERR_MALLOC_FAIL;
+        goto out;
+    }
+    memset(*names, 0, sizeof(char*) * i);
+
+    // now get the actual elements
+    saveptr = NULL;
+    tok = input; // just make sure it's non-null
+    first = input;
+    for (i = 0; tok != NULL; i++, first = NULL) {
+        tok = strtok(first, ", ");
+        if (tok != NULL) {
+            (*names)[i] = mystrdup(tok);
+            if ((*names)[i] == NULL) {
+                dist_free_names(*names, i);
+                *names = NULL;
+                *len = 0;
+                err = LIB_ERR_MALLOC_FAIL;
+                goto out;
+            }
+        } else {
+            break;
+        }
+    }
+
+out:
+    return err;
+}
+
+/**
  * \brief Retrieve all record names matching a given query.
  *
  * \param[out] names Names of all records matching the query.
@@ -88,61 +155,12 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
     }
 
     if (err_is_ok(err)) {
-        char *p = mystrdup(data);
-        if (p == NULL) {
-            err = LIB_ERR_MALLOC_FAIL;
-            goto out;
-        }
-
-        // first get the number of elements
-        char* saveptr = NULL;
-        size_t i;
-        char* tok = p; // just make sure it's non-null
-        char* first = p;
-        for (i = 0; tok != NULL; i++, first = NULL) {
-            tok = strtok(first, ",");
-        }
-        assert(p != NULL);
-        free(p);
-        p = NULL;
-        *len = --i;
-
-        *names = malloc(sizeof(char*) * i);
-        if (*names == NULL) {
-            *len = 0;
-            err = LIB_ERR_MALLOC_FAIL;
-            goto out;
-        }
-        memset(*names, 0, sizeof(char*) * i);
-
-        // now get the actual elements
-        saveptr = NULL;
-        tok = data; // just make sure it's non-null
-        first = data;
-        for (i = 0; tok != NULL; i++, first = NULL) {
-            tok = strtok(first, ", ");
-            if (tok != NULL) {
-                (*names)[i] = mystrdup(tok);
-                if ((*names)[i] == NULL) {
-                    dist_free_names(*names, i);
-                    *names = NULL;
-                    *len = 0;
-                    err = LIB_ERR_MALLOC_FAIL;
-                    goto out;
-                }
-            } else {
-                break;
-            }
-        }
+        err = dist_parse_names(data, names, len);
         qsort(*names, *len, sizeof(char*), cmpstringp);
     }
 
-    // free(*data) on error? can be NULL?
-
-out:
     free(buf);
     free(data);
-
     return err;
 }
 

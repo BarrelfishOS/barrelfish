@@ -32,7 +32,7 @@
                                          this trigger is safe in case this
                                          flag is set. */
 
-typedef void(*trigger_handler_fn)(dist2_mode_t mode, char* object, void* state);
+typedef void(*trigger_handler_fn)(dist2_mode_t mode, char* record, void* state);
 dist2_trigger_t dist_mktrigger(errval_t, dist2_mode_t, trigger_handler_fn,
         void*);
 errval_t dist_remove_trigger(dist2_trigger_id_t);

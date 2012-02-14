@@ -29,6 +29,7 @@ typedef uint64_t dist_mode_t;
 // (can't figure out if a domain is done/crashed...).
 
 errval_t dist_get_names(char*** names, size_t*, const char*, ...);
+errval_t dist_parse_names(char* input, char*** names, size_t*);
 void dist_free_names(char**, size_t);
 
 errval_t dist_get(char**, const char*, ...);
