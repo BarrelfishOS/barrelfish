@@ -68,6 +68,7 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int hwid,
 
     /* Assure memory server and chips have initialized */
     assert(mem_serv_iref != 0);
+    assert(ramfs_serv_iref != 0);
     assert(name_serv_iref != 0);
     assert(monitor_mem_iref != 0);
 
