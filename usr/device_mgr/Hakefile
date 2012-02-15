@@ -11,6 +11,6 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "device_mgr",
-          		      cFiles = [ "main.c" ],
+          		      cFiles = [ "main.c", "queue.c" ],
         		      addLibraries = [ "dist2", "dist_parser" ] }
 ]
