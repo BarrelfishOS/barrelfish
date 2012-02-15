@@ -110,7 +110,7 @@ static inline void cp15_disable_cache(void){
                    "mcr p15, 0, r1, c1, c0, 0 \n\t"
                    :::"r1");
 
-    printf("WARNING! Caching has been disabled, configuration is: %x\n", cp15_read_cache_status());
+    printf("WARNING! Caching has been disabled, configuration is: %"PRIx32"\n", cp15_read_cache_status());
 
 }
 

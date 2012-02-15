@@ -246,8 +246,8 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     disp->systime = kernel_now;
 
     if (dcb->disabled) {
-        debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIxPTR "\n", DISP_NAME_LEN,
-              disp->name, registers_get_ip(disabled_area));
+        debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
+              disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
         resume(disabled_area);

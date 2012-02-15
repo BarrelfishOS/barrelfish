@@ -267,7 +267,8 @@ monitor_create_cap(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    printf("%d: %d, %d, %d, %d, %d, %d\n", argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
+    printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
+            argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
@@ -331,7 +332,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
     uint16_t invoke_bits = (sa->arg0 >> 16) & 0xffff;
     capaddr_t  invoke_cptr = sa->arg1;
 
-    debug(SUBSYS_SYSCALL, "sys_invoke(0x%x(%d))\n", invoke_cptr, invoke_bits);
+    debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n", invoke_cptr, invoke_bits);
 
     struct sysret r = { .error = SYS_ERR_OK, .value = 0 };
 
@@ -533,7 +534,7 @@ void sys_syscall(arch_registers_state_t* context)
     }
 
     if (r.error) {
-        debug(SUBSYS_SYSCALL, "syscall failed %08x => %08x\n",
+        debug(SUBSYS_SYSCALL, "syscall failed %08"PRIx32" => %08"PRIxERRV"\n",
               sa->arg0, r.error);
     }
 

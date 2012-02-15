@@ -325,7 +325,7 @@ caps_map_l1(struct capability* dest,
         entry->coarse.domain = 0;
         entry->coarse.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
-        debug(SUBSYS_PAGING, "L1 mapping %d. @%p = %08x\n",
+        debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot * ARM_L1_SCALE + i, entry, entry->raw);
     }
 
@@ -393,7 +393,7 @@ caps_map_l2(struct capability* dest,
 
     entry->small_page.base_address = src_lpaddr >> 12;
 
-    debug(SUBSYS_PAGING, "L2 mapping %08x[%d] @%p = %08x\n",
+    debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
            dest_lvaddr, slot, entry, entry->raw);
 
     // Flush TLB if remapping.
