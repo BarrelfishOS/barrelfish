@@ -1,6 +1,6 @@
-if (Config.libc == "newlib") && ("x86_64" `elem` Config.architectures) then
+if (Config.libc == "newlib") && ("x86_32" `elem` Config.architectures) then
 [ build library { 
-  target = "x86_64",
+  target = "i386",
   cFiles = [ 
           "setjmp.S",
           "memcpy.S",

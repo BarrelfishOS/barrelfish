@@ -1,20 +1,25 @@
 if Config.libc == "newlib" then
+let
+  mapfn = \x -> case x of "x86_64" -> "x86_64"
+                          "x86_32" -> "i386"
+                          "arm"    -> "arm"
+  archlibs = map mapfn Config.architectures
+in
 [ build library { 
   target = "newc",
-  addLibraries = [ "ctype",
-                   "search",
-                   "string",
-                   "argz",
-                   "stdlib",
-                   "stdio",
-                   -- "signal",
-                   "time",
-                   "locale",
-                   "reent",
-                   "errno",
-                   "misc",
-                   "x86_64",
-                   "sys" ]
+  addLibraries = [ "ctype"
+                 , "search"
+                 , "string"
+                 , "argz"
+                 , "stdlib"
+                 , "stdio"
+             --  , "signal"
+                 , "time"
+                 , "locale"
+                 , "reent"
+                 , "errno"
+                 , "misc"
+                 , "sys" ] ++ archlibs
    }
 ]
 else []
