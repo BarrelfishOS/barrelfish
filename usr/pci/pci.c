@@ -584,6 +584,7 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
 
                 assert(err_is_ok(err));
                 free(record);
+                // end dist2
 
                 query_bars(devhdr, addr, false);
             }

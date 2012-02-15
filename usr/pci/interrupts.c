@@ -18,6 +18,7 @@
 #include <mm/mm.h>
 
 #include <skb/skb.h>
+#include <dist2/getset.h>
 
 #include "pci.h"
 #include "pci_acpi.h"
@@ -187,6 +188,15 @@ int init_all_apics(void)
                 skb_add_fact("apic(%d,%d,%d).",
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
+
+                // TODO: test for get/set api
+                char* record = NULL;
+                static char* device_fmt = "hw.cpu. { cpu_id: %u, apic_id: %u }";
+                errval_t err = dist_set_get(SET_SEQUENTIAL, &record, device_fmt,
+                        s->ProcessorId, s->Id);
+                assert(err_is_ok(err));
+                free(record);
+                // end dist2
 
                 if(s->LapicFlags & ACPI_MADT_ENABLED) {
                     r = init_one_local_apic(s, madt->Address);
