@@ -37,6 +37,7 @@ static const struct dist2_rx_vtbl rpc_rx_vtbl = {
         .set_call = set_handler,
         .del_call = del_handler,
         .exists_call = exists_handler,
+        .wait_for_call = wait_for_handler,
 
         .subscribe_call = subscribe_handler,
         .unsubscribe_call = unsubscribe_handler,
