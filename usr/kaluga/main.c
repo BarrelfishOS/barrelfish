@@ -115,7 +115,6 @@ static void send_boot_core_request(struct monitor_binding* b,
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            assert(!"false");
             enqueue_msg_state(b, mm);
             return;
         }
@@ -160,7 +159,7 @@ out:
     free(record);
 }
 
-static void watch_cores(void) {
+static void watch_for_cores(void) {
     // Get current cores registered in system
     struct dist2_rpc_client* rpc = get_dist_rpc_client();
     dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, TRIGGER_ALWAYS,
@@ -209,31 +208,11 @@ static void watch_cores(void) {
     }
 }
 
-int main(void)
+static errval_t watch_for_devices(void)
 {
-    // We need to run on core 0
-    // (since we are responsible for booting all the other cores)
-    assert(disp_get_core_id() == BSP_CORE_ID);
-    printf("Device manager running.\n");
-
-    struct monitor_binding* mb = get_monitor_binding();
-    mb->rx_vtbl.boot_core_reply = boot_core_reply;
-    mb->rx_vtbl.boot_initialize_reply = boot_initialize_reply;
-    //mb->st = NULL;
-
-
-    errval_t err;
-    /*err = dist_init();
-    assert(err_is_ok(err));*/
-
-
-    iref_t iref;
-    nameservice_blocking_lookup("pci_discovery_done", &iref);
-    watch_cores();
-
     char** names = NULL;
     size_t len = 0;
-    err = dist_get_names(&names, &len, "r'device.*' { class: _ }");
+    errval_t err = dist_get_names(&names, &len, "r'device.*' { class: _ }");
 
     for (size_t i=0; i<len; i++) {
         //debug_printf("found device: %s\n", names[i]);
@@ -268,6 +247,44 @@ int main(void)
     }
 
     dist_free_names(names, len);
+}
+
+static inline void initialize_monitor_binding(void)
+{
+    struct monitor_binding* mb = get_monitor_binding();
+    mb->rx_vtbl.boot_core_reply = boot_core_reply;
+    mb->rx_vtbl.boot_initialize_reply = boot_initialize_reply;
+    mb->st = NULL;
+}
+
+static inline errval_t wait_for_pci(void)
+{
+    iref_t iref;
+    return nameservice_blocking_lookup("pci_discovery_done", &iref);
+}
+
+int main(void)
+{
+    errval_t err;
+
+    // We need to run on core 0
+    // (since we are responsible for booting all the other cores)
+    assert(disp_get_core_id() == BSP_CORE_ID);
+
+    printf("Device manager running.\n");
+
+    initialize_monitor_binding();
+
+    err = wait_for_pci();
+    assert(err_is_ok(err));
+
+    /*err = dist_init();
+    assert(err_is_ok(err));*/
+
+    watch_for_cores();
+    watch_for_devices();
+
+
 
     messages_handler_loop();
 
