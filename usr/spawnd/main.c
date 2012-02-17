@@ -101,9 +101,7 @@ static void get_bootmodules(void)
 
 int main(int argc, const char *argv[])
 {
-    printf("spawnd up on core %d\n", disp_get_core_id());
     errval_t err;
-
     my_core_id = disp_get_core_id();
 
     /*
@@ -124,8 +122,11 @@ int main(int argc, const char *argv[])
     if (argc >= 2 && strcmp(argv[1],"boot") == 0) {
         // if we're the BSP, bring up the other cores
         is_bsp_core = true;
-        //bsp_bootup(gbootmodules, argc, argv);
+#ifdef USE_KALUGA_DVM
         err = start_service();
+#else
+        bsp_bootup(gbootmodules, argc, argv);
+#endif
     } else {
         // otherwise offer the spawn service
         err = start_service();
