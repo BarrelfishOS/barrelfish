@@ -48,8 +48,8 @@ enum rpc_msg_type {
     RPC_REPLY = 1
 };
 
-#define RPC_TIMER_PERIOD (5000 * 1000) ///< Time between RPC timer firings (us)
-//#define RPC_TIMER_PERIOD (1000 * 1000) ///< Time between RPC timer firings (us)
+//#define RPC_TIMER_PERIOD (5000 * 1000) ///< Time between RPC timer firings (us)
+#define RPC_TIMER_PERIOD (1000 * 1000) ///< Time between RPC timer firings (us)
 #define RPC_RETRANSMIT_AFTER 6   ///< Number of timer firings before a retransmit
 #define RPC_MAX_RETRANSMIT  60  ///< Max number of retransmissions before giving up
 
