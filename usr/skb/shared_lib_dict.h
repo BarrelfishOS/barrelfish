@@ -113,6 +113,13 @@ extern void ec_init_task();
 extern void ec_ef_disj();
 extern void ec_ef_cum();
 extern void ec_ef_quad();
+extern void ec_regcomp();
+extern void ec_regmatch();
+extern void ec_regmatch4();
+extern void ec_regmatchsub();
+extern void ec_regmatchall();
+extern void ec_regsplit();
+
 
 struct function_entry funcs[] = {
 
@@ -228,4 +235,10 @@ struct function_entry funcs[] = {
 {.name="ec_ef_disj",.f=ec_ef_disj},
 {.name="ec_ef_cum",.f=ec_ef_cum},
 {.name="ec_ef_quad",.f=ec_ef_quad},
+{.name="ec_regcomp",.f=ec_regcomp},
+{.name="ec_regmatch",.f=ec_regmatch},
+{.name="ec_regmatch4",.f=ec_regmatch4},
+{.name="ec_regmatchsub",.f=ec_regmatchsub},
+{.name="ec_regmatchall",.f=ec_regmatchall},
+{.name="ec_regsplit",.f=ec_regsplit},
 };

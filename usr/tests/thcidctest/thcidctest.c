@@ -121,6 +121,7 @@ static void client_work(void) {
           ASYNC({
               int my_v = v;
               uint64_t r = 0;
+              printf("before fifo: %d\n", my_v);
               cl.call_fifo.testrpc(&cl, my_v, &r);
               fprintf(stderr, "   (%d, %d)\n", (int)my_v, (int)r);
             });
@@ -296,10 +297,10 @@ static void client_work(void) {
                     ASYNC({
                         uint64_t response;
                         if (cl.call_fifo_x.testrpc(&cl, my_i, &response) != THC_CANCELED) {
-                          fprintf(stderr, "   %d -> %d\n", (int)i, (int)response);
+                          fprintf(stderr, "   %d -> %d\n", (int)my_i, (int)response);
                           assert(response == my_i * 10);
                         } else {
-                          fprintf(stderr, "   CANCELED RPC for %d\n", (int)i);
+                          fprintf(stderr, "   CANCELED RPC for %d\n", (int)my_i);
                         }
                         thc_sem_v(&sem);
                       });

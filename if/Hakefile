@@ -44,6 +44,8 @@
                "serial",
                "skb",
                "skb_map",
+               "dist2",               
+               "dist_event",
                "spawn",
                "test",
                "timer",
@@ -57,6 +59,7 @@
                "xmplrpc",
                "xmplthc",
                "unixsock",
+               "rpctest",
 	       "bcache",
 	       "replay" ],
              arch <- allArchitectures
@@ -67,6 +70,8 @@
       | f <- [ "bench",
                "ping_pong",
                "mem",
-               "xmplthc" ],
+               "xmplthc",
+               "dist2",
+               "dist_event" ],
              arch <- allArchitectures
 ]

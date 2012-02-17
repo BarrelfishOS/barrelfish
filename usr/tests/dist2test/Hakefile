@@ -1,0 +1,82 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2011, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/tests/disttest
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "d2getset",
+                      cFiles = [ "d2getset.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+
+  build application { target = "d2pubsub",
+                      cFiles = [ "d2pubsub.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+  
+  build application { target = "d2trigger",
+                      cFiles = [ "d2trigger.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+
+  build application { target = "d2barrier",
+                      cFiles = [ "d2barrier.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+                                        
+  build application { target = "d2locksimple",
+                      cFiles = [ "d2locksimple.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+
+  build application { target = "d2read",
+                      cFiles = [ "d2read.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+                    
+  build application { target = "d2mem",
+                      cFiles = [ "d2mem.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser" ]
+                    },
+
+  build application { target = "d2bench",
+                      cFiles = [ "d2bench.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                    },
+
+  build application { target = "d2bench1",
+                      cFiles = [ "d2bench1.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                    },
+                    
+  build application { target = "d2bench2",
+                      cFiles = [ "d2bench2.c" ],
+                      flounderBindings = [ "dist2" ],
+                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                    }    
+]

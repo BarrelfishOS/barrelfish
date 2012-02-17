@@ -11,8 +11,9 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "icsolver", 
-                  cFiles = [ "ic.c", "bitmap.c", "edge_finder.c" ],
+                  cFiles = [ "ic.c", "bitmap.c", "edge_finder.c", "eregex.c" ],
                   -- force optimisations on, without them we blow the stack
+                  addLibraries = [ "pcre" ],
                   addCFlags = [ "-O2" ],
                   addIncludes = [ "/usr/skb/eclipse_kernel/src" ],
                   omitCFlags =[ "-Werror", "-Wall", "-Wshadow",

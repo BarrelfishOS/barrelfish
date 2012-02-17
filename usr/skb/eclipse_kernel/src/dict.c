@@ -162,7 +162,7 @@ marks the corresponding atom whenever a persistent string is encountered.
 
 -----------------------------------------------------------------------------*/
 
-#define DICT_DIRECTORY_SIZE	512
+#define DICT_DIRECTORY_SIZE	2048	
 #define DICT_ITEM_BLOCK_SIZE	1024
 
 #define DidBlock(i) ((i) >> 10)
@@ -180,7 +180,7 @@ marks the corresponding atom whenever a persistent string is encountered.
 
 
 /* DICT_HASH_TABLE_SIZE must be a power of 2 (we use masking) */
-#define DICT_HASH_TABLE_SIZE	8192
+#define DICT_HASH_TABLE_SIZE    2097152	
 
 /* compute hash value and length of a NULL-terminated string */
 #define Hash(id, hash, length) {					\

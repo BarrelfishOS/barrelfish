@@ -41,7 +41,7 @@ in
   	                       "eclipsedir.c", "embed.c",
   	                       "os_support.c", "intervals.c",
   	                       "bip_arith.c", "bip_misc.c",
-  	                       "bip_load.c", "handlers.c" ],
+  	                       "bip_load.c", "handlers.c"],
                   addIncludes = includes,
                   omitCFlags = unflags,
                   architectures = [ "x86_64", "x86_32" ]

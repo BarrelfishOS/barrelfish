@@ -6,6 +6,22 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+ 
+ 
+// errors using dist2 library
+errors libdist2  DIST2_ERR_ {
+    failure NO_RECORD           "No record exists matching the specified query.",
+    failure NO_RECORD_NAME      "Your query needs to specify a designated record name (no regex/variable allowed).",
+    failure QUERY_SIZE          "Query is too big. Try to increase MAX_QUERY_LENGTH.",
+    failure INVALID_FORMAT      "The read format you have specified is not valid.",
+    failure UNKNOWN_ATTRIBUTE   "An attribute in your format was not found in the record.",
+    failure UNSUPPORTED_BINDING "This binding is unsupported by the underlying implementation.",
+    failure PARSER_FAIL         "Record parser encountered syntax error.",
+    failure ENGINE_FAIL         "Database error during query execution.",
+    failure NO_SUBSCRIPTION     "No subscription found matching the query.",
+    failure NO_SUBSCRIBERS      "No subscription found matching the query.",
+    failure MAX_SUBSCRIPTIONS   "Failed to register subscription. Try to increase MAX_SUBSCRIPTIONS.",  
+};
 
 // Kernel/syscall errors
 errors kernel SYS_ERR_ {
@@ -657,6 +673,9 @@ errors skb SKB_ERR_ {
     failure EXECUTION           "The SKB returned an error Check error code.",
     failure EVALUATE            "Failure in skb_evalute()",
     failure RUN                 "Failure in running rpc: run",
+    failure GOAL_FAILURE        "Posted goal could not be satisfied.",
+    failure UNEXPECTED_OUTPUT   "Query produced output but none was expected.",
+    success IO_OUTPUT           "Read I/O Output from SKB.",
 };
 
 // errors in a file system implementation
