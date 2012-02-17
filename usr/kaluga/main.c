@@ -96,7 +96,9 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 
 static void boot_initialize_reply(struct monitor_binding *st)
 {
-    // Ignore ?
+    debug_printf("boot_initialize_reply\n");
+    errval_t err = dist_set("all_spawnds_up { iref: 0 }");
+    assert(err_is_ok(err));
 }
 
 

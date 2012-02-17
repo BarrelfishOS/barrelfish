@@ -10,7 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "device_mgr",
+[ build application { target = "kaluga",
           		      cFiles = [ "main.c", "queue.c" ],
         		      addLibraries = [ "dist2", "dist_parser" ] }
 ]
