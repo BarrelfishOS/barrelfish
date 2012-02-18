@@ -18,7 +18,7 @@
 #define PCI_SERVICE_DEBUG 1
 
 #if defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define PCI_DEBUG(x...) printf("pci_service: " x)
+#define PCI_DEBUG(x...) printf("acpi_service: " x)
 #else
 #define PCI_DEBUG(x...) ((void)0)
 #endif

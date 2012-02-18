@@ -10,7 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-[  build application { target = "pci",
+[  build application { target = "acpi",
                   flounderBindings = [ "pci" ],
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
@@ -24,7 +24,7 @@
                                  "video.c", "buttons.c", "acpi_ec.c" ],
                       addIncludes = [ "acpica/include" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "acpi", "skb" ],
+                      addLibraries = [ "mm", "acpia", "skb" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
 ]

@@ -136,13 +136,6 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    err = nameservice_blocking_lookup("acpi_done", 0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
-    }
-
-
     bool do_video_init = false;
     bool got_apic_id = false;
 
@@ -163,18 +156,10 @@ int main(int argc, char *argv[])
     }
 
     //connect to the SKB
-    PCI_DEBUG("pci: connecting to the SKB...\n");
+    PCI_DEBUG("acpi: connecting to the SKB...\n");
     skb_client_connect();
-    PCI_DEBUG("pci: connected.\n");
+    PCI_DEBUG("acpi: connected.\n");
 
-#if 0
-    skb_execute("append([1,2,3],[6,7,8],L),write(output,L).");
-    PCI_DEBUG("\npci: data sent\n");
-
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    PCI_DEBUG("\nSKB returned: %s\n", skb_get_output());
-    PCI_DEBUG("\nSKB error returned: %s\n", skb_get_error_output());
-#endif
     skb_execute("[pci_queries].");
 
     int error_code = skb_read_error_code();
@@ -197,7 +182,7 @@ int main(int argc, char *argv[])
     err = init_allocators();
     assert(err_is_ok(err));
 
-    /*
+
     // Get a copy of the VBE BIOS before ACPI touches it
     {
         struct capref bioscap, biosframe;
@@ -229,43 +214,17 @@ int main(int argc, char *argv[])
         assert(err_is_ok(err));
 
         // TODO: Implement mm_free()
-    }*/
+    }
 
-    /*int r = init_acpi();
+    int r = init_acpi();
     assert(r == 0);
 
-    buttons_init();*/
-
-    pci_init_datastructures();
-    pci_init();
-
+    buttons_init();
     if (do_video_init) {
         video_init();
     }
 
-#if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-//output all the facts stored in the SKB to produce a sample data file to use
-//for debugging on linux
-    skb_execute("listing.");
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    PCI_DEBUG("\nSKB returned: \n%s\n", skb_get_output());
-    const char *errout = skb_get_error_output();
-    if (errout != NULL && *errout != '\0') {
-        PCI_DEBUG("\nSKB error returned: \n%s\n", errout);
-    }
-#endif
-
-    skb_add_fact("pci_discovery_done.");
-/*
-    printf("get listing.\n");
-    skb_execute("listing.");
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    printf("\nSKB returned: \n%s\n", skb_get_output());
-*/
-    /* Using the name server as a lock server,
-       register a service with it so that other domains can do a blocking wait
-       on pci to finish enumeration */
-    err = nameservice_register("pci_discovery_done", 0);
+    err = nameservice_register("acpi_done", 0);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
         abort();
