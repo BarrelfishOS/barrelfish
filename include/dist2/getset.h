@@ -36,6 +36,7 @@ void dist_free_names(char**, size_t);
 
 errval_t dist_get(char**, const char*, ...);
 errval_t dist_set(const char*, ...);
+errval_t dist_mset(dist_mode_t, const char*, ...);
 errval_t dist_set_get(dist_mode_t, char**, const char*, ...);
 errval_t dist_del(const char*, ...);
 errval_t dist_exists(const char*, ...);
