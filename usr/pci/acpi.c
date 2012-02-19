@@ -547,9 +547,9 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
            resources.maxmem);
 
     // XXX: enable PCIe for bridge programming
-    pcie_enable();
+    /*pcie_enable();
     pci_add_root(bridgeaddr, resources.maxbus, handle);
-    pcie_disable();
+    pcie_disable();*/
 
     return AE_OK;
 }

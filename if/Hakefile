@@ -36,6 +36,7 @@
                "mouse",
                "nameservice",
                "netd",
+               "acpi",
                "pci",
                "ping_pong",
                "pixels",

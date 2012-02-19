@@ -19,10 +19,12 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
+#include <dist2/init.h>
 #include <skb/skb.h>
 
 #include "pci.h"
 #include "pci_acpi.h"
+#include "acpi_client.h"
 
 #include "pci_debug.h"
 
@@ -135,6 +137,8 @@ struct capref biosmem;
 int main(int argc, char *argv[])
 {
     errval_t err;
+    err = dist_init();
+    assert(err_is_ok(err));
 
     err = nameservice_blocking_lookup("acpi_done", 0);
     if (err_is_fail(err)) {
@@ -197,44 +201,20 @@ int main(int argc, char *argv[])
     err = init_allocators();
     assert(err_is_ok(err));
 
-    /*
-    // Get a copy of the VBE BIOS before ACPI touches it
-    {
-        struct capref bioscap, biosframe;
+    // New ACPI Initialization using acpi service
+    err = connect_to_acpi();
+    assert(err_is_ok(err));
 
-        err = mm_alloc_range(&pci_mm_physaddr, BIOS_BITS, 0,
-                           1UL << BIOS_BITS, &bioscap, NULL);
-        assert(err_is_ok(err));
+    err = pcie_setup_confspace();
+    DEBUG_ERR(err, "setup pcie confspace");
 
-        err = devframe_type(&biosframe, bioscap, BIOS_BITS);
-        assert(err_is_ok(err));
+    err = pci_setup_root_complex();
+    assert(err_is_ok(err));
 
-        void *origbios;
-        err = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, biosframe,
-                                 NULL, NULL);
-        assert(err_is_ok(err));
-
-        err = frame_alloc(&biosmem, 1 << BIOS_BITS, NULL);
-        assert(err_is_ok(err));
-
-        void *newbios;
-        err = vspace_map_one_frame(&newbios, 1 << BIOS_BITS, biosmem, NULL, NULL);
-        assert(err_is_ok(err));
-
-        memcpy(newbios, origbios, 1 << BIOS_BITS);
-
-        // TODO: Unmap both vspace regions again
-
-        err = cap_delete(biosframe);
-        assert(err_is_ok(err));
-
-        // TODO: Implement mm_free()
-    }*/
-
-    /*int r = init_acpi();
-    assert(r == 0);
-
-    buttons_init();*/
+    PCI_DEBUG("Programming PCI BARs and bridge windows\n");
+    pci_program_bridges();
+    PCI_DEBUG("PCI programming completed\n");
+    // end ACPI
 
     pci_init_datastructures();
     pci_init();

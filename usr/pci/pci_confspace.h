@@ -21,6 +21,8 @@ struct pci_address {
     uint8_t function;
 };
 
+errval_t pcie_setup_confspace(void);
+
 uint32_t pci_read_conf_header(struct pci_address *address, uint64_t dword);
 void pci_write_conf_header(struct pci_address *address, uint64_t dword,
                            uint32_t data);

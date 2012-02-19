@@ -30,6 +30,7 @@
 #include "ht_config_dev.h"
 
 #include "pci_debug.h"
+#include "acpi_client.h"
 
 #define BAR_PROBE       0xffffffff
 
@@ -404,7 +405,7 @@ struct bridge_chain {
 static struct bridge_chain *bridges;
 
 static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
-                               uint8_t maxchild, ACPI_HANDLE handle)
+                               uint8_t maxchild, char* handle)
 {
     struct pci_address addr = { .bus = parentaddr.bus };
 
@@ -470,10 +471,16 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                 pci_hdr1_t bhdr;
                 pci_hdr1_initialize(&bhdr, addr);
 
-                ACPI_HANDLE child;
+                //ACPI_HANDLE child;
+                char* child = NULL;
+                errval_t error_code;
                 PCI_DEBUG("get irg table for (%hhu,%hhu,%hhu)\n", (*busnum) + 1,
                         addr.device, addr.function);
-                acpi_get_irqtable_device(handle, addr, &child, (*busnum) + 1);
+                //acpi_get_irqtable_device(handle, addr, &child, (*busnum) + 1);
+                struct acpi_rpc_client* cl = get_acpi_rpc_client();
+                cl->vtbl.read_irq_table(cl, handle, *(acpi_pci_address_t*)&addr,
+                        (*busnum) + 1, &error_code, &child);
+                assert(err_is_ok(error_code));
 
                 ++*busnum;
                 assert(*busnum <= maxchild);
@@ -582,15 +589,50 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
             }
         }
     }
+
+    free(handle);
 }
 
-void pci_add_root(struct pci_address addr, uint8_t maxchild, ACPI_HANDLE handle)
+void pci_add_root(struct pci_address addr, uint8_t maxchild, char* handle)
 {
     bridges = NULL;
     uint8_t busnum = addr.bus;
     assign_bus_numbers(addr, &busnum, maxchild, handle);
 }
 
+#include <dist2/getset.h>
+errval_t pci_setup_root_complex(void)
+{
+    errval_t err;
+    char* record = NULL;
+    err = dist_get(&record, "hw.pci.rootbridge.0"); // TODO: react to new rootbridges
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    PCI_DEBUG("found new root complex: %s\n", record);
+
+    char* acpi_node = NULL; // TODO: free?
+    int64_t bus, device, function, maxbus;
+    static char* format =  "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
+    err = dist_read(record, format, &acpi_node, &bus, &device, &function, &maxbus);
+    if (err_is_fail(err)) {
+        free(acpi_node);
+        return err;
+    }
+
+    struct pci_address addr;
+    addr.bus = (uint8_t) bus;
+    addr.device = (uint8_t) device;
+    addr.function = (uint8_t) function;
+
+    pcie_enable();
+    pci_add_root(addr, maxbus, acpi_node);
+    pcie_disable();
+
+    free(record);
+    return err;
+}
 
 
 

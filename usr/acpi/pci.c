@@ -473,7 +473,7 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                 ACPI_HANDLE child;
                 PCI_DEBUG("get irg table for (%hhu,%hhu,%hhu)\n", (*busnum) + 1,
                         addr.device, addr.function);
-                acpi_get_irqtable_device(handle, addr, &child, (*busnum) + 1);
+                //acpi_get_irqtable_device(handle, addr, &child, (*busnum) + 1);
 
                 ++*busnum;
                 assert(*busnum <= maxchild);

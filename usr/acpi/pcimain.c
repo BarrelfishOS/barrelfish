@@ -19,12 +19,14 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
+#include <dist2/init.h>
 #include <skb/skb.h>
 
 #include "pci.h"
 #include "pci_acpi.h"
 
 #include "pci_debug.h"
+#include "acpi_shared.h"
 
 /**
  * Number of slots in the cspace allocator.
@@ -135,6 +137,8 @@ struct capref biosmem;
 int main(int argc, char *argv[])
 {
     errval_t err;
+    err = dist_init();
+    assert(err_is_ok(err));
 
     bool do_video_init = false;
     bool got_apic_id = false;
@@ -223,6 +227,8 @@ int main(int argc, char *argv[])
     if (do_video_init) {
         video_init();
     }
+
+    start_service();
 
     err = nameservice_register("acpi_done", 0);
     if (err_is_fail(err)) {

@@ -63,8 +63,8 @@ struct pci_device_info {
 };
 #endif
 
-
-void pci_add_root(struct pci_address addr, uint8_t maxchild, ACPI_HANDLE handle);
+errval_t pci_setup_root_complex(void);
+void pci_add_root(struct pci_address addr, uint8_t maxchild, char* handle);
 void pci_program_bridges(void);
 void pci_init(void);
 void pci_init_datastructures(void);

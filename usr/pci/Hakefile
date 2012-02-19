@@ -11,20 +11,23 @@
 --------------------------------------------------------------------------
 
 [  build application { target = "pci",
-                  flounderBindings = [ "pci" ],
-                      flounderDefs = [ "monitor", "monitor_blocking" ],
-                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
-              mackerelDevices = [ "pci_hdr0", "pci_hdr1",
+                      flounderDefs = [ "acpi", "monitor", "monitor_blocking" ],
+                      flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
+                      flounderBindings = [ "pci", "acpi" ],
+                      flounderExtraBindings = [("acpi", ["rpcclient"])],
+                                            
+                      mackerelDevices = [ "pci_hdr0", "pci_hdr1",
                                           "lpc_ioapic", "ht_config",
                                           "lpc_bridge", "acpi_ec" ],
                       cFiles = [ "pcimain.c", "pci.c", "pci_service.c", 
                                  "ioapic.c", "acpi.c", "ht_config.c",
                                  "acpica_osglue.c", "interrupts.c", 
                                  "pci_confspace.c", "pcie_confspace.c",
-                                 "video.c", "buttons.c", "acpi_ec.c" ],
+                                 "video.c", "buttons.c", "acpi_ec.c", 
+                                 "acpi_client.c" ],
                       addIncludes = [ "acpica/include" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "acpi", "skb" ],
+                      addLibraries = [ "mm", "acpi", "skb", "dist2", "dist_parser" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
 ]

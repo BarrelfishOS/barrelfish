@@ -667,6 +667,12 @@ errors pci PCI_ERR_ {
     failure WRONG_INDEX         "Invalid index for requested cap",
 };
 
+// errors in ACPI
+errors pci ACPI_ERR_ {
+    failure NO_MCFG_TABLE       "No MCFG Table found.",
+    failure INVALID_PATH_NAME   "Invalid ACPI path name.",
+};
+
 // errors in the SKB
 errors skb SKB_ERR_ {
     failure CONVERSION_ERROR    "Conversion (parsing) of the result failed.",

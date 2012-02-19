@@ -17,6 +17,7 @@
 #include <barrelfish_kpi/types.h>
 #include <acpi.h>
 #include <mm/mm.h>
+#include <dist2/getset.h>
 
 #include <skb/skb.h>
 
@@ -415,9 +416,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 }
 
 void acpi_get_irqtable_device(ACPI_HANDLE parent,
-                              struct pci_address device,
-                              ACPI_HANDLE *child,
-                              uint8_t bus)
+        acpi_pci_address_t device, ACPI_HANDLE *child, uint8_t bus)
 {
 /*     char b[128]; */
 /*     ACPI_BUFFER buf = { .Length = 128, .Pointer = b }; */
@@ -460,7 +459,7 @@ void acpi_get_irqtable_device(ACPI_HANDLE parent,
             continue;
         }
 
-        struct pci_address bridgeaddr;
+        acpi_pci_address_t bridgeaddr;
         bridgeaddr.bus = 0;
         bridgeaddr.device = (addr >> 16) & 0xffff;
         bridgeaddr.function = addr & 0xffff;
@@ -546,10 +545,20 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
            resources.minbus, resources.maxbus, resources.minmem,
            resources.maxmem);
 
+    // dist2 record for rootbridge
+    static char* format = "hw.pci.rootbridge. { bus: %lu, device: %lu, function: %lu, maxbus: %lu, acpi_node: '%s' }";
+    errval_t err = dist_mset(SET_SEQUENTIAL, format,
+            bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
+            resources.maxbus, namebuf);
+    DEBUG_ERR(err, "dist mset");
+    assert(err_is_ok(err));
+    // end
+
     // XXX: enable PCIe for bridge programming
+    /*
     pcie_enable();
     pci_add_root(bridgeaddr, resources.maxbus, handle);
-    pcie_disable();
+    pcie_disable();*/
 
     return AE_OK;
 }
@@ -735,6 +744,7 @@ int init_acpi(void)
     /* look for an MCFG table
      * this tells us where the PCI express memory-mapped configuration area is
      */
+    /*
     ACPI_TABLE_HEADER *mcfg_header;
     as = AcpiGetTable("MCFG", 1, &mcfg_header);
     if (ACPI_SUCCESS(as) && mcfg_header->Length >=
@@ -756,7 +766,7 @@ int init_acpi(void)
         }
     } else {
         PCI_DEBUG("No MCFG table found -> no PCIe enhanced configuration\n");
-    }
+    }*/
 
     // XXX: disable PCIe memory-mapped config space until after we walk and
     // prescan all the buses. This is necessary on some AMD boxes, because the
@@ -783,9 +793,9 @@ int init_acpi(void)
     as = AcpiGetDevices(PCI_ROOT_HID_STRING, add_pci_device, NULL, NULL);
     assert(ACPI_SUCCESS(as));
 
-    PCI_DEBUG("Programming PCI BARs and bridge windows\n");
-    pci_program_bridges();
-    PCI_DEBUG("PCI programming completed\n");
+    //PCI_DEBUG("Programming PCI BARs and bridge windows\n");
+    //pci_program_bridges();
+    //PCI_DEBUG("PCI programming completed\n");
 
     ACPI_TABLE_HEADER *srat_header;
     as = AcpiGetTable("SRAT", 1, &srat_header);
