@@ -25,7 +25,7 @@
 #include <mm/mm.h>
 
 #include "pci_debug.h"
-
+#include "acpi_client.h"
 
 /*****************************************************************
  * Data types:
@@ -113,8 +113,12 @@ static void init_legacy_device_handler(struct pci_binding *b,
 
     /* determine IOAPIC INTI for given GSI and map to core */
     if (vector != (uint32_t)-1) {
-        e = enable_and_route_interrupt(irq, coreid, vector);
-        if (err_is_fail(e)) {
+
+        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        errval_t ret_error;
+        e = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+        assert(err_is_ok(e));
+        if (err_is_fail(ret_error)) {
             DEBUG_ERR(e, "failed to route interrupt %d -> %d\n", irq, vector);
             e = err_push(e, PCI_ERR_ROUTING_IRQ);
             goto reply;
@@ -198,7 +202,7 @@ XXX: I/O-Cap??
         get_cap_response_cont(b, SYS_ERR_OK, cap, type);
     }
 }
-
+/*
 static void reset_handler(struct pci_binding *b)
 {
     if (AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) {
@@ -237,15 +241,15 @@ static void get_vbe_bios_cap(struct pci_binding *b)
     err = b->tx_vtbl.get_vbe_bios_cap_response(b, NOP_CONT, SYS_ERR_OK, biosmem,
                                                1UL << BIOS_BITS);
     assert(err_is_ok(err));
-}
+}*/
 
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_cap_call = get_cap_handler,
-    .reset_call = reset_handler,
-    .sleep_call = sleep_handler,
-    .get_vbe_bios_cap_call = get_vbe_bios_cap,
+    //.reset_call = reset_handler,
+    //.sleep_call = sleep_handler,
+    //.get_vbe_bios_cap_call = get_vbe_bios_cap,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

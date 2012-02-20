@@ -361,9 +361,14 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
         PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
                     irq, coreid, vector);
-        err = enable_and_route_interrupt(irq, coreid, vector);
+        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        errval_t ret_error;
+        err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+        assert(err_is_ok(err));
+        assert(err_is_ok(ret_error)); // FIXME
+        //err = enable_and_route_interrupt(irq, coreid, vector);
 //        printf("IRQ for this device is %d\n", irq);
-        assert(err_is_ok(err)); // FIXME
+        DEBUG_ERR(err, "enable_and_route_interrupt");
         pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
     }
 
@@ -1101,45 +1106,12 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
         return irq;
     }
 
-    PCI_DEBUG("Setting link device '%s' to GSI %u\n", ldev, irq);
-
-    ACPI_HANDLE source;
-    ACPI_STATUS as = AcpiGetHandle(NULL, ldev, &source);
-    if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
-        return 0;
-    }
-
-    uint8_t data[512];
-    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
-    as = AcpiGetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("  failed getting _CRS: %s\n",
-                  AcpiFormatException(as));
-        return 0;
-    }
-
-    // set chosen IRQ in first IRQ resource type
-    ACPI_RESOURCE *res = buf.Pointer;
-    switch(res->Type) {
-    case ACPI_RESOURCE_TYPE_IRQ:
-        res->Data.Irq.Interrupts[0] = irq;
-        break;
-
-    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
-        res->Data.ExtendedIrq.Interrupts[0] = irq;
-        break;
-
-    default:
-        printf("Unknown resource type: %d\n", res->Type);
-        USER_PANIC("NYI");
-    }
-
-    pcie_enable(); // XXX
-    as = AcpiSetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("  failed setting current IRQ: %s\n",
-                  AcpiFormatException(as));
+    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    errval_t error_code;
+    err = cl->vtbl.set_device_irq(cl, ldev, irq, &error_code);
+    assert(err_is_ok(err));
+    if (err_is_fail(error_code)) {
+        DEBUG_ERR(error_code, "set device irq failed.");
         return 0;
     }
 

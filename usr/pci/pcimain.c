@@ -219,9 +219,9 @@ int main(int argc, char *argv[])
     pci_init_datastructures();
     pci_init();
 
-    if (do_video_init) {
+    /*if (do_video_init) {
         video_init();
-    }
+    }*/
 
 #if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 //output all the facts stored in the SKB to produce a sample data file to use

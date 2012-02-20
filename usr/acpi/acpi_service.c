@@ -64,7 +64,8 @@ static void get_pcie_confspace(struct acpi_binding* b)
     assert(err_is_ok(err));
 }
 
-static void get_path_name(ACPI_HANDLE handle, char* name, size_t len) {
+static void get_path_name(ACPI_HANDLE handle, char* name, size_t len)
+{
     ACPI_BUFFER buf = { .Length = len, .Pointer = name };
     ACPI_STATUS s;
 
@@ -100,12 +101,130 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
         assert(err_is_ok(err));
     }
 
-    free(handle);
+    free(pathname);
 }
+
+static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
+{
+    ACPI_DEBUG("Setting link device '%s' to GSI %u\n", device, irq);
+
+    errval_t err = SYS_ERR_OK;
+
+    ACPI_HANDLE source;
+    ACPI_STATUS as = AcpiGetHandle(NULL, device, &source);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
+        err = ACPI_ERR_INVALID_PATH_NAME;
+        goto reply;
+    }
+
+    uint8_t data[512];
+    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
+    as = AcpiGetCurrentResources(source, &buf);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("  failed getting _CRS: %s\n", AcpiFormatException(as));
+        err = ACPI_ERR_GET_RESOURCES;
+        goto reply;
+    }
+
+    // set chosen IRQ in first IRQ resource type
+    ACPI_RESOURCE *res = buf.Pointer;
+    switch(res->Type) {
+    case ACPI_RESOURCE_TYPE_IRQ:
+        res->Data.Irq.Interrupts[0] = irq;
+        break;
+
+    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+        res->Data.ExtendedIrq.Interrupts[0] = irq;
+        break;
+
+    default:
+        printf("Unknown resource type: %d\n", res->Type);
+        ACPI_DEBUG("NYI");
+        break;
+    }
+
+    //pcie_enable(); // XXX
+    as = AcpiSetCurrentResources(source, &buf);
+    if (ACPI_FAILURE(as)) {
+        ACPI_DEBUG("  failed setting current IRQ: %s\n",
+                  AcpiFormatException(as));
+        err = ACPI_ERR_SET_IRQ;
+        goto reply;
+    }
+
+reply:
+    err = b->tx_vtbl.set_device_irq_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+
+    free(device);
+}
+
+#include "pci.h"
+static void enable_interrupt_handler(struct acpi_binding* b, uint32_t gsi,
+        coreid_t dest, uint32_t vector)
+{
+    errval_t err = SYS_ERR_OK;
+    err = enable_and_route_interrupt(gsi, dest, vector);
+
+    err = b->tx_vtbl.enable_and_route_interrupt_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+
+}
+
+static void reset_handler(struct acpi_binding *b)
+{
+    if (AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) {
+        printf("Resetting machine via ACPI...\n");
+        ACPI_STATUS as = AcpiReset();
+        if (ACPI_FAILURE(as)) {
+            printf("ACPI reset failed: 0x%x\n", as);
+        }
+    }
+
+    printf("Resetting machine via syscall...\n");
+    errval_t err = sys_reboot();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "reboot syscall failed");
+    }
+}
+
+static void sleep_handler(struct acpi_binding *b, int state)
+{
+    printf("Entering S%d sleep state via ACPI...\n", state);
+    ACPI_STATUS as = AcpiEnterSleepStatePrep(state);
+    if (!ACPI_SUCCESS(as)) {
+        printf("AcpiEnterSleepStatePrep failed\n");
+        return;
+    }
+
+    as = AcpiEnterSleepState(state);
+    if (!ACPI_SUCCESS(as)) {
+        printf("AcpiEnterSleepState failed\n");
+    }
+}
+
+extern struct capref biosmem;
+#define BIOS_BITS       20
+static void get_vbe_bios_cap(struct acpi_binding *b)
+{
+    errval_t err;
+    err = b->tx_vtbl.get_vbe_bios_cap_response(b, NOP_CONT, SYS_ERR_OK, biosmem,
+                                               1UL << BIOS_BITS);
+    assert(err_is_ok(err));
+}
+
 
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
-    .read_irq_table_call = read_irq_table
+    .read_irq_table_call = read_irq_table,
+    .set_device_irq_call = set_device_irq,
+    .enable_and_route_interrupt_call = enable_interrupt_handler,
+
+    .reset_call = reset_handler,
+    .sleep_call = sleep_handler,
+
+    .get_vbe_bios_cap_call = get_vbe_bios_cap,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

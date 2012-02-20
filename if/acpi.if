@@ -28,5 +28,22 @@ interface acpi "acpi RPC Interface" {
                        in uint8 bus,
                        out errval error,
                        out string child);
+                       
+    rpc set_device_irq(in string handle,
+                       in uint32 irq, 
+                       out errval error); 
+
+    rpc enable_and_route_interrupt(in uint32 gsi,
+                                   in coreid dest,
+                                   in uint32 vector,
+                                   out errval error);
+
+    // Reset Machine
+    rpc reset(out errval err);
     
+    // Power Off / Sleep Machine
+    rpc sleep(in int state, out errval err);
+    
+    // Kludge: retrieve frame cap to VBE BIOS
+    rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
 };
