@@ -20,6 +20,7 @@
 #include <dist2/getset.h>
 
 #include <skb/skb.h>
+#include "acpi_shared.h"
 
 #include "pci.h"
 #include "pci_acpi.h"
@@ -590,8 +591,8 @@ static int acpi_init(void)
     }
 
     PCI_DEBUG("Scanning local and I/O APICs...\n");
-    int r = init_all_apics();
-    assert(r == 0);
+    errval_t err = find_all_apics();
+    assert(err_is_ok(err));
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {

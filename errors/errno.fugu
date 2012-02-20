@@ -673,6 +673,7 @@ errors acpi ACPI_ERR_ {
     failure INVALID_PATH_NAME   "Invalid ACPI path name.",
     failure GET_RESOURCES       "Failed to execute _CRT method.",
     failure SET_IRQ             "Failed to set IRQ for device.",
+    failure NO_MADT_TABLE       "No APIC found in ACPI.",
 };
 
 // errors in the SKB

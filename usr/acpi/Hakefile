@@ -22,7 +22,7 @@
                                  "acpica_osglue.c", "interrupts.c", 
                                  "pci_confspace.c", "pcie_confspace.c",
                                  "video.c", "buttons.c", "acpi_ec.c",
-                                 "acpi_service.c" ],
+                                 "acpi_service.c", "apic.c" ],
                       addIncludes = [ "acpica/include" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
                       addLibraries = [ "mm", "acpia", "skb", "dist2", "dist_parser" ],
