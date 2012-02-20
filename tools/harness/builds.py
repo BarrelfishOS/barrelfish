@@ -165,6 +165,19 @@ class HakeDebugTraceBuild(HakeBuildBase):
 all_builds = [HakeReleaseBuild, HakeDebugBuild, HakeReleaseTraceBuild,
               HakeDebugTraceBuild]
 
+def mk_newlib_builds():
+    def newlib_conf(self, *args):
+        conf = super(self.__class__, self)._get_hake_conf(*args)
+        conf['libc'] = '"newlib"'
+        return conf
+    for b in list(all_builds):
+        c = type(b.__name__ + 'Newlib',
+                (b,),
+                {'name' : b.name + '_newlib', '_get_hake_conf': newlib_conf})
+        all_builds.append(c)
+
+mk_newlib_builds()
+
 
 class ExistingBuild(HakeBuildBase):
     '''Dummy build class for an existing Hake build dir.'''

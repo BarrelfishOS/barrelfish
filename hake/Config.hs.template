@@ -33,8 +33,8 @@ cOptFlags = "-g -O2"
 
 -- Selects which libc to compile with, "freec" or "newlib"
 libc :: String
--- libc = "freec"
-libc = "newlib"
+libc = "freec"
+-- libc = "newlib"
 
 -- Use a frame pointer
 use_fp :: Bool
