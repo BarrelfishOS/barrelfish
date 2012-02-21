@@ -200,7 +200,7 @@ static errval_t assign_complete_io_range(uint8_t index,
     return SYS_ERR_OK;
 }
 
-
+#include "ioapic_client.h"
 errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                  uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
                  uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
@@ -361,7 +361,7 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
         PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
                     irq, coreid, vector);
-        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
         errval_t ret_error;
         err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
         assert(err_is_ok(err));

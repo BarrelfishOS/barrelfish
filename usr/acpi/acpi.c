@@ -21,6 +21,7 @@
 
 #include <skb/skb.h>
 #include "acpi_shared.h"
+#include "ioapic_client.h"
 
 #include "pci.h"
 #include "pci_acpi.h"
@@ -564,6 +565,7 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     return AE_OK;
 }
 
+#include <barrelfish/nameservice_client.h>
 static int acpi_init(void)
 {
     AcpiDbgLevel = 0; // ACPI_DEBUG_DEFAULT | ACPI_LV_INFO | ACPI_LV_EXEC;
@@ -593,6 +595,11 @@ static int acpi_init(void)
     PCI_DEBUG("Scanning local and I/O APICs...\n");
     errval_t err = find_all_apics();
     assert(err_is_ok(err));
+
+    nameservice_register("signal_ioapic", 0); // TODO device mngr
+    err = connect_to_ioapic();
+    assert(err_is_ok(err));
+
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {

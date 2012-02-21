@@ -11,9 +11,11 @@
 --------------------------------------------------------------------------
 
 [  build application { target = "acpi",
-                      flounderBindings = [ "pci", "acpi" ],
+                      flounderBindings = [ "pci", "acpi", "ioapic" ],
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderExtraBindings = [("ioapic", ["rpcclient"])],
+                      
                       mackerelDevices = [ "pci_hdr0", "pci_hdr1",
                                           "lpc_ioapic", "ht_config",
                                           "lpc_bridge", "acpi_ec" ],
@@ -22,10 +24,10 @@
                                  "acpica_osglue.c", "interrupts.c", 
                                  "pci_confspace.c", "pcie_confspace.c",
                                  "video.c", "buttons.c", "acpi_ec.c",
-                                 "acpi_service.c", "apic.c" ],
+                                 "acpi_service.c", "apic.c", "ioapic_client.c" ],
                       addIncludes = [ "acpica/include" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "acpia", "skb", "dist2", "dist_parser" ],
+                      addLibraries = [ "mm", "acpica", "skb", "dist2", "dist_parser" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
 ]

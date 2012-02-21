@@ -1,0 +1,31 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/pci
+--
+--------------------------------------------------------------------------
+
+[  build application { target = "ioapic",
+                       flounderBindings = [ "pci", "acpi", "ioapic" ],
+                       flounderDefs = [ "monitor", "monitor_blocking" ],
+                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                       mackerelDevices = [ "pci_hdr0", "pci_hdr1",
+                                           "lpc_ioapic", "ht_config",
+                                           "lpc_bridge", "acpi_ec" ],
+                       cFiles = [ "pcimain.c", "pci.c", "pci_service.c", 
+                                  "ioapic.c", "acpi.c", "ht_config.c",
+                                  "acpica_osglue.c", "interrupts.c", 
+                                  "pci_confspace.c", "pcie_confspace.c",
+                                  "video.c", "buttons.c", "acpi_ec.c",
+                                  "apic.c", "ioapic_service.c" ],
+                       addIncludes = [ "acpica/include" ],
+                       addCFlags = [ "-Wno-redundant-decls" ],
+                       addLibraries = [ "mm", "acpia", "skb", "dist2", "dist_parser" ],
+                       architectures = [ "x86_64", "x86_32" ]
+                    }
+]

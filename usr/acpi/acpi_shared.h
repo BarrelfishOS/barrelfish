@@ -18,6 +18,7 @@
 #include <errors/errno.h>
 
 errval_t find_all_apics(void);
+
 void start_service(void);
 
 #endif /* ACPI_SHARED_H_ */

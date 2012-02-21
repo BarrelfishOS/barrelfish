@@ -25,7 +25,7 @@
 #include <mm/mm.h>
 
 #include "pci_debug.h"
-#include "acpi_client.h"
+#include "ioapic_client.h"
 
 /*****************************************************************
  * Data types:
@@ -114,7 +114,7 @@ static void init_legacy_device_handler(struct pci_binding *b,
     /* determine IOAPIC INTI for given GSI and map to core */
     if (vector != (uint32_t)-1) {
 
-        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
         errval_t ret_error;
         e = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
         assert(err_is_ok(e));

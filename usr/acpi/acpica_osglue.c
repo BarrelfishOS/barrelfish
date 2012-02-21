@@ -17,11 +17,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
-#if defined(ACPI_BF_DEBUG) || defined(GLOBAL_DEBUG)
-#define ACPI_DEBUG(x...) printf("acpi: " x)
-#else
-#define ACPI_DEBUG(x...) ((void)0)
-#endif
+#include "acpi_debug.h"
 
 
 /******************************************************************************
@@ -148,6 +144,7 @@
 #include <mm/mm.h>
 
 #include "pci.h"
+#include "ioapic_client.h"
 
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
@@ -826,8 +823,14 @@ AcpiOsInstallInterruptHandler (
         return AE_ERROR;
     }
 
-    e = enable_and_route_interrupt(InterruptNumber, disp_get_core_id(), vector);
-    if (err_is_fail(e)) {
+    // Route Interrupt in I/O APIC
+    struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
+    errval_t ret_error;
+    errval_t err = cl->vtbl.enable_and_route_interrupt(cl, InterruptNumber,
+            disp_get_core_id(), vector, &ret_error);
+    assert(err_is_ok(err));
+    DEBUG_ERR(ret_error, "enable and route interrupt");
+    if (err_is_fail(ret_error)) {
         DEBUG_ERR(e, "failed to route interrupt");
         return AE_ERROR;
     }
@@ -1064,6 +1067,7 @@ AcpiOsReadPciConfiguration (
         break;
 
     default:
+        ACPI_DEBUG("AcpiOsReadPciConfiguration AE_ERROR\n");
         return AE_ERROR;
     }
 
@@ -1113,6 +1117,7 @@ AcpiOsWritePciConfiguration (
         break;
 
     default:
+        ACPI_DEBUG("AcpiOsWritePciConfiguration AE_ERROR\n");
         return AE_ERROR;
     }
 
@@ -1179,6 +1184,7 @@ AcpiOsReadPort (
     }
 
     //printf("AcpiOsReadPort(0x%lx %d) -> 0x%x\n", Address, Width, *Value);
+    ACPI_DEBUG("AcpiOsReadPort AE_ERROR\n");
 
     return r == 0 ? AE_OK : AE_ERROR;
 }
@@ -1221,6 +1227,7 @@ AcpiOsWritePort (
         r = iocap_out32(cap_io, Address, Value);
         break;
     }
+    ACPI_DEBUG("AcpiOsWritePort AE_ERROR\n");
 
     return r == 0 ? AE_OK : AE_ERROR;
 }

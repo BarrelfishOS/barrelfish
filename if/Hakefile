@@ -37,6 +37,7 @@
                "nameservice",
                "netd",
                "acpi",
+               "ioapic",
                "pci",
                "ping_pong",
                "pixels",

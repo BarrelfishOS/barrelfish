@@ -16,7 +16,7 @@ interface acpi "acpi RPC Interface" {
     } pci_address;
 
     
-    // TODO: Should be capability?
+    // TODO: Should be record / cap?
     rpc get_pcie_confspace(out errval err,
                            out uint64 address, 
                            out uint16 segment, 
@@ -44,6 +44,6 @@ interface acpi "acpi RPC Interface" {
     // Power Off / Sleep Machine
     rpc sleep(in int state, out errval err);
     
-    // Kludge: retrieve frame cap to VBE BIOS
+    // Kludge: retrieve frame cap to VBE BIOS; TODO belongs to pci?
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
 };

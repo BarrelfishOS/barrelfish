@@ -25,6 +25,7 @@
 #include "pci.h"
 #include "pci_acpi.h"
 #include "acpi_client.h"
+#include "ioapic_client.h"
 
 #include "pci_debug.h"
 
@@ -203,6 +204,9 @@ int main(int argc, char *argv[])
 
     // New ACPI Initialization using acpi service
     err = connect_to_acpi();
+    assert(err_is_ok(err));
+
+    err = connect_to_ioapic();
     assert(err_is_ok(err));
 
     err = pcie_setup_confspace();

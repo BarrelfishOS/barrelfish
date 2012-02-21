@@ -304,16 +304,6 @@ int init_all_apics(void)
         p += sh->Length;
     }
 
-
-    /* XXX: Quirk hack for QEMU
-     * There is no override for the timer interrupt, although it appears as IRQ2.
-     */
-    if (strncmp(madt->Header.OemId, "QEMU", 4) == 0
-        && interrupt_overrides[0] == 0) {
-        interrupt_overrides[0] = 2;
-        printf("added missing override from GSI 0 to INTI 2 on QEMU\n");
-    }
-
     return 0;
 }
 
