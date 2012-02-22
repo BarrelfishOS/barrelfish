@@ -15,7 +15,6 @@
 #include <barrelfish/syscall_arch.h> // for sys_invoke and cap_invoke
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish/caddr.h>
-
 /**
  * \brief Retype a capability.
  *
@@ -183,8 +182,11 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     uint8_t invoke_bits = get_cap_valid_bits(frame);
     capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
 
+    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
+    arg1 |= ((uintptr_t)FrameCmd_Identify<<8);
+    arg1 |= (uintptr_t)SYSCALL_INVOKE;
     struct sysret sysret =
-        syscall2((invoke_bits << 16) | (FrameCmd_Identify << 8) | SYSCALL_INVOKE,
+        syscall2(arg1, //(invoke_bits << 16) | (FrameCmd_Identify << 8) | SYSCALL_INVOKE,
                  invoke_cptr);
 
     assert(ret != NULL);

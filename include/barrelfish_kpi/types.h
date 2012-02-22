@@ -42,6 +42,11 @@ typedef uint64_t genpaddr_t;
 #define PRIuGENPADDR PRIu64
 #define PRIxGENPADDR PRIx64
 
+/* Global (system-wide) size type, currently 64 bits */
+typedef uint64_t gensize_t;
+#define PRIuGENSIZE PRIu64
+#define PRIxGENSIZE PRIx64
+
 /* Local virtual address */
 typedef uintptr_t lvaddr_t;
 #define PRIuLVADDR PRIuPTR

@@ -112,6 +112,9 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     }
 #endif
 
+    // XXX: copy over argspg?
+    memset(&si->argspg, 0, sizeof(si->argspg));
+
     /* Fill up basecn */
     struct capref   basecn_cap;
     struct cnoderef basecn;
