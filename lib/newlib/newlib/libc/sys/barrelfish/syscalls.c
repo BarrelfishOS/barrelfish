@@ -40,7 +40,7 @@ void _exit(int status)
 }
 
 
-/* copied from freec sys-barrelfish */
+/* copied from oldc sys-barrelfish */
 extern void sys_print(const char *, size_t);
 
 void abort(void)

@@ -96,7 +96,7 @@ typedef long _ssize_t;
 typedef long int ssize_t;
 
 
-#ifdef NEWLIB
+#ifdef CONFIG_NEWLIB
 
 /*
  * Newlib requirements
@@ -151,6 +151,6 @@ typedef _LOCK_RECURSIVE_T _flock_t;
 typedef void *_iconv_t;
 #endif
 
-#endif /* NEWLIB */
+#endif /* CONFIG_NEWLIB */
 
 #endif

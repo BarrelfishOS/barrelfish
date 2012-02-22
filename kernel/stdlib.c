@@ -17,7 +17,7 @@
 #include <assert.h>
 
 /*
- * Copied here, as there are conflicting types between freec and newlib
+ * Copied here, as there are conflicting types between oldc and newlib
  */
 static inline int
 isdigit(int c)

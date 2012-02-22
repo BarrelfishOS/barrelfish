@@ -35,14 +35,14 @@
 
 #include <sys/cdefs.h>
 
-#ifdef FREEC
+#ifdef CONFIG_OLDC
 __BEGIN_DECLS
 extern int __flt_rounds(void);
 __END_DECLS
 #define FLT_ROUNDS  __flt_rounds()
 #else
 #define FLT_ROUNDS  1
-#endif /* FREEC */
+#endif /* CONFIGOLDC */
 
 #define FLT_RADIX	2		/* b */
 #if __ISO_C_VISIBLE >= 1999

@@ -86,7 +86,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-/* VFS support for fopen() and friends in freec / newlib */
+/* VFS support for fopen() and friends in oldc / newlib */
 
 #define _USE_XOPEN // for strdup()
 #include <string.h>
@@ -164,7 +164,7 @@ barrelfish_close(void *handle)
 }
 
  __attribute__((unused)) static struct __file *
-barrelfish_freec_fopen(const char *fname, const char *mode)
+barrelfish_oldc_fopen(const char *fname, const char *mode)
 {
     struct __file *newfile;
     vfs_handle_t vh;
@@ -235,11 +235,11 @@ barrelfish_freec_fopen(const char *fname, const char *mode)
     return newfile;
 }
 
-#ifdef FREEC
-extern struct __file *(*_freec_fopen_func)(const char *fname, const char *prot);
+#ifdef CONFIG_OLDC
+extern struct __file *(*_oldc_fopen_func)(const char *fname, const char *prot);
 #endif
 
-#ifdef NEWLIB
+#ifdef CONFIG_NEWLIB
 typedef int   fsopen_fn_t(const char *, int);
 typedef int   fsread_fn_t(int, void *buf, size_t);
 typedef int   fswrite_fn_t(int, const void *, size_t);
@@ -255,12 +255,12 @@ newlib_register_fsops__(fsopen_fn_t *open_fn,
 
 void vfs_fopen_init(void)
 {
-    /* set the function pointer that freec libc calls through */
-    #ifdef FREEC
-    _freec_fopen_func = barrelfish_freec_fopen;
+    /* set the function pointer that oldc libc calls through */
+    #ifdef CONFIG_OLDC
+    _oldc_fopen_func = barrelfish_oldc_fopen;
     #endif
 
-    #ifdef NEWLIB
+    #ifdef CONFIG_NEWLIB
     newlib_register_fsops__(vfsfd_open, vfsfd_read, vfsfd_write,
                             vfsfd_close, vfsfd_lseek);
     #endif

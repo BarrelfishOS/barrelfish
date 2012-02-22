@@ -10,7 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-if Config.libc == "freec" then
+if Config.libc == "oldc" then
 [(
   let
     common_src = ["src" ./. f | f <- [

@@ -9,7 +9,7 @@
 -- Hakefile for /lib/c
 --
 --------------------------------------------------------------------------
-if Config.libc == "freec" then
+if Config.libc == "oldc" then
 [(
   let
       -- architecture independent source files
@@ -64,7 +64,7 @@ if Config.libc == "freec" then
       archfam_files "x86_32" = ["flt_rounds.c"]
       archfam_files _ = []
 
-      args = library { target = "freec",
+      args = library { target = "oldc",
                     cFiles = generic_src ++ (archfam_src (archFamily a)),
                     architectures = [a],
                     addIncludes = [ "src/gdtoa", "src/gdtoa" ./. archFamily a,

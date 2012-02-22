@@ -50,7 +50,7 @@ const struct __sFILE_fake __sf_fake_stderr =
 #endif
 
 /* functions for stdin/stdout/stderr that do not depend on vfs
- * similar to: freec/src/sys-barrelfish/sys_stdio.c */
+ * similar to: oldc/src/sys-barrelfish/sys_stdio.c */
 size_t (*_libc_terminal_read_func)(char *, size_t);
 size_t (*_libc_terminal_write_func)(const char *, size_t);
 

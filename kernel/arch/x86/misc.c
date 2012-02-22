@@ -98,9 +98,9 @@ void printk(int level, const char *msg, ...)
 /**
  * Helper function used in the implementation of assert()
  */
-#ifdef FREEC
+#ifdef CONFIG_OLDC
 void __assert(const char *exp, const char *file, const char *func, int line)
-#else
+#else /* CONFIG_NEWLIB */
 void __assert_func(const char *file, int line, const char *func, const char *exp)
 #endif
 {

@@ -115,9 +115,9 @@
 #endif
 
 //akkourt: yap, It's ugly, but newlib does not seem to have those
-#if defined(__i386__) && defined(NEWLIB)
+#if defined(__i386__) && defined(CONFIG_NEWLIB)
 #include "ieeefp.h"
-/* copied from include/freec/ieeefp.h */
+/* copied from include/oldc/ieeefp.h */
 #define FP_RND_FLD      0xc00   /* rounding control field */
 #define FP_RND_OFF      10      /* rounding control offset */
 static inline fp_rnd fpgetround(void)

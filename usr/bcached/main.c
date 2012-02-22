@@ -285,9 +285,9 @@ static errval_t create_cache_mem(size_t size)
 }
 
 
-/* alt_malloc provided only by FREEC -AKK */
+/* alt_malloc provided only by OLDC -AKK */
 
-#ifdef FREEC
+#ifdef CONFIG_OLDC
 #include <dmalloc/dmalloc.h>
 typedef void *(*alt_malloc_t)(size_t bytes);
 extern alt_malloc_t alt_malloc;
@@ -310,7 +310,7 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    #ifdef FREEC
+    #ifdef CONFIG_OLDC
     init_dmalloc();
     #endif
 
