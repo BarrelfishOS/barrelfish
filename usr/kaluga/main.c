@@ -161,7 +161,7 @@ out:
 
 static void watch_for_cores(void) {
     // Get current cores registered in system
-    struct dist2_rpc_client* rpc = get_dist_rpc_client();
+    struct dist2_rpc_client* rpc = dist_get_thc_client();
     dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, TRIGGER_ALWAYS,
             cpu_change_event, NULL);
 

@@ -24,7 +24,6 @@
 #include <dist2_server/service.h>
 #include <dist2_server/debug.h>
 
-#define DIST2_EVENT_SERVICE_NAME "dist2_event"
 #define DIST2_RPC_SERVICE_NAME "dist2_rpc"
 
 static struct export_state {

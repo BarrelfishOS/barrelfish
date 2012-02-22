@@ -103,11 +103,15 @@ static void trigger_send_handler(struct dist2_binding* b,
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
+    else {
+        debug_printf("send trigger to %p concerning %s\n", b, record);
+    }
+
 }
 
 static inline bool can_install_trigger(dist2_trigger_t trigger, errval_t error)
 {
-    return trigger.trigger > 0 &&
+    return trigger.m > 0 &&
            (trigger.in_case == err_no(error) ||
            (trigger.m & DIST_ALWAYS_SET) != 0 );
 }
@@ -125,10 +129,13 @@ static inline uint64_t install_trigger(struct dist2_binding* binding,
 
         trigger_reply->client_handler = trigger.trigger;
         trigger_reply->client_state = trigger.st;
-        trigger_reply->binding = get_event_binding(binding);
+
+        trigger_reply->binding = (trigger.send_to == dist2_BINDING_RPC) ?
+                binding : get_event_binding(binding);
+
         if (trigger_reply->binding == NULL) {
-            DIST2_DEBUG("No event binding for trigger, send events "
-                        "over regular binding.");
+            fprintf(stderr, "No binding for trigger, send events "
+                            "over regular binding.");
             trigger_reply->binding = binding;
         }
 
@@ -346,7 +353,7 @@ static void del_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 
 void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
 {
-    DIST2_DEBUG(" del_handler: %s\n", query);
+    printf(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* drs = NULL;
@@ -395,11 +402,16 @@ static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
+    else {
+        debug_printf("sent exists call send response %p drs->error: %s watch_id: %lu\n", b, err_getcode(drs->error), drs->watch_id);
+    }
 }
 
 void exists_handler(struct dist2_binding* b, char* query,
         dist2_trigger_t trigger)
 {
+    debug_printf("got exists %p %s\n", b, query);
+
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* drs = NULL;

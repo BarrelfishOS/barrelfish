@@ -17,15 +17,15 @@
 
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
-#include <if/dist2_rpcclient_defs.h>
+#include <if/dist2_thc.h>
 
 STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
         "Sending pointers might fail :-(.");
 
 errval_t dist_init(void);
-errval_t dist_rpc_init(void);
+errval_t dist_thc_init(void);
 
-struct dist2_rpc_client* get_dist_rpc_client(void);
-struct dist2_binding* get_dist_event_binding(void);
+struct dist2_thc_client_binding_t* dist_get_thc_client(void);
+struct dist2_binding* dist_get_event_binding(void);
 
 #endif /* DIST2_INIT_H_ */

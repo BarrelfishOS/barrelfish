@@ -68,14 +68,14 @@ int main(int argc, char *argv[])
     err = dist_set("obj3 { attr: 3 }");
     ASSERT_ERR_OK(err);
 
-    struct dist2_rpc_client* c = get_dist_rpc_client();
+    struct dist2_thc_client_binding_t* c = dist_get_thc_client();
 
     dist2_trigger_t record_deleted = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
             trigger_handler, &received);
 
     errval_t error_code = SYS_ERR_OK;
     char* output = NULL;
-    err = c->vtbl.get(c, "r'^obj.$' { attr: 3 } ", record_deleted, &output,
+    err = c->call_seq.get(c, "r'^obj.$' { attr: 3 } ", record_deleted, &output,
             &tid, &error_code);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     dist2_trigger_t ptrigger = dist_mktrigger(SYS_ERR_OK, m,
             persistent_trigger, &received);
     output = NULL;
-    err = c->vtbl.get(c, "obj2", ptrigger, &output,
+    err = c->call_seq.get(c, "obj2", ptrigger, &output,
             &tid, &error_code);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
@@ -105,13 +105,13 @@ int main(int argc, char *argv[])
 
     dist_del("obj2");
     while (received != 1) {
-        // busy waiting
+        messages_wait_and_handle_next();
     }
 
     received = 0;
     dist_set("obj2 { attr: 'asdf' }");
     while (received != 1) {
-        // busy waiting
+        messages_wait_and_handle_next();
     }
 
     received = 0;
@@ -119,7 +119,7 @@ int main(int argc, char *argv[])
     DEBUG_ERR(err, "remove trigger");
     ASSERT_ERR_OK(err);
     while (received != 1) {
-        // busy waiting
+        messages_wait_and_handle_next();
     }
 
     printf("d2trigger SUCCESS!\n");

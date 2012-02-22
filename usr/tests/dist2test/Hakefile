@@ -12,71 +12,66 @@
 
 [ build application { target = "d2getset",
                       cFiles = [ "d2getset.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
 
   build application { target = "d2pubsub",
                       cFiles = [ "d2pubsub.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
   
   build application { target = "d2trigger",
                       cFiles = [ "d2trigger.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
 
   build application { target = "d2barrier",
                       cFiles = [ "d2barrier.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
                                         
   build application { target = "d2locksimple",
                       cFiles = [ "d2locksimple.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
 
   build application { target = "d2read",
                       cFiles = [ "d2read.c" ],
                       flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
                     
   build application { target = "d2mem",
                       cFiles = [ "d2mem.c" ],
                       flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
 
   build application { target = "d2bench",
                       cFiles = [ "d2bench.c" ],
                       flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
 
   build application { target = "d2bench1",
                       cFiles = [ "d2bench1.c" ],
                       flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
                     
   build application { target = "d2bench2",
                       cFiles = [ "d2bench2.c" ],
                       flounderBindings = [ "dist2" ],
-                      flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                      addLibraries = [ "dist2", "dist_parser", "bench" ]
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
                     }    
 ]

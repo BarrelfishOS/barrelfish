@@ -23,15 +23,6 @@
 
 #include "common.h"
 
-static void barrier_signal_sem(dist2_mode_t m, char* record, void* state)
-{
-    //debug_printf("barrier_signal_sem\n");
-    struct thread_sem* ts = (struct thread_sem*) state;
-    thread_sem_post(ts);
-
-    free(record);
-}
-
 /**
  * \brief Client enters a barrier. Blocks until all clients have entered the
  * barrier.
@@ -46,11 +37,18 @@ static void barrier_signal_sem(dist2_mode_t m, char* record, void* state)
  */
 errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait_for)
 {
-    errval_t err = dist_set_get(SET_SEQUENTIAL, barrier_record,
-            "%s_ { barrier: '%s' }", name, name);
-
+    errval_t err;
+    errval_t exist_err;
+    char* record = NULL;
     char** names = NULL;
+    uint64_t mode = 0;
+    uint64_t state = 0;
+    uint64_t fn = 0;
+    dist2_trigger_id_t tid;
     size_t current_barriers = 0;
+
+    err = dist_set_get(SET_SEQUENTIAL, barrier_record,
+            "%s_ { barrier: '%s' }", name, name);
     err = dist_get_names(&names, &current_barriers, "_ { barrier: '%s' }",
             name);
     dist_free_names(names, current_barriers);
@@ -61,17 +59,10 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
     //        wait_for);
 
     if (current_barriers != wait_for) {
-        struct thread_sem ts;
-        thread_sem_init(&ts, 0);
-
-        struct dist2_rpc_client* cl = get_dist_rpc_client();
-        dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET,
-                barrier_signal_sem, &ts);
-        errval_t exist_err;
-        dist2_trigger_id_t tid;
-        DIST_LOCK_BINDING(cl);
-        err = cl->vtbl.exists(cl, name, t, &tid, &exist_err);
-        DIST_UNLOCK_BINDING(cl);
+        struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+        dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
+                DIST_ON_SET, NULL, NULL);
+        err = cl->call_seq.exists(cl, name, t, &tid, &exist_err);
         if (err_is_fail(err)) {
             return err;
         }
@@ -82,7 +73,10 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
         }
         if (err_no(err) == DIST2_ERR_NO_RECORD) {
             // Wait until barrier record is created
-            thread_sem_wait(&ts);
+            err = cl->recv.trigger(cl, &mode, &state, &fn, &record);
+            free(record);
+            assert(mode & DIST_REMOVED);
+
             err = SYS_ERR_OK;
         }
         else {
@@ -111,20 +105,27 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
  */
 errval_t dist_barrier_leave(const char* barrier_record)
 {
+    errval_t exist_err;
+    errval_t err;
     char* rec_name = NULL;
     char* barrier_name = NULL;
-    //debug_printf("leaving: %s\n", barrier_record);
-    errval_t err = dist_read(barrier_record, "%s { barrier: %s }", &rec_name,
-            &barrier_name);
+    char* record = NULL;
+    char** names = NULL;
+    size_t remaining_barriers = 0;
+    uint64_t mode = 0;
+    uint64_t state = 0;
+    uint64_t fn = 0;
+    dist2_trigger_id_t tid;
 
+    //debug_printf("leaving: %s\n", barrier_record);
+    err = dist_read(barrier_record, "%s { barrier: %s }", &rec_name,
+            &barrier_name);
     if (err_is_ok(err)) {
         err = dist_del(rec_name);
         if (err_is_fail(err)) {
             goto out;
         }
 
-        char** names = NULL;
-        size_t remaining_barriers = 0;
         err = dist_get_names(&names, &remaining_barriers, "_ { barrier: '%s' }",
                 barrier_name);
         dist_free_names(names, remaining_barriers);
@@ -132,17 +133,10 @@ errval_t dist_barrier_leave(const char* barrier_record)
         //debug_printf("remaining barriers is: %lu\n", remaining_barriers);
 
         if (err_is_ok(err)) {
-            struct dist2_rpc_client* cl = get_dist_rpc_client();
-            struct thread_sem ts;
-            thread_sem_init(&ts, 0);
-
+            struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
             dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
-                    barrier_signal_sem, &ts);
-            errval_t exist_err;
-            dist2_trigger_id_t tid;
-            DIST_LOCK_BINDING(cl);
-            err = cl->vtbl.exists(cl, barrier_name, t, &tid, &exist_err);
-            DIST_UNLOCK_BINDING(cl);
+                    NULL, NULL);
+            err = cl->call_seq.exists(cl, barrier_name, t, &tid, &exist_err);
             if (err_is_fail(err)) {
                 goto out;
             }
@@ -150,7 +144,8 @@ errval_t dist_barrier_leave(const char* barrier_record)
 
             if (err_is_ok(err)) {
                 // Wait until everyone has left the barrier
-                thread_sem_wait(&ts);
+                err = cl->recv.trigger(cl, &mode, &state, &fn, &record);
+                assert(mode & DIST_REMOVED);
             }
             else if (err_no(err) == DIST2_ERR_NO_RECORD) {
                 // barrier already deleted
@@ -168,6 +163,7 @@ errval_t dist_barrier_leave(const char* barrier_record)
     }
 
 out:
+    free(record);
     free(rec_name);
     free(barrier_name);
     return err;

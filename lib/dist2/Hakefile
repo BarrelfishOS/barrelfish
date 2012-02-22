@@ -14,19 +14,18 @@
                      addCFlags = [ "-O2" ],
                     cFiles = [ "client/dist2.c", "client/getset.c", "client/pubsub.c", 
                                "client/barriers.c", "client/trigger.c",
-                               "client/locking.c", "client/strnatcmp.c", "client/read.c",
-                               "client/nameservice_client.c" ],
+                               "client/locking.c", "client/strnatcmp.c" ],
+                    flounderDefs = [ "dist2" ],
                     flounderBindings = [ "dist2" ],
                     flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                    flounderTHCStubs = [ "dist2" ],
-                    addLibraries = [ "skb", "dist_parser" ]
+                    flounderTHCStubs = [ "dist2" ]
                   },
                   
     build library { target = "dist_server",
                     addCFlags = [ "-O2" ],
                     cFiles = [ "server/service.c", "server/init.c", "server/queue.c" ],
                     flounderBindings = [ "dist2" ],
-                    addLibraries = [ "skb", "thc" ] 
+                    addLibraries = [ "skb" ] 
                    },
     
     build library { target = "dist_parser",
@@ -36,7 +35,8 @@
                                   "-Wno-missing-declarations",
                                   "-Wno-missing-prototypes",
                                   "-Wno-implicit-function-declaration" ],
-                    cFiles = [ "parser/ast.c", "parser/parse.c", "parser/scan.c" ] }
+                    cFiles = [ "parser/ast.c", "parser/parse.c", 
+                               "parser/scan.c", "parser/read.c" ] }
      -- no-missing-declarations & no-missing-prototypes Bug: 
      -- https://bugzilla.redhat.com/show_bug.cgi?id=612465
      -- no-implicit-function-declaration:

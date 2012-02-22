@@ -106,13 +106,11 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
     FORMAT_QUERY(record, args, buf);
 
     // send to skb
-    struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
+    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
 
     errval_t error_code = SYS_ERR_OK;
     uint64_t server_id = 0;
-    DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.subscribe(rpc_client, buf, *id, &server_id, &error_code);
-    DIST_UNLOCK_BINDING(rpc_client);
+    err = cl->call_seq.subscribe(cl, buf, *id, &server_id, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -144,13 +142,10 @@ errval_t dist_unsubscribe(subscription_t id)
     thread_mutex_lock(&subscriber_table_lock);
 
     // send to skb
-    struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
-
-    errval_t error_code = SYS_ERR_OK;
-    DIST_LOCK_BINDING(rpc_client);
-    errval_t err = rpc_client->vtbl.unsubscribe(rpc_client,
+    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    errval_t error_code;
+    errval_t err = cl->call_seq.unsubscribe(cl,
             subscriber_table[id].server_id, &error_code);
-    DIST_UNLOCK_BINDING(rpc_client);
     if (err_is_ok(err)) {
         err = error_code;
     }
@@ -185,12 +180,9 @@ errval_t dist_publish(const char *record, ...)
     char *buf = NULL;
     FORMAT_QUERY(record, args, buf);
 
-    struct dist2_rpc_client *rpc_client = get_dist_rpc_client();
-
+    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
     errval_t error_code = SYS_ERR_OK;
-    DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.publish(rpc_client, buf, &error_code);
-    DIST_UNLOCK_BINDING(rpc_client);
+    err = cl->call_seq.publish(cl, buf, &error_code);
     if(err_is_ok(err)) {
         err = error_code;
     }

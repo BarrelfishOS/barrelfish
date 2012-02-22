@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 
     char payload[256] = { [0 ... 254] = 'a', [255] = '\0' };
 
-    struct dist2_rpc_client* cl = get_dist_rpc_client();
+    struct dist2_rpc_client* cl = dist_get_thc_client();
     assert(cl != NULL);
 
     char record[300];

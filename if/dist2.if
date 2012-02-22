@@ -11,18 +11,17 @@ interface dist2 "dist2 RPC Interface" {
 
     alias mode uint64;
     alias trigger_id uint64;
+    typedef enum {BINDING_RPC, BINDING_EVENT} binding_type;
 
     // XXX: No flounder support for pointer values
-    // Store function pointer/state ptr on client side but
-    // this leads to more complex API (register/deregister)
     typedef struct {
         errval in_case;
+        binding_type send_to;
         mode m;
         uint64 trigger;
         uint64 st;
     } trigger;
 
-    typedef enum {BINDING_RPC, BINDING_EVENT} binding_type;
 
 
     //
@@ -109,8 +108,7 @@ interface dist2 "dist2 RPC Interface" {
      */
     rpc remove_trigger(in uint64 id, out errval error_code);
     
-    rpc wait_for(in string query, out string record, out errval error_code);
-    
+
     //
     // Publish/Subscribe API
     //
@@ -140,5 +138,22 @@ interface dist2 "dist2 RPC Interface" {
     //
     message trigger(mode m, uint64 trigger_fn, uint64 state, string record);
     
-    message subscribed_message(uint64 id, string record);    
+    message subscribed_message(uint64 id, string record);
+    
+    
+    
+    //
+    // Capability Storage and Shared memory semaphores
+    // (backward compaibility w/ chips)
+    //
+    
+    // Simple capability storage
+    rpc get_cap(in string key, out cap retcap, out errval reterr);
+    rpc put_cap(in string key, in cap storecap, out errval reterr);
+
+    // Shared-memory semaphores
+    rpc sem_new(in uint32 value, out uint32 sem, out errval reterr);
+    rpc sem_post(in uint32 sem);
+    rpc sem_wait(in uint32 sem);
+    rpc sem_trywait(in uint32 sem, out bool success);
 };

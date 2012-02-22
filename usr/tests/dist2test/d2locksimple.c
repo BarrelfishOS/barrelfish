@@ -35,12 +35,12 @@ static void lockit(void* arg)
 
     if (!locked) {
         err = dist_lock("lock_test", &lock);
-	DEBUG_ERR(err, "lock");
+        DEBUG_ERR(err, "lock");
         assert(err_is_ok(err));
         locked = true;
     } else {
         err = dist_unlock(lock);
-	DEBUG_ERR(err, "unlock");
+        DEBUG_ERR(err, "unlock");
         assert(err_is_ok(err));
         locked = false;
         free(lock);
@@ -62,6 +62,6 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < LOCKIT_CALLS; i++) {
         lockit(NULL);
     }
-
+    printf("done\n");
     return EXIT_SUCCESS;
 }

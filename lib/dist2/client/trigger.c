@@ -39,6 +39,7 @@ dist2_trigger_t dist_mktrigger(errval_t in_case, dist2_mode_t mode,
     return (dist2_trigger_t) {
                 .in_case = in_case,
                 .m = mode,
+                .send_to = dist2_BINDING_RPC,
                 // TODO: bad uint64_t here!
                 .trigger = (uint64_t) fn,
                 .st = (uint64_t) state
@@ -61,13 +62,11 @@ dist2_trigger_t dist_mktrigger(errval_t in_case, dist2_mode_t mode,
 errval_t dist_remove_trigger(dist2_trigger_id_t trigger_id)
 {
     errval_t err = SYS_ERR_OK;
-    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-    assert(rpc_client != NULL);
+    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    assert(cl != NULL);
 
     errval_t error_code;
-    DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.remove_trigger(rpc_client, trigger_id, &error_code);
-    DIST_UNLOCK_BINDING(rpc_client);
+    err = cl->call_seq.remove_trigger(cl, trigger_id, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
     }
