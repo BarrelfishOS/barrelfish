@@ -545,7 +545,6 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
         if (N(current_)->right) {
             mdb_exchange_remove(target, target_parent, &N(current_)->right,
                                 current_, dir, ret_target);
-            assert(mdb_check_subtree_invariants(N(current_)->right) == 0);
         }
     }
     else if (dir < 0) {
@@ -559,7 +558,6 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
         if (N(current_)->left) {
             mdb_exchange_remove(target, target_parent, &N(current_)->left,
                                 current_, dir, ret_target);
-            assert(mdb_check_subtree_invariants(N(current_)->left) == 0);
         }
         else if (N(current_)->right) {
             // right is null, left non-null -> current is level 0 node with
@@ -574,7 +572,6 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
             // where current->right was, and is a leaf, so can be dropped.
             assert(N(new_current)->right == target);
             N(new_current)->right = NULL;
-            assert(mdb_check_subtree_invariants(new_current) == 0);
             *ret_target = current_;
             *current = new_current;
             MDB_TRACE_LEAVE_SUB(NULL);
@@ -662,7 +659,6 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
 
     // rebalance after remove from subtree
     current_ = mdb_rebalance(current_);
-    assert(mdb_check_subtree_invariants(current_) == 0);
     *current = current_;
 
     assert(C(target)->type != 0);
