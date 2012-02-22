@@ -15,8 +15,8 @@
 #include <string.h>
 #include "posixcompat.h"
 
-#include <if/nameservice_defs.h>
-#include <if/nameservice_rpcclient_defs.h>
+#include <if/dist2_defs.h>
+#include <if/dist2_rpcclient_defs.h>
 
 int sem_init(sem_t *sem, int pshared, unsigned int value)
 {
@@ -30,7 +30,7 @@ int sem_init(sem_t *sem, int pshared, unsigned int value)
 
 		POSIXCOMPAT_DEBUG("%d: sem_init(%p, %d, %u)\n", disp_get_domain_id(), sem, pshared, value);
 
-        struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+        struct dist2_rpc_client *r = get_nameservice_rpc_client();
         assert(r != NULL);
 
         errval_t err, reterr;
@@ -67,7 +67,7 @@ int sem_wait(sem_t *sem)
     if(!sem->pshared) {
         thread_sem_wait(&sem->thread_sem);
     } else {
-        struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+        struct dist2_rpc_client *r = get_nameservice_rpc_client();
         assert(r != NULL);
 
         errval_t err;
@@ -92,7 +92,7 @@ int sem_trywait(sem_t *sem)
             return -1;
         }
     } else {
-        struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+        struct dist2_rpc_client *r = get_nameservice_rpc_client();
         assert(r != NULL);
 
         errval_t err;
@@ -126,7 +126,7 @@ int sem_post(sem_t *sem)
     if(!sem->pshared) {
         thread_sem_post(&sem->thread_sem);
     } else {
-        struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+        struct dist2_rpc_client *r = get_nameservice_rpc_client();
         assert(r != NULL);
 
         errval_t err;

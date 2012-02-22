@@ -74,13 +74,13 @@
                     cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
                              ++ common_srcs ++ idc_srcs,
                     assemblyFiles = arch_assembly (archFamily arch),
-                    flounderBindings = [ "mem", "nameservice", "serial",
+                    flounderBindings = [ "mem", "dist2", "serial",
                                          "interdisp", "spawn", "keyboard" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
 		    			      ("monitor_blocking", ["lmp", "rpcclient"]),
                                               ("mem", ["rpcclient"]),
-                                              ("nameservice", ["rpcclient"]),
+                                              ("dist2", ["rpcclient"]),
                                               ("spawn", ["rpcclient"]),
                                               ("serial", ["rpcclient"])],
                     addIncludes = [ "include", "include" ./. arch_dir ],

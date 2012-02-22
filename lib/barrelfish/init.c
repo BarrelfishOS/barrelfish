@@ -245,7 +245,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 #endif
 
     // try to connect to name service (may fail if we are the skb or ramfsd!)
-    err = dist_rpc_init();
+    err = nameservice_client_blocking_bind();
     if (err_is_fail(err)) {
         if (err_no(err) == LIB_ERR_GET_NAME_IREF) {
             // skip everything else if we don't have a nameservice
