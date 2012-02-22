@@ -476,6 +476,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
 
     return PFAIL;
 }
+void dist_rpc_enqueue_reply(struct dist2_binding *b, struct dist_reply_state* st);
 
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
 {
@@ -545,9 +546,16 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
             memcpy(drs_copy, drs, sizeof(struct dist_reply_state));
             drs = drs_copy; // overwrite drs
         }
+        // TODO turn off trigger id
 
         drs->mode = (retract) ? (action | DIST_REMOVED) : action;
-        drs->reply(drs->binding, drs);
+
+        if (drs->binding->st != NULL) {
+            dist_rpc_enqueue_reply(drs->binding, drs);
+        }
+        else {
+            drs->reply(drs->binding, drs);
+        }
     }
     else {
         USER_PANIC("No binding set for watch_id: %lu", watch_id);
