@@ -89,7 +89,6 @@ int main(int argc, char**argv)
         execute_string("[objects3].");
         execute_string("[pubsub3].");
         execute_string("[bindings].");
-        execute_string("[pci_db].");
         dident e = ec_did("eclipse", 0);
         //ec_external(ec_did("notify_client", 2), p_notify_client, e);
         ec_external(ec_did("trigger_watch", 6), p_trigger_watch, e);
