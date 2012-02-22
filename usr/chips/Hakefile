@@ -11,6 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { cFiles = [ "framework.c", "filter.c", "hashtable.c" ],
+                      flounderBindings = [ "nameservice" ],
                       flounderDefs = [ "monitor", "nameservice" ],
                       target = "chips" 
                     }
