@@ -574,7 +574,8 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                              classcode.subclss, classcode.prog_if,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
 
-                // TODO: test for get/set api
+                /*// TODO: test for get/set api
+
                 char* record = NULL;
                 static char* device_fmt = "device. { bus: %u, device: %u, function: %u, vendor: %u, device_id: %u, class: %u, subclass: %u, prog_if: %u }";
                 errval_t err = dist_set_get(SET_SEQUENTIAL, &record, device_fmt,
@@ -584,7 +585,7 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
 
                 assert(err_is_ok(err));
                 free(record);
-                // end dist2
+                // end dist2*/
 
                 query_bars(devhdr, addr, false);
             }
