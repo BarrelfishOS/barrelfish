@@ -21,6 +21,8 @@
 #include <barrelfish/threads.h>
 #include <barrelfish/nameservice_client.h>
 
+#include <if/monitor_defs.h>
+
 #include <dist2/init.h>
 
 #include "handler.h"
@@ -30,10 +32,12 @@ static struct dist_state {
     struct dist2_binding* binding;
     struct dist2_rpc_client* rpc_client;
     struct waitset ws;
+    iref_t iref;
     errval_t err;
     bool is_done;
 } rpc, event;
 
+static uint64_t client_identifier = 0;
 static struct thread_sem ts;
 
 struct dist2_binding* get_dist_event_binding(void)
@@ -44,7 +48,7 @@ struct dist2_binding* get_dist_event_binding(void)
 
 struct dist2_rpc_client* get_dist_rpc_client(void)
 {
-    assert(rpc.rpc_client != NULL);
+    //assert(rpc.rpc_client != NULL);
     return rpc.rpc_client;
 }
 
@@ -53,7 +57,7 @@ static void identify_response_handler(struct dist2_binding* b)
     thread_sem_post(&ts);
 }
 
-struct dist2_rx_vtbl rx_vtbl = {
+static struct dist2_rx_vtbl rx_vtbl = {
         .identify_response = identify_response_handler,
         .subscribed_message = subscribed_message_handler,
         .trigger = trigger_handler
@@ -110,26 +114,42 @@ static void rpc_bind_cb(void *st, errval_t err, struct dist2_binding* b)
         }
     } // else: Do nothing
 
-    printf("cb done!\n");
-
     assert(!rpc.is_done);
     rpc.is_done = true;
     rpc.err = err;
 }
 
+static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
+                                uintptr_t state)
+{
+    struct dist_state* ds = (struct dist_state*)state;
+    ds->iref = iref;
+    ds->err = (iref != 0) ? SYS_ERR_OK : LIB_ERR_GET_NAME_IREF;
+    ds->is_done = true;
+}
+
 static errval_t init_binding(struct dist_state* state,
-        dist2_bind_continuation_fn bind_fn, char* service_name)
+        dist2_bind_continuation_fn bind_fn)
 {
     errval_t err = SYS_ERR_OK;
-    iref_t iref = 0;
+    struct monitor_binding *mb = get_monitor_binding();
 
-    err = nameservice_blocking_lookup(service_name, &iref);
+    state->is_done = false;
+    mb->rx_vtbl.get_name_iref_reply = get_name_iref_reply;
+    err = mb->tx_vtbl.get_name_iref_request(mb, NOP_CONT, (uintptr_t)state);
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_REFERENCE);
+        return err;
+    }
+    while (!state->is_done) {
+        messages_wait_and_handle_next();
+    }
+
+    if (err_is_fail(state->err)) {
+        return state->err;
     }
 
     state->is_done = false;
-    err = dist2_bind(iref, bind_fn, NULL, get_default_waitset(),
+    err = dist2_bind(state->iref, bind_fn, NULL, get_default_waitset(),
             IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err_push(err, FLOUNDER_ERR_BIND);
@@ -143,28 +163,13 @@ static errval_t init_binding(struct dist_state* state,
     return state->err;
 }
 
-/**
- * \brief Initializes the dist2 client library.
- *
- * Sets up the rpc and event binding for communication
- * with the server. Events on the event binding are handled
- * on a separate thread.
- *
- * \note Call this before you call any other dist2 functions.
- */
-errval_t dist_init(void)
+errval_t dist_rpc_init(void)
 {
-    //thread_mutex_init(&trigger_mutex);
-
-    errval_t err = SYS_ERR_OK;
-    thread_sem_init(&ts, 0);
-
-    err = init_binding(&rpc, rpc_bind_cb, "dist2_rpc");
-    if (err_is_fail(err)) {
-        return err;
+    if (rpc.rpc_client != NULL) {
+        return SYS_ERR_OK;
     }
 
-    err = init_binding(&event, event_bind_cb, "dist2_event");
+    errval_t err = init_binding(&rpc, rpc_bind_cb);
     if (err_is_fail(err)) {
         return err;
     }
@@ -172,25 +177,54 @@ errval_t dist_init(void)
     // TODO: Hack. Tell the server that these bindings belong together
     // We can't use the same binding in 2 different threads with
     // rpc and non-rpc calls.
-
-    // Get identifier from server
     struct dist2_rpc_client* dist_rpc = get_dist_rpc_client();
-    uint64_t id = 0;
-    err = dist_rpc->vtbl.get_identifier(dist_rpc, &id);
+    err = dist_rpc->vtbl.get_identifier(dist_rpc, &client_identifier);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = dist_rpc->vtbl.identify(dist_rpc, client_identifier,
+            dist2_BINDING_RPC);
+
+    // Register rpc binding using identifier
+    err = dist_rpc->vtbl.identify(dist_rpc, client_identifier, dist2_BINDING_RPC);
+
+    return err;
+}
+
+/**
+ * \brief Initializes the dist2 client library.
+ *
+ * Note the dist rpc binding is most likely already initialized
+ * by libbarrelfish (used for nameservice). This function
+ * will set up the event thread to handle asynchronous events.
+ *
+ * \note Call this before you call any dist2 functions that require
+ * asynchronous callbacks (subscribe, get/set/del with triggers).
+ */
+errval_t dist_init(void)
+{
+    errval_t err = dist_rpc_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    thread_sem_init(&ts, 0);
+
+    err = init_binding(&event, event_bind_cb);
     if (err_is_fail(err)) {
         return err;
     }
 
     // Spawn event handler thread (handles asynchronous messages from server)
-    struct thread* t = thread_create(event_handler_thread, (void*) id);
+    struct thread* t = thread_create(event_handler_thread,
+            (void*) client_identifier);
     assert(t != NULL);
-
-    // Register rpc binding using identifier
-    err = dist_rpc->vtbl.identify(dist_rpc, id, dist2_BINDING_RPC);
 
     dist_pubsub_init();
 
     // Wait until event binding has registered itself
     thread_sem_wait(&ts);
+
     return err;
 }

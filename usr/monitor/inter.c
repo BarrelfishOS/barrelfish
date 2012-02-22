@@ -455,6 +455,21 @@ static void monitor_mem_iref_reply(struct intermon_binding *b, iref_t iref)
     monitor_mem_iref = iref;
 }
 
+static void ramfs_serv_iref_request(struct intermon_binding *b)
+{
+    errval_t err;
+    err = b->tx_vtbl.ramfs_serv_iref_reply(b, NOP_CONT, ramfs_serv_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending ramfs_serv_iref_request failed");
+    }
+}
+
+static void ramfs_serv_iref_reply(struct intermon_binding *b, iref_t iref)
+{
+    assert(ramfs_serv_iref == 0);
+    ramfs_serv_iref = iref;
+}
+
 static void inter_rsrc_join(struct intermon_binding *b,
                             rsrcid_t id, uint8_t coreid)
 {
@@ -569,6 +584,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .mem_serv_iref_reply = mem_serv_iref_reply,
     .name_serv_iref_request = name_serv_iref_request,
     .name_serv_iref_reply = name_serv_iref_reply,
+    .ramfs_serv_iref_request = ramfs_serv_iref_request,
+    .ramfs_serv_iref_reply = ramfs_serv_iref_reply,
     .monitor_mem_iref_request = monitor_mem_iref_request,
     .monitor_mem_iref_reply = monitor_mem_iref_reply,
 

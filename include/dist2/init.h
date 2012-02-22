@@ -12,15 +12,20 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef INIT_H_
-#define INIT_H_
+#ifndef DIST2_INIT_H_
+#define DIST2_INIT_H_
 
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
 #include <if/dist2_rpcclient_defs.h>
 
+STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
+        "Sending pointers might fail :-(.");
+
 errval_t dist_init(void);
+errval_t dist_rpc_init(void);
+
 struct dist2_rpc_client* get_dist_rpc_client(void);
 struct dist2_binding* get_dist_event_binding(void);
 
-#endif /* INIT_H_ */
+#endif /* DIST2_INIT_H_ */

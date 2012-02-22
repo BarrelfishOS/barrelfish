@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <mm/mm.h>
 #include <skb/skb.h>
+#include <dist2/getset.h>
 
 #include "pci.h"
 #include "pci_acpi.h"
@@ -572,6 +573,19 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                              vendor, device_id, classcode.clss,
                              classcode.subclss, classcode.prog_if,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
+
+                // TODO: test for get/set api
+                char* record = NULL;
+                static char* device_fmt = "device. { bus: %u, device: %u, function: %u, vendor: %u, device_id: %u, class: %u, subclass: %u, prog_if: %u }";
+                errval_t err = dist_set_get(SET_SEQUENTIAL, &record, device_fmt,
+                        addr.bus, addr.device, addr.function, vendor,
+                        device_id, classcode.clss, classcode.subclss,
+                        classcode.prog_if);
+
+                assert(err_is_ok(err));
+                free(record);
+                // end dist2
+
                 query_bars(devhdr, addr, false);
             }
 

@@ -33,7 +33,7 @@ static void get_names(void)
     char** names = NULL;
     size_t size = 0;
 
-    err = dist_get_names(&names, &size, "_");
+    err = dist_get_names(&names, &size, "r'^object.*'");
     ASSERT_ERR_OK(err);
     assert(size == 4);
     ASSERT_STRING(names[0], "object3");

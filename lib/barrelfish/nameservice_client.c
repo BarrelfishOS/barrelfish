@@ -25,6 +25,7 @@
  * \param iface Name of interface for which to query name server
  * \param retiref Returns pointer to IREF on success
  */
+#ifdef USE_CHIPS_NS
 errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 {
     nameservice_srvref_t ref;
@@ -107,6 +108,7 @@ errval_t nameservice_register(const char *iface, iref_t iref)
 
     return r->vtbl.register_service(r, iref, iface, &ref);
 }
+#endif
 
 /**
  * \brief Get a capability from the capability store.

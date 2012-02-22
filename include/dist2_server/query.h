@@ -101,12 +101,27 @@ errval_t del_record(struct ast_object*, struct dist_query_state*);
  * \param ast AST to watch for
  * \param mode When to trigger the watch (del or set).
  * \param drs Reply state used to reply to the client.
+ * \param wid ID of the installed watch (used for remove).
  *
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t set_watch(struct ast_object* ast, uint64_t mode,
-        struct dist_reply_state* drs);
+        struct dist_reply_state* drs, uint64_t* wid);
+
+/**
+ * \brief Removes a watch
+ *
+ * \param b Binding of caller
+ * \param id Trigger Id supplied by caller
+ * \param dqs Query state
+ *
+ * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_INVALID_ID
+ * \retval DIST2_ERR_ENGINE_FAIL
+ */
+errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
+        struct dist_query_state* dqs);
 
 /**
  * \brief Adds a subscription.

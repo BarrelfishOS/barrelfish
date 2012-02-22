@@ -16,6 +16,7 @@
 #include <vfs/vfs_path.h>
 #include <if/trivfs_defs.h>
 #include <if/trivfs_rpcclient_defs.h>
+#include <if/monitor_defs.h>
 #ifdef __scc__
 #       include <barrelfish_kpi/shared_mem_arch.h>
 #endif
@@ -769,10 +770,46 @@ static void bind_cb(void *st, errval_t err, struct trivfs_binding *b)
     cl->bound = true;
 }
 
+struct iref_request_state {
+    bool is_done;
+    iref_t iref;
+    errval_t err;
+};
+
+static void get_ramfs_iref_reply(struct monitor_binding* mb, iref_t iref,
+        uintptr_t state){
+    struct iref_request_state* irs = (struct iref_request_state*) state;
+
+    irs->iref = iref;
+    irs->err = (iref != 0) ? SYS_ERR_OK : LIB_ERR_GET_RAMFS_IREF;
+    irs->is_done = true;
+}
+
+static errval_t get_ramfs_iref(iref_t* iref)
+{
+    // Request iref for ramfsd directly from monitor (needed for SKB)
+    // XXX: broken :-( uintptr_t + message_wait_and_handle_next()
+    struct iref_request_state irs = { 0, 0, 0 };
+    struct monitor_binding *mb = get_monitor_binding();
+    mb->rx_vtbl.get_ramfs_iref_reply = get_ramfs_iref_reply;
+
+    errval_t err = mb->tx_vtbl.get_ramfs_iref_request(mb, NOP_CONT, (uintptr_t)&irs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    while (!irs.is_done) {
+        messages_wait_and_handle_next();
+    }
+
+    *iref = irs.iref;
+    return irs.err;
+}
+
 errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
 {
     errval_t err, msgerr;
-    iref_t iref;
+    iref_t iref = 0;
 
     // skip over protocol part of URI to get service name
     char *service = strstr(uri, "://");
@@ -786,10 +823,10 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
         service = "ramfs";
     }
 
-    err = nameservice_blocking_lookup(service, &iref);
+    err = get_ramfs_iref(&iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_blocking_lookup for ramfs");
-        return err; // FIXME
+        DEBUG_ERR(err, "get ramfs iref");
+        return err;
     }
 
     struct ramfs_client *client = malloc(sizeof(struct ramfs_client));

@@ -24,7 +24,7 @@
 
 #include <dist2_server/debug.h>
 #include <dist2_server/service.h>
-
+#include <dist2/trigger.h> // for trigger modes
 
 #include "predicates.h"
 #include "skiplist.h"
@@ -33,6 +33,10 @@
 
 #define HASH_INDEX_BUCKETS 6151
 static hash_table* record_index = NULL;
+
+static hash_table* trigger_index = NULL;
+static struct bitfield* no_attr_triggers = NULL;
+
 static hash_table* subscriber_index = NULL;
 static struct bitfield* no_attr_subscriptions = NULL;
 
@@ -44,6 +48,11 @@ static inline void init_index(void) {
     if(subscriber_index == NULL) {
         hash_create_with_buckets(&subscriber_index, HASH_INDEX_BUCKETS, NULL);
         bitfield_create(&no_attr_subscriptions);
+    }
+
+    if(trigger_index == NULL) {
+        hash_create_with_buckets(&trigger_index, HASH_INDEX_BUCKETS, NULL);
+        bitfield_create(&no_attr_triggers);
     }
 }
 
@@ -311,12 +320,26 @@ static int bitfield_index_remove(hash_table* ht, uint64_t key, long int id)
     return PSUCCEED;
 }
 
-int p_bitfield_add(void) /* p_bitfield_add(+Name, +[AttributeList], +Id) */
+int p_bitfield_add(void) /* p_bitfield_add(Storage, +Name, +[AttributeList], +Id) */
 {
     init_index();
     int res = 0;
     long int id;
     bool inserted = false;
+
+    hash_table* ht = NULL;
+    struct bitfield* no_attr_bf = NULL;
+
+    char* storage;
+    res = ec_get_string(ec_arg(1), &storage);
+    if (strcmp(storage, "trigger") == 0) {
+        ht = trigger_index;
+        no_attr_bf = no_attr_triggers;
+    }
+    else {
+        ht = subscriber_index;
+        no_attr_bf = no_attr_subscriptions;
+    }
 
     res = ec_get_long(ec_arg(3), &id);
     if (res != PSUCCEED) {
@@ -330,27 +353,41 @@ int p_bitfield_add(void) /* p_bitfield_add(+Name, +[AttributeList], +Id) */
 
         char* attribute;
         ec_get_string(attribute_term, &attribute);
-        DIST2_DEBUG("insert %ld into index[%s]\n", id, attribute);
         uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
 
-        int res = bitfield_index_insert(subscriber_index, key, id);
+        int res = bitfield_index_insert(ht, key, id);
         assert(res == PSUCCEED);
         inserted = true;
     }
 
     if (!inserted) {
-        bitfield_on(no_attr_subscriptions, id);
+        bitfield_on(no_attr_bf, id);
     }
 
     return PSUCCEED;
 }
 
-int p_bitfield_remove(void) /* p_bitfield_remove(+Name, +[AttributeList], +Id) */
+int p_bitfield_remove(void) /* p_bitfield_remove(Storage, +Name, +[AttributeList], +Id) */
 {
     init_index();
 
     int res = 0;
     long int id;
+
+    hash_table* ht = NULL;
+    struct bitfield* no_attr_bf = NULL;
+
+    char* storage;
+    res = ec_get_string(ec_arg(1), &storage);
+    if (strcmp(storage, "trigger") == 0) {
+        ht = trigger_index;
+        no_attr_bf = no_attr_triggers;
+    }
+    else {
+        ht = subscriber_index;
+        no_attr_bf = no_attr_subscriptions;
+    }
+
     res = ec_get_long(ec_arg(3), &id);
     if (res != PSUCCEED) {
         return PFAIL;
@@ -366,15 +403,14 @@ int p_bitfield_remove(void) /* p_bitfield_remove(+Name, +[AttributeList], +Id) *
         assert(res == PSUCCEED);
 
         uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
-        bitfield_index_remove(subscriber_index, key, id);
-        DIST2_DEBUG("removed %lu from bitfield[%s]\n", id, attribute);
+        bitfield_index_remove(ht, key, id);
     }
 
-    bitfield_off(no_attr_subscriptions, id);
+    bitfield_off(no_attr_bf, id);
     return PSUCCEED;
 }
 
-int p_bitfield_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) */
+int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +Next) */
 {
     DIST2_DEBUG("p_bitfield_union\n");
     static struct bitfield** sets = NULL;
@@ -385,7 +421,19 @@ int p_bitfield_union(void) /* p_index_union(type, -[Attributes], -Current, +Next
     char* key;
 
     init_index();
-    hash_table* ht = subscriber_index;
+    hash_table* ht = NULL;
+    struct bitfield* no_attr_bf = NULL;
+
+    char* storage = NULL;
+    res = ec_get_string(ec_arg(1), &storage);
+    if (strcmp(storage, "trigger") == 0) {
+        ht = trigger_index;
+        no_attr_bf = no_attr_triggers;
+    }
+    else {
+        ht = subscriber_index;
+        no_attr_bf = no_attr_subscriptions;
+    }
 
     res = ec_get_long(ec_arg(3), &next);
     if (res != PSUCCEED) {
@@ -398,7 +446,7 @@ int p_bitfield_union(void) /* p_index_union(type, -[Attributes], -Current, +Next
             elems++;
         }
         sets = calloc(elems+1, sizeof(struct bitfield*));
-        sets[0] = no_attr_subscriptions;
+        sets[0] = no_attr_bf;
 
         elems = 1;
         for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
@@ -419,7 +467,6 @@ int p_bitfield_union(void) /* p_index_union(type, -[Attributes], -Current, +Next
         next = -1;
     }
 
-    DIST2_DEBUG("elems: %lu, next:%ld\n", elems, next);
     next = bitfield_union(sets, elems, next);
     DIST2_DEBUG("bitfield_union found next: %ld\n", next);
     if(next != -1) {
@@ -430,47 +477,36 @@ int p_bitfield_union(void) /* p_index_union(type, -[Attributes], -Current, +Next
     return PFAIL;
 }
 
-int p_notify_client(void) /* p_notify_client(+String, ReplyState) */
-{
-    DIST2_DEBUG("p_notify_client\n");
-
-    struct dist_reply_state* drs;
-    char* str = NULL;
-
-    ec_get_string(ec_arg(1), &str);
-    ec_get_long(ec_arg(2), (long int*) &drs); // TODO conversion to pointer?
-    assert(strlen(str)+1 < BUFFER_SIZE); // TODO
-
-    strcpy(drs->query_state.stdout.buffer, str);
-    debug_printf("p_notify_client: %s\n", drs->query_state.stdout.buffer);
-
-    drs->error = SYS_ERR_OK;
-    drs->reply(drs->binding, drs);
-
-    return PSUCCEED;
-}
-
-
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
 {
     int res;
+    DIST2_DEBUG("\n*** p_trigger_watch: start\n");
 
     // Get arguments
     char* record = NULL;
     res = ec_get_string(ec_arg(1), &record);
     if (res != PSUCCEED) {
+        assert(ec_is_var(ec_arg(1)) == PSUCCEED);
+        // record will be null
+        // can happen in case we send DIST_REMOVED
+    }
+
+    // Action that triggered the event
+    long int action = 0;
+    res = ec_get_long(ec_arg(2), &action);
+    if (res != PSUCCEED) {
         return res;
     }
-    assert(strlen(record)+1 < BUFFER_SIZE); // TODO
 
-    long int mode = 0;
-    res = ec_get_long(ec_arg(2), &mode);
+    // Mode of watch
+    long int watch_mode = 0;
+    res = ec_get_long(ec_arg(3), &watch_mode);
     if (res != PSUCCEED) {
         return res;
     }
 
     struct dist_reply_state* drs = NULL;
-    res = ec_get_long(ec_arg(3), (long int*) &drs);
+    res = ec_get_long(ec_arg(4), (long int*) &drs);
     if (res != PSUCCEED) {
         return res;
     }
@@ -478,25 +514,44 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     DIST2_DEBUG("drs is: %p\n", drs);
 
     long int watch_id = 0;
-    res = ec_get_long(ec_arg(4), &watch_id);
+    res = ec_get_long(ec_arg(5), &watch_id);
     if (res != PSUCCEED) {
         return res;
     }
 
-    strcpy(drs->query_state.stdout.buffer, record);
-    DIST2_DEBUG("p_trigger_watch: %s\n", drs->query_state.stdout.buffer);
+    DIST2_DEBUG("p_trigger_watch: %s\n", record);
     DIST2_DEBUG("drs->binding: %p\n", drs->binding);
     DIST2_DEBUG("drs->reply: %p\n", drs->reply);
 
+
     drs->error = SYS_ERR_OK;
-    if (drs->binding != NULL) {
+    bool retract = !(watch_mode & DIST_PERSIST);
+    if (record != NULL) {
+        assert(strlen(record)+1 < MAX_QUERY_LENGTH);
+        strcpy(drs->query_state.stdout.buffer, record);
+    }
+    else {
+        drs->query_state.stdout.buffer[0] = '\0';
+        drs->query_state.stdout.length = 0;
+    }
+
+    if (drs->binding != NULL && drs->reply != NULL) {
+
+        if (!retract) {
+            // Copy reply state because the trigger will stay intact
+            struct dist_reply_state* drs_copy = NULL;
+            errval_t err = new_dist_reply_state(&drs_copy, NULL);
+            assert(err_is_ok(err));
+            memcpy(drs_copy, drs, sizeof(struct dist_reply_state));
+            drs = drs_copy; // overwrite drs
+        }
+
+        drs->mode = (retract) ? (action | DIST_REMOVED) : action;
         drs->reply(drs->binding, drs);
     }
     else {
-        // Ignore sending trigger messages
-        DIST2_DEBUG("No event binding found for watch_id: %lu", watch_id);
+        USER_PANIC("No binding set for watch_id: %lu", watch_id);
     }
 
-    long int retract = true;
-    return ec_unify_arg(5, ec_long(retract));
+    return ec_unify_arg(6, ec_long(retract));
 }

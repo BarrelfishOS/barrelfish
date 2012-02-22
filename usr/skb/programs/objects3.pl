@@ -173,7 +173,7 @@ add_seq_object(Name, UList, CList) :-
 add_object(Name, UList, CList) :-
     get_object(Name, [], CList, object(Name, SList)),
     del_attribute_index(Name, SList),
-    !, save_object(Name, UList).
+    save_object(Name, UList), !.
 add_object(Name, UList, CList) :-
     length(CList, 0),
     save_object(Name, UList).
@@ -221,44 +221,45 @@ del_object(Thing, AList, CList) :-
 %
 % Watches
 %
-set_watch(Name, AList, CList, Mode, Recipient) :-
-    convert_attributes(AList, ACList),
-    append(ACList, CList, Constraints),
-    sort(Constraints, SConstraints),    
-    asserta(watch(triplet(template(Name, SConstraints), Mode, Recipient))).
 
-trigger_watches(Object, Mode) :-
-    find_watches(Object, Watches),
-    check_watches(Object, Mode, Watches).
+% TODO
+% assert/retract are really bad in terms of performance
+% this is nothing else as a subscription, combine this with pubsub 
+% as long as the amount of concurrent watches is small this is ok
+set_watch(Template, Mode, Recipient) :-
+    Recipient = subscriber(Binding, Id, ReplyState, Mode),
+    Template = template(Name, AList, CList),
+    add_subscription(trigger, Id, Template, Recipient).
 
-% no optimzation atm. as long as 
-% the amount of concurrent watches is small this is fine
-find_watches(object(Name, Attrs), L) :-
-    coverof(X, watch(X), L), !.
+trigger_watches(Record, Mode) :-
+    find_watches(Record, Watches),
+    check_watches(Record, Mode, Watches).
+
+find_watches(Record, L) :-
+    coverof(X, find_subscriber(trigger, Record, X), L), !.
 find_watches(_, []).
 
 check_watches(_, _, []).
-check_watches(Object, Mode, [T|Rest]) :-
-    check_watch(Object, Mode, T),
-    check_watches(Object, Mode, Rest).
+check_watches(Record, Mode, [T|Rest]) :-
+    check_watch(Record, Mode, T),
+    check_watches(Record, Mode, Rest).
 
-check_watch(object(Name, Attrs), Mode, triplet(template(TName, Constraints), WMode, recipient(Binding, ReplyState, WatchId))) :-
-    Mode /\ WMode > 0,
-    ( (not var(TName), not atom(TName)) ->
-        TName = name_constraint(Value),
-        match(Value, Name, [])
-    ; Name = TName ),
-    match_constraints(Constraints, Attrs),
+check_watch(Record, Action, subscriber(Binding, Id, ReplyState, Mode)) :-
+    Action /\ Mode > 0,
     !,
-    format_object(object(Name, Attrs), Output),
-    trigger_watch(Output, Mode, ReplyState, WatchId, Retract),
-    try_retract(Retract, WatchId).
+    format_object(Record, Output),
+    trigger_watch(Output, Action, Mode, ReplyState, Id, Retract),
+    try_retract(Retract, Id, Binding).
 check_watch(_, _, _). % Checking watches should never fail
 
-try_retract(1, WatchId) :-
-    retract(watch(triplet(_, _, recipient(_, _, WatchId)))).
-try_retract(0, _). 
+try_retract(1, Id, Binding) :-
+    delete_subscription(trigger, Id, Binding).
+try_retract(0, _, _). 
 
+remove_watch(Binding, Id) :-
+    store_get(trigger, Id, subscription(_, _, subscriber(Binding, Id, ReplyState, Mode))),
+    delete_subscription(trigger, Id, Binding),
+    trigger_watch(_, 16, 0, ReplyState, Id, _). % 16 is DIST_REMOVED
 
 %
 % Output

@@ -491,8 +491,16 @@ static void get_mem_iref_request(struct monitor_binding *b)
 static void get_name_iref_request(struct monitor_binding *b, uintptr_t st)
 {
     errval_t err;
-
     err = b->tx_vtbl.get_name_iref_reply(b, NOP_CONT, name_serv_iref, st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "reply failed");
+    }
+}
+
+static void get_ramfs_iref_request(struct monitor_binding *b, uintptr_t st)
+{
+    errval_t err;
+    err = b->tx_vtbl.get_ramfs_iref_reply(b, NOP_CONT, ramfs_serv_iref, st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
     }
@@ -543,6 +551,18 @@ static void set_name_iref_request(struct monitor_binding *b,
     }
 
     name_serv_iref = iref;
+}
+
+static void set_ramfs_iref_request(struct monitor_binding *b,
+                                  iref_t iref)
+{
+    if (ramfs_serv_iref != 0) {
+        // Called multiple times, return error
+        DEBUG_ERR(0, "Attempt to reset name serv IREF ignored");
+        return;
+    }
+
+    ramfs_serv_iref = iref;
 }
 
 struct send_cap_st {
@@ -940,8 +960,10 @@ struct monitor_rx_vtbl the_table = {
 
     .get_mem_iref_request  = get_mem_iref_request,
     .get_name_iref_request = get_name_iref_request,
+    .get_ramfs_iref_request = get_ramfs_iref_request,
     .set_mem_iref_request  = set_mem_iref_request,
     .set_name_iref_request = set_name_iref_request,
+    .set_ramfs_iref_request = set_ramfs_iref_request,
     .get_monitor_rpc_iref_request  = get_monitor_rpc_iref_request,
 
     .cap_send_request = cap_send_request,
