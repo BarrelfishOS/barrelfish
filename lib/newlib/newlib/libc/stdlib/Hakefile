@@ -6,7 +6,8 @@ let
                     "-DPACKAGE_URL=\"\"",
                     "-D_I386MACH_ALLOW_HW_INTERRUPTS",
                     "-DMISSING_SYSCALL_NAMES",
-                    "-DNO_EXEC" ]
+                    "-DNO_EXEC",
+                    "-DMALLOC_PROVIDED"]
 
   common_omitcflags = [ "-std=c99", "-Wredundant-decls", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
 in
