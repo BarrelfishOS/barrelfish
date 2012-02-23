@@ -17,10 +17,9 @@
 #include <stdlib.h>
 #include <mm/mm.h>
 
-#include "acpi_client.h"
 #include "pci.h"
 #include "pci_debug.h"
-
+#include "acpi_client.h"
 
 static uint8_t startbus, endbus;
 static struct memobj_one_frame_lazy *memobj = NULL;

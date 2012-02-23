@@ -15,7 +15,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/ioapic_defs.h>
 #include <if/ioapic_rpcclient_defs.h>
 
 #include "ioapic_client.h"

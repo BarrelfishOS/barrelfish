@@ -20,7 +20,7 @@
 
 #include "acpi_client.h"
 
-struct acpi_connection {
+static struct acpi_connection {
     bool is_done;
     errval_t err;
 } state;
@@ -50,13 +50,14 @@ static void rpc_bind_cb(void *st, errval_t err, struct acpi_binding* b)
     state.err = err;
 }
 
-errval_t connect_to_acpi(void) {
+errval_t connect_to_acpi(void)
+{
     errval_t err;
     iref_t iref;
 
     err = nameservice_blocking_lookup("acpi", &iref);
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_REFERENCE);
+        return err;
     }
 
     state.is_done = false;

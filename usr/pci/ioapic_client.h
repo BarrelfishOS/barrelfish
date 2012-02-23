@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief ACPI RPC Client header file
+ * \brief IOAPIC RPC Client header file
  */
 
 /*

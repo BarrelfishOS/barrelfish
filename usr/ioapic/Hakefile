@@ -12,8 +12,8 @@
 
 [  build application { target = "ioapic",
                        flounderBindings = [ "pci", "acpi", "ioapic" ],
-                       flounderDefs = [ "monitor", "monitor_blocking" ],
-                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                       flounderDefs = [ "monitor", "monitor_blocking", "dist2" ],
+                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), ("dist2", ["rpcclient"]) ],                       
                        mackerelDevices = [ "pci_hdr0", "pci_hdr1",
                                            "lpc_ioapic", "ht_config",
                                            "lpc_bridge", "acpi_ec" ],

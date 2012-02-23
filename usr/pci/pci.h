@@ -15,7 +15,7 @@
 #ifndef PCI_H_
 #define PCI_H_
 
-#include <acpi.h>
+#include <string.h>
 
 #include "pci_confspace.h"
 #include "mackerelpci.h"
@@ -81,21 +81,9 @@ uint8_t pci_get_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
 void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,
                                     bool pcie);
 
-/* interrupts.c */
-int init_all_apics(void);
-errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector);
-
-//void pci_set_lowlevel_representation(struct pci_address *address,void *representation);
-//void *pci_get_lowlevel_representation(struct pci_address *address);
-//void *pci_get_logical_representation(struct pci_address *address);
-//void pci_set_logical_representation(struct pci_address *address,void *representation);
-
 extern struct capref biosmem;
 
 // Memory allocator instance for physical address regions and platform memory
 extern struct mm pci_mm_physaddr;
-
-// The APIC ID of the core the PCI domain is running on
-extern uintptr_t my_apic_id;
 
 #endif // PCI_H_

@@ -17,18 +17,13 @@
                       flounderExtraBindings = [("acpi", ["rpcclient"]), 
                                                ("ioapic", ["rpcclient"])],
                                             
-                      mackerelDevices = [ "pci_hdr0", "pci_hdr1",
-                                          "lpc_ioapic", "ht_config",
-                                          "lpc_bridge", "acpi_ec" ],
+                      mackerelDevices = [ "pci_hdr0", "pci_hdr1", "ht_config" ],
                       cFiles = [ "pcimain.c", "pci.c", "pci_service.c", 
-                                 "ioapic.c", "acpi.c", "ht_config.c",
-                                 "acpica_osglue.c", "interrupts.c", 
-                                 "pci_confspace.c", "pcie_confspace.c",
-                                 "video.c", "buttons.c", "acpi_ec.c", 
-                                 "acpi_client.c", "ioapic_client.c" ],
-                      addIncludes = [ "acpica/include" ],
+                                 "ht_config.c", "pci_confspace.c", 
+                                 "pcie_confspace.c", "acpi_client.c", 
+                                 "ioapic_client.c" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "acpi", "skb", "dist2", "dist_parser" ],
+                      addLibraries = [ "mm", "skb", "dist2", "dist_parser" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
 ]

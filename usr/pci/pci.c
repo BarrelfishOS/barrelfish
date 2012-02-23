@@ -15,22 +15,23 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <barrelfish/barrelfish.h>
-#include <pci/devids.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <barrelfish/barrelfish.h>
+
+#include <pci/devids.h>
 #include <mm/mm.h>
 #include <skb/skb.h>
+#include <dist2/getset.h>
 
 #include "pci.h"
-#include "pci_acpi.h"
 #include "driver_mapping.h"
-
 #include "ht_config.h"
 #include "ht_config_dev.h"
-
 #include "pci_debug.h"
 #include "acpi_client.h"
+#include "ioapic_client.h"
 
 #define BAR_PROBE       0xffffffff
 
@@ -200,7 +201,6 @@ static errval_t assign_complete_io_range(uint8_t index,
     return SYS_ERR_OK;
 }
 
-#include "ioapic_client.h"
 errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                  uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
                  uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
@@ -369,7 +369,6 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
         assert(err_is_ok(err));
         assert(err_is_ok(ret_error)); // FIXME
-        //err = enable_and_route_interrupt(irq, coreid, vector);
 //        printf("IRQ for this device is %d\n", irq);
         DEBUG_ERR(err, "enable_and_route_interrupt");
         pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
@@ -484,11 +483,13 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                 errval_t error_code;
                 PCI_DEBUG("get irg table for (%hhu,%hhu,%hhu)\n", (*busnum) + 1,
                         addr.device, addr.function);
-                //acpi_get_irqtable_device(handle, addr, &child, (*busnum) + 1);
                 struct acpi_rpc_client* cl = get_acpi_rpc_client();
                 cl->vtbl.read_irq_table(cl, handle, *(acpi_pci_address_t*)&addr,
                         (*busnum) + 1, &error_code, &child);
-                assert(err_is_ok(error_code));
+                if (err_is_fail(error_code)) {
+                	DEBUG_ERR(error_code, "Reading IRQs failed");
+					assert(!"Check ACPI code");
+                }
 
                 ++*busnum;
                 assert(*busnum <= maxchild);
@@ -608,7 +609,6 @@ void pci_add_root(struct pci_address addr, uint8_t maxchild, char* handle)
     assign_bus_numbers(addr, &busnum, maxchild, handle);
 }
 
-#include <dist2/getset.h>
 errval_t pci_setup_root_complex(void)
 {
     errval_t err;
@@ -1094,15 +1094,6 @@ void pci_program_bridges(void)
     }
 }
 
-
-
-
-//******************************************************************************
-// start of old functionality
-//******************************************************************************
-
-//asq: XXX: this needs cleanup! There should no ACPI calls be here! This should
-//          be moved to acpi.c.
 static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
 {
     char str[256], ldev[128];
@@ -1136,10 +1127,3 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
 
     return irq;
 }
-
-
-
-
-//******************************************************************************
-// end of old functionality
-//******************************************************************************

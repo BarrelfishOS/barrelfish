@@ -14,16 +14,17 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
-#include <barrelfish/sys_debug.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "pci.h"
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+#include <barrelfish/sys_debug.h>
+
 #include <if/pci_defs.h>
 #include <mm/mm.h>
 
+#include "pci.h"
 #include "pci_debug.h"
 #include "ioapic_client.h"
 
@@ -203,38 +204,6 @@ XXX: I/O-Cap??
     }
 }
 /*
-static void reset_handler(struct pci_binding *b)
-{
-    if (AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) {
-        printf("Resetting machine via ACPI...\n");
-        ACPI_STATUS as = AcpiReset();
-        if (ACPI_FAILURE(as)) {
-            printf("ACPI reset failed: 0x%x\n", as);
-        }
-    }
-
-    printf("Resetting machine via syscall...\n");
-    errval_t err = sys_reboot();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "reboot syscall failed");
-    }
-}
-
-static void sleep_handler(struct pci_binding *b, int state)
-{
-    printf("Entering S%d sleep state via ACPI...\n", state);
-    ACPI_STATUS as = AcpiEnterSleepStatePrep(state);
-    if (!ACPI_SUCCESS(as)) {
-        printf("AcpiEnterSleepStatePrep failed\n");
-        return;
-    }
-
-    as = AcpiEnterSleepState(state);
-    if (!ACPI_SUCCESS(as)) {
-        printf("AcpiEnterSleepState failed\n");
-    }
-}
-
 static void get_vbe_bios_cap(struct pci_binding *b)
 {
     errval_t err;
@@ -247,8 +216,6 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_cap_call = get_cap_handler,
-    //.reset_call = reset_handler,
-    //.sleep_call = sleep_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
 };
 
