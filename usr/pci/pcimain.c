@@ -150,6 +150,8 @@ static errval_t setup_skb_info(void)
     skb_add_fact("mem_region_type(%d,platform_data).", RegionType_PlatformData);
     skb_add_fact("mem_region_type(%d,apic).", RegionType_LocalAPIC);
     skb_add_fact("mem_region_type(%d,ioapic).", RegionType_IOAPIC);
+
+    return err;
 }
 
 struct capref biosmem;
