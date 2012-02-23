@@ -1,25 +1,43 @@
 if Config.libc == "newlib" then
 let
-  mapfn = \x -> case x of "x86_64" -> "x86_64"
-                          "x86_32" -> "i386"
-                          "arm"    -> "arm"
-  archlibs = map mapfn Config.architectures
+    arch_srcs "x86_64"  = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "x86_32"  = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "scc"     = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "arm"     = [ "machine/arm/setjump.S" ]
+    arch_srcs "arm11mp" = [ "machine/arm/setjump.S" ]
+    arch_srcs "xscale"  = [ "machine/arm/setjump.S" ]
+    arch_srcs  x        = error ("Unknown architecture for newlib: " ++ x)
 in
 [ build library { 
   target = "newc",
-  addLibraries = [ "ctype"
-                 , "search"
-                 , "string"
-                 , "argz"
-                 , "stdlib"
-                 , "stdio"
-             --  , "signal"
-                 , "time"
-                 , "locale"
-                 , "reent"
-                 , "errno"
-                 , "misc"
-                 , "sys" ] ++ archlibs
-   }
-]
+  addCFlags = [
+      "-DPACKAGE_NAME=\"newlib\""
+    , "-DPACKAGE_TARNAME=\"newlib\""
+    , "-DPACKAGE_VERSION=\"1.19.0\""
+    , "-DPACKAGE_BUGREPORT=\"\""
+    , "-DPACKAGE_URL=\"\""
+    , "-D_I386MACH_ALLOW_HW_INTERRUPTS"
+    , "-DMISSING_SYSCALL_NAMES" ],
+  omitCFlags = [
+      "-Wmissing-prototypes"
+    , "-Wmissing-declarations"
+    , "-Wimplicit-function-declaration"
+    , "-Werror" ],
+  addLibraries = [
+      "ctype"
+    , "search"
+    , "string"
+    , "argz"
+    , "stdlib"
+    , "stdio"
+--  , "signal"
+    , "time"
+    , "locale"
+    , "reent"
+    , "errno"
+    , "misc"
+    , "sys" ],
+  cFiles = arch_srcs arch,
+  architectures = [arch]
+} | arch <- allArchitectures ]
 else []
