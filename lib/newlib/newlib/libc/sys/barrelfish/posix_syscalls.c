@@ -3,6 +3,9 @@
 
 #include <sys/types.h> /* for off_t */
 
+/* defined in barrelfish/debug.h */
+void debug_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
 /* Some targets provides their own versions of this functions.  Those
    targets should define REENTRANT_SYSCALLS_PROVIDED in TARGET_CFLAGS.  */
 
@@ -14,7 +17,7 @@ typedef off_t fslseek_fn_t(int, off_t, int);
 
 #define FAIL_FN() \
 do { \
-    printf("***** %s:%s() called. Something is probably wrong!\n", __FILE__,__FUNCTION__); \
+    debug_printf("***** %s:%s() called. Something is probably wrong!\n", __FILE__,__FUNCTION__); \
     return -1; \
 } while (0)
 
@@ -22,7 +25,7 @@ static int open_fail(const char *pathname, int flags)      { FAIL_FN(); }
 static int read_fail(int fd, void *buf, size_t len)        { FAIL_FN(); }
 static int write_fail(int fd, const void *buf, size_t len) { FAIL_FN(); }
 static int close_fail(int fd)                              { FAIL_FN(); }
-static int lseek_fail(int fd, off_t off, int whence)       { FAIL_FN(); }
+static off_t lseek_fail(int fd, off_t off, int whence)     { FAIL_FN(); }
 
 static struct {
     fsopen_fn_t  *open;
@@ -181,10 +184,7 @@ xfstat(int fd, void *stat)
 }
 
 int
-_fstat_r (ptr, fd, pstat)
-     struct _reent *ptr;
-     int fd;
-     struct stat *pstat;
+_fstat_r (struct _reent *ptr, int fd, struct stat *pstat)
 {
   int ret;
 
