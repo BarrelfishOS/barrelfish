@@ -191,7 +191,7 @@ errval_t setup_interupt_override(void)
     }
 
     err = skb_execute("findall(X, (interrupt_override(A,B,C,D), "
-                      "X = interrupt_override(A,B,C,D)), L), write(L).");
+                      "X = interrupt_override(A,B,C,D)), L), writeln(L).");
     if (err_is_fail(err)) {
         return err;
     }

@@ -213,6 +213,10 @@ int main(int argc, char *argv[])
     DEBUG_ERR(err, "setup pcie confspace");
 
     err = pci_setup_root_complex();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "setup root complex");
+        return EXIT_FAILURE;
+    }
     assert(err_is_ok(err));
 
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");

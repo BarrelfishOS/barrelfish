@@ -808,8 +808,6 @@ AcpiOsInstallInterruptHandler (
     ACPI_OSD_HANDLER        ServiceRoutine,
     void                    *Context)
 {
-    ACPI_DEBUG("AcpiOsInstallInterruptHandler(%d)\n", InterruptNumber);
-
     struct interrupt_closure *ic = malloc(sizeof(struct interrupt_closure));
     assert(ic != NULL);
 
@@ -881,7 +879,6 @@ AcpiOsExecute (
     ACPI_OSD_EXEC_CALLBACK  Function,
     void                    *Context)
 {
-    ACPI_DEBUG("AcpiOsExecute(%d, %p,%p)\n", Type, Function, Context);
     struct thread *thread = thread_create((thread_func_t)Function, Context);
     errval_t err = thread_detach(thread);
     assert(err_is_ok(err));
@@ -1067,7 +1064,6 @@ AcpiOsReadPciConfiguration (
         break;
 
     default:
-        ACPI_DEBUG("AcpiOsReadPciConfiguration AE_ERROR\n");
         return AE_ERROR;
     }
 
@@ -1117,7 +1113,6 @@ AcpiOsWritePciConfiguration (
         break;
 
     default:
-        ACPI_DEBUG("AcpiOsWritePciConfiguration AE_ERROR\n");
         return AE_ERROR;
     }
 
@@ -1184,7 +1179,6 @@ AcpiOsReadPort (
     }
 
     //printf("AcpiOsReadPort(0x%lx %d) -> 0x%x\n", Address, Width, *Value);
-    ACPI_DEBUG("AcpiOsReadPort AE_ERROR\n");
 
     return r == 0 ? AE_OK : AE_ERROR;
 }
@@ -1227,7 +1221,6 @@ AcpiOsWritePort (
         r = iocap_out32(cap_io, Address, Value);
         break;
     }
-    ACPI_DEBUG("AcpiOsWritePort AE_ERROR\n");
 
     return r == 0 ? AE_OK : AE_ERROR;
 }

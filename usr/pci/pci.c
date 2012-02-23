@@ -266,15 +266,16 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
 //find the device: Unify all values
     error_code = skb_execute_query(
         "device(PCIE,addr(%s, %s, %s), %s, %s, %s, %s, %s, _),"
-        "write(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
+        "writeln(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
         s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
         s_sub_class, s_prog_if,
         s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
         s_sub_class, s_prog_if
     );
     if (error_code != 0) {
-        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %d\n",
-            error_code);
+
+        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %s\n",
+            err_getcode(error_code));
 
         PCI_DEBUG("SKB returned: %s\n", skb_get_output());
         PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
@@ -287,6 +288,8 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                     &device_id, &class_code, &sub_class, &prog_if);
 
     if (err_is_fail(err)) {
+    	DEBUG_ERR(err, "skb read output\n");
+
         PCI_DEBUG("device_init(): Could not read the SKB's output for the device\n");
         PCI_DEBUG("device_init(): SKB returned: %s\n", skb_get_output());
         PCI_DEBUG("device_init(): SKB error returned: %s\n", skb_get_error_output());
@@ -610,32 +613,48 @@ errval_t pci_setup_root_complex(void)
 {
     errval_t err;
     char* record = NULL;
-    err = dist_get(&record, "hw.pci.rootbridge.0"); // TODO: react to new rootbridges
+    char** names = NULL;
+    size_t len = 0;
+    // TODO: react to new rootbridges
+    err = dist_get_names(&names, &len,
+    		"r'hw.pci.rootbridge.[0-9]+' { acpi_node: _, bus: _, device: _, function: _, maxbus: _ }");
     if (err_is_fail(err)) {
-        return err;
+	DEBUG_ERR(err, "get names");
+    	goto out;
     }
 
-    PCI_DEBUG("found new root complex: %s\n", record);
+    for (size_t i=0; i<len; i++) {
+		err = dist_get(&record, names[i]);
+		if (err_is_fail(err)) {
+			goto out;
+		}
 
-    char* acpi_node = NULL; // TODO: free?
-    int64_t bus, device, function, maxbus;
-    static char* format =  "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
-    err = dist_read(record, format, &acpi_node, &bus, &device, &function, &maxbus);
-    if (err_is_fail(err)) {
-        free(acpi_node);
-        return err;
+		PCI_DEBUG("found new root complex: %s\n", record);
+
+		char* acpi_node = NULL; // freed in pci_add_root
+		int64_t bus, device, function, maxbus;
+		static char* format =  "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
+		err = dist_read(record, format, &acpi_node, &bus, &device, &function, &maxbus);
+		if (err_is_fail(err)) {
+			free(acpi_node);
+			free(record);
+			goto out;
+		}
+
+		struct pci_address addr;
+		addr.bus = (uint8_t) bus;
+		addr.device = (uint8_t) device;
+		addr.function = (uint8_t) function;
+
+		pcie_enable();
+		pci_add_root(addr, maxbus, acpi_node);
+		pcie_disable();
+
+		free(record);
     }
 
-    struct pci_address addr;
-    addr.bus = (uint8_t) bus;
-    addr.device = (uint8_t) device;
-    addr.function = (uint8_t) function;
-
-    pcie_enable();
-    pci_add_root(addr, maxbus, acpi_node);
-    pcie_disable();
-
-    free(record);
+out:
+	dist_free_names(names, len);
     return err;
 }
 

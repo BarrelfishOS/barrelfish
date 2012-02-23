@@ -102,7 +102,7 @@ REGEX_START r{QUOTE}
      }
 
 
-\'      yyextra->ptr = yyextra->buffer; BEGIN(STR);
+\'     { yyextra->ptr = yyextra->buffer; BEGIN(STR); }
 
 <STR>\'        { /* saw closing quote - all done */
      BEGIN(INITIAL);
@@ -111,20 +111,7 @@ REGEX_START r{QUOTE}
      return STRING;
      }
 
-<STR>\n     {
-         /* error - unterminated string constant */
-         /* generate error message */
-     }
-
-<STR>\\n  *yyextra->ptr++ = '\n';
-<STR>\\t  *yyextra->ptr++ = '\t';
-<STR>\\r  *yyextra->ptr++ = '\r';
-<STR>\\b  *yyextra->ptr++ = '\b';
-<STR>\\f  *yyextra->ptr++ = '\f';
-
-<STR>\\(.|\n)  *yyextra->ptr++ = yytext[1];
-
-<STR>[^\\\n\']+        {
+<STR>[^\']+        {
      char *yptr = yytext;
 
      while ( *yptr )

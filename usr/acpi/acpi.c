@@ -21,6 +21,7 @@
 
 #include <skb/skb.h>
 #include "acpi_shared.h"
+#include "acpi_debug.h"
 #include "ioapic_client.h"
 
 #include "pci.h"
@@ -488,6 +489,12 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     }
     assert(bufobj.Pointer == namebuf);
 
+    ACPI_HANDLE handle2;
+    as = AcpiGetHandle(NULL, namebuf, &handle2);
+    ACPI_DEBUG("acpi get handle for %s\n", namebuf);
+    assert(ACPI_SUCCESS(as) && handle == handle2);
+
+
     /* look for a _ADR node, which tells us the bridge's configuration space */
     ACPI_INTEGER addr;
     as = acpi_eval_integer(handle, "_ADR", &addr);
@@ -548,6 +555,7 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
            resources.maxmem);
 
     // dist2 record for rootbridge
+    ACPI_DEBUG("acpi_node: %s\n", namebuf);
     static char* format = "hw.pci.rootbridge. { bus: %lu, device: %lu, function: %lu, maxbus: %lu, acpi_node: '%s' }";
     errval_t err = dist_mset(SET_SEQUENTIAL, format,
             bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
