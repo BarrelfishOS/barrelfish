@@ -43,7 +43,7 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
     Arg.Integer.Value = 0x1; /* automatically switch outputs */
     as = AcpiEvaluateObject(handle, "_DOS", &ArgList, NULL);
     if (ACPI_SUCCESS(as)) {
-        PCI_DEBUG("%s: successfully enabled video output switching\n", namebuf);
+        ACPI_DEBUG("%s: successfully enabled video output switching\n", namebuf);
     }
 #endif
 
@@ -52,9 +52,9 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
     ACPI_BUFFER retbuf = {.Length = sizeof(packagebuf), .Pointer = packagebuf};
     as = AcpiEvaluateObjectTyped(handle, "_DOD", NULL, &retbuf, ACPI_TYPE_PACKAGE);
     if (ACPI_SUCCESS(as)) {
-        PCI_DEBUG("called %s._DOD ok\n", namebuf);
+        ACPI_DEBUG("called %s._DOD ok\n", namebuf);
     } else if (as != AE_NOT_FOUND) {
-        PCI_DEBUG("error executing _DOD method on %s: 0x%x\n", namebuf, as);
+        ACPI_DEBUG("error executing _DOD method on %s: 0x%x\n", namebuf, as);
     }
 
     /* Execute the _DCS method if present (output device status) B.6.6 */
@@ -62,12 +62,12 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
     as = acpi_eval_integer(handle, "_DCS", &retval);
     if (ACPI_FAILURE(as)) {
         if (as != AE_NOT_FOUND) {
-            PCI_DEBUG("error executing _DCS method on %s: 0x%x\n", namebuf, as);
+            ACPI_DEBUG("error executing _DCS method on %s: 0x%x\n", namebuf, as);
         }
         return AE_OK; // skip the rest
     }
 
-    PCI_DEBUG("%s: current video state is 0x%lx\n", namebuf, retval);
+    ACPI_DEBUG("%s: current video state is 0x%lx\n", namebuf, retval);
 
     /* if connector exists and is ready to switch, enable it! */
     if ((strstr(namebuf, "CRT0") || strstr(namebuf, "LCD0"))
@@ -78,9 +78,9 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
         Arg.Integer.Value = 0x80000001;
         as = AcpiEvaluateObject(handle, "_DSS", &ArgList, NULL);
         if (ACPI_SUCCESS(as)) {
-            PCI_DEBUG("%s: successfully enabled video output\n", namebuf);
+            ACPI_DEBUG("%s: successfully enabled video output\n", namebuf);
         } else {
-            PCI_DEBUG("%s: enabling video output failed: 0x%x\n", namebuf, as);
+            ACPI_DEBUG("%s: enabling video output failed: 0x%x\n", namebuf, as);
         }
     }
 
@@ -93,7 +93,7 @@ void video_init(void)
     ACPI_STATUS as;
 
     /* find all devices with a _DOS method and call it */
-    PCI_DEBUG("Walking for video devices\n");
+    ACPI_DEBUG("Walking for video devices\n");
     //as = AcpiGetDevices(NULL, walk_video_device, NULL, NULL);
     as = AcpiWalkNamespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT, ACPI_UINT32_MAX,
                            walk_video_device, NULL, NULL);

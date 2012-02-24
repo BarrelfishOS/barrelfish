@@ -158,7 +158,7 @@ static errval_t init_allocators(void)
 	}
         if (mrp->mr_type == RegionType_PlatformData
             || mrp->mr_type == RegionType_PhyAddr) {
-            PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
 		      i, mrp->mr_base,
 		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
 		      mrp->mr_type == RegionType_PlatformData
@@ -180,7 +180,7 @@ static errval_t setup_skb_info(void)
     skb_execute("[pci_queries].");
     errval_t err = skb_read_error_code();
     if (err_is_fail(err)) {
-        PCI_DEBUG("\npcimain.c: Could not load pci_queries.pl.\n"
+        ACPI_DEBUG("\npcimain.c: Could not load pci_queries.pl.\n"
                "SKB returned: %s\nSKB error: %s\n",
                 skb_get_output(), skb_get_error_output());
         return err;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
     }
 
     //connect to the SKB
-    PCI_DEBUG("acpi: connecting to the SKB...\n");
+    ACPI_DEBUG("acpi: connecting to the SKB...\n");
     skb_client_connect();
     skb_execute("[pci_queries].");
 
