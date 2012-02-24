@@ -18,11 +18,10 @@
 #include <stdint.h>
 #include <if/dist2_defs.h>
 
-#define MAX_SUBSCRIPTIONS 255
+#include <dist2/trigger.h>
 
-typedef uint64_t subscription_t;
-typedef void(*subscription_handler_fn)(subscription_t id, char *object,
-        void *state);
+typedef dist2_trigger_id_t subscription_t;
+typedef trigger_handler_fn subscription_handler_fn;
 
 errval_t dist_subscribe(subscription_handler_fn, const void*, subscription_t*,
         const char*, ...);

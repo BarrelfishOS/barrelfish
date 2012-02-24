@@ -17,12 +17,12 @@
 #define DIST2_HANDLER_H_
 
 #include <if/dist2_defs.h>
-
+#include <dist2/trigger.h>
 #include <dist2/pubsub.h>
 
-void trigger_handler(struct dist2_binding*, dist2_mode_t, uint64_t, uint64_t, char*);
-void subscribed_message_handler(struct dist2_binding*, subscription_t, char*);
-
-void dist_pubsub_init(void);
+void trigger_handler(struct dist2_binding*, dist2_trigger_id_t,
+        uint64_t, dist2_mode_t, char*, uint64_t);
+void subscription_handler(struct dist2_binding*, subscription_t,
+        uint64_t, dist2_mode_t, char*, uint64_t);
 
 #endif /* DIST2_HANDLER_H_ */

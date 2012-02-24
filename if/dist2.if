@@ -120,7 +120,7 @@ interface dist2 "dist2 RPC Interface" {
      * \param id Identifier for this subscription supplied by server.
      * \param error_code Status of request.
      */
-    rpc subscribe(in string query, in uint64 client_state, out uint64 id, out errval error_code);
+    rpc subscribe(in string query, in uint64 trigger_fn, in uint64 state, out uint64 id, out errval error_code);
     
     /**
      * \param id Id for the subscription
@@ -138,8 +138,8 @@ interface dist2 "dist2 RPC Interface" {
     //
     // Async events (sent by server to client)
     //
-    message trigger(mode m, uint64 trigger_fn, uint64 state, string record);
-    message subscribed_message(uint64 id, string record);
+    message trigger(trigger_id id, uint64 trigger_fn, mode m, string record, uint64 state);
+    message subscription(trigger_id id, uint64 trigger_fn, mode m, string record, uint64 state);
     
 
     //

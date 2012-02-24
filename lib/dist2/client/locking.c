@@ -41,7 +41,6 @@
 errval_t dist_lock(const char* lock_name, char** lock_record)
 {
     assert(lock_name != NULL);
-    debug_printf("lock: %s\n", lock_name);
 
     errval_t err = SYS_ERR_OK;
     errval_t exist_err;
@@ -55,6 +54,8 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
     uint64_t state = 0;
     uint64_t fn = 0;
     dist2_trigger_id_t tid;
+    dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
+            dist2_BINDING_RPC, NULL, NULL);
 
     err = dist_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }",
             lock_name, lock_name);
@@ -72,10 +73,10 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
             goto out;
         }
 
-        debug_printf("lock queue:\n");
+        //debug_printf("lock queue:\n");
         found = false;
         for (i=0; i < len; i++) {
-            debug_printf("%s\n", names[i]);
+            //debug_printf("%s\n", names[i]);
             if (strcmp(names[i], name) == 0) {
                 found = true;
                 break;
@@ -90,28 +91,19 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
         else {
             // Someone else holds the lock
             struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
-
-            dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
-                    NULL, NULL);
-            debug_printf("exists for %s...\n", names[i-1]);
-
-            cl->call_seq.exists(cl, names[i-1], t, &tid, &exist_err);
-
-            /*if (err_is_fail(err)) {
-                assert(!"NOT GOOD");
-                debug_printf("exists for %s FAIL\n", names[i-1]);
-            }*/
-            debug_printf("exists for %s done\n", names[i-1]);
+            //debug_printf("exists for %s...\n", names[i-1]);
+            err = cl->call_seq.exists(cl, names[i-1], t, &tid, &exist_err);
+            if (err_is_fail(err)) {
+                goto out;
+            }
 
             if (err_is_ok(exist_err)) {
-                debug_printf("before recv trigger...\n");
-                err = cl->recv.trigger(cl, &mode, &state, &fn, &record);
+                err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
                 assert(err_is_ok(err));
                 free(record);
                 assert(mode & DIST_REMOVED);
             }
             else if (err_no(exist_err) != DIST2_ERR_NO_RECORD) {
-                debug_printf("no record found, try again...\n");
                 err = exist_err;
                 goto out;
             }
@@ -141,7 +133,6 @@ out:
  */
 errval_t dist_unlock(const char* lock_record)
 {
-    debug_printf("unlock: %s\n", lock_record);
     assert(lock_record != NULL);
     errval_t err = SYS_ERR_OK;
     char* name = NULL;

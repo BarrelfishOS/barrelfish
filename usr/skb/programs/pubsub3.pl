@@ -18,6 +18,14 @@ delete_subscription(Storage, Id, Binding) :-
     store_delete(Storage, Id),
     bitfield_remove(Storage, Constraints, Id).
 
+%% Should really use delete_subscription
+unsubscribe(Storage, Id, Binding) :-
+    store_get(Storage, Id, subscription(_, Constraints, Subscriber)),
+    arg(1, Subscriber, Binding),
+    store_delete(Storage, Id),
+    bitfield_remove(Storage, Constraints, Id),
+    writeln(Subscriber).
+    
 find_subscriber(Storage, Message, Subscriber) :-
     Message = object(Name, AList),
     sort(AList, SAList),

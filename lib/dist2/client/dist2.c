@@ -58,7 +58,7 @@ static void identify_response_handler(struct dist2_binding* b)
 
 static struct dist2_rx_vtbl rx_vtbl = {
         .identify_response = identify_response_handler,
-        .subscribed_message = subscribed_message_handler,
+        .subscription = subscription_handler,
         .trigger = trigger_handler
 };
 
@@ -229,6 +229,5 @@ errval_t dist_init(void)
         messages_wait_and_handle_next();
     }
 
-    dist_pubsub_init();
     return err;
 }

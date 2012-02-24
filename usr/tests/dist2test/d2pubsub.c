@@ -23,27 +23,30 @@
 static const char* barrier_name = "d2pubsub_test";
 static struct thread_sem ts;
 
-static void message_handler(subscription_t id, char* record, void* st)
+static void message_handler(dist_mode_t mode, char* record, void* st)
 {
-    static const char* receive_order[] =
-    { "msg_2", "msg_4", "msg_5", "msg_5", "msg_6", "msg_7" };
-    static size_t to_receive = sizeof(receive_order) / sizeof(char*);
-    char* name = NULL;
     size_t* received = (size_t*) st;
 
-    debug_printf("Message: %s received: %lu id: %lu\n", record, *received, id);
+    if (mode & DIST_ON_PUBLISH) {
+        static const char* receive_order[] =
+        { "msg_2", "msg_4", "msg_5", "msg_5", "msg_6", "msg_7" };
+        char* name = NULL;
 
-    errval_t err = dist_read(record, "%s", &name);
-    ASSERT_ERR_OK(err);
-    ASSERT_STRING(receive_order[*received], name);
-    (*received)++;
+        debug_printf("Message: %s received: %lu\n", record, *received);
 
-    if (*received == to_receive) {
-        thread_sem_post(&ts);
+        errval_t err = dist_read(record, "%s", &name);
+        ASSERT_ERR_OK(err);
+        ASSERT_STRING(receive_order[*received], name);
+
+
+        free(name);
+        free(record);
+    }
+    else if (mode & DIST_REMOVED) {
+        debug_printf("DIST_REMOVED set...\n");
     }
 
-    free(name);
-    free(record);
+    (*received)++;
 }
 
 static void subscriber(void)
@@ -88,7 +91,9 @@ static void subscriber(void)
     assert(err_is_ok(err));
 
     // Wait until all messages received
-    thread_sem_wait(&ts);
+    while(received != 6) {
+        messages_wait_and_handle_next();
+    }
 
     // Unsubscribe message handlers
     err = dist_unsubscribe(id1);
@@ -99,6 +104,10 @@ static void subscriber(void)
     ASSERT_ERR_OK(err);
     err = dist_unsubscribe(id4);
     ASSERT_ERR_OK(err);
+
+    while(received != 10) {
+        messages_wait_and_handle_next();
+    }
 
     dist_barrier_leave(barrier_record);
     free(barrier_record);

@@ -42,13 +42,11 @@ struct dist_reply_state {
     bool return_record;
     errval_t error;
 
-    uint64_t mode;
+    // Pubsub / Trigger state
     uint64_t client_handler;
     uint64_t client_state;
-
-    // For watch()
-    uint64_t watch_id;
-    uint64_t server_id;
+    dist2_mode_t mode;
+    dist2_trigger_id_t server_id;
 
     struct dist_reply_state *next;
 };
@@ -63,7 +61,7 @@ void exists_handler(struct dist2_binding*, char*, dist2_trigger_t);
 void wait_for_handler(struct dist2_binding*, char*);
 void remove_trigger_handler(struct dist2_binding*, dist2_trigger_id_t);
 
-void subscribe_handler(struct dist2_binding*, char*, uint64_t);
+void subscribe_handler(struct dist2_binding*, char*, uint64_t, uint64_t);
 void publish_handler(struct dist2_binding*, char*);
 void unsubscribe_handler(struct dist2_binding*, uint64_t);
 

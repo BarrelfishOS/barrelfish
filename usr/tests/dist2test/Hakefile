@@ -46,13 +46,6 @@
                       flounderTHCStubs = [ "dist2" ],
                       addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
-                    
-  build application { target = "d2mem",
-                      cFiles = [ "d2mem.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
-                    },
 
   build application { target = "d2bench",
                       cFiles = [ "d2bench.c" ],

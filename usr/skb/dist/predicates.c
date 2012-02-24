@@ -546,7 +546,9 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
             memcpy(drs_copy, drs, sizeof(struct dist_reply_state));
             drs = drs_copy; // overwrite drs
         }
-        // TODO turn off trigger id
+        else {
+            // TODO turn off trigger id
+        }
 
         drs->mode = (retract) ? (action | DIST_REMOVED) : action;
 
@@ -561,5 +563,6 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         USER_PANIC("No binding set for watch_id: %lu", watch_id);
     }
 
+    DIST2_DEBUG("p_trigger_watch: done");
     return ec_unify_arg(6, ec_long(retract));
 }

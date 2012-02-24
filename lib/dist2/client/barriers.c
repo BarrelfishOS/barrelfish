@@ -46,6 +46,8 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
     uint64_t fn = 0;
     dist2_trigger_id_t tid;
     size_t current_barriers = 0;
+    dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, dist2_BINDING_RPC,
+            DIST_ON_SET, NULL, NULL);
 
     err = dist_set_get(SET_SEQUENTIAL, barrier_record,
             "%s_ { barrier: '%s' }", name, name);
@@ -60,8 +62,6 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
 
     if (current_barriers != wait_for) {
         struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
-        dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
-                DIST_ON_SET, NULL, NULL);
         err = cl->call_seq.exists(cl, name, t, &tid, &exist_err);
         if (err_is_fail(err)) {
             return err;
@@ -73,7 +73,7 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
         }
         if (err_no(err) == DIST2_ERR_NO_RECORD) {
             // Wait until barrier record is created
-            err = cl->recv.trigger(cl, &mode, &state, &fn, &record);
+            err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
             free(record);
             assert(mode & DIST_REMOVED);
 
@@ -116,6 +116,8 @@ errval_t dist_barrier_leave(const char* barrier_record)
     uint64_t state = 0;
     uint64_t fn = 0;
     dist2_trigger_id_t tid;
+    dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, dist2_BINDING_RPC,
+            DIST_ON_DEL, NULL, NULL);
 
     //debug_printf("leaving: %s\n", barrier_record);
     err = dist_read(barrier_record, "%s { barrier: %s }", &rec_name,
@@ -134,8 +136,6 @@ errval_t dist_barrier_leave(const char* barrier_record)
 
         if (err_is_ok(err)) {
             struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
-            dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
-                    NULL, NULL);
             err = cl->call_seq.exists(cl, barrier_name, t, &tid, &exist_err);
             if (err_is_fail(err)) {
                 goto out;
@@ -144,7 +144,7 @@ errval_t dist_barrier_leave(const char* barrier_record)
 
             if (err_is_ok(err)) {
                 // Wait until everyone has left the barrier
-                err = cl->recv.trigger(cl, &mode, &state, &fn, &record);
+                err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
                 assert(mode & DIST_REMOVED);
             }
             else if (err_no(err) == DIST2_ERR_NO_RECORD) {

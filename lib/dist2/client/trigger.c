@@ -23,23 +23,30 @@
 #include "handler.h"
 #include "common.h"
 
-void trigger_handler(struct dist2_binding* b, dist2_mode_t mode, uint64_t t,
-        uint64_t st, char* record)
+void trigger_handler(struct dist2_binding* b, dist2_trigger_id_t id,
+        uint64_t t, dist2_mode_t mode, char* record, uint64_t st)
 {
     assert(t != 0);
     trigger_handler_fn trigger_fn = (trigger_handler_fn) t;
     void* state = (void*) st;
 
-    trigger_fn(mode, record, state);
+    if (trigger_fn != NULL) {
+        trigger_fn(mode, record, state);
+    }
+    else {
+        fprintf(stderr, "Incoming trigger(%lu) for %s with unset handler function.",
+                id, record);
+        free(record);
+    }
 }
 
-dist2_trigger_t dist_mktrigger(errval_t in_case, dist2_mode_t mode,
-        trigger_handler_fn fn, void* state)
+dist2_trigger_t dist_mktrigger(errval_t in_case, dist2_binding_type_t send_to,
+        dist2_mode_t mode, trigger_handler_fn fn, void* state)
 {
     return (dist2_trigger_t) {
                 .in_case = in_case,
                 .m = mode,
-                .send_to = dist2_BINDING_RPC,
+                .send_to = send_to,
                 // TODO: bad uint64_t here!
                 .trigger = (uint64_t) fn,
                 .st = (uint64_t) state

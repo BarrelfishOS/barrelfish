@@ -70,8 +70,8 @@ int main(int argc, char *argv[])
 
     struct dist2_thc_client_binding_t* c = dist_get_thc_client();
 
-    dist2_trigger_t record_deleted = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
-            trigger_handler, &received);
+    dist2_trigger_t record_deleted = dist_mktrigger(SYS_ERR_OK,
+            dist2_BINDING_EVENT, DIST_ON_DEL, trigger_handler, &received);
 
     errval_t error_code = SYS_ERR_OK;
     char* output = NULL;
@@ -92,8 +92,8 @@ int main(int argc, char *argv[])
     received = 0;
     tid = 0;
     dist2_mode_t m = DIST_ON_SET | DIST_ON_DEL | DIST_PERSIST;
-    dist2_trigger_t ptrigger = dist_mktrigger(SYS_ERR_OK, m,
-            persistent_trigger, &received);
+    dist2_trigger_t ptrigger = dist_mktrigger(SYS_ERR_OK,
+            dist2_BINDING_EVENT, m, persistent_trigger, &received);
     output = NULL;
     err = c->call_seq.get(c, "obj2", ptrigger, &output,
             &tid, &error_code);

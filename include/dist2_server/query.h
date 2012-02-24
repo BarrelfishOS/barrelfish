@@ -98,6 +98,7 @@ errval_t del_record(struct ast_object*, struct dist_query_state*);
  * is supposed to use the drs struct to reply to the client once the watch is
  * triggered.
  *
+ * \param b RPC Binding
  * \param ast AST to watch for
  * \param mode When to trigger the watch (del or set).
  * \param drs Reply state used to reply to the client.
@@ -106,8 +107,8 @@ errval_t del_record(struct ast_object*, struct dist_query_state*);
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t set_watch(struct ast_object* ast, uint64_t mode,
-        struct dist_reply_state* drs, uint64_t* wid);
+errval_t set_watch(struct dist2_binding* b, struct ast_object* ast,
+        uint64_t mode, struct dist_reply_state* drs, uint64_t* wid);
 
 /**
  * \brief Removes a watch
@@ -128,15 +129,17 @@ errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
  *
  * \param b RPC binding of subscriber.
  * \param ast Subscription template (to match with published records).
- * \param id Identifies subscription in system.
- * \param client_state Additional state argument supplied by client.
- * \param dqs Returned result of query invocation.
+ * \param trigger_fn Client handler function.
+ * \param state Additional state argument supplied by client.
+ * \param drs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
+ * \retval DIST2_ERR_MAX_SUBSCRIPTIONS
  * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval LIB_ERR_MALLOC_FAIL
  */
 errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t client_state, struct dist_reply_state* dqs);
+        uint64_t trigger_fn, uint64_t state, struct dist_reply_state* drs);
 
 /**
  * \brief Deletes a subscription for a given (Binding, Id) pair.
