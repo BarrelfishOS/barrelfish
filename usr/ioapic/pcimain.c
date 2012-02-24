@@ -22,11 +22,9 @@
 #include <dist2/init.h>
 #include <skb/skb.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
-
-#include "pci_debug.h"
-#include "acpi_shared.h"
+#include "ioapic.h"
+#include "ioapic_service.h"
+#include "ioapic_debug.h"
 
 /**
  * Number of slots in the cspace allocator.
@@ -158,16 +156,14 @@ int main(int argc, char *argv[])
     errval_t err;
     err = dist_init();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Connect to dist Service");
-        return EXIT_FAILURE;
+        USER_PANIC_ERR(err, "Connect to dist Service");
     }
 
     // Connect to the SKB
     PCI_DEBUG("ioapic: connecting to the SKB...\n");
     skb_client_connect();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Connect to SKB");
-        return EXIT_FAILURE;
+        USER_PANIC_ERR(err, "Connect to SKB");
     }
 
     // TODO: device mngr...
@@ -176,24 +172,23 @@ int main(int argc, char *argv[])
 
     // TODO: Cap mngmt
     err = init_allocators();
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Init memory allocator");
+    }
 
     err = init_all_apics();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "I/O APIC Initialization");
-        return EXIT_FAILURE;
+        USER_PANIC_ERR(err, "I/O APIC Initialization");
     }
 
     err = setup_interupt_override();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Setup interrupt overrides");
-        return EXIT_FAILURE;
+        USER_PANIC_ERR(err, "Setup interrupt overrides");
     }
 
     err = start_service();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Start I/O APIC Service");
-        return EXIT_FAILURE;
+        USER_PANIC_ERR(err, "Start I/O APIC Service");
     }
 
     messages_handler_loop();

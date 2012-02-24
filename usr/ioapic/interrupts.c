@@ -14,16 +14,13 @@
 
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
-#include <acpi.h>
 #include <mm/mm.h>
+#include <acpi.h> // see add interrupt override
 
 #include <skb/skb.h>
 #include <dist2/getset.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
 #include "ioapic.h"
-#include "pci_debug.h"
 #include "ioapic_debug.h"
 
 //from documentation

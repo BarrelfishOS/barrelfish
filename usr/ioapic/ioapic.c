@@ -20,7 +20,7 @@
 
 #include "ioapic.h"
 
-#include "pci_debug.h"
+#include "ioapic_debug.h"
 
 /**
  * \brief Initialize I/O APIC.

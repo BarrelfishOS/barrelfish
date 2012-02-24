@@ -31,5 +31,11 @@ void ioapic_setup_inti(struct ioapic *a, int inti,
                        lpc_ioapic_redir_tbl_t entry);
 void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector,
                        uint8_t dest);
+errval_t init_all_apics(void);
+errval_t setup_interupt_override(void);
+errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector);
+
+extern uintptr_t my_apic_id;
+extern struct mm pci_mm_physaddr;
 
 #endif

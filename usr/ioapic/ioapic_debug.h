@@ -23,5 +23,11 @@
 #define APIC_DEBUG(x...) ((void)0)
 #endif
 
+#if defined(APIC_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#define PCI_DEBUG(x...) printf("ioapic_service: " x)
+#else
+#define PCI_DEBUG(x...) ((void)0)
+#endif
+
 
 #endif // APIC_DEBUG_H_

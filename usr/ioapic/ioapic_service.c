@@ -17,10 +17,8 @@
 #include <barrelfish/nameservice_client.h>
 #include <if/ioapic_defs.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
-#include "acpi_shared.h"
-
+#include "ioapic.h"
+#include "ioapic_service.h"
 #include "ioapic_debug.h"
 
 

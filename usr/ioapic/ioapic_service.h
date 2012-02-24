@@ -15,6 +15,6 @@
 #ifndef IOAPIC_SERVICE_H_
 #define IOAPIC_SERVICE_H_
 
-void start_service(void);
+errval_t start_service(void);
 
 #endif /* IOAPIC_SERVICE_H_ */
