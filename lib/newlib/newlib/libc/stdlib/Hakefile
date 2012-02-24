@@ -1,4 +1,9 @@
 let
+  malloc_provided = case Config.newlib_malloc of
+    "sbrk"      -> False
+    "dlmalloc"  -> True
+    "oldmalloc" -> True
+
   common_cflags = [ "-DPACKAGE_NAME=\"newlib\"",
                     "-DPACKAGE_TARNAME=\"newlib\"",
                     "-DPACKAGE_VERSION=\"1.19.0\"",
@@ -6,8 +11,8 @@ let
                     "-DPACKAGE_URL=\"\"",
                     "-D_I386MACH_ALLOW_HW_INTERRUPTS",
                     "-DMISSING_SYSCALL_NAMES",
-                    "-DNO_EXEC",
-                    "-DMALLOC_PROVIDED"]
+                    "-DNO_EXEC"]
+                    ++ if malloc_provided then ["-DMALLOC_PROVIDED"] else []
 
   common_omitcflags = [ "-std=c99", "-Wredundant-decls", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
 in

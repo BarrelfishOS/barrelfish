@@ -36,6 +36,11 @@ libc :: String
 libc = "oldc"
 -- libc = "newlib"
 
+newlib_malloc :: String
+--newlib_malloc = "sbrk"     -- use sbrk and newlib's malloc()
+--newlib_malloc = "dlmalloc" -- use dlmalloc
+newlib_malloc = "oldmalloc"
+
 -- Use a frame pointer
 use_fp :: Bool
 use_fp = True
