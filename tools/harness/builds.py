@@ -165,18 +165,26 @@ class HakeDebugTraceBuild(HakeBuildBase):
 all_builds = [HakeReleaseBuild, HakeDebugBuild, HakeReleaseTraceBuild,
               HakeDebugTraceBuild]
 
-def mk_newlib_builds():
+def mk_libc_builds():
     def newlib_conf(self, *args):
         conf = super(self.__class__, self)._get_hake_conf(*args)
         conf['libc'] = '"newlib"'
+        return conf
+    def oldc_conf(self, *args):
+        conf = super(self.__class__, self)._get_hake_conf(*args)
+        conf['libc'] = '"oldc"'
         return conf
     for b in list(all_builds):
         c = type(b.__name__ + 'Newlib',
                 (b,),
                 {'name' : b.name + '_newlib', '_get_hake_conf': newlib_conf})
         all_builds.append(c)
+        c = type(b.__name__ + 'Oldlib',
+                (b,),
+                {'name' : b.name + '_oldc', '_get_hake_conf': oldc_conf})
+        all_builds.append(c)
 
-mk_newlib_builds()
+mk_libc_builds()
 
 
 class ExistingBuild(HakeBuildBase):

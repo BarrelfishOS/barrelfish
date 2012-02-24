@@ -33,8 +33,8 @@ cOptFlags = "-g -O2"
 
 -- Selects which libc to compile with, "oldc" or "newlib"
 libc :: String
-libc = "oldc"
--- libc = "newlib"
+--libc = "oldc"
+libc = "newlib"
 
 newlib_malloc :: String
 --newlib_malloc = "sbrk"     -- use sbrk and newlib's malloc()
