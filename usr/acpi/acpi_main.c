@@ -12,29 +12,26 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <mm/mm.h>
 #include <dist2/init.h>
 #include <skb/skb.h>
 
-#include "pci.h"
-#include "acpi_client.h"
-#include "ioapic_client.h"
-#include "pci_debug.h"
+#include "acpi_debug.h"
+#include "acpi_shared.h"
 
 /**
  * Number of slots in the cspace allocator.
  * Keep it as a power of two and not smaller than DEFAULT_CNODE_SLOTS.
  */
 #define PCI_CNODE_SLOTS 2048
+
+uintptr_t my_apic_id;
 
 // cnoderef for the phyaddrcn
 static struct cnoderef cnode_phyaddr = {
@@ -44,8 +41,55 @@ static struct cnoderef cnode_phyaddr = {
     .guard_size = 0,
 };
 
+// XXX: this enum defines region types that must not overlap
+// with the KPI-defined enum region_type.
+enum user_region_type {
+    RegionType_LocalAPIC = RegionType_Max,  ///< local APIC start address
+    RegionType_IOAPIC                       ///< I/O APIC start address
+};
+
 // Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;
+
+// BIOS Copy
+struct capref biosmem;
+
+static errval_t copy_bios_mem(void) {
+    errval_t err = SYS_ERR_OK;
+
+    // Get a copy of the VBE BIOS before ACPI touches it
+    struct capref bioscap, biosframe;
+
+    err = mm_alloc_range(&pci_mm_physaddr, BIOS_BITS, 0,
+                       1UL << BIOS_BITS, &bioscap, NULL);
+    assert(err_is_ok(err));
+
+    err = devframe_type(&biosframe, bioscap, BIOS_BITS);
+    assert(err_is_ok(err));
+
+    void *origbios;
+    err = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, biosframe,
+                             NULL, NULL);
+    assert(err_is_ok(err));
+
+    err = frame_alloc(&biosmem, 1 << BIOS_BITS, NULL);
+    assert(err_is_ok(err));
+
+    void *newbios;
+    err = vspace_map_one_frame(&newbios, 1 << BIOS_BITS, biosmem, NULL, NULL);
+    assert(err_is_ok(err));
+
+    memcpy(newbios, origbios, 1 << BIOS_BITS);
+
+    // TODO: Unmap both vspace regions again
+
+    err = cap_delete(biosframe);
+    assert(err_is_ok(err));
+
+    // TODO: Implement mm_free()
+
+    return err;
+}
 
 static errval_t init_allocators(void)
 {
@@ -114,7 +158,7 @@ static errval_t init_allocators(void)
 	}
         if (mrp->mr_type == RegionType_PlatformData
             || mrp->mr_type == RegionType_PhyAddr) {
-            PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
 		      i, mrp->mr_base,
 		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
 		      mrp->mr_type == RegionType_PlatformData
@@ -131,82 +175,78 @@ static errval_t init_allocators(void)
     return SYS_ERR_OK;
 }
 
+static errval_t setup_skb_info(void)
+{
+    skb_execute("[pci_queries].");
+    errval_t err = skb_read_error_code();
+    if (err_is_fail(err)) {
+        ACPI_DEBUG("\npcimain.c: Could not load pci_queries.pl.\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return err;
+    }
+
+    skb_add_fact("mem_region_type(%d,ram).", RegionType_Empty);
+    skb_add_fact("mem_region_type(%d,roottask).", RegionType_RootTask);
+    skb_add_fact("mem_region_type(%d,phyaddr).", RegionType_PhyAddr);
+    skb_add_fact("mem_region_type(%d,multiboot_module).", RegionType_Module);
+    skb_add_fact("mem_region_type(%d,platform_data).", RegionType_PlatformData);
+    skb_add_fact("mem_region_type(%d,apic).", RegionType_LocalAPIC);
+    skb_add_fact("mem_region_type(%d,ioapic).", RegionType_IOAPIC);
+
+    return err;
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err;
 
+    bool do_video_init = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "video_init") == 0) {
+            do_video_init = true;
+        }
+    }
+
     err = dist_init();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "dist initialization failed.");
+        USER_PANIC_ERR(err, "Initialize dist");
     }
 
-    // TODO(gz): Device mngr
-    err = nameservice_blocking_lookup("acpi_done", 0);
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Waiting for acpi failed.");
-    }
+    //connect to the SKB
+    ACPI_DEBUG("acpi: connecting to the SKB...\n");
+    skb_client_connect();
+    skb_execute("[pci_queries].");
 
-    err = skb_client_connect();
+
+    err = setup_skb_info();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Connecting to SKB failed.");
+        USER_PANIC_ERR(err, "Populating SKB failed.");
     }
 
     err = init_allocators();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Init memory allocator failed.");
+        USER_PANIC_ERR(err, "Init memory allocator");
     }
 
-    err = connect_to_acpi();
+    err = copy_bios_mem();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "ACPI Connection failed.");
+        USER_PANIC_ERR(err, "Copy BIOS Memory");
     }
 
-    err = connect_to_ioapic();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "IOAPIC Connection failed.");
+    int r = init_acpi();
+    assert(r == 0);
+
+    buttons_init();
+
+    if (do_video_init) {
+        video_init();
     }
 
-    err = pcie_setup_confspace();
-    if (err_is_fail(err)) {
-        if (err_no(err) == ACPI_ERR_NO_MCFG_TABLE) {
-            debug_printf("No PCIe found, continue.\n");
-        }
-        else {
-            USER_PANIC_ERR(err, "Setup PCIe confspace failed.");
-        }
-    }
+    start_service();
 
-    err = pci_setup_root_complex();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Setup PCI root complex failed.");
-    }
-
-    // Start configuring PCI
-    PCI_DEBUG("Programming PCI BARs and bridge windows\n");
-    pci_program_bridges();
-    PCI_DEBUG("PCI programming completed\n");
-    pci_init_datastructures();
-    pci_init();
-
-
-#if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-//output all the facts stored in the SKB to produce a sample data file to use
-//for debugging on linux
-    skb_execute("listing.");
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    PCI_DEBUG("\nSKB returned: \n%s\n", skb_get_output());
-    const char *errout = skb_get_error_output();
-    if (errout != NULL && *errout != '\0') {
-        PCI_DEBUG("\nSKB error returned: \n%s\n", errout);
-    }
-#endif
-
-    skb_add_fact("pci_discovery_done.");
-
-    /* Using the name server as a lock server,
-       register a service with it so that other domains can do a blocking wait
-       on pci to finish enumeration */
-    err = nameservice_register("pci_discovery_done", 0);
+    // TODO: device mngr --gz
+    err = nameservice_register("acpi_done", 0);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
         abort();

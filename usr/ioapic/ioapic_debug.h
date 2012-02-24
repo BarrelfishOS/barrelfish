@@ -7,21 +7,20 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef PCI_DEBUG_H_
-#define PCI_DEBUG_H_
+#ifndef APIC_DEBUG_H_
+#define APIC_DEBUG_H_
 
 
 /*****************************************************************
  * Debug printer and its power-switch:
  *****************************************************************/
 
-#define PCI_SERVICE_DEBUG 1
+#define APIC_SERVICE_DEBUG 1
 
-#if defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define PCI_DEBUG(x...) printf("pci_service: " x)
+#if defined(APIC_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#define APIC_DEBUG(x...) printf("ioapic_service: " x)
 #else
-#define PCI_DEBUG(x...) ((void)0)
+#define APIC_DEBUG(x...) ((void)0)
 #endif
 
-
-#endif // PCI_DEBUG_H_
+#endif // APIC_DEBUG_H_

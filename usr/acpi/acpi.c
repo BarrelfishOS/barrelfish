@@ -17,12 +17,12 @@
 #include <barrelfish_kpi/types.h>
 #include <acpi.h>
 #include <mm/mm.h>
-
+#include <dist2/getset.h>
 #include <skb/skb.h>
-
-#include "pci.h"
-#include "pci_acpi.h"
-#include "pci_debug.h"
+#include <pci/confspace/pci_confspace.h>
+#include "acpi_shared.h"
+#include "acpi_debug.h"
+#include "ioapic_client.h"
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -77,14 +77,14 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
 
     /* Ignore bogus entries with zero length */
     if (addrlength == 0) {
-        PCI_DEBUG("Warning: ignoring zero-length address resource\n");
+        ACPI_DEBUG("Warning: ignoring zero-length address resource\n");
         return AE_OK;
     }
 
     /* TODO: handle non-fixed regions. Does anything other than QEMU do this? */
     if (resource->Data.Address.MinAddressFixed != ACPI_ADDRESS_FIXED ||
         resource->Data.Address.MaxAddressFixed != ACPI_ADDRESS_FIXED) {
-        PCI_DEBUG("Warning: Treating non-fixed address range resource as fixed\n");
+        ACPI_DEBUG("Warning: Treating non-fixed address range resource as fixed\n");
     }
 
     switch (resource->Data.Address.ResourceType) {
@@ -96,7 +96,7 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
         break;
 
     case ACPI_MEMORY_RANGE:
-        PCI_DEBUG("PCI mem range %lx-%lx granularity 0x%lx translation offset "
+        ACPI_DEBUG("PCI mem range %lx-%lx granularity 0x%lx translation offset "
                   " 0x%lx length 0x%lx prodcons %u decode %u writeprot %u"
                   " caching %u rangetype %u translation %u\n", min, max,
                   granularity, translationoffset, addrlength,
@@ -124,7 +124,7 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
                 if (min > max) {
                     min = max = 0;
                 }
-                PCI_DEBUG("mem range overlaps reserved space [%lx,%lx], truncated"
+                ACPI_DEBUG("mem range overlaps reserved space [%lx,%lx], truncated"
                           " to %lx-%lx\n", range->min, range->limit, min, max);
             }
         }
@@ -260,7 +260,7 @@ static ACPI_STATUS fixed_resource_walker(ACPI_RESOURCE *resource, void *context)
             .limit = resource->Data.FixedMemory32.Address
                 + resource->Data.FixedMemory32.AddressLength
         };
-        PCI_DEBUG("fixed memory resource claimed: 0x%"PRIxLPADDR"-%"PRIxLPADDR"\n",
+        ACPI_DEBUG("fixed memory resource claimed: 0x%"PRIxLPADDR"-%"PRIxLPADDR"\n",
                   range.min, range.limit);
 
         /* XXX: TODO: insert something in the SKB */
@@ -302,7 +302,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     /* do we have an interrupt routing table? */
     as = AcpiGetIrqRoutingTable(handle, &bufobj);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("No IRQ routing table found: %s\n", AcpiFormatException(as));
+        ACPI_DEBUG("No IRQ routing table found: %s\n", AcpiFormatException(as));
         return;
     }
 
@@ -311,7 +311,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     for (; prt->Length; prt = (void *)prt + prt->Length) {
         uint16_t device = (prt->Address >> 16) & 0xffff;
         assert((prt->Address & 0xffff) == 0xffff); // any function
-        PCI_DEBUG(" device %u pin %u %s (index %u)\n",
+        ACPI_DEBUG(" device %u pin %u %s (index %u)\n",
                device, prt->Pin, *(prt->Source) ? prt->Source : "GSI",
                prt->SourceIndex);
 
@@ -325,7 +325,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         ACPI_HANDLE source;
         as = AcpiGetHandle(handle, prt->Source, &source);
         if (ACPI_FAILURE(as)) {
-            PCI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
+            ACPI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
             continue;
         }
 
@@ -343,18 +343,18 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
                      bus, device, prt->Pin, esource);
 
 #ifdef PCI_SERVICE_DEBUG /* debug code to dump resources */
-        PCI_DEBUG("  INITIAL:  ");
+        ACPI_DEBUG("  INITIAL:  ");
         as = AcpiWalkResources(source, METHOD_NAME__CRS,
                                resource_printer, NULL);
         if (ACPI_FAILURE(as)) {
-            PCI_DEBUG("  failed walking _CRS: %s\n", AcpiFormatException(as));
+            ACPI_DEBUG("  failed walking _CRS: %s\n", AcpiFormatException(as));
         }
 
-        PCI_DEBUG("  POSSIBLE: ");
+        ACPI_DEBUG("  POSSIBLE: ");
         as = AcpiWalkResources(source, METHOD_NAME__PRS,
                                resource_printer, NULL);
         if (ACPI_FAILURE(as)) {
-            PCI_DEBUG("  failed walking _PRS: %s\n", AcpiFormatException(as));
+            ACPI_DEBUG("  failed walking _PRS: %s\n", AcpiFormatException(as));
         }
 #endif
 
@@ -362,7 +362,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
         as = AcpiGetPossibleResources(source, &buf);
         if (ACPI_FAILURE(as)) {
-            PCI_DEBUG("  failed retrieving _PRS: %s\n",
+            ACPI_DEBUG("  failed retrieving _PRS: %s\n",
                       AcpiFormatException(as));
             free(esource);
             continue;
@@ -415,9 +415,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 }
 
 void acpi_get_irqtable_device(ACPI_HANDLE parent,
-                              struct pci_address device,
-                              ACPI_HANDLE *child,
-                              uint8_t bus)
+        acpi_pci_address_t device, ACPI_HANDLE *child, uint8_t bus)
 {
 /*     char b[128]; */
 /*     ACPI_BUFFER buf = { .Length = 128, .Pointer = b }; */
@@ -442,7 +440,7 @@ void acpi_get_irqtable_device(ACPI_HANDLE parent,
         }
 
         if(ACPI_FAILURE(as)) {
-            PCI_DEBUG("Error looking up ACPI children\n");
+            ACPI_DEBUG("Error looking up ACPI children\n");
             abort();
         }
 
@@ -460,7 +458,7 @@ void acpi_get_irqtable_device(ACPI_HANDLE parent,
             continue;
         }
 
-        struct pci_address bridgeaddr;
+        acpi_pci_address_t bridgeaddr;
         bridgeaddr.bus = 0;
         bridgeaddr.device = (addr >> 16) & 0xffff;
         bridgeaddr.function = addr & 0xffff;
@@ -486,6 +484,12 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
         return as;
     }
     assert(bufobj.Pointer == namebuf);
+
+    ACPI_HANDLE handle2;
+    as = AcpiGetHandle(NULL, namebuf, &handle2);
+    ACPI_DEBUG("acpi get handle for %s\n", namebuf);
+    assert(ACPI_SUCCESS(as) && handle == handle2);
+
 
     /* look for a _ADR node, which tells us the bridge's configuration space */
     ACPI_INTEGER addr;
@@ -529,14 +533,14 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     }
 
     if (resources.maxbus == 0) {
-        PCI_DEBUG("%s: invalid PCI root at %u:%u:%u? Ignored.\n",
+        ACPI_DEBUG("%s: invalid PCI root at %u:%u:%u? Ignored.\n",
                namebuf, bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function);
         return AE_OK;
     }
 
     get_irq_routing(handle, bridgeaddr.bus);
 
-    PCI_DEBUG("%s: root at %u:%u:%u child buses %u-%u memory 0x%lx-%lx\n",
+    ACPI_DEBUG("%s: root at %u:%u:%u child buses %u-%u memory 0x%lx-%lx\n",
            namebuf, bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
            resources.minbus, resources.maxbus, resources.minmem,
            resources.maxmem + 1);
@@ -546,14 +550,26 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
            resources.minbus, resources.maxbus, resources.minmem,
            resources.maxmem);
 
+    // dist2 record for rootbridge
+    ACPI_DEBUG("acpi_node: %s\n", namebuf);
+    static char* format = "hw.pci.rootbridge. { bus: %lu, device: %lu, function: %lu, maxbus: %lu, acpi_node: '%s' }";
+    errval_t err = dist_mset(SET_SEQUENTIAL, format,
+            bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
+            resources.maxbus, namebuf);
+    DEBUG_ERR(err, "dist mset");
+    assert(err_is_ok(err));
+    // end
+
     // XXX: enable PCIe for bridge programming
+    /*
     pcie_enable();
     pci_add_root(bridgeaddr, resources.maxbus, handle);
-    pcie_disable();
+    pcie_disable();*/
 
     return AE_OK;
 }
 
+#include <barrelfish/nameservice_client.h>
 static int acpi_init(void)
 {
     AcpiDbgLevel = 0; // ACPI_DEBUG_DEFAULT | ACPI_LV_INFO | ACPI_LV_EXEC;
@@ -564,29 +580,34 @@ static int acpi_init(void)
     ACPI_STATUS as;
     as = AcpiInitializeSubsystem();
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiInitializeSubsystem failed\n");
+        ACPI_DEBUG("AcpiInitializeSubsystem failed\n");
         return -1;
     }
 
     as = AcpiInitializeTables(NULL, 0, false);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiInitializeTables failed\n");
+        ACPI_DEBUG("AcpiInitializeTables failed\n");
         return -1;
     }
 
     as = AcpiLoadTables();
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiLoadTables failed %s\n", AcpiFormatException(as));
+        ACPI_DEBUG("AcpiLoadTables failed %s\n", AcpiFormatException(as));
         return -1;
     }
 
-    PCI_DEBUG("Scanning local and I/O APICs...\n");
-    int r = init_all_apics();
-    assert(r == 0);
+    ACPI_DEBUG("Scanning local and I/O APICs...\n");
+    errval_t err = find_all_apics();
+    assert(err_is_ok(err));
+
+    nameservice_register("signal_ioapic", 0); // TODO device mngr
+    err = connect_to_ioapic();
+    assert(err_is_ok(err));
+
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiEnableSubsystem failed %s\n", AcpiFormatException(as));
+        ACPI_DEBUG("AcpiEnableSubsystem failed %s\n", AcpiFormatException(as));
         return -1;
     }
 
@@ -596,7 +617,7 @@ static int acpi_init(void)
 
     as = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("AcpiInitializeObjects failed\n");
+        ACPI_DEBUG("AcpiInitializeObjects failed\n");
         return -1;
     }
 
@@ -655,15 +676,15 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                         (a->ProximityDomainHi[2] << 8) +
                         a->ProximityDomainLo;
 
-                    PCI_DEBUG("CPU affinity table:\n");
-                    PCI_DEBUG("Proximity Domain: %d\n", proximitydomain);
-                    PCI_DEBUG("CPU local APIC ID: %d\n", a->ApicId);
-                    PCI_DEBUG("CPU local SAPIC EID: %d\n", a->LocalSapicEid);
+                    ACPI_DEBUG("CPU affinity table:\n");
+                    ACPI_DEBUG("Proximity Domain: %d\n", proximitydomain);
+                    ACPI_DEBUG("CPU local APIC ID: %d\n", a->ApicId);
+                    ACPI_DEBUG("CPU local SAPIC EID: %d\n", a->LocalSapicEid);
 
                     skb_add_fact("cpu_affinity(%d,%d,%d).",
                         a->ApicId, a->LocalSapicEid, proximitydomain);
                 } else {
-                    PCI_DEBUG("CPU affinity table disabled!\n");
+                    ACPI_DEBUG("CPU affinity table disabled!\n");
                 }
 
                 pos += sizeof(ACPI_SRAT_CPU_AFFINITY);
@@ -677,10 +698,10 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                 assert(a->Header.Length == 40);
 
                 if(a->Flags & ACPI_SRAT_MEM_ENABLED) {
-                    PCI_DEBUG("Memory affinity table:\n");
-                    PCI_DEBUG("Proximity Domain: %d\n", a->ProximityDomain);
-                    PCI_DEBUG("Base address: 0x%lx\n", a->BaseAddress);
-                    PCI_DEBUG("Length: 0x%lx\n", a->Length);
+                    ACPI_DEBUG("Memory affinity table:\n");
+                    ACPI_DEBUG("Proximity Domain: %d\n", a->ProximityDomain);
+                    ACPI_DEBUG("Base address: 0x%lx\n", a->BaseAddress);
+                    ACPI_DEBUG("Length: 0x%lx\n", a->Length);
 
                     bool hotpluggable = false, nonvolatile = false;
                     if(a->Flags & ACPI_SRAT_MEM_HOT_PLUGGABLE) {
@@ -689,7 +710,7 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                     if(a->Flags & ACPI_SRAT_MEM_NON_VOLATILE) {
                         nonvolatile = true;
                     }
-                    PCI_DEBUG("Flags:%s%s\n",
+                    ACPI_DEBUG("Flags:%s%s\n",
                               hotpluggable ? " Hot-pluggable" : "",
                               nonvolatile ? " Non-volatile" : "");
 
@@ -697,7 +718,7 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                         a->BaseAddress, a->Length, a->ProximityDomain);
 
                 } else {
-                    PCI_DEBUG("Memory affinity table disabled!\n");
+                    ACPI_DEBUG("Memory affinity table disabled!\n");
                 }
 
                 pos += sizeof(ACPI_SRAT_MEM_AFFINITY);
@@ -705,11 +726,11 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
             break;
 
         case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
-            PCI_DEBUG("Ignoring unsupported x2APIC CPU affinity table.\n");
+            ACPI_DEBUG("Ignoring unsupported x2APIC CPU affinity table.\n");
             break;
 
         default:
-            PCI_DEBUG("Ignoring unknown SRAT subtable ID %d.\n", shead->Type);
+            ACPI_DEBUG("Ignoring unknown SRAT subtable ID %d.\n", shead->Type);
             break;
         }
     }
@@ -720,27 +741,28 @@ int init_acpi(void)
     ACPI_STATUS as;
     int r;
 
-    PCI_DEBUG("Initialising ACPI...\n");
+    ACPI_DEBUG("Initialising ACPI...\n");
     r = acpi_init();
     assert(r == 0);
 
     // Put system into APIC mode
-    PCI_DEBUG("Switching to APIC mode...\n");
+    ACPI_DEBUG("Switching to APIC mode...\n");
     as = set_apic_mode();
     if(ACPI_FAILURE(as)) {
-        PCI_DEBUG("Warning: Could not set system to APIC mode! "
+        ACPI_DEBUG("Warning: Could not set system to APIC mode! "
                   "Continuing anyway...\n");
     }
 
     /* look for an MCFG table
      * this tells us where the PCI express memory-mapped configuration area is
      */
+    /*
     ACPI_TABLE_HEADER *mcfg_header;
     as = AcpiGetTable("MCFG", 1, &mcfg_header);
     if (ACPI_SUCCESS(as) && mcfg_header->Length >=
             sizeof(ACPI_TABLE_MCFG) + sizeof(ACPI_MCFG_ALLOCATION)) {
         ACPI_MCFG_ALLOCATION *mcfg = (void *)mcfg_header + sizeof(ACPI_TABLE_MCFG);
-        PCI_DEBUG("PCIe enhanced configuration region at 0x%lx "
+        ACPI_DEBUG("PCIe enhanced configuration region at 0x%lx "
                "(segment %u, buses %u-%u)\n", mcfg->Address,
                mcfg->PciSegment, mcfg->StartBusNumber, mcfg->EndBusNumber);
         r = pcie_confspace_init(mcfg->Address, mcfg->PciSegment,
@@ -755,8 +777,8 @@ int init_acpi(void)
             reserved_memory[n_reserved_memory_regions++] = confspace;
         }
     } else {
-        PCI_DEBUG("No MCFG table found -> no PCIe enhanced configuration\n");
-    }
+        ACPI_DEBUG("No MCFG table found -> no PCIe enhanced configuration\n");
+    }*/
 
     // XXX: disable PCIe memory-mapped config space until after we walk and
     // prescan all the buses. This is necessary on some AMD boxes, because the
@@ -766,7 +788,7 @@ int init_acpi(void)
     pcie_disable();
 
     /* Find and reserve all memory regions claimed by non-PCI devices */
-    PCI_DEBUG("Reserving fixed resources\n");
+    ACPI_DEBUG("Reserving fixed resources\n");
     as = AcpiGetDevices("PNP0C02", reserve_resources, NULL, NULL);
     if (ACPI_FAILURE(as) && as != AE_NOT_FOUND) {
         printf("WARNING: AcpiGetDevices failed with error %d\n", as);
@@ -775,17 +797,17 @@ int init_acpi(void)
 
     // XXX: PCIe walking disabled, as these also show up as PCI buses,
     // and we don't currently distinguish between them
-    //PCI_DEBUG("Walking for PCIe buses\n");
+    //ACPI_DEBUG("Walking for PCIe buses\n");
     //as = AcpiGetDevices(PCI_EXPRESS_ROOT_HID_STRING, add_pci_device, NULL, NULL);
     //assert(ACPI_SUCCESS(as));
 
-    PCI_DEBUG("Walking for PCI buses\n");
+    ACPI_DEBUG("Walking for PCI buses\n");
     as = AcpiGetDevices(PCI_ROOT_HID_STRING, add_pci_device, NULL, NULL);
     assert(ACPI_SUCCESS(as));
 
-    PCI_DEBUG("Programming PCI BARs and bridge windows\n");
-    pci_program_bridges();
-    PCI_DEBUG("PCI programming completed\n");
+    //ACPI_DEBUG("Programming PCI BARs and bridge windows\n");
+    //pci_program_bridges();
+    //ACPI_DEBUG("PCI programming completed\n");
 
     ACPI_TABLE_HEADER *srat_header;
     as = AcpiGetTable("SRAT", 1, &srat_header);

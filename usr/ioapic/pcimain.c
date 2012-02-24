@@ -12,29 +12,27 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <mm/mm.h>
 #include <dist2/init.h>
 #include <skb/skb.h>
 
-#include "pci.h"
-#include "acpi_client.h"
-#include "ioapic_client.h"
-#include "pci_debug.h"
+#include "ioapic.h"
+#include "ioapic_service.h"
+#include "ioapic_debug.h"
 
 /**
  * Number of slots in the cspace allocator.
  * Keep it as a power of two and not smaller than DEFAULT_CNODE_SLOTS.
  */
 #define PCI_CNODE_SLOTS 2048
+
+uintptr_t my_apic_id;
 
 // cnoderef for the phyaddrcn
 static struct cnoderef cnode_phyaddr = {
@@ -114,7 +112,7 @@ static errval_t init_allocators(void)
 	}
         if (mrp->mr_type == RegionType_PlatformData
             || mrp->mr_type == RegionType_PhyAddr) {
-            PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+            APIC_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
 		      i, mrp->mr_base,
 		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
 		      mrp->mr_type == RegionType_PlatformData
@@ -131,85 +129,66 @@ static errval_t init_allocators(void)
     return SYS_ERR_OK;
 }
 
+
+struct capref biosmem;
+
 int main(int argc, char *argv[])
 {
-    errval_t err;
+    //
+    // Parse CMD line Arguments
+    //
+    bool got_apic_id = false;
+    for (int i = 1; i < argc; i++) {
+        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_apic_id) == 1) {
+            got_apic_id = true;
+        }
+    }
 
+    if(got_apic_id == false) {
+        fprintf(stderr, "Usage: %s APIC_ID\n", argv[0]);
+        fprintf(stderr, "Wrong monitor version?\n");
+        return EXIT_FAILURE;
+    }
+
+    //
+    // Initialize I/O APIC Driver
+    //
+    errval_t err;
     err = dist_init();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "dist initialization failed.");
+        USER_PANIC_ERR(err, "Connect to dist Service");
     }
 
-    // TODO(gz): Device mngr
-    err = nameservice_blocking_lookup("acpi_done", 0);
+    // Connect to the SKB
+    APIC_DEBUG("ioapic: connecting to the SKB...\n");
+    skb_client_connect();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Waiting for acpi failed.");
+        USER_PANIC_ERR(err, "Connect to SKB");
     }
 
-    err = skb_client_connect();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Connecting to SKB failed.");
-    }
+    // TODO: device mngr...
+    iref_t iref;
+    nameservice_blocking_lookup("signal_ioapic", &iref);
 
+    // TODO: Cap mngmt
     err = init_allocators();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Init memory allocator failed.");
+        USER_PANIC_ERR(err, "Init memory allocator");
     }
 
-    err = connect_to_acpi();
+    err = init_all_apics();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "ACPI Connection failed.");
+        USER_PANIC_ERR(err, "I/O APIC Initialization");
     }
 
-    err = connect_to_ioapic();
+    err = setup_interupt_override();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "IOAPIC Connection failed.");
+        USER_PANIC_ERR(err, "Setup interrupt overrides");
     }
 
-    err = pcie_setup_confspace();
+    err = start_service();
     if (err_is_fail(err)) {
-        if (err_no(err) == ACPI_ERR_NO_MCFG_TABLE) {
-            debug_printf("No PCIe found, continue.\n");
-        }
-        else {
-            USER_PANIC_ERR(err, "Setup PCIe confspace failed.");
-        }
-    }
-
-    err = pci_setup_root_complex();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Setup PCI root complex failed.");
-    }
-
-    // Start configuring PCI
-    PCI_DEBUG("Programming PCI BARs and bridge windows\n");
-    pci_program_bridges();
-    PCI_DEBUG("PCI programming completed\n");
-    pci_init_datastructures();
-    pci_init();
-
-
-#if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-//output all the facts stored in the SKB to produce a sample data file to use
-//for debugging on linux
-    skb_execute("listing.");
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    PCI_DEBUG("\nSKB returned: \n%s\n", skb_get_output());
-    const char *errout = skb_get_error_output();
-    if (errout != NULL && *errout != '\0') {
-        PCI_DEBUG("\nSKB error returned: \n%s\n", errout);
-    }
-#endif
-
-    skb_add_fact("pci_discovery_done.");
-
-    /* Using the name server as a lock server,
-       register a service with it so that other domains can do a blocking wait
-       on pci to finish enumeration */
-    err = nameservice_register("pci_discovery_done", 0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
+        USER_PANIC_ERR(err, "Start I/O APIC Service");
     }
 
     messages_handler_loop();

@@ -15,6 +15,19 @@
 #ifndef PCI_CONFSPACE_H
 #define PCI_CONFSPACE_H
 
+#define PCI_NBUSES     256  ///< Maximum number of PCI buses
+#define PCI_NDEVICES    32  ///< Maximum number of PCI devices on a bus
+#define PCI_NFUNCTIONS   8  ///< Maximum number of PCI functions on a device
+#define PCI_NBARS        6  ///< Maximum number of BARs per function
+#define PCI_NINTPINS     4  ///< Number of PCI wired interrupt pins (INTA-INTD)
+
+// XXX: this enum defines region types that must not overlap
+// with the KPI-defined enum region_type.
+enum user_region_type {
+    RegionType_LocalAPIC = RegionType_Max,  ///< local APIC start address
+    RegionType_IOAPIC                       ///< I/O APIC start address
+};
+
 struct pci_address {
     uint8_t bus;
     uint8_t device;

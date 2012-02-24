@@ -14,7 +14,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <arch/x86/barrelfish/iocap_arch.h>
-#include "pci_confspace.h"
+#include <pci/confspace/pci_confspace.h>
 
 #define PCI_CONFIG_ADDRESS_PORT 0x0cf8
 #define PCI_CONFIG_DATA_PORT    0x0cfc

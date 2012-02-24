@@ -76,7 +76,8 @@ int main(int argc, char**argv)
     execute_string("set_flag(print_depth,100).");
 
     if(disp_get_core_id() == 0) {
-        //execute_string("set_flag(gc, off).");
+        debug_printf("dist_server_init\n");
+        execute_string("set_flag(gc, off).");
         //execute_string("set_flag(gc_policy, fixed).");
         //execute_string("set_flat(gc_interval, 536870912)."); // 512 mb
         //execute_string("set_flag(gc_interval_dict, 10000).");

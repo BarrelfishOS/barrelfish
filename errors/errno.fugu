@@ -654,6 +654,15 @@ errors pci PCI_ERR_ {
     failure WRONG_INDEX         "Invalid index for requested cap",
 };
 
+// errors in ACPI
+errors acpi ACPI_ERR_ {
+    failure NO_MCFG_TABLE       "No MCFG Table found.",
+    failure INVALID_PATH_NAME   "Invalid ACPI path name.",
+    failure GET_RESOURCES       "Failed to execute _CRT method.",
+    failure SET_IRQ             "Failed to set IRQ for device.",
+    failure NO_MADT_TABLE       "No APIC found in ACPI.",
+};
+
 // errors in the SKB
 errors skb SKB_ERR_ {
     failure CONVERSION_ERROR    "Conversion (parsing) of the result failed.",

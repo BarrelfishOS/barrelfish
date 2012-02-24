@@ -17,8 +17,7 @@
 #include <stdlib.h>
 #include <mm/mm.h>
 
-#include "pci.h"
-#include "pci_debug.h"
+#include <pci/confspace/pci_confspace.h>
 
 static uint8_t startbus, endbus;
 static struct memobj_one_frame_lazy *memobj = NULL;
@@ -30,6 +29,9 @@ static bool pcie_enabled = true;
 
 /* FIXME: XXX: super-hacky bitfield to track if we already mapped something */
 static uint8_t *mapped_bitfield;
+// XXX: More badness
+struct mm pci_mm_physaddr;
+
 
 int pcie_confspace_init(lpaddr_t base, uint16_t segment, uint8_t startbusarg,
                         uint8_t endbusarg)
@@ -52,8 +54,8 @@ int pcie_confspace_init(lpaddr_t base, uint16_t segment, uint8_t startbusarg,
     r = mm_alloc_range(&pci_mm_physaddr, region_bits, base,
                        base + (1UL << region_bits), &ram_cap, NULL);
     if (r != 0) {
-        PCI_DEBUG("pci_confspace_init: allocating %lx-%lx failed\n",
-               base, base + (1UL << region_bits));
+        //PCI_DEBUG("pci_confspace_init: allocating %lx-%lx failed\n",
+        //       base, base + (1UL << region_bits));
         return r;
     }
 

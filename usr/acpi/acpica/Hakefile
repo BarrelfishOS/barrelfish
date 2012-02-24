@@ -19,10 +19,10 @@ let subdirs = [ "dispatcher",
                 "tables",
                 "utilities" ]
 in
-  [ build library { target = "acpi",
+  [ build library { target = "acpica",
   		    cFiles = concat [ find cInDir sd | sd <- subdirs ],
                     addCFlags =  [ "-Wno-redundant-decls", 
-    	   	   	      	   "-fno-strict-aliasing" ],
+                                   "-fno-strict-aliasing" ],
                     addIncludes = [ "include" ],
                     architectures = [ "x86_64", "x86_32" ]
                   }

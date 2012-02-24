@@ -46,12 +46,10 @@
 #include <barrelfish/barrelfish.h>
 #include <acpi.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
-#include "pci_debug.h"
-
-
 #include <dev/acpi_ec_dev.h>
+
+#include "acpi_shared.h"
+#include "acpi_debug.h"
 
 struct ec {
     ACPI_HANDLE handle; ///< Handle to EC object
@@ -135,7 +133,7 @@ static uint32_t gpe_handler(void *arg)
             snprintf(method, sizeof(method), "_Q%02X", data);
             as = AcpiEvaluateObject(ec->handle, method, NULL, NULL);
             if (ACPI_FAILURE(as)) {
-                PCI_DEBUG("EC: error 0x%x in query method %s\n", as, method);
+                ACPI_DEBUG("EC: error 0x%x in query method %s\n", as, method);
             }
         }
     }
@@ -175,7 +173,7 @@ static ACPI_STATUS space_handler(uint32_t function, ACPI_PHYSICAL_ADDRESS xaddr,
         }
 
         if (ACPI_FAILURE(as)) {
-            PCI_DEBUG("error 0x%x in EC space handler\n", as);
+            ACPI_DEBUG("error 0x%x in EC space handler\n", as);
             break;
         }
     }
@@ -212,7 +210,7 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
     };
     as = AcpiEvaluateObject(handle, "_GPE", NULL, &buf);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("_GPE failed: 0x%x\n", as);
+        ACPI_DEBUG("_GPE failed: 0x%x\n", as);
         return as;
     }
 
@@ -227,7 +225,7 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
         USER_PANIC("NYI");
         return AE_ERROR;
     } else {
-        PCI_DEBUG("_GPE returned unexpected object type %d\n", obj->Type);
+        ACPI_DEBUG("_GPE returned unexpected object type %d\n", obj->Type);
         free(buf.Pointer);
         return AE_TYPE;
     }
@@ -240,7 +238,7 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
     buf.Length = ACPI_ALLOCATE_BUFFER;
     as = AcpiGetCurrentResources(handle, &buf);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("error calling _CRS\n");
+        ACPI_DEBUG("error calling _CRS\n");
         return as;
     }
 
@@ -258,7 +256,7 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
             }
             break;
         default:
-            PCI_DEBUG("unhandled EC resource type %d\n", resource->Type);
+            ACPI_DEBUG("unhandled EC resource type %d\n", resource->Type);
         }
 
         resource = ACPI_ADD_PTR(ACPI_RESOURCE, resource, resource->Length);
@@ -267,7 +265,7 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
     free(buf.Pointer);
 
     if (nports < 2) {
-        PCI_DEBUG("insufficient IO ports included in EC resource set\n");
+        ACPI_DEBUG("insufficient IO ports included in EC resource set\n");
         return AE_ERROR;
     }
 
@@ -287,13 +285,13 @@ static ACPI_STATUS ec_probe(ACPI_HANDLE handle, uint32_t nestlevel,
     // enable GPE
     as = AcpiSetGpeType(NULL, gpe, ACPI_GPE_TYPE_RUNTIME);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("Failed to set GPE %ld type: 0x%x\n", gpe, as);
+        ACPI_DEBUG("Failed to set GPE %ld type: 0x%x\n", gpe, as);
         return as;
     }
 
     as = AcpiEnableGpe(NULL, gpe, ACPI_NOT_ISR);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("Failed to enable GPE %ld: 0x%x\n", gpe, as);
+        ACPI_DEBUG("Failed to enable GPE %ld: 0x%x\n", gpe, as);
         return as;
     }
 
@@ -326,7 +324,7 @@ void ec_probe_ecdt(void)
     // lookup handle
     as = AcpiGetHandle(NULL, (char *) ecdt->Id, &ec->handle);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("EC: can't get handle for %s\n", ecdt->Id);
+        ACPI_DEBUG("EC: can't get handle for %s\n", ecdt->Id);
         return;
     }
 
@@ -357,13 +355,13 @@ void ec_probe_ecdt(void)
     // enable GPE
     as = AcpiSetGpeType(NULL, ecdt->Gpe, ACPI_GPE_TYPE_RUNTIME);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("Failed to set GPE %d type: 0x%x\n", ecdt->Gpe, as);
+        ACPI_DEBUG("Failed to set GPE %d type: 0x%x\n", ecdt->Gpe, as);
         return;
     }
 
     as = AcpiEnableGpe(NULL, ecdt->Gpe, ACPI_NOT_ISR);
     if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("Failed to enable GPE %d: 0x%x\n", ecdt->Gpe, as);
+        ACPI_DEBUG("Failed to enable GPE %d: 0x%x\n", ecdt->Gpe, as);
         return;
     }
 }

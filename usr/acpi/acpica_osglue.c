@@ -17,11 +17,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
-#if defined(ACPI_BF_DEBUG) || defined(GLOBAL_DEBUG)
-#define ACPI_DEBUG(x...) printf("acpi: " x)
-#else
-#define ACPI_DEBUG(x...) ((void)0)
-#endif
+#include "acpi_debug.h"
 
 
 /******************************************************************************
@@ -145,13 +141,17 @@
 #include <acparser.h>
 #include <acdebug.h>
 
+#include <pci/confspace/pci_confspace.h>
+#include <pci/confspace/mackerelpci.h>
+
 #include <mm/mm.h>
 
-#include "pci.h"
+#include "ioapic_client.h"
 
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
 
+extern struct mm pci_mm_physaddr;
 //extern FILE *AcpiGbl_DebugFile;
 static FILE *AcpiGbl_OutputFile;
 
@@ -811,8 +811,6 @@ AcpiOsInstallInterruptHandler (
     ACPI_OSD_HANDLER        ServiceRoutine,
     void                    *Context)
 {
-    ACPI_DEBUG("AcpiOsInstallInterruptHandler(%d)\n", InterruptNumber);
-
     struct interrupt_closure *ic = malloc(sizeof(struct interrupt_closure));
     assert(ic != NULL);
 
@@ -826,8 +824,14 @@ AcpiOsInstallInterruptHandler (
         return AE_ERROR;
     }
 
-    e = enable_and_route_interrupt(InterruptNumber, disp_get_core_id(), vector);
-    if (err_is_fail(e)) {
+    // Route Interrupt in I/O APIC
+    struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
+    errval_t ret_error;
+    errval_t err = cl->vtbl.enable_and_route_interrupt(cl, InterruptNumber,
+            disp_get_core_id(), vector, &ret_error);
+    assert(err_is_ok(err));
+    DEBUG_ERR(ret_error, "enable and route interrupt");
+    if (err_is_fail(ret_error)) {
         DEBUG_ERR(e, "failed to route interrupt");
         return AE_ERROR;
     }
@@ -878,7 +882,6 @@ AcpiOsExecute (
     ACPI_OSD_EXEC_CALLBACK  Function,
     void                    *Context)
 {
-    ACPI_DEBUG("AcpiOsExecute(%d, %p,%p)\n", Type, Function, Context);
     struct thread *thread = thread_create((thread_func_t)Function, Context);
     errval_t err = thread_detach(thread);
     assert(err_is_ok(err));

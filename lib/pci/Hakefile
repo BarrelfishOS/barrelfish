@@ -12,10 +12,19 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "pci",
-  		  cFiles = [ "mem.c", "pci_client.c" ],
+                  cFiles = [ "mem.c", "pci_client.c" ],
                   flounderBindings = [ "pci" ],
                   flounderExtraBindings = [ ("pci", ["rpcclient"]) ],
                   flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                  architectures = [ "x86_64", "x86_32" ]
+                },
+  
+  -- XXX: This library is a bit weird right now.
+  -- I added this to avoid code duplication in acpi/pci because they both have to
+  -- read/write the PCI configuration space (see acpi_osglue.c).
+  -- It would be best if we can completely avoid doing any PCI stuff in ACPI
+  build library { target = "pciconfspace",
+                  cFiles = [ "confspace/pci_confspace.c", "confspace/pcie_confspace.c" ],
                   architectures = [ "x86_64", "x86_32" ]
                 }
 ]

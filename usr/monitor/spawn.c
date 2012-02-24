@@ -37,7 +37,10 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
     }
 
     /* copy phys addr cnode cap to PCI and/or mic_slave */
-    if (strcmp(name, "pci") == 0 || strcmp(name, "mic_slave") == 0) {
+    if (strcmp(name, "pci") == 0 ||
+        strcmp(name, "mic_slave") == 0 ||
+        strcmp(name, "acpi") == 0 ||
+        strcmp(name, "ioapic") == 0) {
         src.cnode = cnode_root;
         src.slot  = ROOTCN_SLOT_PACN;
         dest.cnode = si->rootcn;
@@ -49,7 +52,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
     }
 
     /* Pass IO cap to PCI */
-    if (!strcmp(name, "pci")) {
+    if (!strcmp(name, "pci") || !strcmp(name, "acpi")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_IO;
         src.cnode = cnode_task;
@@ -249,7 +252,9 @@ errval_t spawn_all_domains(void)
         }
 
         // Pass the local arch-specific core ID to the PCI and spawnd domains
-        if(strcmp(short_name, "pci") == 0 || strcmp(short_name, "spawnd") == 0) {
+        if(strcmp(short_name, "pci") == 0 || strcmp(short_name, "spawnd") == 0
+           || strcmp(short_name, "acpi") == 0
+           || strcmp(short_name, "ioapic") == 0) {
             // Get hardware core ID
             uintptr_t my_arch_id = 0;
             err = invoke_monitor_get_arch_id(&my_arch_id);
