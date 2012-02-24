@@ -108,7 +108,7 @@ static errval_t init_one_ioapic(uint64_t id,  uint64_t address, uint64_t irqbase
 
     err = ioapic_init(ioapic, vaddr, id, irqbase);
     if (err_is_fail(err)) {
-        PCI_DEBUG("I/O APIC init failed!\n");
+        APIC_DEBUG("I/O APIC init failed!\n");
         return err_push(err, PCI_ERR_IOAPIC_INIT);
     }
 
@@ -303,7 +303,7 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
     int inti = gsi_mapped - i->irqbase;
     ioapic_route_inti(i, inti, vector, dest_apicid);
 
-    PCI_DEBUG("routing GSI %d -> %d -> INTI %d -> APIC %d (coreid %d) "
+    APIC_DEBUG("routing GSI %d -> %d -> INTI %d -> APIC %d (coreid %d) "
               "vector %d\n", gsi, gsi_mapped, inti, dest_apicid, dest, vector);
 
     /* enable */

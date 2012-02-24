@@ -112,7 +112,7 @@ static errval_t init_allocators(void)
 	}
         if (mrp->mr_type == RegionType_PlatformData
             || mrp->mr_type == RegionType_PhyAddr) {
-            PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+            APIC_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
 		      i, mrp->mr_base,
 		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
 		      mrp->mr_type == RegionType_PlatformData
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
     }
 
     // Connect to the SKB
-    PCI_DEBUG("ioapic: connecting to the SKB...\n");
+    APIC_DEBUG("ioapic: connecting to the SKB...\n");
     skb_client_connect();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Connect to SKB");

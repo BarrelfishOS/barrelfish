@@ -49,10 +49,10 @@ errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
     // Check number of supported IRQs
     a->nintis = lpc_ioapic_ver_rd(&a->dev).mre + 1;
     if (a->nintis == 1) {
-        PCI_DEBUG("Warning: I/O APIC claims only to support a single interrupt!"
+        APIC_DEBUG("Warning: I/O APIC claims only to support a single interrupt!"
                   " This is probably going to break...\n");
     } else {
-        PCI_DEBUG("I/O APIC supports %d interrupts\n", a->nintis);
+        APIC_DEBUG("I/O APIC supports %d interrupts\n", a->nintis);
     }
 
     // Mask out all interrupts
