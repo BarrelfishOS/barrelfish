@@ -18,8 +18,6 @@
 #include <if/acpi_defs.h>
 #include <acpi.h>
 
-#include "pci_acpi.h"
-
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 
@@ -160,18 +158,6 @@ reply:
     free(device);
 }
 
-#include "pci.h"
-static void enable_interrupt_handler(struct acpi_binding* b, uint32_t gsi,
-        coreid_t dest, uint32_t vector)
-{
-    errval_t err = SYS_ERR_OK;
-    err = enable_and_route_interrupt(gsi, dest, vector);
-
-    err = b->tx_vtbl.enable_and_route_interrupt_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-
-}
-
 static void reset_handler(struct acpi_binding *b)
 {
     if (AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) {
@@ -205,7 +191,6 @@ static void sleep_handler(struct acpi_binding *b, int state)
 }
 
 extern struct capref biosmem;
-#define BIOS_BITS       20
 static void get_vbe_bios_cap(struct acpi_binding *b)
 {
     errval_t err;
@@ -219,7 +204,6 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
     .set_device_irq_call = set_device_irq,
-    .enable_and_route_interrupt_call = enable_interrupt_handler,
 
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,

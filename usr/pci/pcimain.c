@@ -131,31 +131,6 @@ static errval_t init_allocators(void)
     return SYS_ERR_OK;
 }
 
-static errval_t setup_skb_info(void)
-{
-    skb_execute("[pci_queries].");
-    errval_t err = skb_read_error_code();
-    if (err_is_fail(err)) {
-        PCI_DEBUG("\npcimain.c: Could not load pci_queries.pl.\n"
-               "SKB returned: %s\nSKB error: %s\n",
-                skb_get_output(), skb_get_error_output());
-        return err;
-    }
-
-    // TOOD(gz): acpi?
-    skb_add_fact("mem_region_type(%d,ram).", RegionType_Empty);
-    skb_add_fact("mem_region_type(%d,roottask).", RegionType_RootTask);
-    skb_add_fact("mem_region_type(%d,phyaddr).", RegionType_PhyAddr);
-    skb_add_fact("mem_region_type(%d,multiboot_module).", RegionType_Module);
-    skb_add_fact("mem_region_type(%d,platform_data).", RegionType_PlatformData);
-    skb_add_fact("mem_region_type(%d,apic).", RegionType_LocalAPIC);
-    skb_add_fact("mem_region_type(%d,ioapic).", RegionType_IOAPIC);
-
-    return err;
-}
-
-struct capref biosmem;
-
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -176,11 +151,6 @@ int main(int argc, char *argv[])
     	USER_PANIC_ERR(err, "Connecting to SKB failed.");
     }
 
-    err = setup_skb_info();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Populating SKB failed.");
-    }
-
     err = init_allocators();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Init memory allocator failed.");
@@ -198,7 +168,12 @@ int main(int argc, char *argv[])
 
     err = pcie_setup_confspace();
     if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Setup PCIe Confspace failed.");
+        if (err_no(err) == ACPI_ERR_NO_MCFG_TABLE) {
+            debug_printf("No PCIe found, continue.\n");
+        }
+        else {
+            USER_PANIC_ERR(err, "Setup PCIe confspace failed.");
+        }
     }
 
     err = pci_setup_root_complex();

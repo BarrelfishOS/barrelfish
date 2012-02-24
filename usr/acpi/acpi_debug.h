@@ -23,5 +23,10 @@
 #define ACPI_DEBUG(x...) ((void)0)
 #endif
 
+#if defined(ACPI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#define PCI_DEBUG(x...) printf("acpi_service: " x)
+#else
+#define PCI_DEBUG(x...) ((void)0)
+#endif
 
 #endif // ACPI_DEBUG_H_

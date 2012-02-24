@@ -19,11 +19,10 @@
                                             
                       mackerelDevices = [ "pci_hdr0", "pci_hdr1", "ht_config" ],
                       cFiles = [ "pcimain.c", "pci.c", "pci_service.c", 
-                                 "ht_config.c", "pci_confspace.c", 
-                                 "pcie_confspace.c", "acpi_client.c", 
-                                 "ioapic_client.c" ],
+                                 "ht_config.c", "acpi_client.c", "ioapic_client.c",
+                                 "pcie.c" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "skb", "dist2", "dist_parser" ],
+                      addLibraries = [ "mm", "skb", "pciconfspace", "dist2", "dist_parser" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
 ]

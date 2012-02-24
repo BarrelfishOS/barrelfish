@@ -16,9 +16,8 @@
 #include <barrelfish/barrelfish.h>
 #include <acpi.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
-#include "pci_debug.h"
+#include "acpi_shared.h"
+#include "acpi_debug.h"
 
 #define OFF_STATE 5 // S5 state (really off!)
 

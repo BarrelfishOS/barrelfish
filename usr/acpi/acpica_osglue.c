@@ -141,14 +141,17 @@
 #include <acparser.h>
 #include <acdebug.h>
 
+#include <pci/confspace/pci_confspace.h>
+#include <pci/confspace/mackerelpci.h>
+
 #include <mm/mm.h>
 
-#include "pci.h"
 #include "ioapic_client.h"
 
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
 
+extern struct mm pci_mm_physaddr;
 //extern FILE *AcpiGbl_DebugFile;
 static FILE *AcpiGbl_OutputFile;
 

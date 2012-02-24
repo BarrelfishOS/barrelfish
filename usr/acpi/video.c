@@ -16,9 +16,8 @@
 #include <barrelfish/barrelfish.h>
 #include <acpi.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
-#include "pci_debug.h"
+#include "acpi_shared.h"
+#include "acpi_debug.h"
 
 static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
                                      void *context, void **dummy)

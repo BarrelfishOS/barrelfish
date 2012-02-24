@@ -46,12 +46,10 @@
 #include <barrelfish/barrelfish.h>
 #include <acpi.h>
 
-#include "pci.h"
-#include "pci_acpi.h"
-#include "pci_debug.h"
-
-
 #include <dev/acpi_ec_dev.h>
+
+#include "acpi_shared.h"
+#include "acpi_debug.h"
 
 struct ec {
     ACPI_HANDLE handle; ///< Handle to EC object

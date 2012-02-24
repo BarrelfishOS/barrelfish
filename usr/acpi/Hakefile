@@ -11,18 +11,16 @@
 --------------------------------------------------------------------------
 
 [  build application { target = "acpi",
-                      flounderBindings = [ "acpi" ],
-                      flounderDefs = [ "monitor", "monitor_blocking" ],
-                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
-                      flounderExtraBindings = [("ioapic", ["rpcclient"])],
-                      mackerelDevices = [ "acpi_ec" ],
-                      
-                      cFiles = [ "pcimain.c", "acpi.c","acpica_osglue.c",
-                                 "video.c", "buttons.c", "acpi_ec.c",
-                                 "acpi_service.c", "apic.c", "ioapic_client.c" ],
-                      addIncludes = [ "acpica/include" ],
-                      addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "acpica", "skb", "dist2", "dist_parser" ],
-                      architectures = [ "x86_64", "x86_32" ]
-                    }
+                       flounderBindings = [ "acpi", "ioapic" ],
+                       flounderDefs = [ "monitor", "monitor_blocking" ],
+                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                       flounderExtraBindings = [ ("ioapic", ["rpcclient"]) ],
+                       mackerelDevices = [ "acpi_ec" ],
+                       cFiles = [ "acpi_main.c", "acpi.c","acpica_osglue.c",
+                                  "video.c", "buttons.c", "acpi_ec.c",
+                                  "acpi_service.c", "apic.c", "ioapic_client.c" ],
+                       addIncludes = [ "acpica/include" ],
+                       addCFlags = [ "-Wno-redundant-decls" ],
+                       addLibraries = [ "mm", "acpica", "skb", "pciconfspace", "dist2", "dist_parser" ],
+                       architectures = [ "x86_64", "x86_32" ] }
 ]

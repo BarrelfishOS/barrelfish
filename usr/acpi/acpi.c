@@ -18,15 +18,11 @@
 #include <acpi.h>
 #include <mm/mm.h>
 #include <dist2/getset.h>
-
 #include <skb/skb.h>
+#include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic_client.h"
-
-#include "pci.h"
-#include "pci_acpi.h"
-#include "pci_debug.h"
 
 struct pci_resources {
     uint8_t minbus, maxbus;
