@@ -15,7 +15,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
-#define APIC_SERVICE_DEBUG 1
+//#define APIC_SERVICE_DEBUG 1
 
 #if defined(APIC_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define APIC_DEBUG(x...) printf("ioapic_service: " x)
