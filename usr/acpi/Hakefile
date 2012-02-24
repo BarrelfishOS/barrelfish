@@ -11,18 +11,13 @@
 --------------------------------------------------------------------------
 
 [  build application { target = "acpi",
-                      flounderBindings = [ "pci", "acpi", "ioapic" ],
+                      flounderBindings = [ "acpi" ],
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderExtraBindings = [("ioapic", ["rpcclient"])],
+                      mackerelDevices = [ "acpi_ec" ],
                       
-                      mackerelDevices = [ "pci_hdr0", "pci_hdr1",
-                                          "lpc_ioapic", "ht_config",
-                                          "lpc_bridge", "acpi_ec" ],
-                      cFiles = [ "pcimain.c", "pci.c", "pci_service.c", 
-                                 "ioapic.c", "acpi.c", "ht_config.c",
-                                 "acpica_osglue.c", "interrupts.c", 
-                                 "pci_confspace.c", "pcie_confspace.c",
+                      cFiles = [ "pcimain.c", "acpi.c","acpica_osglue.c",
                                  "video.c", "buttons.c", "acpi_ec.c",
                                  "acpi_service.c", "apic.c", "ioapic_client.c" ],
                       addIncludes = [ "acpica/include" ],
