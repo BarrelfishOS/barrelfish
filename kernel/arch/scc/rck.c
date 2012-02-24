@@ -293,7 +293,7 @@ static void handle_channel(uintptr_t chanid)
     struct capability *ep = &endpoints[chanid].cap;
 
     if(ep->type == ObjType_Null) {
-        printk(LOG_WARN, "unhandled RCK channel %d\n", chanid);
+        printk(LOG_WARN, "unhandled RCK channel %"PRIuPTR"\n", chanid);
         return;
     } else {
       /* printf("%d: handle_channel(%d)\n", my_core_id, chanid); */

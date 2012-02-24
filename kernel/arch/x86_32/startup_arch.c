@@ -488,7 +488,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
         argv[argc++] = coreidchar;
 
         char chan_id_char[30];
-        snprintf(chan_id_char, sizeof(chan_id_char), "chanid=%d",
+        snprintf(chan_id_char, sizeof(chan_id_char), "chanid=%"PRIu32,
                  glbl_core_data->chan_id);
         argv[argc++] = chan_id_char;
 

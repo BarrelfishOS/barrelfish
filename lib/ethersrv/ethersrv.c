@@ -138,7 +138,7 @@ static uint64_t add_receive_pbuf_app(uint64_t pbuf_id, uint64_t paddr,
     if (new_tail == buffer->pbuf_head_rx) {
         ETHERSRV_DEBUG("no space to add a new receive pbuf\n");
         printf("no space to add a new receive pbuf[%"PRIu64"] new_tail"
-                " %u msg_hd %u\n",
+                " %"PRIu32" msg_hd %"PRIu32"\n",
               pbuf_id, new_tail, buffer->pbuf_head_rx);
         return -1;
     }

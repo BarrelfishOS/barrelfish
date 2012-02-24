@@ -336,30 +336,30 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
     int already_copied = 0;
     uint64_t pbuf_len = 0;
 
-    for (int index = 0; index < cl->rtpbuf; index++) {
+    for (int idx = 0; idx < cl->rtpbuf; idx++) {
         /* check if this pbuf contains any data that is to be copied */
-        if((pbuf_len + cl->pbuf[index].len) < start_offset) {
-            pbuf_len = (pbuf_len + cl->pbuf[index].len);
+        if((pbuf_len + cl->pbuf[idx].len) < start_offset) {
+            pbuf_len = (pbuf_len + cl->pbuf[idx].len);
             continue;
         }
         if(already_copied == 0) {
             /* Start offset lies somewhere in this pbuf.
              * So, this is the first pbuf where some data will get copied. */
             pbuf_offset = start_offset - pbuf_len;
-            data_left = cl->pbuf[index].len - pbuf_offset;
+            data_left = cl->pbuf[idx].len - pbuf_offset;
         } else {
             /* copying already started. so, just continue onwards in this pbuf */
             pbuf_offset = 0;
-            data_left = cl->pbuf[index].len;
+            data_left = cl->pbuf[idx].len;
         }
         if(pbuf_offset < 0){
-            EMAC_DEBUG("index %d, pbufs = %u, total len %"PRIu64"\n",
-                    index, cl->rtpbuf, cl->len);
+            EMAC_DEBUG("idx %d, pbufs = %u, total len %"PRIu64"\n",
+                    idx, cl->rtpbuf, cl->len);
             EMAC_DEBUG("start offset %lu, to_copy %lu\n", start_offset, to_copy);
             EMAC_DEBUG("pbuf_offset %d = start_offset(%lu) - pbuf_len (%"PRIu64")\n",
                     pbuf_offset, start_offset, pbuf_len);
             EMAC_DEBUG("pbuflen (%"PRIu64") + (%"PRIu64") < start_offset(%lu)\n",
-                    pbuf_len, cl->pbuf[index].len, start_offset);
+                    pbuf_len, cl->pbuf[idx].len, start_offset);
             EMAC_DEBUG("prev pbuf len (%"PRIu64"), already copied %d, left %d\n",
                     cl->pbuf[0].len, already_copied, data_left);
         }
@@ -368,7 +368,7 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
 
         copying = MIN(to_copy, data_left);
 
-        uint8_t *src =((uint8_t *)cl->buffer_ptr->va) + cl->pbuf[index].offset
+        uint8_t *src =((uint8_t *)cl->buffer_ptr->va) + cl->pbuf[idx].offset
                                 + pbuf_offset;
 
         // FIXME: may be I should use memcpy_fast here!!
@@ -378,14 +378,14 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
         if(already_copied == to_copy) {
             return;
         }
-        pbuf_len = (pbuf_len + cl->pbuf[index].len);
+        pbuf_len = (pbuf_len + cl->pbuf[idx].len);
     } /* end for: */
     EMAC_DEBUG("ERROR: pbuf_list_memcpy: not enough data [%lu] in client_closure\n",
             to_copy);
     EMAC_DEBUG("pbufs = %u, total len %"PRIu64"\n", cl->rtpbuf, cl->len);
     EMAC_DEBUG("already copied %d, left %d\n",already_copied, data_left);
-    for (int index = 0; index < cl->rtpbuf; index++) {
-        EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", index, cl->pbuf[index].len);
+    for (int idx = 0; idx < cl->rtpbuf; idx++) {
+        EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", idx, cl->pbuf[idx].len);
     }
     EMAC_DEBUG("start offset %lu, to_copy %lu\n", start_offset, to_copy);
 

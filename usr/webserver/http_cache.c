@@ -302,7 +302,7 @@ static void read_callback (void *arg, struct nfs_client *client,
 	}
 
 	/* This is cache loading going on... */
-	printf("Copied %lu bytes for file [%s] of length: %lu\n",
+	printf("Copied %zu bytes for file [%s] of length: %zu\n",
 				e->copied, e->name, e->hbuff->len);
 	++cache_loaded_counter;
 	handle_cache_load_done();
