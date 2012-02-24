@@ -10,24 +10,7 @@
 -- 
 --------------------------------------------------------------------------
 
-[    build library { target = "dist2",
-                     addCFlags = [ "-O2" ],
-                    cFiles = [ "client/dist2.c", "client/getset.c", "client/pubsub.c", 
-                               "client/barriers.c", "client/trigger.c",
-                               "client/locking.c", "client/strnatcmp.c" ],
-                    flounderDefs = [ "dist2" ],
-                    flounderBindings = [ "dist2" ],
-                    flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                    flounderTHCStubs = [ "dist2" ]
-                  },
-                  
-    build library { target = "dist_server",
-                    addCFlags = [ "-O2" ],
-                    cFiles = [ "server/service.c", "server/init.c", "server/queue.c" ],
-                    flounderBindings = [ "dist2" ],
-                    addLibraries = [ "skb" ] 
-                   },
-    
+[
     build library { target = "dist_parser",
                     addCFlags = [ "-O3",
                                   "-Wno-unused-value", 
@@ -36,9 +19,28 @@
                                   "-Wno-missing-prototypes",
                                   "-Wno-implicit-function-declaration" ],
                     cFiles = [ "parser/ast.c", "parser/parse.c", 
-                               "parser/scan.c", "parser/read.c" ] }
+                               "parser/scan.c", "parser/read.c" ] },
      -- no-missing-declarations & no-missing-prototypes Bug: 
      -- https://bugzilla.redhat.com/show_bug.cgi?id=612465
      -- no-implicit-function-declaration:
      -- warning: implicit declaration of function ‘yylex’ 
+
+     build library { target = "dist2",
+                     addCFlags = [ "-O2" ],
+                    cFiles = [ "client/dist2.c", "client/getset.c", "client/pubsub.c", 
+                               "client/barriers.c", "client/trigger.c",
+                               "client/locking.c", "client/strnatcmp.c" ],
+                    flounderDefs = [ "dist2" ],
+                    flounderBindings = [ "dist2" ],
+                    flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
+                    flounderTHCStubs = [ "dist2" ],
+                    addLibraries = ["dist_parser", "thc"]
+                  },
+                  
+    build library { target = "dist_server",
+                    addCFlags = [ "-O2" ],
+                    cFiles = [ "server/service.c", "server/init.c", "server/queue.c" ],
+                    flounderBindings = [ "dist2" ],
+                    addLibraries = [ "skb" ] 
+                   }
 ]

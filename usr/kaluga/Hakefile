@@ -13,5 +13,5 @@
 [ build application { target = "kaluga",
           		      cFiles = [ "main.c", "queue.c" ],
           		      flounderBindings = [ "dist2" ],
-        		      addLibraries = [ "dist2", "dist_parser" ] }
+        		      addLibraries = [ "dist2", "dist_parser", "thc" ] }
 ]

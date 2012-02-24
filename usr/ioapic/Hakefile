@@ -18,7 +18,7 @@
                        cFiles = [ "pcimain.c", "ioapic.c", "interrupts.c", "ioapic_service.c" ],
                        addIncludes = [ "../acpi/acpica/include" ], -- need some defines in interrupt.c
                        addCFlags = [ "-Wno-redundant-decls" ],
-                       addLibraries = [ "mm", "skb", "dist2", "dist_parser" ],
+                       addLibraries = [ "mm", "skb", "dist2", "dist_parser", "thc" ],
                        architectures = [ "x86_64", "x86_32" ]
                     }
 ]

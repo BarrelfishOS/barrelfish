@@ -22,7 +22,7 @@
                                  "ht_config.c", "acpi_client.c", "ioapic_client.c",
                                  "pcie.c" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "mm", "skb", "pciconfspace", "dist2", "dist_parser" ],
+                      addLibraries = [ "mm", "skb", "pciconfspace", "dist2", "dist_parser", "thc" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
 ]

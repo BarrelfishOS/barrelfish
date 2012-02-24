@@ -84,9 +84,10 @@ interface dist2 "dist2 RPC Interface" {
     /**
      * \brief Blocks until a record matching the provided query is registered.
      *
-     * This RPC was introduced specifically for the nameserver API so we don't
-     * need to start an event thread for every domain that needs to talk to the
-     * nameserver. If you use this call you might want to consider using
+     * This was introduced specifically for the nameserver API
+     * due to limitations of the memory allocation during bootstrapping we
+     * can't use THC but need to support nameservice blocking lookup.
+     * If you use this call you might want to consider using
      * a combination of get and triggers.
      *
      * \param query
@@ -133,15 +134,14 @@ interface dist2 "dist2 RPC Interface" {
      */
     rpc publish(in string record, out errval error_code);
 
+
     //
     // Async events (sent by server to client)
     //
     message trigger(mode m, uint64 trigger_fn, uint64 state, string record);
-    
     message subscribed_message(uint64 id, string record);
     
-    
-    
+
     //
     // Capability Storage and Shared memory semaphores
     // (backward compaibility w/ chips)

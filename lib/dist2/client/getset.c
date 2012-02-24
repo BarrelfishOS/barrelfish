@@ -297,46 +297,6 @@ errval_t dist_mset(dist_mode_t mode, const char* query, ...)
 }
 
 /**
- * \brief Sets a record.
- *
- * \param query The record to set.
- * \param mode A combination of mode bits (see getset.h).
- * \param ... Additional arguments to format the query using vsprintf.
- *
- * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD_NAME
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
- */
-errval_t dist_mset(dist_mode_t mode, const char* query, ...)
-{
-    assert(query != NULL);
-    errval_t err = SYS_ERR_OK;
-    va_list args;
-
-    char* buf = NULL;
-    FORMAT_QUERY(query, args, buf);
-
-    // Send to Server
-    struct dist2_rpc_client* rpc_client = get_dist_rpc_client();
-    char* record = NULL;
-
-    errval_t error_code;
-    DIST_LOCK_BINDING(rpc_client);
-    err = rpc_client->vtbl.set(rpc_client, buf, mode, NOP_TRIGGER, false,
-            &record, &error_code);
-    DIST_UNLOCK_BINDING(rpc_client);
-    assert(record == NULL);
-
-    if (err_is_ok(err)) {
-        err = error_code;
-    }
-
-    free(buf);
-    return err;
-}
-
-/**
  * \brief Sets a record and returns and in case of no error
  * returns it to the client.
  *
