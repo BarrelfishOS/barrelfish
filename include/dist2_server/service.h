@@ -48,6 +48,9 @@ struct dist_reply_state {
     dist2_mode_t mode;
     dist2_trigger_id_t server_id;
 
+    // For capability storage
+    struct capref cap;
+
     struct dist_reply_state *next;
 };
 
@@ -67,5 +70,10 @@ void unsubscribe_handler(struct dist2_binding*, uint64_t);
 
 void get_identifier(struct dist2_binding*);
 void identify_binding(struct dist2_binding*, uint64_t, dist2_binding_type_t);
+
+// Capability Storage
+void get_cap_handler(struct dist2_binding*, char*);
+void put_cap_handler(struct dist2_binding*, char*, struct capref);
+void remove_cap_handler(struct dist2_binding*, char*);
 
 #endif /* DIST2_SERVICE_H_ */

@@ -1,0 +1,159 @@
+/**
+ * \file
+ * \brief Simple capability storage
+ *
+ * Moved from chips in the coordination service in order
+ * to get rid of chips. We don't store caps with our
+ * get/set API because there is currently no good solution
+ * to store caps in the SKB. Another problem is that
+ * storing them in the SKB makes it easy for clients
+ * to change the caprefs and corrupt the state on the
+ * server.
+ */
+
+/*
+ * Copyright (c) 2009, 2010, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+#include <stdio.h>
+#include <string.h>
+
+#include <barrelfish/barrelfish.h>
+#include <if/dist2_defs.h>
+
+#include <dist2_server/init.h>
+#include <dist2_server/service.h>
+#include <dist2_server/debug.h>
+
+#include <hashtable/hashtable.h>
+
+#include "queue.h"
+
+static struct hashtable *capdb = NULL;
+
+static void get_cap_reply(struct dist2_binding *b,
+        struct dist_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.get_cap_response(b, MKCONT(free, ns), ns->cap, ns->error);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
+    }
+}
+
+void get_cap_handler(struct dist2_binding *b, char *key)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+    struct capref cap;
+
+    capdb->d.get_capability(&capdb->d, key, &cap);
+
+    if(capcmp(cap, NULL_CAP)) {
+        reterr = CHIPS_ERR_UNKNOWN_NAME;
+    }
+
+    struct dist_reply_state* ns = NULL;
+    err = new_dist_reply_state(&ns, get_cap_reply);
+    assert(err_is_ok(err));
+    ns->cap = cap;
+    ns->error = reterr;
+    ns->reply(b, ns);
+
+    free(key);
+}
+
+static void put_cap_reply(struct dist2_binding *b,
+        struct dist_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.put_cap_response(b, MKCONT(free, ns), ns->error);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
+    }
+}
+
+void put_cap_handler(struct dist2_binding *b, char *key,
+                            struct capref cap)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+    struct capref dbcap;
+
+    capdb->d.get_capability(&capdb->d, key, &dbcap);
+    if(!capcmp(dbcap, NULL_CAP)) {
+        reterr = CHIPS_ERR_EXISTS;
+        err = cap_delete(cap);
+        assert(err_is_ok(err));
+    } else {
+        int r = capdb->d.put_capability(&capdb->d, key, cap);
+        assert(r == 0);
+    }
+
+    struct dist_reply_state* ns = NULL;
+    err = new_dist_reply_state(&ns, put_cap_reply);
+    assert(err_is_ok(err));
+    ns->error = reterr;
+    ns->reply(b, ns);
+
+    free(key);
+}
+
+static void remove_cap_reply(struct dist2_binding *b,
+        struct dist_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.remove_cap_response(b, MKCONT(free, ns), ns->error);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            dist_rpc_enqueue_reply(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
+    }
+}
+
+void remove_cap_handler(struct dist2_binding *b, char *key)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+
+    struct capref cap;
+    capdb->d.get_capability(&capdb->d, key, &cap);
+    if(capcmp(cap, NULL_CAP)) {
+        reterr = CHIPS_ERR_UNKNOWN_NAME;
+    }
+    else {
+        cap_delete(cap);
+        capdb->d.remove(&capdb->d, key, strlen(key));
+    }
+
+    struct dist_reply_state* ns = NULL;
+    err = new_dist_reply_state(&ns, remove_cap_reply);
+    assert(err_is_ok(err));
+    ns->error = reterr;
+    ns->reply(b, ns);
+
+    free(key);
+}
+
+errval_t init_capstorage(void)
+{
+    capdb = create_hashtable();
+    assert(capdb != NULL);
+
+    return SYS_ERR_OK;
+}

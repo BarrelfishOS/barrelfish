@@ -104,5 +104,10 @@ errval_t rpc_server_init(void)
 errval_t dist_server_init(void)
 {
     errval_t err = rpc_server_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = init_capstorage();
+
     return err;
 }

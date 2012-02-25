@@ -40,8 +40,9 @@
                   
     build library { target = "dist_server",
                     addCFlags = [ "-O2" ],
-                    cFiles = [ "server/service.c", "server/init.c", "server/queue.c" ],
+                    cFiles = [ "server/service.c", "server/init.c", 
+                               "server/queue.c", "server/capstorage.c" ],
                     flounderBindings = [ "dist2" ],
-                    addLibraries = [ "skb" ] 
+                    addLibraries = [ "skb", "hashtable" ] 
                    }
 ]

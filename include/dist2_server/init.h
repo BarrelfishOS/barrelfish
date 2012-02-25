@@ -17,7 +17,8 @@
 
 #include <barrelfish/barrelfish.h>
 
-errval_t event_server_init(void);
+errval_t init_capstorage(void);
+
 errval_t rpc_server_init(void);
 
 errval_t dist_server_init(void);
