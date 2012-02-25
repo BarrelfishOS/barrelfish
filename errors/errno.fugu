@@ -366,6 +366,7 @@ errors chips CHIPS_ERR_ {
     failure EXISTS		  "Entry already exists",
     failure GET_CAP		  "Error getting a capability from store",
     failure PUT_CAP		  "Error putting a capability to store",
+    failure REMOVE_CAP            "Error removing a capability from store",
     failure OUT_OF_SEMAPHORES	  "Out of semaphores",
 };
 
@@ -781,6 +782,7 @@ errors dist DIST_ERR_ {
 errors libdist2  DIST2_ERR_ {
     failure NO_RECORD           "No record exists matching the specified query.",
     failure NO_RECORD_NAME      "Your query needs to specify a designated record name (no regex/variable allowed).",
+    failure CONSTRAINT_MISMATCH "The constraints you specified on set do not match the record in the database.",
     failure QUERY_SIZE          "Query is too big. Try to increase MAX_QUERY_LENGTH.",
     failure INVALID_FORMAT      "The read format you have specified is not valid.",
     failure UNKNOWN_ATTRIBUTE   "An attribute in your format was not found in the record.",

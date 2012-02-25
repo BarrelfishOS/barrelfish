@@ -10,7 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { cFiles = [ "framework.c", "filter.c", "hashtable.c" ],
+[ build application { cFiles = [ "framework.c", "filter.c", "hashtable.c", "queue.c" ],
                       flounderBindings = [ "nameservice" ],
                       flounderDefs = [ "monitor", "nameservice" ],
                       target = "chips" 

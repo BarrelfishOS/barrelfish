@@ -165,13 +165,11 @@ errval_t nameservice_get_capability(const char *key, struct capref *retcap)
 	printf("nameservice not found\n");
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
-    printf("get cap %s\n", key);
     errval_t err = r->vtbl.get_cap(r, key, retcap, &reterr);
     if(err_is_fail(err)) {
 	printf("ERROR!\n");
         return err_push(err, CHIPS_ERR_GET_CAP);
     }
-    printf("nameservice_get_capability: about to return\n");
     return reterr;
 }
 
@@ -192,6 +190,27 @@ errval_t nameservice_put_capability(const char *key, struct capref cap)
     errval_t err = r->vtbl.put_cap(r, key, cap, &reterr);
     if(err_is_fail(err)) {
         return err_push(err, CHIPS_ERR_PUT_CAP);
+    }
+
+    return reterr;
+}
+
+/**
+ * \brief Remove a capability from the capability store.
+ *
+ * \param key           String that identifies the capability
+ */
+errval_t nameservice_remove_capability(const char *key)
+{
+    errval_t reterr;
+    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+    if (r == NULL) {
+        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    }
+
+    errval_t err = r->vtbl.remove_cap(r, key, &reterr);
+    if(err_is_fail(err)) {
+        return err_push(err, CHIPS_ERR_REMOVE_CAP);
     }
 
     return reterr;

@@ -20,6 +20,7 @@
 #include <dist2/pubsub.h>
 #include <dist2/lock.h>
 #include <dist2/barrier.h>
+#include <dist2/semaphores.h>
 #include <dist2/trigger.h>
 
 #endif /* DIST2_H_ */
