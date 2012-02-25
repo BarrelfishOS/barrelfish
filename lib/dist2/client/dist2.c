@@ -38,6 +38,7 @@ static struct dist_state {
 
 static iref_t service_iref = 0;
 static uint64_t client_identifier = 0;
+static bool initialized = false;
 
 struct dist2_binding* dist_get_event_binding(void)
 {
@@ -206,11 +207,17 @@ errval_t dist_thc_init(void)
  * by libbarrelfish (used for nameservice). This function
  * will set up the event thread to handle asynchronous events.
  *
- * \note Call this before you call any dist2 functions that require
- * asynchronous callbacks (subscribe, get/set/del with triggers).
+ * \note This is a GCC constructor because we need dist2 calls in
+ * posixcompat.
  */
+//__attribute__((constructor))
 errval_t dist_init(void)
 {
+    if (initialized) {
+        return SYS_ERR_OK;
+    }
+    initialized = true;
+
     errval_t err = dist_thc_init();
     if (err_is_fail(err)) {
         return err;

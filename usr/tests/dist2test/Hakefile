@@ -21,6 +21,7 @@
                       flounderTHCStubs = [ "dist2" ],
                       addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
+
   
   build application { target = "d2trigger",
                       cFiles = [ "d2trigger.c" ],
@@ -46,7 +47,13 @@
                       flounderTHCStubs = [ "dist2" ],
                       addLibraries = [ "dist2", "dist_parser", "thc" ]
                     },
-
+                    
+  build application { target = "d2sem",
+                      cFiles = [ "d2sem.c" ],
+                      flounderTHCStubs = [ "dist2" ],
+                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                    },
+                    
   build application { target = "d2bench",
                       cFiles = [ "d2bench.c" ],
                       flounderBindings = [ "dist2" ],

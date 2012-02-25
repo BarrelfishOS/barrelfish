@@ -235,10 +235,9 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
         debug_skb_output(sqs);
 
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            DIST2_DEBUG("Goal failure during set record. Should not happen!\n");
-            assert(!"SKB_ERR_GOAL_FAILURE during set?");
-            // In case assertions are disabled we can just pass on the error
-            // however it may be better to introduce a dist2 error for this
+            /*DIST2_DEBUG("Goal failure during set record. Should not happen!\n");
+            assert(!"SKB_ERR_GOAL_FAILURE during set?");*/
+            err = err_push(err, DIST2_ERR_CONSTRAINT_MISMATCH);
         }
     }
 

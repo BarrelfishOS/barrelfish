@@ -150,10 +150,4 @@ interface dist2 "dist2 RPC Interface" {
     // Simple capability storage
     rpc get_cap(in string key, out cap retcap, out errval reterr);
     rpc put_cap(in string key, in cap storecap, out errval reterr);
-
-    // Shared-memory semaphores
-    rpc sem_new(in uint32 value, out uint32 sem, out errval reterr);
-    rpc sem_post(in uint32 sem);
-    rpc sem_wait(in uint32 sem);
-    rpc sem_trywait(in uint32 sem, out bool success);
 };
