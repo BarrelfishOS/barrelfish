@@ -104,10 +104,6 @@ static void trigger_send_handler(struct dist2_binding* b,
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
-    else {
-        debug_printf("send trigger to %p concerning %s\n", b, record);
-    }
-
 }
 
 static inline bool can_install_trigger(dist2_trigger_t trigger, errval_t error)
@@ -353,7 +349,7 @@ static void del_reply(struct dist2_binding* b, struct dist_reply_state* drs)
 
 void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
 {
-    printf(" del_handler: %s\n", query);
+    DIST2_DEBUG(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* drs = NULL;
@@ -402,16 +398,11 @@ static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
-    else {
-        debug_printf("sent exists call send response %p drs->error: %s watch_id: %lu\n", b, err_getcode(drs->error), drs->server_id);
-    }
 }
 
 void exists_handler(struct dist2_binding* b, char* query,
         dist2_trigger_t trigger)
 {
-    debug_printf("got exists %p %s\n", b, query);
-
     errval_t err = SYS_ERR_OK;
 
     struct dist_reply_state* drs = NULL;

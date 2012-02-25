@@ -75,7 +75,7 @@ static void subscriber(void)
     ASSERT_ERR_OK(err);
     debug_printf("id is: %lu\n", id2);
 
-    err = dist_subscribe(message_handler, &received, &id3, "_ { age: > %d }",
+    err = dist_subscribe(message_handler, &received, &id3, "_ { age > %d }",
             9);
     ASSERT_ERR_OK(err);
     debug_printf("id is: %lu\n", id3);

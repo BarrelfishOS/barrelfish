@@ -220,7 +220,6 @@ AcpiEnableSubsystem (
     UINT32                  Flags)
 {
     ACPI_STATUS             Status = AE_OK;
-    printf("AcpiEnableSubsystem 0\n");
 
     ACPI_FUNCTION_TRACE (AcpiEnableSubsystem);
 
@@ -230,20 +229,15 @@ AcpiEnableSubsystem (
     if (!(Flags & ACPI_NO_ACPI_ENABLE))
     {
         ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "[Init] Going into ACPI mode\n"));
-        printf("AcpiEnableSubsystem 0.1\n");
 
         AcpiGbl_OriginalMode = AcpiHwGetMode();
-        printf("AcpiEnableSubsystem 0.2\n");
         Status = AcpiEnable ();
-        printf("AcpiEnableSubsystem 0.3\n");
         if (ACPI_FAILURE (Status))
         {
-            printf("AcpiEnableSubsystem 0.4\n");
             ACPI_WARNING ((AE_INFO, "AcpiEnable failed"));
             return_ACPI_STATUS (Status);
         }
     }
-    printf("AcpiEnableSubsystem 1\n");
     /*
      * Obtain a permanent mapping for the FACS. This is required for the
      * Global Lock and the Firmware Waking Vector
@@ -254,7 +248,6 @@ AcpiEnableSubsystem (
         ACPI_WARNING ((AE_INFO, "Could not map the FACS table"));
         return_ACPI_STATUS (Status);
     }
-    printf("AcpiEnableSubsystem 2\n");
     /*
      * Install the default OpRegion handlers.  These are installed unless
      * other handlers have already been installed via the
@@ -271,7 +264,6 @@ AcpiEnableSubsystem (
             return_ACPI_STATUS (Status);
         }
     }
-    printf("AcpiEnableSubsystem 4\n");
     /*
      * Initialize ACPI Event handling (Fixed and General Purpose)
      *
@@ -297,7 +289,6 @@ AcpiEnableSubsystem (
             return_ACPI_STATUS (Status);
         }
     }
-    printf("AcpiEnableSubsystem 4\n");
     /*
      * Install the SCI handler and Global Lock handler. This completes the
      * hardware initialization.
@@ -313,7 +304,6 @@ AcpiEnableSubsystem (
             return_ACPI_STATUS (Status);
         }
     }
-    printf("AcpiEnableSubsystem 5\n");
     return_ACPI_STATUS (Status);
 }
 

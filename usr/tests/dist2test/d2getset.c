@@ -100,7 +100,7 @@ static void get_records(void)
     ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
 
-    err = dist_get(&data, "_ { weight: >= 10, fl: > 11.0 }");
+    err = dist_get(&data, "_ { weight >= 10, fl > 11.0 }");
     ASSERT_ERR_OK(err);
     ASSERT_STRING(data, "object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
     free(data);
@@ -165,7 +165,7 @@ static void exist_records(void)
     err = dist_exists("recordDoesNotExist");
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
 
-    err = dist_exists("object3 { fl: > 10, weight: _ }");
+    err = dist_exists("object3 { fl > 10, weight: _ }");
     ASSERT_ERR_OK(err);
 }
 

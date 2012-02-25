@@ -476,7 +476,9 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
 
     return PFAIL;
 }
+
 void dist_rpc_enqueue_reply(struct dist2_binding *b, struct dist_reply_state* st);
+extern struct bitfield* trigger_ids;
 
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
 {
@@ -547,7 +549,9 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
             drs = drs_copy; // overwrite drs
         }
         else {
-            // TODO turn off trigger id
+            assert(trigger_ids != NULL);
+            DIST2_DEBUG("turn off trigger id: %lu\n", watch_id);
+            bitfield_off(trigger_ids, watch_id);
         }
 
         drs->mode = (retract) ? (action | DIST_REMOVED) : action;

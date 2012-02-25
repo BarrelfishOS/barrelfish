@@ -556,7 +556,6 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     errval_t err = dist_mset(SET_SEQUENTIAL, format,
             bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
             resources.maxbus, namebuf);
-    DEBUG_ERR(err, "dist mset");
     assert(err_is_ok(err));
     // end
 

@@ -80,13 +80,12 @@ int main(int argc, char *argv[])
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
     ASSERT_STRING(output, "obj3 { attr: 3 }");
-    assert(tid > 0);
     debug_printf("tid is: %lu\n", tid);
     free(output);
 
     dist_del("obj3");
     while (received != 1) {
-        // busy waiting
+        messages_wait_and_handle_next();
     }
 
     received = 0;
@@ -99,7 +98,6 @@ int main(int argc, char *argv[])
             &tid, &error_code);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
-    assert(tid > 0);
     debug_printf("tid is: %lu\n", tid);
     ASSERT_STRING(output, "obj2 { attr: 2 }");
 

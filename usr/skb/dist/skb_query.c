@@ -36,7 +36,9 @@
 #define STDERR_QID 2
 
 static struct bitfield* subscriber_ids = NULL;
-static struct bitfield* trigger_ids = NULL;
+// XXX: This is global because we need to remove the id when we send the last
+// trigger in the external C predicate
+struct bitfield* trigger_ids = NULL;
 
 STATIC_ASSERT(sizeof(long int) >= sizeof(uintptr_t),
         "Storage for pointers in SKB must be big enough");

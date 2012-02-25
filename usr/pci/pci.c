@@ -370,7 +370,7 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         assert(err_is_ok(err));
         assert(err_is_ok(ret_error)); // FIXME
 //        printf("IRQ for this device is %d\n", irq);
-        DEBUG_ERR(err, "enable_and_route_interrupt");
+        //DEBUG_ERR(err, "enable_and_route_interrupt");
         pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
     }
 
@@ -1135,7 +1135,7 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
     err = cl->vtbl.set_device_irq(cl, ldev, irq, &error_code);
     assert(err_is_ok(err));
     if (err_is_fail(error_code)) {
-        DEBUG_ERR(error_code, "set device irq failed.");
+        //DEBUG_ERR(error_code, "set device irq failed.");
         return 0;
     }
 
