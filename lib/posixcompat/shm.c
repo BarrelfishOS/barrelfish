@@ -14,7 +14,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
+#include <dist2/init.h>
+#include <dist2/capability_storage.h>
 #include "fdtab.h"
 #include "posixcompat.h"
 
@@ -134,16 +135,17 @@ int shmget(key_t key, size_t size, int shmflg)
         char skey[128];
         snprintf(skey, 128, "%lu", key);
 
-        POSIXCOMPAT_DEBUG("nameservice get capability %s\n", skey);
+        POSIXCOMPAT_DEBUG("get capability %s\n", skey);
+        dist_init(); // XXX: do some posixcompat initialization
         // XXX: Not multi-processing safe!
-        errval_t err = nameservice_get_capability(skey, &s->frame);
-        POSIXCOMPAT_DEBUG("nameservice returned!\n");
+        errval_t err = dist_get_capability(skey, &s->frame);
+        POSIXCOMPAT_DEBUG("returned!\n");
 
-        if(err_is_fail(err) && err_no(err) != CHIPS_ERR_UNKNOWN_NAME) {
+        if(err_is_fail(err) && err_no(err) != DIST2_ERR_CAP_NAME_UNKNOWN) {
             USER_PANIC_ERR(err, "nameservice_get_capability");
         }
 
-        if(err == CHIPS_ERR_UNKNOWN_NAME) {
+        if(err == DIST2_ERR_CAP_NAME_UNKNOWN) {
             if(!(shmflg & IPC_CREAT)) {
                 errno = ENOENT;
                 return -1;
@@ -160,7 +162,7 @@ int shmget(key_t key, size_t size, int shmflg)
             }
 
             // XXX: This can fail if someone else won the race
-            err = nameservice_put_capability(skey, s->frame);
+            err = dist_put_capability(skey, s->frame);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "nameservice_put_capability");
             }
@@ -209,7 +211,8 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 
         // This can fail if someone else won the race, but
         // we don't really care, the key has been removed anyway
-        nameservice_remove_capability(skey);
+        dist_init();
+        dist_remove_capability(skey);
         s->used = false;
         break;
 

@@ -46,6 +46,11 @@ static const struct dist2_rx_vtbl rpc_rx_vtbl = {
 
         .get_identifier_call = get_identifier,
         .identify_call = identify_binding,
+
+        // Cap storage
+        .get_cap_call = get_cap_handler,
+        .put_cap_call = put_cap_handler,
+        .remove_cap_call = remove_cap_handler,
 };
 
 static void rpc_export_cb(void *st, errval_t err, iref_t iref)

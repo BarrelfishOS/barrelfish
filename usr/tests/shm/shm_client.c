@@ -11,6 +11,7 @@
 
 int main(int argc, char *argv[])
 {
+    dist_init();
     int shmid;
     key_t key;
     char *shm, *s;

@@ -5,10 +5,13 @@
  * Moved from chips in the coordination service in order
  * to get rid of chips. We don't store caps with our
  * get/set API because there is currently no good solution
- * to store caps in the SKB. Another problem is that
- * storing them in the SKB makes it easy for clients
- * to change the caprefs and corrupt the state on the
- * server.
+ * to store caps in the SKB:
+ * 1. It's easy for clients to change cap info in SKB and
+ *    the server does cap_delete() on the corrupted data
+ *    in case a capability is retrieved
+ * 2. In case we store it as records we may need to depend
+ *    on the implementation of caprefs.
+ *
  */
 
 /*
@@ -59,7 +62,7 @@ void get_cap_handler(struct dist2_binding *b, char *key)
     capdb->d.get_capability(&capdb->d, key, &cap);
 
     if(capcmp(cap, NULL_CAP)) {
-        reterr = CHIPS_ERR_UNKNOWN_NAME;
+        reterr = DIST2_ERR_CAP_NAME_UNKNOWN;
     }
 
     struct dist_reply_state* ns = NULL;
@@ -95,7 +98,7 @@ void put_cap_handler(struct dist2_binding *b, char *key,
 
     capdb->d.get_capability(&capdb->d, key, &dbcap);
     if(!capcmp(dbcap, NULL_CAP)) {
-        reterr = CHIPS_ERR_EXISTS;
+        reterr = DIST2_ERR_CAP_OVERWRITE;
         err = cap_delete(cap);
         assert(err_is_ok(err));
     } else {
@@ -134,7 +137,7 @@ void remove_cap_handler(struct dist2_binding *b, char *key)
     struct capref cap;
     capdb->d.get_capability(&capdb->d, key, &cap);
     if(capcmp(cap, NULL_CAP)) {
-        reterr = CHIPS_ERR_UNKNOWN_NAME;
+        reterr = DIST2_ERR_CAP_NAME_UNKNOWN;
     }
     else {
         cap_delete(cap);
