@@ -19,7 +19,7 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <dist2/init.h>
+#include <dist2/dist2.h>
 #include <skb/skb.h>
 
 #include "acpi_debug.h"
@@ -236,6 +236,16 @@ int main(int argc, char *argv[])
 
     int r = init_acpi();
     assert(r == 0);
+
+    // Signal device manager that we have added records for everything
+    // available to us at boot time.
+    char* record = NULL;
+    err = dist_barrier_enter("barrier.acpi", &record, 2);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not enter barrier.");
+    }
+    free(record);
+
 
     buttons_init();
 

@@ -11,7 +11,6 @@
  *    in case a capability is retrieved
  * 2. In case we store it as records we may need to depend
  *    on the implementation of caprefs.
- *
  */
 
 /*

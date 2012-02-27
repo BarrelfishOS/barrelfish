@@ -599,10 +599,9 @@ static int acpi_init(void)
     errval_t err = find_all_apics();
     assert(err_is_ok(err));
 
-    nameservice_register("signal_ioapic", 0); // TODO device mngr
+    nameservice_register("signal_ioapic", 0); // TODO(gz) device mngr
     err = connect_to_ioapic();
     assert(err_is_ok(err));
-
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {

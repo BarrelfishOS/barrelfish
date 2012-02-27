@@ -104,7 +104,7 @@ static void get_bootmodules(void)
 
 int main(int argc, const char *argv[])
 {
-    //errval_t err;
+    errval_t err;
 
     my_core_id = disp_get_core_id();
 
@@ -115,10 +115,10 @@ int main(int argc, const char *argv[])
     init_environ();
 
     // wait for spawnd boot to finish
-    /*err = nsb_wait(ALL_SPAWNDS_UP);
+    err = nsb_wait(ALL_SPAWNDS_UP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed ns barrier wait for %s", ALL_SPAWNDS_UP);
-    }*/
+    }
     // debug_printf("got \"%s\", continuing\n", ALL_SPAWNDS_UP);
 
     // XXX: wait for spawnd on same core to register itself
