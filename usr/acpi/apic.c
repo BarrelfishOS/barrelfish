@@ -64,9 +64,8 @@ errval_t find_all_apics(void)
                    s->ProcessorId, s->Id,
                    s->LapicFlags & ACPI_MADT_ENABLED);
 
-            errval_t err = dist_mset(SET_SEQUENTIAL,
-                                     "hw.apic. { cpu_id: %d, id: %d, enabled: %d }",
-                                     s->ProcessorId, s->Id,
+            errval_t err = dist_set("hw.apic.%d { cpu_id: %d, id: %d, enabled: %d }",
+                                     s->Id, s->ProcessorId, s->Id,
                                      s->LapicFlags & ACPI_MADT_ENABLED);
             assert(err_is_ok(err));
         }
