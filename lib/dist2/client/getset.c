@@ -108,6 +108,7 @@ errval_t dist_parse_names(char* input, char*** names, size_t* len)
             break;
         }
     }
+    qsort(*names, *len, sizeof(char*), cmpstringp);
 
 out:
     return err;
@@ -154,7 +155,7 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
 
     if (err_is_ok(err)) {
         err = dist_parse_names(data, names, len);
-        qsort(*names, *len, sizeof(char*), cmpstringp);
+        //qsort(*names, *len, sizeof(char*), cmpstringp);
     }
 
     free(buf);
