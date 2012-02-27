@@ -138,8 +138,12 @@ static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
             goto out;
         }
 
-        static uint64_t core_id = 1;
-        if (arch_id != BSP_CORE_ID && enabled) {
+        // Lowest cpu_id on intel is 1 but on AMD it's 0
+        // so we can't really use this to enumerate cores...
+        assert(my_core_id == 0);
+        static coreid_t core_id = 1;
+
+        if (arch_id != my_arch_id && enabled) {
             struct monitor_binding* mb = get_monitor_binding();
 
             struct mon_msg_state* mms = NULL;
@@ -153,7 +157,7 @@ static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
             // XXX: copied this line from spawnd bsp_bootup,
             // not sure why x86_64 is hardcoded here but this
             // seems broken...
-            skb_add_fact("corename(%lu, x86_64, apic(%lu)).",
+            skb_add_fact("corename(%d, x86_64, apic(%lu)).",
                     core_id, arch_id);
         }
 

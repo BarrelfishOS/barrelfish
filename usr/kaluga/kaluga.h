@@ -17,6 +17,9 @@
 #define TRIGGER_ALWAYS (DIST_PERSIST | DIST_ON_SET | DIST_ON_DEL | DIST_ALWAYS_SET)
 #define BSP_CORE_ID 0
 
+extern coreid_t my_core_id;
+extern uint32_t my_arch_id;
+
 errval_t watch_for_cores(void);
 
 #endif /* KALUGA_H_ */

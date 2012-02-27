@@ -32,7 +32,8 @@
 
 #include "kaluga.h"
 
-
+coreid_t my_core_id = 0; // Core ID
+uint32_t my_arch_id = 0; // APIC ID
 
 errval_t watch_for_pci_devices(void);
 errval_t watch_for_pci_devices(void)
@@ -78,6 +79,16 @@ errval_t watch_for_pci_devices(void)
     return err;
 }
 
+static void parse_arguments(int argc, char** argv)
+{
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "apicid=", sizeof("apicid")) == 0) {
+            my_arch_id = strtol(argv[i] + sizeof("apicid"), NULL, 10);
+        } else if(!strcmp(argv[i],"boot")) {
+            // ignored
+        }
+    }
+}
 
 static inline errval_t wait_for_pci(void)
 {
@@ -91,11 +102,11 @@ int main(int argc, char** argv)
     char* record = NULL;
 
     coreid_t my_core_id = disp_get_core_id();
-    KALUGA_DEBUG("my_core_id is: %d\n", my_core_id);
+    parse_arguments();
 
     // We need to run on core 0
     // (we are responsible for booting all the other cores)
-    assert(disp_get_core_id() == BSP_CORE_ID);
+    assert(my_core_id == BSP_CORE_ID);
     printf("Kaluga running.\n");
 
     err = skb_client_connect();
