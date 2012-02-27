@@ -168,7 +168,7 @@ void remove_trigger_handler(struct dist2_binding *b, dist2_trigger_id_t tid)
     drs->reply(b, drs);
 }
 
-static inline void arrival_rate(void)
+/*static inline void arrival_rate(void)
 {
     static cycles_t measure_time = 10000;
     static uint64_t arrivals = 0;
@@ -179,7 +179,7 @@ static inline void arrival_rate(void)
         start = bench_tsc();
         arrivals = 0;
     }
-}
+}*/
 
 static void get_reply(struct dist2_binding* b, struct dist_reply_state* drt)
 {
@@ -220,8 +220,6 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 out:
     drs->error = err;
     drs->reply(b, drs);
-
-    arrival_rate();
 
     free_ast(ast);
     free(query);

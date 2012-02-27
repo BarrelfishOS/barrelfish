@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>
 #include <errors/errno.h>
 
 #include <barrelfish/barrelfish.h>
@@ -102,7 +103,7 @@ int main(int argc, char** argv)
     char* record = NULL;
 
     coreid_t my_core_id = disp_get_core_id();
-    parse_arguments();
+    parse_arguments(argc, argv);
 
     // We need to run on core 0
     // (we are responsible for booting all the other cores)
