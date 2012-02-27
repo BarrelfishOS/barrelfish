@@ -90,6 +90,9 @@ int main(int argc, char** argv)
     errval_t err;
     char* record = NULL;
 
+    coreid_t my_core_id = disp_get_core_id();
+    KALUGA_DEBUG("my_core_id is: %d\n", my_core_id);
+
     // We need to run on core 0
     // (we are responsible for booting all the other cores)
     assert(disp_get_core_id() == BSP_CORE_ID);

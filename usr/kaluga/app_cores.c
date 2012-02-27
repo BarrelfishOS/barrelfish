@@ -182,13 +182,13 @@ errval_t watch_for_cores(void) {
 
     // Get current cores registered in system
     struct dist2_thc_client_binding_t* rpc = dist_get_thc_client();
-    errval_t err = rpc->call_seq.get_names(rpc, "r'hw.apic.[0-9]+' { cpu_id: _, enabled: 1 }", t,
+    errval_t err = rpc->call_seq.get_names(rpc, "r'hw\\.apic\\.[0-9]+' { cpu_id: _, enabled: 1 }", t,
             &output, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }
     err = error_code;
-
+    KALUGA_DEBUG("get_names: %s\n", output);
     if (err_is_ok(err)) {
         err = dist_parse_names(output, &names, &len);
         if (err_is_fail(err)) {
@@ -197,6 +197,7 @@ errval_t watch_for_cores(void) {
         cores_on_boot = (coreid_t) len;
 
         for (size_t i=0; i < cores_on_boot; i++) {
+            KALUGA_DEBUG("get core record for name:%s\n", names[i]);
             err = dist_get(&core_record, names[i]);
 
             switch (err_no(err)) {
