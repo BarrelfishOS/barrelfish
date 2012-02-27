@@ -18,19 +18,34 @@
 #include "monitor.h"
 #include <trace/trace.h>
 
+#define MIN(x,y) ((x<y) ? (x) : (y))
+#define MAX(x,y) ((x>y) ? (x) : (y))
+static bool* notification_sent = NULL;
+static bool* monitor_ready = NULL;
 static errval_t new_monitor_notify(coreid_t id)
 {
+    if (notification_sent == NULL) {
+        notification_sent = calloc(MAX_COREID*MAX_COREID, sizeof(bool));
+    }
+
     struct intermon_binding *b;
     errval_t err;
-
     // XXX: this is stupid...
-    for (int i = 0; i <= MAX_COREID; i++) {
+    // XXX: I changed this a bit to keep track of what cores are ready
+    // and who has gotten a notification, this allows to boot cores
+    // in parallel thus speeding up the boot process
+    for (int i = 0; i < MAX_COREID; i++) {
         if (i != my_core_id && i != id) {
+
+            coreid_t min = MIN(id, i);
+            coreid_t max = MAX(id, i);
+
             err = intermon_binding_get(i, &b);
-            if (err_is_ok(err)) {
+            if (err_is_ok(err) && !notification_sent[min*MAX_COREID+max] && monitor_ready[i]) {
                 while (1) {
                     err = b->tx_vtbl.new_monitor_notify(b, NOP_CONT, id);
                     if (err_is_ok(err)) {
+                        notification_sent[min*MAX_COREID+max] = true;
                         break;
                     }
                     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -51,10 +66,15 @@ static errval_t new_monitor_notify(coreid_t id)
  */
 static void monitor_initialized(struct intermon_binding *b)
 {
+    if (monitor_ready == NULL) {
+        monitor_ready = calloc(MAX_COREID, sizeof(bool));
+    }
+
     struct intermon_state *st = b->st;
     errval_t err;
 
     /* Inform other monitors of this new monitor */
+    monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
