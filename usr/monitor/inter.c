@@ -104,7 +104,7 @@ boot_core_reply_cont(struct monitor_binding *domain_binding,
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             boot_core_reply_enqueue(domain_binding, error_code);
         } else {
-            USER_PANIC_ERR(err, "error delivering cap to local dispatcher");
+            USER_PANIC_ERR(err, "error delivering boot_core_reply");
         }
     }
 }

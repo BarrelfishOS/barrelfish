@@ -77,6 +77,8 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
 
+    KALUGA_DEBUG("boot_core_reply: core_boot_replies=%d, cores_on_boot=%d\n", core_boot_replies+1, cores_on_boot);
+
     if (++core_boot_replies == cores_on_boot) {
         struct monitor_binding *mb = get_monitor_binding();
         struct mon_msg_state *mms = NULL;
