@@ -252,7 +252,9 @@ errval_t spawn_all_domains(void)
         }
 
         // Pass the local arch-specific core ID to the PCI and spawnd domains
-        if(strcmp(short_name, "pci") == 0 || strcmp(short_name, "spawnd") == 0
+        if(strcmp(short_name, "pci") == 0 
+           || strcmp(short_name, "spawnd") == 0
+           || strcmp(short_name, "kaluga") == 0
            || strcmp(short_name, "acpi") == 0
            || strcmp(short_name, "ioapic") == 0) {
             // Get hardware core ID
