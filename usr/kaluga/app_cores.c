@@ -105,7 +105,7 @@ static void send_boot_core_request(struct monitor_binding* b,
             "/x86_64/sbin/cpu loglevel=4");
 
     err = b->tx_vtbl.boot_core_request(b, NOP_CONT, mm->core_id, mm->arch_id,
-            CURRENT_CPU_TYPE, "/x86_64/sbin/cpu loglevel=4"); // TODO
+            CURRENT_CPU_TYPE, "/zgerd/x86_64/sbin/cpu loglevel=4"); // TODO
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -129,23 +129,24 @@ static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
     if (mode & DIST_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
 
-        uint64_t core_id, arch_id, enabled = 0;
+        uint64_t cpu_id, arch_id, enabled = 0;
         errval_t err = dist_read(record, "_ { cpu_id: %d, id: %d, enabled: %d }",
-                &core_id, &arch_id, &enabled);
+                &cpu_id, &arch_id, &enabled);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Cannot read record.");
             assert(!"Illformed core record received");
             goto out;
         }
 
-        if (core_id != BSP_CORE_ID && enabled) {
+        static uint64_t core_id = 1;
+        if (arch_id != BSP_CORE_ID && enabled) {
             struct monitor_binding* mb = get_monitor_binding();
 
             struct mon_msg_state* mms = NULL;
             err = new_mon_msg(&mms, send_boot_core_request);
             assert(err_is_ok(err));
-
-            mms->core_id = core_id;
+           
+            mms->core_id = core_id++;
             mms->arch_id = arch_id;
             mms->send(mb, mms);
 
@@ -181,7 +182,7 @@ errval_t watch_for_cores(void) {
 
     // Get current cores registered in system
     struct dist2_thc_client_binding_t* rpc = dist_get_thc_client();
-    errval_t err = rpc->call_seq.get_names(rpc, "r'hw.apic.[0-9]+' { cpu_id: _ }", t,
+    errval_t err = rpc->call_seq.get_names(rpc, "r'hw.apic.[0-9]+' { cpu_id: _, enabled: 1 }", t,
             &output, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
