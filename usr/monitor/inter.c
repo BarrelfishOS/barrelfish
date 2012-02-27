@@ -64,6 +64,60 @@ static errval_t new_monitor_notify(coreid_t id)
 /**
  * \brief A newly booted monitor indicates that it has initialized
  */
+
+static void boot_core_reply_handler(struct monitor_binding *b,
+                                    struct monitor_msg_queue_elem *e);
+
+struct boot_core_reply_state {
+    struct monitor_msg_queue_elem elem;
+    struct monitor_boot_core_reply__args args;
+};
+
+static void
+boot_core_reply_enqueue(struct monitor_binding *domain_binding,
+                            errval_t error_code)
+{
+    errval_t err;
+
+    struct boot_core_reply_state *me =
+        malloc(sizeof(struct boot_core_reply_state));
+    assert(me != NULL);
+    me->args.err = error_code;
+    me->elem.cont = boot_core_reply_handler;
+
+    struct monitor_state *st = domain_binding->st;
+    err = monitor_enqueue_send(domain_binding, &st->queue,
+                               get_default_waitset(), &me->elem.queue);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_enqueue_send failed");
+    }
+}
+
+static void
+boot_core_reply_cont(struct monitor_binding *domain_binding,
+                     errval_t error_code)
+{
+    errval_t err;
+    err = domain_binding->tx_vtbl.
+            boot_core_reply(domain_binding, NOP_CONT, error_code);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            boot_core_reply_enqueue(domain_binding, error_code);
+        } else {
+            USER_PANIC_ERR(err, "error delivering cap to local dispatcher");
+        }
+    }
+}
+
+static void boot_core_reply_handler(struct monitor_binding *b,
+                                    struct monitor_msg_queue_elem *e)
+{
+    struct boot_core_reply_state *st =
+        (struct boot_core_reply_state *)e;
+    boot_core_reply_cont(b, st->args.err);
+    free(e);
+}
+
 static void monitor_initialized(struct intermon_binding *b)
 {
     if (monitor_ready == NULL) {
@@ -82,10 +136,7 @@ static void monitor_initialized(struct intermon_binding *b)
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
-    errval_t err2 = client->tx_vtbl.boot_core_reply(client, NOP_CONT, err);
-    if (err_is_fail(err2)) {
-        USER_PANIC_ERR(err2, "sending boot_core_reply failed");
-    }
+    boot_core_reply_cont(client, err);
 }
 
 static void cap_receive_request_handler(struct monitor_binding *b,
