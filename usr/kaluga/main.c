@@ -34,8 +34,8 @@
 
 
 
-
-static errval_t watch_for_pci_devices(void)
+errval_t watch_for_pci_devices(void);
+errval_t watch_for_pci_devices(void)
 {
     char** names = NULL;
     size_t len = 0;
@@ -134,10 +134,11 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching PCI root complexes.");
     }*/
 
+    /*
     err = watch_for_pci_devices();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI devices.");
-    }
+    }*/
 
 
     messages_handler_loop();
