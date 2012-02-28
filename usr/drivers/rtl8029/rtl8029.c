@@ -174,8 +174,8 @@ static inline void write_page(uint8_t page, struct client_closure *cl,
 
     struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
 
-    for (int index = 0; index < rtpbuf; index++) {
-        sld = &spp->sp->slot_list[cl->tx_index + index].d;
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        sld = &spp->sp->slot_list[cl->tx_index + idx].d;
         assert(buffer->buffer_id == sld->buffer_id);
 
 #if defined(__i386__)

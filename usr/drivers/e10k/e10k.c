@@ -454,10 +454,10 @@ struct e10k_filter {
     uint16_t l4_type;
 };
 
-void e10k_flt_ftqf_setup(int index, int queue,
+void e10k_flt_ftqf_setup(int idx, int queue,
     struct e10k_filter* filter, int priority);
 
-void e10k_flt_ftqf_setup(int index, int queue,
+void e10k_flt_ftqf_setup(int idx, int queue,
     struct e10k_filter* filter, int priority)
 {
     uint16_t m = filter->mask;
@@ -465,13 +465,13 @@ void e10k_flt_ftqf_setup(int index, int queue,
 
     // Write filter data
     if (!(m & MASK_SRCIP))
-        e10k_saqf_wr(d, index, htonl(filter->src_ip));
+        e10k_saqf_wr(d, idx, htonl(filter->src_ip));
     if (!(m & MASK_DSTIP))
-        e10k_daqf_wr(d, index, htonl(filter->dst_ip));
+        e10k_daqf_wr(d, idx, htonl(filter->dst_ip));
     if (!(m & MASK_SRCPORT))
-        e10k_sdpqf_src_port_wrf(d, index, htons(filter->src_port));
+        e10k_sdpqf_src_port_wrf(d, idx, htons(filter->src_port));
     if (!(m & MASK_DSTPORT))
-        e10k_sdpqf_dst_port_wrf(d, index, htons(filter->dst_port));
+        e10k_sdpqf_dst_port_wrf(d, idx, htons(filter->dst_port));
     if (!(m & MASK_L4PROTO)) {
         switch (filter->l4_type) {
             case L4_OTHER:  p = e10k_l4other; break;
@@ -480,21 +480,21 @@ void e10k_flt_ftqf_setup(int index, int queue,
             case L4_SCTP:   p = e10k_l4sctp; break;
             default: assert(0);
         }
-        e10k_ftqf_protocol_wrf(d, index, p);
+        e10k_ftqf_protocol_wrf(d, idx, p);
     }
 
     // Write mask bits
-    e10k_ftqf_m_srcaddr_wrf(d, index, !!(m & MASK_SRCIP));
-    e10k_ftqf_m_dstaddr_wrf(d, index, !!(m & MASK_DSTIP));
-    e10k_ftqf_m_srcport_wrf(d, index, !!(m & MASK_SRCPORT));
-    e10k_ftqf_m_dstport_wrf(d, index, !!(m & MASK_DSTPORT));
-    e10k_ftqf_m_protocol_wrf(d, index, !!(m & MASK_L4PROTO));
+    e10k_ftqf_m_srcaddr_wrf(d, idx, !!(m & MASK_SRCIP));
+    e10k_ftqf_m_dstaddr_wrf(d, idx, !!(m & MASK_DSTIP));
+    e10k_ftqf_m_srcport_wrf(d, idx, !!(m & MASK_SRCPORT));
+    e10k_ftqf_m_dstport_wrf(d, idx, !!(m & MASK_DSTPORT));
+    e10k_ftqf_m_protocol_wrf(d, idx, !!(m & MASK_L4PROTO));
 
     // Configure destination queue and enable filter
-    e10k_l34timir_rx_queue_wrf(d, index, queue);
-    e10k_ftqf_priority_wrf(d, index, priority);
-    e10k_ftqf_pool_mask_wrf(d, index, 1);
-    e10k_ftqf_queue_en_wrf(d, index, 1);
+    e10k_l34timir_rx_queue_wrf(d, idx, queue);
+    e10k_ftqf_priority_wrf(d, idx, priority);
+    e10k_ftqf_pool_mask_wrf(d, idx, 1);
+    e10k_ftqf_queue_en_wrf(d, idx, 1);
 }
 
 static void stop_device(void)

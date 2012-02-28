@@ -530,7 +530,7 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t idx)
 bool sp_increment_write_index(struct shared_pool_private *spp)
 {
     sp_reload_regs(spp);
-    uint64_t index = ((spp->c_write_id + 1) % spp->c_size);
+    uint64_t idx = ((spp->c_write_id + 1) % spp->c_size);
 
     if (sp_queue_empty(spp)) {
         // Consumer is assuming that there is no data in the pool
@@ -541,8 +541,8 @@ bool sp_increment_write_index(struct shared_pool_private *spp)
     }
 
 
-    sp_atomic_set_reg(&spp->sp->write_reg, index);
-    spp->c_write_id = index;
+    sp_atomic_set_reg(&spp->sp->write_reg, idx);
+    spp->c_write_id = idx;
 
      if (sp_queue_full(spp)) {
         // There no free space left to create new items.
