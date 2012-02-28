@@ -67,7 +67,7 @@ static uint32_t calibrate_apic_timer_rtc(void)
     assert(curcount != 0);
 
     uint32_t tps = UINT32_MAX - curcount;
-    printk(LOG_NOTE, "Measured %d APIC timer counts in one RTC second, "
+    printk(LOG_NOTE, "Measured %"PRIu32" APIC timer counts in one RTC second, "
            "%d data points.\n", tps, reads);
 
     return tps;

@@ -197,7 +197,7 @@ void arch_init(uint32_t     board_id,
         serial_console_init(serial_console_port);
 
         // do not remove/change this printf: needed by regression harness
-        printf("Barrelfish CPU driver starting on ARMv5 Board id 0x%08x\n",
+        printf("Barrelfish CPU driver starting on ARMv5 Board id 0x%08"PRIx32"\n",
                board_id);
         printf("The address of paging_map_kernel_section is %p\n", 
                paging_map_kernel_section);
@@ -207,9 +207,9 @@ void arch_init(uint32_t     board_id,
             printf("Failed to initialize debug port: %d", serial_debug_port);
         }
 
-        debug(SUBSYS_STARTUP, "alloc_top %08x %08x\n",
+        debug(SUBSYS_STARTUP, "alloc_top %08"PRIxLVADDR" %08"PRIxLVADDR"\n",
                alloc_top, alloc_top - KERNEL_OFFSET);
-        debug(SUBSYS_STARTUP, "elf_file %08x\n", elf_file);
+        debug(SUBSYS_STARTUP, "elf_file %08"PRIxLVADDR"\n", elf_file);
 
         my_core_id = hal_get_cpu_id();
         
@@ -260,7 +260,7 @@ void arch_init(uint32_t     board_id,
         }
     }
     else {
-        panic("Mis-matched board id: [current %u, kernel %u]",
+        panic("Mis-matched board id: [current %"PRIu32", kernel %"PRIu32"]",
               board_id, hal_get_board_id());
     }
 }

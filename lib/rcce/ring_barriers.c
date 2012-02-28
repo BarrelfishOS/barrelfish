@@ -95,7 +95,7 @@ static void message_request(struct rcce_binding *st, uint16_t coreid,
     m->length = size;
     m->pending = true;
     m->bulk = false;
-    dprintf("%d: msg arrived, (%d, %zu)\n", my_core_id, coreid, size);
+    dprintf("%d: msg arrived, (%d, %lu)\n", my_core_id, coreid, size);
 }
 
 #ifdef BULK_TRANSFER_ENABLED
@@ -112,7 +112,7 @@ static void bulk_message_request(struct rcce_binding *b, uint16_t coreid,
     size_t copysize = last_fragment ? size - m->current : BLOCK_SIZE;
 
     char *bf = buf;
-    /* printf("current = %zu, msg[0] = %d (%p), buf[0] = %d (%p), size = %llu, copysize = %zu\n", */
+    /* printf("current = %lu, msg[0] = %d (%p), buf[0] = %d (%p), size = %llu, copysize = %lu\n", */
     /*        m->current, m->msg[0], m->msg, bf[0], buf, size, copysize); */
     /* for(int i = 0; i < 64; i++) { */
     /*     printf("%d ", bf[i]); */
@@ -202,13 +202,13 @@ errval_t send_message(char *msg, size_t size, coreid_t dest)
         get_dispatcher_shared_generic(handle);
 #endif
 
-    dprintf("%d: S(%zd,%d,%p,%d)\n", my_core_id, size, dest, st, st->waitmsg);
+    dprintf("%d: S(%lu,%d,%p,%d)\n", my_core_id, size, dest, st, st->waitmsg);
 
 #ifdef BULK_TRANSFER_ENABLED
     // XXX: Assert we can always send a big buffer as bulk data for performance
     // reasons
     if(size > BLOCK_SIZE) {
-        /* printf("size = %zu, BLOCK_SIZE = %u\n", size, BLOCK_SIZE); */
+        /* printf("size = %lu, BLOCK_SIZE = %u\n", size, BLOCK_SIZE); */
     }
     //    assert(size <= BLOCK_SIZE);
 #endif
@@ -255,7 +255,7 @@ errval_t send_message(char *msg, size_t size, coreid_t dest)
 
         memcpy(buf, msg + i, sendsize);
         char *bf = buf;
-        /* printf("send to %p (%d), msg = %p, i = %zu, sendsize = %zu\n", buf, bf[0], msg, i, sendsize); */
+        /* printf("send to %p (%d), msg = %p, i = %lu, sendsize = %lu\n", buf, bf[0], msg, i, sendsize); */
         uintptr_t id = bulk_prepare_send(bb);
         st->bulk_waitmsg = true;
         err = barray[dest]->tx_vtbl.

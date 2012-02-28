@@ -70,7 +70,7 @@
 /// Number of entries in page cnode
 #define PAGE_CNODE_SLOTS        (1UL << PAGE_CNODE_BITS)
 
-/// Remainder of guard size when subtracting bits from caddr_t bitsize
+/// Remainder of guard size when subtracting bits from capaddr_t bitsize
 #define GUARD_REMAINDER(bits)   (CPTR_BITS - (bits))
 
 /* Root CNode */

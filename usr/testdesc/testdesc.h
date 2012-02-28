@@ -14,7 +14,7 @@
 #ifndef __TESTDESC_H__
 #define __TESTDESC_H__
 
-/* This is posixcompat/fdtab.h */
+/* This is vfs/fdtab.h */
 #define MIN_FD  0
 #define MAX_FD  32
 

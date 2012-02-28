@@ -35,7 +35,7 @@ interface pci "The PCI Interface" {
                            out cap iocap);
 
     /* request the cap for a previously-initialised device */
-    rpc get_cap(in uint32 index, in uint32 cap_nr,
+    rpc get_cap(in uint32 idx, in uint32 cap_nr,
                 out errval err, out cap cap, out uint8 type);
 
     /* Kludge: retrieve frame cap to VBE BIOS */

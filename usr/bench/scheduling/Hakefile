@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 let template = application { 
-      addLibraries = [ "c", "bench" ],
+      addLibraries = [ "bench" ],
       architectures = [ "x86_64" ]
       }
 in
@@ -21,7 +21,7 @@ in
     build application {
                 target = "placement_bench",
                 cFiles = [ "placement.c" ],
-                addLibraries = [ "c", "bench", "rcce" ],
+                addLibraries = [ "bench", "rcce" ],
                 architectures = [ "x86_64" ]
               }
   ]

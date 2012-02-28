@@ -1688,7 +1688,7 @@ static void share_common_memory_with_filter_manager(void)
 
     NETD_DEBUG("#### netd: SCMWFM: started\n");
 
-    NETD_DEBUG("##### netd: SCMWFM: allocating %zu bytes of memory.\n", size);
+    NETD_DEBUG("##### netd: SCMWFM: allocating %lu bytes of memory.\n", size);
 
 #if defined(__scc__) && !defined(RCK_EMU)
     err = bulk_create(total_size, size, &frame, &bt_filter_tx, true);

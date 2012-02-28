@@ -17,6 +17,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <barrelfish/barrelfish.h>
+#include <limits.h>
 #include <trace/trace.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>

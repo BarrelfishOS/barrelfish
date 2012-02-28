@@ -30,11 +30,11 @@ struct retype_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint64_t new_type;
     uint8_t size_bits;
-    caddr_t to;
-    caddr_t slot; 
+    capaddr_t to;
+    capaddr_t slot; 
     int dcn_vbits;
 };
 
@@ -42,7 +42,7 @@ struct delete_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint8_t vbits;
 };
 
@@ -50,7 +50,7 @@ struct revoke_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint8_t vbits;
 };
 
@@ -73,8 +73,8 @@ static void remote_cap_revoke_phase_2(void * st_arg);
 
 static SAFEINLINE struct retype_st *
 alloc_retype_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint64_t new_type, uint8_t size_bits,
-                caddr_t to, caddr_t slot, int dcn_vbits)
+                capaddr_t src, uint64_t new_type, uint8_t size_bits,
+                capaddr_t to, capaddr_t slot, int dcn_vbits)
 {
     struct retype_st * st;
     if (static_retype_state_used) {
@@ -111,7 +111,7 @@ static void free_retype_st(struct retype_st * st)
 
 static SAFEINLINE struct delete_st *
 alloc_delete_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint8_t vbits)
+                capaddr_t src, uint8_t vbits)
 {
     struct delete_st * st;
     if (static_delete_state_used) {
@@ -145,7 +145,7 @@ static void free_delete_st(struct delete_st * st)
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
 static SAFEINLINE struct revoke_st *
 alloc_revoke_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint8_t vbits)
+                capaddr_t src, uint8_t vbits)
 {
     struct revoke_st * st;
     if (static_revoke_state_used) {
@@ -182,9 +182,9 @@ static void free_revoke_st(struct revoke_st * st)
 
 
 static void remote_cap_retype(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, 
+                              struct capref croot, capaddr_t src, 
                               uint64_t new_type, uint8_t size_bits,
-                              caddr_t to, caddr_t slot, int dcn_vbits) 
+                              capaddr_t to, capaddr_t slot, int32_t dcn_vbits) 
 {
     errval_t err;
     bool has_descendants;
@@ -266,7 +266,7 @@ static void remote_cap_retype_phase_2(void * st_arg)
 
 
 static void remote_cap_delete(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t vbits)
 {
     errval_t err;
 
@@ -327,7 +327,7 @@ static void remote_cap_delete_phase_2(void * st_arg)
 
 
 static void remote_cap_revoke(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t vbits)
 {
     errval_t err;
     /* Save state for stackripped reply */

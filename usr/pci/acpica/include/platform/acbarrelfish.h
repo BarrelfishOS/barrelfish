@@ -30,8 +30,9 @@
 #define ACPI_GET_FUNCTION_NAME __FUNCTION__
 #endif
 
-extern int acpi_acquire_global_lock(unsigned int *lock);
-extern int acpi_release_global_lock(unsigned int *lock);
+#include <inttypes.h>
+extern int acpi_acquire_global_lock(uint32_t *lock);
+extern int acpi_release_global_lock(uint32_t *lock);
 
 #define ACPI_SYSTEM_XFACE
 #define ACPI_EXTERNAL_XFACE

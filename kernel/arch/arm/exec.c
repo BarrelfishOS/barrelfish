@@ -24,7 +24,7 @@
 static arch_registers_state_t upcall_state;
 
 static inline __attribute__((noreturn))
-void do_resume(uintptr_t* regs)
+void do_resume(uint32_t *regs)
 {
     STATIC_ASSERT(CPSR_REG ==  0, "");
     STATIC_ASSERT(R0_REG   ==  1, "");

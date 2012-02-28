@@ -39,7 +39,7 @@ static errval_t vbe_to_errval(uint32_t retval)
     if (retval == VBE_OK) {
         return SYS_ERR_OK;
     } else { // what do the error codes mean?
-        fprintf(stderr, "vbe: VBE BIOS call failed with code 0x%x\n", retval);
+        fprintf(stderr, "vbe: VBE BIOS call failed with code 0x%"PRIx32"\n", retval);
         return VBE_ERR_BIOS_CALL_FAILED;
     }
 }

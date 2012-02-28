@@ -17,11 +17,11 @@ let
     microbench = if Config.microbenchmarks then ["microbenchmarks.c"] else []
     timer = if Config.oneshot_timer then ["timer.c"] else []
     indep_cfiles = [ "gdb_stub.c", "capabilities.c", "dispatch.c",
-                     "mdb.c", scheduler, "memset.c", "memmove.c", "printf.c",
+                     scheduler, "memset.c", "memmove.c", "printf.c",
                      "startup.c", "stdlib.c", "string.c", "syscall.c",
-                     "wakeup.c" ] ++ microbench ++ timer
-    hamlet_cfile = "/capabilities/cap_predicates.c"
-    indep_libs = [ "getopt" ]
+                     "wakeup.c" ]
+                     ++ microbench ++ timer
+    indep_libs = [ "getopt", "mdb_kernel" ]
     mkrules arch arch_cfiles arch_sfiles mackerelFiles arch_libs arch_absolute_cfiles arch_absolute_sfiles realarch_cfiles realarch_sfiles = (
         let
             opts = kernelOptions arch
@@ -29,11 +29,10 @@ let
             in_realarch_dir f = ("arch" ./. arch) ./. f
             all_cfiles = indep_cfiles ++ (map in_arch_dir arch_cfiles) ++ arch_absolute_cfiles ++ (map in_realarch_dir realarch_cfiles)
             sfiles = (map in_realarch_dir realarch_sfiles) ++ (map in_arch_dir arch_sfiles) ++ arch_absolute_sfiles
-            objs = [ objectFilePath opts f | f <- (sfiles ++ all_cfiles ++ [hamlet_cfile]) ]
+            objs = [ objectFilePath opts f | f <- (sfiles ++ all_cfiles) ]
         in
             Rules ([
                 compileCFiles opts all_cfiles,
-                compileGeneratedCFile opts hamlet_cfile,
                 assembleSFiles opts sfiles,
                 linkKernel opts "cpu" objs (indep_libs ++ arch_libs),
                 Rule ( [ Str "OBJDUMP=objdump",

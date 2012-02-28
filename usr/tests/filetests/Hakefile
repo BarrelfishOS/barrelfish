@@ -11,12 +11,10 @@
 [
   build application { target = "fread_test",
                       cFiles = [ "fread_test.c" ],
-                      addLibraries = ["vfs" , "nfs" , "ahci" , "lwip",
-                      "contmng", "procon",  "timer" ]
+                      addLibraries = libDeps ["vfs"]
                     },
   build application { target = "fscanf_test",
                       cFiles = [ "fscanf_test.c" ],
-                      addLibraries = ["vfs" , "nfs" , "ahci" , "lwip",
-                      "contmng", "procon",  "timer" ]
+                      addLibraries = libDeps ["vfs"]
                     }
   ]

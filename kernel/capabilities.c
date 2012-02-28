@@ -23,7 +23,8 @@
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
-#include <mdb.h>
+#include <mdb/mdb.h>
+#include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 #include <wakeup.h>
 
@@ -559,7 +560,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
  *
  * \bug Handle rights
  */
-errval_t caps_lookup_slot(struct capability *cnode_cap, caddr_t cptr,
+errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights)
 {
     /* parameter checking */
@@ -595,11 +596,12 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, caddr_t cptr,
     }
 
     /* Guard-check (bit-mask of guard in cptr must match guard in cnode cap) */
-    caddr_t cptr_guard = (cptr >> (vbits - cnode_cap->u.cnode.guard_size))
+    capaddr_t cptr_guard = (cptr >> (vbits - cnode_cap->u.cnode.guard_size))
         & MASK(cnode_cap->u.cnode.guard_size);
     if (cptr_guard != cnode_cap->u.cnode.guard) {
         debug(SUBSYS_CAPS, "caps_lookup_slot: guard check failed\n"
-              "Computed guard = %x, Cnode guard = %x, bits = %u\n",
+              "Computed guard = %"PRIuCADDR", "
+              "Cnode guard = %"PRIxCADDR", bits = %u\n",
               cptr_guard, cnode_cap->u.cnode.guard,
               cnode_cap->u.cnode.guard_size);
         return SYS_ERR_GUARD_MISMATCH;
@@ -638,7 +640,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, caddr_t cptr,
 /**
  * Wrapper for caps_lookup_slot returning capability instead of cte.
  */
-errval_t caps_lookup_cap(struct capability *cnode_cap, caddr_t cptr,
+errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          uint8_t vbits, struct capability **ret, CapRights rights)
 {
     struct cte *ret_cte;
@@ -656,7 +658,7 @@ errval_t caps_lookup_cap(struct capability *cnode_cap, caddr_t cptr,
  * Used when sending capabilities across cores. The metadata is sent across
  * cores and the receiving monitor can create the new capability on its core.
  */
-errval_t caps_create_from_existing(struct capability *root, caddr_t cnode_cptr,
+errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
                                    int cnode_vbits, cslot_t dest_slot,
                                    struct capability *src)
 {
@@ -803,7 +805,9 @@ errval_t caps_retype(enum objtype type, size_t objbits,
     }
 
     /* Handle mapping */
-    insert_after(dest_cte, src_cte, numobjs);
+    for (size_t i = 0; i < numobjs; i++) {
+        mdb_insert(&dest_cte[i]);
+    }
 
     return SYS_ERR_OK;
 }
@@ -815,6 +819,7 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     if (!is_well_founded(src_type, dest_type)) {
         return SYS_ERR_INVALID_RETYPE;
     } else if (!is_revoked_first(src_cte, src_type)){
+        printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
         return SYS_ERR_REVOKE_FIRST;
 #ifndef RCAPDB_NULL
     } else if (!from_monitor && is_cap_remote(src_cte)) {
@@ -869,7 +874,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
 
     // Handle mapping
-    insert_after(dest_cte, src_cte, 1);
+    mdb_insert(dest_cte);
 
     /* Copy is done */
     if(!mint) {
@@ -986,8 +991,6 @@ static void delete_cnode_or_dcb(struct capability *cap, bool from_monitor)
 errval_t caps_delete(struct cte *cte, bool from_monitor)
 {
     assert(cte != NULL);
-    assert(cte->mdbnode.next != NULL);
-    assert(cte->mdbnode.prev != NULL);
 
 #ifndef RCAPDB_NULL
     if (!from_monitor && is_cap_remote(cte) && !has_copies(cte)) {
@@ -1075,8 +1078,6 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
 errval_t caps_revoke(struct cte *cte, bool from_monitor)
 {
     assert(cte != NULL);
-    assert(cte->mdbnode.next != NULL);
-    assert(cte->mdbnode.prev != NULL);
 
 #ifndef RCAPDB_NULL
     if (!from_monitor && is_cap_remote(cte)) {
@@ -1087,9 +1088,9 @@ errval_t caps_revoke(struct cte *cte, bool from_monitor)
     struct cte *walk;
     errval_t err = SYS_ERR_OK;
     // Traverse forward
-    walk = cte->mdbnode.next;
-    while(walk != cte && err_is_ok(err)) {
-        struct cte *next = walk->mdbnode.next;
+    walk = mdb_successor(cte);
+    while(walk && walk != cte && err_is_ok(err)) {
+        struct cte *next = mdb_successor(walk);
         if (is_ancestor(&walk->cap, &cte->cap)) {
             err = caps_delete(walk, from_monitor);
         } else if(is_copy(&walk->cap, &cte->cap)) {
@@ -1101,9 +1102,9 @@ errval_t caps_revoke(struct cte *cte, bool from_monitor)
     }
 
     // Traverse backwards
-    walk = cte->mdbnode.prev;
-    while(walk != cte && err_is_ok(err)) {
-        struct cte *prev = walk->mdbnode.prev;
+    walk = mdb_predecessor(cte);
+    while(walk && walk != cte && err_is_ok(err)) {
+        struct cte *prev = mdb_predecessor(walk);
         if (is_ancestor(&walk->cap, &cte->cap)) {
             err = caps_delete(walk, from_monitor);
         } else if(is_copy(&walk->cap, &cte->cap)) {

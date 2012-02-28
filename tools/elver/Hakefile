@@ -19,7 +19,7 @@ let arch = "x86_64"
     opts = (options arch) { 
              optFlags = [ Str s | s <- [ "-fno-builtin",
                                            "-nostdinc",
-                                           "-std=c99",
+                                           "-std=gnu99",
                                            "-m32",
                                            "-mno-red-zone",
                                            "-fPIE",
@@ -37,6 +37,8 @@ let arch = "x86_64"
                           ++ [ Str "-imacros",
                                NoDep SrcTree "src" "/include/deputy/nodeputy.h" ],
              optIncludes = [ NoDep SrcTree "src" "/include",
+                             NoDep SrcTree "src" "/include/oldc", 
+                             NoDep SrcTree "src" "/include/c", 
                              NoDep SrcTree "src" "/include/arch/x86_32",
                              NoDep BuildTree arch "/include" ],
              optDefines = [],

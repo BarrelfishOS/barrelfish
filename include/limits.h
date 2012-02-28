@@ -97,7 +97,21 @@
 #define	MQ_PRIO_MAX	64
 #endif
 
-#define MB_LEN_MAX      16      // XXX: Bogus value
+# ifdef _MB_LEN_MAX
+#  define MB_LEN_MAX  _MB_LEN_MAX
+# else
+#  define MB_LEN_MAX    16    // XXX: Bogus value
+# endif
+
+/* Minimum and maximum values a `signed long long int' can hold.  */
+#undef LONG_LONG_MIN
+#define LONG_LONG_MIN (-LONG_LONG_MAX - 1LL)
+#undef LONG_LONG_MAX
+#define LONG_LONG_MAX __LONG_LONG_MAX__
+
+/* Maximum value an `unsigned long long int' can hold.  (Minimum is 0).  */
+#undef ULONG_LONG_MAX
+#define ULONG_LONG_MAX (LONG_LONG_MAX * 2ULL + 1ULL)
 
 // Barrelfish addition
 // I'm not sure where this belongs, but limits.h must provide it -AB

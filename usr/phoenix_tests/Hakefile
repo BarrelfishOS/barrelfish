@@ -18,7 +18,7 @@ let template = application {
                                "-Wno-implicit-function-declaration", 
                                "-Wno-aggregate-return" ],
     	         addIncludes = [ "/lib/phoenix" ],
-                 addLibraries = [ "phoenix", "c" ],
+                 addLibraries = [ "phoenix" ],
                  architectures = [ "x86_64" ]
                }
 

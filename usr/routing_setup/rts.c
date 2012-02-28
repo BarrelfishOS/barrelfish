@@ -68,7 +68,7 @@ static void route_ring(void)
 {
     errval_t err;
     char *result, *str_err;
-    int int_err;
+    int32_t int_err;
 
     // get the number of cores from SKB
     err = skb_evaluate("available_nr_cores(Nr),write(Nr).", &result,
@@ -98,7 +98,7 @@ static void route_fat_tree(void)
 {
     errval_t err;
     char *result, *str_err;
-    int int_err;
+    int32_t int_err;
 
     // get the number of cores from SKB
     err = skb_evaluate("available_nr_cores(Nr),write(Nr).", &result,

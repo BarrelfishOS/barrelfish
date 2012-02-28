@@ -23,7 +23,7 @@ import qualified CAbsSyntax as C
 
 
 -- handle printing of error values
-ahci_err_fmt = C.NStr "PRIxPTR"
+ahci_err_fmt = C.NStr "PRIxERRV"
 ahci_printf_error msg err = C.Ex $ C.Call "printf" [fmt, err]
     where fmt = C.StringCat [C.QStr (msg ++ ": 0x%"), ahci_err_fmt, C.QStr "\n"]
 

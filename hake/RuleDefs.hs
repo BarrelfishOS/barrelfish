@@ -115,6 +115,8 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/kernel/include",
                     "/include",
                     "/include/arch" ./. archFamily arch,
+                    Config.libcInc,
+                    "/include/c",
                     "/include/target" ./. archFamily arch]]
 
 kernelOptions arch = Options { 
@@ -228,14 +230,14 @@ assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
-archive :: Options -> [String] -> String -> [ RuleToken ]
-archive opts objs libname
-    | optArch opts == "x86_64"  = X86_64.archive opts objs libname
-    | optArch opts == "x86_32"  = X86_32.archive opts objs libname
-    | optArch opts == "scc"     = SCC.archive opts objs libname
-    | optArch opts == "arm"     = ARM.archive opts objs libname
-    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libname
-    | optArch opts == "xscale" = XScale.archive opts objs libname
+archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
+archive opts objs libs name libname
+    | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
+    | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
+    | optArch opts == "scc"     = SCC.archive opts objs libs name libname
+    | optArch opts == "arm"     = ARM.archive opts objs libs name libname
+    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
+    | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -354,9 +356,9 @@ assemble opts src =
 --
 -- Create a library from a set of object files
 --
-archiveLibrary :: Options -> String -> [String] -> [ RuleToken ]
-archiveLibrary opts name objs =
-    archive opts objs (libraryPath name)
+archiveLibrary :: Options -> String -> [String] -> [String] -> [ RuleToken ]
+archiveLibrary opts name objs libs =
+    archive opts objs libs name (libraryPath name)
 
 --
 -- Link an executable
@@ -670,6 +672,7 @@ hamletFile opts file =
         cfile = "cap_predicates.c"
         usercfile = "user_cap_predicates.c"
         ofile = "user_cap_predicates.o"
+        nfile = "cap_predicates"
         afile = "/lib/libcap_predicates.a"
     in
       Rules [ Rule [In InstallTree "tools" "/bin/hamlet",
@@ -678,7 +681,7 @@ hamletFile opts file =
                     Out arch cfile, 
                     Out arch usercfile ],
               compileGeneratedCFile opts usercfile,
-              Rule (archive opts [ ofile ] afile)
+              Rule (archive opts [ ofile ] [] nfile afile)
          ]
 
 --
@@ -731,9 +734,9 @@ assembleSFiles opts srcs = Rules [ assembleSFile opts s | s <- srcs ]
 --
 -- Archive a bunch of objects into a library
 --
-staticLibrary :: Options -> String -> [String] -> HRule
-staticLibrary opts libpath objs = 
-    Rule (archiveLibrary opts libpath objs)
+staticLibrary :: Options -> String -> [String] -> [String] -> HRule
+staticLibrary opts libpath objs libs =
+    Rule (archiveLibrary opts libpath objs libs)
 
 --
 -- Compile a Haskell binary (for the host architecture)
@@ -804,7 +807,7 @@ buildTechNoteWithDeps input output bib glo figs deps =
 ----------------------------------------------------------------------
    
 allObjectPaths :: Options -> Args.Args -> [String]
-allObjectPaths opts args = 
+allObjectPaths opts args =
     [objectFilePath opts g 
          | g <- (Args.cFiles args)++(Args.cxxFiles args)++(Args.assemblyFiles args)]
     ++ 
@@ -921,6 +924,63 @@ libBuildArch af tf args arch =
               [ compileCFiles opts csrcs,
                 compileCxxFiles opts cxxsrcs,
                 assembleSFiles opts (Args.assemblyFiles args),
-                staticLibrary opts (Args.target args) (allObjectPaths opts args)
+                staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths args)
               ]
             )
+
+--
+-- Library dependecies
+--
+
+-- The following code is under heavy construction, and also somewhat ugly
+data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
+
+-- manually add dependencies for now (it would be better if each library
+-- defined each own dependencies locally, but that does not seem to be an
+-- easy thing to do currently
+libposixcompat_deps = LibDeps $ [ LibDep x | x <- deps ]
+    where deps = ["vfsfd", "posixcompat"]
+liblwip_deps        = LibDeps $ [ LibDep x | x <- deps ]
+    where deps = ["lwip" ,"contmng" ,"procon" ,"timer" ,"hashtable"]
+libnet_deps         = LibDeps $ [liblwip_deps, libposixcompat_deps]
+libnfs_deps         = LibDeps $ [ LibDep "nfs", libnet_deps]
+
+-- we need to make vfs more modular to make this actually useful
+data VFSModules = VFS_RamFS | VFS_NFS
+vfsdeps :: [VFSModules] -> [LibDepTree]
+vfsdeps [] = [LibDep "vfs"]
+vfsdeps (VFS_RamFS:xs) = [] ++ vfsdeps xs
+vfsdeps (VFS_NFS:xs) =   [libnfs_deps] ++ vfsdeps xs
+
+libvfs_deps_all   = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS]
+libvfs_deps_nfs   = LibDeps $ vfsdeps [VFS_NFS]
+libvfs_deps_ramfs = LibDeps $ vfsdeps [VFS_RamFS]
+
+-- flatten the dependency tree
+flat :: [LibDepTree] -> [LibDepTree]
+flat [] = []
+flat ((LibDep  l):xs) = [LibDep l] ++ flat xs
+flat ((LibDeps t):xs) = flat t ++ flat xs
+
+str2dep :: String -> LibDepTree
+str2dep  str
+    | str == "vfs"         = libvfs_deps_all
+    | str == "posixcompat" = libposixcompat_deps
+    | str == "lwip"        = liblwip_deps
+    | str == "net"         = libnet_deps
+    | otherwise            = LibDep str
+
+-- get library depdencies
+--   we need a specific order for the .a, so we define a total order
+libDeps :: [String] -> [String]
+libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
+    where xord = [ "vfs"
+                  , "nfs"
+                  , "posixcompat"
+                  , "lwip"
+                  , "contmng"
+                  , "procon"
+                  , "vfsfd"
+                  , "timer"
+                  , "hashtable"]
+          xcmp (LibDep a) (LibDep b) = compare (elemIndex a xord) (elemIndex b xord)

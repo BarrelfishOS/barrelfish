@@ -95,7 +95,7 @@ static inline taskQ_t* tq_init_normal(int numThreads)
     int             i;
     taskQ_t         *tq = NULL;
 
-    tq = mem_calloc(1, sizeof(taskQ_t));
+    tq = phoenix_mem_calloc(1, sizeof(taskQ_t));
     if (tq == NULL) {
         return NULL;
     }
@@ -108,17 +108,17 @@ static inline taskQ_t* tq_init_normal(int numThreads)
     if (tq->num_queues == 0)
         tq->num_queues = 1;
 
-    tq->queues = (queue_t **)mem_calloc (tq->num_queues, sizeof (queue_t *));
+    tq->queues = (queue_t **)phoenix_mem_calloc (tq->num_queues, sizeof (queue_t *));
     if (tq->queues == NULL) goto fail_queues;
 
-    tq->free_queues = (queue_t **)mem_calloc (
+    tq->free_queues = (queue_t **)phoenix_mem_calloc (
         tq->num_queues, sizeof (queue_t *));
     if (tq->free_queues == NULL) goto fail_free_queues;
 
-    tq->locks = (tq_lock_t *)mem_calloc (tq->num_queues, sizeof (tq_lock_t));
+    tq->locks = (tq_lock_t *)phoenix_mem_calloc (tq->num_queues, sizeof (tq_lock_t));
     if (tq->locks == NULL) goto fail_locks;
 
-    tq->seeds = (unsigned int*)mem_calloc(
+    tq->seeds = (unsigned int*)phoenix_mem_calloc(
         tq->num_threads, sizeof(unsigned int));
     if (tq->seeds == NULL) goto fail_seeds;
     mem_memset(tq->seeds, 0, sizeof(unsigned int) * tq->num_threads);
@@ -136,15 +136,15 @@ fail_tq_init:
         tq_queue_destroy(tq, i);
         --i;
     }
-    mem_free(tq->seeds);
+    phoenix_mem_free(tq->seeds);
 fail_seeds:
-    mem_free(tq->locks);
+    phoenix_mem_free(tq->locks);
 fail_locks:
-    mem_free(tq->free_queues);
+    phoenix_mem_free(tq->free_queues);
 fail_free_queues:
-    mem_free(tq->queues);
+    phoenix_mem_free(tq->queues);
 fail_queues:
-    mem_free(tq);
+    phoenix_mem_free(tq);
     return NULL;
 }
 
@@ -175,7 +175,7 @@ static void tq_queue_destroy(taskQ_t* tq, unsigned int idx)
 
     lock_free (tq->locks[idx].parent);
 
-    mem_free (tq->locks[idx].per_thread);
+    phoenix_mem_free (tq->locks[idx].per_thread);
     tq->locks[idx].per_thread = NULL;
 }
 
@@ -197,7 +197,7 @@ static int tq_queue_init(taskQ_t* tq, unsigned int idx)
 
     tq->locks[idx].parent = lock_alloc();
 
-    tq->locks[idx].per_thread = (mr_lock_t *)mem_calloc(
+    tq->locks[idx].per_thread = (mr_lock_t *)phoenix_mem_calloc(
         tq->num_threads, sizeof(mr_lock_t));
     if (tq->locks[idx].per_thread == NULL) goto fail_priv_alloc;
 
@@ -230,7 +230,7 @@ static queue_t* tq_alloc_queue(void)
 {
     queue_t *q;
 
-    q = (queue_t*) mem_malloc (sizeof(queue_t));
+    q = (queue_t*) phoenix_mem_malloc (sizeof(queue_t));
     if (q == NULL) {
         return NULL;
     }
@@ -245,7 +245,7 @@ static queue_t* tq_alloc_queue(void)
  */
 static void tq_free_queue(queue_t* q)
 {
-    mem_free(q);
+    phoenix_mem_free(q);
 }
 
 /**
@@ -263,7 +263,7 @@ static void tq_empty_queue(queue_t* q)
 
         entry = queue_entry (queue_elem, tq_entry_t, queue_elem);
         assert (entry != NULL);
-        mem_free (entry);
+        phoenix_mem_free (entry);
     } while (1);
 }
 
@@ -281,13 +281,13 @@ static inline void tq_finalize_normal(taskQ_t* tq)
     }
 
     /* destroy all first level pointers in tq */
-    mem_free (tq->queues);
-    mem_free (tq->free_queues);
-    mem_free (tq->locks);
-    mem_free (tq->seeds);
+    phoenix_mem_free (tq->queues);
+    phoenix_mem_free (tq->free_queues);
+    phoenix_mem_free (tq->locks);
+    phoenix_mem_free (tq->seeds);
 
     /* finally kill tq */
-    mem_free (tq);
+    phoenix_mem_free (tq);
 }
 
 void tq_finalize (taskQ_t* tq)
@@ -307,7 +307,7 @@ int tq_enqueue (taskQ_t* tq, task_t *task, int lgrp, int tid)
     assert (tq != NULL);
     assert (task != NULL);
 
-    entry = (tq_entry_t *)mem_malloc (sizeof (tq_entry_t));
+    entry = (tq_entry_t *)phoenix_mem_malloc (sizeof (tq_entry_t));
     if (entry == NULL) {
         return -1;
     }
@@ -335,7 +335,7 @@ int tq_enqueue_seq (taskQ_t* tq, task_t *task, int lgrp)
 
     assert (task != NULL);
 
-    entry = (tq_entry_t *)mem_malloc (sizeof (tq_entry_t));
+    entry = (tq_entry_t *)phoenix_mem_malloc (sizeof (tq_entry_t));
     if (entry == NULL) {
         return -1;
     }

@@ -31,6 +31,16 @@ architectures :: [String]
 cOptFlags :: String
 cOptFlags = "-g -O2"
 
+-- Selects which libc to compile with, "oldc" or "newlib"
+libc :: String
+--libc = "oldc"
+libc = "newlib"
+
+newlib_malloc :: String
+--newlib_malloc = "sbrk"     -- use sbrk and newlib's malloc()
+--newlib_malloc = "dlmalloc" -- use dlmalloc
+newlib_malloc = "oldmalloc"
+
 -- Use a frame pointer
 use_fp :: Bool
 use_fp = True
@@ -228,8 +238,14 @@ defines = [ Str ("-D" ++ d) | d <- [
              if pse_paging then "CONFIG_PSE" else "",
              if nxe_paging then "CONFIG_NXE" else "",
              if rck_emu then "RCK_EMU" else "",
+             if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else ""
              ], d /= "" ]
+
+-- Sets the include path for the libc
+libcInc :: String
+libcInc = if libc == "oldc" then "/include/oldc"
+          else "/lib/newlib/newlib/libc/include"
 
 -- some defines depend on the architecture/compile options
 arch_defines :: Options -> [RuleToken]

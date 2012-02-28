@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "posixcompat.h"
-#include "fdtab.h"
+#include <vfs/fdtab.h>
 
 int fstat(int fd, struct stat *buf)
 {

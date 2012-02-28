@@ -212,12 +212,14 @@ typedef COMPILER_DEPENDENT_INT64        INT64;
  *
  ******************************************************************************/
 
+#include <stdint.h>
+
 #if ACPI_MACHINE_WIDTH == 64
 
 /*! [Begin] no source code translation (keep the typedefs as-is) */
 
-typedef unsigned int                    UINT32;
-typedef int                             INT32;
+typedef uint32_t                        UINT32;
+typedef int32_t                         INT32;
 
 /*! [End] no source code translation !*/
 
@@ -255,8 +257,8 @@ typedef UINT64                          ACPI_PHYSICAL_ADDRESS;
 
 /*! [Begin] no source code translation (keep the typedefs as-is) */
 
-typedef unsigned int                    UINT32;
-typedef int                             INT32;
+typedef uint32_t                        UINT32;
+typedef int32_t                         INT32;
 
 /*! [End] no source code translation !*/
 

@@ -37,18 +37,18 @@ static void get_start_handler(struct bcache_binding *b, char *key, size_t key_le
 {
     errval_t err;
     key_state_t ks;
-    uintptr_t index, length = 0;
+    uintptr_t idx, length = 0;
 
     assert(key > (char *)BASE_PAGE_SIZE);
 
-    ks = cache_lookup(key, key_len, &index, &length);
+    ks = cache_lookup(key, key_len, &idx, &length);
 
     if (ks == KEY_INTRANSIT) { // key is in transit: wait for it!
         free(key);
-        cache_register_wait(index, b);
+        cache_register_wait(idx, b);
         return; // get_start_response() will be called when key arrives
     } else if (ks == KEY_MISSING) {
-        index = cache_allocate(key, key_len);
+        idx = cache_allocate(key, key_len);
     } else if (ks == KEY_EXISTS) {
         free(key);
     } else {
@@ -57,20 +57,20 @@ static void get_start_handler(struct bcache_binding *b, char *key, size_t key_le
 
 #if 0
     // Block everyone if we have a write on this block
-    if(inwrite[index]) {
+    if(inwrite[idx]) {
         struct wait_list *w = malloc(sizeof(struct wait_list));
         w->b = b;
-        w->next = waiting[index];
-        waiting[index] = w;
+        w->next = waiting[idx];
+        waiting[idx] = w;
     }
 
     if(write) {
-        inwrite[index] = true;
+        inwrite[idx] = true;
     }
 #endif
 
     bool haveit = (ks == KEY_EXISTS);
-    err = b->tx_vtbl.get_start_response(b, NOP_CONT, index, haveit,
+    err = b->tx_vtbl.get_start_response(b, NOP_CONT, idx, haveit,
                                         haveit ? 1 : 0, length);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_start_response");
@@ -78,19 +78,19 @@ static void get_start_handler(struct bcache_binding *b, char *key, size_t key_le
 }
 
 static void get_stop_handler(struct bcache_binding *b, uint64_t transid,
-                             uint64_t index, uint64_t length)
+                             uint64_t idx, uint64_t length)
 {
     errval_t err;
 
     if(transid == 0) {
-        cache_update(index, length);
+        cache_update(idx, length);
     }
 
 #if 0
-    if(inwrite[index]) {
+    if(inwrite[idx]) {
         // Wake up all waiters
         
-        inwrite[index] = false;
+        inwrite[idx] = false;
     }
 #endif
 
@@ -103,9 +103,9 @@ static void get_stop_handler(struct bcache_binding *b, uint64_t transid,
     /* notify waiters */
     if (transid == 0) {
             struct bcache_binding *wb;
-            while ((wb = cache_get_next_waiter(index)) != NULL) {
-                uint64_t l = cache_get_block_length(index);
-                err = b->tx_vtbl.get_start_response(wb, NOP_CONT, index, true, 1, l);
+            while ((wb = cache_get_next_waiter(idx)) != NULL) {
+                uint64_t l = cache_get_block_length(idx);
+                err = b->tx_vtbl.get_start_response(wb, NOP_CONT, idx, true, 1, l);
                 if(err_is_fail(err)) {
                     USER_PANIC_ERR(err, "get_start_response");
                 }

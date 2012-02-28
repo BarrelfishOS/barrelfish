@@ -184,7 +184,7 @@ int init_all_apics(void)
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
 
-                skb_add_fact("apic(%d,%d,%d).",
+                skb_add_fact("apic(%d,%d,%"PRIu32").",
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
 
@@ -203,8 +203,8 @@ int init_all_apics(void)
                 PCI_DEBUG("Found I/O APIC: ID = %d, mem base = 0x%x, "
                        "INTI base = %d\n", s->Id, s->Address, s->GlobalIrqBase);
 
-                skb_add_fact("ioapic(%d,%u,%d).", s->Id, s->Address, s->GlobalIrqBase);
-                skb_add_fact("memory_region(%u,%u,%zu, %u,%u).",
+                skb_add_fact("ioapic(%d,%"PRIu32",%"PRIu32").", s->Id, s->Address, s->GlobalIrqBase);
+                skb_add_fact("memory_region(%"PRIu32",%u,%zu, %u,%u).",
                              s->Address,
                              BASE_PAGE_BITS, //as used elswhere in acpi.c
                              ((size_t)1) << BASE_PAGE_BITS, //as used elswhere in acpi.c
@@ -229,7 +229,7 @@ int init_all_apics(void)
                        "GSI = %d, flags = %x\n", s->Bus, s->SourceIrq,
                        s->GlobalIrq, s->IntiFlags);
 
-                skb_add_fact("interrupt_override(%d,%d,%d,%d).",
+                skb_add_fact("interrupt_override(%d,%d,%"PRIu32",%d).",
                             s->Bus, s->SourceIrq, s->GlobalIrq, s->IntiFlags);
 
                 // ACPI spec says these are only for ISA interrupts
@@ -344,7 +344,7 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
 
     // Resolve destination core ID to APIC ID
     char *result = NULL, *str_error = NULL, query[256];
-    int int_error = 0;
+    int32_t int_error = 0;
     int r = snprintf(query, 256, "corename(%d, _, apic(A)), write(A).", dest);
     assert(r >= 0 && r < 256);
     errval_t err = skb_evaluate(query, &result, &str_error, &int_error);

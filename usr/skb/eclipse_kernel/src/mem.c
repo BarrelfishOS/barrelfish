@@ -169,7 +169,7 @@ _unmap_at(char *addr,	/* page-aligned */
 	    ec_flush(current_err_);
 	}
 #endif
-	ad = mmap((caddr_t) addr, bytes, PROT_READ|PROT_WRITE,
+	ad = mmap((capaddr_t) addr, bytes, PROT_READ|PROT_WRITE,
 #ifdef MAP_ANONYMOUS
 	    MAP_FIXED|MAP_PRIVATE|MAP_NORESERVE|MAP_ANONYMOUS, -1,
 #else
@@ -178,7 +178,7 @@ _unmap_at(char *addr,	/* page-aligned */
 	    (off_t) 0);
 #else
 	/* remapping with PROT_NONE should free the swap space */
-	ad = mmap((caddr_t) addr, bytes, PROT_NONE,
+	ad = mmap((capaddr_t) addr, bytes, PROT_NONE,
 #ifdef MAP_ANONYMOUS
 	    MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, -1,
 #else
@@ -199,7 +199,7 @@ _unmap_at(char *addr,	/* page-aligned */
 	ec_panic("ALLOC_FIXED not supported","_map_at()");
 #else
 	char *ad;
-	ad = mmap((caddr_t) addr, bytes, PROT_NONE,
+	ad = mmap((capaddr_t) addr, bytes, PROT_NONE,
 #ifdef MAP_ANONYMOUS
 	    MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, -1,
 #else
@@ -428,7 +428,7 @@ alloc_stack_pairs(int nstacks, char **names, uword *bytes, struct stack_struct *
 	    ec_panic("Cannot reserve stack space","alloc_stack_pairs()");
 #else
 #ifdef HAVE_MMAP
-    	stack_base = (uword *) mmap((caddr_t) 0,(size_t) bytes_allocated,
+    	stack_base = (uword *) mmap((capaddr_t) 0,(size_t) bytes_allocated,
 #ifdef HAVE_MAP_NORESERVE
 		    PROT_READ|PROT_WRITE,
 #else
@@ -457,7 +457,7 @@ alloc_stack_pairs(int nstacks, char **names, uword *bytes, struct stack_struct *
 	    ec_panic("Cannot allocate stack space","alloc_stack_pairs()");
 #else
 #ifdef HAVE_MMAP
-    	stack_base = (uword *) mmap((caddr_t) 0,(size_t) bytes_allocated,
+    	stack_base = (uword *) mmap((capaddr_t) 0,(size_t) bytes_allocated,
 		    PROT_READ|PROT_WRITE,
 #ifdef MAP_ANONYMOUS
 		    MAP_PRIVATE|MAP_ANONYMOUS, -1,

@@ -28,6 +28,8 @@ void execute_string(char *string);
 
 int main(int argc, char**argv)
 {
+    vfs_init();
+    
     // we'll be needing this...
     vfs_mkdir("/tmp");
 

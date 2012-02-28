@@ -530,7 +530,7 @@ errval_t rcap_db_remote_revoke (struct capability * cap, coreid_t from_core)
 
     // perform revoke operation on this cap
     uint8_t vbits = get_cap_valid_bits(capref);
-    caddr_t caddr = get_cap_addr(capref) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(capref) >> (CPTR_BITS - vbits);
     err = monitor_revoke_remote_cap(cap_root, caddr, vbits);
     assert(err_is_ok(err));
 

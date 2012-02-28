@@ -12,8 +12,7 @@
 
 [ build application { target = "fish",
   		      cFiles = [ "fish.c", "font.c" ],
-		      addLibraries = [ "vfs", "nfs", "ahci", "lwip",
-                      "contmng", "procon", "pci", "trace", "skb" ],
+		      addLibraries = libDeps ["trace", "skb", "pci", "vfs"],
   		      flounderBindings = [ "pixels" ]
                     }
 ]

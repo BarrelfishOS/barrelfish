@@ -77,7 +77,7 @@ void pic_set_irq_enabled(uint32_t irq, bool en)
             ixp2800_icp_pic0_IRQ_ENABLE_CLR_wr(&pic, m);
         }
     } else {
-        panic("Unknown IRQ source %u", irq);
+        panic("Unknown IRQ source %"PRIu32, irq);
     }
 }
 

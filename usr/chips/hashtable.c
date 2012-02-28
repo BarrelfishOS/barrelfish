@@ -298,7 +298,7 @@ static void ht_init(struct hashtable *_ht, int capacity, int load_factor)
     _ht->capacity = capacity;
     _ht->load_factor = load_factor;
     _ht->table_length = capacity;
-    _ht->entries = malloc(_ht->table_length * sizeof(struct _ht_entry));
+    _ht->entries = calloc(_ht->table_length, sizeof(struct _ht_entry));
     assert(_ht->entries != NULL);
     _ht->threshold = (capacity * load_factor) / 100;
     _ht->d.size = ht_size;

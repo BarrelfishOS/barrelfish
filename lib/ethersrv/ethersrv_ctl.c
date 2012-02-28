@@ -1037,7 +1037,7 @@ static bool handle_application_packet(void *packet, size_t len)
 // If YES, then send it to all
 static bool handle_arp_packet(void *packet, size_t len)
 {
-    int32_t error;
+    int error;
 
     if (arp_filter_rx.data == NULL) {
         return false;

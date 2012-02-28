@@ -451,7 +451,7 @@ int main(int argc, char *argv[])
     assert(upcb != NULL);
 
     printf("U: #####################################\n");
-    printf("U: %d.%d: Performing [%"PRIu64"] iterations\n",
+    printf("U: %d.%"PRIuDOMAINID": Performing [%"PRIu64"] iterations\n",
                 disp_get_core_id(), disp_get_domain_id(),
                 iterations);
 

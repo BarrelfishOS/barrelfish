@@ -182,7 +182,7 @@ static void set_skb_present(char *str)
     errval_t err;
 
     while (*str != '\0') {
-        if (!isdigit(*str)) {
+        if (!isdigit((int)*str)) {
             str++;
             continue;
         }

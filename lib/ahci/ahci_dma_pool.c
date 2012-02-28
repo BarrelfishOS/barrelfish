@@ -11,6 +11,7 @@
 #include <ahci/ahci_dma_pool.h>
 #include <errors/errno.h>
 #include <string.h>
+#include <sys/types.h> /* for ssize_t */
 #include "ahci_debug.h"
 
 #define EIGHT_MEG 8388608

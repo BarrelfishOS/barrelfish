@@ -155,14 +155,14 @@ struct fat_mount {
 
 static errval_t
 acquire_or_read(struct fat_mount *mount, struct fs_cache *cache,
-        uint32_t index, uint8_t **data, size_t block, size_t size)
+        uint32_t idx, uint8_t **data, size_t block, size_t size)
 {
-    TRACE_ENTER_F("index=%"PRIu32", block=%zu, size=%zu", index, block, size);
+    TRACE_ENTER_F("idx=%"PRIu32", block=%zu, size=%zu", idx, block, size);
 
     uint8_t *data_;
     errval_t err;
 
-    err = fs_cache_acquire(cache, index, (void**)&data_);
+    err = fs_cache_acquire(cache, idx, (void**)&data_);
     if (err_is_fail(err) && err != FS_CACHE_NOTPRESENT) {
         return err;
     }
@@ -175,7 +175,7 @@ acquire_or_read(struct fat_mount *mount, struct fs_cache *cache,
         }
         assert(size == read_size);
 
-        err = fs_cache_put(cache, index, data_);
+        err = fs_cache_put(cache, idx, data_);
         if (err_is_fail(err)) {
             return err;
         }

@@ -45,7 +45,7 @@ static uint32_t power_button_handler(void *arg)
 static void power_button_notify_handler(ACPI_HANDLE handle, uint32_t value,
                                         void *context)
 {
-    printf("Power button notify 0x%x\n", value);
+    printf("Power button notify 0x%"PRIx32"\n", value);
     if (value == 0x80) { // switch off!
         power_button_handler(context);
     }

@@ -165,7 +165,7 @@ static void experiment_cont(void* arg)
             char *buf = malloc(50*4096*4096);
             size_t length = trace_dump(buf, 20*4096*4096);
             printf("%s\n", buf);
-            printf("length of buffer %zu\n", length);
+            printf("length of buffer %lu\n", length);
 #endif
             printf("client done!\n");
             return;

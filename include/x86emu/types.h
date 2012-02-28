@@ -41,7 +41,7 @@
 #define __X86EMU_TYPES_H
 
 #ifndef NO_SYS_HEADERS
-//#include <sys/types.h>
+#include <sys/types.h>
 #endif
 
 /*
@@ -96,7 +96,7 @@ typedef NUM32 				s32;
 typedef long long 			s64;
 #endif
 
-typedef unsigned int			uint;
+typedef unsigned int                    uint;
 typedef int 				sint;
 
 typedef u16 X86EMU_pioAddr;

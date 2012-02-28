@@ -34,8 +34,8 @@ errval_t vspace_unmap(const void *buf);
 errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
                               struct vregion **ret_vregion, size_t size,
                               size_t *retsize, vregion_flags_t flags);
-errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
-                                 struct vregion **ret_vregion, size_t size,
+errval_t vspace_map_anon_aligned(void **retaddr, struct memobj *memobj,
+                                 struct vregion *vregion, size_t size,
                                  size_t *retsize, vregion_flags_t flags,
                                  size_t alignment);
 errval_t vspace_map_anon_fixed(genvaddr_t base, size_t size,

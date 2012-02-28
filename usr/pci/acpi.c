@@ -317,7 +317,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 
         if (*prt->Source == 0) {
             /* this is a global interrupt number */
-            skb_add_fact("prt(addr(%u, %u, _), %u, gsi(%u)).",
+            skb_add_fact("prt(addr(%u, %u, _), %"PRIu32", gsi(%"PRIu32")).",
                          bus, device, prt->Pin, prt->SourceIndex);
             continue;
         }
@@ -339,7 +339,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
                 esource[++j] = '\\';
             }
         }
-        skb_add_fact("prt(addr(%u, %u, _), %u, pir(\"%s\")).",
+        skb_add_fact("prt(addr(%u, %u, _), %"PRIu32", pir(\"%s\")).",
                      bus, device, prt->Pin, esource);
 
 #ifdef PCI_SERVICE_DEBUG /* debug code to dump resources */
@@ -396,7 +396,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
                 //printf("Extended IRQs:");
                 for (int i = 0; i < irqres->InterruptCount; i++) {
                     //printf(" %d", irqres->Interrupts[i]);
-                    skb_add_fact("pir(\"%s\", %u).",
+                    skb_add_fact("pir(\"%s\", %"PRIu32").",
                                  esource, irqres->Interrupts[i]);
                 }
                 //printf("\n");
@@ -404,7 +404,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
             }
 
             default:
-                printf("Unknown resource type: %d\n", res->Type);
+                printf("Unknown resource type: %"PRIu32"\n", res->Type);
                 USER_PANIC("NYI");
                 break;
             }
@@ -656,11 +656,11 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                         a->ProximityDomainLo;
 
                     PCI_DEBUG("CPU affinity table:\n");
-                    PCI_DEBUG("Proximity Domain: %d\n", proximitydomain);
+                    PCI_DEBUG("Proximity Domain: %"PRIu32"\n", proximitydomain);
                     PCI_DEBUG("CPU local APIC ID: %d\n", a->ApicId);
                     PCI_DEBUG("CPU local SAPIC EID: %d\n", a->LocalSapicEid);
 
-                    skb_add_fact("cpu_affinity(%d,%d,%d).",
+                    skb_add_fact("cpu_affinity(%d,%d,%"PRIu32").",
                         a->ApicId, a->LocalSapicEid, proximitydomain);
                 } else {
                     PCI_DEBUG("CPU affinity table disabled!\n");
@@ -693,7 +693,7 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                               hotpluggable ? " Hot-pluggable" : "",
                               nonvolatile ? " Non-volatile" : "");
 
-                    skb_add_fact("memory_affinity(%" PRIu64 ", %" PRIu64 ", %d).",
+                    skb_add_fact("memory_affinity(%" PRIu64 ", %" PRIu64 ", %"PRIu32").",
                         a->BaseAddress, a->Length, a->ProximityDomain);
 
                 } else {
@@ -769,7 +769,7 @@ int init_acpi(void)
     PCI_DEBUG("Reserving fixed resources\n");
     as = AcpiGetDevices("PNP0C02", reserve_resources, NULL, NULL);
     if (ACPI_FAILURE(as) && as != AE_NOT_FOUND) {
-        printf("WARNING: AcpiGetDevices failed with error %d\n", as);
+        printf("WARNING: AcpiGetDevices failed with error %"PRIu32"\n", as);
     }
     assert(ACPI_SUCCESS(as) || as == AE_NOT_FOUND);
 

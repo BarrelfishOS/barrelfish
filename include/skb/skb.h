@@ -10,8 +10,10 @@
 #ifndef SKB_H_
 #define SKB_H_
 
+#include <stdint.h> /* int32_t */
+
 errval_t skb_client_connect(void);
-errval_t skb_evaluate(char *query, char **result, char **str_error, int *int_error);
+errval_t skb_evaluate(char *query, char **result, char **str_error, int32_t *int_error);
 errval_t skb_add_fact(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 errval_t skb_set_memory_affinity(void);
 

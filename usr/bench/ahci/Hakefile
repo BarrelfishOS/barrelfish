@@ -13,7 +13,6 @@
 [
 build application { target = "ahci_bench",
                   cFiles = [ "main.c" ],
-                  addLibraries = [ "vfs", "nfs", "ahci", "lwip",  "contmng", "procon",
-                                       "pci", "trace", "skb" ]
+                  addLibraries = libDeps [ "pci", "trace", "skb", "vfs"]
                  }
 ]

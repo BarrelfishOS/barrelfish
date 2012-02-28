@@ -34,7 +34,7 @@ void debug_dump(arch_registers_state_t *archregs)
 {
     struct registers_x86_32 *regs = archregs;
 
-    debug_printf("Dumping stack (0x%x)...\n", regs->esp);
+    debug_printf("Dumping stack (0x%" PRIx32 ")...\n", regs->esp);
     debug_dump_mem_around_addr(regs->esp);
     // debug_printf("Dumping code (0x%x)...\n", regs->eip);
     // debug_dump_mem_around_addr(regs->eip);
@@ -99,12 +99,12 @@ void debug_print_fpu_state(struct registers_fpu_x86_32 *fpustate)
     debug_printf("FSW %x\n", regs16[1]);
     debug_printf("FTW %x\n", regs8[4]);
     debug_printf("FOP %x\n", regs16[3]);
-    debug_printf("IP  %x\n", regs32[3]);
+    debug_printf("IP  %" PRIx32 "\n", regs32[3]);
     debug_printf("CS  %x\n", regs16[6]);
-    debug_printf("DP  %x\n", regs32[5]);
+    debug_printf("DP  %" PRIx32 "\n", regs32[5]);
     debug_printf("DS  %x\n", regs16[10]);
-    debug_printf("MXCSR %x\n", regs32[7]);
-    debug_printf("MXCSR mask %x\n", regs32[8]);
+    debug_printf("MXCSR %" PRIx32 "\n", regs32[7]);
+    debug_printf("MXCSR mask %" PRIx32 "\n", regs32[8]);
 
     for (int i = 0; i < 7; i++) {
         debug_printf("ST%d/MM%d %llx:%llx\n", i, i,

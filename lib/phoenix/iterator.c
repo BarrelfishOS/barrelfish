@@ -41,7 +41,7 @@ int iter_init (iterator_t *itr, int num_lists)
     assert (num_lists > 0);
 
     itr->list_array = 
-        (keyvals_t **)mem_malloc (sizeof(keyvals_t *) * num_lists);
+        (keyvals_t **)phoenix_mem_malloc (sizeof(keyvals_t *) * num_lists);
 
     if (! itr->list_array) {
         return -1;
@@ -82,7 +82,7 @@ void iter_finalize (iterator_t *itr)
     assert (itr);
     assert (itr->list_array);
 
-    mem_free (itr->list_array);
+    phoenix_mem_free (itr->list_array);
 }
 
 int iter_add (iterator_t *itr, keyvals_t *list)

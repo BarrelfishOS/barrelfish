@@ -63,12 +63,12 @@ static const char *shortstr = "Hello, world!";
 
 static void rx_basic(struct test_binding *b, uint32_t arg)
 {
-    printf("rx_basic %u\n", arg);
+    printf("rx_basic %"PRIu32"\n", arg);
 }
 
 static void rx_str(struct test_binding *b, uint32_t arg, char *s)
 {
-    printf("rx_str %u '%s'\n", arg, s);
+    printf("rx_str %"PRIu32" '%s'\n", arg, s);
     free(s);
 }
 
@@ -80,7 +80,7 @@ static void rx_caps(struct test_binding *b, uint32_t arg,
     debug_print_cap_at_capref(buf2, sizeof(buf2), cap2);
     buf1[sizeof(buf1) - 1] = '\0';
     buf2[sizeof(buf2) - 1] = '\0';
-    printf("rx_caps %u [%s] [%s]\n", arg, buf1, buf2);
+    printf("rx_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
 }
 
 static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
@@ -233,7 +233,7 @@ static void start_client(void)
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    printf("client binding to %u...\n", iref);
+    printf("client binding to %"PRIuIREF"...\n", iref);
     err = test_bind(iref, bind_cb, NULL /* state pointer for bind_cb */,
                     get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -249,7 +249,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "export failed");
     }
 
-    printf("service exported at iref %u\n", iref);
+    printf("service exported at iref %"PRIuIREF"\n", iref);
 
     // register this iref with the name service
     err = nameservice_register(my_service_name, iref);

@@ -28,18 +28,18 @@ typedef int mackerel_one_byte_t;
  * understand why it should not be changed, as long as we are
  * compiling with GCC.
  */
-static inline uint32_t eMAC_one_byte_read_32(eMAC_t *base, mackerel_one_byte_t index)
+static inline uint32_t eMAC_one_byte_read_32(eMAC_t *base, mackerel_one_byte_t idx)
 {
     volatile uint32_t r = 0;
-//    r = rdmsr(index);
+//    r = rdmsr(idx);
     assert(!"NYI");
     return r;
 }
 
-static inline uint64_t eMAC_one_byte_read_64(eMAC_t *base, mackerel_one_byte_t index)
+static inline uint64_t eMAC_one_byte_read_64(eMAC_t *base, mackerel_one_byte_t idx)
 {
     volatile uint64_t r = 0;
-//    r = rdmsr(index);
+//    r = rdmsr(idx);
     assert(!"NYI");
     return r;
 }
@@ -47,15 +47,15 @@ static inline uint64_t eMAC_one_byte_read_64(eMAC_t *base, mackerel_one_byte_t i
 /*
  * Writing to Model-Specific Registers
  */
-static inline void eMAC_one_byte_write_32(eMAC_t *base, mackerel_one_byte_t index, uint32_t v)
+static inline void eMAC_one_byte_write_32(eMAC_t *base, mackerel_one_byte_t idx, uint32_t v)
 {
-//    wrmsr(index, v);
+//    wrmsr(idx, v);
     assert(!"NYI");
     return;
 }
-static inline void eMAC_one_byte_write_64(eMAC_t *base, mackerel_one_byte_t index, uint64_t v)
+static inline void eMAC_one_byte_write_64(eMAC_t *base, mackerel_one_byte_t idx, uint64_t v)
 {
-//    wrmsr(index, v);
+//    wrmsr(idx, v);
     assert(!"NYI");
     return;
 }

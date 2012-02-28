@@ -319,7 +319,7 @@ static errval_t send_message(struct tcp_pcb *pcb, void *msg, size_t len)
             // debug_printf("\tand trying again.\n");
             send_message(pcb, msg, len);
         } else {
-            // debug_printf("\tsent %d bytes of %zu.\n", send_size, len);
+            // debug_printf("\tsent %d bytes of %lu.\n", send_size, len);
             err = tcp_write(pcb, msg, send_size, TCP_WRITE_FLAG_COPY);
             // TODO: proper error handling
             if (err != ERR_OK) {

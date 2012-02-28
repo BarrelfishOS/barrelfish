@@ -13,7 +13,7 @@ interface ether "Generic Ethernet Driver" {
                          uint64 slots,
                          uint8 role);
     response new_buffer_id(errval err,
-                           uint64 index);
+                           uint64 idx);
 
     call get_mac_address();
     response get_mac_address_response(uint64 hwaddr);

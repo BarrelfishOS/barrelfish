@@ -167,31 +167,31 @@ static void get_cap_response_resend(void *arg)
     free(a);
 }
 
-static void get_cap_handler(struct pci_binding *b, uint32_t index,
+static void get_cap_handler(struct pci_binding *b, uint32_t idx,
                             uint32_t cap_nr)
 {
     struct client_state *st = b->st;
     assert(st != NULL);
     errval_t e;
 
-    if (index >= st->nr_allocated_bars) {
+    if (idx >= st->nr_allocated_bars) {
         e = b->tx_vtbl.get_cap_response(b, NOP_CONT, PCI_ERR_WRONG_INDEX,
                                         NULL_CAP, 0);
         assert(err_is_ok(e));
     } else {
         struct capref cap = pci_get_cap_for_device(st->bus, st->dev,
-                                                   st->fun, index, cap_nr);
+                                                   st->fun, idx, cap_nr);
         uint8_t type = pci_get_cap_type_for_device(st->bus, st->dev,
-                                                   st->fun, index);
+                                                   st->fun, idx);
 /*
 XXX: I/O-Cap??
-        uint8_t type = st->bar_info[index].type;
+        uint8_t type = st->bar_info[idx].type;
         struct capref cap = NULL_CAP;
 
         if(type == 0) {
-            cap = st->bar_info[index].frame_cap;
+            cap = st->bar_info[idx].frame_cap;
         } else {
-            cap = st->bar_info[index].io_cap;
+            cap = st->bar_info[idx].io_cap;
         }
 */
 
@@ -205,7 +205,7 @@ static void reset_handler(struct pci_binding *b)
         printf("Resetting machine via ACPI...\n");
         ACPI_STATUS as = AcpiReset();
         if (ACPI_FAILURE(as)) {
-            printf("ACPI reset failed: 0x%x\n", as);
+            printf("ACPI reset failed: 0x%"PRIx32"\n", as);
         }
     }
 
@@ -216,9 +216,9 @@ static void reset_handler(struct pci_binding *b)
     }
 }
 
-static void sleep_handler(struct pci_binding *b, int state)
+static void sleep_handler(struct pci_binding *b, int32_t state)
 {
-    printf("Entering S%d sleep state via ACPI...\n", state);
+    printf("Entering S%"PRIu32" sleep state via ACPI...\n", state);
     ACPI_STATUS as = AcpiEnterSleepStatePrep(state);
     if (!ACPI_SUCCESS(as)) {
         printf("AcpiEnterSleepStatePrep failed\n");

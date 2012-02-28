@@ -30,7 +30,7 @@ errval_t skb_set_memory_affinity(void)
     errval_t err;
 
     char *result, *str_err;
-    int int_err;
+    int32_t int_err;
     char input[128];
     snprintf(input, sizeof(input), "ram_findall(%d, Limit), "
              "write(Limit).", disp_get_core_id());

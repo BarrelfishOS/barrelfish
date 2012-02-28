@@ -74,8 +74,8 @@ union idc_send_header {
         uint8_t     length;         ///< Length of payload in words
         uint8_t     invoke_bits;    ///< Valid bits in invoke_cptr
         uint8_t     send_bits;      ///< Valid bits in send_cptr
-        caddr_t     invoke_cptr;    ///< Cap to invoke
-        caddr_t     send_cptr;      ///< Cap to send or #CPTR_NULL
+        capaddr_t     invoke_cptr;    ///< Cap to invoke
+        capaddr_t     send_cptr;      ///< Cap to send or #CPTR_NULL
     } x;
 };
 

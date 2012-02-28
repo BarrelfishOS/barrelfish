@@ -56,8 +56,8 @@ static void mount_reply_handler(struct rpc_client *rpc_client, void *arg1,
 
     if (replystat != RPC_MSG_ACCEPTED || acceptstat != RPC_SUCCESS) {
         printf("RPC failed while mounting in state %d:"
-               "replystat = %u, acceptstat = %u\n", client->mount_state,
-               replystat, acceptstat);
+               "replystat = %"PRIu32", acceptstat = %"PRIu32"\n",
+               client->mount_state, replystat, acceptstat);
         goto error;
     }
 

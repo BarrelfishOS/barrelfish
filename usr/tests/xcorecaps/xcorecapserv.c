@@ -102,7 +102,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         abort();
     }
 
-    printf("xcorecapserv: service exported at iref %u\n", iref);
+    printf("xcorecapserv: service exported at iref %"PRIuIREF"\n", iref);
     fflush(stdout);
     // register this iref with the name service
     err = nameservice_register(my_service_name, iref);

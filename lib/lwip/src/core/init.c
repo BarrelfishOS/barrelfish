@@ -266,7 +266,7 @@ static void remaining_lwip_initialization(char *card_name)
 #ifdef CONFIG_QEMU_NETWORK
     printf("#### Networking with small amount of memory #####\n");
 #endif // CONFIG_QEMU_NETWORK
-    printf("#### [%u:%u:%s] [%s] [%d] MEM_SIZE[%d], "
+    printf("#### [%u:%"PRIuDOMAINID":%s] [%s] [%d] MEM_SIZE[%d], "
             "PBUF_POOL_SIZE[%d], RECEIVE_BUFFERS[%d] ####\n",
        disp_get_core_id(), disp_get_domain_id(), disp_name(),
        MEM_CONF_LOC, is_ctl, MEM_SIZE, PBUF_POOL_SIZE,

@@ -9,6 +9,7 @@
 
 #include <signal.h>
 #include <errno.h>
+#include <syscalls.h>
 
 int kill(pid_t pid, int sig)
 {

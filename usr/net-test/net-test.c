@@ -22,6 +22,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/spawn_client.h>
 #include <posixcompat.h>
+#include <vfs/vfs.h>
 
 #define NET_DRIVER "rtl8029"
 #define SERVER_PORT 8080
@@ -97,34 +98,34 @@ static void provide_echo_service(int sock, int iterations)
     char buf[BUF_SIZE];
     int ret;
 
-    debug_printf("[%d]provide_echo_service(): Starting %d iterations on socket %d\n",
+    debug_printf("[%"PRIuDOMAINID"]provide_echo_service(): Starting %d iterations on socket %d\n",
             disp_get_domain_id(), iterations, sock);
 
 
     for(int i = 0; i < iterations; ++i) {
-        debug_printf("[%d]provide_echo_service(%d): calling read on the socket %d\n",
+        debug_printf("[%"PRIuDOMAINID"]provide_echo_service(%d): calling read on the socket %d\n",
                 disp_get_domain_id(), i, sock);
 
         ret = read(sock, buf, BUF_SIZE);
         if(ret < 0) {
-            printf("[%d]provide_echo_service(%d): ERROR: read failed\n",
+            printf("[%"PRIuDOMAINID"]provide_echo_service(%d): ERROR: read failed\n",
                     disp_get_domain_id(), i);
             return;
         }
 
-        debug_printf("[%d]provide_echo_service(%d): read %d bytes (%s)\n",
+        debug_printf("[%"PRIuDOMAINID"]provide_echo_service(%d): read %d bytes (%s)\n",
                 disp_get_domain_id(), i, ret, buf);
         ret = write(sock, buf, ret);
-        debug_printf("[%d]provide_echo_service(%d): sent %d bytes\n",
+        debug_printf("[%"PRIuDOMAINID"]provide_echo_service(%d): sent %d bytes\n",
                 disp_get_domain_id(), i, ret);
 
         if(ret < 0) {
-            printf("[%d]provide_echo_service(%d): ERROR: write failed\n",
+            printf("[%"PRIuDOMAINID"]provide_echo_service(%d): ERROR: write failed\n",
                     disp_get_domain_id(), i);
             return;
         }
     } // end for: for each iteration
-    debug_printf("[%d]provide_echo_service(): Done with %d iterations on socket %d\n",
+    debug_printf("[%"PRIuDOMAINID"]provide_echo_service(): Done with %d iterations on socket %d\n",
             disp_get_domain_id(), iterations, sock);
 
 } // end function: provide_echo_service
@@ -132,7 +133,7 @@ static void provide_echo_service(int sock, int iterations)
 
 static void network_setup_helper(void)
 {
-    debug_printf("[%d]network_setup_helper():###### init lwip\n",
+    debug_printf("[%"PRIuDOMAINID"]network_setup_helper():###### init lwip\n",
             disp_get_domain_id());
 
     waitset_init(&lwip_waitset);
@@ -142,7 +143,7 @@ static void network_setup_helper(void)
     lwip_socket_init();
     thread_mutex_unlock(&my_mutex);
 
-    debug_printf("[%d]network_setup_helper():######### lwip initialized\n",
+    debug_printf("[%"PRIuDOMAINID"]network_setup_helper():######### lwip initialized\n",
             disp_get_domain_id());
 
     // start an event dispatch thread
@@ -150,7 +151,7 @@ static void network_setup_helper(void)
     t = thread_create(poll_loop, NULL);
     assert(t != NULL);
 
-    debug_printf("[%d]network_setup_helper():######### polling thread created\n",
+    debug_printf("[%"PRIuDOMAINID"]network_setup_helper():######### polling thread created\n",
             disp_get_domain_id());
 
 } // end function: network_setup_helper
@@ -168,10 +169,10 @@ static void do_server(void)
     socklen_t conn_addrlen = sizeof(conn_addr);
 #endif // UDP_TEST
 
-    debug_printf("[%d]do_server(): Server started\n", disp_get_domain_id());
+    debug_printf("[%"PRIuDOMAINID"]do_server(): Server started\n", disp_get_domain_id());
     network_setup_helper();
 
-    debug_printf("[%d]do_server(): server going to init lwip\n",
+    debug_printf("[%"PRIuDOMAINID"]do_server(): server going to init lwip\n",
             disp_get_domain_id());
 
 #ifndef UDP_TEST
@@ -182,12 +183,12 @@ static void do_server(void)
 #endif // UDP_TEST
 
     if (l_sock < 0) {
-        debug_printf("[%d]do_server(): socket failed: %d errno: %d\n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): socket failed: %d errno: %d\n",
                 disp_get_domain_id(), l_sock, errno);
         exit(EXIT_FAILURE);
     }
 
-    debug_printf("[%d]do_server(): listen socket created %d\n",
+    debug_printf("[%"PRIuDOMAINID"]do_server(): listen socket created %d\n",
             disp_get_domain_id(), l_sock);
 
     // bind
@@ -197,27 +198,27 @@ static void do_server(void)
     servaddr.sin_port        = htons(port);
 
     if (bind(l_sock, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0 ) {
-        debug_printf("[%d]do_server(): Error calling bind() errno: %d\n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): Error calling bind() errno: %d\n",
                 disp_get_domain_id(), errno);
         exit(EXIT_FAILURE);
     }
 
-    debug_printf("[%d]do_server(): ^^^^^^^^  listen socket bound to %d, now starting listen\n",
+    debug_printf("[%"PRIuDOMAINID"]do_server(): ^^^^^^^^  listen socket bound to %d, now starting listen\n",
             disp_get_domain_id(), port);
 
 
 #ifndef UDP_TEST
     // listen
     if (listen(l_sock, LISTENQ) < 0 ) {
-        debug_printf("[%d]do_server(): Error calling listen() errno: %d\n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): Error calling listen() errno: %d\n",
                 disp_get_domain_id(), errno);
         exit(EXIT_FAILURE);
     }
 
-    debug_printf("[%d]do_server(): listen socket listening\n",
+    debug_printf("[%"PRIuDOMAINID"]do_server(): listen socket listening\n",
             disp_get_domain_id());
 
-    debug_printf("[%d]do_server(): ^^^^^^^^^^^^^^^^^^^ calling accept on listen socket\n",
+    debug_printf("[%"PRIuDOMAINID"]do_server(): ^^^^^^^^^^^^^^^^^^^ calling accept on listen socket\n",
             disp_get_domain_id());
 
 
@@ -226,17 +227,17 @@ static void do_server(void)
         //    c_sock = lwip_accept(l_sock, NULL, NULL);
         c_sock = accept(l_sock, (struct sockaddr*)&conn_addr, &conn_addrlen);
         if (c_sock < 0) {
-            debug_printf("[%d]do_server(): Error calling accept() errno: %d\n",
+            debug_printf("[%"PRIuDOMAINID"]do_server(): Error calling accept() errno: %d\n",
                     disp_get_domain_id(), errno);
             exit(EXIT_FAILURE);
         }
 
-        debug_printf("[%d]do_server(): ^^^^^^^^^^^^^^^^^^^ accepted a connection on socket %d\n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): ^^^^^^^^^^^^^^^^^^^ accepted a connection on socket %d\n",
                 disp_get_domain_id(), c_sock);
-        debug_printf("[%d]do_server(): c_sock connected to: \n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): c_sock connected to: \n",
                 disp_get_domain_id());
         debug_sin_print(&conn_addr);
-        debug_printf("[%d]do_server(): port: %u\n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): port: %u\n",
                 disp_get_domain_id(), ntohs(conn_addr.sin_port));
     #else
         c_sock = l_sock;
@@ -246,20 +247,20 @@ static void do_server(void)
         //        provide_echo_service(c_sock, 1);
 
         if(FORKING_SERVER) {
-            debug_printf("[%d]do_server(): ^^^^^^^^^^^^^^^^ ##### server_1: Forking\n",
+            debug_printf("[%"PRIuDOMAINID"]do_server(): ^^^^^^^^^^^^^^^^ ##### server_1: Forking\n",
                     disp_get_domain_id());
             err = spawn_child(c_sock);
             if (err_is_fail(err)) {
-                debug_printf("[%d]do_server(): failed to spawn child\n",
+                debug_printf("[%"PRIuDOMAINID"]do_server(): failed to spawn child\n",
                         disp_get_domain_id());
                 return;
             }
-            debug_printf("[%d]do_server(): ^^^^^^^^^^ ################ child spawned\n",
+            debug_printf("[%"PRIuDOMAINID"]do_server(): ^^^^^^^^^^ ################ child spawned\n",
                     disp_get_domain_id());
         } // end if: FORKING_SERVER
 
 
-        debug_printf("[%d]do_server(): closing connected socket %d\n",
+        debug_printf("[%"PRIuDOMAINID"]do_server(): closing connected socket %d\n",
                 disp_get_domain_id(), c_sock);
         close(c_sock);
 
@@ -275,20 +276,20 @@ static void do_child(void)
 {
     /* errval_t err; */
     /* struct lwip_sockinfo si; */
-    debug_printf("[%d]do_child():############# child  ###############\n",
+    debug_printf("[%"PRIuDOMAINID"]do_child():############# child  ###############\n",
             disp_get_domain_id());
 
     network_setup_helper(); // perform the basic network setup
     posixcompat_unpack_fds(); // deserialize moved socket info into new sockets
 
-    debug_printf("[%d]do_child():################ starting echo service\n",
+    debug_printf("[%"PRIuDOMAINID"]do_child():################ starting echo service\n",
             disp_get_domain_id());
 
     int c_sock = 4; // Socket which is a copy of accepted socket
     provide_echo_service(c_sock, 10);
 
     // basically wait forever
-    debug_printf("[%d]do_child():####### waiting to join thread\n",
+    debug_printf("[%"PRIuDOMAINID"]do_child():####### waiting to join thread\n",
                 disp_get_domain_id());
     thread_join(t, NULL);
 } // end function : do_child
@@ -299,7 +300,9 @@ int main(int argc, char *argv[])
 {
     coreid_t mycore = disp_get_core_id();
     
-    debug_printf("[%d]main(): This is %s on core %d with %d args\n",
+    vfs_init();
+    
+    debug_printf("[%"PRIuDOMAINID"]main(): This is %s on core %d with %d args\n",
             disp_get_domain_id(), argv[0], mycore, argc);
     
     if (argc > 1) {
@@ -308,7 +311,7 @@ int main(int argc, char *argv[])
         do_child();
     }
 
-    debug_printf("[%d]main(): Finished with everything, Exiting...\n",
+    debug_printf("[%"PRIuDOMAINID"]main(): Finished with everything, Exiting...\n",
             disp_get_domain_id());
 
     return EXIT_SUCCESS;
