@@ -13,18 +13,18 @@ interface ether_control "Generic Ethernet Driver Control flow Interface" {
     response register_filter_memory_response(errval err);
 
     call register_filter_request(uint64 id,
-    		uint64 len_rx,
-			uint64 len_tx,
-			uint64 buffer_id_rx,
-			uint64 buffer_id_tx,
-			uint64 filter_type,
-			uint64 paused);
+            uint64 len_rx,
+            uint64 len_tx,
+            uint64 buffer_id_rx,
+            uint64 buffer_id_tx,
+            uint64 filter_type,
+            uint64 paused);
     response register_filter_response(uint64 id,
-    		errval err,
-			uint64 filter_id,
-			uint64 buffer_id_rx,
-			uint64 buffer_id_tx,
-			uint64 filter_type);
+            errval err,
+            uint64 filter_id,
+            uint64 buffer_id_rx,
+            uint64 buffer_id_tx,
+            uint64 filter_type);
 
     call re_register_filter_request(uint64 filter_id,
             uint64 buffer_id_rx,
@@ -36,13 +36,13 @@ interface ether_control "Generic Ethernet Driver Control flow Interface" {
 
     call deregister_filter_request(uint64 filter_id);
     response deregister_filter_response(errval err,
-			uint64 filter_id);
+            uint64 filter_id);
 
-    call register_arp_filter_request(uint64 id, 
-    		uint64 len_rx,
-			uint64 len_tx);
-    response register_arp_filter_response(uint64 id, 
-    		errval err);
+    call register_arp_filter_request(uint64 id,
+            uint64 len_rx,
+            uint64 len_tx);
+    response register_arp_filter_response(uint64 id,
+            errval err);
 
     call pause(uint64 filter_id, uint64 buffer_id_rx, uint64 buffer_id_tx);
     response pause_response(uint64 filter_id, errval err);

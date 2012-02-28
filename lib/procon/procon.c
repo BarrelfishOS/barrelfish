@@ -178,7 +178,7 @@ bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t index)
 // Returns no. of elements available for consumption
 uint64_t sp_queue_elements_count(struct shared_pool_private *spp)
 {
-    sp_reload_regs(spp);
+//    sp_reload_regs(spp);
     return sp_c_range_size(spp->c_read_id, spp->c_write_id, spp->c_size);
 } // end function: sp_queue_elements_count
 
@@ -512,6 +512,9 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t index)
     sp_atomic_set_reg(&spp->sp->write_reg, index);
     sp_reload_regs(spp);
 //    spp->ghost_write_id = spp->c_write_id;
+    if (sp_queue_elements_count(spp) <= 1) {
+        ++spp->notify_other_side;
+    }
 
     if (sp_queue_full(spp)) {
         // There no free space left to create new items.
