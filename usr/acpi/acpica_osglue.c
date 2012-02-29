@@ -546,6 +546,7 @@ AcpiOsMapMemory (
             assert(r == 0);
             r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
         }
+        DEBUG_ERR(r, "after revoke, retype AcpiOsMapMemory(%lu, %lu)", where, length);
         assert(r == 0);
 
         r = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, frame_cap,

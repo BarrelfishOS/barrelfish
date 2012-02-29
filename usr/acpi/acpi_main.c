@@ -34,12 +34,13 @@
 uintptr_t my_apic_id;
 
 // cnoderef for the phyaddrcn
+/*
 static struct cnoderef cnode_phyaddr = {
     .address = CPTR_PHYADDRCN_BASE,
     .address_bits = DEFAULT_CNODE_BITS,
     .size_bits = 8,
     .guard_size = 0,
-};
+};*/
 
 // XXX: this enum defines region types that must not overlap
 // with the KPI-defined enum region_type.
@@ -135,10 +136,17 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
+    /*
     struct capref mem_cap = {
         .cnode = cnode_phyaddr,
         .slot = 0,
-    };
+    };*/
+    struct capref mem_cap;
+    errval_t error_code;
+    err = cl->vtbl.get_phyaddr_cap(cl, &mem_cap, &error_code);
+    assert(err_is_ok(err) && err_is_ok(error_code));
+
+
     for (int i = 0; i < bootinfo->regions_length; i++) {
 	struct mem_region *mrp = &bootinfo->regions[i];
 	if (mrp->mr_type == RegionType_Module) {
