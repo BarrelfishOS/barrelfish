@@ -33,6 +33,8 @@
 
 #include "kaluga.h"
 
+extern char *gbootmodules;
+
 coreid_t my_core_id = 0; // Core ID
 uint32_t my_arch_id = 0; // APIC ID
 
@@ -119,6 +121,13 @@ int main(int argc, char** argv)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Initialize dist library.");
     }
+
+    err = init_driver_modules();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Initialize boot modules.");
+    }
+
+
 
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot

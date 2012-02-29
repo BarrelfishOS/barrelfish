@@ -11,8 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "kaluga",
-          		      cFiles = [ "main.c", "queue.c", "app_cores.c" ],
+          		      cFiles = [ "main.c", "queue.c", "app_cores.c", "boot_modules.c" ],
           		      flounderDefs = [ "monitor" ],
           		      flounderBindings = [ "dist2" ],
-        		      addLibraries = [ "skb", "dist2", "dist_parser", "thc" ] }
+        		      addLibraries = [ "skb", "dist2", "dist_parser", 
+        		                       "thc", "vfs", "nfs", "ahci", "lwip",
+                                       "contmng", "procon", "hashtable", 
+                                       "spawndomain", "elf", "trace" ] }
 ]
