@@ -15,19 +15,21 @@
 #define MAX_DRIVER_MODULES 128
 
 struct module_info {
+    char* complete_line;
     char* path;
     char* binary;
-    char* cmdargs;
 
+    char* cmdargs; // Used for pointers in argv
     int argc;
     char* argv[MAX_CMDLINE_ARGS + 1];
 };
 
-static struct module_info loaded_modules[MAX_DRIVER_MODULES];
+static struct module_info boot_modules[MAX_DRIVER_MODULES];
 
 static void parse_module(char* line, struct module_info* si)
 {
-    si->argc = 0;
+    si->complete_line = strdup(line);
+
     char* path_end = strchr(line, ' ');
     if (path_end == NULL) {
         path_end = line + strlen(line);
@@ -47,7 +49,10 @@ static void parse_module(char* line, struct module_info* si)
                                       ARRAY_LENGTH(si->argv));
 }
 
-
+/**
+ * \brief Parses bootmodules and stores info in
+ * boot_modules.
+ */
 static errval_t parse_modules(char* bootmodules)
 {
     assert(bootmodules != NULL);
@@ -59,7 +64,7 @@ static errval_t parse_modules(char* bootmodules)
     char* line = strtok(bm, delim);
 
     while (line != NULL && entry < MAX_DRIVER_MODULES) {
-        struct module_info* si = &loaded_modules[entry++];
+        struct module_info* si = &boot_modules[entry++];
         parse_module(line, si);
         KALUGA_DEBUG("found boot module:\n%s\n%s\n%s (%d)\n", si->binary, si->path, si->cmdargs, si->argc);
 
@@ -144,7 +149,7 @@ void init_environ(void)
     }
 }
 
-errval_t init_driver_modules(void)
+errval_t init_boot_modules(void)
 {
     char* bootmodules = get_bootmodules();
     errval_t err = parse_modules(bootmodules);

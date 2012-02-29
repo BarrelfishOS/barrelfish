@@ -22,8 +22,7 @@ extern uint32_t my_arch_id;
 
 errval_t watch_for_cores(void);
 
-
 void init_environ(void);
-errval_t init_driver_modules(void);
+errval_t init_boot_modules(void);
 
 #endif /* KALUGA_H_ */
