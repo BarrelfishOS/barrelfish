@@ -138,13 +138,13 @@ struct dcb *spawn_module(struct spawn_state *st,
     // must be static, because this CTE will be entered into the MDB!
     static struct cte rootcn;
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                        BASE_PAGE_BITS, OBJBITS_CTE, &rootcn);
+                        BASE_PAGE_BITS, DEFAULT_CNODE_BITS, &rootcn);
     assert(err_is_ok(err));
 
     // Task cnode in root cnode
     st->taskcn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_TASKCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, OBJBITS_CTE, st->taskcn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->taskcn);
     assert(err_is_ok(err));
     st->taskcn->cap.u.cnode.guard_size = GUARD_REMAINDER(2 * DEFAULT_CNODE_BITS);
 
@@ -159,13 +159,13 @@ struct dcb *spawn_module(struct spawn_state *st,
     // Base page cnode in root cnode
     st->basepagecn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_BASE_PAGE_CN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, OBJBITS_CTE, st->basepagecn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->basepagecn);
     assert(err_is_ok(err));
 
     // Super cnode in root cnode
     st->supercn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, OBJBITS_CTE, st->supercn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn);
     assert(err_is_ok(err));
 
     // slot_alloc cnodes in root cnode
@@ -196,7 +196,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     // Seg cnode in root cnode
     st->segcn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SEGCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                        BASE_PAGE_BITS, OBJBITS_CTE, st->segcn);
+                        BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->segcn);
     assert(err_is_ok(err));
 
     // Physaddr cnode in root cnode
