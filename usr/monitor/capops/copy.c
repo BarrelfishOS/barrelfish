@@ -10,103 +10,9 @@
 #include <barrelfish/barrelfish.h>
 #include <if/intermon_defs.h>
 #include "monitor.h"
-
-/*
- * Error codes TBD {{{1
- */
-
-#define CAP_ERR_FOREIGN 698
-#define CAP_ERR_BUSY    699
-
-/*
- * Magic NYI functions {{{1
- */
-
-typedef uint8_t capstate_t;
-
-// get owner core of given cap. used by routing layer only
-errval_t cap_get_owner(struct capref, coreid_t*);
-
-// create a cap from the given cap data owned by a given core
-// may fail if given owner does not match owner of existing copies
-errval_t cap_create_on(struct capability*, coreid_t, struct capref*);
-
-// create a copy of cap other copies exist, otherwise fail
-errval_t copy_if_exists(struct capability*, struct capref*);
-
-// get the state of the given cap
-errval_t cap_get_state(struct capref, capstate_t*);
-
-// cap state queries
-bool cap_state_is_valid(capstate_t);
-bool cap_state_is_owner(capstate_t);
-
-/*
- * NYI intermon.if functions {{{1
- */
-
-errval_t intermon_recv_copy_result__tx(struct intermon_binding*, struct event_closure, errval_t, capaddr_t, genvaddr_t);
-errval_t intermon_recv_copy__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_request_copy__tx(struct intermon_binding*, struct event_closure, coreid_t, intermon_caprep_t, genvaddr_t);
-
-/*
- * Header {{{1
- */
-
-typedef void (*copy_result_handler_t)(errval_t, capaddr_t, void*);
-
-errval_t copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, void *st);
-
-/*
- * Routing layer (send only) {{{1
- */
-
-static errval_t
-intermon_enqueue_send_target(coreid_t dest, struct msg_queue_elem *queue_elem)
-{
-    errval_t err;
-
-    // get destination intermon_binding and _state
-    struct intermon_binding *dest_b;
-    err = intermon_binding_get(dest, &dest_b);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    struct intermon_state *inter_st = (struct intermon_state*)dest_b->st;
-
-    // enqueue message
-    return intermon_enqueue_send(dest_b, &inter_st->queue, dest_b->waitset, queue_elem);
-}
-
-static errval_t
-intermon_enqueue_send_owner(struct capref capref, struct msg_queue_elem *queue_elem)
-{
-    errval_t err;
-
-    // read cap owner
-    coreid_t owner;
-    err = cap_get_owner(capref, &owner);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    // enqueue to owner
-    return intermon_enqueue_send_target(owner, queue_elem);
-}
-
-__attribute__((unused))
-static errval_t
-intermon_enqueue_send_one(struct capref capref, struct msg_queue_elem *queue_elem)
-{
-    USER_PANIC("NYI");
-}
-
-__attribute__((unused))
-static errval_t
-intermon_enqueue_send_all(struct capref capref, struct msg_queue_elem *queue_elem)
-{
-    USER_PANIC("NYI");
-}
+#include "ops.h"
+#include "transport.h"
+#include "magic.h"
 
 /*
  * RPC state {{{1
@@ -122,7 +28,7 @@ struct cap_copy_rpc_st {
 };
 
 /*
- * Send (enqueue) handlers {{{1
+ * Send operations {{{1
  */
 
 /*
