@@ -32,6 +32,11 @@ interface monitor_blocking "The monitor to client RPC interface" {
         rpc remote_cap_revoke(in cap croot, in uint32 src, in uint8 vbits,
                               out errval err);
 
+    // XXX: Bad hack to forward IO and Physaddr caps to PCI/APIC/IOAPIC
+    // we don't have way to identify the client to make this secure...
+    rpc get_io_cap(out cap io, out errval err);
+    rpc get_phyaddr_cap(out cap pyaddr, out errval err);
+
 	// Resource control
 	rpc rsrc_manifest(in cap dispatcher, in string manifest,
 	    		  out rsrcid id, out errval err);
