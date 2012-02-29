@@ -18,7 +18,7 @@
 #define KALUGA_SERVICE_DEBUG 1
 
 #if defined(KALUGA_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define KALUGA_DEBUG(x...) debug_printf("kaluga: " x)
+#define KALUGA_DEBUG(x...) debug_printf(x)
 #else
 #define KALUGA_DEBUG(x...) ((void)0)
 #endif

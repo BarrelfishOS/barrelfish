@@ -33,10 +33,18 @@
 pci_driver{
     binary: "e1000",
     supported_cards:
-    [ pci_card{ vendor: 16'8086, device: 16'ded, function: _, subvendor: _, subdevice: _ },
-      pci_card{ vendor: 16'8086, device: 16'ded, function: _, subvendor: _, subdevice: _ } ],
+    [ pci_card{ vendor: 16'8086, device: 16'ded, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 0,
     interrupt_load: 0.75,
+    platforms: ['x86_64', 'x86_32']
+}.
+
+pci_driver{
+    binary: "rtl8029",
+    supported_cards:
+    [ pci_card{ vendor: 16'10ec, device: 16'8029, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 0,
+    interrupt_load: 0.5,
     platforms: ['x86_64', 'x86_32']
 }.
 
@@ -46,17 +54,10 @@ cpu_driver{
 }.
 
 bus_driver{
-    binary: "pci",
-    core_hint: 0,
-    platforms: ['x86_64', 'x86_32']
-}.
-
-bus_driver{
     binary: "ioapic",
     core_hint: 0,
     platforms: ['x86_64', 'x86_32']
 }.
-
 
 %
 % Driver selection logic

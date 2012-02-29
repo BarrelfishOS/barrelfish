@@ -14,17 +14,28 @@
 
 #define MAX_DRIVER_MODULES 128
 
-struct module_info {
-    char* complete_line;
-    char* path;
-    char* binary;
+static struct module_info modules[MAX_DRIVER_MODULES];
 
-    char* cmdargs; // Used for pointers in argv
-    int argc;
-    char* argv[MAX_CMDLINE_ARGS + 1];
-};
+inline bool is_auto_driver(struct module_info* mi) {
+    return strcmp(mi->argv[1], "auto") == 0;
+}
 
-static struct module_info boot_modules[MAX_DRIVER_MODULES];
+struct module_info* find_module(char *binary)
+{
+    assert(binary != NULL);
+    bool found = false;
+    struct module_info* si = NULL;
+
+    for (size_t i=0; i< MAX_DRIVER_MODULES; i++) {
+        si = &modules[i];
+        if (si->binary != NULL && strcmp(si->binary, binary) == 0) {
+            found = true;
+            break;
+        }
+    }
+
+    return (found) ? si : NULL;
+}
 
 static void parse_module(char* line, struct module_info* si)
 {
@@ -41,6 +52,7 @@ static void parse_module(char* line, struct module_info* si)
 
     char* binary_start = strrchr(si->path, '/');
     si->binary = strdup(binary_start+1); // exclude /
+    si->did = 0;
 
     char* cmdstart = line + path_size - strlen(si->binary);
     si->cmdargs = strdup(cmdstart);
@@ -64,7 +76,7 @@ static errval_t parse_modules(char* bootmodules)
     char* line = strtok(bm, delim);
 
     while (line != NULL && entry < MAX_DRIVER_MODULES) {
-        struct module_info* si = &boot_modules[entry++];
+        struct module_info* si = &modules[entry++];
         parse_module(line, si);
         KALUGA_DEBUG("found boot module:\n%s\n%s\n%s (%d)\n", si->binary, si->path, si->cmdargs, si->argc);
 

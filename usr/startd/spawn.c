@@ -238,7 +238,8 @@ void spawn_app_domains(void)
            or nospawn modules */
         if (si.argc >= 2 && (strcmp(si.argv[1], "boot") == 0
                           || strcmp(si.argv[1], "dist-serv") == 0
-                          || strcmp(si.argv[1], "nospawn") == 0)) {
+                          || strcmp(si.argv[1], "nospawn") == 0
+                          || strcmp(si.argv[1], "auto") == 0)) {
             spawn_here = false;
         }
 
