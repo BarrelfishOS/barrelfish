@@ -38,7 +38,7 @@ uintptr_t my_apic_id;
 static struct cnoderef cnode_phyaddr = {
     .address = CPTR_PHYADDRCN_BASE,
     .address_bits = DEFAULT_CNODE_BITS,
-    .size_bits = 8,
+    .size_bits = PAGE_CNODE_BITS,
     .guard_size = 0,
 };
 
