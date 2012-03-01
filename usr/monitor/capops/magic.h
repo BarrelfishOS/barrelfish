@@ -51,6 +51,12 @@ errval_t cap_set_busy(struct capref);
 // set cap state to ready
 errval_t cap_set_ready(struct capref);
 
+// return true if cap type permits moving ownership
+bool cap_is_moveable(struct capability*);
+
+// delete cap (must be owned and last copy) and perform cleanup
+errval_t monitor_delete_last(struct capref);
+
 /*
  * NYI intermon.if functions
  */
@@ -64,5 +70,8 @@ errval_t intermon_move_result__tx(struct intermon_binding*, struct event_closure
 
 errval_t intermon_update_owner__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
 errval_t intermon_owner_updated__tx(struct intermon_binding*, struct event_closure, genvaddr_t);
+
+errval_t intermon_find_core__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
+errval_t intermon_find_core_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
 
 #endif

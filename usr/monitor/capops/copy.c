@@ -73,7 +73,7 @@ recv_copy_result(coreid_t dest, errval_t status, capaddr_t capaddr, genvaddr_t s
     msg_st->st = st;
 
     // enqueue message
-    err = intermon_enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         return err;
@@ -150,7 +150,7 @@ owner_copy(struct capability *cap, coreid_t from, coreid_t dest, copy_result_han
     msg_st->st = (genvaddr_t)rpc_st;
 
     // enqueue message
-    err = intermon_enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         free(rpc_st);
@@ -222,7 +222,7 @@ request_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_h
     msg_st->st = rpc_st;
 
     // enqueue message
-    err = intermon_enqueue_send_owner(capref, (struct msg_queue_elem*)msg_st);
+    err = enqueue_send_owner(capref, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         free(rpc_st);

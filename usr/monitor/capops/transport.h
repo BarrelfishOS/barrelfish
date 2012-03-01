@@ -14,14 +14,13 @@
 #ifndef CAPOPS_TRANSPORT_H
 #define CAPOPS_TRANSPORT_H
 
-errval_t intermon_enqueue_send_target(coreid_t dest, struct msg_queue_elem *queue_elem);
+errval_t enqueue_send_target(coreid_t dest, struct msg_queue_elem *queue_elem);
 
-errval_t intermon_enqueue_send_owner(struct capref capref, struct msg_queue_elem *queue_elem);
+errval_t enqueue_send_owner(struct capref capref, struct msg_queue_elem *queue_elem);
 
-errval_t intermon_enqueue_send_one(struct capref capref, struct msg_queue_elem *queue_elem);
+typedef void (*find_core_result_handler_t)(errval_t, coreid_t, void*);
+errval_t find_core_with_cap(struct capability *cap, find_core_result_handler_t result_handler, void *st);
 
-errval_t intermon_enqueue_send_all(struct capref capref, struct msg_queue_elem *queue_elem);
-
-errval_t intermon_update_owner(struct capref capref, struct event_closure continuation);
+errval_t update_owner(struct capref capref, struct event_closure continuation);
 
 #endif
