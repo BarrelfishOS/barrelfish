@@ -2,7 +2,7 @@
 #define LIBMDB_MDB_H
 
 #include <barrelfish/types.h>
-#include <errno.h> // For errval_t
+#include <errors/errno.h> // For errval_t
 
 struct cte;
 
