@@ -254,11 +254,11 @@ static void lwip_sanity_check(void)
 static int is_ctl = 0;
 struct netbench_details *nb = NULL;
 
-static void remaining_lwip_initialization(char *card_name)
+static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
 {
     nb = netbench_alloc("app", RECORDED_EVENTS_COUNT);
     //asq: connect to the NIC driver, before doing anything else
-    idc_connect_to_driver(card_name);
+    idc_connect_to_driver(card_name, queueid);
     DEBUGPRINTPS("Connected to driver [%s]\n", card_name);
     stats_init();
     sys_init();
@@ -267,10 +267,10 @@ static void remaining_lwip_initialization(char *card_name)
     printf("#### Networking with small amount of memory #####\n");
 #endif // CONFIG_QEMU_NETWORK
     printf("#### [%u:%"PRIuDOMAINID":%s] [%s] [%d] MEM_SIZE[%d], "
-            "PBUF_POOL_SIZE[%d], RECEIVE_BUFFERS[%d] ####\n",
+            "PBUF_POOL_SIZE[%d], RECEIVE_BUFFERS[%d] qid[%"PRIu64"]####\n",
        disp_get_core_id(), disp_get_domain_id(), disp_name(),
        MEM_CONF_LOC, is_ctl, MEM_SIZE, PBUF_POOL_SIZE,
-       RECEIVE_BUFFERS);
+       RECEIVE_BUFFERS, queueid);
 
     memp_init();                // 0'st buffer
 
@@ -318,7 +318,7 @@ extern struct thread_mutex *lwip_mutex; // idc_barrelfish.c
  * In current implementation, it is netd.
  * Perform Sanity check of user-configurable values, and initialize all modules.
  */
-void owner_lwip_init(char *card_name)
+void owner_lwip_init(char *card_name, uint64_t queueid)
 {
     DEBUGPRINTPS("owner_lwip_init: Inside lwip_init\n");
     is_ctl = 1;
@@ -330,7 +330,7 @@ void owner_lwip_init(char *card_name)
 
     /* Modules initialization */
     DEBUGPRINTPS("LWIP: owner_lwip_init: done with connection setup\n");
-    remaining_lwip_initialization(card_name);
+    remaining_lwip_initialization(card_name, queueid);
 }
 
 static void call_tcp_tmr(void)
@@ -344,13 +344,14 @@ static void call_tcp_tmr(void)
  * Perform Sanity check of user-configurable values, and initialize all modules.
  *
  * \param card_name Name of service implementing ethernet driver
+ * \param queueid Queueid which is allocated to this application
  * \param opt_waitset Optional pointer to waitset to be used by LWIP
  * \param opt_mutex Optional pointer to mutex to protect multi-threaded domains
  *
  * \returns True iff init completes
  */
-bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
-                  struct thread_mutex *opt_mutex)
+static bool lwip_init_ex(const char *card_name, uint64_t queueid,
+        struct waitset *opt_waitset, struct thread_mutex *opt_mutex)
 {
     DEBUGPRINTPS("LWIP_other: Inside lwip_init\n");
     printf("LWIP: in lwip_init\n");
@@ -390,7 +391,7 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
 
     DEBUGPRINTPS("LWIP: lwip_init: done with connection setup\n");
     printf("LWIP: done with connection setup\n");
-    remaining_lwip_initialization((char *) card_name);
+    remaining_lwip_initialization((char *) card_name, queueid);
 
     //k: we need ip... asking netd :)
     DEBUGPRINTPS("getting IP from netd\n");
@@ -400,6 +401,8 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     printf("LWIP: IP requested\n");
 
     // Register timers... (TCP only)
+    // FIXME: These timers should be added only when first TCP connection
+    // is requested and not when networking is started!!!!
     static struct periodic_event tcp_timer;
     errval_t err = periodic_event_create(&tcp_timer, lwip_waitset,
                                          TCP_TMR_INTERVAL * 1000,
@@ -422,27 +425,15 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     return true;
 }
 
-/**
- * Perform Sanity check of user-configurable values, and initialize all modules.
- */
-bool lwip_init(const char *card_name)
-{
-    if (card_name == NULL) {
-        return lwip_init_auto_ex(NULL, NULL);
-    } else {
-        return lwip_init_ex(card_name, NULL, NULL);
-    }
-}
-
 
 /**
  * Figure out the best NIC card to connect and initialize library network stack.
  */
-bool lwip_init_auto_ex(struct waitset * opt_waitset,
+static bool lwip_init_auto_ex(struct waitset * opt_waitset,
                        struct thread_mutex * opt_mutex)
 {
     char *card_name = NULL;
-
+    uint64_t default_queueid = 0;
     /* Figure out the best NIC card that can be used */
     /* FIXME: hardcoding the NIC card right now, will do smarter detection
        in future. */
@@ -451,16 +442,17 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
 #ifdef CONFIG_QEMU_NETWORK
     card_name = "rtl8029";
 #else
+    // FIXME: also check for e10k
     card_name = "e1000";
-#endif                          // CONFIG_QEMU_NETWORK
+#endif // CONFIG_QEMU_NETWORK
 #else
     static char cid[100];
 
     snprintf(cid, sizeof(cid), "eMAC2_%u", disp_get_core_id());
     card_name = cid;
-#endif                          // __scc__
+#endif // __scc__
 
-    return lwip_init_ex(card_name, opt_waitset, opt_mutex);
+    return lwip_init_ex(card_name, default_queueid, opt_waitset, opt_mutex);
 }                               // end function: lwip_init_auto_ex
 
 
@@ -470,6 +462,18 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
 bool lwip_init_auto(void)
 {
     return lwip_init_auto_ex(NULL, NULL);
+}
+
+/**
+ * Perform Sanity check of user-configurable values, and initialize all modules.
+ */
+bool lwip_init(const char *card_name, uint64_t queueid)
+{
+    if (card_name == NULL) {
+        return lwip_init_auto_ex(NULL, NULL);
+    } else {
+        return lwip_init_ex(card_name, queueid, NULL, NULL);
+    }
 }
 
 

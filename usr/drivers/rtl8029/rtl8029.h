@@ -16,8 +16,8 @@
 #define RTL8029_H
 
 #include <barrelfish/barrelfish.h>
+#include <if/net_queue_manager_defs.h>
 #include <pci/pci.h>
-#include <if/ether_defs.h>
 #include "rtl8029_debug.h"
 
 

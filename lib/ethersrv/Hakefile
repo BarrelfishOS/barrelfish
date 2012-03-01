@@ -13,6 +13,7 @@
 [ build library { target = "ethersrv",
                   cFiles = [ "ethersrv.c", "frag.c", "ethersrv_ctl.c",
                                "ethersrv_support.c" ],
-                  flounderBindings = [ "ether", "ether_control"],
+                      flounderBindings = [ "net_queue_manager",
+                                            "ether_control" ],
                   addLibraries = [ "contmng", "procon", "bfdmuxvm", "lwip"] }
 ]

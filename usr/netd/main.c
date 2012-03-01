@@ -66,6 +66,7 @@ int main(int argc, char **argv)
     char *card_name = NULL;
     char filter_controller_name[100];
     char net_ctrl_service_name[100];
+    uint64_t allocated_queue = 0;
 
     NETD_DEBUG("running on core %d\n", disp_get_core_id());
     NETD_DEBUG("###################################################\n");
@@ -125,8 +126,9 @@ int main(int argc, char **argv)
 */
 
     /* Connect to e1000 driver */
-    NETD_DEBUG("trying to connect to the %s driver...\n", card_name);
-    startlwip(card_name);
+    NETD_DEBUG("trying to connect to the %s:%"PRIu64" driver...\n",
+            card_name, allocated_queue);
+    startlwip(card_name, allocated_queue);
 
     init_free_ports();
 

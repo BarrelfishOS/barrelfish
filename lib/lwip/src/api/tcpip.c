@@ -531,9 +531,9 @@ err_t tcpip_netifapi_lock(struct netifapi_msg * netifapimsg)
  * @param initfunc a function to call when tcpip_thread is running and finished initializing
  * @param arg argument to pass to initfunc
  */
-void tcpip_init(char *card_name, void (*initfunc) (void *), void *arg)
+void tcpip_init(void (*initfunc) (void *), void *arg)
 {
-    lwip_init(card_name);
+    lwip_init_auto();
 
     tcpip_init_done = initfunc;
     tcpip_init_done_arg = arg;

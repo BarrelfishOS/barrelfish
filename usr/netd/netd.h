@@ -19,7 +19,7 @@
 
 #include "portalloc.h"
 #include <netif/bfeth.h>
-#include <if/ether_defs.h>
+#include <if/net_queue_manager_defs.h>
 #include <if/netd_defs.h>
 
 #include <contmng/contmng.h>
@@ -79,6 +79,6 @@ struct ether_client_response *card_conn[2];
  *
  * @param card_name the of the card. it is usualy "e1000" for now
  */
-void startlwip(char *card_name);
+void startlwip(char *card_name, uint64_t queueid);
 
 #endif

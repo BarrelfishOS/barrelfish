@@ -20,13 +20,6 @@
 #include <lwip/tcp.h>
 
 
-static void startlwip(char *card_name)
-{
-    lwip_init(card_name);
-
-}
-
-
 int main(int argc, char *argv[])
 {
     if(argc != 3) {
@@ -41,8 +34,8 @@ int main(int argc, char *argv[])
     int port_count = 0;
     err_t err;
 
-    /* Connect to e1000 driver */
-    startlwip(NULL);
+    /* Connect to the network driver driver */
+    assert(lwip_init_auto() == true);
 
     printf("openport_test: setup done\n");
     printf("openport_test: binding %d tcp ports starting from %u\n",

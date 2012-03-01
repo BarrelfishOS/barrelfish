@@ -32,7 +32,7 @@
 
 void network_polling_loop(void);
 
-static int poll_loop(void *args) 
+static int poll_loop(void *args)
 {
     network_polling_loop();
     return 0;
@@ -52,9 +52,9 @@ static errval_t spawn_child(int rfd)
         USER_PANIC_ERR(err, "spawn_setup_fds");
     }
 
-    err = spawn_program_with_fdcap(core, argv[0], argv, NULL, fdcap, 
+    err = spawn_program_with_fdcap(core, argv[0], argv, NULL, fdcap,
                                    SPAWN_NEW_DOMAIN, &new_domain);
-            
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed spawn on core %d", core);
         return err;
@@ -65,13 +65,13 @@ static errval_t spawn_child(int rfd)
 }
 
 #ifndef UDP_TEST
-static void debug_uipaddr_print(u32_t addr) 
+static void debug_uipaddr_print(u32_t addr)
 {
 
-    debug_printf("%"U16_F".%"U16_F".%"U16_F".%"U16_F"\n", 
+    debug_printf("%"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
                  (u16_t)(ntohl(addr) >> 24) & 0xff,
-                 (u16_t)(ntohl(addr) >> 16) & 0xff,  
-                 (u16_t)(ntohl(addr) >> 8) & 0xff,   
+                 (u16_t)(ntohl(addr) >> 16) & 0xff,
+                 (u16_t)(ntohl(addr) >> 8) & 0xff,
                  (u16_t)ntohl(addr) & 0xff);
 }
 
@@ -138,8 +138,13 @@ static void network_setup_helper(void)
 
     waitset_init(&lwip_waitset);
     thread_mutex_lock(&my_mutex);
-    lwip_init_auto_ex(&lwip_waitset, &my_mutex);
-    tcpip_init(NULL, NULL, NULL);
+    // FIXME: replaced lwip_init_auto_ex with lwip_init_auto without testing
+//    lwip_init_auto_ex(&lwip_waitset, &my_mutex);
+
+    // lwip_init_auto();
+    tcpip_init(NULL, NULL); // FIXME: serious problem: why is it called after
+                        // calling lwip_init_auto? henc lwip_init_auto is
+                        // commented out (without testing!!!)
     lwip_socket_init();
     thread_mutex_unlock(&my_mutex);
 
@@ -156,7 +161,7 @@ static void network_setup_helper(void)
 
 } // end function: network_setup_helper
 
-static void do_server(void) 
+static void do_server(void)
 {
     errval_t err;
 
@@ -299,12 +304,12 @@ static void do_child(void)
 int main(int argc, char *argv[])
 {
     coreid_t mycore = disp_get_core_id();
-    
+
     vfs_init();
-    
+
     debug_printf("[%"PRIuDOMAINID"]main(): This is %s on core %d with %d args\n",
             disp_get_domain_id(), argv[0], mycore, argc);
-    
+
     if (argc > 1) {
         do_server();
     } else {

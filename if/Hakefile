@@ -20,7 +20,7 @@
                "bulkbench",
                "diskd",
                "ehci",
-               "ether",
+               "net_queue_manager",
                "ether_control",
                "fb",
                "glue_bench",

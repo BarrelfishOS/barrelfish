@@ -62,6 +62,8 @@ static uint8_t packetbuf[PACKET_SIZE];
 // the length of packet copied into packetbuf
 static uint16_t packet_length;
 
+static uint64_t assumed_queue_id = 0; // queue_id that will be initialized
+
 /**
  * \brief Select an RTL8029(AS) register page.
  *
@@ -527,9 +529,9 @@ static void rtl8029_init(void)
 	/* FIXME: do hardware init*/
 	RTL8029_DEBUG("Done with hardware init\n");
 
-	ethersrv_init(service_name, get_mac_address_fn,
+	ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn,
             rtl8029_send_ethernet_packet_fn,
-            rtl_tx_slots_count_fn, handle_free_TX_slot_fn );
+            rtl_tx_slots_count_fn, handle_free_TX_slot_fn);
 }
 
 /**

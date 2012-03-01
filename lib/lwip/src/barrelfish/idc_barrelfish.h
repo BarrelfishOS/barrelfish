@@ -20,8 +20,8 @@
 #include <barrelfish/barrelfish.h>
 #include "lwip/pbuf.h"
 #include <lwip/ip_addr.h>
+#include <if/net_queue_manager_defs.h>
 #include <procon/procon.h>
-#include <if/ether_defs.h>
 #include <contmng/contmng.h>
 
 /**
@@ -37,7 +37,7 @@
 
 struct buffer_desc {
     struct capref cap;
-    struct ether_binding *con;
+    struct net_queue_manager_binding *con;
     lpaddr_t pa;
     void *va;
     size_t size;
@@ -55,13 +55,14 @@ struct client_closure_NC {
     uint8_t benchmark_status;
     uint64_t benchmark_delta;
     uint64_t benchmark_cl;
+    uint64_t queueid; // allocated queue id
     uint8_t  role;  // RX or TX buffer
 };
 
 
 
 void idc_connect_to_netd(char *server_name);
-void idc_connect_to_driver(char *card_name);
+void idc_connect_to_driver(char *card_name, uint64_t queueid);
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p);
 void idc_register_buffer(struct buffer_desc *buff_ptr,

@@ -17,9 +17,8 @@
 #include "ethersrv_debug.h"
 #include "ethersrv_local.h"
 
-void benchmark_control_request(struct ether_binding *cc, uint8_t state,
-        uint64_t trigger, uint64_t cl_data);
-
+void benchmark_control_request(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint8_t state, uint64_t trigger, uint64_t cl_data);
 
 void reset_client_closure_stat(struct client_closure *cc);
 

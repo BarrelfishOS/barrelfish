@@ -12,7 +12,7 @@
 
 [ build application { target = "echoserver",
   		      cFiles = [ "main.c", "udpechoserver.c",
-                                 "tcpechoserver.c", "lwipinit.c" ],
+                                 "tcpechoserver.c" ],
 		      addLibraries = [ "lwip", "contmng", "procon", "trace" ]
                     }
 ]

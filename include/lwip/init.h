@@ -78,14 +78,17 @@ extern "C" {
 /* Modules initialization */
     struct waitset;
     struct thread_mutex;
-    void owner_lwip_init(char *card_name);
-    bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
-                      struct thread_mutex *opt_mutex);
-    bool lwip_init(const char *card_name);
-    bool lwip_init_auto_ex(struct waitset *opt_waitset,
-                           struct thread_mutex *opt_mutex);
+
+    //To be called from "netd" which owns the card (netd: the one who owns port)
+    void owner_lwip_init(char *card_name, uint64_t queueid);
+
+    // initialize networkign with specific card and queue
+    bool lwip_init(const char *card_name, uint64_t queueid);
+
+    // initialize networking when cardname and queue is not known
     bool lwip_init_auto(void);
 
+    // FIXME: remove these functions as they are not used anymore
     int is_lwip_loaded(void);
     uint64_t lwip_packet_drop_count(void);
 

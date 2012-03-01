@@ -74,17 +74,17 @@ void reset_client_closure_stat(struct client_closure *cc)
 }
 
 
-static errval_t send_benchmark_control_response(struct q_entry entry)
+static errval_t send_benchmark_control_response(struct q_entry e)
 {
-    //    ETHERSRV_DEBUG("send_mac_addr_response -----\n");
-    struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+        e.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.benchmark_control_response(b,
-                           MKCONT(cont_queue_callback, ccl->q),
-                           entry.plist[0], entry.plist[1], entry.plist[2]);
-                // state, delta, cl
+                    MKCONT(cont_queue_callback, ccl->q),
+                    e.plist[0], e.plist[1], e.plist[2], e.plist[3]);
+                    // queueid, state, delta, cl
     } else {
         ETHERSRV_DEBUG("send_benchmark_control_response Flounder busy.."
                 " will retry\n");
@@ -92,8 +92,8 @@ static errval_t send_benchmark_control_response(struct q_entry entry)
     }
 }
 
-static void send_benchmark_control(struct ether_binding *cc, uint64_t state,
-        uint64_t delta, uint64_t cl)
+static void send_benchmark_control(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint64_t state, uint64_t delta, uint64_t cl)
 {
     struct q_entry entry;
 
@@ -102,17 +102,16 @@ static void send_benchmark_control(struct ether_binding *cc, uint64_t state,
     entry.binding_ptr = (void *) cc;
     struct client_closure *ccl = (struct client_closure *) cc->st;
 
-    entry.plist[0] = state;
-    entry.plist[1] = delta;
-    entry.plist[2] = cl;
-    /* entry.plist[0]);
-       entry.hwaddr */
+    entry.plist[0] = queueid;
+    entry.plist[1] = state;
+    entry.plist[2] = delta;
+    entry.plist[3] = cl;
     enqueue_cont_q(ccl->q, &entry);
 }
 
 
-void benchmark_control_request(struct ether_binding *cc, uint8_t state,
-        uint64_t trigger, uint64_t cl_data)
+void benchmark_control_request(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint8_t state, uint64_t trigger, uint64_t cl_data)
 {
     uint64_t ts;
     uint8_t bm_type = 0; // 0 = RX benchmark, 1 = TX benchmark
@@ -120,6 +119,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
 //            state, trigger);
     struct client_closure *cl = ((struct client_closure *) (cc->st));
 
+    assert(cl->queueid == queueid);
     cl->debug_state = state;
     cl->debug_print = state;
     switch (state) {
@@ -174,7 +174,7 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             printf("D: Driver spp state");
             sp_print_metadata(cl->spp_ptr);
 
-            send_benchmark_control(cc, BMS_STOPPED, ts,
+            send_benchmark_control(cc, cl->queueid, BMS_STOPPED, ts,
                     (cl->pkt_count - cl->dropped_pkt_count));
 
             cl->out_trigger_counter = trigger;
@@ -202,7 +202,8 @@ void benchmark_control_request(struct ether_binding *cc, uint8_t state,
             printf("# D: Starting MBM now \n");
             cl->start_ts = rdtsc();
             cl->start_ts_tx = rdtsc();
-            send_benchmark_control(cc, BMS_RUNNING, cl->start_ts, trigger);
+            send_benchmark_control(cc, cl->queueid, BMS_RUNNING,
+                    cl->start_ts, trigger);
             break;
 
 

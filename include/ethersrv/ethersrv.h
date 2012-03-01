@@ -20,7 +20,7 @@
 #include <contmng/contmng.h>
 #include <contmng/netbench.h>
 #include <procon/procon.h>
-#include <if/ether_defs.h>
+#include <if/net_queue_manager_defs.h>
 #include <barrelfish/net_constants.h>
 
 /*****************************************************************
@@ -59,13 +59,14 @@ struct filter {
 
 struct buffer_descriptor {
     uint64_t buffer_id;  // buffer identifier
-    struct ether_binding *con; // binding to which buffer belongs
+    struct net_queue_manager_binding *con; // binding to which buffer belongs
     struct capref cap; // cap backing the buffer memory
     struct shared_pool_private *spp_prv; // shared producer consumer pool
     uint8_t role;  // Role of buffer (RX/TX)
     lpaddr_t pa;    // Physical address of buffer
     uint64_t bits;  // Size of buffer (encoded in bits)
     void *va;       // Virtual address of buffer
+    uint64_t queueid; // The queueid to which this buffer belongs
 
     struct buffer_descriptor *next; // The next buffer (in singly linked list)
     struct filter* tx_filters;  // List of filters associated with this buf
@@ -95,7 +96,8 @@ struct client_closure {
     uint64_t tx_index;  // index of which is next slot to be sent
     uint64_t rx_index;  // index of which is next slot to be received
 
-    struct ether_binding *app_connection; // Binding pointer to talk back
+    uint64_t queueid; // The queueid to which this buffer belongs
+    struct net_queue_manager_binding *app_connection; // Binding pointer to talk back
     struct cont_queue *q; // Cont management queue to report events
 
     // For debugging and benchmarking help
@@ -137,7 +139,7 @@ typedef bool (*ether_handle_free_TX_slot)(void);
 
 
 /*****************************************************************/
-void ethersrv_init(char *service_name,
+void ethersrv_init(char *service_name, uint64_t queueid,
 		ether_get_mac_address_t get_mac_ptr,
 		ether_transmit_pbuf_list_t transmit_ptr,
                 ether_get_tx_free_slots tx_free_slots_ptr,
@@ -145,7 +147,8 @@ void ethersrv_init(char *service_name,
 
 bool waiting_for_netd(void);
 
-bool notify_client_free_tx(struct ether_binding * b, uint64_t spp_index);
+bool notify_client_free_tx(struct net_queue_manager_binding * b,
+        uint64_t spp_index);
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 void process_received_packet(void *pkt_data, size_t pkt_len);

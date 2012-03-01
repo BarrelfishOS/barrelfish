@@ -58,7 +58,7 @@ void thread_debug_regs(struct thread *t);
 
 // Variables shared with idc_barrelfish.c
 extern struct waitset *lwip_waitset;
-extern struct ether_binding *driver_connection[2];
+extern struct net_queue_manager_binding *driver_connection[2];
 
 /**
  * \brief handle msgs on the tx, rx and then the rest connections in that priority

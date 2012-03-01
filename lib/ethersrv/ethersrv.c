@@ -23,12 +23,11 @@
 #include <string.h>
 #include <trace/trace.h>
 #include <ethersrv/ethersrv.h>
-#include <if/ether_defs.h>
+#include <if/net_queue_manager_defs.h>
 #include "ethersrv_local.h"
 #include "ethersrv_debug.h"
 #include "ethersrv_support.h"
 
-#define APP_QUEUE_SIZE  (RECEIVE_BUFFERS + 1)
 
 
 /* Enable tracing based on the global settings. */
@@ -36,41 +35,41 @@
 #define TRACE_ETHERSRV_MODE 1
 #endif                          // CONFIG_TRACE && NETWORK_STACK_TRACE
 
+
+
+// FIXME: This is repeated, make it common
+#define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
+
 /*****************************************************************
- * Constants:
+ * Global datastructure
  *****************************************************************/
+struct netbench_details *bm = NULL; // benchmarking data holder
 
-#define LAST_ACCESSED_BYTE_ARP 12
-#define LAST_ACCESSED_BYTE_TRANSPORT 36
 
-// Counter for dropped packets
-static uint64_t dropped_pkt_count = 0;
-
-struct netbench_details *bm = NULL;
 /*****************************************************************
  * Prototypes
  *****************************************************************/
 
-static void register_buffer(struct ether_binding *cc, struct capref cap,
-                        struct capref sp, uint64_t slots, uint8_t role);
-static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
-                uint64_t ts);
-
-static void get_mac_addr(struct ether_binding *cc);
-static void print_statistics_handler(struct ether_binding *cc);
-static void print_cardinfo_handler(struct ether_binding *cc);
+static void register_buffer(struct net_queue_manager_binding *cc,
+        struct capref cap, struct capref sp, uint64_t queueid,
+        uint64_t slots, uint8_t role);
+static void sp_notification_from_app(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint64_t type, uint64_t ts);
+static void get_mac_addr(struct net_queue_manager_binding *cc,
+        uint64_t queueid);
+static void print_statistics_handler(struct net_queue_manager_binding *cc,
+        uint64_t queueid);
 
 /*****************************************************************
  * VTABLE
  *****************************************************************/
 
 // Initialize service
-static struct ether_rx_vtbl rx_ether_vtbl = {
+static struct net_queue_manager_rx_vtbl rx_nqm_vtbl = {
     .register_buffer = register_buffer,
     .sp_notification_from_app = sp_notification_from_app,
     .get_mac_address = get_mac_addr,
     .print_statistics = print_statistics_handler,
-    .print_cardinfo = print_cardinfo_handler,
     .benchmark_control_request = benchmark_control_request,
 };
 
@@ -78,8 +77,6 @@ static struct ether_rx_vtbl rx_ether_vtbl = {
  * Pointers to driver functionalities:
  *****************************************************************/
 static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
-
-//static ether_can_transmit_t ether_can_transmit_ptr = NULL;
 static ether_transmit_pbuf_list_t ether_transmit_pbuf_list_ptr = NULL;
 static ether_get_tx_free_slots tx_free_slots_fn_ptr = NULL;
 static ether_handle_free_TX_slot handle_free_tx_slot_fn_ptr = NULL;
@@ -87,14 +84,19 @@ static ether_handle_free_TX_slot handle_free_tx_slot_fn_ptr = NULL;
 /*****************************************************************
  * Local states:
  *****************************************************************/
-static char *my_service_name = NULL;
-static int client_no = 0;
-static uint64_t buffer_id_counter = 0;
-static uint64_t netd_buffer_count = 0;
+static char exported_queue_name[MAX_SERVICE_NAME_LEN] = {0}; // exported Q name
+static uint64_t exported_queueid = 0; // id of queue
+static int client_no = 0;  // number of clients(apps) connected
+static uint64_t buffer_id_counter = 0; // number of buffers registered
+// FIXME: following should be gone in next version of code
+static uint64_t netd_buffer_count = 0; // way to identify the netd
+static uint64_t dropped_pkt_count = 0; // Counter for dropped packets
 
 static struct buffer_descriptor *first_app_b = NULL;
 
 
+// Find buffer in the list of all registered buffer using buffer_id
+// FIXME: it is singly linked list, hence very slow if no of apps increases
 struct buffer_descriptor *find_buffer(uint64_t buffer_id)
 {
     struct buffer_descriptor *elem = buffers_list;
@@ -108,25 +110,29 @@ struct buffer_descriptor *find_buffer(uint64_t buffer_id)
 } // end function: buffer_descriptor
 
 
+// **********************************************************
+// Interface register_buffer implementation
+// **********************************************************
 static errval_t send_new_buffer_id(struct q_entry entry)
 {
-    //    ETHERSRV_DEBUG("send_new_buffer_id -----\n");
-
-    struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+                    entry.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.new_buffer_id(b, MKCONT(cont_queue_callback, ccl->q),
-                                        entry.plist[0], entry.plist[1]);
-        /* entry.error,    entry.buffer_id */
+                                        entry.plist[0],
+                                        entry.plist[1],
+                                        entry.plist[2]);
+        // entry.error, entry.queueid, entry.buffer_id
     } else {
         ETHERSRV_DEBUG("send_new_buffer_id Flounder busy.. will retry\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 }
 
-static void report_register_buffer_result(struct ether_binding *cc,
-        errval_t err, uint64_t buffer_id)
+static void report_register_buffer_result(struct net_queue_manager_binding *cc,
+        errval_t err, uint64_t queueid, uint64_t buffer_id)
 {
     struct q_entry entry;
     memset(&entry, 0, sizeof(struct q_entry));
@@ -135,13 +141,16 @@ static void report_register_buffer_result(struct ether_binding *cc,
     struct client_closure *ccl = (struct client_closure *) cc->st;
 
     entry.plist[0] = err;
-    entry.plist[1] = buffer_id;
-    //   error, buffer_id
+    entry.plist[1] = queueid;
+    entry.plist[2] = buffer_id;
+    //   error, queue_id, buffer_id
     enqueue_cont_q(ccl->q, &entry);
 }
 
-static void register_buffer(struct ether_binding *cc, struct capref cap,
-                        struct capref sp, uint64_t slots, uint8_t role)
+// Actual register_buffer function with all it's logic
+static void register_buffer(struct net_queue_manager_binding *cc,
+            struct capref cap, struct capref sp, uint64_t queueid,
+            uint64_t slots, uint8_t role)
 {
 
     ETHERSRV_DEBUG("ethersrv:register buffer called with slots %"PRIu64"\n",
@@ -150,6 +159,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     int i;
     struct client_closure *closure = (struct client_closure *)cc->st;
     struct buffer_descriptor *buffer = closure->buffer_ptr;
+    assert(exported_queueid == queueid);
 
     buffer->role = role;
 
@@ -157,6 +167,8 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 
     buffer->con = cc;
     buffer->cap = cap;
+    buffer->queueid = queueid;
+    closure->queueid = queueid;
 
     struct frame_identity pa;
     err = invoke_frame_identify(cap, &pa);
@@ -183,7 +195,8 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");
         // FIXME: report more sensible error
-        report_register_buffer_result(cc, ETHERSRV_ERR_TOO_MANY_BUFFERS, 0);
+        report_register_buffer_result(cc, ETHERSRV_ERR_TOO_MANY_BUFFERS,
+                buffer->queueid, 0);
         return;
     }
 
@@ -191,7 +204,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "sp_map_shared_pool failed");
         // FIXME: report more sensible error
-        report_register_buffer_result(cc, err, 0);
+        report_register_buffer_result(cc, err, buffer->queueid, 0);
         return;
     }
 
@@ -208,7 +221,7 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
 
     buffer_id_counter++;
     buffer->buffer_id = buffer_id_counter;
-//      printf("buffer gets id %lu\n", buffer->buffer_id);
+//    printf("### buffer gets id %"PRIu64"\n", buffer->buffer_id);
     if (buffer->buffer_id == 3) {
         first_app_b = buffer;
     }
@@ -226,11 +239,10 @@ static void register_buffer(struct ether_binding *cc, struct capref cap,
     if (buffer->role == RX_BUFFER_ID) {
 
     }
-    report_register_buffer_result(cc, err, buffer->buffer_id);
+    report_register_buffer_result(cc, err, buffer->queueid, buffer->buffer_id);
 }
 
-
-static bool send_single_pkt_to_driver(struct ether_binding *cc)
+static bool send_single_pkt_to_driver(struct net_queue_manager_binding *cc)
 {
     errval_t err;
 
@@ -278,7 +290,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
         // Benchmarking mode is on
         ++cl->pkt_count;
         if (cl->pkt_count == cl->out_trigger_counter) {
-            benchmark_control_request(cc, BMS_STOP_REQUEST, 0, 0);
+            benchmark_control_request(cc, cl->queueid,  BMS_STOP_REQUEST, 0, 0);
         }
     } // end if: benchmarking mode is on
 
@@ -296,7 +308,7 @@ static bool send_single_pkt_to_driver(struct ether_binding *cc)
 } // end function:
 
 
-static uint64_t send_packets_on_wire(struct ether_binding *cc)
+static uint64_t send_packets_on_wire(struct net_queue_manager_binding *cc)
 {
     uint64_t pkts = 0;
     struct client_closure *closure = (struct client_closure *)cc->st;
@@ -338,7 +350,7 @@ errval_t send_sp_notification_from_driver(struct q_entry e);
 errval_t send_sp_notification_from_driver(struct q_entry e)
 {
 //    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *) e.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
 
 #if TRACE_ONLY_SUB_NNET
@@ -352,8 +364,9 @@ errval_t send_sp_notification_from_driver(struct q_entry e)
     uint64_t ts = rdtsc();
     if (b->can_send(b)) {
         errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
-                MKCONT(cont_queue_callback, ccl->q), e.plist[0], ts);
-                // type, ts
+                MKCONT(cont_queue_callback, ccl->q),
+                e.plist[0], e.plist[1], ts);
+                // queueid, type, ts
         if (ccl->debug_state_tx == 4) {
             netbench_record_event_simple(bm, RE_TX_SP_MSG, ts);
         }
@@ -366,7 +379,7 @@ errval_t send_sp_notification_from_driver(struct q_entry e)
 }
 
 
-static void do_pending_work(struct ether_binding *b)
+static void do_pending_work(struct net_queue_manager_binding *b)
 {
     uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)b->st;
@@ -410,9 +423,10 @@ static void do_pending_work(struct ether_binding *b)
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_sp_notification_from_driver;
         entry.binding_ptr = (void *) b;
-        entry.plist[0] = 1; // FIXME: will have to define these values
+        entry.plist[0] = closure->queueid;
+        entry.plist[1] = 1; // FIXME: will have to define these values
         // FIXME: Get the remaining slots value from the driver
-        entry.plist[1] = rdtsc();
+        entry.plist[2] = rdtsc();
         enqueue_cont_q(closure->q, &entry);
 //        printf("notfify client 1: notification enqueued\n");
         spp->notify_other_side = 0;
@@ -434,13 +448,14 @@ void do_pending_work_for_all(void)
     }
 }
 
-
-static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
-                uint64_t rts)
+// Notification received from the application
+// Most probably, it needs some attention
+static void sp_notification_from_app(struct net_queue_manager_binding *cc,
+        uint64_t queueid, uint64_t type, uint64_t rts)
 {
-
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(closure != NULL);
+    assert(closure->queueid == queueid);
     if (closure->debug_state_tx == 4) {
         netbench_record_event_simple(bm, RE_TX_NOTI_CS, rts);
     }
@@ -458,15 +473,15 @@ static void sp_notification_from_app(struct ether_binding *cc, uint64_t type,
 static errval_t send_mac_addr_response(struct q_entry entry)
 {
     //    ETHERSRV_DEBUG("send_mac_addr_response -----\n");
-    struct ether_binding *b = (struct ether_binding *) entry.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+        entry.binding_ptr;
     struct client_closure *ccl = (struct client_closure *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.get_mac_address_response(b,
-                                                   MKCONT(cont_queue_callback,
-                                                          ccl->q),
-                                                   entry.plist[0]);
-        /* entry.hwaddr */
+                          MKCONT(cont_queue_callback, ccl->q),
+                          entry.plist[0], entry.plist[1]);
+        // queueid, hwaddr
     } else {
         ETHERSRV_DEBUG("send_mac_addr_response Flounder busy.. will retry\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -474,7 +489,7 @@ static errval_t send_mac_addr_response(struct q_entry entry)
 }
 
 
-static void get_mac_addr(struct ether_binding *cc)
+static void get_mac_addr(struct net_queue_manager_binding *cc, uint64_t queueid)
 {
     union {
         uint8_t hwaddr[6];
@@ -490,50 +505,47 @@ static void get_mac_addr(struct ether_binding *cc)
     entry.handler = send_mac_addr_response;
     entry.binding_ptr = (void *) cc;
     struct client_closure *ccl = (struct client_closure *) cc->st;
+    assert(ccl->queueid == queueid);
 
-    entry.plist[0] = u.hwasint;
-    /* entry.plist[0]);
-       entry.hwaddr */
+    entry.plist[0] = queueid;
+    entry.plist[1] = u.hwasint;
+       // queueid,  hwaddr
 
     enqueue_cont_q(ccl->q, &entry);
-
 }
 
-static void print_statistics_handler(struct ether_binding *cc)
+static void print_statistics_handler(struct net_queue_manager_binding *cc,
+        uint64_t queueid)
 {
     ETHERSRV_DEBUG("ETHERSRV: print_statistics_handler: called.\n");
 //      print_statistics();
 }
 
-static void print_cardinfo_handler(struct ether_binding *cc)
-{
-
-}
-
 /*****************************************************************
  * Chips Handlers:
  ****************************************************************/
-//static int client_conn_nr = 0;
 
 static void export_ether_cb(void *st, errval_t err, iref_t iref)
 {
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "service [%s] export failed", my_service_name);
+        DEBUG_ERR(err, "service [%s] export failed", exported_queue_name);
         abort();
     }
 
-    ETHERSRV_DEBUG("service [%s] exported at iref %u\n", my_service_name, iref);
+    ETHERSRV_DEBUG("service [%s] exported at iref %u\n", exported_queue_name,
+            iref);
 
     // register this iref with the name service
-    err = nameservice_register(my_service_name, iref);
+    err = nameservice_register(exported_queue_name, iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed for [%s]", my_service_name);
+        DEBUG_ERR(err, "nameservice_register failed for [%s]",
+                exported_queue_name);
         abort();
     }
 }
 
 
-static void error_handler(struct ether_binding *b, errval_t err)
+static void error_handler(struct net_queue_manager_binding *b, errval_t err)
 {
     ETHERSRV_DEBUG("ether service error_handler: called\n");
     if (err == SYS_ERR_CAP_NOT_FOUND) {
@@ -549,13 +561,13 @@ static void error_handler(struct ether_binding *b, errval_t err)
     ETHERSRV_DEBUG("ether service error_handler: terminated\n");
 }
 
-static errval_t connect_ether_cb(void *st, struct ether_binding *b)
+static errval_t connect_ether_cb(void *st, struct net_queue_manager_binding *b)
 {
     ETHERSRV_DEBUG("ether service got a connection!44\n");
     errval_t err = SYS_ERR_OK;
 
     // copy my message receive handler vtable to the binding
-    b->rx_vtbl = rx_ether_vtbl;
+    b->rx_vtbl = rx_nqm_vtbl;
     b->error_handler = error_handler;
 
     struct client_closure *cc =
@@ -618,7 +630,7 @@ static errval_t connect_ether_cb(void *st, struct ether_binding *b)
 /*****************************************************************
  * ethersrv initialization wrapper:
  ****************************************************************/
-void ethersrv_init(char *service_name,
+void ethersrv_init(char *service_name, uint64_t queueid,
                    ether_get_mac_address_t get_mac_ptr,
                    ether_transmit_pbuf_list_t transmit_ptr,
                    ether_get_tx_free_slots tx_free_slots_ptr,
@@ -633,11 +645,13 @@ void ethersrv_init(char *service_name,
     assert(tx_free_slots_ptr != NULL);
     assert(handle_free_tx_slot_ptr != NULL);
 
+    exported_queueid = queueid;
     ether_get_mac_address_ptr = get_mac_ptr;
     ether_transmit_pbuf_list_ptr = transmit_ptr;
     tx_free_slots_fn_ptr = tx_free_slots_ptr;
     handle_free_tx_slot_fn_ptr = handle_free_tx_slot_ptr;
-    my_service_name = service_name;
+    snprintf(exported_queue_name, sizeof(exported_queue_name),
+            "%s_%"PRIu64"", service_name, queueid);
 
     buffers_list = NULL;
     netd[0] = NULL;
@@ -651,20 +665,21 @@ void ethersrv_init(char *service_name,
     /* FIXME: populate the receive ring of device driver with local pbufs */
 
     /* exporting ether interface */
-    err = ether_export(NULL /* state pointer for connect/export callbacks */ ,
+    err = net_queue_manager_export(NULL, // state for connect/export callbacks
                        export_ether_cb, connect_ether_cb, get_default_waitset(),
                        IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "%s export failed", my_service_name);
+        DEBUG_ERR(err, "%s export failed", exported_queue_name);
         abort();
     }
 
-    init_ether_control_service(my_service_name);
+    init_ether_control_service(service_name);
 }
 
 
-/*******************************************/
-bool notify_client_free_tx(struct ether_binding * b, uint64_t spp_index)
+// ******************************************
+bool notify_client_free_tx(struct net_queue_manager_binding * b,
+        uint64_t spp_index)
 {
     uint64_t rts = rdtsc();
     assert(b != NULL);
@@ -713,7 +728,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     assert(len > 0);
     assert(data != NULL);
     assert(buffer != NULL);
-    struct ether_binding *b = buffer->con;
+    struct net_queue_manager_binding *b = buffer->con;
     assert(b != NULL);
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
@@ -785,9 +800,10 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
         memset(&entry, 0, sizeof(struct q_entry));
         entry.handler = send_sp_notification_from_driver;
         entry.binding_ptr = (void *) b;
-        entry.plist[0] = 1; // FIXME: will have to define these values
+        entry.plist[0] = cl->queueid;
+        entry.plist[1] = 1; // FIXME: will have to define these values
         // FIXME: Get the remaining slots value from the driver
-        entry.plist[1] = rdtsc();
+        entry.plist[2] = rdtsc();
         enqueue_cont_q(cl->q, &entry);
         cl->spp_ptr->notify_other_side = 0;
     }

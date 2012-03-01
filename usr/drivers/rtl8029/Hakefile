@@ -12,7 +12,8 @@
 
 [ build application { target = "rtl8029",
                       cFiles = ["rtl8029.c"],
-                      flounderBindings = [ "ether", "ether_control" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "ether_control" ],
                       mackerelDevices = [ "rtl8029as" ],
                       addLibraries = [ "pci", "ethersrv", "contmng", "procon",
                                             "bfdmuxvm", "lwip" ]

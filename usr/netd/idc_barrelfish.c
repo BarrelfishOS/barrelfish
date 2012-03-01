@@ -22,7 +22,7 @@
 #include <barrelfish/deferred.h>
 
 
-#include <if/ether_defs.h>
+#include <if/net_queue_manager_defs.h>
 #include <if/netd_defs.h>
 #include <if/ether_control_defs.h>
 

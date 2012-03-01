@@ -7,12 +7,13 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/e10k
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "e10k",
                       cFiles = [ "e10k.c", "sleep.c", "helper.c"],
-                      flounderBindings = [ "ether", "ether_control" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "ether_control" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = [ "pci", "ethersrv", "contmng", "procon",
                                             "bfdmuxvm", "lwip", "bench" ]

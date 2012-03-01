@@ -740,7 +740,7 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
         for (int i = 0; i < rx_filter->pause_bufpos; i++) {
             struct bufdesc *bd = &rx_filter->pause_buffer[i];
 
-            struct ether_binding *b = rx_filter->buffer->con;
+            struct net_queue_manager_binding *b = rx_filter->buffer->con;
             assert(b != NULL);
             struct client_closure *cl = (struct client_closure *)b->st;
             assert(cl != NULL);
@@ -854,7 +854,7 @@ static void send_arp_to_all(void *data, uint64_t len)
 
     /* FIXME: this code will send two copies or ARP if there are two filters
      * registered, which is incorrect.  Fix it. */
-    struct ether_binding *b = NULL;
+    struct net_queue_manager_binding *b = NULL;
     struct client_closure *cl = NULL;
     while (head) {
         b = head->buffer->con;
@@ -953,7 +953,7 @@ static bool handle_application_packet(void *packet, size_t len)
 
     // Matching filter found, sending packet to application
     struct buffer_descriptor *buffer = filter->buffer;
-    struct ether_binding *b = buffer->con;
+    struct net_queue_manager_binding *b = buffer->con;
     assert(b != NULL);
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
@@ -1074,7 +1074,7 @@ static bool handle_netd_packet(void *packet, size_t len)
         return false;
     }
 
-    struct ether_binding *b = buffer->con;
+    struct net_queue_manager_binding *b = buffer->con;
     if(b == NULL) {
 //        printf("netd buffer->con not present\n");
         return false;

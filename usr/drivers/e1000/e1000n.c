@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ethersrv/ethersrv.h>
-#include <if/ether_defs.h>
+#include <if/net_queue_manager_defs.h>
 #include <trace/trace.h>
 #include "e1000n.h"
 
@@ -65,7 +65,7 @@ static volatile struct tx_desc *transmit_ring;
 
 // Data-structure to map sent buffer slots back to application slots
 struct pbuf_desc {
-    struct ether_binding *sr; // which application binding
+    struct net_queue_manager_binding *sr; // which application binding
     uint64_t spp_index;  // which slot within spp
 };
 static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFER];
@@ -87,17 +87,17 @@ static uint32_t receive_free = 0;
 /*****************************************************************
  * Local states:
  *****************************************************************/
-uint64_t minbase = -1;
-uint64_t maxbase = -1;
+static uint64_t minbase = -1;
+static uint64_t maxbase = -1;
 
-uint64_t bus = PCI_DONT_CARE;
-uint64_t device = PCI_DONT_CARE;
-uint32_t function = PCI_DONT_CARE;
-uint32_t deviceid = PCI_DONT_CARE;
+static uint64_t bus = PCI_DONT_CARE;
+static uint64_t device = PCI_DONT_CARE;
+static uint32_t function = PCI_DONT_CARE;
+static uint32_t deviceid = PCI_DONT_CARE;
 
 /* FIXME: most probably, I don't need this.  So, remove it.  */
-char *global_service_name = 0;
-
+static char *global_service_name = 0;
+static uint64_t assumed_queue_id = 0;
 static bool handle_free_TX_slot_fn(void);
 
 /*****************************************************************
@@ -150,7 +150,7 @@ static bool can_transmit(int numbufs)
 static uint64_t transmit_pbuf(lpaddr_t buffer_address,
                               size_t packet_len, uint64_t offset, bool last,
                               uint64_t client_data, uint64_t spp_index,
-                              struct ether_binding *sr)
+                              struct net_queue_manager_binding *sr)
 {
 
     struct tx_desc tdesc;
@@ -201,6 +201,7 @@ static errval_t transmit_pbuf_list_fn_v2(struct client_closure *cl)
     // Current problem is that, ARP request packets are reused to send the
     // response, and hence having different buffer_id than of tx buffer
 //    assert(buffer == cl->buffer_ptr);
+    assert(buffer != NULL);
     for (int i = 0; i < rtpbuf; i++) {
         sld = &spp->sp->slot_list[cl->tx_index + i].d;
         assert(buffer->buffer_id == sld->buffer_id);
@@ -636,7 +637,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
             macaddr, user_macaddr, use_interrupt);
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
-    ethersrv_init(global_service_name, get_mac_address_fn,
+    ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  transmit_pbuf_list_fn_v2, find_tx_free_slot_count_fn,
                   handle_free_TX_slot_fn);
 }

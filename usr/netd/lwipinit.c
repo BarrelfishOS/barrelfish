@@ -28,13 +28,14 @@
 #include "netd.h"
 
 
-void startlwip(char *card_name)
+void startlwip(char *card_name, uint64_t queueid)
 {
 
-    NETD_DEBUG("NETD is taking control of the LWIP for card[%s]\n", card_name);
+    NETD_DEBUG("NETD is taking control of the LWIP for card[%s][%"PRIu64"]\n",
+            card_name, queueid);
     perform_ownership_housekeeping(alloc_tcp_port, alloc_udp_port,
                                    alloc_specific_port, free_port);
 
     /* take ownership of lwip */
-    owner_lwip_init(card_name);
+    owner_lwip_init(card_name, queueid);
 }

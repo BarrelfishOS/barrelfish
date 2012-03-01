@@ -13,8 +13,9 @@
 [ build application { target = "netd",
   cFiles = [ "main.c", "portalloc.c", "lwipinit.c", "idc_barrelfish.c" ],
 --    cFiles = [ "main.c", "lwipinit.c", "idc_barrelfish.c" ],
-                      flounderBindings = [ "netd" , "ether_control" ],
-		      flounderDefs = [ "ether" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "ether_control" ],
+		      flounderDefs = [ "net_queue_manager" ],
 		      addLibraries = [ "lwip", "bfdmuxtools", "contmng",
                       "procon", "timer", "trace" ]
                     }

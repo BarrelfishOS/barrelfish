@@ -31,6 +31,8 @@ static int initialized = 0;
 static int use_interrupts = 1;
 struct txbuf* txbufs;
 
+static uint64_t assumed_queue_id = 0; // queue_id that will be initialized
+
 #define NTXDESCS 256
 #define NRXDESCS 256
 #define RXBUFSZ 2048
@@ -41,7 +43,7 @@ struct rxbuf {
 };
 
 struct txbuf {
-    struct ether_binding* eb;
+    struct net_queue_manager_binding* eb;
     uint64_t data;
     uint64_t spp_index;
     uint64_t ts;
@@ -960,8 +962,9 @@ static void e10k_init(struct device_mem* bar_info, int bar_count)
     DEBUG("Card initialized\n");
 
     initialized = 1;
-    ethersrv_init("e10k", get_mac_address_fn, transmit_pbuf_list_fn,
-        find_tx_free_slot_count_fn, handle_free_tx_slot_fn);
+    ethersrv_init("e10k", assumed_queue_id,  get_mac_address_fn,
+            transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+            handle_free_tx_slot_fn);
 }
 
 /** Polling loop. */
