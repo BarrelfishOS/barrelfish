@@ -14,10 +14,41 @@
 
 #define MAX_DRIVER_MODULES 128
 
+extern char **environ;
+
 static struct module_info modules[MAX_DRIVER_MODULES];
 
 inline bool is_auto_driver(struct module_info* mi) {
     return strcmp(mi->argv[1], "auto") == 0;
+}
+
+inline bool is_started(struct module_info* mi)
+{
+    return mi->did > 0;
+}
+
+static errval_t default_start_function(coreid_t where, struct module_info* mi,
+        char* record)
+{
+    errval_t err = SYS_ERR_OK;
+
+    if (!is_started(mi)) {
+        err = spawn_program(where, mi->path, mi->argv+1,
+                environ, 0, &mi->did);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Spawning %s failed.", mi->path);
+        }
+    }
+
+    return err;
+}
+
+void set_start_function(char* binary, module_start_fn start_fn)
+{
+    struct module_info* mi = find_module(binary);
+    if (mi != NULL) {
+        mi->start_function = start_fn;
+    }
 }
 
 struct module_info* find_module(char *binary)
@@ -53,6 +84,7 @@ static void parse_module(char* line, struct module_info* si)
     char* binary_start = strrchr(si->path, '/');
     si->binary = strdup(binary_start+1); // exclude /
     si->did = 0;
+    si->start_function = default_start_function;
 
     char* cmdstart = line + path_size - strlen(si->binary);
     si->cmdargs = strdup(cmdstart);

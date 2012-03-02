@@ -72,7 +72,7 @@ find_pci_driver(PciInfo, DriverInfo) :-
     !,
     % TODO: Core Selection based on PCI Info, core_hint, irqload, platforms, 
     %  (+ may need to pass bus number here as well?)
-    DriverInfo = driver(Binary, Core).
+    DriverInfo = driver(Core, Binary).
 
 find_cpu_driver(ApicId, DriverInfo) :-
     cpu_driver{binary: Binary, platforms: Platforms},
@@ -83,5 +83,5 @@ find_cpu_driver(ApicId, DriverInfo) :-
 find_ioapic_driver(IOApicId, DriverInfo) :-
     bus_driver{binary: Binary, core_hint: Core, platforms: Platforms},
     % TODO: Select appropriate Core based on core_hint, platform, ioapic id
-    DriverInfo = driver(Binary, Core).
+    DriverInfo = driver(Core, Binary).
 

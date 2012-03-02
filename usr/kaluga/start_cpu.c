@@ -31,6 +31,8 @@
 // boot_initialize_request after all cores have booted
 // It's is a hack (see monitors boot.c)
 static coreid_t cores_on_boot = 0;
+static coreid_t core_counter = 1; // BSP already up
+static bool cores_booted = false;
 
 static errval_t new_mon_msg(struct mon_msg_state** mms, send_handler_fn s)
 {
@@ -86,6 +88,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 static void boot_initialize_reply(struct monitor_binding *st)
 {
     KALUGA_DEBUG("boot_initialize_reply\n");
+    cores_booted = true;
     errval_t err = dist_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 }
@@ -146,12 +149,13 @@ static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
             mms->core_id = core_id++;
             mms->arch_id = arch_id;
             mms->send(mb, mms);
+            (*(coreid_t*) state) += 1;
 
             // XXX: copied this line from spawnd bsp_bootup,
             // not sure why x86_64 is hardcoded here but it
             // seems broken...
             skb_add_fact("corename(%d, x86_64, apic(%lu)).",
-                    core_id, arch_id);
+                    mms->core_id, mms->arch_id);
         }
 
     }
@@ -165,79 +169,35 @@ out:
     free(record);
 }
 
-errval_t watch_for_cores(void) {
+errval_t watch_for_cores(void)
+{
     configure_monitor_binding();
 
-    errval_t error_code;
-    char** names = NULL;
-    char* output = NULL;
-    char* core_record = NULL; // freed by cpu_change_event
-    size_t len = 0;
-    dist2_trigger_id_t tid;
-    dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, dist2_BINDING_EVENT,
-            TRIGGER_ALWAYS, cpu_change_event, NULL);
-
-    // Get current cores registered in system
-    struct dist2_thc_client_binding_t* rpc = dist_get_thc_client();
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
-    errval_t err = rpc->call_seq.get_names(rpc, local_apics,
-            t, &output, &tid, &error_code);
-    if (err_is_fail(err)) {
-        goto out;
-    }
-    err = error_code;
+    dist2_trigger_id_t tid;
+    errval_t err = trigger_existing_and_watch(local_apics, cpu_change_event,
+            &core_counter, &tid);
+    cores_on_boot = core_counter;
 
-    switch(err_no(err)) {
-    case SYS_ERR_OK:
-        err = dist_parse_names(output, &names, &len);
-        if (err_is_fail(err)) {
-            goto out;
+    if (err_is_ok(err)) {
+        if (cores_on_boot == 1) {
+            // No additional cores found
+            // XXX: We simulate a boot initialize reply to set the
+            // all_spawnds_up record. The whole app monitor boot protocol will
+            // most likely change in the future and render this unnecessary.
+            boot_initialize_reply(NULL);
         }
-        cores_on_boot = (coreid_t) len;
-
-        for (size_t i=0; i < cores_on_boot; i++) {
-            KALUGA_DEBUG("get core record for name:%s\n", names[i]);
-            err = dist_get(&core_record, names[i]);
-
-            switch (err_no(err)) {
-            case SYS_ERR_OK:
-                cpu_change_event(DIST_ON_SET, core_record, NULL);
-                break;
-
-            case DIST2_ERR_NO_RECORD:
-                // Core was removed in the meantime - ignore
-                assert(core_record == NULL);
-                break;
-
-            default:
-                DEBUG_ERR(err, "Unable to retrieve core record for %s", names[i]);
-                assert(core_record == NULL);
-                break;
-            }
-        }
-        break;
-
-    case DIST2_ERR_NO_RECORD:
-        // No cores found, do nothing for now
-        KALUGA_DEBUG("No additional cores found in ACPI!\n");
-        cores_on_boot = 1;
-
-        // XXX: We simulate a boot initialize reply to set the
-        // all_spawnds_up record. The whole app monitor boot protocol will
-        // most likely change in the future and render this unnecessary.
-        boot_initialize_reply(NULL);
-        break;
-
-    default:
-        USER_PANIC_ERR(err, "Failed to check for CPU cores in SKB.");
-        break;
     }
 
-out:
-    dist_free_names(names, cores_on_boot);
-    free(output);
+    // Wait until all cores found are booted, this ensures
+    // we won't deadlock in case we start a driver on
+    // a core that is not ready
+    /*
+    while (!cores_booted) {
+        messages_wait_and_handle_next();
+    }*/
 
     return err;
 }

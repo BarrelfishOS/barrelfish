@@ -173,6 +173,8 @@ errval_t dist_thc_init(void)
     }
 
     assert(service_iref != 0);
+    // XXX: Not sure but I think it would be better not to run the THC client
+    // on the default waitset?
     err = dist2_thc_connect(service_iref,
             get_default_waitset(), IDC_BIND_FLAGS_DEFAULT, &(rpc.binding));
     if (err_is_fail(err)) {
@@ -186,8 +188,6 @@ errval_t dist_thc_init(void)
     }
 
     // TODO: Hack. Tell the server that these bindings belong together
-    // We can't use the same binding in 2 different threads with
-    // rpc and non-rpc calls.
     dist2_thc_client_binding_t* cl = dist_get_thc_client();
     err = cl->call_seq.get_identifier(cl, &client_identifier);
     if (err_is_fail(err)) {

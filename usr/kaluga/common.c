@@ -4,7 +4,8 @@
 #include "kaluga.h"
 
 errval_t trigger_existing_and_watch(const char* query,
-        trigger_handler_fn event_handler,  dist2_trigger_id_t* tid)
+        trigger_handler_fn event_handler, void* state,
+        dist2_trigger_id_t* tid)
 {
     errval_t error_code;
     char** names = NULL;
@@ -12,7 +13,7 @@ errval_t trigger_existing_and_watch(const char* query,
     char* record = NULL; // freed by cpu_change_event
     size_t len = 0;
     dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, dist2_BINDING_EVENT,
-            TRIGGER_ALWAYS, event_handler, NULL);
+            TRIGGER_ALWAYS, event_handler, state);
 
     // Get current cores registered in system
     struct dist2_thc_client_binding_t* rpc = dist_get_thc_client();
@@ -36,7 +37,7 @@ errval_t trigger_existing_and_watch(const char* query,
 
             switch (err_no(err)) {
             case SYS_ERR_OK:
-                event_handler(DIST_ON_SET, record, NULL);
+                event_handler(DIST_ON_SET, record, state);
                 break;
 
             case DIST2_ERR_NO_RECORD:

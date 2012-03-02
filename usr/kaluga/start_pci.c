@@ -43,8 +43,9 @@ static void bridge_change_event(dist2_mode_t mode, char* bridge_record, void* st
             goto out;
         }
 
-        // XXX: always spawn on my_core_id
         KALUGA_DEBUG("bridge_change_event: spawn mi->path: %s\n", mi->path);
+        // XXX: always spawn on my_core_id; otherwise we need to check that
+        // the other core is already up
         errval_t err = spawn_program(my_core_id, mi->path, mi->argv+1,
                 environ, 0, &pci_driver);
         if (err_is_fail(err)) {
@@ -62,5 +63,6 @@ errval_t watch_for_pci_root_bridge(void)
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
     dist2_trigger_id_t tid;
-    return trigger_existing_and_watch(root_bridge, bridge_change_event, &tid);
+    return trigger_existing_and_watch(root_bridge, bridge_change_event,
+            NULL, &tid);
 }
