@@ -197,7 +197,7 @@ static bool handle_free_tx_slot_fn(void)
                 (uint32_t) buf->data);
 #endif // TRACE_ONLY_SUB_NNET
 
-    notify_client_free_tx(buf->eb, buf->spp_index);
+    handle_tx_done(buf->eb, buf->spp_index);
 
     return true;
 }

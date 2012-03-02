@@ -147,8 +147,8 @@ void ethersrv_init(char *service_name, uint64_t queueid,
 
 bool waiting_for_netd(void);
 
-bool notify_client_free_tx(struct net_queue_manager_binding * b,
-        uint64_t spp_index);
+bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index);
+
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 void process_received_packet(void *pkt_data, size_t pkt_len);

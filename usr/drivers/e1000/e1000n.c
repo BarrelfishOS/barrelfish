@@ -263,7 +263,7 @@ static bool handle_free_TX_slot_fn(void)
 #endif // TRACE_ONLY_SUB_NNET
 
 
-    sent = notify_client_free_tx(pbuf_list_tx[ether_transmit_bufptr].sr,
+    sent = handle_tx_done(pbuf_list_tx[ether_transmit_bufptr].sr,
             pbuf_list_tx[ether_transmit_bufptr].spp_index);
 
     ether_transmit_bufptr = (ether_transmit_bufptr + 1)%DRIVER_TRANSMIT_BUFFER;

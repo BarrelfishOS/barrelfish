@@ -12,7 +12,7 @@
 #include <ethersrv/ethersrv.h>
 
 // registered buffers:
-struct buffer_descriptor *buffers_list;
+extern struct buffer_descriptor *buffers_list;
 
 /* NETD connections */
 #define NETD_BUF_NR 2

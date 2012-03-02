@@ -929,8 +929,6 @@ void init_ether_control_service(char *service_name)
 
 } // end function: init_ether_control_service
 
- errval_t send_sp_notification_from_driver(struct q_entry e);
-
 
 // Checks if packet belongs to specific application and sends to it
 static bool handle_application_packet(void *packet, size_t len)
