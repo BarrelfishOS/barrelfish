@@ -21,7 +21,7 @@
                "diskd",
                "ehci",
                "net_queue_manager",
-               "ether_control",
+               "net_soft_filters",
                "fb",
                "glue_bench",
                "hpet",

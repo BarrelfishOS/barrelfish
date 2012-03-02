@@ -14,10 +14,9 @@
                       cFiles = [ "eMAC_driver.c", "eMAC_hwinit.c",
                                  "eMAC_debug.c"],
                       flounderBindings = [ "net_queue_manager",
-                                            "ether_control" ],
+                                            "net_soft_filters" ],
                       mackerelDevices = [ "eMAC" ],
-                      addLibraries = ["ethersrv", "contmng", "procon",
-                                            "bfdmuxvm", "lwip" ]
+                      addLibraries = libDeps [ "netQmng" ]
                     }
 ]
 

@@ -13,10 +13,9 @@
 [ build application { target = "e10k",
                       cFiles = [ "e10k.c", "sleep.c", "helper.c"],
                       flounderBindings = [ "net_queue_manager",
-                                            "ether_control" ],
+                                            "net_soft_filters" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      addLibraries = [ "pci", "ethersrv", "contmng", "procon",
-                                            "bfdmuxvm", "lwip", "bench" ]
+                      addLibraries = libDeps [ "pci", "netQmng", "bench" ]
                     }
 ]
 

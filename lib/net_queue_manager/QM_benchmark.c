@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007-11 ETH Zurich.
+ * Copyright (c) 2007-12 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "ethersrv_support.h"
+#include "QM_benchmark.h"
 
 static void bm_print_interesting_stats(uint8_t type)
 {
@@ -73,7 +73,11 @@ void reset_client_closure_stat(struct client_closure *cc)
     cc->pbuf_count = 0;
 }
 
+// *****************************************************
+// Interface: benchmark_control
+// *****************************************************
 
+// Wrapper function:
 static errval_t send_benchmark_control_response(struct q_entry e)
 {
     struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)

@@ -7,7 +7,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface ether_control "Generic Ethernet Driver Control flow Interface" {
+interface net_soft_filters "Software based filter Interface" {
 
     call register_filter_memory_request(cap mem);
     response register_filter_memory_response(errval err);

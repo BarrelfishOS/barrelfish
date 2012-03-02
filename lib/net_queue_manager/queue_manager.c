@@ -22,12 +22,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <trace/trace.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
-#include "ethersrv_local.h"
-#include "ethersrv_debug.h"
-#include "ethersrv_support.h"
 
+#include "QM_benchmark.h"
+#include "queue_manager_debug.h"
+#include "queue_manager_local.h"
 
 
 /* Enable tracing based on the global settings. */
@@ -866,8 +866,8 @@ void ethersrv_init(char *service_name, uint64_t queueid,
         abort();
     }
 
-    // start device manager service
-    init_ether_control_service(service_name);
+    // start software filtering service
+    init_soft_filters_service(service_name);
 }
 
 

@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef ETHERSRV_DEBUG_H_
-#define ETHERSRV_DEBUG_H_
+#ifndef QUEUE_MANAGER_DEBUG_H_
+#define QUEUE_MANAGER_DEBUG_H_
 
 
 /*****************************************************************
@@ -20,9 +20,10 @@ void ethersrv_debug_printf(const char *fmt, ...);
 //#define ETHERSRV_SERVICE_DEBUG 1
 
 #if defined(ETHERSRV_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define ETHERSRV_DEBUG(x...) printf("ETHERSRV: " x)
+#define ETHERSRV_DEBUG(x...) printf("NQM: " x)
 #else
 #define ETHERSRV_DEBUG(x...) ((void)0)
 #endif // defined(ETHERSRV_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 
-#endif // ETHERSRV_DEBUG_H_
+#endif // QUEUE_MANAGER_DEBUG_H_
+

@@ -17,8 +17,8 @@
 #include <stdlib.h>
 #include <barrelfish/barrelfish.h>
 #include <string.h>
-#include <ethersrv/ethersrv.h>
-#include "ethersrv_debug.h"
+#include <net_queue_manager/net_queue_manager.h>
+#include "queue_manager_debug.h"
 
 /*****************************************************************
  * Data types:

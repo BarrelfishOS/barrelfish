@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
 #include <trace/trace.h>
 #include "e1000n.h"

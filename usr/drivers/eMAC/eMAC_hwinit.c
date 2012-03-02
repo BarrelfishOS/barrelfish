@@ -22,7 +22,7 @@
 #define  ENABLE_FEIGN_FRAME_CAP
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/inthandler.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
 
 

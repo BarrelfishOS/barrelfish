@@ -1,10 +1,11 @@
 /**
- * \file ethersrv_ctl.c
- * \brief Generic server part responsible for exporting ether_control.if
+ * \file net_soft_filters_impl.c
+ * \brief Generic server part responsible for exporting net_soft_filter.if
  * for most ethernet drivers.  Current drivers using this server code are
  * -- e1000n
  * -- rtl8029
  * -- eMAC
+ *  -- e10k (within shared queue)
  */
 
 /*
@@ -23,37 +24,37 @@
 #include <stdio.h>
 #include <string.h>
 #include <trace/trace.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <bfdmuxvm/vm.h>
-#include <if/ether_control_defs.h>
-#include "ethersrv_local.h"
-#include "ethersrv_debug.h"
+#include <if/net_soft_filters_defs.h>
+#include "queue_manager_local.h"
+#include "queue_manager_debug.h"
 
 /* This is client_closure for filter management */
 struct client_closure_FM {
-    struct ether_control_binding *app_connection;       /* FIXME: Do I need this? */
+    struct net_soft_filters_binding *app_connection;       /* FIXME: Do I need this? */
     struct cont_queue *q;
 /* FIXME: this should contain the registered buffer ptr */
 };
 
-static void register_filter_memory_request(struct ether_control_binding *cc,
+static void register_filter_memory_request(struct net_soft_filters_binding *cc,
                                            struct capref mem_cap);
-static void register_filter(struct ether_control_binding *cc, uint64_t id,
+static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
                             uint64_t len_rx, uint64_t len_tx,
                             uint64_t buffer_id_rx, uint64_t buffer_id_tx,
                             uint64_t ftype, uint64_t paused);
-static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
+static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id,
                                 uint64_t len_rx, uint64_t len_tx);
-static void deregister_filter(struct ether_control_binding *cc,
+static void deregister_filter(struct net_soft_filters_binding *cc,
                               uint64_t filter_id);
-static void re_register_filter(struct ether_control_binding *cc,
+static void re_register_filter(struct net_soft_filters_binding *cc,
                                uint64_t filter_id, uint64_t buffer_id_rx,
                                uint64_t buffer_id_tx);
-static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
+static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
                          uint64_t buffer_id_rx, uint64_t buffer_id_tx);
 
-// Initialize interface for ether_control channel
-static struct ether_control_rx_vtbl rx_ether_control_vtbl = {
+// Initialize interface for soft_filters channel
+static struct net_soft_filters_rx_vtbl rx_net_soft_filters_vtbl = {
     .register_filter_memory_request = register_filter_memory_request,
     .register_filter_request = register_filter,
     .re_register_filter_request = re_register_filter,
@@ -84,7 +85,7 @@ static struct filter arp_filter_tx;
 
 static uint64_t filter_id_counter = 0;
 
-static void export_ether_control_cb(void *st, errval_t err, iref_t iref)
+static void export_soft_filters_cb(void *st, errval_t err, iref_t iref)
 {
     char service_name[100];
 
@@ -106,13 +107,13 @@ static void export_ether_control_cb(void *st, errval_t err, iref_t iref)
 }
 
 
-static errval_t connect_ether_control_cb(void *st,
-                                         struct ether_control_binding *b)
+static errval_t connect_soft_filters_cb(void *st,
+                                         struct net_soft_filters_binding *b)
 {
     ETHERSRV_DEBUG("ether_netd service got a connection!55\n");
 
     // copy my message receive handler vtable to the binding
-    b->rx_vtbl = rx_ether_control_vtbl;
+    b->rx_vtbl = rx_net_soft_filters_vtbl;
     //b->error_handler = error_handler;
 
     struct client_closure_FM *ccfm =
@@ -127,7 +128,7 @@ static errval_t connect_ether_control_cb(void *st,
 
     // accept the connection (we could return an error to refuse it)
     return SYS_ERR_OK;
-} // end function: connect_ether_control_cb
+} // end function: connect_soft_filters_cb
 
 
 
@@ -139,8 +140,8 @@ static errval_t connect_ether_control_cb(void *st,
 static errval_t send_resiger_filter_memory_response(struct q_entry entry)
 {
     //    ETHERSRV_DEBUG("send_resigered_netd_memory  -----\n");
-    struct ether_control_binding *b =
-      (struct ether_control_binding *) entry.binding_ptr;
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) entry.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
     if (b->can_send(b)) {
@@ -158,7 +159,7 @@ static errval_t send_resiger_filter_memory_response(struct q_entry entry)
 
 static struct bulk_transfer_slave bt_filter_rx;
 
-static void register_filter_memory_request(struct ether_control_binding *cc,
+static void register_filter_memory_request(struct net_soft_filters_binding *cc,
                                            struct capref mem_cap)
 {
 
@@ -221,8 +222,8 @@ static void register_filter_memory_request(struct ether_control_binding *cc,
 static errval_t send_register_filter_response(struct q_entry e)
 {
     //    ETHERSRV_DEBUG("send_resigered_filter for ID %lu  --\n", e.plist[0]);
-    struct ether_control_binding *b =
-      (struct ether_control_binding *) e.binding_ptr;
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) e.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
     if (b->can_send(b)) {
@@ -242,7 +243,7 @@ static errval_t send_register_filter_response(struct q_entry e)
     }
 }
 
-static void wrapper_send_filter_registered_msg(struct ether_control_binding *cc,
+static void wrapper_send_filter_registered_msg(struct net_soft_filters_binding *cc,
                                                uint64_t id, errval_t err,
                                                uint64_t filter_id,
                                                uint64_t buffer_id_rx,
@@ -275,7 +276,7 @@ static void wrapper_send_filter_registered_msg(struct ether_control_binding *cc,
 /**
  * \brief: Registers the filter with network driver
  */
-static void register_filter(struct ether_control_binding *cc, uint64_t id,
+static void register_filter(struct net_soft_filters_binding *cc, uint64_t id,
                             uint64_t len_rx, uint64_t len_tx,
                             uint64_t buffer_id_rx, uint64_t buffer_id_tx,
                             uint64_t ftype, uint64_t paused)
@@ -433,8 +434,8 @@ static void register_filter(struct ether_control_binding *cc, uint64_t id,
 static errval_t send_deregister_filter_response(struct q_entry e)
 {
     //    ETHERSRV_DEBUG("send_deresigered_filter_response for ID %lu  -----\n", e.plist[0]);
-    struct ether_control_binding *b =
-      (struct ether_control_binding *) e.binding_ptr;
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) e.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
     if (b->can_send(b)) {
@@ -451,7 +452,7 @@ static errval_t send_deregister_filter_response(struct q_entry e)
     }
 }
 
-static void wrapper_send_filter_deregister_msg(struct ether_control_binding *cc,
+static void wrapper_send_filter_deregister_msg(struct net_soft_filters_binding *cc,
                                                errval_t err, uint64_t filter_id)
 {
 
@@ -493,7 +494,7 @@ static struct filter *delete_from_filter_list(struct filter *head,
 /**
  * \brief: Deregisters the filter with network driver
  */
-static void deregister_filter(struct ether_control_binding *cc,
+static void deregister_filter(struct net_soft_filters_binding *cc,
                               uint64_t filter_id)
 {
     errval_t err = SYS_ERR_OK;
@@ -535,8 +536,8 @@ static void deregister_filter(struct ether_control_binding *cc,
 static errval_t send_re_register_filter_response(struct q_entry e)
 {
     //    ETHERSRV_DEBUG("send_re_register_filter_response for ID %lu  -----\n", e.plist[0]);
-    struct ether_control_binding *b =
-      (struct ether_control_binding *) e.binding_ptr;
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) e.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
     if (b->can_send(b)) {
@@ -558,8 +559,8 @@ static errval_t send_re_register_filter_response(struct q_entry e)
 static errval_t send_pause_filter_response(struct q_entry e)
 {
     //    ETHERSRV_DEBUG("send_re_register_filter_response for ID %lu  -----\n", e.plist[0]);
-    struct ether_control_binding *b =
-      (struct ether_control_binding *) e.binding_ptr;
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) e.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
     if (b->can_send(b)) {
@@ -575,7 +576,7 @@ static errval_t send_pause_filter_response(struct q_entry e)
     }
 }                               /* end function: send_re_register_filter_response */
 
-static void wrapper_send_filter_re_register_msg(struct ether_control_binding
+static void wrapper_send_filter_re_register_msg(struct net_soft_filters_binding
                                                 *cc, errval_t err,
                                                 uint64_t filter_id,
                                                 uint64_t buffer_id_rx,
@@ -600,7 +601,7 @@ static void wrapper_send_filter_re_register_msg(struct ether_control_binding
     enqueue_cont_q(ccfm->q, &entry);
 }                               /* end function: wrapper_send_filter_re_register_msg */
 
-static void wrapper_send_filter_pause_msg(struct ether_control_binding *cc,
+static void wrapper_send_filter_pause_msg(struct net_soft_filters_binding *cc,
                                           errval_t err, uint64_t filter_id)
 {
 
@@ -636,7 +637,7 @@ static struct filter *find_from_filter_list(struct filter *head,
 /**
  * \brief: re-registers the filter with network driver
  */
-static void re_register_filter(struct ether_control_binding *cc,
+static void re_register_filter(struct net_soft_filters_binding *cc,
                                uint64_t filter_id, uint64_t buffer_id_rx,
                                uint64_t buffer_id_tx)
 {
@@ -689,7 +690,7 @@ static void re_register_filter(struct ether_control_binding *cc,
 /**
  * \brief: pause the filter with network driver
  */
-static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
+static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
                          uint64_t buffer_id_rx, uint64_t buffer_id_tx)
 {
     errval_t err = SYS_ERR_OK;
@@ -758,8 +759,8 @@ static void pause_filter(struct ether_control_binding *cc, uint64_t filter_id,
 static errval_t send_register_arp_filter_response(struct q_entry entry)
 {
     //    ETHERSRV_DEBUG("send_resigered_arp_filter  -----\n");
-    struct ether_control_binding *b =
-      (struct ether_control_binding *) entry.binding_ptr;
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) entry.binding_ptr;
     struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
 
     if (b->can_send(b)) {
@@ -777,7 +778,7 @@ static errval_t send_register_arp_filter_response(struct q_entry entry)
     }
 }
 
-static void wrapper_send_arp_filter_registered_msg(struct ether_control_binding
+static void wrapper_send_arp_filter_registered_msg(struct net_soft_filters_binding
                                                    *cc, uint64_t id,
                                                    errval_t err)
 {
@@ -799,7 +800,7 @@ static void wrapper_send_arp_filter_registered_msg(struct ether_control_binding
     enqueue_cont_q(ccfm->q, &entry);
 }
 
-static void register_arp_filter(struct ether_control_binding *cc, uint64_t id,
+static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id,
                                 uint64_t len_rx, uint64_t len_tx)
 {
 
@@ -912,22 +913,22 @@ struct filter *execute_filters(void *data, size_t len)
 }
 
 
-void init_ether_control_service(char *service_name)
+void init_soft_filters_service(char *service_name)
 {
     // FIXME: do I need separate my_service_name for ether_netd services
     // exporting ether_netd interface
 
     filter_id_counter = 0;
     my_service_name = service_name;
-    errval_t err = ether_control_export(NULL, export_ether_control_cb,
-                               connect_ether_control_cb, get_default_waitset(),
+    errval_t err = net_soft_filters_export(NULL, export_soft_filters_cb,
+                               connect_soft_filters_cb, get_default_waitset(),
                                IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "ethersrv_netd export failed");
         abort();
     }
 
-} // end function: init_ether_control_service
+} // end function: init_soft_filters_service
 
 
 // Checks if packet belongs to specific application and sends to it

@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief Header file for ethersrv.h
+ * \brief Header file for net_queue_manager.h
  */
 
 /*
- * Copyright (c) 2007-11 ETH Zurich.
+ * Copyright (c) 2007-12 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef ETHERSRV_H
-#define ETHERSRV_H
+#ifndef net_queue_manager_H
+#define net_queue_manager_H
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
@@ -31,8 +31,6 @@
 
 #define RECEIVE_CONNECTION 0
 #define TRANSMIT_CONNECTION 1
-
-
 
 /*****************************************************************
  * common data-structures
@@ -206,4 +204,4 @@ extern struct netbench_details *bm;
 
 void *memcpy_fast(void *dst0, const void *src0, size_t length);
 
-#endif // ETHERSRV_H
+#endif // net_queue_manager_H

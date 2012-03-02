@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include "eMAC_driver.h"
 
 

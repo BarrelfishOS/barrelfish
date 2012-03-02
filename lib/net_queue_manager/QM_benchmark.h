@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-11 ETH Zurich.
+ * Copyright (c) 2007-12 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,19 +7,19 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef ETHERSRV_BM_SUPPORT_H_
-#define ETHERSRV_BM_SUPPORT_H_
+#ifndef Queue_Manager_benchmark_H_
+#define Queue_Manager_benchmark_H_
 #include <barrelfish/barrelfish.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <contmng/netbench.h>
 #include <stdio.h>
 #include <string.h>
-#include "ethersrv_debug.h"
-#include "ethersrv_local.h"
+#include "queue_manager_debug.h"
+#include "queue_manager_local.h"
 
 void benchmark_control_request(struct net_queue_manager_binding *cc,
         uint64_t queueid, uint8_t state, uint64_t trigger, uint64_t cl_data);
 
 void reset_client_closure_stat(struct client_closure *cc);
 
-#endif // ETHERSRV_BM_SUPPORT_H_
+#endif // Queue_Manager_benchmark_H_

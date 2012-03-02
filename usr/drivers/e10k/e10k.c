@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <pci/pci.h>
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
