@@ -20,6 +20,7 @@ import qualified SCC
 import qualified ARM
 import qualified ARM11MP
 import qualified XScale
+import qualified Gem5
 import HakeTypes
 import qualified Args
 import qualified Config
@@ -81,6 +82,7 @@ options "scc" = SCC.options
 options "arm" = ARM.options
 options "arm11mp" = ARM11MP.options
 options "xscale" = XScale.options
+options "gem5" = Gem5.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
@@ -88,6 +90,7 @@ kernelCFlags "scc" = SCC.kernelCFlags
 kernelCFlags "arm" = ARM.kernelCFlags
 kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
+kernelCFlags "gem5" = Gem5.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
@@ -95,6 +98,7 @@ kernelLdFlags "scc" = SCC.kernelLdFlags
 kernelLdFlags "arm" = ARM.kernelLdFlags
 kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
+kernelLdFlags "gem5" = Gem5.kernelLdFlags
 
 archFamily :: String -> String
 archFamily arch = optArchFamily (options arch)
@@ -167,6 +171,7 @@ cCompiler opts phase src obj
     | optArch opts == "arm"     = ARM.cCompiler opts phase src obj
     | optArch opts == "arm11mp" = ARM11MP.cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
+    | optArch opts == "gem5" = Gem5.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 cPreprocessor :: Options -> String -> String -> String -> [ RuleToken ]
@@ -199,6 +204,8 @@ makeDepend opts phase src obj depfile
         ARM11MP.makeDepend opts phase src obj depfile
     | optArch opts == "xscale" = 
         XScale.makeDepend opts phase src obj depfile
+    | optArch opts == "gem5" = 
+        Gem5.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
 
 makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -215,6 +222,7 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "arm"     = ARM.cToAssembler opts phase src afile objdepfile
     | optArch opts == "arm11mp" = ARM11MP.cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "gem5" = Gem5.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 --
@@ -228,6 +236,7 @@ assembler opts src obj
     | optArch opts == "arm"     = ARM.assembler opts src obj
     | optArch opts == "arm11mp" = ARM11MP.assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
+    | optArch opts == "gem5" = Gem5.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
@@ -238,6 +247,7 @@ archive opts objs libs name libname
     | optArch opts == "arm"     = ARM.archive opts objs libs name libname
     | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
+    | optArch opts == "gem5" = Gem5.archive opts objs libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -248,6 +258,7 @@ linker opts objs libs bin
     | optArch opts == "arm" = ARM.linker opts objs libs bin
     | optArch opts == "arm11mp" = ARM11MP.linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
+    | optArch opts == "gem5" = Gem5.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -709,6 +720,7 @@ linkKernel opts name objs libs
     | optArch opts == "arm" = ARM.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
+    | optArch opts == "gem5" = Gem5.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | otherwise = 
         Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
