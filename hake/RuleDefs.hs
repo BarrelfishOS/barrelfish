@@ -247,7 +247,7 @@ archive opts objs libs name libname
     | optArch opts == "arm"     = ARM.archive opts objs libs name libname
     | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
-    | optArch opts == "gem5" = Gem5.archive opts objs libname
+    | optArch opts == "gem5" = Gem5.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]

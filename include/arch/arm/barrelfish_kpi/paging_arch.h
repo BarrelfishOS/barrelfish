@@ -19,6 +19,8 @@
 #include <target/arm/barrelfish_kpi/paging_arm_v5.h>
 #elif defined(__ARM_ARCH_5TE__)
 #include <target/arm/barrelfish_kpi/paging_arm_v5.h>
+#elif defined(__ARM_CORTEX__)
+#include <target/arm/barrelfish_kpi/paging_arm_v5.h> //TODO: probably have to change this
 #else
 #error "Missing ARM Paging header file"
 #endif
