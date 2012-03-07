@@ -66,6 +66,7 @@ static errval_t copy_bios_mem(void) {
     assert(err_is_ok(err));
 
     err = devframe_type(&biosframe, bioscap, BIOS_BITS);
+    DEBUG_ERR(err, "devframe type\n");
     assert(err_is_ok(err));
 
     void *origbios;
@@ -136,15 +137,34 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
-    /*
-    struct capref mem_cap = {
+    /*struct capref phys_cap = {
         .cnode = cnode_phyaddr,
         .slot = 0,
     };*/
-    struct capref mem_cap;
+    struct capability cap;
+    char buf[256];
+
+    struct capref got_cap;
     errval_t error_code;
-    err = cl->vtbl.get_phyaddr_cap(cl, &mem_cap, &error_code);
+    err = cl->vtbl.get_phyaddr_cap(cl, &got_cap, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
+    debug_cap_identify(got_cap, &cap);
+    debug_print_cap(buf, sizeof(buf), &cap);
+    debug_printf("****** got_cap: %s\n", buf);
+    debug_printf("****** addr is: %d\n", get_cap_addr(got_cap));
+
+
+    struct capref phys_cap;
+    err = slot_alloc(&phys_cap);
+    assert(err_is_ok(err));
+    err = cap_retype(phys_cap, got_cap, ObjType_PhysAddr, 20);
+    DEBUG_ERR(err, "retype mem cap?");
+    assert(err_is_ok(err));
+
+    debug_cap_identify(phys_cap, &cap);
+    debug_print_cap(buf, sizeof(buf), &cap);
+    debug_printf("****** phys_cap: %s\n", buf);
+    debug_printf("****** addr is: %d\n", get_cap_addr(phys_cap));
 
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
@@ -171,12 +191,12 @@ static errval_t init_allocators(void)
 		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
 		      mrp->mr_type == RegionType_PlatformData
 		      ? "platform data" : "physical address range");
-            err = mm_add(&pci_mm_physaddr, mem_cap,
+            err = mm_add(&pci_mm_physaddr, phys_cap,
                          mrp->mr_bits, mrp->mr_base);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
             }
-            mem_cap.slot++;
+            phys_cap.slot++;
         }
     }
 
