@@ -9,10 +9,26 @@
 
 #include <barrelfish/types.h>
 #include <barrelfish/caddr.h>
+#include <if/intermon_defs.h>
 #include "queue.h"
 
 #ifndef CAPOPS_TRANSPORT_H
 #define CAPOPS_TRANSPORT_H
+
+struct capsend_mc_msg_st;
+struct capsend_mc_st;
+
+typedef void (*capsend_send_fn)(struct intermon_binding*, intermon_caprep_t*, struct capsend_mc_st*); /* binding, caprep, user_st */
+bool capsend_result_handler(genvaddr_t mc_st); /* returns true if was last reply */
+
+struct capsend_mc_st {
+    struct capsend_mc_msg_st *msg_st_arr;
+    int num_pending;
+    int num_queued;
+    bool do_send;
+    intermon_caprep_t caprep;
+    capsend_send_fn send_fn;
+};
 
 errval_t enqueue_send_target(coreid_t dest, struct msg_queue_elem *queue_elem);
 
@@ -22,5 +38,7 @@ typedef void (*find_core_result_handler_t)(errval_t, coreid_t, void*);
 errval_t find_core_with_cap(struct capability *cap, find_core_result_handler_t result_handler, void *st);
 
 errval_t update_owner(struct capref capref, struct event_closure continuation);
+
+errval_t send_all(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
 
 #endif

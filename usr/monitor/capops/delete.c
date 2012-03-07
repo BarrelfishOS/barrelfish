@@ -20,7 +20,123 @@ struct delete_st {
     void *st;
 };
 
-static void delete_result_cont(errval_t status, void *st);
+/*
+ * Delete all copies {{{1
+ */
+
+struct delete_remote_mc_st {
+    struct capsend_mc_st mc_st;
+    struct delete_st *del_st;
+}
+
+static errval_t
+delete_remote_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, void *st)
+{
+    return intermon_delete_remote__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
+}
+
+static errval_t
+delete_remote(struct capability *cap, struct delete_st *st)
+{
+    struct delete_remote_mc_st *mc_st = malloc(sizeof(struct delete_remote_mc_st));
+    if (!mc_st) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    mc_st->del_st = st;
+    return send_all(cap, delete_remote_send_cont, (struct capsend_mc_st*)mc_st);
+}
+
+struct delete_remote_result_msg_st {
+    struct intermon_msg_queue_elem queue_elem;
+    errval_t status;
+    genvaddr_t st;
+};
+
+static void
+delete_remote_result_msg_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct delete_remote_result_msg_cont *msg_st = (struct delete_remote_result_msg_cont*)e;
+    err = intermon_delete_remote_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send delete_remote_result msg");
+    }
+    free(msg_st);
+}
+
+static errval_t
+delete_remote_result(coreid_t dest, errval_t status, genvaddr_t st)
+{
+    errval_t err;
+    struct delete_remote_result_msg_st *msg_st;
+    msg_st = calloc(1, sizeof(*msg_st));
+    msg_st->queue_elem.cont = delete_remote_result_msg_cont;
+    msg_st->status = status;
+    msg_st->st = st;
+
+    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    if (err_is_fail(err)) {
+        free(msg_st);
+    }
+    return err;
+}
+
+/*
+ * Receive handlers {{{2
+ */
+
+__attribute__((unused))
+static void
+delete_remote__rx_handler(struct intermon_binding *b, intemron_caprep_t caprep, genvaddr_t st)
+{
+    errval_t err;
+    struct capability cap;
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
+    coreid_t from = inter_st->core_id;
+    caprep_to_capability(&caprep, &cap);
+    struct capref;
+
+    err = copy_if_exists(&cap, &capref);
+    if (err_is_fail(err)) {
+        goto send_err;
+    }
+
+    err = cap_delete_copies(capref);
+    if (err_is_fail(err)) {
+        goto send_err;
+    }
+
+    err = cap_destroy(capref);
+
+send_err:
+    err = delete_remote_result(from, err, st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send delete_remote result");
+    }
+}
+
+static void
+delete_remote_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
+{
+    errval_t err;
+    if (!capsend_result_handler(st)) {
+        // multicast not complete
+        return;
+    }
+
+    struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)st;
+    struct delete_st *del_st = mc_st->del_st;
+    free(mc_st);
+
+    del_st->result_handler(SYS_ERR_OK, del_st->st);
+    free(del_st);
+}
+
+/*
+ * Move & delete handling {{{1
+ */
+
+static void move_result_cont(errval_t status, void *st);
 
 static void
 find_core_cont(errval_t status, coreid_t core, void *st)
@@ -43,7 +159,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
     }
     else {
         // core found, attempt move
-        err = move(del_st->capref, core, delete_result_cont, st);
+        err = move(del_st->capref, core, move_result_cont, st);
         if (err_is_fail(err)) {
             del_st->result_handler(err, del_st->st);
             free(del_st);
@@ -52,32 +168,87 @@ find_core_cont(errval_t status, coreid_t core, void *st)
 }
 
 static void
-delete_result_cont(errval_t status, void *st)
+move_result_cont(errval_t status, void *st)
 {
     errval_t err = status;
     struct delete_st *del_st = (struct delete_st*)st;
+    assert(cap_is_moveable(&del_st->cap));
 
-    if (cap_is_moveable(&del_st->cap)) {
-        // attempted a move
-        if (err_no(err) == CAP_ERR_NOTFOUND) {
-            // move failed as dest no longer has cap copy, start from beginning
-            err = find_core_with_cap(&del_st->cap, find_core_cont, st);
-        }
-        if (err_is_fail(err)) {
-            del_st->result_handler(err, del_st->st);
-            free(del_st);
+    if (err_no(err) == CAP_ERR_NOTFOUND) {
+        // move failed as dest no longer has cap copy, start from beginning
+        err = find_core_with_cap(&del_st->cap, find_core_cont, st);
+        if (err_is_ok(err)) {
+            return;
         }
     }
-    else {
-        // cap non-moveable, performed a revoke
-        if (err_is_ok(err)) {
-            // revoke succeeded, delete last copy
-            err = monitor_delete_last(del_st->capref);
+    else if (err_is_ok(err)) {
+        err = monitor_delete_last(del_st->capref);
+    }
+
+    del_st->result_handler(err, del_st->st);
+    free(del_st);
+}
+
+/*
+ * Deleting CNode special case {{{1
+ */
+
+struct delete_cnode_st {
+    struct capref delcap;
+    void *st;
+};
+
+static void
+delete_cnode_slot_result(errval_t status, void *st)
+{
+    struct delete_cnode_st *dst = (struct delete_cnode_st*)st;
+    if (err_is_ok(status) || err_no(status) == CAP_ERR_NOTFOUND) {
+        if (dst->delcap.slot < (1 << dst->delcap.cnode.size_bits)) {
+            dst->delcap.slot++;
+            err = delete(dst->delcap, delete_cnode_slot_result, dst);
         }
-        del_st->result_handler(err, del_st->st);
-        free(del_st);
+        else {
+            err = SYS_ERR_OK;
+        }
+    }
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(status, "deleting cnode slot failed");
     }
 }
+
+static errval_t
+delete_cnode(struct capref cap, void *st)
+{
+    errval_t err;
+
+    err = cap_set_deleted(cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct capability cnode_cap;
+    err = monitor_cap_identify(cap, &cnode_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    assert(cnode_cap->type == ObjType_CNode);
+
+    struct cnoderef cnode = build_cnoderef(cap, cnode_cap.u.cnode.bits);
+    struct delete_cnode_st *dcst = malloc(sizeof(struct delete_cnode_st));
+    dcst->delcap.cnode = cnode;
+    dcst->delcap.slot = 0;
+    dcst->st = st;
+
+    err = delete(dcst->delcap, delete_cnode_slot_result, dcst);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "deleting cnode slot failed");
+    }
+    return err;
+}
+
+/*
+ * Delete operation
+ */
 
 errval_t
 delete(struct capref cap, delete_result_handler_t result_handler, void *st)
@@ -131,8 +302,8 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
             err = find_core_with_cap(&del_st->cap, find_core_cont, st);
         }
         else {
-            // otherwise perform revocation and subsequent delete of last copy
-            err = revoke(cap, delete_result_cont, del_st);
+            // otherwise delete all remote copies and then delete last copy
+            err = delete_remote(cap, del_st);
         }
         if (err_is_fail(err)) {
             goto free_del_st;

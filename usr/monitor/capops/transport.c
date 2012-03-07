@@ -8,13 +8,12 @@
  */
 
 #include <barrelfish/barrelfish.h>
-#include <if/intermon_defs.h>
 #include "transport.h"
 #include "monitor.h"
 #include "magic.h"
 
 /*
- * Messaging
+ * Single-cast {{{1
  */
 
 errval_t
@@ -51,105 +50,128 @@ enqueue_send_owner(struct capref capref, struct msg_queue_elem *queue_elem)
 }
 
 /*
- * Broadcast helpers {{{1
+ * Multicast helpers {{{1
  */
 
-struct broadcast_msg_st;
-struct broadcast_st;
+struct capsend_mc_msg_st;
+struct capsend_mc_st;
 
-typedef errval_t (*broadcast_send_cont_t)(struct intermon_binding*, struct broadcast_st*);
+typedef errval_t (*capsend_mc_send_cont_t)(struct intermon_binding*, struct capsend_mc_st*);
 
-struct broadcast_st {
-    struct broadcast_msg_st *msg_st_arr;
-    int num_pending;
-    int num_queued;
-    bool do_send;
-    broadcast_send_cont_t send_cont;
-};
-
-struct broadcast_msg_st {
+struct capsend_mc_msg_st {
     struct intermon_msg_queue_elem queue_elem;
-    struct broadcast_st *bc_st;
+    struct capsend_mc_st *mc_st;
 };
 
 static void
-broadcast_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+capsend_mc_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
-    errval_t err;
-    struct broadcast_msg_st *msg_st = (struct broadcast_msg_st*)e;
-    struct broadcast_st *bc_st = msg_st->bc_st;
+    struct capsend_mc_msg_st *msg_st = (struct capsend_mc_msg_st*)e;
+    struct capsend_mc_st *mc_st = msg_st->mc_st;
 
-    // if do_send is false, an error occured in the broadcast setup, so do not
+    // if do_send is false, an error occured in the multicast setup, so do not
     // send anything
-    if (bc_st->do_send) {
-        err = bc_st->send_cont(b, bc_st);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "failed to send find core message");
-        }
+    if (mc_st->do_send) {
+        mc_st->send_fn(b, &mc_st->caprep, mc_st);
     }
 
-    // decrement counter of number of queued broadcast messages
-    if (!--bc_st->num_queued) {
+    // decrement counter of number of queued messages
+    if (!--mc_st->num_queued) {
         // if counter is zero, cleanup outgoing memory
-        free(bc_st->msg_st_arr);
-        bc_st->msg_st_arr = NULL;
-        if (!bc_st->do_send) {
+        free(mc_st->msg_st_arr);
+        mc_st->msg_st_arr = NULL;
+        if (!mc_st->do_send || !mc_st->num_pending) {
             // if the send has been aborted, also cleanup cross-call state
-            free(bc_st);
+            free(mc_st);
         }
-    }
-}
-
-static struct broadcast_st*
-broadcast_result_rx(genvaddr_t st)
-{
-    struct broadcast_st *bc_st = (struct broadcast_st*)st;
-
-    if (!--bc_st->num_pending) {
-        return bc_st;
-    }
-    else {
-        return NULL;
     }
 }
 
 static errval_t
-broadcast(struct broadcast_st *bc_st, broadcast_send_cont_t send_cont)
+capsend_mc_enqueue(struct capsend_mc_st *mc_st, coreid_t dest)
 {
     errval_t err;
-    bc_st->num_pending = bc_st->num_queued = 0;
-    bc_st->do_send = false;
-    bc_st->send_cont = send_cont;
-    int num_current_monitors = num_monitors;
-    bc_st->msg_st_arr = calloc(num_current_monitors, sizeof(*bc_st->msg_st_arr));
-    if (!bc_st->msg_st_arr) {
-        free(bc_st);
+
+    // get next msg_st
+    struct capsend_mc_msg_st *msg_st = &mc_st->msg_st_arr[mc_st->num_queued];
+    msg_st->queue_elem.cont = capsend_mc_send_cont;
+    msg_st->mc_st = mc_st;
+
+    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    if (err_is_ok(err)) {
+        // count successful enqueue
+        mc_st->num_queued++;
+        if (mc_st->num_pending >= 0) {
+            // also track number of pending exchanges if requested
+            mc_st->num_pending++;
+        }
+    }
+    return err;
+}
+
+static errval_t
+capsend_mc_init(struct capsend_mc_st *mc_st, struct capability *cap,
+                capsend_send_fn send_fn,
+                size_t num_dests, bool track_pending)
+{
+    mc_st->num_queued = 0;
+    mc_st->num_pending = track_pending ? 0 : -1;
+    mc_st->do_send = true;
+    mc_st->send_fn = send_fn;
+    if (cap) {
+        capability_to_caprep(cap, &mc_st->caprep);
+    }
+    mc_st->msg_st_arr = calloc(num_dests, sizeof(*mc_st->msg_st_arr));
+    if (!mc_st->msg_st_arr) {
         return LIB_ERR_MALLOC_FAIL;
     }
+    return SYS_ERR_OK;
+}
 
-    for (coreid_t dest = 0; dest < MAX_COREID && bc_st->num_queued < num_current_monitors; dest++)
+bool capsend_result_handler(genvaddr_t st)
+{
+    struct capsend_mc_st *mc_st = (struct capsend_mc_st*)st;
+
+    if (!--mc_st->num_pending) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+/*
+ * Broadcast helpers {{{2
+ */
+
+static errval_t
+capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_send_fn send_cont)
+{
+    errval_t err;
+    int dest_count = num_monitors;
+    err = capsend_mc_init(bc_st, cap, send_cont, dest_count, true);
+    if (err_is_fail(err)) {
+        free(bc_st);
+    }
+
+    for (coreid_t dest = 0; dest < MAX_COREID && bc_st->num_queued < dest_count; dest++)
     {
-        // get next msg_st
-        struct broadcast_msg_st *msg_st = &bc_st->msg_st_arr[bc_st->num_queued];
-        msg_st->queue_elem.cont = broadcast_send_cont;
-        msg_st->bc_st = bc_st;
-
-        err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+        err = capsend_mc_enqueue(bc_st, dest);
         if (err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
             // no connection for this core, skip
             continue;
         }
         else if (err_is_fail(err)) {
-            // failure, disable broadcast (cleanup is done when all msg_sts have been dequeued)
+            // failure, disable broadcast
+            bc_st->do_send = false;
+            if (!bc_st->num_queued) {
+                // only cleanup of no messages have been enqueued
+                free(bc_st->msg_st_arr);
+                free(bc_st);
+            }
             return err;
         }
-        else {
-            // count the number of queued messages and number of pending responses for the broadcast
-            bc_st->num_queued++;
-            bc_st->num_pending++;
-        }
     }
-    bc_st->do_send = true;
 
     return SYS_ERR_OK;
 }
@@ -165,18 +187,19 @@ broadcast(struct broadcast_st *bc_st, broadcast_send_cont_t send_cont)
 struct find_core_broadcast_msg_st;
 
 struct find_core_broadcast_st {
-    struct broadcast_st bc;
-    intermon_caprep_t caprep;
+    struct capsend_mc_st bc;
     find_core_result_handler_t result_handler;
     bool found;
     void *st;
 };
 
-static errval_t
-find_core_broadcast_send_cont(struct intermon_binding *b, struct broadcast_st *bc_st)
+static void
+find_core_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
-    struct find_core_broadcast_st *fc_bc_st = (struct find_core_broadcast_st*)bc_st;
-    return intermon_find_core__tx(b, NOP_CONT, fc_bc_st->caprep, (genvaddr_t)fc_bc_st);
+    errval_t err = intermon_find_core__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send find_core message");
+    }
 }
 
 errval_t
@@ -186,16 +209,15 @@ find_core_with_cap(struct capability *cap, find_core_result_handler_t result_han
     if (!bc_st) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    capability_to_caprep(cap, &bc_st->caprep);
     bc_st->result_handler = result_handler;
     bc_st->found = false;
     bc_st->st = st;
 
-    return broadcast((struct broadcast_st*)bc_st, find_core_broadcast_send_cont);
+    return capsend_broadcast((struct capsend_mc_st*)bc_st, cap, find_core_broadcast_send_cont);
 }
 
 /*
- * Find relations result {{{1
+ * Find relations result {{{2
  */
 
 struct find_core_result_msg_st {
@@ -270,18 +292,19 @@ find_core_result__rx_handler(struct intermon_binding *b, errval_t result, genvad
     // if we receive a positive result, immediately forward to caller
     struct find_core_broadcast_st *fc_bc_st = (struct find_core_broadcast_st*)st;
     if (err_is_ok(result)) {
-        fc_bc_st->found = true;
-        struct intermon_state *inter_st = (struct intermon_state*)b->st;
-        coreid_t from = inter_st->core_id;
-        fc_bc_st->result_handler(SYS_ERR_OK, from, fc_bc_st->st);
+        if (!fc_bc_st->found) {
+            fc_bc_st->found = true;
+            struct intermon_state *inter_st = (struct intermon_state*)b->st;
+            coreid_t from = inter_st->core_id;
+            fc_bc_st->result_handler(SYS_ERR_OK, from, fc_bc_st->st);
+        }
     }
     else if (err_no(result) != CAP_ERR_NOTFOUND) {
         printf("ignoring bad find_core_result %"PRIuPTR"\n", result);
     }
 
     // check to see if broadcast is complete
-    struct broadcast_st *bc_st = broadcast_result_rx(st);
-    if (bc_st) {
+    if (capsend_result_handler(st)) {
         if (!fc_bc_st->found) {
             // broadcast did not find a core, report notfound to caller
             fc_bc_st->result_handler(CAP_ERR_NOTFOUND, 0, fc_bc_st->st);
@@ -301,16 +324,18 @@ find_core_result__rx_handler(struct intermon_binding *b, errval_t result, genvad
 struct update_owner_broadcast_msg_st;
 
 struct update_owner_broadcast_st {
-    struct broadcast_st bc;
-    intermon_caprep_t caprep;
+    struct capsend_mc_st bc;
     struct event_closure completion_continuation;
 };
 
-static errval_t
-update_owner_broadcast_send_cont(struct intermon_binding *b, struct broadcast_st *bc_st)
+static void
+update_owner_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *bc_st)
 {
-    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)bc_st;
-    return intermon_update_owner__tx(b, NOP_CONT, uo_bc_st->caprep, (genvaddr_t)uo_bc_st);
+    errval_t err;
+    err = intermon_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)bc_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send update_owner message");
+    }
 }
 
 errval_t
@@ -327,10 +352,9 @@ update_owner(struct capref capref, struct event_closure completion_continuation)
     if (!bc_st) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    capability_to_caprep(&cap, &bc_st->caprep);
     bc_st->completion_continuation = completion_continuation;
 
-    return broadcast((struct broadcast_st*)bc_st, update_owner_broadcast_send_cont);
+    return capsend_broadcast((struct capsend_mc_st*)bc_st, &cap, update_owner_broadcast_send_cont);
 }
 
 /*
@@ -380,13 +404,11 @@ __attribute__((unused))
 static void
 owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st)
 {
-    struct broadcast_st *bc_st = broadcast_result_rx(st);
-    if (!bc_st) {
+    if (!capsend_result_handler(st)) {
         // broadcast is not complete
         return;
     }
-
-    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)bc_st;
+    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)st;
     struct event_closure *cl = &uo_bc_st->completion_continuation;
     cl->handler(cl->arg);
     free(uo_bc_st);
@@ -409,11 +431,11 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "failed to set update cap ownership");
         }
+        cap_destroy(capref);
     }
     else if (err_no(err) != CAP_ERR_NOTFOUND) {
         USER_PANIC_ERR(err, "failed to lookup cap for ownership change");
     }
-    cap_destroy(capref);
 
     err = owner_updated(from, st);
     if (err_is_fail(err)) {
@@ -421,3 +443,15 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     }
 }
 
+/*
+ * Send to all with cap {{{1
+ */
+
+errval_t
+send_all(struct capability *cap,
+         capsend_send_fn send_fn,
+         struct capsend_mc_st *mc_st)
+{
+    // this is currently just a broadcast
+    return capsend_broadcast(mc_st, cap, send_fn);
+}

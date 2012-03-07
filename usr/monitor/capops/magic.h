@@ -38,6 +38,9 @@ errval_t cap_create_on(struct capability*, coreid_t, struct capref*);
 // create a copy of cap other copies exist, otherwise fail
 errval_t copy_if_exists(struct capability*, struct capref*);
 
+// delete all local copies of capref
+errval_t cap_delete_copies(struct capref);
+
 // get the state of the given cap
 errval_t cap_get_state(struct capref, capstate_t*);
 
