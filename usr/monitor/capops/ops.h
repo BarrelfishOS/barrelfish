@@ -26,4 +26,9 @@ typedef void (*revoke_result_handler_t)(errval_t, void*);
 errval_t revoke(struct capref cap, revoke_result_handler_t result_handler,
                 void *st);
 
+typedef void (*retype_result_handler_t)(errval_t, void*);
+errval_t retype(enum objtype type, size_t objbits, struct capref dest_cnode,
+                cslot_t dest_slot, struct capref src,
+                retype_result_handler_t result_handler, void *st);
+
 #endif

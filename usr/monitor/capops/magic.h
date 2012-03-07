@@ -15,9 +15,10 @@
  * Error codes
  */
 
-#define CAP_ERR_NOTFOUND 697
-#define CAP_ERR_FOREIGN  698
-#define CAP_ERR_BUSY     699
+#define CAP_ERR_NOTFOUND  696
+#define CAP_ERR_FOREIGN   697
+#define CAP_ERR_BUSY      698
+#define CAP_ERR_LASTLOCAL 699
 
 /*
  * Magic NYI functions
@@ -47,6 +48,7 @@ errval_t cap_get_state(struct capref, capstate_t*);
 // cap state queries
 bool cap_state_is_valid(capstate_t);
 bool cap_state_is_owner(capstate_t);
+bool cap_state_is_busy(capstate_t);
 
 // set cap state to busy
 errval_t cap_set_busy(struct capref);
@@ -54,11 +56,24 @@ errval_t cap_set_busy(struct capref);
 // set cap state to ready
 errval_t cap_set_ready(struct capref);
 
+errval_t cap_set_deleted(struct capref);
+
 // return true if cap type permits moving ownership
 bool cap_is_moveable(struct capability*);
 
 // delete cap (must be owned and last copy) and perform cleanup
 errval_t monitor_delete_last(struct capref);
+
+// revoke a cap. when revoke reaches a non-trivially-deletable cap, it copies
+// it into the specified null slot, for the monitor to perform a suitable
+// delete
+errval_t monitor_revoke(struct capref, struct capref);
+
+// return SYS_ERR_OK if descendants exists, CAP_ERR_NOTFOUND otherwise
+errval_t monitor_has_local_descendants(struct capability);
+
+// create local caps as retype from one src cap
+errval_t monitor_create_caps(enum objtype, size_t, struct capref, cslot_t, struct capref);
 
 /*
  * NYI intermon.if functions
@@ -76,5 +91,17 @@ errval_t intermon_owner_updated__tx(struct intermon_binding*, struct event_closu
 
 errval_t intermon_find_core__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
 errval_t intermon_find_core_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
+
+errval_t intermon_delete_remote__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t st);
+errval_t intermon_delete_remote_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t st);
+
+errval_t intermon_request_revoke__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
+errval_t intermon_revoke_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
+
+errval_t intermon_find_descendants__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
+errval_t intermon_find_descendants_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
+
+errval_t intermon_request_retype__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, int, size_t, genvaddr_t);
+errval_t intermon_retype_response__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
 
 #endif

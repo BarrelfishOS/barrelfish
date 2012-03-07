@@ -19,6 +19,7 @@ struct capsend_mc_msg_st;
 struct capsend_mc_st;
 
 typedef void (*capsend_send_fn)(struct intermon_binding*, intermon_caprep_t*, struct capsend_mc_st*); /* binding, caprep, user_st */
+
 bool capsend_result_handler(genvaddr_t mc_st); /* returns true if was last reply */
 
 struct capsend_mc_st {
