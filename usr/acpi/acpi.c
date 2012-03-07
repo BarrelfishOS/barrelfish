@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 #include <barrelfish_kpi/types.h>
 #include <acpi.h>
 #include <mm/mm.h>
@@ -568,7 +569,6 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     return AE_OK;
 }
 
-#include <barrelfish/nameservice_client.h>
 static int acpi_init(void)
 {
     AcpiDbgLevel = 0; // ACPI_DEBUG_DEFAULT | ACPI_LV_INFO | ACPI_LV_EXEC;

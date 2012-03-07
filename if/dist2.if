@@ -22,8 +22,6 @@ interface dist2 "dist2 RPC Interface" {
         uint64 st;
     } trigger;
 
-
-
     //
     // Binding Identification
     //
@@ -34,7 +32,7 @@ interface dist2 "dist2 RPC Interface" {
     //
     // Get/Set API
     //
-    
+
     /**
      * \param query Records to find.
      * \param t Additional trigger to watch for future events.
