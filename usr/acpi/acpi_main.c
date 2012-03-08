@@ -33,15 +33,6 @@
 
 uintptr_t my_apic_id;
 
-// cnoderef for the phyaddrcn
-/*
-static struct cnoderef cnode_phyaddr = {
-    .address = CPTR_PHYADDRCN_BASE,
-    .address_bits = DEFAULT_CNODE_BITS,
-    .size_bits = 8,
-    .guard_size = 0,
-};*/
-
 // XXX: this enum defines region types that must not overlap
 // with the KPI-defined enum region_type.
 enum user_region_type {
@@ -66,7 +57,7 @@ static errval_t copy_bios_mem(void) {
     assert(err_is_ok(err));
 
     err = devframe_type(&biosframe, bioscap, BIOS_BITS);
-    DEBUG_ERR(err, "devframe type\n");
+    //DEBUG_ERR(err, "devframe type\n");
     assert(err_is_ok(err));
 
     void *origbios;
@@ -137,60 +128,41 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
-    /*struct capref phys_cap = {
-        .cnode = cnode_phyaddr,
-        .slot = 0,
-    };*/
-    struct capability cap;
-    char buf[256];
-
-    struct capref got_cap;
+    struct capref requested_caps;
     errval_t error_code;
-    err = cl->vtbl.get_phyaddr_cap(cl, &got_cap, &error_code);
+    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
-    debug_cap_identify(got_cap, &cap);
-    debug_print_cap(buf, sizeof(buf), &cap);
-    debug_printf("****** got_cap: %s\n", buf);
-    debug_printf("****** addr is: %d\n", get_cap_addr(got_cap));
 
-
-    struct capref phys_cap;
-    err = slot_alloc(&phys_cap);
-    assert(err_is_ok(err));
-    err = cap_retype(phys_cap, got_cap, ObjType_PhysAddr, 20);
-    DEBUG_ERR(err, "retype mem cap?");
-    assert(err_is_ok(err));
-
-    debug_cap_identify(phys_cap, &cap);
-    debug_print_cap(buf, sizeof(buf), &cap);
-    debug_printf("****** phys_cap: %s\n", buf);
-    debug_printf("****** addr is: %d\n", get_cap_addr(phys_cap));
-
+    // Build the capref for the first physical address capability
+    struct capref phys_cap = {
+        // XXX: not sure how to get size bit for this?
+    	.cnode = build_cnoderef(requested_caps, 8),
+    	.slot = 0,
+    };
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
-	struct mem_region *mrp = &bootinfo->regions[i];
-	if (mrp->mr_type == RegionType_Module) {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
-                    mrp->mr_base,
-                    0,
-                    mrp->mrmod_size,
-                    mrp->mr_type,
-                    mrp->mrmod_data);
-	} else {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
-                    mrp->mr_base,
-                    mrp->mr_bits,
-                    ((size_t)1) << mrp->mr_bits,
-                    mrp->mr_type,
-                    mrp->mrmod_data);
-	}
-        if (mrp->mr_type == RegionType_PlatformData
-            || mrp->mr_type == RegionType_PhyAddr) {
-            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+		struct mem_region *mrp = &bootinfo->regions[i];
+		if (mrp->mr_type == RegionType_Module) {
+			skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
+						mrp->mr_base,
+						0,
+						mrp->mrmod_size,
+						mrp->mr_type,
+						mrp->mrmod_data);
+		}
+		else {
+			skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
+						mrp->mr_base,
+						mrp->mr_bits,
+						((size_t)1) << mrp->mr_bits,
+						mrp->mr_type,
+						mrp->mrmod_data);
+		}
+
+        if (mrp->mr_type == RegionType_PlatformData) {
+            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx platform data\n",
 		      i, mrp->mr_base,
-		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
-		      mrp->mr_type == RegionType_PlatformData
-		      ? "platform data" : "physical address range");
+		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits));
             err = mm_add(&pci_mm_physaddr, phys_cap,
                          mrp->mr_bits, mrp->mr_base);
             if (err_is_fail(err)) {

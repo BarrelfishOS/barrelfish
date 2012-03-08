@@ -36,14 +36,6 @@
  */
 #define PCI_CNODE_SLOTS 2048
 
-// cnoderef for the phyaddrcn
-static struct cnoderef cnode_phyaddr = {
-    .address = CPTR_PHYADDRCN_BASE,
-    .address_bits = DEFAULT_CNODE_BITS,
-    .size_bits = 8,
-    .guard_size = 0,
-};
-
 // Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;
 
@@ -91,40 +83,30 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
-    struct capref mem_cap = {
-        .cnode = cnode_phyaddr,
-        .slot = 0,
+    struct capref requested_caps;
+    errval_t error_code;
+    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
+    assert(err_is_ok(err) && err_is_ok(error_code));
+
+    // Build the capref for the first physical address capability
+    struct capref phys_cap = {
+        // XXX: not sure how to get size bit for this?
+    	.cnode = build_cnoderef(requested_caps, 8),
+    	.slot = 0,
     };
+
     for (int i = 0; i < bootinfo->regions_length; i++) {
 	struct mem_region *mrp = &bootinfo->regions[i];
-	if (mrp->mr_type == RegionType_Module) {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
-                    mrp->mr_base,
-                    0,
-                    mrp->mrmod_size,
-                    mrp->mr_type,
-                    mrp->mrmod_data);
-	} else {
-	    skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
-                    mrp->mr_base,
-                    mrp->mr_bits,
-                    ((size_t)1) << mrp->mr_bits,
-                    mrp->mr_type,
-                    mrp->mrmod_data);
-	}
-        if (mrp->mr_type == RegionType_PlatformData
-            || mrp->mr_type == RegionType_PhyAddr) {
-            PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+        if (mrp->mr_type == RegionType_PhyAddr) {
+            PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx physical address range\n",
 		      i, mrp->mr_base,
-		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
-		      mrp->mr_type == RegionType_PlatformData
-		      ? "platform data" : "physical address range");
-            err = mm_add(&pci_mm_physaddr, mem_cap,
+		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits));
+            err = mm_add(&pci_mm_physaddr, phys_cap,
                          mrp->mr_bits, mrp->mr_base);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
             }
-            mem_cap.slot++;
+            phys_cap.slot++;
         }
     }
 

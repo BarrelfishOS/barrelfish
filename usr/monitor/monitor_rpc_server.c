@@ -578,18 +578,10 @@ static void cap_set_remote(struct monitor_blocking_binding *b,
 
 static void get_phyaddr_cap(struct monitor_blocking_binding *b)
 {
-    // XXX: We should not just hand this cap out to everyone
+    // XXX: We should not just hand out this cap to everyone
     // who requests it. There is currently no way to determine
     // if the client is a valid recipient
-
     errval_t err;
-/*
-    static struct cnoderef cnode_phyaddr = {
-        .address = CPTR_PHYADDRCN_BASE,
-        .address_bits = DEFAULT_CNODE_BITS,
-        .size_bits = 8,
-        .guard_size = 0,
-    };*/
 
     struct capref src = {
         .cnode = cnode_root,
