@@ -535,14 +535,6 @@ AcpiOsMapMemory (
         int r = slot_alloc(&frame_cap);
         assert(r == 0);
 
-        struct capability cap;
-        debug_cap_identify(ram_cap, &cap);
-        char buf[256];
-        debug_print_cap(buf, sizeof(buf), &cap);
-        debug_printf("AcpiOsMapMemory: ram_cap: %s\n", buf);
-        debug_printf("AcpiOsMapMemory: ram_cap addr is: %d\n", get_cap_addr(ram_cap));
-
-
         r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
         if (r == SYS_ERR_REVOKE_FIRST) {
             /* XXX: this is a bad hack. we currently duplicate mappings, but
@@ -550,12 +542,12 @@ AcpiOsMapMemory (
              * relying on the fact that revoke doesn't yet undo mappings.
              * The proper fix is to track what we already mapped!
              */
-            debug_printf("AcpiOsMapMemory: XXX: revoking RAM %lx\n", paddr);
+            //debug_printf("AcpiOsMapMemory: XXX: revoking RAM %lx\n", paddr);
             r = cap_revoke(ram_cap);
             assert(r == 0);
             r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
         }
-        DEBUG_ERR(r, "after revoke, retype AcpiOsMapMemory(%lu, %lu)", where, length);
+        //DEBUG_ERR(r, "after revoke, retype AcpiOsMapMemory(%lu, %lu)", where, length);
         assert(r == 0);
 
         r = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, frame_cap,
