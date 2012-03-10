@@ -17,10 +17,10 @@
 #include <stdlib.h>
 #include <mm/mm.h>
 #include <pci/confspace/pci_confspace.h>
+#include <acpi_client/acpi_client.h>
 
 #include "pci.h"
 #include "pci_debug.h"
-#include "acpi_client.h"
 
 errval_t pcie_setup_confspace(void) {
 

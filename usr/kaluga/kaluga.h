@@ -20,6 +20,6 @@ errval_t trigger_existing_and_watch(const char*,
 #include "boot_modules.h"
 #include "start_pci.h"
 #include "start_cpu.h"
-#include "startup.h"
+#include "driver_startup.h"
 
 #endif /* KALUGA_H_ */

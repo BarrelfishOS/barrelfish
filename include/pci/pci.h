@@ -42,10 +42,6 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
 errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
                               int *ret_vector);
 
-errval_t pci_reset(void);
-errval_t pci_sleep(int state);
-
-errval_t pci_get_vbe_bios_cap(struct capref *retcap, size_t *retsize);
 
 errval_t pci_client_connect(void);
 

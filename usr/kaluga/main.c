@@ -104,27 +104,19 @@ int main(int argc, char** argv)
     // time in order to start-up properly.
     err = dist_barrier_enter("barrier.acpi", &record, 2);
 
+    err = watch_for_ioapic();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching I/O APICs.");
+    }
+
     err = watch_for_cores();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching for cores.");
+        USER_PANIC_ERR(err, "Watching cores.");
     }
 
     err = watch_for_pci_root_bridge();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching for PCI root bridges.");
-    }
-
-    /*
-    err = watch_for_ioapic();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching I/O APICs.");
-    }*/
-
-    // 3. Watch for PCI
-    err = wait_for_pci();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "PCI Initialized.");
-        return EXIT_FAILURE;
+        USER_PANIC_ERR(err, "Watching PCI root bridges.");
     }
 
     err = watch_for_pci_devices();

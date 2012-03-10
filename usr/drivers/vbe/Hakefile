@@ -14,6 +14,6 @@
                       cFiles = [ "main.c", "vbe.c", "int10.c" ],
                       architectures = [ "x86_64", "x86_32" ],
                       flounderBindings = ["fb"],
-                      addLibraries = [ "x86emu", "pci" ]
+                      addLibraries = [ "x86emu", "pci", "acpi_client" ]
                     }
 ]

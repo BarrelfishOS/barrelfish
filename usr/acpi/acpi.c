@@ -19,6 +19,7 @@
 #include <acpi.h>
 #include <mm/mm.h>
 #include <dist2/getset.h>
+#include <dist2/barrier.h>
 #include <skb/skb.h>
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
@@ -599,7 +600,23 @@ static int acpi_init(void)
     errval_t err = find_all_apics();
     assert(err_is_ok(err));
 
-    nameservice_register("signal_ioapic", 0); // TODO(gz) device mngr
+#ifdef USE_KALUGA_DVM
+    // Signal device manager that we have added records for everything
+    // available to us at boot time.
+    char* record = NULL;
+    err = dist_barrier_enter("barrier.acpi", &record, 2);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not enter barrier.");
+    }
+    free(record);
+#else
+    err = nameservice_register("acpi_enumeration_done", 0);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "nameservice_register failed");
+        abort();
+    }
+#endif
+
     err = connect_to_ioapic();
     assert(err_is_ok(err));
 

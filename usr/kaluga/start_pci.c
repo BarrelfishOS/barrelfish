@@ -102,17 +102,15 @@ static void pci_change_event(dist2_mode_t mode, char* device_record, void* st)
 
         struct module_info* mi = find_module(binary_name);
         free(binary_name);
-        if (mi == NULL || !is_auto_driver(mi)) {
-            KALUGA_DEBUG("PCI driver not found or not declared as auto.\n");
-            goto out;
-        }
 
+        // Wait until the core where we start the driver
+        // is ready
         if (st == NULL && core != my_core_id) {
             err = wait_for_spawnd(core, device_record);
             if (err_no(err) == DIST2_ERR_NO_RECORD) {
                 KALUGA_DEBUG("Core where driver %s runs is not up yet.\n",
                         mi->binary);
-                // Don't want to free device record here...
+                // Don't want to free device record yet...
                 return;
             }
             else if (err_is_fail(err)) {
@@ -123,8 +121,24 @@ static void pci_change_event(dist2_mode_t mode, char* device_record, void* st)
 
         // If we've come here the core where we spawn the driver
         // is already up
-        KALUGA_DEBUG("Spawn PCI driver: %s\n", mi->binary);
-        mi->start_function(core, mi, device_record);
+        err = mi->start_function(core, mi, device_record);
+        switch (err_no(err)) {
+        case SYS_ERR_OK:
+            KALUGA_DEBUG("Spawned PCI driver: %s\n", mi->binary);
+            break;
+
+        case KALUGA_ERR_DRIVER_ALREADY_STARTED:
+            KALUGA_DEBUG("%s already running.\n", mi->binary);
+            break;
+
+        case KALUGA_ERR_DRIVER_NOT_AUTO:
+            KALUGA_DEBUG("%s not declared as auto, ignore.\n", mi->binary);
+            break;
+
+        default:
+            DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
+            break;
+        }
     }
 
 out:
@@ -147,15 +161,31 @@ static void bridge_change_event(dist2_mode_t mode, char* bridge_record, void* st
         // No need to ask the SKB as we always start pci for
         // in case we find a root bridge
         struct module_info* mi = find_module("pci");
-        if (mi == NULL || !is_auto_driver(mi)) {
+        if (mi == NULL) {
             KALUGA_DEBUG("PCI driver not found or not declared as auto.");
             goto out;
         }
 
-        KALUGA_DEBUG("bridge_change_event: spawn mi->path: %s\n", mi->path);
         // XXX: always spawn on my_core_id; otherwise we need to check that
         // the other core is already up
-        mi->start_function(my_core_id, mi, bridge_record);
+        errval_t err = mi->start_function(my_core_id, mi, bridge_record);
+        switch (err_no(err)) {
+        case SYS_ERR_OK:
+            KALUGA_DEBUG("Spawned PCI bus driver: %s\n", mi->binary);
+            break;
+
+        case KALUGA_ERR_DRIVER_ALREADY_STARTED:
+            KALUGA_DEBUG("%s already running.\n", mi->binary);
+            break;
+
+        case KALUGA_ERR_DRIVER_NOT_AUTO:
+            KALUGA_DEBUG("%s not declared as auto, ignore.\n", mi->binary);
+            break;
+
+        default:
+            DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
+            break;
+        }
     }
 
 out:

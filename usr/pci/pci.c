@@ -24,13 +24,13 @@
 #include <mm/mm.h>
 #include <skb/skb.h>
 #include <dist2/getset.h>
+#include <acpi_client/acpi_client.h>
 
 #include "pci.h"
 #include "driver_mapping.h"
 #include "ht_config.h"
 #include "ht_config_dev.h"
 #include "pci_debug.h"
-#include "acpi_client.h"
 #include "ioapic_client.h"
 
 #define BAR_PROBE       0xffffffff

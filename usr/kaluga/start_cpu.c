@@ -201,3 +201,57 @@ errval_t watch_for_cores(void)
 
     return err;
 }
+
+static void ioapic_change_event(dist2_mode_t mode, char* record, void* state)
+{
+    if (mode & DIST_ON_SET) {
+        struct module_info* mi = find_module("ioapic");
+        if (mi != NULL) {
+            // Pass apic id as 1st argument
+            static const char* fmt = "apicid=%u";
+            int len = snprintf(NULL, 0, fmt, my_arch_id);
+            char* apic_arg = malloc(len+1);
+            snprintf(apic_arg, len+1, fmt, my_arch_id);
+
+            mi->argv[2] = apic_arg;
+            errval_t err = mi->start_function(my_core_id, mi, record);
+            free(apic_arg);
+
+            switch (err_no(err)) {
+            case SYS_ERR_OK:
+                KALUGA_DEBUG("Spawned I/O APIC driver: %s\n", mi->binary);
+                break;
+
+            case KALUGA_ERR_DRIVER_ALREADY_STARTED:
+                KALUGA_DEBUG("%s already running.\n", mi->binary);
+                break;
+
+            case KALUGA_ERR_DRIVER_NOT_AUTO:
+                KALUGA_DEBUG("%s not declared as auto, ignore.\n", mi->binary);
+                break;
+
+            default:
+                DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
+                break;
+            }
+        }
+    }
+    else if (mode & DIST_ON_DEL) {
+        KALUGA_DEBUG("Removed I/O APIC?");
+        assert(!"NYI");
+    }
+
+    free(record);
+}
+
+
+errval_t watch_for_ioapic(void)
+{
+    KALUGA_DEBUG("watch_for_ioapic\n");
+    static char* io_apics = "r'hw.ioapic.[0-9]+' { id: _, address: _, "
+                            "irqbase: _ }";
+
+    dist2_trigger_id_t tid;
+    return trigger_existing_and_watch(io_apics, ioapic_change_event,
+            &core_counter, &tid);
+}

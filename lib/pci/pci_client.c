@@ -169,32 +169,6 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
     return msgerr;
 }
 
-errval_t pci_reset(void)
-{
-    errval_t err, msgerr;
-    err = pci_client->vtbl.reset(pci_client, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
-
-errval_t pci_sleep(int state)
-{
-    errval_t err, msgerr;
-    err = pci_client->vtbl.sleep(pci_client, state, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
-
-// Kludge for VBE driver
-errval_t pci_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
-{
-    errval_t err, msgerr;
-    assert(retcap != NULL);
-    assert(retsize != NULL);
-    uint32_t s;
-    err = pci_client->vtbl.get_vbe_bios_cap(pci_client, &msgerr, retcap, &s);
-    *retsize = s;
-    return err_is_fail(err) ? err : msgerr;
-}
-
 static void bind_cont(void *st, errval_t err, struct pci_binding *b)
 {
     errval_t *reterr = st;

@@ -12,7 +12,7 @@ errval_t trigger_existing_and_watch(const char* query,
     char* output = NULL;
     char* record = NULL; // freed by cpu_change_event
     size_t len = 0;
-    dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, dist2_BINDING_EVENT,
+    dist2_trigger_t t = dist_mktrigger(0, dist2_BINDING_EVENT,
             TRIGGER_ALWAYS, event_handler, state);
 
     // Get current cores registered in system
@@ -50,6 +50,9 @@ errval_t trigger_existing_and_watch(const char* query,
                 break;
             }
         }
+        break;
+    case DIST2_ERR_NO_RECORD:
+        err = SYS_ERR_OK; // Overwrite (trigger is set)
         break;
 
     default:

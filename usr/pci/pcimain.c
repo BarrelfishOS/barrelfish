@@ -24,9 +24,9 @@
 #include <mm/mm.h>
 #include <dist2/init.h>
 #include <skb/skb.h>
+#include <acpi_client/acpi_client.h>
 
 #include "pci.h"
-#include "acpi_client.h"
 #include "ioapic_client.h"
 #include "pci_debug.h"
 
@@ -125,17 +125,12 @@ static errval_t init_allocators(void)
 
 int main(int argc, char *argv[])
 {
+    debug_printf("pci staretd\n");
     errval_t err;
 
     err = dist_init();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "dist initialization failed.");
-    }
-
-    // TODO(gz): Device mngr
-    err = nameservice_blocking_lookup("acpi_done", 0);
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Waiting for acpi failed.");
     }
 
     err = skb_client_connect();

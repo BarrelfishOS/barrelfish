@@ -145,15 +145,17 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Connect to SKB");
     }
 
-    // TODO: device mngr...
-    iref_t iref;
-    nameservice_blocking_lookup("signal_ioapic", &iref);
-
-    // TODO: Cap mngmt
     err = init_allocators();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Init memory allocator");
     }
+
+#ifndef USE_KALUGA_DVM
+    err = nameservice_blocking_lookup("acpi_enumeration_done", 0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Waiting for acpi failed.");
+    }
+#endif
 
     err = init_all_apics();
     if (err_is_fail(err)) {

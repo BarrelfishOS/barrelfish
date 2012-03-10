@@ -248,16 +248,6 @@ int main(int argc, char *argv[])
     int r = init_acpi();
     assert(r == 0);
 
-    // Signal device manager that we have added records for everything
-    // available to us at boot time.
-    char* record = NULL;
-    err = dist_barrier_enter("barrier.acpi", &record, 2);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not enter barrier.");
-    }
-    free(record);
-
-
     buttons_init();
 
     if (do_video_init) {
@@ -265,13 +255,6 @@ int main(int argc, char *argv[])
     }
 
     start_service();
-
-    // TODO: device mngr --gz
-    err = nameservice_register("acpi_done", 0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
-    }
 
     messages_handler_loop();
 }
