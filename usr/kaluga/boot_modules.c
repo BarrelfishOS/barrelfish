@@ -27,22 +27,6 @@ inline bool is_started(struct module_info* mi)
     return mi->did > 0;
 }
 
-static errval_t default_start_function(coreid_t where, struct module_info* mi,
-        char* record)
-{
-    errval_t err = SYS_ERR_OK;
-
-    if (!is_started(mi)) {
-        err = spawn_program(where, mi->path, mi->argv+1,
-                environ, 0, &mi->did);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Spawning %s failed.", mi->path);
-        }
-    }
-
-    return err;
-}
-
 void set_start_function(char* binary, module_start_fn start_fn)
 {
     struct module_info* mi = find_module(binary);

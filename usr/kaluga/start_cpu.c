@@ -27,9 +27,9 @@
 
 #include "kaluga.h"
 
-// TODO: This is needed because of we have to send
+// TODO: Needed because of we have to send
 // boot_initialize_request after all cores have booted
-// It's is a hack (see monitors boot.c)
+// It's a hack (see monitors boot.c)
 static coreid_t cores_on_boot = 0;
 static coreid_t core_counter = 1; // BSP already up
 static bool cores_booted = false;

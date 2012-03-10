@@ -12,7 +12,7 @@
 
 [ build application { target = "kaluga",
                       cFiles = [ "main.c", "queue.c", "boot_modules.c", "common.c",
-                                 "start_cpu.c", "start_pci.c", "start_pci_driver.c" ],
+                                 "start_cpu.c", "start_pci.c", "startup.c" ],
           	          flounderDefs = [ "monitor" ],
                       flounderBindings = [ "dist2" ],
                       addLibraries = [ "skb", "dist2", "dist_parser", 
