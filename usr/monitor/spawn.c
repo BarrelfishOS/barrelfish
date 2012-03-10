@@ -36,18 +36,6 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         name++;
     }
 
-    /* Pass IO cap to PCI */
-    if (!strcmp(name, "pci") || !strcmp(name, "acpi")) {
-        dest.cnode = si->taskcn;
-        dest.slot  = TASKCN_SLOT_IO;
-        src.cnode = cnode_task;
-        src.slot  = TASKCN_SLOT_IO;
-        err = cap_copy(dest, src);
-        if (err_is_fail(err)) {
-            return err_push(err, SPAWN_ERR_COPY_IO_CAP);
-        }
-    }
-
     /* Pass IRQ cap to bfscope (XXX: kludge) */
     if (!strcmp(name, "bfscope")) {
         dest.cnode = si->taskcn;

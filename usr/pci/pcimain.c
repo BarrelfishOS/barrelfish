@@ -81,10 +81,20 @@ static errval_t init_allocators(void)
         return err_push(err, MM_ERR_MM_INIT);
     }
 
-    // XXX: The code below is confused about gen/l/paddrs.
-    // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
+    // Request I/O Cap
     struct capref requested_caps;
     errval_t error_code;
+    err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
+    assert(err_is_ok(err) && err_is_ok(error_code));
+    // Copy into correct slot
+    struct capref caps_io = {
+        .cnode = cnode_task,
+        .slot  = TASKCN_SLOT_IO
+    };
+    err = cap_copy(caps_io, requested_caps);
+
+    // XXX: The code below is confused about gen/l/paddrs.
+    // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
     err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
 
