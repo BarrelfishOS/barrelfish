@@ -102,6 +102,10 @@ static void pci_change_event(dist2_mode_t mode, char* device_record, void* st)
 
         struct module_info* mi = find_module(binary_name);
         free(binary_name);
+        if (mi == NULL) {
+            KALUGA_DEBUG("Driver %s not loaded. Ignore.", binary_name);
+            goto out;
+        }
 
         // Wait until the core where we start the driver
         // is ready

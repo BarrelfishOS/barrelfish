@@ -48,6 +48,17 @@ pci_driver{
     platforms: ['x86_64', 'x86_32']
 }.
 
+pci_driver{
+    binary: "ahcid",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'2922, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'3a22, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'1002, device: 16'4390, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 0,
+    interrupt_load: 0.5,
+    platforms: ['x86_64', 'x86_32']
+}.
+
 cpu_driver{
     binary: "cpu",
     platforms: ['x86_64', 'x86_32']
