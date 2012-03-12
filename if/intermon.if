@@ -21,6 +21,7 @@ interface intermon "The Interface between monitors" {
     alias vci_t uint64;
 
     alias capid_t uint32;
+    alias capop_st uint64;
 
     /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
     typedef uint64 coremask[4];
@@ -141,30 +142,30 @@ interface intermon "The Interface between monitors" {
     message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err, caprep cap, bool null_cap);
 
     // cap operation messages
-    message capops_request_copy(coreid dest, caprep cap, genvaddr st);
-    message capops_recv_copy(caprep cap, genvaddr st);
-    message capops_recv_copy_result(errval status, capid_t cap, genvaddr st);
+    message capops_request_copy(coreid dest, caprep cap, capop_st st);
+    message capops_recv_copy(caprep cap, capop_st st);
+    message capops_recv_copy_result(errval status, capid_t cap, capop_st st);
 
-    message capops_move_request(caprep cap, genvaddr st);
-    message capops_move_result(errval status, genvaddr st);
+    message capops_move_request(caprep cap, capop_st st);
+    message capops_move_result(errval status, capop_st st);
 
-    message capops_delete_remote(caprep cap, genvaddr st);
-    message capops_delete_remote_result(errval status, genvaddr st);
+    message capops_delete_remote(caprep cap, capop_st st);
+    message capops_delete_remote_result(errval status, capop_st st);
 
-    message capops_request_revoke(caprep cap, genvaddr st);
-    message capops_revoke_result(errval status, genvaddr st);
+    message capops_request_revoke(caprep cap, capop_st st);
+    message capops_revoke_result(errval status, capop_st st);
 
-    message capops_request_retype(caprep src, int desttype, uint32 destbits, genvaddr st);
-    message capops_retype_response(errval status, genvaddr st);
+    message capops_request_retype(caprep src, int desttype, uint32 destbits, capop_st st);
+    message capops_retype_response(errval status, capop_st st);
 
     // ownership / relation messages
-    message capops_update_owner(caprep cap, genvaddr st);
-    message capops_owner_updated(genvaddr st);
+    message capops_update_owner(caprep cap, capop_st st);
+    message capops_owner_updated(capop_st st);
 
-    message capops_find_cap(caprep cap, genvaddr st);
-    message capops_find_cap_result(errval status, genvaddr st);
+    message capops_find_cap(caprep cap, capop_st st);
+    message capops_find_cap_result(errval status, capop_st st);
 
-    message capops_find_descendants(caprep cap, genvaddr st);
-    message capops_find_descendants_result(errval status, genvaddr st);
+    message capops_find_descendants(caprep cap, capop_st st);
+    message capops_find_descendants_result(errval status, capop_st st);
 
 };
