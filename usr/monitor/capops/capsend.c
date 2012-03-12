@@ -181,14 +181,14 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_s
  */
 
 /*
- * Find relations broadcast {{{2
+ * Find copies broadcast {{{2
  */
 
 struct find_cap_broadcast_msg_st;
 
 struct find_cap_broadcast_st {
     struct capsend_mc_st bc;
-    find_cap_result_fn result_handler;
+    capsend_find_cap_result_fn result_handler;
     bool found;
     void *st;
 };
@@ -203,7 +203,7 @@ find_cap_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *capr
 }
 
 errval_t
-capsend_find_cap(struct capability *cap, find_cap_result_fn result_handler, void *st)
+capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_handler, void *st)
 {
     struct find_cap_broadcast_st *bc_st = calloc(1, sizeof(struct find_cap_broadcast_st));
     if (!bc_st) {
@@ -217,7 +217,7 @@ capsend_find_cap(struct capability *cap, find_cap_result_fn result_handler, void
 }
 
 /*
- * Find relations result {{{2
+ * Find copies result {{{2
  */
 
 struct find_cap_result_msg_st {
@@ -258,7 +258,7 @@ find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 }
 
 /*
- * Receive handlers {{{2
+ * Find copies receive handlers {{{2
  */
 
 __attribute__((unused))
@@ -312,6 +312,119 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
         free(fc_bc_st);
     }
 }
+
+/*
+ * Find descendants
+ */
+
+struct find_descendants_mc_st {
+    struct capsend_mc_st mc_st;
+    capsend_result_fn result_fn;
+    void *st;
+};
+
+static void
+find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
+{
+    errval_t err = intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "unable to send find_descendants message");
+    }
+}
+
+errval_t
+capsend_find_descendants(struct capref src, capsend_result_fn result_fn, void *st)
+{
+    errval_t err;
+
+    struct capability cap;
+    err = monitor_cap_identify(src, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct find_descendants_mc_st *mc_st;
+    mc_st = malloc(sizeof(*mc_st));
+    if (!mc_st) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    mc_st->result_fn = result_fn;
+    mc_st->st = st;
+    return capsend_descendants(&cap, find_descendants_send_cont, (struct capsend_mc_st*)mc_st);
+}
+
+
+struct find_descendants_result_msg_st {
+    struct intermon_msg_queue_elem queue_elem;
+    errval_t status;
+    genvaddr_t st;
+};
+
+static void
+find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct find_descendants_result_msg_st *msg_st;
+    msg_st = (struct find_descendants_result_msg_st*)e;
+    err = intermon_capops_find_descendants_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    free(msg_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not send find_descendants_result");
+    }
+}
+
+__attribute__((unused))
+static void
+find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
+{
+    errval_t err;
+
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
+    coreid_t from = inter_st->core_id;
+
+    struct capability cap;
+    caprep_to_capability(&caprep, &cap);
+
+    // XXX: using err as boolean... evil?
+    err = monitor_has_local_descendants(cap);
+
+    struct find_descendants_result_msg_st *msg_st;
+    msg_st = malloc(sizeof(*msg_st));
+    if (!msg_st) {
+        err = LIB_ERR_MALLOC_FAIL;
+        USER_PANIC_ERR(err, "could not alloc find_descendants_result_msg_st");
+    }
+    msg_st->queue_elem.cont = find_descendants_result_send_cont;
+    msg_st->status = err;
+    msg_st->st = st;
+
+    err = capsend_target(from, (struct msg_queue_elem*)msg_st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not enqueue find_descendants_result msg");
+    }
+}
+
+__attribute__((unused))
+static void
+find_descendants_result__rx_fn(struct intermon_binding *b, errval_t status, genvaddr_t st)
+{
+    struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)st;
+
+    if (err_is_ok(status)) {
+        // found result
+        mc_st->result_fn(SYS_ERR_OK, mc_st->st);
+    }
+    else if (err_no(status) != CAP_ERR_NOTFOUND) {
+        printf("ignoring bad find_descendants result %"PRIuPTR"\n", status);
+    }
+
+    if (capsend_handle_mc_reply(st)) {
+        mc_st->result_fn(CAP_ERR_NOTFOUND, mc_st->st);
+        free(mc_st);
+    }
+}
+
 
 /*
  * Ownership update {{{1

@@ -73,6 +73,6 @@ errval_t monitor_revoke(struct capref, struct capref);
 errval_t monitor_has_local_descendants(struct capability);
 
 // create local caps as retype from one src cap
-errval_t monitor_create_caps(enum objtype, size_t, struct capref, cslot_t, struct capref);
+errval_t monitor_create_caps(enum objtype, size_t, struct capref, struct capref);
 
 #endif

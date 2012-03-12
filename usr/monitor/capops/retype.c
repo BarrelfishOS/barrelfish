@@ -14,126 +14,13 @@
 #include "magic.h"
 
 /*
- * Check retype multicast
- */
-
-struct check_retype_mc_st {
-    struct capsend_mc_st mc_st;
-    retype_result_handler_t result_handler;
-    void *st;
-};
-
-static void
-check_retype_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
-{
-    errval_t err = intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "unable to send find_descendants message");
-    }
-}
-
-static errval_t
-check_retype(struct capref src, enum objtype type, size_t objbits,
-             retype_result_handler_t result_handler, void *st)
-{
-    errval_t err;
-
-    struct capability cap;
-    err = monitor_cap_identify(src, &cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    struct check_retype_mc_st *mc_st;
-    mc_st = malloc(sizeof(*mc_st));
-    if (!mc_st) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
-    mc_st->result_handler = result_handler;
-    mc_st->st = st;
-    return capsend_descendants(&cap, check_retype_send_cont, (struct capsend_mc_st*)mc_st);
-}
-
-struct find_descendants_result_msg_st {
-    struct intermon_msg_queue_elem queue_elem;
-    errval_t status;
-    genvaddr_t st;
-};
-
-static void
-find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
-{
-    errval_t err;
-    struct find_descendants_result_msg_st *msg_st;
-    msg_st = (struct find_descendants_result_msg_st*)e;
-    err = intermon_capops_find_descendants_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
-    free(msg_st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not send find_descendants_result");
-    }
-}
-
-__attribute__((unused))
-static void
-find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
-{
-    errval_t err;
-
-    struct intermon_state *inter_st = (struct intermon_state*)b->st;
-    coreid_t from = inter_st->core_id;
-
-    struct capability cap;
-    caprep_to_capability(&caprep, &cap);
-
-    // XXX: using err as boolean... evil?
-    err = monitor_has_local_descendants(cap);
-
-    struct find_descendants_result_msg_st *msg_st;
-    msg_st = malloc(sizeof(*msg_st));
-    if (!msg_st) {
-        err = LIB_ERR_MALLOC_FAIL;
-        USER_PANIC_ERR(err, "could not alloc find_descendants_result_msg_st");
-    }
-    msg_st->queue_elem.cont = find_descendants_result_send_cont;
-    msg_st->status = err;
-    msg_st->st = st;
-
-    err = capsend_target(from, (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not enqueue find_descendants_result msg");
-    }
-}
-
-__attribute__((unused))
-static void
-find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
-{
-    struct check_retype_mc_st *mc_st = (struct check_retype_mc_st*)st;
-
-    if (err_is_ok(status)) {
-        // found result
-        mc_st->result_handler(SYS_ERR_OK, mc_st->st);
-    }
-    else if (err_no(status) != CAP_ERR_NOTFOUND) {
-        printf("ignoring bad find_descendants result %"PRIuPTR"\n", status);
-    }
-
-    if (capsend_handle_mc_reply(st)) {
-        mc_st->result_handler(CAP_ERR_NOTFOUND, mc_st->st);
-        free(mc_st);
-    }
-}
-
-/*
  *
  */
 
 struct retype_st {
     enum objtype type;
     size_t objbits;
-    struct capref dest_cnode;
-    cslot_t dest_slot;
+    struct capref dest_start;
     struct capref src;
     retype_result_handler_t result_handler;
     void *st;
@@ -145,7 +32,8 @@ create_copies_cont(errval_t status, void *st)
     errval_t err = status;
     struct retype_st *rtst = (struct retype_st*)st;
     if (err_no(err) == CAP_ERR_NOTFOUND) {
-        err = monitor_create_caps(rtst->type, rtst->objbits, rtst->dest_cnode, rtst->dest_slot, rtst->src);
+        // no descendants found
+        err = monitor_create_caps(rtst->type, rtst->objbits, rtst->dest_start, rtst->src);
     }
     rtst->result_handler(err, rtst->st);
     free(rtst);
@@ -273,7 +161,7 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
         goto reply_err;
     }
 
-    err = check_retype(src, desttype, destbits, retype_result_cont, rtst);
+    err = capsend_find_descendants(src, retype_result_cont, rtst);
 
 reply_err:
     if (err_is_fail(err)) {
@@ -286,9 +174,8 @@ reply_err:
  */
 
 errval_t
-retype(enum objtype type, size_t objbits, struct capref dest_cnode,
-       cslot_t dest_slot, struct capref src,
-       retype_result_handler_t result_handler, void *st)
+retype(enum objtype type, size_t objbits, struct capref dest_start,
+       struct capref src, retype_result_handler_t result_handler, void *st)
 {
     errval_t err;
 
@@ -302,17 +189,22 @@ retype(enum objtype type, size_t objbits, struct capref dest_cnode,
         return CAP_ERR_BUSY;
     }
 
+    // XXX: broken: cap_retype handles retry_through_monitor
+    err = cap_retype(dest_start, src, type, objbits);
+    if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
+        return err;
+    }
+
     struct retype_st *rst = malloc(sizeof(struct retype_st));
     rst->type = type;
     rst->objbits = objbits;
-    rst->dest_cnode = dest_cnode;
-    rst->dest_slot = dest_slot;
+    rst->dest_start = dest_start;
     rst->src = src;
     rst->result_handler = result_handler;
     rst->st = st;
 
     if (cap_state_is_owner(src_state)) {
-        err = check_retype(src, type, objbits, create_copies_cont, rst);
+        err = capsend_find_descendants(src, create_copies_cont, rst);
     }
     else {
         err = request_retype(create_copies_cont, rst);

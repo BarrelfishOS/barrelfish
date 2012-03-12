@@ -35,13 +35,18 @@ errval_t capsend_target(coreid_t dest, struct msg_queue_elem *queue_elem);
 
 errval_t capsend_owner(struct capref capref, struct msg_queue_elem *queue_elem);
 
-typedef void (*find_cap_result_fn)(errval_t, coreid_t, void*);
-errval_t capsend_find_cap(struct capability *cap, find_cap_result_fn result_fn, void *st);
-
 errval_t capsend_update_owner(struct capref capref, struct event_closure continuation);
 
 errval_t capsend_copies(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
 
 errval_t capsend_descendants(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
+
+typedef void (*capsend_find_cap_result_fn)(errval_t, coreid_t, void*);
+
+errval_t capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_fn, void *st);
+
+typedef void (*capsend_result_fn)(errval_t, void*);
+
+errval_t capsend_find_descendants(struct capref src, capsend_result_fn result_fn, void *st);
 
 #endif
