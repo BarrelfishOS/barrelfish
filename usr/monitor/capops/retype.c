@@ -26,7 +26,7 @@ struct check_retype_mc_st {
 static void
 check_retype_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
 {
-    errval_t err = intermon_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
+    errval_t err = intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "unable to send find_descendants message");
     }
@@ -67,7 +67,7 @@ find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_ms
     errval_t err;
     struct find_descendants_result_msg_st *msg_st;
     msg_st = (struct find_descendants_result_msg_st*)e;
-    err = intermon_find_descendants_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    err = intermon_capops_find_descendants_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
     free(msg_st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send find_descendants_result");
@@ -162,7 +162,7 @@ request_retype_send_cont(struct intermon_binding *b, struct intermon_msg_queue_e
 {
     struct request_retype_msg_st *msg_st = (struct request_retype_msg_st*)e;
     struct retype_st *rtst = msg_st->st;
-    errval_t err = intermon_request_retype__tx(b, NOP_CONT, msg_st->caprep, rtst->type, rtst->objbits, (genvaddr_t)rtst);
+    errval_t err = intermon_capops_request_retype__tx(b, NOP_CONT, msg_st->caprep, rtst->type, rtst->objbits, (genvaddr_t)rtst);
     if (err_is_fail(err)) {
         rtst->result_handler(err, rtst->st);
         free(rtst);
@@ -206,7 +206,7 @@ retype_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_el
 {
     errval_t err;
     struct retype_result_st *rtst = (struct retype_result_st*)e;
-    err = intermon_retype_response__tx(b, NOP_CONT, rtst->status, rtst->st);
+    err = intermon_capops_retype_response__tx(b, NOP_CONT, rtst->status, rtst->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send retype_result message");
     }

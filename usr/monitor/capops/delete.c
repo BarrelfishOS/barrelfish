@@ -37,7 +37,7 @@ static void
 delete_remote_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
     errval_t err;
-    err = intermon_delete_remote__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
+    err = intermon_capops_delete_remote__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send delete_remote msg");
     }
@@ -69,7 +69,7 @@ delete_remote_result_msg_cont(struct intermon_binding *b, struct intermon_msg_qu
 {
     errval_t err;
     struct delete_remote_result_msg_st *msg_st = (struct delete_remote_result_msg_st*)e;
-    err = intermon_delete_remote_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    err = intermon_capops_delete_remote_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send delete_remote_result msg");
     }

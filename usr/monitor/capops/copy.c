@@ -49,7 +49,7 @@ recv_copy_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue
 {
     errval_t err;
     struct recv_copy_result_msg_st *msg_st = (struct recv_copy_result_msg_st*)e;
-    err = intermon_recv_copy_result__tx(b, NOP_CONT, msg_st->status, msg_st->capaddr, msg_st->st);
+    err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status, msg_st->capaddr, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send recv_copy_result");
     }
@@ -99,7 +99,7 @@ owner_copy_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem 
 {
     struct owner_copy_msg_st *msg_st = (struct owner_copy_msg_st*)e;
     errval_t err;
-    err = intermon_recv_copy__tx(b, NOP_CONT, msg_st->caprep, msg_st->st);
+    err = intermon_capops_recv_copy__tx(b, NOP_CONT, msg_st->caprep, msg_st->st);
     if (err_is_fail(err)) {
         // if send fails, we try and send the error back to the source
         struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)(msg_st->st);
@@ -178,7 +178,7 @@ request_copy_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 {
     errval_t err;
     struct request_copy_msg_st *msg_st = (struct request_copy_msg_st*)e;
-    err = intermon_request_copy__tx(b, NOP_CONT, msg_st->dest, msg_st->caprep, (genvaddr_t)msg_st->st);
+    err = intermon_capops_request_copy__tx(b, NOP_CONT, msg_st->dest, msg_st->caprep, (genvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         assert(msg_st->st);
         struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)msg_st->st;

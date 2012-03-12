@@ -42,7 +42,7 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 {
     errval_t err;
     struct move_request_msg_st *msg_st = (struct move_request_msg_st*)e;
-    err = intermon_move_request__tx(b, NOP_CONT, msg_st->caprep, (genvaddr_t)msg_st->st);
+    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep, (genvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)msg_st->st;
         if (rpc_st->result_handler) {
@@ -105,7 +105,7 @@ move_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem
 {
     errval_t err;
     struct move_result_msg_st *msg_st = (struct move_result_msg_st*)e;
-    err = intermon_move_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    err = intermon_capops_move_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send move_result");
     }

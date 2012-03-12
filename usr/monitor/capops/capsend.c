@@ -196,7 +196,7 @@ struct find_cap_broadcast_st {
 static void
 find_cap_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
-    errval_t err = intermon_find_cap__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
+    errval_t err = intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send find_cap message");
     }
@@ -232,7 +232,7 @@ find_cap_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_
     errval_t err;
     struct find_cap_result_msg_st *msg_st = (struct find_cap_result_msg_st*)e;
 
-    err = intermon_find_cap_result__tx(b, NOP_CONT, msg_st->result, msg_st->st);
+    err = intermon_capops_find_cap_result__tx(b, NOP_CONT, msg_st->result, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send find_cap_result message");
     }
@@ -330,7 +330,7 @@ static void
 update_owner_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *bc_st)
 {
     errval_t err;
-    err = intermon_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)bc_st);
+    err = intermon_capops_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)bc_st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send update_owner message");
     }
@@ -370,7 +370,7 @@ owner_updated_send_cont(struct intermon_binding *b, struct intermon_msg_queue_el
     errval_t err;
     struct owner_updated_msg_st *msg_st = (struct owner_updated_msg_st*)e;
 
-    err = intermon_owner_updated__tx(b, NOP_CONT, msg_st->st);
+    err = intermon_capops_owner_updated__tx(b, NOP_CONT, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send owner_updated message");
     }

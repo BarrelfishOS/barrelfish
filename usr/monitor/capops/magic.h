@@ -75,33 +75,4 @@ errval_t monitor_has_local_descendants(struct capability);
 // create local caps as retype from one src cap
 errval_t monitor_create_caps(enum objtype, size_t, struct capref, cslot_t, struct capref);
 
-/*
- * NYI intermon.if functions
- */
-
-errval_t intermon_recv_copy_result__tx(struct intermon_binding*, struct event_closure, errval_t, capaddr_t, genvaddr_t);
-errval_t intermon_recv_copy__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_request_copy__tx(struct intermon_binding*, struct event_closure, coreid_t, intermon_caprep_t, genvaddr_t);
-
-errval_t intermon_move_request__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_move_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
-
-errval_t intermon_update_owner__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_owner_updated__tx(struct intermon_binding*, struct event_closure, genvaddr_t);
-
-errval_t intermon_find_cap__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_find_cap_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
-
-errval_t intermon_delete_remote__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t st);
-errval_t intermon_delete_remote_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t st);
-
-errval_t intermon_request_revoke__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_revoke_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
-
-errval_t intermon_find_descendants__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_find_descendants_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
-
-errval_t intermon_request_retype__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, int, size_t, genvaddr_t);
-errval_t intermon_retype_response__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
-
 #endif

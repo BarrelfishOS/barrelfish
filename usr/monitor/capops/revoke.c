@@ -81,7 +81,7 @@ revoke_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_el
 {
     errval_t err;
     struct revoke_result_msg_st *msg_st = (struct revoke_result_msg_st*)e;
-    err = intermon_revoke_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    err = intermon_capops_revoke_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send revoke_result message");
     }
@@ -196,7 +196,7 @@ request_revoke_send_cont(struct intermon_binding *b, struct intermon_msg_queue_e
 {
     struct request_revoke_msg_st *msg_st = (struct request_revoke_msg_st*)e;
     errval_t err;
-    err = intermon_request_revoke__tx(b, NOP_CONT, msg_st->caprep, (genvaddr_t)msg_st->st);
+    err = intermon_capops_request_revoke__tx(b, NOP_CONT, msg_st->caprep, (genvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         struct revoke_st *rst = msg_st->st;
         rst->result_handler(err, rst->st);
