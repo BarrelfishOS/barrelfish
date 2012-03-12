@@ -19,8 +19,170 @@ struct revoke_st {
     void *st;
 };
 
+static errval_t revoke_local(struct revoke_st *rst);
+
 /*
- * Request revoke from owner
+ * Request revoke from owner {{{1
+ */
+
+/*
+ * Handle completed revoke request {{{2
+ */
+
+static void
+request_revoke_move_result(errval_t status, void *st)
+{
+    errval_t err;
+    struct revoke_st *rst = (struct revoke_st*)st;
+
+    if (err_is_ok(status)) {
+        // move succeeded, start local revoke
+        err = revoke_local(rst);
+    }
+    else {
+        err = status;
+    }
+
+    if (err_is_fail(err)) {
+        rst->result_handler(err, rst->st);
+        free(rst);
+    }
+}
+
+__attribute__((unused))
+static void
+revoke_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
+{
+    request_revoke_move_result(status, (void*)st);
+}
+
+/*
+ * Handle and reply to revoke request {{{1
+ */
+
+struct revoke_request_st {
+    struct capref capref;
+    coreid_t from;
+    genvaddr_t st;
+};
+
+/*
+ * Revoke request result
+ */
+
+struct revoke_result_msg_st {
+    struct intermon_msg_queue_elem queue_elem;
+    errval_t status;
+    genvaddr_t st;
+};
+
+static void
+revoke_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct revoke_result_msg_st *msg_st = (struct revoke_result_msg_st*)e;
+    err = intermon_revoke_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send revoke_result message");
+    }
+    free(msg_st);
+}
+
+static errval_t
+revoke_result(coreid_t dest, errval_t status, genvaddr_t st)
+{
+    errval_t err;
+    struct revoke_result_msg_st *msg_st;
+    msg_st = malloc(sizeof(*msg_st));
+    if (!msg_st) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    msg_st->queue_elem.cont = revoke_result_send_cont;
+    msg_st->status = status;
+    msg_st->st = st;
+
+    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
+    if (err_is_fail(err)) {
+        free(msg_st);
+    }
+    return err;
+}
+
+/*
+ * Move result handler {{{2
+ */
+
+static void
+request_revoke_move_cont(errval_t status, void *st)
+{
+    errval_t err;
+    struct revoke_request_st *rst = (struct revoke_request_st*)st;
+    err = revoke_result(rst->from, status, rst->st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not send revoke request result");
+    }
+    free(st);
+}
+
+/*
+ * Revoke request receive handler {{{2
+ */
+
+__attribute__((unused))
+static void
+request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
+{
+    errval_t err;
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
+    coreid_t from = inter_st->core_id;
+    struct capability cap;
+    caprep_to_capability(&caprep, &cap);
+
+    struct capref capref;
+    err = copy_if_exists(&cap, &capref);
+    if (err_is_fail(err)) {
+        goto send_err;
+    }
+
+    capstate_t state;
+    err = cap_get_state(capref, &state);
+    if (err_is_fail(err)) {
+        goto send_err;
+    }
+
+    struct revoke_request_st *rst;
+    rst = malloc(sizeof(*rst));
+    if (!rst) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto send_err;
+    }
+    rst->capref = capref;
+    rst->from = from;
+    rst->st = st;
+
+    if (!cap_state_is_owner(state)) {
+        err = CAP_ERR_FOREIGN;
+        goto send_err;
+    }
+
+    if (cap_state_is_busy(state)) {
+        err = CAP_ERR_BUSY;
+        goto send_err;
+    }
+
+    err = move(capref, from, request_revoke_move_cont, rst);
+
+send_err:
+    if (err_is_fail(err)) {
+        errval_t send_err = revoke_result(from, err, st);
+        if (err_is_fail(send_err)) {
+            USER_PANIC_ERR(send_err, "could not send revoke error");
+        }
+    }
+}
+
+/*
+ * Revoke request {{{2
  */
 
 struct request_revoke_msg_st {
@@ -70,144 +232,9 @@ request_revoke(struct revoke_st *st)
     return SYS_ERR_OK;
 }
 
-static errval_t revoke_local(struct revoke_st *rst);
-
-static void
-request_revoke_move_result(errval_t status, void *st)
-{
-    errval_t err;
-    struct revoke_st *rst = (struct revoke_st*)st;
-
-    if (err_is_ok(status)) {
-        err = revoke_local(rst);
-    }
-    else {
-        err = status;
-    }
-
-    if (err_is_fail(err)) {
-        rst->result_handler(err, rst->st);
-        free(rst);
-    }
-}
-
-__attribute__((unused))
-static void
-revoke_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
-{
-    request_revoke_move_result(status, (void*)st);
-}
 
 /*
- * Handle and reply to revoke request
- */
-
-struct revoke_result_msg_st {
-    struct intermon_msg_queue_elem queue_elem;
-    errval_t status;
-    genvaddr_t st;
-};
-
-static void
-revoke_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
-{
-    errval_t err;
-    struct revoke_result_msg_st *msg_st = (struct revoke_result_msg_st*)e;
-    err = intermon_revoke_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send revoke_result message");
-    }
-    free(msg_st);
-}
-
-static errval_t
-revoke_result(coreid_t dest, errval_t status, genvaddr_t st)
-{
-    errval_t err;
-    struct revoke_result_msg_st *msg_st;
-    msg_st = malloc(sizeof(*msg_st));
-    if (!msg_st) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    msg_st->queue_elem.cont = revoke_result_send_cont;
-    msg_st->status = status;
-    msg_st->st = st;
-
-    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        free(msg_st);
-    }
-    return err;
-}
-
-struct revoke_request_st {
-    struct capref capref;
-    coreid_t from;
-    genvaddr_t st;
-};
-
-static void
-request_revoke_move_cont(errval_t status, void *st)
-{
-    errval_t err;
-    struct revoke_request_st *rst = (struct revoke_request_st*)st;
-    err = revoke_result(rst->from, status, rst->st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not send revoke request result");
-    }
-    free(st);
-}
-
-__attribute__((unused))
-static void
-request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
-{
-    errval_t err;
-    struct intermon_state *inter_st = (struct intermon_state*)b->st;
-    coreid_t from = inter_st->core_id;
-    struct capability cap;
-    caprep_to_capability(&caprep, &cap);
-
-    struct capref capref;
-    err = copy_if_exists(&cap, &capref);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
-
-    capstate_t state;
-    err = cap_get_state(capref, &state);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
-
-    struct revoke_request_st *rst;
-    rst = malloc(sizeof(*rst));
-    if (!rst) {
-        err = LIB_ERR_MALLOC_FAIL;
-        goto send_err;
-    }
-    rst->capref = capref;
-    rst->from = from;
-    rst->st = st;
-
-    if (cap_state_is_busy(state)) {
-        err = CAP_ERR_BUSY;
-        goto send_err;
-    }
-
-    err = move(capref, from, request_revoke_move_cont, rst);
-
-send_err:
-    if (err_is_fail(err)) {
-        errval_t send_err = revoke_result(from, err, st);
-        if (err_is_fail(send_err)) {
-            USER_PANIC_ERR(send_err, "could not send revoke error");
-        }
-    }
-}
-
-/*
- * Local revocation handling
+ * Local revocation handling {{{1
  */
 
 static void
@@ -266,7 +293,7 @@ revoke_local(struct revoke_st *rst)
 }
 
 /*
- * Revoke operation
+ * Revoke operation {{{1
  */
 
 errval_t
