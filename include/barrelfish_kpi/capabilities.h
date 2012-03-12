@@ -106,6 +106,7 @@ enum cnode_cmd {
     CNodeCmd_Delete,    ///< Delete capability
     CNodeCmd_Revoke,    ///< Revoke capability
     CNodeCmd_Create,    ///< Create capability
+    CNodeCmd_GetState,  ///< Get distcap state for capability
 };
 
 enum vnode_cmd {

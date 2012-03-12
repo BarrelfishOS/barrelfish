@@ -17,6 +17,7 @@
 
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
+#include <barrelfish_kpi/distcaps.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/paging_arch.h>
 
@@ -194,6 +195,21 @@ static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
                                            int bits)
 {
     return cap_invoke3(root, CNodeCmd_Revoke, cap, bits).error;
+}
+
+static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
+                                              int bits, distcap_state_t *ret)
+{
+    struct sysret sysret = cap_invoke3(root, CNodeCmd_GetState, cap, bits);
+
+    assert(ret != NULL);
+    if (err_is_ok(sysret.error)) {
+        *ret = sysret.value;
+    }
+    else {
+        *ret = 0;
+    }
+    return sysret.error;
 }
 
 static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)

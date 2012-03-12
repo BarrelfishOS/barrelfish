@@ -19,6 +19,7 @@
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
+#include <barrelfish_kpi/distcaps.h>
 #include <barrelfish/invocations_arch.h>
 
 errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
@@ -124,6 +125,14 @@ static inline errval_t cap_copy(struct capref dest, struct capref src)
     err = invoke_cnode_copy(cap_root, dcn_addr, dest.slot, scp_addr, dcn_vbits,
                             scp_vbits);
     return err;
+}
+
+static inline errval_t cap_get_state(struct capref cap, distcap_state_t *state)
+{
+    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+
+    return invoke_cnode_get_state(cap_root, caddr, vbits, state);
 }
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H

@@ -11,6 +11,8 @@
 #ifndef CAPOPS_MAGIC_H
 #define CAPOPS_MAGIC_H
 
+#include <barrelfish_kpi/distcaps.h>
+
 /*
  * Error codes
  */
@@ -23,8 +25,6 @@
 /*
  * Magic NYI functions
  */
-
-typedef uint8_t capstate_t;
 
 // get owner core of given cap. used by routing layer only
 errval_t cap_get_owner(struct capref, coreid_t*);
@@ -41,14 +41,6 @@ errval_t copy_if_exists(struct capability*, struct capref*);
 
 // delete all local copies of capref
 errval_t cap_delete_copies(struct capref);
-
-// get the state of the given cap
-errval_t cap_get_state(struct capref, capstate_t*);
-
-// cap state queries
-bool cap_state_is_valid(capstate_t);
-bool cap_state_is_owner(capstate_t);
-bool cap_state_is_busy(capstate_t);
 
 // set cap state to busy
 errval_t cap_set_busy(struct capref);

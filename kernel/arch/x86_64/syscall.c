@@ -170,6 +170,13 @@ static struct sysret handle_revoke(struct capability *root,
     return handle_revoke_common(root, args, false);
 }
 
+static struct sysret handle_get_state(struct capability *root,
+                                      int cmd, uintptr_t *args)
+{
+    capaddr_t cptr = args[0];
+    int bits = args[1];
+    return sys_get_state(root, cptr, bits);
+}
 
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
@@ -685,6 +692,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_GetState] = handle_get_state,
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Unmap] = handle_unmap,

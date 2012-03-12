@@ -359,6 +359,19 @@ struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,
     return SYSRET(err);
 }
 
+struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bits)
+{
+    errval_t err;
+    struct cte *slot;
+    err = caps_lookup_slot(root, cptr, bits, &slot, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    distcap_state_t state = distcap_get_state(&slot->distcap);
+    return (struct sysret) { .error = SYS_ERR_OK, .value = state };
+}
+
 struct sysret sys_monitor_register(capaddr_t ep_caddr)
 {
     errval_t err;

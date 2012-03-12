@@ -292,7 +292,7 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     memset(&capref, 0, sizeof(capref));
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
-    capstate_t state;
+    distcap_state_t state;
 
     // find and validate cap
     // NOTE: this function should fail if no copies exist and create a new copy otherwise
@@ -304,11 +304,11 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     if (err_is_fail(err)) {
         goto send_err;
     }
-    if (!cap_state_is_owner(state)) {
+    if (distcap_is_foreign(state)) {
         err = CAP_ERR_FOREIGN;
         goto send_err;
     }
-    if (!cap_state_is_valid(state)) {
+    if (distcap_is_busy(state)) {
         err = CAP_ERR_BUSY;
         goto send_err;
     }
@@ -349,14 +349,14 @@ copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, 
 {
     errval_t err;
     struct capability cap;
-    capstate_t state;
+    distcap_state_t state;
 
     // check that cap is valid
     err = cap_get_state(capref, &state);
     if (err_is_fail(err)) {
         return err;
     }
-    if (!cap_state_is_valid(state)) {
+    if (distcap_is_busy(state)) {
         return CAP_ERR_BUSY;
     }
 
@@ -377,16 +377,16 @@ copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, 
         return SYS_ERR_OK;
     }
 
-    if (cap_state_is_owner(state)) {
+    if (distcap_is_foreign(state)) {
+        // sending copy from non-owner, send copy request to owner
+        return request_copy(capref, dest, result_handler, (genvaddr_t)st);
+    }
+    else {
         // sending copy from owner
         err = monitor_cap_identify(capref, &cap);
         if (err_is_fail(err)) {
             return err;
         }
         return owner_copy(&cap, my_core_id, dest, result_handler, (genvaddr_t)st);
-    }
-    else {
-        // sending copy from non-owner, send copy request to owner
-        return request_copy(capref, dest, result_handler, (genvaddr_t)st);
     }
 }

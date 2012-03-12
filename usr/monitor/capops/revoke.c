@@ -144,7 +144,7 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
         goto send_err;
     }
 
-    capstate_t state;
+    distcap_state_t state;
     err = cap_get_state(capref, &state);
     if (err_is_fail(err)) {
         goto send_err;
@@ -160,12 +160,12 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
     rst->from = from;
     rst->st = st;
 
-    if (!cap_state_is_owner(state)) {
+    if (distcap_is_foreign(state)) {
         err = CAP_ERR_FOREIGN;
         goto send_err;
     }
 
-    if (cap_state_is_busy(state)) {
+    if (distcap_is_busy(state)) {
         err = CAP_ERR_BUSY;
         goto send_err;
     }
@@ -300,14 +300,14 @@ errval_t
 revoke(struct capref capref, revoke_result_handler_t result_handler, void *st)
 {
     errval_t err;
-    capstate_t state;
+    distcap_state_t state;
 
     err = cap_get_state(capref, &state);
     if (err_is_fail(err)) {
         return err;
     }
 
-    if (!cap_state_is_valid(state)) {
+    if (distcap_is_busy(state)) {
         return CAP_ERR_BUSY;
     }
 
@@ -325,11 +325,11 @@ revoke(struct capref capref, revoke_result_handler_t result_handler, void *st)
     rst->result_handler = result_handler;
     rst->st = st;
 
-    if (cap_state_is_owner(state)) {
-        err = revoke_local(rst);
+    if (distcap_is_foreign(state)) {
+        err = request_revoke(rst);
     }
     else {
-        err = request_revoke(rst);
+        err = revoke_local(rst);
     }
 
 ready_cap:

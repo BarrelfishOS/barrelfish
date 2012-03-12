@@ -224,16 +224,16 @@ errval_t
 move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
-    capstate_t state;
+    distcap_state_t state;
 
     err = cap_get_state(capref, &state);
     if (err_is_fail(err)) {
         return err;
     }
-    if (!cap_state_is_valid(state)) {
+    if (distcap_is_busy(state)) {
         return CAP_ERR_BUSY;
     }
-    if (!cap_state_is_owner(state)) {
+    if (distcap_is_foreign(state)) {
         return CAP_ERR_FOREIGN;
     }
 

@@ -45,6 +45,7 @@ struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
                          bool from_monitor);
 struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,
                          bool from_monitor);
+struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_monitor_register(capaddr_t ep_caddr);
 struct sysret sys_monitor_identify_cap(struct capability *root,
                                        capaddr_t cptr, uint8_t bits,

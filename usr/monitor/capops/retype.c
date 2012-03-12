@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/caddr.h>
 #include "monitor.h"
 #include "ops.h"
 #include "capsend.h"
@@ -140,18 +141,18 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
         goto reply_err;
     }
 
-    capstate_t state;
+    distcap_state_t state;
     err = cap_get_state(src, &state);
     if (err_is_fail(err)) {
         goto reply_err;
     }
 
-    if (!cap_state_is_owner(state)) {
+    if (distcap_is_foreign(state)) {
         err = CAP_ERR_FOREIGN;
         goto reply_err;
     }
 
-    if (cap_state_is_busy(state)) {
+    if (distcap_is_busy(state)) {
         err = CAP_ERR_BUSY;
         goto reply_err;
     }
@@ -179,18 +180,21 @@ retype(enum objtype type, size_t objbits, struct capref dest_start,
 {
     errval_t err;
 
-    capstate_t src_state;
+    distcap_state_t src_state;
     err = cap_get_state(src, &src_state);
     if (err_is_fail(err)) {
         return err;
     }
 
-    if (cap_state_is_busy(src_state)) {
+    if (distcap_is_busy(src_state)) {
         return CAP_ERR_BUSY;
     }
 
-    // XXX: broken: cap_retype handles retry_through_monitor
-    err = cap_retype(dest_start, src, type, objbits);
+    uint8_t dcn_vbits = get_cnode_valid_bits(dest_start);
+    capaddr_t dcn_addr = get_cnode_addr(dest_start);
+    capaddr_t scp_addr = get_cap_addr(src);
+    err = invoke_cnode_retype(cap_root, scp_addr, type, objbits,
+                              dcn_addr, dest_start.slot, dcn_vbits);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         return err;
     }
@@ -203,11 +207,11 @@ retype(enum objtype type, size_t objbits, struct capref dest_start,
     rst->result_handler = result_handler;
     rst->st = st;
 
-    if (cap_state_is_owner(src_state)) {
-        err = capsend_find_descendants(src, create_copies_cont, rst);
+    if (distcap_is_foreign(src_state)) {
+        err = request_retype(create_copies_cont, rst);
     }
     else {
-        err = request_retype(create_copies_cont, rst);
+        err = capsend_find_descendants(src, create_copies_cont, rst);
     }
 
     if (err_is_fail(err)) {
