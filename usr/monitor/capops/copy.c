@@ -11,7 +11,7 @@
 #include <if/intermon_defs.h>
 #include "monitor.h"
 #include "ops.h"
-#include "transport.h"
+#include "capsend.h"
 #include "magic.h"
 
 /*

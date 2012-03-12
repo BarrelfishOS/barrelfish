@@ -8,7 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
-#include "transport.h"
+#include "capsend.h"
 #include "monitor.h"
 #include "magic.h"
 
