@@ -40,6 +40,8 @@ errval_t capsend_find_cap(struct capability *cap, find_cap_result_fn result_fn, 
 
 errval_t capsend_update_owner(struct capref capref, struct event_closure continuation);
 
-errval_t capsend_all(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
+errval_t capsend_copies(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
+
+errval_t capsend_descendants(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
 
 #endif

@@ -442,11 +442,20 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
 }
 
 /*
- * Send to all with cap {{{1
+ * Send to all relations of cap {{{1
  */
 
 errval_t
-capsend_all(struct capability *cap,
+capsend_copies(struct capability *cap,
+            capsend_send_fn send_fn,
+            struct capsend_mc_st *mc_st)
+{
+    // this is currently just a broadcast
+    return capsend_broadcast(mc_st, cap, send_fn);
+}
+
+errval_t
+capsend_descendants(struct capability *cap,
             capsend_send_fn send_fn,
             struct capsend_mc_st *mc_st)
 {

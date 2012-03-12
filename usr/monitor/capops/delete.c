@@ -24,6 +24,10 @@ struct delete_st {
  * Delete all copies {{{1
  */
 
+/*
+ * Request multicast {{{2
+ */
+
 struct delete_remote_mc_st {
     struct capsend_mc_st mc_st;
     struct delete_st *del_st;
@@ -47,8 +51,12 @@ delete_remote(struct capability *cap, struct delete_st *st)
         return LIB_ERR_MALLOC_FAIL;
     }
     mc_st->del_st = st;
-    return capsend_all(cap, delete_remote_send_cont, (struct capsend_mc_st*)mc_st);
+    return capsend_copies(cap, delete_remote_send_cont, (struct capsend_mc_st*)mc_st);
 }
+
+/*
+ * Result reply {{{2
+ */
 
 struct delete_remote_result_msg_st {
     struct intermon_msg_queue_elem queue_elem;

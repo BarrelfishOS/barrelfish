@@ -52,7 +52,7 @@ check_retype(struct capref src, enum objtype type, size_t objbits,
 
     mc_st->result_handler = result_handler;
     mc_st->st = st;
-    return capsend_all(&cap, check_retype_send_cont, (struct capsend_mc_st*)mc_st);
+    return capsend_descendants(&cap, check_retype_send_cont, (struct capsend_mc_st*)mc_st);
 }
 
 struct find_descendants_result_msg_st {
@@ -86,6 +86,7 @@ find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
 
+    // XXX: using err as boolean... evil?
     err = monitor_has_local_descendants(cap);
 
     struct find_descendants_result_msg_st *msg_st;
