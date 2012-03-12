@@ -61,7 +61,7 @@ request_revoke(struct revoke_st *st)
     capability_to_caprep(&cap, &msg_st->caprep);
     msg_st->st = st;
 
-    err = enqueue_send_owner(st->capref, (struct msg_queue_elem*)msg_st);
+    err = capsend_owner(st->capref, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         return err;
@@ -133,7 +133,7 @@ revoke_result(coreid_t dest, errval_t status, genvaddr_t st)
     msg_st->status = status;
     msg_st->st = st;
 
-    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
     }

@@ -52,7 +52,7 @@ check_retype(struct capref src, enum objtype type, size_t objbits,
 
     mc_st->result_handler = result_handler;
     mc_st->st = st;
-    return send_all(&cap, check_retype_send_cont, (struct capsend_mc_st*)mc_st);
+    return capsend_all(&cap, check_retype_send_cont, (struct capsend_mc_st*)mc_st);
 }
 
 struct find_descendants_result_msg_st {
@@ -98,7 +98,7 @@ find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
     msg_st->status = err;
     msg_st->st = st;
 
-    err = enqueue_send_target(from, (struct msg_queue_elem*)msg_st);
+    err = capsend_target(from, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not enqueue find_descendants_result msg");
     }
@@ -118,7 +118,7 @@ find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status,
         printf("ignoring bad find_descendants result %"PRIuPTR"\n", status);
     }
 
-    if (capsend_result_handler(st)) {
+    if (capsend_handle_mc_reply(st)) {
         mc_st->result_handler(CAP_ERR_NOTFOUND, mc_st->st);
         free(mc_st);
     }
@@ -186,7 +186,7 @@ request_retype(retype_result_handler_t result_handler, struct retype_st *st)
     msg_st->queue_elem.cont = request_retype_send_cont;
     capability_to_caprep(&cap, &msg_st->caprep);
 
-    err = enqueue_send_owner(st->src, (struct msg_queue_elem*)msg_st);
+    err = capsend_owner(st->src, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
     }
@@ -219,7 +219,7 @@ retype_result_cont(errval_t status, void *st)
     struct retype_result_st *rtst = (struct retype_result_st*)st;
     rtst->status = status;
     rtst->queue_elem.cont = retype_result_send_cont;
-    err = enqueue_send_target(rtst->from, (struct msg_queue_elem*)rtst);
+    err = capsend_target(rtst->from, (struct msg_queue_elem*)rtst);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to enqueue retype_result");
     }

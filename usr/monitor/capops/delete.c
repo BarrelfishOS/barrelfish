@@ -47,7 +47,7 @@ delete_remote(struct capability *cap, struct delete_st *st)
         return LIB_ERR_MALLOC_FAIL;
     }
     mc_st->del_st = st;
-    return send_all(cap, delete_remote_send_cont, (struct capsend_mc_st*)mc_st);
+    return capsend_all(cap, delete_remote_send_cont, (struct capsend_mc_st*)mc_st);
 }
 
 struct delete_remote_result_msg_st {
@@ -78,7 +78,7 @@ delete_remote_result(coreid_t dest, errval_t status, genvaddr_t st)
     msg_st->status = status;
     msg_st->st = st;
 
-    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
     }
@@ -123,7 +123,7 @@ __attribute__((unused))
 static void
 delete_remote_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
-    if (!capsend_result_handler(st)) {
+    if (!capsend_handle_mc_reply(st)) {
         // multicast not complete
         return;
     }
@@ -180,7 +180,7 @@ move_result_cont(errval_t status, void *st)
 
     if (err_no(err) == CAP_ERR_NOTFOUND) {
         // move failed as dest no longer has cap copy, start from beginning
-        err = find_core_with_cap(&del_st->cap, find_core_cont, st);
+        err = capsend_find_cap(&del_st->cap, find_core_cont, st);
         if (err_is_ok(err)) {
             return;
         }
@@ -306,7 +306,7 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
 
         if (cap_is_moveable(&del_st->cap)) {
             // if cap is moveable, move ownership so cap can then be deleted
-            err = find_core_with_cap(&del_st->cap, find_core_cont, st);
+            err = capsend_find_cap(&del_st->cap, find_core_cont, st);
         }
         else {
             // otherwise delete all remote copies and then delete last copy

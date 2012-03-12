@@ -89,8 +89,8 @@ errval_t intermon_move_result__tx(struct intermon_binding*, struct event_closure
 errval_t intermon_update_owner__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
 errval_t intermon_owner_updated__tx(struct intermon_binding*, struct event_closure, genvaddr_t);
 
-errval_t intermon_find_core__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
-errval_t intermon_find_core_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
+errval_t intermon_find_cap__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t);
+errval_t intermon_find_cap_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t);
 
 errval_t intermon_delete_remote__tx(struct intermon_binding*, struct event_closure, intermon_caprep_t, genvaddr_t st);
 errval_t intermon_delete_remote_result__tx(struct intermon_binding*, struct event_closure, errval_t, genvaddr_t st);

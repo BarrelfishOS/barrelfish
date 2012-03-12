@@ -80,7 +80,7 @@ move_request(struct capref capref, coreid_t dest, move_result_handler_t result_h
     capability_to_caprep(&cap, &msg_st->caprep);
     msg_st->st = rpc_st;
 
-    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         free(rpc_st);
@@ -122,7 +122,7 @@ move_result(coreid_t dest, errval_t status, genvaddr_t st)
     msg_st->status = status;
     msg_st->st = st;
 
-    err = enqueue_send_target(dest, (struct msg_queue_elem*)msg_st);
+    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         return err;
@@ -178,7 +178,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         goto send_err;
     }
 
-    err = update_owner(*capref, MKCONT(free_owner_recv_cap, capref));
+    err = capsend_update_owner(*capref, MKCONT(free_owner_recv_cap, capref));
     if (err_is_fail(err)) {
         cap_destroy(*capref);
         goto send_err;
