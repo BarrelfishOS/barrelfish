@@ -299,7 +299,7 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
             fc_bc_st->result_handler(SYS_ERR_OK, from, fc_bc_st->st);
         }
     }
-    else if (err_no(result) != CAP_ERR_NOTFOUND) {
+    else if (err_no(result) != SYS_ERR_CAP_NOT_FOUND) {
         printf("ignoring bad find_cap_result %"PRIuPTR"\n", result);
     }
 
@@ -307,7 +307,7 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
     if (capsend_handle_mc_reply(st)) {
         if (!fc_bc_st->found) {
             // broadcast did not find a core, report notfound to caller
-            fc_bc_st->result_handler(CAP_ERR_NOTFOUND, 0, fc_bc_st->st);
+            fc_bc_st->result_handler(SYS_ERR_CAP_NOT_FOUND, 0, fc_bc_st->st);
         }
         free(fc_bc_st);
     }
@@ -415,12 +415,12 @@ find_descendants_result__rx_fn(struct intermon_binding *b, errval_t status, genv
         // found result
         mc_st->result_fn(SYS_ERR_OK, mc_st->st);
     }
-    else if (err_no(status) != CAP_ERR_NOTFOUND) {
+    else if (err_no(status) != SYS_ERR_CAP_NOT_FOUND) {
         printf("ignoring bad find_descendants result %"PRIuPTR"\n", status);
     }
 
     if (capsend_handle_mc_reply(st)) {
-        mc_st->result_fn(CAP_ERR_NOTFOUND, mc_st->st);
+        mc_st->result_fn(SYS_ERR_CAP_NOT_FOUND, mc_st->st);
         free(mc_st);
     }
 }
@@ -544,7 +544,7 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         }
         cap_destroy(capref);
     }
-    else if (err_no(err) != CAP_ERR_NOTFOUND) {
+    else if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
         USER_PANIC_ERR(err, "failed to lookup cap for ownership change");
     }
 

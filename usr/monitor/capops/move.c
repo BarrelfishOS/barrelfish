@@ -231,10 +231,10 @@ move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, 
         return err;
     }
     if (distcap_is_busy(state)) {
-        return CAP_ERR_BUSY;
+        return MON_ERR_REMOTE_CAP_RETRY;
     }
     if (distcap_is_foreign(state)) {
-        return CAP_ERR_FOREIGN;
+        return MON_ERR_CAP_FOREIGN;
     }
 
     if (dest == my_core_id) {

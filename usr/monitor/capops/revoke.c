@@ -161,12 +161,12 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
     rst->st = st;
 
     if (distcap_is_foreign(state)) {
-        err = CAP_ERR_FOREIGN;
+        err = MON_ERR_CAP_FOREIGN;
         goto send_err;
     }
 
     if (distcap_is_busy(state)) {
-        err = CAP_ERR_BUSY;
+        err = MON_ERR_REMOTE_CAP_RETRY;
         goto send_err;
     }
 
@@ -249,7 +249,7 @@ revoke_delete_result(errval_t status, void *st)
     }
 
     err = monitor_revoke(rst->capref, rst->delcap);
-    if (err_no(err) == CAP_ERR_LASTLOCAL) {
+    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
         err = delete(rst->delcap, revoke_delete_result, rst);
         if (err_is_ok(err)) {
             return;
@@ -277,7 +277,7 @@ revoke_local(struct revoke_st *rst)
         // revoke succeeded locally without any distributed cap interaction
         rst->result_handler(err, rst->st);
     }
-    else if (err_no(err) == CAP_ERR_LASTLOCAL) {
+    else if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
         // kernel encountered a local cap with no copies, explicitly perform a
         // delete in the monitor to deal with possible remote copies
         err = delete(rst->delcap, revoke_delete_result, rst);
@@ -308,7 +308,7 @@ revoke(struct capref capref, revoke_result_handler_t result_handler, void *st)
     }
 
     if (distcap_is_busy(state)) {
-        return CAP_ERR_BUSY;
+        return MON_ERR_REMOTE_CAP_RETRY;
     }
 
     err = cap_set_busy(capref);

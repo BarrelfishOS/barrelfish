@@ -14,15 +14,6 @@
 #include <barrelfish_kpi/distcaps.h>
 
 /*
- * Error codes
- */
-
-#define CAP_ERR_NOTFOUND  696
-#define CAP_ERR_FOREIGN   697
-#define CAP_ERR_BUSY      698
-#define CAP_ERR_LASTLOCAL 699
-
-/*
  * Magic NYI functions
  */
 

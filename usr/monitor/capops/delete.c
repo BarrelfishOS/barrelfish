@@ -158,7 +158,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
     errval_t err;
     struct delete_st *del_st = (struct delete_st*)st;
 
-    if (err_no(status) == CAP_ERR_NOTFOUND) {
+    if (err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         // no core with cap exists, delete local cap with cleanup
         err = monitor_delete_last(del_st->capref);
         del_st->result_handler(err, del_st->st);
@@ -186,7 +186,7 @@ move_result_cont(errval_t status, void *st)
     struct delete_st *del_st = (struct delete_st*)st;
     assert(cap_is_moveable(&del_st->cap));
 
-    if (err_no(err) == CAP_ERR_NOTFOUND) {
+    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // move failed as dest no longer has cap copy, start from beginning
         err = capsend_find_cap(&del_st->cap, find_core_cont, st);
         if (err_is_ok(err)) {
@@ -216,7 +216,7 @@ delete_cnode_slot_result(errval_t status, void *st)
     errval_t err;
 
     struct delete_cnode_st *dst = (struct delete_cnode_st*)st;
-    if (err_is_ok(status) || err_no(status) == CAP_ERR_NOTFOUND) {
+    if (err_is_ok(status) || err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         if (dst->delcap.slot < (1 << dst->delcap.cnode.size_bits)) {
             dst->delcap.slot++;
             err = delete(dst->delcap, delete_cnode_slot_result, dst);
@@ -277,7 +277,7 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
     }
 
     if (distcap_is_busy(state)) {
-        return CAP_ERR_BUSY;
+        return MON_ERR_REMOTE_CAP_RETRY;
     }
 
     if (distcap_is_foreign(state)) {

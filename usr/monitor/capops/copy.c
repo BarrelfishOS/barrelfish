@@ -305,11 +305,11 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
         goto send_err;
     }
     if (distcap_is_foreign(state)) {
-        err = CAP_ERR_FOREIGN;
+        err = MON_ERR_CAP_FOREIGN;
         goto send_err;
     }
     if (distcap_is_busy(state)) {
-        err = CAP_ERR_BUSY;
+        err = MON_ERR_REMOTE_CAP_RETRY;
         goto send_err;
     }
 
@@ -357,7 +357,7 @@ copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, 
         return err;
     }
     if (distcap_is_busy(state)) {
-        return CAP_ERR_BUSY;
+        return MON_ERR_REMOTE_CAP_RETRY;
     }
 
     if (dest == my_core_id) {
