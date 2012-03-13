@@ -19,6 +19,8 @@
 #define INCLUDEBARRELFISH_CADDR_H
 
 #include <barrelfish_kpi/types.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 /**
  * \brief User-level representation of a CNode, its CSpace address and size

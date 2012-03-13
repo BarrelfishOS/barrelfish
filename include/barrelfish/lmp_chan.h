@@ -18,6 +18,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/lmp_endpoints.h>
 #include <barrelfish/idc.h>
+#include <assert.h>
 
 struct lmp_chan;
 struct event_queue_node;

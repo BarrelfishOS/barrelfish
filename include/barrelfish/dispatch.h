@@ -22,6 +22,8 @@
 #ifndef __ASSEMBLER__
 
 #include <barrelfish_kpi/dispatcher_handle.h>
+#include <barrelfish_kpi/registers_arch.h>
+#include <barrelfish_kpi/types.h>
 
 #ifdef  NDEBUG
 #define assert_disabled(e)      ((void)sizeof(e))

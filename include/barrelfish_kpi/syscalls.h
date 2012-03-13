@@ -17,6 +17,9 @@
 
 #ifndef __ASSEMBLER__
 
+#include <stdint.h>
+#include <errors/errno.h>
+
 /// return type from a system call: two words
 struct sysret {
     errval_t  error;

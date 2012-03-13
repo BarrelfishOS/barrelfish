@@ -16,7 +16,7 @@
 #define BARRELFISH_EVENT_QUEUE_H
 
 #include <barrelfish/waitset.h>
-#include <barrelfish/threads.h>
+#include <barrelfish/thread_sync.h>
 
 /// What mode does an event queue operate in?
 enum event_queue_mode {

@@ -44,6 +44,7 @@ struct dcb;
 
 #include <barrelfish_kpi/capbits.h>
 #include <assert.h>
+#include <stdbool.h>
 
 static inline bool type_is_vnode(enum objtype type)
 {

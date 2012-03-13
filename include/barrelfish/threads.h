@@ -16,6 +16,7 @@
 #define LIBBARRELFISH_THREADS_H
 
 #include <barrelfish/thread_sync.h>
+#include <barrelfish/caddr.h>
 
 typedef int (*thread_func_t)(void *);
 

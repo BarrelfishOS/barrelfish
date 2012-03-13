@@ -16,6 +16,7 @@
 #define LMP_H
 
 #include <barrelfish_kpi/lmp_arch.h>
+#include <barrelfish_kpi/types.h>
 
 #define LMP_RECV_HEADER_LENGTH  1 /* word */
 

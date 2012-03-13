@@ -17,6 +17,7 @@
 
 #include <errors/errno.h>
 #include <barrelfish/caddr.h>
+#include <stddef.h>
 #include <barrelfish_kpi/registers_arch.h>
 
 struct capability;

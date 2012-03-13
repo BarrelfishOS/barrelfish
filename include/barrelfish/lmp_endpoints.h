@@ -17,6 +17,8 @@
 
 #include <barrelfish/waitset.h>
 #include <barrelfish_kpi/lmp.h>
+#include <barrelfish/caddr.h>
+#include <barrelfish_kpi/dispatcher_handle.h>
 
 /// In-endpoint size of a maximum-sized LMP message plus header
 #define LMP_RECV_LENGTH         (LMP_MSG_LENGTH + LMP_RECV_HEADER_LENGTH)

@@ -15,6 +15,9 @@
 #ifndef BARRELFISH_WAITSET_H
 #define BARRELFISH_WAITSET_H
 
+#include <barrelfish/types.h>
+#include <errors/errno.h>
+
 struct waitset;
 struct thread;
 
