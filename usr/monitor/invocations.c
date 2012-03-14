@@ -96,37 +96,16 @@ errval_t monitor_nullify_cap(struct capref cap)
  *
  * \param dest     Location to place the new cap in.
  * \param cap      Metadata of the cap to create
- * \param core_id  Core from which the cap was received
+ * \param owner    Core that currently owns the cap
  */
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
-                            coreid_t core_id)
+                            coreid_t owner)
 {
-    if (cap->type == ObjType_CNode) {
-        // XXX: Depending on the type of the address space of the src monitor,
-        // perform the appropriate translation on the address.
-        USER_PANIC("NYI");
-#if 0
-        paddr_t base         = cap->u.cnode.cnode;
-        uint8_t bits         = cap->u.cnode.bits;
-        CapRights rightsmask = cap->u.cnode.rightsmask;
-        uint8_t guard_size   = cap->u.cnode.guard_size;
-        uint64_t guard       = cap->u.cnode.guard;
-
-        cap->type                = ObjType_FCNode;
-        cap->u.fcnode.cnode      = base;
-        cap->u.fcnode.bits       = bits;
-        cap->u.fcnode.rightsmask = rightsmask;
-        cap->u.fcnode.guard_size = guard_size;
-        cap->u.fcnode.guard      = guard;
-        cap->u.fcnode.core_id    = core_id;
-#endif
-    }
-
     capaddr_t caddr = get_cnode_addr(dest);
     uint8_t vbits = get_cnode_valid_bits(dest);
     size_t  slot  = dest.slot;
 
-    return invoke_monitor_create_cap((uint64_t*)cap, caddr, vbits, slot);
+    return invoke_monitor_create_cap((uint64_t*)cap, caddr, vbits, slot, owner);
 }
 
 /**

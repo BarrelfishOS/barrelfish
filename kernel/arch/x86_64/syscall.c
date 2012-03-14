@@ -343,10 +343,18 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     struct capability *src = (struct capability *)args;
     int pos = sizeof(struct capability) / sizeof(uint64_t);
 
-    /* Certain types cannot be created here */
-    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
-        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
-        || (src->type == ObjType_IRQTable)) {
+    /* Cannot create null caps */
+    if (src->type == ObjType_Null) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    coreid_t owner = args[pos + 3];
+
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 
@@ -357,7 +365,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
-                                            slot, src));
+                                            slot, owner, src));
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,

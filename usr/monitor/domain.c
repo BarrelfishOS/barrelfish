@@ -44,7 +44,7 @@ static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
         return err;
     }
 
-    err = monitor_cap_create(ramcap, &c, disp_get_core_id());
+    err = monitor_cap_create(ramcap, &c, my_core_id);
     if(err_is_fail(err)) {
         return err;
     }

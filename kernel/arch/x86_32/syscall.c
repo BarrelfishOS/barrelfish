@@ -408,15 +408,22 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 {
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = args[0];
-    int cnode_vbits    = args[1];
-    size_t slot        = args[2];
+    int cnode_vbits      = args[1];
+    size_t slot          = args[2];
+    coreid_t owner       = args[3];
     struct capability *src =
-        (struct capability*)args[3];
+        (struct capability*)args[4];
 
-    /* Certain types cannot be created here */
-    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
-        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
-        || (src->type == ObjType_IRQTable)) {
+    /* Cannot create null caps */
+    if (src->type == ObjType_Null) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 

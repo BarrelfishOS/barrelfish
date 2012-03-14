@@ -70,13 +70,13 @@ invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
 }
 
 static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot)
+invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot, coreid_t owner)
 {
     assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
     assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
-    return cap_invoke8(cap_kernel, KernelCmd_Create_cap,
+    return cap_invoke9(cap_kernel, KernelCmd_Create_cap,
                        raw[0], raw[1], raw[2], raw[3],
-                       caddr, bits, slot).error;
+                       caddr, bits, slot, owner).error;
 }
 
 static inline errval_t

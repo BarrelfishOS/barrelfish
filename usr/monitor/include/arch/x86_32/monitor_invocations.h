@@ -79,13 +79,14 @@ invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 }
 
 static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot)
+invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits,
+                          capaddr_t slot, coreid_t owner)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
-    return syscall6((invoke_bits << 16) | (KernelCmd_Create_cap << 8)
-                    | SYSCALL_INVOKE, invoke_cptr, caddr, bits, slot,
+    return syscall7((invoke_bits << 16) | (KernelCmd_Create_cap << 8)
+                    | SYSCALL_INVOKE, invoke_cptr, caddr, bits, slot, owner,
                     (uintptr_t)raw).error;
 }
 

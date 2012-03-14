@@ -263,21 +263,33 @@ recv_copy__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genv
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
     assert(from != my_core_id);
-    struct capref capref;
+    struct capref dest;
     struct capability cap;
+    capaddr_t capaddr = 0;
 
     caprep_to_capability(&caprep, &cap);
+
+    err = slot_alloc(&dest);
+    if (err_is_fail(err)) {
+        goto send_result;
+    }
+
     // create a cap from the cap data and owner
-    // XXX: this should happen in the cap routing layer
-    err = cap_create_on(&cap, from, &capref);
+    // XXX: this should probably happen in the cap routing layer?
+    err = monitor_cap_create(dest, &cap, from);
     if (err_is_fail(err)) {
         // may fail if given owner does not match owner of existing copies
-        recv_copy_result(from, err, 0, st);
+        goto free_slot;
     }
-    else {
-        capaddr_t capaddr = get_cap_addr(capref);
-        recv_copy_result(from, SYS_ERR_OK, capaddr, st);
-    }
+
+    capaddr = get_cap_addr(dest);
+    goto send_result;
+
+free_slot:
+    slot_free(dest);
+
+send_result:
+    recv_copy_result(from, err, capaddr, st);
 }
 
 __attribute__((unused))

@@ -24,10 +24,6 @@ errval_t cap_get_owner(struct capref, coreid_t*);
 // get owner core of given cap. used by routing layer only
 errval_t cap_set_owner(struct capref, coreid_t);
 
-// create a cap from the given cap data owned by a given core
-// may fail if given owner does not match owner of existing copies
-errval_t cap_create_on(struct capability*, coreid_t, struct capref*);
-
 // create a copy of cap other copies exist, otherwise fail
 errval_t copy_if_exists(struct capability*, struct capref*);
 

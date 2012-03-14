@@ -123,7 +123,7 @@ errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
                                       int vbits, struct capability *out);
 errval_t monitor_cap_remote(struct capref cap, bool is_remote, bool * has_dep);
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
-                            coreid_t core_id);
+                            coreid_t owner);
 errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 
                                         capaddr_t slot, struct capability *ret);
 errval_t monitor_nullify_cap(struct capref cap);

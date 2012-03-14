@@ -286,26 +286,33 @@ monitor_create_cap(
     int argc
     )
 {
-    assert(6 == argc);
+    assert(7 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
-            argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
+    printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
+            argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5, sa->arg6);
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
     int cnode_vbits    = sa->arg3;
     size_t slot        = sa->arg4;
+    coreid_t owner     = sa->arg5;
     struct capability *src =
-        (struct capability*)sa->arg5;
+        (struct capability*)sa->arg6;
 
     printf("type = %d\n", src->type);
 
-    /* Certain types cannot be created here */
-    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
-        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
-        || (src->type == ObjType_IRQTable)) {
+    /* Cannot create null caps */
+    if (src->type == ObjType_Null) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 

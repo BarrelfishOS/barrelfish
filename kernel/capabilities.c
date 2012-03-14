@@ -680,9 +680,11 @@ errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
  *
  * Used when sending capabilities across cores. The metadata is sent across
  * cores and the receiving monitor can create the new capability on its core.
+ *
+ * \bug Does not check that supplied owner matches existing copies of cap.
  */
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
-                                   int cnode_vbits, cslot_t dest_slot,
+                                   int cnode_vbits, cslot_t dest_slot, coreid_t owner,
                                    struct capability *src)
 {
     errval_t err;

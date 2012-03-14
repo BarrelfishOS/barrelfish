@@ -52,7 +52,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
                          size_t objbits, struct cte *caps);
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
                                    int cnode_vbits, cslot_t dest_slot,
-                                   struct capability *src);
+                                   coreid_t owner, struct capability *src);
 errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, bool mint, uintptr_t param1,
                             uintptr_t param2);
