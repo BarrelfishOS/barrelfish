@@ -63,7 +63,7 @@
                                                   ("monitor_mem", ["rpcclient"]),
                                                   ("mem", ["rpcclient"]) ],
                         addLinkFlags = [ "-e _start_init" ],
-                        addIncludes = [ "include" ./. a | a <- arch_dirs arch ],
+                        addIncludes = "include" : [ "include" ./. a | a <- arch_dirs arch ],
                         addLibraries = (
  			    [ "spawndomain", "bench", "trace", "elf" ]
                             ++ rcap_db_libs ++ idc_libraries)

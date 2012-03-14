@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "monitor.h"
+#include <monitor.h>
 
 /**
  * \brief Enqueue on a waitset queue.

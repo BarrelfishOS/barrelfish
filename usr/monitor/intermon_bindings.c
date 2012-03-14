@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "monitor.h"
+#include <monitor.h>
 
 // Array of monitor bindings indexed by core ID
 static struct intermon_state *bindings[MAX_COREID + 1];

@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef INVOCATIONS_H
-#define INVOCATIONS_H
+#ifndef MONITOR_INVOCATIONS_ARCH_H
+#define MONITOR_INVOCATIONS_ARCH_H
 
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>

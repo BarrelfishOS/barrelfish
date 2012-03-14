@@ -15,7 +15,7 @@
  */
 
 #include <inttypes.h>
-#include "monitor.h"
+#include <monitor.h>
 #include <trace/trace.h>
 
 #define MIN(x,y) ((x<y) ? (x) : (y))
