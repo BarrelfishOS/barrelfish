@@ -157,7 +157,7 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
         goto reply_err;
     }
 
-    err = cap_set_busy(src);
+    err = monitor_lock_cap(src);
     if (err_is_fail(err)) {
         goto reply_err;
     }

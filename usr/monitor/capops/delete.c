@@ -12,6 +12,7 @@
 #include "ops.h"
 #include "capsend.h"
 #include "magic.h"
+#include "caplock.h"
 
 struct delete_st {
     struct capref capref;
@@ -280,62 +281,52 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
-    if (distcap_is_foreign(state)) {
-        // non-owner cap, just delete
-        return cap_delete(cap);
-    }
-    else {
-        // try a simple delete
-        err = cap_delete(cap);
-        if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
-            return err;
-        }
-
-        // simple delete was not able to delete cap as it was last copy and may
-        // have remote copies, need to move or revoke cap
-
-        // setup extended delete operation
-        err = cap_set_busy(cap);
-        if (err_is_fail(err)) {
-            return err;
-        }
-        errval_t err2;
-
-        struct delete_st *del_st = malloc(sizeof(struct delete_st));
-        if (!del_st) {
-            err = LIB_ERR_MALLOC_FAIL;
-            goto cap_set_ready;
-        }
-
-        err = monitor_cap_identify(cap, &del_st->cap);
-        if (err_is_fail(err)) {
-            goto free_del_st;
-        }
-
-        if (cap_is_moveable(&del_st->cap)) {
-            // if cap is moveable, move ownership so cap can then be deleted
-            err = capsend_find_cap(&del_st->cap, find_core_cont, st);
-        }
-        else {
-            // otherwise delete all remote copies and then delete last copy
-            err = delete_remote(&del_st->cap, del_st);
-        }
-        if (err_is_fail(err)) {
-            goto free_del_st;
-        }
-
-        goto end_cleanup;
-
-free_del_st:
-        free(del_st);
-
-cap_set_ready:
-        err2 = cap_set_ready(cap);
-        if (err_is_fail(err2)) {
-            USER_PANIC_ERR(err2, "failed to set cap to ready after delete failure");
-        }
-
-end_cleanup:
+    // try a simple delete
+    err = cap_delete(cap);
+    if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         return err;
     }
+
+    // simple delete was not able to delete cap as it was last copy and may
+    // have remote copies, need to move or revoke cap
+
+    // setup extended delete operation
+    err = monitor_lock_cap(cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct delete_st *del_st = malloc(sizeof(struct delete_st));
+    if (!del_st) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto cap_set_ready;
+    }
+
+    err = monitor_cap_identify(cap, &del_st->cap);
+    if (err_is_fail(err)) {
+        goto free_del_st;
+    }
+
+    if (cap_is_moveable(&del_st->cap)) {
+        // if cap is moveable, move ownership so cap can then be deleted
+        err = capsend_find_cap(&del_st->cap, find_core_cont, st);
+    }
+    else {
+        // otherwise delete all remote copies and then delete last copy
+        err = delete_remote(&del_st->cap, del_st);
+    }
+    if (err_is_fail(err)) {
+        goto free_del_st;
+    }
+
+    goto end_cleanup;
+
+free_del_st:
+    free(del_st);
+
+cap_set_ready:
+    caplock_unlock(cap);
+
+end_cleanup:
+    return err;
 }

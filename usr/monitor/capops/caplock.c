@@ -33,6 +33,14 @@ caplock_wait(struct capref cap, struct event_queue_node *qn, struct event_closur
 }
 
 void
+caplock_unlock(struct capref cap)
+{
+    errval_t err = monitor_unlock_cap(cap);
+    assert(err_is_ok(err));
+    capqueue_notify(&global_queue);
+}
+
+void
 caplock_init(struct waitset *ws)
 {
     capqueue_init(&global_queue, ws);

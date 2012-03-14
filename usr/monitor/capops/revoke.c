@@ -12,9 +12,11 @@
 #include "ops.h"
 #include "capsend.h"
 #include "magic.h"
+#include "caplock.h"
 
 struct revoke_st {
     struct capref capref, delcap;
+    struct event_queue_node lock_queue_node;
     revoke_result_handler_t result_handler;
     void *st;
 };
@@ -248,30 +250,24 @@ revoke_delete_result(errval_t status, void *st)
         free(rst);
     }
 
-    err = monitor_revoke(rst->capref, rst->delcap);
-    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
-        err = delete(rst->delcap, revoke_delete_result, rst);
-        if (err_is_ok(err)) {
-            return;
-        }
+    err = revoke_local(rst);
+    if (err_is_fail(err)) {
+        rst->result_handler(err, rst->st);
     }
-    else {
-        slot_free(rst->delcap);
-    }
+}
 
+static void
+revoke_unlock_cont(void *arg)
+{
+    struct revoke_st *rst = (struct revoke_st*)arg;
+    errval_t err = revoke_local(rst);
     rst->result_handler(err, rst->st);
-    free(rst);
 }
 
 static errval_t
 revoke_local(struct revoke_st *rst)
 {
-    errval_t err = slot_alloc(&rst->delcap);
-    if (err_is_fail(err)) {
-        free(rst);
-        return err;
-    }
-
+    errval_t err;
     err = monitor_revoke(rst->capref, rst->delcap);
     if (err_is_ok(err)) {
         // revoke succeeded locally without any distributed cap interaction
@@ -280,10 +276,16 @@ revoke_local(struct revoke_st *rst)
     else if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
         // kernel encountered a local cap with no copies, explicitly perform a
         // delete in the monitor to deal with possible remote copies
+        assert(!capref_is_null(rst->delcap));
         err = delete(rst->delcap, revoke_delete_result, rst);
         if (err_is_ok(err)) {
             return err;
         }
+    }
+    else if (err_no(err) == MON_ERR_REMOTE_CAP_RETRY) {
+        // cap is locked, wait in queue for unlock
+        assert(!capref_is_null(rst->delcap));
+        caplock_wait(rst->delcap, &rst->lock_queue_node, MKCLOSURE(revoke_unlock_cont, rst));
     }
 
     slot_free(rst->delcap);
@@ -311,7 +313,7 @@ revoke(struct capref capref, revoke_result_handler_t result_handler, void *st)
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
-    err = cap_set_busy(capref);
+    err = monitor_lock_cap(capref);
     if (err_is_fail(err)) {
         return err;
     }
@@ -319,7 +321,7 @@ revoke(struct capref capref, revoke_result_handler_t result_handler, void *st)
     struct revoke_st *rst = malloc(sizeof(struct revoke_st));
     if (!rst) {
         err = LIB_ERR_MALLOC_FAIL;
-        goto ready_cap;
+        goto unlock_cap;
     }
     rst->capref = capref;
     rst->result_handler = result_handler;
@@ -329,16 +331,22 @@ revoke(struct capref capref, revoke_result_handler_t result_handler, void *st)
         err = request_revoke(rst);
     }
     else {
+        err = slot_alloc(&rst->delcap);
+        if (err_is_fail(err)) {
+            goto free_st;
+        }
+
         err = revoke_local(rst);
     }
 
-ready_cap:
-    if (err_is_fail(err)) {
-        errval_t err2 = cap_set_ready(capref);
-        if (err_is_fail(err2)) {
-            USER_PANIC_ERR(err, "failed to set cap to ready for cleanup");
-        }
+    if (err_is_ok(err)) {
+        return err;
     }
 
+free_st:
+    free(rst);
+
+unlock_cap:
+    caplock_unlock(capref);
     return err;
 }

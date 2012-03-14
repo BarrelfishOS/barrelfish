@@ -15,7 +15,7 @@
 
 struct distcap_info {
     coreid_t owner;
-    bool busy, in_delete;
+    bool locked, in_delete;
 };
 
 static inline distcap_state_t
@@ -25,7 +25,7 @@ distcap_get_state(struct distcap_info *dcap)
     if (dcap->owner != my_core_id) {
         result |= DISTCAP_STATE_FOREIGN;
     }
-    if (dcap->busy || dcap->in_delete) {
+    if (dcap->locked || dcap->in_delete) {
         result |= DISTCAP_STATE_BUSY;
     }
     return result;

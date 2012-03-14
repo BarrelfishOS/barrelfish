@@ -34,12 +34,7 @@ errval_t copy_if_exists(struct capability*, struct capref*);
 // delete all local copies of capref
 errval_t cap_delete_copies(struct capref);
 
-// set cap state to busy
-errval_t cap_set_busy(struct capref);
-
-// set cap state to ready
-errval_t cap_set_ready(struct capref);
-
+// mark cap as in-delete
 errval_t cap_set_deleted(struct capref);
 
 // return true if cap type permits moving ownership
@@ -61,5 +56,8 @@ errval_t monitor_create_caps(enum objtype, size_t, struct capref, struct capref)
 
 // set cap to locked if unlocked, else return an error
 errval_t monitor_lock_cap(struct capref cap);
+
+// set cap to unlocked, else return an error
+errval_t monitor_unlock_cap(struct capref cap);
 
 #endif

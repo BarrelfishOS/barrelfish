@@ -13,6 +13,7 @@
 #include "ops.h"
 #include "capsend.h"
 #include "magic.h"
+#include "caplock.h"
 
 /*
  * RPC State {{{1
@@ -166,7 +167,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         goto send_err;
     }
 
-    err = cap_set_busy(*capref);
+    err = monitor_lock_cap(*capref);
     if (err_is_fail(err)) {
         cap_destroy(*capref);
         goto send_err;
@@ -201,17 +202,12 @@ __attribute__((unused))
 static void
 move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
-    errval_t err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
     assert(from != my_core_id);
     struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)st;
 
-    err = cap_set_ready(rpc_st->capref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to set cap to ready after move");
-    }
-
+    caplock_unlock(rpc_st->capref);
     rpc_st->result_handler(status, rpc_st->st);
     free(rpc_st);
 }
@@ -245,17 +241,14 @@ move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, 
         return SYS_ERR_OK;
     }
 
-    err = cap_set_busy(capref);
+    err = monitor_lock_cap(capref);
     if (err_is_fail(err)) {
         return err;
     }
 
     err = move_request(capref, dest, result_handler, st);
     if (err_is_fail(err)) {
-        errval_t err2 = cap_set_ready(capref);
-        if (err_is_fail(err2)) {
-            USER_PANIC_ERR(err2, "failed to return cap to ready state");
-        }
+        caplock_unlock(capref);
         return err;
     }
 
