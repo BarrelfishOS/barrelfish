@@ -170,3 +170,25 @@ errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits)
     return invoke_monitor_remote_cap_revoke(rootcap_addr, rootcap_vbits, src,
                                             bits);
 }
+
+/**
+ * \brief Determine the current owner of a cap and its copies.
+ */
+errval_t monitor_get_cap_owner(struct capref cap, coreid_t *ret_owner)
+{
+    capaddr_t caddr = get_cap_addr(cap);
+    uint8_t vbits = get_cap_valid_bits(cap);
+
+    return invoke_monitor_get_cap_owner(caddr, vbits, ret_owner);
+}
+
+/**
+ * \brief Change the owner of a cap and its copies.
+ */
+errval_t monitor_set_cap_owner(struct capref cap, coreid_t owner)
+{
+    capaddr_t caddr = get_cap_addr(cap);
+    uint8_t vbits = get_cap_valid_bits(cap);
+
+    return invoke_monitor_set_cap_owner(caddr, vbits, owner);
+}

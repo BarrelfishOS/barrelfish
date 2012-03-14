@@ -190,6 +190,32 @@ invoke_monitor_remote_cap_revoke(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                     rootcap_vbits, src, bits).error;
 }
 
+static inline errval_t
+invoke_monitor_get_cap_owner(capaddr_t cap, int bits, coreid_t *res)
+{
+    assert(res);
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    struct sysret sysret;
+    sysret = syscall3((invoke_bits << 16) | (KernelCmd_Get_cap_owner << 8)
+                      | SYSCALL_INVOKE, invoke_cptr, cap, bits);
+    if (err_is_ok(sysret.error)) {
+        *res = sysret.value;
+    }
+    return sysret.error;
+}
+
+static inline errval_t
+invoke_monitor_set_cap_owner(capaddr_t cap, int bits, coreid_t owner)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall4((invoke_bits << 16) | (KernelCmd_Set_cap_owner << 8)
+                    | SYSCALL_INVOKE, invoke_cptr, cap, bits, owner).error;
+}
+
 /**
  * \brief Set up tracing in the kernel
  *

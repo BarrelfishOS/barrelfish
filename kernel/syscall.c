@@ -19,6 +19,8 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
 #include <mdb/mdb.h>
+#include <mdb/mdb_tree.h>
+#include <cap_predicates.h>
 #include <dispatch.h>
 #include <wakeup.h>
 #include <paging_kernel_helper.h>
@@ -438,6 +440,45 @@ struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id)
     }
 
     disp->u.dispatcher.dcb->domain_id = domain_id;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_get_cap_owner(capaddr_t cptr, uint8_t bits)
+{
+    struct capability *root = &dcb_current->cspace.cap;
+
+    struct cte *cte;
+    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_NORIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+    }
+
+    return (struct sysret) { .error = SYS_ERR_OK, .value = cte->distcap.owner };
+}
+
+struct sysret sys_set_cap_owner(capaddr_t cptr, uint8_t bits, coreid_t owner)
+{
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *cte;
+    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_NORIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+    }
+
+    cte->distcap.owner = owner;
+
+    struct cte *pred = cte;
+    do {
+        pred->distcap.owner = owner;
+        pred = mdb_predecessor(pred);
+    } while (is_copy(&pred->cap, &cte->cap));
+
+    struct cte *succ = cte;
+    do {
+        succ->distcap.owner = owner;
+        succ = mdb_successor(succ);
+    } while (is_copy(&succ->cap, &cte->cap));
 
     return SYSRET(SYS_ERR_OK);
 }

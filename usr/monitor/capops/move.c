@@ -173,7 +173,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         goto send_err;
     }
 
-    err = cap_set_owner(*capref, my_core_id);
+    err = monitor_set_cap_owner(*capref, my_core_id);
     if (err_is_fail(err)) {
         cap_destroy(*capref);
         goto send_err;

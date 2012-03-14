@@ -18,12 +18,6 @@
  * Magic NYI functions
  */
 
-// get owner core of given cap. used by routing layer only
-errval_t cap_get_owner(struct capref, coreid_t*);
-
-// get owner core of given cap. used by routing layer only
-errval_t cap_set_owner(struct capref, coreid_t);
-
 // create a copy of cap other copies exist, otherwise fail
 errval_t copy_if_exists(struct capability*, struct capref*);
 

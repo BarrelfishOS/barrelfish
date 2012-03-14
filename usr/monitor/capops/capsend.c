@@ -40,7 +40,7 @@ capsend_owner(struct capref capref, struct msg_queue_elem *queue_elem)
 
     // read cap owner
     coreid_t owner;
-    err = cap_get_owner(capref, &owner);
+    err = monitor_get_cap_owner(capref, &owner);
     if (err_is_fail(err)) {
         return err;
     }
@@ -538,7 +538,7 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
 
     err = copy_if_exists(&cap, &capref);
     if (err_is_ok(err)) {
-        err = cap_set_owner(capref, from);
+        err = monitor_set_cap_owner(capref, from);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "failed to set update cap ownership");
         }

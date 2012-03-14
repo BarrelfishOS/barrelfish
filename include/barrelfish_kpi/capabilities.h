@@ -133,6 +133,8 @@ enum kernel_cmd {
     KernelCmd_Setup_trace,        ///< Set up trace buffer
     KernelCmd_Register,           ///< Register monitor notify endpoint
     KernelCmd_Domain_Id,          ///< Set domain ID of dispatcher
+    KernelCmd_Get_cap_owner,
+    KernelCmd_Set_cap_owner,
     MonitorCmd_Retype,
     MonitorCmd_Delete,
     MonitorCmd_Revoke,

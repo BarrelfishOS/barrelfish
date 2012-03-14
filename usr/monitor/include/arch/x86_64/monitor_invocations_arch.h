@@ -166,4 +166,21 @@ invoke_monitor_get_arch_id(uintptr_t *arch_id)
     return sysret.error;
 }
 
+static inline errval_t
+invoke_monitor_get_cap_owner(capaddr_t cap, int bits, coreid_t *ret_owner)
+{
+    assert(ret_owner);
+    struct sysret sysret = cap_invoke3(cap_kernel, KernelCmd_Get_cap_owner, cap, bits);
+    if (err_is_ok(sysret.error)) {
+        *ret_owner = sysret.value;
+    }
+    return sysret.error;
+}
+
+static inline errval_t
+invoke_monitor_set_cap_owner(capaddr_t cap, int bits, coreid_t owner)
+{
+    return cap_invoke4(cap_kernel, KernelCmd_Set_cap_owner, cap, bits, owner).error;
+}
+
 #endif
