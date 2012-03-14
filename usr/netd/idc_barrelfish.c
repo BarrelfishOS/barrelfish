@@ -95,6 +95,10 @@ static struct net_soft_filters_binding *soft_filters_connection;
  */
 static bool soft_filters_connected = false;
 
+// Local ip address assigned to the interface
+struct ip_addr local_ip = {
+        .addr = BFDMUX_IP_ADDR_ANY
+    };
 
 /**
  * \brief Number of established connections
@@ -653,13 +657,17 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, netd_port_type_t type,
 
     // rx filter
     if (type == netd_PORT_TCP) {
-        filter = build_ether_dst_ipv4_tcp_filter(mac, BFDMUX_IP_ADDR_ANY,
-                                                 htonl(local_ip.addr), PORT_ANY,
-                                                 (port_t) port);
+        filter = build_ether_dst_ipv4_tcp_filter(mac,
+                                BFDMUX_IP_ADDR_ANY,
+                                htonl(local_ip.addr),
+                                PORT_ANY,
+                                (port_t) port);
     } else {
-        filter = build_ether_dst_ipv4_udp_filter(mac, BFDMUX_IP_ADDR_ANY,
-                                                 htonl(local_ip.addr), PORT_ANY,
-                                                 (port_t) port);
+        filter = build_ether_dst_ipv4_udp_filter(mac,
+                                BFDMUX_IP_ADDR_ANY,
+                                htonl(local_ip.addr),
+                                PORT_ANY,
+                                (port_t) port);
     }
     /* FIXME: shouldn't be above two ports be wrapped in htons(port)? */
     compile_filter(filter, &filter_mem, len_rx);

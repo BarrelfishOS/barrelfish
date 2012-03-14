@@ -69,7 +69,7 @@ struct net_user *registerd_app_list;
 /*
  * The IP assigned to this netd and its card interface
  */
-struct ip_addr local_ip;
+extern struct ip_addr local_ip;
 
 struct ether_client_response *card_conn[2];
 
