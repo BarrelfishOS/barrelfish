@@ -66,6 +66,7 @@ errors kernel SYS_ERR_ {
 
     // errors on the monitor-kernel interface
     failure DELETE_LAST_OWNED   "Tried to delete the last copy of a locally owned capability that may have remote copies",
+    failure CAP_LOCKED          "The cap has already been locked",
 
     // errors specific to page mapping
     failure VNODE_SLOT_INVALID  "Destination slot exceeds size of page table",

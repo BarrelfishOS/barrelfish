@@ -12,6 +12,7 @@
 #define CAPOPS_MAGIC_H
 
 #include <barrelfish_kpi/distcaps.h>
+#include <barrelfish_kpi/capabilities.h>
 
 /*
  * Magic NYI functions
@@ -57,5 +58,8 @@ errval_t monitor_has_local_descendants(struct capability);
 
 // create local caps as retype from one src cap
 errval_t monitor_create_caps(enum objtype, size_t, struct capref, struct capref);
+
+// set cap to locked if unlocked, else return an error
+errval_t monitor_lock_cap(struct capref cap);
 
 #endif
