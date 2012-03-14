@@ -943,7 +943,7 @@ libposixcompat_deps = LibDeps $ [ LibDep x | x <- deps ]
 liblwip_deps        = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"procon" ,"timer" ,"hashtable"]
 libnetQmng_deps        = LibDeps $ [ LibDep x | x <- deps ]
-    where deps = ["net_queue_manager", "lwip" ,"contmng" ,"procon" , "bfdmuxvm"]
+    where deps = ["net_queue_manager", "contmng" ,"procon" , "bfdmuxvm"]
 libnet_deps         = LibDeps $ [liblwip_deps, libposixcompat_deps]
 libnfs_deps         = LibDeps $ [ LibDep "nfs", libnet_deps]
 
