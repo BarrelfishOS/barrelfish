@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish_kpi/distcaps.h>
 #include <if/intermon_defs.h>
 #include "monitor.h"
 #include "ops.h"
@@ -201,6 +202,9 @@ request_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_h
         return err;
     }
 
+    // cap is foreign so it must be a type that needs "locality" on a particular core
+    assert(distcap_needs_locality(cap.type));
+
     // create new rpc state to associate return message
     struct cap_copy_rpc_st *rpc_st = malloc(sizeof(struct cap_copy_rpc_st));
     if (!rpc_st) {
@@ -274,9 +278,18 @@ recv_copy__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genv
         goto send_result;
     }
 
+    coreid_t owner;
+    if (distcap_needs_locality(cap.type)) {
+        // if cap needs locality, message source is owner
+        owner = from;
+    }
+    else {
+        // otherwise every core is owner
+        owner = my_core_id;
+    }
+
     // create a cap from the cap data and owner
-    // XXX: this should probably happen in the cap routing layer?
-    err = monitor_cap_create(dest, &cap, from);
+    err = monitor_cap_create(dest, &cap, owner);
     if (err_is_fail(err)) {
         // may fail if given owner does not match owner of existing copies
         goto free_slot;
@@ -305,6 +318,10 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
     distcap_state_t state;
+
+    // copy requests should never happen for types that don't need locality,
+    // since every core is owner and can copy directly
+    assert(distcap_needs_locality(cap.type));
 
     // find and validate cap
     // NOTE: this function should fail if no copies exist and create a new copy otherwise

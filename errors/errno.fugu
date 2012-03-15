@@ -417,6 +417,7 @@ errors monitor MON_ERR_ {
     failure CAP_CREATE          "Failure creating new capability",
     failure CAP_REMOTE          "Failure in remote cap operation",
     failure CAP_FOREIGN         "Could not perform operation because cap is foreign",
+    failure CAP_MOVE            "Cap could not be moved",
     failure RCAP_DB_NOT_FOUND   "Cannot find cap in remote cap db",
     failure RCAP_DB_LOCK        "Error gaining lock in remote cap db",
     failure RCAP_DB_UNLOCK      "Error unlocking cap in remote cap db",

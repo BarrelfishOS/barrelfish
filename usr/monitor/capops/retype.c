@@ -199,6 +199,9 @@ retype(enum objtype type, size_t objbits, struct capref dest_start,
         return err;
     }
 
+    // if retype invocation failed with "retry through mon", we assume that
+    // distcap_needs_locality(cap) would return true.
+
     struct retype_st *rst = malloc(sizeof(struct retype_st));
     rst->type = type;
     rst->objbits = objbits;

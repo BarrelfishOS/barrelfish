@@ -12,6 +12,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <barrelfish_kpi/capabilities.h>
 
 #define DISTCAP_STATE_FOREIGN (1 << 0)
 #define DISTCAP_STATE_BUSY (1 << 1)
@@ -28,6 +29,48 @@ static inline bool
 distcap_is_foreign(distcap_state_t state)
 {
     return state & DISTCAP_STATE_FOREIGN;
+}
+
+STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+static inline bool
+distcap_needs_locality(enum objtype type)
+{
+    switch (type) {
+    case ObjType_PhysAddr:
+    case ObjType_RAM:
+    case ObjType_CNode:
+    case ObjType_FCNode:
+    case ObjType_Dispatcher:
+    case ObjType_EndPoint:
+    case ObjType_Frame:
+    case ObjType_DevFrame:
+    case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_pdpt:
+    case ObjType_VNode_x86_64_pdir:
+    case ObjType_VNode_x86_64_ptable:
+    case ObjType_VNode_x86_32_pdpt:
+    case ObjType_VNode_x86_32_pdir:
+    case ObjType_VNode_x86_32_ptable:
+    case ObjType_VNode_ARM_l1:
+    case ObjType_VNode_ARM_l2:
+        return true;
+    default:
+        return false;
+    }
+}
+
+STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+static inline bool
+distcap_is_moveable(enum objtype type)
+{
+    switch (type) {
+    case ObjType_PhysAddr:
+    case ObjType_RAM:
+    case ObjType_Frame:
+        return true;
+    default:
+        return false;
+    }
 }
 
 #endif

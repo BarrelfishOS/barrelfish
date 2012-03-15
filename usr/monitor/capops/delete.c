@@ -185,7 +185,7 @@ move_result_cont(errval_t status, void *st)
 {
     errval_t err = status;
     struct delete_st *del_st = (struct delete_st*)st;
-    assert(cap_is_moveable(&del_st->cap));
+    assert(distcap_is_moveable(del_st->cap.type));
 
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // move failed as dest no longer has cap copy, start from beginning
@@ -307,7 +307,7 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
         goto free_del_st;
     }
 
-    if (cap_is_moveable(&del_st->cap)) {
+    if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
         err = capsend_find_cap(&del_st->cap, find_core_cont, st);
     }

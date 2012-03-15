@@ -55,14 +55,9 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 }
 
 static errval_t
-move_request(struct capref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
+move_request(struct capref capref, struct capability *cap, coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
-    struct capability cap;
-    err = monitor_cap_identify(capref, &cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
 
     struct cap_move_rpc_st *rpc_st = malloc(sizeof(struct cap_move_rpc_st));
     if (!rpc_st) {
@@ -78,7 +73,7 @@ move_request(struct capref capref, coreid_t dest, move_result_handler_t result_h
         return LIB_ERR_MALLOC_FAIL;
     }
     msg_st->queue_elem.cont = move_request_send_cont;
-    capability_to_caprep(&cap, &msg_st->caprep);
+    capability_to_caprep(cap, &msg_st->caprep);
     msg_st->st = rpc_st;
 
     err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
@@ -241,12 +236,26 @@ move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, 
         return SYS_ERR_OK;
     }
 
+    struct capability cap;
+    err = monitor_cap_identify(capref, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (!distcap_needs_locality(cap.type)) {
+        // XXX: move doesn't make sense here, but is "OK" result correct?
+        return SYS_ERR_OK;
+    }
+    if (!distcap_is_moveable(cap.type)) {
+        return MON_ERR_CAP_MOVE;
+    }
+
     err = monitor_lock_cap(capref);
     if (err_is_fail(err)) {
         return err;
     }
 
-    err = move_request(capref, dest, result_handler, st);
+    err = move_request(capref, &cap, dest, result_handler, st);
     if (err_is_fail(err)) {
         caplock_unlock(capref);
         return err;

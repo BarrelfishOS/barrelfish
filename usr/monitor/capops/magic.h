@@ -27,9 +27,6 @@ errval_t cap_delete_copies(struct capref);
 // mark cap as in-delete
 errval_t cap_set_deleted(struct capref);
 
-// return true if cap type permits moving ownership
-bool cap_is_moveable(struct capability*);
-
 // delete cap (must be owned and last copy) and perform cleanup
 errval_t monitor_delete_last(struct capref);
 
