@@ -87,10 +87,10 @@ errval_t oct_sem_wait(uint32_t id)
 {
     errval_t err = SYS_ERR_OK;
     char* result = NULL;
-    dist2_trigger_id_t tid;
-    dist2_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD,
-            dist2_BINDING_RPC, DIST_ON_SET, NULL, NULL);
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    octopus_trigger_id_t tid;
+    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD,
+            octopus_BINDING_RPC, DIST_ON_SET, NULL, NULL);
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
     char query[100];
     snprintf(query, 99, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);

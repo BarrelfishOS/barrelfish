@@ -26,7 +26,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus_server/init.h>
 #include <octopus_server/service.h>
@@ -38,7 +38,7 @@
 
 static struct hashtable *capdb = NULL;
 
-static void get_cap_reply(struct dist2_binding *b,
+static void get_cap_reply(struct octopus_binding *b,
         struct oct_reply_state* ns)
 {
     errval_t err;
@@ -53,7 +53,7 @@ static void get_cap_reply(struct dist2_binding *b,
     }
 }
 
-void get_cap_handler(struct dist2_binding *b, char *key)
+void get_cap_handler(struct octopus_binding *b, char *key)
 {
     errval_t err, reterr = SYS_ERR_OK;
     struct capref cap;
@@ -74,7 +74,7 @@ void get_cap_handler(struct dist2_binding *b, char *key)
     free(key);
 }
 
-static void put_cap_reply(struct dist2_binding *b,
+static void put_cap_reply(struct octopus_binding *b,
         struct oct_reply_state* ns)
 {
     errval_t err;
@@ -89,7 +89,7 @@ static void put_cap_reply(struct dist2_binding *b,
     }
 }
 
-void put_cap_handler(struct dist2_binding *b, char *key,
+void put_cap_handler(struct octopus_binding *b, char *key,
                             struct capref cap)
 {
     errval_t err, reterr = SYS_ERR_OK;
@@ -114,7 +114,7 @@ void put_cap_handler(struct dist2_binding *b, char *key,
     free(key);
 }
 
-static void remove_cap_reply(struct dist2_binding *b,
+static void remove_cap_reply(struct octopus_binding *b,
         struct oct_reply_state* ns)
 {
     errval_t err;
@@ -129,7 +129,7 @@ static void remove_cap_reply(struct dist2_binding *b,
     }
 }
 
-void remove_cap_handler(struct dist2_binding *b, char *key)
+void remove_cap_handler(struct octopus_binding *b, char *key)
 {
     errval_t err, reterr = SYS_ERR_OK;
 

@@ -25,7 +25,7 @@
 
 #include "common.h"
 
-static void trigger_handler(dist2_mode_t m, char* record, void* state)
+static void trigger_handler(octopus_mode_t m, char* record, void* state)
 {
     size_t* received = (size_t*) state;
     *received = *received + 1;
@@ -36,7 +36,7 @@ static void trigger_handler(dist2_mode_t m, char* record, void* state)
     free(record);
 }
 
-static void persistent_trigger(dist2_mode_t m, char* record, void* state) {
+static void persistent_trigger(octopus_mode_t m, char* record, void* state) {
     size_t* received = (size_t*) state;
     *received = *received + 1;
 
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 {
     dist_init();
     errval_t err = SYS_ERR_OK;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     size_t received = 0;
 
     err = dist_set("obj1 { attr: 1 }");
@@ -68,10 +68,10 @@ int main(int argc, char *argv[])
     err = dist_set("obj3 { attr: 3 }");
     ASSERT_ERR_OK(err);
 
-    struct dist2_thc_client_binding_t* c = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* c = dist_get_thc_client();
 
-    dist2_trigger_t record_deleted = dist_mktrigger(SYS_ERR_OK,
-            dist2_BINDING_EVENT, DIST_ON_DEL, trigger_handler, &received);
+    octopus_trigger_t record_deleted = dist_mktrigger(SYS_ERR_OK,
+            octopus_BINDING_EVENT, DIST_ON_DEL, trigger_handler, &received);
 
     errval_t error_code = SYS_ERR_OK;
     char* output = NULL;
@@ -90,9 +90,9 @@ int main(int argc, char *argv[])
 
     received = 0;
     tid = 0;
-    dist2_mode_t m = DIST_ON_SET | DIST_ON_DEL | DIST_PERSIST;
-    dist2_trigger_t ptrigger = dist_mktrigger(SYS_ERR_OK,
-            dist2_BINDING_EVENT, m, persistent_trigger, &received);
+    octopus_mode_t m = DIST_ON_SET | DIST_ON_DEL | DIST_PERSIST;
+    octopus_trigger_t ptrigger = dist_mktrigger(SYS_ERR_OK,
+            octopus_BINDING_EVENT, m, persistent_trigger, &received);
     output = NULL;
     err = c->call_seq.get(c, "obj2", ptrigger, &output,
             &tid, &error_code);

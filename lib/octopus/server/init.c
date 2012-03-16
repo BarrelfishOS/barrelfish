@@ -17,21 +17,21 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 #include <if/monitor_defs.h>
 
 #include <octopus_server/init.h>
 #include <octopus_server/service.h>
 #include <octopus_server/debug.h>
 
-#define DIST2_RPC_SERVICE_NAME "dist2_rpc"
+#define DIST2_RPC_SERVICE_NAME "octopus_rpc"
 
 static struct export_state {
     bool is_done;
     errval_t err;
 } rpc_export;
 
-static const struct dist2_rx_vtbl rpc_rx_vtbl = {
+static const struct octopus_rx_vtbl rpc_rx_vtbl = {
         .get_names_call = get_names_handler,
         .get_call = get_handler,
         .set_call = set_handler,
@@ -68,7 +68,7 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
-static errval_t rpc_connect_cb(void *st, struct dist2_binding *b)
+static errval_t rpc_connect_cb(void *st, struct octopus_binding *b)
 {
     // Set up continuation queue
     b->st = NULL;
@@ -85,7 +85,7 @@ errval_t rpc_server_init(void)
     rpc_export.err = SYS_ERR_OK;
     rpc_export.is_done = false;
 
-    errval_t err = dist2_export(&rpc_export, rpc_export_cb, rpc_connect_cb,
+    errval_t err = octopus_export(&rpc_export, rpc_export_cb, rpc_connect_cb,
             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
 
     if (err_is_fail(err)) {

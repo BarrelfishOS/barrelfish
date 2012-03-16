@@ -5,18 +5,18 @@
 
 errval_t trigger_existing_and_watch(const char* query,
         trigger_handler_fn event_handler, void* state,
-        dist2_trigger_id_t* tid)
+        octopus_trigger_id_t* tid)
 {
     errval_t error_code;
     char** names = NULL;
     char* output = NULL;
     char* record = NULL; // freed by cpu_change_event
     size_t len = 0;
-    dist2_trigger_t t = dist_mktrigger(0, dist2_BINDING_EVENT,
+    octopus_trigger_t t = dist_mktrigger(0, octopus_BINDING_EVENT,
             TRIGGER_ALWAYS, event_handler, state);
 
     // Get current cores registered in system
-    struct dist2_thc_client_binding_t* rpc = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* rpc = dist_get_thc_client();
     errval_t err = rpc->call_seq.get_names(rpc, query,
             t, &output, tid, &error_code);
     if (err_is_fail(err)) {

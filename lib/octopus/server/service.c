@@ -18,7 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <skb/skb.h> // read list
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus_server/service.h>
 #include <octopus_server/query.h>
@@ -84,7 +84,7 @@ static void free_oct_reply_state(void* arg)
     }
 }
 
-static void trigger_send_handler(struct dist2_binding* b,
+static void trigger_send_handler(struct octopus_binding* b,
         struct oct_reply_state* drs)
 {
     char* record = drs->query_state.stdout.buffer[0] != '\0' ?
@@ -106,15 +106,15 @@ static void trigger_send_handler(struct dist2_binding* b,
     }
 }
 
-static inline bool can_install_trigger(dist2_trigger_t trigger, errval_t error)
+static inline bool can_install_trigger(octopus_trigger_t trigger, errval_t error)
 {
     return trigger.m > 0 &&
            (trigger.in_case == err_no(error) ||
            (trigger.m & DIST_ALWAYS_SET) != 0 );
 }
 
-static inline uint64_t install_trigger(struct dist2_binding* binding,
-        struct ast_object* ast, dist2_trigger_t trigger, errval_t error)
+static inline uint64_t install_trigger(struct octopus_binding* binding,
+        struct ast_object* ast, octopus_trigger_t trigger, errval_t error)
 {
     errval_t err;
     uint64_t watch_id = 0;
@@ -127,7 +127,7 @@ static inline uint64_t install_trigger(struct dist2_binding* binding,
         trigger_reply->client_handler = trigger.trigger;
         trigger_reply->client_state = trigger.st;
 
-        trigger_reply->binding = (trigger.send_to == dist2_BINDING_RPC) ?
+        trigger_reply->binding = (trigger.send_to == octopus_BINDING_RPC) ?
                 binding : get_event_binding(binding);
         if (trigger_reply->binding == NULL) {
             fprintf(stderr, "No event binding for trigger, send events "
@@ -142,7 +142,7 @@ static inline uint64_t install_trigger(struct dist2_binding* binding,
     return watch_id;
 }
 
-static void remove_trigger_reply(struct dist2_binding* b,
+static void remove_trigger_reply(struct octopus_binding* b,
         struct oct_reply_state* drs)
 {
     errval_t err;
@@ -158,7 +158,7 @@ static void remove_trigger_reply(struct dist2_binding* b,
     }
 }
 
-void remove_trigger_handler(struct dist2_binding *b, dist2_trigger_id_t tid)
+void remove_trigger_handler(struct octopus_binding *b, octopus_trigger_id_t tid)
 {
     struct oct_reply_state* drs = NULL;
     errval_t err = new_oct_reply_state(&drs, remove_trigger_reply);
@@ -181,7 +181,7 @@ void remove_trigger_handler(struct dist2_binding *b, dist2_trigger_id_t tid)
     }
 }*/
 
-static void get_reply(struct dist2_binding* b, struct oct_reply_state* drt)
+static void get_reply(struct octopus_binding* b, struct oct_reply_state* drt)
 {
     errval_t err;
     char* reply = err_is_ok(drt->error) ?
@@ -197,7 +197,7 @@ static void get_reply(struct dist2_binding* b, struct oct_reply_state* drt)
     }
 }
 
-void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
+void get_handler(struct octopus_binding *b, char *query, octopus_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -225,7 +225,7 @@ out:
     free(query);
 }
 
-static void get_names_reply(struct dist2_binding* b,
+static void get_names_reply(struct octopus_binding* b,
         struct oct_reply_state* drt)
 {
     errval_t err;
@@ -242,7 +242,7 @@ static void get_names_reply(struct dist2_binding* b,
     }
 }
 
-void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
+void get_names_handler(struct octopus_binding *b, char *query, octopus_trigger_t t)
 {
     DIST2_DEBUG(" get_names_handler: %s\n", query);
 
@@ -273,7 +273,7 @@ out:
     free(query);
 }
 
-static void set_reply(struct dist2_binding* b, struct oct_reply_state* drs)
+static void set_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     char* record = err_is_ok(drs->error) && drs->return_record ?
             drs->query_state.stdout.buffer : NULL;
@@ -290,8 +290,8 @@ static void set_reply(struct dist2_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
-        dist2_trigger_t trigger, bool get)
+void set_handler(struct octopus_binding *b, char *query, uint64_t mode,
+        octopus_trigger_t trigger, bool get)
 {
     DIST2_DEBUG(" set_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
@@ -331,7 +331,7 @@ out:
     free(query);
 }
 
-static void del_reply(struct dist2_binding* b, struct oct_reply_state* drs)
+static void del_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.del_response(b, MKCONT(free_oct_reply_state, drs),
@@ -345,7 +345,7 @@ static void del_reply(struct dist2_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
+void del_handler(struct octopus_binding* b, char* query, octopus_trigger_t trigger)
 {
     DIST2_DEBUG(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
@@ -383,7 +383,7 @@ out:
     free(query);
 }
 
-static void exists_reply(struct dist2_binding* b, struct oct_reply_state* drs)
+static void exists_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.exists_response(b, MKCONT(free_oct_reply_state, drs),
@@ -398,8 +398,8 @@ static void exists_reply(struct dist2_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void exists_handler(struct dist2_binding* b, char* query,
-        dist2_trigger_t trigger)
+void exists_handler(struct octopus_binding* b, char* query,
+        octopus_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -428,7 +428,7 @@ out:
     free(query);
 }
 
-static void wait_for_reply(struct dist2_binding* b, struct oct_reply_state* drs)
+static void wait_for_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.wait_for_response(b, MKCONT(free_oct_reply_state, drs),
@@ -444,7 +444,7 @@ static void wait_for_reply(struct dist2_binding* b, struct oct_reply_state* drs)
 }
 
 // XXX: For compatibility reasons with nameserver API
-void wait_for_handler(struct dist2_binding* b, char* query) {
+void wait_for_handler(struct octopus_binding* b, char* query) {
     errval_t err = SYS_ERR_OK;
     errval_t set_watch_err = SYS_ERR_OK;
 
@@ -484,7 +484,7 @@ out:
     free(query);
 }
 
-static void subscribe_reply(struct dist2_binding* b,
+static void subscribe_reply(struct octopus_binding* b,
         struct oct_reply_state* drs)
 {
     errval_t err;
@@ -500,7 +500,7 @@ static void subscribe_reply(struct dist2_binding* b,
     }
 }
 
-void subscribe_handler(struct dist2_binding *b, char* query,
+void subscribe_handler(struct octopus_binding *b, char* query,
         uint64_t trigger_fn, uint64_t state)
 {
     DIST2_DEBUG("subscribe: query = %s\n", query);
@@ -530,7 +530,7 @@ out:
     free(query);
 }
 
-static void unsubscribe_reply(struct dist2_binding* b,
+static void unsubscribe_reply(struct octopus_binding* b,
         struct oct_reply_state* drs)
 {
     errval_t err;
@@ -545,7 +545,7 @@ static void unsubscribe_reply(struct dist2_binding* b,
     }
 }
 
-static void send_subscribed_message(struct dist2_binding* b, struct oct_reply_state* drs)
+static void send_subscribed_message(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     errval_t err = SYS_ERR_OK;
     char* record = drs->query_state.stdout.buffer[0] != '\0' ?
@@ -564,7 +564,7 @@ static void send_subscribed_message(struct dist2_binding* b, struct oct_reply_st
 
 }
 
-void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
+void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -590,7 +590,7 @@ void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
                 send_subscribed_message);
         assert(err_is_ok(err));
 
-        subscriber->binding = (struct dist2_binding*)binding;
+        subscriber->binding = (struct octopus_binding*)binding;
         subscriber->client_handler = client_handler;
         subscriber->client_state = client_state;
         subscriber->server_id = server_id;
@@ -604,7 +604,7 @@ void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
     srs->reply(b, srs);
 }
 
-static void publish_reply(struct dist2_binding* b, struct oct_reply_state* drs)
+static void publish_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.publish_response(b, MKCONT(free_oct_reply_state, drs),
@@ -618,7 +618,7 @@ static void publish_reply(struct dist2_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void publish_handler(struct dist2_binding *b, char* record)
+void publish_handler(struct octopus_binding *b, char* record)
 {
     DIST2_DEBUG("publish_handler query: %s\n", record);
     errval_t err = SYS_ERR_OK;
@@ -669,7 +669,7 @@ void publish_handler(struct dist2_binding *b, char* record)
                         send_subscribed_message);
                 assert(err_is_ok(err));
 
-                subscriber->binding = (struct dist2_binding*)binding;
+                subscriber->binding = (struct octopus_binding*)binding;
                 subscriber->client_handler = client_handler;
                 strcpy(subscriber->query_state.stdout.buffer, record);
                 subscriber->client_state = client_state;
@@ -687,14 +687,14 @@ out:
     free_ast(ast);
 }
 
-void get_identifier(struct dist2_binding* b)
+void get_identifier(struct octopus_binding* b)
 {
     errval_t err = b->tx_vtbl.get_identifier_response(b, NOP_CONT,
             current_id++);
     assert(err_is_ok(err));
 }
 
-static void identify_binding_reply(struct dist2_binding* b,
+static void identify_binding_reply(struct octopus_binding* b,
         struct oct_reply_state* drs)
 {
     errval_t err;
@@ -710,8 +710,8 @@ static void identify_binding_reply(struct dist2_binding* b,
 
 }
 
-void identify_binding(struct dist2_binding* b, uint64_t id,
-        dist2_binding_type_t type)
+void identify_binding(struct octopus_binding* b, uint64_t id,
+        octopus_binding_type_t type)
 {
     assert(id <= current_id);
 

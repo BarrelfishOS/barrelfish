@@ -143,10 +143,10 @@ errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
 
     FORMAT_QUERY(query, args, buf); // buf
 
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
     errval_t error_code;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     err = cl->call_seq.get_names(cl, buf, NOP_TRIGGER, &data,
             &tid, &error_code);
     if (err_is_ok(err)) {
@@ -201,13 +201,13 @@ errval_t oct_get(char** data, const char* query, ...)
     assert(query != NULL);
     errval_t error_code;
     errval_t err = SYS_ERR_OK;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     va_list args;
 
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
     err = cl->call_seq.get(cl, buf, NOP_TRIGGER, data,
             &tid, &error_code);
@@ -241,11 +241,11 @@ errval_t oct_set(const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     // Send to Server
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
     char* record = NULL;
     errval_t error_code;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     err = cl->call_seq.set(cl, buf, SET_DEFAULT, NOP_TRIGGER, false,
             &record, &tid, &error_code);
     assert(record == NULL);
@@ -280,11 +280,11 @@ errval_t oct_mset(oct_mode_t mode, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     // Send to Server
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
     char* record = NULL;
     errval_t error_code;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, false,
             &record, &tid, &error_code);
     assert(record == NULL);
@@ -326,9 +326,9 @@ errval_t oct_set_get(oct_mode_t mode, char** record, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     // Send to Server
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, true, record,
             &tid, &error_code);
     if (err_is_ok(err)) {
@@ -362,9 +362,9 @@ errval_t oct_del(const char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     err = cl->call_seq.del(cl, buf, NOP_TRIGGER, &tid, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
@@ -394,9 +394,9 @@ errval_t oct_exists(const char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     err = cl->call_seq.exists(cl, buf, NOP_TRIGGER, &tid, &error_code);
     if (err_is_ok(err)) {
         err = error_code;

@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Implementation of the interface as described in <dist2_server/query.h>.
+ * \brief Implementation of the interface as described in <octopus_server/query.h>.
  */
 
 /*
@@ -19,7 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <include/skb_debug.h>
 
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <include/skb_server.h>
 
@@ -313,7 +313,7 @@ static void store_template(struct dist_reply_state* drs,
 
 }
 
-errval_t set_watch(struct dist2_binding* b, struct ast_object* ast,
+errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
         uint64_t mode, struct dist_reply_state* drs, uint64_t* wid)
 {
     errval_t err = init_bitmap(&trigger_ids);
@@ -354,7 +354,7 @@ errval_t set_watch(struct dist2_binding* b, struct ast_object* ast,
     return err;
 }
 
-errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
+errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
         struct dist_query_state* dqs)
 {
     dident remove_watch = ec_did("remove_watch", 2);
@@ -374,7 +374,7 @@ errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
     return err;
 }
 
-struct dist2_binding* get_event_binding(struct dist2_binding* b)
+struct octopus_binding* get_event_binding(struct octopus_binding* b)
 {
     errval_t err = SYS_ERR_OK;
     struct dist_query_state* dqs = calloc(1, sizeof(struct dist_query_state));
@@ -407,7 +407,7 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
     DIST2_DEBUG("get_event_binding\n");
     debug_skb_output(dqs);
 
-    struct dist2_binding* recipient = NULL;
+    struct octopus_binding* recipient = NULL;
     // TODO pointer size vs. long int in skb :-(
     sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient);
 
@@ -415,7 +415,7 @@ struct dist2_binding* get_event_binding(struct dist2_binding* b)
     return recipient;
 }
 
-errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
+errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
         uint64_t trigger_fn, uint64_t state, struct dist_reply_state* drs)
 {
     errval_t err = init_bitmap(&subscriber_ids);
@@ -456,7 +456,7 @@ errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
     return err;
 }
 
-errval_t del_subscription(struct dist2_binding* b, uint64_t id,
+errval_t del_subscription(struct octopus_binding* b, uint64_t id,
         struct dist_query_state* sqs)
 {
     errval_t err = SYS_ERR_OK;
@@ -519,7 +519,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
     return err;
 }
 
-errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
+errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding)
 {
     struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
     if (dqs == NULL) {
@@ -528,11 +528,11 @@ errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding)
 
     dident set_binding;
     switch (type) {
-    case dist2_BINDING_RPC:
+    case octopus_BINDING_RPC:
         set_binding = ec_did("set_rpc_binding", 2);
         break;
 
-    case dist2_BINDING_EVENT:
+    case octopus_BINDING_EVENT:
         set_binding = ec_did("set_event_binding", 2);
         break;
 

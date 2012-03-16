@@ -477,7 +477,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
     return PFAIL;
 }
 
-void dist_rpc_enqueue_reply(struct dist2_binding *b, struct dist_reply_state* st);
+void dist_rpc_enqueue_reply(struct octopus_binding *b, struct dist_reply_state* st);
 extern struct bitfield* trigger_ids;
 
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */

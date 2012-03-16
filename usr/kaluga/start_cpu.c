@@ -120,7 +120,7 @@ static inline void configure_monitor_binding(void)
     mb->st = NULL;
 }
 
-static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
+static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & DIST_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
@@ -176,7 +176,7 @@ errval_t watch_for_cores(void)
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     errval_t err = trigger_existing_and_watch(local_apics, cpu_change_event,
             &core_counter, &tid);
     cores_on_boot = core_counter;
@@ -202,7 +202,7 @@ errval_t watch_for_cores(void)
     return err;
 }
 
-static void ioapic_change_event(dist2_mode_t mode, char* record, void* state)
+static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & DIST_ON_SET) {
         struct module_info* mi = find_module("ioapic");
@@ -251,7 +251,7 @@ errval_t watch_for_ioapic(void)
     static char* io_apics = "r'hw.ioapic.[0-9]+' { id: _, address: _, "
                             "irqbase: _ }";
 
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     return trigger_existing_and_watch(io_apics, ioapic_change_event,
             &core_counter, &tid);
 }

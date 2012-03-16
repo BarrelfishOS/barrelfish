@@ -55,7 +55,7 @@ static void variable_records(void)
         errval_t error_code;
         char* data = NULL;
 
-        struct dist2_rpc_client* cl = dist_get_thc_client();
+        struct octopus_rpc_client* cl = dist_get_thc_client();
         assert(cl != NULL);
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
@@ -87,7 +87,7 @@ static void variable_records(void)
 
 static void add_record(void) {
     size_t exps = sizeof(add_records) / sizeof(size_t);
-    struct dist2_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = dist_get_thc_client();
     assert(cl != NULL);
 
     errval_t error_code;
@@ -144,7 +144,7 @@ static void one_record(void)
     errval_t error_code;
     char* data = NULL;
 
-    struct dist2_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = dist_get_thc_client();
 
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
@@ -169,7 +169,7 @@ static void unnamed_record(void)
     errval_t err = dist_set("object0 { attr1: 'bla', attr2: 12.0 }");
     assert(err_is_ok(err));
 
-    struct dist2_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = dist_get_thc_client();
     assert(cl != NULL);
 
     char* data = NULL;

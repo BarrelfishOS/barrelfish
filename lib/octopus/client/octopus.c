@@ -29,8 +29,8 @@
 #include "common.h"
 
 static struct oct_state {
-    struct dist2_binding* binding;
-    struct dist2_thc_client_binding_t thc_client;
+    struct octopus_binding* binding;
+    struct octopus_thc_client_binding_t thc_client;
     struct waitset ws;
     errval_t err;
     bool is_done;
@@ -40,24 +40,24 @@ static iref_t service_iref = 0;
 static uint64_t client_identifier = 0;
 static bool initialized = false;
 
-struct dist2_binding* oct_get_event_binding(void)
+struct octopus_binding* oct_get_event_binding(void)
 {
     assert(event.binding != NULL);
     return event.binding;
 }
 
-struct dist2_thc_client_binding_t* oct_get_thc_client(void)
+struct octopus_thc_client_binding_t* oct_get_thc_client(void)
 {
     //assert(rpc.rpc_client != NULL);
     return &rpc.thc_client;
 }
 
-static void identify_response_handler(struct dist2_binding* b)
+static void identify_response_handler(struct octopus_binding* b)
 {
     event.is_done = true;
 }
 
-static struct dist2_rx_vtbl rx_vtbl = {
+static struct octopus_rx_vtbl rx_vtbl = {
         .identify_response = identify_response_handler,
         .subscription = subscription_handler,
         .trigger = trigger_handler
@@ -67,12 +67,12 @@ static struct dist2_rx_vtbl rx_vtbl = {
 static int event_handler_thread(void* st)
 {
     errval_t err = SYS_ERR_OK;
-    struct dist2_binding* b = oct_get_event_binding();
+    struct octopus_binding* b = oct_get_event_binding();
 
     b->change_waitset(b, &event.ws);
 
     uint64_t id = (uint64_t) st;
-    err = b->tx_vtbl.identify_call(b, NOP_CONT, id, dist2_BINDING_EVENT);
+    err = b->tx_vtbl.identify_call(b, NOP_CONT, id, octopus_BINDING_EVENT);
     assert(err_is_ok(err));
 
     // TODO abort condition
@@ -87,7 +87,7 @@ static int event_handler_thread(void* st)
     return SYS_ERR_OK;
 }*/
 
-static void event_bind_cb(void *st, errval_t err, struct dist2_binding *b)
+static void event_bind_cb(void *st, errval_t err, struct octopus_binding *b)
 {
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "oct_event bind failed");
@@ -113,13 +113,13 @@ static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
 }
 
 static errval_t init_binding(struct oct_state* state,
-        dist2_bind_continuation_fn bind_fn)
+        octopus_bind_continuation_fn bind_fn)
 {
     errval_t err = SYS_ERR_OK;
     assert(service_iref != 0);
 
     state->is_done = false;
-    err = dist2_bind(service_iref, bind_fn, NULL, get_default_waitset(),
+    err = octopus_bind(service_iref, bind_fn, NULL, get_default_waitset(),
             IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err_push(err, FLOUNDER_ERR_BIND);
@@ -175,27 +175,27 @@ errval_t oct_thc_init(void)
     assert(service_iref != 0);
     // XXX: Not sure but I think it would be better not to run the THC client
     // on the default waitset?
-    err = dist2_thc_connect(service_iref,
+    err = octopus_thc_connect(service_iref,
             get_default_waitset(), IDC_BIND_FLAGS_DEFAULT, &(rpc.binding));
     if (err_is_fail(err)) {
         return err;
     }
 
     assert(rpc.binding != NULL);
-    err = dist2_thc_init_client(&rpc.thc_client, rpc.binding, rpc.binding);
+    err = octopus_thc_init_client(&rpc.thc_client, rpc.binding, rpc.binding);
     if (err_is_fail(err)) {
         return err;
     }
 
     // TODO: Hack. Tell the server that these bindings belong together
-    dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    octopus_thc_client_binding_t* cl = oct_get_thc_client();
     err = cl->call_seq.get_identifier(cl, &client_identifier);
     if (err_is_fail(err)) {
         return err;
     }
 
     // Register rpc binding using identifier
-    err = cl->call_seq.identify(cl, client_identifier, dist2_BINDING_RPC);
+    err = cl->call_seq.identify(cl, client_identifier, octopus_BINDING_RPC);
 
     return err;
 }
@@ -231,7 +231,7 @@ errval_t oct_init(void)
     // Register event binding
     event.is_done = false;
     event.binding->tx_vtbl.identify_call(event.binding, NOP_CONT,
-            client_identifier, dist2_BINDING_EVENT);
+            client_identifier, octopus_BINDING_EVENT);
     while (!event.is_done) {
         messages_wait_and_handle_next();
     }

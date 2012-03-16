@@ -1895,7 +1895,7 @@ yyreturn:
 void yyerror(char *s)
 {
 #ifdef DIST2_DEBUG
-    fprintf(stderr, "dist2_parser: %s\n", s);
+    fprintf(stderr, "octopus_parser: %s\n", s);
 #endif
 }
 

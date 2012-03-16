@@ -23,8 +23,8 @@
 #include "handler.h"
 #include "common.h"
 
-void trigger_handler(struct dist2_binding* b, dist2_trigger_id_t id,
-        uint64_t t, dist2_mode_t mode, char* record, uint64_t st)
+void trigger_handler(struct octopus_binding* b, octopus_trigger_id_t id,
+        uint64_t t, octopus_mode_t mode, char* record, uint64_t st)
 {
     assert(t != 0);
     trigger_handler_fn trigger_fn = (trigger_handler_fn) t;
@@ -40,10 +40,10 @@ void trigger_handler(struct dist2_binding* b, dist2_trigger_id_t id,
     }
 }
 
-dist2_trigger_t oct_mktrigger(errval_t in_case, dist2_binding_type_t send_to,
-        dist2_mode_t mode, trigger_handler_fn fn, void* state)
+octopus_trigger_t oct_mktrigger(errval_t in_case, octopus_binding_type_t send_to,
+        octopus_mode_t mode, trigger_handler_fn fn, void* state)
 {
-    return (dist2_trigger_t) {
+    return (octopus_trigger_t) {
                 .in_case = in_case,
                 .m = mode,
                 .send_to = send_to,
@@ -66,10 +66,10 @@ dist2_trigger_t oct_mktrigger(errval_t in_case, dist2_binding_type_t send_to,
  * \retval SYS_ERR_OK
  * \retval DIST2_INVALID_ID
  */
-errval_t oct_remove_trigger(dist2_trigger_id_t trigger_id)
+errval_t oct_remove_trigger(octopus_trigger_id_t trigger_id)
 {
     errval_t err = SYS_ERR_OK;
-    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     errval_t error_code;

@@ -53,9 +53,9 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
     uint64_t mode = 0;
     uint64_t state = 0;
     uint64_t fn = 0;
-    dist2_trigger_id_t tid;
-    dist2_trigger_t t = oct_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
-            dist2_BINDING_RPC, NULL, NULL);
+    octopus_trigger_id_t tid;
+    octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
+            octopus_BINDING_RPC, NULL, NULL);
 
     err = oct_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }",
             lock_name, lock_name);
@@ -90,7 +90,7 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
         }
         else {
             // Someone else holds the lock
-            struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+            struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
             //debug_printf("exists for %s...\n", names[i-1]);
             err = cl->call_seq.exists(cl, names[i-1], t, &tid, &exist_err);
             if (err_is_fail(err)) {

@@ -44,9 +44,9 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
     uint64_t mode = 0;
     uint64_t state = 0;
     uint64_t fn = 0;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     size_t current_barriers = 0;
-    dist2_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, dist2_BINDING_RPC,
+    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, octopus_BINDING_RPC,
             DIST_ON_SET, NULL, NULL);
 
     err = oct_set_get(SET_SEQUENTIAL, barrier_record,
@@ -61,7 +61,7 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
     //        wait_for);
 
     if (current_barriers != wait_for) {
-        struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+        struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
         err = cl->call_seq.exists(cl, name, t, &tid, &exist_err);
         if (err_is_fail(err)) {
             return err;
@@ -115,8 +115,8 @@ errval_t oct_barrier_leave(const char* barrier_record)
     uint64_t mode = 0;
     uint64_t state = 0;
     uint64_t fn = 0;
-    dist2_trigger_id_t tid;
-    dist2_trigger_t t = oct_mktrigger(SYS_ERR_OK, dist2_BINDING_RPC,
+    octopus_trigger_id_t tid;
+    octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, octopus_BINDING_RPC,
             DIST_ON_DEL, NULL, NULL);
 
     //debug_printf("leaving: %s\n", barrier_record);
@@ -135,7 +135,7 @@ errval_t oct_barrier_leave(const char* barrier_record)
         //debug_printf("remaining barriers is: %lu\n", remaining_barriers);
 
         if (err_is_ok(err)) {
-            struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
+            struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
             err = cl->call_seq.exists(cl, barrier_name, t, &tid, &exist_err);
             if (err_is_fail(err)) {
                 goto out;

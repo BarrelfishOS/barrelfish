@@ -139,7 +139,7 @@ static void no_name_get_worstcase(void)
     for (size_t i = 1; i < exps; i++) {
         printf("# Run no_name_get_worstcase with %lu records:\n", records[i]);
 
-        struct dist2_rpc_client* cl = dist_get_thc_client();
+        struct octopus_rpc_client* cl = dist_get_thc_client();
         assert(cl != NULL);
         errval_t error_code;
         char* record;

@@ -16,8 +16,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/dist2_defs.h>
-#include <if/dist2_rpcclient_defs.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_rpcclient_defs.h>
 #include <if/monitor_defs.h>
 #include <octopus/getset.h> // for dist_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
@@ -32,13 +32,13 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 {
     errval_t err;
 
-    struct dist2_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_nameservice_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
     char* record = NULL;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     errval_t error_code;
     err = r->vtbl.get(r, iface, NOP_TRIGGER, &record, &tid, &error_code);
     if (err_is_fail(err)) {
@@ -77,7 +77,7 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
 {
     errval_t err;
 
-    struct dist2_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_nameservice_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -121,7 +121,7 @@ errval_t nameservice_register(const char *iface, iref_t iref)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct dist2_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_nameservice_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -136,7 +136,7 @@ errval_t nameservice_register(const char *iface, iref_t iref)
     snprintf(record, len+1, format, iface, iref);
 
     char* ret = NULL;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     errval_t error_code;
     err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
     if (err_is_fail(err)) {
@@ -152,7 +152,7 @@ out:
 /* ----------------------- BIND/INIT CODE FOLLOWS ----------------------- */
 
 
-static void error_handler(struct dist2_binding *b, errval_t err)
+static void error_handler(struct octopus_binding *b, errval_t err)
 {
     USER_PANIC_ERR(err, "asynchronous error in nameservice binding");
 }
@@ -163,17 +163,17 @@ struct bind_state {
 };
 
 static void bind_continuation(void *st_arg, errval_t err,
-                              struct dist2_binding *b)
+                              struct octopus_binding *b)
 {
     struct bind_state *st = st_arg;
 
     if (err_is_ok(err)) {
         b->error_handler = error_handler;
 
-        struct dist2_rpc_client *r;
-        r = malloc(sizeof(struct dist2_rpc_client));
+        struct octopus_rpc_client *r;
+        r = malloc(sizeof(struct octopus_rpc_client));
         assert(r != NULL);
-        err = dist2_rpc_client_init(r, b);
+        err = octopus_rpc_client_init(r, b);
         if (err_is_fail(err)) {
             free(r);
             USER_PANIC_ERR(err, "error in nameservice_rpc_client_init");
@@ -195,7 +195,7 @@ static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
     if (iref == 0) {
         err = LIB_ERR_GET_NAME_IREF;
     } else {
-        err = dist2_bind(iref, bind_continuation, st,
+        err = octopus_bind(iref, bind_continuation, st,
                 get_default_waitset(), IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     }
 

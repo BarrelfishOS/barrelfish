@@ -17,7 +17,7 @@
 
 static void oct_rpc_send_next(void *arg)
 {
-    struct dist2_binding *b = arg;
+    struct octopus_binding *b = arg;
 
     struct oct_reply_state* current = oct_rpc_dequeue_reply(b);
 
@@ -27,7 +27,7 @@ static void oct_rpc_send_next(void *arg)
     }
 }
 
-void oct_rpc_enqueue_reply(struct dist2_binding *b,
+void oct_rpc_enqueue_reply(struct octopus_binding *b,
         struct oct_reply_state* st)
 {
     if (b->st == NULL) {
@@ -42,7 +42,7 @@ void oct_rpc_enqueue_reply(struct dist2_binding *b,
     *walk = st;
 }
 
-struct oct_reply_state* oct_rpc_dequeue_reply(struct dist2_binding *b)
+struct oct_reply_state* oct_rpc_dequeue_reply(struct octopus_binding *b)
 {
     struct oct_reply_state* head = b->st;
     b->st = head->next;

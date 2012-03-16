@@ -51,17 +51,17 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
     errval_t err;
     errval_t error_code;
     char* record = NULL;
-    dist2_mode_t mode;
+    octopus_mode_t mode;
     uint64_t state;
     uint64_t fn;
     uint64_t iref_number = 0;
 
-    struct dist2_thc_client_binding_t *cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t *cl = oct_get_thc_client();
     if (cl == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    dist2_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET, 0, 0);
+    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET, 0, 0);
     err = cl->call_seq.get(cl, iface, &record, t, &error_code);
     if (err_is_ok(err)) {
         err = error_code;

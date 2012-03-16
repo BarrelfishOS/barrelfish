@@ -16,12 +16,12 @@
 #define DIST2_QUEUE_H
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus_server/service.h>
 
-void oct_rpc_enqueue_reply(struct dist2_binding *b,
+void oct_rpc_enqueue_reply(struct octopus_binding *b,
         struct oct_reply_state* st);
-struct oct_reply_state* oct_rpc_dequeue_reply(struct dist2_binding *b);
+struct oct_reply_state* oct_rpc_dequeue_reply(struct octopus_binding *b);
 
 #endif // DIST2_QUEUE_H

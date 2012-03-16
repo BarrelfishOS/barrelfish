@@ -24,9 +24,9 @@
 
 #include "kaluga.h"
 
-static void pci_change_event(dist2_mode_t mode, char* device_record, void* st);
+static void pci_change_event(octopus_mode_t mode, char* device_record, void* st);
 
-static void spawnd_up_event(dist2_mode_t mode, char* spawnd_record, void* st)
+static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 {
     assert(mode & DIST_ON_SET);
     uint64_t iref;
@@ -44,12 +44,12 @@ static void spawnd_up_event(dist2_mode_t mode, char* spawnd_record, void* st)
 static errval_t wait_for_spawnd(coreid_t core, void* state)
 {
     // Check if the core we're spawning on is already up...
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = dist_get_thc_client();
     char* iref_record = NULL;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     errval_t error_code;
-    dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
-            dist2_BINDING_EVENT, DIST_ON_SET, spawnd_up_event, state);
+    octopus_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
+            octopus_BINDING_EVENT, DIST_ON_SET, spawnd_up_event, state);
 
     // Construct service name
     static char* format = "spawn.%hhu { iref: _ }";
@@ -68,7 +68,7 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     return error_code;
 }
 
-static void pci_change_event(dist2_mode_t mode, char* device_record, void* st)
+static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
     if (mode & DIST_ON_SET) {
@@ -155,11 +155,11 @@ errval_t watch_for_pci_devices(void)
                                " bus: _, device: _, function: _, vendor: _,"
                                " device_id: _, class: _, subclass: _, "
                                " prog_if: _ }";
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     return trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
-static void bridge_change_event(dist2_mode_t mode, char* bridge_record, void* st)
+static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* st)
 {
     if (mode & DIST_ON_SET) {
         // No need to ask the SKB as we always start pci for
@@ -201,7 +201,7 @@ errval_t watch_for_pci_root_bridge(void)
     static char* root_bridge = "r'hw\\.pci\\.rootbridge\\.[0-9]+' { "
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     return trigger_existing_and_watch(root_bridge, bridge_change_event,
             NULL, &tid);
 }
