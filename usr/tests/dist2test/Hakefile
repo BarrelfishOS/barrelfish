@@ -12,66 +12,66 @@
 
 [ build application { target = "d2getset",
                       cFiles = [ "d2getset.c" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
 
   build application { target = "d2pubsub",
                       cFiles = [ "d2pubsub.c" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
 
   
   build application { target = "d2trigger",
                       cFiles = [ "d2trigger.c" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
 
   build application { target = "d2barrier",
                       cFiles = [ "d2barrier.c" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
                                         
   build application { target = "d2locksimple",
                       cFiles = [ "d2locksimple.c" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
 
   build application { target = "d2read",
                       cFiles = [ "d2read.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderBindings = [ "octopus" ],
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
                     
   build application { target = "d2sem",
                       cFiles = [ "d2sem.c" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
                     
   build application { target = "d2bench",
                       cFiles = [ "d2bench.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderBindings = [ "octopus" ],
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
 
   build application { target = "d2bench1",
                       cFiles = [ "d2bench1.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderBindings = [ "octopus" ],
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     },
                     
   build application { target = "d2bench2",
                       cFiles = [ "d2bench2.c" ],
-                      flounderBindings = [ "dist2" ],
-                      flounderTHCStubs = [ "dist2" ],
-                      addLibraries = [ "dist2", "dist_parser", "thc" ]
+                      flounderBindings = [ "octopus" ],
+                      flounderTHCStubs = [ "octopus" ],
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
                     }    
 ]

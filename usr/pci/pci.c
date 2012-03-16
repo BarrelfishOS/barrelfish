@@ -590,20 +590,20 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
 
 
-                // dist2 start
+                // octopus start
                 char* record = NULL;
                 static char* device_fmt = "hw.pci.device. { "
                                           "bus: %u, device: %u, function: %u, "
                                           "vendor: %u, device_id: %u, class: %u, "
                                           "subclass: %u, prog_if: %u }";
-                errval_t err = dist_mset(SET_SEQUENTIAL, device_fmt,
+                errval_t err = oct_mset(SET_SEQUENTIAL, device_fmt,
                         addr.bus, addr.device, addr.function, vendor,
                         device_id, classcode.clss, classcode.subclss,
                         classcode.prog_if);
 
                 assert(err_is_ok(err));
                 free(record);
-                // end dist2
+                // end octopus
 
                 query_bars(devhdr, addr, false);
             }
@@ -633,7 +633,7 @@ errval_t pci_setup_root_complex(void)
     char** names = NULL;
     size_t len = 0;
     // TODO: react to new rootbridges
-    err = dist_get_names(&names, &len,
+    err = oct_get_names(&names, &len,
     		"r'hw.pci.rootbridge.[0-9]+' { acpi_node: _, bus: _, device: _, function: _, maxbus: _ }");
     if (err_is_fail(err)) {
 	DEBUG_ERR(err, "get names");
@@ -641,7 +641,7 @@ errval_t pci_setup_root_complex(void)
     }
 
     for (size_t i=0; i<len; i++) {
-		err = dist_get(&record, names[i]);
+		err = oct_get(&record, names[i]);
 		if (err_is_fail(err)) {
 			goto out;
 		}
@@ -651,7 +651,7 @@ errval_t pci_setup_root_complex(void)
 		char* acpi_node = NULL; // freed in pci_add_root
 		int64_t bus, device, function, maxbus;
 		static char* format =  "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
-		err = dist_read(record, format, &acpi_node, &bus, &device, &function, &maxbus);
+		err = oct_read(record, format, &acpi_node, &bus, &device, &function, &maxbus);
 		if (err_is_fail(err)) {
 			free(acpi_node);
 			free(record);
@@ -671,7 +671,7 @@ errval_t pci_setup_root_complex(void)
     }
 
 out:
-	dist_free_names(names, len);
+	oct_free_names(names, len);
     return err;
 }
 

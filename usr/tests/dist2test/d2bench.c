@@ -45,7 +45,7 @@ static void variable_records(void)
         printf("# Run experiment with %lu records:\n", records[i]);
 
         for (size_t j = records[i - 1]; j < records[i]; j++) {
-            errval_t err = dist_set("object%lu { attr: 'object%lu' }", j, j);
+            errval_t err = oct_set("object%lu { attr: 'object%lu' }", j, j);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "set");
                 exit(0);
@@ -55,7 +55,7 @@ static void variable_records(void)
         errval_t error_code;
         char* data = NULL;
 
-        struct octopus_rpc_client* cl = dist_get_thc_client();
+        struct octopus_rpc_client* cl = oct_get_thc_client();
         assert(cl != NULL);
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
@@ -87,7 +87,7 @@ static void variable_records(void)
 
 static void add_record(void) {
     size_t exps = sizeof(add_records) / sizeof(size_t);
-    struct octopus_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     errval_t error_code;
@@ -138,13 +138,13 @@ static void add_record(void) {
 
 static void one_record(void)
 {
-    errval_t err = dist_set("object0");
+    errval_t err = oct_set("object0");
     assert(err_is_ok(err));
 
     errval_t error_code;
     char* data = NULL;
 
-    struct octopus_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = oct_get_thc_client();
 
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
@@ -166,10 +166,10 @@ static void one_record(void)
 
 static void unnamed_record(void)
 {
-    errval_t err = dist_set("object0 { attr1: 'bla', attr2: 12.0 }");
+    errval_t err = oct_set("object0 { attr1: 'bla', attr2: 12.0 }");
     assert(err_is_ok(err));
 
-    struct octopus_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     char* data = NULL;
@@ -196,7 +196,7 @@ static void unnamed_record(void)
 int main(int argc, char** argv)
 {
     bench_init();
-    dist_init();
+    oct_init();
 
     if (0) one_record();
     if (0) variable_records();

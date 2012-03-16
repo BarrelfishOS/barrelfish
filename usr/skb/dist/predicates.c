@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief Definitions for external C predicates used in Prolog code of
- * the dist2 server implementation.
+ * the octopus server implementation.
  */
 
 /*
@@ -477,7 +477,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
     return PFAIL;
 }
 
-void dist_rpc_enqueue_reply(struct octopus_binding *b, struct dist_reply_state* st);
+void oct_rpc_enqueue_reply(struct octopus_binding *b, struct oct_reply_state* st);
 extern struct bitfield* trigger_ids;
 
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
@@ -508,7 +508,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         return res;
     }
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     res = ec_get_long(ec_arg(4), (long int*) &drs);
     if (res != PSUCCEED) {
         return res;
@@ -542,10 +542,10 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
 
         if (!retract) {
             // Copy reply state because the trigger will stay intact
-            struct dist_reply_state* drs_copy = NULL;
-            errval_t err = new_dist_reply_state(&drs_copy, NULL);
+            struct oct_reply_state* drs_copy = NULL;
+            errval_t err = new_oct_reply_state(&drs_copy, NULL);
             assert(err_is_ok(err));
-            memcpy(drs_copy, drs, sizeof(struct dist_reply_state));
+            memcpy(drs_copy, drs, sizeof(struct oct_reply_state));
             drs = drs_copy; // overwrite drs
         }
         else {
@@ -557,7 +557,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         drs->mode = (retract) ? (action | DIST_REMOVED) : action;
 
         if (drs->binding->st != NULL) {
-            dist_rpc_enqueue_reply(drs->binding, drs);
+            oct_rpc_enqueue_reply(drs->binding, drs);
         }
         else {
             drs->reply(drs->binding, drs);

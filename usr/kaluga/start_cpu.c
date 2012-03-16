@@ -89,7 +89,7 @@ static void boot_initialize_reply(struct monitor_binding *st)
 {
     KALUGA_DEBUG("boot_initialize_reply\n");
     cores_booted = true;
-    errval_t err = dist_set("all_spawnds_up { iref: 0 }");
+    errval_t err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 }
 
@@ -126,7 +126,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         KALUGA_DEBUG("CPU found: %s\n", record);
 
         uint64_t cpu_id, arch_id, enabled = 0;
-        errval_t err = dist_read(record, "_ { cpu_id: %d, id: %d, enabled: %d }",
+        errval_t err = oct_read(record, "_ { cpu_id: %d, id: %d, enabled: %d }",
                 &cpu_id, &arch_id, &enabled);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Cannot read record.");

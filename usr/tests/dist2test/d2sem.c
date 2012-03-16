@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Tests for dist2 get/set/del API
+ * \brief Tests for octopus get/set/del API
  */
 
 /*
@@ -24,33 +24,33 @@
 
 int main(int argc, char *argv[])
 {
-    dist_init();
+    oct_init();
 
     uint32_t id;
 
-    errval_t err = dist_sem_new(&id, 1);
+    errval_t err = oct_sem_new(&id, 1);
     ASSERT_ERR_OK(err);
     debug_printf("Semaphore created with id=%d\n", id);
 
-    err = dist_sem_trywait(id);
+    err = oct_sem_trywait(id);
     ASSERT_ERR_OK(err);
 
-    err = dist_sem_trywait(id);
+    err = oct_sem_trywait(id);
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
 
-    err = dist_sem_post(id);
+    err = oct_sem_post(id);
     ASSERT_ERR_OK(err);
 
-    err = dist_sem_post(id);
+    err = oct_sem_post(id);
     ASSERT_ERR_OK(err);
 
-    err = dist_sem_trywait(id);
+    err = oct_sem_trywait(id);
     ASSERT_ERR_OK(err);
 
-    err = dist_sem_trywait(id);
+    err = oct_sem_trywait(id);
     ASSERT_ERR_OK(err);
 
-    err = dist_sem_trywait(id);
+    err = oct_sem_trywait(id);
     ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
 
     printf("d2sem SUCCESS!\n");

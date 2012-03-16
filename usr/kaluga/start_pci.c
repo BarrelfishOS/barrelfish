@@ -30,7 +30,7 @@ static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 {
     assert(mode & DIST_ON_SET);
     uint64_t iref;
-    errval_t err = dist_read(spawnd_record, "_ { iref: %d }", &iref);
+    errval_t err = oct_read(spawnd_record, "_ { iref: %d }", &iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to read iref from spawnd record?");
     }
@@ -44,11 +44,11 @@ static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 static errval_t wait_for_spawnd(coreid_t core, void* state)
 {
     // Check if the core we're spawning on is already up...
-    struct octopus_thc_client_binding_t* cl = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     char* iref_record = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    octopus_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
+    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD,
             octopus_BINDING_EVENT, DIST_ON_SET, spawnd_up_event, state);
 
     // Construct service name
@@ -73,7 +73,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
     errval_t err;
     if (mode & DIST_ON_SET) {
         uint64_t vendor_id, device_id;
-        err = dist_read(device_record, "_ { vendor: %d, device_id: %d }",
+        err = oct_read(device_record, "_ { vendor: %d, device_id: %d }",
                 &vendor_id, &device_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Got malformed device record?");

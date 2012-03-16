@@ -85,7 +85,7 @@ static void read_eclipse_queue(int qid, struct skb_writer* w)
     w->buffer[w->length] = '\0';
 }
 
-static errval_t run_eclipse(struct dist_query_state* st)
+static errval_t run_eclipse(struct oct_query_state* st)
 {
     assert(st != NULL);
     long int qid;
@@ -125,13 +125,13 @@ static errval_t run_eclipse(struct dist_query_state* st)
     return err;
 }
 
-static void debug_skb_output(struct dist_query_state* st)
+static void debug_skb_output(struct oct_query_state* st)
 {
     DIST2_DEBUG(
             " output: %s error: %s error_code: %d\n", st->stdout.buffer, st->stderr.buffer, st->exec_res);
 }
 
-errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
+errval_t get_record(struct ast_object* ast, struct oct_query_state* sqs)
 {
     assert(ast != NULL);
     assert(sqs != NULL);
@@ -163,7 +163,7 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* sqs)
     return err;
 }
 
-errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
+errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs)
 {
     assert(ast != NULL);
     assert(dqs != NULL);
@@ -209,7 +209,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs)
 }
 
 errval_t set_record(struct ast_object* ast, uint64_t mode,
-        struct dist_query_state* sqs)
+        struct oct_query_state* sqs)
 {
     assert(ast != NULL);
     assert(sqs != NULL);
@@ -244,7 +244,7 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
     return err;
 }
 
-errval_t del_record(struct ast_object* ast, struct dist_query_state* dqs)
+errval_t del_record(struct ast_object* ast, struct oct_query_state* dqs)
 {
     // TODO sr.attributes, sr.constraints currently not used for delete
     // it's just based on the name
@@ -296,7 +296,7 @@ static errval_t init_bitmap(struct bitfield** bf)
     return err;
 }
 
-static void store_template(struct dist_reply_state* drs,
+static void store_template(struct oct_reply_state* drs,
         struct skb_ec_terms* sr, pword storage, pword recipient)
 {
     dident add_subscription = ec_did("add_subscription", 4);
@@ -314,7 +314,7 @@ static void store_template(struct dist_reply_state* drs,
 }
 
 errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
-        uint64_t mode, struct dist_reply_state* drs, uint64_t* wid)
+        uint64_t mode, struct oct_reply_state* drs, uint64_t* wid)
 {
     errval_t err = init_bitmap(&trigger_ids);
     if (err_is_fail(err)) {
@@ -355,7 +355,7 @@ errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
 }
 
 errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
-        struct dist_query_state* dqs)
+        struct oct_query_state* dqs)
 {
     dident remove_watch = ec_did("remove_watch", 2);
     pword binding_ptr = ec_long((long int) b);
@@ -377,7 +377,7 @@ errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
 struct octopus_binding* get_event_binding(struct octopus_binding* b)
 {
     errval_t err = SYS_ERR_OK;
-    struct dist_query_state* dqs = calloc(1, sizeof(struct dist_query_state));
+    struct oct_query_state* dqs = calloc(1, sizeof(struct oct_query_state));
     if (dqs == NULL) {
         DIST2_DEBUG("Server out of memory.");
         return NULL;
@@ -416,7 +416,7 @@ struct octopus_binding* get_event_binding(struct octopus_binding* b)
 }
 
 errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
-        uint64_t trigger_fn, uint64_t state, struct dist_reply_state* drs)
+        uint64_t trigger_fn, uint64_t state, struct oct_reply_state* drs)
 {
     errval_t err = init_bitmap(&subscriber_ids);
     if (err_is_fail(err)) {
@@ -457,7 +457,7 @@ errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
 }
 
 errval_t del_subscription(struct octopus_binding* b, uint64_t id,
-        struct dist_query_state* sqs)
+        struct oct_query_state* sqs)
 {
     errval_t err = SYS_ERR_OK;
     pword binding_term = ec_long((long int) get_event_binding(b));
@@ -484,7 +484,7 @@ errval_t del_subscription(struct octopus_binding* b, uint64_t id,
     return err;
 }
 
-errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
+errval_t find_subscribers(struct ast_object* ast, struct oct_query_state* sqs)
 {
     struct skb_ec_terms sr;
     errval_t err = transform_record(ast, &sr);
@@ -521,7 +521,7 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* sqs)
 
 errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding)
 {
-    struct dist_query_state* dqs = malloc(sizeof(struct dist_query_state));
+    struct oct_query_state* dqs = malloc(sizeof(struct oct_query_state));
     if (dqs == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }

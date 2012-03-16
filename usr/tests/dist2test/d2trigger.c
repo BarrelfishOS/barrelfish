@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Test RPC calls with triggers in dist2
+ * \brief Test RPC calls with triggers in octopus
  */
 
 /*
@@ -56,21 +56,21 @@ static void persistent_trigger(octopus_mode_t m, char* record, void* state) {
 
 int main(int argc, char *argv[])
 {
-    dist_init();
+    oct_init();
     errval_t err = SYS_ERR_OK;
     octopus_trigger_id_t tid;
     size_t received = 0;
 
-    err = dist_set("obj1 { attr: 1 }");
+    err = oct_set("obj1 { attr: 1 }");
     ASSERT_ERR_OK(err);
-    err = dist_set("obj2 { attr: 2 }");
+    err = oct_set("obj2 { attr: 2 }");
     ASSERT_ERR_OK(err);
-    err = dist_set("obj3 { attr: 3 }");
+    err = oct_set("obj3 { attr: 3 }");
     ASSERT_ERR_OK(err);
 
-    struct octopus_thc_client_binding_t* c = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* c = oct_get_thc_client();
 
-    octopus_trigger_t record_deleted = dist_mktrigger(SYS_ERR_OK,
+    octopus_trigger_t record_deleted = oct_mktrigger(SYS_ERR_OK,
             octopus_BINDING_EVENT, DIST_ON_DEL, trigger_handler, &received);
 
     errval_t error_code = SYS_ERR_OK;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
     debug_printf("tid is: %lu\n", tid);
     free(output);
 
-    dist_del("obj3");
+    oct_del("obj3");
     while (received != 1) {
         messages_wait_and_handle_next();
     }
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
     received = 0;
     tid = 0;
     octopus_mode_t m = DIST_ON_SET | DIST_ON_DEL | DIST_PERSIST;
-    octopus_trigger_t ptrigger = dist_mktrigger(SYS_ERR_OK,
+    octopus_trigger_t ptrigger = oct_mktrigger(SYS_ERR_OK,
             octopus_BINDING_EVENT, m, persistent_trigger, &received);
     output = NULL;
     err = c->call_seq.get(c, "obj2", ptrigger, &output,
@@ -101,19 +101,19 @@ int main(int argc, char *argv[])
     debug_printf("tid is: %lu\n", tid);
     ASSERT_STRING(output, "obj2 { attr: 2 }");
 
-    dist_del("obj2");
+    oct_del("obj2");
     while (received != 1) {
         messages_wait_and_handle_next();
     }
 
     received = 0;
-    dist_set("obj2 { attr: 'asdf' }");
+    oct_set("obj2 { attr: 'asdf' }");
     while (received != 1) {
         messages_wait_and_handle_next();
     }
 
     received = 0;
-    err = dist_remove_trigger(tid);
+    err = oct_remove_trigger(tid);
     DEBUG_ERR(err, "remove trigger");
     ASSERT_ERR_OK(err);
     while (received != 1) {

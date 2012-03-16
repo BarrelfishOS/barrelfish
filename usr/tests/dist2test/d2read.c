@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Tests dist_read call
+ * \brief Tests oct_read call
  */
 
 /*
@@ -28,31 +28,31 @@
 int main(int argc, char *argv[])
 {
     errval_t err = SYS_ERR_OK;
-    dist_init();
+    oct_init();
 
     char* name = NULL;
     char* attr1 = NULL;
     double d;
     uint64_t i;
 
-    err = dist_read("record", "%s", &name);
+    err = oct_read("record", "%s", &name);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(name, "record");
     free(name);
 
-    err = dist_read("record {}", "%s {}", &name);
+    err = oct_read("record {}", "%s {}", &name);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(name, "record");
     free(name);
 
-    err = dist_read("record { attr1: 'Test String 123' }", "%s { attr1: %s }", &name, &attr1);
+    err = oct_read("record { attr1: 'Test String 123' }", "%s { attr1: %s }", &name, &attr1);
     ASSERT_STRING(name, "record");
     ASSERT_STRING(attr1, "Test String 123");
     ASSERT_ERR_OK(err);
     free(name);
     free(attr1);
 
-    err = dist_read("record2 { str: 'string', float: 12.0, integer: 1212}",
+    err = oct_read("record2 { str: 'string', float: 12.0, integer: 1212}",
     		"_ { float: %f, str: %s, integer: %d }", &d, &attr1, &i);
     ASSERT_ERR_OK(err);
     ASSERT_STRING(attr1, "string");

@@ -34,12 +34,12 @@ static void lockit(void* arg)
     errval_t err = SYS_ERR_OK;
 
     if (!locked) {
-        err = dist_lock("lock_test", &lock);
+        err = oct_lock("lock_test", &lock);
         DEBUG_ERR(err, "lock");
         assert(err_is_ok(err));
         locked = true;
     } else {
-        err = dist_unlock(lock);
+        err = oct_unlock(lock);
         DEBUG_ERR(err, "unlock");
         assert(err_is_ok(err));
         locked = false;
@@ -49,7 +49,7 @@ static void lockit(void* arg)
 
 int main(int argc, char *argv[])
 {
-    dist_init();
+    oct_init();
 
     /*
      debug_printf("create periodic event...\n");

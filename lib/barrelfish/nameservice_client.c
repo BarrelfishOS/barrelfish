@@ -19,7 +19,7 @@
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
 #include <if/monitor_defs.h>
-#include <octopus/getset.h> // for dist_read TODO
+#include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 
 /**
@@ -53,7 +53,7 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
     }
 
     uint64_t iref_number = 0;
-    err = dist_read(record, "_ { iref: %d }", &iref_number);
+    err = oct_read(record, "_ { iref: %d }", &iref_number);
     if (err_is_fail(err) || iref_number == 0) {
         err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
         goto out;
@@ -97,7 +97,7 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
     }
 
     uint64_t iref_number = 0;
-    err = dist_read(record, "_ { iref: %d }", &iref_number);
+    err = oct_read(record, "_ { iref: %d }", &iref_number);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
         goto out;

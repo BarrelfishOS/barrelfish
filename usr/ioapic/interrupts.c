@@ -216,7 +216,7 @@ errval_t init_all_apics(void)
 
     char** names = NULL;
     size_t len = 0;
-    err = dist_get_names(&names, &len,
+    err = oct_get_names(&names, &len,
             "r'hw.ioapic.[0-9]+' { id: _, address: _, irqbase: _ }");
     if (err_is_fail(err)) {
         return err;
@@ -224,11 +224,11 @@ errval_t init_all_apics(void)
 
     for (size_t i=0; i<len; i++) {
         char* record = NULL;
-        err = dist_get(&record, names[i]);
+        err = oct_get(&record, names[i]);
         if (err_is_ok(err)) {
             APIC_DEBUG("Found I/O APIC record: %s\n", record);
             uint64_t id, address, irqbase;
-            err = dist_read(record, "_ { id: %d, address: %d, irqbase: %d }",
+            err = oct_read(record, "_ { id: %d, address: %d, irqbase: %d }",
                     &id, &address, &irqbase);
             free(record);
             if (err_is_fail(err)) {
@@ -244,7 +244,7 @@ errval_t init_all_apics(void)
     }
 
 out:
-    dist_free_names(names, len);
+    oct_free_names(names, len);
     return err;
 }
 

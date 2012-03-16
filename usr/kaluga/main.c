@@ -88,7 +88,7 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Device DB not loaded.");
     }
 
-    err = dist_init();
+    err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Initialize dist library.");
     }
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot
     // time in order to start-up properly.
-    err = dist_barrier_enter("barrier.acpi", &record, 2);
+    err = oct_barrier_enter("barrier.acpi", &record, 2);
 
     err = watch_for_ioapic();
     if (err_is_fail(err)) {

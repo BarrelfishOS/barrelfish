@@ -16,11 +16,11 @@
 #define DIST2_PUBSUB_H_
 
 #include <stdint.h>
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus/trigger.h>
 
-typedef dist2_trigger_id_t subscription_t;
+typedef octopus_trigger_id_t subscription_t;
 typedef trigger_handler_fn subscription_handler_fn;
 
 errval_t oct_subscribe(subscription_handler_fn, const void*, subscription_t*,

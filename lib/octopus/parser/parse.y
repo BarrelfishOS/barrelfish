@@ -4,9 +4,9 @@
 #include <assert.h>
 
 #ifdef TEST_PARSER
-#include "../../../include/dist2/parser/ast.h"
+#include "../../../include/octopus/parser/ast.h"
 #else
-#include <dist2/parser/ast.h>
+#include <octopus/parser/ast.h>
 #endif
 
 #include "y.tab.h"
@@ -14,7 +14,7 @@
 void yyerror(char *);
 
 #define YYPARSE_PARAM data
-#define YYLEX_PARAM   ((struct dist_parser_state*)data)->scanner
+#define YYLEX_PARAM   ((struct oct_parser_state*)data)->scanner
 
 %}
 
@@ -65,7 +65,7 @@ void yyerror(char *);
 
 %%
 program:
-      record                         { ((struct dist_parser_state*) data)->ast = $1; YYACCEPT;  }
+      record                         { ((struct oct_parser_state*) data)->ast = $1; YYACCEPT;  }
     
 record: 
       name END_OF_INPUT              { $$ = ast_object($1, NULL); }

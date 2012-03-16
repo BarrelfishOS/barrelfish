@@ -16,15 +16,15 @@
 #define DIST2_TRIGGER_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus/definitions.h>
 
-#define NOP_TRIGGER     (dist2_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
+#define NOP_TRIGGER     (octopus_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
 
-typedef void(*trigger_handler_fn)(dist2_mode_t mode, char* record, void* state);
-dist2_trigger_t oct_mktrigger(errval_t, dist2_binding_type_t, dist2_mode_t,
+typedef void(*trigger_handler_fn)(octopus_mode_t mode, char* record, void* state);
+octopus_trigger_t oct_mktrigger(errval_t, octopus_binding_type_t, octopus_mode_t,
         trigger_handler_fn, void*);
-errval_t oct_remove_trigger(dist2_trigger_id_t);
+errval_t oct_remove_trigger(octopus_trigger_id_t);
 
 #endif /* DIST2_TRIGGER_H_ */

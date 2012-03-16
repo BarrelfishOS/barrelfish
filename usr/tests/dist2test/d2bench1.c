@@ -30,22 +30,22 @@ int main(int argc, char** argv)
 	int clients = atoi(argv[1]);
 	assert(clients > 0);
 
-    dist_init();
+    oct_init();
 
     char payload[256] = { [0 ... 254] = 'a', [255] = '\0' };
 
-    struct octopus_rpc_client* cl = dist_get_thc_client();
+    struct octopus_rpc_client* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     char record[300];
     sprintf(record, "rec { attr: '%s' }", payload);
     printf("record is: %s\n", record);
 
-    errval_t err = dist_set(record);
+    errval_t err = oct_set(record);
     assert(err_is_ok(err));
 
     char* barrier = NULL;
-    err = dist_barrier_enter("d2bench1", &barrier, clients);
+    err = oct_barrier_enter("d2bench1", &barrier, clients);
     assert(err_is_ok(err));
 
     char* reply;

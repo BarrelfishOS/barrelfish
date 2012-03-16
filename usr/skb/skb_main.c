@@ -33,7 +33,7 @@
 int skb_init(void);
 void execute_string(char *string);
 
-/* XXX: used dlmalloc for benchmarking dist2 */
+/* XXX: used dlmalloc for benchmarking octopus */
 #include <dmalloc/dmalloc.h>
 typedef void *(*alt_malloc_t)(size_t bytes);
 extern alt_malloc_t alt_malloc;
@@ -76,7 +76,7 @@ int main(int argc, char**argv)
     execute_string("set_flag(print_depth,100).");
 
     if(disp_get_core_id() == 0) {
-        //debug_printf("dist_server_init\n");
+        //debug_printf("oct_server_init\n");
         //execute_string("set_flag(gc, off).");
         //execute_string("set_flag(gc_policy, fixed).");
         //execute_string("set_flat(gc_interval, 536870912)."); // 512 mb
@@ -86,7 +86,7 @@ int main(int argc, char**argv)
         //execute_string("set_flag(debugging, nodebug).");
         //bench_init();
 
-        // dist2 related stuff
+        // octopus related stuff
         execute_string("[objects3].");
         execute_string("[pubsub3].");
         execute_string("[bindings].");
@@ -103,7 +103,7 @@ int main(int argc, char**argv)
         ec_external(ec_did("split", 4), (int (*)()) ec_regsplit, e);
         // end
 
-        errval_t err = dist_server_init();
+        errval_t err = oct_server_init();
         assert(err_is_ok(err));
     }
     if (disp_get_core_id() == 0) {

@@ -12,11 +12,11 @@ errval_t trigger_existing_and_watch(const char* query,
     char* output = NULL;
     char* record = NULL; // freed by cpu_change_event
     size_t len = 0;
-    octopus_trigger_t t = dist_mktrigger(0, octopus_BINDING_EVENT,
+    octopus_trigger_t t = oct_mktrigger(0, octopus_BINDING_EVENT,
             TRIGGER_ALWAYS, event_handler, state);
 
     // Get current cores registered in system
-    struct octopus_thc_client_binding_t* rpc = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* rpc = oct_get_thc_client();
     errval_t err = rpc->call_seq.get_names(rpc, query,
             t, &output, tid, &error_code);
     if (err_is_fail(err)) {
@@ -26,14 +26,14 @@ errval_t trigger_existing_and_watch(const char* query,
 
     switch(err_no(err)) {
     case SYS_ERR_OK:
-        err = dist_parse_names(output, &names, &len);
+        err = oct_parse_names(output, &names, &len);
         if (err_is_fail(err)) {
             goto out;
         }
 
         for (size_t i=0; i < len; i++) {
             KALUGA_DEBUG("get record for name:%s\n", names[i]);
-            err = dist_get(&record, names[i]);
+            err = oct_get(&record, names[i]);
 
             switch (err_no(err)) {
             case SYS_ERR_OK:
@@ -61,7 +61,7 @@ errval_t trigger_existing_and_watch(const char* query,
     }
 
 out:
-    dist_free_names(names, len);
+    oct_free_names(names, len);
     free(output);
 
     return err;

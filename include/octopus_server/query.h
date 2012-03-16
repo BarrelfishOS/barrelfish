@@ -19,7 +19,7 @@
 #define DIST2_QUERY_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist2_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus_server/service.h>
 #include <octopus/parser/ast.h>
@@ -40,12 +40,12 @@
  * \retval DIST2_ERR_ENGINE_FAIL
  * \retval LIB_ERR_MALLOC_FAIL
  */
-errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding);
+errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding);
 
 /**
  * Given a query returns a number of record names matching
  * the query. The record names are stored as a comma separated string
- * in dist_query_state.
+ * in oct_query_state.
  *
  * \param ast Abstract Syntax Tree of query.
  * \param dqs Contains the result of the query invocation.
@@ -54,7 +54,7 @@ errval_t set_binding(dist2_binding_type_t type, uint64_t id, void* binding);
  * \retval DIST2_ERR_NO_RECORD
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs);
+errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs);
 
 /**
  * \brief Returns a record matching the given query.
@@ -66,7 +66,7 @@ errval_t get_record_names(struct ast_object* ast, struct dist_query_state* dqs);
  * \retval DIST2_ERR_NO_RECORD
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t get_record(struct ast_object* ast, struct dist_query_state* dqs);
+errval_t get_record(struct ast_object* ast, struct oct_query_state* dqs);
 
 /**
  * \brief Stores a record in the database.
@@ -79,7 +79,7 @@ errval_t get_record(struct ast_object* ast, struct dist_query_state* dqs);
  * \retval DIST2_ERR_ENGINE_FAIL
  */
 errval_t set_record(struct ast_object* ast, uint64_t mode,
-        struct dist_query_state* dqs);
+        struct oct_query_state* dqs);
 
 /**
  * \brief Deletes a record in the database.
@@ -91,7 +91,7 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
  * \retval DIST2_ERR_NO_RECORD
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t del_record(struct ast_object*, struct dist_query_state*);
+errval_t del_record(struct ast_object*, struct oct_query_state*);
 
 /**
  * Sets a watch for a record(s) matching the given query. The Query Engine
@@ -107,8 +107,8 @@ errval_t del_record(struct ast_object*, struct dist_query_state*);
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t set_watch(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t mode, struct dist_reply_state* drs, uint64_t* wid);
+errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
+        uint64_t mode, struct oct_reply_state* drs, uint64_t* wid);
 
 /**
  * \brief Removes a watch
@@ -121,8 +121,8 @@ errval_t set_watch(struct dist2_binding* b, struct ast_object* ast,
  * \retval DIST2_ERR_INVALID_ID
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
-        struct dist_query_state* dqs);
+errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
+        struct oct_query_state* dqs);
 
 /**
  * \brief Adds a subscription.
@@ -138,8 +138,8 @@ errval_t del_watch(struct dist2_binding* b, dist2_trigger_id_t id,
  * \retval DIST2_ERR_ENGINE_FAIL
  * \retval LIB_ERR_MALLOC_FAIL
  */
-errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
-        uint64_t trigger_fn, uint64_t state, struct dist_reply_state* drs);
+errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
+        uint64_t trigger_fn, uint64_t state, struct oct_reply_state* drs);
 
 /**
  * \brief Deletes a subscription for a given (Binding, Id) pair.
@@ -152,8 +152,8 @@ errval_t add_subscription(struct dist2_binding* b, struct ast_object* ast,
  * \retval DIST2_ERR_NO_SUBSCRIPTION
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t del_subscription(struct dist2_binding* b, uint64_t id,
-        struct dist_query_state* dqs);
+errval_t del_subscription(struct octopus_binding* b, uint64_t id,
+        struct oct_query_state* dqs);
 
 /**
  * Find all subscribers with a matching subscription for the given
@@ -166,7 +166,7 @@ errval_t del_subscription(struct dist2_binding* b, uint64_t id,
  * \retval DIST2_ERR_NO_SUBSCRIBERS
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* dqs);
+errval_t find_subscribers(struct ast_object* ast, struct oct_query_state* dqs);
 
 /**
  * \brief Find the event binding of the client based on his RPC binding.
@@ -174,6 +174,6 @@ errval_t find_subscribers(struct ast_object* ast, struct dist_query_state* dqs);
  * \param binding RPC binding
  * \return Pointer of event binding or NULL on error.
  */
-struct dist2_binding* get_event_binding(struct dist2_binding* binding);
+struct octopus_binding* get_event_binding(struct octopus_binding* binding);
 
 #endif /* DIST2_QUERY_H_ */

@@ -16,8 +16,8 @@
 #define DIST2_INIT_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/dist2_defs.h>
-#include <if/dist2_thc.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
         "Sending pointers might fail :-(.");
@@ -25,7 +25,7 @@ STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
 errval_t oct_init(void);
 errval_t oct_thc_init(void);
 
-struct dist2_thc_client_binding_t* oct_get_thc_client(void);
-struct dist2_binding* oct_get_event_binding(void);
+struct octopus_thc_client_binding_t* oct_get_thc_client(void);
+struct octopus_binding* oct_get_event_binding(void);
 
 #endif /* DIST2_INIT_H_ */

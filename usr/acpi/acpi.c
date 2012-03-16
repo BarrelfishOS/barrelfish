@@ -552,10 +552,10 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
            resources.minbus, resources.maxbus, resources.minmem,
            resources.maxmem);
 
-    // dist2 record for rootbridge
+    // octopus record for rootbridge
     ACPI_DEBUG("acpi_node: %s\n", namebuf);
     static char* format = "hw.pci.rootbridge. { bus: %lu, device: %lu, function: %lu, maxbus: %lu, acpi_node: '%s' }";
-    errval_t err = dist_mset(SET_SEQUENTIAL, format,
+    errval_t err = oct_mset(SET_SEQUENTIAL, format,
             bridgeaddr.bus, bridgeaddr.device, bridgeaddr.function,
             resources.maxbus, namebuf);
     assert(err_is_ok(err));
@@ -604,7 +604,7 @@ static int acpi_init(void)
     // Signal device manager that we have added records for everything
     // available to us at boot time.
     char* record = NULL;
-    err = dist_barrier_enter("barrier.acpi", &record, 2);
+    err = oct_barrier_enter("barrier.acpi", &record, 2);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not enter barrier.");
     }

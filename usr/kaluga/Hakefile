@@ -14,8 +14,8 @@
                       cFiles = [ "main.c", "queue.c", "boot_modules.c", "common.c",
                                  "start_cpu.c", "start_pci.c", "driver_startup.c" ],
           	          flounderDefs = [ "monitor" ],
-                      flounderBindings = [ "dist2" ],
-                      addLibraries = [ "skb", "dist2", "dist_parser", 
+                      flounderBindings = [ "octopus" ],
+                      addLibraries = [ "skb", "octopus", "octopus_parser", 
                                        "thc", "vfs", "nfs", "ahci", "lwip",
                                        "contmng", "procon", "hashtable", 
                                        "spawndomain", "elf", "trace" ] }

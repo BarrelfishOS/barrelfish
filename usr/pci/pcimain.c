@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
     debug_printf("pci staretd\n");
     errval_t err;
 
-    err = dist_init();
+    err = oct_init();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "dist initialization failed.");
     }

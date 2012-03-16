@@ -27,7 +27,7 @@
 static void start_publisher(void) {
 
 	for (size_t i=0; i < MAX_SEND; i++) {
-		errval_t err = dist_publish("msg_1 { val: %d }", 1);
+		errval_t err = oct_publish("msg_1 { val: %d }", 1);
 		if (err_is_fail(err)) { DEBUG_ERR(err, "publish"); exit(1); }
 	}
 
@@ -39,13 +39,13 @@ static void handle_msg(uint64_t id, char* msg, void* state)
 }
 
 static void start_subscriber() {
-	errval_t err = dist_subscribe(handle_msg, NULL, &id, "_ { val: 1 }");
+	errval_t err = oct_subscribe(handle_msg, NULL, &id, "_ { val: 1 }");
 	if (err_is_fail(err)) { DEBUG_ERR(err, "subscribe"); exit(1); }
 }
 
 int main(int argc, char** argv)
 {
-    dist_init();
+    oct_init();
     bench_init();
 
     start_client();

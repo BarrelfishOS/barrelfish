@@ -131,7 +131,7 @@ static void construct_record(size_t attributes) {
 static void no_name_get_worstcase(void)
 {
     // reference record to measure retrieve time
-    errval_t err = dist_set("zzz { weight: 999, value: 'high', attr: 999, bench: 1234.123, rand: '1' }");
+    errval_t err = oct_set("zzz { weight: 999, value: 'high', attr: 999, bench: 1234.123, rand: '1' }");
     char* query = "_ { weight: 999, value: 'high', attr: 999, bench: 1234.123, rand: '1' }";
     assert(err_is_ok(err));
 
@@ -139,7 +139,7 @@ static void no_name_get_worstcase(void)
     for (size_t i = 1; i < exps; i++) {
         printf("# Run no_name_get_worstcase with %lu records:\n", records[i]);
 
-        struct octopus_rpc_client* cl = dist_get_thc_client();
+        struct octopus_rpc_client* cl = oct_get_thc_client();
         assert(cl != NULL);
         errval_t error_code;
         char* record;
@@ -171,7 +171,7 @@ static void no_name_get_worstcase(void)
 
 int main(int argc, char** argv)
 {
-    dist_init();
+    oct_init();
     bench_init();
 
     no_name_get_worstcase();
