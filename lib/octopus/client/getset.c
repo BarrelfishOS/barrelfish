@@ -49,7 +49,7 @@ static int cmpstringp(const void *p1, const void *p2)
 /**
  * \brief Parses output from get_names call and stores it in an array.
  *
- * \note Use dist_free_names() to free names array.
+ * \note Use oct_free_names() to free names array.
  *
  * \param[in] input Comma separated string of names
  * \param[out] names Array of strings containing all names
@@ -58,7 +58,7 @@ static int cmpstringp(const void *p1, const void *p2)
  * \retval LIB_ERR_MALLOC_FAIL
  * \retval SYS_ERR_OK
  */
-errval_t dist_parse_names(char* input, char*** names, size_t* len)
+errval_t oct_parse_names(char* input, char*** names, size_t* len)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -98,7 +98,7 @@ errval_t dist_parse_names(char* input, char*** names, size_t* len)
         if (tok != NULL) {
             (*names)[i] = mystrdup(tok);
             if ((*names)[i] == NULL) {
-                dist_free_names(*names, i);
+                oct_free_names(*names, i);
                 *names = NULL;
                 *len = 0;
                 err = LIB_ERR_MALLOC_FAIL;
@@ -118,7 +118,7 @@ out:
  * \brief Retrieve all record names matching a given query.
  *
  * \param[out] names Names of all records matching the query.
- * Needs to be freed by the client (use dist_free_names) in
+ * Needs to be freed by the client (use oct_free_names) in
  * case of SYS_ERR_OK/LIB_ERR_MALLOC_FAIL.
  * \param[out] size Number of records matching the query. 0 in case of error.
  * \param[in] query Query sent to the server
@@ -130,7 +130,7 @@ out:
  * \retval DIST2_ERR_ENGINE_FAIL
  * \retval LIB_ERR_MALLOC_FAIL
  */
-errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
+errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
 {
     assert(query != NULL);
 
@@ -143,7 +143,7 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
 
     FORMAT_QUERY(query, args, buf); // buf
 
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
 
     errval_t error_code;
     dist2_trigger_id_t tid;
@@ -154,7 +154,7 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
     }
 
     if (err_is_ok(err)) {
-        err = dist_parse_names(data, names, len);
+        err = oct_parse_names(data, names, len);
         //qsort(*names, *len, sizeof(char*), cmpstringp);
     }
 
@@ -171,9 +171,9 @@ errval_t dist_get_names(char*** names, size_t* len, const char* query, ...)
  * \param names Non-null array of strings.
  * \param len Size of the names array
 
- * \see dist_get_names
+ * \see oct_get_names
  */
-void dist_free_names(char** names, size_t len)
+void oct_free_names(char** names, size_t len)
 {
     //assert(names != NULL);
     for (size_t i = 0; i < len; i++) {
@@ -196,7 +196,7 @@ void dist_free_names(char** names, size_t len)
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_get(char** data, const char* query, ...)
+errval_t oct_get(char** data, const char* query, ...)
 {
     assert(query != NULL);
     errval_t error_code;
@@ -207,7 +207,7 @@ errval_t dist_get(char** data, const char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
     err = cl->call_seq.get(cl, buf, NOP_TRIGGER, data,
             &tid, &error_code);
@@ -231,7 +231,7 @@ errval_t dist_get(char** data, const char* query, ...)
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_set(const char* query, ...)
+errval_t oct_set(const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -241,7 +241,7 @@ errval_t dist_set(const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     // Send to Server
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
 
     char* record = NULL;
     errval_t error_code;
@@ -270,7 +270,7 @@ errval_t dist_set(const char* query, ...)
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_mset(dist_mode_t mode, const char* query, ...)
+errval_t oct_mset(oct_mode_t mode, const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -280,7 +280,7 @@ errval_t dist_mset(dist_mode_t mode, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     // Send to Server
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
 
     char* record = NULL;
     errval_t error_code;
@@ -316,7 +316,7 @@ errval_t dist_mset(dist_mode_t mode, const char* query, ...)
  * TODO maybe remove this function completely and let all use rpc call for set
  * directly if they want to a non-trivial set?
  */
-errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
+errval_t oct_set_get(oct_mode_t mode, char** record, const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -326,7 +326,7 @@ errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
     FORMAT_QUERY(query, args, buf);
 
     // Send to Server
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
     dist2_trigger_id_t tid;
     err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, true, record,
@@ -353,7 +353,7 @@ errval_t dist_set_get(dist_mode_t mode, char** record, const char* query, ...)
  *
  * TODO: Atm only name of record is included in del query on server.
  */
-errval_t dist_del(const char* query, ...)
+errval_t oct_del(const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -362,7 +362,7 @@ errval_t dist_del(const char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
     dist2_trigger_id_t tid;
     err = cl->call_seq.del(cl, buf, NOP_TRIGGER, &tid, &error_code);
@@ -385,7 +385,7 @@ errval_t dist_del(const char* query, ...)
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  **/
-errval_t dist_exists(const char* query, ...)
+errval_t oct_exists(const char* query, ...)
 {
     assert(query != NULL);
     errval_t err = SYS_ERR_OK;
@@ -394,7 +394,7 @@ errval_t dist_exists(const char* query, ...)
     char* buf = NULL;
     FORMAT_QUERY(query, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
     dist2_trigger_id_t tid;
     err = cl->call_seq.exists(cl, buf, NOP_TRIGGER, &tid, &error_code);

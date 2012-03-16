@@ -39,14 +39,14 @@
 static struct hashtable *capdb = NULL;
 
 static void get_cap_reply(struct dist2_binding *b,
-        struct dist_reply_state* ns)
+        struct oct_reply_state* ns)
 {
     errval_t err;
     err = b->tx_vtbl.get_cap_response(b, MKCONT(free, ns), ns->cap, ns->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, ns);
+            oct_rpc_enqueue_reply(b, ns);
             return;
         }
         USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
@@ -64,8 +64,8 @@ void get_cap_handler(struct dist2_binding *b, char *key)
         reterr = DIST2_ERR_CAP_NAME_UNKNOWN;
     }
 
-    struct dist_reply_state* ns = NULL;
-    err = new_dist_reply_state(&ns, get_cap_reply);
+    struct oct_reply_state* ns = NULL;
+    err = new_oct_reply_state(&ns, get_cap_reply);
     assert(err_is_ok(err));
     ns->cap = cap;
     ns->error = reterr;
@@ -75,14 +75,14 @@ void get_cap_handler(struct dist2_binding *b, char *key)
 }
 
 static void put_cap_reply(struct dist2_binding *b,
-        struct dist_reply_state* ns)
+        struct oct_reply_state* ns)
 {
     errval_t err;
     err = b->tx_vtbl.put_cap_response(b, MKCONT(free, ns), ns->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, ns);
+            oct_rpc_enqueue_reply(b, ns);
             return;
         }
         USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
@@ -105,8 +105,8 @@ void put_cap_handler(struct dist2_binding *b, char *key,
         assert(r == 0);
     }
 
-    struct dist_reply_state* ns = NULL;
-    err = new_dist_reply_state(&ns, put_cap_reply);
+    struct oct_reply_state* ns = NULL;
+    err = new_oct_reply_state(&ns, put_cap_reply);
     assert(err_is_ok(err));
     ns->error = reterr;
     ns->reply(b, ns);
@@ -115,14 +115,14 @@ void put_cap_handler(struct dist2_binding *b, char *key,
 }
 
 static void remove_cap_reply(struct dist2_binding *b,
-        struct dist_reply_state* ns)
+        struct oct_reply_state* ns)
 {
     errval_t err;
     err = b->tx_vtbl.remove_cap_response(b, MKCONT(free, ns), ns->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, ns);
+            oct_rpc_enqueue_reply(b, ns);
             return;
         }
         USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
@@ -143,8 +143,8 @@ void remove_cap_handler(struct dist2_binding *b, char *key)
         capdb->d.remove(&capdb->d, key, strlen(key));
     }
 
-    struct dist_reply_state* ns = NULL;
-    err = new_dist_reply_state(&ns, remove_cap_reply);
+    struct oct_reply_state* ns = NULL;
+    err = new_oct_reply_state(&ns, remove_cap_reply);
     assert(err_is_ok(err));
     ns->error = reterr;
     ns->reply(b, ns);

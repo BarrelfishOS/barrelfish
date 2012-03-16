@@ -32,13 +32,13 @@
  * Once the lock owner deletes its lock_record the next client in
  * the queue is notified through triggers.
  *
- * \note Once a client holds the lock it can be released using dist_unlock.
+ * \note Once a client holds the lock it can be released using oct_unlock.
  *
  * \param[in] lock_name Name to identify the lock.
  * \param[out] lock_record Your current lock record in the queue.
  * Client needs to free this.
  */
-errval_t dist_lock(const char* lock_name, char** lock_record)
+errval_t oct_lock(const char* lock_name, char** lock_record)
 {
     assert(lock_name != NULL);
 
@@ -54,21 +54,21 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
     uint64_t state = 0;
     uint64_t fn = 0;
     dist2_trigger_id_t tid;
-    dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
+    dist2_trigger_t t = oct_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
             dist2_BINDING_RPC, NULL, NULL);
 
-    err = dist_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }",
+    err = oct_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }",
             lock_name, lock_name);
     if (err_is_fail(err)) {
         goto out;
     }
-    err = dist_read(*lock_record, "%s", &name);
+    err = oct_read(*lock_record, "%s", &name);
     if (err_is_fail(err)) {
         goto out;
     }
 
     while (true) {
-        err = dist_get_names(&names, &len, "_ { lock: '%s' }", lock_name);
+        err = oct_get_names(&names, &len, "_ { lock: '%s' }", lock_name);
         if (err_is_fail(err)) {
             goto out;
         }
@@ -90,7 +90,7 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
         }
         else {
             // Someone else holds the lock
-            struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+            struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
             //debug_printf("exists for %s...\n", names[i-1]);
             err = cl->call_seq.exists(cl, names[i-1], t, &tid, &exist_err);
             if (err_is_fail(err)) {
@@ -112,14 +112,14 @@ errval_t dist_lock(const char* lock_name, char** lock_record)
         // If we've come here our predecessor deleted his record;
         // need to re-check that we are really the lock owner now
 
-        dist_free_names(names, len);
+        oct_free_names(names, len);
         names = NULL;
         len = 0;
     }
 
 
 out:
-    dist_free_names(names, len);
+    oct_free_names(names, len);
     free(name);
     return err;
 }
@@ -129,17 +129,17 @@ out:
  *
  * Deletes the given lock_record in on the server.
  *
- * \param[in] lock_record Record provided by dist_lock.
+ * \param[in] lock_record Record provided by oct_lock.
  */
-errval_t dist_unlock(const char* lock_record)
+errval_t oct_unlock(const char* lock_record)
 {
     assert(lock_record != NULL);
     errval_t err = SYS_ERR_OK;
     char* name = NULL;
 
-    err = dist_read(lock_record, "%s", &name);
+    err = oct_read(lock_record, "%s", &name);
     if (err_is_ok(err)) {
-        err = dist_del(name);
+        err = oct_del(name);
     }
     //debug_printf("id:%d unlocking: %s\n", id, name);
 

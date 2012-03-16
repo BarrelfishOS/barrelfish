@@ -14,8 +14,8 @@
 #ifndef CAPABILITY_STORAGE_H_
 #define CAPABILITY_STORAGE_H_
 
-errval_t dist_get_capability(const char*, struct capref*);
-errval_t dist_put_capability(const char*, struct capref);
-errval_t dist_remove_capability(const char*);
+errval_t oct_get_capability(const char*, struct capref*);
+errval_t oct_put_capability(const char*, struct capref);
+errval_t oct_remove_capability(const char*);
 
 #endif /* CAPABILITY_STORAGE_H_ */

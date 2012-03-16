@@ -15,7 +15,7 @@
 #ifndef DIST2_LOCK_H_
 #define DIST2_LOCK_H_
 
-errval_t dist_lock(const char*, char**);
-errval_t dist_unlock(const char*);
+errval_t oct_lock(const char*, char**);
+errval_t oct_unlock(const char*);
 
 #endif /* DIST2_LOCK_H_ */

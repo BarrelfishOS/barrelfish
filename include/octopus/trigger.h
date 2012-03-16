@@ -23,8 +23,8 @@
 #define NOP_TRIGGER     (dist2_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
 
 typedef void(*trigger_handler_fn)(dist2_mode_t mode, char* record, void* state);
-dist2_trigger_t dist_mktrigger(errval_t, dist2_binding_type_t, dist2_mode_t,
+dist2_trigger_t oct_mktrigger(errval_t, dist2_binding_type_t, dist2_mode_t,
         trigger_handler_fn, void*);
-errval_t dist_remove_trigger(dist2_trigger_id_t);
+errval_t oct_remove_trigger(dist2_trigger_id_t);
 
 #endif /* DIST2_TRIGGER_H_ */

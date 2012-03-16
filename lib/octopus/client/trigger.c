@@ -40,7 +40,7 @@ void trigger_handler(struct dist2_binding* b, dist2_trigger_id_t id,
     }
 }
 
-dist2_trigger_t dist_mktrigger(errval_t in_case, dist2_binding_type_t send_to,
+dist2_trigger_t oct_mktrigger(errval_t in_case, dist2_binding_type_t send_to,
         dist2_mode_t mode, trigger_handler_fn fn, void* state)
 {
     return (dist2_trigger_t) {
@@ -66,10 +66,10 @@ dist2_trigger_t dist_mktrigger(errval_t in_case, dist2_binding_type_t send_to,
  * \retval SYS_ERR_OK
  * \retval DIST2_INVALID_ID
  */
-errval_t dist_remove_trigger(dist2_trigger_id_t trigger_id)
+errval_t oct_remove_trigger(dist2_trigger_id_t trigger_id)
 {
     errval_t err = SYS_ERR_OK;
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     errval_t error_code;

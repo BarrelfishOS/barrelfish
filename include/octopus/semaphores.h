@@ -18,9 +18,9 @@
 #ifndef DIST2_SEMAPHORES_H_
 #define DIST2_SEMAPHORES_H_
 
-errval_t dist_sem_new(uint32_t*, size_t);
-errval_t dist_sem_post(uint32_t);
-errval_t dist_sem_wait(uint32_t);
-errval_t dist_sem_trywait(uint32_t);
+errval_t oct_sem_new(uint32_t*, size_t);
+errval_t oct_sem_post(uint32_t);
+errval_t oct_sem_wait(uint32_t);
+errval_t oct_sem_trywait(uint32_t);
 
 #endif /* DIST2_SEMAPHORES_H_ */

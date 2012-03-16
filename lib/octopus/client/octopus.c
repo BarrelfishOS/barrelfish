@@ -28,7 +28,7 @@
 #include "handler.h"
 #include "common.h"
 
-static struct dist_state {
+static struct oct_state {
     struct dist2_binding* binding;
     struct dist2_thc_client_binding_t thc_client;
     struct waitset ws;
@@ -40,13 +40,13 @@ static iref_t service_iref = 0;
 static uint64_t client_identifier = 0;
 static bool initialized = false;
 
-struct dist2_binding* dist_get_event_binding(void)
+struct dist2_binding* oct_get_event_binding(void)
 {
     assert(event.binding != NULL);
     return event.binding;
 }
 
-struct dist2_thc_client_binding_t* dist_get_thc_client(void)
+struct dist2_thc_client_binding_t* oct_get_thc_client(void)
 {
     //assert(rpc.rpc_client != NULL);
     return &rpc.thc_client;
@@ -67,7 +67,7 @@ static struct dist2_rx_vtbl rx_vtbl = {
 static int event_handler_thread(void* st)
 {
     errval_t err = SYS_ERR_OK;
-    struct dist2_binding* b = dist_get_event_binding();
+    struct dist2_binding* b = oct_get_event_binding();
 
     b->change_waitset(b, &event.ws);
 
@@ -90,7 +90,7 @@ static int event_handler_thread(void* st)
 static void event_bind_cb(void *st, errval_t err, struct dist2_binding *b)
 {
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "dist_event bind failed");
+        DEBUG_ERR(err, "oct_event bind failed");
         goto out;
     }
 
@@ -106,13 +106,13 @@ out:
 static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
                                 uintptr_t state)
 {
-    struct dist_state* ds = (struct dist_state*)state;
+    struct oct_state* ds = (struct oct_state*)state;
     service_iref = iref;
     ds->err = (iref != 0) ? SYS_ERR_OK : LIB_ERR_GET_NAME_IREF;
     ds->is_done = true;
 }
 
-static errval_t init_binding(struct dist_state* state,
+static errval_t init_binding(struct oct_state* state,
         dist2_bind_continuation_fn bind_fn)
 {
     errval_t err = SYS_ERR_OK;
@@ -163,7 +163,7 @@ static errval_t get_service_iref(void)
 
 }
 
-errval_t dist_thc_init(void)
+errval_t oct_thc_init(void)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -188,7 +188,7 @@ errval_t dist_thc_init(void)
     }
 
     // TODO: Hack. Tell the server that these bindings belong together
-    dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    dist2_thc_client_binding_t* cl = oct_get_thc_client();
     err = cl->call_seq.get_identifier(cl, &client_identifier);
     if (err_is_fail(err)) {
         return err;
@@ -211,14 +211,14 @@ errval_t dist_thc_init(void)
  * posixcompat.
  */
 //__attribute__((constructor))
-errval_t dist_init(void)
+errval_t oct_init(void)
 {
     if (initialized) {
         return SYS_ERR_OK;
     }
     initialized = true;
 
-    errval_t err = dist_thc_init();
+    errval_t err = oct_thc_init();
     if (err_is_fail(err)) {
         return err;
     }

@@ -60,7 +60,7 @@ void subscription_handler(struct dist2_binding *b, subscription_t id,
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_subscribe(subscription_handler_fn function, const void *state,
+errval_t oct_subscribe(subscription_handler_fn function, const void *state,
         subscription_t *id, const char *query, ...)
 {
     assert(function != NULL);
@@ -74,7 +74,7 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
     FORMAT_QUERY(query, args, buf);
 
     // send to skb
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
     err = cl->call_seq.subscribe(cl, buf, (uint64_t)function,
             (uint64_t)state, id, &error_code); // XXX: Sending Pointer as uint64
@@ -89,16 +89,16 @@ errval_t dist_subscribe(subscription_handler_fn function, const void *state,
 /**
  * \brief Unsubscribes a subscription.
  *
- * \param id Id of the subscription (as provided by dist_subscribe).
+ * \param id Id of the subscription (as provided by oct_subscribe).
  *
  * \retval SYS_ERR_OK
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_unsubscribe(subscription_t id)
+errval_t oct_unsubscribe(subscription_t id)
 {
     // send to skb
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
     errval_t err = cl->call_seq.unsubscribe(cl, id, &error_code);
     if (err_is_ok(err)) {
@@ -118,7 +118,7 @@ errval_t dist_unsubscribe(subscription_t id)
  * \retval DIST2_ERR_PARSER_FAIL
  * \retval DIST2_ERR_ENGINE_FAIL
  */
-errval_t dist_publish(const char *record, ...)
+errval_t oct_publish(const char *record, ...)
 {
     assert(record != NULL);
 
@@ -128,7 +128,7 @@ errval_t dist_publish(const char *record, ...)
     char *buf = NULL;
     FORMAT_QUERY(record, args, buf);
 
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
     err = cl->call_seq.publish(cl, buf, &error_code);
     if(err_is_ok(err)) {

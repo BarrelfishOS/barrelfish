@@ -33,7 +33,7 @@ static int err_is_ok(errval_t err)
 }
 #endif
 
-struct dist_parser_state {
+struct oct_parser_state {
     void* scanner;
     errval_t err;
     struct ast_object* ast;

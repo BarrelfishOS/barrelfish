@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 
-typedef uint64_t dist_mode_t;
+typedef uint64_t oct_mode_t;
 
 #define SET_DEFAULT		(0x0)       /*!< Normal set mode for records. */
 #define SET_SEQUENTIAL	(0x1)       /*!< Append a monotonically increasing number
@@ -28,17 +28,17 @@ typedef uint64_t dist_mode_t;
 // TODO SET_TRANSIENT NYI Due to limitations of barrelfish:
 // (can't figure out if a domain is done/crashed...).
 
-errval_t dist_get_names(char*** names, size_t*, const char*, ...);
-errval_t dist_parse_names(char* input, char*** names, size_t*);
-void dist_free_names(char**, size_t);
+errval_t oct_get_names(char*** names, size_t*, const char*, ...);
+errval_t oct_parse_names(char* input, char*** names, size_t*);
+void oct_free_names(char**, size_t);
 
-errval_t dist_get(char**, const char*, ...);
-errval_t dist_set(const char*, ...);
-errval_t dist_mset(dist_mode_t, const char*, ...);
-errval_t dist_set_get(dist_mode_t, char**, const char*, ...);
-errval_t dist_del(const char*, ...);
-errval_t dist_exists(const char*, ...);
+errval_t oct_get(char**, const char*, ...);
+errval_t oct_set(const char*, ...);
+errval_t oct_mset(oct_mode_t, const char*, ...);
+errval_t oct_set_get(oct_mode_t, char**, const char*, ...);
+errval_t oct_del(const char*, ...);
+errval_t oct_exists(const char*, ...);
 
-errval_t dist_read(const char*, const char*, ...);
+errval_t oct_read(const char*, const char*, ...);
 
 #endif /* DIST2_GETSET_H_ */

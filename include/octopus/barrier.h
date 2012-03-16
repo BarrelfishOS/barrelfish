@@ -15,7 +15,7 @@
 #ifndef DIST2_BARRIER_H_
 #define DIST2_BARRIER_H_
 
-errval_t dist_barrier_enter(const char*, char**, size_t);
-errval_t dist_barrier_leave(const char*);
+errval_t oct_barrier_enter(const char*, char**, size_t);
+errval_t oct_barrier_leave(const char*);
 
 #endif /* DIST2_BARRIER_H_ */

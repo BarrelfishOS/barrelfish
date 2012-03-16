@@ -26,13 +26,13 @@ int sem_init(sem_t *sem, int pshared, unsigned int value)
     memset(sem, 0, sizeof(sem_t));
 
     if(pshared != 0) {
-        dist_init();
+        oct_init();
         sem->pshared = 1;
         /* fprintf(stderr, "sem_init called with pshared != 0. Ignoring.\n"); */
 
 		POSIXCOMPAT_DEBUG("%d: sem_init(%p, %d, %u)\n", disp_get_domain_id(), sem, pshared, value);
-		debug_printf("dist_sem_new\n");
-        errval_t err = dist_sem_new(&sem->id, value);
+		debug_printf("oct_sem_new\n");
+        errval_t err = oct_sem_new(&sem->id, value);
         debug_printf("sem->id now is: %d\n", sem->id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "sem_new reterr");
@@ -63,10 +63,10 @@ int sem_wait(sem_t *sem)
     if(!sem->pshared) {
         thread_sem_wait(&sem->thread_sem);
     } else {
-        dist_init();
+        oct_init();
 
         errval_t err;
-        err = dist_sem_wait(sem->id);
+        err = oct_sem_wait(sem->id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "sem_wait");
         }
@@ -87,9 +87,9 @@ int sem_trywait(sem_t *sem)
             return -1;
         }
     } else {
-        dist_init();
+        oct_init();
 
-        errval_t err = dist_sem_trywait(sem->id);
+        errval_t err = oct_sem_trywait(sem->id);
         if (err_is_ok(err)) {
 	  		POSIXCOMPAT_DEBUG("%d: sem_trywait(%p, %u) success!\n", disp_get_domain_id(), sem, sem->id);
             return 0;
@@ -118,10 +118,10 @@ int sem_post(sem_t *sem)
     if(!sem->pshared) {
         thread_sem_post(&sem->thread_sem);
     } else {
-        dist_init();
+        oct_init();
 
         errval_t err;
-        err = dist_sem_post(sem->id);
+        err = oct_sem_post(sem->id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "sem_post");
         }

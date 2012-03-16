@@ -22,10 +22,10 @@
 STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
         "Sending pointers might fail :-(.");
 
-errval_t dist_init(void);
-errval_t dist_thc_init(void);
+errval_t oct_init(void);
+errval_t oct_thc_init(void);
 
-struct dist2_thc_client_binding_t* dist_get_thc_client(void);
-struct dist2_binding* dist_get_event_binding(void);
+struct dist2_thc_client_binding_t* oct_get_thc_client(void);
+struct dist2_binding* oct_get_event_binding(void);
 
 #endif /* DIST2_INIT_H_ */

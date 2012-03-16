@@ -20,8 +20,8 @@
 
 #include <octopus_server/service.h>
 
-void dist_rpc_enqueue_reply(struct dist2_binding *b,
-        struct dist_reply_state* st);
-struct dist_reply_state* dist_rpc_dequeue_reply(struct dist2_binding *b);
+void oct_rpc_enqueue_reply(struct dist2_binding *b,
+        struct oct_reply_state* st);
+struct oct_reply_state* oct_rpc_dequeue_reply(struct dist2_binding *b);
 
 #endif // DIST2_QUEUE_H

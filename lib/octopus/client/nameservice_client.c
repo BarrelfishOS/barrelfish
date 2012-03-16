@@ -28,14 +28,14 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
     errval_t err;
 
     char* record = NULL;
-    err = dist_get(&record, iface);
+    err = oct_get(&record, iface);
     if (err_no(err) == DIST2_ERR_NO_RECORD) {
         return err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
     }
 
     // XXX: numbers from records are 64bit, irefs are 32
     uint64_t iref_number = 0;
-    err = dist_read(record, "_ { iref: %d }", &iref_number);
+    err = oct_read(record, "_ { iref: %d }", &iref_number);
     *retiref = iref_number;
 
     if (err_is_fail(err)) {
@@ -56,12 +56,12 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
     uint64_t fn;
     uint64_t iref_number = 0;
 
-    struct dist2_thc_client_binding_t *cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t *cl = oct_get_thc_client();
     if (cl == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET, 0, 0);
+    dist2_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET, 0, 0);
     err = cl->call_seq.get(cl, iface, &record, t, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
@@ -77,7 +77,7 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
         assert(record != NULL);
         // XXX: numbers from records are 64bit, irefs are 32
         if (retiref != NULL) {
-            err = dist_read(record, "_ { iref: %d }", &iref_number);
+            err = oct_read(record, "_ { iref: %d }", &iref_number);
             *retiref = (iref_t) iref_number;
         }
         free(record);
@@ -88,6 +88,6 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
 
 errval_t nameservice_register(const char *iface, iref_t iref)
 {
-    return dist_set("%s { iref: %d }", iface, iref);
+    return oct_set("%s { iref: %d }", iface, iref);
 }
 #endif

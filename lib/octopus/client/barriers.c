@@ -35,7 +35,7 @@
  * \param[out] barrier_record Record created for each client.
  * \param[in] wait_for Number of clients entering the barrier.
  */
-errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait_for)
+errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_for)
 {
     errval_t err;
     errval_t exist_err;
@@ -46,14 +46,14 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
     uint64_t fn = 0;
     dist2_trigger_id_t tid;
     size_t current_barriers = 0;
-    dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD, dist2_BINDING_RPC,
+    dist2_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, dist2_BINDING_RPC,
             DIST_ON_SET, NULL, NULL);
 
-    err = dist_set_get(SET_SEQUENTIAL, barrier_record,
+    err = oct_set_get(SET_SEQUENTIAL, barrier_record,
             "%s_ { barrier: '%s' }", name, name);
-    err = dist_get_names(&names, &current_barriers, "_ { barrier: '%s' }",
+    err = oct_get_names(&names, &current_barriers, "_ { barrier: '%s' }",
             name);
-    dist_free_names(names, current_barriers);
+    oct_free_names(names, current_barriers);
     if (err_is_fail(err)) {
         return err;
     }
@@ -61,7 +61,7 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
     //        wait_for);
 
     if (current_barriers != wait_for) {
-        struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+        struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
         err = cl->call_seq.exists(cl, name, t, &tid, &exist_err);
         if (err_is_fail(err)) {
             return err;
@@ -86,7 +86,7 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
     else {
         // We are the last to enter the barrier,
         // wake up the others
-        err = dist_set(name);
+        err = oct_set(name);
     }
 
     return err;
@@ -94,16 +94,16 @@ errval_t dist_barrier_enter(const char* name, char** barrier_record, size_t wait
 
 /**
  * \brief Leave a barrier. Blocks until all involved parties have
- * called dist_barrier_leave().
+ * called oct_barrier_leave().
  *
  * Client deletes its barrier record. In case the client
  * was the last one we delete the special record which
  * wakes up all other clients.
  *
  * \param barrier_record Clients own record as provided by
- * dist_barrier_enter.
+ * oct_barrier_enter.
  */
-errval_t dist_barrier_leave(const char* barrier_record)
+errval_t oct_barrier_leave(const char* barrier_record)
 {
     errval_t exist_err;
     errval_t err;
@@ -116,26 +116,26 @@ errval_t dist_barrier_leave(const char* barrier_record)
     uint64_t state = 0;
     uint64_t fn = 0;
     dist2_trigger_id_t tid;
-    dist2_trigger_t t = dist_mktrigger(SYS_ERR_OK, dist2_BINDING_RPC,
+    dist2_trigger_t t = oct_mktrigger(SYS_ERR_OK, dist2_BINDING_RPC,
             DIST_ON_DEL, NULL, NULL);
 
     //debug_printf("leaving: %s\n", barrier_record);
-    err = dist_read(barrier_record, "%s { barrier: %s }", &rec_name,
+    err = oct_read(barrier_record, "%s { barrier: %s }", &rec_name,
             &barrier_name);
     if (err_is_ok(err)) {
-        err = dist_del(rec_name);
+        err = oct_del(rec_name);
         if (err_is_fail(err)) {
             goto out;
         }
 
-        err = dist_get_names(&names, &remaining_barriers, "_ { barrier: '%s' }",
+        err = oct_get_names(&names, &remaining_barriers, "_ { barrier: '%s' }",
                 barrier_name);
-        dist_free_names(names, remaining_barriers);
+        oct_free_names(names, remaining_barriers);
 
         //debug_printf("remaining barriers is: %lu\n", remaining_barriers);
 
         if (err_is_ok(err)) {
-            struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+            struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
             err = cl->call_seq.exists(cl, barrier_name, t, &tid, &exist_err);
             if (err_is_fail(err)) {
                 goto out;
@@ -155,7 +155,7 @@ errval_t dist_barrier_leave(const char* barrier_record)
         else if (err_no(err) == DIST2_ERR_NO_RECORD) {
             // We are the last one to leave the barrier,
             // wake-up all others
-            err = dist_del("%s", barrier_name);
+            err = oct_del("%s", barrier_name);
         }
         else {
             // Just return the error

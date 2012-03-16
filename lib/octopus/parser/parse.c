@@ -85,7 +85,7 @@
 void yyerror(char *);
 
 #define YYPARSE_PARAM data
-#define YYLEX_PARAM   ((struct dist_parser_state*)data)->scanner
+#define YYLEX_PARAM   ((struct oct_parser_state*)data)->scanner
 
 
 
@@ -1496,7 +1496,7 @@ yyreduce:
 
 /* Line 1455 of yacc.c  */
 #line 68 "../lib/dist2/parser/parse.y"
-    { ((struct dist_parser_state*) data)->ast = (yyvsp[(1) - (1)].nPtr); YYACCEPT;  }
+    { ((struct oct_parser_state*) data)->ast = (yyvsp[(1) - (1)].nPtr); YYACCEPT;  }
     break;
 
   case 3:

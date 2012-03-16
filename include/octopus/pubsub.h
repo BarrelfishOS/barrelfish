@@ -23,9 +23,9 @@
 typedef dist2_trigger_id_t subscription_t;
 typedef trigger_handler_fn subscription_handler_fn;
 
-errval_t dist_subscribe(subscription_handler_fn, const void*, subscription_t*,
+errval_t oct_subscribe(subscription_handler_fn, const void*, subscription_t*,
         const char*, ...);
-errval_t dist_unsubscribe(subscription_t);
-errval_t dist_publish(const char*, ...);
+errval_t oct_unsubscribe(subscription_t);
+errval_t oct_publish(const char*, ...);
 
 #endif /* DIST2_PUBSUB_H_ */

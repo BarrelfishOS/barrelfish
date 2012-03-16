@@ -32,16 +32,16 @@ static uint32_t get_next_id(void)
 
     // This lock makes sure that we don't
     // have concurrent access to sem.ids
-    errval_t err = dist_lock("sem.lock", &lock_record);
+    errval_t err = oct_lock("sem.lock", &lock_record);
     assert(err_is_ok(err));
 
-    err = dist_get(&record, "sem.ids { current_id: _ }");
+    err = oct_get(&record, "sem.ids { current_id: _ }");
     if (err_is_ok(err)) {
-        err = dist_read(record, "_ { current_id: %d }", &id);
+        err = oct_read(record, "_ { current_id: %d }", &id);
         assert(err_is_ok(err));
     }
     else if (err_no(err) == DIST2_ERR_NO_RECORD) {
-        err = dist_set("sem.ids { current_id: 0 }");
+        err = oct_set("sem.ids { current_id: 0 }");
         assert(err_is_ok(err));
     }
     else {
@@ -50,10 +50,10 @@ static uint32_t get_next_id(void)
 
     id += 1;
 
-    err = dist_set("sem.ids { current_id: %lu }", id);
+    err = oct_set("sem.ids { current_id: %lu }", id);
     assert(err_is_ok(err));
 
-    err = dist_unlock(lock_record);
+    err = oct_unlock(lock_record);
     free(lock_record);
     free(record);
     assert(err_is_ok(err));
@@ -61,15 +61,15 @@ static uint32_t get_next_id(void)
     return id;
 }
 
-errval_t dist_sem_new(uint32_t* id, size_t value)
+errval_t oct_sem_new(uint32_t* id, size_t value)
 {
     // Find a valid ID for our next semaphore
     *id = get_next_id();
-    //debug_printf("dist_sem_new id is: %d\n", *id);
+    //debug_printf("oct_sem_new id is: %d\n", *id);
 
     errval_t err = SYS_ERR_OK;
     for (size_t i=0; i < value; i++) {
-        err = dist_sem_post(*id);
+        err = oct_sem_post(*id);
         if (err_is_fail(err)) {
             return err;
         }
@@ -78,19 +78,19 @@ errval_t dist_sem_new(uint32_t* id, size_t value)
     return err;
 }
 
-errval_t dist_sem_post(uint32_t id)
+errval_t oct_sem_post(uint32_t id)
 {
-    return dist_mset(SET_SEQUENTIAL, "sem.%d. { sem: %d }", id, id);
+    return oct_mset(SET_SEQUENTIAL, "sem.%d. { sem: %d }", id, id);
 }
 
-errval_t dist_sem_wait(uint32_t id)
+errval_t oct_sem_wait(uint32_t id)
 {
     errval_t err = SYS_ERR_OK;
     char* result = NULL;
     dist2_trigger_id_t tid;
-    dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
+    dist2_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD,
             dist2_BINDING_RPC, DIST_ON_SET, NULL, NULL);
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct dist2_thc_client_binding_t* cl = oct_get_thc_client();
 
     char query[100];
     snprintf(query, 99, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);
@@ -104,7 +104,7 @@ errval_t dist_sem_wait(uint32_t id)
         cl->call_seq.get(cl, query, t, &result, &tid, &err);
 
         if (err_is_ok(err)) {
-            errval_t del_err = dist_del(result);
+            errval_t del_err = oct_del(result);
             free(result);
             result = NULL;
 
@@ -134,15 +134,15 @@ errval_t dist_sem_wait(uint32_t id)
     return err;
 }
 
-errval_t dist_sem_trywait(uint32_t id)
+errval_t oct_sem_trywait(uint32_t id)
 {
     errval_t err = SYS_ERR_OK;
 
     char* result = NULL;
 
-    err = dist_get(&result, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);
+    err = oct_get(&result, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);
     if (err_is_ok(err)) {
-        err = dist_del(result);
+        err = oct_del(result);
     }
     else if (err_no(err) == DIST2_ERR_NO_RECORD) {
         // Return with no record error to caller

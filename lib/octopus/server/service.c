@@ -41,16 +41,16 @@ static inline errval_t check_query_length(char* query) {
     return SYS_ERR_OK;
 }
 
-errval_t new_dist_reply_state(struct dist_reply_state** drt,
-        dist_reply_handler_fn reply_handler)
+errval_t new_oct_reply_state(struct oct_reply_state** drt,
+        oct_reply_handler_fn reply_handler)
 {
     assert(*drt == NULL);
-    *drt = malloc(sizeof(struct dist_reply_state));
+    *drt = malloc(sizeof(struct oct_reply_state));
     if (*drt == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    //memset(*drt, 0, sizeof(struct dist_reply_state));
+    //memset(*drt, 0, sizeof(struct oct_reply_state));
     (*drt)->query_state.stdout.buffer[0] = '\0';
     (*drt)->query_state.stdout.length = 0;
     (*drt)->query_state.stderr.buffer[0] = '\0';
@@ -72,11 +72,11 @@ errval_t new_dist_reply_state(struct dist_reply_state** drt,
     return SYS_ERR_OK;
 }
 
-static void free_dist_reply_state(void* arg)
+static void free_oct_reply_state(void* arg)
 {
     if (arg != NULL) {
-        struct dist_reply_state* drt = (struct dist_reply_state*) arg;
-        // In case we have to free things in dist_reply_state, free here...
+        struct oct_reply_state* drt = (struct oct_reply_state*) arg;
+        // In case we have to free things in oct_reply_state, free here...
 
         free(drt);
     } else {
@@ -85,13 +85,13 @@ static void free_dist_reply_state(void* arg)
 }
 
 static void trigger_send_handler(struct dist2_binding* b,
-        struct dist_reply_state* drs)
+        struct oct_reply_state* drs)
 {
     char* record = drs->query_state.stdout.buffer[0] != '\0' ?
             drs->query_state.stdout.buffer : NULL;
 
     errval_t err;
-    err = b->tx_vtbl.trigger(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.trigger(b, MKCONT(free_oct_reply_state, drs),
             drs->server_id,
             drs->client_handler,
             drs->mode,
@@ -99,7 +99,7 @@ static void trigger_send_handler(struct dist2_binding* b,
             drs->client_state);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -120,8 +120,8 @@ static inline uint64_t install_trigger(struct dist2_binding* binding,
     uint64_t watch_id = 0;
 
     if (can_install_trigger(trigger, error)) {
-        struct dist_reply_state* trigger_reply = NULL;
-        err = new_dist_reply_state(&trigger_reply, trigger_send_handler);
+        struct oct_reply_state* trigger_reply = NULL;
+        err = new_oct_reply_state(&trigger_reply, trigger_send_handler);
         assert(err_is_ok(err));
 
         trigger_reply->client_handler = trigger.trigger;
@@ -143,15 +143,15 @@ static inline uint64_t install_trigger(struct dist2_binding* binding,
 }
 
 static void remove_trigger_reply(struct dist2_binding* b,
-        struct dist_reply_state* drs)
+        struct oct_reply_state* drs)
 {
     errval_t err;
     err = b->tx_vtbl.remove_trigger_response(b,
-            MKCONT(free_dist_reply_state, drs),
+            MKCONT(free_oct_reply_state, drs),
             drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -160,8 +160,8 @@ static void remove_trigger_reply(struct dist2_binding* b,
 
 void remove_trigger_handler(struct dist2_binding *b, dist2_trigger_id_t tid)
 {
-    struct dist_reply_state* drs = NULL;
-    errval_t err = new_dist_reply_state(&drs, remove_trigger_reply);
+    struct oct_reply_state* drs = NULL;
+    errval_t err = new_oct_reply_state(&drs, remove_trigger_reply);
     assert(err_is_ok(err));
 
     drs->error = del_watch(b, tid, &drs->query_state);
@@ -181,16 +181,16 @@ void remove_trigger_handler(struct dist2_binding *b, dist2_trigger_id_t tid)
     }
 }*/
 
-static void get_reply(struct dist2_binding* b, struct dist_reply_state* drt)
+static void get_reply(struct dist2_binding* b, struct oct_reply_state* drt)
 {
     errval_t err;
     char* reply = err_is_ok(drt->error) ?
             drt->query_state.stdout.buffer : NULL;
-    err = b->tx_vtbl.get_response(b, MKCONT(free_dist_reply_state, drt),
+    err = b->tx_vtbl.get_response(b, MKCONT(free_oct_reply_state, drt),
             reply, drt->server_id, drt->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drt);
+            oct_rpc_enqueue_reply(b, drt);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -201,9 +201,9 @@ void get_handler(struct dist2_binding *b, char *query, dist2_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
-    err = new_dist_reply_state(&drs, get_reply);
+    err = new_oct_reply_state(&drs, get_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -226,16 +226,16 @@ out:
 }
 
 static void get_names_reply(struct dist2_binding* b,
-        struct dist_reply_state* drt)
+        struct oct_reply_state* drt)
 {
     errval_t err;
     char* reply = err_is_ok(drt->error) ?
             drt->query_state.stdout.buffer : NULL;
-    err = b->tx_vtbl.get_names_response(b, MKCONT(free_dist_reply_state, drt),
+    err = b->tx_vtbl.get_names_response(b, MKCONT(free_oct_reply_state, drt),
             reply, drt->server_id, drt->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drt);
+            oct_rpc_enqueue_reply(b, drt);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -248,10 +248,10 @@ void get_names_handler(struct dist2_binding *b, char *query, dist2_trigger_t t)
 
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&drs, get_names_reply);
+    err = new_oct_reply_state(&drs, get_names_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -273,17 +273,17 @@ out:
     free(query);
 }
 
-static void set_reply(struct dist2_binding* b, struct dist_reply_state* drs)
+static void set_reply(struct dist2_binding* b, struct oct_reply_state* drs)
 {
     char* record = err_is_ok(drs->error) && drs->return_record ?
             drs->query_state.stdout.buffer : NULL;
 
     errval_t err;
-    err = b->tx_vtbl.set_response(b, MKCONT(free_dist_reply_state, drs), record,
+    err = b->tx_vtbl.set_response(b, MKCONT(free_oct_reply_state, drs), record,
             drs->server_id, drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -296,10 +296,10 @@ void set_handler(struct dist2_binding *b, char *query, uint64_t mode,
     DIST2_DEBUG(" set_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&drs, set_reply);
+    err = new_oct_reply_state(&drs, set_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -331,14 +331,14 @@ out:
     free(query);
 }
 
-static void del_reply(struct dist2_binding* b, struct dist_reply_state* drs)
+static void del_reply(struct dist2_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.del_response(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.del_response(b, MKCONT(free_oct_reply_state, drs),
             drs->server_id, drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -350,10 +350,10 @@ void del_handler(struct dist2_binding* b, char* query, dist2_trigger_t trigger)
     DIST2_DEBUG(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&drs, del_reply);
+    err = new_oct_reply_state(&drs, del_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -383,15 +383,15 @@ out:
     free(query);
 }
 
-static void exists_reply(struct dist2_binding* b, struct dist_reply_state* drs)
+static void exists_reply(struct dist2_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.exists_response(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.exists_response(b, MKCONT(free_oct_reply_state, drs),
             drs->server_id, drs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -403,10 +403,10 @@ void exists_handler(struct dist2_binding* b, char* query,
 {
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&drs, exists_reply);
+    err = new_oct_reply_state(&drs, exists_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -428,15 +428,15 @@ out:
     free(query);
 }
 
-static void wait_for_reply(struct dist2_binding* b, struct dist_reply_state* drs)
+static void wait_for_reply(struct dist2_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.wait_for_response(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.wait_for_response(b, MKCONT(free_oct_reply_state, drs),
             drs->query_state.stdout.buffer, drs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -448,10 +448,10 @@ void wait_for_handler(struct dist2_binding* b, char* query) {
     errval_t err = SYS_ERR_OK;
     errval_t set_watch_err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&drs, wait_for_reply);
+    err = new_oct_reply_state(&drs, wait_for_reply);
     drs->binding = b;
     assert(err_is_ok(err));
 
@@ -485,15 +485,15 @@ out:
 }
 
 static void subscribe_reply(struct dist2_binding* b,
-        struct dist_reply_state* drs)
+        struct oct_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.subscribe_response(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.subscribe_response(b, MKCONT(free_oct_reply_state, drs),
             drs->server_id, drs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -506,10 +506,10 @@ void subscribe_handler(struct dist2_binding *b, char* query,
     DIST2_DEBUG("subscribe: query = %s\n", query);
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
+    struct oct_reply_state* drs = NULL;
     struct ast_object* ast = NULL;
 
-    err = new_dist_reply_state(&drs, subscribe_reply);
+    err = new_oct_reply_state(&drs, subscribe_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(query);
@@ -531,32 +531,32 @@ out:
 }
 
 static void unsubscribe_reply(struct dist2_binding* b,
-        struct dist_reply_state* drs)
+        struct oct_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.unsubscribe_response(b, MKCONT(free_oct_reply_state, drs),
             drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
 }
 
-static void send_subscribed_message(struct dist2_binding* b, struct dist_reply_state* drs)
+static void send_subscribed_message(struct dist2_binding* b, struct oct_reply_state* drs)
 {
     errval_t err = SYS_ERR_OK;
     char* record = drs->query_state.stdout.buffer[0] != '\0' ?
             drs->query_state.stdout.buffer : NULL;
 
-    err = b->tx_vtbl.subscription(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.subscription(b, MKCONT(free_oct_reply_state, drs),
             drs->server_id, drs->client_handler,
             drs->mode, record, drs->client_state);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -570,8 +570,8 @@ void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
 
     DIST2_DEBUG("unsubscribe: id = %lu\n", id);
 
-    struct dist_reply_state* srs = NULL;
-    err = new_dist_reply_state(&srs, unsubscribe_reply);
+    struct oct_reply_state* srs = NULL;
+    err = new_oct_reply_state(&srs, unsubscribe_reply);
     assert(err_is_ok(err));
 
     err = del_subscription(b, id, &srs->query_state);
@@ -585,8 +585,8 @@ void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
                 "subscriber(%lu, %lu, %lu, %lu)",
                 &binding, &client_handler, &client_state, &server_id);
 
-        struct dist_reply_state* subscriber = NULL;
-        err = new_dist_reply_state(&subscriber,
+        struct oct_reply_state* subscriber = NULL;
+        err = new_oct_reply_state(&subscriber,
                 send_subscribed_message);
         assert(err_is_ok(err));
 
@@ -604,14 +604,14 @@ void unsubscribe_handler(struct dist2_binding *b, uint64_t id)
     srs->reply(b, srs);
 }
 
-static void publish_reply(struct dist2_binding* b, struct dist_reply_state* drs)
+static void publish_reply(struct dist2_binding* b, struct oct_reply_state* drs)
 {
     errval_t err;
-    err = b->tx_vtbl.publish_response(b, MKCONT(free_dist_reply_state, drs),
+    err = b->tx_vtbl.publish_response(b, MKCONT(free_oct_reply_state, drs),
             drs->error);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -623,8 +623,8 @@ void publish_handler(struct dist2_binding *b, char* record)
     DIST2_DEBUG("publish_handler query: %s\n", record);
     errval_t err = SYS_ERR_OK;
 
-    struct dist_reply_state* drs = NULL;
-    err = new_dist_reply_state(&drs, publish_reply);
+    struct oct_reply_state* drs = NULL;
+    err = new_oct_reply_state(&drs, publish_reply);
     assert(err_is_ok(err));
 
     err = check_query_length(record);
@@ -664,8 +664,8 @@ void publish_handler(struct dist2_binding *b, char* record)
             while (skb_read_list(&status, "subscriber(%lu, %lu, %lu, %lu)",
                     &binding, &client_handler, &client_state, &server_id)) {
 
-                struct dist_reply_state* subscriber = NULL;
-                err = new_dist_reply_state(&subscriber,
+                struct oct_reply_state* subscriber = NULL;
+                err = new_oct_reply_state(&subscriber,
                         send_subscribed_message);
                 assert(err_is_ok(err));
 
@@ -695,14 +695,14 @@ void get_identifier(struct dist2_binding* b)
 }
 
 static void identify_binding_reply(struct dist2_binding* b,
-        struct dist_reply_state* drs)
+        struct oct_reply_state* drs)
 {
     errval_t err;
     // TODO send drs->error back to client!
-    err = b->tx_vtbl.identify_response(b, MKCONT(free_dist_reply_state, drs));
+    err = b->tx_vtbl.identify_response(b, MKCONT(free_oct_reply_state, drs));
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            dist_rpc_enqueue_reply(b, drs);
+            oct_rpc_enqueue_reply(b, drs);
             return;
         }
         USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
@@ -715,8 +715,8 @@ void identify_binding(struct dist2_binding* b, uint64_t id,
 {
     assert(id <= current_id);
 
-    struct dist_reply_state* drs = NULL;
-    errval_t err = new_dist_reply_state(&drs, identify_binding_reply);
+    struct oct_reply_state* drs = NULL;
+    errval_t err = new_oct_reply_state(&drs, identify_binding_reply);
     assert(err_is_ok(err));
 
     DIST2_DEBUG("set binding: id=%lu type=%d\n", id, type);

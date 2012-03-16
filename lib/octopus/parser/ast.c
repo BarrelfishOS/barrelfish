@@ -133,7 +133,7 @@ struct ast_object* ast_remove_attribute(struct ast_object* ast, char* name)
 errval_t generate_ast(const char* input, struct ast_object** record)
 {
     // Save re-entrant state for Flex/Bison
-    struct dist_parser_state p;
+    struct oct_parser_state p;
     p.ast = NULL;
     p.err = SYS_ERR_OK;
     p.scanner = NULL;
