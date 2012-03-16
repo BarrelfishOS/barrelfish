@@ -171,12 +171,11 @@ errval_t oct_thc_init(void)
     if (err_is_fail(err)) {
         return err;
     }
-
     assert(service_iref != 0);
-    // XXX: Not sure but I think it would be better not to run the THC client
-    // on the default waitset?
+
+    waitset_init(&rpc.ws);
     err = octopus_thc_connect(service_iref,
-            get_default_waitset(), IDC_BIND_FLAGS_DEFAULT, &(rpc.binding));
+            &rpc.ws, IDC_BIND_FLAGS_DEFAULT, &(rpc.binding));
     if (err_is_fail(err)) {
         return err;
     }
@@ -206,9 +205,6 @@ errval_t oct_thc_init(void)
  * Note the octopus rpc binding is most likely already initialized
  * by libbarrelfish (used for nameservice). This function
  * will set up the event thread to handle asynchronous events.
- *
- * \note This is a GCC constructor because we need octopus calls in
- * posixcompat.
  */
 //__attribute__((constructor))
 errval_t oct_init(void)
