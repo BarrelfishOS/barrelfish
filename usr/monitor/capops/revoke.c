@@ -141,7 +141,7 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
     caprep_to_capability(&caprep, &cap);
 
     struct capref capref;
-    err = copy_if_exists(&cap, &capref);
+    err = monitor_copy_if_exists(&cap, &capref);
     if (err_is_fail(err)) {
         goto send_err;
     }

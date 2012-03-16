@@ -109,12 +109,12 @@ delete_remote__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, 
     caprep_to_capability(&caprep, &cap);
     struct capref capref;
 
-    err = copy_if_exists(&cap, &capref);
+    err = monitor_copy_if_exists(&cap, &capref);
     if (err_is_fail(err)) {
         goto send_err;
     }
 
-    err = cap_delete_copies(capref);
+    err = monitor_delete_copies(capref);
     if (err_is_fail(err)) {
         goto send_err;
     }
@@ -237,7 +237,7 @@ delete_cnode(struct capref cap, void *st)
 {
     errval_t err;
 
-    err = cap_set_deleted(cap);
+    err = monitor_set_cap_deleted(cap);
     if (err_is_fail(err)) {
         return err;
     }

@@ -325,7 +325,7 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
 
     // find and validate cap
     // NOTE: this function should fail if no copies exist and create a new copy otherwise
-    err = copy_if_exists(&cap, &capref);
+    err = monitor_copy_if_exists(&cap, &capref);
     if (err_is_fail(err)) {
         goto send_err;
     }

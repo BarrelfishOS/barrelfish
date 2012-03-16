@@ -136,7 +136,7 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
     rtst->st = st;
 
     struct capref src;
-    err = copy_if_exists(&cap, &src);
+    err = monitor_copy_if_exists(&cap, &src);
     if (err_is_fail(err)) {
         goto reply_err;
     }

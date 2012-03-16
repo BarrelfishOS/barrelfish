@@ -19,13 +19,13 @@
  */
 
 // create a copy of cap other copies exist, otherwise fail
-errval_t copy_if_exists(struct capability*, struct capref*);
+errval_t monitor_copy_if_exists(struct capability*, struct capref*);
 
 // delete all local copies of capref
-errval_t cap_delete_copies(struct capref);
+errval_t monitor_delete_copies(struct capref);
 
 // mark cap as in-delete
-errval_t cap_set_deleted(struct capref);
+errval_t monitor_set_cap_deleted(struct capref);
 
 // delete cap (must be owned and last copy) and perform cleanup
 errval_t monitor_delete_last(struct capref);

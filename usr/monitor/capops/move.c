@@ -157,7 +157,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         goto send_err;
     }
 
-    err = copy_if_exists(&cap, capref);
+    err = monitor_copy_if_exists(&cap, capref);
     if (err_is_fail(err)) {
         goto send_err;
     }

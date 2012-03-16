@@ -271,7 +271,7 @@ find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genva
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
     struct capref capref;
-    result = copy_if_exists(&cap, &capref);
+    result = monitor_copy_if_exists(&cap, &capref);
     if (err_is_ok(result)) {
         err = cap_destroy(capref);
         if (err_is_fail(err)) {
@@ -536,7 +536,7 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
 
-    err = copy_if_exists(&cap, &capref);
+    err = monitor_copy_if_exists(&cap, &capref);
     if (err_is_ok(err)) {
         err = monitor_set_cap_owner(capref, from);
         if (err_is_fail(err)) {
