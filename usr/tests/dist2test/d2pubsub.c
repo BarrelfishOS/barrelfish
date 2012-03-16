@@ -16,7 +16,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <octopus/dist2.h>
+#include <octopus/octopus.h>
 
 #include "common.h"
 

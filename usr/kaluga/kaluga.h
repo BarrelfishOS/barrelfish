@@ -2,7 +2,7 @@
 #define KALUGA_H_
 
 #include <barrelfish/barrelfish.h>
-#include <octopus/dist2.h>
+#include <octopus/octopus.h>
 
 #include "queue.h"
 #include "debug.h"

@@ -20,7 +20,7 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <octopus/dist2.h>
+#include <octopus/octopus.h>
 #include <skb/skb.h>
 
 #include "acpi_debug.h"
