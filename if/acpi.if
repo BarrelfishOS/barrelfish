@@ -16,7 +16,7 @@ interface acpi "acpi RPC Interface" {
     } pci_address;
 
     
-    // TODO: Should be record / cap?
+    // TODO: Should be stored in SKB?
     rpc get_pcie_confspace(out errval err,
                            out uint64 address, 
                            out uint16 segment, 
