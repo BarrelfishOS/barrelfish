@@ -29,8 +29,8 @@
 // as expected right now
 // TODO: Barrier/Lock code calls this a number of times because
 // we currently use the existing getset API there
-#define DIST_LOCK_BINDING(cl) event_mutex_threaded_lock(&(cl)->b->mutex)
-#define DIST_UNLOCK_BINDING(cl) event_mutex_unlock(&(cl)->b->mutex)
+#define OCT_LOCK_BINDING(cl) event_mutex_threaded_lock(&(cl)->b->mutex)
+#define OCT_UNLOCK_BINDING(cl) event_mutex_unlock(&(cl)->b->mutex)
 
 
 // Make sure args come right after query

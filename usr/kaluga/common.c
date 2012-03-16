@@ -37,7 +37,7 @@ errval_t trigger_existing_and_watch(const char* query,
 
             switch (err_no(err)) {
             case SYS_ERR_OK:
-                event_handler(DIST_ON_SET, record, state);
+                event_handler(OCT_ON_SET, record, state);
                 break;
 
             case OCT_ERR_NO_RECORD:

@@ -28,7 +28,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 
 static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 {
-    assert(mode & DIST_ON_SET);
+    assert(mode & OCT_ON_SET);
     uint64_t iref;
     errval_t err = oct_read(spawnd_record, "_ { iref: %d }", &iref);
     if (err_is_fail(err)) {
@@ -37,7 +37,7 @@ static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 
     // Pass the iref as state, this tells pci_change_event that we
     // don't need to look again for the spawnd iref
-    pci_change_event(DIST_ON_SET, st, (void*)iref);
+    pci_change_event(OCT_ON_SET, st, (void*)iref);
     free(spawnd_record);
 }
 
@@ -49,7 +49,7 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     octopus_trigger_id_t tid;
     errval_t error_code;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
-            octopus_BINDING_EVENT, DIST_ON_SET, spawnd_up_event, state);
+            octopus_BINDING_EVENT, OCT_ON_SET, spawnd_up_event, state);
 
     // Construct service name
     static char* format = "spawn.%hhu { iref: _ }";
@@ -71,7 +71,7 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
 static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         uint64_t vendor_id, device_id;
         err = oct_read(device_record, "_ { vendor: %d, device_id: %d }",
                 &vendor_id, &device_id);
@@ -161,7 +161,7 @@ errval_t watch_for_pci_devices(void)
 
 static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* st)
 {
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         // No need to ask the SKB as we always start pci for
         // in case we find a root bridge
         struct module_info* mi = find_module("pci");

@@ -26,13 +26,13 @@
 //
 
 // Be aware: If you change those, adjust the trigger code in prolog as well!
-#define DIST_ON_SET     (0x1)       /*!< Trigger checked for set events. */
-#define DIST_ON_DEL     (0x1 << 1)  /*!< Trigger checked for del events. */
-#define DIST_ON_PUBLISH (0x1 << 5)  /*!< Is Publish/Subscribe Event. */
-#define DIST_PERSIST    (0x1 << 2)  /*!< Trigger installed until it is removed. */
-#define DIST_ALWAYS_SET (0x1 << 3)  /*!< Provided error is ignored (trigger
+#define OCT_ON_SET     (0x1)       /*!< Trigger checked for set events. */
+#define OCT_ON_DEL     (0x1 << 1)  /*!< Trigger checked for del events. */
+#define OCT_ON_PUBLISH (0x1 << 5)  /*!< Is Publish/Subscribe Event. */
+#define OCT_PERSIST    (0x1 << 2)  /*!< Trigger installed until it is removed. */
+#define OCT_ALWAYS_SET (0x1 << 3)  /*!< Provided error is ignored (trigger
                                          is always installed). */
-#define DIST_REMOVED    (0x1 << 4)  /*!< Indicates that the trigger has been
+#define OCT_REMOVED    (0x1 << 4)  /*!< Indicates that the trigger has been
                                          removed. Cleaning up any state for
                                          this trigger is safe in case this
                                          flag is set. */

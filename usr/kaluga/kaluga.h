@@ -7,7 +7,7 @@
 #include "queue.h"
 #include "debug.h"
 
-#define TRIGGER_ALWAYS (DIST_PERSIST | DIST_ON_SET | DIST_ON_DEL | DIST_ALWAYS_SET)
+#define TRIGGER_ALWAYS (OCT_PERSIST | OCT_ON_SET | OCT_ON_DEL | OCT_ALWAYS_SET)
 #define BSP_CORE_ID 0
 
 extern coreid_t my_core_id;

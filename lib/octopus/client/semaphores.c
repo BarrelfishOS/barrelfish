@@ -89,7 +89,7 @@ errval_t oct_sem_wait(uint32_t id)
     char* result = NULL;
     octopus_trigger_id_t tid;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
-            octopus_BINDING_RPC, DIST_ON_SET, NULL, NULL);
+            octopus_BINDING_RPC, OCT_ON_SET, NULL, NULL);
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
     char query[100];

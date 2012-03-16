@@ -259,7 +259,7 @@ try_retract(0, _, _).
 remove_watch(Binding, Id) :-
     store_get(trigger, Id, subscription(_, _, subscriber(Binding, Id, ReplyState, Mode))),
     delete_subscription(trigger, Id, Binding),
-    trigger_watch(_, 16, 0, ReplyState, Id, _). % 16 is DIST_REMOVED
+    trigger_watch(_, 16, 0, ReplyState, Id, _). % 16 is OCT_REMOVED
 
 %
 % Output

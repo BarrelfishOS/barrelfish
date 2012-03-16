@@ -31,8 +31,8 @@ static void trigger_handler(octopus_mode_t m, char* record, void* state)
     *received = *received + 1;
     debug_printf("trigger_handler got: %s\n", record);
 
-    assert(m & DIST_ON_DEL);
-    assert(m & DIST_REMOVED);
+    assert(m & OCT_ON_DEL);
+    assert(m & OCT_REMOVED);
     free(record);
 }
 
@@ -40,13 +40,13 @@ static void persistent_trigger(octopus_mode_t m, char* record, void* state) {
     size_t* received = (size_t*) state;
     *received = *received + 1;
 
-    if (m & DIST_ON_SET) {
+    if (m & OCT_ON_SET) {
         debug_printf("persistent_trigger ON SET: %s\n", record);
     }
-    if (m & DIST_ON_DEL) {
+    if (m & OCT_ON_DEL) {
         debug_printf("persistent_trigger ON DEL: %s\n", record);
     }
-    if (m & DIST_REMOVED) {
+    if (m & OCT_REMOVED) {
         debug_printf("persistent trigger CLEANUP: %s\n", record);
         assert(record == NULL);
     }
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
     struct octopus_thc_client_binding_t* c = oct_get_thc_client();
 
     octopus_trigger_t record_deleted = oct_mktrigger(SYS_ERR_OK,
-            octopus_BINDING_EVENT, DIST_ON_DEL, trigger_handler, &received);
+            octopus_BINDING_EVENT, OCT_ON_DEL, trigger_handler, &received);
 
     errval_t error_code = SYS_ERR_OK;
     char* output = NULL;
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 
     received = 0;
     tid = 0;
-    octopus_mode_t m = DIST_ON_SET | DIST_ON_DEL | DIST_PERSIST;
+    octopus_mode_t m = OCT_ON_SET | OCT_ON_DEL | OCT_PERSIST;
     octopus_trigger_t ptrigger = oct_mktrigger(SYS_ERR_OK,
             octopus_BINDING_EVENT, m, persistent_trigger, &received);
     output = NULL;

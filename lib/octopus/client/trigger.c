@@ -58,7 +58,7 @@ octopus_trigger_t oct_mktrigger(errval_t in_case, octopus_binding_type_t send_to
  *
  * In any case a valid watch id is specified this
  * causes a trigger event to be sent with the
- * DIST_REMOVED flag set. After this event it's safe
+ * OCT_REMOVED flag set. After this event it's safe
  * to clean up any memory associated with the event handler.
  *
  * \param trigger_id ID of trigger we want to remove

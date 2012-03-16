@@ -110,7 +110,7 @@ static inline bool can_install_trigger(octopus_trigger_t trigger, errval_t error
 {
     return trigger.m > 0 &&
            (trigger.in_case == err_no(error) ||
-           (trigger.m & DIST_ALWAYS_SET) != 0 );
+           (trigger.m & OCT_ALWAYS_SET) != 0 );
 }
 
 static inline uint64_t install_trigger(struct octopus_binding* binding,
@@ -466,7 +466,7 @@ void wait_for_handler(struct octopus_binding* b, char* query) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
             debug_printf("waiting for: %s\n", query);
             uint64_t wid;
-            set_watch_err = set_watch(b, ast, DIST_ON_SET, drs, &wid);
+            set_watch_err = set_watch(b, ast, OCT_ON_SET, drs, &wid);
         }
     }
 
@@ -594,7 +594,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
         subscriber->client_handler = client_handler;
         subscriber->client_state = client_state;
         subscriber->server_id = server_id;
-        subscriber->mode = DIST_REMOVED;
+        subscriber->mode = OCT_REMOVED;
 
         OCT_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
         subscriber->reply(subscriber->binding, subscriber);
@@ -674,7 +674,7 @@ void publish_handler(struct octopus_binding *b, char* record)
                 strcpy(subscriber->query_state.stdout.buffer, record);
                 subscriber->client_state = client_state;
                 subscriber->server_id = server_id;
-                subscriber->mode = DIST_ON_PUBLISH;
+                subscriber->mode = OCT_ON_PUBLISH;
 
                 OCT_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
                 subscriber->reply(subscriber->binding, subscriber);

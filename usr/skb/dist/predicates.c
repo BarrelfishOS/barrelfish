@@ -491,7 +491,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     if (res != PSUCCEED) {
         assert(ec_is_var(ec_arg(1)) == PSUCCEED);
         // record will be null
-        // can happen in case we send DIST_REMOVED
+        // can happen in case we send OCT_REMOVED
     }
 
     // Action that triggered the event
@@ -528,7 +528,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
 
 
     drs->error = SYS_ERR_OK;
-    bool retract = !(watch_mode & DIST_PERSIST);
+    bool retract = !(watch_mode & OCT_PERSIST);
     if (record != NULL) {
         assert(strlen(record)+1 < MAX_QUERY_LENGTH);
         strcpy(drs->query_state.stdout.buffer, record);
@@ -554,7 +554,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
             bitfield_off(trigger_ids, watch_id);
         }
 
-        drs->mode = (retract) ? (action | DIST_REMOVED) : action;
+        drs->mode = (retract) ? (action | OCT_REMOVED) : action;
 
         if (drs->binding->st != NULL) {
             oct_rpc_enqueue_reply(drs->binding, drs);

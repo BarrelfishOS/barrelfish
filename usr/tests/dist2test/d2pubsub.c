@@ -27,7 +27,7 @@ static void message_handler(oct_mode_t mode, char* record, void* st)
 {
     size_t* received = (size_t*) st;
 
-    if (mode & DIST_ON_PUBLISH) {
+    if (mode & OCT_ON_PUBLISH) {
         static const char* receive_order[] =
         { "msg_2", "msg_4", "msg_5", "msg_5", "msg_6", "msg_7" };
         char* name = NULL;
@@ -42,8 +42,8 @@ static void message_handler(oct_mode_t mode, char* record, void* st)
         free(name);
         free(record);
     }
-    else if (mode & DIST_REMOVED) {
-        debug_printf("DIST_REMOVED set...\n");
+    else if (mode & OCT_REMOVED) {
+        debug_printf("OCT_REMOVED set...\n");
     }
 
     (*received)++;

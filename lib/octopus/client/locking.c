@@ -54,7 +54,7 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
     uint64_t state = 0;
     uint64_t fn = 0;
     octopus_trigger_id_t tid;
-    octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, DIST_ON_DEL,
+    octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, OCT_ON_DEL,
             octopus_BINDING_RPC, NULL, NULL);
 
     err = oct_set_get(SET_SEQUENTIAL, lock_record, "%s_ { lock: '%s' }",
@@ -101,7 +101,7 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
                 err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
                 assert(err_is_ok(err));
                 free(record);
-                assert(mode & DIST_REMOVED);
+                assert(mode & OCT_REMOVED);
             }
             else if (err_no(exist_err) != OCT_ERR_NO_RECORD) {
                 err = exist_err;

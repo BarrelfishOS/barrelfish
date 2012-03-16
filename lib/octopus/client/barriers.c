@@ -47,7 +47,7 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
     octopus_trigger_id_t tid;
     size_t current_barriers = 0;
     octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD, octopus_BINDING_RPC,
-            DIST_ON_SET, NULL, NULL);
+            OCT_ON_SET, NULL, NULL);
 
     err = oct_set_get(SET_SEQUENTIAL, barrier_record,
             "%s_ { barrier: '%s' }", name, name);
@@ -75,7 +75,7 @@ errval_t oct_barrier_enter(const char* name, char** barrier_record, size_t wait_
             // Wait until barrier record is created
             err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
             free(record);
-            assert(mode & DIST_REMOVED);
+            assert(mode & OCT_REMOVED);
 
             err = SYS_ERR_OK;
         }
@@ -117,7 +117,7 @@ errval_t oct_barrier_leave(const char* barrier_record)
     uint64_t fn = 0;
     octopus_trigger_id_t tid;
     octopus_trigger_t t = oct_mktrigger(SYS_ERR_OK, octopus_BINDING_RPC,
-            DIST_ON_DEL, NULL, NULL);
+            OCT_ON_DEL, NULL, NULL);
 
     //debug_printf("leaving: %s\n", barrier_record);
     err = oct_read(barrier_record, "%s { barrier: %s }", &rec_name,
@@ -145,7 +145,7 @@ errval_t oct_barrier_leave(const char* barrier_record)
             if (err_is_ok(err)) {
                 // Wait until everyone has left the barrier
                 err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
-                assert(mode & DIST_REMOVED);
+                assert(mode & OCT_REMOVED);
             }
             else if (err_no(err) == OCT_ERR_NO_RECORD) {
                 // barrier already deleted

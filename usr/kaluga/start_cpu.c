@@ -122,7 +122,7 @@ static inline void configure_monitor_binding(void)
 
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
 
         uint64_t cpu_id, arch_id, enabled = 0;
@@ -159,13 +159,13 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         }
 
     }
-    if (mode & DIST_ON_DEL) {
+    if (mode & OCT_ON_DEL) {
         KALUGA_DEBUG("CPU removed: %s\n", record);
         assert(!"NYI");
     }
 
 out:
-    assert(!(mode & DIST_REMOVED));
+    assert(!(mode & OCT_REMOVED));
     free(record);
 }
 
@@ -204,7 +204,7 @@ errval_t watch_for_cores(void)
 
 static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
 {
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         struct module_info* mi = find_module("ioapic");
         if (mi != NULL) {
             // Pass apic id as 1st argument
@@ -236,7 +236,7 @@ static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
             }
         }
     }
-    else if (mode & DIST_ON_DEL) {
+    else if (mode & OCT_ON_DEL) {
         KALUGA_DEBUG("Removed I/O APIC?");
         assert(!"NYI");
     }
