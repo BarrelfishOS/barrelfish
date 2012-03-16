@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief dist2 service handler header file.
+ * \brief octopus service handler header file.
  */
 
 /*
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_SERVICE_H_
-#define DIST2_SERVICE_H_
+#ifndef OCTOPUS_SERVICE_H_
+#define OCTOPUS_SERVICE_H_
 
 #include <barrelfish/barrelfish.h>
 #include <if/octopus_defs.h>
@@ -76,4 +76,4 @@ void get_cap_handler(struct octopus_binding*, char*);
 void put_cap_handler(struct octopus_binding*, char*, struct capref);
 void remove_cap_handler(struct octopus_binding*, char*);
 
-#endif /* DIST2_SERVICE_H_ */
+#endif /* OCTOPUS_SERVICE_H_ */

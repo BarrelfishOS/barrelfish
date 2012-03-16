@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief Contains common functions/macros/defines used throughout
- * the dist2 client library.
+ * the octopus client library.
  */
 
 /*
@@ -13,8 +13,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_COMMON_H_
-#define DIST2_COMMON_H_
+#ifndef OCTOPUS_COMMON_H_
+#define OCTOPUS_COMMON_H_
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -54,7 +54,7 @@ static inline errval_t allocate_string(const char *fmt, va_list args,
     *length = vsnprintf(NULL, 0, fmt, args);
 
     if (*length >= MAX_QUERY_LENGTH) {
-        return DIST2_ERR_QUERY_SIZE;
+        return OCT_ERR_QUERY_SIZE;
     }
 
     *buf = malloc((*length) + 1); // include \0
@@ -88,4 +88,4 @@ static inline char* strtok_r(char *s, const char *delim, char **saveptr)
     return s;
 }
 
-#endif /* DIST2_COMMON_H_ */
+#endif /* OCTOPUS_COMMON_H_ */

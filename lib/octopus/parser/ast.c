@@ -16,7 +16,7 @@
 #include <assert.h>
 
 #ifdef TEST_PARSER
-#include "../../../include/dist2/parser/ast.h"
+#include "../../../include/octopus/parser/ast.h"
 #else
 #include <octopus/parser/ast.h>
 #endif
@@ -159,5 +159,5 @@ errval_t generate_ast(const char* input, struct ast_object** record)
     out:
     // Memory got cleaned up by bison destructors...
     *record = NULL;
-    return DIST2_ERR_PARSER_FAIL;
+    return OCT_ERR_PARSER_FAIL;
 }

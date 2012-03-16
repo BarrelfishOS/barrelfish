@@ -95,7 +95,7 @@ static char* skip_index_remove(hash_table* ht, uint64_t key, char* value)
 
 int p_save_index(void)
 {
-    DIST2_DEBUG("p_save_index\n");
+    OCT_DEBUG("p_save_index\n");
     init_index();
 
     char* value = NULL;
@@ -113,7 +113,7 @@ int p_save_index(void)
         char* attribute;
         ec_get_string(attribute_term, &attribute);
 
-        DIST2_DEBUG("insert %s(%p) into index[%s]=", record_name, record_name, attribute);
+        OCT_DEBUG("insert %s(%p) into index[%s]=", record_name, record_name, attribute);
         uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
         int res = skip_index_insert(record_index, key, record_name);
         assert(res == PSUCCEED);
@@ -148,7 +148,7 @@ int p_remove_index(void)
 
         uint64_t key = fnv_64a_str(attribute, FNV1A_64_INIT);
         to_free = skip_index_remove(record_index, key, name);
-        DIST2_DEBUG("removed %s(%p) from index[%s]=", name, to_free, attribute);
+        OCT_DEBUG("removed %s(%p) from index[%s]=", name, to_free, attribute);
         //assert(to_free != NULL);
     }
 
@@ -158,7 +158,7 @@ int p_remove_index(void)
 
 int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, +Next) */
 {
-    DIST2_DEBUG("p_index_intersect\n");
+    OCT_DEBUG("p_index_intersect\n");
     static struct skip_list** sets = NULL;
     static char* next = NULL;
     static size_t elems = 0;
@@ -177,7 +177,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
 
     res = ec_get_string(ec_arg(3), &next);
     if (res != PSUCCEED) {
-        DIST2_DEBUG("state is not a string, find skip lists\n");
+        OCT_DEBUG("state is not a string, find skip lists\n");
         free(sets);
         pword list, cur, rest;
 
@@ -199,7 +199,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
             if (sl == NULL) {
                 return PFAIL;
             }
-            DIST2_DEBUG("skip_intersect found skip list for key: %s\n", key);
+            OCT_DEBUG("skip_intersect found skip list for key: %s\n", key);
             //skip_print_list(sl);
 
             sets[i] = sl;
@@ -209,7 +209,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
     }
 
     next = skip_intersect(sets, elems, next);
-    DIST2_DEBUG("skip_intersect found next: %s\n", next);
+    OCT_DEBUG("skip_intersect found next: %s\n", next);
     if(next != NULL) {
         dident item = ec_did(next, 0);
         return ec_unify_arg(4, ec_atom(item));
@@ -220,7 +220,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
 
 int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) */
 {
-    DIST2_DEBUG("p_index_union\n");
+    OCT_DEBUG("p_index_union\n");
     static hash_table* union_ht = NULL;
     static char* next = NULL;
 
@@ -238,7 +238,7 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
 
     res = ec_get_string(ec_arg(3), &next);
     if (res != PSUCCEED) {
-        DIST2_DEBUG("state is not a string, find skip lists\n");
+        OCT_DEBUG("state is not a string, find skip lists\n");
         if (union_ht != NULL) {
             hash_release(union_ht);
             union_ht = NULL;
@@ -257,14 +257,14 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
 
             // Insert all entries in union hash table
             if (sl != NULL) {
-                DIST2_DEBUG("p_index_union found skip list for key: %s\n", key);
+                OCT_DEBUG("p_index_union found skip list for key: %s\n", key);
                 //skip_print_list(sl);
 
                 struct skip_node* sentry = sl->header->forward[0];
                 while(sentry != NULL) {
                     uint64_t hash_key = fnv_64a_str(sentry->element, FNV1A_64_INIT);
                     if(hash_find(union_ht, hash_key) == NULL) {
-                        DIST2_DEBUG("p_index_union insert: %s\n", sentry->element);
+                        OCT_DEBUG("p_index_union insert: %s\n", sentry->element);
                         hash_insert(union_ht, hash_key, sentry->element);
                     }
                     sentry = sentry->forward[0];
@@ -278,7 +278,7 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
 
     uint64_t hash_key;
     next = hash_traverse_next(union_ht, &hash_key);
-    DIST2_DEBUG("skip_union found next: %s\n", next);
+    OCT_DEBUG("skip_union found next: %s\n", next);
     if(next != NULL) {
         dident item = ec_did(next, 0);
         return ec_unify_arg(4, ec_atom(item));
@@ -412,7 +412,7 @@ int p_bitfield_remove(void) /* p_bitfield_remove(Storage, +Name, +[AttributeList
 
 int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +Next) */
 {
-    DIST2_DEBUG("p_bitfield_union\n");
+    OCT_DEBUG("p_bitfield_union\n");
     static struct bitfield** sets = NULL;
     static long int next = -1;
     static size_t elems = 0;
@@ -437,7 +437,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
 
     res = ec_get_long(ec_arg(3), &next);
     if (res != PSUCCEED) {
-        DIST2_DEBUG("state is not a id, find bitmaps\n");
+        OCT_DEBUG("state is not a id, find bitmaps\n");
         free(sets);
         pword list, cur, rest;
 
@@ -458,7 +458,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
             uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
             struct bitfield* sl = hash_find(ht, hash_key);
             if (sl != NULL) {
-                DIST2_DEBUG("bitfield_union found bitfield for key: %s\n", key);
+                OCT_DEBUG("bitfield_union found bitfield for key: %s\n", key);
                 sets[elems++] = sl;
             }
             // else: no record with this attribute, just ignore
@@ -468,7 +468,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
     }
 
     next = bitfield_union(sets, elems, next);
-    DIST2_DEBUG("bitfield_union found next: %ld\n", next);
+    OCT_DEBUG("bitfield_union found next: %ld\n", next);
     if(next != -1) {
         pword item = ec_long(next);
         return ec_unify_arg(4, item);
@@ -483,7 +483,7 @@ extern struct bitfield* trigger_ids;
 int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchId, -Retract) */
 {
     int res;
-    DIST2_DEBUG("\n*** p_trigger_watch: start\n");
+    OCT_DEBUG("\n*** p_trigger_watch: start\n");
 
     // Get arguments
     char* record = NULL;
@@ -514,7 +514,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         return res;
     }
     assert(drs != NULL);
-    DIST2_DEBUG("drs is: %p\n", drs);
+    OCT_DEBUG("drs is: %p\n", drs);
 
     long int watch_id = 0;
     res = ec_get_long(ec_arg(5), &watch_id);
@@ -522,9 +522,9 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         return res;
     }
 
-    DIST2_DEBUG("p_trigger_watch: %s\n", record);
-    DIST2_DEBUG("drs->binding: %p\n", drs->binding);
-    DIST2_DEBUG("drs->reply: %p\n", drs->reply);
+    OCT_DEBUG("p_trigger_watch: %s\n", record);
+    OCT_DEBUG("drs->binding: %p\n", drs->binding);
+    OCT_DEBUG("drs->reply: %p\n", drs->reply);
 
 
     drs->error = SYS_ERR_OK;
@@ -550,7 +550,7 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         }
         else {
             assert(trigger_ids != NULL);
-            DIST2_DEBUG("turn off trigger id: %lu\n", watch_id);
+            OCT_DEBUG("turn off trigger id: %lu\n", watch_id);
             bitfield_off(trigger_ids, watch_id);
         }
 
@@ -567,6 +567,6 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
         USER_PANIC("No binding set for watch_id: %lu", watch_id);
     }
 
-    DIST2_DEBUG("p_trigger_watch: done");
+    OCT_DEBUG("p_trigger_watch: done");
     return ec_unify_arg(6, ec_long(retract));
 }

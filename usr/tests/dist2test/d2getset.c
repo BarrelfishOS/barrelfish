@@ -61,12 +61,12 @@ static void get_names(void)
     err = oct_get_names(&names, &size, "asdfasd", 20);
     assert(names == NULL);
     assert(size == 0);
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
 
     err = oct_get_names(&names, &size, "}+_df}");
     assert(names == NULL);
     assert(size == 0);
-    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+    ASSERT_ERR(err, OCT_ERR_PARSER_FAIL);
 
     printf("get_names() done!\n");
 }
@@ -77,11 +77,11 @@ static void get_records(void)
     char* data = NULL;
 
     err = oct_get(&data, "recordDoesNotExist");
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
     assert(data == NULL);
 
     err = oct_get(&data, "parser { error, m, }");
-    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+    ASSERT_ERR(err, OCT_ERR_PARSER_FAIL);
     assert(data == NULL);
 
 
@@ -109,7 +109,7 @@ static void get_records(void)
     ASSERT_ERR_OK(err);
 
     err = oct_get(&data, "object4");
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
     //free(data); TODO??
 
     err = oct_set("object4 { attr: 'Somestring', fl: 12.0, weight: 20 }");
@@ -125,7 +125,7 @@ static void get_records(void)
 
     err = oct_get(&data, "object1");
     //printf("data: %s\n", data);
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
     // TODO free(data);?
 
     /*err = oct_get(&data, "object2 { weight: 25 }");
@@ -160,10 +160,10 @@ static void get_records(void)
 static void exist_records(void)
 {
     errval_t err = oct_exists("././12");
-    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+    ASSERT_ERR(err, OCT_ERR_PARSER_FAIL);
 
     err = oct_exists("recordDoesNotExist");
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
 
     err = oct_exists("object3 { fl > 10, weight: _ }");
     ASSERT_ERR_OK(err);
@@ -172,7 +172,7 @@ static void exist_records(void)
 static void set_records(void)
 {
     errval_t err = oct_set("q{weqw1,.");
-    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+    ASSERT_ERR(err, OCT_ERR_PARSER_FAIL);
 
     err = oct_set("object1 { weight: %d }", 20);
     ASSERT_ERR_OK(err);
@@ -228,7 +228,7 @@ static void regex_name(void)
     ASSERT_ERR_OK(err);
 
     err = oct_set("r'obj.$' { attr: 12 }");
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD_NAME);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD_NAME);
 
     char** names = NULL;
     size_t len = 0;
@@ -239,7 +239,7 @@ static void regex_name(void)
     oct_free_names(names, len);
 
     err = oct_del("r'obj.$' { attr: 12}");
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD_NAME);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD_NAME);
 
     printf("regex_name() done!\n");
 }

@@ -141,11 +141,11 @@ int shmget(key_t key, size_t size, int shmflg)
         errval_t err = oct_get_capability(skey, &s->frame);
         POSIXCOMPAT_DEBUG("returned!\n");
 
-        if(err_is_fail(err) && err_no(err) != DIST2_ERR_CAP_NAME_UNKNOWN) {
+        if(err_is_fail(err) && err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
             USER_PANIC_ERR(err, "nameservice_get_capability");
         }
 
-        if(err == DIST2_ERR_CAP_NAME_UNKNOWN) {
+        if(err == OCT_ERR_CAP_NAME_UNKNOWN) {
             if(!(shmflg & IPC_CREAT)) {
                 errno = ENOENT;
                 return -1;

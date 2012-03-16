@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Header file for the dist2 get/set API.
+ * \brief Header file for the octopus get/set API.
  */
 
 /*
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_GETSET_H_
-#define DIST2_GETSET_H_
+#ifndef OCTOPUS_GETSET_H_
+#define OCTOPUS_GETSET_H_
 
 #include <barrelfish/barrelfish.h>
 
@@ -41,4 +41,4 @@ errval_t oct_exists(const char*, ...);
 
 errval_t oct_read(const char*, const char*, ...);
 
-#endif /* DIST2_GETSET_H_ */
+#endif /* OCTOPUS_GETSET_H_ */

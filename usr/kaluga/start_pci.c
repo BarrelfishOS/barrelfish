@@ -48,7 +48,7 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     char* iref_record = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD,
+    octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
             octopus_BINDING_EVENT, DIST_ON_SET, spawnd_up_event, state);
 
     // Construct service name
@@ -111,7 +111,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // is ready
         if (st == NULL && core != my_core_id) {
             err = wait_for_spawnd(core, device_record);
-            if (err_no(err) == DIST2_ERR_NO_RECORD) {
+            if (err_no(err) == OCT_ERR_NO_RECORD) {
                 KALUGA_DEBUG("Core where driver %s runs is not up yet.\n",
                         mi->binary);
                 // Don't want to free device record yet...

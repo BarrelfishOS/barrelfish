@@ -65,7 +65,7 @@ static errval_t transform_ec_error(int res)
         break;
 
     default:
-        DIST2_DEBUG("Unexpected Eclipse error: %d", res);
+        OCT_DEBUG("Unexpected Eclipse error: %d", res);
         assert(!"Should not happen");
         break;
     }
@@ -119,7 +119,7 @@ static errval_t run_eclipse(struct oct_query_state* st)
 
     errval_t err = transform_ec_error(st->exec_res);
     if (err_no(err) == SKB_ERR_EXECUTION) {
-        err = err_push(err, DIST2_ERR_ENGINE_FAIL);
+        err = err_push(err, OCT_ERR_ENGINE_FAIL);
     }
 
     return err;
@@ -127,7 +127,7 @@ static errval_t run_eclipse(struct oct_query_state* st)
 
 static void debug_skb_output(struct oct_query_state* st)
 {
-    DIST2_DEBUG(
+    OCT_DEBUG(
             " output: %s error: %s error_code: %d\n", st->stdout.buffer, st->stderr.buffer, st->exec_res);
 }
 
@@ -153,10 +153,10 @@ errval_t get_record(struct ast_object* ast, struct oct_query_state* sqs)
 
         err = run_eclipse(sqs);
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            err = err_push(err, DIST2_ERR_NO_RECORD);
+            err = err_push(err, OCT_ERR_NO_RECORD);
         }
 
-        DIST2_DEBUG(" get_record:\n");
+        OCT_DEBUG(" get_record:\n");
         debug_skb_output(sqs);
     }
 
@@ -194,14 +194,14 @@ errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs)
 
         err = run_eclipse(dqs);
         if (err_is_ok(err) && dqs->stdout.buffer[0] == '\0') {
-            err = DIST2_ERR_NO_RECORD;
+            err = OCT_ERR_NO_RECORD;
         }
         else if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
             assert(!"findall failed - should not happen!");
             // see http://eclipseclp.org/doc/bips/kernel/allsols/findall-3.html
         }
 
-        DIST2_DEBUG(" get_record_names:\n");
+        OCT_DEBUG(" get_record_names:\n");
         debug_skb_output(dqs);
     }
 
@@ -231,13 +231,13 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
         ec_post_goal(add_object_term);
 
         err = run_eclipse(sqs);
-        DIST2_DEBUG(" set_record:\n");
+        OCT_DEBUG(" set_record:\n");
         debug_skb_output(sqs);
 
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            /*DIST2_DEBUG("Goal failure during set record. Should not happen!\n");
+            /*OCT_DEBUG("Goal failure during set record. Should not happen!\n");
             assert(!"SKB_ERR_GOAL_FAILURE during set?");*/
-            err = err_push(err, DIST2_ERR_CONSTRAINT_MISMATCH);
+            err = err_push(err, OCT_ERR_CONSTRAINT_MISMATCH);
         }
     }
 
@@ -263,9 +263,9 @@ errval_t del_record(struct ast_object* ast, struct oct_query_state* dqs)
 
         err = run_eclipse(dqs);
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            err = err_push(err, DIST2_ERR_NO_RECORD);
+            err = err_push(err, OCT_ERR_NO_RECORD);
         }
-        DIST2_DEBUG(" del_record:\n");
+        OCT_DEBUG(" del_record:\n");
         debug_skb_output(dqs);
     }
 
@@ -283,7 +283,7 @@ static errval_t find_free_id(struct bitfield* bf, uint64_t* id)
         }
     }
 
-    return DIST2_ERR_MAX_SUBSCRIPTIONS;
+    return OCT_ERR_MAX_SUBSCRIPTIONS;
 }
 
 static errval_t init_bitmap(struct bitfield** bf)
@@ -347,7 +347,7 @@ errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
             bitfield_off(trigger_ids, *wid);
         }
 
-        DIST2_DEBUG("set watch\n");
+        OCT_DEBUG("set watch\n");
         debug_skb_output(&drs->query_state);
     }
 
@@ -365,10 +365,10 @@ errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
 
     errval_t err = run_eclipse(dqs);
     if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-        err = err_push(err, DIST2_ERR_INVALID_ID);
+        err = err_push(err, OCT_ERR_INVALID_ID);
     }
 
-    DIST2_DEBUG(" del_trigger id is %lu:\n", id);
+    OCT_DEBUG(" del_trigger id is %lu:\n", id);
     debug_skb_output(dqs);
 
     return err;
@@ -379,7 +379,7 @@ struct octopus_binding* get_event_binding(struct octopus_binding* b)
     errval_t err = SYS_ERR_OK;
     struct oct_query_state* dqs = calloc(1, sizeof(struct oct_query_state));
     if (dqs == NULL) {
-        DIST2_DEBUG("Server out of memory.");
+        OCT_DEBUG("Server out of memory.");
         return NULL;
     }
 
@@ -398,13 +398,13 @@ struct octopus_binding* get_event_binding(struct octopus_binding* b)
 
     err = run_eclipse(dqs);
     if (err_is_fail(err)) {
-        DIST2_DEBUG("No event binding found for client.");
+        OCT_DEBUG("No event binding found for client.");
         assert(!"Should not happen - check client initialization code!");
 
         return NULL;
     }
 
-    DIST2_DEBUG("get_event_binding\n");
+    OCT_DEBUG("get_event_binding\n");
     debug_skb_output(dqs);
 
     struct octopus_binding* recipient = NULL;
@@ -449,7 +449,7 @@ errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
             bitfield_off(subscriber_ids, drs->server_id);
         }
 
-        DIST2_DEBUG("add_subscription\n");
+        OCT_DEBUG("add_subscription\n");
         debug_skb_output(&drs->query_state);
     }
 
@@ -475,10 +475,10 @@ errval_t del_subscription(struct octopus_binding* b, uint64_t id,
         bitfield_off(subscriber_ids, id);
     }
     if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-        err = err_push(err, DIST2_ERR_NO_SUBSCRIPTION);
+        err = err_push(err, OCT_ERR_NO_SUBSCRIPTION);
     }
 
-    DIST2_DEBUG("del_subscription:\n");
+    OCT_DEBUG("del_subscription:\n");
     debug_skb_output(sqs);
 
     return err;
@@ -509,11 +509,11 @@ errval_t find_subscribers(struct ast_object* ast, struct oct_query_state* sqs)
 
         err = run_eclipse(sqs);
         if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
-            err = err_push(err, DIST2_ERR_NO_SUBSCRIBERS);
+            err = err_push(err, OCT_ERR_NO_SUBSCRIBERS);
         }
     }
 
-    DIST2_DEBUG("find_subscribers\n");
+    OCT_DEBUG("find_subscribers\n");
     debug_skb_output(sqs);
 
     return err;
@@ -537,7 +537,7 @@ errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding)
         break;
 
     default:
-        return DIST2_ERR_UNSUPPORTED_BINDING;
+        return OCT_ERR_UNSUPPORTED_BINDING;
         break;
     }
 
@@ -547,8 +547,8 @@ errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding)
     ec_post_goal(set_term);
 
     errval_t err = run_eclipse(dqs);
-    DIST2_DEBUG("set_binding: %p\n", binding);
-    DIST2_DEBUG("error: %s\n", dqs->stderr.buffer);
+    OCT_DEBUG("set_binding: %p\n", binding);
+    OCT_DEBUG("error: %s\n", dqs->stderr.buffer);
 
     free(dqs);
     return err;

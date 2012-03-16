@@ -94,7 +94,7 @@ int sem_trywait(sem_t *sem)
 	  		POSIXCOMPAT_DEBUG("%d: sem_trywait(%p, %u) success!\n", disp_get_domain_id(), sem, sem->id);
             return 0;
         }
-        else if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        else if (err_no(err) == OCT_ERR_NO_RECORD) {
 	  		POSIXCOMPAT_DEBUG("%d: sem_trywait(%p, %u) no success\n", disp_get_domain_id(), sem, sem->id);
             errno = EAGAIN;
             return -1;

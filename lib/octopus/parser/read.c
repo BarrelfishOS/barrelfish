@@ -31,10 +31,10 @@
  * \param ... Values read are stored in the provided arguments.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_ATTRIBUTE_NOT_FOUND
- * \retval DIST2_ERR_TYPE_MISMATCH
- * \retval DIST2_ERR_RECORD_NAME_MISMATCH
- * \retval DIST2_ERR_ATTRIBUTE_MISMATCH
+ * \retval OCT_ERR_ATTRIBUTE_NOT_FOUND
+ * \retval OCT_ERR_TYPE_MISMATCH
+ * \retval OCT_ERR_RECORD_NAME_MISMATCH
+ * \retval OCT_ERR_ATTRIBUTE_MISMATCH
  */
 errval_t oct_read(const char* record, const char* format, ...)
 {
@@ -64,7 +64,7 @@ errval_t oct_read(const char* record, const char* format, ...)
 	switch(format_name->type) {
 	case nodeType_Scan:
 		if(format_name->u.scn.c != 's') {
-			err = DIST2_ERR_INVALID_FORMAT;
+			err = OCT_ERR_INVALID_FORMAT;
 			goto out;
 		}
 		s = va_arg(args, char**);
@@ -78,7 +78,7 @@ errval_t oct_read(const char* record, const char* format, ...)
 		break;
 
 	default:
-		err = DIST2_ERR_INVALID_FORMAT;
+		err = OCT_ERR_INVALID_FORMAT;
 		goto out;
 		break;
 	}
@@ -93,7 +93,7 @@ errval_t oct_read(const char* record, const char* format, ...)
 		assert(format_attr->type == nodeType_Pair);
 		assert(format_attr->u.pn.left->type == nodeType_Ident);
 		if(format_attr->u.pn.right->type != nodeType_Scan) {
-			err = DIST2_ERR_INVALID_FORMAT;
+			err = OCT_ERR_INVALID_FORMAT;
 			goto out;
 		}
 
@@ -101,7 +101,7 @@ errval_t oct_read(const char* record, const char* format, ...)
 		struct ast_object* record_attr = ast_find_attribute(ast,
 		        format_attr->u.pn.left->u.in.str);
 		if(record_attr == NULL) {
-			err = DIST2_ERR_UNKNOWN_ATTRIBUTE;
+			err = OCT_ERR_UNKNOWN_ATTRIBUTE;
 			goto out;
 		}
 		struct ast_object* value = record_attr->u.pn.right;
@@ -118,7 +118,7 @@ errval_t oct_read(const char* record, const char* format, ...)
 				value->u.sn.str = NULL;
 			}
 			else {
-				err = DIST2_ERR_INVALID_FORMAT;
+				err = OCT_ERR_INVALID_FORMAT;
 				goto out;
 			}
 			break;
@@ -130,7 +130,7 @@ errval_t oct_read(const char* record, const char* format, ...)
 			}
 			else {
 				*i = 0;
-				err = DIST2_ERR_INVALID_FORMAT;
+				err = OCT_ERR_INVALID_FORMAT;
 				goto out;
 			}
 			break;
@@ -142,13 +142,13 @@ errval_t oct_read(const char* record, const char* format, ...)
 			}
 			else {
 				*d = 0.0;
-				err = DIST2_ERR_INVALID_FORMAT;
+				err = OCT_ERR_INVALID_FORMAT;
 				goto out;
 			}
 			break;
 
 		default:
-			err = DIST2_ERR_INVALID_FORMAT;
+			err = OCT_ERR_INVALID_FORMAT;
 			goto out;
 			break;
 		}

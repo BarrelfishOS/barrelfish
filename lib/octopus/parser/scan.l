@@ -6,9 +6,9 @@
 #include "y.tab.h"
 
 #ifdef TEST_PARSER
-#include "../../../include/dist2/parser/ast.h"
+#include "../../../include/octopus/parser/ast.h"
 #else
-#include <dist2/parser/ast.h>
+#include <octopus/parser/ast.h>
 #endif
 
 // not in C99 :-(

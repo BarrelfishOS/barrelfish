@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_PUBSUB_H_
-#define DIST2_PUBSUB_H_
+#ifndef OCTOPUS_PUBSUB_H_
+#define OCTOPUS_PUBSUB_H_
 
 #include <stdint.h>
 #include <if/octopus_defs.h>
@@ -28,4 +28,4 @@ errval_t oct_subscribe(subscription_handler_fn, const void*, subscription_t*,
 errval_t oct_unsubscribe(subscription_t);
 errval_t oct_publish(const char*, ...);
 
-#endif /* DIST2_PUBSUB_H_ */
+#endif /* OCTOPUS_PUBSUB_H_ */

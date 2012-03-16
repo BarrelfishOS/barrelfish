@@ -62,7 +62,7 @@ static void subscriber(void)
     thread_sem_init(&ts, 0);
 
     err = oct_subscribe(message_handler, &received, &id1, "111 [] attr: 10 }");
-    ASSERT_ERR(err, DIST2_ERR_PARSER_FAIL);
+    ASSERT_ERR(err, OCT_ERR_PARSER_FAIL);
 
     err = oct_subscribe(message_handler, &received, &id1,
             "_ { fl: 1.01, attr: 10 }");

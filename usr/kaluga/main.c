@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 
     err = oct_init();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Initialize dist library.");
+        USER_PANIC_ERR(err, "Initialize octopus service.");
     }
 
     err = init_boot_modules();

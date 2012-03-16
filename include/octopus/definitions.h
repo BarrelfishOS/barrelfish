@@ -15,8 +15,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_DEFINITIONS_H_
-#define DIST2_DEFINITIONS_H_
+#ifndef OCTOPUS_DEFINITIONS_H_
+#define OCTOPUS_DEFINITIONS_H_
 
 #define MAX_QUERY_LENGTH (5*1024)
 
@@ -37,4 +37,4 @@
                                          this trigger is safe in case this
                                          flag is set. */
 
-#endif /* DIST2_DEFINITIONS_H_ */
+#endif /* OCTOPUS_DEFINITIONS_H_ */

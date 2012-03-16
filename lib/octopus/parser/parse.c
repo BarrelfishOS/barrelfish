@@ -68,14 +68,14 @@
 /* Copy the first part of user declarations.  */
 
 /* Line 189 of yacc.c  */
-#line 1 "../lib/dist2/parser/parse.y"
+#line 1 "parse.y"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 
 #ifdef TEST_PARSER
-#include "../../../include/dist2/parser/ast.h"
+#include "../../../include/octopus/parser/ast.h"
 #else
 #include <octopus/parser/ast.h>
 #endif
@@ -173,7 +173,7 @@ typedef union YYSTYPE
 {
 
 /* Line 214 of yacc.c  */
-#line 24 "../lib/dist2/parser/parse.y"
+#line 24 "parse.y"
 
     long long int integer;
     double dl;
@@ -1115,7 +1115,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 21: /* "IDENT" */
 
 /* Line 1000 of yacc.c  */
-#line 64 "../lib/dist2/parser/parse.y"
+#line 64 "parse.y"
 	{ free((yyvaluep->str)); };
 
 /* Line 1000 of yacc.c  */
@@ -1124,7 +1124,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 22: /* "REGEX" */
 
 /* Line 1000 of yacc.c  */
-#line 64 "../lib/dist2/parser/parse.y"
+#line 64 "parse.y"
 	{ free((yyvaluep->str)); };
 
 /* Line 1000 of yacc.c  */
@@ -1133,7 +1133,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 23: /* "STRING" */
 
 /* Line 1000 of yacc.c  */
-#line 64 "../lib/dist2/parser/parse.y"
+#line 64 "parse.y"
 	{ free((yyvaluep->str)); };
 
 /* Line 1000 of yacc.c  */
@@ -1142,7 +1142,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 27: /* "record" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "../lib/dist2/parser/parse.y"
+#line 63 "parse.y"
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
@@ -1151,7 +1151,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 28: /* "name" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "../lib/dist2/parser/parse.y"
+#line 63 "parse.y"
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
@@ -1160,7 +1160,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 29: /* "attributes" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "../lib/dist2/parser/parse.y"
+#line 63 "parse.y"
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
@@ -1169,7 +1169,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 30: /* "attribute" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "../lib/dist2/parser/parse.y"
+#line 63 "parse.y"
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
@@ -1178,7 +1178,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 31: /* "constraint" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "../lib/dist2/parser/parse.y"
+#line 63 "parse.y"
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
@@ -1187,7 +1187,7 @@ yydestruct (yymsg, yytype, yyvaluep)
       case 32: /* "value" */
 
 /* Line 1000 of yacc.c  */
-#line 63 "../lib/dist2/parser/parse.y"
+#line 63 "parse.y"
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
@@ -1495,182 +1495,182 @@ yyreduce:
         case 2:
 
 /* Line 1455 of yacc.c  */
-#line 68 "../lib/dist2/parser/parse.y"
+#line 68 "parse.y"
     { ((struct oct_parser_state*) data)->ast = (yyvsp[(1) - (1)].nPtr); YYACCEPT;  }
     break;
 
   case 3:
 
 /* Line 1455 of yacc.c  */
-#line 71 "../lib/dist2/parser/parse.y"
+#line 71 "parse.y"
     { (yyval.nPtr) = ast_object((yyvsp[(1) - (2)].nPtr), NULL); }
     break;
 
   case 4:
 
 /* Line 1455 of yacc.c  */
-#line 72 "../lib/dist2/parser/parse.y"
+#line 72 "parse.y"
     { (yyval.nPtr) = ast_object((yyvsp[(1) - (3)].nPtr), NULL); }
     break;
 
   case 5:
 
 /* Line 1455 of yacc.c  */
-#line 73 "../lib/dist2/parser/parse.y"
+#line 73 "parse.y"
     { (yyval.nPtr) = ast_object((yyvsp[(1) - (4)].nPtr), (yyvsp[(3) - (4)].nPtr)); }
     break;
 
   case 6:
 
 /* Line 1455 of yacc.c  */
-#line 76 "../lib/dist2/parser/parse.y"
+#line 76 "parse.y"
     { (yyval.nPtr) = ast_ident((yyvsp[(1) - (1)].str)); }
     break;
 
   case 7:
 
 /* Line 1455 of yacc.c  */
-#line 77 "../lib/dist2/parser/parse.y"
+#line 77 "parse.y"
     { (yyval.nPtr) = ast_variable(); }
     break;
 
   case 8:
 
 /* Line 1455 of yacc.c  */
-#line 78 "../lib/dist2/parser/parse.y"
+#line 78 "parse.y"
     { (yyval.nPtr) = ast_scan((yyvsp[(1) - (1)].c)); }
     break;
 
   case 9:
 
 /* Line 1455 of yacc.c  */
-#line 79 "../lib/dist2/parser/parse.y"
+#line 79 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_REGEX, ast_string((yyvsp[(1) - (1)].str))); }
     break;
 
   case 10:
 
 /* Line 1455 of yacc.c  */
-#line 82 "../lib/dist2/parser/parse.y"
+#line 82 "parse.y"
     { (yyval.nPtr) = ast_attribute((yyvsp[(1) - (1)].nPtr), NULL); }
     break;
 
   case 11:
 
 /* Line 1455 of yacc.c  */
-#line 83 "../lib/dist2/parser/parse.y"
+#line 83 "parse.y"
     { (yyval.nPtr) = ast_attribute((yyvsp[(1) - (3)].nPtr), (yyvsp[(3) - (3)].nPtr)); }
     break;
 
   case 12:
 
 /* Line 1455 of yacc.c  */
-#line 86 "../lib/dist2/parser/parse.y"
+#line 86 "parse.y"
     { (yyval.nPtr) = ast_pair(ast_ident((yyvsp[(1) - (3)].str)), (yyvsp[(3) - (3)].nPtr)); }
     break;
 
   case 13:
 
 /* Line 1455 of yacc.c  */
-#line 87 "../lib/dist2/parser/parse.y"
+#line 87 "parse.y"
     { (yyval.nPtr) = ast_pair(ast_ident((yyvsp[(1) - (2)].str)), (yyvsp[(2) - (2)].nPtr)); }
     break;
 
   case 14:
 
 /* Line 1455 of yacc.c  */
-#line 90 "../lib/dist2/parser/parse.y"
+#line 90 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_GT, (yyvsp[(2) - (2)].nPtr));  }
     break;
 
   case 15:
 
 /* Line 1455 of yacc.c  */
-#line 91 "../lib/dist2/parser/parse.y"
+#line 91 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_GE, (yyvsp[(2) - (2)].nPtr)); }
     break;
 
   case 16:
 
 /* Line 1455 of yacc.c  */
-#line 92 "../lib/dist2/parser/parse.y"
+#line 92 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_LT, (yyvsp[(2) - (2)].nPtr)); }
     break;
 
   case 17:
 
 /* Line 1455 of yacc.c  */
-#line 93 "../lib/dist2/parser/parse.y"
+#line 93 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_LE, (yyvsp[(2) - (2)].nPtr)); }
     break;
 
   case 18:
 
 /* Line 1455 of yacc.c  */
-#line 94 "../lib/dist2/parser/parse.y"
+#line 94 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_EQ, (yyvsp[(2) - (2)].nPtr)); }
     break;
 
   case 19:
 
 /* Line 1455 of yacc.c  */
-#line 95 "../lib/dist2/parser/parse.y"
+#line 95 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_NE, (yyvsp[(2) - (2)].nPtr)); }
     break;
 
   case 20:
 
 /* Line 1455 of yacc.c  */
-#line 96 "../lib/dist2/parser/parse.y"
+#line 96 "parse.y"
     { (yyval.nPtr) = ast_constraints(constraint_REGEX, ast_string((yyvsp[(2) - (2)].str))); }
     break;
 
   case 21:
 
 /* Line 1455 of yacc.c  */
-#line 97 "../lib/dist2/parser/parse.y"
+#line 97 "parse.y"
     { (yyval.nPtr) = ast_variable(); }
     break;
 
   case 22:
 
 /* Line 1455 of yacc.c  */
-#line 100 "../lib/dist2/parser/parse.y"
+#line 100 "parse.y"
     { (yyval.nPtr) = ast_ident((yyvsp[(1) - (1)].str)); }
     break;
 
   case 23:
 
 /* Line 1455 of yacc.c  */
-#line 101 "../lib/dist2/parser/parse.y"
+#line 101 "parse.y"
     { (yyval.nPtr) = ast_string((yyvsp[(1) - (1)].str)); }
     break;
 
   case 24:
 
 /* Line 1455 of yacc.c  */
-#line 102 "../lib/dist2/parser/parse.y"
+#line 102 "parse.y"
     { (yyval.nPtr) = ast_num((yyvsp[(1) - (1)].integer)); }
     break;
 
   case 25:
 
 /* Line 1455 of yacc.c  */
-#line 103 "../lib/dist2/parser/parse.y"
+#line 103 "parse.y"
     { (yyval.nPtr) = ast_boolean((yyvsp[(1) - (1)].integer)); }
     break;
 
   case 26:
 
 /* Line 1455 of yacc.c  */
-#line 104 "../lib/dist2/parser/parse.y"
+#line 104 "parse.y"
     { (yyval.nPtr) = ast_floatingpoint((yyvsp[(1) - (1)].dl)); }
     break;
 
   case 27:
 
 /* Line 1455 of yacc.c  */
-#line 105 "../lib/dist2/parser/parse.y"
+#line 105 "parse.y"
     { (yyval.nPtr) = ast_scan((yyvsp[(1) - (1)].c)); }
     break;
 
@@ -1889,12 +1889,12 @@ yyreturn:
 
 
 /* Line 1675 of yacc.c  */
-#line 106 "../lib/dist2/parser/parse.y"
+#line 106 "parse.y"
 
 
 void yyerror(char *s)
 {
-#ifdef DIST2_DEBUG
+#ifdef OCT_DEBUG
     fprintf(stderr, "octopus_parser: %s\n", s);
 #endif
 }

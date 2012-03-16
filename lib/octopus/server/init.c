@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Code to initialize the dist2 server.
+ * \brief Code to initialize the octopus server.
  *
  * Sets up bindings and vtables.
  */
@@ -24,7 +24,7 @@
 #include <octopus_server/service.h>
 #include <octopus_server/debug.h>
 
-#define DIST2_RPC_SERVICE_NAME "octopus_rpc"
+#define OCT_RPC_SERVICE_NAME "octopus_rpc"
 
 static struct export_state {
     bool is_done;
@@ -60,7 +60,7 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref)
 
     if (err_is_ok(err)) {
         struct monitor_binding *mb = get_monitor_binding();
-        DIST2_DEBUG("dist2 rpc iref is: %d\n", iref);
+        OCT_DEBUG("octopus rpc iref is: %d\n", iref);
         err = mb->tx_vtbl.set_name_iref_request(mb, NOP_CONT, iref);
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "failed to send set_name_iref_request to monitor");
@@ -101,7 +101,7 @@ errval_t rpc_server_init(void)
 }
 
 /**
- * \brief Sets up bindings for the dist2 server and registers them in the
+ * \brief Sets up bindings for the octopus server and registers them in the
  * nameserver.
  *
  * \retval SYS_ERR_OK

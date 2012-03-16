@@ -12,10 +12,10 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_BARRIER_H_
-#define DIST2_BARRIER_H_
+#ifndef OCTOPUS_BARRIER_H_
+#define OCTOPUS_BARRIER_H_
 
 errval_t oct_barrier_enter(const char*, char**, size_t);
 errval_t oct_barrier_leave(const char*);
 
-#endif /* DIST2_BARRIER_H_ */
+#endif /* OCTOPUS_BARRIER_H_ */

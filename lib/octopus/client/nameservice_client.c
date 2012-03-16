@@ -29,7 +29,7 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 
     char* record = NULL;
     err = oct_get(&record, iface);
-    if (err_no(err) == DIST2_ERR_NO_RECORD) {
+    if (err_no(err) == OCT_ERR_NO_RECORD) {
         return err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
     }
 
@@ -61,13 +61,13 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD, DIST_ON_SET, 0, 0);
+    octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD, DIST_ON_SET, 0, 0);
     err = cl->call_seq.get(cl, iface, &record, t, &error_code);
     if (err_is_ok(err)) {
         err = error_code;
     }
 
-    if (err_no(err) == DIST2_ERR_NO_RECORD) {
+    if (err_no(err) == OCT_ERR_NO_RECORD) {
         assert(record == NULL);
         cl->recv.trigger(cl, &mode, &fn, &state, &record);
         err = SYS_ERR_OK;

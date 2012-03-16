@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Header file for the dist2 client library.
+ * \brief Header file for the octopus client library.
  */
 
 /*
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_H_
-#define DIST2_H_
+#ifndef OCTOPUS_H_
+#define OCTOPUS_H_
 
 #include <octopus/init.h>
 #include <octopus/getset.h>
@@ -23,4 +23,4 @@
 #include <octopus/semaphores.h>
 #include <octopus/trigger.h>
 
-#endif /* DIST2_H_ */
+#endif /* OCTOPUS_H_ */

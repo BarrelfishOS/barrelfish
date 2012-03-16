@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Initialization functions for the dist2 client library.
+ * \brief Initialization functions for the octopus client library.
  *
  * We use two bindings: One for communication with the server using RPC calls,
  * and one for asynchronous events coming from the server.
@@ -80,7 +80,7 @@ static int event_handler_thread(void* st)
         err = event_dispatch(&event.ws);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err,
-                    "error in event_dispatch for dist2 event binding");
+                    "error in event_dispatch for octopus event binding");
         }
     }
 
@@ -201,13 +201,13 @@ errval_t oct_thc_init(void)
 }
 
 /**
- * \brief Initializes the dist2 client library.
+ * \brief Initializes the octopus client library.
  *
- * Note the dist rpc binding is most likely already initialized
+ * Note the octopus rpc binding is most likely already initialized
  * by libbarrelfish (used for nameservice). This function
  * will set up the event thread to handle asynchronous events.
  *
- * \note This is a GCC constructor because we need dist2 calls in
+ * \note This is a GCC constructor because we need octopus calls in
  * posixcompat.
  */
 //__attribute__((constructor))

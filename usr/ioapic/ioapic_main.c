@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
     errval_t err;
     err = oct_init();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Connect to dist Service");
+        USER_PANIC_ERR(err, "Connect to octopus Service");
     }
 
     // Connect to the SKB

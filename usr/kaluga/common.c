@@ -40,7 +40,7 @@ errval_t trigger_existing_and_watch(const char* query,
                 event_handler(DIST_ON_SET, record, state);
                 break;
 
-            case DIST2_ERR_NO_RECORD:
+            case OCT_ERR_NO_RECORD:
                 assert(record == NULL);
                 break;
 
@@ -51,7 +51,7 @@ errval_t trigger_existing_and_watch(const char* query,
             }
         }
         break;
-    case DIST2_ERR_NO_RECORD:
+    case OCT_ERR_NO_RECORD:
         err = SYS_ERR_OK; // Overwrite (trigger is set)
         break;
 

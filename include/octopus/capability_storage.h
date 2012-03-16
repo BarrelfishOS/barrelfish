@@ -11,11 +11,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef CAPABILITY_STORAGE_H_
-#define CAPABILITY_STORAGE_H_
+#ifndef OCTOPUS_CAPABILITY_STORAGE_H_
+#define OCTOPUS_CAPABILITY_STORAGE_H_
 
 errval_t oct_get_capability(const char*, struct capref*);
 errval_t oct_put_capability(const char*, struct capref);
 errval_t oct_remove_capability(const char*);
 
-#endif /* CAPABILITY_STORAGE_H_ */
+#endif /* OCTOPUS_CAPABILITY_STORAGE_H_ */

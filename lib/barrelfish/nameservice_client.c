@@ -46,7 +46,7 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
     }
     err = error_code;
     if (err_is_fail(err)) {
-        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
         }
         goto out;
@@ -90,7 +90,7 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
     }
     err = error_code;
     if (err_is_fail(err)) {
-        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
             err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
         }
         goto out;

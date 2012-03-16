@@ -61,7 +61,7 @@ void get_cap_handler(struct octopus_binding *b, char *key)
     capdb->d.get_capability(&capdb->d, key, &cap);
 
     if(capcmp(cap, NULL_CAP)) {
-        reterr = DIST2_ERR_CAP_NAME_UNKNOWN;
+        reterr = OCT_ERR_CAP_NAME_UNKNOWN;
     }
 
     struct oct_reply_state* ns = NULL;
@@ -97,7 +97,7 @@ void put_cap_handler(struct octopus_binding *b, char *key,
 
     capdb->d.get_capability(&capdb->d, key, &dbcap);
     if(!capcmp(dbcap, NULL_CAP)) {
-        reterr = DIST2_ERR_CAP_OVERWRITE;
+        reterr = OCT_ERR_CAP_OVERWRITE;
         err = cap_delete(cap);
         assert(err_is_ok(err));
     } else {
@@ -136,7 +136,7 @@ void remove_cap_handler(struct octopus_binding *b, char *key)
     struct capref cap;
     capdb->d.get_capability(&capdb->d, key, &cap);
     if(capcmp(cap, NULL_CAP)) {
-        reterr = DIST2_ERR_CAP_NAME_UNKNOWN;
+        reterr = OCT_ERR_CAP_NAME_UNKNOWN;
     }
     else {
         cap_delete(cap);

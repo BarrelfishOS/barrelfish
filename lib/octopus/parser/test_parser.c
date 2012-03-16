@@ -21,7 +21,7 @@
 
 
 #ifdef TEST_PARSER
-#include "../../../include/dist2/parser/ast.h"
+#include "../../../include/octopus/parser/ast.h"
 #else
 #include <octopus/parser/ast.h>
 #endif

@@ -40,7 +40,7 @@ static uint32_t get_next_id(void)
         err = oct_read(record, "_ { current_id: %d }", &id);
         assert(err_is_ok(err));
     }
-    else if (err_no(err) == DIST2_ERR_NO_RECORD) {
+    else if (err_no(err) == OCT_ERR_NO_RECORD) {
         err = oct_set("sem.ids { current_id: 0 }");
         assert(err_is_ok(err));
     }
@@ -88,7 +88,7 @@ errval_t oct_sem_wait(uint32_t id)
     errval_t err = SYS_ERR_OK;
     char* result = NULL;
     octopus_trigger_id_t tid;
-    octopus_trigger_t t = oct_mktrigger(DIST2_ERR_NO_RECORD,
+    octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
             octopus_BINDING_RPC, DIST_ON_SET, NULL, NULL);
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
@@ -111,14 +111,14 @@ errval_t oct_sem_wait(uint32_t id)
             if (err_is_ok(del_err)) {
                 break; // Decreased successfully
             }
-            else if (err_no(del_err) == DIST2_ERR_NO_RECORD) {
+            else if (err_no(del_err) == OCT_ERR_NO_RECORD) {
                 continue; // Need to start over
             }
             else {
                 break; // Unexpected error
             }
         }
-        else if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        else if (err_no(err) == OCT_ERR_NO_RECORD) {
             // No record found, wait until one is posted
             char* trigger_result = NULL;
             uint64_t fn, mode, state;
@@ -144,7 +144,7 @@ errval_t oct_sem_trywait(uint32_t id)
     if (err_is_ok(err)) {
         err = oct_del(result);
     }
-    else if (err_no(err) == DIST2_ERR_NO_RECORD) {
+    else if (err_no(err) == OCT_ERR_NO_RECORD) {
         // Return with no record error to caller
     }
 

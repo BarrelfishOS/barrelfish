@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Implementation of a synchronous locking API using the dist2 Interface.
+ * \brief Implementation of a synchronous locking API using the octopus Interface.
  */
 
 /*
@@ -103,7 +103,7 @@ errval_t oct_lock(const char* lock_name, char** lock_record)
                 free(record);
                 assert(mode & DIST_REMOVED);
             }
-            else if (err_no(exist_err) != DIST2_ERR_NO_RECORD) {
+            else if (err_no(exist_err) != OCT_ERR_NO_RECORD) {
                 err = exist_err;
                 goto out;
             }

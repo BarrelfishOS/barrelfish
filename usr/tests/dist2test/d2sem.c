@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     ASSERT_ERR_OK(err);
 
     err = oct_sem_trywait(id);
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
 
     err = oct_sem_post(id);
     ASSERT_ERR_OK(err);
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     ASSERT_ERR_OK(err);
 
     err = oct_sem_trywait(id);
-    ASSERT_ERR(err, DIST2_ERR_NO_RECORD);
+    ASSERT_ERR(err, OCT_ERR_NO_RECORD);
 
     printf("d2sem SUCCESS!\n");
     return EXIT_SUCCESS;

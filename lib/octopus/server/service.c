@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Contains handler functions for server-side dist2 interface RPC call.
+ * \brief Contains handler functions for server-side octopus interface RPC call.
  */
 
 /*
@@ -35,7 +35,7 @@ static uint64_t current_id = 1;
 
 static inline errval_t check_query_length(char* query) {
     if (strlen(query) >= MAX_QUERY_LENGTH) {
-        return DIST2_ERR_QUERY_SIZE;
+        return OCT_ERR_QUERY_SIZE;
     }
 
     return SYS_ERR_OK;
@@ -244,7 +244,7 @@ static void get_names_reply(struct octopus_binding* b,
 
 void get_names_handler(struct octopus_binding *b, char *query, octopus_trigger_t t)
 {
-    DIST2_DEBUG(" get_names_handler: %s\n", query);
+    OCT_DEBUG(" get_names_handler: %s\n", query);
 
     errval_t err = SYS_ERR_OK;
 
@@ -293,7 +293,7 @@ static void set_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 void set_handler(struct octopus_binding *b, char *query, uint64_t mode,
         octopus_trigger_t trigger, bool get)
 {
-    DIST2_DEBUG(" set_handler: %s\n", query);
+    OCT_DEBUG(" set_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
     struct oct_reply_state* drs = NULL;
@@ -318,7 +318,7 @@ void set_handler(struct octopus_binding *b, char *query, uint64_t mode,
             // allow name to be a regex/variable, because
             // we it's not guaranteed which records get
             // modified in this case.
-            err = DIST2_ERR_NO_RECORD_NAME;
+            err = OCT_ERR_NO_RECORD_NAME;
         }
     }
 
@@ -347,7 +347,7 @@ static void del_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 
 void del_handler(struct octopus_binding* b, char* query, octopus_trigger_t trigger)
 {
-    DIST2_DEBUG(" del_handler: %s\n", query);
+    OCT_DEBUG(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
 
     struct oct_reply_state* drs = NULL;
@@ -371,7 +371,7 @@ void del_handler(struct octopus_binding* b, char* query, octopus_trigger_t trigg
             // Since we don't have any ACLs atm. we do not
             // allow name to be a regex/variable
             // (see set_handler).
-            err = DIST2_ERR_NO_RECORD_NAME;
+            err = OCT_ERR_NO_RECORD_NAME;
         }
     }
 
@@ -463,7 +463,7 @@ void wait_for_handler(struct octopus_binding* b, char* query) {
     err = generate_ast(query, &ast);
     if (err_is_ok(err)) {
         err = get_record(ast, &drs->query_state);
-        if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
             debug_printf("waiting for: %s\n", query);
             uint64_t wid;
             set_watch_err = set_watch(b, ast, DIST_ON_SET, drs, &wid);
@@ -471,10 +471,10 @@ void wait_for_handler(struct octopus_binding* b, char* query) {
     }
 
 out:
-    if (err_no(err) != DIST2_ERR_NO_RECORD || err_is_fail(set_watch_err)) {
+    if (err_no(err) != OCT_ERR_NO_RECORD || err_is_fail(set_watch_err)) {
         drs->error = err;
         if (err_is_fail(set_watch_err)) {
-            // implies err = DIST2_ERR_NO_RECORD
+            // implies err = OCT_ERR_NO_RECORD
             drs->error = set_watch_err;
         }
         drs->reply(b, drs);
@@ -503,7 +503,7 @@ static void subscribe_reply(struct octopus_binding* b,
 void subscribe_handler(struct octopus_binding *b, char* query,
         uint64_t trigger_fn, uint64_t state)
 {
-    DIST2_DEBUG("subscribe: query = %s\n", query);
+    OCT_DEBUG("subscribe: query = %s\n", query);
     errval_t err = SYS_ERR_OK;
 
     struct oct_reply_state* drs = NULL;
@@ -568,7 +568,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
 {
     errval_t err = SYS_ERR_OK;
 
-    DIST2_DEBUG("unsubscribe: id = %lu\n", id);
+    OCT_DEBUG("unsubscribe: id = %lu\n", id);
 
     struct oct_reply_state* srs = NULL;
     err = new_oct_reply_state(&srs, unsubscribe_reply);
@@ -596,7 +596,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
         subscriber->server_id = server_id;
         subscriber->mode = DIST_REMOVED;
 
-        DIST2_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
+        OCT_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
         subscriber->reply(subscriber->binding, subscriber);
     }
 
@@ -620,7 +620,7 @@ static void publish_reply(struct octopus_binding* b, struct oct_reply_state* drs
 
 void publish_handler(struct octopus_binding *b, char* record)
 {
-    DIST2_DEBUG("publish_handler query: %s\n", record);
+    OCT_DEBUG("publish_handler query: %s\n", record);
     errval_t err = SYS_ERR_OK;
 
     struct oct_reply_state* drs = NULL;
@@ -676,7 +676,7 @@ void publish_handler(struct octopus_binding *b, char* record)
                 subscriber->server_id = server_id;
                 subscriber->mode = DIST_ON_PUBLISH;
 
-                DIST2_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
+                OCT_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
                 subscriber->reply(subscriber->binding, subscriber);
             }
         }
@@ -719,7 +719,7 @@ void identify_binding(struct octopus_binding* b, uint64_t id,
     errval_t err = new_oct_reply_state(&drs, identify_binding_reply);
     assert(err_is_ok(err));
 
-    DIST2_DEBUG("set binding: id=%lu type=%d\n", id, type);
+    OCT_DEBUG("set binding: id=%lu type=%d\n", id, type);
     drs->error = set_binding(type, id, b);
     drs->reply(b, drs);
 }

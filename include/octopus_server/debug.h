@@ -12,15 +12,15 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_DEBUG_H_
-#define DIST2_DEBUG_H_
+#ifndef OCTOPUS_DEBUG_H_
+#define OCTOPUS_DEBUG_H_
 
 //#define DIST_SERVICE_DEBUG 1
 
 #if defined(DIST_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define DIST2_DEBUG(x...) debug_printf("octopus_service: " x)
+#define OCT_DEBUG(x...) debug_printf("octopus_service: " x)
 #else
-#define DIST2_DEBUG(x...) ((void)0)
+#define OCT_DEBUG(x...) ((void)0)
 #endif
 
-#endif // DIST2_DEBUG_H_
+#endif // OCTOPUS_DEBUG_H_

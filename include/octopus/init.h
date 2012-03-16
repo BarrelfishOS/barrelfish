@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Header file for the dist2 initialization/general functions.
+ * \brief Header file for the octopus initialization/general functions.
  */
 
 /*
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_INIT_H_
-#define DIST2_INIT_H_
+#ifndef OCTOPUS_INIT_H_
+#define OCTOPUS_INIT_H_
 
 #include <barrelfish/barrelfish.h>
 #include <if/octopus_defs.h>
@@ -28,4 +28,4 @@ errval_t oct_thc_init(void);
 struct octopus_thc_client_binding_t* oct_get_thc_client(void);
 struct octopus_binding* oct_get_event_binding(void);
 
-#endif /* DIST2_INIT_H_ */
+#endif /* OCTOPUS_INIT_H_ */

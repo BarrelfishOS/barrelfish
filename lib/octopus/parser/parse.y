@@ -107,7 +107,7 @@ value:
 
 void yyerror(char *s)
 {
-#ifdef DIST2_DEBUG
+#ifdef OCT_DEBUG
     fprintf(stderr, "octopus_parser: %s\n", s);
 #endif
 }

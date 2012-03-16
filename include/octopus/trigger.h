@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_TRIGGER_H_
-#define DIST2_TRIGGER_H_
+#ifndef OCTOPUS_TRIGGER_H_
+#define OCTOPUS_TRIGGER_H_
 
 #include <barrelfish/barrelfish.h>
 #include <if/octopus_defs.h>
@@ -27,4 +27,4 @@ octopus_trigger_t oct_mktrigger(errval_t, octopus_binding_type_t, octopus_mode_t
         trigger_handler_fn, void*);
 errval_t oct_remove_trigger(octopus_trigger_id_t);
 
-#endif /* DIST2_TRIGGER_H_ */
+#endif /* OCTOPUS_TRIGGER_H_ */

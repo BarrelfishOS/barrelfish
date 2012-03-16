@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef AST_H_
-#define AST_H_
+#ifndef OCTOPUS_AST_H_
+#define OCTOPUS_AST_H_
 
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +24,7 @@
 #else
 #define MAX_QUERY_LENGTH (5*1024)
 #define SYS_ERR_OK 0
-#define DIST2_ERR_PARSER_FAIL 2
+#define OCT_ERR_PARSER_FAIL 2
 typedef long errval_t;
 typedef long int64_t;
 static int err_is_ok(errval_t err)
@@ -273,4 +273,4 @@ static inline struct ast_object* ast_num(int64_t value)
     return p;
 }
 
-#endif // AST_H_
+#endif // OCTOPUS_AST_H_

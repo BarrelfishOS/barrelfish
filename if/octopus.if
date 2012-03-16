@@ -7,7 +7,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface dist2 "dist2 RPC Interface" {
+interface octopus "octopus RPC Interface" {
 
     alias mode uint64;
     alias trigger_id uint64;

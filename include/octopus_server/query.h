@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief dist2 Query Interface Header file
+ * \brief octopus Query Interface Header file
  *
  * The server must implement this interface in order for dist2
  * to work accordingly.
@@ -15,8 +15,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_QUERY_H_
-#define DIST2_QUERY_H_
+#ifndef OCTOPUS_QUERY_H_
+#define OCTOPUS_QUERY_H_
 
 #include <barrelfish/barrelfish.h>
 #include <if/octopus_defs.h>
@@ -36,8 +36,8 @@
  * \param binding Pointer value of binding
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_UNSUPPORTED_BINDING
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_UNSUPPORTED_BINDING
+ * \retval OCT_ERR_ENGINE_FAIL
  * \retval LIB_ERR_MALLOC_FAIL
  */
 errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding);
@@ -51,8 +51,8 @@ errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding);
  * \param dqs Contains the result of the query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs);
 
@@ -63,8 +63,8 @@ errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs);
  * \param dqs Contains the result of the query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t get_record(struct ast_object* ast, struct oct_query_state* dqs);
 
@@ -76,7 +76,7 @@ errval_t get_record(struct ast_object* ast, struct oct_query_state* dqs);
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t set_record(struct ast_object* ast, uint64_t mode,
         struct oct_query_state* dqs);
@@ -88,8 +88,8 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t del_record(struct ast_object*, struct oct_query_state*);
 
@@ -105,7 +105,7 @@ errval_t del_record(struct ast_object*, struct oct_query_state*);
  * \param wid ID of the installed watch (used for remove).
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
         uint64_t mode, struct oct_reply_state* drs, uint64_t* wid);
@@ -118,8 +118,8 @@ errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
  * \param dqs Query state
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_INVALID_ID
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_INVALID_ID
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
         struct oct_query_state* dqs);
@@ -134,8 +134,8 @@ errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
  * \param drs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_MAX_SUBSCRIPTIONS
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_MAX_SUBSCRIPTIONS
+ * \retval OCT_ERR_ENGINE_FAIL
  * \retval LIB_ERR_MALLOC_FAIL
  */
 errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
@@ -149,8 +149,8 @@ errval_t add_subscription(struct octopus_binding* b, struct ast_object* ast,
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_SUBSCRIPTION
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_SUBSCRIPTION
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t del_subscription(struct octopus_binding* b, uint64_t id,
         struct oct_query_state* dqs);
@@ -163,8 +163,8 @@ errval_t del_subscription(struct octopus_binding* b, uint64_t id,
  * \param dqs Returned result of query invocation.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_SUBSCRIBERS
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_SUBSCRIBERS
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t find_subscribers(struct ast_object* ast, struct oct_query_state* dqs);
 
@@ -176,4 +176,4 @@ errval_t find_subscribers(struct ast_object* ast, struct oct_query_state* dqs);
  */
 struct octopus_binding* get_event_binding(struct octopus_binding* binding);
 
-#endif /* DIST2_QUERY_H_ */
+#endif /* OCTOPUS_QUERY_H_ */

@@ -3,7 +3,7 @@
  * \brief Get/Set client API implementation
  *
  * This file provides convenience functions to interface with the
- * dist2.if RPC calls.
+ * octopus.if RPC calls.
  */
 
 /*
@@ -125,9 +125,9 @@ out:
  * \param ... Parameters used to build query with help of vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  * \retval LIB_ERR_MALLOC_FAIL
  */
 errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
@@ -191,10 +191,10 @@ void oct_free_names(char** names, size_t len)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_AMBIGOUS_QUERY TODO!
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_AMBIGOUS_QUERY TODO!
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t oct_get(char** data, const char* query, ...)
 {
@@ -227,9 +227,9 @@ errval_t oct_get(char** data, const char* query, ...)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD_NAME
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD_NAME
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t oct_set(const char* query, ...)
 {
@@ -266,9 +266,9 @@ errval_t oct_set(const char* query, ...)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD_NAME
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD_NAME
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  */
 errval_t oct_mset(oct_mode_t mode, const char* query, ...)
 {
@@ -309,9 +309,9 @@ errval_t oct_mset(oct_mode_t mode, const char* query, ...)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD_NAME
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD_NAME
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  *
  * TODO maybe remove this function completely and let all use rpc call for set
  * directly if they want to a non-trivial set?
@@ -346,10 +346,10 @@ errval_t oct_set_get(oct_mode_t mode, char** record, const char* query, ...)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_NO_RECORD_NAME
- * \retval DIST2_ERR_ENGINE_FAIL
- * \retval DIST2_ERR_PARSER_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_NO_RECORD_NAME
+ * \retval OCT_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_PARSER_FAIL
  *
  * TODO: Atm only name of record is included in del query on server.
  */
@@ -381,9 +381,9 @@ errval_t oct_del(const char* query, ...)
  * \param ... Additional arguments to format the query using vsprintf.
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_ERR_NO_RECORD
- * \retval DIST2_ERR_PARSER_FAIL
- * \retval DIST2_ERR_ENGINE_FAIL
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
  **/
 errval_t oct_exists(const char* query, ...)
 {

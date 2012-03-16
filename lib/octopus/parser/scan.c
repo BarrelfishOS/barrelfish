@@ -480,8 +480,8 @@ static yyconst flex_int16_t yy_chk[126] =
 #define yymore() yymore_used_but_not_detected
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
-#line 1 "../lib/dist2/parser/scan.l"
-#line 2 "../lib/dist2/parser/scan.l"
+#line 1 "scan.l"
+#line 2 "scan.l"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -489,7 +489,7 @@ static yyconst flex_int16_t yy_chk[126] =
 #include "y.tab.h"
 
 #ifdef TEST_PARSER
-#include "../../../include/dist2/parser/ast.h"
+#include "../../../include/octopus/parser/ast.h"
 #else
 #include <octopus/parser/ast.h>
 #endif
@@ -735,7 +735,7 @@ YY_DECL
 	register int yy_act;
     struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
 
-#line 62 "../lib/dist2/parser/scan.l"
+#line 62 "scan.l"
 
 #line 741 "<stdout>"
 
@@ -820,7 +820,7 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 63 "../lib/dist2/parser/scan.l"
+#line 63 "scan.l"
 {
                 yylval->integer = (strcmp(yytext, "true") == 0) ? 1 : 0;
                 return BOOL;
@@ -828,7 +828,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 68 "../lib/dist2/parser/scan.l"
+#line 68 "scan.l"
 {
                 yylval->dl = atof(yytext);
                 return FLOAT;
@@ -836,7 +836,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 74 "../lib/dist2/parser/scan.l"
+#line 74 "scan.l"
 { 
                 yylval->str = strdup(yytext);
                 return IDENT; 
@@ -844,7 +844,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 79 "../lib/dist2/parser/scan.l"
+#line 79 "scan.l"
 {
                 yylval->c = yytext[1];
                 return SCAN;
@@ -852,19 +852,19 @@ YY_RULE_SETUP
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 84 "../lib/dist2/parser/scan.l"
+#line 84 "scan.l"
 {
                 return VARIABLE;
             }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 88 "../lib/dist2/parser/scan.l"
+#line 88 "scan.l"
 { yyextra->ptr = yyextra->buffer; BEGIN(REG); }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 90 "../lib/dist2/parser/scan.l"
+#line 90 "scan.l"
 { /* saw closing quote - all done */
      BEGIN(INITIAL);
      *yyextra->ptr = '\0';
@@ -875,7 +875,7 @@ YY_RULE_SETUP
 case 8:
 /* rule 8 can match eol */
 YY_RULE_SETUP
-#line 97 "../lib/dist2/parser/scan.l"
+#line 97 "scan.l"
 {
      char *yptr = yytext;
 
@@ -885,12 +885,12 @@ YY_RULE_SETUP
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 105 "../lib/dist2/parser/scan.l"
+#line 105 "scan.l"
 { yyextra->ptr = yyextra->buffer; BEGIN(STR); }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 107 "../lib/dist2/parser/scan.l"
+#line 107 "scan.l"
 { /* saw closing quote - all done */
      BEGIN(INITIAL);
      *yyextra->ptr = '\0';
@@ -901,7 +901,7 @@ YY_RULE_SETUP
 case 11:
 /* rule 11 can match eol */
 YY_RULE_SETUP
-#line 114 "../lib/dist2/parser/scan.l"
+#line 114 "scan.l"
 {
      char *yptr = yytext;
 
@@ -911,7 +911,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 121 "../lib/dist2/parser/scan.l"
+#line 121 "scan.l"
 {
                 yylval->integer = atoll(yytext);
                 return NUMBER;
@@ -919,92 +919,92 @@ YY_RULE_SETUP
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 126 "../lib/dist2/parser/scan.l"
+#line 126 "scan.l"
 return RCURLY; 
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 127 "../lib/dist2/parser/scan.l"
+#line 127 "scan.l"
 return LCURLY;
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 128 "../lib/dist2/parser/scan.l"
+#line 128 "scan.l"
 return RBRACKET;
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 129 "../lib/dist2/parser/scan.l"
+#line 129 "scan.l"
 return COMMA;
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 130 "../lib/dist2/parser/scan.l"
+#line 130 "scan.l"
 return LBRACKET; 
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 131 "../lib/dist2/parser/scan.l"
+#line 131 "scan.l"
 return COLON;
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 133 "../lib/dist2/parser/scan.l"
+#line 133 "scan.l"
 return GT;
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 134 "../lib/dist2/parser/scan.l"
+#line 134 "scan.l"
 return GE;
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 135 "../lib/dist2/parser/scan.l"
+#line 135 "scan.l"
 return LT;
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 136 "../lib/dist2/parser/scan.l"
+#line 136 "scan.l"
 return LE;
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 137 "../lib/dist2/parser/scan.l"
+#line 137 "scan.l"
 return EQ;
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 138 "../lib/dist2/parser/scan.l"
+#line 138 "scan.l"
 return NE;
 	YY_BREAK
 case 25:
 /* rule 25 can match eol */
 YY_RULE_SETUP
-#line 141 "../lib/dist2/parser/scan.l"
+#line 141 "scan.l"
 { }
 	YY_BREAK
 case 26:
 /* rule 26 can match eol */
 YY_RULE_SETUP
-#line 142 "../lib/dist2/parser/scan.l"
+#line 142 "scan.l"
 { /* eat up whitespace */ }
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(REG):
 case YY_STATE_EOF(STR):
-#line 144 "../lib/dist2/parser/scan.l"
+#line 144 "scan.l"
 return END_OF_INPUT;
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 146 "../lib/dist2/parser/scan.l"
+#line 146 "scan.l"
 {
                 yyerror("Unexpected input!");
             }
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 150 "../lib/dist2/parser/scan.l"
+#line 150 "scan.l"
 ECHO;
 	YY_BREAK
 #line 1011 "<stdout>"
@@ -2131,7 +2131,7 @@ void yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 150 "../lib/dist2/parser/scan.l"
+#line 150 "scan.l"
 
 
 

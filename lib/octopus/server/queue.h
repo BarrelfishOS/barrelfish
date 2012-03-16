@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Queue for stack-ripped dist2 server-side handler code
+ * \brief Queue for stack-ripped octopus server-side handler code
  */
 
 /*
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DIST2_QUEUE_H
-#define DIST2_QUEUE_H
+#ifndef OCTOPUS_QUEUE_H
+#define OCTOPUS_QUEUE_H
 
 #include <barrelfish/barrelfish.h>
 #include <if/octopus_defs.h>
@@ -24,4 +24,4 @@ void oct_rpc_enqueue_reply(struct octopus_binding *b,
         struct oct_reply_state* st);
 struct oct_reply_state* oct_rpc_dequeue_reply(struct octopus_binding *b);
 
-#endif // DIST2_QUEUE_H
+#endif // OCTOPUS_QUEUE_H

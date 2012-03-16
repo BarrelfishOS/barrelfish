@@ -54,7 +54,7 @@ octopus_trigger_t oct_mktrigger(errval_t in_case, octopus_binding_type_t send_to
 }
 
 /**
- * \brief Removes a trigger in the dist2 server.
+ * \brief Removes a trigger in the octopus server.
  *
  * In any case a valid watch id is specified this
  * causes a trigger event to be sent with the
@@ -64,7 +64,7 @@ octopus_trigger_t oct_mktrigger(errval_t in_case, octopus_binding_type_t send_to
  * \param trigger_id ID of trigger we want to remove
  *
  * \retval SYS_ERR_OK
- * \retval DIST2_INVALID_ID
+ * \retval OCT_INVALID_ID
  */
 errval_t oct_remove_trigger(octopus_trigger_id_t trigger_id)
 {
