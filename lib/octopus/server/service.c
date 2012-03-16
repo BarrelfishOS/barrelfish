@@ -20,12 +20,12 @@
 #include <skb/skb.h> // read list
 #include <if/dist2_defs.h>
 
-#include <dist2_server/service.h>
-#include <dist2_server/query.h>
-#include <dist2_server/debug.h>
+#include <octopus_server/service.h>
+#include <octopus_server/query.h>
+#include <octopus_server/debug.h>
 
-#include <dist2/parser/ast.h>
-#include <dist2/definitions.h>
+#include <octopus/parser/ast.h>
+#include <octopus/definitions.h>
 
 #include <bench/bench.h>
 

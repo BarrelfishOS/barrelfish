@@ -21,8 +21,8 @@
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
 
-#include <dist2_server/service.h>
-#include <dist2/parser/ast.h>
+#include <octopus_server/service.h>
+#include <octopus/parser/ast.h>
 
 /**
  * \brief Stores a binding for the given id.

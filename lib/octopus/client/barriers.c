@@ -16,10 +16,10 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <dist2/init.h>
-#include <dist2/barrier.h>
-#include <dist2/getset.h>
-#include <dist2/trigger.h>
+#include <octopus/init.h>
+#include <octopus/barrier.h>
+#include <octopus/getset.h>
+#include <octopus/trigger.h>
 
 #include "common.h"
 

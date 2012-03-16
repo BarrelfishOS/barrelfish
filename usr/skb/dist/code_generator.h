@@ -16,7 +16,7 @@
 #define CODE_GENERATOR_H_
 
 #include <barrelfish/barrelfish.h>
-#include <dist2/parser/ast.h>
+#include <octopus/parser/ast.h>
 #include <eclipse.h>
 
 struct skb_ec_terms {

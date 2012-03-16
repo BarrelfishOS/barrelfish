@@ -18,8 +18,8 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <dist2/getset.h>
-#include <dist2/parser/ast.h>
+#include <octopus/getset.h>
+#include <octopus/parser/ast.h>
 
 /**
  * \brief Reads the content of a record string based on the provided format.

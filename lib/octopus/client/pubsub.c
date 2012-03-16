@@ -22,8 +22,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 
-#include <dist2/init.h>
-#include <dist2/pubsub.h>
+#include <octopus/init.h>
+#include <octopus/pubsub.h>
 
 #include "common.h"
 #include "handler.h"

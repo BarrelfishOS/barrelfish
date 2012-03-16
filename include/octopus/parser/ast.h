@@ -20,7 +20,7 @@
 
 #ifndef TEST_PARSER
 #include <barrelfish/barrelfish.h>
-#include <dist2/definitions.h>
+#include <octopus/definitions.h>
 #else
 #define MAX_QUERY_LENGTH (5*1024)
 #define SYS_ERR_OK 0

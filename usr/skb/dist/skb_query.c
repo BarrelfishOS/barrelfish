@@ -23,10 +23,10 @@
 
 #include <include/skb_server.h>
 
-#include <dist2_server/debug.h>
-#include <dist2_server/query.h>
-#include <dist2/parser/ast.h>
-#include <dist2/getset.h> // for SET_SEQUENTIAL define
+#include <octopus_server/debug.h>
+#include <octopus_server/query.h>
+#include <octopus/parser/ast.h>
+#include <octopus/getset.h> // for SET_SEQUENTIAL define
 #include "code_generator.h"
 #include "bitfield.h"
 

@@ -19,9 +19,9 @@
 #include <barrelfish/threads.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <dist2/init.h>
-#include <dist2/trigger.h>
-#include <dist2/getset.h>
+#include <octopus/init.h>
+#include <octopus/trigger.h>
+#include <octopus/getset.h>
 
 errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 {

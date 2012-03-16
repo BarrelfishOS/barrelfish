@@ -18,7 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
 
-#include <dist2_server/service.h>
+#include <octopus_server/service.h>
 
 void dist_rpc_enqueue_reply(struct dist2_binding *b,
         struct dist_reply_state* st);

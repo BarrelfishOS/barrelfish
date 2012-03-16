@@ -19,7 +19,7 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <dist2/dist2.h>
+#include <octopus/dist2.h>
 #include <skb/skb.h>
 
 #include "kaluga.h"

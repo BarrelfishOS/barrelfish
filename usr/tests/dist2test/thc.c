@@ -23,7 +23,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 
-//#include <dist2/getset.h>
+//#include <octopus/getset.h>
 
 #include <thc/thc.h>
 #include <if/dist2_defs.h>

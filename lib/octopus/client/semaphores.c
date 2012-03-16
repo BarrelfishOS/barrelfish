@@ -14,11 +14,11 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <dist2/init.h>
-#include <dist2/getset.h>
-#include <dist2/trigger.h>
-#include <dist2/lock.h>
-#include <dist2/semaphores.h>
+#include <octopus/init.h>
+#include <octopus/getset.h>
+#include <octopus/trigger.h>
+#include <octopus/lock.h>
+#include <octopus/semaphores.h>
 
 #include "common.h"
 

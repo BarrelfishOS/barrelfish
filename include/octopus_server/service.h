@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
-#include <dist2/definitions.h>
+#include <octopus/definitions.h>
 
 struct dist_reply_state;
 

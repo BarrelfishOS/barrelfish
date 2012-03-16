@@ -20,7 +20,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-#include <dist2/dist2.h>
+#include <octopus/dist2.h>
 #include <skb/skb.h>
 
 #define MAX_ITERATIONS 500

@@ -19,7 +19,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
-#include <dist2/dist2.h>
+#include <octopus/dist2.h>
 
 #include "common.h"
 

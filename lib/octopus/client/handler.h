@@ -17,8 +17,8 @@
 #define DIST2_HANDLER_H_
 
 #include <if/dist2_defs.h>
-#include <dist2/trigger.h>
-#include <dist2/pubsub.h>
+#include <octopus/trigger.h>
+#include <octopus/pubsub.h>
 
 void trigger_handler(struct dist2_binding*, dist2_trigger_id_t,
         uint64_t, dist2_mode_t, char*, uint64_t);

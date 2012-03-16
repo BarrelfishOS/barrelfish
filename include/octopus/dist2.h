@@ -15,12 +15,12 @@
 #ifndef DIST2_H_
 #define DIST2_H_
 
-#include <dist2/init.h>
-#include <dist2/getset.h>
-#include <dist2/pubsub.h>
-#include <dist2/lock.h>
-#include <dist2/barrier.h>
-#include <dist2/semaphores.h>
-#include <dist2/trigger.h>
+#include <octopus/init.h>
+#include <octopus/getset.h>
+#include <octopus/pubsub.h>
+#include <octopus/lock.h>
+#include <octopus/barrier.h>
+#include <octopus/semaphores.h>
+#include <octopus/trigger.h>
 
 #endif /* DIST2_H_ */

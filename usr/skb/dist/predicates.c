@@ -22,9 +22,9 @@
 #include <include/skb_server.h>
 #include <collections/hash_table.h>
 
-#include <dist2_server/debug.h>
-#include <dist2_server/service.h>
-#include <dist2/trigger.h> // for trigger modes
+#include <octopus_server/debug.h>
+#include <octopus_server/service.h>
+#include <octopus/trigger.h> // for trigger modes
 
 #include "predicates.h"
 #include "skiplist.h"

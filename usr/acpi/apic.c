@@ -5,7 +5,7 @@
 #include <acpi.h>
 #include <mm/mm.h>
 #include <skb/skb.h>
-#include <dist2/getset.h>
+#include <octopus/getset.h>
 
 #include "acpi_shared.h"
 #include "acpi_debug.h"

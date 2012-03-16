@@ -23,7 +23,7 @@
 
 #include <barrelfish/event_mutex.h>
 
-#include <dist2/definitions.h>
+#include <octopus/definitions.h>
 
 // TODO saw some TODOs in event_mutex_* so this will probably not work
 // as expected right now

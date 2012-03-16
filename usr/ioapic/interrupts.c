@@ -18,7 +18,7 @@
 #include <acpi.h> // see add interrupt override
 
 #include <skb/skb.h>
-#include <dist2/getset.h>
+#include <octopus/getset.h>
 
 #include "ioapic.h"
 #include "ioapic_debug.h"

@@ -18,8 +18,8 @@
 #include <barrelfish_kpi/types.h>
 #include <acpi.h>
 #include <mm/mm.h>
-#include <dist2/getset.h>
-#include <dist2/barrier.h>
+#include <octopus/getset.h>
+#include <octopus/barrier.h>
 #include <skb/skb.h>
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"

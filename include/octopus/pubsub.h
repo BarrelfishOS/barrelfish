@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <if/dist2_defs.h>
 
-#include <dist2/trigger.h>
+#include <octopus/trigger.h>
 
 typedef dist2_trigger_id_t subscription_t;
 typedef trigger_handler_fn subscription_handler_fn;

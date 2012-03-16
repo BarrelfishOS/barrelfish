@@ -77,7 +77,7 @@
 #ifdef TEST_PARSER
 #include "../../../include/dist2/parser/ast.h"
 #else
-#include <dist2/parser/ast.h>
+#include <octopus/parser/ast.h>
 #endif
 
 #include "y.tab.h"

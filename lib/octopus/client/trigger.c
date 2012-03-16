@@ -17,8 +17,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 
-#include <dist2/init.h>
-#include <dist2/trigger.h>
+#include <octopus/init.h>
+#include <octopus/trigger.h>
 
 #include "handler.h"
 #include "common.h"

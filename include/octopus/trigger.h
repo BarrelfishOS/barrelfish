@@ -18,7 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <if/dist2_defs.h>
 
-#include <dist2/definitions.h>
+#include <octopus/definitions.h>
 
 #define NOP_TRIGGER     (dist2_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
 

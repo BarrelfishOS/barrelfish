@@ -19,7 +19,7 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <dist2/init.h>
+#include <octopus/init.h>
 #include <skb/skb.h>
 
 #include "ioapic.h"

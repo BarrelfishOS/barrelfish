@@ -15,10 +15,10 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 
-#include <dist2/init.h>
-#include <dist2/lock.h>
-#include <dist2/getset.h>
-#include <dist2/trigger.h>
+#include <octopus/init.h>
+#include <octopus/lock.h>
+#include <octopus/getset.h>
+#include <octopus/trigger.h>
 
 #include "common.h"
 

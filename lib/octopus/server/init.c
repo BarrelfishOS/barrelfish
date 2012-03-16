@@ -20,9 +20,9 @@
 #include <if/dist2_defs.h>
 #include <if/monitor_defs.h>
 
-#include <dist2_server/init.h>
-#include <dist2_server/service.h>
-#include <dist2_server/debug.h>
+#include <octopus_server/init.h>
+#include <octopus_server/service.h>
+#include <octopus_server/debug.h>
 
 #define DIST2_RPC_SERVICE_NAME "dist2_rpc"
 

@@ -21,10 +21,10 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <dist2/init.h>
-#include <dist2/getset.h>
-#include <dist2/parser/ast.h>
-#include <dist2/trigger.h>
+#include <octopus/init.h>
+#include <octopus/getset.h>
+#include <octopus/parser/ast.h>
+#include <octopus/trigger.h>
 
 #include "strnatcmp.h"
 #include "common.h"

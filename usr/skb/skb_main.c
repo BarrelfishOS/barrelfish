@@ -18,7 +18,7 @@
 #include <include/skb_server.h>
 #include <include/skb_debug.h>
 
-#include <dist2_server/init.h>
+#include <octopus_server/init.h>
 
 #include <bench/bench.h>
 

@@ -22,7 +22,7 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <if/monitor_defs.h>
-#include <dist2/init.h>
+#include <octopus/init.h>
 #include <thc/thc.h>
 
 #include "handler.h"

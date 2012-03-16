@@ -23,7 +23,7 @@
 #include <pci/devids.h>
 #include <mm/mm.h>
 #include <skb/skb.h>
-#include <dist2/getset.h>
+#include <octopus/getset.h>
 #include <acpi_client/acpi_client.h>
 
 #include "pci.h"

@@ -491,7 +491,7 @@ static yyconst flex_int16_t yy_chk[126] =
 #ifdef TEST_PARSER
 #include "../../../include/dist2/parser/ast.h"
 #else
-#include <dist2/parser/ast.h>
+#include <octopus/parser/ast.h>
 #endif
 
 // not in C99 :-(

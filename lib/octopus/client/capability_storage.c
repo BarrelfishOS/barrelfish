@@ -16,8 +16,8 @@
 #include <stdio.h>
 
 #include <barrelfish/barrelfish.h>
-#include <dist2/init.h>
-#include <dist2/capability_storage.h>
+#include <octopus/init.h>
+#include <octopus/capability_storage.h>
 
 /**
  * \brief Get a capability from the capability store.
