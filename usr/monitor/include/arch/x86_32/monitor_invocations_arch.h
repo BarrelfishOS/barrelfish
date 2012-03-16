@@ -216,6 +216,26 @@ invoke_monitor_set_cap_owner(capaddr_t cap, int bits, coreid_t owner)
                     | SYSCALL_INVOKE, invoke_cptr, cap, bits, owner).error;
 }
 
+static inline errval_t
+invoke_monitor_lock_cap(capaddr_t cap, int bits)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall3((invoke_bits << 16) | (KernelCmd_Lock_cap << 8)
+                    | SYSCALL_INVOKE, invoke_cptr, cap, bits).error;
+}
+
+static inline errval_t
+invoke_monitor_unlock_cap(capaddr_t cap, int bits)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall3((invoke_bits << 16) | (KernelCmd_Unlock_cap << 8)
+                    | SYSCALL_INVOKE, invoke_cptr, cap, bits).error;
+}
+
 /**
  * \brief Set up tracing in the kernel
  *

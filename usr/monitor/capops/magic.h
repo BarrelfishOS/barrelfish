@@ -41,10 +41,4 @@ errval_t monitor_has_local_descendants(struct capability);
 // create local caps as retype from one src cap
 errval_t monitor_create_caps(enum objtype, size_t, struct capref, struct capref);
 
-// set cap to locked if unlocked, else return an error
-errval_t monitor_lock_cap(struct capref cap);
-
-// set cap to unlocked, else return an error
-errval_t monitor_unlock_cap(struct capref cap);
-
 #endif

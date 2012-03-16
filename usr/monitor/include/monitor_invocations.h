@@ -10,6 +10,13 @@
 #ifndef MONITOR_INVOCATIONS_H
 #define MONITOR_INVOCATIONS_H
 
+#include <stdbool.h>
+#include <barrelfish/caddr.h>
+#include <barrelfish/types.h>
+#include <barrelfish_kpi/capabilities.h>
+
+struct capability;
+
 bool monitor_can_send_cap(struct capability *cap);
 errval_t monitor_cap_identify(struct capref cap, struct capability *out);
 errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
@@ -28,5 +35,7 @@ errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits)
 errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits);
 errval_t monitor_get_cap_owner(struct capref cap, coreid_t *ret_owner);
 errval_t monitor_set_cap_owner(struct capref cap, coreid_t owner);
+errval_t monitor_lock_cap(struct capref cap);
+errval_t monitor_unlock_cap(struct capref cap);
 
 #endif

@@ -183,4 +183,16 @@ invoke_monitor_set_cap_owner(capaddr_t cap, int bits, coreid_t owner)
     return cap_invoke4(cap_kernel, KernelCmd_Set_cap_owner, cap, bits, owner).error;
 }
 
+static inline errval_t
+invoke_monitor_lock_cap(capaddr_t cap, int bits)
+{
+    return cap_invoke3(cap_kernel, KernelCmd_Lock_cap, cap, bits).error;
+}
+
+static inline errval_t
+invoke_monitor_unlock_cap(capaddr_t cap, int bits)
+{
+    return cap_invoke3(cap_kernel, KernelCmd_Unlock_cap, cap, bits).error;
+}
+
 #endif

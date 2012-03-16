@@ -9,7 +9,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
-#include "monitor.h"
+#include <monitor.h>
+#include <monitor_invocations.h>
 #include "ops.h"
 #include "capsend.h"
 #include "magic.h"

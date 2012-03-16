@@ -550,6 +550,24 @@ static struct sysret monitor_set_cap_owner(struct capability *monitor_cap,
     return sys_set_cap_owner(cptr, bits, owner);
 }
 
+static struct sysret monitor_lock_cap(struct capability *monitor_cap,
+                                      int cmd, uintptr_t *args)
+{
+    capaddr_t cptr = args[0];
+    uint8_t bits = args[1];
+
+    return sys_lock_cap(cptr, bits);
+}
+
+static struct sysret monitor_unlock_cap(struct capability *monitor_cap,
+                                        int cmd, uintptr_t *args)
+{
+    capaddr_t cptr = args[0];
+    uint8_t bits = args[1];
+
+    return sys_unlock_cap(cptr, bits);
+}
+
 /**
  * \brief Set up tracing in the kernel
  */
@@ -748,6 +766,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Domain_Id]    = monitor_handle_domain_id,
         [KernelCmd_Get_cap_owner] = monitor_get_cap_owner,
         [KernelCmd_Set_cap_owner] = monitor_set_cap_owner,
+        [KernelCmd_Lock_cap]     = monitor_lock_cap,
+        [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
         [MonitorCmd_Retype]      = monitor_handle_retype,
         [MonitorCmd_Delete]      = monitor_handle_delete,
         [MonitorCmd_Revoke]      = monitor_handle_revoke,

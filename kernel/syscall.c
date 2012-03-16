@@ -483,6 +483,52 @@ struct sysret sys_set_cap_owner(capaddr_t cptr, uint8_t bits, coreid_t owner)
     return SYSRET(SYS_ERR_OK);
 }
 
+static void sys_lock_cap_common(struct cte *cte, bool lock)
+{
+    struct cte *pred = cte;
+    do {
+        pred->distcap.locked = lock;
+        pred = mdb_predecessor(pred);
+    } while (is_copy(&pred->cap, &cte->cap));
+
+    struct cte *succ = cte;
+    do {
+        succ->distcap.locked = lock;
+        succ = mdb_successor(succ);
+    } while (is_copy(&succ->cap, &cte->cap));
+}
+
+struct sysret sys_lock_cap(capaddr_t cptr, uint8_t bits)
+{
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *cte;
+    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_NORIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+    }
+
+    if (cte->distcap.locked) {
+        return SYSRET(SYS_ERR_CAP_LOCKED);
+    }
+
+    sys_lock_cap_common(cte, true);
+    return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_unlock_cap(capaddr_t cptr, uint8_t bits)
+{
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *cte;
+    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_NORIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+    }
+
+    // XXX: check if already unlocked? -MN
+    sys_lock_cap_common(cte, false);
+    return SYSRET(SYS_ERR_OK);
+}
+
 struct sysret sys_yield(capaddr_t target)
 {
     dispatcher_handle_t handle = dcb_current->disp;

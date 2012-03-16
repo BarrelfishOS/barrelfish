@@ -135,6 +135,8 @@ enum kernel_cmd {
     KernelCmd_Domain_Id,          ///< Set domain ID of dispatcher
     KernelCmd_Get_cap_owner,
     KernelCmd_Set_cap_owner,
+    KernelCmd_Lock_cap,
+    KernelCmd_Unlock_cap,
     MonitorCmd_Retype,
     MonitorCmd_Delete,
     MonitorCmd_Revoke,

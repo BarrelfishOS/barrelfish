@@ -11,6 +11,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/event_queue.h>
 #include <barrelfish/debug.h>
+#include <monitor_invocations.h>
 #include "capqueue.h"
 #include "magic.h"
 

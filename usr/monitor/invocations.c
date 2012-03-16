@@ -192,3 +192,25 @@ errval_t monitor_set_cap_owner(struct capref cap, coreid_t owner)
 
     return invoke_monitor_set_cap_owner(caddr, vbits, owner);
 }
+
+/**
+ * \brief Lock the cap and its copies
+ */
+errval_t monitor_lock_cap(struct capref cap)
+{
+    capaddr_t caddr = get_cap_addr(cap);
+    uint8_t vbits = get_cap_valid_bits(cap);
+
+    return invoke_monitor_lock_cap(caddr, vbits);
+}
+
+/**
+ * \brief Unlock the cap and its copies
+ */
+errval_t monitor_unlock_cap(struct capref cap)
+{
+    capaddr_t caddr = get_cap_addr(cap);
+    uint8_t vbits = get_cap_valid_bits(cap);
+
+    return invoke_monitor_unlock_cap(caddr, vbits);
+}
