@@ -6,12 +6,12 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for lib/dist2
+-- Hakefile for lib/octopus
 -- 
 --------------------------------------------------------------------------
 
 [
-    build library { target = "dist_parser",
+    build library { target = "octopus_parser",
                     addCFlags = [ "-O3",
                                   "-Wno-unused-value", 
                                   "-Wno-redundant-decls", 
@@ -25,25 +25,26 @@
      -- no-implicit-function-declaration:
      -- warning: implicit declaration of function ‘yylex’ 
 
-     build library { target = "dist2",
+     build library { target = "octopus",
                      addCFlags = [ "-O2" ],
-                    cFiles = [ "client/dist2.c", "client/getset.c", "client/pubsub.c", 
+                    cFiles = [ "client/octopus.c", "client/getset.c", 
+                               "client/pubsub.c",
                                "client/barriers.c", "client/trigger.c",
                                "client/locking.c", "client/semaphores.c", 
                                "client/capability_storage.c", 
                                "client/strnatcmp.c" ],
-                    flounderDefs = [ "dist2" ],
-                    flounderBindings = [ "dist2" ],
-                    flounderExtraBindings = [ ("dist2", ["rpcclient"]) ],
-                    flounderTHCStubs = [ "dist2" ],
-                    addLibraries = ["dist_parser", "thc"]
+                    flounderDefs = [ "octopus" ],
+                    flounderBindings = [ "octopus" ],
+                    flounderExtraBindings = [ ("octopus", ["rpcclient"]) ],
+                    flounderTHCStubs = [ "octopus" ],
+                    addLibraries = ["octopus_parser", "thc"]
                   },
                   
-    build library { target = "dist_server",
+    build library { target = "octopus_server",
                     addCFlags = [ "-O2" ],
                     cFiles = [ "server/service.c", "server/init.c", 
                                "server/queue.c", "server/capstorage.c" ],
-                    flounderBindings = [ "dist2" ],
+                    flounderBindings = [ "octopus" ],
                     addLibraries = [ "skb", "hashtable" ] 
                    }
 ]

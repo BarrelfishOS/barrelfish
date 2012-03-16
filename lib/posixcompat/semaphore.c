@@ -15,8 +15,8 @@
 #include <string.h>
 #include "posixcompat.h"
 
-#include <dist2/init.h>
-#include <dist2/semaphores.h>
+#include <octopus/init.h>
+#include <octopus/semaphores.h>
 
 
 int sem_init(sem_t *sem, int pshared, unsigned int value)

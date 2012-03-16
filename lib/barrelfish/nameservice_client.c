@@ -19,8 +19,8 @@
 #include <if/dist2_defs.h>
 #include <if/dist2_rpcclient_defs.h>
 #include <if/monitor_defs.h>
-#include <dist2/getset.h> // for dist_read TODO
-#include <dist2/trigger.h> // for NOP_TRIGGER
+#include <octopus/getset.h> // for dist_read TODO
+#include <octopus/trigger.h> // for NOP_TRIGGER
 
 /**
  * \brief Non-blocking name service lookup
