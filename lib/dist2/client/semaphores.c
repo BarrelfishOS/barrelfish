@@ -65,11 +65,11 @@ errval_t dist_sem_new(uint32_t* id, size_t value)
 {
     // Find a valid ID for our next semaphore
     *id = get_next_id();
-    debug_printf("dist_sem_new id is: %d\n", *id);
+    //debug_printf("dist_sem_new id is: %d\n", *id);
 
     errval_t err = SYS_ERR_OK;
     for (size_t i=0; i < value; i++) {
-        err = dist_mset(SET_SEQUENTIAL, "sem.%d. { sem: %d }", *id, *id);
+        err = dist_sem_post(*id);
         if (err_is_fail(err)) {
             return err;
         }
@@ -86,71 +86,50 @@ errval_t dist_sem_post(uint32_t id)
 errval_t dist_sem_wait(uint32_t id)
 {
     errval_t err = SYS_ERR_OK;
-    errval_t error_code;
-    char** names = NULL;
     char* result = NULL;
-    size_t len = 0;
     dist2_trigger_id_t tid;
     dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
             dist2_BINDING_RPC, DIST_ON_SET, NULL, NULL);
     struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
-    char name[100];
-    snprintf(name, 99, "r'sem.%d.[0-9]+' { sem: %d }", id, id);
 
-    // XXX: The current implementation needs some improvement
-    // because it suffers from herd effect (i.e. all waiting parties are
-    // woken up if a record is added)
+    char query[100];
+    snprintf(query, 99, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);
+
+    char lock_name[100];
+    snprintf(lock_name, 99, "sem.%d", id);
+
+    // XXX: The current implementation suffers from a herd effect,
+    // may be worth it to use locks for this critical section
     while (1) {
-        err = cl->call_seq.get_names(cl, name, t, &result, &tid, &error_code);
-        if (err_is_ok(err)) {
-            err = error_code;
-        }
+        cl->call_seq.get(cl, query, t, &result, &tid, &err);
 
         if (err_is_ok(err)) {
-            err = dist_parse_names(result, &names, &len);
+            errval_t del_err = dist_del(result);
+            free(result);
+            result = NULL;
 
-            // Try to decrease by deleting one record
-            for (size_t i=0; i<len; i++) {
-                err = dist_del(names[i]);
-                if (err_is_ok(err)) {
-                    // We are done
-                    goto out;
-                }
-                else if (err_no(err) == DIST2_ERR_NO_RECORD) {
-                    // We lost the race, try the next one
-                }
-                else {
-                    // Something strange happened, abort
-                    goto out;
-                }
+            if (err_is_ok(del_err)) {
+                break; // Decreased successfully
             }
-            // In case we've come here we cannot decrease
-            // because all records have been deleted between our get_names
-            // and del calls. This means we have to start over again...
+            else if (err_no(del_err) == DIST2_ERR_NO_RECORD) {
+                continue; // Need to start over
+            }
+            else {
+                break; // Unexpected error
+            }
         }
         else if (err_no(err) == DIST2_ERR_NO_RECORD) {
-            // Cannot decrease at the moment
-            // Wait until a record is added
+            // No record found, wait until one is posted
+            char* trigger_result = NULL;
             uint64_t fn, mode, state;
-            char* record = NULL;
-            err = cl->recv.trigger(cl, &tid, &fn, &mode, &record, &state);
-            free(record);
-            if (err_is_fail(err)) {
-                goto out;
-            }
+            cl->recv.trigger(cl, &tid, &fn, &mode, &trigger_result, &state);
+            free(trigger_result);
         }
         else {
-            // Some weird error
-            goto out;
+            break; // Unexpected error
         }
-
-        dist_free_names(names, len);
-        names = NULL;
-        len = 0;
     }
 
-out:
-    dist_free_names(names, len);
     free(result);
     return err;
 }
@@ -158,42 +137,18 @@ out:
 errval_t dist_sem_trywait(uint32_t id)
 {
     errval_t err = SYS_ERR_OK;
-    errval_t error_code;
-    char** names = NULL;
+
     char* result = NULL;
-    size_t len = 0;
-    dist2_trigger_id_t tid;
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
-    char name[100];
-    snprintf(name, 99, "r'sem.%d.[0-9]+' { sem: %d }", id, id);
 
-    err = cl->call_seq.get_names(cl, name, NOP_TRIGGER, &result,
-            &tid, &error_code);
+    err = dist_get(&result, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);
     if (err_is_ok(err)) {
-        err = error_code;
+        err = dist_del(result);
+    }
+    else if (err_no(err) == DIST2_ERR_NO_RECORD) {
+        // Return with no record error to caller
     }
 
-    if (err_is_ok(err)) {
-        err = dist_parse_names(result, &names, &len);
-
-        // Try to decrease by deleting one record
-        for (size_t i=0; i < len; i++) {
-            err = dist_del(names[i]);
-            if (err_is_ok(err)) {
-                // We are done
-                goto out;
-            }
-            else if (err_no(err) == DIST2_ERR_NO_RECORD) {
-                // We lost the race, try the next one
-            }
-            else {
-                // Something strange happened, abort
-                goto out;
-            }
-        }
-    }
-
-out:
-    dist_free_names(names, len);
+    free(result);
     return err;
+
 }
