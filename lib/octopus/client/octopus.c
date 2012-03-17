@@ -173,9 +173,9 @@ errval_t oct_thc_init(void)
     }
     assert(service_iref != 0);
 
-    waitset_init(&rpc.ws);
+    // XXX: Can't use different waitset here?
     err = octopus_thc_connect(service_iref,
-            &rpc.ws, IDC_BIND_FLAGS_DEFAULT, &(rpc.binding));
+            get_default_waitset(), IDC_BIND_FLAGS_DEFAULT, &(rpc.binding));
     if (err_is_fail(err)) {
         return err;
     }
