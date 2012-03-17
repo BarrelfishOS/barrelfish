@@ -65,15 +65,13 @@ extern "C" {
 #define LWIP_VERSION   (LWIP_VERSION_MAJOR << 24   | LWIP_VERSION_MINOR << 16 | \
                         LWIP_VERSION_REVISION << 8 | LWIP_VERSION_RC)
 
-    enum netd_port_type_t;
+    enum net_ports_port_type_t;
     void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
                                         uint16_t(*alloc_udp_ptr) (void),
                                         uint16_t(*bind_port_ptr) (uint16_t,
-                                                                  enum
-                                                                  netd_port_type_t),
+                                                enum net_ports_port_type_t),
                                         void (*close_port_ptr) (uint16_t,
-                                                                enum
-                                                                netd_port_type_t));
+                                                enum net_ports_port_type_t));
 
 /* Modules initialization */
     struct waitset;

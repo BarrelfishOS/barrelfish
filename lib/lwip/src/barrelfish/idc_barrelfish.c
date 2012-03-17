@@ -29,8 +29,8 @@
 #include "mem_barrelfish.h"
 #include "idc_barrelfish.h"
 #include <if/net_queue_manager_defs.h>
-#include <if/netd_defs.h>
-#include <if/netd_rpcclient_defs.h>
+//#include <if/net_ports_defs.h>
+//#include <if/net_ports_rpcclient_defs.h>
 #include <barrelfish/bulk_transfer_arch.h>
 
 #include "lwip_barrelfish_debug.h"

@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
-#include <if/netd_defs.h>
+#include <barrelfish/waitset.h>
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 

@@ -12,7 +12,6 @@
 
 [ build application { target = "netd",
   cFiles = [ "main.c", "portalloc.c", "lwipinit.c", "idc_barrelfish.c" ],
---    cFiles = [ "main.c", "lwipinit.c", "idc_barrelfish.c" ],
                       flounderBindings = [ "net_queue_manager",
                                             "net_soft_filters" ],
 		      flounderDefs = [ "net_queue_manager" ],
@@ -20,3 +19,4 @@
                       "procon", "timer", "trace" ]
                     }
 ]
+

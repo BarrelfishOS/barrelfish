@@ -13,7 +13,7 @@
 [ build library { target = "net_queue_manager",
                   cFiles = [ "queue_manager.c", "frag.c",
                         "net_soft_filters_cl_impl.c", "QM_benchmark.c" ],
-                      flounderBindings = [ "net_queue_manager",
-                                            "net_soft_filters" ],
+                  flounderBindings = [ "net_queue_manager",
+                                       "net_soft_filters" ],
                   addLibraries = [ "contmng", "procon", "bfdmuxvm"] }
 ]

@@ -17,9 +17,11 @@ let subdirs = [ "src/core", "src/core/ipv4", "src/barrelfish", "src/api" ]
 in
   [ build library { target = "lwip",
                     cFiles = srcs,
-                    flounderBindings = [ "net_queue_manager", "netd" ],
+--                    flounderBindings = [ "net_queue_manager", "netd" ],
+                    flounderBindings = [ "net_queue_manager", "net_ports"],
 		    omitCFlags = [ "-Werror" ],
-                    flounderExtraBindings = [ ("netd", ["rpcclient"]) ],
+--                    flounderExtraBindings = [ ("netd", ["rpcclient"]) ],
+                    flounderExtraBindings = [ ("net_ports", ["rpcclient"]) ],
                     addCFlags =  [ "-Wno-redundant-decls" ],
                     addIncludes = [ "src/barrelfish" ],
                     addLibraries = [ "contmng", "procon"]
