@@ -778,8 +778,8 @@ errors dist DIST_ERR_ {
      failure NS_LOOKUP	 "Name service lookup failed.",
 };
 
-// dist2 library errors
-errors libdist2  DIST2_ERR_ {
+// octopus library errors
+errors octopus  OCT_ERR_ {
     failure NO_RECORD           "No record exists matching the specified query.",
     failure NO_RECORD_NAME      "Your query needs to specify a designated record name (no regex/variable allowed).",
     failure CONSTRAINT_MISMATCH "The constraints you specified on set do not match the record in the database.",
@@ -797,7 +797,7 @@ errors libdist2  DIST2_ERR_ {
     failure CAP_OVERWRITE       "Capability storage: Cap already exists.",
 };
 
-// dist2 library errors
+// kaluga library errors
 errors kaluga  KALUGA_ERR_ {
     failure PARSE_MODULES          "Cannot parse menu.lst.",
     failure MODULE_NOT_FOUND       "Boot module not found.",

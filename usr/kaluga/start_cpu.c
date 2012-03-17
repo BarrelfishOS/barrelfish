@@ -22,7 +22,7 @@
 
 #include <if/monitor_defs.h>
 
-#include <dist2/dist2.h>
+#include <octopus/octopus.h>
 #include <skb/skb.h>
 
 #include "kaluga.h"
@@ -89,7 +89,7 @@ static void boot_initialize_reply(struct monitor_binding *st)
 {
     KALUGA_DEBUG("boot_initialize_reply\n");
     cores_booted = true;
-    errval_t err = dist_set("all_spawnds_up { iref: 0 }");
+    errval_t err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 }
 
@@ -120,13 +120,13 @@ static inline void configure_monitor_binding(void)
     mb->st = NULL;
 }
 
-static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
+static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
 
         uint64_t cpu_id, arch_id, enabled = 0;
-        errval_t err = dist_read(record, "_ { cpu_id: %d, id: %d, enabled: %d }",
+        errval_t err = oct_read(record, "_ { cpu_id: %d, id: %d, enabled: %d }",
                 &cpu_id, &arch_id, &enabled);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Cannot read record.");
@@ -159,13 +159,13 @@ static void cpu_change_event(dist2_mode_t mode, char* record, void* state)
         }
 
     }
-    if (mode & DIST_ON_DEL) {
+    if (mode & OCT_ON_DEL) {
         KALUGA_DEBUG("CPU removed: %s\n", record);
         assert(!"NYI");
     }
 
 out:
-    assert(!(mode & DIST_REMOVED));
+    assert(!(mode & OCT_REMOVED));
     free(record);
 }
 
@@ -176,7 +176,7 @@ errval_t watch_for_cores(void)
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     errval_t err = trigger_existing_and_watch(local_apics, cpu_change_event,
             &core_counter, &tid);
     cores_on_boot = core_counter;
@@ -202,9 +202,9 @@ errval_t watch_for_cores(void)
     return err;
 }
 
-static void ioapic_change_event(dist2_mode_t mode, char* record, void* state)
+static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
 {
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         struct module_info* mi = find_module("ioapic");
         if (mi != NULL) {
             // Pass apic id as 1st argument
@@ -236,7 +236,7 @@ static void ioapic_change_event(dist2_mode_t mode, char* record, void* state)
             }
         }
     }
-    else if (mode & DIST_ON_DEL) {
+    else if (mode & OCT_ON_DEL) {
         KALUGA_DEBUG("Removed I/O APIC?");
         assert(!"NYI");
     }
@@ -251,7 +251,7 @@ errval_t watch_for_ioapic(void)
     static char* io_apics = "r'hw.ioapic.[0-9]+' { id: _, address: _, "
                             "irqbase: _ }";
 
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     return trigger_existing_and_watch(io_apics, ioapic_change_event,
             &core_counter, &tid);
 }

@@ -11,15 +11,15 @@
 --------------------------------------------------------------------------
 
 [  build application { target = "ioapic",
-                       flounderTHCStubs = [ "dist2" ],
-                       flounderBindings = [ "ioapic", "dist2" ],
-                       flounderDefs = [ "monitor", "monitor_blocking", "dist2" ],
-                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), ("dist2", ["rpcclient"]) ],                       
+                       flounderTHCStubs = [ "octopus" ],
+                       flounderBindings = [ "ioapic", "octopus" ],
+                       flounderDefs = [ "monitor", "monitor_blocking", "octopus" ],
+                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), ("octopus", ["rpcclient"]) ],                       
                        mackerelDevices = [ "lpc_ioapic" ],
                        cFiles = [ "ioapic_main.c", "ioapic.c", "interrupts.c", "ioapic_service.c" ],
                        addIncludes = [ "../acpi/acpica/include" ], -- need some defines in interrupt.c
                        addCFlags = [ "-Wno-redundant-decls" ],
-                       addLibraries = [ "mm", "skb", "dist2", "dist_parser", "thc" ],
+                       addLibraries = [ "mm", "skb", "octopus", "octopus_parser", "thc" ],
                        architectures = [ "x86_64", "x86_32" ]
                     }
 ]

@@ -12,6 +12,6 @@
 
 [ build application { target = "semtest",
                       cFiles = [ "semtest.c" ],
-		              addLibraries = [ "posixcompat", "vfs_nonfs", "ahci", "dist2", "thc" ]
+		              addLibraries = [ "posixcompat", "vfs_nonfs", "ahci", "octopus", "thc" ]
                     }
 ]

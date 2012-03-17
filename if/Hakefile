@@ -46,8 +46,7 @@
                "serial",
                "skb",
                "skb_map",
-               "dist2",               
-               "dist_event",
+               "octopus",               
                "spawn",
                "test",
                "timer",
@@ -73,6 +72,6 @@
                "ping_pong",
                "mem",
                "xmplthc",
-               "dist2" ],
+               "octopus" ],
              arch <- allArchitectures
 ]

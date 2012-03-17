@@ -27,7 +27,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
 #include <trace/trace.h>
-#include <dist2/init.h>
+#include <octopus/init.h>
 #include "threads.h"
 #include "init.h"
 

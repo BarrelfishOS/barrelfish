@@ -20,7 +20,7 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <dist2/dist2.h>
+#include <octopus/octopus.h>
 #include <skb/skb.h>
 
 #include "acpi_debug.h"
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    err = dist_init();
+    err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Initialize dist");
     }

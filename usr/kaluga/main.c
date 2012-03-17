@@ -28,7 +28,7 @@
 
 #include <if/monitor_defs.h>
 
-#include <dist2/dist2.h>
+#include <octopus/octopus.h>
 #include <skb/skb.h>
 
 #include "kaluga.h"
@@ -88,9 +88,9 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Device DB not loaded.");
     }
 
-    err = dist_init();
+    err = oct_init();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Initialize dist library.");
+        USER_PANIC_ERR(err, "Initialize octopus service.");
     }
 
     err = init_boot_modules();
@@ -102,7 +102,7 @@ int main(int argc, char** argv)
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot
     // time in order to start-up properly.
-    err = dist_barrier_enter("barrier.acpi", &record, 2);
+    err = oct_barrier_enter("barrier.acpi", &record, 2);
 
     err = watch_for_ioapic();
     if (err_is_fail(err)) {

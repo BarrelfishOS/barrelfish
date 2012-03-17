@@ -14,8 +14,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
-#include <dist2/init.h>
-#include <dist2/capability_storage.h>
+#include <octopus/init.h>
+#include <octopus/capability_storage.h>
 #include "fdtab.h"
 #include "posixcompat.h"
 
@@ -136,16 +136,16 @@ int shmget(key_t key, size_t size, int shmflg)
         snprintf(skey, 128, "%lu", key);
 
         POSIXCOMPAT_DEBUG("get capability %s\n", skey);
-        dist_init(); // XXX: do some posixcompat initialization
+        oct_init(); // XXX: do some posixcompat initialization
         // XXX: Not multi-processing safe!
-        errval_t err = dist_get_capability(skey, &s->frame);
+        errval_t err = oct_get_capability(skey, &s->frame);
         POSIXCOMPAT_DEBUG("returned!\n");
 
-        if(err_is_fail(err) && err_no(err) != DIST2_ERR_CAP_NAME_UNKNOWN) {
+        if(err_is_fail(err) && err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
             USER_PANIC_ERR(err, "nameservice_get_capability");
         }
 
-        if(err == DIST2_ERR_CAP_NAME_UNKNOWN) {
+        if(err == OCT_ERR_CAP_NAME_UNKNOWN) {
             if(!(shmflg & IPC_CREAT)) {
                 errno = ENOENT;
                 return -1;
@@ -162,7 +162,7 @@ int shmget(key_t key, size_t size, int shmflg)
             }
 
             // XXX: This can fail if someone else won the race
-            err = dist_put_capability(skey, s->frame);
+            err = oct_put_capability(skey, s->frame);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "nameservice_put_capability");
             }
@@ -211,8 +211,8 @@ int shmctl(int shmid, int cmd, struct shmid_ds *buf)
 
         // This can fail if someone else won the race, but
         // we don't really care, the key has been removed anyway
-        dist_init();
-        dist_remove_capability(skey);
+        oct_init();
+        oct_remove_capability(skey);
         s->used = false;
         break;
 

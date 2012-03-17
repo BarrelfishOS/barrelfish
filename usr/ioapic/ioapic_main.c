@@ -19,7 +19,7 @@
 #include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <dist2/init.h>
+#include <octopus/init.h>
 #include <skb/skb.h>
 
 #include "ioapic.h"
@@ -133,9 +133,9 @@ int main(int argc, char *argv[])
     // Initialize I/O APIC Driver
     //
     errval_t err;
-    err = dist_init();
+    err = oct_init();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Connect to dist Service");
+        USER_PANIC_ERR(err, "Connect to octopus Service");
     }
 
     // Connect to the SKB

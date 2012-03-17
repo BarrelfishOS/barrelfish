@@ -19,37 +19,37 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <dist2/dist2.h>
+#include <octopus/octopus.h>
 #include <skb/skb.h>
 
 #include "kaluga.h"
 
-static void pci_change_event(dist2_mode_t mode, char* device_record, void* st);
+static void pci_change_event(octopus_mode_t mode, char* device_record, void* st);
 
-static void spawnd_up_event(dist2_mode_t mode, char* spawnd_record, void* st)
+static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 {
-    assert(mode & DIST_ON_SET);
+    assert(mode & OCT_ON_SET);
     uint64_t iref;
-    errval_t err = dist_read(spawnd_record, "_ { iref: %d }", &iref);
+    errval_t err = oct_read(spawnd_record, "_ { iref: %d }", &iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to read iref from spawnd record?");
     }
 
     // Pass the iref as state, this tells pci_change_event that we
     // don't need to look again for the spawnd iref
-    pci_change_event(DIST_ON_SET, st, (void*)iref);
+    pci_change_event(OCT_ON_SET, st, (void*)iref);
     free(spawnd_record);
 }
 
 static errval_t wait_for_spawnd(coreid_t core, void* state)
 {
     // Check if the core we're spawning on is already up...
-    struct dist2_thc_client_binding_t* cl = dist_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     char* iref_record = NULL;
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     errval_t error_code;
-    dist2_trigger_t t = dist_mktrigger(DIST2_ERR_NO_RECORD,
-            dist2_BINDING_EVENT, DIST_ON_SET, spawnd_up_event, state);
+    octopus_trigger_t t = oct_mktrigger(OCT_ERR_NO_RECORD,
+            octopus_BINDING_EVENT, OCT_ON_SET, spawnd_up_event, state);
 
     // Construct service name
     static char* format = "spawn.%hhu { iref: _ }";
@@ -68,12 +68,12 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     return error_code;
 }
 
-static void pci_change_event(dist2_mode_t mode, char* device_record, void* st)
+static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
 {
     errval_t err;
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         uint64_t vendor_id, device_id;
-        err = dist_read(device_record, "_ { vendor: %d, device_id: %d }",
+        err = oct_read(device_record, "_ { vendor: %d, device_id: %d }",
                 &vendor_id, &device_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Got malformed device record?");
@@ -111,7 +111,7 @@ static void pci_change_event(dist2_mode_t mode, char* device_record, void* st)
         // is ready
         if (st == NULL && core != my_core_id) {
             err = wait_for_spawnd(core, device_record);
-            if (err_no(err) == DIST2_ERR_NO_RECORD) {
+            if (err_no(err) == OCT_ERR_NO_RECORD) {
                 KALUGA_DEBUG("Core where driver %s runs is not up yet.\n",
                         mi->binary);
                 // Don't want to free device record yet...
@@ -155,13 +155,13 @@ errval_t watch_for_pci_devices(void)
                                " bus: _, device: _, function: _, vendor: _,"
                                " device_id: _, class: _, subclass: _, "
                                " prog_if: _ }";
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     return trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
-static void bridge_change_event(dist2_mode_t mode, char* bridge_record, void* st)
+static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* st)
 {
-    if (mode & DIST_ON_SET) {
+    if (mode & OCT_ON_SET) {
         // No need to ask the SKB as we always start pci for
         // in case we find a root bridge
         struct module_info* mi = find_module("pci");
@@ -201,7 +201,7 @@ errval_t watch_for_pci_root_bridge(void)
     static char* root_bridge = "r'hw\\.pci\\.rootbridge\\.[0-9]+' { "
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
-    dist2_trigger_id_t tid;
+    octopus_trigger_id_t tid;
     return trigger_existing_and_watch(root_bridge, bridge_change_event,
             NULL, &tid);
 }
