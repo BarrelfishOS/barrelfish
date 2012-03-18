@@ -61,7 +61,7 @@ struct client_closure_NC {
 
 
 
-void idc_connect_to_netd(char *server_name);
+void idc_connect_port_manager_service(char *service_name);
 void idc_connect_to_driver(char *card_name, uint64_t queueid);
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p);

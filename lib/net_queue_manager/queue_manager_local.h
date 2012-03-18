@@ -29,7 +29,7 @@ extern uint64_t total_rx_datasize;
 //struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 // Function prototypes for ether_control service
-void init_soft_filters_service(char *service_name);
+void init_soft_filters_service(char *service_name, uint64_t qid);
 
 #endif // Queue_Manager_local_H_
 

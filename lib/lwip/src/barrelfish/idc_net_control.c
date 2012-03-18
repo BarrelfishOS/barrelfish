@@ -203,13 +203,16 @@ static void init_net_ports_connection(char *service_name)
 }
 
 
-
-void idc_connect_to_netd(char *server_name)
+// Connects to the port manager service
+// Blocking call: returns only when connection is done
+// In case of error, it will panic!!
+void idc_connect_port_manager_service(char *service_name)
 {
-    LWIPBF_DEBUG("idc_connect_to_netd: wait for netd connection\n");
+    //LWIPBF_DEBUG
+    printf("idc_c_port_mng_srv: trying to [%s]\n", service_name);
 
     /* FIXME: decide if this is the best place to connect with netd */
-    init_net_ports_connection(server_name);
+    init_net_ports_connection(service_name);
 
     // XXX: dispatch on default waitset until bound
     struct waitset *dws = get_default_waitset();
@@ -221,7 +224,8 @@ void idc_connect_to_netd(char *server_name)
             USER_PANIC_ERR(err, "in event_dispatch while binding");
         }
     }
-    LWIPBF_DEBUG("idc_connect_to_netd: terminated\n");
+    //LWIPBF_DEBUG
+    printf("idc_c_port_mng_srv: success [%s]\n", service_name);
 }
 
 

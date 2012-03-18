@@ -11,10 +11,10 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "net_device_manager",
-                  cFiles = [ "port_service_impl.c", "device_manager.c"
---                  , "soft_filters_usr_impl.c"
-                        ],
+                  cFiles = [ "port_service_impl.c", "device_manager.c",
+                  "soft_filt_user_impl.c" ],
                   flounderBindings = [ "net_soft_filters", "net_ports" ],
-                  addLibraries = [ "contmng", "bfdmuxtools"] }
+                  addLibraries = [ "contmng", "bfdmuxtools"]
+                 }
 ]
 

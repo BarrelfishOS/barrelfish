@@ -867,7 +867,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     }
 
     // start software filtering service
-    init_soft_filters_service(service_name);
+    init_soft_filters_service(service_name, queueid);
 }
 
 

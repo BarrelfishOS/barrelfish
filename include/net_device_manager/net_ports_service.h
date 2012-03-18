@@ -16,7 +16,7 @@
 #define net_port_services_H
 
 // Initialized the port management service
-int init_ports_service(void);
+int init_ports_service(char *dev_name);
 
 #endif // net_port_services_H
 

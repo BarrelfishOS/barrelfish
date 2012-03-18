@@ -20,6 +20,20 @@
 #include <lwip/tcp.h>
 
 
+static void event_polling_loop(void)
+{
+    err_t err;
+    printf("Starting event polling loop\n");
+    struct waitset *ws = get_default_waitset();
+    while (1) {
+        err = event_dispatch(ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            break;
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     if(argc != 3) {
@@ -38,6 +52,12 @@ int main(int argc, char *argv[])
     assert(lwip_init_auto() == true);
 
     printf("openport_test: setup done\n");
+
+
+    // Stopping the application here
+    event_polling_loop();
+    return 0;
+
     printf("openport_test: binding %d tcp ports starting from %u\n",
             ports_to_bind, start_port_range);
 
@@ -69,14 +89,9 @@ int main(int argc, char *argv[])
     } /* end for: each port */
 
     printf("openport_test: total %d ports opened\n", port_count);
-    struct waitset *ws = get_default_waitset();
-    while (1) {
-        err = event_dispatch(ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            break;
-        }
-    }
-//    network_polling_loop();
+
+    event_polling_loop();
+    return 0;
 
 } /* end function: main */
+

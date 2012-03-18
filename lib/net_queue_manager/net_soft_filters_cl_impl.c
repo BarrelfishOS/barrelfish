@@ -76,7 +76,7 @@ uint64_t total_rx_datasize = 0;
  * Local states:
  *****************************************************************/
 
-static char *my_service_name = NULL;
+static char sf_srv_name[MAX_NET_SERVICE_NAME_LEN];
 
 // filters state:
 static struct filter *rx_filters;
@@ -87,9 +87,9 @@ static uint64_t filter_id_counter = 0;
 
 static void export_soft_filters_cb(void *st, errval_t err, iref_t iref)
 {
-    char service_name[100];
+    char service_name[MAX_NET_SERVICE_NAME_LEN];
 
-    snprintf(service_name, sizeof(service_name), "%s%s", my_service_name,
+    snprintf(service_name, sizeof(service_name), "%s%s", sf_srv_name,
              FILTER_SERVICE_SUFFIX);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "service[%s] export failed", service_name);
@@ -913,13 +913,14 @@ struct filter *execute_filters(void *data, size_t len)
 }
 
 
-void init_soft_filters_service(char *service_name)
+void init_soft_filters_service(char *service_name, uint64_t qid)
 {
-    // FIXME: do I need separate my_service_name for ether_netd services
+    // FIXME: do I need separate sf_srv_name for ether_netd services
     // exporting ether_netd interface
 
     filter_id_counter = 0;
-    my_service_name = service_name;
+    snprintf(sf_srv_name, sizeof(sf_srv_name), "%s_%"PRIu64"",
+            service_name, qid);
     errval_t err = net_soft_filters_export(NULL, export_soft_filters_cb,
                                connect_soft_filters_cb, get_default_waitset(),
                                IDC_EXPORT_FLAGS_DEFAULT);

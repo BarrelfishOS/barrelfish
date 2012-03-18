@@ -67,7 +67,7 @@
 
 
 /* FIXME: Move this to config */
-//#define MYDEBUGLWIP 1
+#define MYDEBUGLWIP 1
 
 #ifdef MYDEBUGLWIP
 #define DEBUGPRINTPS(arg...) printf(arg)
@@ -275,14 +275,14 @@ static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
     memp_init();                // 0'st buffer
 
     DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
-    printf("LWIP: allocating memory for sending\n");
     mem_init();                 // 1'th buffer
-    printf("LWIP: lwip_starting\n");
+    DEBUGPRINTPS("LWIP: lwip_starting\n");
     netif_init();
 #if LWIP_SOCKET
     lwip_socket_init();
 #endif                          /* LWIP_SOCKET */
     ip_init();
+    DEBUGPRINTPS("r_lwip_init: done ip_init\n");
 #if LWIP_ARP
     etharp_init();
 #endif                          /* LWIP_ARP */
@@ -291,23 +291,31 @@ static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
 #endif                          /* LWIP_RAW */
 #if LWIP_UDP
     udp_init();
+    DEBUGPRINTPS("r_lwip_init: done udp_init\n");
 #endif                          /* LWIP_UDP */
 #if LWIP_TCP
     tcp_init();
+    DEBUGPRINTPS("r_lwip_init: done tcp_init\n");
 #endif                          /* LWIP_TCP */
 #if LWIP_SNMP
     snmp_init();
+    DEBUGPRINTPS("r_lwip_init: done snmp_init\n");
 #endif                          /* LWIP_SNMP */
 #if LWIP_AUTOIP
     autoip_init();
+    DEBUGPRINTPS("r_lwip_init: done autoip_init\n");
 #endif                          /* LWIP_AUTOIP */
 #if LWIP_IGMP
     igmp_init();
+    DEBUGPRINTPS("r_lwip_init: done igmp_init\n");
 #endif                          /* LWIP_IGMP */
+    DEBUGPRINTPS("r_lwip_init: done2 igmp_init\n");
 #if LWIP_DNS
+    DEBUGPRINTPS("r_lwip_init: starting DNS_init\n");
     dns_init();
+    DEBUGPRINTPS("r_lwip_init: done DNS_init\n");
 #endif                          /* LWIP_DNS */
-    printf("LWIP: lwip_started\n");
+    DEBUGPRINTPS("LWIP: lwip_started\n");
 }
 
 extern struct waitset *lwip_waitset;    // idc_barrelfish.c
@@ -380,13 +388,14 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     DEBUGPRINTPS("LWIP: lwip_init: done with sanity check\n");
     printf("LWIP: done with sanity check\n");
     /* Modules initialization */
-    char card_controller_name[100];
+    char port_manager_name[MAX_NET_SERVICE_NAME_LEN];
 
-    snprintf(card_controller_name, sizeof(card_controller_name), "%s%s",
-             card_name, CTL_SERVICE_SUFFIX);
+    snprintf(port_manager_name, sizeof(port_manager_name), "%s%s",
+             card_name, NET_PORTS_MNG_SUFFIX);
 
-    // Connecting to netd server
-    idc_connect_to_netd(card_controller_name);
+    // Connecting to the port_manager_service
+    idc_connect_port_manager_service(port_manager_name);
+//    idc_connect_to_netd(port_manager_name);
     /* FIXME: name of the netd_server should also be passed to lwip_init */
 
     DEBUGPRINTPS("LWIP: lwip_init: done with connection setup\n");
