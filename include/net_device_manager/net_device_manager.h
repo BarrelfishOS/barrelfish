@@ -16,8 +16,8 @@
 #define net_device_manager_H
 
 // initializes the hardware independent part of device manager
-int init_device_manager(void);
-
+errval_t init_device_manager(char *dev_name, uint64_t valid_queues,
+        uint8_t filt_mng_type);
 #endif // net_device_manager_H
 
 

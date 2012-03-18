@@ -11,7 +11,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 #include <barrelfish/waitset.h>
-#include <net_device_manager/net_ports_service.h>
+#include <net_device_manager/net_device_manager.h>
 #include <barrelfish/nameservice_client.h>
 #include "E1K_mng_debug.h"
 
@@ -40,7 +40,13 @@ int main(int argc, char **argv)
 //    char *device = "loopback";
     char *device = "e1000";
     E1KDM_DEBUG("Started the e1k_dev_manager for device [%s]\n", device);
-    init_ports_service(device);
+
+    errval_t err = init_device_manager(device, 1, 0);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "in init_device_manager");
+        return 1;
+    }
+
     E1KDM_DEBUG("done with most of things for device[%s]\n", device);
     event_loop();
     // network_service_loop

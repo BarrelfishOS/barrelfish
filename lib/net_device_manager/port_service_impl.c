@@ -27,8 +27,9 @@
 /****************************************************************
 * Local states
 *****************************************************************/
-static char my_dev_name[MAX_NET_SERVICE_NAME_LEN] = {0};
+static char my_dev_name[MAX_NET_SERVICE_NAME_LEN] = {0}; // the device name
 
+static bool port_service_exported = false; // is service exported?
 
 /*****************************************************************
 * Prototypes
@@ -133,7 +134,7 @@ static void export_ports_cb(void *st, errval_t err, iref_t iref)
         DEBUG_ERR(err, "nameservice_register failed for [%s]", service_name);
         abort(); // FIXME: Do I need abort after DEBUG_ERR?
     }
-
+    port_service_exported = true;
     NDM_DEBUG("export successful!\n");
 } // end function: export_ports_cb
 
@@ -141,24 +142,42 @@ static void export_ports_cb(void *st, errval_t err, iref_t iref)
 // Initialzes the port number management service
 int init_ports_service(char *dev_name)
 {
+    errval_t err = SYS_ERR_OK; // default return value
+
+    // sanity check on parameter
     assert(dev_name != NULL);
 
-    // FIXME: for every queue available
-    // Connect with soft_filters_service
-    connect_soft_filters_service(dev_name, 0);
+    // initialize the filter management for each queue
+    for (qid_t i = 0; i < total_queues; ++i) {
+        // Connect with soft_filters_service
+        qlist[i].filt_mng->init_filters(dev_name, i);
+    } // end for: for each queue
 
     // start the port management service
     strncpy(my_dev_name, dev_name, sizeof(my_dev_name));
 
     NDM_DEBUG("init_ports_service called for device [%s]\n", my_dev_name);
+
    // exporting net_ports interface
-    errval_t err = net_ports_export(NULL, export_ports_cb, connect_ports_cb,
+    err = net_ports_export(NULL, export_ports_cb, connect_ports_cb,
             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
 
     if (err_is_fail(err)) {
         USER_PANIC("net_ports_export failed!");
+        return err;
     }
-    return 0;
+
+    // wait till ports export is actually done
+    struct waitset *ws = get_default_waitset();
+    while (!port_service_exported) {
+        err = event_dispatch(ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch for init_port_service");
+            return err;
+        }
+    } // end while:
+
+    return err;
 } // end function: init_ports_service
 
 /*****************************************************************
