@@ -115,6 +115,7 @@ errval_t oct_sem_wait(uint32_t id)
                 continue; // Need to start over
             }
             else {
+                err = del_err;
                 break; // Unexpected error
             }
         }
