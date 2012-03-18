@@ -145,7 +145,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register("ump server", iref);
+    err = nameservice_register("ump_server", iref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
         abort();
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
         /* Connect to the server */
         iref_t iref;
 
-        err = nameservice_blocking_lookup("ump server", &iref);
+        err = nameservice_blocking_lookup("ump_server", &iref);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "nameservice_blocking_lookup failed");
             abort();
