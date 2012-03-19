@@ -38,10 +38,5 @@ errval_t monitor_revoke(struct capref, capaddr_t, uint8_t, struct capref);
 // return SYS_ERR_OK if descendants exists, CAP_ERR_NOTFOUND otherwise
 errval_t monitor_has_local_descendants(struct capability);
 
-// create local caps as retype from one src cap
-errval_t monitor_create_caps(enum objtype type, size_t bits,
-                             struct capref croot, capaddr_t src, uint8_t src_bits,
-                             capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot);
-
 
 #endif

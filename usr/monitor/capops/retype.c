@@ -37,7 +37,7 @@ create_copies_cont(errval_t status, void *st)
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // no descendants found
         assert(capcmp(rtst->src.croot, rtst->destcn.croot));
-        err = monitor_create_caps(rtst->type, rtst->objbits, rtst->src.croot,
+        err = monitor_create_caps(rtst->src.croot, rtst->type, rtst->objbits,
                                   rtst->src.cptr, rtst->src.bits,
                                   rtst->destcn.cptr, rtst->destcn.bits,
                                   rtst->start_slot);

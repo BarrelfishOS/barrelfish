@@ -143,6 +143,19 @@ errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src,
                                             newtype, objbits, to, slot, bits);
 }
 
+errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
+                             int objbits, capaddr_t src, int src_bits,
+                             capaddr_t dest_cn, int dest_bits,
+                             cslot_t dest_slot)
+{
+    uint8_t rootcap_vbits = get_cap_valid_bits(croot);
+    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+
+    return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src,
+                                            newtype, objbits, dest_cn,
+                                            dest_slot, dest_bits);
+}
+
 /** 
  * \brief Deletes a capability on behalf of another domains.  Capabilities which
  * are remote (cross-core) must be deleted through the monitor to maintain 
