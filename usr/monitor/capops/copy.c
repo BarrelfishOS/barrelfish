@@ -226,7 +226,7 @@ request_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_h
     msg_st->st = rpc_st;
 
     // enqueue message
-    err = capsend_owner(capref, (struct msg_queue_elem*)msg_st);
+    err = capsend_owner(get_cap_domref(capref), (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {
         free(msg_st);
         free(rpc_st);
@@ -325,7 +325,11 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
 
     // find and validate cap
     // NOTE: this function should fail if no copies exist and create a new copy otherwise
-    err = monitor_copy_if_exists(&cap, &capref);
+    err = slot_alloc(&capref);
+    if (err_is_fail(err)) {
+        goto send_err;
+    }
+    err = monitor_copy_if_exists(&cap, capref);
     if (err_is_fail(err)) {
         goto send_err;
     }

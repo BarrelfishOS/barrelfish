@@ -22,8 +22,9 @@
 struct retype_st {
     enum objtype type;
     size_t objbits;
-    struct capref dest_start;
-    struct capref src;
+    struct domcapref src;
+    struct domcapref destcn;
+    cslot_t start_slot;
     retype_result_handler_t result_handler;
     void *st;
 };
@@ -35,7 +36,11 @@ create_copies_cont(errval_t status, void *st)
     struct retype_st *rtst = (struct retype_st*)st;
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // no descendants found
-        err = monitor_create_caps(rtst->type, rtst->objbits, rtst->dest_start, rtst->src);
+        assert(capcmp(rtst->src.croot, rtst->destcn.croot));
+        err = monitor_create_caps(rtst->type, rtst->objbits, rtst->src.croot,
+                                  rtst->src.cptr, rtst->src.bits,
+                                  rtst->destcn.cptr, rtst->destcn.bits,
+                                  rtst->start_slot);
     }
     rtst->result_handler(err, rtst->st);
     free(rtst);
@@ -64,7 +69,7 @@ request_retype(retype_result_handler_t result_handler, struct retype_st *st)
 {
     errval_t err;
     struct capability cap;
-    err = monitor_cap_identify(st->src, &cap);
+    err = monitor_domains_cap_identify(st->src.croot, st->src.cptr, st->src.bits, &cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -137,38 +142,56 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
     rtst->st = st;
 
     struct capref src;
-    err = monitor_copy_if_exists(&cap, &src);
+    err = slot_alloc(&src);
     if (err_is_fail(err)) {
         goto reply_err;
+    }
+    struct domcapref domsrc = get_cap_domref(src);
+
+    err = monitor_copy_if_exists(&cap, src);
+    if (err_is_fail(err)) {
+        goto free_slot;
     }
 
     distcap_state_t state;
     err = cap_get_state(src, &state);
     if (err_is_fail(err)) {
-        goto reply_err;
+        goto destroy_cap;
     }
 
     if (distcap_is_foreign(state)) {
         err = MON_ERR_CAP_FOREIGN;
-        goto reply_err;
+        goto destroy_cap;
     }
 
     if (distcap_is_busy(state)) {
         err = MON_ERR_REMOTE_CAP_RETRY;
-        goto reply_err;
+        goto destroy_cap;
     }
 
-    err = monitor_lock_cap(src);
+    err = monitor_lock_cap(domsrc.croot, domsrc.cptr, domsrc.bits);
     if (err_is_fail(err)) {
-        goto reply_err;
+        goto destroy_cap;
     }
 
-    err = capsend_find_descendants(src, retype_result_cont, rtst);
+    err = capsend_find_descendants(domsrc, retype_result_cont, rtst);
+    if (err_is_fail(err)) {
+        goto unlock_cap;
+    }
+
+    return;
+
+unlock_cap:
+    monitor_unlock_cap(domsrc.croot, domsrc.cptr, domsrc.bits);
+
+destroy_cap:
+    cap_destroy(src);
+
+free_slot:
+    slot_free(src);
 
 reply_err:
-    if (err_is_fail(err)) {
-        retype_result_cont(err, rtst);
-    }
+    retype_result_cont(err, rtst);
 }
 
 /*
@@ -176,13 +199,15 @@ reply_err:
  */
 
 errval_t
-retype(enum objtype type, size_t objbits, struct capref dest_start,
-       struct capref src, retype_result_handler_t result_handler, void *st)
+retype(enum objtype type, size_t objbits, struct capref croot,
+       capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
+       capaddr_t src, uint8_t src_bits, retype_result_handler_t result_handler,
+       void *st)
 {
     errval_t err;
 
     distcap_state_t src_state;
-    err = cap_get_state(src, &src_state);
+    err = invoke_cnode_get_state(croot, src, src_bits, &src_state);
     if (err_is_fail(err)) {
         return err;
     }
@@ -191,11 +216,8 @@ retype(enum objtype type, size_t objbits, struct capref dest_start,
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
-    uint8_t dcn_vbits = get_cnode_valid_bits(dest_start);
-    capaddr_t dcn_addr = get_cnode_addr(dest_start);
-    capaddr_t scp_addr = get_cap_addr(src);
-    err = invoke_cnode_retype(cap_root, scp_addr, type, objbits,
-                              dcn_addr, dest_start.slot, dcn_vbits);
+    err = invoke_cnode_retype(croot, src, type, objbits, dest_cn, dest_slot,
+                              dest_bits);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         return err;
     }
@@ -206,8 +228,9 @@ retype(enum objtype type, size_t objbits, struct capref dest_start,
     struct retype_st *rst = malloc(sizeof(struct retype_st));
     rst->type = type;
     rst->objbits = objbits;
-    rst->dest_start = dest_start;
-    rst->src = src;
+    rst->src = (struct domcapref){ .croot = croot, .cptr = src, .bits = src_bits };
+    rst->destcn = (struct domcapref){ .croot = croot, .cptr = dest_cn, .bits = dest_bits };
+    rst->start_slot = dest_slot;
     rst->result_handler = result_handler;
     rst->st = st;
 
@@ -215,7 +238,7 @@ retype(enum objtype type, size_t objbits, struct capref dest_start,
         err = request_retype(create_copies_cont, rst);
     }
     else {
-        err = capsend_find_descendants(src, create_copies_cont, rst);
+        err = capsend_find_descendants(rst->src, create_copies_cont, rst);
     }
 
     if (err_is_fail(err)) {

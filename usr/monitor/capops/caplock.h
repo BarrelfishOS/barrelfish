@@ -12,12 +12,14 @@
 
 #include <barrelfish/caddr.h>
 #include <barrelfish/waitset.h>
+#include "ops.h"
 
 struct event_queue_node;
 
-void caplock_wait(struct capref cap, struct event_queue_node *qn, struct event_closure cont);
+void caplock_wait(struct domcapref cap,
+                  struct event_queue_node *qn, struct event_closure cont);
 
-void caplock_unlock(struct capref cap);
+void caplock_unlock(struct domcapref cap);
 
 void caplock_init(struct waitset *ws);
 

@@ -109,17 +109,21 @@ delete_remote__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, 
     caprep_to_capability(&caprep, &cap);
     struct capref capref;
 
-    err = monitor_copy_if_exists(&cap, &capref);
+    err = slot_alloc(&capref);
     if (err_is_fail(err)) {
         goto send_err;
+    }
+
+    err = monitor_copy_if_exists(&cap, capref);
+    if (err_is_fail(err)) {
+        goto free_slot;
     }
 
     err = monitor_delete_copies(capref);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
+    cap_destroy(capref);
 
-    err = cap_destroy(capref);
+free_slot:
+    slot_free(capref);
 
 send_err:
     err = delete_remote_result(from, err, st);
@@ -220,7 +224,7 @@ delete_cnode_slot_result(errval_t status, void *st)
     if (err_is_ok(status) || err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         if (dst->delcap.slot < (1 << dst->delcap.cnode.size_bits)) {
             dst->delcap.slot++;
-            err = delete(dst->delcap, delete_cnode_slot_result, dst);
+            err = delete(get_cap_domref(dst->delcap), delete_cnode_slot_result, dst);
         }
         else {
             err = SYS_ERR_OK;
@@ -255,7 +259,7 @@ delete_cnode(struct capref cap, void *st)
     dcst->delcap.slot = 0;
     dcst->st = st;
 
-    err = delete(dcst->delcap, delete_cnode_slot_result, dcst);
+    err = delete(get_cap_domref(dcst->delcap), delete_cnode_slot_result, dcst);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "deleting cnode slot failed");
     }
@@ -267,12 +271,12 @@ delete_cnode(struct capref cap, void *st)
  */
 
 errval_t
-delete(struct capref cap, delete_result_handler_t result_handler, void *st)
+delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
 {
     errval_t err;
     distcap_state_t state;
 
-    err = cap_get_state(cap, &state);
+    err = invoke_cnode_get_state(cap.croot, cap.cptr, cap.bits, &state);
     if (err_is_fail(err)) {
         return err;
     }
@@ -282,7 +286,7 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
     }
 
     // try a simple delete
-    err = cap_delete(cap);
+    err = invoke_cnode_delete(cap.croot, cap.cptr, cap.bits);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         return err;
     }
@@ -291,7 +295,7 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
     // have remote copies, need to move or revoke cap
 
     // setup extended delete operation
-    err = monitor_lock_cap(cap);
+    err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
     if (err_is_fail(err)) {
         return err;
     }
@@ -302,7 +306,7 @@ delete(struct capref cap, delete_result_handler_t result_handler, void *st)
         goto cap_set_ready;
     }
 
-    err = monitor_cap_identify(cap, &del_st->cap);
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &del_st->cap);
     if (err_is_fail(err)) {
         goto free_del_st;
     }

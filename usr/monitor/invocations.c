@@ -174,43 +174,43 @@ errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits)
 /**
  * \brief Determine the current owner of a cap and its copies.
  */
-errval_t monitor_get_cap_owner(struct capref cap, coreid_t *ret_owner)
+errval_t monitor_get_cap_owner(struct capref croot, capaddr_t cptr, int bits, coreid_t *ret_owner)
 {
-    capaddr_t caddr = get_cap_addr(cap);
-    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t root_addr = get_cap_addr(croot);
+    uint8_t root_bits = get_cap_valid_bits(croot);
 
-    return invoke_monitor_get_cap_owner(caddr, vbits, ret_owner);
+    return invoke_monitor_get_cap_owner(root_addr, root_bits, cptr, bits, ret_owner);
 }
 
 /**
  * \brief Change the owner of a cap and its copies.
  */
-errval_t monitor_set_cap_owner(struct capref cap, coreid_t owner)
+errval_t monitor_set_cap_owner(struct capref croot, capaddr_t cptr, int bits, coreid_t owner)
 {
-    capaddr_t caddr = get_cap_addr(cap);
-    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t root_addr = get_cap_addr(croot);
+    uint8_t root_bits = get_cap_valid_bits(croot);
 
-    return invoke_monitor_set_cap_owner(caddr, vbits, owner);
+    return invoke_monitor_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
 }
 
 /**
  * \brief Lock the cap and its copies
  */
-errval_t monitor_lock_cap(struct capref cap)
+errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int bits)
 {
-    capaddr_t caddr = get_cap_addr(cap);
-    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t root_addr = get_cap_addr(croot);
+    uint8_t root_bits = get_cap_valid_bits(croot);
 
-    return invoke_monitor_lock_cap(caddr, vbits);
+    return invoke_monitor_lock_cap(root_addr, root_bits, cptr, bits);
 }
 
 /**
  * \brief Unlock the cap and its copies
  */
-errval_t monitor_unlock_cap(struct capref cap)
+errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits)
 {
-    capaddr_t caddr = get_cap_addr(cap);
-    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t root_addr = get_cap_addr(croot);
+    uint8_t root_bits = get_cap_valid_bits(croot);
 
-    return invoke_monitor_unlock_cap(caddr, vbits);
+    return invoke_monitor_unlock_cap(root_addr, root_bits, cptr, bits);
 }

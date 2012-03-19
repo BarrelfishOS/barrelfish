@@ -11,6 +11,7 @@
 #include "capsend.h"
 #include "monitor.h"
 #include "magic.h"
+#include "ops.h"
 
 /*
  * Single-cast {{{1
@@ -34,13 +35,13 @@ capsend_target(coreid_t dest, struct msg_queue_elem *queue_elem)
 }
 
 errval_t
-capsend_owner(struct capref capref, struct msg_queue_elem *queue_elem)
+capsend_owner(struct domcapref capref, struct msg_queue_elem *queue_elem)
 {
     errval_t err;
 
     // read cap owner
     coreid_t owner;
-    err = monitor_get_cap_owner(capref, &owner);
+    err = monitor_get_cap_owner(capref.croot, capref.cptr, capref.bits, &owner);
     if (err_is_fail(err)) {
         return err;
     }
@@ -265,21 +266,33 @@ __attribute__((unused))
 static void
 find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
-    errval_t err, result;
+    errval_t err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
     struct capref capref;
-    result = monitor_copy_if_exists(&cap, &capref);
-    if (err_is_ok(result)) {
-        err = cap_destroy(capref);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "failed to destroy temporary cap");
-        }
+
+    err = slot_alloc(&capref);
+    if (err_is_fail(err)) {
+        goto send_err;
     }
 
-    err = find_cap_result(from, result, st);
+    err = monitor_copy_if_exists(&cap, capref);
+    if (err_is_fail(err)) {
+        goto free_slot;
+    }
+
+    err = cap_destroy(capref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to destroy temporary cap");
+    }
+
+free_slot:
+    slot_free(capref);
+
+send_err:
+    err = find_cap_result(from, err, st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send find_cap result");
     }
@@ -333,12 +346,12 @@ find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep
 }
 
 errval_t
-capsend_find_descendants(struct capref src, capsend_result_fn result_fn, void *st)
+capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void *st)
 {
     errval_t err;
 
     struct capability cap;
-    err = monitor_cap_identify(src, &cap);
+    err = monitor_domains_cap_identify(src.croot, src.cptr, src.bits, &cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -536,17 +549,26 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
 
-    err = monitor_copy_if_exists(&cap, &capref);
+    err = slot_alloc(&capref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to allocate slot for owner update");
+    }
+
+    err = monitor_copy_if_exists(&cap, capref);
     if (err_is_ok(err)) {
-        err = monitor_set_cap_owner(capref, from);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "failed to set update cap ownership");
-        }
-        cap_destroy(capref);
+        err = monitor_set_cap_owner(cap_root, get_cap_addr(capref),
+                                    get_cap_valid_bits(capref), from);
     }
-    else if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
-        USER_PANIC_ERR(err, "failed to lookup cap for ownership change");
+    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        err = SYS_ERR_OK;
     }
+
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to update cap ownership");
+    }
+
+    cap_destroy(capref);
+    slot_free(capref);
 
     err = owner_updated(from, st);
     if (err_is_fail(err)) {

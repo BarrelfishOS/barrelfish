@@ -135,6 +135,7 @@ static void
 free_owner_recv_cap(void *arg)
 {
     struct capref *cap = (struct capref*)arg;
+    monitor_unlock_cap(cap_root, get_cap_addr(*cap), get_cap_valid_bits(*cap));
     cap_destroy(*cap);
     free(cap);
 }
@@ -147,49 +148,62 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
     assert(from != my_core_id);
-    struct capref *capref;
+
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
 
-    capref = calloc(1, sizeof(*capref));
+    struct capref *capref = calloc(1, sizeof(*capref));
     if (!capref) {
         err = LIB_ERR_MALLOC_FAIL;
         goto send_err;
     }
 
-    err = monitor_copy_if_exists(&cap, capref);
+    err = slot_alloc(capref);
     if (err_is_fail(err)) {
-        goto send_err;
+        goto free_st;
     }
 
-    err = monitor_lock_cap(*capref);
+    struct domcapref domcapref = get_cap_domref(*capref);
+
+    err = monitor_copy_if_exists(&cap, *capref);
     if (err_is_fail(err)) {
-        cap_destroy(*capref);
-        goto send_err;
+        goto free_slot;
     }
 
-    err = monitor_set_cap_owner(*capref, my_core_id);
+    err = monitor_lock_cap(domcapref.croot, domcapref.cptr, domcapref.bits);
     if (err_is_fail(err)) {
-        cap_destroy(*capref);
-        goto send_err;
+        goto destroy_cap;
+    }
+
+    err = monitor_set_cap_owner(domcapref.croot, domcapref.cptr, domcapref.bits, my_core_id);
+    if (err_is_fail(err)) {
+        goto unlock_cap;
     }
 
     err = capsend_update_owner(*capref, MKCONT(free_owner_recv_cap, capref));
     if (err_is_fail(err)) {
-        cap_destroy(*capref);
-        goto send_err;
+        goto unlock_cap;
     }
 
     err = SYS_ERR_OK;
+    goto send_err;
+
+unlock_cap:
+    monitor_unlock_cap(domcapref.croot, domcapref.cptr, domcapref.bits);
+
+destroy_cap:
+    cap_destroy(*capref);
+
+free_slot:
+    slot_free(*capref);
+
+free_st:
+    free(capref);
 
 send_err:
     send_err = move_result(from, err, st);
     if (err_is_fail(send_err)) {
         USER_PANIC_ERR(send_err, "failed to send error to request_copy sender");
-    }
-
-    if (err_is_fail(err)) {
-        free(capref);
     }
 }
 
@@ -202,7 +216,7 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
     assert(from != my_core_id);
     struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)st;
 
-    caplock_unlock(rpc_st->capref);
+    caplock_unlock(get_cap_domref(rpc_st->capref));
     rpc_st->result_handler(status, rpc_st->st);
     free(rpc_st);
 }
@@ -250,14 +264,16 @@ move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, 
         return MON_ERR_CAP_MOVE;
     }
 
-    err = monitor_lock_cap(capref);
+    struct domcapref domcapref = get_cap_domref(capref);
+
+    err = monitor_lock_cap(domcapref.croot, domcapref.cptr, domcapref.bits);
     if (err_is_fail(err)) {
         return err;
     }
 
     err = move_request(capref, &cap, dest, result_handler, st);
     if (err_is_fail(err)) {
-        caplock_unlock(capref);
+        caplock_unlock(domcapref);
         return err;
     }
 

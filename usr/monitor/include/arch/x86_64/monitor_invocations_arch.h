@@ -167,10 +167,10 @@ invoke_monitor_get_arch_id(uintptr_t *arch_id)
 }
 
 static inline errval_t
-invoke_monitor_get_cap_owner(capaddr_t cap, int bits, coreid_t *ret_owner)
+invoke_monitor_get_cap_owner(capaddr_t root, int rbits, capaddr_t cap, int cbits, coreid_t *ret_owner)
 {
     assert(ret_owner);
-    struct sysret sysret = cap_invoke3(cap_kernel, KernelCmd_Get_cap_owner, cap, bits);
+    struct sysret sysret = cap_invoke5(cap_kernel, KernelCmd_Get_cap_owner, root, rbits, cap, cbits);
     if (err_is_ok(sysret.error)) {
         *ret_owner = sysret.value;
     }
@@ -178,21 +178,21 @@ invoke_monitor_get_cap_owner(capaddr_t cap, int bits, coreid_t *ret_owner)
 }
 
 static inline errval_t
-invoke_monitor_set_cap_owner(capaddr_t cap, int bits, coreid_t owner)
+invoke_monitor_set_cap_owner(capaddr_t root, int rbits, capaddr_t cap, int cbits, coreid_t owner)
 {
-    return cap_invoke4(cap_kernel, KernelCmd_Set_cap_owner, cap, bits, owner).error;
+    return cap_invoke6(cap_kernel, KernelCmd_Set_cap_owner, root, rbits, cap, cbits, owner).error;
 }
 
 static inline errval_t
-invoke_monitor_lock_cap(capaddr_t cap, int bits)
+invoke_monitor_lock_cap(capaddr_t root, int rbits, capaddr_t cap, int cbits)
 {
-    return cap_invoke3(cap_kernel, KernelCmd_Lock_cap, cap, bits).error;
+    return cap_invoke5(cap_kernel, KernelCmd_Lock_cap, root, rbits, cap, cbits).error;
 }
 
 static inline errval_t
-invoke_monitor_unlock_cap(capaddr_t cap, int bits)
+invoke_monitor_unlock_cap(capaddr_t root, int rbits, capaddr_t cap, int cbits)
 {
-    return cap_invoke3(cap_kernel, KernelCmd_Unlock_cap, cap, bits).error;
+    return cap_invoke5(cap_kernel, KernelCmd_Unlock_cap, root, rbits, cap, cbits).error;
 }
 
 #endif

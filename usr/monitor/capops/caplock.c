@@ -18,10 +18,11 @@
 static struct capqueue_queue global_queue;
 
 void
-caplock_wait(struct capref cap, struct event_queue_node *qn, struct event_closure cont)
+caplock_wait(struct domcapref cap,
+             struct event_queue_node *qn, struct event_closure cont)
 {
     errval_t err;
-    err = monitor_lock_cap(cap);
+    err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
     if (err_is_ok(err)) {
         cont.handler(cont.arg);
     }
@@ -34,9 +35,9 @@ caplock_wait(struct capref cap, struct event_queue_node *qn, struct event_closur
 }
 
 void
-caplock_unlock(struct capref cap)
+caplock_unlock(struct domcapref cap)
 {
-    errval_t err = monitor_unlock_cap(cap);
+    errval_t err = monitor_unlock_cap(cap.croot, cap.cptr, cap.bits);
     assert(err_is_ok(err));
     capqueue_notify(&global_queue);
 }

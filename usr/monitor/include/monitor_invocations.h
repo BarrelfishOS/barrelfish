@@ -14,6 +14,7 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/types.h>
 #include <barrelfish_kpi/capabilities.h>
+#include <barrelfish_kpi/distcaps.h>
 
 struct capability;
 
@@ -33,9 +34,9 @@ errval_t monitor_retype_remote_cap(struct capref croot,
                                    int bits);
 errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits);
 errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits);
-errval_t monitor_get_cap_owner(struct capref cap, coreid_t *ret_owner);
-errval_t monitor_set_cap_owner(struct capref cap, coreid_t owner);
-errval_t monitor_lock_cap(struct capref cap);
-errval_t monitor_unlock_cap(struct capref cap);
+errval_t monitor_get_cap_owner(struct capref croot, capaddr_t cptr, int bits, coreid_t *ret_owner);
+errval_t monitor_set_cap_owner(struct capref croot, capaddr_t cptr, int bits, coreid_t owner);
+errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int bits);
+errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits);
 
 #endif
