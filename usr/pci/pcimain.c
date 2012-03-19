@@ -107,7 +107,8 @@ static errval_t init_allocators(void)
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
 	struct mem_region *mrp = &bootinfo->regions[i];
-        if (mrp->mr_type == RegionType_PhyAddr) {
+        if (mrp->mr_type == RegionType_PhyAddr || 
+            mrp->mr_type == RegionType_PlatformData) {
             PCI_DEBUG("Region %d: 0x%08lx - 0x%08lx physical address range\n",
 		      i, mrp->mr_base,
 		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits));

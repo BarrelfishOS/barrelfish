@@ -41,7 +41,7 @@ extern char **environ;
 
 static void add_start_function_overrides(void)
 {
-    set_start_function("e1000", start_networking);
+    set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
 }
 
