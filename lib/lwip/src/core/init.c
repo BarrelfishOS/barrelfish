@@ -254,6 +254,8 @@ static void lwip_sanity_check(void)
 static int is_ctl = 0;
 struct netbench_details *nb = NULL;
 
+static struct netif netif;
+
 static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
 {
     nb = netbench_alloc("app", RECORDED_EVENTS_COUNT);
@@ -322,23 +324,17 @@ extern struct waitset *lwip_waitset;    // idc_barrelfish.c
 extern struct thread_mutex *lwip_mutex; // idc_barrelfish.c
 
 /**
- * To be called by the app which wants to take the control of lwip
+ * To be called by the app which wants to perform DHCP on it's own
  * In current implementation, it is netd.
  * Perform Sanity check of user-configurable values, and initialize all modules.
  */
-void owner_lwip_init(char *card_name, uint64_t queueid)
+struct netif *owner_lwip_init(char *card_name, uint64_t queueid)
 {
     DEBUGPRINTPS("owner_lwip_init: Inside lwip_init\n");
     is_ctl = 1;
-    lwip_waitset = get_default_waitset();
-
-    /* Sanity check user-configurable values */
-    lwip_sanity_check();
-    DEBUGPRINTPS("owner_lwip_init: done with sanity check\n");
-
-    /* Modules initialization */
+    lwip_init(card_name, queueid);
     DEBUGPRINTPS("LWIP: owner_lwip_init: done with connection setup\n");
-    remaining_lwip_initialization(card_name, queueid);
+    return &netif;
 }
 
 static void call_tcp_tmr(void)
@@ -402,12 +398,16 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     printf("LWIP: done with connection setup\n");
     remaining_lwip_initialization((char *) card_name, queueid);
 
-    //k: we need ip... asking netd :)
-    DEBUGPRINTPS("getting IP from netd\n");
-    printf("LWIP: getting IP from netd\n");
-    idc_get_ip();
-    DEBUGPRINTPS("ip requested\n");
-    printf("LWIP: IP requested\n");
+    if (is_ctl != 1) {
+        DEBUGPRINTPS("getting IP from netd\n");
+        printf("LWIP: getting IP from netd\n");
+        idc_get_ip();
+    } else {
+        // You are a netd and you are responsible for DHCP
+        // so for time being, assigning 0 as IP.
+        // FIXME: assign 0 as IP
+
+    }
 
     // Register timers... (TCP only)
     // FIXME: These timers should be added only when first TCP connection
@@ -420,7 +420,6 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     assert(err_is_ok(err));
 
     // Bring interface up
-    static struct netif netif;
     struct ip_addr ipaddr, netmask, gw;
 
     ip_addr_set(&ipaddr, IP_ADDR_ANY);

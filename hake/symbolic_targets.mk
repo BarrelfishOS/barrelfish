@@ -91,6 +91,7 @@ MODULES_x86_64= \
 	sbin/E1K_mng \
 	sbin/e10k \
 	sbin/rtl8029 \
+	sbin/netd \
 	sbin/echoserver \
 	sbin/elver \
 	sbin/fbdemo \

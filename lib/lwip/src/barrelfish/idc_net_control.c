@@ -240,7 +240,8 @@ void idc_get_ip(void)
     errval_t err;
     struct ip_addr ip, gw, nm;
 
-    err = net_ports_rpc.vtbl.get_ip_info(&net_ports_rpc, &ip.addr, &gw.addr, &nm.addr);
+    err = net_ports_rpc.vtbl.get_ip_info(&net_ports_rpc, &ip.addr, &gw.addr,
+            &nm.addr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }

@@ -19,7 +19,9 @@ interface net_ports "Interface for port management" {
 		    out ipv4addr gw,
 		    out ipv4addr mask);
 
+
     rpc get_mac_address(out uint64 hwaddr);
+
 
     rpc get_port(in port_type type,
 		 in bufid buffer_id_rx,

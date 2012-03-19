@@ -23,6 +23,7 @@
                "net_queue_manager",
                "net_ports",
                "net_soft_filters",
+               "net_ARP",
                "fb",
                "glue_bench",
                "hpet",

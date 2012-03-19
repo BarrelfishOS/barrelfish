@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
     int port_count = 0;
     err_t err;
 
-    /* Connect to the network driver driver */
+    // Connect to the network driver driver
     assert(lwip_init_auto() == true);
 
     printf("openport_test: setup done\n");

@@ -77,8 +77,8 @@ extern "C" {
     struct waitset;
     struct thread_mutex;
 
-    //To be called from "netd" which owns the card (netd: the one who owns port)
-    void owner_lwip_init(char *card_name, uint64_t queueid);
+    // To be called from "netd" which is responsible for ARP table
+    struct netif *owner_lwip_init(char *card_name, uint64_t queueid);
 
     // initialize networkign with specific card and queue
     bool lwip_init(const char *card_name, uint64_t queueid);
