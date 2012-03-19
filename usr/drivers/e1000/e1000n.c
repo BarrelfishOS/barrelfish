@@ -685,8 +685,8 @@ int main(int argc, char **argv)
         ram_set_affinity(minbase, maxbase);
     }
     if (service_name == 0) {
-        service_name = (char *)malloc(sizeof("e1000") + 1);
-        strncpy(service_name, "e1000", sizeof("e1000") + 1);
+        service_name = (char *)malloc(sizeof("e1000n") + 1);
+        strncpy(service_name, "e1000n", sizeof("e1000n") + 1);
         E1000N_DEBUG("set the service name to %s\n", service_name);
     }
 
