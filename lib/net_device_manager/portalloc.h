@@ -19,7 +19,7 @@
 
 #include <stdlib.h>
 #include <barrelfish/barrelfish.h>
-#include <if/netd_defs.h>
+#include <if/net_ports_defs.h>
 
 /*****************************************************************************
  * Constants
@@ -58,7 +58,7 @@ void init_free_ports(void);
 uint16_t alloc_tcp_port(void);
 uint16_t alloc_udp_port(void);
 
-uint16_t alloc_specific_port(uint16_t port, netd_port_type_t type);
-void free_port(uint16_t port, netd_port_type_t type);
+uint16_t alloc_specific_port(uint16_t port, net_ports_port_type_t type);
+void free_port(uint16_t port, net_ports_port_type_t type);
 
 #endif

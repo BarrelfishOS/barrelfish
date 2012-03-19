@@ -78,7 +78,7 @@ errval_t init_device_manager(char *dev_name, uint64_t valid_queues,
                 total_queues );
     if (qlist == NULL) {
         USER_PANIC("init_dev_mng: Not enough memory (malloc failed)\n");
-        return -1; // FIXME: Return proper error
+        return PORT_ERR_NOT_ENOUGH_MEMORY;
     }
 
 
