@@ -364,6 +364,15 @@ static void register_filter_response(struct net_soft_filters_binding *st,
                "] registered with filt_id %" PRIu64 ".\n", id, ftype,
                filter_id);
 
+    /* free the memory in shared area */
+    errval_t free_err = bulk_free(&bt_filter_tx, id);
+
+    assert(err_is_ok(free_err));
+    filter_mem_lock = false; // NOTE: filter memory can be used by others now
+
+    handle_filter_response(id, err, filter_id, buffer_id_rx, buffer_id_tx,
+            ftype);
+
 }
 
 static void register_arp_filter_response(struct net_soft_filters_binding *st,

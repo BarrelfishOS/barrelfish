@@ -51,6 +51,12 @@ struct filters_tx_vtbl *get_soft_filt_mng_sign(void);
 // Initialize the port number management service
 int init_ports_service(char *dev_name);
 
+// based on the response received from queue_manager,
+// report the success/failure of the call to an application
+void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
+        uint64_t buffer_id_rx, uint64_t buffer_id_tx, uint64_t ftype);
+
+
 // *****************************************************************
 // * queue list data-structures
 // *****************************************************************
