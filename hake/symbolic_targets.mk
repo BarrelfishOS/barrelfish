@@ -104,6 +104,9 @@ MODULES_x86_64= \
 	sbin/net-test \
 	sbin/netthroughput \
 	sbin/pci \
+        sbin/acpi \
+        sbin/ioapic \
+        sbin/kaluga \
 	sbin/placement_bench \
 	sbin/phases_bench \
 	sbin/phases_scale_bench \
@@ -168,6 +171,9 @@ MODULES_x86_32=\
 	sbin/fish \
 	sbin/fputest \
 	sbin/pci \
+        sbin/acpi \
+        sbin/ioapic \
+        sbin/kaluga \
 	sbin/skb \
 	sbin/slideshow \
 	sbin/thc_v_flounder_empty \
