@@ -1,8 +1,8 @@
 /**
  * \file
- * \brief Communication between LWIP and netd deamon
+ * \brief Communication between LWIP and net_ports deamon
  *
- *  This code provides interface to commuincate with netd for purposes like
+ *  This code provides interface to commuincate with net_ports for purposes like
  *  opening/closing ports, get IP address, etc
  */
 
@@ -136,11 +136,11 @@ errval_t lwip_err_to_errval(err_t e)
 
 
 /***************************************************************
-    Adding new code to communicate with netd server
+    Adding new code to communicate with net_ports server
 */
 
 /****************************************************************
- * \defGroup net_ports_connectivity  Code to connect and work with netd.
+ * \defGroup net_ports_connectivity  Code to connect and work with net_ports.
  *
  * @{
  *
@@ -152,7 +152,7 @@ errval_t lwip_err_to_errval(err_t e)
 static void net_ports_bind_cb(void *st, errval_t err, struct net_ports_binding *b)
 {
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "bind failed for netd");
+        DEBUG_ERR(err, "bind failed for net_ports");
         abort();
     }
     LWIPBF_DEBUG("net_ports_bind_cb: called\n");
@@ -164,11 +164,11 @@ static void net_ports_bind_cb(void *st, errval_t err, struct net_ports_binding *
     }
 
     net_ports_service_connected = true;
-    LWIPBF_DEBUG("net_ports_bind_cb: netd bind successful!\n");
+    LWIPBF_DEBUG("net_ports_bind_cb: net_ports bind successful!\n");
 }
 
 /**
- * \brief Connects the lwip instance with netd daemon.
+ * \brief Connects the lwip instance with net_ports daemon.
  *  Code inspired (ie. copied) from "start_client" function.
  */
 static void init_net_ports_connection(char *service_name)
@@ -184,7 +184,7 @@ static void init_net_ports_connection(char *service_name)
 
     err = nameservice_blocking_lookup(service_name, &iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "lwip: could not connect to the netd driver.\n"
+        DEBUG_ERR(err, "lwip: could not connect to the net_ports driver.\n"
                   "Terminating.\n");
         abort();
     }
@@ -211,7 +211,7 @@ void idc_connect_port_manager_service(char *service_name)
     //LWIPBF_DEBUG
     printf("idc_c_port_mng_srv: trying to [%s]\n", service_name);
 
-    /* FIXME: decide if this is the best place to connect with netd */
+    /* FIXME: decide if this is the best place to connect with net_ports */
     init_net_ports_connection(service_name);
 
     // XXX: dispatch on default waitset until bound

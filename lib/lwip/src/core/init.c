@@ -399,9 +399,14 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     remaining_lwip_initialization((char *) card_name, queueid);
 
     if (is_ctl != 1) {
-        DEBUGPRINTPS("getting IP from netd\n");
-        printf("LWIP: getting IP from netd\n");
-        idc_get_ip();
+    char ARP_service_name[MAX_NET_SERVICE_NAME_LEN];
+
+    snprintf(ARP_service_name, sizeof(ARP_service_name), "%s%s",
+             card_name, NET_ARP_LOOKUP_SUFFIX);
+
+        DEBUGPRINTPS("getting IP from ARP service\n");
+        printf("LWIP: getting IP from ARP service\n");
+        idc_get_ip_from_RPC_lookup();
     } else {
         // You are a netd and you are responsible for DHCP
         // so for time being, assigning 0 as IP.
@@ -418,6 +423,10 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
                                          MKCLOSURE((void (*)(void *))
                                                    call_tcp_tmr, NULL));
     assert(err_is_ok(err));
+
+    // FIXME: I am not sure if this should be in the codepath for both
+    // is_ctl and non-is_ctl.  Specially becasuse non is_ctl is anyways
+    // adding one interface with idc_get_ip* call.
 
     // Bring interface up
     struct ip_addr ipaddr, netmask, gw;

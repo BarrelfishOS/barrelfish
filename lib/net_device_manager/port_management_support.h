@@ -121,7 +121,6 @@ struct net_user {
 
     // Information about queue
     qid_t qid;
-    // function pointer list to add filters
 
 };
 

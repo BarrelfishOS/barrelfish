@@ -90,6 +90,8 @@ uint64_t perform_lwip_work(void);
 uint8_t get_driver_benchmark_state(int direction, uint64_t *delta,
         uint64_t *cl);
 void debug_show_spp_status(int connection);
+
+// FIXME: following code needs cleaning
 /* netd services */
 void idc_connect_netd(void);
 
@@ -108,4 +110,15 @@ err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
 
 
 
-#endif                          // IDC_BARRELFISH_H_
+// ************************************************************************
+//                 ARP lookup interface function
+// ************************************************************************
+
+// connect to ARP lookup service
+void idc_connect_ARP_lookup_service(char *service_name);
+
+// get ip address from netd
+void idc_get_ip_from_RPC_lookup(void);
+
+
+#endif // IDC_BARRELFISH_H_

@@ -17,11 +17,15 @@
 #ifndef _NETD_H_
 #define _NETD_H_
 
-//#include <netif/bfeth.h>
+#include <netif/bfeth.h>
 #include <if/net_ARP_defs.h>
 
 #include <contmng/contmng.h>
 #include <procon/procon.h>
+
+typedef net_ARP_ipv4addr_t ipv4addr_t;
+
+struct netif *netif_ptr;
 
 /**
  * @brief initializes LWIP. not a lot left after I changed the subsystems
@@ -30,5 +34,6 @@
  */
 void startlwip(char *card_name, uint64_t queueid);
 
+int init_ARP_lookup_service(char *dev_name);
 #endif // _NETD_H_
 

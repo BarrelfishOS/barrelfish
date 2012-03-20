@@ -97,13 +97,12 @@ int main(int argc, char **argv)
 
 #endif // 0
 
-    /* Connect to e1000 driver */
+    // FIXME: This has to be done for every card
+    // Connect to e1000 driver
     NETD_DEBUG("trying to connect to the %s:%"PRIu64" driver...\n",
             card_name, allocated_queue);
     startlwip(card_name, allocated_queue);
-    // Connect to the network driver driver
-//    assert(lwip_init_auto() == true);
-
+    init_ARP_lookup_service(card_name);
 
     netd_event_polling_loop();
     return 0;

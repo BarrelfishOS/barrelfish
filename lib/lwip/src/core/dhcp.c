@@ -627,12 +627,9 @@ err_t dhcp_start(struct netif *netif)
 {
     struct dhcp *dhcp;
     err_t result = ERR_OK;
-    printf("here 1\n");
     /* FIXME: make sure that if the calling process is not owner of LWIP stack
      * then it should not be allowed to continue. */
-    LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;
-      );
-    printf("here 2\n");
+    LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;);
     dhcp = netif->dhcp;
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE,
                 ("dhcp_start(netif=%p) %c%c%" U16_F "\n", (void *) netif,
@@ -649,7 +646,6 @@ err_t dhcp_start(struct netif *netif)
         return ERR_MEM;
     }
 
-    printf("here 4\n");
     /* no DHCP client attached yet? */
     if (dhcp == NULL) {
         LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE,
@@ -658,7 +654,6 @@ err_t dhcp_start(struct netif *netif)
         if (dhcp == NULL) {
             LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE,
                         ("dhcp_start(): could not allocate dhcp\n"));
-    printf("here 5\n");
             return ERR_MEM;
         }
         /* store this dhcp client in the netif */
@@ -685,7 +680,6 @@ err_t dhcp_start(struct netif *netif)
                     ("dhcp_start(): could not obtain pcb\n"));
         mem_free((void *) dhcp);
         netif->dhcp = dhcp = NULL;
-    printf("here 6\n");
         return ERR_MEM;
     }
 #if IP_SOF_BROADCAST
@@ -703,12 +697,10 @@ err_t dhcp_start(struct netif *netif)
     if (result != ERR_OK) {
         /* free resources allocated above */
         dhcp_stop(netif);
-    printf("here 7\n");
         return ERR_MEM;
     }
     /* Set the flag that says this netif is handled by DHCP. */
     netif->flags |= NETIF_FLAG_DHCP;
-    printf("here 8\n");
     return result;
 }
 

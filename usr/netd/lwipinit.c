@@ -29,15 +29,17 @@
 #include "idc_barrelfish.h"
 #include "netd.h"
 
-// Local ip address assigned to the interface
-struct ip_addr local_ip = {
-    .addr = 0x00,           // BFDMUX_IP_ADDR_ANY
-};
 
 static struct periodic_event dhcp_fine_timer; // fine-grain timer for DHCP
 static struct periodic_event dhcp_coarse_timer; // coarse-grain timer for DHCP
 
-//static struct eth_addr mac;
+// local ip address.  Used to keep track of changing IP addresses
+static struct ip_addr local_ip = {
+    .addr = 0x00,       // BFDMUX_IP_ADDR_ANY
+};
+
+// state variable indicating if dhcp is done or not
+static bool dhcp_completed = false;
 
 static void timer_callback(void *data)
 {
@@ -49,7 +51,6 @@ static void timer_callback(void *data)
 
 //    NETD_DEBUG("timer_callback: terminated\n");
 }
-
 
 
 static void setup_dhcp_timer(void)
@@ -107,10 +108,9 @@ static void link_status_change(struct netif *nf)
         /* I don't agree -- we need to keep renewing our lease -AB */
         periodic_event_cancel(&dhcp_fine_timer);
         periodic_event_cancel(&dhcp_coarse_timer);
-#endif
+#endif // 0
 
-        NETD_DEBUG("registering net_ARP service\n");
-        // FIXME: register ARP service
+        dhcp_completed = true;
     }
 
     subsequent_call = true;
@@ -134,9 +134,21 @@ void startlwip(char *card_name, uint64_t queueid)
 
     NETD_DEBUG("NETD is taking control of the LWIP for card[%s][%"PRIu64"]\n",
             card_name, queueid);
-
     // take ownership of lwip
-    struct netif *netif_ptr = owner_lwip_init(card_name, queueid);
+    netif_ptr = owner_lwip_init(card_name, queueid);
     assert(netif_ptr != NULL);
     get_ip_from_dhcp(netif_ptr);
-}
+
+    NETD_DEBUG("Waiting for DHCP to complete\n");
+    struct waitset *ws = get_default_waitset();
+    while (!dhcp_completed) {
+        errval_t err = event_dispatch(ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch (waiting for dhcp)");
+            break;
+        }
+    } // end while
+
+    NETD_DEBUG("registering net_ARP service\n");
+    // FIXME: register ARP service
+} // end function startlwip

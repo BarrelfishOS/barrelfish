@@ -11,12 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "netd",
-  cFiles = [ "main.c", "portalloc.c", "lwipinit.c", "idc_barrelfish.c" ],
-                      flounderBindings = [ "net_queue_manager",
-                                            "net_soft_filters" ],
-		      flounderDefs = [ "net_queue_manager" ],
-		      addLibraries = [ "lwip", "bfdmuxtools", "contmng",
-                      "procon", "timer", "trace" ]
+  cFiles = [ "main.c", "lwipinit.c", "ARP_lookup_service.c" ],
+                      flounderBindings = [ "net_ARP" ],
+                      flounderDefs = [ "net_ARP" ],
+		      addLibraries = [ "lwip", "contmng", "procon", "timer",
+                      "trace" ]
                     }
 ]
 
