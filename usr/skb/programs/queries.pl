@@ -12,6 +12,8 @@
 % test data which are manually created, but can be figured out at runtime
 % :-include("testdata.pl").
 
+:- dynamic interrupt_override/4.
+
 % 1. find list of core IDs which are closest to device add(bus, dev, fun)
 %    -> that means that the HT-network has to be represented. With this information
 %       we can ask this kind of information
