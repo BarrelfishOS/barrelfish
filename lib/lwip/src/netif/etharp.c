@@ -112,16 +112,8 @@ const struct eth_addr ethzero = { {0, 0, 0, 0, 0, 0} };
 uint64_t idc_ARP_lookup(uint32_t ip);
 
 // wrapper function to perform ARP lookup over arp_server
-static uint64_t etharp_request_via_ARP_srv(struct netif * netif,
+static struct eth_addr etharp_request_via_ARP_srv(struct netif * netif,
         struct ip_addr * ipaddr);
-
-// Union to get the MAC address from uint64_t
-// needed for interpretetion as result provided by ARP lookup over arp_server
-// is uint64_t
-union mac_addr_un {
-    struct eth_addr ethaddr;
-    uint64_t mac_addr;
-};
 
 static struct etharp_entry arp_table[ARP_TABLE_SIZE];
 
@@ -1033,16 +1025,7 @@ etharp_query(struct netif * netif, struct ip_addr * ipaddr, struct pbuf * q)
             }
         } else {
             // This is a ARP client
-            uint64_t found_mac = etharp_request_via_ARP_srv(netif, ipaddr);
-            if (found_mac == 0) {
-                printf("could not find MAC with ARP_lookup service\n");
-                abort();
-            }
-            union mac_addr_un tmp_mac;
-            tmp_mac.mac_addr = found_mac;
-            // FIXME: make sure that this works irrespective of endianness
-            // of a machine
-            arp_table[i].ethaddr = tmp_mac.ethaddr;
+            arp_table[i].ethaddr = etharp_request_via_ARP_srv(netif, ipaddr);
             arp_table[i].state = ETHARP_STATE_STABLE;
         } // end else: not a special app
     } // end if: ARP table state pending
@@ -1263,27 +1246,6 @@ err_t etharp_request(struct netif * netif, struct ip_addr * ipaddr)
 }
 
 /**
- * Send an ARP request packet asking for ipaddr.
- *
- * @param netif the lwip network interface on which to send the request
- * @param ipaddr the IP address for which to ask
- * @return mac address of the IP
- */
-static uint64_t etharp_request_via_ARP_srv(struct netif * netif,
-        struct ip_addr * ipaddr)
-{
-    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                ("etharp_request_via_ARP_srv: sending ARP request.\n"));
-    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                ("etharp_request_via_ARP_srv: sending ARP request:"
-                 "%" U16_F ".%" U16_F ".%" U16_F ".%" U16_F "\n",
-                 ip4_addr1(ipaddr), ip4_addr2(ipaddr), ip4_addr3(ipaddr),
-                 ip4_addr4(ipaddr)));
-
-    return idc_ARP_lookup(ipaddr->addr);
-}
-
-/**
  * Process received ethernet frames. Using this function instead of directly
  * calling ip_input and passing ARP frames through etharp in ethernetif_input,
  * the ARP cache is protected from concurrent access.
@@ -1360,4 +1322,84 @@ err_t ethernet_input(struct pbuf *p, struct netif *netif)
        so the caller doesn't have to free it again */
     return ERR_OK;
 }
-#endif                          /* LWIP_ARP */
+
+// **************************************************************
+// functionality to use ARP server
+// **************************************************************
+
+
+// **************************************************************
+// For ARP client
+
+// Union to get the MAC address from uint64_t
+// needed for interpretetion as result provided by ARP lookup over arp_server
+// is uint64_t
+union mac_addr_un {
+    struct eth_addr ethaddr;
+    uint64_t mac_addr;
+};
+
+
+struct eth_addr convert_uint64_to_eth_addr(uint64_t given_mac)
+{
+    union mac_addr_un tmp_mac;
+    tmp_mac.mac_addr = given_mac;
+
+    // FIXME: make sure that this works irrespective of endianness of a machine
+    return tmp_mac.ethaddr;
+}
+
+/**
+ * Send an ARP request packet asking for ipaddr.
+ *
+ * @param netif the lwip network interface on which to send the request
+ * @param ipaddr the IP address for which to ask
+ * @return mac address of the IP
+ */
+static struct eth_addr etharp_request_via_ARP_srv(struct netif * netif,
+        struct ip_addr * ipaddr)
+{
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+                ("etharp_request_via_ARP_srv: sending ARP request.\n"));
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+                ("etharp_request_via_ARP_srv: sending ARP request:"
+                 "%" U16_F ".%" U16_F ".%" U16_F ".%" U16_F "\n",
+                 ip4_addr1(ipaddr), ip4_addr2(ipaddr), ip4_addr3(ipaddr),
+                 ip4_addr4(ipaddr)));
+
+    uint64_t found_mac = idc_ARP_lookup(ipaddr->addr);
+    if (found_mac == 0) {
+        printf("could not find MAC with ARP_lookup service\n");
+        abort();
+    }
+    return (convert_uint64_to_eth_addr(found_mac));
+}
+
+// **************************************************************
+// For ARP server
+
+// Finds the given IP in ARP cache, if no entry found, returns zero
+uint64_t find_ip_arp_cache(struct ip_addr *ipaddr)
+{
+    int i;
+
+    /* find entry in ARP cache, ask to create entry if queueing packet */
+#if LWIP_NETIF_HWADDRHINT
+    assert(!"NYI");
+#else                           /* LWIP_NETIF_HWADDRHINT */
+    i = find_entry(ipaddr, ETHARP_TRY_HARD);
+#endif                          /* LWIP_NETIF_HWADDRHINT */
+
+    union mac_addr_un tmp_mac;
+    if (i < 0) {
+        return 0;
+    }
+    if (arp_table[i].state == ETHARP_STATE_STABLE) {
+        tmp_mac.ethaddr = arp_table[i].ethaddr;
+        return tmp_mac.mac_addr;
+    }
+    return 0;
+}
+
+// **************************************************************
+#endif // LWIP_ARP : EOF

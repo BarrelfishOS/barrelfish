@@ -853,6 +853,13 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     netd_buffer_count = 0;
     client_no = 0;
 
+
+    uint8_t my_mac[6] = {0};
+    ether_get_mac_address_ptr(my_mac);
+    printf("############################################\n");
+    printf("For service [%s] MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+                            service_name,  my_mac[0], my_mac[1], my_mac[2],
+                             my_mac[3], my_mac[4], my_mac[5]);
     bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
 
     /* FIXME: populate the receive ring of device driver with local pbufs */

@@ -637,6 +637,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
             macaddr, user_macaddr, use_interrupt);
     E1000N_DEBUG("Done with hardware init\n");
     setup_internal_memory();
+
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  transmit_pbuf_list_fn_v2, find_tx_free_slot_count_fn,
                   handle_free_TX_slot_fn);

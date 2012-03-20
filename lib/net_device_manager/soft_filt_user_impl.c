@@ -572,21 +572,26 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, net_ports_port_type_t t
     uint8_t *filter_mem = NULL;
     char *filter;
 
+    struct eth_addr tmp_mac_addr = { .addr = {0,0,0,0,0,0}};
+
     // rx filter
     if (type == net_ports_PORT_TCP) {
-        filter = build_ether_dst_ipv4_tcp_filter(mac,
+        filter = build_ether_dst_ipv4_tcp_filter(tmp_mac_addr, // mac,
                                 BFDMUX_IP_ADDR_ANY,
-                                htonl(local_ip.addr),
+                                BFDMUX_IP_ADDR_ANY,  // htonl(local_ip.addr),
                                 PORT_ANY,
-                                (port_t) port);
+                                (port_t) port
+                                );
     } else {
-        filter = build_ether_dst_ipv4_udp_filter(mac,
+        filter = build_ether_dst_ipv4_udp_filter(tmp_mac_addr, // mac,
                                 BFDMUX_IP_ADDR_ANY,
-                                htonl(local_ip.addr),
+                                BFDMUX_IP_ADDR_ANY,  // htonl(local_ip.addr),
                                 PORT_ANY,
-                                (port_t) port);
+                                (port_t) port
+                                );
     }
     /* FIXME: shouldn't be above two ports be wrapped in htons(port)? */
+    printf("##### The created filter is [%s]\n", filter);
     compile_filter(filter, &filter_mem, len_rx);
     assert(*len_rx < BASE_PAGE_SIZE);
 
@@ -618,5 +623,6 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, net_ports_port_type_t t
 
     return id;
 }
+
 
 

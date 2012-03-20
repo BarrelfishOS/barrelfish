@@ -12,6 +12,7 @@
 #include <barrelfish/net_constants.h>
 #include <if/net_ARP_defs.h>
 
+#include <barrelfish/waitset.h>
 
 // for handling contiuations
 #include <contmng/contmng.h>
@@ -19,6 +20,9 @@
 // standard libraries
 #include <stdio.h>
 #include <string.h>
+
+#include <lwip/init.h>
+#include <netif/etharp.h>
 
 // local includes
 #include "netd.h"
@@ -31,6 +35,7 @@
 //
 //
 //
+
 
 // How can I get my own MAC address
 // Where can I find the code which is looking up local MAC address?
@@ -198,6 +203,27 @@ static void get_ip_info(struct net_ARP_binding *cc, uint32_t iface)
     NETD_DEBUG("get_ip_info: terminating\n");
 }
 
+static uint64_t refresh_cache(uint32_t dst_ip_addr)
+{
+    struct ip_addr dst_ip;
+    struct netif *netif;
+    dst_ip.addr = dst_ip_addr;
+    netif = ip_route(&dst_ip);
+
+    errval_t r = etharp_request(netif, &dst_ip);
+    assert(err_is_ok(r));
+
+    struct waitset *ws = NULL;
+    ws = get_default_waitset();
+   while (is_ip_present_in_arp_cache(&dst_ip) == false) {
+        r = event_dispatch(ws);
+        if (err_is_fail(r)) {
+            DEBUG_ERR(r, "in event_dispatch");
+            abort();
+        }
+   } // end while: till arp not present
+   return find_ip_arp_cache(&dst_ip);
+}
 
 static void ARP_resolve_request(struct net_ARP_binding *cc,
             ipv4addr_t ip, uint32_t iface, bool force)
@@ -205,8 +231,10 @@ static void ARP_resolve_request(struct net_ARP_binding *cc,
     NETD_DEBUG("ARP_resolve_request: client asking ARP lookup for ip %"
             PRIu32" over iface %"PRIu32"\n", ip, iface);
 
-    assert(!"NYI ARP resolve request");
-    wrapper_ARP_lookup_response(cc, SYS_ERR_OK, 0);
+    uint64_t found_mac = refresh_cache(ip);
+    assert(found_mac != 0);
+//    assert(!"NYI ARP resolve request");
+    wrapper_ARP_lookup_response(cc, SYS_ERR_OK, found_mac);
 } // end function: ARP_resolve_request
 
 
