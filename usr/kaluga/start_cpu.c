@@ -172,6 +172,11 @@ errval_t watch_for_cores(void)
 {
     configure_monitor_binding();
 
+    struct waitset monitor_ws;
+    waitset_init(&monitor_ws);
+    struct monitor_binding* mb = get_monitor_binding();
+    mb->change_waitset(mb, &monitor_ws);
+
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
@@ -201,14 +206,15 @@ errval_t watch_for_cores(void)
         }
     }
 
-    // Wait until all cores found are booted, this ensures
-    // we won't deadlock in case we start a driver on
-    // a core that is not ready
-    /*
+    // Wait until all cores found are booted
     while (!cores_booted) {
-        messages_wait_and_handle_next();
-    }*/
+        errval_t err = event_dispatch(&monitor_ws);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
+        }
+    }
 
+    mb->change_waitset(mb, get_default_waitset());
     return err;
 }
 
