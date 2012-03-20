@@ -99,7 +99,7 @@ static void wrapper_ARP_lookup_response(struct net_ARP_binding *cc,
 static errval_t connect_ARP_cb(void *st, struct net_ARP_binding *b)
 {
     errval_t err = SYS_ERR_OK;
-    NETD_DEBUG("new application came in\n");
+    NETD_DEBUG("########### new application came in\n");
 
     // using the b->st to store session specific data (net_user)
     struct ARP_user_cl *new_app = malloc(sizeof(struct ARP_user_cl));
@@ -190,6 +190,7 @@ int init_ARP_lookup_service(char *dev_name)
 
 static void get_ip_info(struct net_ARP_binding *cc, uint32_t iface)
 {
+    printf("####### get IP info called ######\n");
     NETD_DEBUG("get_ip_info: client asking for ip over %"PRIu32"\n", iface);
 
     wrapper_ip_info_response(cc, SYS_ERR_OK, netif_ptr->ip_addr.addr,

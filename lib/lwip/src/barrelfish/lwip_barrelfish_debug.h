@@ -15,7 +15,7 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-#define LWIP_BARRELFISH_DEBUG  1
+//#define LWIP_BARRELFISH_DEBUG  1
 
 #if defined(LWIP_BARRELFISH_DEBUG) || defined(GLOBAL_DEBUG)
 #define LWIPBF_DEBUG(x...) printf("lwip_barrelfish: " x)

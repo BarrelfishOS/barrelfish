@@ -391,27 +391,26 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
 
     // Connecting to the port_manager_service
     idc_connect_port_manager_service(port_manager_name);
-//    idc_connect_to_netd(port_manager_name);
-    /* FIXME: name of the netd_server should also be passed to lwip_init */
+
+
+    if (is_ctl != 1) {
+        // connecting to ARP lookup service
+        // Doing this before everything else so that we know all needed
+        // services are up and running.
+        char ARP_service_name[MAX_NET_SERVICE_NAME_LEN];
+        snprintf(ARP_service_name, sizeof(ARP_service_name), "%s%s",
+             card_name, NET_ARP_LOOKUP_SUFFIX);
+        idc_connect_ARP_lookup_service(ARP_service_name);
+    }
 
     DEBUGPRINTPS("LWIP: lwip_init: done with connection setup\n");
     printf("LWIP: done with connection setup\n");
     remaining_lwip_initialization((char *) card_name, queueid);
 
     if (is_ctl != 1) {
-    char ARP_service_name[MAX_NET_SERVICE_NAME_LEN];
-
-    snprintf(ARP_service_name, sizeof(ARP_service_name), "%s%s",
-             card_name, NET_ARP_LOOKUP_SUFFIX);
-
         DEBUGPRINTPS("getting IP from ARP service\n");
         printf("LWIP: getting IP from ARP service\n");
         idc_get_ip_from_RPC_lookup();
-    } else {
-        // You are a netd and you are responsible for DHCP
-        // so for time being, assigning 0 as IP.
-        // FIXME: assign 0 as IP
-
     }
 
     // Register timers... (TCP only)

@@ -154,7 +154,8 @@ void idc_get_ip_from_RPC_lookup(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
-    LWIPBF_DEBUG("client: owner has the IP address %d.%d.%d.%d\n",
+    //LWIPBF_DEBUG
+    printf("client: owner has the IP address %d.%d.%d.%d\n",
                  ip4_addr1(&netif.ip_addr), ip4_addr2(&netif.ip_addr),
                  ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
 }
