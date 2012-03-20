@@ -124,7 +124,7 @@ void idc_connect_ARP_lookup_service(char *service_name)
 // ************************************************************************
 
 
-void idc_get_ip_from_RPC_lookup(void)
+void idc_get_ip_from_ARP_lookup(void)
 {
     /*
     if (is_owner) {
@@ -132,7 +132,7 @@ void idc_get_ip_from_RPC_lookup(void)
         abort();
     }
     */
-    LWIPBF_DEBUG("On the way of getting IP via RPC lookup\n");
+    LWIPBF_DEBUG("On the way of getting IP via ARP lookup\n");
 
     errval_t err;
     errval_t remote_err;
@@ -160,5 +160,35 @@ void idc_get_ip_from_RPC_lookup(void)
                  ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
 }
 
+uint64_t idc_ARP_lookup(uint32_t ip)
+{
+    /*
+    if (is_owner) {
+        assert(!"ARP server should never use this API for ARP lookup\n");
+        abort();
+    }
+    */
+    LWIPBF_DEBUG("idc_ARP_lookup: On the way of ARP lookup\n");
+
+    errval_t err;
+    errval_t remote_err;
+    uint32_t iface = 0;
+    bool force = false;
+    uint64_t mac = 0;
+
+    err = net_ARP_rpc.vtbl.ARP_lookup(&net_ARP_rpc, ip, iface, force,
+            &remote_err, &mac);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error in making ARP_lookup call");
+    }
+
+    if (err_is_fail(remote_err)) {
+        USER_PANIC_ERR(remote_err, "error in ARP lookup process");
+    }
+    assert(mac != 0);
+
+    LWIPBF_DEBUG("idc_ARP_lookup: got answer\n");
+    return mac;
+} // end function: idc_ARP_lookup
 
 

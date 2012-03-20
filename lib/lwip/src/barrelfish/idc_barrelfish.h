@@ -118,7 +118,9 @@ err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
 void idc_connect_ARP_lookup_service(char *service_name);
 
 // get ip address from netd
-void idc_get_ip_from_RPC_lookup(void);
+void idc_get_ip_from_ARP_lookup(void);
 
+// Request ARP lookup from netd
+uint64_t idc_ARP_lookup(uint32_t ip);
 
 #endif // IDC_BARRELFISH_H_

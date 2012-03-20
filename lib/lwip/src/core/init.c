@@ -256,6 +256,11 @@ struct netbench_details *nb = NULL;
 
 static struct netif netif;
 
+bool is_this_special_app(void)
+{
+    return (is_ctl > 0);
+} // end function: is_this_special_app
+
 static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
 {
     nb = netbench_alloc("app", RECORDED_EVENTS_COUNT);
@@ -410,7 +415,7 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     if (is_ctl != 1) {
         DEBUGPRINTPS("getting IP from ARP service\n");
         printf("LWIP: getting IP from ARP service\n");
-        idc_get_ip_from_RPC_lookup();
+        idc_get_ip_from_ARP_lookup();
     }
 
     // Register timers... (TCP only)
