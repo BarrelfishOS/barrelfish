@@ -171,7 +171,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         }
         else {
             // XXX: see watch_for_cores()
-            KALUGA_DEBUG("record: %s is BSP, ignore.\n");
+            KALUGA_DEBUG("record: %s is BSP, ignore.\n", record);
             trigger_local_apic_manual(++core_counter);
         }
 
