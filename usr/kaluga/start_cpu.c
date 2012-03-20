@@ -130,6 +130,7 @@ static void trigger_local_apic_manual(size_t next)
     errval_t err = oct_get(&record, apic_record_names[next]);
     assert(err_is_ok(err));
 
+    KALUGA_DEBUG("trigger_manual: %s %lu\n", record, next);
     cpu_change_event(OCT_ON_SET, record, NULL);
 }
 
@@ -170,6 +171,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         }
         else {
             // XXX: see watch_for_cores()
+            KALUGA_DEBUG("record: %s is BSP, ignore.\n");
             trigger_local_apic_manual(++core_counter);
         }
 
