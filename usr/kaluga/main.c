@@ -124,6 +124,13 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
-    messages_handler_loop();
+    // XXX: This is a bit silly, I add this record
+    // because it was previously in spawnd so
+    // there might be code out there who relies on this
+    // It might be better to get rid of this completely
+    err = oct_set("all_spawnds_up { iref: 0 }");
+    assert(err_is_ok(err));
+
+    THCFinish();
     return EXIT_SUCCESS;
 }

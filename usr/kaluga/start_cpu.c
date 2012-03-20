@@ -27,12 +27,13 @@
 
 #include "kaluga.h"
 
-// TODO: Needed because of we have to send
-// boot_initialize_request after all cores have booted
-// It's a hack (see monitors boot.c)
 static coreid_t cores_on_boot = 0;
-static coreid_t core_counter = 1; // BSP already up
+static char** apic_record_names = NULL;
+static coreid_t core_counter = 0;
 static bool cores_booted = false;
+
+static void trigger_local_apic_manual(size_t);
+static void cpu_change_event(octopus_mode_t, char*, void*);
 
 static errval_t new_mon_msg(struct mon_msg_state** mms, send_handler_fn s)
 {
@@ -83,14 +84,16 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         KALUGA_DEBUG("before boot send...\n");
         mms->send(mb, mms);
     }
+    else {
+        // Boot next core...
+        trigger_local_apic_manual(++core_counter);
+    }
 }
 
 static void boot_initialize_reply(struct monitor_binding *st)
 {
     KALUGA_DEBUG("boot_initialize_reply\n");
     cores_booted = true;
-    errval_t err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
 }
 
 
@@ -120,6 +123,16 @@ static inline void configure_monitor_binding(void)
     mb->st = NULL;
 }
 
+static void trigger_local_apic_manual(size_t next)
+{
+    assert(next < cores_on_boot);
+    char* record;
+    errval_t err = oct_get(&record, apic_record_names[next]);
+    assert(err_is_ok(err));
+
+    cpu_change_event(OCT_ON_SET, record, NULL);
+}
+
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & OCT_ON_SET) {
@@ -136,8 +149,13 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 
         // cpu_id may vary so we can't really use this
         // to enumerate cores...
+
         assert(my_core_id == 0);
-        static coreid_t core_id = 1;
+        // XXX: copied this line from spawnd bsp_bootup,
+        // not sure why x86_64 is hardcoded here but it
+        // seems broken...
+        skb_add_fact("corename(%d, x86_64, apic(%lu)).",
+                core_counter, arch_id);
 
         if (arch_id != my_arch_id && enabled) {
             struct monitor_binding* mb = get_monitor_binding();
@@ -146,15 +164,13 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
             err = new_mon_msg(&mms, send_boot_core_request);
             assert(err_is_ok(err));
            
-            mms->core_id = core_id++;
+            mms->core_id = core_counter;
             mms->arch_id = arch_id;
             mms->send(mb, mms);
-
-            // XXX: copied this line from spawnd bsp_bootup,
-            // not sure why x86_64 is hardcoded here but it
-            // seems broken...
-            skb_add_fact("corename(%d, x86_64, apic(%lu)).",
-                    mms->core_id, mms->arch_id);
+        }
+        else {
+            // XXX: see watch_for_cores()
+            trigger_local_apic_manual(++core_counter);
         }
 
     }
@@ -168,53 +184,44 @@ out:
     free(record);
 }
 
+
 errval_t watch_for_cores(void)
 {
+    // XXX: The current core boot protocol is a bit
+    // limited. We need to know how many cores are available
+    // at boot time and send a boot initialize reply
+    // after all cores are up.
+    // Also, we cannot boot cores in parallel because on machines
+    // with a lot of cores this causes problem with memory
+    // allocation (see appenzeller):
+    // ERROR: monitor.0 in ram_alloc() ../lib/barrelfish/ram_alloc.c:116
+    // ERROR: ram_alloc
+    // Failure: (          libmm) No matching node found [MM_ERR_NOT_FOUND]
+    // For now we do not handle cores that appear at runtime.
+    // In case the boot protocol changes in the future
+    // just use trigger_existing_and_watch()
+
     configure_monitor_binding();
-
-    struct waitset monitor_ws;
-    waitset_init(&monitor_ws);
-    struct monitor_binding* mb = get_monitor_binding();
-    mb->change_waitset(mb, &monitor_ws);
-
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
-
-    // Right now serve the THC binding on the default waitset
-    // due to limitations in THC, this means we have to
-    // get the amount cores first, because the monitor also
-    // replies on the default ws
-    char** core_names;
     size_t amount;
-    errval_t err = oct_get_names(&core_names, &amount, local_apics);
+    errval_t err = oct_get_names(&apic_record_names, &amount, local_apics);
     assert(err_is_ok(err));
-    oct_free_names(core_names, cores_on_boot);
     cores_on_boot = (coreid_t) amount;
 
-    octopus_trigger_id_t tid;
-    err = trigger_existing_and_watch(local_apics, cpu_change_event,
-            NULL, &tid);
-
     if (err_is_ok(err)) {
-        if (cores_on_boot == 1) {
-            // No additional cores found
-            // XXX: We simulate a boot initialize reply to set the
-            // all_spawnds_up record. The whole app monitor boot protocol will
-            // most likely change in the future and render this unnecessary.
-            boot_initialize_reply(NULL);
+        trigger_local_apic_manual(core_counter);
+
+        // Wait until boot process is done,
+        // this is not necessary but leads to a cleaner
+        // console output
+        while (!cores_booted) {
+            messages_wait_and_handle_next();
         }
     }
 
-    // Wait until all cores found are booted
-    while (!cores_booted) {
-        errval_t err = event_dispatch(&monitor_ws);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
-        }
-    }
-
-    mb->change_waitset(mb, get_default_waitset());
+    oct_free_names(apic_record_names, cores_on_boot);
     return err;
 }
 
@@ -269,5 +276,5 @@ errval_t watch_for_ioapic(void)
 
     octopus_trigger_id_t tid;
     return trigger_existing_and_watch(io_apics, ioapic_change_event,
-            &core_counter, &tid);
+            NULL, &tid);
 }
