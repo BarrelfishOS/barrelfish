@@ -28,6 +28,7 @@ void enqueue_reply_state(struct skb_binding *b, struct skb_reply_state* st)
     	// continue
     }
     *walk = st;
+    st->next = NULL;
 }
 
 

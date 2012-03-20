@@ -40,6 +40,7 @@ void oct_rpc_enqueue_reply(struct octopus_binding *b,
         // continue
     }
     *walk = st;
+    st->next = NULL;
 }
 
 struct oct_reply_state* oct_rpc_dequeue_reply(struct octopus_binding *b)

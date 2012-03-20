@@ -24,6 +24,7 @@ void enqueue_msg_state(struct monitor_binding *b, struct mon_msg_state *st)
     	// continue
     }
     *walk = st;
+    st->next = NULL;
 }
 
 struct mon_msg_state* dequeue_msg_state(struct monitor_binding *b)

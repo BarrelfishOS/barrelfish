@@ -44,6 +44,7 @@ void enqueue_msg_state(struct nameservice_binding *b, struct ns_reply_state* st)
     	// continue
     }
     *walk = st;
+    st->next = NULL;
 }
 
 
