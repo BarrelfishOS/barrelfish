@@ -159,12 +159,12 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
         goto destroy_cap;
     }
 
-    if (distcap_is_foreign(state)) {
+    if (distcap_state_is_foreign(state)) {
         err = MON_ERR_CAP_FOREIGN;
         goto destroy_cap;
     }
 
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         err = MON_ERR_REMOTE_CAP_RETRY;
         goto destroy_cap;
     }
@@ -212,7 +212,7 @@ retype(enum objtype type, size_t objbits, struct capref croot,
         return err;
     }
 
-    if (distcap_is_busy(src_state)) {
+    if (distcap_state_is_busy(src_state)) {
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
@@ -234,7 +234,7 @@ retype(enum objtype type, size_t objbits, struct capref croot,
     rst->result_handler = result_handler;
     rst->st = st;
 
-    if (distcap_is_foreign(src_state)) {
+    if (distcap_state_is_foreign(src_state)) {
         err = request_retype(create_copies_cont, rst);
     }
     else {

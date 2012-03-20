@@ -18,10 +18,16 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <mdb/mdb.h>
 #include <offsets.h>
-#include <distcaps.h>
+
+struct cte;
+
+struct delete_list {
+    struct cte *next;
+    cslot_t next_slot;
+};
 
 STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
-               + sizeof(struct distcap_info)) <= (1UL << OBJBITS_CTE),
+               + sizeof(struct delete_list)) <= (1UL << OBJBITS_CTE),
               "cap+mdbnode fit in cte");
 
 /**
@@ -33,13 +39,13 @@ STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
  */
 struct cte {
     struct capability   cap;            ///< The capability
-    struct mdbnode      mdbnode;        ///< MDB "root" node for the cap
-    struct distcap_info distcap;        ///< State for distributed cap operations
+    struct mdbnode      mdbnode;        ///< MDB node for the cap
+    struct delete_list  delete_node;    ///< State for in-progress delete cascades
 
     /// Padding to fill the struct out to the size required by OBJBITS_CTE
     char padding[(1UL << OBJBITS_CTE)
                  - sizeof(struct capability) - sizeof(struct mdbnode)
-                 - sizeof(struct distcap_info)];
+                 - sizeof(struct delete_list)];
 };
 
 static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
@@ -72,8 +78,12 @@ errval_t is_retypeable(struct cte *src_cte,
                        enum objtype dest_type,
                        bool from_monitor);
 
-errval_t caps_delete(struct cte *cte, bool from_monitor);
-errval_t caps_revoke(struct cte *cte, bool from_monitor);
+errval_t caps_try_delete(struct cte *cte);
+errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap);
+errval_t caps_continue_clear(struct cte *ret_next);
+errval_t caps_continue_revoke(struct cte *target, struct cte *ret_next);
+errval_t caps_delete(struct cte *cte);
+errval_t caps_revoke(struct cte *cte);
 
 errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          uint8_t vbits, struct capability **ret,

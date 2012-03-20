@@ -158,12 +158,12 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
         goto destroy_cap;
     }
 
-    if (distcap_is_foreign(state)) {
+    if (distcap_state_is_foreign(state)) {
         err = MON_ERR_CAP_FOREIGN;
         goto destroy_cap;
     }
 
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         err = MON_ERR_REMOTE_CAP_RETRY;
         goto destroy_cap;
     }
@@ -178,7 +178,7 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
     rst->from = from;
     rst->st = st;
 
-    err = move(capref, from, request_revoke_move_cont, rst);
+    err = move(get_cap_domref(capref), from, request_revoke_move_cont, rst);
     if (err_is_fail(err)) {
         goto free_st;
     }
@@ -287,13 +287,9 @@ static errval_t
 revoke_local(struct revoke_st *rst)
 {
     errval_t err;
-    err = monitor_revoke(rst->revokecap.croot, rst->revokecap.cptr,
-                         rst->revokecap.bits, rst->delcap);
-    if (err_is_ok(err)) {
-        // revoke succeeded locally without any distributed cap interaction
-        rst->result_handler(err, rst->st);
-    }
-    else if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
+    err = monitor_continue_revoke(rst->revokecap.croot, rst->revokecap.cptr,
+                                  rst->revokecap.bits, rst->delcap);
+    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
         // kernel encountered a local cap with no copies, explicitly perform a
         // delete in the monitor to deal with possible remote copies
         assert(!capref_is_null(rst->delcap));
@@ -306,6 +302,12 @@ revoke_local(struct revoke_st *rst)
         // cap is locked, wait in queue for unlock
         assert(!capref_is_null(rst->delcap));
         caplock_wait(get_cap_domref(rst->delcap), &rst->lock_queue_node, MKCLOSURE(revoke_unlock_cont, rst));
+        return SYS_ERR_OK;
+    }
+    else {
+        // revoke failed or succeeded locally without any distributed cap
+        // interaction
+        rst->result_handler(err, rst->st);
     }
 
     slot_free(rst->delcap);
@@ -329,7 +331,7 @@ revoke(struct domcapref cap, revoke_result_handler_t result_handler, void *st)
         return err;
     }
 
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
@@ -347,7 +349,7 @@ revoke(struct domcapref cap, revoke_result_handler_t result_handler, void *st)
     rst->result_handler = result_handler;
     rst->st = st;
 
-    if (distcap_is_foreign(state)) {
+    if (distcap_state_is_foreign(state)) {
         err = request_revoke(rst);
     }
     else {

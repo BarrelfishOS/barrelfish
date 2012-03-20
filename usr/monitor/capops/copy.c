@@ -337,11 +337,11 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     if (err_is_fail(err)) {
         goto send_err;
     }
-    if (distcap_is_foreign(state)) {
+    if (distcap_state_is_foreign(state)) {
         err = MON_ERR_CAP_FOREIGN;
         goto send_err;
     }
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         err = MON_ERR_REMOTE_CAP_RETRY;
         goto send_err;
     }
@@ -389,7 +389,7 @@ copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, 
     if (err_is_fail(err)) {
         return err;
     }
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
@@ -410,7 +410,7 @@ copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, 
         return SYS_ERR_OK;
     }
 
-    if (distcap_is_foreign(state)) {
+    if (distcap_state_is_foreign(state)) {
         // sending copy from non-owner, send copy request to owner
         return request_copy(capref, dest, result_handler, (genvaddr_t)st);
     }

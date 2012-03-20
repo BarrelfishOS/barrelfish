@@ -20,7 +20,7 @@ errval_t copy(struct capref src, coreid_t dest,
               copy_result_handler_t result_handler, void *st);
 
 typedef void (*move_result_handler_t)(errval_t, void*);
-errval_t move(struct capref cap, coreid_t dest,
+errval_t move(struct domcapref cap, coreid_t dest,
               move_result_handler_t result_handler, void *st);
 
 typedef void (*delete_result_handler_t)(errval_t, void*);

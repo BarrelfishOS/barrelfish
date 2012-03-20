@@ -13,13 +13,59 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
+#include <if/mem_rpcclient_defs.h>
 
 struct delete_st {
-    struct capref capref;
+    struct domcapref capref;
     struct capability cap;
+    struct capref newcap;
     delete_result_handler_t result_handler;
     void *st;
 };
+
+static errval_t
+alloc_delete_st(struct delete_st **out_st, struct domcapref cap, delete_result_handler_t result_handler, void *st)
+{
+    errval_t err;
+    assert(st);
+
+    struct delete_st *del_st;
+    del_st = calloc(1, sizeof(*del_st));
+    if (!del_st) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &del_st->cap);
+    if (err_is_fail(err)) {
+        free(del_st);
+        return err;
+    }
+
+    err = slot_alloc(&del_st->newcap);
+    if (err_is_fail(err)) {
+        free(del_st);
+        return err;
+    }
+
+    del_st->capref = cap;
+    del_st->result_handler = result_handler;
+    del_st->st = st;
+
+    *out_st = del_st;
+
+    return err;
+}
+
+static void
+free_delete_st(struct delete_st *del_st)
+{
+    errval_t err;
+
+    err = slot_free(del_st->newcap);
+    assert(err_is_ok(err));
+
+    free(del_st);
+}
 
 /*
  * Delete all copies {{{1
@@ -155,6 +201,32 @@ delete_remote_result__rx_handler(struct intermon_binding *b, errval_t status, ge
 
 static void move_result_cont(errval_t status, void *st);
 
+static void send_new_ram_cap(struct capref cap)
+{
+    errval_t err, result;
+
+    struct capability cap_data;
+    err = monitor_cap_identify(cap, &cap_data);
+    assert(err_is_ok(err));
+    assert(cap_data.type == ObjType_RAM);
+    struct RAM ram = cap_data.u.ram;
+
+    struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
+    thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
+
+    struct mem_rpc_client *b = get_mem_client();
+    // XXX: This should not be an RPC! It could stall the monitor, but
+    // we trust mem_serv for the moment.
+    err = b->vtbl.free_monitor(b, cap, ram.base, ram.bits, &result);
+    assert(err_is_ok(err));
+    assert(err_is_ok(result));
+
+    thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
+
+    err = cap_destroy(cap);
+    assert(err_is_ok(err));
+}
+
 static void
 find_core_cont(errval_t status, coreid_t core, void *st)
 {
@@ -165,21 +237,24 @@ find_core_cont(errval_t status, coreid_t core, void *st)
 
     if (err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         // no core with cap exists, delete local cap with cleanup
-        err = monitor_delete_last(del_st->capref);
+        err = monitor_delete_last(del_st->capref.croot, del_st->capref.cptr, del_st->capref.bits, del_st->newcap);
+        if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
+            send_new_ram_cap(del_st->newcap);
+        }
         del_st->result_handler(err, del_st->st);
-        free(del_st);
+        free_delete_st(del_st);
     }
     else if (err_is_fail(status)) {
         // an error occured
         del_st->result_handler(status, del_st->st);
-        free(del_st);
+        free_delete_st(del_st);
     }
     else {
         // core found, attempt move
         err = move(del_st->capref, core, move_result_cont, st);
         if (err_is_fail(err)) {
             del_st->result_handler(err, del_st->st);
-            free(del_st);
+            free_delete_st(del_st);
         }
     }
 }
@@ -199,7 +274,9 @@ move_result_cont(errval_t status, void *st)
         }
     }
     else if (err_is_ok(err)) {
-        err = monitor_delete_last(del_st->capref);
+        // move succeeded, cap is now foreign
+        struct domcapref *cap = &del_st->capref;
+        err = invoke_cnode_delete(cap->croot, cap->cptr, cap->bits);
     }
 
     del_st->result_handler(err, del_st->st);
@@ -281,7 +358,7 @@ delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
         return err;
     }
 
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         return MON_ERR_REMOTE_CAP_RETRY;
     }
 
@@ -300,15 +377,10 @@ delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
         return err;
     }
 
-    struct delete_st *del_st = malloc(sizeof(struct delete_st));
-    if (!del_st) {
-        err = LIB_ERR_MALLOC_FAIL;
-        goto cap_set_ready;
-    }
-
-    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &del_st->cap);
+    struct delete_st *del_st;
+    err = alloc_delete_st(&del_st, cap, result_handler, st);
     if (err_is_fail(err)) {
-        goto free_del_st;
+        goto cap_set_ready;
     }
 
     if (distcap_is_moveable(del_st->cap.type)) {

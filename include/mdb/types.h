@@ -25,6 +25,8 @@ struct mdbnode {
     mdb_level_t level;
     bool revocable;
     bool remote_relations;
+    bool locked, in_delete;
+    coreid_t owner;
 };
 
 #ifndef IN_KERNEL

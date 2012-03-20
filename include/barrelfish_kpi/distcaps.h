@@ -20,13 +20,13 @@
 typedef uint8_t distcap_state_t;
 
 static inline bool
-distcap_is_busy(distcap_state_t state)
+distcap_state_is_busy(distcap_state_t state)
 {
     return state & DISTCAP_STATE_BUSY;
 }
 
 static inline bool
-distcap_is_foreign(distcap_state_t state)
+distcap_state_is_foreign(distcap_state_t state)
 {
     return state & DISTCAP_STATE_FOREIGN;
 }

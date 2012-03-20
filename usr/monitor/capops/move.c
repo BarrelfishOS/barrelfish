@@ -21,7 +21,7 @@
 
 struct cap_move_rpc_st {
     // capref to a copy of the cap in question
-    struct capref capref;
+    struct domcapref capref;
     // caller st
     void *st;
     // reuslt handler
@@ -55,7 +55,7 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 }
 
 static errval_t
-move_request(struct capref capref, struct capability *cap, coreid_t dest, move_result_handler_t result_handler, void *st)
+move_request(struct domcapref capref, struct capability *cap, coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
 
@@ -216,7 +216,7 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
     assert(from != my_core_id);
     struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)st;
 
-    caplock_unlock(get_cap_domref(rpc_st->capref));
+    caplock_unlock(rpc_st->capref);
     rpc_st->result_handler(status, rpc_st->st);
     free(rpc_st);
 }
@@ -226,19 +226,19 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
  */
 
 errval_t
-move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
+move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
     distcap_state_t state;
 
-    err = cap_get_state(capref, &state);
+    err = invoke_cnode_get_state(capref.croot, capref.cptr, capref.bits, &state);
     if (err_is_fail(err)) {
         return err;
     }
-    if (distcap_is_busy(state)) {
+    if (distcap_state_is_busy(state)) {
         return MON_ERR_REMOTE_CAP_RETRY;
     }
-    if (distcap_is_foreign(state)) {
+    if (distcap_state_is_foreign(state)) {
         return MON_ERR_CAP_FOREIGN;
     }
 
@@ -251,7 +251,7 @@ move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, 
     }
 
     struct capability cap;
-    err = monitor_cap_identify(capref, &cap);
+    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.bits, &cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -264,16 +264,14 @@ move(struct capref capref, coreid_t dest, move_result_handler_t result_handler, 
         return MON_ERR_CAP_MOVE;
     }
 
-    struct domcapref domcapref = get_cap_domref(capref);
-
-    err = monitor_lock_cap(domcapref.croot, domcapref.cptr, domcapref.bits);
+    err = monitor_lock_cap(capref.croot, capref.cptr, capref.bits);
     if (err_is_fail(err)) {
         return err;
     }
 
     err = move_request(capref, &cap, dest, result_handler, st);
     if (err_is_fail(err)) {
-        caplock_unlock(domcapref);
+        caplock_unlock(capref);
         return err;
     }
 

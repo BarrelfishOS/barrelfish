@@ -138,36 +138,20 @@ static struct sysret handle_copy(struct capability *root,
     return copy_or_mint(root, args, false);
 }
 
-
-static struct sysret handle_delete_common(struct capability *root,
-                                   uintptr_t *args,
-                                   bool from_monitor)
-{
-    capaddr_t cptr = args[0];
-    int bits     = args[1];
-    return sys_delete(root, cptr, bits, from_monitor);
-}
-
 static struct sysret handle_delete(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
-    return handle_delete_common(root, args, false);
-}
-
-
-static struct sysret handle_revoke_common(struct capability *root,
-                                          uintptr_t *args,
-                                          bool from_monitor)
-{
     capaddr_t cptr = args[0];
     int bits     = args[1];
-    return sys_revoke(root, cptr, bits, from_monitor);
+    return sys_delete(root, cptr, bits);
 }
 
 static struct sysret handle_revoke(struct capability *root,
                                    int cmd, uintptr_t *args) 
 {
-    return handle_revoke_common(root, args, false);
+    capaddr_t cptr = args[0];
+    int bits     = args[1];
+    return sys_revoke(root, cptr, bits);
 }
 
 static struct sysret handle_get_state(struct capability *root,
@@ -207,43 +191,38 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 }
 
 /// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_delete(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
+static struct sysret monitor_handle_revoke_step(struct capability *kernel_cap,
+                                                int cmd, uintptr_t *args)
 {
-    errval_t err;
-
     capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    uint8_t root_vbits = args[1];
 
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
+    capaddr_t target_caddr = args[2];
+    uint8_t target_vbits = args[3];
 
-    /* XXX: this hides the first two arguments */
-    return handle_delete_common(root, &args[2], true);
+    capaddr_t delcn_addr = args[4];
+    uint8_t delcn_vbits = args[5];
+    cslot_t del_slot = args[6];
+
+    return sys_monitor_revoke_step(root_caddr, root_vbits,
+                                   target_caddr, target_vbits,
+                                   delcn_addr, delcn_vbits, del_slot);
 }
 
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
+static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
+                                                int cmd, uintptr_t *args)
 {
-    errval_t err;
-
     capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    uint8_t root_vbits = args[1];
+    capaddr_t target_caddr = args[2];
+    uint8_t target_vbits = args[3];
+    capaddr_t retcn_caddr = args[4];
+    uint8_t retcn_vbits = args[5];
+    cslot_t ret_slot = args[6];
 
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: this hides the first two arguments */
-    return handle_revoke_common(root, &args[2], true);
+    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
+                                   target_vbits, retcn_caddr, retcn_vbits,
+                                   ret_slot);
 }
 
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
@@ -768,9 +747,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Set_cap_owner] = monitor_set_cap_owner,
         [KernelCmd_Lock_cap]     = monitor_lock_cap,
         [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
-        [MonitorCmd_Retype]      = monitor_handle_retype,
-        [MonitorCmd_Delete]      = monitor_handle_delete,
-        [MonitorCmd_Revoke]      = monitor_handle_revoke,
+        [KernelCmd_Retype]       = monitor_handle_retype,
+        [KernelCmd_Delete_last]  = monitor_handle_delete_last,
+        [KernelCmd_Revoke_step]  = monitor_handle_revoke_step,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete

@@ -22,6 +22,7 @@
 #include <mdb/mdb_tree.h>
 #include <cap_predicates.h>
 #include <dispatch.h>
+#include <distcaps.h>
 #include <wakeup.h>
 #include <paging_kernel_helper.h>
 #include <exec.h>
@@ -333,8 +334,7 @@ sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_sl
     }
 }
 
-struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
-                         bool from_monitor)
+struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits)
 {
     errval_t err;
     struct cte *slot;
@@ -343,12 +343,11 @@ struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
         return SYSRET(err);
     }
 
-    err = caps_delete(slot, from_monitor);
+    err = caps_delete(slot);
     return SYSRET(err);
 }
 
-struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,
-                         bool from_monitor)
+struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits)
 {
     errval_t err;
     struct cte *slot;
@@ -357,7 +356,7 @@ struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,
         return SYSRET(err);
     }
 
-    err = caps_revoke(slot, from_monitor);
+    err = caps_revoke(slot);
     return SYSRET(err);
 }
 
@@ -370,7 +369,7 @@ struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bit
         return SYSRET(err);
     }
 
-    distcap_state_t state = distcap_get_state(&slot->distcap);
+    distcap_state_t state = distcap_get_state(slot);
     return (struct sysret) { .error = SYS_ERR_OK, .value = state };
 }
 
@@ -454,7 +453,7 @@ struct sysret sys_get_cap_owner(capaddr_t cptr, uint8_t bits)
         return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
     }
 
-    return (struct sysret) { .error = SYS_ERR_OK, .value = cte->distcap.owner };
+    return (struct sysret) { .error = SYS_ERR_OK, .value = cte->mdbnode.owner };
 }
 
 struct sysret sys_set_cap_owner(capaddr_t cptr, uint8_t bits, coreid_t owner)
@@ -466,17 +465,17 @@ struct sysret sys_set_cap_owner(capaddr_t cptr, uint8_t bits, coreid_t owner)
         return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
     }
 
-    cte->distcap.owner = owner;
+    cte->mdbnode.owner = owner;
 
     struct cte *pred = cte;
     do {
-        pred->distcap.owner = owner;
+        pred->mdbnode.owner = owner;
         pred = mdb_predecessor(pred);
     } while (is_copy(&pred->cap, &cte->cap));
 
     struct cte *succ = cte;
     do {
-        succ->distcap.owner = owner;
+        succ->mdbnode.owner = owner;
         succ = mdb_successor(succ);
     } while (is_copy(&succ->cap, &cte->cap));
 
@@ -487,13 +486,13 @@ static void sys_lock_cap_common(struct cte *cte, bool lock)
 {
     struct cte *pred = cte;
     do {
-        pred->distcap.locked = lock;
+        pred->mdbnode.locked = lock;
         pred = mdb_predecessor(pred);
     } while (is_copy(&pred->cap, &cte->cap));
 
     struct cte *succ = cte;
     do {
-        succ->distcap.locked = lock;
+        succ->mdbnode.locked = lock;
         succ = mdb_successor(succ);
     } while (is_copy(&succ->cap, &cte->cap));
 }
@@ -507,7 +506,7 @@ struct sysret sys_lock_cap(capaddr_t cptr, uint8_t bits)
         return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
     }
 
-    if (cte->distcap.locked) {
+    if (cte->mdbnode.locked) {
         return SYSRET(SYS_ERR_CAP_LOCKED);
     }
 
@@ -527,6 +526,116 @@ struct sysret sys_unlock_cap(capaddr_t cptr, uint8_t bits)
     // XXX: check if already unlocked? -MN
     sys_lock_cap_common(cte, false);
     return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
+                                      capaddr_t target_addr, uint8_t target_bits,
+                                      capaddr_t ret_cn_addr, uint8_t ret_cn_bits,
+                                      cslot_t ret_slot)
+{
+    errval_t err;
+
+    struct capability *root;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_addr, root_bits,
+                          &root, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
+    }
+
+    struct cte *target;
+    err = caps_lookup_slot(root, target_addr, target_bits, &target, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    struct capability *retcn;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, ret_cn_addr, ret_cn_bits, &retcn, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    if (retcn->type != ObjType_CNode) {
+        return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
+    }
+    if (ret_slot > (1<<retcn->u.cnode.bits)) {
+        return SYSRET(SYS_ERR_SLOTS_INVALID);
+    }
+
+    struct cte *retslot = caps_locate_slot(retcn->u.cnode.cnode, ret_slot);
+
+    return SYSRET(caps_delete_last(target, retslot));
+}
+
+struct sysret sys_monitor_revoke_step(capaddr_t root_addr, uint8_t root_bits,
+                                      capaddr_t target_addr, uint8_t target_bits,
+                                      capaddr_t del_cn_addr, uint8_t del_cn_bits,
+                                      cslot_t del_slot)
+{
+    errval_t err;
+
+    struct capability *root;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_addr, root_bits,
+                          &root, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
+    }
+
+    struct cte *target;
+    err = caps_lookup_slot(root, target_addr, target_bits, &target, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    struct capability *delcn;
+    err = caps_lookup_cap(root, target_addr, target_bits, &delcn, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+
+    if (delcn->type != ObjType_CNode) {
+        return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
+    }
+    if (del_slot > (1<<delcn->u.cnode.bits)) {
+        return SYSRET(SYS_ERR_SLOTS_INVALID);
+    }
+
+    struct cte *delslot;
+    delslot = caps_locate_slot(delcn->u.cnode.cnode, del_slot);
+
+    if (delslot->cap.type != ObjType_Null) {
+        return SYSRET(SYS_ERR_SLOT_IN_USE);
+    }
+
+    return SYSRET(caps_continue_revoke(target, delslot));
+}
+
+struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
+                                     uint8_t ret_cn_bits,
+                                     cslot_t ret_slot)
+{
+    errval_t err;
+
+    struct capability *retcn;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, ret_cn_addr, ret_cn_bits, &retcn, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+
+    if (retcn->type != ObjType_CNode) {
+        return SYSRET(SYS_ERR_DEST_CNODE_INVALID);
+    }
+    if (ret_slot > (1<<retcn->u.cnode.bits)) {
+        return SYSRET(SYS_ERR_SLOTS_INVALID);
+    }
+
+    struct cte *retslot;
+    retslot = caps_locate_slot(retcn->u.cnode.cnode, ret_slot);
+
+    if (retslot->cap.type != ObjType_Null) {
+        return SYSRET(SYS_ERR_SLOT_IN_USE);
+    }
+
+    return SYSRET(caps_continue_clear(retslot));
 }
 
 struct sysret sys_yield(capaddr_t target)

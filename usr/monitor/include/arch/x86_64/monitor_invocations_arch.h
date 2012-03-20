@@ -99,23 +99,9 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                                  capaddr_t src, enum objtype newtype, 
                                  int objbits, capaddr_t to, capaddr_t slot, 
                                  int bits) {
-    return cap_invoke9(cap_kernel, MonitorCmd_Retype, rootcap_addr, 
+    return cap_invoke9(cap_kernel, KernelCmd_Retype, rootcap_addr, 
                        rootcap_vbits, src, newtype, objbits, to, slot,
                        bits).error;
-}
-
-static inline errval_t
-invoke_monitor_remote_cap_delete(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 capaddr_t src, int bits) {
-    return cap_invoke5(cap_kernel, MonitorCmd_Delete, rootcap_addr, 
-                       rootcap_vbits, src, bits).error;
-}
-
-static inline errval_t
-invoke_monitor_remote_cap_revoke(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 capaddr_t src, int bits) {
-    return cap_invoke5(cap_kernel, MonitorCmd_Revoke, rootcap_addr, 
-                       rootcap_vbits, src, bits).error;
 }
 
 /**
@@ -193,6 +179,14 @@ static inline errval_t
 invoke_monitor_unlock_cap(capaddr_t root, int rbits, capaddr_t cap, int cbits)
 {
     return cap_invoke5(cap_kernel, KernelCmd_Unlock_cap, root, rbits, cap, cbits).error;
+}
+
+static inline errval_t
+invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
+                           capaddr_t retcn, int retcnbits, cslot_t retslot)
+{
+    return cap_invoke8(cap_kernel, KernelCmd_Delete_last, root, rbits, cap,
+                       cbits, retcn, retcnbits, retslot).error;
 }
 
 #endif

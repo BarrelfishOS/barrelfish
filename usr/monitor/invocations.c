@@ -156,34 +156,6 @@ errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
                                             dest_slot, dest_bits);
 }
 
-/** 
- * \brief Deletes a capability on behalf of another domains.  Capabilities which
- * are remote (cross-core) must be deleted through the monitor to maintain 
- * cross-core consistancy.
- */
-errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits)
-{
-    uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
-
-    return invoke_monitor_remote_cap_delete(rootcap_addr, rootcap_vbits, src,
-                                            bits);
-}
-
-/** 
- * \brief Revokes a capability on behalf of another domains.  Capabilities which
- * are remote (cross-core) must be deleted through the monitor to maintain 
- * cross-core consistancy.
- */
-errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits)
-{
-    uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
-
-    return invoke_monitor_remote_cap_revoke(rootcap_addr, rootcap_vbits, src,
-                                            bits);
-}
-
 /**
  * \brief Determine the current owner of a cap and its copies.
  */
@@ -226,4 +198,26 @@ errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits)
     uint8_t root_bits = get_cap_valid_bits(croot);
 
     return invoke_monitor_unlock_cap(root_addr, root_bits, cptr, bits);
+}
+
+errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, struct capref ret_cap)
+{
+    capaddr_t root_addr = get_cap_addr(croot);
+    uint8_t root_bits = get_cap_valid_bits(croot);
+    capaddr_t ret_cn = ret_cap.cnode.address;
+    uint8_t ret_cn_bits = ret_cap.cnode.address_bits;
+    cslot_t ret_slot = ret_cap.slot;
+    return invoke_monitor_delete_last(root_addr, root_bits, cptr, bits,
+                                      ret_cn, ret_cn_bits, ret_slot);
+}
+
+errval_t monitor_continue_revoke(struct capref croot, capaddr_t cptr, int bits, struct capref ret_cap)
+{
+    capaddr_t root_addr = get_cap_addr(croot);
+    uint8_t root_bits = get_cap_valid_bits(croot);
+    capaddr_t ret_cn = ret_cap.cnode.address;
+    uint8_t ret_cn_bits = ret_cap.cnode.address_bits;
+    cslot_t ret_slot = ret_cap.slot;
+    return invoke_monitor_delete_last(root_addr, root_bits, cptr, bits,
+                                      ret_cn, ret_cn_bits, ret_slot);
 }
