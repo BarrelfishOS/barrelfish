@@ -149,7 +149,6 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
             mms->core_id = core_id++;
             mms->arch_id = arch_id;
             mms->send(mb, mms);
-            (*(coreid_t*) state) += 1;
 
             // XXX: copied this line from spawnd bsp_bootup,
             // not sure why x86_64 is hardcoded here but it
@@ -176,10 +175,21 @@ errval_t watch_for_cores(void)
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
+
+    // Right now serve the THC binding on the default waitset
+    // due to limitations in THC, this means we have to
+    // get the amount cores first, because the monitor also
+    // replies on the default ws
+    char** core_names;
+    size_t amount;
+    errval_t err = oct_get_names(&core_names, &amount, local_apics);
+    assert(err_is_ok(err));
+    oct_free_names(core_names, cores_on_boot);
+    cores_on_boot = (coreid_t) amount;
+
     octopus_trigger_id_t tid;
-    errval_t err = trigger_existing_and_watch(local_apics, cpu_change_event,
-            &core_counter, &tid);
-    cores_on_boot = core_counter;
+    err = trigger_existing_and_watch(local_apics, cpu_change_event,
+            NULL, &tid);
 
     if (err_is_ok(err)) {
         if (cores_on_boot == 1) {
