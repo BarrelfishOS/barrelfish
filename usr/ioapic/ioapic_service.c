@@ -60,6 +60,7 @@ static void transfer_physical_caps_handler(struct ioapic_binding* b,
 
     APIC_DEBUG("transfer physical caps handler done\n");
 
+    debug_my_cspace();
     b->tx_vtbl.transfer_physical_caps_response(b, NOP_CONT);
 }
 

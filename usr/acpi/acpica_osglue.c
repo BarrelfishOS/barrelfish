@@ -496,6 +496,7 @@ AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   where,  /* not page aligned */
     ACPI_SIZE               length) /* in bytes, not page-aligned */
 {
+    ACPI_DEBUG("AcpiOsMapMemory where=%lu, length=%lu\n", where, length);
     errval_t err;
     lpaddr_t pbase = where & (~BASE_PAGE_MASK);
     length += where - pbase;
@@ -527,29 +528,33 @@ AcpiOsMapMemory (
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "AcpiOsMapMemory: allocating RAM at %lx failed\n",
                       paddr);
+            debug_my_cspace();
+            assert(!"done");
             return NULL;
         }
 
         /* retype to DevFrame to prevent zeroing */
-        struct capref frame_cap;
+        struct capref frame_cap = ram_cap;
+        int r;
+/*
         int r = slot_alloc(&frame_cap);
         assert(r == 0);
 
         r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
         if (r == SYS_ERR_REVOKE_FIRST) {
-            /* XXX: this is a bad hack. we currently duplicate mappings, but
+             XXX: this is a bad hack. we currently duplicate mappings, but
              * the kernel won't let us retype more than once. So we revoke,
              * relying on the fact that revoke doesn't yet undo mappings.
              * The proper fix is to track what we already mapped!
-             */
-            //debug_printf("AcpiOsMapMemory: XXX: revoking RAM %lx\n", paddr);
+             
+            debug_printf("AcpiOsMapMemory: XXX: revoking RAM %lx\n", paddr);
             r = cap_revoke(ram_cap);
             assert(r == 0);
             r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
         }
         //DEBUG_ERR(r, "after revoke, retype AcpiOsMapMemory(%lu, %lu)", where, length);
         assert(r == 0);
-
+*/
         r = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, frame_cap,
                            BASE_PAGE_SIZE);
         assert(r == 0);

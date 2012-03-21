@@ -124,7 +124,7 @@ static errval_t init_allocators(void)
                    * but leads to problems if you chunk up a cap too small to be
                    * able to allocate a large subregion. This caused problems
                    * for me with a large framebuffer... -AB 20110810 */
-                  1 /* was DEFAULT_CNODE_BITS */,
+                  1, /*was DEFAULT_CNODE_BITS,*/
                   slab_default_refill, slot_alloc_dynamic, &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
@@ -216,7 +216,7 @@ static errval_t init_allocators(void)
             devframe.slot++;
         }
     }
-    debug_my_cspace();
+    //debug_my_cspace();
 
     return SYS_ERR_OK;
 }
