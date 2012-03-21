@@ -15,7 +15,7 @@
  * Debug printer:
  *****************************************************************/
 
-#define DEVICE_MNG_SERVICE_DEBUG 1
+//#define DEVICE_MNG_SERVICE_DEBUG 1
 
 #if defined(DEVICE_MNG_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define NDM_DEBUG(x...) printf("NDM: " x)

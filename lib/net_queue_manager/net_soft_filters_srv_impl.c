@@ -951,9 +951,6 @@ struct filter *execute_filters(void *data, size_t len)
         head = head->next;
         ++i;
     }
-    if(i > 2) {
-        printf("#### packet did not matched %d filters\n", i);
-    }
     return NULL;
 }
 
@@ -990,9 +987,6 @@ static bool handle_application_packet(void *packet, size_t len)
         return false;
     }
 
-    if (filter->filter_id >= 3) {
-        printf("packet with filter id %"PRIu64" matched\n", filter->filter_id);
-    }
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVAPPFDONE,
                 (uint32_t) ((uintptr_t) packet));

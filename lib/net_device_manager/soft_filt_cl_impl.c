@@ -673,7 +673,7 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, net_ports_port_type_t t
                                 );
     }
     /* FIXME: shouldn't be above two ports be wrapped in htons(port)? */
-    printf("##### The created filter is [%s]\n", filter);
+//    printf("##### The created filter is [%s]\n", filter);
     compile_filter(filter, &filter_mem, len_rx);
     assert(*len_rx < BASE_PAGE_SIZE);
 

@@ -67,7 +67,7 @@
 
 
 /* FIXME: Move this to config */
-#define MYDEBUGLWIP 1
+//#define MYDEBUGLWIP 1
 
 #ifdef MYDEBUGLWIP
 #define DEBUGPRINTPS(arg...) printf(arg)

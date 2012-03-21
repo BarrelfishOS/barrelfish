@@ -12,7 +12,7 @@
 
 [ build library { target = "net_device_manager",
                   cFiles = [ "port_service_impl.c", "device_manager.c",
-                  "soft_filt_user_impl.c", "portalloc.c" ],
+                  "soft_filt_cl_impl.c", "portalloc.c" ],
                   flounderBindings = [ "net_soft_filters", "net_ports" ],
                   addLibraries = [ "contmng", "bfdmuxtools"
 -- try to get rid of "lwip" as it is only used for hton[s/l]

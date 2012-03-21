@@ -357,7 +357,7 @@ err_t rpc_init(struct rpc_client *client, struct ip_addr server)
     /* XXX: (very) pseudo-random number for initial XID */
     client->nextxid = (uint32_t)bench_tsc();
 
-    printf("###### Initial sequence no. is %"PRIu32" 0x%"PRIx32"\n",
+    RPC_DEBUGP("###### Initial sequence no. is %"PRIu32" 0x%"PRIx32"\n",
     		client->nextxid, client->nextxid);
     udp_recv(client->pcb, rpc_recv_handler, client);
 

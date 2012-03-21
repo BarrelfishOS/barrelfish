@@ -26,7 +26,6 @@
 #include <barrelfish/deferred.h>
 
 #include "netd_debug.h"
-#include "idc_barrelfish.h"
 #include "netd.h"
 
 
