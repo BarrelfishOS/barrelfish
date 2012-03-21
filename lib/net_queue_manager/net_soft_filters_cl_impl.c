@@ -52,6 +52,7 @@ static void re_register_filter(struct net_soft_filters_binding *cc,
                                uint64_t buffer_id_tx);
 static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
                          uint64_t buffer_id_rx, uint64_t buffer_id_tx);
+static void mac_address_request_sf(struct net_soft_filters_binding *cc);
 
 // Initialize interface for soft_filters channel
 static struct net_soft_filters_rx_vtbl rx_net_soft_filters_vtbl = {
@@ -61,6 +62,7 @@ static struct net_soft_filters_rx_vtbl rx_net_soft_filters_vtbl = {
     .deregister_filter_request = deregister_filter,
     .register_arp_filter_request = register_arp_filter,
     .pause = pause_filter,
+    .mac_address_request = mac_address_request_sf,
 };
 
 
@@ -135,6 +137,43 @@ static errval_t connect_soft_filters_cb(void *st,
 /*****************************************************************
  *   filter registration
  *****************************************************************/
+
+static errval_t send_mac_address_response(struct q_entry entry)
+{
+    //    ETHERSRV_DEBUG("send_mac_address_response -----\n");
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) entry.binding_ptr;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) b->st;
+
+    if (b->can_send(b)) {
+        return b->tx_vtbl.mac_address_response(b,
+                            MKCONT(cont_queue_callback, ccfm->q),
+                                  entry.plist[0], entry.plist[1]);
+        // entry.error, entry.mac
+    } else {
+        ETHERSRV_DEBUG("send_resigered_netd_memory Flounder bsy will retry\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+static void mac_address_request_sf(struct net_soft_filters_binding *cc)
+{
+    // call mac_address_request_sf with mac address
+    struct q_entry entry;
+
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_mac_address_response;
+    entry.binding_ptr = (void *) cc;
+    struct client_closure_FM *ccfm = (struct client_closure_FM *) cc->st;
+
+    entry.plist[0] = SYS_ERR_OK;
+    entry.plist[1] = get_mac_addr_from_device();
+       // e.error , e.mac
+
+    enqueue_cont_q(ccfm->q, &entry);
+    ETHERSRV_DEBUG("register_netd_memory: sent IDC\n");
+
+} // end function: mac_address_request_sf
 
 /* FIXME: provide proper handler here */
 static errval_t send_resiger_filter_memory_response(struct q_entry entry)
@@ -216,7 +255,7 @@ static void register_filter_memory_request(struct net_soft_filters_binding *cc,
     enqueue_cont_q(ccfm->q, &entry);
     ETHERSRV_DEBUG("register_netd_memory: sent IDC\n");
 
-}                               /* end function : register_netd_memory */
+} /* end function : register_netd_memory */
 
 /* Handler for sending response to register_filter */
 static errval_t send_register_filter_response(struct q_entry e)

@@ -50,10 +50,8 @@ interface net_soft_filters "Software based filter Interface" {
     response unpause_response(uint64 filter_id, errval err);
 
     /* Hack to pass the mac addr info to */
-    /*
     call mac_address_request();
     response mac_address_response(errval err, uint64 macaddr);
-    */
 };
 
 

@@ -61,8 +61,8 @@ struct ip_addr local_ip = {
         .addr = BFDMUX_IP_ADDR_ANY
     };
 
-static struct eth_addr mac;
-
+static bool valid_mac_addr_assigned = false; // marks valid mac address
+static struct eth_addr mac; // = { .addr = {0, 0, 0, 0, 0, 0}};
 
 // *****************************************************************
 // * related to managing soft filters
@@ -95,6 +95,7 @@ static struct filters_tx_vtbl soft_filts_mng = {
 * Prototypes
 *****************************************************************/
 static void share_common_memory_with_filter_manager(void);
+static void sf_mac_lookup(void);
 
 static void register_filter_memory_response(
                         struct net_soft_filters_binding *st,
@@ -113,12 +114,18 @@ static void register_filter_response(struct net_soft_filters_binding *st,
 static void register_arp_filter_response(struct net_soft_filters_binding *st,
                                          uint64_t id, errval_t err);
 
+
+static void sf_mac_address_response(struct net_soft_filters_binding *st,
+                      errval_t err,  uint64_t mac);
+
+
 static struct net_soft_filters_rx_vtbl rx_vtbl = {
     .register_filter_memory_response = register_filter_memory_response,
     .register_filter_response = register_filter_response,
     .deregister_filter_response = deregister_filter_response,
     .register_arp_filter_response = register_arp_filter_response,
 //    .pause_response = pause_response,
+    .mac_address_response = sf_mac_address_response,
 };
 
 // *****************************************************************
@@ -193,7 +200,6 @@ static void soft_filters_bind_cb(void *st, errval_t err,
     soft_filters_connection = enb;
     NDM_DEBUG(" soft_filters_bind_cb: connection made,"
                " now registering memory \n");
-//    share_common_memory_with_filter_manager();
     NDM_DEBUG("soft_filters_bind_cb: terminated\n");
 }
 
@@ -242,6 +248,12 @@ static void connect_soft_filters_service(char *dev_name, qid_t qid)
 
     NDM_DEBUG("c_sf_mng: [%s] sharing memory\n", service_name);
 
+    sf_mac_lookup();
+
+    printf("################################******\n");
+    printf("For service [%s] MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+                        service_name,  mac.addr[0], mac.addr[1], mac.addr[2],
+                        mac.addr[3], mac.addr[4], mac.addr[5]);
 
 } // end function: connect_soft_filters_manager
 
@@ -341,6 +353,45 @@ static void share_common_memory_with_filter_manager(void)
 } // end function: share_common_memory_with_filter_manager
 
 
+static errval_t send_mac_address_request(struct q_entry e)
+{
+    struct net_soft_filters_binding *b =
+      (struct net_soft_filters_binding *) e.binding_ptr;
+    struct client_closure_ND *ccnc = (struct client_closure_ND *) b->st;
+
+    if (b->can_send(b)) {
+        return b->tx_vtbl.mac_address_request(b,
+                MKCONT(cont_queue_callback, ccnc->q));
+    } else {
+        NDM_DEBUG("send_mac_address_request: Flounder busy,rtry++\n");
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+} // end function: send_mac_address_request
+
+// lookup the mac address
+static void sf_mac_lookup(void)
+{
+    struct q_entry entry;
+
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = send_mac_address_request;
+    struct net_soft_filters_binding *b = soft_filters_connection;
+
+    entry.binding_ptr = (void *) b;
+    struct client_closure_ND *ccnc = (struct client_closure_ND *) b->st;
+
+    enqueue_cont_q(ccnc->q, &entry);
+
+    // waiting for mac address response.
+    NDM_DEBUG("connect_to_ether_filter_manager: wait connection\n");
+    while (!valid_mac_addr_assigned) {
+        messages_wait_and_handle_next();
+    }
+
+
+    NDM_DEBUG("sf_mac_lookup: terminated\n");
+} // end function: sf_mac_lookup
+
 // *****************************************************************
 // * filter memory registration
 // * One time process
@@ -387,8 +438,40 @@ static void register_arp_filter_response(struct net_soft_filters_binding *st,
     NDM_DEBUG("register_arp_filter_response: ARP filter ID %" PRIu64
                " registered\n", id);
 
+    assert(!"NYI register_arp_filter_response");
 }
 
+// Support code to convert mac address from uint64_t into eth_addr type
+union mac_addr_un1 {
+    struct eth_addr ethaddr;
+    uint64_t mac_addr;
+};
+
+static struct eth_addr my_convert_uint64_to_eth_addr(uint64_t given_mac)
+{
+    union mac_addr_un1 tmp_mac;
+    tmp_mac.mac_addr = given_mac;
+
+    // FIXME: make sure that this works irrespective of endianness of a machine
+    return tmp_mac.ethaddr;
+}
+
+
+static void sf_mac_address_response(struct net_soft_filters_binding *st,
+                      errval_t err,  uint64_t mac_addr)
+{
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "sf_mac_address_response failed\n");
+        abort();
+    }
+    assert(mac_addr != 0);
+
+    NDM_DEBUG("sf_mac_address_response: reported MAC addr %" PRIu64 "\n",
+            mac_addr);
+
+    mac = my_convert_uint64_to_eth_addr(mac_addr);
+    valid_mac_addr_assigned = true;
+}
 
 /*********  Functionality for filter registration *********/
 
@@ -572,20 +655,19 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, net_ports_port_type_t t
     uint8_t *filter_mem = NULL;
     char *filter;
 
-    struct eth_addr tmp_mac_addr = { .addr = {0,0,0,0,0,0}};
 
     // rx filter
     if (type == net_ports_PORT_TCP) {
-        filter = build_ether_dst_ipv4_tcp_filter(tmp_mac_addr, // mac,
+        filter = build_ether_dst_ipv4_tcp_filter(mac,
                                 BFDMUX_IP_ADDR_ANY,
-                                BFDMUX_IP_ADDR_ANY,  // htonl(local_ip.addr),
+                                htonl(local_ip.addr),
                                 PORT_ANY,
                                 (port_t) port
                                 );
     } else {
-        filter = build_ether_dst_ipv4_udp_filter(tmp_mac_addr, // mac,
+        filter = build_ether_dst_ipv4_udp_filter(mac,
                                 BFDMUX_IP_ADDR_ANY,
-                                BFDMUX_IP_ADDR_ANY,  // htonl(local_ip.addr),
+                                htonl(local_ip.addr),
                                 PORT_ANY,
                                 (port_t) port
                                 );

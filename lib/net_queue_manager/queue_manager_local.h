@@ -31,5 +31,8 @@ extern uint64_t total_rx_datasize;
 // Function prototypes for ether_control service
 void init_soft_filters_service(char *service_name, uint64_t qid);
 
+// To get the mac address from device
+uint64_t get_mac_addr_from_device(void);
+
 #endif // Queue_Manager_local_H_
 

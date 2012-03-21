@@ -56,7 +56,7 @@ static void register_buffer(struct net_queue_manager_binding *cc,
         uint64_t slots, uint8_t role);
 static void sp_notification_from_app(struct net_queue_manager_binding *cc,
         uint64_t queueid, uint64_t type, uint64_t ts);
-static void get_mac_addr(struct net_queue_manager_binding *cc,
+static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
         uint64_t queueid);
@@ -71,7 +71,7 @@ static void do_pending_work(struct net_queue_manager_binding *b);
 static struct net_queue_manager_rx_vtbl rx_nqm_vtbl = {
     .register_buffer = register_buffer,
     .sp_notification_from_app = sp_notification_from_app,
-    .get_mac_address = get_mac_addr,
+    .get_mac_address = get_mac_addr_qm,
     .print_statistics = print_statistics_handler,
     .benchmark_control_request = benchmark_control_request,
 };
@@ -427,8 +427,7 @@ static errval_t wrapper_send_mac_addr_response(struct q_entry entry)
     }
 }
 
-// function to handle incoming mac address requests
-static void get_mac_addr(struct net_queue_manager_binding *cc, uint64_t queueid)
+uint64_t get_mac_addr_from_device(void)
 {
     union {
         uint8_t hwaddr[6];
@@ -437,7 +436,13 @@ static void get_mac_addr(struct net_queue_manager_binding *cc, uint64_t queueid)
 
     u.hwasint = 0;
     ether_get_mac_address_ptr(u.hwaddr);
+    return u.hwasint;
+}
 
+// function to handle incoming mac address requests
+static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
+        uint64_t queueid)
+{
     struct q_entry entry;
 
     memset(&entry, 0, sizeof(struct q_entry));
@@ -447,7 +452,7 @@ static void get_mac_addr(struct net_queue_manager_binding *cc, uint64_t queueid)
     assert(ccl->queueid == queueid);
 
     entry.plist[0] = queueid;
-    entry.plist[1] = u.hwasint;
+    entry.plist[1] = get_mac_addr_from_device();
        // queueid,  hwaddr
 
     enqueue_cont_q(ccl->q, &entry);
