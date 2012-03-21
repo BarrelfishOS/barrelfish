@@ -490,6 +490,17 @@ AcpiOsGetLine (
  *
  *****************************************************************************/
 
+struct AcpiMapping {
+    struct memobj_anon *memobj;
+    struct vregion *vregion;
+    lpaddr_t pbase;
+    ACPI_SIZE length;
+    unsigned refcount;
+    struct AcpiMapping *next;
+};
+
+struct AcpiMapping *head = NULL;
+
 void *
 AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   where,  /* not page aligned */
@@ -501,6 +512,15 @@ AcpiOsMapMemory (
     length += where - pbase;
     length = ROUND_UP(length, BASE_PAGE_SIZE);
     int npages = DIVIDE_ROUND_UP(length, BASE_PAGE_SIZE);
+
+    if (head) {
+        for (struct AcpiMapping *walk = head; walk->next != NULL; walk = walk->next) {
+            if (walk->pbase == pbase && walk->length >= length) {
+                walk->refcount++;
+                return (void*)(uintptr_t)vregion_get_base_addr(walk->vregion) + (where-pbase);
+            }
+        }
+    }
 
     struct memobj_anon *memobj = malloc(sizeof(struct memobj_anon));
     assert(memobj);
@@ -561,6 +581,16 @@ AcpiOsMapMemory (
         assert(r == 0);
     }
 
+    // add new mapping to tracking list
+    struct AcpiMapping *new = malloc(sizeof(struct AcpiMapping));
+    new->memobj = memobj;
+    new->vregion = vregion;
+    new->pbase = pbase;
+    new->length = length;
+    new->refcount = 1;
+    new->next = head;
+    head = new;
+
     return (void*)(uintptr_t)vregion_get_base_addr(vregion) + (where - pbase);
 }
 
@@ -584,7 +614,27 @@ AcpiOsUnmapMemory (
     void                    *where,
     ACPI_SIZE               length)
 {
-    //printf("AcpiOsUnmapMemory(%p, %lx)\n", where, length);
+    lpaddr_t pbase = (lpaddr_t)where & (~BASE_PAGE_MASK);
+    length += (lpaddr_t)where - pbase;
+    length = ROUND_UP(length, BASE_PAGE_SIZE);
+
+    assert(head); // there should be a mapped region if Unmap is called
+
+    struct AcpiMapping *prev = NULL;
+    for (struct AcpiMapping *walk = head; walk->next != NULL; prev = walk, walk = walk->next) {
+        if (walk->pbase == pbase && walk->length >= length) {
+            walk->refcount--;
+            if (!walk->refcount) {
+                vregion_destroy(walk->vregion);
+                // XXX: memobj_destroy_anon is not implemented
+                memobj_destroy_anon((struct memobj *)walk->memobj);
+            }
+            if (prev) {
+                prev->next = walk->next;
+            }
+            free(walk);
+        }
+    }
 }
 
 
