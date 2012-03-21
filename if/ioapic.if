@@ -15,9 +15,6 @@ interface ioapic "I/O APIC RPC Interface" {
                                    in uint32 vector,
                                    out errval error_code);
 
-    // TODO; want?
-    rpc reroute_interrupt();
-    rpc enable_interrupt();
-    rpc disable_interrupt();
-
+    // XXX: kludge, need to build cap chain to avoid siblings
+    rpc transfer_physical_caps(in cap physical);    
 };

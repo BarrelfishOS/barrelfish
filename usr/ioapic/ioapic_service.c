@@ -33,7 +33,38 @@ static void enable_interrupt_handler(struct ioapic_binding* b, uint32_t gsi,
 
 }
 
+extern struct capref phys_cap;
+extern bool caps_received;
+errval_t init_allocators(void);
+static void transfer_physical_caps_handler(struct ioapic_binding* b,
+        struct capref physical)
+{
+    APIC_DEBUG("transfer physical caps handler\n");
+
+    phys_cap.cnode = build_cnoderef(physical, PAGE_CNODE_BITS);
+    phys_cap.slot = 0;
+    caps_received = true;
+
+    errval_t err = init_allocators();
+    assert(err_is_ok(err));
+
+    err = init_all_apics();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "I/O APIC Initialization");
+    }
+
+    err = setup_interupt_override();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Setup interrupt overrides");
+    }
+
+    APIC_DEBUG("transfer physical caps handler done\n");
+
+    b->tx_vtbl.transfer_physical_caps_response(b, NOP_CONT);
+}
+
 struct ioapic_rx_vtbl acpi_rx_vtbl = {
+    .transfer_physical_caps_call = transfer_physical_caps_handler,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
 };
 

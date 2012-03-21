@@ -46,6 +46,7 @@ struct mm pci_mm_physaddr;
 
 // BIOS Copy
 struct capref biosmem;
+struct capref physical_caps;
 
 static errval_t copy_bios_mem(void) {
     errval_t err = SYS_ERR_OK;
@@ -143,13 +144,12 @@ static errval_t init_allocators(void)
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
     err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
+    physical_caps = requested_caps;
 
     // Build the capref for the first physical address capability
-    struct capref phys_cap = {
-        // XXX: not sure how to get size bit for this?
-    	.cnode = build_cnoderef(requested_caps, 8),
-    	.slot = 0,
-    };
+    struct capref phys_cap;
+    phys_cap.cnode = build_cnoderef(requested_caps, PAGE_CNODE_BITS);
+    phys_cap.slot = 0;
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
 		struct mem_region *mrp = &bootinfo->regions[i];

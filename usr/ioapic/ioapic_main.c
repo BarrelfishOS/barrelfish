@@ -37,7 +37,11 @@ uintptr_t my_apic_id;
 // Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;
 
-static errval_t init_allocators(void)
+bool caps_received = false;
+struct capref phys_cap;
+errval_t init_allocators(void);
+
+errval_t init_allocators(void)
 {
     errval_t err, msgerr;
 
@@ -81,20 +85,8 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
-    struct capref requested_caps;
-    errval_t error_code;
-    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
-    assert(err_is_ok(err) && err_is_ok(error_code));
-
-    // Build the capref for the first physical address capability
-    struct capref phys_cap = {
-        // XXX: not sure how to get size bit for this?
-    	.cnode = build_cnoderef(requested_caps, 8),
-    	.slot = 0,
-    };
-
     for (int i = 0; i < bootinfo->regions_length; i++) {
-	struct mem_region *mrp = &bootinfo->regions[i];
+        struct mem_region *mrp = &bootinfo->regions[i];
         if (mrp->mr_type == RegionType_PhyAddr ||
         	mrp->mr_type == RegionType_PlatformData) {
             err = mm_add(&pci_mm_physaddr, phys_cap,
@@ -108,8 +100,6 @@ static errval_t init_allocators(void)
 
     return SYS_ERR_OK;
 }
-
-struct capref biosmem;
 
 int main(int argc, char *argv[])
 {
@@ -145,11 +135,6 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Connect to SKB");
     }
 
-    err = init_allocators();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Init memory allocator");
-    }
-
 #ifndef USE_KALUGA_DVM
     err = nameservice_blocking_lookup("acpi_enumeration_done", 0);
     if (err_is_fail(err)) {
@@ -157,20 +142,16 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    err = init_all_apics();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "I/O APIC Initialization");
-    }
-
-    err = setup_interupt_override();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Setup interrupt overrides");
-    }
-
     err = start_service();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Start I/O APIC Service");
     }
+
+/*
+    err = init_allocators();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Init memory allocator");
+    }*/
 
     messages_handler_loop();
 }
