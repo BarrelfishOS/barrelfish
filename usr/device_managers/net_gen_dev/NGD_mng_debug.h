@@ -7,22 +7,22 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef E1K_DEV_MNG_DEBUG_H_
-#define E1K_DEV_MNG_DEBUG_H_
+#ifndef _NET_GEN_DEV_MNG_DEBUG_H_
+#define _NET_GEN_DEV_MNG_DEBUG_H_
 
 
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
 
-#define E1K_DEV_MNG_SERVICE_DEBUG 1
+#define NET_GEN_DEV_MNG_SERVICE_DEBUG 1
 
-#if defined(E1K_DEV_MNG_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define E1KDM_DEBUG(x...) printf("1KDM: " x)
+#if defined(NET_GEN_DEV_MNG_SERVICE_DEBUG ) || defined(GLOBAL_DEBUG)
+#define NGKDM_DEBUG(x...) printf("NGKDM: " x)
 #else
-#define E1KDM_DEBUG(x...) ((void)0)
+#define NGKDM_DEBUG(x...) ((void)0)
 #endif // defined(E1K_DEV_MNG_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 
-#endif // E1K_DEV_MNG_DEBUG_H_
+#endif // _NET_GEN_DEV_MNG_DEBUG_H_
 
 

@@ -6,12 +6,12 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/device_managers/E1K/E1K_mng
+-- Hakefile for /usr/device_managers/net_gen_dev/NGD_mng
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "E1K_mng",
-                        cFiles = [ "E1K_mng.c" ],
+[ build application { target = "NGD_mng",
+                        cFiles = [ "NGD_mng.c" ],
 		        addLibraries = [ "contmng", "net_device_manager" ]
                     }
 ]

@@ -88,7 +88,7 @@ MODULES_x86_64= \
 	sbin/datagatherer \
 	sbin/ahcid \
 	sbin/e1000n \
-	sbin/E1K_mng \
+	sbin/NGD_mng \
 	sbin/e10k \
 	sbin/rtl8029 \
 	sbin/netd \
@@ -190,6 +190,7 @@ MODULES_scc=\
 	sbin/bench \
 	sbin/eMAC \
 	sbin/netd \
+	sbin/NGD_mng \
 	sbin/webserver \
 	sbin/ipirc_test \
 	sbin/thc_v_flounder_empty \

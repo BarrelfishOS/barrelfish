@@ -26,8 +26,10 @@ module  /scc/sbin/spawnd boot bootscc=1
 module  /scc/sbin/startd boot
 # modules needed to start the networking
 # module  /scc/sbin/eMAC core=0
+# module  /scc/sbin/NGD_MNG core=0 cardname=eMAC2_0
 # module  /scc/sbin/netd core=0 cardname=eMAC2_0
 # module  /scc/sbin/eMAC core=1
+# module  /scc/sbin/NGD_MNG core=2 cardname=eMAC2_1
 # module  /scc/sbin/netd core=1 cardname=eMAC2_1
 
 # Test for network throughput

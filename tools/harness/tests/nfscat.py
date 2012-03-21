@@ -24,6 +24,8 @@ class NFSTest(TestCommon):
         cardName = "e1000"
         modules = super(NFSTest, self).get_modules(build, machine)
         modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]])
+        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[2],
+                                    "cardname=%s"%cardName])
         modules.add_module("netd", ["core=%d" % machine.get_coreids()[2],
                                     "cardname=%s"%cardName])
         if use_emmentaler :

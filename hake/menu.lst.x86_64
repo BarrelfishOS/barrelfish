@@ -41,6 +41,7 @@ module /x86_64/sbin/ahcid
 
 ## For real hardware, enable e1000n
 # module	/x86_64/sbin/e1000n
+# module	/x86_64/sbin/NGD_mng cardname=e1000
 # module	/x86_64/sbin/netd cardname=e1000
 
 # General user domains
