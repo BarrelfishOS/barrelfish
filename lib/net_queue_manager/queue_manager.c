@@ -784,8 +784,8 @@ static void export_ether_cb(void *st, errval_t err, iref_t iref)
     }
 
    // ETHERSRV_DEBUG
-    printf("service [%s] exported at iref %u\n", exported_queue_name,
-            iref);
+    printf("service [%s] exported at iref %"PRIu32"\n", exported_queue_name,
+           (uint32_t)iref);
 
     // register this iref with the name service
     err = nameservice_register(exported_queue_name, iref);

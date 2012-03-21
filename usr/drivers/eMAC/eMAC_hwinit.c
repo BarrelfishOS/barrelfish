@@ -341,8 +341,8 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
 
     struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
 
-    for (int index = 0; index < rtpbuf; index++) {
-        sld = &spp->sp->slot_list[cl->tx_index + index].d;
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        sld = &spp->sp->slot_list[cl->tx_index + idx].d;
         assert(buffer->buffer_id == sld->buffer_id);
 //        paddr = (uint64_t) buffer->pa + sld->offset;
 
@@ -362,8 +362,8 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
             data_left = sld->len;
         }
         if(pbuf_offset < 0){
-            EMAC_DEBUG("index %d, pbufs = %u, to copy %zu\n",
-                    index, rtpbuf, to_copy);
+            EMAC_DEBUG("idx %d, pbufs = %u, to copy %zu\n",
+                    idx, rtpbuf, to_copy);
             EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset,
                     to_copy);
             EMAC_DEBUG("pbuf_offset %d = start_offset(%zu) - "
@@ -399,9 +399,9 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
             "client_closure\n", to_copy);
     EMAC_DEBUG("pbufs = %u\n", rtpbuf);
     EMAC_DEBUG("already copied %d, left %d\n", already_copied, data_left);
-    for (int index = 0; index < rtpbuf; index++) {
-        EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", index,
-                spp->sp->slot_list[cl->tx_index + index].d->len);
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", idx,
+                spp->sp->slot_list[cl->tx_index + idx].d->len);
     }
     EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset, to_copy);
 
