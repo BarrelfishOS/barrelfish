@@ -20,7 +20,7 @@
 #include <errors/errno.h>
 
 #define BIOS_BITS       20
-extern struct capref physical_caps;
+extern struct capref my_super_devframes;
 
 errval_t find_all_apics(void);
 

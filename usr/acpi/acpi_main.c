@@ -47,23 +47,25 @@ struct mm pci_mm_physaddr;
 // BIOS Copy
 struct capref biosmem;
 struct capref physical_caps;
+struct capref my_super_devframes;
 
 static errval_t copy_bios_mem(void) {
     errval_t err = SYS_ERR_OK;
 
     // Get a copy of the VBE BIOS before ACPI touches it
-    struct capref bioscap, biosframe;
+    struct capref bioscap;
 
     err = mm_alloc_range(&pci_mm_physaddr, BIOS_BITS, 0,
                        1UL << BIOS_BITS, &bioscap, NULL);
+    DEBUG_ERR(err, "mm alloc range\n");
     assert(err_is_ok(err));
 
-    err = devframe_type(&biosframe, bioscap, BIOS_BITS);
+    /*err = devframe_type(&biosframe, bioscap, BIOS_BITS);
     //DEBUG_ERR(err, "devframe type\n");
-    assert(err_is_ok(err));
+    assert(err_is_ok(err));*/
 
     void *origbios;
-    err = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, biosframe,
+    err = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, bioscap,
                              NULL, NULL);
     assert(err_is_ok(err));
 
@@ -78,8 +80,8 @@ static errval_t copy_bios_mem(void) {
 
     // TODO: Unmap both vspace regions again
 
-    err = cap_delete(biosframe);
-    assert(err_is_ok(err));
+    /*err = cap_delete(biosframe);
+    assert(err_is_ok(err));*/
 
     // TODO: Implement mm_free()
 
@@ -108,13 +110,13 @@ static errval_t init_allocators(void)
     assert(err_is_ok(err));
 
     /* Initialize the memory allocator to handle PhysAddr caps */
-    static struct range_slot_allocator slot_allocator;
-    err = range_slot_alloc_init(&slot_allocator, PCI_CNODE_SLOTS, NULL);
+    static struct range_slot_allocator devframes_allocator;
+    err = range_slot_alloc_init(&devframes_allocator, PCI_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
 
-    err = mm_init(&pci_mm_physaddr, ObjType_PhysAddr, 0, 48,
+    err = mm_init(&pci_mm_physaddr, ObjType_DevFrame, 0, 48,
                   /* This next parameter is important. It specifies the maximum
                    * amount that a cap may be "chunked" (i.e. broken up) at each
                    * level in the allocator. Setting it higher than 1 reduces the
@@ -123,7 +125,7 @@ static errval_t init_allocators(void)
                    * able to allocate a large subregion. This caused problems
                    * for me with a large framebuffer... -AB 20110810 */
                   1 /* was DEFAULT_CNODE_BITS */,
-                  slab_default_refill, slot_alloc_dynamic, &slot_allocator, false);
+                  slab_default_refill, slot_alloc_dynamic, &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
@@ -151,6 +153,16 @@ static errval_t init_allocators(void)
     phys_cap.cnode = build_cnoderef(requested_caps, PAGE_CNODE_BITS);
     phys_cap.slot = 0;
 
+    struct cnoderef devcnode;
+    err = slot_alloc(&my_super_devframes);
+    assert(err_is_ok(err));
+    cslot_t slots;
+    err = cnode_create(&my_super_devframes, &devcnode, 99, &slots);
+    if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
+    struct capref devframe;
+    devframe.cnode = devcnode;
+    devframe.slot = 0;
+
     for (int i = 0; i < bootinfo->regions_length; i++) {
 		struct mem_region *mrp = &bootinfo->regions[i];
 		if (mrp->mr_type == RegionType_Module) {
@@ -170,19 +182,41 @@ static errval_t init_allocators(void)
 						mrp->mrmod_data);
 		}
 
-        if (mrp->mr_type == RegionType_PlatformData ||
-            mrp->mr_type == RegionType_PhyAddr) {
-            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx platform data\n",
+        if (mrp->mr_type == RegionType_PhyAddr ||
+            mrp->mr_type == RegionType_PlatformData) {
+            char* type = mrp->mr_type == RegionType_PhyAddr ?
+                    "physical address" : "platform data";
+            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
 		      i, mrp->mr_base,
-		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits));
-            err = mm_add(&pci_mm_physaddr, phys_cap,
+		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
+		      type);
+
+            err = cap_retype(devframe, phys_cap, ObjType_DevFrame, mrp->mr_bits);
+            DEBUG_ERR(err, "cap retype");
+            assert(err_is_ok(err));
+
+            debug_printf("mrp->mr_bits: %d\n", mrp->mr_bits);
+            struct capability ret;
+            char buf[256];
+            debug_cap_identify(phys_cap, &ret);
+            debug_print_cap(buf, sizeof(buf), &ret);
+            debug_printf("physcap is is: %s\n", buf);
+
+            debug_cap_identify(devframe, &ret);
+            debug_print_cap(buf, sizeof(buf), &ret);
+            debug_printf("new retyped devframe is: %s\n", buf);
+
+            err = mm_add(&pci_mm_physaddr, devframe,
                          mrp->mr_bits, mrp->mr_base);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
             }
+
             phys_cap.slot++;
+            devframe.slot++;
         }
     }
+    debug_my_cspace();
 
     return SYS_ERR_OK;
 }

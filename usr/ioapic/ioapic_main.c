@@ -69,7 +69,7 @@ errval_t init_allocators(void)
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
 
-    err = mm_init(&pci_mm_physaddr, ObjType_PhysAddr, 0, 48,
+    err = mm_init(&pci_mm_physaddr, ObjType_DevFrame, 0, 48,
                   /* This next parameter is important. It specifies the maximum
                    * amount that a cap may be "chunked" (i.e. broken up) at each
                    * level in the allocator. Setting it higher than 1 reduces the
@@ -82,6 +82,7 @@ errval_t init_allocators(void)
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
+    debug_my_cspace();
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
@@ -89,12 +90,26 @@ errval_t init_allocators(void)
         struct mem_region *mrp = &bootinfo->regions[i];
         if (mrp->mr_type == RegionType_PhyAddr ||
         	mrp->mr_type == RegionType_PlatformData) {
+
+            char* type = mrp->mr_type == RegionType_PhyAddr ?
+                    "physical address" : "platform data";
+            APIC_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
+              i, mrp->mr_base,
+              mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
+              type);
+
+            struct capability ret;
+            char buf[256];
+            debug_cap_identify(phys_cap, &ret);
+            debug_print_cap(buf, sizeof(buf), &ret);
+            debug_printf("devframe at slot:%d is: %s\n", phys_cap.slot, buf);
+
             err = mm_add(&pci_mm_physaddr, phys_cap,
                          mrp->mr_bits, mrp->mr_base);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
             }
-            phys_cap.slot++;
+            phys_cap.slot+=2;
         }
     }
 

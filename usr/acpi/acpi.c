@@ -621,7 +621,7 @@ static int acpi_init(void)
     assert(err_is_ok(err));
     ACPI_DEBUG("transfer physical caps\n");
     struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
-    err = cl->vtbl.transfer_physical_caps(cl, physical_caps);
+    err = cl->vtbl.transfer_physical_caps(cl, my_super_devframes);
     DEBUG_ERR(err, "transfer caps..?");
     assert(err_is_ok(err));
     ACPI_DEBUG("transfer physical done\n");

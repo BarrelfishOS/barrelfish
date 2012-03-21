@@ -74,7 +74,7 @@ static struct ioapic *find_ioapic(uint32_t gsi)
 static errval_t init_one_ioapic(uint64_t id,  uint64_t address, uint64_t irqbase)
 {
     errval_t            err;
-    struct capref       devmem, devframe;
+    struct capref       devframe;
     lvaddr_t            vaddr;
     static int          ioapic_nr = 0;
 
@@ -83,17 +83,17 @@ static errval_t init_one_ioapic(uint64_t id,  uint64_t address, uint64_t irqbase
     assert(IOAPIC_PAGE_SIZE == BASE_PAGE_SIZE);
 
     // allocate memory backing IOAPIC
-    err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, address, &devmem);
+    err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, address, &devframe);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate I/O APIC register page at 0x%x\n",
                 address);
         return err_push(err, MM_ERR_REALLOC_RANGE);
     }
 
-    err = devframe_type(&devframe, devmem, BASE_PAGE_BITS);
+    /*err = devframe_type(&devframe, devmem, BASE_PAGE_BITS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_DEVFRAME_TYPE);
-    }
+    }*/
 
     // Map registers
     err = vspace_map_one_frame_attr((void**)&vaddr, BASE_PAGE_SIZE, devframe,
