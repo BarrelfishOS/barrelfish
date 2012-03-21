@@ -834,7 +834,7 @@ AcpiOsInstallInterruptHandler (
     assert(err_is_ok(err));
     //DEBUG_ERR(ret_error, "enable and route interrupt");
     if (err_is_fail(ret_error)) {
-        DEBUG_ERR(e, "failed to route interrupt");
+        DEBUG_ERR(ret_error, "failed to route interrupt");
         return AE_ERROR;
     }
 
