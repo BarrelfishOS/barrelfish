@@ -184,7 +184,7 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
 
 /* Send the buffer to device driver TX ring.
  * NOTE: This function will get called from ethersrv.c */
-static errval_t transmit_pbuf_list_fn_v2(struct client_closure *cl)
+static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
 {
     errval_t r;
     struct shared_pool_private *spp = cl->spp_ptr;
@@ -197,26 +197,43 @@ static errval_t transmit_pbuf_list_fn_v2(struct client_closure *cl)
         }
     }
     struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
+    struct buffer_descriptor *cached_buffer = buffer;
+    if (buffer == NULL) {
+        USER_PANIC("find_buffer failed\n");
+        abort();
+    }
     // FIXME: code should work with following assert enable.
     // Current problem is that, ARP request packets are reused to send the
     // response, and hence having different buffer_id than of tx buffer
-//    assert(buffer == cl->buffer_ptr);
-    assert(buffer != NULL);
+    // assert(buffer == cl->buffer_ptr);
+
     for (int i = 0; i < rtpbuf; i++) {
-        sld = &spp->sp->slot_list[cl->tx_index + i].d;
+        uint64_t slot_index = (cl->tx_index + i) % cl->spp_ptr->c_size;
+        sld = &spp->sp->slot_list[slot_index].d;
+        assert(sld != NULL);
+        if (sld->buffer_id == 0) {
+            printf("e1000n: TX malformed packet at %"PRIu64"\n",slot_index);
+//            sp_print_metadata(cl->spp_ptr);
+            return -1;
+        }
+        if (cached_buffer->buffer_id == sld->buffer_id) {
+            buffer = cached_buffer;
+        } else {
+            buffer = find_buffer(sld->buffer_id);
+        }
         assert(buffer->buffer_id == sld->buffer_id);
 
         r = transmit_pbuf(buffer->pa, sld->len, sld->offset,
                     i == (rtpbuf - 1), //last?
                     sld->client_data,
-                    (cl->tx_index + i), cl->app_connection);
+                    slot_index, cl->app_connection);
         if(err_is_fail(r)) {
             //E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
             printf("ERROR:transmit_pbuf failed\n");
             return r;
         }
         E1000N_DEBUG("transmit_pbuf done for pbuf %"PRIx64", index %"PRIu64"\n",
-            sld->client_data, cl->tx_index + i);
+            sld->client_data, slot_index);
     } // end for: for each pbuf
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
@@ -639,7 +656,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
     setup_internal_memory();
 
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
-		  transmit_pbuf_list_fn_v2, find_tx_free_slot_count_fn,
+		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
                   handle_free_TX_slot_fn);
 }
 

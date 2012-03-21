@@ -224,6 +224,10 @@ struct buffer_descriptor *find_buffer(uint64_t buffer_id)
         }
         elem = elem->next;
     }
+    printf("Could not find buffer with id %"PRIu64"\n", buffer_id);
+    // abort here because in some cases, returning NULL crashes the driver
+    // specially in e1000n.c: transmit_pbuf_list_fn() call
+    abort();
     return NULL;
 } // end function: buffer_descriptor
 
@@ -597,17 +601,19 @@ bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index)
     ETHERSRV_DEBUG("handle_tx_done called for %"PRIu64"\n", spp_index);
 
     if(spp->sp->read_reg.value != spp_index) {
-       printf("handle_tx_done: prob: read reg[%"PRIu64"] == "
+        printf("handle_tx_done: read reg[%"PRIu64"] == "
                "spp_index [%"PRIu64"]\n",
                spp->sp->read_reg.value, spp_index);
+//        abort();
     }
-    assert(spp->sp->read_reg.value == spp_index);
+//    assert(spp->sp->read_reg.value == spp_index);
 
     if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
         // FIXME:  This is dengarous!  I should increase read index,
         // only when all the packets till that read index are sent!
 //        printf("failed for %"PRIu64"\n",spp_index);
 //        sp_print_metadata(spp);
+        abort();
         assert(!"sp_set_read_index failed");
     }
 

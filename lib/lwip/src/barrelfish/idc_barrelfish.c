@@ -463,6 +463,8 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         // Again, sanity check!
         // Making sure that the slot is not active anymore
         if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
+            // Something unexpected is happening
+            // Printing messages to help debugging what is going on.
             printf("############ trying to clear %"PRIu64"\n",
                     ghost_write_index);
             sp_print_metadata(spp_send);
