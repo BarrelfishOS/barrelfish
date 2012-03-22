@@ -482,7 +482,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   };
 
   // 8.2.3.4.11
-  register swfw_sync rw addr(base, 0x10160) "Software­Firmware Synchronization" {
+  register swfw_sync rw addr(base, 0x10160) "Software Firmware Synchronization" {
     sw_eepsm    1 "EEPROM access is owned by software";
     sw_physm0   1 "PHY 0 access is owned by software";
     sw_physm1   1 "PHY 1 access is owned by software";
@@ -1881,7 +1881,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     ansf        5 "Auto-Negotiation Selector Field";
     pmad_10gbe  2 type(pmad_10gbe) "10 GbE PMA/PMD over four differential pairs";
     pmad_1gbe   1 type(pmad_1gbe) "PMA/PMD used for 1 GbE";
-    d10gmp      1 "Disables 10 GbE (KX4) on Dx (Dr/D3) without main­power";
+    d10gmp      1 "Disables 10 GbE (KX4) on Dx (Dr/D3) without main-power";
     ratd        1 "Restarts auto-negotiation on transition to Dx";
     restart_an  1 "Applies new link settings and restarts relative auto-negotiation";
     lms         3 type(link_mode) "Link Mode Select";
@@ -1893,7 +1893,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     anrxlm      1 "Auto-Negotiation Rx Loose Mode";
     anpdt       2 type(aneg_pdt) "Auto-Negotiation Parallel Detect Timer";
     rf          1 "Loaded to the RF of the auto-negotiation word";
-    pb          2 "Loaded to bits D11­D10 of the Link code word";
+    pb          2 "Loaded to bits D11-D10 of the Link code word";
     kx_sup      1 "KX supported";
     kx4sup      1 "KX4 supported";
   };
@@ -1931,7 +1931,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     l1g_anen    1 "PCS_1 GbE auto-negotiation is enabled";
     l1g_lnken   1 "1 GbE PCS enabled for 1 GbE and SGMII operation";
     l10g_lnken  1 "XGXS Enabled for 10 GbE operation";
-    fec_en      1 "Status of forward­error­correction in 10 GbE serial link";
+    fec_en      1 "Status of forwarderrorcorrection in 10 GbE serial link";
     l10g_seren  1 "Status of 10 GbE serial PCS (KR PCS) for KR or SFI operation";
     sgmii_en    1 "Status of SGMII operation";
     mlink_mode  2 type (mac_lnkmode) "MAC link mode status";
