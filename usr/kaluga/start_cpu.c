@@ -193,12 +193,9 @@ errval_t watch_for_cores(void)
     // limited. We need to know how many cores are available
     // at boot time and send a boot initialize reply
     // after all cores are up.
-    // Also, we cannot boot cores in parallel because on machines
-    // with a lot of cores this causes problem with memory
-    // allocation (see appenzeller):
-    // ERROR: monitor.0 in ram_alloc() ../lib/barrelfish/ram_alloc.c:116
-    // ERROR: ram_alloc
-    // Failure: (          libmm) No matching node found [MM_ERR_NOT_FOUND]
+	// It is possible to boot cores parallel, however,
+	// I figured a clean output on boot is worth more
+	// than the gain in speed so we still boot sequential.
     // For now we do not handle cores that appear at runtime.
     // In case the boot protocol changes in the future
     // just use trigger_existing_and_watch()
