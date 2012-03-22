@@ -233,7 +233,7 @@ defines = [ Str ("-D" ++ d) | d <- [
              if nxe_paging then "CONFIG_NXE" else "",
              if rck_emu then "RCK_EMU" else "",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
-             if use_kaluga_dvm them "USE_KALUGA_DVM" else ""
+             if use_kaluga_dvm then "USE_KALUGA_DVM" else ""
              ], d /= "" ]
 
 -- some defines depend on the architecture/compile options
