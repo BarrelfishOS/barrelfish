@@ -37,6 +37,7 @@ module /x86_64/sbin/ahcid
 ## For networking
 ## For qemu, enable rtl8029
 # module	/x86_64/sbin/rtl8029
+# module	/x86_64/sbin/NGD_mng cardname=rtl8029
 # module    /x86_64/sbin/netd cardname=rtl8029
 
 ## For real hardware, enable e1000n
