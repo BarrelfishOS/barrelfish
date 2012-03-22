@@ -532,19 +532,23 @@ static struct sysret monitor_set_cap_owner(struct capability *monitor_cap,
 static struct sysret monitor_lock_cap(struct capability *monitor_cap,
                                       int cmd, uintptr_t *args)
 {
-    capaddr_t cptr = args[0];
-    uint8_t bits = args[1];
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
 
-    return sys_lock_cap(cptr, bits);
+    return sys_lock_cap(root_addr, root_bits, cptr, bits);
 }
 
 static struct sysret monitor_unlock_cap(struct capability *monitor_cap,
                                         int cmd, uintptr_t *args)
 {
-    capaddr_t cptr = args[0];
-    uint8_t bits = args[1];
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
 
-    return sys_unlock_cap(cptr, bits);
+    return sys_unlock_cap(root_addr, root_bits, cptr, bits);
 }
 
 /**

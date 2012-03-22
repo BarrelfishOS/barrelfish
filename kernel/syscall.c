@@ -497,34 +497,60 @@ static void sys_lock_cap_common(struct cte *cte, bool lock)
     } while (is_copy(&succ->cap, &cte->cap));
 }
 
-struct sysret sys_lock_cap(capaddr_t cptr, uint8_t bits)
+static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
+                                  capaddr_t tptr, uint8_t tbits,
+                                  struct cte **cte)
 {
-    struct capability *root = &dcb_current->cspace.cap;
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_NORIGHTS);
+    errval_t err;
+
+    // XXX: wwwwwhyyyyy
+    rptr >>= (CPTR_BITS-rbits);
+
+    struct capability *root;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, rptr, rbits,
+                          &root, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+        return err_push(err, SYS_ERR_ROOT_CAP_LOOKUP);
     }
 
-    if (cte->mdbnode.locked) {
+    err = caps_lookup_slot(root, tptr, tbits, cte, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return err_push(err, SYS_ERR_IDENTIFY_LOOKUP);
+    }
+
+    return SYS_ERR_OK;
+}
+
+struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t target_addr, uint8_t target_bits)
+{
+    errval_t err;
+
+    struct cte *target;
+    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    if (target->mdbnode.locked) {
         return SYSRET(SYS_ERR_CAP_LOCKED);
     }
 
-    sys_lock_cap_common(cte, true);
+    sys_lock_cap_common(target, true);
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret sys_unlock_cap(capaddr_t cptr, uint8_t bits)
+struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t target_addr, uint8_t target_bits)
 {
-    struct capability *root = &dcb_current->cspace.cap;
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_NORIGHTS);
+    errval_t err;
+
+    struct cte *target;
+    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+        return SYSRET(err);
     }
 
     // XXX: check if already unlocked? -MN
-    sys_lock_cap_common(cte, false);
+    sys_lock_cap_common(target, false);
     return SYSRET(SYS_ERR_OK);
 }
 

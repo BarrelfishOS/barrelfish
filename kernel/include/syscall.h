@@ -56,8 +56,8 @@ sys_dispatcher_setup_guest (struct capability *to,
 struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id);
 struct sysret sys_get_cap_owner(capaddr_t cptr, uint8_t bits);
 struct sysret sys_set_cap_owner(capaddr_t cptr, uint8_t bits, coreid_t owner);
-struct sysret sys_lock_cap(capaddr_t cptr, uint8_t bits);
-struct sysret sys_unlock_cap(capaddr_t cptr, uint8_t bits);
+struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits);
+struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits);
 struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
                                       capaddr_t target_addr, uint8_t target_bits,
                                       capaddr_t ret_cn_addr, uint8_t ret_cn_bits,
