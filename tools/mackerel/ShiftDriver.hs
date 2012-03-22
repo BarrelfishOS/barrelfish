@@ -771,18 +771,18 @@ field_print_block _ f@(Fields.Rec { Fields.is_anon = True }) =
 field_print_block rt f = 
     case Fields.tpe f of
       Nothing -> 
-          let fmt = C.StringCat [ C.QStr $ printf " %s=%%" (Fields.name f),
+          let fmt = C.StringCat [ C.QStr $ printf " %s =\t%%" (Fields.name f),
                                    C.NStr (field_fmt_str $ Fields.size f),
-                                   C.QStr $ printf " (%s)\n" (percent_escape $ Fields.desc f) ]
+                                   C.QStr $ printf "\t(%s)\n" (percent_escape $ Fields.desc f) ]
               val = C.Call (regtype_extract_fn_name rt f) 
                       [ C.Variable cv_regval ]
           in
             snprintf_like_call "snprintf" [fmt, val]
       Just t -> 
-          C.StmtList [snputs_like_call $ printf " %s=" (Fields.name f),
+          C.StmtList [snputs_like_call $ printf " %s =\t" (Fields.name f),
                       snprintf_like_call (constants_print_fn_name t) 
                                            [ C.Call (regtype_extract_fn_name rt f) [(C.Variable cv_regval)] ],
-                      snputs_like_call $ printf " (%s)\n" (Fields.desc f)
+                      snputs_like_call $ printf "\t(%s)\n" (Fields.desc f)
                      ]
 
 -------------------------------------------------------------------------
