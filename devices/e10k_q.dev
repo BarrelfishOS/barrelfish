@@ -11,7 +11,7 @@
  *
  * DESCRIPTION: Intel 82599 10 GbE Controller Queues
  *
- * Numbers in comments refer to the Intel® 82599 10 GbE Controller Datasheet
+ * Numbers in comments refer to the Intel 82599 10 GbE Controller Datasheet
  * 322429-007, Revison 2.6, December 2010
  */
 
