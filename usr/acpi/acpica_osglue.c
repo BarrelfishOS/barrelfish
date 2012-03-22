@@ -499,7 +499,7 @@ struct AcpiMapping {
     struct AcpiMapping *next;
 };
 
-struct AcpiMapping *head = NULL;
+static struct AcpiMapping *head = NULL;
 
 void *
 AcpiOsMapMemory (
@@ -513,12 +513,10 @@ AcpiOsMapMemory (
     length = ROUND_UP(length, BASE_PAGE_SIZE);
     int npages = DIVIDE_ROUND_UP(length, BASE_PAGE_SIZE);
 
-    if (head) {
-        for (struct AcpiMapping *walk = head; walk->next != NULL; walk = walk->next) {
-            if (walk->pbase == pbase && walk->length >= length) {
-                walk->refcount++;
-                return (void*)(uintptr_t)vregion_get_base_addr(walk->vregion) + (where-pbase);
-            }
+    for (struct AcpiMapping *walk = head; walk; walk = walk->next) {
+        if ((walk->pbase <= pbase) && (walk->pbase + walk->length >= pbase + length)) {
+            walk->refcount++;
+            return (void*)(uintptr_t)vregion_get_base_addr(walk->vregion) + (where-walk->pbase);
         }
     }
 
