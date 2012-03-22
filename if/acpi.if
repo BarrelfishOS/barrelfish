@@ -38,12 +38,13 @@ interface acpi "acpi RPC Interface" {
                                    in uint32 vector,
                                    out errval error);
 
-    // Reset Machine
     rpc reset(out errval err);
-    
-    // Power Off / Sleep Machine
     rpc sleep(in int state, out errval err);
     
-    // Kludge: retrieve frame cap to VBE BIOS; TODO belongs to pci?
+    // Kludge: retrieve frame cap to VBE BIOS;
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
+    
+    // More Kludge; cap retrieval for ioapic
+    rpc mm_realloc_range_proxy(in uint8 sizebits, in uint64 base, 
+                                       out errval err, out cap devframe);
 };

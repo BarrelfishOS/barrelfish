@@ -19,6 +19,7 @@
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
+#include <acpi_client/acpi_client.h>
 
 #include "ioapic.h"
 #include "ioapic_debug.h"
@@ -83,12 +84,20 @@ static errval_t init_one_ioapic(uint64_t id,  uint64_t address, uint64_t irqbase
     assert(IOAPIC_PAGE_SIZE == BASE_PAGE_SIZE);
 
     // allocate memory backing IOAPIC
+
+    /*
     err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, address, &devframe);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate I/O APIC register page at 0x%x\n",
                 address);
         return err_push(err, MM_ERR_REALLOC_RANGE);
-    }
+    }*/
+    connect_to_acpi();
+    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    errval_t error_code;
+    err = cl->vtbl.mm_realloc_range_proxy(cl, BASE_PAGE_BITS, address, &error_code, &devframe);
+    assert(err_is_ok(err));
+    assert(err_is_ok(error_code));
 
     /*err = devframe_type(&devframe, devmem, BASE_PAGE_BITS);
     if (err_is_fail(err)) {

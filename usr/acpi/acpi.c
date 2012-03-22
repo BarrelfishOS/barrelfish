@@ -618,13 +618,22 @@ static int acpi_init(void)
 #endif
 
     err = connect_to_ioapic();
-    assert(err_is_ok(err));
+    /*assert(err_is_ok(err));
     ACPI_DEBUG("transfer physical caps\n");
     struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
-    err = cl->vtbl.transfer_physical_caps(cl, my_super_devframes);
+    err = cl->vtbl.transfer_physical_caps(cl, my_devframes_cnode);
     DEBUG_ERR(err, "transfer caps..?");
     assert(err_is_ok(err));
-    ACPI_DEBUG("transfer physical done\n");
+    ACPI_DEBUG("transfer physical done\n");*/
+
+    start_service();
+    while(!ioapic_initialized) {
+    	messages_wait_and_handle_next();
+    }
+
+    /*char* ioapic_barrier = NULL;
+    err = oct_barrier_enter("barrier.ioapic", &ioapic_barrier, 2);
+    assert(err_is_ok(err));*/
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {

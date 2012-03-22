@@ -39,6 +39,7 @@ errval_t init_allocators(void);
 static void transfer_physical_caps_handler(struct ioapic_binding* b,
         struct capref physical)
 {
+	assert(!"kapput");
     APIC_DEBUG("transfer physical caps handler\n");
 
     phys_cap.cnode = build_cnoderef(physical, PAGE_CNODE_BITS);
@@ -47,16 +48,6 @@ static void transfer_physical_caps_handler(struct ioapic_binding* b,
 
     errval_t err = init_allocators();
     assert(err_is_ok(err));
-
-    err = init_all_apics();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "I/O APIC Initialization");
-    }
-
-    err = setup_interupt_override();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Setup interrupt overrides");
-    }
 
     APIC_DEBUG("transfer physical caps handler done\n");
 

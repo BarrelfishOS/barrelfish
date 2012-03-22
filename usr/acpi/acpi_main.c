@@ -47,7 +47,7 @@ struct mm pci_mm_physaddr;
 // BIOS Copy
 struct capref biosmem;
 struct capref physical_caps;
-struct capref my_super_devframes;
+struct capref my_devframes_cnode;
 
 static errval_t copy_bios_mem(void) {
     errval_t err = SYS_ERR_OK;
@@ -154,10 +154,10 @@ static errval_t init_allocators(void)
     phys_cap.slot = 0;
 
     struct cnoderef devcnode;
-    err = slot_alloc(&my_super_devframes);
+    err = slot_alloc(&my_devframes_cnode);
     assert(err_is_ok(err));
     cslot_t slots;
-    err = cnode_create(&my_super_devframes, &devcnode, 99, &slots);
+    err = cnode_create(&my_devframes_cnode, &devcnode, 99, &slots);
     if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
     struct capref devframe;
     devframe.cnode = devcnode;
@@ -289,7 +289,7 @@ int main(int argc, char *argv[])
         video_init();
     }
 
-    start_service();
+    //start_service();
 
     messages_handler_loop();
 }

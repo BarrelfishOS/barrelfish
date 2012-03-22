@@ -162,6 +162,17 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Start I/O APIC Service");
     }
 
+    err = init_all_apics();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "I/O APIC Initialization");
+    }
+
+    err = setup_interupt_override();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Setup interrupt overrides");
+    }
+
+
 /*
     err = init_allocators();
     if (err_is_fail(err)) {
