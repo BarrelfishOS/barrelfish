@@ -31,7 +31,6 @@
 #include "ht_config.h"
 #include "ht_config_dev.h"
 #include "pci_debug.h"
-#include "ioapic_client.h"
 
 #define BAR_PROBE       0xffffffff
 
@@ -364,7 +363,7 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
         PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
                     irq, coreid, vector);
-        struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
+        struct acpi_rpc_client* cl = get_acpi_rpc_client();
         errval_t ret_error;
         err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
         assert(err_is_ok(err));

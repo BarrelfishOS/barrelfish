@@ -141,12 +141,11 @@
 #include <acparser.h>
 #include <acdebug.h>
 
+#include "ioapic.h"
 #include <pci/confspace/pci_confspace.h>
 #include <pci/confspace/mackerelpci.h>
 
 #include <mm/mm.h>
-
-#include "ioapic_client.h"
 
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
@@ -818,6 +817,8 @@ AcpiOsInstallInterruptHandler (
     ACPI_OSD_HANDLER        ServiceRoutine,
     void                    *Context)
 {
+    ACPI_DEBUG("AcpiOsInstallInterruptHandler(%d)\n", InterruptNumber);
+
     struct interrupt_closure *ic = malloc(sizeof(struct interrupt_closure));
     assert(ic != NULL);
 
@@ -831,21 +832,14 @@ AcpiOsInstallInterruptHandler (
         return AE_ERROR;
     }
 
-    // Route Interrupt in I/O APIC
-    struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
-    errval_t ret_error;
-    errval_t err = cl->vtbl.enable_and_route_interrupt(cl, InterruptNumber,
-            disp_get_core_id(), vector, &ret_error);
-    assert(err_is_ok(err));
-    //DEBUG_ERR(ret_error, "enable and route interrupt");
-    if (err_is_fail(ret_error)) {
-        DEBUG_ERR(ret_error, "failed to route interrupt");
+    e = enable_and_route_interrupt(InterruptNumber, disp_get_core_id(), vector);
+    if (err_is_fail(e)) {
+        DEBUG_ERR(e, "failed to route interrupt");
         return AE_ERROR;
     }
 
     return AE_OK;
 }
-
 
 /******************************************************************************
  *

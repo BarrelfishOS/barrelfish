@@ -24,7 +24,7 @@
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
-#include "ioapic_client.h"
+#include "ioapic.h"
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -597,43 +597,12 @@ static int acpi_init(void)
     }
 
     ACPI_DEBUG("Scanning local and I/O APICs...\n");
-    errval_t err = find_all_apics();
+    int r = init_all_apics();
+    assert(r == 0);
+
+    char* record;
+    errval_t err = oct_barrier_enter("barrier.acpi", &record, 2);
     assert(err_is_ok(err));
-
-#ifdef USE_KALUGA_DVM
-    // Signal device manager that we have added records for everything
-    // available to us at boot time.
-    char* record = NULL;
-    err = oct_barrier_enter("barrier.acpi", &record, 2);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not enter barrier.");
-    }
-    free(record);
-#else
-    err = nameservice_register("acpi_enumeration_done", 0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
-    }
-#endif
-
-    err = connect_to_ioapic();
-    /*assert(err_is_ok(err));
-    ACPI_DEBUG("transfer physical caps\n");
-    struct ioapic_rpc_client* cl = get_ioapic_rpc_client();
-    err = cl->vtbl.transfer_physical_caps(cl, my_devframes_cnode);
-    DEBUG_ERR(err, "transfer caps..?");
-    assert(err_is_ok(err));
-    ACPI_DEBUG("transfer physical done\n");*/
-
-    start_service();
-    while(!ioapic_initialized) {
-    	messages_wait_and_handle_next();
-    }
-
-    /*char* ioapic_barrier = NULL;
-    err = oct_barrier_enter("barrier.ioapic", &ioapic_barrier, 2);
-    assert(err_is_ok(err));*/
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {

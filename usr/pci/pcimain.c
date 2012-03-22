@@ -27,7 +27,6 @@
 #include <acpi_client/acpi_client.h>
 
 #include "pci.h"
-#include "ioapic_client.h"
 #include "pci_debug.h"
 
 /**
@@ -95,60 +94,28 @@ static errval_t init_allocators(void)
 
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
-    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
+    struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    err = acl->vtbl.get_devframe_caps(acl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
-    //physical_caps = requested_caps;
 
     // Build the capref for the first physical address capability
-    struct capref phys_cap;
-    phys_cap.cnode = build_cnoderef(requested_caps, PAGE_CNODE_BITS);
-    phys_cap.slot = 0;
-
-    struct capref my_devframes_cnode;
-    struct cnoderef devcnode;
-    err = slot_alloc(&my_devframes_cnode);
-    assert(err_is_ok(err));
-    cslot_t slots;
-    err = cnode_create(&my_devframes_cnode, &devcnode, 256, &slots);
-    if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
-    struct capref devframe;
-    devframe.cnode = devcnode;
-    devframe.slot = 0;
+    struct capref devframe_cap;
+    devframe_cap.cnode = build_cnoderef(requested_caps, PAGE_CNODE_BITS);
+    devframe_cap.slot = 0;
 
     for (int i = 0; i < bootinfo->regions_length; i++) {
 		struct mem_region *mrp = &bootinfo->regions[i];
-		if (mrp->mr_type == RegionType_Module) {
-			skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
-						mrp->mr_base,
-						0,
-						mrp->mrmod_size,
-						mrp->mr_type,
-						mrp->mrmod_data);
-		}
-		else {
-			skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
-						mrp->mr_base,
-						mrp->mr_bits,
-						((size_t)1) << mrp->mr_bits,
-						mrp->mr_type,
-						mrp->mrmod_data);
-		}
-
         if (mrp->mr_type == RegionType_PhyAddr ||
             mrp->mr_type == RegionType_PlatformData) {
 
-            err = cap_retype(devframe, phys_cap, ObjType_DevFrame, mrp->mr_bits);
-            DEBUG_ERR(err, "cap retype");
-            assert(err_is_ok(err));
 
-            err = mm_add(&pci_mm_physaddr, devframe,
+            err = mm_add(&pci_mm_physaddr, devframe_cap,
                          mrp->mr_bits, mrp->mr_base);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
             }
 
-            phys_cap.slot++;
-            devframe.slot++;
+            devframe_cap.slot++;
         }
     }
     //debug_my_cspace();
@@ -171,19 +138,14 @@ int main(int argc, char *argv[])
     	USER_PANIC_ERR(err, "Connecting to SKB failed.");
     }
 
+    err = connect_to_acpi();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "ACPI Connection failed.");
+    }
+
     err = init_allocators();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Init memory allocator failed.");
-    }
-
-    err = connect_to_acpi();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "ACPI Connection failed.");
-    }
-
-    err = connect_to_ioapic();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "IOAPIC Connection failed.");
     }
 
     err = pcie_setup_confspace();

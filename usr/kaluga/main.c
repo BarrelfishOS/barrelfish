@@ -68,7 +68,6 @@ int main(int argc, char** argv)
     init_environ();
 
     errval_t err;
-    char* record = NULL;
 
     coreid_t my_core_id = disp_get_core_id();
     parse_arguments(argc, argv);
@@ -102,12 +101,8 @@ int main(int argc, char** argv)
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot
     // time in order to start-up properly.
+    char* record = NULL;
     err = oct_barrier_enter("barrier.acpi", &record, 2);
-
-    err = watch_for_ioapic();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching I/O APICs.");
-    }
 
     err = watch_for_cores();
     if (err_is_fail(err)) {

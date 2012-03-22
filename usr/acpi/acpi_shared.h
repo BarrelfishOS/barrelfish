@@ -18,10 +18,11 @@
 #include <acpi.h>
 #include <if/acpi_defs.h>
 #include <errors/errno.h>
+#include <pci/confspace/pci_confspace.h>
 
 #define BIOS_BITS       20
 extern struct capref my_devframes_cnode;
-extern bool ioapic_initialized;
+extern struct mm pci_mm_physaddr;
 
 errval_t find_all_apics(void);
 
@@ -35,5 +36,7 @@ void ec_probe_ecdt(void);
 void ec_init(void);
 
 void start_service(void);
+
+
 
 #endif /* ACPI_SHARED_H_ */

@@ -34,13 +34,6 @@
 
 uintptr_t my_apic_id;
 
-// XXX: this enum defines region types that must not overlap
-// with the KPI-defined enum region_type.
-enum user_region_type {
-    RegionType_LocalAPIC = RegionType_Max,  ///< local APIC start address
-    RegionType_IOAPIC                       ///< I/O APIC start address
-};
-
 // Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;
 
@@ -157,7 +150,7 @@ static errval_t init_allocators(void)
     err = slot_alloc(&my_devframes_cnode);
     assert(err_is_ok(err));
     cslot_t slots;
-    err = cnode_create(&my_devframes_cnode, &devcnode, 99, &slots);
+    err = cnode_create(&my_devframes_cnode, &devcnode, 255, &slots);
     if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
     struct capref devframe;
     devframe.cnode = devcnode;
@@ -192,9 +185,8 @@ static errval_t init_allocators(void)
 		      type);
 
             err = cap_retype(devframe, phys_cap, ObjType_DevFrame, mrp->mr_bits);
-            DEBUG_ERR(err, "cap retype");
             assert(err_is_ok(err));
-
+            /*
             debug_printf("mrp->mr_bits: %d\n", mrp->mr_bits);
             struct capability ret;
             char buf[256];
@@ -204,7 +196,7 @@ static errval_t init_allocators(void)
 
             debug_cap_identify(devframe, &ret);
             debug_print_cap(buf, sizeof(buf), &ret);
-            debug_printf("new retyped devframe is: %s\n", buf);
+            debug_printf("new retyped devframe is: %s\n", buf);*/
 
             err = mm_add(&pci_mm_physaddr, devframe,
                          mrp->mr_bits, mrp->mr_base);
@@ -216,7 +208,6 @@ static errval_t init_allocators(void)
             devframe.slot++;
         }
     }
-    //debug_my_cspace();
 
     return SYS_ERR_OK;
 }
@@ -247,11 +238,23 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
+    // Parse CMD Arguments
+    bool got_apic_id = false;
     bool do_video_init = false;
     for (int i = 1; i < argc; i++) {
+        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_apic_id) == 1) {
+            got_apic_id = true;
+        }
+
         if (strcmp(argv[i], "video_init") == 0) {
             do_video_init = true;
         }
+    }
+
+    if(got_apic_id == false) {
+        fprintf(stderr, "Usage: %s APIC_ID\n", argv[0]);
+        fprintf(stderr, "Wrong monitor version?\n");
+        return EXIT_FAILURE;
     }
 
     err = oct_init();
@@ -289,7 +292,7 @@ int main(int argc, char *argv[])
         video_init();
     }
 
-    //start_service();
+    start_service();
 
     messages_handler_loop();
 }

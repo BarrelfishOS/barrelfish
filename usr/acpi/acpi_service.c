@@ -20,10 +20,9 @@
 #include <mm/mm.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
+#include "ioapic.h"
 
-extern struct mm pci_mm_physaddr;
-
-bool ioapic_initialized = false;
+/*
 static void mm_realloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits, genpaddr_t base)
 {
 	ACPI_DEBUG("mm_realloc_range_proxy_handler: sizebits: %d, base: %lu\n", sizebits, base);
@@ -39,8 +38,24 @@ static void mm_realloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizeb
 
     // XXX:
     ioapic_initialized = true;
+}*/
+
+static void get_devframe_caps_handler(struct acpi_binding* b)
+{
+    // XXX:
+    b->tx_vtbl.get_devframe_caps_response(b, NOP_CONT, my_devframes_cnode, SYS_ERR_OK);
 }
 
+static void enable_interrupt_handler(struct acpi_binding* b, uint32_t gsi,
+        coreid_t dest, uint32_t vector)
+{
+    errval_t err = SYS_ERR_OK;
+    err = enable_and_route_interrupt(gsi, dest, vector);
+
+    err = b->tx_vtbl.enable_and_route_interrupt_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+
+}
 
 static inline bool mcfg_correct_length(uint32_t header_len)
 {
@@ -225,7 +240,10 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
     .set_device_irq_call = set_device_irq,
-    .mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
+    .enable_and_route_interrupt_call = enable_interrupt_handler,
+    //.mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
+
+    .get_devframe_caps_call = get_devframe_caps_handler,
 
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,
