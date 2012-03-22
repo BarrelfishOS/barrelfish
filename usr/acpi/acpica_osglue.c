@@ -501,6 +501,23 @@ struct AcpiMapping {
 
 static struct AcpiMapping *head = NULL;
 
+#if 0
+static void dump_map_list(void)
+{
+    for (struct AcpiMapping *walk = head; walk; walk = walk->next)
+    {
+        printf("mapped region: pbase = 0x%"PRIxLPADDR"\n"
+               "               vbase = 0x%"PRIxGENVADDR"\n"
+               "               size  = %zd\n"
+               "               refc  = %u\n",
+               walk->pbase,
+               vregion_get_base_addr(walk->vregion),
+               walk->length,
+               walk->refcount);
+    }
+}
+#endif
+
 void *
 AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   where,  /* not page aligned */
@@ -612,15 +629,23 @@ AcpiOsUnmapMemory (
     void                    *where,
     ACPI_SIZE               length)
 {
-    lpaddr_t pbase = (lpaddr_t)where & (~BASE_PAGE_MASK);
-    length += (lpaddr_t)where - pbase;
+    // printf("unmap %p %zd\n", where, length);
+
+    genvaddr_t vbase = (genvaddr_t)where & (~BASE_PAGE_MASK);
     length = ROUND_UP(length, BASE_PAGE_SIZE);
+
+    // printf("unmap 0x%lx %zd\n", vbase, length);
+    // printf("vend 0x%lx\n", vbase + length);
 
     assert(head); // there should be a mapped region if Unmap is called
 
     struct AcpiMapping *prev = NULL;
-    for (struct AcpiMapping *walk = head; walk->next != NULL; prev = walk, walk = walk->next) {
-        if (walk->pbase == pbase && walk->length >= length) {
+    for (struct AcpiMapping *walk = head; walk; prev = walk, walk = walk->next) {
+        genvaddr_t walk_vaddr = vregion_get_base_addr(walk->vregion);
+        genvaddr_t walk_end   = walk_vaddr + walk->length;
+        // printf("0x%"PRIxGENVADDR", 0x%"PRIxGENVADDR"\n", walk_vaddr, walk_end);
+        if (walk_vaddr <= vbase && walk_end >= vbase + length) {
+            // printf("match\n");
             walk->refcount--;
             if (!walk->refcount) {
                 vregion_destroy(walk->vregion);
@@ -629,6 +654,9 @@ AcpiOsUnmapMemory (
             }
             if (prev) {
                 prev->next = walk->next;
+            }
+            else { // we were head
+                head = walk->next;
             }
             free(walk);
         }
