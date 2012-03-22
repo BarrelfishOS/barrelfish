@@ -17,9 +17,30 @@
 #include <barrelfish/nameservice_client.h>
 #include <if/acpi_defs.h>
 #include <acpi.h>
-
+#include <mm/mm.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
+
+extern struct mm pci_mm_physaddr;
+
+bool ioapic_initialized = false;
+static void mm_realloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits, genpaddr_t base)
+{
+	ACPI_DEBUG("mm_realloc_range_proxy_handler: sizebits: %d, base: %lu\n", sizebits, base);
+	struct capref devframe = NULL_CAP;
+    errval_t err = mm_realloc_range(&pci_mm_physaddr, sizebits, base, &devframe);
+    if (err_is_fail(err)) {
+    	ACPI_DEBUG("mm realloc range failed...\n");
+        err = err_push(err, MM_ERR_REALLOC_RANGE);
+    }
+
+    err = b->tx_vtbl.mm_realloc_range_proxy_response(b, NOP_CONT, err, devframe);
+    assert(err_is_ok(err));
+
+    // XXX:
+    ioapic_initialized = true;
+}
+
 
 static inline bool mcfg_correct_length(uint32_t header_len)
 {
@@ -204,6 +225,7 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
     .set_device_irq_call = set_device_irq,
+    .mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
 
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,
