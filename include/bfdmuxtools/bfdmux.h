@@ -27,7 +27,7 @@
 #include "debug.h"
 
 /*
- * Configs 
+ * Configs
  */
 #define PROC_QUEUE_LEN 5                                /**< \brief Number of NIC buffers to queue for processing */
 
@@ -55,7 +55,7 @@
 #define MAC_ANY(mac)	#mac={.addr = {0,0,0,0,0,0}}    // Any MAC
 
 /*
- * Type defs 
+ * Type defs
  */
 typedef uint8_t prot_t;         /**< \brief Protocol type */
 typedef uint32_t addr_t;        /**< \brief IP-Address type */

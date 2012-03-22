@@ -288,7 +288,7 @@ static void setattr_reply_handler(struct rpc_client *rpc_client, void *arg1,
  *
  * \returns ERR_OK on success, error code on failure
  */
-err_t nfs_setattr(struct nfs_client *client, struct nfs_fh3 fh, 
+err_t nfs_setattr(struct nfs_client *client, struct nfs_fh3 fh,
                   sattr3 new_attributes, bool guarded,
                   nfs_setattr_callback_t callback, void *cbarg)
 {
@@ -298,7 +298,7 @@ err_t nfs_setattr(struct nfs_client *client, struct nfs_fh3 fh,
     struct SETATTR3args args = {
         .object = fh,
         .new_attributes = new_attributes,
-        .guard = { 
+        .guard = {
             .check = guarded ? TRUE : FALSE,
             //.sattrguard3_u.obj_ctime = time_null,
         },
@@ -588,7 +588,7 @@ static void read_reply_handler(struct rpc_client *rpc_client, void *arg1,
 err_t nfs_read(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
                count3 count, nfs_read_callback_t callback, void *cbarg)
 {
-	NFSDEBUGPRINT("nfs read called on offset %"PRIu32" and size %d\n",
+    NFSDEBUGPRINT("nfs read called on offset %"PRIu32" and size %d\n",
                       (uint32_t)offset, count);
     assert(client->mount_state == NFS_INIT_COMPLETE);
 
@@ -598,10 +598,12 @@ err_t nfs_read(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
         .count = count
     };
 
-    return rpc_call(&client->rpc_client, client->nfs_port, NFS_PROGRAM,
+    err_t errval = rpc_call(&client->rpc_client, client->nfs_port, NFS_PROGRAM,
                     NFS_V3, NFSPROC3_READ, (xdrproc_t) xdr_READ3args,
                     &args, sizeof(args) + RNDUP(fh.data_len),
                     read_reply_handler, callback, cbarg);
+
+    return errval;
 }
 
 

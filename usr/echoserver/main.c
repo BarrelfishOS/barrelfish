@@ -16,14 +16,33 @@
 #include <stdlib.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <lwip/init.h>
 #include "echoserver.h"
 
-uint64_t minbase = -1, maxbase = -1;
+static uint64_t minbase = -1, maxbase = -1;
 
 void network_polling_loop(void);
 
+static void connect_to_network(char *card_name, uint64_t queueid)
+{
+    if (lwip_init(card_name, queueid) == false) {
+        printf("Error in lwip_init: could not start networking!!!\n");
+        abort();
+    }
+
+    printf("ECHOSERVER: starting TCP server on port 7\n");
+    int r = tcp_echo_server_init();
+    assert(r == 0);
+
+    printf("ECHOSERVER: starting UDP server on port 7\n");
+    r = udp_echo_server_init();
+    assert(r == 0);
+}
+
 int main(int argc, char**argv)
 {
+
+    static uint64_t allocated_queueid = 0;
     printf("%s running on core %u\n", argv[0], disp_get_core_id());
 
     /* Read commandline args */
@@ -50,7 +69,7 @@ int main(int argc, char**argv)
 
     /* Connect to e1000 driver */
     printf("%s: trying to connect to the NIC driver...\n", argv[0]);
-    startlwip(card_name);
+    connect_to_network(card_name, allocated_queueid);
 
     printf("echoserver: init finished.\n");
 

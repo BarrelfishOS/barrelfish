@@ -170,6 +170,7 @@ void netbench_print_event_stat(struct netbench_details *nbp,
     if (nbp->status == 0) {
         return;
     }
+
     assert(event_type < nbp->total_events);
 
     if (type == 1) {

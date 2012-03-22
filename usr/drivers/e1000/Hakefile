@@ -13,10 +13,10 @@
 [ build application { target = "e1000n",
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c",
                                  "e1000n_helpers.c", "e1000n_debug.c"],
-                      flounderBindings = [ "ether", "ether_control" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "net_soft_filters" ],
                       mackerelDevices = [ "e1000" ],
-                      addLibraries = [ "pci", "ethersrv", "contmng", "procon",
-                                            "bfdmuxvm", "lwip", "trace" ]
+                      addLibraries = libDeps [ "pci", "netQmng", "trace" ]
                     }
 ]
 

@@ -20,61 +20,45 @@
 #include <procon/procon.h>
 
 
-// *******************  cache coherency specific code
-#define MAX_CACHE_READ_TRIES  3
 
-static uint64_t sp_atomic_read_reg(union vreg *reg)
-{
+// Hack for profiling to see how much mfence slows the code down
+// should probably not be disabled.
+#define DISABLE_MFENCE    1
 
 #if 0
-    volatile uint64_t v1 = 0;
-    volatile uint64_t v2 = 0;
-    uint8_t tries = 0;
-
-    for (tries = 0; tries < MAX_CACHE_READ_TRIES; ++tries) {
-/*
-#if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(reg, CACHESIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-*/
-        v1 = reg->value;
-/*
-#if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(reg, CACHESIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
-*/
-        v2 = reg->value;
-
-        if (v1 == v2) {
-            return v1;
-        }
-    } // end for : retrying
-    assert (!"atomic read of read index failed");
-    return v1;
-#endif // 0
+static uint64_t sp_atomic_read_reg(union vreg *reg)
+{
     return reg->value;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 } // end function: sp_atomic_read_reg
+#endif // 0
 
 static void sp_atomic_set_reg(union vreg *reg, uint64_t value)
 {
     reg->value = value;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 /*
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
 #endif // !defined(__scc__) && !defined(__i386__)
 */
 }
-
+// 3 mfence
 void sp_reload_regs(struct shared_pool_private *spp)
 {
     assert(spp != NULL);
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);
-    spp->c_read_id = sp_atomic_read_reg(&spp->sp->read_reg);
-    spp->c_write_id = sp_atomic_read_reg(&spp->sp->write_reg);
-    spp->c_size = sp_atomic_read_reg(&spp->sp->size_reg);
+    spp->c_read_id = spp->sp->read_reg.value;
+    spp->c_write_id = spp->sp->write_reg.value;
+    spp->c_size = spp->sp->size_reg.value;
+//    spp->c_read_id = sp_atomic_read_reg(&spp->sp->read_reg);
+//    spp->c_write_id = sp_atomic_read_reg(&spp->sp->write_reg);
+//    spp->c_size = sp_atomic_read_reg(&spp->sp->size_reg);
 }
 
 
@@ -137,6 +121,7 @@ bool sp_c_between(uint64_t start, uint64_t value, uint64_t end, uint64_t size)
 
 // ******************* spp queue code for condition checking
 
+// 4 mfence
 uint64_t sp_get_read_index(struct shared_pool_private *spp)
 {
     sp_reload_regs(spp);
@@ -156,6 +141,7 @@ uint64_t sp_get_queue_size(struct shared_pool_private *spp)
 }
 
 
+// 0 mfence
 // Checks for queue empty condition
 bool sp_queue_empty(struct shared_pool_private *spp)
 {
@@ -192,7 +178,7 @@ bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t idx)
 // Returns no. of elements available for consumption
 uint64_t sp_queue_elements_count(struct shared_pool_private *spp)
 {
-    sp_reload_regs(spp);
+//    sp_reload_regs(spp);
     return sp_c_range_size(spp->c_read_id, spp->c_write_id, spp->c_size);
 } // end function: sp_queue_elements_count
 
@@ -221,7 +207,7 @@ bool sp_validate_write_index(struct shared_pool_private *spp, uint64_t idx)
     return sp_write_peekable_index(spp, idx);
 } // end function: sp_validate_write_index
 
-
+// 4 mfence
 // Returns no. of free slots available for production
 uint64_t sp_queue_free_slots_count(struct shared_pool_private *spp)
 {
@@ -241,6 +227,7 @@ static size_t calculate_shared_pool_size(uint64_t slot_no)
                 ((sizeof(union slot)) * (slot_no - TMP_SLOTS)));
 }
 
+// 4 mfence
 static void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
 {
     assert(spp != NULL);
@@ -268,7 +255,9 @@ static void sp_reset_pool(struct shared_pool_private *spp, uint64_t slot_count)
     spp->produce_counter = 0;
     spp->consume_counter = 0;
     spp->clear_counter = 0;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
 } // sp_reset_pool
 
 
@@ -326,7 +315,9 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
                     sizeof(struct shared_pool_private),
                     sizeof(struct shared_pool) );
 */
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
     return spp;
 } // end function: sp_create_shared_pool
 
@@ -382,7 +373,10 @@ errval_t sp_map_shared_pool(struct shared_pool_private *spp, struct capref cap,
             "with role [%"PRIu8"], slots[%"PRIu64"] and pool len[%"PRIu64"]\n",
             (uint64_t)mem_size, spp->mem_size, spp->role, spp->alloted_slots,
             spp->c_size);
+
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
     return SYS_ERR_OK;
 
 } // end function: sp_map_shared_pool
@@ -411,7 +405,10 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
     spp->sp->slot_list[id].d.len = len;
     spp->sp->slot_list[id].d.client_data = client_data;
     spp->sp->slot_list[id].d.ts = ts;
+
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
     // copy the s into shared_pool
 #if 0
 #if !defined(__scc__) && !defined(__i386__)
@@ -424,6 +421,8 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
 {
     assert(d != NULL);
     assert(s != NULL);
+    *d = *s;
+    /*
     d->buffer_id = s->buffer_id;
     d->pbuf_id = s->pbuf_id;
     d->offset = s->offset;
@@ -431,7 +430,10 @@ void sp_copy_slot_data(struct slot_data *d, struct slot_data *s)
     d->no_pbufs = s->no_pbufs;
     d->client_data = s->client_data;
     d->ts = s->ts;
+#ifndef DISABLE_MFENCE
     mfence();
+#endif
+*/
 }
 
 void sp_copy_slot_data_from_index(struct shared_pool_private *spp,
@@ -482,6 +484,7 @@ bool sp_set_read_index(struct shared_pool_private *spp, uint64_t idx)
 } // end function: sp_set_read_index
 
 
+// 9 mfence
 // Set the value of write index
 // To be used with sp_ghost_produce_slot
 bool sp_set_write_index(struct shared_pool_private *spp, uint64_t idx)
@@ -509,6 +512,9 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t idx)
     sp_atomic_set_reg(&spp->sp->write_reg, idx);
     sp_reload_regs(spp);
 //    spp->ghost_write_id = spp->c_write_id;
+    if (sp_queue_elements_count(spp) <= 1) {
+        ++spp->notify_other_side;
+    }
 
     if (sp_queue_full(spp)) {
         // There no free space left to create new items.
@@ -521,6 +527,33 @@ bool sp_set_write_index(struct shared_pool_private *spp, uint64_t idx)
     return true;
 } // end function: sp_set_write_index
 
+bool sp_increment_write_index(struct shared_pool_private *spp)
+{
+    sp_reload_regs(spp);
+    uint64_t idx = ((spp->c_write_id + 1) % spp->c_size);
+
+    if (sp_queue_empty(spp)) {
+        // Consumer is assuming that there is no data in the pool
+        // As we have created new data, we should inform
+        // the consumer to consume more!
+        // Typically means, I am slow!
+        ++spp->notify_other_side;
+    }
+
+
+    sp_atomic_set_reg(&spp->sp->write_reg, idx);
+    spp->c_write_id = idx;
+
+     if (sp_queue_full(spp)) {
+        // There no free space left to create new items.
+        // We should inform the consumer that it is slow!
+        // Typically means, consumer is slow!
+        ++spp->notify_other_side;
+    }
+
+    ++spp->produce_counter;
+    return true;
+} // end function: sp_increment_write_index
 
 
 uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
@@ -638,6 +671,7 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
 } // end function: sp_produce_slot
 
 
+// 9 mfence
 // Gost-add data into shared_pool
 // Add data into free slots, but don't increment write index
 // This allows adding multiple slots and then atomically increment write index
@@ -776,8 +810,8 @@ void sp_print_metadata(struct shared_pool_private *spp)
 */
     printf("SPP S PRO[%"PRIu64"],  CON[%"PRIu64"], CLEAR[%"PRIu64"]\n",
             spp->produce_counter, spp->consume_counter, spp->clear_counter);
-    printf("SPP S C C-R[%"PRIu64"],  C-W[%"PRIu64"]\n",
-            spp->c_read_id, spp->c_write_id);
+    printf("SPP S C C-R[%"PRIu64"],  C-W[%"PRIu64"] C-S[%"PRIu64"]\n",
+            spp->c_read_id, spp->c_write_id, spp->c_size);
 
     struct shared_pool *sp = spp->sp;
     assert(sp != NULL);

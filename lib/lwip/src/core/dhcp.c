@@ -374,7 +374,7 @@ void dhcp_coarse_tmr(void)
  *
  * A DHCP server is expected to respond within a short period of time.
  * This timer checks whether an outstanding DHCP request is timed out.
- * 
+ *
  */
 void dhcp_fine_tmr(void)
 {
@@ -627,11 +627,9 @@ err_t dhcp_start(struct netif *netif)
 {
     struct dhcp *dhcp;
     err_t result = ERR_OK;
-
     /* FIXME: make sure that if the calling process is not owner of LWIP stack
      * then it should not be allowed to continue. */
-    LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;
-      );
+    LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;);
     dhcp = netif->dhcp;
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE,
                 ("dhcp_start(netif=%p) %c%c%" U16_F "\n", (void *) netif,
@@ -644,6 +642,7 @@ err_t dhcp_start(struct netif *netif)
     if (netif->mtu < DHCP_MAX_MSG_LEN_MIN_REQUIRED) {
         LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE,
                     ("dhcp_start(): Cannot use this netif with DHCP: MTU is too small\n"));
+    printf("here 3 mtu %u < %u\n", netif->mtu, DHCP_MAX_MSG_LEN_MIN_REQUIRED);
         return ERR_MEM;
     }
 

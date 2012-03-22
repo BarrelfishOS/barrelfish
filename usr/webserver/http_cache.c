@@ -19,9 +19,12 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <nfs/nfs.h>
+#include <lwip/init.h>
 #include <lwip/ip_addr.h>
 #include <trace/trace.h>
 #include <timer/timer.h>
+#include <contmng/netbench.h>
+#include "webserver_network.h"
 #include "webserver_debug.h"
 #include "webserver_session.h"
 #include "http_cache.h"
@@ -72,6 +75,9 @@ static int cache_loaded_counter = 0;
 static int cache_loading_probs = 0;
 static void handle_cache_load_done(void);
 #endif // PRELOAD_WEB_CACHE
+
+// Variables for time measurement for performance
+static uint64_t last_ts = 0;
 
 /* allocate the buffer and initialize it. */
 static struct buff_holder *allocate_buff_holder (size_t len)
@@ -480,6 +486,10 @@ static void readdir_callback(void *arg, struct nfs_client *client,
     DEBUGPRINT ("readdir_callback came in\n");
     assert(result != NULL && result->status == NFS3_OK);
 
+    // FIXME: start here the measurement of file loading time
+
+    last_ts = rdtsc();
+//    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     // initiate a lookup for every entry
     for (entry3 *e = resok->reply.entries; e != NULL; e = e->nextentry) {
         ++cache_lookups_started;
@@ -533,6 +543,12 @@ static void handle_cache_load_done(void)
     printf("%s\n", buf);
 
 #endif // ENABLE_WEB_TRACING
+
+
+    // lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
+    // Report the cache loading time
+    printf("Cache loading time %"PU"\n", in_seconds(rdtsc() - last_ts));
+//    lwip_print_interesting_stats();
 
     /* continue with the web-server initialization. */
     init_callback(); /* do remaining initialization! */

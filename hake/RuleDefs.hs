@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Basic Hake rule definitions and combinators
--- 
+--
 --------------------------------------------------------------------------
 
 module RuleDefs where
@@ -31,7 +31,7 @@ debugFlag = False
 
 --
 -- Is a token to be displayed in a rule?
--- 
+--
 inRule :: RuleToken -> Bool
 inRule (Dep _ _ _) = False
 inRule (PreDep _ _ _) = False
@@ -40,15 +40,15 @@ inRule _ = True
 
 --
 -- Look for a set of files: this is called using the "find" combinator
--- 
+--
 withSuffix :: [String] -> String -> String -> [String]
-withSuffix af tf arg = 
+withSuffix af tf arg =
     [ basename f | f <- af, f `isInSameDirAs` tf, isSuffixOf arg f ]
 withSuffices :: [String] -> String -> [String] -> [String]
-withSuffices af tf args = 
+withSuffices af tf args =
     concat [ withSuffix af tf arg | arg <- args ]
 
--- 
+--
 -- Find files with a given suffix in a given dir
 --
 inDir :: [String] -> String -> String -> String -> [String]
@@ -109,7 +109,7 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/include",
                     "/include/dev" ]]
                  ++
-                 [ NoDep SrcTree "src" f | f <- [ 
+                 [ NoDep SrcTree "src" f | f <- [
                     "/kernel/include/arch" ./. arch,
                     "/kernel/include/arch" ./. archFamily arch,
                     "/kernel/include",
@@ -119,7 +119,7 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/include/c",
                     "/include/target" ./. archFamily arch]]
 
-kernelOptions arch = Options { 
+kernelOptions arch = Options {
             optArch = arch,
             optArchFamily = archFamily arch,
             optFlags = kernelCFlags arch,
@@ -128,7 +128,7 @@ kernelOptions arch = Options {
                 Str ("-DCONFIG_SCHEDULER_" ++ (show Config.scheduler)),
                 Str ("-DCONFIG_TIMESLICE=" ++ (show Config.timeslice)) ],
             optIncludes = kernelIncludes arch,
-            optDependencies = 
+            optDependencies =
                 [ Dep InstallTree arch "/include/errors/errno.h",
                   Dep InstallTree arch "/include/barrelfish_kpi/capbits.h",
                   Dep InstallTree arch "/include/asmoffsets.h" ],
@@ -187,23 +187,23 @@ cxxCompiler opts phase src obj
 --
 makeDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDepend opts phase src obj depfile
-    | optArch opts == "x86_64" = 
+    | optArch opts == "x86_64" =
         X86_64.makeDepend opts phase src obj depfile
-    | optArch opts == "x86_32" = 
+    | optArch opts == "x86_32" =
         X86_32.makeDepend opts phase src obj depfile
-    | optArch opts == "scc" = 
+    | optArch opts == "scc" =
         SCC.makeDepend opts phase src obj depfile
-    | optArch opts == "arm" = 
+    | optArch opts == "arm" =
         ARM.makeDepend opts phase src obj depfile
-    | optArch opts == "arm11mp" = 
+    | optArch opts == "arm11mp" =
         ARM11MP.makeDepend opts phase src obj depfile
-    | optArch opts == "xscale" = 
+    | optArch opts == "xscale" =
         XScale.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
 
 makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeCxxDepend opts phase src obj depfile
-    | optArch opts == "x86_64" = 
+    | optArch opts == "x86_64" =
         X86_64.makeCxxDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no C++ dependency generator for " ++ (optArch opts)) ]
 
@@ -264,7 +264,7 @@ nativeCCompiler = "$(CC)"
 -------------------------------------------------------------------------
 --
 -- Functions to create useful filenames
--- 
+--
 
 dependFilePath :: String -> String
 dependFilePath obj = obj ++ ".depend"
@@ -286,7 +286,7 @@ assemblerFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".s")
 -------------------------------------------------------------------------
 --
 -- Functions with logic to start doing things
--- 
+--
 
 --
 -- Create C file dependencies
@@ -362,14 +362,14 @@ archiveLibrary opts name objs libs =
 
 --
 -- Link an executable
--- 
+--
 linkExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
 linkExecutable opts objs libs bin =
     linker opts objs libs (applicationPath bin)
 
 --
 -- Link a C++ executable
--- 
+--
 linkCxxExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
 linkCxxExecutable opts objs libs bin =
     cxxlinker opts objs libs (applicationPath bin)
@@ -377,7 +377,7 @@ linkCxxExecutable opts objs libs bin =
 -------------------------------------------------------------------------
 
 
-                  
+
 
 
 -------------------------------------------------------------------------
@@ -392,7 +392,7 @@ linkCxxExecutable opts objs libs bin =
 -- We include cToAssembler to permit humans to type "make foo/bar.s"
 --
 compileCFile :: Options -> String -> HRule
-compileCFile opts src = 
+compileCFile opts src =
     Rules [ Rule (cCompiler opts "src" src (objectFilePath opts src)),
             Rule (makecToAssembler opts "src" src (objectFilePath opts src)),
             makeDependObj opts "src" src
@@ -402,7 +402,7 @@ compileCFile opts src =
 -- Compile a C++ file for a particular architecture
 --
 compileCxxFile :: Options -> String -> HRule
-compileCxxFile opts src = 
+compileCxxFile opts src =
     Rules [ Rule (cxxCompiler opts "src" src (objectFilePath opts src)),
             makeDependCxxObj opts "src" src
           ]
@@ -411,7 +411,7 @@ compileCxxFile opts src =
 -- Compile a C file for a particular architecture
 --
 compileGeneratedCFile :: Options -> String -> HRule
-compileGeneratedCFile opts src = 
+compileGeneratedCFile opts src =
     let o2 = opts { optSuffix = "" }
         arch = optArch o2
     in
@@ -425,22 +425,22 @@ compileCFiles opts srcs = Rules [ compileCFile opts s | s <- srcs ]
 compileCxxFiles :: Options -> [String] -> HRule
 compileCxxFiles opts srcs = Rules [ compileCxxFile opts s | s <- srcs ]
 compileGeneratedCFiles :: Options -> [String] -> HRule
-compileGeneratedCFiles opts srcs = 
+compileGeneratedCFiles opts srcs =
     Rules [ compileGeneratedCFile opts s | s <- srcs ]
 
--- 
+--
 -- Add a set of C (or whatever) dependences on a *generated* file.
 -- Somewhere else this file has to be defined as a target, of
 -- course...
 --
 extraCDependencyForObj :: Options -> String -> String -> String -> [RuleToken]
-extraCDependencyForObj opts file s obj = 
+extraCDependencyForObj opts file s obj =
     let arch = optArch opts
     in
       [ Target arch (dependFilePath obj),
         Target arch obj,
-        Dep BuildTree arch file 
-      ] 
+        Dep BuildTree arch file
+      ]
 
 extraCDependency :: Options -> String -> String -> HRule
 extraCDependency opts file s = Rule (extraCDependencyForObj opts file s obj)
@@ -448,26 +448,26 @@ extraCDependency opts file s = Rule (extraCDependencyForObj opts file s obj)
 
 
 extraCDependencies :: Options -> String -> [String] -> HRule
-extraCDependencies opts file srcs = 
+extraCDependencies opts file srcs =
     Rules [ extraCDependency opts file s | s <- srcs ]
 
 extraGeneratedCDependency :: Options -> String -> String -> HRule
-extraGeneratedCDependency opts file s = 
+extraGeneratedCDependency opts file s =
     extraCDependency (opts { optSuffix = "" }) file s
 
 --
 -- Copy include files to the appropriate directory
 --
 includeFile :: Options -> String -> HRule
-includeFile opts hdr = 
+includeFile opts hdr =
     Rules [ (Rule [ Str "cp", In SrcTree "src" hdr, Out (optArch opts) hdr ]),
-            (Rule [ PreDep BuildTree (optArch opts) hdr, 
+            (Rule [ PreDep BuildTree (optArch opts) hdr,
                     Target (optArch opts) "/include/errors/errno.h" ]
             )
           ]
 
--- 
--- Build a Mackerel header file from a definition. 
+--
+-- Build a Mackerel header file from a definition.
 --
 mackerelProgLoc = In InstallTree "tools" "/bin/mackerel"
 mackerelDevFileLoc d = In SrcTree "src" ("/devices" ./. (d ++ ".dev"))
@@ -480,14 +480,14 @@ mackerel :: Options -> String -> HRule
 mackerel opts dev = mackerel_generic opts dev "bitfield-driver"
 
 mackerel_generic :: Options -> String -> String -> HRule
-mackerel_generic opts dev flag = 
-    let 
+mackerel_generic opts dev flag =
+    let
         arch = optArch opts
     in
       Rule [ mackerelProgLoc,
-             Str ("--" ++ flag), 
+             Str ("--" ++ flag),
              Str "-c", mackerelDevFileLoc dev,
-             Str "-o", Out arch (mackerelDevHdrPath dev) 
+             Str "-o", Out arch (mackerelDevHdrPath dev)
            ]
 
 mackerelDependencies :: Options -> String -> [String] -> HRule
@@ -514,7 +514,7 @@ flounderExtraBindingPath opts ifn =
     (optSuffix opts) ./. (ifn ++ "_flounder_extra_bindings.c")
 
 flounderTHCHdrPath ifn = "/include/if" ./. (ifn ++ "_thc.h")
-flounderTHCStubPath opts ifn = 
+flounderTHCStubPath opts ifn =
     (optSuffix opts) ./. (ifn ++ "_thc.c")
 
 applicationPath name = "/sbin" ./. name
@@ -537,12 +537,12 @@ flounderRule :: Options -> [RuleToken] -> HRule
 flounderRule opts args
     = Rule $ [ flounderProgLoc ] ++ (flounderIncludes opts) ++ args
 
--- 
+--
 -- Build new-style Flounder header files from a definition
 -- (generic header, plus one per backend)
 --
 flounderGenDefs :: Options -> String -> HRule
-flounderGenDefs opts ifn = 
+flounderGenDefs opts ifn =
     Rules $ flounderRule opts [
            Str "--generic-header", flounderIfFileLoc ifn,
            Out (optArch opts) (flounderIfDefsPath ifn)
@@ -551,7 +551,7 @@ flounderGenDefs opts ifn =
            Out (optArch opts) (flounderIfDrvDefsPath ifn drv)]
            | drv <- Args.allFlounderBackends ]
 
--- 
+--
 -- Build a new Flounder binding file from a definition.
 -- This builds the binding for all enabled backends
 --
@@ -563,7 +563,7 @@ flounderBinding opts ifn =
 
 -- as above, but for a specific set of user-specified backends
 flounderExtraBinding :: Options -> String -> [String] -> [String] -> HRule
-flounderExtraBinding opts ifn backends = 
+flounderExtraBinding opts ifn backends =
     flounderBindingHelper opts ifn backends (flounderExtraBindingPath opts ifn)
 
 flounderBindingHelper :: Options -> String -> [String] -> String -> [String] -> HRule
@@ -579,27 +579,27 @@ flounderBindingHelper opts ifn backends cfile srcs = Rules $
         args = [Str "-a", Str archfam] ++ [Str $ "--" ++ d ++ "-stub" | d <- backends]
         allbackends = backends `union` optFlounderBackends opts \\ ["generic"]
 
--- 
--- Build a Flounder THC header file from a definition. 
+--
+-- Build a Flounder THC header file from a definition.
 --
 flounderTHCFile :: Options -> String -> HRule
-flounderTHCFile opts ifn = 
+flounderTHCFile opts ifn =
     flounderRule opts [
            Str "--thc-header", flounderIfFileLoc ifn,
            Out (optArch opts) (flounderTHCHdrPath ifn)
          ]
 
--- 
--- Build a Flounder THC stubs file from a definition. 
+--
+-- Build a Flounder THC stubs file from a definition.
 --
 flounderTHCStub :: Options -> String -> [String] -> HRule
-flounderTHCStub opts ifn srcs = 
+flounderTHCStub opts ifn srcs =
     let cfile = flounderTHCStubPath opts ifn
         hfile = flounderTHCHdrPath ifn
         arch = optArch opts
     in
       Rules [ flounderRule opts [
-                     Str "--thc-stubs", flounderIfFileLoc ifn, 
+                     Str "--thc-stubs", flounderIfFileLoc ifn,
                      Out arch cfile
                    ],
               compileGeneratedCFile opts cfile,
@@ -622,7 +622,7 @@ flounderDefsDepend opts ifn backends srcs = Rules $
 --
 
 flounderRules :: Options -> Args.Args -> [String] -> [HRule]
-flounderRules opts args csrcs = 
+flounderRules opts args csrcs =
     ([ flounderBinding opts f csrcs | f <- Args.flounderBindings args ]
      ++
      [ flounderExtraBinding opts f backends csrcs
@@ -647,15 +647,15 @@ flounderRules opts args csrcs =
 
 
 --
--- Build a Fugu library 
--- 
+-- Build a Fugu library
+--
 fuguFile :: Options -> String -> HRule
-fuguFile opts file = 
+fuguFile opts file =
     let arch = optArch opts
         cfile = file ++ ".c"
         hfile = "/include/errors/" ++ file ++ ".h"
     in
-      Rules [ Rule [In InstallTree "tools" "/bin/fugu", 
+      Rules [ Rule [In InstallTree "tools" "/bin/fugu",
                     In SrcTree "src" (file++".fugu"),
                     Out arch hfile,
                     Out arch cfile ],
@@ -664,9 +664,9 @@ fuguFile opts file =
 
 --
 -- Build a Hamlet file
--- 
+--
 hamletFile :: Options -> String -> HRule
-hamletFile opts file = 
+hamletFile opts file =
     let arch = optArch opts
         hfile = "/include/barrelfish_kpi/capbits.h"
         cfile = "cap_predicates.c"
@@ -678,7 +678,7 @@ hamletFile opts file =
       Rules [ Rule [In InstallTree "tools" "/bin/hamlet",
                     In SrcTree "src" (file++".hl"),
                     Out arch hfile,
-                    Out arch cfile, 
+                    Out arch cfile,
                     Out arch usercfile ],
               compileGeneratedCFile opts usercfile,
               Rule (archive opts [ ofile ] [] nfile afile)
@@ -688,42 +688,42 @@ hamletFile opts file =
 -- Link a set of object files and libraries together
 --
 link :: Options -> [String] -> [ String ] -> String -> HRule
-link opts objs libs bin = 
+link opts objs libs bin =
     Rule (linkExecutable opts objs libs bin)
 
 --
 -- Link a set of C++ object files and libraries together
 --
 linkCxx :: Options -> [String] -> [ String ] -> String -> HRule
-linkCxx opts objs libs bin = 
+linkCxx opts objs libs bin =
     Rule (linkCxxExecutable opts objs libs bin)
 
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
--- 
+--
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
-linkKernel opts name objs libs 
+linkKernel opts name objs libs
     | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "arm" = ARM.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | otherwise = 
+    | otherwise =
         Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
 -- Copy a file from one place to another
--- 
+--
 copy :: Options -> String -> String -> HRule
-copy opts src dest = 
+copy opts src dest =
     Rule [ Str "cp", In BuildTree (optArch opts) src, Out (optArch opts) dest ]
 
 --
 -- Assemble a list of S files for a particular architecture
 --
 assembleSFile :: Options -> String -> HRule
-assembleSFile opts src = 
+assembleSFile opts src =
     Rules [ Rule (assemble opts src),
             makeDependObj opts "src" src
           ]
@@ -742,7 +742,7 @@ staticLibrary opts libpath objs libs =
 -- Compile a Haskell binary (for the host architecture)
 --
 compileHaskell prog main deps = compileHaskellWithLibs prog main deps []
-compileHaskellWithLibs prog main deps dirs = 
+compileHaskellWithLibs prog main deps dirs =
     Rule ([ NStr "ghc -i",
             NoDep SrcTree "src" ".",
             Str "-odir ", NoDep BuildTree "tools" ".",
@@ -773,10 +773,10 @@ compileNativeC prog cfiles cflags ldflags =
 -- Build a Technical Note
 --
 buildTechNote :: String -> String -> Bool -> Bool -> [String] -> HRule
-buildTechNote input output bib glo figs = 
+buildTechNote input output bib glo figs =
     buildTechNoteWithDeps input output bib glo figs []
 buildTechNoteWithDeps :: String -> String -> Bool -> Bool -> [String] -> [RuleToken] -> HRule
-buildTechNoteWithDeps input output bib glo figs deps = 
+buildTechNoteWithDeps input output bib glo figs deps =
     let
         working_dir = NoDep BuildTree "tools" "/tmp/"
         style_files = [ "bfish-logo.pdf", "bftn.sty", "defs.bib", "barrelfish.bib" ]
@@ -805,25 +805,25 @@ buildTechNoteWithDeps input output bib glo figs deps =
 -- Transformations on file names
 --
 ----------------------------------------------------------------------
-   
+
 allObjectPaths :: Options -> Args.Args -> [String]
 allObjectPaths opts args =
-    [objectFilePath opts g 
+    [objectFilePath opts g
          | g <- (Args.cFiles args)++(Args.cxxFiles args)++(Args.assemblyFiles args)]
-    ++ 
-    [generatedObjectFilePath opts g 
-         | g <- [ flounderBindingPath opts f 
+    ++
+    [generatedObjectFilePath opts g
+         | g <- [ flounderBindingPath opts f
                       | f <- (Args.flounderBindings args)]
                 ++
-                [ flounderExtraBindingPath opts f 
+                [ flounderExtraBindingPath opts f
                       | (f, _) <- (Args.flounderExtraBindings args)]
                 ++
-                [ flounderTHCStubPath opts f 
+                [ flounderTHCStubPath opts f
                       | f <- (Args.flounderTHCStubs args)]
     ]
 
 allLibraryPaths :: Args.Args -> [String]
-allLibraryPaths args = 
+allLibraryPaths args =
     [ libraryPath l | l <- Args.addLibraries args ]
 
 
@@ -841,14 +841,14 @@ application :: Args.Args
 application = Args.defaultArgs { Args.buildFunction = applicationBuildFn }
 
 applicationBuildFn :: [String] -> String -> Args.Args -> HRule
-applicationBuildFn af tf args 
-    | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False 
+applicationBuildFn af tf args
+    | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False
         = undefined
-applicationBuildFn af tf args = 
+applicationBuildFn af tf args =
     Rules [ appBuildArch af tf args arch | arch <- Args.architectures args ]
 
-appGetOptionsForArch arch args = 
-    (options arch) { extraIncludes = 
+appGetOptionsForArch arch args =
+    (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
@@ -859,11 +859,11 @@ appGetOptionsForArch arch args =
                      optSuffix = "_for_app_" ++ Args.target args,
                      extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
-                     extraDependencies = 
+                     extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
-          
-appBuildArch af tf args arch = 
+
+appBuildArch af tf args arch =
     let -- Fiddle the options
         opts = appGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -893,11 +893,11 @@ library = Args.defaultArgs { Args.buildFunction = libraryBuildFn }
 
 libraryBuildFn :: [String] -> String -> Args.Args -> HRule
 libraryBuildFn af tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
-libraryBuildFn af tf args = 
+libraryBuildFn af tf args =
     Rules [ libBuildArch af tf args arch | arch <- Args.architectures args ]
 
-libGetOptionsForArch arch args = 
-    (options arch) { extraIncludes = 
+libGetOptionsForArch arch args =
+    (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
@@ -907,15 +907,15 @@ libGetOptionsForArch arch args =
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_lib_" ++ Args.target args,
                      extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
-                     extraDependencies = 
+                     extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
-       
-libBuildArch af tf args arch = 
+
+libBuildArch af tf args arch =
     let -- Fiddle the options
         opts = libGetOptionsForArch arch args
-        csrcs = Args.cFiles args 
-        cxxsrcs = Args.cxxFiles args 
+        csrcs = Args.cFiles args
+        cxxsrcs = Args.cxxFiles args
     in
       Rules ( flounderRules opts args csrcs
               ++
@@ -942,6 +942,8 @@ libposixcompat_deps = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["vfsfd", "posixcompat"]
 liblwip_deps        = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"procon" ,"timer" ,"hashtable"]
+libnetQmng_deps        = LibDeps $ [ LibDep x | x <- deps ]
+    where deps = ["net_queue_manager", "contmng" ,"procon" , "bfdmuxvm"]
 libnet_deps         = LibDeps $ [liblwip_deps, libposixcompat_deps]
 libnfs_deps         = LibDeps $ [ LibDep "nfs", libnet_deps]
 
@@ -968,6 +970,7 @@ str2dep  str
     | str == "posixcompat" = libposixcompat_deps
     | str == "lwip"        = liblwip_deps
     | str == "net"         = libnet_deps
+    | str == "netQmng"     = libnetQmng_deps
     | otherwise            = LibDep str
 
 -- get library depdencies
@@ -977,6 +980,8 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
     where xord = [ "vfs"
                   , "nfs"
                   , "posixcompat"
+                  , "net_queue_manager"
+                  , "bfdmuxvm"
                   , "lwip"
                   , "contmng"
                   , "procon"
@@ -984,3 +989,4 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "timer"
                   , "hashtable"]
           xcmp (LibDep a) (LibDep b) = compare (elemIndex a xord) (elemIndex b xord)
+

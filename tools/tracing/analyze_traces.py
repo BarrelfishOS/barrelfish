@@ -4,11 +4,46 @@ import sys
 import os
 import re
 
+TRACE_SUBSYS_NNET = 0x9000
 TRACE_SUBSYS_NET = 0x6000
-valid_cores = ["2 ","3 "]
-core_map = {2:"NIC", 3:"APP"}
+valid_cores = ["0 "]
+core_map = {0:"NIC", 3:"APP"}
 
+# Following constans are used for profiling modified stack
 event_map = {
+        0x0001 : "Start",
+        0x0002 : "Stop",
+        0x0003 : "Driver saw pkg (RX)",
+        0x0004 : "Ethersrv saw pkg",
+        0x0005 : "Ethersrv checked frag",
+        0x0006 : "Ethersrv app filtered",
+        0x0007 : "Ethersrv app c2u started",
+        0x0008 : "Ethersrv copied pkg",
+        0x000D : "Ethersrv spp produce done",
+        0x0009 : "Ethersrv app notify",
+        0x000A : "LWIP handle_incoming_",
+        0x000B : "LWIP call rec_handler",
+        0x000C : "APP received",
+
+        0x0020 : "APP sent",
+        0x0021 : "LWIP idc_send_packet",
+        0x0029 : "LWIP before mfence",
+        0x002A : "LWIP after mfence",
+        0x002B : "LWIP payload flushed",
+        0x002C : "LWIP bufferdesc fetched",
+        0x0022 : "LWIP spp produced",
+        0x0023 : "LWIP update spp index",
+        0x002D : "LWIP pending TX work",
+        0x0024 : "LWIP notify driver",
+        0x0025 : "Ethersrv notify recieved",
+        0x002E : "Ethersrv send_pkt_on_w..",
+        0x0026 : "Ethersrv send_sng_pkt..",
+        0x0027 : "Driver add pkg (TX)",
+        0x0028 : "Driver saw pkg done (TX)"
+        }
+
+
+event_map1 = {
 0X0001: "NET_START",
 0X0002: "NET_STOP",
 0X0003: "New_packet_came",
@@ -23,7 +58,7 @@ event_map = {
 0X000C: "reply_sent_by_NIC",
 0x000D: "app_done_with_pbuf",
 0x000E: "app_recved_TX_done",
-0x0010: "interrupt_came", 
+0x0010: "interrupt_came",
 0x0011: "ARP_packet_incoming",
 0x0012: "physical_interrupt_came",
 0x0013: "TX_Done_by_NIC",
@@ -40,9 +75,68 @@ event_map = {
 
 }
 
+kmap   = { 0xcccc: 'Context switch',
+           0xed00: 'Sched make runnable',
+           0xed01: 'Sched remove',
+           0xed02: 'Sched yield',
+           0xed02: 'Sched schedule',
+           0xed04: 'Sched current',
+         }
+
+tmap   = { 0x0400: 'Sem wait enter',
+           0x0401: 'Sem wait leave',
+           0x0402: 'Sem try wait',
+           0x0403: 'Sem post',
+         }
+
+netmap = { 0x0001: 'Start',
+           0x0002: 'Stop',
+
+           0x0003: 'Driver saw pkg (RX)',
+           0x0004: 'Ethersrv saw pkg',
+           0x0005: 'Ethersrv checked frag',
+           0x0006: 'Ethersrv app filtered',
+           0x0007: 'Ethersrv app c2u started',
+           0x0008: 'Ethersrv copied pkg',
+           0x0009: 'Ethersrv app notify',
+           0x000A: 'LWIP handle_incoming_',
+           0x000B: 'LWIP call rec_handler',
+           0x000C: 'APP recieved',
+           0x000D: 'Ethersrv spp produce done',
+
+           0x0020: 'APP sent',
+           0x0021: 'LWIP idc_send_packet',
+           0x0029: 'LWIP before mfence',
+           0x002A: 'LWIP after mfence',
+           0x002B: 'LWIP payload flushed',
+           0x002C: 'LWIP bufferdesc fetched',
+           0x0022: 'LWIP spp produced',
+           0x0023: 'LWIP update spp index',
+           0x002D: 'LWIP pending TX work',
+           0x0024: 'LWIP notify driver',
+           0x0025: 'Ethersrv notify recieved',
+           0x002E: 'Ethersrv send_pkt_on_w..',
+           0x0026: 'Ethersrv send_sng_pkt..',
+           0x0027: 'Driver add pkg (TX)',
+           0x0028: 'Driver saw pkg done (TX)',
+
+           0x0030: 'tcp_write done',
+           0x0031: 'tcp_output done',
+           0x0032: 'tcp_recved done',
+           0x0033: 'tx pbuf freed',
+           0x0034: 'tx pbuf memp start',
+           0x0035: 'tx pbuf memp done',
+           }
+
+
+ssmap  = { 0xffff: ('KERN', kmap),
+           0xeeee: ('THREAD', tmap),
+           0x9000: ('NET', netmap),
+         }
+
 NIC_IN_EVENTS = {
-0x0012: "physical interrupt came", 
-0x0010: "interrupt came", 
+0x0012: "physical interrupt came",
+0x0010: "interrupt came",
 0X0003: "New packet came",
 0X0004: "pkt processed",
 0X0005: "pkt uploaded"
@@ -64,6 +158,11 @@ NIC_OUT_EVENTS = {
 0X000C: "reply sent by NIC"
 }
 
+machine_speeds = {
+        'nos6' : 2799.877,
+        'sbrinz1' : 2511.0,
+        'ziger1' : 2400.367,
+        }
 #packet_boundries = [0X0012]
 #LOGICAL_ORDER = [0x012, 0x0010, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
 #				0x0008, 0x0009, 0x000A, 0x000b, 0x000c]
@@ -78,22 +177,28 @@ LOGICAL_ORDER = [0x0010, 0x0003, 0x0015, 0x0016, # 0x0019, 0x001a, 0x001b, 0x001
 #				0x000b, 0x000c]
 
 
+
 MAX_EVENT_NOREPLY = 9
 MAX_EVENTS = 0x00FF
 
 DEBUG = False
 #DEBUG = True
 
+MACHINE = 'ziger1'
+
 def dprint (args):
 	if DEBUG:
 		print args
 
 def c2t (cycles):
-	return ( cycles / (2800.0 * 1000.0))  # miliseconds
+#	return (cycles)  # cycles
+	return ( cycles / (machine_speeds[MACHINE]))  # micro seconds
 
 def print_event(event):
-	print "%-15f %-12f %-25s %-4s %-15x" % (c2t(event['TS']), 
-		c2t(event['DIFF']), event_map[event['EVENT']],
+	print "%-15f %-12f %-10s %-45s %-4s %-15x" % (c2t(event['TS']),
+		c2t(event['DIFF']),
+                ssmap[event['SYS']][0],
+                ssmap[event['SYS']][1][event['EVENT']],
 	 	core_map[event['CID']], event['INFO'])
 	#print event['DIFF_S'], event_map[event['EVENT']],\
 	#core_map[event['CID']], event['INFO']
@@ -131,10 +236,11 @@ def extract_events(in_f):
 #			raise
 
 
-		# Lets ignore non-networking events 
-		if  c_event['SYS'] != TRACE_SUBSYS_NET :
-			print "Non network event, ignoring " + line
-			continue
+		# Lets ignore non-networking events
+#		if  c_event['SYS'] != TRACE_SUBSYS_NNET :
+#			print "Non network event, ignoring " + \
+#                                str(c_event['SYS']) + " " + line
+#			continue
 
 		# Lets ignore start and stop events
 		if c_event['EVENT'] in [0x1, 0x2]:
@@ -192,7 +298,7 @@ def find_event_in_pkt(event_id, pkt):
 
 def add_packet_stat(pkt, stat):
 	stat['PKTS'] = stat['PKTS'] + 1
-	
+
 	# calculate packet lifetime
 	lifetime = pkt['EL'][-1]['TS'] - pkt['EL'][0]['TS']
 	if stat['PKTS'] == 1 :
@@ -205,7 +311,7 @@ def add_packet_stat(pkt, stat):
 			stat['PLIFE_MIN'] = lifetime
 		if lifetime > stat['PLIFE_MAX']:
 			stat['PLIFE_MAX'] = lifetime
-			
+
 #	stat['PLIFE'] = stat['PLIFE'] + ( pkt['EL'][-1]['TS'] - pkt['EL'][0]['TS'])
 
 	prev = None
@@ -222,8 +328,8 @@ def add_packet_stat(pkt, stat):
 			diff = 0
 		else:
 			diff = e['TS'] - prev['TS']
-		
-		
+
+
 		if stat['PKTS'] == 1 :
 			# This is the first packet
 			stat['MAX'][i] = diff
@@ -250,16 +356,16 @@ def print_stats(stat):
 	if stat['PKTS'] == 0 :
 		print "No answered packets!!"
 		return
-	
+
 	for i in LOGICAL_ORDER:
 		if stat['COUNT'][i] == 0 :
 			continue
 		avg = stat['SUM'][i] / stat['COUNT'][i]
 
-		print "e %-25s %5d %10f %10f %10f" % (event_map[i], stat['COUNT'][i], 
+		print "e %-25s %5d %10f %10f %10f" % (event_map[i], stat['COUNT'][i],
 							c2t(stat['MIN'][i]), c2t(avg), c2t(stat['MAX'][i]))
 
-#		print "e %s %d %f %f %f" % (event_map[i], stat['COUNT'][i], 
+#		print "e %s %d %f %f %f" % (event_map[i], stat['COUNT'][i],
 #							c2t(stat['MIN'][i]), c2t(avg), c2t(stat['MAX'][i]))
 
 	print "Packet lifespan %f/%f/%f" % (c2t(stat['PLIFE_MIN']),
@@ -277,8 +383,8 @@ def create_packet_list_stat():
 	plist_stat['SUM'] = []
 	plist_stat['MAX'] = []
 	plist_stat['MIN'] = []
-	
-	
+
+
 	for i in range(0x0001,MAX_EVENTS+1):
 		plist_stat['SUM'].append(0) #[i] = 0
 		plist_stat['COUNT'].append(0) #[i] = 0
@@ -298,7 +404,7 @@ def is_answered_packet(pkt):
 	if counter == len(LOGICAL_ORDER):
 		dprint("Answered..!!!!")
 		return True
-	
+
 	dprint("Not answered as common events are %d instead of %d"%(counter,
 						len(LOGICAL_ORDER)))
 	return False
@@ -340,7 +446,7 @@ def group_events(event_list):
 			is_appended = True
 		else:
 			if e['EVENT'] in packet_boundries :
-				packet_list.append(create_empty_packet(e, 
+				packet_list.append(create_empty_packet(e,
 				packet_list[-1]['STOP']))
 				is_appended = True
 
@@ -350,23 +456,24 @@ def group_events(event_list):
 			packet_list[-1]['EL'].append(e)
 		i = i + 1
 
-	return packet_list 
+	return packet_list
 
 def process_trace(in_f):
 	elist = diff_events(extract_events(in_f))
 	dprint("no. of events detected is " + str(len(elist)))
-#	show_event_list(elist)
-	plist = group_events(elist)
-	dprint("no. of packets detected is " + str(len(plist)))
+	show_event_list(elist)
+
+#	plist = group_events(elist)
+#	dprint("no. of packets detected is " + str(len(plist)))
 
 #	show_packet_list(plist)
 #	show_packet_list(plist, True)
-	show_answered_packets_list(plist)
+#	show_answered_packets_list(plist)
 
 def show_usage():
 	print "Usage: " + sys.argv[0] + " <traceFile>"
 
-	
+
 def main():
 	if len(sys.argv) != 2:
 		show_usage()

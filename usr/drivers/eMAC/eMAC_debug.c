@@ -16,7 +16,7 @@
 
 #include <stdio.h>
 #include "eMAC_driver.h"
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 //static eMAC_t *d;
 /*
  * Handy-dandy shorthand for printing registers: make sure you have a

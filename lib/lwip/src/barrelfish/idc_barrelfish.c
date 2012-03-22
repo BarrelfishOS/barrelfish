@@ -28,9 +28,9 @@
 #include "lwip/sys.h"
 #include "mem_barrelfish.h"
 #include "idc_barrelfish.h"
-#include <if/ether_defs.h>
-#include <if/netd_defs.h>
-#include <if/netd_rpcclient_defs.h>
+#include <if/net_queue_manager_defs.h>
+//#include <if/net_ports_defs.h>
+//#include <if/net_ports_rpcclient_defs.h>
 #include <barrelfish/bulk_transfer_arch.h>
 
 #include "lwip_barrelfish_debug.h"
@@ -40,6 +40,7 @@
 #define LWIP_TRACE_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
+//#define SPP_CARELESS
 
 static uint8_t new_debug = 0;
 static uint8_t benchmark_mode = 0;
@@ -63,7 +64,7 @@ struct waitset *lwip_waitset;
  * connections in the following array.
  *
  */
-struct ether_binding *driver_connection[2];
+struct net_queue_manager_binding *driver_connection[2];
 
 /* FIXME: merge the actual variable and status into one. */
 /**
@@ -85,6 +86,7 @@ static bool lwip_connected[2] = { false, false };
  */
 static int conn_nr = 0;
 
+static uint64_t alloted_queue_id = 0; // queue_id allocated to this application
 
 /**
  * \brief
@@ -143,7 +145,8 @@ uint64_t idc_get_packet_drop_count(void)
 static errval_t  send_sp_notification_from_app(struct q_entry e)
 {
     uint64_t ts = rdtsc();
-    struct ether_binding *b = (struct ether_binding *)e.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+            e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
 
     if (b->can_send(b)) {
@@ -157,8 +160,8 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
 
         errval_t err = b->tx_vtbl.sp_notification_from_app(b,
                           MKCONT(cont_queue_callback, ccnc->q),
-                          e.plist[0], ts);
-        // type, ts
+                          e.plist[0], e.plist[1], ts);
+        // queueid, type, ts
         if (benchmark_mode > 0) {
             netbench_record_event_simple(nb, TX_SN_SEND, ts);
         }
@@ -171,7 +174,8 @@ static errval_t  send_sp_notification_from_app(struct q_entry e)
     }
 }
 
-static void wrapper_send_sp_notification_from_app(struct ether_binding *b)
+static void wrapper_send_sp_notification_from_app(
+                                struct net_queue_manager_binding *b)
 {
     assert(b != NULL);
     struct q_entry entry;
@@ -189,8 +193,9 @@ static void wrapper_send_sp_notification_from_app(struct ether_binding *b)
     assert(ccnc != NULL);
     // Resetting the send_notification counter as we are sending
     // the notification
-    entry.plist[0] = 1;
-    entry.plist[1] = ts;
+    entry.plist[0] = ccnc->queueid;
+    entry.plist[1] = 1;
+    entry.plist[2] = ts;
     enqueue_cont_q(ccnc->q, &entry);
     if (benchmark_mode > 0) {
         netbench_record_event_simple(nb, TX_SP, ts);
@@ -294,17 +299,31 @@ static void sp_process_tx_done(bool debug)
 
 static void do_pending_work_TX_lwip(void)
 {
-    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    struct net_queue_manager_binding *b = driver_connection[TRANSMIT_CONNECTION];
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
     struct shared_pool_private *spp_send = ccnc->spp_ptr;
     assert(spp_send != NULL);
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWITXWORK,
+                    0);
+#endif // TRACE_ONLY_SUB_NNET
+
     if (spp_send->notify_other_side != 0) {
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWINOTIF,
+                    0);
+#endif // TRACE_ONLY_SUB_NNET
 
         // It seems that there we should send a notification to other side
         spp_send->notify_other_side = 0;
         wrapper_send_sp_notification_from_app(b);
     }
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWITXWORK,
+                    1);
+#endif // TRACE_ONLY_SUB_NNET
 
     // check and process any tx_done's
     sp_process_tx_done(false);
@@ -314,7 +333,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 {
     ptrdiff_t offset;
     struct slot_data s;
-    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    struct net_queue_manager_binding *b = driver_connection[TRANSMIT_CONNECTION];
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
     struct shared_pool_private *spp_send = ccnc->spp_ptr;
     assert(spp_send != NULL);
@@ -325,6 +344,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         netbench_record_event_no_ts(nb, TX_SND_PKT_C);
     }
 
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISEE,
+                (uint32_t) ((uintptr_t)p->payload));
+#endif // TRACE_ONLY_SUB_NNET
 
     // Find out no. of pbufs to send for single packet
     uint8_t numpbufs = 0;
@@ -338,7 +361,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
     // Make sure that spp has enough slots to accomodate this packet
     sp_reload_regs(spp_send);
     uint64_t free_slots_count = sp_queue_free_slots_count(spp_send);
-
+    // 4 mfence
     if (sp_queue_full(spp_send) || (free_slots_count < numpbufs)
             || (free_slots_count < 10) ) {
         if (benchmark_mode > 0) {
@@ -361,7 +384,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 
     // Add all pbufs of this packet into spp
     uint64_t ghost_write_index = sp_get_write_index(spp_send);
+    // 8 mfence
     uint64_t queue_size = sp_get_queue_size(spp_send);
+    // 12
 
     LWIPBF_DEBUG("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
             " for p %p\n", ghost_write_index, p);
@@ -370,9 +395,19 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         printf("##### send_pkt_to_network: ghost_write_index [%"PRIu64"]"
             " for p %p\n", ghost_write_index, p);
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIBFFENCE,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
 #if !defined(__scc__)
     mfence();                   // ensure that we flush all of the packet payload
 #endif                          // !defined(__scc__)
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIAFFENCE,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
 
     uint8_t i = 0;
     for (struct pbuf * tmpp = p; tmpp != 0; tmpp = tmpp->next) {
@@ -381,11 +416,19 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         netbench_record_event_no_ts(nb, TX_SND_PKT_S);
     }
 
-
+#if 0
 #if !defined(__scc__) && !defined(__i386__)
         cache_flush_range(tmpp->payload, tmpp->len);
 #endif // !defined(__scc__)
+#endif // 0
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIFLUSHED,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
+
+#ifndef SPP_CARELESS
         // sanity check: but we have already checked above if there is enough space
         if (sp_queue_full(spp_send)) {
             printf("Error state for pbuf part %"PRIu8", and old free slots "
@@ -394,9 +437,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             assert(!"This should not happen!");
             return 0;
         }
+#endif
 
         // Get all info about pbuf, and put it in slot data-structure
         struct buffer_desc *buf_p = mem_barrelfish_get_buffer_desc(p->payload);
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWIBDESC,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
+
         bulk_arch_prepare_send((void *) tmpp->payload, tmpp->len);
         offset = (uintptr_t) tmpp->payload - (uintptr_t) (buf_p->va);
 
@@ -408,9 +459,12 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         s.client_data = (uintptr_t)tmpp;
         s.ts = rdtsc();
 
+#ifndef SPP_CARELESS
         // Again, sanity check!
         // Making sure that the slot is not active anymore
         if (sp_is_slot_clear(spp_send, ghost_write_index) != 0) {
+            // Something unexpected is happening
+            // Printing messages to help debugging what is going on.
             printf("############ trying to clear %"PRIu64"\n",
                     ghost_write_index);
             sp_print_metadata(spp_send);
@@ -424,6 +478,14 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
                 assert(!"Slot not clear!!!\n");
             }
         }
+#endif
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISPPSND,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
+        // 16 mfence
 
         // Copy the slot in spp
         if (!sp_ghost_produce_slot(spp_send, &s, ghost_write_index)) {
@@ -439,10 +501,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
             printf ("#### to_network_driver, slot %"PRIu64" pbuf %p "
                 "of len %"PRIu16"\n", ghost_write_index, tmpp, tmpp->len);
 
+        // 25 mfence
+
         // Increment the ghost write index
         // FIXME: Use the inbuilt spp->ghost_write_id instead of following var.
         ghost_write_index = (ghost_write_index + 1) % queue_size;
     } // end for: for each pbuf in packet
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISPPIDX,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
 
     // Added all packets.  Now update the write_index to expose new data
     if (!sp_set_write_index(spp_send, ghost_write_index)) {
@@ -451,9 +520,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
         return 0;
     }
 
+    // 34 mfence
+
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXLWISPPIDX,
+                    (uint32_t) ((uintptr_t) p->payload));
+#endif // TRACE_ONLY_SUB_NNET
+
     if (benchmark_mode > 0) {
             netbench_record_event_simple(nb, TX_SP1, ts);
     }
+
 
 //  printf("idc_send_packet_to_network_driver  is done\n");
     // FIXME: check if there are any packets to send or receive
@@ -465,7 +542,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf * p)
 
 void debug_show_spp_status(int connection)
 {
-    struct ether_binding *b = driver_connection[connection];
+    struct net_queue_manager_binding *b = driver_connection[connection];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
     sp_print_metadata(ccnc->spp_ptr);
 }
@@ -473,7 +550,8 @@ void debug_show_spp_status(int connection)
 
 static errval_t send_buffer_cap(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+       e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
     struct shared_pool_private *spp = ccnc->spp_ptr;
     assert(spp != NULL);
@@ -488,10 +566,10 @@ static errval_t send_buffer_cap(struct q_entry e)
 //        printf("send_buffer_cap: sending register_buffer\n");
         errval_t err = b->tx_vtbl.register_buffer(b,
                           MKCONT(cont_queue_callback, ccnc->q),
-                          e.cap, spp->cap, spp->sp->size_reg.value,
-                          role);
+                          e.cap, spp->cap, ccnc->queueid,
+                          spp->sp->size_reg.value, role);
 
-        /* buf_cap, sp_cap, slot_no, role */
+        // buf_cap, sp_cap, queueid, slot_no, role
         if (err_is_fail(err)) {
             printf("send_buffer_cap: failed\n");
         }
@@ -515,7 +593,7 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
     entry.handler = send_buffer_cap;
     entry.fname = "send_buffer_cap";
 
-    struct ether_binding *b = driver_connection[binding_index];
+    struct net_queue_manager_binding *b = driver_connection[binding_index];
 
     entry.binding_ptr = (void *) b;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
@@ -530,7 +608,6 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
          * Specially the client_closure in network driver has only one pointer
          * for storing the buffers related to it. */
     }
-
 
     buff_ptr->con = driver_connection[binding_index];
 
@@ -556,7 +633,7 @@ void idc_register_buffer(struct buffer_desc *buff_ptr,
 
 int lwip_check_sp_capacity(int direction)
 {
-    struct ether_binding *b = driver_connection[direction];
+    struct net_queue_manager_binding *b = driver_connection[direction];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
     return sp_queue_free_slots_count(ccnc->spp_ptr);
 }
@@ -565,7 +642,7 @@ int lwip_check_sp_capacity(int direction)
 int idc_check_capacity(int direction)
 {
 //    RECEIVE_CONNECTION
-    struct ether_binding *b = driver_connection[direction];
+    struct net_queue_manager_binding *b = driver_connection[direction];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     return queue_free_slots(ccnc->q);
@@ -580,12 +657,16 @@ void idc_get_mac_address(uint8_t * mac_client)
     mac = mac_client;
     errval_t err;
 
+    struct net_queue_manager_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
     // FIXME: broken retry loop
     do {
         err =
           driver_connection[TRANSMIT_CONNECTION]->
           tx_vtbl.get_mac_address(driver_connection[TRANSMIT_CONNECTION],
-                                  NOP_CONT);
+                                  NOP_CONT,
+                                  ccnc->queueid);
+                        // queueid
         if (err_is_fail(err)) {
             if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
                 err = event_dispatch(lwip_waitset);
@@ -612,13 +693,15 @@ void idc_get_mac_address(uint8_t * mac_client)
 
 static errval_t send_print_statistics_request(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+        e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.print_statistics(b,
-                                           MKCONT(cont_queue_callback,
-                                                  ccnc->q));
+                          MKCONT(cont_queue_callback, ccnc->q),
+                          e.plist[0]);
+                // queueid
     } else {
         LWIPBF_DEBUG("send_print_stats_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -636,65 +719,37 @@ void idc_print_statistics(void)
     entry.handler = send_print_statistics_request;
     entry.fname = "send_print_statistics_request";
 
-    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
+    struct net_queue_manager_binding *b = driver_connection[TRANSMIT_CONNECTION];
 
     entry.binding_ptr = (void *) b;
 
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
+    entry.plist[0] = ccnc->queueid;
     enqueue_cont_q(ccnc->q, &entry);
 
     LWIPBF_DEBUG("idc_print_statistics: terminated\n");
-}
-
-
-static errval_t send_print_cardinfo_handler(struct q_entry e)
-{
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
-    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.print_cardinfo(b,
-                                         MKCONT(cont_queue_callback, ccnc->q));
-    } else {
-        LWIPBF_DEBUG("send_print_stats_request: Flounder busy,rtry+++++\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-
 }
 
 
 void idc_print_cardinfo(void)
 {
-    LWIPBF_DEBUG("idc_print_cardinfo: called\n");
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_print_cardinfo_handler;
-    entry.fname = "send_print_cardinfo_handler";
-
-    struct ether_binding *b = driver_connection[TRANSMIT_CONNECTION];
-
-    entry.binding_ptr = (void *) b;
-
-    struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
-
-    enqueue_cont_q(ccnc->q, &entry);
-
-    LWIPBF_DEBUG("idc_print_statistics: terminated\n");
+    printf("idc_print_cardinfo: Not yet Implemented\n");
+    // FIXME: It should send msg to device driver and not queue manager
 }
 
 
 static errval_t send_benchmark_control_request(struct q_entry e)
 {
-    struct ether_binding *b = (struct ether_binding *) e.binding_ptr;
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+        e.binding_ptr;
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     if (b->can_send(b)) {
         return b->tx_vtbl.benchmark_control_request(b,
                   MKCONT(cont_queue_callback, ccnc->q),
-                  (uint8_t) e.plist[0], e.plist[1], e.plist[2]);
-                  // status,     trigger,       cl
+                  e.plist[0], (uint8_t) e.plist[1], e.plist[2], e.plist[3]);
+                  // queueid,  status,     trigger,       cl
     } else {
         LWIPBF_DEBUG("send_benchmark_control_request: Flounder busy,rtry+++++\n");
         return FLOUNDER_ERR_TX_BUSY;
@@ -709,7 +764,7 @@ void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
      printf("idc_debug_status:  called with status %x [%"PRIu64"]\n",
      state, trigger);
 
-    new_debug = state;
+//    new_debug = state;
     struct q_entry entry;
     benchmark_mode = state;
     if (state == 1) {
@@ -720,16 +775,17 @@ void idc_benchmark_control(int connection, uint8_t state, uint64_t trigger,
 
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_benchmark_control_request;
-    struct ether_binding *b = driver_connection[connection];
+    struct net_queue_manager_binding *b = driver_connection[connection];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
 
     ccnc->benchmark_status = state;
     ccnc->benchmark_delta = 0;
     ccnc->benchmark_cl = cl;
     entry.binding_ptr = (void *) b;
-    entry.plist[0] = state;
-    entry.plist[1] = trigger;
-    entry.plist[2] = cl;
+    entry.plist[0] = ccnc->queueid;
+    entry.plist[1] = state;
+    entry.plist[2] = trigger;
+    entry.plist[3] = cl;
 
 /*    printf("idc_debug_status: q size [%d]\n",
             ccnc->q->head - ccnc->q->tail);
@@ -793,12 +849,13 @@ void idc_register_freeing_callback(void (*f) (struct pbuf *))
  ****************************************************************/
 
 
-static void new_buffer_id(struct ether_binding *st, errval_t err,
-                          uint64_t buffer_id)
+static void new_buffer_id(struct net_queue_manager_binding *st, errval_t err,
+                          uint64_t queueid, uint64_t buffer_id)
 {
     assert(err_is_ok(err));
     struct client_closure_NC *ccnc = (struct client_closure_NC *) st->st;
 
+    assert(queueid == ccnc->queueid);
     ccnc->buff_ptr->buffer_id = buffer_id;
 //    assign_id_to_latest_buffer(buffer_id);
     printf("[%d] new_buffer_id: buffer_id = %" PRIx64 "\n",
@@ -810,7 +867,8 @@ static void new_buffer_id(struct ether_binding *st, errval_t err,
 }
 
 
-static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
+static void get_mac_address_response(struct net_queue_manager_binding *st,
+        uint64_t queueid, uint64_t hwaddr)
 {
     LWIPBF_DEBUG("get_mac_address_response: called\n");
 
@@ -824,7 +882,7 @@ static void get_mac_address_response(struct ether_binding *st, uint64_t hwaddr)
 uint8_t get_driver_benchmark_state(int direction,
         uint64_t *delta, uint64_t *cl)
 {
-    struct ether_binding *b = driver_connection[direction];
+    struct net_queue_manager_binding *b = driver_connection[direction];
     struct client_closure_NC *ccnc = (struct client_closure_NC *) b->st;
     *delta = ccnc->benchmark_delta;
     *cl = ccnc->benchmark_cl;
@@ -833,8 +891,8 @@ uint8_t get_driver_benchmark_state(int direction,
 
 
 
-static void benchmark_control_response(struct ether_binding *b, uint8_t state,
-        uint64_t delta, uint64_t cl)
+static void benchmark_control_response(struct net_queue_manager_binding *b,
+        uint64_t queueid, uint8_t state, uint64_t delta, uint64_t cl)
 {
     LWIPBF_DEBUG("benchmark_control_response: called\n");
     assert(b != NULL);
@@ -867,6 +925,11 @@ static uint32_t handle_incoming_packets(void)
         netbench_record_event_simple(nb, TX_A_SP_RN_CS, rts);
     }
 */
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXLWIINCOM,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
 
     if (new_debug) printf("handle_incoming_pkts called\n");
     // Read the slots which are available in spp
@@ -904,6 +967,12 @@ static uint32_t handle_incoming_packets(void)
             pbuf_free(p);
         } else {
             assert(sslot.no_pbufs == 1);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXLWIINCOM,
+                (uint32_t) sslot.pbuf_id);
+#endif // TRACE_ONLY_SUB_NNET
+
             lwip_rec_handler(lwip_rec_data, sslot.pbuf_id,
                     sslot.offset, sslot.len, sslot.len, NULL);
         }
@@ -934,8 +1003,8 @@ uint64_t perform_lwip_work(void)
 
 
 
-static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
-        uint64_t rts)
+static void sp_notification_from_driver(struct net_queue_manager_binding *b,
+       uint64_t queueid, uint64_t type, uint64_t rts)
 {
     if (new_debug) printf("news from driver arrived!!\n");
     lwip_mutex_lock();
@@ -943,6 +1012,7 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
     assert(b != NULL);
     struct client_closure_NC *ccnc = (struct client_closure_NC *)b->st;
     assert(ccnc != NULL);
+    assert(ccnc->queueid == queueid);
     struct buffer_desc *buff = ccnc->buff_ptr;
     assert(buff != NULL);
     assert(ccnc->spp_ptr != NULL);
@@ -960,7 +1030,7 @@ static void sp_notification_from_driver(struct ether_binding *b, uint64_t type,
 } // end function: sp_notification_from_driver
 
 
-static struct ether_rx_vtbl rx_vtbl = {
+static struct net_queue_manager_rx_vtbl rx_vtbl = {
     .new_buffer_id = new_buffer_id,
     .sp_notification_from_driver = sp_notification_from_driver,
     .get_mac_address_response = get_mac_address_response,
@@ -969,7 +1039,7 @@ static struct ether_rx_vtbl rx_vtbl = {
 
 
 
-static void bind_cb(void *st, errval_t err, struct ether_binding *b)
+static void bind_cb(void *st, errval_t err, struct net_queue_manager_binding *b)
 {
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bind failed");
@@ -985,6 +1055,7 @@ static void bind_cb(void *st, errval_t err, struct ether_binding *b)
 
     memset(cc, 0, sizeof(struct client_closure_NC));
     b->st = cc;
+    cc->queueid = alloted_queue_id;  // Assigning the queueid to this connection
 
     char appname[200];
 
@@ -997,8 +1068,8 @@ static void bind_cb(void *st, errval_t err, struct ether_binding *b)
 
 /*
     printf("lwip: connected to  %d at [%p] + [%lu] = %p \n",
-    		conn_nr, b, sizeof(struct ether_binding),
-    		(void *)((uint64_t)b) + sizeof(struct ether_binding));
+    		conn_nr, b, sizeof(struct net_queue_manager_binding),
+    		(void *)((uint64_t)b) + sizeof(struct net_queue_manager_binding));
 
     LWIPBF_DEBUG("connection_service_logic: connection %d at [%p]\n",
     		conn_nr, b);
@@ -1008,28 +1079,33 @@ static void bind_cb(void *st, errval_t err, struct ether_binding *b)
 
 
 
+#define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 /**
  * \brief Connects the lwip instance with network card.
  *
  *
  */
-static void start_client(char *card_name)
+static void start_client(char *card_name, uint64_t queueid)
 {
 
     errval_t err;
     iref_t iref;
+    char qm_name[MAX_SERVICE_NAME_LEN] = {0};
 
+    alloted_queue_id = queueid;
     LWIPBF_DEBUG("start_client: called\n");
 
     if (card_name == NULL) {
-        card_name = "e1000";
+        printf("No card name was specified, aborting\n");
+        abort();
     }
 
-    LWIPBF_DEBUG("start_client: resolving driver %s\n", card_name);
+    snprintf(qm_name, sizeof(qm_name), "%s_%"PRIu64"", card_name, queueid);
+    LWIPBF_DEBUG("start_client: resolving driver %s\n", qm_name);
 
-    err = nameservice_blocking_lookup(card_name, &iref);
+    err = nameservice_blocking_lookup(qm_name, &iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "lwip: could not connect to the e1000 driver.\n"
+        DEBUG_ERR(err, "lwip: could not connect to the device driver.\n"
                   "Terminating.\n");
         abort();
     }
@@ -1037,7 +1113,8 @@ static void start_client(char *card_name)
 
     LWIPBF_DEBUG("start_client: connecting\n");
 
-    err = ether_bind(iref, bind_cb, NULL, lwip_waitset, IDC_BIND_FLAGS_DEFAULT);
+    err = net_queue_manager_bind(iref, bind_cb, NULL, lwip_waitset,
+            IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(err));     // XXX
 
     LWIPBF_DEBUG("start_client: terminated\n");
@@ -1050,12 +1127,12 @@ static void start_client(char *card_name)
  *
  */
 //void idc_client_init(char *card_name)
-void idc_connect_to_driver(char *card_name)
+void idc_connect_to_driver(char *card_name, uint64_t queueid)
 {
     conn_nr = 0;
 
     LWIPBF_DEBUG("idc_client_init: start client\n");
-    start_client(card_name);
+    start_client(card_name, queueid);
 
     LWIPBF_DEBUG("idc_client_init: wait connection 0\n");
     while (!lwip_connected[conn_nr]) {
@@ -1063,7 +1140,7 @@ void idc_connect_to_driver(char *card_name)
     }
     conn_nr++;
 
-    start_client(card_name);
+    start_client(card_name, queueid);
     /* one for sending and one for receiving */
     LWIPBF_DEBUG("idc_client_init: wait connection 1\n");
     while (!lwip_connected[conn_nr]) {

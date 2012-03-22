@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef NETD_DEBUG_H_
-#define NETD_DEBUG_H_
+#ifndef _NETD_DEBUG_H_
+#define _NETD_DEBUG_H_
 
 
 /*****************************************************************
@@ -21,4 +21,5 @@
 #define NETD_DEBUG(x...) ((void)0)
 #endif // defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 
-#endif // E1000_DEBUG_H_
+#endif // _NETD_DEBUG_H_
+

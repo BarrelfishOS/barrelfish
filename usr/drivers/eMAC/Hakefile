@@ -13,10 +13,10 @@
 [ build application { target = "eMAC",
                       cFiles = [ "eMAC_driver.c", "eMAC_hwinit.c",
                                  "eMAC_debug.c"],
-                      flounderBindings = [ "ether", "ether_control" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "net_soft_filters" ],
                       mackerelDevices = [ "eMAC" ],
-                      addLibraries = ["ethersrv", "contmng", "procon",
-                                            "bfdmuxvm", "lwip" ]
+                      addLibraries = libDeps [ "netQmng" ]
                     }
 ]
 

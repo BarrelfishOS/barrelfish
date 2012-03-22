@@ -13,7 +13,6 @@
  */
 
 #include <sys/endian.h>
-#include <lwip/inet.h>
 #include <bfdmuxvm/vm.h>
 #include <bfdmuxtools/bfdmux.h>
 
@@ -53,13 +52,13 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 	err_t           err;
 	switch (op) {
 		/*
-		 * --------------------- 
+		 * ---------------------
 		 */
 		/*
-		 * Single argument calls 
+		 * Single argument calls
 		 */
 		/*
-		 * --------------------- 
+		 * ---------------------
 		 */
 
 
@@ -82,18 +81,18 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		return ERR_OK;
 
 		/*
-		 * ----------------------------------------------------------------------------------- 
+		 * -----------------------------------------------------------------------------------
 		 */
 		/*
-		 * Special two argument calls (maybe we can break after evaluating 
-		 * the first argument) 
+		 * Special two argument calls (maybe we can break after evaluating
+		 * the first argument)
 		 */
 		/*
-		 * ----------------------------------------------------------------------------------- 
+		 * -----------------------------------------------------------------------------------
 		 */
 
 		// Logical
-		// 
+		//
 		// case OP_AND and OP_OR could be merged toghether
 	case OP_AND:				// Has a 32bit argument describing the
 		// whole treesize
@@ -157,7 +156,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		 * -------------------
 		 */
 		/*
-		 * One argument calls 
+		 * One argument calls
 		 */
 		/*
 		 * -------------------
@@ -194,15 +193,15 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 			if ((*result_value) + 3 >= packet_len)
 				return ERR_BAD_ACCESS;	// Access not withing packet
 			*result_value =
-				ntohl(*(uint32_t *) (packet_data + (*result_value)));
+			      ntohl(*(uint32_t *) (packet_data + (*result_value)));
 			return ERR_OK;
 		case OP_LOAD64:
 			// Packet access
 			if ((*result_value + 7) >= packet_len)
 				return ERR_BAD_ACCESS;	// Access not withing packet
-			// If we are on a littleendian machine, translate from network 
-			// 
-			// 
+			// If we are on a littleendian machine, translate from network
+			//
+			//
 			// order (bigendian) to hostorder
 		        res =
 				*(uint64_t *) (packet_data + (*result_value));
@@ -218,14 +217,14 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		 * -------------------
 		 */
 		/*
-		 * two argument calls 
+		 * two argument calls
 		 */
 		/*
 		 * -------------------
 		 */
 
 		/*
-		 * We also need the second argument 
+		 * We also need the second argument
 		 */
 		// Fetch 2nd argument
 		res = *result_value;
@@ -334,7 +333,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		}
 		return ERR_OK;
 		/*
-		 * End of default case 
+		 * End of default case
 		 */
 	}
 }

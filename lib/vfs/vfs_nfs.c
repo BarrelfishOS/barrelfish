@@ -33,9 +33,11 @@
 /// Define to enable asynchronous writes
 //#define ASYNC_WRITES
 
-//#define MAX_NFS_READ_BYTES   14000 /* 1330 */
+#define MAX_NFS_READ_CHUNKS  40  // FIXME: Not used anymore, should be removed
+
+//#define NONBLOCKING_NFS_READ   1
 #define MAX_NFS_READ_BYTES   1330 /*14000*//*workaround for breakage in lwip*/
-#define MAX_NFS_READ_CHUNKS  50
+
 #define MAX_NFS_WRITE_BYTES  1330 /* workaround for breakage in lwip */
 #define MAX_NFS_WRITE_CHUNKS 1    /* workaround for breakage in lwip */
 #define NFS_WRITE_STABILITY  UNSTABLE
@@ -58,7 +60,25 @@ static struct thread_cond wait_cond = THREAD_COND_INITIALIZER;
 // XXX: lwip idc_barrelfish.c
 extern struct waitset *lwip_waitset;
 
-static void wait_for_condition (void)
+static void check_and_handle_other_events(void)
+{
+    if (lwip_mutex == NULL) { // single-threaded
+        while (true) {
+            errval_t err = event_dispatch_non_block(lwip_waitset);
+            if (err == LIB_ERR_NO_EVENT) {
+                return;
+            }
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch_non_block");
+                break;
+            }
+        }
+    } else {
+        assert(!"NYI: ");
+    }
+}
+
+static void wait_for_condition(void)
 {
     if (lwip_mutex == NULL) { // single-threaded
         while (!wait_flag) {
@@ -70,6 +90,31 @@ static void wait_for_condition (void)
         thread_cond_wait(&wait_cond, lwip_mutex);
     }
 }
+
+// NOTE: just like above function, but it checks all events instead of
+// blocking on any perticular event
+// Above function was blocking on waiting for timer event even when there
+// are incoming packets to be processed. (only in the case of UMP)
+// FIXME: this is used only in read function and other functions are still
+// using above function. But this function should replace above function.
+static void wait_for_condition_fair(void)
+{
+    if (lwip_mutex == NULL) { // single-threaded
+        while (!wait_flag) {
+            check_and_handle_other_events();
+            wrapper_perform_lwip_work();
+            if (wait_flag) {
+                break;
+            }
+            errval_t err = event_dispatch(lwip_waitset);
+            assert(err_is_ok(err));
+        }
+        wait_flag = false;
+    } else {
+        assert(!"NYI: ");
+    }
+}
+
 
 static void signal_condition(void)
 {
@@ -221,7 +266,7 @@ static void read_callback(void *arg, struct nfs_client *client, READ3res *result
     struct nfs_file_parallel_io_handle *pfh = arg;
 
     assert(result != NULL);
-
+    uint64_t ts = rdtsc();
     // error
     if (result->status != NFS3_OK) {
         pfh->fh->status = result->status;
@@ -284,12 +329,13 @@ static void read_callback(void *arg, struct nfs_client *client, READ3res *result
 out:
     pfh->fh->chunks_in_progress--;
 
-    // allow the request thread to resume if we're the last chunk 
+    // allow the request thread to resume if we're the last chunk
     if (pfh->fh->chunks_in_progress == 0) {
         signal_condition();
     }
     // free arguments
     xdr_READ3res(&xdr_free, result);
+    lwip_record_event_simple(NFS_READCB_T, ts);
 }
 
 static void write_callback(void *arg, struct nfs_client *client, WRITE3res *result)
@@ -538,9 +584,10 @@ static errval_t opendir(void *st, const char *path, vfs_handle_t *rethandle)
     }
 }
 
-static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes,
-                     size_t *bytes_read)
+static errval_t read(void *st, vfs_handle_t inhandle, void *buffer,
+        size_t bytes, size_t *bytes_read)
 {
+    uint64_t ts = rdtsc();
     struct nfs_state *nfs = st;
     struct nfs_handle *h = inhandle;
     assert(h != NULL);
@@ -564,6 +611,7 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes
     // start a parallel load of the file, wait for it to complete
     int chunks = 0;
     while (fh.chunk_pos < fh.size && chunks < MAX_NFS_READ_CHUNKS) {
+//    while (fh.chunk_pos < fh.size) {
         struct nfs_file_parallel_io_handle *pfh =
             malloc(sizeof(struct nfs_file_parallel_io_handle));
 
@@ -577,19 +625,29 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes
                      pfh->chunk_size, read_callback, pfh);
 
         if (e == ERR_MEM) { // internal resource limit in lwip?
+            printf("read: error in nfs_read ran out of mem!!!\n");
+            printf("read: error chunks %d in progress %d!!!\n",
+                    chunks, (int)fh.chunks_in_progress);
             fh.chunk_pos -= pfh->chunk_size;
             free(pfh);
             break;
         }
         assert(e == ERR_OK);
         chunks++;
+#ifdef NONBLOCKING_NFS_READ
+        check_and_handle_other_events();
+#endif // NONBLOCKING_NFS_READ
     }
-    wait_for_condition();
+    lwip_record_event_simple(NFS_READ_1_T, ts);
+    uint64_t ts1 = rdtsc();
+    wait_for_condition_fair();
+    lwip_record_event_simple(NFS_READ_w_T, ts1);
 
     lwip_mutex_unlock();
 
     // check result
     if (fh.status != NFS3_OK) {
+  //      printf("read:vfs_nfs: fh.status issue %u\n", fh.status);
         return nfsstat_to_errval(fh.status);
     }
 
@@ -597,8 +655,13 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer, size_t bytes
     h->u.file.pos += fh.size;
     *bytes_read = fh.size;
 
-    if (fh.size < bytes) {
+    lwip_record_event_simple(NFS_READ_T, ts);
+    if (fh.size == 0) {
         /* XXX: assuming this means EOF, but we really do know from NFS */
+/*        printf("read:vfs_nfs: EOF marking %"PRIuPTR" < %"PRIuPTR","
+                "parallel NFS chunks [%u]\n",
+                fh.size, bytes, MAX_NFS_READ_CHUNKS);
+*/
         return VFS_ERR_EOF;
     } else {
         return SYS_ERR_OK;
@@ -722,7 +785,7 @@ static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
 
     lwip_mutex_lock();
     // We only set the size field for now
-    
+
     sattr3 new_attributes;
     new_attributes.mode.set_it = FALSE;
     new_attributes.uid.set_it = FALSE;
@@ -733,8 +796,8 @@ static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
     new_attributes.size.set_size3_u.size = bytes;
 
 
-    e = nfs_setattr(nfs->client, h->fh, 
-                    new_attributes, false, 
+    e = nfs_setattr(nfs->client, h->fh,
+                    new_attributes, false,
                     setattr_callback, NULL);
     assert(e == ERR_OK);
     wait_for_condition();
@@ -1200,6 +1263,7 @@ static errval_t read_block(void *st, vfs_handle_t inhandle, void *buffer,
     // start a parallel load of the file, wait for it to complete
     int chunks = 0;
     while (fh.chunk_pos < fh.size && chunks < MAX_NFS_READ_CHUNKS) {
+//    while (fh.chunk_pos < fh.size) {
         struct nfs_file_parallel_io_handle *pfh =
             malloc(sizeof(struct nfs_file_parallel_io_handle));
 
@@ -1217,7 +1281,7 @@ static errval_t read_block(void *st, vfs_handle_t inhandle, void *buffer,
         }
         assert(e == ERR_OK);
         chunks++;
-    }
+    } // end while
     wait_for_condition();
 
     lwip_mutex_unlock();

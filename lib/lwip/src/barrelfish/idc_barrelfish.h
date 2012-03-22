@@ -20,8 +20,8 @@
 #include <barrelfish/barrelfish.h>
 #include "lwip/pbuf.h"
 #include <lwip/ip_addr.h>
+#include <if/net_queue_manager_defs.h>
 #include <procon/procon.h>
-#include <if/ether_defs.h>
 #include <contmng/contmng.h>
 
 /**
@@ -37,7 +37,7 @@
 
 struct buffer_desc {
     struct capref cap;
-    struct ether_binding *con;
+    struct net_queue_manager_binding *con;
     lpaddr_t pa;
     void *va;
     size_t size;
@@ -55,13 +55,14 @@ struct client_closure_NC {
     uint8_t benchmark_status;
     uint64_t benchmark_delta;
     uint64_t benchmark_cl;
+    uint64_t queueid; // allocated queue id
     uint8_t  role;  // RX or TX buffer
 };
 
 
 
-void idc_connect_to_netd(char *server_name);
-void idc_connect_to_driver(char *card_name);
+void idc_connect_port_manager_service(char *service_name);
+void idc_connect_to_driver(char *card_name, uint64_t queueid);
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p);
 void idc_register_buffer(struct buffer_desc *buff_ptr,
@@ -89,6 +90,8 @@ uint64_t perform_lwip_work(void);
 uint8_t get_driver_benchmark_state(int direction, uint64_t *delta,
         uint64_t *cl);
 void debug_show_spp_status(int connection);
+
+// FIXME: following code needs cleaning
 /* netd services */
 void idc_connect_netd(void);
 
@@ -107,4 +110,17 @@ err_t idc_pause_tcp(struct ip_addr *local_ip, u16_t local_port,
 
 
 
-#endif                          // IDC_BARRELFISH_H_
+// ************************************************************************
+//                 ARP lookup interface function
+// ************************************************************************
+
+// connect to ARP lookup service
+void idc_connect_ARP_lookup_service(char *service_name);
+
+// get ip address from netd
+void idc_get_ip_from_ARP_lookup(void);
+
+// Request ARP lookup from netd
+uint64_t idc_ARP_lookup(uint32_t ip);
+
+#endif // IDC_BARRELFISH_H_

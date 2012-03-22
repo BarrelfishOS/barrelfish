@@ -16,7 +16,7 @@
 
 #include <stdio.h>
 #include "e1000n.h"
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 extern e1000_t d;
 
 /*
