@@ -47,11 +47,19 @@ errval_t caps_try_delete(struct cte *cte)
         return SYS_ERR_OK;
     }
 
-    if (!(distcap_is_foreign(cte) || has_copies(cte))) {
+    if (distcap_is_foreign(cte) || has_copies(cte)) {
+        return cleanup_copy(cte);
+    }
+    else if (!(cte->mdbnode.remote_relations
+               || cte->cap.type == ObjType_CNode
+               || cte->cap.type == ObjType_Dispatcher))
+    {
+        return cleanup_last(cte, NULL);
+    }
+    else {
         return SYS_ERR_DELETE_LAST_OWNED;
     }
 
-    return cleanup_copy(cte);
 }
 
 /**
@@ -60,6 +68,7 @@ errval_t caps_try_delete(struct cte *cte)
 errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
 {
     errval_t err;
+    assert(!has_copies(cte));
 
     // try simple delete
     // XXX: this really should always fail, enforce that? -MN
@@ -67,6 +76,8 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
     if (err_no(err) != SYS_ERR_DELETE_LAST_OWNED) {
         return err;
     }
+
+    assert(!cte->mdbnode.remote_relations);
 
     if (cte->cap.type == ObjType_CNode ||
         cte->cap.type == ObjType_Dispatcher)
@@ -138,6 +149,8 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     errval_t err;
     struct capability *cap = &cte->cap;
 
+    assert(!has_copies(cte));
+
     if (ret_ram_cap && ret_ram_cap->cap.type != ObjType_Null) {
         return SYS_ERR_SLOT_IN_USE;
     }
@@ -145,39 +158,41 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     struct RAM ram = { .bits = 0 };
     size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1;
 
-    // List all RAM-backed capabilities here
-    // NB: ObjType_PhysAddr and ObjType_DevFrame caps are *not* RAM-backed!
-    switch(cap->type) {
-    case ObjType_RAM:
-        ram.base = cap->u.ram.base;
-        ram.bits = cap->u.ram.bits;
-        break;
+    if (!has_descendants(cte) && !has_ancestors(cte)) {
+        // List all RAM-backed capabilities here
+        // NB: ObjType_PhysAddr and ObjType_DevFrame caps are *not* RAM-backed!
+        switch(cap->type) {
+        case ObjType_RAM:
+            ram.base = cap->u.ram.base;
+            ram.bits = cap->u.ram.bits;
+            break;
 
-    case ObjType_Frame:
-        ram.base = cap->u.frame.base;
-        ram.bits = cap->u.frame.bits;
-        break;
+        case ObjType_Frame:
+            ram.base = cap->u.frame.base;
+            ram.bits = cap->u.frame.bits;
+            break;
 
-    case ObjType_CNode:
-        ram.base = cap->u.cnode.cnode;
-        ram.bits = cap->u.cnode.bits + OBJBITS_CTE;
-        break;
+        case ObjType_CNode:
+            ram.base = cap->u.cnode.cnode;
+            ram.bits = cap->u.cnode.bits + OBJBITS_CTE;
+            break;
 
-    case ObjType_Dispatcher:
-        // Convert to genpaddr
-        ram.base = local_phys_to_gen_phys(mem_to_local_phys((lvaddr_t)cap->u.dispatcher.dcb));
-        ram.bits = OBJBITS_DISPATCHER;
-        break;
+        case ObjType_Dispatcher:
+            // Convert to genpaddr
+            ram.base = local_phys_to_gen_phys(mem_to_local_phys((lvaddr_t)cap->u.dispatcher.dcb));
+            ram.bits = OBJBITS_DISPATCHER;
+            break;
 
-    default:
-        // Handle VNodes here
-        if(type_is_vnode(cap->type)) {
-            // XXX: Assumes that all VNodes store base as first
-            // parameter and that it's a genpaddr_t
-            ram.base = cap->u.vnode_x86_64_pml4.base;
-            ram.bits = vnode_objbits(cap->type);
+        default:
+            // Handle VNodes here
+            if(type_is_vnode(cap->type)) {
+                // XXX: Assumes that all VNodes store base as first
+                // parameter and that it's a genpaddr_t
+                ram.base = cap->u.vnode_x86_64_pml4.base;
+                ram.bits = vnode_objbits(cap->type);
+            }
+            break;
         }
-        break;
     }
 
     err = cleanup_copy(cte);
@@ -198,11 +213,14 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             // note: this is a "success" code!
             err = SYS_ERR_RAM_CAP_CREATED;
         }
-        else {
+        else if (monitor_ep.type && monitor_ep.u.endpoint.listener != 0) {
             // XXX: This looks pretty ugly. We need an interface.
             err = lmp_deliver_payload(&monitor_ep, NULL,
                                       (uintptr_t *)&ram,
                                       len, false);
+        }
+        else {
+            printk(LOG_WARN, "dropping ram cap base %08"PRIxGENPADDR" bits %"PRIu8"\n", ram.base, ram.bits);
         }
         assert(err_is_ok(err));
     }

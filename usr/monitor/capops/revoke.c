@@ -337,7 +337,7 @@ revoke(struct domcapref cap, revoke_result_handler_t result_handler, void *st)
 
     err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
     if (err_is_fail(err)) {
-        return err;
+        return err_push(err, MON_ERR_RCAP_DB_LOCK);
     }
 
     struct revoke_st *rst = calloc(1, sizeof(struct revoke_st));

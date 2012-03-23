@@ -55,7 +55,7 @@ void set_cap_remote(struct cte *cte, bool is_remote)
 
 bool is_cap_remote(struct cte *cte) 
 {
-    return true;
+    return cte->mdbnode.remote_relations;
 }
 
 /// Check if #cte has any descendants
