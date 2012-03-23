@@ -561,23 +561,19 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
 {
     errval_t err;
 
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_addr, root_bits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
     struct cte *target;
-    err = caps_lookup_slot(root, target_addr, target_bits, &target, CAPRIGHTS_READ);
+    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
+
+    // XXX: wwwwwhyyyyy
+    ret_cn_addr >>= (CPTR_BITS-ret_cn_bits);
 
     struct capability *retcn;
     err = caps_lookup_cap(&dcb_current->cspace.cap, ret_cn_addr, ret_cn_bits, &retcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
-        return SYSRET(err);
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
 
     if (retcn->type != ObjType_CNode) {
@@ -599,21 +595,17 @@ struct sysret sys_monitor_revoke_step(capaddr_t root_addr, uint8_t root_bits,
 {
     errval_t err;
 
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_addr, root_bits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
     struct cte *target;
-    err = caps_lookup_slot(root, target_addr, target_bits, &target, CAPRIGHTS_READ);
+    err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
 
+    // XXX: wwwwwhyyyyy
+    del_cn_addr >>= (CPTR_BITS-del_cn_bits);
+
     struct capability *delcn;
-    err = caps_lookup_cap(root, target_addr, target_bits, &delcn, CAPRIGHTS_WRITE);
+    err = caps_lookup_cap(&dcb_current->cspace.cap, del_cn_addr, del_cn_bits, &delcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
     }
