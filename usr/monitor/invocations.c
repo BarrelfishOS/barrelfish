@@ -218,6 +218,6 @@ errval_t monitor_continue_revoke(struct capref croot, capaddr_t cptr, int bits, 
     capaddr_t ret_cn = ret_cap.cnode.address;
     uint8_t ret_cn_bits = ret_cap.cnode.address_bits;
     cslot_t ret_slot = ret_cap.slot;
-    return invoke_monitor_delete_last(root_addr, root_bits, cptr, bits,
-                                      ret_cn, ret_cn_bits, ret_slot);
+    return invoke_monitor_continue_revoke(root_addr, root_bits, cptr, bits,
+                                          ret_cn, ret_cn_bits, ret_slot);
 }

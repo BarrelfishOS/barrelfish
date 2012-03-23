@@ -189,4 +189,12 @@ invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
                        cbits, retcn, retcnbits, retslot).error;
 }
 
+static inline errval_t
+invoke_monitor_continue_revoke(capaddr_t root, int rbits, capaddr_t cap, int cbits,
+                           capaddr_t retcn, int retcnbits, cslot_t retslot)
+{
+    return cap_invoke8(cap_kernel, KernelCmd_Revoke_step, root, rbits, cap,
+                       cbits, retcn, retcnbits, retslot).error;
+}
+
 #endif
