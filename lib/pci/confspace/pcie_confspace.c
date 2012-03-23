@@ -73,6 +73,7 @@ int pcie_confspace_init(struct mm* mem_allocator, lpaddr_t base, uint16_t segmen
     if (r != 0) {
         return r;
     }*/
+    region_cap = ram_cap;
 
 
     memobj = malloc(sizeof(struct memobj_one_frame_lazy));
