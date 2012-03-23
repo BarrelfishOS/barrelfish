@@ -123,7 +123,6 @@ static errval_t
 cleanup_copy(struct cte *cte)
 {
     errval_t err;
-    printk(LOG_WARN, "cleanup_copy: NYI\n");
 
     struct capability *cap = &cte->cap;
 
