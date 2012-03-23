@@ -37,7 +37,7 @@ errval_t pcie_setup_confspace(void) {
     if (err_is_ok(err)) {
         PCI_DEBUG("calling confspace init with: %lu %d %d %d",
                 address, segment, sbus, ebus);
-        int r = pcie_confspace_init(address, segment, sbus, ebus);
+        int r = pcie_confspace_init(NULL, address, segment, sbus, ebus);
         assert(r == 0);
     }
 

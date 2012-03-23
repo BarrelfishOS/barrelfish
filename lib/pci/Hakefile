@@ -24,6 +24,7 @@
   -- read/write the PCI configuration space (see acpi_osglue.c).
   -- It would be best if we can completely avoid doing any PCI stuff in ACPI
   build library { target = "pciconfspace",
+                  flounderExtraDefs = [ ("acpi", ["rpcclient"]) ],
                   cFiles = [ "confspace/pci_confspace.c", "confspace/pcie_confspace.c" ],
                   architectures = [ "x86_64", "x86_32" ]
                 }

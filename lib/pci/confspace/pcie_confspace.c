@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mm/mm.h>
-
+#include <acpi_client/acpi_client.h>
 #include <pci/confspace/pci_confspace.h>
 
 static uint8_t startbus, endbus;
@@ -29,11 +29,8 @@ static bool pcie_enabled = true;
 
 /* FIXME: XXX: super-hacky bitfield to track if we already mapped something */
 static uint8_t *mapped_bitfield;
-// XXX: More badness
-struct mm pci_mm_physaddr;
 
-
-int pcie_confspace_init(lpaddr_t base, uint16_t segment, uint8_t startbusarg,
+int pcie_confspace_init(struct mm* mem_allocator, lpaddr_t base, uint16_t segment, uint8_t startbusarg,
                         uint8_t endbusarg)
 {
     int r;
@@ -51,8 +48,18 @@ int pcie_confspace_init(lpaddr_t base, uint16_t segment, uint8_t startbusarg,
 
     /* check that we have a cap for the whole region, and mark it allocated */
     struct capref ram_cap;
-    r = mm_alloc_range(&pci_mm_physaddr, region_bits, base,
-                       base + (1UL << region_bits), &ram_cap, NULL);
+    if (mem_allocator) {
+		r = mm_alloc_range(mem_allocator, region_bits, base,
+						   base + (1UL << region_bits), &ram_cap, NULL);
+    }
+    else {
+    	struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    	errval_t error_code;
+    	r = acl->vtbl.mm_alloc_range_proxy(acl, region_bits, base,
+    			base + (1UL << region_bits), &ram_cap, &error_code);
+    	assert(r == 0);
+    	r = error_code; // XXX: why has this code weird conventions like int r for errors?
+    }
     if (r != 0) {
         //PCI_DEBUG("pci_confspace_init: allocating %lx-%lx failed\n",
         //       base, base + (1UL << region_bits));

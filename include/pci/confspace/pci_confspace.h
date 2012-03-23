@@ -15,6 +15,8 @@
 #ifndef PCI_CONFSPACE_H
 #define PCI_CONFSPACE_H
 
+#include <mm/mm.h>
+
 #define PCI_NBUSES     256  ///< Maximum number of PCI buses
 #define PCI_NDEVICES    32  ///< Maximum number of PCI devices on a bus
 #define PCI_NFUNCTIONS   8  ///< Maximum number of PCI functions on a device
@@ -38,7 +40,7 @@ uint32_t pci_read_conf_header(struct pci_address *address, uint64_t dword);
 void pci_write_conf_header(struct pci_address *address, uint64_t dword,
                            uint32_t data);
 
-int pcie_confspace_init(lpaddr_t pbase, uint16_t segment, uint8_t startbus,
+int pcie_confspace_init(struct mm*, lpaddr_t pbase, uint16_t segment, uint8_t startbus,
                         uint8_t endbus);
 lvaddr_t pcie_confspace_access(struct pci_address addr);
 

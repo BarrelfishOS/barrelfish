@@ -24,6 +24,6 @@
                        addIncludes = [ "acpica/include" ],
                        addCFlags = [ "-Wno-redundant-decls" ],
                        addLibraries = [ "mm", "acpica", "skb", "pciconfspace", 
-                                        "octopus", "octopus_parser", "thc" ],
+                                        "octopus", "octopus_parser", "thc", "acpi_client" ],
                        architectures = [ "x86_64", "x86_32" ] }
 ]
