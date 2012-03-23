@@ -40,6 +40,36 @@ static void mm_realloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizeb
     ioapic_initialized = true;
 }*/
 
+static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
+		                                 genpaddr_t minbase, genpaddr_t maxlimit)
+{
+	ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: %lu maxlimit: %lu\n",
+			sizebits, minbase, maxlimit);
+
+	struct capref devframe = NULL_CAP;
+    errval_t err = mm_alloc_range(&pci_mm_physaddr, sizebits, minbase, maxlimit, &devframe, NULL);
+    if (err_is_fail(err)) {
+    	DEBUG_ERR(err, "mm realloc range failed...\n");
+    }
+
+    err = b->tx_vtbl.mm_alloc_range_proxy_response(b, NOP_CONT, devframe, err);
+    assert(err_is_ok(err));
+}
+
+static void mm_free_proxy_handler(struct acpi_binding* b, struct capref devframe,
+		                          uint64_t base, uint8_t sizebits)
+{
+	ACPI_DEBUG("mm_free_proxy_handler: base: %lu, sizebits: %d\n", base, sizebits);
+
+    errval_t err = mm_free(&pci_mm_physaddr, devframe, base, sizebits);
+    if (err_is_fail(err)) {
+    	DEBUG_ERR(err, "mm free failed...\n");
+    }
+
+    err = b->tx_vtbl.mm_free_proxy_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
 static void get_devframe_caps_handler(struct acpi_binding* b)
 {
     // XXX:
@@ -242,6 +272,8 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
     .set_device_irq_call = set_device_irq,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
     //.mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
+    .mm_alloc_range_proxy_call = mm_alloc_range_proxy_handler,
+    .mm_free_proxy_call = mm_free_proxy_handler,
 
     .get_devframe_caps_call = get_devframe_caps_handler,
 

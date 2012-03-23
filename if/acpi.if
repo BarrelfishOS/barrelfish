@@ -47,6 +47,9 @@ interface acpi "acpi RPC Interface" {
     // More Kludge; cap retrieval for pci
     rpc mm_realloc_range_proxy(in uint8 sizebits, in uint64 base, 
                                        out errval err, out cap devframe);
+    rpc mm_alloc_range_proxy(in uint8 sizebits, in uint64 minbase,
+                             in uint64 maxlimit, out cap devframe, out errval err);
+    rpc mm_free_proxy(in cap devframe, in uint64 base, in uint8 sizebits, out errval err);
 
     rpc get_devframe_caps(out cap dev_cnode, out errval err);
 };

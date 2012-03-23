@@ -12,9 +12,10 @@
 
 [  build application { target = "acpi",
                        flounderBindings = [ "acpi", "ioapic" ],
-                       flounderDefs = [ "monitor", "monitor_blocking" ],
-                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                       flounderDefs = [ "monitor", "monitor_blocking", "octopus" ],
+                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
                        flounderExtraBindings = [ ("ioapic", ["rpcclient"]) ],
+                       flounderTHCStubs = [ "octopus" ],
                        mackerelDevices = [ "acpi_ec", "lpc_ioapic" ],                      
                        cFiles = [ "acpi_main.c", "acpi.c","acpica_osglue.c",
                                   "video.c", "buttons.c", "acpi_ec.c",

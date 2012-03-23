@@ -112,6 +112,8 @@ static errval_t alloc_device_bar(uint8_t index,
                                  uint8_t BAR, pciaddr_t base, pciaddr_t high,
                                  pcisize_t size)
 {
+	struct acpi_rpc_client* acl = get_acpi_rpc_client();
+
     struct device_caps *c = &dev_caps[bus][dev][fun][index];
     errval_t err;
 
@@ -130,8 +132,13 @@ static errval_t alloc_device_bar(uint8_t index,
     }
 
     for (int i = 0; i < c->nr_caps; i++) {
-        err = mm_alloc_range(&pci_mm_physaddr, bits, base + i * framesize,
-                             base + (i + 1) * framesize, &c->phys_cap[i], NULL);
+        /*err = mm_alloc_range(&pci_mm_physaddr, bits, base + i * framesize,
+                             base + (i + 1) * framesize, &c->phys_cap[i], NULL);*/
+    	errval_t error_code;
+    	err = acl->vtbl.mm_alloc_range_proxy(acl, bits, base + i * framesize,
+    			base + (i + 1) * framesize, &c->phys_cap[i], &error_code);
+    	assert(err_is_ok(err));
+    	err = error_code;
         if (err_is_fail(err)) {
             PCI_DEBUG("mm_alloc_range() failed: bits = %hhu, base = %"PRIxPCIADDR","
                       " end = %"PRIxPCIADDR"\n",
@@ -139,9 +146,9 @@ static errval_t alloc_device_bar(uint8_t index,
             if (err_no(err) == MM_ERR_MISSING_CAPS && bits > PAGE_BITS) {
                 /* try again with smaller page-sized caps */
                 for (int j = 0; j < i; j++) {
-                    err = mm_free(&pci_mm_physaddr, c->phys_cap[i],
-                                  base + j * framesize, bits);
-                    assert(err_is_ok(err));
+                	err = acl->vtbl.mm_free_proxy(acl, c->phys_cap[i],
+                			base + j * framesize, bits, &error_code);
+                    assert(err_is_ok(err) && err_is_ok(error_code));
                 }
 
                 free(c->phys_cap);

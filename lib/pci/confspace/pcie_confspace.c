@@ -60,11 +60,13 @@ int pcie_confspace_init(lpaddr_t base, uint16_t segment, uint8_t startbusarg,
     }
 
     /* create frame cap to whole region */
+    /*
     r = devframe_type(&region_cap, ram_cap, region_bits);
     assert(r == 0);
     if (r != 0) {
         return r;
-    }
+    }*/
+
 
     memobj = malloc(sizeof(struct memobj_one_frame_lazy));
     assert(memobj);
