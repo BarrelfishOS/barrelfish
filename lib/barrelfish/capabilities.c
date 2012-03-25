@@ -168,7 +168,7 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
-    } while (remote_cap_err == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
 
     return remote_cap_err;
 
@@ -196,7 +196,7 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
         }
-    } while (remote_cap_err == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
 
     return remote_cap_err;
 }
@@ -223,7 +223,7 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
         }
-    } while (remote_cap_err == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
 
     return remote_cap_err;
 }
@@ -257,7 +257,7 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     err = invoke_cnode_retype(cap_root, scp_addr, new_type, size_bits,
                               dcn_addr, dest_start.slot, dcn_vbits);
 
-    if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_retype_remote(scp_addr, new_type, size_bits,
                                  dcn_addr, dest_start.slot, dcn_vbits);
     } else {
@@ -310,7 +310,7 @@ errval_t cap_delete(struct capref cap)
 
     err = invoke_cnode_delete(cap_root, caddr, vbits);
 
-    if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_delete_remote(caddr, vbits);
     } else {
         return err;
@@ -334,7 +334,7 @@ errval_t cap_revoke(struct capref cap)
 
     err = invoke_cnode_revoke(cap_root, caddr, vbits);
 
-    if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_revoke_remote(caddr, vbits);
     } else {
         return err;
