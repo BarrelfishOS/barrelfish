@@ -158,6 +158,9 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
                                   int dcn_vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    if (!mrc) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
     errval_t err, remote_cap_err;
     int count = 0;
     do {
@@ -188,6 +191,9 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
 static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    if (!mrc) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
     errval_t err, remote_cap_err;
     int count = 0;
     do {
@@ -215,6 +221,9 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
 static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    if (!mrc) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
     errval_t err, remote_cap_err;
     int count = 0;
     do {

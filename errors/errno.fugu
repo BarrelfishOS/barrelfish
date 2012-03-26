@@ -302,6 +302,7 @@ errors libbarrelfish LIB_ERR_ {
     failure NO_UMP_BIND_HANDLER "UMP connection handler not registered for this service",
     failure MONITOR_CAP_SEND    "Failed sending capability via monitor",
     failure MONITOR_RPC_BIND    "Error in monitor_rpc_init()",
+    failure MONITOR_RPC_NULL    "Monitor RPC client is uninitialized",
 
     // multihop
     failure BIND_MULTIHOP_REQ   "Failed sending bind_multihop_request to monitor",
