@@ -374,6 +374,18 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
     }
 
+    /* Transfer cap ownership to new core */
+    err = monitor_set_cap_owner(cap_root, get_cap_addr(spawn_memory_cap),
+                                get_cap_valid_bits(spawn_memory_cap), coreid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_set_cap_owner for spawn_memory_cap failed");
+    }
+    err = monitor_set_cap_owner(cap_root, get_cap_addr(cpu_memory_cap),
+                                get_cap_valid_bits(cpu_memory_cap), coreid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_set_cap_owner for cpu_memory_cap failed");
+    }
+
     /* Invoke kernel capability to boot new core */
     err = invoke_monitor_spawn_core(hwid, cpu_type, foreign_cpu_reloc_entry);
     if (err_is_fail(err)) {
