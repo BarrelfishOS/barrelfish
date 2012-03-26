@@ -563,7 +563,6 @@ int main(int argc, char ** argv)
     trace_init_disp();
 #endif
 
-    static bool in_rpc_init = false;
     // handle messages on this thread
     while (true) {
         err = event_dispatch(ws);
@@ -572,6 +571,8 @@ int main(int argc, char ** argv)
             return EXIT_FAILURE;
         }
 
+#if 0
+        static bool in_rpc_init = false;
         if (do_rpc_init && !in_rpc_init && !get_monitor_blocking_rpc_client()) {
             // XXX: this is an ugly hack try and get a monitor rpc client once
             // the monitor is ready
@@ -580,9 +581,13 @@ int main(int argc, char ** argv)
             /* Bind with monitor's blocking rpc channel */
             err = monitor_client_blocking_rpc_init();
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "could not initialize monitor rpc");
+                DEBUG_ERR(err, "monitor_client_blocking_rpc_init");
+            }
+            else {
+                debug_printf("got monitor_blocking_rpc_client\n");
             }
             in_rpc_init = false;
         }
+#endif
     }
 }
