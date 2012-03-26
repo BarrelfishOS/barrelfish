@@ -513,20 +513,24 @@ static struct sysret monitor_handle_domain_id(struct capability *monitor_cap,
 static struct sysret monitor_get_cap_owner(struct capability *monitor_cap,
                                            int cmd, uintptr_t *args)
 {
-    capaddr_t cptr = args[0];
-    uint8_t bits = args[1];
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
 
-    return sys_get_cap_owner(cptr, bits);
+    return sys_get_cap_owner(root_addr, root_bits, cptr, bits);
 }
 
 static struct sysret monitor_set_cap_owner(struct capability *monitor_cap,
                                            int cmd, uintptr_t *args)
 {
-    capaddr_t cptr = args[0];
-    uint8_t bits = args[1];
-    coreid_t owner = args[2];
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
+    coreid_t owner = args[4];
 
-    return sys_set_cap_owner(cptr, bits, owner);
+    return sys_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
 }
 
 static struct sysret monitor_lock_cap(struct capability *monitor_cap,
