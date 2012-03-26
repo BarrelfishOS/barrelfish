@@ -96,8 +96,8 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
         uint8_t block_size = bitaddralign(remain, base_addr);
 
         /* Create the capability */
-        err = caps_create_new(cap_type, base_addr, block_size, block_size,
-                            caps_locate_slot(cnode->u.cnode.cnode, (*slot)++));
+        err = caps_create_new(cap_type, base_addr, block_size, block_size, my_core_id,
+                              caps_locate_slot(cnode->u.cnode.cnode, (*slot)++));
         if (err_is_fail(err)) {
             return err;
         }
@@ -139,13 +139,15 @@ struct dcb *spawn_module(struct spawn_state *st,
     // must be static, because this CTE will be entered into the MDB!
     static struct cte rootcn;
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                        BASE_PAGE_BITS, DEFAULT_CNODE_BITS, &rootcn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, my_core_id,
+                          &rootcn);
     assert(err_is_ok(err));
 
     // Task cnode in root cnode
     st->taskcn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_TASKCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->taskcn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, my_core_id,
+                          st->taskcn);
     assert(err_is_ok(err));
     st->taskcn->cap.u.cnode.guard_size = GUARD_REMAINDER(2 * DEFAULT_CNODE_BITS);
 
@@ -153,20 +155,22 @@ struct dcb *spawn_module(struct spawn_state *st,
     st->pagecn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_PAGECN);
     err = caps_create_new(ObjType_CNode,
                           alloc_phys(1UL << (OBJBITS_CTE + PAGE_CNODE_BITS)),
-                          PAGE_CNODE_BITS + OBJBITS_CTE,
-                          PAGE_CNODE_BITS, st->pagecn);
+                          PAGE_CNODE_BITS + OBJBITS_CTE, PAGE_CNODE_BITS,
+                          my_core_id, st->pagecn);
     assert(err_is_ok(err));
 
     // Base page cnode in root cnode
     st->basepagecn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_BASE_PAGE_CN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->basepagecn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, my_core_id,
+                          st->basepagecn);
     assert(err_is_ok(err));
 
     // Super cnode in root cnode
     st->supercn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, my_core_id,
+                          st->supercn);
     assert(err_is_ok(err));
 
     // slot_alloc cnodes in root cnode
@@ -174,7 +178,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     err = caps_create_new(ObjType_CNode,
                           alloc_phys(1UL << (OBJBITS_CTE + SLOT_ALLOC_CNODE_BITS)),
                           SLOT_ALLOC_CNODE_BITS + OBJBITS_CTE,
-                          SLOT_ALLOC_CNODE_BITS,
+                          SLOT_ALLOC_CNODE_BITS, my_core_id,
                           st->slot_alloc_cn0);
     assert(err_is_ok(err));
 
@@ -182,7 +186,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     err = caps_create_new(ObjType_CNode,
                           alloc_phys(1UL << (OBJBITS_CTE + SLOT_ALLOC_CNODE_BITS)),
                           SLOT_ALLOC_CNODE_BITS + OBJBITS_CTE,
-                          SLOT_ALLOC_CNODE_BITS,
+                          SLOT_ALLOC_CNODE_BITS, my_core_id,
                           st->slot_alloc_cn1);
     assert(err_is_ok(err));
 
@@ -190,22 +194,23 @@ struct dcb *spawn_module(struct spawn_state *st,
     err = caps_create_new(ObjType_CNode,
                           alloc_phys(1UL << (OBJBITS_CTE + SLOT_ALLOC_CNODE_BITS)),
                           SLOT_ALLOC_CNODE_BITS + OBJBITS_CTE,
-                          SLOT_ALLOC_CNODE_BITS,
+                          SLOT_ALLOC_CNODE_BITS, my_core_id,
                           st->slot_alloc_cn2);
     assert(err_is_ok(err));
 
     // Seg cnode in root cnode
     st->segcn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SEGCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                        BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->segcn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, my_core_id,
+                          st->segcn);
     assert(err_is_ok(err));
 
     // Physaddr cnode in root cnode
     st->physaddrcn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_PACN);
     err = caps_create_new(ObjType_CNode,
-                        alloc_phys(1UL << (OBJBITS_CTE + PHYSADDRCN_BITS)),
-                        OBJBITS_CTE + PHYSADDRCN_BITS,
-                        PHYSADDRCN_BITS, st->physaddrcn);
+                          alloc_phys(1UL << (OBJBITS_CTE + PHYSADDRCN_BITS)),
+                          OBJBITS_CTE + PHYSADDRCN_BITS, PHYSADDRCN_BITS,
+                          my_core_id, st->physaddrcn);
     assert(err_is_ok(err));
 
     if (arch_core_is_bsp()) {
@@ -213,8 +218,8 @@ struct dcb *spawn_module(struct spawn_state *st,
         st->modulecn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_MODULECN);
         err = caps_create_new(ObjType_CNode,
                               alloc_phys(1UL << (OBJBITS_CTE + MODULECN_SIZE_BITS)),
-                              MODULECN_SIZE_BITS + OBJBITS_CTE, MODULECN_SIZE_BITS,
-                              st->modulecn);
+                              MODULECN_SIZE_BITS + OBJBITS_CTE,
+                              MODULECN_SIZE_BITS, my_core_id, st->modulecn);
         assert(err_is_ok(err));
     }
 
@@ -224,7 +229,7 @@ struct dcb *spawn_module(struct spawn_state *st,
                                                 TASKCN_SLOT_DISPATCHER);
     err = caps_create_new(ObjType_Dispatcher,
                           alloc_phys(1UL << OBJBITS_DISPATCHER),
-                          OBJBITS_DISPATCHER, 0, init_dcb_cte);
+                          OBJBITS_DISPATCHER, 0, my_core_id, init_dcb_cte);
     assert(err_is_ok(err));
     struct dcb *init_dcb = init_dcb_cte->cap.u.dispatcher.dcb;
 
@@ -236,8 +241,8 @@ struct dcb *spawn_module(struct spawn_state *st,
     struct cte *init_dispframe_cte = caps_locate_slot(CNODE(st->taskcn),
                                                       TASKCN_SLOT_DISPFRAME);
     err = caps_create_new(ObjType_Frame, alloc_phys(1 << DISPATCHER_FRAME_BITS),
-                        DISPATCHER_FRAME_BITS, DISPATCHER_FRAME_BITS,
-                        init_dispframe_cte);
+                          DISPATCHER_FRAME_BITS, DISPATCHER_FRAME_BITS,
+                          my_core_id, init_dispframe_cte);
     assert(err_is_ok(err));
 
     // Copy dispatcher frame to the dcb struct
@@ -248,7 +253,8 @@ struct dcb *spawn_module(struct spawn_state *st,
     struct cte *init_args_cte = caps_locate_slot(CNODE(st->taskcn),
                                                  TASKCN_SLOT_ARGSPAGE);
     err = caps_create_new(ObjType_Frame, alloc_phys(ARGS_SIZE),
-                          ARGS_FRAME_BITS, ARGS_FRAME_BITS, init_args_cte);
+                          ARGS_FRAME_BITS, ARGS_FRAME_BITS, my_core_id,
+                          init_args_cte);
     st->args_page = gen_phys_to_local_phys(init_args_cte->cap.u.frame.base);
 
     if (arch_core_is_bsp()) {
@@ -258,25 +264,27 @@ struct dcb *spawn_module(struct spawn_state *st,
         struct cte *bootinfo_cte = caps_locate_slot(CNODE(st->taskcn),
                                                     TASKCN_SLOT_BOOTINFO);
         /* DevFrame to prevent zeroing! */
-        err = caps_create_new(ObjType_DevFrame, bootinfo,
-                              BOOTINFO_SIZEBITS, BOOTINFO_SIZEBITS, bootinfo_cte);
+        /* Note: Since this is only done in the bsp, we can safely assume we
+         * own the bootinfo memory */
+        err = caps_create_new(ObjType_DevFrame, bootinfo, BOOTINFO_SIZEBITS,
+                              BOOTINFO_SIZEBITS, my_core_id, bootinfo_cte);
         assert(err_is_ok(err));
     }
 
     // Map kernel Cap in task cnode
     struct cte *kernelcap_cte = caps_locate_slot(CNODE(st->taskcn),
                                                  TASKCN_SLOT_KERNELCAP);
-    err = caps_create_new(ObjType_Kernel, 0, 0, 0, kernelcap_cte);
+    err = caps_create_new(ObjType_Kernel, 0, 0, 0, my_core_id, kernelcap_cte);
     assert(err_is_ok(err));
 
     // Create capability for performance monitoring
     struct cte *perfmoncap_cte = caps_locate_slot(CNODE(st->taskcn),
                                                    TASKCN_SLOT_PERF_MON);
-    err = caps_create_new(ObjType_PerfMon, 0, 0, 0, perfmoncap_cte);
+    err = caps_create_new(ObjType_PerfMon, 0, 0, 0, my_core_id, perfmoncap_cte);
     assert(err_is_ok(err));
 
     // Map IRQ table in task cnode
-    err = caps_create_new(ObjType_IRQTable, 0, 0, 0,
+    err = caps_create_new(ObjType_IRQTable, 0, 0, 0, my_core_id,
                           caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IRQ));
     assert(err_is_ok(err));
 
@@ -328,7 +336,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     /* Fill up base page CN (pre-allocated 4K pages) */
     for(size_t i = 0; i < (1UL << (BASE_PAGE_BITS - OBJBITS_CTE)); i++) {
         err = caps_create_new(ObjType_RAM, alloc_phys(BASE_PAGE_SIZE),
-                              BASE_PAGE_BITS, BASE_PAGE_BITS,
+                              BASE_PAGE_BITS, BASE_PAGE_BITS, my_core_id,
                               caps_locate_slot(CNODE(st->basepagecn), i));
         assert(err_is_ok(err));
     }

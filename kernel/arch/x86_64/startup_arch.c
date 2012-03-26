@@ -490,27 +490,27 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
     int     pagecn_pagemap = 0;
     // Map PML4 (slot 0 in pagecn)
     caps_create_new(ObjType_VNode_x86_64_pml4, mem_to_local_phys((lvaddr_t)init_pml4),
-                    BASE_PAGE_BITS, 0,
+                    BASE_PAGE_BITS, 0, my_core_id,
                     caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     // Map PDPT into successive slots in pagecn
     for(size_t i = 0; i < INIT_PDPT_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_pdpt,
                         mem_to_local_phys((lvaddr_t)init_pdpt) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        BASE_PAGE_BITS, 0, my_core_id,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Map PDIR into successive slots in pagecn
     for(size_t i = 0; i < INIT_PDIR_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_pdir,
                         mem_to_local_phys((lvaddr_t)init_pdir) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        BASE_PAGE_BITS, 0, my_core_id,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Map page tables into successive slots in pagecn
     for(size_t i = 0; i < INIT_PTABLE_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_ptable,
                         mem_to_local_phys((lvaddr_t)init_ptable) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        BASE_PAGE_BITS, 0, my_core_id,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Connect all page tables to page directories.
@@ -597,7 +597,7 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
 
     // Map IO cap in task cnode
     struct cte *iocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IO);
-    err = caps_create_new(ObjType_IO, 0, 0, 0, iocap);
+    err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
     assert(err_is_ok(err));
 
     /* Set fields in DCB */
@@ -705,12 +705,13 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
                                                   TASKCN_SLOT_MON_URPC);
-    // XXX: Create as devframe so the memory is not zeroed out
-    err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
+    // use fact that cap is foreign to avoid zeroing it
+    assert(core_data->src_core_id != my_core_id);
+    err = caps_create_new(ObjType_Frame, core_data->urpc_frame_base,
                           core_data->urpc_frame_bits,
-                          core_data->urpc_frame_bits, urpc_frame_cte);
+                          core_data->urpc_frame_bits, core_data->src_core_id,
+                          urpc_frame_cte);
     assert(err_is_ok(err));
-    urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
 
     /* Map urpc frame at MON_URPC_BASE */

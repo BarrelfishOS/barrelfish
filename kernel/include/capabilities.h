@@ -55,7 +55,7 @@ static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
 }
 
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
-                         size_t objbits, struct cte *caps);
+                         size_t objbits, coreid_t owner, struct cte *caps);
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
                                    int cnode_vbits, cslot_t dest_slot,
                                    coreid_t owner, struct capability *src);
