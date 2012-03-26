@@ -480,8 +480,11 @@ static struct mem_rx_vtbl rx_vtbl = {
     .free_monitor_call = mem_free_handler,
 };
 
+static bool do_rpc_init = false;
+
 static errval_t connect_callback(void *st, struct mem_binding *b)
 {
+    do_rpc_init = true;
     b->rx_vtbl = rx_vtbl;
     // TODO: set error handler
     return SYS_ERR_OK;
@@ -560,12 +563,26 @@ int main(int argc, char ** argv)
     trace_init_disp();
 #endif
 
+    static bool in_rpc_init = false;
     // handle messages on this thread
     while (true) {
         err = event_dispatch(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in main event_dispatch loop");
             return EXIT_FAILURE;
+        }
+
+        if (do_rpc_init && !in_rpc_init && !get_monitor_blocking_rpc_client()) {
+            // XXX: this is an ugly hack try and get a monitor rpc client once
+            // the monitor is ready
+            in_rpc_init = true;
+            do_rpc_init = false;
+            /* Bind with monitor's blocking rpc channel */
+            err = monitor_client_blocking_rpc_init();
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "could not initialize monitor rpc");
+            }
+            in_rpc_init = false;
         }
     }
 }

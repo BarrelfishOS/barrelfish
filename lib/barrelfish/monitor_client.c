@@ -351,7 +351,11 @@ static void get_monitor_rpc_iref_reply(struct monitor_binding *mb, iref_t iref,
     errval_t err;
 
     struct bind_state *st = (void *)st_arg;
-    assert(iref != 0);
+    if (iref == 0) {
+        st->err = LIB_ERR_GET_MON_BLOCKING_IREF;
+        st->done = true;
+        return;
+    }
 
     struct monitor_blocking_lmp_binding *mbb = malloc(sizeof(*mbb));
     assert(mbb != NULL);

@@ -518,8 +518,10 @@ static void get_monitor_rpc_iref_request(struct monitor_binding *b,
 {
     errval_t err;
 
-    // monitor rpc not registered yet
-    assert(monitor_rpc_iref != 0);
+    if (monitor_rpc_iref == 0) {
+        // Monitor rpc not registered yet
+        DEBUG_ERR(LIB_ERR_GET_MON_BLOCKING_IREF, "got monitor rpc iref request but iref is 0");
+    }
 
     err = b->tx_vtbl.get_monitor_rpc_iref_reply(b, NOP_CONT,
                                                 monitor_rpc_iref, st_arg);
