@@ -175,9 +175,9 @@ linkKernel opts objs libs kbin =
               Rule [ Str (objdump ++ " -d -M reg-names-raw"),
                     In BuildTree arch kbin, Str ">", Out arch (kbin ++ ".asm")],
               Rule [ Str "cpp",
-                     NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/arm",
+                     NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/gem5",
                      Str "-D__ASSEMBLER__",
-                     Str "-P", In SrcTree "src" "/kernel/arch/arm/linker.lds.in",
+                     Str "-P", In SrcTree "src" "/kernel/arch/gem5/linker.lds.in",
                      Out arch linkscript
                    ]
             ]

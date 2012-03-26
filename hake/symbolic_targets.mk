@@ -208,8 +208,8 @@ MODULES_xscale=\
 	sbin/cpu.bin
 	
 # Gem5-specific modules to build by default
-MODULES_gem5=\
-    sbin/cpu.bin
+#MODULES_gem5=\
+#    sbin/cpu.bin
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\

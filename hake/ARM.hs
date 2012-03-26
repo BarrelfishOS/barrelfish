@@ -46,7 +46,9 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-DPIC_REGISTER=R10",
                    Str "-fpic",
                    Str "-ffixed-r9",
-                   Str "-DTHREAD_REGISTER=R9" ]
+                   Str "-DTHREAD_REGISTER=R9",
+		   Str "-Wno-unused-but-set-variable",
+		   Str "-Wno-format" ]
 
 cFlags = ArchDefaults.commonCFlags 
          ++ ArchDefaults.commonFlags
@@ -131,7 +133,9 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mpic-register=r10",
                                 "-DPIC_REGISTER=R10",
                                 "-ffixed-r9",
-                                "-DTHREAD_REGISTER=R9" ]]
+                                "-DTHREAD_REGISTER=R9",
+				"-Wno-unused-but-set-variable",
+				"-Wno-format" ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
                   NStr "-Wl,-Map,", Out arch "kernel.map",

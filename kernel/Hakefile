@@ -123,14 +123,16 @@ in [
     in mkrules "arm" cfiles sfiles mackerelFiles libs [] [] [] []),
     
     -- gem5
-   (let sfiles = [ "boot.S", "exceptions.S" ]
+   (let sfiles = [  ]
         cfiles = [ "exn.c", "exec.c", "init.c", "integrator.c", "kludges.c", "kputchar.c", "misc.c", "pl011_uart.c", "paging.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
-        mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic0", "pl011_uart" ]
+        arch_sfiles = [ "boot.S", "exceptions.S" ]
+	arch_cfiles = []
+	mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic0", "pl011_uart" ]
         libs = [ "elf", "cpio" ]
-    in mkrules "gem5" cfiles sfiles mackerelFiles libs [] [] [] []),
+    in mkrules "gem5" cfiles sfiles mackerelFiles libs [] [] arch_cfiles arch_sfiles),
     
    -- xscale
-   (let sfiles = [ "exceptions.S" ]
+   (let sfiles = [ "exceptions.S"  ]
         cfiles = [ "exn.c", "exec.c", "init.c", "kludges.c", "misc.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
         arch_sfiles = [ "boot.S" ]
         arch_cfiles = [ "ixp2800_integrator.c", "ixp2800_uart.c", 
