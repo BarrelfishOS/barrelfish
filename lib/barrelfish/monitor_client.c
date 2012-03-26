@@ -306,6 +306,8 @@ errval_t monitor_client_new_binding(monitor_bind_continuation_fn *cont, void *st
 
 errval_t monitor_cap_set_remote(struct capref cap, bool remote)
 {
+    return ERR_NOTIMP;
+#if 0
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
     assert(mc != NULL);
     errval_t err, reterr;
@@ -316,6 +318,7 @@ errval_t monitor_cap_set_remote(struct capref cap, bool remote)
     } else {
         return reterr;
     }
+#endif
 }
 
 struct bind_state {

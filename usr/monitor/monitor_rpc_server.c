@@ -612,12 +612,17 @@ static void retry_reply(void *arg)
 static void cap_set_remote(struct monitor_blocking_binding *b,
                            struct capref cap, bool remote)
 {
-    bool has_descendants;
     struct capref *tmpcap = malloc(sizeof(struct capref));
     errval_t err, reterr;
 
     *tmpcap = cap;
-    reterr = monitor_cap_remote(cap, remote, &has_descendants);
+
+#if 0
+    bool has_descendants;
+    //reterr = monitor_cap_remote(cap, remote, &has_descendants);
+#else
+    reterr = ERR_NOTIMP;
+#endif
     err = b->tx_vtbl.cap_set_remote_response(b, MKCONT(cap_set_remote_done, tmpcap),
                                              reterr);
     if(err_is_fail(err)) {
