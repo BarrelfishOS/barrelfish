@@ -156,6 +156,15 @@ errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
                                             dest_slot, dest_bits);
 }
 
+errval_t monitor_copy_if_exists(struct capability* cap, struct capref dest)
+{
+    capaddr_t caddr = get_cnode_addr(dest);
+    uint8_t vbits = get_cnode_valid_bits(dest);
+    size_t  slot  = dest.slot;
+
+    return invoke_monitor_copy_existing((uint64_t*)cap, caddr, vbits, slot);
+}
+
 /**
  * \brief Determine the current owner of a cap and its copies.
  */

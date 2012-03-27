@@ -128,6 +128,7 @@ enum kernel_cmd {
     KernelCmd_Identify_domains_cap,  ///< Return the meta data of another domain's capability
     KernelCmd_Remote_cap,         ///< Set capability as being remote
     KernelCmd_Create_cap,         ///< Create a new capability
+    KernelCmd_Copy_existing,
     KernelCmd_Iden_cnode_get_cap, ///< Look up cnode, return cap within
     KernelCmd_Get_core_id,        ///< Returns the id of the core the domain is on
     KernelCmd_Get_arch_id,        ///< Returns arch id of caller's core

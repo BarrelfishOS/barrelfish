@@ -104,6 +104,15 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                        bits).error;
 }
 
+static inline errval_t
+invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
+{
+    assert(sizeof(struct capability) == 4*sizeof(uint64_t));
+    return cap_invoke8(cap_kernel, KernelCmd_Copy_existing,
+                       raw[0], raw[1], raw[2], raw[3],
+                       cn_addr, cn_bits, slot).error;
+}
+
 /**
  * \brief Set up tracing in the kernel
  *

@@ -749,7 +749,20 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 
     dest->mdbnode.owner = owner;
 
-    set_init_mapping(dest, 1);
+    err = mdb_insert(dest);
+    assert(err_is_ok(err));
+    struct cte *neighbour;
+    if ((neighbour = mdb_predecessor(dest)) && is_copy(&dest->cap, &neighbour->cap)) {
+        assert(!neighbour->mdbnode.in_delete);
+        dest->mdbnode.locked = neighbour->mdbnode.locked;
+        dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
+    }
+    else if ((neighbour = mdb_successor(dest)) && is_copy(&dest->cap, &neighbour->cap)) {
+        assert(!neighbour->mdbnode.in_delete);
+        dest->mdbnode.locked = neighbour->mdbnode.locked;
+        dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
+    }
+
     return SYS_ERR_OK;
 }
 

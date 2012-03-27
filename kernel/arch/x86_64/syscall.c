@@ -16,6 +16,7 @@
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <mdb/mdb.h>
+#include <mdb/mdb_tree.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
 #include <exec.h>
@@ -345,6 +346,27 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
                                             slot, owner, src));
+}
+
+static struct sysret monitor_copy_existing(struct capability *kernel_cap,
+                                        int cmd, uintptr_t *args)
+{
+    /* XXX: Get the raw metadata of the capability to create */
+    struct capability *src = (struct capability *)args;
+    int pos = sizeof(struct capability) / sizeof(uint64_t);
+
+    struct cte *copy = mdb_find_equal(src);
+    if (!copy || copy->mdbnode.in_delete) {
+        return SYSRET(SYS_ERR_CAP_NOT_FOUND);
+    }
+
+    capaddr_t cnode_cptr = args[pos];
+    int cnode_vbits    = args[pos + 1];
+    size_t slot        = args[pos + 2];
+
+    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+                                            cnode_cptr, cnode_vbits, slot,
+                                            copy->mdbnode.owner, &copy->cap));
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
@@ -747,6 +769,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Remote_cap]   = monitor_remote_cap,
         [KernelCmd_Iden_cnode_get_cap] = monitor_iden_cnode_get_cap,
         [KernelCmd_Create_cap]   = monitor_create_cap,
+        [KernelCmd_Copy_existing] = monitor_copy_existing,
         [KernelCmd_Nullify_cap]  = monitor_nullify_cap,
         [KernelCmd_Setup_trace]  = handle_trace_setup,
         [KernelCmd_Register]     = monitor_handle_register,

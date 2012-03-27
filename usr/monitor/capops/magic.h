@@ -20,9 +20,6 @@
  * Magic NYI functions
  */
 
-// create a copy of cap other copies exist, otherwise fail
-errval_t monitor_copy_if_exists(struct capability*, struct capref);
-
 // delete all local copies of capref
 errval_t monitor_delete_copies(struct capref);
 

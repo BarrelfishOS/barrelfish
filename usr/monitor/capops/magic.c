@@ -10,13 +10,6 @@
 #include "magic.h"
 #include <barrelfish/debug.h>
 
-// create a copy of cap other copies exist, otherwise fail
-errval_t monitor_copy_if_exists(struct capability* cap, struct capref dest)
-{
-    USER_PANIC("NYI");
-    return ERR_NOTIMP;
-}
-
 // delete all local copies of capref
 errval_t monitor_delete_copies(struct capref cap)
 {
