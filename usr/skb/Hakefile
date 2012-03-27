@@ -26,7 +26,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
                         -- force optimisations on, without them we blow the stack
                         addCFlags = [ "-O2" ],
-                        flounderBindings = [ "skb" ],
+                        flounderBindings = [ "skb", "octopus" ],
                         addIncludes = [ "eclipse_kernel/src"],
                         addLibraries = libDeps [ "eclipse", "shm", "dummies",
                                                  "icsolver", "vfs",
