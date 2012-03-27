@@ -12,6 +12,7 @@
 #include "monitor.h"
 #include "magic.h"
 #include "capops.h"
+#include "capop_handlers.h"
 
 /*
  * Single-cast {{{1
@@ -260,14 +261,15 @@ find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
     if (err_is_fail(err)) {
         free(msg_st);
     }
+
+    return err;
 }
 
 /*
  * Find copies receive handlers {{{2
  */
 
-__attribute__((unused))
-static void
+void
 find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err;
@@ -302,8 +304,7 @@ send_err:
     }
 }
 
-__attribute__((unused))
-static void
+void
 find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvaddr_t st)
 {
     // if we receive a positive result, immediately forward to caller
@@ -391,8 +392,7 @@ find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_ms
     }
 }
 
-__attribute__((unused))
-static void
+void
 find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err;
@@ -404,7 +404,7 @@ find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, ge
     caprep_to_capability(&caprep, &cap);
 
     // XXX: using err as boolean... evil?
-    err = monitor_has_local_descendants(cap);
+    err = monitor_has_local_descendants(&cap);
 
     struct find_descendants_result_msg_st *msg_st;
     msg_st = malloc(sizeof(*msg_st));
@@ -422,8 +422,7 @@ find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, ge
     }
 }
 
-__attribute__((unused))
-static void
+void
 find_descendants_result__rx_fn(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
     struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)st;
@@ -522,14 +521,15 @@ owner_updated(coreid_t owner, genvaddr_t st)
     if (err_is_fail(err)) {
         free(msg_st);
     }
+
+    return err;
 }
 
 /*
  * Receive handlers {{{2
  */
 
-__attribute__((unused))
-static void
+void
 owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st)
 {
     if (!capsend_handle_mc_reply(st)) {
@@ -542,8 +542,7 @@ owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st)
     free(uo_bc_st);
 }
 
-__attribute__((unused))
-static void
+void
 update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err;

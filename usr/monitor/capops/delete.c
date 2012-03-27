@@ -13,6 +13,7 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
+#include "capop_handlers.h"
 #include <if/mem_rpcclient_defs.h>
 
 struct delete_st {
@@ -144,8 +145,7 @@ delete_remote_result(coreid_t dest, errval_t status, genvaddr_t st)
  * Receive handlers {{{2
  */
 
-__attribute__((unused))
-static void
+void
 delete_remote__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err;
@@ -178,8 +178,7 @@ send_err:
     }
 }
 
-__attribute__((unused))
-static void
+void
 delete_remote_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
     if (!capsend_handle_mc_reply(st)) {

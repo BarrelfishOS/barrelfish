@@ -14,6 +14,7 @@
 #include "capops.h"
 #include "capsend.h"
 #include "magic.h"
+#include "capop_handlers.h"
 
 /*
  * RPC state {{{1
@@ -242,9 +243,9 @@ request_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_h
  * Receive handlers {{{1
  */
 
-__attribute__((unused))
-static void
-recv_copy_result__rx_handler(struct intermon_binding *b, errval_t status, capaddr_t capaddr, uint8_t vbits, genvaddr_t st) {
+void
+recv_copy_result__rx_handler(struct intermon_binding *b, errval_t status, capaddr_t capaddr, uint8_t vbits, genvaddr_t st)
+{
     assert(st);
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)st;
 
@@ -262,9 +263,9 @@ recv_copy_result__rx_handler(struct intermon_binding *b, errval_t status, capadd
     free(rpc_st);
 }
 
-__attribute__((unused))
-static void
-recv_copy__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st) {
+void
+recv_copy__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
+{
     errval_t err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
@@ -309,8 +310,7 @@ send_result:
     recv_copy_result(from, err, capaddr, vbits, st);
 }
 
-__attribute__((unused))
-static void
+void
 request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err, send_err;

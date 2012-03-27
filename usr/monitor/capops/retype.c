@@ -14,6 +14,7 @@
 #include "capops.h"
 #include "capsend.h"
 #include "magic.h"
+#include "capop_handlers.h"
 
 /*
  *
@@ -121,9 +122,8 @@ retype_result_cont(errval_t status, void *st)
     }
 }
 
-__attribute__((unused))
-static void
-request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep, int desttype, size_t destbits, genvaddr_t st)
+void
+request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep, int desttype, uint32_t destbits, genvaddr_t st)
 {
     errval_t err;
 
@@ -192,6 +192,12 @@ free_slot:
 
 reply_err:
     retype_result_cont(err, rtst);
+}
+
+void
+retype_response__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
+{
+    create_copies_cont(status, (void*)st);
 }
 
 /*

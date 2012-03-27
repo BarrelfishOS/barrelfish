@@ -13,6 +13,7 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
+#include "capop_handlers.h"
 
 struct revoke_st {
     struct domcapref revokecap;
@@ -52,8 +53,7 @@ request_revoke_move_result(errval_t status, void *st)
     }
 }
 
-__attribute__((unused))
-static void
+void
 revoke_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
     request_revoke_move_result(status, (void*)st);
@@ -131,8 +131,7 @@ request_revoke_move_cont(errval_t status, void *st)
  * Revoke request receive handler {{{2
  */
 
-__attribute__((unused))
-static void
+void
 request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err, send_err;

@@ -7,35 +7,43 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-// XXX: prototypes and other decls that need to be moved to suitable locations
-#ifndef CAPOPS_MAGIC_H
-#define CAPOPS_MAGIC_H
-
-#include <barrelfish_kpi/capabilities.h>
-#include <barrelfish_kpi/distcaps.h>
-#include <barrelfish/caddr.h>
-#include <errors/errno.h>
-
-/*
- * Magic NYI functions
- */
+#include "magic.h"
+#include <barrelfish/debug.h>
 
 // create a copy of cap other copies exist, otherwise fail
-errval_t monitor_copy_if_exists(struct capability*, struct capref);
+errval_t monitor_copy_if_exists(struct capability* cap, struct capref dest)
+{
+    USER_PANIC("NYI");
+    return ERR_NOTIMP;
+}
 
 // delete all local copies of capref
-errval_t monitor_delete_copies(struct capref);
+errval_t monitor_delete_copies(struct capref cap)
+{
+    USER_PANIC("NYI");
+    return ERR_NOTIMP;
+}
 
 // mark cap as in-delete
-errval_t monitor_set_cap_deleted(struct capref);
+errval_t monitor_set_cap_deleted(struct capref cap)
+{
+    USER_PANIC("NYI");
+    return ERR_NOTIMP;
+}
 
 // revoke a cap. when revoke reaches a non-trivially-deletable cap, it copies
 // it into the specified null slot, for the monitor to perform a suitable
 // delete
-errval_t monitor_revoke(struct capref, capaddr_t, uint8_t, struct capref);
+errval_t monitor_revoke(struct capref root, capaddr_t cptr, uint8_t bits, struct capref delcap)
+{
+    USER_PANIC("NYI");
+    return ERR_NOTIMP;
+}
 
 // return SYS_ERR_OK if descendants exists, CAP_ERR_NOTFOUND otherwise
-errval_t monitor_has_local_descendants(struct capability*);
+errval_t monitor_has_local_descendants(struct capability *cap)
+{
+    USER_PANIC("NYI");
+    return ERR_NOTIMP;
+}
 
-
-#endif

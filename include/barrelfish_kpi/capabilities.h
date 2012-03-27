@@ -25,6 +25,10 @@
 
 #ifndef __ASSEMBLER__
 
+#include <assert.h>
+#include <stdbool.h>
+#include <barrelfish_kpi/types.h>
+
 #define CAPRIGHTS_READ          (1 << 0)
 #define CAPRIGHTS_WRITE         (1 << 1)
 #define CAPRIGHTS_EXECUTE       (1 << 2)
@@ -42,9 +46,8 @@ typedef uint8_t         CapRights;
 
 struct dcb;
 
+// capbits needs CapRights and dcb;
 #include <barrelfish_kpi/capbits.h>
-#include <assert.h>
-#include <stdbool.h>
 
 static inline bool type_is_vnode(enum objtype type)
 {

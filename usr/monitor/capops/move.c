@@ -14,6 +14,7 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
+#include "capop_handlers.h"
 
 /*
  * RPC State {{{1
@@ -140,8 +141,7 @@ free_owner_recv_cap(void *arg)
     free(cap);
 }
 
-__attribute__((unused))
-static void
+void
 move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err, send_err;
@@ -207,8 +207,7 @@ send_err:
     }
 }
 
-__attribute__((unused))
-static void
+void
 move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
