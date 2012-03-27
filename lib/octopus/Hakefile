@@ -44,6 +44,7 @@
                     addCFlags = [ "-O2" ],
                     cFiles = [ "server/service.c", "server/init.c", 
                                "server/queue.c", "server/capstorage.c" ],
+                    flounderDefs = [ "octopus", "monitor" ],
                     flounderBindings = [ "octopus" ],
                     addLibraries = [ "skb", "hashtable" ] 
                    }
