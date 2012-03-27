@@ -31,7 +31,7 @@
 
 static errval_t init_io_ports(void)
 {
-    errval_t err, msgerr;
+    errval_t err;
 
     struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
     assert(cl != NULL);

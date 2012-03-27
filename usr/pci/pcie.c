@@ -42,7 +42,8 @@ errval_t pcie_setup_confspace(void) {
     if (err_is_fail(err)) {
         return err;
     }
-    err = skb_read_output("[%lu, %hu, %c, %c]", &address, &segment, &sbus, &ebus);
+    PCI_DEBUG("pci confspace: %s\n", skb_get_output());
+    err = skb_read_output("[%lu, %hu, %"PRIu8", %"PRIu8"]", &address, &segment, &sbus, &ebus);
     if (err_is_ok(err)) {
         PCI_DEBUG("calling confspace init with: %lu %d %d %d",
                 address, segment, sbus, ebus);
