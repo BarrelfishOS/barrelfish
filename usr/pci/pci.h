@@ -69,9 +69,4 @@ void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,
                                     bool pcie);
 errval_t pcie_setup_confspace(void);
 
-extern struct capref biosmem;
-
-// Memory allocator instance for physical address regions and platform memory
-extern struct mm pci_mm_physaddr;
-
 #endif // PCI_H_

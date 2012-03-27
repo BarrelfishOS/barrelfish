@@ -18,6 +18,7 @@
 #include <mm/mm.h>
 #include <pci/confspace/pci_confspace.h>
 #include <acpi_client/acpi_client.h>
+#include <skb/skb.h>
 
 #include "pci.h"
 #include "pci_debug.h"
@@ -30,10 +31,18 @@ errval_t pcie_setup_confspace(void) {
     uint8_t sbus;
     uint8_t ebus;
 
+    /*
     struct acpi_rpc_client* cl = get_acpi_rpc_client();
     cl->vtbl.get_pcie_confspace(cl, &err, &address, &segment,
             &sbus, &ebus);
+            */
 
+    err = skb_execute_query("pcie_confspace(Address,Segment,Start,End),"
+                            "writeln([Address,Segment,Start,End]).");
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = skb_read_output("[%lu, %hu, %c, %c]", &address, &segment, &sbus, &ebus);
     if (err_is_ok(err)) {
         PCI_DEBUG("calling confspace init with: %lu %d %d %d",
                 address, segment, sbus, ebus);

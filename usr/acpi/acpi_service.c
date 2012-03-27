@@ -22,24 +22,6 @@
 #include "acpi_debug.h"
 #include "ioapic.h"
 
-/*
-static void mm_realloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits, genpaddr_t base)
-{
-	ACPI_DEBUG("mm_realloc_range_proxy_handler: sizebits: %d, base: %lu\n", sizebits, base);
-	struct capref devframe = NULL_CAP;
-    errval_t err = mm_realloc_range(&pci_mm_physaddr, sizebits, base, &devframe);
-    if (err_is_fail(err)) {
-    	ACPI_DEBUG("mm realloc range failed...\n");
-        err = err_push(err, MM_ERR_REALLOC_RANGE);
-    }
-
-    err = b->tx_vtbl.mm_realloc_range_proxy_response(b, NOP_CONT, err, devframe);
-    assert(err_is_ok(err));
-
-    // XXX:
-    ioapic_initialized = true;
-}*/
-
 static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
 		                                 genpaddr_t minbase, genpaddr_t maxlimit)
 {
@@ -70,12 +52,6 @@ static void mm_free_proxy_handler(struct acpi_binding* b, struct capref devframe
     assert(err_is_ok(err));
 }
 
-static void get_devframe_caps_handler(struct acpi_binding* b)
-{
-    // XXX:
-    b->tx_vtbl.get_devframe_caps_response(b, NOP_CONT, my_devframes_cnode, SYS_ERR_OK);
-}
-
 static void enable_interrupt_handler(struct acpi_binding* b, uint32_t gsi,
         coreid_t dest, uint32_t vector)
 {
@@ -98,6 +74,7 @@ static inline bool mcfg_correct_length(uint32_t header_len)
  *
  * This tells us where the PCI express memory-mapped configuration area is
  */
+/*
 static void get_pcie_confspace(struct acpi_binding* b)
 {
     ACPI_DEBUG("get_pcie_confspace\n");
@@ -126,7 +103,7 @@ static void get_pcie_confspace(struct acpi_binding* b)
     }
 
     assert(err_is_ok(err));
-}
+}*/
 
 static void get_path_name(ACPI_HANDLE handle, char* name, size_t len)
 {
@@ -267,15 +244,13 @@ static void get_vbe_bios_cap(struct acpi_binding *b)
 
 
 struct acpi_rx_vtbl acpi_rx_vtbl = {
-    .get_pcie_confspace_call = get_pcie_confspace,
+    //.get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
     .set_device_irq_call = set_device_irq,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
-    //.mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
+
     .mm_alloc_range_proxy_call = mm_alloc_range_proxy_handler,
     .mm_free_proxy_call = mm_free_proxy_handler,
-
-    .get_devframe_caps_call = get_devframe_caps_handler,
 
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,

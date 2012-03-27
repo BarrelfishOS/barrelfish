@@ -755,15 +755,21 @@ int init_acpi(void)
     /* look for an MCFG table
      * this tells us where the PCI express memory-mapped configuration area is
      */
-    /*
+
     ACPI_TABLE_HEADER *mcfg_header;
     as = AcpiGetTable("MCFG", 1, &mcfg_header);
     if (ACPI_SUCCESS(as) && mcfg_header->Length >=
             sizeof(ACPI_TABLE_MCFG) + sizeof(ACPI_MCFG_ALLOCATION)) {
         ACPI_MCFG_ALLOCATION *mcfg = (void *)mcfg_header + sizeof(ACPI_TABLE_MCFG);
         ACPI_DEBUG("PCIe enhanced configuration region at 0x%lx "
-               "(segment %u, buses %u-%u)\n", mcfg->Address,
-               mcfg->PciSegment, mcfg->StartBusNumber, mcfg->EndBusNumber);
+                   "(segment %u, buses %u-%u)\n", mcfg->Address,
+                   mcfg->PciSegment, mcfg->StartBusNumber, mcfg->EndBusNumber);
+
+        skb_add_fact("pcie_confspace(%lu, %u, %u, %u).",
+                mcfg->Address, mcfg->PciSegment, mcfg->StartBusNumber,
+                mcfg->EndBusNumber);
+
+        /* XXX: Not needed as long as PCIe walking is disabled
         r = pcie_confspace_init(mcfg->Address, mcfg->PciSegment,
                                 mcfg->StartBusNumber, mcfg->EndBusNumber);
         if (r == 0) {
@@ -774,10 +780,11 @@ int init_acpi(void)
                ((lpaddr_t)(mcfg->EndBusNumber + 1 - mcfg->StartBusNumber) << 20)
             };
             reserved_memory[n_reserved_memory_regions++] = confspace;
-        }
+        }*/
+
     } else {
         ACPI_DEBUG("No MCFG table found -> no PCIe enhanced configuration\n");
-    }*/
+    }
 
     // XXX: disable PCIe memory-mapped config space until after we walk and
     // prescan all the buses. This is necessary on some AMD boxes, because the
