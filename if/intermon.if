@@ -23,6 +23,7 @@ interface intermon "The Interface between monitors" {
     alias capid_t uint32;
     alias capaddr_t uint32;
     alias capbits_t uint8;
+    alias capslot_t uint32;
     alias capop_st uint64;
 
     /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
@@ -146,7 +147,7 @@ interface intermon "The Interface between monitors" {
     // cap operation messages
     message capops_request_copy(coreid dest, caprep cap, capop_st st);
     message capops_recv_copy(caprep cap, capop_st st);
-    message capops_recv_copy_result(errval status, capaddr_t cap, capbits_t bits, capop_st st);
+    message capops_recv_copy_result(errval status, capaddr_t cap, capbits_t bits, capslot_t slot, capop_st st);
 
     message capops_move_request(caprep cap, capop_st st);
     message capops_move_result(errval status, capop_st st);
@@ -157,6 +158,7 @@ interface intermon "The Interface between monitors" {
     message capops_request_revoke(caprep cap, capop_st st);
     message capops_revoke_result(errval status, capop_st st);
 
+    // XXX: uint32 for bits? -MN
     message capops_request_retype(caprep src, int desttype, uint32 destbits, capop_st st);
     message capops_retype_response(errval status, capop_st st);
 
