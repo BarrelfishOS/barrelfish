@@ -28,6 +28,7 @@
 
 #include <if/monitor_defs.h>
 
+#include <vfs/vfs.h>
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 
@@ -65,6 +66,7 @@ static inline errval_t wait_for_pci(void)
 
 int main(int argc, char** argv)
 {
+    vfs_init();
     init_environ();
 
     errval_t err;
