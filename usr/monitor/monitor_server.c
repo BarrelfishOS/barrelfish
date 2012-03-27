@@ -18,6 +18,7 @@
 #include <if/mem_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <if/monitor_loopback_defs.h>
+#include "capops.h"
 
 // the monitor's loopback binding to itself
 static struct monitor_binding monitor_self_binding;
@@ -568,241 +569,76 @@ static void set_ramfs_iref_request(struct monitor_binding *b,
 }
 
 struct send_cap_st {
-    struct rcap_st rcap_st;        // This must be first
+    struct intermon_msg_queue_elem qe; // must be first
     uintptr_t my_mon_id;
     struct capref cap;
     uint32_t capid;
     uint8_t give_away;
-    struct capability capability;
-    errval_t msgerr;
-    bool has_descendants;
-    coremask_t on_cores;
+    capaddr_t cptr;
+    uint8_t vbits;
+    cslot_t slot;
 };
 
-static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
-                               uint32_t capid, struct capability capability,
-                               errval_t msgerr,
-                               uint8_t give_away, bool has_descendants,
-                               coremask_t on_cores);
-
-static void cap_send_request_cb(void * st_arg) {
-    errval_t err;
-    struct send_cap_st * st = (struct send_cap_st *) st_arg;
-    if (err_is_fail(st->rcap_st.err)) {
-        // lock failed, unlock any cores we locked
-        err = rcap_db_release_lock(&(st->capability), st->rcap_st.cores_locked);
-        assert (err_is_ok(err));
-
-        // try again - TODO, introduce some backoff here
-        err = rcap_db_acquire_lock(&(st->capability), (struct rcap_st *)st);
-        assert (err_is_ok(err));
-    } else {
-        cap_send_request_2(st->my_mon_id, st->cap, st->capid, st->capability,
-                           st->msgerr, st->give_away, st->has_descendants,
-                           st->on_cores);
+static void
+cap_send_copy_send_cont(struct intermon_binding *b,
+                        struct intermon_msg_queue_elem *e)
+{
+    errval_t send_err;
+    struct send_cap_st *st = (struct send_cap_st*)e;
+    struct remote_conn_state *conn = remote_conn_lookup(st->my_mon_id);
+    send_err = intermon_cap_send_request__tx(b, NOP_CONT, conn->mon_id,
+                                                st->capid, st->cptr,
+                                                st->vbits, st->slot);
+    if (err_is_fail(send_err)) {
+        DEBUG_ERR(send_err, "sending cap_send_request failed");
     }
 }
 
-/// FIXME: If on the same core, fail. (Why? -AB)
-/// XXX: size of capability is arch specific
-static void cap_send_request(struct monitor_binding *b,
-                             uintptr_t my_mon_id, struct capref cap,
-                             uint32_t capid, uint8_t give_away)
+static void
+cap_send_copy_cont(errval_t status, capaddr_t cptr, uint8_t vbits,
+                   cslot_t slot, void *st)
 {
-    errval_t err, msgerr = SYS_ERR_OK;
-    struct capability capability;
-    bool has_descendants;
-    coremask_t on_cores;
-
-    if (!capref_is_null(cap)) {
-        err = monitor_cap_identify(cap, &capability);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "monitor_cap_identify failed, ignored");
-            return;
-        }
-
-        // if we can't transfer the cap, it is delivered as NULL
-        if (!monitor_can_send_cap(&capability)) {
-            cap = NULL_CAP;
-            msgerr = MON_ERR_CAP_SEND;
-        }
-    }
-
-    if (capref_is_null(cap)) {
-        // we don't care about capabilities, has_descendants, or on_cores here,
-        // make the compiler happy though
-        static struct capability null_capability;
-        static coremask_t null_mask;
-        cap_send_request_2(my_mon_id, cap, capid, null_capability,
-                           msgerr, give_away, false, null_mask);
-    } else if (!give_away) {
-        if (!rcap_db_exists(&capability)) {
-            err = monitor_cap_remote(cap, true, &has_descendants);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "monitor_cap_remote failed");
-                return;
-            }
-            err = rcap_db_add(&capability, has_descendants);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "rcap_db_add failed");
-                return;
-            }
-        }
-
-        err = rcap_db_get_info(&capability, &has_descendants, &on_cores);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "rcap_db_get_info failed");
-            return;
-        }
-
-        // allocate state for callback
-        struct send_cap_st * send_cap_st = malloc (sizeof(struct send_cap_st));
-        send_cap_st->rcap_st.free_at_ccast = false;
-        send_cap_st->rcap_st.cb            = cap_send_request_cb;
-        send_cap_st->my_mon_id  = my_mon_id;
-        send_cap_st->cap        = cap;
-        send_cap_st->capability = capability;
-        send_cap_st->capid      = capid;
-        send_cap_st->msgerr     = msgerr;
-        send_cap_st->give_away  = give_away;
-        send_cap_st->has_descendants = has_descendants;
-        send_cap_st->on_cores   = on_cores;
-
-        err = rcap_db_acquire_lock(&capability, (struct rcap_st *)send_cap_st);
-        assert (err_is_ok(err));
-        // continues in cap_send_request_2 (after cap_send_request_cb)
-
-    } else { // give_away cap
-        err = monitor_cap_remote(cap, true, &has_descendants);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "monitor_cap_remote failed");
-            return;
-        }
-
-        // TODO ensure that no more copies of this cap are on this core
-        static coremask_t null_mask;
-        // call continuation directly
-        cap_send_request_2(my_mon_id, cap, capid, capability, msgerr, give_away,
-                           has_descendants, null_mask);
-    }
-}
-
-struct cap_send_request_state {
-    struct intermon_msg_queue_elem elem;
-    uintptr_t your_mon_id;
-    uint32_t capid;
-    errval_t msgerr;
-    intermon_caprep_t caprep;
-    uint8_t give_away;
-    bool has_descendants;
-    coremask_t on_cores;
-    bool null_cap; 
-};
-
-static void cap_send_request_2_handler(struct intermon_binding *b,
-                                       struct intermon_msg_queue_elem *e)
-{
-    errval_t err;
-    struct cap_send_request_state *st = (struct cap_send_request_state*)e;
-
-    err = b->tx_vtbl.cap_send_request(b, NOP_CONT, st->your_mon_id, st->capid,
-                                      st->caprep, st->msgerr, st->give_away,
-                                      st->has_descendants, st->on_cores.bits,
-                                      st->null_cap); 
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct intermon_state *intermon_state = b->st;
-            struct cap_send_request_state *ms =
-                malloc(sizeof(struct cap_send_request_state));
-            assert(ms);
-
-            ms->your_mon_id = st->your_mon_id;
-            ms->capid = st->capid;
-            ms->caprep = st->caprep;
-            ms->msgerr = st->msgerr;
-            ms->give_away = st->give_away;
-            ms->has_descendants = st->has_descendants;
-            ms->on_cores = st->on_cores;
-            ms->null_cap = st->null_cap; 
-            ms->elem.cont = cap_send_request_2_handler;
-
-            errval_t err1 = intermon_enqueue_send(b, &intermon_state->queue,
-                                                  get_default_waitset(),
-                                                  &ms->elem.queue);
-            if (err_is_fail(err1)) {
-                USER_PANIC_ERR(err1, "monitor_enqueue_send failed");
-            }
-
-        } else {
-            USER_PANIC_ERR(err, "forwarding cap failed");
-        }
-    }
-
-}
-
-static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
-                               uint32_t capid, struct capability capability,
-                               errval_t msgerr,
-                               uint8_t give_away, bool has_descendants,
-                               coremask_t on_cores)
-{
-    errval_t err;
-    struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
-    if (conn == NULL) {
-        USER_PANIC_ERR(0, "invalid mon_id, ignored");
+    errval_t queue_err;
+    struct send_cap_st *send_st = (struct send_cap_st*)st;
+    if (err_is_fail(status)) {
+        DEBUG_ERR(status, "copy for cap_send_request failed");
         return;
     }
 
+    send_st->cptr = cptr;
+    send_st->vbits = vbits;
+    send_st->slot = slot;
+
+    struct remote_conn_state *conn = remote_conn_lookup(send_st->my_mon_id);
     struct intermon_binding *binding = conn->mon_binding;
-    uintptr_t your_mon_id = conn->mon_id;
-
-
-    // XXX: This is a typedef of struct that flounder is generating.
-    // Flounder should not be generating this and we shouldn't be using it.
-    intermon_caprep_t caprep;
-    capability_to_caprep(&capability, &caprep);
-
-
-    bool null_cap = capref_is_null(cap);
-    if (!null_cap) {
-        err = cap_destroy(cap);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "cap_destroy failed");
-        }
+    struct intermon_state *inter_st = (struct intermon_state*)binding->st;
+    queue_err = intermon_enqueue_send(binding, &inter_st->queue,
+                                      binding->waitset,
+                                      (struct msg_queue_elem*)send_st);
+    if (err_is_fail(queue_err)) {
+        DEBUG_ERR(queue_err, "enqueuing cap_send_request failed");
     }
+}
 
-    err = binding->tx_vtbl.
-        cap_send_request(binding, NOP_CONT, your_mon_id, capid,
-                         caprep, msgerr, give_away, has_descendants, on_cores.bits,
-                         null_cap);
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct intermon_state *intermon_state = binding->st;
-            struct cap_send_request_state *ms =
-                malloc(sizeof(struct cap_send_request_state));
-            assert(ms);
+static void
+cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
+                 struct capref cap, uint32_t capid, uint8_t give_away)
+{
+    struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
 
-            ms->your_mon_id = your_mon_id;
-            ms->capid = capid;
-            ms->caprep = caprep;
-            ms->msgerr = msgerr;
-            ms->give_away = give_away;
-            ms->has_descendants = has_descendants;
-            ms->on_cores = on_cores;
-            ms->null_cap = null_cap;
-            ms->elem.cont = cap_send_request_2_handler;
-
-            errval_t err1 = intermon_enqueue_send(binding, &intermon_state->queue,
-                                                  get_default_waitset(),
-                                                  &ms->elem.queue);
-            if (err_is_fail(err1)) {
-                USER_PANIC_ERR(err1, "monitor_enqueue_send failed");
-            }
-
-        } else {
-            USER_PANIC_ERR(err, "forwarding cap failed");
-        }
+    struct send_cap_st *st;
+    st = calloc(1, sizeof(*st));
+    if (!st) {
+        DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "Failed to allocate cap_send_request state");
+        return;
     }
+    st->qe.cont = cap_send_copy_send_cont;
+    st->my_mon_id = my_mon_id;
+    st->cap = cap;
+    st->capid = capid;
+    st->give_away = give_away;
+
+    capops_copy(cap, conn->core_id, cap_send_copy_cont, st);
 }
 
 #if 0

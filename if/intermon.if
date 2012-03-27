@@ -99,12 +99,9 @@ interface intermon "The Interface between monitors" {
 
     message cap_send_request(con_id_t con_id,
                              capid_t capid,
-                             caprep cap,
-                             errval err,
-                             bool give_away,
-                             bool has_descendents,
-                             coremask on_cores,
-                             bool null_cap);
+                             capaddr_t caddr,
+                             capbits_t vbits,
+                             capslot_t slot);
 
     message span_domain_request(state_id_t state_id,
                                 genpaddr vnodebase,
