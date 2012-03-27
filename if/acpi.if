@@ -8,20 +8,11 @@
  */
 
 interface acpi "acpi RPC Interface" {
-
     typedef struct {
         uint8 bus;
         uint8 device;
         uint8 function;
     } pci_address;
-
-    
-    // TODO: Should be stored in SKB?
-    /*rpc get_pcie_confspace(out errval err,
-                           out uint64 address, 
-                           out uint16 segment, 
-                           out uint8 startbus, 
-                           out uint8 endbus);*/
     
     rpc read_irq_table(in string handle, 
                        in pci_address addr, 
@@ -43,9 +34,10 @@ interface acpi "acpi RPC Interface" {
     
     // Kludge: retrieve frame cap to VBE BIOS;
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
+    
     // More Kludge; cap retrieval for pci
-    rpc mm_realloc_range_proxy(in uint8 sizebits, in uint64 base, 
-                                       out errval err, out cap devframe);
+    // We need a designated service to maintain the physical address
+    // space caps (to avoid sibling errors).
     rpc mm_alloc_range_proxy(in uint8 sizebits, in uint64 minbase,
                              in uint64 maxlimit, out cap devframe, out errval err);
     rpc mm_free_proxy(in cap devframe, in uint64 base, in uint8 sizebits, out errval err);

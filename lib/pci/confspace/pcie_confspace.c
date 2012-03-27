@@ -15,7 +15,6 @@
 #include <barrelfish/barrelfish.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <mm/mm.h>
 #include <acpi_client/acpi_client.h>
 #include <pci/confspace/pci_confspace.h>
 
@@ -30,10 +29,9 @@ static bool pcie_enabled = true;
 /* FIXME: XXX: super-hacky bitfield to track if we already mapped something */
 static uint8_t *mapped_bitfield;
 
-int pcie_confspace_init(struct mm* mem_allocator, lpaddr_t base, uint16_t segment, uint8_t startbusarg,
+int pcie_confspace_init(struct capref ram_cap, lpaddr_t base, uint16_t segment, uint8_t startbusarg,
                         uint8_t endbusarg)
 {
-    int r;
     errval_t err;
 
     assert(segment == 0); // unhandled!
@@ -44,37 +42,8 @@ int pcie_confspace_init(struct mm* mem_allocator, lpaddr_t base, uint16_t segmen
     // compute size of region
     size_t region_pages = (endbus + 1 - startbus) << 8;
     size_t region_bytes = region_pages * BASE_PAGE_SIZE;
-    uint8_t region_bits = log2ceil(region_bytes);
 
-    /* check that we have a cap for the whole region, and mark it allocated */
-    struct capref ram_cap;
-    if (mem_allocator) {
-		r = mm_alloc_range(mem_allocator, region_bits, base,
-						   base + (1UL << region_bits), &ram_cap, NULL);
-    }
-    else {
-    	struct acpi_rpc_client* acl = get_acpi_rpc_client();
-    	errval_t error_code;
-    	r = acl->vtbl.mm_alloc_range_proxy(acl, region_bits, base,
-    			base + (1UL << region_bits), &ram_cap, &error_code);
-    	assert(r == 0);
-    	r = error_code; // XXX: why has this code weird conventions like int r for errors?
-    }
-    if (r != 0) {
-        //PCI_DEBUG("pci_confspace_init: allocating %lx-%lx failed\n",
-        //       base, base + (1UL << region_bits));
-        return r;
-    }
-
-    /* create frame cap to whole region */
-    /*
-    r = devframe_type(&region_cap, ram_cap, region_bits);
-    assert(r == 0);
-    if (r != 0) {
-        return r;
-    }*/
     region_cap = ram_cap;
-
 
     memobj = malloc(sizeof(struct memobj_one_frame_lazy));
     assert(memobj);

@@ -765,7 +765,7 @@ int init_acpi(void)
                    "(segment %u, buses %u-%u)\n", mcfg->Address,
                    mcfg->PciSegment, mcfg->StartBusNumber, mcfg->EndBusNumber);
 
-        skb_add_fact("pcie_confspace(%lu, %u, %u, %u).",
+        skb_add_fact("pcie_confspace(%lu, %hu, %u, %u).",
                 mcfg->Address, mcfg->PciSegment, mcfg->StartBusNumber,
                 mcfg->EndBusNumber);
 

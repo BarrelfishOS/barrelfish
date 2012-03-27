@@ -31,26 +31,38 @@ errval_t pcie_setup_confspace(void) {
     uint8_t sbus;
     uint8_t ebus;
 
-    /*
-    struct acpi_rpc_client* cl = get_acpi_rpc_client();
-    cl->vtbl.get_pcie_confspace(cl, &err, &address, &segment,
-            &sbus, &ebus);
-            */
-
     err = skb_execute_query("pcie_confspace(Address,Segment,Start,End),"
                             "writeln([Address,Segment,Start,End]).");
     if (err_is_fail(err)) {
-        return err;
+        PCI_DEBUG("No PCIe confspace found. Ignore.\n");
+        return SYS_ERR_OK;
     }
+
     PCI_DEBUG("pci confspace: %s\n", skb_get_output());
     err = skb_read_output("[%lu, %hu, %"PRIu8", %"PRIu8"]", &address, &segment, &sbus, &ebus);
     if (err_is_ok(err)) {
+
+        size_t region_pages = (ebus + 1 - sbus) << 8;
+        size_t region_bytes = region_pages * BASE_PAGE_SIZE;
+        uint8_t region_bits = log2ceil(region_bytes);
+
+        struct capref pcie_cap;
+        struct acpi_rpc_client* acl = get_acpi_rpc_client();
+        errval_t error_code;
+        err = acl->vtbl.mm_alloc_range_proxy(acl, region_bits, address,
+                address + (1UL << region_bits), &pcie_cap, &error_code);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        if (err_is_fail(error_code)) {
+            return error_code;
+        }
+
         PCI_DEBUG("calling confspace init with: %lu %d %d %d",
                 address, segment, sbus, ebus);
-        int r = pcie_confspace_init(NULL, address, segment, sbus, ebus);
+        int r = pcie_confspace_init(pcie_cap, address, segment, sbus, ebus);
         assert(r == 0);
     }
 
     return err;
 }
-

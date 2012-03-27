@@ -69,42 +69,6 @@ static inline bool mcfg_correct_length(uint32_t header_len)
             sizeof(ACPI_TABLE_MCFG) + sizeof(ACPI_MCFG_ALLOCATION);
 }
 
-/**
- * \brief Look for an MCFG table
- *
- * This tells us where the PCI express memory-mapped configuration area is
- */
-/*
-static void get_pcie_confspace(struct acpi_binding* b)
-{
-    ACPI_DEBUG("get_pcie_confspace\n");
-
-    errval_t err;
-    ACPI_STATUS as;
-    ACPI_TABLE_HEADER *mcfg_header;
-
-    as = AcpiGetTable("MCFG", 1, &mcfg_header);
-    if (ACPI_SUCCESS(as) && mcfg_correct_length(mcfg_header->Length)) {
-
-        ACPI_MCFG_ALLOCATION *mcfg = (void*) mcfg_header +
-                sizeof(ACPI_TABLE_MCFG);
-        ACPI_DEBUG("PCIe enhanced configuration region at 0x%lx "
-                   "(segment %u, buses %u-%u)\n", mcfg->Address,
-                   mcfg->PciSegment, mcfg->StartBusNumber, mcfg->EndBusNumber);
-
-        err = b->tx_vtbl.get_pcie_confspace_response(b, NOP_CONT,
-                SYS_ERR_OK, mcfg->Address, mcfg->PciSegment,
-                mcfg->StartBusNumber, mcfg->EndBusNumber);
-
-    } else {
-        ACPI_DEBUG("No MCFG table found -> no PCIe enhanced configuration\n");
-        err = b->tx_vtbl.get_pcie_confspace_response(b, NOP_CONT,
-                ACPI_ERR_NO_MCFG_TABLE, 0, 0, 0, 0);
-    }
-
-    assert(err_is_ok(err));
-}*/
-
 static void get_path_name(ACPI_HANDLE handle, char* name, size_t len)
 {
     ACPI_BUFFER buf = { .Length = len, .Pointer = name };
@@ -244,7 +208,6 @@ static void get_vbe_bios_cap(struct acpi_binding *b)
 
 
 struct acpi_rx_vtbl acpi_rx_vtbl = {
-    //.get_pcie_confspace_call = get_pcie_confspace,
     .read_irq_table_call = read_irq_table,
     .set_device_irq_call = set_device_irq,
     .enable_and_route_interrupt_call = enable_interrupt_handler,
