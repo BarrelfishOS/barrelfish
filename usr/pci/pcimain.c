@@ -29,6 +29,29 @@
 #include "pci.h"
 #include "pci_debug.h"
 
+static errval_t init_io_ports(void)
+{
+    errval_t err, msgerr;
+
+    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    assert(cl != NULL);
+
+    // Request I/O Cap
+    struct capref requested_caps;
+    errval_t error_code;
+    err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
+    assert(err_is_ok(err) && err_is_ok(error_code));
+
+    // Copy into correct slot
+    struct capref caps_io = {
+        .cnode = cnode_task,
+        .slot  = TASKCN_SLOT_IO
+    };
+    err = cap_copy(caps_io, requested_caps);
+
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
     debug_printf("pci staretd\n");
@@ -47,6 +70,11 @@ int main(int argc, char *argv[])
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "ACPI Connection failed.");
+    }
+
+    err = init_io_ports();
+    if (err_is_fail(err)) {
+    	USER_PANIC_ERR(err, "Init memory allocator failed.");
     }
 
     err = pcie_setup_confspace();
