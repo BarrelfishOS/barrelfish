@@ -12,8 +12,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-#define _USE_XOPEN /* for strdup() */
-
+//#define _USE_XOPEN /* for strdup() */
 #include <stdio.h>
 #include <string.h>
 
@@ -531,11 +530,11 @@ int p_trigger_watch(void) /* p_trigger_watch(+String, +Mode, +Recipient, +WatchI
     bool retract = !(watch_mode & OCT_PERSIST);
     if (record != NULL) {
         assert(strlen(record)+1 < MAX_QUERY_LENGTH);
-        strcpy(drs->query_state.stdout.buffer, record);
+        strcpy(drs->query_state.std_out.buffer, record);
     }
     else {
-        drs->query_state.stdout.buffer[0] = '\0';
-        drs->query_state.stdout.length = 0;
+        drs->query_state.std_out.buffer[0] = '\0';
+        drs->query_state.std_out.length = 0;
     }
 
     if (drs->binding != NULL && drs->reply != NULL) {

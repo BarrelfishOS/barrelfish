@@ -27,8 +27,8 @@ struct skb_writer {
 };
 
 struct oct_query_state {
-    struct skb_writer stdout;
-    struct skb_writer stderr;
+    struct skb_writer std_out;
+    struct skb_writer std_err;
     int exec_res;
 };
 

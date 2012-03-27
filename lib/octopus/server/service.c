@@ -51,10 +51,10 @@ errval_t new_oct_reply_state(struct oct_reply_state** drt,
     }
 
     //memset(*drt, 0, sizeof(struct oct_reply_state));
-    (*drt)->query_state.stdout.buffer[0] = '\0';
-    (*drt)->query_state.stdout.length = 0;
-    (*drt)->query_state.stderr.buffer[0] = '\0';
-    (*drt)->query_state.stderr.length = 0;
+    (*drt)->query_state.std_out.buffer[0] = '\0';
+    (*drt)->query_state.std_out.length = 0;
+    (*drt)->query_state.std_err.buffer[0] = '\0';
+    (*drt)->query_state.std_err.length = 0;
 
     (*drt)->binding = 0;
     (*drt)->return_record = false;
@@ -87,8 +87,8 @@ static void free_oct_reply_state(void* arg)
 static void trigger_send_handler(struct octopus_binding* b,
         struct oct_reply_state* drs)
 {
-    char* record = drs->query_state.stdout.buffer[0] != '\0' ?
-            drs->query_state.stdout.buffer : NULL;
+    char* record = drs->query_state.std_out.buffer[0] != '\0' ?
+            drs->query_state.std_out.buffer : NULL;
 
     errval_t err;
     err = b->tx_vtbl.trigger(b, MKCONT(free_oct_reply_state, drs),
@@ -185,7 +185,7 @@ static void get_reply(struct octopus_binding* b, struct oct_reply_state* drt)
 {
     errval_t err;
     char* reply = err_is_ok(drt->error) ?
-            drt->query_state.stdout.buffer : NULL;
+            drt->query_state.std_out.buffer : NULL;
     err = b->tx_vtbl.get_response(b, MKCONT(free_oct_reply_state, drt),
             reply, drt->server_id, drt->error);
     if (err_is_fail(err)) {
@@ -230,7 +230,7 @@ static void get_names_reply(struct octopus_binding* b,
 {
     errval_t err;
     char* reply = err_is_ok(drt->error) ?
-            drt->query_state.stdout.buffer : NULL;
+            drt->query_state.std_out.buffer : NULL;
     err = b->tx_vtbl.get_names_response(b, MKCONT(free_oct_reply_state, drt),
             reply, drt->server_id, drt->error);
     if (err_is_fail(err)) {
@@ -276,7 +276,7 @@ out:
 static void set_reply(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     char* record = err_is_ok(drs->error) && drs->return_record ?
-            drs->query_state.stdout.buffer : NULL;
+            drs->query_state.std_out.buffer : NULL;
 
     errval_t err;
     err = b->tx_vtbl.set_response(b, MKCONT(free_oct_reply_state, drs), record,
@@ -432,7 +432,7 @@ static void wait_for_reply(struct octopus_binding* b, struct oct_reply_state* dr
 {
     errval_t err;
     err = b->tx_vtbl.wait_for_response(b, MKCONT(free_oct_reply_state, drs),
-            drs->query_state.stdout.buffer, drs->error);
+            drs->query_state.std_out.buffer, drs->error);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -548,8 +548,8 @@ static void unsubscribe_reply(struct octopus_binding* b,
 static void send_subscribed_message(struct octopus_binding* b, struct oct_reply_state* drs)
 {
     errval_t err = SYS_ERR_OK;
-    char* record = drs->query_state.stdout.buffer[0] != '\0' ?
-            drs->query_state.stdout.buffer : NULL;
+    char* record = drs->query_state.std_out.buffer[0] != '\0' ?
+            drs->query_state.std_out.buffer : NULL;
 
     err = b->tx_vtbl.subscription(b, MKCONT(free_oct_reply_state, drs),
             drs->server_id, drs->client_handler,
@@ -581,7 +581,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
         uint64_t client_state;
         uint64_t server_id;
 
-        skb_read_output_at(srs->query_state.stdout.buffer,
+        skb_read_output_at(srs->query_state.std_out.buffer,
                 "subscriber(%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64")",
                 &binding, &client_handler, &client_state, &server_id);
 
@@ -656,7 +656,7 @@ void publish_handler(struct octopus_binding *b, char* record)
 
 
             struct list_parser_status status;
-            skb_read_list_init_offset(&status, drs->query_state.stdout.buffer, 0);
+            skb_read_list_init_offset(&status, drs->query_state.std_out.buffer, 0);
 
             // TODO remove skb list parser dependency
             // Send to all subscribers
@@ -678,7 +678,7 @@ void publish_handler(struct octopus_binding *b, char* record)
                 subscriber->binding = (struct octopus_binding*)binding;
 #endif
                 subscriber->client_handler = client_handler;
-                strcpy(subscriber->query_state.stdout.buffer, record);
+                strcpy(subscriber->query_state.std_out.buffer, record);
                 subscriber->client_state = client_state;
                 subscriber->server_id = server_id;
                 subscriber->mode = OCT_ON_PUBLISH;

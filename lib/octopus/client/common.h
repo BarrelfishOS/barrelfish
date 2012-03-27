@@ -65,27 +65,4 @@ static inline errval_t allocate_string(const char *fmt, va_list args,
     return SYS_ERR_OK;
 }
 
-/**
- * \brief Thread-safe variant of strtok as provided by POSIX
- *
- * \see http://linux.die.net/man/3/strtok
- *
- * \param str String to tokenize.
- * \param delim Tokenize by delimiter.
- * \param saveptr Used by strtok_r to store state.
- * \return Tokenized strings.
- */
-static inline char* strtok_r(char *s, const char *delim, char **saveptr)
-{
-    if (s == NULL)
-        s = *saveptr; /* recommence just after last token */
-    s += strspn(s, delim); /* skip leading delimeters */
-    if (*s == '\0')
-        return NULL;
-    *saveptr = s + strcspn(s, delim); /* remember end of token string */
-    if ((**saveptr) != '\0')
-        *(*(saveptr))++ = '\0'; /* terminate token string */
-    return s;
-}
-
 #endif /* OCTOPUS_COMMON_H_ */

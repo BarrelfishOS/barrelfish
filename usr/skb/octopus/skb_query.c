@@ -100,11 +100,11 @@ static errval_t run_eclipse(struct oct_query_state* st)
 
         switch (qid) {
         case STDOUT_QID:
-            read_eclipse_queue(STDOUT_QID, &st->stdout);
+            read_eclipse_queue(STDOUT_QID, &st->std_out);
             break;
 
         case STDERR_QID:
-            read_eclipse_queue(STDERR_QID, &st->stderr);
+            read_eclipse_queue(STDERR_QID, &st->std_err);
             break;
         }
     }
@@ -193,7 +193,7 @@ errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs)
         ec_post_goal(print_names_term);
 
         err = run_eclipse(dqs);
-        if (err_is_ok(err) && dqs->stdout.buffer[0] == '\0') {
+        if (err_is_ok(err) && dqs->std_out.buffer[0] == '\0') {
             err = OCT_ERR_NO_RECORD;
         }
         else if (err_no(err) == SKB_ERR_GOAL_FAILURE) {
@@ -409,7 +409,7 @@ struct octopus_binding* get_event_binding(struct octopus_binding* b)
 
     struct octopus_binding* recipient = NULL;
     // TODO pointer size vs. long int in skb :-(
-    sscanf(dqs->stdout.buffer, "%"PRIuPTR"", (uintptr_t*) &recipient);
+    sscanf(dqs->std_out.buffer, "%"PRIuPTR"", (uintptr_t*) &recipient);
 
     free(dqs);
     return recipient;

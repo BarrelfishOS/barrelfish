@@ -102,7 +102,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // XXX: Find better way to parse binary name from SKB
         char* binary_name = malloc(strlen(skb_get_output()));
         coreid_t core;
-        skb_read_output("driver(%"PRIuCOREID", %s)", &core, binary_name);
+        skb_read_output("driver(%"SCNu8", %s)", &core, binary_name);
         *strrchr(binary_name, ')') = '\0';
 
         struct module_info* mi = find_module(binary_name);
