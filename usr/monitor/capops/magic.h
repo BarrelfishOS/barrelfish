@@ -29,11 +29,6 @@ errval_t monitor_delete_copies(struct capref);
 // mark cap as in-delete
 errval_t monitor_set_cap_deleted(struct capref);
 
-// revoke a cap. when revoke reaches a non-trivially-deletable cap, it copies
-// it into the specified null slot, for the monitor to perform a suitable
-// delete
-errval_t monitor_revoke(struct capref, capaddr_t, uint8_t, struct capref);
-
 // return SYS_ERR_OK if descendants exists, CAP_ERR_NOTFOUND otherwise
 errval_t monitor_has_local_descendants(struct capability*);
 
