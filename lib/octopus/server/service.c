@@ -582,7 +582,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
         uint64_t server_id;
 
         skb_read_output_at(srs->query_state.stdout.buffer,
-                "subscriber(%lu, %lu, %lu, %lu)",
+                "subscriber(%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64")",
                 &binding, &client_handler, &client_state, &server_id);
 
         struct oct_reply_state* subscriber = NULL;
@@ -590,13 +590,17 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
                 send_subscribed_message);
         assert(err_is_ok(err));
 
+#if defined(__i386__)
+        subscriber->binding = (struct octopus_binding*)(uint32_t)binding;
+#else
         subscriber->binding = (struct octopus_binding*)binding;
+#endif
         subscriber->client_handler = client_handler;
         subscriber->client_state = client_state;
         subscriber->server_id = server_id;
         subscriber->mode = OCT_REMOVED;
 
-        OCT_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
+        OCT_DEBUG("publish msg to: recipient:%"PRIu64" id:%"PRIu64"\n", binding, server_id);
         subscriber->reply(subscriber->binding, subscriber);
     }
 
@@ -661,22 +665,25 @@ void publish_handler(struct octopus_binding *b, char* record)
             uint64_t client_state;
             uint64_t server_id;
 
-            while (skb_read_list(&status, "subscriber(%lu, %lu, %lu, %lu)",
+            while (skb_read_list(&status, "subscriber(%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64")",
                     &binding, &client_handler, &client_state, &server_id)) {
 
                 struct oct_reply_state* subscriber = NULL;
                 err = new_oct_reply_state(&subscriber,
                         send_subscribed_message);
                 assert(err_is_ok(err));
-
+#if defined(__i386__)
+                subscriber->binding = (struct octopus_binding*)(uint32_t)binding;
+#else
                 subscriber->binding = (struct octopus_binding*)binding;
+#endif
                 subscriber->client_handler = client_handler;
                 strcpy(subscriber->query_state.stdout.buffer, record);
                 subscriber->client_state = client_state;
                 subscriber->server_id = server_id;
                 subscriber->mode = OCT_ON_PUBLISH;
 
-                OCT_DEBUG("publish msg to: recipient:%lu id:%lu\n", binding, server_id);
+                OCT_DEBUG("publish msg to: recipient:%"PRIu64" id:%"PRIu64"\n", binding, server_id);
                 subscriber->reply(subscriber->binding, subscriber);
             }
         }

@@ -115,7 +115,7 @@ int32_t bitfield_union(struct bitfield** fields, size_t field_count, int32_t las
  * \param number_of_bits #bits printed beginning from first
  */
 void print_bitfield(struct bitfield* b, size_t first, size_t number_of_bits) {
-	printf("Printing Bitfield from %lu to %lu:\n", first, first+number_of_bits-1);
+	printf("Printing Bitfield from %zu to %zu:\n", first, first+number_of_bits-1);
 
 	for(size_t i=0; i<number_of_bits; i++) {
 		printf("%d", bitfield_get(b, first+i));

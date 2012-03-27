@@ -130,7 +130,7 @@ static void trigger_local_apic_manual(size_t next)
     errval_t err = oct_get(&record, apic_record_names[next]);
     assert(err_is_ok(err));
 
-    KALUGA_DEBUG("trigger_manual: %s %lu\n", record, next);
+    KALUGA_DEBUG("trigger_manual: %s %zu\n", record, next);
     cpu_change_event(OCT_ON_SET, record, NULL);
 }
 
@@ -155,7 +155,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         // XXX: copied this line from spawnd bsp_bootup,
         // not sure why x86_64 is hardcoded here but it
         // seems broken...
-        skb_add_fact("corename(%d, x86_64, apic(%lu)).",
+        skb_add_fact("corename(%"PRIu32", x86_64, apic(%"PRIu64")).",
                 core_counter, arch_id);
 
         if (arch_id != my_arch_id && enabled) {

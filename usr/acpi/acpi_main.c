@@ -177,26 +177,14 @@ static errval_t init_allocators(void)
 
         if (mrp->mr_type == RegionType_PhyAddr ||
             mrp->mr_type == RegionType_PlatformData) {
-            char* type = mrp->mr_type == RegionType_PhyAddr ?
-                    "physical address" : "platform data";
-            ACPI_DEBUG("Region %d: 0x%08lx - 0x%08lx %s\n",
-		      i, mrp->mr_base,
-		      mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
-		      type);
+            ACPI_DEBUG("Region %d: %"PRIuGENPADDR" - %"PRIuGENPADDR" %s\n",
+                       i, mrp->mr_base,
+                       mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
+                       mrp->mr_type == RegionType_PhyAddr ?
+                       "physical address" : "platform data");
 
             err = cap_retype(devframe, phys_cap, ObjType_DevFrame, mrp->mr_bits);
             assert(err_is_ok(err));
-            /*
-            debug_printf("mrp->mr_bits: %d\n", mrp->mr_bits);
-            struct capability ret;
-            char buf[256];
-            debug_cap_identify(phys_cap, &ret);
-            debug_print_cap(buf, sizeof(buf), &ret);
-            debug_printf("physcap is is: %s\n", buf);
-
-            debug_cap_identify(devframe, &ret);
-            debug_print_cap(buf, sizeof(buf), &ret);
-            debug_printf("new retyped devframe is: %s\n", buf);*/
 
             err = mm_add(&pci_mm_physaddr, devframe,
                          mrp->mr_bits, mrp->mr_base);

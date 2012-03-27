@@ -32,14 +32,21 @@ void subscription_handler(struct octopus_binding *b, subscription_t id,
         uint64_t fn, octopus_mode_t mode, char *record,
         uint64_t st)
 {
+
+    // XXX: Probably send some offset around and use 32bit in flounder?
+#if defined(__i386__)
+    subscription_handler_fn handler_fn = (subscription_handler_fn) (uint32_t)fn;
+    void* state = (void*) (uint32_t)st;
+#else
     subscription_handler_fn handler_fn = (subscription_handler_fn) fn;
     void* state = (void*) st;
+#endif
 
     if (handler_fn != NULL) {
         handler_fn(mode, record, state);
     }
     else {
-        fprintf(stderr, "Incoming subscription(%lu) for %s with unset handler function.",
+        fprintf(stderr, "Incoming subscription(%"PRIu64") for %s with unset handler function.",
                 id, record);
         free(record);
     }
@@ -76,8 +83,20 @@ errval_t oct_subscribe(subscription_handler_fn function, const void *state,
     // send to skb
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     errval_t error_code;
-    err = cl->call_seq.subscribe(cl, buf, (uint64_t)function,
-            (uint64_t)state, id, &error_code); // XXX: Sending Pointer as uint64
+
+    uint64_t fl_function = 0;
+    uint64_t fl_state = 0;
+
+#if defined(__i386__)
+    fl_function = (uint64_t)(uint32_t)function;
+    fl_state = (uint64_t)(uint32_t)state;
+#else
+    fl_function = (uint64_t)function;
+    fl_state = (uint64_t)state;
+#endif
+
+    err = cl->call_seq.subscribe(cl, buf, fl_function,
+            fl_state, id, &error_code); // XXX: Sending Pointer as uint64
     if (err_is_ok(err)) {
         err = error_code;
     }

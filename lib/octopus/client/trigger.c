@@ -27,14 +27,21 @@ void trigger_handler(struct octopus_binding* b, octopus_trigger_id_t id,
         uint64_t t, octopus_mode_t mode, char* record, uint64_t st)
 {
     assert(t != 0);
+
+// XXX:
+#if defined(__i386__)
+    trigger_handler_fn trigger_fn = (trigger_handler_fn) (uint32_t)t;
+    void* state = (void*) (uint32_t)st;
+#else
     trigger_handler_fn trigger_fn = (trigger_handler_fn) t;
     void* state = (void*) st;
+#endif
 
     if (trigger_fn != NULL) {
         trigger_fn(mode, record, state);
     }
     else {
-        fprintf(stderr, "Incoming trigger(%lu) for %s with unset handler function.",
+        fprintf(stderr, "Incoming trigger(%"PRIu64") for %s with unset handler function.",
                 id, record);
         free(record);
     }
@@ -48,8 +55,13 @@ octopus_trigger_t oct_mktrigger(errval_t in_case, octopus_binding_type_t send_to
                 .m = mode,
                 .send_to = send_to,
                 // TODO: bad uint64_t here!
+#if defined(__i386__)
+                .trigger = (uint64_t)(uint32_t) fn,
+                .st = (uint64_t)(uint32_t) state
+#else
                 .trigger = (uint64_t) fn,
                 .st = (uint64_t) state
+#endif
             };
 }
 

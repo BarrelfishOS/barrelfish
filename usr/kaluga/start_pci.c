@@ -37,7 +37,12 @@ static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 
     // Pass the iref as state, this tells pci_change_event that we
     // don't need to look again for the spawnd iref
+#if defined(__i386__)
+    // XXX: Pointer
+    pci_change_event(OCT_ON_SET, st, (void*)(uint32_t)iref);
+#else
     pci_change_event(OCT_ON_SET, st, (void*)iref);
+#endif
     free(spawnd_record);
 }
 
@@ -80,12 +85,12 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         }
 
         // Ask the SKB which binary and where to start it...
-        static char* query = "find_pci_driver(pci_card(%lu, %lu, _, _, _), Driver),"
+        static char* query = "find_pci_driver(pci_card(%"PRIu64", %"PRIu64", _, _, _), Driver),"
                              "writeln(Driver).";
         err = skb_execute_query(query, vendor_id, device_id);
         if (err_no(err) == SKB_ERR_EXECUTION) {
-            KALUGA_DEBUG("No PCI driver found for: VendorId=0x%lx, "
-                         "DeviceId=0x%lx\n",
+            KALUGA_DEBUG("No PCI driver found for: VendorId=0x%"PRIx64", "
+                         "DeviceId=0x%"PRIx64"\n",
                     vendor_id, device_id);
             goto out;
         }
@@ -97,7 +102,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // XXX: Find better way to parse binary name from SKB
         char* binary_name = malloc(strlen(skb_get_output()));
         coreid_t core;
-        skb_read_output("driver(%hhu, %s)", &core, binary_name);
+        skb_read_output("driver(%"PRIuCOREID", %s)", &core, binary_name);
         *strrchr(binary_name, ')') = '\0';
 
         struct module_info* mi = find_module(binary_name);

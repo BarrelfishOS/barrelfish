@@ -409,7 +409,7 @@ struct octopus_binding* get_event_binding(struct octopus_binding* b)
 
     struct octopus_binding* recipient = NULL;
     // TODO pointer size vs. long int in skb :-(
-    sscanf(dqs->stdout.buffer, "%lu", (uintptr_t*) &recipient);
+    sscanf(dqs->stdout.buffer, "%"PRIuPTR"", (uintptr_t*) &recipient);
 
     free(dqs);
     return recipient;
