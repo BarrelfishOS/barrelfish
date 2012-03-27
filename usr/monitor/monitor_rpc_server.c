@@ -15,7 +15,7 @@
 
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
-#include "capops/ops.h"
+#include "capops.h"
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
 #if defined(__i386__) && defined(__GNUC__) \
@@ -406,8 +406,8 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
                               capaddr_t to, capaddr_t slot, int32_t dcn_vbits)
 {
     errval_t err;
-    err = retype(new_type, size_bits, croot, to, dcn_vbits, slot, src,
-                 CPTR_BITS, retype_reply_status, (void*)b);
+    err = capops_retype(new_type, size_bits, croot, to, dcn_vbits, slot, src,
+                        CPTR_BITS, retype_reply_status, (void*)b);
     if (err_is_fail(err)) {
         retype_reply_status(err, (void*)b);
     }
@@ -424,7 +424,7 @@ static void remote_cap_delete(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t vbits)
 {
     struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
-    errval_t err = delete(cap, delete_reply_status, (void*)b);
+    errval_t err = capops_delete(cap, delete_reply_status, (void*)b);
     if (err_is_fail(err)) {
         delete_reply_status(err, (void*)b);
     }
@@ -441,7 +441,7 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t vbits)
 {
     struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
-    errval_t err = revoke(cap, revoke_reply_status, (void*)b);
+    errval_t err = capops_revoke(cap, revoke_reply_status, (void*)b);
     if (err_is_fail(err)) {
         revoke_reply_status(err, (void*)b);
     }

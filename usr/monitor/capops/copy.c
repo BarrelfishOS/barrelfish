@@ -11,7 +11,7 @@
 #include <barrelfish_kpi/distcaps.h>
 #include <if/intermon_defs.h>
 #include "monitor.h"
-#include "ops.h"
+#include "capops.h"
 #include "capsend.h"
 #include "magic.h"
 
@@ -383,11 +383,13 @@ end:
  */
 
 errval_t
-copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, void *st)
+capops_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, void *st)
 {
     errval_t err;
     struct capability cap;
     distcap_state_t state;
+
+    printf("monitor: copy\n");
 
     // check that cap is valid
     err = cap_get_state(capref, &state);

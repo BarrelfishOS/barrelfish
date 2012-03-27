@@ -9,7 +9,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include "monitor.h"
-#include "ops.h"
+#include "capops.h"
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
@@ -178,7 +178,7 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
     rst->from = from;
     rst->st = st;
 
-    err = move(get_cap_domref(capref), from, request_revoke_move_cont, rst);
+    err = capops_move(get_cap_domref(capref), from, request_revoke_move_cont, rst);
     if (err_is_fail(err)) {
         goto free_st;
     }
@@ -293,7 +293,7 @@ revoke_local(struct revoke_st *rst)
         // kernel encountered a local cap with no copies, explicitly perform a
         // delete in the monitor to deal with possible remote copies
         assert(!capref_is_null(rst->delcap));
-        err = delete(get_cap_domref(rst->delcap), revoke_delete_result, rst);
+        err = capops_delete(get_cap_domref(rst->delcap), revoke_delete_result, rst);
         if (err_is_ok(err)) {
             return err;
         }
@@ -321,10 +321,11 @@ revoke_local(struct revoke_st *rst)
  */
 
 errval_t
-revoke(struct domcapref cap, revoke_result_handler_t result_handler, void *st)
+capops_revoke(struct domcapref cap, revoke_result_handler_t result_handler, void *st)
 {
     errval_t err;
     distcap_state_t state;
+    printf("monitor: revoke\n");
 
     err = invoke_cnode_get_state(cap.croot, cap.cptr, cap.bits, &state);
     if (err_is_fail(err)) {

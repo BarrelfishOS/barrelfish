@@ -9,7 +9,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include "monitor.h"
-#include "ops.h"
+#include "capops.h"
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
@@ -251,7 +251,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
     }
     else {
         // core found, attempt move
-        err = move(del_st->capref, core, move_result_cont, st);
+        err = capops_move(del_st->capref, core, move_result_cont, st);
         if (err_is_fail(err)) {
             del_st->result_handler(err, del_st->st);
             free_delete_st(del_st);
@@ -301,7 +301,7 @@ delete_cnode_slot_result(errval_t status, void *st)
     if (err_is_ok(status) || err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         if (dst->delcap.slot < (1 << dst->delcap.cnode.size_bits)) {
             dst->delcap.slot++;
-            err = delete(get_cap_domref(dst->delcap), delete_cnode_slot_result, dst);
+            err = capops_delete(get_cap_domref(dst->delcap), delete_cnode_slot_result, dst);
         }
         else {
             err = SYS_ERR_OK;
@@ -336,7 +336,7 @@ delete_cnode(struct capref cap, void *st)
     dcst->delcap.slot = 0;
     dcst->st = st;
 
-    err = delete(get_cap_domref(dcst->delcap), delete_cnode_slot_result, dcst);
+    err = capops_delete(get_cap_domref(dcst->delcap), delete_cnode_slot_result, dcst);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "deleting cnode slot failed");
     }
@@ -348,10 +348,12 @@ delete_cnode(struct capref cap, void *st)
  */
 
 errval_t
-delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
+capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
 {
     errval_t err;
     distcap_state_t state;
+
+    printf("monitor: delete\n");
 
     err = invoke_cnode_get_state(cap.croot, cap.cptr, cap.bits, &state);
     if (err_is_fail(err)) {

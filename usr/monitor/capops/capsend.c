@@ -11,7 +11,7 @@
 #include "capsend.h"
 #include "monitor.h"
 #include "magic.h"
-#include "ops.h"
+#include "capops.h"
 
 /*
  * Single-cast {{{1

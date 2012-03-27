@@ -10,7 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <if/intermon_defs.h>
 #include "monitor.h"
-#include "ops.h"
+#include "capops.h"
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
@@ -226,10 +226,12 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
  */
 
 errval_t
-move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
+capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
     distcap_state_t state;
+
+    printf("monitor: move\n");
 
     err = invoke_cnode_get_state(capref.croot, capref.cptr, capref.bits, &state);
     if (err_is_fail(err)) {

@@ -11,7 +11,7 @@
 #include <barrelfish/caddr.h>
 #include <monitor.h>
 #include <monitor_invocations.h>
-#include "ops.h"
+#include "capops.h"
 #include "capsend.h"
 #include "magic.h"
 
@@ -199,12 +199,13 @@ reply_err:
  */
 
 errval_t
-retype(enum objtype type, size_t objbits, struct capref croot,
-       capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
-       capaddr_t src, uint8_t src_bits, retype_result_handler_t result_handler,
-       void *st)
+capops_retype(enum objtype type, size_t objbits, struct capref croot,
+              capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
+              capaddr_t src, uint8_t src_bits,
+              retype_result_handler_t result_handler, void *st)
 {
     errval_t err;
+    printf("monitor: retype\n");
 
     distcap_state_t src_state;
     err = invoke_cnode_get_state(croot, src, src_bits, &src_state);

@@ -12,7 +12,7 @@
 
 #include <barrelfish/caddr.h>
 #include <barrelfish/waitset.h>
-#include "ops.h"
+#include "capops.h"
 
 struct event_queue_node;
 
