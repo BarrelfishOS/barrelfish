@@ -20,7 +20,7 @@
                       cFiles = [ "pcimain.c", "pci.c", "pci_service.c", 
                                  "ht_config.c", "pcie.c" ],
                       addCFlags = [ "-Wno-redundant-decls" ],
-                      addLibraries = [ "skb", "pciconfspace", "mm", "acpi_client", 
+                      addLibraries = [ "skb", "pciconfspace", "acpi_client", 
                                        "octopus", "octopus_parser", "thc" ],
                       architectures = [ "x86_64", "x86_32" ]
                     }
