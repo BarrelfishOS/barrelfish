@@ -21,6 +21,7 @@
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <netif/bfeth.h>
+#include <trace/trace.h>
 #include "echoserver.h"
 
 
@@ -29,6 +30,9 @@ extern void idc_print_cardinfo(void);
 
 extern uint64_t minbase, maxbase;
 
+#if TRACE_ONLY_SUB_NNET
+static size_t n64b = 0;
+#endif
 
 static void echo_server_close(struct tcp_pcb *tpcb)
 {
@@ -52,11 +56,17 @@ static err_t echo_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
         echo_server_close(tpcb);
         return ERR_OK;
     }
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXAPPRCV,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
     /* don't send an immediate ack here, do it later with the data */
     tpcb->flags |= TF_ACK_DELAY;
     assert(p->next == 0);
 
-    if ((p->tot_len > 2) && (p->tot_len < 200)) {
+    /*if ((p->tot_len > 2) && (p->tot_len < 200)) {
         if (strncmp(p->payload, "stat", 4) == 0) {
             idc_print_statistics();
         }
@@ -67,15 +77,61 @@ static err_t echo_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
             printf("echoserver's memory affinity: [0x%lx, 0x%lx]\n",
                 minbase, maxbase);
         }
+    }*/
+
+#if TRACE_ONLY_SUB_NNET
+    if (p->tot_len == 64) {
+        n64b++;
+        if (n64b == 5) {
+            trace_control(TRACE_EVENT(TRACE_SUBSYS_NNET,
+                                      TRACE_EVENT_NNET_START, 0),
+                          TRACE_EVENT(TRACE_SUBSYS_NNET,
+                                      TRACE_EVENT_NNET_STOP, 0), 0);
+            trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_START, 0);
+        } else if (n64b == 8) {
+            trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_STOP, 0);
+            char* trbuf = malloc(4096*4096);
+            size_t length = trace_dump(trbuf, 4096*4096);
+            printf("%s\n", trbuf);
+            printf("length of buffer %zu\n", length);
+            free(trbuf);
+        }
     }
+
+
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXAPPSNT, 0);
+#endif
 
 
     //XXX: can we do that without needing to copy it??
     r = tcp_write(tpcb, p->payload, p->len, TCP_WRITE_FLAG_COPY);
     assert(r == ERR_OK);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_WRITE, 0);
+#endif
+
+    // make sure data gets sent immediately
+    r = tcp_output(tpcb);
+    assert(r == ERR_OK);
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_OUTPUT, 0);
+#endif
+
     tcp_recved(tpcb, p->len);
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_RECV, 0);
+#endif
+
+
     //now we can advertise a bigger window
     pbuf_free(p);
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_TCP_FREE, 0);
+#endif
+
+
     return ERR_OK;
 }
 

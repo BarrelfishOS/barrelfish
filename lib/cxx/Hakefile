@@ -22,5 +22,5 @@
       defaultopts = libGetOptionsForArch a args
   in
     Rules [Rules [compileCxxFile defaultopts s | s <- (Args.cxxFiles args)],
-           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args)]
+           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) [] ]
 ) | a <- [ "x86_64" ] ]

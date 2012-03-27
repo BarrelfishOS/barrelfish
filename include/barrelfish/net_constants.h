@@ -16,9 +16,33 @@
 #ifndef LIBBARRELFISH_NETCONSTANTS_H
 #define LIBBARRELFISH_NETCONSTANTS_H
 
+// *******************************************************************
+// net devices will export their service with following names
+// *******************************************************************
+
+// How long the exported network related service names can be?
+#define MAX_NET_SERVICE_NAME_LEN   255
+
+// soft packet filters will be exported as
+// (device_name) followed by FILTER_SERVICE_SUFFIX
 #define FILTER_SERVICE_SUFFIX      "_FILT"
 
+// port management service will be exported as
+// (device_name) followed by NET_PORTS_MNG_SUFFIX
+#define NET_PORTS_MNG_SUFFIX          "_PORTS_MNG"
+
+// Network device management service will be exported as
+// (device_name) followed by NET_DEV_MNG_SUFFIX
+#define NET_DEV_MNG_SUFFIX          "_MNG"
+
+// ARP table lookup service name
+// (device_name) followed by NET_ARP_LOOKUP_SUFFIX
+#define NET_ARP_LOOKUP_SUFFIX       "_ARP"
+
+// FIXME: Do I still need this?
 #define CTL_SERVICE_SUFFIX          "_CTRL"
+// *******************************************************************
+
 
 enum buffer_memory_types {
     RX_BUFFER_ID = 0,

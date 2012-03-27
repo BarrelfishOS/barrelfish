@@ -62,7 +62,7 @@ struct stat {
 #define S_ISFIFO(mode)   (((mode) & S_IFMT) == S_IFIFO)
 
 mode_t umask(mode_t mask);
-int chmod(const char *path, mode_t mode);
+//int chmod(const char *path, mode_t mode);
 int stat(const char *pathname, struct stat *buf);
 int fstat(int fd, struct stat*buf);
 int lstat(const char *path, struct stat *buf);

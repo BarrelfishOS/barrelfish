@@ -142,7 +142,14 @@ extern "C" {
                         struct ip_addr *ipaddr);
     err_t etharp_query(struct netif *netif, struct ip_addr *ipaddr,
                        struct pbuf *q);
+
+
+    struct eth_addr convert_uint64_to_eth_addr(uint64_t given_mac);
     bool is_ip_present_in_arp_cache(struct ip_addr *ipaddr);
+    uint64_t find_ip_arp_cache(struct ip_addr *ipaddr);
+
+
+
     err_t etharp_request(struct netif *netif, struct ip_addr *ipaddr);
 /** For Ethernet network interfaces, we might want to send "gratuitous ARP";
  *  this is an ARP packet sent by a node in order to spontaneously cause other

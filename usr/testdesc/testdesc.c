@@ -38,7 +38,7 @@ static size_t copy_file_fd(void *dest, genpaddr_t offset, struct fd_store *fds)
     /* This following isn't correct at all - we're just copying the value of 
      * the pointer, which is useless in the new dispatcher */
 
-    printf("copying %zu bytes from %p to %p\n", size, &fds->handle, dest);
+    printf("copying %lu bytes from %p to %p\n", size, &fds->handle, dest);
     memcpy(dest, &fds->handle, size);
     fds->handle = (void*)(offset);
     printf("fd %d fixed handle is: %p\n", fds->num, fds->handle);
@@ -61,7 +61,7 @@ static size_t copy_unixsock_fd(void *dest, genpaddr_t offset,
            fds->handle, ush->type, ush->protocol, ush->passive, ush->nonblocking);
     size = sizeof(struct _unix_socket);
 
-    printf("copying %zu bytes from %p to %p\n", size, fds->handle, dest);
+    printf("copying %lu bytes from %p to %p\n", size, fds->handle, dest);
     memcpy(dest, fds->handle, size);
     fds->handle = (void*)(offset);
     printf("fd %d fixed handle is: %p\n", fds->num, fds->handle);

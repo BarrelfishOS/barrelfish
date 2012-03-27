@@ -37,7 +37,7 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall6((invoke_bits << 16) | (KernelCmd_Spawn_core << 8)
                     | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
@@ -45,10 +45,10 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 }
 
 static inline errval_t
-invoke_monitor_identify_cap(caddr_t cap, int bits, struct capability *out)
+invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall5((invoke_bits << 16) | (KernelCmd_Identify_cap << 8)
                     | SYSCALL_INVOKE, invoke_cptr, cap, bits,
@@ -56,12 +56,12 @@ invoke_monitor_identify_cap(caddr_t cap, int bits, struct capability *out)
 }
 
 static inline errval_t 
-invoke_monitor_identify_domains_cap(caddr_t root_cap, int root_bits,
-                                    caddr_t cap, int bits,
+invoke_monitor_identify_domains_cap(capaddr_t root_cap, int root_bits,
+                                    capaddr_t cap, int bits,
                                     struct capability *out)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall7((invoke_bits << 16) | (KernelCmd_Identify_domains_cap << 8)
                     | SYSCALL_INVOKE, invoke_cptr, root_cap, root_bits,
@@ -69,20 +69,20 @@ invoke_monitor_identify_domains_cap(caddr_t root_cap, int root_bits,
 }
 
 static inline errval_t
-invoke_monitor_nullify_cap(caddr_t cap, int bits)
+invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall4((invoke_bits << 16) | (KernelCmd_Nullify_cap << 8)
                     | SYSCALL_INVOKE, invoke_cptr, cap, bits).error;
 }
 
 static inline errval_t
-invoke_monitor_create_cap(uint64_t *raw, caddr_t caddr, int bits, caddr_t slot)
+invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall6((invoke_bits << 16) | (KernelCmd_Create_cap << 8)
                     | SYSCALL_INVOKE, invoke_cptr, caddr, bits, slot,
@@ -90,11 +90,11 @@ invoke_monitor_create_cap(uint64_t *raw, caddr_t caddr, int bits, caddr_t slot)
 }
 
 static inline errval_t
-invoke_monitor_cap_remote(caddr_t cap, int bits, bool is_remote, 
+invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote, 
                           bool * has_descendents)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     struct sysret r;
     r = syscall5((invoke_bits << 16) | (KernelCmd_Remote_cap << 8)
@@ -109,14 +109,14 @@ static inline errval_t
 invoke_monitor_register(struct capref ep)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall3((invoke_bits << 16) | (KernelCmd_Register << 8)
                     | SYSCALL_INVOKE, invoke_cptr, get_cap_addr(ep)).error;
 }
 
 static inline errval_t
-invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, caddr_t slot,
+invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, capaddr_t slot,
                                       struct capability *out)
 {
     USER_PANIC("NYI");
@@ -139,15 +139,15 @@ invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, caddr_t slot,
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_retype(caddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 caddr_t src, enum objtype newtype,
-                                 int objbits, caddr_t to, caddr_t slot,
+invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+                                 capaddr_t src, enum objtype newtype,
+                                 int objbits, capaddr_t to, capaddr_t slot,
                                  int bits) 
 {
     assert(src != CPTR_NULL);
 
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
     
     assert(newtype <= 0xffff);
     assert(objbits <= 0xff);
@@ -164,12 +164,12 @@ invoke_monitor_remote_cap_retype(caddr_t rootcap_addr, uint8_t rootcap_vbits,
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_delete(caddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 caddr_t src, int bits) {
+invoke_monitor_remote_cap_delete(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+                                 capaddr_t src, int bits) {
     assert(src != CPTR_NULL);
 
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
     
     return syscall6(invoke_bits << 16 | (MonitorCmd_Delete << 8)
                     | SYSCALL_INVOKE, invoke_cptr, rootcap_addr, 
@@ -177,12 +177,12 @@ invoke_monitor_remote_cap_delete(caddr_t rootcap_addr, uint8_t rootcap_vbits,
 }
 
 static inline errval_t
-invoke_monitor_remote_cap_revoke(caddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 caddr_t src, int bits) {
+invoke_monitor_remote_cap_revoke(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
+                                 capaddr_t src, int bits) {
     assert(src != CPTR_NULL);
 
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
     
     return syscall6(invoke_bits << 16 | (MonitorCmd_Revoke << 8)
                     | SYSCALL_INVOKE, invoke_cptr, rootcap_addr, 
@@ -232,7 +232,7 @@ static inline errval_t
 invoke_monitor_ipi_register(struct capref ep, int chanid)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall4((invoke_bits << 16) | (KernelCmd_IPI_Register << 8)
                     | SYSCALL_INVOKE, invoke_cptr,
@@ -244,7 +244,7 @@ static inline errval_t
 invoke_monitor_ipi_delete(int chanid)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall3((invoke_bits << 16) | (KernelCmd_IPI_Delete << 8)
                     | SYSCALL_INVOKE, invoke_cptr,
@@ -254,7 +254,7 @@ invoke_monitor_ipi_delete(int chanid)
 static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall4((invoke_bits << 16) | (KernelCmd_Sync_timer << 8)
                     | SYSCALL_INVOKE, invoke_cptr, synctime >> 32,

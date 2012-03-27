@@ -676,11 +676,11 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                         a->ProximityDomainLo;
 
                     ACPI_DEBUG("CPU affinity table:\n");
-                    ACPI_DEBUG("Proximity Domain: %d\n", proximitydomain);
+                    ACPI_DEBUG("Proximity Domain: %"PRIu32"\n", proximitydomain);
                     ACPI_DEBUG("CPU local APIC ID: %d\n", a->ApicId);
                     ACPI_DEBUG("CPU local SAPIC EID: %d\n", a->LocalSapicEid);
 
-                    skb_add_fact("cpu_affinity(%d,%d,%d).",
+                    skb_add_fact("cpu_affinity(%d,%d,%"PRIu32").",
                         a->ApicId, a->LocalSapicEid, proximitydomain);
                 } else {
                     ACPI_DEBUG("CPU affinity table disabled!\n");
@@ -797,7 +797,7 @@ int init_acpi(void)
     ACPI_DEBUG("Reserving fixed resources\n");
     as = AcpiGetDevices("PNP0C02", reserve_resources, NULL, NULL);
     if (ACPI_FAILURE(as) && as != AE_NOT_FOUND) {
-        printf("WARNING: AcpiGetDevices failed with error %d\n", as);
+        printf("WARNING: AcpiGetDevices failed with error %"PRIu32"\n", as);
     }
     assert(ACPI_SUCCESS(as) || as == AE_NOT_FOUND);
 

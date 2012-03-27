@@ -38,7 +38,7 @@ errval_t monitor_cap_identify(struct capref cap, struct capability *out)
     }
 
     uint8_t vbits = get_cap_valid_bits(cap);
-    caddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
     return invoke_monitor_identify_cap(caddr, vbits, out);
 }
 
@@ -52,13 +52,13 @@ errval_t monitor_cap_identify(struct capref cap, struct capability *out)
  * \param vbits   Valid bits of the cap to identify
  * \param out     Struct to return the metadata
  */
-errval_t monitor_domains_cap_identify(struct capref croot, caddr_t cap,
+errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
                                       int vbits, struct capability *out)
 {
     assert (out != NULL);
 
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    caddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
 
 
     return invoke_monitor_identify_domains_cap(rootcap_addr, rootcap_vbits,
@@ -77,7 +77,7 @@ errval_t monitor_cap_remote(struct capref cap, bool is_remote,
                             bool * has_decendants)
 {
     uint8_t vbits = get_cap_valid_bits(cap);
-    caddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
     return invoke_monitor_cap_remote(caddr, vbits, is_remote, has_decendants);
 }
 
@@ -87,7 +87,7 @@ errval_t monitor_cap_remote(struct capref cap, bool is_remote,
 errval_t monitor_nullify_cap(struct capref cap)
 {
     uint8_t vbits = get_cap_valid_bits(cap);
-    caddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
     return invoke_monitor_nullify_cap(caddr, vbits);
 }
 
@@ -122,7 +122,7 @@ errval_t monitor_cap_create(struct capref dest, struct capability *cap,
 #endif
     }
 
-    caddr_t caddr = get_cnode_addr(dest);
+    capaddr_t caddr = get_cnode_addr(dest);
     uint8_t vbits = get_cnode_valid_bits(dest);
     size_t  slot  = dest.slot;
 
@@ -134,7 +134,7 @@ errval_t monitor_cap_create(struct capref dest, struct capability *cap,
  * within that cnode.
  */
 errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw,
-                                        caddr_t slot, struct capability *ret)
+                                        capaddr_t slot, struct capability *ret)
 {
     assert(cnode_raw != NULL);
     assert(ret != NULL);
@@ -153,12 +153,12 @@ errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw,
  * are remote (cross-core) must be retyped through the monitor to maintain 
  * cross-core consistancy.
  */
-errval_t monitor_retype_remote_cap(struct capref croot, caddr_t src, 
+errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, 
                                    enum objtype newtype, int objbits, 
-                                   caddr_t to, caddr_t slot, int bits)
+                                   capaddr_t to, capaddr_t slot, int bits)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    caddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src,
                                             newtype, objbits, to, slot, bits);
@@ -169,10 +169,10 @@ errval_t monitor_retype_remote_cap(struct capref croot, caddr_t src,
  * are remote (cross-core) must be deleted through the monitor to maintain 
  * cross-core consistancy.
  */
-errval_t monitor_delete_remote_cap(struct capref croot, caddr_t src, int bits)
+errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    caddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_remote_cap_delete(rootcap_addr, rootcap_vbits, src,
                                             bits);
@@ -183,10 +183,10 @@ errval_t monitor_delete_remote_cap(struct capref croot, caddr_t src, int bits)
  * are remote (cross-core) must be deleted through the monitor to maintain 
  * cross-core consistancy.
  */
-errval_t monitor_revoke_remote_cap(struct capref croot, caddr_t src, int bits)
+errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    caddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_remote_cap_revoke(rootcap_addr, rootcap_vbits, src,
                                             bits);

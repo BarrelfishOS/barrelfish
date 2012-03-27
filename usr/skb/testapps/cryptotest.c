@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 //  int asqlen = strlen(asqinput);
   int asqlen = AES_BLOCK_SIZE;
   int asqlen2 = 2 * AES_BLOCK_SIZE;
-  char *tmp;
+  char *tmp = NULL;
   tmp = tmp;
   tmp = (char*)aes_encrypt_in_place(&en, (unsigned char *)asqinput, &asqlen2, true);
 //  tmp = (char*)aes_encrypt_in_place(&en, (unsigned char *)asqinput + asqlen, &asqlen, true);

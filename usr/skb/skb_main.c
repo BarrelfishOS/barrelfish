@@ -50,6 +50,7 @@ static void init_dmalloc(void)
 
 int main(int argc, char**argv)
 {
+    vfs_init();
     init_dmalloc();
     // we'll be needing this...
     vfs_mkdir("/tmp");

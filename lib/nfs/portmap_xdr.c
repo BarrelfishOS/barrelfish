@@ -9,13 +9,13 @@
 bool_t
 xdr_mapping (XDR *xdrs, mapping *objp)
 {
-         if (!xdr_uint32_t (xdrs, &objp->prog))
+         if (!xdr_u_int (xdrs, &objp->prog))
                  return FALSE;
-         if (!xdr_uint32_t (xdrs, &objp->vers))
+         if (!xdr_u_int (xdrs, &objp->vers))
                  return FALSE;
-         if (!xdr_uint32_t (xdrs, &objp->prot))
+         if (!xdr_u_int (xdrs, &objp->prot))
                  return FALSE;
-         if (!xdr_uint32_t (xdrs, &objp->port))
+         if (!xdr_u_int (xdrs, &objp->port))
                  return FALSE;
         return TRUE;
 }
@@ -33,11 +33,11 @@ xdr_pmaplist (XDR *xdrs, pmaplist *objp)
 bool_t
 xdr_call_args (XDR *xdrs, call_args *objp)
 {
-         if (!xdr_uint32_t (xdrs, &objp->prog))
+         if (!xdr_u_int (xdrs, &objp->prog))
                  return FALSE;
-         if (!xdr_uint32_t (xdrs, &objp->vers))
+         if (!xdr_u_int (xdrs, &objp->vers))
                  return FALSE;
-         if (!xdr_uint32_t (xdrs, &objp->proc))
+         if (!xdr_u_int (xdrs, &objp->proc))
                  return FALSE;
          if (!xdr_bytes (xdrs, (char **)&objp->args.args_val, (u_int *) &objp->args.args_len, ~0))
                  return FALSE;
@@ -47,7 +47,7 @@ xdr_call_args (XDR *xdrs, call_args *objp)
 bool_t
 xdr_call_result (XDR *xdrs, call_result *objp)
 {
-         if (!xdr_uint32_t (xdrs, &objp->port))
+         if (!xdr_u_int (xdrs, &objp->port))
                  return FALSE;
          if (!xdr_bytes (xdrs, (char **)&objp->res.res_val, (u_int *) &objp->res.res_len, ~0))
                  return FALSE;

@@ -942,7 +942,7 @@ AcpiOsStall (
     if (microseconds)
     {
         // print something to slow us down ;)
-        printf("Warning: AcpiOsStall(%u) NYI, ignored\n", microseconds);
+        printf("Warning: AcpiOsStall(%"PRIu32") NYI, ignored\n", microseconds);
     }
     return;
 }

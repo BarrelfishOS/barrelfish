@@ -211,7 +211,7 @@ int RCCE_recv(char *privbuf, size_t size, int source)
     mb->msg = privbuf;
 #endif
 
-    dprintf("%d: R(%zd,%d,%p,%d,%p)\n", my_core_id, size, source, mb, mb->pending, privbuf);
+    dprintf("%d: R(%lu,%d,%p,%d,%p)\n", my_core_id, size, source, mb, mb->pending, privbuf);
 
 #ifdef BULK_TRANSFER_ENABLED
     err = barray[core_id]->tx_vtbl.bulk_recv_ready(barray[core_id], NOP_CONT,
@@ -272,7 +272,7 @@ int RCCE_finalize(void)
     for(int phase = 0; phase < MAX_PHASES; phase++) {
         printf("%d: Phase %d: ", RCCE_ue(), phase);
         for(int i = 0; i < RCCE_NP; i++) {
-            printf("%zu ", measure_rcce_data[phase][i]);
+            printf("%lu ", measure_rcce_data[phase][i]);
         }
         printf("\n");
     }

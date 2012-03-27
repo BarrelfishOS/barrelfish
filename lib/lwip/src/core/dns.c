@@ -49,13 +49,13 @@
  * The lwIP version of the resolver also adds a non-blocking version of
  * gethostbyname() that will work with a raw API application. This function
  * checks for an IP address string first and converts it if it is valid.
- * gethostbyname() then does a dns_lookup() to see if the name is 
- * already in the table. If so, the IP is returned. If not, a query is 
+ * gethostbyname() then does a dns_lookup() to see if the name is
+ * already in the table. If so, the IP is returned. If not, a query is
  * issued and the function returns with a ERR_INPROGRESS status. The app
  * using the dns client must then go into a waiting state.
  *
  * Once a hostname has been resolved (or found to be non-existent),
- * the resolver code calls a specified callback function (which 
+ * the resolver code calls a specified callback function (which
  * must be implemented by the module that uses the resolver).
  */
 
@@ -252,7 +252,7 @@ static u8_t dns_payload[DNS_MSG_SIZE];
  * Initialize the resolver: set up the UDP pcb and configure the default server
  * (DNS_SERVER_ADDRESS).
  */
-void dns_init()
+void dns_init(void)
 {
     struct ip_addr dnsserver;
 

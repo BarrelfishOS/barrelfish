@@ -106,6 +106,8 @@ int main(int argc, const char *argv[])
 {
     errval_t err;
 
+    vfs_init();
+    
     my_core_id = disp_get_core_id();
 
     // read in the bootmodules file so that we know what to start

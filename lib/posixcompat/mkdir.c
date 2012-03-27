@@ -12,6 +12,7 @@
 #include <vfs/vfs_path.h>
 #include <unistd.h>
 #include <errno.h>
+#include <syscalls.h>
 #include "posixcompat.h"
 
 int mkdir(const char *pathname, int mode)

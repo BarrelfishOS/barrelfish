@@ -187,7 +187,7 @@ char* build_dst_mac_filter(struct eth_addr dst)
     last_two |= ((uint16_t) dst.addr[4]) << 8;
 
     if(!if_any_mac(dst)) {
-	snprintf(filter, max_len, "int32[0]==%u&&int16[4]==%u", 
+	snprintf(filter, max_len, "int32[0]==%"PRIu32"&&int16[4]==%"PRIu16,
 	        first_four, last_two);
     }
     if (strlen(filter) == 0) {
@@ -213,7 +213,7 @@ char* build_src_mac_filter(struct eth_addr src)
     last_two |= ((uint16_t) src.addr[4]) << 8;
 
     if(!if_any_mac(src)) {
-	snprintf(filter, max_len, "int32[6]==%u&&int16[10]==%u", 
+	snprintf(filter, max_len, "int32[6]==%"PRIu32"&&int16[10]==%"PRIu16,
 	        first_four, last_two);
     }
     if (strlen(filter) == 0) {

@@ -46,5 +46,9 @@ bool is_copy(struct capability *, struct capability *);
 bool is_revoked_first(struct cte *, enum objtype);
 bool is_well_founded(enum objtype, enum objtype);
 bool is_equal_type(enum objtype, enum objtype);
+int8_t compare_caps(struct capability *, struct capability *, bool);
+genpaddr_t get_address(struct capability *);
+gensize_t get_size(struct capability *);
+uint8_t get_type_root(enum objtype);
 
 #endif

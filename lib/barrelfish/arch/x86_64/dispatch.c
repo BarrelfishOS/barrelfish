@@ -215,7 +215,7 @@ void
 __attribute__((optimize(2)))
 #endif
 disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
-          bool yield, caddr_t yield_to)
+          bool yield, capaddr_t yield_to)
 {
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);

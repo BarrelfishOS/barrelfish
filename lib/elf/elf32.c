@@ -192,7 +192,7 @@ void elf32_relocate(genvaddr_t dst, genvaddr_t src,
             break;
 
         default:
-            printf("elf_relocate: relocation %d type %d\n", i, type);
+            printf("elf_relocate: relocation %d type %"PRIu32"\n", i, type);
             assert(!"Unimplemented: Cannot handle relocation type");
             break;
         }

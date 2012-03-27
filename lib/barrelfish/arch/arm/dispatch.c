@@ -43,7 +43,7 @@ STATIC_ASSERT(NUM_REGS == 17, "broken context assumption");
 STATIC_ASSERT(PC_REG   == 16, "broken context assumption");
 
 static void __attribute__((naked)) __attribute__((noinline))
-disp_resume_context(struct dispatcher_shared_generic *disp, uintptr_t *regs)
+disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
 {
     __asm volatile(
         /* Re-enable dispatcher */
@@ -60,7 +60,7 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uintptr_t *regs)
 }
 
 static void __attribute__((naked))
-disp_save_context(uintptr_t *regs)
+disp_save_context(uint32_t *regs)
 {
     __asm volatile(
         "    mrs     r1, cpsr                                           \n\t"
@@ -155,7 +155,7 @@ void disp_switch(dispatcher_handle_t handle,
  */
 void disp_save(dispatcher_handle_t handle,
                arch_registers_state_t *state,
-               bool yield, caddr_t yield_to)
+               bool yield, capaddr_t yield_to)
 {
     struct dispatcher_shared_arm *disp =
         get_dispatcher_shared_arm(handle);

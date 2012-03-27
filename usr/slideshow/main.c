@@ -198,7 +198,7 @@ static void load_slides(const char *indir)
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "vfs_read '%s' failed\n", paths[i]);
         } else if (len != info.size) {
-            USER_PANIC("short read %zu != %zu\n", len, info.size);
+            USER_PANIC("short read %lu != %lu\n", len, info.size);
         }
 
         vfs_close(fh);
@@ -228,6 +228,8 @@ int main(int argc, char *argv[])
     yres = atoi(argv[2]);
     bpp = atoi(argv[3]);
 
+    vfs_init();
+    
     // Connect to framebuffer driver
     fb_client_connect();
 

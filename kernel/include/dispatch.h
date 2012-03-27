@@ -73,7 +73,7 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
                              bool captransfer);
 errval_t lmp_deliver(struct capability *ep, struct dcb *send,
                      uintptr_t *payload, size_t payload_len,
-                     caddr_t send_cptr, uint8_t send_bits);
+                     capaddr_t send_cptr, uint8_t send_bits);
 
 /// Deliver an empty LMP as a notification
 static inline errval_t lmp_deliver_notification(struct capability *ep)

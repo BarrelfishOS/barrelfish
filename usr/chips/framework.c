@@ -86,7 +86,7 @@ static void process_pending_lookups(void)
             assert(err_is_ok(err));
             ns->ref_handle = (nameservice_srvref_t)(uintptr_t)ref;
 
-            printf("%d chips: notifying client about %s\n", disp_get_domain_id(), p->iface);
+            printf("%"PRIuDOMAINID" chips: notifying client about %s\n", disp_get_domain_id(), p->iface);
             ns->rpc_reply(p->b, ns);
 
             if (p == pending_lookups) {
@@ -255,7 +255,7 @@ static void wait_for_service_reference_handler(
 
     // if we didn't find anything, add it to the pending lookups queue
     if (ref == NULL) {
-        printf("%d chips: client waiting for %s\n", disp_get_domain_id(), iface);
+        printf("%"PRIuDOMAINID" chips: client waiting for %s\n", disp_get_domain_id(), iface);
         struct pending_lookup *pending = malloc(sizeof(struct pending_lookup));
         assert(pending != NULL);
         pending->iface = iface;
@@ -506,7 +506,7 @@ static void sem_new_handler(struct nameservice_binding *b, uint32_t value)
     }
 
     if(i != MAX_SEM) {
-      printf("chips: sem_new(%d, %u)\n", i, value);
+      printf("chips: sem_new(%d, %"PRIu32")\n", i, value);
         sems[i].value = value;
 	// sems[i].holder = NULL;
     } else {

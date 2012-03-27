@@ -27,7 +27,7 @@ static inline cycles_t bench_tsc(void)
 {
     STATIC_ASSERT_SIZEOF(cycles_t, sizeof(uintptr_t));
     cycles_t tsc;
-    sys_debug_hardware_timer_read(&tsc);
+    sys_debug_hardware_timer_read((uintptr_t *)&tsc);
     return tsc;
 }
 

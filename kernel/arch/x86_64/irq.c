@@ -449,7 +449,7 @@ static void send_user_interrupt(int irq)
 #endif
 }
 
-errval_t irq_table_set(unsigned int nidt, caddr_t endpoint)
+errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
     errval_t err;
     struct cte *recv;

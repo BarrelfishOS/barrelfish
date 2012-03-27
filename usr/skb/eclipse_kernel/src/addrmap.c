@@ -74,7 +74,7 @@ extern void	exit(int);
 #define MAP_VARIABLE 0
 #endif
 #ifndef MAP_FAILED
-#define MAP_FAILED ((caddr_t) (-1))
+#define MAP_FAILED ((capaddr_t) (-1))
 #endif
 #if defined(MAP_ANONYMOUS) || defined(MAP_ANON)
 #  ifndef MAP_FILE
@@ -189,7 +189,7 @@ _sigsegv_handler(int sig)
 {
     int		addr_state_save;
     int		map_flags, map_prot;
-    caddr_t		map_result;
+    capaddr_t		map_result;
 #ifdef HAVE_SIGPROCMASK
     sigset_t	sig_mask;
 
@@ -218,7 +218,7 @@ _sigsegv_handler(int sig)
 #endif
 				    MAP_PRIVATE|addr_map_mode;
     }
-    map_result = mmap((caddr_t) addr, 
+    map_result = mmap((capaddr_t) addr, 
 		   (size_t) addr_pagesize, 
 		   map_prot,
 		   map_flags,
@@ -232,7 +232,7 @@ _sigsegv_handler(int sig)
 	    *addr = 0xff;
 	    addr_state = addr_state_save;
 	}
-	(void) munmap((caddr_t) addr,(size_t) addr_pagesize);
+	(void) munmap((capaddr_t) addr,(size_t) addr_pagesize);
 	if (addr_state != ADDR_FREE) {
 	    if (addr_range_addr != addr)
 		_write_range(addr_range_addr, (char *) addr, addr_state);

@@ -28,13 +28,12 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                         addCFlags = [ "-O2" ],
                         flounderBindings = [ "skb" ],
                         addIncludes = [ "eclipse_kernel/src"],
-                        addLibraries = [ "eclipse", "shm", "dummies",
-                                         "posixcompat", "msun",
-                                         "icsolver", "vfs", "nfs", "ahci", "lwip",
-                                         "contmng", "procon", "hashtable", "pcre", 
-                                         "octopus_server", "octopus_parser", "skb",
-                                         "bench", "dmalloc", "hashtable"],
-                        architectures = [ arch ]
+                        addLibraries = libDeps [ "eclipse", "shm", "dummies",
+                                                 "icsolver", "vfs",
+                                                 "posixcompat", "hashtable", "pcre", 
+                                                 "octopus_server", "octopus_parser", "skb",
+                                                 "bench", "dmalloc" ],
+                       architectures = [ arch ]
                 }
 in
   [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32", "scc" ]],

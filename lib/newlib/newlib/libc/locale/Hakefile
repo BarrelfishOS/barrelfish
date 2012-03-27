@@ -1,0 +1,19 @@
+if Config.libc == "newlib" then
+[ build library { 
+  target = "locale",
+  cFiles = [ 
+    "locale.c",
+    "fix_grouping.c",
+    "ldpart.c",
+    "lmessages.c",
+    "lnumeric.c",
+    "lmonetary.c",
+    "nl_langinfo.c",
+    "timelocal.c",
+    "lctype.c"
+        ],
+      addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES" ],
+  omitCFlags = [ "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+   }
+]
+else []

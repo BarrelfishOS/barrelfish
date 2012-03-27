@@ -254,11 +254,18 @@ static void lwip_sanity_check(void)
 static int is_ctl = 0;
 struct netbench_details *nb = NULL;
 
-static void remaining_lwip_initialization(char *card_name)
+static struct netif netif;
+
+bool is_this_special_app(void)
+{
+    return (is_ctl > 0);
+} // end function: is_this_special_app
+
+static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
 {
     nb = netbench_alloc("app", RECORDED_EVENTS_COUNT);
     //asq: connect to the NIC driver, before doing anything else
-    idc_connect_to_driver(card_name);
+    idc_connect_to_driver(card_name, queueid);
     DEBUGPRINTPS("Connected to driver [%s]\n", card_name);
     stats_init();
     sys_init();
@@ -266,23 +273,23 @@ static void remaining_lwip_initialization(char *card_name)
 #ifdef CONFIG_QEMU_NETWORK
     printf("#### Networking with small amount of memory #####\n");
 #endif // CONFIG_QEMU_NETWORK
-    printf("#### [%u:%u:%s] [%s] [%d] MEM_SIZE[%d], "
-            "PBUF_POOL_SIZE[%d], RECEIVE_BUFFERS[%d] ####\n",
+    printf("#### [%u:%"PRIuDOMAINID":%s] [%s] [%d] MEM_SIZE[%d], "
+            "PBUF_POOL_SIZE[%d], RECEIVE_BUFFERS[%d] qid[%"PRIu64"]####\n",
        disp_get_core_id(), disp_get_domain_id(), disp_name(),
        MEM_CONF_LOC, is_ctl, MEM_SIZE, PBUF_POOL_SIZE,
-       RECEIVE_BUFFERS);
+       RECEIVE_BUFFERS, queueid);
 
     memp_init();                // 0'st buffer
 
     DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
-    printf("LWIP: allocating memory for sending\n");
     mem_init();                 // 1'th buffer
-    printf("LWIP: lwip_starting\n");
+    DEBUGPRINTPS("LWIP: lwip_starting\n");
     netif_init();
 #if LWIP_SOCKET
     lwip_socket_init();
 #endif                          /* LWIP_SOCKET */
     ip_init();
+    DEBUGPRINTPS("r_lwip_init: done ip_init\n");
 #if LWIP_ARP
     etharp_init();
 #endif                          /* LWIP_ARP */
@@ -291,46 +298,48 @@ static void remaining_lwip_initialization(char *card_name)
 #endif                          /* LWIP_RAW */
 #if LWIP_UDP
     udp_init();
+    DEBUGPRINTPS("r_lwip_init: done udp_init\n");
 #endif                          /* LWIP_UDP */
 #if LWIP_TCP
     tcp_init();
+    DEBUGPRINTPS("r_lwip_init: done tcp_init\n");
 #endif                          /* LWIP_TCP */
 #if LWIP_SNMP
     snmp_init();
+    DEBUGPRINTPS("r_lwip_init: done snmp_init\n");
 #endif                          /* LWIP_SNMP */
 #if LWIP_AUTOIP
     autoip_init();
+    DEBUGPRINTPS("r_lwip_init: done autoip_init\n");
 #endif                          /* LWIP_AUTOIP */
 #if LWIP_IGMP
     igmp_init();
+    DEBUGPRINTPS("r_lwip_init: done igmp_init\n");
 #endif                          /* LWIP_IGMP */
+    DEBUGPRINTPS("r_lwip_init: done2 igmp_init\n");
 #if LWIP_DNS
+    DEBUGPRINTPS("r_lwip_init: starting DNS_init\n");
     dns_init();
+    DEBUGPRINTPS("r_lwip_init: done DNS_init\n");
 #endif                          /* LWIP_DNS */
-    printf("LWIP: lwip_started\n");
+    DEBUGPRINTPS("LWIP: lwip_started\n");
 }
 
 extern struct waitset *lwip_waitset;    // idc_barrelfish.c
 extern struct thread_mutex *lwip_mutex; // idc_barrelfish.c
 
 /**
- * To be called by the app which wants to take the control of lwip
+ * To be called by the app which wants to perform DHCP on it's own
  * In current implementation, it is netd.
  * Perform Sanity check of user-configurable values, and initialize all modules.
  */
-void owner_lwip_init(char *card_name)
+struct netif *owner_lwip_init(char *card_name, uint64_t queueid)
 {
     DEBUGPRINTPS("owner_lwip_init: Inside lwip_init\n");
     is_ctl = 1;
-    lwip_waitset = get_default_waitset();
-
-    /* Sanity check user-configurable values */
-    lwip_sanity_check();
-    DEBUGPRINTPS("owner_lwip_init: done with sanity check\n");
-
-    /* Modules initialization */
+    lwip_init(card_name, queueid);
     DEBUGPRINTPS("LWIP: owner_lwip_init: done with connection setup\n");
-    remaining_lwip_initialization(card_name);
+    return &netif;
 }
 
 static void call_tcp_tmr(void)
@@ -344,13 +353,14 @@ static void call_tcp_tmr(void)
  * Perform Sanity check of user-configurable values, and initialize all modules.
  *
  * \param card_name Name of service implementing ethernet driver
+ * \param queueid Queueid which is allocated to this application
  * \param opt_waitset Optional pointer to waitset to be used by LWIP
  * \param opt_mutex Optional pointer to mutex to protect multi-threaded domains
  *
  * \returns True iff init completes
  */
-bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
-                  struct thread_mutex *opt_mutex)
+static bool lwip_init_ex(const char *card_name, uint64_t queueid,
+        struct waitset *opt_waitset, struct thread_mutex *opt_mutex)
 {
     DEBUGPRINTPS("LWIP_other: Inside lwip_init\n");
     printf("LWIP: in lwip_init\n");
@@ -379,27 +389,38 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     DEBUGPRINTPS("LWIP: lwip_init: done with sanity check\n");
     printf("LWIP: done with sanity check\n");
     /* Modules initialization */
-    char card_controller_name[100];
+    char port_manager_name[MAX_NET_SERVICE_NAME_LEN];
 
-    snprintf(card_controller_name, sizeof(card_controller_name), "%s%s",
-             card_name, CTL_SERVICE_SUFFIX);
+    snprintf(port_manager_name, sizeof(port_manager_name), "%s%s",
+             card_name, NET_PORTS_MNG_SUFFIX);
 
-    // Connecting to netd server
-    idc_connect_to_netd(card_controller_name);
-    /* FIXME: name of the netd_server should also be passed to lwip_init */
+    // Connecting to the port_manager_service
+    idc_connect_port_manager_service(port_manager_name);
+
+
+    if (is_ctl != 1) {
+        // connecting to ARP lookup service
+        // Doing this before everything else so that we know all needed
+        // services are up and running.
+        char ARP_service_name[MAX_NET_SERVICE_NAME_LEN];
+        snprintf(ARP_service_name, sizeof(ARP_service_name), "%s%s",
+             card_name, NET_ARP_LOOKUP_SUFFIX);
+        idc_connect_ARP_lookup_service(ARP_service_name);
+    }
 
     DEBUGPRINTPS("LWIP: lwip_init: done with connection setup\n");
     printf("LWIP: done with connection setup\n");
-    remaining_lwip_initialization((char *) card_name);
+    remaining_lwip_initialization((char *) card_name, queueid);
 
-    //k: we need ip... asking netd :)
-    DEBUGPRINTPS("getting IP from netd\n");
-    printf("LWIP: getting IP from netd\n");
-    idc_get_ip();
-    DEBUGPRINTPS("ip requested\n");
-    printf("LWIP: IP requested\n");
+    if (is_ctl != 1) {
+        DEBUGPRINTPS("getting IP from ARP service\n");
+        printf("LWIP: getting IP from ARP service\n");
+        idc_get_ip_from_ARP_lookup();
+    }
 
     // Register timers... (TCP only)
+    // FIXME: These timers should be added only when first TCP connection
+    // is requested and not when networking is started!!!!
     static struct periodic_event tcp_timer;
     errval_t err = periodic_event_create(&tcp_timer, lwip_waitset,
                                          TCP_TMR_INTERVAL * 1000,
@@ -407,8 +428,11 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
                                                    call_tcp_tmr, NULL));
     assert(err_is_ok(err));
 
+    // FIXME: I am not sure if this should be in the codepath for both
+    // is_ctl and non-is_ctl.  Specially becasuse non is_ctl is anyways
+    // adding one interface with idc_get_ip* call.
+
     // Bring interface up
-    static struct netif netif;
     struct ip_addr ipaddr, netmask, gw;
 
     ip_addr_set(&ipaddr, IP_ADDR_ANY);
@@ -422,27 +446,15 @@ bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
     return true;
 }
 
-/**
- * Perform Sanity check of user-configurable values, and initialize all modules.
- */
-bool lwip_init(const char *card_name)
-{
-    if (card_name == NULL) {
-        return lwip_init_auto_ex(NULL, NULL);
-    } else {
-        return lwip_init_ex(card_name, NULL, NULL);
-    }
-}
-
 
 /**
  * Figure out the best NIC card to connect and initialize library network stack.
  */
-bool lwip_init_auto_ex(struct waitset * opt_waitset,
+static bool lwip_init_auto_ex(struct waitset * opt_waitset,
                        struct thread_mutex * opt_mutex)
 {
     char *card_name = NULL;
-
+    uint64_t default_queueid = 0;
     /* Figure out the best NIC card that can be used */
     /* FIXME: hardcoding the NIC card right now, will do smarter detection
        in future. */
@@ -451,16 +463,17 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
 #ifdef CONFIG_QEMU_NETWORK
     card_name = "rtl8029";
 #else
+    // FIXME: also check for e10k
     card_name = "e1000";
-#endif                          // CONFIG_QEMU_NETWORK
+#endif // CONFIG_QEMU_NETWORK
 #else
     static char cid[100];
 
     snprintf(cid, sizeof(cid), "eMAC2_%u", disp_get_core_id());
     card_name = cid;
-#endif                          // __scc__
+#endif // __scc__
 
-    return lwip_init_ex(card_name, opt_waitset, opt_mutex);
+    return lwip_init_ex(card_name, default_queueid, opt_waitset, opt_mutex);
 }                               // end function: lwip_init_auto_ex
 
 
@@ -470,6 +483,18 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
 bool lwip_init_auto(void)
 {
     return lwip_init_auto_ex(NULL, NULL);
+}
+
+/**
+ * Perform Sanity check of user-configurable values, and initialize all modules.
+ */
+bool lwip_init(const char *card_name, uint64_t queueid)
+{
+    if (card_name == NULL) {
+        return lwip_init_auto_ex(NULL, NULL);
+    } else {
+        return lwip_init_ex(card_name, queueid, NULL, NULL);
+    }
 }
 
 
@@ -482,7 +507,6 @@ uint64_t wrapper_perform_lwip_work(void)
 {
     return perform_lwip_work();
 }
-
 
 void lwip_benchmark_control(int direction, uint8_t state, uint64_t trigger,
         uint64_t cl)
@@ -536,10 +560,11 @@ int is_lwip_loaded(void)
 //        return 5;
     }
 
-
     // Everything is great!
     return 0;
 }                               // end function: is_lwip_loaded?
+
+
 
 uint64_t lwip_packet_drop_count(void)
 {
@@ -547,12 +572,38 @@ uint64_t lwip_packet_drop_count(void)
 }                               // end function: lwip_packet_drop_count
 
 
+// ******************************************************************
+// Functions to assist in benchmarking the network path
+
+
+// Records the time (ts) spent in the event (event_type)
+// Simplified version of netbench_record_event_simple by giving default
+// nbp pointer
+void lwip_record_event_simple(uint8_t event_type, uint64_t ts)
+{
+    netbench_record_event_simple(nb, event_type, ts);
+} // end function: lwip_record_event_simple
+
 void lwip_print_interesting_stats(void)
 {
+
+    netbench_print_event_stat(nb, RPC_CALL_T,  "U: RPC_CALL_T", 1);
+    netbench_print_event_stat(nb, NFS_READCB_T,  "U: NFS_READCB_T", 1);
+    netbench_print_event_stat(nb, NFS_READ_T,  "U: NFS_READ_T", 1);
+    netbench_print_event_stat(nb, NFS_READ_1_T,  "U: NFS_READ_1_T", 1);
+    netbench_print_event_stat(nb, NFS_READ_w_T,  "U: NFS_READ_w_T", 1);
+    /*
+    netbench_print_event_stat(nb, RPC_RECV_T, "U: RPC_RECV_T", 1);
+    netbench_print_event_stat(nb, RPC_CALLBACK_T, "U: RPC_CALLBACK_T", 1);
+    netbench_print_event_stat(nb, RPC_RECV_OUT_T, "U: RPC_RECV_OUT_T", 1);
+    */
+
+/*
     netbench_print_event_stat(nb, RE_ALL,            "U: RX ALL", 1);
     netbench_print_event_stat(nb, RX_ALL_PROCESS ,   "U: RX ALL process", 1);
     netbench_print_event_stat(nb, RE_PBUF_REPLACE,   "U: RX Replace pbuf", 1);
     netbench_print_event_stat(nb, TX_A_SP_RN_CS, "U: Notification pending", 1);
+*/
 
 /*
     netbench_print_event_stat(nb, RE_PBUF_REPLACE_1, "U: RX Replace pbuf_1", 1);

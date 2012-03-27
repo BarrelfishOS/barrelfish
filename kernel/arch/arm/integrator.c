@@ -72,7 +72,7 @@ void pic_set_irq_enabled(uint32_t irq, bool en)
         }
     }
     else {
-        panic("Unknown IRQ source %u", irq);
+        panic("Unknown IRQ source %"PRIu32, irq);
     }
 }
 

@@ -12,8 +12,8 @@ interface bcache "Buffer cache" {
 
     rpc new_client(out cap bulk);
 
-    rpc get_start(in char key[key_len], out uint64 index, out bool haveit, out uint64 transid, out uint64 size);
-    rpc get_stop(in uint64 transid, in uint64 index, in uint64 length);
+    rpc get_start(in char key[key_len], out uint64 idx, out bool haveit, out uint64 transid, out uint64 size);
+    rpc get_stop(in uint64 transid, in uint64 idx, in uint64 length);
 
     rpc print_stats();
 };

@@ -22,7 +22,7 @@
 #define  ENABLE_FEIGN_FRAME_CAP
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/inthandler.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
 
 
@@ -335,40 +335,54 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
     int data_left = 0;
     int already_copied = 0;
     uint64_t pbuf_len = 0;
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
 
-    for (int index = 0; index < cl->rtpbuf; index++) {
+    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
+
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        sld = &spp->sp->slot_list[cl->tx_index + idx].d;
+        assert(buffer->buffer_id == sld->buffer_id);
+//        paddr = (uint64_t) buffer->pa + sld->offset;
+
         /* check if this pbuf contains any data that is to be copied */
-        if((pbuf_len + cl->pbuf[index].len) < start_offset) {
-            pbuf_len = (pbuf_len + cl->pbuf[index].len);
+        if((pbuf_len + sld->len) < start_offset) {
+            pbuf_len = (pbuf_len + sld->len);
             continue;
         }
         if(already_copied == 0) {
             /* Start offset lies somewhere in this pbuf.
              * So, this is the first pbuf where some data will get copied. */
             pbuf_offset = start_offset - pbuf_len;
-            data_left = cl->pbuf[index].len - pbuf_offset;
+            data_left = sld->len - pbuf_offset;
         } else {
-            /* copying already started. so, just continue onwards in this pbuf */
+            // copying already started. so, just continue onwards in this pbuf
             pbuf_offset = 0;
-            data_left = cl->pbuf[index].len;
+            data_left = sld->len;
         }
         if(pbuf_offset < 0){
-            EMAC_DEBUG("index %d, pbufs = %u, total len %"PRIu64"\n",
-                    index, cl->rtpbuf, cl->len);
-            EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset, to_copy);
-            EMAC_DEBUG("pbuf_offset %d = start_offset(%zu) - pbuf_len (%"PRIu64")\n",
+            EMAC_DEBUG("idx %d, pbufs = %u, to copy %zu\n",
+                    idx, rtpbuf, to_copy);
+            EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset,
+                    to_copy);
+            EMAC_DEBUG("pbuf_offset %d = start_offset(%zu) - "
+                    "pbuf_len (%"PRIu64")\n",
                     pbuf_offset, start_offset, pbuf_len);
-            EMAC_DEBUG("pbuflen (%"PRIu64") + (%"PRIu64") < start_offset(%zu)\n",
-                    pbuf_len, cl->pbuf[index].len, start_offset);
-            EMAC_DEBUG("prev pbuf len (%"PRIu64"), already copied %d, left %d\n",
-                    cl->pbuf[0].len, already_copied, data_left);
+
+            EMAC_DEBUG("pbuflen (%"PRIu64") + (%"PRIu64") < "
+                    "start_offset(%zu)\n",
+                    pbuf_len, sld->len, start_offset);
+            EMAC_DEBUG("prev pbuf len (%"PRIu64"), already copied %d, "
+                    "left %d\n", spp->sp->slot_list[cl->tx_index].d->len,
+                    already_copied, data_left);
         }
         assert(pbuf_offset >= 0);
         assert(data_left >= 0);
 
         copying = MIN(to_copy, data_left);
 
-        uint8_t *src =((uint8_t *)cl->buffer_ptr->va) + cl->pbuf[index].offset
+        uint8_t *src =((uint8_t *)buffer->va) + sld->offset
                                 + pbuf_offset;
 
         // FIXME: may be I should use memcpy_fast here!!
@@ -378,19 +392,21 @@ static void pbuf_list_memcpy(uint8_t *dst, struct client_closure *cl,
         if(already_copied == to_copy) {
             return;
         }
-        pbuf_len = (pbuf_len + cl->pbuf[index].len);
-    } /* end for: */
-    EMAC_DEBUG("ERROR: pbuf_list_memcpy: not enough data [%zu] in client_closure\n",
-            to_copy);
-    EMAC_DEBUG("pbufs = %u, total len %"PRIu64"\n", cl->rtpbuf, cl->len);
-    EMAC_DEBUG("already copied %d, left %d\n",already_copied, data_left);
-    for (int index = 0; index < cl->rtpbuf; index++) {
-        EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", index, cl->pbuf[index].len);
+        pbuf_len = (pbuf_len + sld->len);
+    } // end for:
+
+    EMAC_DEBUG("ERROR: pbuf_list_memcpy: not enough data [%zu] in "
+            "client_closure\n", to_copy);
+    EMAC_DEBUG("pbufs = %u\n", rtpbuf);
+    EMAC_DEBUG("already copied %d, left %d\n", already_copied, data_left);
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        EMAC_DEBUG(" %d: pbuflen (%"PRIu64")\n", idx,
+                spp->sp->slot_list[cl->tx_index + idx].d->len);
     }
     EMAC_DEBUG("start offset %zu, to_copy %zu\n", start_offset, to_copy);
 
     assert(!"Not enough data in pbuf_list to send");
-} /* end function: pbuf_list_memcpy */
+} // end function: pbuf_list_memcpy
 
 
 static uint64_t TX_pkt_counter = 0;
@@ -409,17 +425,25 @@ errval_t transmit_pbuf_list(struct client_closure *cl)
     uint16_t read_offset = 0;
     int rest = 0;
     int packets = 0;
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
+
+    // Find the length of entire packet
+    uint64_t pkt_len = 0;
+    for (int idx = 0; idx < rtpbuf; idx++) {
+        pkt_len += spp->sp->slot_list[cl->tx_index + idx].d.len;
+    }
+
 
 //    assert(cl->rtpbuf == 1);
-    if (cl->len > TX_MAX_PKT_SIZE) {
+    if (pkt_len > TX_MAX_PKT_SIZE) {
         printf("ERROR: pkt too big (0x%"PRIu64")> %u\n",
-                cl->len, TX_MAX_PKT_SIZE);
+                pkt_len, TX_MAX_PKT_SIZE);
         /* FIXME: maintain the stats of packet dropping */
         /* FIXME: define better error to return here */
         return ETHERSRV_ERR_CANT_TRANSMIT;
     }
-//    assert(cl->len == cl->pbuf[0].len);
-//    uint8_t *src =((uint8_t *)cl->buffer_ptr->va) + cl->pbuf[0].offset;
     ++TX_pkt_counter;
 
 
@@ -427,10 +451,11 @@ errval_t transmit_pbuf_list(struct client_closure *cl)
     if (TX_write_index > TX_max_slots ) {
         TX_write_index = 1;
     }
-    packets = get_cachelines(cl->len + 2);
+    packets = get_cachelines(pkt_len + 2);
     EMAC_DEBUG("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n");
-    EMAC_DEBUG("PKT_no:%"PRIu64", packet len: %"PRIu64", no. pbufs %"PRIu16", clines %d\n",
-            TX_pkt_counter, cl->len, cl->rtpbuf, packets);
+    EMAC_DEBUG("PKT_no:%"PRIu64", packet len: %"PRIu64", "
+            "no. pbufs %"PRIu16", clines %d\n",
+            TX_pkt_counter, pkt_len, rtpbuf, packets);
 
     eMAC_TX_Buffer_read_index_t idx_r;
     idx_r = eMAC_eMAC2_TX_Buffer_read_index_rd(&emac, core_id);
@@ -473,30 +498,31 @@ again:
     addr = TX_internal_memory_va + (TX_write_index * 32);
 
     /* Set frame length */
-    ((uint8_t*)addr)[0] = cl->len % 256;
-    ((uint8_t*)addr)[1] = cl->len / 256;
+    ((uint8_t*)addr)[0] = pkt_len % 256;
+    ((uint8_t*)addr)[1] = pkt_len / 256;
 
     size_t already_copied = 0;
     if (TX_write_index + packets - 1 <= TX_max_slots) {
         /* enough space, just copy */
         EMAC_DEBUG("######## TX:  Simple case, just copy whole pkt ########\n");
-        pbuf_list_memcpy(addr + 2, cl, 0, cl->len);
-//        my_memcpy(addr + 2, src, cl->len);
-        already_copied = already_copied + cl->len;
+        pbuf_list_memcpy(addr + 2, cl, 0, pkt_len);
+//        my_memcpy(addr + 2, src, pkt_len);
+        already_copied = already_copied + pkt_len;
         /* increment write ptr */
         TX_write_index += packets - 1;
     } else {
         /* wrap in offsets. first copy to the end, second at the starting
          * point
          */
-        int bytes_left = cl->len;
+        int bytes_left = pkt_len;
         int bytes_to_copy = (TX_max_slots - TX_write_index + 1) * 32 - 2;
 
         if (bytes_left < bytes_to_copy) {
             bytes_to_copy = bytes_left;
         }
 
-        EMAC_DEBUG("#### special case: copy last %d bytes ####\n", bytes_to_copy);
+        EMAC_DEBUG("#### special case: copy last %d bytes ####\n",
+                bytes_to_copy);
 
         pbuf_list_memcpy(addr + 2, cl, 0, bytes_to_copy);
         //my_memcpy(addr + 2, src, bytes_to_copy);
@@ -507,7 +533,8 @@ again:
             TX_write_index = 1;
             addr = TX_internal_memory_va + 32;
 
-            EMAC_DEBUG("#### special case: copy remaining %d bytes\n", bytes_left);
+            EMAC_DEBUG("#### special case: copy remaining %d bytes\n",
+                    bytes_left);
             pbuf_list_memcpy(addr, cl, already_copied, bytes_left);
             //my_memcpy(addr, src + bytes_to_copy, bytes_left);
             already_copied = already_copied + bytes_left;
@@ -529,7 +556,7 @@ again:
     eMAC_eMAC2_TX_Buffer_write_index_wid_wrf(&emac, core_id, TX_write_index);
     cl1flushmb();
 
-    EMAC_DEBUG("packet len: %"PRIu64", clines %d\n",cl->len, packets);
+    EMAC_DEBUG("packet len: %"PRIu64", clines %d\n", pkt_len, packets);
     char s[1000];
     eMAC_eMAC2_TX_Buffer_read_index_pri(s, 999, &emac, core_id);
     EMAC_DEBUG("TX read index [%s]\n", s);
@@ -546,13 +573,8 @@ again:
 
 
     // Tell the client we sent them!!!
-    for (int i = 0; i < cl->rtpbuf; i++) {
-        notify_client_free_tx(cl->app_connection,
-                cl->pbuf[i].client_data,
-                cl->pbuf[i].spp_index,
-                cl->pbuf[i].ts,
-                get_tx_free_slots_count(),
-                0);
+    for (int i = 0; i < rtpbuf; i++) {
+        handle_tx_done(cl->app_connection, (cl->tx_index + i));
     } // end for:
 
 

@@ -466,7 +466,7 @@ static void server_work(void) {
                              get_default_waitset(),
                              IDC_EXPORT_FLAGS_DEFAULT,
                              &iref);
-  printf("Done export iref=%d\n", iref);
+  printf("Done export iref=%"PRIuIREF"\n", iref);
   if (err_is_fail(err)) {
     DEBUG_ERR(err, "export failed");
     abort();

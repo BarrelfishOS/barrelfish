@@ -15,7 +15,7 @@
 #ifndef LIBBARRELFISH_CORESTATE_H
 #define LIBBARRELFISH_CORESTATE_H
 
-#include <../lib/c/src/k_r_malloc.h>
+#include <k_r_malloc.h>
 #include <barrelfish/waitset.h>
 
 /* DELETEME! I can't find anything that uses this -AB 20120110 */

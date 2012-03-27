@@ -20,7 +20,7 @@ let commonCFiles = [ "c_timers.c", "c_print_results.c", "c_randdp.c", "wtime.c"]
                                        "-Wno-implicit-function-declaration", 
                                        "-Wno-aggregate-return" ],
                          addIncludes = [ "/lib/bomp" ],
-                         addLibraries = [ "bomp", "c", "msun" ],
+                         addLibraries = [ "bomp" ],
                          architectures = [ "x86_64" ]
                        }
 

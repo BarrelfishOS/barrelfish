@@ -31,6 +31,7 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
          ++ [ NoDep SrcTree "src" "/include/deputy/nodeputy.h" ]
 
 commonCFlags = [ Str s | s <- [ "-std=c99",
+                                "-U__STRICT_ANSI__", -- for newlib headers
                                 "-Wstrict-prototypes",
                                 "-Wold-style-definition",
                                 "-Wmissing-prototypes" ] ]
@@ -53,11 +54,14 @@ cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH" ]]
                    ++ Config.defines
                    ++ Config.arch_defines options
 
-cStdIncs arch archFamily = 
+cStdIncs arch archFamily =
     [ NoDep SrcTree "src" "/include",
       NoDep SrcTree "src" ("/include/arch" ./. archFamily),
+      NoDep SrcTree "src" Config.libcInc,
+      NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/target" ./. archFamily),
       NoDep SrcTree "src" "/include/ipv4", -- XXX
+      NoDep SrcTree "src" "/include/posixcompat", -- XXX
       NoDep InstallTree arch "/include",
       NoDep InstallTree arch "/include/dev",
       NoDep SrcTree "src" ".",
@@ -77,13 +81,22 @@ ldCxxFlags arch =
       Str "-fno-builtin",
       Str "-nostdlib" ]
 
+
+-- Libraries that are linked to all applications.
 stdLibs arch = 
     [ In InstallTree arch "/lib/libbarrelfish.a",
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
-      In InstallTree arch "/lib/libc.a",
+      In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
+      --In InstallTree arch "/lib/libposixcompat.a",
+      --In InstallTree arch "/lib/libvfs.a",
+      --In InstallTree arch "/lib/libnfs.a",
+      --In InstallTree arch "/lib/liblwip.a",
+      --In InstallTree arch "/lib/libbarrelfish.a",
+      --In InstallTree arch "/lib/libcontmng.a",
+      --In InstallTree arch "/lib/libprocon.a",
       In InstallTree arch "/lib/crtend.o" ,
-      In InstallTree arch "/lib/libcollections.a"]
+      In InstallTree arch "/lib/libcollections.a" ]
 
 stdCxxLibs arch = 
     [ In InstallTree arch "/lib/libcxx.a",
@@ -250,14 +263,29 @@ assembler arch compiler opts src obj =
 --
 -- Create a library from a set of object files
 --
-archive :: String -> Options -> [String] -> String -> [ RuleToken ]
-archive arch opts objs libname =
+archive :: String -> Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
+archive arch opts objs libs name libname =
     [ Str "rm -f ", Out arch libname ]
     ++ 
     [ NL, Str "ar cr ", Out arch libname ] 
     ++ 
     [ In BuildTree arch o | o <- objs ]
-    ++ 
+    ++
+    if libs == [] then []
+                  else (
+      [ NL, Str ("rm -fr tmp-" ++ name ++ "; mkdir tmp-" ++ name) ]
+      ++
+      [ NL, Str ("cd tmp-" ++ name ++ "; for i in ") ]
+      ++
+      [ In BuildTree arch a | a <- libs ]
+      ++
+      [ Str "; do ar x ../$$i; done" ]
+      ++
+      [ NL, Str "ar q ", Out arch libname, Str (" tmp-" ++ name ++ "/*.o") ]
+      ++
+      [ NL, Str ("rm -fr tmp-" ++ name) ]
+    )
+    ++
     [ NL, Str "ranlib ", Out arch libname ]
 
 --

@@ -284,8 +284,11 @@ static errval_t create_cache_mem(size_t size)
     return SYS_ERR_OK;
 }
 
-#include <dmalloc/dmalloc.h>
 
+/* alt_malloc provided only by OLDC -AKK */
+
+#ifdef CONFIG_OLDC
+#include <dmalloc/dmalloc.h>
 typedef void *(*alt_malloc_t)(size_t bytes);
 extern alt_malloc_t alt_malloc;
 
@@ -301,12 +304,15 @@ static void init_dmalloc(void)
     alt_free = &dlfree;
     alt_realloc = &dlrealloc;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
     errval_t err;
 
+    #ifdef CONFIG_OLDC
     init_dmalloc();
+    #endif
 
     err = create_cache_mem(CACHE_SIZE);
     if(err_is_fail(err)) {

@@ -75,7 +75,7 @@ extern char	*sbrk();
 #define MAP_VARIABLE 0
 #endif
 #ifndef MAP_FAILED
-#define MAP_FAILED ((caddr_t) (-1))
+#define MAP_FAILED ((capaddr_t) (-1))
 #endif
 #if defined(MAP_ANONYMOUS) || defined(MAP_ANON)
 #  ifndef MAP_FILE
@@ -186,7 +186,7 @@ _retry_map_:
 	    MAP_NORESERVE|
 	    map_mode,
 	    hd->map_fd, (off_t) 0);
-	if ((caddr_t) map_result == MAP_FAILED)
+	if ((capaddr_t) map_result == MAP_FAILED)
 	{
 	    if (map_mode == MAP_FIXED)
 	    {
@@ -236,14 +236,14 @@ _retry_map_:
 	} while (!st.st_size);
 
 	/* preliminarily map admin page to look at the shared_header */
-	tmp_header = (struct shm_desc *) mmap((caddr_t) 0, incr,
+	tmp_header = (struct shm_desc *) mmap((capaddr_t) 0, incr,
 	    PROT_READ,
 #ifdef MAP_ANONYMOUS
 	    MAP_FILE|
 #endif
 	    MAP_SHARED,
 	    hd->map_fd, (off_t) 0);
-	if ((caddr_t) tmp_header == MAP_FAILED)
+	if ((capaddr_t) tmp_header == MAP_FAILED)
 	{
 	    perror("ECLiPSe: can't map shared memory");
 	    return (char *) -1;
@@ -266,7 +266,7 @@ _retry_map_:
 	    start_shared_area = tmp_header->start;
 	}
 	lim = tmp_header->lim;
-	(void) munmap((caddr_t) tmp_header, incr);
+	(void) munmap((capaddr_t) tmp_header, incr);
 
 	/* Now do the real mapping */
 	if ((char *) mmap(start_shared_area,

@@ -14,8 +14,10 @@
 #include <assert.h>
 #include <unistd.h>
 #include <lwip/sys.h>
+#include <lwip/sockets.h>
+#include <syscalls.h>
 #include "unixsock.h"
-#include "fdtab.h"
+#include <vfs/fdtab.h>
 #include "posixcompat.h"
 
 #define	MAX(a,b) (((a)>(b))?(a):(b))
@@ -295,7 +297,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
 
         // Wait on monitor?
         if(wait_monitor) {
-	        printf("%d: Need to wait on monitor\n", disp_get_domain_id());
+	        printf("%"PRIuDOMAINID": Need to wait on monitor\n", disp_get_domain_id());
             err = mb->change_waitset(mb, &ws);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor change_waitset");

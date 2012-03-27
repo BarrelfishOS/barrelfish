@@ -1,8 +1,8 @@
 /**
  * \file
- * \brief Communication between LWIP and netd deamon
+ * \brief Communication between LWIP and net_ports deamon
  *
- *  This code provides interface to commuincate with netd for purposes like
+ *  This code provides interface to commuincate with net_ports for purposes like
  *  opening/closing ports, get IP address, etc
  */
 
@@ -23,8 +23,8 @@
 #include "lwip/init.h"
 #include <contmng/contmng.h>
 #include <contmng/netbench.h>
-#include <if/netd_defs.h>
-#include <if/netd_rpcclient_defs.h>
+#include <if/net_ports_defs.h>
+#include <if/net_ports_rpcclient_defs.h>
 #include <stdio.h>
 #include <assert.h>
 #include "idc_barrelfish.h"
@@ -37,9 +37,9 @@
 static bool is_owner = 0;
 static uint16_t(*alloc_tcp_port) (void) = NULL;
 static uint16_t(*alloc_udp_port) (void) = NULL;
-static uint16_t(*bind_port) (uint16_t port, netd_port_type_t type) = NULL;
-static void (*close_port) (uint16_t port, netd_port_type_t type) = NULL;
 
+static uint16_t(*bind_port) (uint16_t port, net_ports_port_type_t type) = NULL;
+static void (*close_port) (uint16_t port, net_ports_port_type_t type) = NULL;
 
 /*************************************************************
  * \defGroup LocalStates Local states
@@ -47,18 +47,20 @@ static void (*close_port) (uint16_t port, netd_port_type_t type) = NULL;
  * @{
  *
  ****************************************************************/
-static struct netd_rpc_client netd_rpc;
-static bool netd_service_connected = false;
+static struct net_ports_rpc_client net_ports_rpc;
+static bool net_ports_service_connected = false;
 
+static net_ports_qid_t qid_delete = 0;
+static net_ports_appid_t appid_delete = 0;
 
 static struct netif netif;
 
-static struct thread *trace_thread = NULL;
+//static struct thread *trace_thread = NULL;
 void thread_debug_regs(struct thread *t);
 
 // Variables shared with idc_barrelfish.c
 extern struct waitset *lwip_waitset;
-extern struct ether_binding *driver_connection[2];
+extern struct net_queue_manager_binding *driver_connection[2];
 
 /**
  * \brief handle msgs on the tx, rx and then the rest connections in that priority
@@ -134,11 +136,11 @@ errval_t lwip_err_to_errval(err_t e)
 
 
 /***************************************************************
-    Adding new code to communicate with netd server
+    Adding new code to communicate with net_ports server
 */
 
 /****************************************************************
- * \defGroup netd_connectivity  Code to connect and work with netd.
+ * \defGroup net_ports_connectivity  Code to connect and work with net_ports.
  *
  * @{
  *
@@ -147,79 +149,83 @@ errval_t lwip_err_to_errval(err_t e)
  * \brief Callback function when bind is successful.
  *  Code inspired (ie. copied) from "start_client" function.
  */
-static void netd_bind_cb(void *st, errval_t err, struct netd_binding *b)
+static void net_ports_bind_cb(void *st, errval_t err, struct net_ports_binding *b)
 {
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "bind failed for netd");
+        DEBUG_ERR(err, "bind failed for net_ports");
         abort();
     }
-    LWIPBF_DEBUG("netd_bind_cb: called\n");
+    LWIPBF_DEBUG("net_ports_bind_cb: called\n");
 
-    err = netd_rpc_client_init(&netd_rpc, b);
+    err = net_ports_rpc_client_init(&net_ports_rpc, b);
     if (!err_is_ok(err)) {
-        printf("netd_bind_cb failed in init\n");
+        printf("net_ports_bind_cb failed in init\n");
         abort();
     }
 
-    netd_service_connected = true;
-    LWIPBF_DEBUG("netd_bind_cb: netd bind successful!\n");
+    net_ports_service_connected = true;
+    LWIPBF_DEBUG("net_ports_bind_cb: net_ports bind successful!\n");
 }
 
 /**
- * \brief Connects the lwip instance with netd daemon.
+ * \brief Connects the lwip instance with net_ports daemon.
  *  Code inspired (ie. copied) from "start_client" function.
  */
-static void init_netd_connection(char *service_name)
+static void init_net_ports_connection(char *service_name)
 {
-    LWIPBF_DEBUG("init_netd_connection: called\n");
+    LWIPBF_DEBUG("init_net_ports_connection: called\n");
     assert(service_name != NULL);
-    LWIPBF_DEBUG("init_netd_connection: connecting to [%s]\n", service_name);
+    LWIPBF_DEBUG("init_net_ports_connection: connecting to [%s]\n", service_name);
 
     errval_t err;
     iref_t iref;
 
-    LWIPBF_DEBUG("init_netd_connection: resolving driver %s\n", service_name);
+    LWIPBF_DEBUG("init_net_ports_connection: resolving driver %s\n", service_name);
 
     err = nameservice_blocking_lookup(service_name, &iref);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "lwip: could not connect to the netd driver.\n"
+        DEBUG_ERR(err, "lwip: could not connect to the net_ports driver.\n"
                   "Terminating.\n");
         abort();
     }
     assert(iref != 0);
 
-    LWIPBF_DEBUG("init_netd_connection: connecting\n");
+    LWIPBF_DEBUG("init_net_ports_connection: connecting\n");
 
-    err = netd_bind(iref, netd_bind_cb, NULL, lwip_waitset,
+    err = net_ports_bind(iref, net_ports_bind_cb, NULL, lwip_waitset,
                     IDC_BIND_FLAGS_DEFAULT);
     if (!err_is_ok(err)) {
-        printf("netd_bind_cb failed in init\n");
+        printf("net_ports_bind_cb failed in init\n");
         abort();
     }
 
-    LWIPBF_DEBUG("init_netd_connection: terminated\n");
+    LWIPBF_DEBUG("init_net_ports_connection: terminated\n");
 }
 
 
-
-void idc_connect_to_netd(char *server_name)
+// Connects to the port manager service
+// Blocking call: returns only when connection is done
+// In case of error, it will panic!!
+void idc_connect_port_manager_service(char *service_name)
 {
-    LWIPBF_DEBUG("idc_connect_to_netd: wait for netd connection\n");
+    //LWIPBF_DEBUG
+    printf("idc_c_port_mng_srv: trying to [%s]\n", service_name);
 
-    /* FIXME: decide if this is the best place to connect with netd */
-    init_netd_connection(server_name);
+    /* FIXME: decide if this is the best place to connect with net_ports */
+    init_net_ports_connection(service_name);
 
     // XXX: dispatch on default waitset until bound
     struct waitset *dws = get_default_waitset();
 
-    while (!netd_service_connected) {
+    while (!net_ports_service_connected) {
         errval_t err = event_dispatch(dws);
 
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "in event_dispatch while binding");
         }
     }
-    LWIPBF_DEBUG("idc_connect_to_netd: terminated\n");
+    //LWIPBF_DEBUG
+    printf("idc_c_port_mng_srv: success [%s]\n", service_name);
 }
 
 
@@ -234,7 +240,8 @@ void idc_get_ip(void)
     errval_t err;
     struct ip_addr ip, gw, nm;
 
-    err = netd_rpc.vtbl.get_ip_info(&netd_rpc, &ip.addr, &gw.addr, &nm.addr);
+    err = net_ports_rpc.vtbl.get_ip_info(&net_ports_rpc, &ip.addr, &gw.addr,
+            &nm.addr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
@@ -266,7 +273,9 @@ static err_t idc_close_port(uint16_t port, int port_type)
 
     errval_t err, msgerr;
 
-    err = netd_rpc.vtbl.close_port(&netd_rpc, port_type, port, &msgerr);
+    err = net_ports_rpc.vtbl.close_port(&net_ports_rpc, port_type, port,
+                                  appid_delete, qid_delete,
+                                  &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
@@ -282,16 +291,16 @@ static err_t idc_close_port(uint16_t port, int port_type)
 
 err_t idc_close_udp_port(uint16_t port)
 {
-    return idc_close_port(port, netd_PORT_UDP);
+    return idc_close_port(port, net_ports_PORT_UDP);
 }
 
 
 err_t idc_close_tcp_port(uint16_t port)
 {
-    return idc_close_port(port, netd_PORT_TCP);
+    return idc_close_port(port, net_ports_PORT_TCP);
 }
 
-static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
+static err_t idc_bind_port(uint16_t port, net_ports_port_type_t port_type)
 {
     if (is_owner) {
         LWIPBF_DEBUG("idc_bind_port: called by owner\n");
@@ -303,7 +312,7 @@ static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
     errval_t err, msgerr;
 
     /* getting the proper buffer id's here */
-    err = netd_rpc.vtbl.bind_port(&netd_rpc, port_type, port,
+    err = net_ports_rpc.vtbl.bind_port(&net_ports_rpc, port_type, port,
                                   /* buffer for RX */
                                   ((struct client_closure_NC *)
                                    driver_connection[RECEIVE_CONNECTION]->st)->
@@ -311,7 +320,9 @@ static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
                                   /* buffer for TX */
                                   ((struct client_closure_NC *)
                                    driver_connection[TRANSMIT_CONNECTION]->st)->
-                                  buff_ptr->buffer_id, &msgerr);
+                                  buff_ptr->buffer_id,
+                                  appid_delete, qid_delete,
+                                  &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
@@ -327,16 +338,16 @@ static err_t idc_bind_port(uint16_t port, netd_port_type_t port_type)
 
 err_t idc_bind_udp_port(uint16_t port)
 {
-    return idc_bind_port(port, netd_PORT_UDP);
+    return idc_bind_port(port, net_ports_PORT_UDP);
 }
 
 
 err_t idc_bind_tcp_port(uint16_t port)
 {
-    return idc_bind_port(port, netd_PORT_TCP);
+    return idc_bind_port(port, net_ports_PORT_TCP);
 }
 
-static err_t idc_new_port(uint16_t * port_no, netd_port_type_t port_type)
+static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
 {
     /* NOTE: function with same name exists in Kaver's code for reference
        purpose */
@@ -346,7 +357,7 @@ static err_t idc_new_port(uint16_t * port_no, netd_port_type_t port_type)
 
 
     /* getting the proper buffer id's here */
-    err = netd_rpc.vtbl.get_port(&netd_rpc, port_type,
+    err = net_ports_rpc.vtbl.get_port(&net_ports_rpc, port_type,
                                  /* buffer for RX */
                                  ((struct client_closure_NC *)
                                   driver_connection[RECEIVE_CONNECTION]->st)->
@@ -354,7 +365,9 @@ static err_t idc_new_port(uint16_t * port_no, netd_port_type_t port_type)
                                  /* buffer for TX */
                                  ((struct client_closure_NC *)
                                   driver_connection[TRANSMIT_CONNECTION]->st)->
-                                 buff_ptr->buffer_id, &msgerr, port_no);
+                                 buff_ptr->buffer_id,
+                                 appid_delete, qid_delete,
+                                 &msgerr, port_no);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
@@ -370,7 +383,7 @@ err_t idc_tcp_new_port(uint16_t * port_no)
         return SYS_ERR_OK;
     }
 
-    return idc_new_port(port_no, netd_PORT_TCP);
+    return idc_new_port(port_no, net_ports_PORT_TCP);
 }
 
 
@@ -382,24 +395,29 @@ err_t idc_udp_new_port(uint16_t * port_no)
 
     }
 
-    return idc_new_port(port_no, netd_PORT_UDP);
+    return idc_new_port(port_no, net_ports_PORT_UDP);
 }
 
 
 static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
                           struct ip_addr *remote_ip, u16_t remote_port,
-                          netd_port_type_t port_type)
+                          net_ports_port_type_t port_type)
 {
     if (is_owner) {
         // redirecting doesn't make sense if we are the owner
         return ERR_USE;         // TODO: correct error
     }
 
-    errval_t err, msgerr;
+    errval_t msgerr;
+//    errval_t err;
 
+    USER_PANIC("Pause: NYI");
+    abort();
+
+#if 0
     /* getting the proper buffer id's here */
     err =
-      netd_rpc.vtbl.redirect(&netd_rpc, port_type, local_ip->addr, local_port,
+      net_ports_rpc.vtbl.redirect(&net_ports_rpc, port_type, local_ip->addr, local_port,
                              remote_ip->addr, remote_port,
                              /* buffer for RX */
                              ((struct client_closure_NC *)
@@ -412,6 +430,7 @@ static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending redirect");
     }
+#endif // 0
 
     if (msgerr == PORT_ERR_IN_USE) {
         return ERR_USE;
@@ -424,18 +443,22 @@ static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
 
 static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
                        struct ip_addr *remote_ip, u16_t remote_port,
-                       netd_port_type_t port_type)
+                       net_ports_port_type_t port_type)
 {
     if (is_owner) {
         // redirecting doesn't make sense if we are the owner
         return ERR_USE;         // TODO: correct error
     }
 
-    errval_t err, msgerr;
+    errval_t msgerr;
+//    errval_t err;
 
+    USER_PANIC("Pausing not support anymore");
+    abort();
+#if 0
     /* getting the proper buffer id's here */
     err =
-      netd_rpc.vtbl.redirect_pause(&netd_rpc, port_type, local_ip->addr,
+      net_ports_rpc.vtbl.redirect_pause(&net_ports_rpc, port_type, local_ip->addr,
                                    local_port, remote_ip->addr, remote_port,
                                    /* buffer for RX */
                                    ((struct client_closure_NC *)
@@ -449,6 +472,7 @@ static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
         USER_PANIC_ERR(err, "error sending pause");
     }
 
+#endif // 0
     if (msgerr == PORT_ERR_IN_USE) {
         return ERR_USE;
     } else if (msgerr == PORT_ERR_REDIRECT) {
@@ -462,7 +486,7 @@ static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
 /*
 err_t idc_redirect_udp_port(uint16_t port)
 {
-    return idc_redirect_port(port, netd_PORT_UDP);
+    return idc_redirect_port(port, net_ports_PORT_UDP);
 }
 */
 
@@ -470,23 +494,23 @@ err_t idc_redirect_tcp(struct ip_addr * local_ip, u16_t local_port,
                        struct ip_addr * remote_ip, u16_t remote_port)
 {
     return idc_redirect(local_ip, local_port, remote_ip, remote_port,
-                        netd_PORT_TCP);
+                        net_ports_PORT_TCP);
 }
 
 err_t idc_pause_tcp(struct ip_addr * local_ip, u16_t local_port,
                     struct ip_addr * remote_ip, u16_t remote_port)
 {
     return idc_pause(local_ip, local_port, remote_ip, remote_port,
-                     netd_PORT_TCP);
+                     net_ports_PORT_TCP);
 }
 
 
 void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
                                     uint16_t(*alloc_udp_ptr) (void),
                                     uint16_t(*bind_port_ptr) (uint16_t,
-                                                              netd_port_type_t),
+                                              enum net_ports_port_type_t),
                                     void (*close_port_ptr) (uint16_t,
-                                                            netd_port_type_t))
+                                              enum net_ports_port_type_t))
 {
     is_owner = true;
     alloc_tcp_port = alloc_tcp_ptr;

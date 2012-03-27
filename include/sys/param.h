@@ -44,6 +44,8 @@
 #include <sys/types.h>
 #endif
 
+#include <machine/endian.h>
+
 #define	MAXCOMLEN	19		/* max command name remembered */
 #define	MAXINTERP	32		/* max interpreter file name length */
 #define	MAXLOGNAME	17		/* max login name length (incl. NUL) */
@@ -71,7 +73,7 @@
 /* Machine type dependent parameters. */
 //#include <machine/param.h>
 #ifndef _KERNEL
-#include <sys/limits.h>
+#include <limits.h>
 #endif
 
 #ifndef DEV_BSHIFT

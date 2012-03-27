@@ -35,7 +35,7 @@ void sif_init(struct device_mem *bar_info, int nr_mapped_regions)
 
     map_device(bar);
 
-    printf("SIF BAR at: %" PRIxGENPADDR ", size: %zu, mapped at: %p"
+    printf("SIF BAR at: %" PRIxGENPADDR ", size: %lu, mapped at: %p"
            "\n", bar->paddr, bar->bytes, bar->vaddr);
 
     crb_sif_initialize(&sif, (void *)bar->vaddr);

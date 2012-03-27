@@ -35,12 +35,16 @@
 
 #include <sys/cdefs.h>
 
+#ifdef CONFIG_OLDC
 __BEGIN_DECLS
 extern int __flt_rounds(void);
 __END_DECLS
+#define FLT_ROUNDS  __flt_rounds()
+#else
+#define FLT_ROUNDS  1
+#endif /* CONFIGOLDC */
 
 #define FLT_RADIX	2		/* b */
-#define FLT_ROUNDS	__flt_rounds()
 #if __ISO_C_VISIBLE >= 1999
 #define	FLT_EVAL_METHOD	0		/* no promotions */
 #define	DECIMAL_DIG	21		/* max precision in decimal digits */

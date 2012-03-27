@@ -84,13 +84,13 @@ static struct dirent *fh_get(struct client_state *st, trivfs_fh_t fh)
 {
     // unpack fh
     unsigned gen = fh >> FHTAB_SIZE_BITS;
-    unsigned index = fh & FHTAB_SIZE_MASK;
+    unsigned idx = fh & FHTAB_SIZE_MASK;
 
     // check if it's still valid
     struct dirent *e = NULL;
-    if ((gen == st->fhgen && index < st->fhindex)
-        || (gen == st->fhgen - 1 && index >= st->fhindex)) {
-        e = st->fhtab[index];
+    if ((gen == st->fhgen && idx < st->fhindex)
+        || (gen == st->fhgen - 1 && idx >= st->fhindex)) {
+        e = st->fhtab[idx];
     }
 
     if (e == NULL) {
@@ -102,7 +102,7 @@ static struct dirent *fh_get(struct client_state *st, trivfs_fh_t fh)
     }
 
     // has been deleted
-    st->fhtab[index] = NULL;
+    st->fhtab[idx] = NULL;
     ramfs_decref(e);
     return NULL;
 }
@@ -374,7 +374,7 @@ static void getroot(struct trivfs_binding *b)
     msg_enqueue(st, b, e);
 }
 
-static void readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t index)
+static void readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t idx)
 {
     errval_t err, reterr = SYS_ERR_OK;
     struct client_state *st = b->st;
@@ -389,7 +389,7 @@ static void readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t index)
     }
 
     struct dirent *e = NULL;
-    err = ramfs_readdir(d, index, &e);
+    err = ramfs_readdir(d, idx, &e);
     if (err_is_fail(err)) {
         reterr = err;
         goto reply;

@@ -103,7 +103,7 @@ err_t tcp_send_ctrl(struct tcp_pcb * pcb, u8_t flags)
  * it can send them more efficiently by combining them together).
  * To prompt the system to send data now, call tcp_output() after
  * calling tcp_write().
- * 
+ *
  * @param pcb Protocol control block of the TCP connection to enqueue data for.
  * @param data pointer to the data to send
  * @param len length (in bytes) of the data to send
@@ -111,7 +111,7 @@ err_t tcp_send_ctrl(struct tcp_pcb * pcb, u8_t flags)
  * - TCP_WRITE_FLAG_COPY (0x01) data will be copied into memory belonging to the stack
  * - TCP_WRITE_FLAG_MORE (0x02) for TCP connection, PSH flag will be set on last segment sent,
  * @return ERR_OK if enqueued, another err_t on error
- * 
+ *
  * @see tcp_write()
  */
 err_t
@@ -230,6 +230,9 @@ tcp_enqueue(struct tcp_pcb * pcb, void *arg, u16_t len,
         seglen = left > (pcb->mss - optlen) ? (pcb->mss - optlen) : left;
 
         /* Allocate memory for tcp_seg, and fill in fields. */
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_MEMP, 0);
+#endif
         seg = memp_malloc(MEMP_TCP_SEG);
         if (seg == NULL) {
             LWIP_DEBUGF(TCP_OUTPUT_DEBUG | 2,
@@ -239,6 +242,9 @@ tcp_enqueue(struct tcp_pcb * pcb, void *arg, u16_t len,
         seg->next = NULL;
         seg->p = NULL;
 
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TX_MEMP_D, 0);
+#endif
         /* first segment of to-be-queued data? */
         if (queue == NULL) {
             queue = seg;

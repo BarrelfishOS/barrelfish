@@ -25,6 +25,8 @@
            "arm",
            "ata_identify",
            "audio_nbm",
+           "e10k",
+           "e10k_q",
            "ehci_cap",
            "ehci_op",
            "fat16_ebpb",

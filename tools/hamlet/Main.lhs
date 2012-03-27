@@ -30,28 +30,10 @@
 > import Expressions
 > import Compile
 > import PureExpressions
+> import Constructs.Enumerations
 > import IL.Paka.Paka
 > import IL.Paka.Syntax
 > import IL.Paka.Compile 
-
-> {-
-> main :: IO ()
-> main = do
->     putStrLn $ trace "fields" fi `seq` 
->                trace "genv" gEnv `seq`
->                "Compute enum" 
->     where (enum, gEnv, lEnv) = declareEnum "blah" fi (id, emptyCode, emptyIntra)
->           fields !max !acc = if max == 0 then 
->                                   acc
->                                 else
->                                   fields (max-1) ((show max, max) : acc)
->           fi = fields 1000000 []
-> -}
-
-strict $! map (\i -> (show i, i)) nums
-           nums = strict [1..1000000]
-
-> loop () = loop ()
 
 > main :: IO ()
 > main =
@@ -69,27 +51,11 @@ strict $! map (\i -> (show i, i)) nums
 >                Right ast ->
 >                    do  
 
-> {-
->                      putStrLn "Parse..."
->                      ast' <- return $! strict ast
->                      putStrLn "Done"
->                      putStrLn "Backend..."
->                      ast'' <- return $! (backend ast')
->                      putStrLn "Done"
->                      putStrLn "Compile Sem to FoF..."
->                      ast''' <- return $! (fst $ compileSemtoFoF ast'' emptyBinding)
->                      putStrLn "Done"
->                      putStrLn "Compile FoF to Paka..."
->                      ast'''' <- return $! strict (compileFoFtoPaka ast''')
->                      putStrLn "Done"
->                      c <- getChar
->                      exitSuccess
-> -}
-
 >                    let compiledCode = (compile $! (backend $! ast))
 >                    fileDefs <- openFile filenameDefs WriteMode
 >                    hPutStrLn fileDefs "#ifndef CAPBITS_H"
 >                    hPutStrLn fileDefs "#define CAPBITS_H"
+>                    hPutStrLn fileDefs "#include <barrelfish_kpi/capabilities.h>"
 >                    hPutStrLn fileDefs $! show $ vcat' $ extractM $ types compiledCode
 >                    hPutStrLn fileDefs $! show $ vcat' $ extractL $ declarations compiledCode
 >                    hPutStrLn fileDefs "#endif // CAPBITS_H"
@@ -118,3 +84,4 @@ strict $! map (\i -> (show i, i)) nums
 >      _ -> do
 >            hPutStrLn stderr "Usage: hamlet INPUT_CAPDEFS.hl OUTPUT_DEFS.h OUTPUT_CODE.c OUTPUT_USERCODE.c"
 >            exitWith (ExitFailure 1)
+

@@ -16,7 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <octopus/init.h>
 #include <octopus/capability_storage.h>
-#include "fdtab.h"
+#include <vfs/fdtab.h>
 #include "posixcompat.h"
 
 struct _shm {

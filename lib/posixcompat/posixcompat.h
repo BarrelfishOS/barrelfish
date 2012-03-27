@@ -16,6 +16,10 @@ struct vfs_fileinfo;
 struct stat;
 
 void _posixcompat_vfs_info_to_stat(struct vfs_fileinfo *info, struct stat *buf);
+void srandom(unsigned long x);
+long random(void);
+char *initstate(unsigned long seed, char *arg_state, long n);
+char *setstate(char *arg_state);
 
 #if 0
 #define POSIXCOMPAT_DEBUG(x...) debug_printf(x)

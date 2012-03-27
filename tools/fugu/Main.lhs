@@ -47,7 +47,7 @@
 >                                       hPutStrLn stderr (show err) 
 >                                       exitWith (ExitFailure 1)
 >                           Right ast -> do
->                                        let macro = map toUpper (takeBaseName hdrF)
+>                                        let macro = map toUpper (takeBaseName hdrF) ++ "_BARRELFISH__"
 >                                        let gen = mkStdGen 1 
 >                                        let code = compile (backendCode gen ast)
 >                                        let header_ = compile (backendHeader gen ast)

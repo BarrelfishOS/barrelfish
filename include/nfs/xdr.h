@@ -47,6 +47,7 @@
 #include <stddef.h>
 #include <lwip/inet.h> /* for ntohl/htonl */
 #include <sys/types.h>
+#include <sys/cdefs.h>
 
 /* nasty typedefs needed by RPC/XDR code */
 typedef int enum_t;

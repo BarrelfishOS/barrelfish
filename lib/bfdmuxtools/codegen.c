@@ -321,7 +321,7 @@ compile_subtree(char *expr, int from_pos, int to_pos, uint8_t ** out,
  * @param[out] filter_len Indicates the length of the compiled code, or contains the error position in the filter string on failure
  */
 void
-compile_filter(char *expression, uint8_t ** filter_code, int *filter_len)
+compile_filter(char *expression, uint8_t ** filter_code, int32_t *filter_len)
 {
 	int             out_sz = INITIAL_ALLOC_SIZE;	// initially allocate
 	// 64 bytes for code

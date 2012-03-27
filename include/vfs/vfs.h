@@ -50,6 +50,9 @@ struct vfs_fileinfo {
     size_t size;            ///< Size of the object (in bytes, for a regular file)
 };
 
+// initialization
+void vfs_init(void);
+
 // operations on files
 errval_t vfs_open(const char *path, vfs_handle_t *handle); // fail if it doesn't exist
 errval_t vfs_create(const char *path, vfs_handle_t *handle); // ok if already present

@@ -437,12 +437,12 @@ static int skb(int argc, char *argv[])
     }
 
     char *result = NULL, *str_err = NULL;
-    int int_err;
+    int32_t int_err;
 
     skb_evaluate(argv[1], &result, &str_err, &int_err);
 
     if (int_err != 0 || (str_err != NULL && str_err[0] != '\0')) {
-        printf("SKB error returned: %d %s\n", int_err, str_err);
+        printf("SKB error returned: %"PRIu32" %s\n", int_err, str_err);
     } else {
         printf("SKB returned: %s\n", result);
     }
@@ -1271,6 +1271,9 @@ int main(int argc, const char *argv[])
 
     // XXX: parse aguments to determine input sources to use
     unsigned stdin_sources = 0;
+
+    vfs_init();
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "serial") == 0) {
             stdin_sources |= TERMINAL_SOURCE_SERIAL;

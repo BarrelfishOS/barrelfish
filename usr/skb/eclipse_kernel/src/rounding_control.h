@@ -114,6 +114,33 @@
 #       define _FPU_SETCW
 #endif
 
+//akkourt: yap, It's ugly, but newlib does not seem to have those
+#if defined(__i386__) && defined(CONFIG_NEWLIB)
+#include "ieeefp.h"
+/* copied from include/oldc/ieeefp.h */
+#define FP_RND_FLD      0xc00   /* rounding control field */
+#define FP_RND_OFF      10      /* rounding control offset */
+static inline fp_rnd fpgetround(void)
+{
+    unsigned int cw;
+    __asm volatile ("fnstcw %0" : "=m" (*&cw));
+    return (fp_rnd)((cw & FP_RND_FLD) >> FP_RND_OFF);
+}
+
+static inline fp_rnd fpsetround(fp_rnd newround)
+{
+    fp_rnd p;
+    unsigned int cw, newcw;
+
+    __asm volatile ("fnstcw %0" : "=m" (*&cw));
+    p = (fp_rnd)((cw & FP_RND_FLD) >> FP_RND_OFF);
+    newcw = cw & ~FP_RND_FLD;
+    newcw |= (newround << FP_RND_OFF) & FP_RND_FLD;
+    __asm volatile ("fldcw %0" :: "m" (*&newcw));
+    return p;
+}
+#endif
+
 #ifdef HAVE_FPU_CONTROL_H
 #include <fpu_control.h>
 #endif

@@ -90,31 +90,31 @@ void pci_init_datastructures(void)
     memset(dev_caps, 0, sizeof(dev_caps));
 }
 
-int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index)
+int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx)
 {
-    return(dev_caps[bus][dev][fun][index].nr_caps);
+    return(dev_caps[bus][dev][fun][idx].nr_caps);
 }
 
 struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                     uint8_t index, int cap_nr)
+                                     uint8_t idx, int cap_nr)
 {
-    return(dev_caps[bus][dev][fun][index].frame_cap[cap_nr]);
+    return(dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
 }
 uint8_t pci_get_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                    uint8_t index)
+                                    uint8_t idx)
 {
-    return(dev_caps[bus][dev][fun][index].type);
+    return(dev_caps[bus][dev][fun][idx].type);
 }
 
 
-static errval_t alloc_device_bar(uint8_t index,
+static errval_t alloc_device_bar(uint8_t idx,
                                  uint8_t bus, uint8_t dev, uint8_t fun,
                                  uint8_t BAR, pciaddr_t base, pciaddr_t high,
                                  pcisize_t size)
 {
 	struct acpi_rpc_client* acl = get_acpi_rpc_client();
 
-    struct device_caps *c = &dev_caps[bus][dev][fun][index];
+    struct device_caps *c = &dev_caps[bus][dev][fun][idx];
     errval_t err;
 
     // first try with maximally-sized caps (we'll reduce this if it doesn't work)
@@ -123,8 +123,8 @@ static errval_t alloc_device_bar(uint8_t index,
  restart: ;
     pcisize_t framesize = 1UL << bits;
     c->nr_caps = size / framesize;
-    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE":\n",
-              size);
+    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE": %lu\n",
+              size, c->nr_caps);
 
     c->phys_cap = malloc(c->nr_caps * sizeof(struct capref));
     if (c->phys_cap == NULL) {
@@ -187,25 +187,26 @@ static errval_t alloc_device_bar(uint8_t index,
 
 //XXX: FIXME: HACK: BAD!!! Only needed to allocate a full I/O range cap to
 //                         the VESA graphics driver
-static errval_t assign_complete_io_range(uint8_t index,
+static errval_t assign_complete_io_range(uint8_t idx,
                                          uint8_t bus, uint8_t dev, uint8_t fun,
                                          uint8_t BAR)
 {
-    dev_caps[bus][dev][fun][index].frame_cap = (struct capref*)
+    dev_caps[bus][dev][fun][idx].frame_cap = (struct capref*)
         malloc(sizeof(struct capref));
-    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][index].frame_cap[0]));
+    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][idx].frame_cap[0]));
     assert(err_is_ok(err));
-    err = cap_copy(dev_caps[bus][dev][fun][index].frame_cap[0], cap_io);
+    err = cap_copy(dev_caps[bus][dev][fun][idx].frame_cap[0], cap_io);
     assert(err_is_ok(err));
 
 
-    dev_caps[bus][dev][fun][index].bits = 16;
-    dev_caps[bus][dev][fun][index].bar_nr = BAR;
-    dev_caps[bus][dev][fun][index].assigned = true;
-    dev_caps[bus][dev][fun][index].type = 1;
-    dev_caps[bus][dev][fun][index].nr_caps = 1;
+    dev_caps[bus][dev][fun][idx].bits = 16;
+    dev_caps[bus][dev][fun][idx].bar_nr = BAR;
+    dev_caps[bus][dev][fun][idx].assigned = true;
+    dev_caps[bus][dev][fun][idx].type = 1;
+    dev_caps[bus][dev][fun][idx].nr_caps = 1;
     return SYS_ERR_OK;
 }
+
 
 errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                  uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
@@ -230,37 +231,37 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         strncpy(s_bus, "Bus", sizeof(s_bus));
     }
     if (*dev != PCI_DONT_CARE) {
-        snprintf(s_dev, sizeof(s_dev), "%u", *dev);
+        snprintf(s_dev, sizeof(s_dev), "%"PRIu32, *dev);
     } else {
         strncpy(s_dev, "Dev", sizeof(s_dev));
     }
     if (*fun != PCI_DONT_CARE) {
-        snprintf(s_fun, sizeof(s_fun), "%u", *fun);
+        snprintf(s_fun, sizeof(s_fun), "%"PRIu32, *fun);
     } else {
         strncpy(s_fun, "Fun", sizeof(s_fun));
     }
     if (vendor_id != PCI_DONT_CARE) {
-        snprintf(s_vendor_id, sizeof(s_vendor_id), "%u", vendor_id);
+        snprintf(s_vendor_id, sizeof(s_vendor_id), "%"PRIu32, vendor_id);
     } else {
         strncpy(s_vendor_id, "Ven", sizeof(s_vendor_id));
     }
     if (device_id != PCI_DONT_CARE) {
-        snprintf(s_device_id, sizeof(s_device_id), "%u", device_id);
+        snprintf(s_device_id, sizeof(s_device_id), "%"PRIu32, device_id);
     } else {
         strncpy(s_device_id, "DevID", sizeof(s_device_id));
     }
     if (class_code != PCI_DONT_CARE) {
-        snprintf(s_class_code, sizeof(s_class_code), "%u", class_code);
+        snprintf(s_class_code, sizeof(s_class_code), "%"PRIu32, class_code);
     } else {
         strncpy(s_class_code, "Cl", sizeof(s_class_code));
     }
     if (sub_class != PCI_DONT_CARE) {
-        snprintf(s_sub_class, sizeof(s_sub_class), "%u", sub_class);
+        snprintf(s_sub_class, sizeof(s_sub_class), "%"PRIu32, sub_class);
     } else {
         strncpy(s_sub_class, "Sub", sizeof(s_sub_class));
     }
     if (prog_if != PCI_DONT_CARE) {
-        snprintf(s_prog_if, sizeof(s_prog_if), "%u", prog_if);
+        snprintf(s_prog_if, sizeof(s_prog_if), "%"PRIu32, prog_if);
     } else {
         strncpy(s_prog_if, "ProgIf", sizeof(s_prog_if));
     }
@@ -289,7 +290,8 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         return PCI_ERR_DEVICE_INIT;
     }
 
-    err = skb_read_output("d(%[a-z], %u, %u, %u, %u, %u, %u, %u, %u).",
+    err = skb_read_output("d(%[a-z], %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32
+                          ",%"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32").",
                     s_pcie, bus, dev, fun, &vendor_id,
                     &device_id, &class_code, &sub_class, &prog_if);
 
@@ -312,7 +314,8 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                 *bus, *dev, *fun);
 //get the implemented BARs for the found device
     error_code = skb_execute_query(
-        "pci_get_implemented_BAR_addresses(%u,%u,%u,%u,%u,%u,%u,%u,L),"
+        "pci_get_implemented_BAR_addresses(%"PRIu32",%"PRIu32",%"PRIu32
+        ",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",L),"
         "length(L,Len),writeln(L)",
         *bus, *dev, *fun, vendor_id, device_id, class_code, sub_class, prog_if);
 
@@ -772,7 +775,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
                 //32bit BAR
                 skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
                              addr.bus, addr.device, addr.function,
-                             i, barorigaddr.base << 7, bar_mapping_size(bar),
+                             i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar),
                              (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
                              type);
             }
@@ -782,7 +785,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
             skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
                          "nonprefetchable, 32).",
                          addr.bus, addr.device, addr.function,
-                         i, barorigaddr.base << 7, bar_mapping_size(bar));
+                         i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar));
         }
     }
 }
@@ -1122,10 +1125,11 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
     char str[256], ldev[128];
 
     snprintf(str, 256,
-             "[\"irq_routing.pl\"], assigndeviceirq(addr(%u, %u, %u)).",
+             "[\"irq_routing.pl\"], assigndeviceirq(addr(%"PRIu32
+             ", %"PRIu32", %"PRIu32")).",
              bus, dev, fun);
     char *output, *error_out;
-    int int_err;
+    int32_t int_err;
     errval_t err = skb_evaluate(str, &output, &error_out, &int_err);
     assert(output != NULL);
     assert(err_is_ok(err));

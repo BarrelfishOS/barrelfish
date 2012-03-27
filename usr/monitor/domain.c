@@ -24,6 +24,12 @@
 #ifndef __arm__
 static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
 {
+    /* XXX: mem client is only defined for the bsp core.
+     * For app cores, just return */
+    if (get_mem_client() == NULL) {
+        return SYS_ERR_OK;
+    }
+
     // Fabricate new RAM cap and hand back to mem_serv
     struct capability c = {
         .type = ObjType_RAM,

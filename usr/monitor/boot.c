@@ -46,8 +46,8 @@ static int get_num_connections(int num)
  *
  * \bug Verify that cpu_type matches the elf image
  */
-void boot_core_request(struct monitor_binding *b, coreid_t id, int hwid,
-                       int int_cpu_type, char *cmdline)
+void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
+                       int32_t int_cpu_type, char *cmdline)
 {
     errval_t err;
     enum cpu_type cpu_type = (enum cpu_type)int_cpu_type;

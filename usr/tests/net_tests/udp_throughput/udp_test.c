@@ -32,9 +32,9 @@
 
 //#define TOTAL_DATA_SIZE  629188608
 #define MAX_DATA   1330
-#define MULTIPLIER 1
+#define MULTIPLIER 100
 
-#define TEST_BUFFER_MANAGEMENT      1
+//#define TEST_BUFFER_MANAGEMENT      1
 
 #ifdef TEST_BUFFER_MANAGEMENT
 #define TEST_TYPE   "With BUFF Mng"
@@ -405,7 +405,10 @@ int main(int argc, char *argv[])
 
      // Parse args
     if (argc != 5) {
-        printf("Usage: %s <direction> <IP> <Port> <packets>\n", argv[0]);
+        printf("Usage: %s <direction> <IP> <Port> <packets * %d>\n",
+                argv[0], MULTIPLIER);
+        printf("eg (to send microbenchmark): %s 1 10.110.4.41 3000 1000\n", argv[0]);
+        printf("eg (to recv microbenchmark): %s 0 10.110.4.41 3000 1000\n", argv[0]);
         return 1;
     }
 
@@ -448,7 +451,7 @@ int main(int argc, char *argv[])
     assert(upcb != NULL);
 
     printf("U: #####################################\n");
-    printf("U: %d.%d: Performing [%"PRIu64"] iterations\n",
+    printf("U: %d.%"PRIuDOMAINID": Performing [%"PRIu64"] iterations\n",
                 disp_get_core_id(), disp_get_domain_id(),
                 iterations);
 

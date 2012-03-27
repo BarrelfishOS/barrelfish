@@ -67,6 +67,8 @@ int main (int argc, char *argv[])
 
     const char *imagefile = IMAGEFILE;
 
+    vfs_init();
+    
     err = timer_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error initialising timer client library\n");

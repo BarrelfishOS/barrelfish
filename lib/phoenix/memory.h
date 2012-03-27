@@ -30,12 +30,12 @@
 #include <sys/types.h>
 #include <stddef.h>
 
-void *mem_malloc (size_t size);
-void *mem_malloc_here (size_t size);
-void *mem_calloc (size_t num, size_t size);
-void *mem_realloc (void *ptr, size_t size);
+void *phoenix_mem_malloc (size_t size);
+void *phoenix_mem_malloc_here (size_t size);
+void *phoenix_mem_calloc (size_t num, size_t size);
+void *phoenix_mem_realloc (void *ptr, size_t size);
 void *mem_memcpy (void *dest, const void *src, size_t size);
 void *mem_memset (void *s, int c, size_t n);
-void mem_free (void *ptr);
+void phoenix_mem_free (void *ptr);
 
 #endif // MEMORY_H_

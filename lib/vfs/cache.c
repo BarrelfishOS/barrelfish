@@ -448,9 +448,9 @@ void cache_print_stats(void)
     #ifdef CACHE_META_DATA
     printf("meta data\n"
            "=========\n"
-           "hits        = %zu\n"
-           "misses      = %zu\n"
-           "overwrites  = %zu\n"
+           "hits        = %lu\n"
+           "misses      = %lu\n"
+           "overwrites  = %lu\n"
            "allocations = %u\n",
            meta_hits, meta_misses, meta_overwrites, alloc_ptr);
     #endif
@@ -708,7 +708,7 @@ static errval_t seek(void *st, vfs_handle_t handle, enum vfs_seekpos whence,
 
         // Fake via a setting seek
         if((off_t)nh->cached_filesize < 0) {
-            printf("filesize = %zu\n", nh->cached_filesize);
+            printf("filesize = %lu\n", nh->cached_filesize);
         }
         assert((off_t)nh->cached_filesize + offset >= 0);
         offset = nh->cached_filesize + offset;

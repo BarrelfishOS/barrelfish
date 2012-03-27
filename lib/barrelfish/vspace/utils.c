@@ -48,26 +48,16 @@ errval_t vspace_unmap(const void *buf)
 }
 
 /// Map with an alignment constraint
-errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
-                                 struct vregion **ret_vregion, size_t size,
+errval_t vspace_map_anon_aligned(void **retaddr, struct memobj *memobj,
+                                 struct vregion *vregion, size_t size,
                                  size_t *retsize, vregion_flags_t flags,
                                  size_t alignment)
 {
     errval_t err1, err2;
-    struct memobj *memobj = NULL;
-    struct vregion *vregion = NULL;
     size = ROUND_UP(size, BASE_PAGE_SIZE);
     if (retsize) {
         *retsize = size;
     }
-
-    // Allocate space
-    memobj = malloc(sizeof(struct memobj_anon));
-    assert(memobj != NULL);
-
-    vregion = malloc(sizeof(struct vregion));
-    assert(vregion != NULL);
-
 
     // Create a memobj and vregion
     err1 = memobj_create_anon((struct memobj_anon*)memobj, size, 0);
@@ -83,8 +73,6 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
     }
 
     *retaddr = (void*)vspace_genvaddr_to_lvaddr(vregion_get_base_addr(vregion));
-    *ret_memobj = memobj;
-    *ret_vregion = vregion;
 
     return SYS_ERR_OK;
 
@@ -95,8 +83,6 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
             DEBUG_ERR(err2, "memobj_destroy_anon failed");
         }
     }
-    free(memobj);
-    free(vregion);
     return err1;
 }
 
@@ -110,8 +96,30 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
                               struct vregion **ret_vregion, size_t size,
                               size_t *retsize, vregion_flags_t flags)
 {
-    return vspace_map_anon_aligned(retaddr, ret_memobj, ret_vregion, size,
-                                   retsize, flags, 0);
+    errval_t err;
+    struct memobj *memobj = NULL;
+    struct vregion *vregion = NULL;
+    
+    // Allocate space
+    memobj = malloc(sizeof(struct memobj_anon));
+    assert(memobj != NULL);
+
+    vregion = malloc(sizeof(struct vregion));
+    assert(vregion != NULL);
+
+    err = vspace_map_anon_aligned(retaddr, memobj, vregion, size,
+                                  retsize, flags, 0);
+    
+    if (err_is_fail(err))
+    {
+      free(memobj);
+      free(vregion);
+    }
+    
+    *ret_memobj = memobj;
+    *ret_vregion = vregion;
+    
+    return err;
 }
 
 /**

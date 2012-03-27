@@ -70,7 +70,7 @@ errval_t skb_client_connect(void)
 }
 
 /* ------------------------- evaluate ------------------------------ */
-errval_t skb_evaluate(char *query, char **result, char **str_error, int *int_error)
+errval_t skb_evaluate(char *query, char **result, char **str_error, int32_t *int_error)
 {
     errval_t err;
     struct skb_state *skb_state = get_skb_state();

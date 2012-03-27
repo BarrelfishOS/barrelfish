@@ -29,6 +29,9 @@
   morecomment=[l]{//},
   morecomment=[s]{/*}{*/},
   morestring=[b]",
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
 }
 
 \newcommand{\noarginvocation}[1]{\paragraph{#1 invocation}}
@@ -175,11 +178,11 @@ separate databases:
   is implemented using the CNode type capability. Each dispatcher is
   associated with a ``root CNode'' that contains all capabilities the
   dispatcher has.
-\item Each core has a mapping database that holds all the capabilities
-  on the core. The mapping database is implemented using a
-  doubly-linked list of the capabilities. As discussed later in the
-  chapter, the mapping database stores the capabilities in a
-  particular order to facilitate different capability operations.
+\item Each core has a mapping database that holds all the capabilities on the
+	core. The mapping database is implemented using a tree of the capabilities.
+	As discussed later in the chapter, the mapping database stores the
+	capabilities in a particular order to facilitate different capability
+	operations.
 \end{itemize}
 
 \section{Capability invocation}
@@ -197,7 +200,8 @@ structures:
 {\scriptsize
 \begin{verbatim}
     struct mdbnode {
-      struct cte *prev, *next;  // Links to the mapping database
+      struct cte *left, *right;  // Links to the mapping database
+	  ...
     };
 
     struct CNode {
@@ -208,27 +212,27 @@ structures:
 
     union capability_u {  // Union of all types of capabilities
       ...
-      struct  CNode cnode;
+      struct CNode cnode;
       ...
     };
 
     struct capability {
       enum objtype type;     // Type of capability
-      union  capability_u u; // Union of the capability
+      union capability_u u; // Union of the capability
     };
 
     struct cte {
       struct capability   cap;     ///< The actual capability
-      struct mdbnode      mdbnode; ///< MDB "root" node for the cap
+      struct mdbnode      mdbnode; ///< MDB node for the cap
     };
 \end{verbatim}
 }
 
-A capability, cte, consists of the actual capability represented by
-the ``capability'' structure and an entry in the mapping database
-represented by the ``mdbnode'' structure. The capability structure
-contains the type specific information and the mdbnode contains two
-pointers for the doubly linked list representing the mapping database.
+A capability, \verb|cte|, consists of the actual capability represented by the
+``capability'' structure and an entry in the mapping database represented by
+the ``mdbnode'' structure. The capability structure contains the type specific
+information and the mdbnode contains pointers for the tree representing the
+mapping database.
 
 Capabilities can be looked-up in two ways.
 \begin{itemize}
@@ -287,53 +291,26 @@ here.
   the capability space but alas we don't know how those will work yet.}
 
 \subsection{Retype}
+
 Retyping a capability creates one or more descendants of the
 capability. This operation will fail if the capability already has
 descendants. The descendants are inserted into a CNode specified by
 the operation and into the mapping database right after the retyped
 capability.
 
-When a dispatcher issues the retype invocation, the kernel must
-traverse the mapping database to ensure that the capability has no
-descendants (walk the mapping database), create the descendants
-capabilities, insert them in the specified CNode and in the mapping
+When a dispatcher issues the retype invocation, the kernel must traverse the
+mapping database to ensure that the capability has no descendants, create the
+descendants capabilities, insert them in the specified CNode and in the mapping
 database.
 
-The following pseudo-code shows how the capabilities are inserted into
-the mapping database. source is the capability that is being retyped
-and dest\_* are the descendant capabilities.
-
-{\scriptsize
-\begin{verbatim}
-  source.mdbnode.next.prev = &dest_N;
-  dest_N.mdbnode.next      = source.mdbnode.next;
-  source.mdbnode.next      = &dest_0;
-  dest_0.mdbnode.prev       = &source;
-  for(i = 0; i < N; i++) {
-    dest_(i + 1).mdbnode.prev = &dest_(i);
-    dest_(i).mdbnode.next     = &dest_(i + 1);
-  }
-\end{verbatim}
-}
-
 \subsection{Copy}
-Copying a capability creates a new copy of it. The copy is inserted
-into a CNode specified by the operation and into the mapping database
-right after the capability being copied.  The kernel walks the
-capability space to find the capability to be copied, creates the
-copy, and inserts it into the specified CNode and mapping database
-using the following pseudo-code.
 
-{\scriptsize
-\begin{verbatim}
-  source.mdbnode.next.prev = &dest;
-  dest.mdbnode.next        = source.mdbnode.next;
-  source.mdbnode.next      = &dest;
-  dest.mdbnode.prev        = &source;
-\end{verbatim}
-}
+Copying a capability creates a new copy of it. The kernel walks the capability
+space to find the capability to be copied, creates the copy, and inserts it
+into the specified CNode and mapping database.
 
 \subsection{Delete}
+
 Delete removes the specified capability from the CNode in which it
 resides and from the mapping database. This operation cannot fail.
 
@@ -343,6 +320,7 @@ exist copies of the deleted capability. If no copies are found, then
 it performs certain operations based on the capability type.
 
 \subsection{Revoke}
+
 Revoking a capability calls delete on all copies and descendants of
 it. When the operation returns, the capability will not have any
 copies or descendants.
@@ -352,13 +330,12 @@ capability, uses the mapping database to find all copies and
 descendants of the specified capability and deletes them.
 
 \subsection{Looking up local copies and descendants}
-Due to the manner in which capabilities are inserted into the mapping
-database when they are retyped or copied, the descendants and copies
-of a capability are stored right next to it. Therefore, it is easy to
-look up all related copies of a capability on the same core. This
-facilitates revocation by looking up all copies and descendants,
-facilitates retypes by checking for existing descendants, and
-facilitates deletes by checking for copies.
+
+Due to the capability ordering used by the mapping database, copies are located
+adjacant to a capabality and descendants immediately thereafter. Therefore, it
+is easy to look up all related copies of a capability on the same core. This
+facilitates revocation by looking up all copies and descendants, retypes by
+checking for existing descendants, and deltes by checking for copies.
 
 The following pseudo-code looks up all descendants and copies of a
 capability given the existence of type specific is\_copy and
@@ -367,8 +344,8 @@ is\_descendant functions.
 {\scriptsize
 \begin{verbatim}
   // Traverse forward
-  mdbnode *walk = cap.mdbnode.next;
-  while(walk != cap.mdbnode) {
+  mdbnode *walk = successor(cap);
+  while (walk) {
     // Check if descendant
     if (is_descendant(cap, walk)) {
       // Found a descendant
@@ -385,17 +362,13 @@ is\_descendant functions.
     break;
 
   increment:
-    walk = walk->mdbnode.next;
+    walk = successor(walk);
   }
 
   // Traverse backwards
-  mdbnode *walk = cap.mdbnode.prev;
-  while(walk != cap.mdbnode) {
-    // Check if descendant
-    if (is_descendant(cap, walk)) {
-      // Found a descendant
-      goto increment;
-    }
+  mdbnode *walk = predecessor(cap);
+  while (walk) {
+    // Predecessors cannot be descendants
 
     // Check if copy
     if (is_copy(cap, walk)) {
@@ -403,32 +376,36 @@ is\_descendant functions.
       goto increment;
     }
 
-    // Cap is not a descendant or copy
+    // Cap is not a copy
     break;
 
   increment:
-    walk = walk->mdbnode.prev;
+    walk = predecessor(walk);
   }
 }
 \end{verbatim}
 }
 
 \section{Multicore extensions}
+
 The model above only works for a single core system. We have already
 extended it to work on multiple cores. Here we discuss these
 extensions.
 
 \subsection{Cross-core transfer}
+
 This is a special operation available only to the monitors. This sends
 a capability from one core to another.
 
 \subsection{Missing operations}
+
 When a capability is sent to another core, no state is maintained
 about it. When checking for capability relations in capability
 operations, only the current core is checked. Therefore these
 operations are not implemented correctly right now.
 
 \section{Summary}
+
 In this chapter, we presented a background and the current state of
 capabilities management in Barrelfish. We can now discuss different
 designs for multicore capability management.

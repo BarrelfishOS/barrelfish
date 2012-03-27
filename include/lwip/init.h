@@ -65,29 +65,39 @@ extern "C" {
 #define LWIP_VERSION   (LWIP_VERSION_MAJOR << 24   | LWIP_VERSION_MINOR << 16 | \
                         LWIP_VERSION_REVISION << 8 | LWIP_VERSION_RC)
 
-    enum netd_port_type_t;
-    void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
+enum net_ports_port_type_t;
+
+// FIXME: remove this
+void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
                                         uint16_t(*alloc_udp_ptr) (void),
                                         uint16_t(*bind_port_ptr) (uint16_t,
-                                                                  enum
-                                                                  netd_port_type_t),
+                                                enum net_ports_port_type_t),
                                         void (*close_port_ptr) (uint16_t,
-                                                                enum
-                                                                netd_port_type_t));
+                                                enum net_ports_port_type_t));
 
-/* Modules initialization */
-    struct waitset;
-    struct thread_mutex;
-    void owner_lwip_init(char *card_name);
-    bool lwip_init_ex(const char *card_name, struct waitset *opt_waitset,
-                      struct thread_mutex *opt_mutex);
-    bool lwip_init(const char *card_name);
-    bool lwip_init_auto_ex(struct waitset *opt_waitset,
-                           struct thread_mutex *opt_mutex);
-    bool lwip_init_auto(void);
+// global variables
+struct waitset;
+struct thread_mutex;
 
-    int is_lwip_loaded(void);
-    uint64_t lwip_packet_drop_count(void);
+// *********************************************************************
+// function prototypes
+// *********************************************************************
+
+// Tells if this app is special or not
+bool is_this_special_app(void);
+
+// To be called from "netd" which is responsible for ARP table
+struct netif *owner_lwip_init(char *card_name, uint64_t queueid);
+
+// initialize networkign with specific card and queue
+bool lwip_init(const char *card_name, uint64_t queueid);
+
+// initialize networking when cardname and queue is not known
+bool lwip_init_auto(void);
+
+// FIXME: remove these functions as they are not used anymore
+int is_lwip_loaded(void);
+uint64_t lwip_packet_drop_count(void);
 
 
 uint64_t wrapper_perform_lwip_work(void);
@@ -117,11 +127,22 @@ enum Recorded_Events {
     TX_A_SP_RN_T,
     TX_SND_PKT_C,
     TX_SND_PKT_S,
+/*
+    RPC_RECV_T,
+    RPC_CALLBACK_T,
+    RPC_RECV_OUT_T,
+*/
+    RPC_CALL_T,
+    NFS_READCB_T,
+    NFS_READ_T,
+    NFS_READ_1_T,
+    NFS_READ_w_T,
     RECORDED_EVENTS_COUNT  // MUST BE THE LAST ELEMENT!!
 };
 
 extern struct netbench_details *nb;
 void lwip_print_interesting_stats(void);
+void lwip_record_event_simple(uint8_t event_type, uint64_t ts);
 
 #ifdef __cplusplus
 }

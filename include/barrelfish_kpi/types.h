@@ -19,7 +19,7 @@
 #define NBBY            8
 
 /// Capability NULL pointer
-#define CPTR_NULL       ((caddr_t)0)
+#define CPTR_NULL       ((capaddr_t)0)
 
 #ifndef __ASSEMBLER__
 
@@ -42,6 +42,11 @@ typedef uint64_t genpaddr_t;
 #define PRIuGENPADDR PRIu64
 #define PRIxGENPADDR PRIx64
 
+/* Global (system-wide) size type, currently 64 bits */
+typedef uint64_t gensize_t;
+#define PRIuGENSIZE PRIu64
+#define PRIxGENSIZE PRIx64
+
 /* Local virtual address */
 typedef uintptr_t lvaddr_t;
 #define PRIuLVADDR PRIuPTR
@@ -58,15 +63,15 @@ typedef genvaddr_t forvaddr_t;
 #define PRIxFORVADDR PRIxGENVADDR
 
 /* capability addresses */
-typedef uint32_t caddr_t;
+typedef uint32_t capaddr_t;
 #define PRIuCADDR PRIu32
 #define PRIxCADDR PRIx32
 
 /// Number of bits in a cspace address
-#define CPTR_BITS       (sizeof(caddr_t) * NBBY)
+#define CPTR_BITS       (sizeof(capaddr_t) * NBBY)
 
 /* slot number */
-typedef caddr_t cslot_t;
+typedef capaddr_t cslot_t;
 #define PRIuCSLOT PRIuCADDR
 #define PRIxCSLOT PRIxCADDR
 
@@ -104,6 +109,9 @@ typedef uint64_t systime_t;
 #define PRIuSYSTIME PRIu64
 #define PRIxSYSTIME PRIx64
 #define PRIXSYSTIME PRIX64
+
+#define PRIxERRV    PRIxPTR
+#define PRIuERRV    PRIuPTR
 
 #endif // __ASSEMBLER__
 
