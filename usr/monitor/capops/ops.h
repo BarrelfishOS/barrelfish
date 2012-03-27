@@ -15,7 +15,7 @@
 #include <barrelfish_kpi/capabilities.h>
 #include "domcap.h"
 
-typedef void (*copy_result_handler_t)(errval_t, capaddr_t, void*);
+typedef void (*copy_result_handler_t)(errval_t, capaddr_t, uint8_t, void*);
 errval_t copy(struct capref src, coreid_t dest,
               copy_result_handler_t result_handler, void *st);
 

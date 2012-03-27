@@ -41,6 +41,7 @@ struct recv_copy_result_msg_st {
     struct intermon_msg_queue_elem queue_elem;
     errval_t status;
     capaddr_t capaddr;
+    uint8_t vbits;
     genvaddr_t st;
 };
 
@@ -50,7 +51,7 @@ recv_copy_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue
 {
     errval_t err;
     struct recv_copy_result_msg_st *msg_st = (struct recv_copy_result_msg_st*)e;
-    err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status, msg_st->capaddr, msg_st->st);
+    err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status, msg_st->capaddr, msg_st->vbits, msg_st->st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send recv_copy_result");
     }
@@ -59,7 +60,7 @@ recv_copy_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue
 
 // enqueueing function for recv_copy_result
 static errval_t
-recv_copy_result(coreid_t dest, errval_t status, capaddr_t capaddr, genvaddr_t st)
+recv_copy_result(coreid_t dest, errval_t status, capaddr_t capaddr, uint8_t vbits, genvaddr_t st)
 {
     errval_t err;
 
@@ -71,6 +72,7 @@ recv_copy_result(coreid_t dest, errval_t status, capaddr_t capaddr, genvaddr_t s
     msg_st->queue_elem.cont = recv_copy_result_send_cont;
     msg_st->status = status;
     msg_st->capaddr = capaddr;
+    msg_st->vbits = vbits;
     msg_st->st = st;
 
     // enqueue message
@@ -108,7 +110,7 @@ owner_copy_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem 
         if (rpc_st->from != my_core_id) {
             // source is another core (we're acting as intermediary)
             assert(!rpc_st->result_handler);
-            errval_t send_err = recv_copy_result(rpc_st->from, err, 0, rpc_st->st);
+            errval_t send_err = recv_copy_result(rpc_st->from, err, 0, 0, rpc_st->st);
             if (err_is_fail(send_err)) {
                 err = err_push(send_err, err);
                 USER_PANIC_ERR(err, "failed to send recv_copy_result for recv_copy error");
@@ -117,7 +119,7 @@ owner_copy_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem 
         else {
             // source is this core, call result handler directly
             if (rpc_st->result_handler) {
-                rpc_st->result_handler(err, 0, (void*)rpc_st->st);
+                rpc_st->result_handler(err, 0, 0, (void*)rpc_st->st);
             }
         }
         free(rpc_st);
@@ -184,7 +186,7 @@ request_copy_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
         assert(msg_st->st);
         struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)msg_st->st;
         if (rpc_st->result_handler) {
-            rpc_st->result_handler(err, 0, (void*)rpc_st->st);
+            rpc_st->result_handler(err, 0, 0, (void*)rpc_st->st);
         }
         free(rpc_st);
     }
@@ -242,19 +244,19 @@ request_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_h
 
 __attribute__((unused))
 static void
-recv_copy_result__rx_handler(struct intermon_binding *b, errval_t status, capaddr_t capaddr, genvaddr_t st) {
+recv_copy_result__rx_handler(struct intermon_binding *b, errval_t status, capaddr_t capaddr, uint8_t vbits, genvaddr_t st) {
     assert(st);
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)st;
 
     if (rpc_st->from != my_core_id) {
         // acting as intermediary, forward to origin
         assert(!rpc_st->result_handler);
-        recv_copy_result(rpc_st->from, status, capaddr, rpc_st->st);
+        recv_copy_result(rpc_st->from, status, capaddr, vbits, rpc_st->st);
     }
     else {
         // origin of copy, call result handler
         if (rpc_st->result_handler) {
-            rpc_st->result_handler(status, capaddr, (void*)rpc_st->st);
+            rpc_st->result_handler(status, capaddr, vbits, (void*)rpc_st->st);
         }
     }
     free(rpc_st);
@@ -270,6 +272,7 @@ recv_copy__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genv
     struct capref dest;
     struct capability cap;
     capaddr_t capaddr = 0;
+    uint8_t vbits = 0;
 
     caprep_to_capability(&caprep, &cap);
 
@@ -296,13 +299,14 @@ recv_copy__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genv
     }
 
     capaddr = get_cap_addr(dest);
+    vbits = get_cap_valid_bits(dest);
     goto send_result;
 
 free_slot:
     slot_free(dest);
 
 send_result:
-    recv_copy_result(from, err, capaddr, st);
+    recv_copy_result(from, err, capaddr, vbits, st);
 }
 
 __attribute__((unused))
@@ -349,7 +353,8 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     if (dest == my_core_id) {
         // tried to send copy to owning core, success!
         capaddr_t result_addr = get_cap_addr(capref);
-        recv_copy_result(from, SYS_ERR_OK, result_addr, st);
+        uint8_t result_bits = get_cap_valid_bits(capref);
+        recv_copy_result(from, SYS_ERR_OK, result_addr, result_bits, st);
     }
     else {
         // forward copy to destination core
@@ -362,7 +367,7 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     goto end;
 
 send_err:
-    send_err = recv_copy_result(from, err, 0, st);
+    send_err = recv_copy_result(from, err, 0, 0, st);
     if (err_is_fail(send_err)) {
         err_push(send_err, err);
         USER_PANIC_ERR(err, "failed to send error to request_copy sender");
@@ -406,7 +411,8 @@ copy(struct capref capref, coreid_t dest, copy_result_handler_t result_handler, 
         }
 
         capaddr_t result_addr = get_cap_addr(result_ref);
-        result_handler(SYS_ERR_OK, result_addr, st);
+        uint8_t result_bits = get_cap_valid_bits(result_ref);
+        result_handler(SYS_ERR_OK, result_addr, result_bits, st);
         return SYS_ERR_OK;
     }
 
