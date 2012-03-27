@@ -39,7 +39,7 @@ errval_t pcie_setup_confspace(void) {
     }
 
     PCI_DEBUG("pci confspace: %s\n", skb_get_output());
-    err = skb_read_output("[%lu, %hu, %"PRIu8", %"PRIu8"]", &address, &segment, &sbus, &ebus);
+    err = skb_read_output("[%"PRIu64", %"PRIu16", %"PRIu8", %"PRIu8"]", &address, &segment, &sbus, &ebus);
     if (err_is_ok(err)) {
 
         size_t region_pages = (ebus + 1 - sbus) << 8;
@@ -58,7 +58,7 @@ errval_t pcie_setup_confspace(void) {
             return error_code;
         }
 
-        PCI_DEBUG("calling confspace init with: %lu %d %d %d",
+        PCI_DEBUG("calling confspace init with: %"PRIu64", %"PRIu16", %"PRIu8", %"PRIu8"",
                 address, segment, sbus, ebus);
         int r = pcie_confspace_init(pcie_cap, address, segment, sbus, ebus);
         assert(r == 0);

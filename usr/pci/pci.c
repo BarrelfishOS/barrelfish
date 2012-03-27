@@ -123,8 +123,8 @@ static errval_t alloc_device_bar(uint8_t index,
  restart: ;
     pcisize_t framesize = 1UL << bits;
     c->nr_caps = size / framesize;
-    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE": %lu\n",
-              size, c->nr_caps);
+    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE":\n",
+              size);
 
     c->phys_cap = malloc(c->nr_caps * sizeof(struct capref));
     if (c->phys_cap == NULL) {
