@@ -166,7 +166,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
     // register this iref with the name service
     char buf[100];
-    sprintf(buf, "add_object(skb, [val(iref, %d)], []).", iref);
+    sprintf(buf, "add_object(skb, [val(iref, %"PRIu32")], []).", iref);
 
     struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
     err = execute_query(buf, sqs);

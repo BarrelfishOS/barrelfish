@@ -319,7 +319,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
 
         if (*prt->Source == 0) {
             /* this is a global interrupt number */
-            skb_add_fact("prt(addr(%u, %u, _), %u, gsi(%u)).",
+            skb_add_fact("prt(addr(%"PRIu8", %"PRIu16", _), %"PRIu32", gsi(%"PRIu32")).",
                          bus, device, prt->Pin, prt->SourceIndex);
             continue;
         }
@@ -341,7 +341,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
                 esource[++j] = '\\';
             }
         }
-        skb_add_fact("prt(addr(%u, %u, _), %u, pir(\"%s\")).",
+        skb_add_fact("prt(addr(%"PRIu8", %"PRIu16", _), %"PRIu32", pir(\"%s\")).",
                      bus, device, prt->Pin, esource);
 
 #ifdef PCI_SERVICE_DEBUG /* debug code to dump resources */
@@ -398,7 +398,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
                 //printf("Extended IRQs:");
                 for (int i = 0; i < irqres->InterruptCount; i++) {
                     //printf(" %d", irqres->Interrupts[i]);
-                    skb_add_fact("pir(\"%s\", %u).",
+                    skb_add_fact("pir(\"%s\", %"PRIu32").",
                                  esource, irqres->Interrupts[i]);
                 }
                 //printf("\n");
@@ -406,7 +406,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
             }
 
             default:
-                printf("Unknown resource type: %d\n", res->Type);
+                printf("Unknown resource type: %"PRIu32"\n", res->Type);
                 USER_PANIC("NYI");
                 break;
             }
@@ -600,9 +600,11 @@ static int acpi_init(void)
     int r = init_all_apics();
     assert(r == 0);
 
+#ifdef USE_KALUGA_DVM
     char* record;
     errval_t err = oct_barrier_enter("barrier.acpi", &record, 2);
     assert(err_is_ok(err));
+#endif
 
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
@@ -713,7 +715,7 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
                               hotpluggable ? " Hot-pluggable" : "",
                               nonvolatile ? " Non-volatile" : "");
 
-                    skb_add_fact("memory_affinity(%" PRIu64 ", %" PRIu64 ", %d).",
+                    skb_add_fact("memory_affinity(%" PRIu64 ", %" PRIu64 ", %"PRIu32").",
                         a->BaseAddress, a->Length, a->ProximityDomain);
 
                 } else {

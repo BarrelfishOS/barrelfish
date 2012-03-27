@@ -144,7 +144,7 @@ static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
         break;
 
     default:
-        printf("Unknown resource type: %d\n", res->Type);
+        printf("Unknown resource type: %"PRIu32"\n", res->Type);
         ACPI_DEBUG("NYI");
         break;
     }
@@ -171,7 +171,7 @@ static void reset_handler(struct acpi_binding *b)
         printf("Resetting machine via ACPI...\n");
         ACPI_STATUS as = AcpiReset();
         if (ACPI_FAILURE(as)) {
-            printf("ACPI reset failed: 0x%x\n", as);
+            printf("ACPI reset failed\n");
         }
     }
 
@@ -182,9 +182,9 @@ static void reset_handler(struct acpi_binding *b)
     }
 }
 
-static void sleep_handler(struct acpi_binding *b, int state)
+static void sleep_handler(struct acpi_binding *b, uint32_t state)
 {
-    printf("Entering S%d sleep state via ACPI...\n", state);
+    printf("Entering S%"PRIu32" sleep state via ACPI...\n", state);
     ACPI_STATUS as = AcpiEnterSleepStatePrep(state);
     if (!ACPI_SUCCESS(as)) {
         printf("AcpiEnterSleepStatePrep failed\n");

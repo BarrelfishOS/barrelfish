@@ -50,7 +50,6 @@ static errval_t copy_bios_mem(void) {
 
     err = mm_alloc_range(&pci_mm_physaddr, BIOS_BITS, 0,
                        1UL << BIOS_BITS, &bioscap, NULL);
-    DEBUG_ERR(err, "mm alloc range\n");
     assert(err_is_ok(err));
 
     /*err = devframe_type(&biosframe, bioscap, BIOS_BITS);

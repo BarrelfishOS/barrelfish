@@ -80,7 +80,7 @@ errval_t oct_sem_new(uint32_t* id, size_t value)
 
 errval_t oct_sem_post(uint32_t id)
 {
-    return oct_mset(SET_SEQUENTIAL, "sem.%d. { sem: %d }", id, id);
+    return oct_mset(SET_SEQUENTIAL, "sem.%"PRIu32". { sem: %"PRIu32" }", id, id);
 }
 
 errval_t oct_sem_wait(uint32_t id)
@@ -93,10 +93,10 @@ errval_t oct_sem_wait(uint32_t id)
     struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
 
     char query[100];
-    snprintf(query, 99, "r'sem\\.%d\\.[0-9]+' { sem: %d }", id, id);
+    snprintf(query, 99, "r'sem\\.%"PRIu32"\\.[0-9]+' { sem: %"PRIu32" }", id, id);
 
     char lock_name[100];
-    snprintf(lock_name, 99, "sem.%d", id);
+    snprintf(lock_name, 99, "sem.%"PRIu32"", id);
 
     // XXX: The current implementation suffers from a herd effect,
     // may be worth it to use locks for this critical section

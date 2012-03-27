@@ -30,7 +30,7 @@ interface acpi "acpi RPC Interface" {
                                    out errval error_code);
 
     rpc reset(out errval err);
-    rpc sleep(in int state, out errval err);
+    rpc sleep(in uint32 state, out errval err);
     
     // Kludge: retrieve frame cap to VBE BIOS;
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
