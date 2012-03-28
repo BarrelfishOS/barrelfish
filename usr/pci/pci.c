@@ -226,7 +226,7 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
     pcisize_t bar_size;
 
     if (*bus != PCI_DONT_CARE) {
-        snprintf(s_bus, sizeof(s_bus), "%u", *bus);
+        snprintf(s_bus, sizeof(s_bus), "%"PRIu32"", *bus);
     } else {
         strncpy(s_bus, "Bus", sizeof(s_bus));
     }

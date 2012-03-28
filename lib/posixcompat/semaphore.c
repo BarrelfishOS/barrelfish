@@ -30,10 +30,10 @@ int sem_init(sem_t *sem, int pshared, unsigned int value)
         sem->pshared = 1;
         /* fprintf(stderr, "sem_init called with pshared != 0. Ignoring.\n"); */
 
-		POSIXCOMPAT_DEBUG("%d: sem_init(%p, %d, %u)\n", disp_get_domain_id(), sem, pshared, value);
-		debug_printf("oct_sem_new\n");
+        POSIXCOMPAT_DEBUG("%d: sem_init(%p, %d, %u)\n", disp_get_domain_id(), sem, pshared, value);
+        //debug_printf("oct_sem_new\n");
         errval_t err = oct_sem_new(&sem->id, value);
-        debug_printf("sem->id now is: %d\n", sem->id);
+        //debug_printf("sem->id now is: %d\n", sem->id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "sem_new reterr");
         }

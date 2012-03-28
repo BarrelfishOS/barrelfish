@@ -60,7 +60,7 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref)
 
     if (err_is_ok(err)) {
         struct monitor_binding *mb = get_monitor_binding();
-        OCT_DEBUG("octopus rpc iref is: %d\n", iref);
+        OCT_DEBUG("octopus rpc iref is: %"PRIu32"\n", iref);
         err = mb->tx_vtbl.set_name_iref_request(mb, NOP_CONT, iref);
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "failed to send set_name_iref_request to monitor");
