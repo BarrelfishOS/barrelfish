@@ -128,7 +128,7 @@ static errval_t run_eclipse(struct oct_query_state* st)
 static void debug_skb_output(struct oct_query_state* st)
 {
     OCT_DEBUG(
-            " output: %s error: %s error_code: %d\n", st->stdout.buffer, st->stderr.buffer, st->exec_res);
+            " output: %s error: %s error_code:\n", st->std_out.buffer, st->std_err.buffer);
 }
 
 errval_t get_record(struct ast_object* ast, struct oct_query_state* sqs)
@@ -368,7 +368,7 @@ errval_t del_watch(struct octopus_binding* b, octopus_trigger_id_t id,
         err = err_push(err, OCT_ERR_INVALID_ID);
     }
 
-    OCT_DEBUG(" del_trigger id is %lu:\n", id);
+    OCT_DEBUG(" del_trigger id is %"PRIu64":\n", id);
     debug_skb_output(dqs);
 
     return err;
@@ -409,7 +409,7 @@ struct octopus_binding* get_event_binding(struct octopus_binding* b)
 
     struct octopus_binding* recipient = NULL;
     // TODO pointer size vs. long int in skb :-(
-    sscanf(dqs->std_out.buffer, "%"PRIuPTR"", (uintptr_t*) &recipient);
+    sscanf(dqs->std_out.buffer, "%"SCNuPTR"", (uintptr_t*) &recipient);
 
     free(dqs);
     return recipient;
@@ -548,7 +548,7 @@ errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding)
 
     errval_t err = run_eclipse(dqs);
     OCT_DEBUG("set_binding: %p\n", binding);
-    OCT_DEBUG("error: %s\n", dqs->stderr.buffer);
+    OCT_DEBUG("error: %s\n", dqs->std_err.buffer);
 
     free(dqs);
     return err;

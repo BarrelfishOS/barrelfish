@@ -568,7 +568,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
 {
     errval_t err = SYS_ERR_OK;
 
-    OCT_DEBUG("unsubscribe: id = %lu\n", id);
+    OCT_DEBUG("unsubscribe: id = %"PRIu64"\n", id);
 
     struct oct_reply_state* srs = NULL;
     err = new_oct_reply_state(&srs, unsubscribe_reply);
@@ -582,7 +582,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
         uint64_t server_id;
 
         skb_read_output_at(srs->query_state.std_out.buffer,
-                "subscriber(%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64")",
+                "subscriber(%"SCNu64", %"SCNu64", %"SCNu64", %"SCNu64")",
                 &binding, &client_handler, &client_state, &server_id);
 
         struct oct_reply_state* subscriber = NULL;
@@ -665,7 +665,7 @@ void publish_handler(struct octopus_binding *b, char* record)
             uint64_t client_state;
             uint64_t server_id;
 
-            while (skb_read_list(&status, "subscriber(%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64")",
+            while (skb_read_list(&status, "subscriber(%"SCNu64", %"SCNu64", %"SCNu64", %"SCNu64")",
                     &binding, &client_handler, &client_state, &server_id)) {
 
                 struct oct_reply_state* subscriber = NULL;
@@ -726,7 +726,7 @@ void identify_binding(struct octopus_binding* b, uint64_t id,
     errval_t err = new_oct_reply_state(&drs, identify_binding_reply);
     assert(err_is_ok(err));
 
-    OCT_DEBUG("set binding: id=%lu type=%d\n", id, type);
+    OCT_DEBUG("set binding: id=%"PRIu64" type=%d\n", id, type);
     drs->error = set_binding(type, id, b);
     drs->reply(b, drs);
 }
