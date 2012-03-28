@@ -40,7 +40,7 @@ static errval_t cleanup_last_dcb(struct cte *cte);
  * \brief Try a "simple" delete of a cap. If this fails, the monitor needs to
  * negotiate a delete across the system.
  */
-errval_t caps_try_delete(struct cte *cte)
+static errval_t caps_try_delete(struct cte *cte)
 {
     if (distcap_is_in_delete(cte)) {
         // already in process of being deleted

@@ -78,7 +78,6 @@ errval_t is_retypeable(struct cte *src_cte,
                        enum objtype dest_type,
                        bool from_monitor);
 
-errval_t caps_try_delete(struct cte *cte);
 errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap);
 errval_t caps_continue_clear(struct cte *ret_next);
 errval_t caps_continue_revoke(struct cte *target, struct cte *ret_next);
