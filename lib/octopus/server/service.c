@@ -590,7 +590,7 @@ void unsubscribe_handler(struct octopus_binding *b, uint64_t id)
                 send_subscribed_message);
         assert(err_is_ok(err));
 
-#if defined(__i386__)
+#if defined(__i386__) || defined(__arm__)
         subscriber->binding = (struct octopus_binding*)(uint32_t)binding;
 #else
         subscriber->binding = (struct octopus_binding*)binding;
@@ -672,7 +672,7 @@ void publish_handler(struct octopus_binding *b, char* record)
                 err = new_oct_reply_state(&subscriber,
                         send_subscribed_message);
                 assert(err_is_ok(err));
-#if defined(__i386__)
+#if defined(__i386__) || defined(__arm__)
                 subscriber->binding = (struct octopus_binding*)(uint32_t)binding;
 #else
                 subscriber->binding = (struct octopus_binding*)binding;

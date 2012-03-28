@@ -68,6 +68,7 @@ int main(int argc, char**argv)
 
 
 	// ec_.m.vm_flags |= 8;
+    SKB_DEBUG("before ec init\n");
     int n = ec_init();
     if (n != 0) {
         SKB_DEBUG("\nskb_main: ec_init() failed. Return code = %d\n", n);

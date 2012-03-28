@@ -23,6 +23,6 @@
                                  "-Wmissing-declarations",
                                  "-Wmissing-field-initializers",
                                  "-Wredundant-decls", "-std=c99" ],
-                 architectures = [ "x86_64", "x86_32", "scc" ]
+                 architectures = [ "x86_64", "x86_32", "scc", "arm" ]
                 }
 ]

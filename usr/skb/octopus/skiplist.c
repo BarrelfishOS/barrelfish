@@ -34,9 +34,13 @@
  **/
 static inline uint64_t get_cycle_counter(void)
 {
+#if defined(__x86_64__)
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
     return ((uint64_t)edx << 32) | eax;
+#else
+    return 0xdead;
+#endif
 }
 
 /**
