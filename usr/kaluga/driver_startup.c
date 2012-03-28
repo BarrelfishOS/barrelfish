@@ -82,6 +82,6 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
     err = spawn_program(core, ngd_mng->path, ngd_mng->argv,
             environ, 0, &ngd_mng->did);
 
-    free(cardname);
+    free(card_argument);
     return err;
 }
