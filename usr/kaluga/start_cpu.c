@@ -223,7 +223,7 @@ errval_t watch_for_cores(void)
     oct_free_names(apic_record_names, cores_on_boot);
     return err;
 }
-
+/*
 static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & OCT_ON_SET) {
@@ -276,4 +276,4 @@ errval_t watch_for_ioapic(void)
     octopus_trigger_id_t tid;
     return trigger_existing_and_watch(io_apics, ioapic_change_event,
             NULL, &tid);
-}
+}*/

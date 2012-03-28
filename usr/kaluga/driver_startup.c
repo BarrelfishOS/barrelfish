@@ -51,6 +51,12 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
+    struct module_info* ngd_mng = find_module("NGD_mng");
+    if (ngd_mng == NULL || !is_auto_driver(ngd_mng)) {
+        KALUGA_DEBUG("NGD_mng not found or not declared as auto.");
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
     err = spawn_program(core, driver->path, driver->argv+1,
             environ, 0, &driver->did);
     if (err_is_fail(err)) {
@@ -59,14 +65,23 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
     }
 
     // XXX: Manually add cardname (overwrite first (auto) argument)
-    size_t name_len = strlen("cardname=")+strlen(driver->binary)+1;
-    char* cardname = malloc(name_len);
-    sprintf(cardname, "cardname=%s", driver->binary);
-    netd->argv[0] = cardname;
+    // +Weird convention, e1000n binary but cardname=e1000
+    char* cardname = strcmp(driver->binary, "e1000n") == 0 ?
+            "e1000" :  driver->binary;
+
+    size_t name_len = strlen("cardname=")+strlen(cardname)+1;
+    char* card_argument = malloc(name_len);
+    sprintf(card_argument, "cardname=%s", cardname);
+
+    // Spawn netd and ngd_mng
+    netd->argv[0] = card_argument;
     err = spawn_program(core, netd->path, netd->argv,
             environ, 0, &netd->did);
+
+    ngd_mng->argv[0] = card_argument;
+    err = spawn_program(core, ngd_mng->path, ngd_mng->argv,
+            environ, 0, &ngd_mng->did);
+
     free(cardname);
-
     return err;
-
 }
