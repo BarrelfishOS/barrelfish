@@ -503,7 +503,7 @@ char* strdup(const char*);
 
 #define INITIAL 0
 #define REG 1
-#define STR 2
+#define OSTR 2
 
 #ifndef YY_NO_UNISTD_H
 /* Special case for "unistd.h", since it is non-ANSI. We include it way
@@ -886,7 +886,7 @@ YY_RULE_SETUP
 case 9:
 YY_RULE_SETUP
 #line 105 "scan.l"
-{ yyextra->ptr = yyextra->buffer; BEGIN(STR); }
+{ yyextra->ptr = yyextra->buffer; BEGIN(OSTR); }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
@@ -991,7 +991,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(REG):
-case YY_STATE_EOF(STR):
+case YY_STATE_EOF(OSTR):
 #line 144 "scan.l"
 return END_OF_INPUT;
 	YY_BREAK

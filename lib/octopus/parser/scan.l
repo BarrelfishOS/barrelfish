@@ -57,7 +57,7 @@ QUOTE [']
 REGEX_START r{QUOTE}
 
 %x REG
-%x STR
+%x OSTR
 
 %%
 {BOOL}      {
@@ -102,16 +102,16 @@ REGEX_START r{QUOTE}
      }
 
 
-\'     { yyextra->ptr = yyextra->buffer; BEGIN(STR); }
+\'     { yyextra->ptr = yyextra->buffer; BEGIN(OSTR); }
 
-<STR>\'        { /* saw closing quote - all done */
+<OSTR>\'        { /* saw closing quote - all done */
      BEGIN(INITIAL);
      *yyextra->ptr = '\0';
      yylval->str = strdup(yyextra->buffer);
      return STRING;
      }
 
-<STR>[^\']+        {
+<OSTR>[^\']+        {
      char *yptr = yytext;
 
      while ( *yptr )
