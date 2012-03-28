@@ -31,16 +31,8 @@ errval_t pcie_setup_confspace(void) {
     uint8_t sbus;
     uint8_t ebus;
 
-    err = skb_execute_query("pcie_confspace(Address,Segment,Start,End),"
-                            "writeln([Address,Segment,Start,End]).");
-    if (err_is_fail(err)) {
-        PCI_DEBUG("No PCIe confspace found. Ignore.\n");
-        return SYS_ERR_OK;
-    }
-
-    PCI_DEBUG("pci confspace: %s\n", skb_get_output());
-    err = skb_read_output("[%"SCNu64", %"SCNu16", %"SCNu8", %"SCNu8"]",
-            &address, &segment, &sbus, &ebus);
+    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    cl->vtbl.get_pcie_confspace(cl, &err, &address, &segment, &sbus, &ebus);
     if (err_is_ok(err)) {
 
         size_t region_pages = (ebus + 1 - sbus) << 8;

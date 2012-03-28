@@ -54,7 +54,6 @@ static errval_t init_io_ports(void)
 
 int main(int argc, char *argv[])
 {
-    debug_printf("pci staretd\n");
     errval_t err;
 
     err = oct_init();

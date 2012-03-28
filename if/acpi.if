@@ -14,6 +14,13 @@ interface acpi "acpi RPC Interface" {
         uint8 function;
     } pci_address;
     
+    // XXX: SKB fails when these values are stored as predicate?
+    rpc get_pcie_confspace(out errval err,
+                           out uint64 address, 
+                           out uint16 segment, 
+                           out uint8 startbus, 
+                           out uint8 endbus);
+    
     rpc read_irq_table(in string handle, 
                        in pci_address addr, 
                        in uint8 bus,

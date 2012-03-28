@@ -756,6 +756,7 @@ int init_acpi(void)
      * this tells us where the PCI express memory-mapped configuration area is
      */
 
+    /*
     ACPI_TABLE_HEADER *mcfg_header;
     as = AcpiGetTable("MCFG", 1, &mcfg_header);
     if (ACPI_SUCCESS(as) && mcfg_header->Length >=
@@ -769,7 +770,7 @@ int init_acpi(void)
                 mcfg->Address, mcfg->PciSegment, mcfg->StartBusNumber,
                 mcfg->EndBusNumber);
 
-        /* XXX: Not needed as long as PCIe walking is disabled
+        //XXX: Not needed as long as PCIe walking is disabled
         r = pcie_confspace_init(mcfg->Address, mcfg->PciSegment,
                                 mcfg->StartBusNumber, mcfg->EndBusNumber);
         if (r == 0) {
@@ -780,11 +781,11 @@ int init_acpi(void)
                ((lpaddr_t)(mcfg->EndBusNumber + 1 - mcfg->StartBusNumber) << 20)
             };
             reserved_memory[n_reserved_memory_regions++] = confspace;
-        }*/
+        }
 
     } else {
         ACPI_DEBUG("No MCFG table found -> no PCIe enhanced configuration\n");
-    }
+    }*/
 
     // XXX: disable PCIe memory-mapped config space until after we walk and
     // prescan all the buses. This is necessary on some AMD boxes, because the
