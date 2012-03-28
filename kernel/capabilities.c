@@ -951,7 +951,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
     if (err_is_fail(err)) {
         return err;
     }
-
+    dest_cte->mdbnode.owner = src_cte->mdbnode.owner;
 
     // Handle mapping
     mdb_insert(dest_cte);
