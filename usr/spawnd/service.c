@@ -572,7 +572,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
 
-#if defined(USE_KALUGA_DVM) && (!defined(__arm__) || !defined(__scc__))
+#if !defined(USE_KALUGA_DVM) || defined(__arm__) || defined(__scc__)
     // let the master know we are ready
     err = nsb_register_n(my_core_id, SERVICE_BASENAME);
     if (err_is_fail(err)) {

@@ -45,6 +45,8 @@ static struct record record_storage[MAX_RECORDS] = {{ NULL, NULL, NULL }};
 
 static void transform_to_string(struct ast_object* ast, char* str)
 {
+	assert(ast != NULL);
+	assert(str != NULL);
 	size_t idx = 0;
 
 	idx += sprintf(str+idx, "%s { ", RECORD_NAME(ast));
@@ -137,7 +139,7 @@ errval_t get_record(struct ast_object* ast, struct oct_query_state* sqs)
     		continue;
     	}
 
-		if(strcmp(RECORD_NAME(ast), entry->name) == 0) {
+		if(strcmp(RECORD_NAME(ast), entry->name) == 0 && entry->record != NULL) {
 			transform_to_string(entry->record, sqs->std_out.buffer);
 			return SYS_ERR_OK;
 		}
