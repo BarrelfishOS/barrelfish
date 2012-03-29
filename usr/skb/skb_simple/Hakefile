@@ -10,12 +10,13 @@
 --
 --------------------------------------------------------------------------
 
-[  build application { target = "skb_simple",
+[  build application { target = "skb",
                        flounderBindings = [ "octopus" ],
                        flounderDefs = [ "monitor", "monitor_blocking", "octopus" ],
                        flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
-                       flounderTHCStubs = [ "octopus" ],
                        mackerelDevices = [ "acpi_ec", "lpc_ioapic" ],                      
                        cFiles = [ "main.c", "octopus_stubs.c" ],
-                       addLibraries = [ "octopus_server", "octopus_parser", "thc" ] }
+                       addLibraries = [ "octopus_server", "octopus_parser" ],
+                       architectures = [ "arm", "xscale" ]
+   }
 ]

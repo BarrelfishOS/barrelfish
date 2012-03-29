@@ -36,7 +36,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                        architectures = [ arch ]
                 }
 in
-  [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32", "scc", "arm" ]],
+  [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32", "scc" ]],
     Rule ( [ Str "bash",
              In SrcTree "src" "skripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]
