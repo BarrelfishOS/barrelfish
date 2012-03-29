@@ -311,7 +311,7 @@ void debug_my_cspace(void)
 
 int debug_print_capref(char *buf, size_t len, struct capref cap)
 {
-    return snprintf(buf, len, "CNode addr 0x%" PRIxCADDR
+    return snprintf(buf, len, "CNode addr 0x%08" PRIxCADDR
                               ", vbits = %d, slot %" PRIuCADDR ", vbits = %d",
                     get_cnode_addr(cap),  get_cnode_valid_bits(cap), cap.slot,
                     get_cap_valid_bits(cap));

@@ -405,6 +405,7 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
                               uint64_t new_type, uint8_t size_bits,
                               capaddr_t to, capaddr_t slot, int32_t dcn_vbits)
 {
+    debug_printf("got remote cap retype request\n");
     errval_t err;
     err = capops_retype(new_type, size_bits, croot, to, dcn_vbits, slot, src,
                         CPTR_BITS, retype_reply_status, (void*)b);
@@ -423,6 +424,7 @@ static void delete_reply_status(errval_t status, void *st)
 static void remote_cap_delete(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t vbits)
 {
+    debug_printf("got remote cap delete request\n");
     struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
     errval_t err = capops_delete(cap, delete_reply_status, (void*)b);
     if (err_is_fail(err)) {
@@ -440,6 +442,7 @@ static void revoke_reply_status(errval_t status, void *st)
 static void remote_cap_revoke(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t vbits)
 {
+    debug_printf("got remote cap revoke request\n");
     struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
     errval_t err = capops_revoke(cap, revoke_reply_status, (void*)b);
     if (err_is_fail(err)) {

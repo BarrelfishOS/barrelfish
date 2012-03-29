@@ -211,7 +211,7 @@ capops_retype(enum objtype type, size_t objbits, struct capref croot,
               retype_result_handler_t result_handler, void *st)
 {
     errval_t err;
-    printf("monitor: retype\n");
+    debug_printf("retype\n");
 
     distcap_state_t src_state;
     err = invoke_cnode_get_state(croot, src, src_bits, &src_state);

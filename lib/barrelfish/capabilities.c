@@ -22,6 +22,7 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <trace/trace.h>
+#include <stdio.h>
 
 /// Root CNode
 struct cnoderef cnode_root = {
@@ -157,10 +158,13 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
                                   uint8_t size_bits, capaddr_t to, capaddr_t slot,
                                   int dcn_vbits)
 {
+    debug_printf("trying remote cap retype\n");
+
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
+
     errval_t err, remote_cap_err;
     int count = 0;
     do {
@@ -190,10 +194,13 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
  */
 static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
 {
+    debug_printf("trying remote cap delete\n");
+
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
+
     errval_t err, remote_cap_err;
     int count = 0;
     do {
@@ -220,10 +227,13 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
  */
 static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 {
+    debug_printf("trying remote cap revoke\n");
+
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
+
     errval_t err, remote_cap_err;
     int count = 0;
     do {

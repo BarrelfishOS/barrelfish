@@ -341,6 +341,7 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     }
     err = monitor_copy_if_exists(&cap, capref);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "while finding copy in request_copy");
         goto send_err;
     }
     err = cap_get_state(capref, &state);
@@ -393,7 +394,7 @@ capops_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_ha
     struct capability cap;
     distcap_state_t state;
 
-    printf("monitor: copy\n");
+    debug_printf("copy\n");
 
     // check that cap is valid
     err = cap_get_state(capref, &state);
