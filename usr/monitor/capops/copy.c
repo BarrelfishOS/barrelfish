@@ -101,6 +101,7 @@ recv_copy_error_result(coreid_t dest, errval_t status, genvaddr_t st)
 // send state struct for owner_copy
 struct owner_copy_msg_st {
     struct intermon_msg_queue_elem queue_elem;
+    struct capref capref;
     intermon_caprep_t caprep;
     genvaddr_t st;
 };
@@ -110,35 +111,48 @@ static void
 owner_copy_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
     struct owner_copy_msg_st *msg_st = (struct owner_copy_msg_st*)e;
-    errval_t err;
+    struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)(msg_st->st);
+    assert(rpc_st);
+    errval_t err, cleanup_err;
+
     err = intermon_capops_recv_copy__tx(b, NOP_CONT, msg_st->caprep, msg_st->st);
-    if (err_is_fail(err)) {
-        // if send fails, we try and send the error back to the source
-        struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)(msg_st->st);
-        assert(rpc_st);
-        if (rpc_st->from != my_core_id) {
-            // source is another core (we're acting as intermediary)
-            assert(!rpc_st->result_handler);
-            errval_t send_err = recv_copy_error_result(rpc_st->from, err, rpc_st->st);
-            if (err_is_fail(send_err)) {
-                err = err_push(send_err, err);
-                USER_PANIC_ERR(err, "failed to send recv_copy_result for recv_copy error");
-            }
+
+    if (rpc_st->from != my_core_id) {
+        // need to cleanup cap allocated in request_copy__rx_handler
+        cleanup_err = cap_destroy(msg_st->capref);
+        if (err_is_fail(cleanup_err)) {
+            DEBUG_ERR(err, "cleaning up send state");
         }
-        else {
-            // source is this core, call result handler directly
-            if (rpc_st->result_handler) {
-                rpc_st->result_handler(err, 0, 0, 0, (void*)rpc_st->st);
-            }
-        }
-        free(rpc_st);
     }
     free(msg_st);
+    msg_st = NULL;
+
+    if (err_is_ok(err)) {
+        // skip rpc cleanup if message sent successfully
+        return;
+    }
+
+    if (rpc_st->from != my_core_id) {
+        // source is another core (we're acting as intermediary)
+        assert(!rpc_st->result_handler);
+        cleanup_err = recv_copy_error_result(rpc_st->from, err, rpc_st->st);
+        if (err_is_fail(cleanup_err)) {
+            DEBUG_ERR(err, "sending recv_copy from owner");
+            USER_PANIC_ERR(cleanup_err, "failed to send recv_copy_result for recv_copy error");
+        }
+    }
+    else {
+        // source is this core, call result handler directly
+        if (rpc_st->result_handler) {
+            rpc_st->result_handler(err, 0, 0, 0, (void*)rpc_st->st);
+        }
+    }
+    free(rpc_st);
 }
 
 // enqueueing function for owner_copy
 static errval_t
-owner_copy(struct capability *cap, coreid_t from, coreid_t dest, copy_result_handler_t result_handler, genvaddr_t st)
+owner_copy(struct capref capref, struct capability *cap, coreid_t from, coreid_t dest, copy_result_handler_t result_handler, genvaddr_t st)
 {
     errval_t err;
 
@@ -362,8 +376,15 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
         recv_copy_result(from, SYS_ERR_OK, capref.cnode.address, capref.cnode.address_bits, capref.slot, st);
     }
     else {
+        // mark cap as having remote copies
+        bool unused_has_descendants;
+        err = monitor_cap_remote(capref, true, &unused_has_descendants);
+        if (err_is_fail(err)) {
+            goto send_err;
+        }
+
         // forward copy to destination core
-        err = owner_copy(&cap, from, dest, NULL, st);
+        err = owner_copy(capref, &cap, from, dest, NULL, st);
         if (err_is_fail(err)) {
             goto send_err;
         }
@@ -431,6 +452,6 @@ capops_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_ha
         if (err_is_fail(err)) {
             return err;
         }
-        return owner_copy(&cap, my_core_id, dest, result_handler, (genvaddr_t)st);
+        return owner_copy(capref, &cap, my_core_id, dest, result_handler, (genvaddr_t)st);
     }
 }

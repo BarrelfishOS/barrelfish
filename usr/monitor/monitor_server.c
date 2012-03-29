@@ -580,7 +580,7 @@ struct send_cap_st {
 };
 
 static void
-cap_send_copy_send_cont(struct intermon_binding *b,
+cap_send_tx_cont(struct intermon_binding *b,
                         struct intermon_msg_queue_elem *e)
 {
     errval_t send_err;
@@ -595,20 +595,17 @@ cap_send_copy_send_cont(struct intermon_binding *b,
 }
 
 static void
-cap_send_copy_cont(errval_t status, capaddr_t cptr, uint8_t vbits,
-                   cslot_t slot, void *st)
+cap_send_delete_cont(errval_t status, void *st)
 {
     errval_t queue_err;
     struct send_cap_st *send_st = (struct send_cap_st*)st;
+
     if (err_is_fail(status)) {
-        DEBUG_ERR(status, "copy for cap_send_request failed");
+        DEBUG_ERR(status, "delete for cap_send_request failed");
         return;
     }
 
-    send_st->cptr = cptr;
-    send_st->vbits = vbits;
-    send_st->slot = slot;
-
+    send_st->qe.cont = cap_send_tx_cont;
     struct remote_conn_state *conn = remote_conn_lookup(send_st->my_mon_id);
     struct intermon_binding *binding = conn->mon_binding;
     struct intermon_state *inter_st = (struct intermon_state*)binding->st;
@@ -621,9 +618,32 @@ cap_send_copy_cont(errval_t status, capaddr_t cptr, uint8_t vbits,
 }
 
 static void
+cap_send_copy_cont(errval_t status, capaddr_t cptr, uint8_t vbits,
+                   cslot_t slot, void *st)
+{
+    errval_t err;
+
+    struct send_cap_st *send_st = (struct send_cap_st*)st;
+    if (err_is_fail(status)) {
+        DEBUG_ERR(status, "copy for cap_send_request failed");
+        return;
+    }
+
+    send_st->cptr = cptr;
+    send_st->vbits = vbits;
+    send_st->slot = slot;
+
+    err = capops_delete(get_cap_domref(send_st->cap), cap_send_delete_cont, st);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "starting delete for cap_send_request failed");
+    }
+}
+
+static void
 cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
                  struct capref cap, uint32_t capid, uint8_t give_away)
 {
+    errval_t err;
     struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
 
     struct send_cap_st *st;
@@ -632,13 +652,15 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
         DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "Failed to allocate cap_send_request state");
         return;
     }
-    st->qe.cont = cap_send_copy_send_cont;
     st->my_mon_id = my_mon_id;
     st->cap = cap;
     st->capid = capid;
     st->give_away = give_away;
 
-    capops_copy(cap, conn->core_id, cap_send_copy_cont, st);
+    err = capops_copy(cap, conn->core_id, cap_send_copy_cont, st);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "starting copy for cap_send_request failed");
+    }
 }
 
 #if 0
