@@ -18,7 +18,11 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <mdb/mdb.h>
 #include <offsets.h>
+#include <cap_predicates.h>
 
+#define TRACE_PMEM_CAPS
+#define TRACE_PMEM_BEGIN 0x0
+#define TRACE_PMEM_SIZE  (~(uint32_t)0)
 struct cte;
 
 struct delete_list {
@@ -54,6 +58,8 @@ static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
                           (1UL << OBJBITS_CTE) * offset);
 }
 
+int sprint_cap(char *buf, size_t len, struct capability *cap);
+void caps_trace(const char *func, int line, struct cte *cte);
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
                          size_t objbits, coreid_t owner, struct cte *caps);
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
@@ -91,5 +97,24 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights);
 void mdb_remove_recursively(struct cte *cte);
 void mdb_insert_recursively(struct cte *cte);
+
+#ifdef TRACE_PMEM_CAPS
+static inline bool caps_should_trace(struct capability *cap)
+{
+    genpaddr_t begin = get_address(cap);
+    gensize_t size = get_size(cap);
+    genpaddr_t end = begin+size;
+    return (begin < TRACE_PMEM_BEGIN && end > TRACE_PMEM_BEGIN)
+        || (begin >= TRACE_PMEM_BEGIN && begin < (TRACE_PMEM_BEGIN+TRACE_PMEM_SIZE));
+}
+#define TRACE_CAP(trace_cte) do { \
+    struct cte *__tmp_cte = (trace_cte); \
+    if (caps_should_trace(&__tmp_cte->cap)) { \
+        caps_trace(__func__, __LINE__, __tmp_cte); \
+    } \
+} while (0)
+#else
+#define TRACE_CAP(trace_cte) ((void)0)
+#endif
 
 #endif

@@ -37,6 +37,115 @@
 
 struct capability monitor_ep;
 
+int sprint_cap(char *buf, size_t len, struct capability *cap)
+{
+    switch (cap->type) {
+    case ObjType_PhysAddr:
+        return snprintf(buf, len,
+                        "physical address range cap (0x%" PRIxGENPADDR ":%u)",
+                        cap->u.physaddr.base, cap->u.physaddr.bits);
+
+    case ObjType_RAM:
+        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":%u)",
+                        cap->u.ram.base, cap->u.ram.bits);
+
+    case ObjType_CNode: {
+        int ret = snprintf(buf, len, "CNode cap "
+                           "(bits %u, rights mask 0x%" PRIxCAPRIGHTS ")",
+                           cap->u.cnode.bits, cap->u.cnode.rightsmask);
+        if (cap->u.cnode.guard_size != 0 && ret < len) {
+            ret += snprintf(&buf[ret], len - ret, " (guard 0x%" PRIxCADDR ":%u)",
+                            cap->u.cnode.guard, cap->u.cnode.guard_size);
+        }
+        return ret;
+    }
+
+    case ObjType_Dispatcher:
+        return snprintf(buf, len, "Dispatcher cap %p", cap->u.dispatcher.dcb);
+
+    case ObjType_Frame:
+        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":%u)",
+                        cap->u.frame.base, cap->u.frame.bits);
+
+    case ObjType_DevFrame:
+        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%u)",
+                        cap->u.frame.base, cap->u.devframe.bits);
+
+    case ObjType_VNode_ARM_l1:
+        return snprintf(buf, len, "ARM L1 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_arm_l1.base);
+
+    case ObjType_VNode_ARM_l2:
+        return snprintf(buf, len, "ARM L2 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_arm_l2.base);
+
+    case ObjType_VNode_x86_32_ptable:
+        return snprintf(buf, len, "x86_32 Page table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_32_ptable.base);
+
+    case ObjType_VNode_x86_32_pdir:
+        return snprintf(buf, len, "x86_32 Page directory at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_32_pdir.base);
+
+    case ObjType_VNode_x86_32_pdpt:
+        return snprintf(buf, len, "x86_32 PDPT at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_32_pdpt.base);
+
+    case ObjType_VNode_x86_64_ptable:
+        return snprintf(buf, len, "x86_64 Page table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ptable.base);
+
+    case ObjType_VNode_x86_64_pdir:
+        return snprintf(buf, len, "x86_64 Page directory at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pdir.base);
+
+    case ObjType_VNode_x86_64_pdpt:
+        return snprintf(buf, len, "x86_64 PDPT at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pdpt.base);
+
+    case ObjType_VNode_x86_64_pml4:
+        return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
+
+    case ObjType_IRQTable:
+        return snprintf(buf, len, "IRQTable cap");
+
+    case ObjType_EndPoint:
+        return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
+                        cap->u.endpoint.listener, cap->u.endpoint.epoffset);
+
+    case ObjType_IO:
+        return snprintf(buf, len, "IO cap (0x%hx-0x%hx)",
+                        cap->u.io.start, cap->u.io.end);
+
+    case ObjType_Kernel:
+        return snprintf(buf, len, "Kernel cap");
+
+    default:
+        return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
+    }
+}
+
+void caps_trace(const char *func, int line, struct cte *cte)
+{
+    char buf[512];
+    sprint_cap(buf, 512, &cte->cap);
+
+    if (dcb_current) {
+        dispatcher_handle_t handle = dcb_current->disp;
+        struct dispatcher_shared_generic *disp =
+            get_dispatcher_shared_generic(handle);
+        printk(LOG_WARN, "from %.*s: %s:%d: %s (owner:%"PRIuCOREID", rr:%d)\n",
+               DISP_NAME_LEN, disp->name, func, line, buf, cte->mdbnode.owner,
+               cte->mdbnode.remote_relations);
+    }
+    else {
+        printk(LOG_WARN, "no disp: %s:%d: %s (owner:%"PRIuCOREID", rr:%d)\n",
+               func, line, buf, cte->mdbnode.owner,
+               cte->mdbnode.remote_relations);
+    }
+}
+
 /**
  * ID capability core_local_id counter.
  */
@@ -763,6 +872,8 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
         dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
     }
 
+    TRACE_CAP(dest);
+
     return SYS_ERR_OK;
 }
 
@@ -784,6 +895,9 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
 
     // Handle the mapping database
     set_init_mapping(caps, numobjs);
+
+    TRACE_CAP(&caps[0]);
+
     return SYS_ERR_OK;
 }
 
@@ -803,6 +917,8 @@ errval_t caps_retype(enum objtype type, size_t objbits,
     assert(type < ObjType_Num);
 
     struct capability *src_cap = &src_cte->cap;
+
+    TRACE_CAP(src_cte);
 
     /* Check retypability */
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
@@ -891,6 +1007,12 @@ errval_t caps_retype(enum objtype type, size_t objbits,
         mdb_insert(&dest_cte[i]);
     }
 
+#ifdef TRACE_PMEM_CAPS
+    for (size_t i = 0; i < numobjs; i++) {
+        TRACE_CAP(&dest_cte[i]);
+    }
+#endif
+
     return SYS_ERR_OK;
 }
 
@@ -955,6 +1077,8 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
     // Handle mapping
     mdb_insert(dest_cte);
+
+    TRACE_CAP(dest_cte);
 
     /* Copy is done */
     if(!mint) {

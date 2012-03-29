@@ -496,6 +496,8 @@ struct sysret sys_set_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
 
     cte->mdbnode.owner = owner;
 
+    TRACE_CAP(cte);
+
     struct cte *pred = cte;
     do {
         pred->mdbnode.owner = owner;
@@ -540,6 +542,8 @@ struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t tar
         return SYSRET(SYS_ERR_CAP_LOCKED);
     }
 
+    TRACE_CAP(target);
+
     sys_lock_cap_common(target, true);
     return SYSRET(SYS_ERR_OK);
 }
@@ -553,6 +557,8 @@ struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t t
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
+
+    TRACE_CAP(target);
 
     // XXX: check if already unlocked? -MN
     sys_lock_cap_common(target, false);

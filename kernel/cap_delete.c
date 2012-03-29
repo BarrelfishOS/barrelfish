@@ -70,6 +70,8 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
     errval_t err;
     assert(!has_copies(cte));
 
+    TRACE_CAP(cte);
+
     // try simple delete
     // XXX: this really should always fail, enforce that? -MN
     err = caps_try_delete(cte);
@@ -500,6 +502,8 @@ errval_t caps_delete(struct cte *cte)
 {
     errval_t err;
 
+    TRACE_CAP(cte);
+
     err = caps_try_delete(cte);
     if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
         err = err_push(err, SYS_ERR_RETRY_THROUGH_MONITOR);
@@ -510,5 +514,7 @@ errval_t caps_delete(struct cte *cte)
 
 errval_t caps_revoke(struct cte *cte)
 {
+    TRACE_CAP(cte);
+
     return SYS_ERR_RETRY_THROUGH_MONITOR;
 }
