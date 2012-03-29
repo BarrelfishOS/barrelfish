@@ -102,7 +102,8 @@ check_dous d =
     [ make_dous_error t | t@(TT.DataFormat {}) <- (Dev.types d), check_dous_type t ]
 
 -- XXX Make this a bit more lenient. 
-check_dous_type t = notElem (TT.tt_size t) [ 8, 16, 32, 64, 96, 128, 160, 256 ] 
+check_dous_type t = notElem (TT.tt_size t) [ 8, 16, 32, 64, 96, 128, 160, 224, 
+                                             256, 384, 512 ] 
 make_dous_error t = 
     (MacError (TT.pos t)
      (printf "Data type '%s' (%s) is a Datatype Of Unusual Size (%d bits)"

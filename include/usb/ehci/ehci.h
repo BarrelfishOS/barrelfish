@@ -21,8 +21,7 @@
 #include <stdint.h>
 
 // Mackerel interfacing
-#include "ehci_op_dev.h"
-#include "ehci_cap_dev.h"
+#include <dev/ehci_dev.h>
 
 #define N_TRANSACTIONS 8
 #define N_BUFF_PTR 4
@@ -42,9 +41,7 @@
  * HC Devices from MACKEREL files
  */
 
-ehci_cap_t ehci_cap_device;
-ehci_op_t ehci_op_device;
-
+ehci_t ehci_device;
 
 // To elliminate gcc bit field alignment errors
 #pragma pack(push,1)
