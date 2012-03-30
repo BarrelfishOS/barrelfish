@@ -159,6 +159,9 @@ static void wakeup_clients(struct record* entry)
 		assert(cur->ors->binding != NULL);
 		transform_to_string(entry->record,
 				cur->ors->query_state.std_out.buffer);
+                OCT_DEBUG("wakeup %p for %s\n", 
+                          cur->ors->binding, 
+                          cur->ors->query_state.std_out.buffer);
 		cur->ors->reply(cur->ors->binding, cur->ors);
 
 		struct wait_queue* next = cur->next;
