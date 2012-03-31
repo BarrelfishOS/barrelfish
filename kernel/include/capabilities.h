@@ -109,7 +109,7 @@ static inline bool caps_should_trace(struct capability *cap)
 }
 #define TRACE_CAP(trace_cte) do { \
     struct cte *__tmp_cte = (trace_cte); \
-    if (caps_should_trace(&__tmp_cte->cap)) { \
+    if (__tmp_cte && caps_should_trace(&__tmp_cte->cap)) { \
         caps_trace(__func__, __LINE__, __tmp_cte); \
     } \
 } while (0)
