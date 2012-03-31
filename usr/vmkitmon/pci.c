@@ -76,6 +76,8 @@ int pci_handle_pio_read(struct pci *pci, uint16_t port, enum opsize size,
 {
     assert(pci != NULL);
 
+    VMKIT_PCI_DEBUG("pio_read: port:0x%x\n", port);
+
     switch(port) {
     case 0xcf8:         // PCI config address port
         *val = pci->address.raw;
@@ -87,6 +89,7 @@ int pci_handle_pio_read(struct pci *pci, uint16_t port, enum opsize size,
     case 0xcfe:
     case 0xcff:
         {
+        	VMKIT_PCI_DEBUG("confspace read: busnr=%d, devicenum=%d\n", pci->address.d.bus_nr, pci->address.d.dev_nr);
             int busnr = pci->address.d.bus_nr;
             int device = pci->address.d.dev_nr;
             struct pci_bus *bus = pci->bus[busnr];

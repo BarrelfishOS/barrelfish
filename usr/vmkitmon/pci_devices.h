@@ -15,5 +15,6 @@
 #define PCI_DEVICES_H
 
 struct pci_device *pci_hostbridge_new(void);
+struct pci_device *pci_ethernet_new(void);
 
 #endif

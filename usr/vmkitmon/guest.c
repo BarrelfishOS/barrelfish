@@ -26,6 +26,7 @@
 #include "lpc.h"
 #include "pci.h"
 #include "pci_host.h"
+#include "pci_devices.h"
 
 #define VMCB_SIZE       0x1000      // 4KB
 #define IOPM_SIZE       0x3000      // 12KB
@@ -620,6 +621,9 @@ guest_setup (struct guest *g)
 
     g->pci = pci_new();
     init_host_devices(g->pci);
+    struct pci_device *ethernet = pci_ethernet_new();
+    int r = pci_attach_device(g->pci, 0, 2, ethernet);
+	assert(r == 0);
 
     // set up bios memory
     // FIXME: find a modular way to do this
