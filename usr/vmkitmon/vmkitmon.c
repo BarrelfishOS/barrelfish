@@ -130,5 +130,10 @@ int main (int argc, char *argv[])
 
     printf("vmkitmon: end\n");
 
-    messages_handler_loop();
+    //messages_handler_loop();
+    //VERY UGLY HACK
+    while (1) {
+    	putchar(0);
+		messages_wait_and_handle_next();
+	}
 }
