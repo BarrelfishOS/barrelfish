@@ -20,9 +20,12 @@
 #include <offsets.h>
 #include <cap_predicates.h>
 
+#if 0
 #define TRACE_PMEM_CAPS
 #define TRACE_PMEM_BEGIN 0x0
 #define TRACE_PMEM_SIZE  (~(uint32_t)0)
+#endif
+
 struct cte;
 
 struct delete_list {
