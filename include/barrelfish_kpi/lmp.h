@@ -35,7 +35,8 @@ struct lmp_endpoint_kern {
 /// LMP send flags
 typedef enum lmp_send_flag {
     LMP_FLAG_SYNC       = 1 << 0,
-    LMP_FLAG_YIELD      = 1 << 1
+    LMP_FLAG_YIELD      = 1 << 1,
+    LMP_FLAG_GIVEAWAY   = 1 << 2,
 } lmp_send_flags_t;
 
 #define LMP_SEND_FLAGS_DEFAULT (LMP_FLAG_SYNC | LMP_FLAG_YIELD)

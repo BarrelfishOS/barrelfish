@@ -859,10 +859,12 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             bool sync = flags & LMP_FLAG_SYNC;
             // does the sender want to yield to the target if undeliverable?
             bool yield = flags & LMP_FLAG_YIELD;
+            // is the cap (if present) to be deleted on send?
+            bool give_away = flags & LMP_FLAG_GIVEAWAY;
 
             // try to deliver message
             retval.error = lmp_deliver(to, dcb_current, args, length_words,
-                                       arg1, send_bits);
+                                       arg1, send_bits, give_away);
 
             /* Switch to reciever upon successful delivery with sync flag,
              * or (some cases of) unsuccessful delivery with yield flag */

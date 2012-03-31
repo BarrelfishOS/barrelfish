@@ -127,8 +127,13 @@ interface monitor "The monitor to client Interface" {
     call cap_send_request(
         uintptr mon_id,
         cap cap,
-        capid_t capid,
-        uint8 give_away);
+        capid_t capid);
+    call cap_move_request(
+        uintptr mon_id,
+        cap croot,
+        uint32 caddr,
+        uint8 bits,
+        capid_t capid);
     response cap_receive_request(
         uintptr conn_id,
         errval err,

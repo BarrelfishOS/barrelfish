@@ -115,8 +115,18 @@ errval_t flounder_stub_send_cap(struct flounder_cap_state *s,
 
     s->cap_send_continuation = cont;
 
-    err = mb->tx_vtbl.cap_send_request(mb, MKCONT(cap_send_cont, s), monitor_id,
-                                       cap, s->tx_capnum, give_away);
+    if (give_away) {
+        debug_printf("give_away_cap\n");
+        err = mb->tx_vtbl.cap_move_request(mb, MKCONT(cap_send_cont, s),
+                                           monitor_id, cap_root,
+                                           get_cap_addr(cap),
+                                           get_cap_valid_bits(cap),
+                                           s->tx_capnum);
+    }
+    else {
+        err = mb->tx_vtbl.cap_send_request(mb, MKCONT(cap_send_cont, s),
+                                           monitor_id, cap, s->tx_capnum);
+    }
     if (err_is_ok(err)) {
         s->tx_capnum++;
         return err;

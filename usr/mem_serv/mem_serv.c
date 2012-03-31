@@ -161,7 +161,7 @@ static void allocate_response_done(void *arg)
 
     if(!capref_is_null(*cap)) {
         errval_t err = cap_delete(*cap);
-        if(err_is_fail(err)) {
+        if(err_is_fail(err) && err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
             DEBUG_ERR(err, "cap_delete after send. This memory will leak.");
         }
     }

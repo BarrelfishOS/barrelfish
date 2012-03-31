@@ -492,9 +492,13 @@ tx_handler_case arch ifn mn (LMPMsgFragment (MsgFragment words) cap) isLast =
         send_fn_name = "lmp_chan_send" ++ show (length words)
         args = [chan_arg, flag_arg, cap_arg] ++ (map (fragment_word_to_expr arch ifn mn) words)
         chan_arg = C.AddressOf $ C.DerefField lmp_bind_var "chan"
-        flag_arg -- only set the sync flag on the last fragment
-            | isLast = flag_var
-            | otherwise = C.Binary C.BitwiseAnd flag_var $ C.Unary C.BitwiseNot (C.Variable "LMP_FLAG_SYNC")
+        lmp_sync_flag f -- only set the sync flag on the last fragment
+            | isLast = f
+            | otherwise = C.Binary C.BitwiseAnd f $ C.Unary C.BitwiseNot (C.Variable "LMP_FLAG_SYNC")
+        giveaway_flag f = case cap of
+            Just (CapFieldTransfer GiveAway _) -> C.Binary C.BitwiseOr f (C.Variable "LMP_FLAG_GIVEAWAY")
+            _ -> f
+        flag_arg = (lmp_sync_flag . giveaway_flag) flag_var
         flag_var = C.DerefField lmp_bind_var "flags"
         cap_arg = case cap of
             Just (CapFieldTransfer _ af) -> argfield_expr TX mn af
