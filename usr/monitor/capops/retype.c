@@ -58,6 +58,7 @@ request_retype_send_cont(struct intermon_binding *b, struct intermon_msg_queue_e
 {
     struct request_retype_msg_st *msg_st = (struct request_retype_msg_st*)e;
     struct retype_st *rtst = msg_st->st;
+    assert(rtst);
     errval_t err = intermon_capops_request_retype__tx(b, NOP_CONT, msg_st->caprep, rtst->type, rtst->objbits, (genvaddr_t)rtst);
     if (err_is_fail(err)) {
         rtst->result_handler(err, rtst->st);
@@ -81,6 +82,7 @@ request_retype(retype_result_handler_t result_handler, struct retype_st *st)
         return LIB_ERR_MALLOC_FAIL;
     }
     msg_st->queue_elem.cont = request_retype_send_cont;
+    msg_st->st = st;
     capability_to_caprep(&cap, &msg_st->caprep);
 
     err = capsend_owner(st->src, (struct msg_queue_elem*)msg_st);
