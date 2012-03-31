@@ -65,6 +65,9 @@ out:
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "reply failed");
     }
+
+    // XXX: cap is leaked! *should* set owner to dest core and then delete, but
+    // dest core not known.
 }
 
 static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
@@ -92,7 +95,7 @@ static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = monitor_cap_create(*ret, &cap_raw, mem_core_id);
+    err = monitor_cap_create(*ret, &cap_raw, my_core_id);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_CAP_CREATE);
     }
