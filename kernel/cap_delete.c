@@ -208,7 +208,8 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
                 printk(LOG_WARN, "sending fresh ram cap to non-monitor?\n");
             }
             assert(ret_ram_cap->cap.type == ObjType_Null);
-            memcpy(&ret_ram_cap->cap, &ram, sizeof(struct capability));
+            ret_ram_cap->cap.u.ram = ram;
+            ret_ram_cap->cap.type = ObjType_RAM;
             err = mdb_insert(ret_ram_cap);
             assert(err_is_ok(err));
             // note: this is a "success" code!
