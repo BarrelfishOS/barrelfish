@@ -13,6 +13,7 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
+#include "dom_invocations.h"
 #include "capop_handlers.h"
 #include <if/mem_rpcclient_defs.h>
 
@@ -274,8 +275,7 @@ move_result_cont(errval_t status, void *st)
     }
     else if (err_is_ok(err)) {
         // move succeeded, cap is now foreign
-        struct domcapref *cap = &del_st->capref;
-        err = invoke_cnode_delete(cap->croot, cap->cptr, cap->bits);
+        err = dom_cnode_delete(del_st->capref);
     }
 
     del_st->result_handler(err, del_st->st);
@@ -354,7 +354,7 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void
 
     debug_printf("delete\n");
 
-    err = invoke_cnode_get_state(cap.croot, cap.cptr, cap.bits, &state);
+    err = dom_cnode_get_state(cap, &state);
     if (err_is_fail(err)) {
         return err;
     }
@@ -364,8 +364,12 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void
     }
 
     // try a simple delete
-    err = invoke_cnode_delete(cap.croot, cap.cptr, cap.bits);
-    if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
+    err = dom_cnode_delete(cap);
+    if (err_is_ok(err)) {
+        result_handler(err, st);
+        return SYS_ERR_OK;
+    }
+    else if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
         return err;
     }
 
