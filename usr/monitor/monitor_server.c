@@ -664,78 +664,6 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
     }
 }
 
-static void
-cap_move_cnode_delete_cont(errval_t status, void *gen_st)
-{
-    struct send_cap_st *st = (struct send_cap_st*)gen_st;
-    if (err_is_fail(status)) {
-        DEBUG_ERR(status, "deleting cnode cap for move, will leak");
-    }
-
-    struct remote_conn_state *conn = remote_conn_lookup(st->my_mon_id);
-
-    status = capops_copy(st->cap, conn->core_id, cap_send_copy_cont, st);
-    if (err_is_fail(status)) {
-        DEBUG_ERR(status, "starting copy for cap_send_request failed");
-    }
-}
-
-static void
-cap_move_request(struct monitor_binding *b, uintptr_t my_mon_id,
-                 struct capref croot, capaddr_t caddr, uint8_t bits,
-                 uint32_t capid)
-{
-    errval_t err;
-    debug_printf("cap_move_request\n");
-
-    // TODO: check for same-core tx?
-
-    struct send_cap_st *st;
-    st = malloc(sizeof(*st));
-    if (!st) {
-        err = LIB_ERR_MALLOC_FAIL;
-    }
-    st->my_mon_id = my_mon_id;
-    st->capid = capid;
-    st->give_away = true;
-
-    // XXX: An ugly way to copy the cap out of the caller's CNode
-
-    struct capability capdata = { .type = 0 };
-    err = monitor_domains_cap_identify(croot, caddr, bits, &capdata);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "identifying cap for cap_move_request (%08"PRIxCADDR"/"PRIu8")", caddr, bits);
-        st->cap = NULL_CAP;
-        goto do_send;
-    }
-
-    err = slot_alloc(&st->cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "allocating slot for cap_move_request failed");
-        st->cap = NULL_CAP;
-        goto do_send;
-    }
-
-    err = monitor_copy_if_exists(&capdata, st->cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "copying cap");
-        slot_free(st->cap);
-        st->cap = NULL_CAP;
-        goto do_send;
-    }
-
-    err = invoke_cnode_delete(croot, caddr, bits);
-    if (err_is_fail(err) && err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
-        DEBUG_ERR(err, "deleting source copy, will leak");
-    }
-
-do_send:
-    err = capops_delete(get_cap_domref(croot), cap_move_cnode_delete_cont, st);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "starting copy for cap_send_request failed");
-    }
-}
-
 #if 0
 struct capref domains[MAX_DOMAINS];
 
@@ -900,7 +828,7 @@ struct monitor_rx_vtbl the_table = {
     .get_monitor_rpc_iref_request  = get_monitor_rpc_iref_request,
 
     .cap_send_request = cap_send_request,
-    .cap_move_request = cap_move_request,
+    .cap_move_request = cap_send_request,
 
     .span_domain_request    = span_domain_request,
 

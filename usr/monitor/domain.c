@@ -64,7 +64,15 @@ static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
         return result;
     }
 
-    return cap_destroy(ramcap);
+    // XXX: this shouldn't be necessary as free_monitor uses give_away_cap
+    err = cap_destroy(ramcap);
+    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        err = SYS_ERR_OK;
+    }
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "destroying reclaimed cap");
+    }
+    return err;
 }
 #endif
 
