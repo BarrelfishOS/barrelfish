@@ -126,7 +126,7 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     }
 }
 
-void caps_trace(const char *func, int line, struct cte *cte)
+void caps_trace(const char *func, int line, struct cte *cte, const char *msg)
 {
     char buf[512];
     sprint_cap(buf, 512, &cte->cap);
@@ -135,13 +135,13 @@ void caps_trace(const char *func, int line, struct cte *cte)
         dispatcher_handle_t handle = dcb_current->disp;
         struct dispatcher_shared_generic *disp =
             get_dispatcher_shared_generic(handle);
-        printk(LOG_WARN, "from %.*s: %s:%d: %s (owner:%"PRIuCOREID", rr:%d)\n",
-               DISP_NAME_LEN, disp->name, func, line, buf, cte->mdbnode.owner,
-               cte->mdbnode.remote_relations);
+        printk(LOG_WARN, "from %.*s: %s:%d: %s %s (owner:%"PRIuCOREID", rr:%d)\n",
+               DISP_NAME_LEN, disp->name, func, line, (msg ? : ""), buf,
+               cte->mdbnode.owner, cte->mdbnode.remote_relations);
     }
     else {
-        printk(LOG_WARN, "no disp: %s:%d: %s (owner:%"PRIuCOREID", rr:%d)\n",
-               func, line, buf, cte->mdbnode.owner,
+        printk(LOG_WARN, "no disp: %s:%d: %s %s (owner:%"PRIuCOREID", rr:%d)\n",
+               func, line, buf, (msg ? : ""), cte->mdbnode.owner,
                cte->mdbnode.remote_relations);
     }
 }
@@ -872,7 +872,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
         dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
     }
 
-    TRACE_CAP(dest);
+    TRACE_CAP_MSG("created", dest);
 
     return SYS_ERR_OK;
 }
@@ -896,7 +896,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
     // Handle the mapping database
     set_init_mapping(caps, numobjs);
 
-    TRACE_CAP(&caps[0]);
+    TRACE_CAP_MSG("created", &caps[0]);
 
     return SYS_ERR_OK;
 }
@@ -918,7 +918,7 @@ errval_t caps_retype(enum objtype type, size_t objbits,
 
     struct capability *src_cap = &src_cte->cap;
 
-    TRACE_CAP(src_cte);
+    TRACE_CAP_MSG("retyping", src_cte);
 
     /* Check retypability */
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
@@ -1009,7 +1009,7 @@ errval_t caps_retype(enum objtype type, size_t objbits,
 
 #ifdef TRACE_PMEM_CAPS
     for (size_t i = 0; i < numobjs; i++) {
-        TRACE_CAP(&dest_cte[i]);
+        TRACE_CAP_MSG("created", &dest_cte[i]);
     }
 #endif
 

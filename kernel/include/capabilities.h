@@ -59,7 +59,7 @@ static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
 }
 
 int sprint_cap(char *buf, size_t len, struct capability *cap);
-void caps_trace(const char *func, int line, struct cte *cte);
+void caps_trace(const char *func, int line, struct cte *cte, const char *msg);
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
                          size_t objbits, coreid_t owner, struct cte *caps);
 errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr,
@@ -107,13 +107,15 @@ static inline bool caps_should_trace(struct capability *cap)
     return (begin < TRACE_PMEM_BEGIN && end > TRACE_PMEM_BEGIN)
         || (begin >= TRACE_PMEM_BEGIN && begin < (TRACE_PMEM_BEGIN+TRACE_PMEM_SIZE));
 }
-#define TRACE_CAP(trace_cte) do { \
+#define TRACE_CAP_MSG(msg, trace_cte) do { \
     struct cte *__tmp_cte = (trace_cte); \
     if (__tmp_cte && caps_should_trace(&__tmp_cte->cap)) { \
-        caps_trace(__func__, __LINE__, __tmp_cte); \
+        caps_trace(__func__, __LINE__, __tmp_cte, (msg)); \
     } \
 } while (0)
+#define TRACE_CAP(trace_cte) TRACE_CAP_MSG(NULL, trace_cte)
 #else
+#define TRACE_CAP_MSG(msg, trace_cte) ((void)0)
 #define TRACE_CAP(trace_cte) ((void)0)
 #endif
 

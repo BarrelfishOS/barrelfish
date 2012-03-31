@@ -70,7 +70,7 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
     errval_t err;
     assert(!has_copies(cte));
 
-    TRACE_CAP(cte);
+    TRACE_CAP_MSG("deleting", cte);
 
     // try simple delete
     // XXX: this really should always fail, enforce that? -MN
@@ -211,11 +211,19 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             ret_ram_cap->cap.u.ram = ram;
             ret_ram_cap->cap.type = ObjType_RAM;
             err = mdb_insert(ret_ram_cap);
+            TRACE_CAP_MSG("reclaimed", ret_ram_cap);
             assert(err_is_ok(err));
             // note: this is a "success" code!
             err = SYS_ERR_RAM_CAP_CREATED;
         }
         else if (monitor_ep.type && monitor_ep.u.endpoint.listener != 0) {
+#ifdef TRACE_PMEM_CAPS
+            struct cte ramcte;
+            memset(&ramcte, 0, sizeof(ramcte));
+            ramcte.cap.u.ram = ram;
+            ramcte.cap.type = ObjType_RAM;
+            TRACE_CAP_MSG("reclaimed", ret_ram_cap);
+#endif
             // XXX: This looks pretty ugly. We need an interface.
             err = lmp_deliver_payload(&monitor_ep, NULL,
                                       (uintptr_t *)&ram,
@@ -503,7 +511,7 @@ errval_t caps_delete(struct cte *cte)
 {
     errval_t err;
 
-    TRACE_CAP(cte);
+    TRACE_CAP_MSG("deleting", cte);
 
     err = caps_try_delete(cte);
     if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
@@ -515,7 +523,7 @@ errval_t caps_delete(struct cte *cte)
 
 errval_t caps_revoke(struct cte *cte)
 {
-    TRACE_CAP(cte);
+    TRACE_CAP_MSG("revoking", cte);
 
     return SYS_ERR_RETRY_THROUGH_MONITOR;
 }
