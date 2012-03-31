@@ -60,6 +60,7 @@ errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
     capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
 
+    cap >>= CPTR_BITS - vbits;
 
     return invoke_monitor_identify_domains_cap(rootcap_addr, rootcap_vbits,
                                                cap, vbits, out);
@@ -194,6 +195,8 @@ errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int bits)
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
+
+    cptr >>= CPTR_BITS - bits;
 
     return invoke_monitor_lock_cap(root_addr, root_bits, cptr, bits);
 }
