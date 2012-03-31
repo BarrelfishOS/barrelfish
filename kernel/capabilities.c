@@ -1025,7 +1025,7 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     } else if (!is_revoked_first(src_cte, src_type)){
         printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
         return SYS_ERR_REVOKE_FIRST;
-    } else if (!from_monitor && is_cap_remote(src_cte)) {
+    } else if (!from_monitor && (is_cap_remote(src_cte) || src_cte->mdbnode.owner != my_core_id)) {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
     } else {
         return SYS_ERR_OK;
