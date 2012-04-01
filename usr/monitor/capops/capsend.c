@@ -63,6 +63,7 @@ typedef errval_t (*capsend_mc_send_cont_t)(struct intermon_binding*, struct caps
 struct capsend_mc_msg_st {
     struct intermon_msg_queue_elem queue_elem;
     struct capsend_mc_st *mc_st;
+    coreid_t dest;
 };
 
 static void
@@ -70,11 +71,20 @@ capsend_mc_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem 
 {
     struct capsend_mc_msg_st *msg_st = (struct capsend_mc_msg_st*)e;
     struct capsend_mc_st *mc_st = msg_st->mc_st;
+    errval_t err = SYS_ERR_OK;
 
     // if do_send is false, an error occured in the multicast setup, so do not
     // send anything
     if (mc_st->do_send) {
-        mc_st->send_fn(b, &mc_st->caprep, mc_st);
+        err = mc_st->send_fn(b, &mc_st->caprep, mc_st);
+    }
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        err = capsend_target(msg_st->dest, (struct msg_queue_elem*)msg_st);
+    }
+
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending dequeued capops message");
     }
 
     // decrement counter of number of queued messages
@@ -98,6 +108,7 @@ capsend_mc_enqueue(struct capsend_mc_st *mc_st, coreid_t dest)
     struct capsend_mc_msg_st *msg_st = &mc_st->msg_st_arr[mc_st->num_queued];
     msg_st->queue_elem.cont = capsend_mc_send_cont;
     msg_st->mc_st = mc_st;
+    msg_st->dest = dest;
 
     err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
     if (err_is_ok(err)) {
@@ -199,13 +210,10 @@ struct find_cap_broadcast_st {
     void *st;
 };
 
-static void
+static errval_t
 find_cap_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
-    errval_t err = intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send find_cap message");
-    }
+    return intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
 }
 
 errval_t
@@ -341,13 +349,11 @@ struct find_descendants_mc_st {
     void *st;
 };
 
-static void
+static errval_t
 find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
 {
-    errval_t err = intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "unable to send find_descendants message");
-    }
+    debug_printf("find_descendants_send_cont\n");
+    return intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
 }
 
 errval_t
@@ -455,14 +461,10 @@ struct update_owner_broadcast_st {
     struct event_closure completion_continuation;
 };
 
-static void
+static errval_t
 update_owner_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *bc_st)
 {
-    errval_t err;
-    err = intermon_capops_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)bc_st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send update_owner message");
-    }
+    return intermon_capops_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)bc_st);
 }
 
 errval_t

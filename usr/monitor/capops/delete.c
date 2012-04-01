@@ -82,14 +82,10 @@ struct delete_remote_mc_st {
     struct delete_st *del_st;
 };
 
-static void
+static errval_t
 delete_remote_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
-    errval_t err;
-    err = intermon_capops_delete_remote__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send delete_remote msg");
-    }
+    return intermon_capops_delete_remote__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
 }
 
 static errval_t
