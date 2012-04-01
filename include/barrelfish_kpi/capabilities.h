@@ -145,6 +145,7 @@ enum kernel_cmd {
     KernelCmd_Revoke_step,
     KernelCmd_Clear_step,
     KernelCmd_Retype,
+    KernelCmd_Has_Descendants,
     KernelCmd_Sync_timer,
     KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,

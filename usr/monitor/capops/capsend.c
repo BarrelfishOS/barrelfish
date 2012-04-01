@@ -409,8 +409,9 @@ find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, ge
     struct capability cap;
     caprep_to_capability(&caprep, &cap);
 
-    // XXX: using err as boolean... evil?
-    err = monitor_has_local_descendants(&cap);
+    bool has_descendants;
+    err = monitor_has_descendants(&cap, &has_descendants);
+    assert(err_is_ok(err));
 
     struct find_descendants_result_msg_st *msg_st;
     msg_st = malloc(sizeof(*msg_st));

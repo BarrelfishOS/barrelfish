@@ -206,4 +206,18 @@ invoke_monitor_continue_revoke(capaddr_t root, int rbits, capaddr_t cap, int cbi
                        cbits, retcn, retcnbits, retslot).error;
 }
 
+static inline errval_t
+invoke_monitor_has_descendants(uint64_t *raw, bool *res)
+{
+    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
+    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
+    struct sysret sysret;
+    sysret = cap_invoke5(cap_kernel, KernelCmd_Has_Descendants,
+                         raw[0], raw[1], raw[2], raw[3]);
+    if (err_is_ok(sysret.error)) {
+        *res = sysret.value;
+    }
+    return sysret.error;
+}
+
 #endif

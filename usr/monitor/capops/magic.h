@@ -26,8 +26,4 @@ errval_t monitor_delete_copies(struct capref);
 // mark cap as in-delete
 errval_t monitor_set_cap_deleted(struct capref);
 
-// return SYS_ERR_OK if descendants exists, CAP_ERR_NOTFOUND otherwise
-errval_t monitor_has_local_descendants(struct capability*);
-
-
 #endif

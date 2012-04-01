@@ -233,3 +233,8 @@ errval_t monitor_continue_revoke(struct capref croot, capaddr_t cptr, int bits, 
     return invoke_monitor_continue_revoke(root_addr, root_bits, cptr, bits,
                                           ret_cn, ret_cn_bits, ret_slot);
 }
+
+errval_t monitor_has_descendants(struct capability *cap, bool *res)
+{
+    return invoke_monitor_has_descendants((uint64_t*)cap, res);
+}

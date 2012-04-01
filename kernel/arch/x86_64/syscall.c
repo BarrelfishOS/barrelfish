@@ -191,6 +191,19 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
     return handle_retype_common(root, &args[2], true);
 }
 
+static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
+                                                    int cmd, uintptr_t *args)
+{
+    struct capability *src = (struct capability *)args;
+
+    struct cte *next = mdb_find_greater(src, false);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = (next && is_ancestor(&next->cap, src)),
+    };
+}
+
 /// Different handler for cap operations performed by the monitor
 static struct sysret monitor_handle_revoke_step(struct capability *kernel_cap,
                                                 int cmd, uintptr_t *args)
@@ -779,6 +792,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Lock_cap]     = monitor_lock_cap,
         [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
         [KernelCmd_Retype]       = monitor_handle_retype,
+        [KernelCmd_Has_Descendants] = monitor_handle_has_descendants,
         [KernelCmd_Delete_last]  = monitor_handle_delete_last,
         [KernelCmd_Revoke_step]  = monitor_handle_revoke_step,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,

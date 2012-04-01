@@ -24,10 +24,3 @@ errval_t monitor_set_cap_deleted(struct capref cap)
     return ERR_NOTIMP;
 }
 
-// return SYS_ERR_OK if descendants exists, CAP_ERR_NOTFOUND otherwise
-errval_t monitor_has_local_descendants(struct capability *cap)
-{
-    USER_PANIC("NYI");
-    return ERR_NOTIMP;
-}
-
