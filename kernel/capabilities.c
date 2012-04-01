@@ -1025,6 +1025,13 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     } else if (!is_revoked_first(src_cte, src_type)){
         printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
         return SYS_ERR_REVOKE_FIRST;
+    } else if (dest_type == ObjType_EndPoint && src_cte->mdbnode.owner == my_core_id) {
+        // XXX: because of the current "multi-retype" hack for endpoints, a
+        // dispatcher->endpoint retype can happen irrespective of the existence
+        // of descendents on any core.
+        // Howevery, we only do this for locally owned caps as the owner should
+        // be notified that the cap has remote descendants
+        return SYS_ERR_OK;
     } else if (!from_monitor && (is_cap_remote(src_cte) || src_cte->mdbnode.owner != my_core_id)) {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
     } else {

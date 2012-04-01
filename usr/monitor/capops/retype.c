@@ -171,6 +171,15 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
         goto destroy_cap;
     }
 
+    if (desttype == ObjType_EndPoint) {
+        // XXX: because of the current "multi-retype" hack for endpoints, a
+        // dispatcher->endpoint retype can happen irrespective of the existence
+        // of descendents on any core.
+        bool unused_has_descendants;
+        err = monitor_cap_remote(src, true, &unused_has_descendants);
+        goto destroy_cap;
+    }
+
     err = monitor_lock_cap(domsrc.croot, domsrc.cptr, domsrc.bits);
     if (err_is_fail(err)) {
         goto destroy_cap;
@@ -187,7 +196,7 @@ unlock_cap:
     monitor_unlock_cap(domsrc.croot, domsrc.cptr, domsrc.bits);
 
 destroy_cap:
-    cap_destroy(src);
+    cap_delete(src);
 
 free_slot:
     slot_free(src);
