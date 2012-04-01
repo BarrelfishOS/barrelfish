@@ -13,7 +13,6 @@
  */
 
 #include "monitor.h"
-#include "capops.h"
 #include <if/monitor_mem_defs.h>
 #include <if/monitor_mem_rpcclient_defs.h>
 
@@ -22,31 +21,6 @@ static struct monitor_mem_rpc_client monitor_mem_client;
 static bool mem_setup_complete = false;
 iref_t monitor_mem_iref = 0;
 
-static void mem_alloc_delete_result_handler(errval_t status, void *st)
-{
-    struct capref *cap = (struct capref*)st;
-    errval_t err;
-
-    if (err_is_fail(status)) {
-        DEBUG_ERR(status, "capops_delete failed, cap will leak");
-    }
-    else {
-        struct capability out;
-        err = monitor_cap_identify(*cap, &out);
-        if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
-            DEBUG_ERR(err, "capops_delete returned OK, but cap still there");
-            char buf[512];
-            debug_print_cap(buf, sizeof(buf), &out);
-        }
-        err = slot_free(*cap);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "slot_free failed, cap will leak");
-        }
-    }
-
-    free(cap);
-}
-
 /**
  * \brief Request for some memory (over the memory allocation channel)
  */
@@ -54,7 +28,7 @@ static void mem_alloc_handler(struct monitor_mem_binding *b,
                               uint8_t size_bits, genpaddr_t minbase,
                               genpaddr_t maxlimit)
 {
-    struct capref *cap = NULL;
+    struct capref cap;
     monitor_mem_caprep_t caprep = {0,0,0,0};
     errval_t err;
     errval_t reterr = SYS_ERR_OK;
@@ -62,23 +36,20 @@ static void mem_alloc_handler(struct monitor_mem_binding *b,
     /* This should only run on the core with the mem_serv. Or else the system
        will deadlock. */
     assert(bsp_monitor);
-
-    cap = malloc(sizeof(*cap));
-    if (!cap) {
-        reterr = LIB_ERR_MALLOC_FAIL;
-        goto out;
-    }
-
-    err = ram_alloc(cap, size_bits);
+    err = ram_alloc(&cap, size_bits);
     if (err_is_fail(err)) {
         reterr = err_push(err, LIB_ERR_RAM_ALLOC);
         goto out;
     }
 
     struct capability cap_raw;
-    err = monitor_cap_identify(*cap, &cap_raw);
+    err = monitor_cap_identify(cap, &cap_raw);
     if (err_is_fail(err)) {
         reterr = err_push(err, MON_ERR_CAP_IDENTIFY);
+        err = cap_destroy(cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "cap_destroy failed");
+        }
         goto out;
     }
     assert(cap_raw.type == ObjType_RAM);
@@ -88,13 +59,6 @@ static void mem_alloc_handler(struct monitor_mem_binding *b,
     STATIC_ASSERT_SIZEOF(caprep, sizeof(caprep2));
     memcpy(&caprep, &caprep2, sizeof(caprep));
 
-    bool unused_has_descendants;
-    err = monitor_cap_remote(*cap, true, &unused_has_descendants);
-    if (err_is_fail(err)) {
-        reterr = err;
-        memset(&caprep, 0, sizeof(caprep));
-    }
-
 out:
     // RPC protocol, this can never fail with TX_BUSY
     err = b->tx_vtbl.alloc_response(b, NOP_CONT, reterr, caprep);
@@ -102,11 +66,8 @@ out:
         DEBUG_ERR(err, "reply failed");
     }
 
-    err = capops_delete(get_cap_domref(*cap), mem_alloc_delete_result_handler, cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "capops_delete failed, cap will leak");
-        free(cap);
-    }
+    // XXX: cap is leaked! *should* set owner to dest core and then delete, but
+    // dest core not known.
 }
 
 static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
