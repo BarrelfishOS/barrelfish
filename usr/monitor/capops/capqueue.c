@@ -33,11 +33,10 @@ capqueue_notify(struct capqueue_queue *q)
         return;
     }
 
-    struct event_queue *next = &q->queues[!q->on_first];
     q->on_first = !q->on_first;
     q->running = true;
     capqueue_wait(q, &q->queue_end, MKCLOSURE(queue_complete, q));
-    event_queue_trigger(next);
+    // event queue is in continuous mode, does not need triggering
 }
 
 void

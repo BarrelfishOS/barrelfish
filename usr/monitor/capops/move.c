@@ -15,6 +15,7 @@
 #include "magic.h"
 #include "caplock.h"
 #include "capop_handlers.h"
+#include "dom_invocations.h"
 
 /*
  * RPC State {{{1
@@ -136,8 +137,11 @@ static void
 free_owner_recv_cap(void *arg)
 {
     struct capref *cap = (struct capref*)arg;
-    monitor_unlock_cap(cap_root, get_cap_addr(*cap), get_cap_valid_bits(*cap));
-    cap_destroy(*cap);
+    caplock_unlock(get_cap_domref(*cap));
+    errval_t err = cap_destroy(*cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "destroying cap receiving ownersihp");
+    }
     free(cap);
 }
 
@@ -232,7 +236,7 @@ capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result
 
     debug_printf("move\n");
 
-    err = invoke_cnode_get_state(capref.croot, capref.cptr, capref.bits, &state);
+    err = dom_cnode_get_state(capref, &state);
     if (err_is_fail(err)) {
         return err;
     }

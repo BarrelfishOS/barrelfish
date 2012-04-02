@@ -156,6 +156,12 @@ owner_copy(struct capref capref, struct capability *cap, coreid_t from, coreid_t
 {
     errval_t err;
 
+    bool unused_has_descendants;
+    err = monitor_cap_remote(capref, true, &unused_has_descendants);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     // create new rpc state to associate return message
     struct cap_copy_rpc_st *rpc_st = malloc(sizeof(struct cap_copy_rpc_st));
     if (!rpc_st) {

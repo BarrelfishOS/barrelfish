@@ -422,8 +422,12 @@ find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, ge
         USER_PANIC_ERR(err, "could not alloc find_descendants_result_msg_st");
     }
     msg_st->queue_elem.cont = find_descendants_result_send_cont;
-    msg_st->status = err;
     msg_st->st = st;
+
+    if (err_is_ok(err)) {
+        err = has_descendants ? SYS_ERR_OK : SYS_ERR_CAP_NOT_FOUND;
+    }
+    msg_st->status = err;
 
     err = capsend_target(from, (struct msg_queue_elem*)msg_st);
     if (err_is_fail(err)) {

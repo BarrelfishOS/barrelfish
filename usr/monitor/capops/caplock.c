@@ -37,8 +37,12 @@ caplock_wait(struct domcapref cap,
 void
 caplock_unlock(struct domcapref cap)
 {
-    errval_t err = monitor_unlock_cap(cap.croot, cap.cptr, cap.bits);
-    assert(err_is_ok(err));
+    errval_t err = monitor_unlock_cap(cap.croot,
+                                      cap.cptr >> (CPTR_BITS-cap.bits),
+                                      cap.bits);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "unlocking cap");
+    }
     capqueue_notify(&global_queue);
 }
 

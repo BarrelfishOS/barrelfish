@@ -19,6 +19,7 @@
 #include <barrelfish/monitor_client.h>
 #include <if/monitor_loopback_defs.h>
 #include "capops.h"
+#include "caplock.h"
 
 // the monitor's loopback binding to itself
 static struct monitor_binding monitor_self_binding;
@@ -922,6 +923,7 @@ errval_t monitor_client_setup_monitor(void)
     monitor_loopback_init(&monitor_self_binding);
     monitor_server_init(&monitor_self_binding);
     set_monitor_binding(&monitor_self_binding);
+    caplock_init(get_default_waitset());
     idc_init();
     // XXX: Need a waitset here or loopback won't work as expected
     // when binding to the ram_alloc service

@@ -55,7 +55,7 @@ alloc_delete_st(struct delete_st **out_st, struct domcapref cap, delete_result_h
 
     *out_st = del_st;
 
-    return err;
+    return SYS_ERR_OK;
 }
 
 static void
@@ -246,6 +246,9 @@ find_core_cont(errval_t status, coreid_t core, void *st)
         free_delete_st(del_st);
     }
     else {
+        // unlock cap for move operation
+        caplock_unlock(del_st->capref);
+
         // core found, attempt move
         err = capops_move(del_st->capref, core, move_result_cont, st);
         if (err_is_fail(err)) {
@@ -263,6 +266,13 @@ move_result_cont(errval_t status, void *st)
     assert(distcap_is_moveable(del_st->cap.type));
 
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        // relock cap
+        err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr >> (CPTR_BITS-del_st->capref.bits),
+                               del_st->capref.bits);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "relocking cap after move");
+        }
+
         // move failed as dest no longer has cap copy, start from beginning
         err = capsend_find_cap(&del_st->cap, find_core_cont, st);
         if (err_is_ok(err)) {
@@ -378,15 +388,16 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void
         return err;
     }
 
-    struct delete_st *del_st;
+    struct delete_st *del_st = NULL;
     err = alloc_delete_st(&del_st, cap, result_handler, st);
     if (err_is_fail(err)) {
         goto cap_set_ready;
     }
+    assert(del_st);
 
     if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
-        err = capsend_find_cap(&del_st->cap, find_core_cont, st);
+        err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
     }
     else {
         // otherwise delete all remote copies and then delete last copy

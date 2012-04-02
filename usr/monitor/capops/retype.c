@@ -13,6 +13,7 @@
 #include <monitor_invocations.h>
 #include "capops.h"
 #include "capsend.h"
+#include "caplock.h"
 #include "magic.h"
 #include "capop_handlers.h"
 
@@ -35,6 +36,9 @@ create_copies_cont(errval_t status, void *st)
 {
     errval_t err = status;
     struct retype_st *rtst = (struct retype_st*)st;
+    if (err_is_ok(err)) {
+        err = SYS_ERR_REVOKE_FIRST;
+    }
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // no descendants found
         assert(capcmp(rtst->src.croot, rtst->destcn.croot));
@@ -136,7 +140,7 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
     caprep_to_capability(&srcrep, &cap);
 
     struct retype_result_st *rtst;
-    rtst = malloc(sizeof(*rtst));
+    rtst = calloc(1, sizeof(*rtst));
     if (!rtst) {
         USER_PANIC_ERR(LIB_ERR_MALLOC_FAIL, "could not allocate retype request reply state");
     }
@@ -193,7 +197,7 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
     return;
 
 unlock_cap:
-    monitor_unlock_cap(domsrc.croot, domsrc.cptr, domsrc.bits);
+    caplock_unlock(domsrc);
 
 destroy_cap:
     cap_delete(src);
