@@ -170,8 +170,8 @@ int main(int argc, char *argv[])
     err = invoke_perfmon_activate(cap_perfmon,
                                   0x76,   // Event to monitor
                                   ~0x0,   // UMASK
-                                  0,      // Core id
-                                  0,      // Kernel?
+                                  false,      // Kernel
+                                  0,      // Counter ID
                                   250000, // number of events to cause overflow
                                   get_cap_addr(epcap));
     // SAMPLE events to monitor for recent AMD machines.
@@ -181,6 +181,9 @@ int main(int argc, char *argv[])
     // 0x3C  Unhalted core cycles (umask = 0)
 
     assert(err_is_ok(err));
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "invoke_perfmon_activate");
+    }
 
     // Wait for overflows
     struct waitset *ws = get_default_waitset();
