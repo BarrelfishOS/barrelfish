@@ -234,8 +234,6 @@ capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result
     errval_t err;
     distcap_state_t state;
 
-    debug_printf("move\n");
-
     err = dom_cnode_get_state(capref, &state);
     if (err_is_fail(err)) {
         return err;

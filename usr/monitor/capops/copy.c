@@ -421,8 +421,6 @@ capops_copy(struct capref capref, coreid_t dest, copy_result_handler_t result_ha
     struct capability cap;
     distcap_state_t state;
 
-    debug_printf("copy\n");
-
     // check that cap is valid
     err = cap_get_state(capref, &state);
     if (err_is_fail(err)) {

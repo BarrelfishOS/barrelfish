@@ -358,8 +358,6 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void
     errval_t err;
     distcap_state_t state;
 
-    debug_printf("delete\n");
-
     err = dom_cnode_get_state(cap, &state);
     if (err_is_fail(err)) {
         return err;

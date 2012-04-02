@@ -326,7 +326,7 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
         }
     }
     else if (err_no(result) != SYS_ERR_CAP_NOT_FOUND) {
-        printf("ignoring bad find_cap_result %"PRIuPTR"\n", result);
+        DEBUG_ERR(result, "ignoring bad find_cap_result");
     }
 
     // check to see if broadcast is complete
@@ -353,7 +353,6 @@ struct find_descendants_mc_st {
 static errval_t
 find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
 {
-    debug_printf("find_descendants_send_cont\n");
     return intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
 }
 
@@ -448,7 +447,7 @@ find_descendants_result__rx_fn(struct intermon_binding *b, errval_t status, genv
         }
     }
     else if (err_no(status) != SYS_ERR_CAP_NOT_FOUND) {
-        printf("ignoring bad find_descendants result %"PRIuPTR"\n", status);
+        DEBUG_ERR(status, "ignoring bad find_descendants result");
     }
 
     if (capsend_handle_mc_reply(st)) {
