@@ -347,6 +347,7 @@ struct find_descendants_mc_st {
     struct capsend_mc_st mc_st;
     capsend_result_fn result_fn;
     void *st;
+    bool have_result;
 };
 
 static errval_t
@@ -375,6 +376,7 @@ capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void
 
     mc_st->result_fn = result_fn;
     mc_st->st = st;
+    mc_st->have_result = false;
     return capsend_descendants(&cap, find_descendants_send_cont, (struct capsend_mc_st*)mc_st);
 }
 
@@ -436,14 +438,19 @@ find_descendants_result__rx_fn(struct intermon_binding *b, errval_t status, genv
 
     if (err_is_ok(status)) {
         // found result
-        mc_st->result_fn(SYS_ERR_OK, mc_st->st);
+        if (!mc_st->have_result) {
+            mc_st->have_result = true;
+            mc_st->result_fn(SYS_ERR_OK, mc_st->st);
+        }
     }
     else if (err_no(status) != SYS_ERR_CAP_NOT_FOUND) {
         printf("ignoring bad find_descendants result %"PRIuPTR"\n", status);
     }
 
     if (capsend_handle_mc_reply(st)) {
-        mc_st->result_fn(SYS_ERR_CAP_NOT_FOUND, mc_st->st);
+        if (!mc_st->have_result) {
+            mc_st->result_fn(SYS_ERR_CAP_NOT_FOUND, mc_st->st);
+        }
         free(mc_st);
     }
 }
