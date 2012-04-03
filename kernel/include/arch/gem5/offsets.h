@@ -47,15 +47,8 @@
  * the linker also. This address is chosen to be the same as Linux on ARM
  * for GEM5 and/or bootloader compatibility.
  *
- * Entry point is 0x8000.
+ * Entry point is 0x11000.
  *
- * Our kernel blob is the ELF file with the first word overwritten to
- * be BL instruction to the entry point in the .text section. The link
- * register is then a pointer to the ELF header for ELF loading.
- * ELF header consumes a 4K page.
- *
- * The .text section ELF loads the kernel using relative addressing
- * initially.
  */
 #define START_KERNEL_PHYS       (0x10000 + 0x1000)
 
@@ -67,7 +60,7 @@
 /**
  * Kernel offset - virtual base of kernel.
  */
-#define KERNEL_OFFSET           0x80000000
+#define KERNEL_OFFSET           0xc0000000
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this

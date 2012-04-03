@@ -20,7 +20,8 @@
 struct atag;
 
 void arch_init(uint32_t board_id, struct atag *atag_paddr,
-               lvaddr_t elf_image, lvaddr_t phys_alloc_top)
+			   lvaddr_t elf_file,
+               lvaddr_t phys_alloc_top)
     __attribute__((noreturn));
 
 struct phys_mmap;

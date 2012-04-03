@@ -32,6 +32,18 @@ void paging_map_kernel(uintptr_t initial_base, size_t initial_size);
 
 lvaddr_t paging_map_device(lpaddr_t base, size_t size);
 
+
+/**
+ * Maps a device to a l2 page.
+ * Assumption: corresponding L1 entry already set
+ *
+ */
+
+void paging_map_device_page(uintptr_t l1_table,
+					   	    lvaddr_t device_vbase,
+					   	    lpaddr_t device_pbase,
+					   	    size_t device_bytes);
+
 /**
  * Add kernel mappings to newly constructed page table.
  *

@@ -124,9 +124,9 @@ in [
     
     -- gem5
    (let sfiles = [  ]
-        cfiles = [ "exn.c", "exec.c", "init.c", "integrator.c", "kludges.c", "kputchar.c", "misc.c", "pl011_uart.c", "paging.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
+        cfiles = [ "exn.c", "exec.c", "kludges.c", "kputchar.c", "misc.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
         arch_sfiles = [ "boot.S", "exceptions.S" ]
-	arch_cfiles = []
+	arch_cfiles = ["init.c", "integrator.c", "paging.c", "pl011_uart.c" ]
 	mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic0", "pl011_uart" ]
         libs = [ "elf", "cpio" ]
     in mkrules "gem5" cfiles sfiles mackerelFiles libs [] [] arch_cfiles arch_sfiles),

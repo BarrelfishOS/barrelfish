@@ -20,6 +20,7 @@
 #include <cpiobin.h>
 #include <getopt/getopt.h>
 
+
 //
 // ATAG boot header declarations
 //
@@ -164,7 +165,7 @@ static struct cmdarg cmdargs[] = {
  */
 void arch_init(uint32_t     board_id,
                struct atag *atag_base,
-               lvaddr_t     elf_file,
+               lvaddr_t 	device_tables_base,
                lvaddr_t     alloc_top)
 {
     //
@@ -209,7 +210,7 @@ void arch_init(uint32_t     board_id,
 
         debug(SUBSYS_STARTUP, "alloc_top %08"PRIxLVADDR" %08"PRIxLVADDR"\n",
                alloc_top, alloc_top - KERNEL_OFFSET);
-        debug(SUBSYS_STARTUP, "elf_file %08"PRIxLVADDR"\n", elf_file);
+        //debug(SUBSYS_STARTUP, "elf_file %08"PRIxLVADDR"\n", elf_file);
 
         my_core_id = hal_get_cpu_id();
         

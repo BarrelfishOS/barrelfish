@@ -105,7 +105,7 @@ $start_mmu_config:
         ldr     r0, =KERNEL_OFFSET
         add     sp, sp, r0                      // Prepare stack for relocation
 
-        ldr     r1, =0x1007                     // Enable: D-Cache, I-Cache, Alignment, MMU
+        ldr     r1, =0x1007                 // Enable: D-Cache, I-Cache, Alignment, MMU
         mrc     p15, 0, r0, c1, c0, 0
         orr     r0, r0, r1
         mcr     p15, 0, r0, c1, c0, 0           // MMU is enabled
@@ -131,7 +131,7 @@ $start_set_init_arguments:
                                                 // r1 = paddr of kern args
         ldr     r5, =KERNEL_OFFSET              // Convert paddr's to vaddr's
         add     r1, r1, r5                      // r1 is now vaddr of kern args
-        add     r2, r3, r5                      // r2 = addr kernel ELF file
+        add     r2, r2, r5                      // r2 = addr kernel ELF file
         add     r3, alloc_top, r5               // r3 = alloc_top
         mov     lr, #0
         b       arch_init
@@ -319,7 +319,7 @@ alloc_phys:
 section_map:
         lsr     r1, r1, #20                     // r1 is table offset
         lsr     r2, r2, #20
-        ldr     r3, =0x80e                      // AP[2] = 0. TEX[2:0] = 000. AP[1:0] = 10, Domain = 0, C=1 B=1, Section
+        ldr     r3, =0x80e                      // AP[2] = 0. TEX[2:0] = 000. AP[1] = 1, Domain = 0, C=1 B=1, Section
         orr     r2, r3, r2, LSL #20             // r2 = Section Entry
         str     r2, [r0, r1, LSL #2]            // table[v >> 20] = r2
         bx      lr
