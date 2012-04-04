@@ -116,9 +116,9 @@ $start_mmu_config:
 $start_with_mmu_enabled:
         // MMU is enabled and PC is in the loaded ELF image.
 
-       // mov     r1, #0                          // Unmap section with VA = 0
-       // mov     r0, r8                          // r0 = page table address
-       // bl      section_unmap
+        mov     r1, #0                          // Unmap section with VA = 0
+        mov     r0, r8                          // r0 = page table address
+        bl      section_unmap
 
         mov     r1, #0
         mcr     p15, 0, r1, c8, c7, 0           // Invalidate ID-TLB entry for section with VA = 0.

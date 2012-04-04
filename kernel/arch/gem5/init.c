@@ -165,7 +165,7 @@ static struct cmdarg cmdargs[] = {
  */
 void arch_init(uint32_t     board_id,
                struct atag *atag_base,
-               lvaddr_t 	device_tables_base,
+               lvaddr_t 	elf_file,
                lvaddr_t     alloc_top)
 {
     //
@@ -180,6 +180,9 @@ void arch_init(uint32_t     board_id,
     struct atag * ae = NULL;
 
     exceptions_init();
+
+    //lvaddr_t *foo = 0x0;
+    //elf_file = *foo;
 
     ae = atag_find(atag_base, ATAG_MEM);
     paging_map_memory(0, ae->u.mem.start, ae->u.mem.bytes);

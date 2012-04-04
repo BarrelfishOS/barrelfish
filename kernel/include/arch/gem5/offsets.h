@@ -179,6 +179,12 @@ extern uint8_t kernel_final_byte;
  */
 extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 
+
+/**
+ * Kernel interrupt jump table
+ */
+#define INT_HANDLER_TABLE	0xFFFF0100
+
 #endif  // __ASSEMBLER__
 
 #endif  // OFFSETS_H

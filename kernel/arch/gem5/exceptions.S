@@ -19,6 +19,9 @@
 #define EXCEPTION_MODE_STACK_BYTES       256
 #define SYSTEM_MODE_STACK_BYTES         8192
 
+#define LDR		0xE59FF000
+
+
         .arm
         .text
 
@@ -143,6 +146,7 @@ set_stack_for_mode:
         // void exceptions_install_handler(int vector_offset,
         //                                 void (*handler)(void)
         //
+/*
 exceptions_install_handler:
         ldr     r2, = ETABLE_ADDR
         add     r2, r2, r0
@@ -156,7 +160,23 @@ exceptions_install_handler:
         orr     r0, r0, r1
         str     r0, [r2]
         bx      lr
-
+*/
+		//
+		//void exceptions_install_handler(int vector_offset, void (*handler)(void)
+		//
+exceptions_install_handler:
+		ldr		r2, =ETABLE_ADDR			// store handler address at
+		add		r2,	r2,	#JUMP_TABLE_OFFSET	// ETABLE_ADDR + JUMP_TABLE_OFFSET + vector_offset
+		add		r2, r2, r0
+		str		r1, [r2]
+		ldr		r2, =ETABLE_ADDR			//load constants
+		ldr		r3, =LDR
+		mov		r4, #JUMP_TABLE_OFFSET
+		add		r2, r2, r0					//add offset to base
+		sub		r4, r4, #0x8				//subtract 8, bc prefetch of pipeline
+		orr		r3, r3, r4					// = LDR pc, <address of handler>
+		str		r3, [r2]					// store instruction in interrupt vec
+		bx		lr
         //
         // void null_handler(void)
         //
@@ -412,3 +432,4 @@ $swi_user:
 
 $swi_kernel:
         b       sys_syscall_kernel
+

@@ -14,6 +14,7 @@ OUTPUT_ARCH("arm")
 
 ENTRY(start)
 
+
 SECTIONS {
         . = START_KERNEL_PHYS + KERNEL_OFFSET;
         kernel_first_byte = .;
