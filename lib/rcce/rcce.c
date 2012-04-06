@@ -76,6 +76,15 @@ int RCCE_init(int *argc, char ***argv)
     RCCE_NP        = atoi(*(++(*argv)));
     RC_REFCLOCKGHZ = atof(*(++(*argv)));
 
+    if(RC_REFCLOCKGHZ == 0) {
+        printf("Barrelfish RCCE extension: Computing reference clock GHz automatically...\n");
+        uint64_t tscperms;
+        errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
+        assert(err_is_ok(err));
+        RC_REFCLOCKGHZ = ((double)tscperms) / 1000000.0;
+        printf("Reference clock computed to be %.2g\n", RC_REFCLOCKGHZ);
+    }
+
     // put the participating core ids (unsorted) into an array
     for (ue=0; ue<RCCE_NP; ue++) {
         RC_COREID[ue] = atoi(*(++(*argv)));
