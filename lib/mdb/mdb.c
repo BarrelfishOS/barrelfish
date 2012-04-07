@@ -59,67 +59,61 @@ bool is_cap_remote(struct cte *cte)
 }
 
 /// Check if #cte has any descendants
-/// XXX TODO - check for descendents on remote cores
 bool has_descendants(struct cte *cte)
 {
     assert(cte != NULL);
 
-    struct cte *next = mdb_successor(cte);
-    while (next) {
-        if (is_ancestor(&next->cap, &cte->cap)) {
-            return true;
-        }
-        else if (!is_copy(&next->cap, &cte->cap)) {
-            break;
-        }
-        next = mdb_successor(next);
-    }
-
-    struct cte *prev = mdb_predecessor(cte);
-    while (prev) {
-        if (is_ancestor(&prev->cap, &cte->cap)) {
-            return true;
-        }
-        if (!is_copy(&prev->cap, &cte->cap)) {
-            break;
-        }
-        prev = mdb_predecessor(prev);
-    }
-
-    return false;
+    struct cte *next = mdb_find_greater(&cte->cap, false);
+    return next
+        && get_type_root(next->cap.type) == get_type_root(cte->cap.type)
+        && get_address(&next->cap) < get_address(&cte->cap) + get_size(&cte->cap);
 }
 
 /// Check if #cte has any ancestors
-/// XXX TODO - check for descendents on remote cores
 bool has_ancestors(struct cte *cte)
 {
     assert(cte != NULL);
 
-    // XXX: Is walking forward needed here? (doing it because we walk
-    // backwards in has_descendants())
-    struct cte *next = mdb_successor(cte);
-    while (next) {
-        if (is_ancestor(&cte->cap, &next->cap)) {
-            return true;
-        }
-        if (!is_copy(&next->cap, &cte->cap)) {
-            break;
-        }
-        next = mdb_successor(next);
+    // XXX: this check should have its own predicate
+    if (!get_address(&cte->cap) && !get_size(&cte->cap)) {
+        return false;
     }
 
-    struct cte *prev = mdb_predecessor(cte);
-    while (prev) {
-        if (is_ancestor(&cte->cap, &prev->cap)) {
-            return true;
-        }
-        else if (!is_copy(&prev->cap, &cte->cap)) {
-            break;
-        }
-        prev = mdb_predecessor(prev);
+    struct cte *prev = mdb_find_less(&cte->cap, false);
+    if (prev
+        && get_type_root(prev->cap.type) == get_type_root(cte->cap.type)
+        && get_address(&prev->cap) + get_size(&prev->cap)
+           >= get_address(&cte->cap) + get_size(&cte->cap))
+    {
+        return true;
     }
 
-    return false;
+    // cte is preceded in the ordering by a non-ancestor. This imples one of
+    // two situations:
+    //  1) cte has no ancestors
+    //  2) cte has ancestors but also has siblings earlier in the
+    //     ordering, thus the ancestor cannot have the same base
+    //     address as cte.
+    // If we query for the zero-length memory region at cte's start
+    // address, we will not get cte itself back as the end of our query
+    // is at cte's start address.
+    // Similarly, we cannot get a sibling of cte that ends where cte
+    // starts, as the beginning of our query is not in that sibling's
+    // region.
+    // Thus we must get its ancestor if present, or no cap at all.
+    int find_result;
+    mdb_find_range(get_type_root(cte->cap.type),
+                   get_address(&cte->cap), 0,
+                   MDB_RANGE_FOUND_SURROUNDING,
+                   &prev, &find_result);
+    if (find_result != MDB_RANGE_NOT_FOUND) {
+        assert(find_result == MDB_RANGE_FOUND_SURROUNDING);
+        assert(prev);
+        assert(get_address(&prev->cap) <= get_address(&cte->cap));
+        assert(get_address(&prev->cap) + get_size(&prev->cap)
+               >= get_address(&cte->cap) + get_size(&cte->cap));
+    }
+    return find_result != MDB_RANGE_NOT_FOUND;
 }
 
 /// Checks if #cte has any copies
@@ -128,25 +122,13 @@ bool has_copies(struct cte *cte)
     assert(cte != NULL);
 
     struct cte *next = mdb_successor(cte);
-    while(next) {
-        if (is_copy(&next->cap, &cte->cap)) {
-            return true;
-        }
-        if (!is_ancestor(&next->cap, &cte->cap)) {
-            break;
-        }
-        next = mdb_successor(next);
+    if (next && is_copy(&next->cap, &cte->cap)) {
+        return true;
     }
 
     struct cte *prev = mdb_predecessor(cte);
-    while(prev) {
-        if (is_copy(&prev->cap, &cte->cap)) {
-            return true;
-        }
-        if (!is_ancestor(&prev->cap, &cte->cap)) {
-            break;
-        }
-        prev = mdb_predecessor(prev);
+    if (prev && is_copy(&prev->cap, &cte->cap)) {
+        return true;
     }
 
     return false;
