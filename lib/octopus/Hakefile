@@ -23,7 +23,7 @@
      -- no-missing-declarations & no-missing-prototypes Bug: 
      -- https://bugzilla.redhat.com/show_bug.cgi?id=612465
      -- no-implicit-function-declaration:
-     -- warning: implicit declaration of function ‘yylex’ 
+     -- warning: implicit declaration of function 'yylex'
 
      build library { target = "octopus",
                      addCFlags = [ "-O2" ],
