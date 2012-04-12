@@ -55,8 +55,10 @@ static void variable_records(void)
         errval_t error_code;
         char* data = NULL;
 
-        struct octopus_rpc_client* cl = oct_get_thc_client();
+        struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
         assert(cl != NULL);
+        octopus_trigger_id_t tid;
+
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             size_t get_nr = bench_tsc() % records[i];
@@ -64,7 +66,7 @@ static void variable_records(void)
             sprintf(buf, "object%lu", get_nr);
 
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.get(cl, buf, NOP_TRIGGER, &data, &error_code);
+            cl->call_seq.get(cl, buf, NOP_TRIGGER, &data, &tid, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "get");
@@ -87,18 +89,20 @@ static void variable_records(void)
 
 static void add_record(void) {
     size_t exps = sizeof(add_records) / sizeof(size_t);
-    struct octopus_rpc_client* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     errval_t error_code;
     char* ret = NULL;
     char* record = "rec_ { attribute: 1 }";
+    octopus_trigger_id_t tid;
+
     for (size_t i = 1; i < exps; i++) {
         printf("# Run add_record with %lu records:\n", add_records[i]);
 
         for (size_t j = add_records[i - 1]; j < add_records[i]; j++) {
             //printf("add to system: %s\n", record);
-            cl->vtbl.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &error_code);
+            cl->call_seq.set(cl, record, SET_SEQUENTIAL, NOP_TRIGGER, false, &ret, &tid, &error_code);
             assert(ret == NULL);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "add"); exit(0); }
         }
@@ -108,7 +112,7 @@ static void add_record(void) {
         char* data;
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &error_code);
+            cl->call_seq.set(cl, to_add, SET_DEFAULT, NOP_TRIGGER, false, &data, &tid, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "set");
@@ -116,7 +120,7 @@ static void add_record(void) {
             }
             free(data);
 
-            cl->vtbl.del(cl, to_add, NOP_TRIGGER, &error_code);
+            cl->call_seq.del(cl, to_add, NOP_TRIGGER, &tid, &error_code);
             if (err_is_fail(error_code)) {
                 DEBUG_ERR(error_code, "del");
                 exit(0);
@@ -144,12 +148,13 @@ static void one_record(void)
     errval_t error_code;
     char* data = NULL;
 
-    struct octopus_rpc_client* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
+    octopus_trigger_id_t tid;
 
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
         timestamps[i].time0 = bench_tsc();
-        cl->vtbl.get(cl, "object0", NOP_TRIGGER, &data, &error_code);
+        cl->call_seq.get(cl, "object0", NOP_TRIGGER, &data, &tid, &error_code);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));
@@ -169,7 +174,9 @@ static void unnamed_record(void)
     errval_t err = oct_set("object0 { attr1: 'bla', attr2: 12.0 }");
     assert(err_is_ok(err));
 
-    struct octopus_rpc_client* cl = oct_get_thc_client();
+    octopus_trigger_id_t tid;
+
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
     assert(cl != NULL);
 
     char* data = NULL;
@@ -177,7 +184,7 @@ static void unnamed_record(void)
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
 
         timestamps[i].time0 = bench_tsc();
-        cl->vtbl.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &error_code);
+        cl->call_seq.get(cl, "_ { attr1: 'bla', attr2: 12.0 }", NOP_TRIGGER, &data, &tid, &error_code);
         timestamps[i].time1 = bench_tsc();
 
         assert(err_is_ok(error_code));

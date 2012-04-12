@@ -36,9 +36,13 @@ static size_t records[] = { 0, 8, 16, 256, 512, 768, 1000, 1500, 2000, 2500,
 
 static inline uint64_t get_cycle_counter(void)
 {
+#ifdef __x86__
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
     return ((uint64_t)edx << 32) | eax;
+#else
+    return 0;
+#endif
 }
 
 static uint32_t my_random(void)
@@ -138,21 +142,22 @@ static void no_name_get_worstcase(void)
     size_t exps = sizeof(records) / sizeof(size_t);
     for (size_t i = 1; i < exps; i++) {
         printf("# Run no_name_get_worstcase with %lu records:\n", records[i]);
+        octopus_trigger_id_t tid;
 
-        struct octopus_rpc_client* cl = oct_get_thc_client();
+        struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
         assert(cl != NULL);
         errval_t error_code;
         char* record;
 
         for (size_t j = records[i - 1]; j < records[i]; j++) {
             construct_record(5);
-            cl->vtbl.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &error_code);
+            cl->call_seq.set(cl, buf, SET_SEQUENTIAL, NOP_TRIGGER, false, &record, &tid, &error_code);
             if(err_is_fail(error_code)) { DEBUG_ERR(error_code, "set"); exit(0); }
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             timestamps[k].time0 = bench_tsc();
-            cl->vtbl.get(cl, query, NOP_TRIGGER, &record, &error_code);
+            cl->call_seq.get(cl, query, NOP_TRIGGER, &record, &tid, &error_code);
             timestamps[k].time1 = bench_tsc();
             if (err_is_fail(error_code)) { DEBUG_ERR(error_code, "get"); exit(0); }
             //timestamps[k].count = atoll(strrchr(record, '}')+1);

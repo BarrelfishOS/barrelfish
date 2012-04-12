@@ -72,7 +72,7 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ]
                     },
 
   build application { target = "d2bench1",
@@ -80,7 +80,7 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ]
                     },
                     
   build application { target = "d2bench2",
@@ -88,6 +88,6 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ]
                     }    
 ]

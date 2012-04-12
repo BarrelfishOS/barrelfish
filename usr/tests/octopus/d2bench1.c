@@ -34,7 +34,8 @@ int main(int argc, char** argv)
 
     char payload[256] = { [0 ... 254] = 'a', [255] = '\0' };
 
-    struct octopus_rpc_client* cl = oct_get_thc_client();
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
+    octopus_trigger_id_t tid;
     assert(cl != NULL);
 
     char record[300];
@@ -54,14 +55,14 @@ int main(int argc, char** argv)
     bool stopped = false;
     if (strcmp(argv[2], "get") == 0) {
 		while ( !stopped ) {
-			cl->vtbl.get(cl, "rec", NOP_TRIGGER, &reply, &error_code);
+			cl->call_seq.get(cl, "rec", NOP_TRIGGER, &reply, &tid, &error_code);
 			free(reply);
 			//DEBUG_ERR(error_code, "got record");
 		}
     }
     else if (strcmp(argv[2], "set") == 0) {
 		while ( !stopped ) {
-			cl->vtbl.set(cl, record, SET_DEFAULT, NOP_TRIGGER, false, &reply, &error_code);
+			cl->call_seq.set(cl, record, SET_DEFAULT, NOP_TRIGGER, false, &reply, &tid, &error_code);
 			//assert(reply == NULL);
 			//DEBUG_ERR(error_code, "set record");
 		}
