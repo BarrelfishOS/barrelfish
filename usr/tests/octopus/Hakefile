@@ -15,7 +15,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
 
   build application { target = "d2pubsub",
@@ -23,7 +24,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
 
   
@@ -32,7 +34,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
 
   build application { target = "d2barrier",
@@ -40,7 +43,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
                                         
   build application { target = "d2locksimple",
@@ -48,7 +52,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
 
   build application { target = "d2read",
@@ -56,7 +61,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
                     
   build application { target = "d2sem",
@@ -64,7 +70,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
                     
   build application { target = "d2bench",
@@ -72,7 +79,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
 
   build application { target = "d2bench1",
@@ -80,7 +88,8 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
                     
   build application { target = "d2bench2",
@@ -88,6 +97,7 @@
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
-                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ]
+                      addLibraries = [ "octopus", "octopus_parser", "thc", "bench" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     }    
 ]

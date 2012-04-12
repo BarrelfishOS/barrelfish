@@ -17,5 +17,6 @@
                       flounderBindings = [ "octopus" ],
                       flounderTHCStubs = [ "octopus" ],
                       addLibraries = libDeps [ "skb", "octopus", "vfs", 
-                                               "spawndomain", "elf" ] }
+                                               "spawndomain", "elf" ],
+                      architectures = [ "x86_64", "x86_32" ] }
 ]
