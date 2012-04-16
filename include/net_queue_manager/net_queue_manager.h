@@ -183,8 +183,6 @@ void ethersrv_init(
  */
 void ethersrv_argument(const char* arg);
 
-bool waiting_for_netd(void);
-
 bool handle_tx_done(void *opaque);
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);

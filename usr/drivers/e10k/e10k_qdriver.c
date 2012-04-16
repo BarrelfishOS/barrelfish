@@ -266,11 +266,6 @@ static void check_for_new_packets(void)
 
         DEBUG("New packet (q=%d)\n", qi);
 
-        if(waiting_for_netd()){
-            DEBUG("still waiting for netd to register buffers\n");
-            return;
-        }
-
         process_received_packet(op, len, !!last);
         count++;
     }
