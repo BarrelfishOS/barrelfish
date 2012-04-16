@@ -9,6 +9,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/net_constants.h>
+#include <bench/bench.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -17,6 +18,8 @@
 #define TSCPERMS 2511862ULL
 
 static void client_send_packet(void);
+static void start_run(void);
+static void analyze_data(void);
 
 static void register_rx_buffer(size_t i);
 static void register_tx_buffer(size_t i, size_t len);
@@ -50,7 +53,11 @@ static bool initialized = false;
 static bool is_server = false;
 static uint64_t sent_at;
 static bool got_response = false;
+static size_t runs = 0;
+#define TOTAL_RUNS 4096
+static cycles_t run_data[TOTAL_RUNS];
 
+#define PAYLOAD 1500
 
 
 static void alloc_mem(uint64_t* phys, void** virt, size_t size)
@@ -118,9 +125,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     } else {
         printf("elb: Starting benchmark client...\n");
 
-        // Register receive buffer
-        register_rx_buffer(buf_cur);
-        client_send_packet();
+        start_run();
     }
 }
 
@@ -152,30 +157,59 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
         register_rx_buffer(buf_cur);
 
         respond_buffer(idx, pkt_len);
-        printf("elb: sent response...\n");
+        //iprintf("elb: sent response...\n");
     } else {
+        /*struct ethernet_frame* frame = buf_virt[buf_cur];
+        size_t i;
+        size_t acc = 0;
+        for (i = 0; i< PAYLOAD; i++) {
+            acc += frame->payload[i];
+        }*/
         uint64_t diff = rdtsc() - sent_at;
-        printf("elb: Got response: %"PRIu64"!\n", diff);
+        run_data[runs] = diff;
+        //printf("elb: Got response: %"PRIu64"!\n", diff);
         got_response = true;
-
-        terminate_queue_fn_ptr();
+        runs++;
+        if (runs < TOTAL_RUNS) {
+            start_run();
+        } else {
+            analyze_data();
+            terminate_queue_fn_ptr();
+        }
     }
 }
 
 bool handle_tx_done(void *opaque)
 {
-    printf("elb: Transmitted a packet...\n");
+    //printf("elb: Transmitted a packet...\n");
     return true;
+}
+
+static void start_run(void)
+{
+    // Register receive buffer
+    register_rx_buffer(buf_cur);
+    client_send_packet();
+}
+
+static void analyze_data(void)
+{
+    cycles_t avg = bench_avg(run_data, TOTAL_RUNS);
+    cycles_t var = bench_variance(run_data, TOTAL_RUNS);
+    cycles_t min = bench_min(run_data, TOTAL_RUNS);
+    cycles_t max = bench_max(run_data, TOTAL_RUNS);
+    printf("Results: avg=%"PRIu64"  var=%"PRIu64"  min=%"PRIu64"  max=%"
+            PRIu64"\n", avg, var, min, max);
 }
 
 static void client_send_packet(void)
 {
     struct ethernet_frame *frame;
     const char bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    size_t len = sizeof(*frame) + 64;
+    size_t len = sizeof(*frame) + PAYLOAD;
     size_t idx = (buf_cur + 1) % BUF_COUNT;
 
-    printf("elb: Sending packet...\n");
+    //printf("elb: Sending packet...\n");
     frame = buf_virt[idx];
     memcpy(frame->src_mac, our_mac, 6);
     memcpy(frame->dst_mac, bcast, 6);

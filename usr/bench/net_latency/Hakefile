@@ -11,6 +11,6 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "net_latency_bench",
-                      cFiles = [ "main.c" ],
+                      cFiles = [ "main.c", "sleep.c" ],
 		      addLibraries = [ "bench" ]
                     } ]

@@ -19,5 +19,6 @@
 
   build library { target = "ethernet_latency_benchmark",
                   cFiles = [ "ethernet_latency_benchmark.c" ],
-                  flounderBindings = [ "net_queue_manager" ] }
+                  flounderBindings = [ "net_queue_manager" ],
+                  addLibraries = [ "bench" ] }
 ]
