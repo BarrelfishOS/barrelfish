@@ -50,7 +50,6 @@ static void (*close_port) (uint16_t port, net_ports_port_type_t type) = NULL;
 static struct net_ports_rpc_client net_ports_rpc;
 static bool net_ports_service_connected = false;
 
-static net_ports_qid_t qid_delete = 0;
 static net_ports_appid_t appid_delete = 0;
 
 static struct netif netif;
@@ -60,6 +59,7 @@ void thread_debug_regs(struct thread *t);
 
 // Variables shared with idc_barrelfish.c
 extern struct waitset *lwip_waitset;
+extern uint64_t lwip_queue_id;
 extern struct net_queue_manager_binding *driver_connection[2];
 
 /**
@@ -274,7 +274,7 @@ static err_t idc_close_port(uint16_t port, int port_type)
     errval_t err, msgerr;
 
     err = net_ports_rpc.vtbl.close_port(&net_ports_rpc, port_type, port,
-                                  appid_delete, qid_delete,
+                                  appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
@@ -321,7 +321,7 @@ static err_t idc_bind_port(uint16_t port, net_ports_port_type_t port_type)
                                   ((struct client_closure_NC *)
                                    driver_connection[TRANSMIT_CONNECTION]->st)->
                                   buff_ptr->buffer_id,
-                                  appid_delete, qid_delete,
+                                  appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
@@ -366,7 +366,7 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
                                  ((struct client_closure_NC *)
                                   driver_connection[TRANSMIT_CONNECTION]->st)->
                                  buff_ptr->buffer_id,
-                                 appid_delete, qid_delete,
+                                 appid_delete, lwip_queue_id,
                                  &msgerr, port_no);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");

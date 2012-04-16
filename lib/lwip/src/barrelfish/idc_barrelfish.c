@@ -86,7 +86,7 @@ static bool lwip_connected[2] = { false, false };
  */
 static int conn_nr = 0;
 
-static uint64_t alloted_queue_id = 0; // queue_id allocated to this application
+uint64_t lwip_queue_id = 0; // queue_id allocated to this application
 
 /**
  * \brief
@@ -1055,7 +1055,7 @@ static void bind_cb(void *st, errval_t err, struct net_queue_manager_binding *b)
 
     memset(cc, 0, sizeof(struct client_closure_NC));
     b->st = cc;
-    cc->queueid = alloted_queue_id;  // Assigning the queueid to this connection
+    cc->queueid = lwip_queue_id;  // Assigning the queueid to this connection
 
     char appname[200];
 
@@ -1092,7 +1092,7 @@ static void start_client(char *card_name, uint64_t queueid)
     iref_t iref;
     char qm_name[MAX_SERVICE_NAME_LEN] = {0};
 
-    alloted_queue_id = queueid;
+    lwip_queue_id = queueid;
     LWIPBF_DEBUG("start_client: called\n");
 
     if (card_name == NULL) {
