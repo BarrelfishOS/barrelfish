@@ -26,7 +26,6 @@
 #ifndef	_SYS_EFX_H
 #define	_SYS_EFX_H
 
-#include <barrelfish/barrelfish.h>
 #include "efsys.h"
 
 #ifdef	__cplusplus
@@ -41,9 +40,6 @@ extern "C" {
 #define	EFSYS_MEM_IS_NULL(_esmp) ((_esmp)->esm_base == NULL)
 #endif
 
-// FIXME: may be I should replace all boolean_t with bool
-typedef bool boolean_t;
-
 typedef enum efx_family_e {
 	EFX_FAMILY_INVALID,
 	EFX_FAMILY_FALCON,
@@ -56,7 +52,6 @@ efx_family(
 	__in		uint16_t venid,
 	__in		uint16_t devid,
 	__out		efx_family_t *efp);
-
 
 extern	__checkReturn	int
 efx_infer_family(
@@ -145,8 +140,6 @@ efx_nic_unprobe(
 extern 		void
 efx_nic_destroy(
 	__in	efx_nic_t *enp);
-
-
 
 #if EFSYS_OPT_MCDI
 
@@ -436,6 +429,7 @@ efx_mac_stats_update(
 	__out_opt			uint32_t *generationp);
 
 #endif	/* EFSYS_OPT_MAC_STATS */
+
 /* MON */
 
 typedef enum efx_mon_type_e {

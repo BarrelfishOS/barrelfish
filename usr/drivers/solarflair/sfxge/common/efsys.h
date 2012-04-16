@@ -27,21 +27,17 @@
  * SUCH DAMAGE.
  */
 
-#ifndef    _SYS_EFSYS_H
-#define    _SYS_EFSYS_H
+#ifndef	_SYS_EFSYS_H
+#define	_SYS_EFSYS_H
 
+//#include <sys/cdefs.h>
+//__FBSDID("$FreeBSD$");
 
-#ifdef    __cplusplus
+#include "bf_support.h"
+
+#ifdef	__cplusplus
 extern "C" {
 #endif
-
-#include <stdio.h>
-#include <barrelfish/barrelfish.h>
-// to find out endianess of machine
-#include <sys/endian.h>
-#include <sys/times.h>
-#include <sys/param.h>  // for memcpy
-#include <string.h>  // for memcpy, memset
 
 /*
 #include <sys/param.h>
@@ -59,10 +55,8 @@ extern "C" {
 #include <machine/endian.h>
 */
 
-#include "error_list.h"
-
-#define    EFSYS_HAS_UINT64 1
-#define    EFSYS_USE_UINT64 0
+#define	EFSYS_HAS_UINT64 1
+#define	EFSYS_USE_UINT64 0
 #if _BYTE_ORDER == _BIG_ENDIAN
 #define EFSYS_IS_BIG_ENDIAN 1
 #define EFSYS_IS_LITTLE_ENDIAN 0
@@ -73,7 +67,6 @@ extern "C" {
 #include "efx_types.h"
 
 
-// FIXME: I should get rid of __FreeBSD macro use
 /* Common code requires this */
 #if __FreeBSD_version < 800068
 #define memmove(d, s, l) bcopy(s, d, l)
@@ -84,17 +77,6 @@ extern "C" {
 #define _NOTE(s)
 #endif
 
-// FIXME: added for compilation purpose.  Replace by using appropriate
-// Barrelfish constants for them.
-/*
-enum bool_values {
-    FALSE = 0,
-    TRUE = 1
-};
-*/
-#define FALSE (0)
-#define TRUE (1)
-
 #ifndef B_FALSE
 #define B_FALSE FALSE
 #endif
@@ -103,7 +85,7 @@ enum bool_values {
 #endif
 
 #ifndef IS_P2ALIGNED
-#define    IS_P2ALIGNED(v, a) ((((uintptr_t)(v)) & ((uintptr_t)(a) - 1)) == 0)
+#define	IS_P2ALIGNED(v, a) ((((uintptr_t)(v)) & ((uintptr_t)(a) - 1)) == 0)
 #endif
 
 #ifndef P2ROUNDUP
@@ -116,109 +98,6 @@ enum bool_values {
 
 #define ENOTACTIVE EINVAL
 
-
-//#define MIN(a,b)   (((a) < (b))?(a):(b))
-
-// **********************************************************
-// bus related data-types
-// **********************************************************
-
-typedef int bus_space_tag_t;
-typedef unsigned long bus_space_handle_t;
-typedef unsigned long bus_size_t;
-typedef unsigned long bus_addr_t;
-
-
-static __inline uint32_t
-ia64_ld4(uint32_t *p)
-{
-    assert(!"NYI");
-    uint32_t v =0;
-//    __asm volatile("ld4 %0=[%1];;": "=r"(v): "r"(p));
-    return (v);
-}
-
-static __inline void
-ia64_st4(uint32_t *p, uint32_t v)
-{
-    assert(!"NYI");
-//    __asm volatile("st4 [%0]=%1;;": "r"(p): "r"(v));
-}
-
-
-static __inline uint32_t
-bus_space_read_4(bus_space_tag_t bst, bus_space_handle_t bsh, bus_size_t ofs)
-{
-
-    uint32_t val = 0;
-    if (bst == 0) {
-        assert(!"NYI");
-        abort();
-    }
-    val = ia64_ld4((void *) (bsh + ofs));
-    return val;
-}
-
-static __inline void
-bus_space_write_4(bus_space_tag_t bst, bus_space_handle_t bsh, bus_size_t ofs,
-        uint8_t val)
-{
-    if (bst == 0) {
-        assert(!"NYI");
-        abort();
-    }
-    ia64_st4((void *) (bsh + ofs), val);
-}
-
-
-// **********************************************************
-// basic locking data-structure
-// **********************************************************
-// Vary basic implementation of locking
-struct mtx {
-    int state; // 0: unlocked, 1: locked
-};
-
-void mtx_lock(struct mtx *mp);
-void mtx_unlock(struct mtx *mp);
-
-
-// *****************************************************************
-// ASSERT
-// *****************************************************************
-
-#define mypanic(x...)    do {                       \
-                            printf("mypanicTest: " x);  \
-                            printf(" sdfsd \n");           \
-                            abort();                \
-                    } while(0)
-
-#define    myKASRT(_exp, msg) do {                        \
-        if (!(_exp)) {                        \
-        printf(msg);                        \
-                printf("\n");                                           \
-                abort();                                                \
-            }                                                           \
-    } while (0)
-
-
-#define    EFSYS_ASSERT(_exp) do {                        \
-    if (!(_exp))                            \
-        mypanic(#_exp);                        \
-    } while (0)
-
-#define EFSYS_ASSERT3(_x, _op, _y, _t) do {                \
-    const _t __x = (_t)(_x);                    \
-    const _t __y = (_t)(_y);                    \
-    if (!(__x _op __y))                         \
-          mypanic("assertion failed at %s:%u", __FILE__, __LINE__); \
-    } while(0)
-
-#define EFSYS_ASSERT3U(_x, _op, _y)    EFSYS_ASSERT3(_x, _op, _y, uint64_t)
-#define EFSYS_ASSERT3S(_x, _op, _y)    EFSYS_ASSERT3(_x, _op, _y, int64_t)
-#define EFSYS_ASSERT3P(_x, _op, _y)    EFSYS_ASSERT3(_x, _op, _y, uintptr_t)
-
-
 /* Memory type to use on FreeBSD */
 // MALLOC_DECLARE(M_SFXGE);
 
@@ -227,19 +106,19 @@ void mtx_unlock(struct mtx *mp);
 static __inline void
 prefetch_read_many(void *addr)
 {
-    __asm__(
-        "prefetcht0 (%0)"
-        :
-        : "r" (addr));
+	__asm__(
+	    "prefetcht0 (%0)"
+	    :
+	    : "r" (addr));
 }
 
 static __inline void
 prefetch_read_once(void *addr)
 {
-    __asm__(
-        "prefetchnta (%0)"
-        :
-        : "r" (addr));
+	__asm__(
+	    "prefetchnta (%0)"
+	    :
+	    : "r" (addr));
 }
 #endif
 
@@ -253,115 +132,115 @@ sfxge_map_mbuf_fast(bus_dma_tag_t tag, bus_dmamap_t map,
     struct mbuf *m, bus_dma_segment_t *seg)
 {
 #if defined(__i386__) || defined(__amd64__)
-    seg->ds_addr = pmap_kextract(mtod(m, vm_offset_t));
-    seg->ds_len = m->m_len;
+	seg->ds_addr = pmap_kextract(mtod(m, vm_offset_t));
+	seg->ds_len = m->m_len;
 #else
-    int nsegstmp;
+	int nsegstmp;
 
-    bus_dmamap_load_mbuf_sg(tag, map, m, seg, &nsegstmp, 0);
+	bus_dmamap_load_mbuf_sg(tag, map, m, seg, &nsegstmp, 0);
 #endif
 }
 #endif // 0
 
 /* Modifiers used for DOS builds */
-#define    __cs
-#define    __far
+#define	__cs
+#define	__far
 
 /* Modifiers used for Windows builds */
-#define    __in
-#define    __in_opt
-#define    __in_ecount(_n)
-#define    __in_ecount_opt(_n)
-#define    __in_bcount(_n)
-#define    __in_bcount_opt(_n)
+#define	__in
+#define	__in_opt
+#define	__in_ecount(_n)
+#define	__in_ecount_opt(_n)
+#define	__in_bcount(_n)
+#define	__in_bcount_opt(_n)
 
-#define    __out
-#define    __out_opt
-#define    __out_ecount(_n)
-#define    __out_ecount_opt(_n)
-#define    __out_bcount(_n)
-#define    __out_bcount_opt(_n)
+#define	__out
+#define	__out_opt
+#define	__out_ecount(_n)
+#define	__out_ecount_opt(_n)
+#define	__out_bcount(_n)
+#define	__out_bcount_opt(_n)
 
-#define    __deref_out
+#define	__deref_out
 
-#define    __inout
-#define    __inout_opt
-#define    __inout_ecount(_n)
-#define    __inout_ecount_opt(_n)
-#define    __inout_bcount(_n)
-#define    __inout_bcount_opt(_n)
-#define    __inout_bcount_full_opt(_n)
+#define	__inout
+#define	__inout_opt
+#define	__inout_ecount(_n)
+#define	__inout_ecount_opt(_n)
+#define	__inout_bcount(_n)
+#define	__inout_bcount_opt(_n)
+#define	__inout_bcount_full_opt(_n)
 
-#define    __deref_out_bcount_opt(n)
+#define	__deref_out_bcount_opt(n)
 
-#define    __checkReturn
+#define	__checkReturn
 
-#define    __drv_when(_p, _c)
+#define	__drv_when(_p, _c)
 
 /* Code inclusion options */
 
 
-#define    EFSYS_OPT_NAMES 1
+#define	EFSYS_OPT_NAMES 1
 
-#define    EFSYS_OPT_FALCON 0
-#define    EFSYS_OPT_FALCON_NIC_CFG_OVERRIDE 0
-#define    EFSYS_OPT_SIENA 1
+#define	EFSYS_OPT_FALCON 0
+#define	EFSYS_OPT_FALCON_NIC_CFG_OVERRIDE 0
+#define	EFSYS_OPT_SIENA 1
 #ifdef DEBUG
-#define    EFSYS_OPT_CHECK_REG 1
+#define	EFSYS_OPT_CHECK_REG 1
 #else
-#define    EFSYS_OPT_CHECK_REG 0
+#define	EFSYS_OPT_CHECK_REG 0
 #endif
 
-#define    EFSYS_OPT_MCDI 1
+#define	EFSYS_OPT_MCDI 1
 
-#define    EFSYS_OPT_MAC_FALCON_GMAC 0
-#define    EFSYS_OPT_MAC_FALCON_XMAC 0
-#define    EFSYS_OPT_MAC_STATS 1
+#define	EFSYS_OPT_MAC_FALCON_GMAC 0
+#define	EFSYS_OPT_MAC_FALCON_XMAC 0
+#define	EFSYS_OPT_MAC_STATS 1
 
-#define    EFSYS_OPT_LOOPBACK 0
+#define	EFSYS_OPT_LOOPBACK 0
 
-#define    EFSYS_OPT_MON_NULL 0
-#define    EFSYS_OPT_MON_LM87 0
-#define    EFSYS_OPT_MON_MAX6647 0
-#define    EFSYS_OPT_MON_SIENA 0
-#define    EFSYS_OPT_MON_STATS 0
+#define	EFSYS_OPT_MON_NULL 0
+#define	EFSYS_OPT_MON_LM87 0
+#define	EFSYS_OPT_MON_MAX6647 0
+#define	EFSYS_OPT_MON_SIENA 0
+#define	EFSYS_OPT_MON_STATS 0
 
-#define    EFSYS_OPT_PHY_NULL 0
-#define    EFSYS_OPT_PHY_QT2022C2 0
-#define    EFSYS_OPT_PHY_SFX7101 0
-#define    EFSYS_OPT_PHY_TXC43128 0
-#define    EFSYS_OPT_PHY_PM8358 0
-#define    EFSYS_OPT_PHY_SFT9001 0
-#define    EFSYS_OPT_PHY_QT2025C 0
-#define    EFSYS_OPT_PHY_STATS 1
-#define    EFSYS_OPT_PHY_PROPS 0
-#define    EFSYS_OPT_PHY_BIST 1
-#define    EFSYS_OPT_PHY_LED_CONTROL 1
+#define	EFSYS_OPT_PHY_NULL 0
+#define	EFSYS_OPT_PHY_QT2022C2 0
+#define	EFSYS_OPT_PHY_SFX7101 0
+#define	EFSYS_OPT_PHY_TXC43128 0
+#define	EFSYS_OPT_PHY_PM8358 0
+#define	EFSYS_OPT_PHY_SFT9001 0
+#define	EFSYS_OPT_PHY_QT2025C 0
+#define	EFSYS_OPT_PHY_STATS 1
+#define	EFSYS_OPT_PHY_PROPS 0
+#define	EFSYS_OPT_PHY_BIST 1
+#define	EFSYS_OPT_PHY_LED_CONTROL 1
 #define EFSYS_OPT_PHY_FLAGS 0
 
-#define    EFSYS_OPT_VPD 1
-#define    EFSYS_OPT_NVRAM 1
-#define    EFSYS_OPT_NVRAM_FALCON_BOOTROM 0
-#define    EFSYS_OPT_NVRAM_SFT9001    0
-#define    EFSYS_OPT_NVRAM_SFX7101    0
-#define    EFSYS_OPT_BOOTCFG 0
+#define	EFSYS_OPT_VPD 1
+#define	EFSYS_OPT_NVRAM 1
+#define	EFSYS_OPT_NVRAM_FALCON_BOOTROM 0
+#define	EFSYS_OPT_NVRAM_SFT9001	0
+#define	EFSYS_OPT_NVRAM_SFX7101	0
+#define	EFSYS_OPT_BOOTCFG 0
 
-#define    EFSYS_OPT_PCIE_TUNE 0
-#define    EFSYS_OPT_DIAG 0
-#define    EFSYS_OPT_WOL 1
-#define    EFSYS_OPT_RX_SCALE 1
-#define    EFSYS_OPT_QSTATS 1
+#define	EFSYS_OPT_PCIE_TUNE 0
+#define	EFSYS_OPT_DIAG 0
+#define	EFSYS_OPT_WOL 1
+#define	EFSYS_OPT_RX_SCALE 1
+#define	EFSYS_OPT_QSTATS 1
 #define EFSYS_OPT_FILTER 0
 #define EFSYS_OPT_RX_SCATTER 0
-#define    EFSYS_OPT_RX_HDR_SPLIT 0
+#define	EFSYS_OPT_RX_HDR_SPLIT 0
 
-#define    EFSYS_OPT_EV_PREFETCH 0
+#define	EFSYS_OPT_EV_PREFETCH 0
 
-#define    EFSYS_OPT_DECODE_INTR_FATAL 1
+#define	EFSYS_OPT_DECODE_INTR_FATAL 1
 
 /* ID */
 
-typedef struct __efsys_identifier_s    efsys_identifier_t;
+typedef struct __efsys_identifier_s	efsys_identifier_t;
 
 /* PROBE */
 
@@ -369,550 +248,563 @@ typedef struct __efsys_identifier_s    efsys_identifier_t;
 
 #define EFSYS_PROBE(_name)
 
-#define    EFSYS_PROBE1(_name, _type1, _arg1)
+#define	EFSYS_PROBE1(_name, _type1, _arg1)
 
-#define    EFSYS_PROBE2(_name, _type1, _arg1, _type2, _arg2)
+#define	EFSYS_PROBE2(_name, _type1, _arg1, _type2, _arg2)
 
-#define    EFSYS_PROBE3(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3)
+#define	EFSYS_PROBE3(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3)
 
-#define    EFSYS_PROBE4(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4)
+#define	EFSYS_PROBE4(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4)
 
-#define    EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5)
+#define	EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5)
 
-#define    EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6)
+#define	EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6)
 
-#define    EFSYS_PROBE7(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6, _type7, _arg7)
+#define	EFSYS_PROBE7(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6, _type7, _arg7)
 
 #else /* KDTRACE_HOOKS */
 
-#define    EFSYS_PROBE(_name)                        \
-    DTRACE_PROBE(_name)
+#define	EFSYS_PROBE(_name)						\
+	DTRACE_PROBE(_name)
 
-#define    EFSYS_PROBE1(_name, _type1, _arg1)                \
-    DTRACE_PROBE1(_name, _type1, _arg1)
+#define	EFSYS_PROBE1(_name, _type1, _arg1)				\
+	DTRACE_PROBE1(_name, _type1, _arg1)
 
-#define    EFSYS_PROBE2(_name, _type1, _arg1, _type2, _arg2)        \
-    DTRACE_PROBE2(_name, _type1, _arg1, _type2, _arg2)
+#define	EFSYS_PROBE2(_name, _type1, _arg1, _type2, _arg2)		\
+	DTRACE_PROBE2(_name, _type1, _arg1, _type2, _arg2)
 
-#define    EFSYS_PROBE3(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3)                        \
-    DTRACE_PROBE3(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3)
+#define	EFSYS_PROBE3(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3)						\
+	DTRACE_PROBE3(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3)
 
-#define    EFSYS_PROBE4(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4)                \
-    DTRACE_PROBE4(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4)
+#define	EFSYS_PROBE4(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4)				\
+	DTRACE_PROBE4(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4)
 
 #ifdef DTRACE_PROBE5
-#define    EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5)        \
-    DTRACE_PROBE5(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5)
+#define	EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5)		\
+	DTRACE_PROBE5(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5)
 #else
-#define    EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5)        \
-    DTRACE_PROBE4(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4)
+#define	EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5)		\
+	DTRACE_PROBE4(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4)
 #endif
 
 #ifdef DTRACE_PROBE6
-#define    EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6)                        \
-    DTRACE_PROBE6(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6)
+#define	EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6)						\
+	DTRACE_PROBE6(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6)
 #else
-#define    EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6)                        \
-    EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5)
+#define	EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6)						\
+	EFSYS_PROBE5(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5)
 #endif
 
 #ifdef DTRACE_PROBE7
-#define    EFSYS_PROBE7(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6, _type7, _arg7)                \
-    DTRACE_PROBE7(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6, _type7, _arg7)
+#define	EFSYS_PROBE7(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6, _type7, _arg7)				\
+	DTRACE_PROBE7(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6, _type7, _arg7)
 #else
-#define    EFSYS_PROBE7(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6, _type7, _arg7)                \
-    EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,        \
-        _type3, _arg3, _type4, _arg4, _type5, _arg5,        \
-        _type6, _arg6)
+#define	EFSYS_PROBE7(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6, _type7, _arg7)				\
+	EFSYS_PROBE6(_name, _type1, _arg1, _type2, _arg2,		\
+	    _type3, _arg3, _type4, _arg4, _type5, _arg5,		\
+	    _type6, _arg6)
 #endif
 
 #endif /* KDTRACE_HOOKS */
 
 /* DMA */
 
-typedef char *caddr_t;
-typedef uint64_t        efsys_dma_addr_t;
+typedef uint64_t		efsys_dma_addr_t;
 
 typedef struct efsys_mem_s {
 //    bus_dma_tag_t        esm_tag;
 //    bus_dmamap_t        esm_map;
-    caddr_t            esm_base;
-    efsys_dma_addr_t    esm_addr;
-    size_t            esm_size;
+	caddr_t			esm_base;
+	efsys_dma_addr_t	esm_addr;
+	size_t			esm_size;
 } efsys_mem_t;
 
-#define    EFSYS_MEM_ZERO(_esmp, _size)                    \
-    do {                                \
-        (void) memset((_esmp)->esm_base, 0, (_size));        \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
 
-#define    EFSYS_MEM_READD(_esmp, _offset, _edp)                \
-    do {                                \
-        uint32_t *addr;                        \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        addr = (void *)((_esmp)->esm_base + (_offset));        \
-                                    \
-        (_edp)->ed_u32[0] = *addr;                \
-                                    \
-        EFSYS_PROBE2(mem_readd, unsigned int, (_offset),    \
-            uint32_t, (_edp)->ed_u32[0]);            \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_MEM_ZERO(_esmp, _size)					\
+	do {								\
+		(void) memset((_esmp)->esm_base, 0, (_size));		\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_MEM_READQ(_esmp, _offset, _eqp)                \
-    do {                                \
-        uint32_t *addr;                        \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        addr = (void *)((_esmp)->esm_base + (_offset));        \
-                                    \
-        (_eqp)->eq_u32[0] = *addr++;                \
-        (_eqp)->eq_u32[1] = *addr;                \
-                                    \
-        EFSYS_PROBE3(mem_readq, unsigned int, (_offset),    \
-            uint32_t, (_eqp)->eq_u32[1],            \
-            uint32_t, (_eqp)->eq_u32[0]);            \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_MEM_READD(_esmp, _offset, _edp)				\
+	do {								\
+		uint32_t *addr;						\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		addr = (void *)((_esmp)->esm_base + (_offset));		\
+									\
+		(_edp)->ed_u32[0] = *addr;				\
+									\
+		EFSYS_PROBE2(mem_readd, unsigned int, (_offset),	\
+		    uint32_t, (_edp)->ed_u32[0]);			\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_MEM_READO(_esmp, _offset, _eop)                \
-    do {                                \
-        uint32_t *addr;                        \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        addr = (void *)((_esmp)->esm_base + (_offset));        \
-                                    \
-        (_eop)->eo_u32[0] = *addr++;                \
-        (_eop)->eo_u32[1] = *addr++;                \
-        (_eop)->eo_u32[2] = *addr++;                \
-        (_eop)->eo_u32[3] = *addr;                \
-                                    \
-        EFSYS_PROBE5(mem_reado, unsigned int, (_offset),    \
-            uint32_t, (_eop)->eo_u32[3],            \
-            uint32_t, (_eop)->eo_u32[2],            \
-            uint32_t, (_eop)->eo_u32[1],            \
-            uint32_t, (_eop)->eo_u32[0]);            \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_MEM_READQ(_esmp, _offset, _eqp)				\
+	do {								\
+		uint32_t *addr;						\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		addr = (void *)((_esmp)->esm_base + (_offset));		\
+									\
+		(_eqp)->eq_u32[0] = *addr++;				\
+		(_eqp)->eq_u32[1] = *addr;				\
+									\
+		EFSYS_PROBE3(mem_readq, unsigned int, (_offset),	\
+		    uint32_t, (_eqp)->eq_u32[1],			\
+		    uint32_t, (_eqp)->eq_u32[0]);			\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_MEM_WRITED(_esmp, _offset, _edp)                \
-    do {                                \
-        uint32_t *addr;                        \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        EFSYS_PROBE2(mem_writed, unsigned int, (_offset),    \
-            uint32_t, (_edp)->ed_u32[0]);            \
-                                    \
-        addr = (void *)((_esmp)->esm_base + (_offset));        \
-                                    \
-        *addr = (_edp)->ed_u32[0];                \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_MEM_READO(_esmp, _offset, _eop)				\
+	do {								\
+		uint32_t *addr;						\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		addr = (void *)((_esmp)->esm_base + (_offset));		\
+									\
+		(_eop)->eo_u32[0] = *addr++;				\
+		(_eop)->eo_u32[1] = *addr++;				\
+		(_eop)->eo_u32[2] = *addr++;				\
+		(_eop)->eo_u32[3] = *addr;				\
+									\
+		EFSYS_PROBE5(mem_reado, unsigned int, (_offset),	\
+		    uint32_t, (_eop)->eo_u32[3],			\
+		    uint32_t, (_eop)->eo_u32[2],			\
+		    uint32_t, (_eop)->eo_u32[1],			\
+		    uint32_t, (_eop)->eo_u32[0]);			\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_MEM_WRITEQ(_esmp, _offset, _eqp)                \
-    do {                                \
-        uint32_t *addr;                        \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        EFSYS_PROBE3(mem_writeq, unsigned int, (_offset),    \
-            uint32_t, (_eqp)->eq_u32[1],            \
-            uint32_t, (_eqp)->eq_u32[0]);            \
-                                    \
-        addr = (void *)((_esmp)->esm_base + (_offset));        \
-                                    \
-        *addr++ = (_eqp)->eq_u32[0];                \
-        *addr   = (_eqp)->eq_u32[1];                \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_MEM_WRITED(_esmp, _offset, _edp)				\
+	do {								\
+		uint32_t *addr;						\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		EFSYS_PROBE2(mem_writed, unsigned int, (_offset),	\
+		    uint32_t, (_edp)->ed_u32[0]);			\
+									\
+		addr = (void *)((_esmp)->esm_base + (_offset));		\
+									\
+		*addr = (_edp)->ed_u32[0];				\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_MEM_WRITEO(_esmp, _offset, _eop)                \
-    do {                                \
-        uint32_t *addr;                        \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        EFSYS_PROBE5(mem_writeo, unsigned int, (_offset),    \
-            uint32_t, (_eop)->eo_u32[3],            \
-            uint32_t, (_eop)->eo_u32[2],            \
-            uint32_t, (_eop)->eo_u32[1],            \
-            uint32_t, (_eop)->eo_u32[0]);            \
-                                    \
-        addr = (void *)((_esmp)->esm_base + (_offset));        \
-                                    \
-        *addr++ = (_eop)->eo_u32[0];                \
-        *addr++ = (_eop)->eo_u32[1];                \
-        *addr++ = (_eop)->eo_u32[2];                \
-        *addr   = (_eop)->eo_u32[3];                \
-                                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_MEM_WRITEQ(_esmp, _offset, _eqp)				\
+	do {								\
+		uint32_t *addr;						\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		EFSYS_PROBE3(mem_writeq, unsigned int, (_offset),	\
+		    uint32_t, (_eqp)->eq_u32[1],			\
+		    uint32_t, (_eqp)->eq_u32[0]);			\
+									\
+		addr = (void *)((_esmp)->esm_base + (_offset));		\
+									\
+		*addr++ = (_eqp)->eq_u32[0];				\
+		*addr   = (_eqp)->eq_u32[1];				\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_MEM_ADDR(_esmp)                        \
-    ((_esmp)->esm_addr)
+#define	EFSYS_MEM_WRITEO(_esmp, _offset, _eop)				\
+	do {								\
+		uint32_t *addr;						\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		EFSYS_PROBE5(mem_writeo, unsigned int, (_offset),	\
+		    uint32_t, (_eop)->eo_u32[3],			\
+		    uint32_t, (_eop)->eo_u32[2],			\
+		    uint32_t, (_eop)->eo_u32[1],			\
+		    uint32_t, (_eop)->eo_u32[0]);			\
+									\
+		addr = (void *)((_esmp)->esm_base + (_offset));		\
+									\
+		*addr++ = (_eop)->eo_u32[0];				\
+		*addr++ = (_eop)->eo_u32[1];				\
+		*addr++ = (_eop)->eo_u32[2];				\
+		*addr   = (_eop)->eo_u32[3];				\
+									\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
+#define	EFSYS_MEM_ADDR(_esmp)						\
+	((_esmp)->esm_addr)
 
 
 /* BAR */
 typedef struct efsys_bar_s {
-    struct mtx        esb_lock;
-    bus_space_tag_t        esb_tag;
-    bus_space_handle_t    esb_handle;
-    int            esb_rid;
+	struct mtx		esb_lock;
+	bus_space_tag_t		esb_tag;
+	bus_space_handle_t	esb_handle;
+	int			esb_rid;
 //    struct resource        *esb_res;
 } efsys_bar_t;
 
-#define    EFSYS_BAR_READD(_esbp, _offset, _edp, _lock)        \
-    do {                                \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_lock(&((_esbp)->esb_lock));            \
-                                    \
-        (_edp)->ed_u32[0] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset));            \
-                                    \
-        EFSYS_PROBE2(bar_readd, unsigned int, (_offset),    \
-            uint32_t, (_edp)->ed_u32[0]);            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_unlock(&((_esbp)->esb_lock));        \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_BAR_READD(_esbp, _offset, _edp, _lock)			\
+	do {								\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_lock(&((_esbp)->esb_lock));			\
+									\
+		(_edp)->ed_u32[0] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset));			\
+									\
+		EFSYS_PROBE2(bar_readd, unsigned int, (_offset),	\
+		    uint32_t, (_edp)->ed_u32[0]);			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_unlock(&((_esbp)->esb_lock));		\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
+#define	EFSYS_BAR_READQ(_esbp, _offset, _eqp)				\
+	do {								\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		mtx_lock(&((_esbp)->esb_lock));				\
+									\
+		(_eqp)->eq_u32[0] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset));			\
+		(_eqp)->eq_u32[1] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset+4));			\
+									\
+		EFSYS_PROBE3(bar_readq, unsigned int, (_offset),	\
+		    uint32_t, (_eqp)->eq_u32[1],			\
+		    uint32_t, (_eqp)->eq_u32[0]);			\
+									\
+		mtx_unlock(&((_esbp)->esb_lock));			\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_BAR_READQ(_esbp, _offset, _eqp)                \
-    do {                                \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        mtx_lock(&((_esbp)->esb_lock));                \
-                                    \
-        (_eqp)->eq_u32[0] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset));            \
-        (_eqp)->eq_u32[1] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset+4));            \
-                                    \
-        EFSYS_PROBE3(bar_readq, unsigned int, (_offset),    \
-            uint32_t, (_eqp)->eq_u32[1],            \
-            uint32_t, (_eqp)->eq_u32[0]);            \
-                                    \
-        mtx_unlock(&((_esbp)->esb_lock));            \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_BAR_READO(_esbp, _offset, _eop, _lock)			\
+	do {								\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_lock(&((_esbp)->esb_lock));			\
+									\
+		(_eop)->eo_u32[0] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset));			\
+		(_eop)->eo_u32[1] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset+4));			\
+		(_eop)->eo_u32[2] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset+8));			\
+		(_eop)->eo_u32[3] = bus_space_read_4((_esbp)->esb_tag,	\
+		    (_esbp)->esb_handle, (_offset+12));			\
+									\
+		EFSYS_PROBE5(bar_reado, unsigned int, (_offset),	\
+		    uint32_t, (_eop)->eo_u32[3],			\
+		    uint32_t, (_eop)->eo_u32[2],			\
+		    uint32_t, (_eop)->eo_u32[1],			\
+		    uint32_t, (_eop)->eo_u32[0]);			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_unlock(&((_esbp)->esb_lock));		\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_BAR_READO(_esbp, _offset, _eop, _lock)            \
-    do {                                \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_lock(&((_esbp)->esb_lock));            \
-                                    \
-        (_eop)->eo_u32[0] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset));            \
-        (_eop)->eo_u32[1] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset+4));            \
-        (_eop)->eo_u32[2] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset+8));            \
-        (_eop)->eo_u32[3] = bus_space_read_4((_esbp)->esb_tag,    \
-            (_esbp)->esb_handle, (_offset+12));            \
-                                    \
-        EFSYS_PROBE5(bar_reado, unsigned int, (_offset),    \
-            uint32_t, (_eop)->eo_u32[3],            \
-            uint32_t, (_eop)->eo_u32[2],            \
-            uint32_t, (_eop)->eo_u32[1],            \
-            uint32_t, (_eop)->eo_u32[0]);            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_unlock(&((_esbp)->esb_lock));        \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_BAR_WRITED(_esbp, _offset, _edp, _lock)			\
+	do {								\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_lock(&((_esbp)->esb_lock));			\
+									\
+		EFSYS_PROBE2(bar_writed, unsigned int, (_offset),	\
+		    uint32_t, (_edp)->ed_u32[0]);			\
+									\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset), (_edp)->ed_u32[0]);			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_unlock(&((_esbp)->esb_lock));		\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_BAR_WRITED(_esbp, _offset, _edp, _lock)            \
-    do {                                \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_dword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_lock(&((_esbp)->esb_lock));            \
-                                    \
-        EFSYS_PROBE2(bar_writed, unsigned int, (_offset),    \
-            uint32_t, (_edp)->ed_u32[0]);            \
-                                    \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset), (_edp)->ed_u32[0]);            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_unlock(&((_esbp)->esb_lock));        \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_BAR_WRITEQ(_esbp, _offset, _eqp)				\
+	do {								\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		mtx_lock(&((_esbp)->esb_lock));				\
+									\
+		EFSYS_PROBE3(bar_writeq, unsigned int, (_offset),	\
+		    uint32_t, (_eqp)->eq_u32[1],			\
+		    uint32_t, (_eqp)->eq_u32[0]);			\
+									\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset), (_eqp)->eq_u32[0]);			\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset+4), (_eqp)->eq_u32[1]);			\
+									\
+		mtx_unlock(&((_esbp)->esb_lock));			\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_BAR_WRITEQ(_esbp, _offset, _eqp)                \
-    do {                                \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_qword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        mtx_lock(&((_esbp)->esb_lock));                \
-                                    \
-        EFSYS_PROBE3(bar_writeq, unsigned int, (_offset),    \
-            uint32_t, (_eqp)->eq_u32[1],            \
-            uint32_t, (_eqp)->eq_u32[0]);            \
-                                    \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset), (_eqp)->eq_u32[0]);            \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset+4), (_eqp)->eq_u32[1]);            \
-                                    \
-        mtx_unlock(&((_esbp)->esb_lock));            \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
-
-#define    EFSYS_BAR_WRITEO(_esbp, _offset, _eop, _lock)            \
-    do {                                \
-        _NOTE(CONSTANTCONDITION)                \
-        myKASRT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),    \
-            ("not power of 2 aligned"));            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_lock(&((_esbp)->esb_lock));            \
-                                    \
-        EFSYS_PROBE5(bar_writeo, unsigned int, (_offset),    \
-            uint32_t, (_eop)->eo_u32[3],            \
-            uint32_t, (_eop)->eo_u32[2],            \
-            uint32_t, (_eop)->eo_u32[1],            \
-            uint32_t, (_eop)->eo_u32[0]);            \
-                                    \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset), (_eop)->eo_u32[0]);            \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset+4), (_eop)->eo_u32[1]);            \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset+8), (_eop)->eo_u32[2]);            \
-        bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
-            (_offset+12), (_eop)->eo_u32[3]);            \
-                                    \
-        _NOTE(CONSTANTCONDITION)                \
-        if (_lock)                        \
-            mtx_unlock(&((_esbp)->esb_lock));        \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
-
+#define	EFSYS_BAR_WRITEO(_esbp, _offset, _eop, _lock)			\
+	do {								\
+		_NOTE(CONSTANTCONDITION)				\
+		KASSERT(IS_P2ALIGNED(_offset, sizeof (efx_oword_t)),	\
+		    ("not power of 2 aligned"));			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_lock(&((_esbp)->esb_lock));			\
+									\
+		EFSYS_PROBE5(bar_writeo, unsigned int, (_offset),	\
+		    uint32_t, (_eop)->eo_u32[3],			\
+		    uint32_t, (_eop)->eo_u32[2],			\
+		    uint32_t, (_eop)->eo_u32[1],			\
+		    uint32_t, (_eop)->eo_u32[0]);			\
+									\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset), (_eop)->eo_u32[0]);			\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset+4), (_eop)->eo_u32[1]);			\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset+8), (_eop)->eo_u32[2]);			\
+		bus_space_write_4((_esbp)->esb_tag, (_esbp)->esb_handle,\
+		    (_offset+12), (_eop)->eo_u32[3]);			\
+									\
+		_NOTE(CONSTANTCONDITION)				\
+		if (_lock)						\
+			mtx_unlock(&((_esbp)->esb_lock));		\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
 /* SPIN */
 
-#define    EFSYS_SPIN_orig(_us)                        \
-    do {                                \
-        DELAY(_us);                        \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_SPIN(_us)							\
+	do {								\
+		DELAY(_us);						\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-
-#define    EFSYS_SPIN(_us)                            \
-    do {                                \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
-
-#define    EFSYS_SLEEP    EFSYS_SPIN
+#define	EFSYS_SLEEP	EFSYS_SPIN
 
 /* BARRIERS */
 
 /* Strict ordering guaranteed by devacc.devacc_attr_dataorder */
-#define    EFSYS_MEM_READ_BARRIER()
-#define    EFSYS_PIO_WRITE_BARRIER()
+#define	EFSYS_MEM_READ_BARRIER()
+#define	EFSYS_PIO_WRITE_BARRIER()
 
 /* TIMESTAMP */
-typedef    clock_t    efsys_timestamp_t;
 
-#define    EFSYS_TIMESTAMP(_usp)                        \
-    do {                                \
-        clock_t now;                        \
-                                    \
-        now = ticks;                        \
-        *(_usp) = now * hz / 1000000;                \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+typedef	clock_t	efsys_timestamp_t;
 
-#if 0
+#define	EFSYS_TIMESTAMP(_usp)						\
+	do {								\
+		clock_t now;						\
+									\
+		now = ticks;						\
+		*(_usp) = now * hz / 1000000;				\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
+
 /* KMEM */
-#define    EFSYS_KMEM_ALLOC(_esip, _size, _p)                \
-    do {                                \
-        (_esip) = (_esip);                    \
-        (_p) = malloc((_size), M_SFXGE, M_WAITOK|M_ZERO);    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
 
-#define    EFSYS_KMEM_FREE(_esip, _size, _p)                \
-    do {                                \
-        (void) (_esip);                        \
-        (void) (_size);                        \
-        free((_p), M_SFXGE);                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
-#endif // 0
+#define	EFSYS_KMEM_ALLOC(_esip, _size, _p)				\
+	do {								\
+        (void) (_esip);                                     \
+        (_p) = malloc((_size));                             \
+        if ((_p) != NULL) {                                 \
+            memset((_p), 0, (_size));                       \
+        }                                                   \
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-typedef struct mtx    efsys_lock_t;
+#define	EFSYS_KMEM_FREE(_esip, _size, _p)				\
+	do {								\
+		(void) (_esip);						\
+		(void) (_size);						\
+        free((_p));                                         \
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
 /* LOCK */
-#define    EFSYS_LOCK_MAGIC    0x000010c4
 
-#define    EFSYS_LOCK(_lockp, _state)                    \
-    do {                                \
-        mtx_lock(_lockp);                    \
-        (_state) = EFSYS_LOCK_MAGIC;                \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+typedef struct mtx	efsys_lock_t;
 
-#define    EFSYS_UNLOCK(_lockp, _state)                    \
-    do {                                \
-        if ((_state) != EFSYS_LOCK_MAGIC)            \
-            myKASRT(B_FALSE, ("not locked"));        \
-        mtx_unlock(_lockp);                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_LOCK_MAGIC	0x000010c4
+
+#define	EFSYS_LOCK(_lockp, _state)					\
+	do {								\
+		mtx_lock(_lockp);					\
+		(_state) = EFSYS_LOCK_MAGIC;				\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
+
+#define	EFSYS_UNLOCK(_lockp, _state)					\
+	do {								\
+		if ((_state) != EFSYS_LOCK_MAGIC)			\
+			KASSERT(B_FALSE, ("not locked"));		\
+		mtx_unlock(_lockp);					\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
 /* PREEMPT */
 
-#define    EFSYS_PREEMPT_DISABLE(_state)                    \
-    do {                                \
-        (_state) = (_state);                    \
-        critical_enter();                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_PREEMPT_DISABLE(_state)					\
+	do {								\
+		(_state) = (_state);					\
+		critical_enter();					\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_PREEMPT_ENABLE(_state)                    \
-    do {                                \
-        (_state) = (_state);                    \
-        critical_exit(_state);                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_PREEMPT_ENABLE(_state)					\
+	do {								\
+		(_state) = (_state);					\
+		critical_exit(_state);					\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
 /* STAT */
 
-typedef uint64_t        efsys_stat_t;
+typedef uint64_t		efsys_stat_t;
 
-#define    EFSYS_STAT_INCR(_knp, _delta)                     \
-    do {                                \
-        *(_knp) += (_delta);                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_INCR(_knp, _delta) 					\
+	do {								\
+		*(_knp) += (_delta);					\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_STAT_DECR(_knp, _delta)                     \
-    do {                                \
-        *(_knp) -= (_delta);                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_DECR(_knp, _delta) 					\
+	do {								\
+		*(_knp) -= (_delta);					\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_STAT_SET(_knp, _val)                    \
-    do {                                \
-        *(_knp) = (_val);                    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_SET(_knp, _val)					\
+	do {								\
+		*(_knp) = (_val);					\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_STAT_SET_QWORD(_knp, _valp)                \
-    do {                                \
-        *(_knp) = le64toh((_valp)->eq_u64[0]);            \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_SET_QWORD(_knp, _valp)				\
+	do {								\
+		*(_knp) = le64toh((_valp)->eq_u64[0]);			\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_STAT_SET_DWORD(_knp, _valp)                \
-    do {                                \
-        *(_knp) = le32toh((_valp)->ed_u32[0]);            \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_SET_DWORD(_knp, _valp)				\
+	do {								\
+		*(_knp) = le32toh((_valp)->ed_u32[0]);			\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_STAT_INCR_QWORD(_knp, _valp)                \
-    do {                                \
-        *(_knp) += le64toh((_valp)->eq_u64[0]);            \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_INCR_QWORD(_knp, _valp)				\
+	do {								\
+		*(_knp) += le64toh((_valp)->eq_u64[0]);			\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
-#define    EFSYS_STAT_SUBR_QWORD(_knp, _valp)                \
-    do {                                \
-        *(_knp) -= le64toh((_valp)->eq_u64[0]);            \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_STAT_SUBR_QWORD(_knp, _valp)				\
+	do {								\
+		*(_knp) -= le64toh((_valp)->eq_u64[0]);			\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 
 /* ERR */
 
-extern void    sfxge_err(efsys_identifier_t *, unsigned int,
-            uint32_t, uint32_t);
+extern void	sfxge_err(efsys_identifier_t *, unsigned int,
+		    uint32_t, uint32_t);
 
 #if EFSYS_OPT_DECODE_INTR_FATAL
-#define    EFSYS_ERR(_esip, _code, _dword0, _dword1)            \
-    do {                                \
-        sfxge_err((_esip), (_code), (_dword0), (_dword1));    \
-    _NOTE(CONSTANTCONDITION)                    \
-    } while (B_FALSE)
+#define	EFSYS_ERR(_esip, _code, _dword0, _dword1)			\
+	do {								\
+		sfxge_err((_esip), (_code), (_dword0), (_dword1));	\
+	_NOTE(CONSTANTCONDITION)					\
+	} while (B_FALSE)
 #endif
 
-#ifdef    __cplusplus
+/* ASSERT */
+
+#define	EFSYS_ASSERT(_exp) do {						\
+	if (!(_exp))							\
+		panic(#_exp);						\
+	} while (0)
+
+#define EFSYS_ASSERT3(_x, _op, _y, _t) do {				\
+	const _t __x = (_t)(_x);					\
+	const _t __y = (_t)(_y);					\
+	if (!(__x _op __y))						\
+	        panic("assertion failed at %s:%u", __FILE__, __LINE__);	\
+	} while(0)
+
+#define EFSYS_ASSERT3U(_x, _op, _y)	EFSYS_ASSERT3(_x, _op, _y, uint64_t)
+#define EFSYS_ASSERT3S(_x, _op, _y)	EFSYS_ASSERT3(_x, _op, _y, int64_t)
+#define EFSYS_ASSERT3P(_x, _op, _y)	EFSYS_ASSERT3(_x, _op, _y, uintptr_t)
+
+#ifdef	__cplusplus
 }
 #endif
 
-#endif    /* _SYS_EFSYS_H */
+#endif	/* _SYS_EFSYS_H */

@@ -772,21 +772,6 @@ extern int fix_lint;
 	_NOTE(CONSTANTCONDITION) 					\
 	} while (B_FALSE)
 
-
-#define	EFX_POPULATE_DWORD(_dword,					\
-	    _field1, _value1, _field2, _value2, _field3, _value3,	\
-	    _field4, _value4, _field5, _value5,	_field6, _value6,	\
-	    _field7, _value7, _field8, _value8,	_field9, _value9,	\
-	    _field10, _value10)						\
-		(_dword).ed_u32[0] = EFX_INSERT_FIELDS32(0, 31,		\
-		    _field1, _value1, _field2, _value2,			\
-		    _field3, _value3, _field4, _value4,			\
-		    _field5, _value5, _field6, _value6,			\
-		    _field7, _value7, _field8, _value8,			\
-		    _field9, _value9, _field10, _value10)
-
-
-#if 0
 #define	EFX_POPULATE_DWORD(_dword,					\
 	    _field1, _value1, _field2, _value2, _field3, _value3,	\
 	    _field4, _value4, _field5, _value5,	_field6, _value6,	\
@@ -801,8 +786,7 @@ extern int fix_lint;
 		    _field7, _value7, _field8, _value8,			\
 		    _field9, _value9, _field10, _value10);		\
 	_NOTE(CONSTANTCONDITION)					\
-	} while (0)
-#endif // 0
+	} while (B_FALSE)
 
 #define	EFX_POPULATE_WORD(_word,					\
 	    _field1, _value1, _field2, _value2, _field3, _value3,	\

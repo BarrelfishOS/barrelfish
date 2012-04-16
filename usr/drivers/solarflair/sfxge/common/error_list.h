@@ -24,6 +24,9 @@ enum error_list {
     EIO,
     EMSGSIZE,
     ENOMEM,
+    EFBIG,
+    EFAULT,
+    EEXIST,
 };
 
 #endif // _ERROR_LIST_H
