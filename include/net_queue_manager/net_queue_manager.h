@@ -177,6 +177,12 @@ void ethersrv_init(
     ether_rx_register_buffer    rx_register_buffer_ptr,
     ether_rx_get_free_slots     rx_get_free_slots_ptr);
 
+/**
+ * Pass command line argument not used by driver to library. Can be called
+ * multiple times, once for each parameter.
+ */
+void ethersrv_argument(const char* arg);
+
 bool waiting_for_netd(void);
 
 bool handle_tx_done(void *opaque);

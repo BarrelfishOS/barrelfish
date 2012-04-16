@@ -483,10 +483,11 @@ static void parse_cmdline(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
             service_name = argv[i] + strlen("cardname=");
-        }
-        if (strncmp(argv[i], "queue=", strlen("queue=") - 1) == 0) {
+        } else if (strncmp(argv[i], "queue=", strlen("queue=") - 1) == 0) {
             qi = atol(argv[i] + strlen("queue="));
             has_queue = true;
+        } else {
+            ethersrv_argument(argv[i]);
         }
     }
 

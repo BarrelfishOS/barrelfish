@@ -1082,6 +1082,10 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     }
 }
 
+void ethersrv_argument(const char* arg)
+{
+}
+
 
 // **********************************************************
 // Additional functions

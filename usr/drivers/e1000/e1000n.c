@@ -573,34 +573,26 @@ int main(int argc, char **argv)
         if(strncmp(argv[i],"affinitymin=",strlen("affinitymin="))==0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
             E1000N_DEBUG("minbase = %lu\n", minbase);
-        }
-        if(strncmp(argv[i],"affinitymax=",strlen("affinitymax=")-1)==0) {
+        } else if(strncmp(argv[i],"affinitymax=",strlen("affinitymax=")-1)==0) {
             maxbase = atol(argv[i] + strlen("affinitymax="));
             E1000N_DEBUG("maxbase = %lu\n", maxbase);
-        }
-        if(strncmp(argv[i],"servicename=",strlen("servicename=")-1)==0) {
+        } else if(strncmp(argv[i],"servicename=",strlen("servicename=")-1)==0) {
             service_name = argv[i] + strlen("servicename=");
             E1000N_DEBUG("service name = %s\n", service_name);
-        }
-        if(strncmp(argv[i],"bus=",strlen("bus=")-1)==0) {
+        } else if(strncmp(argv[i],"bus=",strlen("bus=")-1)==0) {
             bus = atol(argv[i] + strlen("bus="));
             E1000N_DEBUG("bus = %lu\n", bus);
-        }
-        if(strncmp(argv[i],"device=",strlen("device=")-1)==0) {
+        } else if(strncmp(argv[i],"device=",strlen("device=")-1)==0) {
             device = atol(argv[i] + strlen("device="));
             E1000N_DEBUG("device = %lu\n", device);
-        }
-        if(strncmp(argv[i],"function=",strlen("function=")-1)==0) {
+        } else if(strncmp(argv[i],"function=",strlen("function=")-1)==0) {
             function = atol(argv[i] + strlen("function="));
             E1000N_DEBUG("function = %u\n", function);
-        }
-        if(strncmp(argv[i],"deviceid=",strlen("deviceid=")-1)==0) {
+        } else if(strncmp(argv[i],"deviceid=",strlen("deviceid=")-1)==0) {
             deviceid = strtoul(argv[i] + strlen("deviceid="), NULL, 0);
             E1000N_DEBUG("deviceid = %u\n", deviceid);
             printf("### deviceid = %u\n", deviceid);
-
-        }
-        if(strncmp(argv[i],"mac=",strlen("mac=")-1)==0) {
+        } else if(strncmp(argv[i],"mac=",strlen("mac=")-1)==0) {
             if (parse_mac(macaddr, argv[i] + strlen("mac="))) {
                 user_macaddr = true;
                 E1000N_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
@@ -611,10 +603,12 @@ int main(int argc, char **argv)
                         argv[0], argv[i]);
                 return 1;
             }
-        }
-        if(strcmp(argv[i],"noirq")==0) {
+        } else if(strcmp(argv[i],"noirq")==0) {
             use_interrupt = false;
             printf("Driver working in polling mode\n");
+        } else {
+            // Pass argument to library
+            ethersrv_argument(argv[i]);
         }
     }
 

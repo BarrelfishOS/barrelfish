@@ -583,7 +583,13 @@ static void polling_loop(void)
 int main(int argc, char *argv[])
 {
 	errval_t err;
+    int i;
     RTL8029_DEBUG("Starting rtl8029 standalone driver.....\n");
+
+    // Process commandline arguments
+    for (i = 1; i < argc; i++) {
+        ethersrv_argument(argv[i]);
+    }
 #ifdef CONFIG_QEMU_NETWORK
     printf("Starting RTL8029 for QEMU\n");
 #else // CONFIG_QEMU_NETWORK
