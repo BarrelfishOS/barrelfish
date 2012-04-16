@@ -84,9 +84,6 @@ static void **receive_opaque = NULL;
 /*****************************************************************
  * Local states:
  *****************************************************************/
-static uint64_t minbase = -1;
-static uint64_t maxbase = -1;
-
 static uint64_t bus = PCI_DONT_CARE;
 static uint64_t device = PCI_DONT_CARE;
 static uint32_t function = PCI_DONT_CARE;
@@ -570,13 +567,7 @@ int main(int argc, char **argv)
     E1000N_DEBUG("argc = %d\n", argc);
     for (int i = 0; i < argc; i++) {
         E1000N_DEBUG("arg %d = %s\n", i, argv[i]);
-        if(strncmp(argv[i],"affinitymin=",strlen("affinitymin="))==0) {
-            minbase = atol(argv[i] + strlen("affinitymin="));
-            E1000N_DEBUG("minbase = %lu\n", minbase);
-        } else if(strncmp(argv[i],"affinitymax=",strlen("affinitymax=")-1)==0) {
-            maxbase = atol(argv[i] + strlen("affinitymax="));
-            E1000N_DEBUG("maxbase = %lu\n", maxbase);
-        } else if(strncmp(argv[i],"servicename=",strlen("servicename=")-1)==0) {
+        if(strncmp(argv[i],"servicename=",strlen("servicename=")-1)==0) {
             service_name = argv[i] + strlen("servicename=");
             E1000N_DEBUG("service name = %s\n", service_name);
         } else if(strncmp(argv[i],"bus=",strlen("bus=")-1)==0) {
@@ -612,10 +603,6 @@ int main(int argc, char **argv)
         }
     }
 
-    if ((minbase != -1) && (maxbase != -1)) {
-        E1000N_DEBUG("set memory affinity [%lx, %lx]\n", minbase, maxbase);
-        ram_set_affinity(minbase, maxbase);
-    }
     if (service_name == 0) {
         service_name = (char *)malloc(sizeof("e1000") + 1);
         strncpy(service_name, "e1000", sizeof("e1000") + 1);

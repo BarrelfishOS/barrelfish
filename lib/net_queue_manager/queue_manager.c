@@ -1084,6 +1084,20 @@ void ethersrv_init(char *service_name, uint64_t queueid,
 
 void ethersrv_argument(const char* arg)
 {
+    static uint64_t minbase = -1ULL;
+    static uint64_t maxbase = -1ULL;
+    static bool affinity_set = false;
+
+    if (!strncmp(arg, "affinitymin=", strlen("affinitymin="))) {
+        minbase = atol(arg + strlen("affinitymin="));
+    } else if(!strncmp(arg, "affinitymax=", strlen("affinitymax="))) {
+        maxbase = atol(arg + strlen("affinitymax="));
+    }
+
+    if (!affinity_set && minbase != -1ULL && maxbase != -1ULL) {
+        ram_set_affinity(minbase, maxbase);
+        affinity_set = true;
+    }
 }
 
 
