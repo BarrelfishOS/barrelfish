@@ -53,6 +53,15 @@ struct buffer_descriptor *buffers_list = NULL;
 // If we're not using sw filtering, we can only receive on one connection
 struct buffer_descriptor *receive_buffer = NULL;
 
+// State required in TX path to remember information about buffers
+struct tx_buffer_state {
+    struct net_queue_manager_binding *binding;
+    uint64_t spp_index;
+};
+static struct tx_buffer_state *tx_buffer = NULL;
+static size_t                  tx_buffer_count;
+static size_t                  tx_buffer_index = 0;
+
 /*****************************************************************
  * Prototypes
  *****************************************************************/
@@ -526,8 +535,36 @@ static bool send_single_pkt_to_driver(struct net_queue_manager_binding *cc)
         USER_PANIC("Incomplete packet sent by app!");
         return false;
     }
-    // TODO: send the list to driver
-    err = ether_transmit_pbuf_list_ptr(cl);
+
+    // Prepare data for driver and call it in to the driver
+    {
+        size_t n = sld->no_pbufs;
+        size_t i;
+        struct driver_buffer buffers[n];
+        struct tx_buffer_state *txb;
+        struct buffer_descriptor *buffer = NULL;
+
+        for (i = 0; i < n; i++) {
+            struct slot_data *s = &spp->sp->slot_list[cl->tx_index + i].d;
+            if (buffer == NULL || buffer->buffer_id != s->buffer_id) {
+                buffer = find_buffer(s->buffer_id);
+            }
+
+            buffers[i].pa = (uint64_t) buffer->pa + s->offset;
+            buffers[i].va = (void*) ((uintptr_t) buffer->va + s->offset);
+            buffers[i].len = s->len;
+        }
+
+        // Save state for handle_tx_done()
+        txb = tx_buffer + tx_buffer_index;
+        tx_buffer_index = (tx_buffer_index + 1) % tx_buffer_count;
+        txb->binding = cc;
+        txb->spp_index = cl->tx_index;
+
+        // Pass buffers to driver
+        err = ether_transmit_pbuf_list_ptr(buffers, n, txb);
+    }
+
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
             (uint32_t)cl->tx_index);
@@ -604,8 +641,13 @@ static uint64_t send_packets_on_wire(struct net_queue_manager_binding *cc)
 }
 
 // function to do housekeeping after descriptors are transferred
-bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index)
+bool handle_tx_done(void *opaque)
 {
+    struct tx_buffer_state *txb = opaque;
+    assert(txb - tx_buffer < tx_buffer_count);
+    struct net_queue_manager_binding *b = txb->binding;
+    uint64_t spp_index = txb->spp_index;
+
     uint64_t rts = rdtsc();
     assert(b != NULL);
     struct client_closure *cc = (struct client_closure *)b->st;
@@ -1017,6 +1059,10 @@ void ethersrv_init(char *service_name, uint64_t queueid,
                             service_name,  my_mac[0], my_mac[1], my_mac[2],
                              my_mac[3], my_mac[4], my_mac[5]);
     bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
+
+    tx_buffer_count = tx_free_slots_fn_ptr();
+    assert(tx_buffer_count >= 1);
+    tx_buffer = calloc(tx_buffer_count, sizeof(*tx_buffer));
 
     /* exporting ether interface */
     err = net_queue_manager_export(NULL, // state for connect/export callbacks

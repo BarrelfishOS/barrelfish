@@ -65,8 +65,7 @@ static volatile struct tx_desc *transmit_ring;
 
 // Data-structure to map sent buffer slots back to application slots
 struct pbuf_desc {
-    struct net_queue_manager_binding *sr; // which application binding
-    uint64_t spp_index;  // which slot within spp
+    void *opaque;
 };
 static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFER];
 //remember the tx pbufs in use
@@ -145,26 +144,21 @@ static bool can_transmit(int numbufs)
     return (nr_free > numbufs);
 }
 
-static uint64_t transmit_pbuf(lpaddr_t buffer_address,
-                              size_t packet_len, uint64_t offset, bool last,
-                              uint64_t client_data, uint64_t spp_index,
-                              struct net_queue_manager_binding *sr)
+static uint64_t transmit_pbuf(uint64_t buffer_address,
+                              size_t packet_len, bool last, void *opaque)
 {
 
     struct tx_desc tdesc;
 
-    tdesc.buffer_address = (uint64_t)buffer_address + offset;
+    tdesc.buffer_address = buffer_address;
     tdesc.ctrl.raw = 0;
     tdesc.ctrl.legacy.data_len = packet_len;
     tdesc.ctrl.legacy.cmd.d.rs = 1;
     tdesc.ctrl.legacy.cmd.d.ifcs = 1;
     tdesc.ctrl.legacy.cmd.d.eop = (last ? 1 : 0);
 
-    /* FIXME: the packet should be copied into separate location, so that
-     * application can't temper with it. */
     transmit_ring[ether_transmit_index] = tdesc;
-    pbuf_list_tx[ether_transmit_index].sr = sr;
-    pbuf_list_tx[ether_transmit_index].spp_index = spp_index;
+    pbuf_list_tx[ether_transmit_index].opaque = opaque;
 
     ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
     e1000_tdt_wr(&(d), 0, (e1000_dqval_t){ .val = ether_transmit_index });
@@ -182,56 +176,30 @@ static uint64_t transmit_pbuf(lpaddr_t buffer_address,
 
 /* Send the buffer to device driver TX ring.
  * NOTE: This function will get called from ethersrv.c */
-static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
+static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
+                                      size_t                count,
+                                      void                 *opaque)
 {
     errval_t r;
-    struct shared_pool_private *spp = cl->spp_ptr;
-    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-    uint64_t rtpbuf = sld->no_pbufs;
-    if (!can_transmit(rtpbuf)){
+    E1000N_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);
+    if (!can_transmit(count)){
         while(handle_free_TX_slot_fn());
-        if (!can_transmit(rtpbuf)){
+        if (!can_transmit(count)){
             return ETHERSRV_ERR_CANT_TRANSMIT;
         }
     }
-    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
-    struct buffer_descriptor *cached_buffer = buffer;
-    if (buffer == NULL) {
-        USER_PANIC("find_buffer failed\n");
-        abort();
-    }
-    // FIXME: code should work with following assert enable.
-    // Current problem is that, ARP request packets are reused to send the
-    // response, and hence having different buffer_id than of tx buffer
-    // assert(buffer == cl->buffer_ptr);
 
-    for (int i = 0; i < rtpbuf; i++) {
-        uint64_t slot_index = (cl->tx_index + i) % cl->spp_ptr->c_size;
-        sld = &spp->sp->slot_list[slot_index].d;
-        assert(sld != NULL);
-        if (sld->buffer_id == 0) {
-            printf("e1000n: TX malformed packet at %"PRIu64"\n",slot_index);
-//            sp_print_metadata(cl->spp_ptr);
-            return -1;
-        }
-        if (cached_buffer->buffer_id == sld->buffer_id) {
-            buffer = cached_buffer;
-        } else {
-            buffer = find_buffer(sld->buffer_id);
-        }
-        assert(buffer->buffer_id == sld->buffer_id);
-
-        r = transmit_pbuf(buffer->pa, sld->len, sld->offset,
-                    i == (rtpbuf - 1), //last?
-                    sld->client_data,
-                    slot_index, cl->app_connection);
+    for (int i = 0; i < count; i++) {
+        r = transmit_pbuf(buffers[i].pa, buffers[i].len,
+                    i == (count - 1), //last?
+                    opaque);
         if(err_is_fail(r)) {
             //E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
             printf("ERROR:transmit_pbuf failed\n");
             return r;
         }
-        E1000N_DEBUG("transmit_pbuf done for pbuf %"PRIx64", index %"PRIu64"\n",
-            sld->client_data, slot_index);
+        E1000N_DEBUG("transmit_pbuf done for pbuf 0x%p, index %"PRIu64"\n",
+            opaque, i);
     } // end for: for each pbuf
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
@@ -278,8 +246,7 @@ static bool handle_free_TX_slot_fn(void)
 #endif // TRACE_ONLY_SUB_NNET
 
 
-    sent = handle_tx_done(pbuf_list_tx[ether_transmit_bufptr].sr,
-            pbuf_list_tx[ether_transmit_bufptr].spp_index);
+    sent = handle_tx_done(pbuf_list_tx[ether_transmit_bufptr].opaque);
 
     ether_transmit_bufptr = (ether_transmit_bufptr + 1)%DRIVER_TRANSMIT_BUFFER;
     netbench_record_event_simple(bm, RE_TX_DONE, ts);

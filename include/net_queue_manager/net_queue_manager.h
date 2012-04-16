@@ -118,6 +118,11 @@ struct client_closure {
     uint64_t in_dropped_app_buf_full; // # packets dropped for lack of buffers
 }; /* holds info about how much data is transferred to NIC. */
 
+struct driver_buffer {
+    uint64_t pa;
+    void    *va;
+    size_t   len;
+};
 
 /*****************************************************************
  * Driver states
@@ -130,8 +135,10 @@ struct client_closure {
  ******************************************************************/
 typedef void (*ether_get_mac_address_t)(uint8_t *mac);
 
-typedef errval_t (*ether_transmit_pbuf_list_t)
-                        (struct client_closure *closure);
+typedef errval_t (*ether_transmit_pbuf_list_t)(
+    struct driver_buffer *buffers,
+    size_t                count,
+    void                 *opaque);
 typedef uint64_t (*ether_get_tx_free_slots)(void);
 typedef bool (*ether_handle_free_TX_slot)(void);
 typedef errval_t (*ether_rx_register_buffer)(uintptr_t paddr, void *vaddr,
@@ -172,7 +179,7 @@ void ethersrv_init(
 
 bool waiting_for_netd(void);
 
-bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index);
+bool handle_tx_done(void *opaque);
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 

@@ -85,19 +85,6 @@ static uint64_t mac_address = 0;
 static int initialized = 0;
 
 
-/**
- * Internal representation of TX ring. Includes information needed about the TX
- * buffers, that have to be passed back to the library when the packet was
- * sucessfully sent.
- */
-struct txbuf {
-    struct net_queue_manager_binding *eb;
-    uint64_t spp_index;
-};
-
-struct txbuf *txbufs;
-
-
 
 
 
@@ -174,33 +161,17 @@ static void stats_dump(void)
 /******************************************************************************/
 /* Transmit path */
 
-static errval_t transmit_pbuf_list_fn(struct client_closure *cl)
+static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
+                                      size_t                count,
+                                      void                 *opaque)
 {
-    int i;
-    uint64_t paddr;
-    struct txbuf *buf;
-
-    struct shared_pool_private *spp = cl->spp_ptr;
-    /* TODO: What is this exactly, might be unnecessary */
-    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-    uint64_t rtpbuf = sld->no_pbufs;
-
-    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
-    DEBUG("Add buffer callback %"PRIu64":\n", rtpbuf);
+    size_t i;
+    DEBUG("Add buffer callback %d:\n", count);
 
     // TODO: Make sure there is room in TX queue
-    for (i = 0; i < rtpbuf; i++) {
-        sld = &spp->sp->slot_list[cl->tx_index + i].d;
-        assert(buffer->buffer_id == sld->buffer_id);
-        paddr = (uint64_t) buffer->pa + sld->offset;
-
-        // Add info to free memory
-        buf = txbufs + q->tx_tail;
-        buf->eb = cl->app_connection;
-        buf->spp_index = cl->tx_index + i;
-
-        e10k_queue_add_txbuf(q, paddr, sld->len, buf,
-            (i == rtpbuf - 1));
+    for (i = 0; i < count; i++) {
+        e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len, opaque,
+            (i == count - 1));
     }
 
     e10k_queue_bump_txtail(q);
@@ -222,7 +193,6 @@ static bool handle_free_tx_slot_fn(void)
 {
     void *op;
     int last;
-    struct txbuf *buf;
 
     if (e10k_queue_get_txbuf(q, &op, &last) != 0) {
         return false;
@@ -232,14 +202,12 @@ static bool handle_free_tx_slot_fn(void)
 
     //stats_dump();
 
-    buf = op;
-
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVSEE,
                 /*(uint32_t) buf->data*/0);
 #endif // TRACE_ONLY_SUB_NNET
 
-    handle_tx_done(buf->eb, buf->spp_index);
+    handle_tx_done(op);
 
     return true;
 }
@@ -369,8 +337,6 @@ static void setup_queue(void)
     tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size,
         &tx_frame);
     assert(tx_virt != NULL);
-
-    txbufs = calloc(NTXDESCS, sizeof(*txbufs));
 
     rx_size = e10k_q_rdesc_legacy_size * NRXDESCS;
     rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size,
