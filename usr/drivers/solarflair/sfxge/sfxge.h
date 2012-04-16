@@ -53,10 +53,12 @@ enum sfxge_softc_state {
 };
 
 struct sfxge_softc {
-    enum sfxge_softc_state        init_state;
-
-    efx_nic_t            *enp;
-    struct sfxge_mcdi        mcdi;
+    enum sfxge_softc_state      init_state;
+    efx_family_t                family;
+    efx_nic_t                   *enp;
+    struct mtx                  enp_lock;
+    efsys_bar_t                 bar;
+    struct sfxge_mcdi           mcdi;
 };
 
 

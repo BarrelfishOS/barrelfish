@@ -32,22 +32,41 @@
 
 #include "sfxge.h"
 
-/*
-#include "common/efx.h"
+//#include "common/efx.h"
+//#include "sfxge_rx.h"
 
-#include "sfxge_rx.h"
-*/
 
 // pravin: called from device_attach (sfxge_attach)
 static errval_t
 sfxge_create(struct sfxge_softc *sc)
 {
+    efx_nic_t *enp;
     errval_t err = SYS_ERR_OK;
+    int error = 0;
 
-    /* Initialize MCDI to talk to the microcontroller. */
+    // Create the common code nic object.
+    //mtx_init(&sc->enp_lock, "sfxge_nic", NULL, MTX_DEF);
+    if ((error = efx_nic_create(sc->family, (efsys_identifier_t *)sc,
+        &sc->bar, &sc->enp_lock, &enp)) != 0) {
+        printf("efx_nic_create failed\n");
+        abort();
+    }
+
+    sc->enp = enp;
+
+    // Initialize MCDI to talk to the microcontroller.
     err = sfxge_mcdi_init(sc);
     if (err_is_fail(err)) {
         printf("sfxge_mcdi_init failed\n");
+        abort();
+    }
+
+
+    // Probe the NIC and build the configuration data area.
+    int status = efx_nic_probe(enp);
+    if (status != 0) {
+        printf("efx_nic_probe failed\n");
+        abort();
     }
 
     return err;

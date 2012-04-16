@@ -58,6 +58,9 @@ extern "C" {
 #include <machine/endian.h>
 */
 
+
+//#include "error_list.h"
+
 #define	EFSYS_HAS_UINT64 1
 #define	EFSYS_USE_UINT64 0
 #if _BYTE_ORDER == _BIG_ENDIAN
@@ -795,8 +798,8 @@ typedef	clock_t	efsys_timestamp_t;
 	_NOTE(CONSTANTCONDITION)					\
 	} while (B_FALSE)
 
+#if 0
 /* KMEM */
-
 #define	EFSYS_KMEM_ALLOC(_esip, _size, _p)				\
 	do {								\
 		(_esip) = (_esip);					\
@@ -811,7 +814,7 @@ typedef	clock_t	efsys_timestamp_t;
 		free((_p), M_SFXGE);					\
 	_NOTE(CONSTANTCONDITION)					\
 	} while (B_FALSE)
-
+#endif // 0
 
 typedef struct mtx	efsys_lock_t;
 
