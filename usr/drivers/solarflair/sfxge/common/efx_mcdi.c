@@ -22,17 +22,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#include <stdio.h>
-#include <string.h>  // for memcpy
-
 #include "efsys.h"
 #include "efx.h"
 #include "efx_types.h"
 #include "efx_regs.h"
 #include "efx_regs_mcdi.h"
 #include "efx_impl.h"
-#include "error_list.h"
 
 #if EFSYS_OPT_MCDI
 

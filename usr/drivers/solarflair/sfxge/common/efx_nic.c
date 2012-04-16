@@ -22,15 +22,11 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#include <string.h>  // for memset
-
 #include "efsys.h"
 #include "efx.h"
 #include "efx_types.h"
 #include "efx_regs.h"
 #include "efx_impl.h"
-#include "error_list.h"
 
     __checkReturn    int
 efx_family(
@@ -214,6 +210,11 @@ static efx_nic_ops_t    __cs __efx_nic_siena_ops = {
 
 #endif    /* EFSYS_OPT_SIENA */
 
+
+// efx_nic_create
+// It creates and initializes a efx_nic_t datastructure
+// based on the family of device, it sets up the function pointers
+// to call appropriate functions.  No actual functions are called here.
     __checkReturn    int
 efx_nic_create(
     __in        efx_family_t family,

@@ -7,9 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef _SFXGE_H
-#define _SFXGE_H
-
+#ifndef _ERROR_LIST_H
+#define _ERROR_LIST_H
 
 enum error_list {
     ENOENT = -100,
@@ -27,6 +26,5 @@ enum error_list {
     ENOMEM,
 };
 
-
-#endif // _SFXGE_H
+#endif // _ERROR_LIST_H
 

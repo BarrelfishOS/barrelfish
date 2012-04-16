@@ -22,13 +22,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
-#include <string.h>
-
 #include "efsys.h"
 #include "efx.h"
 #include "efx_impl.h"
-#include "error_list.h"
 
 #if EFSYS_OPT_SIENA
 

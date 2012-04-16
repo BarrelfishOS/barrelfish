@@ -25,7 +25,6 @@
 #include "efsys.h"
 #include "efx.h"
 #include "efx_impl.h"
-#include "error_list.h"
 
 #if EFSYS_OPT_SIENA
 
