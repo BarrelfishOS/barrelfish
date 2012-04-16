@@ -52,18 +52,44 @@ static size_t   buf_cur = 0;
 static bool initialized = false;
 static bool is_server = false;
 static uint64_t sent_at;
+static uint64_t started_at;
 static bool got_response = false;
 static size_t runs = 0;
-#define TOTAL_RUNS 4096
-static cycles_t run_data[TOTAL_RUNS];
 
-#define PAYLOAD 1500
+#define PEAK_THRESH 20
+
+/** Size of payload for ethernet packets in benchmark */
+static size_t payload_size = 64;
+
+/** Specifies whether the data should be read by the client */
+static bool read_incoming = false;
+
+
+/** Number of runs to run */
+static size_t total_runs = 1024;
+
+/** Stores number of cycles each run took */
+static cycles_t *run_data;
+
+/** Stores time wen n'th run finished */
+static cycles_t *abs_run_data;
+
+/** Specifies whether the time for each run should be dumped */
+static bool dump_each_run = false;
+
+/** Specifies if NOCACHE should be used for mapping the buffers */
+static bool use_nocache = false;
+
+/** Prefix for outputting the results */
+static const char *out_prefix = "";
+
 
 
 static void alloc_mem(uint64_t* phys, void** virt, size_t size)
 {
     struct capref frame;
     errval_t r;
+    vregion_flags_t flags;
     struct frame_identity frameid = { .base = 0, .bits = 0 };
 
     r = frame_alloc(&frame, size, NULL);
@@ -77,8 +103,9 @@ static void alloc_mem(uint64_t* phys, void** virt, size_t size)
     }
     *phys = frameid.base;
 
-    r = vspace_map_one_frame_attr(virt, size, frame,
-            VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    flags = (use_nocache ? VREGION_FLAGS_READ_WRITE_NOCACHE :
+                           VREGION_FLAGS_READ_WRITE);
+    r = vspace_map_one_frame_attr(virt, size, frame, flags, NULL, NULL);
     if (!err_is_ok(r)) {
         USER_PANIC("Mapping memory region frame failed!");
     }
@@ -110,12 +137,16 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     rx_ring_bufsz = rx_bufsz;
     ether_get_mac_address_ptr(our_mac);
 
+    // Allocate packet buffers
     alloc_mem(&phys, &virt, BUF_COUNT * rx_bufsz);
-
     for (i = 0; i < BUF_COUNT; i++) {
         buf_phys[i] = phys + rx_bufsz;
         buf_virt[i] = (void*) ((uintptr_t) virt + rx_bufsz);
     }
+
+    // Initialize array for cycle count of each run
+    run_data = calloc(total_runs, sizeof(*run_data));
+    abs_run_data = calloc(total_runs, sizeof(*run_data));
 
     initialized = true;
 
@@ -125,6 +156,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     } else {
         printf("elb: Starting benchmark client...\n");
 
+        started_at = rdtsc();
         start_run();
     }
 }
@@ -133,6 +165,27 @@ void ethersrv_argument(const char* arg)
 {
     if (!strcmp(arg, "elb_server=1")) {
         is_server = true;
+    } else if (!strncmp(arg, "runs=", strlen("runs="))) {
+        total_runs = atol(arg + strlen("runs="));
+    } else if (!strncmp(arg, "payload_size=", strlen("payload_size="))) {
+        payload_size = atol(arg + strlen("payload_size="));
+        if (payload_size < 46) {
+            printf("elb: Payload size too small (must be at least 46), has "
+                    "been extended to 46!\n");
+            payload_size = 46;
+        } else if (payload_size > 1500) {
+            printf("elb: Payload size too big (must be at most 1500), has "
+                    "been limited to 1500!\n");
+            payload_size = 1500;
+        }
+    } else if (!strncmp(arg, "elp_outprefix=", strlen("elp_outprefix="))) {
+        out_prefix = arg + strlen("elp_outprefix=");
+    } else if (!strncmp(arg, "elb_nocache=", strlen("elb_nocache="))) {
+        use_nocache = !!atol(arg + strlen("elb_nocache="));
+    } else if (!strncmp(arg, "read_incoming=", strlen("read_incoming="))) {
+        read_incoming = !!atol(arg + strlen("read_incoming="));
+    } else if (!strncmp(arg, "dump_each=", strlen("dump_each="))) {
+        dump_each_run = !!atol(arg + strlen("dump_each="));
     }
 }
 
@@ -159,18 +212,23 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
         respond_buffer(idx, pkt_len);
         //iprintf("elb: sent response...\n");
     } else {
-        /*struct ethernet_frame* frame = buf_virt[buf_cur];
-        size_t i;
-        size_t acc = 0;
-        for (i = 0; i< PAYLOAD; i++) {
-            acc += frame->payload[i];
-        }*/
-        uint64_t diff = rdtsc() - sent_at;
+        if (read_incoming) {
+            struct ethernet_frame* frame = buf_virt[buf_cur];
+            size_t i;
+            size_t acc = 0;
+            for (i = 0; i< payload_size; i++) {
+                acc += frame->payload[i];
+            }
+        }
+
+        uint64_t tsc = rdtsc();
+        uint64_t diff = tsc - sent_at;
         run_data[runs] = diff;
+        abs_run_data[runs] = tsc - started_at;
         //printf("elb: Got response: %"PRIu64"!\n", diff);
         got_response = true;
         runs++;
-        if (runs < TOTAL_RUNS) {
+        if (runs < total_runs) {
             start_run();
         } else {
             analyze_data();
@@ -194,24 +252,45 @@ static void start_run(void)
 
 static void analyze_data(void)
 {
-    cycles_t avg = bench_avg(run_data, TOTAL_RUNS);
-    cycles_t var = bench_variance(run_data, TOTAL_RUNS);
-    cycles_t min = bench_min(run_data, TOTAL_RUNS);
-    cycles_t max = bench_max(run_data, TOTAL_RUNS);
-    printf("Results: avg=%"PRIu64"  var=%"PRIu64"  min=%"PRIu64"  max=%"
-            PRIu64"\n", avg, var, min, max);
+    size_t i;
+    size_t thrown_out = 0;
+    cycles_t prelim_avg = bench_avg(run_data, total_runs);
+
+    if (dump_each_run) {
+        for (i = 0; i < total_runs; i++) {
+            printf("%%  %s%"PRIu64",%"PRIu64"\n",
+                   out_prefix, run_data[i], abs_run_data[i]);
+        }
+    }
+
+    for (i = 0; i < total_runs; i++) {
+        if (run_data[i] > PEAK_THRESH * prelim_avg) {
+            thrown_out++;
+            run_data[i] = BENCH_IGNORE_WATERMARK;
+        }
+    }
+
+    cycles_t avg = bench_avg(run_data, total_runs);
+    cycles_t var = bench_variance(run_data, total_runs);
+    cycles_t min = bench_min(run_data, total_runs);
+    cycles_t max = bench_max(run_data, total_runs);
+
+
+    printf("elb: Results avg=%"PRIu64"  var=%"PRIu64"  min=%"PRIu64"  max=%"
+            PRIu64"  (thrown out %"PRIu64")\n", avg, var, min, max, thrown_out);
 }
 
 static void client_send_packet(void)
 {
     struct ethernet_frame *frame;
     const char bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    size_t len = sizeof(*frame) + PAYLOAD;
+    size_t len = sizeof(*frame) + payload_size;
     size_t idx = (buf_cur + 1) % BUF_COUNT;
 
     //printf("elb: Sending packet...\n");
     frame = buf_virt[idx];
-    memcpy(frame->src_mac, our_mac, 6);
+    //memcpy(frame->src_mac, our_mac, 6);
+    memcpy(frame->src_mac, bcast, 6);
     memcpy(frame->dst_mac, bcast, 6);
     frame->ethertype = 0x0608;
     sent_at = rdtsc();
@@ -235,11 +314,11 @@ static void register_tx_buffer(size_t i, size_t len)
 
 static void respond_buffer(size_t i, size_t len)
 {
-    struct ethernet_frame *frame = buf_virt[i];
+    /*struct ethernet_frame *frame = buf_virt[i];
     const char bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     memcpy(frame->src_mac, our_mac, 6);
-    memcpy(frame->dst_mac, bcast, 6);
+    memcpy(frame->dst_mac, bcast, 6);*/
 
     register_tx_buffer(i, len);
 }
