@@ -120,11 +120,12 @@ static inline size_t e10k_queue_free_txslots(e10k_queue_t* q)
     size_t tail = q->tx_tail;
     size_t size = q->tx_size;
 
-    if (tail > head) {
-        return size - (head - tail) - 1; // TODO: could this be off by 1?
+    if (tail >= head) {
+        return size - (tail - head) - 1; // TODO: could this be off by 1?
     } else {
-        return size - (head + size - tail) - 1; // TODO: off by 1?
+        return size - (tail + size - head) - 1; // TODO: off by 1?
     }
+
 }
 
 static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
