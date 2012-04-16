@@ -90,6 +90,7 @@ MODULES_x86_64= \
 	sbin/e1000n \
 	sbin/NGD_mng \
 	sbin/e10k \
+	sbin/e10k_queue \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \

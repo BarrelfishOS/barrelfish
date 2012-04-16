@@ -15,6 +15,8 @@
 #ifndef net_device_manager_H
 #define net_device_manager_H
 
+#include <barrelfish/barrelfish.h>
+
 // initializes the hardware independent part of device manager
 errval_t init_device_manager(char *dev_name, uint64_t valid_queues,
         uint8_t filt_mng_type);
