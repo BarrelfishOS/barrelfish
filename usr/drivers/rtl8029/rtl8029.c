@@ -56,8 +56,9 @@ static rtl8029as_t      rtl;
 /// This buffers the card's MAC address upon card reset
 static uint8_t          rtl8029_mac[6];
 
-// driver will initially copy the packet here.
-static uint8_t packetbuf[PACKET_SIZE];
+// Buffer registered by net_queue_mgr library
+static uint8_t *packetbuf = NULL;
+static void *packetbuf_opaque = NULL;
 
 // the length of packet copied into packetbuf
 static uint16_t packet_length;
@@ -110,7 +111,8 @@ static inline uint16_t page_to_mem(uint8_t page)
 /**
  * \brief Read from ASIC memory.
  *
- * \param dst           Pointer to buffer to copy data to.
+ * \param dst           Pointer to buffer to copy data to. If NULL, the data is
+ *                      thrown away.
  * \param src           Source address in ASIC memory to read from.
  * \param amount        Number of bytes to transfer.
  */
@@ -118,6 +120,7 @@ static void read_mem(uint8_t *dst, int src, int amount)
 {
     int remain = amount % 4;
     uint32_t *d = (uint32_t *)dst;
+    uint32_t val;
     int i;
 
     rtl8029as_rbcr_wr(&rtl, amount);    // Amount of bytes to transfer
@@ -136,7 +139,10 @@ static void read_mem(uint8_t *dst, int src, int amount)
 
     // Read remaining bytes
     for(; i < amount; i++) {
-        dst[i] = rtl8029as_rdma8_rd(&rtl);
+        val = rtl8029as_rdma8_rd(&rtl);
+        if (dst != NULL) {
+            dst[i] = val;
+        }
     }
 
     // Stop read
@@ -311,7 +317,10 @@ static void read_ring_buffer(uint8_t *dst, int src, int amount)
         // Read everything up to end of buffer
         read_mem(dst, src, size);
         // Read rest from (wrapped-around) start of buffer
-        read_mem(dst + size, page_to_mem(READ_START_PAGE), amount - size);
+        if (dst != NULL) {
+            dst += size;
+        }
+        read_mem(dst, page_to_mem(READ_START_PAGE), amount - size);
     }
 }
 
@@ -343,6 +352,9 @@ static void rtl8029_receive_packet(void)
 
     // Read packet
     packet_length = status.length - sizeof(status);
+    // FIXME: Can we skip reading from the ring buffer if packetbuf == NULL? Or
+    // does the card require us to read the data to continue working properly?
+    // At the moment I chose the safe path and read the data.
     read_ring_buffer(packetbuf, page_to_mem(curr_page) + sizeof(status),
                      packet_length);
 
@@ -396,17 +408,10 @@ static void rtl8029_handle_interrupt(void *arg)
         	assert(packet_length <= 1522);
         	assert(packet_length > 0);
 
-        	/* Ensures that netd is up and running */
-        	if(waiting_for_netd()){
-        		RTL8029_DEBUG("still waiting for netd to reg buf\n");
-        		return;
-        	}
-			/* FIXME: Not sure if its good idea to call
-			 * process_received_packet in interrupt handler. */
-        	/* FIXME: find out if this is real interrupt handler,
-        	 * or just message generated for interrupt handler. */
-            // Call handler if packet received
-        	process_received_packet(packetbuf, packet_length);
+            if (packetbuf != NULL) {
+                packetbuf = NULL;
+                process_received_packet(packetbuf_opaque, packet_length, true);
+            }
         }
     }
 
@@ -519,6 +524,27 @@ static bool handle_free_TX_slot_fn(void)
     return false;
 }
 
+/**
+ * Callback for net_queue_mgr library. Since we do PIO anyways, we only ever use
+ * one buffer.
+ */
+static uint64_t find_rx_free_slot_count_fn(void)
+{
+    return (packetbuf == NULL);
+}
+
+/** Callback for net_queue_mgr library. */
+static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
+{
+    if (packetbuf != NULL) {
+        return ETHERSRV_ERR_TOO_MANY_BUFFERS;
+    }
+
+    packetbuf = vaddr;
+    packetbuf_opaque = opaque;
+    return SYS_ERR_OK;
+}
+
 static void rtl8029_init(void)
 {
 	/* FIXME: use correct name, and make apps and netd
@@ -531,7 +557,8 @@ static void rtl8029_init(void)
 
 	ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn,
             rtl8029_send_ethernet_packet_fn,
-            rtl_tx_slots_count_fn, handle_free_TX_slot_fn);
+            rtl_tx_slots_count_fn, handle_free_TX_slot_fn,
+            PACKET_SIZE, register_rx_buffer_fn, find_rx_free_slot_count_fn);
 }
 
 /**

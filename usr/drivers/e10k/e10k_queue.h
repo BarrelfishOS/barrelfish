@@ -144,7 +144,7 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
     return 0;
 }
 
-static inline int e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
+static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
     size_t* len, int* last)
 {
     e10k_q_rdesc_legacy_t d;
@@ -170,6 +170,19 @@ static inline int e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
 static inline errval_t e10k_queue_bump_rxtail(e10k_queue_t* q)
 {
     return q->ops.update_rxtail(q->opaque, q->rx_tail);
+}
+
+static inline size_t e10k_queue_free_rxslots(e10k_queue_t* q)
+{
+    size_t head = q->rx_head;
+    size_t tail = q->rx_tail;
+    size_t size = q->rx_size;
+
+    if (tail >= head) {
+        return size - (tail - head) - 1; // TODO: could this be off by 1?
+    } else {
+        return size - (tail + size - head) - 1; // TODO: off by 1?
+    }
 }
 
 

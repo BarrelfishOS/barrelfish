@@ -212,11 +212,27 @@ static void check_for_free_txbufs(int qi)
     while (handle_free_tx_slot_fn()) { }
 }
 
+static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
+{
+    DEBUG("register_rx_buffer_fn(op=%p, t=%"PRIx64"): called\n", opaque,
+            q[0]->rx_tail);
+
+    e10k_queue_add_rxbuf(q[0], paddr, opaque);
+    e10k_queue_bump_rxtail(q[0]);
+
+    DEBUG("register_rx_buffer_fn: terminated\n");
+    return SYS_ERR_OK;
+}
+
+static uint64_t find_rx_free_slot_count_fn(void)
+{
+    return e10k_queue_free_rxslots(q[0]);
+}
+
 static void check_for_new_packets(int qi)
 {
     size_t len;
     void* op;
-    struct rxbuf* buf;
     int last;
     size_t count;
     e10k_queue_t* queue = q[qi];
@@ -230,23 +246,14 @@ static void check_for_new_packets(int qi)
     // arrive faster than they can be processed.
     count = 0;
     while (e10k_queue_get_rxbuf(queue, &op, &len, &last) == 0) {
-        buf = op;
-
 #if TRACE_ONLY_SUB_NNET
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXDRVSEE,
                     (uint32_t) len);
 #endif // TRACE_ONLY_SUB_NNET
 
-        DEBUG("New packet (q=%d)\n", qi);
+        DEBUG("New packet (q=%d, op=%p)\n", qi, op);
 
-        if(waiting_for_netd()){
-            DEBUG("still waiting for netd to register buffers\n");
-            return;
-        }
-
-        process_received_packet(buf->virt, len);
-        e10k_queue_add_rxbuf(queue, buf->phys, buf);
-
+        process_received_packet(op, len, !!last);
         count++;
     }
 
@@ -300,7 +307,6 @@ static e10k_queue_t* setup_queue(int n, int enable_global)
         .update_rxtail = update_rxtail };
     errval_t r;
     int i;
-    uint8_t* b;
     int* np;
 
     void* tx_virt;
@@ -378,22 +384,6 @@ static e10k_queue_t* setup_queue(int n, int enable_global)
         e10k_secrxctrl_rx_dis_wrf(d, 0);
     }
 
-
-    // Add RX Buffers
-    b = alloc_map_frame(VREGION_FLAGS_READ_WRITE,
-        RXBUFSZ * (NRXDESCS - 1), &frame);
-    assert(b != NULL);
-    r = invoke_frame_identify(frame, &frameid);
-    assert(err_is_ok(r));
-
-    for (i = 0; i < NRXDESCS - 1; i++) {
-        struct rxbuf* buf = malloc(sizeof(*buf));
-        buf->virt = b + (i * RXBUFSZ);
-        buf->phys = frameid.base + i * RXBUFSZ;
-
-        e10k_queue_add_rxbuf(queue, buf->phys, buf);
-    }
-    e10k_queue_bump_rxtail(queue);
 
     // Initialize TX queue in HW
     e10k_tdbal_wr(d, n, tx_phys);
@@ -964,7 +954,8 @@ static void e10k_init(struct device_mem* bar_info, int bar_count)
     initialized = 1;
     ethersrv_init("e10k", assumed_queue_id,  get_mac_address_fn,
             transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
-            handle_free_tx_slot_fn);
+            handle_free_tx_slot_fn, RXBUFSZ,
+            register_rx_buffer_fn, find_rx_free_slot_count_fn);
 }
 
 /** Polling loop. */

@@ -23,12 +23,15 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/param.h>
 #include <trace/trace.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <bfdmuxvm/vm.h>
 #include <if/net_soft_filters_defs.h>
 #include "queue_manager_local.h"
 #include "queue_manager_debug.h"
+
+#define RX_RING_MAXMEM 512*1024
 
 /* This is client_closure for filter management */
 struct client_closure_FM {
@@ -79,6 +82,13 @@ uint64_t total_rx_datasize = 0;
  *****************************************************************/
 
 static char sf_srv_name[MAX_NET_SERVICE_NAME_LEN];
+
+
+// rx ring
+static size_t   rx_ring_size = 0;
+static size_t   rx_ring_bufsz = 0;
+static uint64_t rx_ring_phys = 0;
+static void*    rx_ring_virt = NULL;
 
 // filters state:
 static struct filter *rx_filters;
@@ -954,11 +964,74 @@ struct filter *execute_filters(void *data, size_t len)
     return NULL;
 }
 
+/** Return virtual address for RX buffer. */
+static void* rx_ring_buffer(void *opaque)
+{
+    size_t idx = (size_t) opaque;
+    assert(idx < rx_ring_size);
 
-void init_soft_filters_service(char *service_name, uint64_t qid)
+    return ((void*) ((uintptr_t) rx_ring_virt + idx * rx_ring_bufsz));
+}
+
+/** Register a RX buffer with the driver. */
+static void rx_ring_register_buffer(void *opaque)
+{
+    size_t offset;
+    size_t idx = (size_t) opaque;
+
+    offset = idx * rx_ring_bufsz;
+    rx_register_buffer_fn_ptr(rx_ring_phys + offset,
+        ((void*) ((uintptr_t) rx_ring_virt + offset)), opaque);
+}
+
+static void init_rx_ring(size_t rx_bufsz)
+{
+    struct capref frame;
+    errval_t r;
+    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    size_t capacity = rx_get_free_slots_fn_ptr();
+    size_t size;
+    size_t i;
+
+    rx_ring_bufsz = rx_bufsz;
+    rx_ring_size = MIN(RX_RING_MAXMEM / rx_bufsz, capacity);
+
+    // TODO: Should I round up here to page size?
+    size = rx_ring_size * rx_bufsz;
+
+    r = frame_alloc(&frame, size, NULL);
+    if (!err_is_ok(r)) {
+        USER_PANIC("Allocating RX buffers for SW filtering failed!");
+    }
+
+    r = invoke_frame_identify(frame, &frameid);
+    if (!err_is_ok(r)) {
+        USER_PANIC("Identifying RX frame for SW filtering failed!");
+    }
+    rx_ring_phys = frameid.base;
+
+    r = vspace_map_one_frame_attr(&rx_ring_virt, size, frame,
+            VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (!err_is_ok(r)) {
+        USER_PANIC("Mapping RX frame for SW filtering failed!");
+    }
+    memset(rx_ring_virt, 0, size);
+
+
+    // Add buffers to RX ring
+    for (i = 0; i < rx_ring_size; i++) {
+        rx_ring_register_buffer((void*) i);
+    }
+}
+
+void init_soft_filters_service(char *service_name, uint64_t qid,
+                               size_t rx_bufsz)
 {
     // FIXME: do I need separate sf_srv_name for ether_netd services
     // exporting ether_netd interface
+
+    // Initialize receive buffers
+    init_rx_ring(rx_bufsz);
 
     filter_id_counter = 0;
     snprintf(sf_srv_name, sizeof(sf_srv_name), "%s_%"PRIu64"",
@@ -1131,8 +1204,17 @@ static bool handle_netd_packet(void *packet, size_t len)
 } // end function: handle_netd_packet
 
 
-void process_received_packet(void *pkt_data, size_t pkt_len)
+void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 {
+    void *pkt_data;
+
+    assert(pkt_len <= rx_ring_bufsz);
+    // FIXME: allow packets to be distributed over multiple buffers
+    assert(is_last);
+
+    // Get the virtual address for this buffer
+    pkt_data = rx_ring_buffer(opaque);
+
 
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
@@ -1148,7 +1230,7 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
     if (handle_fragmented_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
 //        printf("fragmented packet..\n");
-        return;
+        goto out;
     }
 
 #if TRACE_ONLY_SUB_NNET
@@ -1159,18 +1241,20 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
     // check for application specific packet
     if (handle_application_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("application specific packet..\n");
-        return;
+        goto out;
     }
 
     // check for ARP packet
      if (handle_arp_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("ARP packet..\n");
-        return;
+        goto out;
     }
 
      // last resort: send packet to netd
      handle_netd_packet(pkt_data, pkt_len);
 
+out:
+     rx_ring_register_buffer(opaque);
 } // end function: process_received_packet
 
 

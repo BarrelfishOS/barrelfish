@@ -56,7 +56,7 @@ static bool use_interrupt = true;
 
 #define MAX_ALLOWED_PKT_PER_ITERATION    (0xff)  // working value
 #define DRIVER_RECEIVE_BUFFERS   (1024 * 8) // Number of buffers with driver
-#define RECEIVE_BUFFER_SIZE (1600) // MAX size of ethernet packet
+#define RECEIVE_BUFFER_SIZE (2048) // MAX size of ethernet packet
 
 #define DRIVER_TRANSMIT_BUFFER   (1024 * 8)
 
@@ -74,14 +74,12 @@ static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFER];
 //receive
 static volatile union rx_desc *receive_ring;
 
-static void *internal_memory_pa = NULL;
-static void *internal_memory_va = NULL;
-
 static uint32_t ether_transmit_index = 0, ether_transmit_bufptr = 0;
+
 /* TODO: check if these variables are used */
 static uint32_t receive_index = 0, receive_bufptr = 0;
-
 static uint32_t receive_free = 0;
+static void **receive_opaque = NULL;
 
 
 /*****************************************************************
@@ -294,7 +292,7 @@ static bool handle_free_TX_slot_fn(void)
  ****************************************************************/
 
 
-static int add_desc(uint64_t paddr)
+static int add_desc(uint64_t paddr, void *opaque)
 {
     union rx_desc r;
     r.raw[0] = r.raw[1] = 0;
@@ -310,6 +308,7 @@ static int add_desc(uint64_t paddr)
 
 
     receive_ring[receive_index] = r;
+    receive_opaque[receive_index] = opaque;
 
     receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
     e1000_rdt_wr(&d, 0, (e1000_dqval_t){ .val=receive_index } );
@@ -319,40 +318,18 @@ static int add_desc(uint64_t paddr)
 
 static void setup_internal_memory(void)
 {
-    struct capref frame;
-    struct frame_identity frameid;
-    lpaddr_t mem;
-    errval_t r;
-    uint32_t i;
-
-    E1000N_DEBUG("Setting up internal memory for receive\n");
-    r = frame_alloc(&frame,
-	    (DRIVER_RECEIVE_BUFFERS - 1) * RECEIVE_BUFFER_SIZE, NULL);
-    if(err_is_fail(r)) {
-    	assert(!"frame_alloc failed");
-    }
-
-    r = invoke_frame_identify(frame, &frameid);
-    assert(err_is_ok(r));
-    mem = frameid.base;
-
-    internal_memory_pa = (void*)mem;
-
-    r = vspace_map_one_frame_attr(&internal_memory_va,
-	    (DRIVER_RECEIVE_BUFFERS - 1)* RECEIVE_BUFFER_SIZE, frame,
-//	    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
-	    VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(r)) {
-    	assert(!"vspace_map_one_frame failed");
-    }
-
-    for(i = 0; i < DRIVER_RECEIVE_BUFFERS - 1; i++) {
-    	int ret = add_desc((mem + (i * RECEIVE_BUFFER_SIZE)));
-    	assert(ret == 0);
-    }
-    assert(internal_memory_pa );
+    receive_opaque = calloc(sizeof(void *), DRIVER_RECEIVE_BUFFERS);
 }
 
+static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
+{
+    return add_desc(paddr, opaque);
+}
+
+static uint64_t rx_find_free_slot_count_fn(void)
+{
+    return DRIVER_RECEIVE_BUFFERS - receive_free;
+}
 
 static void print_rx_bm_stats(bool stop_trace)
 {
@@ -401,9 +378,6 @@ static char tmp_buf[2000];
 static bool handle_next_received_packet(void)
 {
     volatile union rx_desc *rxd;
-    void *data = NULL;
-    void *buffer_address = NULL;
-    struct buffer_descriptor *buffer = NULL;
     size_t len = 0;
     bool new_packet = false;
     tmp_buf[0] = 0; // FIXME: to avoid the warning of not using this variable
@@ -424,28 +398,7 @@ static bool handle_next_received_packet(void)
     E1000N_DPRINT("Potential packet receive [%"PRIu32"]!\n",
             receive_bufptr);
         new_packet = true;
-
-        // FIXME: following two conditions might be repeating, hence
-        // extra.  Check it out.
-        if(internal_memory_pa == NULL || internal_memory_va == NULL) {
-        // E1000N_DEBUG("no internal memory yet#####.\n");
-            buffer = NULL;
-            // FIXME: control should go out of parent if block
-            goto end;
-        }
-
-        // Ensures that netd is up and running
-        if(waiting_for_netd()){
-            E1000N_DEBUG("still waiting for netd to register buffers\n");
-            buffer = NULL;
-            goto end;
-        }
-
         len = rxd->rx_read_format.info.length;
-        if (len < 0 || len > 1522) {
-            E1000N_DEBUG("ERROR: pkt with len %zu\n", len);
-            goto end;
-        }
         total_rx_datasize += len;
 
 #if TRACE_ONLY_SUB_NNET
@@ -453,25 +406,7 @@ static bool handle_next_received_packet(void)
                     (uint32_t) len);
 #endif // TRACE_ONLY_SUB_NNET
 
-
-        // E1000N_DEBUG("packet received of size %zu..\n", len);
-
-        buffer_address = (void*)rxd->rx_read_format.buffer_address;
-        data = (buffer_address - internal_memory_pa) + internal_memory_va;
-
-        if (data == NULL || len == 0){
-            printf("ERROR: Incorrect packet\n");
-            // abort();
-            // FIXME: What should I do when such errors occur.
-            buffer = NULL;
-            goto end;
-        }
-
-#if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(data, len);
-#endif // !defined(__scc__) && !defined(__i386__)
-
-        process_received_packet(data, len);
+        process_received_packet(receive_opaque[receive_bufptr], len, true);
 
 #if 0
         // This code is useful for RX micro-benchmark
@@ -500,13 +435,6 @@ static bool handle_next_received_packet(void)
     	return false;
     }
 
-    end:
-//    local_pbuf[receive_bufptr].event_sent = true;
-    receive_free--;
-    int ret = add_desc(rxd->rx_read_format.buffer_address);
-    if(ret < 0){
-        printf("ERROR: add_desc failed, so not able to re-use pbuf\n");
-    }
     receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
     return new_packet;
 } // end function: handle_next_received_packet
@@ -657,7 +585,8 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
-                  handle_free_TX_slot_fn);
+          handle_free_TX_slot_fn, RECEIVE_BUFFER_SIZE, rx_register_buffer_fn,
+          rx_find_free_slot_count_fn);
 }
 
 

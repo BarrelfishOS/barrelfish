@@ -83,6 +83,8 @@ static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
 static ether_transmit_pbuf_list_t ether_transmit_pbuf_list_ptr = NULL;
 static ether_get_tx_free_slots tx_free_slots_fn_ptr = NULL;
 static ether_handle_free_TX_slot handle_free_tx_slot_fn_ptr = NULL;
+ether_rx_register_buffer rx_register_buffer_fn_ptr = NULL;
+ether_rx_get_free_slots rx_get_free_slots_fn_ptr = NULL;
 
 /*****************************************************************
  * Local states:
@@ -838,7 +840,10 @@ void ethersrv_init(char *service_name, uint64_t queueid,
                    ether_get_mac_address_t get_mac_ptr,
                    ether_transmit_pbuf_list_t transmit_ptr,
                    ether_get_tx_free_slots tx_free_slots_ptr,
-                   ether_handle_free_TX_slot handle_free_tx_slot_ptr)
+                   ether_handle_free_TX_slot handle_free_tx_slot_ptr,
+                   size_t rx_bufsz,
+                   ether_rx_register_buffer rx_register_buffer_ptr,
+                   ether_rx_get_free_slots rx_get_free_slots_ptr)
 {
     errval_t err;
 
@@ -848,12 +853,16 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     assert(transmit_ptr != NULL);
     assert(tx_free_slots_ptr != NULL);
     assert(handle_free_tx_slot_ptr != NULL);
+    assert(rx_register_buffer_ptr != NULL);
+    assert(rx_get_free_slots_ptr != NULL);
 
     exported_queueid = queueid;
     ether_get_mac_address_ptr = get_mac_ptr;
     ether_transmit_pbuf_list_ptr = transmit_ptr;
     tx_free_slots_fn_ptr = tx_free_slots_ptr;
     handle_free_tx_slot_fn_ptr = handle_free_tx_slot_ptr;
+    rx_register_buffer_fn_ptr = rx_register_buffer_ptr;
+    rx_get_free_slots_fn_ptr = rx_get_free_slots_ptr;
     snprintf(exported_queue_name, sizeof(exported_queue_name),
             "%s_%"PRIu64"", service_name, queueid);
 
@@ -885,7 +894,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     }
 
     // start software filtering service
-    init_soft_filters_service(service_name, queueid);
+    init_soft_filters_service(service_name, queueid, rx_bufsz);
 }
 
 

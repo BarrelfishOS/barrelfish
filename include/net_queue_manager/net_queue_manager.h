@@ -134,14 +134,41 @@ typedef errval_t (*ether_transmit_pbuf_list_t)
                         (struct client_closure *closure);
 typedef uint64_t (*ether_get_tx_free_slots)(void);
 typedef bool (*ether_handle_free_TX_slot)(void);
+typedef errval_t (*ether_rx_register_buffer)(uintptr_t paddr, void *vaddr,
+                                               void *opaque);
+typedef uint64_t (*ether_rx_get_free_slots)(void);
+
 
 
 /*****************************************************************/
-void ethersrv_init(char *service_name, uint64_t queueid,
-		ether_get_mac_address_t get_mac_ptr,
-		ether_transmit_pbuf_list_t transmit_ptr,
-                ether_get_tx_free_slots tx_free_slots_ptr,
-                ether_handle_free_TX_slot handle_free_tx_slots_ptr);
+
+/**
+ * Initialize pair of ethernet RX/TX queues.
+ *
+ * @param service_name             Service name for the card to which this queue
+ *                                   belongs
+ * @param queueid                  Queue index
+   @param get_mac_ptr              Callback that returns MAC address of the card
+ * @param transmit_ptr             Callback to put a buffer chain in TX queue
+ * @param tx_free_slots_ptr        Callback that returns number of free slots in
+ *                                   TX queue
+ * @param handle_free_tx_slots_ptr Callback to remove transmitted buffers from
+ *                                   queue
+ * @param rx_buffer_size           Expected RX buffer size
+ * @param rx_register_buffer_ptr   Callback to register buffer for RX queue
+ * @param rx_get_free_slots_ptr    Callback that returns number of free slots in
+ *                                   RX queue
+ */
+void ethersrv_init(
+    char *service_name,
+    uint64_t queueid,
+    ether_get_mac_address_t     get_mac_ptr,
+    ether_transmit_pbuf_list_t  transmit_ptr,
+    ether_get_tx_free_slots     tx_free_slots_ptr,
+    ether_handle_free_TX_slot   handle_free_tx_slots_ptr,
+    size_t                      rx_buffer_size,
+    ether_rx_register_buffer    rx_register_buffer_ptr,
+    ether_rx_get_free_slots     rx_get_free_slots_ptr);
 
 bool waiting_for_netd(void);
 
@@ -149,7 +176,7 @@ bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index);
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
-void process_received_packet(void *pkt_data, size_t pkt_len);
+void process_received_packet(void *opaque, size_t pkt_len, bool is_last);
 
 /* for frag.c */
 bool handle_fragmented_packet(void* packet, size_t len);
