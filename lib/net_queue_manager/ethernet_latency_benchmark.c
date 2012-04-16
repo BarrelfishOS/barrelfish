@@ -157,6 +157,8 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
         uint64_t diff = rdtsc() - sent_at;
         printf("elb: Got response: %"PRIu64"!\n", diff);
         got_response = true;
+
+        terminate_queue_fn_ptr();
     }
 }
 
