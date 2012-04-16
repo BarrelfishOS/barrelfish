@@ -33,6 +33,7 @@ struct queue_state {
     struct e10k_binding *binding;
 
     struct capref tx_frame;
+    struct capref txhwb_frame;
     struct capref rx_frame;
     uint32_t rxbufsz;
 
@@ -567,7 +568,7 @@ static void queue_hw_init(uint8_t n)
 {
     errval_t r;
     struct frame_identity frameid = { .base = 0, .bits = 0 };
-    uint64_t tx_phys, rx_phys;
+    uint64_t tx_phys, txhwb_phys, rx_phys;
     size_t tx_size, rx_size;
     bool enable_global = !rxtx_enabled;
 
@@ -631,6 +632,17 @@ static void queue_hw_init(uint8_t n)
     e10k_tdbal_wr(d, n, tx_phys);
     e10k_tdbah_wr(d, n, tx_phys >> 32);
     e10k_tdlen_wr(d, n, tx_size);
+
+    // Initialize TX head index write back
+    if (!capref_is_null(queues[n].txhwb_frame)) {
+        r = invoke_frame_identify(queues[n].txhwb_frame, &frameid);
+        assert(err_is_ok(r));
+        txhwb_phys = frameid.base;
+
+        e10k_tdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
+        e10k_tdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
+        e10k_tdwbal_headwb_en_wrf(d, n, 1);
+    }
 
     // Initialized by queue driver to avoid race conditions
     // Initialize queue pointers
@@ -819,6 +831,7 @@ static void idc_request_device_info(struct e10k_binding *b)
 static void idc_register_queue_memory(struct e10k_binding *b,
                                       uint8_t n,
                                       struct capref tx_frame,
+                                      struct capref txhwb_frame,
                                       struct capref rx_frame,
                                       uint32_t rxbufsz)
 {
@@ -829,6 +842,7 @@ static void idc_register_queue_memory(struct e10k_binding *b,
     // reset
     queues[n].enabled = true;
     queues[n].tx_frame = tx_frame;
+    queues[n].txhwb_frame = txhwb_frame;
     queues[n].rx_frame = rx_frame;
     queues[n].tx_head = 0;
     queues[n].rx_head = 0;

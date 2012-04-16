@@ -53,6 +53,7 @@
 
 static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx_frame,
+                                      struct capref txhwb_frame,
                                       struct capref rx_frame,
                                       uint32_t rxbufsz);
 static void idc_terminate_queue(void);
@@ -91,6 +92,9 @@ static int initialized = 0;
  * rings.
  */
 static bool cache_coherence = true;
+
+/** Indicates whether TX head index write back should be used */
+static bool use_txhwb = true;
 
 
 
@@ -323,13 +327,14 @@ static void get_mac_addr_fn(uint8_t *mac)
 static void setup_queue(void)
 {
     struct capref tx_frame;
+    struct capref txhwb_frame = NULL_CAP;
     struct capref rx_frame;
     struct e10k_queue_ops ops = {
         .update_txtail = update_txtail,
         .update_rxtail = update_rxtail };
 
-    size_t tx_size, rx_size;
-    void *tx_virt, *rx_virt;
+    size_t tx_size, txhwb_size, rx_size;
+    void *tx_virt, *txhwb_virt, *rx_virt;
     vregion_flags_t flags;
 
 
@@ -349,12 +354,21 @@ static void setup_queue(void)
     rx_virt = alloc_map_frame(flags, rx_size, &rx_frame);
     assert(rx_virt != NULL);
 
+    // Register memory with device manager
+    txhwb_virt = NULL;
+    if (use_txhwb) {
+        txhwb_size = BASE_PAGE_SIZE;
+        txhwb_virt = alloc_map_frame(flags, txhwb_size, &txhwb_frame);
+        assert(txhwb_virt != NULL);
+        memset(txhwb_virt, 0, sizeof(uint32_t));
+        assert(txhwb_virt != NULL);
+    }
 
     // Initialize queue manager
-    q = e10k_queue_init(tx_virt, NTXDESCS, rx_virt, NRXDESCS, &ops, NULL);
+    q = e10k_queue_init(tx_virt, NTXDESCS, txhwb_virt, rx_virt, NRXDESCS, &ops,
+                        NULL);
 
-    // Register memory with device manager
-    idc_register_queue_memory(qi, tx_frame, rx_frame, RXBUFSZ);
+    idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ);
 }
 
 /** Terminate this queue driver */
@@ -384,6 +398,7 @@ static void idc_request_device_info(void)
 /** Send memory caps to card driver */
 static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx_frame,
+                                      struct capref txhwb_frame,
                                       struct capref rx_frame,
                                       uint32_t rxbufsz)
 {
@@ -391,7 +406,8 @@ static void idc_register_queue_memory(uint8_t queue,
     errval_t r;
     INITDEBUG("idc_register_queue_memory()\n");
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx_frame, rx_frame, rxbufsz);
+                                       tx_frame, txhwb_frame, rx_frame,
+                                       rxbufsz);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -519,6 +535,9 @@ static void parse_cmdline(int argc, char **argv)
         } else if (strncmp(argv[i], "cache_coherence=",
                            strlen("cache_coherence=") - 1) == 0) {
             cache_coherence = !!atol(argv[i] + strlen("cache_coherence="));
+        } else if (strncmp(argv[i], "head_idx_wb=",
+                           strlen("head_idx_wb=") - 1) == 0) {
+            use_txhwb = !!atol(argv[i] + strlen("head_idx_wb="));
         } else {
             ethersrv_argument(argv[i]);
         }

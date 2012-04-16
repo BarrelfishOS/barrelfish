@@ -23,6 +23,7 @@ interface e10k "e10k queue management interface" {
        the device manager. */
     call register_queue_memory(qid    id,
                                cap    tx,
+                               cap    txhwb,
                                cap    rx,
                                uint32 rxbufsz);
     response queue_memory_registered();
