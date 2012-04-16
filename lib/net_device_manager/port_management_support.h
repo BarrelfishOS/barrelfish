@@ -49,6 +49,9 @@ struct filters_tx_vtbl {
 // Get the signature for software filter manager
 struct filters_tx_vtbl *get_soft_filt_mng_sign(void);
 
+// Get the signature for e10k hardware filter manager
+struct filters_tx_vtbl *get_e10k_filt_mng_sign(void);
+
 // Initialize the port number management service
 int init_ports_service(char *dev_name);
 
