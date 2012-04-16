@@ -60,6 +60,10 @@ int main(int argc, char**argv)
             card_name = argv[i] + strlen("cardname=");
             printf("card name = %s\n", card_name);
         }
+        if(strncmp(argv[i],"queue=",strlen("queue=")-1)==0) {
+            allocated_queueid = atol(argv[i] + strlen("queue="));
+            printf("queue = %"PRIu64"\n", allocated_queueid);
+        }
     }
 
     /* Set memory affinity if requested */
