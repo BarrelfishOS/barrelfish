@@ -14,6 +14,7 @@
 
 #include <net_queue_manager/net_queue_manager.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/spawn_client.h>
 #include <barrelfish/debug.h>
 #include <trace/trace.h>
 
@@ -41,7 +42,7 @@
 #define DEBUG_ENABLE 0
 
 // Enable Debugging for intialization code
-#define INITDEBUG_ENABLE 1
+#define INITDEBUG_ENABLE 0
 
 
 
@@ -84,6 +85,12 @@ static uint64_t mac_address = 0;
 
 /** Indicates if the initialization is done */
 static int initialized = 0;
+
+/**
+ * Indicates whether we should rely on cache coherence for the descriptor
+ * rings.
+ */
+static bool cache_coherence = true;
 
 
 
@@ -323,20 +330,23 @@ static void setup_queue(void)
 
     size_t tx_size, rx_size;
     void *tx_virt, *rx_virt;
+    vregion_flags_t flags;
 
 
 
     INITDEBUG("setup_queue\n");
 
+    // Decide on which flags to use for the mappings
+    flags = (cache_coherence ? VREGION_FLAGS_READ_WRITE :
+                               VREGION_FLAGS_READ_WRITE_NOCACHE);
+
     // Allocate memory for descriptor rings
     tx_size = e10k_q_tdesc_legacy_size * NTXDESCS;
-    tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size,
-        &tx_frame);
+    tx_virt = alloc_map_frame(flags, tx_size, &tx_frame);
     assert(tx_virt != NULL);
 
     rx_size = e10k_q_rdesc_legacy_size * NRXDESCS;
-    rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size,
-        &rx_frame);
+    rx_virt = alloc_map_frame(flags, rx_size, &rx_frame);
     assert(rx_virt != NULL);
 
 
@@ -449,7 +459,7 @@ static void idc_queue_terminated(struct e10k_binding *b)
     INITDEBUG("idc_queue_terminated()\n");
 
     // TODO: Do we need to free anything manually here?
-    exit(0);
+    spawn_exit(0);
 }
 
 static struct e10k_rx_vtbl rx_vtbl = {
@@ -506,6 +516,9 @@ static void parse_cmdline(int argc, char **argv)
         } else if (strncmp(argv[i], "queue=", strlen("queue=") - 1) == 0) {
             qi = atol(argv[i] + strlen("queue="));
             has_queue = true;
+        } else if (strncmp(argv[i], "cache_coherence=",
+                           strlen("cache_coherence=") - 1) == 0) {
+            cache_coherence = !!atol(argv[i] + strlen("cache_coherence="));
         } else {
             ethersrv_argument(argv[i]);
         }

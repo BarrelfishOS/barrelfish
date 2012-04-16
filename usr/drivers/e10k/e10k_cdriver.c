@@ -24,7 +24,8 @@
 #include "e10k.h"
 #include "sleep.h"
 
-#define DEBUG(x...) printf("e10k: " x)
+//#define DEBUG(x...) printf("e10k: " x)
+#define DEBUG(x...) do {} while (0)
 
 
 struct queue_state {
@@ -368,6 +369,13 @@ static void device_init(void)
     e10k_ctrl_ext_drv_load_wrf(d, 1);
 
     // NO Snoop disable (from FBSD)
+    // Without this, the driver only works on sbrinz1 if the receive buffers are
+    // mapped non cacheable. If the buffers are mapped cacheable, sometimes we
+    // seem to read old buffer contents, not sure exactly why, as far as
+    // understood this, No snoop should only be enabled by the device if it is
+    // save...
+    // TODO: Also check performance implications of this on gottardo and other
+    // machnies where it works without this.
     e10k_ctrl_ext_ns_dis_wrf(d, 1);
 
     // Initialize flow-control registers
@@ -628,6 +636,12 @@ static void queue_hw_init(uint8_t n)
     // Initialize queue pointers
     e10k_tdh_wr(d, n, queues[n].tx_head);
     e10k_tdt_wr(d, n, queues[n].tx_head);
+
+    // Configure prefetch and writeback threshhold
+    e10k_txdctl_pthresh_wrf(d, n, 8); // FIXME: Figure out what the right number
+                                      //        is here.
+    e10k_txdctl_hthresh_wrf(d, n, 0);
+    e10k_txdctl_wthresh_wrf(d, n, 0);
 
     if (enable_global) {
         DEBUG("[%x] Enabling TX globally...\n", n);
