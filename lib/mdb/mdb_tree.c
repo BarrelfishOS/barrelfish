@@ -1024,7 +1024,12 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
             ret = MDB_RANGE_FOUND_INNER;
         }
         if (ret < MDB_RANGE_FOUND_SURROUNDING &&
-            (current_address <= address && current_end >= search_end))
+            current_address <= address &&
+            // exclude 0-length match with curaddr==addr
+            current_address < search_end &&
+            current_end >= search_end &&
+            // exclude 0-length match with currend==addr
+            current_end > address)
         {
             result = current;
             ret = MDB_RANGE_FOUND_SURROUNDING;
@@ -1045,7 +1050,8 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
         }
     }
 
-    if (N(current)->right && root >= current_root && search_end > current_address) {
+    if (N(current)->right && root >= current_root &&
+        (search_end > current_address || (search_end == current_address && size == 0))) {
         mdb_sub_find_range_merge(root, address, size, max_precision,
                                  N(current)->right, /*inout*/&ret,
                                  /*inout*/&result);
