@@ -278,7 +278,7 @@ static errval_t res_port(struct net_ports_binding *cc,
 
     // FIXME: qlist[queueid].insert_rule();
     err = qlist[queueid].filt_mng->reg_filters(port, type, buffer_id_rx,
-            buffer_id_tx, appid);
+            buffer_id_tx, appid, queueid);
     if (err_is_fail(err)) {
         // close the port which was allocated
         free_port(port, type);
@@ -418,7 +418,8 @@ static void close_port(struct net_ports_binding *cc,
     bp = find_filter_id(this_net_app->open_ports, port_no, type);
 
     if (bp != NULL) {
-        qlist[queueid].filt_mng->unreg_filters(bp->filter_id);
+        qlist[queueid].filt_mng->unreg_filters(bp->filter_id,
+                                               this_net_app->qid);
         // close the port
         free_port(port_no, type);
         // FIXME: Adjust the pointers in the linked list to safely free the bp

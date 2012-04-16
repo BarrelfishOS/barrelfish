@@ -28,8 +28,9 @@ typedef errval_t (*register_filter_t)(uint16_t port,
                     port_type_t type,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
-                    appid_t appid);
-typedef void (*deregister_filter_t)(uint64_t filter_id);
+                    appid_t appid,
+                    qid_t qid);
+typedef void (*deregister_filter_t)(uint64_t filter_id, qid_t qid);
 
 
 // Struct to capture the signature of different filter managers
