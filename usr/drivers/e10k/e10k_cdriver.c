@@ -74,6 +74,7 @@ static void stop_device(void);
 
 static void device_init(void);
 static void queue_hw_init(uint8_t n);
+static void queue_hw_stop(uint8_t n);
 
 static void e10k_flt_ftqf_setup(int index, struct e10k_filter *filter);
 //static void e10k_flt_etype_setup(int filter, int queue, uint16_t etype);
@@ -647,6 +648,27 @@ static void queue_hw_init(uint8_t n)
 
 }
 
+/** Stop queue. */
+static void queue_hw_stop(uint8_t n)
+{
+    // This process is described in 4.6.7.1.2
+
+    // Disable TX for this queue
+    e10k_txdctl_enable_wrf(d, n, 0);
+
+    // TODO: Flush packet buffers
+    // TODO: Remove all filters
+    // TODO: With RSC we have to wait here (see spec), not used atm
+
+    // Disable RX for this queue
+    e10k_rxdctl_1_enable_wrf(d, n, 0);
+    while (e10k_rxdctl_1_enable_rdf(d, n) != 0); // TODO: Timeout
+
+    // A bit too much, but make sure memory is not used anymore
+    milli_sleep(1);
+}
+
+
 /** Stop whole device. */
 static void stop_device(void)
 {
@@ -739,6 +761,15 @@ static void idc_write_queue_tails(struct e10k_binding *b)
     assert(err_is_ok(r));
 }
 
+/** Signal queue driver that the queue is stopped. */
+static void idc_queue_terminated(struct e10k_binding *b)
+{
+    errval_t r;
+    r = e10k_queue_terminated__tx(b, NOP_CONT);
+    // TODO: handle busy
+    assert(err_is_ok(r));
+}
+
 /** Send response about filter registration to device manager */
 static void idc_filter_registered(struct e10k_binding *b,
                                   uint64_t buf_id_rx,
@@ -795,6 +826,23 @@ static void idc_register_queue_memory(struct e10k_binding *b,
     idc_queue_memory_registered(b);
 }
 
+/**
+ * Request from queue driver to stop hardware queue and free everything
+ * associated with that queue.
+ */
+static void idc_terminate_queue(struct e10k_binding *b, uint8_t n)
+{
+    DEBUG("idc_terminate_queue(q=%d)\n", n);
+
+    queue_hw_stop(n);
+
+    queues[n].enabled = false;
+    queues[n].binding = NULL;
+
+    // TODO: Do we have to free the frame caps, or destroy the binding?
+    idc_queue_terminated(b);
+}
+
 static void idc_register_port_filter(struct e10k_binding *b,
                                      uint64_t buf_id_rx,
                                      uint64_t buf_id_tx,
@@ -831,6 +879,7 @@ static void idc_unregister_filter(struct e10k_binding *b,
 static struct e10k_rx_vtbl rx_vtbl = {
     .request_device_info = idc_request_device_info,
     .register_queue_memory = idc_register_queue_memory,
+    .terminate_queue = idc_terminate_queue,
 
     .register_port_filter = idc_register_port_filter,
     .unregister_filter = idc_unregister_filter,

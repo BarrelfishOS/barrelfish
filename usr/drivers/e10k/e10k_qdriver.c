@@ -54,6 +54,7 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx_frame,
                                       struct capref rx_frame,
                                       uint32_t rxbufsz);
+static void idc_terminate_queue(void);
 
 
 
@@ -349,7 +350,7 @@ static void setup_queue(void)
 /** Terminate this queue driver */
 static void terminate_queue_fn(void)
 {
-    assert(!"NYI");
+    idc_terminate_queue();
 }
 
 
@@ -385,7 +386,15 @@ static void idc_register_queue_memory(uint8_t queue,
     assert(err_is_ok(r));
 }
 
-
+/** Tell card driver to stop this queue. */
+static void idc_terminate_queue(void)
+{
+    errval_t r;
+    INITDEBUG("idc_terminate_queue()\n");
+    r = e10k_terminate_queue__tx(binding, NOP_CONT, qi);
+    // TODO: handle busy
+    assert(err_is_ok(r));
+}
 
 // Callback from device manager
 static void idc_queue_init_data(struct e10k_binding *b, struct capref registers,
@@ -434,11 +443,20 @@ static void idc_write_queue_tails(struct e10k_binding *b)
     e10k_queue_bump_txtail(q);
 }
 
+// Callback from device manager
+static void idc_queue_terminated(struct e10k_binding *b)
+{
+    INITDEBUG("idc_queue_terminated()\n");
+
+    // TODO: Do we need to free anything manually here?
+    exit(0);
+}
 
 static struct e10k_rx_vtbl rx_vtbl = {
     .queue_init_data = idc_queue_init_data,
     .queue_memory_registered = idc_queue_memory_registered,
     .write_queue_tails = idc_write_queue_tails,
+    .queue_terminated = idc_queue_terminated,
 };
 
 static void bind_cb(void *st, errval_t err, struct e10k_binding *b)

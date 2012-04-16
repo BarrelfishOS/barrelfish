@@ -33,6 +33,9 @@ interface e10k "e10k queue management interface" {
        tx queues after initialization or reset */
     response write_queue_tails();
 
+    /* Called by queue manager if it is done, and is going to terminate. */
+    call terminate_queue(qid id);
+    response queue_terminated();
 
     /*****************************************************
      * Filter management (used by device  manager library)
