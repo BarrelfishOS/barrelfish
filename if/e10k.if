@@ -13,13 +13,15 @@
  * exposed by the device manager, and every queue manager connects to it.
  */
 interface e10k "e10k queue management interface" {
+    typedef enum {PORT_TCP, PORT_UDP} port_type;
+    alias qid uint8;
 
     call request_device_info();
     response queue_init_data(cap registers, uint64 macaddr);
 
     /* Upon initialization the queue driver registers its memory with
        the device manager. */
-    call register_queue_memory(uint8  id,
+    call register_queue_memory(qid    id,
                                cap    tx,
                                cap    rx,
                                uint32 rxbufsz);
@@ -30,4 +32,24 @@ interface e10k "e10k queue management interface" {
     /* Tells queue driver to write the tail pointers for the rx and
        tx queues after initialization or reset */
     response write_queue_tails();
+
+
+    /*****************************************************
+     * Filter management (used by device  manager library)
+     *****************************************************/
+
+    call register_port_filter(uint64    buf_id_rx,
+                              uint64    buf_id_tx,
+                              qid       queue,
+                              port_type type,
+                              uint16    port);
+    response filter_registered(uint64    buf_id_rx,
+                               uint64    buf_id_tx,
+                               errval err,
+                               uint64 filter);
+
+    call unregister_filter(uint64 filter);
+    response filter_unregistered(uint64 filter, errval err);
+
+                            
 };

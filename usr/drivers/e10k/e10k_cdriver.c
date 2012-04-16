@@ -151,6 +151,36 @@ static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
     e10k_ftqf_wr(d, idx, ftqf);
 }
 
+static int ftqf_index = 0;
+static int ftqf_alloc(void)
+{
+    // FIXME: Do this reasonably
+    return ftqf_index++;
+}
+
+static errval_t reg_ftfq_filter(struct e10k_filter* f, uint64_t* fid)
+{
+    int i;
+
+    DEBUG("reg_ftfq_filter: called\n");
+
+    if ((i = ftqf_alloc()) < 0) {
+        return FILTER_ERR_NOT_ENOUGH_MEMORY;
+    }
+
+
+    filters[i] = *f;
+    filters[i].enabled = true;
+
+    e10k_flt_ftqf_setup(i, f);
+
+    *fid = i + 1;
+
+    return SYS_ERR_OK;
+}
+
+
+
 #if 0
 static void e10k_flt_etype_setup(int filter, int queue, uint16_t etype)
 {
@@ -165,13 +195,6 @@ static void e10k_flt_etype_setup(int filter, int queue, uint16_t etype)
     e10k_etqf_filter_en_wrf(d, filter, 1);
 }
 
-
-static int ftqf_index = 0;
-static int ftqf_alloc(void)
-{
-    // FIXME: Do this reasonably
-    return ftqf_index++;
-}
 
 static errval_t arp_filter(uint64_t qid, uint64_t* fid)
 {
@@ -716,6 +739,31 @@ static void idc_write_queue_tails(struct e10k_binding *b)
     assert(err_is_ok(r));
 }
 
+/** Send response about filter registration to device manager */
+static void idc_filter_registered(struct e10k_binding *b,
+                                  uint64_t buf_id_rx,
+                                  uint64_t buf_id_tx,
+                                  errval_t err,
+                                  uint64_t filter)
+{
+    errval_t r;
+    r = e10k_filter_registered__tx(b, NOP_CONT, buf_id_rx, buf_id_tx, err,
+                                   filter);
+    // TODO: handle busy
+    assert(err_is_ok(r));
+}
+
+/** Send response about filter deregistration to device manager */
+static void idc_filter_unregistered(struct e10k_binding *b,
+                                    uint64_t filter,
+                                    errval_t err)
+{
+    errval_t r;
+    r = e10k_filter_unregistered__tx(b, NOP_CONT, filter, err);
+    // TODO: handle busy
+    assert(err_is_ok(r));
+}
+
 /** Request from queue driver for register memory cap */
 static void idc_request_device_info(struct e10k_binding *b)
 {
@@ -747,10 +795,45 @@ static void idc_register_queue_memory(struct e10k_binding *b,
     idc_queue_memory_registered(b);
 }
 
+static void idc_register_port_filter(struct e10k_binding *b,
+                                     uint64_t buf_id_rx,
+                                     uint64_t buf_id_tx,
+                                     uint8_t queue,
+                                     e10k_port_type_t type,
+                                     uint16_t port)
+{
+    struct e10k_filter f = {
+        .dst_port = port,
+        .mask = MASK_SRCIP | MASK_DSTIP | MASK_SRCPORT,
+        .l4_type = (type == e10k_PORT_TCP ? L4_TCP : L4_UDP),
+        .priority = 1,
+        .queue = queue,
+    };
+    errval_t err;
+    uint64_t fid = -1ULL;
+
+    DEBUG("idc_register_port_filter: called (q=%d t=%d p=%d)\n",
+            queue, type, port);
+
+    err = reg_ftfq_filter(&f, &fid);
+    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", err, fid);
+
+    idc_filter_registered(b, buf_id_rx, buf_id_tx, err, fid);
+}
+
+static void idc_unregister_filter(struct e10k_binding *b,
+                                  uint64_t filter)
+{
+    DEBUG("unregister_filter: called (%"PRIx64")\n", filter);
+    idc_filter_unregistered(b, filter, LIB_ERR_NOT_IMPLEMENTED);
+}
 
 static struct e10k_rx_vtbl rx_vtbl = {
     .request_device_info = idc_request_device_info,
     .register_queue_memory = idc_register_queue_memory,
+
+    .register_port_filter = idc_register_port_filter,
+    .unregister_filter = idc_unregister_filter,
 };
 
 
