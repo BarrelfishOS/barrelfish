@@ -24,6 +24,12 @@
                       flounderBindings = [ "e10k"],
                       mackerelDevices = [ "e10k" ],
                       addLibraries = [ "pci", "contmng", "net_device_manager", "bench" ]
-                    }
+                    },
+
+  build application { target = "e10k_queue_elb",
+                      cFiles = [ "e10k_qdriver.c", "helper.c" ],
+                      flounderBindings = [ "e10k" ],
+                      mackerelDevices = [ "e10k", "e10k_q" ],
+                      addLibraries = libDeps ["ethernet_latency_benchmark"] }
 ]
 

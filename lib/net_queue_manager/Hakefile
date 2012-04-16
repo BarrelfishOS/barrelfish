@@ -15,5 +15,9 @@
                         "net_soft_filters_srv_impl.c", "QM_benchmark.c" ],
                   flounderBindings = [ "net_queue_manager",
                                        "net_soft_filters" ],
-                  addLibraries = [ "contmng", "procon", "bfdmuxvm"] }
+                  addLibraries = [ "contmng", "procon", "bfdmuxvm"] },
+
+  build library { target = "ethernet_latency_benchmark",
+                  cFiles = [ "ethernet_latency_benchmark.c" ],
+                  flounderBindings = [ "net_queue_manager" ] }
 ]
