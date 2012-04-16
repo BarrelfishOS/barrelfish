@@ -23,6 +23,7 @@ static void register_tx_buffer(size_t i, size_t len);
 static void respond_buffer(size_t i, size_t len);
 
 static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
+static ether_terminate_queue terminate_queue_fn_ptr = NULL;
 static ether_transmit_pbuf_list_t ether_transmit_pbuf_list_ptr = NULL;
 static ether_get_tx_free_slots tx_free_slots_fn_ptr = NULL;
 static ether_handle_free_TX_slot handle_free_tx_slot_fn_ptr = NULL;
@@ -79,6 +80,7 @@ static void alloc_mem(uint64_t* phys, void** virt, size_t size)
 
 void ethersrv_init(char *service_name, uint64_t queueid,
                    ether_get_mac_address_t get_mac_ptr,
+                   ether_terminate_queue terminate_queue_ptr,
                    ether_transmit_pbuf_list_t transmit_ptr,
                    ether_get_tx_free_slots tx_free_slots_ptr,
                    ether_handle_free_TX_slot handle_free_tx_slot_ptr,
@@ -91,6 +93,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     size_t i;
 
     ether_get_mac_address_ptr = get_mac_ptr;
+    terminate_queue_fn_ptr = terminate_queue_ptr;
     ether_transmit_pbuf_list_ptr = transmit_ptr;
     tx_free_slots_fn_ptr = tx_free_slots_ptr;
     handle_free_tx_slot_fn_ptr = handle_free_tx_slot_ptr;

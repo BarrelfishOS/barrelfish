@@ -134,7 +134,7 @@ struct driver_buffer {
  *  using the library.
  ******************************************************************/
 typedef void (*ether_get_mac_address_t)(uint8_t *mac);
-
+typedef void (*ether_terminate_queue)(void);
 typedef errval_t (*ether_transmit_pbuf_list_t)(
     struct driver_buffer *buffers,
     size_t                count,
@@ -155,7 +155,9 @@ typedef uint64_t (*ether_rx_get_free_slots)(void);
  * @param service_name             Service name for the card to which this queue
  *                                   belongs
  * @param queueid                  Queue index
-   @param get_mac_ptr              Callback that returns MAC address of the card
+ * @param get_mac_ptr              Callback that returns MAC address of the card
+ * @param terminate_queue_ptr      Callback that terminates the queue driver, or
+ *                                   NULL if this is not supported.
  * @param transmit_ptr             Callback to put a buffer chain in TX queue
  * @param tx_free_slots_ptr        Callback that returns number of free slots in
  *                                   TX queue
@@ -170,6 +172,7 @@ void ethersrv_init(
     char *service_name,
     uint64_t queueid,
     ether_get_mac_address_t     get_mac_ptr,
+    ether_terminate_queue       terminate_queue_ptr,
     ether_transmit_pbuf_list_t  transmit_ptr,
     ether_get_tx_free_slots     tx_free_slots_ptr,
     ether_handle_free_TX_slot   handle_free_tx_slots_ptr,

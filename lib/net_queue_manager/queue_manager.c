@@ -1015,6 +1015,7 @@ static errval_t connect_ether_cb(void *st, struct net_queue_manager_binding *b)
  ****************************************************************/
 void ethersrv_init(char *service_name, uint64_t queueid,
                    ether_get_mac_address_t get_mac_ptr,
+                   ether_terminate_queue terminate_queue_ptr,
                    ether_transmit_pbuf_list_t transmit_ptr,
                    ether_get_tx_free_slots tx_free_slots_ptr,
                    ether_handle_free_TX_slot handle_free_tx_slot_ptr,

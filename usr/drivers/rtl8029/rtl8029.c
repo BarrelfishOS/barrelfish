@@ -534,7 +534,7 @@ static void rtl8029_init(void)
 	/* FIXME: do hardware init*/
 	RTL8029_DEBUG("Done with hardware init\n");
 
-	ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn,
+	ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn, NULL,
             rtl8029_send_ethernet_packet_fn,
             rtl_tx_slots_count_fn, handle_free_TX_slot_fn,
             PACKET_SIZE, register_rx_buffer_fn, find_rx_free_slot_count_fn);

@@ -538,6 +538,7 @@ static void polling_loop(void)
 /*****************************************************************
  * Init callback
  ****************************************************************/
+
 static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
 {
     E1000N_DEBUG("starting hardware init\n");
@@ -548,7 +549,7 @@ static void e1000_init(struct device_mem *bar_info, int nr_allocated_bars)
     setup_internal_memory();
 
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
-		  transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+		  NULL, transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
           handle_free_TX_slot_fn, RECEIVE_BUFFER_SIZE, rx_register_buffer_fn,
           rx_find_free_slot_count_fn);
 }

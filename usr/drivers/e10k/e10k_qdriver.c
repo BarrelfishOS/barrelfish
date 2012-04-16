@@ -346,6 +346,12 @@ static void setup_queue(void)
     idc_register_queue_memory(qi, tx_frame, rx_frame, RXBUFSZ);
 }
 
+/** Terminate this queue driver */
+static void terminate_queue_fn(void)
+{
+    assert(!"NYI");
+}
+
 
 
 
@@ -413,9 +419,10 @@ static void idc_queue_memory_registered(struct e10k_binding *b)
     initialized = 1;
 
     // Register queue with queue_mgr library
-    ethersrv_init(service_name, qi, get_mac_addr_fn, transmit_pbuf_list_fn,
-        find_tx_free_slot_count_fn, handle_free_tx_slot_fn,
-        RXBUFSZ, register_rx_buffer_fn, find_rx_free_slot_count_fn);
+    ethersrv_init(service_name, qi, get_mac_addr_fn, terminate_queue_fn,
+        transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+        handle_free_tx_slot_fn, RXBUFSZ, register_rx_buffer_fn,
+        find_rx_free_slot_count_fn);
 }
 
 // Callback from device manager
