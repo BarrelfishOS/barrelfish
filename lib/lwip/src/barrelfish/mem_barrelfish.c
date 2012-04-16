@@ -40,7 +40,7 @@
 //     hand, we don't want smaller buffers and having the card split larger
 //     packets to multiple buffers, because otherwise we'd had to create a
 //     pbuf chain.
-#define RECEIVE_PBUF_SIZE 1514
+#define RECEIVE_PBUF_SIZE 2048
 
 //LWIP only needs two heaps. It allocates memory and pbufs from these two heaps.
 #define MAX_NR_BUFFERS 2

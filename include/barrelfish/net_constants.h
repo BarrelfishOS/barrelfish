@@ -107,7 +107,7 @@ enum buffer_memory_types {
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (1600)
+#define PBUF_POOL_BUFSIZE       (2048)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */
@@ -149,7 +149,7 @@ enum buffer_memory_types {
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (1600)
+#define PBUF_POOL_BUFSIZE       (2048)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */
