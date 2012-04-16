@@ -43,9 +43,15 @@
 /*****************************************************************
  * Global datastructure
  *****************************************************************/
+// True iff we use software filtering
+static bool use_sf;
+
 struct netbench_details *bm = NULL; // benchmarking data holder
 
 struct buffer_descriptor *buffers_list = NULL;
+
+// If we're not using sw filtering, we can only receive on one connection
+struct buffer_descriptor *receive_buffer = NULL;
 
 /*****************************************************************
  * Prototypes
@@ -60,6 +66,7 @@ static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
         uint64_t queueid);
+static void populate_rx_ring(struct buffer_descriptor *buffer);
 
 static void do_pending_work(struct net_queue_manager_binding *b);
 
@@ -91,6 +98,7 @@ ether_rx_get_free_slots rx_get_free_slots_fn_ptr = NULL;
  *****************************************************************/
 static char exported_queue_name[MAX_SERVICE_NAME_LEN] = {0}; // exported Q name
 static uint64_t exported_queueid = 0; // id of queue
+static size_t rx_buffer_size = 0;
 static int client_no = 0;  // number of clients(apps) connected
 static uint64_t buffer_id_counter = 0; // number of buffers registered
 // FIXME: following should be gone in next version of code
@@ -208,9 +216,6 @@ static errval_t populate_buffer(struct buffer_descriptor *buffer,
     buffer->next = buffers_list;
     // Adding the buffer on the top of buffer list.
 //    buffers_list = buffer;
-    if (buffer->role == RX_BUFFER_ID) {
-        // This is a buffer for receiving
-    }
     return SYS_ERR_OK;
 } // end function: populate_buffer
 
@@ -324,6 +329,18 @@ static void register_buffer(struct net_queue_manager_binding *cc,
 
     // Adding the buffer on the top of buffer list.
     buffers_list = buffer;
+
+    // Without software filtering we can only support one receiving buffer
+    if (!use_sf && role == RX_BUFFER_ID) {
+        if (receive_buffer != NULL) {
+            USER_PANIC("Already a receive buffer registered, but not using "
+                       "software filtering. This configuration is not "
+                       "supported.");
+        }
+
+        receive_buffer = buffer;
+        populate_rx_ring(buffer);
+    }
 
     sp_reload_regs(closure->spp_ptr);
     report_register_buffer_result(cc, err, queueid, buffer->buffer_id);
@@ -556,10 +573,8 @@ static uint64_t send_packets_on_wire(struct net_queue_manager_binding *cc)
     assert(closure != NULL);
     struct buffer_descriptor *buffer = closure->buffer_ptr;
     assert(buffer != NULL);
-    if (buffer->role == RX_BUFFER_ID) {
-//        printf("####### ERROR: send_packets_on_wire called on wrong buff\n");
-            return 0;
-    }
+
+    assert(buffer->role == TX_BUFFER_ID);
 
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSPOW,
@@ -641,6 +656,9 @@ bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index)
 //   * Send all pending packets.
 //   * Take care of descriptors which are sent.
 //   * If needed, notifiy application.
+// With hardware filtering this also includes some work for the RX path. In that
+// case we need to reregister the receive buffers that have been used, but with
+// which the application is now done to the RX ring of the queue.
 static void do_pending_work(struct net_queue_manager_binding *b)
 {
     uint64_t ts = rdtsc();
@@ -654,26 +672,30 @@ static void do_pending_work(struct net_queue_manager_binding *b)
     assert(spp->sp != NULL);
 
     // Check if there are more packets to be sent on wire
-    uint64_t pkts = 0;
-    pkts = send_packets_on_wire(b);
-    if (closure->debug_state == 4) {
-        netbench_record_event_simple(bm, RE_PENDING_1, ts);
-    }
-
-//    printf("do_pending_work: sent packets[%"PRIu64"]\n", pkts);
-    // Check if there are more pbufs which are to be marked free
-    if (pkts > 0) {
-        uint64_t tts = rdtsc();
-        while (handle_free_tx_slot_fn_ptr());
-
-        if (sp_queue_full(spp)) {
-            // app is complaining about TX queue being full
-            // FIXME: Release TX_DONE
-            while (handle_free_tx_slot_fn_ptr());
-        }
+    if (buffer->role == TX_BUFFER_ID) {
+        uint64_t pkts = 0;
+        pkts = send_packets_on_wire(b);
         if (closure->debug_state == 4) {
-            netbench_record_event_simple(bm, RE_PENDING_2, tts);
+            netbench_record_event_simple(bm, RE_PENDING_1, ts);
         }
+
+        //  printf("do_pending_work: sent packets[%"PRIu64"]\n", pkts);
+        // Check if there are more pbufs which are to be marked free
+        if (pkts > 0) {
+            uint64_t tts = rdtsc();
+            while (handle_free_tx_slot_fn_ptr());
+
+            if (sp_queue_full(spp)) {
+                // app is complaining about TX queue being full
+                // FIXME: Release TX_DONE
+                while (handle_free_tx_slot_fn_ptr());
+            }
+            if (closure->debug_state == 4) {
+                netbench_record_event_simple(bm, RE_PENDING_2, tts);
+            }
+        }
+    } else if (buffer->role == RX_BUFFER_ID) {
+        populate_rx_ring(buffer);
     }
 
     send_notification_to_app(closure);
@@ -700,9 +722,122 @@ void do_pending_work_for_all(void)
 // Functionality: packet receiving (RX path)
 // **********************************************************
 
+static inline struct shared_pool_private *buffer_to_spp(
+        struct buffer_descriptor *buffer)
+{
+    struct net_queue_manager_binding *b = buffer->con;
+    assert(b != NULL);
+    struct client_closure *cl = (struct client_closure *) b->st;
+    assert(cl != NULL);
+    struct shared_pool_private *spp = cl->spp_ptr;
+    assert(spp != NULL);
+    return spp;
+}
+
+static void populate_rx_ring(struct buffer_descriptor *buffer)
+{
+    size_t capacity;
+    uint64_t paddr;
+    void *opaque, *vaddr;
+    struct shared_pool_private *spp_ptr;
+    struct slot_data sslot;
+
+    if (use_sf) {
+        // For software filtering this is a no-op
+        return;
+    }
+
+    // Register RX buffers with driver if there are buffers and there are
+    // free slots in driver ring
+    capacity = rx_get_free_slots_fn_ptr();
+
+    spp_ptr = buffer_to_spp(buffer);
+    sp_reload_regs(spp_ptr);
+    while (capacity > 0) {
+        // Last available slot reached
+        if (((spp_ptr->ghost_write_id + 1) % spp_ptr->c_size) ==
+                spp_ptr->c_read_id)
+        {
+            break;
+        }
+
+        sp_copy_slot_data(&sslot,
+                          &spp_ptr->sp->slot_list[spp_ptr->ghost_write_id].d);
+        assert(sslot.client_data != 0);
+        assert(sslot.len >= rx_buffer_size);
+        assert(sslot.no_pbufs != 0);
+
+        paddr = (uint64_t) (uintptr_t) buffer->pa + sslot.offset;
+        vaddr = (void*) ((uintptr_t) buffer->va + sslot.offset);
+        opaque = (void*) (uintptr_t) spp_ptr->ghost_write_id;
+        rx_register_buffer_fn_ptr(paddr, vaddr, opaque);
+
+        spp_ptr->ghost_write_id = (spp_ptr->ghost_write_id + 1)
+            % spp_ptr->c_size;
+
+        capacity--;
+    }
+}
+
+/**
+ * Called by driver when it receives a new packet.
+ */
+void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
+{
+    struct shared_pool_private *spp;
+    struct client_closure *cl;
+
+    if (use_sf) {
+        sf_process_received_packet(opaque, pkt_len, is_last);
+        return;
+    }
+
+    // If we do no software filtering we basically only have to tell the
+    // application that a new packet is ready.
+
+    assert(receive_buffer != NULL);
+    spp = buffer_to_spp(receive_buffer);
+    cl = (struct client_closure *) receive_buffer->con->st;
+
+
+    // TODO ak: Packets that span multiple buffers!
+    if (!is_last) {
+        USER_PANIC("TODO: Handle packets that span multiple buffers.\n");
+    }
+
+    sp_reload_regs(spp);
+    // Make sure that spp_index is the slot which will be next written
+    assert((uintptr_t) opaque == spp->c_write_id);
+
+    // update the length of packet in sslot.len field
+    spp->sp->slot_list[spp->c_write_id].d.len = pkt_len;
+    spp->sp->slot_list[spp->c_write_id].d.no_pbufs = 1;
+
+    if(!sp_increment_write_index(spp)){
+        printf("########### ERROR: cp_pkt_2_usr: sp_set_write_index failed\n");
+        USER_PANIC("increment_write_index problem\n");
+        abort();
+        return;
+    }
+
+#if TRACE_ONLY_SUB_NNET
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSPPDONE,
+                0);
+#endif // TRACE_ONLY_SUB_NNET
+
+    send_notification_to_app(cl);
+}
+
+/**
+ * Used in combination with software filtering, to copy a packet into a user
+ * buffer.
+ */
 bool copy_packet_to_user(struct buffer_descriptor *buffer,
                          void *data, uint64_t len)
 {
+    // Must only be called if we use software filtering
+    assert(use_sf);
+
     assert(len > 0);
     assert(data != NULL);
     assert(buffer != NULL);
@@ -857,6 +992,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     assert(rx_get_free_slots_ptr != NULL);
 
     exported_queueid = queueid;
+    rx_buffer_size = rx_bufsz;
     ether_get_mac_address_ptr = get_mac_ptr;
     ether_transmit_pbuf_list_ptr = transmit_ptr;
     tx_free_slots_fn_ptr = tx_free_slots_ptr;
@@ -882,8 +1018,6 @@ void ethersrv_init(char *service_name, uint64_t queueid,
                              my_mac[3], my_mac[4], my_mac[5]);
     bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
 
-    /* FIXME: populate the receive ring of device driver with local pbufs */
-
     /* exporting ether interface */
     err = net_queue_manager_export(NULL, // state for connect/export callbacks
                        export_ether_cb, connect_ether_cb, get_default_waitset(),
@@ -893,8 +1027,13 @@ void ethersrv_init(char *service_name, uint64_t queueid,
         abort();
     }
 
-    // start software filtering service
-    init_soft_filters_service(service_name, queueid, rx_bufsz);
+    // FIXME: How do we decide this reasonably
+    use_sf = (queueid == 0);
+
+    if (use_sf) {
+        // start software filtering service
+        init_soft_filters_service(service_name, queueid, rx_bufsz);
+    }
 }
 
 

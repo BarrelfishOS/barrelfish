@@ -1204,7 +1204,7 @@ static bool handle_netd_packet(void *packet, size_t len)
 } // end function: handle_netd_packet
 
 
-void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
+void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 {
     void *pkt_data;
 
