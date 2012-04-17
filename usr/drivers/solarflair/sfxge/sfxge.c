@@ -61,11 +61,28 @@ sfxge_create(struct sfxge_softc *sc)
         abort();
     }
 
-
     // Probe the NIC and build the configuration data area.
     int status = efx_nic_probe(enp);
     if (status != 0) {
         printf("efx_nic_probe failed\n");
+        abort();
+    }
+
+    // Initialize the NVRAM.
+    if ((error = efx_nvram_init(enp)) != 0) {
+        printf("efx_nvram_init failed\n");
+        abort();
+    }
+
+    // Initialize the VPD.
+    if ((error = efx_vpd_init(enp)) != 0) {
+        printf("efx_vpd_init failed\n");
+        abort();
+    }
+
+    // Reset the NIC.
+    if ((error = efx_nic_reset(enp)) != 0) {
+        printf("efx_nic_reset failed\n");
         abort();
     }
 
