@@ -56,8 +56,9 @@ static rtl8029as_t      rtl;
 /// This buffers the card's MAC address upon card reset
 static uint8_t          rtl8029_mac[6];
 
-// driver will initially copy the packet here.
-static uint8_t packetbuf[PACKET_SIZE];
+// Buffer registered by net_queue_mgr library
+static uint8_t *packetbuf = NULL;
+static void *packetbuf_opaque = NULL;
 
 // the length of packet copied into packetbuf
 static uint16_t packet_length;
@@ -110,7 +111,8 @@ static inline uint16_t page_to_mem(uint8_t page)
 /**
  * \brief Read from ASIC memory.
  *
- * \param dst           Pointer to buffer to copy data to.
+ * \param dst           Pointer to buffer to copy data to. If NULL, the data is
+ *                      thrown away.
  * \param src           Source address in ASIC memory to read from.
  * \param amount        Number of bytes to transfer.
  */
@@ -118,6 +120,7 @@ static void read_mem(uint8_t *dst, int src, int amount)
 {
     int remain = amount % 4;
     uint32_t *d = (uint32_t *)dst;
+    uint32_t val;
     int i;
 
     rtl8029as_rbcr_wr(&rtl, amount);    // Amount of bytes to transfer
@@ -136,7 +139,10 @@ static void read_mem(uint8_t *dst, int src, int amount)
 
     // Read remaining bytes
     for(; i < amount; i++) {
-        dst[i] = rtl8029as_rdma8_rd(&rtl);
+        val = rtl8029as_rdma8_rd(&rtl);
+        if (dst != NULL) {
+            dst[i] = val;
+        }
     }
 
     // Stop read
@@ -148,20 +154,15 @@ static void read_mem(uint8_t *dst, int src, int amount)
  * \brief Write packet to memory at a particular page.
  *
  * \param page          Destination start page in ASIC memory.
- * \param p             client_closure which is to be used to get the next
- *                      packet.
- *                      (FIXME: Actually only spp and cl->tx_index is needed)
+ * \param buffers       Descriptors for buffer chain
+ * \param count         Number of buffers in chain
  * \param pkt_len       Length of packet to be sent next.
  */
-static inline void write_page(uint8_t page, struct client_closure *cl,
-        uint64_t pkt_len)
+static inline void write_page(uint8_t page, struct driver_buffer *buffers,
+        size_t count, uint64_t pkt_len)
 {
     uint64_t pbuf_len = 0;
     uint16_t dst = page_to_mem(page);
-    struct shared_pool_private *spp = cl->spp_ptr;
-    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-    uint64_t rtpbuf = sld->no_pbufs;
-
 
     RTL8029_DEBUG("write page\n");
     rtl8029as_rbcr_wr(&rtl, pkt_len);// Number of bytes to transfer
@@ -173,19 +174,9 @@ static inline void write_page(uint8_t page, struct client_closure *cl,
     cr = rtl8029as_cr_rd_insert(cr, rtl8029as_rwr);
     rtl8029as_cr_wr(&rtl, cr);
 
-
-    struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
-
-    for (int idx = 0; idx < rtpbuf; idx++) {
-        sld = &spp->sp->slot_list[cl->tx_index + idx].d;
-        assert(buffer->buffer_id == sld->buffer_id);
-
-#if defined(__i386__)
-	uint8_t *src = (uint8_t *) ((uintptr_t)(buffer->va + sld->offset));
-#else
-        uint8_t *src = (uint8_t *) ((uint64_t)buffer->va + sld->offset);
-#endif
-        pbuf_len = sld->len;
+    for (int idx = 0; idx < count; idx++) {
+        uint8_t *src = buffers[idx].va;
+        pbuf_len = buffers[idx].len;
 
         uint32_t i = 0;
 
@@ -252,24 +243,21 @@ static uint64_t rtl_tx_slots_count_fn(void)
  * by the card or the driver.
  *
  */
-static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
+static errval_t rtl8029_send_ethernet_packet_fn(struct driver_buffer *buffers,
+                                                size_t                count,
+                                                void                 *opaque)
 {
-
-    struct shared_pool_private *spp = cl->spp_ptr;
-    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-    uint64_t rtpbuf = sld->no_pbufs;
-
     // Find the length of entire packet
     uint64_t pkt_len = 0;
-    for (int idx = 0; idx < rtpbuf; idx++) {
-        pkt_len += spp->sp->slot_list[cl->tx_index + idx].d.len;
+    for (int idx = 0; idx < count; idx++) {
+        pkt_len += buffers[idx].len;
     }
 
     // RTL8029_DEBUG("sending ethernet packet\n");
     assert(pkt_len <= WRITE_BUF_SIZE);
 
     // Write packet to ASIC memory
-    write_page(WRITE_PAGE, cl, pkt_len);
+    write_page(WRITE_PAGE, buffers, count, pkt_len);
     // RTL8029_DEBUG("page written\n");
 
     // Set address & size
@@ -289,10 +277,7 @@ static errval_t rtl8029_send_ethernet_packet_fn(struct client_closure *cl)
     while(rtl8029as_tsr_ptx_rdf(&rtl) == 0);
 
     // Tell the client we sent them!!!
-    for (int i = 0; i < rtpbuf; i++) {
-        handle_tx_done(cl->app_connection, (cl->tx_index + i));
-
-    } // end for:
+    handle_tx_done(opaque);
 
     return SYS_ERR_OK;
 }
@@ -311,7 +296,10 @@ static void read_ring_buffer(uint8_t *dst, int src, int amount)
         // Read everything up to end of buffer
         read_mem(dst, src, size);
         // Read rest from (wrapped-around) start of buffer
-        read_mem(dst + size, page_to_mem(READ_START_PAGE), amount - size);
+        if (dst != NULL) {
+            dst += size;
+        }
+        read_mem(dst, page_to_mem(READ_START_PAGE), amount - size);
     }
 }
 
@@ -343,6 +331,9 @@ static void rtl8029_receive_packet(void)
 
     // Read packet
     packet_length = status.length - sizeof(status);
+    // FIXME: Can we skip reading from the ring buffer if packetbuf == NULL? Or
+    // does the card require us to read the data to continue working properly?
+    // At the moment I chose the safe path and read the data.
     read_ring_buffer(packetbuf, page_to_mem(curr_page) + sizeof(status),
                      packet_length);
 
@@ -396,17 +387,10 @@ static void rtl8029_handle_interrupt(void *arg)
         	assert(packet_length <= 1522);
         	assert(packet_length > 0);
 
-        	/* Ensures that netd is up and running */
-        	if(waiting_for_netd()){
-        		RTL8029_DEBUG("still waiting for netd to reg buf\n");
-        		return;
-        	}
-			/* FIXME: Not sure if its good idea to call
-			 * process_received_packet in interrupt handler. */
-        	/* FIXME: find out if this is real interrupt handler,
-        	 * or just message generated for interrupt handler. */
-            // Call handler if packet received
-        	process_received_packet(packetbuf, packet_length);
+            if (packetbuf != NULL) {
+                packetbuf = NULL;
+                process_received_packet(packetbuf_opaque, packet_length, true);
+            }
         }
     }
 
@@ -519,6 +503,27 @@ static bool handle_free_TX_slot_fn(void)
     return false;
 }
 
+/**
+ * Callback for net_queue_mgr library. Since we do PIO anyways, we only ever use
+ * one buffer.
+ */
+static uint64_t find_rx_free_slot_count_fn(void)
+{
+    return (packetbuf == NULL);
+}
+
+/** Callback for net_queue_mgr library. */
+static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
+{
+    if (packetbuf != NULL) {
+        return ETHERSRV_ERR_TOO_MANY_BUFFERS;
+    }
+
+    packetbuf = vaddr;
+    packetbuf_opaque = opaque;
+    return SYS_ERR_OK;
+}
+
 static void rtl8029_init(void)
 {
 	/* FIXME: use correct name, and make apps and netd
@@ -529,9 +534,10 @@ static void rtl8029_init(void)
 	/* FIXME: do hardware init*/
 	RTL8029_DEBUG("Done with hardware init\n");
 
-	ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn,
+	ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn, NULL,
             rtl8029_send_ethernet_packet_fn,
-            rtl_tx_slots_count_fn, handle_free_TX_slot_fn);
+            rtl_tx_slots_count_fn, handle_free_TX_slot_fn,
+            PACKET_SIZE, register_rx_buffer_fn, find_rx_free_slot_count_fn);
 }
 
 /**
@@ -577,7 +583,13 @@ static void polling_loop(void)
 int main(int argc, char *argv[])
 {
 	errval_t err;
+    int i;
     RTL8029_DEBUG("Starting rtl8029 standalone driver.....\n");
+
+    // Process commandline arguments
+    for (i = 1; i < argc; i++) {
+        ethersrv_argument(argv[i]);
+    }
 #ifdef CONFIG_QEMU_NETWORK
     printf("Starting RTL8029 for QEMU\n");
 #else // CONFIG_QEMU_NETWORK

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011, ETH Zurich.
+ * Copyright (c) 2010-2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,13 +7,10 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef E10K_H_
-#define E10K_H_
+#include <stdint.h>
 
-#include "e10k_dev.h"
 
-#define E10K_PCI_DEVID 0x10FB
+void sleep_init(void);
+void cycle_sleep(uint64_t cycles);
+void milli_sleep(uint64_t ms);
 
-void e10k_phy_init(e10k_t* d);
-
-#endif // ndef E10K_H_

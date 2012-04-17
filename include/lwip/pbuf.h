@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 /* FIXME: this might be the bad place for this #define */
-#define PBUF_PKT_SIZE 1514      // NOTE: size of each pbuf struct.
+#define PBUF_PKT_SIZE 2048      // NOTE: size of each pbuf struct.
 
 #define PBUF_TRANSPORT_HLEN 20
 #define PBUF_IP_HLEN        20

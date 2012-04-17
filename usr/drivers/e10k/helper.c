@@ -7,9 +7,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdio.h>
+#include "helper.h"
 
-#include "e10k.h"
+#include <stdio.h>
+#include <stdint.h>
+
 
 /* Dump bytes of memory region to stdout */
 void debug_dumpmem(void* buf, size_t len)

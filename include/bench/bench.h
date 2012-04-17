@@ -23,6 +23,8 @@
 void bench_init(void);
 cycles_t bench_avg(cycles_t *array, size_t len);
 cycles_t bench_variance(cycles_t *array, size_t len);
+cycles_t bench_min(cycles_t *array, size_t len);
+cycles_t bench_max(cycles_t *array, size_t len);
 cycles_t bench_tscoverhead(void);
 
 #endif // BENCH_H

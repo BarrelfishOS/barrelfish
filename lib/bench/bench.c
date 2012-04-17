@@ -101,3 +101,43 @@ cycles_t bench_variance(cycles_t *array, size_t len)
 
     return (sum / count) - (avg * avg);
 }
+
+/**
+ * \brief Compute minimum
+ *
+ * If certain datapoints should be ignored, they should be marked with
+ * #BENCH_IGNORE_WATERMARK
+ */
+cycles_t bench_min(cycles_t *array, size_t len)
+{
+    size_t i = len >> 3;
+    cycles_t min = -1ULL;
+
+    for (; i < len; i++) {
+        if (array[i] != BENCH_IGNORE_WATERMARK && array[i] < min) {
+            min = array[i];
+        }
+    }
+
+    return min;
+}
+
+/**
+ * \brief Compute maximum
+ *
+ * If certain datapoints should be ignored, they should be marked with
+ * #BENCH_IGNORE_WATERMARK
+ */
+cycles_t bench_max(cycles_t *array, size_t len)
+{
+    size_t i = len >> 3;
+    cycles_t max = 0;
+
+    for (; i < len; i++) {
+        if (array[i] != BENCH_IGNORE_WATERMARK && array[i] > max) {
+            max = array[i];
+        }
+    }
+
+    return max;
+}

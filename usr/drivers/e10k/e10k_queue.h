@@ -27,6 +27,7 @@ struct e10k_queue {
     size_t                          tx_head;
     size_t                          tx_tail;
     size_t                          tx_size;
+    uint32_t*                       tx_hwb;
 
     e10k_q_rdesc_legacy_array_t*    rx_ring;
     void**                          rx_opaque;
@@ -40,8 +41,9 @@ struct e10k_queue {
 
 typedef struct e10k_queue e10k_queue_t;
 
-static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size, void* rx,
-    size_t rx_size, struct e10k_queue_ops* ops, void* opaque)
+static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size,
+    uint32_t* tx_hwb, void* rx, size_t rx_size, struct e10k_queue_ops* ops,
+    void* opaque)
 {
     e10k_queue_t* q = malloc(sizeof(*q));
 
@@ -50,6 +52,7 @@ static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size, void* rx,
     q->tx_head = 0;
     q->tx_tail = 0;
     q->tx_size = tx_size;
+    q->tx_hwb = tx_hwb;
 
     q->rx_ring = rx;
     q->rx_opaque = malloc(sizeof(void*) * rx_size);
@@ -80,8 +83,7 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, uint64_t phys,
 
     e10k_q_tdesc_legacy_buffer_insert(d, phys);
     e10k_q_tdesc_legacy_length_insert(d, len);
-    // OPTIMIZATION: Maybe only set rs on last packet?
-    e10k_q_tdesc_legacy_rs_insert(d, 1);
+    e10k_q_tdesc_legacy_rs_insert(d, (last == 1));
     e10k_q_tdesc_legacy_ifcs_insert(d, 1);
     e10k_q_tdesc_legacy_eop_insert(d, last);
 
@@ -95,8 +97,13 @@ static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque,
     e10k_q_tdesc_legacy_t d;
     size_t head = q->tx_head;
 
+    // If HWB is enabled, we can skip reading the descriptor if nothing happened
+    if (q->tx_hwb && *q->tx_hwb == head) {
+        return 1;
+    }
+
     d = q->tx_ring[head];
-    if (e10k_q_tdesc_legacy_dd_extract(d)) {
+    if (q->tx_hwb || e10k_q_tdesc_legacy_dd_extract(d)) {
         *last = e10k_q_tdesc_legacy_eop_extract(d);
         *opaque = q->tx_opaque[head];
 
@@ -120,11 +127,12 @@ static inline size_t e10k_queue_free_txslots(e10k_queue_t* q)
     size_t tail = q->tx_tail;
     size_t size = q->tx_size;
 
-    if (tail > head) {
-        return size - (head - tail) - 1; // TODO: could this be off by 1?
+    if (tail >= head) {
+        return size - (tail - head) - 1; // TODO: could this be off by 1?
     } else {
-        return size - (head + size - tail) - 1; // TODO: off by 1?
+        return size - (tail + size - head) - 1; // TODO: off by 1?
     }
+
 }
 
 static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
@@ -144,7 +152,7 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
     return 0;
 }
 
-static inline int e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
+static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
     size_t* len, int* last)
 {
     e10k_q_rdesc_legacy_t d;
@@ -170,6 +178,19 @@ static inline int e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
 static inline errval_t e10k_queue_bump_rxtail(e10k_queue_t* q)
 {
     return q->ops.update_rxtail(q->opaque, q->rx_tail);
+}
+
+static inline size_t e10k_queue_free_rxslots(e10k_queue_t* q)
+{
+    size_t head = q->rx_head;
+    size_t tail = q->rx_tail;
+    size_t size = q->rx_size;
+
+    if (tail >= head) {
+        return size - (tail - head) - 1; // TODO: could this be off by 1?
+    } else {
+        return size - (tail + size - head) - 1; // TODO: off by 1?
+    }
 }
 
 

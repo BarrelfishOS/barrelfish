@@ -19,6 +19,7 @@
                "boot_perfmon",
                "bulkbench",
                "diskd",
+               "e10k",
                "ehci",
                "net_queue_manager",
                "net_ports",

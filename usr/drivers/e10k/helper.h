@@ -7,13 +7,14 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef E10K_H_
-#define E10K_H_
+#ifndef HELPER_H_
+#define HELPER_H_
 
-#include "e10k_dev.h"
+#include <errors/errno.h>
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/vregion.h>
 
-#define E10K_PCI_DEVID 0x10FB
+void debug_dumpmem(void* buf, size_t len);
+void* alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
 
-void e10k_phy_init(e10k_t* d);
-
-#endif // ndef E10K_H_
+#endif // ndef HELPER_H_

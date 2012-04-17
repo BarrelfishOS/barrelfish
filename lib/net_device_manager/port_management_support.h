@@ -28,8 +28,9 @@ typedef errval_t (*register_filter_t)(uint16_t port,
                     port_type_t type,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
-                    appid_t appid);
-typedef void (*deregister_filter_t)(uint64_t filter_id);
+                    appid_t appid,
+                    qid_t qid);
+typedef void (*deregister_filter_t)(uint64_t filter_id, qid_t qid);
 
 
 // Struct to capture the signature of different filter managers
@@ -47,6 +48,9 @@ struct filters_tx_vtbl {
 
 // Get the signature for software filter manager
 struct filters_tx_vtbl *get_soft_filt_mng_sign(void);
+
+// Get the signature for e10k hardware filter manager
+struct filters_tx_vtbl *get_e10k_filt_mng_sign(void);
 
 // Initialize the port number management service
 int init_ports_service(char *dev_name);
