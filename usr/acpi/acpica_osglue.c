@@ -496,6 +496,8 @@ struct AcpiMapping {
     lpaddr_t pbase;
     ACPI_SIZE length;
     unsigned refcount;
+    struct capref *caps;
+    size_t num_caps;
     struct AcpiMapping *next;
 };
 
@@ -525,15 +527,64 @@ AcpiOsMapMemory (
 {
     ACPI_DEBUG("AcpiOsMapMemory where=%lu, length=%lu\n", where, length);
     errval_t err;
+    //printf("AcpiOsMapMemory: 0x%"PRIxLPADDR", %lu\n", where, length);
     lpaddr_t pbase = where & (~BASE_PAGE_MASK);
     length += where - pbase;
     length = ROUND_UP(length, BASE_PAGE_SIZE);
     int npages = DIVIDE_ROUND_UP(length, BASE_PAGE_SIZE);
+    lpaddr_t pend  = pbase + length;
+
+    //printf("AcpiOsMapMemory: 0x%"PRIxLPADDR", %d\n", pbase, npages);
+
+    struct capref am_pages[npages];
+    memset(&am_pages, 0, npages*sizeof(struct capref));
 
     for (struct AcpiMapping *walk = head; walk; walk = walk->next) {
-        if ((walk->pbase <= pbase) && (walk->pbase + walk->length >= pbase + length)) {
+        lpaddr_t walk_end = walk->pbase + walk->length;
+        if (walk->pbase <= pbase && walk_end >= pend) {
             walk->refcount++;
             return (void*)(uintptr_t)vregion_get_base_addr(walk->vregion) + (where-walk->pbase);
+        }
+        // overlapping map requests
+        else if (walk->pbase >= pbase && walk_end <= pend) {
+            //printf("old mapping inside request\n");
+            // new request contains old mapping
+            //        |---| walk
+            // |---------------| new mapping
+            size_t first = (walk->pbase - pbase) / BASE_PAGE_SIZE;
+            // printf("pbase = 0x%"PRIxGENPADDR", walk->pbase = 0x%"PRIxGENPADDR"\n", pbase, walk->pbase);
+            // printf("npages = %d, walk->npages = %zd\n", npages, walk->num_caps);
+            // printf("caps %zd - %zd already retyped\n", first, first + walk->num_caps-1);
+            for (int c = 0; c < walk->num_caps; c++) {
+                am_pages[first + c] = walk->caps[c];
+            }
+        }
+        else if (walk->pbase < pbase && walk_end > pbase && walk_end < pend) {
+            //printf("old mapping at beginning of new request\n");
+            // new request overlaps end of old mapping-->walk_end < pend
+            // |--------| walk
+            //       |--------------| new mapping
+            size_t overlap_count = (walk_end - pbase) / BASE_PAGE_SIZE;
+            //printf("pbase = 0x%"PRIxGENPADDR", walk->pbase = 0x%"PRIxGENPADDR"\n", pbase, walk->pbase);
+            //printf("npages = %d, walk->npages = %zd\n", npages, walk->num_caps);
+            //printf("caps %d - %zd already retyped\n", 0, overlap_count - 1);
+            for (int c = 0; c < overlap_count; c++) {
+                am_pages[c] = walk->caps[walk->num_caps - overlap_count + c];
+            }
+        }
+        else if (walk->pbase > pbase && walk->pbase < pend && walk_end > pend) {
+            //printf("old mapping at end of new request\n");
+            // new request overlaps beginning of old mapping
+            //               |-----| walk
+            // |---------------| new mapping
+            size_t first = (pend - walk->pbase) / BASE_PAGE_SIZE;
+            size_t overlap_count = npages - first;
+            //printf("pbase = 0x%"PRIxGENPADDR", walk->pbase = 0x%"PRIxGENPADDR"\n", pbase, walk->pbase);
+            //printf("npages = %d, walk->npages = %zd\n", npages, walk->num_caps);
+            //printf("caps %zd - %zd already retyped\n", first, first + overlap_count - 1);
+            for (int c = 0; c < overlap_count; c++) {
+                am_pages[first + c] =  walk->caps[c];
+            }
         }
     }
 
@@ -553,51 +604,49 @@ AcpiOsMapMemory (
         return NULL;
     }
 
+    struct AcpiMapping *new = malloc(sizeof(struct AcpiMapping));
+    new->num_caps = npages;
+    new->caps = calloc(npages, sizeof(struct capref));
     for (int page = 0; page < npages; page++) {
-        struct capref ram_cap;
-        lpaddr_t paddr = pbase + page * BASE_PAGE_SIZE;
+        struct capref frame_cap;
+        if (capref_is_null(am_pages[page])) {
+            lpaddr_t paddr = pbase + page * BASE_PAGE_SIZE;
 
-        err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, paddr,
-                               &ram_cap);
+            err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, paddr,
+                                   &frame_cap);
+            if (err_is_fail(err)) {
+                free(new->caps);
+                free(new);
+                DEBUG_ERR(err, "AcpiOsMapMemory: allocating RAM at %lx failed\n",
+                          paddr);
+                return NULL;
+            }
+            /* result of mm_realloc_range is already DevFrame */
+        }
+        else {
+            frame_cap = am_pages[page];
+        }
+
+        err = slot_alloc(&new->caps[page]);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "AcpiOsMapMemory: allocating RAM at %lx failed\n",
-                      paddr);
-            debug_my_cspace();
-            assert(!"done");
+            DEBUG_ERR(err, "AcpiOsMapMemory: could not allocate slot for capability: %s.",
+                    err_getstring(err_no(err)));
             return NULL;
         }
-
-        /* retype to DevFrame to prevent zeroing */
-        struct capref frame_cap = ram_cap;
-        int r;
-/*
-        int r = slot_alloc(&frame_cap);
-        assert(r == 0);
-
-        r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
-        if (r == SYS_ERR_REVOKE_FIRST) {
-             XXX: this is a bad hack. we currently duplicate mappings, but
-             * the kernel won't let us retype more than once. So we revoke,
-             * relying on the fact that revoke doesn't yet undo mappings.
-             * The proper fix is to track what we already mapped!
-             
-            debug_printf("AcpiOsMapMemory: XXX: revoking RAM %lx\n", paddr);
-            r = cap_revoke(ram_cap);
-            assert(r == 0);
-            r = cap_retype(frame_cap, ram_cap, ObjType_DevFrame, BASE_PAGE_BITS);
+        err = cap_copy(new->caps[page], frame_cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "AcpiOsMapMemory: cap_copy failed: %s.",
+                    err_getstring(err_no(err)));
+            return NULL;
         }
-        //DEBUG_ERR(r, "after revoke, retype AcpiOsMapMemory(%lu, %lu)", where, length);
-        assert(r == 0);
-*/
-        r = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, frame_cap,
+        err = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, new->caps[page],
                            BASE_PAGE_SIZE);
-        assert(r == 0);
-        r = memobj->m.f.pagefault(&memobj->m, vregion, page * BASE_PAGE_SIZE, 0);
-        assert(r == 0);
+        assert(err == 0);
+        err = memobj->m.f.pagefault(&memobj->m, vregion, page * BASE_PAGE_SIZE, 0);
+        assert(err == 0);
     }
 
     // add new mapping to tracking list
-    struct AcpiMapping *new = malloc(sizeof(struct AcpiMapping));
     new->memobj = memobj;
     new->vregion = vregion;
     new->pbase = pbase;
@@ -633,6 +682,8 @@ AcpiOsUnmapMemory (
 
     uintptr_t vbase = (uintptr_t)where & (~BASE_PAGE_MASK);
     length = ROUND_UP(length, BASE_PAGE_SIZE);
+
+    //printf("AcpiOsUnmapMemory: 0x%lx, %ld\n", vbase, length / BASE_PAGE_SIZE);
 
     // printf("unmap 0x%lx %zd\n", vbase, length);
     // printf("vend 0x%lx\n", vbase + length);
