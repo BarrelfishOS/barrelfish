@@ -30,6 +30,10 @@ capsend_target(coreid_t dest, struct msg_queue_elem *queue_elem)
         return err;
     }
     struct intermon_state *inter_st = (struct intermon_state*)dest_b->st;
+    if (!inter_st->capops_ready) {
+        // XXX: custom error value
+        return MON_ERR_NO_MONITOR_FOR_CORE;
+    }
 
     // enqueue message
     return intermon_enqueue_send(dest_b, &inter_st->queue, dest_b->waitset, queue_elem);

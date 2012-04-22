@@ -51,6 +51,7 @@ struct intermon_state {
     coreid_t core_id;                   ///< Core ID of monitor on other end
     rsrcid_t rsrcid;
     bool rsrcid_inflight;
+    bool capops_ready;
     struct monitor_binding *originating_client;
 };
 

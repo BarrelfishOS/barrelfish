@@ -64,6 +64,16 @@ static errval_t new_monitor_notify(coreid_t id)
 }
 
 /**
+ * \brief A newly booted monitor indicates that can participate in capability
+ * operations
+ */
+static void capops_ready(struct intermon_binding *b)
+{
+    struct intermon_state *st = b->st;
+    st->capops_ready = true;
+}
+
+/**
  * \brief A newly booted monitor indicates that it has initialized
  */
 
@@ -128,6 +138,7 @@ static void monitor_initialized(struct intermon_binding *b)
 
     struct intermon_state *st = b->st;
     errval_t err;
+    assert(st->capops_ready);
 
     /* Inform other monitors of this new monitor */
     monitor_ready[st->core_id] = true;
@@ -605,6 +616,7 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .monitor_mem_iref_request = monitor_mem_iref_request,
     .monitor_mem_iref_reply = monitor_mem_iref_reply,
 
+    .capops_ready              = capops_ready,
     .monitor_initialized       = monitor_initialized,
 
     .spawnd_image_request      = spawnd_image_request,
@@ -652,6 +664,7 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
     st->binding = b;
     st->queue.head = st->queue.tail = NULL;
     st->rsrcid_inflight = false;
+    st->capops_ready = true;
     st->originating_client = NULL;
     b->st = st;
     b->rx_vtbl = the_intermon_vtable;

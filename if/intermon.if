@@ -40,6 +40,7 @@ interface intermon "The Interface between monitors" {
     message spawnd_image_request();
     message spawnd_image_reply(genpaddr base, uint32 bytes);
 
+    message capops_ready();
     message monitor_initialized();
 
     message trace_caps_request();

@@ -81,6 +81,7 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
     // setup new binding
     assert(new_binding != NULL);
     intermon_init(new_binding, id);
+    ((struct intermon_state*)new_binding->st)->capops_ready = false;
 
     // store client that requested the boot, so we can tell them when it completes
     struct intermon_state *st = new_binding->st;
