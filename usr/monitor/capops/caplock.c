@@ -21,17 +21,8 @@ void
 caplock_wait(struct domcapref cap,
              struct event_queue_node *qn, struct event_closure cont)
 {
-    errval_t err;
-    err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
-    if (err_is_ok(err)) {
-        cont.handler(cont.arg);
-    }
-    else if (err_no(err) == SYS_ERR_CAP_LOCKED) {
-        capqueue_wait(&global_queue, qn, cont);
-    }
-    else {
-        USER_PANIC_ERR(err, "error while locking cap");
-    }
+    debug_printf("caplock_wait\n");
+    capqueue_wait(&global_queue, qn, cont);
 }
 
 void

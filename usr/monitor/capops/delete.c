@@ -352,20 +352,50 @@ delete_cnode(struct capref cap, void *st)
  * Delete operation
  */
 
+static void
+delete_trylock_cont(void *st)
+{
+    errval_t err;
+    struct delete_st *del_st = (struct delete_st*)st;
+
+    // setup extended delete operation
+    err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr, del_st->capref.bits);
+    if (err_no(err) == SYS_ERR_CAP_LOCKED) {
+        caplock_wait(del_st->capref, &del_st->qn, MKCLOSURE(delete_trylock_cont, del_st));
+        return;
+    }
+    else if (err_is_fail(err)) {
+        DEBUG_ERR(err, "locking cap for delete");
+        goto report_error;
+    }
+
+    if (distcap_is_moveable(del_st->cap.type)) {
+        // if cap is moveable, move ownership so cap can then be deleted
+        err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
+    }
+    else {
+        // otherwise delete all remote copies and then delete last copy
+        err = delete_remote(&del_st->cap, del_st);
+    }
+    if (err_is_fail(err)) {
+        goto cap_set_ready;
+    }
+
+    return;
+
+cap_set_ready:
+    caplock_unlock(del_st->capref);
+
+report_error:
+    del_st->result_handler(err, del_st->st);
+    free(del_st);
+
+}
+
 errval_t
 capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
 {
     errval_t err;
-    distcap_state_t state;
-
-    err = dom_cnode_get_state(cap, &state);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    if (distcap_state_is_busy(state)) {
-        return MON_ERR_REMOTE_CAP_RETRY;
-    }
 
     // try a simple delete
     err = dom_cnode_delete(cap);
@@ -380,39 +410,13 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void
     // simple delete was not able to delete cap as it was last copy and may
     // have remote copies, need to move or revoke cap
 
-    // setup extended delete operation
-    err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
     struct delete_st *del_st = NULL;
     err = alloc_delete_st(&del_st, cap, result_handler, st);
     if (err_is_fail(err)) {
-        goto cap_set_ready;
+        return err;
     }
     assert(del_st);
 
-    if (distcap_is_moveable(del_st->cap.type)) {
-        // if cap is moveable, move ownership so cap can then be deleted
-        err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
-    }
-    else {
-        // otherwise delete all remote copies and then delete last copy
-        err = delete_remote(&del_st->cap, del_st);
-    }
-    if (err_is_fail(err)) {
-        goto free_del_st;
-    }
-
-    goto end_cleanup;
-
-free_del_st:
-    free(del_st);
-
-cap_set_ready:
-    caplock_unlock(cap);
-
-end_cleanup:
-    return err;
+    delete_trylock_cont(del_st);
+    return SYS_ERR_OK;
 }
