@@ -702,14 +702,20 @@ AcpiOsUnmapMemory (
                 vregion_destroy(walk->vregion);
                 // XXX: memobj_destroy_anon is not implemented
                 memobj_destroy_anon((struct memobj *)walk->memobj);
+                if (prev) {
+                    prev->next = walk->next;
+                }
+                else { // we were head
+                    head = walk->next;
+                }
+                for (int i = 0; i < walk->num_caps; i++) {
+                    // XXX: ensure that this never deletes a last copy?
+                    cap_destroy(walk->caps[i]);
+                }
+                free(walk->caps);
+                free(walk);
+                return;
             }
-            if (prev) {
-                prev->next = walk->next;
-            }
-            else { // we were head
-                head = walk->next;
-            }
-            free(walk);
         }
     }
 }
