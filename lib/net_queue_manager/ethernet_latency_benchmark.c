@@ -19,7 +19,6 @@
 
 static void client_send_packet(void);
 static void start_run(void);
-static void analyze_data(void);
 
 static void register_rx_buffer(size_t i);
 static void register_tx_buffer(size_t i, size_t len);
@@ -54,18 +53,22 @@ static bool is_server = false;
 static uint64_t sent_at;
 static uint64_t started_at;
 static bool got_response = false;
-static size_t runs = 0;
 static uint64_t minbase = -1ULL;
 static uint64_t maxbase = -1ULL;
 static bool affinity_set = false;
 
-#define PEAK_THRESH 20
-
+#define MAX_PAYLOAD 1500
 /** Size of payload for ethernet packets in benchmark */
 static size_t payload_size = 64;
 
 /** Specifies whether the data should be read by the client */
 static bool read_incoming = false;
+
+/** Specifies whether a permutation should be used or just a linear scan */
+static bool read_linear = false;
+
+/** Will be initialized with a permutation for touching the packet content */
+static uint16_t read_permutation[MAX_PAYLOAD];
 
 
 /** Number of runs to run */
@@ -73,12 +76,6 @@ static size_t total_runs = 1024;
 
 /** Number of dry runs before we start benchmarking */
 static size_t dry_runs = 100;
-
-/** Stores number of cycles each run took */
-static cycles_t *run_data;
-
-/** Stores time wen n'th run finished */
-static cycles_t *abs_run_data;
 
 /** Specifies whether the time for each run should be dumped */
 static bool dump_each_run = false;
@@ -88,6 +85,10 @@ static bool use_nocache = false;
 
 /** Prefix for outputting the results */
 static const char *out_prefix = "";
+
+
+/** Benchmark control handle */
+bench_ctl_t *bench_ctl = NULL;
 
 
 
@@ -116,6 +117,29 @@ static void alloc_mem(uint64_t* phys, void** virt, size_t size)
         USER_PANIC("Mapping memory region frame failed!");
     }
     memset(*virt, 0, size);
+}
+
+/** Generate a permutation for touching the packet contents */
+static void create_read_permutation(void)
+{
+    uint16_t i;
+    uint16_t j;
+    uint16_t tmp;
+
+    for (i = 0; i < payload_size; i++) {
+        read_permutation[i] = i;
+    }
+
+    srand(rdtsc());
+
+    // Use fisher-yates shuffle
+    for (i = payload_size - 1; i >= 1; i--) {
+        j = rand() % (i + 1);
+
+        tmp = read_permutation[i];
+        read_permutation[i] = read_permutation[j];
+        read_permutation[j] = tmp;
+    }
 }
 
 void ethersrv_init(char *service_name, uint64_t queueid,
@@ -150,9 +174,14 @@ void ethersrv_init(char *service_name, uint64_t queueid,
         buf_virt[i] = (void*) ((uintptr_t) virt + rx_bufsz);
     }
 
-    // Initialize array for cycle count of each run
-    run_data = calloc(total_runs, sizeof(*run_data));
-    abs_run_data = calloc(total_runs, sizeof(*run_data));
+    // If desired, create permutation for accessing incoming data
+    if (read_incoming && !read_linear) {
+        create_read_permutation();
+    }
+
+    // Initialize benchmark control
+    bench_ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, total_runs);
+    bench_ctl_dry_runs(bench_ctl, dry_runs);
 
     initialized = true;
 
@@ -181,7 +210,7 @@ void ethersrv_argument(const char* arg)
             printf("elb: Payload size too small (must be at least 46), has "
                     "been extended to 46!\n");
             payload_size = 46;
-        } else if (payload_size > 1500) {
+        } else if (payload_size > MAX_PAYLOAD) {
             printf("elb: Payload size too big (must be at most 1500), has "
                     "been limited to 1500!\n");
             payload_size = 1500;
@@ -230,31 +259,37 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
         respond_buffer(idx, pkt_len);
         //iprintf("elb: sent response...\n");
     } else {
+        // Touch data if desired
         if (read_incoming) {
             struct ethernet_frame* frame = buf_virt[buf_cur];
+            volatile uint8_t* b = frame->payload;
             size_t i;
             size_t acc = 0;
-            for (i = 0; i< payload_size; i++) {
-                acc += frame->payload[i];
+            if (read_linear) {
+                for (i = 0; i< payload_size; i++) {
+                    acc += b[i];
+                }
+            } else {
+                for (i = 0; i < payload_size; i++) {
+                    acc += b[read_permutation[i]];
+                }
             }
         }
 
-        uint64_t tsc = rdtsc();
-        uint64_t diff = tsc - sent_at;
-        if (dry_runs) {
-            dry_runs--;
-        } else {
-            run_data[runs] = diff;
-            abs_run_data[runs] = tsc - started_at;
-            runs++;
-        }
-        //printf("elb: Got response: %"PRIu64"!\n", diff);
+        cycles_t tsc = rdtsc();
+        cycles_t result[2] = {
+            tsc - sent_at,
+            tsc - started_at,
+        };
+
         got_response = true;
-        if (runs < total_runs) {
-            start_run();
-        } else {
-            analyze_data();
+
+        if (bench_ctl_add_run(bench_ctl, result)) {
+            bench_ctl_dump_csv(bench_ctl, out_prefix);
+            bench_ctl_destroy(bench_ctl);
             terminate_queue_fn_ptr();
+        } else {
+            start_run();
         }
     }
 }
@@ -270,36 +305,6 @@ static void start_run(void)
     // Register receive buffer
     register_rx_buffer(buf_cur);
     client_send_packet();
-}
-
-static void analyze_data(void)
-{
-    size_t i;
-    size_t thrown_out = 0;
-    cycles_t prelim_avg = bench_avg(run_data, total_runs);
-
-    if (dump_each_run) {
-        for (i = 0; i < total_runs; i++) {
-            printf("%%  %s%"PRIu64",%"PRIu64"\n",
-                   out_prefix, run_data[i], abs_run_data[i]);
-        }
-    }
-
-    for (i = 0; i < total_runs; i++) {
-        if (run_data[i] > PEAK_THRESH * prelim_avg) {
-            thrown_out++;
-            run_data[i] = BENCH_IGNORE_WATERMARK;
-        }
-    }
-
-    cycles_t avg = bench_avg(run_data, total_runs);
-    cycles_t var = bench_variance(run_data, total_runs);
-    cycles_t min = bench_min(run_data, total_runs);
-    cycles_t max = bench_max(run_data, total_runs);
-
-
-    printf("elb: Results avg=%"PRIu64"  var=%"PRIu64"  min=%"PRIu64"  max=%"
-            PRIu64"  (thrown out %"PRIu64")\n", avg, var, min, max, thrown_out);
 }
 
 static void client_send_packet(void)
