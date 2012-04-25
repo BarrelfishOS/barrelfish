@@ -170,8 +170,12 @@ bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t idx)
 bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t idx)
 {
     sp_reload_regs(spp);
-    uint64_t upper_limit = (spp->c_write_id + 1) % spp->c_size;
-    return sp_c_between(spp->c_read_id, idx, upper_limit, spp->c_size);
+    // Since sp_c_between only checks for value < end and we want <= end, we
+    // check this case manually here
+    if (idx == spp->c_write_id) {
+        return true;
+    }
+    return sp_c_between(spp->c_read_id, idx, spp->c_write_id, spp->c_size);
 }
 
 

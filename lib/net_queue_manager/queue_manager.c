@@ -46,6 +46,10 @@
 // True iff we use software filtering
 static bool use_sf;
 
+// True if sofware filtering was disabled using the command-line parameter, this
+// means that software filtering is not used, even if we are on queue 0.
+static bool force_disable_sf = false;
+
 struct netbench_details *bm = NULL; // benchmarking data holder
 
 struct buffer_descriptor *buffers_list = NULL;
@@ -1083,7 +1087,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     }
 
     // FIXME: How do we decide this reasonably
-    use_sf = (queueid == 0);
+    use_sf = !force_disable_sf && (queueid == 0);
 
     if (use_sf) {
         // start software filtering service
@@ -1101,6 +1105,8 @@ void ethersrv_argument(const char* arg)
         minbase = atol(arg + strlen("affinitymin="));
     } else if(!strncmp(arg, "affinitymax=", strlen("affinitymax="))) {
         maxbase = atol(arg + strlen("affinitymax="));
+    } else if (!strncmp(arg, "disable_sf=", strlen("disable_sf="))) {
+        force_disable_sf = !!atol(arg + strlen("disable_sf="));
     }
 
     if (!affinity_set && minbase != -1ULL && maxbase != -1ULL) {
