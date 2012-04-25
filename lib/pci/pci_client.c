@@ -195,6 +195,13 @@ errval_t pci_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
     return err_is_fail(err) ? err : msgerr;
 }
 
+errval_t pci_read_conf_header(uint64_t dword, uint32_t *val)
+{
+    errval_t err, msgerr;
+    err = pci_client->vtbl.read_conf_header(pci_client, dword, &msgerr);
+    return 0;
+}
+
 static void bind_cont(void *st, errval_t err, struct pci_binding *b)
 {
     errval_t *reterr = st;

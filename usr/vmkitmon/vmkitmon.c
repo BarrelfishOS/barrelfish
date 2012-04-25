@@ -131,6 +131,12 @@ int main (int argc, char *argv[])
 	}
 	assert(err_is_ok(r));
 	printf("vmkitmon: registered driver, waiting for init..\n");
+    
+    uint32_t bla;
+    r = pci_read_conf_header(0,&bla);
+    if(err_is_fail(r)) {
+        DEBUG_ERR(r,"My call failed\n");
+    }
 
 	//Poll bebe
 	printf("Ignoring the cardname [%s], and using the default one from vfs_mount\n",

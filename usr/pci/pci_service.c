@@ -23,6 +23,7 @@
 #include "pci.h"
 #include <if/pci_defs.h>
 #include <mm/mm.h>
+#include "pci_confspace.h"
 
 #include "pci_debug.h"
 
@@ -239,6 +240,21 @@ static void get_vbe_bios_cap(struct pci_binding *b)
     assert(err_is_ok(err));
 }
 
+static void read_conf_header_handler(struct pci_binding *b, uint64_t dword)
+{
+    /*
+    struct client_state *cc = (struct client_state *) b->st;
+    struct pci_address addr = {
+        .bus= cc->bus,
+        .device=cc->dev,
+        .function=cc->fun,
+    };
+    uint32_t val = pci_read_conf_header(&addr, 0);
+    */
+    
+    printf("Yeah, RPC called\n");
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
@@ -246,6 +262,7 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .reset_call = reset_handler,
     .sleep_call = sleep_handler,
     .get_vbe_bios_cap_call = get_vbe_bios_cap,
+    .read_conf_header_call = read_conf_header_handler,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

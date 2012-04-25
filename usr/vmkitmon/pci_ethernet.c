@@ -17,7 +17,6 @@
 #include "pci.h"
 #include "pci_devices.h"
 #include "pci_hdr0_mem_dev.h"
-#include "pci_hdr0_dev.h"
 
 #include <pci/pci.h>
 #include <skb/skb.h>
@@ -53,14 +52,6 @@ static void confspace_read(struct pci_device *dev,
                            union pci_config_address_word addr,
                            enum opsize size, uint32_t *val)
 {
-    struct pci_address addr;
-    addr.bus=0;
-    addr.device=0;
-    addr.function=0;
-
-    //pci_hdr0_t hdr;
-    //pci_hdr0_initialize(&hdr, addr);
-
     struct pci_ethernet *h = dev->state;
 
     if(addr.d.fnct_nr != 0) {
