@@ -96,8 +96,14 @@ static bool cache_coherence = true;
 /** Indicates whether TX head index write back should be used */
 static bool use_txhwb = true;
 
+/** Capability for hardware TX ring */
+static struct capref tx_frame;
 
+/** Capability for hardware TX ring */
+static struct capref rx_frame;
 
+/** Capability for head index write back feature */
+static struct capref txhwb_frame;
 
 
 /******************************************************************************/
@@ -326,9 +332,6 @@ static void get_mac_addr_fn(uint8_t *mac)
 /** Allocate queue n and return handle for queue manager */
 static void setup_queue(void)
 {
-    struct capref tx_frame;
-    struct capref txhwb_frame = NULL_CAP;
-    struct capref rx_frame;
     struct e10k_queue_ops ops = {
         .update_txtail = update_txtail,
         .update_rxtail = update_rxtail };
@@ -397,17 +400,16 @@ static void idc_request_device_info(void)
 
 /** Send memory caps to card driver */
 static void idc_register_queue_memory(uint8_t queue,
-                                      struct capref tx_frame,
-                                      struct capref txhwb_frame,
-                                      struct capref rx_frame,
+                                      struct capref tx,
+                                      struct capref txhwb,
+                                      struct capref rx,
                                       uint32_t rxbufsz)
 {
 
     errval_t r;
     INITDEBUG("idc_register_queue_memory()\n");
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx_frame, txhwb_frame, rx_frame,
-                                       rxbufsz);
+                                       tx, txhwb, rx, rxbufsz);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -472,10 +474,28 @@ static void idc_write_queue_tails(struct e10k_binding *b)
 // Callback from device manager
 static void idc_queue_terminated(struct e10k_binding *b)
 {
+    errval_t err;
+
     INITDEBUG("idc_queue_terminated()\n");
 
-    // TODO: Do we need to free anything manually here?
-    spawn_exit(0);
+    // Free memory for hardware ring buffers
+    err = vspace_unmap(q->tx_ring);
+    assert(err_is_ok(err));
+    err = vspace_unmap(q->rx_ring);
+    assert(err_is_ok(err));
+    err = cap_delete(tx_frame);
+    assert(err_is_ok(err));
+    err = cap_delete(rx_frame);
+    assert(err_is_ok(err));
+
+    if (!capref_is_null(txhwb_frame)) {
+        err = vspace_unmap(q->tx_hwb);
+        assert(err_is_ok(err));
+        err = cap_delete(txhwb_frame);
+        assert(err_is_ok(err));
+    }
+
+    exit(0);
 }
 
 static struct e10k_rx_vtbl rx_vtbl = {
