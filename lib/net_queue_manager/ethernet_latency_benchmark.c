@@ -170,8 +170,8 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     // Allocate packet buffers
     alloc_mem(&phys, &virt, BUF_COUNT * rx_bufsz);
     for (i = 0; i < BUF_COUNT; i++) {
-        buf_phys[i] = phys + rx_bufsz;
-        buf_virt[i] = (void*) ((uintptr_t) virt + rx_bufsz);
+        buf_phys[i] = phys + i * rx_bufsz;
+        buf_virt[i] = (void*) ((uintptr_t) virt + i * rx_bufsz);
     }
 
     // If desired, create permutation for accessing incoming data
