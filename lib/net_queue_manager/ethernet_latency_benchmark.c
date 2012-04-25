@@ -55,6 +55,9 @@ static uint64_t sent_at;
 static uint64_t started_at;
 static bool got_response = false;
 static size_t runs = 0;
+static uint64_t minbase = -1ULL;
+static uint64_t maxbase = -1ULL;
+static bool affinity_set = false;
 
 #define PEAK_THRESH 20
 
@@ -67,6 +70,9 @@ static bool read_incoming = false;
 
 /** Number of runs to run */
 static size_t total_runs = 1024;
+
+/** Number of dry runs before we start benchmarking */
+static size_t dry_runs = 100;
 
 /** Stores number of cycles each run took */
 static cycles_t *run_data;
@@ -167,6 +173,8 @@ void ethersrv_argument(const char* arg)
         is_server = true;
     } else if (!strncmp(arg, "runs=", strlen("runs="))) {
         total_runs = atol(arg + strlen("runs="));
+    } else if (!strncmp(arg, "dry_runs=", strlen("dry_runs="))) {
+        dry_runs = atol(arg + strlen("dry_runs="));
     } else if (!strncmp(arg, "payload_size=", strlen("payload_size="))) {
         payload_size = atol(arg + strlen("payload_size="));
         if (payload_size < 46) {
@@ -186,7 +194,17 @@ void ethersrv_argument(const char* arg)
         read_incoming = !!atol(arg + strlen("read_incoming="));
     } else if (!strncmp(arg, "dump_each=", strlen("dump_each="))) {
         dump_each_run = !!atol(arg + strlen("dump_each="));
+    } else if (!strncmp(arg, "affinitymin=", strlen("affinitymin="))) {
+        minbase = atol(arg + strlen("affinitymin="));
+    } else if(!strncmp(arg, "affinitymax=", strlen("affinitymax="))) {
+        maxbase = atol(arg + strlen("affinitymax="));
     }
+
+    if (!affinity_set && minbase != -1ULL && maxbase != -1ULL) {
+        ram_set_affinity(minbase, maxbase);
+        affinity_set = true;
+    }
+
 }
 
 void do_pending_work_for_all(void)
@@ -223,11 +241,15 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 
         uint64_t tsc = rdtsc();
         uint64_t diff = tsc - sent_at;
-        run_data[runs] = diff;
-        abs_run_data[runs] = tsc - started_at;
+        if (dry_runs) {
+            dry_runs--;
+        } else {
+            run_data[runs] = diff;
+            abs_run_data[runs] = tsc - started_at;
+            runs++;
+        }
         //printf("elb: Got response: %"PRIu64"!\n", diff);
         got_response = true;
-        runs++;
         if (runs < total_runs) {
             start_run();
         } else {
