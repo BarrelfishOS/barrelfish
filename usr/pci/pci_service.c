@@ -249,7 +249,7 @@ static void read_conf_header_handler(struct pci_binding *b, uint64_t dword)
         .device=cc->dev,
         .function=cc->fun,
     };
-    PCI_DEBUG("Read config header from %u:%u:%u\n",addr.bus, addr.dev, addr.fun);
+    PCI_DEBUG("Read config header from %u:%u:%u\n",addr.bus, addr.device, addr.function);
     uint32_t val = pci_read_conf_header(&addr, dword);
     
     errval_t err;
