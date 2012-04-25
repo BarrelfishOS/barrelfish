@@ -18,6 +18,10 @@
 
 #include <skb/skb.h>
 
+// From lib/dist/skb.c
+errval_t get_cores_skb(coreid_t **cores, int *n_cores);
+
+
 static void memory_affinity(int core, uint64_t* min, uint64_t* max)
 {
     errval_t r;
@@ -70,7 +74,10 @@ static void start_run(uint8_t core, uint8_t memory, int payload, int nocache,
 
 int main(int argc, char **argv)
 {
-    uint8_t core;
+    coreid_t *cores;
+    int core_count;
+
+    int c_idx;
     uint8_t memory;
     int payloadsz = 64;
     int nocache = 0;
@@ -80,19 +87,23 @@ int main(int argc, char **argv)
 
     sleep_init();
 
+    // Connect to SKB to get info
     err = skb_client_connect();
     assert(err_is_ok(err));
+
+    // Get information about available cores
+    get_cores_skb(&cores, &core_count);
 
     printf("Net latency benchmark start\n");
     printf("%%\"core\",\"memory\",\"payload\",\"nocache\",\"touch\",\"hiwb\","
            "\"rtt\",\"time\"\n");
-    for (core = 0; core < 16; core++) {
+    for (c_idx = 0; c_idx < core_count; c_idx++) {
         for (memory = 0; memory < 16; memory += 4) {
         for (payloadsz = 64; payloadsz < 1500; payloadsz *= 4) {
             for (nocache = 0; nocache <= 1; nocache++) {
                 for (read_incoming = 0; read_incoming <= 1; read_incoming++) {
                 for (head_idx_wb = 0; head_idx_wb <= 1; head_idx_wb++) {
-                    start_run(core, memory, payloadsz, nocache,
+                    start_run(cores[c_idx], memory, payloadsz, nocache,
                              read_incoming, head_idx_wb);
                 }
                 }

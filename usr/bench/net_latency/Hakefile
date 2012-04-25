@@ -12,5 +12,7 @@
 
 [ build application { target = "net_latency_bench",
                       cFiles = [ "main.c", "sleep.c" ],
-		      addLibraries = [ "bench", "skb" ]
+		      addLibraries = [ "bench", "skb",
+                                       "dist" -- for get_cores_skb
+                      ]
                     } ]
