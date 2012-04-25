@@ -85,3 +85,82 @@ void bench_ctl_dump_csv(bench_ctl_t *ctl,
     fflush(stdout);
 }
 
+
+/**
+ * Return bin index for this value. We keep two more bins than bin count, one
+ * for the values below min (bin_count), and one for those above (bin_count + 1)
+ */
+static inline size_t val2bin(size_t bin_count, cycles_t min, cycles_t max,
+                             cycles_t value)
+{
+    cycles_t bin_width = (max - min) / bin_count;
+
+    if (value < min) {
+        return bin_count;
+    } else if (value >= max) {
+        return bin_count + 1;
+    }
+
+    return (value - min) / bin_width;
+}
+
+/** Return the lower value for a bin */
+static inline cycles_t bin2val(size_t bin_count, cycles_t min, cycles_t max,
+                               size_t idx)
+{
+    cycles_t bin_width = (max - min) / bin_count;
+    return min + idx * bin_width;
+}
+
+/**
+ * Returns a newly allocated array of bins, filled with the desired values.
+ * The array has bin_count + 2 elements. result[bin_count] contains the number
+ * of values below the minium, result[bin_count + 1] those above the maximum.
+ * The caller is responsible for freeing the array.
+ */
+static cycles_t *do_bincounting(bench_ctl_t *ctl,
+                                size_t dimension,
+                                size_t bin_count,
+                                cycles_t min,
+                                cycles_t max)
+{
+    size_t *bins;
+    size_t i;
+    cycles_t *v;
+
+    bins = calloc(bin_count + 2, sizeof(size_t));
+
+    for (i = 0; i < ctl->result_count; i++) {
+        v = ctl->data + (ctl->result_dimensions * i + dimension);
+        bins[val2bin(bin_count, min, max, *v)]++;
+    }
+
+    return bins;
+}
+
+
+void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
+                                    size_t dimension,
+                                    size_t bin_count,
+                                    cycles_t min,
+                                    cycles_t max,
+                                    const char *prefix)
+{
+    size_t *bins;
+    size_t i;
+    cycles_t val;
+
+    bins = do_bincounting(ctl, dimension, bin_count, min, max);
+
+    printf("%sbellow,%"PRIu64"\n", prefix, bins[bin_count]);
+    printf("%sabove,%"PRIu64"\n", prefix, bins[bin_count+1]);
+    for (i = 0; i < bin_count; i++) {
+        if (bins[i] > 0) {
+            val = bin2val(bin_count, min, max, i);
+            printf("%s%"PRIu64",%"PRIu64"\n", prefix, val, bins[i]);
+        }
+    }
+
+    free(bins);
+}
+

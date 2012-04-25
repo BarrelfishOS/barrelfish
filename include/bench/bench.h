@@ -105,4 +105,26 @@ bool bench_ctl_add_run(bench_ctl_t *ctl,
 void bench_ctl_dump_csv(bench_ctl_t *ctl,
                         const char  *prefix);
 
+/**
+ * Use bincounting to reduce the amount of data that is printed.
+ * One line per bin (bin_count + 2 for those below and above the specified
+ * range) with two columns each is emited at most. Lines for empty bins are
+ * omitted except for above and below. The first column contains the start
+ * of the range for this bin (or below/above for the border cases), while the
+ * second column contains the number of values in that bin.
+ *
+ * @param ctl       Control handle
+ * @param dimenison Index of the value in the run
+ * @param bin_count Number of bins to create
+ * @param min       Minimum of range to be represented by bins
+ * @param max       Maximum of range to be represented by bins
+ * @param prefix    String to be printed before each line
+ */
+void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
+                                    size_t dimension,
+                                    size_t bin_count,
+                                    cycles_t min,
+                                    cycles_t max,
+                                    const char *prefix);
+
 #endif // BENCH_H
