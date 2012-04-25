@@ -22,7 +22,7 @@
 #include <timer/timer.h>
 #include "realmode.h"
 #include "pci/devids.h"
-#include "pci/pci.h"
+#include <pci/pci.h>
 
 #define VFS_MOUNTPOINT  "/vm"
 #define IMAGEFILE       (VFS_MOUNTPOINT "/system-bench.img")
@@ -62,30 +62,6 @@ vfs_load_file_to_memory (const char *file, void **data, size_t *size)
     vfs_close(vh);
 }
 
-static void e1000_init(void *bar_info, int nr_allocated_bars)
-{
-	printf("e1000_init (actually, it's ATI)!\n");
-	printf("TODO: Starting vm...\n");
-
-    printf("nr_allocated_bars: %d\n", nr_allocated_bars);
-    int i;
-
-    struct device_mem *bar = (struct device_mem *)bar_info;
-    for(i = 0; i < nr_allocated_bars; i++) {
-        printf("type: %d\n", bar[i].type);
-    }
-}
-
-static void e1000_interrupt_handler(void *arg)
-{
-    // Read & acknowledge interrupt cause(s)
-    printf("e1000n: packet interrupt (Actually ATI)\n");
-}
-
-
-static uint32_t function = PCI_DONT_CARE;
-static uint32_t deviceid = PCI_DONT_CARE;
-
 int main (int argc, char *argv[])
 {
     errval_t err;
@@ -113,30 +89,6 @@ int main (int argc, char *argv[])
 
     cardName = argv[1];
     printf("vmkitmon: start\n");
-
-
-    //Connect to pci server
-	errval_t r = pci_client_connect();
-	assert(err_is_ok(r));
-	printf("vmkitmon: connected to pci\n");
-
-	r = pci_register_driver_irq((pci_driver_init_fn)e1000_init, PCI_CLASS_ETHERNET,
-								PCI_DONT_CARE, PCI_DONT_CARE,
-								PCI_VENDOR_ATI, deviceid,
-								PCI_DONT_CARE, PCI_DONT_CARE, function,
-								e1000_interrupt_handler, NULL);
-
-	if(err_is_fail(r)) {
-		DEBUG_ERR(r, "ERROR: vmkitmon: pci_register_driver");
-	}
-	assert(err_is_ok(r));
-	printf("vmkitmon: registered driver, waiting for init..\n");
-    
-    uint32_t bla;
-    r = pci_read_conf_header(0,&bla);
-    if(err_is_fail(r)) {
-        DEBUG_ERR(r,"My call failed\n");
-    }
 
 	//Poll bebe
 	printf("Ignoring the cardname [%s], and using the default one from vfs_mount\n",

@@ -242,17 +242,19 @@ static void get_vbe_bios_cap(struct pci_binding *b)
 
 static void read_conf_header_handler(struct pci_binding *b, uint64_t dword)
 {
-    /*
+    
     struct client_state *cc = (struct client_state *) b->st;
     struct pci_address addr = {
         .bus= cc->bus,
         .device=cc->dev,
         .function=cc->fun,
     };
-    uint32_t val = pci_read_conf_header(&addr, 0);
-    */
+    PCI_DEBUG("Read config header from %u:%u:%u\n",addr.bus, addr.dev, addr.fun);
+    uint32_t val = pci_read_conf_header(&addr, dword);
     
-    printf("Yeah, RPC called\n");
+    errval_t err;
+    err = b->tx_vtbl.read_conf_header_response(b, NOP_CONT, SYS_ERR_OK, val);
+    assert(err_is_ok(err));
 }
 
 struct pci_rx_vtbl pci_rx_vtbl = {

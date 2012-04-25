@@ -13,8 +13,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef PCI_H
-#define PCI_H
+#ifndef _PCI_H
+#define _PCI_H
 
 union pci_config_address_word {
     uint32_t raw;
