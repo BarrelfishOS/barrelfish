@@ -792,6 +792,7 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
     // Incrementing read index
     if(!sp_set_read_index(spp, ((ri + 1) % spp->c_size))) {
         printf("sp_set_read_index failed\n");
+        sp_print_metadata(spp);
         abort();
     }
     return true;

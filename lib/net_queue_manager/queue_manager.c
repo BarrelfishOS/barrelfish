@@ -57,6 +57,8 @@ struct buffer_descriptor *receive_buffer = NULL;
 struct tx_buffer_state {
     struct net_queue_manager_binding *binding;
     uint64_t spp_index;
+    uint64_t tx_pending;
+
 };
 static struct tx_buffer_state *tx_buffer = NULL;
 static size_t                  tx_buffer_count;
@@ -341,6 +343,7 @@ static void register_buffer(struct net_queue_manager_binding *cc,
 
     // Without software filtering we can only support one receiving buffer
     if (!use_sf && role == RX_BUFFER_ID) {
+        // hardware filtering, RX buffers
         if (receive_buffer != NULL) {
             USER_PANIC("Already a receive buffer registered, but not using "
                        "software filtering. This configuration is not "
@@ -350,7 +353,8 @@ static void register_buffer(struct net_queue_manager_binding *cc,
         receive_buffer = buffer;
         populate_rx_ring(buffer);
     }
-
+    // for shared queue, the rx_ring is populated by init_rx_ring in
+    // init_soft_filters_service
     sp_reload_regs(closure->spp_ptr);
     report_register_buffer_result(cc, err, queueid, buffer->buffer_id);
     assert(buffer->con != NULL);
@@ -560,6 +564,7 @@ static bool send_single_pkt_to_driver(struct net_queue_manager_binding *cc)
         tx_buffer_index = (tx_buffer_index + 1) % tx_buffer_count;
         txb->binding = cc;
         txb->spp_index = cl->tx_index;
+        ++txb->tx_pending;
 
         // Pass buffers to driver
         err = ether_transmit_pbuf_list_ptr(buffers, n, txb);
@@ -655,18 +660,21 @@ bool handle_tx_done(void *opaque)
     struct shared_pool_private *spp = cc->spp_ptr;
     assert(spp != NULL);
     assert(spp->sp != NULL);
+    assert(txb->tx_pending > 0);
+    --txb->tx_pending;
 
-
-    ETHERSRV_DEBUG("handle_tx_done called for %"PRIu64"\n", spp_index);
+    ETHERSRV_DEBUG("handle_tx_done called %"PRIu64" with pending %"PRIu64"\n",
+            spp_index, txb->tx_pending);
 
     if(spp->sp->read_reg.value != spp_index) {
         printf("handle_tx_done: read reg[%"PRIu64"] == "
-               "spp_index [%"PRIu64"]\n",
-               spp->sp->read_reg.value, spp_index);
+               "spp_index [%"PRIu64"], pending [%"PRIu64"]\n",
+               spp->sp->read_reg.value, spp_index, txb->tx_pending);
 //        abort();
     }
 //    assert(spp->sp->read_reg.value == spp_index);
 
+    // FIXME: do not increment when spp_index < than read_reg
     if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
         // FIXME:  This is dengarous!  I should increase read index,
         // only when all the packets till that read index are sent!
@@ -745,7 +753,7 @@ static void do_pending_work(struct net_queue_manager_binding *b)
     if (closure->debug_state_tx == 4) {
         netbench_record_event_simple(bm, RE_TX_W_ALL, ts);
     }
-}
+} // end function: do_pending_work
 
 
 
@@ -1081,7 +1089,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
         // start software filtering service
         init_soft_filters_service(service_name, queueid, rx_bufsz);
     }
-}
+} // end function: ethersrv_init
 
 void ethersrv_argument(const char* arg)
 {

@@ -263,13 +263,18 @@ static int add_desc(uint64_t paddr, void *opaque)
     r.rx_read_format.buffer_address = paddr;
 
     if(receive_free == DRIVER_RECEIVE_BUFFERS) {
+        // This is serious error condition.
+        // Printing debug information to help user!
     	//E1000N_DEBUG("no space to add a new receive pbuf\n");
-    	printf("no space to add a new receive pbuf\n");
+    	printf("no space to add a new receive pbuf [%"PRIu32"], [%"PRIu32"]\n",
+                receive_free, receive_index);
+        printf("%p\n%p\n%p\n", __builtin_return_address(0),
+                __builtin_return_address(1), __builtin_return_address(2));
+        abort();
     	/* FIXME: how can you return -1 as error here
     	 * when return type is unsigned?? */
     	return -1;
     }
-
 
     receive_ring[receive_index] = r;
     receive_opaque[receive_index] = opaque;
@@ -400,6 +405,7 @@ static bool handle_next_received_packet(void)
     }
 
     receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
+    --receive_free;
     return new_packet;
 } // end function: handle_next_received_packet
 
