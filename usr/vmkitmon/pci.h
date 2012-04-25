@@ -16,6 +16,8 @@
 #ifndef _PCI_H
 #define _PCI_H
 
+#include "lpc.h"
+
 union pci_config_address_word {
     uint32_t raw;
     struct {
@@ -42,6 +44,8 @@ typedef void (*pci_device_confspace_read)(struct pci_device *dev,
 struct pci_device {
     pci_device_confspace_write  confspace_write;
     pci_device_confspace_read   confspace_read;
+    uint8_t                     irq;
+    struct lpc                  *lpc;
     void                        *state;
 };
 

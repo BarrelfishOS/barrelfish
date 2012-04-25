@@ -14,7 +14,9 @@
 #ifndef PCI_DEVICES_H
 #define PCI_DEVICES_H
 
+#include "lpc.h"
+
 struct pci_device *pci_hostbridge_new(void);
-struct pci_device *pci_ethernet_new(void);
+struct pci_device *pci_ethernet_new(struct lpc *lpc);
 
 #endif
