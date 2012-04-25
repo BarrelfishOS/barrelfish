@@ -35,7 +35,7 @@ static void start_run(uint8_t core, uint8_t memory, int payload, int nocache,
 {
     errval_t r;
     domainid_t new_domain;
-    //uint8_t code;
+    uint8_t code;
     char plsz[strlen("payload_size=0000") + 1];
     char noca[strlen("elb_nocache=0") + 1];
     char rdic[strlen("read_incoming=0") + 1];
@@ -57,16 +57,14 @@ static void start_run(uint8_t core, uint8_t memory, int payload, int nocache,
     sprintf(hiwb, "head_idx_wb=%d", head_idx_wb);
     sprintf(affmin, "affinitymin=%"PRIu64, aff_min);
     sprintf(affmax, "affinitymax=%"PRIu64, aff_max);
-    sprintf(prefix, "elp_outprefix=%d,%d,%d,%d,%d,%d,", core, memory, payload,
+    sprintf(prefix, "elp_outprefix=%%%d,%d,%d,%d,%d,%d,", core, memory, payload,
             nocache, read_incoming, head_idx_wb);
 
     r = spawn_program(core, argv[0], argv, NULL, SPAWN_NEW_DOMAIN, &new_domain);
     assert(err_is_ok(r));
 
-    /*r = spawn_wait(new_domain, &code, false);
-    assert(err_is_ok(r));*/
-    milli_sleep(12*1000);
-    //spawn_wait(new_domain, &code, true);
+    r = spawn_wait_core(core, new_domain, &code, false);
+    assert(err_is_ok(r));
 }
 
 
@@ -86,7 +84,7 @@ int main(int argc, char **argv)
     assert(err_is_ok(err));
 
     printf("Net latency benchmark start\n");
-    printf("%%  \"core\",\"memory\",\"payload\",\"nocache\",\"touch\",\"hiwb\","
+    printf("%%\"core\",\"memory\",\"payload\",\"nocache\",\"touch\",\"hiwb\","
            "\"rtt\",\"time\"\n");
     for (core = 0; core < 16; core++) {
         for (memory = 0; memory < 16; memory += 4) {
