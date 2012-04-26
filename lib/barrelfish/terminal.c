@@ -178,7 +178,7 @@ static void serial_write(struct terminal_state *st,
     // this is necessary to maintain libc buffering semantics, and prevent
     // output being lost if a dispatcher exit()s after a printf
     while (!st->serial->can_send(st->serial)) {
-        err = event_dispatch(&st->waitset);
+      err = event_dispatch(get_default_waitset());
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "error in event_dispatch on terminal waitset");
         }
@@ -214,7 +214,7 @@ size_t terminal_read(char *data, size_t count)
 
     for(i = 0; i < count; i++) {
         while(state->consumed == state->produced) {
-            err = event_dispatch(&state->waitset);
+	  err = event_dispatch(get_default_waitset());
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "error in event_dispatch on terminal waitset");
             }
@@ -313,7 +313,7 @@ errval_t terminal_init(void)
         }
     }
 
-    err = serial_bind(iref, serial_bind_cb, state, &state->waitset,
+    err = serial_bind(iref, serial_bind_cb, state, get_default_waitset(),
                       IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SERIAL_BIND);
@@ -343,7 +343,7 @@ errval_t terminal_want_stdin(unsigned sources)
             goto out;
         }
 
-        err = serial_bind(iref, serial_bind_cb, state, &state->waitset,
+        err = serial_bind(iref, serial_bind_cb, state, get_default_waitset(),
                           IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
             err = err_push(err, LIB_ERR_SERIAL_BIND);
@@ -360,7 +360,7 @@ errval_t terminal_want_stdin(unsigned sources)
         }
 
         err = keyboard_bind(iref, keyboard_bind_cb, state,
-                            &state->waitset, IDC_BIND_FLAGS_DEFAULT);
+                            get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
             err = err_push(err, LIB_ERR_KBD_BIND);
             goto out;
