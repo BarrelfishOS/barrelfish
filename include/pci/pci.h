@@ -47,7 +47,9 @@ errval_t pci_sleep(int state);
 
 errval_t pci_get_vbe_bios_cap(struct capref *retcap, size_t *retsize);
 
-errval_t pci_read_conf_header(uint64_t dword, uint32_t *val);
+errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
+
+errval_t pci_write_conf_header(uint32_t dword, uint32_t val);
 
 errval_t pci_client_connect(void);
 

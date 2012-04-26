@@ -37,6 +37,18 @@ static void confspace_write(struct pci_device *dev,
                             union pci_config_address_word addr,
                             enum opsize size, uint32_t val)
 {
+    if(addr.d.fnct_nr != 0) {
+        return;
+    }
+    
+    if(addr.d.doubleword < 0x40) {
+        errval_t r = pci_write_conf_header(addr.d.doubleword, val);
+        if(err_is_fail(r)) {
+            DEBUG_ERR(r, "Writing conf header failed\n");
+        } else {
+            VMKIT_PCI_DEBUG("Written to conf header at %u: %x\n", addr.d.doubleword, val);
+        }
+    }
 }
 
 struct pci_address {
@@ -59,7 +71,7 @@ static void confspace_read(struct pci_device *dev,
         if(err_is_fail(r)) {
             DEBUG_ERR(r,"Reading conf header failed\n");
         } else {
-            printf("pci_read_conf_header returned %x\n", *val);
+            VMKIT_PCI_DEBUG("Read from conf header at %u: %x\n",addr.d.doubleword, *val);
         }
     } else {
         *val = INVALID;

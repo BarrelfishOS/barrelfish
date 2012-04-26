@@ -46,5 +46,8 @@ interface pci "The PCI Interface" {
     rpc sleep(in int state, out errval err);
 
     /* read PCI conf header */
-    rpc read_conf_header(in uint64 dword, out errval err, out uint32 val);
+    rpc read_conf_header(in uint32 dword, out errval err, out uint32 val);
+
+    /* write PCI conf header */
+    rpc write_conf_header(in uint32 dword, in uint32 val, out errval err);
 };
