@@ -46,6 +46,9 @@
 // True iff we use software filtering
 static bool use_sf;
 
+// True iff we use the raw interface (implies !use_sf)
+static bool use_raw_if = false;
+
 // True if sofware filtering was disabled using the command-line parameter, this
 // means that software filtering is not used, even if we are on queue 0.
 static bool force_disable_sf = false;
@@ -56,6 +59,7 @@ struct buffer_descriptor *buffers_list = NULL;
 
 // If we're not using sw filtering, we can only receive on one connection
 struct buffer_descriptor *receive_buffer = NULL;
+struct buffer_descriptor *transmit_buffer = NULL;
 
 // State required in TX path to remember information about buffers
 struct tx_buffer_state {
@@ -77,6 +81,8 @@ static void register_buffer(struct net_queue_manager_binding *cc,
         uint64_t slots, uint8_t role);
 static void sp_notification_from_app(struct net_queue_manager_binding *cc,
         uint64_t queueid, uint64_t type, uint64_t ts);
+static void raw_add_buffer(struct net_queue_manager_binding *cc,
+                           uint64_t offset, uint64_t length);
 static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
@@ -93,6 +99,7 @@ static void do_pending_work(struct net_queue_manager_binding *b);
 static struct net_queue_manager_rx_vtbl rx_nqm_vtbl = {
     .register_buffer = register_buffer,
     .sp_notification_from_app = sp_notification_from_app,
+    .raw_add_buffer = raw_add_buffer,
     .get_mac_address = get_mac_addr_qm,
     .print_statistics = print_statistics_handler,
     .benchmark_control_request = benchmark_control_request,
@@ -318,6 +325,24 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     buffer->con = cc;
     buffer->queueid = queueid;
 
+    // Use raw interface if desired
+    if (capref_is_null(sp)) {
+        printf("net_queue_manager: Use raw interface\n");
+        assert(!use_sf);
+        use_raw_if = true;
+        closure->spp_ptr = NULL;
+
+        if (role == RX_BUFFER_ID) {
+            receive_buffer = buffer;
+        } else {
+            transmit_buffer = buffer;
+        }
+        buffers_list = buffer;
+        report_register_buffer_result(cc, SYS_ERR_OK, queueid,
+                                      buffer->buffer_id);
+        return;
+    }
+
     err = sp_map_shared_pool(closure->spp_ptr, sp, slots, role);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "sp_map_shared_pool failed");
@@ -404,6 +429,7 @@ static errval_t wrapper_send_sp_notification_from_driver(struct q_entry e)
 static bool send_notification_to_app(struct client_closure *cl)
 {
 
+    if (0) {
     if (cl->spp_ptr->notify_other_side == 0) {
         return false;
     }
@@ -417,6 +443,7 @@ static bool send_notification_to_app(struct client_closure *cl)
     // FIXME: Get the remaining slots value from the driver
     entry.plist[2] = rdtsc();
     enqueue_cont_q(cl->q, &entry);
+    }
     cl->spp_ptr->notify_other_side = 0;
     return true;
 } // end function: send_notification_to_app
@@ -445,6 +472,37 @@ static void sp_notification_from_app(struct net_queue_manager_binding *cc,
     do_pending_work(cc);
 
 } // end function:  sp_notification_from_app
+
+static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
+{
+    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
+        e.binding_ptr;
+    struct client_closure *ccl = (struct client_closure *) b->st;
+
+    if (b->can_send(b)) {
+        errval_t err = b->tx_vtbl.raw_xmit_done(b,
+                MKCONT(cont_queue_callback, ccl->q),
+                e.plist[0], e.plist[1]);
+        return err;
+    } else {
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+}
+
+static void send_raw_xmit_done(struct net_queue_manager_binding *b,
+                               uint64_t offset, uint64_t length)
+{
+    struct client_closure *ccl = (struct client_closure *) b->st;
+
+    // Send notification to application
+    struct q_entry entry;
+    memset(&entry, 0, sizeof(struct q_entry));
+    entry.handler = wrapper_send_raw_xmit_done;
+    entry.binding_ptr = b;
+    entry.plist[0] = offset;
+    entry.plist[1] = length;
+    enqueue_cont_q(ccl->q, &entry);
+} // end function: send_notification_to_app
 
 
 // *********** Interface: get_mac_address ****************
@@ -652,6 +710,13 @@ static uint64_t send_packets_on_wire(struct net_queue_manager_binding *cc)
 // function to do housekeeping after descriptors are transferred
 bool handle_tx_done(void *opaque)
 {
+
+    // Handle raw interface
+    if (use_raw_if) {
+        send_raw_xmit_done(transmit_buffer->con, (uintptr_t) opaque, 0);
+        return true;
+    }
+
     struct tx_buffer_state *txb = opaque;
     assert(txb - tx_buffer < tx_buffer_count);
     struct net_queue_manager_binding *b = txb->binding;
@@ -715,6 +780,12 @@ bool handle_tx_done(void *opaque)
 // which the application is now done to the RX ring of the queue.
 static void do_pending_work(struct net_queue_manager_binding *b)
 {
+    // Handle raw interface
+    if (use_raw_if) {
+        while (handle_free_tx_slot_fn_ptr());
+        return;
+    }
+
     uint64_t ts = rdtsc();
     struct client_closure *closure = (struct client_closure *)b->st;
 
@@ -850,8 +921,16 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
     // application that a new packet is ready.
 
     assert(receive_buffer != NULL);
-    spp = buffer_to_spp(receive_buffer);
     cl = (struct client_closure *) receive_buffer->con->st;
+
+    // Handle raw interface
+    if (use_raw_if) {
+        assert(is_last);
+        send_raw_xmit_done(receive_buffer->con, (uintptr_t) opaque, pkt_len);
+        return;
+    }
+
+    spp = buffer_to_spp(receive_buffer);
 
 
     // TODO ak: Packets that span multiple buffers!
@@ -962,6 +1041,37 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     return true;
 } // end function: copy_packet_to_user
 
+/*****************************************************************
+ * Interface related: raw interface
+ ****************************************************************/
+
+static void raw_add_buffer(struct net_queue_manager_binding *cc,
+                           uint64_t offset, uint64_t length)
+{
+    struct client_closure *cl = (struct client_closure *) cc->st;
+    struct buffer_descriptor *buffer = cl->buffer_ptr;
+    errval_t err;
+    uint64_t paddr;
+    void *vaddr, *opaque;
+
+    paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
+    vaddr = (void*) ((uintptr_t) buffer->va + offset);
+    opaque = (void*) (uintptr_t) offset;
+
+    if (buffer->role == TX_BUFFER_ID) {
+        struct driver_buffer buffers;
+
+        buffers.va  = vaddr;
+        buffers.pa  = paddr;
+        buffers.len = length;
+
+        err = ether_transmit_pbuf_list_ptr(&buffers, 1, opaque);
+        assert(err_is_ok(err));
+    } else {
+        assert(length == rx_buffer_size);
+        rx_register_buffer_fn_ptr(paddr, vaddr, opaque);
+    }
+}
 
 /*****************************************************************
  * Interface related: Exporting and handling connections

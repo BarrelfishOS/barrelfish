@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "elb_app",
-                      cFiles = [ "interface_app.c", "benchmark.c" ],
+                      cFiles = [ "interface_raw.c", "benchmark.c" ],
                       flounderBindings = [ "net_queue_manager" ],
                       addLibraries = [ "bench", "procon" ] },
 
