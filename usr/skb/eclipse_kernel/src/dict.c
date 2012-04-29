@@ -180,7 +180,7 @@ marks the corresponding atom whenever a persistent string is encountered.
 
 
 /* DICT_HASH_TABLE_SIZE must be a power of 2 (we use masking) */
-#define DICT_HASH_TABLE_SIZE    2097152	
+#define DICT_HASH_TABLE_SIZE     1048576	
 
 /* compute hash value and length of a NULL-terminated string */
 #define Hash(id, hash, length) {					\
