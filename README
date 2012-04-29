@@ -112,10 +112,10 @@ module /barrelfish/x86_64/sbin/cpu
 module /barrelfish/x86_64/sbin/init
 module /barrelfish/x86_64/sbin/mem_serv
 module /barrelfish/x86_64/sbin/monitor
-module /barrelfish/x86_64/sbin/chips boot
 module /barrelfish/x86_64/sbin/ramfsd boot
 module /barrelfish/x86_64/sbin/skb boot
 modulenounzip /barrelfish/skb_ramfs.cpio.gz nospawn
+module /barrelfish/x86_64/sbin/acpi boot
 module /barrelfish/x86_64/sbin/pci boot
 module /barrelfish/x86_64/sbin/spawnd boot
 module /barrelfish/x86_64/sbin/serial
@@ -124,6 +124,7 @@ module /barrelfish/x86_64/sbin/fish
 There are many other programs you can load (take a look around the usr tree for
 examples). To start a program on a core other than the BSP core, pass 'core=N'
 as its first argument.
+Note: Chips is no longer supported. The SKB now also serves as a name service.
 
 If things work, you should see output on both the VGA console and COM1.
 
