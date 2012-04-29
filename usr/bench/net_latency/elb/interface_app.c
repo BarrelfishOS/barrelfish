@@ -13,6 +13,7 @@
 #include <if/net_queue_manager_defs.h>
 #include <barrelfish/bulk_transfer_arch.h>
 #include <procon/procon.h>
+#include "elb_debug.h"
 
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 #define BUFFER_SIZE 2048
@@ -23,7 +24,6 @@ static void idc_register_buffer(struct net_queue_manager_binding *binding,
                                 struct capref buf, struct capref sp,
                                 uint64_t qid, uint64_t slots, uint8_t role);
 
-static const char *cardname = "e10k";
 static uint64_t queue = 0;
 
 static struct net_queue_manager_binding *binding_rx = NULL;
@@ -257,6 +257,12 @@ int main(int argc, char* argv[])
     printf("elb_app: Started\n");
     process_cmdline(argc, argv);
 
+    char *cardname = get_cardname();
+    if (cardname == NULL) {
+        cardname = "e10k";
+    }
+    queue = get_cmdline_queueid();
+    ELB1_DEBUG("Using [%s] as cardname\n", cardname);
     // Connect RX path
     connect_to_driver(cardname, queue);
     while (binding_rx == NULL) { event_dispatch(ws); }

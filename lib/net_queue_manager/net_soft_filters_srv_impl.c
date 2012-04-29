@@ -968,6 +968,11 @@ struct filter *execute_filters(void *data, size_t len)
 static void* rx_ring_buffer(void *opaque)
 {
     size_t idx = (size_t) opaque;
+
+/*    printf("rx_ring_size %zd, idx %zd rx_ring_bufsz %zd\n",
+            rx_ring_size, idx, rx_ring_bufsz);
+*/
+
     assert(idx < rx_ring_size);
 
     return ((void*) ((uintptr_t) rx_ring_virt + idx * rx_ring_bufsz));
@@ -995,7 +1000,7 @@ static void init_rx_ring(size_t rx_bufsz)
 
     rx_ring_bufsz = rx_bufsz;
     rx_ring_size = MIN(RX_RING_MAXMEM / rx_bufsz, capacity);
-
+    ETHERSRV_DEBUG("rx_ring_size %zd %zd\n", rx_ring_size, capacity);
     // TODO: Should I round up here to page size?
     size = rx_ring_size * rx_bufsz;
 
@@ -1203,6 +1208,70 @@ static bool handle_netd_packet(void *packet, size_t len)
     return true;
 } // end function: handle_netd_packet
 
+// give this packet to netd
+static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
+{
+
+    ETHERSRV_DEBUG("sending up the loopback packet\n");
+
+    // FIXME: get the receiver buffer
+    struct buffer_descriptor *buffer = get_lo_receiver(opaque);
+
+//    ETHERSRV_DEBUG("sending packet up.\n");
+    /* copy the packet to userspace */
+    if(buffer == NULL) {
+        printf("no loopback receiver found\n");
+        return false;
+    }
+
+    struct net_queue_manager_binding *b = buffer->con;
+    if(b == NULL) {
+//        printf("netd buffer->con not present\n");
+        return false;
+    }
+
+    struct client_closure *cl = (struct client_closure *)b->st;
+    assert(cl != NULL);
+    if (copy_packet_to_user(buffer, packet, len) == false) {
+        ETHERSRV_DEBUG("Copy packet to userspace failed\n");
+    }
+    return true;
+} // end function: handle_loopback_packet
+
+void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
+        size_t pkt_len, bool is_last)
+{
+    void *pkt_data;
+
+    assert(pkt_len <= rx_ring_bufsz);
+    // FIXME: allow packets to be distributed over multiple buffers
+    assert(is_last);
+
+    // Get the virtual address for this buffer
+    pkt_data = rx_ring_buffer(opaque_rx);
+
+#if TRACE_ETHERSRV_MODE
+    uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_A, pkt_location);
+#endif // TRACE_ETHERSRV_MODE
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSEE,
+                    (uint32_t) ((uintptr_t) pkt_data));
+#endif // TRACE_ONLY_SUB_NNET
+
+    if (is_loopback_device) {
+        if(handle_loopback_packet(pkt_data, pkt_len, opaque_tx)) {
+            goto out;
+        } else {
+            USER_PANIC("handle_loopback_packet failed");
+        }
+    }
+
+out:
+     rx_ring_register_buffer(opaque_rx);
+} // end function: sf_process_received_packet_lo
+
+
 
 void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 {
@@ -1225,6 +1294,13 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
                     (uint32_t) ((uintptr_t) pkt_data));
 #endif // TRACE_ONLY_SUB_NNET
 
+    if (is_loopback_device) {
+        if(handle_loopback_packet(pkt_data, pkt_len, opaque)) {
+            goto out;
+        } else {
+            USER_PANIC("handle_loopback_packet failed");
+        }
+    }
 
     // check for fragmented packet
     if (handle_fragmented_packet(pkt_data, pkt_len)) {

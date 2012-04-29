@@ -17,14 +17,16 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
-
+#include "elb_debug.h"
 
 extern void *buffer_base;
 extern size_t buffer_size;
 
 
 void benchmark_init(size_t buffers);
-void benchmark_argument(const char *arg);
+void benchmark_argument(char *arg);
+char *get_cardname(void);
+uint64_t get_cmdline_queueid(void);
 void benchmark_rx_done(size_t idx, size_t len);
 void benchmark_tx_done(size_t idx);
 void benchmark_do_pending_work(void);

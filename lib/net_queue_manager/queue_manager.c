@@ -62,11 +62,11 @@ struct tx_buffer_state {
     struct net_queue_manager_binding *binding;
     uint64_t spp_index;
     uint64_t tx_pending;
-
 };
+
 static struct tx_buffer_state *tx_buffer = NULL;
-static size_t                  tx_buffer_count;
-static size_t                  tx_buffer_index = 0;
+static size_t tx_buffer_count;
+static size_t tx_buffer_index = 0;
 
 /*****************************************************************
  * Prototypes
@@ -114,7 +114,11 @@ ether_rx_get_free_slots rx_get_free_slots_fn_ptr = NULL;
 static char exported_queue_name[MAX_SERVICE_NAME_LEN] = {0}; // exported Q name
 static uint64_t exported_queueid = 0; // id of queue
 static size_t rx_buffer_size = 0;
+
+// client_no used to give id's to clients
+// WARN: should start at 0 as loopback table lookup depends on this assumption
 static int client_no = 0;  // number of clients(apps) connected
+
 static uint64_t buffer_id_counter = 0; // number of buffers registered
 // FIXME: following should be gone in next version of code
 static uint64_t netd_buffer_count = 0; // way to identify the netd
@@ -122,6 +126,109 @@ static uint64_t dropped_pkt_count = 0; // Counter for dropped packets
 
 static struct buffer_descriptor *first_app_b = NULL;
 
+
+// *************************************************************
+//  local loopback device related code
+// *************************************************************
+// support for loopback device
+bool is_loopback_device = false;
+
+struct loopback_mapping{
+    int tx_cl_no;   // sender client number
+    int rx_cl_no;   // corrosponding rx client number
+    struct buffer_descriptor *lo_rx_buf;
+};
+// We currently support only two applications on loopback device.
+static struct loopback_mapping lo_map_tbl[4] = {{0,0, NULL},};
+
+// to ensure that lo_map indexes will work irrespective of
+// client_no initialization value
+static int lo_tbl_idx = 0;
+
+// fill up the lo_map_tbl with valid entries
+// Assumptions:
+//  * client_no starts at 0
+//  * First connection is RX (ie 0) and second is TX (ie 1)
+static void populate_lo_mapping_table(int cur_cl_no,
+            struct buffer_descriptor *buffer_ptr)
+{
+    // sanity checks
+
+    assert(is_loopback_device); // ensuring loopback device
+    assert(cur_cl_no == lo_tbl_idx); // ensure monotonic increase
+    assert(lo_tbl_idx < 4); // we currently support only 2 applications for lo
+
+    // and I should validate the buffer types
+    assert(RX_BUFFER_ID == 0); // ensure RX is 0
+    assert((lo_tbl_idx % 4) == (buffer_ptr->role));
+
+    // populate the table entries
+    lo_map_tbl[lo_tbl_idx].tx_cl_no = -1;
+    lo_map_tbl[lo_tbl_idx].rx_cl_no = -1;
+    lo_map_tbl[lo_tbl_idx].lo_rx_buf = buffer_ptr;
+
+    switch(lo_tbl_idx) {
+        case 0:
+        case 2:
+            // intermediate state, nothing to do!
+            break;
+
+        case 1:
+            // Assuming only one app, so mapping tx to rx
+            lo_map_tbl[lo_tbl_idx].tx_cl_no = cur_cl_no;
+            lo_map_tbl[lo_tbl_idx].rx_cl_no = 0;
+            lo_map_tbl[lo_tbl_idx].lo_rx_buf = lo_map_tbl[0].lo_rx_buf;
+            break;
+
+        case 3:
+            // Assuming are two apps, so mapping them
+
+            // mapping 3 to 0
+            lo_map_tbl[lo_tbl_idx].tx_cl_no = cur_cl_no;
+            lo_map_tbl[lo_tbl_idx].rx_cl_no = 0;
+            lo_map_tbl[lo_tbl_idx].lo_rx_buf = lo_map_tbl[0].lo_rx_buf;
+
+            // mapping 1 to 2
+            lo_map_tbl[1].tx_cl_no = 1;
+            lo_map_tbl[1].rx_cl_no = 2;
+            lo_map_tbl[1].lo_rx_buf = lo_map_tbl[2].lo_rx_buf;
+            break;
+
+        default:
+            USER_PANIC("More than two clients are not supported for lo");
+            abort();
+            break;
+    } // end switch:
+
+    ++lo_tbl_idx;
+} // end function: populate_lo_mapping_table
+
+
+struct buffer_descriptor *get_lo_receiver(void *opaque)
+{
+    // making sure that this is indeed loopback device
+    assert(is_loopback_device);
+
+    struct tx_buffer_state *txb = opaque;
+
+    ETHERSRV_DEBUG("get_lo_receiver %zd < %zd\n",
+            (txb - tx_buffer), tx_buffer_count);
+    assert(txb - tx_buffer < tx_buffer_count);
+    struct net_queue_manager_binding *b = txb->binding;
+
+    // find client_no of sending app
+    assert(b != NULL);
+    struct client_closure *cc = (struct client_closure *)b->st;
+    assert(cc != NULL);
+
+    int cl_no = cc->cl_no;
+
+    // Make sure that cc->cl_no is valid for lo_map table
+    assert(lo_map_tbl[cl_no].rx_cl_no != -1);
+
+    // get buffer_ptr from the lookup table
+    return (lo_map_tbl[cl_no].lo_rx_buf);
+} // end function: get_lo_receiver
 
 // *************************************************************
 // Client and buffer management code
@@ -360,6 +467,11 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     // for shared queue, the rx_ring is populated by init_rx_ring in
     // init_soft_filters_service
     sp_reload_regs(closure->spp_ptr);
+
+    if (is_loopback_device) {
+        populate_lo_mapping_table(closure->cl_no, closure->buffer_ptr);
+    } // end if: loopback device
+
     report_register_buffer_result(cc, err, queueid, buffer->buffer_id);
     assert(buffer->con != NULL);
 } // end function: register_buffer
@@ -518,6 +630,7 @@ static bool send_single_pkt_to_driver(struct net_queue_manager_binding *cc)
 {
     errval_t err;
 
+     ETHERSRV_DEBUG("send_single_pkt_to_driver called\n");
     // sanity checks: making sure function is not called with invalid parameters
     struct client_closure *cl = (struct client_closure *)cc->st;
     assert(cl != NULL);
@@ -571,7 +684,8 @@ static bool send_single_pkt_to_driver(struct net_queue_manager_binding *cc)
         ++txb->tx_pending;
 
         // Pass buffers to driver
-        err = ether_transmit_pbuf_list_ptr(buffers, n, txb);
+        err = ether_transmit_pbuf_list_ptr(buffers, n,
+                (void *)txb);
     }
 
 #if TRACE_ONLY_SUB_NNET
@@ -693,7 +807,6 @@ bool handle_tx_done(void *opaque)
         if (cc->debug_state_tx == 4) {
             netbench_record_event_simple(bm, RE_TX_DONE_NN, rts);
         }
-//        printf("handle_tx_done: sending no notifications!\n");
         return true;
     }
 
@@ -733,7 +846,6 @@ static void do_pending_work(struct net_queue_manager_binding *b)
             netbench_record_event_simple(bm, RE_PENDING_1, ts);
         }
 
-        //  printf("do_pending_work: sent packets[%"PRIu64"]\n", pkts);
         // Check if there are more pbufs which are to be marked free
         if (pkts > 0) {
             uint64_t tts = rdtsc();
@@ -904,7 +1016,6 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 
     sp_reload_regs(spp);
     if (sp_queue_full(spp)) {
-        //printf
         ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
                 "read[%"PRIu64"] write[%"PRIu64"]\n", disp_get_domain_id(),
                 buffer->buffer_id, spp->c_read_id, spp->c_write_id);
@@ -1074,8 +1185,9 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
 
     tx_buffer_count = tx_free_slots_fn_ptr();
+    printf("using %zd slots for internal buffer\n", tx_buffer_count);
     assert(tx_buffer_count >= 1);
-    tx_buffer = calloc(tx_buffer_count, sizeof(*tx_buffer));
+    tx_buffer = calloc(tx_buffer_count, sizeof(struct tx_buffer_state));
 
     /* exporting ether interface */
     err = net_queue_manager_export(NULL, // state for connect/export callbacks

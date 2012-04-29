@@ -103,8 +103,7 @@ bool bench_ctl_add_run(bench_ctl_t *ctl,
  * @param prefix String to be printed before each line
  */
 void bench_ctl_dump_csv(bench_ctl_t *ctl,
-                        const char  *prefix);
-
+                        const char  *prefix, uint64_t tscperus);
 /**
  * Use bincounting to reduce the amount of data that is printed.
  * One line per bin (bin_count + 2 for those below and above the specified

@@ -576,8 +576,10 @@ uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
 */
         }
         if (!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
-            printf("sp_c_between failed in sp_is_slot_clear\n");
-            abort();
+            printf("sp_is_slot_clear failed: "
+                    " (%"PRIu64", %"PRIu64", %"PRIu64") S %"PRIu64"\n",
+                    spp->c_write_id, id, spp->c_read_id, spp->c_size);
+//            abort();
         }
 
     }

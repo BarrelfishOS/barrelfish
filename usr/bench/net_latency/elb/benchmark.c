@@ -30,10 +30,12 @@ static uint64_t tscperms;
 static size_t   buf_cur = 0;
 static size_t   buf_count;
 
-static bool is_server = false;
+bool is_server = false;
+static char *app_type = "client";
+
 static uint64_t sent_at;
 static uint64_t started_at;
-static bool got_response = false;
+static bool got_response = true;
 static uint64_t minbase = -1ULL;
 static uint64_t maxbase = -1ULL;
 static bool affinity_set = false;
@@ -51,6 +53,11 @@ static bool read_linear = false;
 /** Will be initialized with a permutation for touching the packet content */
 static uint16_t read_permutation[MAX_PAYLOAD];
 
+// the cardname provided on commandline
+static char *cardname = NULL;
+
+// the queueid asked by the application
+static uint64_t qi = 0;
 
 /** Number of runs to run */
 static size_t total_runs = 10000;
@@ -130,10 +137,11 @@ void benchmark_init(size_t buffers)
 
 }
 
-void benchmark_argument(const char *arg)
+void benchmark_argument(char *arg)
 {
     if (!strcmp(arg, "elb_server=1")) {
         is_server = true;
+        app_type = "server";
     } else if (!strncmp(arg, "runs=", strlen("runs="))) {
         total_runs = atol(arg + strlen("runs="));
     } else if (!strncmp(arg, "dry_runs=", strlen("dry_runs="))) {
@@ -161,6 +169,13 @@ void benchmark_argument(const char *arg)
         minbase = atol(arg + strlen("affinitymin="));
     } else if(!strncmp(arg, "affinitymax=", strlen("affinitymax="))) {
         maxbase = atol(arg + strlen("affinitymax="));
+    } else if(!strncmp(arg, "cardname=", strlen("cardname="))) {
+        cardname = arg + strlen("cardname=");
+    } else if(!strncmp(arg, "queue=", strlen("queue="))) {
+        qi = atol(arg + strlen("queue="));
+    } else {
+        printf("Invalid command line argument [%s]\n", arg);
+        abort();
     }
 
     if (!affinity_set && minbase != -1ULL && maxbase != -1ULL) {
@@ -169,13 +184,26 @@ void benchmark_argument(const char *arg)
     }
 }
 
+// Returns the card-name provided by command line parameters
+char *get_cardname(void)
+{
+    return cardname;
+}
+
+// Returns the queue-id provided by command line parameters
+uint64_t get_cmdline_queueid(void)
+{
+    return qi;
+}
+
 void benchmark_do_pending_work(void)
 {
     if (is_server) {
         return;
     }
-
-    if (!got_response && (sent_at + 1000*tscperms) < rdtsc()) {
+//    if (!got_response && (sent_at + 1000*tscperms) < rdtsc()) {
+    if (!got_response) {
+        got_response = false; // added by me : pravin
         client_send_packet();
     }
 }
@@ -214,11 +242,12 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
 
         if (bench_ctl_add_run(bench_ctl, result)) {
             uint64_t tscperus = tscperms / 1000;
+            printf("cycles per us %"PRIu64"\n", tscperus);
 
             // Output our results
-            bench_ctl_dump_csv_bincounting(bench_ctl, 0, 100, 9 * tscperus,
-                    25 * tscperus, out_prefix);
-            //bench_ctl_dump_csv(bench_ctl, out_prefix);
+            //bench_ctl_dump_csv_bincounting(bench_ctl, 0, 100, 9 * tscperus,
+            //        25 * tscperus, out_prefix);
+            bench_ctl_dump_csv(bench_ctl, out_prefix, tscperus);
 
             bench_ctl_destroy(bench_ctl);
             terminate_benchmark();
@@ -248,7 +277,6 @@ static void client_send_packet(void)
     size_t len = sizeof(*frame) + payload_size;
     size_t idx = (buf_cur + 1) % buf_count;
 
-    //printf("elb: Sending packet...\n");
     frame = buffer_address(idx);
     //memcpy(frame->src_mac, our_mac, 6);
     memcpy(frame->src_mac, bcast, 6);

@@ -107,6 +107,8 @@ MODULES_x86_64= \
 	sbin/mem_serv_dist \
 	sbin/net-test \
 	sbin/netthroughput \
+	sbin/elb_app \
+	sbin/lo_queue \
 	sbin/pci \
 	sbin/placement_bench \
 	sbin/phases_bench \

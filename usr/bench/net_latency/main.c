@@ -64,6 +64,7 @@ static void start_run(uint8_t core, uint8_t memory, int payload, int nocache,
     sprintf(prefix, "elp_outprefix=%%%d,%d,%d,%d,%d,%d,", core, memory, payload,
             nocache, read_incoming, head_idx_wb);
 
+    printf("##### spawning programm %s\n", argv[0]);
     r = spawn_program(core, argv[0], argv, NULL, SPAWN_NEW_DOMAIN, &new_domain);
     assert(err_is_ok(r));
 

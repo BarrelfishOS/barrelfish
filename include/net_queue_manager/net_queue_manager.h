@@ -192,6 +192,10 @@ struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 void process_received_packet(void *opaque, size_t pkt_len, bool is_last);
 
+// For local loopback device
+void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
+        size_t pkt_len, bool is_last);
+
 /* for frag.c */
 bool handle_fragmented_packet(void* packet, size_t len);
 

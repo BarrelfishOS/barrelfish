@@ -64,7 +64,7 @@ bool bench_ctl_add_run(bench_ctl_t *ctl,
 }
 
 void bench_ctl_dump_csv(bench_ctl_t *ctl,
-                        const char  *prefix)
+                        const char  *prefix, uint64_t tscperus)
 {
     size_t i, j;
     cycles_t *v;
@@ -75,7 +75,7 @@ void bench_ctl_dump_csv(bench_ctl_t *ctl,
 
         v = ctl->data + i * dim;
         for (j = 0; j < dim; j++) {
-            printf("%"PRIu64, v[j]);
+            printf("%"PRIu64", %f", v[j], v[j]/(float)tscperus);
             if (j != dim - 1) {
                 printf(",");
             }
