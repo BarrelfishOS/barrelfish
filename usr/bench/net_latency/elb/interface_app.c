@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
 {
     struct waitset *ws = get_default_waitset();
 
-    printf("elb_app: Started\n");
+    printf("elb_app: Started, v2\n");
     process_cmdline(argc, argv);
 
     char *cardname = get_cardname();
@@ -262,6 +262,8 @@ int main(int argc, char* argv[])
         cardname = "e10k";
     }
     queue = get_cmdline_queueid();
+    printf("Using [%s] as cardname and %"PRIu64"\n", cardname,
+            queue);
     ELB1_DEBUG("Using [%s] as cardname\n", cardname);
     // Connect RX path
     connect_to_driver(cardname, queue);

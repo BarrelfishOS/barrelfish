@@ -118,12 +118,13 @@ void bench_ctl_dump_csv(bench_ctl_t *ctl,
  * @param min       Minimum of range to be represented by bins
  * @param max       Maximum of range to be represented by bins
  * @param prefix    String to be printed before each line
+ * @param tscperus  cpu ticks per micro-second
  */
 void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
                                     size_t dimension,
                                     size_t bin_count,
                                     cycles_t min,
                                     cycles_t max,
-                                    const char *prefix);
-
+                                    const char *prefix,
+                                    cycles_t tscperus);
 #endif // BENCH_H

@@ -25,7 +25,6 @@ static void idc_register_buffer(struct net_queue_manager_binding *binding,
 static void idc_raw_add_buffer(struct net_queue_manager_binding *binding,
                                uint64_t offset, uint64_t len);
 
-static const char *cardname = "e10k";
 static uint64_t queue = 0;
 
 static struct net_queue_manager_binding *binding_rx = NULL;
@@ -196,8 +195,18 @@ int main(int argc, char* argv[])
 {
     struct waitset *ws = get_default_waitset();
 
-    printf("elb_app: Started\n");
+    printf("elb_app: Started, v3\n");
     process_cmdline(argc, argv);
+
+    char *cardname = get_cardname();
+    if (cardname == NULL) {
+        cardname = "e10k";
+    }
+
+    queue = get_cmdline_queueid();
+
+    printf("Using [%s] as cardname and %"PRIu64"\n", cardname,
+            queue);
 
     // Connect RX path
     connect_to_driver(cardname, queue);

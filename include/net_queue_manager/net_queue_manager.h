@@ -55,11 +55,31 @@ struct filter {
     struct filter *next;
 };
 
+// State required in TX path to remember information about buffers
+struct buffer_state_metadata {
+    struct net_queue_manager_binding *binding;
+    uint64_t offset;
+//    uint64_t spp_index;
+//    uint64_t tx_pending;
+};
+
+struct bsm_queue {
+    size_t buffer_state_size; // size of slot queue
+    size_t buffer_state_head; // the index pointer
+    size_t buffer_state_used; // how many of them are used?
+    struct buffer_state_metadata *buffer_state;  // array of slots
+};
+
+
 struct buffer_descriptor {
     uint64_t buffer_id;  // buffer identifier
     struct net_queue_manager_binding *con; // binding to which buffer belongs
     struct capref cap; // cap backing the buffer memory
-    struct shared_pool_private *spp_prv; // shared producer consumer pool
+//    struct shared_pool_private *spp_prv; // shared producer consumer pool
+
+    struct bsm_queue rxq; // queue for receive path
+    struct bsm_queue txq; // queue for send path
+
     uint8_t role;  // Role of buffer (RX/TX)
     lpaddr_t pa;    // Physical address of buffer
     uint64_t bits;  // Size of buffer (encoded in bits)

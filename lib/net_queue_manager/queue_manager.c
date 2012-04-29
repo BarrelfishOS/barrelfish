@@ -57,21 +57,6 @@ struct netbench_details *bm = NULL; // benchmarking data holder
 
 struct buffer_descriptor *buffers_list = NULL;
 
-// If we're not using sw filtering, we can only receive on one connection
-struct buffer_descriptor *receive_buffer = NULL;
-struct buffer_descriptor *transmit_buffer = NULL;
-
-// State required in TX path to remember information about buffers
-struct tx_buffer_state {
-    struct net_queue_manager_binding *binding;
-    uint64_t spp_index;
-    uint64_t tx_pending;
-};
-
-static struct tx_buffer_state *tx_buffer = NULL;
-static size_t tx_buffer_count;
-static size_t tx_buffer_index = 0;
-
 /*****************************************************************
  * Prototypes
  *****************************************************************/
@@ -79,15 +64,12 @@ static size_t tx_buffer_index = 0;
 static void register_buffer(struct net_queue_manager_binding *cc,
         struct capref cap, struct capref sp, uint64_t queueid,
         uint64_t slots, uint8_t role);
-static void sp_notification_from_app(struct net_queue_manager_binding *cc,
-        uint64_t queueid, uint64_t type, uint64_t ts);
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
                            uint64_t offset, uint64_t length);
 static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
         uint64_t queueid);
-static void populate_rx_ring(struct buffer_descriptor *buffer);
 
 static void do_pending_work(struct net_queue_manager_binding *b);
 
@@ -98,7 +80,6 @@ static void do_pending_work(struct net_queue_manager_binding *b);
 // Initialize service
 static struct net_queue_manager_rx_vtbl rx_nqm_vtbl = {
     .register_buffer = register_buffer,
-    .sp_notification_from_app = sp_notification_from_app,
     .raw_add_buffer = raw_add_buffer,
     .get_mac_address = get_mac_addr_qm,
     .print_statistics = print_statistics_handler,
@@ -129,10 +110,8 @@ static int client_no = 0;  // number of clients(apps) connected
 static uint64_t buffer_id_counter = 0; // number of buffers registered
 // FIXME: following should be gone in next version of code
 static uint64_t netd_buffer_count = 0; // way to identify the netd
-static uint64_t dropped_pkt_count = 0; // Counter for dropped packets
 
 static struct buffer_descriptor *first_app_b = NULL;
-
 
 // *************************************************************
 //  local loopback device related code
@@ -161,12 +140,17 @@ static void populate_lo_mapping_table(int cur_cl_no,
 {
     // sanity checks
 
+    printf("populate called for client %d\n", cur_cl_no);
     assert(is_loopback_device); // ensuring loopback device
     assert(cur_cl_no == lo_tbl_idx); // ensure monotonic increase
     assert(lo_tbl_idx < 4); // we currently support only 2 applications for lo
 
     // and I should validate the buffer types
     assert(RX_BUFFER_ID == 0); // ensure RX is 0
+
+    if((lo_tbl_idx % 4) != (buffer_ptr->role)) {
+        printf(" tlb_idx %d, role %"PRIu8"\n", lo_tbl_idx, buffer_ptr->role);
+    }
     assert((lo_tbl_idx % 4) == (buffer_ptr->role));
 
     // populate the table entries
@@ -181,6 +165,7 @@ static void populate_lo_mapping_table(int cur_cl_no,
             break;
 
         case 1:
+            printf("populate case 1 crossing 0 %d\n", cur_cl_no);
             // Assuming only one app, so mapping tx to rx
             lo_map_tbl[lo_tbl_idx].tx_cl_no = cur_cl_no;
             lo_map_tbl[lo_tbl_idx].rx_cl_no = 0;
@@ -215,13 +200,11 @@ struct buffer_descriptor *get_lo_receiver(void *opaque)
 {
     // making sure that this is indeed loopback device
     assert(is_loopback_device);
+    assert(opaque != NULL);
 
-    struct tx_buffer_state *txb = opaque;
+    struct buffer_state_metadata *bsm = opaque;
 
-    ETHERSRV_DEBUG("get_lo_receiver %zd < %zd\n",
-            (txb - tx_buffer), tx_buffer_count);
-    assert(txb - tx_buffer < tx_buffer_count);
-    struct net_queue_manager_binding *b = txb->binding;
+    struct net_queue_manager_binding *b = bsm->binding;
 
     // find client_no of sending app
     assert(b != NULL);
@@ -261,17 +244,6 @@ static struct client_closure *create_new_client(
         return NULL;
     }
     memset(buffer, 0, sizeof(struct buffer_descriptor));
-
-    cc->spp_ptr = (struct shared_pool_private *)
-                        malloc(sizeof(struct shared_pool_private));
-    if (cc->spp_ptr == NULL) {
-        ETHERSRV_DEBUG("create_new_client: out of memory\n");
-        free(cc);
-        free(buffer);
-        return NULL;
-    }
-    memset(cc->spp_ptr, 0, sizeof(struct shared_pool_private));
-    buffer->spp_prv = cc->spp_ptr;
 
     b->st = cc;
     cc->app_connection = b;
@@ -417,7 +389,6 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     ETHERSRV_DEBUG("ethersrv:register buffer called with slots %"PRIu64"\n",
             slots);
     errval_t err;
-    int i;
     struct client_closure *closure = (struct client_closure *)cc->st;
     assert(exported_queueid == queueid);
     closure->queueid = queueid;
@@ -432,158 +403,37 @@ static void register_buffer(struct net_queue_manager_binding *cc,
     buffer->con = cc;
     buffer->queueid = queueid;
 
-    // Use raw interface if desired
-    if (capref_is_null(sp)) {
-        printf("net_queue_manager: Use raw interface\n");
-        assert(!use_sf);
-        use_raw_if = true;
-        closure->spp_ptr = NULL;
 
-        if (role == RX_BUFFER_ID) {
-            receive_buffer = buffer;
-        } else {
-            transmit_buffer = buffer;
-        }
-        buffers_list = buffer;
-        report_register_buffer_result(cc, SYS_ERR_OK, queueid,
-                                      buffer->buffer_id);
-        return;
-    }
+    // Create a list to hold metadata for sending
+    buffer->rxq.buffer_state_size = slots;
+    buffer->rxq.buffer_state = calloc(slots,
+            sizeof(struct buffer_state_metadata));
+    assert(buffer->rxq.buffer_state != NULL);
+    buffer->rxq.buffer_state_head = 0;
+    buffer->rxq.buffer_state_used = 0;
 
-    err = sp_map_shared_pool(closure->spp_ptr, sp, slots, role);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "sp_map_shared_pool failed");
-        // FIXME: report more sensible error
-        report_register_buffer_result(cc, err, queueid, 0);
-        return;
-    }
-
-   closure->tx_index = closure->spp_ptr->c_write_id;
-   closure->rx_index = closure->spp_ptr->c_read_id;
-
-    /* FIXME: replace the name netd with control_channel */
-    for (i = 0; i < NETD_BUF_NR; i++) {
-        if (netd[i] == cc) {
-            ETHERSRV_DEBUG("buffer registered with netd connection\n");
-            netd_buffer_count++;
-        }
-    }
-
-    ETHERSRV_DEBUG("register_buffer:buff_id[%" PRIu64 "] pa[%" PRIuLPADDR
-                   "] va[%p] bits[%" PRIu64 "] Role[%"PRIu8"]#####\n",
-                   buffer->buffer_id, buffer->pa, buffer->va, buffer->bits,
-                   buffer->role);
-
-    // Adding the buffer on the top of buffer list.
-    buffers_list = buffer;
-
-    // Without software filtering we can only support one receiving buffer
-    if (!use_sf && role == RX_BUFFER_ID) {
-        // hardware filtering, RX buffers
-        if (receive_buffer != NULL) {
-            USER_PANIC("Already a receive buffer registered, but not using "
-                       "software filtering. This configuration is not "
-                       "supported.");
-        }
-
-        receive_buffer = buffer;
-        populate_rx_ring(buffer);
-    }
-    // for shared queue, the rx_ring is populated by init_rx_ring in
-    // init_soft_filters_service
-    sp_reload_regs(closure->spp_ptr);
+    // Create a list to hold metadata for receiving
+    buffer->txq.buffer_state_size = slots;
+    buffer->txq.buffer_state = calloc(slots,
+            sizeof(struct buffer_state_metadata));
+    assert(buffer->txq.buffer_state != NULL);
+    buffer->txq.buffer_state_head = 0;
+    buffer->txq.buffer_state_used = 0;
 
     if (is_loopback_device) {
         populate_lo_mapping_table(closure->cl_no, closure->buffer_ptr);
     } // end if: loopback device
 
-    report_register_buffer_result(cc, err, queueid, buffer->buffer_id);
-    assert(buffer->con != NULL);
+    // Use raw interface if desired
+    printf("net_queue_manager: Use raw interface\n");
+    use_raw_if = true;
+
+    buffers_list = buffer;
+    report_register_buffer_result(cc, SYS_ERR_OK, queueid,
+                                      buffer->buffer_id);
+    return;
 } // end function: register_buffer
 
-// *********** Interface: sp_send_notification_from_driver ****************
-
-// wrapper function:
-static errval_t wrapper_send_sp_notification_from_driver(struct q_entry e)
-{
-//    ETHERSRV_DEBUG("send_sp_notification_from_driver-----\n");
-    struct net_queue_manager_binding *b = (struct net_queue_manager_binding *)
-        e.binding_ptr;
-    struct client_closure *ccl = (struct client_closure *) b->st;
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVAPPNOTIF,
-                0);
-#endif // TRACE_ONLY_SUB_NNET
-
-    if (ccl->debug_state_tx == 4) {
-        netbench_record_event_simple(bm, RE_TX_SP_MSG_Q, e.plist[1]);
-    }
-    uint64_t ts = rdtsc();
-    if (b->can_send(b)) {
-        errval_t err = b->tx_vtbl.sp_notification_from_driver(b,
-                MKCONT(cont_queue_callback, ccl->q),
-                e.plist[0], e.plist[1], ts);
-                // queueid, type, ts
-        if (ccl->debug_state_tx == 4) {
-            netbench_record_event_simple(bm, RE_TX_SP_MSG, ts);
-        }
-        return err;
-    } else {
-        ETHERSRV_DEBUG("send_sp_notification_from_driver: Flounder busy.."
-                "retry --------\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-// notifiy application that something interesting has happened
-// and it should check the spp
-static bool send_notification_to_app(struct client_closure *cl)
-{
-
-    if (0) {
-    if (cl->spp_ptr->notify_other_side == 0) {
-        return false;
-    }
-    // Send notification to application
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = wrapper_send_sp_notification_from_driver;
-    entry.binding_ptr = (void *) cl->app_connection;
-    entry.plist[0] = cl->queueid;
-    entry.plist[1] = 1; // FIXME: will have to define these values
-    // FIXME: Get the remaining slots value from the driver
-    entry.plist[2] = rdtsc();
-    enqueue_cont_q(cl->q, &entry);
-    }
-    cl->spp_ptr->notify_other_side = 0;
-    return true;
-} // end function: send_notification_to_app
-
-
-// *********** Interface: sp_notification_from_app ****************
-
-// Notification received from the application
-// Most probably, it needs some attention
-static void sp_notification_from_app(struct net_queue_manager_binding *cc,
-        uint64_t queueid, uint64_t type, uint64_t rts)
-{
-    struct client_closure *closure = (struct client_closure *)cc->st;
-    assert(closure != NULL);
-    assert(closure->queueid == queueid);
-    if (closure->debug_state_tx == 4) {
-        netbench_record_event_simple(bm, RE_TX_NOTI_CS, rts);
-    }
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVNOTIF,
-                0);
-#endif // TRACE_ONLY_SUB_NNET
-
-    // FIXME : call schedule work
-    do_pending_work(cc);
-
-} // end function:  sp_notification_from_app
 
 static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
 {
@@ -614,7 +464,7 @@ static void send_raw_xmit_done(struct net_queue_manager_binding *b,
     entry.plist[0] = offset;
     entry.plist[1] = length;
     enqueue_cont_q(ccl->q, &entry);
-} // end function: send_notification_to_app
+} // end function: send_raw_xmit_done
 
 
 // *********** Interface: get_mac_address ****************
@@ -683,214 +533,27 @@ static void print_statistics_handler(struct net_queue_manager_binding *cc,
 // Functionality: packet sending (TX path)
 // **********************************************************
 
-// send one packet from given connection
-static bool send_single_pkt_to_driver(struct net_queue_manager_binding *cc)
-{
-    errval_t err;
-
-     ETHERSRV_DEBUG("send_single_pkt_to_driver called\n");
-    // sanity checks: making sure function is not called with invalid parameters
-    struct client_closure *cl = (struct client_closure *)cc->st;
-    assert(cl != NULL);
-    struct shared_pool_private *spp = cl->spp_ptr;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
-
-    if (cl->tx_index == spp->c_write_id) {
-        return false;
-    }
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
-            (uint32_t)cl->tx_index);
-#endif // TRACE_ONLY_SUB_NNET
-
-    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-
-    // check if there are all pbufs needed for this packet
-    uint64_t available_slots = sp_c_range_size(cl->tx_index, spp->c_write_id,
-            spp->c_size);
-    if (available_slots < sld->no_pbufs) {
-        USER_PANIC("Incomplete packet sent by app!");
-        return false;
-    }
-
-    // Prepare data for driver and call it in to the driver
-    {
-        size_t n = sld->no_pbufs;
-        size_t i;
-        struct driver_buffer buffers[n];
-        struct tx_buffer_state *txb;
-        struct buffer_descriptor *buffer = NULL;
-
-        for (i = 0; i < n; i++) {
-            struct slot_data *s = &spp->sp->slot_list[cl->tx_index + i].d;
-            if (buffer == NULL || buffer->buffer_id != s->buffer_id) {
-                buffer = find_buffer(s->buffer_id);
-            }
-
-            buffers[i].pa = (uint64_t) buffer->pa + s->offset;
-            buffers[i].va = (void*) ((uintptr_t) buffer->va + s->offset);
-            buffers[i].len = s->len;
-        }
-
-        // Save state for handle_tx_done()
-        txb = tx_buffer + tx_buffer_index;
-        tx_buffer_index = (tx_buffer_index + 1) % tx_buffer_count;
-        txb->binding = cc;
-        txb->spp_index = cl->tx_index;
-        ++txb->tx_pending;
-
-        // Pass buffers to driver
-        err = ether_transmit_pbuf_list_ptr(buffers, n,
-                (void *)txb);
-    }
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSSPOW,
-            (uint32_t)cl->tx_index);
-#endif // TRACE_ONLY_SUB_NNET
-    cl->tx_index = (cl->tx_index + sld->no_pbufs) % spp->c_size;
-
-    if (err_is_fail(err)) {
-        dropped_pkt_count++;
-        // FIXME: Need to mark the spp slot as free
-        return false;
-    }
-
-    // successfull transfer!
-    if (cl->debug_state_tx == 4) {
-        // Benchmarking mode is on
-        ++cl->pkt_count;
-        if (cl->pkt_count == cl->out_trigger_counter) {
-            benchmark_control_request(cc, cl->queueid,  BMS_STOP_REQUEST, 0, 0);
-        }
-    } // end if: benchmarking mode is on
-
-    if (cl->debug_state_tx == 3) {
-        // Benchmarking mode should be started here!
-        ++cl->pkt_count;
-        assert(cl->pkt_count == 1);
-        // This is the first packet, so lets restart the timer!!
-        cl->start_ts_tx = rdtsc();
-        cl->debug_state_tx = 4;
-    } // end if: Starting benchmarking mode
-
-
-    return true;
-} // end function: send_single_pkt_to_driver
-
-
-// Send all available packets from given connection
-// FIXME: It is quite bad policy as in one application can dominate
-// TX path
-static uint64_t send_packets_on_wire(struct net_queue_manager_binding *cc)
-{
-    uint64_t pkts = 0;
-    struct client_closure *closure = (struct client_closure *)cc->st;
-    assert(closure != NULL);
-    struct buffer_descriptor *buffer = closure->buffer_ptr;
-    assert(buffer != NULL);
-
-    assert(buffer->role == TX_BUFFER_ID);
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXESVSPOW,
-                0);
-#endif // TRACE_ONLY_SUB_NNET
-
-    struct shared_pool_private *spp = closure->spp_ptr;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
-
-    sp_reload_regs(spp);
-    if (sp_queue_empty(spp)) {
-        return 0;
-    }
-        // There are no packets
-    while (send_single_pkt_to_driver(cc)) {
-        sp_reload_regs(spp);
-        ++pkts;
-    }
-
-    if (pkts > 0) {
-        if (closure->debug_state_tx == 4) {
-            netbench_record_event(bm, RE_TX_T, pkts);
-        }
-    }
-    return pkts;
-}
-
 // function to do housekeeping after descriptors are transferred
 bool handle_tx_done(void *opaque)
 {
 
+    assert(opaque != NULL);
+    struct buffer_state_metadata *bsm = opaque;
+    struct client_closure *cl = bsm->binding->st;
+    struct buffer_descriptor *buffer = cl->buffer_ptr;
+
+    assert((buffer->txq.buffer_state_used > 0));
+    --buffer->txq.buffer_state_used;
+
     // Handle raw interface
-    if (use_raw_if) {
-        send_raw_xmit_done(transmit_buffer->con, (uintptr_t) opaque, 0);
-        return true;
-    }
-
-    struct tx_buffer_state *txb = opaque;
-    assert(txb - tx_buffer < tx_buffer_count);
-    struct net_queue_manager_binding *b = txb->binding;
-    uint64_t spp_index = txb->spp_index;
-
-    uint64_t rts = rdtsc();
-    assert(b != NULL);
-    struct client_closure *cc = (struct client_closure *)b->st;
-    assert(cc != NULL);
-    struct shared_pool_private *spp = cc->spp_ptr;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
-    assert(txb->tx_pending > 0);
-    --txb->tx_pending;
-
-    ETHERSRV_DEBUG("handle_tx_done called %"PRIu64" with pending %"PRIu64"\n",
-            spp_index, txb->tx_pending);
-
-    if(spp->sp->read_reg.value != spp_index) {
-        printf("handle_tx_done: read reg[%"PRIu64"] == "
-               "spp_index [%"PRIu64"], pending [%"PRIu64"]\n",
-               spp->sp->read_reg.value, spp_index, txb->tx_pending);
-//        abort();
-    }
-//    assert(spp->sp->read_reg.value == spp_index);
-
-    // FIXME: do not increment when spp_index < than read_reg
-    if(!sp_set_read_index(spp, ((spp_index + 1) % spp->c_size))) {
-        // FIXME:  This is dengarous!  I should increase read index,
-        // only when all the packets till that read index are sent!
-//        printf("failed for %"PRIu64"\n",spp_index);
-//        sp_print_metadata(spp);
-        abort();
-        assert(!"sp_set_read_index failed");
-    }
-
-    if (spp->notify_other_side == 0) {
-
-        if (cc->debug_state_tx == 4) {
-            netbench_record_event_simple(bm, RE_TX_DONE_NN, rts);
-        }
-        return true;
-    }
-
-    if (cc->debug_state_tx == 4) {
-        netbench_record_event_simple(bm, RE_TX_DONE_N, rts);
-    }
+    send_raw_xmit_done(bsm->binding, (uintptr_t)bsm->offset, 0);
     return true;
 }// end function: handle_tx_done
 
 
-
 // Do all the work related TX path for perticular client
 // It includes
-//   * Send all pending packets.
 //   * Take care of descriptors which are sent.
-//   * If needed, notifiy application.
-// With hardware filtering this also includes some work for the RX path. In that
-// case we need to reregister the receive buffers that have been used, but with
-// which the application is now done to the RX ring of the queue.
 static void do_pending_work(struct net_queue_manager_binding *b)
 {
     // Handle raw interface
@@ -899,49 +562,7 @@ static void do_pending_work(struct net_queue_manager_binding *b)
         return;
     }
 
-    uint64_t ts = rdtsc();
-    struct client_closure *closure = (struct client_closure *)b->st;
-
-    assert(closure != NULL);
-    struct buffer_descriptor *buffer = closure->buffer_ptr;
-    assert(buffer != NULL);
-    struct shared_pool_private *spp = closure->spp_ptr;
-    assert(spp != NULL);
-    assert(spp->sp != NULL);
-
-    // Check if there are more packets to be sent on wire
-    if (buffer->role == TX_BUFFER_ID) {
-        uint64_t pkts = 0;
-        pkts = send_packets_on_wire(b);
-        if (closure->debug_state == 4) {
-            netbench_record_event_simple(bm, RE_PENDING_1, ts);
-        }
-
-        // Check if there are more pbufs which are to be marked free
-        if (pkts > 0) {
-            uint64_t tts = rdtsc();
-            while (handle_free_tx_slot_fn_ptr());
-
-            if (sp_queue_full(spp)) {
-                // app is complaining about TX queue being full
-                // FIXME: Release TX_DONE
-                while (handle_free_tx_slot_fn_ptr());
-            }
-            if (closure->debug_state == 4) {
-                netbench_record_event_simple(bm, RE_PENDING_2, tts);
-            }
-        }
-    } else if (buffer->role == RX_BUFFER_ID) {
-        populate_rx_ring(buffer);
-    }
-
-    send_notification_to_app(closure);
-
-    if (closure->debug_state_tx == 4) {
-        netbench_record_event_simple(bm, RE_TX_W_ALL, ts);
-    }
 } // end function: do_pending_work
-
 
 
 // Do all the TX path related work for all the clients
@@ -954,129 +575,42 @@ void do_pending_work_for_all(void)
     }
 }
 
-
-// **********************************************************
-// Functionality: packet receiving (RX path)
-// **********************************************************
-
-static inline struct shared_pool_private *buffer_to_spp(
-        struct buffer_descriptor *buffer)
-{
-    struct net_queue_manager_binding *b = buffer->con;
-    assert(b != NULL);
-    struct client_closure *cl = (struct client_closure *) b->st;
-    assert(cl != NULL);
-    struct shared_pool_private *spp = cl->spp_ptr;
-    assert(spp != NULL);
-    return spp;
-}
-
-static void populate_rx_ring(struct buffer_descriptor *buffer)
-{
-    size_t capacity;
-    uint64_t paddr;
-    void *opaque, *vaddr;
-    struct shared_pool_private *spp_ptr;
-    struct slot_data sslot;
-
-    if (use_sf) {
-        // For software filtering this is a no-op
-        return;
-    }
-
-    // Register RX buffers with driver if there are buffers and there are
-    // free slots in driver ring
-    capacity = rx_get_free_slots_fn_ptr();
-
-    spp_ptr = buffer_to_spp(buffer);
-    sp_reload_regs(spp_ptr);
-    while (capacity > 0) {
-        // Last available slot reached
-        if (((spp_ptr->ghost_write_id + 1) % spp_ptr->c_size) ==
-                spp_ptr->c_read_id)
-        {
-            break;
-        }
-
-        sp_copy_slot_data(&sslot,
-                          &spp_ptr->sp->slot_list[spp_ptr->ghost_write_id].d);
-        assert(sslot.client_data != 0);
-        assert(sslot.len >= rx_buffer_size);
-        assert(sslot.no_pbufs != 0);
-
-        paddr = (uint64_t) (uintptr_t) buffer->pa + sslot.offset;
-        vaddr = (void*) ((uintptr_t) buffer->va + sslot.offset);
-        opaque = (void*) (uintptr_t) spp_ptr->ghost_write_id;
-        rx_register_buffer_fn_ptr(paddr, vaddr, opaque);
-
-        spp_ptr->ghost_write_id = (spp_ptr->ghost_write_id + 1)
-            % spp_ptr->c_size;
-
-        capacity--;
-    }
-}
-
 /**
  * Called by driver when it receives a new packet.
  */
 void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 {
-    struct shared_pool_private *spp;
-    struct client_closure *cl;
-
     if (use_sf) {
+        // FIXME: this is broken quite badly
         sf_process_received_packet(opaque, pkt_len, is_last);
         return;
     }
-
     // If we do no software filtering we basically only have to tell the
     // application that a new packet is ready.
 
-    assert(receive_buffer != NULL);
-    cl = (struct client_closure *) receive_buffer->con->st;
-
     // Handle raw interface
     if (use_raw_if) {
+        assert(opaque != NULL);
+        struct buffer_state_metadata *bsm = opaque;
+        struct client_closure *cl = bsm->binding->st;
+        struct buffer_descriptor *buf = cl->buffer_ptr;
+        assert(buf->rxq.buffer_state_used > 0);
+
         assert(is_last);
-        send_raw_xmit_done(receive_buffer->con, (uintptr_t) opaque, pkt_len);
+
+        send_raw_xmit_done(bsm->binding, bsm->offset, pkt_len);
+        --buf->rxq.buffer_state_used;
         return;
     }
+} // end function: process_received_packet
 
-    spp = buffer_to_spp(receive_buffer);
-
-
-    // TODO ak: Packets that span multiple buffers!
-    if (!is_last) {
-        USER_PANIC("TODO: Handle packets that span multiple buffers.\n");
-    }
-
-    sp_reload_regs(spp);
-    // Make sure that spp_index is the slot which will be next written
-    assert((uintptr_t) opaque == spp->c_write_id);
-
-    // update the length of packet in sslot.len field
-    spp->sp->slot_list[spp->c_write_id].d.len = pkt_len;
-    spp->sp->slot_list[spp->c_write_id].d.no_pbufs = 1;
-
-    if(!sp_increment_write_index(spp)){
-        printf("########### ERROR: cp_pkt_2_usr: sp_set_write_index failed\n");
-        USER_PANIC("increment_write_index problem\n");
-        abort();
-        return;
-    }
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSPPDONE,
-                0);
-#endif // TRACE_ONLY_SUB_NNET
-
-    send_notification_to_app(cl);
-}
-
+static uint64_t rx_added = 0; // FIXME: for debugging. Remove this
+static uint64_t sent_packets = 0; // FIXME: remove this
 /**
  * Used in combination with software filtering, to copy a packet into a user
  * buffer.
  */
+// FIXME: why is this not in soft filter management?
 bool copy_packet_to_user(struct buffer_descriptor *buffer,
                          void *data, uint64_t len)
 {
@@ -1090,22 +624,32 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     assert(b != NULL);
     struct client_closure *cl = (struct client_closure *) b->st;
     assert(cl != NULL);
-    struct shared_pool_private *spp = cl->spp_ptr;
-    assert(spp != NULL);
 
-    sp_reload_regs(spp);
-    if (sp_queue_full(spp)) {
-        ETHERSRV_DEBUG("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
-                "read[%"PRIu64"] write[%"PRIu64"]\n", disp_get_domain_id(),
-                buffer->buffer_id, spp->c_read_id, spp->c_write_id);
+    // check if there are slots which can be used in app (!isempty)
+    if(buffer->rxq.buffer_state_used == 0) {
 
+        //ETHERSRV_DEBUG
+        printf("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
+                "size[%"PRIu64"] used[%"PRIu64"], after [%"PRIu64"] sent"
+                " added [%"PRIu64"] \n",
+                disp_get_domain_id(),
+                buffer->buffer_id, buffer->rxq.buffer_state_size,
+                buffer->rxq.buffer_state_used, sent_packets, rx_added);
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }
+        abort(); // optional, should be removed
         return false;
     }
 
-    uint64_t offset = spp->sp->slot_list[spp->c_write_id].d.offset;
+    // pop the latest buffer from head of queue (this is stack)
+    --buffer->rxq.buffer_state_head;
+    struct buffer_state_metadata *bsm = buffer->rxq.buffer_state +
+        buffer->rxq.buffer_state_head;
+    assert(bsm != NULL);
+    uint64_t offset = bsm->offset;
+    --buffer->rxq.buffer_state_used;
+
     assert(offset < (1L << buffer->bits));
     void *dst = (void *) (uintptr_t) buffer->va + offset;
 
@@ -1119,6 +663,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
         netbench_record_event_simple(bm, RE_COPY, ts);
     }
 
+    ++sent_packets; // FIXME: remove this!
     // add trace pkt cpy
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
@@ -1126,36 +671,14 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
-#if TRACE_ONLY_SUB_NNET
-    uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVCOPIED,
-                pkt_location);
-#endif // TRACE_ONLY_SUB_NNET
-
-    // update the length of packet in sslot.len field
-    spp->sp->slot_list[spp->c_write_id].d.len = len;
-    spp->sp->slot_list[spp->c_write_id].d.no_pbufs = 1;
-
-    if(!sp_increment_write_index(spp)){
-        printf("########### ERROR: cp_pkt_2_usr: sp_set_write_index failed\n");
-        USER_PANIC("increment_write_index problem\n");
-        abort();
-        return false;
-    }
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSPPDONE,
-                pkt_location);
-#endif // TRACE_ONLY_SUB_NNET
-
-    send_notification_to_app(cl);
+    // Handle raw interface
+    send_raw_xmit_done(b, offset, len);
     return true;
 } // end function: copy_packet_to_user
 
 /*****************************************************************
  * Interface related: raw interface
  ****************************************************************/
-
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
                            uint64_t offset, uint64_t length)
 {
@@ -1167,9 +690,24 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
 
     paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
     vaddr = (void*) ((uintptr_t) buffer->va + offset);
-    opaque = (void*) (uintptr_t) offset;
+
 
     if (buffer->role == TX_BUFFER_ID) {
+        // Make sure that there is opaque slot available (isfull)
+        assert(buffer->txq.buffer_state_used < (buffer->txq.buffer_state_size - 1));
+
+        // Save state for handle_tx_done()/handle_receive_packet
+        struct buffer_state_metadata *bsm = buffer->txq.buffer_state +
+            buffer->txq.buffer_state_head;
+        buffer->txq.buffer_state_head = (buffer->txq.buffer_state_head + 1)
+            % buffer->txq.buffer_state_size;
+        bsm->binding = cc;
+        bsm->offset = offset;
+        ++buffer->txq.buffer_state_used;
+
+        opaque = (void*)bsm;
+
+
         struct driver_buffer buffers;
 
         buffers.va  = vaddr;
@@ -1179,10 +717,31 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
         err = ether_transmit_pbuf_list_ptr(&buffers, 1, opaque);
         assert(err_is_ok(err));
     } else {
-        assert(length == rx_buffer_size);
-        rx_register_buffer_fn_ptr(paddr, vaddr, opaque);
-    }
-}
+        // Make sure that there is opaque slot available (isfull)
+        assert(buffer->rxq.buffer_state_used <
+                (buffer->rxq.buffer_state_size - 1));
+
+        // Save state for handle_tx_done()/handle_receive_packet
+        struct buffer_state_metadata *bsm = buffer->rxq.buffer_state +
+            buffer->rxq.buffer_state_head;
+        buffer->rxq.buffer_state_head = (buffer->rxq.buffer_state_head + 1)
+            % buffer->rxq.buffer_state_size;
+        bsm->binding = cc;
+        bsm->offset = offset;
+        ++buffer->rxq.buffer_state_used;
+        ++rx_added;
+        opaque = (void*)bsm;
+
+        // role == RX_BUFFER_ID
+        if (use_sf) {
+            // nothing to do!
+
+        } else {
+            assert(length == rx_buffer_size);
+            rx_register_buffer_fn_ptr(paddr, vaddr, opaque);
+        }
+    } // end else: RX_BUFFER_ID
+} // end function: raw_add_buffer
 
 /*****************************************************************
  * Interface related: Exporting and handling connections
@@ -1294,10 +853,9 @@ void ethersrv_init(char *service_name, uint64_t queueid,
                              my_mac[3], my_mac[4], my_mac[5]);
     bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
 
-    tx_buffer_count = tx_free_slots_fn_ptr();
-    printf("using %zd slots for internal buffer\n", tx_buffer_count);
-    assert(tx_buffer_count >= 1);
-    tx_buffer = calloc(tx_buffer_count, sizeof(struct tx_buffer_state));
+    size_t driver_supported_buffers = tx_free_slots_fn_ptr();
+    printf("using %zd slots for internal buffer\n", driver_supported_buffers);
+    assert(driver_supported_buffers >= 1);
 
     /* exporting ether interface */
     err = net_queue_manager_export(NULL, // state for connect/export callbacks
@@ -1311,7 +869,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     // FIXME: How do we decide this reasonably
     use_sf = !force_disable_sf && (queueid == 0);
 
-    if (use_sf) {
+    if (use_sf || is_loopback_device) {
         // start software filtering service
         init_soft_filters_service(service_name, queueid, rx_bufsz);
     }

@@ -1137,17 +1137,7 @@ static bool handle_application_packet(void *packet, size_t len)
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_f;
             netbench_record_event_simple(bm, RE_DROPPED, ts);
-/*
-            printf("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
-                    "phead[%u] ptail[%u] notify[%"PRIu64"], FM[%"PRIu64"]\n",
-                       disp_get_domain_id(),
-                       buffer->buffer_id, buffer->pbuf_head_rx,
-                       buffer->pbuf_tail_rx,
-                       cl->spp_ptr->notify_other_side, cl->in_filter_matched);
-            sp_print_metadata(cl->spp_ptr);
-*/
         }
-
 //      printf("A: Copy packet to userspace failed\n");
     }
     return true;
@@ -1226,7 +1216,7 @@ static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
 
     struct net_queue_manager_binding *b = buffer->con;
     if(b == NULL) {
-//        printf("netd buffer->con not present\n");
+        printf("destination buffer->con not present\n");
         return false;
     }
 
@@ -1238,11 +1228,14 @@ static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
     return true;
 } // end function: handle_loopback_packet
 
+
 void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
         size_t pkt_len, bool is_last)
 {
     void *pkt_data;
 
+    ETHERSRV_DEBUG("pkt_len %zd and rx_ring_bufsz %zd\n", pkt_len,
+            rx_ring_bufsz);
     assert(pkt_len <= rx_ring_bufsz);
     // FIXME: allow packets to be distributed over multiple buffers
     assert(is_last);

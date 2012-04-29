@@ -245,9 +245,9 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
             printf("cycles per us %"PRIu64"\n", tscperus);
 
             // Output our results
-            //bench_ctl_dump_csv_bincounting(bench_ctl, 0, 100, 9 * tscperus,
-            //        25 * tscperus, out_prefix);
-            bench_ctl_dump_csv(bench_ctl, out_prefix, tscperus);
+            bench_ctl_dump_csv_bincounting(bench_ctl, 0, 100, 9 * tscperus,
+                    25 * tscperus, out_prefix, tscperus);
+            //bench_ctl_dump_csv(bench_ctl, out_prefix, tscperus);
 
             bench_ctl_destroy(bench_ctl);
             terminate_benchmark();

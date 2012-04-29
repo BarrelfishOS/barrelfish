@@ -22,7 +22,8 @@
 #include "lo_debug.h"
 
 /// MTU is 1500 bytes, plus Ethernet header and CRC is max packet size
-#define PACKET_SIZE     (1500 + 14 + 4)
+//#define PACKET_SIZE     (1500 + 14 + 4)
+#define PACKET_SIZE     (2048)
 
 /// Maximum packet size is write buffer size
 #define WRITE_BUF_SIZE  PACKET_SIZE

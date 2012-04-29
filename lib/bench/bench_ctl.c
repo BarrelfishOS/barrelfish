@@ -64,7 +64,8 @@ bool bench_ctl_add_run(bench_ctl_t *ctl,
 }
 
 void bench_ctl_dump_csv(bench_ctl_t *ctl,
-                        const char  *prefix, uint64_t tscperus)
+                        const char  *prefix,
+                        cycles_t tscperus)
 {
     size_t i, j;
     cycles_t *v;
@@ -144,7 +145,8 @@ void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
                                     size_t bin_count,
                                     cycles_t min,
                                     cycles_t max,
-                                    const char *prefix)
+                                    const char *prefix,
+                                    cycles_t tscperus)
 {
     size_t *bins;
     size_t i;
@@ -157,7 +159,8 @@ void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
     for (i = 0; i < bin_count; i++) {
         if (bins[i] > 0) {
             val = bin2val(bin_count, min, max, i);
-            printf("%s%"PRIu64",%"PRIu64"\n", prefix, val, bins[i]);
+            printf("%s%"PRIu64",%"PRIu64", %f\n", prefix, val, bins[i],
+                   val/ (float)tscperus);
         }
     }
 
