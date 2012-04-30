@@ -1170,6 +1170,7 @@ static bool handle_arp_packet(void *packet, size_t len)
 static bool handle_netd_packet(void *packet, size_t len)
 {
     if(waiting_for_netd()){
+        ETHERSRV_DEBUG("waiting for netd\n");
     	return false;
     }
 
@@ -1186,7 +1187,7 @@ static bool handle_netd_packet(void *packet, size_t len)
 
     struct net_queue_manager_binding *b = buffer->con;
     if(b == NULL) {
-//        printf("netd buffer->con not present\n");
+        printf("netd buffer->con not present\n");
         return false;
     }
 
@@ -1195,6 +1196,7 @@ static bool handle_netd_packet(void *packet, size_t len)
     if (copy_packet_to_user(buffer, packet, len) == false) {
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
     }
+    ETHERSRV_DEBUG("packet handled by netd\n");
     return true;
 } // end function: handle_netd_packet
 

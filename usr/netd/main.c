@@ -30,7 +30,7 @@
 static void netd_event_polling_loop(void)
 {
     errval_t err;
-    printf("Starting event polling loop\n");
+    printf("Starting event polling loop!!!\n");
     struct waitset *ws = get_default_waitset();
     while (1) {
         err = event_dispatch(ws);

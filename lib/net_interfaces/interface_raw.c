@@ -162,6 +162,17 @@ static void new_buffer_id(struct net_queue_manager_binding *st, errval_t err,
     }
 }
 
+// Returns the bufferid for specified type (RX, TX)
+uint64_t get_rx_bufferid(void)
+{
+    return bufid_rx;
+}
+
+uint64_t get_tx_bufferid(void)
+{
+    return bufid_tx;
+}
+
 static void raw_xmit_done(struct net_queue_manager_binding *st,
                           uint64_t offset, uint64_t len)
 {

@@ -42,21 +42,19 @@ static void eventloop(void)
 
 int main(int argc, char* argv[])
 {
-    struct waitset *ws = get_default_waitset();
-
     printf("elb_app: Started, v3\n");
     process_cmdline(argc, argv);
 
-    /*
+
     char *cardname = get_cardname();
     if (cardname == NULL) {
         cardname = "e10k";
     }
 
-    queue = get_cmdline_queueid();
-*/
+    uint64_t queue = get_cmdline_queueid();
 
-    net_if_init("e10k", 0);
+    printf("elb_app: using card %s and queue %"PRIu64"\n", cardname, queue);
+    net_if_init(cardname, queue);
     benchmark_init(buffer_count);
     eventloop();
 }

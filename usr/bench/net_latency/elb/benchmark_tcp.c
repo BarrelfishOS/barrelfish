@@ -24,7 +24,7 @@ void benchmark_init(size_t buffers)
     printf("tcp benchmark: lwip init done\n");
 }
 
-void benchmark_argument(const char *arg)
+void benchmark_argument(char *arg)
 {
 }
 

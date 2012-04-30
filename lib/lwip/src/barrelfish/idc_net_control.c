@@ -17,6 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <net_interfaces/net_interfaces.h>
 #include <trace/trace.h>
 #include <netif/etharp.h>
 #include <netif/bfeth.h>
@@ -31,7 +32,7 @@
 
 #include "lwip_barrelfish_debug.h"
 
-// Can be used 
+// Can be used
 #define DISABLE_PORTMNG 1
 
 
@@ -64,7 +65,6 @@ void thread_debug_regs(struct thread *t);
 // Variables shared with idc_barrelfish.c
 extern struct waitset *lwip_waitset;
 extern uint64_t lwip_queue_id;
-extern struct net_queue_manager_binding *driver_connection[2];
 
 /**
  * \brief handle msgs on the tx, rx and then the rest connections in that priority
@@ -315,19 +315,12 @@ static err_t idc_bind_port(uint16_t port, net_ports_port_type_t port_type)
 
     errval_t err, msgerr;
 
-    // antoinek: FIXME: Need to figure out how to deal with this
-    //assert(!"NYI");
-
     /* getting the proper buffer id's here */
     err = net_ports_rpc.vtbl.bind_port(&net_ports_rpc, port_type, port,
                                   /* buffer for RX */
-                                  /*((struct client_closure_NC *)
-                                   driver_connection[RECEIVE_CONNECTION]->st)->
-                                  buff_ptr->buffer_id*/ 0,
+                                   get_rx_bufferid(),
                                   /* buffer for TX */
-                                  /*((struct client_closure_NC *)
-                                   driver_connection[TRANSMIT_CONNECTION]->st)->
-                                  buff_ptr->buffer_id*/ 0,
+                                   get_tx_bufferid(),
                                   appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
@@ -368,13 +361,9 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
     /* getting the proper buffer id's here */
     err = net_ports_rpc.vtbl.get_port(&net_ports_rpc, port_type,
                                  /* buffer for RX */
-                                 /*((struct client_closure_NC *)
-                                  driver_connection[RECEIVE_CONNECTION]->st)->
-                                 buff_ptr->buffer_id*/ 0,
+                                 get_rx_bufferid(),
                                  /* buffer for TX */
-                                 /*((struct client_closure_NC *)
-                                  driver_connection[TRANSMIT_CONNECTION]->st)->
-                                 buff_ptr->buffer_id*/ 0,
+                                 get_tx_bufferid(),
                                  appid_delete, lwip_queue_id,
                                  &msgerr, port_no);
     if (err_is_fail(err)) {
@@ -429,13 +418,10 @@ static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
       net_ports_rpc.vtbl.redirect(&net_ports_rpc, port_type, local_ip->addr, local_port,
                              remote_ip->addr, remote_port,
                              /* buffer for RX */
-                             ((struct client_closure_NC *)
-                              driver_connection[RECEIVE_CONNECTION]->st)->
-                             buff_ptr->buffer_id,
+                             get_rx_bufferid(),
                              /* buffer for TX */
-                             ((struct client_closure_NC *)
-                              driver_connection[TRANSMIT_CONNECTION]->st)->
-                             buff_ptr->buffer_id, &msgerr);
+                             get_tx_bufferid(),
+                             &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending redirect");
     }

@@ -504,11 +504,11 @@ static void polling_loop(void)
         ++poll_count;
 
         ts = rdtsc();
-        do_pending_work_for_all();
+//        do_pending_work_for_all();
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
-//        err = event_dispatch(ws); // blocking
-        err = event_dispatch_non_block(ws); // nonblocking
+        err = event_dispatch(ws); // blocking
+//        err = event_dispatch_non_block(ws); // nonblocking
         if (err != LIB_ERR_NO_EVENT) {
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "in event_dispatch_non_block");

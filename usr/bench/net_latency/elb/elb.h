@@ -20,8 +20,8 @@
 #include <net_interfaces/net_interfaces.h>
 #include "elb_debug.h"
 
-extern void *buffer_base;
-extern size_t buffer_size;
+//extern void *buffer_base;
+//extern size_t buffer_size;
 
 char *get_cardname(void);
 uint64_t get_cmdline_queueid(void);

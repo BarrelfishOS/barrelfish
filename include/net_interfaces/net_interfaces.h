@@ -21,7 +21,7 @@ extern size_t buffer_count;
 
 
 void benchmark_init(size_t buffers);
-void benchmark_argument(const char *arg);
+void benchmark_argument(char *arg);
 void benchmark_rx_done(size_t idx, size_t len);
 void benchmark_tx_done(size_t idx);
 void benchmark_do_pending_work(void);
@@ -31,7 +31,8 @@ void net_if_terminate(void);
 void buffer_tx_add(size_t idx, size_t offset, size_t len);
 void buffer_rx_add(size_t idx);
 void benchmark_get_mac_address(uint8_t *mac);
-
+uint64_t get_tx_bufferid(void);
+uint64_t get_rx_bufferid(void);
 
 #endif // ndef NET_INTERFACES_H_
 

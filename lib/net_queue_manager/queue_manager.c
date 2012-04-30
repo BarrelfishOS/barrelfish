@@ -47,7 +47,7 @@
 static bool use_sf;
 
 // True iff we use the raw interface (implies !use_sf)
-static bool use_raw_if = false;
+static bool use_raw_if = true;
 
 // True if sofware filtering was disabled using the command-line parameter, this
 // means that software filtering is not used, even if we are on queue 0.
@@ -309,7 +309,7 @@ static errval_t populate_buffer(struct buffer_descriptor *buffer,
         // FIXME: report more sensible error
         return(ETHERSRV_ERR_TOO_MANY_BUFFERS);
     }
-
+    netd_buffer_count++;
     buffer_id_counter++;
     buffer->buffer_id = buffer_id_counter;
 //    printf("### buffer gets id %"PRIu64"\n", buffer->buffer_id);
