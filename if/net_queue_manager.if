@@ -37,5 +37,7 @@ interface net_queue_manager "Ethernet hardware RX/TX queue manager" {
                             uint64 trigger, uint64 cl);
     response benchmark_control_response(uint64 queueid, uint8 state,
                             uint64 delta, uint64 cl);
+
+    call terminate_queue();
 };
 

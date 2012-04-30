@@ -70,6 +70,7 @@ static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
         uint64_t queueid);
+static void terminate_queue(struct net_queue_manager_binding *cc);
 
 static void do_pending_work(struct net_queue_manager_binding *b);
 
@@ -84,11 +85,13 @@ static struct net_queue_manager_rx_vtbl rx_nqm_vtbl = {
     .get_mac_address = get_mac_addr_qm,
     .print_statistics = print_statistics_handler,
     .benchmark_control_request = benchmark_control_request,
+    .terminate_queue = terminate_queue,
 };
 
 /*****************************************************************
  * Pointers to driver functionalities:
  *****************************************************************/
+static ether_terminate_queue ether_terminate_queue_ptr = NULL;
 static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
 static ether_transmit_pbuf_list_t ether_transmit_pbuf_list_ptr = NULL;
 static ether_get_tx_free_slots tx_free_slots_fn_ptr = NULL;
@@ -828,6 +831,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
 
     exported_queueid = queueid;
     rx_buffer_size = rx_bufsz;
+    ether_terminate_queue_ptr = terminate_queue_ptr;
     ether_get_mac_address_ptr = get_mac_ptr;
     ether_transmit_pbuf_list_ptr = transmit_ptr;
     tx_free_slots_fn_ptr = tx_free_slots_ptr;
@@ -895,6 +899,22 @@ void ethersrv_argument(const char* arg)
     }
 }
 
+static void terminate_queue(struct net_queue_manager_binding *cc)
+{
+    errval_t err;
+    struct buffer_descriptor *buffer;
+
+    // Free buffers
+    for (buffer = buffers_list; buffer != NULL; buffer = buffer->next) {
+        err = vspace_unmap(buffer->va);
+        assert(err_is_ok(err));
+        err = cap_delete(buffer->cap);
+        assert(err_is_ok(err));
+    }
+
+    assert(ether_terminate_queue_ptr != NULL);
+    ether_terminate_queue_ptr();
+}
 
 // **********************************************************
 // Additional functions
