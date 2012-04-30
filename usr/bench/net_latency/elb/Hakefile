@@ -15,6 +15,11 @@
                       flounderBindings = [ "net_queue_manager" ],
                       addLibraries = [ "bench", "net_if_raw", "contmng" ] },
 
+  build application { target = "tcp_latency_benchmark_app",
+                      cFiles = [ "interface_raw.c", "benchmark_tcp.c" ],
+                      flounderBindings = [ "net_queue_manager" ],
+                      addLibraries = libDeps [ "bench", "net_if_raw", "lwip", "contmng" ] },
+
   build library { target = "ethernet_latency_benchmark",
                   cFiles = [ "interface_lib.c", "benchmark.c" ],
                   flounderBindings = [ "net_queue_manager" ],
