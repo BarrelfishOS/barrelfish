@@ -283,7 +283,7 @@ static void client_send_packet(void)
     memcpy(frame->dst_mac, bcast, 6);
     frame->ethertype = 0x0608;
     sent_at = rdtsc();
-    buffer_tx_add(idx, len);
+    buffer_tx_add(idx, 0, len);
 }
 
 static void respond_buffer(size_t i, size_t len)
@@ -294,6 +294,6 @@ static void respond_buffer(size_t i, size_t len)
     memcpy(frame->src_mac, our_mac, 6);
     memcpy(frame->dst_mac, bcast, 6);*/
 
-    buffer_tx_add(i, len);
+    buffer_tx_add(i, 0, len);
 }
 
