@@ -87,11 +87,25 @@
 #if TCP_QUEUE_OOSEQ
 #define ALLOC_POOL_PBUF(p) do { (p) = alloc_pool_pbuf(); } while (0)
 #else
-#define ALLOC_POOL_PBUF(p) do { (p) = memp_malloc(MEMP_PBUF_POOL); } while (0)
+#define ALLOC_POOL_PBUF(p) do { (p) = NULL } while (0)
 #endif
 
 
 #if TCP_QUEUE_OOSEQ
+
+static bool try_free_segs(void)
+{
+    struct tcp_pcb *pcb;
+    for (pcb = tcp_active_pcbs; NULL != pcb; pcb = pcb->next) {
+        if (NULL != pcb->ooseq) {
+            tcp_segs_free(pcb->ooseq);
+            pcb->ooseq = NULL;
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Attempt to reclaim some memory from queued out-of-sequence TCP segments
  * if we run out of pool pbufs. It's better to give priority to new packets
@@ -101,20 +115,38 @@
  */
 static struct pbuf *alloc_pool_pbuf(void)
 {
-    struct tcp_pcb *pcb;
-    struct pbuf *p;
+    struct pbuf *p = NULL;
+    void *payload = NULL;
+    bool try_again = false;
+    bool alloc_failed = false;
 
-  retry:
-    p = memp_malloc(MEMP_PBUF_POOL);
-    if (NULL == p) {
-        for (pcb = tcp_active_pcbs; NULL != pcb; pcb = pcb->next) {
-            if (NULL != pcb->ooseq) {
-                tcp_segs_free(pcb->ooseq);
-                pcb->ooseq = NULL;
-                goto retry;
-            }
+
+    do {
+        if (payload == NULL) {
+            payload = memp_malloc(MEMP_PBUF_POOL);
+            assert((uintptr_t) payload % PBUF_POOL_BUFSIZE == 0);
+        }
+        if (p == NULL) {
+            p = memp_malloc(MEMP_PBUF);
+        }
+
+        alloc_failed = (p == NULL || payload == NULL);
+        if (alloc_failed) {
+            try_again = try_free_segs();
+        }
+    } while (alloc_failed && try_again);
+
+    if (alloc_failed) {
+        if (p != NULL) {
+            memp_free(MEMP_PBUF, p);
+            p = NULL;
+        }
+        if (payload != NULL) {
+            memp_free(MEMP_PBUF_POOL, payload);
         }
     }
+
+    p->payload = payload;
     return p;
 }
 #endif                          /* TCP_QUEUE_OOSEQ */
@@ -169,6 +201,7 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 
     LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3,
                 ("pbuf_alloc(length=%" U16_F ")\n", length));
+
 #ifdef PBUF_FIXED_SIZE
     //  printf("pbuf_alloc(length=%"U16_F")\n", length);
     assert(length <= PBUF_PKT_SIZE);    /* It is typically equal to 1514, but adding extra for safety */
@@ -211,8 +244,7 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
             p->next = NULL;
             /* make the payload pointer point 'offset' bytes into pbuf data memory */
             p->payload =
-              LWIP_MEM_ALIGN((void *) ((u8_t *) p +
-                                       (SIZEOF_STRUCT_PBUF + offset)));
+              LWIP_MEM_ALIGN((void *) ((u8_t *) p->payload + offset));
             LWIP_ASSERT("pbuf_alloc: pbuf p->payload properly aligned",
                         ((mem_ptr_t) p->payload % MEM_ALIGNMENT) == 0);
             /* the total length of the pbuf chain is the requested size */
@@ -225,9 +257,7 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
               LWIP_MIN(length,
                        PBUF_POOL_BUFSIZE_ALIGNED - LWIP_MEM_ALIGN_SIZE(offset));
             LWIP_ASSERT("check p->payload + p->len does not overflow pbuf",
-                        ((u8_t *) p->payload + p->len <=
-                         (u8_t *) p + SIZEOF_STRUCT_PBUF +
-                         PBUF_POOL_BUFSIZE_ALIGNED));
+                        (offset + p->len <= PBUF_POOL_BUFSIZE_ALIGNED));
             LWIP_ASSERT("PBUF_POOL_BUFSIZE must be bigger than MEM_ALIGNMENT",
                         (PBUF_POOL_BUFSIZE_ALIGNED -
                          LWIP_MEM_ALIGN_SIZE(offset)) > 0);
@@ -266,7 +296,6 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
                 q->tot_len = (u16_t) rem_len;
                 /* this pbuf length is pool size, unless smaller sized tail */
                 q->len = LWIP_MIN((u16_t) rem_len, PBUF_POOL_BUFSIZE_ALIGNED);
-                q->payload = (void *) ((u8_t *) q + SIZEOF_STRUCT_PBUF);
                 LWIP_ASSERT("pbuf_alloc: pbuf q->payload properly aligned",
                             ((mem_ptr_t) q->payload % MEM_ALIGNMENT) == 0);
                 LWIP_ASSERT("check p->payload + p->len does not overflow pbuf",
@@ -286,10 +315,8 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
         case PBUF_RAM:
             /* If pbuf is to be allocated in RAM, allocate memory for it. */
 #ifdef PBUF_FIXED_SIZE
-            p =
-              (struct pbuf *)
-              mem_malloc(LWIP_MEM_ALIGN_SIZE(SIZEOF_STRUCT_PBUF + offset) +
-                         LWIP_MEM_ALIGN_SIZE(PBUF_PKT_SIZE));
+            assert(length + offset <= PBUF_POOL_BUFSIZE_ALIGNED);
+            p = alloc_pool_pbuf();
 #else                           // PBUF_FIXED_SIZE
             p =
               (struct pbuf *)
@@ -300,9 +327,7 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
                 return NULL;
             }
             /* Set up internal structure of the pbuf. */
-            p->payload =
-              LWIP_MEM_ALIGN((void *) ((u8_t *) p + SIZEOF_STRUCT_PBUF +
-                                       offset));
+            p->payload = LWIP_MEM_ALIGN((u8_t *) p->payload + offset);
             p->len = p->tot_len = length;
             p->next = NULL;
             p->type = type;
@@ -496,7 +521,9 @@ u8_t pbuf_header(struct pbuf *p, s16_t header_size_increment)
         /* set new payload pointer */
         p->payload = (u8_t *) p->payload - header_size_increment;
         /* boundary check fails? */
-        if ((u8_t *) p->payload < (u8_t *) p + SIZEOF_STRUCT_PBUF) {
+        if ((uintptr_t) payload / PBUF_POOL_BUFSIZE !=
+            ((uintptr_t) p->payload) / PBUF_POOL_BUFSIZE)
+        {
             LWIP_DEBUGF(PBUF_DEBUG | 2,
                         ("pbuf_header: failed as %p < %p (not enough space for new header size)\n",
                          (void *) p->payload, (void *) (p + 1)));
@@ -631,17 +658,22 @@ u8_t pbuf_free(struct pbuf * p)
             type = p->type;
 //            printf("pbuf_free: deallocating %p\n", (void *) p);
             /* is this a pbuf from the pool? */
-            if (type == PBUF_POOL) {
+            if (type == PBUF_POOL || type == PBUF_RAM) {
 //                printf("pbuf_free: %p: PBUF_POOL\n", (void *) p);
-                memp_free(MEMP_PBUF_POOL, p);
+                // Is a bit hacky, but it should work as long as we allocate
+                // objects aligned to their size, is necessary because of the
+                // possible offset of the payload.
+                uintptr_t pl = (uintptr_t) p->payload;
+                pl -= pl % PBUF_POOL_BUFSIZE;
+                memp_free(MEMP_PBUF_POOL, (void*) pl);
+                memp_free(MEMP_PBUF, p);
                 /* is this a ROM or RAM referencing pbuf? */
             } else if (type == PBUF_ROM || type == PBUF_REF) {
 //                printf("pbuf_free: %p: PBUF_ROM || PBUF_REF\n", (void *) p);
                 memp_free(MEMP_PBUF, p);
                 /* type == PBUF_RAM */
             } else {
-//                printf("pbuf_free: %p: other\n", (void *) p);
-                mem_free(p);
+                assert(!"Should never be executed");
             }
             count++;
             /* proceed to next pbuf */

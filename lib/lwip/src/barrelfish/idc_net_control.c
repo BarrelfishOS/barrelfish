@@ -31,6 +31,10 @@
 
 #include "lwip_barrelfish_debug.h"
 
+// Can be used 
+#define DISABLE_PORTMNG 1
+
+
 /*
  * If we are the owner of lwip stack, then we dont need rpc
  */
@@ -311,16 +315,19 @@ static err_t idc_bind_port(uint16_t port, net_ports_port_type_t port_type)
 
     errval_t err, msgerr;
 
+    // antoinek: FIXME: Need to figure out how to deal with this
+    //assert(!"NYI");
+
     /* getting the proper buffer id's here */
     err = net_ports_rpc.vtbl.bind_port(&net_ports_rpc, port_type, port,
                                   /* buffer for RX */
-                                  ((struct client_closure_NC *)
+                                  /*((struct client_closure_NC *)
                                    driver_connection[RECEIVE_CONNECTION]->st)->
-                                  buff_ptr->buffer_id,
+                                  buff_ptr->buffer_id*/ 0,
                                   /* buffer for TX */
-                                  ((struct client_closure_NC *)
+                                  /*((struct client_closure_NC *)
                                    driver_connection[TRANSMIT_CONNECTION]->st)->
-                                  buff_ptr->buffer_id,
+                                  buff_ptr->buffer_id*/ 0,
                                   appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
@@ -355,17 +362,19 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
 
     LWIPBF_DEBUG("idc_new_port: called\n");
 
+    // antoinek: FIXME: Need to figure out how to deal with this
+    //assert(!"NYI");
 
     /* getting the proper buffer id's here */
     err = net_ports_rpc.vtbl.get_port(&net_ports_rpc, port_type,
                                  /* buffer for RX */
-                                 ((struct client_closure_NC *)
+                                 /*((struct client_closure_NC *)
                                   driver_connection[RECEIVE_CONNECTION]->st)->
-                                 buff_ptr->buffer_id,
+                                 buff_ptr->buffer_id*/ 0,
                                  /* buffer for TX */
-                                 ((struct client_closure_NC *)
+                                 /*((struct client_closure_NC *)
                                   driver_connection[TRANSMIT_CONNECTION]->st)->
-                                 buff_ptr->buffer_id,
+                                 buff_ptr->buffer_id*/ 0,
                                  appid_delete, lwip_queue_id,
                                  &msgerr, port_no);
     if (err_is_fail(err)) {

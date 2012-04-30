@@ -1004,8 +1004,9 @@ void do_recv(struct api_msg_msg *msg)
 }
 
 #if LWIP_TCP
-
-extern bool lwip_in_packet_received;
+// antoinek: Might need to reenable this when we enable multi threaded lwip
+// again. See idc_barrelfish.c and two occurrances below:
+//extern bool lwip_in_packet_received;
 
 /**
  * See if more data needs to be written from a previous call to netconn_write.
@@ -1093,14 +1094,14 @@ static err_t do_writemore(struct netconn *conn)
 #endif
         {
             sys_sem_signal(conn->op_completed);
-            if (lwip_in_packet_received) {
+            /*if (lwip_in_packet_received) {
                 lwip_mutex_lock();
-            }
+            }*/
         }
     } else {
-        if (!lwip_in_packet_received) {
+        /*if (!lwip_in_packet_received) {
             lwip_mutex_unlock();
-        }
+        }*/
     }
 
 #if LWIP_TCPIP_CORE_LOCKING
