@@ -631,8 +631,8 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     // check if there are slots which can be used in app (!isempty)
     if(buffer->rxq.buffer_state_used == 0) {
 
-        //ETHERSRV_DEBUG
-        printf("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
+        printf("[%d] Dropping packet as no space in userspace "
+                "2cp pkt buf [%" PRIu64 "]: "
                 "size[%"PRIu64"] used[%"PRIu64"], after [%"PRIu64"] sent"
                 " added [%"PRIu64"] \n",
                 disp_get_domain_id(),
@@ -641,7 +641,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }
-        abort(); // optional, should be removed
+        //abort(); // optional, should be removed
         return false;
     }
 
