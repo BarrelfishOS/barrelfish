@@ -195,7 +195,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
             printf("ERROR:transmit_pbuf failed\n");
             return r;
         }
-        E1000N_DEBUG("transmit_pbuf done for pbuf 0x%p, index %"PRIu64"\n",
+        E1000N_DEBUG("transmit_pbuf done for pbuf 0x%p, index %i\n",
             opaque, i);
     } // end for: for each pbuf
 #if TRACE_ONLY_SUB_NNET
