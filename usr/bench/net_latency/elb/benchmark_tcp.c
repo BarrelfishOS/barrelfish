@@ -70,6 +70,9 @@ static char *server_ip_addr = NULL;
 
 static uint8_t *data_to_send = NULL;
 
+// use udp protocol instead of tcp
+static bool use_udp = false;
+
 /** Benchmark control handle */
 bench_ctl_t *bench_ctl = NULL;
 
@@ -79,11 +82,17 @@ static size_t acc = 0;
 // send one message to server
 static void start_next_iteration(void)
 {
-
+    int ret;
     sent_at = rdtsc();
-    // send single byte of TCP data
-    int ret = send_message_client(data_to_send, payload_size);
-    assert(ret == 0);
+    if (use_udp) {
+        // send UDP datagram
+        ret = send_udp_message_client();
+        assert(ret == 0);
+    } else {
+        // send TCP msg
+        ret = send_message_client(data_to_send, payload_size);
+        assert(ret == 0);
+    }
 } // end function: start_next_iteration
 
 
@@ -116,24 +125,46 @@ void benchmark_init(size_t buffers)
     if (is_server) {
         printf("elb_tcp: Starting benchmark server...\n");
         // listen on port
-        if (tcp_server_bm_init(server_port) != 0) {
-            USER_PANIC("tcp_server_bm_init failed");
-            return;
+        if (use_udp) {
+            if (udp_server_bm_init(server_port) != 0) {
+                USER_PANIC("udp_server_bm_init failed");
+                return;
+            }
+        } else {
+            if (tcp_server_bm_init(server_port) != 0) {
+                USER_PANIC("tcp_server_bm_init failed");
+                return;
+            }
         }
     } else { // is client
         printf("elb_tcp: Starting benchmark client...\n");
-        // onnect on ip/port
-        if (tcp_client_bm_init(server_ip_addr, server_port) != 0) {
-            USER_PANIC("tcp_server_bm_init failed");
-            return;
-        }
-        data_to_send = malloc(MAX_PAYLOAD);
-        assert(data_to_send != NULL);
-        // FIXME: make it cache aligned
-        memset(data_to_send, 1, payload_size);
-        started_at = rdtsc();
-        start_next_iteration();
-    } // end else: is_client
+        if (use_udp) {
+            // onnect on ip/port
+            if (udp_client_bm_init(server_ip_addr, server_port) != 0) {
+                USER_PANIC("udp_server_bm_init failed");
+                return;
+            }
+            data_to_send = prepare_udp_buffer(payload_size);
+            assert(data_to_send != NULL);
+           // memset(data_to_send, 1, payload_size);
+            started_at = rdtsc();
+            start_next_iteration();
+
+        } else {
+            // onnect on ip/port
+            if (tcp_client_bm_init(server_ip_addr, server_port) != 0) {
+                USER_PANIC("tcp_server_bm_init failed");
+                return;
+            }
+
+            data_to_send = malloc(MAX_PAYLOAD);
+            assert(data_to_send != NULL);
+            // FIXME: make it cache aligned
+            memset(data_to_send, 1, payload_size);
+            started_at = rdtsc();
+            start_next_iteration();
+        } // end else: is_client
+    } // end else: udp
 } // end function: benchmark_init
 
 // This function is called whenever new data arrives for client
@@ -180,7 +211,9 @@ void handle_data_arrived(char *payload, size_t data_len)
 
 void benchmark_argument(char *arg)
 {
-    if (!strcmp(arg, "elb_server=1")) {
+    if (!strcmp(arg, "use_udp=1")) {
+        use_udp = true;
+    } else if (!strcmp(arg, "elb_server=1")) {
         is_server = true;
         app_type = "server";
     } else if (!strncmp(arg, "runs=", strlen("runs="))) {
@@ -214,6 +247,8 @@ void benchmark_argument(char *arg)
         cardname = arg + strlen("cardname=");
     } else if(!strncmp(arg, "queue=", strlen("queue="))) {
         qi = atol(arg + strlen("queue="));
+    } else if(!strncmp(arg, "server_port=", strlen("server_port="))) {
+        server_port  = atol(arg + strlen("server_port="));
     } else if(!strncmp(arg, "server_ip=", strlen("server_ip="))) {
         server_ip_addr = arg + strlen("server_ip=");
     } else {

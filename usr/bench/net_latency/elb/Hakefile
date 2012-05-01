@@ -17,7 +17,7 @@
 
   build application { target = "elb_app_tcp",
                       cFiles = [ "interface_raw.c", "benchmark_tcp.c",
-                        "tcp_server.c" ],
+                        "tcp_server.c", "udp_server.c" ],
                       flounderBindings = [ "net_queue_manager" ],
                       addLibraries = libDeps [ "bench", "net_if_raw", "lwip",
                         "contmng" ] },
