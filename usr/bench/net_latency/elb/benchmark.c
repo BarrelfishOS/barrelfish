@@ -13,7 +13,7 @@
 #include <bench/bench.h>
 
 static void client_send_packet(void);
-static void start_run(void);
+static void start_next_iteration(void);
 static void respond_buffer(size_t i, size_t len);
 
 
@@ -35,7 +35,6 @@ static char *app_type = "client";
 
 static uint64_t sent_at;
 static uint64_t started_at;
-static bool got_response = true;
 static uint64_t minbase = -1ULL;
 static uint64_t maxbase = -1ULL;
 static bool affinity_set = false;
@@ -54,7 +53,7 @@ static bool read_linear = false;
 static uint16_t read_permutation[MAX_PAYLOAD];
 
 // the cardname provided on commandline
-static char *cardname = NULL;
+static char *cardname = "e10k";
 
 // the queueid asked by the application
 static uint64_t qi = 0;
@@ -132,7 +131,7 @@ void benchmark_init(size_t buffers)
         printf("elb: Starting benchmark client...\n");
 
         started_at = rdtsc();
-        start_run();
+        start_next_iteration();
     }
 
 }
@@ -198,14 +197,7 @@ uint64_t get_cmdline_queueid(void)
 
 void benchmark_do_pending_work(void)
 {
-    if (is_server) {
-        return;
-    }
-//    if (!got_response && (sent_at + 1000*tscperms) < rdtsc()) {
-    if (!got_response) {
-        got_response = false; // added by me : pravin
-        client_send_packet();
-    }
+    return;
 }
 
 void benchmark_rx_done(size_t idx, size_t pkt_len)
@@ -221,7 +213,7 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
             struct ethernet_frame* frame = buffer_address(buf_cur);
             volatile uint8_t* b = frame->payload;
             size_t i;
-            size_t acc = 0;
+            size_t acc = 0; // FIXME: compiler might optimize out this code
             if (read_linear) {
                 for (i = 0; i< payload_size; i++) {
                     acc += b[i];
@@ -238,8 +230,6 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
             tsc - sent_at,
         };
 
-        got_response = true;
-
         if (bench_ctl_add_run(bench_ctl, result)) {
             uint64_t tscperus = tscperms / 1000;
             printf("cycles per us %"PRIu64"\n", tscperus);
@@ -252,18 +242,18 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
             bench_ctl_destroy(bench_ctl);
             terminate_benchmark();
         } else {
-            start_run();
+            start_next_iteration();
         }
     }
 
-}
+} // end function: benchmark_rx_done
 
 void benchmark_tx_done(size_t idx)
 {
 
 }
 
-static void start_run(void)
+static void start_next_iteration(void)
 {
     // Register receive buffer
     buffer_rx_add(buf_cur);

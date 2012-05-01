@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/bench/net_latency/elb_app
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "elb_app",
@@ -15,10 +15,12 @@
                       flounderBindings = [ "net_queue_manager" ],
                       addLibraries = [ "bench", "net_if_raw", "contmng" ] },
 
-  build application { target = "tcp_latency_benchmark_app",
-                      cFiles = [ "interface_raw.c", "benchmark_tcp.c" ],
+  build application { target = "elb_app_tcp",
+                      cFiles = [ "interface_raw.c", "benchmark_tcp.c",
+                        "tcp_server.c" ],
                       flounderBindings = [ "net_queue_manager" ],
-                      addLibraries = libDeps [ "bench", "net_if_raw", "lwip", "contmng" ] },
+                      addLibraries = libDeps [ "bench", "net_if_raw", "lwip",
+                        "contmng" ] },
 
   build library { target = "ethernet_latency_benchmark",
                   cFiles = [ "interface_lib.c", "benchmark.c" ],

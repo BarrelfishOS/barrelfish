@@ -108,6 +108,7 @@ MODULES_x86_64= \
 	sbin/net-test \
 	sbin/netthroughput \
 	sbin/elb_app \
+	sbin/elb_app_tcp \
 	sbin/lo_queue \
 	sbin/pci \
 	sbin/placement_bench \
