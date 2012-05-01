@@ -139,6 +139,79 @@ static cycles_t *do_bincounting(bench_ctl_t *ctl,
     return bins;
 }
 
+static uint64_t *do_sorting(bench_ctl_t *ctl,
+                                size_t dimension)
+{
+    size_t i, j;
+    size_t len = ctl->result_count;
+    uint64_t *sorted_array;
+    cycles_t temp_holder;
+
+    // create a sorted array
+    sorted_array = calloc(ctl->result_count, sizeof(uint64_t));
+    assert(sorted_array != NULL);
+    // Copy data into sorted array
+    for (i = 0; i < len; i++) {
+        sorted_array[i] = *(ctl->data + (ctl->result_dimensions * i
+                    + dimension));
+    }
+
+    // sort the array
+    for (i = 0; i < len; ++i) {
+        for (j = i; j < len; ++j) {
+            if (sorted_array[i] > sorted_array[j]) {
+                temp_holder = sorted_array[i];
+                sorted_array[i] = sorted_array[j];
+                sorted_array[j] = temp_holder;
+            }
+        } // end for: j
+    } // end for: i
+    return sorted_array;
+} // end function: do_sorting
+
+void bench_ctl_dump_analysis(bench_ctl_t *ctl,
+                                    size_t dimension,
+                                    const char *prefix,
+                                    cycles_t tscperus)
+{
+
+    uint64_t *final_array = do_sorting(ctl, dimension);
+    size_t len = ctl->result_count;
+    size_t max99 = (size_t)((0.99 * len) + 0.5);
+    printf("run [%"PRIu64"], med_pos[%"PRIu64"], min_pos[%"PRIu64"], "
+           "P99[%"PRIu64"], max[%"PRIu64"]\n",
+        (uint64_t)len,
+        (uint64_t)(len/2),
+        (uint64_t)0,
+        (uint64_t)(max99-1),
+        (uint64_t)(len-1));
+
+    printf("run [%"PRIu64"], med[%"PRIu64"], min[%"PRIu64"], "
+           "P99[%"PRIu64"], max[%"PRIu64"]\n",
+        (uint64_t)len,
+        (uint64_t)final_array[len/2],
+        (uint64_t)final_array[0],
+        (uint64_t)final_array[max99-1],
+        (uint64_t)final_array[len-1]);
+
+    printf("run [%"PRIu64"], med[%f], min[%f], "
+           "P99[%f], max[%f]\n",
+        (uint64_t)len,
+        (final_array[len/2]/(float)tscperus),
+        (final_array[0]/(float)tscperus),
+        (final_array[max99-1]/(float)tscperus),
+        (final_array[len-1]/(float)tscperus));
+
+    printf("%s, %"PRIu64" %f %f %f %f\n",
+            prefix,
+            (uint64_t)len,
+            (final_array[len/2]/(float)tscperus),
+            (final_array[0]/(float)tscperus),
+            (final_array[max99-1]/(float)tscperus),
+            (final_array[len-1]/(float)tscperus));
+
+} // end function: bench_ctl_dump_analysis
+
 
 void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
                                     size_t dimension,

@@ -127,4 +127,11 @@ void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
                                     cycles_t max,
                                     const char *prefix,
                                     cycles_t tscperus);
+
+
+void bench_ctl_dump_analysis(bench_ctl_t *ctl,
+                                    size_t dimension,
+                                    const char *prefix,
+                                    cycles_t tscperus);
+
 #endif // BENCH_H
