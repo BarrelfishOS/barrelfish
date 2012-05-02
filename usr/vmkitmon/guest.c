@@ -54,7 +54,7 @@ guest_slot_alloc(struct guest *g, struct capref *ret)
     return g->slot_alloc.a.alloc(&g->slot_alloc.a, ret);
 }
 
-static errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
+errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
                                          struct capref frame,  size_t size)
 {
     errval_t err;
@@ -622,7 +622,7 @@ guest_setup (struct guest *g)
     g->pci = pci_new();
     init_host_devices(g->pci);
     
-    struct pci_device *ethernet = pci_ethernet_new(g->lpc);
+    struct pci_device *ethernet = pci_ethernet_new(g->lpc, g);
     int r = pci_attach_device(g->pci, 0, 2, ethernet);
 	assert(r == 0);
 
@@ -1983,6 +1983,8 @@ handle_vmexit_npf (struct guest *g) {
     uint64_t fault_addr = amd_vmcb_exitinfo2_rd(&g->vmcb);
     uint8_t *code = NULL;
 
+    printf("fault address: %lx\n",fault_addr);
+    
     // check for fault inside the guest physical memory region
     if (fault_addr >= g->mem_low_va && fault_addr < g->mem_high_va) {
         // allocate the missing memory

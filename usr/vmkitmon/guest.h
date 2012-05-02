@@ -432,4 +432,7 @@ struct guest *guest_create (void);
 errval_t guest_make_runnable (struct guest *g, bool run);
 void guest_handle_vmexit (struct guest *g);
 
+errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
+                                  struct capref frame,  size_t size);
+
 #endif // GUEST_H

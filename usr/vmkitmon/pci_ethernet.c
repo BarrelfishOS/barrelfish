@@ -35,6 +35,8 @@ struct pci_ethernet {
     uint32_t            pci_header[0x40];
 };
 
+static struct guest *guest_info;
+
 static void confspace_write(struct pci_device *dev,
                             union pci_config_address_word addr,
                             enum opsize size, uint32_t val)
@@ -85,13 +87,9 @@ static void e1000_init(void *bar_info, int nr_allocated_bars)
 	printf("e1000_init)!\n");
 	printf("TODO: STUFF vm...\n");
     
-    printf("nr_allocated_bars: %d\n", nr_allocated_bars);
-    int i;
-    
     struct device_mem *bar = (struct device_mem *)bar_info;
-    for(i = 0; i < nr_allocated_bars; i++) {
-        printf("type: %d\n", bar[i].type);
-    }
+    
+    guest_vspace_map_wrapper(&guest_info->vspace, bar[0].paddr, bar[0].frame_cap[0], bar[0].bytes);
 }
 
 static void e1000_interrupt_handler(void *arg)
@@ -110,10 +108,12 @@ static void e1000_interrupt_handler(void *arg)
 static uint32_t function = PCI_DONT_CARE;
 static uint32_t deviceid = 0x10fb; //PCI_DONT_CARE;
 
-struct pci_device *pci_ethernet_new(struct lpc *lpc)
+struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
 {
     struct pci_device *dev = calloc(1, sizeof(struct pci_device));
     struct pci_ethernet *host = calloc(1, sizeof(struct pci_ethernet));
+    
+    guest_info = g;
 
     //initialize device
     dev->confspace_write = confspace_write;
@@ -140,6 +140,7 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc)
 	}
 	assert(err_is_ok(r));
 	printf("vmkitmon: registered driver, waiting for init..\n");
+
 
     return dev;
 }
