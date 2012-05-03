@@ -28,6 +28,8 @@ struct ethernet_frame {
 static uint64_t tscperms;
 
 static size_t   buf_cur = 0;
+
+// Number of TX buffers available
 static size_t   buf_count;
 
 bool is_server = false;
@@ -47,7 +49,7 @@ static size_t payload_size = 64;
 static bool read_incoming = false;
 
 /** Specifies whether a permutation should be used or just a linear scan */
-static bool read_linear = false;
+static bool read_linear = true;
 
 /** Will be initialized with a permutation for touching the packet content */
 static uint16_t read_permutation[MAX_PAYLOAD];
@@ -105,11 +107,16 @@ static void create_read_permutation(void)
 
 
 
-void benchmark_init(size_t buffers)
+void benchmark_init(void)
 {
     errval_t err;
+    int i;
 
-    buf_count = buffers;
+    net_if_init(cardname, qi);
+
+    buf_count = buffer_count / 2;
+
+    assert(buf_count >= 8);
 
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
@@ -124,9 +131,13 @@ void benchmark_init(size_t buffers)
     bench_ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, total_runs);
     bench_ctl_dry_runs(bench_ctl, dry_runs);
 
+    // Register a bunch of buffers to avoid race conditions
+    for (i = 0; i < 8; i++) {
+        buffer_rx_add(buf_count + i);
+    }
+
     if (is_server) {
         printf("elb: Starting benchmark server...\n");
-        buffer_rx_add(buf_cur);
     } else {
         printf("elb: Starting benchmark client...\n");
 
@@ -202,15 +213,13 @@ void benchmark_do_pending_work(void)
 
 void benchmark_rx_done(size_t idx, size_t pkt_len)
 {
+    static bool first = true;
     if (is_server) {
-        buf_cur = (buf_cur + 1) % buf_count;
-        buffer_rx_add(buf_cur);
-
         respond_buffer(idx, pkt_len);
     } else {
         // Touch data if desired
         if (read_incoming) {
-            struct ethernet_frame* frame = buffer_address(buf_cur);
+            struct ethernet_frame* frame = buffer_address(idx);
             volatile uint8_t* b = frame->payload;
             size_t i;
             size_t acc = 0; // FIXME: compiler might optimize out this code
@@ -229,6 +238,14 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
         cycles_t result[1] = {
             tsc - sent_at,
         };
+
+        if (first) {
+            printf("elb: First response received\n");
+            first = false;
+        }
+
+        // Reregister rx buffer
+        buffer_rx_add(idx);
 
         if (bench_ctl_add_run(bench_ctl, result)) {
             uint64_t tscperus = tscperms / 1000;
@@ -252,13 +269,13 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
 
 void benchmark_tx_done(size_t idx)
 {
-
+    if (is_server) {
+        buffer_rx_add(idx);
+    }
 }
 
 static void start_next_iteration(void)
 {
-    // Register receive buffer
-    buffer_rx_add(buf_cur);
     client_send_packet();
 }
 

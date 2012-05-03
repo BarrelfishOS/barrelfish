@@ -29,6 +29,7 @@ static bool initialized = false;
 
 size_t buffer_size;
 void *buffer_base;
+size_t buffer_count = BUF_COUNT;
 static uint64_t buffer_base_phys;
 
 static inline uint64_t buffer_phys(size_t idx) {
@@ -94,12 +95,12 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     buffer_base = virt;
     buffer_base_phys = phys;
 
-    benchmark_init(BUF_COUNT);
+    benchmark_init();
 }
 
 void ethersrv_argument(const char* arg)
 {
-    benchmark_argument(arg);
+    benchmark_argument((char*) arg);
 }
 
 void do_pending_work_for_all(void)
@@ -138,6 +139,10 @@ void buffer_rx_add(size_t idx)
     rx_register_buffer_fn_ptr(buffer_phys(idx),
                               buffer_address(idx),
                               (void*) idx);
+}
+
+void net_if_init(const char* cardname, uint64_t qid)
+{
 }
 
 void terminate_benchmark(void)

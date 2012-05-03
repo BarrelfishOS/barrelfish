@@ -36,10 +36,10 @@ static bool affinity_set = false;
 
 #define MAX_PAYLOAD 1500
 /** Size of payload for ethernet packets in benchmark */
-static size_t payload_size = 64;
+static size_t payload_size = 1;
 
 /** Specifies whether the data should be read by the client */
-static bool read_incoming = false;
+static bool read_incoming = true;
 
 // the cardname provided on commandline
 static char *cardname = "e10k";
@@ -96,15 +96,13 @@ static void start_next_iteration(void)
 } // end function: start_next_iteration
 
 
-void benchmark_init(size_t buffers)
+void benchmark_init(void)
 {
     errval_t err;
 
     // Getting CPU frequency
     err = sys_debug_get_tsc_per_ms(&tscperms);
     assert(err_is_ok(err));
-
-    buffer_count = buffers;
 
     printf("tcp benchmark: init started\n");
     bool ret = lwip_init(cardname, qi);
@@ -115,7 +113,7 @@ void benchmark_init(size_t buffers)
     printf("tcp benchmark: lwip init done\n");
 
 
-    buf_count = buffers;
+    buf_count = buffer_count;
 
     // Initialize benchmark control
     bench_ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, total_runs);
@@ -222,15 +220,6 @@ void benchmark_argument(char *arg)
         dry_runs = atol(arg + strlen("dry_runs="));
     } else if (!strncmp(arg, "payload_size=", strlen("payload_size="))) {
         payload_size = atol(arg + strlen("payload_size="));
-        if (payload_size < 46) {
-            printf("elb: Payload size too small (must be at least 46), has "
-                    "been extended to 46!\n");
-            payload_size = 46;
-        } else if (payload_size > MAX_PAYLOAD) {
-            printf("elb: Payload size too big (must be at most 1500), has "
-                    "been limited to 1500!\n");
-            payload_size = 1500;
-        }
     } else if (!strncmp(arg, "elp_outprefix=", strlen("elp_outprefix="))) {
         out_prefix = arg + strlen("elp_outprefix=");
     } else if (!strncmp(arg, "elb_nocache=", strlen("elb_nocache="))) {

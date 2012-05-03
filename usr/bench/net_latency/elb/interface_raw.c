@@ -45,17 +45,7 @@ int main(int argc, char* argv[])
     printf("elb_app: Started, v3\n");
     process_cmdline(argc, argv);
 
-
-    char *cardname = get_cardname();
-    if (cardname == NULL) {
-        cardname = "e10k";
-    }
-
-    uint64_t queue = get_cmdline_queueid();
-
-    printf("elb_app: using card %s and queue %"PRIu64"\n", cardname, queue);
-    net_if_init(cardname, queue);
-    benchmark_init(buffer_count);
+    benchmark_init();
     eventloop();
 }
 
