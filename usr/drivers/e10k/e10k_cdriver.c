@@ -432,7 +432,7 @@ static void device_init(void)
 
     // Initialize interrupts
     e10k_eicr_wr(d, 0xffffffff);
-    e10k_eitr_l_wr(d, 0, 0xffffffff);
+    e10k_eitr_l_wr(d, 0, 0x0);
     e10k_gpie_eimen_wrf(d, 1);
 
     e10k_eimc_wr(d, e10k_eims_rd(d));
@@ -635,12 +635,12 @@ static void queue_hw_init(uint8_t n)
             e10k_ivar_i_alloc0_wrf(d, i, QUEUE_INTRX);
             e10k_ivar_i_allocval0_wrf(d, i, 1);
             e10k_ivar_i_alloc1_wrf(d, i, QUEUE_INTTX);
-            e10k_ivar_i_allocval1_wrf(d, i, 1);
+            e10k_ivar_i_allocval1_wrf(d, i, 0);
         } else {
             e10k_ivar_i_alloc2_wrf(d, i, QUEUE_INTRX);
             e10k_ivar_i_allocval2_wrf(d, i, 1);
             e10k_ivar_i_alloc3_wrf(d, i, QUEUE_INTTX);
-            e10k_ivar_i_allocval3_wrf(d, i, 1);
+            e10k_ivar_i_allocval3_wrf(d, i, 0);
         }
     }
 

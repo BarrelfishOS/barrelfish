@@ -649,9 +649,7 @@ void qd_interrupt(bool is_rx, bool is_tx)
             printf("No RX\n");
         }
     }
-    if (is_tx) {
-        check_for_free_txbufs();
-    }
+    check_for_free_txbufs();
 }
 
 void qd_main(void)
