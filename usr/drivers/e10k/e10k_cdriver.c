@@ -432,6 +432,7 @@ static void device_init(void)
 
     // Initialize interrupts
     e10k_eicr_wr(d, 0xffffffff);
+    e10k_eitr_l_wr(d, 0, 0xffffffff);
     e10k_gpie_eimen_wrf(d, 1);
 
     e10k_eimc_wr(d, e10k_eims_rd(d));

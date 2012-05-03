@@ -286,14 +286,14 @@ static uint64_t find_rx_free_slot_count_fn(void)
     return e10k_queue_free_rxslots(q);
 }
 
-static void check_for_new_packets(void)
+static size_t check_for_new_packets(void)
 {
     size_t len;
     void *op;
     int last;
     size_t count;
 
-    if (!initialized) return;
+    if (!initialized) return 0;
 
     //stats_dump();
 
@@ -313,6 +313,7 @@ static void check_for_new_packets(void)
     }
 
     if (count > 0) e10k_queue_bump_rxtail(q);
+    return count;
 }
 
 
@@ -635,13 +636,18 @@ static void eventloop_ints(void)
     ws = get_default_waitset();
     while (1) {
         event_dispatch(ws);
+        do_pending_work_for_all();
     }
 }
 
 void qd_interrupt(bool is_rx, bool is_tx)
 {
+    size_t count;
     if (is_rx) {
-        check_for_new_packets();
+        count = check_for_new_packets();
+        if (count == 0) {
+            printf("No RX\n");
+        }
     }
     if (is_tx) {
         check_for_free_txbufs();
