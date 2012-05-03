@@ -58,7 +58,25 @@ static void idc_register_queue_memory(uint8_t queue,
                                       uint32_t rxbufsz);
 static void idc_terminate_queue(void);
 
+// Hack for monolithic driver
+void cd_request_device_info(struct e10k_binding *b) __attribute__((weak));
+void cd_register_queue_memory(struct e10k_binding *b,
+                              uint8_t queue,
+                              struct capref tx,
+                              struct capref txhwb,
+                              struct capref rx,
+                              uint32_t rxbufsz,
+                              bool use_interrupts) __attribute__((weak));
 
+void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
+        uint64_t macaddr);
+void qd_queue_memory_registered(struct e10k_binding *b);
+void qd_write_queue_tails(struct e10k_binding *b);
+
+void qd_argument(const char *arg);
+void qd_interrupt(bool is_rx, bool is_tx);
+void qd_main(void);
+int main(int argc, char **argv) __attribute__((weak));
 
 
 
@@ -67,7 +85,10 @@ static void idc_terminate_queue(void);
 /* Global state */
 
 /** Service name */
-static char* service_name = "e10k";
+static const char* service_name = "e10k";
+
+/** Indicates if this queue driver is running as a standalone process */
+static bool standalone = false;
 
 /** Binding to the internal e10k management service */
 static struct e10k_binding *binding = NULL;
@@ -95,6 +116,9 @@ static bool cache_coherence = true;
 
 /** Indicates whether TX head index write back should be used */
 static bool use_txhwb = true;
+
+/** Indicates whether Interrupts should be used */
+static bool use_interrupts = false;
 
 /** Capability for hardware TX ring */
 static struct capref tx_frame;
@@ -393,6 +417,12 @@ static void idc_request_device_info(void)
 
     errval_t r;
     INITDEBUG("idc_request_device_info()\n");
+
+    if (!standalone) {
+        cd_request_device_info(NULL);
+        return;
+    }
+
     r = e10k_request_device_info__tx(binding, NOP_CONT);
     // TODO: handle busy
     assert(err_is_ok(r));
@@ -408,8 +438,15 @@ static void idc_register_queue_memory(uint8_t queue,
 
     errval_t r;
     INITDEBUG("idc_register_queue_memory()\n");
+
+    if (!standalone) {
+        cd_register_queue_memory(NULL, queue, tx, txhwb, rx, rxbufsz,
+                use_interrupts);
+        return;
+    };
+
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx, txhwb, rx, rxbufsz);
+                                       tx, txhwb, rx, rxbufsz, use_interrupts);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -419,13 +456,18 @@ static void idc_terminate_queue(void)
 {
     errval_t r;
     INITDEBUG("idc_terminate_queue()\n");
+
+    if (!standalone) {
+        USER_PANIC("Terminating monolithic driver is not a good idea");
+    }
+
     r = e10k_terminate_queue__tx(binding, NOP_CONT, qi);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
 
 // Callback from device manager
-static void idc_queue_init_data(struct e10k_binding *b, struct capref registers,
+void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
         uint64_t macaddr)
 {
     struct frame_identity frameid = { .base = 0, .bits = 0 };
@@ -451,19 +493,19 @@ static void idc_queue_init_data(struct e10k_binding *b, struct capref registers,
 }
 
 // Callback from device manager
-static void idc_queue_memory_registered(struct e10k_binding *b)
+void qd_queue_memory_registered(struct e10k_binding *b)
 {
     initialized = 1;
 
     // Register queue with queue_mgr library
-    ethersrv_init(service_name, qi, get_mac_addr_fn, terminate_queue_fn,
+    ethersrv_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
         transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
         handle_free_tx_slot_fn, RXBUFSZ, register_rx_buffer_fn,
         find_rx_free_slot_count_fn);
 }
 
 // Callback from device manager
-static void idc_write_queue_tails(struct e10k_binding *b)
+void qd_write_queue_tails(struct e10k_binding *b)
 {
     INITDEBUG("idc_write_queue_tails()\n");
 
@@ -499,9 +541,9 @@ static void idc_queue_terminated(struct e10k_binding *b)
 }
 
 static struct e10k_rx_vtbl rx_vtbl = {
-    .queue_init_data = idc_queue_init_data,
-    .queue_memory_registered = idc_queue_memory_registered,
-    .write_queue_tails = idc_write_queue_tails,
+    .queue_init_data = qd_queue_init_data,
+    .queue_memory_registered = qd_queue_memory_registered,
+    .write_queue_tails = qd_write_queue_tails,
     .queue_terminated = idc_queue_terminated,
 };
 
@@ -539,33 +581,32 @@ static void connect_to_mngif(void)
     assert(err_is_ok(r));
 }
 
+void qd_argument(const char *arg)
+{
+    if (strncmp(arg, "cardname=", strlen("cardname=") - 1) == 0) {
+        service_name = arg + strlen("cardname=");
+    } else if (strncmp(arg, "queue=", strlen("queue=") - 1) == 0) {
+        qi = atol(arg + strlen("queue="));
+    } else if (strncmp(arg, "cache_coherence=",
+                       strlen("cache_coherence=") - 1) == 0) {
+        cache_coherence = !!atol(arg + strlen("cache_coherence="));
+    } else if (strncmp(arg, "head_idx_wb=",
+                       strlen("head_idx_wb=") - 1) == 0) {
+        use_txhwb = !!atol(arg + strlen("head_idx_wb="));
+    } else if (strncmp(arg, "interrupts=",
+                       strlen("interrupts=") - 1) == 0) {
+        use_interrupts = !!atol(arg + strlen("interrupts="));
 
+    } else {
+        ethersrv_argument(arg);
+    }
+}
 
 static void parse_cmdline(int argc, char **argv)
 {
     int i;
-    bool has_queue = false;
-
     for (i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
-            service_name = argv[i] + strlen("cardname=");
-        } else if (strncmp(argv[i], "queue=", strlen("queue=") - 1) == 0) {
-            qi = atol(argv[i] + strlen("queue="));
-            has_queue = true;
-        } else if (strncmp(argv[i], "cache_coherence=",
-                           strlen("cache_coherence=") - 1) == 0) {
-            cache_coherence = !!atol(argv[i] + strlen("cache_coherence="));
-        } else if (strncmp(argv[i], "head_idx_wb=",
-                           strlen("head_idx_wb=") - 1) == 0) {
-            use_txhwb = !!atol(argv[i] + strlen("head_idx_wb="));
-        } else {
-            ethersrv_argument(argv[i]);
-        }
-    }
-
-    if (!has_queue) {
-        USER_PANIC("For queue driver the queue= parameter has to be specified "
-                   "on the command line!");
+        qd_argument(argv[i]);
     }
 }
 
@@ -586,11 +627,77 @@ static void eventloop(void)
     }
 }
 
+static void eventloop_ints(void)
+{
+    struct waitset *ws;
+    INITDEBUG("eventloop_ints()\n");
+
+    ws = get_default_waitset();
+    while (1) {
+        event_dispatch(ws);
+    }
+}
+
+void qd_interrupt(bool is_rx, bool is_tx)
+{
+    if (is_rx) {
+        check_for_new_packets();
+    }
+    if (is_tx) {
+        check_for_free_txbufs();
+    }
+}
+
+void qd_main(void)
+{
+    // Validate some settings
+    if (qi == -1) {
+        USER_PANIC("For queue driver the queue= parameter has to be specified "
+                   "on the command line!");
+    }
+
+    if (use_interrupts && standalone) {
+        USER_PANIC("Interrupts with standalone queue driver not yet "
+                   "implemented");
+    }
+
+    if (standalone) {
+        connect_to_mngif();
+    } else {
+        idc_request_device_info();
+    }
+
+    if (use_interrupts) {
+        eventloop_ints();
+    } else {
+        eventloop();
+    }
+}
+
 int main(int argc, char **argv)
 {
     DEBUG("Started\n");
+    standalone = true;
     parse_cmdline(argc, argv);
-    connect_to_mngif();
-    eventloop();
+    qd_main();
+}
+
+
+
+
+void cd_request_device_info(struct e10k_binding *b)
+{
+    USER_PANIC("Should not be called");
+}
+
+void cd_register_queue_memory(struct e10k_binding *b,
+                              uint8_t queue,
+                              struct capref tx,
+                              struct capref txhwb,
+                              struct capref rx,
+                              uint32_t rxbufsz,
+                              bool use_ints)
+{
+    USER_PANIC("Should not be called");
 }
 

@@ -27,6 +27,8 @@
 //#define DEBUG(x...) printf("e10k: " x)
 #define DEBUG(x...) do {} while (0)
 
+#define QUEUE_INTRX 0
+#define QUEUE_INTTX 1
 
 struct queue_state {
     bool enabled;
@@ -36,6 +38,7 @@ struct queue_state {
     struct capref txhwb_frame;
     struct capref rx_frame;
     uint32_t rxbufsz;
+    bool use_irq;
 
     uint64_t rx_head;
     uint64_t tx_head;
@@ -70,6 +73,25 @@ struct e10k_filter {
     uint16_t l4_type;
 };
 
+
+// Hack for monolithic driver
+void qd_main(void) __attribute__((weak));
+void qd_argument(const char *arg) __attribute__((weak));
+void qd_interrupt(bool is_rx, bool is_tx) __attribute__((weak));
+void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
+        uint64_t macaddr) __attribute__((weak));
+void qd_queue_memory_registered(struct e10k_binding *b) __attribute__((weak));
+void qd_write_queue_tails(struct e10k_binding *b) __attribute__((weak));
+
+
+void cd_request_device_info(struct e10k_binding *b);
+void cd_register_queue_memory(struct e10k_binding *b,
+                              uint8_t queue,
+                              struct capref tx,
+                              struct capref txhwb,
+                              struct capref rx,
+                              uint32_t rxbufsz,
+                              bool use_interrupts);
 
 static void idc_write_queue_tails(struct e10k_binding *b);
 static void stop_device(void);
@@ -606,18 +628,20 @@ static void queue_hw_init(uint8_t n)
     DEBUG("[%x] RX queue enabled\n", n);
 
     // Setup Interrupts for this queue
-    /*i = n / 2;
-    if ((n % 2) == 0) {
-        e10k_ivar_i_alloc0_wrf(d, i, n);
-        e10k_ivar_i_allocval0_wrf(d, i, 1);
-        e10k_ivar_i_alloc1_wrf(d, i, n);
-        e10k_ivar_i_allocval1_wrf(d, i, 1);
-    } else {
-        e10k_ivar_i_alloc2_wrf(d, i, n);
-        e10k_ivar_i_allocval2_wrf(d, i, 1);
-        e10k_ivar_i_alloc3_wrf(d, i, n);
-        e10k_ivar_i_allocval3_wrf(d, i, 1);
-    }*/
+    if (queues[n].use_irq) {
+        uint8_t i = n / 2;
+        if ((n % 2) == 0) {
+            e10k_ivar_i_alloc0_wrf(d, i, QUEUE_INTRX);
+            e10k_ivar_i_allocval0_wrf(d, i, 1);
+            e10k_ivar_i_alloc1_wrf(d, i, QUEUE_INTTX);
+            e10k_ivar_i_allocval1_wrf(d, i, 1);
+        } else {
+            e10k_ivar_i_alloc2_wrf(d, i, QUEUE_INTRX);
+            e10k_ivar_i_allocval2_wrf(d, i, 1);
+            e10k_ivar_i_alloc3_wrf(d, i, QUEUE_INTTX);
+            e10k_ivar_i_allocval3_wrf(d, i, 1);
+        }
+    }
 
 
     // Enable RX
@@ -748,6 +772,9 @@ static void interrupt_handler(void* arg)
         DEBUG("Interrupt: %x\n", eicr);
         e10k_eicr_prtval(buf, sizeof(buf), eicr);
         puts(buf);
+    } else if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
+        qd_interrupt(!!(eicr & (1 << QUEUE_INTRX)),
+                               !!(eicr & (1 << QUEUE_INTTX)));
     }
 }
 
@@ -782,6 +809,11 @@ static void idc_queue_memory_registered(struct e10k_binding *b)
 static void idc_write_queue_tails(struct e10k_binding *b)
 {
     errval_t r;
+    if (b == NULL) {
+        qd_write_queue_tails(b);
+        return;
+    }
+
     r = e10k_write_queue_tails__tx(b, NOP_CONT);
     // TODO: handle busy
     assert(err_is_ok(r));
@@ -822,18 +854,23 @@ static void idc_filter_unregistered(struct e10k_binding *b,
 }
 
 /** Request from queue driver for register memory cap */
-static void idc_request_device_info(struct e10k_binding *b)
+void cd_request_device_info(struct e10k_binding *b)
 {
+    if (b == NULL) {
+        qd_queue_init_data(b, *regframe, d_mac);
+        return;
+    }
     idc_queue_init_data(b, *regframe, d_mac);
 }
 
 /** Request from queue driver to initialize hardware queue. */
-static void idc_register_queue_memory(struct e10k_binding *b,
-                                      uint8_t n,
-                                      struct capref tx_frame,
-                                      struct capref txhwb_frame,
-                                      struct capref rx_frame,
-                                      uint32_t rxbufsz)
+void cd_register_queue_memory(struct e10k_binding *b,
+                              uint8_t n,
+                              struct capref tx_frame,
+                              struct capref txhwb_frame,
+                              struct capref rx_frame,
+                              uint32_t rxbufsz,
+                              bool use_irq)
 {
     DEBUG("register_queue_memory(%"PRIu8")\n", n);
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
@@ -848,9 +885,14 @@ static void idc_register_queue_memory(struct e10k_binding *b,
     queues[n].rx_head = 0;
     queues[n].rxbufsz = rxbufsz;
     queues[n].binding = b;
+    queues[n].use_irq = use_irq;
 
     queue_hw_init(n);
 
+    if (b == NULL) {
+        qd_queue_memory_registered(b);
+        return;
+    }
     idc_queue_memory_registered(b);
 }
 
@@ -905,8 +947,8 @@ static void idc_unregister_filter(struct e10k_binding *b,
 }
 
 static struct e10k_rx_vtbl rx_vtbl = {
-    .request_device_info = idc_request_device_info,
-    .register_queue_memory = idc_register_queue_memory,
+    .request_device_info = cd_request_device_info,
+    .register_queue_memory = cd_register_queue_memory,
     .terminate_queue = idc_terminate_queue,
 
     .register_port_filter = idc_register_port_filter,
@@ -1010,15 +1052,14 @@ static void parse_cmdline(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
             service_name = argv[i] + strlen("cardname=");
-        }
-        if (strncmp(argv[i], "bus=", strlen("bus=") - 1) == 0) {
+        } else if (strncmp(argv[i], "bus=", strlen("bus=") - 1) == 0) {
             pci_bus = atol(argv[i] + strlen("bus="));
-        }
-        if (strncmp(argv[i], "device=", strlen("device=") - 1) == 0) {
+        } else if (strncmp(argv[i], "device=", strlen("device=") - 1) == 0) {
             pci_device = atol(argv[i] + strlen("device="));
-        }
-        if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0) {
+        } else if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0){
             pci_function = atol(argv[i] + strlen("function="));
+        } else {
+            qd_argument(argv[i]);
         }
     }
 }
@@ -1033,11 +1074,28 @@ static void eventloop(void)
     }
 }
 
+void qd_main(void)
+{
+    eventloop();
+}
+
+void qd_argument(const char *arg) { }
+void qd_interrupt(bool is_rx, bool is_tx) { }
+void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
+        uint64_t macaddr) { }
+void qd_queue_memory_registered(struct e10k_binding *b) { }
+void qd_write_queue_tails(struct e10k_binding *b) { }
+
+
 int main(int argc, char **argv)
 {
     DEBUG("Started\n");
     parse_cmdline(argc, argv);
     pci_register();
-    eventloop();
+
+    while (!initialized) {
+        event_dispatch(get_default_waitset());
+    }
+    qd_main();
 }
 

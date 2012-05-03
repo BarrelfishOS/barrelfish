@@ -19,6 +19,17 @@
                       addLibraries = libDeps [ "netQmng" ]
                     },
 
+  build application { target = "e10k_monolithic",
+                      cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
+                                 "e10k_qdriver.c", "helper.c"],
+                      flounderBindings = [ "net_queue_manager",
+                                           "net_soft_filters",
+                                           "e10k" ],
+                      mackerelDevices = [ "e10k", "e10k_q" ],
+                      addLibraries = libDeps [ "netQmng", "pci", "contmng",
+                                               "net_device_manager", "bench" ]
+                    },
+
   build application { target = "e10k",
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c"],
                       flounderBindings = [ "e10k"],

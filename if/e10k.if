@@ -25,7 +25,8 @@ interface e10k "e10k queue management interface" {
                                cap    tx,
                                cap    txhwb,
                                cap    rx,
-                               uint32 rxbufsz);
+                               uint32 rxbufsz,
+                               bool   use_irq);
     response queue_memory_registered();
 
     /* FIXME: this is not technically a response, but a request by the server,
