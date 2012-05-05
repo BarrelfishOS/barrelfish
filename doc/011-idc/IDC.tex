@@ -72,7 +72,7 @@ day programming languages like C and Java.
 
 \item[Identifiers:] Valid Flounder identifiers are sequences of numbers
   (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
-  must start must start with a letter or ``\texttt{\_}''.  
+  must start with a letter or ``\texttt{\_}''.
   \begin{align*}
     identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_) \\
     letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
@@ -364,7 +364,7 @@ In the examples that follow, we assume that a Flounder interface
 named \texttt{iface} is used, with the following specification:
 
 \begin{example}
-interface ifname \{
+interface iface \{
   message basic(uint32 arg);
   message str(uint32 arg, string s);
   message caps(uint32 arg, cap cap1, cap cap2);
