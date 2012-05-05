@@ -88,8 +88,8 @@ typedef uint8_t	coreid_t;
 
 /* Resource id */
 typedef uint32_t rsrcid_t;
-#define PRIuRSRCID  PRIu32;
-#define PRIxRSRCID  PRIx32;
+#define PRIuRSRCID  PRIu32
+#define PRIxRSRCID  PRIx32
 
 /* Domain ID */
 typedef uint32_t domainid_t;
