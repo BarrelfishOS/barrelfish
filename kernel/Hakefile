@@ -85,11 +85,7 @@ in [
         cfiles = [ "debug.c", "gdb_arch.c", "init.c", "irq.c", "paging.c",
                    "startup_arch.c", "exec.c", "syscall.c", "page_mappings_arch.c" ] ++ microbench
         arch_sfiles = [ "boot.S" ]
-        arch_cfiles =
-            if Config.rck_emu then
-                [ "rck.c" ]
-            else
-                [ "rck.c", "klog.c" ]
+        arch_cfiles = [ "rck.c" ]
         in_x86_dir f = ("arch/x86") ./. f
         x86_cFiles =
             if Config.rck_emu then

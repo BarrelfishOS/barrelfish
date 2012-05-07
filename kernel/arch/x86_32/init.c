@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -536,9 +536,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
      * that end up calling a conio.c function may be called between
      * paging_reset() and conio_relocate_vidmem()!
      */
-#ifdef __scc__
-    klog_init();
-#else
+#ifndef __scc__
     conio_relocate_vidmem(local_phys_to_mem(VIDEO_MEM));
 #endif
 
@@ -678,7 +676,9 @@ void arch_init(uint32_t magic, void *pointer)
 #endif
 
     // Sanitize the screen
+#ifndef __scc__
     conio_cls();
+#endif
     serial_console_init(0);
 
     /* determine page-aligned physical address past end of multiboot */

@@ -31,12 +31,9 @@ module  /scc/sbin/startd boot
 # module  /scc/sbin/netd core=1 cardname=eMAC2_1
 
 # RCK memory map
-# Everything up til VGA is private RAM (maybe we want to throw it away)
-mmap	map	0x0		0xa000		2
-# Everything after VGA is private RAM (we also live in this area)
-mmap	map	0xe800		0x26ff1800	1
-# Shared RAM (over all MCs) in the middle of address space
-#mmap	map	0x80000000	0x4000000	1
+# 624MB private RAM
+mmap	map	0x0		0x27000000	1
+# 1GB shared RAM (over all MCs) in the middle of address space
 mmap    map     0x80000000      0x40000000      1
-# At the very end we have some platform memory (bootup EEPROM)
-mmap	map	0xfffc0000	0x40000		2
+# 16MB more private RAM (bootup jump is in here, too)
+mmap	map	0xff000000	0x1000000	1
