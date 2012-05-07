@@ -18,19 +18,34 @@
 #include "monitor.h"
 #include <trace/trace.h>
 
+#define MIN(x,y) ((x<y) ? (x) : (y))
+#define MAX(x,y) ((x>y) ? (x) : (y))
+static bool* notification_sent = NULL;
+static bool* monitor_ready = NULL;
 static errval_t new_monitor_notify(coreid_t id)
 {
+    if (notification_sent == NULL) {
+        notification_sent = calloc(MAX_COREID*MAX_COREID, sizeof(bool));
+    }
+
     struct intermon_binding *b;
     errval_t err;
-
     // XXX: this is stupid...
-    for (int i = 0; i <= MAX_COREID; i++) {
+    // XXX: I changed this a bit to keep track of what cores are ready
+    // and who has gotten a notification, this allows to boot cores
+    // in parallel thus speeding up the boot process
+    for (int i = 0; i < MAX_COREID; i++) {
         if (i != my_core_id && i != id) {
+
+            coreid_t min = MIN(id, i);
+            coreid_t max = MAX(id, i);
+
             err = intermon_binding_get(i, &b);
-            if (err_is_ok(err)) {
+            if (err_is_ok(err) && !notification_sent[min*MAX_COREID+max] && monitor_ready[i]) {
                 while (1) {
                     err = b->tx_vtbl.new_monitor_notify(b, NOP_CONT, id);
                     if (err_is_ok(err)) {
+                        notification_sent[min*MAX_COREID+max] = true;
                         break;
                     }
                     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -49,12 +64,71 @@ static errval_t new_monitor_notify(coreid_t id)
 /**
  * \brief A newly booted monitor indicates that it has initialized
  */
+
+static void boot_core_reply_handler(struct monitor_binding *b,
+                                    struct monitor_msg_queue_elem *e);
+
+struct boot_core_reply_state {
+    struct monitor_msg_queue_elem elem;
+    struct monitor_boot_core_reply__args args;
+};
+
+static void
+boot_core_reply_enqueue(struct monitor_binding *domain_binding,
+                            errval_t error_code)
+{
+    errval_t err;
+
+    struct boot_core_reply_state *me =
+        malloc(sizeof(struct boot_core_reply_state));
+    assert(me != NULL);
+    me->args.err = error_code;
+    me->elem.cont = boot_core_reply_handler;
+
+    struct monitor_state *st = domain_binding->st;
+    err = monitor_enqueue_send(domain_binding, &st->queue,
+                               get_default_waitset(), &me->elem.queue);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_enqueue_send failed");
+    }
+}
+
+static void
+boot_core_reply_cont(struct monitor_binding *domain_binding,
+                     errval_t error_code)
+{
+    errval_t err;
+    err = domain_binding->tx_vtbl.
+            boot_core_reply(domain_binding, NOP_CONT, error_code);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            boot_core_reply_enqueue(domain_binding, error_code);
+        } else {
+            USER_PANIC_ERR(err, "error delivering boot_core_reply");
+        }
+    }
+}
+
+static void boot_core_reply_handler(struct monitor_binding *b,
+                                    struct monitor_msg_queue_elem *e)
+{
+    struct boot_core_reply_state *st =
+        (struct boot_core_reply_state *)e;
+    boot_core_reply_cont(b, st->args.err);
+    free(e);
+}
+
 static void monitor_initialized(struct intermon_binding *b)
 {
+    if (monitor_ready == NULL) {
+        monitor_ready = calloc(MAX_COREID, sizeof(bool));
+    }
+
     struct intermon_state *st = b->st;
     errval_t err;
 
     /* Inform other monitors of this new monitor */
+    monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
@@ -62,10 +136,7 @@ static void monitor_initialized(struct intermon_binding *b)
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
-    errval_t err2 = client->tx_vtbl.boot_core_reply(client, NOP_CONT, err);
-    if (err_is_fail(err2)) {
-        USER_PANIC_ERR(err2, "sending boot_core_reply failed");
-    }
+    boot_core_reply_cont(client, err);
 }
 
 static void cap_receive_request_handler(struct monitor_binding *b,
@@ -455,6 +526,21 @@ static void monitor_mem_iref_reply(struct intermon_binding *b, iref_t iref)
     monitor_mem_iref = iref;
 }
 
+static void ramfs_serv_iref_request(struct intermon_binding *b)
+{
+    errval_t err;
+    err = b->tx_vtbl.ramfs_serv_iref_reply(b, NOP_CONT, ramfs_serv_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending ramfs_serv_iref_request failed");
+    }
+}
+
+static void ramfs_serv_iref_reply(struct intermon_binding *b, iref_t iref)
+{
+    assert(ramfs_serv_iref == 0);
+    ramfs_serv_iref = iref;
+}
+
 static void inter_rsrc_join(struct intermon_binding *b,
                             rsrcid_t id, uint8_t coreid)
 {
@@ -569,6 +655,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .mem_serv_iref_reply = mem_serv_iref_reply,
     .name_serv_iref_request = name_serv_iref_request,
     .name_serv_iref_reply = name_serv_iref_reply,
+    .ramfs_serv_iref_request = ramfs_serv_iref_request,
+    .ramfs_serv_iref_reply = ramfs_serv_iref_reply,
     .monitor_mem_iref_request = monitor_mem_iref_request,
     .monitor_mem_iref_reply = monitor_mem_iref_reply,
 

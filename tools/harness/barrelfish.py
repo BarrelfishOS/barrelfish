@@ -103,17 +103,18 @@ def default_bootmodules(build, machine):
     m.add_module("%s/sbin/init" % a)
     m.add_module("%s/sbin/mem_serv" % a)
     m.add_module("%s/sbin/monitor" % a)
-    m.add_module("%s/sbin/chips" % a, ["boot"])
     m.add_module("%s/sbin/ramfsd" % a, ["boot"])
+    m.add_module("%s/sbin/skb" % a, ["boot"])
     m.add_module("%s/sbin/spawnd" % a, ["boot"])
     m.add_module("%s/sbin/startd" % a, ["boot"])
 
     # SKB and PCI are x86-only for the moment
     if a == "x86_64" or a == "x86_32":
-        m.add_module("%s/sbin/skb" % a, ["boot"])
+        m.add_module("%s/sbin/acpi" % a, ["boot"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("%s/sbin/pci" % a, ["boot"])
+        m.add_module("%s/sbin/kaluga" % a, ["boot"])
 	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
+        m.add_module("%s/sbin/pci" % a, ["auto"])
 
     # ARM-specific stuff
     elif a == "arm":

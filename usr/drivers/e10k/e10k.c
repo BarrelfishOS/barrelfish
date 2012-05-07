@@ -463,7 +463,7 @@ void e10k_flt_ftqf_setup(int idx, int queue,
     struct e10k_filter* filter, int priority)
 {
     uint16_t m = filter->mask;
-    e10k_l4_proto_t p;
+    e10k_l4_proto_t p = 0;
 
     // Write filter data
     if (!(m & MASK_SRCIP))

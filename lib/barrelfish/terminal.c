@@ -305,7 +305,7 @@ errval_t terminal_init(void)
     /* Connect to serial driver if possible */
     err = nameservice_lookup("serial", &iref);
     if (err_is_fail(err)) {
-        if (err_no(err) == CHIPS_ERR_UNKNOWN_NAME) {
+        if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
             // serial not present, ignore it and continue
             return SYS_ERR_OK;
         } else {

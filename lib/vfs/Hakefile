@@ -14,7 +14,7 @@
 [ build library { target = "vfs",
   		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "mmap.c", "vfs_nfs.c", "vfs_ramfs.c", "cache.c", "vfs_blockdevfs.c", "vfs_blockdevfs_ahci.c", "vfs_blockdevfs_ata.c", "vfs_cache.c", "vfs_fat.c", "vfs_fat_conv.c" ],
 		  addLibraries = [ "ahci" ],
-                  mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb", "fat32_ebpb", "fat_direntry" ],
+                  mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb", "fat32_ebpb", "fat_direntry", "ahci_port", "ahci_hba" ],
                   flounderBindings = [ "trivfs", "bcache", "ahci_mgmt" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]), ("bcache", ["rpcclient"]), ("ahci_mgmt", ["rpcclient"]), ("ata_rw28", ["ahci", "rpcclient"]) ],
                   flounderDefs = [ "monitor" ]
@@ -22,7 +22,7 @@
   build library { target = "vfs_nonfs",
   		  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c", "cache.c" ],
                   addCFlags = [ "-DDISABLE_NFS" ],
-                  mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb", "fat32_ebpb", "fat_direntry" ],
+                  mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb", "fat32_ebpb", "fat_direntry", "ahci_port", "ahci_hba"  ],
                   flounderBindings = [ "trivfs", "bcache", "ahci_mgmt" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]), ("bcache", ["rpcclient"]), ("ahci_mgmt", ["rpcclient"]), ("ata_rw28", ["ahci", "rpcclient"]) ],
                   flounderDefs = [ "monitor" ]

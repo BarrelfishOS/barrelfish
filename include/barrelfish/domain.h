@@ -18,7 +18,7 @@
 typedef void (*domain_spanned_callback_t)(void *arg, errval_t err);
 
 struct mem_rpc_client;
-struct nameservice_rpc_client;
+struct octopus_rpc_client;
 struct monitor_binding;
 struct monitor_blocking_rpc_client;
 struct waitset;
@@ -40,8 +40,8 @@ struct vspace *get_current_vspace(void);
 struct pmap *get_current_pmap(void);
 struct morecore_state *get_morecore_state(void);
 struct ram_alloc_state *get_ram_alloc_state(void);
-void set_nameservice_rpc_client(struct nameservice_rpc_client *st);
-struct nameservice_rpc_client *get_nameservice_rpc_client(void);
+void set_nameservice_rpc_client(struct octopus_rpc_client *st);
+struct octopus_rpc_client *get_nameservice_rpc_client(void);
 void set_spawn_rpc_client(coreid_t core, struct spawn_rpc_client *st);
 struct spawn_rpc_client *get_spawn_rpc_client(coreid_t core);
 struct terminal_state *get_terminal_state(void);

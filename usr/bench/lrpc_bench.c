@@ -167,7 +167,7 @@ static void lrpc_benchmark(uint64_t event, uint64_t umask)
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
     assert(err_is_ok(err));
-    err = nameservice_register("lrpc server", iref);
+    err = nameservice_register("lrpc_server", iref);
     assert(err_is_ok(err));
 }
 
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 
     /* Connect to the server */
     iref_t serv_iref;
-    err = nameservice_blocking_lookup("lrpc server", &serv_iref);
+    err = nameservice_blocking_lookup("lrpc_server", &serv_iref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to lookup server");
         exit(EXIT_FAILURE);

@@ -18,9 +18,8 @@ module	/arm/sbin/mem_serv
 module	/arm/sbin/monitor
 
 # Special boot time domains spawned by monitor
-module /arm/sbin/chips boot
 module /arm/sbin/ramfsd boot
-#module /arm/sbin/skb boot
+module /arm/sbin/skb boot
 module /arm/sbin/spawnd boot bootarm
 module /arm/sbin/startd boot 
 

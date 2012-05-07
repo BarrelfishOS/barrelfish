@@ -38,6 +38,7 @@
                "mouse",
                "nameservice",
 --               "netd",
+               "acpi",
                "pci",
                "ping_pong",
                "pixels",
@@ -46,6 +47,7 @@
                "serial",
                "skb",
                "skb_map",
+               "octopus",               
                "spawn",
                "test",
                "timer",
@@ -69,6 +71,7 @@
       | f <- [ "bench",
                "ping_pong",
                "mem",
-               "xmplthc" ],
+               "xmplthc",
+               "octopus" ],
              arch <- allArchitectures
 ]

@@ -69,6 +69,10 @@ trace_network_subsystem = False
 trace_disable_lrpc :: Bool
 trace_disable_lrpc = False
 
+-- use Kaluga
+use_kaluga_dvm :: Bool
+use_kaluga_dvm = True
+
 -- Domain and driver debugging
 global_debug :: Bool
 global_debug = False
@@ -239,7 +243,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if nxe_paging then "CONFIG_NXE" else "",
              if rck_emu then "RCK_EMU" else "",
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
-             if oneshot_timer then "CONFIG_ONESHOT_TIMER" else ""
+             if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
+             if use_kaluga_dvm then "USE_KALUGA_DVM" else ""
              ], d /= "" ]
 
 -- Sets the include path for the libc

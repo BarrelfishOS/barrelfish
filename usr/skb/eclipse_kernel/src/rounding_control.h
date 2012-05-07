@@ -109,6 +109,22 @@
 ** The global variables used by the above macros are defined in intervals.c.
 */
 
+// XXX: need this on arm :-(
+#if defined(__arm__)
+    #define init_rounding_modes() { \
+        \
+        }
+    #define set_round_up() { \
+        \
+        }
+    #define set_round_down() { \
+        \
+        }
+    #define restore_round_mode() { \
+        \
+        }
+#endif
+
 //asq:
 #ifdef __x86_64__
 #       define _FPU_SETCW

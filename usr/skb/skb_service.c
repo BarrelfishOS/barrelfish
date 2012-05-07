@@ -24,68 +24,66 @@
 
 
 #include <string.h>
-#include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
-
-#include <eclipse.h>
-#include <include/skb_server.h>
-
 #include <stdlib.h>
 #include <stdio.h>
-#include <if/skb_defs.h>
+
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+#include <eclipse.h>
+#include <include/skb_server.h>
+#include <include/skb_debug.h>
+#include <include/queue.h>
+
 #include <skb/skb.h>
 
-#include "skb_debug.h"
 
-#define BUFFER_SIZE (32 * 1024)
-
-struct state {
-    char output_buffer[BUFFER_SIZE];
-    char error_buffer[BUFFER_SIZE];
-    int output_length;
-    int error_output_length;
-    int exec_res;
-    struct state *next;
-};
-
-static void run_done(void *arg)
+errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
-    struct skb_binding *b = arg;
-    errval_t err;
-    // Head was sent successfully, free it
-    struct state *head = b->st;
-    struct state *point = b->st = head->next;
-    assert(head);
-    free(head);
+	assert(*srs == NULL);
+	*srs = malloc(sizeof(struct skb_reply_state));
+	if(*srs == NULL) {
+		return LIB_ERR_MALLOC_FAIL;
+	}
+	memset(*srs, 0, sizeof(struct skb_reply_state));
 
-    // If more state in the queue, send them
-    if (point) {
-        // a send just finished so this one should succeed
-        err = b->tx_vtbl.
-            run_response(b, MKCONT(run_done,b), point->output_buffer,
-                         point->error_buffer, point->exec_res);
-        assert(err_is_ok(err));
-    }
+	(*srs)->rpc_reply = reply_handler;
+	(*srs)->next = NULL;
+
+	return SYS_ERR_OK;
 }
 
-static void run(struct skb_binding *b, char *query)
-{
-    int res;
-    errval_t err;
 
-    // Allocate the state for continuation
-    struct state *st = malloc(sizeof(struct state));
-    assert(st);
-    st->exec_res = PFLUSHIO;
+void free_reply_state(void* arg) {
+	if(arg != NULL) {
+		struct skb_reply_state* srt = (struct skb_reply_state*) arg;
+		free(srt);
+	}
+	else {
+		assert(!"free_reply_state with NULL argument?");
+	}
+}
+
+
+errval_t execute_query(char* query, struct skb_query_state* st)
+{
+	assert(query != NULL);
+    assert(st != NULL);
+	int res;
+
+    ec_ref Start = ec_ref_create_newvar();
+
+	st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
-    st->next = NULL;
 
     /* Processing */
     ec_post_string(query);
+    // Flush manually
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(1)));
+    ec_post_goal(ec_term(ec_did("flush",1), ec_long(2)));
 
     while(st->exec_res == PFLUSHIO) {
-        st->exec_res = ec_resume();
+        st->exec_res = ec_resume1(Start);
 
         res = 0;
         do {
@@ -94,6 +92,7 @@ static void run(struct skb_binding *b, char *query)
             st->output_length += res;
         } while ((res != 0) && (st->output_length < BUFFER_SIZE));
         st->output_buffer[st->output_length] = 0;
+
         res = 0;
         do {
             res = ec_queue_read(2, st->error_buffer + st->error_output_length,
@@ -105,33 +104,58 @@ static void run(struct skb_binding *b, char *query)
         st->error_buffer[st->error_output_length] = 0;
     }
 
-    // Query succeeded
-    free(query);
-    if (!b->st) { // If queue is empty, try to send
-        b->st = st;
-        // queue is empty so no pending sends so send should not fail
-        err = b->tx_vtbl.
-            run_response(b, MKCONT(run_done,b), st->output_buffer,
-                         st->error_buffer, st->exec_res);
-        assert(err_is_ok(err));
-    } else { // Queue is present, enqueue. For in order replies, enqueue at end
-        struct state *walk = b->st;
-        struct state *prev = NULL;
-        while (walk) {
-            prev = walk;
-            walk = walk->next;
+    if(st->exec_res == PSUCCEED) {
+        ec_cut_to_chp(Start);
+        ec_resume();
+    }
+
+    ec_ref_destroy(Start);
+
+    return SYS_ERR_OK;
+}
+
+
+static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
+    errval_t err;
+    err = b->tx_vtbl.run_response(b, MKCONT(free_reply_state, srt),
+			                      srt->skb.output_buffer,
+			                      srt->skb.error_buffer,
+			                      srt->skb.exec_res);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        	enqueue_reply_state(b, srt);
+        	return;
         }
-        if (prev) {
-            prev->next = st;
-        } else {
-            b->st = st;
-        }        
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
     }
 }
+
+
+static void run(struct skb_binding *b, char *query)
+{
+    //debug_printf("skb run: query = %s\n", query);
+	struct skb_reply_state* srt = NULL;
+	errval_t err = new_reply_state(&srt, run_reply);
+	assert(err_is_ok(err)); // TODO
+
+	err = execute_query(query, &srt->skb);
+	assert(err_is_ok(err));
+
+	/*
+	debug_printf("skb output was: %s\n", srt->skb.output_buffer);
+	debug_printf("skb error  was: %s\n", srt->skb.error_buffer);
+	debug_printf("skb exec res: %d\n", srt->skb.exec_res);
+	*/
+
+    run_reply(b, srt);
+	free(query);
+}
+
 
 static struct skb_rx_vtbl rx_vtbl = {
     .run_call = run,
 };
+
 
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
@@ -141,21 +165,33 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register("skb", iref);
+    char buf[100];
+    sprintf(buf, "add_object(skb, [val(iref, %"PRIu32")], []).", iref);
+
+    struct skb_query_state* sqs = malloc(sizeof(struct skb_query_state));
+    err = execute_query(buf, sqs);
+    //debug_printf("sqs->res: %d sqs->error: %s\n", sqs->exec_res, sqs->error_buffer);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
+        DEBUG_ERR(err, "nameservice register failed");
         abort();
     }
+
+    free(sqs);
 }
+
 
 static errval_t connect_cb(void *st, struct skb_binding *b)
 {
+	// Set up continuation queue
+    b->st = NULL;
+
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
 
     // accept the connection (we could return an error to refuse it)
     return SYS_ERR_OK;
 }
+
 
 void skb_server_init(void)
 {

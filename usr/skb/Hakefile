@@ -18,16 +18,21 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
     ramdisk = "skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",
-  		        cFiles = [ "skb_main.c", "skb_service.c" ],
+  		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
+                                   "octopus/code_generator.c",
+                                   "octopus/predicates.c", "octopus/skb_query.c", 
+                                   "octopus/skiplist.c", "octopus/fnv.c", "octopus/bitfield.c" ],
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
                         -- force optimisations on, without them we blow the stack
                         addCFlags = [ "-O2" ],
-                        flounderBindings = [ "skb" ],
+                        flounderBindings = [ "skb", "octopus" ],
                         addIncludes = [ "eclipse_kernel/src"],
                         addLibraries = libDeps [ "eclipse", "shm", "dummies",
                                                  "icsolver", "vfs",
-                                                 "posixcompat" ],
+                                                 "posixcompat", "hashtable", "pcre", 
+                                                 "octopus_server", "octopus_parser", "skb",
+                                                 "bench", "dmalloc" ],
                        architectures = [ arch ]
                 }
 in

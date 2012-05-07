@@ -42,6 +42,7 @@ MODULES_COMMON= \
 	sbin/init_null \
 	sbin/init \
 	sbin/chips \
+	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
 	sbin/flounder_stubs_empty_bench \
@@ -106,6 +107,8 @@ MODULES_x86_64= \
 	sbin/net-test \
 	sbin/netthroughput \
 	sbin/pci \
+        sbin/acpi \
+        sbin/kaluga \
 	sbin/placement_bench \
 	sbin/phases_bench \
 	sbin/phases_scale_bench \
@@ -117,7 +120,6 @@ MODULES_x86_64= \
 	sbin/shared_mem_clock_bench \
 	sbin/sif \
 	sbin/slideshow \
-	sbin/skb \
 	sbin/spantest \
 	sbin/testconcurrent \
 	sbin/thc_v_flounder_empty \
@@ -170,7 +172,8 @@ MODULES_x86_32=\
 	sbin/fish \
 	sbin/fputest \
 	sbin/pci \
-	sbin/skb \
+        sbin/acpi \
+        sbin/kaluga \
 	sbin/slideshow \
 	sbin/thc_v_flounder_empty \
 	sbin/thcidctest \

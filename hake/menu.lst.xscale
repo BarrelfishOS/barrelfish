@@ -18,9 +18,8 @@ module	/xscale/sbin/mem_serv
 module	/xscale/sbin/monitor
 
 # Special boot time domains spawned by monitor
-module /xscale/sbin/chips boot
 module /xscale/sbin/ramfsd boot
-#module /xscale/sbin/skb boot
+module /xscale/sbin/skb boot
 module /xscale/sbin/spawnd boot bootarm
 module /xscale/sbin/startd boot
 

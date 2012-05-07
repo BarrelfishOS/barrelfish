@@ -81,7 +81,7 @@ struct slot_alloc_state {
 };
 
 struct terminal_state;
-struct nameservice_rpc_client;
+struct octopus_rpc_client;
 struct domain_state;
 struct spawn_state;
 struct monitor_binding;
@@ -95,7 +95,7 @@ struct core_state_generic {
     struct mem_rpc_client *mem_st;
     struct morecore_state morecore_state;
     struct ram_alloc_state ram_alloc_state;
-    struct nameservice_rpc_client *nameservice_rpc_client;
+    struct octopus_rpc_client *nameservice_rpc_client;
     struct spawn_rpc_client *spawn_rpc_clients[MAX_CPUS];
     struct terminal_state *terminal_state;
     struct domain_state *domain_state;

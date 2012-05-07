@@ -112,7 +112,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register("fsb server", iref);
+    err = nameservice_register("fsb_server", iref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
         abort();
@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
         /* Connect to the server */
         iref_t iref;
 
-        err = nameservice_blocking_lookup("fsb server", &iref);
+        err = nameservice_blocking_lookup("fsb_server", &iref);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "nameservice_blocking_lookup failed");
             abort();

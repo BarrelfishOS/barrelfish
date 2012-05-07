@@ -85,6 +85,7 @@ ldCxxFlags arch =
 -- Libraries that are linked to all applications.
 stdLibs arch = 
     [ In InstallTree arch "/lib/libbarrelfish.a",
+      In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
       --In InstallTree arch "/lib/libposixcompat.a",

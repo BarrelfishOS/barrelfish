@@ -38,10 +38,8 @@ interface pci "The PCI Interface" {
     rpc get_cap(in uint32 idx, in uint32 cap_nr,
                 out errval err, out cap cap, out uint8 type);
 
-    /* Kludge: retrieve frame cap to VBE BIOS */
+    /* Kludge: retrieve frame cap to VBE BIOS
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
-
-    /* reset or sleep / power off machine */
     rpc reset(out errval err);
-    rpc sleep(in int state, out errval err);
+    rpc sleep(in int state, out errval err);  */
 };

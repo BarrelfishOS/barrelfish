@@ -15,6 +15,8 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
+//#define PCI_SERVICE_DEBUG 1
+
 #if defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define PCI_DEBUG(x...) printf("pci_service: " x)
 #else

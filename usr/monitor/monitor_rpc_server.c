@@ -576,6 +576,60 @@ static void cap_set_remote(struct monitor_blocking_binding *b,
 
 /* ----------------------- BOOTINFO REQUEST CODE START ---------------------- */
 
+static void get_phyaddr_cap(struct monitor_blocking_binding *b)
+{
+    // XXX: We should not just hand out this cap to everyone
+    // who requests it. There is currently no way to determine
+    // if the client is a valid recipient
+    errval_t err;
+
+    struct capref src = {
+        .cnode = cnode_root,
+        .slot  = ROOTCN_SLOT_PACN
+    };
+
+    err = b->tx_vtbl.get_phyaddr_cap_response(b, NOP_CONT, src,
+            SYS_ERR_OK);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_phyaddr_cap, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_phyaddr_cap_response failed");
+    }
+}
+
+static void get_io_cap(struct monitor_blocking_binding *b)
+{
+    // XXX: We should not just hand out this cap to everyone
+    // who requests it. There is currently no way to determine
+    // if the client is a valid recipient
+    errval_t err;
+    struct capref src = {
+        .cnode = cnode_task,
+        .slot  = TASKCN_SLOT_IO
+    };
+
+    err = b->tx_vtbl.get_io_cap_response(b, NOP_CONT, src,
+            SYS_ERR_OK);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_io_cap, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_io_cap_response failed");
+    }
+}
+
+
 static void get_bootinfo(struct monitor_blocking_binding *b)
 {
     errval_t err;
@@ -610,6 +664,8 @@ static void get_bootinfo(struct monitor_blocking_binding *b)
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_bootinfo_call = get_bootinfo,
+    .get_phyaddr_cap_call = get_phyaddr_cap,
+    .get_io_cap_call = get_io_cap,
 
     .remote_cap_retype_call  = remote_cap_retype,
     .remote_cap_delete_call  = remote_cap_delete,

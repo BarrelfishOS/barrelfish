@@ -24,8 +24,8 @@
                              "shm.c", "getpid.c", "ioctl.c", "fcntl.c",
                              "sockets.c", "select.c", "grp.c", "rename.c",
 			     "remove.c", "time.c", "random.c", "inheritance.c" ],
-                  flounderDefs = [ "unixsock", "nameservice", "monitor" ],
-		  flounderBindings = [ "unixsock" ],
-                  flounderExtraBindings = [ ("nameservice", ["rpcclient"]) ]
+                  flounderDefs = [ "unixsock", "octopus", "monitor" ],
+		  flounderBindings = [ "unixsock", "octopus" ],
+                  flounderTHCStubs = [ "octopus" ]
                 }
 ]

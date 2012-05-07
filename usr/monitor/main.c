@@ -17,8 +17,9 @@
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
 
-/* irefs for mem server and name service */
+/* irefs for mem server name service and ramfs */
 iref_t mem_serv_iref = 0;
+iref_t ramfs_serv_iref = 0;
 iref_t name_serv_iref = 0;
 iref_t monitor_rpc_iref = 0;
 
@@ -74,10 +75,21 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         return err;
     }
 
-    /* Spawn chips before other domains */
-    err = spawn_domain("chips");
+    /* SKB needs vfs for ECLiPSe so we need to start ramfsd first... */
+    err = spawn_domain("ramfsd");
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed spawning chips");
+        DEBUG_ERR(err, "failed spawning ramfsd");
+        return err;
+    }
+    // XXX: Wait for ramfsd to initialize
+    while (ramfs_serv_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+
+    /* Spawn skb (new nameserver) before other domains */
+    err = spawn_domain("skb");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed spawning skb");
         return err;
     }
     // XXX: Wait for name_server to initialize
@@ -132,6 +144,10 @@ static errval_t boot_app_core(int argc, char *argv[])
 #endif
     err = request_name_serv_iref(intermon_binding);
     assert(err_is_ok(err));
+
+    err = request_ramfs_serv_iref(intermon_binding);
+    assert(err_is_ok(err));
+
 
 #ifdef BARRELFISH_MULTIHOP_CHAN_H
     // request my part of the routing table
@@ -216,6 +232,19 @@ errval_t request_name_serv_iref(struct intermon_binding *st)
     }
     return SYS_ERR_OK;
 }
+
+errval_t request_ramfs_serv_iref(struct intermon_binding *st)
+{
+    errval_t err = st->tx_vtbl.ramfs_serv_iref_request(st, NOP_CONT);
+    if (err_is_fail(err)) {
+        return err_push(err, MON_ERR_SEND_REMOTE_MSG);
+    }
+    while(ramfs_serv_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+    return SYS_ERR_OK;
+}
+
 
 void ipi_test(void);
 

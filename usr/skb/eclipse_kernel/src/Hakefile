@@ -44,10 +44,10 @@ in
   	                       "eclipsedir.c", "embed.c",
   	                       "os_support.c", "intervals.c",
   	                       "bip_arith.c", "bip_misc.c",
-  	                       "bip_load.c", "handlers.c" ],
+  	                       "bip_load.c", "handlers.c"],
                   addIncludes = includes,
                   omitCFlags = unflags,
-                  architectures = [ "x86_64", "x86_32" ]
+                  architectures = [ "x86_64", "x86_32", "scc" ]
                 },
     build library { target = "dummies",
                     cFiles = [ "lib1.c", "lib2.c", "lib3.c", "lib4.c",
@@ -57,6 +57,6 @@ in
                                "whereami_default.c", "dummy_bigrat.c" ],
                   addIncludes = includes,
                   omitCFlags = unflags,
-                  architectures = [ "x86_64", "x86_32" ]
+                  architectures = [ "x86_64", "x86_32", "scc" ]
                   }
   ]

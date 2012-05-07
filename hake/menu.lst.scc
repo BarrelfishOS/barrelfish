@@ -20,8 +20,8 @@ module	/scc/sbin/init
 module	/scc/sbin/mem_serv
 module	/scc/sbin/monitor
 
-module	/scc/sbin/chips boot
 module	/scc/sbin/ramfsd boot
+module  /scc/bin/skb boot
 module  /scc/sbin/spawnd boot bootscc=1
 module  /scc/sbin/startd boot
 # modules needed to start the networking

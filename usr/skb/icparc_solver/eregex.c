@@ -29,8 +29,10 @@
 #include <sys/types.h>
 #include <stdlib.h>	/* for malloc() */
 #include <string.h>
-#include "regex.h"
+#include <pcre/pcreposix.h>
 #include "eclipse.h"
+
+#include <stdio.h>
 
 
 Extern stream_id Winapi	ec_stream_id(int);

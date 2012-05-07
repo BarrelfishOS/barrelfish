@@ -318,13 +318,16 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
         iref_t iref;
         err = nameservice_lookup(namebuf, &iref);
         if (err_is_fail(err)) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
+                continue; // no spawn daemon on this core
+            }
             //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
             return err;
         }
 
         err = spawn_program(c, path, argv, envp, flags, NULL);
         if (err_is_fail(err)) {
-            if (err_no(err) == CHIPS_ERR_UNKNOWN_NAME) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
                 continue; // no spawn daemon on this core
             } else {
                 DEBUG_ERR(err, "error spawning %s on core %u\n", path, c);

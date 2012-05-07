@@ -27,6 +27,7 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
 #include <trace/trace.h>
+#include <octopus/init.h>
 #include "threads.h"
 #include "init.h"
 
@@ -245,9 +246,9 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
 #endif
 
-    // try to connect to name service (may fail if we are chips!)
+    // try to connect to name service (may fail if we are the skb or ramfsd!)
     err = nameservice_client_blocking_bind();
-    if (err_is_fail(err)) { // Chips fails with following error
+    if (err_is_fail(err)) {
         if (err_no(err) == LIB_ERR_GET_NAME_IREF) {
             // skip everything else if we don't have a nameservice
             return SYS_ERR_OK;
