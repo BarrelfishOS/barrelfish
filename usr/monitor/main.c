@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -156,7 +156,11 @@ static errval_t boot_app_core(int argc, char *argv[])
 #endif
 
     // Spawn local spawnd
+#ifdef __scc__
+    err = spawn_domain("spawnd");
+#else
     err = spawn_spawnd(b);
+#endif
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning spawnd");
     }

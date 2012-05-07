@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -279,6 +279,7 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
     return sys_monitor_register(ep_caddr);
 }
 
+#ifndef __scc__
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
@@ -293,6 +294,26 @@ static struct sysret monitor_spawn_core(struct capability *kernel_cap,
 
     return sys_monitor_spawn_core(core_id, cpu_type, entry);
 }
+
+#else
+
+static struct sysret monitor_spawn_scc_core(struct capability *kernel_cap,
+                                            int cmd, uintptr_t *args)
+{
+    uint8_t id                  = args[1] >> 24;
+    genpaddr_t urpcframe_base   = args[0];
+    uint8_t urpcframe_bits      = (args[1] >> 16) & 0xff;
+    int chanid                  = args[1] & 0xffff;
+
+    int r = rck_start_core(id, urpcframe_base, urpcframe_bits, chanid);
+
+    if (r != 0) {
+        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+#endif
 
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
@@ -634,7 +655,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
+#ifndef __scc__
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
+#endif
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
@@ -651,6 +674,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MonitorCmd_Revoke]      = monitor_handle_revoke,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
 #ifdef __scc__
+        [KernelCmd_Spawn_SCC_Core]   = monitor_spawn_scc_core,
         [KernelCmd_IPI_Register] = kernel_rck_register,
         [KernelCmd_IPI_Delete]   = kernel_rck_delete
 #else

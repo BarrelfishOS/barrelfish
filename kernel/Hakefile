@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2011, ETH Zurich.
+-- Copyright (c) 2007-2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -87,9 +87,9 @@ in [
         arch_sfiles = [ "boot.S" ]
         arch_cfiles =
             if Config.rck_emu then
-                [ "rck.c", "syscall.c" ]
+                [ "rck.c" ]
             else
-                [ "rck.c", "klog.c", "syscall.c" ]
+                [ "rck.c", "klog.c" ]
         in_x86_dir f = ("arch/x86") ./. f
         x86_cFiles =
             if Config.rck_emu then

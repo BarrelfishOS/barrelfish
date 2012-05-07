@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,9 +19,11 @@ void rck_send_notification(uint8_t dest, uintptr_t chanid);
 void rck_handle_notification(void);
 errval_t rck_register_notification(caddr_t cap, int chanid);
 errval_t rck_delete_notification(int chanid);
-int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_data);
+int rck_start_core(uint8_t coreid, genpaddr_t umpframe_base,
+                   uint8_t umpframe_bits, int chanid);
 void rck_reset_lint1(void);
 errval_t rck_get_route(genpaddr_t base, size_t size, uint8_t *route,
                        uint8_t *subdest, uint16_t *addrbits);
+errval_t rck_map_core_lut(uint8_t entry, uint8_t coreid, uint8_t offset);
 
 #endif
