@@ -15,15 +15,15 @@
 #include <dev/ehci_dev.h>
 
 #include <usb/mem/usb_mem.h>
-#include <usb/ehci/ehci.h>
-#include <usb/ehci/ehci_status.h>
-#include <usb/ehci/async_queue.h>
+#include "ehci.h"
+#include "ehci_status.h"
+#include "async_queue.h"
 
 #define TESTING 0
 
 //XXX: Enabale this macro for debugging local file specific debugging
 //#define EHCI_LOCAL_DEBUG
-#include <usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 #include "toggle_state.h"
 

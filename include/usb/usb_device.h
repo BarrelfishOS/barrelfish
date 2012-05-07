@@ -19,7 +19,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include <usb/usb/ch9.h>
+#include <usb/ch9.h>
 
 // Connected to root hub
 #define CONN_RH    1

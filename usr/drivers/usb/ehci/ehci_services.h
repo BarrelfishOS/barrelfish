@@ -17,7 +17,7 @@
 #include <barrelfish/barrelfish.h>
 
 // contain core I/O services 
-#include <usb/ehci/ehci_core.h>
+#include "ehci_core.h"
 
 // additional mapping service
 void map_dev_page(struct capref cap, uint32_t sz);

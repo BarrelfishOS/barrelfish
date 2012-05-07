@@ -12,7 +12,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <stdio.h>
-#include <usb/driver/scsi.h>
+#include "scsi.h"
 
 /*
  * Function to handle new device

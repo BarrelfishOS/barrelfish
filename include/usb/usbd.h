@@ -17,10 +17,10 @@
 #define USBD_H
 
 #include <barrelfish/barrelfish.h>
-#include <usb/usb/usb_device.h>
-#include <usb/usb/usb_services.h>
+#include <usb/usb_device.h>
+#include <usb/usb_services.h>
 
-#include <usb/usb/usb_pipe.h>
+#include <usb/usb_pipe.h>
 
 /*
  * These are generic functions 

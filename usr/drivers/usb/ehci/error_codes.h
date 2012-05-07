@@ -13,7 +13,7 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <usb/ehci/ehci_status.h>
+#include "ehci_status.h"
 
 
 #define REQ_FINISHED    (0)

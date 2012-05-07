@@ -10,8 +10,8 @@
 #include <barrelfish/barrelfish.h>
 #include <if/ehci_defs.h>
 
-#include <usb/usb/usb_device.h>
-#include <usb/usb/usb_debug.h>
+#include <usb/usb_device.h>
+#include <usb/usb_debug.h>
 
 /* 
  * Implements functions from it as 

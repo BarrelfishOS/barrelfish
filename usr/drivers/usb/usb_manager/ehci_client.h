@@ -16,7 +16,7 @@
 #define EHCI_CLIENT_H
 
 #include <barrelfish/barrelfish.h>
-#include <usb/ehci/ehci_services.h>
+#include "../ehci/ehci_services.h"
 
 int connect_to_ehci_manager(void *args);
 

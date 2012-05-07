@@ -14,7 +14,7 @@
 
 #include <stdio.h>
 #include <usb/utility.h>
-#include <usb/driver/scsi.h>
+#include "scsi.h"
 
 
 /*

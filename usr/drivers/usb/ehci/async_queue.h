@@ -18,7 +18,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <usb/mem/usb_mem.h>
-#include <usb/ehci/ehci.h>
+#include "ehci.h"
 
 #include <if/ehci_defs.h>
 

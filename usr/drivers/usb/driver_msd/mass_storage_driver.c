@@ -10,17 +10,17 @@
 #include "mass_storage_driver.h"
 
 #include <usb/utility.h>
-#include <usb/usb/usb_device.h>
-#include <usb/usb/usb_pipe.h>
-#include <usb/usb/usb_services.h>
+#include <usb/usb_device.h>
+#include <usb/usb_pipe.h>
+#include <usb/usb_services.h>
 
-#include <usb/error_codes.h>
+#include "../ehci/error_codes.h"
 #include <usb/mem/usb_mem.h>
-#include <usb/driver/scsi.h>
-#include <usb/ehci/ehci_services.h>
+#include "scsi.h"
+#include "../ehci/ehci_services.h"
 
 //#define DRIVER_LOCAL_DEBUG
-#include <usb/driver/driver_debug.h>
+#include "driver_debug.h"
 #include "usb_class_storage.h"
 
 // How much data to read

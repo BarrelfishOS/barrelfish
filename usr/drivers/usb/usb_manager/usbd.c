@@ -14,9 +14,9 @@
 #include <stdlib.h>
 #include <usb/utility.h>
 
-#include <usb/usb/device_commands.h>
-#include <usb/usb/usb_topology.h>
-#include <usb/usb/usbd.h>
+#include <usb/device_commands.h>
+#include <usb/usb_topology.h>
+#include <usb/usbd.h>
 #include <usb/mem/usb_mem.h>
 
 
@@ -25,7 +25,7 @@
 #include "driver_managment.h"
 
 //#define USB_LOCAL_DEBUG
-#include <usb/usb/usb_debug.h>
+#include <usb/usb_debug.h>
 #define ARR_SZ 100
 
 static struct thread_sem dev_sem = THREAD_SEM_INITIALIZER;

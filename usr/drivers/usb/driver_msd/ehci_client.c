@@ -10,10 +10,10 @@
 #include <barrelfish/barrelfish.h>
 #include <if/ehci_defs.h>
 
-#include <usb/usb/usb_device.h>
+#include <usb/usb_device.h>
 
 //#define DRIVER_LOCAL_DEBUG
-#include <usb/driver/driver_debug.h>
+#include "driver_debug.h"
 
 // Implement functions from it as 
 // proxy.

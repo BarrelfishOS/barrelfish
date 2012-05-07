@@ -20,9 +20,8 @@
 #include "usb_manager_client.h"
 #include "boot.h"
 
-// Move to local
-#include <usb/ehci/ehci.h>      // Has device structures
-#include <usb/ehci/async_queue.h>       // In init function
+#include "ehci.h"      // Has device structures
+#include "async_queue.h"       // In init function
 
 #define GBYTES (1024 * 1024 * 1024)
 
@@ -32,7 +31,7 @@
 //XXX: Enable this macro for EHCI debugging
 //#define EHCI_LOCAL_DEBUG
 
-#include <usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 static struct device_mem *bar_info = NULL;
 static bool ehci_initialized = false;

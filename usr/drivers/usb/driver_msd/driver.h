@@ -16,7 +16,7 @@
 #define USB_DRIVER_H
 
 #include <barrelfish/barrelfish.h>
-#include <usb/driver/scsi.h>
+#include "scsi.h"
 
 #define ACCEPT 0x0
 #define REJECT 0x1

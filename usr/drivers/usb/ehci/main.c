@@ -18,13 +18,13 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 
-#include <usb/usb/usb_device.h>
-#include <usb/usb/usb_pipe.h>
+#include <usb/usb_device.h>
+#include <usb/usb_pipe.h>
 #include <usb/mem/usb_mem.h>
-#include <usb/ehci/ehci_core.h>
+#include "ehci_core.h"
 
 //#define EHCI_LOCAL_DEBUG
-#include <usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 #include <if/ehci_defs.h>
 

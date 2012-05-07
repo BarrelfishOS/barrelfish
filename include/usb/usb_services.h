@@ -14,8 +14,8 @@
 #ifndef USB_SERVICES_H
 #define USB_SERVICES_H
 
-#include <usb/usb/usb_pipe.h>
-#include <usb/usb/ch9.h>
+#include <usb/usb_pipe.h>
+#include <usb/ch9.h>
 
 
 void notify_new_device(int port);

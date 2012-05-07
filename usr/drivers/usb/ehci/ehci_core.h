@@ -18,8 +18,8 @@
 #include <barrelfish/barrelfish.h>
 #include <stdio.h>
 
-#include <usb/usb/ch9.h>
-#include <usb/usb/usb_pipe.h>
+#include <usb/ch9.h>
+#include <usb/usb_pipe.h>
 
 #define EHCI_NO_DEBUG 0
 #define EHCI_DEBUG 1
