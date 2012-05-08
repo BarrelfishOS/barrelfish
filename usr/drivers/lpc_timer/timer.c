@@ -36,7 +36,7 @@
  * 
  ****************************************************************/
 
-static struct LPC_timer_t timer;        ///< Mackerel state for timer registers
+static struct lpc_timer_t timer;        ///< Mackerel state for timer registers
 static timer_handler_fn timer_handler;  ///< Expiry handler
 
 /// Remaining value of current timeout, in timer ticks
@@ -71,20 +71,20 @@ static void timer0_set(uint16_t count, bool periodic)
     LPC_DEBUG("timer0_set: programming %s timer for %u ticks\n",
               periodic ? "periodic" : "one-shot", count);
 */
-    struct LPC_timer_tcw_t tcw = {
+    struct lpc_timer_tcw_t tcw = {
         .bcd = 0,                       // Binary mode (no BCD)
-        .mode = periodic ? LPC_timer_rtgen : LPC_timer_oseoc, // Operating mode
-        .rwsel = LPC_timer_lmsb,        // First MSB, then LSB
-        .select = LPC_timer_c0          // Select counter 0
+        .mode = periodic ? lpc_timer_rtgen : lpc_timer_oseoc, // Operating mode
+        .rwsel = lpc_timer_lmsb,        // First MSB, then LSB
+        .select = lpc_timer_c0          // Select counter 0
     };
 
     // Prepare timer 0 to set its count
-    LPC_timer_tcw_wr(&timer, tcw);
+    lpc_timer_tcw_wr(&timer, tcw);
 
     if (count > 0) {
         // Set the count/rate (LSB, then MSB)
-        LPC_timer_cntacc0_wr(&timer, count & 0xff);
-        LPC_timer_cntacc0_wr(&timer, count >> 8);
+        lpc_timer_cntacc0_wr(&timer, count & 0xff);
+        lpc_timer_cntacc0_wr(&timer, count >> 8);
     }
 }
 
@@ -97,23 +97,23 @@ static void timer0_set(uint16_t count, bool periodic)
 static uint16_t timer0_read(void)
 {
     uint16_t val;
-    LPC_timer_sbyte_fmt_t status;
+    lpc_timer_sbyte_fmt_t status;
 
     do {
         // 1. Issue read back command to read the status and count of the counter
-        struct LPC_timer_rdbk_cmd_t cmd = {
+        struct lpc_timer_rdbk_cmd_t cmd = {
             .c0 = 1, .c1 = 0, .c2 = 0,  // select counter 0 only
             .stat = 0, .count = 0       // latch both status and count
         };
-        LPC_timer_rdbk_cmd_wr(&timer, cmd);
+        lpc_timer_rdbk_cmd_wr(&timer, cmd);
 
         // 2. Read status
-        status = LPC_timer_sbyte_fmt0_rd(&timer);
+        status = lpc_timer_sbyte_fmt0_rd(&timer);
 
         // 3. Read value latched value (LSB, then MSB)
         // (we must do this even if the status shows an invalid count)
-        val = LPC_timer_cntacc0_rd(&timer) << 8;
-        val |= LPC_timer_cntacc0_rd(&timer);
+        val = lpc_timer_cntacc0_rd(&timer) << 8;
+        val |= lpc_timer_cntacc0_rd(&timer);
 
         LPC_DEBUG("timer0_read:%s %u ticks remaining\n", 
                   status.cnt_stat ? " null count read," : "", val);
@@ -173,7 +173,7 @@ static void timer_init(void)
 {
     LPC_DEBUG("timer_init: called\n");
 
-    LPC_timer_initialize(&timer, TIMER_IOBASE);
+    lpc_timer_initialize(&timer, TIMER_IOBASE);
     timer0_set(0, false);
 
     timer_init_complete();

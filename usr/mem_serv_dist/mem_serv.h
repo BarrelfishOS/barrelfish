@@ -46,9 +46,6 @@ typedef genpaddr_t memsize_t;
 #       define MAXSIZEBITS     38    ///< Max size of memory in allocator
 #elif defined(__i386__)
 #       define MAXSIZEBITS     32
-#elif defined(__BEEHIVE__)
-/* XXX This is better if < 32! - but there were no compile time warnings! */
-#       define MAXSIZEBITS     31
 #elif defined(__arm__)
 /* XXX This is better if < 32! - but there were no compile time warnings! */
 #       define MAXSIZEBITS     31

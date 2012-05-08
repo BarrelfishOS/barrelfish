@@ -92,9 +92,8 @@ static errval_t steal_from_serv(struct peer_core *peer,
 
     errval_t err;
 
-    // debug_printf("trying to steal from: %u\n", peer->id);
-
     if (!peer->is_bound) {
+      printf("Connecting to new peer\n");
         err = connect_peer(peer);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to connect to peer");
@@ -132,6 +131,7 @@ static errval_t rr_steal(struct capref *ret_cap, uint8_t bits,
         if (peer->id == mycore) {
             continue;
         }
+	    printf("%d: Trying to steal from %d/%d\n", disp_get_core_id(), i, num_peers);
         err = steal_from_serv(peer, ret_cap, bits, minbase, maxlimit);
         if (err_is_ok(err)) {
             break;
@@ -203,6 +203,10 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
                  info.type, info.u.ram.base, info.u.ram.base, 
                  info.u.ram.bits);
 #endif
+    if(steal_bits != info.u.ram.bits) {
+      printf("asked for %d bits, but got %d bits of type %d\n",
+	     steal_bits, info.u.ram.bits, info.type);
+    }
     assert(steal_bits == info.u.ram.bits);
 
     memsize_t mem_to_add = (memsize_t)1 << info.u.ram.bits;
@@ -232,16 +236,24 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
 void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
                genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    /* printf("%d: failed percore alloc request: bits: %d going to STEAL\n", */
-    /*        disp_get_core_id(), bits); */
+    printf("[%d][%"PRIuDOMAINID"]: failed percore alloc request: bits: %d going to STEAL\n",
+            disp_get_core_id(), disp_get_domain_id(), bits);
+	printf("%p %p %p %p %p %p\n",	__builtin_return_address(0),
+								 	__builtin_return_address(1),
+									__builtin_return_address(2),
+									__builtin_return_address(3),
+									__builtin_return_address(4),
+									__builtin_return_address(5));
     //DEBUG_ERR(*ret, "allocation of %d bits in 0x%" PRIxGENPADDR 
     //           "-0x%" PRIxGENPADDR " failed", bits, minbase, maxlimit);
     *ret = steal_and_alloc(cap, bits+1, bits, minbase, maxlimit);
     if (err_is_fail(*ret)) {
-        /* DEBUG_ERR(*ret, "stealing of %d bits in 0x%" PRIxGENPADDR "-0x%"  */
-        /*          PRIxGENPADDR " failed", bits, minbase, maxlimit); */
+        DEBUG_ERR(*ret, "stealing of %d bits in 0x%" PRIxGENPADDR "-0x%"
+                 PRIxGENPADDR " failed", bits, minbase, maxlimit);
         *cap = NULL_CAP;
     }
+//	*ret = MM_ERR_NOT_FOUND;
+//	*cap = NULL_CAP;
 }
 
 errval_t init_peers(coreid_t core, int len_cores, coreid_t *cores) 

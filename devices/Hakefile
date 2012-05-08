@@ -10,58 +10,72 @@
 -- 
 --------------------------------------------------------------------------
 
--- Mackerel 1 device descriptions
-[ mackerel (options arch) f 
+-- Mackerel 2 device descriptions
+--
+-- THIS is the place for new device descriptions.
+--
+[ mackerel2 (options arch) f
   | f <- [ "ac97_base_audio", 
            "ac97_ext_audio",
            "ac97_ext_codec",
            "ac97_ext_modem",
-           "acpi_ec",
            "ahci_hba",
            "ahci_port",
-           "amd_vmcb",
+           "acpi_ec",
            "arm",
-           "arm_icp_pic",
-           "arm_icp_pit",
+           "ata_identify",
            "audio_nbm",
-           "cmos",
-           "cpuid",
-           "e1000",
+           "e10k",
+           "e10k_q",
            "ehci_cap",
            "ehci_op",
+           "fat16_ebpb",
+           "fat32_ebpb",
+           "fat_bpb",
+           "fat_direntry",
            "hpet",
-           "ht_config",
            "ia32",
+           "ixp2800_icp_pic0",
+           "ixp2800_icp_pit",
+           "ixp2800_uart",
            "lpc_bridge",
            "lpc_dma",
-           "lpc_ioapic",
-           "lpc_pci_config",
+           "lpc_kbd",
            "lpc_pic",
+           "lpc_pci_config",
            "lpc_rtc",
            "lpc_rtc_spaces",
-           "lpc_timer",
-           "pc16550d_mem",
-           "pci_hdr0",
-           "pci_hdr1",
-           "pl011_uart",
+           "pc16550d",
            "rtl8029as",
-           "rtl8029as_spaces",
            "tulip",
-           "x86_64_pagetable",
+           "uhci",
            "xapic",
-           "pci_hdr0_mem",
-           "rck",
-           "eMAC",
-           "crb_sif"
+           "x2apic",
+           "amd64"
          ], arch <- allArchitectures
 ] ++
 
--- Mackerel 2 device descriptions
-[ mackerel2 (options arch) f
-  | f <- ["pc16550d_uart",
-          "ixp2800_icp_pic",
-          "ixp2800_uart",
-          "ixp2800_icp_pit",
-          "lpc_kbd"
+-- Mackerel 1 device descriptions
+-- 
+-- DO NOT add new devices to this list - the interface is non-portable
+-- and liable to break with new C compiler versions!
+-- 
+[ mackerel (options arch) f 
+  | f <- [ "amd_vmcb",
+           "arm_icp_pic0",
+           "arm_icp_pit",
+           "cpuid",
+           "crb_sif",
+           "e1000",
+           "eMAC",
+           "ht_config",
+           "lpc_ioapic",
+           "lpc_timer",
+           "pc16550d_mem",
+           "pci_hdr0",
+           "pci_hdr0_mem",
+           "pci_hdr1",
+           "pl011_uart",
+           "rck"
          ], arch <- allArchitectures
 ]

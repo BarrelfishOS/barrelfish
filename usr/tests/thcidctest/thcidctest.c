@@ -73,6 +73,23 @@ static void client_work(void) {
         abort();
     }
 
+    fprintf(stderr, "Starting string/array tests\n");
+    for (int i = 0; i < 10; i ++) {
+      const char *s = strdup("foo");
+      uint64_t len = 0, total=0;
+      fprintf(stderr, "  Sending string '%s'\n", s);
+      cl.send.str0(&cl, 42, s);
+      fprintf(stderr, "  Sent string\n");
+      free((void*)s);
+      cl.recv.pong(&cl, &len);
+      fprintf(stderr, "  Reply was '%d'\n", (int)len);
+      fprintf(stderr, "  Sending array ['a', 'b', 'c']\n");
+      cl.send.arr0(&cl, 42, "abc", 3);
+      fprintf(stderr, "  Sent array\n");
+      cl.recv.pong(&cl, &total);
+      fprintf(stderr, "  Reply was '%d'\n\n", (int)total);
+    }
+
     fprintf(stderr, "Starting basic tests\n");
 
     DO_FINISH({
@@ -121,6 +138,7 @@ static void client_work(void) {
           ASYNC({
               int my_v = v;
               uint64_t r = 0;
+              printf("before fifo: %d\n", my_v);
               cl.call_fifo.testrpc(&cl, my_v, &r);
               fprintf(stderr, "   (%d, %d)\n", (int)my_v, (int)r);
             });
@@ -296,10 +314,10 @@ static void client_work(void) {
                     ASYNC({
                         uint64_t response;
                         if (cl.call_fifo_x.testrpc(&cl, my_i, &response) != THC_CANCELED) {
-                          fprintf(stderr, "   %d -> %d\n", (int)i, (int)response);
+                          fprintf(stderr, "   %d -> %d\n", (int)my_i, (int)response);
                           assert(response == my_i * 10);
                         } else {
-                          fprintf(stderr, "   CANCELED RPC for %d\n", (int)i);
+                          fprintf(stderr, "   CANCELED RPC for %d\n", (int)my_i);
                         }
                         thc_sem_v(&sem);
                       });
@@ -374,6 +392,28 @@ static void test_service_ping(struct ping_pong_thc_service_binding_t *sv,
   sv->send.pong(sv, val);
 }
 
+static void test_service_str0(struct ping_pong_thc_service_binding_t *sv,
+			      uint64_t arg,
+			      char *str) {
+  int len = strlen(str);
+  printf("    (Got arg %d string %s length %d)\n", (int)arg, str, len);
+  free(str);
+  sv->send.pong(sv, len);
+}
+
+static void test_service_arr0(struct ping_pong_thc_service_binding_t *sv,
+			      const char *arr,
+			      size_t len) {
+  int total = 0;
+  printf("    (Got array at %p, len %d)\n", arr, (int)len);
+  for (size_t i = 0; i < len; i++) {
+    printf("        %d\n", arr[i]);
+    total += arr[i];
+  }
+  free((void *)arr);
+  sv->send.pong(sv, total);
+}
+
 static void test_service_rpc(struct ping_pong_thc_service_binding_t *sv,
                              uint64_t val) {
   sv->send.testrpc(sv, val*10);
@@ -415,7 +455,7 @@ static void service_client(struct ping_pong_thc_service_binding_t *sv) {
       while (!stop) {
         ping_pong_service_msg_t m;
         sv->recv_any(sv, &m, (struct ping_pong_service_selector) {
-            .ping=1, .stop=1, .testrpc=1, .testrpc2=1, .outoforder=1, .slow_op=1});
+            .ping=1, .stop=1, .testrpc=1, .testrpc2=1, .outoforder=1, .slow_op=1, .str0=1, .arr0=1});
         switch (m.msg) {
         case ping_pong_slow_op:
           ASYNC({test_service_slow_reply(sv, m.args.slow_op.val);});
@@ -438,6 +478,19 @@ static void service_client(struct ping_pong_thc_service_binding_t *sv) {
                                          m.args.outoforder.in.seq_in,
                                          m.args.outoforder.in.testin);});
           break;
+
+	case ping_pong_str0:
+	  test_service_str0(sv, 
+			    m.args.str0.arg1,
+			    m.args.str0.s);
+	  break;
+		    
+	case ping_pong_arr0:
+	  test_service_arr0(sv,
+			    m.args.arr0.a,
+			    m.args.arr0.l);
+	  break;
+		    
         
         case ping_pong_stop:
           fprintf(stderr, "Service: stopping\n");
@@ -465,7 +518,7 @@ static void server_work(void) {
                              get_default_waitset(),
                              IDC_EXPORT_FLAGS_DEFAULT,
                              &iref);
-  printf("Done export iref=%d\n", iref);
+  printf("Done export iref=%"PRIuIREF"\n", iref);
   if (err_is_fail(err)) {
     DEBUG_ERR(err, "export failed");
     abort();

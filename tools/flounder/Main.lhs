@@ -29,25 +29,20 @@
 > import qualified Syntax            
 > import qualified Arch
 > import qualified Backend
-> import qualified CodeBackend
-> import qualified HeaderBackend
 > import qualified GHBackend
 > import qualified GCBackend
 > import qualified LMP
 > import qualified UMP
 > import qualified UMP_IPI
-> import qualified BMP
 > import qualified Multihop
 > import qualified Loopback
 > import qualified RPCClient
 > import qualified MsgBuf
 > import qualified THCBackend
 > import qualified THCStubsBackend
+> import qualified AHCI
 
-> data Target = ClientStub
->            | ServerStub
->            | Header
->            | GenericHeader
+> data Target = GenericHeader
 >            | GenericCode
 >            | LMP_Header
 >            | LMP_Stub
@@ -55,8 +50,6 @@
 >            | UMP_Stub
 >            | UMP_IPI_Header
 >            | UMP_IPI_Stub
->            | BMP_Header
->            | BMP_Stub
 >  	     | Multihop_Stub
 >            | Multihop_Header
 >            | Loopback_Header
@@ -67,6 +60,8 @@
 >            | MsgBuf_Stub
 >            | THCHeader
 >            | THCStubs
+>            | AHCI_Header
+>            | AHCI_Stub
 >            deriving (Show)
 
 > data Options = Options {
@@ -77,18 +72,7 @@
 
 > defaultOptions = Options { optTargets = [], optArch = Nothing, optIncludes = [] }
 
-The following calls are deprecated:
-
-> writeClientStub :: Syntax.Interface -> String -> Handle -> IO ()
-> writeClientStub ast@(Syntax.Interface name _ _) infile fileClientC =
->     hPutStr fileClientC $ CodeBackend.compile infile name Backend.ClientSide ast
-
-> writeServerStub :: Syntax.Interface -> String -> Handle -> IO ()
-> writeServerStub ast@(Syntax.Interface name _ _) infile fileServerC =
->     hPutStr fileServerC $ CodeBackend.compile infile name Backend.ServerSide ast
-
-> generator :: Options -> Target -> (String -> String -> Syntax.Interface -> String)
-> generator _ Header = HeaderBackend.compile
+> generator :: Options -> Target -> String -> String -> Syntax.Interface -> String
 > generator _ GenericHeader = GHBackend.compile
 > generator _ GenericCode = GCBackend.compile
 > generator _ LMP_Header = LMP.header
@@ -106,8 +90,6 @@ The following calls are deprecated:
 >     | isNothing arch = error "no architecture specified for UMP_IPI stubs"
 >     | otherwise = UMP_IPI.stub (fromJust arch)
 >     where arch = optArch opts
-> generator _ BMP_Header = BMP.header
-> generator _ BMP_Stub = BMP.stub
 > generator _ Multihop_Header = Multihop.header
 > generator opts Multihop_Stub
 >     | isNothing arch = error "no architecture specified for Multihop stubs"
@@ -121,6 +103,8 @@ The following calls are deprecated:
 > generator _ MsgBuf_Stub = MsgBuf.stub
 > generator _ THCHeader = THCBackend.compile
 > generator _ THCStubs = THCStubsBackend.compile
+> generator _ AHCI_Header = AHCI.header
+> generator _ AHCI_Stub = AHCI.stub
 
 > addTarget :: Target -> Options -> IO Options
 > addTarget t o = return o { optTargets = (optTargets o) ++ [t] }
@@ -137,10 +121,7 @@ The following calls are deprecated:
 > addInclude s o = return o { optIncludes = (optIncludes o) ++ [s] }
 
 > options :: [OptDescr (Options -> IO Options)]
-> options = [ Option ['C'] ["client-stub"] (NoArg $ addTarget ClientStub) "Generate old client stub C file",
->             Option ['S'] ["server-stub"] (NoArg $ addTarget ServerStub) "Generate old server stub C file",
->             Option ['h'] ["header"] (NoArg $ addTarget Header)          "Generate old common header file",
-
+> options = [ 
 >             Option ['G'] ["generic-header"] (NoArg $ addTarget GenericHeader) "Create a generic header file",
 >             Option [] ["generic-stub"] (NoArg $ addTarget GenericCode) "Create generic part of stub implemention",
 >             Option ['a'] ["arch"] (ReqArg setArch "ARCH")           "Architecture for stubs",
@@ -151,8 +132,6 @@ The following calls are deprecated:
 >             Option [] ["ump-stub"] (NoArg $ addTarget UMP_Stub)     "Create a stub file for UMP",
 >             Option [] ["ump_ipi-header"] (NoArg $ addTarget UMP_IPI_Header) "Create a header file for UMP_IPI",
 >             Option [] ["ump_ipi-stub"] (NoArg $ addTarget UMP_IPI_Stub)     "Create a stub file for UMP_IPI",
->             Option [] ["bmp-header"] (NoArg $ addTarget BMP_Header) "Create a header file for BMP",
->             Option [] ["bmp-stub"] (NoArg $ addTarget BMP_Stub)     "Create a stub file for BMP",
 >             Option [] ["multihop-header"] (NoArg $ addTarget Multihop_Header) "Create a header file for Multihop",
 >             Option [] ["multihop-stub"] (NoArg $ addTarget Multihop_Stub)     "Create a stub file for Multihop",
 >             Option [] ["loopback-header"] (NoArg $ addTarget Loopback_Header) "Create a header file for loopback",
@@ -163,11 +142,13 @@ The following calls are deprecated:
 >             Option [] ["msgbuf-stub"] (NoArg $ addTarget MsgBuf_Stub) "Create a stub file for message buffers",
 
 >             Option ['T'] ["thc-header"] (NoArg $ addTarget THCHeader)             "Create a THC header file",
->             Option ['B'] ["thc-stubs"] (NoArg $ addTarget THCStubs)               "Create a THC stubs C file" ]
+>             Option ['B'] ["thc-stubs"] (NoArg $ addTarget THCStubs)               "Create a THC stubs C file",
+>             Option [] ["ahci-header"] (NoArg $ addTarget AHCI_Header) "Create a header file for AHCI",
+>             Option [] ["ahci-stub"] (NoArg $ addTarget AHCI_Stub)     "Create a stub file for AHCI" ]
 
-> compile :: Options -> Target -> Syntax.Interface -> String -> String -> Handle -> IO () 
+> compile :: Options -> Target -> Syntax.Interface -> String -> String -> Handle -> IO ()
 > compile opts fl ast infile outfile outfiled =
->     hPutStr outfiled ( (generator opts fl) infile outfile ast )
+>     hPutStr outfiled $ (generator opts fl) infile outfile ast
 
 > parseFile :: (String -> IO (Either Parsec.ParseError a)) -> String -> IO a
 > parseFile parsefn fname = do
@@ -197,11 +178,9 @@ The following calls are deprecated:
 >              ast <- parseFile (Parser.parse_intf includeDecls) inFile
 >              outFileD <- openFile outFile WriteMode
 >              checkFilename ast inFile
->              sequence_ $ map (\target -> case target of 
->                    ClientStub -> writeClientStub ast inFile outFileD
->                    ServerStub -> writeServerStub ast inFile outFileD
->                    otherwise -> compile opts target ast inFile outFile outFileD
->                  ) (optTargets opts)
+>              sequence_ $ map (\target
+>                               -> compile opts target ast inFile outFile outFileD)
+>                            (optTargets opts)
 >              hClose outFileD
 >          (_, _, errors) -> do
 >              hPutStr stderr (concat errors ++ usageInfo usage options)

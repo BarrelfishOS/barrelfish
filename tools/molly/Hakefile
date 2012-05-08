@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ compileNativeC "molly" ["build_multiboot.c"] ["-std=c99", "-g"] [] ]
+[ compileNativeC "molly" ["build_multiboot.c"] ["-std=gnu99", "-g"] [] ]

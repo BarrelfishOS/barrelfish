@@ -92,7 +92,11 @@ void printk(int level, const char *msg, ...)
 /**
  * Helper function used in the implementation of assert()
  */
+#ifdef CONFIG_NEWLIB
+void __assert_func(const char *file, int line, const char *func, const char *exp)
+#else
 void __assert(const char *exp, const char *file, const char *func, int line)
+#endif
 {
     panic("kernel assertion \"%s\" failed at %s:%d", exp, file, line);
 }

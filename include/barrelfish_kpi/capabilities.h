@@ -43,10 +43,11 @@ typedef uint8_t         CapRights;
 struct dcb;
 
 #include <barrelfish_kpi/capbits.h>
+#include <assert.h>
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -70,7 +71,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -175,14 +176,6 @@ enum io_cmd {
     IOCmd_Inb,          ///< Input byte from port
     IOCmd_Inw,          ///< Input word from port
     IOCmd_Ind           ///< Input double word from port
-};
-
-/**
- * BMP Table capability commands.
- */
-enum bmptable_cmd {
-    BMPTableCmd_Set,    ///< Set endpoint for BMP# notifications
-    BMPTableCmd_Delete  ///< Remove notification endpoint for BMP#
 };
 
 /**

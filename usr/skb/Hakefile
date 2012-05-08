@@ -16,24 +16,29 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                   ++
                   find inDir "external_libraries/lib" ".eco"
     ramdisk = "skb_ramfs.cpio.gz"
-    args arch = application { 
+    args arch = application {
                         target = "skb",
-  		        cFiles = [ "skb_main.c", "skb_service.c" ],
+  		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",
+                                   "octopus/code_generator.c",
+                                   "octopus/predicates.c", "octopus/skb_query.c", 
+                                   "octopus/skiplist.c", "octopus/fnv.c", "octopus/bitfield.c" ],
                         -- some include files cause problems...
                         omitCFlags = [ "-Wshadow", "-Wstrict-prototypes" ],
                         -- force optimisations on, without them we blow the stack
                         addCFlags = [ "-O2" ],
-                        flounderBindings = [ "skb" ],
+                        flounderBindings = [ "skb", "octopus" ],
                         addIncludes = [ "eclipse_kernel/src"],
-                        addLibraries = [ "eclipse", "shm", "dummies",
-                                         "posixcompat", "msun",
-                                         "icsolver", "vfs", "nfs", "lwip", "contmng"],
-                        architectures = [ arch ]
+                        addLibraries = libDeps [ "eclipse", "shm", "dummies",
+                                                 "icsolver", "vfs",
+                                                 "posixcompat", "hashtable", "pcre", 
+                                                 "octopus_server", "octopus_parser", "skb",
+                                                 "bench", "dmalloc" ],
+                       architectures = [ arch ]
                 }
 in
   [ Rules [build (args arch) | arch <- [ "x86_64", "x86_32" ]],
-    Rule ( [ Str "bash", 
-             In SrcTree "src" "skripts/mkcpio", 
+    Rule ( [ Str "bash",
+             In SrcTree "src" "skripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]
              ++ [ In SrcTree "src" f | f <- ramfs_files ] )
   ]

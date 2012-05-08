@@ -178,7 +178,7 @@ static void rx_basic(struct test_binding *b, uint32_t arg)
     if (arg != 7) {
         USER_PANIC("received wrong argument in \"basic\" message!\n");
     }
-    printf("%s rx_basic %u\n", get_role_name(), arg);
+    printf("%s rx_basic %"PRIu32"\n", get_role_name(), arg);
 }
 
 static void rx_str(struct test_binding *b, uint32_t arg, char *s)
@@ -189,7 +189,7 @@ static void rx_str(struct test_binding *b, uint32_t arg, char *s)
         USER_PANIC("received wrong argument in \"str\" message!\n");
     }
 
-    printf("%s rx_str %u '%s'\n", get_role_name(), arg, s);
+    printf("%s rx_str %"PRIu32" '%s'\n", get_role_name(), arg, s);
     free(s);
 }
 
@@ -209,7 +209,7 @@ static void rx_caps(struct test_binding *b, uint32_t arg, struct capref cap1,
     buf2[sizeof(buf2) - 1] = '\0';
     cap_destroy(cap1);
     cap_destroy(cap2);
-    printf("%s rx_caps %u [%s] [%s]\n", get_role_name(), arg, buf1, buf2);
+    printf("%s rx_caps %"PRIu32" [%s] [%s]\n", get_role_name(), arg, buf1, buf2);
 }
 
 static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
@@ -281,7 +281,7 @@ static void start_client(void)
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    printf("client binding to %u...\n", iref);
+    printf("client binding to %"PRIuIREF"...\n", iref);
     /**
      * We don't use the flounder bind function here to
      * enforce a binding over the multi-hop interconnect driver.
@@ -313,7 +313,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "export failed");
     }
 
-    printf("service exported at iref %u\n", iref);
+    printf("service exported at iref %"PRIuIREF"\n", iref);
 
     // register this iref with the name service
     err = nameservice_register(my_service_name, iref);

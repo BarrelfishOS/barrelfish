@@ -24,7 +24,7 @@
  * \brief User-level representation of a CNode, its CSpace address and size
  */
 struct cnoderef {
-    caddr_t address;        ///< Base address of CNode in CSpace
+    capaddr_t address;        ///< Base address of CNode in CSpace
     uint8_t address_bits;   ///< Number of valid bits in base address
     uint8_t size_bits;      ///< Number of slots in the CNode as a power of 2
     uint8_t guard_size;     ///< Guard size of the CNode
@@ -39,7 +39,7 @@ struct cnoderef {
 
 struct capref {
     struct cnoderef cnode;    ///< CNode this cap resides in
-    caddr_t slot;               ///< Slot number within CNode
+    capaddr_t slot;               ///< Slot number within CNode
 };
 
 #define NULL_CAP (struct capref){ .cnode = NULL_CNODE, .slot = 0 }
@@ -55,7 +55,7 @@ extern struct cnoderef cnode_root, cnode_task, cnode_base,
 
 /* well-known capabilities */
 extern struct capref cap_root, cap_monitorep, cap_irq, cap_io, cap_dispatcher,
-  cap_selfep, cap_kernel, cap_initep, cap_bmptable, cap_perfmon, cap_dispframe;
+  cap_selfep, cap_kernel, cap_initep, cap_perfmon, cap_dispframe;
 
 /**
  * \brief Returns the number of valid bits in the CSpace address of a cap
@@ -78,9 +78,9 @@ static inline uint8_t get_cap_valid_bits(struct capref cap)
 // XXX: bug still present in 4.4.3
 #if defined(__GNUC__) \
     && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) caddr_t get_cap_addr(struct capref cap)
+static __attribute__((noinline)) capaddr_t get_cap_addr(struct capref cap)
 #else
-static inline caddr_t get_cap_addr(struct capref cap)
+static inline capaddr_t get_cap_addr(struct capref cap)
 #endif
 {
     uint8_t vbits = get_cap_valid_bits(cap);
@@ -106,7 +106,7 @@ static inline uint8_t get_cnode_valid_bits(struct capref cap)
  * Returns the valid bits of the address only, in the least significant bits
  * of the result. This is the format needed for CNode invocation parameters.
  */
-static inline caddr_t get_cnode_addr(struct capref cap)
+static inline capaddr_t get_cnode_addr(struct capref cap)
 {
     return cap.cnode.address >> (CPTR_BITS - cap.cnode.address_bits);
 }

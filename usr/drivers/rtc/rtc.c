@@ -17,8 +17,8 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/x86.h>
+#include <dev/lpc_rtc_dev.h>
 #include "rtc.h"
-#include "lpc_rtc_dev.h"
 
 /** \brief This function reads the hardware clock.
     This function reads the hardware real time clock and fills the
@@ -28,40 +28,40 @@
 
 void rtc_write_cmos(int addr, uint8_t b)
 {
-    LPC_rtc_t rtc;
-    LPC_rtc_initialize(&rtc,0x00);
-    LPC_rtc_ndx_wr(&rtc,addr);
-    LPC_rtc_target_wr(&rtc,b);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_ndx_wr(&rtc,addr);
+    lpc_rtc_target_wr(&rtc,b);
 }
 
 void rtc_write_extended(int addr, uint8_t b)
 {
-    LPC_rtc_t rtc;
-    LPC_rtc_initialize(&rtc,0x00);
-    LPC_rtc_endx_wr(&rtc,addr);
-    LPC_rtc_etarget_wr(&rtc,b);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_endx_wr(&rtc,addr);
+    lpc_rtc_etarget_wr(&rtc,b);
 }
 
 uint8_t rtc_read_cmos(int addr)
 {
-    LPC_rtc_t rtc;
-    LPC_rtc_initialize(&rtc,0x00);
-    LPC_rtc_ndx_wr(&rtc,addr);
-    return LPC_rtc_target_rd(&rtc);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_ndx_wr(&rtc,addr);
+    return lpc_rtc_target_rd(&rtc);
 }
 
 uint8_t rtc_read_extended(int addr, uint8_t b)
 {
-    LPC_rtc_t rtc;
-    LPC_rtc_initialize(&rtc,0x00);
-    LPC_rtc_endx_wr(&rtc,addr);
-    return LPC_rtc_etarget_rd(&rtc);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
+    lpc_rtc_endx_wr(&rtc,addr);
+    return lpc_rtc_etarget_rd(&rtc);
 }
 
-static inline uint8_t _rtc_read( LPC_rtc_t *rtc, uint8_t _r) 
+static inline uint8_t _rtc_read( lpc_rtc_t *rtc, uint8_t _r) 
 {
-    LPC_rtc_ndx_wr(rtc,_r);
-    return LPC_rtc_target_rd(rtc);
+    lpc_rtc_ndx_wr(rtc,_r);
+    return lpc_rtc_target_rd(rtc);
 }
 
 
@@ -69,21 +69,21 @@ void rtc_read(struct rtc_time *t)
 {
     uint8_t sec, min, hr;
 
-    LPC_rtc_t rtc;
-    LPC_rtc_initialize(&rtc,0x00);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc,0x00);
 
     // read hour
-    hr = _rtc_read(&rtc, LPC_rtc_hours );
+    hr = _rtc_read(&rtc, lpc_rtc_hours );
 
     // read minutes
-    min = _rtc_read(&rtc, LPC_rtc_minutes );
+    min = _rtc_read(&rtc, lpc_rtc_minutes );
 
     // read seconds
-    sec = _rtc_read(&rtc, LPC_rtc_seconds );
+    sec = _rtc_read(&rtc, lpc_rtc_seconds );
 
     // Convert in the case of BCD hours
-    LPC_rtc_ndx_wr(&rtc, LPC_rtc_regb);
-    if ( LPC_rtc_regb_rd(&rtc).dm ) {
+    lpc_rtc_ndx_wr(&rtc, lpc_rtc_regb);
+    if ( lpc_rtc_regb_rd(&rtc).dm ) {
         t->hr = hr;
         t->min = min;
         t->sec = sec;
@@ -96,9 +96,9 @@ void rtc_read(struct rtc_time *t)
 
 uint8_t rtc_read_secs(void)
 {
-    LPC_rtc_t rtc;
-    LPC_rtc_initialize(&rtc, 0x00);
-    return _rtc_read(&rtc, LPC_rtc_seconds);
+    lpc_rtc_t rtc;
+    lpc_rtc_initialize(&rtc, 0x00);
+    return _rtc_read(&rtc, lpc_rtc_seconds);
 }
 
 /** \brief Print current time.

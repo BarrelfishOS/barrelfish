@@ -10,12 +10,12 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 
-#include <pl011_uart_dev.h>
+#include <dev/pl011_uart_dev.h>
+#include <dev/arm_icp_pic0_dev.h>
+#include <dev/arm_icp_pit_dev.h>
+
 #include <pl011_uart.h>
 #include <serial.h>
-
-#include <arm_icp_pic_dev.h>
-#include <arm_icp_pit_dev.h>
 #include <arm_hal.h>
 
 uint32_t hal_get_board_id(void)
@@ -72,7 +72,7 @@ void pic_set_irq_enabled(uint32_t irq, bool en)
         }
     }
     else {
-        panic("Unknown IRQ source %u", irq);
+        panic("Unknown IRQ source %"PRIu32, irq);
     }
 }
 
@@ -210,7 +210,7 @@ uint32_t tsc_get_hz(void)
 #define CONSOLE_PORT 0
 #define DEBUG_PORT   1
 
-static PL011_UART_t ports[2];
+static pl011_uart_t ports[2];
 
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {

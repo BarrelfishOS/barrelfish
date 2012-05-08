@@ -503,7 +503,7 @@ static inline void enable_monitor_mwait(void)
     if (ecx & (1 << 3)) {
         cpuid(5, &eax, &ebx, &ecx, &edx);
         debug(SUBSYS_STARTUP, "MONITOR/MWAIT supported: "
-              "min size %u bytes, max %u bytes. %s %s\n",
+              "min size %"PRIu32" bytes, max %"PRIu32" bytes. %s %s\n",
               eax, ebx, (ecx & 2) ? "IBE" : "", (ecx & 1) ? "EMX" : "");
     }
 }
@@ -572,9 +572,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // XXX: Set core ID and fake APIC ID to be the tile's core ID
     my_core_id = apic_id = rck_get_coreid();
     printf("My APIC ID: %d\n", apic_id);
-
-#else
-    apic_id = apic_get_id();
 #endif
 
     // do not remove/change this printf: needed by regression harness
@@ -689,7 +686,7 @@ void arch_init(uint32_t magic, void *pointer)
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%x\n", local_phys_to_mem(dest));
+    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem(dest));
 
     void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
         (void *)local_phys_to_mem((lpaddr_t)text_init);
@@ -763,7 +760,7 @@ void arch_init(uint32_t magic, void *pointer)
         break;
 
     default:
-        panic("Magic value does not match! (0x%x != 0x%x != 0x%x)",
+        panic("Magic value does not match! (0x%x != 0x%"PRIu32" != 0x%x)",
               KERNEL_BOOT_MAGIC, magic, MULTIBOOT_INFO_MAGIC);
         break;
     }

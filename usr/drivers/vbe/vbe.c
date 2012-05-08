@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-#include <pci/pci.h>
+#include <acpi_client/acpi_client.h>
 #include <mackerel/mackerel.h>
 #include <inttypes.h>
 
@@ -142,7 +142,7 @@ errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *retoffset)
     size_t fbsize = (size_t)mib.xresolution * mib.yresolution
                     * (mib.bitsperpixel / 8);
 
-    printf("vbe: looking for BAR cap with PA %zx-%zx\n",
+    printf("vbe: looking for BAR cap with PA %"PRIuLPADDR"-%"PRIuLPADDR"\n",
            fbphys, fbphys + fbsize);
 
     for(int i = 0; i < nbars; i++) {
@@ -253,7 +253,7 @@ void vbe_init(struct device_mem *bar_info, int nr_mapped_regions)
     // Map BIOS memory region
     struct capref bioscap;
     size_t size;
-    err = pci_get_vbe_bios_cap(&bioscap, &size);
+    err = acpi_get_vbe_bios_cap(&bioscap, &size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pci_get_vbe_bios_cap failed");
         return;

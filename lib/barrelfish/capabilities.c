@@ -84,12 +84,6 @@ struct capref cap_irq = {
     .slot  = TASKCN_SLOT_IRQ
 };
 
-/// Capability for BMP table
-struct capref cap_bmptable = {
-    .cnode = TASK_CNODE_INIT,
-    .slot  = TASKCN_SLOT_BMP_TABLE
-};
-
 /// Capability for legacy IO
 struct capref cap_io = {
     .cnode = TASK_CNODE_INIT,
@@ -159,8 +153,8 @@ static inline bool backoff(int count)
  * the monitor to ensure consistancy with other cores.  Only necessary for
  * caps that have been sent remotely.
  */
-static errval_t cap_retype_remote(caddr_t src, enum objtype new_type,
-                                  uint8_t size_bits, caddr_t to, caddr_t slot,
+static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
+                                  uint8_t size_bits, capaddr_t to, capaddr_t slot,
                                   int dcn_vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
@@ -191,7 +185,7 @@ static errval_t cap_retype_remote(caddr_t src, enum objtype new_type,
  * Deletes (but does not revoke) the given capability, allowing the CNode slot
  * to be reused.
  */
-static errval_t cap_delete_remote(caddr_t src, uint8_t vbits)
+static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     errval_t err, remote_cap_err;
@@ -218,7 +212,7 @@ static errval_t cap_delete_remote(caddr_t src, uint8_t vbits)
  * capability itself. If this succeeds, the capability is guaranteed to be
  * the only copy in the system.
  */
-static errval_t cap_revoke_remote(caddr_t src, uint8_t vbits)
+static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     errval_t err, remote_cap_err;
@@ -256,9 +250,9 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     // Number of valid bits in destination CNode address
     uint8_t dcn_vbits = get_cnode_valid_bits(dest_start);
     // Address of the cap to the destination CNode
-    caddr_t dcn_addr = get_cnode_addr(dest_start);
+    capaddr_t dcn_addr = get_cnode_addr(dest_start);
     // Address of source capability
-    caddr_t scp_addr = get_cap_addr(src);
+    capaddr_t scp_addr = get_cap_addr(src);
 
     err = invoke_cnode_retype(cap_root, scp_addr, new_type, size_bits,
                               dcn_addr, dest_start.slot, dcn_vbits);
@@ -284,7 +278,7 @@ errval_t cap_delete(struct capref cap)
 {
     errval_t err;
     uint8_t vbits = get_cap_valid_bits(cap);
-    caddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
 
     err = invoke_cnode_delete(cap_root, caddr, vbits);
 
@@ -308,7 +302,7 @@ errval_t cap_revoke(struct capref cap)
 {
     errval_t err;
     uint8_t vbits = get_cap_valid_bits(cap);
-    caddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
 
     err = invoke_cnode_revoke(cap_root, caddr, vbits);
 

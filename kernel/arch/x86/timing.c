@@ -67,7 +67,7 @@ static uint32_t calibrate_apic_timer_rtc(void)
     assert(curcount != 0);
 
     uint32_t tps = UINT32_MAX - curcount;
-    printk(LOG_NOTE, "Measured %d APIC timer counts in one RTC second, "
+    printk(LOG_NOTE, "Measured %"PRIu32" APIC timer counts in one RTC second, "
            "%d data points.\n", tps, reads);
 
     return tps;
@@ -243,6 +243,16 @@ void timing_apic_timer_set_ms(unsigned int ms)
     assert(ms < UINT32_MAX / (tickspersec / 1000));
 
     apic_timer_set_divide(xapic_by1);
+    apic_timer_set_count(ms * (tickspersec / 1000));
+}
+
+void arch_set_timer(systime_t t);
+void arch_set_timer(systime_t t)
+{
+    // systime_t is absolute time in ms,
+    // and the APIC time count registers are 32 bit
+    assert(t > kernel_now);
+    uint32_t ms = (t - kernel_now);
     apic_timer_set_count(ms * (tickspersec / 1000));
 }
 

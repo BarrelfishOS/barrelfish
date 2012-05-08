@@ -43,11 +43,10 @@ static void spawn_bind_cont(void *st, errval_t err, struct spawn_binding *b)
 /* XXX: utility function that doesn't really belong here */
 const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 5, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 4, "knowledge of all CPU types here");
     switch(cpu_type) {
     case CPU_X86_64:    return "x86_64";
     case CPU_X86_32:    return "x86_32";
-    case CPU_BEEHIVE:   return "beehive";
     case CPU_SCC:       return "scc";
     case CPU_ARM:       return "arm";
     default:            USER_PANIC("cpu_type_to_pathstr: %d unknown", cpu_type);
@@ -319,13 +318,16 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
         iref_t iref;
         err = nameservice_lookup(namebuf, &iref);
         if (err_is_fail(err)) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
+                continue; // no spawn daemon on this core
+            }
             //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
             return err;
         }
 
         err = spawn_program(c, path, argv, envp, flags, NULL);
         if (err_is_fail(err)) {
-            if (err_no(err) == CHIPS_ERR_UNKNOWN_NAME) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
                 continue; // no spawn daemon on this core
             } else {
                 DEBUG_ERR(err, "error spawning %s on core %u\n", path, c);
@@ -412,4 +414,49 @@ errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
     }
 
     return reterr;
+}
+
+/**
+ * \brief Get the list of domains for ps like implementation
+ */
+errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
+{
+    errval_t err;
+
+    struct spawn_rpc_client *cl;
+    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawn_rpc_client");
+    }
+    assert(cl != NULL);
+
+    err = cl->vtbl.get_domainlist(cl, domains, len);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_domainlist");
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Get the status of a domain for ps like implementation
+ */
+errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
+                          char **argbuf, size_t *arglen, errval_t *reterr)
+{
+    errval_t err;
+
+    struct spawn_rpc_client *cl;
+    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawn_rpc_client");
+    }
+    assert(cl != NULL);
+
+    err = cl->vtbl.status(cl, domain, (spawn_ps_entry_t*)pse, argbuf, arglen, reterr);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "status");
+    }
+
+    return SYS_ERR_OK;
 }

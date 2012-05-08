@@ -16,6 +16,8 @@
  * Specification, Reference Number: 318148-004, March 2010.
  */
 
+import xapic;
+
 device x2apic lsbfirst () "Local x2APIC" {
 
     space msr(index) valuewise "Model-specific Registers";
@@ -44,7 +46,7 @@ device x2apic lsbfirst () "Local x2APIC" {
 
     // 2.3.5.3
     // XXX Must be zero!
-    register eoi w0c msr(0x80b) "End Of Interrupt" type(uint32);
+    register eoi rwc msr(0x80b) "End Of Interrupt" type(uint32);
 
     // 2.4.2 
     register ldr ro msr(0x80d) "Logical Destination" {
@@ -58,14 +60,14 @@ device x2apic lsbfirst () "Local x2APIC" {
 	enable      1 "APIC Software Enable/Disable";
 	_	    3;
 	eoibd	    1 "EOI Broadcast Disable";
-	_	    18;
+	_	    19;
     };
     regarray isr ro msr(0x810) [8; 1] "Interrupt Status" type(uint32);
     regarray tmr ro msr(0x818) [8; 1] "Trigger Mode" type(uint32);
     regarray irr ro msr(0x820) [8; 1] "Interrupt Request" type(uint32);
 
     // 2.3.5.4
-    register esr rw0c msr(0x828) "Error Status" {
+    register esr rwc msr(0x828) "Error Status" {
 	_	    4;
 	ripi	    1 "Redirectible IPI";
 	siv         1 "Send illegal vector";
@@ -142,7 +144,7 @@ device x2apic lsbfirst () "Local x2APIC" {
 
     regtype lvt_lint "LVT Int" {
 	vector      8 "Vector";
-	dlv_mode    4 type(vdm) "Delivery mode";
+	dlv_mode    4 type(xapic.vdm) "Delivery mode";
 	_           1;
 	status      1 "Delivery status";
 	pinpol      1 "Pin polarity";

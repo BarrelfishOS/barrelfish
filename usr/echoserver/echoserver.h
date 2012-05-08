@@ -15,7 +15,7 @@
 #ifndef ECHOSERVER_H
 #define ECHOSERVER_H
 
-void startlwip(char *card_name);
+//void startlwip(char *card_name, uint64_t queueid);
 int udp_echo_server_init(void);
 int tcp_echo_server_init(void);
 

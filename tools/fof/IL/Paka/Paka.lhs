@@ -597,7 +597,7 @@ generator. This is just like writing C code, so don't be shy.
 >   # instr (\[e] -> text "assert" <> parens e <> semi) [pakaValName e]
 >
 > compileFFI nameCall [varName, param] | nameCall == "has_descendants" =
->   include "<mdb.h>"
+>   include "<mdb/mdb.h>"
 >   # include "<capabilities.h>" 
 >   # include "<stdbool.h>"
 >   # localVar (show $ toC varName)
@@ -609,11 +609,11 @@ generator. This is just like writing C code, so don't be shy.
 >            <> parens e <> semi)
 >           [pakaValName $ param]
 >
->  -- XXX: mem_to_phys was renamed to mem_to_local_phys.
+>  -- XXX: |mem_to_phys| was renamed to |mem_to_local_phys|.
 >  -- This is a temporary hack till we get around to producing
 >  -- a whole list of translation functions here. -Akhi
->  -- XXX: moved include to hamlet file compilation so that user version of cap_predicates
->  -- can be built -Ross
+>  -- XXX: moved include to hamlet file compilation so that user version of
+>  -- |cap_predicates| can be built -Ross
 >
 > compileFFI nameCall [varName, param] | nameCall == "mem_to_phys" =
 >   localVar (show $ toC varName)

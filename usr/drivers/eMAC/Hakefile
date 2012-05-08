@@ -7,16 +7,16 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/eMAC
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "eMAC",
                       cFiles = [ "eMAC_driver.c", "eMAC_hwinit.c",
                                  "eMAC_debug.c"],
-                      flounderBindings = [ "ether", "ether_control" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "net_soft_filters" ],
                       mackerelDevices = [ "eMAC" ],
-                      addLibraries = ["ethersrv", "contmng", 
-                                            "bfdmuxvm", "lwip" ]
+                      addLibraries = libDeps [ "netQmng" ]
                     }
 ]
 

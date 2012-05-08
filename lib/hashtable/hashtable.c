@@ -98,7 +98,7 @@ static int ht_put(struct dictionary *dict, struct _ht_entry *entry)
     return 0;
 }
 
-static int ht_put_word(struct dictionary *dict, char *key, size_t key_len,
+static int ht_put_word(struct dictionary *dict, const char *key, size_t key_len,
                        uintptr_t value)
 {
     struct _ht_entry *e = malloc(sizeof(struct _ht_entry));
@@ -113,13 +113,28 @@ static int ht_put_word(struct dictionary *dict, char *key, size_t key_len,
     return ht_put(dict, e);
 }
 
+static int ht_put_capability(struct dictionary *dict, char *key,
+                             struct capref cap)
+{
+    struct _ht_entry *e = malloc(sizeof(struct _ht_entry));
+    if (NULL == e) {
+        return 1;
+    }
+    e->key = key;
+    e->key_len = strlen(key);
+    e->capvalue = cap;
+    e->type = TYPE_CAPABILITY;
+
+    return ht_put(dict, e);
+}
+
 /**
  * \brief get a value from the hashtable for a given key
  * \param ht the hashtable
  * \param key the key. Has to be a zero-terminated string.
  * \return the value or NULL if there is no such key/value pair
  */
-static ENTRY_TYPE ht_get(struct dictionary *dict, char *key, size_t key_len,
+static ENTRY_TYPE ht_get(struct dictionary *dict, const char *key, size_t key_len,
                          void **value)
 {
     assert(dict != NULL);
@@ -141,6 +156,31 @@ static ENTRY_TYPE ht_get(struct dictionary *dict, char *key, size_t key_len,
         _e = _e->next;
     }
     *value = NULL;
+    return 0;
+}
+
+static ENTRY_TYPE ht_get_capability(struct dictionary *dict, char *key,
+                                    struct capref *value)
+{
+    assert(dict != NULL);
+    assert(key != NULL);
+    assert(value != NULL);
+
+    struct hashtable *ht = (struct hashtable*) dict;
+    size_t key_len = strlen(key);
+    int _hash_value = hash(key, key_len);
+    int _index = index_for(ht->table_length, _hash_value);
+    struct _ht_entry *_e = ht->entries[_index];
+
+    while (NULL != _e) {
+        if ((_hash_value == _e->hash_value) && (equals(key, _e->key, key_len))) {
+            assert(_e->type == TYPE_CAPABILITY);
+            *value = _e->capvalue;
+            return _e->type;
+        }
+        _e = _e->next;
+    }
+    *value = NULL_CAP;
     return 0;
 }
 
@@ -184,16 +224,14 @@ static void ht_init(struct hashtable *_ht, int capacity, int load_factor)
     _ht->table_length = capacity;
     _ht->entries = malloc(_ht->table_length * sizeof(struct _ht_entry));
     assert(_ht->entries != NULL);
+    memset(_ht->entries, 0, _ht->table_length * sizeof(struct _ht_entry));
     _ht->threshold = (capacity * load_factor) / 100;
     _ht->d.size = ht_size;
-    /* _ht->d.put_string = ht_put_string; */
     _ht->d.put_word = ht_put_word;
-    /* _ht->d.put_opaque = ht_put_opaque; */
-    /* _ht->d.put_capability = ht_put_capability; */
+    _ht->d.put_capability = ht_put_capability;
     _ht->d.get = ht_get;
-    /* _ht->d.get_capability = ht_get_capability; */
+    _ht->d.get_capability = ht_get_capability;
     _ht->d.remove = ht_remove;
-    /* _ht->d.get_key_set = ht_get_key_set; */
 }
 
 // XXX TODO: loadFactor should be a float, 0.75 instead of 75

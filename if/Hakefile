@@ -7,18 +7,23 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for if/
--- 
+--
 --------------------------------------------------------------------------
 
 -- whereas these are using the new-style bindings
 [ flounderGenDefs (options arch) f
-      | f <- [ "bcast",
+      | f <- [ "ahci_mgmt",
+               "ata_rw28",
+               "bcast",
                "bench",
                "boot_perfmon",
                "bulkbench",
+               "diskd",
                "ehci",
-               "ether",
-               "ether_control",
+               "net_queue_manager",
+               "net_ports",
+               "net_soft_filters",
+               "net_ARP",
                "fb",
                "glue_bench",
                "hpet",
@@ -32,17 +37,17 @@
                "monitor_mem",
                "mouse",
                "nameservice",
-               "netd", 
+--               "netd",
+               "acpi",
                "pci",
                "ping_pong",
                "pixels",
                "rcce",
-               "route", -- the new routing library
-               "route_coordinator",
                "routing",
                "serial",
                "skb",
                "skb_map",
+               "octopus",               
                "spawn",
                "test",
                "timer",
@@ -56,7 +61,8 @@
                "xmplrpc",
                "xmplthc",
                "unixsock",
-	       "bcache" ],
+	       "bcache",
+	       "replay" ],
              arch <- allArchitectures
 ] ++
 
@@ -65,6 +71,7 @@
       | f <- [ "bench",
                "ping_pong",
                "mem",
-               "xmplthc" ],
+               "xmplthc",
+               "octopus" ],
              arch <- allArchitectures
 ]

@@ -23,6 +23,8 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
+    vfs_init();
+    
     err = vfs_mkdir("/filetests");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vfs_mkdir failed");

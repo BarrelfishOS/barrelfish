@@ -14,7 +14,7 @@
 #include <barrelfish/barrelfish.h>
 #include <lwip/sys.h>
 #include "posixcompat.h"
-#include "fdtab.h"
+#include <vfs/fdtab.h>
 #include "unixsock.h"
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
@@ -429,7 +429,7 @@ int listen(int sockfd, int backlog)
         us->u.passive.backlog = calloc(backlog, sizeof(struct unixsock_binding *));
 
         char str[128];
-        snprintf(str, 128, "%u", us->u.passive.listen_iref);
+        snprintf(str, 128, "%"PRIuIREF, us->u.passive.listen_iref);
         err = vfs_write(us->vfs_handle, str, strlen(str), NULL);
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "vfs_write");
@@ -743,6 +743,7 @@ struct hostent *gethostbyname(const char *name)
     }
 }
 
+#if 0
 int getaddrinfo(const char *restrict nodename,
                 const char *restrict servname,
                 const struct addrinfo *restrict hints,
@@ -761,3 +762,4 @@ const char *gai_strerror(int ecode)
 {
     return "No error";
 }
+#endif

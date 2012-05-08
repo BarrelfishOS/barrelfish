@@ -27,26 +27,21 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
 #include <trace/trace.h>
+#include <octopus/init.h>
 #include "threads.h"
 #include "init.h"
 
 /// Are we the init domain (and thus need to take some special paths)?
-#ifdef __BEEHIVE__
-// We dont have ELF to mess with entry points, so we rely on
-// initialisation domains to initialise this global symbol; if they dont
-// it will end up in as a common symbol in the bss and hence zero.
-bool __barrelfish_initialisation_domain;
-#define init_domain __barrelfish_initialisation_domain
-#else
 static bool init_domain;
-#endif
 
 extern size_t (*_libc_terminal_read_func)(char *, size_t);
 extern size_t (*_libc_terminal_write_func)(const char *, size_t);
 extern void (*_libc_exit_func)(int);
 extern void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
-static void libc_exit(int status)
+void libc_exit(int);
+
+void libc_exit(int status)
 {
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
@@ -114,24 +109,18 @@ errval_t trace_my_setup(void)
         .slot   = TASKCN_SLOT_TRACEBUF
     };
 
-#ifdef __BEEHIVE__ // whatever SAS is called
-    struct frame_identity id = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(cap, &id);
-    if (err_is_fail(err)) {
-	DEBUG_ERR(err, "frame_identify failed");
-	return err;
+    if (disp_get_core_id() >= TRACE_COREID_LIMIT) {
+        // can't support tracing on this core. sorry :(
+        return SYS_ERR_OK;
     }
-    // TODO: XXX Here be many bugs; should do some kind of mapping?
-    trace_buffer_master = id.base;
-#else
+
     err = vspace_map_one_frame((void**)&trace_buffer_master, TRACE_BUF_SIZE,
                                cap, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");
         return err;
     }
-#endif
-    assert(err_is_ok(err));
+
     trace_buffer_va = trace_buffer_master +
         (disp_get_core_id() * TRACE_PERCORE_BUF_SIZE);
 
@@ -257,9 +246,9 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
 #endif
 
-    // try to connect to name service (may fail if we are chips!)
+    // try to connect to name service (may fail if we are the skb or ramfsd!)
     err = nameservice_client_blocking_bind();
-    if (err_is_fail(err)) { // Chips fails with following error
+    if (err_is_fail(err)) {
         if (err_no(err) == LIB_ERR_GET_NAME_IREF) {
             // skip everything else if we don't have a nameservice
             return SYS_ERR_OK;
@@ -302,14 +291,6 @@ static void monitor_bind_cont(void *st, errval_t err, struct monitor_binding *b)
  * setup. We can't call anything that needs to be enabled (ie. cap invocations)
  * or uses threads. This is called from crt0.
  */
-#ifdef __BEEHIVE__
-void barrelfish_init_disabled(dispatcher_handle_t handle);
-void barrelfish_init_disabled(dispatcher_handle_t handle)
-{
-    disp_init_disabled(handle);
-    thread_init_disabled(handle, init_domain);
-}
-#else
 void barrelfish_init_disabled(dispatcher_handle_t handle, bool init_dom_arg);
 void barrelfish_init_disabled(dispatcher_handle_t handle, bool init_dom_arg)
 {
@@ -317,4 +298,3 @@ void barrelfish_init_disabled(dispatcher_handle_t handle, bool init_dom_arg)
     disp_init_disabled(handle);
     thread_init_disabled(handle, init_dom_arg);
 }
-#endif

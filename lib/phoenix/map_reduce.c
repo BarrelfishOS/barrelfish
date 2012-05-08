@@ -354,7 +354,7 @@ static void env_fini (mr_env_t* env)
     for (i = 0; i < TASK_TYPE_TOTAL; i++)
         sched_policy_put(env->schedPolicies[i]);
 
-    mem_free (env);
+    phoenix_mem_free (env);
 }
 
 /* Setup global state. */
@@ -365,7 +365,7 @@ env_init (map_reduce_args_t *args)
     int         i;
     int         num_procs;
 
-    env = mem_malloc (sizeof (mr_env_t));
+    env = phoenix_mem_malloc (sizeof (mr_env_t));
     if (env == NULL) {
        return NULL;
     }
@@ -460,25 +460,25 @@ env_init (map_reduce_args_t *args)
 
     /* 2. Initialize structures. */
 
-    env->intermediate_vals = (keyvals_arr_t **)mem_malloc (
+    env->intermediate_vals = (keyvals_arr_t **)phoenix_mem_malloc (
         env->intermediate_task_alloc_len * sizeof (keyvals_arr_t*));
 
     for (i = 0; i < env->intermediate_task_alloc_len; i++)
     {
-        env->intermediate_vals[i] = (keyvals_arr_t *)mem_calloc (
+        env->intermediate_vals[i] = (keyvals_arr_t *)phoenix_mem_calloc (
             env->num_reduce_tasks, sizeof (keyvals_arr_t));
     }
 
     if (env->oneOutputQueuePerReduceTask)
     {
         env->final_vals = 
-            (keyval_arr_t *)mem_calloc (
+            (keyval_arr_t *)phoenix_mem_calloc (
                 env->num_reduce_tasks, sizeof (keyval_arr_t));
     }
     else
     {
         env->final_vals =
-            (keyval_arr_t *)mem_calloc (
+            (keyval_arr_t *)phoenix_mem_calloc (
                 env->num_reduce_threads, sizeof (keyval_arr_t));
     }
 
@@ -574,11 +574,11 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
     task_type = th_arg->task_type;
     num_threads = getNumTaskThreads (env, task_type);
 
-    env->tinfo = (thread_info_t *)mem_calloc (
+    env->tinfo = (thread_info_t *)phoenix_mem_calloc (
         num_threads, sizeof (thread_info_t));
     th_arg->env = env;
 
-    th_arg_array = (thread_arg_t **)mem_malloc (
+    th_arg_array = (thread_arg_t **)phoenix_mem_malloc (
         sizeof (thread_arg_t *) * num_threads);
     CHECK_ERROR (th_arg_array == NULL);
 
@@ -588,7 +588,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
         th_arg->cpu_id = cpu;
         th_arg->thread_id = thread_index;
 
-        th_arg_array[thread_index] = mem_malloc (sizeof (thread_arg_t));
+        th_arg_array[thread_index] = phoenix_mem_malloc (sizeof (thread_arg_t));
         CHECK_ERROR (th_arg_array[thread_index] == NULL);
         mem_memcpy (th_arg_array[thread_index], th_arg, sizeof (thread_arg_t));
     }
@@ -604,9 +604,9 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
     work_time += timing->work_time;
     user_time += timing->user_time;
     combiner_time += timing->combiner_time;
-    mem_free (timing);
+    phoenix_mem_free (timing);
 #endif
-    mem_free (th_arg_array[0]);
+    phoenix_mem_free (th_arg_array[0]);
 
     /* Barrier, wait for all threads to finish. */
     CHECK_ERROR (tpool_wait (env->tpool));
@@ -620,13 +620,13 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
         work_time += timing->work_time;
         user_time += timing->user_time;
         combiner_time += timing->combiner_time;
-        mem_free (timing);
+        phoenix_mem_free (timing);
 #endif
-        mem_free (th_arg_array[thread_index]);
+        phoenix_mem_free (th_arg_array[thread_index]);
     }
 
-    mem_free (th_arg_array);
-    mem_free (rets);
+    phoenix_mem_free (th_arg_array);
+    phoenix_mem_free (rets);
 
 #ifdef TIMING
     switch (task_type)
@@ -656,7 +656,7 @@ start_workers (mr_env_t* env, thread_arg_t *th_arg)
     }
 #endif
 
-    mem_free(env->tinfo);
+    phoenix_mem_free(env->tinfo);
     dprintf("Status: All tasks have completed\n"); 
 }
 
@@ -893,7 +893,7 @@ static bool reduce_worker_do_next_task (
                 vals = curr_key_val->vals;
                 while (vals != NULL) {
                     next = vals->next_val;
-                    mem_free (vals);
+                    phoenix_mem_free (vals);
                     vals = next;
                 }
             }
@@ -918,7 +918,7 @@ static bool reduce_worker_do_next_task (
 
         arr = &env->intermediate_vals[curr_thread][curr_reduce_task];
         if (arr->alloc_len != 0)
-            mem_free(arr->arr);
+            phoenix_mem_free(arr->arr);
     }
 
     return true;
@@ -1090,7 +1090,7 @@ static int gen_map_tasks_split (mr_env_t* env, queue_t* q)
     cur_task_id = 0;
     while (env->splitter (env->args->task_data, env->chunk_size, &args))
     {
-        task = (task_queued *)mem_malloc (sizeof (task_queued));
+        task = (task_queued *)phoenix_mem_malloc (sizeof (task_queued));
         task->task.id = cur_task_id;
         task->task.len = (uint64_t)args.length;
         task->task.data = (uint64_t)args.data;
@@ -1108,7 +1108,7 @@ static int gen_map_tasks_split (mr_env_t* env, queue_t* q)
         {
             task = queue_entry (queue_elem, task_queued, queue_elem);
             assert (task != NULL);
-            mem_free (task);
+            phoenix_mem_free (task);
         }
 
         return 0;
@@ -1159,11 +1159,11 @@ static int gen_map_tasks_distribute_lgrp (
             assert (task != NULL);
 
             if (tq_enqueue_seq (env->taskQueue, &task->task, lgrp) < 0) {
-                mem_free (task);
+                phoenix_mem_free (task);
                 return -1;
             }
 
-            mem_free (task);
+            phoenix_mem_free (task);
             remaining_cur_lgrp_tasks--;
         } while (remaining_cur_lgrp_tasks);
 
@@ -1205,11 +1205,11 @@ static int gen_map_tasks_distribute_locator (
 
         task->task.v[3] = lgrp;         /* For debugging. */
         if (tq_enqueue_seq (env->taskQueue, &task->task, lgrp) != 0) {
-            mem_free (task);
+            phoenix_mem_free (task);
             return -1;
         }
 
-        mem_free (task);
+        phoenix_mem_free (task);
     }
 
     return 0;
@@ -1339,7 +1339,7 @@ static void run_combiner (mr_env_t* env, int thread_index)
             while (val)
             {
                 next = val->next_val;
-                mem_free (val);
+                phoenix_mem_free (val);
                 val = next;
             }
 
@@ -1491,13 +1491,13 @@ insert_keyval_merged (mr_env_t* env, keyvals_arr_t *arr, void *key, void *val)
             {
                 arr->alloc_len = DEFAULT_KEYVAL_ARR_LEN;
                 arr->arr = (keyvals_t *)
-                    mem_malloc (arr->alloc_len * sizeof (keyvals_t));
+                    phoenix_mem_malloc (arr->alloc_len * sizeof (keyvals_t));
             }
             else
             {
                 arr->alloc_len *= 2;
                 arr->arr = (keyvals_t *)
-                    mem_realloc (arr->arr, arr->alloc_len * sizeof (keyvals_t));
+                    phoenix_mem_realloc (arr->arr, arr->alloc_len * sizeof (keyvals_t));
             }
         }
 
@@ -1516,7 +1516,7 @@ insert_keyval_merged (mr_env_t* env, keyvals_arr_t *arr, void *key, void *val)
     if (insert_pos->vals == NULL)
     {
         /* Allocate a chunk for the first time. */
-        new_vals = mem_malloc 
+        new_vals = phoenix_mem_malloc 
             (sizeof (val_t) + DEFAULT_VALS_ARR_LEN * sizeof (void *));
         assert (new_vals);
 
@@ -1549,7 +1549,7 @@ insert_keyval_merged (mr_env_t* env, keyvals_arr_t *arr, void *key, void *val)
             int alloc_size;
 
             alloc_size = insert_pos->vals->size * 2;
-            new_vals = mem_malloc (sizeof (val_t) + alloc_size * sizeof (void *));
+            new_vals = phoenix_mem_malloc (sizeof (val_t) + alloc_size * sizeof (void *));
             assert (new_vals);
 
             new_vals->size = alloc_size;
@@ -1581,12 +1581,12 @@ insert_keyval (mr_env_t* env, keyval_arr_t *arr, void *key, void *val)
         if (arr->alloc_len == 0)
         {
             arr->alloc_len = DEFAULT_KEYVAL_ARR_LEN;
-            arr->arr = (keyval_t*)mem_malloc(arr->alloc_len * sizeof(keyval_t));
+            arr->arr = (keyval_t*)phoenix_mem_malloc(arr->alloc_len * sizeof(keyval_t));
         }
         else
         {
             arr->alloc_len *= 2;
-            arr->arr = (keyval_t*)mem_realloc(arr->arr, arr->alloc_len * sizeof(keyval_t));
+            arr->arr = (keyval_t*)phoenix_mem_realloc(arr->arr, arr->alloc_len * sizeof(keyval_t));
         }
     }
 
@@ -1652,7 +1652,7 @@ merge_results (mr_env_t* env, keyval_arr_t *vals, int length)
     env->merge_vals[curr_thread].alloc_len = total_num_keys;
     env->merge_vals[curr_thread].pos = 0;
     env->merge_vals[curr_thread].arr = (keyval_t *)
-        mem_malloc(sizeof(keyval_t) * total_num_keys);
+        phoenix_mem_malloc(sizeof(keyval_t) * total_num_keys);
 
     for (data_idx = 0; data_idx < total_num_keys; data_idx++) {
         /* For each keyval_t. */
@@ -1688,7 +1688,7 @@ merge_results (mr_env_t* env, keyval_arr_t *vals, int length)
     }
 
     for (i = 0; i < length; i++) {
-        mem_free(vals[i].arr);
+        phoenix_mem_free(vals[i].arr);
     }
 }
 
@@ -1845,9 +1845,9 @@ static void reduce (mr_env_t* env)
     /* Cleanup intermediate results. */
     for (i = 0; i < env->intermediate_task_alloc_len; ++i)
     {
-        mem_free (env->intermediate_vals[i]);
+        phoenix_mem_free (env->intermediate_vals[i]);
     }
-    mem_free (env->intermediate_vals);
+    phoenix_mem_free (env->intermediate_vals);
 }
 
 /**
@@ -1872,7 +1872,7 @@ static void merge (mr_env_t* env)
         env->args->result->data = env->final_vals->arr;
         env->args->result->length = env->final_vals->len;
 
-        mem_free(env->final_vals);
+        phoenix_mem_free(env->final_vals);
 
         return;
     }
@@ -1884,12 +1884,12 @@ static void merge (mr_env_t* env)
         /* This is the worst case length, 
            depending on the value of num_merge_threads. */
         env->merge_vals = (keyval_arr_t*) 
-            mem_malloc (env->num_merge_threads * sizeof(keyval_arr_t));
+            phoenix_mem_malloc (env->num_merge_threads * sizeof(keyval_arr_t));
 
         /* Run merge tasks and get merge values. */
         start_workers (env, &th_arg);
 
-        mem_free (th_arg.merge_input);
+        phoenix_mem_free (th_arg.merge_input);
         th_arg.merge_len = env->num_merge_threads;
 
         env->num_merge_threads /= 2;
@@ -1902,7 +1902,7 @@ static void merge (mr_env_t* env)
     env->args->result->data = env->merge_vals[0].arr;
     env->args->result->length = env->merge_vals[0].len;
 
-    mem_free(env->merge_vals);
+    phoenix_mem_free(env->merge_vals);
 }
 
 static inline mr_env_t* get_env (void)

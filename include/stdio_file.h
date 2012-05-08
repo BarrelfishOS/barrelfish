@@ -90,6 +90,8 @@ Author: Ben Leslie
 #define lock_stream(s) thread_mutex_lock_nested(&(s)->mutex)
 #define unlock_stream(s) thread_mutex_unlock(&(s)->mutex)
 
+#define __UNGET_SIZE 10
+
 struct __file {
     void *handle;       // Handle to pass to file handling functions
 

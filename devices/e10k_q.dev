@@ -1,0 +1,84 @@
+/*
+ * Copyright (c) 2011, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * e10k_q.dev
+ *
+ * DESCRIPTION: Intel 82599 10 GbE Controller Queues
+ *
+ * Numbers in comments refer to the Intel 82599 10 GbE Controller Datasheet
+ * 322429-007, Revison 2.6, December 2010
+ */
+
+device e10k_q lsbfirst () "Intel 82599 10 GbE Controller Queues" {
+
+  /************************************
+   * 7.1.5 - 7.1.6 Recieve Descriptors
+   ***********************************/
+
+  // 7.1.5
+  datatype rdesc_legacy "Legacy Receive Descriptor" {
+    buffer      64 "Buffer Address";
+    length      16 "Length Field";
+    checksum    16 "Fragment Checksum";
+
+    // Recieve Status
+    dd          1 "Descriptor Done";
+    eop         1 "End of Packet";
+    _           1 rsvd;
+    vp          1 "VLAN Packet";
+    udpcs       1 "UDP Checksum";
+    l4cs        1 "L4 Checksum";
+    ipcs        1 "Ipv4 Checksum";
+    pif         1 "Non Unicast Address";
+
+    // Error Field
+    rxe         1 "MAC error";
+    _           5 rsvd;
+    tcpe        1 "TCP/UDP Checksum Error";
+    ipe         1 "Ipv4 Checksum Error";
+
+    vlan_tag    16 "VLAN Tag";
+  };
+
+  // TODO: Advanced descriptor
+
+
+  /************************************
+   * 7.2.3 Transmit Descriptors
+   ***********************************/
+
+  // 7.2.3.2.2
+  datatype tdesc_legacy "Legacy Transmit Descriptor Format" {
+    buffer      64 "Buffer Address";
+    length      16 "Length";
+    cso         8 "Checksum Offset";
+
+    // Command Byte
+    eop         1 "End of Packet";
+    ifcs        1 "Insert FCS";
+    ic          1 "Insert Checksum";
+    rs          1 "Report Status";
+    _           1 rsvd;
+    dext        1 "Descriptor extension";
+    vle         1 "VLAN Packet Enable";
+    _           1 rsvd;
+
+    // Status
+    dd          1 " Descriptor Done Status";
+    _           3 rsvd;
+
+    _           4 rsvd;
+    css         8 "Checksum Start";
+    vlan        16 "VLAN Field";
+  };
+
+  // TODO: Advanced descriptor
+
+
+};

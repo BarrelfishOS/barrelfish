@@ -23,6 +23,8 @@
 #include "filter.h"
 #include "framework.h"
 
+#include "queue.h"
+
 // enable to check for regression
 // in hashtable and filter implementation
 //#define CHIPS_TESTS_ENABLED
@@ -48,6 +50,23 @@ get_service_reference(char* key)
     return (struct service_reference *) val;
 }
 
+static void wait_for_service_reference_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.wait_for_service_reference_response(b,
+            MKCONT(free, ns), ns->ref_handle);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
+
+
 // walk queue of pending lookups, sending replies for any that now match
 static void process_pending_lookups(void)
 {
@@ -61,10 +80,14 @@ static void process_pending_lookups(void)
         ref = get_service_reference(p->iface);
         if (ref != NULL) { // found entry: reply and remove from queue
             assert(p != NULL);
-            printf("chips: notifying client about %s\n", p->iface);
-            err = p->b->tx_vtbl.wait_for_service_reference_response(p->b,
-                                NOP_CONT, (nameservice_srvref_t)(uintptr_t)ref);
-            assert(err_is_ok(err)); // XXX
+
+            struct ns_reply_state* ns = NULL;
+            err = new_ns_reply(&ns, wait_for_service_reference_reply);
+            assert(err_is_ok(err));
+            ns->ref_handle = (nameservice_srvref_t)(uintptr_t)ref;
+
+            printf("%"PRIuDOMAINID" chips: notifying client about %s\n", disp_get_domain_id(), p->iface);
+            ns->rpc_reply(p->b, ns);
 
             if (p == pending_lookups) {
                 assert(prevp == NULL);
@@ -82,6 +105,21 @@ static void process_pending_lookups(void)
     }
 }
 
+static void register_service_handler_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.register_service_response(b, MKCONT(free, ns),
+                                    ns->reg_handle);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
 
 static void register_service_handler(struct nameservice_binding *b,
                                      iref_t iref, char *iface)
@@ -119,13 +157,32 @@ static void register_service_handler(struct nameservice_binding *b,
     print_hashtable(stdout, (struct hashtable_t *) registry);
 #endif
 
+
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, register_service_handler_reply);
+    assert(err_is_ok(err));
+
     // send back the service registration handle
     // XXX: unsafe to send pointer to our local state!
-    err = b->tx_vtbl.register_service_response(b, NOP_CONT,
-                                    (nameservice_reghandle_t)(uintptr_t)reg);
-    assert(err_is_ok(err)); // XXX
+    ns->reg_handle = (nameservice_reghandle_t)(uintptr_t)reg;
+    ns->rpc_reply(b, ns);
 
     process_pending_lookups();
+}
+
+static void unregister_service_handler_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.unregister_service_response(b, MKCONT(free, ns));
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
 }
 
 static void unregister_service_handler(struct nameservice_binding *b,
@@ -146,9 +203,27 @@ static void unregister_service_handler(struct nameservice_binding *b,
     print_hashtable(stdout, (struct hashtable_t *) registry);
 #endif
 
-    err = b->tx_vtbl.unregister_service_response(b, NOP_CONT);
-    assert(err_is_ok(err)); // XXX
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, unregister_service_handler_reply);
+    assert(err_is_ok(err));
+    ns->rpc_reply(b, ns);
 }
+
+static void get_service_reference_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.get_service_reference_response(b, MKCONT(free, ns),
+                                           ns->ref_handle);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
+
 
 static void get_service_reference_handler(
     struct nameservice_binding *b, char *iface)
@@ -161,9 +236,11 @@ static void get_service_reference_handler(
     ref = get_service_reference(iface);
     free(iface);
 
-    err = b->tx_vtbl.get_service_reference_response(b, NOP_CONT,
-                                        (nameservice_srvref_t)(uintptr_t)ref);
-    assert(err_is_ok(err)); // XXX
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, get_service_reference_reply);
+    assert(err_is_ok(err));
+    ns->ref_handle = (nameservice_srvref_t)(uintptr_t)ref;
+    ns->rpc_reply(b, ns);
 }
 
 static void wait_for_service_reference_handler(
@@ -178,7 +255,7 @@ static void wait_for_service_reference_handler(
 
     // if we didn't find anything, add it to the pending lookups queue
     if (ref == NULL) {
-        printf("chips: client waiting for %s\n", iface);
+        printf("%"PRIuDOMAINID" chips: client waiting for %s\n", disp_get_domain_id(), iface);
         struct pending_lookup *pending = malloc(sizeof(struct pending_lookup));
         assert(pending != NULL);
         pending->iface = iface;
@@ -189,9 +266,12 @@ static void wait_for_service_reference_handler(
     } else {
         // reply with existing entry
         free(iface);
-        err = b->tx_vtbl.wait_for_service_reference_response(b, NOP_CONT,
-                                        (nameservice_srvref_t)(uintptr_t)ref);
-        assert(err_is_ok(err)); // XXX
+
+        struct ns_reply_state* ns = NULL;
+        err = new_ns_reply(&ns, wait_for_service_reference_reply);
+        assert(err_is_ok(err));
+        ns->ref_handle = (nameservice_srvref_t)(uintptr_t)ref;
+        ns->rpc_reply(b, ns);
     }
 }
 
@@ -248,6 +328,21 @@ static void getservice_references_handler(
 }
 #endif
 
+static void get_service_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.get_service_response(b, MKCONT(free, ns), ns->iref);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
+
 static void get_service_handler(struct nameservice_binding *b,
                                 nameservice_srvref_t srvref)
 {
@@ -257,13 +352,31 @@ static void get_service_handler(struct nameservice_binding *b,
     // XXX TODO: check that the ref is still valid
     // is easier when the service ID is implemented as
     // a default attribute
-    err = b->tx_vtbl.get_service_response(b, NOP_CONT, ref->service);
-    assert(err_is_ok(err)); // XXX
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, get_service_reply);
+    assert(err_is_ok(err));
+    ns->iref = ref->service;
+    ns->rpc_reply(b, ns);
 }
 
 /***** Simple capability store *****/
 
 static struct hashtable *capdb = NULL;
+
+static void get_cap_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.get_cap_response(b, MKCONT(free, ns), ns->cap, ns->err);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
 
 static void get_cap_handler(struct nameservice_binding *b, char *key)
 {
@@ -276,8 +389,27 @@ static void get_cap_handler(struct nameservice_binding *b, char *key)
         reterr = CHIPS_ERR_UNKNOWN_NAME;
     }
 
-    err = b->tx_vtbl.get_cap_response(b, NOP_CONT, cap, reterr);
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, get_cap_reply);
     assert(err_is_ok(err));
+    ns->cap = cap;
+    ns->err = reterr;
+    ns->rpc_reply(b, ns);
+}
+
+static void put_cap_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.put_cap_response(b, MKCONT(free, ns), ns->err);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
 }
 
 static void put_cap_handler(struct nameservice_binding *b, char *key,
@@ -296,8 +428,40 @@ static void put_cap_handler(struct nameservice_binding *b, char *key,
         assert(r == 0);
     }
 
-    err = b->tx_vtbl.put_cap_response(b, NOP_CONT, reterr);
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, put_cap_reply);
     assert(err_is_ok(err));
+    ns->err = reterr;
+    ns->rpc_reply(b, ns);
+}
+
+static void remove_cap_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.remove_cap_response(b, MKCONT(free, ns), ns->err);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
+
+static void remove_cap_handler(struct nameservice_binding *b, char *key)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+
+    if(capdb->d.remove(&capdb->d, key))
+      reterr = CHIPS_ERR_UNKNOWN_NAME;
+
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, remove_cap_reply);
+    assert(err_is_ok(err));
+    ns->err = reterr;
+    ns->rpc_reply(b, ns);
 }
 
 /***** Semaphores  *****/
@@ -314,6 +478,21 @@ struct sem {
 
 static struct sem sems[MAX_SEM];
 
+static void sem_new_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.sem_new_response(b, MKCONT(free, ns), ns->semval, ns->err);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
+
 static void sem_new_handler(struct nameservice_binding *b, uint32_t value)
 {
     errval_t err, reterr = SYS_ERR_OK;
@@ -327,35 +506,74 @@ static void sem_new_handler(struct nameservice_binding *b, uint32_t value)
     }
 
     if(i != MAX_SEM) {
-      printf("chips: sem_new(%d, %u)\n", i, value);
+      printf("chips: sem_new(%d, %"PRIu32")\n", i, value);
         sems[i].value = value;
 	// sems[i].holder = NULL;
     } else {
         reterr = CHIPS_ERR_OUT_OF_SEMAPHORES;
     }
 
-    err = b->tx_vtbl.sem_new_response(b, NOP_CONT, i, reterr);
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, sem_new_reply);
     assert(err_is_ok(err));
+    ns->err = reterr;
+    ns->semval = i;
+    ns->rpc_reply(b, ns);
+}
+
+static void sem_post_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.sem_post_response(b, MKCONT(free, ns));
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
+}
+
+static void sem_wait_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.sem_wait_response(b, MKCONT(free, ns));
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
+    }
 }
 
 static void sem_post_handler(struct nameservice_binding *b, uint32_t sem)
 {
     assert(sem < MAX_SEM);
     struct sem *s = &sems[sem];
+    struct ns_reply_state* ns = NULL;
+
     assert(s->allocated);
     errval_t err;
 
-    printf("chips: sem_post %u, %u\n", sem, s->value);
-
+    //printf("%d chips: sem_post %u, %u\n", disp_get_domain_id(), sem, s->value);
+    
     if(s->value == 0) {
         for(int i = 0; i < MAX_QUEUE; i++) {
             if(s->queue[i] != NULL) {
                 // Wakeup one
-	      printf("chips: waking up one\n");
-                err = s->queue[i]->tx_vtbl.sem_wait_response(s->queue[i], NOP_CONT);
+	        //printf("%d chips: waking up one\n", disp_get_domain_id());
+                struct ns_reply_state* ns1 = NULL;
+                err = new_ns_reply(&ns1, sem_wait_reply);
+                assert(err_is_ok(err));
+                ns1->rpc_reply(s->queue[i], ns1);
                 assert(err_is_ok(err));
                 s->queue[i] = NULL;
-		goto out;
+                goto out;
             }
         }
 
@@ -365,10 +583,12 @@ static void sem_post_handler(struct nameservice_binding *b, uint32_t sem)
     // Increment
     s->value++;
 
- out:
-    printf("chips: sem_post done\n");
-    err = b->tx_vtbl.sem_post_response(b, NOP_CONT);
+out:
+    err = new_ns_reply(&ns, sem_post_reply);
     assert(err_is_ok(err));
+    ns->rpc_reply(b, ns);
+
+    //printf("%d chips: sem_post done\n", disp_get_domain_id());
 }
 
 static void sem_wait_handler(struct nameservice_binding *b, uint32_t sem)
@@ -378,12 +598,11 @@ static void sem_wait_handler(struct nameservice_binding *b, uint32_t sem)
     assert(s->allocated);
     errval_t err;
 
-    printf("chips: sem_wait %u, %u\n", sem, s->value);
-
+    //printf("%d chips: sem_wait %u, %u\n", disp_get_domain_id(), sem, s->value);
     if(s->value == 0) {
       int i;
 
-      printf("chips: waiting\n");
+      //printf("%d chips: waiting\n", disp_get_domain_id());
 
 /* Try to avoid the deadlock of Postgres processes entering the wait section
  * recursively.
@@ -405,10 +624,27 @@ static void sem_wait_handler(struct nameservice_binding *b, uint32_t sem)
 	assert(i < MAX_QUEUE);
     } else {
         // Decrement and continue
-      printf("chips: continuing\n");
+      //printf("%d chips: continuing\n", disp_get_domain_id());
         s->value--;
-        err = b->tx_vtbl.sem_wait_response(b, NOP_CONT);
+        struct ns_reply_state* ns = NULL;
+        err = new_ns_reply(&ns, sem_wait_reply);
         assert(err_is_ok(err));
+        ns->rpc_reply(b, ns);
+    }
+}
+
+static void sem_trywait_reply(struct nameservice_binding *b,
+        struct ns_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.sem_trywait_response(b, MKCONT(free, ns), (bool)ns->semval);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            enqueue_msg_state(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "chips: sending %s failed!", __FUNCTION__);
     }
 }
 
@@ -427,10 +663,12 @@ static void sem_trywait_handler(struct nameservice_binding *b, uint32_t sem)
         success = true;
     }
 
-    printf("chips: trywait %u, %s\n", sem, success ? "yes" : "no");
-
-    err = b->tx_vtbl.sem_trywait_response(b, NOP_CONT, success);
+    //printf("%d chips: trywait %u, %s\n", disp_get_domain_id(), sem, success ? "yes" : "no");
+    struct ns_reply_state* ns = NULL;
+    err = new_ns_reply(&ns, sem_trywait_reply);
     assert(err_is_ok(err));
+    ns->semval = success;
+    ns->rpc_reply(b, ns);
 }
 
 /**********/
@@ -444,6 +682,7 @@ static struct nameservice_rx_vtbl nameservice_rx_vtbl = {
 
     .get_cap_call = get_cap_handler,
     .put_cap_call = put_cap_handler,
+    .remove_cap_call = remove_cap_handler,
 
     .sem_new_call = sem_new_handler,
     .sem_post_call = sem_post_handler,
@@ -470,6 +709,7 @@ static void export_handler(void *st, errval_t err, iref_t iref)
 
 static errval_t connect_handler(void *st, struct nameservice_binding *b)
 {
+	b->st = NULL;
     b->rx_vtbl = nameservice_rx_vtbl;
     return SYS_ERR_OK;
 }

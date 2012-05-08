@@ -86,6 +86,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+/* VFS support for fopen() and friends in oldc / newlib */
+
 #define _USE_XOPEN // for strdup()
 #include <string.h>
 #include <stdio.h>
@@ -95,8 +97,10 @@
 #include <vfs/vfs_path.h>
 #include <errno.h>
 #include "vfs_backends.h"
+#include <vfs/vfs_fd.h>
 
-static long int barrelfish_eof(void *handle)
+static long int
+barrelfish_eof(void *handle)
 {
     /* contrary to what its name may imply, the purpose of this function is to
      * return the size of the file (see the fseek() implementation) */
@@ -159,10 +163,10 @@ barrelfish_close(void *handle)
     return err_is_ok(err) ? 0 : EOF;
 }
 
-static FILE *
-barrelfish_fopen(const char *fname, const char *mode)
+ __attribute__((unused)) static struct __file *
+barrelfish_oldc_fopen(const char *fname, const char *mode)
 {
-    FILE *newfile;
+    struct __file *newfile;
     vfs_handle_t vh;
     errval_t err;
 
@@ -195,7 +199,7 @@ barrelfish_fopen(const char *fname, const char *mode)
         }
     }
 
-    newfile = malloc(sizeof(FILE));
+    newfile = malloc(sizeof(struct __file));
     if (newfile == NULL) {
         vfs_close(vh);
         return NULL;
@@ -216,7 +220,8 @@ barrelfish_fopen(const char *fname, const char *mode)
     newfile->buffer = NULL;
     newfile->buf_pos = 0;
     /* newfile->buf_size = 65536; */
-    newfile->buf_size = 262144;
+    //    newfile->buf_size = 262144;
+    newfile->buf_size = (16 * 1024 * 1024);
     newfile->unget_pos = 0;
     newfile->eof = 0;
     newfile->error = 0;
@@ -230,12 +235,35 @@ barrelfish_fopen(const char *fname, const char *mode)
     return newfile;
 }
 
-extern FILE *(*_libc_fopen_func)(const char *fname, const char *prot);
+#ifdef CONFIG_OLDC
+extern struct __file *(*_oldc_fopen_func)(const char *fname, const char *prot);
+#endif
+
+#ifdef CONFIG_NEWLIB
+typedef int   fsopen_fn_t(const char *, int);
+typedef int   fsread_fn_t(int, void *buf, size_t);
+typedef int   fswrite_fn_t(int, const void *, size_t);
+typedef int   fsclose_fn_t(int);
+typedef off_t fslseek_fn_t(int, off_t, int);
+void
+newlib_register_fsops__(fsopen_fn_t *open_fn,
+                        fsread_fn_t *read_fn,
+                        fswrite_fn_t *write_fn,
+                        fsclose_fn_t *close_fn,
+                        fslseek_fn_t *lseek_fn);
+#endif
 
 void vfs_fopen_init(void)
 {
-    /* set the function pointer that libc calls through */
-    _libc_fopen_func = barrelfish_fopen;
+    /* set the function pointer that oldc libc calls through */
+    #ifdef CONFIG_OLDC
+    _oldc_fopen_func = barrelfish_oldc_fopen;
+    #endif
+
+    #ifdef CONFIG_NEWLIB
+    newlib_register_fsops__(vfsfd_open, vfsfd_read, vfsfd_write,
+                            vfsfd_close, vfsfd_lseek);
+    #endif
 
     // Initialize working directory if not set already
     int r = setenv("PWD", "/", 0);

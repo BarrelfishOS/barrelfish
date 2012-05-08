@@ -12,6 +12,6 @@
 
 [ compileNativeC "simulator"
   [ "simulator.c" ]
-  [ "-std=c99", "-g", "-Wall", "-Werror", "-DSCHEDULER_SIMULATOR" ]
+  [ "-std=gnu99", "-g", "-Wall", "-Werror", "-DSCHEDULER_SIMULATOR" ]
   []
 ]

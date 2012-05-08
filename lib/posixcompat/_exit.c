@@ -10,7 +10,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+__attribute__((noreturn)) void libc_exit(int status);
+
 void _exit(int status)
 {
-    exit(status);
+    libc_exit(status);
 }

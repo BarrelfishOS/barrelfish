@@ -63,25 +63,25 @@ tpool_t* tpool_create (int num_threads)
     tpool_t         *tpool;
     /* pthread_attr_t  attr; */
 
-    tpool = mem_calloc (1, sizeof (tpool_t));
+    tpool = phoenix_mem_calloc (1, sizeof (tpool_t));
     if (tpool == NULL) 
         return NULL;
 
     tpool->num_threads = num_threads;
     tpool->num_workers = num_threads;
 
-    tpool->args = (void **)mem_malloc (sizeof (void *) * num_threads);
+    tpool->args = (void **)phoenix_mem_malloc (sizeof (void *) * num_threads);
     if (tpool->args == NULL) 
         goto fail_args;
 
     // Barrelfish: tpool->threads still allocated but not actually
     // used except for first idle thread, which I believe is created
     // by mistake on core 0, as it is never actually used.
-    tpool->threads = (struct thread **)mem_malloc (sizeof (struct thread *) * num_threads);
+    tpool->threads = (struct thread **)phoenix_mem_malloc (sizeof (struct thread *) * num_threads);
     if (tpool->threads == NULL) 
         goto fail_threads;
 
-    tpool->thread_args = (thread_arg_t *)mem_malloc (
+    tpool->thread_args = (thread_arg_t *)phoenix_mem_malloc (
         sizeof (thread_arg_t) * num_threads);
     if (tpool->thread_args == NULL) 
         goto fail_thread_args;
@@ -115,7 +115,7 @@ tpool_t* tpool_create (int num_threads)
         tpool->thread_args[i].die = &tpool->die;
         tpool->thread_args[i].thread_func = &tpool->thread_func;
         tpool->thread_args[i].thread_func_arg = &tpool->args[i];
-        tpool->thread_args[i].ret = (void **)mem_malloc (sizeof (void *));
+        tpool->thread_args[i].ret = (void **)phoenix_mem_malloc (sizeof (void *));
         CHECK_ERROR (tpool->thread_args[i].ret == NULL);
         tpool->thread_args[i].num_workers = &tpool->num_workers;
 
@@ -142,11 +142,11 @@ tpool_t* tpool_create (int num_threads)
     return tpool;
 
 fail_all_workers_done:
-    mem_free (tpool->thread_args);
+    phoenix_mem_free (tpool->thread_args);
 fail_thread_args:
-    mem_free (tpool->threads);
+    phoenix_mem_free (tpool->threads);
 fail_threads:
-    mem_free (tpool->args);
+    phoenix_mem_free (tpool->args);
 fail_args:
 
     return NULL;
@@ -212,7 +212,7 @@ void** tpool_get_results (tpool_t *tpool)
 
     assert (tpool != NULL);
 
-    rets = (void **)mem_malloc (sizeof (void *) * tpool->num_threads);
+    rets = (void **)phoenix_mem_malloc (sizeof (void *) * tpool->num_threads);
     CHECK_ERROR (rets == NULL);
 
     for (i = 0; i < tpool->num_threads; ++i) {
@@ -235,7 +235,7 @@ int tpool_destroy (tpool_t *tpool)
     tpool->num_workers_done = 0;
     
     for (i = 0; i < tpool->num_threads; ++i) {
-        mem_free (tpool->thread_args[i].ret);
+        phoenix_mem_free (tpool->thread_args[i].ret);
 
         tpool->die = 1;
         thread_sem_post(&tpool->thread_args[i].sem_run);
@@ -243,11 +243,11 @@ int tpool_destroy (tpool_t *tpool)
 
     thread_sem_wait(&tpool->sem_all_workers_done);
 
-    mem_free (tpool->args);
-    mem_free (tpool->threads);
-    mem_free (tpool->thread_args);
+    phoenix_mem_free (tpool->args);
+    phoenix_mem_free (tpool->threads);
+    phoenix_mem_free (tpool->thread_args);
 
-    mem_free (tpool);
+    phoenix_mem_free (tpool);
 
     return result;
 }

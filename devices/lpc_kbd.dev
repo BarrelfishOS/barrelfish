@@ -17,7 +17,7 @@
  * Ref: http://www.mcamafia.de/pdf/ibm_hitrc07.pdf
  */
 
-device LPC_kbd msbfirst (io base) "LPC Keyboard" {
+device lpc_kbd msbfirst (io base) "LPC Keyboard" {
     register input ro io(base, 0) "Input" type(uint8);
     register status ro io(base, 4) "Status" {
         perr    1 "Parity error";

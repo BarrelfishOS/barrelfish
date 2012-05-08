@@ -39,7 +39,7 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
                                    uint64_t arg10)
 {
     uint8_t send_bits = get_cap_valid_bits(send_cap);
-    caddr_t send_cptr = get_cap_addr(send_cap) >> (CPTR_BITS - send_bits);
+    capaddr_t send_cptr = get_cap_addr(send_cap) >> (CPTR_BITS - send_bits);
 
 #ifndef TRACE_DISABLE_LRPC
     // Do an LRPC if possible
@@ -54,7 +54,7 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
 #endif
 
     uint8_t invoke_bits = get_cap_valid_bits(ep);
-    caddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
 
     return syscall(SYSCALL_INVOKE,
                    (uint64_t)invoke_cptr << 32 | (uint64_t)send_bits << 24 |

@@ -17,21 +17,29 @@ import Attr
 import Data.Bits
 import Text.ParserCombinators.Parsec
 import MackerelParser
+import TypeName as TN
 
 data Rec = Rec { name :: String,
                  size :: Integer,
                  offset :: Integer,
                  attr :: Attr,
                  initial :: Integer,
-                 tpe :: Maybe String,
+                 tpe :: Maybe TN.Name,
                  desc :: String,
                  pos :: SourcePos,
                  is_anon :: Bool }
            deriving (Show,Eq)
 
+is_writeonly :: Rec -> Bool
 is_writeonly f = attr_is_writeonly (attr f)
+
+is_readable :: Rec -> Bool
 is_readable  f = attr_is_readable (attr f)
+
+is_writeable :: Rec -> Bool
 is_writeable f = attr_is_writeable (attr f)
+
+is_rsvd :: Rec -> Bool
 is_rsvd Rec { attr = RSVD } = True
 is_rsvd _ = False
 
@@ -39,36 +47,38 @@ is_rsvd _ = False
 -- Create a list of fields, in the right order, with the right default
 -- attribute, from a set of declarations.
 --
-make_list :: Attr -> BitOrder -> Integer -> [AST] -> [Rec]
-make_list dflt order 0 decls 
-    = make_list_from_word dflt order 0 decls
-make_list dflt order word_size decls 
-    = make_list_of_words dflt order word_size 0 decls []
+make_list :: String -> Attr -> BitOrder -> Integer -> [AST] -> [Rec]
+make_list dn dflt order 0 decls 
+    = make_list_from_word dn dflt order 0 decls
+make_list dn dflt order word_size decls 
+    = make_list_of_words dn dflt order word_size 0 decls []
 
-make_list_of_words dflt order word_size off decls acc 
+
+make_list_of_words :: String -> Attr -> BitOrder -> Integer -> Integer
+                      -> [AST] -> [AST] -> [Rec]
+make_list_of_words dn dflt order word_size off decls acc 
     = let acc_length = foldl (+) 0 [ s | (RegField _ s _ _ _ _) <- acc ]
       in
         if acc_length >= word_size then
-            let al = make_list_from_word dflt order off acc
+            let al = make_list_from_word dn dflt order off acc
                 new_off = (offset $ last al) + (size $ last al)
             in 
-              al ++ (make_list_of_words dflt order word_size new_off decls [])
+              al ++ (make_list_of_words dn dflt order word_size new_off decls [])
         else 
             if (length decls) == 0 then
-                 make_list_from_word dflt order off acc
+                 make_list_from_word dn dflt order off acc
             else
-                make_list_of_words dflt order word_size off (tail decls) (acc ++ [head decls])
+                make_list_of_words dn dflt order word_size off (tail decls) (acc ++ [head decls])
 
 
-make_list_from_word :: Attr -> BitOrder -> Integer -> [AST] -> [Rec]
-make_list_from_word dflt LSBFIRST init_offset decls = 
+make_list_from_word :: String -> Attr -> BitOrder -> Integer -> [AST] -> [Rec]
+make_list_from_word dn dflt LSBFIRST init_offset decls = 
     -- Cons up a list of the offsets of each field in the structure. 
     let add_sizes decls = 
             foldl (\t (RegField _ s _ _ _ _) -> t ++ [(last t) + s]) [init_offset] decls
-    in map (make_field dflt False) $ zip decls (add_sizes decls)
-make_list_from_word dflt MSBFIRST init_offset decls = 
-    make_list dflt LSBFIRST init_offset (reverse decls)
-
+    in map (make_field dn dflt False) $ zip decls (add_sizes decls)
+make_list_from_word dn dflt MSBFIRST init_offset decls = 
+    make_list_from_word dn dflt LSBFIRST init_offset (reverse decls)
 
 --
 -- Create a list of fields, in the right order, with the right 
@@ -84,24 +94,24 @@ inherit_list regattr ftlist =
 -- to the attribute of the register (dflt here), unless it's "_", in
 -- which case it defaults to RSVD.
 --
-make_field :: Attr -> Bool -> (AST, Integer) -> Rec
-make_field dflt anon ((RegField id sz a t dsc p), off) 
+make_field :: String -> Attr -> Bool -> (AST, Integer) -> Rec
+make_field dn dflt anon ((RegField id sz a t dsc p), off) 
     | id == "_" = 
-        make_field RSVD True ((RegField ("_anon" ++ show off) sz a t "_" p), off)
+        make_field dn RSVD True ((RegField ("_anon" ++ show off) sz a t "_" p), off)
     | otherwise = 
         Rec { name = id, 
               size = sz, 
               offset = off,
               initial = if a == MB1 then (shift 1 $ fromInteger sz) - 1 else 0,
               attr = if a == NOATTR then dflt else a,
-              tpe = (make_ftype t),
+              tpe = make_ftype t dn,
               desc = dsc, 
               pos = p, 
-            is_anon = anon }
+              is_anon = anon }
 
-make_ftype :: AST -> Maybe String
-make_ftype NoBitFieldType = Nothing
-make_ftype (TypeRef i) = Just i
+make_ftype :: AST -> String -> Maybe TN.Name
+make_ftype NoBitFieldType _ = Nothing
+make_ftype t@(TypeRef _ _) dn = Just (TN.fromRef t dn)
 
 --
 -- Generate masks and shifts for isolating this field.  These functions

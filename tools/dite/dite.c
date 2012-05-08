@@ -133,7 +133,7 @@ static void elf32_fill_diteinfo(char *fbuf, genvaddr_t elfbase)
     if(sh_size < 2048) {
         memcpy(cd.sh, fbuf + (uintptr_t)head32->e_shoff, sh_size);
     } else {
-        printf("section header too big (size %zd)\n", sh_size);
+        printf("section header too big (size %lu)\n", sh_size);
         exit(1);
     }
 }
@@ -149,7 +149,7 @@ static void elf64_fill_diteinfo(char *fbuf, genvaddr_t elfbase)
     if(sh_size < 2048) {
         memcpy(cd.sh, fbuf + (uintptr_t)head64->e_shoff, sh_size);
     } else {
-        printf("section header too big (size %zd)\n", sh_size);
+        printf("section header too big (size %lu)\n", sh_size);
         exit(1);
     }
 }

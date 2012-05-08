@@ -103,37 +103,18 @@ def default_bootmodules(build, machine):
     m.add_module("%s/sbin/init" % a)
     m.add_module("%s/sbin/mem_serv" % a)
     m.add_module("%s/sbin/monitor" % a)
-    m.add_module("%s/sbin/chips" % a, ["boot"])
     m.add_module("%s/sbin/ramfsd" % a, ["boot"])
+    m.add_module("%s/sbin/skb" % a, ["boot"])
     m.add_module("%s/sbin/spawnd" % a, ["boot"])
     m.add_module("%s/sbin/startd" % a, ["boot"])
 
     # SKB and PCI are x86-only for the moment
     if a == "x86_64" or a == "x86_32":
-        m.add_module("%s/sbin/skb" % a, ["boot"])
+        m.add_module("%s/sbin/acpi" % a, ["boot"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("%s/sbin/pci" % a, ["boot"])
+        m.add_module("%s/sbin/kaluga" % a, ["boot"])
 	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
-
-    # beehive-specific stuff
-    elif a == "beehive":
-        m.set_hypervisor("beehive/sbin/hyper")
-
-        kernargs = machine.get_kernel_args()
-        if kernargs is None:
-            kernargs = []
-
-        # add cpu, monitor and spawnd for each core
-        m.del_module("%s/sbin/cpu" % a)
-        extracores = machine.get_coreids()[1:]
-        for c in extracores:
-            m.add_module("%s/sbin/cpu|%d" % (a, c), kernargs+["nospawn"])
-            m.add_module("%s/sbin/monitor|%d" % (a, c), ["nospawn"])
-            m.add_module("%s/sbin/spawnd|%d" % (a, c), ["nospawn"])
-
-        # tell BSP spawnd what to boot
-        m.add_module_arg("spawnd",
-                         "bootbees=" + ','.join(map(str,extracores)))
+        m.add_module("%s/sbin/pci" % a, ["auto"])
 
     # ARM-specific stuff
     elif a == "arm":

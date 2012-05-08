@@ -305,7 +305,7 @@ errval_t terminal_init(void)
     /* Connect to serial driver if possible */
     err = nameservice_lookup("serial", &iref);
     if (err_is_fail(err)) {
-        if (err_no(err) == CHIPS_ERR_UNKNOWN_NAME) {
+        if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
             // serial not present, ignore it and continue
             return SYS_ERR_OK;
         } else {
@@ -366,6 +366,16 @@ errval_t terminal_want_stdin(unsigned sources)
             goto out;
         }
         state->kbd_bound = true;
+    }
+
+    // XXX: I don't believe this waiting is correct. It changes this from a 
+    // non-blocking to a blocking API call. The caller should dispatch
+    // the default waitset, and the bind will eventually complete. -AB
+    while ((sources & TERMINAL_SOURCE_SERIAL) && state->serial == NULL) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "event_dispatch on default waitset failed.");
+        }
     }
 
     if (sources & TERMINAL_SOURCE_SERIAL && state->serial != NULL) {

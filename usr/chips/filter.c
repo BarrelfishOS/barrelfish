@@ -85,7 +85,7 @@ filter_t create_filter(char *str)
         nextChar = str[i + 1];
 
         // strip whitespaces
-        while (nextChar != '\0' && isspace(str[i]) != 0) {
+        while (nextChar != '\0' && isspace((int)str[i]) != 0) {
             i++;
             nextChar = str[i + 1];
         }
@@ -354,7 +354,7 @@ static inline char* to_lower(const char *str)
     register size_t i;
     char* lower = malloc(len * sizeof(char*));
     for (i = 0; i < len; i++) {
-        lower[i] = tolower(str[i]);
+        lower[i] = tolower((int)str[i]);
     }
     return lower;
 }

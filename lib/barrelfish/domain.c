@@ -1035,7 +1035,6 @@ struct vspace *get_current_vspace(void)
     return &disp->core_state.vspace_state.vspace;
 }
 
-#ifndef __BEEHIVE__ // XXX: Implement arch specific domain.c
 /**
  * \brief Returns a pointer to the current pinned state on the dispatcher priv
  */
@@ -1045,7 +1044,6 @@ struct pinned_state *get_current_pinned_state(void)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return &disp->core_state.pinned_state;
 }
-#endif
 
 /**
  * \brief Returns a pointer to the current pmap on the dispatcher priv
@@ -1090,7 +1088,7 @@ struct skb_state *get_skb_state(void)
 /**
  * \brief Returns a pointer to the chips_context state on the dispatcher priv
  */
-struct nameservice_rpc_client *get_nameservice_rpc_client(void)
+struct octopus_rpc_client *get_nameservice_rpc_client(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -1100,7 +1098,7 @@ struct nameservice_rpc_client *get_nameservice_rpc_client(void)
 /**
  * \brief set the chips_context state on the dispatcher priv
  */
-void set_nameservice_rpc_client(struct nameservice_rpc_client *c)
+void set_nameservice_rpc_client(struct octopus_rpc_client *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);

@@ -22,10 +22,7 @@
 #include <trace/trace.h>
 #include "spawn.h"
 #include "arch.h"
-
-#ifndef __BEEHIVE__
 #include <elf/elf.h>
-#endif
 
 extern char **environ;
 
@@ -115,6 +112,9 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     }
 #endif
 
+    // XXX: copy over argspg?
+    memset(&si->argspg, 0, sizeof(si->argspg));
+
     /* Fill up basecn */
     struct capref   basecn_cap;
     struct cnoderef basecn;
@@ -200,12 +200,6 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 #endif
         break;
 
-    case CPU_BEEHIVE:
-        /* vtree is meaningless for beehive */
-        si->vtree = NULL_CAP;
-        err = SYS_ERR_OK;
-        break;
-
     case CPU_ARM:
         err = vnode_create(si->vtree, ObjType_VNode_ARM_l1);
         break;
@@ -258,15 +252,6 @@ static errval_t spawn_map(const char *name, struct bootinfo *bi,
  */
 static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
 {
-#ifdef __BEEHIVE__
-    si->cpu_type = CPU_BEEHIVE;
-
-    // XXX There used to be magic code here to pass the
-    // bootinfo pointer through, but that is now believed
-    // to have been obsoleted by the generic mechanism.
-    // If not, here is where to put it back in.
-
-#else
     struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)binary;
 
     switch(head->e_machine) {
@@ -286,7 +271,7 @@ static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
         assert(!"Unsupported architecture type");
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
-#endif
+
     return SYS_ERR_OK;
 }
 

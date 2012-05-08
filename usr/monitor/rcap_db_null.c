@@ -31,7 +31,7 @@ bool rcap_db_exists(struct capability *cap)
 errval_t rcap_db_get_info(struct capability *cap, bool * has_desc, 
                           coremask_t *on_cores)
 {
-    *on_cores = 0xffffffffffffffffl;  
+    memset(on_cores->bits, -1, sizeof(on_cores->bits));  
     return SYS_ERR_OK;
 }
 

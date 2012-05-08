@@ -14,7 +14,7 @@
 
 void debug_dump(arch_registers_state_t *archregs)
 {
-#define dpr(reg) debug_printf(#reg " %08x", archregs->named. reg)
+#define dpr(reg) debug_printf(#reg " %08"PRIu32, archregs->named. reg)
     dpr(r0);    dpr(r1);        dpr(r2);        dpr(r3);
     dpr(r4);    dpr(r5);        dpr(r6);        dpr(r7);
     dpr(rtls);  dpr(r10);       dpr(r11);       dpr(r12);

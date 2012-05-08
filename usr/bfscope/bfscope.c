@@ -64,7 +64,7 @@ static void bfscope_connection_close(struct tcp_pcb *tpcb)
 }
 
 /*
- * \brief Error callback from lwip 
+ * \brief Error callback from lwip
  */
 static void error_cb(void *arg, err_t err)
 {
@@ -84,19 +84,19 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
     int len;
 
     //DEBUG("tcp_sndbuf=%d\n", tcp_sndbuf(tpcb));
-    
+
     bufptr = trace_buf + trace_sent;
     len = trace_length - trace_sent;
-    
+
     int more = 0;
     if (len > tcp_sndbuf(tpcb)) {
         len = tcp_sndbuf(tpcb);
         more = 1;
     }
-    
+
     /* Give the data to LWIP until it runs out of buffer space */
-    int r = tcp_write(tpcb, bufptr, len, 
-                      TCP_WRITE_FLAG_COPY | (more ? TCP_WRITE_FLAG_MORE : 0)); 
+    int r = tcp_write(tpcb, bufptr, len,
+                      TCP_WRITE_FLAG_COPY | (more ? TCP_WRITE_FLAG_MORE : 0));
 
     //DEBUG("%d %ld+%d\n", r, trace_sent, len);
 
@@ -105,11 +105,11 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
         return;
     }
     trace_sent += len;
-    
+
     if (trace_sent >= trace_length) {
         /* No more events */
         uint64_t timestamp_stop = rdtsc();
-        DEBUG("bfscope: done (%zu bytes) in %ld cycles\n", 
+        DEBUG("bfscope: done (%lu bytes) in %ld cycles\n",
                trace_sent, timestamp_stop - timestamp_start);
         trace_length = 0;
         trace_sent = 0;
@@ -117,7 +117,7 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
 }
 
 /*
- * \brief Callback from LWIP when each chunk of data has been sent 
+ * \brief Callback from LWIP when each chunk of data has been sent
  */
 static err_t send_cb(void *arg, struct tcp_pcb *tpcb, u16_t length)
 {
@@ -148,7 +148,7 @@ static void bfscope_trace_complete(void)
     /* Format the trace into global trace buffer */
     trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN);
 
-    DEBUG("bfscope: trace length %zu\n", trace_length);
+    DEBUG("bfscope: trace length %lu\n", trace_length);
 
     /* Send length field */
     char tmpbuf[10];
@@ -178,8 +178,8 @@ static void ipi_handler(void *arg)
     bfscope_trace_complete();
 }
 
-/** 
- * \brief Wait for a trace completion IPI 
+/**
+ * \brief Wait for a trace completion IPI
  */
 static errval_t bfscope_trace_wait_ipi(void)
 {
@@ -200,8 +200,8 @@ static errval_t bfscope_trace_wait_ipi(void)
 /*
  * \brief Take a real trace and dump it ito the trace_buf
  */
-static void trace_acquire(struct tcp_pcb *tpcb, 
-                          uint64_t start_trigger, 
+static void trace_acquire(struct tcp_pcb *tpcb,
+                          uint64_t start_trigger,
                           uint64_t stop_trigger)
 {
     errval_t err;
@@ -210,11 +210,11 @@ static void trace_acquire(struct tcp_pcb *tpcb,
         trace_buf = malloc(BFSCOPE_BUFLEN);
     }
     assert(trace_buf);
-    
+
     trace_reset_all();
 
     bfscope_trace_acquired = false;
-    
+
     err = trace_control(start_trigger, stop_trigger, 10 * 30 * 2000000);
 
     err = bfscope_trace_wait_ipi();
@@ -222,7 +222,7 @@ static void trace_acquire(struct tcp_pcb *tpcb,
 
 
 /*
- * \brief Callback from LWIP when we receive TCP data 
+ * \brief Callback from LWIP when we receive TCP data
  */
 static err_t recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
                      err_t err)
@@ -235,7 +235,7 @@ static err_t recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
 
     /* don't send an immediate ack here, do it later with the data */
     tpcb->flags |= TF_ACK_DELAY;
-    
+
     assert(p->next == 0);
 
     if ((p->tot_len > 2) && (p->tot_len < 200)) {
@@ -248,7 +248,7 @@ static err_t recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
         if (strncmp(p->payload, "trace", strlen("trace")) == 0) {
 
             DEBUG("bfscope: trace request\n");
-            
+
             if (trace_length == 0) {
                 sys_print("T",1);
                 trace_acquire((struct tcp_pcb *)arg,
@@ -315,17 +315,6 @@ static int bfscope_server_init(void)
     return (0);
 }
 
-/*
- * \brief Bring up the LWIP stack and start DHCP..
- */
-static void startlwip(char *card_name)
-{
-    lwip_init(card_name);
-
-    int r = bfscope_server_init();
-    assert(r == 0);
-}
-
 
 
 //******************************************************************************
@@ -367,7 +356,7 @@ static errval_t register_interrupt(int irqvector)
     err = invoke_irqtable_set(cap_irq, irqvector, epcap);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
-            printf("bfscope: Error registering IRQ, check that bfscope " \
+            printf("cope: Error registering IRQ, check that cope " \
                    "is spawned by the monitor by having 'boot' as its " \
                    "first argument\n");
         } else {
@@ -417,10 +406,11 @@ int main(int argc, char**argv)
     printf("%.*s: trying to connect to the e1000 driver...\n",
            DISP_NAME_LEN, disp_name());
 
-    startlwip("e1000");
+    lwip_init_auto();
+    int r = bfscope_server_init();
+    assert(r == 0);
 
     network_polling_loop();
-
     return 0;
 }
 

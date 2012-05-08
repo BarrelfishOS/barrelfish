@@ -18,6 +18,8 @@
 #include <barrelfish/bulk_transfer.h>
 #include <barrelfish/vregion.h>
 #include <if/trivfs_defs.h>
+#include <if/monitor_defs.h>
+
 #include "ramfs.h"
 
 #define SERVICE_NAME    "ramfs"
@@ -82,13 +84,13 @@ static struct dirent *fh_get(struct client_state *st, trivfs_fh_t fh)
 {
     // unpack fh
     unsigned gen = fh >> FHTAB_SIZE_BITS;
-    unsigned index = fh & FHTAB_SIZE_MASK;
+    unsigned idx = fh & FHTAB_SIZE_MASK;
 
     // check if it's still valid
     struct dirent *e = NULL;
-    if ((gen == st->fhgen && index < st->fhindex)
-        || (gen == st->fhgen - 1 && index >= st->fhindex)) {
-        e = st->fhtab[index];
+    if ((gen == st->fhgen && idx < st->fhindex)
+        || (gen == st->fhgen - 1 && idx >= st->fhindex)) {
+        e = st->fhtab[idx];
     }
 
     if (e == NULL) {
@@ -100,7 +102,7 @@ static struct dirent *fh_get(struct client_state *st, trivfs_fh_t fh)
     }
 
     // has been deleted
-    st->fhtab[index] = NULL;
+    st->fhtab[idx] = NULL;
     ramfs_decref(e);
     return NULL;
 }
@@ -372,7 +374,7 @@ static void getroot(struct trivfs_binding *b)
     msg_enqueue(st, b, e);
 }
 
-static void readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t index)
+static void readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t idx)
 {
     errval_t err, reterr = SYS_ERR_OK;
     struct client_state *st = b->st;
@@ -387,7 +389,7 @@ static void readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t index)
     }
 
     struct dirent *e = NULL;
-    err = ramfs_readdir(d, index, &e);
+    err = ramfs_readdir(d, idx, &e);
     if (err_is_fail(err)) {
         reterr = err;
         goto reply;
@@ -935,10 +937,10 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register(SERVICE_NAME, iref);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice_register failed");
-        abort();
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.set_ramfs_iref_request(mb, NOP_CONT, iref);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send set_ramfs_iref_request to monitor");
     }
 }
 

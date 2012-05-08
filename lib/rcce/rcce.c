@@ -76,6 +76,15 @@ int RCCE_init(int *argc, char ***argv)
     RCCE_NP        = atoi(*(++(*argv)));
     RC_REFCLOCKGHZ = atof(*(++(*argv)));
 
+    if(RC_REFCLOCKGHZ == 0) {
+        printf("Barrelfish RCCE extension: Computing reference clock GHz automatically...\n");
+        uint64_t tscperms;
+        errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
+        assert(err_is_ok(err));
+        RC_REFCLOCKGHZ = ((double)tscperms) / 1000000.0;
+        printf("Reference clock computed to be %.2g\n", RC_REFCLOCKGHZ);
+    }
+
     // put the participating core ids (unsorted) into an array
     for (ue=0; ue<RCCE_NP; ue++) {
         RC_COREID[ue] = atoi(*(++(*argv)));
@@ -211,7 +220,7 @@ int RCCE_recv(char *privbuf, size_t size, int source)
     mb->msg = privbuf;
 #endif
 
-    dprintf("%d: R(%zd,%d,%p,%d,%p)\n", my_core_id, size, source, mb, mb->pending, privbuf);
+    dprintf("%d: R(%lu,%d,%p,%d,%p)\n", my_core_id, size, source, mb, mb->pending, privbuf);
 
 #ifdef BULK_TRANSFER_ENABLED
     err = barray[core_id]->tx_vtbl.bulk_recv_ready(barray[core_id], NOP_CONT,
@@ -272,7 +281,7 @@ int RCCE_finalize(void)
     for(int phase = 0; phase < MAX_PHASES; phase++) {
         printf("%d: Phase %d: ", RCCE_ue(), phase);
         for(int i = 0; i < RCCE_NP; i++) {
-            printf("%zu ", measure_rcce_data[phase][i]);
+            printf("%lu ", measure_rcce_data[phase][i]);
         }
         printf("\n");
     }

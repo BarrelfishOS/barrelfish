@@ -23,7 +23,7 @@
 // XXX: sleep hack
 uint32_t yield_timeslices = 0;
 
-errval_t sys_yield(caddr_t target)
+errval_t sys_yield(capaddr_t target)
 {
     return syscall3(SYSCALL_YIELD, target, yield_timeslices).error;
 }

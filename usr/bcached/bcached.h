@@ -12,6 +12,15 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
+#include <vfs/vfs.h>
+
+#ifdef WITH_SHARED_CACHE
+#       define CACHE_SIZE      (1U << 28)      // 256MB
+//#       define CACHE_SIZE      (1U << 21)      // 2MB
+#else
+#       define CACHE_SIZE      (1U << 24)      // 16MB
+#endif
+#define NUM_BLOCKS      (CACHE_SIZE / BUFFER_CACHE_BLOCK_SIZE)
 
 struct bcache_state {
     struct bulk_transfer bt;
@@ -22,10 +31,21 @@ extern size_t cache_size, block_size;
 extern void *cache_pool;
 
 errval_t start_service(void);
-bool cache_lookup(char *key, size_t key_len, uintptr_t *index,
-                  uintptr_t *length);
+
+typedef enum {
+    KEY_EXISTS,
+    KEY_MISSING,
+    KEY_INTRANSIT
+} key_state_t;
+key_state_t cache_lookup(char *key, size_t key_len, uintptr_t *index, uintptr_t *length);
+
 uintptr_t cache_allocate(char *key, size_t key_len);
 void cache_update(uintptr_t index, uintptr_t length);
+
+void cache_register_wait(uintptr_t index, void *b);
+void *cache_get_next_waiter(uintptr_t index);
+
+uint64_t cache_get_block_length(uintptr_t index);
 
 void print_stats(void);
 

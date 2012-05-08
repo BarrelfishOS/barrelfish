@@ -9,15 +9,30 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/deferred.h>
 #include <if/monitor_defs.h>
 #include <assert.h>
 #include <unistd.h>
 #include <lwip/sys.h>
+#include <lwip/sockets.h>
+#include <syscalls.h>
 #include "unixsock.h"
-#include "fdtab.h"
+#include <vfs/fdtab.h>
 #include "posixcompat.h"
 
 #define	MAX(a,b) (((a)>(b))?(a):(b))
+
+struct timeout_event {
+  bool fired;
+};
+
+static void timeout_fired(void *arg)
+{
+  struct timeout_event *toe = arg;
+  assert(toe != NULL);
+  toe->fired = true;
+}
+
 
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
            struct timeval *timeout)
@@ -28,6 +43,9 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
     errval_t err;
     int retfds = 0;
     fd_set oreadfds, owritefds, oexceptfds, changed_ws;
+    struct timeout_event toe = {
+      .fired = false
+    };
 
     // XXX: LWIP sockets and other FDs are mutually exclusive.
     // We currently only support lwip_select() or our own select(), not both
@@ -264,16 +282,22 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
         // XXX: exceptfds ignored. Find out what to map to them.
 
         // Bail out if something happened
-        if(retfds > 0) {
+        if(retfds > 0 || toe.fired) {
             break;
         }
 
+	    struct deferred_event timeout_event;
+
         if(timeout != NULL) {
-            // TODO: Add a timeout channel to the waitset
+	        delayus_t delay = timeout->tv_sec * 1000000 + timeout->tv_usec;
+	        deferred_event_init(&timeout_event);
+	        err = deferred_event_register(&timeout_event, &ws, delay, MKCLOSURE(timeout_fired, &toe));
+	        assert(err_is_ok(err));
         }
 
         // Wait on monitor?
         if(wait_monitor) {
+	        printf("%"PRIuDOMAINID": Need to wait on monitor\n", disp_get_domain_id());
             err = mb->change_waitset(mb, &ws);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor change_waitset");

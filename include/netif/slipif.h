@@ -40,11 +40,9 @@
 extern "C" {
 #endif
 
-err_t slipif_init(struct netif * netif);
+    err_t slipif_init(struct netif *netif);
 
 #ifdef __cplusplus
 }
 #endif
- 
-#endif 
-
+#endif

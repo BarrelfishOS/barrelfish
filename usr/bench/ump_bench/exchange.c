@@ -43,19 +43,19 @@ static char my_name[100];
 static struct bench_binding *array[MAX_CPUS] = {NULL};
 static coreid_t my_core_id;
 
-static void experiment(coreid_t index)
+static void experiment(coreid_t idx)
 {
     timestamps = malloc(sizeof(struct timestamps) * MAX_COUNT);
     assert(timestamps != NULL);
 
-    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[index];
+    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[idx];
     struct flounder_ump_state *fus = &bu->ump_state;
     struct ump_chan *chan = &fus->chan;
 
     struct ump_chan_state *send = &chan->send_chan;
     struct ump_chan_state *recv = &chan->endpoint.chan;
 
-    printf("Running exchange between core %d and core %d\n", my_core_id, index);
+    printf("Running exchange between core %d and core %d\n", my_core_id, idx);
 
     /* Run experiment */
     for (int i = 0; i < MAX_COUNT; i++) {
@@ -145,7 +145,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 
     // register this iref with the name service
-    err = nameservice_register("ump server", iref);
+    err = nameservice_register("ump_server", iref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
         abort();
@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
         /* Connect to the server */
         iref_t iref;
 
-        err = nameservice_blocking_lookup("ump server", &iref);
+        err = nameservice_blocking_lookup("ump_server", &iref);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "nameservice_blocking_lookup failed");
             abort();

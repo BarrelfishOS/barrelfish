@@ -30,10 +30,6 @@
 # include <barrelfish/lmp_chan.h>
 #endif
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-# include <barrelfish/bmp_chan.h>
-#endif
-
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 #  include <arch/fpu.h>
 #endif
@@ -60,6 +56,11 @@ static inline void assert_print(const char *str)
     sys_print(str, strlen(str));
 }
 
+static uint64_t run_counter = 0;
+uint64_t disp_run_counter(void)
+{
+    return run_counter;
+}
 /**
  * \brief Run entry point
  *
@@ -75,7 +76,7 @@ void disp_run(dispatcher_handle_t handle)
         get_dispatcher_shared_generic(handle);
 
     assert_disabled(disp->disabled);
-
+    ++run_counter;
     disp_gen->timeslice++;
     // Never let 0 be a valid timeslice number
     if(disp_gen->timeslice == 0) {
@@ -94,11 +95,6 @@ void disp_run(dispatcher_handle_t handle)
     // Trigger any send events for LMP channels
     lmp_channels_retry_send_disabled(handle);
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
-
-#ifdef CONFIG_INTERCONNECT_DRIVER_BMP
-    // Trigger any send events for BMP channels
-    bmp_channels_retry_send_disabled(handle);
-#endif // CONFIG_INTERCONNECT_DRIVER_BMP
 
     // Run, saving state of previous thread if required
     thread_run_disabled(handle);

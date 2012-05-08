@@ -20,7 +20,6 @@
 enum cpu_type {
     CPU_X86_64,
     CPU_X86_32,
-    CPU_BEEHIVE,
     CPU_SCC,
     CPU_ARM, // XXX: Which ARMs to add here?
     CPU_TYPE_NUM // must be last

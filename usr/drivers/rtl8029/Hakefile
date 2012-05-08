@@ -7,14 +7,15 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for drivers/rtl8029
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "rtl8029",
                       cFiles = ["rtl8029.c"],
-                      flounderBindings = [ "ether", "ether_control" ],
+                      flounderBindings = [ "net_queue_manager",
+                                            "net_soft_filters" ],
                       mackerelDevices = [ "rtl8029as" ],
-                      addLibraries = [ "pci", "ethersrv", "contmng", 
-                                            "bfdmuxvm", "lwip" ]
+                      addLibraries = libDeps [ "pci", "netQmng" ]
                     }
 ]
+

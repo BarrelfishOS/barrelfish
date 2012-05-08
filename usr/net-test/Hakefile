@@ -10,9 +10,14 @@
 --
 --------------------------------------------------------------------------
 
+--
+-- This application is not very portable across different libc
+--
+
 [ build application { target = "net-test",
   		      cFiles = [ "net-test.c" ],
-		      addLibraries = [ "posixcompat", "vfs", "nfs", "lwip", "contmng", "timer" ],
+                      addLibraries = libDeps ["vfs"],
 		      architectures = [ "x86_64", "scc" ]
+          -- omitCFlags = [ "-Wredundant-decls" ]
                     }
 ]

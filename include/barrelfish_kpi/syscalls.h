@@ -48,7 +48,6 @@ struct sysret {
 /* Architecture-specific syscalls 
  * FIXME: shouldn't these be in an arch-specific header? -AB */
 #define SYSCALL_X86_FPU_TRAP_ON     7     ///< Turn FPU trap on (x86)
-#define SYSCALL_BEEHIVE_TRACE_RUNDOWN 7   ///< Trace DCB rundown
 #define SYSCALL_X86_RELOAD_LDT      8     ///< Reload the LDT register (x86_64)
 
 #define SYSCALL_COUNT               9     ///< Number of syscalls [0..SYSCALL_COUNT - 1]

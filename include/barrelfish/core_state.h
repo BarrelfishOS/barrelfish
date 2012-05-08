@@ -15,9 +15,11 @@
 #ifndef LIBBARRELFISH_CORESTATE_H
 #define LIBBARRELFISH_CORESTATE_H
 
-#include <../lib/c/src/k_r_malloc.h>
+#include <k_r_malloc.h>
 #include <barrelfish/waitset.h>
 
+/* DELETEME! I can't find anything that uses this -AB 20120110 */
+#if 0
 /*
  * XXX: This currently very small (4096 frames tracked, using 384KB
  * memory). Obviously making it much bigger results in a huge .bss
@@ -36,15 +38,16 @@ struct captrack {
     struct capref       framecap;
     struct capref       ramcap;
 };
+#endif // 0 DELETEME
 
 struct morecore_state {
     struct thread_mutex mutex;
     Header header_base;
     Header *header_freep;
     struct vspace_mmu_aware mmu_state;
-#ifndef NOTRANS
+#if 0 // DELETEME
     struct captrack track_frames[MAX_TRACK_FRAMES];
-#endif
+#endif // 0 DELETEME
 };
 
 struct ram_alloc_state {
@@ -78,7 +81,7 @@ struct slot_alloc_state {
 };
 
 struct terminal_state;
-struct nameservice_rpc_client;
+struct octopus_rpc_client;
 struct domain_state;
 struct spawn_state;
 struct monitor_binding;
@@ -92,7 +95,7 @@ struct core_state_generic {
     struct mem_rpc_client *mem_st;
     struct morecore_state morecore_state;
     struct ram_alloc_state ram_alloc_state;
-    struct nameservice_rpc_client *nameservice_rpc_client;
+    struct octopus_rpc_client *nameservice_rpc_client;
     struct spawn_rpc_client *spawn_rpc_clients[MAX_CPUS];
     struct terminal_state *terminal_state;
     struct domain_state *domain_state;

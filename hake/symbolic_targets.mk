@@ -42,6 +42,7 @@ MODULES_COMMON= \
 	sbin/init_null \
 	sbin/init \
 	sbin/chips \
+	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
 	sbin/flounder_stubs_empty_bench \
@@ -55,9 +56,6 @@ MODULES_COMMON= \
 	sbin/fscanf_test \
 	sbin/monitor \
 	sbin/ramfsd \
-	sbin/routetest \
-	sbin/route_bench \
-	sbin/radix_route_bench \
 	sbin/channel_cost_bench \
 	sbin/schedtest \
 	sbin/testerror \
@@ -73,8 +71,9 @@ MODULES_GENERIC= \
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/ahci_bench \
+	sbin/ata_rw28_test \
 	sbin/apicdrift_bench \
-	sbin/barrier_bench \
 	sbin/bench \
 	sbin/bfscope \
 	sbin/bomp_benchmark_cg \
@@ -88,7 +87,10 @@ MODULES_x86_64= \
 	sbin/boot_perfmon \
 	sbin/bulkbench \
 	sbin/datagatherer \
+	sbin/ahcid \
 	sbin/e1000n \
+	sbin/NGD_mng \
+	sbin/e10k \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \
@@ -103,7 +105,10 @@ MODULES_x86_64= \
 	sbin/mem_affinity \
 	sbin/mem_serv_dist \
 	sbin/net-test \
+	sbin/netthroughput \
 	sbin/pci \
+        sbin/acpi \
+        sbin/kaluga \
 	sbin/placement_bench \
 	sbin/phases_bench \
 	sbin/phases_scale_bench \
@@ -115,7 +120,6 @@ MODULES_x86_64= \
 	sbin/shared_mem_clock_bench \
 	sbin/sif \
 	sbin/slideshow \
-	sbin/skb \
 	sbin/spantest \
 	sbin/testconcurrent \
 	sbin/thc_v_flounder_empty \
@@ -124,6 +128,7 @@ MODULES_x86_64= \
 	sbin/thctest \
 	sbin/tsc_bench \
 	sbin/tweedtest \
+	sbin/udp_throughput \
 	sbin/ump_latency \
 	sbin/ump_exchange \
 	sbin/ump_latency_cache \
@@ -140,7 +145,9 @@ MODULES_x86_64= \
 	sbin/routing_setup \
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
+	sbin/cryptotest \
 	$(BIN_CONSENSUS) \
+	sbin/bcached \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -165,7 +172,8 @@ MODULES_x86_32=\
 	sbin/fish \
 	sbin/fputest \
 	sbin/pci \
-	sbin/skb \
+        sbin/acpi \
+        sbin/kaluga \
 	sbin/slideshow \
 	sbin/thc_v_flounder_empty \
 	sbin/thcidctest \
@@ -185,6 +193,7 @@ MODULES_scc=\
 	sbin/bench \
 	sbin/eMAC \
 	sbin/netd \
+	sbin/NGD_mng \
 	sbin/webserver \
 	sbin/ipirc_test \
 	sbin/thc_v_flounder_empty \
@@ -193,6 +202,8 @@ MODULES_scc=\
 	sbin/thctest \
 	sbin/mem_serv_dist \
 	sbin/net-test \
+	sbin/netthroughput \
+	sbin/udp_throughput \
 
 # ARM-specific modules to build by default
 MODULES_arm=\
@@ -205,16 +216,6 @@ MODULES_xscale=\
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
 	sbin/cpu.bin
-
-# Beehive-specific modules to build by default
-MODULES_beehive=\
-	sbin/hyper \
-	sbin/bmp_bench \
-	sbin/bulkbench \
-	sbin/thc_v_flounder_empty \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/thctest \
 
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
@@ -249,10 +250,15 @@ sim: simulate
 
 QEMU=unknown-arch-error
 GDB=unknown-arch-error
+CLEAN_HD=
+
+DISK=hd.img
+AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user  -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=x86_64-pc-linux-gdb
+	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
         QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
@@ -263,7 +269,7 @@ else ifeq ($(ARCH),arm)
 	ARM_QEMU_CMD=qemu-system-arm -kernel arm/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd arm/romfs.cpio
 	GDB=xterm -e arm-none-linux-gnueabi-gdb
 simulate: $(MODULES) arm/romfs.cpio
-	$(ARM_QEMU_CMD)     
+	$(ARM_QEMU_CMD)
 .PHONY: simulate
 
 arm/tools/debug.arm.gdb: $(SRCDIR)/tools/debug.arm.gdb
@@ -275,26 +281,13 @@ debugsim: $(MODULES) arm/romfs.cpio arm/tools/debug.arm.gdb
 else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-none-linux-gnueabi-gdb
-else ifeq ($(ARCH),beehive)
-
-simulate: ./beehive/sbin/spliced.img
-	Bsimimg -slave=$(SRCDIR)/kernel/arch/beehive/slavecode.mem -noaddrcheck -ncores=3 -ibase=1000 -datarota=2 ./beehive/sbin/spliced.img
-.PHONY : simulate
-
-trace: ./beehive/sbin/spliced.img
-	Bsimimg -slave=$(SRCDIR)/kernel/arch/beehive/slavecode.mem -noaddrcheck -ncores=3 -ibase=1000 -datarota=2 -instructions=instructions.txt -events=events.txt -cache=cache.txt ./beehive/sbin/spliced.img | tee sim.out
-
-.PHONY : trace
-
-./beehive/sbin/spliced.img: ./menu.lst $(MODULES)
-	Bsplice -o ./beehive/sbin/spliced.img -s ./beehive/sbin/beehive.splice -i menu.lst
-
 endif
 
 
 ifdef QEMU_CMD
 
 simulate: $(MODULES)
+	$(CLEAN_HD)
 	$(QEMU_CMD)
 .PHONY : simulate
 
@@ -347,8 +340,12 @@ arminstall:
 	install -p $(ARCH)/romfs.cpio ${INSTALL_PREFIX}/$(ARCH)/romfs.cpio
 .PHONY: arminstall
 
-scc: all tools/bin/dite
-	strip -d scc/sbin/*
+# Copy the scc-specific menu.lst from the source directory to the build directory
+menu.lst.scc: $(SRCDIR)/hake/menu.lst.scc
+	cp $< $@
+
+scc: all tools/bin/dite menu.lst.scc
+	$(shell find scc/sbin -type f -print0 | xargs -0 strip -d)
 	tools/bin/dite -32 -o bigimage.dat menu.lst.scc
 	cp $(SRCDIR)/tools/scc/bootvector.dat .
 	bin2obj -m $(SRCDIR)/tools/scc/bigimage.map -o barrelfish0.obj
@@ -367,7 +364,7 @@ m5script.py: $(SRCDIR)/tools/molly/m5script.py
 m5_kernel: $(MODULES) menu.lst.m5 tools/bin/molly m5script.py
 	$(SRCDIR)/tools/molly/build_data_files.sh menu.lst.m5 m5_tmp
 	tools/bin/molly menu.lst.m5 m5_kernel.c
-	cc -std=c99 -Wl,-N -pie -fno-builtin -nostdlib -Wl,--build-id=none -Wl,--fatal-warnings -m64 -fPIC -T$(SRCDIR)/tools/molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/x86_64 -I./x86_64/include -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/molly/molly_boot.S $(SRCDIR)/tools/molly/molly_init.c ./m5_kernel.c $(SRCDIR)/lib/elf/elf64.c ./m5_tmp/* -o m5_kernel	
+	cc -std=c99 -Wl,-N -pie -fno-builtin -nostdlib -Wl,--build-id=none -Wl,--fatal-warnings -m64 -fPIC -T$(SRCDIR)/tools/molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/x86_64 -I./x86_64/include -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/molly/molly_boot.S $(SRCDIR)/tools/molly/molly_init.c ./m5_kernel.c $(SRCDIR)/lib/elf/elf64.c ./m5_tmp/* -o m5_kernel
 	@echo "Now invoke m5, e.g. as 'm5.fast m5script.py  --num_cpus=2 --kernel=m5_kernel'"
 
 m5: m5_kernel m5script.py
@@ -414,13 +411,14 @@ DOCS= \
 	./docs/TN-004-VirtualMemory.pdf \
 	./docs/TN-005-SCC.pdf \
 	./docs/TN-006-Routing.pdf \
-	./docs/TN-007-Beehive.pdf \
 	./docs/TN-008-Tracing.pdf \
 	./docs/TN-009-Notifications.pdf \
 	./docs/TN-010-Spec.pdf \
 	./docs/TN-011-IDC.pdf \
 	./docs/TN-012-Services.pdf \
 	./docs/TN-013-CapabilityManagement.pdf \
+	./docs/TN-014-bulk-transfer.pdf \
+	./docs/TN-015-DiskDriverArchitecture.pdf \
 
 docs doc: $(DOCS)
 .PHONY: docs doc

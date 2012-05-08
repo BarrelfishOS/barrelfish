@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Mackerel.tex" "TN-002-Mackerel.pdf" False [] ]
+[ buildTechNote "Mackerel.tex" "TN-002-Mackerel.pdf" False False [] ]

@@ -15,6 +15,8 @@
 #include <kernel.h>
 #include <dispatch.h>
 
+#include <timer.h> // update_sched_timer
+
 static struct dcb *ring_current = NULL;
 
 /**
@@ -33,6 +35,9 @@ struct dcb *schedule(void)
     assert(ring_current->prev != NULL);
 
     ring_current = ring_current->next;
+    #ifdef CONFIG_ONESHOT_TIMER
+    update_sched_timer(kernel_now + kernel_timeslice);
+    #endif
     return ring_current;
 }
 

@@ -26,13 +26,11 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/terminal.h>
 #include <trace/trace.h>
-#include <pci/pci.h>
+#include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
 #include <if/pixels_defs.h>
-#include <if/spawn_rpcclient_defs.h>
-#include <if/mem_rpcclient_defs.h>
 
 #define MAX_LINE        512
 #define BOOTSCRIPT_NAME "/init.fish"
@@ -55,7 +53,7 @@ struct cmd {
 
 static char *cwd;
 
-static bool pci_connected = false;
+static bool acpi_connected = false;
 
 static int help(int argc, char *argv[]);
 
@@ -341,63 +339,55 @@ static int spawnpixels(int argc, char *argv[])
 
 static int reset(int argc, char *argv[])
 {
-    if (!pci_connected) {
-        int r = pci_client_connect();
+    if (!acpi_connected) {
+        int r = connect_to_acpi();
         assert(r == 0);
-        pci_connected = true;
+        acpi_connected = true;
     }
 
-    return pci_reset();
+    return acpi_reset();
 }
 
 static int poweroff(int argc, char *argv[])
 {
-    if (!pci_connected) {
-        int r = pci_client_connect();
+    if (!acpi_connected) {
+        int r = connect_to_acpi();
         assert(r == 0);
-        pci_connected = true;
+        acpi_connected = true;
     }
 
-    return pci_sleep(4);
+    return acpi_sleep(4);
 }
 
 static int ps(int argc, char *argv[])
 {
-    struct spawn_rpc_client *cl;
     uint8_t *domains;
     size_t len;
     errval_t err;
 
-    err = spawn_rpc_client(disp_get_core_id(), &cl);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "spawn_rpc_client");
-        return EXIT_FAILURE;
-    }
-    assert(cl != NULL);
-
-    err = cl->vtbl.get_domainlist(cl, &domains, &len);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "get_domainlist");
+    err = spawn_get_domain_list(&domains, &len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn_get_domain_list");
         return EXIT_FAILURE;
     }
 
     printf("DOMAINID\tSTAT\tCOMMAND\n");
     for(size_t i = 0; i < len; i++) {
-        spawn_ps_entry_t pse;
+        struct spawn_ps_entry pse;
         char *argbuf, status;
         size_t arglen;
         errval_t reterr;
 
-        err = cl->vtbl.status(cl, domains[i], &pse, &argbuf, &arglen, &reterr);
-        if(err_is_fail(err)) {
-            DEBUG_ERR(err, "status");
+        err = spawn_get_status(domains[i], &pse, &argbuf, &arglen, &reterr);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "spawn_get_status");
             return EXIT_FAILURE;
         }
         if(err_is_fail(reterr)) {
-            if(err_no(err) == SPAWN_ERR_DOMAIN_NOTFOUND) {
-                continue;
+            if(err_no(reterr) == SPAWN_ERR_DOMAIN_NOTFOUND) {
+                return reterr;
             }
-            DEBUG_ERR(reterr, "status");
+            DEBUG_ERR(err, "status");
             return EXIT_FAILURE;
         }
 
@@ -447,12 +437,12 @@ static int skb(int argc, char *argv[])
     }
 
     char *result = NULL, *str_err = NULL;
-    int int_err;
+    int32_t int_err;
 
     skb_evaluate(argv[1], &result, &str_err, &int_err);
 
     if (int_err != 0 || (str_err != NULL && str_err[0] != '\0')) {
-        printf("SKB error returned: %d %s\n", int_err, str_err);
+        printf("SKB error returned: %"PRIu32" %s\n", int_err, str_err);
     } else {
         printf("SKB returned: %s\n", result);
     }
@@ -665,6 +655,189 @@ out:
             DEBUG_ERR(err, "in vfs_close");
         }
     }
+
+    return ret;
+}
+
+static int dd(int argc, char *argv[])
+{
+    // parse options
+    char *source = NULL;
+    char *target = NULL;
+
+    vfs_handle_t source_vh = NULL;
+    vfs_handle_t target_vh = NULL;
+    
+    size_t blocksize = 512;
+    size_t count = 0;
+    size_t skip = 0;
+    size_t seek = 0;
+
+    size_t rsize = 0;
+    size_t wsize = 0;
+    size_t blocks_written = 0;
+
+    size_t total_bytes_read = 0;
+    size_t total_bytes_written = 0;
+
+    size_t progress = 0;
+
+    errval_t err;
+    int ret = 0;
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (!strncmp(argv[i], "bs=", 3))
+            blocksize = atoi(argv[i] + 3);
+
+        else if (!strncmp(argv[i], "count=", 6))
+            count = atoi(argv[i] + 6);
+
+        else if (!strncmp(argv[i], "skip=", 5))
+            skip = atoi(argv[i] + 5);
+
+        else if (!strncmp(argv[i], "seek=", 5))
+            seek = atoi(argv[i] + 5);
+
+        else if (!strncmp(argv[i], "if=", 3))
+            source = (argv[i] + 3);
+
+        else if (!strncmp(argv[i], "of=", 3))
+            target = (argv[i] + 3);
+        else if (!strncmp(argv[i], "progress", 8))
+            progress = 1;
+    }
+
+    size_t one_per_cent = (blocksize * count) / 100;
+
+    printf("from: %s to: %s bs=%zd count=%zd seek=%zd skip=%zd\n", source, target, blocksize, count, seek, skip);
+
+    if (source != NULL)
+    {
+        char *path = vfs_path_mkabsolute(cwd, source);
+        err = vfs_open(path, &source_vh);
+        free(path);
+        if (err_is_fail(err)) {
+            printf("%s: %s\n", source, err_getstring(err));
+            return 1;
+        }
+
+        if (skip != 0)
+        {
+            // TODO: skip
+        }
+    }
+
+    if (target != NULL)
+    {
+        char *path = vfs_path_mkabsolute(cwd, target);
+        err = vfs_create(path, &target_vh);
+        free(path);
+        if (err_is_fail(err)) {
+            // close source handle
+            if (source_vh != NULL)
+                vfs_close(source_vh);
+            printf("%s: %s\n", target, err_getstring(err));
+            return 1;
+        }
+
+        if (seek != 0)
+        {
+            // TODO: seek
+        }
+    }
+
+    uint8_t * buffer = malloc(blocksize);
+
+#if defined(__x86_64__) || defined(__i386__)
+    uint64_t tscperms;
+    err = sys_debug_get_tsc_per_ms(&tscperms);
+    assert(err_is_ok(err));
+
+    //printf("ticks per millisec: %" PRIu64 "\n", tscperms);
+    uint64_t start = rdtsc();
+#endif
+
+    if (buffer == NULL)
+    {
+        ret = 2;
+        printf("failed to allocate buffer of size %zd\n", blocksize);
+        goto out;
+    }
+
+    do
+    {
+        //printf("copying block\n");
+        size_t read_bytes = 0;
+        do {
+            err = vfs_read(source_vh, buffer, blocksize, &rsize);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "error reading file");
+                ret = 1;
+                goto out;
+            }
+
+            total_bytes_read += rsize;
+            read_bytes += rsize;
+
+            size_t wpos = 0;
+            while (wpos < rsize) {
+                if (wpos > 0)
+                    printf("was unable to write the whole chunk of size %zd. Now at pos: %zd of buffer\n", rsize, wpos);
+
+                err = vfs_write(target_vh, &buffer[wpos], rsize - wpos, &wsize);
+                if (err_is_fail(err) || wsize == 0) {
+                    DEBUG_ERR(err, "error writing file");
+                    ret = 1;
+                    goto out;
+                }
+                wpos += wsize;
+                total_bytes_written += wsize;
+            }
+        } while(read_bytes < blocksize);
+
+        blocks_written++;
+
+        if (progress && one_per_cent && total_bytes_written % one_per_cent == 0) {
+            printf(".");
+        }
+
+        //printf("block successfully copied. read: %zd. blocks written: %zd\n", rsize, blocks_written);
+    } while (rsize > 0 && !(count > 0 && blocks_written >= count));
+
+    if (progress) printf("\n");
+
+out:
+    if (buffer != NULL)
+        free(buffer);
+    
+    if (source_vh != NULL) {
+        err = vfs_close(source_vh);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in vfs_close");
+        }
+    }
+
+    if (target_vh != NULL) {
+        err = vfs_close(target_vh);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in vfs_close");
+        }
+    }
+
+#if defined(__x86_64__) || defined(__i386__)
+    uint64_t stop = rdtsc();
+    uint64_t elapsed_msecs = ((stop - start) / tscperms);
+    double elapsed_secs = (double)elapsed_msecs/1000.0;
+
+    printf("start: %" PRIu64 " stop: %" PRIu64 "\n", start, stop);
+
+    double kbps = ((double)total_bytes_written / 1024.0) / elapsed_secs;
+
+    printf("%zd bytes read. %zd bytes written. %f s, %f kB/s\n", total_bytes_read, total_bytes_written, elapsed_secs, kbps); 
+#else
+    printf("%zd bytes read. %zd bytes written.\n", total_bytes_read, total_bytes_written); 
+#endif
 
     return ret;
 }
@@ -919,7 +1092,7 @@ static int freecmd(int argc, char *argv[])
     errval_t err;
     genpaddr_t available, total;
 
-    err = mc->vtbl.available(mc, &available, &total);
+    err = ram_available(&available, &total);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "available");
         return EXIT_FAILURE;
@@ -950,6 +1123,7 @@ static struct cmd commands[] = {
     {"touch", touch, "Create an empty file"},
     {"cat", cat, "Print the contents of file(s)"},
     {"cat2", cat2, "Print the contents of file(s) into another file"},
+    {"dd", dd, "copy stuff"},
     {"cp", cp, "Copy files"},
     {"rm", rm, "Remove files"},
     {"mkdir", mkdir, "Create a new directory"},
@@ -1087,6 +1261,7 @@ static void runbootscript(void)
     }
 }
 
+
 int main(int argc, const char *argv[])
 {
     char        input[MAX_LINE];
@@ -1096,6 +1271,9 @@ int main(int argc, const char *argv[])
 
     // XXX: parse aguments to determine input sources to use
     unsigned stdin_sources = 0;
+
+    vfs_init();
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "serial") == 0) {
             stdin_sources |= TERMINAL_SOURCE_SERIAL;

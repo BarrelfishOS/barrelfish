@@ -1,0 +1,43 @@
+if Config.libc == "newlib" then
+let
+    arch_srcs "x86_64"  = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "x86_32"  = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "scc"     = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "arm"     = [ "machine/arm/setjmp.S" ]
+    arch_srcs "arm11mp" = [ "machine/arm/setjmp.S" ]
+    arch_srcs "xscale"  = [ "machine/arm/setjmp.S" ]
+    arch_srcs  x        = error ("Unknown architecture for newlib: " ++ x)
+in
+[ build library { 
+  target = "newc",
+  addCFlags = [
+      "-DPACKAGE_NAME=\"newlib\""
+    , "-DPACKAGE_TARNAME=\"newlib\""
+    , "-DPACKAGE_VERSION=\"1.19.0\""
+    , "-DPACKAGE_BUGREPORT=\"\""
+    , "-DPACKAGE_URL=\"\""
+    , "-D_I386MACH_ALLOW_HW_INTERRUPTS"
+    , "-DMISSING_SYSCALL_NAMES" ],
+  omitCFlags = [
+      "-Wmissing-prototypes"
+    , "-Wmissing-declarations"
+    , "-Wimplicit-function-declaration"
+    , "-Werror" ],
+  addLibraries = [
+      "ctype"
+    , "search"
+    , "string"
+    , "argz"
+    , "stdlib"
+    , "stdio"
+--  , "signal"
+    , "time"
+    , "locale"
+    , "reent"
+    , "errno"
+    , "misc"
+    , "sys" ],
+  cFiles = arch_srcs arch,
+  architectures = [arch]
+} | arch <- allArchitectures ]
+else []

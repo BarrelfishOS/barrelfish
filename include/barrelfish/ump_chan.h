@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -121,6 +121,19 @@ static inline volatile struct ump_message *ump_chan_get_next(
                                 struct ump_chan *uc, struct ump_control *ctrl)
 {
     return ump_impl_get_next(&uc->send_chan, ctrl);
+}
+
+/**
+ * \brief Migrate an event registration made with
+ * ump_chan_register_recv() to a new waitset
+ *
+ * \param lc LMP channel
+ * \param ws New waitset
+ */
+static inline void ump_chan_migrate_recv(struct ump_chan *lc,
+                                         struct waitset *ws)
+{
+    ump_endpoint_migrate(&lc->endpoint, ws);
 }
 
 #endif // BARRELFISH_UMP_CHAN_H

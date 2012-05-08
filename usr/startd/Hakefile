@@ -12,8 +12,7 @@
 
 [ build application { target = "startd",
   		      cFiles = [ "main.c", "spawn.c" ],
-		      addLibraries = [ "spawndomain", "elf", "trace", 
-		      		       "dist", 
-                                       "vfs", "nfs", "lwip", "contmng" ]
-                    }
+		      addLibraries = libDeps [ "spawndomain", "elf", "trace",
+                                       "dist", "vfs"]
+                   }
 ]

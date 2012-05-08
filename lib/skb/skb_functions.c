@@ -46,7 +46,7 @@ char *skb_get_error_output(void)
 
 errval_t skb_execute(char *goal)
 {
-    int error;
+    int32_t error;
     char *result, *error_out;
     errval_t err = skb_evaluate(goal, &result, &error_out, &error);
     if (err_is_fail(err)) {

@@ -105,7 +105,7 @@ static void dump_ram_region(int index, struct mem_region* m)
     }
 
     printf("RAM region %d: 0x%" PRIxPTR
-           " - 0x%" PRIxPTR " (%zu %cB, %u bits)\n",
+           " - 0x%" PRIxPTR " (%lu %cB, %u bits)\n",
            index, start, limit, quantity, prefix, m->mr_bits);
 }
 #endif // 0
@@ -376,6 +376,8 @@ errval_t percore_allocate_handler_common(uint8_t bits,
 
     if (err_is_fail(ret)) {
         // debug_printf("percore_alloc(%d (%lu)) failed\n", bits, 1UL << bits);
+		printf("[%d][%"PRIuDOMAINID"] percore_alloc failed, going to steal\n",
+					disp_get_core_id(), disp_get_domain_id());
         try_steal(&ret, &cap, bits, minbase, maxlimit);
     }
 

@@ -44,38 +44,37 @@ extern "C" {
 /* If you want to define sio_fd_t elsewhere or differently,
    define this in your cc.h file. */
 #ifndef __sio_fd_t_defined
-typedef void * sio_fd_t;
+    typedef void *sio_fd_t;
 #endif
 
 /* The following functions can be defined to something else in your cc.h file
    or be implemented in your custom sio.c file. */
 
 #ifndef sio_open
-sio_fd_t sio_open(u8_t);
+    sio_fd_t sio_open(u8_t);
 #endif
 
 #ifndef sio_send
-void sio_send(u8_t, sio_fd_t);
+    void sio_send(u8_t, sio_fd_t);
 #endif
 
 #ifndef sio_recv
-u8_t sio_recv(sio_fd_t);
+    u8_t sio_recv(sio_fd_t);
 #endif
 
 #ifndef sio_read
-u32_t sio_read(sio_fd_t, u8_t *, u32_t);
+    u32_t sio_read(sio_fd_t, u8_t *, u32_t);
 #endif
 
 #ifndef sio_write
-u32_t sio_write(sio_fd_t, u8_t *, u32_t);
+    u32_t sio_write(sio_fd_t, u8_t *, u32_t);
 #endif
 
 #ifndef sio_read_abort
-void sio_read_abort(sio_fd_t);
+    void sio_read_abort(sio_fd_t);
 #endif
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __SIO_H__ */
+#endif                          /* __SIO_H__ */

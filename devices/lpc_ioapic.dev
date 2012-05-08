@@ -16,7 +16,7 @@
  * Datasheet", chapter 21, "LPC Interface Bridge Registers (D31:F0)". 
  */
 
-device LPC_IOAPIC lsbfirst (addr base) "LPC IHC I/O APIC function" {
+device lpc_ioapic lsbfirst (addr base) "LPC IHC I/O APIC function" {
   //
   // Advanced Programmable Interrupt Controller registers: section 21.5
   //
@@ -52,7 +52,7 @@ device LPC_IOAPIC lsbfirst (addr base) "LPC IHC I/O APIC function" {
     level   = 0b1	 "Level Triggered";
   };
 
-  register ind rw addr(base, 0x0) "Index" type(uint8);
+  register ind rw addr(base, 0x0) "Index" type(uint32);
   register wdw rw addr(base, 0x10) "Window" type(uint32);
 
   register eoir wo addr(base, 0x40) "EOI" {

@@ -14,12 +14,14 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <ethersrv/ethersrv.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include "eMAC_driver.h"
 
 
 /// The only instance of the RTL8029AS we're handling
 //static eMAC_t emac;
+
+static uint64_t assumed_queue_id = 0; // queue_id that will be initialized
 
 uint64_t eMAC_mac;
 /// This buffers the card's MAC address upon card reset
@@ -56,6 +58,12 @@ static void get_mac_address_fn(uint8_t *mac)
     }
 }
 
+static bool handle_free_TX_slot_fn(void)
+{
+    // FIXME: Need better implementation of this function
+    // FIXME: where is notify_client_next_free_tx for this driver
+    return false;
+}
 
 static void EMAC_init(uint8_t phy_id, char *service_name)
 {
@@ -65,8 +73,9 @@ static void EMAC_init(uint8_t phy_id, char *service_name)
     /* FIXME: do hardware init*/
     EMAC_DEBUG("Done with hardware init\n");
 
-    ethersrv_init(service_name, get_mac_address_fn,
-            EMAC_send_ethernet_packet_fn);
+    ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn,
+            EMAC_send_ethernet_packet_fn,
+            get_tx_free_slots_count, handle_free_TX_slot_fn);
 }
 
 

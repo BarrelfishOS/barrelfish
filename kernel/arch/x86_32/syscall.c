@@ -16,7 +16,7 @@
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
-#include <mdb.h>
+#include <mdb/mdb.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
 #include <exec.h>
@@ -42,13 +42,13 @@
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              int cmd, uintptr_t *args)
 {
-    caddr_t odptr = args[0];
-    caddr_t cptr = args[1];
+    capaddr_t odptr = args[0];
+    capaddr_t cptr = args[1];
     uintptr_t rundepth = args[2];
     int depth = rundepth & 0xff;
     bool run = rundepth >> 8;
-    caddr_t vptr = args[3];
-    caddr_t dptr = args[4];
+    capaddr_t vptr = args[3];
+    capaddr_t dptr = args[4];
 
     return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
 
@@ -112,15 +112,15 @@ static struct sysret handle_retype_common(struct capability *root,
                                           bool from_monitor)
 {
     // Source capability cptr
-    caddr_t source_cptr      = args[0];
+    capaddr_t source_cptr      = args[0];
     // Type to retype to
     enum objtype type        = args[1] >> 16;
     // Object bits for variable-sized types
     uint8_t objbits          = (args[1] >> 8) & 0xff;
     // Destination cnode cptr
-    caddr_t  dest_cnode_cptr = args[2];
+    capaddr_t  dest_cnode_cptr = args[2];
     // Destination slot number
-    caddr_t dest_slot        = args[3];
+    capaddr_t dest_slot        = args[3];
     // Valid bits in destination cnode cptr
     uint64_t dest_vbits      = args[1] & 0xff;
 
@@ -142,9 +142,9 @@ static struct sysret copy_or_mint(struct capability *root,
                                   uintptr_t *args, bool mint)
 {
     /* Retrive arguments */
-    caddr_t  destcn_cptr   = args[0];
-    caddr_t  source_cptr   = args[1];
-    caddr_t dest_slot      = args[2] >> 16;
+    capaddr_t  destcn_cptr   = args[0];
+    capaddr_t  source_cptr   = args[1];
+    capaddr_t dest_slot      = args[2] >> 16;
     int      destcn_vbits  = (args[2] >> 8) & 0xff;
     int      source_vbits  = args[2] & 0xff;
     uintptr_t param1, param2;
@@ -174,7 +174,7 @@ static struct sysret handle_copy(struct capability *root,
 static struct sysret handle_delete_common(struct capability *root,
                                           uintptr_t *args, bool from_monitor)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits     = args[1];
     return sys_delete(root, cptr, bits, from_monitor);
 }
@@ -188,7 +188,7 @@ static struct sysret handle_revoke_common(struct capability *root,
                                           uintptr_t *args,
                                           bool from_monitor)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits     = args[1];
     return sys_revoke(root, cptr, bits, from_monitor);
 }
@@ -218,8 +218,8 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 
     assert(overflow != NULL);
 
-    caddr_t root_caddr = overflow->rootcap_addr;
-    caddr_t root_vbits = overflow->rootcap_vbits;
+    capaddr_t root_caddr = overflow->rootcap_addr;
+    capaddr_t root_vbits = overflow->rootcap_vbits;
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -238,8 +238,8 @@ static struct sysret monitor_handle_delete(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -258,8 +258,8 @@ static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -275,7 +275,7 @@ static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
                                              int cmd, uintptr_t *args)
 {
-    caddr_t ep_caddr = args[0];
+    capaddr_t ep_caddr = args[0];
     return sys_monitor_register(ep_caddr);
 }
 
@@ -329,11 +329,7 @@ static struct sysret monitor_get_arch_id(struct capability *kernel_cap,
 {
     return (struct sysret) {
         .error = SYS_ERR_OK,
-#ifdef __scc__
         .value = apic_id
-#else
-        .value = apic_get_id()
-#endif
     };
 }
 
@@ -341,7 +337,7 @@ static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,
                                                  struct capability *root,
                                                  uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits = args[1];
     struct capability *retbuf = (void *)args[2];
 
@@ -359,8 +355,8 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
 {
     errval_t err;
 
-    caddr_t root_caddr = args[0];
-    caddr_t root_vbits = args[1];
+    capaddr_t root_caddr = args[0];
+    capaddr_t root_vbits = args[1];
 
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
@@ -377,7 +373,7 @@ static struct sysret monitor_remote_cap(struct capability *kernel_cap,
                                         int cmd, uintptr_t *args)
 {
     struct capability *root = &dcb_current->cspace.cap;
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits = args[1];
     bool remote = (bool)args[2];
 
@@ -398,7 +394,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
                                         int cmd, uintptr_t *args)
 {
     /* Create the cap in the destination */
-    caddr_t cnode_cptr = args[0];
+    capaddr_t cnode_cptr = args[0];
     int cnode_vbits    = args[1];
     size_t slot        = args[2];
     struct capability *src =
@@ -419,7 +415,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     int bits = args[1];
 
     return sys_monitor_nullify_cap(cptr, bits);
@@ -452,7 +448,7 @@ static struct sysret monitor_iden_cnode_get_cap(struct capability *kern_cap,
         return SYSRET(err);
     }
 
-    caddr_t slot = args[];
+    capaddr_t slot = args[];
     struct cte* cte = caps_locate_slot(cnode_copy->u.cnode.cnode, slot);
 
     // XXX: Write cap data directly back to user-space
@@ -527,7 +523,7 @@ static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 static struct sysret monitor_handle_domain_id(struct capability *monitor_cap,
                                               int cmd, uintptr_t *args)
 {
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     domainid_t domain_id = args[1];
 
     return sys_monitor_domain_id(cptr, domain_id);
@@ -543,7 +539,7 @@ static struct sysret handle_trace_setup(struct capability *cap,
     errval_t err;
 
     /* lookup passed cap */
-    caddr_t cptr = args[0];
+    capaddr_t cptr = args[0];
     err = caps_lookup_cap(&dcb_current->cspace.cap, cptr, CPTR_BITS, &frame,
                           CAPRIGHTS_READ_WRITE);
     if (err_is_fail(err)) {
@@ -570,7 +566,7 @@ static struct sysret handle_irq_table_delete(struct capability *to, int cmd, uin
 static struct sysret kernel_rck_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
 {
-    caddr_t ep = args[0];
+    capaddr_t ep = args[0];
     int chanid = args[1];
     return SYSRET(rck_register_notification(ep, chanid));
 }
@@ -596,7 +592,7 @@ static struct sysret kernel_ipi_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
 {
     assert(cap->type == ObjType_Kernel);
-    caddr_t ep = args[0];
+    capaddr_t ep = args[0];
     int chanid = args[1];
     return SYSRET(ipi_register_notification(ep, chanid));
 }
@@ -718,9 +714,9 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
     case SYSCALL_INVOKE: ; /* Handle capability invocation */
         uint8_t flags = (arg0 >> 24) & 0xf;
         uint8_t invoke_bits = (arg0 >> 16) & 0xff;
-        caddr_t invoke_cptr = arg1;
+        capaddr_t invoke_cptr = arg1;
 
-        debug(SUBSYS_SYSCALL, "sys_invoke(0x%x(%d))\n",
+        debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n",
               invoke_cptr, invoke_bits);
 
         // Capability to invoke
@@ -745,7 +741,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
             uint8_t length_words = (arg0 >> 28) & 0xf;
             uint8_t send_bits = (arg0 >> 8) & 0xff;
-            caddr_t send_cptr = args[0];
+            capaddr_t send_cptr = args[0];
 
             /* limit length of message from buggy/malicious sender */
             length_words = min(length_words, LMP_MSG_LENGTH);
@@ -833,7 +829,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
         // Yield the CPU to the next dispatcher
     case SYSCALL_YIELD:
-        retval = sys_yield((caddr_t)arg1);
+        retval = sys_yield((capaddr_t)arg1);
         break;
 
         // NOP system call for benchmarking purposes
@@ -924,7 +920,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
     default:
         printk(LOG_ERR, "sys_syscall: Illegal system call! "
-               "(0x%x, 0x%x)\n", syscall, arg1);
+               "(0x%x, 0x%"PRIxPTR")\n", syscall, arg1);
         retval.error = SYS_ERR_ILLEGAL_SYSCALL;
         break;
     }
@@ -936,7 +932,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
     }
 
     if (syscall == SYSCALL_INVOKE) {
-        debug(SUBSYS_SYSCALL, "invoke returning 0x%x 0x%x\n",
+        debug(SUBSYS_SYSCALL, "invoke returning 0x%"PRIxERRV" 0x%"PRIxPTR"\n",
               retval.error, retval.value);
     }
 

@@ -65,9 +65,8 @@ struct dcb *fpu_dcb = NULL;
 static inline void context_switch(struct dcb *dcb)
 {
     assert(dcb != NULL);
-#ifndef __BEEHIVE__ // XXX Single Address Space
     assert(dcb->vspace != 0);
-#endif
+
     // VM guests do not have a user space dispatcher
     if (!dcb->is_vm_guest) {
         assert(dcb->disp != 0);
@@ -147,9 +146,9 @@ static inline void context_switch(struct dcb *dcb)
             }
             fpu_dcb = dcb;
         }
-#endif
+#endif /* FPU_LAZY_CONTEXT_SWITCH */
 
-	/* 
+	/*
 	 * The name of the function is somewhat misleading. we need an unused
 	 * user register that always stores the pointer to the current
 	 * dispatcher. most ABIs define a register for thread-local storage,
@@ -172,6 +171,12 @@ static inline void context_switch(struct dcb *dcb)
 #ifdef __scc__
 struct dcb *run_next = NULL;
 #endif
+
+#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#define TRACE_N_BM 1
+#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+
+
 
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
@@ -208,11 +213,17 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     // Don't context switch if we are current already
     if (dcb_current != dcb) {
+
 #ifdef TRACE_CSWITCH
+//#if TRACE_N_BM
+
+//#else
         trace_event(TRACE_SUBSYS_KERNEL,
                     TRACE_EVENT_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
-#endif
+//#endif // TRACE_N_BM
+#endif // TRACE_CSWITCH
+
         context_switch(dcb);
         dcb_current = dcb;
     }
@@ -235,8 +246,8 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     disp->systime = kernel_now;
 
     if (dcb->disabled) {
-        debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIxPTR "\n", DISP_NAME_LEN,
-              disp->name, registers_get_ip(disabled_area));
+        debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
+              disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
         resume(disabled_area);
@@ -262,7 +273,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
  * \return      Error code
  */
 static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
-                                 caddr_t send_cptr, uint8_t send_bits)
+                                 capaddr_t send_cptr, uint8_t send_bits)
 {
     errval_t err;
     /* Parameter checking */
@@ -455,7 +466,7 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
  */
 errval_t lmp_deliver(struct capability *ep, struct dcb *send,
                      uintptr_t *payload, size_t len,
-                     caddr_t send_cptr, uint8_t send_bits)
+                     capaddr_t send_cptr, uint8_t send_bits)
 {
     bool captransfer;
     assert(ep != NULL);

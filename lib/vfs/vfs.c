@@ -149,6 +149,12 @@ errval_t vfs_mount(const char *mountpoint, const char *uri)
 #endif
     } else if (strncmp(uri, "ramfs", len) == 0) {
         err = vfs_ramfs_mount(uri, &m->st, &m->ops);
+    } else if (strncmp(uri, "blockdevfs", len) == 0) {
+        err = vfs_blockdevfs_mount(uri, &m->st, &m->ops);
+    } else if (strncmp(uri, "fat16", len) == 0) {
+        err = vfs_fat_mount(uri, &m->st, &m->ops);
+    } else if (strncmp(uri, "fat32", len) == 0) {
+        err = vfs_fat_mount(uri, &m->st, &m->ops);
     } else {
         debug_printf("VFS: unknown file system %.*s\n", (int)len, uri);
         err = VFS_ERR_UNKNOWN_FILESYSTEM;
@@ -358,6 +364,22 @@ errval_t vfs_stat(vfs_handle_t handle, struct vfs_fileinfo *info)
 }
 
 /**
+ * \brief Flush file to disk
+ * \param handle Handle to an open file
+ */
+errval_t vfs_flush(vfs_handle_t handle)
+{
+    struct vfs_handle *h = handle;
+    struct vfs_mount *m = h->mount;
+    if (m->ops->flush) {
+        return m->ops->flush(m->st, handle);
+    }
+    else {
+        return VFS_ERR_NOT_SUPPORTED;
+    }
+}
+
+/**
  * \brief Close an open file, freeing any associated local state
  *
  * \param handle Handle to an open file, returned from #vfs_open or #vfs_create
@@ -495,10 +517,10 @@ errval_t vfs_rmdir(const char *path)
  * \brief Initialise the VFS library
  *
  * This call initialises the VFS library. It must be called prior to any
- * other VFS functions being used. We make it a GCC constructor.
+ * other VFS functions being used. It doesn't need to be a constructor
+ * We call it explicitly..
  */
-__attribute__((constructor, used))
-static void vfs_init(void)
+void vfs_init(void)
 {
     assert(mounts == NULL);
     errval_t err;

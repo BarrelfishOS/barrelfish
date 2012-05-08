@@ -46,11 +46,13 @@ class WebCommon(TestCommon):
         cardName = "e1000"
         modules = super(WebCommon, self).get_modules(build, machine)
         modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]])
+        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[2],
+                                    "cardname=%s"%cardName])
         modules.add_module("netd", ["core=%d" % machine.get_coreids()[2],
                                    "cardname=%s"%cardName])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[3],
-				cardName, nfsip, 
+				cardName, nfsip,
                                          siteconfig.get('WEBSERVER_NFS_PATH')])
         return modules
 
@@ -114,6 +116,8 @@ class WebserverTest(WebCommon):
         s = 'Test: %s%s\t%s\n' % (func.__name__, str(args),
                                  'FAIL' if exception else 'PASS')
         if exception:
+            debug.verbose('Exception while running test: %s\n'
+                          % traceback.format_exc())
             s += 'Error was: %s\n' % traceback.format_exc()
         self.testlog.write(s)
 

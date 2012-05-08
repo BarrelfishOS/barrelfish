@@ -25,21 +25,14 @@ module MackerelParser where
 import Prelude 
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
-import Text.ParserCombinators.Parsec.Pos
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language( javaStyle )
 import Char
-import Numeric
-import Data.List
-import Data.IORef
-import Text.Printf
+import Data.Maybe
 import qualified Poly
-
 import qualified Space
 
 import Attr
-
-parse filename = parseFromFile devfile filename
                       
 lexer = P.makeTokenParser (javaStyle
                            { P.reservedNames = [ 
@@ -78,12 +71,14 @@ squares    = P.squares lexer
 semiSep    = P.semiSep lexer
 symbol     = P.symbol lexer
 integer    = try ((P.lexeme lexer) binLiteral) 
+             <|> try ((P.lexeme lexer) binOnes) 
              <|> P.integer lexer
 commaSep1 = P.commaSep1 lexer
 
 op = P.reservedOp lexer
 
 data RegLoc = RegLoc String String Integer 
+            | RegNoLoc
               deriving Show
 
 data ArrayLoc = ArrayListLoc [ Integer ]
@@ -94,19 +89,27 @@ data ArrayLoc = ArrayListLoc [ Integer ]
 bin_op name fun assoc = Infix (do { op name; return fun}) assoc
 
 binDigit = oneOf "01"
-binLiteral = do { char '0'
-                ; oneOf "bB"
+binLiteral = do { _ <- char '0'
+                ; _ <- oneOf "bB"
                 ; digits <- many1 binDigit
                 ; let n = foldl (\x d -> 2*x + (digitToInt d)) 0 digits
                 ; seq n (return (fromIntegral n))
                 }
 
+binOnes = do { _ <- char '1'
+             ; _ <- char 's'
+             ; let n = -1
+             ; seq n (return (fromIntegral n))
+             }
+
 data BitOrder = LSBFIRST | MSBFIRST | NOORDER
               deriving (Eq,Show)
 
+data DeviceFile = DeviceFile AST [String]
+
 data AST = Device String BitOrder [ AST ] String [ AST ]
 --                 name  lsbfirst   args   desc   defn
-         | Constants String String [ AST ] SourcePos
+         | Constants String String [ AST ] (Maybe Integer) SourcePos
          | ConstVal String Expr String SourcePos
          | RegField String Integer Attr AST String SourcePos
          | SpaceDecl Space.Rec
@@ -116,17 +119,24 @@ data AST = Device String BitOrder [ AST ] String [ AST ]
          | RegArray String Attr Bool RegLoc ArrayLoc String AST SourcePos  
          --Register name   RO/RW also   io/at desc regfields 
          | Arg String String
-         | TypeRef String
          | NoBitFieldType
+         | TypeRef String (Maybe String)
          | TypeDefn [ AST ]
          | Error String
+         | Import String
            deriving Show 
-         
-devfile = do { whiteSpace
-             ; dev <- device
-             ; return dev
-              }
 
+devfile = do { whiteSpace
+             ; imps <- many importdev
+             ; dev <- device
+             ; return (DeviceFile dev [i | (Import i) <- imps])
+             }
+
+importdev = do { reserved "import"
+               ; i <- identifier
+               ; _ <- symbol ";"
+               ; return (Import i)
+               }
 
 device = do { reserved "device"
             ; name <- identifier 
@@ -134,7 +144,7 @@ device = do { reserved "device"
             ; args <- parens (commaSep devarg)
             ; desc <- stringLit
             ; decls <- braces (many1 (devdecl args))
-            ; symbol ";" <?> " ';' missing from end of " ++ name ++ " device specification"
+            ; _ <- symbol ";" <?> " ';' missing from end of " ++ name ++ " device specification"
             ;  return (Device name order args desc decls)
             }
 
@@ -154,13 +164,12 @@ devargtype = do { reserved "addr"; return "addr" }
 
 -- Extra added structure to support register comprehension 
 
-devdecl args = register args 
+devdecl args = register 
                <|> constants args 
                <|> spacedecl 
                <|> regtype  
                <|> dataType  
-               <|> register args 
-               <|> regarray args
+               <|> regarray
 
 spacedecl = do { reserved "space"
                ; p <- getPosition
@@ -168,7 +177,7 @@ spacedecl = do { reserved "space"
                ; a <- parens (commaSep identifier)
                ; t <- spaceType
                ; d <- stringLit
-               ; symbol ";"
+               ; _ <- symbol ";"
                ; return (SpaceDecl (Space.make i a d t p))
                }
 
@@ -181,29 +190,29 @@ spaceType = do{ reserved "bytewise" ; return (Space.BYTEWISE 1) }
                 return (Space.BYTEWISE s)
               }
 
-register args = do { reserved "register"
-                   ; p <- getPosition
-                   ; id     <- identifier
+register = do { reserved "register"
+                   ; p      <- getPosition
+                   ; i      <- identifier
                    ; a      <- option RW regAttr 
                    ; als    <- option False scanAlso  
                    ; loc    <- regLoc 
-                   ; d      <- option id stringLit
-                   ; f      <- format id
-                   ; symbol ";"
-                   ; return (Register id a als loc d f p)
+                   ; d      <- option i stringLit
+                   ; f      <- format 
+                   ; _      <- symbol ";"
+                   ; return (Register i a als loc d f p)
               }
 
-regarray args = do { reserved "regarray"
-                   ; p <- getPosition
-                   ; id     <- identifier
-                   ; a      <- option RW regAttr 
-                   ; als    <- option False scanAlso  
-                   ; loc    <- regLoc 
-                   ; aspec  <- squares arraySpec 
-                   ; d      <- option id stringLit
-                   ; f      <- format id
-                   ; symbol ";"
-                   ; return (RegArray id a als loc aspec d f p)
+regarray = do { reserved "regarray"
+                   ; p     <- getPosition
+                   ; i     <- identifier
+                   ; a     <- option RW regAttr 
+                   ; als   <- option False scanAlso  
+                   ; loc   <- regLoc 
+                   ; aspec <- squares arraySpec 
+                   ; d     <- option i stringLit
+                   ; f     <- format 
+                   ; _     <- symbol ";"
+                   ; return (RegArray i a als loc aspec d f p)
               }
 
 scanAlso = do{ reserved "also"
@@ -214,60 +223,74 @@ regtype = do { reserved "regtype"
              ; p <- getPosition
              ; i <- identifier 
              ; d <- stringLit
-             ; f <- typeDefn i 
-             ; symbol ";"
+             ; f <- typeDefn 
+             ; _ <- symbol ";"
              ; return (RegType i d f p)
              }
 
-format id = typeDefn id <|> typeLabel 
+format = typeDefn <|> typeLabel 
 
                  
-typeDefn id = do { i <- braces (many1 regField)
-                 ; return  (TypeDefn i) }
+typeDefn = do { j <- braces (many1 regField)
+              ; return  (TypeDefn j) }
 
 dataType = do { reserved "datatype"
-              ; p <- getPosition
-              ; i <- identifier
+              ; p     <- getPosition
+              ; i     <- identifier
               ; (o,w) <- option (NOORDER,0) dataBitOrder 
-              ; d <- stringLit
-              ; f <- braces (many1 dataField)
-              ; symbol ";"
+              ; d     <- stringLit
+              ; f     <- braces (many1 dataField)
+              ; _     <- symbol ";"
               ; return (DataType i d (TypeDefn f) o w p)
               }
 
 dataBitOrder = do { o <- bitorder
                   ; i <- parens integer
                   ; return (o,i)
-                  };
+                  }
 
-dataField = do { p <- getPosition
-               ; id <- identifier <|> symbol "_"
+dataField = do { p     <- getPosition
+               ; i     <- identifier <|> symbol "_"
                ; width <- integer
-               ; attr <- option NOATTR dataAttr
-               ; tpe <- option NoBitFieldType typeLabel
-               ; desc <- option id stringLit
-               ; symbol ";"
-               ; return (RegField id width attr tpe desc p)
+               ; attr  <- option NOATTR dataAttr
+               ; tpe   <- option NoBitFieldType typeLabel
+               ; desc  <- option i stringLit
+               ; _     <- symbol ";"
+               ; return (RegField i width attr tpe desc p)
                }
 
 typeLabel = do { reserved "type"
-               ; i <- (parens identifier)
-               ; return (TypeRef i) }
+               ; i <- (parens typeReference)
+               ; return i
+               }
+
+typeReference = do { i1 <- identifier
+                   ; i2 <- option Nothing typeQualifier
+                   ; return (case i2 of
+                                Just qual -> TypeRef qual (Just i1)
+                                Nothing   -> TypeRef i1   Nothing
+                            )
+                   }
+
+typeQualifier = do { _  <- symbol "."
+                   ; i <- identifier
+                   ; return (Just i)
+                   }
 
 regField = do { p <- getPosition
-              ; id <- identifier <|> symbol "_"
+              ; i <- identifier <|> symbol "_"
               ; width <- integer  
               ; attr <- option NOATTR fieldAttr
               ; tpe <- option NoBitFieldType typeLabel 
-              ; desc <- option id stringLit
-              ; symbol ";"
-              ; return (RegField id width attr tpe desc p)
+              ; desc <- option i stringLit
+              ; _       <- symbol ";"
+              ; return (RegField i width attr tpe desc p)
               }
 
 numberFormat = do{ i <- integer
-                   ; symbol "-"
-                   ; j <- integer 
-                   ; return (j - i + 1) 
+                 ; _ <- symbol "-"
+                 ; j <- integer 
+                 ; return (j - i + 1) 
                 }
 
 dataAttr = do { reserved "rw"; return RW }
@@ -298,7 +321,11 @@ binarySpace = do { reserved "addr" ; return "addr" }
               <|> do { reserved "io" ; return "io" }
               <|> do { reserved "pci" ; return "pci" }
 
-regLoc = do { sp <- binarySpace 
+regLoc = do { reserved "noaddr"
+            ; return RegNoLoc 
+            }
+         <|>
+         do { sp <- binarySpace 
             ; ( base, offset ) <- parens binLoc 
             ; return ( RegLoc sp base offset )
             }
@@ -308,7 +335,10 @@ regLoc = do { sp <- binarySpace
             ; return (RegLoc sp "" offset)
             }
     
-binLoc = do { e1 <- identifier ; comma ; e2 <- integer ; return ( e1 , e2 ) }
+binLoc = do { e1 <- identifier 
+            ; _  <- comma 
+            ; e2 <- integer 
+            ; return ( e1 , e2 ) }
 
 arraySpec = try( arrayStepSpec )
             <|> try( arrayListSpec )
@@ -321,7 +351,7 @@ arrayListSpec = do { l <- commaSep1 integer;
                    }
 
 arrayStepSpec = do { base <- integer
-                   ; symbol ";"
+                   ; _ <- symbol ";"
                    ; step <- integer
                    ; return ( ArrayStepLoc base step )
                    }
@@ -333,18 +363,24 @@ arrayContigSpec = do { base <- integer
 constants args = do { reserved "constants"
                     ; p <- getPosition
                     ; i <- identifier 
+                    ; w <- option Nothing constWidth 
                     ; d <- stringLit
                     ; f <- braces (many1 (constField args))
-                    ; symbol ";"
-                    ; return (Constants i d f p)
+                    ; _ <- symbol ";"
+                    ; return (Constants i d f w p)
                     }
+
+constWidth = do { _ <- reserved "width"
+                ; i <- parens integer
+                ; return (Just i)
+                }
 
 constField args = do { i <- identifier
                      ; p <- getPosition
-                     ; symbol "="
+                     ; _ <- symbol "="
                      ; e <- expr 
                      ; d <- option i stringLit
-                     ; symbol ";"
+                     ; _ <- symbol ";"
                      ; return (ConstVal i e d p)
                      }
 
@@ -393,7 +429,7 @@ expr_to_multerms e = [e]
 expr_to_poly :: Expr -> [ (Integer, [ String ]) ]
 expr_to_poly (ExprBinOp "+" op1 op2) = 
     (expr_to_poly op1) ++ (expr_to_poly op2)
-expr_to_poly e@(ExprBinOp "*" op1 op2) = 
+expr_to_poly e@(ExprBinOp "*" _ _) = 
     [ reduce_multerms (expr_to_multerms e) ]
 expr_to_poly (ExprPoly p) = p
 expr_to_poly (ExprConstant i) = [ (i, []) ]

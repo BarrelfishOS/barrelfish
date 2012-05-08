@@ -8,6 +8,7 @@
  */
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <barrelfish/barrelfish.h>
 #include "posixcompat.h"
 

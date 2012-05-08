@@ -16,17 +16,25 @@
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
 
+// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
+#if defined(__i386__) && defined(__GNUC__) \
+    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
+#define SAFEINLINE __attribute__((noinline))
+#else
+#define SAFEINLINE
+#endif
+
 /*-------------------------- Internal structures ----------------------------*/
 
 struct retype_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint64_t new_type;
     uint8_t size_bits;
-    caddr_t to;
-    caddr_t slot; 
+    capaddr_t to;
+    capaddr_t slot; 
     int dcn_vbits;
 };
 
@@ -34,7 +42,7 @@ struct delete_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint8_t vbits;
 };
 
@@ -42,7 +50,7 @@ struct revoke_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
     struct capref croot;
-    caddr_t src;
+    capaddr_t src;
     uint8_t vbits;
 };
 
@@ -57,27 +65,16 @@ static bool static_delete_state_used = false;
 static struct revoke_st static_revoke_state;
 static bool static_revoke_state_used = false;
 
-static uint32_t current_route_id = 0;
-
 /*-------------------------- Helper Functions ------------------------------*/
 
 static void remote_cap_retype_phase_2(void * st_arg);
 static void remote_cap_delete_phase_2(void * st_arg);
 static void remote_cap_revoke_phase_2(void * st_arg);
 
-// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) struct retype_st *
+static SAFEINLINE struct retype_st *
 alloc_retype_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint64_t new_type, uint8_t size_bits,
-                caddr_t to, caddr_t slot, int dcn_vbits)
-#else
-static struct retype_st *alloc_retype_st(struct monitor_blocking_binding *b,
-                                        struct capref croot, caddr_t src, 
-                                        uint64_t new_type, uint8_t size_bits,
-                                        caddr_t to, caddr_t slot, int dcn_vbits)
-#endif
+                capaddr_t src, uint64_t new_type, uint8_t size_bits,
+                capaddr_t to, capaddr_t slot, int dcn_vbits)
 {
     struct retype_st * st;
     if (static_retype_state_used) {
@@ -112,17 +109,9 @@ static void free_retype_st(struct retype_st * st)
     }
 }
 
-// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) struct delete_st *
+static SAFEINLINE struct delete_st *
 alloc_delete_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint8_t vbits)
-#else
-static struct delete_st* alloc_delete_st(struct monitor_blocking_binding *b,
-                                         struct capref croot, caddr_t src, 
-                                         uint8_t vbits)
-#endif
+                capaddr_t src, uint8_t vbits)
 {
     struct delete_st * st;
     if (static_delete_state_used) {
@@ -154,16 +143,9 @@ static void free_delete_st(struct delete_st * st)
 }
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline)) struct revoke_st *
+static SAFEINLINE struct revoke_st *
 alloc_revoke_st(struct monitor_blocking_binding *b, struct capref croot,
-                caddr_t src, uint8_t vbits)
-#else
-static struct revoke_st *alloc_revoke_st(struct monitor_blocking_binding *b,
-                                         struct capref croot, caddr_t src, 
-                                         uint8_t vbits)
-#endif
+                capaddr_t src, uint8_t vbits)
 {
     struct revoke_st * st;
     if (static_revoke_state_used) {
@@ -200,9 +182,9 @@ static void free_revoke_st(struct revoke_st * st)
 
 
 static void remote_cap_retype(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, 
+                              struct capref croot, capaddr_t src, 
                               uint64_t new_type, uint8_t size_bits,
-                              caddr_t to, caddr_t slot, int dcn_vbits) 
+                              capaddr_t to, capaddr_t slot, int32_t dcn_vbits) 
 {
     errval_t err;
     bool has_descendants;
@@ -284,7 +266,7 @@ static void remote_cap_retype_phase_2(void * st_arg)
 
 
 static void remote_cap_delete(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t vbits)
 {
     errval_t err;
 
@@ -345,7 +327,7 @@ static void remote_cap_delete_phase_2(void * st_arg)
 
 
 static void remote_cap_revoke(struct monitor_blocking_binding *b,
-                              struct capref croot, caddr_t src, uint8_t vbits)
+                              struct capref croot, capaddr_t src, uint8_t vbits)
 {
     errval_t err;
     /* Save state for stackripped reply */
@@ -401,24 +383,6 @@ static void remote_cap_revoke_phase_2(void * st_arg)
 
     free_revoke_st(st);
     err = b->tx_vtbl.remote_cap_revoke_response(b, NOP_CONT, reply_err);
-    assert (err_is_ok(err));
-}
-
-
-routeid_t mon_allocate_route_id(void) 
-{
-    coreid_t coreid = disp_get_core_id();
-    assert (coreid < 0xff);
-    assert (++(current_route_id) < 0xffffff);   // XXX TODO - deal with rollover
-    
-    return (coreid << 24) | current_route_id;
-}
-
-static void allocate_route_id(struct monitor_blocking_binding *st)
-{
-    errval_t err;
-    uint32_t route_id = mon_allocate_route_id();
-    err = st->tx_vtbl.allocate_route_id_response(st, NOP_CONT, route_id);
     assert (err_is_ok(err));
 }
 
@@ -531,6 +495,21 @@ static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep
     assert(err_is_ok(err2));
 }
 
+static void get_arch_core_id(struct monitor_blocking_binding *b)
+{
+    static uintptr_t arch_id = -1;
+    errval_t err;
+
+    if (arch_id == -1) {
+        err = invoke_monitor_get_arch_id(&arch_id);
+        assert(err_is_ok(err));
+        assert(arch_id != -1);
+    }
+
+    err = b->tx_vtbl.get_arch_core_id_response(b, NOP_CONT, arch_id);
+    assert(err_is_ok(err));
+}
+
 static void cap_set_remote_done(void *arg)
 {
     struct capref *tmpcap = arg;
@@ -595,14 +574,102 @@ static void cap_set_remote(struct monitor_blocking_binding *b,
     }
 }
 
+/* ----------------------- BOOTINFO REQUEST CODE START ---------------------- */
+
+static void get_phyaddr_cap(struct monitor_blocking_binding *b)
+{
+    // XXX: We should not just hand out this cap to everyone
+    // who requests it. There is currently no way to determine
+    // if the client is a valid recipient
+    errval_t err;
+
+    struct capref src = {
+        .cnode = cnode_root,
+        .slot  = ROOTCN_SLOT_PACN
+    };
+
+    err = b->tx_vtbl.get_phyaddr_cap_response(b, NOP_CONT, src,
+            SYS_ERR_OK);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_phyaddr_cap, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_phyaddr_cap_response failed");
+    }
+}
+
+static void get_io_cap(struct monitor_blocking_binding *b)
+{
+    // XXX: We should not just hand out this cap to everyone
+    // who requests it. There is currently no way to determine
+    // if the client is a valid recipient
+    errval_t err;
+    struct capref src = {
+        .cnode = cnode_task,
+        .slot  = TASKCN_SLOT_IO
+    };
+
+    err = b->tx_vtbl.get_io_cap_response(b, NOP_CONT, src,
+            SYS_ERR_OK);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_io_cap, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_io_cap_response failed");
+    }
+}
+
+
+static void get_bootinfo(struct monitor_blocking_binding *b)
+{
+    errval_t err;
+
+    struct capref frame = {
+        .cnode = cnode_task,
+        .slot  = TASKCN_SLOT_BOOTINFO
+    };
+
+    struct frame_identity id = { .base = 0, .bits = 0 };
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.get_bootinfo_response(b, NOP_CONT, SYS_ERR_OK, frame,
+                                           (size_t)1 << id.bits);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            err = b->register_send(b, get_default_waitset(),
+                                   MKCONT((void (*)(void *))get_bootinfo, b));
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "register_send failed");
+            }
+        }
+
+        USER_PANIC_ERR(err, "sending get_bootinfo_response failed");
+    }
+}
+
+/* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
+    .get_bootinfo_call = get_bootinfo,
+    .get_phyaddr_cap_call = get_phyaddr_cap,
+    .get_io_cap_call = get_io_cap,
+
     .remote_cap_retype_call  = remote_cap_retype,
     .remote_cap_delete_call  = remote_cap_delete,
     .remote_cap_revoke_call  = remote_cap_revoke,
-
-    .allocate_route_id_call  = allocate_route_id,
 
     .rsrc_manifest_call      = rsrc_manifest,
     .rsrc_join_call          = rpc_rsrc_join,
@@ -611,6 +678,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .alloc_monitor_ep_call   = alloc_monitor_ep,
     .cap_identify_call       = cap_identify,
     .irq_handle_call         = irq_handle_call,
+    .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,
 };
@@ -631,10 +699,17 @@ static errval_t connect_callback(void *st, struct monitor_blocking_binding *b)
 
 errval_t monitor_rpc_init(void)
 {
-    errval_t err;
-    err = monitor_blocking_export(NULL, export_callback, connect_callback, 
-                                  get_default_waitset(), 
-                                  IDC_EXPORT_FLAGS_DEFAULT);
+    static struct monitor_blocking_export e = {
+        .connect_cb = connect_callback,
+        .common = {
+            .export_callback = export_callback,
+            .flags = IDC_EXPORT_FLAGS_DEFAULT,
+            .connect_cb_st = &e,
+            .lmp_connect_callback = monitor_blocking_lmp_connect_handler,
+        }
+    };
 
-    return err;
+    e.waitset = get_default_waitset();
+
+    return idc_export_service(&e.common);
 }

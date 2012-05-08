@@ -20,15 +20,24 @@ module	/scc/sbin/init
 module	/scc/sbin/mem_serv
 module	/scc/sbin/monitor
 
-module	/scc/sbin/chips boot
 module	/scc/sbin/ramfsd boot
+module  /scc/bin/skb boot
 module  /scc/sbin/spawnd boot bootscc=1
 module  /scc/sbin/startd boot
 # modules needed to start the networking
 # module  /scc/sbin/eMAC core=0
+# module  /scc/sbin/NGD_MNG core=0 cardname=eMAC2_0
 # module  /scc/sbin/netd core=0 cardname=eMAC2_0
 # module  /scc/sbin/eMAC core=1
+# module  /scc/sbin/NGD_MNG core=2 cardname=eMAC2_1
 # module  /scc/sbin/netd core=1 cardname=eMAC2_1
+
+# Test for network throughput
+# module  /scc/sbin/netthroughput core=1 /nfs nfs://10.110.4.41/shared /nfs/pravin/testfile.txt
+
+# For webserver
+# module  /scc/sbin/webserver core=1 eMAC2_1 10.110.4.41 /shared/pravin/sw
+
 
 # RCK memory map
 # 624MB private RAM

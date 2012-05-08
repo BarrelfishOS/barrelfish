@@ -149,7 +149,8 @@ static int paging_x86_32_map_mem(lpaddr_t base, size_t size, uint64_t bitmap)
     // Is mapped region out of range?
     assert(local_phys_to_gen_phys(base + size) <= X86_32_PADDR_SPACE_LIMIT);
     if(local_phys_to_gen_phys(base + size) > X86_32_PADDR_SPACE_LIMIT) {
-        printk(LOG_ERR, "Mapped region [%x,%x] out of physical address range!",
+        printk(LOG_ERR, "Mapped region [%"PRIxLPADDR",%"PRIxLPADDR"]"
+                        "out of physical address range!",
                base, base + size);
         return -1;
     }
@@ -189,8 +190,9 @@ static int paging_x86_32_map_mem(lpaddr_t base, size_t size, uint64_t bitmap)
               addr, X86_32_PDIR_BASE(vaddr));
         mapit(pdir_base, addr, bitmap);
 #       else
-        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%x, addr = 0x%x, "
-              "PDIR_BASE = %u, PTABLE_BASE = %u -- ", vaddr,
+        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%"PRIxLVADDR", "
+              "addr = 0x%"PRIxLVADDR", "
+              "PDIR_BASE = %"PRIuLPADDR", PTABLE_BASE = %"PRIuLPADDR" -- ", vaddr,
               addr, X86_32_PDIR_BASE(vaddr), X86_32_PTABLE_BASE(vaddr));
         mapit(pdir_base, ptable_base, addr, bitmap);
 #       endif
@@ -250,8 +252,9 @@ lvaddr_t paging_x86_32_map_special(lpaddr_t base, size_t size, uint64_t bitmap)
         union x86_32_ptable_entry *ptable_base =
             &mem_ptable[X86_32_PDIR_BASE(vaddr) - (X86_32_PTABLE_SIZE - MEM_PTABLE_SIZE)][X86_32_PTABLE_BASE(vaddr)];
 
-        debug(SUBSYS_PAGING, "Mapping 4K device page: vaddr = 0x%x, addr = 0x%x, "
-              "PDIR_BASE = %u, PTABLE_BASE = %u, pdir = %p, ptable = %p -- ",
+        debug(SUBSYS_PAGING, "Mapping 4K device page: vaddr = 0x%"PRIxLVADDR", "
+              "addr = 0x%"PRIxLPADDR", "
+              "PDIR_BASE = %"PRIxLPADDR", PTABLE_BASE = %"PRIxLPADDR", pdir = %p, ptable = %p -- ",
               vaddr, addr, X86_32_PDIR_BASE(vaddr), X86_32_PTABLE_BASE(vaddr), pdir,
               mem_ptable[X86_32_PDIR_BASE(vaddr) - (X86_32_PTABLE_SIZE - MEM_PTABLE_SIZE)]);
         mapit(pdir_base, ptable_base, addr, bitmap);

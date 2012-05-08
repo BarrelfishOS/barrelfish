@@ -128,8 +128,10 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
                     X86_32_PDIR_BASE(vaddr) * X86_32_PTABLE_SIZE
                     + X86_32_PTABLE_BASE(vaddr)];
 
-        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%x, base = 0x%x, "
-              "PDIR_BASE = %u, PTABLE_BASE = %u -- ", vaddr, base,
+        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%"PRIxLVADDR
+                             ", base = 0x%"PRIxLPADDR", "
+              "PDIR_BASE = %"PRIuLPADDR", "
+              "PTABLE_BASE = %"PRIuLPADDR" -- ", vaddr, base,
               X86_32_PDIR_BASE(vaddr), X86_32_PTABLE_BASE(vaddr));
 #endif
 
@@ -164,7 +166,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;) {
         struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
-        debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %u\n",
+        debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
               mmap->base_addr, mmap->base_addr + mmap->length,
               mmap->type);
 
@@ -473,7 +475,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     /* Construct cmdline args */
     char bootinfochar[16];
-    snprintf(bootinfochar, sizeof(bootinfochar), "%u", BOOTINFO_BASE);
+    snprintf(bootinfochar, sizeof(bootinfochar), "%"PRIuLPADDR, BOOTINFO_BASE);
 
     const char *argv[6] = { "init", bootinfochar };
     int argc = 2;
@@ -486,7 +488,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
         argv[argc++] = coreidchar;
 
         char chan_id_char[30];
-        snprintf(chan_id_char, sizeof(chan_id_char), "chanid=%d",
+        snprintf(chan_id_char, sizeof(chan_id_char), "chanid=%"PRIu32,
                  glbl_core_data->chan_id);
         argv[argc++] = chan_id_char;
 
@@ -578,7 +580,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     // IPI channel id of core that booted this core
     char chanidchar[30];
-    snprintf(chanidchar, sizeof(chanidchar), "chanid=%d", core_data->chan_id);
+    snprintf(chanidchar, sizeof(chanidchar), "chanid=%"PRIu32, core_data->chan_id);
 
     // Arch id of the core that booted this core
     char archidchar[30];

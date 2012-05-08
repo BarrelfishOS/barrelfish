@@ -16,6 +16,14 @@
 typedef void *vfs_handle_t;
 #define NULL_VFS_HANDLE NULL
 
+/* XXX: remove this for partitioned cache */
+
+#ifdef WITH_SHARED_CACHE
+static const char vfs_cache_str[] = "single-shared";
+#else
+static const char vfs_cache_str[] = "partitioned";
+#endif
+
 //#define WITH_BUFFER_CACHE
 //#define WITH_WRITE_BACK_CACHE
 //#define WITH_META_DATA_CACHE
@@ -42,6 +50,9 @@ struct vfs_fileinfo {
     size_t size;            ///< Size of the object (in bytes, for a regular file)
 };
 
+// initialization
+void vfs_init(void);
+
 // operations on files
 errval_t vfs_open(const char *path, vfs_handle_t *handle); // fail if it doesn't exist
 errval_t vfs_create(const char *path, vfs_handle_t *handle); // ok if already present
@@ -55,6 +66,7 @@ errval_t vfs_seek(vfs_handle_t handle, enum vfs_seekpos whence, off_t offset);
 errval_t vfs_tell(vfs_handle_t handle, size_t *pos);
 errval_t vfs_stat(vfs_handle_t handle, struct vfs_fileinfo *info);
 errval_t vfs_close(vfs_handle_t handle);
+errval_t vfs_flush(vfs_handle_t handle);
 
 // manipulation of directories
 errval_t vfs_mkdir(const char *path); // fail if already present

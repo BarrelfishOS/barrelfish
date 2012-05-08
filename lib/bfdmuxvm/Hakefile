@@ -7,11 +7,12 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/bfdmuxvm
--- 
+--
 --------------------------------------------------------------------------
 
 [ build library { target = "bfdmuxvm",
-                  cFiles = [ "vm.c" ],
-		  addLibraries = [ "lwip" ]
+                  cFiles = [ "vm.c" ]
+-- try and get rid of lwip library here as it is only used for ntoh[l/s]
+		  , addLibraries = [ "lwip" ]
                 }
 ]

@@ -1,14 +1,4 @@
 
-
- * Register types can't be declared constant types.  For example: 
-    constants mcg_ctl_val "Global MC control values" {
-	mc_enable	= 0xffffffffffffffff;
-	mc_disable	= 0x0;
-    };
-    register mcg_ctl rw msr(0x17b) "Global machine check control" 
-	type(msg_ctl_val);
-   - doesn't work.   And badly. 
-
  * Constants can't be bigger than 32 bits.  For example: 
     constants mcg_ctl_val "Global MC control values" {
 	mc_enable	= 0xffffffffffffffff;
@@ -16,53 +6,60 @@
     };
     - again. 
 
- * What are the kinds of types we have?  A field has a type which is
-   either an (anonymous) integer or a 'constants' declaration.  A
-   register has a type which is either a regtype (including the
-   implicit type introduced by an explicit format), or an anonymous
-   integer type.  Therefore it should also be allowed to have a
-   'constants' (or constant) type.  This in turn implies that
-   'constants' types and register types are from the same namespace.
-   This simplifies imports at least. 
+ * Required additional checks are now:
+    - Constant values all fit into the bit width specified
 
-   Importing types (type imports are always qualified):
-     from xapic import ctl_reg; -- don't need this if everything is qualified!
-     import xapic;
+ * How will we do device inheritance?  Clearly the new device is a
+   new type, but it also needs a new operation for every register,
+   even those inherited from the base device type.  This suggests that
+   register definitions should always be copied from the base type,
+   but register type definitions (and constant declarations) should
+   simply be referenced. 
 
-   Referring to types: type(xapic.ctl_reg)
-
-   Inheritance?  Specify a single parent device, allow 'elide'
-   constructs to remove imported registers.  Inheritance also
-   implicitly 'imports' types from the parent. 
-
+   New syntax for inheritance: 
+     1) extends(xapic) as an extra device attribute. 
+     2) override register foo ... to override a register definition. 
+     3) elide register bar; removes defn of bar from the new device. 
 
  * Generalize register field attributes.  Specify fixed values
    properly, as either a literal, or a constant value name, or
-   (possibly) a compile-time expression.  Compile time expressions
-   should include "all ones".  Split up whether the driver 
+   (possibly) a compile-time expression.  Split up whether the driver
    can read or write the field, and in what way, from what
-   consequences there are of reading or writing the field. 
+   consequences there are of reading or writing the field.
 
-   Options for reading:
-     R : 'readable' Return any value to user (expose a read operation)
-     RN: 'no_read' Can't be read.
+   What is the difference between the read cycles permissible by the
+   hardware, and the read operations that the user might want to be able
+   to initiate?
+
+   Well, whether the hardware allows reads or not is simply a bit. 
+     Hardware-readable: boolean. False => never generate a read
+     cycle.   This is a property of a register, not a field!
+
+   What reads the user is allowed to perform is always one of:
+     R : 'read_value' :  Return any value to user (expose a read operation)
      RF: 'read_as' Always same constant value (expose sanity check to drivers)
+     RC: 'read_clears' Reads as some value, and also clears. 
+     RN: 'no_read' Can't be read.
+    These are properties of fields; register properties are templates
+     for these. 
+
+   Can you allow a hardware write or not? 
+     If you can, what are the constraints on this? These are field
+     properties, but might apply to the register as a whole. 
 
    Options for writing:
-     W : 'writeable' Set to any value of a type (expose a write operation)
-     WN: 'no_write' Cannot be written (not exposed to user)
+     W : 'write_value' Set to any value of a type (expose a write operation)
+     WN: 'no_write' Cannot be written/writes ignored (not exposed to user)
      WF: 'write_as' Must write a specific value (not exposed to user)
      WP: 'preserve' Must preserve previous value (not exposed to user)
+     WC: 'write_to_clear(v)' Must write a specific value to clear register
+     WS: 'write_to_set(v)' Must write a specific value to set register
 
    Options for other actions:
-     <default>: nothing special happens
-     read_clears: reads as some value, and also clears. 
      sticky: once written, value will never change. 
-     write_to_clear(v): 
 
    Shorthand:
-
-     rw		=> readable writeable
+     rw		=> read_value write_value
      ro		=> readable no_write
      wo		=> no_read writeable
      always(v)	=> read_as(v) write_as(v)
@@ -87,7 +84,6 @@
    appear in some variants.  There must be a way of determining which
    variant a format is
  
- * Back-end to simply do checks.
  * Back-end to print out memory map of device, or even pictures. 
  * Selectively enable/disable specific checks
  * Collect all parse errors before exiting. 
@@ -112,7 +108,7 @@
    that can only be accessed by sending messages using writes to
 
  * Register overlap checks should allow non-'also' registers to
-   overlap if one is non-writeable and the other is non-writeable.
+   overlap if one is non-writeable and the other is non-readable.
 
   * Compile time checks:
     - Duplicate register names
@@ -210,3 +206,18 @@ Experiences:
    the data sheet, so a good way of getting acquainted with the
    device. 
 
+-----------------------
+
+acpi_ec.dev:1:1: File acpi_ec.dev describes dev EC not acpi_ec
+arm_icp_pic.dev:1:1: File arm_icp_pic.dev describes dev arm_icp_pic0 not arm_icp_pic
+hpet.dev:1:1: File hpet.dev describes dev HPET not hpet
+ixp2800_icp_pic.dev:1:1: File ixp2800_icp_pic.dev describes dev ixp2800_icp_pic0 not ixp2800_icp_pic
+ixp2800_uart.dev:1:1: File ixp2800_uart.dev describes dev IXP2800_UART not ixp2800_uart
+lpc_dma.dev:1:1: File lpc_dma.dev describes dev LPC_dma not lpc_dma
+lpc_ioapic.dev:1:1: File lpc_ioapic.dev describes dev LPC_IOAPIC not lpc_ioapic
+lpc_pic.dev:1:1: File lpc_pic.dev describes dev LPC_PIC not lpc_pic
+lpc_rtc.dev:1:1: File lpc_rtc.dev describes dev LPC_rtc not lpc_rtc
+lpc_rtc_spaces.dev:1:1: File lpc_rtc_spaces.dev describes dev LPC_rtc not lpc_rtc_spaces
+lpc_timer.dev:1:1: File lpc_timer.dev describes dev LPC_timer not lpc_timer
+pc16550d_uart.dev:1:1: File pc16550d_uart.dev describes dev PC16550D_UART not pc16550d_uart
+pl011_uart.dev:1:1: File pl011_uart.dev describes dev PL011_UART not pl011_uart

@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Client for interacting with the name service (chips)
+ * \brief Client for interacting with the name service
  */
 
 /*
@@ -11,13 +11,16 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#include <stdio.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/nameservice_defs.h>
-#include <if/nameservice_rpcclient_defs.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_rpcclient_defs.h>
 #include <if/monitor_defs.h>
+#include <octopus/getset.h> // for oct_read TODO
+#include <octopus/trigger.h> // for NOP_TRIGGER
 
 /**
  * \brief Non-blocking name service lookup
@@ -27,29 +30,41 @@
  */
 errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 {
-    nameservice_srvref_t ref;
     errval_t err;
 
-    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_nameservice_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    err = r->vtbl.get_service_reference(r, iface, &ref);
+    char* record = NULL;
+    octopus_trigger_id_t tid;
+    errval_t error_code;
+    err = r->vtbl.get(r, iface, NOP_TRIGGER, &record, &tid, &error_code);
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_REFERENCE);
+        goto out;
     }
-
-    if (ref == 0) {
-        return CHIPS_ERR_UNKNOWN_NAME;
-    }
-
-    err = r->vtbl.get_service(r, ref, retiref);
+    err = error_code;
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_IREF);
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
+            err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
+        }
+        goto out;
     }
 
-    return SYS_ERR_OK;
+    uint64_t iref_number = 0;
+    err = oct_read(record, "_ { iref: %d }", &iref_number);
+    if (err_is_fail(err) || iref_number == 0) {
+        err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
+        goto out;
+    }
+    if (retiref != NULL) {
+        *retiref = iref_number;
+    }
+
+out:
+    free(record);
+    return err;
 }
 
 /**
@@ -60,34 +75,40 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
  */
 errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
 {
-    nameservice_srvref_t ref;
-    iref_t iref;
     errval_t err;
 
-    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_nameservice_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    err = r->vtbl.wait_for_service_reference(r, iface, &ref);
+    char* record = NULL;
+    errval_t error_code;
+    err = r->vtbl.wait_for(r, iface, &record, &error_code);
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_REFERENCE);
+        goto out;
     }
-
-    if (ref == 0) {
-        return CHIPS_ERR_GET_SERVICE_REFERENCE;
-    }
-
-    err = r->vtbl.get_service(r, ref, &iref);
+    err = error_code;
     if (err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_GET_SERVICE_IREF);
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
+            err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
+        }
+        goto out;
     }
 
+    uint64_t iref_number = 0;
+    err = oct_read(record, "_ { iref: %d }", &iref_number);
+    if (err_is_fail(err)) {
+        err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
+        goto out;
+    }
     if (retiref != NULL) {
-        *retiref = iref;
+        *retiref = iref_number;
     }
 
-    return SYS_ERR_OK;
+out:
+    free(record);
+    return err;
 }
 
 /**
@@ -98,67 +119,40 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
  */
 errval_t nameservice_register(const char *iface, iref_t iref)
 {
-    nameservice_srvref_t ref;
+    errval_t err = SYS_ERR_OK;
 
-    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_nameservice_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
-    return r->vtbl.register_service(r, iref, iface, &ref);
-}
-
-/**
- * \brief Get a capability from the capability store.
- *
- * \param key           String that identifies the capability
- * \param retcap        Pointer to structure holding capability
- */
-#include <stdio.h>
-errval_t nameservice_get_capability(const char *key, struct capref *retcap)
-{
-    errval_t reterr;
-    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
-    if (r == NULL) {
-	printf("nameservice not found\n");
-        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    // Format record
+    static const char* format = "%s { iref: %d }";
+    size_t len = snprintf(NULL, 0, format, iface, iref);
+    char* record = malloc(len+1);
+    if (record == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
     }
-    printf("get cap %s\n", key);
-    errval_t err = r->vtbl.get_cap(r, key, retcap, &reterr);
-    if(err_is_fail(err)) {
-	printf("ERROR!\n");
-        return err_push(err, CHIPS_ERR_GET_CAP);
-    }
-    printf("about to return\n");
-    return reterr;
-}
+    snprintf(record, len+1, format, iface, iref);
 
-/**
- * \brief Put a capability to the capability store.
- *
- * \param key           String that identifies the capability
- * \param cap           The capability to store
- */
-errval_t nameservice_put_capability(const char *key, struct capref cap)
-{
-    errval_t reterr;
-    struct nameservice_rpc_client *r = get_nameservice_rpc_client();
-    if (r == NULL) {
-        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    char* ret = NULL;
+    octopus_trigger_id_t tid;
+    errval_t error_code;
+    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
+    if (err_is_fail(err)) {
+        goto out;
     }
+    err = error_code;
 
-    errval_t err = r->vtbl.put_cap(r, key, cap, &reterr);
-    if(err_is_fail(err)) {
-        return err_push(err, CHIPS_ERR_PUT_CAP);
-    }
-
-    return reterr;
+out:
+    free(record);
+    return err;
 }
 
 /* ----------------------- BIND/INIT CODE FOLLOWS ----------------------- */
 
 
-static void error_handler(struct nameservice_binding *b, errval_t err)
+static void error_handler(struct octopus_binding *b, errval_t err)
 {
     USER_PANIC_ERR(err, "asynchronous error in nameservice binding");
 }
@@ -169,17 +163,17 @@ struct bind_state {
 };
 
 static void bind_continuation(void *st_arg, errval_t err,
-                              struct nameservice_binding *b)
+                              struct octopus_binding *b)
 {
     struct bind_state *st = st_arg;
 
     if (err_is_ok(err)) {
         b->error_handler = error_handler;
 
-        struct nameservice_rpc_client *r;
-        r = malloc(sizeof(struct nameservice_rpc_client));
+        struct octopus_rpc_client *r;
+        r = malloc(sizeof(struct octopus_rpc_client));
         assert(r != NULL);
-        err = nameservice_rpc_client_init(r, b);
+        err = octopus_rpc_client_init(r, b);
         if (err_is_fail(err)) {
             free(r);
             USER_PANIC_ERR(err, "error in nameservice_rpc_client_init");
@@ -201,8 +195,8 @@ static void get_name_iref_reply(struct monitor_binding *mb, iref_t iref,
     if (iref == 0) {
         err = LIB_ERR_GET_NAME_IREF;
     } else {
-        err = nameservice_bind(iref, bind_continuation, st,
-                               get_default_waitset(), IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+        err = octopus_bind(iref, bind_continuation, st,
+                get_default_waitset(), IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     }
 
     if (err_is_fail(err)) {
@@ -241,3 +235,4 @@ errval_t nameservice_client_blocking_bind(void)
 
     return st.err;
 }
+

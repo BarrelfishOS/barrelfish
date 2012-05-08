@@ -14,19 +14,19 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
-#include <barrelfish/sys_debug.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "pci.h"
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+#include <barrelfish/sys_debug.h>
+
 #include <if/pci_defs.h>
-#include <lpc_bridge_dev.h>
+#include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
 
+#include "pci.h"
 #include "pci_debug.h"
-
 
 /*****************************************************************
  * Data types:
@@ -114,8 +114,12 @@ static void init_legacy_device_handler(struct pci_binding *b,
 
     /* determine IOAPIC INTI for given GSI and map to core */
     if (vector != (uint32_t)-1) {
-        e = enable_and_route_interrupt(irq, coreid, vector);
-        if (err_is_fail(e)) {
+
+        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        errval_t ret_error;
+        e = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+        assert(err_is_ok(e));
+        if (err_is_fail(ret_error)) {
             DEBUG_ERR(e, "failed to route interrupt %d -> %d\n", irq, vector);
             e = err_push(e, PCI_ERR_ROUTING_IRQ);
             goto reply;
@@ -168,85 +172,51 @@ static void get_cap_response_resend(void *arg)
     free(a);
 }
 
-static void get_cap_handler(struct pci_binding *b, uint32_t index,
+static void get_cap_handler(struct pci_binding *b, uint32_t idx,
                             uint32_t cap_nr)
 {
     struct client_state *st = b->st;
     assert(st != NULL);
     errval_t e;
 
-    if (index >= st->nr_allocated_bars) {
+    if (idx >= st->nr_allocated_bars) {
         e = b->tx_vtbl.get_cap_response(b, NOP_CONT, PCI_ERR_WRONG_INDEX,
                                         NULL_CAP, 0);
         assert(err_is_ok(e));
     } else {
         struct capref cap = pci_get_cap_for_device(st->bus, st->dev,
-                                                   st->fun, index, cap_nr);
+                                                   st->fun, idx, cap_nr);
         uint8_t type = pci_get_cap_type_for_device(st->bus, st->dev,
-                                                   st->fun, index);
+                                                   st->fun, idx);
 /*
 XXX: I/O-Cap??
-        uint8_t type = st->bar_info[index].type;
+        uint8_t type = st->bar_info[idx].type;
         struct capref cap = NULL_CAP;
 
         if(type == 0) {
-            cap = st->bar_info[index].frame_cap;
+            cap = st->bar_info[idx].frame_cap;
         } else {
-            cap = st->bar_info[index].io_cap;
+            cap = st->bar_info[idx].io_cap;
         }
 */
 
         get_cap_response_cont(b, SYS_ERR_OK, cap, type);
     }
 }
-
-static void reset_handler(struct pci_binding *b)
-{
-    if (AcpiGbl_FADT.Flags & ACPI_FADT_RESET_REGISTER) {
-        printf("Resetting machine via ACPI...\n");
-        ACPI_STATUS as = AcpiReset();
-        if (ACPI_FAILURE(as)) {
-            printf("ACPI reset failed: 0x%x\n", as);
-        }
-    }
-
-    printf("Resetting machine via syscall...\n");
-    errval_t err = sys_reboot();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "reboot syscall failed");
-    }
-}
-
-static void sleep_handler(struct pci_binding *b, int state)
-{
-    printf("Entering S%d sleep state via ACPI...\n", state);
-    ACPI_STATUS as = AcpiEnterSleepStatePrep(state);
-    if (!ACPI_SUCCESS(as)) {
-        printf("AcpiEnterSleepStatePrep failed\n");
-        return;
-    }
-
-    as = AcpiEnterSleepState(state);
-    if (!ACPI_SUCCESS(as)) {
-        printf("AcpiEnterSleepState failed\n");
-    }
-}
-
+/*
 static void get_vbe_bios_cap(struct pci_binding *b)
 {
     errval_t err;
     err = b->tx_vtbl.get_vbe_bios_cap_response(b, NOP_CONT, SYS_ERR_OK, biosmem,
                                                1UL << BIOS_BITS);
     assert(err_is_ok(err));
-}
+}*/
 
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_cap_call = get_cap_handler,
-    .reset_call = reset_handler,
-    .sleep_call = sleep_handler,
-    .get_vbe_bios_cap_call = get_vbe_bios_cap,
+    //.get_vbe_bios_cap_call = get_vbe_bios_cap,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

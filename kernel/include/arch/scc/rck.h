@@ -17,7 +17,7 @@ void rck_init(void);
 uint8_t rck_get_coreid(void);
 void rck_send_notification(uint8_t dest, uintptr_t chanid);
 void rck_handle_notification(void);
-errval_t rck_register_notification(caddr_t cap, int chanid);
+errval_t rck_register_notification(capaddr_t cap, int chanid);
 errval_t rck_delete_notification(int chanid);
 int rck_start_core(uint8_t coreid, genpaddr_t umpframe_base,
                    uint8_t umpframe_bits, int chanid);

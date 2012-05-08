@@ -13,7 +13,7 @@
 [ build application { target = "serial",
                       cFiles = [ "serial.c", "main.c"],
                       flounderBindings = [ "serial" ],
-                      mackerelDevices = [ "pc16550d_uart" ],
+                      mackerelDevices = [ "pc16550d" ],
                       addLibraries = ["pci"]
                     }
 ]

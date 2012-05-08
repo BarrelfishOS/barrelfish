@@ -19,19 +19,11 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
+#include <contmng/netbench.h>
 
 // XXX: kludge making it possible to use bench_tsc without -lbench
 #if defined(__i386__) || defined(__x86_64__)
 bool rdtscp_flag;
-#endif
-
-//#define ENABLE_RPC_DEBUGP 1
-/* FIXME: It might be a good idea to move ENABLE_RPC_DEBUGP to Config.hg */
-
-#ifdef ENABLE_RPC_DEBUGP
-#define RPC_DEBUGP(x...) printf("RPC: " x)
-#else
-#define RPC_DEBUGP(x...) ((void)0)
 #endif
 
 #define FALSE   false
@@ -39,6 +31,7 @@ bool rdtscp_flag;
 
 #include <nfs/xdr.h>
 #include "rpc.h"
+#include "rpc_debug.h"
 #include "xdr_pbuf.h"
 
 /// RPC authentication flavour
@@ -175,6 +168,8 @@ static err_t xdr_skip_auth(XDR *xdr)
 static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
                              struct ip_addr *addr, u16_t port)
 {
+
+//    uint64_t ts = rdtsc();
     uint32_t replystat, acceptstat;
     XDR xdr;
     err_t r;
@@ -210,7 +205,10 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         prev = call;
     }
     if (call == NULL) {
-        fprintf(stderr, "RPC:[%d] Unknown XID 0x%x in reply, dropped\n", disp_get_domain_id(), xid);
+        fprintf(stderr, "RPC: Unknown XID 0x%" PRIx32 " in reply, dropped\n", xid);
+/*        fprintf(stderr, "RPC:[%d:%s] Unknown XID 0x%x in reply, dropped\n",
+                disp_get_domain_id(), disp_name(), xid);
+*/
         goto out;
     } else if (prev == NULL) {
     	client->call_hash[hid] = call->next;
@@ -235,15 +233,20 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         acceptstat = -1;
     }
 
+//    lwip_record_event_simple(RPC_RECV_T, ts);
+//    ts = rdtsc();
     call->callback(client, call->cbarg1, call->cbarg2, replystat, acceptstat,
                    &xdr);
+//    lwip_record_event_simple(RPC_CALLBACK_T, ts);
 
 out:
+//    ts = rdtsc();
     pbuf_free(pbuf);
     if (call != NULL) {
         pbuf_free(call->pbuf);
         free(call);
     }
+//    lwip_record_event_simple(RPC_RECV_OUT_T, ts);
 }
 
 static void traverse_hash_bucket(int hid, struct rpc_client *client)
@@ -256,10 +259,12 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
         if (++call->timers >= RPC_RETRANSMIT_AFTER) {
             if (call->retries++ == RPC_MAX_RETRANSMIT) {
                 /* admit failure */
-                fprintf(stderr, "##### RPC: timeout for XID 0x%x\n", call->xid);
+                printf("##### [%d][%"PRIuDOMAINID"] "
+                       "RPC: timeout for XID 0x%"PRIu32"\n",
+                       disp_get_core_id(), disp_get_domain_id(), call->xid);
                 pbuf_free(call->pbuf);
                 if (prev == NULL) {
-                	client->call_hash[hid] = call->next;
+                    client->call_hash[hid] = call->next;
                 } else {
                     prev->next = call->next;
                 }
@@ -267,14 +272,23 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 free(call);
                 freed_call = true;
             } else {
-/*              // Start debugging if it is not already on.
+                /*
                 if(net_debug_state == 0) {
                     net_debug_state = 1;
-                    lwip_start_net_debug(net_debug_state);
+                    printf("starting the debug in network driver\n");
+                    lwip_benchmark_control(0, BMS_START_REQUEST,
+                            0, rdtsc());
+                    lwip_benchmark_control(1, BMS_START_REQUEST,
+                            0, rdtsc());
+                } else {
+                    printf("already started the debug in network driver\n");
                 }
-*/
+                */
+
                 /* retransmit */
-                fprintf(stderr, "##### RPC: retransmit XID 0x%x\n", call->xid);
+                printf("###### [%d][%"PRIuDOMAINID"] "
+                       "RPC: retransmit XID 0x%"PRIu32"\n",
+                       disp_get_core_id(), disp_get_domain_id(), call->xid);
 
                 // throw away (hide) UDP/IP/ARP headers from previous transmission
                 err_t e = pbuf_header(call->pbuf,
@@ -343,7 +357,7 @@ err_t rpc_init(struct rpc_client *client, struct ip_addr server)
     /* XXX: (very) pseudo-random number for initial XID */
     client->nextxid = (uint32_t)bench_tsc();
 
-    RPC_DEBUGP("Initial sequence no. is %u 0x%x\n",
+    RPC_DEBUGP("###### Initial sequence no. is %"PRIu32" 0x%"PRIx32"\n",
     		client->nextxid, client->nextxid);
     udp_recv(client->pcb, rpc_recv_handler, client);
 
@@ -383,13 +397,18 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
                size_t args_size, rpc_callback_t callback, void *cbarg1,
                void *cbarg2)
 {
+
+    uint64_t ts = rdtsc();
     XDR xdr;
     err_t r;
     bool rb;
     uint32_t xid;
 
     if (lwip_mutex != NULL) {
-        assert(!thread_mutex_trylock(lwip_mutex));
+        if(thread_mutex_trylock(lwip_mutex)) {
+           printf("rpc_call: thread_mutex_trylock failed\n");
+           abort();
+        }
     }
 
     rb = xdr_pbuf_create_send(&xdr, args_size + RPC_CALL_HEADER_LEN);
@@ -453,6 +472,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
         free(call);
     }
 
+    lwip_record_event_simple(RPC_CALL_T, ts);
     return r;
 }
 

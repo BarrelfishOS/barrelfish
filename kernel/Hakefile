@@ -15,12 +15,13 @@ let
                         Config.RR   -> "schedule_rr.c"
                         Config.RBED -> "schedule_rbed.c"
     microbench = if Config.microbenchmarks then ["microbenchmarks.c"] else []
+    timer = if Config.oneshot_timer then ["timer.c"] else []
     indep_cfiles = [ "gdb_stub.c", "capabilities.c", "dispatch.c",
-                     "mdb.c", scheduler, "memset.c", "memmove.c", "printf.c",
+                     scheduler, "memset.c", "memmove.c", "printf.c",
                      "startup.c", "stdlib.c", "string.c", "syscall.c",
-                     "wakeup.c" ] ++ microbench
-    hamlet_cfile = "/capabilities/cap_predicates.c"
-    indep_libs = [ "getopt" ]
+                     "wakeup.c" ]
+                     ++ microbench ++ timer
+    indep_libs = [ "getopt", "mdb_kernel" ]
     mkrules arch arch_cfiles arch_sfiles mackerelFiles arch_libs arch_absolute_cfiles arch_absolute_sfiles realarch_cfiles realarch_sfiles = (
         let
             opts = kernelOptions arch
@@ -28,11 +29,10 @@ let
             in_realarch_dir f = ("arch" ./. arch) ./. f
             all_cfiles = indep_cfiles ++ (map in_arch_dir arch_cfiles) ++ arch_absolute_cfiles ++ (map in_realarch_dir realarch_cfiles)
             sfiles = (map in_realarch_dir realarch_sfiles) ++ (map in_arch_dir arch_sfiles) ++ arch_absolute_sfiles
-            objs = [ objectFilePath opts f | f <- (sfiles ++ all_cfiles ++ [hamlet_cfile]) ]
+            objs = [ objectFilePath opts f | f <- (sfiles ++ all_cfiles) ]
         in
             Rules ([
                 compileCFiles opts all_cfiles,
-                compileGeneratedCFile opts hamlet_cfile,
                 assembleSFiles opts sfiles,
                 linkKernel opts "cpu" objs (indep_libs ++ arch_libs),
                 Rule ( [ Str "OBJDUMP=objdump",
@@ -58,8 +58,8 @@ in [
         x86_sFiles = [ "init_ap_x86_64.S", "init_ap_x86_32.S" ]
         absolute_cFiles = (map in_x86_dir x86_cFiles)
         absolute_sFiles = (map in_x86_dir x86_sFiles)
-        mackerelFiles = [ "lpc_pic", "pc16550d_uart", "ia32",
-                          "xapic", "cmos", "amd_vmcb", "cpuid", "lpc_rtc" ]
+        mackerelFiles = [ "lpc_pic", "pc16550d", "ia32", "amd64", 
+                          "xapic", "amd_vmcb", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "x86_64" cfiles sfiles mackerelFiles libs absolute_cFiles absolute_sFiles [] []),
 
@@ -75,8 +75,8 @@ in [
         x86_sFiles = [ "init_ap_x86_64.S", "init_ap_x86_32.S" ]
         absolute_cFiles = (map in_x86_dir x86_cFiles)
         absolute_sFiles = (map in_x86_dir x86_sFiles)
-        mackerelFiles = [ "lpc_pic", "pc16550d_uart", "ia32",
-                          "xapic", "cmos", "cpuid", "lpc_rtc" ]
+        mackerelFiles = [ "lpc_pic", "pc16550d", "ia32", "amd64",
+                          "xapic", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "x86_32" cfiles sfiles mackerelFiles libs absolute_cFiles absolute_sFiles [] []),
 
@@ -102,40 +102,36 @@ in [
                 []
         indep_cFiles = (map in_x86_dir x86_cFiles)
         indep_sFiles = (map in_x86_dir x86_sFiles)
-        mackerelFiles =
+        mackerelFiles = 
             if Config.rck_emu then
-                [ "pc16550d_uart", "ia32", "xapic", "rck", "eMAC", "lpc_pic", "cmos", "cpuid" ]
+                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "lpc_pic", 
+                  "lpc_rtc", "cpuid" ]
             else
-                [ "pc16550d_uart", "ia32", "xapic", "rck", "eMAC", "cpuid" ]
+                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "scc" cfiles sfiles mackerelFiles libs indep_cFiles indep_sFiles arch_cfiles arch_sfiles),
 
    -- arm
    (let sfiles = [ "boot.S", "exceptions.S" ]
         cfiles = [ "exn.c", "exec.c", "init.c", "integrator.c", "kludges.c", "kputchar.c", "misc.c", "pl011_uart.c", "paging.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
-        mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic", "pl011_uart" ]
+        mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic0", "pl011_uart" ]
         libs = [ "elf", "cpio" ]
     in mkrules "arm" cfiles sfiles mackerelFiles libs [] [] [] []),
 
    -- xscale
    (let sfiles = [ "exceptions.S" ]
         cfiles = [ "exn.c", "exec.c", "init.c", "kludges.c", "misc.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
-        arch_sfiles = [ "boot.S", "ixp2800_uart.c", "ixp2800_paging.c", "kputchar.c" ]
-        arch_cfiles = [ "ixp2800_integrator.c" ]
-        mackerelFiles = [ "arm", "ixp2800_icp_pit", "ixp2800_icp_pic", "ixp2800_uart" ]
+        arch_sfiles = [ "boot.S" ]
+        arch_cfiles = [ "ixp2800_integrator.c", "ixp2800_uart.c", 
+                        "ixp2800_paging.c", "kputchar.c" ]
+        mackerelFiles = [ "arm", "ixp2800_icp_pit", "ixp2800_icp_pic0", 
+                          "ixp2800_uart" ]
         libs = [ "elf", "cpio" ]
     in mkrules "xscale" cfiles sfiles mackerelFiles libs [] [] arch_cfiles arch_sfiles),
 
    -- arm11mp
    (let sfiles = [ "boot.S", "exceptions.S", "paging_cp.S" ]
         cfiles = [ "exn.c", "exec.c", "init.c", "integrator.c", "kludges.c", "kputchar.c", "misc.c", "pl011_uart.c", "paging.c", "phys_mmap.c", "startup_arch.c", "syscall.c" ]
-        mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic", "pl011_uart" ]
-    in mkrules "arm11mp" cfiles sfiles mackerelFiles [] [] [] [] []),
-
-   -- beehive
-   (let sfiles = [ "boot.S", "ringtest.S", "findbits.S", "context.S", "dcache.S" ]
-        cfiles = ["exec.c", "gdb_arch.c", "init.c", "misc.c", "serial.c", "startup_arch.c",
-                  "syscall.c", "page_mappings_arch.c", "ringbmp.c", "kputchar.c" ] ++ microbench
-        mackerelFiles = []
-    in mkrules "beehive" cfiles sfiles mackerelFiles [] [] [] [] [])
+        mackerelFiles = [ "arm", "arm_icp_pit", "arm_icp_pic0", "pl011_uart" ]
+    in mkrules "arm11mp" cfiles sfiles mackerelFiles [] [] [] [] [])
   ]

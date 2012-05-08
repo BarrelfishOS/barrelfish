@@ -22,8 +22,8 @@ supported types in Barrelfish.
 
 \item[Retypability] Some types of capability may be \emph{retyped} to
   create one or more new capabilities of the same or different
-  type. If this is the case, we specify for each type what other types
-  of capability it may be retyped to.
+  type. If this is the case, we specify for each type from what other types of
+  capability it may be retyped.
 
 \item[Mint parameters] It is possible to specific type-specific
   parameters when \emph{minting} capabilities. We specify for each
@@ -120,7 +120,7 @@ address lookup terminates early.
     };
     \end{lstlisting}
 \end{description}
-  
+
 \begin{invocation}{Mint}\label{sec:mint}
   \arg CSpace address of destination CNode
   \arg Slot number in destination CNode
@@ -248,7 +248,8 @@ resides.  \note{Full implementation and discussion pending}
       cnode      64  "Physical base address of CNode";
       bits        8  "Number of bits this CNode resolves";
       rightsmask  8  "Capability rights mask";
-      core_id     8  "Core id of the core the actual CNode capability resides in";
+      core_id     8  "Core id of the core the actual CNode capability
+                      resides in";
       guard_size  8  "Number of bits in guard word";
       guard      32  "Bitmask already resolved when reaching this CNode";
     };
@@ -347,7 +348,7 @@ user-level dispatcher (see \ref{sec:dispatch}).
   \begin{lstlisting}[language=Mackerel]
     datatype dcb_cap "Dispatcher capability" {
       dcb        64  "Pointer to the in kernel representation of
-      the dispatcher control block";
+                      the dispatcher control block";
     };
   \end{lstlisting}
 \end{description}
@@ -403,8 +404,9 @@ is specified changed by minting an endpoint to another endpoint.
   \begin{lstlisting}[language=Mackerel]
     datatype idc_cap "IDC endpoint capability" {
       listener     64  "Pointer to the in kernel representation of the
-      receiver's dispatcher control block";
-      epoffset     64  "Offset of endpoint buffer within dispatcher structure";
+                        receiver's dispatcher control block";
+      epoffset     64  "Offset of endpoint buffer within dispatcher
+                        structure";
     };
   \end{lstlisting}
   

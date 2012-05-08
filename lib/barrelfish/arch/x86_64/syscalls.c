@@ -20,7 +20,7 @@
 /* For documentation on system calls see include/barrelfish/syscalls.h
  */
 
-errval_t sys_yield(caddr_t target)
+errval_t sys_yield(capaddr_t target)
 {
     return syscall2(SYSCALL_YIELD, target).error;
 }

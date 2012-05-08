@@ -30,7 +30,8 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
 
-    printk(LOG_WARN, "user page fault%s in '%.*s': addr %x IP %x\n",
+    printk(LOG_WARN, "user page fault%s in '%.*s': addr %"PRIxLVADDR
+                      " IP %"PRIxPTR"\n",
            disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address, saved_pc);
 
@@ -141,13 +142,14 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
     )
 {
     int i;
-    printk(LOG_PANIC, "Kernel fault at %08x vector %08x\n\n", address, evector);
+    printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
+                      " vector %08"PRIx32"\n\n", address, evector);
     printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
 
     for (i = 0; i < 16; i++) {
-        printk(LOG_PANIC, "r%d\t%08x\n", i, save_area->regs[R0_REG + i]);
+        printk(LOG_PANIC, "r%d\t%08"PRIx32"\n", i, save_area->regs[R0_REG + i]);
     }
-    printk(LOG_PANIC, "cpsr\t%08x\n", save_area->regs[CPSR_REG]);
+    printk(LOG_PANIC, "cpsr\t%08"PRIx32"\n", save_area->regs[CPSR_REG]);
 
     switch (evector) {
         case ARM_EVECTOR_UNDEF:
@@ -167,10 +169,10 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
       break;
 
       case ARM_EVECTOR_DABT:
-        panic("Data abort: dfsr %08x\n", cp15_read_dfsr());
+        panic("Data abort: dfsr %08"PRIx32"\n", cp15_read_dfsr());
 
       default:
-        panic("Caused by evector: %02x", evector);
+        panic("Caused by evector: %02"PRIx32, evector);
         break;
     }
 }
@@ -181,7 +183,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 
     uint32_t irq = pic_get_active_irq();
 
-    debug(SUBSYS_DISPATCH, "IRQ %d while %s\n", irq,
+    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
     if (dcb_current != NULL) {
@@ -206,7 +208,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     else {
         // pic_ack_irq(irq);
         // send_user_interrupt(irq);
-        panic("Unhandled IRQ %u\n", irq);
+        panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
 
 }

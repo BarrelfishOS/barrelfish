@@ -99,6 +99,10 @@
 time_t
 time(time_t *timer)
 {
+#if defined(__arm__)
+    assert(!"nyi");
+    return 0;
+#else
     // XXX: What about TSC overflow?
     uint64_t now = rdtsc();
     uint64_t tscperms;
@@ -113,6 +117,7 @@ time(time_t *timer)
     if (timer)
         *timer = val;
     return val;
+#endif
 }
 
 void tzset(void)

@@ -58,13 +58,11 @@ errval_t vspace_current_init(bool init_domain)
         return err_push(err, LIB_ERR_PMAP_CURRENT_INIT);
     }
 
-#ifndef NOTRANS // Pinned memory only supported for MMUs with translation
     // Initialize pinned memory
     err = vspace_pinned_init();
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_PINNED_INIT);
     }
-#endif
 
     return SYS_ERR_OK;
 }

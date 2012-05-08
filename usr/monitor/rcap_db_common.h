@@ -69,8 +69,20 @@ struct rcap_st {
 
 uint64_t hash_cap(struct capability * cap);
 
-static inline coremask_t get_coremask(coreid_t core) {
-    return 1ull << core;
+static inline coremask_t get_coremask(coreid_t core)
+{
+    coremask_t mask;
+    memset(mask.bits, 0, sizeof(mask.bits));
+    mask.bits[core % _COREMASK_BITS_PER_WORD]
+        = (_coremask_word_t)1 << (core / _COREMASK_BITS_PER_WORD);
+    return mask;
+}
+
+static inline void coremask_or(coremask_t *dest, coremask_t *m1, coremask_t *m2)
+{
+    for (int i = 0; i < _COREMASK_WORDS; i++) {
+        dest->bits[i] = m1->bits[i] | m2->bits[i];
+    }
 }
 
 #endif

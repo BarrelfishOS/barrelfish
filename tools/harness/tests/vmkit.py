@@ -25,11 +25,13 @@ class VMKitTest(TestCommon):
         modules.add_module("serial")
         modules.add_module("lpc_timer")
         modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]])
+        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[2],
+                                    "cardname=%s"%cardName])
         modules.add_module("netd", ["core=%d" % machine.get_coreids()[2],
                                     "cardname=%s"%cardName])
 
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-        modules.add_module("vmkitmon", [cardName, 
+        modules.add_module("vmkitmon", [cardName,
                                        "nfs://" + nfsip + "/local/nfs/harness"])
         return modules
 

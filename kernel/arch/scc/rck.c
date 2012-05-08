@@ -210,6 +210,7 @@ void rck_init(void)
     }
 
     // Map more shared RAM (960MB more)
+    /* static int addr[20] = {0x1ec, 0x28, 0x51, 0x7a, 0xa3, 0xcc, 0xf5, 0x11e, 0x147, 0x170, 0x199, 0x1c2, 0x1eb, 0x1ed, 0x1ee, 0x1ef, 0x1f0, 0x1f1, 0x1f2, 0x1f3}; */
     static int addr[19] = {0x28, 0x51, 0x7a, 0xa3, 0xcc, 0xf5, 0x11e, 0x147, 0x170, 0x199, 0x1c2, 0x1eb, 0x1ed, 0x1ee, 0x1ef, 0x1f0, 0x1f1, 0x1f2, 0x1f3};
     for(int i = 0; i < 76; i++) {
         int current_lut;
@@ -294,7 +295,7 @@ static void handle_channel(uintptr_t chanid)
     struct capability *ep = &endpoints[chanid].cap;
 
     if(ep->type == ObjType_Null) {
-        printk(LOG_WARN, "unhandled RCK channel %d\n", chanid);
+        printk(LOG_WARN, "unhandled RCK channel %"PRIuPTR"\n", chanid);
         return;
     } else {
       /* printf("%d: handle_channel(%d)\n", my_core_id, chanid); */
@@ -304,11 +305,11 @@ static void handle_channel(uintptr_t chanid)
     errval_t err = lmp_deliver_notification(ep);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
-            dispatcher_handle_t handle = ep->u.endpoint.listener->disp;
-            struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(handle);
-            printk(LOG_DEBUG, "%.*s: RCK message buffer overflow\n",
-                   DISP_NAME_LEN, disp->name);
+            /* dispatcher_handle_t handle = ep->u.endpoint.listener->disp; */
+            /* struct dispatcher_shared_generic *disp = */
+            /*     get_dispatcher_shared_generic(handle); */
+            /* printk(LOG_DEBUG, "%.*s: RCK message buffer overflow\n", */
+            /*        DISP_NAME_LEN, disp->name); */
         } else {
             printk(LOG_ERR, "Unexpected error delivering RCK notification\n");
         }
@@ -405,13 +406,14 @@ void rck_handle_notification(void)
     uintptr_t reader_pos = *(uintptr_t *)mb;
     uintptr_t writer_pos = *(uintptr_t *)(mb + 4);
 
-#ifndef NO_INTERRUPT
-    assert(reader_pos != writer_pos);
-#else
+//#ifndef NO_INTERRUPT
+//    assert(reader_pos != writer_pos);
+//#else
     if(reader_pos == writer_pos) {
-        goto out;
+	   printf("reader_pos == writer_pos\n"); 
+       goto out;
     }
-#endif
+//#endif
 
     while(reader_pos != writer_pos) {
         // Check channel ID
@@ -442,9 +444,9 @@ void rck_handle_notification(void)
     rck_glcfg_wr_raw(&rck[tile], core, glcfg);
 #endif
 
-#ifdef NO_INTERRUPT
+//#ifdef NO_INTERRUPT
  out:
-#endif
+//#endif
     release_lock(myself);
 }
 
@@ -499,7 +501,7 @@ errval_t rck_get_route(genpaddr_t base, size_t size, uint8_t *route,
     return SYS_ERR_OK;
 }
 
-errval_t rck_register_notification(caddr_t ep, int chanid)
+errval_t rck_register_notification(capaddr_t ep, int chanid)
 {
     struct cte *recv;
     errval_t err;

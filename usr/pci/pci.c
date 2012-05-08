@@ -15,20 +15,21 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <barrelfish/barrelfish.h>
-#include <pci/devids.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <barrelfish/barrelfish.h>
+
+#include <pci/devids.h>
 #include <mm/mm.h>
 #include <skb/skb.h>
+#include <octopus/getset.h>
+#include <acpi_client/acpi_client.h>
 
 #include "pci.h"
-#include "pci_acpi.h"
 #include "driver_mapping.h"
-
 #include "ht_config.h"
 #include "ht_config_dev.h"
-
 #include "pci_debug.h"
 
 #define BAR_PROBE       0xffffffff
@@ -89,29 +90,31 @@ void pci_init_datastructures(void)
     memset(dev_caps, 0, sizeof(dev_caps));
 }
 
-int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index)
+int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx)
 {
-    return(dev_caps[bus][dev][fun][index].nr_caps);
+    return(dev_caps[bus][dev][fun][idx].nr_caps);
 }
 
 struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                     uint8_t index, int cap_nr)
+                                     uint8_t idx, int cap_nr)
 {
-    return(dev_caps[bus][dev][fun][index].frame_cap[cap_nr]);
+    return(dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
 }
 uint8_t pci_get_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                    uint8_t index)
+                                    uint8_t idx)
 {
-    return(dev_caps[bus][dev][fun][index].type);
+    return(dev_caps[bus][dev][fun][idx].type);
 }
 
 
-static errval_t alloc_device_bar(uint8_t index,
+static errval_t alloc_device_bar(uint8_t idx,
                                  uint8_t bus, uint8_t dev, uint8_t fun,
                                  uint8_t BAR, pciaddr_t base, pciaddr_t high,
                                  pcisize_t size)
 {
-    struct device_caps *c = &dev_caps[bus][dev][fun][index];
+	struct acpi_rpc_client* acl = get_acpi_rpc_client();
+
+    struct device_caps *c = &dev_caps[bus][dev][fun][idx];
     errval_t err;
 
     // first try with maximally-sized caps (we'll reduce this if it doesn't work)
@@ -129,8 +132,13 @@ static errval_t alloc_device_bar(uint8_t index,
     }
 
     for (int i = 0; i < c->nr_caps; i++) {
-        err = mm_alloc_range(&pci_mm_physaddr, bits, base + i * framesize,
-                             base + (i + 1) * framesize, &c->phys_cap[i], NULL);
+        /*err = mm_alloc_range(&pci_mm_physaddr, bits, base + i * framesize,
+                             base + (i + 1) * framesize, &c->phys_cap[i], NULL);*/
+    	errval_t error_code;
+    	err = acl->vtbl.mm_alloc_range_proxy(acl, bits, base + i * framesize,
+    			base + (i + 1) * framesize, &c->phys_cap[i], &error_code);
+    	assert(err_is_ok(err));
+    	err = error_code;
         if (err_is_fail(err)) {
             PCI_DEBUG("mm_alloc_range() failed: bits = %hhu, base = %"PRIxPCIADDR","
                       " end = %"PRIxPCIADDR"\n",
@@ -138,9 +146,9 @@ static errval_t alloc_device_bar(uint8_t index,
             if (err_no(err) == MM_ERR_MISSING_CAPS && bits > PAGE_BITS) {
                 /* try again with smaller page-sized caps */
                 for (int j = 0; j < i; j++) {
-                    err = mm_free(&pci_mm_physaddr, c->phys_cap[i],
-                                  base + j * framesize, bits);
-                    assert(err_is_ok(err));
+                	err = acl->vtbl.mm_free_proxy(acl, c->phys_cap[i],
+                			base + j * framesize, bits, &error_code);
+                    assert(err_is_ok(err) && err_is_ok(error_code));
                 }
 
                 free(c->phys_cap);
@@ -179,23 +187,23 @@ static errval_t alloc_device_bar(uint8_t index,
 
 //XXX: FIXME: HACK: BAD!!! Only needed to allocate a full I/O range cap to
 //                         the VESA graphics driver
-static errval_t assign_complete_io_range(uint8_t index,
+static errval_t assign_complete_io_range(uint8_t idx,
                                          uint8_t bus, uint8_t dev, uint8_t fun,
                                          uint8_t BAR)
 {
-    dev_caps[bus][dev][fun][index].frame_cap = (struct capref*)
+    dev_caps[bus][dev][fun][idx].frame_cap = (struct capref*)
         malloc(sizeof(struct capref));
-    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][index].frame_cap[0]));
+    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][idx].frame_cap[0]));
     assert(err_is_ok(err));
-    err = cap_copy(dev_caps[bus][dev][fun][index].frame_cap[0], cap_io);
+    err = cap_copy(dev_caps[bus][dev][fun][idx].frame_cap[0], cap_io);
     assert(err_is_ok(err));
 
 
-    dev_caps[bus][dev][fun][index].bits = 16;
-    dev_caps[bus][dev][fun][index].bar_nr = BAR;
-    dev_caps[bus][dev][fun][index].assigned = true;
-    dev_caps[bus][dev][fun][index].type = 1;
-    dev_caps[bus][dev][fun][index].nr_caps = 1;
+    dev_caps[bus][dev][fun][idx].bits = 16;
+    dev_caps[bus][dev][fun][idx].bar_nr = BAR;
+    dev_caps[bus][dev][fun][idx].assigned = true;
+    dev_caps[bus][dev][fun][idx].type = 1;
+    dev_caps[bus][dev][fun][idx].nr_caps = 1;
     return SYS_ERR_OK;
 }
 
@@ -218,42 +226,42 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
     pcisize_t bar_size;
 
     if (*bus != PCI_DONT_CARE) {
-        snprintf(s_bus, sizeof(s_bus), "%u", *bus);
+        snprintf(s_bus, sizeof(s_bus), "%"PRIu32"", *bus);
     } else {
         strncpy(s_bus, "Bus", sizeof(s_bus));
     }
     if (*dev != PCI_DONT_CARE) {
-        snprintf(s_dev, sizeof(s_dev), "%u", *dev);
+        snprintf(s_dev, sizeof(s_dev), "%"PRIu32, *dev);
     } else {
         strncpy(s_dev, "Dev", sizeof(s_dev));
     }
     if (*fun != PCI_DONT_CARE) {
-        snprintf(s_fun, sizeof(s_fun), "%u", *fun);
+        snprintf(s_fun, sizeof(s_fun), "%"PRIu32, *fun);
     } else {
         strncpy(s_fun, "Fun", sizeof(s_fun));
     }
     if (vendor_id != PCI_DONT_CARE) {
-        snprintf(s_vendor_id, sizeof(s_vendor_id), "%u", vendor_id);
+        snprintf(s_vendor_id, sizeof(s_vendor_id), "%"PRIu32, vendor_id);
     } else {
         strncpy(s_vendor_id, "Ven", sizeof(s_vendor_id));
     }
     if (device_id != PCI_DONT_CARE) {
-        snprintf(s_device_id, sizeof(s_device_id), "%u", device_id);
+        snprintf(s_device_id, sizeof(s_device_id), "%"PRIu32, device_id);
     } else {
         strncpy(s_device_id, "DevID", sizeof(s_device_id));
     }
     if (class_code != PCI_DONT_CARE) {
-        snprintf(s_class_code, sizeof(s_class_code), "%u", class_code);
+        snprintf(s_class_code, sizeof(s_class_code), "%"PRIu32, class_code);
     } else {
         strncpy(s_class_code, "Cl", sizeof(s_class_code));
     }
     if (sub_class != PCI_DONT_CARE) {
-        snprintf(s_sub_class, sizeof(s_sub_class), "%u", sub_class);
+        snprintf(s_sub_class, sizeof(s_sub_class), "%"PRIu32, sub_class);
     } else {
         strncpy(s_sub_class, "Sub", sizeof(s_sub_class));
     }
     if (prog_if != PCI_DONT_CARE) {
-        snprintf(s_prog_if, sizeof(s_prog_if), "%u", prog_if);
+        snprintf(s_prog_if, sizeof(s_prog_if), "%"PRIu32, prog_if);
     } else {
         strncpy(s_prog_if, "ProgIf", sizeof(s_prog_if));
     }
@@ -265,15 +273,16 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
 //find the device: Unify all values
     error_code = skb_execute_query(
         "device(PCIE,addr(%s, %s, %s), %s, %s, %s, %s, %s, _),"
-        "write(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
+        "writeln(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
         s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
         s_sub_class, s_prog_if,
         s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
         s_sub_class, s_prog_if
     );
     if (error_code != 0) {
-        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %d\n",
-            error_code);
+
+        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %s\n",
+            err_getcode(error_code));
 
         PCI_DEBUG("SKB returned: %s\n", skb_get_output());
         PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
@@ -281,11 +290,14 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         return PCI_ERR_DEVICE_INIT;
     }
 
-    err = skb_read_output("d(%[a-z], %u, %u, %u, %u, %u, %u, %u, %u).",
+    err = skb_read_output("d(%[a-z], %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32
+                          ",%"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32").",
                     s_pcie, bus, dev, fun, &vendor_id,
                     &device_id, &class_code, &sub_class, &prog_if);
 
     if (err_is_fail(err)) {
+    	DEBUG_ERR(err, "skb read output\n");
+
         PCI_DEBUG("device_init(): Could not read the SKB's output for the device\n");
         PCI_DEBUG("device_init(): SKB returned: %s\n", skb_get_output());
         PCI_DEBUG("device_init(): SKB error returned: %s\n", skb_get_error_output());
@@ -302,7 +314,8 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                 *bus, *dev, *fun);
 //get the implemented BARs for the found device
     error_code = skb_execute_query(
-        "pci_get_implemented_BAR_addresses(%u,%u,%u,%u,%u,%u,%u,%u,L),"
+        "pci_get_implemented_BAR_addresses(%"PRIu32",%"PRIu32",%"PRIu32
+        ",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",L),"
         "length(L,Len),writeln(L)",
         *bus, *dev, *fun, vendor_id, device_id, class_code, sub_class, prog_if);
 
@@ -360,9 +373,13 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
         PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
         PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
                     irq, coreid, vector);
-        err = enable_and_route_interrupt(irq, coreid, vector);
+        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        errval_t ret_error;
+        err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+        assert(err_is_ok(err));
+        assert(err_is_ok(ret_error)); // FIXME
 //        printf("IRQ for this device is %d\n", irq);
-        assert(err_is_ok(err)); // FIXME
+        //DEBUG_ERR(err, "enable_and_route_interrupt");
         pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
     }
 
@@ -404,7 +421,7 @@ struct bridge_chain {
 static struct bridge_chain *bridges;
 
 static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
-                               uint8_t maxchild, ACPI_HANDLE handle)
+                               uint8_t maxchild, char* handle)
 {
     struct pci_address addr = { .bus = parentaddr.bus };
 
@@ -470,10 +487,18 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                 pci_hdr1_t bhdr;
                 pci_hdr1_initialize(&bhdr, addr);
 
-                ACPI_HANDLE child;
+                //ACPI_HANDLE child;
+                char* child = NULL;
+                errval_t error_code;
                 PCI_DEBUG("get irg table for (%hhu,%hhu,%hhu)\n", (*busnum) + 1,
                         addr.device, addr.function);
-                acpi_get_irqtable_device(handle, addr, &child, (*busnum) + 1);
+                struct acpi_rpc_client* cl = get_acpi_rpc_client();
+                cl->vtbl.read_irq_table(cl, handle, *(acpi_pci_address_t*)&addr,
+                        (*busnum) + 1, &error_code, &child);
+                if (err_is_fail(error_code)) {
+                	DEBUG_ERR(error_code, "Reading IRQs failed");
+					assert(!"Check ACPI code");
+                }
 
                 ++*busnum;
                 assert(*busnum <= maxchild);
@@ -572,6 +597,23 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                              vendor, device_id, classcode.clss,
                              classcode.subclss, classcode.prog_if,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
+
+
+                // octopus start
+                char* record = NULL;
+                static char* device_fmt = "hw.pci.device. { "
+                                          "bus: %u, device: %u, function: %u, "
+                                          "vendor: %u, device_id: %u, class: %u, "
+                                          "subclass: %u, prog_if: %u }";
+                errval_t err = oct_mset(SET_SEQUENTIAL, device_fmt,
+                        addr.bus, addr.device, addr.function, vendor,
+                        device_id, classcode.clss, classcode.subclss,
+                        classcode.prog_if);
+
+                assert(err_is_ok(err));
+                free(record);
+                // end octopus
+
                 query_bars(devhdr, addr, false);
             }
 
@@ -582,15 +624,65 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
             }
         }
     }
+
+    free(handle);
 }
 
-void pci_add_root(struct pci_address addr, uint8_t maxchild, ACPI_HANDLE handle)
+void pci_add_root(struct pci_address addr, uint8_t maxchild, char* handle)
 {
     bridges = NULL;
     uint8_t busnum = addr.bus;
     assign_bus_numbers(addr, &busnum, maxchild, handle);
 }
 
+errval_t pci_setup_root_complex(void)
+{
+    errval_t err;
+    char* record = NULL;
+    char** names = NULL;
+    size_t len = 0;
+    // TODO: react to new rootbridges
+    err = oct_get_names(&names, &len,
+    		"r'hw.pci.rootbridge.[0-9]+' { acpi_node: _, bus: _, device: _, function: _, maxbus: _ }");
+    if (err_is_fail(err)) {
+	DEBUG_ERR(err, "get names");
+    	goto out;
+    }
+
+    for (size_t i=0; i<len; i++) {
+		err = oct_get(&record, names[i]);
+		if (err_is_fail(err)) {
+			goto out;
+		}
+
+		PCI_DEBUG("found new root complex: %s\n", record);
+
+		char* acpi_node = NULL; // freed in pci_add_root
+		int64_t bus, device, function, maxbus;
+		static char* format =  "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
+		err = oct_read(record, format, &acpi_node, &bus, &device, &function, &maxbus);
+		if (err_is_fail(err)) {
+			free(acpi_node);
+			free(record);
+			goto out;
+		}
+
+		struct pci_address addr;
+		addr.bus = (uint8_t) bus;
+		addr.device = (uint8_t) device;
+		addr.function = (uint8_t) function;
+
+		pcie_enable();
+		pci_add_root(addr, maxbus, acpi_node);
+		pcie_disable();
+
+		free(record);
+    }
+
+out:
+	oct_free_names(names, len);
+    return err;
+}
 
 
 
@@ -683,7 +775,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
                 //32bit BAR
                 skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
                              addr.bus, addr.device, addr.function,
-                             i, barorigaddr.base << 7, bar_mapping_size(bar),
+                             i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar),
                              (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
                              type);
             }
@@ -693,7 +785,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
             skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
                          "nonprefetchable, 32).",
                          addr.bus, addr.device, addr.function,
-                         i, barorigaddr.base << 7, bar_mapping_size(bar));
+                         i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar));
         }
     }
 }
@@ -1028,24 +1120,16 @@ void pci_program_bridges(void)
     }
 }
 
-
-
-
-//******************************************************************************
-// start of old functionality
-//******************************************************************************
-
-//asq: XXX: this needs cleanup! There should no ACPI calls be here! This should
-//          be moved to acpi.c.
 static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
 {
     char str[256], ldev[128];
 
     snprintf(str, 256,
-             "[\"irq_routing.pl\"], assigndeviceirq(addr(%u, %u, %u)).",
+             "[\"irq_routing.pl\"], assigndeviceirq(addr(%"PRIu32
+             ", %"PRIu32", %"PRIu32")).",
              bus, dev, fun);
     char *output, *error_out;
-    int int_err;
+    int32_t int_err;
     errval_t err = skb_evaluate(str, &output, &error_out, &int_err);
     assert(output != NULL);
     assert(err_is_ok(err));
@@ -1059,54 +1143,14 @@ static uint32_t setup_interrupt(uint32_t bus, uint32_t dev, uint32_t fun)
         return irq;
     }
 
-    PCI_DEBUG("Setting link device '%s' to GSI %u\n", ldev, irq);
-
-    ACPI_HANDLE source;
-    ACPI_STATUS as = AcpiGetHandle(NULL, ldev, &source);
-    if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
-        return 0;
-    }
-
-    uint8_t data[512];
-    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
-    as = AcpiGetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("  failed getting _CRS: %s\n",
-                  AcpiFormatException(as));
-        return 0;
-    }
-
-    // set chosen IRQ in first IRQ resource type
-    ACPI_RESOURCE *res = buf.Pointer;
-    switch(res->Type) {
-    case ACPI_RESOURCE_TYPE_IRQ:
-        res->Data.Irq.Interrupts[0] = irq;
-        break;
-
-    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
-        res->Data.ExtendedIrq.Interrupts[0] = irq;
-        break;
-
-    default:
-        printf("Unknown resource type: %d\n", res->Type);
-        USER_PANIC("NYI");
-    }
-
-    pcie_enable(); // XXX
-    as = AcpiSetCurrentResources(source, &buf);
-    if (ACPI_FAILURE(as)) {
-        PCI_DEBUG("  failed setting current IRQ: %s\n",
-                  AcpiFormatException(as));
+    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    errval_t error_code;
+    err = cl->vtbl.set_device_irq(cl, ldev, irq, &error_code);
+    assert(err_is_ok(err));
+    if (err_is_fail(error_code)) {
+        //DEBUG_ERR(error_code, "set device irq failed.");
         return 0;
     }
 
     return irq;
 }
-
-
-
-
-//******************************************************************************
-// end of old functionality
-//******************************************************************************
