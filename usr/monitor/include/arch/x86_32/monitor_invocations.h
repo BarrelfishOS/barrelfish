@@ -268,7 +268,7 @@ static inline errval_t invoke_monitor_spawn_scc_core(uint8_t id,
                                                      int chanid)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    caddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
     return syscall4((invoke_bits << 16) | (KernelCmd_Spawn_SCC_Core << 8)
                     | SYSCALL_INVOKE, invoke_cptr, urpcframe_base,
