@@ -384,9 +384,8 @@ cscope.out: cscope.files
 	cscope -k -b -i$<
 
 TAGS: cscope.files
-#	etags - < $<
-	etags -L cscope.files # for emacs
-	ctags -L cscope.files -o TAGS_VI # for vim
+	etags - < $< # for emacs
+	cat $< | xargs ctags -o TAGS_VI # for vim
 
 # force rebuild of the Makefile
 rehake: ./hake/hake
