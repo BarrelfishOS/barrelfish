@@ -863,13 +863,18 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
     struct cte *neighbour;
     if ((neighbour = mdb_predecessor(dest)) && is_copy(&dest->cap, &neighbour->cap)) {
         assert(!neighbour->mdbnode.in_delete);
+        assert(neighbour->mdbnode.owner == owner);
         dest->mdbnode.locked = neighbour->mdbnode.locked;
         dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
     }
     else if ((neighbour = mdb_successor(dest)) && is_copy(&dest->cap, &neighbour->cap)) {
         assert(!neighbour->mdbnode.in_delete);
+        assert(neighbour->mdbnode.owner == owner);
         dest->mdbnode.locked = neighbour->mdbnode.locked;
         dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
+    }
+    else if (owner != my_core_id) {
+        dest->mdbnode.remote_relations = true;
     }
 
     TRACE_CAP_MSG("created", dest);
