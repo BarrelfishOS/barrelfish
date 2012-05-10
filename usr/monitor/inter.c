@@ -648,8 +648,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .capops_owner_updated           = owner_updated__rx_handler,
     .capops_find_cap                = find_cap__rx_handler,
     .capops_find_cap_result         = find_cap_result__rx_handler,
-    .capops_find_descendants        = find_descendants__rx_fn,
-    .capops_find_descendants_result = find_descendants_result__rx_fn,
+    .capops_find_descendants        = find_descendants__rx_handler,
+    .capops_find_descendants_result = find_descendants_result__rx_handler,
 
 };
 

@@ -404,7 +404,7 @@ find_descendants_result_send_cont(struct intermon_binding *b, struct intermon_ms
 }
 
 void
-find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
+find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
     errval_t err;
 
@@ -439,7 +439,7 @@ find_descendants__rx_fn(struct intermon_binding *b, intermon_caprep_t caprep, ge
 }
 
 void
-find_descendants_result__rx_fn(struct intermon_binding *b, errval_t status, genvaddr_t st)
+find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
     struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)st;
 
