@@ -1086,6 +1086,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         return err;
     }
     dest_cte->mdbnode.owner = src_cte->mdbnode.owner;
+    dest_cte->mdbnode.remote_relations = src_cte->mdbnode.remote_relations;
 
     // Handle mapping
     mdb_insert(dest_cte);
