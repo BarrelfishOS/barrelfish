@@ -330,7 +330,7 @@ errval_t cap_delete(struct capref cap)
     err = invoke_cnode_delete(cap_root, caddr, vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_delete_remote(caddr, vbits);
+        return cap_delete_remote(get_cap_addr(cap), vbits);
     } else {
         return err;
     }
@@ -354,7 +354,7 @@ errval_t cap_revoke(struct capref cap)
     err = invoke_cnode_revoke(cap_root, caddr, vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_revoke_remote(caddr, vbits);
+        return cap_revoke_remote(get_cap_addr(cap), vbits);
     } else {
         return err;
     }

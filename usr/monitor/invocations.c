@@ -219,7 +219,7 @@ errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, stru
     capaddr_t ret_cn = ret_cap.cnode.address;
     uint8_t ret_cn_bits = ret_cap.cnode.address_bits;
     cslot_t ret_slot = ret_cap.slot;
-    return invoke_monitor_delete_last(root_addr, root_bits, cptr, bits,
+    return invoke_monitor_delete_last(root_addr, root_bits, cptr >> (CPTR_BITS-bits), bits,
                                       ret_cn, ret_cn_bits, ret_slot);
 }
 
