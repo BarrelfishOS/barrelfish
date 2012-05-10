@@ -79,8 +79,6 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
         return err;
     }
 
-    assert(!cte->mdbnode.remote_relations);
-
     if (cte->cap.type == ObjType_CNode ||
         cte->cap.type == ObjType_Dispatcher)
     {
