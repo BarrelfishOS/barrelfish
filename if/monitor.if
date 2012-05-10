@@ -135,7 +135,7 @@ interface monitor "The monitor to client Interface" {
     response cap_receive_request(
         uintptr conn_id,
         errval err,
-        cap cap,
+        give_away_cap cap,
         capid_t capid);
 
     call span_domain_request(

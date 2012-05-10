@@ -200,14 +200,8 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
     errval_t err, err2;
     struct capref *capp = caprefdup(cap);
 
-    struct event_closure cont;
-    if (capref_is_null(cap)) {
-        cont = NOP_CONT;
-    } else {
-        cont = MKCONT(destroy_outgoing_cap, capp);
-    }
     err = domain_binding->tx_vtbl.
-        cap_receive_request(domain_binding, cont, domain_id, msgerr, cap, capid);
+        cap_receive_request(domain_binding, MKCONT(free, capp), domain_id, msgerr, cap, capid);
 
     if (err_is_fail(err)) {
         free(capp);
