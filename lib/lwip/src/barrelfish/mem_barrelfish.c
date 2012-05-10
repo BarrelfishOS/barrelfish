@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -128,11 +128,11 @@ uint8_t *mem_barrelfish_alloc(uint8_t binding_index, uint32_t size)
     LWIPBF_DEBUG("allocating %" PRIx32 " bytes of memory.\n", size);
 
     struct bulk_transfer bt_packet;
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     err = bulk_create(size, PBUF_PKT_SIZE, &(buf->cap), &bt_packet, true);
 #else
     err = bulk_create(size, PBUF_PKT_SIZE, &(buf->cap), &bt_packet, false);
-#endif                          // defined(__scc__) && !defined(RCK_EMU)
+#endif
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bulk_create failed.");
         return NULL;

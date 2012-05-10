@@ -45,21 +45,13 @@
 #define RCK_CFG_REGS_OWN        0xf8000000
 
 /// Physical base address for message passing buffers (MPBs) in the default PTE map
-#ifndef RCK_EMU
-#       define RCK_MPB_BASE             0xc0000000
-#else
-#       define RCK_MPB_BASE             0x7a00000
-#endif
+#define RCK_MPB_BASE             0xc0000000
 
 /// Physical base address for own MPB
 #define RCK_MPB_OWN             0xd8000000
 
 /// Address range mapped by one LUT entry
-#ifndef RCK_EMU
-#       define LUT_SIZE                 0x1000000
-#else
-#       define LUT_SIZE                 (4 * BASE_PAGE_SIZE)
-#endif
+#define LUT_SIZE                 0x1000000
 
 // Max number of notification IDs that fit into message passing buffers
 #define MAX_CHANIDS             65280
@@ -107,16 +99,11 @@ static lvaddr_t mpb[NUM_RCK_TILES];
 /// User-space endpoints awaiting notifications
 static struct cte endpoints[MAX_CHANIDS];
 
-#ifdef RCK_EMU
-static spinlock_t locks[NUM_RCK_TILES * 2];
-#endif
-
 /**
  * Acquire test&set lock.
  */
 static void __attribute__ ((noinline)) acquire_lock(uint8_t dest)
 {
-#ifndef RCK_EMU
     int tile = dest / 2, core = dest % 2;
     /* rck_tas_t tas; */
 
@@ -131,10 +118,6 @@ static void __attribute__ ((noinline)) acquire_lock(uint8_t dest)
     do {
         tas = rck_tas_rd_raw(&rck[tile], core);
     } while(tas == 0);
-#else
-    // Memory lock
-    acquire_spinlock(&locks[dest]);
-#endif
 }
 
 /**
@@ -142,7 +125,6 @@ static void __attribute__ ((noinline)) acquire_lock(uint8_t dest)
  */
 static inline void release_lock(uint8_t dest)
 {
-#ifndef RCK_EMU
     int tile = dest / 2, core = dest % 2;
     /* rck_tas_t tas; */
 
@@ -152,15 +134,7 @@ static inline void release_lock(uint8_t dest)
 
     uint32_t tas = 0;
     rck_tas_wr_raw(&rck[tile], core, tas);
-#else
-    // Memory lock
-    release_spinlock(&locks[dest]);
-#endif
 }
-
-#ifdef RCK_EMU
-static char cfgregs[2 * BASE_PAGE_SIZE];
-#endif
 
 /**
  * Initialize RCK driver by mapping in config registers and MPBs.
@@ -168,13 +142,9 @@ static char cfgregs[2 * BASE_PAGE_SIZE];
 void rck_init(void)
 {
     for(int i = 0; i < NUM_RCK_TILES; i++) {
-#ifndef RCK_EMU
         void *rck_base =
             (void *)paging_map_device(RCK_CFG_REGS_BASE + LUT_SIZE * i,
                                       2 * BASE_PAGE_SIZE);
-#else
-        void *rck_base = &cfgregs;
-#endif
         assert(rck_base != NULL);
         rck_initialize(&rck[i], rck_base);
 
@@ -264,7 +234,6 @@ void rck_init(void)
  */
 uint8_t rck_get_coreid(void)
 {
-#ifndef RCK_EMU
     /* rck_tileid_t tileid = rck_tileid_rd(&rck_own); */
     uint32_t core = rck_tileid_rd_raw(&rck_own);
 
@@ -282,9 +251,6 @@ uint8_t rck_get_coreid(void)
 
     /* return (NUM_CORES*NUM_COLS*tileid.y)+(NUM_CORES*tileid.x)+tileid.coreid; */
     return (NUM_CORES*NUM_COLS*y)+(NUM_CORES*x)+core;
-#else
-    return apic_get_id();
-#endif
 }
 
 extern struct dcb *run_next;
@@ -368,7 +334,6 @@ void rck_send_notification(uint8_t dest, uintptr_t chanid)
 
 #ifndef NO_INTERRUPT
     // Send the interrupt if not already pending
-#       ifndef RCK_EMU
     /* rck_glcfg_t glcfg = rck_glcfg_rd(&rck[tile], core); */
     /* if(!glcfg.intr) { */
     /*     glcfg.intr = 1; */
@@ -379,9 +344,6 @@ void rck_send_notification(uint8_t dest, uintptr_t chanid)
         glcfg |= 1 << 1;
         rck_glcfg_wr_raw(&rck[tile], core, glcfg);
     }
-#       else
-    apic_send_std_ipi(dest, 0, APIC_SCC_INTER_CORE_VECTOR);
-#       endif
 #endif
 
     release_lock(dest);

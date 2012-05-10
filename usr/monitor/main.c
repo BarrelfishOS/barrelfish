@@ -120,7 +120,7 @@ static errval_t boot_app_core(int argc, char *argv[])
     struct intermon_binding *intermon_binding;
     errval_t err;
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     /* Create the self endpoint as the kernel doesn't do it */
     err = cap_retype(cap_selfep, cap_dispatcher, ObjType_EndPoint, 0);
     if (err_is_fail(err)) {
@@ -138,7 +138,7 @@ static errval_t boot_app_core(int argc, char *argv[])
     intermon_init(intermon_binding, parent_core_id);
 
     /* Request memserv and nameserv iref */
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     err = request_mem_serv_iref(intermon_binding);
     assert(err_is_ok(err));
 #endif
@@ -155,7 +155,7 @@ static errval_t boot_app_core(int argc, char *argv[])
     assert(err_is_ok(err));
 #endif // BARRELFISH_MULTIHOP_CHAN_H
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     /* initialize self ram alloc */
     err = mon_ram_alloc_init(parent_core_id, intermon_binding);
     if (err_is_fail(err)) {

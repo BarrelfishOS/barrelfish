@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -118,7 +118,7 @@ void boot_initialize_request(struct monitor_binding *st)
 
     printf("all %d monitors up\n", num_monitors);
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     if(num_monitors > 1) {
         printf("monitor: synchronizing clocks\n");
         err = timing_sync_timer();

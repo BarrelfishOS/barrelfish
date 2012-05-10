@@ -131,14 +131,10 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     errval_t err;
     int argn = 1;
 
-#ifndef RCK_EMU
     assert(argc == 5);
 
     // First argument contains the bootinfo location
     bi = (struct bootinfo*)strtol(argv[argn++], NULL, 10);
-#else
-    assert(argc == 4);
-#endif
 
     // core_id of the core that booted this core
     coreid_t core_id = strtol(argv[argn++], NULL, 10);
@@ -152,7 +148,6 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     assert(strncmp("frame", argv[argn], strlen("frame")) == 0);
     uint64_t chanbase = strtoul(strchr(argv[argn++], '=') + 1, NULL, 10);
 
-#ifndef RCK_EMU
     err = monitor_client_setup_mem_serv();
     assert(err_is_ok(err));
 
@@ -166,11 +161,9 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
-#endif
 
     printf("frame base at 0x%llx -- 0x%llx\n", chanbase, chanbase + BASE_PAGE_SIZE);
 
-#ifndef RCK_EMU
     assert(MON_URPC_CHANNEL_LEN * 2 < BASE_PAGE_SIZE);
     ram_set_affinity(chanbase, chanbase + BASE_PAGE_SIZE);
     struct capref frame;
@@ -180,12 +173,6 @@ errval_t boot_arch_app_core(int argc, char *argv[],
         return err; // FIXME: cleanup
     }
     ram_set_affinity(0, 0);     // Reset affinity
-#else
-    struct capref frame = {
-        .cnode = cnode_task,
-        .slot  = TASKCN_SLOT_MON_URPC,
-    };
-#endif
 
     struct frame_identity frameid = { .base = 0, .bits = 0 };
     err = invoke_frame_identify(frame, &frameid);

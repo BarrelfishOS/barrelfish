@@ -561,13 +561,10 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     apic_init();
 
 #ifdef __scc__
-#ifndef RCK_EMU
     enable_message_passing();
-#endif
 
     // Initialize Rockcreek driver
     rck_init();
-
 
     // XXX: Set core ID and fake APIC ID to be the tile's core ID
     my_core_id = apic_id = rck_get_coreid();
@@ -577,11 +574,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // do not remove/change this printf: needed by regression harness
 #ifndef __scc__
     printf("Barrelfish CPU driver starting on x86_32 core %u\n", apic_id);
-#else
-    printf("Barrelfish CPU driver starting on scc core %u\n", apic_id);
-#endif
 
-#if !defined(__scc__) || defined(RCK_EMU)
     if(apic_is_bsp()) {
         // Initialize classic (8259A) PIC
         pic_init();
@@ -589,6 +582,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Initialize real-time clock
     rtc_init();
+#else
+    printf("Barrelfish CPU driver starting on scc core %u\n", apic_id);
 #endif
 
     // Initialize local APIC timer
