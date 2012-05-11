@@ -37,15 +37,18 @@ uint8_t  hal_get_cpu_id(void);
 bool     hal_cpu_is_bsp(void);
 
 void     pic_init(void);
-void     pic_set_irq_enabled(uint32_t irq, bool en);
+//void     pic_set_irq_enabled(uint32_t irq, bool en);
+void 	 pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+							  uint8_t edge_triggered, uint8_t one_to_n);
 void     pic_disable_all_irqs(void);
 uint32_t pic_get_active_irq(void);
 void     pic_ack_irq(uint32_t irq);
 
-void     pit_init(uint32_t tick_hz);
-void     pit_start(void);
+//void     pit_init(uint32_t tick_hz);
+void 	 pit_init(uint32_t tick_hz, uint8_t pit_id);
+void     pit_start(uint8_t pit_id);
 bool     pit_handle_irq(uint32_t irq);
-void     pit_mask_irq(bool masked);
+void     pit_mask_irq(bool masked, uint8_t pit_id);
 
 void     tsc_init(void);
 uint32_t tsc_read(void);

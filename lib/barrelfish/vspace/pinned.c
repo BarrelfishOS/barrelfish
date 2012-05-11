@@ -29,6 +29,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state_arch.h>
 #include "vspace_internal.h"
+#include <stdio.h>
+
 
 /**
  * \brief Initialize the pinned region
@@ -102,6 +104,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
         if (err_is_fail(err)) {
             thread_mutex_unlock(&state->mutex);
+        	printf("frame alloc fail!\n");
             return err_push(err, LIB_ERR_FRAME_ALLOC);
         }
         err = state->memobj.m.f.fill((struct memobj*)&state->memobj,
@@ -109,6 +112,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
                                      BASE_PAGE_SIZE);
         if (err_is_fail(err)) {
             thread_mutex_unlock(&state->mutex);
+        	printf("memobj fill fail!\n");
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }
 
@@ -125,6 +129,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
     thread_mutex_unlock(&state->mutex);
 
     if (buf == NULL) {
+    	printf("slab alloc fail!\n");
         return LIB_ERR_SLAB_ALLOC_FAIL;
     } else {
         *retbuf = buf;

@@ -19,7 +19,11 @@
 #include <arm_hal.h>
 #include <cpiobin.h>
 #include <getopt/getopt.h>
+#include <romfs_size.h>
 
+
+#define INITRD_BASE			0x10000000
+#define GEM5_TOTAL_PHYSMEM	0x20000000
 
 //
 // ATAG boot header declarations
@@ -69,7 +73,7 @@ struct atag_videotext {
 struct atag_ramdisk {
     uint32_t flags;             // Bit 0 = load, bit 1 = prompt
     uint32_t bytes;             // Decompressed size
-    uint32_t start;             // Starting block of RAM disk image
+    uint32_t start;       		// Starting block of RAM disk image
 };
 
 struct atag_initrd2 {
@@ -181,10 +185,17 @@ void arch_init(uint32_t     board_id,
 
     exceptions_init();
 
-    //lvaddr_t *foo = 0x0;
-    //elf_file = *foo;
+
 
     ae = atag_find(atag_base, ATAG_MEM);
+
+    //gem5 sets ATAG_MEM to only 512MB, but we are using actually 1024MB,
+    //where the upper 512MB are for the ramdisk
+
+#ifdef __GEM5__
+    ae->u.mem.bytes = GEM5_TOTAL_PHYSMEM;
+#endif
+
     paging_map_memory(0, ae->u.mem.start, ae->u.mem.bytes);
 
     ae = atag_find(atag_base, ATAG_CMDLINE);
@@ -201,25 +212,33 @@ void arch_init(uint32_t     board_id,
         serial_console_init(serial_console_port);
 
         // do not remove/change this printf: needed by regression harness
-        printf("Barrelfish CPU driver starting on ARMv5 Board id 0x%08"PRIx32"\n",
-               board_id);
-        printf("The address of paging_map_kernel_section is %p\n", 
-               paging_map_kernel_section);
+       // printf("Barrelfish CPU driver starting on ARMv5 Board id 0x%08"PRIx32"\n",
+     //          board_id);
+    //    printf("The address of paging_map_kernel_section is %p\n",
+     //          paging_map_kernel_section);
         errval = serial_debug_init(serial_debug_port);
         if (err_is_fail(errval))
         {
             printf("Failed to initialize debug port: %d", serial_debug_port);
         }
 
-        debug(SUBSYS_STARTUP, "alloc_top %08"PRIxLVADDR" %08"PRIxLVADDR"\n",
-               alloc_top, alloc_top - KERNEL_OFFSET);
+        //lvaddr_t *foo = 0x0;
+        //elf_file = *foo;
+
+       // debug(SUBSYS_STARTUP, "alloc_top %08"PRIxLVADDR" %08"PRIxLVADDR"\n",
+      //         alloc_top, alloc_top - KERNEL_OFFSET);
         //debug(SUBSYS_STARTUP, "elf_file %08"PRIxLVADDR"\n", elf_file);
 
         my_core_id = hal_get_cpu_id();
         
         pic_init();
-        pit_init(tick_hz);
+        pit_init(tick_hz, 0);
+        pit_init(tick_hz, 1);
         tsc_init();
+
+
+        //pit_start(0);
+        //while(1) {}
 
         ae = atag_find(atag_base, ATAG_MEM);
                 
@@ -227,16 +246,15 @@ void arch_init(uint32_t     board_id,
 
         phys_mmap_t phys_mmap;
 
-        // Kernel effectively consumes [0...alloc_top]
-        // Add region above alloc_top with care to skip exception vector
-        // page.
-        phys_mmap_add(&phys_mmap,
-                      alloc_top - KERNEL_OFFSET,
-                      ETABLE_ADDR - KERNEL_OFFSET);
+        // Kernel resides in the first 1MB, add everything above to phys_mmap
 
         phys_mmap_add(&phys_mmap,
-                      ETABLE_ADDR - KERNEL_OFFSET + BASE_PAGE_SIZE,
+        			  ARM_L1_SECTION_BYTES,
                       ae->u.mem.start + ae->u.mem.bytes);
+
+       // phys_mmap_add(&phys_mmap,
+       //               ETABLE_ADDR - KERNEL_OFFSET + BASE_PAGE_SIZE,
+       //               ae->u.mem.start + ae->u.mem.bytes);
 
         ae = atag_find(atag_base, ATAG_VIDEOLFB);
         if (NULL != ae)
@@ -248,20 +266,19 @@ void arch_init(uint32_t     board_id,
             assert(!"Not supported");
         }
 
-        ae = atag_find(atag_base, ATAG_INITRD2);
-        if (NULL != ae)
-        {
-            phys_mmap_remove(&phys_mmap,
-                             ae->u.initrd2.start,
-                             ae->u.initrd2.start + ae->u.initrd2.bytes);
+        //ae = atag_find(atag_base, ATAG_INITRD2);
 
-            arm_kernel_startup(&phys_mmap,
-                               ae->u.initrd2.start,
-                               ae->u.initrd2.bytes);
-        }
-        else {
-            panic("initrd not found\n");
-        }
+        //Hardcoded because gem5 doesn't set ATAG_INITRD2
+        //Size of image is obtained by header file which is generated during compilation
+        phys_mmap_remove(&phys_mmap,
+        				 INITRD_BASE,
+        				 INITRD_BASE + romfs_cpio_archive_size);
+
+        arm_kernel_startup(&phys_mmap,
+        		INITRD_BASE,
+        		romfs_cpio_archive_size);
+
+
     }
     else {
         panic("Mis-matched board id: [current %"PRIu32", kernel %"PRIu32"]",

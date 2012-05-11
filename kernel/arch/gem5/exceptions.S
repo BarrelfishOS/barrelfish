@@ -47,6 +47,11 @@ irq_stack:
 irq_stack_top:
          .space 4, 0
 
+fiq_stack:
+        .space EXCEPTION_MODE_STACK_BYTES, 0
+fiq_stack_top:
+         .space 4, 0
+
 undef_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 undef_stack_top:
@@ -107,7 +112,7 @@ $exceptions_load_stacks:
         mov     r0, # ARM_MODE_SVC
         ldr     r1, = svc_stack_top
         bl      set_stack_for_mode
-$expections_install_handlers:
+$exceptions_install_handlers:
         mov     r0, # ARM_EVECTOR_PABT
         adr     r1, pabt_handler
         bl      exceptions_install_handler
@@ -117,15 +122,22 @@ $expections_install_handlers:
         mov     r0, # ARM_EVECTOR_IRQ
         adr     r1, irq_handler
         bl      exceptions_install_handler
+        mov     r0, # ARM_EVECTOR_FIQ
+        adr     r1, fiq_handler
+        bl      exceptions_install_handler
         mov     r0, # ARM_EVECTOR_UNDEF
         adr     r1, undef_handler
         bl      exceptions_install_handler
         mov     r0, # ARM_EVECTOR_SWI
-        adr     r1, swi_handler
+        ldr     r1, =swi_handler
         bl      exceptions_install_handler
 $exceptions_save_got:
         ldr     r0, = got_for_sys_mode
         str     PIC_REGISTER, [r0]
+//$exceptions_unmask_irq:
+//	    mrs     r1, cpsr
+//        bic     r1, r1, #0x80
+//        msr     cpsr_c, r1
 $exceptions_init_done:
         ldmfd   sp!, {pc}
 
@@ -142,25 +154,6 @@ set_stack_for_mode:
         msr     cpsr_c, r3              // Switch back
         bx      lr
 
-        //
-        // void exceptions_install_handler(int vector_offset,
-        //                                 void (*handler)(void)
-        //
-/*
-exceptions_install_handler:
-        ldr     r2, = ETABLE_ADDR
-        add     r2, r2, r0
-        sub     r1, r1, r2
-        subs    r1, r1, #8
-        lsr     r1, r1, #2
-        ldr     r0, [r2]
-        mov     r3, #0xff000000
-        and     r0, r0, r3
-        bic     r1, r1, r3
-        orr     r0, r0, r1
-        str     r0, [r2]
-        bx      lr
-*/
 		//
 		//void exceptions_install_handler(int vector_offset, void (*handler)(void)
 		//
@@ -183,7 +176,8 @@ exceptions_install_handler:
 null_handler:
         b       .
 
-        //
+        //#include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
+
         // Macro definition to get pointer to arch specific dispatcher
         //
         // Logical equivalent of C function with same name
@@ -262,11 +256,11 @@ null_handler:
 .endm
 
         //
-        // Macro to enter SYS mode with interrupts disabled.
+        // Macro to enter SVC mode with interrupts disabled.
         // Set up stack and GOT pointer.
         //
 .macro enter_sys scratch
-        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
+        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SVC)
         msr cpsr_c, \scratch
         init_sys_pic_register
         init_sys_stack
@@ -394,6 +388,33 @@ $irq_kernel:
         save_context    r0, r3                  // r0 = saved context
         enter_sys       r3
         b       handle_irq                      // f(save_area)
+
+fiq_handler:
+        stmfd   sp!, {r0-r3}                    // Save for scratch use
+        sub     lr, lr, #4                      // lr = return address
+        mrs     r3, spsr                        // r0 = spsr until save_context
+        ands    r1, r3, #ARM_MODE_PRIV
+        bne     $irq_kernel
+$fiq_user:
+        get_dispatcher_shared_arm r2
+        mov     r1, lr
+        disp_is_disabled r2, r1, r0             // r0 = 1 if disabled, else 0
+        cmp     r0, #0
+        addeq   r0, r2, #OFFSETOF_DISP_ENABLED_AREA
+        addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
+        save_context    r0, r3                  // r0 = save area
+        enter_sys       r3
+        mov     lr, #0
+        mov     r11, #0
+        b       handle_irq                      // f(save_area, fault_pc)
+$fiq_kernel:
+        // CPU was in System mode.
+        ldr     r0, =irq_save_area
+        save_context    r0, r3                  // r0 = saved context
+        enter_sys       r3
+        b       handle_irq                      // f(save_area)
+
+
 
         //
         // void swi_handler(void)

@@ -183,8 +183,8 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 
     uint32_t irq = pic_get_active_irq();
 
-    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
-          dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
+   // debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
+   //       dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
     if (dcb_current != NULL) {
         dispatcher_handle_t handle = dcb_current->disp;

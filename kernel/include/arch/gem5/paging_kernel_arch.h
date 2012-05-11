@@ -78,7 +78,7 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
 #define ARM_L2_SMALL_CACHEABLE          0x008
 #define ARM_L2_SMALL_BUFFERABLE         0x004
-#define ARM_L2_SMALL_USR_RO             0xaa0
-#define ARM_L2_SMALL_USR_RW             0xff0
+#define ARM_L2_SMALL_USR_RO             0x20
+#define ARM_L2_SMALL_USR_RW             0x30
 
 #endif // KERNEL_ARCH_ARM_PAGING_H

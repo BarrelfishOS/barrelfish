@@ -129,7 +129,7 @@ STATIC_ASSERT_SIZEOF(union l2_entry, 4);
 
 #define BYTES_PER_SECTION       0x100000
 #define BYTES_PER_PAGE          0x1000
-//#define BYTES_PER_SMALL_PAGE    0x400
+#define BYTES_PER_SMALL_PAGE    0x400
 
 // ------------------------------------------------------------------------
 // Utility declarations
@@ -272,7 +272,7 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
 {
     assert(aligned(table_base, ARM_L1_ALIGN));
     assert(aligned(va, BYTES_PER_SECTION));
-    assert(aligned(pa, BYTES_PER_PAGE));
+    assert(aligned(pa, BYTES_PER_SMALL_PAGE));
 
     union l1_entry e;
 
@@ -304,14 +304,14 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
 void paging_context_switch(lpaddr_t ttbr)
 {
     assert(ttbr < MEMORY_OFFSET);
-    assert((ttbr & 0x3fff) == 0);
+    //assert((ttbr & 0x3fff) == 0);
 
     lpaddr_t old_ttbr = cp15_read_ttbr();
     if (ttbr != old_ttbr)
     {
         cp15_write_ttbr(ttbr);
         cp15_invalidate_tlb();
-        cp15_invalidate_i_and_d_caches();
+        //cp15_invalidate_i_and_d_caches();
     }
 }
 

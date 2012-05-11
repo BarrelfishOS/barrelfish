@@ -49,7 +49,10 @@
            "uhci",
            "xapic",
            "x2apic",
-           "amd64"
+           "amd64",
+           "pl130_gic",
+           "sp804_pit",
+           "cortex_a9_pit"
          ], arch <- allArchitectures
 ] ++
 

@@ -48,6 +48,8 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-ffixed-r9",
                    Str "-DTHREAD_REGISTER=R9",
                    Str "-D__ARM_CORTEX__",
+		   Str "-D__ARM_ARCH_7A__",
+	     		   Str "-D__GEM5__",
 		   Str "-Wno-unused-but-set-variable",
 		   Str "-Wno-format"
  ]
@@ -137,6 +139,8 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-ffixed-r9",
                                 "-DTHREAD_REGISTER=R9",
                                 "-D__ARM_CORTEX__",
+				"-D__ARM_ARCH_7A__",
+		    		"-D__GEM5__",
 				"-Wno-unused-but-set-variable",
                    		"-Wno-format" ]]
 

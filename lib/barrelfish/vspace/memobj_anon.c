@@ -23,6 +23,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include "vspace_internal.h"
+#include <stdio.h>
 
 /**
  * \brief Map the memory object into a region
@@ -41,12 +42,14 @@ static errval_t map_region(struct memobj *memobj, struct vregion *vregion)
         void *buf;
         err = vspace_pinned_alloc(&buf, VREGION_LIST);
         if (err_is_fail(err)) {
+        	printf("vspace pinned alloc fail!\n");
             return err_push(err, LIB_ERR_VSPACE_PINNED_ALLOC);
         }
         slab_grow(&anon->vregion_slab, buf,
                   VSPACE_PINNED_UNIT * sizeof(struct vregion_list));
         data = slab_alloc(&anon->vregion_slab);
         if (!data) {
+        	printf("slab alloc fail!\n");
             return LIB_ERR_SLAB_ALLOC_FAIL;
         }
     }
