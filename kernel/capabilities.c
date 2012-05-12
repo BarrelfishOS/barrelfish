@@ -857,6 +857,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
     }
 
     dest->mdbnode.owner = owner;
+    dest->mdbnode.remote_relations = owner != my_core_id;
 
     err = mdb_insert(dest);
     assert(err_is_ok(err));
