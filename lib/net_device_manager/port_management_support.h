@@ -69,6 +69,7 @@ void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
 struct NIC_q_closure {
     qid_t qid; // queue_id
     struct filters_tx_vtbl *filt_mng; // filter management functionality
+    struct net_soft_filters_binding *soft_filters_connection;
 };
 
 struct NIC_q_closure *qlist;  // list of all queues

@@ -103,7 +103,7 @@ ether_rx_get_free_slots rx_get_free_slots_fn_ptr = NULL;
  * Local states:
  *****************************************************************/
 static char exported_queue_name[MAX_SERVICE_NAME_LEN] = {0}; // exported Q name
-static uint64_t exported_queueid = 0; // id of queue
+uint64_t exported_queueid = 0; // id of queue
 static size_t rx_buffer_size = 0;
 
 // client_no used to give id's to clients
@@ -151,10 +151,10 @@ static void populate_lo_mapping_table(int cur_cl_no,
     // and I should validate the buffer types
     assert(RX_BUFFER_ID == 0); // ensure RX is 0
 
-    if((lo_tbl_idx % 4) != (buffer_ptr->role)) {
+    if((lo_tbl_idx % 2) != (buffer_ptr->role)) {
         printf(" tlb_idx %d, role %"PRIu8"\n", lo_tbl_idx, buffer_ptr->role);
     }
-    assert((lo_tbl_idx % 4) == (buffer_ptr->role));
+    assert((lo_tbl_idx % 2) == (buffer_ptr->role));
 
     // populate the table entries
     lo_map_tbl[lo_tbl_idx].tx_cl_no = -1;
@@ -852,8 +852,8 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     uint8_t my_mac[6] = {0};
     ether_get_mac_address_ptr(my_mac);
     printf("############################################\n");
-    printf("For service [%s] MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
-                            service_name,  my_mac[0], my_mac[1], my_mac[2],
+    printf("For service [%s %lu] MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+                            service_name, queueid, my_mac[0], my_mac[1], my_mac[2],
                              my_mac[3], my_mac[4], my_mac[5]);
     bm = netbench_alloc("DRV", EVENT_LIST_SIZE);
 

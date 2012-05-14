@@ -46,7 +46,6 @@ struct client_closure_ND {
 *****************************************************************/
 
 // handle for connection with soft filters service.
-static struct net_soft_filters_binding *soft_filters_connection = NULL;
 
 static bool soft_filters_ready = false;
 // bulk_transfer used to move the packet filters between net_device_manager
@@ -95,15 +94,15 @@ static struct filters_tx_vtbl soft_filts_mng = {
 /*****************************************************************
 * Prototypes
 *****************************************************************/
-static void share_common_memory_with_filter_manager(void);
-static void sf_mac_lookup(void);
+static void share_common_memory_with_filter_manager(qid_t qid);
+static void sf_mac_lookup(qid_t qid);
 
 static void register_filter_memory_response(
                         struct net_soft_filters_binding *st,
                         errval_t err);
 static void send_soft_filter(uint64_t id, uint64_t len_rx, uint64_t len_tx,
                                 uint64_t buffer_id_rx, uint64_t buffer_id_tx,
-                                uint8_t ftype, uint8_t paused);
+                                uint8_t ftype, uint8_t paused, qid_t qid);
 
 
 static void deregister_filter_response(struct net_soft_filters_binding *st,
@@ -168,7 +167,7 @@ errval_t register_soft_filt_impl(uint16_t port,
     NDM_DEBUG("get_port: trying to register the filter with id %" PRIu64 "\n",
                id);
     send_soft_filter(id, len_rx, len_tx, buffer_id_rx, buffer_id_tx,
-                        NORMAL_FILTER, 0);
+                        NORMAL_FILTER, 0, qid);
 
     return SYS_ERR_OK;
 }
@@ -199,7 +198,9 @@ static void soft_filters_bind_cb(void *st, errval_t err,
     // copy my message receive handler vtable to the binding
     enb->rx_vtbl = rx_vtbl;
 
-    soft_filters_connection = enb;
+    qid_t qid = (qid_t)st;
+    qlist[qid].soft_filters_connection = enb;
+
     NDM_DEBUG(" soft_filters_bind_cb: connection made,"
                " now registering memory \n");
     NDM_DEBUG("soft_filters_bind_cb: terminated\n");
@@ -234,23 +235,23 @@ static void connect_soft_filters_service(char *dev_name, qid_t qid)
     // Connect to the service
     NDM_DEBUG("c_sf_mng: connecting\n");
 
-    err = net_soft_filters_bind(iref, soft_filters_bind_cb, NULL,
+    err = net_soft_filters_bind(iref, soft_filters_bind_cb, (void*)qid,
                          get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(err));
 
     // waiting for connection to succeed.
     NDM_DEBUG("connect_to_ether_filter_manager: wait connection\n");
-    while (soft_filters_connection == NULL) {
+    while (qlist[qid].soft_filters_connection == NULL) {
         messages_wait_and_handle_next();
     }
 
     // providing buffers for sending soft_filters
     NDM_DEBUG("c_sf_mng: [%s] sharing memory\n", service_name);
-    share_common_memory_with_filter_manager();
+    share_common_memory_with_filter_manager(qid);
 
-    NDM_DEBUG("c_sf_mng: [%s] sharing memory\n", service_name);
+    NDM_DEBUG("c_sf_mng: [%s] sharing memory done\n", service_name);
 
-    sf_mac_lookup();
+    sf_mac_lookup(qid);
 
     printf("################################******\n");
     printf("For service [%s] MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
@@ -301,13 +302,13 @@ static void register_filter_memory_response(
  *   of network driver and netd.
  *
  */
-static void register_filter_memory(struct capref cap)
+static void register_filter_memory(struct capref cap, qid_t qid)
 {
     struct q_entry entry;
 
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_filter_memory_cap;
-    struct net_soft_filters_binding *b = soft_filters_connection;
+    struct net_soft_filters_binding *b = qlist[qid].soft_filters_connection;
 
     entry.binding_ptr = (void *) b;
     struct client_closure_ND *ccnc = (struct client_closure_ND *) b->st;
@@ -322,7 +323,7 @@ static void register_filter_memory(struct capref cap)
 /**
 * \brief: share the memory so that filter passing can be started.
 */
-static void share_common_memory_with_filter_manager(void)
+static void share_common_memory_with_filter_manager(qid_t qid)
 {
     errval_t err;
     struct capref frame;
@@ -342,7 +343,7 @@ static void share_common_memory_with_filter_manager(void)
     assert(err_is_ok(err));
 
     NDM_DEBUG("SCMWFM: registering netd filter memory\n");
-    register_filter_memory(frame);
+    register_filter_memory(frame, qid);
     NDM_DEBUG("SCMWFM: terminated\n");
 
     // waiting for connection to succeed.
@@ -371,13 +372,13 @@ static errval_t send_mac_address_request(struct q_entry e)
 } // end function: send_mac_address_request
 
 // lookup the mac address
-static void sf_mac_lookup(void)
+static void sf_mac_lookup(qid_t qid)
 {
     struct q_entry entry;
 
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_mac_address_request;
-    struct net_soft_filters_binding *b = soft_filters_connection;
+    struct net_soft_filters_binding *b = qlist[qid].soft_filters_connection;
 
     entry.binding_ptr = (void *) b;
     struct client_closure_ND *ccnc = (struct client_closure_ND *) b->st;
@@ -506,7 +507,7 @@ static errval_t send_filter_for_registration(struct q_entry e)
 static void send_soft_filter(uint64_t id, uint64_t len_rx,
                                 uint64_t len_tx, uint64_t buffer_id_rx,
                                 uint64_t buffer_id_tx, uint8_t ftype,
-                                uint8_t paused)
+                                uint8_t paused, qid_t qid)
 {
     NDM_DEBUG("send_soft_filter: called for id %" PRIu64
                " and type %x, paused = %d\n", id, ftype, paused);
@@ -516,7 +517,7 @@ static void send_soft_filter(uint64_t id, uint64_t len_rx,
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_filter_for_registration;
 
-    struct net_soft_filters_binding *b = soft_filters_connection;
+    struct net_soft_filters_binding *b = qlist[qid].soft_filters_connection;
 
     entry.binding_ptr = (void *) b;
 
@@ -568,7 +569,7 @@ static void unregister_soft_filter(uint64_t filter_id, qid_t qid)
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_filterID_for_deregistration;
 
-    struct net_soft_filters_binding *b = soft_filters_connection;
+    struct net_soft_filters_binding *b = qlist[qid].soft_filters_connection;
 
     entry.binding_ptr = (void *) b;
 
@@ -617,7 +618,8 @@ static void register_arp_soft_filter(uint64_t id, uint64_t len_rx,
     memset(&entry, 0, sizeof(struct q_entry));
     entry.handler = send_arp_filter_for_registration;
 
-    struct net_soft_filters_binding *b = soft_filters_connection;
+    //FIXME maybe not only on queue 0
+    struct net_soft_filters_binding *b = qlist[0].soft_filters_connection;
 
     entry.binding_ptr = (void *) b;
 

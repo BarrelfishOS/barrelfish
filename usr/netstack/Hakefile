@@ -1,0 +1,21 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/netstack
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "netstack",
+  		      cFiles = [ "netstack.c", "netg/netg_udp.c", "netg/netg_tcp.c", "netg/netg_ipv4.c", "netg/netg_ethernet.c",
+  		      			 "netg/netg_common.c", "netg/netg_debug.c", "netg/netg.c", "netg/ARP_lookup_client.c", 
+  		      			 "netg/idc_net_control.c", "netg/idc_net_queue_manager.c", "netg/netg_buffer.c"],
+              addLibraries = ["contmng", "timer", "hashtable" ],
+              flounderBindings = [ "timer", "net_ports", "net_ARP", "net_queue_manager" ],
+              flounderExtraBindings = [ ("net_ports", ["rpcclient"]), ("net_ARP", ["rpcclient"]) ]
+                    }
+]

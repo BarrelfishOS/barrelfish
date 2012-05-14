@@ -19,7 +19,7 @@ import System.Directory
 import System.Exit
 import GHC hiding (Target)
 import GHC.Paths ( libdir )
-import DynFlags ( defaultDynFlags )
+import DynFlags ( defaultDynFlags, ExtensionFlag(..) )
 import Data.Dynamic
 import Data.Maybe
 import List
@@ -366,12 +366,12 @@ evalHakeFiles o allfiles hakefiles =
            setSessionDynFlags dflags { importPaths = moddirs,
                 hiDir = Just "./hake",
                 objectDir = Just "./hake",
-                flags = Opt_DeriveDataTypeable:(flags dflags) }
+                extensionFlags = Opt_DeriveDataTypeable:(extensionFlags dflags) }
            targets <- mapM (\m -> guessTarget m Nothing) imports
            setTargets targets
            load LoadAllTargets
            modlist <- mapM (\m -> findModule (mkModuleName m) Nothing) all_imports
-           setContext [] modlist
+           setContext [] $ map (\m -> (m, Nothing)) modlist
            val <- dynCompileExpr "Hakefiles.hf :: [(String, HRule)]" 
            return (fromDyn val [("failed",Error "failed")])
 
