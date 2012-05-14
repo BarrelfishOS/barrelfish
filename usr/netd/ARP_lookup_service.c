@@ -251,7 +251,7 @@ static errval_t send_ip_info(struct q_entry e)
     if (b->can_send(b)) {
         return b->tx_vtbl.ip_info_response(b,
                     MKCONT(cont_queue_callback, au->q),
-                    e.plist[0], e.plist[1], e.plist[2], e.plist[3]);
+                    e.plist[0], e.plist[1], e.plist[2], e.plist[2]);
                  // e.err, e.ip,   e.gw,   e.mask
     } else {
         NETD_DEBUG("send_assign_ip: Flounder busy,rtry++\n");

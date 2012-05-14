@@ -828,11 +828,3 @@ errors cache FS_CACHE_ {
 errors common ERR_ {
     failure NOTIMP              "Not implemented",
 };
-
-// NETG errors
-errors netg NETG_ERR_ {
-    failure MEM            "Out of memory error.",
-    failure NOT_BOUND      "Endpoint not bound error.",
-    failure NOT_CONNECTED  "Endpoint not connected error.",
-    failure MAC_NOT_FOUND  "ARP did not found a corresponding MAC addr.",
-};
