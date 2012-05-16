@@ -65,6 +65,9 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
     } u;
 
     struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
+    if (!r) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
     err = r->vtbl.cap_identify(r, cap, &msgerr, &u.caprep);
     if (err_is_fail(err)){
         return err;
