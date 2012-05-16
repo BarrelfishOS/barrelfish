@@ -591,7 +591,6 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     }
 
     cap_destroy(capref);
-    slot_free(capref);
 
     err = owner_updated(from, st);
     if (err_is_fail(err)) {
