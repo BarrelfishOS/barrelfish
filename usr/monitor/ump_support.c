@@ -169,6 +169,13 @@ static void monitor_bind_ump_client_request(struct monitor_binding *mb,
         return;
     }
 
+    err = monitor_remote_relations(frame, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "setting remote copy bit failed");
+        monitor_bind_ump_client_request_error(mb, frame, conn_id, domain_id, err);
+        return;
+    }
+
     // Track data
     conn->domain_id = domain_id;
     conn->domain_binding = mb;
@@ -342,13 +349,9 @@ static void bind_ump_service_request_cont(struct monitor_binding *domain_binding
             return;
         }
 
-        err2 = cap_delete(frame);
+        err2 = cap_destroy(frame);
         if (err_is_fail(err2)) {
-            USER_PANIC_ERR(err2, "Cap delete failed");
-        }
-        err2 = slot_free(frame);
-        if (err_is_fail(err2)) {
-            USER_PANIC_ERR(err2, "Cap destroy default failed");
+            USER_PANIC_ERR(err2, "Cap destroy failed");
         }
         err2 = remote_conn_free(my_mon_id);
         if (err_is_fail(err2)) {

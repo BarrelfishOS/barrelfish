@@ -33,6 +33,10 @@
 /// XXX this is never garbage-collected at the moment
 struct dcb *dcbs_list = NULL;
 
+static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
+                                  capaddr_t tptr, uint8_t tbits,
+                                  struct cte **cte);
+
 errval_t sys_print(const char *str, size_t length)
 {
     /* FIXME: check that string is mapped and accessible to caller! */
@@ -390,6 +394,54 @@ struct sysret sys_monitor_register(capaddr_t ep_caddr)
     return SYSRET(SYS_ERR_OK);
 }
 
+struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bits,
+                                           capaddr_t cptr, uint8_t bits,
+                                           uint8_t relations, uint8_t mask)
+{
+    errval_t err;
+
+    // XXX: aldskfjaldsfa -MN
+    cptr >>= (CPTR_BITS-bits);
+
+    struct cte *cte;
+    err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+#ifdef TRACE_PMEM_CAPS
+    if (caps_should_trace(&cte->cap)) {
+        char buf[512];
+        static const char chars[] = "~~01";
+#define MK01(b) ((int)((b)!=0))
+#define BITC(BIT) (chars[(2*MK01(mask & BIT)+MK01(relations & BIT))])
+        snprintf(buf, 512, "set remote: c %c, a %c, d %c",
+                 BITC(RRELS_COPY_BIT), BITC(RRELS_ANCS_BIT),
+                 BITC(RRELS_DESC_BIT));
+#undef BITC
+#undef MK01
+        TRACE_CAP_MSG(buf, cte);
+    }
+#endif
+
+    if (mask) {
+        mdb_set_relations(cte, relations, mask);
+    }
+
+    relations = 0;
+    if (cte->mdbnode.remote_copies) {
+        relations |= RRELS_COPY_BIT;
+    }
+    if (cte->mdbnode.remote_ancs) {
+        relations |= RRELS_ANCS_BIT;
+    }
+    if (cte->mdbnode.remote_descs) {
+        relations |= RRELS_DESC_BIT;
+    }
+
+    return (struct sysret){ .error = SYS_ERR_OK, .value = relations };
+}
+
 struct sysret sys_monitor_identify_cap(struct capability *root,
                                        capaddr_t cptr, uint8_t bits,
                                        struct capability *retbuf)
@@ -563,6 +615,29 @@ struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t t
     // XXX: check if already unlocked? -MN
     sys_lock_cap_common(target, false);
     return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_monitor_copy_existing(struct capability *src,
+                                        capaddr_t cnode_cptr,
+                                        uint8_t cnode_vbits,
+                                        cslot_t slot)
+{
+    struct cte *copy = mdb_find_equal(src);
+    if (!copy || copy->mdbnode.in_delete) {
+        return SYSRET(SYS_ERR_CAP_NOT_FOUND);
+    }
+
+    struct cte *cnode;
+    errval_t err = caps_lookup_slot(&dcb_current->cspace.cap, cnode_cptr,
+                                    cnode_vbits, &cnode, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SLOT_LOOKUP_FAIL));
+    }
+    if (cnode->cap.type != ObjType_CNode) {
+        return SYSRET(SYS_ERR_CNODE_TYPE);
+    }
+
+    return SYSRET(caps_copy_to_cnode(cnode, slot, copy, false, 0, 0));
 }
 
 struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,

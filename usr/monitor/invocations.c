@@ -67,19 +67,27 @@ errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
 }
 
 /**
- * Let the kernel know that this capability has been sent to a remote core, or
- * is no longer on a remote core
- * 
- * param cap       capability which is having a remote copy made or deleted
- * param is_remote whether the capability is on a remote core or not
- * param has_decendants outputs whether the cap has decendants or not
+ * Let the kernel know that this capability has remote relations, and read the
+ * resulting remote relation flags.
  */
-errval_t monitor_cap_remote(struct capref cap, bool is_remote, 
-                            bool * has_decendants)
+errval_t monitor_domcap_remote_relations(struct capref croot, capaddr_t cptr,
+                                         int bits, uint8_t relations,
+                                         uint8_t mask, uint8_t *ret_relations)
 {
-    uint8_t vbits = get_cap_valid_bits(cap);
-    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
-    return invoke_monitor_cap_remote(caddr, vbits, is_remote, has_decendants);
+    uint8_t rootcap_vbits = get_cap_valid_bits(croot);
+    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+
+    return invoke_monitor_remote_relations(rootcap_addr, rootcap_vbits,
+                                           cptr, bits, relations, mask,
+                                           ret_relations);
+}
+
+errval_t monitor_remote_relations(struct capref cap, uint8_t relations,
+                                  uint8_t mask, uint8_t *ret_relations)
+{
+    return monitor_domcap_remote_relations(cap_root, get_cap_addr(cap),
+                                           get_cap_valid_bits(cap), relations,
+                                           mask, ret_relations);
 }
 
 /**

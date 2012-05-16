@@ -284,7 +284,7 @@ find_cap_result(coreid_t dest, errval_t result, genvaddr_t st)
 void
 find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
-    errval_t err;
+    errval_t err, cleanup_err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
     struct capability cap;
@@ -301,17 +301,20 @@ find_cap__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genva
         goto free_slot;
     }
 
-    err = cap_destroy(capref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to destroy temporary cap");
+    cleanup_err = cap_delete(capref);
+    if (err_is_fail(cleanup_err)) {
+        USER_PANIC_ERR(err, "failed to delete temporary cap");
     }
 
 free_slot:
-    slot_free(capref);
+    cleanup_err = slot_free(capref);
+    if (err_is_fail(cleanup_err)) {
+        USER_PANIC_ERR(err, "failed to free slot for temporary cap");
+    }
 
 send_err:
-    err = find_cap_result(from, err, st);
-    if (err_is_fail(err)) {
+    cleanup_err = find_cap_result(from, err, st);
+    if (err_is_fail(cleanup_err)) {
         USER_PANIC_ERR(err, "failed to send find_cap result");
     }
 }

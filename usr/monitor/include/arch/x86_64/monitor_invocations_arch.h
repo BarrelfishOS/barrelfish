@@ -35,6 +35,21 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 }
 
 static inline errval_t
+invoke_monitor_remote_relations(capaddr_t root_cap, int root_bits,
+                                capaddr_t cap, int bits,
+                                uint8_t relations, uint8_t mask,
+                                uint8_t *ret_remote_relations)
+{
+    struct sysret r = cap_invoke6(cap_kernel, KernelCmd_Remote_relations,
+                                  root_cap, root_bits, cap, bits,
+                                  ((uint16_t)relations) | (((uint16_t)mask)<<8));
+    if (err_is_ok(r.error) && ret_remote_relations) {
+        *ret_remote_relations = r.value;
+    }
+    return r.error;
+}
+
+static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
     return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, bits,
@@ -55,18 +70,6 @@ static inline errval_t
 invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 {
     return cap_invoke3(cap_kernel, KernelCmd_Nullify_cap, cap, bits).error;
-}
-
-static inline errval_t
-invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                          bool * has_descendents)
-{
-    struct sysret r = cap_invoke4(cap_kernel, KernelCmd_Remote_cap, cap, bits,
-                                  is_remote);
-    if (err_is_ok(r.error)) {
-        *has_descendents = r.value;
-    }
-    return r.error;
 }
 
 static inline errval_t

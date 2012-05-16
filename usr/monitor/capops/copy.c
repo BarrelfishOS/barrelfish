@@ -156,8 +156,7 @@ owner_copy(struct capref capref, struct capability *cap, coreid_t from, coreid_t
 {
     errval_t err;
 
-    bool unused_has_descendants;
-    err = monitor_cap_remote(capref, true, &unused_has_descendants);
+    err = monitor_remote_relations(capref, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }
@@ -383,8 +382,7 @@ request_copy__rx_handler(struct intermon_binding *b, coreid_t dest, intermon_cap
     }
     else {
         // mark cap as having remote copies
-        bool unused_has_descendants;
-        err = monitor_cap_remote(capref, true, &unused_has_descendants);
+        err = monitor_remote_relations(capref, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
         if (err_is_fail(err)) {
             goto send_err;
         }

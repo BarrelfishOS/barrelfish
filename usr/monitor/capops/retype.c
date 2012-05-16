@@ -98,6 +98,7 @@ request_retype(retype_result_handler_t result_handler, struct retype_st *st)
 
 struct retype_result_st {
     struct intermon_msg_queue_elem queue_elem;
+    struct capref src;
     coreid_t from;
     errval_t status;
     genvaddr_t st;
@@ -120,6 +121,10 @@ retype_result_cont(errval_t status, void *st)
 {
     errval_t err;
     struct retype_result_st *rtst = (struct retype_result_st*)st;
+    if (err_is_ok(status)) {
+        status = monitor_remote_relations(rtst->src, RRELS_DESC_BIT,
+                                          RRELS_DESC_BIT, NULL);
+    }
     rtst->status = status;
     rtst->queue_elem.cont = retype_result_send_cont;
     err = capsend_target(rtst->from, (struct msg_queue_elem*)rtst);
@@ -147,20 +152,18 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
     rtst->from = from;
     rtst->st = st;
 
-    struct capref src;
-    err = slot_alloc(&src);
+    err = slot_alloc(&rtst->src);
     if (err_is_fail(err)) {
         goto reply_err;
     }
-    struct domcapref domsrc = get_cap_domref(src);
 
-    err = monitor_copy_if_exists(&cap, src);
+    err = monitor_copy_if_exists(&cap, rtst->src);
     if (err_is_fail(err)) {
         goto free_slot;
     }
 
     distcap_state_t state;
-    err = cap_get_state(src, &state);
+    err = cap_get_state(rtst->src, &state);
     if (err_is_fail(err)) {
         goto destroy_cap;
     }
@@ -179,11 +182,12 @@ request_retype__rx_handler(struct intermon_binding *b, intermon_caprep_t srcrep,
         // XXX: because of the current "multi-retype" hack for endpoints, a
         // dispatcher->endpoint retype can happen irrespective of the existence
         // of descendents on any core.
-        bool unused_has_descendants;
-        err = monitor_cap_remote(src, true, &unused_has_descendants);
+        err = monitor_remote_relations(rtst->src, RRELS_DESC_BIT,
+                                       RRELS_DESC_BIT, NULL);
         goto destroy_cap;
     }
 
+    struct domcapref domsrc = get_cap_domref(rtst->src);
     err = monitor_lock_cap(domsrc.croot, domsrc.cptr, domsrc.bits);
     if (err_is_fail(err)) {
         goto destroy_cap;
@@ -200,10 +204,10 @@ unlock_cap:
     caplock_unlock(domsrc);
 
 destroy_cap:
-    cap_delete(src);
+    cap_delete(rtst->src);
 
 free_slot:
-    slot_free(src);
+    slot_free(rtst->src);
 
 reply_err:
     retype_result_cont(err, rtst);

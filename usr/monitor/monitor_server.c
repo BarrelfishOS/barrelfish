@@ -17,6 +17,7 @@
 #include <trace/trace.h>
 #include <if/mem_defs.h>
 #include <barrelfish/monitor_client.h>
+#include <barrelfish_kpi/distcaps.h>
 #include <if/monitor_loopback_defs.h>
 #include "capops.h"
 #include "caplock.h"
@@ -743,15 +744,14 @@ static void span_domain_request(struct monitor_binding *mb,
         goto reply;
     }
 
-    bool has_descendants;
-    err = monitor_cap_remote(disp, true, &has_descendants);
+    err = monitor_remote_relations(disp, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        USER_PANIC_ERR(err, "monitor_remote_relations failed");
         return;
     }
-    err = monitor_cap_remote(vroot, true, &has_descendants);
+    err = monitor_remote_relations(vroot, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        USER_PANIC_ERR(err, "monitor_remote_relations failed");
         return;
     }
 

@@ -308,24 +308,18 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     return monitor_identify_cap_common(kernel_cap, root, &args[2]);
 }
 
-static struct sysret monitor_remote_cap(struct capability *kernel_cap,
-                                        int cmd, uintptr_t *args)
+static struct sysret monitor_remote_relations(struct capability *kernel_cap,
+                                              int cmd, uintptr_t *args)
 {
-    struct capability *root = &dcb_current->cspace.cap;
-    capaddr_t cptr = args[0];
-    int bits = args[1];
-    bool remote = args[2];
+    capaddr_t root_addr = args[0];
+    int root_bits = args[1];
+    capaddr_t cptr = args[2];
+    int bits = args[3];
+    uint8_t relations = args[4] & 0xFF;
+    uint8_t mask = (args[4] >> 8) & 0xFF;
 
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
-    }
-
-    set_cap_remote(cte, remote);
-    bool has_desc = has_descendants(cte);
-
-    return (struct sysret){ .error = SYS_ERR_OK, .value = has_desc };
+    return sys_monitor_remote_relations(root_addr, root_bits, cptr, bits,
+                                        relations, mask);
 }
 
 
@@ -368,18 +362,11 @@ static struct sysret monitor_copy_existing(struct capability *kernel_cap,
     struct capability *src = (struct capability *)args;
     int pos = sizeof(struct capability) / sizeof(uint64_t);
 
-    struct cte *copy = mdb_find_equal(src);
-    if (!copy || copy->mdbnode.in_delete) {
-        return SYSRET(SYS_ERR_CAP_NOT_FOUND);
-    }
-
     capaddr_t cnode_cptr = args[pos];
     int cnode_vbits    = args[pos + 1];
     size_t slot        = args[pos + 2];
 
-    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
-                                            cnode_cptr, cnode_vbits, slot,
-                                            copy->mdbnode.owner, &copy->cap));
+    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
@@ -779,7 +766,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
-        [KernelCmd_Remote_cap]   = monitor_remote_cap,
+        [KernelCmd_Remote_relations]   = monitor_remote_relations,
         [KernelCmd_Iden_cnode_get_cap] = monitor_iden_cnode_get_cap,
         [KernelCmd_Create_cap]   = monitor_create_cap,
         [KernelCmd_Copy_existing] = monitor_copy_existing,

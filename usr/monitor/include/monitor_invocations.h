@@ -22,7 +22,11 @@ bool monitor_can_send_cap(struct capability *cap);
 errval_t monitor_cap_identify(struct capref cap, struct capability *out);
 errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
                                       int vbits, struct capability *out);
-errval_t monitor_cap_remote(struct capref cap, bool is_remote, bool * has_dep);
+errval_t monitor_domcap_remote_relations(struct capref croot, capaddr_t cptr,
+                                         int bits, uint8_t relations, uint8_t
+                                         mask, uint8_t *ret_relations);
+errval_t monitor_remote_relations(struct capref cap, uint8_t relations, uint8_t
+                                  mask, uint8_t *ret_relations);
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
                             coreid_t owner);
 errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 

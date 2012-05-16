@@ -44,33 +44,38 @@ static errval_t caps_try_delete(struct cte *cte)
 {
     if (distcap_is_in_delete(cte)) {
         // already in process of being deleted
-        return SYS_ERR_OK;
+        return SYS_ERR_CAP_LOCKED;
     }
 
     if (distcap_is_foreign(cte) || has_copies(cte)) {
         return cleanup_copy(cte);
     }
-    else if (!(cte->mdbnode.remote_relations
-               || cte->cap.type == ObjType_CNode
-               || cte->cap.type == ObjType_Dispatcher))
+    else if (cte->mdbnode.remote_copies
+             || cte->cap.type == ObjType_CNode
+             || cte->cap.type == ObjType_Dispatcher)
     {
-        return cleanup_last(cte, NULL);
-    }
-    else {
         return SYS_ERR_DELETE_LAST_OWNED;
     }
-
+    else {
+        return cleanup_last(cte, NULL);
+    }
 }
 
 /**
  * \brief Delete the last copy of a cap in the entire system.
+ * \bug Somewhere in the delete process, the remote_ancs property should be
+ *      propagated to (remote) immediate descendants.
  */
 errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
 {
     errval_t err;
     assert(!has_copies(cte));
 
-    TRACE_CAP_MSG("deleting", cte);
+    if (cte->mdbnode.remote_copies) {
+        printk(LOG_WARN, "delete_last but remote_copies is set\n");
+    }
+
+    TRACE_CAP_MSG("deleting last", cte);
 
     // try simple delete
     // XXX: this really should always fail, enforce that? -MN
@@ -130,6 +135,15 @@ cleanup_copy(struct cte *cte)
         // XXX: unmap if mapped
     }
 
+    if (distcap_is_foreign(cte)) {
+        if (cte->mdbnode.remote_copies || cte->mdbnode.remote_descs) {
+            struct cte *ancestor = mdb_find_ancestor(cte);
+            if (ancestor) {
+                mdb_set_relations(ancestor, RRELS_DESC_BIT, RRELS_DESC_BIT);
+            }
+        }
+    }
+
     err = mdb_remove(cte);
     if (err_is_fail(err)) {
         return err;
@@ -149,6 +163,9 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     struct capability *cap = &cte->cap;
 
     assert(!has_copies(cte));
+    if (cte->mdbnode.remote_copies) {
+        printk(LOG_WARN, "cleanup_last but remote_copies is set\n");
+    }
 
     if (ret_ram_cap && ret_ram_cap->cap.type != ObjType_Null) {
         return SYS_ERR_SLOT_IN_USE;

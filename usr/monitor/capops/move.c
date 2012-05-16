@@ -37,6 +37,7 @@ struct cap_move_rpc_st {
 struct move_request_msg_st {
     struct intermon_msg_queue_elem queue_elem;
     intermon_caprep_t caprep;
+    uint8_t relations;
     struct cap_move_rpc_st *st;
 };
 
@@ -45,7 +46,7 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 {
     errval_t err;
     struct move_request_msg_st *msg_st = (struct move_request_msg_st*)e;
-    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep, (genvaddr_t)msg_st->st);
+    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep, msg_st->relations, (genvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)msg_st->st;
         if (rpc_st->result_handler) {
@@ -57,7 +58,7 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 }
 
 static errval_t
-move_request(struct domcapref capref, struct capability *cap, coreid_t dest, move_result_handler_t result_handler, void *st)
+move_request(struct domcapref capref, struct capability *cap, uint8_t relations, coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
 
@@ -76,6 +77,7 @@ move_request(struct domcapref capref, struct capability *cap, coreid_t dest, mov
     }
     msg_st->queue_elem.cont = move_request_send_cont;
     capability_to_caprep(cap, &msg_st->caprep);
+    msg_st->relations = relations;
     msg_st->st = rpc_st;
 
     err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
@@ -146,7 +148,7 @@ free_owner_recv_cap(void *arg)
 }
 
 void
-move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
+move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, uint8_t relations, genvaddr_t st)
 {
     errval_t err, send_err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
@@ -184,16 +186,34 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
         goto unlock_cap;
     }
 
+    err = monitor_domcap_remote_relations(domcapref.croot, domcapref.cptr,
+                                          domcapref.bits, relations,
+                                          ~(uint8_t)0, NULL);
+    if (err_is_fail(err)) {
+        goto reset_owner;
+    }
+
     err = capsend_update_owner(*capref, MKCONT(free_owner_recv_cap, capref));
     if (err_is_fail(err)) {
-        goto unlock_cap;
+        goto reset_owner;
     }
 
     err = SYS_ERR_OK;
     goto send_err;
 
+reset_owner:
+    send_err = monitor_set_cap_owner(domcapref.croot, domcapref.cptr,
+                                     domcapref.bits, from);
+    if (err_is_fail(send_err)) {
+        USER_PANIC_ERR(send_err, "failed to reset owner while handling move failure");
+    }
+
 unlock_cap:
-    monitor_unlock_cap(domcapref.croot, domcapref.cptr, domcapref.bits);
+    send_err = monitor_unlock_cap(domcapref.croot, domcapref.cptr,
+                                  domcapref.bits);
+    if (err_is_fail(send_err)) {
+        USER_PANIC_ERR(send_err, "failed to unlock cap while handling move failure");
+    }
 
 destroy_cap:
     cap_destroy(*capref);
@@ -272,7 +292,15 @@ capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result
         return err;
     }
 
-    err = move_request(capref, &cap, dest, result_handler, st);
+    uint8_t relations;
+    err = monitor_domcap_remote_relations(capref.croot, capref.cptr, capref.bits,
+                                          0, 0, &relations);
+    if (err_is_fail(err)) {
+        caplock_unlock(capref);
+        return err;
+    }
+
+    err = move_request(capref, &cap, dest, relations, result_handler, st);
     if (err_is_fail(err)) {
         caplock_unlock(capref);
         return err;

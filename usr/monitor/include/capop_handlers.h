@@ -34,7 +34,7 @@ void delete_remote__rx_handler(struct intermon_binding *b, intermon_caprep_t cap
 
 void delete_remote_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st);
 
-void move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st);
+void move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, uint8_t relations, genvaddr_t st);
 
 void move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st);
 

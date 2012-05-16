@@ -128,22 +128,25 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
 
 void caps_trace(const char *func, int line, struct cte *cte, const char *msg)
 {
-    char buf[512];
-    sprint_cap(buf, 512, &cte->cap);
+    char cap_buf[512];
+    sprint_cap(cap_buf, 512, &cte->cap);
 
+    char disp_buf[64];
     if (dcb_current) {
         dispatcher_handle_t handle = dcb_current->disp;
         struct dispatcher_shared_generic *disp =
             get_dispatcher_shared_generic(handle);
-        printk(LOG_WARN, "from %.*s: %s:%d: %s %s (owner:%"PRIuCOREID", rr:%d)\n",
-               DISP_NAME_LEN, disp->name, func, line, (msg ? : ""), buf,
-               cte->mdbnode.owner, cte->mdbnode.remote_relations);
+        snprintf(disp_buf, 64, "from %.*s", DISP_NAME_LEN, disp->name);
     }
     else {
-        printk(LOG_WARN, "no disp: %s:%d: %s %s (owner:%"PRIuCOREID", rr:%d)\n",
-               func, line, buf, (msg ? : ""), cte->mdbnode.owner,
-               cte->mdbnode.remote_relations);
+        strcpy(disp_buf, "no disp");
     }
+
+    printk(LOG_WARN, "%s: %s:%d: %s %p %s"
+           " (owner:%" PRIuCOREID ", rc:%d/ra:%d/rd:%d)\n",
+           disp_buf, func, line, (msg ? : ""), cte, cap_buf, cte->mdbnode.owner,
+           cte->mdbnode.remote_copies, cte->mdbnode.remote_ancs,
+           cte->mdbnode.remote_descs);
 }
 
 /**
@@ -857,25 +860,60 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
     }
 
     dest->mdbnode.owner = owner;
-    dest->mdbnode.remote_relations = owner != my_core_id;
 
     err = mdb_insert(dest);
     assert(err_is_ok(err));
-    struct cte *neighbour;
-    if ((neighbour = mdb_predecessor(dest)) && is_copy(&dest->cap, &neighbour->cap)) {
+
+    struct cte *neighbour = NULL;
+    if (!neighbour
+        && (neighbour = mdb_predecessor(dest))
+        && !is_copy(&dest->cap, &neighbour->cap))
+    {
+        neighbour = NULL;
+    }
+    if (!neighbour
+        && (neighbour = mdb_successor(dest))
+        && !is_copy(&dest->cap, &neighbour->cap))
+    {
+        neighbour = NULL;
+    }
+
+    if (neighbour) {
         assert(!neighbour->mdbnode.in_delete);
         assert(neighbour->mdbnode.owner == owner);
-        dest->mdbnode.locked = neighbour->mdbnode.locked;
-        dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
+#define CP_ATTR(a) dest->mdbnode.a = neighbour->mdbnode.a
+        CP_ATTR(locked);
+        CP_ATTR(remote_copies);
+        CP_ATTR(remote_ancs);
+        CP_ATTR(remote_descs);
+#undef CP_ATTR
     }
-    else if ((neighbour = mdb_successor(dest)) && is_copy(&dest->cap, &neighbour->cap)) {
-        assert(!neighbour->mdbnode.in_delete);
-        assert(neighbour->mdbnode.owner == owner);
-        dest->mdbnode.locked = neighbour->mdbnode.locked;
-        dest->mdbnode.remote_relations = neighbour->mdbnode.remote_relations;
-    }
-    else if (owner != my_core_id) {
-        dest->mdbnode.remote_relations = true;
+    else {
+        dest->mdbnode.locked = false;
+        if (owner != my_core_id) {
+            // For foreign caps it does not really matter if ancestors or
+            // descendants exist
+            dest->mdbnode.remote_copies = true;
+            dest->mdbnode.remote_ancs = false;
+            dest->mdbnode.remote_descs = false;
+        }
+        else {
+            // We just created a new copy of a owned capability from nothing.
+            // This is either caused by a retype, or by sharing a capability
+            // that does not care about locality.
+            // XXX: This should probably be done more explicitly -MN
+            if (distcap_needs_locality(dest->cap.type)) {
+                // Retype, so have ancestors and no descendants
+                dest->mdbnode.remote_copies = false;
+                dest->mdbnode.remote_ancs = true;
+                dest->mdbnode.remote_descs = false;
+            }
+            else {
+                dest->mdbnode.remote_copies = false;
+                dest->mdbnode.remote_ancs = false;
+                dest->mdbnode.remote_descs = false;
+            }
+        }
     }
 
     TRACE_CAP_MSG("created", dest);
@@ -1038,7 +1076,8 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
         // Howevery, we only do this for locally owned caps as the owner should
         // be notified that the cap has remote descendants
         return SYS_ERR_OK;
-    } else if (!from_monitor && (is_cap_remote(src_cte) || src_cte->mdbnode.owner != my_core_id)) {
+    } else if (!from_monitor && (src_cte->mdbnode.owner != my_core_id
+                                 || src_cte->mdbnode.remote_descs)) {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
     } else {
         return SYS_ERR_OK;
@@ -1081,13 +1120,22 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         assert(param2 == 0);
     }
 
+    assert(!src_cte->mdbnode.in_delete);
+
     /* Insert #source_cap into #dest_cap */
     err = set_cap(dest_cap, src_cap);
     if (err_is_fail(err)) {
         return err;
     }
-    dest_cte->mdbnode.owner = src_cte->mdbnode.owner;
-    dest_cte->mdbnode.remote_relations = src_cte->mdbnode.remote_relations;
+
+    /* Transfer MDB attributes that must be equal for all copies */
+#define CP_ATTR(at) dest_cte->mdbnode.at = src_cte->mdbnode.at
+    CP_ATTR(owner);
+    CP_ATTR(locked);
+    CP_ATTR(remote_copies);
+    CP_ATTR(remote_ancs);
+    CP_ATTR(remote_descs);
+#undef CP_ATTR
 
     // Handle mapping
     mdb_insert(dest_cte);

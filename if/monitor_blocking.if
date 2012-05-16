@@ -48,6 +48,7 @@ interface monitor_blocking "The monitor to client RPC interface" {
         rpc cap_identify(in cap cap, out errval err, out caprep caprep);
 
 	// XXX: Hack to set a cap remote until we have x-core cap management
+        // Obsolete: always returns ERR_NOTIMP.
 	rpc cap_set_remote(in cap cap, in bool remote, out errval err);
 
         /* Allocate local IRQ vector */

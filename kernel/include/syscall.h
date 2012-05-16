@@ -45,6 +45,9 @@ struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_monitor_register(capaddr_t ep_caddr);
+struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bits,
+                                           capaddr_t cptr, uint8_t bits,
+                                           uint8_t relations, uint8_t mask);
 struct sysret sys_monitor_identify_cap(struct capability *root,
                                        capaddr_t cptr, uint8_t bits,
                                        struct capability *retbuf);
@@ -58,6 +61,10 @@ struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
 struct sysret sys_set_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits, coreid_t owner);
 struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits);
 struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits);
+struct sysret sys_monitor_copy_existing(struct capability *src,
+                                        capaddr_t cnode_cptr,
+                                        uint8_t cnode_vbits,
+                                        cslot_t slot);
 struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
                                       capaddr_t target_addr, uint8_t target_bits,
                                       capaddr_t ret_cn_addr, uint8_t ret_cn_bits,

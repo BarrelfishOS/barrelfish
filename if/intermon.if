@@ -147,7 +147,7 @@ interface intermon "The Interface between monitors" {
     message capops_recv_copy(caprep cap, capop_st st);
     message capops_recv_copy_result(errval status, capaddr_t cap, capbits_t bits, capslot_t slot, capop_st st);
 
-    message capops_move_request(caprep cap, capop_st st);
+    message capops_move_request(caprep cap, uint8 relations, capop_st st);
     message capops_move_result(errval status, capop_st st);
 
     message capops_delete_remote(caprep cap, capop_st st);

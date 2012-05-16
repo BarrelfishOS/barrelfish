@@ -116,11 +116,12 @@ mdb_dump(struct cte *cte, int indent)
 
     printf("%s%p{left=%p,right=%p,end=0x%08"PRIxGENPADDR",end_root=%"PRIu8","
             "level=%"PRIu8",address=0x%08"PRIxGENPADDR",size=0x%08"PRIx64","
-            "type=%"PRIu8",remote_rels=%d}\n",
+            "type=%"PRIu8",remote_rels=%d%d%d}\n",
             indent_buff,
             cte, node->left, node->right, node->end, node->end_root,
             node->level, get_address(C(cte)), get_size(C(cte)),
-            (uint8_t)C(cte)->type, N(cte)->remote_relations);
+            (uint8_t)C(cte)->type, N(cte)->remote_copies,
+            N(cte)->remote_ancs, N(cte)->remote_descs);
 
     if (node->right) {
         if (node->right == cte) {

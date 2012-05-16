@@ -14,6 +14,10 @@
 #include <stdint.h>
 #include <barrelfish_kpi/capabilities.h>
 
+/*
+ * capstate: locking and ownership
+ */
+
 #define DISTCAP_STATE_FOREIGN (1 << 0)
 #define DISTCAP_STATE_BUSY (1 << 1)
 
@@ -30,6 +34,10 @@ distcap_state_is_foreign(distcap_state_t state)
 {
     return state & DISTCAP_STATE_FOREIGN;
 }
+
+/*
+ * Predicates related to sharing capabilities
+ */
 
 STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
 static inline bool
@@ -72,5 +80,13 @@ distcap_is_moveable(enum objtype type)
         return false;
     }
 }
+
+/*
+ * Caching remote relations
+ */
+
+#define RRELS_COPY_BIT (1<<0)
+#define RRELS_ANCS_BIT (1<<1)
+#define RRELS_DESC_BIT (1<<2)
 
 #endif

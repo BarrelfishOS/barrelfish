@@ -83,8 +83,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     }
 
     // Mark it remote
-    bool has_descendants;
-    err = monitor_cap_remote(frame, true, &has_descendants);
+    err = monitor_remote_relations(frame, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }
@@ -228,7 +227,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 #endif
 
     // Mark memory as remote
-    err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
+    err = monitor_remote_relations(cpu_memory_cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }
@@ -247,7 +246,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
     // Mark memory as remote
-    err = monitor_cap_remote(spawn_memory_cap, true, &has_descendants);
+    err = monitor_remote_relations(spawn_memory_cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }
