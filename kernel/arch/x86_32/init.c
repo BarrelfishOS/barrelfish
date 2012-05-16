@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -536,9 +536,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
      * that end up calling a conio.c function may be called between
      * paging_reset() and conio_relocate_vidmem()!
      */
-#ifdef __scc__
-    klog_init();
-#else
+#ifndef __scc__
     conio_relocate_vidmem(local_phys_to_mem(VIDEO_MEM));
 #endif
 
@@ -563,13 +561,10 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     apic_init();
 
 #ifdef __scc__
-#ifndef RCK_EMU
     enable_message_passing();
-#endif
 
     // Initialize Rockcreek driver
     rck_init();
-
 
     // XXX: Set core ID and fake APIC ID to be the tile's core ID
     my_core_id = apic_id = rck_get_coreid();
@@ -579,11 +574,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // do not remove/change this printf: needed by regression harness
 #ifndef __scc__
     printf("Barrelfish CPU driver starting on x86_32 core %u\n", apic_id);
-#else
-    printf("Barrelfish CPU driver starting on scc core %u\n", apic_id);
-#endif
 
-#if !defined(__scc__) || defined(RCK_EMU)
     if(apic_is_bsp()) {
         // Initialize classic (8259A) PIC
         pic_init();
@@ -591,6 +582,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Initialize real-time clock
     rtc_init();
+#else
+    printf("Barrelfish CPU driver starting on scc core %u\n", apic_id);
 #endif
 
     // Initialize local APIC timer
@@ -675,7 +668,9 @@ void arch_init(uint32_t magic, void *pointer)
 #endif
 
     // Sanitize the screen
+#ifndef __scc__
     conio_cls();
+#endif
     serial_console_init(0);
 
     /* determine page-aligned physical address past end of multiboot */

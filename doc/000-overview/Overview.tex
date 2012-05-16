@@ -492,7 +492,7 @@ the binding.
 \textbf{Passing capabilities - UMP:} UMP messages containing capabilities must
 be sent in two phases. The non-cap message is sent as normal. The capability
 must be sent through the monitor as only the monitor is able to invoke a syscall
-to serialise and deserialise a capability. the sender sends the capability with
+to serialise and deserialise a capability. The sender sends the capability with
 a request to the monitor, the monitor serialises it and sends it to the
 destination monitor, where it is deserialised, and send through LMP to the
 destination.

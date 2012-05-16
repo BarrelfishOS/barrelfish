@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -260,5 +260,20 @@ static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
                     | SYSCALL_INVOKE, invoke_cptr, synctime >> 32,
                     synctime & 0xffffffff).error;
 }
+
+#ifdef __scc__
+static inline errval_t invoke_monitor_spawn_scc_core(uint8_t id,
+                                                     genpaddr_t urpcframe_base,
+                                                     uint8_t urpcframe_bits,
+                                                     int chanid)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall4((invoke_bits << 16) | (KernelCmd_Spawn_SCC_Core << 8)
+                    | SYSCALL_INVOKE, invoke_cptr, urpcframe_base,
+                    (id << 24) | (urpcframe_bits << 16) | (chanid & 0xffff)).error;
+}
+#endif
 
 #endif

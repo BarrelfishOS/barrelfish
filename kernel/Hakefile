@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2011, ETH Zurich.
+-- Copyright (c) 2007-2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -85,33 +85,14 @@ in [
         cfiles = [ "debug.c", "gdb_arch.c", "init.c", "irq.c", "paging.c",
                    "startup_arch.c", "exec.c", "syscall.c", "page_mappings_arch.c" ] ++ microbench
         arch_sfiles = [ "boot.S" ]
-        arch_cfiles =
-            if Config.rck_emu then
-                [ "rck.c", "syscall.c" ]
-            else
-                [ "rck.c", "klog.c", "syscall.c" ]
+        arch_cfiles = [ "rck.c" ]
         in_x86_dir f = ("arch/x86") ./. f
-        x86_cFiles =
-            if Config.rck_emu then
-                [ "apic.c", "misc.c", "multiboot.c", "pic.c", "start_aps.c",
-                  "cmos.c", "serial.c", "conio.c", "syscall.c", "debugregs.c",
-                  "perfmon_intel.c", "timing.c", "startup_x86.c" ]
-            else
-                [ "apic.c", "misc.c", "multiboot.c", "syscall.c", "debugregs.c", "timing.c",
-                  "startup_x86.c", "serial.c" ]
-        x86_sFiles =
-            if Config.rck_emu then
-                [ "init_ap_x86_64.S", "init_ap_x86_32.S" ]
-            else
-                []
+        x86_cFiles = [ "apic.c", "misc.c", "multiboot.c", "syscall.c", "debugregs.c", "timing.c",
+                       "startup_x86.c", "serial.c" ]
+        x86_sFiles = []
         indep_cFiles = (map in_x86_dir x86_cFiles)
         indep_sFiles = (map in_x86_dir x86_sFiles)
-        mackerelFiles = 
-            if Config.rck_emu then
-                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "lpc_pic", 
-                  "lpc_rtc", "cpuid" ]
-            else
-                [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "cpuid", "lpc_rtc" ]
+        mackerelFiles = [ "pc16550d", "ia32", "xapic", "rck", "eMAC", "cpuid", "lpc_rtc" ]
         libs = [ "elf_kernel" ]
     in mkrules "scc" cfiles sfiles mackerelFiles libs indep_cFiles indep_sFiles arch_cfiles arch_sfiles),
 

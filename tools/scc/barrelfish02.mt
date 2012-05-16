@@ -1,3 +1,0 @@
-# pid mch-route mch-dest-id mch-offset-base testcase
-0x00 0x00 6 0x00 barrelfish0.obj
-0x01 0x00 6 0x01 barrelfish0.obj

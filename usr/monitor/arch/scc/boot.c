@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,46 +19,20 @@
 #include <barrelfish_kpi/shared_mem_arch.h>
 #include <notify_ipi.h>
 
-#ifdef RCK_EMU
-struct monitor_allocate_state {
-    void          *vbase;
-    genvaddr_t     elfbase;
-};
-
-static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
-                                         size_t size, uint32_t flags,
-                                         void **retbase)
-{
-    struct monitor_allocate_state *s = state;
-
-    *retbase = s->vbase + base - s->elfbase;
-    return SYS_ERR_OK;
-}
-
 struct xcore_bind_handler {
     coreid_t                    coreid;
     enum cpu_type               cputype;
     struct monitor_binding      *binding;
 };
-#endif
 
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
                              const char *cmdline /* XXX: currently ignored */,
                              struct intermon_binding **ret_binding)
 {
-#ifdef RCK_EMU
-    const char *monitorname = NULL, *cpuname = NULL;
-#endif
-    genpaddr_t arch_page_size;
     errval_t err;
 
     switch(cpu_type) {
     case CPU_SCC:
-        arch_page_size = X86_32_BASE_PAGE_SIZE;
-#ifdef RCK_EMU
-        monitorname = "scc/sbin/monitor";
-        cpuname = "scc/sbin/cpu";
-#endif
         break;
 
     default:
@@ -72,17 +46,13 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     // compute size of frame needed and allocate it
     struct capref frame;
     size_t framesize = MON_URPC_CHANNEL_LEN * 2;
-#ifndef RCK_EMU
     ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * my_core_id),
                      SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (my_core_id + 1)));
-#endif
     err = frame_alloc(&frame, framesize, &framesize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
-#ifndef RCK_EMU
     ram_set_affinity(0, 0);
-#endif
 
     // Mark it remote
     bool has_descendants;
@@ -101,8 +71,6 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     }
 
     memset(buf, 0, framesize);
-
-    /* printf("vaddr of frame: %p\n", buf); */
 
     // Bootee's notify channel ID is always 0
     struct capref notify_cap;
@@ -141,180 +109,17 @@ errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
     binding->ump_state.chan.sendid =
         (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
 
-#ifdef RCK_EMU
-    /* Look up modules */
-    struct mem_region *cpu_region = multiboot_find_module(bi, cpuname);
-    if (cpu_region == NULL) {
-        return SPAWN_ERR_FIND_MODULE;
-    }
-    size_t cpu_binary_size;
-    lvaddr_t cpu_binary;
-    genpaddr_t cpu_binary_phys;
-    err = spawn_map_module(cpu_region, &cpu_binary_size, &cpu_binary,
-                           &cpu_binary_phys);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_MAP_MODULE);
-    }
-    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary;
-
-    struct mem_region *monitor_region = multiboot_find_module(bi, monitorname);
-    if (monitor_region == NULL) {
-        return SPAWN_ERR_FIND_MODULE;
-    }
-    size_t monitor_binary_size;
-    lvaddr_t monitor_binary;
-    genpaddr_t monitor_binary_phys;
-    err = spawn_map_module(monitor_region, &monitor_binary_size, &monitor_binary,
-                           &monitor_binary_phys);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_MAP_MODULE);
-    }
-
-    /* Memory for cpu */
-    size_t cpu_memory = elf_virtual_size(cpu_binary) + arch_page_size;
-#else
-    size_t cpu_memory = X86_32_BASE_PAGE_SIZE;
-#endif
-
-    struct capref cpu_memory_cap;
-    err = frame_alloc(&cpu_memory_cap, cpu_memory, &cpu_memory);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-    // Mark memory as remote
-    err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    void *cpu_buf_memory;
-    err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap, NULL, NULL);
-    if(err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VSPACE_MAP);
-    }
-
-#ifdef RCK_EMU
-    /* Chunk of memory to load monitor on the app core */
-    struct capref spawn_memory_cap;
-    err = frame_alloc(&spawn_memory_cap, X86_CORE_DATA_PAGES * arch_page_size, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-    // Mark memory as remote
-    err = monitor_cap_remote(spawn_memory_cap, true, &has_descendants);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    struct frame_identity spawn_memory_identity = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(spawn_memory_cap, &spawn_memory_identity);
-    assert(err_is_ok(err));
-
-    /* Load cpu */
-    struct monitor_allocate_state state;
-    state.vbase = cpu_buf_memory + arch_page_size;
-    state.elfbase = elf_virtual_base(cpu_binary);
-    genvaddr_t cpu_entry;
-    err = elf_load(EM_386, monitor_elfload_allocate, &state, cpu_binary,
-                   cpu_binary_size, &cpu_entry);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    // Relocate cpu to new physical base address
-    struct frame_identity id = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(cpu_memory_cap, &id);
-    if(err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
-    }
-    switch(cpu_head->e_machine) {
-    case EM_386: {
-        struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)cpu_binary;
-
-        struct Elf32_Shdr *rel, *symtab, *symhead =
-            (struct Elf32_Shdr *)(cpu_binary + (uintptr_t)head32->e_shoff);
-
-        rel = elf32_find_section_header_type(symhead, head32->e_shnum, SHT_REL);
-        assert(rel != NULL);
-        symtab = elf32_find_section_header_type(symhead, head32->e_shnum,
-                                                SHT_DYNSYM);
-        assert(symtab != NULL);
-        elf32_relocate(id.base + arch_page_size, state.elfbase,
-                       (struct Elf32_Rel *)(uintptr_t)(cpu_binary + rel->sh_offset),
-                       rel->sh_size,
-                       (struct Elf32_Sym *)(uintptr_t)(cpu_binary + symtab->sh_offset),
-                       symtab->sh_size,
-                       state.elfbase, state.vbase);
-
-        // XXX: QEMU hack to be able to boot there
-        cpu_entry += 0x5b;
-        break;
-    }
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-    }
-    genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
-        + id.base + arch_page_size;
-#endif
-
     /* Look up information on the urpc_frame cap */
     struct frame_identity urpc_frame_id  = { .base = 0, .bits = 0 };
     err = invoke_frame_identify(frame, &urpc_frame_id);
     assert(err_is_ok(err));
 
-#ifdef RCK_EMU
-    /* Compute entry point in the foreign address space */
-    // XXX: Confusion address translation about l/gen/addr
-    forvaddr_t foreign_cpu_reloc_entry = (forvaddr_t)cpu_reloc_entry;
-
-    /* Setup the core_data struct in the new kernel */
-    struct x86_core_data *core_data = (struct x86_core_data*)cpu_buf_memory;
-    switch(cpu_head->e_machine) {
-    case EM_386:
-        core_data->elf.size = sizeof(struct Elf32_Shdr);
-        struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)cpu_binary;
-        core_data->elf.addr = cpu_binary_phys + (uintptr_t)head32->e_shoff;
-        core_data->elf.num  = head32->e_shnum;
-        break;
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-    }
-    core_data->module_start = cpu_binary_phys;
-    core_data->module_end   = cpu_binary_phys + cpu_binary_size;
-    core_data->multiboot_flags = MULTIBOOT_INFO_FLAG_HAS_ELF_SYMS;
-    core_data->urpc_frame_base = urpc_frame_id.base;
-    core_data->urpc_frame_bits = urpc_frame_id.bits;
-    core_data->monitor_binary   = monitor_binary_phys;
-    core_data->monitor_binary_size = monitor_binary_size;
-    core_data->memory_base_start = spawn_memory_identity.base;
-    core_data->memory_bits       = spawn_memory_identity.bits;
-#else
-    struct x86_core_data *core_data = (struct x86_core_data*)cpu_buf_memory;
-    core_data->urpc_frame_base = urpc_frame_id.base;
-    /* printf("URPC frame base of booter: 0x%" PRIxGENPADDR "\n", core_data->urpc_frame_base); */
-    core_data->urpc_frame_bits = urpc_frame_id.bits;
-#endif
-    core_data->src_core_id       = my_core_id;
-    core_data->dst_core_id       = id;
-    core_data->chan_id           = chanid;
-
     /* Invoke kernel capability to boot new core */
-#ifdef RCK_EMU
-    err = invoke_monitor_spawn_core(hwid, cpu_type, foreign_cpu_reloc_entry);
-#else
-    // XXX: Passing vaddr of core_data + arch_page size here! Dirty hack!
-    err = invoke_monitor_spawn_core(hwid, cpu_type,
-                                    ((forvaddr_t)(uintptr_t)core_data) + arch_page_size);
-#endif
+    err = invoke_monitor_spawn_scc_core(hwid, urpc_frame_id.base,
+                                        urpc_frame_id.bits, chanid);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SPAWN_CORE);
     }
-
-#ifdef RCK_EMU
-    /* Clean up */ // XXX: Should not delete the remote cap
-    err = cap_destroy(cpu_memory_cap);
-    assert(err_is_ok(err));
-    err = cap_destroy(spawn_memory_cap);
-    assert(err_is_ok(err));
-#endif
 
     return SYS_ERR_OK;
 }
@@ -326,14 +131,10 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     errval_t err;
     int argn = 1;
 
-#ifndef RCK_EMU
     assert(argc == 5);
 
     // First argument contains the bootinfo location
     bi = (struct bootinfo*)strtol(argv[argn++], NULL, 10);
-#else
-    assert(argc == 4);
-#endif
 
     // core_id of the core that booted this core
     coreid_t core_id = strtol(argv[argn++], NULL, 10);
@@ -347,7 +148,6 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     assert(strncmp("frame", argv[argn], strlen("frame")) == 0);
     uint64_t chanbase = strtoul(strchr(argv[argn++], '=') + 1, NULL, 10);
 
-#ifndef RCK_EMU
     err = monitor_client_setup_mem_serv();
     assert(err_is_ok(err));
 
@@ -361,11 +161,9 @@ errval_t boot_arch_app_core(int argc, char *argv[],
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
-#endif
 
     printf("frame base at 0x%llx -- 0x%llx\n", chanbase, chanbase + BASE_PAGE_SIZE);
 
-#ifndef RCK_EMU
     assert(MON_URPC_CHANNEL_LEN * 2 < BASE_PAGE_SIZE);
     ram_set_affinity(chanbase, chanbase + BASE_PAGE_SIZE);
     struct capref frame;
@@ -375,12 +173,6 @@ errval_t boot_arch_app_core(int argc, char *argv[],
         return err; // FIXME: cleanup
     }
     ram_set_affinity(0, 0);     // Reset affinity
-#else
-    struct capref frame = {
-        .cnode = cnode_task,
-        .slot  = TASKCN_SLOT_MON_URPC,
-    };
-#endif
 
     struct frame_identity frameid = { .base = 0, .bits = 0 };
     err = invoke_frame_identify(frame, &frameid);

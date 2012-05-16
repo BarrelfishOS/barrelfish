@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -227,15 +227,11 @@ static void clr_shared_benchmark(void)
     for(int mc = 0; mc < 4; mc++) {
         struct capref frame;
         size_t framesize = BASE_PAGE_SIZE;
-#ifndef RCK_EMU
     ram_set_affinity(SHARED_MEM_MIN + mc * LUT_SIZE,
                      SHARED_MEM_MIN + (mc + 1) * LUT_SIZE);
-#endif
     errval_t err = frame_alloc(&frame, framesize, &framesize);
     assert(err_is_ok(err));
-#ifndef RCK_EMU
     ram_set_affinity(0, 0);
-#endif
 
     // map it in
     void *buf;

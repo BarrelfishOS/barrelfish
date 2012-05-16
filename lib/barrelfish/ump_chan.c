@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -241,7 +241,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
 
     // compute size of frame needed and allocate it
     size_t framesize = inchanlen + outchanlen;
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
                      SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
 #endif
@@ -249,7 +249,7 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     ram_set_affinity(0, 0);
 #endif
 

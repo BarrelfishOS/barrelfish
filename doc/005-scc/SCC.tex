@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2011, ETH Zurich.
+% Copyright (c) 2011, 2012, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
@@ -33,6 +33,8 @@
 \vhEntry{1.1}{11.08.2010}{SP}{Fill in missing details}
 \vhEntry{1.2}{12.08.2010}{TR}{Initial release version}
 \vhEntry{1.3}{09.09.2010}{SP,RB}{Corrections to typos and for clarity}
+\vhEntry{1.4}{10.05.2012}{SP}{Fake VGA console removed. Physical
+  memory layout added.}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -86,6 +88,9 @@ understand the SCC-specific functionality in Barrelfish.
   message-based OS such as Barrelfish.  This deals primarily with how
   well-matched the Barrelfish design is with the hardware features of
   the SCC. 
+
+\item Chapter~\ref{chap:historical} collects information about
+  historical features of the port that are not supported anymore.
 \end{itemize}
 
 The work described in the current version of this document was carried
@@ -119,56 +124,15 @@ code which runs in privileged mode on the core.
 
 The SCC CPU driver is based on the x86-32 port of Barrelfish, and is
 identical to it except for not supporting the various address
-extensions (PAE, etc.) available on modern 32-bit ia32 machines, and
-kernel-mode support for multiplexing access to message passing buffers
-(MPBs) and configuration registers.
+extensions (PAE, etc.) available on modern 32-bit ia32
+machines. Instead, kernel-mode support for multiplexing access to
+message passing buffers (MPBs) and configuration registers is
+provided.
 
-\section{Console driver}
-
-There is no support for serial or VGA console hardware on the SCC, so
-the CPU driver contains no kernel-mode support for either and the
-Barrelfish user-level UART and VGA drivers are not supported.
-
-Instead, console output is written into a core-local log buffer
-starting at address \texttt{0xb8000} in private RAM, which can be read
-by the \texttt{sccDump} tool on the host. The buffer size is
-configurable at compile time and defaults to 16,000 bytes.
-
-This technique evolved from the x86 VGA driver and is why the buffer
-originates at address \texttt{0xb8000}, the x86 text-mode buffer. We
-have removed VGA control character emission and are instead writing C
-strings as given into the buffer. This turned out to be the simplest
-way to achieve readable console output without having to write
-additional tools on the host to receive console characters emitted by
-kernels running on the SCC.
-
-We have developed a shell script to run on the host to periodically
-re-read a specified core's log buffer at a frequency of roughly 10
-times a second and output it to the host's console, so the log buffer
-can be displayed analogous to a monitor displaying the contents of
-video memory. As it evolved from the x86 VGA driver, our console
-driver will rearrange the contents of the log buffer when its capacity
-exceeds by assuming an 80x25 character matrix layout and moving all
-rows ``up'' by one matrix row position, eliminating the top row,
-freeing up another row of characters for more console output, just
-like a VGA driver would produce a line feed on an x86 VGA
-terminal. When the terminal on the host has equal dimensions, this
-technique provides an identical effect on the host terminal.
-
-A drawback with this technique despite suboptimal performance and
-logging capabilities is the inability to map console output across
-cores to a global timeline. There is no global clock inside the SCC,
-so timestamps on log messages do not help. We elaborate more on this
-in Section~\ref{debugging}.
-
-Obviously, this technique is a kludge and does not represent what
-could be done if proper console support were provided via the SCC
-system interface by additional software written on the host. We assume
-that standard UART support via the system interface would provide
-sufficient performance while moving all buffering capabilites into the
-host and providing a single concentrator for console output by all
-cores of the SCC simultaneously, eliminating the global timeline
-problem.
+The SCC CPU driver also supports the x86 UART for debugging output. A
+version of the SCC host PC driver\footnote{Available at:
+  \url{http://www.dcl.hpi.uni-potsdam.de/research/scc/serial.htm}}
+supports a virtual UART for each core on the SCC.
 
 \section{Compilation}
 
@@ -190,12 +154,16 @@ produce a bootable binary image file:
   (an Intel-proprietary format) and combined with a 5 byte jump
   vector, to be loaded at address 0xfffffff0, long jumping to
   0x100000, the fixed entry point of the kernel.
+
+\item Another 32.obj file is created, containing only the 5 byte jump
+  vector to the same fixed entry point of the kernel.
 \end{enumerate}
 
 \section{Boot process: first (bootstrap) core}
 
-The following SCC tools are invoked in order on the host PC to
-bootstrap the first SCC core:
+The \verb+tools/scc/bootscc.sh+ shell script can be used to boot the
+SCC. This script will invoke the following sccKit tools on the host PC
+to bootstrap the first SCC core:
 
 \begin{alltt}
   sccReset -g
@@ -208,14 +176,14 @@ The first \texttt{sccReset} will reset the SCC board into a known
 state, in particular all configuration registers.
 
 \texttt{sccMerge} creates memory images for all memory controllers
-from the previously-created 32.obj file. It is configured to create a
-copy of the 32.obj image into each core's private RAM at identical
-locations. Also, the default LUT mappings are created for each
-core. The file \texttt{barrelfish48.mt} provided on the commandline is
-responsible for this configuration. It is shipped with the Barrelfish
-source distribution. \texttt{sccMerge} creates an \texttt{obj}
-subdirectory containing the produced memory images. If the directory
-already exists, it is removed first.
+from the previously created 32.obj files. It will load the boot image
+to core 0's memory and load the boot jump vector to all other
+cores. The default LUT mappings are created for each core. The file
+\texttt{barrelfish48.mt} provided on the commandline is responsible
+for this configuration. It is shipped with the Barrelfish source
+distribution. \texttt{sccMerge} creates an \texttt{obj} subdirectory
+containing the produced memory images. If the directory already
+exists, it is removed first.
 
 \texttt{sccBoot} loads the memory images into the memory controllers
 from the \texttt{obj} subdirectory.
@@ -235,35 +203,50 @@ process.
 \section{Boot process: subsequent cores}
 
 When told to boot another SCC core with a given core ID, the CPU
-driver will modify the booter's LUT mapping to map in the first
-megabyte of the bootee. The last 4K page of that region is then mapped
-into the booter kernel's remappable region.
+driver will modify the booter's LUT mapping to map in the first 16MB
+(one LUT entry) of the bootee at a known fixed address, known not to
+contain useful memory of the booter.
 
-This page contains the boot configuration, which is modified to tell
-the bootee that it is an application kernel and the address of the
-inter-monitor CC-UMP message passing region in shared RAM, as well as
-the notification channel ID used for that channel. CC-UMP and
-notification channels are described in Section~\ref{sec:interconnect}.
-Then, the reset pin of the bootee is released via configuration
-registers.
+The booter will then ELF load a copy of the CPU driver to address
+0x10000 and append copies of the ELF binaries of the CPU driver, the
+monitor, init, and mem\_serv. These programs are needed to bring up
+the bootee core. A special configuration region at address 0xff00 is
+also written to inform the bootee that it is an application kernel,
+the address of the inter-monitor CC-UMP message passing region in
+shared RAM, the location of the binary copies, as well as the
+notification channel ID used for that channel. CC-UMP and notification
+channels are described in Section~\ref{sec:interconnect}.  Then, the
+reset pin of the bootee is released via configuration registers.
 
 \section{Physical address space}
 
 The SCC allows the physical address space of each core to be
 configured using the 256-entry Lookup Table~\cite{rockcreek_eas}
 (LUT).  In normal operation, we use the default LUT memory map, as is
-used by Intel for the Linux OS.
+used by Intel for the Linux OS, and amend it for extra physical memory
+if available. The memory map is described in the
+\verb+hake/menu.lst.scc+ file, and inserted into the boot image by the
+\verb+dite+ tool, where the kernel can find it.
 
 \begin{center}
 \begin{tabular}{lll}
-Area & start & end (+1)\\
+Area & start & end\\
 \hline
-Private DDR3 RAM & 0 & 0x14000000 \\
-Shared DDR3 RAM & 0x80000000 &0x84000000 \\
-On-tile MPBs & 0xc0000000 & 0xd8000000 \\
-Local on-tile MPB & 0xd8000000 & 0xd9000000 \\
-Configuration registers & 0xe0000000 & 0xf8000000 \\
-Local configuration regs & 0xf8000000 & 0xf9000000 \\
+Private DDR3 RAM & 0 & 0x28ffffff \\
+Remote boot LUT & 0x29000000 & 0x29ffffff \\
+\emph{Unused} & 0x2a000000 & 0x7fffffff \\
+Shared DDR3 RAM & 0x80000000 & 0xbfffffff \\
+On-tile MPBs & 0xc0000000 & 0xd7ffffff \\
+Local on-tile MPB & 0xd8000000 & 0xd8ffffff \\
+\emph{Unused} & 0xd9000000 & 0xdfffffff \\
+Configuration registers & 0xe0000000 & 0xf7ffffff \\
+Local configuration regs & 0xf8000000 & 0xf8ffffff \\
+eMAC access & 0xf9000000 & 0xf9ffffff \\
+TCP/IP traffic (unused) & 0xfa000000 & 0xfaffffff \\
+RPC (unused) & 0xfb000000 & 0xfbffffff \\
+SATA (unused) & 0xfc000000 & 0xfcffffff \\
+\emph{Unused} & 0xfd000000 & 0xfeffffff \\
+Private DDR3 RAM & 0xff000000 & 0xffffffff \\
 \end{tabular}
 \end{center}
 
@@ -299,14 +282,11 @@ addresses.
 A memory allocation server (\texttt{mem\_serv}) is spawned for every
 on-line core in the system.
 
-Available shared RAM (of 64MB) is reduced to 48MB and partitioned into
-48 regions of 1MB each. The remaining shared RAM of 16MB is thrown
-away and is not usable. The reason for this is that the memory
-allocators are not able to handle allocation from unaligned memory
-regions and those of sizes that are not a power of two. If the
-available space of 64MB would have been evenly partitioned, it would
-have resulted in a size of 1398101 bytes for each region, not a power
-of two and not naturally aligned.
+Available shared RAM is equi-partitioned into 48 regions. Remaining
+shared RAM not fitting this partition is thrown away and is not
+usable. The reason for this is that the memory allocators are not able
+to handle allocation from unaligned memory regions and sizes that are
+not a power of two.
 
 The server gets given capabilities for all of the private RAM of the
 local core and \textbf{all of shared RAM}. This is necessary so that
@@ -548,28 +528,6 @@ write combine buffer to flush the last written cacheline out to
 memory (see Section 1.4.5 of~\cite{rockcreek_core_eas}). This needs
 to be done, as an application may have written an incomplete cacheline
 to the transfer area, to force that line out to memory before sending.
-
-\section{MPB emulator}
-
-As part of development, an MPB emulator for x86-32 was created.
-The emulator is implemented as a device driver for the SCC CPU 
-driver and replaces the original SCC device driver, exporting an
-identical interface.
-
-This emulator was used for functional testing and debugging of the SCC
-user-space interconnect driver and message passing stubs, as well as
-the ported RCCE library and user-space applications, without the
-need for access to a real SCC.   
-
-As the emulator allowed us to compile and run the SCC CPU driver
-largely unmodified on a standard ia32 core, it was also used for
-initial testing of the SCC boot process, before gaining access to real
-SCC hardware for the first time.
-
-The emulator uses a region of unmapped RAM on an x86 for the
-MPBs and sends inter-core interrupts using the local APIC IPI
-mechanism. Configuration registers are unsupported. Core IDs are
-reported from the local APIC core ID register.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Hardware measurements}\label{chap:bench}
@@ -1397,6 +1355,83 @@ transfer.  One option is to introduce address space identifiers (these
 should be orthogonal to virtualization in any case), and cause a
 lightweight same-address-space jump if and only if that address space
 is running. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Historical features}\label{chap:historical}
+
+This chapter described features once present in older versions of
+Barrelfish that have been deprecated or superseded by newer
+functionality.
+
+\section{Console driver}
+
+Up to \verb+release2012-03-02+, there is no support for serial or VGA
+console hardware on the SCC, so the CPU driver contains no kernel-mode
+support for either and the Barrelfish user-level UART and VGA drivers
+are not supported.
+
+Instead, console output is written into a core-local log buffer
+starting at address \texttt{0xb8000} in private RAM, which can be read
+by the \texttt{sccDump} tool on the host. The buffer size is
+configurable at compile time and defaults to 16,000 bytes.
+
+This technique evolved from the x86 VGA driver and is why the buffer
+originates at address \texttt{0xb8000}, the x86 text-mode buffer. We
+have removed VGA control character emission and are instead writing C
+strings as given into the buffer. This turned out to be the simplest
+way to achieve readable console output without having to write
+additional tools on the host to receive console characters emitted by
+kernels running on the SCC.
+
+We have developed a shell script to run on the host to periodically
+re-read a specified core's log buffer at a frequency of roughly 10
+times a second and output it to the host's console, so the log buffer
+can be displayed analogous to a monitor displaying the contents of
+video memory. As it evolved from the x86 VGA driver, our console
+driver will rearrange the contents of the log buffer when its capacity
+exceeds by assuming an 80x25 character matrix layout and moving all
+rows ``up'' by one matrix row position, eliminating the top row,
+freeing up another row of characters for more console output, just
+like a VGA driver would produce a line feed on an x86 VGA
+terminal. When the terminal on the host has equal dimensions, this
+technique provides an identical effect on the host terminal.
+
+A drawback with this technique despite suboptimal performance and
+logging capabilities is the inability to map console output across
+cores to a global timeline. There is no global clock inside the SCC,
+so timestamps on log messages do not help. We elaborate more on this
+in Section~\ref{debugging}.
+
+Obviously, this technique is a kludge and does not represent what
+could be done if proper console support were provided via the SCC
+system interface by additional software written on the host. We assume
+that standard UART support via the system interface would provide
+sufficient performance while moving all buffering capabilites into the
+host and providing a single concentrator for console output by all
+cores of the SCC simultaneously, eliminating the global timeline
+problem.
+
+\section{MPB emulator}
+
+As part of development, an MPB emulator for x86-32 was created. It was
+available up to version \verb+release2012-03-02+. The emulator is
+implemented as a device driver for the SCC CPU driver and replaces the
+original SCC device driver, exporting an identical interface.
+
+This emulator was used for functional testing and debugging of the SCC
+user-space interconnect driver and message passing stubs, as well as
+the ported RCCE library and user-space applications, without the
+need for access to a real SCC.
+
+As the emulator allowed us to compile and run the SCC CPU driver
+largely unmodified on a standard ia32 core, it was also used for
+initial testing of the SCC boot process, before gaining access to real
+SCC hardware for the first time.
+
+The emulator uses a region of unmapped RAM on an x86 for the
+MPBs and sends inter-core interrupts using the local APIC IPI
+mechanism. Configuration registers are unsupported. Core IDs are
+reported from the local APIC core ID register.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{abbrv} 

@@ -331,11 +331,11 @@ static void share_common_memory_with_filter_manager(void)
 
     NDM_DEBUG("SCMWFM: allocating %lu bytes of memory.\n", size);
 
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     err = bulk_create(total_size, size, &frame, &bt_filter_tx, true);
 #else
     err = bulk_create(total_size, size, &frame, &bt_filter_tx, false);
-#endif  // defined(__scc__) && !defined(RCK_EMU)
+#endif
 
     assert(err_is_ok(err));
 

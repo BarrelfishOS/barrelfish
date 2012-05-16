@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009, 2010, 2011 ETH Zurich.
+# Copyright (c) 2009, 2010, 2011, 2012 ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -349,8 +349,9 @@ scc: all tools/bin/dite menu.lst.scc
 	tools/bin/dite -32 -o bigimage.dat menu.lst.scc
 	cp $(SRCDIR)/tools/scc/bootvector.dat .
 	bin2obj -m $(SRCDIR)/tools/scc/bigimage.map -o barrelfish0.obj
-	@echo Taking the barrelfish.obj file to SCC host
-	scp barrelfish0.obj user@tomme1.in.barrelfish.org:
+	bin2obj -m $(SRCDIR)/tools/scc/bootvector.map -o barrelfish1.obj
+	@echo Taking the barrelfish.obj files to SCC host
+	scp barrelfish[01].obj user@tomme1.in.barrelfish.org:
 
 # M5 Simulation targets
 
@@ -384,9 +385,8 @@ cscope.out: cscope.files
 	cscope -k -b -i$<
 
 TAGS: cscope.files
-#	etags - < $<
-	etags -L cscope.files # for emacs
-	ctags -L cscope.files -o TAGS_VI # for vim
+	etags - < $< # for emacs
+	cat $< | xargs ctags -o TAGS_VI # for vim
 
 # force rebuild of the Makefile
 rehake: ./hake/hake

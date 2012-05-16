@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2010, 2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -194,9 +194,6 @@ pse_paging = False
 nxe_paging :: Bool
 nxe_paging = False
 
-rck_emu :: Bool
-rck_emu = False
-
 oneshot_timer :: Bool
 oneshot_timer = False
 
@@ -241,7 +238,6 @@ defines = [ Str ("-D" ++ d) | d <- [
              if pae_paging then "CONFIG_PAE" else "",
              if pse_paging then "CONFIG_PSE" else "",
              if nxe_paging then "CONFIG_NXE" else "",
-             if rck_emu then "RCK_EMU" else "",
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else ""

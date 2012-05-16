@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -283,19 +283,15 @@ static void new_monitor_notify(struct intermon_binding *b,
     errval_t err;
 
     /* Setup the connection */
-#if !defined(RCK_EMU)
     ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * my_core_id),
                      SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (my_core_id + 1)));
-#endif
     struct capref frame;
     err = frame_alloc(&frame, MON_URPC_SIZE, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "frame_alloc failed");
         return; // FIXME: cleanup
     }
-#if !defined(RCK_EMU)
     ram_set_affinity(0, 0);     // Reset affinity
-#endif
 
     void *buf;
     err = vspace_map_one_frame_attr(&buf, MON_URPC_SIZE, frame, VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);

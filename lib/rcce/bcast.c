@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -55,13 +55,13 @@ static void client_connected(void *st, errval_t err, struct rcce_binding *b)
     // Create a Frame Capability 
     size_t allocated_size;
     struct capref shared_mem;
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
                      SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
 #endif
     errval_t r = frame_alloc(&shared_mem, BULK_SIZE * 2, &allocated_size);
     assert(err_is_ok(r));
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     ram_set_affinity(0, 0);
 #endif
 

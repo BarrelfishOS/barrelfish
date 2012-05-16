@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2007-11 ETH Zurich.
+ * Copyright (c) 2007-12 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -280,11 +280,11 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
     // been modified to suit the shared buffer allocation
     // FIXME: code repetation with mem_barrelfish_alloc_and_register
     struct bulk_transfer bt_sp;
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp, true);
 #else
     err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp, false);
-#endif // defined(__scc__) && !defined(RCK_EMU)
+#endif
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bulk_create failed.");
         return NULL;

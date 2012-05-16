@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -48,6 +48,21 @@ errval_t ipi_notify_set(struct ipi_notify *rn, struct capref notify)
     return SYS_ERR_OK;
 }
 
+static void ipi_alloc_notify_try_request(void* arg) {
+    struct ipi_notify* uc = arg;
+    struct monitor_binding* b = get_monitor_binding();
+
+    errval_t err = b->tx_vtbl.ipi_alloc_notify_request(b, NOP_CONT, uc->ep, (uintptr_t)uc);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            b->register_send(b, b->waitset, MKCONT(ipi_alloc_notify_try_request, uc));
+        } else {
+            USER_PANIC_ERR(err, "ipi_notify_alloc fail");
+        }
+    }
+}
+
 /**
  * \brief Initialise a new IPI notify channel
  *
@@ -64,10 +79,7 @@ errval_t ipi_notify_alloc(struct ipi_notify *uc,
     // Initialize the rest
     uc->cont = cont;
 
-    struct monitor_binding *b = get_monitor_binding();
-
-    err = b->tx_vtbl.ipi_alloc_notify_request(b, NOP_CONT, uc->ep, (uintptr_t)uc);
-    assert(err_is_ok(err));
+    ipi_alloc_notify_try_request(uc);
 
     return SYS_ERR_OK;
 }

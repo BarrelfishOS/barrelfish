@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Error: invalid IRQ %lu\n", x);
                 goto usage;
             }
-             irq = (int) x;
+            irq = (int) x;
         } else if (strncmp(argv[i], "name=", sizeof("name=") - 1) == 0) {
              service_name = argv[i] + sizeof("name=") - 1;
         } else {

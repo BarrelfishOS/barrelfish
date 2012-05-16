@@ -37,7 +37,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \equivalent of a kernel, except that there is one per \
              \core, and they share no state or synchronization. CPU \
              \drivers are typically non-preemptible, \
-             \single-threaded,and mostly stateless.",
+             \single-threaded, and mostly stateless.",
 
              Entry "Mackerel" [] 
              
@@ -85,7 +85,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \tree consists of a Hakefile in each relevant source \
              \directory, which contains a single Haskell expression \
              \specifying a list of targets to be built.  Hake itself \
-             \aggregates all these Hakefiles, and uses the to generate \
+             \aggregates all these Hakefiles, and uses them to generate \
              \a single Makefile in a separate, build directory.  This \
              \Makefile contains an explicit target for \\emph{every} \
              \file that can be built for Barrelfish for every \

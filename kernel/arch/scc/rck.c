@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -31,6 +31,8 @@
 #include <string.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <diteinfo.h>
+#include <elf/elf.h>
+#include <arch/x86/startup_x86.h>
 #include "rck_dev.h"
 
 /// Number of tiles on the RCK board
@@ -43,21 +45,13 @@
 #define RCK_CFG_REGS_OWN        0xf8000000
 
 /// Physical base address for message passing buffers (MPBs) in the default PTE map
-#ifndef RCK_EMU
-#       define RCK_MPB_BASE             0xc0000000
-#else
-#       define RCK_MPB_BASE             0x7a00000
-#endif
+#define RCK_MPB_BASE             0xc0000000
 
 /// Physical base address for own MPB
 #define RCK_MPB_OWN             0xd8000000
 
 /// Address range mapped by one LUT entry
-#ifndef RCK_EMU
-#       define LUT_SIZE                 0x1000000
-#else
-#       define LUT_SIZE                 (4 * BASE_PAGE_SIZE)
-#endif
+#define LUT_SIZE                 0x1000000
 
 // Max number of notification IDs that fit into message passing buffers
 #define MAX_CHANIDS             65280
@@ -105,16 +99,11 @@ static lvaddr_t mpb[NUM_RCK_TILES];
 /// User-space endpoints awaiting notifications
 static struct cte endpoints[MAX_CHANIDS];
 
-#ifdef RCK_EMU
-static spinlock_t locks[NUM_RCK_TILES * 2];
-#endif
-
 /**
  * Acquire test&set lock.
  */
 static void __attribute__ ((noinline)) acquire_lock(uint8_t dest)
 {
-#ifndef RCK_EMU
     int tile = dest / 2, core = dest % 2;
     /* rck_tas_t tas; */
 
@@ -129,10 +118,6 @@ static void __attribute__ ((noinline)) acquire_lock(uint8_t dest)
     do {
         tas = rck_tas_rd_raw(&rck[tile], core);
     } while(tas == 0);
-#else
-    // Memory lock
-    acquire_spinlock(&locks[dest]);
-#endif
 }
 
 /**
@@ -140,7 +125,6 @@ static void __attribute__ ((noinline)) acquire_lock(uint8_t dest)
  */
 static inline void release_lock(uint8_t dest)
 {
-#ifndef RCK_EMU
     int tile = dest / 2, core = dest % 2;
     /* rck_tas_t tas; */
 
@@ -150,15 +134,7 @@ static inline void release_lock(uint8_t dest)
 
     uint32_t tas = 0;
     rck_tas_wr_raw(&rck[tile], core, tas);
-#else
-    // Memory lock
-    release_spinlock(&locks[dest]);
-#endif
 }
-
-#ifdef RCK_EMU
-static char cfgregs[2 * BASE_PAGE_SIZE];
-#endif
 
 /**
  * Initialize RCK driver by mapping in config registers and MPBs.
@@ -166,13 +142,9 @@ static char cfgregs[2 * BASE_PAGE_SIZE];
 void rck_init(void)
 {
     for(int i = 0; i < NUM_RCK_TILES; i++) {
-#ifndef RCK_EMU
         void *rck_base =
             (void *)paging_map_device(RCK_CFG_REGS_BASE + LUT_SIZE * i,
                                       2 * BASE_PAGE_SIZE);
-#else
-        void *rck_base = &cfgregs;
-#endif
         assert(rck_base != NULL);
         rck_initialize(&rck[i], rck_base);
 
@@ -262,7 +234,6 @@ void rck_init(void)
  */
 uint8_t rck_get_coreid(void)
 {
-#ifndef RCK_EMU
     /* rck_tileid_t tileid = rck_tileid_rd(&rck_own); */
     uint32_t core = rck_tileid_rd_raw(&rck_own);
 
@@ -280,9 +251,6 @@ uint8_t rck_get_coreid(void)
 
     /* return (NUM_CORES*NUM_COLS*tileid.y)+(NUM_CORES*tileid.x)+tileid.coreid; */
     return (NUM_CORES*NUM_COLS*y)+(NUM_CORES*x)+core;
-#else
-    return apic_get_id();
-#endif
 }
 
 extern struct dcb *run_next;
@@ -366,7 +334,6 @@ void rck_send_notification(uint8_t dest, uintptr_t chanid)
 
 #ifndef NO_INTERRUPT
     // Send the interrupt if not already pending
-#       ifndef RCK_EMU
     /* rck_glcfg_t glcfg = rck_glcfg_rd(&rck[tile], core); */
     /* if(!glcfg.intr) { */
     /*     glcfg.intr = 1; */
@@ -377,9 +344,6 @@ void rck_send_notification(uint8_t dest, uintptr_t chanid)
         glcfg |= 1 << 1;
         rck_glcfg_wr_raw(&rck[tile], core, glcfg);
     }
-#       else
-    apic_send_std_ipi(dest, 0, APIC_SCC_INTER_CORE_VECTOR);
-#       endif
 #endif
 
     release_lock(dest);
@@ -866,16 +830,68 @@ static struct mcdest dests[48] = {
     }
 };
 
-int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_data)
+errval_t rck_map_core_lut(uint8_t entry, uint8_t coreid, uint8_t offset)
 {
-    int tile = coreid / 2, core = coreid % 2;
-    static int current_lut = XCORE_LUT_BASE;
-    static lpaddr_t xcore_paddr = XCORE_PADDR_BASE;
+    int route = dests[coreid].route;
+    rck_mcsubdests_t subdest = dests[coreid].subdest;
+    int addrbits = dests[coreid].addrbits * 0x29 + offset;
 
     // XXX: Only works from core 0 for now
     assert(rck_get_coreid() == 0);
 
-    /* printf("booting coreid %d\n", coreid); */
+    printf("Kernel: Mapping entry %u to coreid %u, offset %u\n",
+           entry, coreid, offset);
+
+    uint32_t regval = ((route & 0xff) << 13) | ((subdest & 7) << 10) |
+        (addrbits & 1023);
+    rck_lut0_wr_raw(&rck_own, entry, regval);
+
+    return SYS_ERR_OK;
+}
+
+struct allocate_state {
+    void          *vbase;
+    genvaddr_t     elfbase;
+};
+
+static errval_t elfload_allocate(void *state, genvaddr_t base,
+                                 size_t size, uint32_t flags,
+                                 void **retbase)
+{
+    struct allocate_state *s = state;
+
+    *retbase = s->vbase + base - s->elfbase;
+    return SYS_ERR_OK;
+}
+
+#define SCC_L2_LINESIZE 32
+#define SCC_L2_WAYS     4
+#define SCC_L2_CAPACITY (256 * 1024)
+#define SCC_L2_WBSTRIDE (SCC_L2_CAPACITY / SCC_L2_WAYS)
+
+static void flush_l2_cache(void)
+{
+    for (lpaddr_t addr = 0; addr < SCC_L2_WBSTRIDE; addr += SCC_L2_LINESIZE) {
+        volatile char tmp;
+        lpaddr_t set = addr % SCC_L2_WBSTRIDE;
+        volatile char *dummy = (volatile char*)local_phys_to_mem(set);
+
+        /* Now read new data into all ways */
+        for (unsigned int i = 0; i < SCC_L2_WAYS; i++) {
+            tmp = *dummy;
+            dummy += SCC_L2_WBSTRIDE;
+        }
+    }
+}
+
+int rck_start_core(uint8_t coreid, genpaddr_t urpcframe_base,
+                   uint8_t urpcframe_bits, int chanid)
+{
+    int tile = coreid / 2, core = coreid % 2;
+    int current_lut = XCORE_LUT_BASE;
+
+    // XXX: Only works from core 0 for now
+    assert(rck_get_coreid() == 0);
 
     int route = dests[coreid].route;
     rck_mcsubdests_t subdest = dests[coreid].subdest;
@@ -884,7 +900,7 @@ int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_
     // Map core's memory at LUT entry 41
     // XXX: Something's utterly wrong here! The register isn't written correctly.
     // route is 11b, even though it should be 0.
-#if 0
+#       if 0
     rck_lute_t lut = {
         .bypass = 0,
         .route = route,
@@ -894,7 +910,7 @@ int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_
     rck_lut0_wr(&rck_own, current_lut, lut);
     printf("route = 0x%x, subdest = 0x%x, addrbits = 0x%x\n",
            lut.route, lut.subdest, lut.addrbits);
-#endif
+#       endif
     uint32_t regval = ((route & 0xff) << 13) | ((subdest & 7) << 10) |
         (addrbits & 1023);
     /* uint32_t regval = ((route & 0xff) << 13) | ((subdest & 7) << 10) | */
@@ -902,20 +918,155 @@ int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_
     rck_lut0_wr_raw(&rck_own, current_lut, regval);
     /* printf("wrote 0x%x\n", regval); */
 
-    lvaddr_t mem = paging_map_device(xcore_paddr + 0x100000 - BASE_PAGE_SIZE, BASE_PAGE_SIZE);
-    assert(mem != 0);
+    lvaddr_t mem = local_phys_to_mem(XCORE_PADDR_BASE);
 
-    /* for(lpaddr_t base = XCORE_PADDR; base < XCORE_PADDR + LUT_SIZE; base += BASE_PAGE_SIZE) { */
-    /* } */
+    /* Look up modules */
+    struct multiboot_modinfo *cpu_region =
+        multiboot_find_module("scc/sbin/cpu");
+    assert(cpu_region != NULL);
+    lvaddr_t cpu_binary = local_phys_to_mem(cpu_region->mod_start);
+    size_t cpu_binary_size = MULTIBOOT_MODULE_SIZE(*cpu_region);
 
-    // XXX: Copy given core_data to destination
-    /* lvaddr_t mem = local_phys_to_mem(XCORE_PADDR) + 0x100000 - BASE_PAGE_SIZE; */
-    struct diteinfo *dest = (struct diteinfo *)mem;
+    struct multiboot_modinfo *monitor_region =
+        multiboot_find_module("scc/sbin/monitor");
+    assert(monitor_region != NULL);
+    lvaddr_t monitor_binary = local_phys_to_mem(monitor_region->mod_start);
+    size_t monitor_binary_size = MULTIBOOT_MODULE_SIZE(*monitor_region);
 
-    dest->urpc_frame_base = core_data->urpc_frame_base;
-    dest->urpc_frame_bits = core_data->urpc_frame_bits;
-    dest->src_core_id = core_data->src_core_id;
-    dest->chan_id = core_data->chan_id;
+    struct multiboot_modinfo *init_region =
+        multiboot_find_module("scc/sbin/init");
+    assert(init_region != NULL);
+    lvaddr_t init_binary = local_phys_to_mem(init_region->mod_start);
+    size_t init_binary_size = MULTIBOOT_MODULE_SIZE(*init_region);
+
+    struct multiboot_modinfo *memserv_region =
+        multiboot_find_module("scc/sbin/mem_serv");
+    assert(memserv_region != NULL);
+    lvaddr_t memserv_binary = local_phys_to_mem(memserv_region->mod_start);
+    size_t memserv_binary_size = MULTIBOOT_MODULE_SIZE(*memserv_region);
+
+    struct multiboot_modinfo *spawnd_region =
+        multiboot_find_module("scc/sbin/spawnd");
+    assert(spawnd_region != NULL);
+    lvaddr_t spawnd_binary = local_phys_to_mem(spawnd_region->mod_start);
+    size_t spawnd_binary_size = MULTIBOOT_MODULE_SIZE(*spawnd_region);
+
+    // TODO: This needs to be updated -- it's incorrect
+    /* assert(X86_CORE_DATA_PAGES * BASE_PAGE_SIZE + cpu_memory + */
+    /*        monitor_binary_size + cpu_binary_size < (1 << 24)); */
+
+    /* Load cpu */
+    char *target_mem = (char *)mem;
+    struct allocate_state state;
+    state.elfbase = elf_virtual_base(cpu_binary);
+    state.vbase = target_mem + state.elfbase;
+    assert(sizeof(struct x86_core_data) <= BASE_PAGE_SIZE);
+    genvaddr_t cpu_entry;
+    errval_t err = elf_load(EM_386, elfload_allocate, &state, cpu_binary,
+                   cpu_binary_size, &cpu_entry);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // Copy CPU driver binary to target memory
+    target_mem += (state.elfbase + elf_virtual_size(cpu_binary)) & (~0xfff);
+    genpaddr_t cpu_binary_phys = (genpaddr_t)(target_mem - (char *)mem);
+    memcpy(target_mem, (void *)cpu_binary, cpu_binary_size);
+
+    // Copy monitor binary to target memory
+    target_mem += (cpu_binary_size & (~0xfff)) + 0x1000;
+    genpaddr_t monitor_binary_phys = (genpaddr_t)(target_mem - (char *)mem);
+    memcpy(target_mem, (void *)monitor_binary, monitor_binary_size);
+
+    // Copy init binary to target memory
+    target_mem += (monitor_binary_size & (~0xfff)) + 0x1000;
+    genpaddr_t init_binary_phys = (genpaddr_t)(target_mem - (char *)mem);
+    memcpy(target_mem, (void *)init_binary, init_binary_size);
+
+    // Copy mem_serv binary to target memory
+    target_mem += (init_binary_size & (~0xfff)) + 0x1000;
+    genpaddr_t memserv_binary_phys = (genpaddr_t)(target_mem - (char *)mem);
+    memcpy(target_mem, (void *)memserv_binary, memserv_binary_size);
+
+    // Copy spawnd binary to target memory
+    target_mem += (memserv_binary_size & (~0xfff)) + 0x1000;
+    genpaddr_t spawnd_binary_phys = (genpaddr_t)(target_mem - (char *)mem);
+    memcpy(target_mem, (void *)spawnd_binary, spawnd_binary_size);
+
+    // Go to after mem_serv binary image and page-align
+    target_mem += (spawnd_binary_size & (~0xfff)) + 0x1000;
+
+    struct diteinfo *core_data = (struct diteinfo *)
+        ((char *)mem + state.elfbase - BASE_PAGE_SIZE);
+    uint32_t cdbase = state.elfbase - BASE_PAGE_SIZE;
+    memset(core_data, 0, sizeof(struct diteinfo));
+
+    core_data->elf.size = sizeof(struct Elf32_Shdr);
+
+    struct Elf32_Ehdr *head32 = (struct Elf32_Ehdr *)cpu_binary;
+    core_data->elf.addr = cpu_binary_phys + (uintptr_t)head32->e_shoff;
+    core_data->elf.num  = head32->e_shnum;
+
+    // Copy MMAP verbatim
+    core_data->mmap_addr = cdbase + __builtin_offsetof(struct diteinfo, mmap);
+    core_data->mmap_length = glbl_core_data->mmap_length;
+    memcpy(core_data->mmap, (void *)local_phys_to_mem(glbl_core_data->mmap_addr),
+           core_data->mmap_length);
+
+    // Copy cmdline verbatim
+    char *strpos = core_data->strings;
+    core_data->cmdline = cdbase + __builtin_offsetof(struct diteinfo, strings);
+    strcpy(strpos, (void *)local_phys_to_mem(glbl_core_data->cmdline));
+    strpos += strlen(strpos) + 1;
+
+    // Generate modules
+    core_data->mods_count = 5;
+    core_data->mods_addr = cdbase + __builtin_offsetof(struct diteinfo, modinfo);
+
+    // CPU driver
+    core_data->modinfo[0].mod_start = cpu_binary_phys;
+    core_data->modinfo[0].mod_end = cpu_binary_phys + cpu_binary_size;
+    strcpy(strpos, "/scc/sbin/cpu");
+    core_data->modinfo[0].string = cdbase + (uint32_t)(strpos - (char *)core_data);
+    strpos += strlen(strpos) + 1;
+
+    // Monitor
+    core_data->modinfo[1].mod_start = monitor_binary_phys;
+    core_data->modinfo[1].mod_end = monitor_binary_phys + monitor_binary_size;
+    strcpy(strpos, "/scc/sbin/monitor");
+    core_data->modinfo[1].string = cdbase + (uint32_t)(strpos - (char *)core_data);
+    strpos += strlen(strpos) + 1;
+
+    // init module
+    core_data->modinfo[2].mod_start = init_binary_phys;
+    core_data->modinfo[2].mod_end = init_binary_phys + init_binary_size;
+    strcpy(strpos, "/scc/sbin/init");
+    core_data->modinfo[2].string = cdbase + (uint32_t)(strpos - (char *)core_data);
+    strpos += strlen(strpos) + 1;
+
+    // mem_serv module
+    core_data->modinfo[3].mod_start = memserv_binary_phys;
+    core_data->modinfo[3].mod_end = memserv_binary_phys + memserv_binary_size;
+    strcpy(strpos, "/scc/sbin/mem_serv");
+    core_data->modinfo[3].string = cdbase + (uint32_t)(strpos - (char *)core_data);
+    strpos += strlen(strpos) + 1;
+
+    // spawnd module
+    core_data->modinfo[4].mod_start = spawnd_binary_phys;
+    core_data->modinfo[4].mod_end = spawnd_binary_phys + spawnd_binary_size;
+    strcpy(strpos, "/scc/sbin/spawnd");
+    core_data->modinfo[4].string = cdbase + (uint32_t)(strpos - (char *)core_data);
+    strpos += strlen(strpos) + 1;
+
+    core_data->start_free_ram = glbl_core_data->start_free_ram;
+    core_data->urpc_frame_base = urpcframe_base;
+    core_data->urpc_frame_bits = urpcframe_bits;
+    core_data->src_core_id       = my_core_id;
+    core_data->chan_id           = chanid;
+
+    /* // Write back all caches */
+    wbinvd();
+    flush_l2_cache();
 
     // Start core
     rck_gcbcfg_t gcbcfg = rck_gcbcfg_rd(&rck[tile]);
@@ -928,7 +1079,5 @@ int rck_start_core(uint8_t coreid, genvaddr_t entry, struct x86_core_data *core_
     }
     rck_gcbcfg_wr(&rck[tile], gcbcfg);
 
-    current_lut++;
-    xcore_paddr += LUT_SIZE;
     return 0;
 }
