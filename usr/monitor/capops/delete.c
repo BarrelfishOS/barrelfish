@@ -269,7 +269,7 @@ move_result_cont(errval_t status, void *st)
 
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // relock cap
-        err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr >> (CPTR_BITS-del_st->capref.bits),
+        err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
                                del_st->capref.bits);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "relocking cap after move");
