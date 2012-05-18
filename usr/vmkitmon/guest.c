@@ -27,6 +27,7 @@
 #include "pci.h"
 #include "pci_host.h"
 #include "pci_devices.h"
+#include "pci_ethernet.h"
 
 #define VMCB_SIZE       0x1000      // 4KB
 #define IOPM_SIZE       0x3000      // 12KB
@@ -2024,7 +2025,29 @@ handle_vmexit_npf (struct guest *g) {
     }
     }
 
-    printf("vmkitmon: access to an unknown memory location: %lx\n", fault_addr);
+    struct pci_ethernet * eth = (struct pci_ethernet *)g->pci->bus[0]->device[2]->state;
+    if((fault_addr & ~BASE_PAGE_MASK) == eth->phys_base_addr ){
+    	printf("vmkitmon: Access e1000 device memory\n");
+    	uint64_t val;
+		enum opsize size;
+
+		size = decode_mov_op_size(g, code);
+		if (decode_mov_is_write(g, code)) {
+			val = decode_mov_src_val(g, code);
+			*((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK))) = val;
+		} else {
+			val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK)));
+			decode_mov_dest_val(g, code, val);
+		}
+
+		// advance the rip beyond the instruction
+		amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
+						decode_mov_instr_length(g, code));
+
+		return HANDLER_ERR_OK;
+    }
+
+    printf("vmkitmon: access to an unknown memory location: %lx, eth-base: %lx\n", fault_addr, eth->phys_base_addr);
     return handle_vmexit_unhandeled(g);
 }
 
@@ -2046,6 +2069,8 @@ static vmexit_handler vmexit_handlers[0x8c] = {
 
 void
 guest_handle_vmexit (struct guest *g) {
+	//struct pci_ethernet * eth = (struct pci_ethernet * ) g->pci->bus[0]->device[2]->state;//
+	//printf("guest_handle_vmexit\n");
     uint64_t exitcode = amd_vmcb_exitcode_rd(&g->vmcb);
 
     vmexit_handler handler;

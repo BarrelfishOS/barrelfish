@@ -26,6 +26,7 @@
 
 #define PCI_CLASS_ETHERNET      0x2
 #define PCI_CLASS_DISPLAY       0x3
+#define PCI_CLASS_SYSTEMPERIPHERAL 0x8
 
 #define PCI_CLASS_HOST_BRIDGE   0x6
 #define PCI_SUB_PCI_ISA_BRIDGE  0x1
@@ -37,5 +38,8 @@
 #define PCI_IF_USB_EHCI         0x20
 #define PCI_IF_USB_GENERIC      0x80
 #define PCI_IF_USB_DEVICE       0xfe
+
+#define PCI_SUB_IOMMU			0x6
+#define PCI_IF_IOMMU			0x0
 
 #endif
