@@ -105,10 +105,10 @@ static void e1000_init(void *bar_info, int nr_allocated_bars)
     printf("e1000_init: map_device successful vaddr: 0x%lx...\n", (uint64_t)bar[0].vaddr);
     eth->virt_base_addr = bar[0].vaddr;
 
-    err = guest_vspace_map_wrapper(&guest_info->vspace, bar[0].paddr, bar[0].frame_cap[0], bar[0].bytes);
+    /* err = guest_vspace_map_wrapper(&guest_info->vspace, bar[0].paddr, bar[0].frame_cap[0], bar[0].bytes);
     if(err_is_fail(err)){
     	printf("guest_vspace_map_wrapper failed\n");
-    }
+    } */
 
 }
 

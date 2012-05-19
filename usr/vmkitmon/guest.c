@@ -855,6 +855,7 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
 static inline uint32_t
 lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
 {
+	printf("lookup_paddr_legacy_mode enter\n");
     // PAE not supported
     guest_assert(g, amd_vmcb_cr4_rd(&g->vmcb).pae == 0);
 
@@ -885,6 +886,7 @@ static inline int
 get_instr_arr (struct guest *g, uint8_t **arr)
 {
     if (UNLIKELY(amd_vmcb_cr0_rd(&g->vmcb).pg == 0)) {
+    	printf("Segmentation active!\n");
         // without paging
         // take segmentation into account
         *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
@@ -1931,6 +1933,19 @@ decode_mov_is_write (struct guest *g, uint8_t *code)
 static inline enum opsize
 decode_mov_op_size (struct guest *g, uint8_t *code)
 {
+	printf("EFER: 0x%lx\n", amd_vmcb_efer_rd_raw(&g->vmcb));
+	printf("Code: 0x%lx\n", *((uint64_t *)code));
+	printf("Code[0]: 0x%x, Code[1]: 0x%x, Code[2]: 0x%x, Code[3]: 0x%x\n", code[0],code[1],code[2],code[3]);
+	printf("Guest EAX: 0x%x\n", guest_get_eax(g));
+	printf("Guest EBX: 0x%x\n", guest_get_ebx(g));
+	printf("Guest ECX: 0x%x\n", guest_get_ecx(g));
+
+	printf("Guest EDX: 0x%x\n", guest_get_edx(g));
+	printf("Guest RDI: 0x%lx\n", guest_get_rdi(g));
+	printf("Guest RSI: 0x%lx\n", guest_get_rsi(g));
+	printf("Guest RSP: 0x%lx\n", guest_get_rsp(g));
+	printf("Guest RBP: 0x%lx\n", guest_get_rbp(g));
+
     // we only support long mode for now
     assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
@@ -2026,11 +2041,14 @@ handle_vmexit_npf (struct guest *g) {
     }
 
     struct pci_ethernet * eth = (struct pci_ethernet *)g->pci->bus[0]->device[2]->state;
-    if((fault_addr & ~BASE_PAGE_MASK) == eth->phys_base_addr ){
-    	printf("vmkitmon: Access e1000 device memory\n");
+     if((fault_addr & ~BASE_PAGE_MASK) == eth->phys_base_addr ){
+    	printf("vmkitmon: Access e1000 device memory, phys_base_addr: 0x%lx\n" , eth->phys_base_addr);
     	uint64_t val;
 		enum opsize size;
+		if( code[0] = 0x8b ){
+			// mem to reg
 
+		}
 		size = decode_mov_op_size(g, code);
 		if (decode_mov_is_write(g, code)) {
 			val = decode_mov_src_val(g, code);
@@ -2046,6 +2064,8 @@ handle_vmexit_npf (struct guest *g) {
 
 		return HANDLER_ERR_OK;
     }
+
+    printf("Translated edx address: 0x%x\n", lookup_paddr_legacy_mode(g, guest_get_edx(g)));
 
     printf("vmkitmon: access to an unknown memory location: %lx, eth-base: %lx\n", fault_addr, eth->phys_base_addr);
     return handle_vmexit_unhandeled(g);
