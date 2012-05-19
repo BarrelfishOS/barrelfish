@@ -886,7 +886,7 @@ static inline int
 get_instr_arr (struct guest *g, uint8_t **arr)
 {
     if (UNLIKELY(amd_vmcb_cr0_rd(&g->vmcb).pg == 0)) {
-    	printf("Segmentation active!\n");
+    	//printf("Segmentation active!\n");
         // without paging
         // take segmentation into account
         *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
@@ -1878,7 +1878,7 @@ decode_mov_instr_length (struct guest *g, uint8_t *code)
     int len;
 
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // all non special MOV instructions use one byte as opcode and at least a
     // ModR/M byte
@@ -1947,7 +1947,7 @@ decode_mov_op_size (struct guest *g, uint8_t *code)
 	printf("Guest RBP: 0x%lx\n", guest_get_rbp(g));
 
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // check for the REX prefix
     if ((code[0] >> 4) == 0x4 && code[0] & 0x48) {
@@ -1959,8 +1959,9 @@ decode_mov_op_size (struct guest *g, uint8_t *code)
 
 static inline uint64_t
 decode_mov_src_val (struct guest *g, uint8_t *code) {
+    
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // check for the REX prefix
     if ((code[0] >> 4) == 0x4) {
@@ -1979,7 +1980,7 @@ static inline void
 decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
 {
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // check for the REX prefix
     if ((code[0] >> 4) == 0x4) {
@@ -2045,17 +2046,17 @@ handle_vmexit_npf (struct guest *g) {
     	printf("vmkitmon: Access e1000 device memory, phys_base_addr: 0x%lx\n" , eth->phys_base_addr);
     	uint64_t val;
 		enum opsize size;
-		if( code[0] = 0x8b ){
-			// mem to reg
 
-		}
 		size = decode_mov_op_size(g, code);
+        printf("OP_SIZE: %d\n", size);
 		if (decode_mov_is_write(g, code)) {
 			val = decode_mov_src_val(g, code);
-			*((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK))) = val;
+            printf("Write to addr 0x%lx value %lx\n", fault_addr, val);
+			//*((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK))) = val;
 		} else {
-			val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK)));
-			decode_mov_dest_val(g, code, val);
+            printf("Read from addr 0x%lx\n", fault_addr);
+			//val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK)));
+			//decode_mov_dest_val(g, code, val);
 		}
 
 		// advance the rip beyond the instruction
