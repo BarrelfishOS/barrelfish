@@ -89,7 +89,6 @@ static genpaddr_t eth_base_paddr = 0;
 static void e1000_init(void *bar_info, int nr_allocated_bars)
 {
 	printf("e1000_init)!\n");
-	printf("TODO: STUFF vm...\n");
     
     struct device_mem *bar = (struct device_mem *)bar_info;
     
@@ -97,6 +96,7 @@ static void e1000_init(void *bar_info, int nr_allocated_bars)
 
     struct pci_ethernet * eth = pci_ethernet_unique;
     eth->phys_base_addr = bar[0].paddr;
+    eth->bytes = bar[0].bytes;
 
     errval_t err = map_device(&bar[0]);
     if(err_is_fail(err)){

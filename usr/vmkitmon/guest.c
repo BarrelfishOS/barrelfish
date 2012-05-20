@@ -1933,6 +1933,7 @@ decode_mov_is_write (struct guest *g, uint8_t *code)
 static inline enum opsize
 decode_mov_op_size (struct guest *g, uint8_t *code)
 {
+    /*
 	printf("EFER: 0x%lx\n", amd_vmcb_efer_rd_raw(&g->vmcb));
 	printf("Code: 0x%lx\n", *((uint64_t *)code));
 	printf("Code[0]: 0x%x, Code[1]: 0x%x, Code[2]: 0x%x, Code[3]: 0x%x\n", code[0],code[1],code[2],code[3]);
@@ -1945,6 +1946,7 @@ decode_mov_op_size (struct guest *g, uint8_t *code)
 	printf("Guest RSI: 0x%lx\n", guest_get_rsi(g));
 	printf("Guest RSP: 0x%lx\n", guest_get_rsp(g));
 	printf("Guest RBP: 0x%lx\n", guest_get_rbp(g));
+    */
 
     // we only support long mode for now
     //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
@@ -2042,28 +2044,33 @@ handle_vmexit_npf (struct guest *g) {
     }
 
     struct pci_ethernet * eth = (struct pci_ethernet *)g->pci->bus[0]->device[2]->state;
-     if((fault_addr & ~BASE_PAGE_MASK) == eth->phys_base_addr ){
-    	printf("vmkitmon: Access e1000 device memory, phys_base_addr: 0x%lx\n" , eth->phys_base_addr);
-    	uint64_t val;
-		enum opsize size;
+    //VMKIT_PCI_DEBUG("Ethernet MMIO region size: %lx\n", eth->bytes);
 
-		size = decode_mov_op_size(g, code);
-        printf("OP_SIZE: %d\n", size);
-		if (decode_mov_is_write(g, code)) {
-			val = decode_mov_src_val(g, code);
-            printf("Write to addr 0x%lx value %lx\n", fault_addr, val);
-			//*((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK))) = val;
-		} else {
-            printf("Read from addr 0x%lx\n", fault_addr);
-			//val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & BASE_PAGE_MASK)));
-			//decode_mov_dest_val(g, code, val);
-		}
+    if( ETH_MMIO_ADDR_CHECK(eth, fault_addr) ) {
+        //printf("vmkitmon: Access e1000 device memory, phys_base_addr: 0x%lx\n" , eth->phys_base_addr);
+        uint64_t val;
+        enum opsize size;
+        
+        /* TODO: 
+         * Call functions eth_read and eth_write (for example) and switch for fault_addr.
+         * When interesting register, interact, otherwise (default): do simple read or write.
+         */
+        size = decode_mov_op_size(g, code);
+        if (decode_mov_is_write(g, code)) {
+            val = decode_mov_src_val(g, code);
+            VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
+            *((uint64_t *)(eth->virt_base_addr + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
+        } else {
+            val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & ETH_MMIO_MASK(eth))));
+            VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
+            decode_mov_dest_val(g, code, val);
+        }
 
-		// advance the rip beyond the instruction
-		amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
-						decode_mov_instr_length(g, code));
+        // advance the rip beyond the instruction
+        amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
+                        decode_mov_instr_length(g, code));
 
-		return HANDLER_ERR_OK;
+        return HANDLER_ERR_OK;
     }
 
     printf("Translated edx address: 0x%x\n", lookup_paddr_legacy_mode(g, guest_get_edx(g)));
