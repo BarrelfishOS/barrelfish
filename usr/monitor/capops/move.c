@@ -300,7 +300,7 @@ capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result
         return err;
     }
 
-    err = move_request(capref, &cap, dest, relations, result_handler, st);
+    err = move_request(capref, &cap, relations, dest, result_handler, st);
     if (err_is_fail(err)) {
         caplock_unlock(capref);
         return err;
