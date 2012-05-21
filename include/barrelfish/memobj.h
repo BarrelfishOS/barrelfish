@@ -15,6 +15,8 @@
 #ifndef LIBBARRELFISH_MEMOBJ_H
 #define LIBBARRELFISH_MEMOBJ_H
 
+#include <barrelfish/slab.h>
+
 // FIXME: these enum names need to be scoped (e.g. MEMOBJ_X rather than X) -AB
 enum memobj_type {
     ANONYMOUS,

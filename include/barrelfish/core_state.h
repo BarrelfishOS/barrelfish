@@ -17,6 +17,11 @@
 
 #include <k_r_malloc.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/ram_alloc.h>
+#include <barrelfish/slot_alloc.h>
+#include <barrelfish/thread_sync.h>
+#include <barrelfish_kpi/paging_arch.h>
+#include <barrelfish_kpi/capabilities.h>
 
 /* DELETEME! I can't find anything that uses this -AB 20120110 */
 #if 0

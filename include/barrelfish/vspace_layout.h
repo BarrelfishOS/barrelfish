@@ -15,6 +15,8 @@
 #ifndef LIBBARRELFISH_VSPACE_LAYOUT_H
 #define LIBBARRELFISH_VSPACE_LAYOUT_H
 
+#include <assert.h>
+
 struct vspace_layout;
 struct vspace_layout_funcs {
     errval_t (*alloc)(struct vspace_layout *layout, genvaddr_t *addr);

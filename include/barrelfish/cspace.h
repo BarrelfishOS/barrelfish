@@ -15,6 +15,8 @@
 #ifndef BARRELFISH_CSPACE_H
 #define BARRELFISH_CSPACE_H
 
+#include <barrelfish_kpi/init.h>
+
 /* Root CNode */
 #define ROOTCN_SLOT_MONITOREP   (ROOTCN_SLOTS_USER+1)   ///< lrpc endpoint to monitor
 #define ROOTCN_FREE_EP_SLOTS    (ROOTCN_SLOTS_USER+2)   ///< free slots to place EPs

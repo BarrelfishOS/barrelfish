@@ -18,6 +18,7 @@
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
+#include <barrelfish_kpi/cpu.h>
 
 /**
  * \brief Spawn a new core.

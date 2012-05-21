@@ -17,6 +17,8 @@
 
 #include <barrelfish/thread_sync.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish_kpi/registers_arch.h>
+#include <barrelfish_kpi/dispatcher_handle.h>
 
 typedef int (*thread_func_t)(void *);
 

@@ -15,6 +15,8 @@
 #ifndef LIBBARRELFISH_VSPACE_MMU_AWARE_H
 #define LIBBARRELFISH_VSPACE_MMU_AWARE_H
 
+#include <barrelfish/vregion.h>
+
 struct vspace_mmu_vregion_list {
     struct vregion vregion;
     struct vspace_mmu_vregion_list *next;
