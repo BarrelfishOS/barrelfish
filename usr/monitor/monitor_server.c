@@ -21,6 +21,7 @@
 #include <if/monitor_loopback_defs.h>
 #include "capops.h"
 #include "caplock.h"
+#include "send_cap.h"
 
 // the monitor's loopback binding to itself
 static struct monitor_binding monitor_self_binding;
@@ -576,36 +577,33 @@ struct send_cap_st {
     struct capref cap;
     uint32_t capid;
     uint8_t give_away;
-    capaddr_t cptr;
-    uint8_t vbits;
-    cslot_t slot;
+    struct captx_prepare_state captx_state;
+    intermon_captx_t captx;
 };
 
 static void
 cap_send_tx_cont(struct intermon_binding *b,
-                        struct intermon_msg_queue_elem *e)
+                 struct intermon_msg_queue_elem *e)
 {
     errval_t send_err;
     struct send_cap_st *st = (struct send_cap_st*)e;
     struct remote_conn_state *conn = remote_conn_lookup(st->my_mon_id);
     send_err = intermon_cap_send_request__tx(b, NOP_CONT, conn->mon_id,
-                                                st->capid, st->cptr,
-                                                st->vbits, st->slot);
+                                                st->capid, st->captx);
     if (err_is_fail(send_err)) {
         DEBUG_ERR(send_err, "sending cap_send_request failed");
     }
+    free(st);
 }
 
 static void
-cap_send_delete_cont(errval_t status, void *st)
+cap_send_request_tx_cont(errval_t err, struct captx_prepare_state *captx_st,
+                         intermon_captx_t *captx, void *st_)
 {
     errval_t queue_err;
-    struct send_cap_st *send_st = (struct send_cap_st*)st;
 
-    if (err_is_fail(status)) {
-        DEBUG_ERR(status, "delete for cap_send_request failed");
-        return;
-    }
+    struct send_cap_st *send_st = (struct send_cap_st*)st_;
+    send_st->captx = *captx;
 
     send_st->qe.cont = cap_send_tx_cont;
     struct remote_conn_state *conn = remote_conn_lookup(send_st->my_mon_id);
@@ -616,28 +614,7 @@ cap_send_delete_cont(errval_t status, void *st)
                                       (struct msg_queue_elem*)send_st);
     if (err_is_fail(queue_err)) {
         DEBUG_ERR(queue_err, "enqueuing cap_send_request failed");
-    }
-}
-
-static void
-cap_send_copy_cont(errval_t status, capaddr_t cptr, uint8_t vbits,
-                   cslot_t slot, void *st)
-{
-    errval_t err;
-
-    struct send_cap_st *send_st = (struct send_cap_st*)st;
-    if (err_is_fail(status)) {
-        DEBUG_ERR(status, "copy for cap_send_request failed");
-        return;
-    }
-
-    send_st->cptr = cptr;
-    send_st->vbits = vbits;
-    send_st->slot = slot;
-
-    err = capops_delete(get_cap_domref(send_st->cap), cap_send_delete_cont, st);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "starting delete for cap_send_request failed");
+        free(send_st);
     }
 }
 
@@ -657,11 +634,12 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
     st->my_mon_id = my_mon_id;
     st->cap = cap;
     st->capid = capid;
-    st->give_away = false;
 
-    err = capops_copy(cap, conn->core_id, cap_send_copy_cont, st);
+    err = captx_prepare_send(cap, conn->core_id, true, &st->captx_state,
+                             cap_send_request_tx_cont, st);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "starting copy for cap_send_request failed");
+        DEBUG_ERR(err, "preparing cap tx failed");
+        free(st);
     }
 }
 

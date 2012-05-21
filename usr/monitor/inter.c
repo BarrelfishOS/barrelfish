@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <monitor.h>
 #include <trace/trace.h>
+#include "send_cap.h"
 #include "capop_handlers.h"
 #include "capops.h"
 
@@ -231,40 +232,23 @@ static void cap_receive_request_handler(struct monitor_binding *b,
     free(e);
 }
 
-static void
-cap_send_request(struct intermon_binding *b, mon_id_t my_mon_id,
-                 uint32_t capid, capaddr_t caddr, uint8_t vbits, cslot_t slot)
-{
-    errval_t err, msgerr = SYS_ERR_OK;
-    struct capref cap = NULL_CAP;
+struct cap_send_request_st {
+    struct captx_recv_state captx_st;
+    struct intermon_binding *b;
+    uint32_t capid;
+    uintptr_t my_mon_id;
+};
 
+static void
+cap_send_request_caprecv_cont(errval_t err, struct captx_recv_state *captx_st,
+                              struct capref cap, void *st_)
+{
+    struct cap_send_request_st *st = (struct cap_send_request_st*)st_;
+
+    uintptr_t my_mon_id = st->my_mon_id;
     struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
     assert(conn != NULL);
     uintptr_t your_mon_id = conn->mon_id;
-
-    // Recreate a capref for the received copy
-    struct capability cnode_cap;
-    err = invoke_monitor_identify_cap(caddr, vbits, &cnode_cap);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
-
-    cap.cnode = (struct cnoderef) {
-        .address = (caddr << (CPTR_BITS - vbits)),
-        .address_bits = vbits,
-        .size_bits = cnode_cap.u.cnode.bits,
-        .guard_size = cnode_cap.u.cnode.guard_size,
-    };
-    cap.slot = slot;
-
-#if 0
-    // Sanity check the cap
-    struct capability thecap;
-    err = monitor_cap_identify(cap, &thecap);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
-#endif
 
     // Get the user domain's connection and connection id
     struct monitor_binding *domain_binding = conn->domain_binding;
@@ -273,12 +257,36 @@ cap_send_request(struct intermon_binding *b, mon_id_t my_mon_id,
     // Try to send cap to the user domain, but only if the queue is empty
     struct monitor_state *mst = domain_binding->st;
     if (msg_queue_is_empty(&mst->queue)) {
-        cap_receive_request_cont(domain_binding, domain_id, msgerr, cap, capid,
-                                 your_mon_id, b);
+        cap_receive_request_cont(domain_binding, domain_id, err, cap, st->capid,
+                                 your_mon_id, st->b);
     } else {
         // don't allow sends to bypass the queue
-        cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap, capid,
-                                    your_mon_id, b);
+        cap_receive_request_enqueue(domain_binding, domain_id, err, cap, st->capid,
+                                    your_mon_id, st->b);
+    }
+}
+
+static void
+cap_send_request(struct intermon_binding *b, mon_id_t my_mon_id,
+                 uint32_t capid, intermon_captx_t captx)
+{
+    errval_t err;
+
+    struct cap_send_request_st *st;
+    st = malloc(sizeof(*st));
+    if (!st) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto send_err;
+    }
+
+    st->capid = capid;
+    st->my_mon_id = my_mon_id;
+    st->b = b;
+
+    err = captx_handle_recv(&captx, &st->captx_st,
+                            cap_send_request_caprecv_cont, st);
+    if (err_is_fail(err)) {
+        goto send_err;
     }
 
     return;

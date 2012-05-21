@@ -37,6 +37,12 @@ interface intermon "The Interface between monitors" {
         uint64 w3;
     } caprep;
 
+    typedef struct {
+        capaddr_t cnptr;
+        capbits_t cnbits;
+        capslot_t slot;
+    } captx;
+
     message spawnd_image_request();
     message spawnd_image_reply(genpaddr base, uint32 bytes);
 
@@ -100,9 +106,7 @@ interface intermon "The Interface between monitors" {
 
     message cap_send_request(con_id_t con_id,
                              capid_t capid,
-                             capaddr_t caddr,
-                             capbits_t vbits,
-                             capslot_t slot);
+                             captx cap);
 
     message span_domain_request(state_id_t state_id,
                                 genpaddr vnodebase,
