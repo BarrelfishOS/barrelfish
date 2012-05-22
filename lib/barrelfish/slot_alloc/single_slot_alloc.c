@@ -51,6 +51,7 @@ static errval_t salloc(struct slot_allocator *ca, struct capref *ret)
 static errval_t sfree(struct slot_allocator *ca, struct capref cap)
 {
     struct single_slot_allocator *sca = (struct single_slot_allocator*)ca;
+    errval_t err = SYS_ERR_OK;
 
     if (!cnodecmp(cap.cnode, sca->cnode)) {
         return LIB_ERR_SLOT_ALLOC_WRONG_CNODE;
@@ -93,6 +94,10 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
             walk->space++;
             goto finish;
         }
+        else if (cap.slot < walk->slot + walk->space) {
+            err = LIB_ERR_SLOT_UNALLOCATED;
+            goto unlock;
+        }
 
         // Freeing after walk and before walk->next
         if (walk->next && cap.slot < walk->next->slot) {
@@ -115,8 +120,10 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
 
  finish:
     sca->a.space++;
+
+ unlock:
     thread_mutex_unlock(&ca->mutex);
-    return SYS_ERR_OK;
+    return err;
 }
 
 errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,

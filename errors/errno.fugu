@@ -171,6 +171,7 @@ errors libbarrelfish LIB_ERR_ {
     failure SINGLE_SLOT_ALLOC      "Failure in single_slot_alloc()",
     failure SLOT_ALLOC             "Failure in slot_alloc()",
     failure SLOT_FREE              "Failure in slot_free()",
+    failure SLOT_UNALLOCATED       "slot_free() was called on an unallocated slot",
 
     // vspace
     failure VSPACE_CURRENT_INIT "Failure in vspace_current_init()",
