@@ -193,19 +193,19 @@ void apic_init(void)
     //generate fixed int
     {
 	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
-	xapic_lvt_lint_vector_insert(   t, APIC_INTER_CORE_VECTOR);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
+	t = xapic_lvt_lint_vector_insert(   t, APIC_INTER_CORE_VECTOR);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
 	xapic_lvt_lint0_wr(&apic, t);
 
 	//LINT1: usually used to generate an NMI
 	//generate device interrupt
 	t = xapic_lvt_lint1_initial;
-	xapic_lvt_lint_vector_insert(   t, 32);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
+	t = xapic_lvt_lint_vector_insert(   t, 32);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
 	xapic_lvt_lint1_wr(&apic, t);
     }
 #else
