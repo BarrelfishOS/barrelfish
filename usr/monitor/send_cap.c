@@ -121,11 +121,19 @@ captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
     state->abort_cont = abort_cont;
     state->st = st;
 
-    struct capref cap;
-    err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    if (!captx->cnptr && !captx->cnbits) {
+        assert(!captx->slot);
 
-    return capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
+        state->abort_cont(SYS_ERR_OK, state, state->st);
+        return SYS_ERR_OK;
+    }
+    else {
+        struct capref cap;
+        err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        return capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
+    }
 }
