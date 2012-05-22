@@ -151,8 +151,7 @@ static struct atag * atag_find(struct atag *a, uint32_t tag)
 // Kernel command line variables and binding options
 //
 
-//TODO: timeslice instead of tick_hz
-static int tick_hz                   = 100;
+static int timeslice				 = 5;		//interval in ms in which the scheduler gets called
 static int serial_console_port       = 0;
 static int serial_debug_port         = 1;
 
@@ -161,7 +160,7 @@ static struct cmdarg cmdargs[] = {
     { "debugPort",      ArgType_Int, { .integer = &serial_debug_port}},
     { "loglevel",       ArgType_Int, { .integer = &kernel_loglevel }},
     { "logmask",        ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
-    { "tickHz",         ArgType_Int, { .integer = &tick_hz }},
+    { "timeslice",      ArgType_Int, { .integer = &timeslice }},
     {NULL, 0, {NULL}}
 };
 
@@ -203,7 +202,7 @@ void arch_init(uint32_t     board_id,
     if (ae != NULL)
     {
         parse_commandline(ae->u.cmdline.cmdline, cmdargs);
-        tick_hz = CONSTRAIN(tick_hz, 10, 1000);
+        timeslice = CONSTRAIN(timeslice, 1, 20);
     }
 
     if (board_id == hal_get_board_id())
@@ -227,8 +226,8 @@ void arch_init(uint32_t     board_id,
         my_core_id = hal_get_cpu_id();
         
         pic_init();
-        pit_init(tick_hz, 0);
-        pit_init(tick_hz, 1);
+        pit_init(timeslice, 0);
+        pit_init(timeslice, 1);
         tsc_init();
 
         ae = atag_find(atag_base, ATAG_MEM);

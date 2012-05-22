@@ -35,6 +35,9 @@ bool hal_cpu_is_bsp(void)
     return true;
 }
 
+// clock rate hardcoded to 2GHz
+static uint32_t tsc_hz = 2000000000;
+
 //
 // Interrupt controller
 //
@@ -300,6 +303,7 @@ void pic_ack_irq(uint32_t irq)
 #define PIT0_ID		0
 #define PIT1_ID		1
 
+
 static sp804_pit_t pit0;
 static sp804_pit_t pit1;
 
@@ -312,7 +316,7 @@ static lvaddr_t pit_map_resources(void)
     return timer_base;
 }
 
-void pit_init(uint32_t tick_hz, uint8_t pit_id)
+void pit_init(uint32_t timeslice, uint8_t pit_id)
 {
     sp804_pit_t *pit;
 	if(pit_id == PIT0_ID)
@@ -326,9 +330,9 @@ void pit_init(uint32_t tick_hz, uint8_t pit_id)
 
 	sp804_pit_initialize(pit, (mackerel_addr_t)(timer_base + PIT0_OFFSET + pit_id*PIT_DIFF));
 
-	// PIT timer (hardcoded to 50MHz)
-    uint32_t load1 = 50000000 / tick_hz;
-    uint32_t load2 = 50000000 / tick_hz;
+	// PIT timer
+    uint32_t load1 = timeslice * tsc_hz / 1000;
+    uint32_t load2 = timeslice * tsc_hz / 1000;
 
     sp804_pit_Timer1Load_wr(pit, load1);
     sp804_pit_Timer2Load_wr(pit, load2);
@@ -424,8 +428,7 @@ void pit_mask_irq(bool masked, uint8_t pit_id)
 
 static cortex_a9_pit_t tsc;
 
-// clock rate hardcoded to 1GHz
-static uint32_t tsc_hz = 1000000000;
+
 
 void tsc_init(void)
 {

@@ -31,14 +31,14 @@ struct slot_prealloc {
     uint8_t cnode_size_bits;        ///< Size of created cnodes
 
     struct cnoderef top_cnode __attribute__ ((aligned(4)));    ///< Top-level cnode
-    struct capref top_cnode_slot; ///< Location to place top-level cnode
+    struct capref top_cnode_slot __attribute__ ((aligned(4))); ///< Location to place top-level cnode
     uint64_t top_used;              ///< Slots used in top-level cnode
 
     /// Metadata for next place from which to allocate slots
     struct {
         struct capref cap;        ///< Next cap to allocate
         uint64_t free;              ///< Number of free slots including cap
-    } meta[2];
+    } meta[2] __attribute__ ((aligned(4)));
 
     /// Which entry in meta array we are currently allocating from
     uint8_t current;

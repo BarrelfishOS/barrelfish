@@ -24,9 +24,14 @@ struct spawninfo {
     struct cnoderef taskcn __attribute__ ((aligned(4)));
     struct cnoderef segcn  __attribute__ ((aligned(4)));
     struct cnoderef pagecn __attribute__ ((aligned(4)));
-    struct capref   rootcn_cap, taskcn_cap, pagecn_cap;
-    struct capref   dispframe, dcb, argspg, vtree;
-    struct capref   fdcap;
+    struct capref   rootcn_cap __attribute__ ((aligned(4)));
+    struct capref	taskcn_cap __attribute__ ((aligned(4)));
+    struct capref	pagecn_cap __attribute__ ((aligned(4)));
+    struct capref   dispframe __attribute__ ((aligned(4)));
+    struct capref	dcb __attribute__ ((aligned(4)));
+    struct capref	argspg __attribute__ ((aligned(4)));
+    struct capref 	vtree __attribute__ ((aligned(4)));
+    struct capref   fdcap __attribute__ ((aligned(4)));
 
     // Slot (in segcn) from where elfload_allocate should allocate frames from
     cslot_t elfload_slot;
