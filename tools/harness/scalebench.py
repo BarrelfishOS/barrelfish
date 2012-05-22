@@ -155,6 +155,10 @@ def write_description(options, checkout, build, machine, test, path):
         f.write('\n' + options.comment + '\n')
     f.close()
 
+    diff = checkout.changes()
+    if diff:
+        with open(os.path.join(path, 'changes.patch'), 'w') as f:
+            f.write(diff)
 
 def main(options):
     retval = True # everything was OK
