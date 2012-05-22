@@ -20,7 +20,10 @@
  */
 struct spawninfo {
     domainid_t domain_id;
-    struct cnoderef rootcn, taskcn, segcn, pagecn;
+    struct cnoderef rootcn __attribute__ ((aligned(4)));
+    struct cnoderef taskcn __attribute__ ((aligned(4)));
+    struct cnoderef segcn  __attribute__ ((aligned(4)));
+    struct cnoderef pagecn __attribute__ ((aligned(4)));
     struct capref   rootcn_cap, taskcn_cap, pagecn_cap;
     struct capref   dispframe, dcb, argspg, vtree;
     struct capref   fdcap;

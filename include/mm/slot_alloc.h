@@ -30,7 +30,7 @@ struct slot_prealloc {
     uint8_t maxslotbits;            ///< Maximum number of slots per allocation
     uint8_t cnode_size_bits;        ///< Size of created cnodes
 
-    struct cnoderef top_cnode;    ///< Top-level cnode
+    struct cnoderef top_cnode __attribute__ ((aligned(4)));    ///< Top-level cnode
     struct capref top_cnode_slot; ///< Location to place top-level cnode
     uint64_t top_used;              ///< Slots used in top-level cnode
 

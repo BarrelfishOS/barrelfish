@@ -134,10 +134,6 @@ $exceptions_install_handlers:
 $exceptions_save_got:
         ldr     r0, = got_for_sys_mode
         str     PIC_REGISTER, [r0]
-//$exceptions_unmask_irq:
-//	    mrs     r1, cpsr
-//        bic     r1, r1, #0x80
-//        msr     cpsr_c, r1
 $exceptions_init_done:
         ldmfd   sp!, {pc}
 
@@ -256,11 +252,11 @@ null_handler:
 .endm
 
         //
-        // Macro to enter SVC mode with interrupts disabled.
+        // Macro to enter SYS mode with interrupts disabled.
         // Set up stack and GOT pointer.
         //
 .macro enter_sys scratch
-        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SVC)
+        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
         msr cpsr_c, \scratch
         init_sys_pic_register
         init_sys_stack

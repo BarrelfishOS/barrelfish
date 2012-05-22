@@ -460,7 +460,7 @@ spawn_init(const char*      name,
 
     STARTUP_PROGRESS();
 
-    printf("XXX: Debug print to make Bram's code work\n");
+    //printf("XXX: Debug print to make Bram's code work\n");
 
     paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
 
@@ -546,10 +546,10 @@ void arm_kernel_startup(phys_mmap_t* mmap,
 
     const uint8_t* initrd_cpio_base = (uint8_t*)local_phys_to_mem(initrd_base);
 
-   // if (!cpio_archive_valid(initrd_cpio_base, initrd_bytes))
-   // {
-   //             panic("Invalid initrd filesystem\n");
-   // }
+    if (!cpio_archive_valid(initrd_cpio_base, initrd_bytes))
+    {
+         panic("Invalid initrd filesystem\n");
+    }
 
     spawn_init(BSP_INIT_MODULE_NAME, 0, initrd_cpio_base, initrd_bytes);
 }

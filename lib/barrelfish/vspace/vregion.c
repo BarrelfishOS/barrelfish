@@ -41,7 +41,6 @@ errval_t vregion_map_aligned(struct vregion *vregion, struct vspace* vspace,
     genvaddr_t address;
     err = pmap->f.determine_addr(pmap, memobj, alignment, &address);
     if (err_is_fail(err)) {
-    	printf("pmap fail!\n");
         return err_push(err, LIB_ERR_PMAP_DETERMINE_ADDR);
     }
 
@@ -56,14 +55,12 @@ errval_t vregion_map_aligned(struct vregion *vregion, struct vspace* vspace,
     // Add to the vspace
     err = vspace_add_vregion(vspace, vregion);
     if (err_is_fail(err)) {
-    	printf("vspace add vregion fail!\n");
         return err_push(err, LIB_ERR_VSPACE_ADD_REGION);
     }
 
     // Add to memobj
     err = memobj->f.map_region(memobj, vregion);
     if (err_is_fail(err)) {
-    	printf("map region fail!\n");
         return err_push(err, LIB_ERR_MEMOBJ_MAP_REGION);
     }
 

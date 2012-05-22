@@ -286,8 +286,6 @@ errval_t cap_delete(struct capref cap)
     if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_delete_remote(caddr, vbits);
     } else {
-    	if(err)
-    		printf("invoke_cnode_delete in capabilities.c failed\n");
         return err;
     }
 }
@@ -326,7 +324,6 @@ errval_t cap_destroy(struct capref cap)
     errval_t err;
     err = cap_delete(cap);
     if (err_is_fail(err)) {
-    	printf("cap_delete in capabilities.c failed!\n");
         return err;
     }
 
@@ -579,7 +576,6 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 
     err = cap_destroy(ram);
     if (err_is_fail(err)) {
-    	printf("cap_destroy in capabilities.c failed!\n");
         return err;
     }
 

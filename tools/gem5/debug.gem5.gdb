@@ -30,7 +30,7 @@ end
 
 # -- Misc 
 
-#add-symbol-file arm/sbin/init 0x400000
+#add-symbol-file gem5/sbin/init 0x400000
 #set kernel_log_subsystem_mask = 0x7fffffff
 
 #break panic

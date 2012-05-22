@@ -159,14 +159,6 @@ paging_write_l1_entry(uintptr_t ttbase, lvaddr_t va, union l1_entry l1)
     l1_table = (union l1_entry *) ttbase;
     l1_table[ARM_L1_OFFSET(va)] = l1;
 }
-/*
-inline static void
-paging_write_l2_entry(union l2_entry *l2_table, lvaddr_t va, union l2_entry l2)
-{
-	l2_table[ARM_L2_OFFSET(va)] = l2;
-}
-*/
-
 // ------------------------------------------------------------------------
 // Exported functions
 
@@ -225,34 +217,6 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     return dev_alloc;
 }
 
-/*
-
-void
-paging_map_device_page(uintptr_t l1_table,
-					   lvaddr_t device_vbase,
-					   lpaddr_t device_pbase,
-					   size_t device_bytes)
-{
-	assert(device_bytes <= BYTES_PER_PAGE);
-	union l2_entry l2;
-
-	l2.raw = 0;
-	l2.small_page.type = L2_TYPE_SMALL_PAGE;
-	l2.small_page.bufferable = 0;
-	l2.small_page.cacheable = 0;
-	l2.small_page.ap10 = 1;			// RW/NA
-	l2.small_page.ap2 = 0;
-	l2.small_page.base_address = device_pbase >> BASE_PAGE_BITS;
-
-	//get address to l2 table
-	 if (l1_table == 0) {
-	        l1_table = cp15_read_ttbr() + KERNEL_OFFSET;
-	    }
-
-
-	paging_write_l2_entry((union l2_entry *) l2_table, device_vbase, l2);
-}
-*/
 
 void paging_make_good(lvaddr_t new_table_base, size_t new_table_bytes)
 {
@@ -281,8 +245,6 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     e.page_table.domain       = 0;
     e.page_table.base_address = (pa >> 10);
 
-    //uintptr_t* l1table = (uintptr_t*)table_base;
-    //l1table[va / BYTES_PER_SECTION] = e.raw;
     paging_write_l1_entry(table_base, va, e);
 }
 
@@ -311,6 +273,8 @@ void paging_context_switch(lpaddr_t ttbr)
     {
         cp15_write_ttbr(ttbr);
         cp15_invalidate_tlb();
+        //this isn't necessary on gem5, since gem5 doesn't implement the cache
+        //maintenance instructions, but ensures coherency by itself
         //cp15_invalidate_i_and_d_caches();
     }
 }

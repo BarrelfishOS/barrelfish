@@ -151,6 +151,7 @@ static struct atag * atag_find(struct atag *a, uint32_t tag)
 // Kernel command line variables and binding options
 //
 
+//TODO: timeslice instead of tick_hz
 static int tick_hz                   = 100;
 static int serial_console_port       = 0;
 static int serial_debug_port         = 1;
@@ -212,22 +213,16 @@ void arch_init(uint32_t     board_id,
         serial_console_init(serial_console_port);
 
         // do not remove/change this printf: needed by regression harness
-       // printf("Barrelfish CPU driver starting on ARMv5 Board id 0x%08"PRIx32"\n",
-     //          board_id);
-    //    printf("The address of paging_map_kernel_section is %p\n",
-     //          paging_map_kernel_section);
+        printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", board_id);
+        printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
+
         errval = serial_debug_init(serial_debug_port);
         if (err_is_fail(errval))
         {
             printf("Failed to initialize debug port: %d", serial_debug_port);
         }
 
-        //lvaddr_t *foo = 0x0;
-        //elf_file = *foo;
 
-       // debug(SUBSYS_STARTUP, "alloc_top %08"PRIxLVADDR" %08"PRIxLVADDR"\n",
-      //         alloc_top, alloc_top - KERNEL_OFFSET);
-        //debug(SUBSYS_STARTUP, "elf_file %08"PRIxLVADDR"\n", elf_file);
 
         my_core_id = hal_get_cpu_id();
         
@@ -235,10 +230,6 @@ void arch_init(uint32_t     board_id,
         pit_init(tick_hz, 0);
         pit_init(tick_hz, 1);
         tsc_init();
-
-
-        //pit_start(0);
-        //while(1) {}
 
         ae = atag_find(atag_base, ATAG_MEM);
                 
@@ -251,10 +242,6 @@ void arch_init(uint32_t     board_id,
         phys_mmap_add(&phys_mmap,
         			  ARM_L1_SECTION_BYTES,
                       ae->u.mem.start + ae->u.mem.bytes);
-
-       // phys_mmap_add(&phys_mmap,
-       //               ETABLE_ADDR - KERNEL_OFFSET + BASE_PAGE_SIZE,
-       //               ae->u.mem.start + ae->u.mem.bytes);
 
         ae = atag_find(atag_base, ATAG_VIDEOLFB);
         if (NULL != ae)
