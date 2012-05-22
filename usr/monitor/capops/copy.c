@@ -14,7 +14,7 @@
 #include "capops.h"
 #include "capsend.h"
 #include "magic.h"
-#include "capop_handlers.h"
+#include "internal.h"
 
 /*
  * RPC state {{{1

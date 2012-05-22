@@ -15,7 +15,7 @@
 #include "capsend.h"
 #include "caplock.h"
 #include "magic.h"
-#include "capop_handlers.h"
+#include "internal.h"
 
 /*
  *

@@ -37,4 +37,7 @@ errval_t capops_retype(enum objtype type, size_t objbits, struct capref croot,
                        capaddr_t src, uint8_t src_bits, retype_result_handler_t
                        result_handler, void *st);
 
+struct intermon_binding;
+errval_t capops_intermon_init(struct intermon_binding *b);
+
 #endif

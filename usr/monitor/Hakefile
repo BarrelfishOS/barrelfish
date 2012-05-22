@@ -33,7 +33,7 @@
                      "send_cap.c", rcap_db, "capops/capsend.c",
                      "capops/capqueue.c", "capops/caplock.c", "capops/copy.c",
                      "capops/move.c", "capops/delete.c", "capops/revoke.c",
-                     "capops/retype.c", "capops/magic.c" ]
+                     "capops/retype.c", "capops/init.c", "capops/magic.c" ]
 
      arch_srcs "x86_32"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "x86_64"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]

@@ -15,7 +15,7 @@
 #include "caplock.h"
 #include "capqueue.h"
 #include "dom_invocations.h"
-#include "capop_handlers.h"
+#include "internal.h"
 #include <if/mem_rpcclient_defs.h>
 
 struct delete_st {

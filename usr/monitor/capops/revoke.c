@@ -13,7 +13,7 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
-#include "capop_handlers.h"
+#include "internal.h"
 
 struct revoke_st {
     struct domcapref revokecap;

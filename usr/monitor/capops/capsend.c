@@ -12,7 +12,7 @@
 #include "monitor.h"
 #include "magic.h"
 #include "capops.h"
-#include "capop_handlers.h"
+#include "internal.h"
 
 /*
  * Single-cast {{{1

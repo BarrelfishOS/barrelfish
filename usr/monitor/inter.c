@@ -18,7 +18,6 @@
 #include <monitor.h>
 #include <trace/trace.h>
 #include "send_cap.h"
-#include "capop_handlers.h"
 #include "capops.h"
 
 #define MIN(x,y) ((x<y) ? (x) : (y))
@@ -634,24 +633,6 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .rsrc_phase                = inter_rsrc_phase,
     .rsrc_phase_data           = inter_rsrc_phase_data,
 
-    .capops_request_copy            = request_copy__rx_handler,
-    .capops_recv_copy               = recv_copy__rx_handler,
-    .capops_recv_copy_result        = recv_copy_result__rx_handler,
-    .capops_move_request            = move_request__rx_handler,
-    .capops_move_result             = move_result__rx_handler,
-    .capops_delete_remote           = delete_remote__rx_handler,
-    .capops_delete_remote_result    = delete_remote_result__rx_handler,
-    .capops_request_revoke          = request_revoke__rx_handler,
-    .capops_revoke_result           = revoke_result__rx_handler,
-    .capops_request_retype          = request_retype__rx_handler,
-    .capops_retype_response         = retype_response__rx_handler,
-    .capops_update_owner            = update_owner__rx_handler,
-    .capops_owner_updated           = owner_updated__rx_handler,
-    .capops_find_cap                = find_cap__rx_handler,
-    .capops_find_cap_result         = find_cap_result__rx_handler,
-    .capops_find_descendants        = find_descendants__rx_handler,
-    .capops_find_descendants_result = find_descendants_result__rx_handler,
-
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
@@ -688,7 +669,13 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
 
     err = arch_intermon_init(b);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "arch_intermon_init failed");       
+        USER_PANIC_ERR(err, "arch_intermon_init failed");
+        return err;
+    }
+
+    err = capops_intermon_init(b);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "capops_intermon_init failed");
         return err;
     }
 

@@ -14,7 +14,7 @@
 #include "capsend.h"
 #include "magic.h"
 #include "caplock.h"
-#include "capop_handlers.h"
+#include "internal.h"
 #include "dom_invocations.h"
 
 /*
