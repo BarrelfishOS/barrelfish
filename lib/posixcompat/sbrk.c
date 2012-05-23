@@ -31,11 +31,11 @@ void *sbrk(intptr_t increment)
     static struct vregion *vregion = NULL;
 
     if (!memobj) { // Initialize
-        err = vspace_map_anon_aligned(&base, (struct memobj *) &memobj_,
-                                      &vregion_, SBRK_REGION_BYTES,
-                                      NULL, VREGION_FLAGS_READ_WRITE, 0);
+        err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
+                                       SBRK_REGION_BYTES, NULL,
+                                       VREGION_FLAGS_READ_WRITE, 0);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "vspace_map_anon_attr failed");
+            DEBUG_ERR(err, "vspace_map_anon_nomalloc failed");
             return (void *)-1;
         }
         memobj = (struct memobj *) &memobj_;
