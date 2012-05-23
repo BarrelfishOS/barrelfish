@@ -214,20 +214,20 @@ void apic_init(void)
     //disabled (we use IOAPICs exclusively)
     {
 	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
-	xapic_lvt_lint_vector_insert(   t, 0);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_extint);
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_masked);
+	t = xapic_lvt_lint_vector_insert(   t, 0);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_extint);
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_masked);
 	xapic_lvt_lint0_wr(&apic, t);
 
 	//LINT1: usually used to generate an NMI
 	//generate NMI
 	//disabled (FIXME?)
 	t = xapic_lvt_lint1_initial;
-	xapic_lvt_lint_vector_insert(   t, 0);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_extint); //xapic_nmi,
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_masked);
+	t = xapic_lvt_lint_vector_insert(   t, 0);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_extint); //xapic_nmi,
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_masked);
 	xapic_lvt_lint1_wr(&apic, t);
     }
 #endif
@@ -235,8 +235,8 @@ void apic_init(void)
     //error interrupt register
     {
 	xapic_lvt_err_t t = xapic_lvt_err_initial;
-	xapic_lvt_err_vector_insert(t, APIC_ERROR_INTERRUPT_VECTOR);
-	xapic_lvt_err_mask_insert(  t, xapic_not_masked);
+	t = xapic_lvt_err_vector_insert(t, APIC_ERROR_INTERRUPT_VECTOR);
+	t = xapic_lvt_err_mask_insert(  t, xapic_not_masked);
 	xapic_lvt_err_wr(&apic, t);
     }
 
@@ -254,7 +254,7 @@ void apic_init(void)
 #if !defined(__scc__)
     // enable the thing, if it wasn't already!
     if (!(ia32_apic_base_global_extract(apic_base_msr))) {
-        ia32_apic_base_global_insert(apic_base_msr, 1);
+        apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 1);
         ia32_apic_base_wr(NULL,apic_base_msr);
     }
 #endif
