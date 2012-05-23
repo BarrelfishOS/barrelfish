@@ -108,11 +108,11 @@ system.bridge = Bridge(delay='50ns', nack_delay='4ns')
 system.bridge.master = system.iobus.slave
 system.bridge.slave = system.membus.master
 
-system.physmem = PhysicalMemory(range = AddrRange('256MB'))
+system.physmem = SimpleMemory(range = AddrRange('256MB'),conf_table_reported = True)
 
 system.mem_mode = mem_mode
 #load ramdisk at specific location (256MB = @0x10000000)
-system.ramdisk = PhysicalMemory(range = AddrRange(Addr('256MB'), size = '256MB'), file=options.ramdisk)
+system.ramdisk = SimpleMemory(range = AddrRange(Addr('256MB'), size = '256MB'), file=options.ramdisk)
 system.ramdisk.port = system.membus.master
 
 #CPU(s)
@@ -124,10 +124,10 @@ system.machine_type = "VExpress_ELT"
 system.realview = VExpress_ELT()
 
 #setup bootloader
-system.realview.nvmem = PhysicalMemory(range = AddrRange(Addr('2GB'), size = '64MB'), zero = True)
+system.realview.nvmem = SimpleMemory(range = AddrRange(Addr('2GB'), size = '64MB'), zero = True)
 system.realview.nvmem.port = system.membus.master
 system.boot_loader = '../tools/gem5/boot.arm'
-system.boot_loader_mem = system.realview.nvmem
+#system.boot_loader_mem = system.realview.nvmem
 #system.realview.setupBootLoader(system.membus, system, '../tools/gem5/boot.arm')
 system.gic_cpu_addr = system.realview.gic.cpu_addr
 system.flags_addr = system.realview.realview_io.pio_addr + 0x30

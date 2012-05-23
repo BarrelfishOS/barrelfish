@@ -49,7 +49,7 @@ from Ide import *
 from Platform import Platform
 from Terminal import Terminal
 from Uart import Uart
-from PhysicalMemory import *
+from SimpleMemory import SimpleMemory
 
 class AmbaDevice(BasicPioDevice):
     type = 'AmbaDevice'
@@ -146,18 +146,18 @@ class RealView(Platform):
     max_mem_size = Param.Addr('256MB', "Maximum amount of RAM supported by platform")
 
     def setupBootLoader(self, mem_bus, cur_sys, loc):
-        self.nvmem = PhysicalMemory(range = AddrRange(Addr('2GB'), size = '64MB'), zero = True)
+        self.nvmem = SimpleMemory(range = AddrRange(Addr('2GB'),
+                                                    size = '64MB'),
+                                  zero = True)
         self.nvmem.port = mem_bus.master
         cur_sys.boot_loader = loc('boot.arm')
-        cur_sys.boot_loader_mem = self.nvmem
 
 
 # Reference for memory map and interrupt number
 # RealView Platform Baseboard Explore for Cortex-A9 User Guide(ARM DUI 0440A)
 # Chapter 4: Programmer's Reference
 class RealViewPBX(RealView):
-    uart0 = Pl011(pio_addr=0x10009000, int_num=44)
-    uart1 = Pl011(pio_addr=0x1000a000, int_num=45)
+    uart = Pl011(pio_addr=0x10009000, int_num=44)
     realview_io = RealViewCtrl(pio_addr=0x10000000)
     gic = Gic()
     timer0 = Sp804(int_num0=36, int_num1=36, pio_addr=0x10011000)
@@ -178,7 +178,7 @@ class RealViewPBX(RealView):
     flash_fake    = IsaFake(pio_addr=0x40000000, pio_size=0x20000000,
                             fake_mem=True)
     dmac_fake     = AmbaFake(pio_addr=0x10030000)
-#   uart1_fake    = AmbaFake(pio_addr=0x1000a000)
+    uart1_fake    = AmbaFake(pio_addr=0x1000a000)
     uart2_fake    = AmbaFake(pio_addr=0x1000b000)
     uart3_fake    = AmbaFake(pio_addr=0x1000c000)
     smc_fake      = AmbaFake(pio_addr=0x100e1000)
@@ -191,7 +191,7 @@ class RealViewPBX(RealView):
     sci_fake      = AmbaFake(pio_addr=0x1000e000)
     aaci_fake     = AmbaFake(pio_addr=0x10004000)
     mmc_fake      = AmbaFake(pio_addr=0x10005000)
-    rtc_fake      = AmbaFake(pio_addr=0x10017000, amba_id=0x41031)
+    rtc           = PL031(pio_addr=0x10017000, int_num=42)
 
 
     # Attach I/O devices that are on chip and also set the appropriate
@@ -213,8 +213,7 @@ class RealViewPBX(RealView):
     # earlier, since the bus object itself is typically defined at the
     # System level.
     def attachIO(self, bus):
-       self.uart0.pio         = bus.master
-       self.uart1.pio		  = bus.master
+       self.uart.pio          = bus.master
        self.realview_io.pio   = bus.master
        self.timer0.pio        = bus.master
        self.timer1.pio        = bus.master
@@ -226,7 +225,7 @@ class RealViewPBX(RealView):
        self.cf_ctrl.config    = bus.master
        self.cf_ctrl.dma       = bus.slave
        self.dmac_fake.pio     = bus.master
-#       self.uart1_fake.pio    = bus.master
+       self.uart1_fake.pio    = bus.master
        self.uart2_fake.pio    = bus.master
        self.uart3_fake.pio    = bus.master
        self.smc_fake.pio      = bus.master
@@ -239,7 +238,7 @@ class RealViewPBX(RealView):
        self.sci_fake.pio      = bus.master
        self.aaci_fake.pio     = bus.master
        self.mmc_fake.pio      = bus.master
-       self.rtc_fake.pio      = bus.master
+       self.rtc.pio           = bus.master
        self.flash_fake.pio    = bus.master
 
 # Reference for memory map and interrupt number
@@ -321,7 +320,8 @@ class RealViewEB(RealView):
 class VExpress_ELT(RealView):
     max_mem_size = '2GB'
     pci_cfg_base = 0xD0000000
-    elba_uart = Pl011(pio_addr=0xE0009000, int_num=42)
+    uart0 = Pl011(pio_addr=0xE0009000, int_num=42)
+    uart1 = Pl011(pio_addr=0xE000A000, int_num=43)
     uart = Pl011(pio_addr=0xFF009000, int_num=121)
     realview_io = RealViewCtrl(proc_id0=0x0C000222, pio_addr=0xFF000000)
     gic = Gic(dist_addr=0xE0201000, cpu_addr=0xE0200100)
@@ -351,7 +351,6 @@ class VExpress_ELT(RealView):
 
     l2x0_fake      = IsaFake(pio_addr=0xE0202000, pio_size=0xfff)
     dmac_fake      = AmbaFake(pio_addr=0xE0020000)
-    uart1_fake     = AmbaFake(pio_addr=0xE000A000)
     uart2_fake     = AmbaFake(pio_addr=0xE000B000)
     uart3_fake     = AmbaFake(pio_addr=0xE000C000)
     smc_fake       = AmbaFake(pio_addr=0xEC000000)
@@ -381,7 +380,8 @@ class VExpress_ELT(RealView):
     # earlier, since the bus object itself is typically defined at the
     # System level.
     def attachIO(self, bus):
-       self.elba_uart.pio       = bus.master
+       self.uart0.pio     		= bus.master
+       self.uart1.pio     		= bus.master
        self.uart.pio            = bus.master
        self.realview_io.pio     = bus.master
        self.v2m_timer0.pio      = bus.master
@@ -408,7 +408,6 @@ class VExpress_ELT(RealView):
 
        self.l2x0_fake.pio       = bus.master
        self.dmac_fake.pio       = bus.master
-       self.uart1_fake.pio      = bus.master
        self.uart2_fake.pio      = bus.master
        self.uart3_fake.pio      = bus.master
        self.smc_fake.pio        = bus.master
@@ -440,7 +439,8 @@ class VExpress_EMM(RealView):
                             BAR0 = 0x1C1A0000, BAR0Size = '256B',
                             BAR1 = 0x1C1A0100, BAR1Size = '4096B',
                             BAR0LegacyIO = True, BAR1LegacyIO = True)
-    vram           = PhysicalMemory(range = AddrRange(0x18000000, size='32MB'), zero = True)
+    vram           = SimpleMemory(range = AddrRange(0x18000000, size='32MB'),
+                                  zero = True)
     rtc            = PL031(pio_addr=0x1C170000, int_num=36)
 
     l2x0_fake      = IsaFake(pio_addr=0x2C100000, pio_size=0xfff)
@@ -455,10 +455,10 @@ class VExpress_EMM(RealView):
     mmc_fake       = AmbaFake(pio_addr=0x1c050000)
 
     def setupBootLoader(self, mem_bus, cur_sys, loc):
-        self.nvmem = PhysicalMemory(range = AddrRange(0, size = '64MB'), zero = True)
+        self.nvmem = SimpleMemory(range = AddrRange(0, size = '64MB'),
+                                  zero = True)
         self.nvmem.port = mem_bus.master
         cur_sys.boot_loader = loc('boot_emm.arm')
-        cur_sys.boot_loader_mem = self.nvmem
         cur_sys.atags_addr = 0x80000100
 
     # Attach I/O devices that are on chip and also set the appropriate
@@ -470,7 +470,6 @@ class VExpress_EMM(RealView):
        # (gic, a9scu)
        bridge.ranges = [AddrRange(0x2F000000, size='16MB'),
                         AddrRange(0x30000000, size='256MB'),
-                        AddrRange(0x40000000, size='512MB'),
                         AddrRange(0x18000000, size='64MB'),
                         AddrRange(0x1C000000, size='64MB')]
 
