@@ -2,7 +2,6 @@
 #include <mdb/mdb.h>
 #include <cap_predicates.h>
 #include <barrelfish_kpi/capabilities.h>
-#include <barrelfish_kpi/capbits.h>
 #include <capabilities.h>
 #include <assert.h>
 #include <stdio.h>
@@ -1086,5 +1085,23 @@ mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
     }
 
     *result = mdb_sub_find_range(root, address, size, max_result, mdb_root, ret_node);
+    return SYS_ERR_OK;
+}
+
+errval_t
+mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node)
+{
+    int result;
+    errval_t err;
+    // query for size 1 to get the smallest cap that includes the byte at the
+    // given address
+    err = mdb_find_range(get_type_root(ObjType_RAM), address,
+                         1, MDB_RANGE_FOUND_SURROUNDING, ret_node, &result);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    if (result != MDB_RANGE_FOUND_SURROUNDING) {
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
     return SYS_ERR_OK;
 }

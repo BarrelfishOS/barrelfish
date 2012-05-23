@@ -97,4 +97,6 @@ struct cte *mdb_find_greater(struct capability *cap, bool equal_ok);
 errval_t mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
                         int max_result, struct cte **ret_node, int *result);
 
+errval_t mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node);
+
 #endif // LIBMDB_MDB_TREE_H

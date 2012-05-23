@@ -27,7 +27,6 @@ struct mdbnode {
     bool remote_relations;
 };
 
-
 #ifndef IN_KERNEL
 // XXX: When compiling for userland, the cte definition in
 // kernel/include/capabilities.h is not available, so we define a substitute
