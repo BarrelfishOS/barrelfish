@@ -7,10 +7,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-#ifndef NDEBUG
-#define NDEBUG
-#endif
-
 #ifndef MIN
 #define MIN(a, b) ((a)<(b)?(a):(b))
 #endif
@@ -862,12 +858,13 @@ mdb_choose_inner(genpaddr_t address, size_t size, struct cte *first,
     assert(second);
     assert(get_type_root(C(first)->type) == get_type_root(C(second)->type));
 #ifndef NDEBUG
+    genpaddr_t end = address + size;
     genpaddr_t fst_beg = get_address(C(first));
     genpaddr_t snd_beg = get_address(C(second));
     genpaddr_t fst_end = fst_beg + get_size(C(first));
     genpaddr_t snd_end = snd_beg + get_size(C(second));
-    assert(mdb_is_inside(address, size, fst_beg, fst_end));
-    assert(mdb_is_inside(address, size, snd_beg, snd_end));
+    assert(mdb_is_inside(address, end, fst_beg, fst_end));
+    assert(mdb_is_inside(address, end, snd_beg, snd_end));
 #endif
 
     if (compare_caps(C(first), C(second), true) <= 0) {
