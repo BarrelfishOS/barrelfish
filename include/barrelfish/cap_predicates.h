@@ -15,6 +15,8 @@
 #ifndef CAP_PREDICATES_H
 #define CAP_PREDICATES_H
 
+#include <barrelfish/debug.h>
+
 struct capability;
 enum objtype;
 

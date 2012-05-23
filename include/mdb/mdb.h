@@ -12,6 +12,7 @@
 
 #include <barrelfish/types.h>
 #include <errors/errno.h> // For errval_t
+#include <barrelfish_kpi/capabilities.h>
 
 struct cte;
 

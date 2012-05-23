@@ -18,6 +18,7 @@
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish_kpi/paging_arch.h>
 
 static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
                                        uintptr_t arg2, uintptr_t arg3,
