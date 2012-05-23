@@ -855,7 +855,7 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
 static inline uint32_t
 lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
 {
-	printf("lookup_paddr_legacy_mode enter\n");
+//	printf("lookup_paddr_legacy_mode enter\n");
     // PAE not supported
     guest_assert(g, amd_vmcb_cr4_rd(&g->vmcb).pae == 0);
 
@@ -1996,14 +1996,16 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
     set_reg_val_by_reg_num(g, modrm.u.regop, val);
 }
 
+
+#define TDBAL_OFFSET 0x3800
+#define TDBAH_OFFSET 0x3804
+
 static int
 handle_vmexit_npf (struct guest *g) {
     int r;
     uint64_t fault_addr = amd_vmcb_exitinfo2_rd(&g->vmcb);
     uint8_t *code = NULL;
 
-    printf("fault address: %lx\n",fault_addr);
-    
     // check for fault inside the guest physical memory region
     if (fault_addr >= g->mem_low_va && fault_addr < g->mem_high_va) {
         // allocate the missing memory
@@ -2058,11 +2060,20 @@ handle_vmexit_npf (struct guest *g) {
         size = decode_mov_op_size(g, code);
         if (decode_mov_is_write(g, code)) {
             val = decode_mov_src_val(g, code);
-            VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
+            //VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
+            if( (fault_addr & ETH_MMIO_MASK(eth)) == TDBAH_OFFSET ){
+            	VMKIT_PCI_DEBUG("Write to TDBAH value %lx\n", val);
+            }
+            if( (fault_addr & ETH_MMIO_MASK(eth)) == TDBAL_OFFSET ){
+				VMKIT_PCI_DEBUG("Write access to TDBAL value %lx\n", val);
+				//val = lookup_paddr_legacy_mode(g,val);
+				val = guest_to_host(val);
+				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
+			}
             *((uint64_t *)(eth->virt_base_addr + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
         } else {
             val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & ETH_MMIO_MASK(eth))));
-            VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
+            //VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
             decode_mov_dest_val(g, code, val);
         }
 
