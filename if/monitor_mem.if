@@ -9,9 +9,6 @@
 
 interface monitor_mem "Inter-monitor memory allocation" {
 
-    // XXX: this should not be necessary, and may not remain true
-    alias coreid uint8;
-
     /* Struct to marshal caps between cores */
     typedef struct {
         uint64 w0;
