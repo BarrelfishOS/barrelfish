@@ -394,6 +394,34 @@ struct sysret sys_monitor_register(capaddr_t ep_caddr)
     return SYSRET(SYS_ERR_OK);
 }
 
+struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t vbits,
+                                    uint8_t mask)
+{
+    errval_t err;
+
+    caddr >>= (CPTR_BITS-vbits);
+
+    struct cte *cap;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, caddr, vbits, &cap,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    uint8_t res = 0;
+    if (mask & RRELS_COPY_BIT && has_copies(cap)) {
+        res |= RRELS_COPY_BIT;
+    }
+    if (mask & RRELS_ANCS_BIT && has_ancestors(cap)) {
+        res |= RRELS_ANCS_BIT;
+    }
+    if (mask & RRELS_DESC_BIT && has_descendants(cap)) {
+        res |= RRELS_DESC_BIT;
+    }
+
+    return (struct sysret) { .error = SYS_ERR_OK, .value = res };
+}
+
 struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bits,
                                            capaddr_t cptr, uint8_t bits,
                                            uint8_t relations, uint8_t mask)

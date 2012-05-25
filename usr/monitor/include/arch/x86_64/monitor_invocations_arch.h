@@ -51,6 +51,19 @@ invoke_monitor_remote_relations(capaddr_t root_cap, int root_bits,
 }
 
 static inline errval_t
+invoke_monitor_cap_has_relations(capaddr_t caddr, uint8_t bits, uint8_t mask,
+                                 uint8_t *res)
+{
+    assert(res);
+    struct sysret ret = cap_invoke4(cap_kernel, KernelCmd_Cap_has_relations,
+                                    caddr, bits, mask);
+    if (err_is_ok(ret.error)) {
+        *res = ret.value;
+    }
+    return ret.error;
+}
+
+static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
     return cap_invoke4(cap_kernel, KernelCmd_Identify_cap, cap, bits,

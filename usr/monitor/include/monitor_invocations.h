@@ -27,6 +27,8 @@ errval_t monitor_domcap_remote_relations(struct capref croot, capaddr_t cptr,
                                          mask, uint8_t *ret_relations);
 errval_t monitor_remote_relations(struct capref cap, uint8_t relations, uint8_t
                                   mask, uint8_t *ret_relations);
+errval_t monitor_cap_has_relations(struct capref cap, uint8_t mask,
+                                   uint8_t *res);
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
                             coreid_t owner);
 errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 

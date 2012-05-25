@@ -11,14 +11,7 @@
 #include <capops.h>
 #include <barrelfish/debug.h>
 #include <monitor_invocations_arch.h>
-
-static void
-captx_prepare_finished_cont(errval_t status, void *st_)
-{
-    struct captx_prepare_state *st = (struct captx_prepare_state*)st_;
-    intermon_captx_t *tx = err_is_ok(status) ? &st->captx : NULL;
-    st->send_cont(status, st, tx, st->st);
-}
+#include <string.h>
 
 static void
 captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
@@ -29,17 +22,9 @@ captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
         st->captx.cnptr = cnaddr;
         st->captx.cnbits = cnbits;
         st->captx.slot = slot;
-        if (st->give_away) {
-            status = capops_delete(get_cap_domref(st->cap),
-                                   captx_prepare_finished_cont, st);
-            if (err_is_fail(status)) {
-                DEBUG_ERR(status, "new remote copy will leak");
-                st->send_cont(status, st, NULL, st->st);
-            }
-            return;
-        }
     }
-    captx_prepare_finished_cont(status, st);
+    intermon_captx_t *tx = err_is_ok(status) ? &st->captx : NULL;
+    st->send_cont(status, st, tx, st->st);
 }
 
 errval_t
@@ -49,11 +34,10 @@ captx_prepare_send(struct capref cap, coreid_t dest, bool give_away,
 {
     assert(state);
     assert(send_cont);
-    state->cap = cap;
-    state->give_away = give_away;
+    memset(state, 0, sizeof(*state));
     state->send_cont = send_cont;
     state->st = st;
-    return capops_copy(cap, dest, captx_prepare_copy_result_cont, state);
+    return capops_copy(cap, dest, give_away, captx_prepare_copy_result_cont, state);
 }
 
 static errval_t

@@ -308,6 +308,16 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     return monitor_identify_cap_common(kernel_cap, root, &args[2]);
 }
 
+static struct sysret monitor_cap_has_relations(struct capability *kernel_cap,
+                                               int cmd, uintptr_t *args)
+{
+    capaddr_t caddr = args[0];
+    uint8_t vbits = args[1];
+    uint8_t mask = args[2];
+
+    return sys_cap_has_relations(caddr, vbits, mask);
+}
+
 static struct sysret monitor_remote_relations(struct capability *kernel_cap,
                                               int cmd, uintptr_t *args)
 {
@@ -766,7 +776,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
-        [KernelCmd_Remote_relations]   = monitor_remote_relations,
+        [KernelCmd_Remote_relations] = monitor_remote_relations,
+        [KernelCmd_Cap_has_relations] = monitor_cap_has_relations,
         [KernelCmd_Iden_cnode_get_cap] = monitor_iden_cnode_get_cap,
         [KernelCmd_Create_cap]   = monitor_create_cap,
         [KernelCmd_Copy_existing] = monitor_copy_existing,

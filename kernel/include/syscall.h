@@ -45,6 +45,7 @@ struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bits);
 struct sysret sys_monitor_register(capaddr_t ep_caddr);
+struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t vbits, uint8_t mask);
 struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bits,
                                            capaddr_t cptr, uint8_t bits,
                                            uint8_t relations, uint8_t mask);

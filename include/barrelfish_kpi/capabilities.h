@@ -127,6 +127,7 @@ enum kernel_cmd {
     KernelCmd_Identify_cap,       ///< Return the meta data of a capability
     KernelCmd_Identify_domains_cap, ///< Return the meta data of another domain's capability
     KernelCmd_Remote_relations,   ///< Set capability as being remote
+    KernelCmd_Cap_has_relations,      ///< Return presence of local relations
     KernelCmd_Create_cap,         ///< Create a new capability
     KernelCmd_Copy_existing,
     KernelCmd_Iden_cnode_get_cap, ///< Look up cnode, return cap within

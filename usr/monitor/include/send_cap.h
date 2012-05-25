@@ -17,8 +17,6 @@ typedef void (*captx_send_cont)(errval_t, struct captx_prepare_state*,
                                 intermon_captx_t*, void*);
 struct captx_prepare_state {
     intermon_captx_t captx;
-    struct capref cap;
-    bool give_away;
     captx_send_cont send_cont;
     void *st;
 };

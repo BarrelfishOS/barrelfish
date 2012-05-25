@@ -91,6 +91,18 @@ errval_t monitor_remote_relations(struct capref cap, uint8_t relations,
 }
 
 /**
+ *
+ */
+
+errval_t monitor_cap_has_relations(struct capref cap, uint8_t mask,
+                                   uint8_t *res)
+{
+    capaddr_t caddr = get_cap_addr(cap);
+    uint8_t bits = get_cap_valid_bits(cap);
+    return invoke_monitor_cap_has_relations(caddr, bits, mask, res);
+}
+
+/**
  * \brief Invoke the kernel cap to set the type of #cap to null
  */
 errval_t monitor_nullify_cap(struct capref cap)
