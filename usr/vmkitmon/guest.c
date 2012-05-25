@@ -172,6 +172,7 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     // Allocate frame
     struct capref cap;
     err = guest_slot_alloc(g, &cap);
+
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
@@ -1999,6 +2000,54 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
 
 #define TDBAL_OFFSET 0x3800
 #define TDBAH_OFFSET 0x3804
+#define RDBAL0_OFFSET 0x2800
+#define RDBAH0_OFFSET 0x2804
+#define RDBAL1_OFFSET 0x2900
+#define RDBAH1_OFFSET 0x2904
+#define RDH1 0x2010 // Head queue (pointer?) not sure it needs transl.
+
+
+static int register_needs_translation(uint64_t addr){
+	return (
+		addr == TDBAL_OFFSET ||
+		addr == TDBAH_OFFSET ||
+		addr == RDBAL0_OFFSET ||
+		addr == RDBAH0_OFFSET ||
+		addr == RDBAL1_OFFSET ||
+		addr == RDBAH1_OFFSET
+	);
+
+}
+
+static uint64_t vaddr_to_paddr(uint64_t vaddr){
+	VMKIT_PCI_DEBUG("vaddr_to_paddr: vaddr:0x%lx\n", vaddr);
+	struct memobj_anon *memobj = (struct memobj_anon *) vspace_get_region( get_current_vspace(), (void *)vaddr)->memobj;
+	assert(memobj->m.type == ANONYMOUS);
+
+	errval_t r;
+	struct frame_identity frameid = { .base = 0, .bits = 0 };
+
+	r = invoke_frame_identify(memobj->frame_list->frame, &frameid);
+	assert(err_is_ok(r));
+
+	VMKIT_PCI_DEBUG("frameid.base: 0x%lx,  frameid.bits: %d\n",frameid.base,frameid.bits);
+	//uint64_t res = frameid.base + (((uint64_t)vaddr) >> frameid.bits << frameid.bits);
+	uint64_t res = frameid.base + ((uint64_t)vaddr);
+	VMKIT_PCI_DEBUG("Returning: 0x%lx\n", res);
+	return res;
+
+	/*
+	struct vregion_list * current = memobj->vregion_list;
+	while(current != NULL){
+		VMKIT_PCI_DEBUG("Checking vregion->base: 0x%lx \n", current->region->base);
+		if(current->region->base <= vaddr && vaddr <= current->region->base + current->region->size)
+			break;
+		current = current->next;
+	}
+	if(current != NULL){
+		current->region->next
+	} */
+}
 
 static int
 handle_vmexit_npf (struct guest *g) {
@@ -2061,18 +2110,30 @@ handle_vmexit_npf (struct guest *g) {
         if (decode_mov_is_write(g, code)) {
             val = decode_mov_src_val(g, code);
             //VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
-            if( (fault_addr & ETH_MMIO_MASK(eth)) == TDBAH_OFFSET ){
-            	VMKIT_PCI_DEBUG("Write to TDBAH value %lx\n", val);
-            }
-            if( (fault_addr & ETH_MMIO_MASK(eth)) == TDBAL_OFFSET ){
-				VMKIT_PCI_DEBUG("Write access to TDBAL value %lx\n", val);
-				//val = lookup_paddr_legacy_mode(g,val);
-				val = guest_to_host(val);
+
+            if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
+				VMKIT_PCI_DEBUG("Write access to Pointer register 0x%lx value 0x%lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
+				if(val){
+					//val = guest_to_host(val);
+					val = vaddr_to_paddr(val);
+					//val = vspace_lvaddr_to_genvaddr(val);
+					//printf("At 0x%lx  is  0x%x\n", val, *((uint32_t *)val));
+
+				}
 				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
 			}
-            *((uint64_t *)(eth->virt_base_addr + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
+
+            *((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
         } else {
-            val = *((uint64_t *)(eth->virt_base_addr + (fault_addr & ETH_MMIO_MASK(eth))));
+            val = *((uint32_t *)((uint64_t)(eth->virt_base_addr) + (fault_addr & ETH_MMIO_MASK(eth))));
+            if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
+				VMKIT_PCI_DEBUG("Read  access to Pointer register 0x%lx value 0x%lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
+				if(val)	{
+					val = host_to_guest(val); //dont translate null pointers
+					//if(val) printf("At 0x%lx  is  0x%x\n", val, *((uint32_t *)val));
+				}
+				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
+			}
             //VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
             decode_mov_dest_val(g, code, val);
         }
