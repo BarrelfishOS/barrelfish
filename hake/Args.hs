@@ -68,7 +68,7 @@ defaultArgs = Args {
       architectures = allArchitectures
 }
 
-allArchitectures = [ "x86_64", "x86_32", "arm", "arm11mp", "scc", "xscale", "gem5" ]
+allArchitectures = [ "x86_64", "x86_32", "arm", "arm11mp", "scc", "xscale", "arm_gem5" ]
 allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "scc" ]
 
 -- all known flounder backends that we might want to generate defs for

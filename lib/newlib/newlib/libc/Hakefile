@@ -6,7 +6,7 @@ let
     arch_srcs "arm"     = [ "machine/arm/setjmp.S" ]
     arch_srcs "arm11mp" = [ "machine/arm/setjmp.S" ]
     arch_srcs "xscale"  = [ "machine/arm/setjmp.S" ]
-    arch_srcs "gem5"    = [ "machine/arm/setjmp.S" ]
+    arch_srcs "arm_gem5"    = [ "machine/arm/setjmp.S" ]
     arch_srcs  x        = error ("Unknown architecture for newlib: " ++ x)
 in
 [ build library { 
