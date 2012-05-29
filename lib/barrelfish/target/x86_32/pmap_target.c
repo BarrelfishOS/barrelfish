@@ -205,7 +205,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         page->next  = ptable->u.vnode.children;
         ptable->u.vnode.children = page;
         page->u.frame.cap = frame;
-        page->u.frame.offset = 0;
+        page->u.frame.offset = i;
         page->u.frame.flags = flags;
 
         // Map entry into the page table
@@ -417,7 +417,47 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                              vregion_flags_t flags, size_t *retsize)
 {
-    USER_PANIC("NYI");
+    errval_t err, ret;
+    struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+    size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+
+    for (size_t i = 0; i < size; i += X86_32_BASE_PAGE_SIZE) {
+        // Find the page table
+        struct vnode* ptable;
+        err = get_ptable(x86, vaddr+i, &ptable);
+        if (err_is_fail(err) || (ptable == NULL)) { // not mapped
+            ret = LIB_ERR_PMAP_FIND_VNODE;
+            continue;
+        }
+
+        // Find the page
+        struct vnode *vn = find_vnode(ptable, X86_32_PTABLE_BASE(vaddr + i));
+        if (vn == NULL) { // not mapped
+            ret = LIB_ERR_PMAP_FIND_VNODE;
+            continue;
+        }
+
+        // Unmap it in the kernel
+        err = vnode_unmap(ptable->u.vnode.cap, vn->entry);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_VNODE_UNMAP);
+        }
+
+        // Remap with changed flags
+        paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+        err = vnode_map(ptable->u.vnode.cap, vn->u.frame.cap, vn->entry,
+                        pmap_flags, vn->u.frame.offset);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_VNODE_MAP);
+        }
+
+        vn->u.frame.flags = flags;
+    }
+
+    if (retsize) {
+        *retsize = size;
+    }
+
     return SYS_ERR_OK;
 }
 
