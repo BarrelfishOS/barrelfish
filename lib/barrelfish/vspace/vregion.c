@@ -17,7 +17,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include "vspace_internal.h"
-#include <stdio.h>
 
 /**
  * \brief Setup a new vregion with alignment constraints in an address space

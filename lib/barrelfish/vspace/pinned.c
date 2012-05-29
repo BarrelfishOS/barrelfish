@@ -29,7 +29,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state_arch.h>
 #include "vspace_internal.h"
-#include <stdio.h>
 
 
 /**

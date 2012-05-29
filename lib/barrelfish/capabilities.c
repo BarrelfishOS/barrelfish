@@ -22,7 +22,6 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <trace/trace.h>
-#include <stdio.h>
 
 /// Root CNode
 struct cnoderef cnode_root = {

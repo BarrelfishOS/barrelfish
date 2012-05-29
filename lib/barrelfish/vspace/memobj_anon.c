@@ -23,7 +23,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include "vspace_internal.h"
-#include <stdio.h>
 
 /**
  * \brief Map the memory object into a region
