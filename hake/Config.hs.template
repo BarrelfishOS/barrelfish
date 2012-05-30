@@ -29,7 +29,7 @@ architectures :: [String]
 
 -- Optimisation flags (-Ox -g etc.) passed to compiler
 cOptFlags :: String
-cOptFlags = "-g -O0"
+cOptFlags = "-g -O3"
 
 -- Selects which libc to compile with, "oldc" or "newlib"
 libc :: String

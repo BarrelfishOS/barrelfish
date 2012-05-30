@@ -86,6 +86,8 @@ got_for_sys_mode:
         // Assumes running in System Mode.
         //
 exceptions_init:
+		push	{lr}
+		push	{r0-r4}
         ldr     r0, null_handler
         ldr     r1, =ETABLE_ADDR
         mov     r2, #7
@@ -99,7 +101,8 @@ $exceptions_init_en_high:
         orr     r0, r0, #0x2000
         mcr     p15, 0, r0, c1, c0, 0
 $exceptions_load_stacks:
-        stmfd   sp!, {lr}
+        //stmfd   sp!, {lr}
+        //push	{lr}
         mov     r0, #ARM_MODE_ABT
         ldr     r1, = abt_stack_top
         bl      set_stack_for_mode
@@ -135,7 +138,9 @@ $exceptions_save_got:
         ldr     r0, = got_for_sys_mode
         str     PIC_REGISTER, [r0]
 $exceptions_init_done:
-        ldmfd   sp!, {pc}
+        //ldmfd   sp!, {pc}
+        pop		{r0-r4}
+        pop		{pc}
 
         //
         // void set_stack_for_mode(uint8_t cpu_mode, uintptr_t stack)
