@@ -14,6 +14,7 @@
 #include "magic.h"
 #include "caplock.h"
 #include "internal.h"
+#include "dom_invocations.h"
 
 struct revoke_st {
     struct domcapref revokecap;
@@ -264,6 +265,7 @@ revoke_delete_result(errval_t status, void *st)
     struct revoke_st *rst = (struct revoke_st*)st;
 
     if (err_is_fail(status)) {
+        caplock_unlock(rst->revokecap);
         rst->result_handler(status, rst->st);
         free(rst);
     }
@@ -277,8 +279,11 @@ revoke_delete_result(errval_t status, void *st)
 static void
 revoke_unlock_cont(void *arg)
 {
+    errval_t err;
     struct revoke_st *rst = (struct revoke_st*)arg;
-    errval_t err = revoke_local(rst);
+    err = monitor_lock_cap(rst->revokecap.croot, rst->revokecap.cptr,
+                           rst->revokecap.bits);
+    err = revoke_local(rst);
     rst->result_handler(err, rst->st);
 }
 
@@ -306,6 +311,7 @@ revoke_local(struct revoke_st *rst)
     else {
         // revoke failed or succeeded locally without any distributed cap
         // interaction
+        caplock_unlock(rst->revokecap);
         rst->result_handler(err, rst->st);
     }
 
@@ -325,7 +331,7 @@ capops_revoke(struct domcapref cap, revoke_result_handler_t result_handler, void
     errval_t err;
 
     distcap_state_t state;
-    err = invoke_cnode_get_state(cap.croot, cap.cptr, cap.bits, &state);
+    err = dom_cnode_get_state(cap, &state);
     if (err_is_fail(err)) {
         return err;
     }

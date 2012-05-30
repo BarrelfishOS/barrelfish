@@ -675,6 +675,9 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
 {
     errval_t err;
 
+    // XXX: wwwwwhyyyyy
+    target_addr >>= (CPTR_BITS-target_bits);
+
     struct cte *target;
     err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
