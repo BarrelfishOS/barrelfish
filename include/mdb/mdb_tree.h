@@ -12,9 +12,10 @@
 
 #include <errors/errno.h>
 #include <barrelfish/types.h>
+#include <mdb/types.h>
 
-struct cte;
 struct capability;
+struct cte;
 
 enum {
     // All checked invariants hold
@@ -93,7 +94,7 @@ struct cte *mdb_find_greater(struct capability *cap, bool equal_ok);
 //          be retyped.
 //        - MDB_RANGE_FOUND_INNER: Useful for iterating through *immediate*
 //          descendants.
-errval_t mdb_find_range(uint8_t root, genpaddr_t address, gensize_t size,
+errval_t mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
                         int max_result, struct cte **ret_node, int *result);
 
 #endif // LIBMDB_MDB_TREE_H

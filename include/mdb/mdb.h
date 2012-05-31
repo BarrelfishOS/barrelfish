@@ -13,23 +13,10 @@
 #include <barrelfish/types.h>
 #include <errors/errno.h> // For errval_t
 #include <barrelfish_kpi/capabilities.h>
+#include <mdb/types.h>
 
+struct capability;
 struct cte;
-
-typedef uint8_t mdb_root_t;
-typedef uint8_t mdb_level_t;
-
-/**
- * \brief A mapping database node.
- */
-struct mdbnode {
-	struct cte *left, *right;
-	genpaddr_t end;
-	mdb_root_t end_root;
-	mdb_level_t level;
-        bool revocable;
-        bool remote_relations;
-};
 
 void set_init_mapping(struct cte *dest_start, size_t num);
 bool has_descendants(struct cte *cte);
