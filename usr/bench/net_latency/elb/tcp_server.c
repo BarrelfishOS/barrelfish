@@ -113,16 +113,6 @@ int tcp_server_bm_init(uint16_t bind_port)
 // tcp client code
 // ***************************************************************
 
-// condition used to singal controlling code to wait for a condition
-static bool wait_cond = false;
-
-static inline void
-wait_for_condition (void) {
-    while (wait_cond) {
-        messages_wait_and_handle_next();
-    }
-}
-
 
 static void close_connection(struct tcp_pcb *pcb)
 {
@@ -185,7 +175,6 @@ static err_t tcp_is_connected_client(void *arg, struct tcp_pcb *pcb, err_t err)
     if (err != ERR_OK) {
         fprintf(stderr, "tcp connection failed\n");
         close_connection(pcb);
-        wait_cond = false;
         return err;
     }
 
@@ -194,9 +183,9 @@ static err_t tcp_is_connected_client(void *arg, struct tcp_pcb *pcb, err_t err)
     tcp_err( pcb, tcp_is_err_client);
     tcp_poll(pcb, tcp_is_poll_client, 10);
 
-    wait_cond = false;
-
     printf("tcp client connected\n");
+    handle_connection_opened();
+
     return ERR_OK;
 }
 
@@ -225,15 +214,12 @@ int tcp_client_bm_init(char *ip_addr_str,  uint16_t server_port)
         return -1;
     }
 
-    // Connecting to given IP address, port no.
-    wait_cond = true;
     //don't use htons() on port no. (don't know why...)
     r = tcp_connect(client_pcb, &ip, server_port, tcp_is_connected_client);
     if(r != ERR_OK) {
         USER_PANIC("tcp_connect failed");
         return(r);
     }
-    wait_for_condition();
 
     // Connection established!
     printf("TCP benchmark client started\n");
@@ -250,7 +236,6 @@ int send_message_client(void *msg, size_t len)
 //           pcb, msg, (int)len);
 
     if (len > 0) {
-        wait_cond = true;
         assert(tcp_sndbuf(client_pcb) >= len);
 
         err = tcp_write(client_pcb, msg, len, TCP_WRITE_FLAG_COPY);

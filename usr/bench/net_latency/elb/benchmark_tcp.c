@@ -137,33 +137,37 @@ void benchmark_init(void)
     } else { // is client
         printf("elb_tcp: Starting benchmark client...\n");
         if (use_udp) {
+            data_to_send = prepare_udp_buffer(payload_size);
+            assert(data_to_send != NULL);
+           // memset(data_to_send, 1, payload_size);
+
             // onnect on ip/port
             if (udp_client_bm_init(server_ip_addr, server_port) != 0) {
                 USER_PANIC("udp_server_bm_init failed");
                 return;
             }
-            data_to_send = prepare_udp_buffer(payload_size);
-            assert(data_to_send != NULL);
-           // memset(data_to_send, 1, payload_size);
-            started_at = rdtsc();
-            start_next_iteration();
-
         } else {
+            data_to_send = malloc(MAX_PAYLOAD);
+            assert(data_to_send != NULL);
+            // FIXME: make it cache aligned
+            memset(data_to_send, 1, payload_size);
+
             // onnect on ip/port
             if (tcp_client_bm_init(server_ip_addr, server_port) != 0) {
                 USER_PANIC("tcp_server_bm_init failed");
                 return;
             }
-
-            data_to_send = malloc(MAX_PAYLOAD);
-            assert(data_to_send != NULL);
-            // FIXME: make it cache aligned
-            memset(data_to_send, 1, payload_size);
-            started_at = rdtsc();
-            start_next_iteration();
         } // end else: is_client
     } // end else: udp
 } // end function: benchmark_init
+
+// Informs the benchmarking code about initialization of connection
+void handle_connection_opened(void)
+{
+    printf("Benchmark connection opened\n");
+    started_at = rdtsc();
+    start_next_iteration();
+}
 
 // This function is called whenever new data arrives for client
 void handle_data_arrived(char *payload, size_t data_len)

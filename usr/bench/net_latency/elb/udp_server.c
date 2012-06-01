@@ -114,6 +114,7 @@ int udp_client_bm_init(char *ip_addr_str,  uint16_t server_port)
 
     // Connection established!
     printf("udp benchmark client started\n");
+    handle_connection_opened();
     return (0);
 } // end function: udp_client_bm_init
 

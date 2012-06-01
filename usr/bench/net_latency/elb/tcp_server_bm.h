@@ -40,6 +40,10 @@ int send_udp_message_client(void);
 // Calls back in the benchmarking code whenever there is data
 // ******************************************************************
 // to be called from tcp_server.c code
+
+// Informs the benchmarking code about initialization of connection
+void handle_connection_opened(void);
+
 // Informs the benchmarking code about arrival of data
 void handle_data_arrived(char *payload, size_t data_len);
 
