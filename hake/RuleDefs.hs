@@ -721,8 +721,7 @@ linkKernel opts name objs libs
     | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
     | optArch opts == "arm_gem5" = ArmGem5.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | otherwise = 
-        Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
+    | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
 -- Copy a file from one place to another
