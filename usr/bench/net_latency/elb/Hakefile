@@ -26,7 +26,14 @@
   build library { target = "ethernet_latency_benchmark",
                   cFiles = [ "interface_lib.c", "benchmark.c" ],
                   flounderBindings = [ "net_queue_manager" ],
-                  addLibraries = [ "bench", "trace" ] }
+                  addLibraries = [ "bench", "trace" ] },
+
+  build library { target = "tcp_latency_benchmark",
+                      cFiles = [ "interface_lib.c", "benchmark_tcp.c",
+                        "tcp_server.c", "udp_server.c" ],
+                      addLibraries = [ "bench", "trace" ] }
+
+
 
 ]
 
