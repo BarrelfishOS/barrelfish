@@ -11,6 +11,7 @@
 
 #include <barrelfish/sys_debug.h>
 #include <string.h>
+#include <trace/trace.h>
 
 #include <bench/bench.h>
 
@@ -79,10 +80,21 @@ bench_ctl_t *bench_ctl = NULL;
 // to avoid compiler optimizations of packet read path
 static size_t acc = 0;
 
+
+#if TRACE_ONLY_LLNET
+char trbuf[16*1024*1024];
+#endif // TRACE_ONLY_LLNET
+
+
 // send one message to server
 static void start_next_iteration(void)
 {
     int ret;
+
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_APPTX, 0);
+#endif // TRACE_ONLY_LLNET
+
     sent_at = rdtsc();
     if (use_udp) {
         // send UDP datagram
@@ -165,6 +177,18 @@ void benchmark_init(void)
 void handle_connection_opened(void)
 {
     printf("Benchmark connection opened\n");
+
+#if TRACE_ONLY_LLNET
+    errval_t err;
+    err = trace_control(TRACE_EVENT(TRACE_SUBSYS_LLNET,
+                                    TRACE_EVENT_LLNET_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_LLNET,
+                                    TRACE_EVENT_LLNET_STOP, 0),
+                        0);
+    assert(err_is_ok(err));
+    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_START, 0);
+#endif // TRACE_ONLY_LLNET
+
     started_at = rdtsc();
     start_next_iteration();
 }
@@ -184,6 +208,11 @@ void handle_data_arrived(char *payload, size_t data_len)
         return;
     }
 
+#if TRACE_ONLY_LLNET
+    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_APPRX, 0);
+#endif // TRACE_ONLY_LLNET
+
+
     // record completion time
     cycles_t tsc = rdtsc();
     cycles_t result[1] = {
@@ -201,6 +230,15 @@ void handle_data_arrived(char *payload, size_t data_len)
        bench_ctl_dump_analysis(bench_ctl, 0,  out_prefix, tscperus);
 
        // bench_ctl_dump_csv(bench_ctl, out_prefix, tscperus);
+
+#if TRACE_ONLY_LLNET
+            trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_STOP, 0);
+            size_t trsz = trace_dump(trbuf, sizeof(trbuf) - 1);
+            trbuf[trsz] = 0;
+            printf("\n\n\n\nTrace results:\n%s\n\n\n", trbuf);
+#endif // TRACE_ONLY_LLNET
+
+
 
         bench_ctl_destroy(bench_ctl);
         terminate_benchmark();

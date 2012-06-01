@@ -16,7 +16,7 @@
                                            "net_soft_filters",
                                            "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      addLibraries = libDeps [ "netQmng" ]
+                      addLibraries = libDeps [ "netQmng", "trace" ]
                     },
 
   build application { target = "e10k_monolithic",
@@ -27,20 +27,23 @@
                                            "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps [ "netQmng", "pci", "contmng",
-                                               "net_device_manager", "bench" ]
+                                               "net_device_manager", "bench",
+                                               "trace" ]
                     },
 
   build application { target = "e10k",
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c"],
                       flounderBindings = [ "e10k"],
                       mackerelDevices = [ "e10k" ],
-                      addLibraries = [ "pci", "contmng", "net_device_manager", "bench" ]
+                      addLibraries = [ "pci", "contmng", "net_device_manager",
+                                       "bench", "trace" ]
                     },
 
   build application { target = "e10k_queue_elb",
                       cFiles = [ "e10k_qdriver.c", "helper.c" ],
                       flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      addLibraries = libDeps ["ethernet_latency_benchmark", "bench"] }
+                      addLibraries = libDeps ["ethernet_latency_benchmark", "bench",
+                                              "trace" ] }
 ]
 

@@ -76,6 +76,7 @@
 
 #include <string.h>
 #include <assert.h>
+#include <trace/trace.h>
 #include <barrelfish/barrelfish.h>
 
 
@@ -196,6 +197,9 @@ uint16_t free_pbuf_pool_count(void)
  */
 struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 {
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBA1, 0);
+#endif // TRACE_ONLY_LLNET
 
     struct pbuf *p, *q, *r;
     u16_t offset;
@@ -371,6 +375,10 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 /*
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3, ("pbuf_alloc(length=%"U16_F") == %p\n", length, (void *)p));
 */
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBA2, 0);
+#endif // TRACE_ONLY_LLNET
+
     return p;
 }
 
@@ -596,6 +604,9 @@ u8_t pbuf_header(struct pbuf *p, s16_t header_size_increment)
  */
 u8_t pbuf_free(struct pbuf * p)
 {
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBF1, 0);
+#endif // TRACE_ONLY_LLNET
 
     u16_t type;
     struct pbuf *q;
@@ -695,6 +706,11 @@ u8_t pbuf_free(struct pbuf * p)
     PERF_STOP("pbuf_free");
     /* return number of de-allocated pbufs */
 //    printf("pbuf_free: finished with [%p] and count %"PRIu8"\n", p, count);
+
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBF2, 0);
+#endif // TRACE_ONLY_LLNET
+
     return count;
 }
 

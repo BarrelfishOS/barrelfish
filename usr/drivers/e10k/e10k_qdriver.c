@@ -217,10 +217,9 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
     }
 
     e10k_queue_bump_txtail(q);
-
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVADD, 0);
-#endif // TRACE_ONLY_SUB_NNET
+#if TRACE_ONLY_LLNET
+    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVTXADD, 0);
+#endif // TRACE_ONLY_LLNET
 
     return SYS_ERR_OK;
 }
@@ -244,10 +243,9 @@ static bool handle_free_tx_slot_fn(void)
 
     //stats_dump();
 
-#if TRACE_ONLY_SUB_NNET
-    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVSEE,
-                /*(uint32_t) buf->data*/0);
-#endif // TRACE_ONLY_SUB_NNET
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVTXDONE, 0);
+#endif // TRACE_ONLY_LLNET
 
     handle_tx_done(op);
 
@@ -301,10 +299,9 @@ static size_t check_for_new_packets(void)
     // arrive faster than they can be processed.
     count = 0;
     while (e10k_queue_get_rxbuf(q, &op, &len, &last) == 0) {
-#if TRACE_ONLY_SUB_NNET
-        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXDRVSEE,
-                    (uint32_t) len);
-#endif // TRACE_ONLY_SUB_NNET
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVRX, 0);
+#endif // TRACE_ONLY_LLNET
 
         DEBUG("New packet (q=%d)\n", qi);
 
@@ -643,6 +640,11 @@ static void eventloop_ints(void)
 void qd_interrupt(bool is_rx, bool is_tx)
 {
     size_t count;
+
+#if TRACE_ONLY_LLNET
+    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVIRQ, 0);
+#endif // TRACE_ONLY_LLNET
+
     if (is_rx) {
         count = check_for_new_packets();
         if (count == 0) {

@@ -13,19 +13,20 @@
 [ build application { target = "elb_app",
                       cFiles = [ "interface_raw.c", "benchmark.c" ],
                       flounderBindings = [ "net_queue_manager" ],
-                      addLibraries = [ "bench", "net_if_raw", "contmng" ] },
+                      addLibraries = [ "bench", "net_if_raw", "contmng",
+                                       "trace" ] },
 
   build application { target = "elb_app_tcp",
                       cFiles = [ "interface_raw.c", "benchmark_tcp.c",
                         "tcp_server.c", "udp_server.c" ],
                       flounderBindings = [ "net_queue_manager" ],
                       addLibraries = libDeps [ "bench", "net_if_raw", "lwip",
-                        "contmng" ] },
+                        "contmng", "trace" ] },
 
   build library { target = "ethernet_latency_benchmark",
                   cFiles = [ "interface_lib.c", "benchmark.c" ],
                   flounderBindings = [ "net_queue_manager" ],
-                  addLibraries = [ "bench" ] }
+                  addLibraries = [ "bench", "trace" ] }
 
 ]
 

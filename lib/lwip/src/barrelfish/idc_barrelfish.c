@@ -104,6 +104,10 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
     size_t idx;
     ptrdiff_t offset;
 
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPTX, 0);
+#endif // TRACE_ONLY_LLNET
+
     LWIPBF_DEBUG("idc_send_packet_to_network_driver: called\n");
 
     // At the moment we can't deal with buffer chains
@@ -226,6 +230,11 @@ uint8_t get_driver_benchmark_state(int direction,
 static void handle_incoming(size_t idx, size_t len)
 {
     struct pbuf *p;
+
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPRX, 0);
+#endif // TRACE_ONLY_LLNET
+
 
     // Get the pbuf for this index
     p = mem_barrelfish_get_pbuf(idx);

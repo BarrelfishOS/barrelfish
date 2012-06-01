@@ -11,6 +11,7 @@
 
 #include <barrelfish/sys_debug.h>
 #include <bench/bench.h>
+#include <trace/trace.h>
 
 static void client_send_packet(void);
 static void start_next_iteration(void);
@@ -80,6 +81,11 @@ static const char *out_prefix = "";
 bench_ctl_t *bench_ctl = NULL;
 
 
+#if TRACE_ONLY_LLNET
+char trbuf[16*1024*1024];
+#endif // TRACE_ONLY_LLNET
+
+
 
 /** Generate a permutation for touching the packet contents */
 static void create_read_permutation(void)
@@ -140,6 +146,20 @@ void benchmark_init(void)
         printf("elb: Starting benchmark server...\n");
     } else {
         printf("elb: Starting benchmark client...\n");
+
+
+#if TRACE_ONLY_LLNET
+        assert(err_is_ok(err));
+        err = trace_control(TRACE_EVENT(TRACE_SUBSYS_LLNET,
+                                        TRACE_EVENT_LLNET_START, 0),
+                            TRACE_EVENT(TRACE_SUBSYS_LLNET,
+                                        TRACE_EVENT_LLNET_STOP, 0),
+                            0);
+        assert(err_is_ok(err));
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_START, 0);
+#endif // TRACE_ONLY_LLNET
+
+
 
         started_at = rdtsc();
         start_next_iteration();
@@ -239,6 +259,10 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
             tsc - sent_at,
         };
 
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_APPRX, 0);
+#endif // TRACE_ONLY_LLNET
+
         if (first) {
             printf("elb: First response received\n");
             first = false;
@@ -258,6 +282,13 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
             bench_ctl_dump_analysis(bench_ctl, 0,  out_prefix, tscperus);
             //bench_ctl_dump_csv(bench_ctl, out_prefix, tscperus);
 
+#if TRACE_ONLY_LLNET
+            trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_STOP, 0);
+            size_t trsz = trace_dump(trbuf, sizeof(trbuf) - 1);
+            trbuf[trsz] = 0;
+            printf("\n\n\n\nTrace results:\n%s\n\n\n", trbuf);
+#endif // TRACE_ONLY_LLNET
+
             bench_ctl_destroy(bench_ctl);
             terminate_benchmark();
         } else {
@@ -276,6 +307,10 @@ void benchmark_tx_done(size_t idx)
 
 static void start_next_iteration(void)
 {
+#if TRACE_ONLY_LLNET
+        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_APPTX, 0);
+#endif // TRACE_ONLY_LLNET
+
     client_send_packet();
 }
 
