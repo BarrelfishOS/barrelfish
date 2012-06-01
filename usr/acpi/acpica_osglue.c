@@ -678,12 +678,12 @@ AcpiOsUnmapMemory (
     void                    *where,
     ACPI_SIZE               length)
 {
-    // printf("unmap %p %zd\n", where, length);
+    // printf("unmap %p %zd\n", where, (size_t)length);
 
     uintptr_t vbase = (uintptr_t)where & (~BASE_PAGE_MASK);
     length = ROUND_UP(length, BASE_PAGE_SIZE);
 
-    //printf("AcpiOsUnmapMemory: 0x%lx, %ld\n", vbase, length / BASE_PAGE_SIZE);
+    // printf("AcpiOsUnmapMemory: 0x%lx, %ld\n", vbase, length / BASE_PAGE_SIZE);
 
     // printf("unmap 0x%lx %zd\n", vbase, length);
     // printf("vend 0x%lx\n", vbase + length);
@@ -950,7 +950,7 @@ AcpiOsInstallInterruptHandler (
     ACPI_OSD_HANDLER        ServiceRoutine,
     void                    *Context)
 {
-    ACPI_DEBUG("AcpiOsInstallInterruptHandler(%d)\n", InterruptNumber);
+    ACPI_DEBUG("AcpiOsInstallInterruptHandler(%"PRIu32")\n", (uint32_t)InterruptNumber);
 
     struct interrupt_closure *ic = malloc(sizeof(struct interrupt_closure));
     assert(ic != NULL);
