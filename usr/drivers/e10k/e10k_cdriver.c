@@ -153,7 +153,7 @@ static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
             case L4_UDP:    p = e10k_l4udp; break;
             case L4_TCP:    p = e10k_l4tcp; break;
             case L4_SCTP:   p = e10k_l4sctp; break;
-            default: assert(0);
+            default: assert(0); return;
         }
         ftqf = e10k_ftqf_protocol_insert(ftqf, p);
     }
