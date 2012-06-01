@@ -13,7 +13,8 @@
 
 #include <net_queue_manager/net_queue_manager.h>
 
-#define BUF_COUNT 32
+#define BUFFER_SIZE 2048
+#define BUF_COUNT ((128*1024*1024) / BUFFER_SIZE)
 
 static ether_get_mac_address_t ether_get_mac_address_ptr = NULL;
 static ether_terminate_queue terminate_queue_fn_ptr = NULL;
@@ -153,4 +154,20 @@ void terminate_benchmark(void)
 
     terminate_queue_fn_ptr();
 }
+
+void benchmark_get_mac_address(uint8_t *mac)
+{
+    memcpy(mac, &our_mac, 6);
+}
+
+uint64_t get_rx_bufferid(void)
+{
+    return 0;
+}
+
+uint64_t get_tx_bufferid(void)
+{
+    return 0;
+}
+
 
