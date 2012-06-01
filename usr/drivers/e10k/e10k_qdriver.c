@@ -583,8 +583,10 @@ void qd_argument(const char *arg)
 {
     if (strncmp(arg, "cardname=", strlen("cardname=") - 1) == 0) {
         service_name = arg + strlen("cardname=");
+        ethersrv_argument(arg);
     } else if (strncmp(arg, "queue=", strlen("queue=") - 1) == 0) {
         qi = atol(arg + strlen("queue="));
+        ethersrv_argument(arg);
     } else if (strncmp(arg, "cache_coherence=",
                        strlen("cache_coherence=") - 1) == 0) {
         cache_coherence = !!atol(arg + strlen("cache_coherence="));
