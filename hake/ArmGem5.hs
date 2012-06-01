@@ -39,6 +39,7 @@ cxxcompiler = "arm-none-linux-gnueabi-g++"
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
                    Str "-mcpu=cortex-a9",
+		   Str "-march=armv7-a",
                    Str "-mapcs",
                    Str "-mabi=aapcs-linux",
                    Str "-msingle-pic-base",

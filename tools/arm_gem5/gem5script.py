@@ -132,7 +132,7 @@ system.boot_loader = '../tools/arm_gem5/boot.arm'
 system.gic_cpu_addr = system.realview.gic.cpu_addr
 system.flags_addr = system.realview.realview_io.pio_addr + 0x30
 
-boot_flags = 'rw loglevel=8'
+boot_flags = 'rw loglevel=4'
 system.boot_osflags = boot_flags
 
 system.realview.attachOnChipIO(system.membus, system.bridge)
