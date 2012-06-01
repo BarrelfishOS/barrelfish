@@ -1,0 +1,27 @@
+--- src/arch/arm/linux/system.cc.orig	2012-05-23 08:58:40.774820461 +0200
++++ src/arch/arm/linux/system.cc	2012-05-23 08:59:41.721486360 +0200
+@@ -64,24 +64,6 @@
+         panic("could not find kernel symbol \'panic\'");
+ #endif
+ 
+-    // With ARM udelay() is #defined to __udelay
+-    Addr addr = 0;
+-    if (kernelSymtab->findAddress("__udelay", addr)) {
+-        uDelaySkipEvent = new UDelayEvent(&pcEventQueue, "__udelay",
+-                fixFuncEventAddr(addr), 1000, 0);
+-    } else {
+-        panic("couldn't find kernel symbol \'udelay\'");
+-    }
+-
+-    // constant arguments to udelay() have some precomputation done ahead of
+-    // time. Constant comes from code.
+-    if (kernelSymtab->findAddress("__const_udelay", addr)) {
+-        constUDelaySkipEvent = new UDelayEvent(&pcEventQueue, "__const_udelay",
+-                fixFuncEventAddr(addr), 1000, 107374);
+-    } else {
+-        panic("couldn't find kernel symbol \'udelay\'");
+-    }
+-
+     secDataPtrAddr = 0;
+     secDataAddr = 0;
+     penReleaseAddr = 0;

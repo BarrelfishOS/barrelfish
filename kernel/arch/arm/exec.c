@@ -114,6 +114,8 @@ void wait_for_interrupt(void)
 #elif defined(__ARM_ARCH_5TE__)
 	// XXX: Need to change for Netronome?
         "mcr    p15, 0, r0, c7, c10, 4                  \n\t"
+#elif defined(__ARM_ARCH_7A__)
+        "wfi                  \n\t"
 #else
           // If no WFI functionality exists on system, just
           // spinning here is okay.

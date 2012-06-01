@@ -332,7 +332,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
     uint16_t invoke_bits = (sa->arg0 >> 16) & 0xffff;
     capaddr_t  invoke_cptr = sa->arg1;
 
-    debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n", invoke_cptr, invoke_bits);
+    //debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n", invoke_cptr, invoke_bits);
 
     struct sysret r = { .error = SYS_ERR_OK, .value = 0 };
 

@@ -12,6 +12,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#ifndef INCLUDEBARRELFISH_INVOCATIONS_ARCH_H
+#define INCLUDEBARRELFISH_INVOCATIONS_ARCH_H
+
 #include <barrelfish/syscall_arch.h> // for sys_invoke and cap_invoke
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish/caddr.h>
@@ -71,10 +74,18 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
-                                         capaddr_t slot, capaddr_t from, int tobits,
-                                         int frombits, uintptr_t param1,
-                                         uintptr_t param2)
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_cnode_mint(struct capref root, capaddr_t to,
+		capaddr_t slot, capaddr_t from, int tobits,
+		int frombits, uintptr_t param1,
+		uintptr_t param2)
 {
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
@@ -176,8 +187,15 @@ static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
  *
  * \return Error code
  */
-static inline errval_t invoke_frame_identify(struct capref frame,
-                                             struct frame_identity *ret)
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_frame_identify (struct capref frame, struct frame_identity *ret)
 {
     uint8_t invoke_bits = get_cap_valid_bits(frame);
     capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
@@ -327,3 +345,5 @@ invoke_dispatcher_properties(
                     (type << 16) | weight,
                     deadline, wcet, period, release).error;
 }
+
+#endif

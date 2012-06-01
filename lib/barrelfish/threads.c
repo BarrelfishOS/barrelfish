@@ -976,6 +976,8 @@ static bool init_domain_global; // XXX
 
 /// Thread created on static stack in new domain that runs init code
 static int bootstrap_thread(struct spawn_domain_params *params)
+//int bootstrap_thread(struct spawn_domain_params *params);
+//int bootstrap_thread(struct spawn_domain_params *params)
 {
     errval_t err;
 

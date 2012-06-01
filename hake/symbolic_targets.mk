@@ -212,6 +212,9 @@ MODULES_arm=\
 # XScale-specific modules to build by default
 MODULES_xscale=\
 	sbin/cpu.bin
+	
+# ArmGem5-specific modules to build by default
+#MODULES_arm_gem5=\
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
