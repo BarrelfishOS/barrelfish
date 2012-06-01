@@ -631,7 +631,7 @@ AcpiOsUnmapMemory (
 {
     // printf("unmap %p %zd\n", where, length);
 
-    genvaddr_t vbase = (genvaddr_t)where & (~BASE_PAGE_MASK);
+    uintptr_t vbase = (uintptr_t)where & (~BASE_PAGE_MASK);
     length = ROUND_UP(length, BASE_PAGE_SIZE);
 
     // printf("unmap 0x%lx %zd\n", vbase, length);
