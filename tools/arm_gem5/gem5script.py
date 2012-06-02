@@ -84,6 +84,7 @@ parser.add_option("--l1i_assoc", type="int", default=2)
 parser.add_option("--l2_assoc", type="int", default=8)
 parser.add_option("--l3_assoc", type="int", default=16)
 parser.add_option("--cacheline_size", type="int", default=64)
+parser.add_option("--loglevel", type="int", default=4)
 (options, args) = parser.parse_args()
     
 #######################################################################
@@ -132,7 +133,7 @@ system.boot_loader = '../tools/arm_gem5/boot.arm'
 system.gic_cpu_addr = system.realview.gic.cpu_addr
 system.flags_addr = system.realview.realview_io.pio_addr + 0x30
 
-boot_flags = 'rw loglevel=4'
+boot_flags = 'rw loglevel=%s' % (options.loglevel)
 system.boot_osflags = boot_flags
 
 system.realview.attachOnChipIO(system.membus, system.bridge)

@@ -118,7 +118,15 @@ invoke_cnode_mint(struct capref root, capaddr_t to,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_copy(struct capref root, capaddr_t to,
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_cnode_copy(struct capref root, capaddr_t to,
                                          capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits)
 {

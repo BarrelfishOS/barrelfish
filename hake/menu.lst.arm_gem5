@@ -18,9 +18,9 @@ module	/arm_gem5/sbin/mem_serv
 module	/arm_gem5/sbin/monitor
 
 # Special boot time domains spawned by monitor
-module /arm_gem5/sbin/chips boot
+#module /arm_gem5/sbin/chips boot
 module /arm_gem5/sbin/ramfsd boot
-#module /arm_gem5/sbin/skb boot
+module /arm_gem5/sbin/skb boot
 module /arm_gem5/sbin/spawnd boot bootarm
 module /arm_gem5/sbin/startd boot 
 

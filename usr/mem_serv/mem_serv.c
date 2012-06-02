@@ -319,7 +319,14 @@ static void dump_ram_region(int index, struct mem_region* m)
 }
 
 // FIXME: error handling (not asserts) needed in this function
-static errval_t initialize_ram_alloc(void)
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline)) errval_t
+#else
+static errval_t
+#endif
+initialize_ram_alloc(void)
 {
     errval_t err;
 

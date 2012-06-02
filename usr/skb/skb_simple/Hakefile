@@ -17,6 +17,6 @@
                        mackerelDevices = [ "acpi_ec", "lpc_ioapic" ],                      
                        cFiles = [ "main.c", "octopus_stubs.c" ],
                        addLibraries = [ "octopus_server", "octopus_parser" ],
-                       architectures = [ "arm", "xscale", "scc" ]
+                       architectures = [ "arm", "arm_gem5", "xscale", "scc" ]
    }
 ]
