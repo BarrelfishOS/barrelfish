@@ -54,7 +54,8 @@
            "amd64",
            "pl130_gic",
            "sp804_pit",
-           "cortex_a9_pit"
+           "cortex_a9_pit",
+           "a9scu"
          ], arch <- allArchitectures
 ] ++
 
