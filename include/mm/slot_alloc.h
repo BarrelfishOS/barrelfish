@@ -25,6 +25,9 @@ errval_t slot_alloc_dynamic(void *inst, uint64_t nslots, struct capref *ret);
 
 struct mm; // forward declaration
 
+//XXX: added alignment to workaround an arm-gcc bug
+//which generated (potentially) unaligned access code to those fields
+
 /// Instance data for pre-allocating slot allocator
 struct slot_prealloc {
     uint8_t maxslotbits;            ///< Maximum number of slots per allocation
