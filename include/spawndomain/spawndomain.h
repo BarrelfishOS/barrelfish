@@ -15,6 +15,9 @@
 #ifndef SPAWNDOMAIN_H
 #define SPAWNDOMAIN_H
 
+
+//XXX: added alignment to workaround an arm-gcc bug
+//which generated (potentially) unaligned access code to those fields
 /**
  * \brief Struct to refer to the various caps within a domain being spawned.
  */
