@@ -27,7 +27,7 @@ captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
     st->send_cont(status, st, tx, st->st);
 }
 
-errval_t
+void
 captx_prepare_send(struct capref cap, coreid_t dest, bool give_away,
                    struct captx_prepare_state *state, captx_send_cont send_cont,
                    void *st)
@@ -37,7 +37,7 @@ captx_prepare_send(struct capref cap, coreid_t dest, bool give_away,
     memset(state, 0, sizeof(*state));
     state->send_cont = send_cont;
     state->st = st;
-    return capops_copy(cap, dest, give_away, captx_prepare_copy_result_cont, state);
+    capops_copy(cap, dest, give_away, captx_prepare_copy_result_cont, state);
 }
 
 static errval_t
@@ -68,7 +68,7 @@ captx_get_capref(capaddr_t cnaddr, uint8_t cnbits, cslot_t slot,
     return SYS_ERR_OK;
 }
 
-errval_t
+void
 captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
                   captx_recv_cont recv_cont, void *st)
 {
@@ -78,12 +78,8 @@ captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
 
     struct capref cap;
     err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
 
-    recv_cont(SYS_ERR_OK, state, cap, st);
-    return SYS_ERR_OK;
+    recv_cont(err, state, cap, st);
 }
 
 static void
@@ -94,7 +90,7 @@ captx_abort_delete_cont(errval_t status, void *st_)
     st->abort_cont(status, st, st->st);
 }
 
-errval_t
+void
 captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
                  captx_abort_cont abort_cont, void *st)
 {
@@ -109,15 +105,17 @@ captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
         assert(!captx->slot);
 
         state->abort_cont(SYS_ERR_OK, state, state->st);
-        return SYS_ERR_OK;
     }
     else {
         struct capref cap;
         err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
         if (err_is_fail(err)) {
-            return err;
+            state->abort_cont(err, state, state->st);
         }
 
-        return capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
+        err = capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
+        if (err_is_fail(err)) {
+            state->abort_cont(err, state, state->st);
+        }
     }
 }

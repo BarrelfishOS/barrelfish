@@ -16,8 +16,8 @@
 #include "domcap.h"
 
 typedef void (*copy_result_handler_t)(errval_t, capaddr_t, uint8_t, cslot_t, void*);
-errval_t capops_copy(struct capref src, coreid_t dest, bool give_away,
-                     copy_result_handler_t result_handler, void *st);
+void capops_copy(struct capref src, coreid_t dest, bool give_away,
+                 copy_result_handler_t result_handler, void *st);
 
 typedef void (*move_result_handler_t)(errval_t, void*);
 errval_t capops_move(struct domcapref cap, coreid_t dest,

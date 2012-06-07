@@ -20,18 +20,17 @@ struct captx_prepare_state {
     captx_send_cont send_cont;
     void *st;
 };
-errval_t captx_prepare_send(struct capref cap, coreid_t dest, bool give_away,
-                            struct captx_prepare_state *state,
-                            captx_send_cont send_cont, void *st);
+void captx_prepare_send(struct capref cap, coreid_t dest, bool give_away,
+                        struct captx_prepare_state *state,
+                        captx_send_cont send_cont, void *st);
 
 struct captx_recv_state;
 typedef void (*captx_recv_cont)(errval_t, struct captx_recv_state*,
                                 struct capref, void*);
 struct captx_recv_state {
 };
-errval_t captx_handle_recv(intermon_captx_t *captx,
-                           struct captx_recv_state *state,
-                           captx_recv_cont recv_cont, void *st);
+void captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
+                       captx_recv_cont recv_cont, void *st);
 
 
 struct captx_abort_state;
@@ -40,8 +39,7 @@ struct captx_abort_state {
     captx_abort_cont abort_cont;
     void *st;
 };
-errval_t captx_abort_recv(intermon_captx_t *captx,
-                          struct captx_abort_state *state,
-                          captx_abort_cont abort_cont, void *st);
+void captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
+                      captx_abort_cont abort_cont, void *st);
 
 #endif

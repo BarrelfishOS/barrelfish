@@ -17,6 +17,17 @@
 #include "magic.h"
 #include "internal.h"
 
+struct cap_copy_rpc_st;
+
+typedef void (*copy_result_recv_fn_t)(errval_t, capaddr_t, uint8_t, cslot_t,
+                                      struct cap_copy_rpc_st*);
+static void
+recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
+                      cslot_t slot, struct cap_copy_rpc_st *rpc_st);
+static void
+recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t vbits,
+                      cslot_t slot, struct cap_copy_rpc_st *rpc_st);
+
 /*
  * RPC state {{{1
  */
@@ -28,6 +39,10 @@ struct cap_copy_rpc_st {
     coreid_t from;
     /// cap that is being copied out
     struct capref cap;
+    /// copy destination
+    coreid_t to;
+    /// handler for receiving rpc result
+    copy_result_recv_fn_t recv_handler;
     /// result handler if being called directly
     copy_result_handler_t result_handler;
     /// whether the local cap should be deleted when the rpc is complete
@@ -65,9 +80,7 @@ recv_copy_result_send__rdy(struct intermon_binding *b,
     err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status,
                                                msg_st->capaddr, msg_st->vbits,
                                                msg_st->slot, msg_st->st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send recv_copy_result");
-    }
+    PANIC_IF_ERR(err, "failed to send recv_copy_result");
     free(msg_st);
 }
 
@@ -102,15 +115,6 @@ recv_copy_result__enq(coreid_t dest, errval_t status, capaddr_t capaddr,
     return SYS_ERR_OK;
 }
 
-/**
- * \brief Shortcut for when a error recv_copy_result needs to be enqueued
- */
-inline static errval_t
-recv_copy_error_result__enq(coreid_t dest, errval_t status, genvaddr_t st)
-{
-    return recv_copy_result__enq(dest, status, 0, 0, 0, st);
-}
-
 /*
  * Copy from owner to dest (possibly as intermediary) {{{1
  */
@@ -140,40 +144,48 @@ owner_copy_send__rdy(struct intermon_binding *b,
     err = intermon_capops_recv_copy__tx(b, NOP_CONT, msg_st->caprep,
                                         msg_st->owner_relations, msg_st->st);
 
-    // message sent or failed, cleanup message state
+    if (err_is_fail(err)) {
+        // send failed, report result
+        rpc_st->recv_handler(err, 0, 0, 0, rpc_st);
+    }
+
     free(msg_st);
     msg_st = NULL;
-
-    if (err_is_ok(err)) {
-        // skip rpc cleanup if message sent successfully
-        return;
-    }
-    else {
-        // Send failed, report result
-        recv_copy_result__rx(b, err, 0, 0, 0, (genvaddr_t)rpc_st);
-    }
 }
 
 /**
  * \brief An owner_copy is to be enqueued
  */
-static errval_t
+static void
 owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
                 coreid_t dest, bool give_away,
                 copy_result_handler_t result_handler, genvaddr_t st)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK, err2;
 
     // create new rpc state to associate return message
-    struct cap_copy_rpc_st *rpc_st = malloc(sizeof(struct cap_copy_rpc_st));
-    if (!rpc_st) {
-        return LIB_ERR_MALLOC_FAIL;
+    struct cap_copy_rpc_st *rpc_st;
+    err = malloce(sizeof(struct cap_copy_rpc_st), &rpc_st);
+    if (err_is_fail(err)) {
+        // rpc_st hasn't been set up so we have to do failure handling manually
+        if (from == my_core_id) {
+            result_handler(err, 0, 0, 0, (void*)st);
+        }
+        else {
+            err2 = recv_copy_result__enq(from, err, 0, 0, 0, st);
+            PANIC_IF_ERR2(err2, "failed to send recv_copy_result",
+                          err, "allocating rpc forwarding state on owner");
+        }
+        return;
     }
     rpc_st->st = st;
     rpc_st->from = from;
     rpc_st->cap = capref;
     rpc_st->delete_after = give_away;
     rpc_st->is_last = false;
+    rpc_st->recv_handler = (from == my_core_id ?
+                            recv_copy_result__src :
+                            recv_copy_result__fwd);
     rpc_st->result_handler = result_handler;
 
     // check for special handling of giving away last copy
@@ -212,10 +224,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     // copy bit
     if (!(rpc_st->delete_after && rpc_st->is_last)) {
         err = monitor_remote_relations(capref, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
-        if (err_is_fail(err)) {
-            free(rpc_st);
-            return err;
-        }
+        GOTO_IF_ERR(err, err_cont);
     }
 
     // if we're performing a "true" give_away, lock the cap locally as the
@@ -223,19 +232,16 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     if (rpc_st->delete_after && rpc_st->is_last) {
         err = monitor_lock_cap(cap_root, get_cap_addr(capref),
                                get_cap_valid_bits(capref));
-        if (err_is_fail(err)) {
-            // callers of owner_copy should already check cap lock state
-            USER_PANIC_ERR(err, "locking cap for true give_away failed");
-        }
+        // callers of owner_copy should already check cap lock state
+        PANIC_IF_ERR(err, "locking cap for true give_away failed");
         assert(!(remote_relations & RRELS_COPY_BIT));
     }
 
     // create send state
-    struct owner_copy_msg_st *msg_st = calloc(1, sizeof(struct owner_copy_msg_st));
-    if (!msg_st) {
-        free(rpc_st);
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    struct owner_copy_msg_st *msg_st;
+    err = calloce(1, sizeof(struct owner_copy_msg_st), &msg_st);
+    GOTO_IF_ERR(err, err_cont);
+
     msg_st->queue_elem.cont = owner_copy_send__rdy;
     capability_to_caprep(cap, &msg_st->caprep);
     msg_st->owner_relations = remote_relations;
@@ -243,13 +249,15 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
 
     // enqueue message
     err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        free(msg_st);
-        free(rpc_st);
-        return err;
-    }
+    GOTO_IF_ERR(err, free_msg_st);
 
-    return SYS_ERR_OK;
+    return;
+
+free_msg_st:
+    free(msg_st);
+
+err_cont:
+    rpc_st->recv_handler(err, 0, 0, 0, rpc_st);
 }
 
 /*
@@ -275,53 +283,51 @@ request_copy_send__rdy(struct intermon_binding *b,
 {
     errval_t err;
     struct request_copy_msg_st *msg_st = (struct request_copy_msg_st*)e;
-    err = intermon_capops_request_copy__tx(b, NOP_CONT, msg_st->dest, msg_st->caprep, (genvaddr_t)msg_st->st);
+    err = intermon_capops_request_copy__tx(b, NOP_CONT, msg_st->dest,
+                                           msg_st->caprep,
+                                           (genvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         assert(msg_st->st);
         struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)msg_st->st;
-        if (rpc_st->result_handler) {
-            rpc_st->result_handler(err, 0, 0, 0, (void*)rpc_st->st);
-        }
-        free(rpc_st);
+        rpc_st->recv_handler(err, 0, 0, 0, rpc_st);
     }
+
     free(msg_st);
 }
 
 /**
  * \brief A copy request is to be enqueued
  */
-static errval_t
+static void
 request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
-                  copy_result_handler_t result_handler, genvaddr_t st)
+                  copy_result_handler_t result_handler, void *st)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
     struct capability cap;
     err = monitor_cap_identify(capref, &cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    GOTO_IF_ERR(err, cont);
 
     // cap is foreign so it must be a type that needs "locality" on a particular core
     assert(distcap_needs_locality(cap.type));
 
     // create new rpc state to associate return message
-    struct cap_copy_rpc_st *rpc_st = malloc(sizeof(struct cap_copy_rpc_st));
-    if (!rpc_st) {
-        return LIB_ERR_MALLOC_FAIL;
+    struct cap_copy_rpc_st *rpc_st;
+    err = malloce(sizeof(struct cap_copy_rpc_st), &rpc_st);
+    if (err_is_fail(err)) {
+        result_handler(err, 0, 0, 0, st);
+        return;
     }
-    rpc_st->st = st;
+    rpc_st->st = (genvaddr_t)st;
     rpc_st->from = my_core_id;
     rpc_st->delete_after = give_away;
     rpc_st->is_last = false;
+    rpc_st->recv_handler = recv_copy_result__src;
     rpc_st->result_handler = result_handler;
 
     // create send state
-    struct request_copy_msg_st *msg_st
-        = calloc(1, sizeof(struct request_copy_msg_st));
-    if (!msg_st) {
-        free(rpc_st);
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    struct request_copy_msg_st *msg_st;
+    err = calloce(1, sizeof(struct request_copy_msg_st), &msg_st);
+    GOTO_IF_ERR(err, free_rpc_st);
     msg_st->queue_elem.cont = request_copy_send__rdy;
     msg_st->dest = dest;
     capability_to_caprep(&cap, &msg_st->caprep);
@@ -329,18 +335,77 @@ request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
 
     // enqueue message
     err = capsend_owner(get_cap_domref(capref), (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        free(msg_st);
-        free(rpc_st);
-        return err;
-    }
+    GOTO_IF_ERR(err, free_msg_st);
 
-    return SYS_ERR_OK;
+    return;
+
+free_msg_st:
+    free(msg_st);
+
+free_rpc_st:
+    free(rpc_st);
+
+cont:
+    result_handler((err), 0, 0, 0, st);
 }
 
 /*
  * Receive copy result {{{1
  */
+
+static void
+recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t vbits,
+                      cslot_t slot, struct cap_copy_rpc_st *rpc_st)
+{
+    // acting as intermediary, forward to origin
+    errval_t err;
+
+    assert(!rpc_st->result_handler); // must not have a result handler
+    assert(rpc_st->delete_after); // also temp cap should be del'd
+    assert(!rpc_st->is_last); // and must have other local copies
+
+    err = cap_destroy(rpc_st->cap);
+    PANIC_IF_ERR(err, "destroying temp cap for f-to-f copy");
+    err = recv_copy_result__enq(rpc_st->from, status, capaddr, vbits, slot,
+                                rpc_st->st);
+    PANIC_IF_ERR2(err, "failed to send recv_copy_result",
+                  status, "sending copy from owner");
+
+    free(rpc_st);
+}
+
+static void
+recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
+                      cslot_t slot, struct cap_copy_rpc_st *rpc_st)
+{
+    // origin of copy
+    errval_t err;
+
+    if (err_is_ok(status)) {
+        if (rpc_st->delete_after) {
+            if (rpc_st->is_last) {
+                // a give_away was performed, need to unlock and set new owner
+                err = monitor_set_cap_owner(cap_root,
+                                            get_cap_addr(rpc_st->cap),
+                                            get_cap_valid_bits(rpc_st->cap),
+                                            rpc_st->to);
+                PANIC_IF_ERR(err, "updating owner after true"
+                             " give_away failed");
+                caplock_unlock(get_cap_domref(rpc_st->cap));
+            }
+            // this should always succeed either because there are local
+            // copies or because the cap is now foreign
+            err = cap_destroy(rpc_st->cap);
+            PANIC_IF_ERR(err, "cap_destroy after give_away failed");
+        }
+    }
+    // call result handler
+    if (rpc_st->result_handler) {
+        rpc_st->result_handler(status, capaddr, vbits, slot, (void*)rpc_st->st);
+    }
+
+    free(rpc_st);
+}
 
 /**
  * \brief Result from sending copy to dest has been received
@@ -351,59 +416,8 @@ recv_copy_result__rx(struct intermon_binding *b, errval_t status,
                      genvaddr_t st)
 {
     assert(st);
-    errval_t err;
-    struct intermon_state *inter_st = (struct intermon_state*)b->st;
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)st;
-
-    if (rpc_st->from != my_core_id) {
-        // acting as intermediary, forward to origin
-        assert(!rpc_st->result_handler); // must not have a result handler
-        assert(rpc_st->delete_after); // also temp cap should be del'd
-        assert(!rpc_st->is_last); // and must have other local copies
-        err = cap_destroy(rpc_st->cap);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "destroying temp cap for f-to-f copy");
-        }
-        err = recv_copy_result__enq(rpc_st->from, status, capaddr, vbits, slot,
-                                    rpc_st->st);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(status, "sending copy from owner");
-            USER_PANIC_ERR(err, "failed to send recv_copy_result");
-        }
-    }
-    else {
-        // origin of copy
-        if (rpc_st->delete_after) {
-            if (rpc_st->is_last) {
-                // a give_away was performed, need to unlock and set new owner
-                if (err_is_ok(status)) {
-                    // only set new owner if give_away succeeded
-                    err = monitor_set_cap_owner(cap_root,
-                                                get_cap_addr(rpc_st->cap),
-                                                get_cap_valid_bits(rpc_st->cap),
-                                                inter_st->core_id);
-                    if (err_is_fail(err)) {
-                        USER_PANIC_ERR(err, "updating owner after true"
-                                       " give_away failed");
-                    }
-                }
-                caplock_unlock(get_cap_domref(rpc_st->cap));
-            }
-            if (err_is_ok(status)) {
-                // this should always succeed either because there are local
-                // copies or because the cap is now foreign
-                err = cap_destroy(rpc_st->cap);
-                if (err_is_fail(err)) {
-                    USER_PANIC_ERR(err, "cap_destroy after give_away failed");
-                }
-            }
-        }
-        // call result handler
-        if (rpc_st->result_handler) {
-            rpc_st->result_handler(status, capaddr, vbits, slot, (void*)rpc_st->st);
-        }
-    }
-    free(rpc_st);
+    rpc_st->recv_handler(status, capaddr, vbits, slot, rpc_st);
 }
 
 /*
@@ -428,10 +442,7 @@ recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
 
     // get a slot to put the cap
     err = slot_alloc(&dest);
-    if (err_is_fail(err)) {
-        dest = NULL_CAP;
-        goto send_result;
-    }
+    GOTO_IF_ERR(err, zero_slot);
 
     coreid_t owner;
     if (distcap_needs_locality(cap.type)) {
@@ -451,19 +462,15 @@ recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
         owner = my_core_id;
     }
 
-    // create a cap from the cap data and owner
+    // create a cap from the cap data and owner. may fail if given owner does
+    // not match owner of existing copies
     err = monitor_cap_create(dest, &cap, owner);
-    if (err_is_fail(err)) {
-        // may fail if given owner does not match owner of existing copies
-        goto free_slot;
-    }
+    GOTO_IF_ERR(err, free_slot);
 
     // if we are now owner we need to set up the relations
     if (owner == my_core_id && owner_relations) {
         err = monitor_remote_relations(dest, owner_relations, ~(uint8_t)0, NULL);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "setting remote rels on copy recv with ownership");
-        }
+        PANIC_IF_ERR(err, "setting remote rels on copy recv with ownership");
     }
 
     goto send_result;
@@ -473,6 +480,8 @@ free_slot:
     if (err_is_fail(err2)) {
         DEBUG_ERR(err2, "slot_free failed, slot will leak");
     }
+
+zero_slot:
     dest = NULL_CAP;
 
 send_result:
@@ -505,19 +514,12 @@ request_copy__rx(struct intermon_binding *b, coreid_t dest,
     assert(distcap_needs_locality(cap.type));
 
     // find and validate cap
-    // NOTE: this function should fail if no copies exist and create a new copy otherwise
     err = slot_alloc(&capref);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
+    GOTO_IF_ERR(err, send_err);
     err = monitor_copy_if_exists(&cap, capref);
-    if (err_is_fail(err)) {
-        goto free_slot;
-    }
+    GOTO_IF_ERR(err, free_slot);
     err = cap_get_state(capref, &state);
-    if (err_is_fail(err)) {
-        goto destroy_cap;
-    }
+    GOTO_IF_ERR(err, destroy_cap);
     if (distcap_state_is_foreign(state)) {
         err = MON_ERR_CAP_FOREIGN;
         goto destroy_cap;
@@ -532,100 +534,87 @@ request_copy__rx(struct intermon_binding *b, coreid_t dest,
         err = recv_copy_result__enq(from, SYS_ERR_OK, get_cnode_addr(capref),
                                     get_cnode_valid_bits(capref), capref.slot,
                                     st);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "sending result to request_copy sender");
-        }
+        PANIC_IF_ERR(err, "sending result to request_copy sender");
     }
     else {
         // forward copy to destination core
-        err = owner_copy__enq(capref, &cap, from, dest, true, NULL, st);
-        if (err_is_fail(err)) {
-            goto destroy_cap;
-        }
+        owner_copy__enq(capref, &cap, from, dest, true, NULL, st);
     }
 
     return;
 
 destroy_cap:
     err2 = cap_delete(capref);
-    if (err_is_fail(err2)) {
-        DEBUG_ERR(err, "handling copy request");
-        USER_PANIC_ERR(err2, "deleting received cap");
-    }
+    PANIC_IF_ERR2(err2, "deleting received cap",
+                  err, "handling copy request");
 
 free_slot:
     err2 = slot_free(capref);
-    if (err_is_fail(err2)) {
-        DEBUG_ERR(err, "handling copy request");
-        USER_PANIC_ERR(err2, "freeing slot for cap recv");
-    }
+    PANIC_IF_ERR2(err2, "freeing slot for cap recv",
+                  err, "handling copy request");
 
 send_err:
-    err2 = recv_copy_error_result__enq(from, err, st);
-    if (err_is_fail(err2)) {
-        DEBUG_ERR(err, "handling copy request");
-        USER_PANIC_ERR(err2, "sending error to request_copy sender");
-    }
+    err2 = recv_copy_result__enq(from, err, 0, 0, 0, st);
+    PANIC_IF_ERR2(err2, "sending error to request_copy sender",
+                  err, "handling copy request");
 }
 
 /*
  * Copy operation {{{1
  */
 
-errval_t
+void
 capops_copy(struct capref capref, coreid_t dest, bool give_away,
             copy_result_handler_t result_handler, void *st)
 {
-    errval_t err;
+    errval_t err, err2;
     struct capability cap;
     distcap_state_t state;
 
     // check that cap is valid
     err = cap_get_state(capref, &state);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    GOTO_IF_ERR(err, err_cont);
     if (distcap_state_is_busy(state)) {
-        return MON_ERR_REMOTE_CAP_RETRY;
+        err = MON_ERR_REMOTE_CAP_RETRY;
+        goto err_cont;
     }
 
     if (dest == my_core_id) {
         // tried to send to self, just create a local copy
         struct capref res;
         err = slot_alloc(&res);
-        if (err_is_fail(err)) {
-            return err;
-        }
+        GOTO_IF_ERR(err, err_cont);
+
         err = cap_copy(capref, res);
         if (err_is_fail(err)) {
-            errval_t err2 = slot_free(res);
-            if (err_is_fail(err2)) {
-                USER_PANIC_ERR(err2, "while freeing slot"
-                               " due to local copy failure");
-            }
-            return err;
+            err2 = slot_free(res);
+            PANIC_IF_ERR(err2, "while freeing slot due to local copy failure");
+            goto err_cont;
         }
+
         if (give_away) {
-            err = cap_delete(capref);
+            err2 = cap_delete(capref);
+            DEBUG_IF_ERR(err2, "delete for give away failed, cap will leak");
         }
 
         result_handler(err, get_cnode_addr(res),
                        get_cnode_valid_bits(res), res.slot, st);
-        return SYS_ERR_OK;
     }
-
-    if (distcap_state_is_foreign(state)) {
+    else if (distcap_state_is_foreign(state)) {
         // sending copy from non-owner, send copy request to owner
-        return request_copy__enq(capref, dest, give_away, result_handler,
-                                 (genvaddr_t)st);
+        request_copy__enq(capref, dest, give_away, result_handler, st);
     }
     else {
         // sending copy from owner
         err = monitor_cap_identify(capref, &cap);
-        if (err_is_fail(err)) {
-            return err;
-        }
-        return owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
-                               result_handler, (genvaddr_t)st);
+        GOTO_IF_ERR(err, err_cont);
+
+        owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
+                        result_handler, (genvaddr_t)st);
     }
+
+    return;
+
+err_cont:
+    result_handler(err, 0, 0, 0, st);
 }

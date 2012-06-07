@@ -601,8 +601,15 @@ cap_send_request_tx_cont(errval_t err, struct captx_prepare_state *captx_st,
                          intermon_captx_t *captx, void *st_)
 {
     errval_t queue_err;
-
     struct send_cap_st *send_st = (struct send_cap_st*)st_;
+
+    if (err_is_fail(err)) {
+        // XXX: should forward error here
+        DEBUG_ERR(err, "preparing cap tx failed");
+        free(send_st);
+        return;
+    }
+
     send_st->captx = *captx;
 
     send_st->qe.cont = cap_send_tx_cont;
@@ -628,19 +635,17 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
     struct send_cap_st *st;
     st = calloc(1, sizeof(*st));
     if (!st) {
-        DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "Failed to allocate cap_send_request state");
+        err = LIB_ERR_MALLOC_FAIL;
+        DEBUG_ERR(err, "Failed to allocate cap_send_request state");
+        // XXX: should forward error here
         return;
     }
     st->my_mon_id = my_mon_id;
     st->cap = cap;
     st->capid = capid;
 
-    err = captx_prepare_send(cap, conn->core_id, true, &st->captx_state,
-                             cap_send_request_tx_cont, st);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "preparing cap tx failed");
-        free(st);
-    }
+    captx_prepare_send(cap, conn->core_id, true, &st->captx_state,
+                       cap_send_request_tx_cont, st);
 }
 
 #if 0

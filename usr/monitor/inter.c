@@ -282,11 +282,8 @@ cap_send_request(struct intermon_binding *b, mon_id_t my_mon_id,
     st->my_mon_id = my_mon_id;
     st->b = b;
 
-    err = captx_handle_recv(&captx, &st->captx_st,
-                            cap_send_request_caprecv_cont, st);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
+    captx_handle_recv(&captx, &st->captx_st,
+                      cap_send_request_caprecv_cont, st);
 
     return;
 
