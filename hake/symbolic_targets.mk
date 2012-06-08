@@ -145,7 +145,7 @@ MODULES_x86_64= \
 	sbin/tlstest \
 	sbin/timer_test \
 	sbin/net_openport_test \
-	sbin/examples/xmpl-perfmon \
+	sbin/perfmontest \
 	sbin/routing_setup \
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
