@@ -1140,11 +1140,13 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
     // Handle mapping
     mdb_insert(dest_cte);
 
-    TRACE_CAP(dest_cte);
-
     /* Copy is done */
     if(!mint) {
+        TRACE_CAP_MSG("copied to", dest_cte);
         return SYS_ERR_OK;
+    }
+    else {
+        TRACE_CAP_MSG("minting to", dest_cte);
     }
 
     /* For minting, set the specified parameters */
