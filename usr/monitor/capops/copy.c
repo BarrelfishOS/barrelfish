@@ -194,22 +194,21 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     if (rpc_st->delete_after) {
         uint8_t relations = 0;
         err = monitor_cap_has_relations(capref, RRELS_COPY_BIT, &relations);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "checking for local copies of give_away cap");
-        }
-        else {
-            rpc_st->is_last = !(relations & RRELS_COPY_BIT);
-        }
+        PANIC_IF_ERR(err, "checking for local copies of give_away cap");
+        rpc_st->is_last = !(relations & RRELS_COPY_BIT);
+        remote_relations = relations;
     }
     if (rpc_st->is_last) {
-        err = monitor_remote_relations(capref, 0, 0, &remote_relations);
+        uint8_t relations = 0;
+        err = monitor_remote_relations(capref, 0, 0, &relations);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "checking for remote copies of give_away cap");
             rpc_st->is_last = false;
-            remote_relations = RRELS_COPY_BIT;
+            remote_relations |= RRELS_COPY_BIT;
         }
         else {
             rpc_st->is_last = !(remote_relations & RRELS_COPY_BIT);
+            remote_relations |= relations;
         }
     }
 
