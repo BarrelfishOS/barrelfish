@@ -181,6 +181,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     rpc_st->st = st;
     rpc_st->from = from;
     rpc_st->cap = capref;
+    rpc_st->to = dest;
     rpc_st->delete_after = give_away;
     rpc_st->is_last = false;
     rpc_st->recv_handler = (from == my_core_id ?
