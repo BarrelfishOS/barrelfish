@@ -1178,12 +1178,17 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         return SYS_ERR_OK;
 
     case ObjType_IO:
+        // because the start and end params are relevant to the cap's position
+        // in the MDB, we have to remove it before changing them and then
+        // re-add it afterwards
+        mdb_remove(dest_cte);
         if(src_cap->u.io.start  <= param1) {
             dest_cap->u.io.start = param1;
         }
         if(src_cap->u.io.end  >= param2) {
             dest_cap->u.io.end = param2;
         }
+        mdb_insert(dest_cte);
         return SYS_ERR_OK;
 
     default:
