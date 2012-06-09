@@ -32,10 +32,10 @@ errval_t capops_revoke(struct domcapref cap,
                        revoke_result_handler_t result_handler, void *st);
 
 typedef void (*retype_result_handler_t)(errval_t, void*);
-errval_t capops_retype(enum objtype type, size_t objbits, struct capref croot,
-                       capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
-                       capaddr_t src, uint8_t src_bits, retype_result_handler_t
-                       result_handler, void *st);
+void capops_retype(enum objtype type, size_t objbits, struct capref croot,
+                   capaddr_t dest_cn, uint8_t dest_bits, cslot_t dest_slot,
+                   capaddr_t src, uint8_t src_bits,
+                   retype_result_handler_t result_handler, void *st);
 
 struct intermon_binding;
 errval_t capops_intermon_init(struct intermon_binding *b);

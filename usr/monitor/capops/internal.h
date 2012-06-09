@@ -10,6 +10,14 @@
 #ifndef CAPOPS_INTERNAL_H
 #define CAPOPS_INTERNAL_H
 
+typedef void (*gen_result_cont_fn)(errval_t, void*);
+struct result_closure {
+    gen_result_cont_fn handler;
+    void *arg;
+};
+#define MKRESCONT(h,a) ((struct result_closure){ .handler = (h), .arg = (a) })
+#define CALLRESCONT(c,e) ((c).handler((e), (c).arg))
+
 #define malloce(size, ret) \
     (*(ret) = malloc(size), \
      *(ret) ? SYS_ERR_OK : LIB_ERR_MALLOC_FAIL)
@@ -73,10 +81,9 @@ void move_request__rx_handler(struct intermon_binding *b,
                               genvaddr_t st);
 void move_result__rx_handler(struct intermon_binding *b, errval_t status,
                              genvaddr_t st);
-void request_retype__rx_handler(struct intermon_binding *b,
-                                intermon_caprep_t srcrep, int desttype,
-                                uint32_t destbits, genvaddr_t st);
-void retype_response__rx_handler(struct intermon_binding *b, errval_t status,
+void retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep,
+                        int desttype, uint32_t destbits, genvaddr_t st);
+void retype_response__rx(struct intermon_binding *b, errval_t status,
                                  genvaddr_t st);
 void request_revoke__rx_handler(struct intermon_binding *b,
                                 intermon_caprep_t caprep, genvaddr_t st);

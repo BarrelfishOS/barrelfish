@@ -13,8 +13,8 @@ errval_t capops_intermon_init(struct intermon_binding *b)
     b->rx_vtbl.capops_delete_remote_result    = delete_remote_result__rx_handler;
     b->rx_vtbl.capops_request_revoke          = request_revoke__rx_handler;
     b->rx_vtbl.capops_revoke_result           = revoke_result__rx_handler;
-    b->rx_vtbl.capops_request_retype          = request_retype__rx_handler;
-    b->rx_vtbl.capops_retype_response         = retype_response__rx_handler;
+    b->rx_vtbl.capops_request_retype          = retype_request__rx;
+    b->rx_vtbl.capops_retype_response         = retype_response__rx;
     b->rx_vtbl.capops_update_owner            = update_owner__rx_handler;
     b->rx_vtbl.capops_owner_updated           = owner_updated__rx_handler;
     b->rx_vtbl.capops_find_cap                = find_cap__rx_handler;
