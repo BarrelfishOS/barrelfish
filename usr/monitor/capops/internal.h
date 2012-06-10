@@ -72,9 +72,9 @@ void recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
                    uint8_t owner_relations, genvaddr_t st);
 void request_copy__rx(struct intermon_binding *b, coreid_t dest,
                       intermon_caprep_t caprep, genvaddr_t st);
-void delete_remote__rx_handler(struct intermon_binding *b,
+void delete_remote__rx(struct intermon_binding *b,
                                intermon_caprep_t caprep, genvaddr_t st);
-void delete_remote_result__rx_handler(struct intermon_binding *b,
+void delete_remote_result__rx(struct intermon_binding *b,
                                       errval_t status, genvaddr_t st);
 void move_request__rx_handler(struct intermon_binding *b,
                               intermon_caprep_t caprep, uint8_t relations,

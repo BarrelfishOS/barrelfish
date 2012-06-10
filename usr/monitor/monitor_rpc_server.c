@@ -44,10 +44,7 @@ static void remote_cap_delete(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t vbits)
 {
     struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
-    errval_t err = capops_delete(cap, delete_reply_status, (void*)b);
-    if (err_is_fail(err)) {
-        delete_reply_status(err, (void*)b);
-    }
+    capops_delete(cap, delete_reply_status, (void*)b);
 }
 
 static void revoke_reply_status(errval_t status, void *st)

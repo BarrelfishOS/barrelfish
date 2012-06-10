@@ -113,9 +113,6 @@ captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
             state->abort_cont(err, state, state->st);
         }
 
-        err = capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
-        if (err_is_fail(err)) {
-            state->abort_cont(err, state, state->st);
-        }
+        capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
     }
 }

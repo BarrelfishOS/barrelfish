@@ -95,11 +95,7 @@ out:
     }
 
     if (cap) {
-        err = capops_delete(get_cap_domref(*cap), mem_alloc_delete_result_handler, cap);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "capops_delete failed, cap will leak");
-            free(cap);
-        }
+        capops_delete(get_cap_domref(*cap), mem_alloc_delete_result_handler, cap);
     }
 }
 

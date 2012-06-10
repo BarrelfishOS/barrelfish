@@ -120,7 +120,6 @@ retype_tmpcap_delete__cont(errval_t status, void *st)
 static void
 retype_request_check__rx(errval_t status, void *st)
 {
-    errval_t err;
     struct requested_retype_st *req_st = (struct requested_retype_st*)st;
 
     if (err_is_ok(status)) {
@@ -131,10 +130,7 @@ retype_request_check__rx(errval_t status, void *st)
     req_st->status = status;
 
     if (!capref_is_null(req_st->src)) {
-        err = capops_delete(req_st->check.src, retype_tmpcap_delete__cont, req_st);
-        if (err_is_fail(err)) {
-            retype_tmpcap_delete__cont(err, req_st);
-        }
+        capops_delete(req_st->check.src, retype_tmpcap_delete__cont, req_st);
     }
     else {
         retype_result__enq(req_st);

@@ -268,6 +268,7 @@ revoke_delete_result(errval_t status, void *st)
         caplock_unlock(rst->revokecap);
         rst->result_handler(status, rst->st);
         free(rst);
+        return;
     }
 
     err = revoke_local(rst);
@@ -297,10 +298,8 @@ revoke_local(struct revoke_st *rst)
         // kernel encountered a local cap with no copies, explicitly perform a
         // delete in the monitor to deal with possible remote copies
         assert(!capref_is_null(rst->delcap));
-        err = capops_delete(get_cap_domref(rst->delcap), revoke_delete_result, rst);
-        if (err_is_ok(err)) {
-            return err;
-        }
+        capops_delete(get_cap_domref(rst->delcap), revoke_delete_result, rst);
+        return SYS_ERR_OK;
     }
     else if (err_no(err) == MON_ERR_REMOTE_CAP_RETRY) {
         // cap is locked, wait in queue for unlock

@@ -27,83 +27,11 @@ struct delete_st {
     void *st;
 };
 
-static errval_t
-alloc_delete_st(struct delete_st **out_st, struct domcapref cap, delete_result_handler_t result_handler, void *st)
-{
-    errval_t err;
-    assert(st);
-
-    struct delete_st *del_st;
-    del_st = calloc(1, sizeof(*del_st));
-    if (!del_st) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
-    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &del_st->cap);
-    if (err_is_fail(err)) {
-        free(del_st);
-        return err;
-    }
-
-    err = slot_alloc(&del_st->newcap);
-    if (err_is_fail(err)) {
-        free(del_st);
-        return err;
-    }
-
-    del_st->capref = cap;
-    del_st->result_handler = result_handler;
-    del_st->st = st;
-
-    *out_st = del_st;
-
-    return SYS_ERR_OK;
-}
-
-static void
-free_delete_st(struct delete_st *del_st)
-{
-    errval_t err;
-
-    err = slot_free(del_st->newcap);
-    assert(err_is_ok(err));
-
-    free(del_st);
-}
-
-/*
- * Delete all copies {{{1
- */
-
-/*
- * Request multicast {{{2
- */
-
 struct delete_remote_mc_st {
     struct capsend_mc_st mc_st;
     struct delete_st *del_st;
+    errval_t status;
 };
-
-static errval_t
-delete_remote_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
-{
-    return intermon_capops_delete_remote__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
-}
-
-static errval_t
-delete_remote(struct capability *cap, struct delete_st *st)
-{
-    struct delete_remote_mc_st *mc_st = malloc(sizeof(struct delete_remote_mc_st));
-    if (!mc_st) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    mc_st->del_st = st;
-    return capsend_copies(cap, delete_remote_send_cont, (struct capsend_mc_st*)mc_st);
-}
-
-/*
- * Result reply {{{2
- */
 
 struct delete_remote_result_msg_st {
     struct intermon_msg_queue_elem queue_elem;
@@ -111,95 +39,29 @@ struct delete_remote_result_msg_st {
     genvaddr_t st;
 };
 
+static void delete_trylock_cont(void *st);
+
 static void
-delete_remote_result_msg_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
 {
     errval_t err;
-    struct delete_remote_result_msg_st *msg_st = (struct delete_remote_result_msg_st*)e;
-    err = intermon_capops_delete_remote_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send delete_remote_result msg");
-    }
-    free(msg_st);
-}
 
-static errval_t
-delete_remote_result(coreid_t dest, errval_t status, genvaddr_t st)
-{
-    errval_t err;
-    struct delete_remote_result_msg_st *msg_st;
-    msg_st = calloc(1, sizeof(*msg_st));
-    msg_st->queue_elem.cont = delete_remote_result_msg_cont;
-    msg_st->status = status;
-    msg_st->st = st;
-
-    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        free(msg_st);
-    }
-    return err;
-}
-
-/*
- * Receive handlers {{{2
- */
-
-void
-delete_remote__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
-{
-    errval_t err;
-    struct capability cap;
-    struct intermon_state *inter_st = (struct intermon_state*)b->st;
-    coreid_t from = inter_st->core_id;
-    caprep_to_capability(&caprep, &cap);
-    struct capref capref;
-
-    err = slot_alloc(&capref);
-    if (err_is_fail(err)) {
-        goto send_err;
+    if (locked) {
+        caplock_unlock(del_st->capref);
     }
 
-    err = monitor_copy_if_exists(&cap, capref);
-    if (err_is_fail(err)) {
-        goto free_slot;
-    }
+    err = slot_free(del_st->newcap);
+    DEBUG_ERR(err, "freeing reclamation slot, will leak");
 
-    err = monitor_delete_copies(capref);
-    cap_destroy(capref);
-
-free_slot:
-    slot_free(capref);
-
-send_err:
-    err = delete_remote_result(from, err, st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send delete_remote result");
-    }
-}
-
-void
-delete_remote_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
-{
-    if (!capsend_handle_mc_reply(st)) {
-        // multicast not complete
-        return;
-    }
-
-    struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)st;
-    struct delete_st *del_st = mc_st->del_st;
-    free(mc_st);
-
-    del_st->result_handler(SYS_ERR_OK, del_st->st);
+    delete_result_handler_t handler = del_st->result_handler;
+    void *st = del_st->st;
     free(del_st);
+    handler(status, st);
 }
 
-/*
- * Move & delete handling {{{1
- */
-
-static void move_result_cont(errval_t status, void *st);
-
-static void send_new_ram_cap(struct capref cap)
+__attribute__((unused))
+static void
+send_new_ram_cap(struct capref cap)
 {
     errval_t err, result;
 
@@ -225,6 +87,162 @@ static void send_new_ram_cap(struct capref cap)
     assert(err_is_ok(err));
 }
 
+/*
+ * Non-moveable cap types: deleting all foreign copies when last owned copy of
+ * cap is deleted
+ */
+
+static errval_t
+delete_remote__send(struct intermon_binding *b, intermon_caprep_t *caprep,
+                    struct capsend_mc_st *st)
+{
+    return intermon_capops_delete_remote__tx(b, NOP_CONT, *caprep,
+                                             (genvaddr_t)st);
+}
+
+static void
+delete_remote__enq(struct capability *cap, struct delete_st *st)
+{
+    errval_t err;
+    struct delete_remote_mc_st *mc_st;
+
+    err = malloce(sizeof(*mc_st), &mc_st);
+    GOTO_IF_ERR(err, report_error);
+    mc_st->del_st = st;
+
+    err = capsend_copies(cap, delete_remote__send,
+                         (struct capsend_mc_st*)mc_st);
+    GOTO_IF_ERR(err, report_error);
+
+    return;
+
+report_error:
+    delete_result__rx(err, st, true);
+}
+
+static void
+delete_remote_result__send(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct delete_remote_result_msg_st *msg_st = (struct delete_remote_result_msg_st*)e;
+    err = intermon_capops_delete_remote_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
+    PANIC_IF_ERR(err, "failed to send delete_remote_result msg");
+    free(msg_st);
+}
+
+static void
+delete_remote_result__enq(coreid_t dest, errval_t status, genvaddr_t st)
+{
+    errval_t err;
+
+    struct delete_remote_result_msg_st *msg_st;
+    err = calloce(1, sizeof(*msg_st), &msg_st);
+    PANIC_IF_ERR(err, "allocating delete_remote_result st");
+
+    msg_st->queue_elem.cont = delete_remote_result__send;
+    msg_st->status = status;
+    msg_st->st = st;
+
+    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
+    PANIC_IF_ERR(err, "failed to send delete_remote result");
+}
+
+void
+delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
+                  genvaddr_t st)
+{
+    errval_t err, err2;
+    struct capability cap;
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
+    coreid_t from = inter_st->core_id;
+    caprep_to_capability(&caprep, &cap);
+    struct capref capref;
+
+    err = slot_alloc(&capref);
+    GOTO_IF_ERR(err, send_err);
+
+    err = monitor_copy_if_exists(&cap, capref);
+    if (err_is_fail(err)) {
+        if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
+            // not found implies there were no copies, so everything is OK
+            err = SYS_ERR_OK;
+        }
+        goto free_slot;
+    }
+
+    err = monitor_delete_copies(capref);
+    err2 = cap_delete(capref);
+    DEBUG_IF_ERR(err2, "deleting temp delete_remote cap");
+    if (err_is_ok(err) && err_is_fail(err2)) {
+        err = err2;
+    }
+
+free_slot:
+    err2 = slot_free(capref);
+    DEBUG_IF_ERR(err2, "freeing temp delete_remote cap, will leak");
+
+send_err:
+    delete_remote_result__enq(from, err, st);
+}
+
+void
+delete_remote_result__rx(struct intermon_binding *b, errval_t status,
+                         genvaddr_t st)
+{
+    errval_t err;
+    struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)st;
+    struct delete_st *del_st = mc_st->del_st;
+
+    // XXX: do something with received errors?
+    if (err_is_fail(status)) {
+        mc_st->status = status;
+    }
+    status = mc_st->status;
+
+    if (!capsend_handle_mc_reply(st)) {
+        // multicast not complete
+        return;
+    }
+
+    // multicast is complete, free state
+    free(mc_st);
+
+    // unlock cap so it can be deleted
+    caplock_unlock(del_st->capref);
+
+    if (err_is_ok(status)) {
+        // remote copies have been deleted, reset corresponding relations bit
+        err = monitor_domcap_remote_relations(del_st->capref.croot,
+                                              del_st->capref.cptr,
+                                              del_st->capref.bits,
+                                              0, RRELS_COPY_BIT, NULL);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "clearing remote descs bit after remote delete");
+        }
+
+        // now a "regular" delete should work again
+        err = dom_cnode_delete(del_st->capref);
+        if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
+            USER_PANIC_ERR(err, "this really should not happen");
+        }
+        else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+            // this shouldn't really happen either, but isn't a problem
+            err = SYS_ERR_OK;
+        }
+    }
+    else {
+        err = status;
+    }
+
+    delete_result__rx(err, del_st, false);
+}
+
+/*
+ * Moveable cap type: try to migrate ownership elsewhere
+ */
+
+static void move_result_cont(errval_t status, void *st);
+
 static void
 find_core_cont(errval_t status, coreid_t core, void *st)
 {
@@ -233,29 +251,37 @@ find_core_cont(errval_t status, coreid_t core, void *st)
     errval_t err;
     struct delete_st *del_st = (struct delete_st*)st;
 
+    // unlock cap so it can be manipulated
+    caplock_unlock(del_st->capref);
+
     if (err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         // no core with cap exists, delete local cap with cleanup
-        err = monitor_delete_last(del_st->capref.croot, del_st->capref.cptr, del_st->capref.bits, del_st->newcap);
-        if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
-            send_new_ram_cap(del_st->newcap);
+        err = monitor_domcap_remote_relations(del_st->capref.croot,
+                                              del_st->capref.cptr,
+                                              del_st->capref.bits,
+                                              0, RRELS_COPY_BIT, NULL);
+
+        // now a "regular" delete should work again
+        err = dom_cnode_delete(del_st->capref);
+        if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
+            USER_PANIC_ERR(err, "this really should not happen");
         }
-        del_st->result_handler(err, del_st->st);
-        free_delete_st(del_st);
+        else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+            // this shouldn't really happen either, but isn't a problem
+            err = SYS_ERR_OK;
+        }
+
+        delete_result__rx(err, del_st, false);
     }
     else if (err_is_fail(status)) {
         // an error occured
-        del_st->result_handler(status, del_st->st);
-        free_delete_st(del_st);
+        delete_result__rx(status, del_st, false);
     }
     else {
-        // unlock cap for move operation
-        caplock_unlock(del_st->capref);
-
         // core found, attempt move
         err = capops_move(del_st->capref, core, move_result_cont, st);
         if (err_is_fail(err)) {
-            del_st->result_handler(err, del_st->st);
-            free_delete_st(del_st);
+            delete_result__rx(err, del_st, false);
         }
     }
 }
@@ -268,32 +294,27 @@ move_result_cont(errval_t status, void *st)
     assert(distcap_is_moveable(del_st->cap.type));
 
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
-        // relock cap
-        err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
-                               del_st->capref.bits);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "relocking cap after move");
-        }
-
-        // move failed as dest no longer has cap copy, start from beginning
-        err = capsend_find_cap(&del_st->cap, find_core_cont, st);
-        if (err_is_ok(err)) {
-            return;
-        }
+        // the found remote copy has disappeared, restart move process
+        delete_trylock_cont(del_st);
     }
-    else if (err_is_ok(err)) {
+    else if (err_is_fail(err)) {
+        delete_result__rx(err, del_st, false);
+    }
+    else {
         // move succeeded, cap is now foreign
         err = dom_cnode_delete(del_st->capref);
+        if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+            err = SYS_ERR_OK;
+        }
+        delete_result__rx(err, del_st, false);
     }
-
-    del_st->result_handler(err, del_st->st);
-    free(del_st);
 }
 
 /*
  * Deleting CNode special case {{{1
  */
 
+#if 0
 struct delete_cnode_st {
     struct capref delcap;
     void *st;
@@ -308,7 +329,7 @@ delete_cnode_slot_result(errval_t status, void *st)
     if (err_is_ok(status) || err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
         if (dst->delcap.slot < (1 << dst->delcap.cnode.size_bits)) {
             dst->delcap.slot++;
-            err = capops_delete(get_cap_domref(dst->delcap), delete_cnode_slot_result, dst);
+            capops_delete(get_cap_domref(dst->delcap), delete_cnode_slot_result, dst);
         }
         else {
             err = SYS_ERR_OK;
@@ -349,6 +370,7 @@ delete_cnode(struct capref cap, void *st)
     }
     return err;
 }
+#endif
 
 /*
  * Delete operation
@@ -358,67 +380,95 @@ static void
 delete_trylock_cont(void *st)
 {
     errval_t err;
+    bool locked = false;
     struct delete_st *del_st = (struct delete_st*)st;
 
-    // setup extended delete operation
-    err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr, del_st->capref.bits);
+    // try a simple delete
+    // NOTE: on the first pass, this is done twice (once in the capops_delete
+    // entry), but only this function is executed on every unlock event
+    err = dom_cnode_delete(del_st->capref);
+    if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
+        if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+            err = SYS_ERR_OK;
+        }
+        goto report_error;
+    }
+
+    err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
+                           del_st->capref.bits);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
-        caplock_wait(del_st->capref, &del_st->qn, MKCLOSURE(delete_trylock_cont, del_st));
+        caplock_wait(del_st->capref, &del_st->qn,
+                     MKCLOSURE(delete_trylock_cont, del_st));
         return;
+    }
+    else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        // Some other operation (another delete or a revoke) has deleted the
+        // target cap. This is OK.
+        err = err_push(SYS_ERR_OK, err);
+        goto report_error;
     }
     else if (err_is_fail(err)) {
         DEBUG_ERR(err, "locking cap for delete");
         goto report_error;
     }
+    else {
+        locked = true;
+    }
 
     if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
         err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
+        GOTO_IF_ERR(err, report_error);
     }
     else {
         // otherwise delete all remote copies and then delete last copy
-        err = delete_remote(&del_st->cap, del_st);
-    }
-    if (err_is_fail(err)) {
-        goto cap_set_ready;
+        delete_remote__enq(&del_st->cap, del_st);
     }
 
     return;
 
-cap_set_ready:
-    caplock_unlock(del_st->capref);
-
 report_error:
-    del_st->result_handler(err, del_st->st);
-    free(del_st);
-
+    delete_result__rx(err, del_st, locked);
 }
 
-errval_t
-capops_delete(struct domcapref cap, delete_result_handler_t result_handler, void *st)
+void
+capops_delete(struct domcapref cap, delete_result_handler_t result_handler,
+              void *st)
 {
     errval_t err;
 
     // try a simple delete
     err = dom_cnode_delete(cap);
-    if (err_is_ok(err)) {
-        result_handler(err, st);
-        return SYS_ERR_OK;
-    }
-    else if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return err;
+    if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
+        goto err_cont;
     }
 
     // simple delete was not able to delete cap as it was last copy and may
     // have remote copies, need to move or revoke cap
 
-    struct delete_st *del_st = NULL;
-    err = alloc_delete_st(&del_st, cap, result_handler, st);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    assert(del_st);
+    struct delete_st *del_st;
+    err = calloce(1, sizeof(*del_st), &del_st);
+    GOTO_IF_ERR(err, err_cont);
 
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits,
+                                       &del_st->cap);
+    GOTO_IF_ERR(err, free_st);
+
+    err = slot_alloc(&del_st->newcap);
+    GOTO_IF_ERR(err, free_st);
+
+    del_st->capref = cap;
+    del_st->result_handler = result_handler;
+    del_st->st = st;
+
+    // after this steup is complete, nothing less than a catastrophic failure
+    // should stop the delete
     delete_trylock_cont(del_st);
-    return SYS_ERR_OK;
+    return;
+
+free_st:
+    free(del_st);
+
+err_cont:
+    result_handler(err, st);
 }
