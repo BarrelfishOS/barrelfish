@@ -18,6 +18,9 @@
 #include "pci_devices.h"
 #include "pci_ethernet.h"
 
+#include "e1000_dev.h"
+
+
 #include <pci/pci.h>
 #include <arch/x86/barrelfish/iocap_arch.h>
 
@@ -29,6 +32,7 @@
 #define PCI_ETHERNET_IRQ 11
 
 
+e1000_t d;  ///< Mackerel state
 
 static struct guest *guest_info;
 static struct pci_ethernet *pci_ethernet_unique;
@@ -102,9 +106,13 @@ static void e1000_init(void *bar_info, int nr_allocated_bars)
     if(err_is_fail(err)){
 		printf("guest_vspace_map_wrapper failed\n");
 	}
-    printf("e1000_init: map_device successful vaddr: 0x%lx...\n", (uint64_t)bar[0].vaddr);
+    printf("e1000_init: map_device successful. vaddr: 0x%lx, bytes: %d...\n", (uint64_t)bar[0].vaddr, (int)bar[0].bytes);
     eth->virt_base_addr = bar[0].vaddr;
 
+    e1000_initialize(&d, (void *)(bar[0].vaddr));
+    e1000_ims_wr(&d, (e1000_intreg_t) {
+                    .rxt0 = 1,
+                });
     /* err = guest_vspace_map_wrapper(&guest_info->vspace, bar[0].paddr, bar[0].frame_cap[0], bar[0].bytes);
     if(err_is_fail(err)){
     	printf("guest_vspace_map_wrapper failed\n");
@@ -118,21 +126,29 @@ static void iommu_interrupt_handler(void *arg)
     printf("iommu: interrupt\n");
 } */
 
+#define ICR_OFFSET 0xC0;
+
 static void e1000_interrupt_handler(void *arg)
 {
     // Read & acknowledge interrupt cause(s)
     printf("e1000n: packet interrupt\n");
-    //TODO trigger interrupt in VM
+
     /*
+    uint64_t icr_addr = (uint64_t)(pci_ethernet_unique->virt_base_addr) + ICR_OFFSET;
+    uint32_t icr_content = *((uint32_t *)icr_addr);
+    printf("ICR Content: %d\n", icr_content);
+*/
+
+    //TODO trigger interrupt in VM
+
     struct pci_device *dev = (struct pci_device *)arg;
-    
     lpc_pic_assert_irq(dev->lpc, dev->irq);
-     */
+
 }
 
 
 static uint32_t function = PCI_DONT_CARE;
-static uint32_t deviceid = 0x10fb; //PCI_DONT_CARE;
+static uint32_t deviceid = PCI_DONT_CARE; //0x1079; //0x10fb; //PCI_DONT_CARE;
 
 struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
 {
@@ -140,6 +156,7 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
     struct pci_ethernet *host = calloc(1, sizeof(struct pci_ethernet));
     
     pci_ethernet_unique = host;
+    host->pci_device = dev;
     guest_info = g;
 
     //initialize device
@@ -155,13 +172,14 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
 	printf("vmkitmon: connected to pci\n");
     
     //Register as driver
+
 	r = pci_register_driver_irq((pci_driver_init_fn)e1000_init,
                                 PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
 								PCI_VENDOR_INTEL, deviceid,
 								PCI_DONT_CARE, PCI_DONT_CARE, function,
-								e1000_interrupt_handler, dev);
-    
+								e1000_interrupt_handler, NULL);
+
 	if(err_is_fail(r)) {
 		DEBUG_ERR(r, "ERROR: vmkitmon: pci_register_driver");
 	}

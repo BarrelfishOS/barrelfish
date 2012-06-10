@@ -173,6 +173,9 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     struct capref cap;
     err = guest_slot_alloc(g, &cap);
 
+
+
+
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
@@ -192,6 +195,12 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     if (err_is_fail(err)) {
         return err;
     }
+
+    //TODO: print cap...
+	struct frame_identity frameid = { .base = 0, .bits = 0 };
+	errval_t r = invoke_frame_identify(cap, &frameid);
+	assert(err_is_ok(r));
+	VMKIT_PCI_DEBUG("alloc_guest_mem: frameid.base: 0x%lx, frameid.bits: %d\n",frameid.base, frameid.bits);
 
     return SYS_ERR_OK;
 }
@@ -2000,21 +2009,22 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
 
 #define TDBAL_OFFSET 0x3800
 #define TDBAH_OFFSET 0x3804
-#define RDBAL0_OFFSET 0x2800
-#define RDBAH0_OFFSET 0x2804
-#define RDBAL1_OFFSET 0x2900
-#define RDBAH1_OFFSET 0x2904
-#define RDH1 0x2010 // Head queue (pointer?) not sure it needs transl.
+#define RDBAL_OFFSET 0x2800
+#define RDBAH_OFFSET 0x2804
+#define TDT_OFFSET 0x3818 //Transmit descriptor tail. Writes to this toggle transmission
+#define TCTL_OFFSET 0x400 //Transmission Control
+
+#define IMS_OFFSET 0xd0 // Interrupt Mask Set/Read Register
+#define ICS_OFFSET 0xc8 // Interrupt Cause Set Register
+
 
 
 static int register_needs_translation(uint64_t addr){
 	return (
 		addr == TDBAL_OFFSET ||
 		addr == TDBAH_OFFSET ||
-		addr == RDBAL0_OFFSET ||
-		addr == RDBAH0_OFFSET ||
-		addr == RDBAL1_OFFSET ||
-		addr == RDBAH1_OFFSET
+		addr == RDBAL_OFFSET ||
+		addr == RDBAH_OFFSET
 	);
 
 }
@@ -2032,7 +2042,9 @@ static uint64_t vaddr_to_paddr(uint64_t vaddr){
 
 	VMKIT_PCI_DEBUG("frameid.base: 0x%lx,  frameid.bits: %d\n",frameid.base,frameid.bits);
 	//uint64_t res = frameid.base + (((uint64_t)vaddr) >> frameid.bits << frameid.bits);
-	uint64_t res = frameid.base + ((uint64_t)vaddr);
+
+	//uint64_t res = frameid.base + ((uint64_t)vaddr);
+	uint64_t res = 0x100000000 + vaddr;
 	VMKIT_PCI_DEBUG("Returning: 0x%lx\n", res);
 	return res;
 
@@ -2109,7 +2121,7 @@ handle_vmexit_npf (struct guest *g) {
         size = decode_mov_op_size(g, code);
         if (decode_mov_is_write(g, code)) {
             val = decode_mov_src_val(g, code);
-            //VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
+            VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
 
             if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
 				VMKIT_PCI_DEBUG("Write access to Pointer register 0x%lx value 0x%lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
@@ -2122,6 +2134,15 @@ handle_vmexit_npf (struct guest *g) {
 				}
 				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
 			}
+            /*
+            if(TDT_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
+            	VMKIT_PCI_DEBUG("Wrote to TDT value %lx\n", val);
+            } */
+            /*
+            if(IMS_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) || ICS_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
+            	printf("IMS Write, generating interrupt \n");
+            	lpc_pic_assert_irq(eth->pci_device->lpc, eth->pci_device->irq);
+            } */
 
             *((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
         } else {
@@ -2134,7 +2155,7 @@ handle_vmexit_npf (struct guest *g) {
 				}
 				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
 			}
-            //VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
+            VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
             decode_mov_dest_val(g, code, val);
         }
 

@@ -24,7 +24,7 @@
 #include "pci/devids.h"
 #include <pci/pci.h>
 
-#define VFS_MOUNTPOINT  "/vm"
+#define VFS_MOUNTPOINT  ""
 #define IMAGEFILE       (VFS_MOUNTPOINT "/system-bench.img")
 #define GRUB_IMG_PATH   (VFS_MOUNTPOINT "/vmkitmon_grub")
 
@@ -94,11 +94,11 @@ int main (int argc, char *argv[])
 	printf("Ignoring the cardname [%s], and using the default one from vfs_mount\n",
 	            cardName);
 	vfs_mkdir(VFS_MOUNTPOINT);
-	err = vfs_mount(VFS_MOUNTPOINT, argv[2]);
+	/* err = vfs_mount(VFS_MOUNTPOINT, argv[2]);
 	if (err_is_fail(err)) {
 		printf("vmkitmon: error mounting %s: %s\n", argv[2], err_getstring(err));
 		return 1;
-	}
+	} */
 
     /* Initialization */
     err = realmode_init();
