@@ -23,6 +23,9 @@ typedef void (*move_result_handler_t)(errval_t, void*);
 errval_t capops_move(struct domcapref cap, coreid_t dest,
                      move_result_handler_t result_handler, void *st);
 
+void capops_retrieve(struct domcapref cap,
+                     move_result_handler_t result_handler, void *st);
+
 typedef void (*delete_result_handler_t)(errval_t, void*);
 void capops_delete(struct domcapref cap,
                    delete_result_handler_t result_handler, void *st);

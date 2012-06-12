@@ -486,11 +486,12 @@ update_owner_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *
 }
 
 errval_t
-capsend_update_owner(struct capref capref, struct event_closure completion_continuation)
+capsend_update_owner(struct domcapref capref, struct event_closure completion_continuation)
 {
     errval_t err;
     struct capability cap;
-    err = monitor_cap_identify(capref, &cap);
+    err = monitor_domains_cap_identify(capref.croot, capref.cptr, capref.bits,
+                                       &cap);
     if (err_is_fail(err)) {
         return err;
     }

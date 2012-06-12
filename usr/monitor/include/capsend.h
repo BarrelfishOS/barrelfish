@@ -36,7 +36,7 @@ errval_t capsend_target(coreid_t dest, struct msg_queue_elem *queue_elem);
 
 errval_t capsend_owner(struct domcapref capref, struct msg_queue_elem *queue_elem);
 
-errval_t capsend_update_owner(struct capref capref, struct event_closure continuation);
+errval_t capsend_update_owner(struct domcapref capref, struct event_closure continuation);
 
 errval_t capsend_copies(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
 

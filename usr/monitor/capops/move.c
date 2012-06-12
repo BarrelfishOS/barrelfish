@@ -193,7 +193,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
         goto reset_owner;
     }
 
-    err = capsend_update_owner(*capref, MKCONT(free_owner_recv_cap, capref));
+    err = capsend_update_owner(domcapref, MKCONT(free_owner_recv_cap, capref));
     if (err_is_fail(err)) {
         goto reset_owner;
     }

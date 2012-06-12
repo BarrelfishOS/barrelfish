@@ -9,6 +9,8 @@ errval_t capops_intermon_init(struct intermon_binding *b)
     b->rx_vtbl.capops_recv_copy_result        = recv_copy_result__rx;
     b->rx_vtbl.capops_move_request            = move_request__rx_handler;
     b->rx_vtbl.capops_move_result             = move_result__rx_handler;
+    b->rx_vtbl.capops_retrieve_request        = retrieve_request__rx;
+    b->rx_vtbl.capops_retrieve_result         = retrieve_result__rx;
     b->rx_vtbl.capops_delete_remote           = delete_remote__rx;
     b->rx_vtbl.capops_delete_remote_result    = delete_remote_result__rx;
     b->rx_vtbl.capops_request_revoke          = request_revoke__rx_handler;
