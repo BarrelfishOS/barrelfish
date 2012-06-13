@@ -43,7 +43,7 @@ errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
         if (err_is_fail(err)) {
             return err;
         }
-
+        printf("pci_client.c: got vector %d\n", vector);
         assert(vector != INVALID_VECTOR);
     }
 

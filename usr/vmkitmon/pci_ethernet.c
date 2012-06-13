@@ -109,10 +109,7 @@ static void e1000_init(void *bar_info, int nr_allocated_bars)
     printf("e1000_init: map_device successful. vaddr: 0x%lx, bytes: %d...\n", (uint64_t)bar[0].vaddr, (int)bar[0].bytes);
     eth->virt_base_addr = bar[0].vaddr;
 
-    e1000_initialize(&d, (void *)(bar[0].vaddr));
-    e1000_ims_wr(&d, (e1000_intreg_t) {
-                    .rxt0 = 1,
-                });
+
     /* err = guest_vspace_map_wrapper(&guest_info->vspace, bar[0].paddr, bar[0].frame_cap[0], bar[0].bytes);
     if(err_is_fail(err)){
     	printf("guest_vspace_map_wrapper failed\n");
@@ -148,7 +145,9 @@ static void e1000_interrupt_handler(void *arg)
 
 
 static uint32_t function = PCI_DONT_CARE;
-static uint32_t deviceid = PCI_DONT_CARE; //0x1079; //0x10fb; //PCI_DONT_CARE;
+//static uint32_t deviceid = PCI_DONT_CARE; //0x1079; //0x10fb; //PCI_DONT_CARE;
+//static uint32_t deviceid = 0x1079; //intel e1000
+static uint32_t deviceid = 0x10fb; //intel ixgbe
 
 struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
 {
@@ -178,7 +177,7 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
                                 PCI_DONT_CARE, PCI_DONT_CARE,
 								PCI_VENDOR_INTEL, deviceid,
 								PCI_DONT_CARE, PCI_DONT_CARE, function,
-								e1000_interrupt_handler, NULL);
+								e1000_interrupt_handler, dev);
 
 	if(err_is_fail(r)) {
 		DEBUG_ERR(r, "ERROR: vmkitmon: pci_register_driver");
