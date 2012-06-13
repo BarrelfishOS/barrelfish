@@ -2006,7 +2006,7 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
     set_reg_val_by_reg_num(g, modrm.u.regop, val);
 }
 
-
+/**** e1000
 #define TDBAL_OFFSET 0x3800
 #define TDBAH_OFFSET 0x3804
 #define RDBAL_OFFSET 0x2800
@@ -2017,8 +2017,6 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
 #define IMS_OFFSET 0xd0 // Interrupt Mask Set/Read Register
 #define ICS_OFFSET 0xc8 // Interrupt Cause Set Register
 
-
-
 static int register_needs_translation(uint64_t addr){
 	return (
 		addr == TDBAL_OFFSET ||
@@ -2028,6 +2026,26 @@ static int register_needs_translation(uint64_t addr){
 	);
 
 }
+
+**** e1000 */
+
+
+// IXGBE
+#define EICR1_OFFSET 0x00800 //Interrupt Cause Read
+#define EICR2_OFFSET 0x00804
+#define EICS1_OFFSET 0x00808 //Interrupt Cause Set
+#define EICS2_OFFSET 0x00812
+
+static int register_needs_translation(uint64_t addr){
+	return (
+		(0x1000 <= addr && addr <= 0x1fc0 && (addr & 0x3f) == 0) ||  //RDBAL 1
+		(0xd000 <= addr && addr <= 0xdfc0 && (addr & 0x3f) == 0) ||  //RDBAL 2
+		(0x6000 <= addr && addr <= 0x7fc0 && (addr & 0x3f) == 0)     //TDBAL
+	);
+}
+// IXGBE
+
+
 
 static uint64_t vaddr_to_paddr(uint64_t vaddr){
 	VMKIT_PCI_DEBUG("vaddr_to_paddr: vaddr:0x%lx\n", vaddr);
