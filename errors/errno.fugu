@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -61,6 +61,7 @@ errors kernel SYS_ERR_ {
     failure RETYPE_CREATE       "Error while creating new capabilities in retype",
     failure NO_LOCAL_COPIES     "No copies of specified capability in local MDB",
     failure RETRY_THROUGH_MONITOR "There is a remote copy of the capability, monitor must be involved to perform a cross core agreement protocol",
+    failure TYPE_NOT_CREATABLE  "Specified capability type is not creatable at runtime. Consider retyping it from another capability.",
 
     // errors specific to page mapping
     failure VNODE_SLOT_INVALID  "Destination slot exceeds size of page table",

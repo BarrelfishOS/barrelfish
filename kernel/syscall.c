@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -245,6 +245,47 @@ sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
 
     return SYSRET(caps_retype(type, objbits, dest_cnode_cap, dest_slot,
                               source_cap, from_monitor));
+}
+
+struct sysret sys_create(struct capability *root, enum objtype type,
+                         uint8_t objbits, capaddr_t dest_cnode_cptr,
+                         cslot_t dest_slot, int dest_vbits)
+{
+    errval_t err;
+    uint8_t bits = 0;
+    genpaddr_t base = 0;
+
+    /* Paramter checking */
+    if (type == ObjType_Null || type >= ObjType_Num) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    /* Destination CNode */
+    struct capability *dest_cnode_cap;
+    err = caps_lookup_cap(root, dest_cnode_cptr, dest_vbits,
+                          &dest_cnode_cap, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+
+    /* Destination slot */
+    struct cte *dest_cte;
+    dest_cte = caps_locate_slot(dest_cnode_cap->u.cnode.cnode, dest_slot);
+    if (dest_cte->cap.type != ObjType_Null) {
+        return SYSRET(SYS_ERR_SLOTS_IN_USE);
+    }
+
+    /* List capabilities allowed to be created at runtime. */
+    switch(type) {
+
+    // TODO: add capability types that can be created at runtime.
+
+    // only certain types of capabilities can be created at runtime
+    default:
+        return SYSRET(SYS_ERR_TYPE_NOT_CREATABLE);
+    }
+
+    return SYSRET(caps_create_new(type, base, bits, objbits, dest_cte));
 }
 
 /**

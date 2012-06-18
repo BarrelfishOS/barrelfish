@@ -105,6 +105,7 @@ enum cnode_cmd {
     CNodeCmd_Retype,    ///< Retype capability
     CNodeCmd_Delete,    ///< Delete capability
     CNodeCmd_Revoke,    ///< Revoke capability
+    CNodeCmd_Create,    ///< Create capability
 };
 
 enum vnode_cmd {

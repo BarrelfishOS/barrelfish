@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -84,6 +84,20 @@ static struct sysret handle_retype(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
     return handle_retype_common(root, args, false);
+}
+
+static struct sysret handle_create(struct capability *root,
+                                   int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    enum objtype type         = args[0];
+    uint8_t objbits           = args[1];
+    capaddr_t dest_cnode_cptr = args[2];
+    cslot_t dest_slot         = args[3];
+    uint8_t dest_vbits        = args[4];
+
+    return sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
+                      dest_vbits);
 }
 
 
@@ -655,6 +669,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
         [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
     },

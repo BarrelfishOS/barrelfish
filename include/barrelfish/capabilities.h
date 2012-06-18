@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -33,6 +33,7 @@ errval_t cnode_create_from_mem(struct capref dest, struct capref src,
 
 errval_t cap_retype(struct capref dest_start, struct capref src,
                enum objtype new_type, uint8_t size_bits);
+errval_t cap_create(struct capref dest, enum objtype type, uint8_t size_bits);
 errval_t cap_delete(struct capref cap);
 errval_t cap_revoke(struct capref cap);
 struct cspace_allocator;

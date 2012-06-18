@@ -133,7 +133,19 @@ static struct sysret handle_retype(struct capability *root, int cmd, uintptr_t *
     return handle_retype_common(root, args, false);
 }
 
+static struct sysret handle_create(struct capability *root, int cmd,
+                                   uintptr_t *args)
+{
+    /* Retrieve arguments */
+    enum objtype type         = args[0] >> 16;
+    uint8_t objbits           = (args[0] >> 8) & 0xff;
+    capaddr_t dest_cnode_cptr = args[1];
+    capaddr_t dest_slot       = args[2];
+    uint8_t dest_vbits        = args[0] & 0xff;
 
+    return sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
+                      dest_vbits);
+}
 
 /**
  * Common code for copying and minting except the mint flag and param passing
@@ -638,6 +650,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
         [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
     },
