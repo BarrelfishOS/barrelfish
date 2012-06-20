@@ -2036,6 +2036,12 @@ static int register_needs_translation(uint64_t addr){
 #define EICS1_OFFSET 0x00808 //Interrupt Cause Set
 #define EICS2_OFFSET 0x00812
 
+#define TDT_OFFSET 0x6018
+#define TDH_OFFSET 0x6010
+
+#define TDBAL0_OFFSET 0x6000
+#define TDBAH0_OFFSET 0x6004
+
 static int register_needs_translation(uint64_t addr){
 	return (
 		(0x1000 <= addr && addr <= 0x1fc0 && (addr & 0x3f) == 0) ||  //RDBAL 1
@@ -2077,6 +2083,23 @@ static uint64_t vaddr_to_paddr(uint64_t vaddr){
 	if(current != NULL){
 		current->region->next
 	} */
+}
+
+static uint32_t read_device_mem(struct pci_ethernet * eth, uint32_t offset){
+	return *((uint32_t *)(((uint64_t)eth->virt_base_addr) + offset));
+}
+
+static void dumpRegion(uint8_t *start){
+	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
+	for(int i=0; i<64;i++){
+		printf("0x%x: ", i*16);
+		for(int j=0; j<16; j++){
+			printf("0x%x ", *( (start) + (i*4 + j)));
+		}
+		printf("\n");
+	}
+	printf("-- dump finished --\n");
+
 }
 
 static int
@@ -2151,11 +2174,35 @@ handle_vmexit_npf (struct guest *g) {
 
 				}
 				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
+
+				//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
+				*((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)) + 4 )) = 1;
 			}
-            /*
+
             if(TDT_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
-            	VMKIT_PCI_DEBUG("Wrote to TDT value %lx\n", val);
-            } */
+            	uint32_t tdt = val;
+            	uint32_t tdh = read_device_mem(eth,TDH_OFFSET);
+            	uint32_t tdbal = read_device_mem(eth,TDBAL0_OFFSET);
+            	uint32_t tdbah = read_device_mem(eth,TDBAH0_OFFSET);
+            	VMKIT_PCI_DEBUG("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%x, TDBAH: 0x%x\n", tdt,tdh, tdbal, tdbah);
+            	if(tdt != tdh){
+					lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
+					dumpRegion((uint8_t*)tdbal_monvirt);
+
+					uint32_t firstdesc_guestphys = *((uint32_t*)tdbal_monvirt);
+					uint32_t * firstdesc_monvirt = (uint32_t *) guest_to_host( (lvaddr_t)(firstdesc_guestphys) );
+					dumpRegion((uint8_t*)firstdesc_monvirt );
+
+					uint32_t firstdesc_hostphys = (uint64_t) vaddr_to_paddr( (uint64_t) firstdesc_guestphys);
+					*((uint32_t *)tdbal_monvirt) =  firstdesc_hostphys;
+
+					//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
+					*(((uint32_t *)tdbal_monvirt)+1) =  1;
+					//printf("Write = 0x%x     Read = 0x%x\n", firstdesc_hostphys, *((uint32_t *)tdbal_monvirt));
+					dumpRegion((uint8_t*)tdbal_monvirt);
+            	}
+
+            }
             /*
             if(IMS_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) || ICS_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
             	printf("IMS Write, generating interrupt \n");

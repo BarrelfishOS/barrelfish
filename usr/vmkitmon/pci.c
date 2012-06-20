@@ -45,7 +45,7 @@ int pci_handle_pio_write(struct pci *pci, uint16_t port, enum opsize size,
             printf("!!!!!!!!!!!!!!!!! Unaligned write !!!!!!!!!!!!!!!\n");
         }
 
-        VMKIT_PCI_DEBUG("wrote %x to 0x%x\n", val, port);
+        VMKIT_PCI_DEBUG("wrote 0x%x to address:0x%x  (port:0x%x)\n", val, pci->address.raw, port);
         {
             int busnr = pci->address.d.bus_nr;
             int device = pci->address.d.dev_nr;

@@ -92,7 +92,7 @@ static genpaddr_t eth_base_paddr = 0;
 
 static void e1000_init(void *bar_info, int nr_allocated_bars)
 {
-	printf("e1000_init)!\n");
+	printf("e1000_init. nr_allocated_bars: %d!\n", nr_allocated_bars);
     
     struct device_mem *bar = (struct device_mem *)bar_info;
     
