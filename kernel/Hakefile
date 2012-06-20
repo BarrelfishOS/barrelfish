@@ -19,7 +19,7 @@ let
     indep_cfiles = [ "gdb_stub.c", "capabilities.c", "dispatch.c",
                      scheduler, "memset.c", "memmove.c", "printf.c",
                      "startup.c", "stdlib.c", "string.c", "syscall.c",
-                     "wakeup.c" ]
+                     "wakeup.c", "useraccess.c" ]
                      ++ microbench ++ timer
     indep_libs = [ "getopt", "mdb_kernel" ]
     mkrules arch arch_cfiles arch_sfiles mackerelFiles arch_libs arch_absolute_cfiles arch_absolute_sfiles realarch_cfiles realarch_sfiles = (

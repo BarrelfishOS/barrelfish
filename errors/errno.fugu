@@ -17,6 +17,7 @@ errors kernel SYS_ERR_ {
     failure CALLER_ENABLED      "Invalid system call while enabled",
     failure CALLER_DISABLED     "Invalid system call while disabled",
     failure ILLEGAL_INVOCATION  "Illegal capability invocation",
+    failure INVALID_USER_BUFFER "Invalid user space buffer",
 
     // LMP errors
     failure LMP_NO_TARGET       "There is no target dispatcher for this endpoint",
