@@ -2042,6 +2042,9 @@ static int register_needs_translation(uint64_t addr){
 #define TDBAL0_OFFSET 0x6000
 #define TDBAH0_OFFSET 0x6004
 
+#define RDBAL0_OFFSET 0x1000
+#define RDBAH0_OFFSET 0x1004
+
 static int register_needs_translation(uint64_t addr){
 	return (
 		(0x1000 <= addr && addr <= 0x1fc0 && (addr & 0x3f) == 0) ||  //RDBAL 1
@@ -2092,9 +2095,9 @@ static uint32_t read_device_mem(struct pci_ethernet * eth, uint32_t offset){
 static void dumpRegion(uint8_t *start){
 	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
 	for(int i=0; i<64;i++){
-		printf("0x%x: ", i*16);
+		printf("0x%4x: ", i*16);
 		for(int j=0; j<16; j++){
-			printf("0x%x ", *( (start) + (i*4 + j)));
+			printf("%2x ", *( (start) + (i*4 + j)));
 		}
 		printf("\n");
 	}
@@ -2162,10 +2165,10 @@ handle_vmexit_npf (struct guest *g) {
         size = decode_mov_op_size(g, code);
         if (decode_mov_is_write(g, code)) {
             val = decode_mov_src_val(g, code);
-            VMKIT_PCI_DEBUG("Write to addr 0x%lx value %lx\n", fault_addr, val);
+            VMKIT_PCI_DEBUG("Write to  addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
 
             if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
-				VMKIT_PCI_DEBUG("Write access to Pointer register 0x%lx value 0x%lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
+				VMKIT_PCI_DEBUG("Write access to Pointer register 0x%08lx value 0x%08lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
 				if(val){
 					//val = guest_to_host(val);
 					val = vaddr_to_paddr(val);
@@ -2173,10 +2176,18 @@ handle_vmexit_npf (struct guest *g) {
 					//printf("At 0x%lx  is  0x%x\n", val, *((uint32_t *)val));
 
 				}
-				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
+				VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
+			}
 
+            if( TDBAH0_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) ) {
 				//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
-				*((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)) + 4 )) = 1;
+				VMKIT_PCI_DEBUG("TDBAH0 write detected. writing 1.\n");
+				val = 1;
+			}
+            if( RDBAH0_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) ) {
+				//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
+				VMKIT_PCI_DEBUG("RDBAH0 write detected. writing 1.\n");
+				val = 1;
 			}
 
             if(TDT_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
@@ -2184,7 +2195,7 @@ handle_vmexit_npf (struct guest *g) {
             	uint32_t tdh = read_device_mem(eth,TDH_OFFSET);
             	uint32_t tdbal = read_device_mem(eth,TDBAL0_OFFSET);
             	uint32_t tdbah = read_device_mem(eth,TDBAH0_OFFSET);
-            	VMKIT_PCI_DEBUG("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%x, TDBAH: 0x%x\n", tdt,tdh, tdbal, tdbah);
+            	VMKIT_PCI_DEBUG("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%08x, TDBAH: 0x%08x\n", tdt,tdh, tdbal, tdbah);
             	if(tdt != tdh){
 					lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
 					dumpRegion((uint8_t*)tdbal_monvirt);
@@ -2195,19 +2206,16 @@ handle_vmexit_npf (struct guest *g) {
 
 					uint32_t firstdesc_hostphys = (uint64_t) vaddr_to_paddr( (uint64_t) firstdesc_guestphys);
 					*((uint32_t *)tdbal_monvirt) =  firstdesc_hostphys;
-
+					// TODO FIXME hier ueber alle txdescs iterieren und das bit richtig setzen...
 					//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
-					*(((uint32_t *)tdbal_monvirt)+1) =  1;
-					//printf("Write = 0x%x     Read = 0x%x\n", firstdesc_hostphys, *((uint32_t *)tdbal_monvirt));
+					for(int j = tdh; j < tdt; j++){
+						*(((uint32_t *)tdbal_monvirt)+1 + 16*j) =  1;
+					}
+
 					dumpRegion((uint8_t*)tdbal_monvirt);
             	}
 
             }
-            /*
-            if(IMS_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) || ICS_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
-            	printf("IMS Write, generating interrupt \n");
-            	lpc_pic_assert_irq(eth->pci_device->lpc, eth->pci_device->irq);
-            } */
 
             *((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
         } else {
@@ -2218,9 +2226,9 @@ handle_vmexit_npf (struct guest *g) {
 					val = host_to_guest(val); //dont translate null pointers
 					//if(val) printf("At 0x%lx  is  0x%x\n", val, *((uint32_t *)val));
 				}
-				VMKIT_PCI_DEBUG("Translated to value %lx\n", val);
+				VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
 			}
-            VMKIT_PCI_DEBUG("Read from addr 0x%lx value %lx\n", fault_addr, val);
+            VMKIT_PCI_DEBUG("Read from addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
             decode_mov_dest_val(g, code, val);
         }
 
