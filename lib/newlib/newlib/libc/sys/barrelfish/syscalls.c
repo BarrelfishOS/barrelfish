@@ -28,6 +28,11 @@ int fork(void)
   return -1;
 }
 
+int wait(int *status)
+{
+  return -1;
+}
+
 clock_t times(struct tms *buf)
 {
   return -1;

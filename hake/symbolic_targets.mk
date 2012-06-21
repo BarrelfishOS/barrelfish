@@ -71,6 +71,10 @@ MODULES_GENERIC= \
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/mdbtest_range_query \
+	sbin/mdbtest_addr_zero \
+	sbin/mdb_bench \
+	sbin/mdb_bench_old \
 	sbin/ahci_bench \
 	sbin/ata_rw28_test \
 	sbin/apicdrift_bench \
@@ -141,7 +145,7 @@ MODULES_x86_64= \
 	sbin/tlstest \
 	sbin/timer_test \
 	sbin/net_openport_test \
-	sbin/examples/xmpl-perfmon \
+	sbin/perfmontest \
 	sbin/routing_setup \
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \

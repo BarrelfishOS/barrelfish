@@ -6,11 +6,11 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/example/xmpl-perfmon
+-- Hakefile for /usr/perfmontest
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "examples/xmpl-perfmon",
+[ build application { target = "perfmontest",
                       cFiles = [ "perfmon.c" ]
                     }
 ]

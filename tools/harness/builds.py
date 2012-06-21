@@ -112,8 +112,32 @@ class HakeBuildBase(Build):
         # with any tool or dependency-generation errors before doing test setup
         self.build(["Makefile"])
 
+    @staticmethod
+    def split_env(e):
+        def split_reduce_env(state, c):
+            if not state[0] and c == '\\':
+                return True, state[1]
+            elif not state[0] and c.isspace():
+                state[1].append('')
+            elif state[0]:
+                ec = '\\'+c
+                s = ec.decode('string_escape')
+                if s == ec:
+                    # decode had no effect, just drop backslash
+                    s = c
+                state[1][-1] += s
+            else:
+                state[1][-1] += c
+            return False, state[1]
+
+        e = e.lstrip()
+        e = reduce(split_reduce_env, e, (False, ['']))[1]
+        e = filter(bool, e)
+        return e
+
     def build(self, targets):
-        debug.checkcmd(["make"] + targets, cwd=self.build_dir)
+        makeopts = self.split_env(os.environ.get('MAKEOPTS', ''))
+        debug.checkcmd(["make"] + makeopts + targets, cwd=self.build_dir)
 
     def install(self, targets, path):
         debug.checkcmd(["make", "install",

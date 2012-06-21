@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -26,8 +26,7 @@ struct perfmon_data_buffer {
     uint64_t ip;
     char name[PERFMON_DISP_NAME_LEN];
 };
-#define PF_DATA_MAX 100000
-//#define PF_DATA_MAX 10000
+#define PF_DATA_MAX 10000
 // Name of the domain to measure (cropped to length 8)
 #define PF_DOMAIN "monitor"
 static struct perfmon_data_buffer pf_data[PF_DATA_MAX];
@@ -95,24 +94,11 @@ static void overflow_handler(void *args)
                         printf("PerfMon: %" PRIx64 " %.*s\n", 
                                pf_data[i].ip, (int)PERFMON_DISP_NAME_LEN, pf_data[i].name);
                     }
-                    printf("\nPerfmon Overflow data END\n");
+                    // Don't change this line, as that will break 
+                    // the harness test "perfmontest"
+                    printf("Perfmon Overflow data END\n");
                 }
             }
-
-#if 0
-            // Print every now and then .. 
-            if(overflow_ctr%1000==0 && pf_data_ptr<PF_DATA_MAX) {
-                printf("IRQ #%6ld received at ip=%lx in domain=[%*s]; "
-                       "max_outstanding=%ld, recorded=%ld\n",
-                       overflow_ctr,
-                       data.ip,
-                       (int) PERFMON_DISP_NAME_LEN, 
-                       res,
-                       max_outstanding,
-                       pf_data_ptr);
-                max_outstanding = 0;
-            }
-#endif
 
         } else if (err_no(err) == LIB_ERR_NO_LMP_MSG) {
 
