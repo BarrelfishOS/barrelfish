@@ -8,6 +8,7 @@
  */
 
 #include <kernel.h>
+#include <string.h>
 #include <init.h>
 #include <exceptions.h>
 #include <exec.h>
@@ -20,10 +21,44 @@
 #include <cpiobin.h>
 #include <getopt/getopt.h>
 #include <romfs_size.h>
+#include <cp15.h>
+#include <elf/elf.h>
+#include <arm_core_data.h>
+#include <startup_arch.h>
+#include <kernel_multiboot.h>
+
+#define GEM5_RAM_SIZE	0x2000000
+
+extern errval_t early_serial_init(uint8_t port_no);
 
 
-#define INITRD_BASE			0x10000000
-#define GEM5_TOTAL_PHYSMEM	0x20000000
+/// Round up n to the next multiple of size
+#define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
+
+/**
+ * Used to store the address of global struct passed during boot across kernel
+ * relocations.
+ */
+// XXX: This won't work if this kernel is not relocated from a pristine image!
+//static uint32_t addr_global;
+
+/**
+ * \brief Kernel stack.
+ *
+ * This is the one and only kernel stack for a kernel instance.
+ */
+uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+
+/**
+ * Boot-up L1 page table for addresses up to 2GB (translated by TTBR0)
+ */
+static union arm_l1_entry boot_l1_low[ARM_L1_MAX_ENTRIES]
+__attribute__ ((aligned(ARM_L1_ALIGN)));
+/**
+ * Boot-up L1 page table for addresses >=2GB (translated by TTBR1)
+ */
+static union arm_l1_entry boot_l1_high[ARM_L1_MAX_ENTRIES]
+__attribute__ ((aligned(ARM_L1_ALIGN)));
 
 //
 // ATAG boot header declarations
@@ -128,20 +163,6 @@ struct atag {
     } u;
 };
 
-static struct atag * atag_find(struct atag *a, uint32_t tag)
-{
-    while (a->header.tag != ATAG_NONE) {
-        if (a->header.tag == tag) {
-            return a;
-        }
-        a = (struct atag*)(a->header.size + (uint32_t*)a);
-    }
-    return NULL;
-}
-
-//
-// Macros used in command-line processing
-//
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -164,110 +185,211 @@ static struct cmdarg cmdargs[] = {
     {NULL, 0, {NULL}}
 };
 
+static inline void __attribute__ ((always_inline))
+relocate_stack(lvaddr_t offset)
+{
+	__asm volatile (
+			"add	sp, sp, %[offset]\n\t" :: [offset] "r" (offset)
+		);
+}
+
+static inline void __attribute__ ((always_inline))
+relocate_got_base(lvaddr_t offset)
+{
+	__asm volatile (
+			"add	r10, r10, %[offset]\n\t" :: [offset] "r" (offset)
+		);
+}
+
+static void enable_mmu(void)
+{
+	__asm volatile (
+			"ldr    r0, =0x55555555\n\t"       // Initial domain permissions
+			"mcr    p15, 0, r0, c3, c0, 0\n\t"
+			"ldr	r1, =0x1007\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU
+			"mrc	p15, 0, r0, c1, c0, 0\n\t"	// read out system configuration register
+			"orr	r0, r0, r1\n\t"
+			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
+		);
+}
+
+static void paging_init(void)
+{
+
+
+	// configure system to use TTBR1 for VAs >= 2GB
+	uint32_t ttbcr;
+	ttbcr = cp15_read_ttbcr();
+	ttbcr |= 1;
+	cp15_write_ttbcr(ttbcr);
+
+	lvaddr_t vbase = MEMORY_OFFSET, base = 0;
+
+	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
+		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
+	{
+		// create 1:1 mapping
+		paging_map_kernel_section((uintptr_t)boot_l1_low, base, base);
+
+		// Alias the same region at MEMORY_OFFSET
+		paging_map_kernel_section((uintptr_t)boot_l1_high, vbase, base);
+
+	}
+
+	// Activate new page tables
+	cp15_write_ttbr1((lpaddr_t)&boot_l1_high[0]);
+	//cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
+	cp15_write_ttbr0((lpaddr_t)&boot_l1_low[0]);
+}
+
+void kernel_startup_early(void)
+{
+    const char *cmdline;
+    assert(glbl_core_data != NULL);
+    cmdline = MBADDR_ASSTRING(glbl_core_data->cmdline);
+    parse_commandline(cmdline, cmdargs);
+    timeslice = CONSTRAIN(timeslice, 1, 20);
+}
+
+/**
+ * \brief Continue kernel initialization in kernel address space.
+ *
+ * This function resets paging to map out low memory and map in physical
+ * address space, relocating all remaining data structures. It sets up exception handling,
+ * initializes devices and enables interrupts. After that it
+ * calls arm_kernel_startup(), which should not return (if it does, this function
+ * halts the kernel).
+ */
+static void  __attribute__ ((noinline)) text_init(void)
+{
+	errval_t errval;
+	// Relocate glbl_core_data to "memory"
+    glbl_core_data = (struct arm_core_data *)
+        local_phys_to_mem((lpaddr_t)glbl_core_data);
+
+    // Map-out low memory
+    if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
+    {
+    	struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
+    			local_phys_to_mem(glbl_core_data->mmap_addr);
+    	paging_arm_reset(mmap->base_addr, mmap->length);
+    }
+    else
+    {
+    	paging_arm_reset(0x0, GEM5_RAM_SIZE);
+    }
+
+	exceptions_init();
+
+	kernel_startup_early();
+
+	//initialize console
+	 serial_console_init(serial_console_port);
+
+	 // do not remove/change this printf: needed by regression harness
+	 printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", hal_get_board_id());
+	 printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
+
+	 errval = serial_debug_init(serial_debug_port);
+	 if (err_is_fail(errval))
+	 {
+		 printf("Failed to initialize debug port: %d", serial_debug_port);
+	 }
+
+	 my_core_id = hal_get_cpu_id();
+
+	 pic_init();
+	 pit_init(timeslice, 0);
+	 pit_init(timeslice, 1);
+	 tsc_init();
+
+	 arm_kernel_startup();
+}
+
 /**
  * Entry point called from boot.S for bootstrap processor.
+ * if is_bsp == true, then pointer points to multiboot_info
+ * else pointer points to a global struct
  */
-void arch_init(uint32_t     board_id,
-               struct atag *atag_base,
-               lvaddr_t 	ttbase,
-               lvaddr_t     alloc_top)
+
+void arch_init(void *pointer)
 {
-    //
-    // Assumptions:
-    //
-    // - MMU and caches are enabled. No lockdowns in caches or TLB.
-    // - Kernel has own section starting at KERNEL_OFFSET.
-    // - Kernel section includes the highmem relocated exception vector table.
-    //
+    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
+        (void *)local_phys_to_mem((lpaddr_t)text_init);
+
+    struct Elf32_Shdr *rela, *symtab;
+    struct arm_coredata_elf *elf = NULL;
+	early_serial_init(serial_console_port);
+
+	// XXX: print kernel address for debugging with gdb
+	printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
 
 
-    struct atag * ae = NULL;
-
-    exceptions_init();
-
-
-
-    ae = atag_find(atag_base, ATAG_MEM);
-
-    //gem5 sets ATAG_MEM to only 512MB, but we are using actually 1024MB,
-    //where the upper 512MB are for the ramdisk
-
-#ifdef __GEM5__
-    ae->u.mem.bytes = GEM5_TOTAL_PHYSMEM;
-#endif
-
-    paging_map_memory(ttbase, ae->u.mem.start, ae->u.mem.bytes);
-
-    ae = atag_find(atag_base, ATAG_CMDLINE);
-    if (ae != NULL)
+    if(hal_cpu_is_bsp())
     {
-        parse_commandline(ae->u.cmdline.cmdline, cmdargs);
-        timeslice = CONSTRAIN(timeslice, 1, 20);
+        struct multiboot_info *mb = (struct multiboot_info *)pointer;
+        elf = (struct arm_coredata_elf *)&mb->syms.elf;
+    	memset(glbl_core_data, 0, sizeof(struct arm_core_data));
+    	glbl_core_data->start_free_ram =
+    	                ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte),
+    	                         BASE_PAGE_SIZE);
+
+        glbl_core_data->mods_addr = mb->mods_addr;
+        glbl_core_data->mods_count = mb->mods_count;
+        glbl_core_data->cmdline = mb->cmdline;
+        glbl_core_data->mmap_length = mb->mmap_length;
+        glbl_core_data->mmap_addr = mb->mmap_addr;
+        glbl_core_data->multiboot_flags = mb->flags;
+    }
+    /*
+    if(hal_cpu_is_bsp()) {
+        // Construct the global structure and store its address to retrive it
+        // across relocation
+        memset(&global->locks, 0, sizeof(global->locks));
+        addr_global            = (uint32_t)global;
+    }
+	*/
+
+    // Find relocation section
+    rela = elf32_find_section_header_type((struct Elf32_Shdr *)
+    									  ((uintptr_t)elf->addr),
+    									  elf->num, SHT_REL);
+
+    if (rela == NULL) {
+        panic("Kernel image does not include relocation section!");
     }
 
-    if (board_id == hal_get_board_id())
-    {
-        errval_t errval;
+    // Find symtab section
+    symtab = elf32_find_section_header_type((struct Elf32_Shdr *)(lpaddr_t)elf->addr,
+    									  elf->num, SHT_DYNSYM);
 
-        serial_console_init(serial_console_port);
-
-        // do not remove/change this printf: needed by regression harness
-        printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", board_id);
-        printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
-
-        errval = serial_debug_init(serial_debug_port);
-        if (err_is_fail(errval))
-        {
-            printf("Failed to initialize debug port: %d", serial_debug_port);
-        }
-
-
-
-        my_core_id = hal_get_cpu_id();
-        
-        pic_init();
-        pit_init(timeslice, 0);
-        pit_init(timeslice, 1);
-        tsc_init();
-
-        ae = atag_find(atag_base, ATAG_MEM);
-                
-        // Add unused physical memory to memory map
-
-        phys_mmap_t phys_mmap;
-
-        // Kernel resides in the first 1MB, add everything above to phys_mmap
-
-        phys_mmap_add(&phys_mmap,
-        			  5*ARM_L1_SECTION_BYTES,
-                      ae->u.mem.start + ae->u.mem.bytes);
-
-        ae = atag_find(atag_base, ATAG_VIDEOLFB);
-        if (NULL != ae)
-        {
-            // Remove frame buffer (if present).
-            phys_mmap_remove(&phys_mmap,
-                             ae->u.videolfb.lfb_base,
-                             ae->u.videolfb.lfb_base + ae->u.videolfb.lfb_size);
-            assert(!"Not supported");
-        }
-
-        //ae = atag_find(atag_base, ATAG_INITRD2);
-
-        //Hardcoded because gem5 doesn't set ATAG_INITRD2
-        //Size of image is obtained by header file which is generated during compilation
-        phys_mmap_remove(&phys_mmap,
-        				 INITRD_BASE,
-        				 INITRD_BASE + romfs_cpio_archive_size);
-
-        arm_kernel_startup(&phys_mmap,
-        		INITRD_BASE,
-        		romfs_cpio_archive_size);
-
-
+    if (symtab == NULL) {
+        panic("Kernel image does not include symbol table!");
     }
-    else {
-        panic("Mis-matched board id: [current %"PRIu32", kernel %"PRIu32"]",
-              board_id, hal_get_board_id());
-    }
+
+    paging_init();
+
+    enable_mmu();
+
+    //align kernel dest to 16KB
+    lvaddr_t reloc_dest = ROUND_UP(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte, ARM_L1_ALIGN);
+
+    // Relocate kernel image for top of memory
+    elf32_relocate(reloc_dest,
+    			   (lvaddr_t)&kernel_first_byte,
+    			   (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
+    			   rela->sh_size,
+    			   (struct Elf32_Sym *)(symtab->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
+    			   symtab->sh_size,
+    			   START_KERNEL_PHYS, &kernel_first_byte);
+    /*** Aliased kernel available now -- low memory still mapped ***/
+
+    // Relocate stack to aliased location
+    relocate_stack(MEMORY_OFFSET);
+
+    //relocate got_base register to aliased location
+    relocate_got_base(MEMORY_OFFSET);
+
+    // Call aliased text_init() function and continue initialization
+    reloc_text_init();
 }

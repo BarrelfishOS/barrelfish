@@ -9,7 +9,7 @@ timeout 0
 
 title	Barrelfish
 #root	(nd)
-#kernel	/arm_gem5/sbin/cpu loglevel=4
+kernel	/arm_gem5/sbin/cpu loglevel=4
 module	/arm_gem5/sbin/cpu
 module	/arm_gem5/sbin/init
 
@@ -29,3 +29,8 @@ module /arm_gem5/sbin/startd boot
 #module	/arm_gem5/sbin/fish
 
 #module /arm_gem5/sbin/memtest
+
+# Phyiscal memory at 0MB up to 512MB 
+# (This should match the physical memory size configured
+# in the simulator, e.g. via Benchmarks.py)
+mmap map 0x0 0x20000000 1

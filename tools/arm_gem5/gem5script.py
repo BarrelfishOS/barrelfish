@@ -102,19 +102,21 @@ system.kernel = options.kernel
 
 #memory system
 system.iobus = Bus(bus_id=0)
+#system.iobus = NoncoherentBus()
 system.membus = MemBus(bus_id=1)
+#system.membus = MemBus()
 system.membus.badaddr_responder.warn_access = "warn"
 
 system.bridge = Bridge(delay='50ns', nack_delay='4ns')
 system.bridge.master = system.iobus.slave
 system.bridge.slave = system.membus.master
 
-system.physmem = SimpleMemory(range = AddrRange('256MB'),conf_table_reported = True)
+system.physmem = SimpleMemory(range = AddrRange('512MB'),conf_table_reported = True)
 
 system.mem_mode = mem_mode
 #load ramdisk at specific location (256MB = @0x10000000)
-system.ramdisk = SimpleMemory(range = AddrRange(Addr('256MB'), size = '256MB'), file=options.ramdisk)
-system.ramdisk.port = system.membus.master
+#system.ramdisk = SimpleMemory(range = AddrRange(Addr('256MB'), size = '256MB'), file=options.ramdisk)
+#system.ramdisk.port = system.membus.master
 
 #CPU(s)
 CPUClass.clock = "2GHz"

@@ -14,6 +14,7 @@
 #include <barrelfish_kpi/sys_debug.h>
 
 #include <arch/arm/arm_hal.h>
+#include <arch/arm_gem5/start_aps.h>
 
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
@@ -28,6 +29,30 @@ __attribute__((noreturn))
 void sys_syscall_kernel(void)
 {
     panic("Why is the kernel making a system call?");
+}
+
+/**
+ * \brief Spawn a new core
+ */
+struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
+                                     genvaddr_t entry)
+{
+	int r;
+	switch(cpu_type) {
+	case CPU_ARM:
+		r = start_aps_arm_start(core_id, entry);
+		if(r != 0)
+		{
+			return SYSRET(SYS_ERR_CORE_NOT_FOUND);
+		}
+		break;
+	default:
+        assert(!"Architecture not supported");
+        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
+        break;
+	}
+
+    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret
@@ -291,6 +316,19 @@ monitor_create_cap(
                                             slot, src));
 }
 
+/**
+ * \brief Spawn a new core and create a kernel cap for it.
+ */
+static struct sysret monitor_spawn_core(struct capability *kernel_cap,
+                                        int cmd, uintptr_t *args)
+{
+    coreid_t core_id       = args[0];
+    enum cpu_type cpu_type = args[1];
+    genvaddr_t entry       = args[2];
+
+    return sys_monitor_spawn_core(core_id, cpu_type, entry);
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -317,6 +355,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id] = monitor_get_arch_id,
         [KernelCmd_Register]    = monitor_handle_register,
         [KernelCmd_Create_cap]  = monitor_create_cap,
+        [KernelCmd_Spawn_core]  = monitor_spawn_core,
     }
 };
 

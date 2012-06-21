@@ -58,6 +58,9 @@ void paging_set_l2_entry(uintptr_t* l2entry, lpaddr_t paddr, uintptr_t flags);
 
 void paging_context_switch(lpaddr_t table_addr);
 
+void paging_arm_reset(lpaddr_t paddr, size_t bytes);
+
+
 // REVIEW: [2010-05-04 orion]
 // these were deprecated in churn, enabling now to get system running again.
 

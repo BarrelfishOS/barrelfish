@@ -22,11 +22,11 @@
 #include <cp15.h>
 #include <cpiobin.h>
 #include <init.h>
-#include <phys_mmap.h>
-#include <barrelfish_kpi/paging_arm_v5.h>
-#include <startup.h>
-
-//#include <romfs_size.h>
+#include <barrelfish_kpi/paging_arm_v7.h>
+#include <arm_core_data.h>
+#include <kernel_multiboot.h>
+#include <offsets.h>
+#include <startup_arch.h>
 
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
@@ -36,28 +36,24 @@
 
 #define BSP_INIT_MODULE_NAME    "arm_gem5/sbin/init"
 
-#define INIT_L1_BYTES           (ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY)
 
-#define INIT_L2_PAGES           ((INIT_SPACE_LIMIT - INIT_VBASE) / BASE_PAGE_SIZE)
-#define INIT_L2_BYTES           INIT_L2_PAGES * ARM_L2_BYTES_PER_ENTRY
 
-#define INIT_BOOTINFO_VBASE     INIT_VBASE
-#define INIT_ARGS_VBASE         (INIT_BOOTINFO_VBASE + BOOTINFO_SIZE)
-#define INIT_DISPATCHER_VBASE   (INIT_ARGS_VBASE + ARGS_SIZE)
-
-#define INIT_PERM_RO            (ARM_L2_SMALL_CACHEABLE  | \
-                                 ARM_L2_SMALL_BUFFERABLE | \
-                                 ARM_L2_SMALL_USR_RO)
-
-#define INIT_PERM_RW            (ARM_L2_SMALL_CACHEABLE  | \
-                                 ARM_L2_SMALL_BUFFERABLE | \
-                                 ARM_L2_SMALL_USR_RW)
-
-static phys_mmap_t* g_phys_mmap;        // Physical memory map
-static uintptr_t* init_l1;              // L1 page table for init
-static uintptr_t* init_l2;              // L2 page tables for init
+//static phys_mmap_t* g_phys_mmap;        // Physical memory map
+static union arm_l1_entry * init_l1;              // L1 page table for init
+static union arm_l2_entry * init_l2;              // L2 page tables for init
 
 static struct spawn_state spawn_state;
+
+/// Pointer to bootinfo structure for init
+struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
+
+/**
+ * Each kernel has a local copy of global and locks. However, during booting and
+ * kernel relocation, these are set to point to global of the pristine kernel,
+ * so that all the kernels can share it.
+ */
+//static  struct global myglobal;
+//struct global *global = &myglobal;
 
 static inline uintptr_t round_up(uintptr_t value, size_t unit)
 {
@@ -73,27 +69,61 @@ static inline uintptr_t round_down(uintptr_t value, size_t unit)
     return value & ~m;
 }
 
-static lpaddr_t alloc_phys_aligned(size_t bytes, size_t align)
+// Physical memory allocator for spawn_app_init
+static lpaddr_t app_alloc_phys_start, app_alloc_phys_end;
+static lpaddr_t app_alloc_phys(size_t size)
 {
-    bytes = round_up(bytes, align);
-    lpaddr_t a = phys_mmap_alloc(g_phys_mmap, bytes, align);
-    assert(0 == (a & (align - 1)));
-    return a;
+    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
+
+
+    lpaddr_t addr = app_alloc_phys_start;
+    app_alloc_phys_start += npages * BASE_PAGE_SIZE;
+
+    if (app_alloc_phys_start >= app_alloc_phys_end) {
+        panic("Out of memory, increase CORE_DATA_PAGES");
+    }
+
+    return addr;
 }
 
-static lpaddr_t alloc_phys(size_t bytes)
+static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
 {
-    return alloc_phys_aligned(bytes, BASE_PAGE_SIZE);
+	app_alloc_phys_start = round_up(app_alloc_phys_start, align);
+	return app_alloc_phys(size);
 }
 
-static lvaddr_t alloc_mem_aligned(size_t bytes, size_t align)
+/**
+ * The address from where bsp_alloc_phys will start allocating memory
+ */
+static lpaddr_t bsp_init_alloc_addr = 0;
+
+/**
+ * \brief Linear physical memory allocator.
+ *
+ * This function allocates a linear region of addresses of size 'size' from
+ * physical memory.
+ *
+ * \param size  Number of bytes to allocate.
+ *
+ * \return Base physical address of memory region.
+ */
+static lpaddr_t bsp_alloc_phys(size_t size)
 {
-    return local_phys_to_mem(alloc_phys_aligned(bytes, align));
+    // round to base page size
+    uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
+
+    assert(bsp_init_alloc_addr != 0);
+
+    lpaddr_t addr = bsp_init_alloc_addr;
+
+    bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
+    return addr;
 }
 
-static lvaddr_t alloc_mem(size_t bytes)
+static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
 {
-    return local_phys_to_mem(alloc_phys_aligned(bytes, BASE_PAGE_SIZE));
+	bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
+	return bsp_alloc_phys(size);
 }
 
 /**
@@ -108,7 +138,7 @@ static lvaddr_t alloc_mem(size_t bytes)
  * @param l2_flags      ARM L2 small page flags for mapped pages.
  */
 static void
-spawn_init_map(uintptr_t* l2_table,
+spawn_init_map(union arm_l2_entry* l2_table,
                lvaddr_t   l2_base,
                lvaddr_t   va_base,
                lpaddr_t   pa_base,
@@ -125,7 +155,7 @@ spawn_init_map(uintptr_t* l2_table,
 
     while (bi < li)
     {
-        paging_set_l2_entry(&l2_table[bi], pa_base, l2_flags);
+        paging_set_l2_entry((uintptr_t *)&l2_table[bi], pa_base, l2_flags);
         pa_base += BASE_PAGE_SIZE;
         bi++;
     }
@@ -150,7 +180,7 @@ static uint32_t elf_to_l2_flags(uint32_t eflags)
 
 struct startup_l2_info
 {
-    uintptr_t* l2_table;
+    union arm_l2_entry* l2_table;
     lvaddr_t   l2_base;
 };
 
@@ -170,8 +200,13 @@ startup_alloc_init(
     lvaddr_t lv = round_up((lvaddr_t)gvbase + bytes, BASE_PAGE_SIZE);
     lpaddr_t pa;
 
-    STARTUP_PROGRESS();
-    if (lv > sv && ((pa = alloc_phys(lv - sv)) != 0))
+    //STARTUP_PROGRESS();
+    if(hal_cpu_is_bsp())
+    	pa = bsp_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
+    else
+    	pa = app_alloc_phys_aligned((lv - sv), BASE_PAGE_SIZE);
+
+    if (lv > sv && (pa != 0))
     {
         spawn_init_map(s2i->l2_table, s2i->l2_base, sv,
                        pa, lv - sv, elf_to_l2_flags(flags));
@@ -187,35 +222,35 @@ startup_alloc_init(
 static void
 load_init_image(
     struct startup_l2_info* l2i,
-    const uint8_t*          initrd_base,
-    size_t                  initrd_bytes,
-    genvaddr_t*             init_ep,
-    genvaddr_t*             got_base
+    const char *name,
+    genvaddr_t* init_ep,
+    genvaddr_t* got_base
     )
 {
-    const uint8_t* elf_base;
+    lvaddr_t elf_base;
     size_t elf_bytes;
-    int found;
+    errval_t err;
 
-    STARTUP_PROGRESS();
+
     *init_ep = *got_base = 0;
 
-    found = cpio_get_file_by_name(initrd_base,
-                                  initrd_bytes,
-                                  BSP_INIT_MODULE_NAME,
-                                  &elf_base, &elf_bytes);
-    if (!found)
-    {
-        panic("Failed to find " BSP_INIT_MODULE_NAME "\n");
+    /* Load init ELF32 binary */
+    struct multiboot_modinfo *module = multiboot_find_module(name);
+    if (module == NULL) {
+    	panic("Could not find init module!");
     }
 
-    debug(SUBSYS_STARTUP, "load_init_image %p %08x\n", initrd_base, initrd_bytes);
+    elf_base =  local_phys_to_mem(module->mod_start);
+    elf_bytes = MULTIBOOT_MODULE_SIZE(*module);
 
-    errval_t err = elf_load(EM_ARM, startup_alloc_init, l2i,
-                            (lvaddr_t)elf_base, elf_bytes, init_ep);
-    if (err_is_fail(err))
-    {
-        panic("ELF load of " BSP_INIT_MODULE_NAME " failed!\n");
+    debug(SUBSYS_STARTUP, "load_init_image %p %08x\n", elf_base, elf_bytes);
+    //printf("load_init_image %p %08x\n", elf_base, elf_bytes);
+
+    err = elf_load(EM_ARM, startup_alloc_init, l2i,
+    		elf_base, elf_bytes, init_ep);
+    if (err_is_fail(err)) {
+    	//err_print_calltrace(err);
+    	panic("ELF load of " BSP_INIT_MODULE_NAME " failed!\n");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
@@ -227,329 +262,370 @@ load_init_image(
     }
 }
 
-static void
-create_modules_from_initrd(struct bootinfo* bi,
-                           const uint8_t*   initrd_base,
-                           size_t           initrd_bytes)
+/// Setup the module cnode, which contains frame caps to all multiboot modules
+void create_module_caps(struct spawn_state *st)
 {
     errval_t err;
-    lvaddr_t mmstrings_base = 0;
-    lvaddr_t mmstrings      = 0;
 
-    // CPIO archive is crafted such that first file is
-    // command-line strings for "modules" - ie menu.lst. The
-    // subsequent file follow in the order they appear in
-    // menu.lst.arm.
-    const uint8_t* data;
-    size_t bytes;
+    /* Create caps for multiboot modules */
+    struct multiboot_modinfo *module =
+        (struct multiboot_modinfo *)local_phys_to_mem(glbl_core_data->mods_addr);
 
-    if (cpio_get_file_by_name(initrd_base, initrd_bytes,
-                              "arm_gem5/menu.lst.modules",
-                              &data, &bytes))
-    {
-        assert(bytes < BASE_PAGE_SIZE);
+    // Allocate strings area
+    lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
+    lvaddr_t mmstrings_base = local_phys_to_mem(mmstrings_phys);
+    lvaddr_t mmstrings = mmstrings_base;
 
-        mmstrings_base = alloc_mem(BASE_PAGE_SIZE);
-        mmstrings      = mmstrings_base;
-
-        STARTUP_PROGRESS();
-
-        // Create cap for strings area in first slot of modulecn
-        err = caps_create_new(
-                  ObjType_Frame,
-                  mem_to_local_phys(mmstrings_base),
-                  BASE_PAGE_BITS, BASE_PAGE_BITS,
-                  caps_locate_slot(
-                      CNODE(spawn_state.modulecn),
-                      spawn_state.modulecn_slot++)
-                  );
-        assert(err_is_ok(err));
-
-        STARTUP_PROGRESS();
-
-        // Copy strings from file into allocated page
-        memcpy((void*)mmstrings_base, data, bytes);
-        ((char*)mmstrings_base)[bytes] = '\0';
-
-        STARTUP_PROGRESS();
-
-        // Skip first line (corresponds to bootscript in archive)
-        strtok((char*)mmstrings_base, "\r\n");
-
-        STARTUP_PROGRESS();
-
-        assert(bi->regions_length == 0);
-        int ord = 1;
-        const char* name;
-        while ((mmstrings = (lvaddr_t)strtok(NULL, "\r\n")) != 0)
-        {
-            if (!cpio_get_file_by_ordinal(initrd_base, initrd_bytes, ord,
-                                          &name, &data, &bytes))
-            {
-                panic("Failed to find file\n");
-            }
-            ord++;
-
-            debug(SUBSYS_STARTUP,
-                  "Creating caps for \"%s\" (Command-line \"%s\")\n",
-                   name, (char*)mmstrings);
-
-            // Copy file from archive into RAM.
-            // TODO: Give up archive space.
-            size_t   pa_bytes = round_up(bytes, BASE_PAGE_SIZE);
-            lpaddr_t pa       = alloc_phys(pa_bytes);
-            memcpy((void*)local_phys_to_mem(pa), data, bytes);
-
-            struct mem_region* region = &bi->regions[bi->regions_length++];
-            region->mr_type    = RegionType_Module;
-            region->mrmod_slot = spawn_state.modulecn_slot;
-            region->mrmod_size = pa_bytes;
-            region->mrmod_data = mmstrings - mmstrings_base;
-
-            assert((pa & BASE_PAGE_MASK) == 0);
-            assert((pa_bytes & BASE_PAGE_MASK) == 0);
-
-            while (pa_bytes != 0)
-            {
-                assert(spawn_state.modulecn_slot
-                       < (1UL << spawn_state.modulecn->cap.u.cnode.bits));
-                // create as DevFrame cap to avoid zeroing memory contents
-                err = caps_create_new(
-                          ObjType_DevFrame, pa, BASE_PAGE_BITS,
+    // create cap for strings area in first slot of modulecn
+    assert(st->modulecn_slot == 0);
+    err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_BITS,
                           BASE_PAGE_BITS,
-                          caps_locate_slot(
-                              CNODE(spawn_state.modulecn),
-                              spawn_state.modulecn_slot++)
-                          );
-                assert(err_is_ok(err));
-                pa       += BASE_PAGE_SIZE;
-                pa_bytes -= BASE_PAGE_SIZE;
-            }
+                          caps_locate_slot(CNODE(st->modulecn),
+                                           st->modulecn_slot++));
+    assert(err_is_ok(err));
+
+    /* Walk over multiboot modules, creating frame caps */
+    for (int i = 0; i < glbl_core_data->mods_count; i++) {
+        struct multiboot_modinfo *m = &module[i];
+
+        // Set memory regions within bootinfo
+        struct mem_region *region =
+            &bootinfo->regions[bootinfo->regions_length++];
+
+        genpaddr_t remain = MULTIBOOT_MODULE_SIZE(*m);
+        genpaddr_t base_addr = local_phys_to_gen_phys(m->mod_start);
+
+        region->mr_type = RegionType_Module;
+        region->mr_base = base_addr;
+        region->mrmod_slot = st->modulecn_slot;  // first slot containing caps
+        region->mrmod_size = remain;  // size of image _in bytes_
+        region->mrmod_data = mmstrings - mmstrings_base; // offset of string in area
+
+        // round up to page size for caps
+        remain = ROUND_UP(remain, BASE_PAGE_SIZE);
+
+        // Create max-sized caps to multiboot module in module cnode
+        while (remain > 0) {
+            assert((base_addr & BASE_PAGE_MASK) == 0);
+            assert((remain & BASE_PAGE_MASK) == 0);
+
+            // determine size of next chunk
+            uint8_t block_size = bitaddralign(remain, base_addr);
+
+            assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
+            // create as DevFrame cap to avoid zeroing memory contents
+            err = caps_create_new(ObjType_DevFrame, base_addr, block_size,
+                                  block_size,
+                                  caps_locate_slot(CNODE(st->modulecn),
+                                                   st->modulecn_slot++));
+            assert(err_is_ok(err));
+
+            // Advance by that chunk
+            base_addr += ((genpaddr_t)1 << block_size);
+            remain -= ((genpaddr_t)1 << block_size);
         }
-    }
-    else
-    {
-        panic("No command-line file.\n");
+
+        // Copy multiboot module string to mmstrings area
+        strcpy((char *)mmstrings, MBADDR_ASSTRING(m->string));
+        mmstrings += strlen(MBADDR_ASSTRING(m->string)) + 1;
+        assert(mmstrings < mmstrings_base + BASE_PAGE_SIZE);
     }
 }
 
 /// Create physical address range or RAM caps to unused physical memory
-static void
-create_phys_caps(struct capability *physaddrcn_cap, struct bootinfo* bi)
+static void create_phys_caps(lpaddr_t init_alloc_addr)
 {
-    STARTUP_PROGRESS();
-    int i;
-    for (i = 0; i < g_phys_mmap->region_count; i++)
+	errval_t err;
+
+	/* Walk multiboot MMAP structure, and create appropriate caps for memory */
+	char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
+	genpaddr_t last_end_addr = 0;
+
+	for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;)
+	{
+		struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
+
+		debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
+				mmap->base_addr, mmap->base_addr + mmap->length,
+				mmap->type);
+
+		if (last_end_addr >= init_alloc_addr
+				&& mmap->base_addr > last_end_addr)
+		{
+			/* we have a gap between regions. add this as a physaddr range */
+			debug(SUBSYS_STARTUP, "physical address range %llx--%llx\n",
+					last_end_addr, mmap->base_addr);
+
+			err = create_caps_to_cnode(last_end_addr,
+					mmap->base_addr - last_end_addr,
+					RegionType_PhyAddr, &spawn_state, bootinfo);
+			assert(err_is_ok(err));
+		}
+
+		if (mmap->type == MULTIBOOT_MEM_TYPE_RAM)
+		{
+			genpaddr_t base_addr = mmap->base_addr;
+			genpaddr_t end_addr  = base_addr + mmap->length;
+
+			// only map RAM which is greater than init_alloc_addr
+			if (end_addr > local_phys_to_gen_phys(init_alloc_addr))
+			{
+				if (base_addr < local_phys_to_gen_phys(init_alloc_addr)) {
+					base_addr = local_phys_to_gen_phys(init_alloc_addr);
+				}
+				debug(SUBSYS_STARTUP, "RAM %llx--%llx\n", base_addr, end_addr);
+
+				assert(end_addr >= base_addr);
+				err = create_caps_to_cnode(base_addr, end_addr - base_addr,
+						RegionType_Empty, &spawn_state, bootinfo);
+				assert(err_is_ok(err));
+			}
+		}
+		else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr))
+		{
+			/* XXX: The multiboot spec just says that mapping types other than
+			 * RAM are "reserved", but GRUB always maps the ACPI tables as type
+			 * 3, and things like the IOAPIC tend to show up as type 2 or 4,
+			 * so we map all these regions as platform data
+			 */
+			debug(SUBSYS_STARTUP, "platform %llx--%llx\n", mmap->base_addr,
+					mmap->base_addr + mmap->length);
+			assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
+			err = create_caps_to_cnode(mmap->base_addr, mmap->length,
+					RegionType_PlatformData, &spawn_state, bootinfo);
+			assert(err_is_ok(err));
+		}
+        last_end_addr = mmap->base_addr + mmap->length;
+        m += mmap->size + 4;
+	}
+
+    // Assert that we have some physical address space
+    assert(last_end_addr != 0);
+
+    if (last_end_addr < PADDR_SPACE_SIZE)
     {
-        // TODO: Add RegionType_PhyAddr entries for memory mapped I/O
-        // regions.
-        const phys_region_t* r = &g_phys_mmap->regions[i];
-        if (r->limit - r->start >= BASE_PAGE_SIZE) {
-            create_caps_to_cnode(r->start, r->limit - r->start,
-                                 RegionType_Empty, &spawn_state, bi);
-        }
+    	/*
+    	 * FIXME: adding the full range results in too many caps to add
+    	 * to the cnode (and we can't handle such big caps in user-space
+    	 * yet anyway) so instead we limit it to something much smaller
+    	 */
+    	genpaddr_t size = PADDR_SPACE_SIZE - last_end_addr;
+    	const genpaddr_t phys_region_limit = 1ULL << 32; // PCI implementation limit
+    	if (last_end_addr > phys_region_limit) {
+    		size = 0; // end of RAM is already too high!
+    	} else if (last_end_addr + size > phys_region_limit) {
+    		size = phys_region_limit - last_end_addr;
+    	}
+    	debug(SUBSYS_STARTUP, "end physical address range %llx--%llx\n",
+    			last_end_addr, last_end_addr + size);
+    	err = create_caps_to_cnode(last_end_addr, size,
+    			RegionType_PhyAddr, &spawn_state, bootinfo);
+    	assert(err_is_ok(err));
     }
-    g_phys_mmap->region_count = 0;
-    STARTUP_PROGRESS();
 }
 
-static void __attribute__ ((noreturn))
-spawn_init(const char*      name,
-           int32_t          kernel_id,
-           const uint8_t*   initrd_base,
-           size_t           initrd_bytes)
+static void init_page_tables(void)
 {
-    assert(0 == kernel_id);
+	// Create page table for init
+	if(hal_cpu_is_bsp())
+	{
+		init_l1 =  (union arm_l1_entry *)local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L1_BYTES, ARM_L1_ALIGN));
+		memset(init_l1, 0, INIT_L1_BYTES);
 
-    // Create page table for init
+		init_l2 = (union arm_l2_entry *)local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L2_BYTES, ARM_L2_ALIGN));
+		memset(init_l2, 0, INIT_L2_BYTES);
+	}
+	else
+	{
+		init_l1 =  (union arm_l1_entry *)local_phys_to_mem(app_alloc_phys_aligned(INIT_L1_BYTES, ARM_L1_ALIGN));
+		memset(init_l1, 0, INIT_L1_BYTES);
 
-    init_l1 =  (uintptr_t*)alloc_mem_aligned(INIT_L1_BYTES, ARM_L1_ALIGN);
-    memset(init_l1, 0, INIT_L1_BYTES);
+		init_l2 = (union arm_l2_entry *)local_phys_to_mem(app_alloc_phys_aligned(INIT_L2_BYTES, ARM_L2_ALIGN));
+		memset(init_l2, 0, INIT_L2_BYTES);
+	}
 
-    init_l2 = (uintptr_t*)alloc_mem_aligned(INIT_L2_BYTES, ARM_L2_ALIGN);
-    memset(init_l2, 0, INIT_L2_BYTES);
 
-    STARTUP_PROGRESS();
+	/* Map pagetables into page CN */
+	int pagecn_pagemap = 0;
 
-    /* Allocate bootinfo */
-    lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
-    memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
+	/*
+	 * ARM has:
+	 *
+	 * L1 has 4096 entries (16KB).
+	 * L2 Coarse has 256 entries (256 * 4B = 1KB).
+	 *
+	 * CPU driver currently fakes having 1024 entries in L1 and
+	 * L2 with 1024 entries by treating a page as 4 consecutive
+	 * L2 tables and mapping this as a unit in L1.
+	 */
+	caps_create_new(
+			ObjType_VNode_ARM_l1,
+			mem_to_local_phys((lvaddr_t)init_l1),
+			vnode_objbits(ObjType_VNode_ARM_l1), 0,
+			caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+	);
 
-    STARTUP_PROGRESS();
+	//STARTUP_PROGRESS();
 
-    /* Construct cmdline args */
-    char bootinfochar[16];
-    snprintf(bootinfochar, sizeof(bootinfochar), "%u", INIT_BOOTINFO_VBASE);
-    const char *argv[] = { "init", bootinfochar };
+	// Map L2 into successive slots in pagecn
+	size_t i;
+	for (i = 0; i < INIT_L2_BYTES / BASE_PAGE_SIZE; i++) {
+		size_t objbits_vnode = vnode_objbits(ObjType_VNode_ARM_l2);
+		assert(objbits_vnode == BASE_PAGE_BITS);
+		caps_create_new(
+				ObjType_VNode_ARM_l2,
+				mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
+				objbits_vnode, 0,
+				caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+		);
+	}
 
-    lvaddr_t paramaddr;
-    struct dcb *init_dcb = spawn_module(&spawn_state, name,
-                                        ARRAY_LENGTH(argv), argv,
-                                        bootinfo_phys, INIT_ARGS_VBASE,
-                                        alloc_phys, &paramaddr);
+	/*
+	 * Initialize init page tables - this just wires the L1
+	 * entries through to the corresponding L2 entries.
+	 */
+	STATIC_ASSERT(0 == (INIT_VBASE % ARM_L1_SECTION_BYTES), "");
+	for (lvaddr_t vaddr = INIT_VBASE; vaddr < INIT_SPACE_LIMIT; vaddr += ARM_L1_SECTION_BYTES)
+	{
+		uintptr_t section = (vaddr - INIT_VBASE) / ARM_L1_SECTION_BYTES;
+		uintptr_t l2_off = section * ARM_L2_TABLE_BYTES;
+		lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l2) + l2_off;
+		paging_map_user_pages_l1((lvaddr_t)init_l1, vaddr, paddr);
+	}
 
-    STARTUP_PROGRESS();
+	paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
+}
+
+static struct dcb *spawn_init_common(const char *name,
+                                     int argc, const char *argv[],
+                                     lpaddr_t bootinfo_phys,
+                                     alloc_phys_func alloc_phys)
+{
+	lvaddr_t paramaddr;
+	struct dcb *init_dcb = spawn_module(&spawn_state, name,
+										argc, argv,
+										bootinfo_phys, INIT_ARGS_VBASE,
+										alloc_phys, &paramaddr);
+
+	init_page_tables();
+
+    init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l1);
+
+	spawn_init_map(init_l2, INIT_VBASE, INIT_ARGS_VBASE,
+	                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
 
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_arm *disp_arm
         = get_dispatcher_shared_arm(init_dcb->disp);
-    assert(NULL != disp);
-
-    STARTUP_PROGRESS();
 
     /* Initialize dispatcher */
+    disp->disabled = true;
+    strncpy(disp->name, argv[0], DISP_NAME_LEN);
+
+    /* tell init the vspace addr of its dispatcher */
     disp->udisp = INIT_DISPATCHER_VBASE;
 
-    STARTUP_PROGRESS();
-    init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l1);
-
-    STARTUP_PROGRESS();
-
-    /* Page table setup */
-
-    /* Map pagetables into page CN */
-    int pagecn_pagemap = 0;
-
-    /*
-     * ARM has:
-     *
-     * L1 has 4096 entries (16KB).
-     * L2 Coarse has 256 entries (256 * 4B = 1KB).
-     *
-     * CPU driver currently fakes having 1024 entries in L1 and
-     * L2 with 1024 entries by treating a page as 4 consecutive
-     * L2 tables and mapping this as a unit in L1.
-     */
-    caps_create_new(
-        ObjType_VNode_ARM_l1,
-        mem_to_local_phys((lvaddr_t)init_l1),
-            vnode_objbits(ObjType_VNode_ARM_l1), 0,
-            caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
-        );
-
-    STARTUP_PROGRESS();
-
-    // Map L2 into successive slots in pagecn
-    size_t i;
-    for (i = 0; i < INIT_L2_BYTES / BASE_PAGE_SIZE; i++) {
-        size_t objbits_vnode = vnode_objbits(ObjType_VNode_ARM_l2);
-        assert(objbits_vnode == BASE_PAGE_BITS);
-        caps_create_new(
-            ObjType_VNode_ARM_l2,
-            mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
-            objbits_vnode, 0,
-            caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
-            );
-    }
-
-    /*
-     * Initialize init page tables - this just wires the L1
-     * entries through to the corresponding L2 entries.
-     */
-    STATIC_ASSERT(0 == (INIT_VBASE % ARM_L1_SECTION_BYTES), "");
-    for (lvaddr_t vaddr = INIT_VBASE; vaddr < INIT_SPACE_LIMIT; vaddr += ARM_L1_SECTION_BYTES)
-    {
-        uintptr_t section = (vaddr - INIT_VBASE) / ARM_L1_SECTION_BYTES;
-        uintptr_t l2_off = section * ARM_L2_TABLE_BYTES;
-        lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l2) + l2_off;
-        paging_map_user_pages_l1((lvaddr_t)init_l1, vaddr, paddr);
-    }
-
-    paging_make_good((lvaddr_t)init_l1, INIT_L1_BYTES);
-
-    STARTUP_PROGRESS();
-
-    //printf("XXX: Debug print to make Bram's code work\n");
-
-    paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
-
-    STARTUP_PROGRESS();
-
-    // Map cmdline arguments in VSpace at ARGS_BASE
-    STATIC_ASSERT(0 == (ARGS_SIZE % BASE_PAGE_SIZE), "");
-
-    STARTUP_PROGRESS();
-
-    spawn_init_map(init_l2, INIT_VBASE, INIT_ARGS_VBASE,
-                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
-
-    STARTUP_PROGRESS();
-
-    // Map bootinfo
-    spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,
-                   bootinfo_phys, BOOTINFO_SIZE  , INIT_PERM_RW);
-
-    struct startup_l2_info l2_info = { init_l2, INIT_VBASE };
-
-    genvaddr_t init_ep, got_base;
-    load_init_image(&l2_info, initrd_base, initrd_bytes, &init_ep, &got_base);
-
-    // Set startup arguments (argc, argv)
     disp_arm->enabled_save_area.named.r0   = paramaddr;
     disp_arm->enabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->enabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-    disp_arm->enabled_save_area.named.r10  = got_base;
 
+    return init_dcb;
+}
+
+struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+{
+	/* Only the first core can run this code */
+	assert(hal_cpu_is_bsp());
+
+	/* Allocate bootinfo */
+	lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
+	memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
+
+	/* Construct cmdline args */
+	char bootinfochar[16];
+	snprintf(bootinfochar, sizeof(bootinfochar), "%u", INIT_BOOTINFO_VBASE);
+	const char *argv[] = { "init", bootinfochar };
+	int argc = 2;
+
+	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys, alloc_phys);
+
+	// Map bootinfo
+	spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,
+			bootinfo_phys, BOOTINFO_SIZE  , INIT_PERM_RW);
+
+	struct startup_l2_info l2_info = { init_l2, INIT_VBASE };
+
+	genvaddr_t init_ep, got_base;
+	load_init_image(&l2_info, BSP_INIT_MODULE_NAME, &init_ep, &got_base);
+
+    struct dispatcher_shared_arm *disp_arm
+        = get_dispatcher_shared_arm(init_dcb->disp);
+    disp_arm->enabled_save_area.named.r10  = got_base;
     disp_arm->got_base = got_base;
 
-    struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
-    bootinfo->regions_length = 0;
+    disp_arm->disabled_save_area.named.pc   = init_ep;
+    disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
+    disp_arm->disabled_save_area.named.r10  = got_base;
 
-    STARTUP_PROGRESS();
+    /* Create caps for init to use */
+    create_module_caps(&spawn_state);
+    lpaddr_t init_alloc_end = alloc_phys(0); // XXX
+    create_phys_caps(init_alloc_end);
 
-    create_modules_from_initrd(bootinfo, initrd_base, initrd_bytes);
-
-    STARTUP_PROGRESS();
-    create_phys_caps(&spawn_state.physaddrcn->cap, bootinfo);
-
-    STARTUP_PROGRESS();
-
-    bootinfo->mem_spawn_core  = ~0;     // Size of kernel if bringing up others
+    /* Fill bootinfo struct */
+    bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel
 
     // Map dispatcher
     spawn_init_map(init_l2, INIT_VBASE, INIT_DISPATCHER_VBASE,
                    mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
                    INIT_PERM_RW);
-
-    STARTUP_PROGRESS();
-
-    // NB libbarrelfish initialization sets up the stack.
-    disp_arm->disabled_save_area.named.pc   = init_ep;
-    disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-    disp_arm->disabled_save_area.named.r10  = got_base;
 
-#ifdef __XSCALE__
-    cp15_disable_cache();
-#endif
-
-    printf("Kernel ready.\n");
-
-    pit_start(0);
-
-    // On to userland...
-    STARTUP_PROGRESS();
-    dispatch(init_dcb);
-    
-    panic("Not reached.");
+    return init_dcb;
 }
 
-void arm_kernel_startup(phys_mmap_t* mmap,
-                        lpaddr_t     initrd_base,
-                        size_t       initrd_bytes)
+struct dcb *spawn_app_init(struct arm_core_data *core_data,
+                           const char *name, alloc_phys_func alloc_phys)
 {
-    g_phys_mmap = mmap;
+	//panic("Multi-core not yet support on ARM");
+	return NULL;
+}
 
-    STARTUP_PROGRESS();
+void arm_kernel_startup(void)
+{
+    /* Initialize the core_data */
+    /* Used when bringing up other cores, must be at consistent global address
+     * seen by all cores */
+    struct arm_core_data *core_data
+    = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
 
+    struct dcb *init_dcb;
 
-    const uint8_t* initrd_cpio_base = (uint8_t*)local_phys_to_mem(initrd_base);
-
-    if (!cpio_archive_valid(initrd_cpio_base, initrd_bytes))
+    if(hal_cpu_is_bsp())
     {
-         panic("Invalid initrd filesystem\n");
+    	/* Initialize the location to allocate phys memory from */
+    	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
+
+    	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
+
+        pit_start(0);
+
+    }
+    else
+    {
+    	my_core_id = core_data->dst_core_id;
+
+    	/* Initialize the allocator */
+    	app_alloc_phys_start = core_data->memory_base_start;
+    	app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
+    			app_alloc_phys_start;
+
+    	init_dcb = spawn_app_init(core_data, BSP_INIT_MODULE_NAME, app_alloc_phys);
     }
 
-    spawn_init(BSP_INIT_MODULE_NAME, 0, initrd_cpio_base, initrd_bytes);
+    // Should not return
+    dispatch(init_dcb);
+    panic("Error spawning init!");
+
 }

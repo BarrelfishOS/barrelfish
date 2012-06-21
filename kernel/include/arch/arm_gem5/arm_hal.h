@@ -21,6 +21,8 @@
 #ifndef __ARM_HAL_H__
 #define __ARM_HAL_H__
 
+#include <barrelfish_kpi/types.h>
+
 /**
  * @return Unique 32-bit identifier associated with current board.
  */
@@ -43,6 +45,7 @@ void 	 pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
 void     pic_disable_all_irqs(void);
 uint32_t pic_get_active_irq(void);
 void     pic_ack_irq(uint32_t irq);
+void 	 pic_raise_softirq(uint8_t cpumask, uint8_t irq);
 
 //void     pit_init(uint32_t tick_hz);
 void 	 pit_init(uint32_t tick_hz, uint8_t pit_id);
@@ -53,6 +56,9 @@ void     pit_mask_irq(bool masked, uint8_t pit_id);
 void     tsc_init(void);
 uint32_t tsc_read(void);
 uint32_t tsc_get_hz(void);
+
+void 	scu_enable(void);
+int		scu_get_core_count(void);
 
 /* [2009-11-17 orion] TODO: device enumeration */
 

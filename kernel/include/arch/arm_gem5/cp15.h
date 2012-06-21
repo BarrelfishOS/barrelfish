@@ -50,18 +50,44 @@ static inline uint32_t cp15_read_far(void)
     return addr;
 }
 
-static inline lpaddr_t cp15_read_ttbr(void)
+static inline lpaddr_t cp15_read_ttbr0(void)
 {
     lpaddr_t ttbr;
     __asm volatile(" mrc  p15, 0, %[ttbr], c2, c0, 0" : [ttbr] "=r" (ttbr));
     return ttbr;
 }
 
-static inline void cp15_write_ttbr(lpaddr_t ttbr)
+static inline lpaddr_t cp15_read_ttbr1(void)
+{
+    lpaddr_t ttbr;
+    __asm volatile(" mrc  p15, 0, %[ttbr], c2, c0, 1" : [ttbr] "=r" (ttbr));
+    return ttbr;
+}
+
+static inline void cp15_write_ttbr0(lpaddr_t ttbr)
 {
     __asm volatile(" mcr  p15, 0, %[ttbr], c2, c0, 0" :: [ttbr] "r" (ttbr));
 }
 
+static inline void cp15_write_ttbr1(lpaddr_t ttbr)
+{
+    __asm volatile(" mcr  p15, 0, %[ttbr], c2, c0, 1" :: [ttbr] "r" (ttbr));
+}
+
+static inline uint32_t cp15_read_ttbcr(void)
+{
+	uint32_t ttbcr;
+	__asm volatile ("mrc p15, 0, %[ttbcr], c2, c0, 2" : [ttbcr] "=r" (ttbcr));
+	return ttbcr;
+}
+
+static inline void cp15_write_ttbcr(uint32_t ttbcr)
+{
+	__asm volatile ("mcr p15, 0, %[ttbcr], c2, c0, 2" :: [ttbcr] "r" (ttbcr));
+}
+
+//XXX: Must be changed for ARMv7/Cortex-A9, but gem5 handles cache on its own
+//     -> no need to do anything here for gem5
 /*
  * IXP2800_Hardware_Reference_Manual, p.94 i-cache
  * IXP2800_Hardware_Reference_Manual, p.105 D-cache
@@ -117,6 +143,17 @@ static inline void cp15_disable_cache(void){
 static inline void cp15_invalidate_tlb(void)
 {
     __asm volatile(" mcr  p15, 0, r0, c8, c7, 0");
+}
+
+static inline uint8_t cp15_get_cpu_id(void) {
+	uint8_t cpu_id;
+	__asm volatile(
+			"mrc 	p15, 0, %[cpu_id], c0, c0, 5\n\t" 			// get the MPIDR register
+			"and	%[cpu_id], %[cpu_id], #0xF\n\t"
+			:[cpu_id] "=r" (cpu_id)
+		);
+
+	return cpu_id;
 }
 
 #endif // __CP15_H__

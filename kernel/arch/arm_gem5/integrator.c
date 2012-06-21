@@ -15,24 +15,29 @@
 #include <dev/sp804_pit_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
 #include <dev/arm_icp_pit_dev.h>
+#include <dev/a9scu_dev.h>
 
 #include <pl011_uart.h>
 #include <serial.h>
 #include <arm_hal.h>
+#include <cp15.h>
 
+//hardcoded bc gem5 doesn't set board id in ID_Register
+#define VEXPRESS_ELT_BOARD_ID		0x8e0
 uint32_t hal_get_board_id(void)
 {
-    return 0x8e0;
+    return VEXPRESS_ELT_BOARD_ID;
 }
 
 uint8_t hal_get_cpu_id(void)
 {
-    return 0;
+    return cp15_get_cpu_id();
 }
 
+//Gem5 ensures that cpu0 is always BSP, this probably also holds in general
 bool hal_cpu_is_bsp(void)
 {
-    return true;
+    return cp15_get_cpu_id() == 0;
 }
 
 // clock rate hardcoded to 2GHz
@@ -55,7 +60,7 @@ static uint8_t sec_extn_implemented;
 
 void pic_init(void)
 {
-	lvaddr_t pic_base = paging_map_device(PIC_BASE, 0x100000);
+	lvaddr_t pic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
 	pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
 						(mackerel_addr_t)pic_base + CPU_OFFSET);
 
@@ -269,6 +274,12 @@ uint32_t pic_get_active_irq(void)
 	return regval;
 }
 
+void pic_raise_softirq(uint8_t cpumask, uint8_t irq)
+{
+	uint32_t regval = (cpumask << 16) | irq;
+	pl130_gic_ICDSGIR_wr(&pic, regval);
+}
+
 /*
 uint32_t pic_get_active_irq(void)
 {
@@ -311,7 +322,7 @@ static lvaddr_t pit_map_resources(void)
 {
     static lvaddr_t timer_base = 0;
     if (timer_base == 0) {
-        timer_base = paging_map_device(PIT_BASE, 0x100000);
+        timer_base = paging_map_device(PIT_BASE, ARM_L1_SECTION_BYTES);
     }
     return timer_base;
 }
@@ -428,11 +439,9 @@ void pit_mask_irq(bool masked, uint8_t pit_id)
 
 static cortex_a9_pit_t tsc;
 
-
-
 void tsc_init(void)
 {
-    lvaddr_t timer_base = paging_map_device(TSC_BASE, 0x100000);
+    lvaddr_t timer_base = paging_map_device(TSC_BASE, ARM_L1_SECTION_BYTES);
 
     cortex_a9_pit_initialize(&tsc, (mackerel_addr_t)timer_base+TSC_OFFSET);
 
@@ -459,6 +468,33 @@ uint32_t tsc_get_hz(void)
     return tsc_hz;
 }
 
+
+//
+// Snoop Control Unit
+//
+
+#define SCU_BASE	0xE0200000
+
+static a9scu_t scu;
+
+void scu_enable(void)
+{
+    lvaddr_t scu_base = paging_map_device(TSC_BASE, ARM_L1_SECTION_BYTES);
+
+    a9scu_initialize(&scu, (mackerel_addr_t)scu_base);
+
+    //enable SCU
+    a9scu_SCUControl_t ctrl_reg = a9scu_SCUControl_rd(&scu);
+    ctrl_reg |= 0x1;
+    a9scu_SCUControl_wr(&scu, ctrl_reg);
+    //(should invalidate d-cache here)
+}
+
+int scu_get_core_count(void)
+{
+	return a9scu_SCUConfig_cpu_number_rdf(&scu);
+}
+
 //
 // Serial console and debugger interfaces
 //
@@ -476,17 +512,29 @@ static pl011_uart_t ports[2];
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {
     if (port_no < 2) {
-        assert(ports[port_no].base == 0);
+        //assert(ports[port_no].base == 0);
 
-        //TODO: only map page and not section
         lvaddr_t base = paging_map_device(UART0_VBASE + port_no * UART_MAPPING_DIFF,
                                           UART_DEVICE_BYTES);
         pl011_uart_init(&ports[index], base + UART0_SECTION_OFFSET + port_no*UART_MAPPING_DIFF);
+        //pl011_uart_init(&ports[index], UART0_VBASE);
         return SYS_ERR_OK;
     }
     else {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
+}
+errval_t early_serial_init(uint8_t port_no);
+errval_t early_serial_init(uint8_t port_no)
+{
+	if (port_no < 2) {
+		assert(ports[port_no].base == 0);
+		pl011_uart_init(&ports[CONSOLE_PORT], UART0_VBASE);
+		return SYS_ERR_OK;
+	}
+	else {
+		return SYS_ERR_SERIAL_PORT_INVALID;
+	}
 }
 
 errval_t serial_console_init(uint8_t port_ordinal)

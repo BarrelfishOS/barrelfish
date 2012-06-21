@@ -11,125 +11,21 @@
 #include <cp15.h>
 #include <paging_kernel_arch.h>
 #include <string.h>
+#include <exceptions.h>
 
-// ------------------------------------------------------------------------
-// Internal declarations
 
-union l1_entry {
-    uint32_t raw;
+/**
+ * Kernel L1 page table
+ */
 
-    /// Invalid L1 entry
-    struct {
-        uint32_t        type            :2;     // == 0
-    } invalid;
+static union arm_l1_entry kernel_l1_table[ARM_L1_MAX_ENTRIES]
+__attribute__((aligned(ARM_L1_ALIGN)));
 
-    /// L1 entry for 256 4K L2 entries
-    struct {
-        uint32_t        type            :2;     // == 1
-        uint32_t        pxn             :1;     // PXN should-be-zero, since gem5 doesn't support LPAE
-        uint32_t		ns				:1;		// NS is ignored, since gem5 doesn't support TrustZone
-        uint32_t		sbz0			:1;		// Should-be-zero
-        uint32_t        domain          :4;
-        uint32_t        sbz1            :1;     // Should-be-zero
-        uint32_t        base_address    :22;
-    } page_table;
+/**
+ * Kernel L2 page tables
+ */
+//static union arm_l2_entry kernel_l2_tables[ARM_L1_MAX_ENTRIES][ARM_L2_MAX_ENTRIES];
 
-    /// L1 entry for 1MB mapped section
-    struct {
-        uint32_t        type            :2;     // == 2
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        execute_never	:1;
-        uint32_t        domain          :4;
-        uint32_t        sbz0            :1;
-        uint32_t        ap10 			:2;		// AP[1:0]
-        uint32_t		tex				:3;		// type extension
-        uint32_t		ap2				:1;		// AP[2]
-        uint32_t		shareable		:1;
-        uint32_t		not_global		:1;
-        uint32_t        mbz0            :1;		//must be zero
-        uint32_t		ns				:1;		// NS is ignored, since gem5 doesn't support TrustZone
-        uint32_t        base_address    :12;
-    } section;
-
-    /// L1 entry for 16MB mapped super section
-    // this isn't supported by gem5, but included for completeness
-        struct {
-            uint32_t        type            :2;     // == 3
-            uint32_t        bufferable      :1;
-            uint32_t        cacheable       :1;
-            uint32_t        execute_never	:1;
-            uint32_t        domain          :4;
-            uint32_t        sbz0            :1;
-            uint32_t        ap10 			:2;		// AP[1:0]
-            uint32_t		tex				:3;		// type extension
-            uint32_t		ap2				:1;		// AP[2]
-            uint32_t		shareable		:1;
-            uint32_t		not_global		:1;
-            uint32_t        mbo0            :1;		//must be one
-            uint32_t		ns				:1;		// NS is ignored, since gem5 doesn't support TrustZone
-            uint32_t        base_address    :12;
-        } super_section;
-
-};
-
-STATIC_ASSERT_SIZEOF(union l1_entry, 4);
-
-#define L1_TYPE_INVALID_ENTRY   		0
-#define L1_TYPE_PAGE_TABLE_ENTRY    	1
-#define L1_TYPE_SECTION_ENTRY   		2
-#define L1_TYPE_SUPER_SECTION_ENTRY     3
-#define L1_TYPE(x)              ((x) & 3)
-
-union l2_entry {
-    uint32_t raw;
-
-    /// Invalid L2 entry
-    struct {
-        uint32_t        type            :2;     // == 0
-    } invalid;
-
-    /// Descriptior for a 64K page
-    struct {
-        uint32_t        type            :2;     // == 1
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        ap10 			:2;		// AP[1:0]
-        uint32_t        sbz0           	:3;		// should be zero
-        uint32_t        ap2             :1;		// AP[2]
-        uint32_t        shareable       :1;
-        uint32_t		not_global		:1;
-        uint32_t		tex				:3;		// type extension TEX[2:0]
-        uint32_t        execute_never	:1;
-        uint32_t        base_address    :16;
-    } large_page;
-
-    /// Descriptor for a 4K page
-    struct {
-    	uint32_t		type			:2;		// == 2 or 3
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        ap10 			:2;		// AP[1:0]
-        uint32_t		tex				:3;		// type extension TEX[2:0]
-        uint32_t        ap2             :1;		// AP[2]
-        uint32_t        shareable       :1;
-        uint32_t		not_global		:1;
-        uint32_t        base_address    :20;
-    } small_page;
-
-};
-
-STATIC_ASSERT_SIZEOF(union l2_entry, 4);
-
-#define L2_TYPE_INVALID_PAGE    0
-#define L2_TYPE_LARGE_PAGE      1
-#define L2_TYPE_SMALL_PAGE      2
-#define L2_TYPE_SMALL_PAGE_XN   3
-#define L2_TYPE(x)              ((x) & 3)
-
-#define BYTES_PER_SECTION       0x100000
-#define BYTES_PER_PAGE          0x1000
-#define BYTES_PER_SMALL_PAGE    0x400
 
 // ------------------------------------------------------------------------
 // Utility declarations
@@ -150,13 +46,16 @@ inline static int aligned(uintptr_t address, uintptr_t bytes)
 }
 
 static void
-paging_write_l1_entry(uintptr_t ttbase, lvaddr_t va, union l1_entry l1)
+paging_write_l1_entry(uintptr_t ttbase, lvaddr_t va, union arm_l1_entry l1)
 {
-    union l1_entry *l1_table;
+    union arm_l1_entry *l1_table;
     if (ttbase == 0) {
-        ttbase = (cp15_read_ttbr() & 0xFFFFF) + KERNEL_OFFSET;
+        if(va < MEMORY_OFFSET)
+        	ttbase = cp15_read_ttbr0() + MEMORY_OFFSET;
+        else
+        	ttbase = cp15_read_ttbr1() + MEMORY_OFFSET;
     }
-    l1_table = (union l1_entry *) ttbase;
+    l1_table = (union arm_l1_entry *) ttbase;
     l1_table[ARM_L1_OFFSET(va)] = l1;
 }
 // ------------------------------------------------------------------------
@@ -166,7 +65,7 @@ paging_write_l1_entry(uintptr_t ttbase, lvaddr_t va, union l1_entry l1)
 void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 {
 
-    union l1_entry l1;
+    union arm_l1_entry l1;
 
     l1.raw = 0;
     l1.section.type = L1_TYPE_SECTION_ENTRY;
@@ -188,10 +87,27 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
     }
 }
 
+/**
+ * \brief Reset kernel paging.
+ *
+ * This function resets the page maps for kernel and memory-space. It clears out
+ * all other mappings. Use this only at system bootup!
+ */
+void paging_arm_reset(lpaddr_t paddr, size_t bytes)
+{
+	// Re-map physical memory
+	paging_map_memory((uintptr_t)kernel_l1_table, paddr, bytes);
+
+	//map high-mem relocated exception vector to kernel section
+	paging_map_kernel_section((uintptr_t)kernel_l1_table, ETABLE_ADDR , 0);
+
+	cp15_write_ttbr1(mem_to_local_phys((uintptr_t)kernel_l1_table));
+}
+
 static void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 {
-    union l1_entry l1;
+    union arm_l1_entry l1;
 
     l1.raw = 0;
     l1.section.type = L1_TYPE_SECTION_ENTRY;
@@ -208,11 +124,11 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
 {
     // HACK to put device in high memory.
     // Should likely track these allocations.
-    static lvaddr_t dev_alloc = KERNEL_OFFSET;
+    static lvaddr_t dev_alloc = DEVICE_OFFSET;
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    paging_map_device_section(0, dev_alloc, device_base);
+    paging_map_device_section((uintptr_t)kernel_l1_table, dev_alloc, device_base);
 
     return dev_alloc;
 }
@@ -224,7 +140,7 @@ void paging_make_good(lvaddr_t new_table_base, size_t new_table_bytes)
     assert(new_table_bytes == ARM_L1_ALIGN);
     assert(aligned(new_table_base, ARM_L1_ALIGN));
 
-    lvaddr_t ttbr = local_phys_to_mem(cp15_read_ttbr());
+    lvaddr_t ttbr = local_phys_to_mem(cp15_read_ttbr0());
     size_t st = (MEMORY_OFFSET / ARM_L1_SECTION_BYTES) * ARM_L1_BYTES_PER_ENTRY;
 
     // Copy kernel pages (everything from MEMORY_OFFSET upwards)
@@ -238,7 +154,7 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     assert(aligned(va, BYTES_PER_SECTION));
     assert(aligned(pa, BYTES_PER_SMALL_PAGE));
 
-    union l1_entry e;
+    union arm_l1_entry e;
 
     e.raw                 = 0;
     e.page_table.type         = L1_TYPE_PAGE_TABLE_ENTRY;
@@ -254,7 +170,7 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
     assert(0 == (flags & 0x3));
     assert(0 == (addr & 0xfff));
 
-    union l2_entry e;
+    union arm_l2_entry e;
     e.raw = flags;
 
     e.small_page.type = L2_TYPE_SMALL_PAGE;
@@ -268,10 +184,10 @@ void paging_context_switch(lpaddr_t ttbr)
     assert(ttbr < MEMORY_OFFSET);
     //assert((ttbr & 0x3fff) == 0);
 
-    lpaddr_t old_ttbr = cp15_read_ttbr();
+    lpaddr_t old_ttbr = cp15_read_ttbr0();
     if (ttbr != old_ttbr)
     {
-        cp15_write_ttbr(ttbr);
+        cp15_write_ttbr0(ttbr);
         cp15_invalidate_tlb();
         //this isn't necessary on gem5, since gem5 doesn't implement the cache
         //maintenance instructions, but ensures coherency by itself
@@ -317,7 +233,7 @@ caps_map_l1(struct capability* dest,
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(dest->u.vnode_arm_l1.base);
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union l1_entry* entry = (union l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
+    union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
 
     // Source
     genpaddr_t src_gpaddr = src->u.vnode_arm_l2.base;
@@ -375,7 +291,7 @@ caps_map_l2(struct capability* dest,
     lvaddr_t dest_lvaddr =
         local_phys_to_mem(gen_phys_to_local_phys(dest->u.vnode_arm_l2.base));
 
-    union l2_entry* entry = (union l2_entry*)dest_lvaddr + slot;
+    union arm_l2_entry* entry = (union arm_l2_entry*)dest_lvaddr + slot;
     if (entry->small_page.type != L2_TYPE_INVALID_PAGE) {
         panic("Remapping valid page.");
     }

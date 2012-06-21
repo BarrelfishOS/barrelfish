@@ -178,6 +178,7 @@ void elf32_relocate(genvaddr_t dst, genvaddr_t src,
         uint32_t *addr = (uint32_t *)((char *)vbase + r->r_offset - start);
 
         switch(type) {
+        case R_ARM_ABS32: //fall through
         case R_386_32:
             {
                 uint32_t sym = ELF32_R_SYM(r->r_info);
@@ -186,7 +187,7 @@ void elf32_relocate(genvaddr_t dst, genvaddr_t src,
                 *addr = abase + symtab[sym].st_value;
             }
             break;
-
+        case R_ARM_RELATIVE: //fall through
         case R_386_RELATIVE:
             *addr += base;
             break;

@@ -17,7 +17,7 @@
  *
  */
  
- device sp804_pit msbfirst ( addr base ) "Cortex A9 SCU" {
+ device a9scu msbfirst ( addr base ) "Cortex A9 SCU" {
  
  	 register SCUControl addr(base, 0x0) "SCU Control Register" {
  	 	_						25	rsvd;
@@ -57,13 +57,13 @@
 	
 	register SCUFilteringStart addr(base, 0x40) "Filtering Start Address Register" {
 		start_address			12	rw		"Filtering Start address";
-		_						24	rsvd;
+		_						20	rsvd;
 	};
 	
-	register SCUFilteringStart addr(base, 0x44) "Filtering End Address Register" {
+	register SCUFilteringEnd addr(base, 0x44) "Filtering End Address Register" {
 		end_address			12	rw		"Filtering Start address";
-		_						24	rsvd;
+		_					20	rsvd;
 	};
 	
  
- }
+ };

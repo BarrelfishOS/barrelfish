@@ -163,7 +163,7 @@
  	
  	regarray SPI_STATUS ro addr(dist_base, 0xd04) [30] "SPI Status Registers" type(uint32);
  	
- 	register ICDSGIR wo addr(dist_base, 0xf00) "Sogtware Generated Interrupt Register" {
+ 	register ICDSGIR wo addr(dist_base, 0xf00) "Software Generated Interrupt Register" {
  		_					6	rsvd;
  		target_list_filter	2	wo		"Target List Filter";
  		cpu_target_list		8	wo		"CPU Target List";

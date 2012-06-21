@@ -18,16 +18,14 @@
 #ifndef __ASSEMBLER__
 
 struct atag;
-
-void arch_init(uint32_t board_id, struct atag *atag_paddr,
-			   lvaddr_t ttbase,
-               lvaddr_t phys_alloc_top)
+void arch_init(void *pointer)
+//void arch_init(uint32_t board_id, struct atag *atag_paddr,
+//			   lvaddr_t ttbase,
+//               lvaddr_t phys_alloc_top)
     __attribute__((noreturn));
 
-struct phys_mmap;
-void arm_kernel_startup(struct phys_mmap* phys_mmap,
-                        lpaddr_t initrd_pa,
-                        size_t   initrd_bytes)
+//struct phys_mmap;
+void arm_kernel_startup(void)
     __attribute__((noreturn));
 
 #endif // __ASSEMBLER__

@@ -105,10 +105,10 @@ in [
     
     -- arm_gem5
    (let sfiles = [  ]
-        cfiles = [ "exn.c", "exec.c", "kludges.c", "kputchar.c", "misc.c", "phys_mmap.c", "syscall.c" ]
+        cfiles = [ "exn.c", "exec.c", "kputchar.c", "misc.c", "phys_mmap.c", "syscall.c" ]
         arch_sfiles = [ "boot.S", "exceptions.S" ]
-	arch_cfiles = ["init.c", "integrator.c", "paging.c", "pl011_uart.c", "startup_arch.c" ]
-	mackerelFiles = [ "arm", "arm_icp_pit", "pl011_uart", "pl130_gic", "sp804_pit", "cortex_a9_pit" ]
+	arch_cfiles = ["init.c", "integrator.c", "paging.c", "pl011_uart.c", "startup_arch.c", "kludges.c", "multiboot.c" ]
+	mackerelFiles = [ "arm", "arm_icp_pit", "pl011_uart", "pl130_gic", "sp804_pit", "cortex_a9_pit", "a9scu" ]
         libs = [ "elf", "cpio" ]
     in mkrules "arm_gem5" cfiles sfiles mackerelFiles libs [] [] arch_cfiles arch_sfiles),
     

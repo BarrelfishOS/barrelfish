@@ -28,6 +28,4 @@ void multiboot_info_print(struct multiboot_info *mb);
 struct multiboot_modinfo *multiboot_find_module(const char *basename);
 uintptr_t multiboot_end_addr(struct multiboot_info *mi);
 
-
-
 #endif

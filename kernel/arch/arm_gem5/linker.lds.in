@@ -14,10 +14,23 @@ OUTPUT_ARCH("arm")
 
 ENTRY(start)
 
+/*
+PHDRS {
+		headers PT_PHDR PHDRS;
+		text PT_LOAD FILEHDR PHDRS;
+		data PT_LOAD;
+		dynamic PT_DYNAMIC;
+}
+*/
 
 SECTIONS {
-        . = START_KERNEL_PHYS + KERNEL_OFFSET;
+        . = START_KERNEL_PHYS;
+        
+        /*kernel_elf_header = .;*/
         kernel_first_byte = .;
+        
+        /*. += SIZEOF_HEADERS; */
+        
         .text : { *(.text); }
         kernel_text_final_byte = .;
 
@@ -32,11 +45,14 @@ SECTIONS {
                 got_base = .;
                 *(.got);
         }
+        
+        /*.rel.got . : { *(.rel.got); } */
 
         .bss . :
         {
                 *(.bss);
         }
+        
 
         kernel_final_byte = .;
 
@@ -52,6 +68,6 @@ SECTIONS {
 /*              *(.dynstr); */
 /*              *(.hash); */
 /*              *(.gnu.hash); */
-                *(.dynamic);
+              *(.dynamic); 
         }
 }

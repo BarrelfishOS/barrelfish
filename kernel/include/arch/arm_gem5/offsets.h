@@ -50,7 +50,8 @@
  * Entry point is 0x11000.
  *
  */
-#define START_KERNEL_PHYS       (0x10000 + 0x1000)
+//#define START_KERNEL_PHYS       (0x10000 + 0x1000)
+#define START_KERNEL_PHYS		0x100000
 
 /**
  * Physical address of the kernel stack at boot time.
@@ -119,6 +120,11 @@
  */
 #define MEMORY_OFFSET           GEN_ADDR(31)
 
+/*
+ * Device offset to map devices in high memory.
+ */
+#define DEVICE_OFFSET			0xfff00000
+
 /**
  * Kernel stack size -- 16KB
  */
@@ -133,6 +139,8 @@
  * Bytes per kernel copy for each core (1 Section)
  */
 #define KERNEL_SECTION_SIZE		0x100000
+
+#define KERNEL_STACK_ADDR		(lpaddr_t)kernel_stack
 
 #ifndef __ASSEMBLER__
 
@@ -177,6 +185,8 @@ extern uint8_t kernel_text_final_byte;
  */
 extern uint8_t kernel_final_byte;
 
+extern uint8_t kernel_elf_header;
+
 /**
  * \brief The kernel stack.
  *
@@ -184,6 +194,7 @@ extern uint8_t kernel_final_byte;
  */
 extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 
+#endif  // __ASSEMBLER__
 
 /**
  * Kernel interrupt jump table
@@ -191,6 +202,6 @@ extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 #define INT_HANDLER_TABLE	0xFFFF0100
 
 
-#endif  // __ASSEMBLER__
+
 
 #endif  // OFFSETS_H
