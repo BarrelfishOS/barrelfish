@@ -726,3 +726,30 @@ errval_t idcap_create(struct capref dest)
 {
     return cap_create(dest, ObjType_ID, 0);
 }
+
+/**
+ * \brief Builds a #cnoderef struct from a #capref struct using cap
+ *        identification.
+ *
+ * \param cnoder Pointer to a cnoderef struct, fill-in by function.
+ * \param capr   Capref to a CNode capability.
+ */
+errval_t build_cnoderef_from_capref(struct cnoderef *cnoder, struct capref capr)
+{
+    struct capability cap;
+    errval_t err = debug_cap_identify(capr, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (cap.type != ObjType_CNode) {
+        return LIB_ERR_NOT_A_CNODE;
+    }
+
+    cnoder->address = get_cap_addr(capr);
+    cnoder->address_bits = get_cap_valid_bits(capr);
+    cnoder->size_bits = cap.u.cnode.bits;
+    cnoder->guard_size = cap.u.cnode.guard_size;
+
+    return SYS_ERR_OK;
+}

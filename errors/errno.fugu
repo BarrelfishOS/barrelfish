@@ -142,6 +142,7 @@ errors libbarrelfish LIB_ERR_ {
     failure SLAB_REFILL         "Refilling slab allocator failed",
     failure NOT_IMPLEMENTED     "functionality not implemented yet",
     failure SHOULD_NOT_GET_HERE "Should not get here",
+    failure NOT_CNODE           "Function invoked on a capref, that does not represent a CNode",
 
     // nested errors in specific functions
     failure FRAME_ALLOC         "Failure in frame_alloc()",
