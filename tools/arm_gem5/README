@@ -6,13 +6,14 @@ ARM on Gem5 usage and installation instructions:
 
 3. Extract and install the gem5 simulator provided on the Barrelfish website (note you have to use this release to get a working environment out of the box)
 
-4. Change to your gem5 directory and apply 'system.cc.patch','RealView.py.patch' and 'gic.cc.patch', located in '/path/to/barrelfish/tools/arm_gem5' to the gem5 source code
+4. Change to your gem5 directory and apply 'gem5_patches.patch', located in '/path/to/barrelfish/tools/arm_gem5' to the gem5 source code
 
-5. Build gem5 with 'scons build/ARM/gem5.fast' and add the binary to the PATH (if you have troubles compiling gem5, try an older version of gcc)
+5. Build gem5 with 'scons build/ARM/gem5.fast' and add the binary to the PATH 
+   NOTE: I had to use an older version of gcc, gcc 4.4 worked for me. If you have troubles install gcc 4.4 and compile with 'CXX=g++-4.4 scons build/ARM/gem5.fast'
 
 6. In your Barrelfish build directory run 'make arm_gem5' to run the simulation
 
 7. To get the output of Barrelfish you can use 'telnet localhost 3456'
 
 NOTE 1: You can print the supported options of the gem5 script with 'gem5.fast ../tools/gem5/gem5script.py -h'
-NOTE 2: If you use --cpu-type=arm_detailed, the simulation takes a long time (up to an hour just to boot Barrelfish) 
+NOTE 2: If you use --cpu-type=arm_detailed (use make arm_gem5_detailed), the simulation takes a long time (depending on your machine up to an hour just to boot Barrelfish) 

@@ -402,6 +402,10 @@ arm_gem5_kernel: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5 $(SRCDIR)/tool
 arm_gem5: arm_gem5_kernel $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --caches --l2cache
 .PHONY : arm_gem5
+
+arm_gem5_detailed: arm_gem5_kernel $(SRCDIR)/tools/arm_gem5/gem5script.py
+	gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --cpu-type=arm_detailed --caches --l2cache
+.PHONY : arm_gem5_detailed
     
 # Source indexing targets
 cscope.files:
