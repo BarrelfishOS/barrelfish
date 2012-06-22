@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -23,13 +23,19 @@ struct spawn_ps_entry {
 
 #define SPAWN_FLAGS_DEFAULT (0)
 
+/* Inherit CNode, layout convention #spawn_program_with_caps expects */
+#define INHERITCN_SLOT_FDSPAGE   1  ///< cap for inherited file descriptors
+#define INHERITCN_SLOT_SESSIONID 2  ///< Session ID domain belongs to
+
+
 /* XXX: utility function that doesn't really belong here */
 const char *cpu_type_to_archstr(enum cpu_type cpu_type);
 
-errval_t spawn_program_with_fdcap(coreid_t coreid, const char *path,
-                       char *const argv[], char *const envp[],
-                       struct capref fdcap,
-                       spawn_flags_t flags, domainid_t *ret_domainid);
+errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
+                                 char *const argv[], char *const envp[],
+                                 struct capref inheritcn_cap,
+                                 struct capref argcn_cap, spawn_flags_t flags,
+                                 domainid_t *ret_domainid);
 errval_t spawn_program(coreid_t coreid, const char *path,
                        char *const argv[], char *const envp[],
                        spawn_flags_t flags, domainid_t *ret_domainid);
@@ -43,5 +49,10 @@ errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client)
 errval_t spawn_get_domain_list(uint8_t **domains, size_t *len);
 errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
                           char **argbuf, size_t *arglen, errval_t *reterr);
+
+errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
+                                    struct capref fdcap);
+errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
+                                     struct capref sidcap);
 
 #endif // BARRELFISH_SPAWN_CLIENT_H

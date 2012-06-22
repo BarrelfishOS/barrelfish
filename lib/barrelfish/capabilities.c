@@ -734,7 +734,7 @@ errval_t idcap_create(struct capref dest)
  * \param cnoder Pointer to a cnoderef struct, fill-in by function.
  * \param capr   Capref to a CNode capability.
  */
-errval_t build_cnoderef_from_capref(struct cnoderef *cnoder, struct capref capr)
+errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
 {
     struct capability cap;
     errval_t err = debug_cap_identify(capr, &cap);
@@ -743,7 +743,7 @@ errval_t build_cnoderef_from_capref(struct cnoderef *cnoder, struct capref capr)
     }
 
     if (cap.type != ObjType_CNode) {
-        return LIB_ERR_NOT_A_CNODE;
+        return LIB_ERR_NOT_CNODE;
     }
 
     cnoder->address = get_cap_addr(capr);

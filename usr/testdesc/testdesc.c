@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -161,9 +161,13 @@ static errval_t spawn_child(struct capref fdcap)
     domainid_t new_domain = -1;
 
     coreid_t core = 0;
+
+    // allocate inheritcn
+    struct capref inheritcn_cap;
+    err = alloc_inheritcn_with_fdcap(&inheritcn_cap, fdcap);
     
-    err = spawn_program_with_fdcap(core, argv[0], argv, NULL, fdcap, 
-                                   SPAWN_NEW_DOMAIN, &new_domain);
+    err = spawn_program_with_caps(core, argv[0], argv, NULL, inheritcn_cap,
+                                  NULL_CAP, SPAWN_NEW_DOMAIN, &new_domain);
             
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed spawn on core %d", core);

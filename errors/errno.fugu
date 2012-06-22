@@ -531,9 +531,20 @@ errors spawn SPAWN_ERR_ {
     failure ARGSPG_OVERFLOW     "Overflow in arguments page: too many arguments or environment variables",
     failure SERIALISE_VSPACE    "Error in serialising vspace data",
 
+    // setup inherited caps
+    failure SETUP_INHERITED_CAPS "Failure setup inherited caps",
+
+    // setup argument caps
+    failure SETUP_ARGCN          "Failure setup CNode containing caps passed as arguments",
+    failure COPY_ARGCN           "Error copying CNode containing caps passed as arguments",
+
     // setup file descriptors
     failure SETUP_FDCAP         "Failure setting up frame for copying file descriptors",
     failure FDSPG_OVERFLOW     "Overflow in file descriptors page: too many file descriptors",
+
+    // setup session id cap
+    failure SETUP_SIDCAP        "Failure setting up session capability",
+    failure COPY_SIDCAP         "Failure copying session id capability",
 
     // spawn_free
     failure DELETE_ROOTCN       "Failure deleting root CNode cap in parent",

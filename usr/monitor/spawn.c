@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -147,7 +147,7 @@ static errval_t spawn_image_with_args(const char *name, void *image,
     printf("Spawning %s on core %d\n", name, my_core_id);
 
     err = spawn_load_image(&si, (lvaddr_t)image, imagelen, CURRENT_CPU_TYPE,
-                           name, my_core_id, argv, envp, NULL_CAP);
+                           name, my_core_id, argv, envp, NULL_CAP, NULL_CAP);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);
     }

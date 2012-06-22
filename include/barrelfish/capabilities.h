@@ -54,8 +54,7 @@ errval_t endpoint_create(size_t buflen, struct capref *retcap,
 errval_t idcap_alloc(struct capref *dest);
 errval_t idcap_create(struct capref dest);
 
-errval_t build_cnoderef_from_capref(struct cnoderef *cnoder,
-                                    struct capref capr);
+errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr);
 
 /**
  * \brief Mint (Copy changing type-specific parameters) a capability
