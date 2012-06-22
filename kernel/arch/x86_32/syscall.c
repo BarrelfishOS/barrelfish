@@ -31,6 +31,7 @@
 #include <arch/x86/syscall.h>
 #include <arch/x86/timing.h>
 #include <fpu.h>
+#include <useraccess.h>
 #ifdef __scc__
 #       include <rck.h>
 #else
@@ -574,6 +575,22 @@ static struct sysret handle_irq_table_delete(struct capability *to, int cmd, uin
     return SYSRET(irq_table_delete(args[0]));
 }
 
+/**
+ * \brief Return system-wide unique ID of this ID cap.
+ */
+static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    idcap_id_t *idp = (idcap_id_t *) args[0];
+
+    // Check validity of user space pointer
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t) idp, sizeof(*idp)))  {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    return sys_idcap_identify(cap, idp);
+}
+
 #ifdef __scc__
 static struct sysret kernel_rck_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
@@ -702,6 +719,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IOCmd_Inb] = handle_io,
         [IOCmd_Inw] = handle_io,
         [IOCmd_Ind] = handle_io
+    },
+    [ObjType_ID] = {
+        [IDCmd_Identify] = handle_idcap_identify
     },
 #ifdef __scc__
     [ObjType_Notify_RCK] = {

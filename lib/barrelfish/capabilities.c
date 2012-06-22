@@ -696,3 +696,33 @@ errval_t devframe_type(struct capref *dest, struct capref src, uint8_t bits)
 
     return cap_retype(*dest, src, ObjType_DevFrame, bits);
 }
+
+/**
+ * \brief Create an ID cap in a newly allocated slot.
+ *
+ * \param dest  Pointer to capref struct, filld-in with location of new cap.
+ *
+ * The caller is responsible for revoking the cap after using it.
+ */
+errval_t idcap_alloc(struct capref *dest)
+{
+    errval_t err = slot_alloc(dest);
+
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    return idcap_create(*dest);
+}
+
+/**
+ * \brief Create an ID cap in the specified slot.
+ *
+ * \param dest  Capref, where ID cap should be created.
+ *
+ * The caller is responsible for revoking the cap after using it.
+ */
+errval_t idcap_create(struct capref dest)
+{
+    return cap_create(dest, ObjType_ID, 0);
+}

@@ -278,7 +278,8 @@ struct sysret sys_create(struct capability *root, enum objtype type,
     /* List capabilities allowed to be created at runtime. */
     switch(type) {
 
-    // TODO: add capability types that can be created at runtime.
+    case ObjType_ID:
+        break;
 
     // only certain types of capabilities can be created at runtime
     default:
@@ -500,4 +501,23 @@ struct sysret sys_yield(capaddr_t target)
     }
 
     panic("Yield returned!");
+}
+
+/**
+ * The format of the returned ID is:
+ *
+ * --------------------------------------------------------------------
+ * |             0 (unused) | coreid |         core_local_id          |
+ * --------------------------------------------------------------------
+ * 63                        39       31                              0 Bit
+ *
+ */
+struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id)
+{
+    STATIC_ASSERT_SIZEOF(coreid_t, 1);
+
+    idcap_id_t coreid = (idcap_id_t) cap->u.id.coreid;
+    *id = coreid << 32 | cap->u.id.core_local_id;
+
+    return SYSRET(SYS_ERR_OK);
 }

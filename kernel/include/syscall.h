@@ -56,5 +56,6 @@ sys_dispatcher_setup_guest (struct capability *to,
                             capaddr_t vmcbp, capaddr_t ctrlp);
 struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id);
 struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
+struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
 
 #endif

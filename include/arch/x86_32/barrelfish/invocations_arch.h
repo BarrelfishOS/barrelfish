@@ -493,3 +493,27 @@ static inline errval_t invoke_perfmon_deactivate(struct capref perfmon_cap)
 {
     return ERR_NOTIMP;
 }
+
+/**
+ * \brief Return the system-wide unique ID of the passed ID capability.
+ *
+ * \param idcap ID capability to invoke.
+ * \param id    Filled-in with system-wide unique ID of ID cap.
+ *
+ * \return      Error code
+ */
+static inline errval_t invoke_idcap_identify(struct capref idcap,
+                                             idcap_id_t *id)
+{
+    assert(id != NULL);
+
+    uint8_t invoke_bits = get_cap_valid_bits(idcap);
+    capaddr_t invoke_cptr = get_cap_addr(idcap) >> (CPTR_BITS - invoke_bits);
+
+    // user-space pointer 'id' is directly written to by kernel.
+    struct sysret sysret =
+        syscall3((invoke_bits << 16) | (IDCmd_Identify << 8) | SYSCALL_INVOKE,
+                 invoke_cptr, (uintptr_t) id);
+
+    return sysret.error;
+}

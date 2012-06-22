@@ -198,6 +198,13 @@ enum perfmon_cmd {
 };
 
 /**
+ * ID capability commands.
+ */
+enum id_cmd {
+    IDCmd_Identify  ///< Return system-wide unique ID
+};
+
+/**
  * Maximum command ordinal.
  */
 #define CAP_MAX_CMD KernelCmd_Count

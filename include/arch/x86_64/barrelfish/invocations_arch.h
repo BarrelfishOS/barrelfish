@@ -357,4 +357,26 @@ static inline errval_t invoke_ipi_notify_send(struct capref notify_cap)
     return cap_invoke1(notify_cap, NotifyCmd_Send).error;
 }
 
+/**
+ * \brief Return the system-wide unique ID of the passed ID capability.
+ *
+ * \param idcap ID capability to invoke.
+ * \param id    Filled-in with system-wide unique ID of ID cap.
+ *
+ * \return      Error code
+ */
+static inline errval_t invoke_idcap_identify(struct capref idcap,
+                                             idcap_id_t *id)
+{
+    assert(id != NULL);
+
+    struct sysret sysret = cap_invoke1(idcap, IDCmd_Identify);
+
+    if (err_is_ok(sysret.error)) {
+        *id = sysret.value;
+    }
+
+    return sysret.error;
+}
+
 #endif

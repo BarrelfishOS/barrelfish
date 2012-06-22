@@ -650,6 +650,19 @@ static struct sysret performance_counter_deactivate(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+/*
+ * \brief Return system-wide unique ID of this ID cap.
+ */
+static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    idcap_id_t id;
+    struct sysret sysret = sys_idcap_identify(cap, &id);
+    sysret.value = id;
+
+    return sysret;
+}
+
 typedef struct sysret (*invocation_handler_t)(struct capability *to,
                                               int cmd, uintptr_t *args);
 
@@ -724,6 +737,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [PerfmonCmd_Activate] = performance_counter_activate,
         [PerfmonCmd_Deactivate] = performance_counter_deactivate,
         [PerfmonCmd_Write] = performance_counter_write,
+    },
+    [ObjType_ID] = {
+        [IDCmd_Identify] = handle_idcap_identify,
     }
 };
 
