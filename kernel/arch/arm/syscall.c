@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -182,6 +182,29 @@ handle_retype(
 }
 
 static struct sysret
+handle_create(
+    struct capability *root,
+    arch_registers_state_t *context,
+    int argc
+    )
+{
+    assert(5 == argc);
+
+    /* Retrieve arguments */
+    struct registers_arm_syscall_args *sa = &context->syscall_args;
+    uintptr_t word = sa->arg2;
+
+    enum objtype type = word >> 16;
+    uint8_t objbits = (word >> 8) & 0xff;
+    capaddr_t dest_cnode_cptr = sa->arg3;
+    capaddr_t dest_slot = sa->arg4;
+    uint8_t dest_vbits = word & 0xff;
+
+    return sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
+                      dest_vbits);
+}
+
+static struct sysret
 handle_delete(
     struct capability* root,
     arch_registers_state_t* context,
@@ -309,6 +332,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
         [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
     },
