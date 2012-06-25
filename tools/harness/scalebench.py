@@ -175,7 +175,8 @@ def main(options):
         build.configure(co, buildarchs)
         for machine in options.machines:
             for test in options.tests:
-                debug.log('running test %s on %s' % (test.name, machine.name))
+                debug.log('running test %s on %s, cwd is %s' \
+                              % (test.name, machine.name, os.getcwd()))
                 path = make_results_dir(options, build, machine, test)
                 write_description(options, co, build, machine, test, path)
                 try:
