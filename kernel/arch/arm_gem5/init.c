@@ -260,7 +260,7 @@ void kernel_startup_early(void)
  * calls arm_kernel_startup(), which should not return (if it does, this function
  * halts the kernel).
  */
-static void  __attribute__ ((noinline)) text_init(void)
+static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
 	errval_t errval;
 	// Relocate glbl_core_data to "memory"
