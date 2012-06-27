@@ -637,6 +637,10 @@ guest_setup (struct guest *g)
     int r = pci_attach_device(g->pci, 0, 2, ethernet);
 	assert(r == 0);
 
+	struct pci_device *vmio = pci_ethernet_new(g->lpc, g);
+	int r = pci_attach_device(g->pci, 0, 3, vmio);
+	assert(r==0);
+
     // set up bios memory
     // FIXME: find a modular way to do this
     *(uint16_t *)guest_to_host(g->mem_low_va + 0x400) = 0x3f8;  // COM1
@@ -2062,6 +2066,7 @@ static int register_needs_translation(uint64_t addr){
 
 
 static uint64_t vaddr_to_paddr(uint64_t vaddr){
+	/*
 	VMKIT_PCI_DEBUG("vaddr_to_paddr: vaddr:0x%lx\n", vaddr);
 	struct memobj_anon *memobj = (struct memobj_anon *) vspace_get_region( get_current_vspace(), (void *)vaddr)->memobj;
 	assert(memobj->m.type == ANONYMOUS);
@@ -2074,7 +2079,7 @@ static uint64_t vaddr_to_paddr(uint64_t vaddr){
 
 	VMKIT_PCI_DEBUG("frameid.base: 0x%lx,  frameid.bits: %d\n",frameid.base,frameid.bits);
 	//uint64_t res = frameid.base + (((uint64_t)vaddr) >> frameid.bits << frameid.bits);
-
+*/
 	//uint64_t res = frameid.base + ((uint64_t)vaddr);
 	uint64_t res = 0x100000000 + vaddr;
 	VMKIT_PCI_DEBUG("Returning: 0x%lx\n", res);
