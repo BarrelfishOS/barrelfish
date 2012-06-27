@@ -2062,35 +2062,9 @@ static int register_needs_translation(uint64_t addr){
 
 
 static uint64_t vaddr_to_paddr(uint64_t vaddr){
-	VMKIT_PCI_DEBUG("vaddr_to_paddr: vaddr:0x%lx\n", vaddr);
-	struct memobj_anon *memobj = (struct memobj_anon *) vspace_get_region( get_current_vspace(), (void *)vaddr)->memobj;
-	assert(memobj->m.type == ANONYMOUS);
-
-	errval_t r;
-	struct frame_identity frameid = { .base = 0, .bits = 0 };
-
-	r = invoke_frame_identify(memobj->frame_list->frame, &frameid);
-	assert(err_is_ok(r));
-
-	VMKIT_PCI_DEBUG("frameid.base: 0x%lx,  frameid.bits: %d\n",frameid.base,frameid.bits);
-	//uint64_t res = frameid.base + (((uint64_t)vaddr) >> frameid.bits << frameid.bits);
-
-	//uint64_t res = frameid.base + ((uint64_t)vaddr);
 	uint64_t res = 0x100000000 + vaddr;
 	VMKIT_PCI_DEBUG("Returning: 0x%lx\n", res);
 	return res;
-
-	/*
-	struct vregion_list * current = memobj->vregion_list;
-	while(current != NULL){
-		VMKIT_PCI_DEBUG("Checking vregion->base: 0x%lx \n", current->region->base);
-		if(current->region->base <= vaddr && vaddr <= current->region->base + current->region->size)
-			break;
-		current = current->next;
-	}
-	if(current != NULL){
-		current->region->next
-	} */
 }
 
 static uint32_t read_device_mem(struct pci_ethernet * eth, uint32_t offset){
