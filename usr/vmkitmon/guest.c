@@ -2097,7 +2097,7 @@ static void dumpRegion(uint8_t *start){
 	for(int i=0; i<64;i++){
 		printf("0x%4x: ", i*16);
 		for(int j=0; j<16; j++){
-			printf("%2x ", *( (start) + (i*4 + j)));
+			printf("%2x ", *( (start) + (i*16 + j)));
 		}
 		printf("\n");
 	}
@@ -2209,7 +2209,10 @@ handle_vmexit_npf (struct guest *g) {
 					// TODO FIXME hier ueber alle txdescs iterieren und das bit richtig setzen...
 					//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
 					for(int j = tdh; j < tdt; j++){
-						*(((uint32_t *)tdbal_monvirt)+1 + 16*j) =  1;
+						uint32_t * ptr = ((uint32_t *)tdbal_monvirt)+1 + 4*j;
+						printf("j: %d, ptr: %p\n",j,ptr);
+						*ptr =  1;
+						printf("written value is 0x%ux\n", *ptr);
 					}
 
 					dumpRegion((uint8_t*)tdbal_monvirt);
