@@ -2044,6 +2044,11 @@ static int register_needs_translation(uint64_t addr){
 
 #define RDBAL0_OFFSET 0x1000
 #define RDBAH0_OFFSET 0x1004
+#define RDH0_OFFSET 0x1010
+#define RDT0_OFFSET 0x1018
+#define RXDCTL0_OFFSET 0x1028
+#define RDLEN_OFFSET 0x01008
+
 
 static int register_needs_translation(uint64_t addr){
 	return (
@@ -2165,7 +2170,7 @@ handle_vmexit_npf (struct guest *g) {
         size = decode_mov_op_size(g, code);
         if (decode_mov_is_write(g, code)) {
             val = decode_mov_src_val(g, code);
-            VMKIT_PCI_DEBUG("Write to  addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
+            //VMKIT_PCI_DEBUG("Write to  addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
 
             if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
 				VMKIT_PCI_DEBUG("Write access to Pointer register 0x%08lx value 0x%08lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
@@ -2198,11 +2203,11 @@ handle_vmexit_npf (struct guest *g) {
             	VMKIT_PCI_DEBUG("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%08x, TDBAH: 0x%08x\n", tdt,tdh, tdbal, tdbah);
             	if(tdt != tdh){
 					lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
-					dumpRegion((uint8_t*)tdbal_monvirt);
+					//dumpRegion((uint8_t*)tdbal_monvirt);
 
 					uint32_t firstdesc_guestphys = *((uint32_t*)tdbal_monvirt);
 					uint32_t * firstdesc_monvirt = (uint32_t *) guest_to_host( (lvaddr_t)(firstdesc_guestphys) );
-					dumpRegion((uint8_t*)firstdesc_monvirt );
+					if(0) dumpRegion((uint8_t*)firstdesc_monvirt );
 
 					uint32_t firstdesc_hostphys = (uint64_t) vaddr_to_paddr( (uint64_t) firstdesc_guestphys);
 					*((uint32_t *)tdbal_monvirt) =  firstdesc_hostphys;
@@ -2210,14 +2215,43 @@ handle_vmexit_npf (struct guest *g) {
 					//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
 					for(int j = tdh; j < tdt; j++){
 						uint32_t * ptr = ((uint32_t *)tdbal_monvirt)+1 + 4*j;
-						printf("j: %d, ptr: %p\n",j,ptr);
 						*ptr =  1;
-						printf("written value is 0x%ux\n", *ptr);
 					}
 
-					dumpRegion((uint8_t*)tdbal_monvirt);
+					//dumpRegion((uint8_t*)tdbal_monvirt);
             	}
 
+
+            	//Inspect the contents of the RECEIVE descriptors
+
+            	uint32_t rdbal  = read_device_mem(eth, RDBAL0_OFFSET);
+            	uint32_t rdbah  = read_device_mem(eth, RDBAH0_OFFSET);
+            	uint32_t rdh    = read_device_mem(eth, RDH0_OFFSET);
+            	uint32_t rdt    = read_device_mem(eth, RDT0_OFFSET);
+            	uint32_t rdlen  = read_device_mem(eth, RDLEN_OFFSET);
+            	uint32_t rdxctl = read_device_mem(eth, RXDCTL0_OFFSET);
+
+            	if(0){
+            		printf("Inspecting ReceiveDescriptor. RDBAL: 0x%08x, RDBAH: 0x%08x, RDH: %d, RDT: %d, RDLEN: %d, RDXCTL: 0x%x\n",
+                			rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
+                	printf("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%08x, TDBAH: 0x%08x\n", tdt,tdh, tdbal, tdbah);
+            	}
+
+            	VMKIT_PCI_DEBUG("Inspecting ReceiveDescriptor. RDBAL: 0x%08x, RDBAH: 0x%08x, RDH: %d, RDT: %d, RDLEN: %d, RDXCTL: 0x%x\n",
+            			rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
+				lvaddr_t rdbal_monvirt = guest_to_host((lvaddr_t)rdbal);
+            	if(rdbal != 0){
+            		//dumpRegion((uint8_t*)rdbal_monvirt);
+            		//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
+            		for(int j = 0; j < rdlen/16; j++){
+						uint32_t * ptr = ((uint32_t *)rdbal_monvirt)+1 + 4*j;
+						//printf("j: %d, ptr: %p\n",j,ptr);
+						*ptr =  1;
+						*(ptr+2) = 1;
+						//printf("written value is 0x%ux\n", *ptr);
+					}
+            		//dumpRegion((uint8_t*)rdbal_monvirt);
+            	}
             }
 
             *((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
@@ -2231,7 +2265,7 @@ handle_vmexit_npf (struct guest *g) {
 				}
 				VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
 			}
-            VMKIT_PCI_DEBUG("Read from addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
+            //VMKIT_PCI_DEBUG("Read from addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
             decode_mov_dest_val(g, code, val);
         }
 

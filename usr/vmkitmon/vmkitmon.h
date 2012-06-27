@@ -41,7 +41,7 @@ do {                        \
 #define LIKELY(x)       __builtin_expect((x),1)
 #define UNLIKELY(x)     __builtin_expect((x),0)
 
-#define VMKIT_PCI_DEBUG_SWITCH
+//#define VMKIT_PCI_DEBUG_SWITCH
 
 #if defined(VMKIT_PCI_DEBUG_SWITCH)
 #define VMKIT_PCI_DEBUG(x...) printf("VMKit PCI: " x)

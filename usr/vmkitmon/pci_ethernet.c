@@ -128,7 +128,7 @@ static void iommu_interrupt_handler(void *arg)
 static void e1000_interrupt_handler(void *arg)
 {
     // Read & acknowledge interrupt cause(s)
-    printf("e1000n: packet interrupt\n");
+    //printf("e1000n: packet interrupt\n");
 
     /*
     uint64_t icr_addr = (uint64_t)(pci_ethernet_unique->virt_base_addr) + ICR_OFFSET;
