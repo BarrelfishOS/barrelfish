@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
               &base, &len, &type);
        printf("Inserting MMAP %d: [0x%" PRIx32 ", 0x%" PRIx32 "], type %d\n",
               n_mmaps, base, len, type);
-       fprintf(o, "static uint32_t mbi_mmap%d[] = {0x%llx, 0x%llx, %d};\n",
+       fprintf(o, "static uint32_t mbi_mmap%d[] = {0x%" PRIx32 ", 0x%" PRIx32 ", %d};\n",
                n_mmaps, base, len, type);
        n_mmaps ++;
      } else {
@@ -124,6 +124,11 @@ int main(int argc, char *argv[])
      fprintf(o, "static struct multiboot_mmap mbi_mmaps[%d];\n", n_mmaps);
      fprintf(o, "static struct multiboot_info mbi;\n\n");
      fprintf(o, "struct multiboot_info *molly_get_mbi(void) {\n");
+
+     // Initialize all static data structures
+     fprintf(o, "memset(&mbi, 0, sizeof(struct multiboot_info));\n");
+     fprintf(o, "memset(&mbi_mods, 0, sizeof(mbi_mods));\n");
+     fprintf(o, "memset(&mbi_mmaps, 0, sizeof(mbi_mmaps));\n");
 
      // Flags:
      fprintf(o, "  mbi.flags |= MULTIBOOT_INFO_FLAG_HAS_CMDLINE;\n");
@@ -154,7 +159,7 @@ int main(int argc, char *argv[])
      }
 
      // MMAPS:
-     fprintf(o, "  mbi.mmap_length = sizeof(mbi_mmaps);\n", n_mmaps);
+     fprintf(o, "  mbi.mmap_length = sizeof(mbi_mmaps);\n");
      fprintf(o, "  mbi.mmap_addr = (uint32_t) mbi_mmaps;\n");
      for (int i = 0; i < n_mmaps; i ++) {
        fprintf(o, "  mbi_mmaps[%d].size = sizeof(struct multiboot_mmap);\n", i);
