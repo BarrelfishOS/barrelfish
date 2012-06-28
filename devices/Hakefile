@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2011, ETH Zurich.
+-- Copyright (c) 2007-2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -55,7 +55,8 @@
            "pl130_gic",
            "sp804_pit",
            "cortex_a9_pit",
-           "a9scu"
+           "a9scu",
+	   "omap_uart"
          ], arch <- allArchitectures
 ] ++
 
