@@ -172,9 +172,9 @@ struct atag {
 // Kernel command line variables and binding options
 //
 
-static int timeslice				 = 5;		//interval in ms in which the scheduler gets called
-static int serial_console_port       = 0;
-static int serial_debug_port         = 1;
+static int timeslice		     = 5; //interval in ms in which the scheduler gets called
+static int serial_console_port       = 2;
+static int serial_debug_port         = 2;
 
 static struct cmdarg cmdargs[] = {
     { "consolePort",    ArgType_Int, { .integer = &serial_console_port}},
@@ -223,7 +223,7 @@ static void paging_init(void)
 	ttbcr |= 1;
 	cp15_write_ttbcr(ttbcr);
 
-	lvaddr_t vbase = MEMORY_OFFSET, base = 0;
+	lvaddr_t vbase = MEMORY_OFFSET, base = PHYS_MEMORY_START;
 
 	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
 		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
@@ -319,11 +319,10 @@ void arch_init(void *pointer)
 
     struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
-	early_serial_init(serial_console_port);
+    early_serial_init(serial_console_port);
 
-	// XXX: print kernel address for debugging with gdb
-	printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
-
+    // XXX: print kernel address for debugging with gdb
+    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
 
     if(hal_cpu_is_bsp())
     {
@@ -367,9 +366,15 @@ void arch_init(void *pointer)
         panic("Kernel image does not include symbol table!");
     }
 
+    printf("At paging init\n");
+
     paging_init();
 
+    printf("At MMU init\n");
+
     enable_mmu();
+
+    printf("Relocating kernel to virtual memory\n");
 
     //align kernel dest to 16KB
     lvaddr_t reloc_dest = ROUND_UP(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte, ARM_L1_ALIGN);

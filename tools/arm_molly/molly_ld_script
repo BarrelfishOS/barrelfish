@@ -10,11 +10,11 @@
 OUTPUT_FORMAT("elf32-littlearm")
 OUTPUT_ARCH("arm")
 
-_start_img = 0x100000;
+_start_img = 0x82001000;
 
 SECTIONS {
         . = ALIGN(4k);
-        .text 0x100000 : ALIGN(4k)  { *(.text); }
+        .text 0x82001000 : ALIGN(4k)  { *(.text); }
         _end_kernel_text = .;
 
         . = ALIGN(4k);

@@ -19,7 +19,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -120,6 +120,11 @@
  */
 #define MEMORY_OFFSET           GEN_ADDR(31)
 
+/**
+ * Absolute start of RAM in physical memory.
+ */
+#define PHYS_MEMORY_START       GEN_ADDR(31)
+
 /*
  * Device offset to map devices in high memory.
  */
@@ -146,14 +151,16 @@
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
-    assert(addr < PADDR_SPACE_LIMIT);
-    return (lvaddr_t)(addr + (lpaddr_t)MEMORY_OFFSET);
+    if(PADDR_SPACE_LIMIT - PHYS_MEMORY_START > 0) {
+        assert(addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT);
+    }
+    return (lvaddr_t)(addr + ((lpaddr_t)MEMORY_OFFSET - (lpaddr_t)PHYS_MEMORY_START));
 }
 
 static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 {
     assert(addr >= MEMORY_OFFSET);
-    return (lpaddr_t)(addr - (lvaddr_t)MEMORY_OFFSET);
+    return (lpaddr_t)(addr - ((lvaddr_t)MEMORY_OFFSET - (lvaddr_t)PHYS_MEMORY_START));
 }
 
 static inline lpaddr_t gen_phys_to_local_phys(genpaddr_t addr)

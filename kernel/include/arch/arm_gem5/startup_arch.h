@@ -36,7 +36,7 @@
                                  ARM_L2_SMALL_USR_RW)
 
 // Well known address for glbl_core_data @64Kb
-#define GLBL_COREDATA_BASE_PHYS		0x10000
+#define GLBL_COREDATA_BASE_PHYS		(GEN_ADDR(31) + 0x10000)
 
 void create_module_caps(struct spawn_state *st);
 
