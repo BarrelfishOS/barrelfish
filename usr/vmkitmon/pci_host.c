@@ -70,7 +70,7 @@ void init_host_devices(struct pci *pci)
     pci_hdr0_mem_t *ph = &host->ph;
 
     dev->confspace_write = confspace_write;
-    dev->confspace_read = confspace_reahud;
+    dev->confspace_read = confspace_read;
     dev->state = host;
 
     pci_hdr0_mem_initialize(ph, (mackerel_addr_t)host->pci_header);

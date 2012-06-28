@@ -14,7 +14,7 @@
                       cFiles = [ "vmkitmon.c", "guest.c", "realmode.c",
                                  "hdd.c", "keyboard.c", "console.c",
                                  "apic.c", "lpc.c", "pc16550d.c", "pci.c",
-				 "pci_host.c", "pci_hostbridge.c", "pci_ethernet.c" ],
+				 "pci_host.c", "pci_hostbridge.c", "pci_ethernet.c", "pci_vmio.c" ],
                       mackerelDevices = [ "amd_vmcb", "lpc_timer",
                                           "pc16550d_mem", "pci_hdr0_mem" ],
                       addLibraries = libDeps [ "spawndomain", "x86emu", "vfs", "pci"],

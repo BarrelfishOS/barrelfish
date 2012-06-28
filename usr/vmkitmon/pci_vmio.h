@@ -16,9 +16,7 @@
 struct pci_vmio {
 	pci_hdr0_mem_t      ph;
     uint32_t            pci_header[0x40];
-    uint64_t            phys_base_addr; //host physical device memory base address
-    void *              virt_base_addr; //vmkitmon virtual adress
-	size_t              bytes;
+    uint32_t            mem_guest_paddr; //guest physical base address of memory register
 	struct pci_device *pci_device;
 };
 

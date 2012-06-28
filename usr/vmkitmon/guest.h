@@ -435,4 +435,7 @@ void guest_handle_vmexit (struct guest *g);
 errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
                                   struct capref frame,  size_t size);
 
+errval_t
+alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes);
+
 #endif // GUEST_H

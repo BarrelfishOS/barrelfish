@@ -19,5 +19,6 @@
 
 struct pci_device *pci_hostbridge_new(void);
 struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g);
+struct pci_device *pci_vmio_new(struct lpc *lpc, struct guest *g);
 
 #endif
