@@ -2034,60 +2034,9 @@ static int register_needs_translation(uint64_t addr){
 **** e1000 */
 
 
-// IXGBE
-#define EICR1_OFFSET 0x00800 //Interrupt Cause Read
-#define EICR2_OFFSET 0x00804
-#define EICS1_OFFSET 0x00808 //Interrupt Cause Set
-#define EICS2_OFFSET 0x00812
-
-#define TDT_OFFSET 0x6018
-#define TDH_OFFSET 0x6010
-
-#define TDBAL0_OFFSET 0x6000
-#define TDBAH0_OFFSET 0x6004
-
-#define RDBAL0_OFFSET 0x1000
-#define RDBAH0_OFFSET 0x1004
-#define RDH0_OFFSET 0x1010
-#define RDT0_OFFSET 0x1018
-#define RXDCTL0_OFFSET 0x1028
-#define RDLEN_OFFSET 0x01008
 
 
-static int register_needs_translation(uint64_t addr){
-	return (
-		(0x1000 <= addr && addr <= 0x1fc0 && (addr & 0x3f) == 0) ||  //RDBAL 1
-		(0xd000 <= addr && addr <= 0xdfc0 && (addr & 0x3f) == 0) ||  //RDBAL 2
-		(0x6000 <= addr && addr <= 0x7fc0 && (addr & 0x3f) == 0)     //TDBAL
-	);
-}
-// IXGBE
-
-
-
-static uint64_t vaddr_to_paddr(uint64_t vaddr){
-
-	uint64_t res = 0x100000000 + vaddr;
-	VMKIT_PCI_DEBUG("Returning: 0x%lx\n", res);
-	return res;
-}
-
-static uint32_t read_device_mem(struct pci_ethernet * eth, uint32_t offset){
-	return *((uint32_t *)(((uint64_t)eth->virt_base_addr) + offset));
-}
-
-static void dumpRegion(uint8_t *start){
-	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
-	for(int i=0; i<64;i++){
-		printf("0x%4x: ", i*16);
-		for(int j=0; j<16; j++){
-			printf("%2x ", *( (start) + (i*16 + j)));
-		}
-		printf("\n");
-	}
-	printf("-- dump finished --\n");
-
-}
+#define MMIO_MASK(bytes) (~(~(bytes) + 1)) // I think ~(-bytes) is also correct
 
 static int
 handle_vmexit_npf (struct guest *g) {
@@ -2134,130 +2083,45 @@ handle_vmexit_npf (struct guest *g) {
     }
     }
 
-    struct pci_ethernet * eth = (struct pci_ethernet *)g->pci->bus[0]->device[2]->state;
-    //VMKIT_PCI_DEBUG("Ethernet MMIO region size: %lx\n", eth->bytes);
+    //Check if this is a access to a pci device memory
 
-    if( ETH_MMIO_ADDR_CHECK(eth, fault_addr) ) {
-        //printf("vmkitmon: Access e1000 device memory, phys_base_addr: 0x%lx\n" , eth->phys_base_addr);
-        uint64_t val;
-        enum opsize size;
-        
-        /* TODO: 
-         * Call functions eth_read and eth_write (for example) and switch for fault_addr.
-         * When interesting register, interact, otherwise (default): do simple read or write.
-         */
-        size = decode_mov_op_size(g, code);
-        if (decode_mov_is_write(g, code)) {
-            val = decode_mov_src_val(g, code);
-            //VMKIT_PCI_DEBUG("Write to  addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
-
-            if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
-				VMKIT_PCI_DEBUG("Write access to Pointer register 0x%08lx value 0x%08lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
-				if(val){
-					//val = guest_to_host(val);
-					val = vaddr_to_paddr(val);
-					//val = vspace_lvaddr_to_genvaddr(val);
-					//printf("At 0x%lx  is  0x%x\n", val, *((uint32_t *)val));
-
-				}
-				VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
-			}
-
-            if( TDBAH0_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) ) {
-				//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
-				VMKIT_PCI_DEBUG("TDBAH0 write detected. writing 1.\n");
-				val = 1;
-			}
-            if( RDBAH0_OFFSET == (fault_addr & ETH_MMIO_MASK(eth)) ) {
-				//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
-				VMKIT_PCI_DEBUG("RDBAH0 write detected. writing 1.\n");
-				val = 1;
-			}
-
-            if(TDT_OFFSET == (fault_addr & ETH_MMIO_MASK(eth))){
-            	uint32_t tdt = val;
-            	uint32_t tdh = read_device_mem(eth,TDH_OFFSET);
-            	uint32_t tdbal = read_device_mem(eth,TDBAL0_OFFSET);
-            	uint32_t tdbah = read_device_mem(eth,TDBAH0_OFFSET);
-            	VMKIT_PCI_DEBUG("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%08x, TDBAH: 0x%08x\n", tdt,tdh, tdbal, tdbah);
-            	if(tdt != tdh){
-					lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
-					//dumpRegion((uint8_t*)tdbal_monvirt);
-
-					uint32_t firstdesc_guestphys = *((uint32_t*)tdbal_monvirt);
-					uint32_t * firstdesc_monvirt = (uint32_t *) guest_to_host( (lvaddr_t)(firstdesc_guestphys) );
-					if(0) dumpRegion((uint8_t*)firstdesc_monvirt );
-
-					uint32_t firstdesc_hostphys = (uint64_t) vaddr_to_paddr( (uint64_t) firstdesc_guestphys);
-					*((uint32_t *)tdbal_monvirt) =  firstdesc_hostphys;
-					// TODO FIXME hier ueber alle txdescs iterieren und das bit richtig setzen...
-					//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
-					for(int j = tdh; j < tdt; j++){
-						uint32_t * ptr = ((uint32_t *)tdbal_monvirt)+1 + 4*j;
-						*ptr =  1;
+    for(int bus_i = 0; bus_i<256; bus_i++){
+    	for(int dev_i = 0; dev_i < 32; dev_i++){
+    		struct pci_bus *bus = g->pci->bus[bus_i];
+			if(bus) {
+				struct pci_device* dev = bus->device[dev_i];
+				if(dev){
+					for(int bar_i=0; bar_i<5; bar_i++){
+						struct bar_info *curbar = &dev->bars[bar_i];
+						if(curbar->paddr <= fault_addr && fault_addr <= curbar->paddr + curbar->bytes){
+							if(decode_mov_is_write(g, code)){
+								uint64_t val = decode_mov_src_val(g, code);
+								if(dev->mem_write) {
+									dev->mem_write(dev, MMIO_MASK(curbar->bytes) & fault_addr, bar_i, val );
+								} else {
+									goto error;
+								}
+							} else {
+								uint64_t val;
+								if(dev->mem_read){
+									dev->mem_read(dev, MMIO_MASK(curbar->bytes) & fault_addr, bar_i, (uint32_t*)&val);
+									decode_mov_dest_val(g, code, val);
+								} else {
+									goto error;
+								}
+							}
+							amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
+							                        decode_mov_instr_length(g, code));
+							return HANDLER_ERR_OK;
+						}
 					}
-
-					//dumpRegion((uint8_t*)tdbal_monvirt);
-            	}
-
-
-            	//Inspect the contents of the RECEIVE descriptors
-
-            	uint32_t rdbal  = read_device_mem(eth, RDBAL0_OFFSET);
-            	uint32_t rdbah  = read_device_mem(eth, RDBAH0_OFFSET);
-            	uint32_t rdh    = read_device_mem(eth, RDH0_OFFSET);
-            	uint32_t rdt    = read_device_mem(eth, RDT0_OFFSET);
-            	uint32_t rdlen  = read_device_mem(eth, RDLEN_OFFSET);
-            	uint32_t rdxctl = read_device_mem(eth, RXDCTL0_OFFSET);
-
-            	if(0){
-            		printf("Inspecting ReceiveDescriptor. RDBAL: 0x%08x, RDBAH: 0x%08x, RDH: %d, RDT: %d, RDLEN: %d, RDXCTL: 0x%x\n",
-                			rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
-                	printf("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%08x, TDBAH: 0x%08x\n", tdt,tdh, tdbal, tdbah);
-            	}
-
-            	VMKIT_PCI_DEBUG("Inspecting ReceiveDescriptor. RDBAL: 0x%08x, RDBAH: 0x%08x, RDH: %d, RDT: %d, RDLEN: %d, RDXCTL: 0x%x\n",
-            			rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
-				lvaddr_t rdbal_monvirt = guest_to_host((lvaddr_t)rdbal);
-            	if(rdbal != 0){
-            		//dumpRegion((uint8_t*)rdbal_monvirt);
-            		//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
-            		for(int j = 0; j < rdlen/16; j++){
-						uint32_t * ptr = ((uint32_t *)rdbal_monvirt)+1 + 4*j;
-						//printf("j: %d, ptr: %p\n",j,ptr);
-						*ptr =  1;
-						*(ptr+2) = 1;
-						//printf("written value is 0x%ux\n", *ptr);
-					}
-            		//dumpRegion((uint8_t*)rdbal_monvirt);
-            	}
-            }
-
-            *((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + (fault_addr & ETH_MMIO_MASK(eth)))) = val;
-        } else {
-            val = *((uint32_t *)((uint64_t)(eth->virt_base_addr) + (fault_addr & ETH_MMIO_MASK(eth))));
-            if( register_needs_translation(fault_addr & ETH_MMIO_MASK(eth)) ){
-				VMKIT_PCI_DEBUG("Read  access to Pointer register 0x%lx value 0x%lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
-				if(val)	{
-					val = host_to_guest(val); //dont translate null pointers
-					//if(val) printf("At 0x%lx  is  0x%x\n", val, *((uint32_t *)val));
 				}
-				VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
 			}
-            //VMKIT_PCI_DEBUG("Read from addr 0x%08lx val: 0x%08lx\n", fault_addr, val);
-            decode_mov_dest_val(g, code, val);
-        }
-
-        // advance the rip beyond the instruction
-        amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
-                        decode_mov_instr_length(g, code));
-
-        return HANDLER_ERR_OK;
+    	}
     }
 
-    printf("Translated edx address: 0x%x\n", lookup_paddr_legacy_mode(g, guest_get_edx(g)));
-
-    printf("vmkitmon: access to an unknown memory location: %lx, eth-base: %lx\n", fault_addr, eth->phys_base_addr);
+    error:
+    printf("vmkitmon: access to an unknown memory location: %lx", fault_addr);
     return handle_vmexit_unhandeled(g);
 }
 
