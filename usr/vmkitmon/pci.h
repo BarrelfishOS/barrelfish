@@ -59,7 +59,7 @@ struct pci_device {
     pci_device_confspace_read   confspace_read;
     pci_device_mem_read			mem_read;
     pci_device_mem_write		mem_write;
-    struct bar_info				bars[5];
+    struct bar_info				bars[6];
     uint8_t                     irq;
     struct lpc                  *lpc;
     void                        *state;
