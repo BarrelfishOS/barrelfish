@@ -637,8 +637,8 @@ guest_setup (struct guest *g)
     int r = pci_attach_device(g->pci, 0, 2, ethernet);
 	assert(r == 0);
 
-	struct pci_device *vmio = pci_vmio_new(g->lpc, g);
-	r = pci_attach_device(g->pci, 0, 3, vmio);
+	struct pci_device *vmkitmon_eth = pci_vmkitmon_eth(g->lpc, g);
+	r = pci_attach_device(g->pci, 0, 3, vmkitmon_eth);
 	assert(r==0);
 
     // set up bios memory

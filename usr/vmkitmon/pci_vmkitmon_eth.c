@@ -24,7 +24,7 @@ static void confspace_read(struct pci_device *dev,
                            union pci_config_address_word addr,
                            enum opsize size, uint32_t *val)
 {
-    struct pci_vmio *h = dev->state;
+    struct pci_vmkitmon_eth *h = dev->state;
 
     if(addr.d.fnct_nr != 0) {
         *val = INVALID;
@@ -42,7 +42,7 @@ static void confspace_read(struct pci_device *dev,
 struct pci_device *pci_vmkitmon_eth(struct lpc *lpc, struct guest *g)
 {
 	struct pci_device *dev = calloc(1, sizeof(struct pci_device));
-	struct pci_vmio *host = calloc(1, sizeof(struct pci_vmio));
+	struct pci_vmkitmon_eth *host = calloc(1, sizeof(struct pci_vmkitmon_eth));
 
 	host->pci_device = dev;
 
