@@ -40,6 +40,8 @@ static void confspace_read(struct pci_device *dev,
     	if(addr.d.doubleword == PCI_HEADER_MEM_ROM_BASE_REGISTER) {
     		//we dont support a rom, return always 0
     		*val = 0;
+    	} else if (addr.d.doubleword == 1){
+    		*val = h->pci_header[addr.d.doubleword] & 0x0000ffff; //Always set status register to all zero
     	} else if(addr.d.doubleword < 0x40) {
 			*val = h->pci_header[addr.d.doubleword];
 		} else {
