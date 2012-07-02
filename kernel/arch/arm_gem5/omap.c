@@ -192,21 +192,22 @@ int scu_get_core_count(void)
 #define DEBUG_PORT   2
 
 #define UART3_VBASE			0x48020000
-#define UART_DEVICE_BYTES		0x4c
+#define UART3_SECTION_OFFSET            0x20000
+#define UART_DEVICE_BYTES		0x1000
 #define UART_MAPPING_DIFF		0x1000
 
 static omap_uart_t ports[4];
 
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {
-    assert(!"NYI");
+//    assert(!"NYI");
 
     if (port_no < 4) {
         //assert(ports[port_no].base == 0);
+        assert(port_no == 2);
 
-        lvaddr_t base = paging_map_device(UART3_VBASE + port_no * UART_MAPPING_DIFF,
-                                          UART_DEVICE_BYTES);
-        omap_uart_init(&ports[index], base + port_no * UART_MAPPING_DIFF);
+        lvaddr_t base = paging_map_device(UART3_VBASE, UART_DEVICE_BYTES);
+        omap_uart_init(&ports[index], base + UART3_SECTION_OFFSET);
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_SERIAL_PORT_INVALID;

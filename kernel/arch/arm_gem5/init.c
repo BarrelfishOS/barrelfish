@@ -213,6 +213,9 @@ static void enable_mmu(void)
 		);
 }
 
+void
+paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+
 static void paging_init(void)
 {
 
@@ -223,23 +226,25 @@ static void paging_init(void)
 	ttbcr |= 1;
 	cp15_write_ttbcr(ttbcr);
 
-	lvaddr_t vbase = MEMORY_OFFSET, base = PHYS_MEMORY_START;
+	lvaddr_t vbase = MEMORY_OFFSET, base =  0; // PHYS_MEMORY_START;
 
 	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
 		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
 	{
 		// create 1:1 mapping
-		paging_map_kernel_section((uintptr_t)boot_l1_low, base, base);
+	//	paging_map_kernel_section((uintptr_t)boot_l1_low, base, base);
+		paging_map_device_section((uintptr_t)boot_l1_low, base, base);
 
-		// Alias the same region at MEMORY_OFFSET
-		paging_map_kernel_section((uintptr_t)boot_l1_high, vbase, base);
+		// Alias the same region at MEMORY_OFFSET (gem5 code)
+		// create 1:1 mapping for pandaboard
+		paging_map_kernel_section((uintptr_t)boot_l1_high, vbase, vbase);
 
 	}
 
 	// Activate new page tables
 	cp15_write_ttbr1((lpaddr_t)&boot_l1_high[0]);
 	//cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
-	cp15_write_ttbr0((lpaddr_t)&boot_l1_low[0]);
+        cp15_write_ttbr0((lpaddr_t)&boot_l1_low[0]);
 }
 
 void kernel_startup_early(void)
@@ -264,8 +269,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
 	errval_t errval;
 	// Relocate glbl_core_data to "memory"
-    glbl_core_data = (struct arm_core_data *)
-        local_phys_to_mem((lpaddr_t)glbl_core_data);
+//    glbl_core_data = (struct arm_core_data *)
+//        local_phys_to_mem((lpaddr_t)glbl_core_data);
 
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
@@ -276,12 +281,13 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     }
     else
     {
-    	paging_arm_reset(0x0, GEM5_RAM_SIZE);
+        panic("need multiboot MMAP\n");
+//    	paging_arm_reset(0x0, GEM5_RAM_SIZE);
     }
 
-	exceptions_init();
+//	exceptions_init();
 
-	kernel_startup_early();
+//	kernel_startup_early();
 
 	//initialize console
 	 serial_console_init(serial_console_port);
@@ -314,8 +320,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
 void arch_init(void *pointer)
 {
-    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
-        (void *)local_phys_to_mem((lpaddr_t)text_init);
+//    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
+//        (void *)local_phys_to_mem((lpaddr_t)text_init);
 
     struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
@@ -370,13 +376,14 @@ void arch_init(void *pointer)
 
     paging_init();
 
-    printf("At MMU init\n");
+    printf("At MMU init orig v2\n");
 
     enable_mmu();
 
     printf("Relocating kernel to virtual memory\n");
 
     //align kernel dest to 16KB
+#if 0
     lvaddr_t reloc_dest = ROUND_UP(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte, ARM_L1_ALIGN);
 
     // Relocate kernel image for top of memory
@@ -394,7 +401,9 @@ void arch_init(void *pointer)
 
     //relocate got_base register to aliased location
     relocate_got_base(MEMORY_OFFSET);
+#endif // 0
 
     // Call aliased text_init() function and continue initialization
-    reloc_text_init();
+    //reloc_text_init();
+    text_init();
 }

@@ -82,7 +82,7 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 {
     lpaddr_t pend  = paging_round_down(paddr + bytes, BYTES_PER_SECTION);
     while (paddr < pend) {
-        paging_map_kernel_section(ttbase, paddr + MEMORY_OFFSET, paddr);
+        paging_map_kernel_section(ttbase, paddr, paddr);
         paddr += BYTES_PER_SECTION;
     }
 }
@@ -104,7 +104,10 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 	cp15_write_ttbr1(mem_to_local_phys((uintptr_t)kernel_l1_table));
 }
 
-static void
+void
+paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+
+void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 {
     union arm_l1_entry l1;
