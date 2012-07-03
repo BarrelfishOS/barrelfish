@@ -16,16 +16,8 @@
 #include "capqueue.h"
 #include "dom_invocations.h"
 #include "internal.h"
+#include "delete_int.h"
 #include <if/mem_rpcclient_defs.h>
-
-struct delete_st {
-    struct event_queue_node qn;
-    struct domcapref capref;
-    struct capability cap;
-    struct capref newcap;
-    delete_result_handler_t result_handler;
-    void *st;
-};
 
 struct delete_remote_mc_st {
     struct capsend_mc_st mc_st;
@@ -59,8 +51,7 @@ delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
     handler(status, st);
 }
 
-__attribute__((unused))
-static void
+void
 send_new_ram_cap(struct capref cap)
 {
     errval_t err, result;
@@ -83,8 +74,43 @@ send_new_ram_cap(struct capref cap)
 
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
 
-    err = cap_destroy(cap);
+    err = cap_delete(cap);
     assert(err_is_ok(err));
+}
+
+static void delete_wait__fin(void *st_)
+{
+    struct delete_st *st = (struct delete_st*)st_;
+    delete_result__rx(SYS_ERR_OK, st, false);
+}
+
+static void delete_last(struct delete_st* del_st)
+{
+    errval_t err;
+    bool locked = true;
+
+    err = monitor_delete_last(del_st->capref.croot, del_st->capref.cptr,
+                              del_st->capref.bits, del_st->newcap);
+    GOTO_IF_ERR(err, report_error);
+    if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
+        send_new_ram_cap(del_st->newcap);
+        err = SYS_ERR_OK;
+    }
+
+    // at this point the cap has become "unlocked" because it is either deleted
+    // or in a clear/delete queue
+    locked = false;
+
+    if (!del_st->wait) {
+        goto report_error;
+    }
+
+    delete_queue_wait(&del_st->qn, MKCLOSURE(delete_wait__fin, del_st));
+
+    return;
+
+report_error:
+    delete_result__rx(err, del_st, locked);
 }
 
 /*
@@ -199,7 +225,7 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
     }
     status = mc_st->status;
 
-    if (!capsend_handle_mc_reply(st)) {
+    if (!capsend_handle_mc_reply(&mc_st->mc_st)) {
         // multicast not complete
         return;
     }
@@ -248,7 +274,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
 {
     // called with the result of "find core with cap" when trying to move the
     // last cap
-    errval_t err;
+    errval_t err = status;
     struct delete_st *del_st = (struct delete_st*)st;
 
     // unlock cap so it can be manipulated
@@ -260,30 +286,29 @@ find_core_cont(errval_t status, coreid_t core, void *st)
                                               del_st->capref.cptr,
                                               del_st->capref.bits,
                                               0, RRELS_COPY_BIT, NULL);
-
-        // now a "regular" delete should work again
-        err = dom_cnode_delete(del_st->capref);
-        if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-            USER_PANIC_ERR(err, "this really should not happen");
-        }
-        else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
-            // this shouldn't really happen either, but isn't a problem
-            err = SYS_ERR_OK;
+        if (err_is_fail(err)) {
+            if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+                err = SYS_ERR_OK;
+            }
+            goto report_error;
         }
 
-        delete_result__rx(err, del_st, false);
+        delete_last(del_st);
     }
     else if (err_is_fail(status)) {
         // an error occured
-        delete_result__rx(status, del_st, false);
+        goto report_error;
     }
     else {
         // core found, attempt move
         err = capops_move(del_st->capref, core, move_result_cont, st);
-        if (err_is_fail(err)) {
-            delete_result__rx(err, del_st, false);
-        }
+        GOTO_IF_ERR(err, report_error);
     }
+
+    return;
+
+report_error:
+    delete_result__rx(err, del_st, false);
 }
 
 static void
@@ -311,68 +336,6 @@ move_result_cont(errval_t status, void *st)
 }
 
 /*
- * Deleting CNode special case {{{1
- */
-
-#if 0
-struct delete_cnode_st {
-    struct capref delcap;
-    void *st;
-};
-
-static void
-delete_cnode_slot_result(errval_t status, void *st)
-{
-    errval_t err;
-
-    struct delete_cnode_st *dst = (struct delete_cnode_st*)st;
-    if (err_is_ok(status) || err_no(status) == SYS_ERR_CAP_NOT_FOUND) {
-        if (dst->delcap.slot < (1 << dst->delcap.cnode.size_bits)) {
-            dst->delcap.slot++;
-            capops_delete(get_cap_domref(dst->delcap), delete_cnode_slot_result, dst);
-        }
-        else {
-            err = SYS_ERR_OK;
-        }
-    }
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(status, "deleting cnode slot failed");
-    }
-}
-
-__attribute__((unused))
-static errval_t
-delete_cnode(struct capref cap, void *st)
-{
-    errval_t err;
-
-    err = monitor_set_cap_deleted(cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    struct capability cnode_cap;
-    err = monitor_cap_identify(cap, &cnode_cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    assert(cnode_cap.type == ObjType_CNode);
-
-    struct cnoderef cnode = build_cnoderef(cap, cnode_cap.u.cnode.bits);
-    struct delete_cnode_st *dcst = malloc(sizeof(struct delete_cnode_st));
-    dcst->delcap.cnode = cnode;
-    dcst->delcap.slot = 0;
-    dcst->st = st;
-
-    err = capops_delete(get_cap_domref(dcst->delcap), delete_cnode_slot_result, dcst);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "deleting cnode slot failed");
-    }
-    return err;
-}
-#endif
-
-/*
  * Delete operation
  */
 
@@ -397,7 +360,7 @@ delete_trylock_cont(void *st)
     err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
                            del_st->capref.bits);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
-        caplock_wait(del_st->capref, &del_st->qn,
+        caplock_wait(del_st->capref, &del_st->lock_qn,
                      MKCLOSURE(delete_trylock_cont, del_st));
         return;
     }
@@ -415,7 +378,19 @@ delete_trylock_cont(void *st)
         locked = true;
     }
 
-    if (distcap_is_moveable(del_st->cap.type)) {
+    // check if there could be any remote relations
+    uint8_t relations;
+    err = monitor_domcap_remote_relations(del_st->capref.croot,
+                                          del_st->capref.cptr,
+                                          del_st->capref.bits,
+                                          0, 0, &relations);
+    GOTO_IF_ERR(err, report_error);
+
+    if (!(relations && RRELS_COPY_BIT)) {
+        // no remote relations, procede with final delete
+        delete_last(del_st);
+    }
+    else if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
         err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
         GOTO_IF_ERR(err, report_error);
@@ -432,7 +407,14 @@ report_error:
 }
 
 void
-capops_delete(struct domcapref cap, delete_result_handler_t result_handler,
+capops_delete_int(struct delete_st *del_st)
+{
+    delete_trylock_cont(del_st);
+}
+
+void
+capops_delete(struct domcapref cap,
+              delete_result_handler_t result_handler,
               void *st)
 {
     errval_t err;
@@ -443,8 +425,9 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler,
         goto err_cont;
     }
 
-    // simple delete was not able to delete cap as it was last copy and may
-    // have remote copies, need to move or revoke cap
+    // simple delete was not able to delete cap as it was last copy and:
+    //  - may have remote copies, need to move or revoke cap
+    //  - contains further slots which need to be cleared
 
     struct delete_st *del_st;
     err = calloce(1, sizeof(*del_st), &del_st);
@@ -458,10 +441,11 @@ capops_delete(struct domcapref cap, delete_result_handler_t result_handler,
     GOTO_IF_ERR(err, free_st);
 
     del_st->capref = cap;
+    del_st->wait = true;
     del_st->result_handler = result_handler;
     del_st->st = st;
 
-    // after this steup is complete, nothing less than a catastrophic failure
+    // after this setup is complete, nothing less than a catastrophic failure
     // should stop the delete
     delete_trylock_cont(del_st);
     return;

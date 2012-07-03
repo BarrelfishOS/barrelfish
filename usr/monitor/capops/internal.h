@@ -10,9 +10,12 @@
 #ifndef CAPOPS_INTERNAL_H
 #define CAPOPS_INTERNAL_H
 
+#include <stdlib.h>
 #include <errors/errno.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/debug.h>
 #include <capops.h>
+#include <if/intermon_defs.h>
 
 typedef void (*gen_result_cont_fn)(errval_t, void*);
 struct result_closure {
@@ -23,12 +26,14 @@ struct result_closure {
 #define CALLRESCONT(c,e) ((c).handler((e), (c).arg))
 
 #define malloce(size, ret) \
-    (*(ret) = malloc(size), \
-     *(ret) ? SYS_ERR_OK : LIB_ERR_MALLOC_FAIL)
+    ((*(ret) = malloc(size)) \
+     ? SYS_ERR_OK \
+     : LIB_ERR_MALLOC_FAIL)
 
 #define calloce(n, size, ret) \
-    (*(ret) = calloc(n, size), \
-     *(ret) ? SYS_ERR_OK : LIB_ERR_MALLOC_FAIL)
+    ((*(ret) = calloc(n, size)) \
+     ? SYS_ERR_OK \
+     : LIB_ERR_MALLOC_FAIL)
 
 #define GOTO_IF_ERR(err, label) do { \
     if (err_is_fail(err)) { \
@@ -95,9 +100,11 @@ void retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep,
                         int desttype, uint32_t destbits, genvaddr_t st);
 void retype_response__rx(struct intermon_binding *b, errval_t status,
                                  genvaddr_t st);
-void request_revoke__rx_handler(struct intermon_binding *b,
-                                intermon_caprep_t caprep, genvaddr_t st);
-void revoke_result__rx_handler(struct intermon_binding *b, errval_t status,
-                               genvaddr_t st);
+void revoke_mark__rx(struct intermon_binding *b,
+                     intermon_caprep_t caprep,
+                     genvaddr_t st);
+void revoke_ready__rx(struct intermon_binding *b, genvaddr_t st);
+void revoke_commit__rx(struct intermon_binding *b, genvaddr_t st);
+void revoke_done__rx(struct intermon_binding *b, genvaddr_t st);
 
 #endif

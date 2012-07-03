@@ -204,25 +204,6 @@ static struct sysret monitor_handle_has_descendants(struct capability *kernel_ca
     };
 }
 
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_revoke_step(struct capability *kernel_cap,
-                                                int cmd, uintptr_t *args)
-{
-    capaddr_t root_caddr = args[0];
-    uint8_t root_vbits = args[1];
-
-    capaddr_t target_caddr = args[2];
-    uint8_t target_vbits = args[3];
-
-    capaddr_t delcn_addr = args[4];
-    uint8_t delcn_vbits = args[5];
-    cslot_t del_slot = args[6];
-
-    return sys_monitor_revoke_step(root_caddr, root_vbits,
-                                   target_caddr, target_vbits,
-                                   delcn_addr, delcn_vbits, del_slot);
-}
-
 static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
                                                 int cmd, uintptr_t *args)
 {
@@ -237,6 +218,44 @@ static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
     return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
                                    target_vbits, retcn_caddr, retcn_vbits,
                                    ret_slot);
+}
+
+static struct sysret monitor_handle_revoke_mark_tgt(struct capability *kernel_cap,
+                                                    int cmd, uintptr_t *args)
+{
+    capaddr_t root_caddr = args[0];
+    uint8_t root_vbits = args[1];
+    capaddr_t target_caddr = args[2];
+    uint8_t target_vbits = args[3];
+
+    return sys_monitor_revoke_mark_tgt(root_caddr, root_vbits,
+                                       target_caddr, target_vbits);
+}
+
+static struct sysret monitor_handle_revoke_mark_rels(struct capability *kernel_cap,
+                                                     int cmd, uintptr_t *args)
+{
+    struct capability *base = (struct capability*)args;
+
+    return sys_monitor_revoke_mark_rels(base);
+}
+
+static struct sysret monitor_handle_delete_step(struct capability *kernel_cap,
+                                                int cmd, uintptr_t *args)
+{
+    capaddr_t ret_cn_addr = args[0];
+    capaddr_t ret_cn_bits = args[1];
+    capaddr_t ret_slot = args[2];
+    return sys_monitor_delete_step(ret_cn_addr, ret_cn_bits, ret_slot);
+}
+
+static struct sysret monitor_handle_clear_step(struct capability *kernel_cap,
+                                               int cmd, uintptr_t *args)
+{
+    capaddr_t ret_cn_addr = args[0];
+    capaddr_t ret_cn_bits = args[1];
+    capaddr_t ret_slot = args[2];
+    return sys_monitor_clear_step(ret_cn_addr, ret_cn_bits, ret_slot);
 }
 
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
@@ -790,9 +809,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Lock_cap]     = monitor_lock_cap,
         [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
         [KernelCmd_Retype]       = monitor_handle_retype,
-        [KernelCmd_Has_Descendants] = monitor_handle_has_descendants,
+        [KernelCmd_Has_descendants] = monitor_handle_has_descendants,
         [KernelCmd_Delete_last]  = monitor_handle_delete_last,
-        [KernelCmd_Revoke_step]  = monitor_handle_revoke_step,
+        [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,
+        [KernelCmd_Revoke_mark_relations] = monitor_handle_revoke_mark_rels,
+        [KernelCmd_Delete_step] = monitor_handle_delete_step,
+        [KernelCmd_Clear_step] = monitor_handle_clear_step,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete

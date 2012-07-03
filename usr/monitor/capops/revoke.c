@@ -14,173 +14,82 @@
 #include "magic.h"
 #include "caplock.h"
 #include "internal.h"
+#include "delete_int.h"
 #include "dom_invocations.h"
 
-struct revoke_st {
-    struct domcapref revokecap;
-    struct capref delcap;
-    struct event_queue_node lock_queue_node;
+struct revoke_slave_st *slaves_head = 0, *slaves_tail = 0;
+
+struct revoke_master_st {
+    struct delete_queue_node del_qn;
+    struct domcapref cap;
+    struct capability rawcap;
+    struct capsend_mc_st revoke_mc_st;
     revoke_result_handler_t result_handler;
     void *st;
+    bool local_fin, remote_fin;
 };
 
-static errval_t revoke_local(struct revoke_st *rst);
-
-/*
- * Request revoke from owner {{{1
- */
-
-/*
- * Handle completed revoke request {{{2
- */
-
-static void
-request_revoke_move_result(errval_t status, void *st)
-{
-    errval_t err;
-    struct revoke_st *rst = (struct revoke_st*)st;
-
-    if (err_is_ok(status)) {
-        // move succeeded, start local revoke
-        err = revoke_local(rst);
-    }
-    else {
-        err = status;
-    }
-
-    if (err_is_fail(err)) {
-        rst->result_handler(err, rst->st);
-        free(rst);
-    }
-}
-
-void
-revoke_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
-{
-    request_revoke_move_result(status, (void*)st);
-}
-
-/*
- * Handle and reply to revoke request {{{1
- */
-
-struct revoke_request_st {
-    struct capref capref;
+struct revoke_slave_st {
+    struct intermon_msg_queue_elem im_qn;
+    struct delete_queue_node del_qn;
+    struct capability rawcap;
+    struct capref cap;
     coreid_t from;
     genvaddr_t st;
-};
-
-/*
- * Revoke request result
- */
-
-struct revoke_result_msg_st {
-    struct intermon_msg_queue_elem queue_elem;
     errval_t status;
-    genvaddr_t st;
+    struct revoke_slave_st *next;
 };
 
-static void
-revoke_result_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
-{
-    errval_t err;
-    struct revoke_result_msg_st *msg_st = (struct revoke_result_msg_st*)e;
-    err = intermon_capops_revoke_result__tx(b, NOP_CONT, msg_st->status, msg_st->st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to send revoke_result message");
-    }
-    free(msg_st);
-}
-
-static errval_t
-revoke_result(coreid_t dest, errval_t status, genvaddr_t st)
-{
-    errval_t err;
-    struct revoke_result_msg_st *msg_st;
-    msg_st = malloc(sizeof(*msg_st));
-    if (!msg_st) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    msg_st->queue_elem.cont = revoke_result_send_cont;
-    msg_st->status = status;
-    msg_st->st = st;
-
-    err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        free(msg_st);
-    }
-    return err;
-}
-
-/*
- * Move result handler {{{2
- */
-
-static void
-request_revoke_move_cont(errval_t status, void *st)
-{
-    errval_t err;
-    struct revoke_request_st *rst = (struct revoke_request_st*)st;
-    err = revoke_result(rst->from, status, rst->st);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not send revoke request result");
-    }
-    free(st);
-}
-
-/*
- * Revoke request receive handler {{{2
- */
+static void revoke_result__rx(errval_t result,
+                              struct revoke_master_st *st,
+                              bool locked);
+static void revoke_retrieve__rx(errval_t result, void *st_);
+static void revoke_local(struct revoke_master_st *st);
+static errval_t revoke_mark__send(struct intermon_binding *b,
+                                  intermon_caprep_t *caprep,
+                                  struct capsend_mc_st *mc_st);
+static void revoke_ready__send(struct intermon_binding *b,
+                               struct intermon_msg_queue_elem *e);
+static errval_t revoke_commit__send(struct intermon_binding *b,
+                                    intermon_caprep_t *caprep,
+                                    struct capsend_mc_st *mc_st);
+static void revoke_slave_steps__fin(void *st);
+static void revoke_done__send(struct intermon_binding *b,
+                              struct intermon_msg_queue_elem *e);
+static void revoke_master_steps__fin(void *st);
 
 void
-request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
+capops_revoke(struct domcapref cap,
+              revoke_result_handler_t result_handler,
+              void *st)
 {
-    errval_t err, send_err;
-    struct intermon_state *inter_st = (struct intermon_state*)b->st;
-    coreid_t from = inter_st->core_id;
-    struct capability cap;
-    caprep_to_capability(&caprep, &cap);
-
-    struct capref capref;
-    err = slot_alloc(&capref);
-    if (err_is_fail(err)) {
-        goto send_err;
-    }
-
-    err = monitor_copy_if_exists(&cap, capref);
-    if (err_is_fail(err)) {
-        goto free_slot;
-    }
+    errval_t err;
 
     distcap_state_t state;
-    err = cap_get_state(capref, &state);
-    if (err_is_fail(err)) {
-        goto destroy_cap;
-    }
-
-    if (distcap_state_is_foreign(state)) {
-        err = MON_ERR_CAP_FOREIGN;
-        goto destroy_cap;
-    }
+    err = dom_cnode_get_state(cap, &state);
+    GOTO_IF_ERR(err, report_error);
 
     if (distcap_state_is_busy(state)) {
         err = MON_ERR_REMOTE_CAP_RETRY;
-        goto destroy_cap;
+        goto report_error;
     }
 
-    struct revoke_request_st *rst;
-    rst = malloc(sizeof(*rst));
-    if (!rst) {
-        err = LIB_ERR_MALLOC_FAIL;
-        goto destroy_cap;
-    }
-    rst->capref = capref;
-    rst->from = from;
+    struct revoke_master_st *rst;
+    err = calloce(1, sizeof(*rst), &rst);
+    GOTO_IF_ERR(err, report_error);
+    rst->cap = cap;
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &rst->rawcap);
+    GOTO_IF_ERR(err, free_st);
+    rst->result_handler = result_handler;
     rst->st = st;
 
-    err = capops_move(get_cap_domref(capref), from, request_revoke_move_cont, rst);
-    if (err_is_fail(err)) {
-        goto free_st;
+    if (distcap_state_is_foreign(state)) {
+        // need to retrieve ownership
+        capops_retrieve(rst->cap, revoke_retrieve__rx, st);
+    }
+    else {
+        // have ownership, initiate revoke
+        revoke_local(rst);
     }
 
     return;
@@ -188,192 +97,221 @@ request_revoke__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep,
 free_st:
     free(rst);
 
-destroy_cap:
-    cap_destroy(capref);
+report_error:
+    result_handler(err, st);
+}
 
-free_slot:
-    slot_free(capref);
+static void
+revoke_result__rx(errval_t result,
+                  struct revoke_master_st *st,
+                  bool locked)
+{
+    errval_t err;
 
-send_err:
-    send_err = revoke_result(from, err, st);
-    if (err_is_fail(send_err)) {
-        USER_PANIC_ERR(send_err, "could not send revoke error");
+    if (locked) {
+        caplock_unlock(st->cap);
+    }
+
+    if (err_is_ok(result)) {
+        // clear the remote copies bit
+        err = monitor_domcap_remote_relations(st->cap.croot, st->cap.cptr,
+                                              st->cap.bits, 0, RRELS_COPY_BIT,
+                                              NULL);
+        if (err_is_fail(err) && err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
+            DEBUG_ERR(err, "resetting remote copies bit after revoke");
+        }
+    }
+
+    st->result_handler(result, st->st);
+}
+
+static void
+revoke_retrieve__rx(errval_t result, void *st_)
+{
+    struct revoke_master_st *st = (struct revoke_master_st*)st_;
+
+    if (err_is_fail(result)) {
+        revoke_result__rx(result, st, false);
+    }
+    else {
+        revoke_local(st);
     }
 }
 
-/*
- * Revoke request {{{2
- */
-
-struct request_revoke_msg_st {
-    struct intermon_msg_queue_elem queue_elem;
-    intermon_caprep_t caprep;
-    struct revoke_st *st;
-};
-
 static void
-request_revoke_send_cont(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
+revoke_local(struct revoke_master_st *st)
 {
-    struct request_revoke_msg_st *msg_st = (struct request_revoke_msg_st*)e;
     errval_t err;
-    err = intermon_capops_request_revoke__tx(b, NOP_CONT, msg_st->caprep, (genvaddr_t)msg_st->st);
-    if (err_is_fail(err)) {
-        struct revoke_st *rst = msg_st->st;
-        rst->result_handler(err, rst->st);
-        free(rst);
-    }
-    free(msg_st);
+
+    delete_steps_pause();
+
+    err = monitor_revoke_mark_target(st->cap.croot,
+                                     st->cap.cptr,
+                                     st->cap.bits);
+    PANIC_IF_ERR(err, "marking revoke");
+
+    err = capsend_relations(&st->rawcap, revoke_mark__send, &st->revoke_mc_st);
+    PANIC_IF_ERR(err, "initiating revoke mark multicast");
+
 }
 
 static errval_t
-request_revoke(struct revoke_st *st)
+revoke_mark__send(struct intermon_binding *b,
+                  intermon_caprep_t *caprep,
+                  struct capsend_mc_st *mc_st)
 {
-    errval_t err;
-    struct capability cap;
-    err = monitor_domains_cap_identify(st->revokecap.croot, st->revokecap.cptr,
-                                       st->revokecap.bits, &cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    struct request_revoke_msg_st *msg_st = malloc(sizeof(struct request_revoke_msg_st));
-    if (!msg_st) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    msg_st->queue_elem.cont = request_revoke_send_cont;
-    capability_to_caprep(&cap, &msg_st->caprep);
-    msg_st->st = st;
-
-    err = capsend_owner(st->revokecap, (struct msg_queue_elem*)msg_st);
-    if (err_is_fail(err)) {
-        free(msg_st);
-        return err;
-    }
-
-    return SYS_ERR_OK;
+    struct revoke_master_st *st;
+    ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
+    st = (struct revoke_master_st*)((char*)mc_st - off);
+    return intermon_capops_revoke_mark__tx(b, NOP_CONT, *caprep,
+                                           (genvaddr_t)st);
 }
 
-
-/*
- * Local revocation handling {{{1
- */
-
-static void
-revoke_delete_result(errval_t status, void *st)
+void
+revoke_mark__rx(struct intermon_binding *b,
+                intermon_caprep_t caprep,
+                genvaddr_t st)
 {
     errval_t err;
-    struct revoke_st *rst = (struct revoke_st*)st;
+    struct intermon_state *inter_st = (struct intermon_state*)b->st;
 
-    if (err_is_fail(status)) {
-        caplock_unlock(rst->revokecap);
-        rst->result_handler(status, rst->st);
-        free(rst);
+    struct revoke_slave_st *rvk_st;
+    err = calloce(1, sizeof(*rvk_st), &rvk_st);
+    PANIC_IF_ERR(err, "allocating revoke slave state");
+
+    rvk_st->from = inter_st->core_id;
+    caprep_to_capability(&caprep, &rvk_st->rawcap);
+
+    if (!slaves_head) {
+        assert(!slaves_tail);
+        slaves_head = slaves_tail = rvk_st;
+    }
+    else {
+        assert(slaves_tail);
+        assert(!slaves_tail->next);
+        slaves_tail->next = rvk_st;
+        slaves_tail = rvk_st;
+    }
+
+    // pause any ongoing "delete stepping" as mark phases on other nodes need
+    // to delete all foreign copies before we can delete locally owned caps
+    delete_steps_pause();
+
+    // XXX: this invocation could create a scheduling hole that could be
+    // problematic in RT systems and should probably be done in a loop.
+    err = monitor_revoke_mark_relations(&rvk_st->rawcap);
+    PANIC_IF_ERR(err, "marking revoke");
+
+    rvk_st->im_qn.cont = revoke_ready__send;
+    err = capsend_target(rvk_st->from, (struct msg_queue_elem*)rvk_st);
+    PANIC_IF_ERR(err, "enqueing revoke_ready");
+}
+
+static void
+revoke_ready__send(struct intermon_binding *b,
+                   struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)e;
+    err = intermon_capops_revoke_ready__tx(b, NOP_CONT, rvk_st->st);
+    PANIC_IF_ERR(err, "sending revoke_ready");
+}
+
+void
+revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
+{
+    errval_t err;
+
+    struct revoke_master_st *rvk_st = (struct revoke_master_st*)st;
+    if (!capsend_handle_mc_reply(&rvk_st->revoke_mc_st)) {
+        // multicast not complete
         return;
     }
 
-    err = revoke_local(rst);
-    if (err_is_fail(err)) {
-        rst->result_handler(err, rst->st);
+    err = capsend_relations(&rvk_st->rawcap, revoke_commit__send, &rvk_st->revoke_mc_st);
+    PANIC_IF_ERR(err, "enqueing revoke_commit multicast");
+
+    delete_steps_resume();
+
+    struct event_closure steps_fin_cont
+        = MKCLOSURE(revoke_master_steps__fin, rvk_st);
+    delete_queue_wait(&rvk_st->del_qn, steps_fin_cont);
+}
+
+static errval_t
+revoke_commit__send(struct intermon_binding *b,
+                    intermon_caprep_t *caprep,
+                    struct capsend_mc_st *mc_st)
+{
+    struct revoke_master_st *st;
+    ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
+    st = (struct revoke_master_st*)((char*)mc_st - off);
+    return intermon_capops_revoke_commit__tx(b, NOP_CONT, (genvaddr_t)st);
+}
+
+void
+revoke_commit__rx(struct intermon_binding *b,
+                  genvaddr_t st)
+{
+    assert(slaves_head);
+    assert(slaves_tail);
+    assert(!slaves_tail->next);
+
+    struct revoke_slave_st *rvk_st = slaves_head;
+    while (rvk_st && rvk_st->st != st) { rvk_st = rvk_st->next; }
+    assert(rvk_st);
+
+    delete_steps_resume();
+
+    struct event_closure steps_fin_cont
+        = MKCLOSURE(revoke_slave_steps__fin, rvk_st);
+    delete_queue_wait(&rvk_st->del_qn, steps_fin_cont);
+}
+
+static void
+revoke_slave_steps__fin(void *st)
+{
+    errval_t err;
+    struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)st;
+
+    rvk_st->im_qn.cont = revoke_done__send;
+    err = capsend_target(rvk_st->from, (struct msg_queue_elem*)rvk_st);
+    PANIC_IF_ERR(err, "enqueueing revoke_done");
+}
+
+static void
+revoke_done__send(struct intermon_binding *b,
+                  struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)e;
+    err = intermon_capops_revoke_done__tx(b, NOP_CONT, rvk_st->st);
+    PANIC_IF_ERR(err, "sending revoke_done");
+    free(rvk_st);
+}
+
+void
+revoke_done__rx(struct intermon_binding *b,
+                genvaddr_t st)
+{
+    struct revoke_master_st *rvk_st = (struct revoke_master_st*)st;
+    if (!capsend_handle_mc_reply(&rvk_st->revoke_mc_st)) {
+        // multicast not complete
+        return;
+    }
+
+    rvk_st->remote_fin = true;
+    if (rvk_st->local_fin) {
+        revoke_result__rx(SYS_ERR_OK, rvk_st, true);
     }
 }
 
 static void
-revoke_unlock_cont(void *arg)
+revoke_master_steps__fin(void *st)
 {
-    errval_t err;
-    struct revoke_st *rst = (struct revoke_st*)arg;
-    err = monitor_lock_cap(rst->revokecap.croot, rst->revokecap.cptr,
-                           rst->revokecap.bits);
-    err = revoke_local(rst);
-    rst->result_handler(err, rst->st);
-}
-
-static errval_t
-revoke_local(struct revoke_st *rst)
-{
-    errval_t err;
-    err = monitor_continue_revoke(rst->revokecap.croot, rst->revokecap.cptr,
-                                  rst->revokecap.bits, rst->delcap);
-    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
-        // kernel encountered a local cap with no copies, explicitly perform a
-        // delete in the monitor to deal with possible remote copies
-        assert(!capref_is_null(rst->delcap));
-        capops_delete(get_cap_domref(rst->delcap), revoke_delete_result, rst);
-        return SYS_ERR_OK;
+    struct revoke_master_st *rvk_st = (struct revoke_master_st*)st;
+    rvk_st->local_fin = true;
+    if (rvk_st->remote_fin) {
+        revoke_result__rx(SYS_ERR_OK, rvk_st, true);
     }
-    else if (err_no(err) == MON_ERR_REMOTE_CAP_RETRY) {
-        // cap is locked, wait in queue for unlock
-        assert(!capref_is_null(rst->delcap));
-        caplock_wait(get_cap_domref(rst->delcap), &rst->lock_queue_node, MKCLOSURE(revoke_unlock_cont, rst));
-        return SYS_ERR_OK;
-    }
-    else {
-        // revoke failed or succeeded locally without any distributed cap
-        // interaction
-        caplock_unlock(rst->revokecap);
-        rst->result_handler(err, rst->st);
-    }
-
-    slot_free(rst->delcap);
-    free(rst);
-
-    return err;
-}
-
-/*
- * Revoke operation {{{1
- */
-
-errval_t
-capops_revoke(struct domcapref cap, revoke_result_handler_t result_handler, void *st)
-{
-    errval_t err;
-
-    distcap_state_t state;
-    err = dom_cnode_get_state(cap, &state);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    if (distcap_state_is_busy(state)) {
-        return MON_ERR_REMOTE_CAP_RETRY;
-    }
-
-    err = monitor_lock_cap(cap.croot, cap.cptr, cap.bits);
-    if (err_is_fail(err)) {
-        return err_push(err, MON_ERR_RCAP_DB_LOCK);
-    }
-
-    struct revoke_st *rst = calloc(1, sizeof(struct revoke_st));
-    if (!rst) {
-        err = LIB_ERR_MALLOC_FAIL;
-        goto unlock_cap;
-    }
-    rst->revokecap = cap;
-    rst->result_handler = result_handler;
-    rst->st = st;
-
-    if (distcap_state_is_foreign(state)) {
-        err = request_revoke(rst);
-    }
-    else {
-        err = slot_alloc(&rst->delcap);
-        if (err_is_fail(err)) {
-            goto free_st;
-        }
-
-        err = revoke_local(rst);
-    }
-
-    if (err_is_ok(err)) {
-        return err;
-    }
-
-free_st:
-    free(rst);
-
-unlock_cap:
-    caplock_unlock(cap);
-
-    return err;
 }

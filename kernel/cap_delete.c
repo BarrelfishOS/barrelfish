@@ -30,11 +30,15 @@
 #include <wakeup.h>
 
 struct cte *clear_head, *clear_tail;
-struct cte *delete_head;
+struct cte *delete_head, *delete_tail;
 
+static errval_t caps_try_delete(struct cte *cte);
 static errval_t cleanup_copy(struct cte *cte);
 static errval_t cleanup_last(struct cte *cte, struct cte *ret_ram_cap);
-static errval_t cleanup_last_dcb(struct cte *cte);
+static void caps_mark_revoke_copy(struct cte *cte);
+static void caps_mark_revoke_generic(struct cte *cte);
+static void clear_list_append(struct cte *cte);
+static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
 
 /**
  * \brief Try a "simple" delete of a cap. If this fails, the monitor needs to
@@ -42,11 +46,10 @@ static errval_t cleanup_last_dcb(struct cte *cte);
  */
 static errval_t caps_try_delete(struct cte *cte)
 {
-    if (distcap_is_in_delete(cte)) {
-        // already in process of being deleted
+    if (distcap_is_in_delete(cte) || cte->mdbnode.locked) {
+        // locked or already in process of being deleted
         return SYS_ERR_CAP_LOCKED;
     }
-
     if (distcap_is_foreign(cte) || has_copies(cte)) {
         return cleanup_copy(cte);
     }
@@ -84,33 +87,51 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
         return err;
     }
 
-    if (cte->cap.type == ObjType_CNode ||
-        cte->cap.type == ObjType_Dispatcher)
+    // CNodes and dcbs contain further CTEs, so cannot simply be deleted
+    // instead, we place them in a clear list, which is progressivly worked
+    // through until each list element contains only ctes that point to
+    // other CNodes or dcbs, at which point they are scheduled for final
+    // deletion, which only happens when the clear lists are empty.
+
+    if (cte->cap.type == ObjType_CNode) {
+        // Mark all non-Null slots for deletion
+        for (cslot_t i = 0; i < (1<<cte->cap.u.cnode.bits); i++) {
+            struct cte *slot = caps_locate_slot(cte->cap.u.cnode.cnode, i);
+            caps_mark_revoke_generic(slot);
+        }
+
+        clear_list_append(cte);
+
+        return SYS_ERR_OK;
+    }
+    else if (cte->cap.type == ObjType_Dispatcher)
     {
-        // CNodes and dcbs contain further CTEs, so cannot simply be deleted
-        // instead, we place them in a clear list, which is progressivly worked
-        // through until each list element contains only ctes that point to
-        // other CNodes or dcbs, at which point they are scheduled for final
-        // deletion, which only happens when the clear lists are empty.
+        struct capability *cap = &cte->cap;
+        struct dcb *dcb = cap->u.dispatcher.dcb;
 
-        if (cte->cap.type == ObjType_Dispatcher) {
-            err = cleanup_last_dcb(cte);
-            if (err_is_fail(err)) {
-                return err;
-            }
+        // Remove from queue
+        scheduler_remove(dcb);
+        // Reset curent if it was deleted
+        if (dcb_current == dcb) {
+            dcb_current = NULL;
         }
 
-        // insert at tail of cleanup list
-        distcap_set_deleted(cte);
-        if (clear_tail) {
-            clear_tail->delete_node.next = cte;
+        // Remove from wakeup queue
+        wakeup_remove(dcb);
+
+        // Notify monitor
+        if (monitor_ep.u.endpoint.listener == dcb) {
+            printk(LOG_ERR, "monitor terminated; expect badness!\n");
+            monitor_ep.u.endpoint.listener = NULL;
+        } else if (monitor_ep.u.endpoint.listener != NULL) {
+            uintptr_t payload = dcb->domain_id;
+            err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false);
+            assert(err_is_ok(err));
         }
-        else {
-            assert(!clear_head);
-            clear_head = cte;
-        }
-        clear_tail = cte;
-        memset(&cte->delete_node, 0, sizeof(cte->delete_node));
+
+        caps_mark_revoke_generic(&dcb->cspace);
+        caps_mark_revoke_generic(&dcb->disp_cte);
+        clear_list_append(cte);
 
         return SYS_ERR_OK;
     }
@@ -253,104 +274,236 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     return SYS_ERR_OK;
 }
 
-/**
- * \brief Remove dispatcher from system
+/*
+ * Mark phase of revoke mark & sweep
  */
-static errval_t
-cleanup_last_dcb(struct cte *cte)
+
+static void caps_mark_revoke_copy(struct cte *cte)
 {
-    printk(LOG_WARN, "cleanup_dcb: NYI\n");
+    errval_t err;
+    err = caps_try_delete(cte);
+    if (err_is_fail(err)) {
+        // this should not happen as there is a copy of the cap
+        panic("error while marking/deleting cap copy for revoke:"
+              " 0x%"PRIxGENPADDR"\n", err);
+    }
+}
 
-    struct capability *cap = &cte->cap;
-    struct dcb *dcb = cap->u.dispatcher.dcb;
-    // NOTE: do not clear CTEs in dcb as they are processed later
+static void caps_mark_revoke_generic(struct cte *cte)
+{
+    errval_t err;
 
-    // Remove from queue
-    scheduler_remove(dcb);
-    // Reset curent if it was deleted
-    if (dcb_current == dcb) {
-        dcb_current = NULL;
+    if (cte->cap.type == ObjType_Null) {
+        return;
+    }
+    if (distcap_is_in_delete(cte)) {
+        return;
     }
 
-    // Remove from wakeup queue
-    wakeup_remove(dcb);
+    err = caps_try_delete(cte);
+    if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED)
+    {
+        cte->mdbnode.in_delete = true;
+        //cte->delete_node.next_slot = 0;
 
-    // Notify monitor
-    if (monitor_ep.u.endpoint.listener == dcb) {
-        printk(LOG_ERR, "monitor terminated; expect badness!\n");
-        monitor_ep.u.endpoint.listener = NULL;
-    } else if (monitor_ep.u.endpoint.listener != NULL) {
-        errval_t err;
-        uintptr_t payload = dcb->domain_id;
-        err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false);
-        assert(err_is_ok(err));
+        // insert into delete list
+        if (!delete_tail) {
+            assert(!delete_head);
+            delete_head = delete_tail = cte;
+            cte->delete_node.next = NULL;
+        }
+        else {
+            assert(delete_head);
+            assert(!delete_tail->delete_node.next);
+            delete_tail->delete_node.next = cte;
+            delete_tail = cte;
+        }
+
+        // because the monitors will perform a 2PC that deletes all foreign
+        // copies before starting the delete steps, and because the in_delete
+        // bit marks this cap as "busy" (see distcap_get_state), we can clear
+        // the remote copies bit.
+        cte->mdbnode.remote_copies = 0;
+    }
+    else if (err_is_fail(err)) {
+        // some serious mojo went down in the cleanup voodoo
+        panic("error while marking/deleting descendant cap for revoke:"
+              " 0x%"PRIxGENPADDR"\n", err);
+    }
+}
+
+/**
+ * \brief Mark capabilities for a revoke operation.
+ * \param base The data for the capability being revoked
+ * \param revoked The revoke target if it is on this core. This specific
+ *        capability copy will not be marked. If supplied, is_copy(base,
+ *        &revoked->cap) must hold.
+ * \returns
+ *        - CAP_NOT_FOUND if no copies or desendants are present on this core.
+ *        - SYS_ERR_OK otherwise.
+ */
+errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
+{
+    assert(base);
+    assert(!revoked || revoked->mdbnode.owner == my_core_id);
+
+    // to avoid multiple mdb_find_greater, we store the predecessor of the
+    // current position
+    struct cte *prev = mdb_find_greater(base, true), *next = NULL;
+    if (!prev || !(is_copy(base, &prev->cap)
+                   || is_ancestor(&prev->cap, base)))
+    {
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
+
+    for (next = mdb_successor(prev);
+         next && is_copy(base, &next->cap);
+         next = mdb_successor(prev))
+    {
+        // note: if next is a copy of base, prev will also be a copy
+        if (next == revoked) {
+            // do not delete the revoked capability, use it as the new prev
+            // instead, and delete the old prev.
+            next = prev;
+            prev = revoked;
+        }
+        assert(revoked || next->mdbnode.owner != my_core_id);
+        caps_mark_revoke_copy(next);
+    }
+
+    for (next = mdb_successor(prev);
+         next && is_ancestor(&next->cap, base);
+         next = mdb_successor(prev))
+    {
+        caps_mark_revoke_generic(next);
+        if (next->cap.type) {
+            // the cap has not been deleted, so we must use it as the new prev
+            prev = next;
+        }
+    }
+
+    if (prev != revoked && !prev->mdbnode.in_delete) {
+        if (is_copy(base, &prev->cap)) {
+            caps_mark_revoke_copy(prev);
+        }
+        else {
+            // due to early termination the condition, prev must be a
+            // descendant
+            assert(is_ancestor(&prev->cap, base));
+            caps_mark_revoke_generic(prev);
+        }
     }
 
     return SYS_ERR_OK;
 }
 
-static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
-static errval_t caps_clear_next_cnode(struct cte *cnode, struct cte *ret_next);
-static errval_t caps_clear_next_dispatcher(struct cte *dispatcher, struct cte *ret_next);
-
 /*
- * \brief Delete next element in cleared cnode/dcb graph
+ * Sweep phase
  */
 
-errval_t caps_continue_clear(struct cte *ret_next)
+static void clear_list_append(struct cte *cte)
+{
+    if (!clear_tail) {
+        assert(!clear_head);
+        clear_head = clear_tail = cte;
+    }
+    else {
+        assert(clear_head);
+        clear_tail = clear_tail->delete_node.next = cte;
+    }
+    cte->delete_node.next = NULL;
+}
+
+errval_t caps_delete_step(struct cte *ret_next)
 {
     errval_t err = SYS_ERR_OK;
+
+    assert(ret_next);
     assert(ret_next->cap.type == ObjType_Null);
 
-    while (clear_head) {
-        // get next element from clear list head
-        struct cte *current = clear_head;
+    if (!delete_head) {
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
+    assert(delete_head->mdbnode.in_delete);
 
-        // clear cap as far as possible
-        switch (current->cap.type) {
-        case ObjType_CNode:
-            err = caps_clear_next_cnode(current, ret_next);
-            break;
-        case ObjType_Dispatcher:
-            err = caps_clear_next_dispatcher(current, ret_next);
-            break;
-        default:
-            printk(LOG_ERR, "Unexpected cap type in delete_next");
-            break;
+    struct cte *cte = delete_head, *next = cte->delete_node.next;
+    if (cte->mdbnode.locked) {
+        err = SYS_ERR_CAP_LOCKED;
+    }
+    else if (distcap_is_foreign(cte) || has_copies(cte)) {
+        err = cleanup_copy(cte);
+    }
+    else if (cte->mdbnode.remote_copies) {
+        err = caps_copyout_last(cte, ret_next);
+        if (err_is_ok(err)) {
+            delete_head = next;
+            err = SYS_ERR_DELETE_LAST_OWNED;
         }
-
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        // cap was cleared successfully, now contains only other cnodes and
-        // dcbs marked as deleted
-
-        // remove element from clear list head
-        if (clear_tail == current) {
-            assert(clear_head == current);
-            clear_head = clear_tail = NULL;
-        }
-        else {
-            clear_head = current->delete_node.next;
-        }
-        memset(&current->delete_node, 0, sizeof(current->delete_node));
-
-        // put element on "final delete" queue
-        current->delete_node.next = delete_head;
-        delete_head = current;
-    };
-
-    assert(!clear_head);
-    assert(!clear_tail);
-
-    if (delete_head) {
-        struct cte *cleared = delete_head;
-        delete_head = cleared->delete_node.next;
-        return cleanup_last(delete_head, ret_next);
+    }
+    else {
+        err = caps_delete_last(cte, ret_next);
     }
 
-    return SYS_ERR_OK;
+    if (err_is_ok(err)) {
+        delete_head = next;
+    }
+    return err;
+}
+
+errval_t caps_clear_step(struct cte *ret_ram_cap)
+{
+    errval_t err;
+    assert(!delete_head);
+    assert(!delete_tail);
+
+    if (!clear_head) {
+        assert(!clear_tail);
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
+    assert((clear_head == clear_tail) == (!clear_head->delete_node.next));
+
+    struct cte *cte = clear_head;
+
+#ifndef NDEBUG
+    // some sanity checks
+#define CHECK_SLOT(slot) do { \
+    assert((slot)->cap.type == ObjType_Null \
+           || (slot)->cap.type == ObjType_CNode \
+           || (slot)->cap.type == ObjType_Dispatcher); \
+    if ((slot)->cap.type != ObjType_Null) { \
+        assert((slot)->mdbnode.in_delete); \
+    } \
+} while (0)
+
+    if (cte->cap.type == ObjType_CNode) {
+        for (cslot_t i = 0; i < (1<<cte->cap.u.cnode.bits); i++) {
+            struct cte *slot = caps_locate_slot(cte->cap.u.cnode.cnode, i);
+            CHECK_SLOT(slot);
+        }
+    }
+    else if (cte->cap.type == ObjType_Dispatcher) {
+        struct dcb *dcb = cte->cap.u.dispatcher.dcb;
+        CHECK_SLOT(&dcb->cspace);
+        CHECK_SLOT(&dcb->disp_cte);
+    }
+    else {
+        panic("Non-CNode/Dispatcher cap type in clear list!");
+    }
+
+#undef CHECK_SLOT
+#endif
+
+    struct cte *after = cte->delete_node.next;
+    err = cleanup_last(cte, ret_ram_cap);
+    if (err_is_ok(err)) {
+        if (after) {
+            clear_head = after;
+        }
+        else {
+            clear_head = clear_tail = NULL;
+        }
+    }
+    return err;
 }
 
 static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte)
@@ -372,161 +525,19 @@ static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte)
     return SYS_ERR_OK;
 }
 
-static errval_t
-caps_clear_next_cnode(struct cte *cte, struct cte *ret_next)
-{
-    errval_t err = SYS_ERR_OK;
-
-    assert(cte->cap.type == ObjType_CNode);
-    struct CNode *cnode = &cte->cap.u.cnode;
-    size_t size = 1 << cnode->bits;
-    cslot_t index = cte->delete_node.next_slot;
-
-    if (index > size) {
-        printk(LOG_ERR, "Unexpected delete index into cnode slots");
-        return SYS_ERR_OK;
-    }
-
-    // iterate through remaining slots until all are cleared or an issue is
-    // encountered
-    for (; err_is_ok(err) && index < size; index++) {
-        // determine slot for current index
-        struct cte *current = caps_locate_slot(cnode->cnode, index);
-
-        if (current->cap.type == ObjType_Null) {
-            // skip empty slots
-            continue;
-        }
-
-        // try simple delete
-        err = caps_try_delete(current);
-
-        if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
-            // create a copy in slot specified by the caller, then delete
-            // `next` slot so the new copy is still the last copy.
-            err = caps_copyout_last(current, ret_next);
-            assert(err_is_ok(err));
-
-            return SYS_ERR_DELETE_LAST_OWNED;
-        }
-    }
-
-    return err;
-}
-
-static errval_t
-caps_clear_next_dispatcher(struct cte *cte, struct cte *ret_next)
-{
-    errval_t err = SYS_ERR_OK;
-    assert(cte->cap.type == ObjType_Dispatcher);
-    cslot_t index = cte->delete_node.next_slot;
-    struct dcb *dcb = cte->cap.u.dispatcher.dcb;
-    size_t size = 2; // dcb has 2 slots
-
-    if (index > size) {
-        printk(LOG_ERR, "Unexpected delete index into dcb slots");
-        return SYS_ERR_OK;
-    }
-
-    for (; err_is_ok(err) && index < size; index++) {
-        // determine slot for current index
-        struct cte *current;
-        switch (index) {
-        case 0:
-            current = &dcb->cspace;
-            break;
-        case 1:
-            current = &dcb->disp_cte;
-            break;
-        default:
-            assert(false);
-        }
-
-        if (current->cap.type == ObjType_Null) {
-            // skip empty slots
-            continue;
-        }
-
-        // try simple delete
-        err = caps_try_delete(current);
-
-        if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
-            // create a copy in slot specified by the caller, then delete
-            // `next` slot so the new copy is still the last copy.
-            err = caps_copyout_last(current, ret_next);
-            assert(err_is_ok(err));
-        }
-    }
-
-    return err;
-}
-
-errval_t caps_continue_revoke(struct cte *target, struct cte *ret_next)
-{
-    errval_t err;
-
-    assert(ret_next);
-    assert(ret_next->cap.type == ObjType_Null);
-
-    // delete copies backwards
-    struct cte *next = mdb_predecessor(target);
-    while (next && is_copy(&next->cap, &target->cap)) {
-        err = cleanup_copy(next);
-        if (err_is_fail(err)) {
-            printk(LOG_WARN, "Error during revoke: %"PRIuPTR"\n", err);
-            return err;
-        }
-        next = mdb_predecessor(target);
-    }
-
-    // delete copies forwards
-    next = mdb_successor(target);
-    while (next && is_copy(&next->cap, &target->cap)) {
-        err = cleanup_copy(next);
-        if (err_is_fail(err)) {
-            printk(LOG_WARN, "Error during revoke: %"PRIuPTR"\n", err);
-            return err;
-        }
-        next = mdb_successor(target);
-    }
-
-    // delete descendants
-    while (next && is_ancestor(&next->cap, &target->cap)) {
-        // recursing here ensures leaves are fully deleted before their parents
-        err = caps_continue_revoke(next, ret_next);
-        if (err_is_fail(err)) {
-            if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
-                assert(ret_next->cap.type != ObjType_Null);
-            }
-            return err;
-        }
-
-        // try simple delete
-        err = caps_try_delete(next);
-
-        if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
-            // create a copy in slot specified by the caller, then delete
-            // `next` slot so the new copy is still the last copy.
-            err = caps_copyout_last(next, ret_next);
-            assert(err_is_ok(err));
-
-            return SYS_ERR_DELETE_LAST_OWNED;
-        }
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        next = mdb_successor(target);
-    }
-
-    return SYS_ERR_OK;
-}
+/*
+ * CNode invocations
+ */
 
 errval_t caps_delete(struct cte *cte)
 {
     errval_t err;
 
     TRACE_CAP_MSG("deleting", cte);
+
+    if (cte->mdbnode.locked) {
+        return SYS_ERR_CAP_LOCKED;
+    }
 
     err = caps_try_delete(cte);
     if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {

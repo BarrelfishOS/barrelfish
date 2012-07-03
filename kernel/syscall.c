@@ -18,24 +18,20 @@
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
-#include <mdb/mdb.h>
-#include <mdb/mdb_tree.h>
-#include <cap_predicates.h>
+//#include <mdb/mdb.h>
+//#include <mdb/mdb_tree.h>
+//#include <cap_predicates.h>
 #include <dispatch.h>
 #include <distcaps.h>
 #include <wakeup.h>
-#include <paging_kernel_helper.h>
-#include <exec.h>
-#include <irq.h>
+//#include <paging_kernel_helper.h>
+//#include <exec.h>
+//#include <irq.h>
 #include <trace/trace.h>
 
 /// Keep track of all DCBs for tracing rundown
 /// XXX this is never garbage-collected at the moment
 struct dcb *dcbs_list = NULL;
-
-static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
-                                  capaddr_t tptr, uint8_t tbits,
-                                  struct cte **cte);
 
 errval_t sys_print(const char *str, size_t length)
 {

@@ -670,7 +670,7 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
         return err;
     }
 
-    err = capops_intermon_init(b);
+    err = capops_init(b->waitset, b);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "capops_intermon_init failed");
         return err;

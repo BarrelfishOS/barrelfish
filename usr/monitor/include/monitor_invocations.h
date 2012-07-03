@@ -49,8 +49,19 @@ errval_t monitor_get_cap_owner(struct capref croot, capaddr_t cptr, int bits, co
 errval_t monitor_set_cap_owner(struct capref croot, capaddr_t cptr, int bits, coreid_t owner);
 errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int bits);
 errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits);
-errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, struct capref ret_cap);
-errval_t monitor_continue_revoke(struct capref croot, capaddr_t cptr, int bits, struct capref ret_cap);
 errval_t monitor_has_descendants(struct capability *cap, bool *res);
+
+/*
+ * Delete- and revoke-related operations
+ */
+
+errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits,
+                             struct capref ret_cap);
+errval_t monitor_revoke_mark_target(struct capref croot,
+                                    capaddr_t cptr,
+                                    int bits);
+errval_t monitor_revoke_mark_relations(struct capability *cap);
+errval_t monitor_delete_step(struct capref ret_cap);
+errval_t monitor_clear_step(struct capref ret_cap);
 
 #endif

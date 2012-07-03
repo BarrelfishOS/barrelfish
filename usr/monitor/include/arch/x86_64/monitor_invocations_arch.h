@@ -216,11 +216,35 @@ invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
 }
 
 static inline errval_t
-invoke_monitor_continue_revoke(capaddr_t root, int rbits, capaddr_t cap, int cbits,
-                           capaddr_t retcn, int retcnbits, cslot_t retslot)
+invoke_monitor_revoke_mark_target(capaddr_t root, int rbits,
+                                  capaddr_t cap, int cbits)
 {
-    return cap_invoke8(cap_kernel, KernelCmd_Revoke_step, root, rbits, cap,
-                       cbits, retcn, retcnbits, retslot).error;
+    return cap_invoke5(cap_kernel, KernelCmd_Revoke_mark_target,
+                       root, rbits, cap, cbits).error;
+}
+
+static inline errval_t
+invoke_monitor_revoke_mark_relations(uint64_t *raw_base)
+{
+    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
+    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
+    return cap_invoke5(cap_kernel, KernelCmd_Revoke_mark_relations,
+                       raw_base[0], raw_base[1],
+                       raw_base[2], raw_base[3]).error;
+}
+
+static inline errval_t
+invoke_monitor_delete_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
+{
+    return cap_invoke4(cap_kernel, KernelCmd_Delete_step,
+                       retcn, retcnbits, retslot).error;
+}
+
+static inline errval_t
+invoke_monitor_clear_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
+{
+    return cap_invoke4(cap_kernel, KernelCmd_Clear_step,
+                       retcn, retcnbits, retslot).error;
 }
 
 static inline errval_t
@@ -229,7 +253,7 @@ invoke_monitor_has_descendants(uint64_t *raw, bool *res)
     assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
     assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
     struct sysret sysret;
-    sysret = cap_invoke5(cap_kernel, KernelCmd_Has_Descendants,
+    sysret = cap_invoke5(cap_kernel, KernelCmd_Has_descendants,
                          raw[0], raw[1], raw[2], raw[3]);
     if (err_is_ok(sysret.error)) {
         *res = sysret.value;

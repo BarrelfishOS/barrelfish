@@ -19,9 +19,11 @@
 struct capsend_mc_msg_st;
 struct capsend_mc_st;
 
-typedef errval_t (*capsend_send_fn)(struct intermon_binding*, intermon_caprep_t*, struct capsend_mc_st*); /* binding, caprep, user_st */
+typedef errval_t (*capsend_send_fn)(struct intermon_binding* /*binding*/,
+                                    intermon_caprep_t* /*caprep*/,
+                                    struct capsend_mc_st* /*user_st*/);
 
-bool capsend_handle_mc_reply(genvaddr_t mc_st); /* returns true if was last reply */
+bool capsend_handle_mc_reply(struct capsend_mc_st *mc_st); /* returns true if was last reply */
 
 struct capsend_mc_st {
     struct capsend_mc_msg_st *msg_st_arr;
@@ -32,22 +34,33 @@ struct capsend_mc_st {
     capsend_send_fn send_fn;
 };
 
-errval_t capsend_target(coreid_t dest, struct msg_queue_elem *queue_elem);
+errval_t capsend_target(coreid_t dest,
+                        struct msg_queue_elem *queue_elem);
 
-errval_t capsend_owner(struct domcapref capref, struct msg_queue_elem *queue_elem);
+errval_t capsend_owner(struct domcapref capref,
+                       struct msg_queue_elem *queue_elem);
 
-errval_t capsend_update_owner(struct domcapref capref, struct event_closure continuation);
+errval_t capsend_update_owner(struct domcapref capref,
+                              struct event_closure continuation);
 
-errval_t capsend_copies(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
+errval_t capsend_copies(struct capability *cap,
+                        capsend_send_fn send_fn,
+                        struct capsend_mc_st *mc_st);
 
-errval_t capsend_descendants(struct capability *cap, capsend_send_fn send_fn, struct capsend_mc_st *mc_st);
+errval_t capsend_relations(struct capability *cap,
+                           capsend_send_fn send_fn,
+                           struct capsend_mc_st *mc_st);
 
 typedef void (*capsend_find_cap_result_fn)(errval_t, coreid_t, void*);
 
-errval_t capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_fn, void *st);
+errval_t capsend_find_cap(struct capability *cap,
+                          capsend_find_cap_result_fn result_fn,
+                          void *st);
 
 typedef void (*capsend_result_fn)(errval_t, void*);
 
-errval_t capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void *st);
+errval_t capsend_find_descendants(struct domcapref src,
+                                  capsend_result_fn result_fn,
+                                  void *st);
 
 #endif

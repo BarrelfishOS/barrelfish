@@ -31,8 +31,9 @@ void capops_delete(struct domcapref cap,
                    delete_result_handler_t result_handler, void *st);
 
 typedef void (*revoke_result_handler_t)(errval_t, void*);
-errval_t capops_revoke(struct domcapref cap,
-                       revoke_result_handler_t result_handler, void *st);
+void capops_revoke(struct domcapref cap,
+                   revoke_result_handler_t result_handler,
+                   void *st);
 
 typedef void (*retype_result_handler_t)(errval_t, void*);
 void capops_retype(enum objtype type, size_t objbits, struct capref croot,
@@ -41,6 +42,6 @@ void capops_retype(enum objtype type, size_t objbits, struct capref croot,
                    retype_result_handler_t result_handler, void *st);
 
 struct intermon_binding;
-errval_t capops_intermon_init(struct intermon_binding *b);
+errval_t capops_init(struct waitset *ws, struct intermon_binding *b);
 
 #endif

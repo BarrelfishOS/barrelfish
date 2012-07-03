@@ -30,7 +30,7 @@ struct cte;
 
 struct delete_list {
     struct cte *next;
-    cslot_t next_slot;
+    //cslot_t next_slot;
 };
 
 STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
@@ -87,19 +87,26 @@ errval_t is_retypeable(struct cte *src_cte,
                        enum objtype dest_type,
                        bool from_monitor);
 
-errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap);
-errval_t caps_continue_clear(struct cte *ret_next);
-errval_t caps_continue_revoke(struct cte *target, struct cte *ret_next);
-errval_t caps_delete(struct cte *cte);
-errval_t caps_revoke(struct cte *cte);
-
 errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          uint8_t vbits, struct capability **ret,
                          CapRights rights);
 errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights);
-void mdb_remove_recursively(struct cte *cte);
-void mdb_insert_recursively(struct cte *cte);
+
+/*
+ * Delete and revoke
+ */
+
+errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap);
+errval_t caps_mark_revoke(struct capability *base, struct cte *revoked);
+errval_t caps_delete_step(struct cte *ret_next);
+errval_t caps_clear_step(struct cte *ret_ram_cap);
+errval_t caps_delete(struct cte *cte);
+errval_t caps_revoke(struct cte *cte);
+
+/*
+ * Cap tracing
+ */
 
 #ifdef TRACE_PMEM_CAPS
 static inline bool caps_should_trace(struct capability *cap)

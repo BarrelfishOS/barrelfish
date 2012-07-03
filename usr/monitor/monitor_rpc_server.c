@@ -58,10 +58,7 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t vbits)
 {
     struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
-    errval_t err = capops_revoke(cap, revoke_reply_status, (void*)b);
-    if (err_is_fail(err)) {
-        revoke_reply_status(err, (void*)b);
-    }
+    capops_revoke(cap, revoke_reply_status, (void*)b);
 }
 
 static void rsrc_manifest(struct monitor_blocking_binding *b,
@@ -234,12 +231,7 @@ static void cap_set_remote(struct monitor_blocking_binding *b,
 
     *tmpcap = cap;
 
-#if 0
-    bool has_descendants;
-    //reterr = monitor_cap_remote(cap, remote, &has_descendants);
-#else
     reterr = ERR_NOTIMP;
-#endif
     err = b->tx_vtbl.cap_set_remote_response(b, MKCONT(cap_set_remote_done, tmpcap),
                                              reterr);
     if(err_is_fail(err)) {

@@ -159,8 +159,10 @@ interface intermon "The Interface between monitors" {
     message capops_delete_remote(caprep cap, capop_st st);
     message capops_delete_remote_result(errval status, capop_st st);
 
-    message capops_request_revoke(caprep cap, capop_st st);
-    message capops_revoke_result(errval status, capop_st st);
+    message capops_revoke_mark(caprep cap, capop_st st);
+    message capops_revoke_ready(capop_st st);
+    message capops_revoke_commit(capop_st st);
+    message capops_revoke_done(capop_st st);
 
     // XXX: uint32 for bits? -MN
     message capops_request_retype(caprep src, int desttype, uint32 destbits, capop_st st);

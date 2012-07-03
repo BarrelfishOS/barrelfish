@@ -232,6 +232,11 @@ errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits)
     return invoke_monitor_unlock_cap(root_addr, root_bits, cptr, bits);
 }
 
+errval_t monitor_has_descendants(struct capability *cap, bool *res)
+{
+    return invoke_monitor_has_descendants((uint64_t*)cap, res);
+}
+
 errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, struct capref ret_cap)
 {
     capaddr_t root_addr = get_cap_addr(croot);
@@ -243,18 +248,29 @@ errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, stru
                                       ret_cn, ret_cn_bits, ret_slot);
 }
 
-errval_t monitor_continue_revoke(struct capref croot, capaddr_t cptr, int bits, struct capref ret_cap)
+errval_t monitor_revoke_mark_target(struct capref croot, capaddr_t cptr,
+                                    int bits)
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
-    capaddr_t ret_cn = ret_cap.cnode.address;
-    uint8_t ret_cn_bits = ret_cap.cnode.address_bits;
-    cslot_t ret_slot = ret_cap.slot;
-    return invoke_monitor_continue_revoke(root_addr, root_bits, cptr, bits,
-                                          ret_cn, ret_cn_bits, ret_slot);
+    return invoke_monitor_revoke_mark_target(root_addr, root_bits, cptr, bits);
 }
 
-errval_t monitor_has_descendants(struct capability *cap, bool *res)
+errval_t monitor_revoke_mark_relations(struct capability *cap)
 {
-    return invoke_monitor_has_descendants((uint64_t*)cap, res);
+    return invoke_monitor_revoke_mark_relations((uint64_t*)cap);
+}
+
+errval_t monitor_delete_step(struct capref ret_cap)
+{
+    return invoke_monitor_delete_step(get_cnode_addr(ret_cap),
+                                      get_cnode_valid_bits(ret_cap),
+                                      ret_cap.slot);
+}
+
+errval_t monitor_clear_step(struct capref ret_cap)
+{
+    return invoke_monitor_clear_step(get_cnode_addr(ret_cap),
+                                     get_cnode_valid_bits(ret_cap),
+                                     ret_cap.slot);
 }

@@ -145,11 +145,9 @@ capsend_mc_init(struct capsend_mc_st *mc_st, struct capability *cap,
     return SYS_ERR_OK;
 }
 
-bool capsend_handle_mc_reply(genvaddr_t st)
+bool capsend_handle_mc_reply(struct capsend_mc_st *st)
 {
-    struct capsend_mc_st *mc_st = (struct capsend_mc_st*)st;
-
-    if (!--mc_st->num_pending) {
+    if (!--st->num_pending) {
         return true;
     }
     else {
@@ -337,7 +335,7 @@ find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvadd
     }
 
     // check to see if broadcast is complete
-    if (capsend_handle_mc_reply(st)) {
+    if (capsend_handle_mc_reply(&fc_bc_st->bc)) {
         if (!fc_bc_st->found) {
             // broadcast did not find a core, report notfound to caller
             fc_bc_st->result_handler(SYS_ERR_CAP_NOT_FOUND, 0, fc_bc_st->st);
@@ -383,7 +381,7 @@ capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void
     mc_st->result_fn = result_fn;
     mc_st->st = st;
     mc_st->have_result = false;
-    return capsend_descendants(&cap, find_descendants_send_cont, (struct capsend_mc_st*)mc_st);
+    return capsend_relations(&cap, find_descendants_send_cont, (struct capsend_mc_st*)mc_st);
 }
 
 
@@ -457,7 +455,7 @@ find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status,
         DEBUG_ERR(status, "ignoring bad find_descendants result");
     }
 
-    if (capsend_handle_mc_reply(st)) {
+    if (capsend_handle_mc_reply(&mc_st->mc_st)) {
         if (!mc_st->have_result) {
             mc_st->result_fn(SYS_ERR_CAP_NOT_FOUND, mc_st->st);
         }
@@ -553,11 +551,11 @@ owner_updated(coreid_t owner, genvaddr_t st)
 void
 owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st)
 {
-    if (!capsend_handle_mc_reply(st)) {
+    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)st;
+    if (!capsend_handle_mc_reply(&uo_bc_st->bc)) {
         // broadcast is not complete
         return;
     }
-    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)st;
     struct event_closure *cl = &uo_bc_st->completion_continuation;
     cl->handler(cl->arg);
     free(uo_bc_st);
@@ -613,9 +611,9 @@ capsend_copies(struct capability *cap,
 }
 
 errval_t
-capsend_descendants(struct capability *cap,
-            capsend_send_fn send_fn,
-            struct capsend_mc_st *mc_st)
+capsend_relations(struct capability *cap,
+                  capsend_send_fn send_fn,
+                  struct capsend_mc_st *mc_st)
 {
     // this is currently just a broadcast
     return capsend_broadcast(mc_st, cap, send_fn);
