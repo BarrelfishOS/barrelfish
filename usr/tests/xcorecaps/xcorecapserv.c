@@ -36,10 +36,10 @@ static struct capref sent_cap;
 static void send_cap(struct xcorecap_binding *b, struct capref ram_cap)
 {
     sent_cap = ram_cap;
-    
+
     printf("xcorecapserv got cap\n");
     fflush(stdout);
-    
+
     b->tx_vtbl.send_done(b, NOP_CONT);
 }
 
@@ -47,17 +47,17 @@ static void retype_cap(struct xcorecap_binding *b)
 {
     errval_t err;
     struct capref vnode_cap;
-    
+
     // retype the ram vnode (should fail if retyped on another core)
     err = slot_alloc(&vnode_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecapserv: Vnode slot alloc failed\n"); 
+        DEBUG_ERR(err, "xcorecapserv: Vnode slot alloc failed\n");
     }
     err = cap_retype(vnode_cap, sent_cap, ObjType_VNode_x86_64_ptable,
                      ALLOC_BITS);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecapserv: Retype to vnode failed\n");    
-    } 
+        DEBUG_ERR(err, "xcorecapserv: Retype to vnode failed\n");
+    }
 
     printf("xcorecapserv retyped cap\n");
     fflush(stdout);
@@ -70,8 +70,8 @@ static void delete_cap(struct xcorecap_binding *b)
     errval_t err;
     err = cap_delete(sent_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecapserv: delete failed\n");    
-    } 
+        DEBUG_ERR(err, "xcorecapserv: delete failed\n");
+    }
 
     printf("xcorecapserv deleted cap\n");
     fflush(stdout);
@@ -86,8 +86,8 @@ static void revoke_cap(struct xcorecap_binding *b)
     printf("xcorecapserv do revoke cap\n");
     err = cap_revoke(sent_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecapserv: revoke failed\n");    
-    } 
+        DEBUG_ERR(err, "xcorecapserv: revoke failed\n");
+    }
 
     printf("xcorecapserv revoked cap\n");
     fflush(stdout);
@@ -126,7 +126,7 @@ static errval_t connect_cb(void *st, struct xcorecap_binding *b)
 
 
 /* --- Setup functions --- */
-static void init(void) 
+static void init(void)
 {
     errval_t err;
 
@@ -135,12 +135,12 @@ static void init(void)
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "xcorecapserv: Error exporting\n");
-        abort();    
-    } 
+        abort();
+    }
 }
 
 
-int main (int argc, char* argv[]) 
+int main (int argc, char* argv[])
 {
     errval_t err;
 
