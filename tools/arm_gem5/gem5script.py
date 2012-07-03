@@ -5,6 +5,8 @@
 # (See configs/example/* in the M5 distribution for examples of
 # fuller scripts -- caches, etc.).
 
+# Determine script pathname
+import inspect, os
 import optparse
 import os
 import sys
@@ -17,6 +19,11 @@ from m5.util import fatal
 from O3_ARM_v7a import *
 import CacheConfig
 from Caches import *
+
+# Try to determine Barrelfish source directory
+# We assume that this script remains in tools/arm_gem5
+bfsrcdir='%s/../..' % os.path.dirname(inspect.getfile(inspect.currentframe()))
+print "Barrelfish source-directory is assume to be %s" % bfsrcdir
 
 class MemBus(Bus):
     badaddr_responder = BadAddr()
@@ -129,7 +136,8 @@ system.realview = VExpress_ELT()
 #setup bootloader
 system.realview.nvmem = SimpleMemory(range = AddrRange(Addr('2GB'), size = '64MB'), zero = True)
 system.realview.nvmem.port = system.membus.master
-system.boot_loader = '../tools/arm_gem5/boot.arm'
+# System boot loader is now given relative to source directory
+system.boot_loader = ('%s/tools/arm_gem5/boot.arm' % bfsrcdir)
 #system.boot_loader_mem = system.realview.nvmem
 #system.realview.setupBootLoader(system.membus, system, '../tools/arm_gem5/boot.arm')
 system.gic_cpu_addr = system.realview.gic.cpu_addr
