@@ -201,12 +201,13 @@ relocate_got_base(lvaddr_t offset)
 		);
 }
 
-static void enable_mmu(void)
+void enable_mmu(void);
+void enable_mmu(void)
 {
 	__asm volatile (
 			"ldr    r0, =0x55555555\n\t"       // Initial domain permissions
 			"mcr    p15, 0, r0, c3, c0, 0\n\t"
-			"ldr	r1, =0x1007\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU
+			"ldr	r1, =0x1007\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU 0x007 0x003 --> works
 			"mrc	p15, 0, r0, c1, c0, 0\n\t"	// read out system configuration register
 			"orr	r0, r0, r1\n\t"
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
@@ -232,13 +233,11 @@ static void paging_init(void)
 		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
 	{
 		// create 1:1 mapping
-	//	paging_map_kernel_section((uintptr_t)boot_l1_low, base, base);
 		paging_map_device_section((uintptr_t)boot_l1_low, base, base);
 
 		// Alias the same region at MEMORY_OFFSET (gem5 code)
 		// create 1:1 mapping for pandaboard
-		paging_map_kernel_section((uintptr_t)boot_l1_high, vbase, vbase);
-
+		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
 	}
 
 	// Activate new page tables
@@ -269,8 +268,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
 	errval_t errval;
 	// Relocate glbl_core_data to "memory"
-//    glbl_core_data = (struct arm_core_data *)
-//        local_phys_to_mem((lpaddr_t)glbl_core_data);
 
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
@@ -282,7 +279,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     else
     {
         panic("need multiboot MMAP\n");
-//    	paging_arm_reset(0x0, GEM5_RAM_SIZE);
     }
 
 //	exceptions_init();
@@ -320,10 +316,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
 void arch_init(void *pointer)
 {
-//    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
-//        (void *)local_phys_to_mem((lpaddr_t)text_init);
-
-    struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
     early_serial_init(serial_console_port);
 
@@ -353,57 +345,19 @@ void arch_init(void *pointer)
         memset(&global->locks, 0, sizeof(global->locks));
         addr_global            = (uint32_t)global;
     }
-	*/
-
-    // Find relocation section
-    rela = elf32_find_section_header_type((struct Elf32_Shdr *)
-    									  ((uintptr_t)elf->addr),
-    									  elf->num, SHT_REL);
-
-    if (rela == NULL) {
-        panic("Kernel image does not include relocation section!");
-    }
-
-    // Find symtab section
-    symtab = elf32_find_section_header_type((struct Elf32_Shdr *)(lpaddr_t)elf->addr,
-    									  elf->num, SHT_DYNSYM);
-
-    if (symtab == NULL) {
-        panic("Kernel image does not include symbol table!");
-    }
+*/
 
     printf("At paging init\n");
 
     paging_init();
 
-    printf("At MMU init orig v2\n");
+    printf("At MMU init\n");
 
     enable_mmu();
 
     printf("Relocating kernel to virtual memory\n");
 
     //align kernel dest to 16KB
-#if 0
-    lvaddr_t reloc_dest = ROUND_UP(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte, ARM_L1_ALIGN);
-
-    // Relocate kernel image for top of memory
-    elf32_relocate(reloc_dest,
-    			   (lvaddr_t)&kernel_first_byte,
-    			   (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
-    			   rela->sh_size,
-    			   (struct Elf32_Sym *)(symtab->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
-    			   symtab->sh_size,
-    			   START_KERNEL_PHYS, &kernel_first_byte);
-    /*** Aliased kernel available now -- low memory still mapped ***/
-
-    // Relocate stack to aliased location
-    relocate_stack(MEMORY_OFFSET);
-
-    //relocate got_base register to aliased location
-    relocate_got_base(MEMORY_OFFSET);
-#endif // 0
-
     // Call aliased text_init() function and continue initialization
-    //reloc_text_init();
     text_init();
 }

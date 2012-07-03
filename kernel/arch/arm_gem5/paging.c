@@ -116,7 +116,7 @@ paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
     l1.section.type = L1_TYPE_SECTION_ENTRY;
     l1.section.bufferable   = 0;
     l1.section.cacheable    = 0;
-    l1.section.ap10         = 1;	// RW/NA
+    l1.section.ap10         = 3;	// RW/NA RW/RW
     l1.section.ap2			= 0;
     l1.section.base_address = pa >> 20u;
 
