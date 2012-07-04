@@ -14,7 +14,7 @@
 #include "pci_hdr0_mem_dev.h"
 
 // control register
-#define PCI_VMKITMON_ETH_SRIRQ 1
+#define PCI_VMKITMON_ETH_RSTIRQ 1
 
 // status register
 #define PCI_VMKITMON_ETH_IRQST 1

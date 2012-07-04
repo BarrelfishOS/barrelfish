@@ -83,7 +83,7 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 	}
 
 	//For testing:
-	generate_interrupt(dev);
+	if(0) generate_interrupt(dev);
 }
 
 static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *val){
