@@ -1,4 +1,3 @@
-
 #include "vmkitmon.h"
 #include "pci.h"
 #include "pci_devices.h"
@@ -6,12 +5,16 @@
 #include "guest.h"
 #include "string.h"
 #include <pci/devids.h>
+#include <net_queue_manager/net_queue_manager.h>
+#include <if/net_queue_manager_defs.h>
 
 #define PCI_ETHERNET_IRQ 11
 #define INVALID         0xffffffff
 #define PCI_HEADER_MEM_ROM_BASE_REGISTER 0xc
 
-static uint64_t vmkitmon_eth_mac = 0xAABBCCDDEEFF;
+static uint8_t vmkitmon_eth_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+
+static uint64_t assumed_queue_id = 0;
 
 static void generate_interrupt(struct pci_device *dev){
 	struct pci_vmkitmon_eth * h = dev->state;
@@ -63,9 +66,27 @@ static void confspace_read(struct pci_device *dev,
 /** Callback to get card's MAC address */
 static void get_mac_address_fn(uint8_t* mac)
 {
-    printf("Get MAC address\n");
+    printf("pci_vmkitmon_eth  get_mac_address_fn\n");
     memcpy(mac, &vmkitmon_eth_mac, 6);
 }
+
+static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
+	printf("pci_vmkitmon_eth  transmit_pbuf_list_fn\n");
+	return -2;
+}
+
+static uint64_t find_tx_free_slot_count_fn(void) {
+	printf("pci_vmkitmon_eth  find_tx_free_slot_count_fn\n");
+	return 0; // doesn't seem to get called in queue_manager.c at all
+	//return nr_free;
+} // end function: find_tx_queue_len
+
+/* NOTE: This function will get called from queue_manager.c */
+static bool handle_free_TX_slot_fn(void) {
+	printf("pci_vmkitmon_eth  handle_free_TX_slot_fn\n");
+	return false; // results in while-loop of queue_manager.c:665 and :670 not executed
+}
+
 
 static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){
 	struct pci_vmkitmon_eth *h = dev->state;
@@ -76,6 +97,9 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 	case PCI_VMKITMON_ETH_CONTROL:
 		if( val & PCI_VMKITMON_ETH_RSTIRQ )
 			h->mmio_register[PCI_VMKITMON_ETH_STATUS] &= ~PCI_VMKITMON_ETH_IRQST;
+		if( val & PCI_VMKITMON_ETH_TXMIT )
+			printf("Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TX_ADR], h->mmio_register[PCI_VMKITMON_ETH_TX_LEN]);
+			process_received_packet((void*)guest_to_host((lvaddr_t)h->mmio_register[PCI_VMKITMON_ETH_TX_ADR]), h->mmio_register[PCI_VMKITMON_ETH_TX_LEN]);
 		break;
 	default:
 		h->mmio_register[addr] = val;
@@ -88,8 +112,17 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 
 static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *val){
 	struct pci_vmkitmon_eth *h = (struct pci_vmkitmon_eth *) dev->state;
-	printf("mem_read addr: 0x%x,  bar: %d, asserting irq: %d\n",addr, bar, dev->irq);
-	*val = h->mmio_register[addr];
+	if(addr != 0) printf("mem_read addr: 0x%x,  bar: %d, asserting irq: %d\n",addr, bar, dev->irq);
+	switch(addr){
+	case PCI_VMKITMON_ETH_MAC_LOW:
+		memcpy(val, vmkitmon_eth_mac, 4);
+		break;
+	case PCI_VMKITMON_ETH_MAC_HIGH:
+		memcpy(val, vmkitmon_eth_mac+4, 2);
+		break;
+	default:
+		*val = h->mmio_register[addr];
+	}
 }
 
 
@@ -110,7 +143,7 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 	dev->lpc = lpc;
 
 	pci_hdr0_mem_t *ph = &host->ph;
-	pci_hdr0_mem_initialize(ph, (mackerel_addr_t)host->pci_header);
+	pci_hdr0_mem_initialize(ph, (mackerel_addr_t) host->pci_header);
 
 	// Fake a rtl8139
 	pci_hdr0_mem_vendor_id_wr(ph, 0xdada);
@@ -130,16 +163,23 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 	host->mem_guest_paddr = 0xcb000000;
 
 	dev->bars[0].paddr = host->mem_guest_paddr;
-	dev->bars[0].bytes = 0x100000; //1 MB ~0x100000 + 1
+	dev->bars[0].bytes = 0x100000; //1 MB
 
 	//alloc_guest_mem(g, host->mem_guest_paddr, DEV_MEM_SIZE); //check if we get a pagefault at the 0x10k
-	if(0){
+	if (0) {
 		get_mac_address_fn(0);
+		handle_free_TX_slot_fn();
+		find_tx_free_slot_count_fn();
+		//transmit_pbuf_list_fn(NULL);
 	}
 	//Write BAR0 into pci header
-	pci_hdr0_mem_bars_wr(ph,0, host->mem_guest_paddr);
+	pci_hdr0_mem_bars_wr(ph, 0, host->mem_guest_paddr);
 
+	// register to queue_manager
 
+	ethersrv_init("vmkitmon_eth", assumed_queue_id, get_mac_address_fn,
+			transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+			handle_free_TX_slot_fn);
 
 	return dev;
 
