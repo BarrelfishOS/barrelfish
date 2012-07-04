@@ -70,6 +70,7 @@ static void confspace_write(struct pci_device *dev,
                             union pci_config_address_word addr,
                             enum opsize size, uint32_t val)
 {
+	printf("pci_ixgbe confspace_write addr: 0x%x, val: 0x%x\n", addr.d.doubleword, val);
     if(addr.d.fnct_nr != 0) {
         return;
     }
@@ -94,6 +95,7 @@ static void confspace_read(struct pci_device *dev,
                            union pci_config_address_word addr,
                            enum opsize size, uint32_t *val)
 {
+	printf("pci_ixgbe confspace_read addr: 0x%x ",addr.d.doubleword);
     if(addr.d.fnct_nr != 0) {
         *val = INVALID;
         return;
@@ -109,6 +111,7 @@ static void confspace_read(struct pci_device *dev,
     } else {
         *val = INVALID;
     }
+    printf(" val: 0x%x\n", *val);
 }
 
 static genpaddr_t eth_base_paddr = 0;

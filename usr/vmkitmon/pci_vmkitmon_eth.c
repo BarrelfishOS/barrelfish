@@ -13,16 +13,26 @@
 
 static uint64_t vmkitmon_eth_mac = 0xAABBCCDDEEFF;
 
+static void generate_interrupt(struct pci_device *dev){
+	struct pci_vmkitmon_eth * h = dev->state;
+	h->mmio_register[PCI_VMKITMON_ETH_STATUS] |= PCI_VMKITMON_ETH_IRQST;
+	lpc_pic_assert_irq(dev->lpc, dev->irq);
+}
+
 static void confspace_write(struct pci_device *dev,
                             union pci_config_address_word addr,
                             enum opsize size, uint32_t val)
 {
-	printf("pci_vmkitmon_eth confspace write. addr: 0x%x, val: 0x%x\n", addr.d.doubleword, val);
+	printf("pci_vmkitmon_eth confspace_write addr: 0x%x, val: 0x%x\n", addr.d.doubleword, val);
 	struct pci_vmkitmon_eth *h = dev->state;
 	if(4 <= addr.d.doubleword && addr.d.doubleword <= 9 && val == INVALID){
 		//caller wants to figure out bar size
-		val = h->pci_device->bars[addr.d.doubleword - 4].bytes;
+		val = ~h->pci_device->bars[addr.d.doubleword - 4].bytes + 1; //~0x100000 + 1
 		printf("pci_vmkitmon_eth writing bar %d size. 0x%x\n", addr.d.doubleword-4, val);
+	}
+	if(addr.d.doubleword == 1){
+		//status register is clear by write 1
+		val = (val & 0xffff) | (h->pci_header[addr.d.doubleword] & ~val)<<16;
 	}
 	h->pci_header[addr.d.doubleword] = val;
 }
@@ -31,7 +41,7 @@ static void confspace_read(struct pci_device *dev,
                            union pci_config_address_word addr,
                            enum opsize size, uint32_t *val)
 {
-	printf("pci_vmkitmon_eth read addr: 0x%x \n",addr.d.doubleword);
+	printf("pci_vmkitmon_eth confspace_read addr: 0x%x, ",addr.d.doubleword);
     struct pci_vmkitmon_eth *h = dev->state;
 
     if(addr.d.fnct_nr != 0) {
@@ -40,8 +50,6 @@ static void confspace_read(struct pci_device *dev,
     	if(addr.d.doubleword == PCI_HEADER_MEM_ROM_BASE_REGISTER) {
     		//we dont support a rom, return always 0
     		*val = 0;
-    	} else if (addr.d.doubleword == 1){
-    		*val = h->pci_header[addr.d.doubleword] & 0x0000ffff; //Always set status register to all zero
     	} else if(addr.d.doubleword < 0x40) {
 			*val = h->pci_header[addr.d.doubleword];
 		} else {
@@ -49,7 +57,7 @@ static void confspace_read(struct pci_device *dev,
 		}
     }
 
-    printf("Returning val: 0x%x\n", *val);
+    printf(" val: 0x%x\n", *val);
 }
 
 /** Callback to get card's MAC address */
@@ -57,6 +65,31 @@ static void get_mac_address_fn(uint8_t* mac)
 {
     printf("Get MAC address\n");
     memcpy(mac, &vmkitmon_eth_mac, 6);
+}
+
+static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){
+	struct pci_vmkitmon_eth *h = dev->state;
+	printf("mem_write addr: 0x%x,  bar: %d, val: 0x%x, irq: %d\n",addr, bar, val, dev->irq );
+	switch(addr) {
+	case PCI_VMKITMON_ETH_STATUS:
+		break;
+	case PCI_VMKITMON_ETH_CONTROL:
+		if( val & PCI_VMKITMON_ETH_RSTIRQ )
+			h->mmio_register[PCI_VMKITMON_ETH_STATUS] &= ~PCI_VMKITMON_ETH_IRQST;
+		break;
+	default:
+		h->mmio_register[addr] = val;
+		break;
+	}
+
+	//For testing:
+	generate_interrupt(dev);
+}
+
+static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *val){
+	struct pci_vmkitmon_eth *h = (struct pci_vmkitmon_eth *) dev->state;
+	printf("mem_read addr: 0x%x,  bar: %d, asserting irq: %d\n",addr, bar, dev->irq);
+	*val = h->mmio_register[addr];
 }
 
 
@@ -70,6 +103,8 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 	//initialize device
 	dev->confspace_write = confspace_write;
 	dev->confspace_read = confspace_read;
+	dev->mem_read = mem_read;
+	dev->mem_write = mem_write;
 	dev->state = host;
 	dev->irq = PCI_ETHERNET_IRQ;
 	dev->lpc = lpc;
@@ -81,7 +116,12 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 	pci_hdr0_mem_vendor_id_wr(ph, 0xdada);
 	pci_hdr0_mem_device_id_wr(ph, 0x1000);
 	pci_hdr0_mem_class_code_clss_wrf(ph, PCI_CLASS_ETHERNET);
-	pci_hdr0_mem_int_line_wr(ph, PCI_ETHERNET_IRQ);
+	//pci_hdr0_mem_int_line_wr(ph, PCI_ETHERNET_IRQ);
+
+	host->pci_header[0xf] = 1<<8 | PCI_ETHERNET_IRQ;
+
+
+	//pci_hdr0_mem_int_pin_wr(ph, 0x3);
 
 	//Allocate device memory for mem mapped register
 
@@ -90,7 +130,7 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 	host->mem_guest_paddr = 0xcb000000;
 
 	dev->bars[0].paddr = host->mem_guest_paddr;
-	dev->bars[0].bytes = ~0x100000 + 1; //1 MB
+	dev->bars[0].bytes = 0x100000; //1 MB ~0x100000 + 1
 
 	//alloc_guest_mem(g, host->mem_guest_paddr, DEV_MEM_SIZE); //check if we get a pagefault at the 0x10k
 	if(0){

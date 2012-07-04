@@ -2093,7 +2093,7 @@ handle_vmexit_npf (struct guest *g) {
 				if(dev){
 					for(int bar_i=0; bar_i<5; bar_i++){
 						struct bar_info *curbar = &dev->bars[bar_i];
-						if(curbar->paddr <= fault_addr && fault_addr <= curbar->paddr + curbar->bytes){
+						if(curbar->paddr <= fault_addr && fault_addr < curbar->paddr + curbar->bytes){
 							if(decode_mov_is_write(g, code)){
 								uint64_t val = decode_mov_src_val(g, code);
 								if(dev->mem_write) {
