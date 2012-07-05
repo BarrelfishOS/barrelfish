@@ -156,4 +156,11 @@ static inline uint8_t cp15_get_cpu_id(void) {
 	return cpu_id;
 }
 
+static inline uint32_t cp15_read_cbar(void)
+{
+  uint32_t cbar;
+  __asm volatile ("mrc p15, 4, %[cbar], c15, c0, 0" : [cbar] "=r" (cbar));
+  return cbar;
+}
+
 #endif // __CP15_H__

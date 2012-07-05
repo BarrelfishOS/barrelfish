@@ -207,7 +207,7 @@ void enable_mmu(void)
 	__asm volatile (
 			"ldr    r0, =0x55555555\n\t"       // Initial domain permissions
 			"mcr    p15, 0, r0, c3, c0, 0\n\t"
-			"ldr	r1, =0x1007\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU 0x007 0x003 --> works
+			"ldr	r1, =0x1003\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU 0x007 0x003 --> works
 			"mrc	p15, 0, r0, c1, c0, 0\n\t"	// read out system configuration register
 			"orr	r0, r0, r1\n\t"
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
@@ -275,15 +275,18 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     	struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
     			local_phys_to_mem(glbl_core_data->mmap_addr);
     	paging_arm_reset(mmap->base_addr, mmap->length);
+        printf("paging_arm_reset done!\n");
     }
     else
     {
         panic("need multiboot MMAP\n");
     }
 
-//	exceptions_init();
+	exceptions_init();
+        printf("exceptions_init done!\n");
 
-//	kernel_startup_early();
+	kernel_startup_early();
+        printf("kernel_startup_early done!\n");
 
 	//initialize console
 	 serial_console_init(serial_console_port);
@@ -299,12 +302,16 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	 }
 
 	 my_core_id = hal_get_cpu_id();
+         printf("cpu id %d\n", my_core_id);
 
 	 pic_init();
+	 printf("pic_init done\n");
 	 pit_init(timeslice, 0);
+	 printf("pit_init 1 done\n");
 	 pit_init(timeslice, 1);
+	 printf("pic_init 2 done\n");
 	 tsc_init();
-
+	 printf("tsc_init done\n");
 	 arm_kernel_startup();
 }
 
@@ -346,6 +353,8 @@ void arch_init(void *pointer)
         addr_global            = (uint32_t)global;
     }
 */
+
+	 pic_init();
 
     printf("At paging init\n");
 

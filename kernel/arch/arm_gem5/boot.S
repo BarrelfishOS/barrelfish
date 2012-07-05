@@ -17,7 +17,7 @@
 
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // BOOT_STACK_PHYS
-        
+
         .text
         .arm
 
@@ -36,7 +36,7 @@ start:
         // CPU is in a priviledged mode.
         //
 
-        
+
         mrs     r3, cpsr                        // Ensure in SYS mode
         bic     r3, r3, #ARM_MODE_MASK
         orr     r3, r3, #ARM_MODE_SYS
