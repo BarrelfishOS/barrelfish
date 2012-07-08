@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -62,5 +62,61 @@ typedef uintptr_t       mem_ptr_t;
 #define LWIP_PLATFORM_DIAG(x)   do {printf x;} while(0)
 #define LWIP_PLATFORM_ASSERT(x) do {printf("Assertion \"%s\" failed at line %d in %s\n", \
                                      x, __LINE__, __FILE__); fflush(NULL); abort();} while(0)
+
+// Declare [nh]to[nh][ls]() in this header, so we don't depend on liblwip.a
+// when using them.
+// XXX: These can probably be optimized.
+
+/**
+ * Convert an u16_t from host- to network byte order.
+ *
+ * @param n u16_t in host byte order
+ * @return n in network byte order
+ */
+static inline u16_t barrelfish_htons(u16_t n)
+{
+    return ((n & 0xff) << 8) | ((n & 0xff00) >> 8);
+}
+
+/**
+ * Convert an u16_t from network- to host byte order.
+ *
+ * @param n u16_t in network byte order
+ * @return n in host byte order
+ */
+static inline u16_t barrelfish_ntohs(u16_t n)
+{
+    return barrelfish_htons(n);
+}
+
+/**
+ * Convert an u32_t from host- to network byte order.
+ *
+ * @param n u32_t in host byte order
+ * @return n in network byte order
+ */
+static inline u32_t barrelfish_htonl(u32_t n)
+{
+    return ((n & 0xff) << 24) |
+      ((n & 0xff00) << 8) |
+      ((n & 0xff0000UL) >> 8) | ((n & 0xff000000UL) >> 24);
+}
+
+/**
+ * Convert an u32_t from network- to host byte order.
+ *
+ * @param n u32_t in network byte order
+ * @return n in host byte order
+ */
+static inline u32_t barrelfish_ntohl(u32_t n)
+{
+    return barrelfish_htonl(n);
+}
+
+#define LWIP_PLATFORM_BYTESWAP 1
+#define LWIP_PLATFORM_HTONS(x) barrelfish_htons(x)
+#define LWIP_PLATFORM_HTONL(x) barrelfish_htonl(x)
+#define LWIP_PLATFORM_NTOHS(x) barrelfish_ntohs(x)
+#define LWIP_PLATFORM_NTOHL(x) barrelfish_ntohl(x)
 
 #endif
