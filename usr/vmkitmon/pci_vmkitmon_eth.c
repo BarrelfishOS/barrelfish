@@ -70,21 +70,61 @@ static void get_mac_address_fn(uint8_t* mac)
     memcpy(mac, &vmkitmon_eth_mac, 6);
 }
 
+static void dumpRegion(uint8_t *start){
+	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
+	for(int i=0; i<64;i++){
+		printf("0x%4x: ", i*16);
+		for(int j=0; j<16; j++){
+			printf("%2x ", *( (start) + (i*16 + j)));
+		}
+		printf("\n");
+	}
+	printf("-- dump finished --\n");
+
+}
+
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 	printf("pci_vmkitmon_eth  transmit_pbuf_list_fn\n");
-	return -2;
+	int i;
+	uint64_t paddr;
+	//struct txbuf* buf;
+	//    uint64_t client_data = 0;
+	struct shared_pool_private *spp = cl->spp_ptr;
+	struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+	uint64_t rtpbuf = sld->no_pbufs;
+
+	struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
+
+	// TODO: Make sure there is room in TX queue
+	for (i = 0; i < rtpbuf; i++) {
+		sld = &spp->sp->slot_list[cl->tx_index + i].d;
+		assert(buffer->buffer_id == sld->buffer_id);
+		paddr = (uint64_t) buffer->pa + sld->offset;
+		printf("paddr: 0x%lx, len: 0x%lx\n", paddr, sld->len);
+		dumpRegion(buffer->va + sld->offset);
+		// Add info to free memory
+		// TODO: Is this copy really necessary?
+		//buf = txbufs + q[0]->tx_tail;
+		//buf->eb = cl->app_connection;
+		//buf->spp_index = cl->tx_index + i;
+
+		//e10k_queue_add_txbuf(q[0], paddr, sld->len, buf, (i == rtpbuf - 1));
+	}
+
+	//e10k_queue_bump_txtail(q[0]);
+
+	return SYS_ERR_OK;
 }
 
 static uint64_t find_tx_free_slot_count_fn(void) {
 	printf("pci_vmkitmon_eth  find_tx_free_slot_count_fn\n");
-	return 0; // doesn't seem to get called in queue_manager.c at all
-	//return nr_free;
-} // end function: find_tx_queue_len
+	return 4096;
+}
 
-/* NOTE: This function will get called from queue_manager.c */
 static bool handle_free_TX_slot_fn(void) {
 	printf("pci_vmkitmon_eth  handle_free_TX_slot_fn\n");
-	return false; // results in while-loop of queue_manager.c:665 and :670 not executed
+//Is this a poll loop until the packets are transferred????
+	return false;
 }
 
 
@@ -98,8 +138,9 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 		if( val & PCI_VMKITMON_ETH_RSTIRQ )
 			h->mmio_register[PCI_VMKITMON_ETH_STATUS] &= ~PCI_VMKITMON_ETH_IRQST;
 		if( val & PCI_VMKITMON_ETH_TXMIT )
-			printf("Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TX_ADR], h->mmio_register[PCI_VMKITMON_ETH_TX_LEN]);
-			process_received_packet((void*)guest_to_host((lvaddr_t)h->mmio_register[PCI_VMKITMON_ETH_TX_ADR]), h->mmio_register[PCI_VMKITMON_ETH_TX_LEN]);
+			printf("Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR], h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
+			// FIXME: ITERATE over txdescs
+			//process_received_packet((void*)guest_to_host((lvaddr_t)h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR]), h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
 		break;
 	default:
 		h->mmio_register[addr] = val;

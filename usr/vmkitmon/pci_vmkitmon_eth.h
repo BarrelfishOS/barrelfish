@@ -25,10 +25,20 @@ enum pci_vmkitmon_registers {
 	PCI_VMKITMON_ETH_CONTROL,
 	PCI_VMKITMON_ETH_MAC_LOW,
 	PCI_VMKITMON_ETH_MAC_HIGH,
-	PCI_VMKITMON_ETH_TX_ADR,	//Guest Physical ptr to one packet
-	PCI_VMKITMON_ETH_TX_LEN,	//Packet length
-	PCI_VMKITMON_ETH_RX_ADR, 	//Guest Physical ptr to receive buffer
-	PCI_VMKITMON_ETH_RX_SIZE	//Size of the receive buffer
+	PCI_VMKITMON_ETH_TXDESC_ADR,	//Guest Physical ptr to array of rxdescs
+	PCI_VMKITMON_ETH_TXDESC_LEN,	//Packet length
+	PCI_VMKITMON_ETH_RXDESC_ADR, 	//Guest Physical ptr to receive buffer
+	PCI_VMKITMON_ETH_RXDESC_LEN		//Size of the receive buffer
+};
+
+struct pci_vmkitmon_eth_rxdesc {
+	uint32_t addr;
+	uint32_t len;
+};
+
+struct pci_vmkitmon_eth_txdesc {
+	uint32_t addr;
+	uint32_t len;
 };
 
 struct pci_vmkitmon_eth {
