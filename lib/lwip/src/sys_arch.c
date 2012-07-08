@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,6 +9,7 @@
 
 #include <lwip/sys.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 
 /*
  * TODO:
@@ -89,63 +90,8 @@ void sys_arch_unprotect(sys_prot_t pval)
 /* sys_init() must be called before anthing else. */
 void sys_init(void)
 {
-    /* assert(!"NYI"); */
+    // Nothing to do
 }
-
-/*
- * sys_timeout():
- *
- * Schedule a timeout a specified amount of milliseconds in the
- * future. When the timeout occurs, the specified timeout handler will
- * be called. The handler will be passed the "arg" argument when
- * called.
- *
- */
-void sys_timeout(u32_t msecs, sys_timeout_handler h, void *arg)
-{
-    // add a timeout struct to the current thread's list
-    struct sys_timeouts *timeouts = sys_arch_timeouts();
-    struct sys_timeo *timeo;
-
-    if (timeouts == NULL) {
-        return;
-    }
-    
-    timeo = (struct sys_timeo*) malloc(sizeof(struct sys_timeo));
-    if (timeo == NULL) {
-        return;
-    }
-
-    timeo->time = msecs;
-    timeo->h = h;
-    timeo->arg = arg;
-
-    timeo->next = timeouts->next;
-    timeouts->next = timeo;
-
-}
-
-void sys_untimeout(sys_timeout_handler h, void *arg)
-{
-    // search the current thread's list and remove the entry
-    struct sys_timeouts *timeouts = sys_arch_timeouts();
-    struct sys_timeo *timeo, **prev;
-
-    if (timeouts == NULL) {
-        return;
-    }
-
-    prev = &timeouts->next;
-    timeo = timeouts->next;
-    while (timeo != NULL) {
-        if (timeo->h == h && timeo->arg == arg) {
-            *prev = timeo->next;
-            break;
-        }
-        prev = &timeo->next;
-    }
-}
-
 
 // from example in http://lwip.wikia.com/wiki/Porting_for_an_OS
 struct sys_timeouts *sys_arch_timeouts(void) {
@@ -199,25 +145,6 @@ u32_t sys_arch_sem_wait(sys_sem_t sem, u32_t timeout)
 void sys_sem_free(sys_sem_t sem)
 {
     free(sem);
-}
-
-void sys_sem_wait(sys_sem_t sem)
-{
-    /* printf("sys_sem_wait, from %p\n", __builtin_return_address(0)); */
-    sys_arch_sem_wait(sem, 0);
-}
-
-int sys_sem_wait_timeout(sys_sem_t sem, u32_t timeout)
-{
-    /* printf("sys_sem_wait_timeout\n"); */
-    return sys_arch_sem_wait(sem, timeout);
-}
-
-/* Time functions. */
-void sys_msleep(u32_t ms)
-{
-    /* only has a (close to) 1 jiffy resolution. */
-    assert(!"NYI");
 }
 
 u32_t sys_jiffies(void)
@@ -364,15 +291,6 @@ void sys_mbox_free(sys_mbox_t mbox)
     assert(mbox->empty);
     free(mbox);
 }
-
-/* For now, we map straight to sys_arch implementation. */
-void sys_mbox_fetch(sys_mbox_t mbox, void **msg)
-{
-//    debug_printf("sys_mbox_fetch(%p)\n", mbox);
-    sys_arch_mbox_fetch(mbox, msg, 0);
-//    debug_printf("sys_mbox_fetch(%p) done\n", mbox);
-}
-
 
 // from example in http://lwip.wikia.com/wiki/Porting_for_an_OS
 sys_thread_t sys_thread_new(char *name, void (* thread)(void *arg), 
