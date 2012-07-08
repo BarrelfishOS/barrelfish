@@ -72,8 +72,8 @@ int udp_echo_server_init(void)
     udp_recv(pcb, echo_recv_handler, 0 /*client data, arg in callback*/);
     printf("installed receive callback.\n");
 
-    struct pbuf * test_pbuf = pbuf_alloc(PBUF_RAW, 128, PBUF_RAM);
-    strcpy(test_pbuf->payload, "H3llo, this is a packet!");
+    struct pbuf * test_pbuf = pbuf_alloc(PBUF_RAW, 256, PBUF_RAM);
+    strcpy(test_pbuf->payload, "DDDDDDDDDUUUUUUUU ");
 
     netif_default->linkoutput(netif_default, test_pbuf);
     return (0);
