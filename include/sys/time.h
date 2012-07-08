@@ -42,6 +42,8 @@
 #ifndef SYS_TIME_BARRELFISH_H_
 #define SYS_TIME_BARRELFISH_H_
 
+#include <time.h>
+
 struct timezone {
         int     tz_minuteswest; /* minutes west of Greenwich */
         int     tz_dsttime;     /* type of dst correction */
