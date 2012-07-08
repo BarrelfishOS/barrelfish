@@ -44,7 +44,7 @@ struct pci_vmkitmon_eth_txdesc {
 struct pci_vmkitmon_eth {
 	pci_hdr0_mem_t      ph;
     uint32_t            pci_header[0x40];
-    uint32_t			mmio_register[6];
+    uint32_t			mmio_register[8];
     uint32_t            mem_guest_paddr; //guest physical base address of memory register
 	struct pci_device *pci_device;
 };

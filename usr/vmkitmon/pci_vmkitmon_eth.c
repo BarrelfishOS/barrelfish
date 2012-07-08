@@ -13,8 +13,8 @@
 #define PCI_HEADER_MEM_ROM_BASE_REGISTER 0xc
 
 static uint8_t vmkitmon_eth_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
-
 static uint64_t assumed_queue_id = 0;
+static struct pci_device *the_pci_vmkitmon_eth;
 
 static void generate_interrupt(struct pci_device *dev){
 	struct pci_vmkitmon_eth * h = dev->state;
@@ -26,7 +26,7 @@ static void confspace_write(struct pci_device *dev,
                             union pci_config_address_word addr,
                             enum opsize size, uint32_t val)
 {
-	printf("pci_vmkitmon_eth confspace_write addr: 0x%x, val: 0x%x\n", addr.d.doubleword, val);
+	printf("PCI_VMKITMON_ETH pci_vmkitmon_eth confspace_write addr: 0x%x, val: 0x%x\n", addr.d.doubleword, val);
 	struct pci_vmkitmon_eth *h = dev->state;
 	if(4 <= addr.d.doubleword && addr.d.doubleword <= 9 && val == INVALID){
 		//caller wants to figure out bar size
@@ -40,11 +40,13 @@ static void confspace_write(struct pci_device *dev,
 	h->pci_header[addr.d.doubleword] = val;
 }
 
+
+
 static void confspace_read(struct pci_device *dev,
                            union pci_config_address_word addr,
                            enum opsize size, uint32_t *val)
 {
-	printf("pci_vmkitmon_eth confspace_read addr: 0x%x, ",addr.d.doubleword);
+	printf("PCI_VMKITMON_ETH pci_vmkitmon_eth confspace_read addr: 0x%x, ",addr.d.doubleword);
     struct pci_vmkitmon_eth *h = dev->state;
 
     if(addr.d.fnct_nr != 0) {
@@ -66,7 +68,7 @@ static void confspace_read(struct pci_device *dev,
 /** Callback to get card's MAC address */
 static void get_mac_address_fn(uint8_t* mac)
 {
-    printf("pci_vmkitmon_eth  get_mac_address_fn\n");
+    printf("PCI_VMKITMON_ETH pci_vmkitmon_eth  get_mac_address_fn\n");
     memcpy(mac, &vmkitmon_eth_mac, 6);
 }
 
@@ -84,7 +86,8 @@ static void dumpRegion(uint8_t *start){
 }
 
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
-	printf("pci_vmkitmon_eth  transmit_pbuf_list_fn\n");
+	printf("PCI_VMKITMON_ETH pci_vmkitmon_eth  transmit_pbuf_list_fn\n");
+	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
 	int i;
 	uint64_t paddr;
 	//struct txbuf* buf;
@@ -95,42 +98,74 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 
 	struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
 
-	// TODO: Make sure there is room in TX queue
+	struct pci_vmkitmon_eth_rxdesc * first_rx = (struct pci_vmkitmon_eth_rxdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
+	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR];
+	int transmitted = 0;
 	for (i = 0; i < rtpbuf; i++) {
 		sld = &spp->sp->slot_list[cl->tx_index + i].d;
 		assert(buffer->buffer_id == sld->buffer_id);
 		paddr = (uint64_t) buffer->pa + sld->offset;
-		printf("paddr: 0x%lx, len: 0x%lx\n", paddr, sld->len);
+		printf("PCI_VMKITMON_ETH paddr: 0x%lx, len: 0x%lx\n", paddr, sld->len);
 		dumpRegion(buffer->va + sld->offset);
-		// Add info to free memory
-		// TODO: Is this copy really necessary?
-		//buf = txbufs + q[0]->tx_tail;
-		//buf->eb = cl->app_connection;
-		//buf->spp_index = cl->tx_index + i;
 
-		//e10k_queue_add_txbuf(q[0], paddr, sld->len, buf, (i == rtpbuf - 1));
+		for(; i <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); i++){
+			struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + i;
+			if(cur_rx->len == 0 && cur_rx->addr != 0){
+				void *hv_addr = (void *)guest_to_host(cur_rx->addr);
+				memcpy(hv_addr, buffer->va + sld->offset, sld->len);
+				printf("PCI_VMKITMON_ETH Used rxdesc %d to transmit\n", i);
+				transmitted = 1;
+			}
+		}
 	}
 
-	//e10k_queue_bump_txtail(q[0]);
+	if(transmitted){
+		generate_interrupt(the_pci_vmkitmon_eth);
+	}
 
 	return SYS_ERR_OK;
 }
 
 static uint64_t find_tx_free_slot_count_fn(void) {
-	printf("pci_vmkitmon_eth  find_tx_free_slot_count_fn\n");
-	return 4096;
+	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
+	printf("PCI_VMKITMON_ETH  find_tx_free_slot_count_fn, ");
+	struct pci_vmkitmon_eth_rxdesc * first_rx = (struct pci_vmkitmon_eth_rxdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
+	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR];
+	int numFree = 0;
+	for (int i = 0; i < rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); i++) {
+		struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + i;
+		if(cur_rx->len == 0 && cur_rx->addr != 0){
+			numFree++;
+		}
+	}
+	printf("returning: %d\n ",numFree);
+	return numFree;
 }
 
 static bool handle_free_TX_slot_fn(void) {
-	printf("pci_vmkitmon_eth  handle_free_TX_slot_fn\n");
+	printf("PCI_VMKITMON_ETH  handle_free_TX_slot_fn\n");
 //Is this a poll loop until the packets are transferred????
 	return false;
+}
+
+static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
+	printf("PCI_VMKITMON_ETH transmit_pending_packets");
+	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN];
+	struct pci_vmkitmon_eth_txdesc * first_tx = (struct pci_vmkitmon_eth_txdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR] );
+	for(int i=0; i <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); i++){
+		struct pci_vmkitmon_eth_txdesc * cur_tx =first_tx + i;
+		if(cur_tx->len == 0 && cur_tx->addr != 0){
+			void *hv_addr = (void *)guest_to_host(cur_tx->addr);
+			printf("PCI_VMKITMON_ETH Received packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
+			process_received_packet((void*)hv_addr, cur_tx->len);
+		}
+	}
 }
 
 
 static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){
 	struct pci_vmkitmon_eth *h = dev->state;
-	printf("mem_write addr: 0x%x,  bar: %d, val: 0x%x, irq: %d\n",addr, bar, val, dev->irq );
+	printf("PCI_VMKITMON_ETH mem_write addr: 0x%x,  bar: %d, val: 0x%x, irq: %d\n",addr, bar, val, dev->irq );
 	switch(addr) {
 	case PCI_VMKITMON_ETH_STATUS:
 		break;
@@ -138,7 +173,8 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 		if( val & PCI_VMKITMON_ETH_RSTIRQ )
 			h->mmio_register[PCI_VMKITMON_ETH_STATUS] &= ~PCI_VMKITMON_ETH_IRQST;
 		if( val & PCI_VMKITMON_ETH_TXMIT )
-			printf("Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR], h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
+			printf("PCI_VMKITMON_ETH Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR], h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
+			transmit_pending_packets(h);
 			// FIXME: ITERATE over txdescs
 			//process_received_packet((void*)guest_to_host((lvaddr_t)h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR]), h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
 		break;
@@ -153,7 +189,7 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 
 static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *val){
 	struct pci_vmkitmon_eth *h = (struct pci_vmkitmon_eth *) dev->state;
-	if(addr != 0) printf("mem_read addr: 0x%x,  bar: %d, asserting irq: %d\n",addr, bar, dev->irq);
+	if(addr != 0) printf("PCI_VMKITMON_ETH mem_read addr: 0x%x,  bar: %d, asserting irq: %d\n",addr, bar, dev->irq);
 	switch(addr){
 	case PCI_VMKITMON_ETH_MAC_LOW:
 		memcpy(val, vmkitmon_eth_mac, 4);
@@ -222,6 +258,7 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 			transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
 			handle_free_TX_slot_fn);
 
+	the_pci_vmkitmon_eth = dev;
 	return dev;
 
 }
