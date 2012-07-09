@@ -417,7 +417,7 @@ arm_gem5_kernel_mc: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5_mc $(SRCDIR
 	@echo "Now invoke gem5, e.g. as 'gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel'"
 
 arm_gem5_mc: arm_gem5_kernel_mc $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --n=2 --caches
+	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --n=2 --caches
 .PHONY : arm_gem5_mc
     
 # Source indexing targets
