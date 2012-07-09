@@ -26,6 +26,7 @@
 #define INIT_BOOTINFO_VBASE     0x200000
 #define INIT_ARGS_VBASE         (INIT_BOOTINFO_VBASE + BOOTINFO_SIZE)
 #define INIT_DISPATCHER_VBASE   (INIT_ARGS_VBASE + ARGS_SIZE)
+#define MON_URPC_VBASE          (INIT_DISPATCHER_VBASE + DISPATCHER_SIZE)
 
 #define INIT_PERM_RO            (ARM_L2_SMALL_CACHEABLE  | \
                                  ARM_L2_SMALL_BUFFERABLE | \
@@ -46,6 +47,5 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys);
 
 extern struct arm_core_data *glbl_core_data;
-
 
 #endif

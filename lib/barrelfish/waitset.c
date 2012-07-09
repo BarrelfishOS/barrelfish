@@ -34,6 +34,19 @@ static inline cycles_t cyclecount(void)
 {
     return rdtsc();
 }
+#elif defined(__arm__) && defined(__GEM5__)
+/**
+ * XXX: Gem5 doesn't support the ARM performance monitor extension
+ * therefore we just poll a fixed number of times instead of using
+ * cycle counts. POLL_COUNT is deliberately set to 42, guess why! ;)
+ */
+#define POLL_COUNT	42
+#elif defined(__arm__)
+#include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
+static inline cycles_t cyclecount(void)
+{
+    return get_cycle_count();
+}
 #else
 static inline cycles_t cyclecount(void)
 {
@@ -193,7 +206,14 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 polling_loop:
     was_polling = true;
     assert(ws->polling); // this thread is polling
+#if defined(__arm__) && !defined(__GEM5__)
+    reset_cycle_counter();
+    pollcycles = waitset_poll_cycles;
+#elif defined(__arm__) && defined(__GEM5__)
+    pollcycles = 0;
+#else
     pollcycles = cyclecount() + waitset_poll_cycles;
+#endif
 
     // while there are no pending events, poll channels
     while (ws->polled != NULL && ws->pending == NULL) {
@@ -207,12 +227,28 @@ polling_loop:
 
             nextchan = chan->next;
             poll_channel(chan);
-
+#if defined(__arm__) && !defined(__GEM5__)
+            // yield the thread if we exceed the cycle count limit
+            if (ws->pending == NULL &&
+                (cyclecount() > pollcycles || is_cycle_counter_overflow())) {
+                thread_yield();
+                reset_cycle_counter();
+                pollcycles = waitset_poll_cycles;
+            }
+#elif defined(__arm__) && defined(__GEM5__)
+            pollcycles++;
+            // yield the thread if we exceed the cycle count limit
+            if (ws->pending == NULL && pollcycles >= POLL_COUNT) {
+            	thread_yield();
+            	pollcycles = 0;
+            }
+#else
             // yield the thread if we exceed the cycle count limit
             if (ws->pending == NULL && cyclecount() > pollcycles) {
                 thread_yield();
                 pollcycles = cyclecount() + waitset_poll_cycles;
             }
+#endif
         }
 
         // ensure that we restart polling from the place we left off here,

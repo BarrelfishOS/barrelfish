@@ -2,7 +2,7 @@
 set remote Z-packet on
 set tdesc filename ../tools/arm_gem5/arm-with-neon.xml
 #file arm_gem5_kernel
-target remote localhost:7000
+target remote localhost:7001
 display/i $pc
 
 # -- Procedures
@@ -30,9 +30,9 @@ end
 
 # -- Misc 
 
-#add-symbol-file arm_gem5/sbin/cpu 0x1730000
-add-symbol-file arm_gem5/sbin/cpu 0x819d0000
-add-symbol-file arm_gem5/sbin/monitor 0x400000
+#add-symbol-file arm_gem5/sbin/cpu 0x6201000
+add-symbol-file arm_gem5/sbin/cpu 0x86201000
+add-symbol-file arm_gem5/sbin/spawnd 0x400000
 #set kernel_log_subsystem_mask = 0x7fffffff
 
 #break panic

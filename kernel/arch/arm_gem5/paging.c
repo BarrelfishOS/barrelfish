@@ -12,20 +12,24 @@
 #include <paging_kernel_arch.h>
 #include <string.h>
 #include <exceptions.h>
-
+#include <arm_hal.h>
 
 /**
  * Kernel L1 page table
  */
-
-static union arm_l1_entry kernel_l1_table[ARM_L1_MAX_ENTRIES]
+//XXX: We reserve double the space needed to be able to align the pagetable
+//	   to 16K after relocation
+static union arm_l1_entry kernel_l1_table[2*ARM_L1_MAX_ENTRIES]
 __attribute__((aligned(ARM_L1_ALIGN)));
-
+static union arm_l1_entry *aligned_kernel_l1_table;
 /**
- * Kernel L2 page tables
+ * Kernel L2 page table for first MB
  */
-//static union arm_l2_entry kernel_l2_tables[ARM_L1_MAX_ENTRIES][ARM_L2_MAX_ENTRIES];
-
+//XXX: We reserve double the space needed to be able to align the pagetable
+//	   to 1K after relocation
+static union arm_l2_entry low_l2_table[2*ARM_L2_MAX_ENTRIES]
+__attribute__((aligned(ARM_L2_ALIGN)));
+static union arm_l2_entry *aligned_low_l2_table;
 
 // ------------------------------------------------------------------------
 // Utility declarations
@@ -87,22 +91,6 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
     }
 }
 
-/**
- * \brief Reset kernel paging.
- *
- * This function resets the page maps for kernel and memory-space. It clears out
- * all other mappings. Use this only at system bootup!
- */
-void paging_arm_reset(lpaddr_t paddr, size_t bytes)
-{
-	// Re-map physical memory
-	paging_map_memory((uintptr_t)kernel_l1_table, paddr, bytes);
-
-	//map high-mem relocated exception vector to kernel section
-	paging_map_kernel_section((uintptr_t)kernel_l1_table, ETABLE_ADDR , 0);
-
-	cp15_write_ttbr1(mem_to_local_phys((uintptr_t)kernel_l1_table));
-}
 
 static void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
@@ -128,9 +116,56 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    paging_map_device_section((uintptr_t)kernel_l1_table, dev_alloc, device_base);
+    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
 
     return dev_alloc;
+}
+
+/**
+ * \brief Reset kernel paging.
+ *
+ * This function resets the page maps for kernel and memory-space. It clears out
+ * all other mappings. Use this only at system bootup!
+ */
+void paging_arm_reset(lpaddr_t paddr, size_t bytes)
+{
+	// make sure kernel pagetable is aligned to 16K after relocation
+	aligned_kernel_l1_table = (union arm_l1_entry *)ROUND_UP((uintptr_t)kernel_l1_table, ARM_L1_ALIGN);
+
+	// make sure low l2 pagetable is aligned to 1K after relocation
+	aligned_low_l2_table = (union arm_l2_entry *)ROUND_UP((uintptr_t)low_l2_table, ARM_L2_ALIGN);
+
+	// Re-map physical memory
+	paging_map_memory((uintptr_t)aligned_kernel_l1_table, paddr, bytes);
+
+	// map first MB at granularity of 4K pages
+	uint32_t l2_flags = ARM_L2_SMALL_USR_NONE | ARM_L2_SMALL_CACHEABLE | ARM_L2_SMALL_BUFFERABLE;
+	paging_map_user_pages_l1((uintptr_t)aligned_kernel_l1_table, MEMORY_OFFSET,
+							 mem_to_local_phys((uintptr_t)aligned_low_l2_table));
+	for(lpaddr_t pa=0; pa < ARM_L1_SECTION_BYTES; pa += BYTES_PER_PAGE)
+	{
+		lvaddr_t va = pa + MEMORY_OFFSET;
+		//int ind = pa / BASE_PAGE_SIZE;
+		paging_set_l2_entry((uintptr_t *)&aligned_low_l2_table[ARM_L2_OFFSET(va)], pa, l2_flags);
+	}
+
+	// map high-mem relocated exception vector to corresponding page in low MB
+	// core 0: 0xffff0000 -> 0x80000
+	// core 1: 0xffff0000 -> 0x81000
+	// ...
+	//paging_map_kernel_section((uintptr_t)aligned_kernel_l1_table,
+	//			ETABLE_ADDR ,mem_to_local_phys((lpaddr_t) &kernel_first_byte));
+	paging_map_user_pages_l1((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
+			mem_to_local_phys((uintptr_t)aligned_low_l2_table));
+	int core_id = hal_get_cpu_id();
+	lpaddr_t addr = ETABLE_PHYS_BASE + core_id * BASE_PAGE_SIZE;
+	paging_set_l2_entry((uintptr_t *)&aligned_low_l2_table[ARM_L2_OFFSET(ETABLE_ADDR)], addr, l2_flags);
+
+
+	//map section containing sysflag registers 1:1
+	paging_map_device_section((uintptr_t)aligned_kernel_l1_table, sysflagset_base, sysflagset_base);
+
+	cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
 }
 
 
@@ -151,7 +186,6 @@ void paging_make_good(lvaddr_t new_table_base, size_t new_table_bytes)
 void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
 {
     assert(aligned(table_base, ARM_L1_ALIGN));
-    assert(aligned(va, BYTES_PER_SECTION));
     assert(aligned(pa, BYTES_PER_SMALL_PAGE));
 
     union arm_l1_entry e;
@@ -349,4 +383,34 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     else {
         panic("ObjType not VNode");
     }
+}
+
+errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
+{
+    assert(type_is_vnode(pgtable->type));
+
+    switch(pgtable->type){
+    case ObjType_VNode_ARM_l1: {
+    	genpaddr_t gp = pgtable->u.vnode_arm_l1.base;
+        lpaddr_t   lp = gen_phys_to_local_phys(gp);
+        lvaddr_t   lv = local_phys_to_mem(lp);
+        union arm_l1_entry *entry = (union arm_l1_entry *)lv + slot;
+        entry->raw = 0;
+        break;
+    }
+    case ObjType_VNode_ARM_l2: {
+    	genpaddr_t gp = pgtable->u.vnode_arm_l2.base;
+        lpaddr_t   lp = gen_phys_to_local_phys(gp);
+        lvaddr_t   lv = local_phys_to_mem(lp);
+        union arm_l2_entry *entry = (union arm_l2_entry *)lv + slot;
+        entry->raw = 0;
+        break;
+    }
+    default:
+        assert(!"Should not get here");
+    }
+
+    cp15_invalidate_tlb();
+
+    return SYS_ERR_OK;
 }

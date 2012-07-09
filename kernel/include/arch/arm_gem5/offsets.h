@@ -158,7 +158,7 @@ static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 
 static inline lpaddr_t gen_phys_to_local_phys(genpaddr_t addr)
 {
-    assert(addr < PADDR_SPACE_SIZE);
+    //assert(addr < PADDR_SPACE_SIZE);
     return (lpaddr_t)addr;
 }
 

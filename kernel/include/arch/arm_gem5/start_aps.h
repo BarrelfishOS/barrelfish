@@ -21,6 +21,10 @@
 #define AP_STARTING_UP 1
 #define AP_STARTED     2
 
-int start_aps_arm_start(uint8_t core_id, genvaddr_t entry);
+//#define AP_LOCK_PHYS	0x20000
+#define AP_WAIT_PHYS	0x20000
+#define AP_GLOBAL_PHYS	0x21000
+
+int start_aps_arm_start(uint8_t core_id, lvaddr_t entry);
 
 #endif // START_APS_H_
