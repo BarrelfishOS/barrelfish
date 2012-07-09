@@ -16,21 +16,9 @@ morecore_alloc_func_t sys_morecore_alloc;
 typedef void (*morecore_free_func_t)(void *base, size_t bytes);
 morecore_free_func_t sys_morecore_free;
 
-
-int execve(char *name, char **argv, char **env)
+int system(const char *cmd)
 {
-  errno = ENOMEM;
-  return -1;
-}
-
-int fork(void)
-{
-  return -1;
-}
-
-int wait(int *status)
-{
-  return -1;
+	return -1;
 }
 
 clock_t times(struct tms *buf)
