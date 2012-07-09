@@ -8,7 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
-#include <syscalls.h>
+#include <unistd.h>
 
 int ftruncate(int fd, int length)
 {

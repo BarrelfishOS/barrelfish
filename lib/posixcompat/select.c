@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <lwip/sys.h>
 #include <lwip/sockets.h>
-#include <syscalls.h>
 #include "unixsock.h"
 #include <vfs/fdtab.h>
 #include "posixcompat.h"
