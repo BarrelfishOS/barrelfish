@@ -17,6 +17,7 @@
 
 #include <string.h>
 #include <stdint.h>
+#include <machine/endian.h>
 
 /* Define platform endianness */
 #ifndef BYTE_ORDER
@@ -65,7 +66,18 @@ typedef uintptr_t       mem_ptr_t;
 
 // Declare [nh]to[nh][ls]() in this header, so we don't depend on liblwip.a
 // when using them.
-// XXX: These can probably be optimized.
+
+#define LWIP_PLATFORM_BYTESWAP 1
+
+// Use optimized version if available
+#ifdef __htonl
+
+#define LWIP_PLATFORM_HTONS(x) __htons(x)
+#define LWIP_PLATFORM_HTONL(x) __htonl(x)
+#define LWIP_PLATFORM_NTOHS(x) __ntohs(x)
+#define LWIP_PLATFORM_NTOHL(x) __ntohl(x)
+
+#else
 
 /**
  * Convert an u16_t from host- to network byte order.
@@ -113,10 +125,11 @@ static inline u32_t barrelfish_ntohl(u32_t n)
     return barrelfish_htonl(n);
 }
 
-#define LWIP_PLATFORM_BYTESWAP 1
 #define LWIP_PLATFORM_HTONS(x) barrelfish_htons(x)
 #define LWIP_PLATFORM_HTONL(x) barrelfish_htonl(x)
 #define LWIP_PLATFORM_NTOHS(x) barrelfish_ntohs(x)
 #define LWIP_PLATFORM_NTOHL(x) barrelfish_ntohl(x)
+
+#endif
 
 #endif
