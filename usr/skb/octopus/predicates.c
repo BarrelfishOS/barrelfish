@@ -12,7 +12,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-//#define _USE_XOPEN /* for strdup() */
+#define _USE_XOPEN /* for strdup() */
 #include <stdio.h>
 #include <string.h>
 
