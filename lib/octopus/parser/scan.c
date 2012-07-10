@@ -591,10 +591,6 @@ int octyy_get_lineno (yyscan_t yyscanner );
 
 void octyy_set_lineno (int line_number ,yyscan_t yyscanner );
 
-int octyy_get_column  (yyscan_t yyscanner );
-
-void octyy_set_column (int column_no ,yyscan_t yyscanner );
-
 YYSTYPE * octyy_get_lval (yyscan_t yyscanner );
 
 void octyy_set_lval (YYSTYPE * yylval_param ,yyscan_t yyscanner );
@@ -742,7 +738,7 @@ YY_DECL
 
 #line 63 "scan.l"
 
-#line 746 "<stdout>"
+#line 742 "<stdout>"
 
     yylval = yylval_param;
 
@@ -1012,7 +1008,7 @@ YY_RULE_SETUP
 #line 151 "scan.l"
 ECHO;
 	YY_BREAK
-#line 1016 "<stdout>"
+#line 1012 "<stdout>"
 
 	case YY_END_OF_BUFFER:
 		{

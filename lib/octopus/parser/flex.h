@@ -275,10 +275,6 @@ int octyy_get_lineno (yyscan_t yyscanner );
 
 void octyy_set_lineno (int line_number ,yyscan_t yyscanner );
 
-int octyy_get_column  (yyscan_t yyscanner );
-
-void octyy_set_column (int column_no ,yyscan_t yyscanner );
-
 YYSTYPE * octyy_get_lval (yyscan_t yyscanner );
 
 void octyy_set_lval (YYSTYPE * yylval_param ,yyscan_t yyscanner );
@@ -352,6 +348,6 @@ extern int octyy_lex \
 #line 151 "scan.l"
 
 
-#line 356 "flex.h"
+#line 352 "flex.h"
 #undef octyy_IN_HEADER
 #endif /* octyy_HEADER_H */
