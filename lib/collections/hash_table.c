@@ -24,7 +24,7 @@
  */
 static int32_t match_key(void *data, void *arg)
 {
-	hash_elem *elem = (hash_elem *) data;
+	collections_hash_elem *elem = (collections_hash_elem *) data;
 	uint64_t key  = *((uint64_t *)arg);
 
     return (elem->key == key);
@@ -33,19 +33,19 @@ static int32_t match_key(void *data, void *arg)
 /*
  * Create a hash table.
  */
-static void hash_create_core(hash_table **t, int num_buckets, hash_data_free data_free)
+static void collections_hash_create_core(collections_hash_table **t, int num_buckets, collections_hash_data_free data_free)
 {
 	int i;
 
-	*t = (hash_table *) malloc (sizeof(hash_table));
-	memset(*t, 0, sizeof(hash_table));
+	*t = (collections_hash_table *) malloc (sizeof(collections_hash_table));
+	memset(*t, 0, sizeof(collections_hash_table));
 
 	(*t)->num_buckets = num_buckets;
 
 	// create a linked list node for each bucket
-	(*t)->buckets = (listnode **) malloc(sizeof(listnode *) * num_buckets);
+	(*t)->buckets = (collections_listnode **) malloc(sizeof(collections_listnode *) * num_buckets);
 	for (i = 0; i < num_buckets; i ++) {
-		list_create(&(*t)->buckets[i], NULL);
+		collections_list_create(&(*t)->buckets[i], NULL);
 	}
 
 	(*t)->num_elems = 0;
@@ -56,20 +56,20 @@ static void hash_create_core(hash_table **t, int num_buckets, hash_data_free dat
 	return;
 }
 
-void hash_create(hash_table **t, hash_data_free elem_free)
+void collections_hash_create(collections_hash_table **t, collections_hash_data_free elem_free)
 {
-	hash_create_core(t, NUM_BUCKETS, elem_free);
+	collections_hash_create_core(t, NUM_BUCKETS, elem_free);
 }
 
-void hash_create_with_buckets(hash_table **t, int num_buckets, hash_data_free elem_free)
+void collections_hash_create_with_buckets(collections_hash_table **t, int num_buckets, collections_hash_data_free elem_free)
 {
-	hash_create_core(t, num_buckets, elem_free);
+	collections_hash_create_core(t, num_buckets, elem_free);
 }
 
-static int hash_release_elem(void* elem, void * arg)
+static int collections_hash_release_elem(void* elem, void * arg)
 {
-    hash_table *t = (hash_table *)arg;
-    hash_elem *he = (hash_elem *)elem;
+    collections_hash_table *t = (collections_hash_table *)arg;
+    collections_hash_elem *he = (collections_hash_elem *)elem;
     if (t->data_free)
     {
         t->data_free(he->data);
@@ -82,23 +82,23 @@ static int hash_release_elem(void* elem, void * arg)
 }
 
 // delete the entire hash table
-void hash_release(hash_table *t)
+void collections_hash_release(collections_hash_table *t)
 {
 	int bucket_num;
 	int bucket_size;
-	listnode *bucket;
+	collections_listnode *bucket;
 
 	for (bucket_num = 0; bucket_num < t->num_buckets; bucket_num ++) {
         uint32_t before, after;
 		bucket = t->buckets[bucket_num];
-		bucket_size = list_size(bucket);
+		bucket_size = collections_list_size(bucket);
         
         before = t->num_elems;
-        list_visit(bucket, hash_release_elem, t);
+        collections_list_visit(bucket, collections_hash_release_elem, t);
         after = t->num_elems;
         assert(before - after == bucket_size);
 
-        list_release(bucket);
+        collections_list_release(bucket);
 	}
     assert(t->num_elems == 0);
 
@@ -106,28 +106,28 @@ void hash_release(hash_table *t)
 	free(t);
 }
 
-static hash_elem* hash_find_elem(hash_table *t, uint64_t key)
+static collections_hash_elem* collections_hash_find_elem(collections_hash_table *t, uint64_t key)
 {
 	uint32_t bucket_num;	
-	listnode *bucket;	
-	hash_elem *elem;
+	collections_listnode *bucket;	
+	collections_hash_elem *elem;
 
 	bucket_num = key % t->num_buckets;
 	bucket = t->buckets[bucket_num];
-	elem = (hash_elem*) list_find_if(bucket, match_key, &key);
+	elem = (collections_hash_elem*) collections_list_find_if(bucket, match_key, &key);
     return elem;
 }
 
 /*
  * Inserts an element into the hash table.
  */
-void hash_insert(hash_table *t, uint64_t key, void *data)
+void collections_hash_insert(collections_hash_table *t, uint64_t key, void *data)
 {
 	uint32_t bucket_num;
-	listnode *bucket;
-	hash_elem *elem;
+	collections_listnode *bucket;
+	collections_hash_elem *elem;
 
-    elem = hash_find_elem(t, key);
+    elem = collections_hash_find_elem(t, key);
 	if (elem != NULL) {
 		printf("Error: key %" PRIu64 " already present in hash table %" PRIu64 "\n",
             key, elem->key);
@@ -137,56 +137,56 @@ void hash_insert(hash_table *t, uint64_t key, void *data)
 
 	bucket_num = key % t->num_buckets;
 	bucket = t->buckets[bucket_num];
-	elem = (hash_elem *) malloc(sizeof(hash_elem));
+	elem = (collections_hash_elem *) malloc(sizeof(collections_hash_elem));
 	elem->key = key;
 	elem->data = data;
-	list_insert(bucket, (void *)elem);
+	collections_list_insert(bucket, (void *)elem);
 	t->num_elems ++;
 }
 
 /*
  * Retrieves an element from the hash table.
  */
-void *hash_find(hash_table *t, uint64_t key)
+void *collections_hash_find(collections_hash_table *t, uint64_t key)
 {
-    hash_elem *he = hash_find_elem(t, key);
+    collections_hash_elem *he = collections_hash_find_elem(t, key);
     return (he) ? he->data : NULL;
 }
 
 /*
  * Removes a specific element from the table.
  */
-void hash_delete(hash_table *t, uint64_t key)
+void collections_hash_delete(collections_hash_table *t, uint64_t key)
 {	
 	uint32_t bucket_num;	
-	listnode *bucket;	
-	hash_elem *elem;
+	collections_listnode *bucket;	
+	collections_hash_elem *elem;
 
 	bucket_num = key % t->num_buckets;
 	bucket = t->buckets[bucket_num];
-	elem = (hash_elem*) list_remove_if(bucket, match_key, &key);
+	elem = (collections_hash_elem*) collections_list_remove_if(bucket, match_key, &key);
 	if (elem) {
         uint32_t n = t->num_elems;
-        hash_release_elem(elem, t);
+        collections_hash_release_elem(elem, t);
         assert(1 == n - t->num_elems);
 	}
     else
     {
-	    printf("Error: cannot find the node with key %" PRIu64 " in hash_release\n", key);
+	    printf("Error: cannot find the node with key %" PRIu64 " in collections_hash_release\n", key);
     }
 }
 
 /*
  * Returns the number of elements in the hash table.
  */
-uint32_t hash_size(hash_table *t)
+uint32_t collections_hash_size(collections_hash_table *t)
 {
 	return (t->num_elems);
 }
 
-static listnode* hash_get_next_valid_bucket(hash_table* t)
+static collections_listnode* collections_hash_get_next_valid_bucket(collections_hash_table* t)
 {
-	listnode* bucket;
+	collections_listnode* bucket;
 
 	do {
 		t->cur_bucket_num ++;
@@ -197,24 +197,24 @@ static listnode* hash_get_next_valid_bucket(hash_table* t)
 		} else {
 			return NULL;
 		}
-	} while (list_size(t->buckets[t->cur_bucket_num]) <= 0);
+	} while (collections_list_size(t->buckets[t->cur_bucket_num]) <= 0);
 
 	bucket = t->buckets[t->cur_bucket_num];
-	list_traverse_start(bucket);
+	collections_list_traverse_start(bucket);
 
 	return bucket;
 }
 
-int32_t hash_traverse_start(hash_table *t)
+int32_t collections_hash_traverse_start(collections_hash_table *t)
 {
 	if (t->cur_bucket_num != -1) {
 		// if the cur_bucket_num is valid, a
 		// traversal is already in progress.
-		printf("Error: hash_table is already opened for traversal.\n");
+		printf("Error: collections_hash_table is already opened for traversal.\n");
 		return -1;
 	}
 
-	hash_get_next_valid_bucket(t);
+	collections_hash_get_next_valid_bucket(t);
 
 	return 1;
 }
@@ -225,12 +225,12 @@ int32_t hash_traverse_start(hash_table *t)
  * key of the element. If there is no valid element,
  * returns null and key is not modified.
  */
-void* hash_traverse_next(hash_table* t, uint64_t *key)
+void* collections_hash_traverse_next(collections_hash_table* t, uint64_t *key)
 {
 	if (t->cur_bucket_num == -1) {
 		// if the cur_bucket_num is invalid, 
 		// hash traversal has not been started.
-		printf("Error: hash_table must be opened for traversal first.\n");
+		printf("Error: collections_hash_table must be opened for traversal first.\n");
 		return NULL;
 	}
 	
@@ -238,12 +238,12 @@ void* hash_traverse_next(hash_table* t, uint64_t *key)
 		// all the buckets have been traversed.
 		return NULL;
 	} else {
-		listnode*	bucket;
-		hash_elem*	ret;
+		collections_listnode*	bucket;
+		collections_hash_elem*	ret;
 
 		if (t->buckets[t->cur_bucket_num]) {
 			bucket = t->buckets[t->cur_bucket_num];
-			ret = (hash_elem*) list_traverse_next(bucket);
+			ret = (collections_hash_elem*) collections_list_traverse_next(bucket);
 
 			if (ret) {
 				*key = ret->key;
@@ -251,15 +251,15 @@ void* hash_traverse_next(hash_table* t, uint64_t *key)
 			} else {
 				// this list traversal is over.
 				// let's close it.
-				list_traverse_end(bucket);
+				collections_list_traverse_end(bucket);
 			}
 		}
 
-		bucket = hash_get_next_valid_bucket(t);
+		bucket = collections_hash_get_next_valid_bucket(t);
 		if (!bucket) {
 			return NULL;
 		} else {
-			ret = (hash_elem*) list_traverse_next(bucket);
+			ret = (collections_hash_elem*) collections_list_traverse_next(bucket);
 			assert(ret != NULL);
 		}
 
@@ -268,12 +268,12 @@ void* hash_traverse_next(hash_table* t, uint64_t *key)
 	}
 }
 
-int32_t	hash_traverse_end(hash_table* t)
+int32_t	collections_hash_traverse_end(collections_hash_table* t)
 {
 	if (t->cur_bucket_num == -1) {
 		// if the cur_bucket_num is invalid, 
 		// hash traversal has not been started.
-		printf("Error: hash_table must be opened for traversal first.\n");
+		printf("Error: collections_hash_table must be opened for traversal first.\n");
 		return -1;
 	}
 
@@ -281,26 +281,26 @@ int32_t	hash_traverse_end(hash_table* t)
 	return 1;
 }
 
-struct hash_visitor_tuple
+struct collections_hash_visitor_tuple
 {
-    hash_visitor_func func;
+    collections_hash_visitor_func func;
     void *arg;
 };
 
-static int hash_visit0(void* list_data, void* arg)
+static int collections_hash_visit0(void* list_data, void* arg)
 {
-    struct hash_visitor_tuple *t = (struct hash_visitor_tuple *)arg;
-    hash_elem *he = (hash_elem*)list_data;
+    struct collections_hash_visitor_tuple *t = (struct collections_hash_visitor_tuple *)arg;
+    collections_hash_elem *he = (collections_hash_elem*)list_data;
     return t->func(he->key, he->data, t->arg);
 }
 
-int hash_visit(hash_table* t, hash_visitor_func func, void* arg)
+int collections_hash_visit(collections_hash_table* t, collections_hash_visitor_func func, void* arg)
 {
-    struct hash_visitor_tuple tuple = { func, arg };
+    struct collections_hash_visitor_tuple tuple = { func, arg };
     int i = 0;
     while (i < t->num_buckets)
     {
-        if (list_visit(t->buckets[i], hash_visit0, &tuple) == 0) {
+        if (collections_list_visit(t->buckets[i], collections_hash_visit0, &tuple) == 0) {
             break;
         }
         i++;
