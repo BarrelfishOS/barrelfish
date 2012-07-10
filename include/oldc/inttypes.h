@@ -199,4 +199,28 @@
 #define PRIxPTR __LENGTH_PTR_MOD "x"
 #define PRIXPTR __LENGTH_PTR_MOD "X"
 
+// copied from newlib
+#define __STRINGIFY(a) #a
+
+#define __SCN8(x) __STRINGIFY(hh##x)
+
+#define SCNd8		__SCN8(d)
+#define SCNi8		__SCN8(i)
+#define SCNo8		__SCN8(o)
+#define SCNu8		__SCN8(u)
+#define SCNx8		__SCN8(x)
+
+#define SCNdLEAST8	__SCN8(d)
+#define SCNiLEAST8	__SCN8(i)
+#define SCNoLEAST8	__SCN8(o)
+#define SCNuLEAST8	__SCN8(u)
+#define SCNxLEAST8	__SCN8(x)
+
+#define SCNdFAST8	__SCN8(d)
+#define SCNiFAST8	__SCN8(i)
+#define SCNoFAST8	__SCN8(o)
+#define SCNuFAST8	__SCN8(u)
+#define SCNxFAST8	__SCN8(x)
+
+
 #endif
