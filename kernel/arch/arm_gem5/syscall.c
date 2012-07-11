@@ -21,6 +21,8 @@
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
+#include <arch/arm_gem5/arm_gem5_syscall.h>
+#include <arch/arm_gem5/start_aps.h>
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
 __attribute__((noreturn)) void sys_syscall(arch_registers_state_t* context);
@@ -40,7 +42,7 @@ struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 	int r;
 	switch(cpu_type) {
 	case CPU_ARM:
-		r = start_aps_arm_start(core_id, entry);
+		r = start_aps_arm_start(core_id, (lvaddr_t)entry);
 		if(r != 0)
 		{
 			return SYSRET(SYS_ERR_CORE_NOT_FOUND);
@@ -241,6 +243,20 @@ handle_revoke(
 }
 
 static struct sysret
+handle_unmap(
+    struct capability* pgtable,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+	struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+	size_t entry = (size_t)sa->arg2;
+	errval_t err = page_mappings_unmap(pgtable, entry);
+	return SYSRET(err);
+}
+
+static struct sysret
 monitor_get_core_id(
     struct capability* to,
     arch_registers_state_t* context,
@@ -282,6 +298,33 @@ monitor_handle_register(
 }
 
 static struct sysret
+monitor_remote_cap(
+	struct capability *kernel_cap,
+	arch_registers_state_t* context,
+	int argc)
+{
+	//assert(3 == argc);
+
+	struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+	struct capability *root = &dcb_current->cspace.cap;
+    capaddr_t cptr = sa->arg2;
+    int bits = sa->arg3;
+    bool remote = (bool)sa->arg4;
+
+    struct cte *cte;
+    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
+    }
+
+    set_cap_remote(cte, remote);
+    bool has_desc = has_descendants(cte);
+
+    return (struct sysret){ .error = SYS_ERR_OK, .value = has_desc };
+}
+
+static struct sysret
 monitor_create_cap(
     struct capability *kernel_cap,
     arch_registers_state_t* context,
@@ -292,8 +335,8 @@ monitor_create_cap(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
-            argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
+    //printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
+    //        argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
@@ -302,7 +345,7 @@ monitor_create_cap(
     struct capability *src =
         (struct capability*)sa->arg5;
 
-    printf("type = %d\n", src->type);
+    //printf("type = %d\n", src->type);
 
     /* Certain types cannot be created here */
     if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
@@ -319,14 +362,36 @@ monitor_create_cap(
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
-static struct sysret monitor_spawn_core(struct capability *kernel_cap,
-                                        int cmd, uintptr_t *args)
+static struct sysret
+monitor_spawn_core(
+	struct capability *kernel_cap,
+    arch_registers_state_t* context,
+    int argc)
 {
-    coreid_t core_id       = args[0];
-    enum cpu_type cpu_type = args[1];
-    genvaddr_t entry       = args[2];
+	//assert(3 == argc);
+
+	struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+	coreid_t core_id       = sa->arg2;
+    enum cpu_type cpu_type = sa->arg3;
+    genvaddr_t entry       = sa->arg5;
 
     return sys_monitor_spawn_core(core_id, cpu_type, entry);
+}
+
+static struct sysret
+monitor_identify_cap(
+	struct capability *kernel_cap,
+    arch_registers_state_t* context,
+    int argc)
+{
+	struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+	capaddr_t cptr = sa->arg2;
+	int bits = sa->arg3;
+	struct capability *retbuf = (void *)sa->arg4;
+
+    return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
 }
 
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
@@ -350,13 +415,22 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
     },
+    [ObjType_VNode_ARM_l2] = {
+    	[VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_ARM_l2] = {
+    	[VNodeCmd_Unmap] = handle_unmap,
+    },
     [ObjType_Kernel] = {
-        [KernelCmd_Get_core_id] = monitor_get_core_id,
-        [KernelCmd_Get_arch_id] = monitor_get_arch_id,
-        [KernelCmd_Register]    = monitor_handle_register,
-        [KernelCmd_Create_cap]  = monitor_create_cap,
-        [KernelCmd_Spawn_core]  = monitor_spawn_core,
+        [KernelCmd_Get_core_id]  = monitor_get_core_id,
+        [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
+        [KernelCmd_Register]     = monitor_handle_register,
+        [KernelCmd_Create_cap]   = monitor_create_cap,
+        [KernelCmd_Remote_cap]   = monitor_remote_cap,
+        [KernelCmd_Spawn_core]   = monitor_spawn_core,
+        [KernelCmd_Identify_cap] = monitor_identify_cap,
     }
+
 };
 
 static struct sysret

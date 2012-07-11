@@ -26,8 +26,10 @@
 #include <arm_core_data.h>
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
+#include <global.h>
+#include <start_aps.h>
 
-#define GEM5_RAM_SIZE	0x2000000
+#define GEM5_RAM_SIZE	0x20000000
 
 extern errval_t early_serial_init(uint8_t port_no);
 
@@ -39,7 +41,6 @@ extern errval_t early_serial_init(uint8_t port_no);
  * Used to store the address of global struct passed during boot across kernel
  * relocations.
  */
-// XXX: This won't work if this kernel is not relocated from a pristine image!
 //static uint32_t addr_global;
 
 /**
@@ -52,13 +53,19 @@ uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 /**
  * Boot-up L1 page table for addresses up to 2GB (translated by TTBR0)
  */
-static union arm_l1_entry boot_l1_low[ARM_L1_MAX_ENTRIES]
+//XXX: We reserve double the space needed to be able to align the pagetable
+//	   to 16K after relocation
+static union arm_l1_entry boot_l1_low[2*ARM_L1_MAX_ENTRIES]
 __attribute__ ((aligned(ARM_L1_ALIGN)));
+static union arm_l1_entry * aligned_boot_l1_low;
 /**
  * Boot-up L1 page table for addresses >=2GB (translated by TTBR1)
  */
-static union arm_l1_entry boot_l1_high[ARM_L1_MAX_ENTRIES]
+//XXX: We reserve double the space needed to be able to align the pagetable
+//	   to 16K after relocation
+static union arm_l1_entry boot_l1_high[2*ARM_L1_MAX_ENTRIES]
 __attribute__ ((aligned(ARM_L1_ALIGN)));
+static union arm_l1_entry * aligned_boot_l1_high;
 
 //
 // ATAG boot header declarations
@@ -213,6 +220,17 @@ static void enable_mmu(void)
 		);
 }
 
+#ifndef __GEM5__
+static void enable_cycle_counter_user_access(void)
+{
+	/* enable user-mode access to the performance counter*/
+	__asm volatile ("mcr p15, 0, %0, C9, C14, 0\n\t" :: "r"(1));
+
+	/* disable counter overflow interrupts (just in case)*/
+	__asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
+}
+#endif
+
 static void paging_init(void)
 {
 
@@ -223,23 +241,27 @@ static void paging_init(void)
 	ttbcr |= 1;
 	cp15_write_ttbcr(ttbcr);
 
+	// make sure pagetables are aligned to 16K
+	aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
+	aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
+
 	lvaddr_t vbase = MEMORY_OFFSET, base = PHYS_MEMORY_START;
 
 	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
 		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
 	{
 		// create 1:1 mapping
-		paging_map_kernel_section((uintptr_t)boot_l1_low, base, base);
+		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
 
 		// Alias the same region at MEMORY_OFFSET
-		paging_map_kernel_section((uintptr_t)boot_l1_high, vbase, base);
+		paging_map_kernel_section((uintptr_t)aligned_boot_l1_high, vbase, base);
 
 	}
 
 	// Activate new page tables
-	cp15_write_ttbr1((lpaddr_t)&boot_l1_high[0]);
+	cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
 	//cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
-	cp15_write_ttbr0((lpaddr_t)&boot_l1_low[0]);
+	cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
 }
 
 void kernel_startup_early(void)
@@ -266,6 +288,9 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	// Relocate glbl_core_data to "memory"
     glbl_core_data = (struct arm_core_data *)
         local_phys_to_mem((lpaddr_t)glbl_core_data);
+
+    // Relocate global to "memory"
+    global = (struct global*)local_phys_to_mem((lpaddr_t)global);
 
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
@@ -298,10 +323,29 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
 	 my_core_id = hal_get_cpu_id();
 
-	 pic_init();
+	 gic_init();
+
+	 if(hal_cpu_is_bsp())
+	 {
+		 // init SCU if more than one core present
+		 if(scu_get_core_count() > 4)
+			 panic("ARM SCU doesn't support more than 4 cores!");
+		 if(scu_get_core_count() > 1)
+			 scu_enable();
+	 }
+
 	 pit_init(timeslice, 0);
 	 pit_init(timeslice, 1);
 	 tsc_init();
+
+#ifndef __GEM5__
+	 enable_cycle_counter_user_access();
+	 reset_cycle_counter();
+#endif
+
+	 // tell BSP that we are started up
+	 uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
+	 *ap_wait = AP_STARTED;
 
 	 arm_kernel_startup();
 }
@@ -339,15 +383,20 @@ void arch_init(void *pointer)
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
         glbl_core_data->multiboot_flags = mb->flags;
-    }
-    /*
-    if(hal_cpu_is_bsp()) {
-        // Construct the global structure and store its address to retrive it
-        // across relocation
+
+        // Construct the global structure
         memset(&global->locks, 0, sizeof(global->locks));
-        addr_global            = (uint32_t)global;
     }
-	*/
+    else
+    {
+    	memset(&global->locks, 0, sizeof(global->locks));
+    	struct arm_core_data *core_data =
+    			(struct arm_core_data*)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+    	glbl_core_data = core_data;
+    	glbl_core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
+    	my_core_id = core_data->dst_core_id;
+    	elf = &core_data->elf;
+    }
 
     // Find relocation section
     rela = elf32_find_section_header_type((struct Elf32_Shdr *)
@@ -374,13 +423,9 @@ void arch_init(void *pointer)
 
     enable_mmu();
 
-    printf("Relocating kernel to virtual memory\n");
-
-    //align kernel dest to 16KB
-    lvaddr_t reloc_dest = ROUND_UP(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte, ARM_L1_ALIGN);
 
     // Relocate kernel image for top of memory
-    elf32_relocate(reloc_dest,
+    elf32_relocate(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte,
     			   (lvaddr_t)&kernel_first_byte,
     			   (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
     			   rela->sh_size,

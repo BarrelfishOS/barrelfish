@@ -31,7 +31,13 @@
  * \param dispatcher Cap to the dispatcher of the new user program
  * \param entry      Kernel entry point in physical memory
  */
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
 static inline errval_t
+#endif
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
@@ -232,6 +238,29 @@ invoke_monitor_get_arch_id(uintptr_t *arch_id)
         *arch_id = sysret.value;
     }
     return sysret.error;
+}
+
+static inline errval_t
+invoke_monitor_ipi_register(struct capref ep, int chanid)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall4((invoke_bits << 16) | (KernelCmd_IPI_Register << 8)
+                    | SYSCALL_INVOKE, invoke_cptr,
+                    get_cap_addr(ep),
+                    chanid).error;
+}
+
+static inline errval_t
+invoke_monitor_ipi_delete(int chanid)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall3((invoke_bits << 16) | (KernelCmd_IPI_Delete << 8)
+                    | SYSCALL_INVOKE, invoke_cptr,
+                    chanid).error;
 }
 
 #endif

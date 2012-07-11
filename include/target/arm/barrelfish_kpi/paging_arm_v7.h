@@ -31,6 +31,23 @@
 #define ARM_L2_OFFSET(addr)       ((((uintptr_t)addr) >> 12) & 0xff)
 #define ARM_PAGE_OFFSET(addr)     ((uintptr_t)addr & 0xfff)
 
+#define ARM_L1_ALIGN                    16384u
+
+#define ARM_L1_MAX_ENTRIES              4096u
+#define ARM_L1_BYTES_PER_ENTRY          4u
+#define ARM_L1_SECTION_BYTES            (1024u * 1024u)
+
+#define ARM_L2_ALIGN                    1024u
+#define ARM_L2_MAX_ENTRIES              256u
+#define ARM_L2_BYTES_PER_ENTRY          4u
+#define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
+
+#define ARM_L2_SMALL_CACHEABLE          0x008
+#define ARM_L2_SMALL_BUFFERABLE         0x004
+#define ARM_L2_SMALL_USR_RO             0x20
+#define ARM_L2_SMALL_USR_RW             0x30
+#define ARM_L2_SMALL_USR_NONE			0x10
+
 /* Page type independent page options */
 #define KPI_PAGING_FLAGS_READ    0x01
 #define KPI_PAGING_FLAGS_WRITE   0x02
@@ -147,6 +164,7 @@ union arm_l2_entry {
 #define L2_TYPE(x)              ((x) & 3)
 
 #define BYTES_PER_SECTION       0x100000
+#define BYTES_PER_LARGE_PAGE	0x10000
 #define BYTES_PER_PAGE          0x1000
 #define BYTES_PER_SMALL_PAGE    0x400
 
