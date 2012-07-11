@@ -328,6 +328,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	 if(hal_cpu_is_bsp())
 	 {
 		 // init SCU if more than one core present
+		 if(scu_get_core_count() > 4)
+			 panic("ARM SCU doesn't support more than 4 cores!");
 		 if(scu_get_core_count() > 1)
 			 scu_enable();
 	 }

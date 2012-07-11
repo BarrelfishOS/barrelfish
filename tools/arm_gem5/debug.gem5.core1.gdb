@@ -31,8 +31,8 @@ end
 # -- Misc 
 
 #add-symbol-file arm_gem5/sbin/cpu 0x6201000
-add-symbol-file arm_gem5/sbin/cpu 0x86201000
-add-symbol-file arm_gem5/sbin/spawnd 0x400000
+#add-symbol-file arm_gem5/sbin/cpu 0x86201000
+add-symbol-file arm_gem5/sbin/monitor 0x400000
 #set kernel_log_subsystem_mask = 0x7fffffff
 
 #break panic

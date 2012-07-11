@@ -154,7 +154,14 @@ invoke_cnode_copy(struct capref root, capaddr_t to,
  *
  * \return Error code
  */
-static inline errval_t invoke_cnode_delete(struct capref root, capaddr_t cap,
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_cnode_delete(struct capref root, capaddr_t cap,
                                            int bits)
 {
     uint8_t invoke_bits = get_cap_valid_bits(root);
@@ -165,8 +172,14 @@ static inline errval_t invoke_cnode_delete(struct capref root, capaddr_t cap,
     return syscall4((invoke_bits << 16) | (CNodeCmd_Delete << 8) | SYSCALL_INVOKE,
                     invoke_cptr, cap, bits).error;
 }
-
-static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_cnode_revoke(struct capref root, capaddr_t cap,
                                            int bits)
 {
     uint8_t invoke_bits = get_cap_valid_bits(root);
@@ -177,8 +190,14 @@ static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
     return syscall4((invoke_bits << 16) | (CNodeCmd_Revoke << 8) | SYSCALL_INVOKE,
                     invoke_cptr, cap, bits).error;
 }
-
-static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_vnode_unmap(struct capref cap, size_t entry)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);

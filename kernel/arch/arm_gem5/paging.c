@@ -145,7 +145,6 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 	for(lpaddr_t pa=0; pa < ARM_L1_SECTION_BYTES; pa += BYTES_PER_PAGE)
 	{
 		lvaddr_t va = pa + MEMORY_OFFSET;
-		//int ind = pa / BASE_PAGE_SIZE;
 		paging_set_l2_entry((uintptr_t *)&aligned_low_l2_table[ARM_L2_OFFSET(va)], pa, l2_flags);
 	}
 
@@ -153,8 +152,6 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 	// core 0: 0xffff0000 -> 0x80000
 	// core 1: 0xffff0000 -> 0x81000
 	// ...
-	//paging_map_kernel_section((uintptr_t)aligned_kernel_l1_table,
-	//			ETABLE_ADDR ,mem_to_local_phys((lpaddr_t) &kernel_first_byte));
 	paging_map_user_pages_l1((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
 			mem_to_local_phys((uintptr_t)aligned_low_l2_table));
 	int core_id = hal_get_cpu_id();
@@ -163,7 +160,7 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 
 
 	//map section containing sysflag registers 1:1
-	paging_map_device_section((uintptr_t)aligned_kernel_l1_table, sysflagset_base, sysflagset_base);
+	paging_map_kernel_section((uintptr_t)aligned_kernel_l1_table, sysflagset_base, sysflagset_base);
 
 	cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
 }
