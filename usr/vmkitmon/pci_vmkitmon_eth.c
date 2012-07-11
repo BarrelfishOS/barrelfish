@@ -149,12 +149,12 @@ static bool handle_free_TX_slot_fn(void) {
 }
 
 static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
-	printf("PCI_VMKITMON_ETH transmit_pending_packets");
+	printf("PCI_VMKITMON_ETH transmit_pending_packets\n");
 	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN];
 	struct pci_vmkitmon_eth_txdesc * first_tx = (struct pci_vmkitmon_eth_txdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR] );
 	for(int i=0; i <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); i++){
 		struct pci_vmkitmon_eth_txdesc * cur_tx =first_tx + i;
-		if(cur_tx->len == 0 && cur_tx->addr != 0){
+		if(cur_tx->len != 0 && cur_tx->addr != 0){
 			void *hv_addr = (void *)guest_to_host(cur_tx->addr);
 			printf("PCI_VMKITMON_ETH Received packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
 			process_received_packet((void*)hv_addr, cur_tx->len);
@@ -172,9 +172,10 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 	case PCI_VMKITMON_ETH_CONTROL:
 		if( val & PCI_VMKITMON_ETH_RSTIRQ )
 			h->mmio_register[PCI_VMKITMON_ETH_STATUS] &= ~PCI_VMKITMON_ETH_IRQST;
-		if( val & PCI_VMKITMON_ETH_TXMIT )
+		if( val & PCI_VMKITMON_ETH_TXMIT ) {
 			printf("PCI_VMKITMON_ETH Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR], h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
 			transmit_pending_packets(h);
+        }
 			// FIXME: ITERATE over txdescs
 			//process_received_packet((void*)guest_to_host((lvaddr_t)h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR]), h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
 		break;
