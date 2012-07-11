@@ -27,7 +27,7 @@ clock_t times(struct tms *buf)
 }
 
 void (*_libc_exit_func)(int);
-void _exit(int status)
+void _Exit(int status)
 {
     _libc_exit_func(status);
 }
