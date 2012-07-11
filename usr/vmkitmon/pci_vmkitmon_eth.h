@@ -14,8 +14,9 @@
 #include "pci_hdr0_mem_dev.h"
 
 // control register
-#define PCI_VMKITMON_ETH_RSTIRQ 1
-#define PCI_VMKITMON_ETH_TXMIT 2
+#define PCI_VMKITMON_ETH_RSTIRQ (1<<0) //guest writes 1 if he has handled interrupt
+#define PCI_VMKITMON_ETH_TXMIT (1<<1)  //guest writes 1 if it wants send packets
+#define PCI_VMKITMON_ETH_IFUP (1<<2)   //guest writes 1 if interface is up
 
 // status register
 #define PCI_VMKITMON_ETH_IRQST 1

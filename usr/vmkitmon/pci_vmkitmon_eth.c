@@ -12,7 +12,9 @@
 #define INVALID         0xffffffff
 #define PCI_HEADER_MEM_ROM_BASE_REGISTER 0xc
 
-static uint8_t vmkitmon_eth_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+static uint8_t guest_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}; //The mac address presented to virt. linux
+static uint8_t host_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xBF}; //The mac address presented to barrelfish
+
 static uint64_t assumed_queue_id = 0;
 static struct pci_device *the_pci_vmkitmon_eth;
 
@@ -69,7 +71,7 @@ static void confspace_read(struct pci_device *dev,
 static void get_mac_address_fn(uint8_t* mac)
 {
     printf("PCI_VMKITMON_ETH pci_vmkitmon_eth  get_mac_address_fn\n");
-    memcpy(mac, &vmkitmon_eth_mac, 6);
+    memcpy(mac, &host_mac, 6);
 }
 
 static void dumpRegion(uint8_t *start){
@@ -86,7 +88,6 @@ static void dumpRegion(uint8_t *start){
 }
 
 static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
-	printf("PCI_VMKITMON_ETH pci_vmkitmon_eth  transmit_pbuf_list_fn\n");
 	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
 	int i;
 	uint64_t paddr;
@@ -95,6 +96,8 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 	struct shared_pool_private *spp = cl->spp_ptr;
 	struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
 	uint64_t rtpbuf = sld->no_pbufs;
+
+	printf("PCI_VMKITMON_ETH pci_vmkitmon_eth  transmit_pbuf_list_fn, no_pbufs: 0x%lx\n", rtpbuf);
 
 	struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
 
@@ -108,13 +111,15 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 		printf("PCI_VMKITMON_ETH paddr: 0x%lx, len: 0x%lx\n", paddr, sld->len);
 		dumpRegion(buffer->va + sld->offset);
 
-		for(; i <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); i++){
-			struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + i;
+		for(int j = 0; j <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); j++){
+			struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + j;
 			if(cur_rx->len == 0 && cur_rx->addr != 0){
 				void *hv_addr = (void *)guest_to_host(cur_rx->addr);
 				memcpy(hv_addr, buffer->va + sld->offset, sld->len);
-				printf("PCI_VMKITMON_ETH Used rxdesc %d to transmit\n", i);
+				cur_rx->len = sld->len;
+				printf("PCI_VMKITMON_ETH Used rxdesc %d to transmit\n", j);
 				transmitted = 1;
+				break;
 			}
 		}
 	}
@@ -156,8 +161,9 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
 		struct pci_vmkitmon_eth_txdesc * cur_tx =first_tx + i;
 		if(cur_tx->len != 0 && cur_tx->addr != 0){
 			void *hv_addr = (void *)guest_to_host(cur_tx->addr);
-			printf("PCI_VMKITMON_ETH Received packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
+			printf("PCI_VMKITMON_ETH Sending packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
 			process_received_packet((void*)hv_addr, cur_tx->len);
+			cur_tx->len = 0;
 		}
 	}
 }
@@ -176,6 +182,14 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 			printf("PCI_VMKITMON_ETH Transmitting packet! guest-phys packet base address: 0x%x, packet-len: 0x%x\n",h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR], h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
 			transmit_pending_packets(h);
         }
+		if( val & PCI_VMKITMON_ETH_IFUP) {
+			printf("PCI_VMKITMON ETH Interface up, registering\n");
+			// register to queue_manager
+			ethersrv_init("vmkitmon_eth", assumed_queue_id, get_mac_address_fn,
+					transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+					handle_free_TX_slot_fn);
+
+		}
 			// FIXME: ITERATE over txdescs
 			//process_received_packet((void*)guest_to_host((lvaddr_t)h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR]), h->mmio_register[PCI_VMKITMON_ETH_TXDESC_LEN]);
 		break;
@@ -193,10 +207,10 @@ static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *v
 	if(addr != 0) printf("PCI_VMKITMON_ETH mem_read addr: 0x%x,  bar: %d, asserting irq: %d\n",addr, bar, dev->irq);
 	switch(addr){
 	case PCI_VMKITMON_ETH_MAC_LOW:
-		memcpy(val, vmkitmon_eth_mac, 4);
+		memcpy(val, guest_mac, 4);
 		break;
 	case PCI_VMKITMON_ETH_MAC_HIGH:
-		memcpy(val, vmkitmon_eth_mac+4, 2);
+		memcpy(val, guest_mac+4, 2);
 		break;
 	default:
 		*val = h->mmio_register[addr];
@@ -253,11 +267,7 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g)
 	//Write BAR0 into pci header
 	pci_hdr0_mem_bars_wr(ph, 0, host->mem_guest_paddr);
 
-	// register to queue_manager
 
-	ethersrv_init("vmkitmon_eth", assumed_queue_id, get_mac_address_fn,
-			transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
-			handle_free_TX_slot_fn);
 
 	the_pci_vmkitmon_eth = dev;
 	return dev;
