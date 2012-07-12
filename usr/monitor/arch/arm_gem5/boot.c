@@ -215,7 +215,16 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     }
 
     void *cpu_buf_memory;
+#ifdef __GEM5__
+    // XXX: We map the frame for the new kernel as uncacheable. Gem5 has a problem
+    // when one core has cacheing on and writes to a location where an other core reads from
+    // without caches enabled. On real hardware one could clean/flush the cache, but Gem5
+    // doesn't support cache maintenance operations for ARM
+    err = vspace_map_one_frame_attr(&cpu_buf_memory, cpu_memory, cpu_memory_cap,
+    		VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+#else
     err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap, NULL, NULL);
+#endif
     if(err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }

@@ -363,10 +363,7 @@ void arch_init(void *pointer)
 
     struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
-    early_serial_init(serial_console_port);
-
-    // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
+	early_serial_init(serial_console_port);
 
     if(hal_cpu_is_bsp())
     {
@@ -389,6 +386,7 @@ void arch_init(void *pointer)
     }
     else
     {
+    	global = (struct global *)GLOBAL_VBASE;
     	memset(&global->locks, 0, sizeof(global->locks));
     	struct arm_core_data *core_data =
     			(struct arm_core_data*)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
@@ -397,6 +395,10 @@ void arch_init(void *pointer)
     	my_core_id = core_data->dst_core_id;
     	elf = &core_data->elf;
     }
+
+    // XXX: print kernel address for debugging with gdb
+    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
+
 
     // Find relocation section
     rela = elf32_find_section_header_type((struct Elf32_Shdr *)

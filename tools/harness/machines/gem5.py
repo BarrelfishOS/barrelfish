@@ -11,6 +11,8 @@ import os, signal, tempfile, subprocess, shutil, time
 import debug, machines
 from machines import Machine
 
+GEM5_CACHES_ENABLE = '--caches --l2cache'.split()
+
 class Gem5MachineBase(Machine):
 	def __init__(self, options):
 		super(Gem5MachineBase, self).__init__(options)
@@ -108,7 +110,8 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
 	
 	def _get_cmdline(self):
 		script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')
-		return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()])
+		return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()]
+				+ GEM5_CACHES_ENABLE)
 
 @machines.add_machine
 class Gem5MachineARMMultiCore(Gem5MachineARM):
@@ -119,8 +122,8 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
 	
 	def _get_cmdline(self):
 		script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')
-		return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()])
-		
+		return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()]
+				+ GEM5_CACHES_ENABLE)		
 @machines.add_machine
 class Gem5MachineARMMultiCore(Gem5MachineARM):
 	name = 'gem5_arm_4'
@@ -130,8 +133,8 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
 	
 	def _get_cmdline(self):
 		script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')
-		return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()])
-
+		return (['gem5.fast', script_path, '--kernel=%s'%self.kernel_img, '--n=%s'%self.get_ncores()]
+				+ GEM5_CACHES_ENABLE)
 	
 	
 	
