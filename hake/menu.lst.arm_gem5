@@ -28,7 +28,7 @@ module /arm_gem5/sbin/startd boot
 #module	/arm_gem5/sbin/serial
 #module	/arm_gem5/sbin/fish
 
-#module /arm_gem5/sbin/memtest
+module /arm_gem5/sbin/memtest
 
 # Phyiscal memory at 0MB up to 512MB 
 # (This should match the physical memory size configured

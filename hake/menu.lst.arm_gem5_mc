@@ -30,6 +30,7 @@ module /arm_gem5/sbin/startd boot
 
 #module /arm_gem5/sbin/memtest
 
+
 # Phyiscal memory at 0MB up to 512MB 
 # (This should match the physical memory size configured
 # in the simulator, e.g. via Benchmarks.py)
