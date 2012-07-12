@@ -431,7 +431,7 @@ arm_gem5_kernel_panda: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5_panda $(
 	@echo "Now invoke gem5, e.g. as 'gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel'"
 
 arm_gem5_panda: arm_gem5_kernel_panda $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5Panda.py --kernel=arm_gem5_kernel --caches
+	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5Panda.py --kernel=arm_gem5_kernel
 .PHONY : arm_gem5_panda
 
 arm_gem5_harness_kernel: $(MODULES) tools/bin/arm_molly $(SRCDIR)/tools/arm_gem5/gem5script.py menu.lst
