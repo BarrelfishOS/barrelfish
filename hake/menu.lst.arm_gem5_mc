@@ -21,7 +21,7 @@ module	/arm_gem5/sbin/monitor
 #module /arm_gem5/sbin/chips boot
 module /arm_gem5/sbin/ramfsd boot
 module /arm_gem5/sbin/skb boot
-module /arm_gem5/sbin/spawnd boot bootarm=1-3
+module /arm_gem5/sbin/spawnd boot bootarm=1
 module /arm_gem5/sbin/startd boot 
 
 # General user domains

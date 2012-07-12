@@ -410,6 +410,10 @@ arm_gem5_detailed: arm_gem5_kernel $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --cpu-type=arm_detailed --caches --l2cache
 .PHONY : arm_gem5_detailed
 
+arm_gem5_detailed_mc: arm_gem5_kernel $(SRCDIR)/tools/arm_gem5/gem5script.py
+	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --cpu-type=arm_detailed --n=2 --caches --l2cache
+.PHONY : arm_gem5_detailed
+
 arm_gem5_kernel_mc: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5_mc $(SRCDIR)/tools/arm_gem5/gem5script.py
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5_mc m5_tmp
 	tools/bin/arm_molly menu.lst.arm_gem5_mc arm_mbi.c
@@ -417,7 +421,7 @@ arm_gem5_kernel_mc: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5_mc $(SRCDIR
 	@echo "Now invoke gem5, e.g. as 'gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel'"
 
 arm_gem5_mc: arm_gem5_kernel_mc $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --n=4
+	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --n=4 --caches --l2cache
 .PHONY : arm_gem5_mc
 
 arm_gem5_harness_kernel: $(MODULES) tools/bin/arm_molly $(SRCDIR)/tools/arm_gem5/gem5script.py menu.lst
