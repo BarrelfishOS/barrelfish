@@ -216,7 +216,7 @@ MODULES_arm=\
 # XScale-specific modules to build by default
 MODULES_xscale=\
 	sbin/cpu.bin
-	
+
 # ArmGem5-specific modules to build by default
 #MODULES_arm_gem5=\
 
@@ -392,7 +392,7 @@ ARM_PREFIX=arm-none-linux-gnueabi-
 
 menu.lst.arm_gem5: $(SRCDIR)/hake/menu.lst.arm_gem5
 	cp $< $@
-	
+
 menu.lst.arm_gem5_mc: $(SRCDIR)/hake/menu.lst.arm_gem5_mc
 	cp $< $@
 
@@ -419,6 +419,20 @@ arm_gem5_kernel_mc: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5_mc $(SRCDIR
 arm_gem5_mc: arm_gem5_kernel_mc $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --n=4
 .PHONY : arm_gem5_mc
+
+# For the panda board
+menu.lst.arm_gem5_panda: $(SRCDIR)/hake/menu.lst.arm_gem5_panda
+	cp $< $@
+
+arm_gem5_kernel_panda: $(MODULES) tools/bin/arm_molly menu.lst.arm_gem5_panda $(SRCDIR)/tools/arm_gem5/gem5script.py
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5_panda m5_tmp
+	tools/bin/arm_molly menu.lst.arm_gem5_panda arm_mbi.c
+	$(ARM_PREFIX)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin -nostdlib -march=armv7-a -mapcs -fno-unwind-tables  -T$(SRCDIR)/tools/arm_molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/arm -I./arm_gem5/include -I$(SRCDIR)/include/oldc -I$(SRCDIR)/include/c -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/arm_molly/molly_boot.S $(SRCDIR)/tools/arm_molly/molly_init.c $(SRCDIR)/tools/arm_molly/lib.c ./arm_mbi.c $(SRCDIR)/lib/elf/elf32.c ./m5_tmp/* -o arm_gem5_kernel
+	@echo "Now invoke gem5, e.g. as 'gem5.fast ../tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel'"
+
+arm_gem5_panda: arm_gem5_kernel_panda $(SRCDIR)/tools/arm_gem5/gem5script.py
+	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5Panda.py --kernel=arm_gem5_kernel --caches
+.PHONY : arm_gem5_panda
 
 arm_gem5_harness_kernel: $(MODULES) tools/bin/arm_molly $(SRCDIR)/tools/arm_gem5/gem5script.py menu.lst
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst m5_tmp
