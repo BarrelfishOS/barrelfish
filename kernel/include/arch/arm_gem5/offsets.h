@@ -119,11 +119,13 @@
  * 2GB.
  */
 #define MEMORY_OFFSET           GEN_ADDR(31)
+// 2G (2 ** 31)
 
 /**
  * Absolute start of RAM in physical memory.
  */
 #define PHYS_MEMORY_START       GEN_ADDR(31)
+// 2G (2 ** 31)
 
 /*
  * Device offset to map devices in high memory.
@@ -144,6 +146,7 @@
  * Bytes per kernel copy for each core (1 Section)
  */
 #define KERNEL_SECTION_SIZE		0x100000
+// 1MB, (2 ** 20)
 
 #define KERNEL_STACK_ADDR		(lpaddr_t)kernel_stack
 

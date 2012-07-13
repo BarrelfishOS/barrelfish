@@ -64,7 +64,12 @@ void pic_init(void)
     printf("pic_init: confbase at %x\n", confbase);
     lvaddr_t pic_base =  confbase;
 
-//	lvaddr_t pic_base = paging_map_device(confbase, ARM_L1_SECTION_BYTES);
+	lvaddr_t pic_base2 = paging_map_device(confbase, ARM_L1_SECTION_BYTES);
+
+    printf("conf_base %x, pic_base2 %x\n", confbase, pic_base2);
+
+    pic_base = pic_base2;
+    printf("pic_init: using pic_base as %x\n", pic_base);
 	pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
 			     (mackerel_addr_t)pic_base + CPU_OFFSET);
 

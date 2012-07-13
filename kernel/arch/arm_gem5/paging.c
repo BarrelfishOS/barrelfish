@@ -72,7 +72,7 @@ void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
     l1.section.bufferable   = 1;
     l1.section.cacheable    = 1;
     l1.section.ap10         = 1;	// RW/NA
-    l1.section.ap2			= 0;
+    l1.section.ap2          = 0;
     l1.section.base_address = pa >> 20u;
 
     paging_write_l1_entry(ttbase, va, l1);
@@ -95,12 +95,15 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
  */
 void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 {
+    printf("inside paging_arm_reset for base 0x%"PRIxLPADDR" bytes %lx\n",
+            paddr, bytes);
 	// Re-map physical memory
 	paging_map_memory((uintptr_t)kernel_l1_table, paddr, bytes);
 
 	//map high-mem relocated exception vector to kernel section
-	paging_map_kernel_section((uintptr_t)kernel_l1_table, ETABLE_ADDR , 0);
-
+	paging_map_kernel_section((uintptr_t)kernel_l1_table, ETABLE_ADDR, PHYS_MEMORY_START);
+//        paging_map_device_section((uintptr_t)kernel_l1_table, ETABLE_ADDR,
+//                PHYS_MEMORY_START);
 	cp15_write_ttbr1(mem_to_local_phys((uintptr_t)kernel_l1_table));
 }
 
@@ -116,8 +119,8 @@ paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
     l1.section.type = L1_TYPE_SECTION_ENTRY;
     l1.section.bufferable   = 0;
     l1.section.cacheable    = 0;
-    l1.section.ap10         = 3;	// RW/NA RW/RW
-    l1.section.ap2			= 0;
+    l1.section.ap10         = 3; // prev value: 3 // RW/NA RW/RW
+    l1.section.ap2	    = 0;
     l1.section.base_address = pa >> 20u;
 
     paging_write_l1_entry(ttbase, va, l1);
@@ -130,6 +133,8 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     static lvaddr_t dev_alloc = DEVICE_OFFSET;
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
+
+    printf("paging_map_device_section: %x, %x\n", dev_alloc, device_base);
 
     paging_map_device_section((uintptr_t)kernel_l1_table, dev_alloc, device_base);
 
