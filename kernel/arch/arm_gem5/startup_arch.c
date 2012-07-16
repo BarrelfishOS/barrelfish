@@ -707,7 +707,8 @@ void arm_kernel_startup(void)
     }
 
     // enable interrupt forwarding to cpu
-    gic_cpu_interface_enable();
+    // FIXME: PS: enable this as it is needed for multicore setup.
+    // gic_cpu_interface_enable();
 
     // Should not return
     dispatch(init_dcb);

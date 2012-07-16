@@ -57,6 +57,7 @@ static uint32_t it_num_lines;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
+void pic_init(void); // FIXME: move this in proper header file
 void pic_init(void)
 {
   lpaddr_t confbase = cp15_read_cbar();

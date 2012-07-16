@@ -282,6 +282,8 @@ void kernel_startup_early(void)
     timeslice = CONSTRAIN(timeslice, 1, 20);
 }
 
+void pic_init(void); // FIXME: move this in proper header file
+
 /**
  * \brief Continue kernel initialization in kernel address space.
  *
@@ -347,7 +349,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
          printf("cpu id %d\n", my_core_id);
 
 
-	 gic_init();
+	 pic_init();
+	 //gic_init();
 	 printf("pic_init done\n");
 
 
@@ -365,7 +368,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	 pit_init(timeslice, 1);
 	 printf("pic_init 2 done\n");
 	 tsc_init();
-	 printf("tsc_init done\n");
+	 printf("tsc_init done --\n");
 #ifndef __GEM5__
 	 enable_cycle_counter_user_access();
 	 reset_cycle_counter();
@@ -378,6 +381,12 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	 arm_kernel_startup();
 }
 
+static void put_serial(char c)
+{
+  volatile uint32_t *reg = (uint32_t *)0x48020000;
+  *reg = c;
+}
+
 /**
  * Entry point called from boot.S for bootstrap processor.
  * if is_bsp == true, then pointer points to multiboot_info
@@ -386,12 +395,19 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
 void arch_init(void *pointer)
 {
+
+/*
     void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
         (void *)local_phys_to_mem((lpaddr_t)text_init);
-
+*/
     struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
+
+    put_serial('S');
+
 	early_serial_init(serial_console_port);
+
+	put_serial('S');
 
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
@@ -463,13 +479,15 @@ void arch_init(void *pointer)
 
     //align kernel dest to 16KB
 
-    /*
+#if 0
     // Relocate kernel image for top of memory
     elf32_relocate(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte,
     			   (lvaddr_t)&kernel_first_byte,
-    			   (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
+    			   (struct Elf32_Rel *)(rela->sh_addr -
+                               START_KERNEL_PHYS + &kernel_first_byte),
     			   rela->sh_size,
-    			   (struct Elf32_Sym *)(symtab->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
+    			   (struct Elf32_Sym *)(symtab->sh_addr -
+                               START_KERNEL_PHYS + &kernel_first_byte),
     			   symtab->sh_size,
     			   START_KERNEL_PHYS, &kernel_first_byte);
     /*** Aliased kernel available now -- low memory still mapped ***/
@@ -479,9 +497,9 @@ void arch_init(void *pointer)
 
     //relocate got_base register to aliased location
     relocate_got_base(MEMORY_OFFSET);
-*/
+#endif // 0
+
     // Call aliased text_init() function and continue initialization
     text_init();
 }
 
-}

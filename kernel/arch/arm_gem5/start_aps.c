@@ -41,7 +41,8 @@ int start_aps_arm_start(uint8_t core_id, lvaddr_t entry)
 	*ap_wait = AP_STARTING_UP;
 
 	//write entry address of new kernel to SYSFLAG reg
-	write_sysflags_reg(entry);
+        // FIXME: PS: enable this as it is needed for multicore setup
+	// write_sysflags_reg(entry);
 
 	//raise SWI to signal app core to start
 	pic_raise_softirq((1 << core_id), 1);

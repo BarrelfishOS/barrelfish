@@ -35,6 +35,8 @@
         // Entry point.  Initialize a stack and branch to the
         // C entry point in molly_init.c
 molly_start:
+//	ldr		r1, =0x48020000
+//	mov		@r1, 'S'
 	ldr		sp, =molly_kernel_stack
 	add		sp, sp, #4096
 	b		molly_init
