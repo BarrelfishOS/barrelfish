@@ -64,7 +64,7 @@ def setCPUClass(options):
 
 #######################################################################
 #
-# Check that we are running on a full-system arm simulator
+# Check that we are running on a full-systemarm simulator
 
 if not buildEnv['TARGET_ISA'] == "arm":
     fatal("Expected TARGET_ISA == arm");
@@ -73,24 +73,33 @@ if not buildEnv['TARGET_ISA'] == "arm":
 #
 # Set up basic configuration options 
 
+# The Panda board runs a Cortex-A9 core revision r2p10
+# The cache-controler is a PL310
+# The CPU is out-of-order
+
 parser = optparse.OptionParser()
 parser.add_option("--kernel", action="store", type="string")
 parser.add_option("--ramdisk", action="store", type="string") 
-parser.add_option("-n", "--num_cpus", type="int", default=1)
+# The panda board has two CPUs
+parser.add_option("-n", "--num_cpus", type="int", default=2)
+# parser.add_option("--cpu-type", type="choice", default="arm_detailed",
+#                   choices = ["atomic", "arm_detailed"],
+#                   help = "type of cpu to run with")
 parser.add_option("--cpu-type", type="choice", default="atomic",
                   choices = ["atomic", "arm_detailed"],
                   help = "type of cpu to run with")
 parser.add_option("--caches", action="store_true")
 parser.add_option("--l2cache", action="store_true")
-parser.add_option("--l1d_size", type="string", default="64kB")
-parser.add_option("--l1i_size", type="string", default="32kB")
-parser.add_option("--l2_size", type="string", default="2MB")
+parser.add_option("--l1d_size", type="string", default="32kB") # ok
+parser.add_option("--l1i_size", type="string", default="32kB") # ok
+parser.add_option("--l2_size", type="string", default="1MB") # OMAP
 parser.add_option("--l3_size", type="string", default="16MB")
-parser.add_option("--l1d_assoc", type="int", default=2)
-parser.add_option("--l1i_assoc", type="int", default=2)
-parser.add_option("--l2_assoc", type="int", default=8)
+parser.add_option("--l1d_assoc", type="int", default=4) # ok
+parser.add_option("--l1i_assoc", type="int", default=4) # ok
+# L2 is 16-way set associative
+parser.add_option("--l2_assoc", type="int", default=16)
 parser.add_option("--l3_assoc", type="int", default=16)
-parser.add_option("--cacheline_size", type="int", default=64)
+parser.add_option("--cacheline_size", type="int", default=32)
 parser.add_option("--loglevel", type="int", default=4)
 (options, args) = parser.parse_args()
     
@@ -106,7 +115,6 @@ system = LinuxArmSystem()
 #kernel to boot
 system.kernel = options.kernel
 
-
 #memory system
 system.iobus = Bus(bus_id=0)
 #system.iobus = NoncoherentBus()
@@ -118,7 +126,8 @@ system.bridge = Bridge(delay='50ns', nack_delay='4ns')
 system.bridge.master = system.iobus.slave
 system.bridge.slave = system.membus.master
 
-system.physmem = SimpleMemory(range = AddrRange('512MB'),conf_table_reported = True)
+# http://pandaboard.org/content/pandaboard-es/
+system.physmem = SimpleMemory(range = AddrRange('1GB'),conf_table_reported = True)
 
 system.mem_mode = mem_mode
 #load ramdisk at specific location (256MB = @0x10000000)
@@ -126,7 +135,8 @@ system.mem_mode = mem_mode
 #system.ramdisk.port = system.membus.master
 
 #CPU(s)
-CPUClass.clock = "2GHz"
+# PandaBoard ES runs in 1.2 GHz mode as default
+CPUClass.clock = "1.2GHz"
 system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
 #machine type

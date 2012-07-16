@@ -38,7 +38,11 @@ uint8_t  hal_get_cpu_id(void);
  */
 bool     hal_cpu_is_bsp(void);
 
-void     pic_init(void);
+void	 gic_init(void);
+void     gic_distributor_init(void);
+void	 gic_cpu_interface_init(void);
+void 	 gic_cpu_interface_enable(void);
+void     gic_cpu_interface_disable(void);
 //void     pic_set_irq_enabled(uint32_t irq, bool en);
 void 	 pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
 							  uint8_t edge_triggered, uint8_t one_to_n);
@@ -59,6 +63,10 @@ uint32_t tsc_get_hz(void);
 
 void 	scu_enable(void);
 int		scu_get_core_count(void);
+
+void	write_sysflags_reg(uint32_t regval);
+
+extern lpaddr_t sysflagset_base;
 
 /* [2009-11-17 orion] TODO: device enumeration */
 

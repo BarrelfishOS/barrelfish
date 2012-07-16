@@ -15,6 +15,7 @@
 
 #include <serial.h>
 #include <kputchar.h>
+#include <arch/arm_gem5/global.h>
 
 #define KPBUFSZ 256
 static char kputbuf[KPBUFSZ];
@@ -29,6 +30,7 @@ static void kflush(void)
 
 void kprintf_begin(void)
 {
+	acquire_spinlock(&global->locks.print);
 	kcount = 0;
 }
 
@@ -43,6 +45,7 @@ int kputchar(int c)
 void kprintf_end(void)
 {
     kflush();
+    release_spinlock(&global->locks.print);
 }
 
 // End

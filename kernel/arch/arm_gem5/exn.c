@@ -205,6 +205,13 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
         wakeup_check(kernel_now);
         dispatch(schedule());
     }
+    // this is the (still) unacknowledged startup interrupt sent by the BSP
+    // we just acknowledge it here
+    else if(irq == 1)
+    {
+    	pic_ack_irq(irq);
+    	dispatch(schedule());
+    }
     else {
         // pic_ack_irq(irq);
         // send_user_interrupt(irq);

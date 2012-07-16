@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
        fprintf(o, "extern char %s_start;\n", kernel_symbol_prefix);
        fprintf(o, "extern char %s_end;\n", kernel_symbol_prefix);
        got_kernel = 1;
-     } else if(!strcmp(cmd, "module")) {
+     } else if(!strcmp(cmd, "module") || !strcmp(cmd, "modulenounzip")) {
        assert(n_modules < MAX_MODULES);
        module_symbol_prefix[n_modules] = get_symbol_name_prefix(image);
        module_cmd_line[n_modules] = malloc(strlen(line) + 1);

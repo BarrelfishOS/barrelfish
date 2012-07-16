@@ -100,7 +100,7 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
-#if 0
+#ifdef __ARM_ARCH_7A__
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
     struct vnode *walk = root->children;
@@ -386,8 +386,41 @@ unmap(struct pmap *pmap,
       size_t       size,
       size_t      *retsize)
 {
-    USER_PANIC("NYI");
-    return LIB_ERR_NOT_IMPLEMENTED;
+	errval_t err;
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+    struct pmap_arm* pmap_arm = (struct pmap_arm*)pmap;
+
+
+    for (size_t i = 0; i < size; i+=BASE_PAGE_SIZE) {
+            // Find the page table
+            struct vnode *ptable;
+            err = get_ptable(pmap_arm, vaddr + i, &ptable);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+            }
+
+            // Find the page
+            uintptr_t index = (((uintptr_t)vaddr+i) >> 12) & 0x3ffu;
+            struct vnode *page = find_vnode(ptable, index);
+            if (!page) {
+                return LIB_ERR_PMAP_FIND_VNODE;
+            }
+
+            // Unmap it in the kernel
+            err = vnode_unmap(ptable->cap, page->entry);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_VNODE_UNMAP);
+            }
+
+            // Free up the resources
+            remove_vnode(ptable, page);
+            slab_free(&pmap_arm->slab, page);
+        }
+
+        if (retsize) {
+            *retsize = size;
+        }
+        return SYS_ERR_OK;
 }
 
 /**

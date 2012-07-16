@@ -21,14 +21,15 @@ module	/arm_gem5/sbin/monitor
 #module /arm_gem5/sbin/chips boot
 module /arm_gem5/sbin/ramfsd boot
 module /arm_gem5/sbin/skb boot
-module /arm_gem5/sbin/spawnd boot bootarm=0
+module /arm_gem5/sbin/spawnd boot bootarm=1
 module /arm_gem5/sbin/startd boot 
 
 # General user domains
 #module	/arm_gem5/sbin/serial
 #module	/arm_gem5/sbin/fish
 
-module /arm_gem5/sbin/memtest
+#module /arm_gem5/sbin/memtest
+
 
 # Phyiscal memory at 0MB up to 512MB 
 # (This should match the physical memory size configured

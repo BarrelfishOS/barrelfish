@@ -21,6 +21,7 @@
 #include <serial.h>
 #include <arm_hal.h>
 #include <cp15.h>
+#include <io.h>
 
 //hardcoded bc gem5 doesn't set board id in ID_Register
 #define VEXPRESS_ELT_BOARD_ID		0x8e0
@@ -58,7 +59,7 @@ static uint32_t it_num_lines;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
-void pic_init(void)
+void gic_init(void)
 {
 	lvaddr_t pic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
 	pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
@@ -70,10 +71,25 @@ void pic_init(void)
 	cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
 	sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
 
+	gic_cpu_interface_init();
+
+	if(hal_cpu_is_bsp())
+	{
+		gic_distributor_init();
+	}
+}
+
+void gic_distributor_init(void)
+{
 	//pic_disable_all_irqs();
 
-	//config cpu interface (currently only one)
+	//enable interrupt forwarding from distributor to cpu interface
+	pl130_gic_ICDDCR_wr(&pic, 0x1);
+}
 
+//config cpu interface
+void gic_cpu_interface_init(void)
+{
 	//set priority mask of cpu interface, currently set to lowest priority
 	//to accept all interrupts
 	pl130_gic_ICCPMR_wr(&pic, 0xff);
@@ -81,13 +97,18 @@ void pic_init(void)
 	//set binary point to define split of group- and subpriority
 	//currently we allow for 8 subpriorities
 	pl130_gic_ICCBPR_wr(&pic, 0x2);
+}
 
-	//enable interrupt forwarding to processor
+//enable interrupt forwarding to processor
+void gic_cpu_interface_enable(void)
+{
 	pl130_gic_ICCICR_wr(&pic, 0x1);
+}
 
-
-	//enable interrupt forwarding from distributor to cpu interface
-	pl130_gic_ICDDCR_wr(&pic, 0x1);
+//disable interrupt forwarding to processor
+void gic_cpu_interface_disable(void)
+{
+	pl130_gic_ICCICR_wr(&pic, 0x0);
 }
 
 void pic_disable_all_irqs(void)
@@ -277,7 +298,7 @@ uint32_t pic_get_active_irq(void)
 void pic_raise_softirq(uint8_t cpumask, uint8_t irq)
 {
 	uint32_t regval = (cpumask << 16) | irq;
-	pl130_gic_ICDSGIR_wr(&pic, regval);
+	pl130_gic_ICDSGIR_rawwr(&pic, regval);
 }
 
 /*
@@ -327,6 +348,45 @@ static lvaddr_t pit_map_resources(void)
     return timer_base;
 }
 
+static void pit_config(uint32_t timeslice, uint8_t pit_id)
+{
+	sp804_pit_t *pit;
+	if(pit_id == PIT0_ID)
+		pit = &pit0;
+	else if(pit_id == PIT1_ID)
+		pit = &pit1;
+	else
+		panic("Unsupported PIT ID: %"PRIu32, pit_id);
+
+	// PIT timer
+	uint32_t load1 = timeslice * tsc_hz / 1000;
+	uint32_t load2 = timeslice * tsc_hz / 1000;
+
+	sp804_pit_Timer1Load_wr(pit, load1);
+	sp804_pit_Timer2Load_wr(pit, load2);
+
+	//configure timer 1
+	sp804_pit_Timer1Control_one_shot_wrf(pit, 0);
+	sp804_pit_Timer1Control_timer_size_wrf(pit, sp804_pit_size_32bit);
+	sp804_pit_Timer1Control_timer_pre_wrf(pit, sp804_pit_prescale0);
+	sp804_pit_Timer1Control_int_enable_wrf(pit, 0);
+	sp804_pit_Timer1Control_timer_mode_wrf(pit, sp804_pit_periodic);
+	sp804_pit_Timer1Control_timer_en_wrf(pit, 0);
+
+	//configure timer 2
+	sp804_pit_Timer2Control_one_shot_wrf(pit, 0);
+	sp804_pit_Timer2Control_timer_size_wrf(pit, sp804_pit_size_32bit);
+	sp804_pit_Timer2Control_timer_pre_wrf(pit, sp804_pit_prescale0);
+	sp804_pit_Timer2Control_int_enable_wrf(pit, 0);
+	sp804_pit_Timer2Control_timer_mode_wrf(pit, sp804_pit_periodic);
+	sp804_pit_Timer2Control_timer_en_wrf(pit, 0);
+
+	// enable PIT interrupt
+	uint32_t int_id = pit_id ? PIT1_IRQ : PIT0_IRQ;
+	pic_enable_interrupt(int_id, 0x1, 0xf, 0x1, 0);
+
+}
+
 void pit_init(uint32_t timeslice, uint8_t pit_id)
 {
     sp804_pit_t *pit;
@@ -341,33 +401,11 @@ void pit_init(uint32_t timeslice, uint8_t pit_id)
 
 	sp804_pit_initialize(pit, (mackerel_addr_t)(timer_base + PIT0_OFFSET + pit_id*PIT_DIFF));
 
-	// PIT timer
-    uint32_t load1 = timeslice * tsc_hz / 1000;
-    uint32_t load2 = timeslice * tsc_hz / 1000;
-
-    sp804_pit_Timer1Load_wr(pit, load1);
-    sp804_pit_Timer2Load_wr(pit, load2);
-
-    //configure timer 1
-    sp804_pit_Timer1Control_one_shot_wrf(pit, 0);
-    sp804_pit_Timer1Control_timer_size_wrf(pit, sp804_pit_size_32bit);
-    sp804_pit_Timer1Control_timer_pre_wrf(pit, sp804_pit_prescale0);
-    sp804_pit_Timer1Control_int_enable_wrf(pit, 0);
-    sp804_pit_Timer1Control_timer_mode_wrf(pit, sp804_pit_periodic);
-    sp804_pit_Timer1Control_timer_en_wrf(pit, 0);
-
-    //configure timer 2
-    sp804_pit_Timer2Control_one_shot_wrf(pit, 0);
-    sp804_pit_Timer2Control_timer_size_wrf(pit, sp804_pit_size_32bit);
-    sp804_pit_Timer2Control_timer_pre_wrf(pit, sp804_pit_prescale0);
-    sp804_pit_Timer2Control_int_enable_wrf(pit, 0);
-    sp804_pit_Timer2Control_timer_mode_wrf(pit, sp804_pit_periodic);
-    sp804_pit_Timer2Control_timer_en_wrf(pit, 0);
-
-    //enable PIT interrupt
-    uint32_t int_id = pit_id ? PIT1_IRQ : PIT0_IRQ;
-    pic_enable_interrupt(int_id, 0x1, 0xf, 0x1, 0);
-
+	// if we are BSP we also config the values of the PIT
+	if(hal_cpu_is_bsp())
+	{
+		pit_config(timeslice, pit_id);
+	}
     //pic_set_irq_enabled(PIT_IRQ, 1);
 }
 
@@ -391,14 +429,12 @@ bool pit_handle_irq(uint32_t irq)
 	if (PIT0_IRQ == irq)
 	{
         sp804_pit_Timer1IntClr_wr(&pit0, ~0ul);
-        //TODO: change this in multicore implementation
         pic_ack_irq(irq);
         return 1;
     }
 	else if(PIT1_IRQ == irq)
 	{
 		sp804_pit_Timer1IntClr_wr(&pit1, ~0ul);
-		//TODO: change this in multicore implementation
 		pic_ack_irq(irq);
 		return 1;
 	}
@@ -493,6 +529,18 @@ void scu_enable(void)
 int scu_get_core_count(void)
 {
 	return a9scu_SCUConfig_cpu_number_rdf(&scu);
+}
+
+//
+// Sys Flag Register
+//
+
+#define SYSFLAGSET_BASE		0xFF000030
+
+lpaddr_t sysflagset_base = SYSFLAGSET_BASE;
+void write_sysflags_reg(uint32_t regval)
+{
+	writel(regval, (char *)SYSFLAGSET_BASE);
 }
 
 //

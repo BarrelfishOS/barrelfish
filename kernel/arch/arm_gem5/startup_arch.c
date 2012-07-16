@@ -27,6 +27,7 @@
 #include <kernel_multiboot.h>
 #include <offsets.h>
 #include <startup_arch.h>
+#include <global.h>
 
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
@@ -35,6 +36,7 @@
                                       __FUNCTION__, __LINE__);
 
 #define BSP_INIT_MODULE_NAME    "arm_gem5/sbin/init"
+#define APP_INIT_MODULE_NAME	"arm_gem5/sbin/monitor"
 
 
 
@@ -53,7 +55,7 @@ struct bootinfo* bootinfo = (struct bootinfo*)INIT_BOOTINFO_VBASE;
  * so that all the kernels can share it.
  */
 //static  struct global myglobal;
-//struct global *global = &myglobal;
+struct global *global = (struct global *)GLOBAL_VBASE;
 
 static inline uintptr_t round_up(uintptr_t value, size_t unit)
 {
@@ -514,6 +516,13 @@ static struct dcb *spawn_init_common(const char *name,
 	spawn_init_map(init_l2, INIT_VBASE, INIT_ARGS_VBASE,
 	                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
 
+
+    // Map dispatcher
+    spawn_init_map(init_l2, INIT_VBASE, INIT_DISPATCHER_VBASE,
+                   mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
+                   INIT_PERM_RW);
+
+
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_arm *disp_arm
@@ -529,6 +538,8 @@ static struct dcb *spawn_init_common(const char *name,
     disp_arm->enabled_save_area.named.r0   = paramaddr;
     disp_arm->enabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
     disp_arm->enabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
+    disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
+
 
     return init_dcb;
 }
@@ -576,20 +587,87 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel
 
+    /*
     // Map dispatcher
     spawn_init_map(init_l2, INIT_VBASE, INIT_DISPATCHER_VBASE,
                    mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
                    INIT_PERM_RW);
     disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-
+	*/
     return init_dcb;
 }
 
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys)
 {
-	//panic("Multi-core not yet support on ARM");
-	return NULL;
+	errval_t err;
+
+	/* Construct cmdline args */
+	// Core id of the core that booted this core
+	char coreidchar[10];
+	snprintf(coreidchar, sizeof(coreidchar), "%d", core_data->src_core_id);
+
+	// IPI channel id of core that booted this core
+	char chanidchar[30];
+	snprintf(chanidchar, sizeof(chanidchar), "chanid=%"PRIu32, core_data->chan_id);
+
+	// Arch id of the core that booted this core
+	char archidchar[30];
+	snprintf(archidchar, sizeof(archidchar), "archid=%d",
+			core_data->src_arch_id);
+
+	const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
+	int argc = 4;
+
+    struct dcb *init_dcb = spawn_init_common(name, argc, argv,0, alloc_phys);
+
+    // Urpc frame cap
+    struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
+    		TASKCN_SLOT_MON_URPC);
+    // XXX: Create as devframe so the memory is not zeroed out
+    err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
+    		core_data->urpc_frame_bits,
+    		core_data->urpc_frame_bits, urpc_frame_cte);
+    assert(err_is_ok(err));
+    urpc_frame_cte->cap.type = ObjType_Frame;
+    lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
+
+    /* Map urpc frame at MON_URPC_BASE */
+    spawn_init_map(init_l2, INIT_VBASE, MON_URPC_VBASE, urpc_ptr, MON_URPC_SIZE,
+    			   INIT_PERM_RW);
+
+    struct startup_l2_info l2_info = { init_l2, INIT_VBASE };
+
+    // elf load the domain
+    genvaddr_t entry_point, got_base=0;
+    err = elf_load(EM_ARM, startup_alloc_init, &l2_info,
+    		local_phys_to_mem(core_data->monitor_binary),
+    		core_data->monitor_binary_size, &entry_point);
+    if (err_is_fail(err)) {
+    	//err_print_calltrace(err);
+    	panic("ELF load of init module failed!");
+    }
+
+    // TODO: Fix application linkage so that it's non-PIC.
+    struct Elf32_Shdr* got_shdr =
+    		elf32_find_section_header_name(local_phys_to_mem(core_data->monitor_binary),
+    									   core_data->monitor_binary_size, ".got");
+    if (got_shdr)
+    {
+    	got_base = got_shdr->sh_addr;
+    }
+
+    struct dispatcher_shared_arm *disp_arm =
+    		get_dispatcher_shared_arm(init_dcb->disp);
+    disp_arm->enabled_save_area.named.r10  = got_base;
+    disp_arm->got_base = got_base;
+
+    disp_arm->disabled_save_area.named.pc   = entry_point;
+    disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
+    disp_arm->disabled_save_area.named.r10  = got_base;
+    //disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
+
+    return init_dcb;
 }
 
 void arm_kernel_startup(void)
@@ -614,6 +692,7 @@ void arm_kernel_startup(void)
     }
     else
     {
+
     	my_core_id = core_data->dst_core_id;
 
     	/* Initialize the allocator */
@@ -621,8 +700,14 @@ void arm_kernel_startup(void)
     	app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
     			app_alloc_phys_start;
 
-    	init_dcb = spawn_app_init(core_data, BSP_INIT_MODULE_NAME, app_alloc_phys);
+    	init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME, app_alloc_phys);
+
+    	uint32_t irq = pic_get_active_irq();
+    	pic_ack_irq(irq);
     }
+
+    // enable interrupt forwarding to cpu
+    gic_cpu_interface_enable();
 
     // Should not return
     dispatch(init_dcb);

@@ -67,21 +67,5 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes);
 void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
-// L1 Alignment determined by TTBR register (bits 13:0 ignored by hardware)
-#define ARM_L1_ALIGN                    16384u
-
-#define ARM_L1_MAX_ENTRIES              4096u
-#define ARM_L1_BYTES_PER_ENTRY          4u
-#define ARM_L1_SECTION_BYTES            (1024u * 1024u)
-
-#define ARM_L2_ALIGN                    1024u
-#define ARM_L2_MAX_ENTRIES              256u
-#define ARM_L2_BYTES_PER_ENTRY          4u
-#define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
-
-#define ARM_L2_SMALL_CACHEABLE          0x008
-#define ARM_L2_SMALL_BUFFERABLE         0x004
-#define ARM_L2_SMALL_USR_RO             0x20
-#define ARM_L2_SMALL_USR_RW             0x30
 
 #endif // KERNEL_ARCH_ARM_PAGING_H

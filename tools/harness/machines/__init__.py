@@ -95,7 +95,8 @@ def add_machine(machine):
     all_machines.append(machine)
     return machine
 
-# Assume that QEMU works everywhere if invoked
+# Assume that QEMU and Gem5 works everywhere if invoked
 import qemu
+import gem5
 
 # Other site-specific modules will be loaded by the siteconfig module
