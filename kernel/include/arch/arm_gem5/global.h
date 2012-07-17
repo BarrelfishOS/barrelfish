@@ -36,6 +36,7 @@ struct global {
 
 extern struct global *global;
 
-#define GLOBAL_VBASE	0x21000
+//#define GLOBAL_VBASE	0x21000
+#define GLOBAL_VBASE	(GEN_ADDR(31) + 0x21000)
 
 #endif

@@ -30,6 +30,7 @@
 #include <start_aps.h>
 
 #define GEM5_RAM_SIZE	0x20000000
+//#define GEM5_RAM_SIZE	0x2000000
 
 extern errval_t early_serial_init(uint8_t port_no);
 
@@ -251,8 +252,7 @@ static void paging_init(void)
 	aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
 	aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
 
-//	lvaddr_t vbase = MEMORY_OFFSET, base =  0; // PHYS_MEMORY_START; // mycode
-	lvaddr_t vbase = MEMORY_OFFSET, base = PHYS_MEMORY_START; // simon's code
+	lvaddr_t vbase = MEMORY_OFFSET, base =  0;
 
 	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
 		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
@@ -269,7 +269,6 @@ static void paging_init(void)
 
 	// Activate new page tables
 	cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
-	//cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
 	cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
 }
 
@@ -381,7 +380,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	 arm_kernel_startup();
 }
 
-static void put_serial(char c)
+void put_serial_test(char c);
+void put_serial_test(char c)
 {
   volatile uint32_t *reg = (uint32_t *)0x48020000;
   *reg = c;
@@ -403,14 +403,7 @@ void arch_init(void *pointer)
     struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
 
-    put_serial('S');
-
-	early_serial_init(serial_console_port);
-
-	put_serial('S');
-
-    // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
+    early_serial_init(serial_console_port);
 
     if(hal_cpu_is_bsp())
     {
@@ -428,10 +421,11 @@ void arch_init(void *pointer)
         glbl_core_data->mmap_addr = mb->mmap_addr;
         glbl_core_data->multiboot_flags = mb->flags;
 
+        memset(&global->locks, 0, sizeof(global->locks));
+
         // Construct the global structure
 //        printf("mmap_base %x\n", mb->mmap_addr);
 //        printf("mmap_len %x\n", mb->mmap_length);
-        memset(&global->locks, 0, sizeof(global->locks));
     }
     else
     {
