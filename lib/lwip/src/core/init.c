@@ -394,8 +394,10 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     snprintf(port_manager_name, sizeof(port_manager_name), "%s%s",
              card_name, NET_PORTS_MNG_SUFFIX);
 
+    printf("#### %s: LWIP connecting to port manager service\n", disp_name());
     // Connecting to the port_manager_service
     idc_connect_port_manager_service(port_manager_name);
+    printf("#### %s: LWIP successfuly connected to port manager service\n", disp_name());
 
 
     if (is_ctl != 1) {
@@ -409,9 +411,9 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
     }
 
     DEBUGPRINTPS("LWIP: lwip_init: done with connection setup\n");
-    printf("LWIP: done with connection setup XXX\n");
+    printf("#### %s: LWIP done with connection setup XXX\n", disp_name());
     remaining_lwip_initialization((char *) card_name, queueid);
-    printf("LWIP: remaining lwip initialization done\n");
+    printf("#### %s: LWIP remaining lwip initialization done\n", disp_name());
 
     if (is_ctl != 1) {
         DEBUGPRINTPS("getting IP from ARP service\n");

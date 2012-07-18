@@ -627,6 +627,8 @@ err_t dhcp_start(struct netif *netif)
 {
     struct dhcp *dhcp;
     err_t result = ERR_OK;
+    printf("#### %s: dhcp_start called\n", disp_name());
+    
     /* FIXME: make sure that if the calling process is not owner of LWIP stack
      * then it should not be allowed to continue. */
     LWIP_ERROR("netif != NULL", (netif != NULL), return ERR_ARG;);

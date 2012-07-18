@@ -18,6 +18,9 @@ static uint8_t host_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xBF}; //The mac add
 static uint64_t assumed_queue_id = 0;
 static struct pci_device *the_pci_vmkitmon_eth;
 
+static uint64_t global_spp_index;
+static struct net_queue_manager_binding *global_binding;
+
 static void generate_interrupt(struct pci_device *dev){
 	struct pci_vmkitmon_eth * h = dev->state;
 	h->mmio_register[PCI_VMKITMON_ETH_STATUS] |= PCI_VMKITMON_ETH_IRQST;
@@ -77,9 +80,9 @@ static void get_mac_address_fn(uint8_t* mac)
 static void dumpRegion(uint8_t *start){
 	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
 	for(int i=0; i<64;i++){
-		printf("0x%4x: ", i*16);
+		printf("0x%04x: ", i*16);
 		for(int j=0; j<16; j++){
-			printf("%2x ", *( (start) + (i*16 + j)));
+			printf("%02x ", *( (start) + (i*16 + j)));
 		}
 		printf("\n");
 	}
@@ -94,8 +97,11 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 	//struct txbuf* buf;
 	//    uint64_t client_data = 0;
 	struct shared_pool_private *spp = cl->spp_ptr;
+    struct net_queue_manager_binding *binding = cl->app_connection;
 	struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
 	uint64_t rtpbuf = sld->no_pbufs;
+
+    global_binding = binding;
 
 	printf("PCI_VMKITMON_ETH pci_vmkitmon_eth  transmit_pbuf_list_fn, no_pbufs: 0x%lx\n", rtpbuf);
 
@@ -110,6 +116,8 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 		paddr = (uint64_t) buffer->pa + sld->offset;
 		printf("PCI_VMKITMON_ETH paddr: 0x%lx, len: 0x%lx\n", paddr, sld->len);
 		dumpRegion(buffer->va + sld->offset);
+
+        global_spp_index = (cl->tx_index + i) % cl->spp_ptr->c_size;
 
 		for(int j = 0; j <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); j++){
 			struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + j;
@@ -150,6 +158,9 @@ static uint64_t find_tx_free_slot_count_fn(void) {
 static bool handle_free_TX_slot_fn(void) {
 	printf("PCI_VMKITMON_ETH  handle_free_TX_slot_fn\n");
 //Is this a poll loop until the packets are transferred????
+    
+    handle_tx_done(global_binding, global_spp_index);
+    netbench_record_event_simple(bm, RE_TX_DONE, rdtsc());
 	return false;
 }
 
