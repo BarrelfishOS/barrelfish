@@ -102,16 +102,22 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
  */
 void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 {
+    // make sure kernel pagetable is aligned to 16K after relocation
+    aligned_kernel_l1_table = (union arm_l1_entry *)ROUND_UP(
+            (uintptr_t)kernel_l1_table, ARM_L1_ALIGN);
+
     printf("inside paging_arm_reset for base 0x%"PRIxLPADDR" bytes %lx\n",
             paddr, bytes);
     // Re-map physical memory
-    paging_map_memory((uintptr_t)kernel_l1_table, paddr, bytes);
+    //
+    paging_map_memory((uintptr_t)aligned_kernel_l1_table , paddr, bytes);
 
     //map high-mem relocated exception vector to kernel section
-    paging_map_kernel_section((uintptr_t)kernel_l1_table, ETABLE_ADDR, PHYS_MEMORY_START);
-    //        paging_map_device_section((uintptr_t)kernel_l1_table, ETABLE_ADDR,
+    paging_map_kernel_section((uintptr_t)aligned_kernel_l1_table,
+            ETABLE_ADDR, PHYS_MEMORY_START);
+    //        paging_map_device_section((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
     //                PHYS_MEMORY_START);
-    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)kernel_l1_table));
+    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
 }
 
 void
@@ -141,9 +147,12 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    printf("paging_map_device_section: %x, %x\n", dev_alloc, device_base);
+    printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
+            "0x%"PRIxLPADDR".\n",
+            (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
 
-    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
+    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc,
+            device_base);
 
     return dev_alloc;
 }
@@ -160,7 +169,7 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 {
     // make sure kernel pagetable is aligned to 16K after relocation
     aligned_kernel_l1_table = (union arm_l1_entry *)ROUND_UP(
-            (uintptr_t)kernel_l1_table, ARM_L1_ALIGN);
+            (uintptr_t)aligned_kernel_l1_table, ARM_L1_ALIGN);
 
     // make sure low l2 pagetable is aligned to 1K after relocation
     aligned_low_l2_table = (union arm_l2_entry *)ROUND_UP(

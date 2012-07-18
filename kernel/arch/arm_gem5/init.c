@@ -269,7 +269,7 @@ static void paging_init(void)
 
 	// Activate new page tables
 	cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
-	cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
+        cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
 }
 
 void kernel_startup_early(void)
@@ -294,8 +294,8 @@ void pic_init(void); // FIXME: move this in proper header file
  */
 static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
-	errval_t errval;
-	// Relocate glbl_core_data to "memory"
+    errval_t errval;
+    // Relocate glbl_core_data to "memory"
     glbl_core_data = (struct arm_core_data *)
         local_phys_to_mem((lpaddr_t)glbl_core_data);
 
@@ -308,16 +308,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     	struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
     			local_phys_to_mem(glbl_core_data->mmap_addr);
 
-//        printf("v2 mmap_base %x\n", mmap->base_addr);
-//        printf("v2 mmap_len %x\n", mmap->length);
-//        printf("paging_arm_reset for %x of length %x!\n",
-//                mmap->base_addr, mmap->length);
     	paging_arm_reset(mmap->base_addr, mmap->length);
-        printf("paging_arm_reset v1 done for %x of length %x !\n",
-                mmap->base_addr, mmap->length);
-        printf("paging_arm_reset v2 done for %x of length %x !\n",
-                mmap->base_addr, mmap->length);
-        printf("paging_arm_reset v3 done for %x of length %x !\n",
+        printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n",
                 mmap->base_addr, mmap->length);
     }
     else
@@ -325,59 +317,61 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
         panic("need multiboot MMAP\n");
     }
 
-	exceptions_init();
-        printf("exceptions_init done!\n");
+    exceptions_init();
+    printf("exceptions_init done!\n");
 
-	kernel_startup_early();
-        printf("kernel_startup_early done!\n");
+    kernel_startup_early();
+    printf("kernel_startup_early done!\n");
 
-	//initialize console
-	 serial_console_init(serial_console_port);
+    //initialize console
+    serial_console_init(serial_console_port);
 
-	 // do not remove/change this printf: needed by regression harness
-	 printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", hal_get_board_id());
-	 printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
+    // do not remove/change this printf: needed by regression harness
+    printf("Barrelfish CPU driver starting on ARMv7"
+            " Board id 0x%08"PRIx32"\n", hal_get_board_id());
+    printf("The address of paging_map_kernel_section is %p\n",
+            paging_map_kernel_section);
 
-	 errval = serial_debug_init(serial_debug_port);
-	 if (err_is_fail(errval))
-	 {
-		 printf("Failed to initialize debug port: %d", serial_debug_port);
-	 }
+    errval = serial_debug_init(serial_debug_port);
+    if (err_is_fail(errval))
+    {
+        printf("Failed to initialize debug port: %d",
+                serial_debug_port);
+    }
 
-	 my_core_id = hal_get_cpu_id();
-         printf("cpu id %d\n", my_core_id);
+    my_core_id = hal_get_cpu_id();
+    printf("cpu id %d\n", my_core_id);
+
+    pic_init();
+    //gic_init();
+    printf("pic_init done\n");
 
 
-	 pic_init();
-	 //gic_init();
-	 printf("pic_init done\n");
+    if(hal_cpu_is_bsp())
+    {
+        // init SCU if more than one core present
+        if(scu_get_core_count() > 4)
+            panic("ARM SCU doesn't support more than 4 cores!");
+        if(scu_get_core_count() > 1)
+            scu_enable();
+    }
 
-
-	 if(hal_cpu_is_bsp())
-	 {
-		 // init SCU if more than one core present
-		 if(scu_get_core_count() > 4)
-			 panic("ARM SCU doesn't support more than 4 cores!");
-		 if(scu_get_core_count() > 1)
-			 scu_enable();
-	 }
-
-	 pit_init(timeslice, 0);
-	 printf("pit_init 1 done\n");
-	 pit_init(timeslice, 1);
-	 printf("pic_init 2 done\n");
-	 tsc_init();
-	 printf("tsc_init done --\n");
+    pit_init(timeslice, 0);
+    printf("pit_init 1 done\n");
+    pit_init(timeslice, 1);
+    printf("pic_init 2 done\n");
+    tsc_init();
+    printf("tsc_init done --\n");
 #ifndef __GEM5__
-	 enable_cycle_counter_user_access();
-	 reset_cycle_counter();
+    enable_cycle_counter_user_access();
+    reset_cycle_counter();
 #endif
 
-	 // tell BSP that we are started up
-	 uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-	 *ap_wait = AP_STARTED;
+    // tell BSP that we are started up
+    uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
+    *ap_wait = AP_STARTED;
 
-	 arm_kernel_startup();
+    arm_kernel_startup();
 }
 
 void put_serial_test(char c);

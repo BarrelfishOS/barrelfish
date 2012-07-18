@@ -525,13 +525,14 @@ int scu_get_core_count(void)
 static omap_uart_t ports[4];
 
 void enable_mmu(void);
+
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {
     if (port_no < 4) {
         assert(port_no == 2);
-
         lvaddr_t base = paging_map_device(UART3_VBASE, UART_DEVICE_BYTES);
-        printf("base = %x %x\n", base, base + UART3_SECTION_OFFSET);
+        printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
+                base, base + UART3_SECTION_OFFSET);
 
 /*
         volatile uint32_t *p2 = (uint32_t *) UART3_VBASE;
@@ -562,6 +563,7 @@ errval_t early_serial_init(uint8_t port_no)
 
 errval_t serial_console_init(uint8_t port_ordinal)
 {
+    printf("Starting UART driver\n");
     return serial_init(CONSOLE_PORT, port_ordinal);
 }
 
@@ -581,6 +583,7 @@ char serial_console_getchar(void)
 
 errval_t serial_debug_init(uint8_t port_ordinal)
 {
+    printf("Starting Debug UART driver\n");
     return serial_init(DEBUG_PORT, port_ordinal);
 }
 
