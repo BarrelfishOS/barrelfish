@@ -274,7 +274,7 @@ else ifeq ($(ARCH),scc)
 	GDB=gdb
 else ifeq ($(ARCH),arm)
 	ARM_QEMU_CMD=qemu-system-arm -kernel arm/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd arm/romfs.cpio
-	GDB=xterm -e arm-none-linux-gnueabi-gdb
+	GDB=xterm -e arm-linux-gnueabi-gdb
 simulate: $(MODULES) arm/romfs.cpio
 	$(ARM_QEMU_CMD)
 .PHONY: simulate
@@ -287,7 +287,7 @@ debugsim: $(MODULES) arm/romfs.cpio arm/tools/debug.arm.gdb
 .PHONY : debugsim
 else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
-	GDB=arm-none-linux-gnueabi-gdb
+	GDB=arm-linux-gnueabi-gdb
 endif
 
 
@@ -385,7 +385,7 @@ m5: m5_kernel m5script.py
 
 # ARM GEM5 Simulation Targets
 
-ARM_PREFIX=arm-none-linux-gnueabi-
+ARM_PREFIX=arm-linux-gnueabi-
 
 #gem5script.py: $(SRCDIR)/tools/arm_gem5/gem5script.py
 #    cp $< $@

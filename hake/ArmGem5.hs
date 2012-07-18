@@ -29,15 +29,16 @@ import qualified ArchDefaults
 arch = "arm_gem5"
 archFamily = "arm"
 
-compiler = "arm-none-linux-gnueabi-gcc"
-objcopy  = "arm-none-linux-gnueabi-objcopy"
-objdump  = "arm-none-linux-gnueabi-objdump"
-ar       = "arm-none-linux-gnueabi-ar"
-ranlib   = "arm-none-linux-gnueabi-ranlib"
-cxxcompiler = "arm-none-linux-gnueabi-g++"
+compiler = "arm-linux-gnueabi-gcc"
+objcopy  = "arm-linux-gnueabi-objcopy"
+objdump  = "arm-linux-gnueabi-objdump"
+ar       = "arm-linux-gnueabi-ar"
+ranlib   = "arm-linux-gnueabi-ranlib"
+cxxcompiler = "arm-linux-gnueabi-g++"
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
+                   Str "-marm",
                    Str "-mcpu=cortex-a9",
 		   Str "-march=armv7-a",
                    Str "-mapcs",
@@ -111,6 +112,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fno-unwind-tables",
                                 "-nostdinc",
                                 "-std=c99",
+                                "-marm",
                                 "-mcpu=cortex-a9",
                                 "-march=armv7-a",
 				"-mapcs",
