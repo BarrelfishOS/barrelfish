@@ -94,6 +94,9 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
     }
 }
 
+void
+paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+
 /**
  * \brief Reset kernel paging.
  *
@@ -106,22 +109,17 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
     aligned_kernel_l1_table = (union arm_l1_entry *)ROUND_UP(
             (uintptr_t)kernel_l1_table, ARM_L1_ALIGN);
 
-    printf("inside paging_arm_reset for base 0x%"PRIxLPADDR" bytes %lx\n",
-            paddr, bytes);
     // Re-map physical memory
     //
     paging_map_memory((uintptr_t)aligned_kernel_l1_table , paddr, bytes);
 
     //map high-mem relocated exception vector to kernel section
-    paging_map_kernel_section((uintptr_t)aligned_kernel_l1_table,
-            ETABLE_ADDR, PHYS_MEMORY_START);
-    //        paging_map_device_section((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
-    //                PHYS_MEMORY_START);
-    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
-}
+    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
+                              PHYS_MEMORY_START);
 
-void
-paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
+    /* cp15_invalidate_tlb(); */
+}
 
 void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)

@@ -265,7 +265,7 @@ static void paging_init(void)
 		// Alias the same region at MEMORY_OFFSET (gem5 code)
 		// create 1:1 mapping for pandaboard
 //		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
-		paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
+                paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
 	}
 
 	// Activate new page tables
@@ -296,12 +296,6 @@ void pic_init(void); // FIXME: move this in proper header file
 static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
     errval_t errval;
-    // Relocate glbl_core_data to "memory"
-    glbl_core_data = (struct arm_core_data *)
-        local_phys_to_mem((lpaddr_t)glbl_core_data);
-
-    // Relocate global to "memory"
-    global = (struct global*)local_phys_to_mem((lpaddr_t)global);
 
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
@@ -319,7 +313,10 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     }
 
     exceptions_init();
-    printf("exceptions_init done!\n");
+
+    printf("Causing page fault\n");
+    uint32_t *ptr = (uint32_t *)0xc0100000;
+    *ptr = 1;
 
     kernel_startup_early();
     printf("kernel_startup_early done!\n");
@@ -390,12 +387,6 @@ void put_serial_test(char c)
 
 void arch_init(void *pointer)
 {
-
-/*
-    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
-        (void *)local_phys_to_mem((lpaddr_t)text_init);
-*/
-    struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
 
     early_serial_init(serial_console_port);
@@ -417,10 +408,6 @@ void arch_init(void *pointer)
         glbl_core_data->multiboot_flags = mb->flags;
 
         memset(&global->locks, 0, sizeof(global->locks));
-
-        // Construct the global structure
-//        printf("mmap_base %x\n", mb->mmap_addr);
-//        printf("mmap_len %x\n", mb->mmap_length);
     }
     else
     {
@@ -437,57 +424,7 @@ void arch_init(void *pointer)
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
 
-//	 pic_init();
-    // Find relocation section
-    rela = elf32_find_section_header_type((struct Elf32_Shdr *)
-    									  ((uintptr_t)elf->addr),
-    									  elf->num, SHT_REL);
-
-    if (rela == NULL) {
-        panic("Kernel image does not include relocation section!");
-    }
-
-    // Find symtab section
-    symtab = elf32_find_section_header_type((struct Elf32_Shdr *)(lpaddr_t)elf->addr,
-    									  elf->num, SHT_DYNSYM);
-
-    if (symtab == NULL) {
-        panic("Kernel image does not include symbol table!");
-    }
-
-    printf("At paging init\n");
-
     paging_init();
-
-    printf("At MMU init\n");
-
     enable_mmu();
-
-    printf("Relocating kernel to virtual memory\n");
-
-    //align kernel dest to 16KB
-
-#if 0
-    // Relocate kernel image for top of memory
-    elf32_relocate(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte,
-    			   (lvaddr_t)&kernel_first_byte,
-    			   (struct Elf32_Rel *)(rela->sh_addr -
-                               START_KERNEL_PHYS + &kernel_first_byte),
-    			   rela->sh_size,
-    			   (struct Elf32_Sym *)(symtab->sh_addr -
-                               START_KERNEL_PHYS + &kernel_first_byte),
-    			   symtab->sh_size,
-    			   START_KERNEL_PHYS, &kernel_first_byte);
-    /*** Aliased kernel available now -- low memory still mapped ***/
-
-    // Relocate stack to aliased location
-    relocate_stack(MEMORY_OFFSET);
-
-    //relocate got_base register to aliased location
-    relocate_got_base(MEMORY_OFFSET);
-#endif // 0
-
-    // Call aliased text_init() function and continue initialization
     text_init();
 }
-

@@ -20,9 +20,10 @@
 
 #define CACHE_LINE_BYTES 32
 #define ETABLE_ADDR     		0xffff0000
-#define ETABLE_SECTION_OFFSET	0xf000
+#define ETABLE_SECTION_OFFSET	        0xf000
 #define JUMP_TABLE_OFFSET		0x100
-#define ETABLE_PHYS_BASE		0x80000
+//#define JUMP_TABLE_OFFSET		0x20
+#define ETABLE_PHYS_BASE		0x800f0000
 
 #if !defined(__ASSEMBLER__)
 
