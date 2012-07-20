@@ -213,13 +213,29 @@ relocate_got_base(lvaddr_t offset)
 void enable_mmu(void);
 void enable_mmu(void)
 {
-	__asm volatile (
-			"ldr    r0, =0x55555555\n\t"       // Initial domain permissions
+	__asm volatile (// Initial domain permissions
+			"ldr    r0, =0x55555555\n\t"
 			"mcr    p15, 0, r0, c3, c0, 0\n\t"
-			"ldr	r1, =0x1007\n\t" // Enable: D-Cache, I-Cache, Alignment, MMU 0x007 0x003 --> works
-			"mrc	p15, 0, r0, c1, c0, 0\n\t"	// read out system configuration register
+                        // Set ASID to 0
+                        "mov	r0, #0\n\t"
+                        "mcr	p15, 0, r0, c13, c0, 1\n\t"
+                        // Set the Domain Access register
+                        "mov    r0, #1\n\t"
+                        "mcr	p15, 0, r0, c3, c0, 0\n\t"
+                        // Enable: D-Cache, I-Cache, Alignment, MMU (0x007)
+                        // Everything without D-Cache (0x003) --> works
+			"ldr	r1, =0x1003\n\t"
+			"mrc	p15, 0, r0, c1, c0, 0\n\t"      // read out system configuration register
 			"orr	r0, r0, r1\n\t"
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
+                        // Clear pipeline
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        // Wait on some CP15 register
+                        "mrc	p15, 0, r0, c2, c0, 0\n\t"
+                        "mov	r0, r0\n\t"
+                        "sub	pc, pc, #4\n\t"
 		);
 }
 
@@ -265,7 +281,8 @@ static void paging_init(void)
 		// Alias the same region at MEMORY_OFFSET (gem5 code)
 		// create 1:1 mapping for pandaboard
 //		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
-                paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
+                /* if(vbase < 0xc0000000) */
+                    paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
 	}
 
 	// Activate new page tables
@@ -314,9 +331,17 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
     exceptions_init();
 
-    printf("Causing page fault\n");
-    uint32_t *ptr = (uint32_t *)0xc0100000;
-    *ptr = 1;
+    /* printf("Causing page fault\n"); */
+    /* volatile uint32_t *ptr = (uint32_t *)0xc0100000; */
+    /* uint32_t tmp = *ptr; */
+    /* printf("%u\n", tmp); */
+    /* *ptr = 1; */
+
+    printf("invalidate\n");
+
+    /* cp15_invalidate_i_and_d_caches(); */
+
+    printf("startup_early\n");
 
     kernel_startup_early();
     printf("kernel_startup_early done!\n");

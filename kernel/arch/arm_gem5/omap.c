@@ -70,6 +70,7 @@ void pic_init(void)
     printf("conf_base %x, pic_base2 %x\n", confbase, pic_base2);
 
     pic_base = pic_base2;
+    /* pic_base = confbase; */
     printf("pic_init: using pic_base as %x\n", pic_base);
 	pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
 			     (mackerel_addr_t)pic_base + CPU_OFFSET);
@@ -534,12 +535,11 @@ static errval_t serial_init(uint8_t index, uint8_t port_no)
         printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
                 base, base + UART3_SECTION_OFFSET);
 
-/*
         volatile uint32_t *p2 = (uint32_t *) UART3_VBASE;
         volatile uint32_t *p = (uint32_t *) (base + UART3_SECTION_OFFSET);
         *p2 = 's';
         *p = 'S';
-*/
+
         omap_uart_init(&ports[index], base + UART3_SECTION_OFFSET);
 
         return SYS_ERR_OK;

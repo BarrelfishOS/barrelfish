@@ -97,30 +97,6 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
 
-/**
- * \brief Reset kernel paging.
- *
- * This function resets the page maps for kernel and memory-space. It clears out
- * all other mappings. Use this only at system bootup!
- */
-void paging_arm_reset(lpaddr_t paddr, size_t bytes)
-{
-    // make sure kernel pagetable is aligned to 16K after relocation
-    aligned_kernel_l1_table = (union arm_l1_entry *)ROUND_UP(
-            (uintptr_t)kernel_l1_table, ARM_L1_ALIGN);
-
-    // Re-map physical memory
-    //
-    paging_map_memory((uintptr_t)aligned_kernel_l1_table , paddr, bytes);
-
-    //map high-mem relocated exception vector to kernel section
-    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
-                              PHYS_MEMORY_START);
-
-    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
-    /* cp15_invalidate_tlb(); */
-}
-
 void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 {
@@ -152,9 +128,35 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc,
             device_base);
 
+    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
+    cp15_invalidate_tlb();
+
     return dev_alloc;
 }
 
+/**
+ * \brief Reset kernel paging.
+ *
+ * This function resets the page maps for kernel and memory-space. It clears out
+ * all other mappings. Use this only at system bootup!
+ */
+void paging_arm_reset(lpaddr_t paddr, size_t bytes)
+{
+    // make sure kernel pagetable is aligned to 16K after relocation
+    aligned_kernel_l1_table = (union arm_l1_entry *)ROUND_UP(
+            (uintptr_t)kernel_l1_table, ARM_L1_ALIGN);
+
+    // Re-map physical memory
+    //
+    paging_map_memory((uintptr_t)aligned_kernel_l1_table , paddr, bytes);
+
+    //map high-mem relocated exception vector to kernel section
+    paging_map_kernel_section((uintptr_t)aligned_kernel_l1_table, ETABLE_ADDR,
+                              PHYS_MEMORY_START);
+
+    cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
+    cp15_invalidate_tlb();
+}
 
 #if 0
 /**
