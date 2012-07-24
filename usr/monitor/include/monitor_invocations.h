@@ -15,6 +15,7 @@
 #include <barrelfish/types.h>
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/distcaps.h>
+#include <domcap.h>
 
 struct capability;
 
@@ -50,6 +51,21 @@ errval_t monitor_set_cap_owner(struct capref croot, capaddr_t cptr, int bits, co
 errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int bits);
 errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits);
 errval_t monitor_has_descendants(struct capability *cap, bool *res);
+
+static inline errval_t
+monitor_get_domcap_owner(struct domcapref cap, coreid_t *ret_owner)
+{
+
+    return monitor_get_cap_owner(cap.croot, cap.cptr << (CPTR_BITS - cap.bits),
+                                 cap.bits, ret_owner);
+}
+
+static inline errval_t
+monitor_set_domcap_owner(struct domcapref cap, coreid_t owner)
+{
+    return monitor_set_cap_owner(cap.croot, cap.cptr << (CPTR_BITS - cap.bits),
+                                 cap.bits, owner);
+}
 
 /*
  * Delete- and revoke-related operations

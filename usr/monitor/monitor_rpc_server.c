@@ -27,9 +27,9 @@ static void retype_reply_status(errval_t status, void *st)
 static void remote_cap_retype(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src,
                               uint64_t new_type, uint8_t size_bits,
-                              capaddr_t to, capaddr_t slot, int32_t dcn_vbits)
+                              capaddr_t to, capaddr_t slot, int32_t to_vbits)
 {
-    capops_retype(new_type, size_bits, croot, to, dcn_vbits, slot, src,
+    capops_retype(new_type, size_bits, croot, to, to_vbits, slot, src,
                   CPTR_BITS, retype_reply_status, (void*)b);
 }
 

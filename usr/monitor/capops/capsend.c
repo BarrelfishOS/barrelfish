@@ -46,7 +46,7 @@ capsend_owner(struct domcapref capref, struct msg_queue_elem *queue_elem)
 
     // read cap owner
     coreid_t owner;
-    err = monitor_get_cap_owner(capref.croot, capref.cptr, capref.bits, &owner);
+    err = monitor_get_domcap_owner(capref, &owner);
     if (err_is_fail(err)) {
         return err;
     }

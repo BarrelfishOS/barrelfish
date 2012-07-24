@@ -73,7 +73,7 @@ capops_retrieve(struct domcapref cap,
     rst->result_handler = result_handler;
     rst->st = st;
 
-    err = monitor_get_cap_owner(cap.croot, cap.cptr, cap.bits, &rst->prev_owner);
+    err = monitor_get_domcap_owner(cap, &rst->prev_owner);
     GOTO_IF_ERR(err, free_st);
 
     if (rst->prev_owner == my_core_id) {
@@ -123,8 +123,7 @@ retrieve_owner__send(struct intermon_binding *b,
     struct retrieve_rpc_st *st = (struct retrieve_rpc_st*)e;
     intermon_caprep_t caprep;
 
-    err = monitor_set_cap_owner(st->cap.croot, st->cap.cptr, st->cap.bits,
-                                my_core_id);
+    err = monitor_set_domcap_owner(st->cap, my_core_id);
     GOTO_IF_ERR(err, report_error);
 
     capability_to_caprep(&st->rawcap, &caprep);

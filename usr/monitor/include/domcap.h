@@ -22,10 +22,11 @@ struct domcapref {
 static inline struct domcapref
 get_cap_domref(struct capref cap)
 {
+    uint8_t bits = get_cap_valid_bits(cap);
     return (struct domcapref) {
         .croot = cap_root,
-        .cptr = get_cap_addr(cap),
-        .bits = get_cap_valid_bits(cap),
+        .cptr = get_cap_addr(cap) >> (CPTR_BITS - bits),
+        .bits = bits,
     };
 }
 

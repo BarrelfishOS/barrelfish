@@ -230,8 +230,9 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     // if we're performing a "true" give_away, lock the cap locally as the
     // intermediate state will be inconsistent
     if (rpc_st->delete_after && rpc_st->is_last) {
-        err = monitor_lock_cap(cap_root, get_cap_addr(capref),
-                               get_cap_valid_bits(capref));
+        struct domcapref domcapref = get_cap_domref(capref);
+        err = monitor_lock_cap(domcapref.croot, domcapref.cptr,
+                               domcapref.bits);
         // callers of owner_copy should already check cap lock state
         PANIC_IF_ERR(err, "locking cap for true give_away failed");
         assert(!(remote_relations & RRELS_COPY_BIT));

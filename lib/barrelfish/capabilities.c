@@ -156,7 +156,7 @@ static inline bool backoff(int count)
  */
 static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
                                   uint8_t size_bits, capaddr_t to, capaddr_t slot,
-                                  int dcn_vbits)
+                                  int to_vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
     if (!mrc) {
@@ -169,7 +169,7 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
         err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src,
                                           (uint64_t)new_type,
                                           size_bits, to, slot,
-                                          dcn_vbits, &remote_cap_err);
+                                          to_vbits, &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
@@ -324,7 +324,7 @@ errval_t cap_delete(struct capref cap)
     err = invoke_cnode_delete(cap_root, caddr, vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_delete_remote(get_cap_addr(cap), vbits);
+        return cap_delete_remote(caddr, vbits);
     } else {
         return err;
     }
@@ -348,7 +348,7 @@ errval_t cap_revoke(struct capref cap)
     err = invoke_cnode_revoke(cap_root, caddr, vbits);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_revoke_remote(get_cap_addr(cap), vbits);
+        return cap_revoke_remote(caddr, vbits);
     } else {
         return err;
     }

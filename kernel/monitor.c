@@ -57,8 +57,6 @@ struct sysret sys_cap_has_relations(capaddr_t caddr, uint8_t vbits,
 {
     errval_t err;
 
-    caddr >>= (CPTR_BITS-vbits);
-
     struct cte *cap;
     err = caps_lookup_slot(&dcb_current->cspace.cap, caddr, vbits, &cap,
                            CAPRIGHTS_READ);
@@ -85,9 +83,6 @@ struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bit
                                            uint8_t relations, uint8_t mask)
 {
     errval_t err;
-
-    // XXX: aldskfjaldsfa -MN
-    cptr >>= (CPTR_BITS-bits);
 
     struct cte *cte;
     err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
@@ -187,9 +182,6 @@ static errval_t sys_double_lookup(capaddr_t rptr, uint8_t rbits,
 {
     errval_t err;
 
-    // XXX: wwwwwhyyyyy
-    rptr >>= (CPTR_BITS-rbits);
-
     struct capability *root;
     err = caps_lookup_cap(&dcb_current->cspace.cap, rptr, rbits,
                           &root, CAPRIGHTS_READ);
@@ -209,8 +201,6 @@ struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
 {
     errval_t err;
 
-    cptr >>= (CPTR_BITS-bits);
-
     struct cte *cte;
     err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
     if (err_is_fail(err)) {
@@ -223,8 +213,6 @@ struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
 struct sysret sys_set_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_t cptr, uint8_t bits, coreid_t owner)
 {
     errval_t err;
-
-    cptr >>= (CPTR_BITS-bits);
 
     struct cte *cte;
     err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
@@ -339,9 +327,6 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
         return SYSRET(err);
     }
 
-    // XXX: wwwwwhyyyyy
-    ret_cn_addr >>= (CPTR_BITS-ret_cn_bits);
-
     struct capability *retcn;
     err = caps_lookup_cap(&dcb_current->cspace.cap, ret_cn_addr, ret_cn_bits, &retcn, CAPRIGHTS_WRITE);
     if (err_is_fail(err)) {
@@ -364,9 +349,6 @@ struct sysret sys_monitor_revoke_mark_tgt(capaddr_t root_addr, uint8_t root_bits
                                           capaddr_t target_addr, uint8_t target_bits)
 {
     errval_t err;
-
-    // XXX: wwwwwhyyyyy
-    target_addr >>= (CPTR_BITS-target_bits);
 
     struct cte *target;
     err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);

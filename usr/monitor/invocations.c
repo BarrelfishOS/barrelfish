@@ -58,9 +58,8 @@ errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
     assert (out != NULL);
 
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
-
-    cap >>= CPTR_BITS - vbits;
+    capaddr_t rootcap_addr = get_cap_addr(croot);
+    rootcap_addr >>= (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_identify_domains_cap(rootcap_addr, rootcap_vbits,
                                                cap, vbits, out);
@@ -75,7 +74,8 @@ errval_t monitor_domcap_remote_relations(struct capref croot, capaddr_t cptr,
                                          uint8_t mask, uint8_t *ret_relations)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr = get_cap_addr(croot);
+    rootcap_addr >>= (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_remote_relations(rootcap_addr, rootcap_vbits,
                                            cptr, bits, relations, mask,
@@ -85,8 +85,10 @@ errval_t monitor_domcap_remote_relations(struct capref croot, capaddr_t cptr,
 errval_t monitor_remote_relations(struct capref cap, uint8_t relations,
                                   uint8_t mask, uint8_t *ret_relations)
 {
-    return monitor_domcap_remote_relations(cap_root, get_cap_addr(cap),
-                                           get_cap_valid_bits(cap), relations,
+    uint8_t bits = get_cap_valid_bits(cap);
+    capaddr_t cptr = get_cap_addr(cap);
+    cptr >>= (CPTR_BITS - bits);
+    return monitor_domcap_remote_relations(cap_root, cptr, bits, relations,
                                            mask, ret_relations);
 }
 
@@ -99,6 +101,7 @@ errval_t monitor_cap_has_relations(struct capref cap, uint8_t mask,
 {
     capaddr_t caddr = get_cap_addr(cap);
     uint8_t bits = get_cap_valid_bits(cap);
+    caddr >>= (CPTR_BITS - bits);
     return invoke_monitor_cap_has_relations(caddr, bits, mask, res);
 }
 
@@ -107,8 +110,9 @@ errval_t monitor_cap_has_relations(struct capref cap, uint8_t mask,
  */
 errval_t monitor_nullify_cap(struct capref cap)
 {
+    capaddr_t caddr = get_cap_addr(cap);
     uint8_t vbits = get_cap_valid_bits(cap);
-    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    caddr >>= (CPTR_BITS - vbits);
     return invoke_monitor_nullify_cap(caddr, vbits);
 }
 
@@ -158,7 +162,8 @@ errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src,
                                    capaddr_t to, capaddr_t slot, int bits)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr = get_cap_addr(croot);
+    rootcap_addr >>= (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src,
                                             newtype, objbits, to, slot, bits);
@@ -170,7 +175,8 @@ errval_t monitor_create_caps(struct capref croot, enum objtype newtype,
                              cslot_t dest_slot)
 {
     uint8_t rootcap_vbits = get_cap_valid_bits(croot);
-    capaddr_t rootcap_addr  = get_cap_addr(croot) >> (CPTR_BITS - rootcap_vbits);
+    capaddr_t rootcap_addr = get_cap_addr(croot);
+    rootcap_addr >>= (CPTR_BITS - rootcap_vbits);
 
     return invoke_monitor_remote_cap_retype(rootcap_addr, rootcap_vbits, src,
                                             newtype, objbits, dest_cn,
@@ -193,6 +199,8 @@ errval_t monitor_get_cap_owner(struct capref croot, capaddr_t cptr, int bits, co
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
+    root_addr >>= (CPTR_BITS - root_bits);
+    cptr >>= (CPTR_BITS - bits);
 
     return invoke_monitor_get_cap_owner(root_addr, root_bits, cptr, bits, ret_owner);
 }
@@ -204,6 +212,8 @@ errval_t monitor_set_cap_owner(struct capref croot, capaddr_t cptr, int bits, co
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
+    root_addr >>= (CPTR_BITS - root_bits);
+    cptr >>= (CPTR_BITS - bits);
 
     return invoke_monitor_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
 }
@@ -215,8 +225,7 @@ errval_t monitor_lock_cap(struct capref croot, capaddr_t cptr, int bits)
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
-
-    cptr >>= CPTR_BITS - bits;
+    root_addr >>= (CPTR_BITS - root_bits);
 
     return invoke_monitor_lock_cap(root_addr, root_bits, cptr, bits);
 }
@@ -228,6 +237,7 @@ errval_t monitor_unlock_cap(struct capref croot, capaddr_t cptr, int bits)
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
+    root_addr >>= (CPTR_BITS - root_bits);
 
     return invoke_monitor_unlock_cap(root_addr, root_bits, cptr, bits);
 }
@@ -241,6 +251,7 @@ errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, stru
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
+    root_addr >>= (CPTR_BITS - root_bits);
     capaddr_t ret_cn = ret_cap.cnode.address;
     uint8_t ret_cn_bits = ret_cap.cnode.address_bits;
     cslot_t ret_slot = ret_cap.slot;
@@ -253,6 +264,7 @@ errval_t monitor_revoke_mark_target(struct capref croot, capaddr_t cptr,
 {
     capaddr_t root_addr = get_cap_addr(croot);
     uint8_t root_bits = get_cap_valid_bits(croot);
+    root_addr >>= (CPTR_BITS - root_bits);
     return invoke_monitor_revoke_mark_target(root_addr, root_bits, cptr, bits);
 }
 

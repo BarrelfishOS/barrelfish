@@ -181,7 +181,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
         goto destroy_cap;
     }
 
-    err = monitor_set_cap_owner(domcapref.croot, domcapref.cptr, domcapref.bits, my_core_id);
+    err = monitor_set_domcap_owner(domcapref, my_core_id);
     if (err_is_fail(err)) {
         goto unlock_cap;
     }
@@ -202,8 +202,7 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
     goto send_err;
 
 reset_owner:
-    send_err = monitor_set_cap_owner(domcapref.croot, domcapref.cptr,
-                                     domcapref.bits, from);
+    send_err = monitor_set_domcap_owner(domcapref, from);
     if (err_is_fail(send_err)) {
         USER_PANIC_ERR(send_err, "failed to reset owner while handling move failure");
     }
