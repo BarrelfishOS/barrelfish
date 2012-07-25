@@ -31,6 +31,7 @@
 
 #define GEM5_RAM_SIZE	0x20000000
 //#define GEM5_RAM_SIZE	0x2000000
+#define DEVICE_ID_PADDR 0x4A002204
 
 extern errval_t early_serial_init(uint8_t port_no);
 
@@ -365,6 +366,19 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     my_core_id = hal_get_cpu_id();
     printf("cpu id %d\n", my_core_id);
 
+    // Test MMU
+    // Remap the device identifier and read it using a virtual address
+    lpaddr_t id_code_section = DEVICE_ID_PADDR & ~ARM_L1_SECTION_MASK;
+    lvaddr_t id_code_remapped = paging_map_device(id_code_section, 
+                                                  ARM_L1_SECTION_BYTES);
+
+    // Get device identifier
+    // [OMAP manual, section 1.5]
+    uint32_t *id_code_from_virtual = (uint32_t*) (id_code_remapped + 
+                                                  (DEVICE_ID_PADDR & ARM_L1_SECTION_MASK));
+    printf("ID_CODE (using MMU): %"PRIx32"\n", 
+           (*id_code_from_virtual));
+
     pic_init();
     //gic_init();
     printf("pic_init done\n");
@@ -449,7 +463,16 @@ void arch_init(void *pointer)
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
 
+    // Get device identifier
+    // [OMAP manual, section 1.5]
+    uint32_t *id_code = (uint32_t*) DEVICE_ID_PADDR;
+    printf("ID_CODE: %"PRIx32"\n", (*id_code));
+    printf("Hawkeye / Ramp system value: %"PRIx32"\n", ((*id_code)>>12)&0xFFFF); 
+    printf("Revision number: %"PRIx32"\n", ((*id_code)>>28)&0xF);
+
     paging_init();
     enable_mmu();
+    printf("MMU enabled\n");
+
     text_init();
 }

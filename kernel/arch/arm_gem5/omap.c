@@ -45,10 +45,10 @@ static uint32_t tsc_hz = 2000000000;
 
 //
 // Interrupt controller
+// Offsets taken from ARM Cortex A9 MPCore TRM Table 1-3
 //
-
-#define DIST_OFFSET 0x1000
-#define CPU_OFFSET 	0x100
+#define DIST_OFFSET     0x1000 // Interrupt Distributor
+#define CPU_OFFSET 	0x0100 // Interrupt controller interface
 
 static pl130_gic_t pic;
 static pl130_gic_ICDICTR_t pic_config;
@@ -60,49 +60,56 @@ static uint8_t sec_extn_implemented;
 void pic_init(void); // FIXME: move this in proper header file
 void pic_init(void)
 {
-  lpaddr_t confbase = cp15_read_cbar();
+    lpaddr_t pic_base_physical = cp15_read_cbar();
 
-    printf("pic_init: confbase at %x\n", confbase);
-    lvaddr_t pic_base =  confbase;
+    printf("pic_init: pic_base_physical at %x\n", pic_base_physical);
 
-	lvaddr_t pic_base2 = paging_map_device(confbase, ARM_L1_SECTION_BYTES);
+    // According to ARM Cortex A9 MPCore TRM, this is two contiguous 4KB pages
+    lvaddr_t pic_base_virtual = paging_map_device(pic_base_physical, 
+                                                  ARM_L1_SECTION_BYTES);
 
-    printf("conf_base %x, pic_base2 %x\n", confbase, pic_base2);
+    printf("conf_base %x, pic_base_virtual %x\n", 
+           pic_base_physical, 
+           pic_base_virtual);
 
-    pic_base = pic_base2;
-    /* pic_base = confbase; */
-    printf("pic_init: using pic_base as %x\n", pic_base);
-	pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
-			     (mackerel_addr_t)pic_base + CPU_OFFSET);
+    uint32_t pic_section_offset = pic_base_physical & ARM_L1_SECTION_MASK;
+    pic_base_virtual += pic_section_offset;
 
+    printf("pic_init: using pic_base as %x\n", pic_base_virtual);
+    pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base_virtual + DIST_OFFSET,
+			     (mackerel_addr_t)pic_base_virtual + CPU_OFFSET);
 
-	//read GIC configuration
-	pic_config = pl130_gic_ICDICTR_rd(&pic);
-	it_num_lines = 32*(pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1);
-	cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
-	sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
+    // Test: Interrupt controller interface using Mackarel
+    printf("Test interrupt controller interface using Mackarel .. \n");
+    pl130_gic_ICCPMR_rawrd(&pic);
+    printf(" .. success \n");
 
+    // read GIC configuration
+    pic_config = pl130_gic_ICDICTR_rd(&pic);
+    it_num_lines = 32*(pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1);
+    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
+    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
 
-	//pic_disable_all_irqs();
+    //pic_disable_all_irqs();
 
-	//config cpu interface (currently only one)
+    //config cpu interface (currently only one)
 
-	//set priority mask of cpu interface, currently set to lowest priority
-	//to accept all interrupts
-	pl130_gic_ICCPMR_wr(&pic, 0xff);
-
-
-	//set binary point to define split of group- and subpriority
-	//currently we allow for 8 subpriorities
-	pl130_gic_ICCBPR_wr(&pic, 0x2);
-
-	//enable interrupt forwarding to processor
-	pl130_gic_ICCICR_wr(&pic, 0x1);
+    //set priority mask of cpu interface, currently set to lowest priority
+    //to accept all interrupts
+    pl130_gic_ICCPMR_wr(&pic, 0xff);
 
 
-	//enable interrupt forwarding from distributor to cpu interface
-	pl130_gic_ICDDCR_wr(&pic, 0x1);
-	printf("pic_init: done\n");
+    //set binary point to define split of group- and subpriority
+    //currently we allow for 8 subpriorities
+    pl130_gic_ICCBPR_wr(&pic, 0x2);
+
+    //enable interrupt forwarding to processor
+    pl130_gic_ICCICR_wr(&pic, 0x1);
+
+    //enable interrupt forwarding from distributor to cpu interface
+    pl130_gic_ICDDCR_wr(&pic, 0x1);
+    printf("pic_init: done\n");
+
 }
 
 void pic_disable_all_irqs(void)

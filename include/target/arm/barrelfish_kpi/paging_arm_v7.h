@@ -36,6 +36,7 @@
 #define ARM_L1_MAX_ENTRIES              4096u
 #define ARM_L1_BYTES_PER_ENTRY          4u
 #define ARM_L1_SECTION_BYTES            (1024u * 1024u)
+#define ARM_L1_SECTION_MASK             0x000FFFFF
 
 #define ARM_L2_ALIGN                    1024u
 #define ARM_L2_MAX_ENTRIES              256u

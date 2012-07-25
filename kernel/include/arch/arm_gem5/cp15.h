@@ -127,11 +127,15 @@ static inline uint8_t cp15_get_cpu_id(void) {
 	return cpu_id;
 }
 
+/*
+ * Get the configuration base address
+ * This is described in the Cortex A9 TRM, 4.2.32
+ */
 static inline uint32_t cp15_read_cbar(void)
 {
   uint32_t cbar;
   __asm volatile ("mrc p15, 4, %[cbar], c15, c0, 0" : [cbar] "=r" (cbar));
-  return cbar;
+  return cbar & ~0x1FFF; // Only [31:13] is valid
 }
 
 #endif // __CP15_H__
