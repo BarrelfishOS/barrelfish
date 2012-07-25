@@ -21,6 +21,10 @@
 // status register
 #define PCI_VMKITMON_ETH_IRQST 1
 
+// PCI device id
+#define PCI_VMKITMON_ETH_DEVID 0x1000
+
+// Memory mapped registers
 enum pci_vmkitmon_registers {
 	PCI_VMKITMON_ETH_STATUS,
 	PCI_VMKITMON_ETH_CONTROL,
@@ -49,5 +53,11 @@ struct pci_vmkitmon_eth {
     uint32_t            mem_guest_paddr; //guest physical base address of memory register
 	struct pci_device *pci_device;
 };
+
+#if defined(VMKITMON_ETH_DEBUG_SWITCH)
+#define VMKITMON_ETH_DEBUG(x...) printf("VMKITMON_ETH: " x)
+#else
+#define VMKITMON_ETH_DEBUG(x...) ((void)0)
+#endif
 
 #endif
