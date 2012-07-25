@@ -300,8 +300,6 @@ void kernel_startup_early(void)
     timeslice = CONSTRAIN(timeslice, 1, 20);
 }
 
-void pic_init(void); // FIXME: move this in proper header file
-
 /**
  * \brief Continue kernel initialization in kernel address space.
  *
@@ -380,18 +378,20 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
            (*id_code_from_virtual));
 
     pic_init();
+
     //gic_init();
     printf("pic_init done\n");
 
 
-    if(hal_cpu_is_bsp())
-    {
-        // init SCU if more than one core present
-        if(scu_get_core_count() > 4)
-            panic("ARM SCU doesn't support more than 4 cores!");
-        if(scu_get_core_count() > 1)
-            scu_enable();
-    }
+    // XXX reactivate me
+    /* if(hal_cpu_is_bsp()) */
+    /* { */
+    /*     // init SCU if more than one core present */
+    /*     if(scu_get_core_count() > 4) */
+    /*         panic("ARM SCU doesn't support more than 4 cores!"); */
+    /*     if(scu_get_core_count() > 1) */
+    /*         scu_enable(); */
+    /* } */
 
     pit_init(timeslice, 0);
     printf("pit_init 1 done\n");

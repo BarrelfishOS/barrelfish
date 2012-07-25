@@ -57,32 +57,36 @@ static uint32_t it_num_lines;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
-void pic_init(void); // FIXME: move this in proper header file
-void pic_init(void)
-{
-    lpaddr_t pic_base_physical = cp15_read_cbar();
+lvaddr_t private_memory_region = 0;
 
-    printf("pic_init: pic_base_physical at %x\n", pic_base_physical);
+/*
+ * Map the private memory region described in ARM Cortex A9 TRM - Table 1-3
+ */ 
+void map_private_memory_region(void);
+void map_private_memory_region(void)
+{
+    lpaddr_t periphbase = cp15_read_cbar();
+    printf("map_private_memory_region: PERIPHBASE=%x\n", periphbase);
 
     // According to ARM Cortex A9 MPCore TRM, this is two contiguous 4KB pages
-    lvaddr_t pic_base_virtual = paging_map_device(pic_base_physical, 
-                                                  ARM_L1_SECTION_BYTES);
+    // We map a section (1MB) anyway
+   private_memory_region = paging_map_device(periphbase, ARM_L1_SECTION_BYTES);
 
-    printf("conf_base %x, pic_base_virtual %x\n", 
-           pic_base_physical, 
-           pic_base_virtual);
+    printf("private memory region (phy) %x, private memory region (virt) %x\n", 
+           periphbase, private_memory_region);
 
-    uint32_t pic_section_offset = pic_base_physical & ARM_L1_SECTION_MASK;
-    pic_base_virtual += pic_section_offset;
+    // paging_map_device returns an address pointing to the beginning of
+    // a section, need to add the offset for within the section again
+    private_memory_region += (periphbase & ARM_L1_SECTION_MASK);
+}
 
-    printf("pic_init: using pic_base as %x\n", pic_base_virtual);
-    pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base_virtual + DIST_OFFSET,
-			     (mackerel_addr_t)pic_base_virtual + CPU_OFFSET);
+void pic_init(void)
+{
+    map_private_memory_region();
 
-    // Test: Interrupt controller interface using Mackarel
-    printf("Test interrupt controller interface using Mackarel .. \n");
-    pl130_gic_ICCPMR_rawrd(&pic);
-    printf(" .. success \n");
+    pl130_gic_initialize(&pic, 
+                         (mackerel_addr_t) private_memory_region + DIST_OFFSET,
+                         (mackerel_addr_t) private_memory_region + CPU_OFFSET);
 
     // read GIC configuration
     pic_config = pl130_gic_ICDICTR_rd(&pic);
@@ -97,7 +101,6 @@ void pic_init(void)
     //set priority mask of cpu interface, currently set to lowest priority
     //to accept all interrupts
     pl130_gic_ICCPMR_wr(&pic, 0xff);
-
 
     //set binary point to define split of group- and subpriority
     //currently we allow for 8 subpriorities
@@ -326,6 +329,10 @@ void pic_ack_irq(uint32_t irq)
 // Kernel timer and tsc
 //
 
+// Global Timer, ARM Cortex A9 MPCore TRM Table 1-3
+#define PIT_OFFSET      0x0200
+
+// XXX check if we need these
 #define PIT_BASE 	0xE0000000
 #define PIT0_OFFSET	0x11000
 #define PIT_DIFF	0x1000
@@ -336,33 +343,25 @@ void pic_ack_irq(uint32_t irq)
 #define PIT0_ID		0
 #define PIT1_ID		1
 
-
 static sp804_pit_t pit0;
 static sp804_pit_t pit1;
 
-static lvaddr_t pit_map_resources(void)
-{
-    static lvaddr_t timer_base = 0;
-    if (timer_base == 0) {
-        timer_base = paging_map_device(PIT_BASE, ARM_L1_SECTION_BYTES);
-    }
-    return timer_base;
-}
-
 void pit_init(uint32_t timeslice, uint8_t pit_id)
 {
+    // Private memory was already activated by pic_init
+    assert(private_memory_region!=0);
+
     sp804_pit_t *pit;
-	if(pit_id == PIT0_ID)
-		pit = &pit0;
-	else if(pit_id == PIT1_ID)
-		pit = &pit1;
-	else
-		panic("Unsupported PIT ID: %"PRIu32, pit_id);
+        if(pit_id == PIT0_ID)
+        	pit = &pit0;
+        else if(pit_id == PIT1_ID)
+        	pit = &pit1;
+        else
+        	panic("Unsupported PIT ID: %"PRIu32, pit_id);
 
     printf("pit_init: step 1\n");
-    lvaddr_t timer_base = pit_map_resources();
 
-	sp804_pit_initialize(pit, (mackerel_addr_t)(timer_base + PIT0_OFFSET + pit_id*PIT_DIFF));
+    sp804_pit_initialize(pit, (mackerel_addr_t)(private_memory_region + PIT_OFFSET));
 
 	// PIT timer
     uint32_t load1 = timeslice * tsc_hz / 1000;
