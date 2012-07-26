@@ -672,26 +672,31 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 
 void arm_kernel_startup(void)
 {
+    printf("arm_kernel_startup entered \n");
+
     /* Initialize the core_data */
     /* Used when bringing up other cores, must be at consistent global address
      * seen by all cores */
     struct arm_core_data *core_data
-    = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+        = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
 
     if(hal_cpu_is_bsp())
     {
+        printf("Doing BSP related bootup \n");
+
     	/* Initialize the location to allocate phys memory from */
     	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
-    	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
+        //XXX Do not spawn anything just yet ..     	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
 
-        pit_start(0);
+        // Not available on PandaBoard?        pit_start(0);
 
     }
     else
     {
+        printf("Doing non-BSP related bootup \n");
 
     	my_core_id = core_data->dst_core_id;
 
@@ -705,6 +710,14 @@ void arm_kernel_startup(void)
     	uint32_t irq = pic_get_active_irq();
     	pic_ack_irq(irq);
     }
+
+    printf("Trying to enable interrupts\n");
+    __asm volatile ("CPSIE aif"); // Enable interrups
+    printf("Done enabling interrupts\n");
+
+    printf("HOLD BOOTUP - SPINNING\n");
+    while (1);
+    printf("THIS SHOULD NOT HAPPEN\n");
 
     // enable interrupt forwarding to cpu
     // FIXME: PS: enable this as it is needed for multicore setup.

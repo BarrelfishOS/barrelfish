@@ -173,6 +173,8 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
         printk(LOG_PANIC, "r%d\t%08"PRIx32"%s\n", i, save_area->regs[R0_REG + i], extrainfo);
     }
     printk(LOG_PANIC, "cpsr\t%08"PRIx32"\n", save_area->regs[CPSR_REG]);
+    printk(LOG_PANIC, "called from: %p\n", __builtin_return_address(0) - 
+           local_phys_to_mem((uint32_t)&kernel_first_byte) + 0x100000);
 
     switch (evector) {
         case ARM_EVECTOR_UNDEF:
@@ -240,7 +242,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
 
 void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
-
+    printf("handle_irq\n");
 
     uint32_t irq = pic_get_active_irq();
 

@@ -393,10 +393,11 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     /*         scu_enable(); */
     /* } */
 
-    pit_init(timeslice, 0);
-    printf("pit_init 1 done\n");
-    pit_init(timeslice, 1);
-    printf("pic_init 2 done\n");
+    // sp804_pit not available on the PandaBoard?
+    /* pit_init(timeslice, 0); */
+    /* printf("pit_init 1 done\n"); */
+    /* pit_init(timeslice, 1); */
+    /* printf("pic_init 2 done\n"); */
     tsc_init();
     printf("tsc_init done --\n");
 #ifndef __GEM5__
@@ -405,8 +406,9 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 #endif
 
     // tell BSP that we are started up
-    uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-    *ap_wait = AP_STARTED;
+    // XXX doesn't work
+    /* uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS); */
+    /* *ap_wait = AP_STARTED; */
 
     arm_kernel_startup();
 }
