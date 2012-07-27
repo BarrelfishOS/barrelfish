@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -34,7 +34,6 @@ struct spawninfo {
     struct capref	dcb __attribute__ ((aligned(4)));
     struct capref	argspg __attribute__ ((aligned(4)));
     struct capref 	vtree __attribute__ ((aligned(4)));
-    struct capref   fdcap __attribute__ ((aligned(4)));
 
     // Slot (in segcn) from where elfload_allocate should allocate frames from
     cslot_t elfload_slot;
@@ -67,7 +66,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
                           size_t binary_size, enum cpu_type type,
                           const char *name, coreid_t coreid,
                           char *const argv[], char *const envp[],
-                          struct capref fdcap);
+                          struct capref inheritcn_cap, struct capref argcn_cap);
 errval_t spawn_run(struct spawninfo *si);
 errval_t spawn_free(struct spawninfo *si);
 

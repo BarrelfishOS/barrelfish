@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -85,6 +85,12 @@ typedef uint8_t	coreid_t;
 #ifndef MAX_COREID
 #define MAX_COREID  255 // limit of coreid_t type (see comment above)
 #endif
+
+/* ID capability ID */
+// Returned if IDCmd_Identify is invoked on an ID capability.
+typedef uint64_t idcap_id_t;
+#define PRIuIDCAPID PRIu64
+#define PRIxIDCAPID PRIx64
 
 /* Resource id */
 typedef uint32_t rsrcid_t;

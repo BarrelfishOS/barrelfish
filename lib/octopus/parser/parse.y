@@ -11,7 +11,7 @@
 
 #include "y.tab.h"
 
-void yyerror(char *);
+void yyerror(const char *);
 
 #define YYPARSE_PARAM data
 #define YYLEX_PARAM   ((struct oct_parser_state*)data)->scanner
@@ -105,7 +105,7 @@ value:
     | SCAN                           { $$ = ast_scan($1); }
 %%
 
-void yyerror(char *s)
+void yyerror(const char *s)
 {
 #ifdef OCT_DEBUG
     fprintf(stderr, "octopus_parser: %s\n", s);

@@ -16,6 +16,7 @@
  * PrimeCell Generic Interrupt Controller PL130
  * (DDI0416B_gic_pl390_r0p0_trm.pdf)
  *
+ * Updated to work on PandaBoard according to ARM Cortex A9 MPCore TRM r2p0 Table 3-1
  */
  
  device pl130_gic msbfirst ( addr dist_base, addr cpu_base ) "PrimeCell PL130 Generic Interrupt Controller" {
@@ -43,30 +44,14 @@
  		rev_num		12	ro		"Revision number";
  		implementer	12	ro		"JEP106 code of implementing company";
  	};
- 	
- 	register SGI_ICDISR addr(dist_base, 0x80) "SGI Interrupt Security Register" type(uint16);
- 	register PPI_ICDISR addr(dist_base, 0x82) "PPI Interrupt Security Register" type(uint16);
- 	regarray SPI_ICDISR addr(dist_base, 0x84) [31] "SPI Interrupt Security Registers" type(uint32);
- 	
- 	register SGI_ICDISER ro addr(dist_base, 0x100) "SGI Interrupt Set-Enable Register" type(uint16);
- 	register PPI_ICDISER  addr(dist_base, 0x102) "PPI Interrupt Set-Enable Register" type(uint16);
- 	regarray SPI_ICDISER addr(dist_base, 0x104) [31] "Interrupt Set-Enable Registers" type(uint32);
- 	
- 	register SGI_ICDICER ro addr(dist_base, 0x180) "SGI Interrupt Clear-Enable Register" type(uint16);
- 	register PPI_ICDICER  addr(dist_base, 0x182) "PPI Interrupt Clear-Enable Register" type(uint16);
- 	regarray SPI_ICDICER addr(dist_base, 0x184) [31] "Interrupt Clear-Enable Registers" type(uint32);
- 	
- 	register SGI_ICDISPR ro addr(dist_base, 0x200) "SGI Interrupt Set-Pending Register" type(uint16);
- 	register PPI_ICDISPR  addr(dist_base, 0x202) "PPI Interrupt Set-Pending Register" type(uint16);
- 	regarray SPI_ICDISPR addr(dist_base, 0x204) [31] "Interrupt Set-Pending Registers" type(uint32);
- 	
- 	register SGI_ICDICPR ro addr(dist_base, 0x280) "SGI Interrupt Clear-Pending Register" type(uint16);
- 	register PPI_ICDICPR  addr(dist_base, 0x282) "PPI Interrupt Clear-Pending Register" type(uint16);
- 	regarray SPI_ICDICPR addr(dist_base, 0x284) [31] "Interrupt Clear-Pending Registers" type(uint32);
- 	
- 	register SGI_ICDABR ro addr(dist_base, 0x300) "SGI Interrupt Active Bit Register" type(uint16);
- 	register PPI_ICDABR ro addr(dist_base, 0x302) "PPI Interrupt Active Bit Register" type(uint16);
- 	regarray SPI_ICDABR ro addr(dist_base, 0x304) [31] "Interrupt Active Bit Registers" type(uint32);
+
+	// Do not read 16 Bit values, only 32 bit ones, otherwise the Mackerel will crash on the PandaBoard
+ 	regarray ICDISR addr(dist_base, 0x80) [32] "SPI Interrupt Security Registers" type(uint32);
+ 	regarray ICDISER addr(dist_base, 0x100) [32] "Interrupt Set-Enable Registers" type(uint32);
+ 	regarray ICDICER addr(dist_base, 0x180) [32] "Interrupt Clear-Enable Registers" type(uint32);
+ 	regarray ICDISPR addr(dist_base, 0x200) [32] "Interrupt Set-Pending Registers" type(uint32);
+ 	regarray ICDICPR addr(dist_base, 0x280) [32] "Interrupt Clear-Pending Registers" type(uint32);
+ 	regarray ICDABR ro addr(dist_base, 0x300) [32] "Interrupt Active Bit Registers" type(uint32);
  	
  	regtype priority_reg "Interrupt priority register" {
  		prio_off3	8	rw	"Priority, byte offset 3";
@@ -75,9 +60,10 @@
  		prio_off0	8	rw	"Priority, byte offset 0";
  	};
  	
- 	regarray SGI_ICDIPR addr(dist_base, 0x400) [4] "SGI Interrupt Priority Registers" type(priority_reg);
- 	regarray PPI_ICDIPR addr(dist_base, 0x410) [4] "PPI Interrupt Priority Registers" type(priority_reg);
- 	regarray SPI_ICDIPR addr(dist_base, 0x420) [246] "Interrupt Active Bit Registers" type(priority_reg);
+	// 0x400 - 0x4FC = 252 Byte, at 32 Bit each = 63 of them
+	// Values are byte accessible
+	// 8 Bits each, but some of them might not be implemented (however, [7:4] are)
+ 	regarray ICDIPR addr(dist_base, 0x400) [63] "Priority Level registers" type(priority_reg);
  	
  	regtype cpu_targets_ro_reg "SGI/PPI CPU targets register" {
  		targets_off3	8	ro	"CPU targets, byte offset 3";

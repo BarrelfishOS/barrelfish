@@ -23,7 +23,8 @@
                              "setitimer.c", "fsync.c", "link.c", "semaphore.c",
                              "shm.c", "getpid.c", "ioctl.c", "fcntl.c",
                              "sockets.c", "select.c", "grp.c", "rename.c",
-			     "remove.c", "time.c", "random.c", "inheritance.c" ],
+			     "remove.c", "time.c", "random.c", "inheritance.c",
+                             "popen.c" ],
                   flounderDefs = [ "unixsock", "octopus", "monitor" ],
 		  flounderBindings = [ "unixsock", "octopus" ],
                   flounderTHCStubs = [ "octopus" ]

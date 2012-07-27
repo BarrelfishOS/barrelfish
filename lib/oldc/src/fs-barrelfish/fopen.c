@@ -23,26 +23,8 @@ FILE *fopen(const char *fname, const char *prot)
     }
 }
 
-FILE *fdopen(int fd, const char *mode)
-{
-    fprintf(stderr, "Warning: fdopen() unimplemented\n");
-    return NULL;
-}
-
 FILE *freopen(const char *fname, const char *mode, FILE *stream)
 {
     fprintf(stderr, "Warning: freopen() unimplemented\n");
     return NULL;
-}
-
-FILE *popen(const char *command, const char *type)
-{
-    fprintf(stderr, "Warning: popen() unimplemented\n");
-    return NULL;
-}
-
-int pclose(FILE *stream)
-{
-    fprintf(stderr, "Warning: pclose() unimplemented\n");
-    return -1;
 }

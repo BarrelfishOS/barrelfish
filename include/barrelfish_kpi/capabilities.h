@@ -105,6 +105,7 @@ enum cnode_cmd {
     CNodeCmd_Retype,    ///< Retype capability
     CNodeCmd_Delete,    ///< Delete capability
     CNodeCmd_Revoke,    ///< Revoke capability
+    CNodeCmd_Create,    ///< Create capability
 };
 
 enum vnode_cmd {
@@ -194,6 +195,13 @@ enum perfmon_cmd {
     PerfmonCmd_Activate,    ///< Activate performance counters
     PerfmonCmd_Deactivate,  ///< Deactivate performance counters 
     PerfmonCmd_Write        ///< Read current performance counter values
+};
+
+/**
+ * ID capability commands.
+ */
+enum id_cmd {
+    IDCmd_Identify  ///< Return system-wide unique ID
 };
 
 /**

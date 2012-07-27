@@ -754,6 +754,9 @@ staticLibrary opts libpath objs libs =
 --
 compileHaskell prog main deps = compileHaskellWithLibs prog main deps []
 compileHaskellWithLibs prog main deps dirs =
+  let 
+    tools_dir = (Dep InstallTree "tools" "/tools/.marker")
+  in
     Rule ([ NStr "ghc -i",
             NoDep SrcTree "src" ".",
             Str "-odir ", NoDep BuildTree "tools" ".",
@@ -764,7 +767,8 @@ compileHaskellWithLibs prog main deps dirs =
             Out "tools" ("/bin" ./. prog),
             Str "$(LDFLAGS)" ]
           ++ concat [[ NStr "-i", NoDep SrcTree "src" d] | d <- dirs]
-          ++ [ (Dep SrcTree "src" dep) | dep <- deps ])
+          ++ [ (Dep SrcTree "src" dep) | dep <- deps ]
+          ++ [ tools_dir ])
 
 --
 -- Compile (and link) a C binary (for the host architecture)

@@ -5,6 +5,8 @@
 #ifndef _SYS_TIME_H_
 #define _SYS_TIME_H_
 
+#error This header is not compatible with Barrelfish! Use the Barrelfish version in include/sys/time.h instead.
+
 #include <_ansi.h>
 #include <sys/types.h>
 

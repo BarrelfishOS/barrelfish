@@ -157,6 +157,12 @@ int rand(void);
 void srand(unsigned int seed);
 int rand_r(unsigned int *ctx);
 
+/* from POSIX (see libposixcompat) */
+void srandom(unsigned long x);
+char *initstate(unsigned long seed, char *arg_state, long n);
+char *setstate(char *arg_state);
+long random(void);
+
 /* 7.20.3 Memory management functions */
 
 void *malloc(size_t);

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010-2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -31,7 +31,8 @@
 
 static errval_t spawn(char *path, char *const argv[], char *argbuf,
                       size_t argbytes, char *const envp[], 
-                      struct capref fdcap, domainid_t *domainid)
+                      struct capref inheritcn_cap, struct capref argcn_cap,
+                      domainid_t *domainid)
 {
     errval_t err, msgerr;
 
@@ -88,7 +89,8 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     /* spawn the image */
     struct spawninfo si;
     err = spawn_load_image(&si, (lvaddr_t)image, info.size, CURRENT_CPU_TYPE,
-                           name, my_core_id, argv, envp, fdcap);
+                           name, my_core_id, argv, envp, inheritcn_cap,
+                           argcn_cap);
     if (err_is_fail(err)) {
         free(image);
         return err;
@@ -288,10 +290,11 @@ static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
 }
 
 
-static void spawn_with_fdcap_handler(struct spawn_binding *b, char *path, 
-                                     char *argbuf, size_t argbytes, 
-                                     char *envbuf, size_t envbytes,
-                                     struct capref fdcap)
+static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
+                                    char *argbuf, size_t argbytes,
+                                    char *envbuf, size_t envbytes,
+                                    struct capref inheritcn_cap,
+                                    struct capref argcn_cap)
 {
     errval_t err;
     domainid_t domainid = 0;
@@ -330,17 +333,23 @@ static void spawn_with_fdcap_handler(struct spawn_binding *b, char *path,
 
     vfs_path_normalise(path);
 
-    err = spawn(path, argv, argbuf, argbytes, envp, fdcap, &domainid);
-    if (!capref_is_null(fdcap)) {
+    err = spawn(path, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
+                &domainid);
+    if (!capref_is_null(inheritcn_cap)) {
         errval_t err2;
-        err2 = cap_delete(fdcap);
+        err2 = cap_delete(inheritcn_cap);
+        assert(err_is_ok(err2));
+    }
+    if (!capref_is_null(argcn_cap)) {
+        errval_t err2;
+        err2 = cap_delete(argcn_cap);
         assert(err_is_ok(err2));
     }
 
  finish:
     if(err_is_fail(err)) {
         free(argbuf);
-	DEBUG_ERR(err, "spawn");
+        DEBUG_ERR(err, "spawn");
     }
 
     err = spawn_reply(b, err, domainid);
@@ -358,8 +367,8 @@ static void spawn_with_fdcap_handler(struct spawn_binding *b, char *path,
 static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
                           size_t argbytes, char *envbuf, size_t envbytes)
 {
-    spawn_with_fdcap_handler(b, path, argbuf, argbytes, envbuf, envbytes,
-                             NULL_CAP);
+    spawn_with_caps_handler(b, path, argbuf, argbytes, envbuf, envbytes,
+                            NULL_CAP, NULL_CAP);
 }
 
 /**
@@ -544,7 +553,7 @@ static void status_handler(struct spawn_binding *b, domainid_t domainid)
 
 static struct spawn_rx_vtbl rx_vtbl = {
     .spawn_domain_call = spawn_handler,
-    .spawn_domain_with_fdcap_call = spawn_with_fdcap_handler,
+    .spawn_domain_with_caps_call = spawn_with_caps_handler,
     .use_local_memserv_call = use_local_memserv_handler,
     .kill_call = kill_handler,
     .exit_call = exit_handler,

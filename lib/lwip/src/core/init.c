@@ -360,7 +360,7 @@ static void call_tcp_tmr(void)
  * \returns True iff init completes
  */
 static bool lwip_init_ex(const char *card_name, uint64_t queueid,
-        struct waitset *opt_waitset, struct thread_mutex *opt_mutex)
+                         struct waitset *opt_waitset, struct thread_mutex *opt_mutex)
 {
     DEBUGPRINTPS("LWIP_other: Inside lwip_init\n");
     printf("LWIP: in lwip_init\n");
@@ -450,7 +450,7 @@ static bool lwip_init_ex(const char *card_name, uint64_t queueid,
 /**
  * Figure out the best NIC card to connect and initialize library network stack.
  */
-static bool lwip_init_auto_ex(struct waitset * opt_waitset,
+bool lwip_init_auto_ex(struct waitset * opt_waitset,
                        struct thread_mutex * opt_mutex)
 {
     char *card_name = NULL;
