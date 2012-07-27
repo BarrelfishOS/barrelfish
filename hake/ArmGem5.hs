@@ -66,7 +66,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-section-start,.text=0x400000",
-               Str "-Wl,-section-start,.data=0x600000" ]
+               Str "-Wl,-section-start,.data=0x700000" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
@@ -85,8 +85,8 @@ options = (ArchDefaults.options arch archFamily) {
             optLdFlags = ldFlags,
             optLdCxxFlags = ldCxxFlags,
             optLibs = stdLibs,
-            optInterconnectDrivers = ["lmp", "ump"],
-            optFlounderBackends = ["lmp", "ump"]
+            optInterconnectDrivers = ["lmp", "ump", "multihop"],
+            optFlounderBackends = ["lmp", "ump", "multihop"]
           }
 
 --
