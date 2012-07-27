@@ -97,6 +97,12 @@ void map_private_memory_region(void)
     private_mem_test();
 }
 
+/*
+ * There are three types of interrupts
+ * 1) Software generated Interrupts (SGI) - IDs 0-15
+ * 2) Private Peripheral Interrupts (PPI) - IDs 16-31
+ * 3) Shared Peripheral Interrups (SPI) - IDs 32...
+ */
 void pic_init(void)
 {
     map_private_memory_region();
@@ -120,17 +126,6 @@ void pic_init(void)
     cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
     sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
 
-#if 0
-    printf("Disabling all IRQs .. \n");
-    pic_disable_all_irqs();
-    printf(" .. done\n");
-#endif
-
-    // Test: Enable local timer interrupt (ID 29) -> Private Peripheral IRQ
-    
-    printf("private_mem_test before PIC init\n");
-    private_mem_test();
-
     // set priority mask of cpu interface, currently set to lowest priority
     // to accept all interrupts
     pl130_gic_ICCPMR_wr(&pic, 0xff);
@@ -140,46 +135,12 @@ void pic_init(void)
     pl130_gic_ICCBPR_wr(&pic, 0x2);
 
     // enable interrupt forwarding to processor
-    printf("Distributor enabled state: %"PRIx8" .. enabling\n", 
-           pl130_gic_ICDDCR_enable_rdf(&pic));
     pl130_gic_ICCICR_enable_wrf(&pic, 0x1);
-    printf(".. done! distributor enabled state now: %"PRIx8"\n", 
-           pl130_gic_ICDDCR_enable_rdf(&pic));
 
     // Distributor:
     // enable interrupt forwarding from distributor to cpu interface
     pl130_gic_ICDDCR_enable_wrf(&pic, 0x1);
     printf("pic_init: done\n");
-
-    printf("private_mem_test after pic init\n");
-    private_mem_test();
-
-    // For information on how to do initialization, read GIC TRM, p B-4
-    //    pic_enable_interrupt(29, 0, 0, 0, 0);
-
-    //#define GIC_INIT_TEST
-#if defined(GIC_INIT_TEST)
-    // Read the configuration of PPI registers
-    // Even the read-access fails, so this has nothing to do with security stuff
-    printf("Distributor: Reading current set-enable registers .. \n");
-    // ICDISER is part of the Distributor (DIST_OFFSET) within private memory 
-    // the register itself is at 0x100 (see MPCore TRM, p68)
-    // Generate addresses
-    lvaddr_t ppi_set_enable_l = private_memory_region + DIST_OFFSET + 0x100;
-    // Read values
-    printf("low-level .. 1\n");
-    uint32_t ppi_value_l = *((uint32_t*) ppi_set_enable_l);
-    // Print values
-    printf(".. done - read low=%"PRIx16"\n", ppi_value_l);
-    // Do the same using flounder
-    printf("using Mackerel now .. \n");
-    uint32_t iser = pl130_gic_ICDISER_rd(&pic, 0);
-    printf(" .. done, value read is: %"PRIx32" .. writing now .. \n", iser);
-    pl130_gic_ICDISER_wr(&pic, 0, (iser | (0x1<<29)));
-    printf(" .. done, reading again .. \n .. value is %"PRIx32"!", 
-           pl130_gic_ICDISER_rd(&pic, 0));
-#endif
-
 }
 
 void pic_disable_all_irqs(void)
@@ -244,91 +205,97 @@ void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
         break;
     }
 
+    if (int_id >= 32) {
+
+        // Need to update the following code to the new Mackerel interface
+        panic("NYI");
+    }
+
     return;
 
-    // Set the target core for the interrupt
-    // only SPIs can be targeted manually
-    ind = int_id/4;
-    if(int_id >= 32)
-	{
-            panic("Not yet tested");
-            switch(int_id % 4)
-		{
-                case 0:
-                    pl130_gic_SPI_ICDIPTR_targets_off0_wrf(&pic, ind-8, cpu_targets);
-                    break;
-                case 1:
-                    pl130_gic_SPI_ICDIPTR_targets_off1_wrf(&pic, ind-8, cpu_targets);
-                    break;
-                case 2:
-                    pl130_gic_SPI_ICDIPTR_targets_off2_wrf(&pic, ind-8, cpu_targets);
-                    break;
-                case 3:
-                    pl130_gic_SPI_ICDIPTR_targets_off3_wrf(&pic, ind-8, cpu_targets);
-                    break;
-		}
-	}
+    /* // Set the target core for the interrupt */
+    /* // only SPIs can be targeted manually */
+    /* ind = int_id/4; */
+    /* if(int_id >= 32) */
+    /*     { */
+    /*         panic("Not yet tested"); */
+    /*         switch(int_id % 4) */
+    /*     	{ */
+    /*             case 0: */
+    /*                 pl130_gic_SPI_ICDIPTR_targets_off0_wrf(&pic, ind-8, cpu_targets); */
+    /*                 break; */
+    /*             case 1: */
+    /*                 pl130_gic_SPI_ICDIPTR_targets_off1_wrf(&pic, ind-8, cpu_targets); */
+    /*                 break; */
+    /*             case 2: */
+    /*                 pl130_gic_SPI_ICDIPTR_targets_off2_wrf(&pic, ind-8, cpu_targets); */
+    /*                 break; */
+    /*             case 3: */
+    /*                 pl130_gic_SPI_ICDIPTR_targets_off3_wrf(&pic, ind-8, cpu_targets); */
+    /*                 break; */
+    /*     	} */
+    /*     } */
 
 
 
-    // Set Interrupt Configuration Register
-    if(int_id >= 32)
-	{
-            panic("Not yet tested");
-            ind = int_id/16;
-            uint8_t val = (edge_triggered << 1) | one_to_n;
-            switch(int_id % 16)
-		{
-                case 0:
-                    pl130_gic_SPI_ICDICR_spi0_wrf(&pic, ind-2, val);
-                    break;
-                case 1:
-                    pl130_gic_SPI_ICDICR_spi1_wrf(&pic, ind-2, val);
-                    break;
-                case 2:
-                    pl130_gic_SPI_ICDICR_spi2_wrf(&pic, ind-2, val);
-                    break;
-                case 3:
-                    pl130_gic_SPI_ICDICR_spi3_wrf(&pic, ind-2, val);
-                    break;
-                case 4:
-                    pl130_gic_SPI_ICDICR_spi4_wrf(&pic, ind-2, val);
-                    break;
-                case 5:
-                    pl130_gic_SPI_ICDICR_spi5_wrf(&pic, ind-2, val);
-                    break;
-                case 6:
-                    pl130_gic_SPI_ICDICR_spi6_wrf(&pic, ind-2, val);
-                    break;
-                case 7:
-                    pl130_gic_SPI_ICDICR_spi7_wrf(&pic, ind-2, val);
-                    break;
-                case 8:
-                    pl130_gic_SPI_ICDICR_spi8_wrf(&pic, ind-2, val);
-                    break;
-                case 9:
-                    pl130_gic_SPI_ICDICR_spi9_wrf(&pic, ind-2, val);
-                    break;
-                case 10:
-                    pl130_gic_SPI_ICDICR_spi10_wrf(&pic, ind-2, val);
-                    break;
-                case 11:
-                    pl130_gic_SPI_ICDICR_spi11_wrf(&pic, ind-2, val);
-                    break;
-                case 12:
-                    pl130_gic_SPI_ICDICR_spi12_wrf(&pic, ind-2, val);
-                    break;
-                case 13:
-                    pl130_gic_SPI_ICDICR_spi13_wrf(&pic, ind-2, val);
-                    break;
-                case 14:
-                    pl130_gic_SPI_ICDICR_spi14_wrf(&pic, ind-2, val);
-                    break;
-                case 15:
-                    pl130_gic_SPI_ICDICR_spi15_wrf(&pic, ind-2, val);
-                    break;
-		}
-	}
+    /* // Set Interrupt Configuration Register */
+    /* if(int_id >= 32) */
+    /*     { */
+    /*         panic("Not yet tested"); */
+    /*         ind = int_id/16; */
+    /*         uint8_t val = (edge_triggered << 1) | one_to_n; */
+    /*         switch(int_id % 16) */
+    /*     	{ */
+    /*             case 0: */
+    /*                 pl130_gic_SPI_ICDICR_spi0_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 1: */
+    /*                 pl130_gic_SPI_ICDICR_spi1_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 2: */
+    /*                 pl130_gic_SPI_ICDICR_spi2_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 3: */
+    /*                 pl130_gic_SPI_ICDICR_spi3_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 4: */
+    /*                 pl130_gic_SPI_ICDICR_spi4_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 5: */
+    /*                 pl130_gic_SPI_ICDICR_spi5_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 6: */
+    /*                 pl130_gic_SPI_ICDICR_spi6_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 7: */
+    /*                 pl130_gic_SPI_ICDICR_spi7_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 8: */
+    /*                 pl130_gic_SPI_ICDICR_spi8_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 9: */
+    /*                 pl130_gic_SPI_ICDICR_spi9_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 10: */
+    /*                 pl130_gic_SPI_ICDICR_spi10_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 11: */
+    /*                 pl130_gic_SPI_ICDICR_spi11_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 12: */
+    /*                 pl130_gic_SPI_ICDICR_spi12_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 13: */
+    /*                 pl130_gic_SPI_ICDICR_spi13_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 14: */
+    /*                 pl130_gic_SPI_ICDICR_spi14_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*             case 15: */
+    /*                 pl130_gic_SPI_ICDICR_spi15_wrf(&pic, ind-2, val); */
+    /*                 break; */
+    /*     	} */
+    /*     } */
 }
 
 uint32_t pic_get_active_irq(void)
