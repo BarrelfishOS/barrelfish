@@ -48,7 +48,8 @@ extern errval_t early_serial_init(uint8_t port_no);
  *
  * This is the one and only kernel stack for a kernel instance.
  */
-uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)]
+__attribute__ ((aligned(8)));
 
 /**
  * Boot-up L1 page table for addresses up to 2GB (translated by TTBR0)
@@ -398,7 +399,6 @@ void arch_init(void *pointer)
 
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
-
 
     // Find relocation section
     rela = elf32_find_section_header_type((struct Elf32_Shdr *)
