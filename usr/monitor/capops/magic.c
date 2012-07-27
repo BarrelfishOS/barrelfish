@@ -17,10 +17,3 @@ errval_t monitor_delete_copies(struct capref cap)
     return ERR_NOTIMP;
 }
 
-// mark cap as in-delete
-errval_t monitor_set_cap_deleted(struct capref cap)
-{
-    USER_PANIC("NYI");
-    return ERR_NOTIMP;
-}
-

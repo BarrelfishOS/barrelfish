@@ -23,7 +23,4 @@
 // delete all local copies of capref
 errval_t monitor_delete_copies(struct capref);
 
-// mark cap as in-delete
-errval_t monitor_set_cap_deleted(struct capref);
-
 #endif
