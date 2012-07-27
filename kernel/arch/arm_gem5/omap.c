@@ -343,6 +343,7 @@ void pic_ack_irq(uint32_t irq)
 #define PIT0_OFFSET	0x11000
 #define PIT_DIFF	0x1000
 
+#define LOCAL_TIMER_IRQ 29
 #define PIT0_IRQ	36
 #define PIT1_IRQ	37
 
@@ -415,23 +416,37 @@ void pit_start(uint8_t pit_id)
 	/* sp804_pit_Timer1Control_timer_en_wrf(pit, 1); */
 }
 
+static uint32_t local_timer_counter = 0;
 bool pit_handle_irq(uint32_t irq)
 {
-	if (PIT0_IRQ == irq)
-	{
+    switch(irq) {
+
+    case PIT0_IRQ:
         sp804_pit_Timer1IntClr_wr(&pit0, ~0ul);
-        //TODO: change this in multicore implementation
         pic_ack_irq(irq);
         return 1;
-    }
-	else if(PIT1_IRQ == irq)
-	{
-		sp804_pit_Timer1IntClr_wr(&pit1, ~0ul);
-		//TODO: change this in multicore implementation
-		pic_ack_irq(irq);
-		return 1;
-	}
-    else {
+
+    case PIT1_IRQ:
+        sp804_pit_Timer1IntClr_wr(&pit1, ~0ul);
+        pic_ack_irq(irq);
+        return 1;
+
+    case LOCAL_TIMER_IRQ:
+        printf("local timer IRQ\n");
+        pic_ack_irq(irq);
+
+        local_timer_counter++;
+
+        if (local_timer_counter>10) {
+
+            panic("got 10 timer interrupts, that is enough for now\n");
+        } 
+        __asm volatile ("CPSIE aif"); // Re-enable interrups
+        while(1);
+
+        return 1;
+        
+    default: 
         return 0;
     }
 }
