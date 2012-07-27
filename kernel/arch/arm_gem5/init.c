@@ -29,8 +29,11 @@
 #include <global.h>
 #include <start_aps.h>
 
+#include <dev/omap44xx_id_dev.h>
+
 #define GEM5_RAM_SIZE	0x20000000
 //#define GEM5_RAM_SIZE	0x2000000
+#define CONFIG_PHYSBASE 0x4a002000
 #define DEVICE_ID_PADDR 0x4A002204
 
 extern errval_t early_serial_init(uint8_t port_no);
@@ -364,24 +367,23 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     my_core_id = hal_get_cpu_id();
     printf("cpu id %d\n", my_core_id);
 
-    // Test MMU
-    // Remap the device identifier and read it using a virtual address
-    lpaddr_t id_code_section = DEVICE_ID_PADDR & ~ARM_L1_SECTION_MASK;
+
+    // Test MMU by remapping the device identifier and reading it using a
+    // virtual address 
+    lpaddr_t id_code_section = CONFIG_PHYSBASE & ~ARM_L1_SECTION_MASK;
     lvaddr_t id_code_remapped = paging_map_device(id_code_section, 
                                                   ARM_L1_SECTION_BYTES);
+    omap44xx_id_t id;
+    omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped + 
+				 (CONFIG_PHYSBASE & ARM_L1_SECTION_MASK)));
+    char buf[200];
+    omap44xx_id_code_pr(buf,200,&id);
+    printf("Using MMU, %s", buf);
 
-    // Get device identifier
-    // [OMAP manual, section 1.5]
-    uint32_t *id_code_from_virtual = (uint32_t*) (id_code_remapped + 
-                                                  (DEVICE_ID_PADDR & ARM_L1_SECTION_MASK));
-    printf("ID_CODE (using MMU): %"PRIx32"\n", 
-           (*id_code_from_virtual));
 
     pic_init();
-
     //gic_init();
     printf("pic_init done\n");
-
 
     // XXX reactivate me
     /* if(hal_cpu_is_bsp()) */
@@ -418,6 +420,21 @@ void put_serial_test(char c)
 {
   volatile uint32_t *reg = (uint32_t *)0x48020000;
   *reg = c;
+}
+
+/**
+ * Use Mackerel to print the identification from the system
+ * configuration block.
+ */
+static void print_system_identification(void)
+{
+    char buf[800];
+    omap44xx_id_t id;
+    omap44xx_id_initialize(&id, (mackerel_addr_t)CONFIG_PHYSBASE);
+    omap44xx_id_pr(buf, 799, &id);
+    printf("%s", buf);
+    omap44xx_id_codevals_prtval(buf, 799, omap44xx_id_code_rawrd(&id));
+    printf("Device is a %s\n", buf);
 }
 
 /**
@@ -464,13 +481,8 @@ void arch_init(void *pointer)
 
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
-
-    // Get device identifier
-    // [OMAP manual, section 1.5]
-    uint32_t *id_code = (uint32_t*) DEVICE_ID_PADDR;
-    printf("ID_CODE: %"PRIx32"\n", (*id_code));
-    printf("Hawkeye / Ramp system value: %"PRIx32"\n", ((*id_code)>>12)&0xFFFF); 
-    printf("Revision number: %"PRIx32"\n", ((*id_code)>>28)&0xF);
+    
+    print_system_identification();
 
     paging_init();
     enable_mmu();
