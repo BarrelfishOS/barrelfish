@@ -4,12 +4,12 @@ ARM on Gem5 usage and installation instructions:
 
 2. If you are a member of ETH or Microsoft Research with access to the Barrelfish development tools continue with point 6 otherwise do steps 3 to 5
 
-3. Extract and install the gem5 simulator provided on the Barrelfish website (note you have to use this release to get a working environment out of the box)
+3. Get the gem5 simulator with 'hg clone hg clone http://repo.gem5.org/gem5 -r d45a02bd5391 gem5' (note you have to use this release to get a working environment out of the box)
 
 4. Change to your gem5 directory and apply 'gem5_patches.patch', located in '/path/to/barrelfish/tools/arm_gem5' to the gem5 source code
 
 5. Build gem5 with 'scons build/ARM/gem5.fast' and add the binary to the PATH 
-   NOTE: I had to use an older version of gcc, gcc 4.4 worked for me. If you have troubles install gcc 4.4 and compile with 'CXX=g++-4.4 scons build/ARM/gem5.fast'
+   NOTE: I had to use an older version of gcc, gcc 4.4 - 4.6 worked for me. If you have troubles install gcc 4.4 and compile with 'CXX=g++-4.4 scons build/ARM/gem5.fast'
 
 6. In your Barrelfish build directory run 'make arm_gem5' to run the simulation
 

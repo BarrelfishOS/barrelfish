@@ -18,6 +18,7 @@
 #include <barrelfish/syscall_arch.h> // for sys_invoke and cap_invoke
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish_kpi/paging_arch.h>
 /**
  * \brief Retype a capability.
  *

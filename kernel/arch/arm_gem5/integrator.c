@@ -41,8 +41,8 @@ bool hal_cpu_is_bsp(void)
     return cp15_get_cpu_id() == 0;
 }
 
-// clock rate hardcoded to 2GHz
-static uint32_t tsc_hz = 2000000000;
+// clock rate hardcoded to 1GHz
+static uint32_t tsc_hz = 1000000000;
 
 //
 // Interrupt controller

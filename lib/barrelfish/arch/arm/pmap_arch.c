@@ -62,7 +62,7 @@
 
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
+#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256) // 64
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
