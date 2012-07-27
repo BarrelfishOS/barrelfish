@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -52,6 +52,47 @@ static inline errval_t invoke_cnode_retype(struct capref root, capaddr_t cap,
     return syscall6((invoke_bits << 16) | (CNodeCmd_Retype << 8) | SYSCALL_INVOKE, invoke_cptr, cap,
                     (newtype << 16) | (objbits << 8) | bits,
                     to, slot).error;
+}
+
+/**
+ * \brief Create a capability.
+ *
+ * Create a new capability of type 'type' and size 'objbits'. The new cap will
+ * be placed in the slot 'dest_slot' of the CNode located at 'dest_cnode_cptr'
+ * in the address space rooted at 'root'.
+ *
+ * See also cap_create(), which wraps this.
+ *
+ * \param root            Capability of the CNode to invoke.
+ * \param type            Kernel object type to create.
+ * \param objbits         Size of created object
+ *                        (ignored for fixed-size objects)
+ * \param dest_cnode_cptr Address of CNode cap, where newly created cap will be
+ *                        placed into.
+ * \param dest_slot       Slot in CNode cap to place new cap.
+ * \param dest_vbits      Number of valid address bits in 'dest_cnode_cptr'.
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_cnode_create(struct capref root,
+                                           enum objtype type, uint8_t objbits,
+                                           capaddr_t dest_cnode_cptr,
+                                           capaddr_t dest_slot,
+                                           uint8_t dest_vbits)
+{
+    /* Pack arguments */
+    assert(dest_cnode_cptr != CPTR_NULL);
+
+    uint8_t invoke_bits = get_cap_valid_bits(root);
+    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
+
+    assert(type <= 0xffff);
+    assert(objbits <= 0xff);
+    assert(dest_vbits <= 0xff);
+
+    return syscall5((invoke_bits << 16) | (CNodeCmd_Create << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, (type << 16) | (objbits << 8) | dest_vbits,
+                    dest_cnode_cptr, dest_slot).error;
 }
 
 /**

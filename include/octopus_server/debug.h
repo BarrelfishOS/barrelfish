@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,8 +14,6 @@
 
 #ifndef OCTOPUS_DEBUG_H_
 #define OCTOPUS_DEBUG_H_
-
-//#define DIST_SERVICE_DEBUG 1
 
 #if defined(DIST_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define OCT_DEBUG(x...) debug_printf("octopus_service: " x)

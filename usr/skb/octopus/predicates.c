@@ -12,7 +12,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-//#define _USE_XOPEN /* for strdup() */
+#define _USE_XOPEN /* for strdup() */
 #include <stdio.h>
 #include <string.h>
 
@@ -31,43 +31,43 @@
 #include "fnv.h"
 
 #define HASH_INDEX_BUCKETS 6151
-static hash_table* record_index = NULL;
+static collections_hash_table* record_index = NULL;
 
-static hash_table* trigger_index = NULL;
+static collections_hash_table* trigger_index = NULL;
 static struct bitfield* no_attr_triggers = NULL;
 
-static hash_table* subscriber_index = NULL;
+static collections_hash_table* subscriber_index = NULL;
 static struct bitfield* no_attr_subscriptions = NULL;
 
 static inline void init_index(void) {
     if(record_index == NULL) {
-        hash_create_with_buckets(&record_index, HASH_INDEX_BUCKETS, NULL);
+        collections_hash_create_with_buckets(&record_index, HASH_INDEX_BUCKETS, NULL);
     }
 
     if(subscriber_index == NULL) {
-        hash_create_with_buckets(&subscriber_index, HASH_INDEX_BUCKETS, NULL);
+        collections_hash_create_with_buckets(&subscriber_index, HASH_INDEX_BUCKETS, NULL);
         bitfield_create(&no_attr_subscriptions);
     }
 
     if(trigger_index == NULL) {
-        hash_create_with_buckets(&trigger_index, HASH_INDEX_BUCKETS, NULL);
+        collections_hash_create_with_buckets(&trigger_index, HASH_INDEX_BUCKETS, NULL);
         bitfield_create(&no_attr_triggers);
     }
 }
 
 
-static int skip_index_insert(hash_table* ht, uint64_t key, char* value)
+static int skip_index_insert(collections_hash_table* ht, uint64_t key, char* value)
 {
     assert(ht != NULL);
     assert(value != NULL);
 
-    struct skip_list* sl = (struct skip_list*) hash_find(ht, key);
+    struct skip_list* sl = (struct skip_list*) collections_hash_find(ht, key);
     if (sl == NULL) {
         errval_t err = skip_create_list(&sl);
         if (err_is_fail(err)) {
             return PFAIL;
         }
-        hash_insert(ht, key, sl);
+        collections_hash_insert(ht, key, sl);
     }
 
     skip_insert(sl, value);
@@ -76,12 +76,12 @@ static int skip_index_insert(hash_table* ht, uint64_t key, char* value)
     return PSUCCEED;
 }
 
-static char* skip_index_remove(hash_table* ht, uint64_t key, char* value)
+static char* skip_index_remove(collections_hash_table* ht, uint64_t key, char* value)
 {
     assert(ht != NULL);
     assert(value != NULL);
 
-    struct skip_list* sl = (struct skip_list*) hash_find(ht, key);
+    struct skip_list* sl = (struct skip_list*) collections_hash_find(ht, key);
     if (sl == NULL) {
         return NULL;
     }
@@ -172,7 +172,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
     if (res != PSUCCEED) {
         return res;
     }
-    hash_table* ht = record_index;
+    collections_hash_table* ht = record_index;
 
     res = ec_get_string(ec_arg(3), &next);
     if (res != PSUCCEED) {
@@ -194,7 +194,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
             }
 
             uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
-            struct skip_list* sl = hash_find(ht, hash_key);
+            struct skip_list* sl = collections_hash_find(ht, hash_key);
             if (sl == NULL) {
                 return PFAIL;
             }
@@ -220,7 +220,7 @@ int p_index_intersect(void) /* p_index_intersect(type, -[Attributes], -Current, 
 int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) */
 {
     OCT_DEBUG("p_index_union\n");
-    static hash_table* union_ht = NULL;
+    static collections_hash_table* union_ht = NULL;
     static char* next = NULL;
 
     int res;
@@ -233,16 +233,16 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
     if (res != PSUCCEED) {
         return res;
     }
-    hash_table* ht = record_index; // TODO broken
+    collections_hash_table* ht = record_index; // TODO broken
 
     res = ec_get_string(ec_arg(3), &next);
     if (res != PSUCCEED) {
         OCT_DEBUG("state is not a string, find skip lists\n");
         if (union_ht != NULL) {
-            hash_release(union_ht);
+            collections_hash_release(union_ht);
             union_ht = NULL;
         }
-        hash_create_with_buckets(&union_ht, HASH_INDEX_BUCKETS, NULL);
+        collections_hash_create_with_buckets(&union_ht, HASH_INDEX_BUCKETS, NULL);
 
         pword list, cur, rest;
         for (list = ec_arg(2); ec_get_list(list, &cur, &rest) == PSUCCEED; list = rest) {
@@ -252,7 +252,7 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
             }
 
             uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
-            struct skip_list* sl = hash_find(ht, hash_key);
+            struct skip_list* sl = collections_hash_find(ht, hash_key);
 
             // Insert all entries in union hash table
             if (sl != NULL) {
@@ -262,9 +262,9 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
                 struct skip_node* sentry = sl->header->forward[0];
                 while(sentry != NULL) {
                     uint64_t hash_key = fnv_64a_str(sentry->element, FNV1A_64_INIT);
-                    if(hash_find(union_ht, hash_key) == NULL) {
+                    if(collections_hash_find(union_ht, hash_key) == NULL) {
                         OCT_DEBUG("p_index_union insert: %s\n", sentry->element);
-                        hash_insert(union_ht, hash_key, sentry->element);
+                        collections_hash_insert(union_ht, hash_key, sentry->element);
                     }
                     sentry = sentry->forward[0];
                 }
@@ -272,46 +272,46 @@ int p_index_union(void) /* p_index_union(type, -[Attributes], -Current, +Next) *
 
         }
         next = NULL;
-        hash_traverse_start(union_ht);
+        collections_hash_traverse_start(union_ht);
     }
 
     uint64_t hash_key;
-    next = hash_traverse_next(union_ht, &hash_key);
+    next = collections_hash_traverse_next(union_ht, &hash_key);
     OCT_DEBUG("skip_union found next: %s\n", next);
     if(next != NULL) {
         dident item = ec_did(next, 0);
         return ec_unify_arg(4, ec_atom(item));
     }
     else {
-        hash_traverse_end(union_ht);
+        collections_hash_traverse_end(union_ht);
         return PFAIL;
     }
 }
 
 
 
-static int bitfield_index_insert(hash_table* ht, uint64_t key, long int id)
+static int bitfield_index_insert(collections_hash_table* ht, uint64_t key, long int id)
 {
     assert(ht != NULL);
 
-    struct bitfield* bf = (struct bitfield*) hash_find(ht, key);
+    struct bitfield* bf = (struct bitfield*) collections_hash_find(ht, key);
     if (bf == NULL) {
         errval_t err = bitfield_create(&bf);
         if (err_is_fail(err)) {
             return PFAIL;
         }
-        hash_insert(ht, key, bf);
+        collections_hash_insert(ht, key, bf);
     }
 
     bitfield_on(bf, id);
     return PSUCCEED;
 }
 
-static int bitfield_index_remove(hash_table* ht, uint64_t key, long int id)
+static int bitfield_index_remove(collections_hash_table* ht, uint64_t key, long int id)
 {
     assert(ht != NULL);
 
-    struct bitfield* bf = (struct bitfield*) hash_find(ht, key);
+    struct bitfield* bf = (struct bitfield*) collections_hash_find(ht, key);
     if (bf != NULL) {
         bitfield_off(bf, id);
     }
@@ -326,7 +326,7 @@ int p_bitfield_add(void) /* p_bitfield_add(Storage, +Name, +[AttributeList], +Id
     long int id;
     bool inserted = false;
 
-    hash_table* ht = NULL;
+    collections_hash_table* ht = NULL;
     struct bitfield* no_attr_bf = NULL;
 
     char* storage;
@@ -373,7 +373,7 @@ int p_bitfield_remove(void) /* p_bitfield_remove(Storage, +Name, +[AttributeList
     int res = 0;
     long int id;
 
-    hash_table* ht = NULL;
+    collections_hash_table* ht = NULL;
     struct bitfield* no_attr_bf = NULL;
 
     char* storage;
@@ -420,7 +420,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
     char* key;
 
     init_index();
-    hash_table* ht = NULL;
+    collections_hash_table* ht = NULL;
     struct bitfield* no_attr_bf = NULL;
 
     char* storage = NULL;
@@ -455,7 +455,7 @@ int p_bitfield_union(void) /* p_index_union(Storage, -[Attributes], -Current, +N
             }
 
             uint64_t hash_key = fnv_64a_str(key, FNV1A_64_INIT);
-            struct bitfield* sl = hash_find(ht, hash_key);
+            struct bitfield* sl = collections_hash_find(ht, hash_key);
             if (sl != NULL) {
                 OCT_DEBUG("bitfield_union found bitfield for key: %s\n", key);
                 sets[elems++] = sl;

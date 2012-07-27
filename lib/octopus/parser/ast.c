@@ -141,15 +141,15 @@ errval_t generate_ast(const char* input, struct ast_object** record)
     struct string_buffer buf;
     buf.ptr = NULL;
 
-    int res = yylex_init_extra(&buf, &p.scanner);
+    int res = octyy_lex_init_extra(&buf, &p.scanner);
     if (res != 0) {
         goto out;
     }
 
     // Run Lexer and Parser
-    yy_scan_string(input, p.scanner);
-    res = yyparse((void*) &p);
-    yylex_destroy(p.scanner);
+    octyy__scan_string(input, p.scanner);
+    res = octyy_parse((void*) &p);
+    octyy_lex_destroy(p.scanner);
     if (res == 0) {
         *record = p.ast;
         p.ast = NULL;

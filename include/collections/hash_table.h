@@ -20,35 +20,35 @@
  * a simple hash table. 
  */
 
-typedef void (* hash_data_free)(void *);
+typedef void (* collections_hash_data_free)(void *);
 
-typedef struct	_hash_table {
+typedef struct	_collections_hash_table {
 	// number of buckets in the table.
 	int			num_buckets;
 
 	// pointer to the buckets.
-	listnode	**buckets;
+	collections_listnode	**buckets;
 
 	// total number of elements in the table.
 	uint32_t	num_elems;
 
     // function that knows how to free inserted data resources
-    hash_data_free data_free;
+    collections_hash_data_free data_free;
 
 	// a pointer to keep track of 
 	// traversing the hash table
 	int32_t		cur_bucket_num;
-} hash_table;
+} collections_hash_table;
 
 /*
  * Structure of a hash table element.
  */
-typedef struct	_hash_elem {
+typedef struct	_collections_hash_elem {
 
 	uint64_t	key;
 
 	void	*data;
-} hash_elem;
+} collections_hash_elem;
 
 #define NUM_BUCKETS	1013
 
@@ -60,21 +60,21 @@ extern "C" {
 /*
  * functions ...
  */
-void		hash_create(hash_table **t, hash_data_free f);
-void		hash_create_with_buckets(hash_table **t, int num_buckets, hash_data_free f);
-void		hash_release(hash_table *t);
-void		hash_insert(hash_table *t, uint64_t key, void *data);
-void*		hash_find(hash_table *t, uint64_t key);
-void		hash_delete(hash_table *t, uint64_t key);
-uint32_t	hash_size(hash_table *t);
-int32_t		hash_traverse_start(hash_table* t);
-void*		hash_traverse_next(hash_table* t, uint64_t *key);
-int32_t		hash_traverse_end(hash_table* t);
+void		collections_hash_create(collections_hash_table **t, collections_hash_data_free f);
+void		collections_hash_create_with_buckets(collections_hash_table **t, int num_buckets, collections_hash_data_free f);
+void		collections_hash_release(collections_hash_table *t);
+void		collections_hash_insert(collections_hash_table *t, uint64_t key, void *data);
+void*		collections_hash_find(collections_hash_table *t, uint64_t key);
+void		collections_hash_delete(collections_hash_table *t, uint64_t key);
+uint32_t	collections_hash_size(collections_hash_table *t);
+int32_t		collections_hash_traverse_start(collections_hash_table* t);
+void*		collections_hash_traverse_next(collections_hash_table* t, uint64_t *key);
+int32_t		collections_hash_traverse_end(collections_hash_table* t);
 
 /*
  * Visitor function: returns 0 when visit should be considered finish.
  */
-typedef int (*hash_visitor_func)(uint64_t key, void *data, void *arg);
+typedef int (*collections_hash_visitor_func)(uint64_t key, void *data, void *arg);
 
 /*
  * Apply function to all elements in hash table or until function indicates
@@ -82,7 +82,7 @@ typedef int (*hash_visitor_func)(uint64_t key, void *data, void *arg);
  *
  * Returns non-zero if all elements in table visited, 0 otherwise.
  */
-int    hash_visit(hash_table *t, hash_visitor_func hash_visitor, void *arg);
+int    collections_hash_visit(collections_hash_table *t, collections_hash_visitor_func collections_hash_visitor, void *arg);
 
 #ifdef __cplusplus
 }

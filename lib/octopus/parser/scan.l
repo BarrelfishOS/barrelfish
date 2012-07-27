@@ -13,6 +13,7 @@
 
 // not in C99 :-(
 char* strdup(const char*);
+void octyy_error(char *);
 %}
 %option reentrant
 %option extra-type="struct string_buffer *"
@@ -144,7 +145,7 @@ REGEX_START r{QUOTE}
 <<EOF>>     return END_OF_INPUT;
 
 .           {
-                yyerror("Unexpected input!");
+                octyy_error("Unexpected input!");
             }
             
 %%

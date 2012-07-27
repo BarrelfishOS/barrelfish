@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -18,6 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <spawndomain/spawndomain.h>
 #include <barrelfish/dispatcher_arch.h>
+#include <barrelfish/spawn_client.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <trace/trace.h>
 #include "spawn.h"
@@ -539,43 +540,129 @@ static errval_t spawn_setup_env(struct spawninfo *si,
     return SYS_ERR_OK;
 }
 
-static errval_t spawn_setup_fdcap(struct spawninfo *si, struct capref fdcap)
+static errval_t spawn_setup_fdcap(struct spawninfo *si,
+                                  struct cnoderef inheritcn)
 {
     errval_t err;
 
-    if (capref_is_null(fdcap)) {
-        return SYS_ERR_OK;
-    }
+    struct capref src;
+    src.cnode = inheritcn;
+    src.slot  = INHERITCN_SLOT_FDSPAGE; 
 
     // Create frame (actually multiple pages) for fds
-    si->fdcap.cnode = si->taskcn;
-    si->fdcap.slot  = TASKCN_SLOT_FDSPAGE;
+    struct capref dest;
+    dest.cnode = si->taskcn;
+    dest.slot  = TASKCN_SLOT_FDSPAGE;
 
-    err = cap_copy(si->fdcap, fdcap);
-    if (err_is_fail(err)) {
+    err = cap_copy(dest, src);
+    if (err_no(err) == SYS_ERR_SOURCE_CAP_LOOKUP) {
+        // there was no fdcap to inherit, continue
+        return SYS_ERR_OK;
+    } else if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_COPY_FDCAP);
     }
 
     return SYS_ERR_OK;
 }
 
+static errval_t spawn_setup_sidcap(struct spawninfo *si,
+                                   struct cnoderef inheritcn)
+{
+    errval_t err;
+
+    struct capref src;
+    src.cnode = inheritcn;
+    src.slot  = INHERITCN_SLOT_SESSIONID;
+
+    struct capref dest;
+    dest.cnode = si->taskcn;
+    dest.slot  = TASKCN_SLOT_SESSIONID;
+
+    err = cap_copy(dest, src);
+    if (err_no(err) == SYS_ERR_SOURCE_CAP_LOOKUP) {
+        // there was no sidcap to inherit, continue
+        return SYS_ERR_OK;
+    } else if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_COPY_SIDCAP);
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
+                                           struct capref inheritcn_cap)
+{
+    errval_t err;
+    struct cnoderef inheritcn;
+
+    if (capref_is_null(inheritcn_cap)) {
+        return SYS_ERR_OK;
+    }
+
+    err = cnode_build_cnoderef(&inheritcn, inheritcn_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    /* Copy the file descriptor frame cap over */
+    err = spawn_setup_fdcap(si, inheritcn);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_SETUP_FDCAP);
+    }
+
+    /* Copy the session capability over */
+    err = spawn_setup_sidcap(si, inheritcn);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_SETUP_SIDCAP);
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t spawn_setup_argcn(struct spawninfo *si,
+                                  struct capref argumentcn_cap)
+{
+    errval_t err;
+
+    if (capref_is_null(argumentcn_cap)) {
+        return SYS_ERR_OK;
+    }
+
+    struct capref dest = {
+        .cnode = si->rootcn,
+        .slot  = ROOTCN_SLOT_ARGCN
+    };
+
+    err = cap_copy(dest, argumentcn_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_COPY_ARGCN);
+    }
+
+    return SYS_ERR_OK;
+}
+
+
 /**
  * \brief Load an image
  *
- * \param si     Struct used by the library
- * \param binary The image to load
- * \param type   The type of arch to load for
- * \param name   Name of the image required only to place it in disp struct
- * \param coreid Coreid to load for, required only to place it in disp struct
- * \param argv   Command-line arguments, NULL-terminated
- * \param envp   Environment, NULL-terminated
- * \param fdcap  Frame capability to file descriptor region
+ * \param si            Struct used by the library
+ * \param binary        The image to load
+ * \param type          The type of arch to load for
+ * \param name          Name of the image required only to place it in disp
+ *                      struct
+ * \param coreid        Coreid to load for, required only to place it in disp
+ *                      struct
+ * \param argv          Command-line arguments, NULL-terminated
+ * \param envp          Environment, NULL-terminated
+ * \param inheritcn_cap Cap to a CNode containing capabilities to be inherited
+ * \param argcn_cap     Cap to a CNode containing capabilities passed as
+ *                      arguments
  */
 errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
                           size_t binary_size, enum cpu_type type,
                           const char *name, coreid_t coreid,
                           char *const argv[], char *const envp[],
-                          struct capref fdcap)
+                          struct capref inheritcn_cap, struct capref argcn_cap)
 {
     errval_t err;
 
@@ -607,12 +694,18 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
-    /* Copy the file descriptor frame cap over */
-    err = spawn_setup_fdcap(si, fdcap);
+    /* Setup inherited caps */
+    err = spawn_setup_inherited_caps(si, inheritcn_cap);
     if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_SETUP_FDCAP);
+        return err_push(err, SPAWN_ERR_SETUP_INHERITED_CAPS);
     }
 
+    /* Setup argument caps */
+    err = spawn_setup_argcn(si, argcn_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_SETUP_ARGCN);
+    }
+ 
     /* Setup cmdline args */
     err = spawn_setup_env(si, argv, envp);
     if (err_is_fail(err)) {

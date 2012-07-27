@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,14 +9,17 @@
 
 interface spawn "Interface to spawn domains" {
     typedef struct {
-	uint8 status;
+    uint8 status;
     } ps_entry;
 
     rpc spawn_domain(in string path, in char argvbuf[argvbytes], in char envbuf[envbytes],
                      out errval err, out domainid domain_id);
-    rpc spawn_domain_with_fdcap(in string path, in char argvbuf[argvbytes], 
-    			        in char envbuf[envbytes], in cap fdcap,
-                                out errval err, out domainid domain_id);
+
+    rpc spawn_domain_with_caps(in string path, in char argvbuf[argvbytes],
+                               in char envbuf[envbytes], in cap inheritcn_cap,
+                               in cap argcn_cap, out errval err,
+                               out domainid domain_id);
+
     rpc use_local_memserv();
     rpc kill(in domainid domain_id, out errval err);
 

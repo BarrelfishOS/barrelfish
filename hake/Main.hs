@@ -80,7 +80,7 @@ usage = unlines [ "Usage: hake <options>",
                   "   --bfsource-dir <dir> (defaults to source dir)",
                   "   --install-dir <dir> (defaults to source dir)",
                   "   --quiet",
-                  "   --vervose"
+                  "   --verbose"
                 ]
 
 --

@@ -303,7 +303,7 @@ static inline coreid_t get_next_hop(coreid_t dest)
  * We use a hash table to map virtual circuit identifiers (VCIs)
  * to a pointer to the channel state.
  */
-static hash_table *forwarding_table;
+static collections_hash_table *forwarding_table;
 
 // is forwarding table initialized?
 static bool is_forwarding_table_initialized = false;
@@ -316,7 +316,7 @@ static inline void init_forwarding_table(void)
 
     if (!is_forwarding_table_initialized) {
         is_forwarding_table_initialized = true;
-        hash_create_with_buckets(&forwarding_table,
+        collections_hash_create_with_buckets(&forwarding_table,
                 MULTIHOP_FORWARDING_TABLE_BUCKETS, free);
 
         /**
@@ -344,10 +344,10 @@ static inline multihop_vci_t forwarding_table_insert(
         // we assign VCIs randomly, but need to
         // make sure, that it is not yet taken
         vci = (multihop_vci_t) rand();
-    } while (hash_find(forwarding_table, vci) != NULL);
+    } while (collections_hash_find(forwarding_table, vci) != NULL);
 
     // insert into forwarding table
-    hash_insert(forwarding_table, vci, chan_state);
+    collections_hash_insert(forwarding_table, vci, chan_state);
     return vci;
 }
 
@@ -355,7 +355,7 @@ static inline multihop_vci_t forwarding_table_insert(
 static inline void forwarding_table_delete(multihop_vci_t vci)
 {
     assert(is_forwarding_table_initialized);
-    hash_delete(forwarding_table, vci);
+    collections_hash_delete(forwarding_table, vci);
 }
 
 // get entry from the forwarding table
@@ -364,7 +364,7 @@ static inline struct monitor_multihop_chan_state* forwarding_table_lookup(
 {
 
     assert(is_forwarding_table_initialized);
-    struct monitor_multihop_chan_state *chan_state = hash_find(forwarding_table,
+    struct monitor_multihop_chan_state *chan_state = collections_hash_find(forwarding_table,
             vci);
 
     if (chan_state == NULL) {

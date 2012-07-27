@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -35,6 +35,11 @@
 #define MASK(bits)      ((1UL << bits) - 1)
 
 struct capability monitor_ep;
+
+/**
+ * ID capability core_local_id counter.
+ */
+static uint32_t id_cap_counter = 1;
 
 /**
  *  Sets #dest equal to #src
@@ -125,7 +130,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     case ObjType_IRQTable:
     case ObjType_IO:
     case ObjType_EndPoint:
-    case ObjType_Domain:
+    case ObjType_ID:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
@@ -525,6 +530,25 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         }
         return SYS_ERR_OK;
 
+    case ObjType_ID:
+        // ID type does not refer to a kernel object
+        assert(lpaddr  == 0);
+        assert(bits    == 0);
+        assert(objbits == 0);
+        assert(numobjs == 1);
+
+        // Prevent wrap around
+        if (id_cap_counter >= UINT32_MAX) {
+            return SYS_ERR_ID_SPACE_EXHAUSTED;
+        }
+
+        // Generate a new ID, core_local_id monotonically increases
+        src_cap.u.id.coreid = my_core_id;
+        src_cap.u.id.core_local_id = id_cap_counter++;
+
+        // Insert the capability
+        return set_cap(&dest_caps->cap, &src_cap);
+
     case ObjType_IO:
         src_cap.u.io.start = 0;
         src_cap.u.io.end   = 65535;
@@ -533,7 +557,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_Kernel:
     case ObjType_IRQTable:
     case ObjType_EndPoint:
-    case ObjType_Domain:
     case ObjType_Notify_RCK:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:

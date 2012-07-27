@@ -208,8 +208,8 @@ in
         "putenv.c",
         "putenv_r.c",
         "setenv.c",
-        "setenv_r.c",
-        "system.c"
+        "setenv_r.c"
+        --"system.c"
         ],
       addCFlags = common_cflags,
       addLibraries = [ "stdlib_free", "stdlib_realloc", "stdlib_calloc", "stdlib_cfree", "stdlib_mallinfo", "stdlib_mallstats", "stdlib_msize", "stdlib_malloc", "stdlib_malign", "stdlib_mallopt", "stdlib_pvalloc", "stdlib_valloc" ],

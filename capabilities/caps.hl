@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -266,9 +266,10 @@ cap Notify_IPI {
     eq uint16 chanid;
 };
 
-cap Domain {
-    /* Domain capability (opaque type, used by the monitors) */
-    eq uint32 domainid;
+/* ID capability, system-wide unique */
+cap ID {
+    eq coreid coreid; /* core cap was created */
+    eq uint32 core_local_id; /* per core unique id */
 };
 
 cap PerfMon is_always_copy {

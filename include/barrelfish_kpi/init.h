@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -84,7 +84,8 @@
 #define ROOTCN_SLOT_SLOT_ALLOC0  7   ///< Root of slot alloc0
 #define ROOTCN_SLOT_SLOT_ALLOC1  8   ///< Root of slot alloc1
 #define ROOTCN_SLOT_SLOT_ALLOC2  9   ///< Root of slot alloc2
-#define ROOTCN_SLOTS_USER        10  ///< First free slot in root cnode for user
+#define ROOTCN_SLOT_ARGCN        10  ///< Argcn slot in root cnode
+#define ROOTCN_SLOTS_USER        11  ///< First free slot in root cnode for user
 
 /* Size of CNodes in Root CNode if not the default size */
 #define SLOT_ALLOC_CNODE_BITS   (DEFAULT_CNODE_BITS * 2)
@@ -101,8 +102,8 @@
 #define TASKCN_SLOT_TRACEBUF    9   ///< Trace buffer cap in task cnode
 #define TASKCN_SLOT_ARGSPAGE    10  ///< ?
 #define TASKCN_SLOT_MON_URPC    11  ///< Frame cap for urpc comm.
-/* slot 12 is free */
-#define TASKCN_SLOT_FDSPAGE     13  ///< cap for performance monitoring
+#define TASKCN_SLOT_SESSIONID   12  ///< Session ID domain belongs to
+#define TASKCN_SLOT_FDSPAGE     13  ///< cap for inherited file descriptors
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
 #define TASKCN_SLOTS_USER       15  ///< First free slot in taskcn for user
 

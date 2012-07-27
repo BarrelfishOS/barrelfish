@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -34,6 +34,9 @@ struct sysret
 sys_retype(struct capability *root, capaddr_t source_cptr, enum objtype type,
            uint8_t objbits, capaddr_t dest_cnode_cptr, cslot_t dest_slot,
            uint8_t dest_vbits, bool from_monitor);
+struct sysret sys_create(struct capability *root, enum objtype type,
+                         uint8_t objbits, capaddr_t dest_cnode_cptr,
+                         cslot_t dest_slot, int dest_vbits);
 struct sysret
 sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_slot,
                  capaddr_t source_cptr, int destcn_vbits, int source_vbits,
@@ -53,5 +56,6 @@ sys_dispatcher_setup_guest (struct capability *to,
                             capaddr_t vmcbp, capaddr_t ctrlp);
 struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id);
 struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
+struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
 
 #endif

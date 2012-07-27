@@ -63,6 +63,14 @@
 /* Using locations.  */
 #define YYLSP_NEEDED 0
 
+/* Substitute the variable and function names.  */
+#define yyparse         octyy_parse
+#define yylex           octyy_lex
+#define yyerror         octyy_error
+#define yylval          octyy_lval
+#define yychar          octyy_char
+#define yydebug         octyy_debug
+#define yynerrs         octyy_nerrs
 
 
 /* Copy the first part of user declarations.  */
@@ -82,7 +90,7 @@
 
 #include "y.tab.h"
 
-void yyerror(char *);
+void yyerror(const char *);
 
 #define YYPARSE_PARAM data
 #define YYLEX_PARAM   ((struct oct_parser_state*)data)->scanner
@@ -90,7 +98,7 @@ void yyerror(char *);
 
 
 /* Line 189 of yacc.c  */
-#line 94 "y.tab.c"
+#line 102 "y.tab.c"
 
 /* Enabling traces.  */
 #ifndef YYDEBUG
@@ -184,7 +192,7 @@ typedef union YYSTYPE
 
 
 /* Line 214 of yacc.c  */
-#line 188 "y.tab.c"
+#line 196 "y.tab.c"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
@@ -196,7 +204,7 @@ typedef union YYSTYPE
 
 
 /* Line 264 of yacc.c  */
-#line 200 "y.tab.c"
+#line 208 "y.tab.c"
 
 #ifdef short
 # undef short
@@ -1119,7 +1127,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free((yyvaluep->str)); };
 
 /* Line 1000 of yacc.c  */
-#line 1123 "y.tab.c"
+#line 1131 "y.tab.c"
 	break;
       case 22: /* "REGEX" */
 
@@ -1128,7 +1136,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free((yyvaluep->str)); };
 
 /* Line 1000 of yacc.c  */
-#line 1132 "y.tab.c"
+#line 1140 "y.tab.c"
 	break;
       case 23: /* "STRING" */
 
@@ -1137,7 +1145,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free((yyvaluep->str)); };
 
 /* Line 1000 of yacc.c  */
-#line 1141 "y.tab.c"
+#line 1149 "y.tab.c"
 	break;
       case 27: /* "record" */
 
@@ -1146,7 +1154,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
-#line 1150 "y.tab.c"
+#line 1158 "y.tab.c"
 	break;
       case 28: /* "name" */
 
@@ -1155,7 +1163,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
-#line 1159 "y.tab.c"
+#line 1167 "y.tab.c"
 	break;
       case 29: /* "attributes" */
 
@@ -1164,7 +1172,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
-#line 1168 "y.tab.c"
+#line 1176 "y.tab.c"
 	break;
       case 30: /* "attribute" */
 
@@ -1173,7 +1181,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
-#line 1177 "y.tab.c"
+#line 1185 "y.tab.c"
 	break;
       case 31: /* "constraint" */
 
@@ -1182,7 +1190,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
-#line 1186 "y.tab.c"
+#line 1194 "y.tab.c"
 	break;
       case 32: /* "value" */
 
@@ -1191,7 +1199,7 @@ yydestruct (yymsg, yytype, yyvaluep)
 	{ free_ast((yyvaluep->nPtr)); };
 
 /* Line 1000 of yacc.c  */
-#line 1195 "y.tab.c"
+#line 1203 "y.tab.c"
 	break;
 
       default:
@@ -1677,7 +1685,7 @@ yyreduce:
 
 
 /* Line 1455 of yacc.c  */
-#line 1681 "y.tab.c"
+#line 1689 "y.tab.c"
       default: break;
     }
   YY_SYMBOL_PRINT ("-> $$ =", yyr1[yyn], &yyval, &yyloc);
@@ -1892,7 +1900,7 @@ yyreturn:
 #line 106 "parse.y"
 
 
-void yyerror(char *s)
+void yyerror(const char *s)
 {
 #ifdef OCT_DEBUG
     fprintf(stderr, "octopus_parser: %s\n", s);

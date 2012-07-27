@@ -62,5 +62,5 @@ _DEFUN (exit, (code),
 
   if (_GLOBAL_REENT->__cleanup)
     (*_GLOBAL_REENT->__cleanup) (_GLOBAL_REENT);
-  _exit (code);
+  _Exit (code);
 }

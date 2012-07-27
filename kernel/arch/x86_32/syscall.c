@@ -31,6 +31,7 @@
 #include <arch/x86/syscall.h>
 #include <arch/x86/timing.h>
 #include <fpu.h>
+#include <useraccess.h>
 #ifdef __scc__
 #       include <rck.h>
 #else
@@ -133,7 +134,19 @@ static struct sysret handle_retype(struct capability *root, int cmd, uintptr_t *
     return handle_retype_common(root, args, false);
 }
 
+static struct sysret handle_create(struct capability *root, int cmd,
+                                   uintptr_t *args)
+{
+    /* Retrieve arguments */
+    enum objtype type         = args[0] >> 16;
+    uint8_t objbits           = (args[0] >> 8) & 0xff;
+    capaddr_t dest_cnode_cptr = args[1];
+    capaddr_t dest_slot       = args[2];
+    uint8_t dest_vbits        = args[0] & 0xff;
 
+    return sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
+                      dest_vbits);
+}
 
 /**
  * Common code for copying and minting except the mint flag and param passing
@@ -562,6 +575,22 @@ static struct sysret handle_irq_table_delete(struct capability *to, int cmd, uin
     return SYSRET(irq_table_delete(args[0]));
 }
 
+/**
+ * \brief Return system-wide unique ID of this ID cap.
+ */
+static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    idcap_id_t *idp = (idcap_id_t *) args[0];
+
+    // Check validity of user space pointer
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t) idp, sizeof(*idp)))  {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    return sys_idcap_identify(cap, idp);
+}
+
 #ifdef __scc__
 static struct sysret kernel_rck_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
@@ -638,6 +667,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Copy]   = handle_copy,
         [CNodeCmd_Mint]   = handle_mint,
         [CNodeCmd_Retype] = handle_retype,
+        [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
     },
@@ -689,6 +719,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [IOCmd_Inb] = handle_io,
         [IOCmd_Inw] = handle_io,
         [IOCmd_Ind] = handle_io
+    },
+    [ObjType_ID] = {
+        [IDCmd_Identify] = handle_idcap_identify
     },
 #ifdef __scc__
     [ObjType_Notify_RCK] = {

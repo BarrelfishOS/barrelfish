@@ -199,4 +199,44 @@
 #define PRIxPTR __LENGTH_PTR_MOD "x"
 #define PRIXPTR __LENGTH_PTR_MOD "X"
 
+// copied from newlib
+// XXX: We don't have LEAST or FAST versions in oldc
+#define __STRINGIFY(a) #a
+
+#define SCNd8		__LENGTH_8_MOD "d"
+#define SCNi8		__LENGTH_8_MOD "i"
+#define SCNo8		__LENGTH_8_MOD "o"
+#define SCNu8		__LENGTH_8_MOD "u"
+#define SCNx8		__LENGTH_8_MOD "x"
+
+#define SCNd16		__LENGTH_16_MOD "d"
+#define SCNi16		__LENGTH_16_MOD "i"
+#define SCNo16		__LENGTH_16_MOD "o"
+#define SCNu16		__LENGTH_16_MOD "u"
+#define SCNx16		__LENGTH_16_MOD "x"
+
+#define SCNd32		__LENGTH_32_MOD "d"
+#define SCNi32		__LENGTH_32_MOD "i"
+#define SCNo32		__LENGTH_32_MOD "o"
+#define SCNu32		__LENGTH_32_MOD "u"
+#define SCNx32		__LENGTH_32_MOD "x"
+
+#define SCNd64		__LENGTH_64_MOD "d"
+#define SCNi64		__LENGTH_64_MOD "i"
+#define SCNo64		__LENGTH_64_MOD "o"
+#define SCNu64		__LENGTH_64_MOD "u"
+#define SCNx64		__LENGTH_64_MOD "x"
+
+#define SCNdMAX		__LENGTH_MAX_MOD "d"
+#define SCNiMAX		__LENGTH_MAX_MOD "i"
+#define SCNoMAX		__LENGTH_MAX_MOD "o"
+#define SCNuMAX		__LENGTH_MAX_MOD "u"
+#define SCNxMAX		__LENGTH_MAX_MOD "x"
+
+#define SCNdPTR		__LENGTH_PTR_MOD "d"
+#define SCNiPTR		__LENGTH_PTR_MOD "i"
+#define SCNoPTR		__LENGTH_PTR_MOD "o"
+#define SCNuPTR		__LENGTH_PTR_MOD "u"
+#define SCNxPTR		__LENGTH_PTR_MOD "x"
+
 #endif
