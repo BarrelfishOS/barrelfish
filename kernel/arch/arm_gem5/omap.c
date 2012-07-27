@@ -61,7 +61,7 @@ lvaddr_t private_memory_region = 0;
 
 /*
  * Map the private memory region described in ARM Cortex A9 TRM - Table 1-3
- */ 
+ */
 void map_private_memory_region(void);
 void map_private_memory_region(void)
 {
@@ -72,7 +72,7 @@ void map_private_memory_region(void)
     // We map a section (1MB) anyway
    private_memory_region = paging_map_device(periphbase, ARM_L1_SECTION_BYTES);
 
-    printf("private memory region (phy) %x, private memory region (virt) %x\n", 
+    printf("private memory region (phy) %x, private memory region (virt) %x\n",
            periphbase, private_memory_region);
 
     // paging_map_device returns an address pointing to the beginning of
@@ -84,7 +84,7 @@ void pic_init(void)
 {
     map_private_memory_region();
 
-    pl130_gic_initialize(&pic, 
+    pl130_gic_initialize(&pic,
                          (mackerel_addr_t) private_memory_region + DIST_OFFSET,
                          (mackerel_addr_t) private_memory_region + CPU_OFFSET);
 
@@ -524,10 +524,8 @@ int scu_get_core_count(void)
 #define CONSOLE_PORT 2
 #define DEBUG_PORT   2
 
-#define UART3_VBASE			0x48020000
-#define UART3_SECTION_OFFSET               0x20000
+#define UART3_PBASE			0x48020000
 #define UART_DEVICE_BYTES		0x1000
-#define UART_MAPPING_DIFF		0x1000
 
 static omap_uart_t ports[4];
 
@@ -535,23 +533,32 @@ void enable_mmu(void);
 
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {
-    if (port_no < 4) {
-        assert(port_no == 2);
-        lvaddr_t base = paging_map_device(UART3_VBASE, UART_DEVICE_BYTES);
-        printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
-                base, base + UART3_SECTION_OFFSET);
-
-        volatile uint32_t *p2 = (uint32_t *) UART3_VBASE;
-        volatile uint32_t *p = (uint32_t *) (base + UART3_SECTION_OFFSET);
-        *p2 = 's';
-        *p = 'S';
-
-        omap_uart_init(&ports[index], base + UART3_SECTION_OFFSET);
-
-        return SYS_ERR_OK;
-    } else {
+    if (port_no >= 4) {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
+
+    assert(port_no == 2);
+    lvaddr_t base = paging_map_device(UART3_PBASE, UART_DEVICE_BYTES);
+
+    // paging_map_device returns an address pointing to the beginning of
+    // a section, need to add the offset for within the section again
+    uint32_t offset = (UART3_PBASE & ARM_L1_SECTION_MASK);
+    printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
+            base, base + offset);
+
+    /* For debugging  */
+    /*
+    volatile uint32_t *p2 = (uint32_t *) UART3_PBASE;
+    volatile uint32_t *p = (uint32_t *) (base + offset);
+    *p2 = 's';  // using physical address
+    printf("print with physical addresses worked\n");
+    *p = 'S'; // using virtual address
+    printf("print with virtual address worked\n");
+    */
+
+    omap_uart_init(&ports[index], base + offset);
+
+    return SYS_ERR_OK;
 }
 
 errval_t early_serial_init(uint8_t port_no);
@@ -559,7 +566,7 @@ errval_t early_serial_init(uint8_t port_no)
 {
     if (port_no < 4) {
         assert(ports[port_no].base == 0);
-        omap_uart_init(&ports[CONSOLE_PORT], UART3_VBASE);
+        omap_uart_init(&ports[CONSOLE_PORT], UART3_PBASE);
         return SYS_ERR_OK;
     }
     else {
