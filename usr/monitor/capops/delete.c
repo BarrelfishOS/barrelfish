@@ -43,7 +43,9 @@ delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
     }
 
     err = slot_free(del_st->newcap);
-    DEBUG_ERR(err, "freeing reclamation slot, will leak");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "freeing reclamation slot, will leak");
+    }
 
     delete_result_handler_t handler = del_st->result_handler;
     void *st = del_st->st;

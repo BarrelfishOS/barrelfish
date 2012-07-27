@@ -526,7 +526,7 @@ static void span_domain_reply(struct monitor_binding *mb,
     /* Free the dispatcher frame */
     err = cap_destroy(span_domain_state->frame);
     if (err_is_fail(err)) {
-        err_push(err, LIB_ERR_CAP_DESTROY);
+        err = err_push(err, LIB_ERR_CAP_DESTROY);
         goto error;
     }
 
