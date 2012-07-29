@@ -108,7 +108,7 @@ in [
         cfiles = [ "exec.c", "misc.c", "phys_mmap.c" ]
         arch_sfiles = [ "boot.S", "exceptions.S" ]
 	arch_cfiles = ["init.c", "omap.c", "paging.c", "pl011_uart.c", "startup_arch.c", "syscall.c", "kludges.c", "multiboot.c", "omap_uart.c", "start_aps.c", "exn.c",  "kputchar.c" ]
-	mackerelFiles = [ "arm", "arm_icp_pit", "pl011_uart", "pl130_gic", "sp804_pit", "cortex_a9_pit", "a9scu", "omap_uart" ]
+	mackerelFiles = [ "arm", "arm_icp_pit", "pl011_uart", "pl130_gic", "sp804_pit", "cortex_a9_pit", "a9scu", "omap_uart", "omap44xx_id" ]
         libs = [ "elf", "cpio" ]
     in mkrules "arm_gem5" cfiles sfiles mackerelFiles libs [] [] arch_cfiles arch_sfiles),
     

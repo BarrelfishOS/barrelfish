@@ -77,6 +77,7 @@
                     flounderBindings = [ "mem", "octopus", "serial",
                                          "interdisp", "spawn", "keyboard" ],
                     -- only makes sense to compile monitor binding for lmp
+                    flounderTHCStubs = [ "octopus" ],
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
 		    			      ("monitor_blocking", ["lmp", "rpcclient"]),
                                               ("mem", ["rpcclient"]),

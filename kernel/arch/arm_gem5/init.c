@@ -20,7 +20,7 @@
 #include <arm_hal.h>
 #include <cpiobin.h>
 #include <getopt/getopt.h>
-#include <romfs_size.h>
+//#include <romfs_size.h>
 #include <cp15.h>
 #include <elf/elf.h>
 #include <arm_core_data.h>
@@ -29,12 +29,11 @@
 #include <global.h>
 #include <start_aps.h>
 
+#include <omap44xx_map.h>
 #include <dev/omap44xx_id_dev.h>
 
 #define GEM5_RAM_SIZE	0x20000000
 //#define GEM5_RAM_SIZE	0x2000000
-#define CONFIG_PHYSBASE 0x4a002000
-#define DEVICE_ID_PADDR 0x4A002204
 
 extern errval_t early_serial_init(uint8_t port_no);
 
@@ -255,43 +254,39 @@ static void enable_cycle_counter_user_access(void)
 }
 #endif
 
-void
-paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+void paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
 
 
 static void paging_init(void)
 {
+    // configure system to use TTBR1 for VAs >= 2GB
+    uint32_t ttbcr;
+    ttbcr = cp15_read_ttbcr();
+    ttbcr |= 1;
+    cp15_write_ttbcr(ttbcr);
+    
+    // make sure pagetables are aligned to 16K
+    aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
+    aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
+    
+    lvaddr_t vbase = MEMORY_OFFSET, base =  0;
 
+    for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
+	    base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES) {
+	// create 1:1 mapping
+	//		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
+	paging_map_device_section((uintptr_t)aligned_boot_l1_low, base, base);
+	
+	// Alias the same region at MEMORY_OFFSET (gem5 code)
+	// create 1:1 mapping for pandaboard
+	//		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
+	/* if(vbase < 0xc0000000) */
+	paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
+    }
 
-	// configure system to use TTBR1 for VAs >= 2GB
-	uint32_t ttbcr;
-	ttbcr = cp15_read_ttbcr();
-	ttbcr |= 1;
-	cp15_write_ttbcr(ttbcr);
-
-	// make sure pagetables are aligned to 16K
-	aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
-	aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
-
-	lvaddr_t vbase = MEMORY_OFFSET, base =  0;
-
-	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
-		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
-	{
-		// create 1:1 mapping
-//		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
-		paging_map_device_section((uintptr_t)aligned_boot_l1_low, base, base);
-
-		// Alias the same region at MEMORY_OFFSET (gem5 code)
-		// create 1:1 mapping for pandaboard
-//		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
-                /* if(vbase < 0xc0000000) */
-                    paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
-	}
-
-	// Activate new page tables
-	cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
-        cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
+    // Activate new page tables
+    cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
+    cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
 }
 
 void kernel_startup_early(void)
@@ -370,12 +365,12 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
     // Test MMU by remapping the device identifier and reading it using a
     // virtual address 
-    lpaddr_t id_code_section = CONFIG_PHYSBASE & ~ARM_L1_SECTION_MASK;
+    lpaddr_t id_code_section = OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ~ARM_L1_SECTION_MASK;
     lvaddr_t id_code_remapped = paging_map_device(id_code_section, 
                                                   ARM_L1_SECTION_BYTES);
     omap44xx_id_t id;
     omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped + 
-				 (CONFIG_PHYSBASE & ARM_L1_SECTION_MASK)));
+				 (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ARM_L1_SECTION_MASK)));
     char buf[200];
     omap44xx_id_code_pr(buf,200,&id);
     printf("Using MMU, %s", buf);
@@ -415,13 +410,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     arm_kernel_startup();
 }
 
-void put_serial_test(char c);
-void put_serial_test(char c)
-{
-  volatile uint32_t *reg = (uint32_t *)0x48020000;
-  *reg = c;
-}
-
 /**
  * Use Mackerel to print the identification from the system
  * configuration block.
@@ -430,7 +418,7 @@ static void print_system_identification(void)
 {
     char buf[800];
     omap44xx_id_t id;
-    omap44xx_id_initialize(&id, (mackerel_addr_t)CONFIG_PHYSBASE);
+    omap44xx_id_initialize(&id, (mackerel_addr_t)OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE);
     omap44xx_id_pr(buf, 799, &id);
     printf("%s", buf);
     omap44xx_id_codevals_prtval(buf, 799, omap44xx_id_code_rawrd(&id));

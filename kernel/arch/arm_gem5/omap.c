@@ -18,6 +18,8 @@
 #include <dev/a9scu_dev.h>
 
 #include <omap_uart.h>
+#include <omap44xx_map.h>
+
 #include <serial.h>
 #include <arm_hal.h>
 #include <cp15.h>
@@ -528,24 +530,20 @@ int scu_get_core_count(void)
 #define CONSOLE_PORT 2
 #define DEBUG_PORT   2
 
-#define UART3_VBASE			0x48020000
 #define UART3_SECTION_OFFSET               0x20000
-#define UART_DEVICE_BYTES		0x1000
-#define UART_MAPPING_DIFF		0x1000
 
 static omap_uart_t ports[4];
-
-void enable_mmu(void);
 
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {
     if (port_no < 4) {
         assert(port_no == 2);
-        lvaddr_t base = paging_map_device(UART3_VBASE, UART_DEVICE_BYTES);
+        lvaddr_t base = paging_map_device(OMAP44XX_MAP_L4_PER_UART3,
+					  OMAP44XX_MAP_L4_PER_UART3_SIZE);
         printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
                 base, base + UART3_SECTION_OFFSET);
 
-        volatile uint32_t *p2 = (uint32_t *) UART3_VBASE;
+        volatile uint32_t *p2 = (uint32_t *)OMAP44XX_MAP_L4_PER_UART3;
         volatile uint32_t *p = (uint32_t *) (base + UART3_SECTION_OFFSET);
         *p2 = 's';
         *p = 'S';
@@ -563,7 +561,7 @@ errval_t early_serial_init(uint8_t port_no)
 {
     if (port_no < 4) {
         assert(ports[port_no].base == 0);
-        omap_uart_init(&ports[CONSOLE_PORT], UART3_VBASE);
+        omap_uart_init(&ports[CONSOLE_PORT], OMAP44XX_MAP_L4_PER_UART3);
         return SYS_ERR_OK;
     }
     else {
