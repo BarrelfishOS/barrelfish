@@ -191,7 +191,7 @@ delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
 
     err = monitor_copy_if_exists(&cap, capref);
     if (err_is_fail(err)) {
-        if (err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
+        if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
             // not found implies there were no copies, so everything is OK
             err = SYS_ERR_OK;
         }
