@@ -743,7 +743,6 @@ struct hostent *gethostbyname(const char *name)
     }
 }
 
-#if 0
 int getaddrinfo(const char *restrict nodename,
                 const char *restrict servname,
                 const struct addrinfo *restrict hints,
@@ -762,4 +761,3 @@ const char *gai_strerror(int ecode)
 {
     return "No error";
 }
-#endif
