@@ -12,7 +12,7 @@
 
 module ArchDefaults where
 
-import List
+import Data.List
 import HakeTypes
 import Path
 import qualified Config

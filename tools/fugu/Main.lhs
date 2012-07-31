@@ -15,7 +15,6 @@
 
 > import Text.PrettyPrint.HughesPJ as Pprinter 
 
-> import System
 > import System.Environment
 > import System.Exit
 > import System.Console.GetOpt
@@ -37,7 +36,7 @@
 
 > main :: IO ()
 > main = do
->        argv <- System.getArgs
+>        argv <- System.Environment.getArgs
 >        case argv of
 >          [ inF, hdrF, codeF ] -> do
 >                         input <- Parser.parse inF

@@ -11,8 +11,7 @@
 --------------------------------------------------------------------------
 
 module RuleDefs where
-import Data.List
-import List (intersect)
+import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
 import Path
 import qualified X86_64
 import qualified X86_32

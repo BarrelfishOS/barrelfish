@@ -26,8 +26,7 @@ import qualified Fields
 import qualified Data.Maybe
 
 import Text.Printf
-import List
-import System
+import Data.List
 import System.Environment
 import System.Exit
 import System.IO

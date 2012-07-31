@@ -12,7 +12,6 @@
 
 > module Main where
 
-> import System
 > import System.Environment
 > import System.Exit
 > import System.Console.GetOpt
@@ -38,7 +37,7 @@
 > main :: IO ()
 > main =
 >    do
->    argv <- System.getArgs
+>    argv <- System.Environment.getArgs
 >    case argv of
 >      [inputFile, filenameDefs, filenameCode, filenameUserCode] -> do
 >              input <- parseCaps inputFile

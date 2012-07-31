@@ -13,20 +13,18 @@ module Parser where
 
 import HamletAst
 
-import qualified System
 import Text.ParserCombinators.Parsec as Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Pos
 import Text.ParserCombinators.Parsec.Char as C
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language( javaStyle )
-import Char
+import Data.Char
 import Numeric
 import Data.List
 import Data.Maybe
 import Text.Printf
 
-import System
 import System.Environment
 import System.Exit
 import System.Console.GetOpt

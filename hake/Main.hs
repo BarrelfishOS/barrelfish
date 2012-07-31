@@ -13,7 +13,7 @@
 
 module Main where
 
-import System
+import System.Environment
 import System.IO
 import System.Directory
 import System.Exit
@@ -22,8 +22,8 @@ import GHC.Paths ( libdir )
 import DynFlags ( defaultDynFlags )
 import Data.Dynamic
 import Data.Maybe
-import List
-import Monad
+import Data.List
+import Control.Monad
 
 import RuleDefs
 import HakeTypes
@@ -423,7 +423,7 @@ strip_hfn opts f = Path.removePrefix (opt_sourcedir opts) f
 main :: IO() 
 main = do
     -- parse arguments; architectures default to config file
-    args <- System.getArgs
+    args <- System.Environment.getArgs
     let o1 = parse_arguments args
         al = if opt_architectures o1 == [] 
              then Config.architectures 

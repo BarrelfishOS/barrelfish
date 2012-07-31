@@ -559,8 +559,6 @@ Fugu, now.
 
 %if false
 
-> {-# OPTIONS_GHC -fglasgow-exts #-}
-
 > module FuguBackend where
 
 > import System.IO
