@@ -78,7 +78,7 @@ void private_mem_test(void)
 
 /*
  * Map the private memory region described in ARM Cortex A9 TRM - Table 1-3
- */ 
+ */
 void map_private_memory_region(void);
 void map_private_memory_region(void)
 {
@@ -93,7 +93,7 @@ void map_private_memory_region(void)
     // a section, need to add the offset for within the section again
     private_memory_region += (periphbase & ARM_L1_SECTION_MASK);
 
-    printf("private memory region (phy) %x, private memory region (virt) %x\n", 
+    printf("private memory region (phy) %x, private memory region (virt) %x\n",
            periphbase, private_memory_region);
 
     private_mem_test();
@@ -109,7 +109,7 @@ void pic_init(void)
 {
     map_private_memory_region();
 
-    pl130_gic_initialize(&pic, 
+    pl130_gic_initialize(&pic,
                          (mackerel_addr_t) private_memory_region + DIST_OFFSET,
                          (mackerel_addr_t) private_memory_region + CPU_OFFSET);
 
@@ -345,6 +345,7 @@ void pic_ack_irq(uint32_t irq)
 #define PIT0_OFFSET	0x11000
 #define PIT_DIFF	0x1000
 
+#define LOCAL_TIMER_IRQ 29
 #define PIT0_IRQ	36
 #define PIT1_IRQ	37
 
@@ -417,23 +418,37 @@ void pit_start(uint8_t pit_id)
 	/* sp804_pit_Timer1Control_timer_en_wrf(pit, 1); */
 }
 
+static uint32_t local_timer_counter = 0;
 bool pit_handle_irq(uint32_t irq)
 {
-	if (PIT0_IRQ == irq)
-	{
+    switch(irq) {
+
+    case PIT0_IRQ:
         sp804_pit_Timer1IntClr_wr(&pit0, ~0ul);
-        //TODO: change this in multicore implementation
         pic_ack_irq(irq);
         return 1;
-    }
-	else if(PIT1_IRQ == irq)
-	{
-		sp804_pit_Timer1IntClr_wr(&pit1, ~0ul);
-		//TODO: change this in multicore implementation
-		pic_ack_irq(irq);
-		return 1;
-	}
-    else {
+
+    case PIT1_IRQ:
+        sp804_pit_Timer1IntClr_wr(&pit1, ~0ul);
+        pic_ack_irq(irq);
+        return 1;
+
+    case LOCAL_TIMER_IRQ:
+        printf("local timer IRQ\n");
+        pic_ack_irq(irq);
+
+        local_timer_counter++;
+
+        if (local_timer_counter>10) {
+
+            panic("got 10 timer interrupts, that is enough for now\n");
+        } 
+        __asm volatile ("CPSIE aif"); // Re-enable interrups
+        while(1);
+
+        return 1;
+        
+    default: 
         return 0;
     }
 }
@@ -530,30 +545,37 @@ int scu_get_core_count(void)
 #define CONSOLE_PORT 2
 #define DEBUG_PORT   2
 
-#define UART3_SECTION_OFFSET               0x20000
 
 static omap_uart_t ports[4];
 
 static errval_t serial_init(uint8_t index, uint8_t port_no)
 {
-    if (port_no < 4) {
-        assert(port_no == 2);
-        lvaddr_t base = paging_map_device(OMAP44XX_MAP_L4_PER_UART3,
-					  OMAP44XX_MAP_L4_PER_UART3_SIZE);
-        printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
-                base, base + UART3_SECTION_OFFSET);
-
-        volatile uint32_t *p2 = (uint32_t *)OMAP44XX_MAP_L4_PER_UART3;
-        volatile uint32_t *p = (uint32_t *) (base + UART3_SECTION_OFFSET);
-        *p2 = 's';
-        *p = 'S';
-
-        omap_uart_init(&ports[index], base + UART3_SECTION_OFFSET);
-
-        return SYS_ERR_OK;
-    } else {
+    if (port_no >= 4) {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
+
+    assert(port_no == 2);
+        lvaddr_t base = paging_map_device(OMAP44XX_MAP_L4_PER_UART3,
+					  OMAP44XX_MAP_L4_PER_UART3_SIZE);
+    // paging_map_device returns an address pointing to the beginning of
+    // a section, need to add the offset for within the section again
+    uint32_t offset = (UART3_PBASE & ARM_L1_SECTION_MASK);
+    printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
+            base, base + offset);
+
+        volatile uint32_t *p2 = (uint32_t *)OMAP44XX_MAP_L4_PER_UART3;
+    /*
+    volatile uint32_t *p2 = (uint32_t *) UART3_PBASE;
+    volatile uint32_t *p = (uint32_t *) (base + offset);
+    *p2 = 's';  // using physical address
+    printf("print with physical addresses worked\n");
+    *p = 'S'; // using virtual address
+    printf("print with virtual address worked\n");
+    */
+
+    omap_uart_init(&ports[index], base + offset);
+
+    return SYS_ERR_OK;
 }
 
 errval_t early_serial_init(uint8_t port_no);

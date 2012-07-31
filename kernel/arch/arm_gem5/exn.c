@@ -242,8 +242,6 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
 
 void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
-    printf("handle_irq\n");
-
     uint32_t irq = pic_get_active_irq();
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,

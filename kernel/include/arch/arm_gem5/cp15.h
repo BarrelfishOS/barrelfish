@@ -88,6 +88,8 @@ static inline void cp15_write_ttbcr(uint32_t ttbcr)
 
 void cp15_invalidate_d_cache(void);
 void cp15_invalidate_i_and_d_caches(void);
+void cp15_invalidate_i_and_d_caches_fast(void);
+void cp15_invalidate_tlb_fn(void); // written in assembli in boot.S
 
 static inline uint32_t cp15_read_cache_status(void){
     uint32_t cache;
@@ -97,9 +99,9 @@ static inline uint32_t cp15_read_cache_status(void){
 
 
 static inline void cp15_disable_cache(void){
-   
-    cp15_invalidate_i_and_d_caches();
-    
+
+    cp15_invalidate_i_and_d_caches_fast();
+
     __asm volatile(
                    //     "ldr r1, =0x3 \n\t"
                    "mrc p15, 0, r1, c1, c0, 0 \n\t" //read

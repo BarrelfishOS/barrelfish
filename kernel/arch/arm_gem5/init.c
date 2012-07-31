@@ -37,6 +37,7 @@
 
 extern errval_t early_serial_init(uint8_t port_no);
 
+void put_serial_test(char c);
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -225,13 +226,20 @@ void enable_mmu(void)
                         // Set the Domain Access register
                         "mov    r0, #1\n\t"
                         "mcr	p15, 0, r0, c3, c0, 0\n\t"
-                        // Enable: D-Cache, I-Cache, Alignment, MMU (0x007)
+                        // Reference: ARM Architecture Refrence Manual ARMv7-A
+                        // Section: B2.12.17 c1, System Control Register (SCTLR)
+                        // Enable: D-Cache, I-Cache, Alignment, MMU (0x007) --> works
                         // Everything without D-Cache (0x003) --> works
-			"ldr	r1, =0x1003\n\t"
+			"ldr	r1, =0x1007\n\t"
 			"mrc	p15, 0, r0, c1, c0, 0\n\t"      // read out system configuration register
 			"orr	r0, r0, r1\n\t"
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
                         // Clear pipeline
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
                         "nop\n\t"
                         "nop\n\t"
                         "nop\n\t"
@@ -334,9 +342,13 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     /* printf("%u\n", tmp); */
     /* *ptr = 1; */
 
-    printf("invalidate\n");
+    printf("invalidate cache\n");
+//    cp15_invalidate_i_and_d_caches();
+      cp15_invalidate_i_and_d_caches_fast();
 
-    /* cp15_invalidate_i_and_d_caches(); */
+    printf("invalidate TLB\n");
+    cp15_invalidate_tlb();
+//    cp15_invalidate_tlb_fn();
 
     printf("startup_early\n");
 
@@ -366,7 +378,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     // Test MMU by remapping the device identifier and reading it using a
     // virtual address 
     lpaddr_t id_code_section = OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ~ARM_L1_SECTION_MASK;
-    lvaddr_t id_code_remapped = paging_map_device(id_code_section, 
+    lvaddr_t id_code_remapped = paging_map_device(id_code_section,
                                                   ARM_L1_SECTION_BYTES);
     omap44xx_id_t id;
     omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped + 
@@ -475,6 +487,5 @@ void arch_init(void *pointer)
     paging_init();
     enable_mmu();
     printf("MMU enabled\n");
-
     text_init();
 }

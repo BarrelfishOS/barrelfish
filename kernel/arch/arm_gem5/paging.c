@@ -129,6 +129,9 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
             device_base);
 
     cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
+//    cp15_invalidate_i_and_d_caches();
+    cp15_invalidate_i_and_d_caches_fast();
+//    cp15_invalidate_tlb_fn();
     cp15_invalidate_tlb();
 
     return dev_alloc;
