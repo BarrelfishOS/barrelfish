@@ -353,10 +353,11 @@ void pic_ack_irq(uint32_t irq)
 static sp804_pit_t pit0;
 static sp804_pit_t pit1;
 
-void pit_init(uint32_t timeslice, uint8_t pit_id)
+void __attribute__((noreturn)) pit_init(uint32_t timeslice, uint8_t pit_id)
 {
     // Private memory was already activated by pic_init
     assert(private_memory_region!=0);
+    panic("Don't use (or have) sp804 on PandaBoard");
 
     sp804_pit_t *pit;
         if(pit_id == PIT0_ID)
@@ -419,6 +420,8 @@ void pit_start(uint8_t pit_id)
 static uint32_t local_timer_counter = 0;
 bool pit_handle_irq(uint32_t irq)
 {
+    printf("pit_handle_irq %d\n", irq);
+
     switch(irq) {
 
     case PIT0_IRQ:
@@ -432,18 +435,9 @@ bool pit_handle_irq(uint32_t irq)
         return 1;
 
     case LOCAL_TIMER_IRQ:
-        printf("local timer IRQ\n");
+        printf("local timer IRQ, number=%d\n", local_timer_counter);
         pic_ack_irq(irq);
-
         local_timer_counter++;
-
-        if (local_timer_counter>10) {
-
-            panic("got 10 timer interrupts, that is enough for now\n");
-        } 
-        __asm volatile ("CPSIE aif"); // Re-enable interrups
-        while(1);
-
         return 1;
         
     default: 
@@ -487,12 +481,14 @@ void tsc_init(void)
     cortex_a9_pit_initialize(&tsc, (mackerel_addr_t) private_memory_region + TSC_OFFSET);
 
     // write load
-    uint32_t load = (10000); // in cycles
+    uint32_t load = (100000000); // in cycles [ should be around 10 per second ]
     cortex_a9_pit_TimerLoad_wr(&tsc, load);
 
     //configure tsc
     cortex_a9_pit_TimerControl_prescale_wrf(&tsc, 0);
-    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
+    // XXX Disable interrupts, to ease debugging init startup
+    //    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
+    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 0);
     cortex_a9_pit_TimerControl_auto_reload_wrf(&tsc, 1);
     cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
 

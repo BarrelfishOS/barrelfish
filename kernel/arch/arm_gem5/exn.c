@@ -244,7 +244,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
     uint32_t irq = pic_get_active_irq();
 
-    debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
+    printf("IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
     if (dcb_current != NULL) {
@@ -253,6 +253,8 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
             assert(dispatcher_is_disabled_ip(handle, fault_pc));
             dcb_current->disabled = true;
         } else {
+            printf("save_area=%p, dispatcher_get_enabled_save_are(handle)=%p\n",
+                   save_area, dispatcher_get_enabled_save_area(handle));
             assert(save_area == dispatcher_get_enabled_save_area(handle));
             assert(!dispatcher_is_disabled_ip(handle, fault_pc));
             dcb_current->disabled = false;

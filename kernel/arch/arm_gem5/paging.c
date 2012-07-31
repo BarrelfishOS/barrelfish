@@ -129,9 +129,7 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
             device_base);
 
     cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
-//    cp15_invalidate_i_and_d_caches();
     cp15_invalidate_i_and_d_caches_fast();
-//    cp15_invalidate_tlb_fn();
     cp15_invalidate_tlb();
 
     return dev_alloc;
@@ -212,6 +210,9 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
 }
 #endif // 0
 
+/*
+ * Describe me
+ */
 void paging_make_good(lvaddr_t new_table_base, size_t new_table_bytes)
 {
     assert(new_table_base >= MEMORY_OFFSET);
@@ -258,17 +259,12 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
 
 void paging_context_switch(lpaddr_t ttbr)
 {
-    assert(ttbr < MEMORY_OFFSET);
-    //assert((ttbr & 0x3fff) == 0);
-
+    printf("paging context switch to %"PRIxLPADDR"\n", ttbr);
     lpaddr_t old_ttbr = cp15_read_ttbr0();
-    if (ttbr != old_ttbr)
-    {
+    if (ttbr != old_ttbr) {
         cp15_write_ttbr0(ttbr);
         cp15_invalidate_tlb();
-        //this isn't necessary on gem5, since gem5 doesn't implement the cache
-        //maintenance instructions, but ensures coherency by itself
-        //cp15_invalidate_i_and_d_caches();
+        cp15_invalidate_i_and_d_caches();
     }
 }
 

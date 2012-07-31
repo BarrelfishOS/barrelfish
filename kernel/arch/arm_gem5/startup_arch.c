@@ -97,7 +97,7 @@ static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
 /**
  * The address from where bsp_alloc_phys will start allocating memory
  */
-static lpaddr_t bsp_init_alloc_addr = 0;
+static lpaddr_t bsp_init_alloc_addr = PHYS_MEMORY_START;
 
 /**
  * \brief Linear physical memory allocator.
@@ -136,7 +136,7 @@ static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
  * @param l2_base       virtual address represented by first L2 table entry
  * @param va_base       virtual address to map.
  * @param pa_base       physical address to associate with virtual address.
- * @param bytes        number of bytes to map.
+ * @param bytes         number of bytes to map.
  * @param l2_flags      ARM L2 small page flags for mapped pages.
  */
 static void
@@ -426,76 +426,82 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     }
 }
 
+/*
+ * \brief Initialzie page tables
+ *
+ * This includes setting up page tables for the init process.
+ */
 static void init_page_tables(void)
 {
-	// Create page table for init
-	if(hal_cpu_is_bsp())
-	{
-		init_l1 =  (union arm_l1_entry *)local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L1_BYTES, ARM_L1_ALIGN));
-		memset(init_l1, 0, INIT_L1_BYTES);
+    // Create page table for init
+    if(hal_cpu_is_bsp()) {
+        init_l1 =  (union arm_l1_entry *)local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L1_BYTES, ARM_L1_ALIGN));
+        memset(init_l1, 0, INIT_L1_BYTES);
 
-		init_l2 = (union arm_l2_entry *)local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L2_BYTES, ARM_L2_ALIGN));
-		memset(init_l2, 0, INIT_L2_BYTES);
-	}
-	else
-	{
-		init_l1 =  (union arm_l1_entry *)local_phys_to_mem(app_alloc_phys_aligned(INIT_L1_BYTES, ARM_L1_ALIGN));
-		memset(init_l1, 0, INIT_L1_BYTES);
+        init_l2 = (union arm_l2_entry *)local_phys_to_mem(bsp_alloc_phys_aligned(INIT_L2_BYTES, ARM_L2_ALIGN));
+        memset(init_l2, 0, INIT_L2_BYTES);
+    } else {
+        init_l1 =  (union arm_l1_entry *)local_phys_to_mem(app_alloc_phys_aligned(INIT_L1_BYTES, ARM_L1_ALIGN));
+        memset(init_l1, 0, INIT_L1_BYTES);
 
-		init_l2 = (union arm_l2_entry *)local_phys_to_mem(app_alloc_phys_aligned(INIT_L2_BYTES, ARM_L2_ALIGN));
-		memset(init_l2, 0, INIT_L2_BYTES);
-	}
+        init_l2 = (union arm_l2_entry *)local_phys_to_mem(app_alloc_phys_aligned(INIT_L2_BYTES, ARM_L2_ALIGN));
+        memset(init_l2, 0, INIT_L2_BYTES);
+    }
 
+    printf("init_page_tables done: init_l1=%p init_l2=%p\n",
+            init_l1, init_l2);
 
-	/* Map pagetables into page CN */
-	int pagecn_pagemap = 0;
+    /* Map pagetables into page CN */
+    int pagecn_pagemap = 0;
 
-	/*
-	 * ARM has:
-	 *
-	 * L1 has 4096 entries (16KB).
-	 * L2 Coarse has 256 entries (256 * 4B = 1KB).
-	 *
-	 * CPU driver currently fakes having 1024 entries in L1 and
-	 * L2 with 1024 entries by treating a page as 4 consecutive
-	 * L2 tables and mapping this as a unit in L1.
-	 */
-	caps_create_new(
-			ObjType_VNode_ARM_l1,
-			mem_to_local_phys((lvaddr_t)init_l1),
-			vnode_objbits(ObjType_VNode_ARM_l1), 0,
-			caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
-	);
+    /*
+     * ARM has:
+     *
+     * L1 has 4096 entries (16KB).
+     * L2 Coarse has 256 entries (256 * 4B = 1KB).
+     *
+     * CPU driver currently fakes having 1024 entries in L1 and
+     * L2 with 1024 entries by treating a page as 4 consecutive
+     * L2 tables and mapping this as a unit in L1.
+     */
+    caps_create_new(ObjType_VNode_ARM_l1,
+                    mem_to_local_phys((lvaddr_t)init_l1),
+                    vnode_objbits(ObjType_VNode_ARM_l1), 0,
+                    caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+                    );
 
-	//STARTUP_PROGRESS();
+    //STARTUP_PROGRESS();
 
-	// Map L2 into successive slots in pagecn
-	size_t i;
-	for (i = 0; i < INIT_L2_BYTES / BASE_PAGE_SIZE; i++) {
-		size_t objbits_vnode = vnode_objbits(ObjType_VNode_ARM_l2);
-		assert(objbits_vnode == BASE_PAGE_BITS);
-		caps_create_new(
-				ObjType_VNode_ARM_l2,
-				mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
-				objbits_vnode, 0,
-				caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
-		);
-	}
+    // Map L2 into successive slots in pagecn
+    size_t i;
+    for (i = 0; i < INIT_L2_BYTES / BASE_PAGE_SIZE; i++) {
+        size_t objbits_vnode = vnode_objbits(ObjType_VNode_ARM_l2);
+        assert(objbits_vnode == BASE_PAGE_BITS);
+        caps_create_new(
+                        ObjType_VNode_ARM_l2,
+                        mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
+                        objbits_vnode, 0,
+                        caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+                        );
+    }
 
-	/*
-	 * Initialize init page tables - this just wires the L1
-	 * entries through to the corresponding L2 entries.
-	 */
-	STATIC_ASSERT(0 == (INIT_VBASE % ARM_L1_SECTION_BYTES), "");
-	for (lvaddr_t vaddr = INIT_VBASE; vaddr < INIT_SPACE_LIMIT; vaddr += ARM_L1_SECTION_BYTES)
-	{
-		uintptr_t section = (vaddr - INIT_VBASE) / ARM_L1_SECTION_BYTES;
-		uintptr_t l2_off = section * ARM_L2_TABLE_BYTES;
-		lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l2) + l2_off;
-		paging_map_user_pages_l1((lvaddr_t)init_l1, vaddr, paddr);
-	}
+    /*
+     * Initialize init page tables - this just wires the L1
+     * entries through to the corresponding L2 entries.
+     */
+    STATIC_ASSERT(0 == (INIT_VBASE % ARM_L1_SECTION_BYTES), "");
+    for (lvaddr_t vaddr = INIT_VBASE; 
+         vaddr < INIT_SPACE_LIMIT; 
+         vaddr += ARM_L1_SECTION_BYTES) {
+        uintptr_t section = (vaddr - INIT_VBASE) / ARM_L1_SECTION_BYTES;
+        uintptr_t l2_off = section * ARM_L2_TABLE_BYTES;
+        lpaddr_t paddr = mem_to_local_phys((lvaddr_t)init_l2) + l2_off;
+        paging_map_user_pages_l1((lvaddr_t)init_l1, vaddr, paddr);
+    }
 
-	paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
+    printf("Calling paging_context_switch with address = %"PRIxLVADDR"\n",
+           mem_to_local_phys((lvaddr_t) init_l1));
+    paging_context_switch(mem_to_local_phys((lvaddr_t)init_l1));
 }
 
 static struct dcb *spawn_init_common(const char *name,
@@ -503,18 +509,23 @@ static struct dcb *spawn_init_common(const char *name,
                                      lpaddr_t bootinfo_phys,
                                      alloc_phys_func alloc_phys)
 {
-	lvaddr_t paramaddr;
-	struct dcb *init_dcb = spawn_module(&spawn_state, name,
-										argc, argv,
-										bootinfo_phys, INIT_ARGS_VBASE,
-										alloc_phys, &paramaddr);
+    printf("spawn_init_common %s\n", name);
 
-	init_page_tables();
+    lvaddr_t paramaddr;
+    struct dcb *init_dcb = spawn_module(&spawn_state, name,
+                                        argc, argv,
+                                        bootinfo_phys, INIT_ARGS_VBASE,
+                                        alloc_phys, &paramaddr);
+
+    init_page_tables();
+
+    printf("about to call mem_to_local_phys with lvaddr=%"PRIxLVADDR"\n",
+           init_l1);
 
     init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_l1);
 
-	spawn_init_map(init_l2, INIT_VBASE, INIT_ARGS_VBASE,
-	                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
+    spawn_init_map(init_l2, INIT_VBASE, INIT_ARGS_VBASE,
+                   spawn_state.args_page, ARGS_SIZE, INIT_PERM_RW);
 
 
     // Map dispatcher
@@ -540,35 +551,38 @@ static struct dcb *spawn_init_common(const char *name,
     disp_arm->enabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
     disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
 
+    printf("spawn_init_common: starting from=%"PRIxLVADDR"\n");
 
     return init_dcb;
 }
 
 struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 {
-	/* Only the first core can run this code */
-	assert(hal_cpu_is_bsp());
+    printf("spawn_bsp_init\n");
 
-	/* Allocate bootinfo */
-	lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
-	memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
+    /* Only the first core can run this code */
+    assert(hal_cpu_is_bsp());
 
-	/* Construct cmdline args */
-	char bootinfochar[16];
-	snprintf(bootinfochar, sizeof(bootinfochar), "%u", INIT_BOOTINFO_VBASE);
-	const char *argv[] = { "init", bootinfochar };
-	int argc = 2;
+    /* Allocate bootinfo */
+    lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
+    memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
-	struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys, alloc_phys);
+    /* Construct cmdline args */
+    char bootinfochar[16];
+    snprintf(bootinfochar, sizeof(bootinfochar), "%u", INIT_BOOTINFO_VBASE);
+    const char *argv[] = { "init", bootinfochar };
+    int argc = 2;
 
-	// Map bootinfo
-	spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,
-			bootinfo_phys, BOOTINFO_SIZE  , INIT_PERM_RW);
+    struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys, alloc_phys);
 
-	struct startup_l2_info l2_info = { init_l2, INIT_VBASE };
+    // Map bootinfo
+    spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,
+                   bootinfo_phys, BOOTINFO_SIZE, INIT_PERM_RW);
 
-	genvaddr_t init_ep, got_base;
-	load_init_image(&l2_info, BSP_INIT_MODULE_NAME, &init_ep, &got_base);
+    struct startup_l2_info l2_info = { init_l2, INIT_VBASE };
+
+    genvaddr_t init_ep, got_base;
+    load_init_image(&l2_info, BSP_INIT_MODULE_NAME, &init_ep, &got_base);
 
     struct dispatcher_shared_arm *disp_arm
         = get_dispatcher_shared_arm(init_dcb->disp);
@@ -689,7 +703,8 @@ void arm_kernel_startup(void)
     	/* Initialize the location to allocate phys memory from */
     	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
-        //XXX Do not spawn anything just yet ..     	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
+        // Bring up init
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
 
         // Not available on PandaBoard?        pit_start(0);
 
@@ -711,19 +726,21 @@ void arm_kernel_startup(void)
     	pic_ack_irq(irq);
     }
 
-    printf("Trying to enable interrupts\n");
-    __asm volatile ("CPSIE aif"); // Enable interrups
-    printf("Done enabling interrupts\n");
+    /* printf("Trying to enable interrupts\n"); */
+    /* __asm volatile ("CPSIE aif"); // Enable interrups */
+    /* printf("Done enabling interrupts\n"); */
 
-    printf("HOLD BOOTUP - SPINNING\n");
-    while (1);
-    printf("THIS SHOULD NOT HAPPEN\n");
+    /* printf("HOLD BOOTUP - SPINNING\n"); */
+    /* while (1); */
+    /* printf("THIS SHOULD NOT HAPPEN\n"); */
 
     // enable interrupt forwarding to cpu
     // FIXME: PS: enable this as it is needed for multicore setup.
     // gic_cpu_interface_enable();
 
     // Should not return
+    printf("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
+           get_dispatcher_shared_arm(init_dcb->disp)->enabled_save_area.named.r0);
     dispatch(init_dcb);
     panic("Error spawning init!");
 
