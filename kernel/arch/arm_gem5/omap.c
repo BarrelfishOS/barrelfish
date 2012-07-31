@@ -559,20 +559,9 @@ static errval_t serial_init(uint8_t index, uint8_t port_no)
 					  OMAP44XX_MAP_L4_PER_UART3_SIZE);
     // paging_map_device returns an address pointing to the beginning of
     // a section, need to add the offset for within the section again
-    uint32_t offset = (UART3_PBASE & ARM_L1_SECTION_MASK);
-    printf("serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
+    uint32_t offset = (OMAP44XX_MAP_L4_PER_UART3 & ARM_L1_SECTION_MASK);
+    printf("omap serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
             base, base + offset);
-
-        volatile uint32_t *p2 = (uint32_t *)OMAP44XX_MAP_L4_PER_UART3;
-    /*
-    volatile uint32_t *p2 = (uint32_t *) UART3_PBASE;
-    volatile uint32_t *p = (uint32_t *) (base + offset);
-    *p2 = 's';  // using physical address
-    printf("print with physical addresses worked\n");
-    *p = 'S'; // using virtual address
-    printf("print with virtual address worked\n");
-    */
-
     omap_uart_init(&ports[index], base + offset);
 
     return SYS_ERR_OK;
