@@ -961,15 +961,20 @@ libnetQmng_deps        = LibDeps $ [ LibDep x | x <- deps ]
 libnfs_deps         = LibDeps $ [ LibDep "nfs", liblwip_deps ]
 
 -- we need to make vfs more modular to make this actually useful
-data VFSModules = VFS_RamFS | VFS_NFS
+data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
 vfsdeps :: [VFSModules] -> [LibDepTree]
-vfsdeps [] = [LibDep "vfs"]
-vfsdeps (VFS_RamFS:xs) = [] ++ vfsdeps xs
-vfsdeps (VFS_NFS:xs) =   [libnfs_deps] ++ vfsdeps xs
+vfsdeps []                  = [LibDep "vfs"]
+vfsdeps (VFS_RamFS:xs)      = [] ++ vfsdeps xs
+vfsdeps (VFS_NFS:xs)        = [libnfs_deps] ++ vfsdeps xs
+vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci" ] ++ vfsdeps xs
+vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
 
-libvfs_deps_all   = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS]
-libvfs_deps_nfs   = LibDeps $ vfsdeps [VFS_NFS]
-libvfs_deps_ramfs = LibDeps $ vfsdeps [VFS_RamFS]
+libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
+                                            VFS_FAT]
+libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
+libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
+libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
+libvfs_deps_fat        = LibDeps $ vfsdeps [VFS_FAT, VFS_BlockdevFS]
 
 -- flatten the dependency tree
 flat :: [LibDepTree] -> [LibDepTree]
@@ -991,6 +996,7 @@ libDeps :: [String] -> [String]
 libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
     where xord = [  "posixcompat"
                   , "vfs"
+                  , "ahci"
                   , "nfs"
                   , "net_queue_manager"
                   , "bfdmuxvm"
