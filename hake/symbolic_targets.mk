@@ -90,6 +90,8 @@ MODULES_x86_64= \
 	sbin/e1000n \
 	sbin/NGD_mng \
 	sbin/e10k \
+	sbin/sfxge \
+	sbin/e10k_queue \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \
@@ -105,6 +107,9 @@ MODULES_x86_64= \
 	sbin/mem_serv_dist \
 	sbin/net-test \
 	sbin/netthroughput \
+	sbin/elb_app \
+	sbin/elb_app_tcp \
+	sbin/lo_queue \
 	sbin/pci \
 	sbin/placement_bench \
 	sbin/phases_bench \

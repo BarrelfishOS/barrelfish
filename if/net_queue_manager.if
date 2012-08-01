@@ -8,6 +8,8 @@
  */
 
 interface net_queue_manager "Ethernet hardware RX/TX queue manager" {
+    /* antoinek: I think most of the queue id arguments are not needed here */
+
     call register_buffer(cap buf,
                          cap sp,
                          uint64 queueid,
@@ -25,11 +27,17 @@ interface net_queue_manager "Ethernet hardware RX/TX queue manager" {
     response sp_notification_from_driver(uint64 queueid, uint64 type,
                          uint64 ts);
 
+    call raw_add_buffer(uint64 offset, uint64 length);
+    response raw_xmit_done(uint64 offset, uint64 length);
+
+
     call print_statistics(uint64 queueid);
     call print_cardinfo();
     call benchmark_control_request(uint64 queueid, uint8 state,
                             uint64 trigger, uint64 cl);
     response benchmark_control_response(uint64 queueid, uint8 state,
                             uint64 delta, uint64 cl);
+
+    call terminate_queue();
 };
 

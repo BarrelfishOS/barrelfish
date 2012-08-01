@@ -812,6 +812,10 @@ static __attribute__ ((used)) void handle_irq(int vector)
         apic_unmask_timer();
     }
 
+#if TRACE_ONLY_LLNET
+    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_IRQ, vector);
+#endif // TRACE_ONLY_LLNET
+
     // APIC timer interrupt: handle in kernel and reschedule
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {
         apic_eoi();

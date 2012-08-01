@@ -122,9 +122,15 @@ static struct memp *memp_tab[MEMP_MAX];
 static
 #endif
 const u16_t memp_sizes[MEMP_MAX] = {
-#define LWIP_MEMPOOL(name,num,size,desc)  LWIP_MEM_ALIGN_SIZE(size),
+#define LWIP_MEMPOOL(name,num,size,desc)  MEMP_ALIGN_SIZE(size),
 #include "lwip/memp_std.h"
 };
+
+/**
+ * Array of indexes of pools, ordered by their element size in descending
+ * order.
+ */
+static size_t memp_sorted[MEMP_MAX];
 
 #if !MEMP_MEM_MALLOC            /* don't build if not configured for use in lwipopts.h */
 
@@ -151,10 +157,10 @@ static u8_t memp_memory_orig[MEM_ALIGNMENT - 1
 #endif
 
 /* This is the size of memory required by all the pools. */
-static const size_t memp_memory_size = (MEM_ALIGNMENT - 1
+/*static const size_t memp_memory_size = (MEM_ALIGNMENT - 1
 #define LWIP_MEMPOOL(name,num,size,desc) + ( (num) * (MEMP_SIZE + MEMP_ALIGN_SIZE(size) ) )
 #include "lwip/memp_std.h"
-  );
+  );*/
 
 static u8_t *memp_memory = 0;
 u8_t *mem_barrelfish_alloc(uint8_t buf_index, uint32_t size);
@@ -266,6 +272,71 @@ static void memp_overflow_init(void)
 
 static u16_t pbuf_pool_counter = 0;
 
+
+#if MEMP_OVERFLOW_CHECK
+#error   "Overflow checking is not supported at the moment, as it screws up "\
+         "our alignment assumptions"
+#endif
+
+/**
+ * Comparator function for ordering pools in descending order of their element
+ * sizes.
+ */
+static int memp_size_comp(const void *a, const void *b)
+{
+    const size_t *as = a, *bs = b;
+    if (memp_sizes[*bs] < memp_sizes[*as]) {
+        return -1;
+    } else if (memp_sizes[*bs] == memp_sizes[*as]) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+/** Initialize memp_sorted */
+static void initialize_memp_sorted(void)
+{
+    size_t i;
+    for (i = 0; i < MEMP_MAX; i++) {
+        memp_sorted[i] = i;
+    }
+    qsort(memp_sorted, MEMP_MAX, sizeof(size_t), memp_size_comp);
+}
+
+/**
+ * Try and figure out how much memory is needed for the pool. This is not
+ * completly trivial as we try to align the pool elements to their size.
+ *
+ * @param max_el_size Pointer to location where maximal element size should be
+ *                    stored (first element size).
+ */
+static size_t memp_memory_needed(void)
+{
+    size_t memp_memory_size = 0;
+    size_t cursz, curtotal, i, idx;
+    size_t maxsz = 1;
+
+    for (i = 0; i < MEMP_MAX; ++i) {
+        idx = memp_sorted[i];
+        cursz = memp_sizes[idx];
+        curtotal = memp_num[idx];
+        if (memp_memory_size % cursz != 0) {
+            curtotal += cursz - (memp_memory_size % cursz);
+        }
+        memp_memory_size += curtotal;
+
+        if (cursz > maxsz) {
+            maxsz = cursz;
+        }
+    }
+
+    // Add a little more so we can align the buffer
+    memp_memory_size += maxsz;
+
+    return memp_memory_size;
+}
+
 /**
  * Initialize this module.
  *
@@ -273,17 +344,20 @@ static u16_t pbuf_pool_counter = 0;
  */
 void memp_init(void)
 {
-
+    size_t memp_memory_size;
 //    printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
 //           RX_BUFFER_ID);
 
-    memp_memory = NULL;
+    initialize_memp_sorted();
+    memp_memory_size = memp_memory_needed();
+
     memp_memory =
       mem_barrelfish_alloc(RX_BUFFER_ID, memp_memory_size);
     if (memp_memory == 0) {
         fprintf(stderr, "could not allocate memory");
         abort();
     }
+
 //    printf("memp_init: allocated memory is at VA [%p]\n", memp_memory);
 
     memp_initialize_pbuf_list();
@@ -296,7 +370,8 @@ void memp_initialize_pbuf_list(void)
 
     assert(memp_memory != NULL);
     struct memp *memp;
-    u16_t i, j;
+    uintptr_t uimemp;
+    u16_t k, i, j;
     for (i = 0; i < MEMP_MAX; ++i) {
         MEMP_STATS_AVAIL(used, i, 0);
         MEMP_STATS_AVAIL(max, i, 0);
@@ -311,21 +386,29 @@ void memp_initialize_pbuf_list(void)
 */
     memp->next = NULL;
     /* for every pool: */
-    for (i = 0; i < MEMP_MAX; ++i) {
+    for (k = 0; k < MEMP_MAX; ++k) {
+        i = memp_sorted[k];
         memp_tab[i] = NULL;
 /*      printf("memp_init: %" PRIu16 "(%s) size %" PRIu16 " num %" PRIu16 "\n",
                i, memp_desc[i], memp_sizes[i], memp_num[i]);
+
+        printf("pool %i: %p  PBUF_POOL_BUFSIZE=%i\n", i, memp,
+                    PBUF_POOL_BUFSIZE);
 */
+
+        // Align memp to element size
+        uimemp = (uintptr_t) memp;
+        if (uimemp % memp_sizes[i] > 0) {
+            uimemp += memp_sizes[i] - (uimemp % memp_sizes[i]);
+        }
+        memp = (struct memp *) uimemp;
+
         /* create a linked list of memp elements */
         for (j = 0; j < memp_num[i]; ++j) {
             memp->next = NULL;
             memp->next = memp_tab[i];
             memp_tab[i] = memp;
-            memp = (struct memp *) ((u8_t *) memp + MEMP_SIZE + memp_sizes[i]
-#if MEMP_OVERFLOW_CHECK
-                                    + MEMP_SANITY_REGION_AFTER_ALIGNED
-#endif
-              );
+            memp = (struct memp *) ((u8_t *) memp + memp_sizes[i]);
         }
     }
     // Set how many free pbuf_pools are there
@@ -444,7 +527,7 @@ void memp_free(memp_t type, void *mem)
 #if MEMP_OVERFLOW_CHECK >= 2
     memp_overflow_check_all();
 #else
-    memp_overflow_check_element(memp, memp_sizes[type]);
+    memp_overflow_check_element(memp, Nemp_sizes[type]);
 #endif                          /* MEMP_OVERFLOW_CHECK >= 2 */
 #endif                          /* MEMP_OVERFLOW_CHECK */
 

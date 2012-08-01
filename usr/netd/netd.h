@@ -23,6 +23,13 @@
 #include <contmng/contmng.h>
 #include <procon/procon.h>
 
+extern bool do_dhcp;
+// IP information for static configuration
+extern char *ip_addr_str;
+extern char *netmask_str;
+extern char *gateway_str;
+extern char *dns_str;
+
 typedef net_ARP_ipv4addr_t ipv4addr_t;
 
 struct netif *netif_ptr;

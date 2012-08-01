@@ -37,6 +37,7 @@
  */
 #define TRACE_THREADS
 #define TRACE_CSWITCH
+#define NETWORK_LLSTACK_TRACE 1
 
 /* Trace only network related events
  * This will reduce the amount of events recorded, and hence allows
@@ -49,9 +50,11 @@
 #define TRACE_ONLY_SUB_BNET 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
-#if CONFIG_TRACE
-#define TRACE_ONLY_SUB_NNET 1
-#endif
+#if CONFIG_TRACE && NETWORK_LLSTACK_TRACE
+#define TRACE_ONLY_LLNET 1
+#endif // CONFIG_TRACE && NETWORK_LLSTACK_TRACE
+
+
 
 /**
  * \brief Constants for trace subsystems and events.
@@ -271,6 +274,31 @@
 #define TRACE_EVENT_NNET_TX_TCP_FREE         0x0033 // tx pbuf freed
 #define TRACE_EVENT_NNET_TX_MEMP             0x0034 // tx pbuf memp start
 #define TRACE_EVENT_NNET_TX_MEMP_D           0x0035 // tx pbuf memp done
+
+
+/* Constant for low-level networking trace */
+#define TRACE_SUBSYS_LLNET                  0xD000
+#define TRACE_EVENT_LLNET_START             0x0001
+#define TRACE_EVENT_LLNET_STOP              0x0002
+#define TRACE_EVENT_LLNET_IRQ               0x0003
+#define TRACE_EVENT_LLNET_LMPDISP           0x0004
+
+#define TRACE_EVENT_LLNET_DRVIRQ            0x0010
+#define TRACE_EVENT_LLNET_DRVRX             0x0011
+#define TRACE_EVENT_LLNET_DRVTXADD          0x0012
+#define TRACE_EVENT_LLNET_DRVTXDONE         0x0013
+
+#define TRACE_EVENT_LLNET_LWIPPBA1          0x0020
+#define TRACE_EVENT_LLNET_LWIPPBA2          0x0021
+#define TRACE_EVENT_LLNET_LWIPPBF1          0x0022
+#define TRACE_EVENT_LLNET_LWIPPBF2          0x0023
+#define TRACE_EVENT_LLNET_LWIPRX            0x0024
+#define TRACE_EVENT_LLNET_LWIPTX            0x0025
+
+#define TRACE_EVENT_LLNET_APPRX             0x0030
+#define TRACE_EVENT_LLNET_APPTX             0x0031
+
+
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 

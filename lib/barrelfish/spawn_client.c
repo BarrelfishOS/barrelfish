@@ -396,13 +396,22 @@ errval_t spawn_exit(uint8_t exitcode)
  */
 errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
 {
+    return spawn_wait_core(disp_get_core_id(), domainid, exitcode, nohang);
+}
+
+/**
+ * \brief Wait for the termination of a domain on a remote core.
+ */
+errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
+                         uint8_t *exitcode, bool nohang)
+{
     errval_t err, reterr;
 
-    err = bind_client(disp_get_core_id());
+    err = bind_client(coreid);
     if (err_is_fail(err)) {
         return err;
     }
-    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(coreid);
     assert(cl != NULL);
 
     err = cl->vtbl.wait(cl, domainid, nohang, exitcode, &reterr);

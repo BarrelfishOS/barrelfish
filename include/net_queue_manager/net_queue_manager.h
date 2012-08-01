@@ -55,11 +55,31 @@ struct filter {
     struct filter *next;
 };
 
+// State required in TX path to remember information about buffers
+struct buffer_state_metadata {
+    struct net_queue_manager_binding *binding;
+    uint64_t offset;
+//    uint64_t spp_index;
+//    uint64_t tx_pending;
+};
+
+struct bsm_queue {
+    size_t buffer_state_size; // size of slot queue
+    size_t buffer_state_head; // the index pointer
+    size_t buffer_state_used; // how many of them are used?
+    struct buffer_state_metadata *buffer_state;  // array of slots
+};
+
+
 struct buffer_descriptor {
     uint64_t buffer_id;  // buffer identifier
     struct net_queue_manager_binding *con; // binding to which buffer belongs
     struct capref cap; // cap backing the buffer memory
-    struct shared_pool_private *spp_prv; // shared producer consumer pool
+//    struct shared_pool_private *spp_prv; // shared producer consumer pool
+
+    struct bsm_queue rxq; // queue for receive path
+    struct bsm_queue txq; // queue for send path
+
     uint8_t role;  // Role of buffer (RX/TX)
     lpaddr_t pa;    // Physical address of buffer
     uint64_t bits;  // Size of buffer (encoded in bits)
@@ -118,6 +138,11 @@ struct client_closure {
     uint64_t in_dropped_app_buf_full; // # packets dropped for lack of buffers
 }; /* holds info about how much data is transferred to NIC. */
 
+struct driver_buffer {
+    uint64_t pa;
+    void    *va;
+    size_t   len;
+};
 
 /*****************************************************************
  * Driver states
@@ -129,27 +154,67 @@ struct client_closure {
  *  using the library.
  ******************************************************************/
 typedef void (*ether_get_mac_address_t)(uint8_t *mac);
-
-typedef errval_t (*ether_transmit_pbuf_list_t)
-                        (struct client_closure *closure);
+typedef void (*ether_terminate_queue)(void);
+typedef errval_t (*ether_transmit_pbuf_list_t)(
+    struct driver_buffer *buffers,
+    size_t                count,
+    void                 *opaque);
 typedef uint64_t (*ether_get_tx_free_slots)(void);
 typedef bool (*ether_handle_free_TX_slot)(void);
+typedef errval_t (*ether_rx_register_buffer)(uintptr_t paddr, void *vaddr,
+                                               void *opaque);
+typedef uint64_t (*ether_rx_get_free_slots)(void);
+
 
 
 /*****************************************************************/
-void ethersrv_init(char *service_name, uint64_t queueid,
-		ether_get_mac_address_t get_mac_ptr,
-		ether_transmit_pbuf_list_t transmit_ptr,
-                ether_get_tx_free_slots tx_free_slots_ptr,
-                ether_handle_free_TX_slot handle_free_tx_slots_ptr);
 
-bool waiting_for_netd(void);
+/**
+ * Initialize pair of ethernet RX/TX queues.
+ *
+ * @param service_name             Service name for the card to which this queue
+ *                                   belongs
+ * @param queueid                  Queue index
+ * @param get_mac_ptr              Callback that returns MAC address of the card
+ * @param terminate_queue_ptr      Callback that terminates the queue driver, or
+ *                                   NULL if this is not supported.
+ * @param transmit_ptr             Callback to put a buffer chain in TX queue
+ * @param tx_free_slots_ptr        Callback that returns number of free slots in
+ *                                   TX queue
+ * @param handle_free_tx_slots_ptr Callback to remove transmitted buffers from
+ *                                   queue
+ * @param rx_buffer_size           Expected RX buffer size
+ * @param rx_register_buffer_ptr   Callback to register buffer for RX queue
+ * @param rx_get_free_slots_ptr    Callback that returns number of free slots in
+ *                                   RX queue
+ */
+void ethersrv_init(
+    char *service_name,
+    uint64_t queueid,
+    ether_get_mac_address_t     get_mac_ptr,
+    ether_terminate_queue       terminate_queue_ptr,
+    ether_transmit_pbuf_list_t  transmit_ptr,
+    ether_get_tx_free_slots     tx_free_slots_ptr,
+    ether_handle_free_TX_slot   handle_free_tx_slots_ptr,
+    size_t                      rx_buffer_size,
+    ether_rx_register_buffer    rx_register_buffer_ptr,
+    ether_rx_get_free_slots     rx_get_free_slots_ptr);
 
-bool handle_tx_done(struct net_queue_manager_binding * b, uint64_t spp_index);
+/**
+ * Pass command line argument not used by driver to library. Can be called
+ * multiple times, once for each parameter.
+ */
+void ethersrv_argument(const char* arg);
+
+bool handle_tx_done(void *opaque);
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
-void process_received_packet(void *pkt_data, size_t pkt_len);
+void process_received_packet(void *opaque, size_t pkt_len, bool is_last);
+
+// For local loopback device
+void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
+        size_t pkt_len, bool is_last);
 
 /* for frag.c */
 bool handle_fragmented_packet(void* packet, size_t len);

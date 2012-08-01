@@ -10,18 +10,10 @@
 #ifndef E10K_H_
 #define E10K_H_
 
-#include <barrelfish/barrelfish.h>
-
 #include "e10k_dev.h"
-
-#include "e10k_queue.h"
-#include "sleep.h"
 
 #define E10K_PCI_DEVID 0x10FB
 
-// Helper functions
-void debug_dumpmem(void* buf, size_t len);
-void* alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
-
+void e10k_phy_init(e10k_t* d);
 
 #endif // ndef E10K_H_

@@ -14,7 +14,7 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-
+//#define E1000N_SERVICE_DEBUG 1
 #if defined(E1000N_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define E1000N_DEBUG(x...) printf("e1000n: " x)
 #else

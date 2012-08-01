@@ -55,7 +55,8 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   register ctrl_ext rw addr(base, 0x00018) "Extended Device Control Register" {
     _           14 rsvd;
     pfrstd      1 "PF Reset Done";
-    _           2 rsvd;
+    _           1 rsvd;
+    ns_dis      1 "NO Snoop Disable"; /* Not in spec, but set by FBSD/Linux */
     ro_dis      1 "Relaxed Ordering Disable";
     _           8 rsvd;
     ext_vlan    1 "Extended VLAN";
@@ -644,14 +645,17 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
                 type(eitrn);
 
   // 8.2.3.5.13
+  /* A read from this register seems to cause an ECC error, that's why I
+   * replaced rsvd below by mbz, so that the _wr() method don't causes a
+   * read. */
   regarray l34timir rw addr(base, 0x0E800) [128] "L3 L4 Tuples Immediate Interrupt Rx" {
-    _           12 rsvd;
+    _           12 mbz; /* rsvd */
     size_bp     1 "Size Bypass";
     _           6 mbz;
     _           1 mb1;
     lli         1 "Low Latency Interrupt";
     rx_queue    7 "Rx Queue";
-    _           4 rsvd;
+    _           4 mbz; /* rsvd */
   };
 
   // 8.2.3.5.14
@@ -913,12 +917,13 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   };
 
   // 8.2.3.7.19
+  /* see l34timir */
   regarray ftqf rw addr(base, 0x0E600) [128] "Five tuple Queue Filter" {
     protocol    2 type(l4_proto) "IP L4 protocol";
     priority    3 "Priority value in case more than one 5-tuple filter matches";
-    _           3 rsvd;
+    _           3 mbz;  /* rsvd */
     pool        6 "The pool Index of the pool associated with this filter";
-    _           11 rsvd;
+    _           11 mbz; /* rsvd */
     m_srcaddr   1 "Mask source address comparison";
     m_dstaddr   1 "Mask destination address comparison";
     m_srcport   1 "Mask source port comparison";
@@ -1256,10 +1261,109 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
    * 8.2.3.10 DCB Registers
    ***********************************/
 
+  // 8.2.3.10.1
+  register rtrpcs rw addr(base, 0x02430) "DCB Receive Packet Plane Control and Status" {
+    _           1 rsvd;
+    rrm         1 "Receive Recycle Mode";
+    rac         1 "Receive Arbitration Control";
+    _           13 rsvd;
+    lrpb        3 "Last Received Packet Buffer Status Indication";
+    _           13 rsvd;
+  };
+
+  // 8.2.3.10.2
+  register rttdcs rw addr(base, 0x04900) "DCP Transmit Descriptor Plane Control and Status" {
+    tdpac       1 "TC Transmit Descriptor Plane Arbitration Control";
+    vmpac       1 "VM Transmit Descriptor Plane Arbitration Control";
+    _           2 rsvd;
+    tdrm        1 "TC Transmit descriptor plane recycle mode";
+    _           1 rsvd;
+    arbdis      1 "DCB Arbiters Disable";
+    _           10 rsvd;
+    lttdesc     3 ro "Last Transmitted TC";
+    _           2 rsvd;
+    bdpm        1 "Bypass data pipe Monitor";
+    bpbfsm      1 "Bypass Packet Buffer Free Space Monitor";
+    _           7 rsvd;
+    speed_chg   1 "Link speed has changed";
+  };
+
+  // 8.2.3.10.3
+  register rttpcs rw addr(base, 0x0CD00) "DCB Transmit Packet Plane Control and Status" {
+    _           5 rsvd;
+    tppac       1 "Transmit Packet Plane Arbitration Control";
+    _           2 rsvd;
+    tprm        1 "Transmit packet plane recycle mode";
+    _           13 rsvd;
+    arbd        10 "ARB_delay";
+  };
+
+  // 8.2.3.10.4
+  register rtrup2tc rw addr(base, 0x03020) "DCB Receive User Priority to Traffic Class" {
+    up0map      3 "Receive UP 0 to TC Mapping";
+    up1map      3 "Receive UP 1 to TC Mapping";
+    up2map      3 "Receive UP 2 to TC Mapping";
+    up3map      3 "Receive UP 3 to TC Mapping";
+    up4map      3 "Receive UP 4 to TC Mapping";
+    up5map      3 "Receive UP 5 to TC Mapping";
+    up6map      3 "Receive UP 6 to TC Mapping";
+    up7map      3 "Receive UP 7 to TC Mapping";
+    _           8 rsvd;
+  };
+
+  // 8.2.3.10.5
+  register rttup2tc rw addr(base, 0x0C800) "DCB Transmit User Priority to Traffic Class" {
+    up0map      3 "Receive UP 0 to TC Mapping";
+    up1map      3 "Receive UP 1 to TC Mapping";
+    up2map      3 "Receive UP 2 to TC Mapping";
+    up3map      3 "Receive UP 3 to TC Mapping";
+    up4map      3 "Receive UP 4 to TC Mapping";
+    up5map      3 "Receive UP 5 to TC Mapping";
+    up6map      3 "Receive UP 6 to TC Mapping";
+    up7map      3 "Receive UP 7 to TC Mapping";
+    _           8 rsvd;
+  };
+
+  // 8.2.3.10.6
+  regarray rtrpt4c rw addr(base, 0x02140) [8] "DCB Receive Packet Plane T4 Config" {
+    crq         9 "Credit refill quantum";
+    bwg         3 "Bandwidth group index";
+    mcl         12 "Max credit limit";
+    _           6 rsvd;
+    gsp         1 "Group strict priority";
+    lsp         1 "Link strict priority";
+  };
+
+  // 8.2.3.10.9
+  regarray rttdt2c rw addr(base, 0x04910) [8] "DCB Transmit Descriptor Plane T2 Config" {
+    crq         9 "Credit refill quantum";
+    bwg         3 "Bandwidth group index";
+    mcl         12 "Max credit limit";
+    _           6 rsvd;
+    gsp         1 "Group strict priority";
+    lsp         1 "Link strict priority";
+  };
+
+  // 8.2.3.10.10
+  regarray rttpt2c rw addr(base, 0x0CD20) [8] "DCB Transmit Packet Plane T2 Config" {
+    crq         9 "Credit refill quantum";
+    bwg         3 "Bandwidth group index";
+    mcl         12 "Max credit limit";
+    _           6 rsvd;
+    gsp         1 "Group strict priority";
+    lsp         1 "Link strict priority";
+  };
+
   // 8.2.3.10.13
   register rttdqsel rw addr(base, 0x04904) "DCB Transmit Descriptor Plane Queue Select" {
     txdq_idx    7 "Tx Descriptor Queue Index";
     _           25 rsvd;
+  };
+
+  // 8.2.3.10.14
+  register rttdt1c rw addr(base, 0x04908) "DCB Transmit Descriptor Plane T1 Config" {
+    crq         14 "Credit refill quantum";
+    _           18 rsvd;
   };
 
   // 8.2.3.10.16
@@ -2156,6 +2260,10 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   register gprc ro addr(base, 0x04074) "Good packets recieved count"
     type(uint32);
 
+  // 8.2.3.23.29
+  register rxnfgpc rc addr(base, 0x041B0) "Good Rx Non-Filtered Packet Counter"
+    type(uint32);
+
   // 8.2.23.32
   register rxdgpc rc addr(base, 0x02F50) "DMA Good Rx Packet Counter"
     type(uint32);
@@ -2184,6 +2292,14 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   register rjc rc addr(base, 0x040B0) "Receive Jabber Count"
     type(uint32);
 
+  // 8.2.23.54
+  register mngprc rc addr(base, 0x040B4) "Management Packets Received Count"
+    type(uint32);
+
+  // 8.2.23.55
+  register mngpdc rc addr(base, 0x040B8) "Management Packets Dropped Count"
+    type(uint32);
+
   // 8.2.23.59
   register tpr rc addr(base, 0x040D0) "Total Packets Recieved"
     type(uint32);
@@ -2194,6 +2310,14 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
 
   // 8.2.23.69
   register mspdc rc addr(base, 0x04010) "MAC Short Packet Discard Count"
+    type(uint32);
+
+  // 8.2.23.74
+  regarray qprc rc addr(base, 0x01030) [16; 0x40] "Queue Packets Received Count"
+    type(uint32);
+
+  // 8.2.23.75
+  regarray qprdc rc addr(base, 0x01430) [16; 0x40] "Queue Packets Received Drop Count"
     type(uint32);
 
 
@@ -2210,8 +2334,95 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
 
 
   /************************************
+   * 8.2.3.25 Management filters
+   ***********************************/
+
+  // 8.2.3.25.1
+  regarray mavtv rw addr(base, 0x05010) [8] "Management VLAN TAG Value" {
+    vid         12 "VLAN ID that should be compared with incoming packet";
+    _           20 rsvd;
+  };
+
+  // 8.2.3.25.2
+  regarray mfutp rw addr(base, 0x05030) [8] "Management Flex UDP/TP Ports" {
+    mfutp_1     16 "VLAN ID that should be compared with incoming packet";
+    mfutp_2     16 "VLAN ID that should be compared with incoming packet";
+  };
+
+  // 8.2.3.25.3
+  regarray metf rw addr(base, 0x05190) [4] "Management Ethernet Type Filter" {
+    etype       16 "EtherType value to be compared with incoming packet";
+    _           14 rsvd;
+    polarity    1 "Negative filter";
+    _           1 rsvd;
+  };
+
+  // 8.2.3.25.4
+  register manc rw addr(base, 0x05820) "Management Control Register" {
+    _           17 rsvd;
+    rcv_tco_en  1 "Receive TCO Packets Enabled";
+    _           1 rsvd;
+    rcv_all     1 "Receive All Enable";
+    mcst_pl2    1 "Receive All Multicast";
+    en_m2h      1 "Enable manageability packets to host memory";
+    bp_vlan     1 "VLAN filtering is bypassed for MNG packets";
+    en_xsum_flt 1 "When set, this bit enables Xsum filtering to manageability";
+    en_ipv4_flt 1 "Enable IPv4 address Filters";
+    fixed_net_t 1 "Fixed next type";
+    net_type    1 "Pass only VLAN tagged packets";
+    _           5 rsvd;
+  };
+
+  // 8.2.3.25.5
+  register mfval rw addr(base, 0x05824) "Manageability Filters Valid" {
+    mac         4 "Indicates if the MAC unicast filters contain valid MAC addresses";
+    _           4 rsvd;
+    vlan        8 "VLAN filter registers contain valid VLAN tags";
+    ipv4        4 "IPv4 address filters contain valid addresses";
+    _           4 rsvd;
+    ipv6        4 "IPv6 address filters contain valid addresses";
+    _           4 rsvd;
+  };
+
+  // 8.2.3.25.6
+  register manc2h rw addr(base, 0x05860) "Management Control To Host Register" {
+    host_en     8 "Host Enable";
+    _           24 rsvd;
+  };
+
+  // 8.2.3.25.7 (TODO: Correct type)
+  regarray mdef rw addr(base, 0x05890) [8] "Manageability Decision Filters"
+    type(uint32);
+
+  // 8.2.3.25.7 (TODO: Correct type)
+  regarray mdef_ext rw addr(base, 0x05160) [8] "Manageability Decision Filters"
+    type(uint32);
+
+  /************************************
    * 8.2.3.27 Virtualization
    ***********************************/
+
+  // 8.2.3.27.1
+  register pfvtctl rw addr(base, 0x051B0) "VT Control Register" {
+    vt_en       1 "Virtualization Enabled Mode";
+    _           6 rsvd;
+    def_pl      6 "Default pool";
+    _           16 rsvd;
+    dis_def_pl  1 "Disable default pool";
+    rpl_en      1 "Replication enable";
+    _           1 rsvd;
+  };
+
+  // 8.2.3.27.9
+  register pfqde rw addr(base, 0x02F04) "PF PF Queue Drop Enable Register" {
+    qde         1 "Enable drop of packets from Rx Queue queue_idx";
+    _           7 rsvd;
+    queue_idx   7 "Queue index referenced";
+    _           1 rsvd;
+    we          1 "Write Enable";
+    re          1 "Read Enable";
+    _           14 rsvd;
+  };
 
   // 8.2.3.27.15
   regarray pfvlvf rw addr(base, 0x0F100) [64] "PF VM VLAN Pool Filter" {

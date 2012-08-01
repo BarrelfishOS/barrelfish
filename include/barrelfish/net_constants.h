@@ -107,7 +107,7 @@ enum buffer_memory_types {
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (1600)
+#define PBUF_POOL_BUFSIZE       (2048)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */
@@ -129,14 +129,14 @@ enum buffer_memory_types {
 
 /// Number of PBUF structs available
 #ifndef MEMP_NUM_PBUF
-#define MEMP_NUM_PBUF           16384
-//#define MEMP_NUM_PBUF           128
+//#define MEMP_NUM_PBUF         16384
+#define MEMP_NUM_PBUF           4096
 #endif // MEMP_NUM_PBUF
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE         16384
-//#define PBUF_POOL_SIZE          128
+//#define PBUF_POOL_SIZE         16384
+#define PBUF_POOL_SIZE          4096
 #endif // PBUF_POOL_SIZE
 
 /* NOTE: This value should be bigger than NR_PREALLOCATED_PBUFS of lwipopts.h */
@@ -147,9 +147,9 @@ enum buffer_memory_types {
 #define TRANSMIT_BUFFERS (800 * 8) //< Number of transmit descriptors
                               //< (must be multiple of 8)
 
-/// the size of the pool
+/// the size of the elements in the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (1600)
+#define PBUF_POOL_BUFSIZE       (2048)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */

@@ -96,6 +96,17 @@ static void link_status_change(struct netif *nf)
         printf("Interface up! IP address %d.%d.%d.%d\n",
                ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
                ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
+        printf("NetMask %d.%d.%d.%d\n",
+               ip4_addr1(&nf->netmask), ip4_addr2(&nf->netmask),
+               ip4_addr3(&nf->netmask), ip4_addr4(&nf->netmask));
+        printf("GateWay %d.%d.%d.%d\n",
+               ip4_addr1(&nf->gw), ip4_addr2(&nf->gw),
+               ip4_addr3(&nf->gw), ip4_addr4(&nf->gw));
+
+        printf("for MAC = %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
+                nf->hwaddr[0], nf->hwaddr[1], nf->hwaddr[2],
+                nf->hwaddr[3], nf->hwaddr[4], nf->hwaddr[5]);
+        printf("##########################################\n");
     }
 
     local_ip = nf->ip_addr;
@@ -109,8 +120,10 @@ static void link_status_change(struct netif *nf)
         periodic_event_cancel(&dhcp_coarse_timer);
 #endif // 0
 
-        dhcp_completed = true;
-    }
+        if (do_dhcp) {
+            dhcp_completed = true;
+        }
+    } // end if: first call
 
     subsequent_call = true;
 }
@@ -120,13 +133,26 @@ static void link_status_change(struct netif *nf)
 static void get_ip_from_dhcp(struct netif *nf_ptr)
 {
 
-    netif_set_status_callback(nf_ptr, link_status_change);
     NETD_DEBUG("get_ip_from_dhcp: starting dhcp\n");
     setup_dhcp_timer();
     err_t err = dhcp_start(nf_ptr);
 
     assert(err == ERR_OK);
 }
+
+static void convert_str_to_ip_addr(char *addr_str,
+        struct ip_addr *ip_addr_holder)
+{
+    // Preparing IP address for use
+    assert(addr_str != NULL);
+    struct in_addr addr;
+    if (inet_aton(addr_str, &addr) == 0) {
+        printf("Invalid IP addr: %s\n", ip_addr_str);
+        USER_PANIC("Invalid IP address %s", ip_addr_str);
+        return;
+    }
+    ip_addr_holder->addr = addr.s_addr;
+} // end function: convert_str_to_ip_addr
 
 void startlwip(char *card_name, uint64_t queueid)
 {
@@ -136,18 +162,38 @@ void startlwip(char *card_name, uint64_t queueid)
     // take ownership of lwip
     netif_ptr = owner_lwip_init(card_name, queueid);
     assert(netif_ptr != NULL);
-    get_ip_from_dhcp(netif_ptr);
+    netif_set_status_callback(netif_ptr, link_status_change);
 
-    NETD_DEBUG("Waiting for DHCP to complete\n");
-    struct waitset *ws = get_default_waitset();
-    while (!dhcp_completed) {
-        errval_t err = event_dispatch(ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch (waiting for dhcp)");
-            break;
-        }
-    } // end while
+    if (do_dhcp) {
+        get_ip_from_dhcp(netif_ptr);
 
-    NETD_DEBUG("registering net_ARP service\n");
-    // FIXME: register ARP service
+        NETD_DEBUG("Waiting for DHCP to complete\n");
+        struct waitset *ws = get_default_waitset();
+        while (!dhcp_completed) {
+            errval_t err = event_dispatch(ws);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch (waiting for dhcp)");
+                break;
+            }
+        } // end while
+        return;
+    } // end if: do_dhcp
+
+    // end else: static ip configuration
+    // directly set IP address
+    printf("Configuring interface with static values\n");
+    printf("ip[%s], nm[%s], gw[%s]\n", ip_addr_str, netmask_str,
+                gateway_str);
+    struct ip_addr ipaddr, gw, netmask;
+    convert_str_to_ip_addr(ip_addr_str, &ipaddr);
+    convert_str_to_ip_addr(netmask_str, &netmask);
+    convert_str_to_ip_addr(gateway_str, &gw);
+
+
+    netif_set_ipaddr(netif_ptr, &ipaddr);
+    netif_set_gw(netif_ptr, &gw);
+    netif_set_netmask(netif_ptr, &netmask);
+    netif_set_up(netif_ptr);
+
 } // end function startlwip
+

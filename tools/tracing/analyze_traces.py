@@ -6,8 +6,9 @@ import re
 
 TRACE_SUBSYS_NNET = 0x9000
 TRACE_SUBSYS_NET = 0x6000
-valid_cores = ["0 "]
-core_map = {0:"NIC", 3:"APP"}
+TRACE_SUBSYS_LLNET = 0x6000
+valid_cores = ["3 ", "2 "]
+core_map = {2: "DRV", 3:"APP"}
 
 # Following constans are used for profiling modified stack
 event_map = {
@@ -129,10 +130,44 @@ netmap = { 0x0001: 'Start',
            }
 
 
-ssmap  = { 0xffff: ('KERN', kmap),
-           0xeeee: ('THREAD', tmap),
-           0x9000: ('NET', netmap),
+
+llmap = {  0x0001: 'LLNET_START',
+           0x0002: 'LLNET_STOP',
+           0x0003: 'LLNET_IRQ',
+
+           0x0010: 'LLNET_DRVIRQ',
+           0x0011: 'LLNET_DRVRX',
+           0x0012: 'LLNET_DRVTXADD',
+           0x0013: 'LLNET_DRVTXDONE',
+
+           0x0020: 'LLNET_LWIPPBA1',
+           0x0021: 'LLNET_LWIPPBA2',
+           0x0022: 'LLNET_LWIPPBF1',
+           0x0023: 'LLNET_LWIPPBF2',
+           0x0024: 'LLNET_LWIPRX',
+           0x0025: 'LLNET_LWIPTX',
+
+           0x0030: 'LLNET_APPRX',
+           0x0031: 'LLNET_APPTX',
+        }
+
+
+def default_info(ev):
+	return ("%-15x" % ev['INFO'])
+
+def kern_info(ev):
+	if ev['EVENT'] == 0xcccc:
+		return DCB[ev['CID']][ev['INFO']]
+	return default_info(ev)
+
+ssmap  = { 0xffff: ('KERN', kmap, kern_info),
+           0xeeee: ('THREAD', tmap, default_info),
+           0x9000: ('NET', netmap, default_info),
+           0xd000: ('LLNET', llmap, default_info),
+           0xea00: ('UMP TX', {}, default_info),
+           0xeb00: ('UMP RX', {}, default_info),
          }
+
 
 NIC_IN_EVENTS = {
 0x0012: "physical interrupt came",
@@ -162,12 +197,13 @@ machine_speeds = {
         'nos6' : 2799.877,
         'sbrinz1' : 2511.0,
         'ziger1' : 2400.367,
+        'gottardo' : 1866.0,
         }
 #packet_boundries = [0X0012]
 #LOGICAL_ORDER = [0x012, 0x0010, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007,
 #				0x0008, 0x0009, 0x000A, 0x000b, 0x000c]
 
-packet_boundries = [0X0010]
+packet_boundries = [0x0031]
 LOGICAL_ORDER = [0x0010, 0x0003, 0x0015, 0x0016, # 0x0019, 0x001a, 0x001b, 0x001c,
 				0x0017, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000A,
 				0x000b, 0x000c]
@@ -178,13 +214,17 @@ LOGICAL_ORDER = [0x0010, 0x0003, 0x0015, 0x0016, # 0x0019, 0x001a, 0x001b, 0x001
 
 
 
+# Maps core to (map of context id -> name)
+DCB = {}
+
+
 MAX_EVENT_NOREPLY = 9
 MAX_EVENTS = 0x00FF
 
 DEBUG = False
-#DEBUG = True
+DEBUG = True
 
-MACHINE = 'ziger1'
+MACHINE = 'sbrinz1'
 
 def dprint (args):
 	if DEBUG:
@@ -195,11 +235,16 @@ def c2t (cycles):
 	return ( cycles / (machine_speeds[MACHINE]))  # micro seconds
 
 def print_event(event):
-	print "%-15f %-12f %-10s %-45s %-4s %-15x" % (c2t(event['TS']),
-		c2t(event['DIFF']),
-                ssmap[event['SYS']][0],
-                ssmap[event['SYS']][1][event['EVENT']],
-	 	core_map[event['CID']], event['INFO'])
+    ss = ssmap[event['SYS']]
+    ev = event['EVENT']
+    info = ss[2](event)
+    if not ev in ss[1]:
+        print "%-15f %-12f %-10s %-45s %-4s %s" % (c2t(event['TS']),
+            c2t(event['DIFF']), ss[0], ev, core_map[event['CID']], info)
+    else:
+		print "%-15f %-12f %-10s %-45s %-4s %s" % (c2t(event['TS']),
+			c2t(event['DIFF']), ss[0], ss[1][ev],
+            core_map[event['CID']], info)
 	#print event['DIFF_S'], event_map[event['EVENT']],\
 	#core_map[event['CID']], event['INFO']
 
@@ -212,10 +257,19 @@ def extract_events(in_f):
 	event_list = []
 	line_count = 0
 	for line in in_f:
+		if line[0] == '#' :
+			if line[1:6] == ' DCB ':
+				c = int(line[6:8])
+				i = int(line[8:24], 16) & 0xffffffff
+				name = line[25:-1]
+				if not c in DCB:
+					DCB[c] = {}
+				DCB[c][i] = name
+			continue
+
 		if line[0:2] not in valid_cores :
 			continue
-		if line[0] == '#' :
-			continue
+
 		tokens = splitter.split(line.strip())
 		if len(tokens) != 3 :
 			print "Error: Cant process line " + line
@@ -277,8 +331,12 @@ def print_packet(pkt):
 	print "######################"
 	print "Time after last packet %f" % (
 		c2t(pkt['PDIFF']))
+	start = pkt['EL'][0]['TS']
 	for e in pkt['EL']:
+		a = e['TS']
+		e['TS'] = a - start
 		print_event(e)
+		e['TS'] = a
 	print "Packet Lifetime = %f, no. of events = %d" % (
 	c2t(pkt['STOP'] - pkt['START']), len(pkt['EL']))
 
@@ -461,12 +519,12 @@ def group_events(event_list):
 def process_trace(in_f):
 	elist = diff_events(extract_events(in_f))
 	dprint("no. of events detected is " + str(len(elist)))
-	show_event_list(elist)
+#	show_event_list(elist)
 
-#	plist = group_events(elist)
+	plist = group_events(elist)
 #	dprint("no. of packets detected is " + str(len(plist)))
 
-#	show_packet_list(plist)
+	show_packet_list(plist)
 #	show_packet_list(plist, True)
 #	show_answered_packets_list(plist)
 

@@ -15,13 +15,13 @@
 		      flounderDefs = [ "replay" ],
 		      flounderBindings = [ "replay" ],
 		      addLibraries = [ "vfs", "nfs", "lwip", "contmng",
-                      "procon", "hashtable" ]
+                      "net_if_raw", "hashtable" ]
                     },
 build application { target = "replay-slave",
   		      cFiles = [ "slave.c" ],
 		      flounderDefs = [ "replay" ],
 		      flounderBindings = [ "replay" ],
 		      addLibraries = [ "posixcompat", "vfs", "nfs", "lwip",
-                      "contmng", "procon", "hashtable" ]
+                      "contmng", "net_if_raw", "hashtable" ]
                     }
 ]

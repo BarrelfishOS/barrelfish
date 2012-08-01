@@ -210,6 +210,7 @@ static uint64_t refresh_cache(uint32_t dst_ip_addr)
     dst_ip.addr = dst_ip_addr;
     netif = ip_route(&dst_ip);
 
+    NETD_DEBUG("refresh_cache: calling etharp_request\n");
     errval_t r = etharp_request(netif, &dst_ip);
     assert(err_is_ok(r));
 

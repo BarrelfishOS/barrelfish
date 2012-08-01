@@ -65,7 +65,7 @@
 #define TCP_SND_QUEUELEN       (16 * (TCP_SND_BUF/TCP_MSS))
 
 /// Enable debugging
-#define LWIP_DEBUG              1
+// #define LWIP_DEBUG              1
 
 /// Enable have loopif (localhost hostname translation)
 #define LWIP_HAVE_LOOPIF 1
