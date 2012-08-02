@@ -532,7 +532,6 @@ PANDABOARD_MODULES=\
 	arm_gem5/sbin/mem_serv \
 	arm_gem5/sbin/monitor \
 	arm_gem5/sbin/ramfsd \
-	arm_gem5/sbin/skb \
 	arm_gem5/sbin/spawnd \
 	arm_gem5/sbin/startd \
 	arm_gem5/sbin/memtest
@@ -540,11 +539,32 @@ PANDABOARD_MODULES=\
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@
 
-pandaboard: $(PANDABOARD_MODULES) tools/bin/arm_molly menu.lst.pandaboard $(SRCDIR)/tools/arm_gem5/gem5script.py
+pandaboard_image: $(PANDABOARD_MODULES) \
+		tools/bin/arm_molly \
+		menu.lst.pandaboard 
 	# Translate each of the binary files we need
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_tmp
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
 	tools/bin/arm_molly menu.lst.pandaboard arm_mbi.c
 	# Compile the complete boot image into a single executable
-	$(ARM_PREFIX)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin -nostdlib -march=armv7-a -mapcs -fno-unwind-tables  -T$(SRCDIR)/tools/arm_molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/arm -I./arm_gem5/include -I$(SRCDIR)/include/oldc -I$(SRCDIR)/include/c -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/arm_molly/molly_boot.S $(SRCDIR)/tools/arm_molly/molly_init.c $(SRCDIR)/tools/arm_molly/lib.c ./arm_mbi.c $(SRCDIR)/lib/elf/elf32.c ./molly_tmp/* -o pandaboard_kernel
+	$(ARM_PREFIX)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+		-nostdlib -march=armv7-a -mapcs -fno-unwind-tables \
+		-T$(SRCDIR)/tools/arm_molly/molly_ld_script \
+		-I$(SRCDIR)/include \
+		-I$(SRCDIR)/include/arch/arm \
+		-I./arm_gem5/include \
+		-I$(SRCDIR)/include/oldc \
+		-I$(SRCDIR)/include/c \
+		-imacros $(SRCDIR)/include/deputy/nodeputy.h \
+		$(SRCDIR)/tools/arm_molly/molly_boot.S \
+		$(SRCDIR)/tools/arm_molly/molly_init.c \
+		$(SRCDIR)/tools/arm_molly/lib.c \
+		./arm_mbi.c \
+		$(SRCDIR)/lib/elf/elf32.c \
+		./molly_tmp/* \
+		-o pandaboard_image
+	@echo "OK - pandaboard boot image is built."
+	@echo "If your boot environment is correctly set up, you can now:"
+	@echo "$ usbboot ./pandaboard_image"
+
