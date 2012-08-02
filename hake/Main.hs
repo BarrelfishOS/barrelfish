@@ -321,7 +321,7 @@ stripSrcDir s = Path.removePrefix Config.source_dir s
 hakeModule :: [String] -> [(String,String)] -> String
 hakeModule allfiles hakefiles = 
     let unqual_imports = ["RuleDefs", "HakeTypes", "Path", "Args"]
-        qual_imports = ["Config"]
+        qual_imports = ["Config", "List" ]
         relfiles = [ stripSrcDir f | f <- allfiles ]
         wrap1 n c = wrapLet "build a" 
                     ("(buildFunction a) allfiles " ++ (show n) ++ " a")

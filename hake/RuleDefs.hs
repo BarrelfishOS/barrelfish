@@ -715,13 +715,13 @@ linkCxx opts objs libs bin =
 --
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
 linkKernel opts name objs libs
-    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "arm" = ARM.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "arm_gem5" = ArmGem5.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
+    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "arm" = ARM.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "arm_gem5" = ArmGem5.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
@@ -1005,4 +1005,17 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "timer"
                   , "hashtable"]
           xcmp (LibDep a) (LibDep b) = compare (elemIndex a xord) (elemIndex b xord)
+
+
+--
+-- Build a CPU driver
+--
+
+cpuDriver :: Args.Args
+cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
+                               Args.target = "cpu" }
+
+-- CPU drivers are built differently
+cpuDriverBuildFn :: [String] -> String -> Args.Args -> HRule
+cpuDriverBuildFn af tf args = Rules []
 

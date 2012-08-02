@@ -372,13 +372,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
                                                   ARM_L1_SECTION_BYTES);
     omap44xx_id_t id;
     omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped + 
-<<<<<<< variant A
-                                                  (CONFIG_PHYSBASE & ARM_L1_SECTION_MASK)));
->>>>>>> variant B
-				 (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ARM_L1_SECTION_MASK)));
-####### Ancestor
-				 (CONFIG_PHYSBASE & ARM_L1_SECTION_MASK)));
-======= end
+	     (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ARM_L1_SECTION_MASK)));
+
     char buf[200];
     omap44xx_id_code_pr(buf,200,&id);
     printf("Using MMU, %s", buf);

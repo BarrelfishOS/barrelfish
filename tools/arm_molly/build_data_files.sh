@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ $# != 2 ]; then
-    echo Expected $0 menu.lst output_prefix
+    echo Usage: $0 menu.lst output_prefix
     exit 1
 fi
 
@@ -11,7 +11,7 @@ OUTPUT_PREFIX=$2
 # Prefix prepended to each output file within the directory
 # $OUTPUT_PREFIX (for safety, this means we can clean the directory
 # by removing everything with this prefix)
-FILE_PREFIX=tmp_m5
+FILE_PREFIX=tmp_molly
 
 # Set up output direcotry
 if [ -e $OUTPUT_PREFIX  ] && [ ! -d $OUTPUT_PREFIX ]; then
@@ -30,7 +30,7 @@ if [ ! -d $OUTPUT_PREFIX/ ]; then
 fi
 
 # Get list of binaries to translate
-BINS=$(grep -e'^kernel' -e'^module' $MENU_LST | awk '{print $2}')
+BINS=$(awk '/^kernel/ || /^module/ {print $2}' $MENU_LST)
 
 # For each binary generate an object file in the output directory.
 # The flags to objcopy cause it to place the binary image of the input

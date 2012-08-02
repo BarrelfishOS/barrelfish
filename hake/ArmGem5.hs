@@ -160,13 +160,18 @@ kernelLdFlags = [ Str "-Wl,-N",
 -- Link the kernel (CPU Driver)
 --
 linkKernel :: Options -> [String] -> [String] -> String -> HRule
-linkKernel opts objs libs kbin =
-    let linkscript = "/kernel/linker.lds"
-        kbootable  = kbin ++ ".bin"
+linkKernel opts objs libs name =
+    let linkscript = "/kernel/" ++ name ++ ".lds"
+        kernelmap  = "/kernel/" ++ name ++ ".map"
+        kasmdump   = "/kernel/" ++ name ++ ".asm"
+        kbinary    = "/sbin/" ++ name
+        kbootable  = kbinary ++ ".bin"
     in
         Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
                       NStr "-T", In BuildTree arch linkscript,
-                      Str "-o", Out arch kbin
+                      Str "-o", Out arch kbinary,
+                      NStr "-Wl,-Map,", Out arch kernelmap
+                                
                     ]
                     ++ (optLdFlags opts)
                     ++
@@ -176,12 +181,12 @@ linkKernel opts objs libs kbin =
                     ++
                     [ Str "-lgcc" ]
                    ),
-              -- Edit ELF header so qemu-system-arm will treat it as a Linux kernel
---              Rule [ In SrcTree "src" "/tools/arm-mkbootelf.sh",
---                     Str objdump, In BuildTree arch kbin, Out arch (kbootable)],
               -- Generate kernel assembly dump
-              Rule [ Str (objdump ++ " -d -M reg-names-raw"),
-                    In BuildTree arch kbin, Str ">", Out arch (kbin ++ ".asm")],
+              Rule [ Str objdump, 
+                     Str "-d", 
+                     Str "-M reg-names-raw",
+                     In BuildTree arch kbinary, 
+                     Str ">", Out arch kasmdump ],
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/arm_gem5",
                      Str "-D__ASSEMBLER__",

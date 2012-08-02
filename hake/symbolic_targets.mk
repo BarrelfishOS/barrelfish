@@ -38,7 +38,6 @@ BIN_RCCE_BT= \
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
-	sbin/cpu \
 	sbin/init_null \
 	sbin/init \
 	sbin/chips \
@@ -71,6 +70,7 @@ MODULES_GENERIC= \
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/cpu \
 	sbin/mdbtest_range_query \
 	sbin/mdbtest_addr_zero \
 	sbin/mdb_bench \
@@ -166,6 +166,7 @@ MODULES_x86_64_broken= \
 
 # x86-32-specific module to build by default
 MODULES_x86_32=\
+	sbin/cpu \
 	sbin/lpc_kbd \
 	sbin/serial \
 	$(BIN_RCCE_BT) \
@@ -191,6 +192,7 @@ MODULES_x86_32=\
 
 # SCC-specific module to build by default
 MODULES_scc=\
+	sbin/cpu \
 	$(BIN_RCCE_BT) \
 	$(BIN_RCCE_LU) \
 	sbin/rcce_pingpong \
@@ -211,10 +213,12 @@ MODULES_scc=\
 
 # ARM-specific modules to build by default
 MODULES_arm=\
+	sbin/cpu \
 	sbin/cpu.bin
 
 # XScale-specific modules to build by default
 MODULES_xscale=\
+	sbin/cpu \
 	sbin/cpu.bin
 
 # ArmGem5-specific modules to build by default
@@ -222,6 +226,7 @@ MODULES_xscale=\
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
+	sbin/cpu \
 	sbin/cpu.bin
 
 # construct list of all modules to be built (arch-specific and common for each arch)
@@ -424,7 +429,7 @@ arm_gem5_mc: arm_gem5_kernel_mc $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_kernel --n=4 --caches --l2cache
 .PHONY : arm_gem5_mc
 
-# For the panda board
+# For the emulating the Pandaboard using GEM5
 menu.lst.arm_gem5_panda: $(SRCDIR)/hake/menu.lst.arm_gem5_panda
 	cp $< $@
 
@@ -513,3 +518,33 @@ $(TESTS): %.txt: %.cfg tools/bin/simulator
 
 schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 	for f in $^; do tools/bin/simulator $$f $(RUNTIME) | diff -q - `dirname $$f`/`basename $$f .cfg`.txt || exit 1; done
+
+
+#######################################################################
+#
+# Pandaboard builds
+#
+#######################################################################
+
+PANDABOARD_MODULES=\
+	arm_gem5/sbin/cpu_omap44xx \
+	arm_gem5/sbin/init \
+	arm_gem5/sbin/mem_serv \
+	arm_gem5/sbin/monitor \
+	arm_gem5/sbin/ramfsd \
+	arm_gem5/sbin/skb \
+	arm_gem5/sbin/spawnd \
+	arm_gem5/sbin/startd \
+	arm_gem5/sbin/memtest
+
+menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
+	cp $< $@
+
+pandaboard: $(PANDABOARD_MODULES) tools/bin/arm_molly menu.lst.pandaboard $(SRCDIR)/tools/arm_gem5/gem5script.py
+	# Translate each of the binary files we need
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_tmp
+	# Build a C file to link into a single image for the 2nd-stage
+	# bootloader
+	tools/bin/arm_molly menu.lst.pandaboard arm_mbi.c
+	# Compile the complete boot image into a single executable
+	$(ARM_PREFIX)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin -nostdlib -march=armv7-a -mapcs -fno-unwind-tables  -T$(SRCDIR)/tools/arm_molly/molly_ld_script -I$(SRCDIR)/include -I$(SRCDIR)/include/arch/arm -I./arm_gem5/include -I$(SRCDIR)/include/oldc -I$(SRCDIR)/include/c -imacros $(SRCDIR)/include/deputy/nodeputy.h $(SRCDIR)/tools/arm_molly/molly_boot.S $(SRCDIR)/tools/arm_molly/molly_init.c $(SRCDIR)/tools/arm_molly/lib.c ./arm_mbi.c $(SRCDIR)/lib/elf/elf32.c ./molly_tmp/* -o pandaboard_kernel

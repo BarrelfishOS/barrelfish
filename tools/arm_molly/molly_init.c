@@ -49,9 +49,9 @@ static errval_t linear_alloc(void *s, genvaddr_t base, size_t size, uint32_t fla
 
 genvaddr_t kernel_entry;
 
-extern char _binary_arm_gem5_sbin_cpu_start;
-extern char _binary_arm_gem5_sbin_cpu_end;
-extern char _binary_arm_gem5_sbin_cpu_size;
+//extern char _binary_arm_gem5_sbin_cpu_start;
+//extern char _binary_arm_gem5_sbin_cpu_end;
+//extern char _binary_arm_gem5_sbin_cpu_size;
 
 
 // Prototypes for functions from molly_boot.S:
