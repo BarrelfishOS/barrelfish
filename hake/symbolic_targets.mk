@@ -600,4 +600,3 @@ arm_gem5_image: $(MODULES) \
 		$(SRCDIR)/lib/elf/elf32.c \
 		./molly_gem5/* \
 		-o arm_gem5_image
-
