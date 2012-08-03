@@ -333,6 +333,57 @@ static void caps_mark_revoke_generic(struct cte *cte)
 }
 
 /**
+ * \brief Delete all copies of a foreign cap.
+ */
+errval_t caps_delete_foreigns(struct cte *cte)
+{
+    errval_t err;
+    struct cte *next;
+    assert(cte->mdbnode.owner != my_core_id);
+    if (cte->mdbnode.in_delete) {
+        printk(LOG_WARN,
+               "foreign caps with in_delete set,"
+               " this should not happen");
+    }
+
+    TRACE_CAP_MSG("del copies of", cte);
+
+    for (next = mdb_successor(cte);
+         next && is_copy(&cte->cap, &next->cap);
+         next = mdb_successor(cte))
+    {
+        assert(next->mdbnode.owner = my_core_id);
+        if (cte->mdbnode.in_delete) {
+            printk(LOG_WARN,
+                   "foreign caps with in_delete set,"
+                   " this should not happen");
+        }
+        err = cleanup_copy(next);
+        if (err_is_fail(err)) {
+            panic("error while deleting foreign copy for remote_delete:"
+                  " 0x%"PRIxGENPADDR"\n", err);
+        }
+    }
+
+    // The capabilities should all be foreign, by nature of the request.
+    // Foreign capabilities are rarely locked, since they can be deleted
+    // immediately. The only time a foreign capability is locked is during
+    // move and retrieve operations. In either case, the lock on the same
+    // capability must also be acquired on the owner for the operation to
+    // succeed. Thus, we can safely unlock any capability here iff the
+    // monitor guarentees that this operation is only executed when the
+    // capability is locked on the owner.
+    cte->mdbnode.locked = false;
+    err = caps_try_delete(cte);
+    if (err_is_fail(err)) {
+        panic("error while deleting foreign copy for remote_delete:"
+              " 0x%"PRIxGENPADDR"\n", err);
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief Mark capabilities for a revoke operation.
  * \param base The data for the capability being revoked
  * \param revoked The revoke target if it is on this core. This specific

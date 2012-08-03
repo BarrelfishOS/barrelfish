@@ -198,12 +198,13 @@ delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
         goto free_slot;
     }
 
-    err = monitor_delete_copies(capref);
-    err2 = cap_delete(capref);
-    DEBUG_IF_ERR(err2, "deleting temp delete_remote cap");
-    if (err_is_ok(err) && err_is_fail(err2)) {
-        err = err2;
-    }
+    err = monitor_delete_foreigns(capref);
+    //err = monitor_delete_copies(capref);
+    //err2 = cap_delete(capref);
+    //DEBUG_IF_ERR(err2, "deleting temp delete_remote cap");
+    //if (err_is_ok(err) && err_is_fail(err2)) {
+    //    err = err2;
+    //}
 
 free_slot:
     err2 = slot_free(capref);

@@ -98,6 +98,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
  */
 
 errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap);
+errval_t caps_delete_foreigns(struct cte *cte);
 errval_t caps_mark_revoke(struct capability *base, struct cte *revoked);
 errval_t caps_delete_step(struct cte *ret_next);
 errval_t caps_clear_step(struct cte *ret_ram_cap);

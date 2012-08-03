@@ -345,6 +345,19 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
     return SYSRET(caps_delete_last(target, retslot));
 }
 
+struct sysret sys_monitor_delete_foreigns(capaddr_t cptr, uint8_t bits)
+{
+    errval_t err;
+
+    struct cte *cte;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, bits, &cte, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    return SYSRET(caps_delete_foreigns(cte));
+}
+
 struct sysret sys_monitor_revoke_mark_tgt(capaddr_t root_addr, uint8_t root_bits,
                                           capaddr_t target_addr, uint8_t target_bits)
 {

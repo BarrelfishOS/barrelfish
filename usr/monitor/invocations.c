@@ -259,6 +259,14 @@ errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits, stru
                                       ret_cn, ret_cn_bits, ret_slot);
 }
 
+errval_t monitor_delete_foreigns(struct capref cap)
+{
+    capaddr_t cptr = get_cap_addr(cap);
+    uint8_t bits = get_cap_valid_bits(cap);
+    cptr >>= (CPTR_BITS - bits);
+    return invoke_monitor_delete_foreigns(cptr, bits);
+}
+
 errval_t monitor_revoke_mark_target(struct capref croot, capaddr_t cptr,
                                     int bits)
 {

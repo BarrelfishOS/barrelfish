@@ -73,6 +73,7 @@ monitor_set_domcap_owner(struct domcapref cap, coreid_t owner)
 
 errval_t monitor_delete_last(struct capref croot, capaddr_t cptr, int bits,
                              struct capref ret_cap);
+errval_t monitor_delete_foreigns(struct capref cap);
 errval_t monitor_revoke_mark_target(struct capref croot,
                                     capaddr_t cptr,
                                     int bits);

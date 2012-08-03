@@ -143,6 +143,7 @@ enum kernel_cmd {
     KernelCmd_Lock_cap,
     KernelCmd_Unlock_cap,
     KernelCmd_Delete_last,
+    KernelCmd_Delete_foreigns,
     KernelCmd_Revoke_mark_target,
     KernelCmd_Revoke_mark_relations,
     KernelCmd_Delete_step,

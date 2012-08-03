@@ -220,6 +220,14 @@ static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
                                    ret_slot);
 }
 
+static struct sysret monitor_handle_delete_foreigns(struct capability *kernel_cap,
+                                                    int cmd, uintptr_t *args)
+{
+    capaddr_t caddr = args[0];
+    uint8_t bits = args[1];
+    return sys_monitor_delete_foreigns(caddr, bits);
+}
+
 static struct sysret monitor_handle_revoke_mark_tgt(struct capability *kernel_cap,
                                                     int cmd, uintptr_t *args)
 {
@@ -811,6 +819,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Retype]       = monitor_handle_retype,
         [KernelCmd_Has_descendants] = monitor_handle_has_descendants,
         [KernelCmd_Delete_last]  = monitor_handle_delete_last,
+        [KernelCmd_Delete_foreigns] = monitor_handle_delete_foreigns,
         [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,
         [KernelCmd_Revoke_mark_relations] = monitor_handle_revoke_mark_rels,
         [KernelCmd_Delete_step] = monitor_handle_delete_step,

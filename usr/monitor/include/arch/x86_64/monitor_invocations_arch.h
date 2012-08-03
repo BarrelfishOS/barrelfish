@@ -216,6 +216,12 @@ invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
 }
 
 static inline errval_t
+invoke_monitor_delete_foreigns(capaddr_t cap, int bits)
+{
+    return cap_invoke3(cap_kernel, KernelCmd_Delete_foreigns, cap, bits).error;
+}
+
+static inline errval_t
 invoke_monitor_revoke_mark_target(capaddr_t root, int rbits,
                                   capaddr_t cap, int cbits)
 {
