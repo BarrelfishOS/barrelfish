@@ -39,8 +39,8 @@ start:
         //
         mrs	r3, cpsr                        // Ensure in SYS mode
         bic     r3, r3, #ARM_MODE_MASK
-        orr     r3, r3, #ARM_MODE_SYS
-	// orr  r3, r3, #ARM_MODE_PRIV          // Ensure in Priveledged mode
+//        orr     r3, r3, #ARM_MODE_SYS
+        orr  r3, r3, #ARM_MODE_PRIV          // Ensure in Priveledged mode
         msr     cpsr_c, r3
 
 	//init stack

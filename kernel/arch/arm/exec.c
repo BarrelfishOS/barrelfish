@@ -44,7 +44,7 @@ void do_resume(uint32_t *regs)
         // Flush cashes and tlb, just to be sure
                    //	"bl cp15_invalidate_tlb_fn \n\t"
                    //	"bl cp15_invalidate_i_and_d_caches_fast \n\t"
-        // lr = r14, used as tmp register. 
+        // lr = r14, used as tmp register.
         // Load cpsr into lr and move regs to next entry (postindex op)
         // LDR = read word from memory
         //        target register
@@ -152,7 +152,8 @@ void wait_for_interrupt(void)
 
     // Switch to system mode with interrupts enabled.
     __asm volatile(
-        "mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
+        //"mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
+        "mov    r0, #" XTR(ARM_MODE_PRIV) "              \n\t"
         "msr    cpsr_c, r0                              \n\t"
         "0:                                             \n\t"
 #if defined(__ARM_ARCH_6K__)
