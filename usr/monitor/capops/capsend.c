@@ -171,6 +171,10 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_s
 
     for (coreid_t dest = 0; dest < MAX_COREID && bc_st->num_queued < dest_count; dest++)
     {
+        if (dest == my_core_id) {
+            // do not send to self
+            continue;
+        }
         err = capsend_mc_enqueue(bc_st, dest);
         if (err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
             // no connection for this core, skip
