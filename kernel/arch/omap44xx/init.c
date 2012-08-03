@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright (c) 2009 ETH Zurich.
  * All rights reserved.
  *
@@ -20,7 +20,7 @@
 #include <arm_hal.h>
 #include <cpiobin.h>
 #include <getopt/getopt.h>
-#include <romfs_size.h>
+//#include <romfs_size.h>
 #include <cp15.h>
 #include <elf/elf.h>
 #include <arm_core_data.h>
@@ -29,10 +29,15 @@
 #include <global.h>
 #include <start_aps.h>
 
+#include <omap44xx_map.h>
+#include <dev/omap44xx_id_dev.h>
+
 #define GEM5_RAM_SIZE	0x20000000
+//#define GEM5_RAM_SIZE	0x2000000
 
 extern errval_t early_serial_init(uint8_t port_no);
 
+void put_serial_test(char c);
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -180,9 +185,9 @@ struct atag {
 // Kernel command line variables and binding options
 //
 
-static int timeslice				 = 5;		//interval in ms in which the scheduler gets called
-static int serial_console_port       = 0;
-static int serial_debug_port         = 1;
+static int timeslice		     = 5; //interval in ms in which the scheduler gets called
+static int serial_console_port       = 2;
+static int serial_debug_port         = 2;
 
 static struct cmdarg cmdargs[] = {
     { "consolePort",    ArgType_Int, { .integer = &serial_console_port}},
@@ -209,17 +214,43 @@ relocate_got_base(lvaddr_t offset)
 		);
 }
 
-static void enable_mmu(void)
+void enable_mmu(void);
+void enable_mmu(void)
 {
-	__asm volatile (
-			"ldr    r0, =0x55555555\n\t"       // Initial domain permissions
+	__asm volatile (// Initial domain permissions
+			"ldr    r0, =0x55555555\n\t"
 			"mcr    p15, 0, r0, c3, c0, 0\n\t"
-			"ldr	r1, =0x1007\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU
-			"mrc	p15, 0, r0, c1, c0, 0\n\t"	// read out system configuration register
+                        // Set ASID to 0
+                        "mov	r0, #0\n\t"
+                        "mcr	p15, 0, r0, c13, c0, 1\n\t"
+                        // Set the Domain Access register
+                        "mov    r0, #1\n\t"
+                        "mcr	p15, 0, r0, c3, c0, 0\n\t"
+                        // Reference: ARM Architecture Refrence Manual ARMv7-A
+                        // Section: B2.12.17 c1, System Control Register (SCTLR)
+                        // Enable: D-Cache, I-Cache, Alignment, MMU (0x007) --> works
+                        // Everything without D-Cache (0x003) --> works
+                        //			"ldr	r1, =0x1007\n\t"
+			"ldr	r1, =0x1003\n\t"
+			"mrc	p15, 0, r0, c1, c0, 0\n\t"      // read out system configuration register
 			"orr	r0, r0, r1\n\t"
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
+                        // Clear pipeline
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        "nop\n\t"
+                        // Wait on some CP15 register
+                        "mrc	p15, 0, r0, c2, c0, 0\n\t"
+                        "mov	r0, r0\n\t"
+                        "sub	pc, pc, #4\n\t"
 		);
 }
+
 
 #ifndef __GEM5__
 static void enable_cycle_counter_user_access(void)
@@ -232,37 +263,39 @@ static void enable_cycle_counter_user_access(void)
 }
 #endif
 
+void paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+
+
 static void paging_init(void)
 {
+    // configure system to use TTBR1 for VAs >= 2GB
+    uint32_t ttbcr;
+    ttbcr = cp15_read_ttbcr();
+    ttbcr |= 1;
+    cp15_write_ttbcr(ttbcr);
+    
+    // make sure pagetables are aligned to 16K
+    aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
+    aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
+    
+    lvaddr_t vbase = MEMORY_OFFSET, base =  0;
 
+    for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
+	    base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES) {
+	// create 1:1 mapping
+	//		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
+	paging_map_device_section((uintptr_t)aligned_boot_l1_low, base, base);
+	
+	// Alias the same region at MEMORY_OFFSET (gem5 code)
+	// create 1:1 mapping for pandaboard
+	//		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
+	/* if(vbase < 0xc0000000) */
+	paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
+    }
 
-	// configure system to use TTBR1 for VAs >= 2GB
-	uint32_t ttbcr;
-	ttbcr = cp15_read_ttbcr();
-	ttbcr |= 1;
-	cp15_write_ttbcr(ttbcr);
-
-	// make sure pagetables are aligned to 16K
-	aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
-	aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
-
-	lvaddr_t vbase = MEMORY_OFFSET, base = 0;
-
-	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
-		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
-	{
-		// create 1:1 mapping
-		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
-
-		// Alias the same region at MEMORY_OFFSET
-		paging_map_kernel_section((uintptr_t)aligned_boot_l1_high, vbase, base);
-
-	}
-
-	// Activate new page tables
-	cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
-	//cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
-	cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
+    // Activate new page tables
+    cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
+    cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
 }
 
 void kernel_startup_early(void)
@@ -285,70 +318,114 @@ void kernel_startup_early(void)
  */
 static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
-	errval_t errval;
-	// Relocate glbl_core_data to "memory"
-    glbl_core_data = (struct arm_core_data *)
-        local_phys_to_mem((lpaddr_t)glbl_core_data);
-
-    // Relocate global to "memory"
-    global = (struct global*)local_phys_to_mem((lpaddr_t)global);
+    errval_t errval;
 
     // Map-out low memory
-    if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
-    {
-    	struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
-    			local_phys_to_mem(glbl_core_data->mmap_addr);
-    	paging_arm_reset(mmap->base_addr, mmap->length);
+    if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
+
+        struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
+            local_phys_to_mem(glbl_core_data->mmap_addr);
+
+        paging_arm_reset(mmap->base_addr, mmap->length);
+        printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n",
+               mmap->base_addr, mmap->length);
+    } else {
+        panic("need multiboot MMAP\n");
     }
-    else
-    {
-    	paging_arm_reset(0x0, GEM5_RAM_SIZE);
-    }
 
-	exceptions_init();
+    exceptions_init();
 
-	kernel_startup_early();
+    printf("invalidate cache\n");
+    cp15_invalidate_i_and_d_caches_fast();
 
-	//initialize console
-	 serial_console_init(serial_console_port);
+    printf("invalidate TLB\n");
+    cp15_invalidate_tlb();
 
-	 // do not remove/change this printf: needed by regression harness
-	 printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", hal_get_board_id());
-	 printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
+    printf("startup_early\n");
 
-	 errval = serial_debug_init(serial_debug_port);
-	 if (err_is_fail(errval))
-	 {
-		 printf("Failed to initialize debug port: %d", serial_debug_port);
-	 }
+    kernel_startup_early();
+    printf("kernel_startup_early done!\n");
 
-	 my_core_id = hal_get_cpu_id();
+    //initialize console
+    serial_console_init(serial_console_port);
 
-	 gic_init();
+    // do not remove/change this printf: needed by regression harness
+    printf("Barrelfish CPU driver starting on ARMv7"
+           " Board id 0x%08"PRIx32"\n", hal_get_board_id());
+    printf("The address of paging_map_kernel_section is %p\n",
+           paging_map_kernel_section);
 
-	 if(hal_cpu_is_bsp())
-	 {
-		 // init SCU if more than one core present
-		 if(scu_get_core_count() > 4)
-			 panic("ARM SCU doesn't support more than 4 cores!");
-		 if(scu_get_core_count() > 1)
-			 scu_enable();
-	 }
+    errval = serial_debug_init(serial_debug_port);
+    if (err_is_fail(errval))
+        {
+            printf("Failed to initialize debug port: %d",
+                   serial_debug_port);
+        }
 
-	 pit_init(timeslice, 0);
-	 pit_init(timeslice, 1);
-	 tsc_init();
+    my_core_id = hal_get_cpu_id();
+    printf("cpu id %d\n", my_core_id);
 
+    // Test MMU by remapping the device identifier and reading it using a
+    // virtual address 
+    lpaddr_t id_code_section = OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ~ARM_L1_SECTION_MASK;
+    lvaddr_t id_code_remapped = paging_map_device(id_code_section,
+                                                  ARM_L1_SECTION_BYTES);
+    omap44xx_id_t id;
+    omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped + 
+	     (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ARM_L1_SECTION_MASK)));
+
+    char buf[200];
+    omap44xx_id_code_pr(buf,200,&id);
+    printf("Using MMU, %s", buf);
+
+
+    pic_init();
+    //gic_init();
+    printf("pic_init done\n");
+
+    // XXX reactivate me
+    /* if(hal_cpu_is_bsp()) */
+    /* { */
+    /*     // init SCU if more than one core present */
+    /*     if(scu_get_core_count() > 4) */
+    /*         panic("ARM SCU doesn't support more than 4 cores!"); */
+    /*     if(scu_get_core_count() > 1) */
+    /*         scu_enable(); */
+    /* } */
+
+    // sp804_pit not available on the PandaBoard?
+    /* pit_init(timeslice, 0); */
+    /* printf("pit_init 1 done\n"); */
+    /* pit_init(timeslice, 1); */
+    /* printf("pic_init 2 done\n"); */
+    tsc_init();
+    printf("tsc_init done --\n");
 #ifndef __GEM5__
-	 enable_cycle_counter_user_access();
-	 reset_cycle_counter();
+    enable_cycle_counter_user_access();
+    reset_cycle_counter();
 #endif
 
-	 // tell BSP that we are started up
-	 uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-	 *ap_wait = AP_STARTED;
+    // tell BSP that we are started up
+    // XXX doesn't work
+    /* uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS); */
+    /* *ap_wait = AP_STARTED; */
 
-	 arm_kernel_startup();
+    arm_kernel_startup();
+}
+
+/**
+ * Use Mackerel to print the identification from the system
+ * configuration block.
+ */
+static void print_system_identification(void)
+{
+    char buf[800];
+    omap44xx_id_t id;
+    omap44xx_id_initialize(&id, (mackerel_addr_t)OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE);
+    omap44xx_id_pr(buf, 799, &id);
+    printf("%s", buf);
+    omap44xx_id_codevals_prtval(buf, 799, omap44xx_id_code_rawrd(&id));
+    printf("Device is a %s\n", buf);
 }
 
 /**
@@ -359,12 +436,9 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
 void arch_init(void *pointer)
 {
-    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
-        (void *)local_phys_to_mem((lpaddr_t)text_init);
-
-    struct Elf32_Shdr *rela, *symtab;
     struct arm_coredata_elf *elf = NULL;
-	early_serial_init(serial_console_port);
+
+    early_serial_init(serial_console_port);
 
     if(hal_cpu_is_bsp())
     {
@@ -382,7 +456,6 @@ void arch_init(void *pointer)
         glbl_core_data->mmap_addr = mb->mmap_addr;
         glbl_core_data->multiboot_flags = mb->flags;
 
-        // Construct the global structure
         memset(&global->locks, 0, sizeof(global->locks));
     }
     else
@@ -399,45 +472,11 @@ void arch_init(void *pointer)
 
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
-
-    // Find relocation section
-    rela = elf32_find_section_header_type((struct Elf32_Shdr *)
-    									  ((uintptr_t)elf->addr),
-    									  elf->num, SHT_REL);
-
-    if (rela == NULL) {
-        panic("Kernel image does not include relocation section!");
-    }
-
-    // Find symtab section
-    symtab = elf32_find_section_header_type((struct Elf32_Shdr *)(lpaddr_t)elf->addr,
-    									  elf->num, SHT_DYNSYM);
-
-    if (symtab == NULL) {
-        panic("Kernel image does not include symbol table!");
-    }
+    
+    print_system_identification();
 
     paging_init();
-
     enable_mmu();
-
-
-    // Relocate kernel image for top of memory
-    elf32_relocate(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte,
-    			   (lvaddr_t)&kernel_first_byte,
-    			   (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
-    			   rela->sh_size,
-    			   (struct Elf32_Sym *)(symtab->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
-    			   symtab->sh_size,
-    			   START_KERNEL_PHYS, &kernel_first_byte);
-    /*** Aliased kernel available now -- low memory still mapped ***/
-
-    // Relocate stack to aliased location
-    relocate_stack(MEMORY_OFFSET);
-
-    //relocate got_base register to aliased location
-    relocate_got_base(MEMORY_OFFSET);
-
-    // Call aliased text_init() function and continue initialization
-    reloc_text_init();
+    printf("MMU enabled\n");
+    text_init();
 }

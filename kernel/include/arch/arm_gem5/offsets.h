@@ -65,10 +65,9 @@
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this
- * for a bigger physical address space.  We set this to 36-bit, i.e. 64
- * GBytes.
+ * for a bigger physical address space.  
  */
-#define PADDR_SPACE_LIMIT       GEN_ADDR(31)
+#define PADDR_SPACE_LIMIT       0xFFFFFFFF
 
 /**
  * Kernel address space limit is 1 MB currently.
@@ -113,8 +112,7 @@
 
 /**
  * Absolute offset of mapped physical memory within virtual address
- * space.  This occupies one or more (usually one) PML4 slots directly
- * before the kernel. This needs to be aligned to PADDR_SPACE_LIMIT.
+ * space.  
  *
  * 2GB.
  */
@@ -154,6 +152,8 @@
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
+    // On the PandaBoard, this is a nop, because the physical memory is mapped 
+    // at the same address in virtual memory
     if(PADDR_SPACE_LIMIT - PHYS_MEMORY_START > 0) {
         assert(addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT);
     }

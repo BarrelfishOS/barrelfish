@@ -981,6 +981,9 @@ static int bootstrap_thread(struct spawn_domain_params *params)
 {
     errval_t err;
 
+    sys_print("1\n", 10);
+    while(1);
+
     // Set libc function pointers
     barrelfish_libc_glue_init();
 
