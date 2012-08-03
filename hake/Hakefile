@@ -27,7 +27,7 @@ in
           Str "$(LDFLAGS)"
         ] 
         ++ [Dep SrcTree "src" f | f <- hakesrc] 
-        ++ [NL, Str "rm", NoDep BuildTree "hake" "/*.o" ]),
+        ++ [NL, Str "rm", NoDep BuildTree "hake" "/ARM.o" ]),
   Rule [ Str "cp", 
          In SrcTree "src" "symbolic_targets.mk",
          Out "root" "symbolic_targets.mk" 

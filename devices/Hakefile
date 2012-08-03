@@ -57,7 +57,8 @@
            "cortex_a9_pit",
            "a9scu",
 	   "omap_uart",
-	   "omap44xx_id"
+	   "omap44xx_id",
+	   "omap44xx_usbconf"
          ], arch <- allArchitectures
 ] ++
 
