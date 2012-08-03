@@ -275,6 +275,7 @@ let
                "arch/arm/misc.c", 
                "arch/arm/phys_mmap.c",
                "arch/arm_gem5/init.c", 
+               "arch/arm_gem5/integrator.c", 
                "arch/arm_gem5/paging.c", 
                "arch/arm_gem5/pl011_uart.c", 
                "arch/arm_gem5/startup_arch.c", 

@@ -148,7 +148,6 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                    		"-Wno-format" ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
-                  NStr "-Wl,-Map,", Out arch "kernel.map",
                   Str "-fno-builtin",
                   Str "-nostdlib",
 		  Str "-pie",
@@ -171,7 +170,6 @@ linkKernel opts objs libs name =
                       NStr "-T", In BuildTree arch linkscript,
                       Str "-o", Out arch kbinary,
                       NStr "-Wl,-Map,", Out arch kernelmap
-                                
                     ]
                     ++ (optLdFlags opts)
                     ++

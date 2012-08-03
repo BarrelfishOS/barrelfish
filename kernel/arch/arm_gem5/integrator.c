@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2009, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -56,238 +56,182 @@ static pl130_gic_t pic;
 static pl130_gic_ICDICTR_t pic_config;
 
 static uint32_t it_num_lines;
+static uint32_t num_iregs;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
 void gic_init(void)
 {
-	lvaddr_t pic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
-	pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
-						(mackerel_addr_t)pic_base + CPU_OFFSET);
+    lvaddr_t pic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
+    pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
+			 (mackerel_addr_t)pic_base + CPU_OFFSET);
 
-	//read GIC configuration
-	pic_config = pl130_gic_ICDICTR_rd(&pic);
-	it_num_lines = 32*(pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1);
-	cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
-	sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
-
-	gic_cpu_interface_init();
-
-	if(hal_cpu_is_bsp())
-	{
-		gic_distributor_init();
-	}
+    //read GIC configuration
+    pic_config = pl130_gic_ICDICTR_rd(&pic);
+    num_iregs = pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1;
+    it_num_lines = 32*(pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1);
+    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
+    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
+    
+    gic_cpu_interface_init();
+    
+    if(hal_cpu_is_bsp()) {
+	gic_distributor_init();
+    }
 }
 
 void gic_distributor_init(void)
 {
-	//pic_disable_all_irqs();
-
-	//enable interrupt forwarding from distributor to cpu interface
-	pl130_gic_ICDDCR_wr(&pic, 0x1);
+    //pic_disable_all_irqs();
+    
+    //enable interrupt forwarding from distributor to cpu interface
+    pl130_gic_ICDDCR_wr(&pic, 0x1);
 }
 
 //config cpu interface
 void gic_cpu_interface_init(void)
 {
-	//set priority mask of cpu interface, currently set to lowest priority
-	//to accept all interrupts
-	pl130_gic_ICCPMR_wr(&pic, 0xff);
-
-	//set binary point to define split of group- and subpriority
-	//currently we allow for 8 subpriorities
-	pl130_gic_ICCBPR_wr(&pic, 0x2);
+    //set priority mask of cpu interface, currently set to lowest priority
+    //to accept all interrupts
+    pl130_gic_ICCPMR_wr(&pic, 0xff);
+    
+    //set binary point to define split of group- and subpriority
+    //currently we allow for 8 subpriorities
+    pl130_gic_ICCBPR_wr(&pic, 0x2);
 }
 
 //enable interrupt forwarding to processor
 void gic_cpu_interface_enable(void)
 {
-	pl130_gic_ICCICR_wr(&pic, 0x1);
+    pl130_gic_ICCICR_wr(&pic, 0x1);
 }
 
 //disable interrupt forwarding to processor
 void gic_cpu_interface_disable(void)
 {
-	pl130_gic_ICCICR_wr(&pic, 0x0);
+    pl130_gic_ICCICR_wr(&pic, 0x0);
 }
 
 void pic_disable_all_irqs(void)
 {
-    //disable PPI interrupts
-	pl130_gic_PPI_ICDICER_wr(&pic, (uint16_t)0xffff);
-
-
-	//disable SPI interrupts
-	for(uint8_t i=0; i < it_num_lines; i++) {
-		pl130_gic_SPI_ICDICER_wr(&pic, i, (uint32_t)0xffffffff);
-	}
+    //disable SPI interrupts
+    for(uint8_t i=0; i < num_iregs; i++) {
+	pl130_gic_ICDICER_wr(&pic, i, (uint32_t)0xffffffff);
+    }
 }
 
 
 void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
 						  uint8_t edge_triggered, uint8_t one_to_n)
 {
-	// Set Interrupt Set-Enable Register
-	uint32_t ind = int_id / 32;
-	uint32_t bit_mask = (1U << (int_id % 32));
-	uint32_t regval;
-	if(int_id < 16)
-		return;
-	else if(int_id < 32)
-	{
-		regval = pl130_gic_PPI_ICDISER_rd(&pic);
-		regval |= bit_mask;
-		pl130_gic_PPI_ICDISER_wr(&pic, regval);
-	}
-	else if(int_id < it_num_lines)
-	{
-		regval = pl130_gic_SPI_ICDISER_rd(&pic, ind-1);
-		regval |= bit_mask;
-		pl130_gic_SPI_ICDISER_wr(&pic, ind-1, regval);
-	}
-	else
-		panic("Interrupt ID %"PRIu32" not supported", int_id);
+    // Set Interrupt Set-Enable Register
+    uint32_t bit_reg = int_id / 32;
+    uint32_t pri_reg = int_id / 4;
+    uint32_t bit_mask = (1U << (int_id % 32));
+    uint32_t regval;
+    if(int_id < 16)
+	return;
+    else if(int_id < it_num_lines){
+	regval = pl130_gic_ICDISER_rd(&pic, bit_reg);
+	regval |= bit_mask;
+	pl130_gic_ICDISER_wr(&pic, bit_reg, regval);
+    }
+    else {
+	panic("Interrupt ID %"PRIu32" not supported", int_id);
+    }
+    
+    // Set Interrupt Priority Register
+    switch(int_id % 4) {
+    case 0:
+	pl130_gic_ICDIPR_prio_off0_wrf(&pic, pri_reg, prio);
+	break;
+    case 1:
+	pl130_gic_ICDIPR_prio_off1_wrf(&pic, pri_reg, prio);
+	break;
+    case 2:
+	pl130_gic_ICDIPR_prio_off2_wrf(&pic, pri_reg, prio);
+	break;
+    case 3:
+	pl130_gic_ICDIPR_prio_off3_wrf(&pic, pri_reg, prio);
+	break;
+    }
 
-	//Set Interrupt Priority Register
-	ind = int_id/4;
-	if(int_id < 16)
-	{
-		switch(int_id % 4)
-		{
-		case 0:
-			pl130_gic_SGI_ICDIPR_prio_off0_wrf(&pic, ind, prio);
-			break;
-		case 1:
-			pl130_gic_SGI_ICDIPR_prio_off1_wrf(&pic, ind, prio);
-			break;
-		case 2:
-			pl130_gic_SGI_ICDIPR_prio_off2_wrf(&pic, ind, prio);
-			break;
-		case 3:
-			pl130_gic_SGI_ICDIPR_prio_off3_wrf(&pic, ind, prio);
-			break;
-		}
-	}
-	else if(int_id < 32)
-	{
-		switch(int_id % 4)
-		{
-		case 0:
-			pl130_gic_PPI_ICDIPR_prio_off0_wrf(&pic, ind-4, prio);
-			break;
-		case 1:
-			pl130_gic_PPI_ICDIPR_prio_off1_wrf(&pic, ind-4, prio);
-			break;
-		case 2:
-			pl130_gic_PPI_ICDIPR_prio_off2_wrf(&pic, ind-4, prio);
-			break;
-		case 3:
-			pl130_gic_PPI_ICDIPR_prio_off3_wrf(&pic, ind-4, prio);
-			break;
-		}
-	}
-	else
-	{
-		switch(int_id % 4)
-		{
-		case 0:
-			pl130_gic_SPI_ICDIPR_prio_off0_wrf(&pic, ind-8, prio);
-			break;
-		case 1:
-			pl130_gic_SPI_ICDIPR_prio_off1_wrf(&pic, ind-8, prio);
-			break;
-		case 2:
-			pl130_gic_SPI_ICDIPR_prio_off2_wrf(&pic, ind-8, prio);
-			break;
-		case 3:
-			pl130_gic_SPI_ICDIPR_prio_off3_wrf(&pic, ind-8, prio);
-			break;
-		}
-	}
-
+    // only SPIs can be targeted manually
+    if(int_id >= 32) {
 	// Set ICDIPTR Registers to cpu_targets
-	// only SPIs can be targeted manually
-	ind = int_id/4;
-	if(int_id >= 32)
-	{
-		switch(int_id % 4)
-		{
-			case 0:
-				pl130_gic_SPI_ICDIPTR_targets_off0_wrf(&pic, ind-8, cpu_targets);
-				break;
-			case 1:
-				pl130_gic_SPI_ICDIPTR_targets_off1_wrf(&pic, ind-8, cpu_targets);
-				break;
-			case 2:
-				pl130_gic_SPI_ICDIPTR_targets_off2_wrf(&pic, ind-8, cpu_targets);
-				break;
-			case 3:
-				pl130_gic_SPI_ICDIPTR_targets_off3_wrf(&pic, ind-8, cpu_targets);
-				break;
-		}
+	switch(int_id % 4) {
+	case 0:
+	    pl130_gic_SPI_ICDIPTR_targets_off0_wrf(&pic, pri_reg-8,cpu_targets);
+	    break;
+	case 1:
+	    pl130_gic_SPI_ICDIPTR_targets_off1_wrf(&pic, pri_reg-8,cpu_targets);
+	    break;
+	case 2:
+	    pl130_gic_SPI_ICDIPTR_targets_off2_wrf(&pic, pri_reg-8,cpu_targets);
+	    break;
+	case 3:
+	    pl130_gic_SPI_ICDIPTR_targets_off3_wrf(&pic, pri_reg-8,cpu_targets);
+	    break;
 	}
-
-
 
 	// Set Interrupt Configuration Register
-	if(int_id >= 32)
-	{
-		ind = int_id/16;
-		uint8_t val = (edge_triggered << 1) | one_to_n;
-		switch(int_id % 16)
-		{
-			case 0:
-				pl130_gic_SPI_ICDICR_spi0_wrf(&pic, ind-2, val);
-				break;
-			case 1:
-				pl130_gic_SPI_ICDICR_spi1_wrf(&pic, ind-2, val);
-				break;
-			case 2:
-				pl130_gic_SPI_ICDICR_spi2_wrf(&pic, ind-2, val);
-				break;
-			case 3:
-				pl130_gic_SPI_ICDICR_spi3_wrf(&pic, ind-2, val);
-				break;
-			case 4:
-				pl130_gic_SPI_ICDICR_spi4_wrf(&pic, ind-2, val);
-				break;
-			case 5:
-				pl130_gic_SPI_ICDICR_spi5_wrf(&pic, ind-2, val);
-				break;
-			case 6:
-				pl130_gic_SPI_ICDICR_spi6_wrf(&pic, ind-2, val);
-				break;
-			case 7:
-				pl130_gic_SPI_ICDICR_spi7_wrf(&pic, ind-2, val);
-				break;
-			case 8:
-				pl130_gic_SPI_ICDICR_spi8_wrf(&pic, ind-2, val);
-				break;
-			case 9:
-				pl130_gic_SPI_ICDICR_spi9_wrf(&pic, ind-2, val);
-				break;
-			case 10:
-				pl130_gic_SPI_ICDICR_spi10_wrf(&pic, ind-2, val);
-				break;
-			case 11:
-				pl130_gic_SPI_ICDICR_spi11_wrf(&pic, ind-2, val);
-				break;
-			case 12:
-				pl130_gic_SPI_ICDICR_spi12_wrf(&pic, ind-2, val);
-				break;
-			case 13:
-				pl130_gic_SPI_ICDICR_spi13_wrf(&pic, ind-2, val);
-				break;
-			case 14:
-				pl130_gic_SPI_ICDICR_spi14_wrf(&pic, ind-2, val);
-				break;
-			case 15:
-				pl130_gic_SPI_ICDICR_spi15_wrf(&pic, ind-2, val);
-				break;
-		}
+	if(int_id >= 32) {
+	    int ind = int_id/16;
+	    uint8_t val = (edge_triggered << 1) | one_to_n;
+	    switch(int_id % 16) {
+	    case 0:
+		pl130_gic_SPI_ICDICR_spi0_wrf(&pic, ind-2, val);
+		break;
+	    case 1:
+		pl130_gic_SPI_ICDICR_spi1_wrf(&pic, ind-2, val);
+		break;
+	    case 2:
+		pl130_gic_SPI_ICDICR_spi2_wrf(&pic, ind-2, val);
+		break;
+	    case 3:
+		pl130_gic_SPI_ICDICR_spi3_wrf(&pic, ind-2, val);
+		break;
+	    case 4:
+		pl130_gic_SPI_ICDICR_spi4_wrf(&pic, ind-2, val);
+		break;
+	    case 5:
+		pl130_gic_SPI_ICDICR_spi5_wrf(&pic, ind-2, val);
+		break;
+	    case 6:
+		pl130_gic_SPI_ICDICR_spi6_wrf(&pic, ind-2, val);
+		break;
+	    case 7:
+		pl130_gic_SPI_ICDICR_spi7_wrf(&pic, ind-2, val);
+		break;
+	    case 8:
+		pl130_gic_SPI_ICDICR_spi8_wrf(&pic, ind-2, val);
+		break;
+	    case 9:
+		pl130_gic_SPI_ICDICR_spi9_wrf(&pic, ind-2, val);
+		break;
+	    case 10:
+		pl130_gic_SPI_ICDICR_spi10_wrf(&pic, ind-2, val);
+		break;
+	    case 11:
+		pl130_gic_SPI_ICDICR_spi11_wrf(&pic, ind-2, val);
+		break;
+	    case 12:
+		pl130_gic_SPI_ICDICR_spi12_wrf(&pic, ind-2, val);
+		break;
+	    case 13:
+		pl130_gic_SPI_ICDICR_spi13_wrf(&pic, ind-2, val);
+		break;
+	    case 14:
+		pl130_gic_SPI_ICDICR_spi14_wrf(&pic, ind-2, val);
+		break;
+	    case 15:
+		pl130_gic_SPI_ICDICR_spi15_wrf(&pic, ind-2, val);
+		break;
+	    }
 	}
+    }
 }
-
+    
 uint32_t pic_get_active_irq(void)
 {
 	uint32_t regval = pl130_gic_ICCIAR_rd(&pic);
