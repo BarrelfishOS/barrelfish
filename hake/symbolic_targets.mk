@@ -544,7 +544,7 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 		tools/bin/arm_molly \
 		menu.lst.pandaboard 
 	# Translate each of the binary files we need
-	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_tmp
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_panda
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
 	tools/bin/arm_molly menu.lst.pandaboard panda_mbi.c
@@ -563,7 +563,7 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 		$(SRCDIR)/tools/arm_molly/lib.c \
 		./panda_mbi.c \
 		$(SRCDIR)/lib/elf/elf32.c \
-		./molly_tmp/* \
+		./molly_panda/* \
 		-o pandaboard_image
 	@echo "OK - pandaboard boot image is built."
 	@echo "If your boot environment is correctly set up, you can now:"
@@ -579,7 +579,7 @@ arm_gem5_image: $(MODULES) \
 		tools/bin/arm_molly \
 		menu.lst.arm_gem5
 	# Translate each of the binary files we need
-	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5 molly_tmp
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5 molly_gem5
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
 	tools/bin/arm_molly menu.lst.arm_gem5 arm_mbi.c
@@ -598,6 +598,6 @@ arm_gem5_image: $(MODULES) \
 		$(SRCDIR)/tools/arm_molly/lib.c \
 		./arm_mbi.c \
 		$(SRCDIR)/lib/elf/elf32.c \
-		./molly_tmp/* \
+		./molly_gem5/* \
 		-o arm_gem5_image
 
