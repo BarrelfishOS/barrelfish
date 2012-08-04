@@ -56,6 +56,7 @@ static pl130_gic_t pic;
 static pl130_gic_ICDICTR_t pic_config;
 
 static uint32_t it_num_lines;
+static uint16_t max_ints;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
@@ -67,7 +68,8 @@ void gic_init(void)
 
 	//read GIC configuration
 	pic_config = pl130_gic_ICDICTR_rd(&pic);
-	it_num_lines = 32*(pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1);
+	it_num_lines = pl130_gic_ICDICTR_it_lines_num_extract(pic_config);
+	max_ints = 32*(it_num_lines + 1);
 	cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
 	sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
 
@@ -139,7 +141,7 @@ void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
 		regval |= bit_mask;
 		pl130_gic_PPI_ICDISER_wr(&pic, regval);
 	}
-	else if(int_id < it_num_lines)
+	else if(int_id < max_ints)
 	{
 		regval = pl130_gic_SPI_ICDISER_rd(&pic, ind-1);
 		regval |= bit_mask;

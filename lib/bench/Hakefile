@@ -21,6 +21,6 @@
   in
     build library { target = "bench",
                     architectures = [arch],
-                    cFiles = common_srcs ++ arch_srcs (archFamily arch),
+                    cFiles = common_srcs ++ arch_srcs (archFamily arch)
                   }
  ) | arch <- allArchitectures ]
