@@ -262,7 +262,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_CNode:
         assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
-        printf("Calling memset at virtual address %"PRIxLVADDR"\n", lvaddr);
         memset((void*)lvaddr, 0, 1UL << bits);
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
 
