@@ -62,7 +62,7 @@ static uint8_t sec_extn_implemented;
 lvaddr_t private_memory_region = 0;
 
 void private_mem_test(void);
-void private_mem_test(void) 
+void private_mem_test(void)
 {
     // Make sure both pages are mapped
     uint32_t *p1 = (uint32_t*) private_memory_region;
@@ -72,7 +72,7 @@ void private_mem_test(void)
     printf("test-reading private memory regions "
            "at %p=%"PRIx32" and "
            "at %p=%"PRIx32"\n",
-           p1, test1, 
+           p1, test1,
            p2, test2);
 }
 
@@ -173,7 +173,7 @@ void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     uint32_t regval;
 
     printf("pic_enable_interrupt for id=%"PRIx32", "
-           "offset=%"PRIx32", index=%"PRIx32"\n", 
+           "offset=%"PRIx32", index=%"PRIx32"\n",
            int_id, bit_mask, ind);
 
     // Set the Interrupt Set Enable register to enable the interupt
@@ -191,7 +191,7 @@ void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     // Set Interrupt Priority Register
     // We have four of them in the same fields (hence: /4)
     ind = int_id/4;
-    
+
     switch(int_id % 4) {
     case 0:
         pl130_gic_ICDIPR_prio_off0_wrf(&pic, ind, prio);
@@ -414,7 +414,7 @@ void pit_start(uint8_t pit_id)
 		 panic("Unsupported PIT ID: %"PRIu32, pit_id);
 
 
-         // No PIT for now .. 
+         // No PIT for now ..
 	/* sp804_pit_Timer1Control_int_enable_wrf(pit, 1); */
 	/* sp804_pit_Timer1Control_timer_en_wrf(pit, 1); */
 }
@@ -422,7 +422,7 @@ void pit_start(uint8_t pit_id)
 static uint32_t local_timer_counter = 0;
 bool pit_handle_irq(uint32_t irq)
 {
-    printf("pit_handle_irq %d\n", irq);
+//    printf("pit_handle_irq %d\n", irq);
 
     switch(irq) {
 
@@ -437,12 +437,12 @@ bool pit_handle_irq(uint32_t irq)
         return 1;
 
     case LOCAL_TIMER_IRQ:
-        printf("local timer IRQ, number=%d\n", local_timer_counter);
+//        printf("local timer IRQ, number=%d\n", local_timer_counter);
         pic_ack_irq(irq);
         local_timer_counter++;
         return 1;
-        
-    default: 
+
+    default:
         return 0;
     }
 }
@@ -488,9 +488,9 @@ void tsc_init(void)
 
     //configure tsc
     cortex_a9_pit_TimerControl_prescale_wrf(&tsc, 0);
+    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
     // XXX Disable interrupts, to ease debugging init startup
-    //    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
-    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 0);
+    //cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 0);
     cortex_a9_pit_TimerControl_auto_reload_wrf(&tsc, 1);
     cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
 
@@ -518,7 +518,7 @@ static a9scu_t scu;
 
 void scu_enable(void)
 {
-    // Not tested yet .. 
+    // Not tested yet ..
     a9scu_initialize(&scu, (mackerel_addr_t) private_memory_region);
 
     //enable SCU

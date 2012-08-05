@@ -535,6 +535,7 @@ PANDABOARD_MODULES=\
 	arm_gem5/sbin/ramfsd \
 	arm_gem5/sbin/spawnd \
 	arm_gem5/sbin/startd \
+	arm_gem5/sbin/skb \
 	arm_gem5/sbin/memtest
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
@@ -542,7 +543,7 @@ menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 
 pandaboard_image: $(PANDABOARD_MODULES) \
 		tools/bin/arm_molly \
-		menu.lst.pandaboard 
+		menu.lst.pandaboard
 	# Translate each of the binary files we need
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_panda
 	# Build a C file to link into a single image for the 2nd-stage

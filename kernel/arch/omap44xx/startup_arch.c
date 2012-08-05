@@ -490,8 +490,8 @@ static void init_page_tables(void)
      * entries through to the corresponding L2 entries.
      */
     STATIC_ASSERT(0 == (INIT_VBASE % ARM_L1_SECTION_BYTES), "");
-    for (lvaddr_t vaddr = INIT_VBASE; 
-         vaddr < INIT_SPACE_LIMIT; 
+    for (lvaddr_t vaddr = INIT_VBASE;
+         vaddr < INIT_SPACE_LIMIT;
          vaddr += ARM_L1_SECTION_BYTES) {
         uintptr_t section = (vaddr - INIT_VBASE) / ARM_L1_SECTION_BYTES;
         uintptr_t l2_off = section * ARM_L2_TABLE_BYTES;
@@ -573,7 +573,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     const char *argv[] = { "init", bootinfochar };
     int argc = 2;
 
-    struct dcb *init_dcb = spawn_init_common(name, argc, argv,bootinfo_phys, alloc_phys);
+    struct dcb *init_dcb = spawn_init_common(name, argc, argv, bootinfo_phys,
+            alloc_phys);
 
     // Map bootinfo
     spawn_init_map(init_l2, INIT_VBASE, INIT_BOOTINFO_VBASE,

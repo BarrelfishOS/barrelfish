@@ -62,7 +62,9 @@
 
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
+//#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
+#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256)
+// increased above value from 128 for pandaboard port
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -187,7 +189,7 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
                                    index, &tmp);
         assert(tmp != NULL);
         *ptable = tmp; // Set argument to received value
-    
+
 
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
@@ -268,6 +270,7 @@ max_slabs_required(size_t bytes)
  * Can only be called for the current pmap
  * Will recursively call into itself till it has enough slabs
  */
+#include <stdio.h>
 static errval_t refill_slabs(struct pmap_arm *pmap, size_t request)
 {
     errval_t err;
@@ -300,9 +303,10 @@ static errval_t refill_slabs(struct pmap_arm *pmap, size_t request)
         /* Perform mapping */
         genvaddr_t genvaddr = pmap->vregion_offset;
         pmap->vregion_offset += (genvaddr_t)bytes;
+
         // if this assert fires, increase META_DATA_RESERVED_SPACE
-        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
-               vregion_get_size(&pmap->vregion)); 
+        assert(pmap->vregion_offset < (vregion_get_base_addr(&pmap->vregion) +
+               vregion_get_size(&pmap->vregion)));
 
         err = do_map(pmap, genvaddr, cap, 0, bytes,
                      VREGION_FLAGS_READ_WRITE, NULL, NULL);
@@ -312,7 +316,7 @@ static errval_t refill_slabs(struct pmap_arm *pmap, size_t request)
 
         /* Grow the slab */
         lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
-        slab_grow(&pmap->slab, (void*)buf, bytes);        
+        slab_grow(&pmap->slab, (void*)buf, bytes);
     }
 
     return SYS_ERR_OK;
