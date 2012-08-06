@@ -224,8 +224,7 @@ void enable_mmu(void)
                         // Section: B2.12.17 c1, System Control Register (SCTLR)
                         // Enable: D-Cache, I-Cache, Alignment, MMU (0x007) --> works
                         // Everything without D-Cache (0x003) --> works
-                        //			"ldr	r1, =0x1007\n\t"
-			"ldr	r1, =0x1003\n\t"
+			"ldr	r1, =0x1007\n\t"
 			"mrc	p15, 0, r0, c1, c0, 0\n\t"      // read out system configuration register
 			"orr	r0, r0, r1\n\t"
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
@@ -267,11 +266,11 @@ static void paging_init(void)
     ttbcr = cp15_read_ttbcr();
     ttbcr |= 1;
     cp15_write_ttbcr(ttbcr);
-    
+
     // make sure pagetables are aligned to 16K
     aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
     aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
-    
+
     lvaddr_t vbase = MEMORY_OFFSET, base =  0;
 
     for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
@@ -279,7 +278,7 @@ static void paging_init(void)
 	// create 1:1 mapping
 	//		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
 	paging_map_device_section((uintptr_t)aligned_boot_l1_low, base, base);
-	
+
 	// Alias the same region at MEMORY_OFFSET (gem5 code)
 	// create 1:1 mapping for pandaboard
 	//		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
@@ -360,12 +359,12 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     printf("cpu id %d\n", my_core_id);
 
     // Test MMU by remapping the device identifier and reading it using a
-    // virtual address 
+    // virtual address
     lpaddr_t id_code_section = OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ~ARM_L1_SECTION_MASK;
     lvaddr_t id_code_remapped = paging_map_device(id_code_section,
                                                   ARM_L1_SECTION_BYTES);
     omap44xx_id_t id;
-    omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped + 
+    omap44xx_id_initialize(&id, (mackerel_addr_t)(id_code_remapped +
 	     (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE & ARM_L1_SECTION_MASK)));
 
     char buf[200];
@@ -466,7 +465,7 @@ void arch_init(void *pointer)
 
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
-    
+
     print_system_identification();
 
     paging_init();

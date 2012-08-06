@@ -20,6 +20,7 @@
 #include <exec.h>
 #include <exceptions.h>
 #include <misc.h>
+#include <cp15.h>   // for invalidating tlb and cache
 
 static arch_registers_state_t upcall_state;
 
@@ -31,20 +32,11 @@ void do_resume(uint32_t *regs)
     STATIC_ASSERT(R0_REG   ==  1, "");
     STATIC_ASSERT(PC_REG   == 16, "");
 
-    // Save area pointed to by regs actually contains a copy of the cpsr first
-    // The registers are starting after that
-
-    // Stop after execption
-/*   uint32_t *registers_real = regs + 1;
-     printf("do_resume, setting LR=%"PRIx32" and PC=%"PRIx32" "
-           "and SP=%"PRIx32"\n",
-           registers_real[14], registers_real[15], registers_real[13]);
-*/
+    // Flush cashes and tlb
+    cp15_invalidate_tlb();
+    cp15_invalidate_i_and_d_caches();
 
     __asm volatile(
-        // Flush cashes and tlb, just to be sure
-                   //	"bl cp15_invalidate_tlb_fn \n\t"
-                   //	"bl cp15_invalidate_i_and_d_caches_fast \n\t"
         // lr = r14, used as tmp register.
         // Load cpsr into lr and move regs to next entry (postindex op)
         // LDR = read word from memory
