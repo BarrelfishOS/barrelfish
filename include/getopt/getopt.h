@@ -17,6 +17,7 @@
 
 enum argtype {
     ArgType_Int,
+    ArgType_UInt,
     ArgType_Bool,
     ArgType_Custom
 };
@@ -29,11 +30,12 @@ struct cmdarg {
 
     union {
         int             *integer;
+        unsigned        *uinteger;
         bool            *boolean;
         cmdarg_handler  handler;
     } var;
 };
 
-void parse_commandline(const char *cmdline, struct cmdarg *cmdargs);
+extern void parse_commandline(const char *cmdline, struct cmdarg *cmdargs);
 
 #endif // GETOPT_H

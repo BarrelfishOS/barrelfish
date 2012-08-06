@@ -17,10 +17,6 @@
 #include <dev/cortex_a9_pit_dev.h>
 #include <dev/a9scu_dev.h>
 
-#include <omap_uart.h>
-#include <omap44xx_map.h>
-
-#include <serial.h>
 #include <arm_hal.h>
 #include <cp15.h>
 
@@ -532,85 +528,4 @@ void scu_enable(void)
 int scu_get_core_count(void)
 {
 	return a9scu_SCUConfig_cpu_number_rdf(&scu);
-}
-
-//
-// Serial console and debugger interfaces
-//
-
-#define CONSOLE_PORT 2
-#define DEBUG_PORT   2
-
-
-static omap_uart_t ports[4];
-
-static errval_t serial_init(uint8_t index, uint8_t port_no)
-{
-    if (port_no >= 4) {
-        return SYS_ERR_SERIAL_PORT_INVALID;
-    }
-
-    assert(port_no == 2);
-        lvaddr_t base = paging_map_device(OMAP44XX_MAP_L4_PER_UART3,
-					  OMAP44XX_MAP_L4_PER_UART3_SIZE);
-    // paging_map_device returns an address pointing to the beginning of
-    // a section, need to add the offset for within the section again
-    uint32_t offset = (OMAP44XX_MAP_L4_PER_UART3 & ARM_L1_SECTION_MASK);
-    printf("omap serial_init: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
-            base, base + offset);
-    omap_uart_init(&ports[index], base + offset);
-
-    return SYS_ERR_OK;
-}
-
-errval_t early_serial_init(uint8_t port_no);
-errval_t early_serial_init(uint8_t port_no)
-{
-    if (port_no < 4) {
-        assert(ports[port_no].base == 0);
-        omap_uart_init(&ports[CONSOLE_PORT], OMAP44XX_MAP_L4_PER_UART3);
-        return SYS_ERR_OK;
-    }
-    else {
-        return SYS_ERR_SERIAL_PORT_INVALID;
-    }
-}
-
-errval_t serial_console_init(uint8_t port_ordinal)
-{
-    printf("Starting UART driver\n");
-    return serial_init(CONSOLE_PORT, port_ordinal);
-}
-
-void serial_console_putchar(char c)
-{
-    if (c == '\n') {
-        omap_putchar(&ports[CONSOLE_PORT], '\r');
-    }
-
-    omap_putchar(&ports[CONSOLE_PORT], c);
-}
-
-char serial_console_getchar(void)
-{
-    return omap_getchar(&ports[CONSOLE_PORT]);
-}
-
-errval_t serial_debug_init(uint8_t port_ordinal)
-{
-    printf("Starting Debug UART driver\n");
-    return serial_init(DEBUG_PORT, port_ordinal);
-}
-
-void serial_debug_putchar(char c)
-{
-    if (c == '\n') {
-        omap_putchar(&ports[DEBUG_PORT], '\r');
-    }
-    omap_putchar(&ports[DEBUG_PORT], c);
-}
-
-char serial_debug_getchar(void)
-{
-    return omap_getchar(&ports[DEBUG_PORT]);
 }

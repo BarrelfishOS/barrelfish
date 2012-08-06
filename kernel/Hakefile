@@ -277,6 +277,7 @@ let
                "arch/arm_gem5/init.c", 
                "arch/arm_gem5/integrator.c", 
                "arch/arm_gem5/paging.c", 
+               "arch/arm_gem5/gem5_serial.c", 
                "arch/arm_gem5/pl011_uart.c", 
                "arch/arm_gem5/startup_arch.c", 
                "arch/arm_gem5/syscall.c", 

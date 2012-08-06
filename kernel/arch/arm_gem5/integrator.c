@@ -10,15 +10,12 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 
-#include <dev/pl011_uart_dev.h>
 #include <dev/pl130_gic_dev.h>
 #include <dev/sp804_pit_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
 #include <dev/arm_icp_pit_dev.h>
 #include <dev/a9scu_dev.h>
 
-#include <pl011_uart.h>
-#include <serial.h>
 #include <arm_hal.h>
 #include <cp15.h>
 #include <io.h>
@@ -485,76 +482,4 @@ lpaddr_t sysflagset_base = SYSFLAGSET_BASE;
 void write_sysflags_reg(uint32_t regval)
 {
 	writel(regval, (char *)SYSFLAGSET_BASE);
-}
-
-//
-// Serial console and debugger interfaces
-//
-
-#define CONSOLE_PORT 0
-#define DEBUG_PORT   1
-
-#define UART0_VBASE				0xE0009000
-#define UART0_SECTION_OFFSET	0x9000
-#define UART_DEVICE_BYTES		0x4c
-#define UART_MAPPING_DIFF		0x1000
-
-static pl011_uart_t ports[2];
-
-static errval_t serial_init(uint8_t index, uint8_t port_no)
-{
-    if (port_no < 2) {
-        //assert(ports[port_no].base == 0);
-
-        lvaddr_t base = paging_map_device(UART0_VBASE + port_no * UART_MAPPING_DIFF,
-                                          UART_DEVICE_BYTES);
-        pl011_uart_init(&ports[index], base + UART0_SECTION_OFFSET + port_no*UART_MAPPING_DIFF);
-        //pl011_uart_init(&ports[index], UART0_VBASE);
-        return SYS_ERR_OK;
-    }
-    else {
-        return SYS_ERR_SERIAL_PORT_INVALID;
-    }
-}
-errval_t early_serial_init(uint8_t port_no);
-errval_t early_serial_init(uint8_t port_no)
-{
-	if (port_no < 2) {
-		assert(ports[port_no].base == 0);
-		pl011_uart_init(&ports[CONSOLE_PORT], UART0_VBASE);
-		return SYS_ERR_OK;
-	}
-	else {
-		return SYS_ERR_SERIAL_PORT_INVALID;
-	}
-}
-
-errval_t serial_console_init(uint8_t port_ordinal)
-{
-    return serial_init(CONSOLE_PORT, port_ordinal);
-}
-
-void serial_console_putchar(char c)
-{
-    pl011_putchar(&ports[CONSOLE_PORT], c);
-}
-
-char serial_console_getchar(void)
-{
-    return pl011_getchar(&ports[CONSOLE_PORT]);
-}
-
-errval_t serial_debug_init(uint8_t port_ordinal)
-{
-    return serial_init(DEBUG_PORT, port_ordinal);
-}
-
-void serial_debug_putchar(char c)
-{
-    pl011_putchar(&ports[DEBUG_PORT], c);
-}
-
-char serial_debug_getchar(void)
-{
-    return pl011_getchar(&ports[DEBUG_PORT]);
 }

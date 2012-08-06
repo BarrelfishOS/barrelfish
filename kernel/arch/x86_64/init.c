@@ -465,7 +465,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    serial_console_init(0);
+    serial_console_init();
 
     // Setup IDT
     setup_default_idt();
@@ -565,7 +565,7 @@ void arch_init(uint64_t magic, void *pointer)
 {
     // Sanitize the screen
     conio_cls();
-    serial_console_init(0);
+    serial_console_init();
 
     void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
         (void *)local_phys_to_mem((lpaddr_t)text_init);

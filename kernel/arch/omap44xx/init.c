@@ -35,10 +35,6 @@
 #define GEM5_RAM_SIZE	0x20000000
 //#define GEM5_RAM_SIZE	0x2000000
 
-extern errval_t early_serial_init(uint8_t port_no);
-
-void put_serial_test(char c);
-
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
 
@@ -185,13 +181,11 @@ struct atag {
 // Kernel command line variables and binding options
 //
 
-static int timeslice		     = 5; //interval in ms in which the scheduler gets called
-static int serial_console_port       = 2;
-static int serial_debug_port         = 2;
+static int timeslice  = 5; //interval in ms in which the scheduler gets called
 
 static struct cmdarg cmdargs[] = {
-    { "consolePort",    ArgType_Int, { .integer = &serial_console_port}},
-    { "debugPort",      ArgType_Int, { .integer = &serial_debug_port}},
+    { "consolePort",    ArgType_UInt, { .uinteger = &serial_console_port}},
+    { "debugPort",      ArgType_UInt, { .uinteger = &serial_debug_port}},
     { "loglevel",       ArgType_Int, { .integer = &kernel_loglevel }},
     { "logmask",        ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
     { "timeslice",      ArgType_Int, { .integer = &timeslice }},
@@ -347,7 +341,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     printf("kernel_startup_early done!\n");
 
     //initialize console
-    serial_console_init(serial_console_port);
+    serial_init(serial_console_port);
 
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on ARMv7"
@@ -355,7 +349,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     printf("The address of paging_map_kernel_section is %p\n",
            paging_map_kernel_section);
 
-    errval = serial_debug_init(serial_debug_port);
+    errval = serial_debug_init();
     if (err_is_fail(errval))
         {
             printf("Failed to initialize debug port: %d",
@@ -438,7 +432,7 @@ void arch_init(void *pointer)
 {
     struct arm_coredata_elf *elf = NULL;
 
-    early_serial_init(serial_console_port);
+    serial_early_init(serial_console_port);
 
     if(hal_cpu_is_bsp())
     {

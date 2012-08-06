@@ -207,12 +207,20 @@ uint32_t tsc_get_hz(void)
 // Serial console and debugger interfaces
 //
 
-#define CONSOLE_PORT 0
-#define DEBUG_PORT   1
+#define NUM_PORTS 2
+static unsigned serial_console_port = 0;
+static unsigned serial_debug_port = 1
+static unsigned serial_num_physical_ports = NUM_PORTS
 
-static pl011_uart_t ports[2];
 
-static errval_t serial_init(uint8_t index, uint8_t port_no)
+#define UART0_VBASE		0xE0009000
+#define UART0_SECTION_OFFSET	0x9000
+#define UART_DEVICE_BYTES	0x4c
+#define UART_MAPPING_DIFF	0x1000
+
+static pl011_uart_t ports[NUM_PORTS];
+
+errval_t serial_init(uint8_t index, uint8_t port_no)
 {
     if (port_no < 2) {
         assert(ports[port_no].base == 0);
@@ -226,33 +234,21 @@ static errval_t serial_init(uint8_t index, uint8_t port_no)
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 }
-
-errval_t serial_console_init(uint8_t port_ordinal)
+errval_t serial_early_init(unsigned port)
 {
-    return serial_init(CONSOLE_PORT, port_ordinal);
+    return SYS_ERR_OK; // Unused
 }
 
-void serial_console_putchar(char c)
+void serial_putchar(unsigned port, char c) 
 {
-    pl011_putchar(&ports[CONSOLE_PORT], c);
-}
+    assert(port < NUM_PORTS);
+    assert(ports[port].base != 0);
+    pl011_putchar(&ports[port], c);
+};
 
-char serial_console_getchar(void)
+char serial_getchar(unsigned port)
 {
-    return pl011_getchar(&ports[CONSOLE_PORT]);
-}
-
-errval_t serial_debug_init(uint8_t port_ordinal)
-{
-    return serial_init(DEBUG_PORT, port_ordinal);
-}
-
-void serial_debug_putchar(char c)
-{
-    pl011_putchar(&ports[DEBUG_PORT], c);
-}
-
-char serial_debug_getchar(void)
-{
-    return pl011_getchar(&ports[DEBUG_PORT]);
-}
+    assert(port < NUM_PORTS);
+    assert(ports[port].base != 0);
+    return pl011_putchar(&ports[port], c);
+};
