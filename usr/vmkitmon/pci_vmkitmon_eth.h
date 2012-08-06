@@ -54,6 +54,7 @@ struct pci_vmkitmon_eth {
 	struct pci_device *pci_device;
 };
 
+//#define VMKITMON_ETH_DEBUG_SWITCH 1
 #if defined(VMKITMON_ETH_DEBUG_SWITCH)
 #define VMKITMON_ETH_DEBUG(x...) printf("VMKITMON_ETH: " x)
 #else

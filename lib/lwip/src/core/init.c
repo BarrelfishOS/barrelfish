@@ -464,7 +464,8 @@ static bool lwip_init_auto_ex(struct waitset * opt_waitset,
     card_name = "rtl8029";
 #else
     // FIXME: also check for e10k
-    card_name = "e1000";
+    //card_name = "e1000";
+    card_name = "vmkitmon_eth";
 #endif // CONFIG_QEMU_NETWORK
 #else
     static char cid[100];
@@ -512,7 +513,7 @@ void lwip_benchmark_control(int direction, uint8_t state, uint64_t trigger,
         uint64_t cl)
 {
 //  printf("calling lwip_benchmark_control\n");
-    idc_benchmark_control(direction, state, trigger, cl);
+    //idc_benchmark_control(direction, state, trigger, cl);
 }  // end function: lwip_benchmark_control
 
 uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,

@@ -82,6 +82,7 @@ static int cat(char *path)
 
 int main(int argc, char**argv)
 {
+    vfs_init();
 
     if(argc < 3) {
         printf("Usage: %s mount-URL filepath\n", argv[0]);

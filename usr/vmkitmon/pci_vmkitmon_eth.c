@@ -12,12 +12,33 @@
 #define INVALID         0xffffffff
 #define PCI_HEADER_MEM_ROM_BASE_REGISTER 0xc
 
+#define DRIVER_RECEIVE_BUFFERS 256
+#define DRIVER_TRANSMIT_BUFFER 256
+
 static uint8_t guest_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}; //The mac address presented to virt. linux
 static uint8_t host_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xBF}; //The mac address presented to barrelfish
 static uint64_t assumed_queue_id = 0;
 static struct pci_device *the_pci_vmkitmon_eth;
-static uint64_t global_spp_index;
-static struct net_queue_manager_binding *global_binding;
+
+// Data-structure to map sent buffer slots back to application slots
+struct pbuf_desc {
+    void *opaque;
+};
+static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFER];
+
+// tx_index = head, tx_bufptr = tail
+static uint32_t ether_transmit_index = 0, ether_transmit_bufptr = 0;
+
+// rx_index = head, rx_bufptr = tail
+static uint32_t receive_index = 0, receive_bufptr = 0;
+static uint32_t receive_free = 0;
+
+struct rx_buffer {
+    uint64_t paddr;
+    void *vaddr;
+    void *opaque;
+};
+static struct rx_buffer rx_buffer_ring[DRIVER_RECEIVE_BUFFERS];
 
 static void generate_interrupt(struct pci_device *dev){
 	struct pci_vmkitmon_eth * h = dev->state;
@@ -85,44 +106,44 @@ static void dumpRegion(uint8_t *start){
 }
 #endif
 
-static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
+//TODO
+static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size, void *opaque) {
 	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
 	int i;
 	uint64_t paddr;
-	struct shared_pool_private *spp = cl->spp_ptr;
-	global_binding = cl->app_connection;
-	struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
-	uint64_t rtpbuf = sld->no_pbufs;
 
-    VMKITMON_ETH_DEBUG("transmit_pbuf_list_fn, no_pbufs: 0x%lx\n", rtpbuf);
-
-	struct buffer_descriptor *buffer = find_buffer(sld->buffer_id);
+    VMKITMON_ETH_DEBUG("transmit_pbuf_list_fn, no_pbufs: 0x%lx\n", size);
 
 	struct pci_vmkitmon_eth_rxdesc * first_rx = (struct pci_vmkitmon_eth_rxdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
 	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR];
+    
 	int transmitted = 0;
-	for (i = 0; i < rtpbuf; i++) {
-		sld = &spp->sp->slot_list[cl->tx_index + i].d;
-		assert(buffer->buffer_id == sld->buffer_id);
-		paddr = (uint64_t) buffer->pa + sld->offset;
-		VMKITMON_ETH_DEBUG("paddr: 0x%lx, len: 0x%lx\n", paddr, sld->len);
+	for (i = 0; i < size; i++) {
+        struct driver_buffer *buffer = &buffers[i];
+        
+		paddr = buffer->pa;
+		VMKITMON_ETH_DEBUG("paddr: 0x%lx, len: 0x%lx\n", paddr, buffer->len);
 #if defined(VMKITMON_ETH_DEBUG_SWITCH)
-		dumpRegion(buffer->va + sld->offset);
+		dumpRegion(buffer->va);
 #endif
-
-        global_spp_index = (cl->tx_index + i) % cl->spp_ptr->c_size;
 
 		for(int j = 0; j <= rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); j++){
 			struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + j;
 			if(cur_rx->len == 0 && cur_rx->addr != 0){
 				void *hv_addr = (void *)guest_to_host(cur_rx->addr);
-				memcpy(hv_addr, buffer->va + sld->offset, sld->len);
-				cur_rx->len = sld->len;
+				memcpy(hv_addr, buffer->va, buffer->len);
+				cur_rx->len = buffer->len;
 				VMKITMON_ETH_DEBUG("Used rxdesc %d to transmit\n", j);
 				transmitted = 1;
+                
+                pbuf_list_tx[ether_transmit_index].opaque = opaque;
+                ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
+                
 				break;
 			}
 		}
+        
+        
 	}
 
 	if(transmitted){
@@ -134,7 +155,7 @@ static errval_t transmit_pbuf_list_fn(struct client_closure *cl) {
 
 static uint64_t find_tx_free_slot_count_fn(void) {
 	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
-	VMKITMON_ETH_DEBUG("find_tx_free_slot_count_fn, ");
+	VMKITMON_ETH_DEBUG("find_tx_free_slot_count_fn\n");
 	struct pci_vmkitmon_eth_rxdesc * first_rx = (struct pci_vmkitmon_eth_rxdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
 	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR];
 	int numFree = 0;
@@ -150,9 +171,16 @@ static uint64_t find_tx_free_slot_count_fn(void) {
 
 static bool handle_free_TX_slot_fn(void) {
 	VMKITMON_ETH_DEBUG("handle_free_TX_slot_fn\n");
-    handle_tx_done(global_binding, global_spp_index);
-    netbench_record_event_simple(bm, RE_TX_DONE, rdtsc());
-	return false;
+    
+    if(ether_transmit_bufptr == ether_transmit_index) {
+        return false;
+    }
+    
+    handle_tx_done(pbuf_list_tx[ether_transmit_bufptr].opaque);
+    
+    ether_transmit_bufptr = (ether_transmit_bufptr + 1) % DRIVER_TRANSMIT_BUFFER;
+    //netbench_record_event_simple(bm, RE_TX_DONE, rdtsc());
+	return true;
 }
 
 static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
@@ -164,12 +192,50 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
 		if(cur_tx->len != 0 && cur_tx->addr != 0){
 			void *hv_addr = (void *)guest_to_host(cur_tx->addr);
 			VMKITMON_ETH_DEBUG("Sending packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
-			process_received_packet((void*)hv_addr, cur_tx->len);
+            
+            if(receive_free == 0) {
+                VMKITMON_ETH_DEBUG("Could not deliver packet, no receive buffer available. Drop packet.\n");
+            } else {
+                memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
+                process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
+            
+                receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
+                --receive_free;
+            }
 			cur_tx->len = 0;
 		}
 	}
 }
 
+//TODO
+static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque) {
+    VMKITMON_ETH_DEBUG("rx_register_buffer_fn called\n");
+    
+    rx_buffer_ring[receive_index].paddr = paddr;
+    rx_buffer_ring[receive_index].vaddr = vaddr;
+    rx_buffer_ring[receive_index].opaque = opaque;
+    
+    receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
+    receive_free++;
+    return SYS_ERR_OK;
+}
+
+//TODO
+static uint64_t rx_find_free_slot_count_fn(void) {
+    
+    struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
+	struct pci_vmkitmon_eth_txdesc * first_tx = (struct pci_vmkitmon_eth_txdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
+	uint32_t txdesc_len = h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR];
+	int numFree = 0;
+	for (int i = 0; i < txdesc_len/sizeof(struct pci_vmkitmon_eth_txdesc); i++) {
+		struct pci_vmkitmon_eth_txdesc * cur_tx =first_tx + i;
+		if(cur_tx->len == 0 && cur_tx->addr != 0){
+			numFree++;
+		}
+	}    
+    VMKITMON_ETH_DEBUG("rx_find_free_slot_count_fn called, returning %d\n", 256);
+    return numFree;
+}
 
 static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){
 	struct pci_vmkitmon_eth *h = dev->state;
@@ -187,9 +253,18 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 		if( val & PCI_VMKITMON_ETH_IFUP) {
 			VMKITMON_ETH_DEBUG("Interface up, registering\n");
 			// register to queue_manager
-			ethersrv_init("vmkitmon_eth", assumed_queue_id, get_mac_address_fn,
-					transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
-					handle_free_TX_slot_fn);
+            // TODO: some new parameters in this function, we should check if we have to change something...
+			ethersrv_init("vmkitmon_eth", 
+                          assumed_queue_id, 
+                          get_mac_address_fn,
+                          NULL,
+                          transmit_pbuf_list_fn,
+                          find_tx_free_slot_count_fn,
+                          handle_free_TX_slot_fn,
+                          2048, //                      rx_buffer_size,
+                          rx_register_buffer_fn,
+                          rx_find_free_slot_count_fn
+                          );
 
 		}
 		break;
