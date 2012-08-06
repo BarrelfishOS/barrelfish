@@ -35,14 +35,25 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
     struct slot_alloc_state *sas = get_slot_alloc_state();
     struct slot_allocator *ca = (struct slot_allocator*)(&sas->defca);
     if (ca->space == 1) {
-        struct capref cap;
-        err = slot_alloc(&cap);
+        // slot_alloc() might need to allocate memory: reset memory affinity to
+        // the default value
+        ram_set_affinity(0, 0);
+        do {
+                struct capref cap;
+                err = slot_alloc(&cap);
+                if (err_is_fail(err)) {
+                    err = err_push(err, LIB_ERR_SLOT_ALLOC);
+                    break;
+                }
+                err = slot_free(cap);
+                if (err_is_fail(err)) {
+                    err = err_push(err, LIB_ERR_SLOT_FREE);
+                    break;
+                }
+        } while (0);
+        ram_set_affinity(minbase, maxlimit);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLOT_ALLOC);
-        }
-        err = slot_free(cap);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLOT_FREE);
+            return err;
         }
     }
 
