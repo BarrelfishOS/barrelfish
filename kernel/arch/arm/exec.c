@@ -33,18 +33,19 @@ void do_resume(uint32_t *regs)
 
     // Save area pointed to by regs actually contains a copy of the cpsr first
     // The registers are starting after that
-    uint32_t *registers_real = regs + 1;
 
     // Stop after execption
-    printf("do_resume, setting LR=%"PRIx32" and PC=%"PRIx32" "
+/*   uint32_t *registers_real = regs + 1;
+     printf("do_resume, setting LR=%"PRIx32" and PC=%"PRIx32" "
            "and SP=%"PRIx32"\n",
            registers_real[14], registers_real[15], registers_real[13]);
+*/
 
     __asm volatile(
         // Flush cashes and tlb, just to be sure
                    //	"bl cp15_invalidate_tlb_fn \n\t"
                    //	"bl cp15_invalidate_i_and_d_caches_fast \n\t"
-        // lr = r14, used as tmp register. 
+        // lr = r14, used as tmp register.
         // Load cpsr into lr and move regs to next entry (postindex op)
         // LDR = read word from memory
         //        target register
@@ -150,9 +151,11 @@ void wait_for_interrupt(void)
 {
     // REVIEW: Timer interrupt could be masked here.
 
-    // Switch to system mode with interrupts enabled.
+    // Switch to system mode with interrupts enabled. -- OLD
+    // Switch to priviledged mode with interrupts enabled.
     __asm volatile(
-        "mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
+        //"mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
+        "mov    r0, #" XTR(ARM_MODE_PRIV) "              \n\t"
         "msr    cpsr_c, r0                              \n\t"
         "0:                                             \n\t"
 #if defined(__ARM_ARCH_6K__)

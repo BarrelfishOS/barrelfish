@@ -205,7 +205,6 @@ handle_retype(
     int argc
     )
 {
-    printf("handle_retype\n");
     return handle_retype_common(root, false, context, argc);
 }
 
@@ -446,7 +445,8 @@ handle_invoke(arch_registers_state_t *context, int argc)
     uint16_t invoke_bits = (sa->arg0 >> 16) & 0xffff;
     capaddr_t  invoke_cptr = sa->arg1;
 
-    printf("sys_invoke(0x%"PRIxCADDR"(%d))\n", invoke_cptr, invoke_bits);
+    debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n",
+                invoke_cptr, invoke_bits);
 
     struct sysret r = { .error = SYS_ERR_OK, .value = 0 };
 
@@ -461,7 +461,6 @@ handle_invoke(arch_registers_state_t *context, int argc)
 
         if (ObjType_EndPoint == to->type)
         {
-            printf("sys_invoke: endpoint\n");
             struct dcb *listener = to->u.endpoint.listener;
             assert(listener != NULL);
 
@@ -531,43 +530,31 @@ handle_invoke(arch_registers_state_t *context, int argc)
                         assert(context == &disp->enabled_save_area);
                         context->named.r0 = r.error;
                     }
-                    printf("handle_invoke calling dispatch .. \n");
                     dispatch(listener);
                 }
-                printf("weird\n");
-
             }
             else {
-                printf("handle_invoke returning error SYS_ERR_LMP_NO_TARGET\n");
                 r.error = SYS_ERR_LMP_NO_TARGET;
             }
         }
         else
         {
             uint8_t cmd = (sa->arg0 >> 8)  & 0xff;
-            printf("handle_invoke: no error, no endpoint, "
-                   "to->type is %"PRIu32" command is %"PRIu8"\n",
-                   to->type, cmd);
             if (cmd < CAP_MAX_CMD)
             {
                 invocation_t invocation = invocations[to->type][cmd];
                 if (invocation)
                 {
-                    printf("handle_invoke: calling %p\n", invocation -
-                           local_phys_to_mem((uint32_t)&kernel_first_byte) + 0x100000);
                     r = invocation(to, context, argc);
                     if (!dcb_current)
                     {
                         // dcb_current was removed, dispatch someone else
                         assert(err_is_ok(r.error));
-                        printf("handle_invoke calling dispatch (other).. \n");
                         dispatch(schedule());
                     }
-                    printf("handle_invoke returning from somewhere down ..\n");
                     return r;
                 }
             }
-
             printk(LOG_ERR, "Bad invocation type %d cmd %d\n", to->type, cmd);
             r.error = SYS_ERR_ILLEGAL_INVOCATION;
         }
@@ -613,7 +600,6 @@ static struct sysret handle_debug_syscall(int msg)
  * @return struct sysret for all calls except yield / invoke.
  */
 //__attribute__((noreturn))
-static uint32_t num_syscalls = 0;
 void sys_syscall(arch_registers_state_t* context)
 {
     STATIC_ASSERT_OFFSETOF(struct sysret, error, 0);
@@ -621,26 +607,14 @@ void sys_syscall(arch_registers_state_t* context)
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     uintptr_t   syscall = sa->arg0 & 0xf;
-    printf("sys_syscall %d\n", syscall);
     uintptr_t   argc    = (sa->arg0 >> 4) & 0xf;
 
     struct sysret r = { .error = SYS_ERR_INVARGS_SYSCALL, .value = 0 };
 
-    // This doesn't work, lr is already backed up in the save area
-    /* uint32_t lr = 0, ip =0; */
-    /* __asm volatile ("mov lr, %[lr]" : [lr] "=r" (lr)); // Read lr register (contains return address on syscalls) */
-    /* __asm volatile ("mov ip, %[ip]" : [ip] "=r" (ip)); // Read IP */
-
-    printf("sys_syscall: coming from %"PRIx32"\n", sa->link);
-    num_syscalls++;
-
     switch (syscall)
     {
         case SYSCALL_INVOKE:
-            printf("handle_invoke\n");
             r = handle_invoke(context, argc);
-            printf("handle_invoke done, return error=%"PRIxPTR" "
-                   "value=%"PRIxPTR"\n", r.error, r.value);
             break;
 
         case SYSCALL_YIELD:
@@ -657,9 +631,6 @@ void sys_syscall(arch_registers_state_t* context)
             if (argc == 3)
             {
                 r.error = sys_print((const char*)sa->arg1, (size_t)sa->arg2);
-            }
-            if (num_syscalls>2) {
-                panic("stop");
             }
             break;
 

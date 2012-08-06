@@ -64,7 +64,7 @@ struct dcb *fpu_dcb = NULL;
  */
 static inline void context_switch(struct dcb *dcb)
 {
-    printf("Executing the context swicht\n");
+//    printf("Executing the context switch\n");
     assert(dcb != NULL);
     assert(dcb->vspace != 0);
 
@@ -189,8 +189,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         disp->fpu_trap = fpu_trap_get();
     }
 #endif
-
-    printf("dispatch: scheduling dcb=%p\n", dcb);
 
     // XXX FIXME: Why is this null pointer check on the fast path ?
     // If we have nothing to do we should call something other than dispatch

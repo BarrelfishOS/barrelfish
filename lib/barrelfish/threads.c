@@ -981,9 +981,6 @@ static int bootstrap_thread(struct spawn_domain_params *params)
 {
     errval_t err;
 
-    sys_print("1\n", 10);
-    while(1);
-
     // Set libc function pointers
     barrelfish_libc_glue_init();
 
@@ -1155,7 +1152,7 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
  *
  * The thread will not be run, until a subsequent call to thread_resume()
  */
-void thread_pause_and_capture_state(struct thread *thread, 
+void thread_pause_and_capture_state(struct thread *thread,
                                     arch_registers_state_t **ret_regs,
                                     arch_registers_fpu_state_t **ret_fpuregs)
 {

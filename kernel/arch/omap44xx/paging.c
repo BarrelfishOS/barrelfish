@@ -259,7 +259,7 @@ void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
 
 void paging_context_switch(lpaddr_t ttbr)
 {
-    printf("paging context switch to %"PRIxLPADDR"\n", ttbr);
+//    printf("paging context switch to %"PRIxLPADDR"\n", ttbr);
     lpaddr_t old_ttbr = cp15_read_ttbr0();
     if (ttbr != old_ttbr) {
         cp15_write_ttbr0(ttbr);

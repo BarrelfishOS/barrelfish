@@ -110,7 +110,7 @@ in
         "__call_atexit.c" ,
         "__exp10.c" ,
         "__ten_mu.c" ,
-        "_Exit.c" ,
+        --"_Exit.c" ,
         --"abort.c" ,
         "abs.c" ,
         "assert.c" ,

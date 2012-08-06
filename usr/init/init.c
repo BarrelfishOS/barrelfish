@@ -243,7 +243,6 @@ static errval_t bootstrap(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     printf("init: invoked as:");
-    while(1);
     for (int i = 0; i < argc; i++) {
         printf(" %s", argv[i]);
     }
