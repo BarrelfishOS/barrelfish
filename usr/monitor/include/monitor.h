@@ -24,7 +24,6 @@
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
 #include <monitor_invocations_arch.h>
-#include <rcap_db_common.h>
 #include <queue.h>
 #include <connection.h>
 
@@ -123,9 +122,6 @@ errval_t request_ramfs_serv_iref(struct intermon_binding *st);
 /* inter.c */
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid);
 errval_t arch_intermon_init(struct intermon_binding *b);
-
-/* rcap_db_{null,central,twopc}.c */
-#include <rcap_db.h>
 
 /* ump_support.c */
 errval_t ump_intermon_init(struct intermon_binding *ib);

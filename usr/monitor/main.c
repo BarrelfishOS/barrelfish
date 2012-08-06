@@ -97,13 +97,6 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         messages_wait_and_handle_next();
     }
 
-    /* initialise rcap_db */
-    err = rcap_db_init(); 
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "monitor rcap_db init failed");
-        return err;
-    }
-
     /* Spawn boot domains in menu.lst */
     err = spawn_all_domains();
     if (err_is_fail(err)) {
@@ -170,12 +163,6 @@ static errval_t boot_app_core(int argc, char *argv[])
         return err_push(err, MON_ERR_SEND_REMOTE_MSG);
     }
     ((struct intermon_state*)intermon_binding->st)->capops_ready = true;
-
-    /* initialise rcap_db */
-    err = rcap_db_init();
-    if(err_is_fail(err)) {
-        return err;
-    }
 
     /* Set up monitor rpc channel */
     err = monitor_rpc_init();
