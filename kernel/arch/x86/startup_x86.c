@@ -233,6 +233,9 @@ void create_module_caps(struct spawn_state *st)
     }
 }
 
+// XXX from serial.c
+extern int serial_portbase;
+
 static struct cmdarg cmdargs[] = {
     {"loglevel", ArgType_Int, { .integer = &kernel_loglevel }},
     {"logmask", ArgType_Int, { .integer = &kernel_log_subsystem_mask }},

@@ -491,6 +491,7 @@ DOCS= \
 	./docs/TN-013-CapabilityManagement.pdf \
 	./docs/TN-014-bulk-transfer.pdf \
 	./docs/TN-015-DiskDriverArchitecture.pdf \
+	./docs/TN-016-Serial.pdf 
 
 docs doc: $(DOCS)
 .PHONY: docs doc

@@ -29,7 +29,7 @@ int serial_portbase = 0x3f8; // COM1 default, can be changed via command-line ar
 #define NUM_PORTS 2
 unsigned serial_console_port = 0;
 unsigned serial_debug_port = 0;
-unsigned serial_num_physical_ports = NUM_PORTS;
+const unsigned serial_num_physical_ports = NUM_PORTS;
 
 // Note: hardwired for PC hardware
 static const uint32_t portbases[NUM_PORTS] = { 0x3f8, 0x2f8 };
@@ -109,9 +109,9 @@ void serial_putchar(unsigned port, char c)
     assert(port < NUM_PORTS);
     assert(ports[port].base != 0);
     // Wait until FIFO can hold more characters
-    while(!pc16550d_lsr_thre_rdf(&uarts[port]));
+    while(!pc16550d_lsr_thre_rdf(&ports[port]));
     // Write character
-    pc16550d_thr_wr(&uarts[port], c);
+    pc16550d_thr_wr(&ports[port], c);
 }
 
 /** \brief Reads a single character from the default serial port.
@@ -123,6 +123,6 @@ char serial_getchar(unsigned port)
     assert(ports[port].base != 0);
 
     // Read a character from FIFO
-    while( !pc16550d_lsr_dr_rdf(&uarts[port]));
-    return pc16550d_rbr_rd(&uarts[port]);
+    while( !pc16550d_lsr_dr_rdf(&ports[port]));
+    return pc16550d_rbr_rd(&ports[port]);
 }
