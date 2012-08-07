@@ -208,9 +208,9 @@ uint32_t tsc_get_hz(void)
 //
 
 #define NUM_PORTS 2
-static unsigned serial_console_port = 0;
-static unsigned serial_debug_port = 1
-static unsigned serial_num_physical_ports = NUM_PORTS
+unsigned serial_console_port = 0;
+unsigned serial_debug_port = 1;
+const unsigned serial_num_physical_ports = NUM_PORTS;
 
 
 #define UART0_VBASE		0xE0009000
@@ -220,14 +220,14 @@ static unsigned serial_num_physical_ports = NUM_PORTS
 
 static pl011_uart_t ports[NUM_PORTS];
 
-errval_t serial_init(uint8_t index, uint8_t port_no)
+errval_t serial_init(unsigned port)
 {
-    if (port_no < 2) {
-        assert(ports[port_no].base == 0);
+    if (port < NUM_PORTS) {
+        assert(ports[port].base == 0);
 
-        lvaddr_t base = paging_map_device(0x16000000ul + port_no * 0x01000000,
+        lvaddr_t base = paging_map_device(0x16000000ul + port * 0x01000000,
                                           0x00100000);
-        pl011_uart_init(&ports[index], base);
+        pl011_uart_init(&ports[port], base);
         return SYS_ERR_OK;
     }
     else {
@@ -250,5 +250,5 @@ char serial_getchar(unsigned port)
 {
     assert(port < NUM_PORTS);
     assert(ports[port].base != 0);
-    return pl011_putchar(&ports[port], c);
+    return pl011_getchar(&ports[port]);
 };

@@ -147,12 +147,10 @@ static struct atag * atag_find(struct atag *a, uint32_t tag)
 //
 
 static int tick_hz                   = 100;
-static int serial_console_port       = 0;
-static int serial_debug_port         = 1;
 
 static struct cmdarg cmdargs[] = {
-    { "consolePort",    ArgType_Int, { .integer = &serial_console_port}},
-    { "debugPort",      ArgType_Int, { .integer = &serial_debug_port}},
+    { "consolePort",    ArgType_UInt, { .uinteger = &serial_console_port}},
+    { "debugPort",      ArgType_UInt, { .uinteger = &serial_debug_port}},
     { "loglevel",       ArgType_Int, { .integer = &kernel_loglevel }},
     { "logmask",        ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
     { "tickHz",         ArgType_Int, { .integer = &tick_hz }},
@@ -201,7 +199,7 @@ void arch_init(uint32_t     board_id,
                board_id);
         printf("The address of paging_map_kernel_section is %p\n", 
                paging_map_kernel_section);
-        errval = serial_debug_init(serial_debug_port);
+        errval = serial_debug_init();
         if (err_is_fail(errval))
         {
             printf("Failed to initialize debug port: %d", serial_debug_port);
