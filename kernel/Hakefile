@@ -214,7 +214,7 @@ let
      addLibraries = [ "elf_kernel" ]
      },
   --
-  -- Generic ARMv7 core, unused?
+  -- Generic ARMv5 core, unused?
   --
   cpuDriver {
      architectures = [ "arm" ],
@@ -239,7 +239,7 @@ let
      addLibraries = [ "elf", "cpio" ]
      },
   --
-  -- ARM 11MP v7 core, used for QEmu testing
+  -- ARM11MP ARMv6 core, currently unsupported.
   --
   cpuDriver {
      architectures = [ "arm11mp" ],
@@ -265,7 +265,7 @@ let
      addLibraries = [ "elf", "cpio" ]
      },
   --
-  -- ARM Gem5 Cortex-A series core
+  -- ARM Gem5 Cortex-A series ARMv7 core
   --
   cpuDriver { 
     architectures = [ "arm_gem5" ],
@@ -274,6 +274,7 @@ let
     cFiles = [ "arch/arm/exec.c", 
                "arch/arm/misc.c", 
                "arch/arm/phys_mmap.c",
+               "arch/arm/exn.c", 
                "arch/arm_gem5/init.c", 
                "arch/arm_gem5/integrator.c", 
                "arch/arm_gem5/paging.c", 
@@ -284,7 +285,6 @@ let
                "arch/arm_gem5/kludges.c", 
                "arch/arm_gem5/multiboot.c", 
                "arch/arm_gem5/start_aps.c", 
-               "arch/arm_gem5/exn.c", 
                "arch/arm_gem5/kputchar.c" ],
     mackerelDevices = [ "arm", 
                         "arm_icp_pit", 
@@ -331,6 +331,7 @@ let
                        "arch/omap44xx/exceptions.S" ],
      cFiles = [ "arch/arm/exec.c", 
                 "arch/arm/misc.c", 
+                "arch/arm/exn.c", 
                 "arch/arm/phys_mmap.c",
                 "arch/omap44xx/init.c", 
                 "arch/omap44xx/omap.c", 
@@ -341,7 +342,6 @@ let
                 "arch/arm_gem5/multiboot.c", 
                 "arch/omap44xx/omap_uart.c", 
                 "arch/omap44xx/start_aps.c", 
-                "arch/omap44xx/exn.c", 
                 "arch/arm_gem5/kputchar.c" ],
      mackerelDevices = [ "arm", 
                          "arm_icp_pit", 

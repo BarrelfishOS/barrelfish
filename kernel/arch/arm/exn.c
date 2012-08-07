@@ -147,9 +147,34 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
     printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
 
     for (i = 0; i < 16; i++) {
-        printk(LOG_PANIC, "r%d\t%08"PRIx32"\n", i, save_area->regs[R0_REG + i]);
+        const char *extrainfo = "";
+
+        switch(i) {
+        case 13:
+            extrainfo = "\t(sp)";
+            break;
+
+        case 14:
+            extrainfo = "\t(lr)";
+            break;
+
+        case 15:
+            {
+                char str[128];
+                snprintf(str, 128, "\t(pc)\t%08x",
+                         save_area->regs[R0_REG + i] -
+                         local_phys_to_mem((uint32_t)&kernel_first_byte) +
+                         0x100000);
+                extrainfo = str;
+            }
+            break;
+        }
+
+        printk(LOG_PANIC, "r%d\t%08"PRIx32"%s\n", i, save_area->regs[R0_REG + i], extrainfo);
     }
     printk(LOG_PANIC, "cpsr\t%08"PRIx32"\n", save_area->regs[CPSR_REG]);
+    printk(LOG_PANIC, "called from: %p\n", __builtin_return_address(0) -
+           local_phys_to_mem((uint32_t)&kernel_first_byte) + 0x100000);
 
     switch (evector) {
         case ARM_EVECTOR_UNDEF:
@@ -169,7 +194,45 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
       break;
 
       case ARM_EVECTOR_DABT:
-        panic("Data abort: dfsr %08"PRIx32"\n", cp15_read_dfsr());
+          {
+              uint32_t dfsr = cp15_read_dfsr();
+
+              printf("\n");
+
+              if((dfsr >> 11) & 1) {
+                  printf("On write access\n");
+              } else {
+                  printf("On read access\n");
+              }
+
+              switch((dfsr & 0xf) | (dfsr & 0x400)) {
+              case 1:
+                  printf("Alignment fault\n");
+                  break;
+
+              case 4:
+                  printf("Instruction cache-maintenance fault\n");
+                  break;
+
+              case 5:
+                  printf("Translation fault on section\n");
+                  break;
+
+              case 6:
+                  printf("Translation fault on page\n");
+                  break;
+
+              case 8:
+                  printf("Synchronous external abort\n");
+                  break;
+
+              default:
+                  printf("Unknown fault\n");
+                  break;
+              }
+
+              panic("Data abort: dfsr %08"PRIx32"\n", dfsr);
+          }
 
       default:
         panic("Caused by evector: %02"PRIx32, evector);
@@ -179,8 +242,6 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
 
 void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
-
-
     uint32_t irq = pic_get_active_irq();
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
@@ -192,6 +253,11 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
             assert(dispatcher_is_disabled_ip(handle, fault_pc));
             dcb_current->disabled = true;
         } else {
+/*            debug(SUBSYS_DISPATCH,
+                  "save_area=%p, dispatcher_get_enabled_save_are(handle)=%p\n",
+                   save_area, dispatcher_get_enabled_save_area(handle));
+*/
+
             assert(save_area == dispatcher_get_enabled_save_area(handle));
             assert(!dispatcher_is_disabled_ip(handle, fault_pc));
             dcb_current->disabled = false;
@@ -204,6 +270,13 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
         kernel_now += kernel_timeslice;
         wakeup_check(kernel_now);
         dispatch(schedule());
+    }
+    // this is the (still) unacknowledged startup interrupt sent by the BSP
+    // we just acknowledge it here
+    else if(irq == 1)
+    {
+    	pic_ack_irq(irq);
+    	dispatch(schedule());
     }
     else {
         // pic_ack_irq(irq);
