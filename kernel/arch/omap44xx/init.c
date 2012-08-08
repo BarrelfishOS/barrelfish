@@ -1,10 +1,16 @@
- /*
- * Copyright (c) 2009 ETH Zurich.
- * All rights reserved.
+/*
+ * Copyright (c) 2009,2012, ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
+ */
+
+/**
+ * \file
+ * \brief CPU driver init code for the OMAP44xx series SoCs. 
+ * interface found in /kernel/include/serial.h
  */
 
 #include <kernel.h>
@@ -18,22 +24,16 @@
 #include <serial.h>
 #include <stdio.h>
 #include <arm_hal.h>
-#include <cpiobin.h>
 #include <getopt/getopt.h>
-//#include <romfs_size.h>
 #include <cp15.h>
 #include <elf/elf.h>
 #include <arm_core_data.h>
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
-#include <start_aps.h>
 
 #include <omap44xx_map.h>
 #include <dev/omap44xx_id_dev.h>
-
-#define GEM5_RAM_SIZE	0x20000000
-//#define GEM5_RAM_SIZE	0x2000000
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -69,110 +69,6 @@ static union arm_l1_entry boot_l1_high[2*ARM_L1_MAX_ENTRIES]
 __attribute__ ((aligned(ARM_L1_ALIGN)));
 static union arm_l1_entry * aligned_boot_l1_high;
 
-//
-// ATAG boot header declarations
-//
-// See: http://www.simtec.co.uk/products/SWLINUX/files/booting_article.html
-//
-
-static const uint32_t ATAG_NONE      = 0;
-static const uint32_t ATAG_CORE      = 0x54410001;
-static const uint32_t ATAG_MEM       = 0x54410002;
-static const uint32_t ATAG_VIDEOTEXT = 0x54410003;
-static const uint32_t ATAG_RAMDISK   = 0x54410004;
-static const uint32_t ATAG_INITRD2   = 0x54420005;
-static const uint32_t ATAG_SERIAL    = 0x54410006;
-static const uint32_t ATAG_REVISION  = 0x54410007;
-static const uint32_t ATAG_VIDEOLFB  = 0x54410008;
-static const uint32_t ATAG_CMDLINE   = 0x54410009;
-
-struct atag_header {
-    uint32_t size;              // Size of header plus payload in 32-bit words
-    uint32_t tag;               // Payload identifier
-};
-
-struct atag_core {
-    uint32_t flags;             // bit 0 = r/o
-    uint32_t page_bytes;
-    uint32_t root_device;
-};
-
-struct atag_mem {
-    uint32_t bytes;
-    uint32_t start;
-};
-
-struct atag_videotext {
-    uint8_t  width;
-    uint8_t  height;
-    uint16_t video_page;
-    uint8_t  video_mode;
-    uint8_t  video_cols;
-    uint16_t video_ega_bx;
-    uint8_t  video_lines;
-    uint8_t  video_isvga;
-    uint16_t video_points;
-};
-
-struct atag_ramdisk {
-    uint32_t flags;             // Bit 0 = load, bit 1 = prompt
-    uint32_t bytes;             // Decompressed size
-    uint32_t start;       		// Starting block of RAM disk image
-};
-
-struct atag_initrd2 {
-    uint32_t start;             // Physical start address
-    uint32_t bytes;             // Copmressed disk image in bytes
-};
-
-struct atag_serial {
-    uint32_t low;               // Lower order bits of board serial number
-    uint32_t high;              // Upper order bits of board serial number
-};
-
-struct atag_revision {
-    uint32_t board_revision;
-};
-
-struct atag_videolfb
-{
-    uint16_t lfb_width;
-    uint16_t lfb_height;
-    uint16_t lfb_depth;
-    uint16_t lfb_linelength;
-    uint32_t lfb_base;
-    uint32_t lfb_size;
-    uint8_t  red_size;
-    uint8_t  red_pos;
-    uint8_t  green_size;
-    uint8_t  green_pos;
-    uint8_t  bluint_te_size;
-    uint8_t  bluint_te_pos;
-    uint8_t  rsvd_size;
-    uint8_t  rsvd_pos;
-};
-
-struct atag_cmdline
-{
-    char cmdline[1];
-};
-
-struct atag {
-    struct atag_header header;
-    union {
-        struct atag_core         core;
-        struct atag_mem          mem;
-        struct atag_videotext    videotext;
-        struct atag_ramdisk      ramdisk;
-        struct atag_initrd2      initrd2;
-        struct atag_serial       serial;
-        struct atag_revision     revision;
-        struct atag_videolfb     videolfb;
-        struct atag_cmdline      cmdline;
-    } u;
-};
-
-
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define CONSTRAIN(x, a, b) MIN(MAX(x, a), b)
@@ -195,69 +91,69 @@ static struct cmdarg cmdargs[] = {
 static inline void __attribute__ ((always_inline))
 relocate_stack(lvaddr_t offset)
 {
-	__asm volatile (
-			"add	sp, sp, %[offset]\n\t" :: [offset] "r" (offset)
-		);
+    __asm volatile (
+		    "add	sp, sp, %[offset]\n\t" ::[offset] "r" (offset)
+		    );
 }
 
 static inline void __attribute__ ((always_inline))
 relocate_got_base(lvaddr_t offset)
 {
-	__asm volatile (
-			"add	r10, r10, %[offset]\n\t" :: [offset] "r" (offset)
-		);
+    __asm volatile (
+		    "add	r10, r10, %[offset]\n\t" ::[offset] "r" (offset)
+		    );
 }
 
 void enable_mmu(void);
 void enable_mmu(void)
 {
-	__asm volatile (// Initial domain permissions
-			"ldr    r0, =0x55555555\n\t"
-			"mcr    p15, 0, r0, c3, c0, 0\n\t"
-                        // Set ASID to 0
-                        "mov	r0, #0\n\t"
-                        "mcr	p15, 0, r0, c13, c0, 1\n\t"
-                        // Set the Domain Access register
-                        "mov    r0, #1\n\t"
-                        "mcr	p15, 0, r0, c3, c0, 0\n\t"
-                        // Reference: ARM Architecture Refrence Manual ARMv7-A
-                        // Section: B2.12.17 c1, System Control Register (SCTLR)
-                        // Enable: D-Cache, I-Cache, Alignment, MMU (0x007) --> works
-                        // Everything without D-Cache (0x003) --> works
-			"ldr	r1, =0x1007\n\t"
-			"mrc	p15, 0, r0, c1, c0, 0\n\t"      // read out system configuration register
-			"orr	r0, r0, r1\n\t"
-			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
-                        // Clear pipeline
-                        "nop\n\t"
-                        "nop\n\t"
-                        "nop\n\t"
-                        "nop\n\t"
-                        "nop\n\t"
-                        "nop\n\t"
-                        "nop\n\t"
-                        "nop\n\t"
-                        // Wait on some CP15 register
-                        "mrc	p15, 0, r0, c2, c0, 0\n\t"
-                        "mov	r0, r0\n\t"
-                        "sub	pc, pc, #4\n\t"
-		);
+    __asm volatile (// Initial domain permissions
+		    "ldr r0, =0x55555555\n\t"
+		    "mcr p15, 0, r0, c3, c0, 0\n\t"
+		    // Set ASID to 0
+		    "mov r0, #0\n\t"
+		    "mcr p15, 0, r0, c13, c0, 1\n\t"
+		    // Set the Domain Access register
+		    "mov r0, #1\n\t"
+		    "mcr p15, 0, r0, c3, c0, 0\n\t"
+		    // Reference: ARM Architecture Refrence Manual ARMv7-A
+		    // Section: B2.12.17 c1, System Control Register (SCTLR)
+		    // Enable: D-Cache, I-Cache, Alignment, MMU
+		    // (0x007) --> works
+		    // Everything without D-Cache (0x003) --> works
+		    "ldr r1, =0x1007\n\t"
+		    "mrc p15, 0, r0, c1, c0, 0\n\t"  // read sys. conf. reg.
+		    "orr r0, r0, r1\n\t"
+		    "mcr p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
+		    // Clear pipeline
+		    "nop\n\t"
+		    "nop\n\t"
+		    "nop\n\t"
+		    "nop\n\t"
+		    "nop\n\t"
+		    "nop\n\t"
+		    "nop\n\t"
+		    "nop\n\t"
+		    // Wait on some CP15 register
+		    "mrc	p15, 0, r0, c2, c0, 0\n\t"
+		    "mov	r0, r0\n\t"
+		    "sub	pc, pc, #4\n\t"
+		    );
 }
 
 
 #ifndef __GEM5__
 static void enable_cycle_counter_user_access(void)
 {
-	/* enable user-mode access to the performance counter*/
-	__asm volatile ("mcr p15, 0, %0, C9, C14, 0\n\t" :: "r"(1));
-
-	/* disable counter overflow interrupts (just in case)*/
-	__asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
+    /* enable user-mode access to the performance counter*/
+    __asm volatile ("mcr p15, 0, %0, C9, C14, 0\n\t" :: "r"(1));
+    
+    /* disable counter overflow interrupts (just in case)*/
+    __asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
 }
 #endif
 
 void paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
-
 
 static void paging_init(void)
 {
@@ -342,8 +238,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     //initialize console
     serial_init(serial_console_port);
 
-    // do not remove/change this printf: needed by regression harness
-    printf("Barrelfish CPU driver starting on ARMv7"
+    printf("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
            " Board id 0x%08"PRIx32"\n", hal_get_board_id());
     printf("The address of paging_map_kernel_section is %p\n",
            paging_map_kernel_section);
@@ -386,11 +281,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     /*         scu_enable(); */
     /* } */
 
-    // sp804_pit not available on the PandaBoard?
-    /* pit_init(timeslice, 0); */
-    /* printf("pit_init 1 done\n"); */
-    /* pit_init(timeslice, 1); */
-    /* printf("pic_init 2 done\n"); */
     tsc_init();
     printf("tsc_init done --\n");
 #ifndef __GEM5__
@@ -399,9 +289,8 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 #endif
 
     // tell BSP that we are started up
-    // XXX doesn't work
-    /* uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS); */
-    /* *ap_wait = AP_STARTED; */
+    // XXX NYI: See Section 27.4.4 in the OMAP44xx manual for how this
+    // should work. 
 
     arm_kernel_startup();
 }

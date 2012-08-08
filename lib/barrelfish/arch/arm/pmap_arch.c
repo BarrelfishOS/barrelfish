@@ -102,7 +102,6 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
-#ifdef __ARM_ARCH_7A__
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
     struct vnode *walk = root->children;
@@ -122,7 +121,6 @@ static void remove_vnode(struct vnode *root, struct vnode *item)
     }
     USER_PANIC("Should not get here");
 }
-#endif // 0
 
 /**
  * \brief Allocates a new VNode, adding it to the page table and our metadata
