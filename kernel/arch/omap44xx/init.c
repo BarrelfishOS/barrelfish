@@ -33,8 +33,9 @@
 #include <global.h>
 
 #include <omap44xx_map.h>
-#include <dev/omap44xx_id_dev.h>
+#include <dev/omap/omap44xx_id_dev.h>
 #include <dev/omap/omap44xx_emif_dev.h>
+#include <dev/omap/omap44xx_gpio_dev.h>
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -304,6 +305,53 @@ static void size_ram(void)
 	   sz, sz == 0x40000000 ? "about right" : "unexpected" );
 }
 
+/*
+ * Doesn't work yet on the second LED for some reason...
+ */
+static void set_leds(void)
+{
+    omap44xx_gpio_t g;
+    uint32_t r, nr;
+    //char buf[8001];
+
+    omap44xx_gpio_initialize(&g, (mackerel_addr_t)OMAP44XX_MAP_L4_WKUP_GPIO1);
+    // Output enable
+    r = omap44xx_gpio_oe_rd(&g) & (~(1<<8));
+    omap44xx_gpio_oe_wr(&g,r);
+    // Write data out
+    r = omap44xx_gpio_dataout_rd(&g);
+    nr = r  |(1<<8); 
+    for(int i = 0; i < 5; i++) {
+	omap44xx_gpio_dataout_wr(&g,r);
+	for(int j = 0; j < 2000; j++) { 
+	    printf(".");
+	}
+	omap44xx_gpio_dataout_wr(&g,nr);
+	for(int j = 0; j < 2000; j++) { 
+	    printf(".");
+	}
+    }
+    return;
+
+    omap44xx_gpio_initialize(&g, (mackerel_addr_t)OMAP44XX_MAP_L4_PER_GPIO4);
+
+    // Output enable
+    r = omap44xx_gpio_oe_rd(&g) & (~(1<<14));
+    omap44xx_gpio_oe_wr(&g,r);
+    // Write data out
+    r = omap44xx_gpio_dataout_rd(&g);
+    nr = r  |(1<<14); 
+    for(int i = 0; i < 100; i++) {
+	omap44xx_gpio_dataout_wr(&g,r);
+	for(int j = 0; j < 2000; j++) { 
+	    printf(".");
+	}
+	omap44xx_gpio_dataout_wr(&g,nr);
+	for(int j = 0; j < 2000; j++) { 
+	    printf(".");
+	}
+    }
+}
     
     
 
@@ -355,6 +403,10 @@ void arch_init(void *pointer)
 
     print_system_identification();
     size_ram();
+    
+    if (1) {
+	set_leds();
+    }
 
     paging_init();
     cp15_enable_mmu();

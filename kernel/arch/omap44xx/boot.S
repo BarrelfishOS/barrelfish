@@ -37,7 +37,7 @@ start:
         // No TLB lockdown.
         // CPU is in a priviledged mode.
         //
-        mrs     r3, cpsr                // Ensure in SYS mode
+        mrs     r3, cpsr
         bic     r3, r3, #ARM_MODE_MASK
         orr     r3, r3, #ARM_MODE_PRIV  // Ensure in privileged mode
         msr     cpsr_c, r3		// _c => don't change cond. codes

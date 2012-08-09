@@ -351,8 +351,9 @@ let
                          "sp804_pit", 
                          "cortex_a9_pit", 
                          "a9scu", 
-                         "omap_uart", 
-                         "omap44xx_id" ],
+                         "omap/omap_uart", 
+                         "omap/omap44xx_id", 
+                         "omap/omap44xx_emif"],
      addLibraries = [ "elf", "cpio" ]
      }                            
   

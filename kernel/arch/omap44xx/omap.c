@@ -10,7 +10,6 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 
-#include <dev/omap_uart_dev.h>
 #include <dev/pl130_gic_dev.h>
 #include <dev/sp804_pit_dev.h>
 #include <dev/arm_icp_pit_dev.h>

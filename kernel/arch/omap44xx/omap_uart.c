@@ -18,7 +18,7 @@
 #include <paging_kernel_arch.h>
 
 #include <serial.h>
-#include <omap_uart_dev.h>
+#include <dev/omap/omap_uart_dev.h>
 #include <omap44xx_map.h>
 
 //

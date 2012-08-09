@@ -56,10 +56,11 @@
            "sp804_pit",
            "cortex_a9_pit",
            "a9scu",
-	   "omap_uart",
-	   "omap44xx_id",
+	   "omap/omap_uart",
 	   "omap/omap44xx_emif",
-	   "omap44xx_usbconf"
+	   "omap/omap44xx_gpio",
+	   "omap/omap44xx_id",
+	   "omap/omap44xx_usbconf"
          ], arch <- allArchitectures
 ] ++
 
