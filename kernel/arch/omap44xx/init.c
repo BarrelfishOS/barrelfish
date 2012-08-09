@@ -105,44 +105,6 @@ relocate_got_base(lvaddr_t offset)
 		    );
 }
 
-void enable_mmu(void);
-void enable_mmu(void)
-{
-    __asm volatile (// Initial domain permissions
-		    "ldr r0, =0x55555555\n\t"
-		    "mcr p15, 0, r0, c3, c0, 0\n\t"
-		    // Set ASID to 0
-		    "mov r0, #0\n\t"
-		    "mcr p15, 0, r0, c13, c0, 1\n\t"
-		    // Set the Domain Access register
-		    "mov r0, #1\n\t"
-		    "mcr p15, 0, r0, c3, c0, 0\n\t"
-		    // Reference: ARM Architecture Refrence Manual ARMv7-A
-		    // Section: B2.12.17 c1, System Control Register (SCTLR)
-		    // Enable: D-Cache, I-Cache, Alignment, MMU
-		    // (0x007) --> works
-		    // Everything without D-Cache (0x003) --> works
-		    "ldr r1, =0x1007\n\t"
-		    "mrc p15, 0, r0, c1, c0, 0\n\t"  // read sys. conf. reg.
-		    "orr r0, r0, r1\n\t"
-		    "mcr p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
-		    // Clear pipeline
-		    "nop\n\t"
-		    "nop\n\t"
-		    "nop\n\t"
-		    "nop\n\t"
-		    "nop\n\t"
-		    "nop\n\t"
-		    "nop\n\t"
-		    "nop\n\t"
-		    // Wait on some CP15 register
-		    "mrc	p15, 0, r0, c2, c0, 0\n\t"
-		    "mov	r0, r0\n\t"
-		    "sub	pc, pc, #4\n\t"
-		    );
-}
-
-
 #ifndef __GEM5__
 static void enable_cycle_counter_user_access(void)
 {
@@ -351,7 +313,6 @@ static void size_ram(void)
  * if is_bsp == true, then pointer points to multiboot_info
  * else pointer points to a global struct
  */
-
 void arch_init(void *pointer)
 {
     struct arm_coredata_elf *elf = NULL;
@@ -396,7 +357,7 @@ void arch_init(void *pointer)
     size_ram();
 
     paging_init();
-    enable_mmu();
+    cp15_enable_mmu();
     printf("MMU enabled\n");
     text_init();
 }

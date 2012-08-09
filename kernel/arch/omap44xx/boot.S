@@ -60,14 +60,6 @@ start:
 halt:
         b       .
 
-
-        .globl got_base, cp15_invalidate_d_cache,\
-                cp15_invalidate_i_and_d_caches,\
-                cp15_invalidate_i_and_d_caches_fast, cp15_invalidate_tlb_fn
-
-	
-
-
 /**********************************************************************/
 .ltorg
 

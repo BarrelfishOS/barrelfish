@@ -35,8 +35,6 @@ start:
         // No TLB lockdown.
         // CPU is in a priviledged mode.
         //
-
-        
         mrs     r3, cpsr                        // Ensure in SYS mode
         bic     r3, r3, #ARM_MODE_MASK
         orr     r3, r3, #ARM_MODE_SYS
@@ -44,9 +42,9 @@ start:
 
 		//init stack
         ldr     sp, =kernel_stack
-        add		sp, sp, #KERNEL_STACK_SIZE
+        add	sp, sp, #KERNEL_STACK_SIZE
 
-		ldr		PIC_REGISTER, =got_base
+	ldr	PIC_REGISTER, =got_base
 
         //prepare argument
         mov		r0, r2

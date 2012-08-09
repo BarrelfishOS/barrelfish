@@ -330,6 +330,7 @@ let
      architectures = [ "arm_gem5" ],
      assemblyFiles = [ "arch/omap44xx/boot.S",
                        "arch/arm_gem5/cp15.S",
+                       "arch/arm_gem5/exceptions.S" ],
      cFiles = [ "arch/arm/exec.c", 
                 "arch/arm/misc.c", 
                 "arch/arm/exn.c", 
