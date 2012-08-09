@@ -14,8 +14,8 @@
 
 #include <kernel.h>
 #include <string.h>
-#include <conio.h>
 #include <x86.h>
+#include <arch/x86/conio.h>
 
 #define COLS        80                  ///< Number of columns on screen
 #define LINES       25                 ///< Number of lines on screen

@@ -15,7 +15,7 @@
 #ifndef KERNEL_ARCH_X86_KPUTCHAR_H
 #define KERNEL_ARCH_X86_KPUTCHAR_H
 
-#include <conio.h>
+#include <arch/x86/conio.h>
 #include <serial.h>
 #include <arch/x86/global.h>
 

@@ -14,7 +14,7 @@
 
 #include <kernel.h>
 #include <stdio.h>
-#include <debug.h>
+#include <arch/x86/debug.h>
 #include <paging_kernel_arch.h>
 
 union lin_addr {
