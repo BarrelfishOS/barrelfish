@@ -34,6 +34,7 @@
 
 #include <omap44xx_map.h>
 #include <dev/omap44xx_id_dev.h>
+#include <dev/omap/omap44xx_emif_dev.h>
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -153,7 +154,7 @@ static void enable_cycle_counter_user_access(void)
 }
 #endif
 
-void paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
+extern void paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
 
 static void paging_init(void)
 {
@@ -164,8 +165,10 @@ static void paging_init(void)
     cp15_write_ttbcr(ttbcr);
 
     // make sure pagetables are aligned to 16K
-    aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
-    aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
+    aligned_boot_l1_low = 
+	(union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
+    aligned_boot_l1_high = 
+	(union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
 
     lvaddr_t vbase = MEMORY_OFFSET, base =  0;
 
@@ -310,6 +313,39 @@ static void print_system_identification(void)
     printf("Device is a %s\n", buf);
 }
 
+
+static size_t bank_size(int bank, lpaddr_t base)
+{
+    int rowbits;
+    int colbits;
+    int rowsize;
+    omap44xx_emif_t emif;
+    omap44xx_emif_initialize(&emif, (mackerel_addr_t)base);
+    if (omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
+	rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
+	colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
+	rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
+	printf("EMIF%d: ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n", 
+	       bank, rowbits, colbits, 1<<rowsize);
+	return (1 << (rowbits + colbits + rowsize));
+    } else {
+	printf("EMIF%d doesn't seem to have any DDRAM attached.\n", bank);
+	return 0;
+    }
+}
+
+static void size_ram(void)
+{
+    size_t sz = 0; 
+    sz = bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
+    printf("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n", 
+	   sz, sz == 0x40000000 ? "about right" : "unexpected" );
+}
+
+    
+    
+
+
 /**
  * Entry point called from boot.S for bootstrap processor.
  * if is_bsp == true, then pointer points to multiboot_info
@@ -353,9 +389,11 @@ void arch_init(void *pointer)
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
+    printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR"\n", 
+	   local_phys_to_mem((uint32_t)&kernel_first_byte));
 
     print_system_identification();
+    size_ram();
 
     paging_init();
     enable_mmu();

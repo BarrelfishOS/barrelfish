@@ -448,6 +448,13 @@
 /*
  * Others from Table 2.1
  */
-#define OMAP44XX_MAP_SDRAM				0x80000000
+#define OMAP44XX_MAP_SDRAM                              0x80000000
+
+/*
+ * 15.3 External memory interface
+ */
+#define OMAP44XX_MAP_EMIF1                              0x4c000000
+#define OMAP44XX_MAP_EMIF2                              0x4d000000
+#define OMAP44XX_MAP_EMIF_SIZE                          0x1000000
 
 #endif  // OMAP44XX_MAP_H

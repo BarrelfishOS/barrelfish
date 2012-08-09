@@ -58,7 +58,7 @@
            "a9scu",
 	   "omap_uart",
 	   "omap44xx_id",
-	   "omap44xx_emif",
+	   "omap/omap44xx_emif",
 	   "omap44xx_usbconf"
          ], arch <- allArchitectures
 ] ++
