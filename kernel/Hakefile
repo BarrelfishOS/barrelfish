@@ -353,7 +353,8 @@ let
                          "a9scu", 
                          "omap/omap_uart", 
                          "omap/omap44xx_id", 
-                         "omap/omap44xx_emif"],
+                         "omap/omap44xx_emif",
+                         "omap/omap44xx_gpio"],
      addLibraries = [ "elf", "cpio" ]
      }                            
   
