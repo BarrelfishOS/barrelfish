@@ -91,50 +91,6 @@ void network_polling_loop(void)
 
 
 
-
-/*
- * @}
- */
-// FIXME: not used.  Remove it
-errval_t lwip_err_to_errval(err_t e)
-{
-    switch (e) {
-        case ERR_OK:
-            return SYS_ERR_OK;
-        case ERR_MEM:
-            return LWIP_ERR_MEM;
-        case ERR_BUF:
-            return LWIP_ERR_BUF;
-        case ERR_TIMEOUT:
-            return LWIP_ERR_TIMEOUT;
-        case ERR_RTE:
-            return LWIP_ERR_RTE;
-        case ERR_ABRT:
-            return LWIP_ERR_ABRT;
-        case ERR_RST:
-            return LWIP_ERR_RST;
-        case ERR_CLSD:
-            return LWIP_ERR_CLSD;
-        case ERR_CONN:
-            return LWIP_ERR_CONN;
-        case ERR_VAL:
-            return LWIP_ERR_VAL;
-        case ERR_ARG:
-            return LWIP_ERR_ARG;
-        case ERR_USE:
-            return LWIP_ERR_USE;
-        case ERR_IF:
-            return LWIP_ERR_IF;
-        case ERR_ISCONN:
-            return LWIP_ERR_ISCONN;
-        case ERR_INPROGRESS:
-            return LWIP_ERR_INPROGRESS;
-        default:
-            USER_PANIC("unknown LWIP error in lwip_err_to_errval");
-    }
-}
-
-
 /***************************************************************
     Adding new code to communicate with net_ports server
 */

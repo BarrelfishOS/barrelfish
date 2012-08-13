@@ -35,7 +35,7 @@
 //#include <barrelfish/barrelfish.h>
 #include "lwip/opt.h"
 #include "lwip/err.h"
-
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

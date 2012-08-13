@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,7 +10,9 @@
 #ifndef SYS_ARCH_H
 #define SYS_ARCH_H
 
-#include <barrelfish/barrelfish.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <barrelfish/thread_sync.h>
 
 /// Protection level
 typedef u8_t    sys_prot_t;
