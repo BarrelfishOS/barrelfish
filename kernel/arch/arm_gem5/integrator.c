@@ -10,12 +10,15 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 
+#include <dev/pl011_uart_dev.h>
 #include <dev/pl130_gic_dev.h>
 #include <dev/sp804_pit_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
 #include <dev/arm_icp_pit_dev.h>
 #include <dev/a9scu_dev.h>
 
+#include <pl011_uart.h>
+#include <serial.h>
 #include <arm_hal.h>
 #include <cp15.h>
 #include <io.h>
@@ -45,15 +48,14 @@ static uint32_t tsc_hz = 1000000000;
 // Interrupt controller
 //
 
-#define PIC_BASE 	0xE0200000
+#define PIC_BASE    0xE0200000
 #define DIST_OFFSET 0x1000
-#define CPU_OFFSET 	0x100
+#define CPU_OFFSET  0x100
 
 static pl130_gic_t pic;
 static pl130_gic_ICDICTR_t pic_config;
 
 static uint32_t it_num_lines;
-static uint32_t num_iregs;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
@@ -61,26 +63,27 @@ void gic_init(void)
 {
     lvaddr_t pic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
     pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
-			 (mackerel_addr_t)pic_base + CPU_OFFSET);
+            (mackerel_addr_t)pic_base + CPU_OFFSET);
 
     //read GIC configuration
     pic_config = pl130_gic_ICDICTR_rd(&pic);
-    num_iregs = pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1;
-    it_num_lines = 32*(pl130_gic_ICDICTR_it_lines_num_extract(pic_config) + 1);
+    it_num_lines = pl130_gic_ICDICTR_it_lines_num_extract(pic_config);
+    max_ints = 32*(it_num_lines + 1);
     cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
     sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
-    
+
     gic_cpu_interface_init();
-    
-    if(hal_cpu_is_bsp()) {
-	gic_distributor_init();
+
+    if(hal_cpu_is_bsp())
+    {
+        gic_distributor_init();
     }
 }
 
 void gic_distributor_init(void)
 {
     //pic_disable_all_irqs();
-    
+
     //enable interrupt forwarding from distributor to cpu interface
     pl130_gic_ICDDCR_wr(&pic, 0x1);
 }
@@ -91,7 +94,7 @@ void gic_cpu_interface_init(void)
     //set priority mask of cpu interface, currently set to lowest priority
     //to accept all interrupts
     pl130_gic_ICCPMR_wr(&pic, 0xff);
-    
+
     //set binary point to define split of group- and subpriority
     //currently we allow for 8 subpriorities
     pl130_gic_ICCBPR_wr(&pic, 0x2);
@@ -111,9 +114,13 @@ void gic_cpu_interface_disable(void)
 
 void pic_disable_all_irqs(void)
 {
+    //disable PPI interrupts
+    pl130_gic_PPI_ICDICER_wr(&pic, (uint16_t)0xffff);
+
+
     //disable SPI interrupts
-    for(uint8_t i=0; i < num_iregs; i++) {
-	pl130_gic_ICDICER_wr(&pic, i, (uint32_t)0xffffffff);
+    for(uint8_t i=0; i < it_num_lines; i++) {
+        pl130_gic_SPI_ICDICER_wr(&pic, i, (uint32_t)0xffffffff);
     }
 }
 
@@ -136,7 +143,7 @@ void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     else {
 	panic("Interrupt ID %"PRIu32" not supported", int_id);
     }
-    
+
     // Set Interrupt Priority Register
     switch(int_id % 4) {
     case 0:
@@ -228,7 +235,7 @@ void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
 	}
     }
 }
-    
+
 uint32_t pic_get_active_irq(void)
 {
 	uint32_t regval = pl130_gic_ICCIAR_rd(&pic);

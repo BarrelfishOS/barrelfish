@@ -17,8 +17,11 @@
 
 #include <barrelfish/sys_debug.h>
 #include <bench/bench.h>
+#include <stdio.h>
 
+extern uint64_t tsc_hz;
 void bench_arch_init(void);
+
 
 /**
  * \brief Take a timestamp
@@ -30,5 +33,6 @@ static inline cycles_t bench_tsc(void)
     sys_debug_hardware_timer_read((uintptr_t *)&tsc);
     return tsc;
 }
+
 
 #endif // ARCH_ARM_BARRELFISH_BENCH_H

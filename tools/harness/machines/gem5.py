@@ -119,6 +119,9 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
 	
 	def get_ncores(self):
 		return 2
+		
+	def get_cores_per_socket(self):
+		return 1
 	
 	def _get_cmdline(self):
 		script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')
@@ -130,6 +133,9 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
 	
 	def get_ncores(self):
 		return 4
+		
+	def get_cores_per_socket(self):
+		return 2
 	
 	def _get_cmdline(self):
 		script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')

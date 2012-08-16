@@ -13,10 +13,11 @@
 [(let
      common_srcs = [ "bench.c" ]
 
-     arch_srcs "x86_32"  = [ "arch/x86/bench_arch.c" ]
-     arch_srcs "x86_64"  = [ "arch/x86/bench_arch.c" ]
-     arch_srcs "arm"     = [ "arch/arm/bench_arch.c" ]
-     arch_srcs _         = []
+     arch_srcs "x86_32"  	= [ "arch/x86/bench_arch.c" ]
+     arch_srcs "x86_64"  	= [ "arch/x86/bench_arch.c" ]
+     arch_srcs "arm"     	= [ "arch/arm/bench_arch.c" ]
+     arch_srcs "arm_gem5"   = [ "arch/arm/bench_arch.c" ]
+     arch_srcs _         	= []
   in
     build library { target = "bench",
                     architectures = [arch],

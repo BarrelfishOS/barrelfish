@@ -126,7 +126,7 @@ system.mem_mode = mem_mode
 #system.ramdisk.port = system.membus.master
 
 #CPU(s)
-CPUClass.clock = "2GHz"
+CPUClass.clock = "1GHz"
 system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
 #machine type

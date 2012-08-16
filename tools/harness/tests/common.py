@@ -54,10 +54,12 @@ class TestCommon(Test):
         # build the default set of targets
         targets = self.get_build_targets(build, machine)
         # HACK: we write menu.lst here for arm_gem5 target, since it must
-        # be known at compile time
+        # be known at compile time, also set test time out to 20 mins
+        # this should really be set per test, since multihop_latency won't complete in 20 mins
         if machine.get_bootarch() == "arm_gem5":
         	path = os.path.join(build.build_dir, 'menu.lst')
-        	machine._write_menu_lst(self.get_modules(build,machine).get_menu_data('/'), path) 
+        	machine._write_menu_lst(self.get_modules(build,machine).get_menu_data('/'), path)
+        	self.test_timeout_delta = datetime.timedelta(seconds=1200)
         build.build(targets)
 
         # lock the machine
