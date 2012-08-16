@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief arm_gem5-specific system calls implementation.
+ * \brief armv7-specific system calls implementation.
  */
 
 /*
