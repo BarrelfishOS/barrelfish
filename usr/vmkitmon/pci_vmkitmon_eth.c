@@ -203,7 +203,7 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
                 process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
                 if(*(unsigned char *)hv_addr == 0xaa) {
                     printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);
-                    dumpRegion(hv_addr);
+                    if(0) dumpRegion(hv_addr);
                 }
                 receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
                 --receive_free;
