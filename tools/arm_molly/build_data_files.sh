@@ -41,7 +41,7 @@ for BIN in $BINS; do
   SLASH=${BIN////_}
   BIN_OUT="$OUTPUT_PREFIX/${FILE_PREFIX}_$SLASH"
   echo $BIN '->' $BIN_OUT
-  arm-linux-gnueabi-objcopy -I binary -O elf32-littlearm -B arm --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents .$BIN $BIN_OUT
+  arm-none-linux-gnueabi-objcopy -I binary -O elf32-littlearm -B arm --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents .$BIN $BIN_OUT
   IDX=$(($IDX+1))
   if [ $IDX = 17 ]; then
       echo Error: linker script cannot handle $IDX modules

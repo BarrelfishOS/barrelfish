@@ -17,7 +17,7 @@
 #include <kernel.h>
 #include <stdio.h>
 #include <string.h>
-#include <arch/arm_gem5/start_aps.h>
+#include <arch/armv7/start_aps.h>
 #include <arm_hal.h>
 
 #define STARTUP_TIMEOUT         0xffffff

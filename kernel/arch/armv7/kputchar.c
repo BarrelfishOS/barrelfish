@@ -15,7 +15,7 @@
 
 #include <serial.h>
 #include <kputchar.h>
-#include <arch/arm_gem5/global.h>
+#include <arch/armv7/global.h>
 
 #define KPBUFSZ 256
 static char kputbuf[KPBUFSZ];

@@ -223,7 +223,7 @@ MODULES_xscale=\
 
 # ArmGem5-specific modules to build by default
 MODULES_arm_gem5=\
-	sbin/cpu
+	sbin/cpu_arm_gem5
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -529,15 +529,15 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 #######################################################################
 
 PANDABOARD_MODULES=\
-	arm_gem5/sbin/cpu_omap44xx \
-	arm_gem5/sbin/init \
-	arm_gem5/sbin/mem_serv \
-	arm_gem5/sbin/monitor \
-	arm_gem5/sbin/ramfsd \
-	arm_gem5/sbin/spawnd \
-	arm_gem5/sbin/startd \
-	arm_gem5/sbin/skb \
-	arm_gem5/sbin/memtest
+	armv7/sbin/cpu_omap44xx \
+	armv7/sbin/init \
+	armv7/sbin/mem_serv \
+	armv7/sbin/monitor \
+	armv7/sbin/ramfsd \
+	armv7/sbin/spawnd \
+	armv7/sbin/startd \
+	armv7/sbin/skb \
+	armv7/sbin/memtest
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@
@@ -556,7 +556,7 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 		-T$(SRCDIR)/tools/arm_molly/molly_ld_script \
 		-I$(SRCDIR)/include \
 		-I$(SRCDIR)/include/arch/arm \
-		-I./arm_gem5/include \
+		-I./armv7/include \
 		-I$(SRCDIR)/include/oldc \
 		-I$(SRCDIR)/include/c \
 		-imacros $(SRCDIR)/include/deputy/nodeputy.h \
@@ -577,7 +577,19 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 #
 ########################################################################
 
-arm_gem5_image: $(MODULES) \
+GEM5_MODULES=\
+	armv7/sbin/cpu_arm_gem5 \
+	armv7/sbin/init \
+	armv7/sbin/mem_serv \
+	armv7/sbin/monitor \
+	armv7/sbin/ramfsd \
+	armv7/sbin/spawnd \
+	armv7/sbin/startd \
+	armv7/sbin/skb \
+	armv7/sbin/memtest
+
+
+arm_gem5_image: $(GEM5_MODULES) \
 		tools/bin/arm_molly \
 		menu.lst.arm_gem5
 	# Translate each of the binary files we need
@@ -591,7 +603,7 @@ arm_gem5_image: $(MODULES) \
 		-T$(SRCDIR)/tools/arm_molly/molly_ld_script \
 		-I$(SRCDIR)/include \
 		-I$(SRCDIR)/include/arch/arm \
-		-I./arm_gem5/include \
+		-I./armv7/include \
 		-I$(SRCDIR)/include/oldc \
 		-I$(SRCDIR)/include/c \
 		-imacros $(SRCDIR)/include/deputy/nodeputy.h \

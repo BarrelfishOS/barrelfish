@@ -22,7 +22,7 @@ define change-process
     #-- Flush old symbols
     symbol-file
     #-- Reload cpu driver symbols
-    file arm_gem5/sbin/cpu
+    file armv7/sbin/cpu_arm_gem5
     #-- Add process symbols at default process load address
     add-symbol-file $arg0 0x00400000
 

@@ -14,15 +14,15 @@
 #include <barrelfish_kpi/sys_debug.h>
 
 #include <arch/arm/arm_hal.h>
-#include <arch/arm_gem5/start_aps.h>
+#include <arch/armv7/start_aps.h>
 
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
-#include <arch/arm_gem5/arm_gem5_syscall.h>
-#include <arch/arm_gem5/start_aps.h>
+#include <arch/armv7/armv7_syscall.h>
+#include <arch/armv7/start_aps.h>
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
 __attribute__((noreturn)) void sys_syscall(arch_registers_state_t* context);

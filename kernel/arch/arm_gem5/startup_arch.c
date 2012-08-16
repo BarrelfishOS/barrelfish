@@ -35,8 +35,8 @@
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
-#define BSP_INIT_MODULE_NAME    "arm_gem5/sbin/init"
-#define APP_INIT_MODULE_NAME	"arm_gem5/sbin/monitor"
+#define BSP_INIT_MODULE_NAME    "armv7/sbin/init"
+#define APP_INIT_MODULE_NAME	"armv7/sbin/monitor"
 
 
 

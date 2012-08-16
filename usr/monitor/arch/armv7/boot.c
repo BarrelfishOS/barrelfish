@@ -51,8 +51,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     errval_t err;
 
     arch_page_size = BASE_PAGE_SIZE;
-    monitorname = "arm_gem5/sbin/monitor";
-    cpuname = "arm_gem5/sbin/cpu";
+    monitorname = "armv7/sbin/monitor";
+    cpuname = "armv7/sbin/cpu";
 
 
     // Setup new inter-monitor connection to ourselves
