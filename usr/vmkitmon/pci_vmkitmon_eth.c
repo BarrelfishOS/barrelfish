@@ -15,6 +15,8 @@
 #define DRIVER_RECEIVE_BUFFERS 256
 #define DRIVER_TRANSMIT_BUFFER 256
 
+int global_packet_in_count = 0;
+
 static uint8_t guest_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}; //The mac address presented to virt. linux
 static uint8_t host_mac[] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xBF}; //The mac address presented to barrelfish
 static uint64_t assumed_queue_id = 0;
@@ -92,7 +94,7 @@ static void get_mac_address_fn(uint8_t* mac)
     memcpy(mac, &host_mac, 6);
 }
 
-#if defined(VMKITMON_ETH_DEBUG_SWITCH)
+//#if defined(VMKITMON_ETH_DEBUG_SWITCH)
 static void dumpRegion(uint8_t *start){
 	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
 	for(int i=0; i<64;i++){
@@ -104,7 +106,7 @@ static void dumpRegion(uint8_t *start){
 	}
 	printf("-- dump finished --\n");
 }
-#endif
+//#endif
 
 //TODO
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size, void *opaque) {
@@ -195,10 +197,14 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
             
             if(receive_free == 0) {
                 VMKITMON_ETH_DEBUG("Could not deliver packet, no receive buffer available. Drop packet.\n");
+                printf("Could not deliver packet, no receive buffer available. Drop packet.\n");
             } else {
                 memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
                 process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
-            
+                if(*(unsigned char *)hv_addr == 0xaa) {
+                    printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);
+                    dumpRegion(hv_addr);
+                }
                 receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
                 --receive_free;
             }
