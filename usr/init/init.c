@@ -30,7 +30,7 @@ static coreid_t my_core_id;
 #elif defined(__i386__)
 #       define MONITOR_NAME  "x86_32/sbin/monitor"
 #       define MEM_SERV_NAME "x86_32/sbin/mem_serv"
-#elif defined(__GEM5__)
+#elif defined(__ARM_ARCH_7A__)
 #       define MONITOR_NAME  "armv7/sbin/monitor"
 #       define MEM_SERV_NAME "armv7/sbin/mem_serv"
 #elif defined(__arm__)

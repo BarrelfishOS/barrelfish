@@ -61,6 +61,10 @@ trace = False
 support_qemu_networking :: Bool
 support_qemu_networking  = False
 
+-- Enable GEM5 emulation for ARMv7 (needs special handling of caching)
+enable_gem5 :: Bool
+enable_gem5 = False
+
 -- enable network tracing
 trace_network_subsystem :: Bool
 trace_network_subsystem = False

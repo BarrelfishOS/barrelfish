@@ -51,18 +51,21 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-DTHREAD_REGISTER=R9",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_7A__",
-                   Str "-D__GEM5__",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-format"
  ]
 
+gem5Flags = [ Str "-D__GEM5__" ]
+
 cFlags = ArchDefaults.commonCFlags 
          ++ ArchDefaults.commonFlags
          ++ ourCommonFlags
+         ++ if Config.enable_gem5 then gem5Flags else []
 
 cxxFlags = ArchDefaults.commonCxxFlags
            ++ ArchDefaults.commonFlags
            ++ ourCommonFlags
+           ++ if Config.enable_gem5 then gem5Flags else []
 
 cDefines = ArchDefaults.cDefines options
 
