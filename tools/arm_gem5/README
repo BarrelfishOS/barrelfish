@@ -1,6 +1,8 @@
 ARM on Gem5 usage and installation instructions:
 
 1. Build Barrelfish for Arm on Gem5 (see Barrelfish wiki for further instructions)
+   NOTE: Be sure to set 'enable_gem5' in <build_dir>/hake/Config.hs to true in
+   order to enable the cache quirk workarounds for gem5.
 
 2. If you are a member of ETH or Microsoft Research with access to the Barrelfish development tools continue with point 6 otherwise do steps 3 to 5
 
