@@ -34,8 +34,8 @@ static coreid_t my_core_id;
 #       define MONITOR_NAME  "armv7/sbin/monitor"
 #       define MEM_SERV_NAME "armv7/sbin/mem_serv"
 #elif defined(__arm__)
-#       define MONITOR_NAME  "arm/sbin/monitor"
-#       define MEM_SERV_NAME "arm/sbin/mem_serv"
+#       define MONITOR_NAME  "armv5/sbin/monitor"
+#       define MEM_SERV_NAME "armv5/sbin/mem_serv"
 #else
 #       error Unknown architecture
 #endif

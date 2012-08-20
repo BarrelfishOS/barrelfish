@@ -212,7 +212,7 @@ MODULES_scc=\
 	sbin/udp_throughput \
 
 # ARM-specific modules to build by default
-MODULES_arm=\
+MODULES_armv5=\
 	sbin/cpu \
 	sbin/cpu.bin
 
@@ -221,9 +221,10 @@ MODULES_xscale=\
 	sbin/cpu \
 	sbin/cpu.bin
 
-# ArmGem5-specific modules to build by default
-MODULES_arm_gem5=\
-	sbin/cpu_arm_gem5
+# ARMv7-specific modules to build by default
+# XXX: figure out armv7 default
+MODULES_armv7=\
+	sbin/cpu_omap44xx
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\

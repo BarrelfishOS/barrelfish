@@ -34,7 +34,7 @@
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
-#define BSP_INIT_MODULE_NAME    "arm/sbin/init"
+#define BSP_INIT_MODULE_NAME    "armv5/sbin/init"
 
 #define INIT_L1_BYTES           (ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY)
 
@@ -244,7 +244,7 @@ create_modules_from_initrd(struct bootinfo* bi,
     size_t bytes;
 
     if (cpio_get_file_by_name(initrd_base, initrd_bytes,
-                              "arm/menu.lst.modules",
+                              "armv5/menu.lst.modules",
                               &data, &bytes))
     {
         assert(bytes < BASE_PAGE_SIZE);
