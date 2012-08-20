@@ -13,7 +13,7 @@
 --
 --------------------------------------------------------------------------
 
-module ARM where
+module ARMv5 where
 
 import HakeTypes
 import Path
@@ -22,11 +22,11 @@ import qualified ArchDefaults
 
 -------------------------------------------------------------------------
 --
--- Architecture specific definitions for ARM
+-- Architecture specific definitions for ARMv5
 --
 -------------------------------------------------------------------------
 
-arch = "arm"
+arch = "armv5"
 archFamily = "arm"
 
 compiler = "arm-none-linux-gnueabi-gcc"

@@ -10,21 +10,21 @@ timeout 0
 title	Barrelfish
 #root	(nd)
 #kernel	/arm/sbin/cpu loglevel=4
-module	/arm/sbin/cpu
-module	/arm/sbin/init
+module	/armv5/sbin/cpu
+module	/armv5/sbin/init
 
 # Domains spawned by init
-module	/arm/sbin/mem_serv
-module	/arm/sbin/monitor
+module	/armv5/sbin/mem_serv
+module	/armv5/sbin/monitor
 
 # Special boot time domains spawned by monitor
-module /arm/sbin/ramfsd boot
-module /arm/sbin/skb boot
-module /arm/sbin/spawnd boot bootarm
-module /arm/sbin/startd boot 
+module /armv5/sbin/ramfsd boot
+module /armv5/sbin/skb boot
+module /armv5/sbin/spawnd boot bootarm
+module /armv5/sbin/startd boot 
 
 # General user domains
-#module	/arm/sbin/serial
-#module	/arm/sbin/fish
+#module	/armv5/sbin/serial
+#module	/armv5/sbin/fish
 
-#module /arm/sbin/memtest
+#module /armv5/sbin/memtest

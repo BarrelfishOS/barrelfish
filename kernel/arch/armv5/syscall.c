@@ -13,7 +13,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
 
-#include <arch/arm/arm_hal.h>
+#include <arch/armv5/arm_hal.h>
 
 #include <paging_kernel_arch.h>
 #include <dispatch.h>

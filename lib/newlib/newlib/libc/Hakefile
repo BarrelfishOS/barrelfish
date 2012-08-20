@@ -3,7 +3,7 @@ let
     arch_srcs "x86_64"  = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
     arch_srcs "x86_32"  = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
     arch_srcs "scc"     = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
-    arch_srcs "arm"     = [ "machine/arm/setjmp.S" ]
+    arch_srcs "armv5"   = [ "machine/arm/setjmp.S" ]
     arch_srcs "arm11mp" = [ "machine/arm/setjmp.S" ]
     arch_srcs "xscale"  = [ "machine/arm/setjmp.S" ]
     arch_srcs "armv7"   = [ "machine/arm/setjmp.S" ]
