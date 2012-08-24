@@ -54,6 +54,9 @@ static uint32_t it_num_lines;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
+/*
+ * This is the private memory region, which starts at address PERIPHBASE.
+ */
 lvaddr_t private_memory_region = 0;
 
 void private_mem_test(void);
@@ -511,11 +514,14 @@ uint32_t tsc_get_hz(void)
 
 static a9scu_t scu;
 
+void scu_initialize(void)
+{
+    // SCU is at PERIPHBASE + 0
+    a9scu_initialize(&scu, (mackerel_addr_t) private_memory_region);
+}
+
 void scu_enable(void)
 {
-    // Not tested yet ..
-    a9scu_initialize(&scu, (mackerel_addr_t) private_memory_region);
-
     //enable SCU
     a9scu_SCUControl_t ctrl_reg = a9scu_SCUControl_rd(&scu);
     ctrl_reg |= 0x1;
@@ -526,5 +532,9 @@ void scu_enable(void)
 
 int scu_get_core_count(void)
 {
-	return a9scu_SCUConfig_cpu_number_rdf(&scu);
+    // b00 for one core
+    // b01 for two cores
+    // b10 for tree cores
+    // b11 for four cores
+    return a9scu_SCUConfig_cpu_number_rdf(&scu) + 1;
 }

@@ -237,15 +237,21 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     //gic_init();
     printf("pic_init done\n");
 
-    // XXX reactivate me
-    /* if(hal_cpu_is_bsp()) */
-    /* { */
-    /*     // init SCU if more than one core present */
-    /*     if(scu_get_core_count() > 4) */
-    /*         panic("ARM SCU doesn't support more than 4 cores!"); */
-    /*     if(scu_get_core_count() > 1) */
-    /*         scu_enable(); */
-    /* } */
+    if (hal_cpu_is_bsp()) {
+
+	scu_initialize();
+	uint32_t omap_num_cores = scu_get_core_count();
+	printf("Number of cores in system: %"PRIu32"\n", omap_num_cores);
+
+	// ARM Cortex A9 TRM section 2.1
+        if (omap_num_cores > 4)
+            panic("ARM SCU doesn't support more than 4 cores!");
+
+        // init SCU if more than one core present
+        if (omap_num_cores > 1) {
+            scu_enable();
+	}
+    }
 
     tsc_init();
     printf("tsc_init done --\n");

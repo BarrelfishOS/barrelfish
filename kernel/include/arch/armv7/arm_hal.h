@@ -62,8 +62,9 @@ void     tsc_init(void);
 uint32_t tsc_read(void);
 uint32_t tsc_get_hz(void);
 
-void 	scu_enable(void);
-int		scu_get_core_count(void);
+void scu_initialize(void);
+void scu_enable(void);
+int scu_get_core_count(void);
 
 void	write_sysflags_reg(uint32_t regval);
 

@@ -47,6 +47,10 @@ static size_t uart_size[NUM_PORTS] = {
 
 static bool uart_initialized[NUM_PORTS];
 
+/*
+ * Initialzie OMAP UART
+ * UART TRM 23.3
+ */
 static void omap_uart_init(omap_uart_t *uart, lvaddr_t base)
 {
     omap_uart_initialize(uart, (mackerel_addr_t) base);
