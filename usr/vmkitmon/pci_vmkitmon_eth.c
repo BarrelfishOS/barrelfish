@@ -204,11 +204,15 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
                 if(*(unsigned char *)hv_addr == 0xaa) {
                     printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);
                     if(0) dumpRegion(hv_addr);
+                    unsigned char *xid = hv_addr + 42;
+                    printf("XID: 0x%02x%02x%02x%02x\n", *xid, *(xid + 1), *(xid + 2), *(xid + 3));
                 }
                 receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
                 --receive_free;
             }
-			cur_tx->len = 0;
+			memset(hv_addr, 0xBF, cur_tx->len);
+            cur_tx->len = 0;
+            
 		}
 	}
 }
