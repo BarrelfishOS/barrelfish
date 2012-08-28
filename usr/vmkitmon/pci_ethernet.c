@@ -136,14 +136,6 @@ static void pci_ethernet_init(void *bar_info, int nr_allocated_bars)
 
 }
 
-
-
-static void pci_ethernet_interrupt_handler(void *arg)
-{
-    struct pci_device *dev = (struct pci_device *)arg;
-    lpc_pic_assert_irq(dev->lpc, dev->irq);
-}
-
 static uint64_t vaddr_to_paddr(uint64_t vaddr){
 	uint64_t res = 0x100000000 + vaddr;
 	VMKIT_PCI_DEBUG("Returning: 0x%lx\n", res);
@@ -243,8 +235,8 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 			for(int j = 0; j < rdlen/16; j++){
 				uint32_t * ptr = ((uint32_t *)rdbal_monvirt)+1 + 4*j;
 				//TODO insert generic guest-host translation here
-				*ptr =  1;
-				*(ptr+2) = 1;
+				if((*ptr) == 0) *ptr =  1;
+				if(*(ptr+2) == 0) *(ptr+2) = 1;
 			}
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 			dumpRegion((uint8_t*)rdbal_monvirt);
@@ -266,6 +258,13 @@ static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *v
 		}
 		VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
 	}
+}
+
+// static uint32_t last_rdh = 600;
+static void pci_ethernet_interrupt_handler(void *arg)
+{
+    struct pci_device *dev = (struct pci_device *)arg;
+    lpc_pic_assert_irq(dev->lpc, dev->irq);
 }
 
 struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
