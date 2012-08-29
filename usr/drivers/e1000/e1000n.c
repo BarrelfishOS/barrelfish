@@ -209,7 +209,6 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {
-
     uint64_t nr_free;
     if (ether_transmit_index >= ether_transmit_bufptr) {
         nr_free = DRIVER_TRANSMIT_BUFFER -
@@ -219,7 +218,6 @@ static uint64_t find_tx_free_slot_count_fn(void)
         nr_free = (ether_transmit_bufptr - ether_transmit_index) %
             DRIVER_TRANSMIT_BUFFER;
     }
-
     return nr_free;
 } // end function: find_tx_queue_len
 

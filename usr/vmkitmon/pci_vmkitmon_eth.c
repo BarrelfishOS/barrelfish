@@ -144,8 +144,6 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size
 				break;
 			}
 		}
-        
-        
 	}
 
 	if(transmitted){
@@ -156,19 +154,19 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size
 }
 
 static uint64_t find_tx_free_slot_count_fn(void) {
-	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
-	VMKITMON_ETH_DEBUG("find_tx_free_slot_count_fn\n");
-	struct pci_vmkitmon_eth_rxdesc * first_rx = (struct pci_vmkitmon_eth_rxdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
-	uint32_t rxdesc_len = h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR];
-	int numFree = 0;
-	for (int i = 0; i < rxdesc_len/sizeof(struct pci_vmkitmon_eth_rxdesc); i++) {
-		struct pci_vmkitmon_eth_rxdesc * cur_rx =first_rx + i;
-		if(cur_rx->len == 0 && cur_rx->addr != 0){
-			numFree++;
-		}
-	}
-	VMKITMON_ETH_DEBUG("returning: %d\n ",numFree);
-	return numFree;
+	//only called once at beginning & looks fine (returns 256)
+    uint64_t nr_free;
+    if (ether_transmit_index >= ether_transmit_bufptr) {
+        nr_free = DRIVER_TRANSMIT_BUFFER -
+            ((ether_transmit_index - ether_transmit_bufptr) %
+                DRIVER_TRANSMIT_BUFFER);
+    } else {
+        nr_free = DRIVER_TRANSMIT_BUFFER -
+            ((ether_transmit_bufptr - ether_transmit_index) %
+            DRIVER_TRANSMIT_BUFFER);
+    }
+    //printf("find_tx_free_slot_count_fn: %lu, case1?: %d\n", nr_free, ether_transmit_index >= ether_transmit_bufptr);
+    return nr_free;
 }
 
 static bool handle_free_TX_slot_fn(void) {
@@ -201,7 +199,7 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
             } else {
                 memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
                 process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
-                if(*(unsigned char *)hv_addr == 0xaa) {
+                if(*(unsigned char *)hv_addr == 0xaa && 0) {
                     printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);
                     if(0) dumpRegion(hv_addr);
                     unsigned char *xid = hv_addr + 42;
@@ -232,19 +230,19 @@ static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
 
 //TODO
 static uint64_t rx_find_free_slot_count_fn(void) {
-    
-    struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
-	struct pci_vmkitmon_eth_txdesc * first_tx = (struct pci_vmkitmon_eth_txdesc *) guest_to_host( h->mmio_register[PCI_VMKITMON_ETH_RXDESC_ADR] );
-	uint32_t txdesc_len = h->mmio_register[PCI_VMKITMON_ETH_TXDESC_ADR];
-	int numFree = 0;
-	for (int i = 0; i < txdesc_len/sizeof(struct pci_vmkitmon_eth_txdesc); i++) {
-		struct pci_vmkitmon_eth_txdesc * cur_tx =first_tx + i;
-		if(cur_tx->len == 0 && cur_tx->addr != 0){
-			numFree++;
-		}
-	}    
-    VMKITMON_ETH_DEBUG("rx_find_free_slot_count_fn called, returning %d\n", 256);
-    return numFree;
+    //Only called once at the beginning and returns 256!!!
+	uint64_t nr_free;
+	if (receive_index >= receive_bufptr) {
+		nr_free = DRIVER_RECEIVE_BUFFERS -
+			((receive_index - receive_bufptr) %
+				DRIVER_RECEIVE_BUFFERS);
+	} else {
+		nr_free = DRIVER_RECEIVE_BUFFERS -
+			((receive_bufptr - receive_index) %
+			  DRIVER_RECEIVE_BUFFERS);
+	}
+    printf("rx_find_free_slot_count_fn called, returning %lu\n", nr_free);
+    return nr_free;
 }
 
 static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){

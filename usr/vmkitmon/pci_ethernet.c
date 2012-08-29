@@ -19,6 +19,7 @@
 #include "pci_ethernet.h"
 #include <pci/pci.h>
 #include <arch/x86/barrelfish/iocap_arch.h>
+#include <dev/e10k_dev.h>
 
 #define INVALID         0xffffffff
 #define PCI_CONFIG_ADDRESS_PORT 0x0cf8
@@ -35,6 +36,8 @@ static struct guest *guest_info;
 static struct pci_ethernet *pci_ethernet_unique;
 static genpaddr_t eth_base_paddr = 0;
 static uint32_t function = PCI_DONT_CARE;
+
+static e10k_t *d = NULL;
 
 // IXGBE SPECIFIC STUFF START
 #define EICR1_OFFSET 0x00800 //Interrupt Cause Read
@@ -91,7 +94,6 @@ static void confspace_read(struct pci_device *dev,
         *val = INVALID;
         return;
     }
-
     if(addr.d.doubleword < 0x40) {
         errval_t r = pci_read_conf_header(addr.d.doubleword,val);
         if(err_is_fail(r)) {
@@ -103,8 +105,6 @@ static void confspace_read(struct pci_device *dev,
         *val = INVALID;
     }
 }
-
-
 
 static void pci_ethernet_init(void *bar_info, int nr_allocated_bars)
 {
@@ -127,6 +127,9 @@ static void pci_ethernet_init(void *bar_info, int nr_allocated_bars)
 	}
     printf("pci_ethernet_init: map_device successful. vaddr: 0x%lx, bytes: %d...\n", (uint64_t)bar[0].vaddr, (int)bar[0].bytes);
     eth->virt_base_addr = bar[0].vaddr;
+
+    d = malloc(sizeof(*d));
+    e10k_initialize(d, (void*) bar[0].vaddr);
 
     //Enable memory map
     /* err = guest_vspace_map_wrapper(&guest_info->vspace, bar[0].paddr, bar[0].frame_cap[0], bar[0].bytes);
@@ -163,12 +166,11 @@ static void dumpRegion(uint8_t *start){
 static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){
 	struct pci_ethernet * eth = (struct pci_ethernet *)dev->state;
 	if(register_needs_translation(addr)){
-		VMKIT_PCI_DEBUG("Write access to Pointer register 0x%08lx value 0x%08lx\n", fault_addr & ETH_MMIO_MASK(eth), val);
+		//VMKIT_PCI_DEBUG("Write access to Pointer register 0x%"PRIx32" value 0x%"PRIx32"\n", addr & ETH_MMIO_MASK(eth), val);
 		if(val){
 			val = vaddr_to_paddr(val);
-
 		}
-		VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
+		VMKIT_PCI_DEBUG("Translated to value 0x%"PRIx32"\n", val);
 	}
 	if(TDBAH0_OFFSET == addr) {
 		//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
@@ -212,16 +214,31 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 			dumpRegion((uint8_t*)tdbal_monvirt);
 #endif
 		}
-
+	}
+	if(addr == RDT0_OFFSET){
 		//Inspect the contents of the RECEIVE descriptors
-		uint32_t rdbal  = read_device_mem(eth, RDBAL0_OFFSET);
-		uint32_t rdlen  = read_device_mem(eth, RDLEN_OFFSET);
+		//uint32_t rdbal  = read_device_mem(eth, RDBAL0_OFFSET);
+		uint32_t rdbal = e10k_rdbal_1_rd(d,0);
+		uint32_t rdlen = e10k_rdlen_1_rd(d,0);
+		uint32_t rdslots = rdlen / 16; //receive desc size is 16bytes and rdlen is in bytes.
+		uint32_t rdt_old = e10k_tdt_rd(d, 0);
+		uint32_t rdt = val;
+
+		//uint32_t rdlen  = read_device_mem(eth, RDLEN_OFFSET);
+		//uint32_t rdt_old = read_device_mem(eth, RDT0_OFFSET);
+		VMKIT_PCI_DEBUG("RDT write detected!  rdt: %"PRIu32", old_rdt: %"PRIu32", rdslots: %"PRIu32"\n", rdt, rdt_old, rdslots);
 
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
-		uint32_t rdxctl = read_device_mem(eth, RXDCTL0_OFFSET);
-		uint32_t rdbah  = read_device_mem(eth, RDBAH0_OFFSET);
-		uint32_t rdh    = read_device_mem(eth, RDH0_OFFSET);
-		uint32_t rdt    = read_device_mem(eth, RDT0_OFFSET);
+		//uint32_t rdxctl = read_device_mem(eth, RXDCTL0_OFFSET);
+		//uint32_t rdbah  = read_device_mem(eth, RDBAH0_OFFSET);
+		//uint32_t rdh    = read_device_mem(eth, RDH0_OFFSET);
+		//uint32_t rdt    = read_device_mem(eth, RDT0_OFFSET);
+
+		uint32_t rdxctl = e10k_rxdctl_1_rd(d,0); // mackerel calls untested
+		uint32_t rdbah  = e10k_rdbah_1_rd(d,0);
+		uint32_t rdh = e10k_rdh_1_rd(d,0);
+
+		uint32_t rdt = e10k_rdt_1_rd(d,0);
 		VMKIT_PCI_DEBUG("Inspecting ReceiveDescriptor. RDBAL: 0x%08x, RDBAH: 0x%08x, RDH: %d, RDT: %d, RDLEN: %d, RDXCTL: 0x%x\n",
 				rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
 #endif
@@ -232,16 +249,19 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 			dumpRegion((uint8_t*)rdbal_monvirt);
 #endif
 			//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
-			for(int j = 0; j < rdlen/16; j++){
+			for(int j = rdt_old; j != rdt; j = j+1 == rdslots ? 0 : j+1 ){
 				uint32_t * ptr = ((uint32_t *)rdbal_monvirt)+1 + 4*j;
 				//TODO insert generic guest-host translation here
-				if((*ptr) == 0) *ptr =  1;
-				if(*(ptr+2) == 0) *(ptr+2) = 1;
+				//if((*ptr) == 0) *ptr =  1;
+				//if(*(ptr+2) == 0) *(ptr+2) = 1;
+				*ptr =  1;
+				*(ptr+2) = 1;
 			}
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 			dumpRegion((uint8_t*)rdbal_monvirt);
 #endif
 		}
+
 	}
 
 	*((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + addr)) = val;
@@ -251,12 +271,12 @@ static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *v
 	struct pci_ethernet * eth = (struct pci_ethernet *)dev->state;
 	*val = *((uint32_t *)((uint64_t)(eth->virt_base_addr) + addr));
 	if( register_needs_translation(addr) ){
-		VMKIT_PCI_DEBUG("Read  access to Pointer register 0x%lx value 0x%lx\n", addr, val);
+		VMKIT_PCI_DEBUG("Read  access to Pointer register 0x%"PRIu32" value 0x%"PRIx32"\n", addr, *val);
 		//dont translate null pointers
 		if(*val) {
 			*val = host_to_guest((lvaddr_t)val);
 		}
-		VMKIT_PCI_DEBUG("Translated to value 0x%08lx\n", val);
+		VMKIT_PCI_DEBUG("Translated to value 0x%"PRIx32"\n", *val);
 	}
 }
 
