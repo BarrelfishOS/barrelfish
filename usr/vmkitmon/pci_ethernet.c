@@ -184,35 +184,19 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 	}
 	if(TDT_OFFSET == addr){
 		uint32_t tdt = val;
-		uint32_t tdh = read_device_mem(eth,TDH_OFFSET);
+		uint32_t tdt_old = e10k_tdt_rd(d,0);
+		//uint32_t tdh = read_device_mem(eth,TDH_OFFSET);
 		uint32_t tdbal = read_device_mem(eth,TDBAL0_OFFSET);
-#if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
-		uint32_t tdbah = read_device_mem(eth,TDBAH0_OFFSET);
-		VMKIT_PCI_DEBUG("Wrote to TDT detected. TDT: %d, TDH: %d, TDBAL: 0x%08x, TDBAH: 0x%08x\n", tdt,tdh, tdbal, tdbah);
-#endif
-		if(tdt != tdh){
-			lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
-#if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
-			dumpRegion((uint8_t*)tdbal_monvirt);
-#endif
+		uint32_t tdlen = e10k_tdlen_rd(d,0);
+		uint32_t tdslots = tdlen/16;
 
-			uint32_t firstdesc_guestphys = *((uint32_t*)tdbal_monvirt);
-
-#if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
-			uint32_t * firstdesc_monvirt = (uint32_t *) guest_to_host( (lvaddr_t)(firstdesc_guestphys) );
-			dumpRegion((uint8_t*)firstdesc_monvirt );
-#endif
-
-			uint32_t firstdesc_hostphys = (uint64_t) vaddr_to_paddr( (uint64_t) firstdesc_guestphys);
-			*((uint32_t *)tdbal_monvirt) =  firstdesc_hostphys;
-			//!!HACK: OUR TRANSLATED ADDRESS GOES OVER 32BIT SPACE....
-			for(int j = tdh; j < tdt; j++){
+		lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
+		if(tdbal != 0){
+			//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
+			for(int j = tdt_old; j != tdt; j = j+1 == tdslots ? 0 : j+1 ){
 				uint32_t * ptr = ((uint32_t *)tdbal_monvirt)+1 + 4*j;
 				*ptr =  1;
 			}
-#if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
-			dumpRegion((uint8_t*)tdbal_monvirt);
-#endif
 		}
 	}
 	if(addr == RDT0_OFFSET){
