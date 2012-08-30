@@ -129,13 +129,13 @@ enum buffer_memory_types {
 
 /// Number of PBUF structs available
 #ifndef MEMP_NUM_PBUF
-#define MEMP_NUM_PBUF         16384
+#define MEMP_NUM_PBUF         (4*16384)
 //#define MEMP_NUM_PBUF           4096
 #endif // MEMP_NUM_PBUF
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE         16384
+#define PBUF_POOL_SIZE         (4*16384)
 //#define PBUF_POOL_SIZE          4096
 #endif // PBUF_POOL_SIZE
 

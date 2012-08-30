@@ -163,6 +163,7 @@ static void dumpRegion(uint8_t *start){
 }
 #endif
 
+
 static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t val){
 	struct pci_ethernet * eth = (struct pci_ethernet *)dev->state;
 	if(register_needs_translation(addr)){
@@ -205,7 +206,7 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 		uint32_t rdbal = e10k_rdbal_1_rd(d,0);
 		uint32_t rdlen = e10k_rdlen_1_rd(d,0);
 		uint32_t rdslots = rdlen / 16; //receive desc size is 16bytes and rdlen is in bytes.
-		uint32_t rdt_old = e10k_tdt_rd(d, 0);
+		uint32_t rdt_old = e10k_rdt_1_rd(d, 0);
 		uint32_t rdt = val;
 
 		//uint32_t rdlen  = read_device_mem(eth, RDLEN_OFFSET);

@@ -94,7 +94,7 @@ static void get_mac_address_fn(uint8_t* mac)
     memcpy(mac, &host_mac, 6);
 }
 
-//#if defined(VMKITMON_ETH_DEBUG_SWITCH)
+#if defined(VMKITMON_ETH_DEBUG_SWITCH)
 static void dumpRegion(uint8_t *start){
 	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
 	for(int i=0; i<64;i++){
@@ -106,7 +106,7 @@ static void dumpRegion(uint8_t *start){
 	}
 	printf("-- dump finished --\n");
 }
-//#endif
+#endif
 
 //TODO
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size, void *opaque) {
@@ -199,12 +199,16 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
             } else {
                 memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
                 process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
-                if(*(unsigned char *)hv_addr == 0xaa && 0) {
-                    printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);
+                /*
+                if(*(unsigned char *)hv_addr == 0xaa) {
+                    //printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);
                     if(0) dumpRegion(hv_addr);
                     unsigned char *xid = hv_addr + 42;
-                    printf("XID: 0x%02x%02x%02x%02x\n", *xid, *(xid + 1), *(xid + 2), *(xid + 3));
-                }
+                    if(*xid == 0 && *(xid + 1) == 0){
+						printf("XID: 0x%02x%02x%02x%02x\n", *xid, *(xid + 1), *(xid + 2), *(xid + 3));
+                    	//dumpRegion(hv_addr);
+                    }
+                } */
                 receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
                 --receive_free;
             }
