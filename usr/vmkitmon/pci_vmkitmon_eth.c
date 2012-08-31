@@ -4,6 +4,7 @@
 #include "pci_vmkitmon_eth.h"
 #include "guest.h"
 #include "string.h"
+#include "benchmark.h"
 #include <pci/devids.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
@@ -108,11 +109,12 @@ static void dumpRegion(uint8_t *start){
 }
 #endif
 
-//TODO
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size, void *opaque) {
 	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
 	int i;
 	uint64_t paddr;
+
+	record_packet_receive_from_bf();
 
     VMKITMON_ETH_DEBUG("transmit_pbuf_list_fn, no_pbufs: 0x%lx\n", size);
 
@@ -191,13 +193,15 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
 		struct pci_vmkitmon_eth_txdesc * cur_tx =first_tx + i;
 		if(cur_tx->len != 0 && cur_tx->addr != 0){
 			void *hv_addr = (void *)guest_to_host(cur_tx->addr);
-			VMKITMON_ETH_DEBUG("Sending packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
+			//VMKITMON_ETH_DEBUG("Sending packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
+			//printf("Sending packet at txdesc %d, addr: 0x%x, len: 0x%x\n", i, cur_tx->addr, cur_tx->len);
             
             if(receive_free == 0) {
                 VMKITMON_ETH_DEBUG("Could not deliver packet, no receive buffer available. Drop packet.\n");
                 printf("Could not deliver packet, no receive buffer available. Drop packet.\n");
             } else {
                 memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
+                record_packet_transmit_to_bf();
                 process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
                 /*
                 if(*(unsigned char *)hv_addr == 0xaa) {

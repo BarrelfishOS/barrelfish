@@ -21,6 +21,7 @@
 #include <vfs/vfs.h>
 #include <timer/timer.h>
 #include "realmode.h"
+#include <bench/bench.h>
 #include "pci/devids.h"
 #include <pci/pci.h>
 
@@ -70,6 +71,7 @@ int main (int argc, char *argv[])
     const char *imagefile = IMAGEFILE;
 
     vfs_init();
+    bench_init();
     
     err = timer_init();
     if (err_is_fail(err)) {

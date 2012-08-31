@@ -145,7 +145,6 @@ static struct pbuf *alloc_pool_pbuf(void)
         if (payload != NULL) {
             memp_free(MEMP_PBUF_POOL, payload);
         }
-        //*((uint32_t *)0) = 1;
         USER_PANIC("alloc_pool_pbuf: failed!");
         return NULL;
     }

@@ -17,6 +17,7 @@
 #include "pci.h"
 #include "pci_devices.h"
 #include "pci_ethernet.h"
+#include "benchmark.h"
 #include <pci/pci.h>
 #include <arch/x86/barrelfish/iocap_arch.h>
 #include <dev/e10k_dev.h>
@@ -199,6 +200,7 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 				*ptr =  1;
 			}
 		}
+		record_packet_transmit_to_net();
 	}
 	if(addr == RDT0_OFFSET){
 		//Inspect the contents of the RECEIVE descriptors
@@ -268,6 +270,7 @@ static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *v
 // static uint32_t last_rdh = 600;
 static void pci_ethernet_interrupt_handler(void *arg)
 {
+	record_packet_receive_from_net();
     struct pci_device *dev = (struct pci_device *)arg;
     lpc_pic_assert_irq(dev->lpc, dev->irq);
 }

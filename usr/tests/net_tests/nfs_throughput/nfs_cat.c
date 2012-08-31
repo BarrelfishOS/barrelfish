@@ -80,7 +80,7 @@ static int cat(char *path)
     if (err_is_fail(err)) {
             DEBUG_ERR(err, "in vfs_close");
     }
-
+    free(buf);
     return filesize;
 }
 
@@ -107,9 +107,15 @@ int main(int argc, char**argv)
     assert(err_is_ok(err));
     printf("mount done\n");
 
-    printf("reading file [%s]\n", argv[2]);
+    printf("reading file 1. time [%s]\n", argv[2]);
     cat(argv[2]);
-    printf("Benchmark done.\n");
+    printf("receive 1 done.\n");
+
+    /*
+    printf("reading file 2. time [%s]\n", argv[2]);
+	cat(argv[2]);
+	printf("receive 2 done.\n"); */
+	printf("All done.\n");
 
     struct waitset *ws = get_default_waitset();
     while (1) {

@@ -14,12 +14,12 @@
                       cFiles = [ "vmkitmon.c", "guest.c", "realmode.c",
                                  "hdd.c", "keyboard.c", "console.c",
                                  "apic.c", "lpc.c", "pc16550d.c", "pci.c",
-				 				 "pci_host.c", "pci_hostbridge.c", "pci_ethernet.c", "pci_vmkitmon_eth.c" ],
+				 				 "pci_host.c", "pci_hostbridge.c", "pci_ethernet.c", "pci_vmkitmon_eth.c", "benchmark.c" ],
 	 				 flounderBindings = [ "net_queue_manager",
                                 "net_soft_filters" ],
                       mackerelDevices = [ "amd_vmcb", "lpc_timer", "e1000",
                                           "pc16550d_mem", "pci_hdr0_mem" ],
-                      addLibraries = libDeps [ "spawndomain", "netQmng", "x86emu", "vfs", "pci"],
+                      addLibraries = libDeps [ "spawndomain", "netQmng", "x86emu", "vfs", "pci", "bench"],
                       -- addLibraries = libDeps [ "spawndomain", "netQmng"],
                       architectures = ["x86_64"]
                     }
