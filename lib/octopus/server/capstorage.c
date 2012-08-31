@@ -100,6 +100,7 @@ void put_cap_handler(struct octopus_binding *b, char *key,
         reterr = OCT_ERR_CAP_OVERWRITE;
         err = cap_delete(cap);
         assert(err_is_ok(err));
+        free(key);
     } else {
         int r = capdb->d.put_capability(&capdb->d, key, cap);
         assert(r == 0);
@@ -110,8 +111,6 @@ void put_cap_handler(struct octopus_binding *b, char *key,
     assert(err_is_ok(err));
     ns->error = reterr;
     ns->reply(b, ns);
-
-    free(key);
 }
 
 static void remove_cap_reply(struct octopus_binding *b,
