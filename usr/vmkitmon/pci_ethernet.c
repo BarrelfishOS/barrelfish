@@ -21,6 +21,7 @@
 #include <pci/pci.h>
 #include <arch/x86/barrelfish/iocap_arch.h>
 #include <dev/e10k_dev.h>
+#include <dev/e10k_q_dev.h>
 
 #define INVALID         0xffffffff
 #define PCI_CONFIG_ADDRESS_PORT 0x0cf8
@@ -185,35 +186,28 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 		uint32_t tdlen = e10k_tdlen_rd(d,0);
 		uint32_t tdslots = tdlen/16;
 
-		lvaddr_t tdbal_monvirt = guest_to_host((lvaddr_t)tdbal);
+		e10k_q_tdesc_legacy_array_t * tdbal_monvirt = (e10k_q_tdesc_legacy_array_t *)guest_to_host((lvaddr_t)tdbal);
 		if(tdbal != 0){
 			//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
 			for(int j = tdt_old; j != tdt; j = j+1 == tdslots ? 0 : j+1 ){
-				uint32_t * ptr = ((uint32_t *)tdbal_monvirt)+1 + 4*j;
-				*ptr =  1;
+				e10k_q_tdesc_legacy_t cur = (e10k_q_tdesc_legacy_t) (tdbal_monvirt + j);
+				uint64_t new_buf = e10k_q_tdesc_legacy_buffer_extract(cur);
+				e10k_q_tdesc_legacy_buffer_insert(cur, vaddr_to_paddr(new_buf));
 			}
 		}
 		record_packet_transmit_to_net();
 	}
 	if(addr == RDT0_OFFSET){
 		//Inspect the contents of the RECEIVE descriptors
-		//uint32_t rdbal  = read_device_mem(eth, RDBAL0_OFFSET);
 		uint32_t rdbal = e10k_rdbal_1_rd(d,0);
 		uint32_t rdlen = e10k_rdlen_1_rd(d,0);
 		uint32_t rdslots = rdlen / 16; //receive desc size is 16bytes and rdlen is in bytes.
 		uint32_t rdt_old = e10k_rdt_1_rd(d, 0);
 		uint32_t rdt = val;
 
-		//uint32_t rdlen  = read_device_mem(eth, RDLEN_OFFSET);
-		//uint32_t rdt_old = read_device_mem(eth, RDT0_OFFSET);
 		VMKIT_PCI_DEBUG("RDT write detected!  rdt: %"PRIu32", old_rdt: %"PRIu32", rdslots: %"PRIu32"\n", rdt, rdt_old, rdslots);
 
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
-		//uint32_t rdxctl = read_device_mem(eth, RXDCTL0_OFFSET);
-		//uint32_t rdbah  = read_device_mem(eth, RDBAH0_OFFSET);
-		//uint32_t rdh    = read_device_mem(eth, RDH0_OFFSET);
-		//uint32_t rdt    = read_device_mem(eth, RDT0_OFFSET);
-
 		uint32_t rdxctl = e10k_rxdctl_1_rd(d,0); // mackerel calls untested
 		uint32_t rdbah  = e10k_rdbah_1_rd(d,0);
 		uint32_t rdh = e10k_rdh_1_rd(d,0);
@@ -223,25 +217,21 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 				rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
 #endif
 
-		lvaddr_t rdbal_monvirt = guest_to_host((lvaddr_t)rdbal);
+		e10k_q_rdesc_legacy_array_t * rdbal_monvirt = (e10k_q_rdesc_legacy_array_t *)guest_to_host((lvaddr_t)rdbal);
 		if(rdbal != 0){
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 			dumpRegion((uint8_t*)rdbal_monvirt);
 #endif
 			//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
 			for(int j = rdt_old; j != rdt; j = j+1 == rdslots ? 0 : j+1 ){
-				uint32_t * ptr = ((uint32_t *)rdbal_monvirt)+1 + 4*j;
-				//TODO insert generic guest-host translation here
-				//if((*ptr) == 0) *ptr =  1;
-				//if(*(ptr+2) == 0) *(ptr+2) = 1;
-				*ptr =  1;
-				*(ptr+2) = 1;
+				e10k_q_rdesc_legacy_t cur_rd = (e10k_q_rdesc_legacy_t)(rdbal_monvirt + j);
+				uint64_t new_buf = e10k_q_rdesc_legacy_buffer_extract(cur_rd);
+				e10k_q_rdesc_legacy_buffer_insert(cur_rd, vaddr_to_paddr(new_buf));
 			}
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 			dumpRegion((uint8_t*)rdbal_monvirt);
 #endif
 		}
-
 	}
 
 	*((uint32_t *)(((uint64_t)(eth->virt_base_addr)) + addr)) = val;
@@ -260,7 +250,6 @@ static void mem_read(struct pci_device *dev, uint32_t addr, int bar, uint32_t *v
 	}
 }
 
-// static uint32_t last_rdh = 600;
 static void pci_ethernet_interrupt_handler(void *arg)
 {
 	record_packet_receive_from_net();
