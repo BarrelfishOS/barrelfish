@@ -218,12 +218,10 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
             }
 			memset(hv_addr, 0xBF, cur_tx->len);
             cur_tx->len = 0;
-            
 		}
 	}
 }
 
-//TODO
 static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque) {
     VMKITMON_ETH_DEBUG("rx_register_buffer_fn called\n");
     
@@ -236,9 +234,7 @@ static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
     return SYS_ERR_OK;
 }
 
-//TODO
 static uint64_t rx_find_free_slot_count_fn(void) {
-    //Only called once at the beginning and returns 256!!!
 	uint64_t nr_free;
 	if (receive_index >= receive_bufptr) {
 		nr_free = DRIVER_RECEIVE_BUFFERS -
@@ -249,7 +245,7 @@ static uint64_t rx_find_free_slot_count_fn(void) {
 			((receive_bufptr - receive_index) %
 			  DRIVER_RECEIVE_BUFFERS);
 	}
-    printf("rx_find_free_slot_count_fn called, returning %lu\n", nr_free);
+	VMKITMON_ETH_DEBUG("rx_find_free_slot_count_fn called, returning %lu\n", nr_free);
     return nr_free;
 }
 

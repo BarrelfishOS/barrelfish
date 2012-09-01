@@ -40,7 +40,6 @@ static uint32_t function = PCI_DONT_CARE;
 
 static e10k_t *d = NULL;
 
-// IXGBE SPECIFIC STUFF START
 #define EICR1_OFFSET 0x00800 //Interrupt Cause Read
 #define EICR2_OFFSET 0x00804
 #define EICS1_OFFSET 0x00808 //Interrupt Cause Set
@@ -65,7 +64,6 @@ static int register_needs_translation(uint64_t addr){
 }
 
 static uint32_t deviceid = 0x10fb; //intel ixgbe
-// IXGBE SPECIFIC STUFF DONE
 
 static void confspace_write(struct pci_device *dev,
                             union pci_config_address_word addr,
@@ -146,10 +144,6 @@ static uint64_t vaddr_to_paddr(uint64_t vaddr){
 	return res;
 }
 
-static uint32_t read_device_mem(struct pci_ethernet * eth, uint32_t offset){
-	return *((uint32_t *)(((uint64_t)eth->virt_base_addr) + offset));
-}
-
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 static void dumpRegion(uint8_t *start){
 	printf("-- dump starting from 0x%lx --\n", (uint64_t)start);
@@ -187,8 +181,7 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 	if(TDT_OFFSET == addr){
 		uint32_t tdt = val;
 		uint32_t tdt_old = e10k_tdt_rd(d,0);
-		//uint32_t tdh = read_device_mem(eth,TDH_OFFSET);
-		uint32_t tdbal = read_device_mem(eth,TDBAL0_OFFSET);
+		uint32_t tdbal = e10k_tdbal_rd(d,0);
 		uint32_t tdlen = e10k_tdlen_rd(d,0);
 		uint32_t tdslots = tdlen/16;
 
