@@ -201,7 +201,12 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
                 printf("Could not deliver packet, no receive buffer available. Drop packet.\n");
             } else {
                 memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
-                record_packet_transmit_to_bf();
+                //printf("got packet with len: %d\n",cur_tx->len);
+                if(cur_tx->len == 185){
+                	print_bench_stats();
+                } else {
+					record_packet_transmit_to_bf();
+                }
                 process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
                 /*
                 if(*(unsigned char *)hv_addr == 0xaa) {
