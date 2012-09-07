@@ -1,19 +1,21 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich. 
+-- Attn: Systems Group.
 --
--- Hakefile for /usr/pci
+-- Hakefile for /usr/pci, the PCI bus driver.
 --
 --------------------------------------------------------------------------
 
 [  build application { target = "pci",
                       flounderDefs = [ "acpi", "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
-                      flounderBindings = [ "pci", "acpi" ],
+                      flounderTHCStubs = [ "octopus" ],
+                      flounderBindings = [ "pci", "acpi", "octopus" ],
                       flounderExtraBindings = [("acpi", ["rpcclient"])],
                                             
                       mackerelDevices = [ "pci_hdr0", "pci_hdr1", "ht_config" ],

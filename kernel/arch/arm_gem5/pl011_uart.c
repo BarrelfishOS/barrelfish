@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief The world's simplest serial driver.
+ * \brief ARM pl011 UART kernel-level driver. 
  */
 
 /*

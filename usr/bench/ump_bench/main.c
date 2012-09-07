@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
     my_core_id = disp_get_core_id();
     strcpy(my_name, argv[0]);
 
+    bench_init();
+
     if (argc == 1) { /* bsp core */
         mb->rx_vtbl.num_cores_reply = num_cores_reply;
 

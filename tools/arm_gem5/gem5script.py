@@ -5,6 +5,8 @@
 # (See configs/example/* in the M5 distribution for examples of
 # fuller scripts -- caches, etc.).
 
+# Determine script pathname
+import inspect, os
 import optparse
 import os
 import sys
@@ -17,6 +19,11 @@ from m5.util import fatal
 from O3_ARM_v7a import *
 import CacheConfig
 from Caches import *
+
+# Try to determine Barrelfish source directory
+# We assume that this script remains in tools/arm_gem5
+bfsrcdir='%s/../..' % os.path.dirname(inspect.getfile(inspect.currentframe()))
+print "Barrelfish source-directory is assume to be %s" % bfsrcdir
 
 class MemBus(Bus):
     badaddr_responder = BadAddr()
@@ -102,22 +109,24 @@ system.kernel = options.kernel
 
 #memory system
 system.iobus = Bus(bus_id=0)
+#system.iobus = NoncoherentBus()
 system.membus = MemBus(bus_id=1)
+#system.membus = MemBus()
 system.membus.badaddr_responder.warn_access = "warn"
 
 system.bridge = Bridge(delay='50ns', nack_delay='4ns')
 system.bridge.master = system.iobus.slave
 system.bridge.slave = system.membus.master
 
-system.physmem = SimpleMemory(range = AddrRange('256MB'),conf_table_reported = True)
+system.physmem = SimpleMemory(range = AddrRange('512MB'),conf_table_reported = True)
 
 system.mem_mode = mem_mode
 #load ramdisk at specific location (256MB = @0x10000000)
-system.ramdisk = SimpleMemory(range = AddrRange(Addr('256MB'), size = '256MB'), file=options.ramdisk)
-system.ramdisk.port = system.membus.master
+#system.ramdisk = SimpleMemory(range = AddrRange(Addr('256MB'), size = '256MB'), file=options.ramdisk)
+#system.ramdisk.port = system.membus.master
 
 #CPU(s)
-CPUClass.clock = "2GHz"
+CPUClass.clock = "1GHz"
 system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
 #machine type
@@ -127,7 +136,8 @@ system.realview = VExpress_ELT()
 #setup bootloader
 system.realview.nvmem = SimpleMemory(range = AddrRange(Addr('2GB'), size = '64MB'), zero = True)
 system.realview.nvmem.port = system.membus.master
-system.boot_loader = '../tools/arm_gem5/boot.arm'
+# System boot loader is now given relative to source directory
+system.boot_loader = ('%s/tools/arm_gem5/boot.arm' % bfsrcdir)
 #system.boot_loader_mem = system.realview.nvmem
 #system.realview.setupBootLoader(system.membus, system, '../tools/arm_gem5/boot.arm')
 system.gic_cpu_addr = system.realview.gic.cpu_addr

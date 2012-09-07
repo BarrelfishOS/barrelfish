@@ -13,7 +13,7 @@
  */
 
 #include <kernel.h>
-#include <pic.h>
+#include <arch/x86/pic.h>
 #include <dev/lpc_pic_dev.h>
 
 /// The dual PIC

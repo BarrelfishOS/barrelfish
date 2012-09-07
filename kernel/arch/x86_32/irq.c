@@ -52,7 +52,7 @@
 #include <x86.h>
 #include <dispatch.h>
 #include <wakeup.h>
-#include <pic.h>
+#include <arch/x86/pic.h>
 #include <arch/x86/apic.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <asmoffsets.h>

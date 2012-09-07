@@ -33,7 +33,7 @@
                                "client/locking.c", "client/semaphores.c", 
                                "client/capability_storage.c", 
                                "client/strnatcmp.c" ],
-                    flounderDefs = [ "octopus" ],
+                    flounderDefs = [ "octopus", "monitor" ],
                     flounderBindings = [ "octopus" ],
                     flounderExtraBindings = [ ("octopus", ["rpcclient"]) ],
                     flounderTHCStubs = [ "octopus" ],

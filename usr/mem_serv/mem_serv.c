@@ -55,7 +55,6 @@ size_t mem_total = 0, mem_avail = 0;
 #define PERCORE_BITS 24
 #define PERCORE_MEM (1UL<<PERCORE_BITS)           ///< How much memory per-core
 
-
 static struct multi_slot_allocator msa;
 static struct bootinfo *bi;
 
@@ -146,7 +145,7 @@ static void retry_free_reply(void *arg)
         b->st = NULL;
         free(r);
     } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        err = b->register_send(b, get_default_waitset(), 
+        err = b->register_send(b, get_default_waitset(),
                                MKCONT(retry_free_reply,r));
     }
 
@@ -209,7 +208,7 @@ static void mem_free_handler(struct mem_binding *b,
             assert(r != NULL);
             r->b = b;
             r->err = ret;
-            err = b->register_send(b, get_default_waitset(), 
+            err = b->register_send(b, get_default_waitset(),
                                    MKCONT(retry_free_reply,r));
             assert(err_is_ok(err));
         } else {
@@ -219,7 +218,7 @@ static void mem_free_handler(struct mem_binding *b,
 }
 
 
-static void mem_available_handler(struct mem_binding *b) 
+static void mem_available_handler(struct mem_binding *b)
 {
     errval_t err;
     /* Reply */
@@ -318,6 +317,50 @@ static void dump_ram_region(int index, struct mem_region* m)
 #endif // 0
 }
 
+static genpaddr_t find_smallest_address(void)
+{
+    bool isFirst = true;
+    genpaddr_t smallest_addr = 0;
+//
+    for (int i = 0; i < bi->regions_length; i++) {
+        if (bi->regions[i].mr_type != RegionType_Empty) {
+            continue;
+        }
+
+        if (bi->regions[i].mr_consumed) {
+            continue;
+        }
+
+        if (isFirst) {
+            smallest_addr = bi->regions[i].mr_base;
+            isFirst = false;
+            continue;
+        }
+
+        if (smallest_addr > bi->regions[i].mr_base) {
+            smallest_addr = bi->regions[i].mr_base;
+        }
+    } // end for: for every record
+    return smallest_addr;
+} // end function: find_smallest_address
+
+static genpaddr_t guess_physical_addr_start(void)
+{
+    genpaddr_t start_physical = find_smallest_address();
+#if defined(__arm__)
+    if (start_physical > 0x80000000) {
+        // This is most probably a pandaboard!
+        start_physical = 0x80000000;
+    } else {
+        // This is gem5 or some other architecture
+        start_physical = 0;
+    }
+#else
+    start_physical = 0;
+#endif
+    return start_physical;
+} // end function: guess_physical_addr_start
+
 // FIXME: error handling (not asserts) needed in this function
 //XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
 #if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
@@ -355,8 +398,9 @@ initialize_ram_alloc(void)
                            1UL << DEFAULT_CNODE_BITS, &mm_ram);
     assert(err_is_ok(err));
 
-    err = mm_init(&mm_ram, ObjType_RAM, 0, MAXSIZEBITS, MAXCHILDBITS, NULL,
-                  slot_alloc_prealloc, &ram_slot_alloc, true);
+    err = mm_init(&mm_ram, ObjType_RAM, guess_physical_addr_start(),
+                MAXSIZEBITS, MAXCHILDBITS, NULL,
+                slot_alloc_prealloc, &ram_slot_alloc, true);
     assert(err_is_ok(err));
 
     /* give MM allocator static storage to get it started */
@@ -467,7 +511,7 @@ int main(int argc, char ** argv)
 
     idc_init();
 
-    /* Send the cap for this endpoint to init, who will pass it to 
+    /* Send the cap for this endpoint to init, who will pass it to
        the monitor */
     err = lmp_ep_send0(cap_initep, 0, mcb.chan.local_cap);
     if(err_is_fail(err)) {
@@ -512,7 +556,7 @@ int main(int argc, char ** argv)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "initialising tracing");
         // return EXIT_FAILURE;
-    }        
+    }
     trace_init_disp();
 #endif
 

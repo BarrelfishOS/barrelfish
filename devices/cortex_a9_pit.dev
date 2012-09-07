@@ -16,6 +16,7 @@
  * Cortex-A9 MPCore Technical Reference Manual
  * (DDI0407G_cortex_a9_mpcore_r3p0_trm.pdf)
  *
+ * This implements private timers and watchdogs
  */
  
  device cortex_a9_pit msbfirst ( addr base ) "Cortex A9 Private Timer and watchdog" {

@@ -27,7 +27,7 @@
 
 extern char **environ;
 
-static const char *get_shortname(const char *start, const char *nameend, 
+static const char *get_shortname(const char *start, const char *nameend,
                                  size_t *namelen)
 {
 
@@ -50,7 +50,7 @@ static const char *get_shortname(const char *start, const char *nameend,
     return shortname;
 }
 
-static void set_local_bindings(void) 
+static void set_local_bindings(void)
 {
     ram_alloc_set(NULL);
 }
@@ -66,21 +66,21 @@ struct spawn_info {
 };
 
 
-/* 
-   read the next line of the bootmodule, and return info about what to 
+/*
+   read the next line of the bootmodule, and return info about what to
    spawn in *si
-   return: 
+   return:
    1: line read succesfully
    0: end of file reached
    -1: error
 */
-static int prepare_spawn(size_t *bmpos, struct spawn_info *si) 
+static int prepare_spawn(size_t *bmpos, struct spawn_info *si)
 {
     assert(bmpos != NULL);
     assert(si != NULL);
 
     const char *bootmodules = gbootmodules;
-    
+
     // find the start/end of the next line
     const char *start = &bootmodules[*bmpos];
     const char *end = strchr(start, '\n');
@@ -111,7 +111,7 @@ static int prepare_spawn(size_t *bmpos, struct spawn_info *si)
     /* Get the command line arguments of the domain: args plus shortname */
     memcpy(si->cmdargs, si->shortname, end - si->shortname);
     si->cmdargs[end - si->shortname] = '\0';
-    si->argc = spawn_tokenize_cmdargs(si->cmdargs, si->argv, 
+    si->argc = spawn_tokenize_cmdargs(si->cmdargs, si->argv,
                                       ARRAY_LENGTH(si->argv));
     if (si->argc >= MAX_CMDLINE_ARGS) {
         free(si->cmdargs);
@@ -142,7 +142,7 @@ void spawn_dist_domains(void)
         if (r == 0) {
             return;
         } else if (r == -1) {
-            DEBUG_ERR(STARTD_ERR_BOOTMODULES, 
+            DEBUG_ERR(STARTD_ERR_BOOTMODULES,
                       "failed to read bootmodules entry");
         }
 
@@ -161,7 +161,7 @@ void spawn_dist_domains(void)
                 extra_args = 2;
 
             } else {
-                coreid = my_coreid; 
+                coreid = my_coreid;
                 extra_args = 1;
             }
 
@@ -171,10 +171,10 @@ void spawn_dist_domains(void)
             }
             si.argc--;
 
-            debug_printf("starting dist-serv %s on core %d\n", si.name, coreid); 
+            debug_printf("starting dist-serv %s on core %d\n", si.name, coreid);
 
             domainid_t new_domain;
-            err = spawn_program(coreid, si.name, si.argv, environ, 
+            err = spawn_program(coreid, si.name, si.argv, environ,
                                 0, &new_domain);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "spawn of %s failed", si.name);
@@ -189,12 +189,12 @@ void spawn_dist_domains(void)
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "nsb_wait_ready on %s failed", si.shortname);
             }
-            
+
             si.shortname[si.shortnamelen] = c;
 
-            // HACK:  make sure we use the local versions of a service if 
-            // it was started. Really there needs to be a mechanism for that 
-            // service to signal us and others to do this once it has started 
+            // HACK:  make sure we use the local versions of a service if
+            // it was started. Really there needs to be a mechanism for that
+            // service to signal us and others to do this once it has started
             // up.
             set_local_bindings();
         }
@@ -221,15 +221,17 @@ void spawn_app_domains(void)
         if (r == 0) {
             return;
         } else if (r == -1) {
-            DEBUG_ERR(STARTD_ERR_BOOTMODULES, 
+            DEBUG_ERR(STARTD_ERR_BOOTMODULES,
                       "failed to read bootmodules entry");
         }
 
         /* Do not spawn special domains */
         if (strncmp(si.shortname, "init", si.shortnamelen) == 0
             || strncmp(si.shortname, "cpu", si.shortnamelen) == 0
+                // Adding following condition for cases like "cpu_omap44xx"
+            || strncmp(si.shortname, "cpu", strlen("cpu")) == 0
             || strncmp(si.shortname, "monitor", si.shortnamelen) == 0
-            || strncmp(si.shortname, "mem_serv", si.shortnamelen) == 0 
+            || strncmp(si.shortname, "mem_serv", si.shortnamelen) == 0
         ) {
             spawn_here = false;
         }
@@ -273,10 +275,11 @@ void spawn_app_domains(void)
                     si.argc--;
 
                     for(int i = id_from; i <= id_to; i++) {
-                        debug_printf("starting app %s on core %d\n", si.name, i);
+                        debug_printf("starting app %s on core %d\n",
+                                si.name, i);
 
                         domainid_t new_domain;
-                        err = spawn_program(i, si.name, si.argv, environ, 
+                        err = spawn_program(i, si.name, si.argv, environ,
                                             0, &new_domain);
                         if (err_is_fail(err)) {
                             DEBUG_ERR(err, "spawn of %s failed", si.name);
@@ -284,12 +287,12 @@ void spawn_app_domains(void)
                     }
                 }
             } else {
-                coreid = my_coreid; 
+                coreid = my_coreid;
 
                 debug_printf("starting app %s on core %d\n", si.name, coreid);
 
                 domainid_t new_domain;
-                err = spawn_program(coreid, si.name, si.argv, environ, 
+                err = spawn_program(coreid, si.name, si.argv, environ,
                                     0, &new_domain);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "spawn of %s failed", si.name);
@@ -361,7 +364,7 @@ void spawn_bootscript_domains(void)
                     debug_printf("starting app %s on core %d\n", name, i);
 
                     domainid_t new_domain;
-                    err = spawn_program(i, name, argv, environ, 
+                    err = spawn_program(i, name, argv, environ,
                                         0, &new_domain);
                     if (err_is_fail(err)) {
                         DEBUG_ERR(err, "spawn of %s failed", name);
@@ -372,7 +375,7 @@ void spawn_bootscript_domains(void)
             debug_printf("starting app %s on core %d\n", name, my_coreid);
 
             domainid_t new_domain;
-            err = spawn_program(my_coreid, name, argv, environ, 
+            err = spawn_program(my_coreid, name, argv, environ,
                                 0, &new_domain);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "spawn of %s failed", name);

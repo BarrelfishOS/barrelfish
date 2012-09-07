@@ -65,11 +65,29 @@ ascii_to_int(int c)
     }
 }
 
+/*
+ * XXX doesn't actually deal with a sign character!!!
+ */
 long int strtol(const char *nptr, char **endptr, int base)
 {
     assert(base == 10 || base == 16);
     
     long int retval = 0;
+
+    for(int i = 0;
+        (base == 10 && isdigit((int)nptr[i])) || (base == 16 && isxdigit((int)nptr[i]));
+        i++) {
+        // Shift and add a digit
+        retval = retval * base + ascii_to_int(nptr[i]);
+    }
+
+    return retval;
+}
+unsigned long int strtoul(const char *nptr, char **endptr, int base)
+{
+    assert(base == 10 || base == 16);
+    
+    unsigned long int retval = 0;
 
     for(int i = 0;
         (base == 10 && isdigit((int)nptr[i])) || (base == 16 && isxdigit((int)nptr[i]));

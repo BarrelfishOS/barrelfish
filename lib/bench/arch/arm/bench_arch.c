@@ -15,7 +15,14 @@
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 #include <bench/bench_arch.h>
+#include <barrelfish/sys_debug.h>
+
+
+uint64_t tsc_hz;
 
 void bench_arch_init(void)
 {
+	errval_t err = sys_debug_hardware_timer_hertz_read((uintptr_t *)&tsc_hz);
+	assert(err_is_ok(err));
 }
+

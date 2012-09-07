@@ -62,7 +62,9 @@
 
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
+//#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
+#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256)
+// increased above value from 128 for pandaboard port
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -100,7 +102,6 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
-#if 0
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
     struct vnode *walk = root->children;
@@ -120,7 +121,6 @@ static void remove_vnode(struct vnode *root, struct vnode *item)
     }
     USER_PANIC("Should not get here");
 }
-#endif // 0
 
 /**
  * \brief Allocates a new VNode, adding it to the page table and our metadata
@@ -187,7 +187,7 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
                                    index, &tmp);
         assert(tmp != NULL);
         *ptable = tmp; // Set argument to received value
-    
+
 
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
@@ -268,6 +268,7 @@ max_slabs_required(size_t bytes)
  * Can only be called for the current pmap
  * Will recursively call into itself till it has enough slabs
  */
+#include <stdio.h>
 static errval_t refill_slabs(struct pmap_arm *pmap, size_t request)
 {
     errval_t err;
@@ -300,9 +301,10 @@ static errval_t refill_slabs(struct pmap_arm *pmap, size_t request)
         /* Perform mapping */
         genvaddr_t genvaddr = pmap->vregion_offset;
         pmap->vregion_offset += (genvaddr_t)bytes;
+
         // if this assert fires, increase META_DATA_RESERVED_SPACE
-        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
-               vregion_get_size(&pmap->vregion)); 
+        assert(pmap->vregion_offset < (vregion_get_base_addr(&pmap->vregion) +
+               vregion_get_size(&pmap->vregion)));
 
         err = do_map(pmap, genvaddr, cap, 0, bytes,
                      VREGION_FLAGS_READ_WRITE, NULL, NULL);
@@ -312,7 +314,7 @@ static errval_t refill_slabs(struct pmap_arm *pmap, size_t request)
 
         /* Grow the slab */
         lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
-        slab_grow(&pmap->slab, (void*)buf, bytes);        
+        slab_grow(&pmap->slab, (void*)buf, bytes);
     }
 
     return SYS_ERR_OK;
@@ -386,8 +388,41 @@ unmap(struct pmap *pmap,
       size_t       size,
       size_t      *retsize)
 {
-    USER_PANIC("NYI");
-    return LIB_ERR_NOT_IMPLEMENTED;
+	errval_t err;
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+    struct pmap_arm* pmap_arm = (struct pmap_arm*)pmap;
+
+
+    for (size_t i = 0; i < size; i+=BASE_PAGE_SIZE) {
+            // Find the page table
+            struct vnode *ptable;
+            err = get_ptable(pmap_arm, vaddr + i, &ptable);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+            }
+
+            // Find the page
+            uintptr_t index = (((uintptr_t)vaddr+i) >> 12) & 0x3ffu;
+            struct vnode *page = find_vnode(ptable, index);
+            if (!page) {
+                return LIB_ERR_PMAP_FIND_VNODE;
+            }
+
+            // Unmap it in the kernel
+            err = vnode_unmap(ptable->cap, page->entry);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_VNODE_UNMAP);
+            }
+
+            // Free up the resources
+            remove_vnode(ptable, page);
+            slab_free(&pmap_arm->slab, page);
+        }
+
+        if (retsize) {
+            *retsize = size;
+        }
+        return SYS_ERR_OK;
 }
 
 /**

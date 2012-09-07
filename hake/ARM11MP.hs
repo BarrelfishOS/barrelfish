@@ -18,12 +18,12 @@ module ARM11MP where
 import HakeTypes
 import Path
 import qualified Config
-import qualified ARM
+import qualified ARMv5
 import qualified ArchDefaults
 
 -------------------------------------------------------------------------
 --
--- Architecture specific definitions for ARM
+-- Architecture specific definitions for ARMv6
 --
 -------------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 
 cDefines = ArchDefaults.cDefines options
 
-ourLdFlags = ARM.ourLdFlags
+ourLdFlags = ARMv5.ourLdFlags
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags

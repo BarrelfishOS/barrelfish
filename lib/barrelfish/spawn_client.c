@@ -48,7 +48,11 @@ const char *cpu_type_to_archstr(enum cpu_type cpu_type)
     case CPU_X86_64:    return "x86_64";
     case CPU_X86_32:    return "x86_32";
     case CPU_SCC:       return "scc";
+#ifdef __GEM5__
+    case CPU_ARM:		return "arm_gem5";
+    #else
     case CPU_ARM:       return "arm";
+#endif
     default:            USER_PANIC("cpu_type_to_pathstr: %d unknown", cpu_type);
     }
 }

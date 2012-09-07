@@ -20,15 +20,15 @@
 #include <init.h>
 #include <irq.h>
 #include <x86.h>
-#include <conio.h>
 #include <serial.h>
 #include <kernel_multiboot.h>
-#include <pic.h>
-#include <arch/x86/apic.h>
 #include <syscall.h>
 #include <getopt/getopt.h>
 #include <exec.h>
 #include <kputchar.h>
+#include <arch/x86/conio.h>
+#include <arch/x86/pic.h>
+#include <arch/x86/apic.h>
 #include <arch/x86/perfmon_intel.h>
 #include <arch/x86/perfmon_amd.h>
 #include <arch/x86/rtc.h>
@@ -551,7 +551,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    serial_console_init(0);
+    serial_console_init();
 
     // Setup IDT
     setup_default_idt();
@@ -671,7 +671,7 @@ void arch_init(uint32_t magic, void *pointer)
 #ifndef __scc__
     conio_cls();
 #endif
-    serial_console_init(0);
+    serial_console_init();
 
     /* determine page-aligned physical address past end of multiboot */
     lvaddr_t dest = (lvaddr_t)&_start_kernel;

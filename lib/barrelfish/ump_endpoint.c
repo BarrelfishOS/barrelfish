@@ -80,6 +80,7 @@ errval_t ump_endpoint_deregister(struct ump_endpoint *ep)
     return waitset_chan_deregister(&ep->waitset_state);
 }
 
+#include <stdio.h>
 /**
  * \brief Migrate an event registration made with ump_endpoint_register() to a new waitset.
  *
@@ -88,5 +89,6 @@ errval_t ump_endpoint_deregister(struct ump_endpoint *ep)
  */
 void ump_endpoint_migrate(struct ump_endpoint *ep, struct waitset *ws)
 {
+    printf("ump_endpoint_migrate\n");
     waitset_chan_migrate(&ep->waitset_state, ws);
 }

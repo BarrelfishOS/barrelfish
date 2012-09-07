@@ -71,6 +71,10 @@ uint64_t disp_run_counter(void)
  */
 void disp_run(dispatcher_handle_t handle)
 {
+    // We can't call printf(), so do this silly thing...
+//    assert_print("FIXME: infinite while loop\n");
+//    while(1);
+
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);
     struct dispatcher_shared_generic* disp =
         get_dispatcher_shared_generic(handle);
