@@ -154,7 +154,7 @@ class QEMUMachineARMUniproc(QEMUMachineBase):
         return 1
 
     def get_bootarch(self):
-        return "arm"
+        return "armv5"
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
