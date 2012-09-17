@@ -22,7 +22,7 @@ import BackendCommon
 init_fn_name p n = ump_ifscope p n "init"
 
 params = template_params {
-    ump_payload = 24, -- msg payload in bytes
+    ump_payload = 56, -- msg payload in bytes
     ump_drv = "ump",
     ump_arch = undefined,
 

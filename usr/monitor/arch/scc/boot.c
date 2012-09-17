@@ -164,7 +164,7 @@ errval_t boot_arch_app_core(int argc, char *argv[],
 
     printf("frame base at 0x%llx -- 0x%llx\n", chanbase, chanbase + BASE_PAGE_SIZE);
 
-    assert(MON_URPC_CHANNEL_LEN * 2 < BASE_PAGE_SIZE);
+    assert(MON_URPC_CHANNEL_LEN * 2 <= BASE_PAGE_SIZE);
     ram_set_affinity(chanbase, chanbase + BASE_PAGE_SIZE);
     struct capref frame;
     err = frame_alloc(&frame, MON_URPC_CHANNEL_LEN * 2, NULL);
