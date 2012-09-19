@@ -270,7 +270,6 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 		if( val & PCI_VMKITMON_ETH_IFUP) {
 			VMKITMON_ETH_DEBUG("Interface up, registering\n");
 			// register to queue_manager
-            // TODO: some new parameters in this function, we should check if we have to change something...
 			ethersrv_init("vmkitmon_eth", 
                           assumed_queue_id, 
                           get_mac_address_fn,
@@ -333,7 +332,7 @@ struct pci_device *pci_vmkitmon_eth_new(struct lpc *lpc, struct guest *g) {
 	host->pci_header[0xf] = 1<<8 | PCI_ETHERNET_IRQ;
 
 
-	//TODO: Figure out a nice address, for the moment, make sure you dont go over 0xce000000
+	//Figure out a nice address, for the moment, make sure you dont go over 0xce000000
 	// and stay close beyond (thats the point where the ixgbe is mapped).
 	host->mem_guest_paddr = 0xcb000000;
 	dev->bars[0].paddr = host->mem_guest_paddr;

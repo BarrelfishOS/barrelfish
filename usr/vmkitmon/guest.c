@@ -196,7 +196,6 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
         return err;
     }
 
-    //TODO: print cap...
 	struct frame_identity frameid = { .base = 0, .bits = 0 };
 	errval_t r = invoke_frame_identify(cap, &frameid);
 	assert(err_is_ok(r));
