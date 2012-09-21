@@ -493,7 +493,13 @@ static void assign_bus_numbers(struct pci_address parentaddr, uint8_t *busnum,
                 PCI_DEBUG("get irg table for (%hhu,%hhu,%hhu)\n", (*busnum) + 1,
                         addr.device, addr.function);
                 struct acpi_rpc_client* cl = get_acpi_rpc_client();
-                cl->vtbl.read_irq_table(cl, handle, *(acpi_pci_address_t*)&addr,
+                // XXX: why do we have two different types for the same thing?
+                acpi_pci_address_t xaddr = {
+                    .bus = addr.bus,
+                    .device = addr.device,
+                    .function = addr.function,
+                };
+                cl->vtbl.read_irq_table(cl, handle, xaddr,
                         (*busnum) + 1, &error_code, &child);
                 if (err_is_fail(error_code)) {
                 	DEBUG_ERR(error_code, "Reading IRQs failed");
