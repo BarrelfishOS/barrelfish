@@ -111,7 +111,7 @@ static void wait_for_condition_fair(void)
         }
         wait_flag = false;
     } else {
-        assert(!"NYI: ");
+        thread_cond_wait(&wait_cond, lwip_mutex);
     }
 }
 
