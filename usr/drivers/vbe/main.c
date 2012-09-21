@@ -18,6 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <pci/pci.h>
+#include <acpi_client/acpi_client.h>
 #include <if/fb_defs.h>
 
 #include "vbe.h"
@@ -174,6 +175,9 @@ int main(int argc, char *argv[])
 {
     // Register our device driver
     errval_t err = pci_client_connect();
+    assert(err_is_ok(err));
+
+    err = connect_to_acpi();
     assert(err_is_ok(err));
 
     err = pci_register_driver_noirq(vbe_init, PCI_CLASS_DISPLAY, PCI_DONT_CARE,
