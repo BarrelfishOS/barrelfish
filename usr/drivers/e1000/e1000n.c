@@ -579,7 +579,7 @@ static void e1000_interrupt_handler(void *arg)
     E1000N_DPRINT("interrupt msg [%"PRIu64"]!\n", interrupt_counter);
 
     if(!icr.rxt0) {
-        printf("no packet\n");
+        //printf("no packet\n");
         return;
     }
     handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION);
