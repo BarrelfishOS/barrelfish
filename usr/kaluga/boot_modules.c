@@ -19,7 +19,7 @@ extern char **environ;
 static struct module_info modules[MAX_DRIVER_MODULES];
 
 inline bool is_auto_driver(struct module_info* mi) {
-    return strcmp(mi->argv[1], "auto") == 0;
+    return mi->argc > 1 && strcmp(mi->argv[1], "auto") == 0;
 }
 
 inline bool is_started(struct module_info* mi)
