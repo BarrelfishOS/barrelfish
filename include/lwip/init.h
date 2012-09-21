@@ -146,6 +146,8 @@ void lwip_record_event_simple(uint8_t event_type, uint64_t ts);
 
 bool lwip_init_auto_ex(struct waitset *opt_waitset,
                        struct thread_mutex *opt_mutex);
+bool lwip_init_ex(const char *card_name, uint64_t queueid,
+                  struct waitset *opt_waitset, struct thread_mutex *opt_mutex);
 
 #ifdef __cplusplus
 }
