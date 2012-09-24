@@ -3,18 +3,14 @@ let
     "sbrk"      -> False
     "dlmalloc"  -> True
     "oldmalloc" -> True
-
-  common_cflags = [ "-DPACKAGE_NAME=\"newlib\"",
-                    "-DPACKAGE_TARNAME=\"newlib\"",
-                    "-DPACKAGE_VERSION=\"1.19.0\"",
-                    "-DPACKAGE_BUGREPORT=\"\"",
-                    "-DPACKAGE_URL=\"\"",
-                    "-D_I386MACH_ALLOW_HW_INTERRUPTS",
-                    "-DMISSING_SYSCALL_NAMES",
-                    "-DNO_EXEC"]
-                    ++ if malloc_provided then ["-DMALLOC_PROVIDED"] else []
-
-  common_omitcflags = [ "-std=c99", "-Wredundant-decls", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+  common_cflags = Config.newlibAddCFlags
+                  ++ if malloc_provided then ["-DMALLOC_PROVIDED"] else []
+  common_omitcflags = [ "-std=c99",
+                        "-Wredundant-decls",
+                        "-Wmissing-prototypes",
+                        "-Wmissing-declarations",
+                        "-Wimplicit-function-declaration",
+                        "-Werror" ]
 in
   if Config.libc == "newlib" then
   [
@@ -214,6 +210,5 @@ in
       addCFlags = common_cflags,
       addLibraries = [ "stdlib_free", "stdlib_realloc", "stdlib_calloc", "stdlib_cfree", "stdlib_mallinfo", "stdlib_mallstats", "stdlib_msize", "stdlib_malloc", "stdlib_malign", "stdlib_mallopt", "stdlib_pvalloc", "stdlib_valloc" ],
       omitCFlags = common_omitcflags
-    }
-  ]
+    } ]
 else []

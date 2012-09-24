@@ -269,3 +269,19 @@ arch_defines opts
        | d <- ["CONFIG_FLOUNDER_BACKEND_" ++ (map toUpper n)
                | n <- optFlounderBackends opts]
       ]
+
+-- newlib common compile flags (maybe put these in a config.h file?)
+newlibAddCFlags :: [String]
+newlibAddCFlags = [ "-DPACKAGE_NAME=\"newlib\"" ,
+                    "-DPACKAGE_TARNAME=\"newlib\"",
+                    "-DPACKAGE_VERSION=\"1.19.0\"",
+                    "-DPACKAGE_BUGREPORT=\"\"",
+                    "-DPACKAGE_URL=\"\"",
+                    "-D_I386MACH_ALLOW_HW_INTERRUPTS",
+                    "-DMISSING_SYSCALL_NAMES",
+                    "-D_WANT_IO_C99_FORMATS",
+                    "-D_COMPILING_NEWLIB",
+                    "-D_WANT_IO_LONG_LONG",
+                    "-D_WANT_IO_LONG_DOUBLE",
+                    "-D_MB_CAPABLE",
+                    "-D__BSD_VISIBLE"]

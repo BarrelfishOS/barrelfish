@@ -9,21 +9,13 @@ let
     arch_srcs "armv7"   = [ "machine/arm/setjmp.S" ]
     arch_srcs  x        = error ("Unknown architecture for newlib: " ++ x)
 in
-[ build library { 
+[ build library {
   target = "newc",
-  addCFlags = [
-      "-DPACKAGE_NAME=\"newlib\""
-    , "-DPACKAGE_TARNAME=\"newlib\""
-    , "-DPACKAGE_VERSION=\"1.19.0\""
-    , "-DPACKAGE_BUGREPORT=\"\""
-    , "-DPACKAGE_URL=\"\""
-    , "-D_I386MACH_ALLOW_HW_INTERRUPTS"
-    , "-DMISSING_SYSCALL_NAMES" ],
-  omitCFlags = [
-      "-Wmissing-prototypes"
-    , "-Wmissing-declarations"
-    , "-Wimplicit-function-declaration"
-    , "-Werror" ],
+  addCFlags  = Config.newlibAddCFlags,
+  omitCFlags = [ "-Wmissing-prototypes",
+                 "-Wmissing-declarations",
+                 "-Wimplicit-function-declaration",
+                 "-Werror"],
   addLibraries = [
       "ctype"
     , "search"
