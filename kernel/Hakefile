@@ -229,6 +229,7 @@ let
                 "arch/armv5/kludges.c", 
                 "arch/armv5/kputchar.c", 
                 "arch/armv5/pl011_uart.c", 
+                "arch/armv5/cp15.c",
                 "arch/armv5/paging.c", 
                 "arch/armv5/startup_arch.c", 
                 "arch/armv5/syscall.c" ],
