@@ -90,6 +90,7 @@
 #define AI_DEFAULT  (AI_V4MAPPED_CFG | AI_ADDRCONFIG)
 
 struct hostent *gethostbyname(const char *name);
+struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type);
 int getaddrinfo(const char *nodename,
                 const char *servname,
                 const struct addrinfo *hints,

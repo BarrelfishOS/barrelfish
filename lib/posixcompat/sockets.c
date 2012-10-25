@@ -743,6 +743,12 @@ struct hostent *gethostbyname(const char *name)
     }
 }
 
+struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type)
+{
+    assert(!"NYI");
+    return NULL;
+}
+
 int getaddrinfo(const char *restrict nodename,
                 const char *restrict servname,
                 const struct addrinfo *restrict hints,
