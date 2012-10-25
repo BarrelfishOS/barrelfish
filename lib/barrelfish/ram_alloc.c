@@ -124,7 +124,8 @@ errval_t ram_alloc(struct capref *ret, uint8_t size_bits)
         ram_alloc_func(ret, size_bits, ram_alloc_state->default_minbase,
                        ram_alloc_state->default_maxlimit);
     if(err_is_fail(err)) {
-      DEBUG_ERR(err, "ram_alloc");
+      DEBUG_ERR(err, "failed to allocate 2^%" PRIu32 " Bytes of RAM",
+                size_bits);
       /*
       printf("callstack: %p %p %p %p\n",
 	     __builtin_return_address(0),
