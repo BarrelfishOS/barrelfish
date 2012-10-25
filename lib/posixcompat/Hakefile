@@ -48,6 +48,7 @@
                              "random.c",
                              "read.c",
                              "readlink.c",
+                             "readv.c",
                              "remove.c",
                              "rename.c",
                              "rmdir.c",
