@@ -9,7 +9,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <string.h>
@@ -38,23 +39,6 @@ static void spawn_bind_cont(void *st, errval_t err, struct spawn_binding *b)
     retst->err = err;
     retst->b = b;
     retst->present = true;
-}
-
-/* XXX: utility function that doesn't really belong here */
-const char *cpu_type_to_archstr(enum cpu_type cpu_type)
-{
-    STATIC_ASSERT(CPU_TYPE_NUM == 4, "knowledge of all CPU types here");
-    switch(cpu_type) {
-    case CPU_X86_64:    return "x86_64";
-    case CPU_X86_32:    return "x86_32";
-    case CPU_SCC:       return "scc";
-#ifdef __GEM5__
-    case CPU_ARM:		return "arm_gem5";
-    #else
-    case CPU_ARM:       return "arm";
-#endif
-    default:            USER_PANIC("cpu_type_to_pathstr: %d unknown", cpu_type);
-    }
 }
 
 static struct spawn_binding *spawn_b = NULL;

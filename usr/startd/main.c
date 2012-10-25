@@ -11,7 +11,7 @@
  */
 
 /*
- * Copyright (c) 2010-2011, ETH Zurich.
+ * Copyright (c) 2010-2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -24,7 +24,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/spawn_client.h> // XXX: for cpu_type_to_archstr()
+#include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 #include <barrelfish/cpu_arch.h> // for CURRENT_CPU_TYPE
 
 #include <vfs/vfs.h>

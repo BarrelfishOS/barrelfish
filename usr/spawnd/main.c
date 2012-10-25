@@ -20,7 +20,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
-#include <barrelfish/spawn_client.h> // XXX: for cpu_type_to_archstr()
+#include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 #include <barrelfish/cpu_arch.h> // for CURRENT_CPU_TYPE
 
 #include <vfs/vfs.h>

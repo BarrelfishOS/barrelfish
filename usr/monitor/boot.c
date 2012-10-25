@@ -14,7 +14,7 @@
 
 #include "monitor.h"
 #include <inttypes.h>
-#include <barrelfish/spawn_client.h> // XXX: for cpu_type_to_archstr()
+#include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 
 /* Use to figure out when all monitors initialized. */
 int seen_connections = 0;

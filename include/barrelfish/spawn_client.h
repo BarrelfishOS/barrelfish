@@ -27,10 +27,6 @@ struct spawn_ps_entry {
 #define INHERITCN_SLOT_FDSPAGE   1  ///< cap for inherited file descriptors
 #define INHERITCN_SLOT_SESSIONID 2  ///< Session ID domain belongs to
 
-
-/* XXX: utility function that doesn't really belong here */
-const char *cpu_type_to_archstr(enum cpu_type cpu_type);
-
 errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  char *const argv[], char *const envp[],
                                  struct capref inheritcn_cap,
