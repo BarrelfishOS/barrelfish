@@ -47,6 +47,7 @@
                              "popen.c",
                              "random.c",
                              "read.c",
+                             "readlink.c",
                              "remove.c",
                              "rename.c",
                              "rmdir.c",

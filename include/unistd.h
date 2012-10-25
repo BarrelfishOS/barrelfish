@@ -68,5 +68,6 @@ int gethostname(char *name, size_t len);
 gid_t getgid(void);
 gid_t getegid(void);
 int setgid(gid_t gid);
+ssize_t readlink(const char *path, char *buf, size_t bufsize);
 
 #endif // __BF_UNISTD_H
