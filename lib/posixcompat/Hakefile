@@ -52,6 +52,7 @@
                              "select.c",
                              "semaphore.c",
                              "setitimer.c",
+                             "setsid.c",
                              "shm.c",
                              "signal.c",
                              "sockets.c",
