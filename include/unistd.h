@@ -64,6 +64,6 @@ int setgroups(int size, gid_t grouplist[]);
 int initgroups(const char *username, gid_t group);
 unsigned int alarm(unsigned int seconds);
 pid_t setsid(void);
-
+int gethostname(char *name, size_t len);
 
 #endif // __BF_UNISTD_H

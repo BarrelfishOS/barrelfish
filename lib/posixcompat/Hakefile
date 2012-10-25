@@ -29,6 +29,7 @@
                              "geteuid.c",
                              "getgroups.c",
                              "gethostid.c",
+                             "gethostname.c",
                              "getpid.c",
                              "getpwent.c",
                              "gettimeofday.c",
