@@ -63,5 +63,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int shutdown(int sockfd, int how);
+int socketpair(int domain, int type, int protocol, int sockfd[2]);
 
 #endif

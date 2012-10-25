@@ -814,3 +814,12 @@ int shutdown(int sockfd, int how)
         return -1;
     }
 }
+
+/**
+ * \brief Create a pair of connected sockets.
+ */
+int socketpair(int domain, int type, int protocol, int sockfd[2])
+{
+    assert(!"NYI");
+    return -1;
+}
