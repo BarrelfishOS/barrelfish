@@ -21,8 +21,16 @@ int pclose(FILE *stream)
     return -1;
 }
 
+/*
+ * Although fdopen is POSIX, we use the implementation provided by newlib.
+ * Providing an own implementation would require to include many
+ * newlib-internal headers for the FILE * type and its manipulation.
+ */
+
+#if 0
 FILE *fdopen(int fd, const char *mode)
 {
     fprintf(stderr, "Warning: fdopen() unimplemented\n");
     return NULL;
 }
+#endif
