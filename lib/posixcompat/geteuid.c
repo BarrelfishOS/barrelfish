@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,36 +13,56 @@
 #include <assert.h>
 #include <stdio.h>
 #include "posixcompat.h"
+#include "userdb.h"
 
-static struct passwd dummyuser = {
-    .pw_name = "user",
-    .pw_passwd = "abcd",
-    .pw_uid = 1000,
-    .pw_gid = 100,
-    .pw_dir = "/",
-};
+static struct passwd *dummyuser = &userdb[0];
 
 uid_t geteuid(void)
 {
-    POSIXCOMPAT_DEBUG("geteuid(): returning %d\n", dummyuser.pw_uid);
-    return dummyuser.pw_uid;
+    POSIXCOMPAT_DEBUG("geteuid(): returning %d\n", dummyuser->pw_uid);
+    return dummyuser->pw_uid;
 }
 
 uid_t getuid(void)
 {
-    POSIXCOMPAT_DEBUG("getuid(): returning %d\n", dummyuser.pw_uid);
-    return dummyuser.pw_uid;
+    POSIXCOMPAT_DEBUG("getuid(): returning %d\n", dummyuser->pw_uid);
+    return dummyuser->pw_uid;
 }
 
 struct passwd *getpwuid(uid_t uid)
 {
-    POSIXCOMPAT_DEBUG("getpwuid(%d): returning dummy user \"%s\"\n",
-                      uid, dummyuser.pw_name);
-    return &dummyuser;
+    struct passwd* user = NULL;
+
+    setpwent();
+    while ((user = getpwent()) != NULL) {
+        if (user->pw_uid == uid) {
+            POSIXCOMPAT_DEBUG("getpwuid(%d): returning user \"%s\"\n",
+                              uid, user->pw_name);
+            return user;
+        }
+    }
+    endpwent();
+
+    // No matching user found
+    POSIXCOMPAT_DEBUG("getpwuid(%d): no user found\n", uid);
+    return NULL;
 }
 
 struct passwd *getpwnam(const char *name)
 {
-    assert(!"NYI");
+    struct passwd* user = NULL;
+
+    setpwent();
+    while ((user = getpwent()) != NULL) {
+        if (strcmp(user->pw_name, name) == 0) {
+            POSIXCOMPAT_DEBUG("getpwnam(%s): returning user \"%d\"\n",
+                              name, user->pw_uid);
+            return user;
+        }
+    }
+    endpwent();
+
+    // No matching user found
+    POSIXCOMPAT_DEBUG("getpwnam(%s): no user found\n", name);
     return NULL;
 }

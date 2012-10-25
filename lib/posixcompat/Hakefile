@@ -28,6 +28,7 @@
                              "geteuid.c",
                              "gethostid.c",
                              "getpid.c",
+                             "getpwent.c",
                              "gettimeofday.c",
                              "grp.c",
                              "inheritance.c",
