@@ -308,10 +308,12 @@ simulate: $(MODULES)
 .PHONY : simulate
 
 debugsim: $(MODULES) $(ARCH)/debug.gdb
+	$(CLEAN_HD)
 	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(ARCH)/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
 .PHONY : debugsim
 
 debugsimvga: $(MODULES)
+	$(CLEAN_HD)
 	$(QEMU_CMD) -s -S &
 	while [ ! `netstat -nlp 2>/dev/null | grep qemu` ]; do sleep 1; done
 	$(GDB) -x $(SRCDIR)/debug.gdb.in
