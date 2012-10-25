@@ -15,6 +15,7 @@
                              "alarm.c",
                              "chdir.c",
                              "chmod.c",
+                             "chroot.c",
                              "close.c",
                              "creat.c",
                              "dirent.c",

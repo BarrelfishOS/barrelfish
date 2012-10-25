@@ -204,6 +204,10 @@
 struct stat;
 extern char **environ;
 
+#if (__XSI_VISIBLE && __XSI_VISIBLE <= 500) || __BSD_VISIBLE
+int          chroot(const char *path);
+#endif
+
 int          access(const char*pathname,int mode);
 unsigned int alarm(unsigned int seconds);
 int          chdir(const char*pathname);
