@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -38,6 +38,9 @@ struct stat {
 
 #define	S_ISUID	04000
 #define	S_ISGID	02000
+#if __XSI_VISIBLE
+#define S_ISVTX  01000        /* save swapped text even after use */
+#endif
 
 #define S_IRUSR 00400
 #define S_IWUSR 00200
