@@ -31,6 +31,15 @@ gid_t getgid(void)
 }
 
 /**
+ * \brief Set the effective group ID.
+ */
+int setegid(gid_t gid)
+{
+    assert(!"NYI");
+    return -1;
+}
+
+/**
  * \brief Set-group-ID.
  */
 int setgid(gid_t gid)

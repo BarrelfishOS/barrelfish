@@ -66,3 +66,21 @@ struct passwd *getpwnam(const char *name)
     POSIXCOMPAT_DEBUG("getpwnam(%s): no user found\n", name);
     return NULL;
 }
+
+/**
+ * \brief Set effective user ID.
+ */
+int seteuid(uid_t uid)
+{
+    POSIXCOMPAT_DEBUG("seteuid(%d): nothing changed", uid);
+    return 0;
+}
+
+/**
+ * \brief Set user ID.
+ */
+int setuid(uid_t uid)
+{
+    POSIXCOMPAT_DEBUG("setuid(%d): nothing changed", uid);
+    return 0;
+}

@@ -241,6 +241,9 @@ int          select(int nfds, fd_set *readfds, fd_set *writefds,
                     fd_set *exceptfds, struct timeval *timeout);
 int          setgid(gid_t gid);
 int          setgroups(int size, gid_t grouplist[]);
+int          setegid(gid_t gid);
+int          seteuid(uid_t uid);
+int          setuid(uid_t uid);
 pid_t        setsid(void);
 int          symlink(const char *oldpath, const char *newpath);
 long         sysconf(int name);
