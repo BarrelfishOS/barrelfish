@@ -152,6 +152,8 @@ MODULES_x86_64= \
 	sbin/cryptotest \
 	$(BIN_CONSENSUS) \
 	sbin/bcached \
+	sbin/testdesc \
+	sbin/testdesc-child \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \

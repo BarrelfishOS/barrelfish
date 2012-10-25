@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2010, 2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -12,15 +12,14 @@
 
 [ build application { target = "testdesc",
                       cFiles = [ "testdesc.c" ],
-		      addLibraries = [ "posixcompat", "vfs" , "nfs", "ahci", "lwip",
-                      "contmng", "procon", "timer" ],
-		      flounderBindings = [ "unixsock" ]
---		      flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
+                      addLibraries = libDeps [ "posixcompat", "vfs" ],
+                      flounderBindings = [ "unixsock" ]
+--                    flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
                     },
   build application { target = "testdesc-child",
                       cFiles = [ "testdesc-child.c" ],
-		      addLibraries = [ "posixcompat" ],
-		      flounderBindings = [ "unixsock" ]
---		      flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
+                      addLibraries = libDeps [ "posixcompat" ],
+                      flounderBindings = [ "unixsock" ]
+--                    flounderExtraBindings = [ ("unixsock",["rpcclient"]) ]
                     }
 ]

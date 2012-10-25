@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -103,6 +103,9 @@ static errval_t get_inherited_fds(void)
             break;
         case FDTAB_TYPE_STDERR:
             s = "stderr";
+            break;
+        case FDTAB_TYPE_LWIP_SOCKET:
+            s = "lwip socket";
             break;
         }
         printf("fd_store %d: num: %d, type: %d:%s handle: %p\n", 

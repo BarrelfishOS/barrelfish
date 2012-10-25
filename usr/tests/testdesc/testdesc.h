@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,32 +14,7 @@
 #ifndef __TESTDESC_H__
 #define __TESTDESC_H__
 
-/* This is vfs/fdtab.h */
-#define MIN_FD  0
-#define MAX_FD  32
-
-enum fdtab_type {
-    FDTAB_TYPE_AVAILABLE,
-    FDTAB_TYPE_FILE,
-    FDTAB_TYPE_UNIX_SOCKET,
-    FDTAB_TYPE_STDIN,
-    FDTAB_TYPE_STDOUT,
-    FDTAB_TYPE_STDERR,
-};
-
-
-struct fdtab_entry {
-    enum fdtab_type     type;
-    void                *handle;
-};
-
-//int fdtab_alloc(struct fdtab_entry *h);
-int fdtab_alloc_from(struct fdtab_entry *h, int start);
-//int fdtab_search_alloc(struct fdtab_entry *h);
-struct fdtab_entry *fdtab_get(int fd);
-void fdtab_free(int fd);
-
-/* end fdtab.h */
+#include <vfs/fdtab.h>
 
 /* This is posixcompat/unixsock.h  */
 
