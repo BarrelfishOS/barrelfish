@@ -95,7 +95,7 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
     m->id   = shmid;
 
     POSIXCOMPAT_DEBUG("shmat(%d, %p, %d) = %p\n",
-                      shmid, shmaddr, shmflg, s->mem);
+                      shmid, shmaddr, shmflg, m->mem);
     return m->mem;
 }
 
