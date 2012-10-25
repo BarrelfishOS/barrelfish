@@ -26,6 +26,7 @@
                              "fsync.c",
                              "ftruncate.c",
                              "getcwd.c",
+                             "getegid.c",
                              "geteuid.c",
                              "getgroups.c",
                              "gethostid.c",
