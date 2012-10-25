@@ -39,6 +39,9 @@
 #define AF_LOCAL        AF_UNIX         /* local to host (pipes, portals) */
 #endif
 #define AF_UNIX         1               /* standardized name for AF_LOCAL */
+#if __BSD_VISIBLE
+#define AF_MAX          38
+#endif
 
 #ifndef _SA_FAMILY_T_DECLARED
 typedef __sa_family_t	sa_family_t;
