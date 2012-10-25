@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -59,5 +59,9 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
            struct timeval *timeout);
 int chown(const char *path, uid_t owner, gid_t group);
 int chmod(const char *path, mode_t mode);
+int getgroups(int size, gid_t grouplist[]);
+int setgroups(int size, gid_t grouplist[]);
+int initgroups(const char *username, gid_t group);
+
 
 #endif // __BF_UNISTD_H

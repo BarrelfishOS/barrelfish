@@ -26,6 +26,7 @@
                              "ftruncate.c",
                              "getcwd.c",
                              "geteuid.c",
+                             "getgroups.c",
                              "gethostid.c",
                              "getpid.c",
                              "getpwent.c",
