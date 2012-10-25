@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef PRIVATE_LIBBARRELFISH_THREADS_H
-#define PRIVATE_LIBBARRELFISH_THREADS_H
+#ifndef LIBBARRELFISH_THREADS_PRIV_H
+#define LIBBARRELFISH_THREADS_PRIV_H
 
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/except.h>
@@ -31,7 +31,7 @@ enum thread_state {
 };
 
 /** \brief A thread of execution / thread control block (TCB)
- * 
+ *
  * NB: on some ABIs (namely x86_{32,64}), the TLS blocks for initially-loaded
  * (i.e. not dlopen()ed) modules _precede_ this structure in memory. Therefore
  * it's not safe to directly malloc() or free() a thread structure.
@@ -111,4 +111,4 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
                                        enum exception_type type, int subtype,
                                        void *addr, arch_registers_state_t *regs);
 
-#endif
+#endif // LIBBARRELFISH_THREADS_PRIV_H

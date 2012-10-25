@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -29,7 +29,7 @@
 #include "arch/threads.h"
 #include "init.h"
 #include <if/monitor_defs.h>
-#include "threads.h"
+#include "threads_priv.h"
 #include "waitset_chan_priv.h"
 
 ///< Struct to maintain per dispatcher domain library state

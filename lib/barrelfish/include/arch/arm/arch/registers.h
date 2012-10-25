@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -16,7 +16,7 @@
 #define ARCH_ARM_BARRELFISH_REGISTERS_H
 
 #include <barrelfish/curdispatcher_arch.h> // XXX For curdispatcher()
-#include <threads.h>
+#include "threads_priv.h"
 
 static inline uint32_t
 curgotbase(void)

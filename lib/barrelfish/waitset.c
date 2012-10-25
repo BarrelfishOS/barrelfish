@@ -22,7 +22,7 @@
 #include <barrelfish/waitset_chan.h>
 #include <barrelfish/threads.h>
 #include <barrelfish/dispatch.h>
-#include <threads.h>
+#include "threads_priv.h"
 #include "waitset_chan_priv.h"
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP

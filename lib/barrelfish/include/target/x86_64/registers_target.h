@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -18,7 +18,7 @@
 
 #include <target/x86_64/barrelfish_kpi/registers_target.h>
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
-#include <threads.h>
+#include "threads_priv.h"
 
 static inline bool
 registers_x86_64_check_stack_bounds(struct dispatcher_generic *disp_gen,
