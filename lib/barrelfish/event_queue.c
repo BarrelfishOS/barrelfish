@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/event_queue.h>
-#include "waitset_chan.h"
+#include <barrelfish/waitset_chan.h>
 
 /**
  * \brief Initialise a new event queue

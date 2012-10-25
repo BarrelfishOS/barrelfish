@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,6 +14,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/waitset_chan.h>
 
 // FIXME: why do I need quite so many dispatcher headers?
 #include <barrelfish/dispatch.h>
@@ -21,7 +22,7 @@
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 
-#include "waitset_chan.h"
+#include "waitset_chan_priv.h"
 
 // kludge: the kernel currently reports time in ms rather than us
 #define SYSTIME_MULTIPLIER 1000

@@ -9,7 +9,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,10 +19,11 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
 #include <barrelfish/threads.h>
 #include <barrelfish/dispatch.h>
 #include <threads.h>
-#include "waitset_chan.h"
+#include "waitset_chan_priv.h"
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP
 #  include <barrelfish/ump_endpoint.h>

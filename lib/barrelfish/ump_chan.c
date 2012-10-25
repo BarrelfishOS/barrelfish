@@ -16,7 +16,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/ump_chan.h>
 #include <barrelfish/idc_export.h>
-#include "waitset_chan.h"
 #include <if/monitor_defs.h>
 
 /* UMP channels need to be mapped non-cacheable on SCC */

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,7 +19,6 @@
 #include <if/monitor_defs.h>
 #include <collections/hash_table.h>
 #include <bench/bench.h>
-#include "waitset_chan.h"
 
 // TODO remove this
 #include <stdio.h>

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -27,31 +27,12 @@ void waitset_chanstate_init(struct waitset_chanstate *chan,
                             enum ws_chantype chantype);
 void waitset_chanstate_destroy(struct waitset_chanstate *chan);
 errval_t waitset_chan_trigger(struct waitset_chanstate *chan);
-errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
-                                       dispatcher_handle_t handle);
 errval_t waitset_chan_trigger_closure(struct waitset *ws,
                                       struct waitset_chanstate *chan,
                                       struct event_closure closure);
-errval_t waitset_chan_trigger_closure_disabled(struct waitset *ws,
-                                               struct waitset_chanstate *chan,
-                                               struct event_closure closure,
-                                               dispatcher_handle_t handle);
 errval_t waitset_chan_deregister(struct waitset_chanstate *chan);
-errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan);
 errval_t waitset_chan_register(struct waitset *ws, struct waitset_chanstate *chan,
                                struct event_closure closure);
-errval_t waitset_chan_register_disabled(struct waitset *ws,
-                                        struct waitset_chanstate *chan,
-                                        struct event_closure closure);
-errval_t waitset_chan_register_polled(struct waitset *ws,
-                                      struct waitset_chanstate *chan,
-                                      struct event_closure closure);
-errval_t waitset_chan_register_polled_disabled(struct waitset *ws,
-                                               struct waitset_chanstate *chan,
-                                               struct event_closure closure,
-                                               dispatcher_handle_t handle);
-errval_t waitset_chan_start_polling(struct waitset_chanstate *chan);
-errval_t waitset_chan_stop_polling(struct waitset_chanstate *chan);
 void waitset_chan_migrate(struct waitset_chanstate *chan,
                           struct waitset *new_ws);
 

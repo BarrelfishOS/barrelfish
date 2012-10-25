@@ -22,6 +22,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish/dispatcher_arch.h>
+#include <barrelfish/waitset_chan.h>
 #include <arch/registers.h>
 #include <barrelfish/dispatch.h>
 #include <if/interdisp_defs.h>
@@ -29,7 +30,7 @@
 #include "init.h"
 #include <if/monitor_defs.h>
 #include "threads.h"
-#include "waitset_chan.h"
+#include "waitset_chan_priv.h"
 
 ///< Struct to maintain per dispatcher domain library state
 struct domain_state {

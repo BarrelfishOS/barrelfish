@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -9,6 +9,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/ahci_mgmt_defs.h>
 #include <dev/ahci_hba_dev.h> // this is used to parse HBA capabilities
@@ -17,7 +18,6 @@
 #include <ahci/ahci_dma_pool.h>
 #include <ahci/ahci_util.h>
 #include <string.h>
-#include <waitset_chan.h>
 #include "ahci_debug.h"
 #include "ahci_internal.h"
 

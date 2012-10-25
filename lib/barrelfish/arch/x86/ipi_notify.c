@@ -14,7 +14,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <arch/x86/barrelfish/ipi_notify.h>
-#include "waitset_chan.h"
 #include <if/monitor_defs.h>
 
 static void ipi_alloc_notify_reply(struct monitor_binding *b, uintptr_t st,

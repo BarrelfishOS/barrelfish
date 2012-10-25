@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -16,7 +16,8 @@
 #include <barrelfish/ump_endpoint.h>
 #include <barrelfish/ump_impl.h>
 #include <barrelfish/waitset.h>
-#include "waitset_chan.h"
+#include <barrelfish/waitset_chan.h>
+#include "waitset_chan_priv.h"
 
 /**
  * \brief Initialise a new UMP endpoint
