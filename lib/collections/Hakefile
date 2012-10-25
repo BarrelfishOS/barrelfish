@@ -11,6 +11,6 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "collections",
-                  cFiles = [ "list.c", "hash_table.c" ]
+                  cFiles = [ "list.c", "hash_table.c", "stack.c" ]
                 }
 ]
