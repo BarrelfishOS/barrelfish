@@ -12,6 +12,7 @@
 
 [ build library { target = "posixcompat",
                   cFiles = [ "access.c",
+                             "alarm.c",
                              "chdir.c",
                              "chmod.c",
                              "close.c",

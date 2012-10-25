@@ -62,6 +62,7 @@ int chmod(const char *path, mode_t mode);
 int getgroups(int size, gid_t grouplist[]);
 int setgroups(int size, gid_t grouplist[]);
 int initgroups(const char *username, gid_t group);
+unsigned int alarm(unsigned int seconds);
 
 
 #endif // __BF_UNISTD_H
