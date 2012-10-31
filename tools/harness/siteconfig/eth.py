@@ -18,7 +18,7 @@ class ETH(siteconfig.BaseSite):
     NFS_SERVER_HOST = 'tomme1.in.barrelfish.org'
     WEBSERVER_NFS_PATH = '/home/netos/services/websites/barrelfish'
     WEBSERVER_LOCAL_PATH = WEBSERVER_NFS_PATH
-    HTTPERF_PATH = '/home/netos/tools/i686-pc-linux-gnu/bin/httperf'
+    HTTPERF_PATH = '/home/netos/tools/ubuntu-precise/chroot.x86_64/usr/bin/httperf'
     HTTPERF_MAXCLIENTS = len(LOADGEN_HOSTS * 2) # max number of load generators
     IPBENCH_PATH = '/home/netos/tools/ipbench/bin/ipbench.py'
     IPBENCHD_PATH = '/home/netos/tools/ipbench/bin/ipbenchd.py'
