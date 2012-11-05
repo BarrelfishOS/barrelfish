@@ -18,6 +18,7 @@ in
 [ Rule ([ Str "ghc -O --make -XDeriveDataTypeable",
           Str "-package ghc",
           Str "-package ghc-paths",
+          Str "-rtsopts=all",
           Str "-o", Out "hake" "/hake",
           Str "-outputdir", NoDep BuildTree "hake" "/",
           NStr "-i", NoDep SrcTree "src" "",

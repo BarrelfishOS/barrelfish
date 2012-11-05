@@ -761,6 +761,7 @@ compileHaskellWithLibs prog main deps dirs =
             NoDep SrcTree "src" ".",
             Str "-odir ", NoDep BuildTree "tools" ".",
             Str "-hidir ", NoDep BuildTree "tools" ".",
+            Str "-rtsopts=all",
             Str "--make ",
             In SrcTree "src" main,
             Str "-o ",
