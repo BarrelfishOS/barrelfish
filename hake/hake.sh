@@ -131,6 +131,7 @@ ghc -O --make -XDeriveDataTypeable \
     -outputdir hake \
     -i$SRCDIR/hake \
     -ihake \
+    -rtsopts=all \
     $SRCDIR/hake/Main.hs $LDFLAGS || exit 1
 
 if [ "$RUN_HAKE" == "No" ] ; then
