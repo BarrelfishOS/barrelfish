@@ -53,9 +53,10 @@ The following are required to build Barrelfish and its tools:
      http://www.codesourcery.com/sgpp/lite/arm
  * GNU binutils (2.19 is known to work)
  * GNU make
- * GHC v6.10 or v6.12.2 and Parsec 2.1
-   * earlier versions of GHC are unsupported
+ * GHC v7.4 and Parsec 3.1
+   * older versions of the tree supported v6.10 or v6.12.2 with Parsec 2.1
    * GHC v6.12.1 has a known bug and is unable to build our tools
+   * earlier versions of GHC are unsupported
 
 Our build system may not be very portable; if in doubt, try building on a
 recent Debian or Ubuntu system, as these are what we use.

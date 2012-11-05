@@ -59,18 +59,18 @@ let
     
   cpudrivers arglist = 
     let 
-      cafiles = List.nub $ concat [ [ [ arch, cfile ] 
-                                    | arch <- Args.architectures arg,
-                                      cfile <- common_c ++ (Args.cFiles arg) ]
-                                  | arg <- arglist ]
-      safiles = List.nub $ concat [ [ [ arch, sfile ]
-                                    | arch <- Args.architectures arg,
-                                      sfile <- Args.assemblyFiles arg ]
-                                  | arg <- arglist ]
-      mafiles = List.nub $ concat [ [ [ arch, mfile ]
-                                    | arch <- Args.architectures arg,
-                                      mfile <- Args.mackerelDevices arg ]
-                                  | arg <- arglist ]
+      cafiles = Data.List.nub $ concat [ [ [ arch, cfile ] 
+                                         | arch <- Args.architectures arg,
+                                           cfile <- common_c ++ (Args.cFiles arg) ]
+                                       | arg <- arglist ]
+      safiles = Data.List.nub $ concat [ [ [ arch, sfile ]
+                                         | arch <- Args.architectures arg,
+                                           sfile <- Args.assemblyFiles arg ]
+                                       | arg <- arglist ]
+      mafiles = Data.List.nub $ concat [ [ [ arch, mfile ]
+                                         | arch <- Args.architectures arg,
+                                           mfile <- Args.mackerelDevices arg ]
+                                       | arg <- arglist ]
     in
      ( [ compileCFile (kernelOptions a) f | [a,f] <- cafiles ]
        ++

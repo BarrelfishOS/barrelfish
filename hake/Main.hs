@@ -19,7 +19,9 @@ import System.Directory
 import System.Exit
 import GHC hiding (Target)
 import GHC.Paths ( libdir )
-import DynFlags ( defaultDynFlags )
+import DynFlags ( defaultLogAction,
+                  xopt_set,
+                  ExtensionFlag (Opt_DeriveDataTypeable) )
 import Data.Dynamic
 import Data.Maybe
 import Data.List
@@ -321,7 +323,7 @@ stripSrcDir s = Path.removePrefix Config.source_dir s
 hakeModule :: [String] -> [(String,String)] -> String
 hakeModule allfiles hakefiles = 
     let unqual_imports = ["RuleDefs", "HakeTypes", "Path", "Args"]
-        qual_imports = ["Config", "List" ]
+        qual_imports = ["Config", "Data.List" ]
         relfiles = [ stripSrcDir f | f <- allfiles ]
         wrap1 n c = wrapLet "build a" 
                     ("(buildFunction a) allfiles " ++ (show n) ++ " a")
@@ -354,24 +356,26 @@ wrapLet var expr body =
 evalHakeFiles :: Opts -> [String] -> [(String,String)] 
               -> IO [(String,HRule)]
 evalHakeFiles o allfiles hakefiles = 
-    let imports = [ "HakeTypes", "Hakefiles"]
-        all_imports = ["Prelude"] ++ imports
+    let imports = [ "Hakefiles"]
+        all_imports = imports
         moddirs = [ (opt_installdir o) ./. "hake", 
                     ".", 
                     (opt_bfsourcedir o) ./. "hake" ]
     in do 
-      defaultErrorHandler defaultDynFlags $ do 
+      defaultErrorHandler defaultLogAction $ do
          runGhc (Just libdir) $ do
            dflags <- getSessionDynFlags
-           setSessionDynFlags dflags { importPaths = moddirs,
+	   let dflags1 = foldl xopt_set dflags [ Opt_DeriveDataTypeable ]
+	   _ <- setSessionDynFlags dflags1{
+		importPaths = moddirs,
                 hiDir = Just "./hake",
-                objectDir = Just "./hake",
-                flags = Opt_DeriveDataTypeable:(flags dflags) }
+                objectDir = Just "./hake"
+	   }
            targets <- mapM (\m -> guessTarget m Nothing) imports
            setTargets targets
            load LoadAllTargets
            modlist <- mapM (\m -> findModule (mkModuleName m) Nothing) all_imports
-           setContext [] modlist
+           setContext [IIModule m | m <- modlist]
            val <- dynCompileExpr "Hakefiles.hf :: [(String, HRule)]" 
            return (fromDyn val [("failed",Error "failed")])
 
@@ -444,7 +448,7 @@ main = do
     hPutStrLn stdout ("Source directory: " ++ opt_sourcedir opts)
     hPutStrLn stdout ("BF Source directory: " ++ opt_bfsourcedir opts)
     hPutStrLn stdout ("Install directory: " ++ opt_installdir opts)
-      
+
     hPutStrLn stdout "Reading directory tree..."
     l <- listFilesR (opt_sourcedir opts)
     hPutStrLn stdout "Reading Hakefiles..."
