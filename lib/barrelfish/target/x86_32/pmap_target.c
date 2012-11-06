@@ -417,7 +417,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                              vregion_flags_t flags, size_t *retsize)
 {
-    errval_t err, ret;
+    errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
     size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
 
@@ -426,14 +426,14 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         struct vnode* ptable;
         err = get_ptable(x86, vaddr+i, &ptable);
         if (err_is_fail(err) || (ptable == NULL)) { // not mapped
-            ret = LIB_ERR_PMAP_FIND_VNODE;
+            // ignore unmapped ranges
             continue;
         }
 
         // Find the page
         struct vnode *vn = find_vnode(ptable, X86_32_PTABLE_BASE(vaddr + i));
         if (vn == NULL) { // not mapped
-            ret = LIB_ERR_PMAP_FIND_VNODE;
+            // ignore unmapped ranges
             continue;
         }
 
