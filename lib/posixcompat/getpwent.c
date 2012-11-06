@@ -7,6 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#define _USE_XOPEN // strdup() (for oldc)
+
 #include <assert.h>
 #include <string.h>
 #include <pwd.h>
