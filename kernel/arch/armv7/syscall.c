@@ -442,7 +442,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
     // Must match lib/barrelfish/include/arch/arm/arch/invocations.h
     //
     uint8_t  flags       = (sa->arg0 >> 24) & 0xf;
-    uint16_t invoke_bits = (sa->arg0 >> 16) & 0xffff;
+    uint8_t  invoke_bits = (sa->arg0 >> 16) & 0xff;
     capaddr_t  invoke_cptr = sa->arg1;
 
     debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n",
