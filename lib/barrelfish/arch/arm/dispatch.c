@@ -31,6 +31,7 @@ extern void disabled_pagefault_entry(void);
 extern void trap_entry(void);
 
 void __attribute__ ((visibility ("hidden"))) disp_resume_context_epilog(void);
+void __attribute__ ((visibility ("hidden"))) disp_switch_epilog(void);
 void __attribute__ ((visibility ("hidden"))) disp_save_epilog(void);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -136,8 +137,11 @@ void disp_switch(dispatcher_handle_t handle,
     assert_disabled(disp->d.haswork);
     assert_disabled(to_state != NULL);
 
-    disp_save_context(to_state->regs);
-    disp_resume_context(&disp->d, from_state->regs);
+    disp_save_context(from_state->regs);
+    from_state->named.pc = (lvaddr_t)disp_switch_epilog;
+    disp_resume_context(&disp->d, to_state->regs);
+
+    __asm volatile("disp_switch_epilog:");
 }
 
 /**
