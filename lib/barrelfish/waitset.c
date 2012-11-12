@@ -180,6 +180,56 @@ static void poll_channel(struct waitset_chanstate *chan)
     }
 }
 
+// pollcycles_*: arch-specific implementation for polling.
+//               Used by get_next_event().
+//
+//   pollcycles_reset()  -- return the number of pollcycles we want to poll for
+//   pollcycles_update() -- update the pollcycles variable. This is needed for
+//                          implementations where we don't have a cycle counter
+//                          and we just count the number of polling operations
+//                          performed
+//   pollcycles_expired() -- check if pollcycles have expired
+//
+// We might want to move them to architecture-specific files, and/or create a
+// cleaner interface. For now, I just wanted to keep them out of
+// get_next_event()
+
+static inline cycles_t pollcycles_reset(void)
+{
+    cycles_t pollcycles;
+#if defined(__arm__) && !defined(__GEM5__)
+    reset_cycle_counter();
+    pollcycles = waitset_poll_cycles;
+#elif defined(__arm__) && defined(__GEM5__)
+    pollcycles = 0;
+#else
+    pollcycles = cyclecount() + waitset_poll_cycles;
+#endif
+    return pollcycles;
+}
+
+static inline cycles_t pollcycles_update(cycles_t pollcycles)
+{
+    cycles_t ret = pollcycles;
+    #if defined(__arm__) && defined(__GEM5__)
+    ret++;
+    #endif
+    return ret;
+}
+
+static inline bool pollcycles_expired(cycles_t pollcycles)
+{
+    bool ret;
+    #if defined(__arm__) && !defined(__GEM5__)
+    ret = (cyclecount() > pollcycles || is_cycle_counter_overflow());
+    #elif defined(__arm__) && defined(__GEM5__)
+    ret = pollcycles >= POLL_COUNT;
+    #else
+    ret = cyclecount() > pollcycles;
+    #endif
+    return ret;
+}
+
 /**
  * \brief Wait for (block) and return next event on given waitset
  *
@@ -194,7 +244,7 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 {
     struct waitset_chanstate *chan;
     bool was_polling = false;
-    cycles_t pollcycles;
+    cycles_t pollcycles = pollcycles_reset();
 
     assert(ws != NULL);
     assert(retclosure != NULL);
@@ -207,14 +257,6 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 polling_loop:
     was_polling = true;
     assert(ws->polling); // this thread is polling
-#if defined(__arm__) && !defined(__GEM5__)
-    reset_cycle_counter();
-    pollcycles = waitset_poll_cycles;
-#elif defined(__arm__) && defined(__GEM5__)
-    pollcycles = 0;
-#else
-    pollcycles = cyclecount() + waitset_poll_cycles;
-#endif
 
     // while there are no pending events, poll channels
     while (ws->polled != NULL && ws->pending == NULL) {
@@ -228,28 +270,13 @@ polling_loop:
 
             nextchan = chan->next;
             poll_channel(chan);
-#if defined(__arm__) && !defined(__GEM5__)
+            // update pollcycles
+            pollcycles = pollcycles_update(pollcycles);
             // yield the thread if we exceed the cycle count limit
-            if (ws->pending == NULL &&
-                (cyclecount() > pollcycles || is_cycle_counter_overflow())) {
+            if (ws->pending == NULL && pollcycles_expired(pollcycles)) {
                 thread_yield();
-                reset_cycle_counter();
-                pollcycles = waitset_poll_cycles;
+                pollcycles = pollcycles_reset();
             }
-#elif defined(__arm__) && defined(__GEM5__)
-            pollcycles++;
-            // yield the thread if we exceed the cycle count limit
-            if (ws->pending == NULL && pollcycles >= POLL_COUNT) {
-            	thread_yield();
-            	pollcycles = 0;
-            }
-#else
-            // yield the thread if we exceed the cycle count limit
-            if (ws->pending == NULL && cyclecount() > pollcycles) {
-                thread_yield();
-                pollcycles = cyclecount() + waitset_poll_cycles;
-            }
-#endif
         }
 
         // ensure that we restart polling from the place we left off here,
