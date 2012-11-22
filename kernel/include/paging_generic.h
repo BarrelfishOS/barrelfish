@@ -19,11 +19,9 @@
 #include <errors/errno.h>
 
 struct mapping_info {
-    lvaddr_t pte;           ///< where the capability is mapped
-    size_t mapped_pages;    ///< the amount of currently mapped pages
-    // target meta data
-    size_t page_count;      ///< the targeted amount of mapped pages
-    uint64_t offset;        ///< the offset into the physical region identified by the capability where the mapping begins.
+    lvaddr_t pte;       ///< where the capability is mapped
+    size_t pte_count;   ///< the amount of PTEs mapped in this mapping
+    uint64_t offset;    ///< the offset into the physical region identified by the capability where the mapping begins.
 };
 
 struct cte;

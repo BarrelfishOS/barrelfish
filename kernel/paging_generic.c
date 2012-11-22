@@ -137,7 +137,7 @@ errval_t unmap_capability(struct cte *mem)
     genvaddr_t vaddr;
     compile_vaddr(pgtable, slot, &vaddr);
 
-    do_unmap(pt, slot, vaddr, mem->mapping_info.mapped_pages);
+    do_unmap(pt, slot, vaddr, mem->mapping_info.pte_count);
 
     // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
     // This is inefficient.

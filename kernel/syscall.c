@@ -384,7 +384,7 @@ sys_modify_mapping(struct capability *mem, size_t page_count, uint64_t off)
                 map_start, map_size, frame_end);
         return SYSRET(SYS_ERR_VM_MAP_SIZE);
     }
-    mem_cap->mapping_info.page_count = page_count;
+    mem_cap->mapping_info.pte_count = page_count;
     mem_cap->mapping_info.offset = off;
 
     return SYSRET(SYS_ERR_OK);

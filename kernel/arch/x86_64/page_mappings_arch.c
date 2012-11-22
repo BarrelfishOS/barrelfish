@@ -212,17 +212,13 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     assert(handler_func != NULL);
     lvaddr_t pte;
 
-    size_t mapped_pages = src_cte->mapping_info.mapped_pages;
-
-    if (mapped_pages >= src_cte->mapping_info.page_count) {
-        // exceeded allowed page count for this mapping
+    if (src_cte->mapping_info.pte) {
+        // this cap is already mapped
 #if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: exceeded allowed page count for this mapping\n");
-        printf("                    mapped_pages = %zd, mapping_info.page_count = %zd\n",
-                mapped_pages, src_cte->mapping_info.page_count);
+        printf("caps_copy_to_vnode: this copy is already mapped @0x%lx\n", src_cte->mapping_info.pte);
 #endif
 #if RETURN_ON_ERROR
-        return SYS_ERR_VM_MAP_SIZE;
+        return SYS_ERR_VM_ALREADY_MAPPED;
 #endif
     }
 
@@ -231,16 +227,15 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     // compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
     // printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
 
-    if ((offset - src_cte->mapping_info.offset)/BASE_PAGE_SIZE >= src_cte->mapping_info.page_count) {
-        // requested map offset exceeds mapping region
+    cslot_t last_slot = dest_slot + pte_count;
+
+    if (last_slot > X86_64_PTABLE_SIZE) {
+        // requested map overlaps leaf page table
 #if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: requested map offset exceeds mapping region\n");
-        printf("                    offset = %zd, mapping_info.offset = %zd, page_count = %zd\n",
-                offset, src_cte->mapping_info.offset,
-                src_cte->mapping_info.page_count);
+        printf("caps_copy_to_vnode: requested mapping spans multiple leaf page tables\n");
 #endif
 #if RETURN_ON_ERROR
-        return SYS_ERR_VM_MAP_OFFSET;
+        return SYS_ERR_VM_RETRY_SINGLE;
 #endif
     }
 
@@ -255,9 +250,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
             if (src_cte->mapping_info.pte == 0) {
                 src_cte->mapping_info.pte = pte;
             }
-            src_cte->mapping_info.mapped_pages += 1;
         }
     }
+    src_cte->mapping_info.pte_count = pte_count;
+    src_cte->mapping_info.offset = offset;
     // printf("0x%lx, %zd\n", get_address(&src_cte->cap), get_size(&src_cte->cap));
     // printf("mapping_info.pte          = 0x%lx\n", src_cte->mapping_info.pte);
     // printf("mapping_info.offset       = %zd\n", src_cte->mapping_info.offset);
@@ -466,22 +462,15 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     //printf("state before unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
     //printf("state before unmap: num_pages    = %zd\n", num_pages);
 
-    if (num_pages > mem->mapping_info.mapped_pages) {
-        // want to unmap too many pages
+    if (num_pages != mem->mapping_info.pte_count) {
+        // want to unmap a different amount of pages than was mapped
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    size_t unmapped_pages = do_unmap(pt, slot, vaddr, num_pages);
+    do_unmap(pt, slot, vaddr, num_pages);
 
     // update mapping info
-    mem->mapping_info.mapped_pages -= unmapped_pages;
-    if (mem->mapping_info.mapped_pages == 0) {
-        memset(&mem->mapping_info, 0, sizeof(struct mapping_info));
-    }
-    else {
-        // set first still mapped entry as mapping info pte
-        mem->mapping_info.pte = pt;
-    }
+    memset(&mem->mapping_info, 0, sizeof(struct mapping_info));
 
     // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
     // This is inefficient.
