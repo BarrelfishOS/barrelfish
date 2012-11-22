@@ -38,6 +38,10 @@ struct sysret sys_create(struct capability *root, enum objtype type,
                          uint8_t objbits, capaddr_t dest_cnode_cptr,
                          cslot_t dest_slot, int dest_vbits);
 struct sysret
+sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+        int source_vbits, uintptr_t flags, uintptr_t offset,
+        uintptr_t pte_count);
+struct sysret
 sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_slot,
                  capaddr_t source_cptr, int destcn_vbits, int source_vbits,
                  uintptr_t param1, uintptr_t param2, bool mint);

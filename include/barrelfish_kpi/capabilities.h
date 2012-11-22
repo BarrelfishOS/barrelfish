@@ -109,6 +109,7 @@ enum cnode_cmd {
 };
 
 enum vnode_cmd {
+    VNodeCmd_Map,
     VNodeCmd_Unmap,
 };
 

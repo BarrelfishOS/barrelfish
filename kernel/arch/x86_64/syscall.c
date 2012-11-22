@@ -127,6 +127,21 @@ static struct sysret copy_or_mint(struct capability *root,
                             destcn_vbits, source_vbits, param1, param2, mint);
 }
 
+static struct sysret handle_map(struct capability *ptable,
+                                int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot          = args[0];
+    capaddr_t source_cptr   = args[1];
+    int       source_vbits  = args[2];
+    uint64_t  flags         = args[3];
+    uint64_t  offset        = args[4];
+    uint64_t  pte_count     = args[5];
+
+    return sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
+                   pte_count);
+}
+
 static struct sysret handle_mint(struct capability *root,
                                  int cmd, uintptr_t *args)
 {
@@ -726,18 +741,22 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke] = handle_revoke,
     },
     [ObjType_VNode_x86_64_pml4] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_VNode_x86_64_pdpt] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_VNode_x86_64_pdir] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_VNode_x86_64_ptable] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },

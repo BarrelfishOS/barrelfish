@@ -57,8 +57,8 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2);
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
-                            struct cte *src_cte, uintptr_t param1,
-                            uintptr_t param2);
+                            struct cte *src_cte, uintptr_t flags,
+                            uintptr_t offset, uintptr_t pte_count);
 size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages);
 errval_t page_mappings_unmap(struct capability *pgtable, size_t entry, size_t num_pages);
 void dump_hw_page_tables(struct dcb *dispatcher);
