@@ -138,6 +138,7 @@ enum kernel_cmd {
     KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,
+    KernelCmd_DumpPTables,
     KernelCmd_Count
 };
 

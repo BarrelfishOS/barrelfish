@@ -475,3 +475,44 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
 
     return SYS_ERR_OK;
 }
+
+void dump_hw_page_tables(struct dcb *dispatcher)
+{
+    printf("dump_hw_page_tables\n");
+    lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
+
+    // loop over pdpts
+    for (int pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE-1; pdpt_index++) {
+
+        union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
+        if (!pdpt->raw) { continue; }
+        genpaddr_t pdpt_gp = pdpt->d.base_addr << BASE_PAGE_BITS;
+        lvaddr_t pdpt_lv = local_phys_to_mem(gen_phys_to_local_phys(pdpt_gp));
+
+        for (int pdir_index = 0; pdir_index < X86_64_PTABLE_SIZE; pdir_index++) {
+            // get pdir
+            union x86_64_pdir_entry *pdir = (union x86_64_pdir_entry *)pdpt_lv + pdir_index;
+            if (!pdir->raw) { continue; }
+            genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
+            lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
+
+            for (int ptable_index = 0; ptable_index < X86_64_PTABLE_SIZE; ptable_index++) {
+                // get ptable
+                union x86_64_ptable_entry *ptable = (union x86_64_ptable_entry *)pdir_lv + ptable_index;
+                if (!ptable->raw) { continue; }
+                genpaddr_t ptable_gp = ptable->base.base_addr << BASE_PAGE_BITS;
+                lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
+
+                for (int entry = 0; entry < X86_64_PTABLE_SIZE; entry++) {
+                    union x86_64_ptable_entry *e =
+                        (union x86_64_ptable_entry *)ptable_lv + entry;
+                    genpaddr_t paddr = e->base.base_addr << BASE_PAGE_BITS;
+                    if (!paddr) {
+                        continue;
+                    }
+                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, ptable_index, entry, paddr);
+                }
+            }
+        }
+    }
+}

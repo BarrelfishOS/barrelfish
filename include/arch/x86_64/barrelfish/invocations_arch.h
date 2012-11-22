@@ -324,6 +324,13 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
     }
     return sysret.error;
 }
+static inline errval_t invoke_kernel_dump_ptables(struct capref kern_cap,
+                                                  struct capref dispcap)
+{
+    capaddr_t dispcaddr = get_cap_addr(dispcap);
+    struct sysret sysret = cap_invoke2(kern_cap, KernelCmd_DumpPTables, dispcaddr);
+    return sysret.error;
+}
 
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
                                                uint8_t event, uint8_t perf_umask, 

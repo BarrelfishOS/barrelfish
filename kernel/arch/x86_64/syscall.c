@@ -18,6 +18,7 @@
 #include <mdb/mdb.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
+#include <paging_generic.h>
 #include <exec.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/global.h>
@@ -583,6 +584,34 @@ static struct sysret kernel_ipi_delete(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret kernel_dump_ptables(struct capability *cap,
+                                         int cmd, uintptr_t *args)
+{
+    assert(cap->type == ObjType_Kernel);
+
+    printf("kernel_dump_ptables\n");
+
+    capaddr_t dispcaddr = args[0];
+
+    struct cte *dispcte;
+    errval_t err = caps_lookup_slot(&dcb_current->cspace.cap, dispcaddr, CPTR_BITS,
+                           &dispcte, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        printf("failed to lookup dispatcher cap\n");
+        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME));
+    }
+    struct capability *dispcap = &dispcte->cap;
+    if (dispcap->type != ObjType_Dispatcher) {
+        printf("dispcap is not dispatcher cap\n");
+        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME_INVALID));
+    }
+
+    struct dcb *dispatcher = dispcap->u.dispatcher.dcb;
+
+    dump_hw_page_tables(dispatcher);
+
+    return SYSRET(SYS_ERR_OK);
+}
 
 /* 
  * \brief Activate performance monitoring
@@ -730,7 +759,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MonitorCmd_Revoke]      = monitor_handle_revoke,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
-        [KernelCmd_IPI_Delete]   = kernel_ipi_delete
+        [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
+        [KernelCmd_DumpPTables]  = kernel_dump_ptables
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,

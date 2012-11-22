@@ -21,6 +21,7 @@
 
 struct capability;
 errval_t debug_cap_identify(struct capref cap, struct capability *ret);
+errval_t debug_dump_hw_ptables(void);
 void debug_cspace(struct capref root);
 void debug_my_cspace(void);
 void debug_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
