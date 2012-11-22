@@ -582,6 +582,7 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
                                         buf_->pdir_index = pdir_index;
                                         buf_->pt_index = pt_index;
                                         buf_->cap = frame->u.frame.cap;
+                                        buf_->offset = frame->u.frame.offset;
                                         buf_->flags = frame->u.frame.flags;
                                         buf_++;
                                         (*items_written)++;

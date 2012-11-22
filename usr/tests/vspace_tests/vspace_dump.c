@@ -30,9 +30,9 @@ void dump_page_tables(void)
         struct pmap_dump_info *info = buf+i;
         struct frame_identity fi;
         invoke_frame_identify(info->cap, &fi);
-        printf("%zd.%zd.%zd.%zd: 0x%"PRIxGENPADDR"\n",
+        printf("%zd.%zd.%zd.%zd: 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR"\n",
                     info->pml4_index,info->pdpt_index,info->pdir_index,info->pt_index,
-                    fi.base);
+                    fi.base, info->offset);
     }
 
     //puts(buf);

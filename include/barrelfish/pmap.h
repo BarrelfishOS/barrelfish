@@ -19,6 +19,7 @@ struct pmap_dump_info {
     size_t pml4_index, pdpt_index, pdir_index, pt_index;
     vregion_flags_t flags;
     struct capref cap;
+    genvaddr_t offset;
 };
 
 struct pmap;
