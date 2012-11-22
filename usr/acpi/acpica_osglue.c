@@ -700,7 +700,6 @@ AcpiOsUnmapMemory (
             walk->refcount--;
             if (!walk->refcount) {
                 vregion_destroy(walk->vregion);
-                // XXX: memobj_destroy_anon is not implemented
                 memobj_destroy_anon((struct memobj *)walk->memobj);
                 if (prev) {
                     prev->next = walk->next;

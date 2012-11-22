@@ -425,9 +425,33 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
 /**
  * \brief Destroy the object
  *
- * \bug NYI
  */
 errval_t memobj_destroy_anon(struct memobj *memobj)
 {
-    return SYS_ERR_OK;
+    struct memobj_anon *m = (struct memobj_anon *)memobj;
+
+    errval_t err = SYS_ERR_OK;
+
+    struct vregion_list *vwalk = m->vregion_list;
+    while (vwalk) {
+        err = vregion_destroy(vwalk->region);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        struct vregion_list *old = vwalk;
+        vwalk = vwalk->next;
+        slab_free(&m->vregion_slab, old);
+    }
+
+    struct memobj_frame_list *fwalk = m->frame_list;
+    while (fwalk) {
+        err = cap_delete(fwalk->frame);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        struct memobj_frame_list *old = fwalk;
+        fwalk = fwalk->next;
+        slab_free(&m->frame_slab, old);
+    }
+    return err;
 }
