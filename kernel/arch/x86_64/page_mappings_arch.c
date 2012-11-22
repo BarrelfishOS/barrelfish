@@ -212,20 +212,22 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     assert(handler_func != NULL);
 
+#if 0
+    genpaddr_t paddr = get_address(&src_cte->cap) + offset;
+    genvaddr_t vaddr;
+    compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
+    printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
+#endif
+
     if (src_cte->mapping_info.pte) {
         // this cap is already mapped
 #if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: this copy is already mapped @0x%lx\n", src_cte->mapping_info.pte);
+        printf("caps_copy_to_vnode: this copy is already mapped @pte 0x%lx (paddr = 0x%"PRIxGENPADDR")\n", src_cte->mapping_info.pte, get_address(src_cap));
 #endif
 #if RETURN_ON_ERROR
         return SYS_ERR_VM_ALREADY_MAPPED;
 #endif
     }
-
-    // genpaddr_t paddr = get_address(&src_cte->cap) + offset;
-    // genvaddr_t vaddr;
-    // compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
-    // printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
 
     cslot_t last_slot = dest_slot + pte_count;
 

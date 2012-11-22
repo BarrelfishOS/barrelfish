@@ -159,6 +159,9 @@ errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **ret
     // lookup matching cap
     struct cte *mem, *last, *orig;
     // find a cap for paddr
+#if 0
+    printf("lookup request = 0x%"PRIxGENPADDR"\n", paddr);
+#endif
     errval_t err = mdb_find_cap_for_address(paddr, &mem);
     if (err_is_fail(err)) {
         printf("could not find a cap for 0x%"PRIxGENPADDR" (%ld)\n", paddr, err);
