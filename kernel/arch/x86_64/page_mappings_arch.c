@@ -20,7 +20,7 @@
 /// Map within a x86_64 pml4
 static errval_t x86_64_pml4(struct capability *dest, cslot_t slot,
                             struct capability *src, uintptr_t param1,
-                            uintptr_t param2)
+                            uintptr_t param2, lvaddr_t *pte)
 {
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
         return SYS_ERR_VNODE_SLOT_INVALID;
@@ -38,6 +38,8 @@ static errval_t x86_64_pml4(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_pml4.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    // assign output param
+    *pte = dest_lv + slot;
     union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
 
     if (X86_64_IS_PRESENT(entry)) {
@@ -55,7 +57,7 @@ static errval_t x86_64_pml4(struct capability *dest, cslot_t slot,
 /// Map within a x86_64 pdpt
 static errval_t x86_64_pdpt(struct capability *dest, cslot_t slot,
                             struct capability *src, uintptr_t param1,
-                            uintptr_t param2)
+                            uintptr_t param2, lvaddr_t *pte)
 {
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
         return SYS_ERR_VNODE_SLOT_INVALID;
@@ -69,6 +71,8 @@ static errval_t x86_64_pdpt(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_pdpt.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    // assign output param
+    *pte = dest_lv + slot;
     union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
 
     if (X86_64_IS_PRESENT(entry)) {
@@ -86,7 +90,7 @@ static errval_t x86_64_pdpt(struct capability *dest, cslot_t slot,
 /// Map within a x86_64 pdir
 static errval_t x86_64_pdir(struct capability *dest, cslot_t slot,
                             struct capability *src, uintptr_t param1,
-                            uintptr_t param2)
+                            uintptr_t param2, lvaddr_t *pte)
 {
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
         return SYS_ERR_VNODE_SLOT_INVALID;
@@ -100,6 +104,8 @@ static errval_t x86_64_pdir(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_pdir.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    // assign output param
+    *pte = dest_lv + slot;
     union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
 
     if (X86_64_IS_PRESENT(entry)) {
@@ -117,7 +123,7 @@ static errval_t x86_64_pdir(struct capability *dest, cslot_t slot,
 /// Map within a x86_64 ptable
 static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
                               struct capability *src, uintptr_t param1,
-                              uintptr_t param2)
+                              uintptr_t param2, lvaddr_t *pte)
 {
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
         return SYS_ERR_VNODE_SLOT_INVALID;
@@ -134,6 +140,7 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
+
     /* Calculate page access protection flags */
     // Get frame cap rights
     paging_x86_64_flags_t flags =
@@ -149,6 +156,8 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_ptable.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    // assign output param
+    *pte = dest_lv + slot;
     union x86_64_ptable_entry *entry =
         (union x86_64_ptable_entry *)dest_lv + slot;
 
@@ -172,7 +181,7 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
 typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
                                       cslot_t dest_slot,
                                       struct capability *src_cap,
-                                      uintptr_t param1, uintptr_t param2);
+                                      uintptr_t param1, uintptr_t param2, lvaddr_t *pte);
 
 /// Dispatcher table for the type of mapping to create
 static mapping_handler_t handler[ObjType_Num] = {
@@ -194,7 +203,17 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     mapping_handler_t handler_func = handler[dest_cap->type];
 
     assert(handler_func != NULL);
-    return handler_func(dest_cap, dest_slot, src_cap, param1, param2);
+    lvaddr_t pte;
+    errval_t r = handler_func(dest_cap, dest_slot, src_cap, param1, param2, &pte);
+    if (err_is_ok(r)) {
+        // update mapping
+        src_cte->mapping_info.pte = pte;
+        src_cte->mapping_info.mapped_pages += 1;
+        src_cte->mapping_info.mapped_offset = 0;
+        printf("full vaddr of new mapping (entry = %"PRIuCSLOT"): 0x%"PRIxGENVADDR"\n",
+               dest_slot, compile_vaddr(src_cte, dest_slot));
+    }
+    return r;
 }
 
 errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
