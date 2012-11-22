@@ -69,8 +69,8 @@ void dump_page_tables(void)
         struct pmap_dump_info *info = buf+i;
         struct frame_identity fi;
         invoke_frame_identify(info->cap, &fi);
-        printf("%zd.%zd.%zd.%zd: 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR"%s",
-                    info->pml4_index,info->pdpt_index,info->pdir_index,info->pt_index,
+        printf(PRIfmtPTIDX": 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR"%s",
+                    GET_PTIDX(info),
                     fi.base, info->offset, i % 4 == 3 ? "\n" : "\t");
     }
     printf("\n");

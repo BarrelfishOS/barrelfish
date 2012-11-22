@@ -23,6 +23,9 @@ struct pmap_dump_info {
     struct capref cap;
     genvaddr_t offset;
 };
+#define PRIfmtPTIDX "%zd.%zd.%zd.%zd"
+#define GET_PTIDX(dump_info) (dump_info)->pml4_index, (dump_info)->pdpt_index, \
+                             (dump_info)->pdir_index, (dump_info)->pt_index
 
 errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
