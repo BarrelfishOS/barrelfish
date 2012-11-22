@@ -45,7 +45,6 @@ struct sysret
 sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_slot,
                  capaddr_t source_cptr, int destcn_vbits, int source_vbits,
                  uintptr_t param1, uintptr_t param2, bool mint);
-struct sysret sys_modify_mapping(struct capability *mem, size_t page_count, uint64_t off);
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
                          bool from_monitor);
 struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,

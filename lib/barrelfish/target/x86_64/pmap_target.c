@@ -148,13 +148,6 @@ static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-    // setup mapping size
-    err = vm_modify_mapping(newvnode->u.vnode.cap, 1, 0);
-    if (err_is_fail(err)) {
-        printf("vm_modify_mapping returned an error: %s\n", err_getstring(err));
-        return err_push(err, LIB_ERR_VM_MODIFY_MAPPING);
-    }
-
     // Map it
     //printf("\talloc_vnode calling vnode_map()\n");
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
@@ -617,7 +610,6 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                 ret = err_push(err, LIB_ERR_VNODE_UNMAP);
                 return ret;
             }
-            vm_modify_mapping(page->u.frame.cap, pages, page->u.frame.offset);
         }
     }
 

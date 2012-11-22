@@ -175,7 +175,6 @@ errors libbarrelfish LIB_ERR_ {
     failure VNODE_MAP           "Failure in vnode_map()",
     failure VNODE_UNMAP         "Failure in vnode_unmap()",
     failure IDC_ENDPOINT_ALLOC  "Failure in idc_endpoint_alloc()",
-    failure VM_MODIFY_MAPPING   "Failure in vm_modify_mapping()",
 
     failure SLOT_ALLOC_INIT     "Failure in slot_alloc_init()",
     failure SLOT_ALLOC_NO_SPACE    "Slot allocator is out of space",

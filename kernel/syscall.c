@@ -360,36 +360,6 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
                                      offset, pte_count));
 }
 
-struct sysret
-sys_modify_mapping(struct capability *mem, size_t page_count, uint64_t off)
-{
-    /* find cte belonging to cap */
-    struct cte *mem_cap = cte_for_cap(mem);
-
-    if (!type_is_vnode(mem->type) && mem->type != ObjType_Frame && mem->type != ObjType_DevFrame){
-        // this only works for mappable memory
-        return SYSRET(SYS_ERR_VNODE_TYPE);
-    }
-
-    genpaddr_t map_start = get_address(mem) + off;
-    genpaddr_t frame_end = get_address(mem) + get_size(mem);
-    size_t map_size = page_count*BASE_PAGE_SIZE;
-    if (map_start & BASE_PAGE_MASK) {
-        // return modify error if offset not aligned to base page size
-        return SYSRET(1000);
-    }
-    if ((map_start + map_size) > frame_end) {
-        // return modify error if offset + map_size after end of memory region
-        printf("map_start = 0x%"PRIxGENPADDR", map_size = %zd, frame_end = 0x%"PRIxGENPADDR"\n",
-                map_start, map_size, frame_end);
-        return SYSRET(SYS_ERR_VM_MAP_SIZE);
-    }
-    mem_cap->mapping_info.pte_count = page_count;
-    mem_cap->mapping_info.offset = off;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
                          bool from_monitor)
 {
