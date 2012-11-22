@@ -16,6 +16,7 @@ void dump_my_vregions(void)
     }
 }
 
+#ifdef TARGET_X86_64_BARRELFISH_PMAP_H
 static int cmp_dump_info(const void *arg1, const void *arg2)
 {
     struct pmap_dump_info *info1, *info2;
@@ -51,6 +52,40 @@ static int cmp_dump_info(const void *arg1, const void *arg2)
     // pt indices equal
     return 0;
 }
+#elif defined(TARGET_X86_32_BARRELFISH_PMAP_H)
+static int cmp_dump_info(const void *arg1, const void *arg2)
+{
+    struct pmap_dump_info *info1, *info2;
+    info1 = (struct pmap_dump_info *)arg1;
+    info2 = (struct pmap_dump_info *)arg2;
+
+#if CONFIG_PAE
+    if (info1->pdpt_index < info2->pdpt_index)
+        return -1;
+    if (info1->pdpt_index > info2->pdpt_index)
+        return 1;
+
+    // pdpt indices equal
+#endif
+
+    if (info1->pdir_index < info2->pdir_index)
+        return -1;
+    if (info1->pdir_index > info2->pdir_index)
+        return 1;
+
+    // pdir indices equal
+
+    if (info1->pt_index < info2->pt_index)
+        return -1;
+    if (info1->pt_index > info2->pt_index)
+        return 1;
+
+    // pt indices equal
+    return 0;
+}
+#else
+#error no comparison function
+#endif
 
 #define BUFSIZE 8192
 void dump_page_tables(void)
@@ -69,9 +104,9 @@ void dump_page_tables(void)
         struct pmap_dump_info *info = buf+i;
         struct frame_identity fi;
         invoke_frame_identify(info->cap, &fi);
-        printf(PRIfmtPTIDX": 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR"%s",
+        printf(PRIfmtPTIDX": 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR", 0x%zx\n",
                     GET_PTIDX(info),
-                    fi.base, info->offset, i % 4 == 3 ? "\n" : "\t");
+                    fi.base, info->offset, ((size_t)1)<<fi.bits);
     }
     printf("\n");
 

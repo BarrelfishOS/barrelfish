@@ -484,6 +484,54 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     return 0;
 }
 
+static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen, size_t *items_written)
+{
+    struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+    struct pmap_dump_info *buf_ = buf;
+
+#ifdef CONFIG_PAE
+    struct vnode *pdpt = &x86->root, *pdir;
+    size_t pdpt_index;
+    assert(pdpt != NULL);
+#else
+    struct vnode *pdir = &x86->root;
+    assert(pdir != NULL);
+#endif
+    struct vnode *pt, *frame;
+
+    *items_written = 0;
+
+    // iterate over pdpt entries
+    size_t pdir_index;
+#if CONFIG_PAE
+    for (pdir = pdpt->u.vnode.children; pdir != NULL; pdir = pdir->next) {
+        pdpt_index = pdir->entry;
+        // iterate over pdir entries
+#endif
+        for (pt = pdir->u.vnode.children; pt != NULL; pt = pt->next) {
+            pdir_index = pt->entry;
+            // iterate over pt entries
+            for (frame = pt->u.vnode.children; frame != NULL; frame = frame->next) {
+                if (*items_written < buflen) {
+#if CONFIG_PAE
+                    buf_->pdpt_index = pdpt_index;
+#endif
+                    buf_->pdir_index = pdir_index;
+                    buf_->pt_index = frame->entry;
+                    buf_->cap = frame->u.frame.cap;
+                    buf_->offset = frame->u.frame.offset;
+                    buf_->flags = frame->u.frame.flags;
+                    buf_++;
+                    (*items_written)++;
+                }
+            }
+#if CONFIG_PAE
+        }
+#endif
+    }
+    return SYS_ERR_OK;
+}
+
 static struct pmap_funcs pmap_funcs = {
     .determine_addr = pmap_x86_determine_addr,
     .map = map,
@@ -492,6 +540,7 @@ static struct pmap_funcs pmap_funcs = {
     .lookup = lookup,
     .serialise = pmap_x86_serialise,
     .deserialise = pmap_x86_deserialise,
+    .dump = dump,
 };
 
 /**
