@@ -21,7 +21,7 @@
 #include <mdb/mdb_tree.h>
 #include <stdio.h>
 
-
+__attribute__((unused))
 static size_t get_next_size(enum objtype type)
 {
     if (!type_is_vnode(type)) {
@@ -96,18 +96,20 @@ genvaddr_t compile_vaddr(struct cte *ptable, size_t entry)
             assert(0);
     }
     size_t mask = (1ULL<<vnode_objbits(ptable->cap.type))-1;
+    printf("entry = %zd\nmask = %zd\nsw = %zd\nentry & mask = %zd\n", entry, mask, sw, entry & mask);
     vaddr = ((genvaddr_t)(entry & mask)) << sw;
 
     // add next piece of virtual address until we are at root page table
     struct cte *old = ptable;
     struct cte *next;
     errval_t err;
+    printf("vaddr = 0x%"PRIxGENVADDR", sw = %zd, entry = %zd\n", vaddr, sw, entry);
     while (!is_root_pt(ptable->cap.type))
     {
         int result;
         err = mdb_find_range(0,
                 local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte),
-                get_next_size(old->cap.type), MDB_RANGE_FOUND_SURROUNDING, &next,
+                1, MDB_RANGE_FOUND_SURROUNDING, &next,
                 &result);
         if (err_is_fail(err)) {
             printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
@@ -119,6 +121,7 @@ genvaddr_t compile_vaddr(struct cte *ptable, size_t entry)
         }
         sw += vnode_objbits(old->cap.type);
         size_t offset = old->mapping_info.pte - get_address(&next->cap);
+        printf("vaddr = 0x%"PRIxGENVADDR", sw = %zd, offset = %zd\n", vaddr, sw, offset);
         mask = (1ULL<<vnode_objbits(next->cap.type))-1;
         vaddr |= ((offset & mask) << sw);
         old = next;
