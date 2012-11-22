@@ -117,7 +117,19 @@ static inline size_t vnode_entry_bits(enum objtype type) {
     }
 }
 
-static inline void do_tlb_flush(void)
+static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
+{
+    assert(vaddr < ((genvaddr_t)1)<<32);
+    assert(vend < ((genvaddr_t)1)<<32);
+    uint32_t vaddr32 = (uint32_t)vaddr;
+    uint32_t vend32 = (uint32_t)vend;
+
+    for (uint32_t addr = vaddr32; addr < vend32; addr += X86_32_BASE_PAGE_SIZE) {
+        __asm__ __volatile__("invlpg %0" : : "m" (addr));
+    }
+}
+
+static inline void do_full_tlb_flush(void)
 {
     // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
     // This is inefficient.
