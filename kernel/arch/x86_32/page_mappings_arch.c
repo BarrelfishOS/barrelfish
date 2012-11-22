@@ -240,10 +240,15 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 #endif
     }
 
+#if 0
     genvaddr_t vaddr;
     compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
-    //printf("caps_copy_to_vnode: mapping %lu pages (slots %"PRIuCSLOT" to %"PRIuCSLOT") to 0x%"PRIxGENVADDR"\n",
-    //        pte_count, dest_slot, last_slot, vaddr);
+    printf("caps_copy_to_vnode: mapping %lu pages (slots %"PRIuCSLOT" to %"PRIuCSLOT") to 0x%"PRIxGENVADDR"\n",
+            pte_count, dest_slot, last_slot, vaddr);
+    genpaddr_t paddr = get_address(&src_cte->cap) + offset;
+    printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
+#endif
+
 
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
     if (err_is_fail(r)) {
