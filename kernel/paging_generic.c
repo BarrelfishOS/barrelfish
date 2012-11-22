@@ -115,3 +115,32 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
     *retvaddr = vaddr;
     return SYS_ERR_OK;
 }
+
+errval_t unmap_capability(struct cte *mem)
+{
+    if (!mem->mapping_info.pte) {
+        // mem is not mapped, so just return
+        return SYS_ERR_OK;
+    }
+
+    // get leaf pt cap
+    struct cte *pgtable;
+    mdb_find_cap_for_address(mem->mapping_info.pte, &pgtable);
+    lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(&pgtable->cap)));
+    cslot_t slot = (mem->mapping_info.pte - pt) / 1;
+    genvaddr_t vaddr;
+    compile_vaddr(pgtable, slot, &vaddr);
+
+    do_unmap(pt, slot, vaddr, mem->mapping_info.mapped_pages);
+
+    // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
+    // This is inefficient.
+    // The current implementation is also not multicore safe.
+    // We should only invalidate the affected entry using invlpg
+    // and figure out which remote tlbs to flush.
+    uint64_t cr3;
+    __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
+    __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
+
+    return SYS_ERR_OK;
+}

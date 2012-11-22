@@ -390,6 +390,37 @@ static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
     return ptable_lv;
 }
 
+size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
+{
+    // iterate over affected leaf ptables
+    size_t unmapped_pages = 0;
+    union x86_64_ptable_entry *ptentry = (union x86_64_ptable_entry *)pt + slot;
+    do {
+        size_t target = (num_pages - unmapped_pages) < (X86_64_PTABLE_SIZE - slot) ? slot + (num_pages - unmapped_pages) : X86_64_PTABLE_SIZE;
+        int i;
+        size_t old_unmapped = unmapped_pages;
+        for (i = slot; i < target; i++) {
+            ptentry++->raw = 0;
+            unmapped_pages++;
+        }
+        if (i == X86_64_PTABLE_SIZE && unmapped_pages < num_pages) {
+            // get next leaf pt
+            vaddr += (unmapped_pages - old_unmapped) * X86_64_BASE_PAGE_SIZE;
+            while (!(pt = get_leaf_ptable_for_vaddr(vaddr)) && unmapped_pages < num_pages) {
+                // no leaf page table for this address
+                unmapped_pages += X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
+                vaddr += X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
+            }
+            slot = 0;
+            ptentry = (union x86_64_ptable_entry *)pt;
+        }
+    } while(unmapped_pages < num_pages);
+
+    if (unmapped_pages > num_pages) { unmapped_pages = num_pages; }
+
+    return unmapped_pages;
+}
+
 errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
@@ -421,33 +452,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    // iterate over affected leaf ptables
-    size_t unmapped_pages = 0;
-    union x86_64_ptable_entry *ptentry = (union x86_64_ptable_entry *)pt + slot;
-    do {
-        size_t target = (num_pages - unmapped_pages) < (X86_64_PTABLE_SIZE - slot) ? slot + (num_pages - unmapped_pages) : X86_64_PTABLE_SIZE;
-        //printf("slot   = %zd\ntarget = %zd\n", slot, target);
-        int i;
-        size_t old_unmapped = unmapped_pages;
-        for (i = slot; i < target; i++) {
-            ptentry++->raw = 0;
-            unmapped_pages++;
-        }
-        //printf("%zd\n", unmapped_pages);
-        if (i == X86_64_PTABLE_SIZE && unmapped_pages < num_pages) {
-            // get next leaf pt
-            vaddr += (unmapped_pages - old_unmapped) * X86_64_BASE_PAGE_SIZE;
-            while (!(pt = get_leaf_ptable_for_vaddr(vaddr)) && unmapped_pages < num_pages) {
-                // no leaf page table for this address
-                unmapped_pages += X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
-                vaddr += X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
-            }
-            slot = 0;
-            ptentry = (union x86_64_ptable_entry *)pt;
-        }
-    } while(unmapped_pages < num_pages);
-
-    if (unmapped_pages > num_pages) { unmapped_pages = num_pages; }
+    size_t unmapped_pages = do_unmap(pt, slot, vaddr, num_pages);
 
     // update mapping info
     mem->mapping_info.mapped_pages -= unmapped_pages;
@@ -458,8 +463,6 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
         // set first still mapped entry as mapping info pte
         mem->mapping_info.pte = pt;
     }
-
-    //printf("state after unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
 
     // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
     // This is inefficient.
