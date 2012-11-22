@@ -201,6 +201,12 @@ static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
     return cap_invoke2(cap, VNodeCmd_Unmap, entry).error;
 }
 
+static inline errval_t
+invoke_vm_modify_mapping(struct capref mem, size_t page_count, uint64_t off)
+{
+    return cap_invoke3(mem, FrameCmd_Modify_Mapping, page_count, off).error;
+}
+
 /**
  * \brief Return the physical address and size of a frame capability
  *

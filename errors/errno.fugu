@@ -65,13 +65,16 @@ errors kernel SYS_ERR_ {
     failure TYPE_NOT_CREATABLE  "Specified capability type is not creatable at runtime. Consider retyping it from another capability.",
 
     // errors specific to page mapping
-    failure VNODE_SLOT_INVALID  "Destination slot exceeds size of page table",
-    failure WRONG_MAPPING       "Wrong source/destination mapping type",
-    failure FRAME_OFFSET_INVALID "Specified offset exceeds size of frame",
-    failure VNODE_SLOT_RESERVED	"Destination slot is reserved",
-    failure VNODE_SLOT_INUSE	"Destination slot in use: unmap first",
-    failure VNODE_TYPE          "Encountered non-VNode capability when manipulating page tables",
-    failure VNODE_LOOKUP_NEXT   "Could not find next level page table",
+    failure VNODE_SLOT_INVALID      "Destination slot exceeds size of page table",
+    failure WRONG_MAPPING           "Wrong source/destination mapping type",
+    failure FRAME_OFFSET_INVALID    "Specified offset exceeds size of frame",
+    failure VNODE_SLOT_RESERVED     "Destination slot is reserved",
+    failure VNODE_SLOT_INUSE        "Destination slot in use: unmap first",
+    failure VNODE_TYPE              "Encountered non-VNode capability when manipulating page tables",
+    failure VNODE_LOOKUP_NEXT       "Could not find next level page table",
+    failure VM_MAP_START_UNALIGNED  "Mapping offset not aligned to BASE_PAGE_SIZE",
+    failure VM_MAP_SIZE             "Mapping size too large",
+    failure VM_MAP_OFFSET           "Mapping offset too large",
 
     // errors related to IRQ table
     failure IRQ_LOOKUP          "Specified capability was not found while inserting in IRQ table",
@@ -168,6 +171,7 @@ errors libbarrelfish LIB_ERR_ {
     failure VNODE_MAP           "Failure in vnode_map()",
     failure VNODE_UNMAP         "Failure in vnode_unmap()",
     failure IDC_ENDPOINT_ALLOC  "Failure in idc_endpoint_alloc()",
+    failure VM_MODIFY_MAPPING   "Failure in vm_modify_mapping()",
 
     failure SLOT_ALLOC_INIT     "Failure in slot_alloc_init()",
     failure SLOT_ALLOC_NO_SPACE    "Slot allocator is out of space",

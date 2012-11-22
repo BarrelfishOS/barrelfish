@@ -20,8 +20,10 @@
 
 struct mapping_info {
     lvaddr_t pte;           ///< where the capability is mapped
-    size_t mapped_pages;    ///< the amount of mapped pages
-    size_t mapped_offset;   ///< the offset into the physical region identified by the capability where the mapping begins.
+    size_t mapped_pages;    ///< the amount of currently mapped pages
+    // target meta data
+    size_t page_count;      ///< the targeted amount of mapped pages
+    uint64_t offset;        ///< the offset into the physical region identified by the capability where the mapping begins.
 };
 
 struct cte;

@@ -123,9 +123,15 @@ static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-    // TODO: setup mapping size
+    // setup mapping size
+    err = vm_modify_mapping(newvnode->u.vnode.cap, 1, 0);
+    if (err_is_fail(err)) {
+        printf("vm_modify_mapping returned an error: %s\n", err_getstring(err));
+        return err_push(err, LIB_ERR_VM_MODIFY_MAPPING);
+    }
 
     // Map it
+    printf("\talloc_vnode calling vnode_map()\n");
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
                     PTABLE_ACCESS_DEFAULT, 0);
     if (err_is_fail(err)) {
@@ -219,7 +225,13 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     errval_t err;
     paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
 
-    // TODO: setup mapping info
+    // setup mapping info
+    size_t page_count = ROUND_UP(size, X86_64_BASE_PAGE_SIZE) / X86_64_BASE_PAGE_SIZE;
+    err = vm_modify_mapping(frame, page_count, offset);
+    if (err_is_fail(err)) {
+        printf("vm_modify_mapping returned an error: %s\n", err_getstring(err));
+        return err_push(err, LIB_ERR_VM_MODIFY_MAPPING);
+    }
 
     for (size_t i = offset; i < offset + size; i += X86_64_BASE_PAGE_SIZE) {
 
@@ -247,7 +259,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
         // Map entry into the page table in the kernel
         uint32_t entry = X86_64_PTABLE_BASE(vaddr);
-        printf("mapping vaddr = 0x%"PRIxGENVADDR"\n", vaddr);
+        printf("\tdo_map calling vnode_map()\n");
         err = vnode_map(ptable->u.vnode.cap, frame, entry, pmap_flags, i);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_VNODE_MAP);
@@ -483,6 +495,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
         // Remap with changed flags
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+        printf("\tmodify_flags calling vnode_map()\n");
         err = vnode_map(ptable->u.vnode.cap, vn->u.frame.cap, vn->entry,
                         pmap_flags, vn->u.frame.offset);
         if (err_is_fail(err)) {

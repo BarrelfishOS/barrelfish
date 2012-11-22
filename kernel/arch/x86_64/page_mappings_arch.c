@@ -204,6 +204,26 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     assert(handler_func != NULL);
     lvaddr_t pte;
+
+    size_t mapped_pages = src_cte->mapping_info.mapped_pages;
+
+    if (mapped_pages >= src_cte->mapping_info.page_count) {
+        // exceeded allowed page count for this mapping
+        printf("caps_copy_to_vnode: exceeded allowed page count for this mapping\n");
+        printf("                    mapped_pages = %zd, mapping_info.page_count = %zd\n",
+                mapped_pages, src_cte->mapping_info.page_count);
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
+    if ((param2 - src_cte->mapping_info.offset)/BASE_PAGE_SIZE >= src_cte->mapping_info.page_count) {
+        // requested map offset exceeds mapping region
+        printf("caps_copy_to_vnode: requested map offset exceeds mapping region\n");
+        printf("                    offset = %zd, mapping_info.offset = %zd, page_count = %zd",
+                param2, src_cte->mapping_info.offset,
+                src_cte->mapping_info.page_count);
+        return SYS_ERR_VM_MAP_OFFSET;
+    }
+
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, param1, param2, &pte);
     if (err_is_ok(r)) {
         // update mapping
@@ -211,7 +231,6 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         // or do the base page loop here
         if (src_cte->mapping_info.pte == 0) {
             src_cte->mapping_info.pte = pte;
-            src_cte->mapping_info.mapped_offset = param2;
         }
         src_cte->mapping_info.mapped_pages += 1;
         genvaddr_t vaddr = 0;
@@ -221,8 +240,8 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
             printf("error in compile_vaddr: 0x%"PRIxERRV"\n", r2);
         }
         //printf("src_cte->pte = %"PRIxLVADDR"\n", src_cte->mapping_info.pte);
-        printf("full vaddr of new mapping (entry = %"PRIuCSLOT"): 0x%"PRIxGENVADDR"\n",
-               dest_slot, vaddr);
+        //printf("full vaddr of new mapping (entry = %"PRIuCSLOT"): 0x%"PRIxGENVADDR"\n",
+        //       dest_slot, vaddr);
     }
     return r;
 }

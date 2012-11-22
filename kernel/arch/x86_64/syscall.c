@@ -138,7 +138,6 @@ static struct sysret handle_copy(struct capability *root,
     return copy_or_mint(root, args, false);
 }
 
-
 static struct sysret handle_delete_common(struct capability *root,
                                    uintptr_t *args,
                                    bool from_monitor)
@@ -410,6 +409,14 @@ static struct sysret handle_frame_identify(struct capability *to,
     };
 }
 
+static struct sysret handle_modify_mapping(struct capability *mem,
+                                           int cmd, uintptr_t *args)
+{
+    size_t page_count = args[0];
+    uint64_t off = args[1];
+    return sys_modify_mapping(mem, page_count, off);
+}
+
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint64_t    port = args[0];
@@ -673,10 +680,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest
     },
     [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify
+        [FrameCmd_Identify] = handle_frame_identify,
+        [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify
+        [FrameCmd_Identify] = handle_frame_identify,
+        [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -688,15 +697,19 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Unmap] = handle_unmap,
+        [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_VNode_x86_64_pdpt] = {
         [VNodeCmd_Unmap] = handle_unmap,
+        [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_VNode_x86_64_pdir] = {
         [VNodeCmd_Unmap] = handle_unmap,
+        [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_VNode_x86_64_ptable] = {
         [VNodeCmd_Unmap] = handle_unmap,
+        [FrameCmd_Modify_Mapping] = handle_modify_mapping,
     },
     [ObjType_Kernel] = {
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
