@@ -553,27 +553,25 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     else { // slow path
         // unmap first leaf
         uint32_t c = X86_64_PTABLE_SIZE - X86_64_PTABLE_BASE(vaddr);
-        genvaddr_t temp_end = vaddr + c * X86_64_BASE_PAGE_SIZE;
         err = do_single_unmap(x86, vaddr, c, false);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
 
         // unmap full leaves
-        while (X86_64_PDIR_BASE(temp_end) < X86_64_PDIR_BASE(vend)) {
-            vaddr += c * X86_64_BASE_PAGE_SIZE;
+        vaddr += c * X86_64_BASE_PAGE_SIZE;
+        while (X86_64_PDIR_BASE(vaddr) < X86_64_PDIR_BASE(vend)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE, true);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
+            vaddr += c * X86_64_BASE_PAGE_SIZE;
         }
 
-        // map remaining part
-        vaddr += c * X86_64_BASE_PAGE_SIZE;
+        // unmap remaining part
         c = X86_64_PTABLE_BASE(vend) - X86_64_PTABLE_BASE(vaddr);
         if (c) {
-            // do mapping
             err = do_single_unmap(x86, vaddr, c, true);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
