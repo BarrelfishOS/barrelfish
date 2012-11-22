@@ -15,13 +15,7 @@
 #ifndef LIBBARRELFISH_PMAP_H
 #define LIBBARRELFISH_PMAP_H
 
-struct pmap_dump_info {
-    size_t pml4_index, pdpt_index, pdir_index, pt_index;
-    vregion_flags_t flags;
-    struct capref cap;
-    genvaddr_t offset;
-};
-
+struct pmap_dump_info;
 struct pmap;
 struct pmap_funcs {
     errval_t (*determine_addr)(struct pmap *pmap, struct memobj *memobj,

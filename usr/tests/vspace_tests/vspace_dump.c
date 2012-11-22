@@ -15,6 +15,7 @@ void dump_my_vregions(void)
         walk = walk->next;
     }
 }
+
 #define BUFSIZE 8192
 void dump_page_tables(void)
 {

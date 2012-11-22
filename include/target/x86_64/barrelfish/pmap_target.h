@@ -17,6 +17,13 @@
 
 #include <target/x86/barrelfish/pmap_target.h>
 
+struct pmap_dump_info {
+    size_t pml4_index, pdpt_index, pdir_index, pt_index;
+    vregion_flags_t flags;
+    struct capref cap;
+    genvaddr_t offset;
+};
+
 errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
                           struct slot_allocator *opt_slot_alloc);
