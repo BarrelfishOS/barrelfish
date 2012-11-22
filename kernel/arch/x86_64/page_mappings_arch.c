@@ -64,7 +64,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             }
             break;
         case ObjType_VNode_x86_64_pdir:
-            // TODO: huge page support, set page_size to SUPER_PAGE_SIZE
+            // TODO: superpage support, set page_size to SUPER_PAGE_SIZE
             if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
                 printf("src type invalid\n");
                 return SYS_ERR_WRONG_MAPPING;
