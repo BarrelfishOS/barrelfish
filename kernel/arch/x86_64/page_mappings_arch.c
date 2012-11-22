@@ -243,6 +243,15 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         // set current pte as mapping pte if not set already
         if (src_cte->mapping_info.pte == 0) {
             src_cte->mapping_info.pte = pte;
+            src_cte->mapping_info.pt_slot = dest_slot;
+        }
+        else if (dest_slot == 0 && src_cte->mapping_info.pt2 == 0) {
+            // if dest_slot zero and pte set, assume we crossed leaf ptable
+            // boundaries, and store pte in mapping_info.pte2 (if not set already)
+            src_cte->mapping_info.pt2 = pte;
+        }
+        else if (dest_slot == 0) {
+            printf("mapping uses more than 3 leaf ptables, expect unmap badness\n");
         }
         src_cte->mapping_info.mapped_pages += 1;
     }
