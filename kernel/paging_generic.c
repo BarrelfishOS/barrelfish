@@ -123,9 +123,15 @@ errval_t unmap_capability(struct cte *mem)
         return SYS_ERR_OK;
     }
 
+    errval_t err;
+
     // get leaf pt cap
     struct cte *pgtable;
-    mdb_find_cap_for_address(mem->mapping_info.pte, &pgtable);
+    err = mdb_find_cap_for_address(mem->mapping_info.pte, &pgtable);
+    if (err_is_fail(err)) {
+        // no page table, should be ok.
+        return SYS_ERR_OK;
+    }
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(&pgtable->cap)));
     cslot_t slot = (mem->mapping_info.pte - pt) / 1;
     genvaddr_t vaddr;
