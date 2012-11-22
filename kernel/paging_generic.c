@@ -133,7 +133,7 @@ errval_t unmap_capability(struct cte *mem)
         return SYS_ERR_OK;
     }
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(&pgtable->cap)));
-    cslot_t slot = (mem->mapping_info.pte - pt) / 1;
+    cslot_t slot = (mem->mapping_info.pte - pt) / PTABLE_ENTRY_SIZE;
     genvaddr_t vaddr;
     compile_vaddr(pgtable, slot, &vaddr);
 
