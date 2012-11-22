@@ -513,6 +513,14 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t 
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Remove page mappings
+ *
+ * \param pmap     The pmap object
+ * \param vaddr    The start of the virtual addres to remove
+ * \param size     The size of virtual address to remove
+ * \param retsize  If non-NULL, filled in with the actual size removed
+ */
 static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                       size_t *retsize)
 {
@@ -564,53 +572,6 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
     //printf("[unmap] exiting\n");
     return ret;
-}
-
-/**
- * \brief Remove page mappings
- *
- * \param pmap     The pmap object
- * \param vaddr    The start of the virtual addres to remove
- * \param size     The size of virtual address to remove
- * \param retsize  If non-NULL, filled in with the actual size removed
- */
-__attribute__((unused))
-static errval_t old_unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
-                      size_t *retsize)
-{
-    errval_t err;
-    struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
-    size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
-
-    for (size_t i = 0; i < size; i+=X86_32_BASE_PAGE_SIZE) {
-        // Find the page table
-        struct vnode *ptable;
-        err = get_ptable(x86, vaddr + i, &ptable);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
-        }
-
-        // Find the page
-        struct vnode *page = find_vnode(ptable, X86_32_PTABLE_BASE(vaddr + i));
-        if (!page) {
-            return LIB_ERR_PMAP_FIND_VNODE;
-        }
-
-        // Unmap it in the kernel
-        err = vnode_unmap(ptable->u.vnode.cap, page->entry, 1);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_UNMAP);
-        }
-
-        // Free up the resources
-        remove_vnode(ptable, page);
-        slab_free(&x86->slab, page);
-    }
-
-    if (retsize) {
-        *retsize = size;
-    }
-    return SYS_ERR_OK;
 }
 
 /**

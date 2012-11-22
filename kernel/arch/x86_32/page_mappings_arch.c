@@ -362,56 +362,6 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     return SYS_ERR_OK;
 }
 
-__attribute__((unused))
-static errval_t old_page_mappings_unmap(struct capability *pgtable, size_t slot, size_t pte_count)
-{
-    // printf("page_mappings_unmap(%zd)\n", pte_count);
-    assert(type_is_vnode(pgtable->type));
-
-    switch (pgtable->type) {
-    case ObjType_VNode_x86_32_pdpt: {
-        genpaddr_t gp = pgtable->u.vnode_x86_32_pdpt.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_32_pdir_entry *entry =
-            (union x86_32_pdir_entry *)lv + slot;
-        entry->raw = X86_32_PTABLE_CLEAR;
-        break;
-    }
-    case ObjType_VNode_x86_32_pdir: {
-        genpaddr_t gp = pgtable->u.vnode_x86_32_pdir.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_32_pdir_entry *entry =
-            (union x86_32_pdir_entry *)lv + slot;
-        entry->raw = X86_32_PTABLE_CLEAR;
-        break;
-    }
-    case ObjType_VNode_x86_32_ptable: {
-        genpaddr_t gp = pgtable->u.vnode_x86_32_ptable.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_32_ptable_entry *entry =
-            (union x86_32_ptable_entry *)lv + slot;
-        entry->raw = X86_32_PTABLE_CLEAR;
-        break;
-    }
-    default:
-        assert(!"Should not get here");
-    }
-
-    // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
-    // This is inefficient.
-    // The current implementation is also not multicore safe.
-    // We should only invalidate the affected entry using invlpg
-    // and figure out which remote tlbs to flush.
-    uint32_t cr3;
-    __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
-    __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
-
-    return SYS_ERR_OK;
-}
-
 void dump_hw_page_tables(struct dcb *dispatcher)
 {
     printf("dump_hw_page_tables\n");
