@@ -226,22 +226,11 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, param1, param2, &pte);
     if (err_is_ok(r)) {
-        // update mapping
-        // XXX: hacky, should either have a real indicator if mapping in progress
-        // or do the base page loop here
+        // set current pte as mapping pte if not set already
         if (src_cte->mapping_info.pte == 0) {
             src_cte->mapping_info.pte = pte;
         }
         src_cte->mapping_info.mapped_pages += 1;
-        genvaddr_t vaddr = 0;
-        errval_t r2 = compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
-        if (err_is_fail(r2)) {
-            printf("src_cte->cap.type = %d\n", src_cte->cap.type);
-            printf("error in compile_vaddr: 0x%"PRIxERRV"\n", r2);
-        }
-        //printf("src_cte->pte = %"PRIxLVADDR"\n", src_cte->mapping_info.pte);
-        //printf("full vaddr of new mapping (entry = %"PRIuCSLOT"): 0x%"PRIxGENVADDR"\n",
-        //       dest_slot, vaddr);
     }
     return r;
 }
