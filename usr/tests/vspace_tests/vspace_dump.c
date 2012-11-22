@@ -24,7 +24,13 @@ void dump_page_tables(void)
 
     pmap->f.dump(pmap, buf, BUFSIZE, &bytes_written);
 
-    buf[bytes_written+1] = 0;
+    printf("bytes_written=%zd\n", bytes_written);
+
+    if (bytes_written == BUFSIZE) {
+        buf[BUFSIZE-1] = 0;
+    } else {
+        buf[bytes_written] = 0;
+    }
 
     puts(buf);
 }

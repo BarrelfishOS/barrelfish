@@ -557,22 +557,22 @@ static errval_t dump(struct pmap *pmap, void *buf, size_t buflen, size_t *bytes_
 
     // PML4 mapping
     for (size_t pml4_index = 0; pml4_index < X86_64_BASE_PAGE_SIZE; pml4_index++) {
-        printf("pml4_idx = %zd\n", pml4_index);
+        //printf("pml4_idx = %zd\n", pml4_index);
         // lookup pdpts in pml4
         if((pdpt = find_vnode(pml4, pml4_index)) != NULL) {
             // write pdpt to buf
             for (size_t pdpt_index = 0; pdpt_index < X86_64_BASE_PAGE_SIZE; pdpt_index++) {
-                printf("pdpt_idx = %zd\n", pdpt_index);
+                //printf("pdpt_idx = %zd\n", pdpt_index);
                 // lookup pdirs in pdpt
                 if((pdir = find_vnode(pdpt, pdpt_index)) != NULL) {
                     // write pdir to buf
                     for (size_t pdir_index = 0; pdir_index < X86_64_BASE_PAGE_SIZE; pdir_index++) {
-                        printf("pdir_idx = %zd\n", pdir_index);
+                        //printf("pdir_idx = %zd\n", pdir_index);
                         // lookup ptables in pdir
                         if ((pt = find_vnode(pdir, pdir_index)) != NULL) {
                             // write pt to buf
                             for (size_t pt_index = 0; pt_index < X86_64_BASE_PAGE_SIZE; pt_index++) {
-                                printf("pt_idx = %zd\n", pt_index);
+                                //printf("pt_idx = %zd\n", pt_index);
                                 // lookup frames in pt
                                 if ((frame = find_vnode(pt, pt_index)) != NULL) {
                                     // write frame mapping to buf
