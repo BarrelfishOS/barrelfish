@@ -60,6 +60,31 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
     return pmap_flags;
 }
 
+static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+    uint32_t end_entry = entry + len;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (n->is_vnode && n->entry == entry) {
+            return true;
+        }
+        // n is frame
+        uint32_t end = n->entry + n->u.frame.pte_count;
+        if (n->entry < entry && end > end_entry) {
+            return true;
+        }
+        if (n->entry >= entry && n->entry < end_entry) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /**
  * \brief Starting at a given root, return the vnode with entry equal to #entry
  */
@@ -133,7 +158,7 @@ static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     // Map it
     //printf("\talloc_vnode calling vnode_map()\n");
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    PTABLE_ACCESS_DEFAULT, 0);
+                    PTABLE_ACCESS_DEFAULT, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -215,6 +240,48 @@ static struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
     return find_vnode(pdir, X86_64_PDIR_BASE(base));
 }
 
+static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr, genvaddr_t vend,
+                              struct capref frame, size_t offset, size_t pte_count,
+                              vregion_flags_t flags)
+{
+    // translate flags
+    paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+
+    // Get the page table
+    struct vnode *ptable;
+    errval_t err = get_ptable(pmap, vaddr, &ptable);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+    }
+
+    // check if there is an overlapping mapping
+    if (has_vnode(ptable, X86_64_PTABLE_BASE(vaddr), pte_count)) {
+        printf("page already exists in 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
+        return LIB_ERR_PMAP_EXISTING_MAPPING;
+    }
+
+    // setup userspace mapping
+    struct vnode *page = slab_alloc(&pmap->slab);
+    assert(page);
+    page->is_vnode = false;
+    page->entry = X86_64_PTABLE_BASE(vaddr);
+    page->next  = ptable->u.vnode.children;
+    ptable->u.vnode.children = page;
+    page->u.frame.cap = frame;
+    page->u.frame.offset = offset;
+    page->u.frame.flags = flags;
+    page->u.frame.pte_count = pte_count;
+
+    // do map
+    err = vnode_map(ptable->u.vnode.cap, frame, X86_64_PTABLE_BASE(vaddr),
+                    pmap_flags, offset, pte_count);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_MAP);
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Called when enough slabs exist for the given mapping
  */
@@ -223,50 +290,71 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
-    paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
 
-    // setup mapping info
-    size_t page_count = ROUND_UP(size, X86_64_BASE_PAGE_SIZE) / X86_64_BASE_PAGE_SIZE;
-    err = vm_modify_mapping(frame, page_count, offset);
-    if (err_is_fail(err)) {
-        printf("vm_modify_mapping returned an error: %s\n", err_getstring(err));
-        return err_push(err, LIB_ERR_VM_MODIFY_MAPPING);
+    size = ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
+    size_t pte_count = DIVIDE_ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
+    genvaddr_t vend = vaddr + size;
+
+    if (X86_64_PDIR_BASE(vaddr) == X86_64_PDIR_BASE(vend)) {
+        // fast path
+        do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
     }
-
-    for (size_t i = offset; i < offset + size; i += X86_64_BASE_PAGE_SIZE) {
-
-        // Get the page table
-        struct vnode *ptable;
-        err = get_ptable(pmap, vaddr, &ptable);
+    else { // multiple leaf page tables
+        // first leaf
+        uint32_t c = X86_64_PTABLE_SIZE - X86_64_PTABLE_BASE(vaddr);
+        genvaddr_t temp_end = vaddr + c * X86_64_BASE_PAGE_SIZE;
+        err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
         }
 
-        // Create user level datastructure for the mapping
-        struct vnode *page = find_vnode(ptable, X86_64_PTABLE_BASE(vaddr));
-        if (page != NULL) {
-            printf("page already exists for 0x%"PRIxGENVADDR"\n", vaddr);
-            return LIB_ERR_PMAP_EXISTING_MAPPING;
-        }
-        page = slab_alloc(&pmap->slab);
-        assert(page);
-        page->is_vnode = false;
-        page->entry = X86_64_PTABLE_BASE(vaddr);
-        page->next  = ptable->u.vnode.children;
-        ptable->u.vnode.children = page;
-        page->u.frame.cap = frame;
-        page->u.frame.offset = i;
-        page->u.frame.flags = flags;
+        // map full leaves
+        while (X86_64_PDIR_BASE(temp_end) < X86_64_PDIR_BASE(vend)) {
+            // update vars
+            vaddr = temp_end;
+            temp_end = vaddr + X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
+            offset += c * X86_64_BASE_PAGE_SIZE;
+            c = X86_64_PTABLE_SIZE;
+            // copy cap
+            struct capref next;
+            err = slot_alloc(&next);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            err = cap_copy(next, frame);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            frame = next;
 
-        // Map entry into the page table in the kernel
-        uint32_t entry = X86_64_PTABLE_BASE(vaddr);
-        //printf("\tdo_map calling vnode_map()\n");
-        err = vnode_map(ptable->u.vnode.cap, frame, entry, pmap_flags, i);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_MAP);
+            // do mapping
+            err = do_single_map(pmap, vaddr, temp_end, frame, offset, X86_64_PTABLE_SIZE, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
         }
 
-        vaddr += X86_64_BASE_PAGE_SIZE;
+        // map remaining part
+        c = X86_64_PTABLE_BASE(vend) - X86_64_PTABLE_BASE(temp_end);
+        if (c) {
+            offset += X86_64_PTABLE_SIZE;
+            // copy cap
+            struct capref next;
+            err = slot_alloc(&next);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            err = cap_copy(next, frame);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+
+            // do mapping
+            err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+        }
     }
 
     if (retoff) {
@@ -522,7 +610,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
         //printf("\tmodify_flags calling vnode_map()\n");
         err = vnode_map(ptable->u.vnode.cap, vn->u.frame.cap, vn->entry,
-                        pmap_flags, vn->u.frame.offset);
+                        pmap_flags, vn->u.frame.offset, 1);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_VNODE_MAP);
         }
