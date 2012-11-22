@@ -276,7 +276,7 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
     case ObjType_VNode_x86_64_pdir: {
         union x86_64_pdir_entry *e =
             (union x86_64_pdir_entry *)lv + slot;
-        paddr = e->d.base_addr << BASE_PAGE_BITS;
+        paddr = (lpaddr_t)e->d.base_addr << BASE_PAGE_BITS;
         entry_ = e;
         pte_ = lp + slot * sizeof(union x86_64_pdir_entry);
         break;
@@ -284,7 +284,7 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
     case ObjType_VNode_x86_64_ptable: {
         union x86_64_ptable_entry *e =
             (union x86_64_ptable_entry *)lv + slot;
-        paddr = e->base.base_addr << BASE_PAGE_BITS;
+        paddr = (lpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
         entry_ = e;
         pte_ = lp + slot * sizeof(union x86_64_ptable_entry);
         break;
