@@ -87,4 +87,16 @@ static inline size_t vnode_entry_bits(enum objtype type) {
     }
 }
 
+static inline void do_tlb_flush(void) {
+    // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
+    // This is inefficient.
+    // The current implementation is also not multicore safe.
+    // We should only invalidate the affected entry using invlpg
+    // and figure out which remote tlbs to flush.
+    uint64_t cr3;
+    __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
+    __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
+}
+
+
 #endif // KERNEL_ARCH_X86_64_PAGING_H

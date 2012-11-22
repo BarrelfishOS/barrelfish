@@ -220,13 +220,39 @@ static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
                     invoke_cptr, cap, bits).error;
 }
 
-static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
+// XXX: workaround for an inlining bug in gcc 4.3.4
+#if defined(__GNUC__) \
+    && __GNUC__ == 4 && __GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ <= 4
+static __attribute__ ((noinline,unused)) errval_t
+invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
+                 int frombits, uintptr_t flags, uintptr_t offset, uintptr_t pte_count)
+#else
+static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
+                                        capaddr_t from, int frombits, uintptr_t flags,
+                                        uintptr_t offset, uintptr_t pte_count)
+#endif
+{
+    uint8_t invoke_bits = get_cap_valid_bits(ptable);
+    capaddr_t invoke_cptr = get_cap_addr(ptable) >> (CPTR_BITS - invoke_bits);
+
+    assert(slot <= 0xffff);
+    assert(frombits <= 0xff);
+
+    // XXX: needs check of flags, offset, and pte_count sizes
+    // XXX: flag transfer breaks for PAE (flags are 64 bits for PAE)
+    return syscall7((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, from, (slot << 16) | frombits,
+                    flags, offset, pte_count).error;
+}
+
+
+static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry, size_t pte_count)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
 
-    return syscall3((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, entry).error;
+    return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, entry, pte_count).error;
 }
 
 /**
@@ -416,6 +442,20 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
 
     return sysret.error;
 }
+
+static inline errval_t invoke_kernel_dump_ptables(struct capref kern_cap,
+                                                  struct capref dispcap)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kern_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kern_cap) >> (CPTR_BITS - invoke_bits);
+
+    capaddr_t dispcaddr = get_cap_addr(dispcap);
+    struct sysret sysret =
+        syscall3((invoke_bits << 16) | (KernelCmd_DumpPTables << 8) | SYSCALL_INVOKE,
+                 invoke_cptr,dispcaddr);
+    return sysret.error;
+}
+
 
 static inline errval_t invoke_ipi_notify_send(struct capref notify_cap)
 {

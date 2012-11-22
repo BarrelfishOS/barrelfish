@@ -27,5 +27,6 @@ struct mapping_info {
 struct cte;
 errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr);
 errval_t unmap_capability(struct cte *mem);
+errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **retcte);
 
 #endif // PAGING_H

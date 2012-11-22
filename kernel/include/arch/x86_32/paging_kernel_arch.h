@@ -96,7 +96,7 @@ static inline size_t get_pte_size(void) {
 
 static inline size_t vnode_entry_bits(enum objtype type) {
 #ifdef CONFIG_PAE
-    else if (type == ObjType_VNode_x86_32_pdpt)
+    if (type == ObjType_VNode_x86_32_pdpt)
     {
         return 2;       // log2(X86_32_PDPTE_SIZE)
     }
@@ -106,8 +106,8 @@ static inline size_t vnode_entry_bits(enum objtype type) {
         return 9;       // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
     }
 #else
-    else if (type == ObjType_VNode_x86_32_pdir ||
-             type == ObjType_VNode_x86_32_ptable)
+    if (type == ObjType_VNode_x86_32_pdir ||
+        type == ObjType_VNode_x86_32_ptable)
     {
         return 10;      // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
     }
@@ -115,6 +115,18 @@ static inline size_t vnode_entry_bits(enum objtype type) {
     else {
         assert(!"unknown page table type");
     }
+}
+
+static inline void do_tlb_flush(void)
+{
+    // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
+    // This is inefficient.
+    // The current implementation is also not multicore safe.
+    // We should only invalidate the affected entry using invlpg
+    // and figure out which remote tlbs to flush.
+    uint32_t cr3;
+    __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
+    __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
 }
 
 #endif // KERNEL_ARCH_X86_32_PAGING_H

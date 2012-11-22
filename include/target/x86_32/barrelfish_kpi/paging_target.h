@@ -87,6 +87,8 @@ typedef uint32_t paging_x86_32_flags_t;
 
 #endif
 
+#define X86_32_PTABLE_ENTRY_SIZE   sizeof(union x86_32_pdir_entry)
+
 #ifdef CONFIG_PAE
 #define X86_32_PDPTE_BASE(base)        (((uint32_t)(base) >> 30) & X86_32_PDPTE_MASK)
 #define X86_32_PDIR_BASE(base)         (((uint32_t)(base) >> 21) & X86_32_PTABLE_MASK)

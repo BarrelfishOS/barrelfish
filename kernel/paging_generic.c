@@ -139,14 +139,68 @@ errval_t unmap_capability(struct cte *mem)
 
     do_unmap(pt, slot, vaddr, mem->mapping_info.pte_count);
 
-    // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
-    // This is inefficient.
-    // The current implementation is also not multicore safe.
-    // We should only invalidate the affected entry using invlpg
-    // and figure out which remote tlbs to flush.
-    uint64_t cr3;
-    __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
-    __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
+    do_tlb_flush();
 
     return SYS_ERR_OK;
+}
+
+errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **retcte)
+{
+    // lookup matching cap
+    struct cte *mem, *last, *orig;
+    // find a cap for paddr
+    errval_t err = mdb_find_cap_for_address(paddr, &mem);
+    if (err_is_fail(err)) {
+        printf("could not find a cap for 0x%"PRIxGENPADDR" (%ld)\n", paddr, err);
+        return err;
+    }
+#if 0
+    printf("lookup request = 0x%"PRIxGENPADDR"\n", paddr);
+    printf("has_copies(mem) = %d\n", has_copies(mem));
+    printf("pte = 0x%lx\n", pte);
+    printf("0x%lx, %zd\n", get_address(&mem->cap), get_size(&mem->cap));
+    printf("mem->mapping_info.pte          = 0x%lx\n", mem->mapping_info.pte);
+    printf("mem->mapping_info.offset       = %zd\n", mem->mapping_info.offset);
+    printf("mem->mapping_info.pte_count    = %zd\n", mem->mapping_info.pte_count);
+    printf("mem = %p\n", mem);
+#endif
+
+    // look at all copies of mem
+    last = mem;
+    orig = mem;
+    // search backwards in tree
+    while (is_copy(&mem->cap, &last->cap)) {
+        struct capability *cap = &mem->cap;
+        struct mapping_info *map = &mem->mapping_info;
+        genpaddr_t base = get_address(cap);
+        // only match mappings that start where we want to unmap
+        if (base + map->offset == paddr && map->pte == pte)
+        {
+            // found matching cap
+            *retcte = mem;
+            return SYS_ERR_OK;
+        }
+        last = mem;
+        mem = mdb_predecessor(mem);
+    }
+    last = orig;
+    // search forward in tree
+    mem = mdb_successor(orig);
+    while (is_copy(&mem->cap, &last->cap)) {
+        struct capability *cap = &mem->cap;
+        struct mapping_info *map = &mem->mapping_info;
+        genpaddr_t base = get_address(cap);
+        // only match mappings that start where we want to unmap
+        if (base + map->offset == paddr && map->pte == pte)
+        {
+            // found matching cap
+            *retcte = mem;
+            return SYS_ERR_OK;
+        }
+        last = mem;
+        mem = mdb_successor(mem);
+    }
+
+    // if we get here, we have not found a matching cap
+    return SYS_ERR_CAP_NOT_FOUND;
 }

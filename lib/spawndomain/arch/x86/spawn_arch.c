@@ -96,7 +96,7 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
         err = cap_copy(spawn_frame, frame);
         if (err_is_fail(err)) {
             // TODO: make debug printf
-            printf("cap_copy failed for src_slot = %d, dest_slot = %d\n", frame.slot, spawn_frame.slot);
+            printf("cap_copy failed for src_slot = %"PRIuCSLOT", dest_slot = %"PRIuCSLOT"\n", frame.slot, spawn_frame.slot);
             return err_push(err, LIB_ERR_CAP_COPY);
         }
     }
