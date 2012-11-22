@@ -86,7 +86,7 @@ static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 }
 
 /**
- * \brief Starting at a given root, return the vnode with entry equal to #entry
+ * \brief Starting at a given root, return the vnode with starting entry equal to #entry
  */
 static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
 {
@@ -335,9 +335,9 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         }
 
         // map remaining part
+        offset += c * X86_64_BASE_PAGE_SIZE;
         c = X86_64_PTABLE_BASE(vend) - X86_64_PTABLE_BASE(temp_end);
         if (c) {
-            offset += X86_64_PTABLE_SIZE;
             // copy cap
             struct capref next;
             err = slot_alloc(&next);
@@ -495,6 +495,35 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     return err;
 }
 
+static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t pte_count)
+{
+    errval_t err;
+    struct vnode *pt = find_ptable(pmap, vaddr);
+    if (pt) {
+        struct vnode *page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
+        if (page && page->u.frame.pte_count == pte_count) {
+            err = vnode_unmap(pt->u.vnode.cap, page->entry, page->u.frame.pte_count);
+            if (err_is_fail(err)) {
+                printf("vnode_unmap returned error: %s (%d)\n", err_getstring(err), err_no(err));
+                return err_push(err, LIB_ERR_VNODE_UNMAP);
+            }
+
+            // Free up the resources
+            err = cap_destroy(page->u.frame.cap);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
+            }
+            remove_vnode(pt, page);
+            slab_free(&pmap->slab, page);
+        }
+        else {
+            return LIB_ERR_PMAP_FIND_VNODE;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Remove page mappings
  *
@@ -506,53 +535,52 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
 static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                       size_t *retsize)
 {
+    //printf("[unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, size);
     errval_t err, ret = SYS_ERR_OK;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
     size = ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
+    genvaddr_t vend = vaddr + size;
 
+    if (X86_64_PDIR_BASE(vaddr) == X86_64_PDIR_BASE(vend)) {
+        // fast path
+        do_single_unmap(x86, vaddr, size / X86_64_BASE_PAGE_SIZE);
+    }
+    else { // slow path
+        // unmap first leaf
+        uint32_t c = X86_64_PTABLE_SIZE - X86_64_PTABLE_BASE(vaddr);
+        genvaddr_t temp_end = vaddr + c * X86_64_BASE_PAGE_SIZE;
+        err = do_single_unmap(x86, vaddr, c);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_UNMAP);
+        }
 
-    //printf("size  = %zd\n", size);
-    size_t pages = size / X86_64_BASE_PAGE_SIZE;
-    //printf("pages = %zd\n", pages);
-    // Unmap it in the kernel
-    struct vnode *pt= find_ptable(x86, vaddr);
-    if (pt) {
-        struct vnode *page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
-        if (page) {
-            err = vnode_unmap(pt->u.vnode.cap, page->entry, pages);
+        // unmap full leaves
+        while (X86_64_PDIR_BASE(temp_end) < X86_64_PDIR_BASE(vend)) {
+            vaddr += c * X86_64_BASE_PAGE_SIZE;
+            c = X86_64_PTABLE_SIZE;
+            err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE);
             if (err_is_fail(err)) {
-                printf("vnode_unmap returned error: %s (%"PRIuERRV")\n", err_getstring(err), err);
-                ret = err_push(err, LIB_ERR_VNODE_UNMAP);
-                return ret;
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
         }
-    }
 
-    // cleanup user space vnodes
-    for (size_t i = 0; i < size; i+=X86_64_BASE_PAGE_SIZE) {
-        // Find the page table
-        struct vnode *ptable;
-        ptable = find_ptable(x86, vaddr + i);
-        if (ptable == NULL) {
-            printf("no pt for 0x%"PRIxGENVADDR"\n",vaddr +i);
-            continue; // not mapped
+        // map remaining part
+        vaddr += c * X86_64_BASE_PAGE_SIZE;
+        c = X86_64_PTABLE_BASE(vend) - X86_64_PTABLE_BASE(vaddr);
+        if (c) {
+            // do mapping
+            err = do_single_unmap(x86, vaddr, c);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
+            }
         }
-        // Find the page
-        struct vnode *page = find_vnode(ptable, X86_64_PTABLE_BASE(vaddr + i));
-        if (!page) {
-            printf("no page for 0x%"PRIxGENVADDR"\n", vaddr + i);
-            continue; // not mapped
-        }
-
-        // Free up the resources
-        remove_vnode(ptable, page);
-        slab_free(&x86->slab, page);
     }
 
     if (retsize) {
         *retsize = size;
     }
 
+    //printf("[unmap] exiting\n");
     return ret;
 }
 

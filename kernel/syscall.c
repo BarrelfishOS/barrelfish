@@ -376,7 +376,7 @@ sys_modify_mapping(struct capability *mem, size_t page_count, uint64_t off)
     size_t map_size = page_count*BASE_PAGE_SIZE;
     if (map_start & BASE_PAGE_MASK) {
         // return modify error if offset not aligned to base page size
-        return SYSRET(SYS_ERR_VM_MAP_START_UNALIGNED);
+        return SYSRET(1000);
     }
     if ((map_start + map_size) > frame_end) {
         // return modify error if offset + map_size after end of memory region

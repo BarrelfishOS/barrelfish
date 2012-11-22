@@ -72,9 +72,10 @@ errors kernel SYS_ERR_ {
     failure VNODE_SLOT_INUSE        "Destination slot in use: unmap first",
     failure VNODE_TYPE              "Encountered non-VNode capability when manipulating page tables",
     failure VNODE_LOOKUP_NEXT       "Could not find next level page table",
-    failure VM_MAP_START_UNALIGNED  "Mapping offset not aligned to BASE_PAGE_SIZE",
+    failure VM_MAP_ALREADY_MAPPED   "This cap copy is already mapped",
     failure VM_MAP_SIZE             "Mapping size too large",
     failure VM_MAP_OFFSET           "Mapping offset too large",
+    failure VM_RETRY_SINGLE         "Mapping overlaps multiple leaf page tables, retry",
 
     // errors related to IRQ table
     failure IRQ_LOOKUP          "Specified capability was not found while inserting in IRQ table",
@@ -235,7 +236,9 @@ errors libbarrelfish LIB_ERR_ {
     failure PMAP_DETERMINE_ADDR "Failure in pmap_determine_addr()",
     failure PMAP_DO_MAP       "Failure in pmap_do_map()",
     failure PMAP_MAP          "Failure in pmap_map()",
+    failure PMAP_DO_SINGLE_MAP "Failure in pmap_do_single_map()",
     failure PMAP_UNMAP        "Failure in pmap_unmap()",
+    failure PMAP_DO_SINGLE_UNMAP "Failure in pmap_do_single_unmap()",
     failure PMAP_MODIFY_FLAGS "Failure in pmap_modify_flags()",
     failure PMAP_GET_PTABLE   "Failure in get_mapping()",
     failure PMAP_ALLOC_VNODE  "Failure in alloc_vnode()",

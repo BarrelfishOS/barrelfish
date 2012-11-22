@@ -327,7 +327,7 @@ static inline errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, st
     printf("0x%lx, %zd\n", get_address(&mem->cap), get_size(&mem->cap));
     printf("mem->mapping_info.pte          = 0x%lx\n", mem->mapping_info.pte);
     printf("mem->mapping_info.offset       = %zd\n", mem->mapping_info.offset);
-    printf("mem->mapping_info.mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
+    printf("mem->mapping_info.pte_count    = %zd\n", mem->mapping_info.pte_count);
     printf("mem = %p\n", mem);
 #endif
 
@@ -451,12 +451,14 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     genvaddr_t vaddr;
     struct cte *leaf_pt = cte_for_cap(pgtable);
     compile_vaddr(leaf_pt, slot, &vaddr);
-    //printf("vaddr = 0x%lx\n", vaddr);
+    // printf("vaddr = 0x%lx\n", vaddr);
+    // printf("num_pages = %zu\n", num_pages);
 
     // get cap for mapping
     struct cte *mem;
     errval_t err = lookup_cap_for_mapping(paddr, pte, &mem);
     if (err_is_fail(err)) {
+        printf("page_mappings_unmap: %ld\n", err);
         return err;
     }
     //printf("state before unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
