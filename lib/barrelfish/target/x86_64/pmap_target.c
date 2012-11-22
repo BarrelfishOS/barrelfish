@@ -546,10 +546,10 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     return SYS_ERR_OK;
 }
 
-static errval_t dump(struct pmap *pmap, void *buf, size_t buflen, size_t *bytes_written)
+static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen, size_t *items_written)
 {
-	struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
-    char *buf_ = buf;
+    struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+    struct pmap_dump_info *buf_ = buf;
 
     struct vnode *pml4 = &x86->root;
     struct vnode *pdpt, *pdir, *pt, *frame;
@@ -576,12 +576,16 @@ static errval_t dump(struct pmap *pmap, void *buf, size_t buflen, size_t *bytes_
                                 // lookup frames in pt
                                 if ((frame = find_vnode(pt, pt_index)) != NULL) {
                                     // write frame mapping to buf
-                                    struct frame_identity frameid;
-                                    invoke_frame_identify(frame->u.frame.cap, &frameid);
-                                    size_t bw = snprintf(buf_, buflen, "%zd.%zd.%zd.%zd:0x%"PRIxGENPADDR",0x%"PRIx8",0x%"PRIxVREGIONFLAGS"|", pml4_index, pdpt_index, pdir_index, pt_index, frameid.base, frameid.bits, frame->u.frame.flags);
-                                    buf_ += bw;
-                                    buflen -= bw;
-                                    *bytes_written += bw;
+                                    if (*items_written < buflen) {
+                                        buf_->pml4_index = pml4_index;
+                                        buf_->pdpt_index = pdpt_index;
+                                        buf_->pdir_index = pdir_index;
+                                        buf_->pt_index = pt_index;
+                                        buf_->cap = frame->u.frame.cap;
+                                        buf_->flags = frame->u.frame.flags;
+                                        buf_++;
+                                        (*items_written)++;
+                                    }
                                 }
                             }
                         }

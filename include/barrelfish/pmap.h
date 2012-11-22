@@ -15,6 +15,12 @@
 #ifndef LIBBARRELFISH_PMAP_H
 #define LIBBARRELFISH_PMAP_H
 
+struct pmap_dump_info {
+    size_t pml4_index, pdpt_index, pdir_index, pt_index;
+    vregion_flags_t flags;
+    struct capref cap;
+};
+
 struct pmap;
 struct pmap_funcs {
     errval_t (*determine_addr)(struct pmap *pmap, struct memobj *memobj,
@@ -33,8 +39,8 @@ struct pmap_funcs {
     errval_t (*serialise)(struct pmap *pmap, void *buf, size_t buflen);
     errval_t (*deserialise)(struct pmap *pmap, void *buf, size_t buflen);
 
-    errval_t (*dump)(struct pmap *pmap, void *buf, size_t buflen,
-		     size_t *bytes_written);
+    errval_t (*dump)(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen,
+		     size_t *items_written);
 };
 
 struct pmap {
