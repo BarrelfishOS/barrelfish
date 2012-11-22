@@ -16,6 +16,8 @@
 #include <dispatch.h>
 #include <target/x86_64/paging_kernel_target.h>
 #include <target/x86_64/offsets_target.h>
+#include <mdb/mdb_tree.h>
+#include <string.h>
 
 /// Map within a x86_64 pml4
 static errval_t x86_64_pml4(struct capability *dest, cslot_t slot,
@@ -191,6 +193,10 @@ static mapping_handler_t handler[ObjType_Num] = {
     [ObjType_VNode_x86_64_ptable] = x86_64_ptable,
 };
 
+
+#define DIAGNOSTIC_ON_ERROR 1
+#define RETURN_ON_ERROR 1
+
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t param1,
@@ -209,19 +215,27 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     if (mapped_pages >= src_cte->mapping_info.page_count) {
         // exceeded allowed page count for this mapping
+#if DIAGNOSTIC_ON_ERROR
         printf("caps_copy_to_vnode: exceeded allowed page count for this mapping\n");
         printf("                    mapped_pages = %zd, mapping_info.page_count = %zd\n",
                 mapped_pages, src_cte->mapping_info.page_count);
+#endif
+#if RETURN_ON_ERROR
         return SYS_ERR_VM_MAP_SIZE;
+#endif
     }
 
     if ((param2 - src_cte->mapping_info.offset)/BASE_PAGE_SIZE >= src_cte->mapping_info.page_count) {
         // requested map offset exceeds mapping region
+#if DIAGNOSTIC_ON_ERROR
         printf("caps_copy_to_vnode: requested map offset exceeds mapping region\n");
         printf("                    offset = %zd, mapping_info.offset = %zd, page_count = %zd",
                 param2, src_cte->mapping_info.offset,
                 src_cte->mapping_info.page_count);
+#endif
+#if RETURN_ON_ERROR
         return SYS_ERR_VM_MAP_OFFSET;
+#endif
     }
 
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, param1, param2, &pte);
@@ -239,6 +253,9 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
 {
     assert(type_is_vnode(pgtable->type));
 
+    // XXX: temporary
+    genpaddr_t paddr;
+
     switch (pgtable->type) {
     case ObjType_VNode_x86_64_pml4: {
         genpaddr_t gp = pgtable->u.vnode_x86_64_pml4.base;
@@ -246,6 +263,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
         lvaddr_t   lv = local_phys_to_mem(lp);
         union x86_64_pdir_entry *entry =
             (union x86_64_pdir_entry *)lv + slot;
+        paddr = entry->d.base_addr << BASE_PAGE_BITS;
         entry->raw = X86_64_PTABLE_CLEAR;
         break;
     }
@@ -255,6 +273,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
         lvaddr_t   lv = local_phys_to_mem(lp);
         union x86_64_pdir_entry *entry =
             (union x86_64_pdir_entry *)lv + slot;
+        paddr = entry->d.base_addr << BASE_PAGE_BITS;
         entry->raw = X86_64_PTABLE_CLEAR;
         break;
     }
@@ -264,6 +283,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
         lvaddr_t   lv = local_phys_to_mem(lp);
         union x86_64_pdir_entry *entry =
             (union x86_64_pdir_entry *)lv + slot;
+        paddr = entry->d.base_addr << BASE_PAGE_BITS;
         entry->raw = X86_64_PTABLE_CLEAR;
         break;
     }
@@ -273,12 +293,23 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
         lvaddr_t   lv = local_phys_to_mem(lp);
         union x86_64_ptable_entry *entry =
             (union x86_64_ptable_entry *)lv + slot;
+        paddr = entry->base.base_addr << BASE_PAGE_BITS;
         entry->raw = X86_64_PTABLE_CLEAR;
         break;
     }
     default:
         assert(!"Should not get here");
     }
+
+    // XXX: temporary
+    // TODO: fix lookup to choose correct cap
+    struct cte *mem;
+    errval_t err = mdb_find_cap_for_address(paddr, &mem);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    // clear mapping info
+    memset(&mem->mapping_info, 0, sizeof(struct mapping_info));
 
     // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
     // This is inefficient.

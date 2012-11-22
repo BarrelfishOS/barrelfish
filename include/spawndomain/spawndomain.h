@@ -70,6 +70,8 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
 errval_t spawn_run(struct spawninfo *si);
 errval_t spawn_free(struct spawninfo *si);
 
+errval_t multiboot_cleanup_mapping(void);
+
 /* spawn_vspace.c */
 errval_t spawn_vspace_init(struct spawninfo *si, struct capref vnode,
                            enum cpu_type cpu_type);
@@ -91,6 +93,7 @@ struct mem_region *multiboot_find_module_containing(struct bootinfo *bi,
 						    const char *containing);
 errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
                           lvaddr_t *retaddr, genpaddr_t *retpaddr);
+errval_t spawn_unmap_module(lvaddr_t mapped_addr);
 errval_t spawn_map_bootinfo(struct spawninfo *si, genvaddr_t *retvaddr);
 const char *getopt_module(struct mem_region *module);
 

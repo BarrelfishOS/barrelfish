@@ -131,7 +131,7 @@ static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     }
 
     // Map it
-    printf("\talloc_vnode calling vnode_map()\n");
+    //printf("\talloc_vnode calling vnode_map()\n");
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
                     PTABLE_ACCESS_DEFAULT, 0);
     if (err_is_fail(err)) {
@@ -259,7 +259,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
         // Map entry into the page table in the kernel
         uint32_t entry = X86_64_PTABLE_BASE(vaddr);
-        printf("\tdo_map calling vnode_map()\n");
+        //printf("\tdo_map calling vnode_map()\n");
         err = vnode_map(ptable->u.vnode.cap, frame, entry, pmap_flags, i);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_VNODE_MAP);
@@ -495,7 +495,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
         // Remap with changed flags
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-        printf("\tmodify_flags calling vnode_map()\n");
+        //printf("\tmodify_flags calling vnode_map()\n");
         err = vnode_map(ptable->u.vnode.cap, vn->u.frame.cap, vn->entry,
                         pmap_flags, vn->u.frame.offset);
         if (err_is_fail(err)) {

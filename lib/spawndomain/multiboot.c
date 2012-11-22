@@ -114,6 +114,10 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     return SYS_ERR_OK;
 }
 
+errval_t spawn_unmap_module(lvaddr_t mapped_addr)
+{
+    return vspace_unmap((void *)mapped_addr);
+}
 
 /// Returns a raw pointer to the modules string area string
 const char *multiboot_module_rawstring(struct mem_region *region)
@@ -147,6 +151,17 @@ const char *multiboot_module_rawstring(struct mem_region *region)
         return NULL;
     }
     return multiboot_strings + region->mrmod_data;
+}
+
+errval_t multiboot_cleanup_mapping(void)
+{
+    errval_t err = vspace_unmap(multiboot_strings);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "multiboot_cleanup_mapping: vspace_unmap() failed\n");
+        return err_push(err, LIB_ERR_VSPACE_REMOVE_REGION);
+    }
+    multiboot_strings = NULL;
+    return SYS_ERR_OK;
 }
 
 
@@ -220,3 +235,4 @@ struct mem_region *multiboot_find_module_containing(struct bootinfo *bi,
 
     return NULL;
 }
+

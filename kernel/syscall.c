@@ -343,7 +343,6 @@ sys_modify_mapping(struct capability *mem, size_t page_count, uint64_t off)
 {
     /* find cte belonging to cap */
     struct cte *mem_cap = cte_for_cap(mem);
-    printf("0x%p, 0x%p\n", mem_cap, mem);
 
     if (!type_is_vnode(mem->type) && mem->type != ObjType_Frame && mem->type != ObjType_DevFrame){
         // this only works for mappable memory
