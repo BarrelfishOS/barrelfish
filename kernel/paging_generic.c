@@ -142,11 +142,16 @@ errval_t unmap_capability(struct cte *mem)
     cslot_t slot = (mem->mapping_info.pte - pt) / PTABLE_ENTRY_SIZE;
     genvaddr_t vaddr;
     compile_vaddr(pgtable, slot, &vaddr);
-    genvaddr_t vend = vaddr + mem->mapping_info.pte_count * BASE_PAGE_SIZE;
+    //genvaddr_t vend = vaddr + mem->mapping_info.pte_count * BASE_PAGE_SIZE;
 
     do_unmap(pt, slot, vaddr, mem->mapping_info.pte_count);
 
-    do_selective_tlb_flush(vaddr, vend);
+    if (mem->mapping_info.pte_count > 1) {
+        do_full_tlb_flush();
+    } else {
+        do_one_tlb_flush(vaddr);
+    }
+
 
     return SYS_ERR_OK;
 }

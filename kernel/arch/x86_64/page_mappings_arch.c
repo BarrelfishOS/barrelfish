@@ -363,7 +363,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     genvaddr_t vaddr;
     struct cte *leaf_pt = cte_for_cap(pgtable);
     compile_vaddr(leaf_pt, slot, &vaddr);
-    genvaddr_t vend = vaddr + num_pages * BASE_PAGE_SIZE;
+    // genvaddr_t vend = vaddr + num_pages * BASE_PAGE_SIZE;
     // printf("vaddr = 0x%lx\n", vaddr);
     // printf("num_pages = %zu\n", num_pages);
 
@@ -387,7 +387,11 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     // flush TLB for unmapped pages
     // TODO: heuristic that decides if selective or full flush is more
     //       efficient?
-    do_selective_tlb_flush(vaddr, vend);
+    if (num_pages > 1) {
+        do_full_tlb_flush();
+    } else {
+        do_one_tlb_flush(vaddr);
+    }
 
     // update mapping info
     memset(&mapping->mapping_info, 0, sizeof(struct mapping_info));
