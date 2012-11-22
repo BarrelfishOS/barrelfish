@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
         if (runs[i] > THRESH) {
             runs[i] = BENCH_IGNORE_WATERMARK;
         }
-        err = vnode_unmap(pagetable,(cslot_t)(i%512),1);
+        err = vnode_unmap(pagetable,frame,(cslot_t)(i%512),1);
         assert(err_is_ok(err));
     }
 

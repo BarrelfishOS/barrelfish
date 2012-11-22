@@ -318,15 +318,15 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
     }
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num_pages)
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
     //printf("page_mappings_unmap(%zd pages, slot = %zd)\n", num_pages, slot);
 
     // get page table entry data
     genpaddr_t paddr;
-    lpaddr_t pte;
-    read_pt_entry(pgtable, slot, &paddr, &pte, NULL);
+    //lpaddr_t pte;
+    read_pt_entry(pgtable, slot, &paddr, NULL, NULL);
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
     // get virtual address of first page
@@ -338,16 +338,18 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     // printf("num_pages = %zu\n", num_pages);
 
     // get cap for mapping
+    /*
     struct cte *mem;
     errval_t err = lookup_cap_for_mapping(paddr, pte, &mem);
     if (err_is_fail(err)) {
         printf("page_mappings_unmap: %ld\n", err);
         return err;
     }
+    */
     //printf("state before unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
     //printf("state before unmap: num_pages    = %zd\n", num_pages);
 
-    if (num_pages != mem->mapping_info.pte_count) {
+    if (num_pages != mapping->mapping_info.pte_count) {
         // want to unmap a different amount of pages than was mapped
         return SYS_ERR_VM_MAP_SIZE;
     }
@@ -355,7 +357,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     do_unmap(pt, slot, vaddr, num_pages);
 
     // update mapping info
-    memset(&mem->mapping_info, 0, sizeof(struct mapping_info));
+    memset(&mapping->mapping_info, 0, sizeof(struct mapping_info));
 
     do_tlb_flush();
 

@@ -231,9 +231,21 @@ static struct sysret handle_map(struct capability *pgtable,
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
-    size_t entry = args[0];
-    size_t pte_count = args[1];
-    errval_t err = page_mappings_unmap(pgtable, entry, pte_count);
+    size_t mapping_caddr = args[0];
+    size_t entry = args[1] & 0x3ff;
+    size_t pte_count = (args[1]>>10) & 0x3ff;
+    pte_count += 1;
+    int mapping_bits = (args[1]>>20) & 0xff;
+
+    errval_t err;
+    struct cte *mapping = NULL;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_caddr, mapping_bits,
+                           &mapping, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+
+    err = page_mappings_unmap(pgtable, mapping, entry, pte_count);
     return SYSRET(err);
 }
 

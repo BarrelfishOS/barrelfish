@@ -189,9 +189,20 @@ static struct sysret handle_revoke(struct capability *root,
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
-    size_t entry = args[0];
-    size_t pages = args[1];
-    errval_t err = page_mappings_unmap(pgtable, entry, pages);
+    capaddr_t cptr = args[0];
+    int bits       = args[1];
+    size_t entry   = args[2];
+    size_t pages   = args[3];
+
+    errval_t err;
+    struct cte *mapping;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, bits,
+                                    &mapping, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+
+    err = page_mappings_unmap(pgtable, mapping, entry, pages);
     return SYSRET(err);
 }
 

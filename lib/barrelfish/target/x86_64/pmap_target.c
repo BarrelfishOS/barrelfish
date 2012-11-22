@@ -495,7 +495,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t 
     if (pt) {
         struct vnode *page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
         if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->entry, page->u.frame.pte_count);
+            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, page->u.frame.pte_count);
             if (err_is_fail(err)) {
                 printf("vnode_unmap returned error: %s (%d)\n", err_getstring(err), err_no(err));
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
@@ -604,7 +604,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     if (pt) {
         struct vnode *page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
         if (page) {
-            err = vnode_unmap(pt->u.vnode.cap, page->entry, pages);
+            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, pages);
             if (err_is_fail(err)) {
                 printf("vnode_unmap returned error: %s (%"PRIuERRV")\n", err_getstring(err), err);
                 ret = err_push(err, LIB_ERR_VNODE_UNMAP);

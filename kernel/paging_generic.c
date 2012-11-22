@@ -23,12 +23,11 @@
 
 static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
 {
-    int result;
     errval_t err;
     if (old->mapping_info.pte) {
         err = mdb_find_cap_for_address(local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte), next);
         if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND) {
-            printf("could not find cap associated with 0x%"PRIxLVADDR"\n", result, old->mapping_info.pte);
+            printf("could not find cap associated with 0x%"PRIxLPADDR"\n", old->mapping_info.pte);
             return SYS_ERR_VNODE_LOOKUP_NEXT;
         }
         if (err_is_fail(err)) {

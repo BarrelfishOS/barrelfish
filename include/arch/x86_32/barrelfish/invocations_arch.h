@@ -246,13 +246,19 @@ static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
 }
 
 
-static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry, size_t pte_count)
+static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits, size_t entry, size_t pte_count)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
 
+    pte_count -= 1;
+
+    assert(entry < 1024);
+    assert(pte_count < 1024);
+    assert(mapping_bits <= 0xff);
+
     return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, entry, pte_count).error;
+                    invoke_cptr, mapping_cptr, ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) | (entry & 0x3ff)).error;
 }
 
 /**

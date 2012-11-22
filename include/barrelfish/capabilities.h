@@ -99,9 +99,12 @@ vnode_map(struct capref dest, struct capref src, capaddr_t slot,
     return invoke_vnode_map(dest, slot, saddr, svbits, attr, off, pte_count);
 }
 
-static inline errval_t vnode_unmap(struct capref pgtl, size_t entry, size_t num_pages)
+static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping, size_t entry, size_t num_pages)
 {
-    return invoke_vnode_unmap(pgtl, entry, num_pages);
+    uint8_t bits = get_cap_valid_bits(mapping);
+    capaddr_t mapping_addr = get_cap_addr(mapping) >> (CPTR_BITS - bits);
+
+    return invoke_vnode_unmap(pgtl, mapping_addr, bits, entry, num_pages);
 }
 
 /**
