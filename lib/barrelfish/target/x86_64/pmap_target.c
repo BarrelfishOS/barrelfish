@@ -580,6 +580,37 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     return ret;
 }
 
+static errval_t do_single_remap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t pages, vregion_flags_t flags)
+{
+    // TODO: reset mapping info
+    // XXX: need new copy of cap?
+    errval_t err;
+
+    // Remap with new permissions in the kernel
+    struct vnode *ptable = find_ptable(pmap, vaddr);
+    if (ptable) {
+        struct vnode *page = find_vnode(ptable, X86_64_PTABLE_BASE(vaddr));
+        if (page) {
+            err = vnode_unmap(ptable->u.vnode.cap, page->u.frame.cap,
+                              page->entry, pages);
+            if (err_is_fail(err)) {
+                printf("vnode_unmap returned error: %s (%"PRIuERRV")\n",
+                        err_getstring(err), err);
+                return err_push(err, LIB_ERR_VNODE_UNMAP);
+            }
+            paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+            err = vnode_map(ptable->u.vnode.cap, page->u.frame.cap, page->entry,
+                            pmap_flags, page->u.frame.offset, pages);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_VNODE_MAP);
+            }
+            page->u.frame.flags = flags;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Modify page mapping
  *
@@ -591,60 +622,53 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                              vregion_flags_t flags, size_t *retsize)
 {
-    errval_t err, ret;
+    errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
     size = ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
     size_t pages = size / X86_64_BASE_PAGE_SIZE;
+    genvaddr_t vend = vaddr + size;
 
-    // TODO: reset mapping info
-    // XXX: need new copy of cap?
-
-    // Unmap it in the kernel
-    struct vnode *pt= find_ptable(x86, vaddr);
-    if (pt) {
-        struct vnode *page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
-        if (page) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, pages);
-            if (err_is_fail(err)) {
-                printf("vnode_unmap returned error: %s (%"PRIuERRV")\n", err_getstring(err), err);
-                ret = err_push(err, LIB_ERR_VNODE_UNMAP);
-                return ret;
-            }
+    if (X86_64_PDIR_BASE(vaddr) == X86_64_PDIR_BASE(vend)) {
+        // fast path
+        err = do_single_remap(x86, vaddr, pages, flags);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
     }
-
-
-    for (size_t i = 0; i < size; i += X86_64_BASE_PAGE_SIZE) {
-        // Find the page table
-        struct vnode *ptable = find_ptable(x86, vaddr + i);
-        if (ptable == NULL) { // not mapped
-            ret = LIB_ERR_PMAP_FIND_VNODE;
-            continue;
-        }
-
-        // Find the page
-        struct vnode *vn = find_vnode(ptable, X86_64_PTABLE_BASE(vaddr + i));
-        if (vn == NULL) { // not mapped
-            ret = LIB_ERR_PMAP_FIND_VNODE;
-            continue;
-        }
-
-        // Remap with changed flags
-        paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-        //printf("\tmodify_flags calling vnode_map()\n");
-        err = vnode_map(ptable->u.vnode.cap, vn->u.frame.cap, vn->entry,
-                        pmap_flags, vn->u.frame.offset, 1);
+    else { // slow path
+        // unmap first leaf
+        uint32_t c = X86_64_PTABLE_SIZE - X86_64_PTABLE_BASE(vaddr);
+        err = do_single_remap(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_MAP);
+            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
 
-        vn->u.frame.flags = flags;
+        // unmap full leaves
+        vaddr += c * X86_64_BASE_PAGE_SIZE;
+        while (X86_64_PDIR_BASE(vaddr) < X86_64_PDIR_BASE(vend)) {
+            c = X86_64_PTABLE_SIZE;
+            err = do_single_remap(x86, vaddr, X86_64_PTABLE_SIZE, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+            }
+            vaddr += c * X86_64_BASE_PAGE_SIZE;
+        }
+
+        // unmap remaining part
+        c = X86_64_PTABLE_BASE(vend) - X86_64_PTABLE_BASE(vaddr);
+        if (c) {
+            err = do_single_remap(x86, vaddr, c, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+            }
+        }
     }
 
     if (retsize) {
         *retsize = size;
     }
 
+    //printf("[modify_flags] exiting\n");
     return SYS_ERR_OK;
 }
 
