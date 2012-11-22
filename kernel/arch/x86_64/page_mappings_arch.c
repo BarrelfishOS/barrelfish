@@ -262,63 +262,151 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
 {
     assert(type_is_vnode(pgtable->type));
 
-    // XXX: temporary
+    genpaddr_t gp = get_address(pgtable);
+    lpaddr_t lp = gen_phys_to_local_phys(gp);
+    lvaddr_t lv = local_phys_to_mem(lp);
     genpaddr_t paddr;
+    lpaddr_t pte;
+    void *entry;
 
+    // get paddr
     switch (pgtable->type) {
-    case ObjType_VNode_x86_64_pml4: {
-        genpaddr_t gp = pgtable->u.vnode_x86_64_pml4.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_64_pdir_entry *entry =
-            (union x86_64_pdir_entry *)lv + slot;
-        paddr = entry->d.base_addr << BASE_PAGE_BITS;
-        entry->raw = X86_64_PTABLE_CLEAR;
-        break;
-    }
-    case ObjType_VNode_x86_64_pdpt: {
-        genpaddr_t gp = pgtable->u.vnode_x86_64_pdpt.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_64_pdir_entry *entry =
-            (union x86_64_pdir_entry *)lv + slot;
-        paddr = entry->d.base_addr << BASE_PAGE_BITS;
-        entry->raw = X86_64_PTABLE_CLEAR;
-        break;
-    }
+    case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir: {
-        genpaddr_t gp = pgtable->u.vnode_x86_64_pdir.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_64_pdir_entry *entry =
+        union x86_64_pdir_entry *e =
             (union x86_64_pdir_entry *)lv + slot;
-        paddr = entry->d.base_addr << BASE_PAGE_BITS;
-        entry->raw = X86_64_PTABLE_CLEAR;
+        paddr = e->d.base_addr << BASE_PAGE_BITS;
+        entry = e;
+        pte = lp + slot * sizeof(union x86_64_pdir_entry);
         break;
     }
     case ObjType_VNode_x86_64_ptable: {
-        genpaddr_t gp = pgtable->u.vnode_x86_64_ptable.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union x86_64_ptable_entry *entry =
+        union x86_64_ptable_entry *e =
             (union x86_64_ptable_entry *)lv + slot;
-        paddr = entry->base.base_addr << BASE_PAGE_BITS;
-        entry->raw = X86_64_PTABLE_CLEAR;
+        paddr = e->base.base_addr << BASE_PAGE_BITS;
+        entry = e;
+        pte = lp + slot * sizeof(union x86_64_ptable_entry);
         break;
     }
     default:
         assert(!"Should not get here");
     }
 
-    // XXX: temporary
+    // lookup matching cap
     // TODO: fix lookup to choose correct cap
-    struct cte *mem;
+    struct cte *mem, *last, *orig;
     errval_t err = mdb_find_cap_for_address(paddr, &mem);
     if (err_is_fail(err)) {
+        printf("could not find a cap for 0x%"PRIxGENPADDR" (%ld)\n", paddr, err);
         return err;
     }
-    // clear mapping info
-    memset(&mem->mapping_info, 0, sizeof(struct mapping_info));
+    printf("unmap request = 0x%"PRIxGENPADDR"\n", paddr);
+    printf("has_copies(mem) = %d\n", has_copies(mem));
+
+    // select correct pt base address and calculate correct offset
+    lvaddr_t base_pte = mem->mapping_info.pt2 ? mem->mapping_info.pt2 : mem->mapping_info.pte;
+    size_t entries = mem->mapping_info.mapped_pages;
+    if (mem->mapping_info.pt2) {
+        entries -= (X86_64_PTABLE_SIZE - mem->mapping_info.pt_slot);
+    }
+
+    // search matching capability in mdb tree
+    err = SYS_ERR_VM_MAP_OFFSET;
+    last = mem;
+    orig = mem;
+    // search backwards in tree
+    while (is_copy(&mem->cap, &last->cap)) {
+        struct capability *cap = &mem->cap;
+        struct mapping_info *map = &mem->mapping_info;
+        genpaddr_t base = get_address(cap);
+        genpaddr_t last_mapped_page = base + map->offset + (map->mapped_pages - 1) * BASE_PAGE_SIZE;
+        lpaddr_t last_used_pte = base_pte + (entries - 1) * sizeof(union x86_64_pdir_entry);
+        printf("looking at mapping @0x%"PRIxGENPADDR", last mapped page @0x%"PRIxGENPADDR"\n"
+               "last used pte = 0x%"PRIxLPADDR", pte = 0x%"PRIxLPADDR"\n",
+                base + map->offset, last_mapped_page, last_used_pte, pte);
+        printf("map->pte = 0x%"PRIxLPADDR", mapped_pages = %zd\n", map->pte, map->mapped_pages);
+        printf("base_pte = 0x%"PRIxLPADDR", entries      = %zd\n", base_pte, entries);
+        // only allow unmaps at end of mapped region
+        if (last_mapped_page == paddr && last_used_pte == pte)
+        {
+            // found matching cap
+            err = SYS_ERR_OK;
+            goto found;
+        }
+        last = mem;
+        mem = mdb_predecessor(mem);
+    }
+    last = orig;
+    mem = mdb_successor(orig);
+    while (is_copy(&mem->cap, &last->cap)) {
+        struct capability *cap = &mem->cap;
+        struct mapping_info *map = &mem->mapping_info;
+        genpaddr_t base = get_address(cap);
+        genpaddr_t last_mapped_page = base + map->offset + (map->mapped_pages - 1) * BASE_PAGE_SIZE;
+        lpaddr_t last_used_pte = base_pte + (entries - 1) * sizeof(union x86_64_pdir_entry);
+        printf("looking at mapping @0x%"PRIxGENPADDR", last mapped page @0x%"PRIxGENPADDR"\n"
+               "last used pte = 0x%"PRIxLPADDR", pte = 0x%"PRIxLPADDR"\n",
+                base + map->offset, last_mapped_page, last_used_pte, pte);
+        printf("map->pte = 0x%"PRIxLPADDR", mapped_pages = %zd\n", map->pte, map->mapped_pages);
+        printf("base_pte = 0x%"PRIxLPADDR", entries      = %zd\n", base_pte, entries);
+        // only allow unmaps at end of mapped region
+        if (last_mapped_page == paddr && last_used_pte == pte)
+        {
+            // found matching cap
+            err = SYS_ERR_OK;
+            goto found;
+        }
+        last = mem;
+        mem = mdb_successor(mem);
+    }
+
+    if (err_is_fail(err)) {
+        // return error if no matching cap was found
+        printf("\n\n");
+        return err;
+    }
+
+found:
+    printf("found cap: 0x%"PRIxGENPADDR", mapping->pte = 0x%"PRIxLPADDR", pte = 0x%"PRIxLPADDR"\n",
+            get_address(&mem->cap), mem->mapping_info.pte, pte);
+
+    printf("state before unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
+
+
+    // decrease count of mapped pages to reflect unmap
+    mem->mapping_info.mapped_pages -= 1;
+
+    if (slot == 0 && mem->mapping_info.pt2) {
+        // unmapped all entries in pt2
+        mem->mapping_info.pt2 = 0;
+    }
+
+    if (mem->mapping_info.mapped_pages == 0) {
+        // all pages unmapped, delete mapping
+        printf("mapped_pages == 0 --> clearing mapping\n");
+        memset(&mem->mapping_info, 0, sizeof(struct mapping_info));
+    }
+
+    // clear page table entry
+    switch (pgtable->type) {
+    case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_pdpt:
+    case ObjType_VNode_x86_64_pdir: {
+        union x86_64_pdir_entry *e = entry;
+        e->raw = 0;
+        break;
+    }
+    case ObjType_VNode_x86_64_ptable: {
+        union x86_64_ptable_entry *e = entry;
+        e->raw = 0;
+        break;
+    }
+    default:
+        assert(!"Should not get here");
+    }
+
+    printf("state after unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
 
     // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
     // This is inefficient.
