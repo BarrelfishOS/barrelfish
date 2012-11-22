@@ -439,6 +439,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         // Unmap it in the kernel
         err = vnode_unmap(ptable->u.vnode.cap, page->entry);
         if (err_is_fail(err)) {
+            printf("vnode_unmap returned error: %s (%"PRIuERRV")\n", err_getstring(err), err);
             ret = err_push(err, LIB_ERR_VNODE_UNMAP);
             continue; // try to unmap the rest anyway
         }

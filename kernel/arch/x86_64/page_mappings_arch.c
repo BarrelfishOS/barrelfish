@@ -225,6 +225,11 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 #endif
     }
 
+    /*genpaddr_t paddr = get_address(&src_cte->cap) + param2;
+    genvaddr_t vaddr;
+    compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
+    printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr); */
+
     if ((param2 - src_cte->mapping_info.offset)/BASE_PAGE_SIZE >= src_cte->mapping_info.page_count) {
         // requested map offset exceeds mapping region
 #if DIAGNOSTIC_ON_ERROR
@@ -417,5 +422,6 @@ found:
     __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
     __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
 
+    printf("returning 0K\n");
     return SYS_ERR_OK;
 }
