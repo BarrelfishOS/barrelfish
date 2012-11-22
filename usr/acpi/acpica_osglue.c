@@ -641,8 +641,18 @@ AcpiOsMapMemory (
         }
         err = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, new->caps[page],
                            BASE_PAGE_SIZE);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "AcpiOsMapMemory: memobj fill failed: %s.",
+                    err_getstring(err_no(err)));
+            return NULL;
+        }
         assert(err == 0);
         err = memobj->m.f.pagefault(&memobj->m, vregion, page * BASE_PAGE_SIZE, 0);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "AcpiOsMapMemory: memobj pagefault failed: %s.",
+                    err_getstring(err_no(err)));
+            return NULL;
+        }
         assert(err == 0);
     }
 
