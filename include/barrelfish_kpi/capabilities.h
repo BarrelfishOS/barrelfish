@@ -18,10 +18,10 @@
 /* FIXME: OBJBITS defines must match sizes in Hamlet's capabilities/caps.hl */
 
 // Size of CNode entry
-#define OBJBITS_CTE             6
+#define OBJBITS_CTE             7
 
 // Size of dispatcher
-#define OBJBITS_DISPATCHER      9
+#define OBJBITS_DISPATCHER     10
 
 #ifndef __ASSEMBLER__
 
