@@ -72,6 +72,7 @@ errors kernel SYS_ERR_ {
     failure VNODE_SLOT_INUSE        "Destination slot in use: unmap first",
     failure VNODE_TYPE              "Encountered non-VNode capability when manipulating page tables",
     failure VNODE_LOOKUP_NEXT       "Could not find next level page table",
+    failure VNODE_NOT_INSTALLED     "VNode not in rooted page table tree",
     failure VM_ALREADY_MAPPED       "This cap copy is already mapped",
     failure VM_MAP_SIZE             "Mapping size too large",
     failure VM_MAP_OFFSET           "Mapping offset too large",

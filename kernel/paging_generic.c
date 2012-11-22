@@ -25,19 +25,25 @@ static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
 {
     int result;
     errval_t err;
-    err = mdb_find_range(get_type_root(ObjType_RAM),
-            local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte),
-            0, MDB_RANGE_FOUND_INNER, next,
-            &result);
-    if (err_is_fail(err)) {
-        printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
-        return err;
+    if (old->mapping_info.pte) {
+        err = mdb_find_range(get_type_root(ObjType_RAM),
+                local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte),
+                0, MDB_RANGE_FOUND_INNER, next,
+                &result);
+        if (err_is_fail(err)) {
+            printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
+            return err;
+        }
+        if (result != MDB_RANGE_FOUND_SURROUNDING) {
+            printf("(%d) could not find cap associated with 0x%"PRIxLVADDR"\n", result, old->mapping_info.pte);
+            return SYS_ERR_VNODE_LOOKUP_NEXT;
+        }
+        return SYS_ERR_OK;
     }
-    if (result != MDB_RANGE_FOUND_SURROUNDING) {
-        printf("(%d) could not find cap associated with 0x%"PRIxLVADDR"\n", result, old->mapping_info.pte);
-        return SYS_ERR_VNODE_LOOKUP_NEXT;
+    else {
+        *next = NULL;
+        return SYS_ERR_VNODE_SLOT_INVALID;
     }
-    return SYS_ERR_OK;
 }
 
 static inline size_t get_offset(struct cte *old, struct cte *next)
@@ -99,6 +105,10 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
     while (!is_root_pt(old->cap.type))
     {
         err = find_next_ptable(old, &next);
+        if (err == SYS_ERR_VNODE_NOT_INSTALLED) { // no next page table
+            *retvaddr = 0;
+            return err;
+        }
         if (err_is_fail(err)) {
             return err;
         }
