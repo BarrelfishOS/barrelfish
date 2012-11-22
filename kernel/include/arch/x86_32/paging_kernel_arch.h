@@ -94,29 +94,6 @@ static inline size_t get_pte_size(void) {
     return sizeof(union x86_32_ptable_entry);
 }
 
-static inline size_t vnode_entry_bits(enum objtype type) {
-#ifdef CONFIG_PAE
-    if (type == ObjType_VNode_x86_32_pdpt)
-    {
-        return 2;       // log2(X86_32_PDPTE_SIZE)
-    }
-    else if (type == ObjType_VNode_x86_32_pdir ||
-             type == ObjType_VNode_x86_32_ptable)
-    {
-        return 9;       // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
-    }
-#else
-    if (type == ObjType_VNode_x86_32_pdir ||
-        type == ObjType_VNode_x86_32_ptable)
-    {
-        return 10;      // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
-    }
-#endif
-    else {
-        assert(!"unknown page table type");
-    }
-}
-
 static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
 {
     assert(vaddr < ((genvaddr_t)1)<<32);

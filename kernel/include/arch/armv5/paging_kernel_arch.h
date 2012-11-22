@@ -78,18 +78,4 @@ static inline size_t get_pte_size(void) {
     return sizeof(union l1_entry);
 }
 
-static inline size_t vnode_entry_bits(enum objtype type) {
-    if (type == ObjType_VNode_ARM_l2)
-    {
-        return 9;       // log2(ARM_L2_MAX_ENTRIES)
-    }
-    else if (type == ObjType_VNode_ARM_l1)
-    {
-        return 12;      // log2(ARM_L1_MAX_ENTRIES)
-    }
-    else {
-        assert(!"unknown page table type");
-    }
-}
-
 #endif // KERNEL_ARCH_ARM_PAGING_H
