@@ -421,16 +421,17 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
     size = ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
 
-    for (size_t i = 0; i < size; i+=X86_64_BASE_PAGE_SIZE) {
+    for (size_t i = X86_64_BASE_PAGE_SIZE; i <= size; i+=X86_64_BASE_PAGE_SIZE) {
         // Find the page table
         struct vnode *ptable;
-        ptable = find_ptable(x86, vaddr + i);
+        genvaddr_t vaddr_ = vaddr + size - i;
+        ptable = find_ptable(x86, vaddr_);
         if (ptable == NULL) {
             continue; // not mapped
         }
 
         // Find the page
-        struct vnode *page = find_vnode(ptable, X86_64_PTABLE_BASE(vaddr + i));
+        struct vnode *page = find_vnode(ptable, X86_64_PTABLE_BASE(vaddr_));
         if (!page) {
             continue; // not mapped
         }
