@@ -1,7 +1,7 @@
-#include <barrelfish/barrelfish.h>
+#include "vspace_dump.h"
+
 #include <barrelfish/vregion.h>
 #include <stdio.h>
-#include "vspace_dump.h"
 
 void dump_my_vregions(void)
 {
@@ -88,9 +88,8 @@ static int cmp_dump_info(const void *arg1, const void *arg2)
 #endif
 
 #define BUFSIZE 8192
-void dump_page_tables(void)
+void dump_pmap(struct pmap *pmap)
 {
-    struct pmap *pmap = get_current_pmap();
     struct pmap_dump_info *buf = calloc(BUFSIZE, sizeof(struct pmap_dump_info));
     size_t items_written;
 
@@ -111,4 +110,11 @@ void dump_page_tables(void)
     printf("\n");
 
     //puts(buf);
+}
+
+void dump_page_tables(void)
+{
+    struct pmap *pmap = get_current_pmap();
+
+    dump_pmap(pmap);
 }
