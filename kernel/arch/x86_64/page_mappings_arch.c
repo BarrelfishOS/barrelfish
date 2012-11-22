@@ -406,9 +406,16 @@ static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
 
 size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
 {
+    //printf("[do_unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, num_pages);
     // iterate over affected leaf ptables
     size_t unmapped_pages = 0;
     union x86_64_ptable_entry *ptentry = (union x86_64_ptable_entry *)pt + slot;
+    for (int i = 0; i < num_pages; i++) {
+        ptentry++->raw = 0;
+        unmapped_pages++;
+    }
+    return unmapped_pages;
+#if 0
     do {
         size_t target = (num_pages - unmapped_pages) < (X86_64_PTABLE_SIZE - slot) ? slot + (num_pages - unmapped_pages) : X86_64_PTABLE_SIZE;
         int i;
@@ -433,6 +440,7 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
     if (unmapped_pages > num_pages) { unmapped_pages = num_pages; }
 
     return unmapped_pages;
+#endif
 }
 
 errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num_pages)
