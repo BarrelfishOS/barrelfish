@@ -81,11 +81,40 @@ static lvaddr_t inline paging_map_device(lpaddr_t base, size_t size)
 }
 
 static inline bool is_root_pt(enum objtype type) {
-#if PAE
+#ifdef CONFIG_PAE
     return type == ObjType_VNode_x86_32_pdpt;
 #else
     return type == ObjType_VNode_x86_32_pdir;
 #endif
+}
+
+static inline size_t get_pte_size(void) {
+    // the definition of x86_32_ptable entry is wrapped in an #ifdef CONFIG_PAE
+    // block and will thus have the correct size for both PAE and non-PAE x86_32.
+    return sizeof(union x86_32_ptable_entry);
+}
+
+static inline size_t vnode_entry_bits(enum objtype type) {
+#ifdef CONFIG_PAE
+    else if (type == ObjType_VNode_x86_32_pdpt)
+    {
+        return 2;       // log2(X86_32_PDPTE_SIZE)
+    }
+    else if (type == ObjType_VNode_x86_32_pdir ||
+             type == ObjType_VNode_x86_32_ptable)
+    {
+        return 9;       // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
+    }
+#else
+    else if (type == ObjType_VNode_x86_32_pdir ||
+             type == ObjType_VNode_x86_32_ptable)
+    {
+        return 10;      // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
+    }
+#endif
+    else {
+        assert(!"unknown page table type");
+    }
 }
 
 #endif // KERNEL_ARCH_X86_32_PAGING_H

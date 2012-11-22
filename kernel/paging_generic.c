@@ -21,111 +21,97 @@
 #include <mdb/mdb_tree.h>
 #include <stdio.h>
 
-__attribute__((unused))
-static size_t get_next_size(enum objtype type)
+static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
 {
-    if (!type_is_vnode(type)) {
-        assert(!"makes no sense on non-vnode type");
+    int result;
+    errval_t err;
+    err = mdb_find_range(get_type_root(ObjType_RAM),
+            local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte),
+            0, MDB_RANGE_FOUND_INNER, next,
+            &result);
+    if (err_is_fail(err)) {
+        printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
+        return err;
     }
-
-    size_t size;
-    switch (type) {
-        case ObjType_VNode_x86_64_pdpt:
-            size = 1ULL<<vnode_objbits(ObjType_VNode_x86_64_pml4);
-            break;
-        case ObjType_VNode_x86_64_pdir:
-            size = 1ULL<<vnode_objbits(ObjType_VNode_x86_64_pdpt);
-            break;
-        case ObjType_VNode_x86_64_ptable:
-            size = 1ULL<<vnode_objbits(ObjType_VNode_x86_64_pdir);
-            break;
-#ifdef PAE
-        case ObjType_VNode_x86_32_pdir:
-            size = 1ULL<<vnode_objbits(ObjType_VNode_x86_32_pdpt);
-            break;
-#endif
-        case ObjType_VNode_x86_32_ptable:
-            size = 1ULL<<vnode_objbits(ObjType_VNode_x86_32_pdir);
-            break;
-        case ObjType_VNode_ARM_l1:
-            size = 1ULL<<vnode_objbits(ObjType_VNode_ARM_l2);
-            break;
-        default:
-            assert(!"makes no sense on top level vnode type");
+    if (result != MDB_RANGE_FOUND_SURROUNDING) {
+        printf("(%d) could not find cap associated with 0x%"PRIxLVADDR"\n", result, old->mapping_info.pte);
+        return SYS_ERR_VNODE_LOOKUP_NEXT;
     }
+    return SYS_ERR_OK;
+}
 
-    return size;
+static inline size_t get_offset(struct cte *old, struct cte *next)
+{
+    return (old->mapping_info.pte - get_address(&next->cap)) / get_pte_size();
 }
 
 /*
  * compile_vaddr returns the lowest address that is addressed by entry 'entry'
  * in page table 'ptable'
  */
-genvaddr_t compile_vaddr(struct cte *ptable, size_t entry)
+errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
 {
     if (!type_is_vnode(ptable->cap.type)) {
         return SYS_ERR_VNODE_TYPE;
     }
 
     genvaddr_t vaddr = 0;
-    size_t sw = BASE_PAGE_BITS;
+    // shift at least by BASE_PAGE_BITS for first vaddr part
+    size_t shift = BASE_PAGE_BITS;
+
     // figure out how much we need to shift (assuming that
     // compile_vaddr can be used on arbitrary page table types)
     // A couple of cases have fallthroughs in order to avoid having
     // multiple calls to vnode_objbits with the same type argument.
     switch (ptable->cap.type) {
         case ObjType_VNode_x86_64_pml4:
-            sw += vnode_objbits(ObjType_VNode_x86_64_pdpt);
+            shift += vnode_objbits(ObjType_VNode_x86_64_pdpt);
         case ObjType_VNode_x86_64_pdpt:
-            sw += vnode_objbits(ObjType_VNode_x86_64_pdir);
+            shift += vnode_objbits(ObjType_VNode_x86_64_pdir);
         case ObjType_VNode_x86_64_pdir:
-            sw += vnode_objbits(ObjType_VNode_x86_64_ptable);
+            shift += vnode_objbits(ObjType_VNode_x86_64_ptable);
         case ObjType_VNode_x86_64_ptable:
             break;
+
         case ObjType_VNode_x86_32_pdpt:
-            sw += vnode_objbits(ObjType_VNode_x86_32_pdir);
+            shift += vnode_objbits(ObjType_VNode_x86_32_pdir);
         case ObjType_VNode_x86_32_pdir:
-            sw += vnode_objbits(ObjType_VNode_x86_32_ptable);
+            shift += vnode_objbits(ObjType_VNode_x86_32_ptable);
         case ObjType_VNode_x86_32_ptable:
             break;
+
         case ObjType_VNode_ARM_l2:
-            sw += vnode_objbits(ObjType_VNode_ARM_l1);
+            shift += vnode_objbits(ObjType_VNode_ARM_l1);
         case ObjType_VNode_ARM_l1:
             break;
+
         default:
-            assert(0);
+            return SYS_ERR_VNODE_TYPE;
     }
+
     size_t mask = (1ULL<<vnode_objbits(ptable->cap.type))-1;
-    printf("entry = %zd\nmask = %zd\nsw = %zd\nentry & mask = %zd\n", entry, mask, sw, entry & mask);
-    vaddr = ((genvaddr_t)(entry & mask)) << sw;
+    vaddr = ((genvaddr_t)(entry & mask)) << shift;
 
     // add next piece of virtual address until we are at root page table
     struct cte *old = ptable;
     struct cte *next;
     errval_t err;
-    printf("vaddr = 0x%"PRIxGENVADDR", sw = %zd, entry = %zd\n", vaddr, sw, entry);
-    while (!is_root_pt(ptable->cap.type))
+    while (!is_root_pt(old->cap.type))
     {
-        int result;
-        err = mdb_find_range(0,
-                local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte),
-                1, MDB_RANGE_FOUND_SURROUNDING, &next,
-                &result);
+        err = find_next_ptable(old, &next);
         if (err_is_fail(err)) {
-            printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
-            return 0;
+            return err;
         }
-        if (result != MDB_RANGE_FOUND_SURROUNDING) {
-            printf("could not find cap associated with 0x%"PRIxLVADDR"\n", old->mapping_info.pte);
-            return 0;
-        }
-        sw += vnode_objbits(old->cap.type);
-        size_t offset = old->mapping_info.pte - get_address(&next->cap);
-        printf("vaddr = 0x%"PRIxGENVADDR", sw = %zd, offset = %zd\n", vaddr, sw, offset);
+        // calculate offset into next level ptable
+        size_t offset = get_offset(old, next);
+        // shift new part of vaddr by old shiftwidth + #entries of old ptable
+        shift += vnode_entry_bits(old->cap.type);
+
         mask = (1ULL<<vnode_objbits(next->cap.type))-1;
-        vaddr |= ((offset & mask) << sw);
+        vaddr |= ((offset & mask) << shift);
         old = next;
     }
 
-    return vaddr;
+    *retvaddr = vaddr;
+    return SYS_ERR_OK;
 }

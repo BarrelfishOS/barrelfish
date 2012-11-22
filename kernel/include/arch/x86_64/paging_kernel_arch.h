@@ -65,4 +65,26 @@ static inline bool is_root_pt(enum objtype type) {
     return type == ObjType_VNode_x86_64_pml4;
 }
 
+static inline size_t get_pte_size(void) {
+    return sizeof(union x86_64_ptable_entry);
+}
+
+/**
+ * Return number of page table entries for vnode in bits.
+ * @param type Object type.
+ * @return Number of page table entries in bits
+ */
+static inline size_t vnode_entry_bits(enum objtype type) {
+    if (type == ObjType_VNode_x86_64_pml4 ||
+        type == ObjType_VNode_x86_64_pdpt ||
+        type == ObjType_VNode_x86_64_pdir ||
+        type == ObjType_VNode_x86_64_ptable)
+    {
+        return 9;      // log2(X86_64_PTABLE_SIZE)
+    }
+    else {
+        assert(!"unknown page table type");
+    }
+}
+
 #endif // KERNEL_ARCH_X86_64_PAGING_H

@@ -70,7 +70,8 @@ errors kernel SYS_ERR_ {
     failure FRAME_OFFSET_INVALID "Specified offset exceeds size of frame",
     failure VNODE_SLOT_RESERVED	"Destination slot is reserved",
     failure VNODE_SLOT_INUSE	"Destination slot in use: unmap first",
-    failure VNODE_TYPE          "Encountered non-VNoe capability when manipulating page tables",
+    failure VNODE_TYPE          "Encountered non-VNode capability when manipulating page tables",
+    failure VNODE_LOOKUP_NEXT   "Could not find next level page table",
 
     // errors related to IRQ table
     failure IRQ_LOOKUP          "Specified capability was not found while inserting in IRQ table",

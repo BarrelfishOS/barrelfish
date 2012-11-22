@@ -38,9 +38,9 @@ static errval_t x86_64_pml4(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_pml4.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    // assign output param
-    *pte = dest_lv + slot;
     union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
+    // assign output param
+    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
 
     if (X86_64_IS_PRESENT(entry)) {
         return SYS_ERR_VNODE_SLOT_INUSE;
@@ -71,9 +71,9 @@ static errval_t x86_64_pdpt(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_pdpt.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    // assign output param
-    *pte = dest_lv + slot;
     union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
+    // assign output param
+    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
 
     if (X86_64_IS_PRESENT(entry)) {
         return SYS_ERR_VNODE_SLOT_INUSE;
@@ -104,9 +104,9 @@ static errval_t x86_64_pdir(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_pdir.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    // assign output param
-    *pte = dest_lv + slot;
     union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
+    // assign output param
+    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
 
     if (X86_64_IS_PRESENT(entry)) {
         return SYS_ERR_VNODE_SLOT_INUSE;
@@ -156,10 +156,10 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     genpaddr_t dest_gp   = dest->u.vnode_x86_64_ptable.base;
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    // assign output param
-    *pte = dest_lv + slot;
     union x86_64_ptable_entry *entry =
         (union x86_64_ptable_entry *)dest_lv + slot;
+    // assign output param
+    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
 
     /* FIXME: Flush TLB if the page is already present
      * in the meantime, since we don't do this, we just fail to avoid
@@ -207,11 +207,22 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, param1, param2, &pte);
     if (err_is_ok(r)) {
         // update mapping
-        src_cte->mapping_info.pte = pte;
+        // XXX: hacky, should either have a real indicator if mapping in progress
+        // or do the base page loop here
+        if (src_cte->mapping_info.pte == 0) {
+            src_cte->mapping_info.pte = pte;
+            src_cte->mapping_info.mapped_offset = param2;
+        }
         src_cte->mapping_info.mapped_pages += 1;
-        src_cte->mapping_info.mapped_offset = 0;
+        genvaddr_t vaddr = 0;
+        errval_t r2 = compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
+        if (err_is_fail(r2)) {
+            printf("src_cte->cap.type = %d\n", src_cte->cap.type);
+            printf("error in compile_vaddr: 0x%"PRIxERRV"\n", r2);
+        }
+        //printf("src_cte->pte = %"PRIxLVADDR"\n", src_cte->mapping_info.pte);
         printf("full vaddr of new mapping (entry = %"PRIuCSLOT"): 0x%"PRIxGENVADDR"\n",
-               dest_slot, compile_vaddr(src_cte, dest_slot));
+               dest_slot, vaddr);
     }
     return r;
 }
