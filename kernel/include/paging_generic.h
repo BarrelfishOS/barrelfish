@@ -20,8 +20,6 @@
 
 struct mapping_info {
     lvaddr_t pte;           ///< where the capability is mapped
-    uint16_t pt_slot;       ///< the first slot number for the mapping in the page table corresponding to pte
-    lvaddr_t pt2;           ///< base address of 2nd leaf level ptable
     size_t mapped_pages;    ///< the amount of currently mapped pages
     // target meta data
     size_t page_count;      ///< the targeted amount of mapped pages

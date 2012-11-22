@@ -174,7 +174,8 @@ static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
     size_t entry = args[0];
-    errval_t err = page_mappings_unmap(pgtable, entry);
+    size_t pages = args[1];
+    errval_t err = page_mappings_unmap(pgtable, entry, pages);
     return SYSRET(err);
 }
 

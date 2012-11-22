@@ -76,30 +76,54 @@ static errval_t unmap_region(struct memobj *memobj, struct vregion *vregion)
     struct pmap *pmap     = vspace_get_pmap(vspace);
     genvaddr_t vregion_base  = vregion_get_base_addr(vregion);
     genvaddr_t vregion_off   = vregion_get_offset(vregion);
+    size_t vregion_size = vregion_get_size(vregion);
+    genvaddr_t vregion_end = vregion_off + vregion_size;
 
-    err = pmap->f.unmap(pmap, vregion_base + vregion_off, memobj->size, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_PMAP_UNMAP);
-    }
+    //printf("(%s:%d) unmap(0x%"PRIxGENVADDR", memobj->size = %zd) vregion size = %zd\n", __FILE__, __LINE__, vregion_base + vregion_off, memobj->size, vregion_size);
 
-    /* Remove the vregion from the list */
-    struct vregion_list *prev = NULL;
-    for (struct vregion_list *elt = anon->vregion_list; elt != NULL;
-         elt = elt->next) {
-        if (elt->region == vregion) {
-            if (prev == NULL) {
-                assert(elt == anon->vregion_list);
-                anon->vregion_list = elt->next;
-            } else {
-                assert(prev->next == elt);
-                prev->next = elt->next;
+    // unmap all affected frames
+    struct memobj_frame_list *fwalk = anon->frame_list;
+    struct memobj_frame_list *fprev = NULL;
+    //printf("vregion_off = 0x%"PRIxGENVADDR"\n", vregion_off);
+    //printf("vregion_end = 0x%"PRIxGENVADDR"\n", vregion_end);
+    err = LIB_ERR_VSPACE_VREGION_NOT_FOUND;
+    while (fwalk) {
+        //printf("fwalk->offset = %zd\n", fwalk->offset);
+        //printf("fwalk->next   = %p\n", fwalk->next);
+        if (fwalk->offset < vregion_off) {
+            fprev = fwalk;
+            fwalk = fwalk->next;
+            continue;
+        }
+        else if (fwalk->offset < vregion_end) {
+            err = pmap->f.unmap(pmap, vregion_base + vregion_off, fwalk->size, NULL);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
-            slab_free(&anon->vregion_slab, elt);
-            return SYS_ERR_OK;
+
+            /* Remove the vregion from the list */
+            struct vregion_list *prev = NULL;
+            for (struct vregion_list *elt = anon->vregion_list; elt != NULL;
+                 elt = elt->next) {
+                if (elt->region == vregion) {
+                    if (prev == NULL) {
+                        assert(elt == anon->vregion_list);
+                        anon->vregion_list = elt->next;
+                    } else {
+                        assert(prev->next == elt);
+                        prev->next = elt->next;
+                    }
+                    slab_free(&anon->vregion_slab, elt);
+                    err = SYS_ERR_OK;
+                }
+            }
+            vregion_off += fwalk->size;
+            fprev = fwalk;
+            fwalk = fwalk->next;
         }
     }
 
-    return LIB_ERR_VSPACE_VREGION_NOT_FOUND; // XXX: not quite the right error
+    return err; // XXX: not quite the right error
 }
 
 /**
@@ -280,6 +304,7 @@ static errval_t unfill(struct memobj *memobj, genvaddr_t offset,
             size_t retsize;
 
             assert((vregion_base + fwalk->offset) % BASE_PAGE_SIZE == 0);
+            //printf("(%s:%d) unmap(0x%"PRIxGENVADDR", %zd)\n", __FILE__, __LINE__, vregion_base + fwalk->offset, fwalk->size);
             err = pmap->f.unmap(pmap, vregion_base + fwalk->offset, fwalk->size,
                                 &retsize);
             if (err_is_fail(err)) {

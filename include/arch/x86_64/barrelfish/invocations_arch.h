@@ -196,9 +196,9 @@ static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
     return cap_invoke3(root, CNodeCmd_Revoke, cap, bits).error;
 }
 
-static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
+static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry, size_t num_pages)
 {
-    return cap_invoke2(cap, VNodeCmd_Unmap, entry).error;
+    return cap_invoke3(cap, VNodeCmd_Unmap, entry, num_pages).error;
 }
 
 static inline errval_t

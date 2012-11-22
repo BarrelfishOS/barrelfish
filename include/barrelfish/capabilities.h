@@ -102,9 +102,9 @@ vnode_map(struct capref dest, struct capref src, capaddr_t slot,
                              attr, off);
 }
 
-static inline errval_t vnode_unmap(struct capref pgtl, size_t entry)
+static inline errval_t vnode_unmap(struct capref pgtl, size_t entry, size_t num_pages)
 {
-    return invoke_vnode_unmap(pgtl, entry);
+    return invoke_vnode_unmap(pgtl, entry, num_pages);
 }
 
 static inline errval_t
