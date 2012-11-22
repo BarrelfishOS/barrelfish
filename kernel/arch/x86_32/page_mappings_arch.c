@@ -242,14 +242,14 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     genvaddr_t vaddr;
     compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
-    printf("caps_copy_to_vnode: mapping %lu pages (slots %"PRIuCSLOT" to %"PRIuCSLOT") to 0x%"PRIxGENVADDR"\n",
-            pte_count, dest_slot, last_slot, vaddr);
+    //printf("caps_copy_to_vnode: mapping %lu pages (slots %"PRIuCSLOT" to %"PRIuCSLOT") to 0x%"PRIxGENVADDR"\n",
+    //        pte_count, dest_slot, last_slot, vaddr);
 
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
     if (err_is_fail(r)) {
         printf("caps_copy_to_vnode: handler func returned %ld\n", r);
     }
-#if 1
+#if 0
     else {
         printf("mapping_info.pte       = 0x%lx\n", src_cte->mapping_info.pte);
         printf("mapping_info.offset    = 0x%"PRIx64"\n", src_cte->mapping_info.offset);
@@ -321,7 +321,7 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
 errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
-    printf("page_mappings_unmap(%zd pages, slot = %zd)\n", num_pages, slot);
+    //printf("page_mappings_unmap(%zd pages, slot = %zd)\n", num_pages, slot);
 
     // get page table entry data
     genpaddr_t paddr;
@@ -334,8 +334,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     genvaddr_t vaddr;
     struct cte *leaf_pt = cte_for_cap(pgtable);
     compile_vaddr(leaf_pt, slot, &vaddr);
-    printf("vaddr = 0x%"PRIxGENVADDR"\n", vaddr);
-    printf("num_pages = %zu\n", num_pages);
+    // printf("vaddr = 0x%"PRIxGENVADDR"\n", vaddr);
+    // printf("num_pages = %zu\n", num_pages);
 
     // get cap for mapping
     struct cte *mem;
@@ -365,7 +365,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
 __attribute__((unused))
 static errval_t old_page_mappings_unmap(struct capability *pgtable, size_t slot, size_t pte_count)
 {
-    printf("page_mappings_unmap(%zd)\n", pte_count);
+    // printf("page_mappings_unmap(%zd)\n", pte_count);
     assert(type_is_vnode(pgtable->type));
 
     switch (pgtable->type) {

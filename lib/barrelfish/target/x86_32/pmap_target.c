@@ -271,7 +271,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                        struct capref frame, size_t offset, size_t size,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
-    printf("[do_map] vaddr = 0x%"PRIxGENVADDR", size = %zd\n", vaddr, size);
+    //printf("[do_map] vaddr = 0x%"PRIxGENVADDR", size = %zd\n", vaddr, size);
     errval_t err;
 
     size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
@@ -516,7 +516,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t 
 static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                       size_t *retsize)
 {
-    printf("[unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, size);
+    //printf("[unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, size);
     errval_t err, ret = SYS_ERR_OK;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
     size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
