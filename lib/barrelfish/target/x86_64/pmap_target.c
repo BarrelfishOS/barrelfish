@@ -555,41 +555,30 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
     struct vnode *pdpt, *pdir, *pt, *frame;
     assert(pml4 != NULL);
 
-    // PML4 mapping
-    for (size_t pml4_index = 0; pml4_index < X86_64_BASE_PAGE_SIZE; pml4_index++) {
-        //printf("pml4_idx = %zd\n", pml4_index);
-        // lookup pdpts in pml4
-        if((pdpt = find_vnode(pml4, pml4_index)) != NULL) {
-            // write pdpt to buf
-            for (size_t pdpt_index = 0; pdpt_index < X86_64_BASE_PAGE_SIZE; pdpt_index++) {
-                //printf("pdpt_idx = %zd\n", pdpt_index);
-                // lookup pdirs in pdpt
-                if((pdir = find_vnode(pdpt, pdpt_index)) != NULL) {
-                    // write pdir to buf
-                    for (size_t pdir_index = 0; pdir_index < X86_64_BASE_PAGE_SIZE; pdir_index++) {
-                        //printf("pdir_idx = %zd\n", pdir_index);
-                        // lookup ptables in pdir
-                        if ((pt = find_vnode(pdir, pdir_index)) != NULL) {
-                            // write pt to buf
-                            for (size_t pt_index = 0; pt_index < X86_64_BASE_PAGE_SIZE; pt_index++) {
-                                //printf("pt_idx = %zd\n", pt_index);
-                                // lookup frames in pt
-                                if ((frame = find_vnode(pt, pt_index)) != NULL) {
-                                    // write frame mapping to buf
-                                    if (*items_written < buflen) {
-                                        buf_->pml4_index = pml4_index;
-                                        buf_->pdpt_index = pdpt_index;
-                                        buf_->pdir_index = pdir_index;
-                                        buf_->pt_index = pt_index;
-                                        buf_->cap = frame->u.frame.cap;
-                                        buf_->offset = frame->u.frame.offset;
-                                        buf_->flags = frame->u.frame.flags;
-                                        buf_++;
-                                        (*items_written)++;
-                                    }
-                                }
-                            }
-                        }
+    *items_written = 0;
+
+    // iterate over PML4 entries
+    size_t pml4_index, pdpt_index, pdir_index;
+    for (pdpt = pml4->u.vnode.children; pdpt != NULL; pdpt = pdpt->next) {
+        pml4_index = pdpt->entry;
+        // iterate over pdpt entries
+        for (pdir = pdpt->u.vnode.children; pdir != NULL; pdir = pdir->next) {
+            pdpt_index = pdir->entry;
+            // iterate over pdir entries
+            for (pt = pdir->u.vnode.children; pt != NULL; pt = pt->next) {
+                pdir_index = pt->entry;
+                // iterate over pt entries
+                for (frame = pt->u.vnode.children; frame != NULL; frame = frame->next) {
+                    if (*items_written < buflen) {
+                        buf_->pml4_index = pml4_index;
+                        buf_->pdpt_index = pdpt_index;
+                        buf_->pdir_index = pdir_index;
+                        buf_->pt_index = frame->entry;
+                        buf_->cap = frame->u.frame.cap;
+                        buf_->offset = frame->u.frame.offset;
+                        buf_->flags = frame->u.frame.flags;
+                        buf_++;
+                        (*items_written)++;
                     }
                 }
             }
