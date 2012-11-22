@@ -196,7 +196,7 @@ static mapping_handler_t handler[ObjType_Num] = {
 
 
 #define DIAGNOSTIC_ON_ERROR 1
-#define RETURN_ON_ERROR 0
+#define RETURN_ON_ERROR 1
 
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
@@ -415,32 +415,6 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
         unmapped_pages++;
     }
     return unmapped_pages;
-#if 0
-    do {
-        size_t target = (num_pages - unmapped_pages) < (X86_64_PTABLE_SIZE - slot) ? slot + (num_pages - unmapped_pages) : X86_64_PTABLE_SIZE;
-        int i;
-        size_t old_unmapped = unmapped_pages;
-        for (i = slot; i < target; i++) {
-            ptentry++->raw = 0;
-            unmapped_pages++;
-        }
-        if (i == X86_64_PTABLE_SIZE && unmapped_pages < num_pages) {
-            // get next leaf pt
-            vaddr += (unmapped_pages - old_unmapped) * X86_64_BASE_PAGE_SIZE;
-            while (!(pt = get_leaf_ptable_for_vaddr(vaddr)) && unmapped_pages < num_pages) {
-                // no leaf page table for this address
-                unmapped_pages += X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
-                vaddr += X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
-            }
-            slot = 0;
-            ptentry = (union x86_64_ptable_entry *)pt;
-        }
-    } while(unmapped_pages < num_pages);
-
-    if (unmapped_pages > num_pages) { unmapped_pages = num_pages; }
-
-    return unmapped_pages;
-#endif
 }
 
 errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num_pages)
