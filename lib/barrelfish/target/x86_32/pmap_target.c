@@ -280,7 +280,10 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     if (X86_32_PDIR_BASE(vaddr) == X86_32_PDIR_BASE(vend)) {
         // fast path
-        do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
+        err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
     }
     else { // multiple leaf page tables
         // first leaf
