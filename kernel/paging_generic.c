@@ -14,6 +14,8 @@
 
 #include <paging_generic.h>
 #include <barrelfish_kpi/paging_arch.h>
+#include <kernel.h>
+#include <paging_kernel_arch.h>
 #include <capabilities.h>
 #include <cap_predicates.h>
 #include <mdb/mdb_tree.h>
@@ -93,19 +95,14 @@ genvaddr_t compile_vaddr(struct cte *ptable, size_t entry)
         default:
             assert(0);
     }
-    vaddr = (entry & vnode_objbits(ptable->cap.type)) << sw;
+    size_t mask = (1ULL<<vnode_objbits(ptable->cap.type))-1;
+    vaddr = ((genvaddr_t)(entry & mask)) << sw;
 
     // add next piece of virtual address until we are at root page table
     struct cte *old = ptable;
     struct cte *next;
     errval_t err;
-    while (!(ptable->cap.type == ObjType_VNode_x86_64_pml4 ||
-#ifdef PAE
-             ptable->cap.type == ObjType_VNode_x86_32_pdpt ||
-#else
-             ptable->cap.type == ObjType_VNode_x86_32_pdir ||
-#endif
-             ptable->cap.type == ObjType_VNode_ARM_l2))
+    while (!is_root_pt(ptable->cap.type))
     {
         int result;
         err = mdb_find_range(0,
@@ -116,9 +113,14 @@ genvaddr_t compile_vaddr(struct cte *ptable, size_t entry)
             printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
             return 0;
         }
+        if (result != MDB_RANGE_FOUND_SURROUNDING) {
+            printf("could not find cap associated with 0x%"PRIxLVADDR"\n", old->mapping_info.pte);
+            return 0;
+        }
         sw += vnode_objbits(old->cap.type);
         size_t offset = old->mapping_info.pte - get_address(&next->cap);
-        vaddr |= ((offset & vnode_objbits(next->cap.type)) << sw);
+        mask = (1ULL<<vnode_objbits(next->cap.type))-1;
+        vaddr |= ((offset & mask) << sw);
         old = next;
     }
 

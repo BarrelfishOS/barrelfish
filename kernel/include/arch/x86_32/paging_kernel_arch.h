@@ -80,4 +80,12 @@ static lvaddr_t inline paging_map_device(lpaddr_t base, size_t size)
     return paging_x86_32_map_device(base, size);
 }
 
+static inline bool is_root_pt(enum objtype type) {
+#if PAE
+    return type == ObjType_VNode_x86_32_pdpt;
+#else
+    return type == ObjType_VNode_x86_32_pdir;
+#endif
+}
+
 #endif // KERNEL_ARCH_X86_32_PAGING_H
