@@ -16,6 +16,42 @@ void dump_my_vregions(void)
     }
 }
 
+static int cmp_dump_info(const void *arg1, const void *arg2)
+{
+    struct pmap_dump_info *info1, *info2;
+    info1 = (struct pmap_dump_info *)arg1;
+    info2 = (struct pmap_dump_info *)arg2;
+
+    if (info1->pml4_index < info2->pml4_index)
+        return -1;
+    if (info1->pml4_index > info2->pml4_index)
+        return 1;
+
+    // pml indices equal
+
+    if (info1->pdpt_index < info2->pdpt_index)
+        return -1;
+    if (info1->pdpt_index > info2->pdpt_index)
+        return 1;
+
+    // pdpt indices equal
+
+    if (info1->pdir_index < info2->pdir_index)
+        return -1;
+    if (info1->pdir_index > info2->pdir_index)
+        return 1;
+
+    // pdir indices equal
+
+    if (info1->pt_index < info2->pt_index)
+        return -1;
+    if (info1->pt_index > info2->pt_index)
+        return 1;
+
+    // pt indices equal
+    return 0;
+}
+
 #define BUFSIZE 8192
 void dump_page_tables(void)
 {
@@ -26,6 +62,8 @@ void dump_page_tables(void)
     pmap->f.dump(pmap, buf, BUFSIZE, &items_written);
 
     printf("items_written=%zd\n", items_written);
+
+    qsort(buf, items_written, sizeof(struct pmap_dump_info), cmp_dump_info);
 
     for (size_t i = 0; i < items_written; i++) {
         struct pmap_dump_info *info = buf+i;
