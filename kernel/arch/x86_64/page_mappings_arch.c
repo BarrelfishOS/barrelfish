@@ -226,10 +226,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 #endif
     }
 
-    /*genpaddr_t paddr = get_address(&src_cte->cap) + param2;
-    genvaddr_t vaddr;
-    compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
-    printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr); */
+    // genpaddr_t paddr = get_address(&src_cte->cap) + param2;
+    // genvaddr_t vaddr;
+    // compile_vaddr(dest_vnode_cte, dest_slot, &vaddr);
+    // printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
 
     if ((param2 - src_cte->mapping_info.offset)/BASE_PAGE_SIZE >= src_cte->mapping_info.page_count) {
         // requested map offset exceeds mapping region
@@ -252,6 +252,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         }
         src_cte->mapping_info.mapped_pages += 1;
     }
+    // printf("0x%lx, %zd\n", get_address(&src_cte->cap), get_size(&src_cte->cap));
+    // printf("mapping_info.pte          = 0x%lx\n", src_cte->mapping_info.pte);
+    // printf("mapping_info.offset       = %zd\n", src_cte->mapping_info.offset);
+    // printf("mapping_info.mapped_pages = %zd\n", src_cte->mapping_info.mapped_pages);
     return r;
 }
 
@@ -314,8 +318,16 @@ static inline errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, st
         printf("could not find a cap for 0x%"PRIxGENPADDR" (%ld)\n", paddr, err);
         return err;
     }
-    //printf("lookup request = 0x%"PRIxGENPADDR"\n", paddr);
-    //printf("has_copies(mem) = %d\n", has_copies(mem));
+#if 0
+    printf("lookup request = 0x%"PRIxGENPADDR"\n", paddr);
+    printf("has_copies(mem) = %d\n", has_copies(mem));
+    printf("pte = 0x%lx\n", pte);
+    printf("0x%lx, %zd\n", get_address(&mem->cap), get_size(&mem->cap));
+    printf("mem->mapping_info.pte          = 0x%lx\n", mem->mapping_info.pte);
+    printf("mem->mapping_info.offset       = %zd\n", mem->mapping_info.offset);
+    printf("mem->mapping_info.mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
+    printf("mem = %p\n", mem);
+#endif
 
     // look at all copies of mem
     last = mem;
@@ -437,6 +449,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
     genvaddr_t vaddr;
     struct cte *leaf_pt = cte_for_cap(pgtable);
     compile_vaddr(leaf_pt, slot, &vaddr);
+    //printf("vaddr = 0x%lx\n", vaddr);
 
     // get cap for mapping
     struct cte *mem;
