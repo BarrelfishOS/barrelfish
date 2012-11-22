@@ -87,10 +87,15 @@ static inline size_t vnode_entry_bits(enum objtype type) {
     }
 }
 
+static inline void do_one_tlb_flush(genvaddr_t vaddr)
+{
+    __asm__ __volatile__("invlpg %0" : : "m" (*(char *)vaddr));
+}
+
 static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
 {
     for (genvaddr_t addr = vaddr; addr < vend; addr += X86_64_BASE_PAGE_SIZE) {
-        __asm__ __volatile__("invlpg %0" : : "m" (addr));
+        __asm__ __volatile__("invlpg %0" : : "m" (*(char *)addr));
     }
 }
 

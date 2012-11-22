@@ -125,8 +125,16 @@ static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
     uint32_t vend32 = (uint32_t)vend;
 
     for (uint32_t addr = vaddr32; addr < vend32; addr += X86_32_BASE_PAGE_SIZE) {
-        __asm__ __volatile__("invlpg %0" : : "m" (addr));
+        __asm__ __volatile__("invlpg %0" : : "m" (*(char *)addr));
     }
+}
+
+static inline void do_one_tlb_flush(genvaddr_t vaddr)
+{
+    assert(vaddr < ((genvaddr_t)1)<<32);
+    uint32_t addr = (uint32_t)vaddr;
+
+    __asm__ __volatile__("invlpg %0" : : "m" (*(char *)addr));
 }
 
 static inline void do_full_tlb_flush(void)
