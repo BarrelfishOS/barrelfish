@@ -20,6 +20,7 @@
 #include <mdb/mdb_tree.h>
 #include <string.h>
 #include <barrelfish_kpi/init.h>
+#include <cap_predicates.h>
 
 static inline struct cte *cte_for_cap(struct capability *cap)
 {
