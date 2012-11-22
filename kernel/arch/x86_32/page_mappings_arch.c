@@ -159,7 +159,7 @@ static errval_t x86_32_ptable(struct capability *dest, cslot_t slot,
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
     // Convert source base address
-    genpaddr_t src_gp   = get_address(src) + offset;
+    genpaddr_t src_gp   = get_address(src);
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
     // Set metadata
     struct cte *src_cte = cte_for_cap(src);
@@ -288,23 +288,23 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
     switch (pgtable->type) {
         case ObjType_VNode_x86_32_pdpt:
         case ObjType_VNode_x86_32_pdir: {
-                                            union x86_32_pdir_entry *e =
-                                                (union x86_32_pdir_entry *)lv + slot;
-                                            paddr = e->d.base_addr << BASE_PAGE_BITS;
-                                            entry_ = e;
-                                            pte_ = lp + slot * sizeof(union x86_32_pdir_entry);
-                                            break;
-                                        }
+            union x86_32_pdir_entry *e =
+                (union x86_32_pdir_entry *)lv + slot;
+            paddr = e->d.base_addr << BASE_PAGE_BITS;
+            entry_ = e;
+            pte_ = lp + slot * sizeof(union x86_32_pdir_entry);
+            break;
+        }
         case ObjType_VNode_x86_32_ptable: {
-                                              union x86_32_ptable_entry *e =
-                                                  (union x86_32_ptable_entry *)lv + slot;
-                                              paddr = e->base.base_addr << BASE_PAGE_BITS;
-                                              entry_ = e;
-                                              pte_ = lp + slot * sizeof(union x86_32_ptable_entry);
-                                              break;
-                                          }
+            union x86_32_ptable_entry *e =
+                (union x86_32_ptable_entry *)lv + slot;
+            paddr = e->base.base_addr << BASE_PAGE_BITS;
+            entry_ = e;
+            pte_ = lp + slot * sizeof(union x86_32_ptable_entry);
+            break;
+        }
         default:
-                                          assert(!"Should not get here");
+            assert(!"Should not get here");
     }
 
     if (mapped_addr) {
@@ -325,7 +325,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot, size_t num
 
     // get page table entry data
     genpaddr_t paddr;
-    lvaddr_t pte;
+    lpaddr_t pte;
     read_pt_entry(pgtable, slot, &paddr, &pte, NULL);
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
