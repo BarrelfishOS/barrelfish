@@ -20,105 +20,88 @@
 #include <string.h>
 #include <barrelfish_kpi/init.h>
 
-/// Map within a x86_64 pml4
-static errval_t x86_64_pml4(struct capability *dest, cslot_t slot,
-                            struct capability *src, uintptr_t flags,
-                            uintptr_t offset, lvaddr_t *pte)
+static inline struct cte *cte_for_cap(struct capability *cap)
 {
-    if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
-        return SYS_ERR_VNODE_SLOT_INVALID;
-    }
-
-    if (src->type != ObjType_VNode_x86_64_pdpt) { // Right mapping
-        return SYS_ERR_WRONG_MAPPING;
-    }
-
-    if(slot >= X86_64_PML4_BASE(X86_64_MEMORY_OFFSET)) { // Kernel mapped here
-        return SYS_ERR_VNODE_SLOT_RESERVED;
-    }
-
-    // Destination
-    genpaddr_t dest_gp   = dest->u.vnode_x86_64_pml4.base;
-    lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
-    lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
-    // assign output param
-    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
-
-    if (X86_64_IS_PRESENT(entry)) {
-        return SYS_ERR_VNODE_SLOT_INUSE;
-    }
-
-    // Source
-    genpaddr_t src_gp   = src->u.vnode_x86_64_pdpt.base;
-    lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
-    paging_x86_64_map_table(entry, src_lp);
-
-    return SYS_ERR_OK;
+    return (struct cte *) (cap - offsetof(struct cte, cap));
 }
 
-/// Map within a x86_64 pdpt
-static errval_t x86_64_pdpt(struct capability *dest, cslot_t slot,
-                            struct capability *src, uintptr_t flags,
-                            uintptr_t offset, lvaddr_t *pte)
+/// Map within a x86_64 non leaf ptable
+static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
+                                  struct capability *src, uintptr_t flags,
+                                  uintptr_t offset, size_t pte_count)
 {
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
-    if (src->type != ObjType_VNode_x86_64_pdir) { // Right mapping
-        return SYS_ERR_WRONG_MAPPING;
+    if (type_is_vnode(src->type) && pte_count != 1) { // only allow single ptable mappings
+        printf("src type and count mismatch\n");
+        return SYS_ERR_VM_MAP_SIZE;
     }
 
-    // Destination
-    genpaddr_t dest_gp   = dest->u.vnode_x86_64_pdpt.base;
+    if (slot + pte_count > X86_64_PTABLE_SIZE) { // mapping size ok
+        printf("mapping size invalid (%zd)\n", pte_count);
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
+    size_t page_size = 0;
+    switch (dest->type) {
+        case ObjType_VNode_x86_64_pml4:
+            if (src->type != ObjType_VNode_x86_64_pdpt) { // Right mapping
+                printf("src type invalid\n");
+                return SYS_ERR_WRONG_MAPPING;
+            }
+            if(slot >= X86_64_PML4_BASE(X86_64_MEMORY_OFFSET)) { // Kernel mapped here
+                return SYS_ERR_VNODE_SLOT_RESERVED;
+            }
+            break;
+        case ObjType_VNode_x86_64_pdpt:
+            // TODO: huge page support, set page_size to HUGE_PAGE_SIZE
+            if (src->type != ObjType_VNode_x86_64_pdir) { // Right mapping
+                printf("src type invalid\n");
+                return SYS_ERR_WRONG_MAPPING;
+            }
+            break;
+        case ObjType_VNode_x86_64_pdir:
+            // TODO: huge page support, set page_size to SUPER_PAGE_SIZE
+            if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
+                printf("src type invalid\n");
+                return SYS_ERR_WRONG_MAPPING;
+            }
+            break;
+        default:
+            printf("dest type invalid\n");
+            return SYS_ERR_DEST_TYPE_INVALID;
+    }
+
+    // Convert destination base address
+    genpaddr_t dest_gp   = get_address(dest);
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
-    // assign output param
-    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
-
-    if (X86_64_IS_PRESENT(entry)) {
-        return SYS_ERR_VNODE_SLOT_INUSE;
-    }
-
-    // Source
-    genpaddr_t src_gp   = src->u.vnode_x86_64_pdir.base;
+    // Convert source base address
+    genpaddr_t src_gp   = get_address(src);
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
-    paging_x86_64_map_table(entry, src_lp);
 
-    return SYS_ERR_OK;
-}
+    // set metadata
+    struct cte *src_cte = cte_for_cap(src);
+    src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
+    src_cte->mapping_info.pte_count = pte_count;
+    src_cte->mapping_info.offset = offset;
 
-/// Map within a x86_64 pdir
-static errval_t x86_64_pdir(struct capability *dest, cslot_t slot,
-                            struct capability *src, uintptr_t flags,
-                            uintptr_t offset, lvaddr_t *pte)
-{
-    if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
-        return SYS_ERR_VNODE_SLOT_INVALID;
+    cslot_t last_slot = slot + pte_count;
+    for (; slot < last_slot; slot++, offset += page_size) {
+        // Destination
+        union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
+
+        if (X86_64_IS_PRESENT(entry)) {
+            // cleanup mapping info
+            // TODO: cleanup already mapped pages
+            memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            return SYS_ERR_VNODE_SLOT_INUSE;
+        }
+
+        paging_x86_64_map_table(entry, src_lp + offset);
     }
-
-    if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
-        return SYS_ERR_WRONG_MAPPING;
-    }
-
-    // Destination
-    genpaddr_t dest_gp   = dest->u.vnode_x86_64_pdir.base;
-    lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
-    lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    union x86_64_pdir_entry *entry = (union x86_64_pdir_entry *)dest_lv + slot;
-    // assign output param
-    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
-
-    if (X86_64_IS_PRESENT(entry)) {
-        return SYS_ERR_VNODE_SLOT_INUSE;
-    }
-
-    // Source
-    genpaddr_t src_gp   = src->u.vnode_x86_64_ptable.base;
-    lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
-    paging_x86_64_map_table(entry, src_lp);
 
     return SYS_ERR_OK;
 }
@@ -126,20 +109,27 @@ static errval_t x86_64_pdir(struct capability *dest, cslot_t slot,
 /// Map within a x86_64 ptable
 static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
                               struct capability *src, uintptr_t mflags,
-                              uintptr_t offset, lvaddr_t *pte)
+                              uintptr_t offset, size_t pte_count)
 {
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
+    if (slot + pte_count > X86_64_PTABLE_SIZE) { // mapping size ok
+        printf("mapping size invalid (%zd)\n", pte_count);
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
     if (src->type != ObjType_Frame &&
         src->type != ObjType_DevFrame) { // Right mapping
+        printf("src type invalid\n");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     // check offset within frame
     genpaddr_t off = offset;
-    if (off + X86_64_BASE_PAGE_SIZE > ((genpaddr_t)1 << src->u.frame.bits)) {
+    if (off + pte_count * X86_64_BASE_PAGE_SIZE > get_size(src)) {
+        printf("frame offset invalid\n");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
@@ -155,28 +145,38 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     // Unconditionally mark the page present
     flags |= X86_64_PTABLE_PRESENT;
 
-    // Destination
-    genpaddr_t dest_gp   = dest->u.vnode_x86_64_ptable.base;
+    // Convert destination base address
+    genpaddr_t dest_gp   = get_address(dest);
     lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
     lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
-    union x86_64_ptable_entry *entry =
-        (union x86_64_ptable_entry *)dest_lv + slot;
-    // assign output param
-    *pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
-
-    /* FIXME: Flush TLB if the page is already present
-     * in the meantime, since we don't do this, we just fail to avoid
-     * ever reusing a VA mapping */
-    if (X86_64_IS_PRESENT(entry)) {
-        debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
-              "this is most likely a user-space bug!\n");
-        return SYS_ERR_VNODE_SLOT_INUSE;
-    }
-
-    // Carry out the page mapping
-    genpaddr_t src_gp   = src->u.frame.base + offset;
+    // Convert source base address
+    genpaddr_t src_gp   = get_address(src);
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
-    paging_x86_64_map(entry, src_lp, flags);
+    // Set metadata
+    struct cte *src_cte = cte_for_cap(src);
+    src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
+    src_cte->mapping_info.pte_count = pte_count;
+    src_cte->mapping_info.offset = offset;
+
+    cslot_t last_slot = slot + pte_count;
+    for (; slot < last_slot; slot++, offset += X86_64_BASE_PAGE_SIZE) {
+        union x86_64_ptable_entry *entry =
+            (union x86_64_ptable_entry *)dest_lv + slot;
+
+        /* FIXME: Flush TLB if the page is already present
+         * in the meantime, since we don't do this, we just fail to avoid
+         * ever reusing a VA mapping */
+        if (X86_64_IS_PRESENT(entry)) {
+            // TODO: cleanup already mapped pages
+            memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
+                  "this is most likely a user-space bug!\n");
+            return SYS_ERR_VNODE_SLOT_INUSE;
+        }
+
+        // Carry out the page mapping
+        paging_x86_64_map(entry, src_lp + offset, flags);
+    }
 
     return SYS_ERR_OK;
 }
@@ -184,13 +184,14 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
 typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
                                       cslot_t dest_slot,
                                       struct capability *src_cap,
-                                      uintptr_t flags, uintptr_t offset, lvaddr_t *pte);
+                                      uintptr_t flags, uintptr_t offset,
+                                      size_t pte_count);
 
 /// Dispatcher table for the type of mapping to create
 static mapping_handler_t handler[ObjType_Num] = {
-    [ObjType_VNode_x86_64_pml4]   = x86_64_pml4,
-    [ObjType_VNode_x86_64_pdpt]   = x86_64_pdpt,
-    [ObjType_VNode_x86_64_pdir]   = x86_64_pdir,
+    [ObjType_VNode_x86_64_pml4]   = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_pdpt]   = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_pdir]   = x86_64_non_ptable,
     [ObjType_VNode_x86_64_ptable] = x86_64_ptable,
 };
 
@@ -210,7 +211,6 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     mapping_handler_t handler_func = handler[dest_cap->type];
 
     assert(handler_func != NULL);
-    lvaddr_t pte;
 
     if (src_cte->mapping_info.pte) {
         // this cap is already mapped
@@ -239,26 +239,18 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 #endif
     }
 
-    errval_t r;
-    for (int i = 0; i < pte_count; i++) {
-        r = handler_func(dest_cap, dest_slot+i, src_cap, flags, offset + i * X86_64_BASE_PAGE_SIZE, &pte);
-        if (err_is_fail(r)) {
-            return r;
-        }
-        if (err_is_ok(r)) {
-            // set current pte as mapping pte if not set already
-            if (src_cte->mapping_info.pte == 0) {
-                src_cte->mapping_info.pte = pte;
-            }
-        }
+    errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
+    if (err_is_fail(r)) {
+        printf("caps_copy_to_vnode: handler func returned %ld\n", r);
     }
-    src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.offset = offset;
-    // printf("0x%lx, %zd\n", get_address(&src_cte->cap), get_size(&src_cte->cap));
-    // printf("mapping_info.pte          = 0x%lx\n", src_cte->mapping_info.pte);
-    // printf("mapping_info.offset       = %zd\n", src_cte->mapping_info.offset);
-    // printf("mapping_info.mapped_pages = %zd\n", src_cte->mapping_info.mapped_pages);
-    return SYS_ERR_OK;
+#if 0
+    else {
+        printf("mapping_info.pte       = 0x%lx\n", src_cte->mapping_info.pte);
+        printf("mapping_info.offset    = 0x%lx\n", src_cte->mapping_info.offset);
+        printf("mapping_info.pte_count = %zu\n", src_cte->mapping_info.pte_count);
+    }
+#endif
+    return r;
 }
 
 static inline void read_pt_entry(struct capability *pgtable, size_t slot,
@@ -375,11 +367,6 @@ static inline void clear_pt_entry(lvaddr_t pte) {
     ((union x86_64_pdir_entry *)pte)->raw = 0;
 }
 
-
-static inline struct cte *cte_for_cap(struct capability *cap)
-{
-    return (struct cte *) (cap - offsetof(struct cte, cap));
-}
 
 static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
 {
