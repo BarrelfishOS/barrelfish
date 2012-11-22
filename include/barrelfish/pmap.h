@@ -32,6 +32,9 @@ struct pmap_funcs {
                        vregion_flags_t *retflags);
     errval_t (*serialise)(struct pmap *pmap, void *buf, size_t buflen);
     errval_t (*deserialise)(struct pmap *pmap, void *buf, size_t buflen);
+
+    errval_t (*dump)(struct pmap *pmap, void *buf, size_t buflen,
+		     size_t *bytes_written);
 };
 
 struct pmap {

@@ -27,6 +27,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 #include "target/x86/pmap_x86.h"
+#include <stdio.h>
 
 // Size of virtual region mapped by a single PML4 entry
 #define PML4_MAPPING_SIZE ((genvaddr_t)512*512*512*BASE_PAGE_SIZE)
@@ -545,6 +546,53 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     return SYS_ERR_OK;
 }
 
+static errval_t dump(struct pmap *pmap, void *buf, size_t buflen, size_t *bytes_written)
+{
+	struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+    char *buf_ = buf;
+
+    struct vnode *pml4 = &x86->root;
+    struct vnode *pdpt, *pdir, *pt, *frame;
+    assert(pml4 != NULL);
+
+    // PML4 mapping
+    for (size_t pml4_index = 0; pml4_index < X86_64_BASE_PAGE_SIZE; pml4_index++) {
+        printf("pml4_idx = %zd\n", pml4_index);
+        // lookup pdpts in pml4
+        if((pdpt = find_vnode(pml4, pml4_index)) != NULL) {
+            // write pdpt to buf
+            for (size_t pdpt_index = 0; pdpt_index < X86_64_BASE_PAGE_SIZE; pdpt_index++) {
+                printf("pdpt_idx = %zd\n", pdpt_index);
+                // lookup pdirs in pdpt
+                if((pdir = find_vnode(pdpt, pdpt_index)) != NULL) {
+                    // write pdir to buf
+                    for (size_t pdir_index = 0; pdir_index < X86_64_BASE_PAGE_SIZE; pdir_index++) {
+                        printf("pdir_idx = %zd\n", pdir_index);
+                        // lookup ptables in pdir
+                        if ((pt = find_vnode(pdir, pdir_index)) != NULL) {
+                            // write pt to buf
+                            for (size_t pt_index = 0; pt_index < X86_64_BASE_PAGE_SIZE; pt_index++) {
+                                printf("pt_idx = %zd\n", pt_index);
+                                // lookup frames in pt
+                                if ((frame = find_vnode(pt, pt_index)) != NULL) {
+                                    // write frame mapping to buf
+                                    struct frame_identity frameid;
+                                    invoke_frame_identify(frame->u.frame.cap, &frameid);
+                                    size_t bw = snprintf(buf_, buflen, "%zd.%zd.%zd.%zd:0x%"PRIxGENPADDR",0x%"PRIx8",0x%"PRIxVREGIONFLAGS"|", pml4_index, pdpt_index, pdir_index, pt_index, frameid.base, frameid.bits, frame->u.frame.flags);
+                                    buf_ += bw;
+                                    buflen -= bw;
+                                    *bytes_written += bw;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return SYS_ERR_OK;
+}
+
 static struct pmap_funcs pmap_funcs = {
     .determine_addr = pmap_x86_determine_addr,
     .map = map,
@@ -553,6 +601,7 @@ static struct pmap_funcs pmap_funcs = {
     .modify_flags = modify_flags,
     .serialise = pmap_x86_serialise,
     .deserialise = pmap_x86_deserialise,
+    .dump = dump,
 };
 
 /**
