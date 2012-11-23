@@ -44,11 +44,6 @@
 #define ARM_L2_BYTES_PER_ENTRY          4u
 #define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
 
-#define ARM_L2_SMALL_CACHEABLE          0x008
-#define ARM_L2_SMALL_BUFFERABLE         0x004
-#define ARM_L2_SMALL_USR_RO             0xaa0
-#define ARM_L2_SMALL_USR_RW             0xff0
-
 /* Page type independent page options */
 #define KPI_PAGING_FLAGS_READ    0x01
 #define KPI_PAGING_FLAGS_WRITE   0x02

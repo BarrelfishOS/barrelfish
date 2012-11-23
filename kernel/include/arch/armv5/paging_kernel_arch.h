@@ -53,7 +53,10 @@ void paging_context_switch(lpaddr_t table_addr);
 void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
-
+#define ARM_L2_SMALL_CACHEABLE          0x008
+#define ARM_L2_SMALL_BUFFERABLE         0x004
+#define ARM_L2_SMALL_USR_RO             0xaa0
+#define ARM_L2_SMALL_USR_RW             0xff0
 
 static inline bool is_root_pt(enum objtype type) {
     return type == ObjType_VNode_ARM_l2;

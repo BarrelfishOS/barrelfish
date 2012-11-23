@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 ETH Zurich.
+ * Copyright (c) 2009 - 2012 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -18,7 +18,7 @@
  * Kernel L1 page table
  */
 //XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
+//     to 16K after relocation
 static union arm_l1_entry kernel_l1_table[2*ARM_L1_MAX_ENTRIES]
 __attribute__((aligned(ARM_L1_ALIGN)));
 static union arm_l1_entry *aligned_kernel_l1_table;
@@ -28,7 +28,7 @@ static union arm_l1_entry *aligned_kernel_l1_table;
  * Kernel L2 page table for first MB
  */
 //XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 1K after relocation
+//     to 1K after relocation
 static union arm_l2_entry low_l2_table[2*ARM_L2_MAX_ENTRIES]
 __attribute__((aligned(ARM_L2_ALIGN)));
 static union arm_l2_entry *aligned_low_l2_table;
@@ -58,9 +58,9 @@ paging_write_l1_entry(uintptr_t ttbase, lvaddr_t va, union arm_l1_entry l1)
     union arm_l1_entry *l1_table;
     if (ttbase == 0) {
         if(va < MEMORY_OFFSET)
-        	ttbase = cp15_read_ttbr0() + MEMORY_OFFSET;
+            ttbase = cp15_read_ttbr0() + MEMORY_OFFSET;
         else
-        	ttbase = cp15_read_ttbr1() + MEMORY_OFFSET;
+            ttbase = cp15_read_ttbr1() + MEMORY_OFFSET;
     }
     l1_table = (union arm_l1_entry *) ttbase;
     l1_table[ARM_L1_OFFSET(va)] = l1;
@@ -78,7 +78,7 @@ void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
     l1.section.type = L1_TYPE_SECTION_ENTRY;
     l1.section.bufferable   = 1;
     l1.section.cacheable    = 1;
-    l1.section.ap10         = 1;	// RW/NA
+    l1.section.ap10         = 1;    // RW/NA
     l1.section.ap2          = 0;
     l1.section.base_address = pa >> 20u;
 
@@ -107,7 +107,7 @@ paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
     l1.section.bufferable   = 0;
     l1.section.cacheable    = 0;
     l1.section.ap10         = 3; // prev value: 3 // RW/NA RW/RW
-    l1.section.ap2	    = 0;
+    l1.section.ap2        = 0;
     l1.section.base_address = pa >> 20u;
 
     paging_write_l1_entry(ttbase, va, l1);
@@ -273,7 +273,8 @@ caps_map_l1(struct capability* dest,
             cslot_t            slot,
             struct capability* src,
             uintptr_t          kpi_paging_flags,
-            uintptr_t          offset)
+            uintptr_t          offset,
+            uintptr_t          pte_count)
 {
     //
     // Note:
@@ -285,36 +286,47 @@ caps_map_l1(struct capability* dest,
     //
     // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
     //
-    const int ARM_L1_SCALE = 4;
-
     if (slot >= 1024) {
-        panic("oops");
+        printf("slot = %"PRIuCSLOT"\n",slot);
+        panic("oops: slot id >= 1024");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
+    if (pte_count != 1) {
+        printf("pte_count = %zu\n",(size_t)pte_count);
+        panic("oops: pte_count");
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
     if (src->type != ObjType_VNode_ARM_l2) {
-        panic("oops");
+        panic("oops: wrong src type");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET) / ARM_L1_SCALE) {
-        panic("oops");
+        printf("slot = %"PRIuCSLOT"\n",slot);
+        panic("oops: slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
     }
 
     // Destination
-    lpaddr_t dest_lpaddr = gen_phys_to_local_phys(dest->u.vnode_arm_l1.base);
+    lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
     union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
 
     // Source
-    genpaddr_t src_gpaddr = src->u.vnode_arm_l2.base;
+    genpaddr_t src_gpaddr = get_address(src);
     lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr);
 
     assert(offset == 0);
     assert(aligned(src_lpaddr, 1u << 10));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 16384));
+
+    struct cte *src_cte = cte_for_cap(src);
+    src_cte->mapping_info.pte_count = pte_count;
+    src_cte->mapping_info.pte = dest_lpaddr + (slot * ARM_L1_SCALE);
+    src_cte->mapping_info.offset = 0;
 
     for (int i = 0; i < 4; i++, entry++)
     {
@@ -430,7 +442,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
 
     switch(pgtable->type){
     case ObjType_VNode_ARM_l1: {
-    	genpaddr_t gp = pgtable->u.vnode_arm_l1.base;
+        genpaddr_t gp = pgtable->u.vnode_arm_l1.base;
         lpaddr_t   lp = gen_phys_to_local_phys(gp);
         lvaddr_t   lv = local_phys_to_mem(lp);
         union arm_l1_entry *entry = (union arm_l1_entry *)lv + slot;
@@ -438,7 +450,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
         break;
     }
     case ObjType_VNode_ARM_l2: {
-    	genpaddr_t gp = pgtable->u.vnode_arm_l2.base;
+        genpaddr_t gp = pgtable->u.vnode_arm_l2.base;
         lpaddr_t   lp = gen_phys_to_local_phys(gp);
         lvaddr_t   lv = local_phys_to_mem(lp);
         union arm_l2_entry *entry = (union arm_l2_entry *)lv + slot;
