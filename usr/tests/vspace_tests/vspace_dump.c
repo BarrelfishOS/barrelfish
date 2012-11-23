@@ -84,7 +84,10 @@ static int cmp_dump_info(const void *arg1, const void *arg2)
     return 0;
 }
 #else
-#error no comparison function
+static int cmp_dump_info(const void *arg1, const void *arg2)
+{
+	return 0;
+}
 #endif
 
 #define BUFSIZE 8192
