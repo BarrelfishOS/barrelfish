@@ -52,22 +52,7 @@ void paging_context_switch(lpaddr_t table_addr);
 void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
-// L1 Alignment determined by TTBR register (bits 13:0 ignored by hardware)
-#define ARM_L1_ALIGN                    16384u
 
-#define ARM_L1_MAX_ENTRIES              4096u
-#define ARM_L1_BYTES_PER_ENTRY          4u
-#define ARM_L1_SECTION_BYTES            (1024u * 1024u)
-
-#define ARM_L2_ALIGN                    1024u
-#define ARM_L2_MAX_ENTRIES              256u
-#define ARM_L2_BYTES_PER_ENTRY          4u
-#define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
-
-#define ARM_L2_SMALL_CACHEABLE          0x008
-#define ARM_L2_SMALL_BUFFERABLE         0x004
-#define ARM_L2_SMALL_USR_RO             0xaa0
-#define ARM_L2_SMALL_USR_RW             0xff0
 
 static inline bool is_root_pt(enum objtype type) {
     return type == ObjType_VNode_ARM_l2;
@@ -75,7 +60,21 @@ static inline bool is_root_pt(enum objtype type) {
 
 static inline size_t get_pte_size(void) {
     // both l1_entry and l2_entry are 4 bytes
-    return sizeof(union l1_entry);
+    return 4;
+}
+#define PTABLE_ENTRY_SIZE get_pte_size()
+
+static inline void do_one_tlb_flush(genvaddr_t vaddr)
+{
 }
 
+static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
+{
+}
+
+static inline void do_full_tlb_flush(void)
+{
+}
+
+>>>>>>> 2ca6de7... More ARM code.
 #endif // KERNEL_ARCH_ARM_PAGING_H

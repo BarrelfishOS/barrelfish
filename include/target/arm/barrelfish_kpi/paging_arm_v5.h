@@ -31,6 +31,24 @@
 #define ARM_L2_OFFSET(addr)       ((((uintptr_t)addr) >> 12) & 0xff)
 #define ARM_PAGE_OFFSET(addr)     ((uintptr_t)addr & 0xfff)
 
+// L1 Alignment determined by TTBR register (bits 13:0 ignored by hardware)
+#define ARM_L1_ALIGN                    16384u
+
+#define ARM_L1_MAX_ENTRIES              4096u
+#define ARM_L1_BYTES_PER_ENTRY          4u
+#define ARM_L1_SECTION_BYTES            (1024u * 1024u)
+#define ARM_L1_TABLE_BYTES              (ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY)
+
+#define ARM_L2_ALIGN                    1024u
+#define ARM_L2_MAX_ENTRIES              256u
+#define ARM_L2_BYTES_PER_ENTRY          4u
+#define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
+
+#define ARM_L2_SMALL_CACHEABLE          0x008
+#define ARM_L2_SMALL_BUFFERABLE         0x004
+#define ARM_L2_SMALL_USR_RO             0xaa0
+#define ARM_L2_SMALL_USR_RW             0xff0
+
 /* Page type independent page options */
 #define KPI_PAGING_FLAGS_READ    0x01
 #define KPI_PAGING_FLAGS_WRITE   0x02

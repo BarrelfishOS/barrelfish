@@ -241,7 +241,7 @@ static __attribute__((noinline, unused)) errval_t
 static inline errval_t
 #endif
 invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
-                 int frombits, uintptr_t flags, uintptr_t offset
+                 int frombits, uintptr_t flags, uintptr_t offset,
                  uintptr_t pte_count)
 {
     uint8_t invoke_bits = get_cap_valid_bits(ptable);
@@ -264,13 +264,22 @@ static __attribute__((noinline, unused)) errval_t
 #else
 static inline errval_t
 #endif
-invoke_vnode_unmap(struct capref cap, size_t entry)
+invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits,
+                   size_t entry, size_t pte_count)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
 
-    return syscall3((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, entry).error;
+    pte_count -= 1;
+
+    assert(entry < 1024);
+    assert(pte_count < 1024);
+    assert(mapping_bits <= 0xff);
+
+    return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, mapping_cptr,
+		    ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) |
+                     (entry & 0x3ff)).error;
 }
 
 /**
@@ -417,6 +426,21 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
 
     return sysret.error;
 }
+
+static inline errval_t invoke_kernel_dump_ptables(struct capref kern_cap,
+                                                  struct capref dispcap)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kern_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kern_cap) >> (CPTR_BITS - invoke_bits);
+
+    capaddr_t dispcaddr = get_cap_addr(dispcap);
+
+    struct sysret sysret =
+        syscall3((invoke_bits << 16) | (KernelCmd_DumpPTables << 8) | SYSCALL_INVOKE,
+             invoke_cptr, dispcaddr);
+    return sysret.error;
+}
+
 
 static inline errval_t
 invoke_dispatcher_properties(
