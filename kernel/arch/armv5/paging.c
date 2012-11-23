@@ -274,7 +274,8 @@ caps_map_l1(struct capability* dest,
             cslot_t            slot,
             struct capability* src,
             uintptr_t          kpi_paging_flags,
-            uintptr_t          offset)
+            uintptr_t          offset,
+            uintptr_t          pte_count)
 {
     //
     // Note:
@@ -291,6 +292,11 @@ caps_map_l1(struct capability* dest,
     if (slot >= 1024) {
         panic("oops");
         return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+
+    if (pte_count != 1) {
+        panic("oops");
+        return SYS_ERR_VM_MAP_SIZE;
     }
 
     if (src->type != ObjType_VNode_ARM_l2) {
@@ -317,6 +323,11 @@ caps_map_l1(struct capability* dest,
     assert(aligned(src_lpaddr, 1u << 10));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 16384));
 
+    struct cte *src_cte = cte_for_cap(src);
+    src_cte->mapping_info.pte_count = pte_count;
+    src_cte->mapping_info.pte = dest_lpaddr;
+    src_cte->offset = 0;
+
     for (int i = 0; i < 4; i++, entry++)
     {
         entry->raw = 0;
@@ -339,7 +350,8 @@ caps_map_l2(struct capability* dest,
             cslot_t            slot,
             struct capability* src,
             uintptr_t          kpi_paging_flags,
-            uintptr_t          offset)
+            uintptr_t          offset,
+            uintptr_t          pte_count)
 {
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
@@ -362,6 +374,11 @@ caps_map_l2(struct capability* dest,
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
+    // check mapping does not overlap leaf page table
+    if (slot + pte_count > (256 * 4)) {
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
     // Destination
     lvaddr_t dest_lvaddr =
         local_phys_to_mem(gen_phys_to_local_phys(dest->u.vnode_arm_l2.base));
@@ -376,25 +393,27 @@ caps_map_l2(struct capability* dest,
         panic("Invalid target");
     }
 
-    entry->raw = 0;
+    for (i = 0; i < pte_count; i++) {
+        entry->raw = 0;
 
-    entry->small_page.type = L2_TYPE_SMALL_PAGE;
-    entry->small_page.bufferable = 1;
-    entry->small_page.cacheable =
-        (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
+        entry->small_page.type = L2_TYPE_SMALL_PAGE;
+        entry->small_page.bufferable = 1;
+        entry->small_page.cacheable =
+            (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
 
-    entry->small_page.ap0  =
-        (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
-    entry->small_page.ap0 |=
-        (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
-    entry->small_page.ap1 = entry->small_page.ap0;
-    entry->small_page.ap2 = entry->small_page.ap0;
-    entry->small_page.ap3 = entry->small_page.ap0;
+        entry->small_page.ap0  =
+            (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
+        entry->small_page.ap0 |=
+            (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
+        entry->small_page.ap1 = entry->small_page.ap0;
+        entry->small_page.ap2 = entry->small_page.ap0;
+        entry->small_page.ap3 = entry->small_page.ap0;
 
-    entry->small_page.base_address = src_lpaddr >> 12;
+        entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
 
-    debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
-           dest_lvaddr, slot, entry, entry->raw);
+        debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
+               dest_lvaddr, slot, entry, entry->raw);
+    }
 
     // Flush TLB if remapping.
     cp15_invalidate_tlb();
@@ -404,22 +423,24 @@ caps_map_l2(struct capability* dest,
 
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
-                            struct cte *src_cte, uintptr_t param1,
-                            uintptr_t param2)
+                            struct cte *src_cte, uintptr_t flags,
+                            uintptr_t offset, uintptr_t pte_count)
 {
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
 
     if (ObjType_VNode_ARM_l1 == dest_cap->type) {
         return caps_map_l1(dest_cap, dest_slot, src_cap,
-                           param1,      // kpi_paging_flags
-                           param2       // offset
+                           flags,
+                           offset,
+                           pte_count
                           );
     }
     else if (ObjType_VNode_ARM_l2 == dest_cap->type) {
         return caps_map_l2(dest_cap, dest_slot, src_cap,
-                           param1,      // kpi_paging_flags
-                           param2       // offset
+                           flags,
+                           offset,
+                           pte_count
                           );
     }
     else {

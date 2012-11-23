@@ -239,6 +239,30 @@ handle_revoke(
 }
 
 static struct sysret
+handle_map(
+    struct capability *ptable,
+    arch_registers_state_t *context,
+    int argc
+    )
+{
+    assert(7 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    /* Retrieve arguments */
+    capaddr_t  source_cptr   = (capaddr_t)sa->arg2;
+        capaddr_t dest_slot      = ((capaddr_t)sa->arg3) >> 16;
+    int      source_vbits  = ((int)sa->arg3) & 0xff;
+    uintptr_t flags, offset,pte_count;
+    flags = (uintptr_t)sa->arg4;
+    offset = (uintptr_t)sa->arg5;
+    pte_count = (uintptr_t)sa->arg6;
+
+    return sys_map(pgtable, dest_slot, source_cptr, source_vbits,
+                   flags, offset, pte_count);
+}
+
+static struct sysret
 monitor_get_core_id(
     struct capability* to,
     arch_registers_state_t* context,
@@ -327,6 +351,12 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify
+    },
+    [VNode_ARM_l1] = {
+        [VNodeCmd_Map] = handle_map,
+    },
+    [VNode_ARM_l2] = {
+        [VNodeCmd_Map] = handle_map,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,

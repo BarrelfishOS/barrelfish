@@ -20,6 +20,7 @@
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode {
     uint32_t      entry;       ///< Page table entry of this VNode
+    uint32_t      pte_count;   ///< number of page table entries represented by this VNode
     struct capref cap;         ///< Capability of this VNode
     struct vnode  *next;       ///< Next entry in list of siblings
     struct vnode  *children;   ///< Children of this VNode

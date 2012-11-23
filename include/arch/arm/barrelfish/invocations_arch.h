@@ -232,6 +232,31 @@ invoke_cnode_revoke(struct capref root, capaddr_t cap,
     return syscall4((invoke_bits << 16) | (CNodeCmd_Revoke << 8) | SYSCALL_INVOKE,
                     invoke_cptr, cap, bits).error;
 }
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
+                 int frombits, uintptr_t flags, uintptr_t offset
+                 uintptr_t pte_count)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(ptable);
+    capaddr_t invoke_cptr = get_cap_addr(ptable) >> (CPTR_BITS - invoke_bits);
+
+    assert(slot <= 0xffff);
+    assert(frombits <= 0xff);
+
+    // XXX: needs check of flags, offset, and pte_count sizes
+    // XXX: flag transfer breaks for PAE (flags are 64 bits for PAE)
+    return syscall7((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, from, (slot << 16) | frombits,
+                    flags, offset, pte_count).error;
+}
+
 //XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
 #if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
 	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1

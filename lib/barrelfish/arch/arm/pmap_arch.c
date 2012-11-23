@@ -102,6 +102,31 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
+static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+    uint32_t end_entry = entry + len;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (n->is_vnode && n->entry == entry) {
+            return true;
+        }
+        // n is frame
+        uint32_t end = n->entry + n->pte_count;
+        if (n->entry < entry && end > end_entry) {
+            return true;
+        }
+        if (n->entry >= entry && n->entry < end_entry) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
     struct vnode *walk = root->children;
@@ -148,7 +173,7 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
     }
 
     err = vnode_map(root->cap, newvnode->cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0);
+                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1);
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -197,38 +222,120 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
     return SYS_ERR_OK;
 }
 
+static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr,
+                              struct capref frame, size_t offset, size_t pte_count,
+                              vregion_flags_t flags)
+{
+    // Get the page table
+    struct vnode *ptable;
+    err = get_ptable(pmap, vaddr, &ptable);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+    }
+    uintptr_t index = (((uintptr_t)vaddr) >> 12) & 0x3ffu;
+    // Create user level datastructure for the mapping
+    bool has_page = has_vnode(ptable, index);
+    assert(!has_page);
+    struct vnode *page = slab_alloc(&pmap->slab);
+    assert(page);
+    page->entry = index;
+    page->next  = ptable->children;
+    ptable->children = page;
+    page->children = NULL;
+    page->cap = frame;
+    page->pte_count = pte_count;
+
+    // Map entry into the page table
+    err = vnode_map(ptable->cap, frame, index,
+                    pmap_flags, offset, pte_count);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_MAP);
+    }
+}
+
 static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
                        struct capref frame, size_t offset, size_t size,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
+
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+    size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
+    genvaddr_t vend = vaddr + size;
+
+    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend)) {
+        // fast path
+        do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
+    }
+    else { // multiple leaf page tables
+        // first leaf
+        uint32_t c = ARM_PTABLE_SIZE - ARM_L2_OFFSET(vaddr);
+        genvaddr_t temp_end = vaddr + c * ARM_BASE_PAGE_SIZE;
+        err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
+
+        // map full leaves
+        while (ARM_L1_OFFSET(temp_end) < ARM_L1_OFFSET(vend)) { // update vars
+            vaddr = temp_end;
+            temp_end = vaddr + ARM_PTABLE_SIZE * BASE_PAGE_SIZE;
+            offset += c * ARM_BASE_PAGE_SIZE;
+            c = ARM_PTABLE_SIZE;
+            // copy cap
+            struct capref next;
+            err = slot_alloc(&next);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            err = cap_copy(next, frame);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            frame = next;
+
+            // do mapping
+            err = do_single_map(pmap, vaddr, temp_end, frame, offset, ARM_PTABLE_SIZE, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+        }
+
+        // map remaining part
+        offset += c * BASE_PAGE_SIZE;
+        c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(temp_end);
+        if (c) {
+            // copy cap
+            struct capref next;
+            err = slot_alloc(&next);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            err = cap_copy(next, frame);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+
+            // do mapping
+            err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+        }
+    }
+
+    if (retoff) {
+        *retoff = offset;
+    }
+    if (retsize) {
+        *retsize = size;
+    }
+    return SYS_ERR_OK;
+#if 0
+    errval_t err;
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
 
     for (size_t i = offset; i < offset + size; i += BASE_PAGE_SIZE) {
-        // Get the page table
-        struct vnode *ptable;
-        err = get_ptable(pmap, vaddr, &ptable);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
-        }
-        uintptr_t index = (((uintptr_t)vaddr) >> 12) & 0x3ffu;
-        // Create user level datastructure for the mapping
-        struct vnode *page = find_vnode(ptable, index);
-        assert(!page);
-        page = slab_alloc(&pmap->slab);
-        assert(page);
-        page->entry = index;
-        page->next  = ptable->children;
-        ptable->children = page;
-        page->children = NULL;
-        page->cap = frame;
-
-        // Map entry into the page table
-        err = vnode_map(ptable->cap, frame, index,
-                        pmap_flags, i);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_MAP);
-        }
 
         vaddr += BASE_PAGE_SIZE;
     }
@@ -240,6 +347,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         *retsize = size;
     }
     return SYS_ERR_OK;
+#endif
 }
 
 static size_t
