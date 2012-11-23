@@ -368,6 +368,40 @@ monitor_create_cap(
                                             slot, src));
 }
 
+static struct sysret kernel_dump_ptables(
+    struct capability* to,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(to->type == ObjType_Kernel);
+    assert(1 == argc);
+
+    printf("kernel_dump_ptables\n");
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+    capaddr_t dispcaddr = sa->arg0;
+
+    struct cte *dispcte;
+    errval_t err = caps_lookup_slot(&dcb_current->cspace.cap, dispcaddr, CPTR_BITS,
+                           &dispcte, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        printf("failed to lookup dispatcher cap\n");
+        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME));
+    }
+    struct capability *dispcap = &dispcte->cap;
+    if (dispcap->type != ObjType_Dispatcher) {
+        printf("dispcap is not dispatcher cap\n");
+        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME_INVALID));
+    }
+
+    struct dcb *dispatcher = dispcap->u.dispatcher.dcb;
+
+    dump_hw_page_tables(dispatcher);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -403,6 +437,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id] = monitor_get_arch_id,
         [KernelCmd_Register]    = monitor_handle_register,
         [KernelCmd_Create_cap]  = monitor_create_cap,
+	[KernelCmd_DumpPTables] = kernel_dump_ptables,
     }
 };
 

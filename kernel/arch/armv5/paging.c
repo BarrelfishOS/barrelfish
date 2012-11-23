@@ -8,6 +8,7 @@
  */
 
 #include <kernel.h>
+#include <dispatch.h>
 #include <cp15.h>
 #include <paging_kernel_arch.h>
 #include <string.h>
@@ -549,4 +550,28 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     memset(&mapping->mapping_info, 0, sizeof(struct mapping_info));
 
     return SYS_ERR_OK;
+}
+
+void dump_hw_page_tables(struct dcb *dispatcher)
+{
+    printf("dump_hw_page_tables\n");
+    lvaddr_t l1 = local_phys_to_mem(dispatcher->vspace);
+
+    for (int l1_index = 0; l1_index < ARM_L1_MAX_ENTRIES; l1_index++) {
+        // get level2 table
+        union l1_entry *l2 = (union l1_entry *)l1 + l1_index;
+        if (!l2->raw) { continue; }
+        genpaddr_t ptable_gp = (genpaddr_t)(l2->coarse.base_address) << 10;
+        lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
+
+        for (int entry = 0; entry < ARM_L2_MAX_ENTRIES; entry++) {
+            union l2_entry *e =
+                (union l2_entry *)ptable_lv + entry;
+            genpaddr_t paddr = (genpaddr_t)(e->small_page.base_address) << BASE_PAGE_BITS;
+            if (!paddr) {
+                continue;
+            }
+            printf("%d.%d: 0x%"PRIxGENPADDR"\n", l1_index, entry, paddr);
+        }
+    }
 }
