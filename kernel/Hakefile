@@ -35,7 +35,7 @@ let
                scheduler, 
                "memset.c", 
                "memmove.c", 
-               "paging_generic.c"
+               "paging_generic.c",
                "printf.c",
                "startup.c", 
                "stdlib.c", 
