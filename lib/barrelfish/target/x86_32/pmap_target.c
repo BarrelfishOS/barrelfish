@@ -630,6 +630,8 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
     size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+    size_t pages = DIVIDE_ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+    genvaddr_t vend = vaddr + size;
 
     if (X86_32_PDIR_BASE(vaddr) == X86_32_PDIR_BASE(vend)) {
         // fast path
@@ -646,13 +648,6 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
 
-        // Remap with changed flags
-        paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-        err = vnode_map(ptable->u.vnode.cap, vn->u.frame.cap, vn->entry,
-                pmap_flags, vn->u.frame.offset);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_MAP);
-        }
         // unmap full leaves
         vaddr += c * X86_32_BASE_PAGE_SIZE;
         while (X86_32_PDIR_BASE(vaddr) < X86_32_PDIR_BASE(vend)) {
@@ -664,7 +659,6 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
             vaddr += c * X86_32_BASE_PAGE_SIZE;
         }
 
-        vn->u.frame.flags = flags;
         // unmap remaining part
         c = X86_32_PTABLE_BASE(vend) - X86_32_PTABLE_BASE(vaddr);
         if (c) {
