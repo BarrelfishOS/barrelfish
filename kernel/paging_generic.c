@@ -138,20 +138,20 @@ errval_t unmap_capability(struct cte *mem)
         // no page table, should be ok.
         return SYS_ERR_OK;
     }
-    lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(&pgtable->cap)));
-    cslot_t slot = (mem->mapping_info.pte - pt) / PTABLE_ENTRY_SIZE;
+    lpaddr_t ptable_lp = gen_phys_to_local_phys(get_address(&pgtable->cap));
+    lvaddr_t ptable_lv = local_phys_to_mem(ptable_lp);
+    cslot_t slot = (mem->mapping_info.pte - ptable_lp) / PTABLE_ENTRY_SIZE;
     genvaddr_t vaddr;
-    compile_vaddr(pgtable, slot, &vaddr);
-    //genvaddr_t vend = vaddr + mem->mapping_info.pte_count * BASE_PAGE_SIZE;
-
-    do_unmap(pt, slot, vaddr, mem->mapping_info.pte_count);
-
-    if (mem->mapping_info.pte_count > 1) {
-        do_full_tlb_flush();
-    } else {
-        do_one_tlb_flush(vaddr);
+    err = compile_vaddr(pgtable, slot, &vaddr);
+    if (err_is_ok(err)) {
+        // only perform unmap when we successfully reconstructed the virtual address
+        do_unmap(ptable_lv, slot, vaddr, mem->mapping_info.pte_count);
+        if (mem->mapping_info.pte_count > 1) {
+            do_full_tlb_flush();
+        } else {
+            do_one_tlb_flush(vaddr);
+        }
     }
-
 
     return SYS_ERR_OK;
 }
