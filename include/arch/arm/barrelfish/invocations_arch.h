@@ -251,7 +251,6 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
     assert(frombits <= 0xff);
 
     // XXX: needs check of flags, offset, and pte_count sizes
-    // XXX: flag transfer breaks for PAE (flags are 64 bits for PAE)
     return syscall7((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
                     invoke_cptr, from, (slot << 16) | frombits,
                     flags, offset, pte_count).error;

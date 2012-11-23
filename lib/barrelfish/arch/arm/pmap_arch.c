@@ -56,6 +56,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish/invocations_arch.h>
 #include <stdio.h>
 
 // Location of VSpace managed by this system.
@@ -66,6 +67,12 @@
 //#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
 #define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256)
 // increased above value from 128 for pandaboard port
+
+// Convenience macros to figure out user space page table indices
+// we use 10 bits for both L1 and L2 tables in user space, even though
+// in hardware we use 12 bits for L1 and 8 bits for L2.
+#define ARM_USER_L1_OFFSET(addr) ((uintptr_t)(addr >> 22) & 0x3ffu)
+#define ARM_USER_L2_OFFSET(addr) ((uintptr_t)(addr >> 12) & 0x3ffu)
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -93,9 +100,10 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
 {
     assert(root != NULL);
+    assert(root->is_vnode);
     struct vnode *n;
 
-    for(n = root->children; n != NULL; n = n->next) {
+    for(n = root->u.vnode.children; n != NULL; n = n->next) {
         if(n->entry == entry) {
             return n;
         }
@@ -103,27 +111,24 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
-static bool has_vnode_debug = false;
 static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 {
     assert(root != NULL);
+    assert(root->is_vnode);
     struct vnode *n;
 
     uint32_t end_entry = entry + len;
-    if (has_vnode_debug) printf("entry = %"PRIu32", end_entry = %"PRIu32"\n", entry, end_entry);
 
-    for (n = root->children; n; n = n->next) {
-        uint32_t end = n->entry + n->pte_count;
-        if (n && n->entry == entry) {
-            if (has_vnode_debug) printf("==\n");
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (n->is_vnode && n->entry == entry) {
             return true;
         }
-        if (n && n->entry < entry && end > entry) {
-            if (has_vnode_debug) printf("front (%"PRIu32" -- %"PRIu32")\n", n->entry, end);
+        // n is frame
+        uint32_t end = n->entry + n->u.frame.pte_count;
+        if (n->entry < entry && end > end_entry) {
             return true;
         }
-        if (n && n->entry > entry && n->entry < end_entry) {
-            if (has_vnode_debug) printf("back (%"PRIu32" -- %"PRIu32")\n", n->entry, end);
+        if (n->entry >= entry && n->entry < end_entry) {
             return true;
         }
     }
@@ -133,7 +138,8 @@ static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
-    struct vnode *walk = root->children;
+    assert(root->is_vnode);
+    struct vnode *walk = root->u.vnode.children;
     struct vnode *prev = NULL;
     while (walk) {
         if (walk == item) {
@@ -141,14 +147,14 @@ static void remove_vnode(struct vnode *root, struct vnode *item)
                 prev->next = walk->next;
                 return;
             } else {
-                root->children = walk->next;
+                root->u.vnode.children = walk->next;
                 return;
             }
         }
         prev = walk;
         walk = walk->next;
     }
-    USER_PANIC("Should not get here");
+    assert(!"Should not get here");
 }
 
 /**
@@ -158,25 +164,27 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
                             enum objtype type, uint32_t entry,
                             struct vnode **retvnode)
 {
+    assert(root->is_vnode);
     errval_t err;
 
     struct vnode *newvnode = slab_alloc(&pmap_arm->slab);
+    newvnode->is_vnode = true;
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
 
     // The VNode capability
-    err = slot_alloc(&newvnode->cap);
+    err = slot_alloc(&newvnode->u.vnode.cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = vnode_create(newvnode->cap, type);
+    err = vnode_create(newvnode->u.vnode.cap, type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-    err = vnode_map(root->cap, newvnode->cap, entry,
+    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
                     KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1);
 
     if (err_is_fail(err)) {
@@ -184,11 +192,10 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
     }
 
     // The VNode meta data
-    newvnode->entry     = entry;
-    newvnode->next      = root->children;
-    newvnode->pte_count = 1;
-    root->children      = newvnode;
-    newvnode->children  = NULL;
+    newvnode->entry            = entry;
+    newvnode->next             = root->u.vnode.children;
+    root->u.vnode.children     = newvnode;
+    newvnode->u.vnode.children = NULL;
 
     if (retvnode) {
         *retvnode = newvnode;
@@ -204,8 +211,9 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
                            struct vnode    **ptable)
 {
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
-    // of L2 is 1 page of L2 entries (4 tables) so
-    uintptr_t index = ((uintptr_t)vaddr) >> 22;
+    // of L2 is 1 page of L2 entries (4 tables) so we use 10 bits for the L1
+    // index here
+    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
     if ((*ptable = find_vnode(&pmap->root, index)) == NULL)
     {
         // L1 table entries point to L2 tables so allocate an L2
@@ -232,7 +240,7 @@ static struct vnode *find_ptable(struct pmap_arm  *pmap,
 {
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
     // of L2 is 1 page of L2 entries (4 tables) so
-    uintptr_t index = ((uintptr_t)vaddr) >> 22;
+    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
     return find_vnode(&pmap->root, index);
 }
 
@@ -248,21 +256,24 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
-    uintptr_t index = (((uintptr_t)vaddr) >> 12) & 0x3ffu;
+    // note that strictly speaking a l2 entry only has 8 bits, but due to the
+    // way Barrelfish allocates l1 and l2 tables, we use 10 bits for the
+    // tracking index here and in the map syscall
+    uintptr_t index = ARM_USER_L2_OFFSET(vaddr);
     // Create user level datastructure for the mapping
     bool has_page = has_vnode(ptable, index, pte_count);
     assert(!has_page);
     struct vnode *page = slab_alloc(&pmap->slab);
     assert(page);
+    page->is_vnode = false;
     page->entry = index;
-    page->next  = ptable->children;
-    ptable->children = page;
-    page->children = NULL;
-    page->cap = frame;
-    page->pte_count = pte_count;
+    page->next  = ptable->u.vnode.children;
+    ptable->u.vnode.children = page;
+    page->u.frame.cap = frame;
+    page->u.frame.pte_count = pte_count;
 
     // Map entry into the page table
-    err = vnode_map(ptable->cap, frame, index,
+    err = vnode_map(ptable->u.vnode.cap, frame, index,
                     pmap_flags, offset, pte_count);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -279,15 +290,16 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
 
     size = ROUND_UP(size, BASE_PAGE_SIZE);
     size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
-    if (pte_count > 1) {
-        has_vnode_debug = true;
-        printf("[do_map] 0x%"PRIxGENVADDR", size = %zu, pte_count = %zu\n", vaddr, size, pte_count);
-    }
+    //printf("[do_map] 0x%"PRIxGENVADDR", size = %zu, pte_count = %zu\n", vaddr, size, pte_count);
     genvaddr_t vend = vaddr + size;
 
-    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend)) {
+    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
         // fast path
-        do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
+        err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "[do_map] in fast path: %s\n", err_getstring(err_no(err)));
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
     }
     else { // multiple leaf page tables
         // first leaf
@@ -351,7 +363,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
     if (retsize) {
         *retsize = size;
     }
-    has_vnode_debug = false;
+    //has_vnode_debug = false;
     return SYS_ERR_OK;
 #if 0
     errval_t err;
@@ -510,9 +522,10 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
     errval_t err;
     struct vnode *pt = find_ptable(pmap, vaddr);
     if (pt) {
-        struct vnode *page = find_vnode(pt, ARM_L2_OFFSET(vaddr));
-        if (page && page->pte_count == pte_count) {
-            err = vnode_unmap(pt->cap, page->cap, page->entry, page->pte_count);
+        // analog to do_single_map we use 10 bits for tracking pages in user space -SG
+        struct vnode *page = find_vnode(pt, ARM_USER_L2_OFFSET(vaddr));
+        if (page && page->u.frame.pte_count == pte_count) {
+            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, page->u.frame.pte_count);
             if (err_is_fail(err)) {
                 printf("vnode_unmap returned error: %s (%d)\n", err_getstring(err), err_no(err));
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
@@ -520,7 +533,7 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
 
             // Free up the resources
             if (delete_cap) {
-                err = cap_destroy(page->cap);
+                err = cap_destroy(page->u.frame.cap);
                 if (err_is_fail(err)) {
                     return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
                 }
@@ -645,9 +658,9 @@ modify_flags(struct pmap     *pmap,
     size = ROUND_UP(size, BASE_PAGE_SIZE);
     size_t pte_count = size / BASE_PAGE_SIZE;
     genvaddr_t vend = vaddr + size;
-    printf("[unmap] 0x%"PRIxGENVADDR", size = %zu, pte_count = %zu, entry = %"PRIu32"\n", vaddr, size, pte_count, ARM_L2_OFFSET(vaddr));
+    //printf("[unmap] 0x%"PRIxGENVADDR", size = %zu, pte_count = %zu, entry = %"PRIu32"\n", vaddr, size, pte_count, ARM_L2_OFFSET(vaddr));
 
-    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend)) {
+    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
         // fast path
         err = do_single_unmap(pmap_arm, vaddr, pte_count, false);
         if (err_is_fail(err)) {
@@ -759,9 +772,10 @@ pmap_init(struct pmap   *pmap,
               pmap_arm->slab_buffer,
               sizeof(pmap_arm->slab_buffer));
 
-    pmap_arm->root.cap      = vnode;
-    pmap_arm->root.next     = NULL;
-    pmap_arm->root.children = NULL;
+    pmap_arm->root.is_vnode         = true;
+    pmap_arm->root.u.vnode.cap      = vnode;
+    pmap_arm->root.next             = NULL;
+    pmap_arm->root.u.vnode.children = NULL;
 
     return SYS_ERR_OK;
 }

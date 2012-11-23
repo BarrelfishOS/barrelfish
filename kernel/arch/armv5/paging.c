@@ -297,33 +297,36 @@ caps_map_l1(struct capability* dest,
     const int ARM_L1_SCALE = 4;
 
     if (slot >= 1024) {
-        panic("oops");
+        printf("slot = %"PRIuCSLOT"\n",slot);
+        panic("oops: slot id >= 1024");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
     if (pte_count != 1) {
-        panic("oops");
+        printf("pte_count = %zu\n",(size_t)pte_count);
+        panic("oops: pte_count");
         return SYS_ERR_VM_MAP_SIZE;
     }
 
     if (src->type != ObjType_VNode_ARM_l2) {
-        panic("oops");
+        panic("oops: wrong src type");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET) / ARM_L1_SCALE) {
-        panic("oops");
+        printf("slot = %"PRIuCSLOT"\n",slot);
+        panic("oops: slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
     }
 
     // Destination
-    lpaddr_t dest_lpaddr = gen_phys_to_local_phys(dest->u.vnode_arm_l1.base);
+    lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
     union l1_entry* entry = (union l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
 
     // Source
-    genpaddr_t src_gpaddr = src->u.vnode_arm_l2.base;
+    genpaddr_t src_gpaddr = get_address(src);
     lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr);
 
     assert(offset == 0);
@@ -332,7 +335,7 @@ caps_map_l1(struct capability* dest,
 
     struct cte *src_cte = cte_for_cap(src);
     src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.pte = dest_lpaddr;
+    src_cte->mapping_info.pte = dest_lpaddr + (slot * ARM_L1_SCALE);
     src_cte->mapping_info.offset = 0;
 
     for (int i = 0; i < 4; i++, entry++)

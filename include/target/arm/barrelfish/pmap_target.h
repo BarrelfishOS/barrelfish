@@ -19,11 +19,21 @@
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode {
-    uint32_t      entry;       ///< Page table entry of this VNode
-    uint32_t      pte_count;   ///< number of page table entries represented by this VNode
-    struct capref cap;         ///< Capability of this VNode
+    uint16_t      entry;       ///< Page table entry of this VNode
+    bool          is_vnode;    ///< Is this a page table or a page mapping
     struct vnode  *next;       ///< Next entry in list of siblings
-    struct vnode  *children;   ///< Children of this VNode
+    union {
+        struct {
+            struct capref cap;         ///< Capability of this VNode
+            struct vnode  *children;   ///< Children of this VNode
+        } vnode; // for non-leaf node
+        struct {
+            struct capref cap;         ///< Capability of this VNode
+            genvaddr_t    offset;      ///< Offset within mapped frame cap
+            vregion_flags_t flags;     ///< Flags for mapping
+            size_t        pte_count;   ///< number of mapped PTEs in this mapping
+        } frame; // for leaf node (maps page(s))
+    } u;
 };
 
 struct pmap_arm {
