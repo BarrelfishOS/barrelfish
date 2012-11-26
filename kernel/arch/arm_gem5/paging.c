@@ -13,6 +13,7 @@
 #include <string.h>
 #include <exceptions.h>
 #include <arm_hal.h>
+#include <cap_predicates.h>
 
 /**
  * Kernel L1 page table
@@ -533,32 +534,3 @@ void dump_hw_page_tables(struct dcb *dispatcher)
     }
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, size_t slot)
-{
-    assert(type_is_vnode(pgtable->type));
-
-    switch(pgtable->type){
-    case ObjType_VNode_ARM_l1: {
-        genpaddr_t gp = pgtable->u.vnode_arm_l1.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union arm_l1_entry *entry = (union arm_l1_entry *)lv + slot;
-        entry->raw = 0;
-        break;
-    }
-    case ObjType_VNode_ARM_l2: {
-        genpaddr_t gp = pgtable->u.vnode_arm_l2.base;
-        lpaddr_t   lp = gen_phys_to_local_phys(gp);
-        lvaddr_t   lv = local_phys_to_mem(lp);
-        union arm_l2_entry *entry = (union arm_l2_entry *)lv + slot;
-        entry->raw = 0;
-        break;
-    }
-    default:
-        assert(!"Should not get here");
-    }
-
-    cp15_invalidate_tlb();
-
-    return SYS_ERR_OK;
-}

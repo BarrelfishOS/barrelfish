@@ -243,17 +243,57 @@ handle_revoke(
 }
 
 static struct sysret
+handle_map(
+    struct capability *ptable,
+    arch_registers_state_t *context,
+    int argc
+    )
+{
+    assert(7 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    /* Retrieve arguments */
+    capaddr_t  source_cptr   = (capaddr_t)sa->arg2;
+    capaddr_t dest_slot      = ((capaddr_t)sa->arg3) >> 16;
+    int      source_vbits  = ((int)sa->arg3) & 0xff;
+    uintptr_t flags, offset,pte_count;
+    flags = (uintptr_t)sa->arg4;
+    offset = (uintptr_t)sa->arg5;
+    pte_count = (uintptr_t)sa->arg6;
+
+    return sys_map(ptable, dest_slot, source_cptr, source_vbits,
+                   flags, offset, pte_count);
+}
+
+static struct sysret
 handle_unmap(
-    struct capability* pgtable,
+    struct capability* ptable,
     arch_registers_state_t* context,
     int argc
     )
 {
-	struct registers_arm_syscall_args* sa = &context->syscall_args;
+    assert(4 == argc);
 
-	size_t entry = (size_t)sa->arg2;
-	errval_t err = page_mappings_unmap(pgtable, entry);
-	return SYSRET(err);
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    /* Retrieve arguments */
+    capaddr_t  mapping_cptr  = (capaddr_t)sa->arg2;
+    int mapping_bits         = (((int)sa->arg3) >> 20) & 0xff;
+    size_t pte_count         = (((size_t)sa->arg3) >> 10) & 0x3ff;
+    pte_count               += 1;
+    size_t entry             = ((size_t)sa->arg3) & 0x3ff;
+
+    errval_t err;
+    struct cte *mapping = NULL;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, mapping_cptr, mapping_bits,
+                           &mapping, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+
+    err = page_mappings_unmap(ptable, mapping, entry, pte_count);
+    return SYSRET(err);
 }
 
 static struct sysret
@@ -415,10 +455,12 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
     },
-    [ObjType_VNode_ARM_l2] = {
+    [ObjType_VNode_ARM_l1] = {
+    	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_ARM_l2] = {
+    	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
