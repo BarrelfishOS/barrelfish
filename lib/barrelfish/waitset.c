@@ -244,7 +244,7 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 {
     struct waitset_chanstate *chan;
     bool was_polling = false;
-    cycles_t pollcycles = pollcycles_reset();
+    cycles_t pollcycles;
 
     assert(ws != NULL);
     assert(retclosure != NULL);
@@ -257,6 +257,8 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 polling_loop:
     was_polling = true;
     assert(ws->polling); // this thread is polling
+    // get the amount of cycles we want to poll for
+    pollcycles = pollcycles_reset();
 
     // while there are no pending events, poll channels
     while (ws->polled != NULL && ws->pending == NULL) {
