@@ -20,7 +20,6 @@
 #include <arm_hal.h>
 #include <cpiobin.h>
 #include <getopt/getopt.h>
-#include <romfs_size.h>
 #include <cp15.h>
 #include <elf/elf.h>
 #include <arm_core_data.h>
