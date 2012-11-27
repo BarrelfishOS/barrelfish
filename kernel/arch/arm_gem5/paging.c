@@ -422,7 +422,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     }
 }
 
-size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
+size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 {
     size_t unmapped_pages = 0;
     union l2_entry *ptentry = (union l2_entry *)pt + slot;
@@ -498,7 +498,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    do_unmap(pt, slot, vaddr, num_pages);
+    do_unmap(pt, slot, num_pages);
 
     // flush TLB for unmapped pages
     // TODO: selective TLB flush
@@ -510,7 +510,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     return SYS_ERR_OK;
 }
 
-void dump_hw_page_tables(struct dcb *dispatcher)
+void paging_dump_tables(struct dcb *dispatcher)
 {
     printf("dump_hw_page_tables\n");
     lvaddr_t l1 = local_phys_to_mem(dispatcher->vspace);

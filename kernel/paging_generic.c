@@ -27,11 +27,13 @@ static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
     if (old->mapping_info.pte) {
         err = mdb_find_cap_for_address(local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte), next);
         if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND) {
-            printf("could not find cap associated with 0x%"PRIxLPADDR"\n", old->mapping_info.pte);
+            debug(SUBSYS_PAGING, "could not find cap associated "
+                    "with 0x%"PRIxLPADDR"\n", old->mapping_info.pte);
             return SYS_ERR_VNODE_LOOKUP_NEXT;
         }
         if (err_is_fail(err)) {
-            printf("error in compile_vaddr: mdb_find_range: 0x%"PRIxERRV"\n", err);
+            debug(SUBSYS_PAGING, "error in compile_vaddr:"
+                   " mdb_find_range: 0x%"PRIxERRV"\n", err);
             return err;
         }
         return SYS_ERR_OK;
@@ -145,7 +147,7 @@ errval_t unmap_capability(struct cte *mem)
     err = compile_vaddr(pgtable, slot, &vaddr);
     if (err_is_ok(err)) {
         // only perform unmap when we successfully reconstructed the virtual address
-        do_unmap(ptable_lv, slot, vaddr, mem->mapping_info.pte_count);
+        do_unmap(ptable_lv, slot, mem->mapping_info.pte_count);
         if (mem->mapping_info.pte_count > 1) {
             do_full_tlb_flush();
         } else {

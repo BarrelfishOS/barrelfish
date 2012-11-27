@@ -333,9 +333,8 @@ static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
     return ptable_lv;
 }
 
-size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
+size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 {
-    //printf("[do_unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, num_pages);
     // iterate over affected leaf ptables
     size_t unmapped_pages = 0;
     union x86_64_ptable_entry *ptentry = (union x86_64_ptable_entry *)pt + slot;
@@ -346,15 +345,15 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, genvaddr_t vaddr, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, size_t slot, size_t num_pages)
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, 
+                             size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
-    //printf("page_mappings_unmap(%zd pages)\n", num_pages);
+    errval_t err;
+    debug(SUBSYS_PAGING, "page_mappings_unmap(%zd pages)\n", num_pages);
 
     // get page table entry data
     genpaddr_t paddr;
-    /* lpaddr_t pte_ = mapping_cte->mapping_info.pte;
-    lvaddr_t pte = local_phys_to_mem(pte_); */
 
     read_pt_entry(pgtable, slot, &paddr, NULL, NULL);
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
@@ -363,32 +362,27 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     // TODO: error checking
     genvaddr_t vaddr;
     struct cte *leaf_pt = cte_for_cap(pgtable);
-    compile_vaddr(leaf_pt, slot, &vaddr);
-    // genvaddr_t vend = vaddr + num_pages * BASE_PAGE_SIZE;
-    // printf("vaddr = 0x%lx\n", vaddr);
-    // printf("num_pages = %zu\n", num_pages);
-
-    // get cap for mapping
-    /* struct cte *mem;
-    errval_t err = lookup_cap_for_mapping(paddr, pte, &mem);
+    err = compile_vaddr(leaf_pt, slot, &vaddr);
     if (err_is_fail(err)) {
-        printf("page_mappings_unmap: %ld\n", err);
-        return err;
-    } */
-    //printf("state before unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
-    //printf("state before unmap: num_pages    = %zd\n", num_pages);
+        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
+            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
+        }
+        else {
+            return err;
+        }
+    }
 
     if (num_pages != mapping->mapping_info.pte_count) {
         // want to unmap a different amount of pages than was mapped
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    do_unmap(pt, slot, vaddr, num_pages);
+    do_unmap(pt, slot, num_pages);
 
-    // flush TLB for unmapped pages
+    // flush TLB for unmapped pages if we got a valid virtual address
     // TODO: heuristic that decides if selective or full flush is more
     //       efficient?
-    if (num_pages > 1) {
+    if (num_pages > 1 && err_is_ok(err)) {
         do_full_tlb_flush();
     } else {
         do_one_tlb_flush(vaddr);
@@ -400,9 +394,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     return SYS_ERR_OK;
 }
 
-void dump_hw_page_tables(struct dcb *dispatcher)
+void paging_dump_tables(struct dcb *dispatcher)
 {
-    printf("dump_hw_page_tables\n");
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
 
     // loop over pdpts

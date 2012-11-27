@@ -695,7 +695,7 @@ static struct sysret kernel_dump_ptables(struct capability *cap,
 
     struct dcb *dispatcher = dispcap->u.dispatcher.dcb;
 
-    dump_hw_page_tables(dispatcher);
+    paging_dump_tables(dispatcher);
 
     return SYSRET(SYS_ERR_OK);
 }
