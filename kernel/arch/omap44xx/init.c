@@ -233,9 +233,9 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     printf("Using MMU, %s", buf);
 
 
-    pic_init();
+    gic_init();
     //gic_init();
-    printf("pic_init done\n");
+    printf("gic_init done\n");
 
     if (hal_cpu_is_bsp()) {
 

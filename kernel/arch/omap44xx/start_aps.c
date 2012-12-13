@@ -45,7 +45,7 @@ int start_aps_arm_start(uint8_t core_id, lvaddr_t entry)
 	// write_sysflags_reg(entry);
 
 	//raise SWI to signal app core to start
-	pic_raise_softirq((1 << core_id), 1);
+	gic_raise_softirq((1 << core_id), 1);
 
 	while (*ap_wait != AP_STARTED) {}
 

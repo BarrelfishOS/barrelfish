@@ -52,25 +52,24 @@ static uint32_t tsc_hz = 1000000000;
 #define DIST_OFFSET 0x1000
 #define CPU_OFFSET  0x100
 
-static pl130_gic_t pic;
-static pl130_gic_ICDICTR_t pic_config;
+pl130_gic_t gic;
+static pl130_gic_ICDICTR_t gic_config;
 
-static uint32_t it_num_lines;
+uint32_t it_num_lines;
 static uint8_t cpu_number;
 static uint8_t sec_extn_implemented;
 
 void gic_init(void)
 {
-    lvaddr_t pic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
-    pl130_gic_initialize(&pic, (mackerel_addr_t)pic_base + DIST_OFFSET,
-            (mackerel_addr_t)pic_base + CPU_OFFSET);
+    lvaddr_t gic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
+    pl130_gic_initialize(&gic, (mackerel_addr_t)gic_base + DIST_OFFSET,
+            (mackerel_addr_t)gic_base + CPU_OFFSET);
 
     //read GIC configuration
-    pic_config = pl130_gic_ICDICTR_rd(&pic);
-    it_num_lines = pl130_gic_ICDICTR_it_lines_num_extract(pic_config);
-    max_ints = 32*(it_num_lines + 1);
-    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(pic_config);
-    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(pic_config);
+    gic_config = pl130_gic_ICDICTR_rd(&gic);
+    it_num_lines = pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
+    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config);
+    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
 
     gic_cpu_interface_init();
 
@@ -82,10 +81,10 @@ void gic_init(void)
 
 void gic_distributor_init(void)
 {
-    //pic_disable_all_irqs();
+    //gic_disable_all_irqs();
 
     //enable interrupt forwarding from distributor to cpu interface
-    pl130_gic_ICDDCR_wr(&pic, 0x1);
+    pl130_gic_ICDDCR_wr(&gic, 0x1);
 }
 
 //config cpu interface
@@ -93,164 +92,40 @@ void gic_cpu_interface_init(void)
 {
     //set priority mask of cpu interface, currently set to lowest priority
     //to accept all interrupts
-    pl130_gic_ICCPMR_wr(&pic, 0xff);
+    pl130_gic_ICCPMR_wr(&gic, 0xff);
 
     //set binary point to define split of group- and subpriority
     //currently we allow for 8 subpriorities
-    pl130_gic_ICCBPR_wr(&pic, 0x2);
+    pl130_gic_ICCBPR_wr(&gic, 0x2);
 }
 
 //enable interrupt forwarding to processor
 void gic_cpu_interface_enable(void)
 {
-    pl130_gic_ICCICR_wr(&pic, 0x1);
+    pl130_gic_ICCICR_wr(&gic, 0x1);
 }
 
 //disable interrupt forwarding to processor
 void gic_cpu_interface_disable(void)
 {
-    pl130_gic_ICCICR_wr(&pic, 0x0);
+    pl130_gic_ICCICR_wr(&gic, 0x0);
 }
 
-void pic_disable_all_irqs(void)
+uint32_t gic_get_active_irq(void)
 {
-    //disable PPI interrupts
-    pl130_gic_PPI_ICDICER_wr(&pic, (uint16_t)0xffff);
-
-
-    //disable SPI interrupts
-    for(uint8_t i=0; i < it_num_lines; i++) {
-        pl130_gic_SPI_ICDICER_wr(&pic, i, (uint32_t)0xffffffff);
-    }
-}
-
-
-void pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
-						  uint8_t edge_triggered, uint8_t one_to_n)
-{
-    // Set Interrupt Set-Enable Register
-    uint32_t bit_reg = int_id / 32;
-    uint32_t pri_reg = int_id / 4;
-    uint32_t bit_mask = (1U << (int_id % 32));
-    uint32_t regval;
-    if(int_id < 16)
-	return;
-    else if(int_id < it_num_lines){
-	regval = pl130_gic_ICDISER_rd(&pic, bit_reg);
-	regval |= bit_mask;
-	pl130_gic_ICDISER_wr(&pic, bit_reg, regval);
-    }
-    else {
-	panic("Interrupt ID %"PRIu32" not supported", int_id);
-    }
-
-    // Set Interrupt Priority Register
-    switch(int_id % 4) {
-    case 0:
-	pl130_gic_ICDIPR_prio_off0_wrf(&pic, pri_reg, prio);
-	break;
-    case 1:
-	pl130_gic_ICDIPR_prio_off1_wrf(&pic, pri_reg, prio);
-	break;
-    case 2:
-	pl130_gic_ICDIPR_prio_off2_wrf(&pic, pri_reg, prio);
-	break;
-    case 3:
-	pl130_gic_ICDIPR_prio_off3_wrf(&pic, pri_reg, prio);
-	break;
-    }
-
-    // only SPIs can be targeted manually
-    if(int_id >= 32) {
-	// Set ICDIPTR Registers to cpu_targets
-	switch(int_id % 4) {
-	case 0:
-	    pl130_gic_SPI_ICDIPTR_targets_off0_wrf(&pic, pri_reg-8,cpu_targets);
-	    break;
-	case 1:
-	    pl130_gic_SPI_ICDIPTR_targets_off1_wrf(&pic, pri_reg-8,cpu_targets);
-	    break;
-	case 2:
-	    pl130_gic_SPI_ICDIPTR_targets_off2_wrf(&pic, pri_reg-8,cpu_targets);
-	    break;
-	case 3:
-	    pl130_gic_SPI_ICDIPTR_targets_off3_wrf(&pic, pri_reg-8,cpu_targets);
-	    break;
-	}
-
-	// Set Interrupt Configuration Register
-	if(int_id >= 32) {
-	    int ind = int_id/16;
-	    uint8_t val = (edge_triggered << 1) | one_to_n;
-	    switch(int_id % 16) {
-	    case 0:
-		pl130_gic_SPI_ICDICR_spi0_wrf(&pic, ind-2, val);
-		break;
-	    case 1:
-		pl130_gic_SPI_ICDICR_spi1_wrf(&pic, ind-2, val);
-		break;
-	    case 2:
-		pl130_gic_SPI_ICDICR_spi2_wrf(&pic, ind-2, val);
-		break;
-	    case 3:
-		pl130_gic_SPI_ICDICR_spi3_wrf(&pic, ind-2, val);
-		break;
-	    case 4:
-		pl130_gic_SPI_ICDICR_spi4_wrf(&pic, ind-2, val);
-		break;
-	    case 5:
-		pl130_gic_SPI_ICDICR_spi5_wrf(&pic, ind-2, val);
-		break;
-	    case 6:
-		pl130_gic_SPI_ICDICR_spi6_wrf(&pic, ind-2, val);
-		break;
-	    case 7:
-		pl130_gic_SPI_ICDICR_spi7_wrf(&pic, ind-2, val);
-		break;
-	    case 8:
-		pl130_gic_SPI_ICDICR_spi8_wrf(&pic, ind-2, val);
-		break;
-	    case 9:
-		pl130_gic_SPI_ICDICR_spi9_wrf(&pic, ind-2, val);
-		break;
-	    case 10:
-		pl130_gic_SPI_ICDICR_spi10_wrf(&pic, ind-2, val);
-		break;
-	    case 11:
-		pl130_gic_SPI_ICDICR_spi11_wrf(&pic, ind-2, val);
-		break;
-	    case 12:
-		pl130_gic_SPI_ICDICR_spi12_wrf(&pic, ind-2, val);
-		break;
-	    case 13:
-		pl130_gic_SPI_ICDICR_spi13_wrf(&pic, ind-2, val);
-		break;
-	    case 14:
-		pl130_gic_SPI_ICDICR_spi14_wrf(&pic, ind-2, val);
-		break;
-	    case 15:
-		pl130_gic_SPI_ICDICR_spi15_wrf(&pic, ind-2, val);
-		break;
-	    }
-	}
-    }
-}
-
-uint32_t pic_get_active_irq(void)
-{
-	uint32_t regval = pl130_gic_ICCIAR_rd(&pic);
+	uint32_t regval = pl130_gic_ICCIAR_rd(&gic);
 
 	return regval;
 }
 
-void pic_raise_softirq(uint8_t cpumask, uint8_t irq)
+void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
 {
 	uint32_t regval = (cpumask << 16) | irq;
-	pl130_gic_ICDSGIR_rawwr(&pic, regval);
+	pl130_gic_ICDSGIR_rawwr(&gic, regval);
 }
 
 /*
-uint32_t pic_get_active_irq(void)
+uint32_t gic_get_active_irq(void)
 {
     uint32_t status = arm_icp_pic0_PIC_IRQ_STATUS_rd_raw(&pic);
     uint32_t irq;
@@ -264,9 +139,9 @@ uint32_t pic_get_active_irq(void)
 }
 */
 
-void pic_ack_irq(uint32_t irq)
+void gic_ack_irq(uint32_t irq)
 {
-    pl130_gic_ICCEOIR_rawwr(&pic, irq);
+    pl130_gic_ICCEOIR_rawwr(&gic, irq);
 }
 
 //
@@ -331,7 +206,7 @@ static void pit_config(uint32_t timeslice, uint8_t pit_id)
 
 	// enable PIT interrupt
 	uint32_t int_id = pit_id ? PIT1_IRQ : PIT0_IRQ;
-	pic_enable_interrupt(int_id, 0x1, 0xf, 0x1, 0);
+	gic_enable_interrupt(int_id, 0x1, 0xf, 0x1, 0);
 
 }
 
@@ -354,7 +229,7 @@ void pit_init(uint32_t timeslice, uint8_t pit_id)
 	{
 		pit_config(timeslice, pit_id);
 	}
-    //pic_set_irq_enabled(PIT_IRQ, 1);
+    //gic_set_irq_enabled(PIT_IRQ, 1);
 }
 
 void pit_start(uint8_t pit_id)
@@ -377,13 +252,13 @@ bool pit_handle_irq(uint32_t irq)
 	if (PIT0_IRQ == irq)
 	{
         sp804_pit_Timer1IntClr_wr(&pit0, ~0ul);
-        pic_ack_irq(irq);
+        gic_ack_irq(irq);
         return 1;
     }
 	else if(PIT1_IRQ == irq)
 	{
 		sp804_pit_Timer1IntClr_wr(&pit1, ~0ul);
-		pic_ack_irq(irq);
+		gic_ack_irq(irq);
 		return 1;
 	}
     else {

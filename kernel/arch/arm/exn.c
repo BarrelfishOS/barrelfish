@@ -58,7 +58,7 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         //
         // NB System might be cleaner with a prototype
         // dispatch context that has R0-R3 to be overwritten
-        // plus initial stack, thread, and pic registers. Could do
+        // plus initial stack, thread, and gic registers. Could do
         // a faster resume_for_upcall().
         //
 
@@ -242,7 +242,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
 
 void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
-    uint32_t irq = pic_get_active_irq();
+    uint32_t irq = gic_get_active_irq();
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
@@ -275,11 +275,11 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     // we just acknowledge it here
     else if(irq == 1)
     {
-    	pic_ack_irq(irq);
+    	gic_ack_irq(irq);
     	dispatch(schedule());
     }
     else {
-        // pic_ack_irq(irq);
+        // gic_ack_irq(irq);
         // send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }

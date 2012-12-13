@@ -40,7 +40,7 @@ bool hal_cpu_is_bsp(void)
 static arm_icp_pic0_source_un pic_primary_irqs;
 static arm_icp_pic0_t pic;
 
-void pic_init(void)
+void gic_init(void)
 {
     static const uintptr_t PIC_BASE = 0x14000000;
 
@@ -56,10 +56,10 @@ void pic_init(void)
     lvaddr_t pic_base = paging_map_device(PIC_BASE, 0x00100000);
     arm_icp_pic0_initialize(&pic, (mackerel_addr_t)pic_base);
 
-    pic_disable_all_irqs();
+    gic_disable_all_irqs();
 }
 
-void pic_set_irq_enabled(uint32_t irq, bool en)
+void gic_set_irq_enabled(uint32_t irq, bool en)
 {
     uint32_t m = 1u << irq;
     if (irq < 32 && (pic_primary_irqs.raw & m) == m) {
@@ -76,12 +76,12 @@ void pic_set_irq_enabled(uint32_t irq, bool en)
     }
 }
 
-void pic_disable_all_irqs(void)
+void gic_disable_all_irqs(void)
 {
     arm_icp_pic0_PIC_IRQ_ENABLECLR_wr_raw(&pic, pic_primary_irqs.raw);
 }
 
-uint32_t pic_get_active_irq(void)
+uint32_t gic_get_active_irq(void)
 {
     uint32_t status = arm_icp_pic0_PIC_IRQ_STATUS_rd_raw(&pic);
     uint32_t irq;
@@ -94,7 +94,7 @@ uint32_t pic_get_active_irq(void)
     return ~0ul;
 }
 
-void pic_ack_irq(uint32_t irq)
+void gic_ack_irq(uint32_t irq)
 {
     // From the ARM specs it looks as if just clearing the interrupt at the
     // peripheral will clear the interrupt. No explicit EOI.

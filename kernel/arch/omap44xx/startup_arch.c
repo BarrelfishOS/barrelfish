@@ -723,8 +723,8 @@ void arm_kernel_startup(void)
 
     	init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME, app_alloc_phys);
 
-    	uint32_t irq = pic_get_active_irq();
-    	pic_ack_irq(irq);
+    	uint32_t irq = gic_get_active_irq();
+    	gic_ack_irq(irq);
     }
 
     /* printf("Trying to enable interrupts\n"); */

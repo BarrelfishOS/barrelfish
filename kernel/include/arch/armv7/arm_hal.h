@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2009, 2012 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -38,35 +38,45 @@ uint8_t  hal_get_cpu_id(void);
  */
 bool     hal_cpu_is_bsp(void);
 
-void	 gic_init(void);
+/*
+ * generic interrupt controller functionality
+ */
+void     gic_init(void);
 void     gic_distributor_init(void);
-void	 gic_cpu_interface_init(void);
-void 	 gic_cpu_interface_enable(void);
+void     gic_cpu_interface_init(void);
+void     gic_cpu_interface_enable(void);
 void     gic_cpu_interface_disable(void);
-//void     pic_set_irq_enabled(uint32_t irq, bool en);
+void     gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+                              uint8_t edge_triggered, uint8_t one_to_n);
+void     gic_disable_all_irqs(void);
+uint32_t gic_get_active_irq(void);
+void     gic_ack_irq(uint32_t irq);
+void     gic_raise_softirq(uint8_t cpumask, uint8_t irq);
 
-void     pic_init(void);
-void 	 pic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
-							  uint8_t edge_triggered, uint8_t one_to_n);
-void     pic_disable_all_irqs(void);
-uint32_t pic_get_active_irq(void);
-void     pic_ack_irq(uint32_t irq);
-void 	 pic_raise_softirq(uint8_t cpumask, uint8_t irq);
-
-void 	 pit_init(uint32_t tick_hz, uint8_t pit_id);
+/*
+ * Timer
+ */
+void     pit_init(uint32_t tick_hz, uint8_t pit_id);
 void     pit_start(uint8_t pit_id);
 bool     pit_handle_irq(uint32_t irq);
 void     pit_mask_irq(bool masked, uint8_t pit_id);
 
+/*
+ * Time-stamp counter
+ */
 void     tsc_init(void);
 uint32_t tsc_read(void);
 uint32_t tsc_get_hz(void);
 
+/*
+ * system control unit
+ * only for multi-core
+ */
 void scu_initialize(void);
 void scu_enable(void);
-int scu_get_core_count(void);
+int  scu_get_core_count(void);
 
-void	write_sysflags_reg(uint32_t regval);
+void write_sysflags_reg(uint32_t regval);
 
 extern lpaddr_t sysflagset_base;
 
