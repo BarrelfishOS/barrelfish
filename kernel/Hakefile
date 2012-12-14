@@ -298,8 +298,7 @@ let
                         "sp804_pit", 
                         "cortex_a9_pit", 
                         "a9scu" ],
-    addLibraries = [ "elf", "cpio" ],
-    addCFlags = [ "-D__GEM5__" ]
+    addLibraries = [ "elf", "cpio" ]
     },
   --
   -- Intel ixp2800 XScale core

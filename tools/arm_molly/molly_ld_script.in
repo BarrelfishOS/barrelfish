@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2012 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,11 +10,11 @@
 OUTPUT_FORMAT("elf32-littlearm")
 OUTPUT_ARCH("arm")
 
-_start_img = 0x82001000;
-
+_start_img = BASE_ADDR;
+ 
 SECTIONS {
         . = ALIGN(4k);
-        .text 0x82001000 : ALIGN(4k)  { *(.text); }
+        .text BASE_ADDR : ALIGN(4k)  { *(.text); }
         _end_kernel_text = .;
 
         . = ALIGN(4k);

@@ -52,20 +52,17 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_7A__",
                    Str "-Wno-unused-but-set-variable",
-                   Str "-Wno-format"
+                   Str "-Wno-format",
+                   Str ("-D__" ++ Config.armv7_platform ++ "__")
  ]
-
-gem5Flags = [ Str "-D__GEM5__" ]
 
 cFlags = ArchDefaults.commonCFlags 
          ++ ArchDefaults.commonFlags
          ++ ourCommonFlags
-         ++ if Config.enable_gem5 then gem5Flags else []
 
 cxxFlags = ArchDefaults.commonCxxFlags
            ++ ArchDefaults.commonFlags
            ++ ourCommonFlags
-           ++ if Config.enable_gem5 then gem5Flags else []
 
 cDefines = ArchDefaults.cDefines options
 
@@ -146,9 +143,9 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-DTHREAD_REGISTER=R9",
                                 "-D__ARM_CORTEX__",
                                 "-D__ARM_ARCH_7A__",
-                                "-D__GEM5__",
                                 "-Wno-unused-but-set-variable",
-                                "-Wno-format" ]]
+                                "-Wno-format",
+                                "-D__" ++ Config.armv7_platform ++ "__" ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
@@ -191,6 +188,7 @@ linkKernel opts objs libs name =
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",
                      Str "-D__ASSEMBLER__",
+                     Str ("-D__" ++ Config.armv7_platform ++ "__"),
                      Str "-P", In SrcTree "src" "/kernel/arch/armv7/linker.lds.in",
                      Out arch linkscript
                    ]

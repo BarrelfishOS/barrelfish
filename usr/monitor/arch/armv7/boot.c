@@ -52,7 +52,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
 
     arch_page_size = BASE_PAGE_SIZE;
     monitorname = "armv7/sbin/monitor";
-    cpuname = "armv7/sbin/cpu";
+#if defined(__gem5__)
+    cpuname = "armv7/sbin/cpu_arm_gem5";
+#elif defined(__pandaboard__)
+    cpuname = "armv7/sbin/cpu_omap44xx";
+#else
+#error "unknown armv7 architecture"
+#endif
 
 
     // Setup new inter-monitor connection to ourselves
@@ -215,7 +221,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     }
 
     void *cpu_buf_memory;
-#ifdef __GEM5__
+#ifdef __gem5__
     // XXX: We map the frame for the new kernel as uncacheable. Gem5 has a problem
     // when one core has cacheing on and writes to a location where an other core reads from
     // without caches enabled. On real hardware one could clean/flush the cache, but Gem5

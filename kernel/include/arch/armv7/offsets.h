@@ -122,8 +122,14 @@
 /**
  * Absolute start of RAM in physical memory.
  */
-#define PHYS_MEMORY_START       GEN_ADDR(31)
+#if defined(__gem5__)
+#define PHYS_MEMORY_START       0x0
+#elif defined(__pandaboard__)
 // 2G (2 ** 31)
+#define PHYS_MEMORY_START       GEN_ADDR(31)
+#else
+#error "unknown armv7 platform"
+#endif
 
 /*
  * Device offset to map devices in high memory.

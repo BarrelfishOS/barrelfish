@@ -48,9 +48,9 @@ static uint32_t tsc_hz = 1000000000;
 // Interrupt controller
 //
 
-#define PIC_BASE    0xE0200000
+#define PIC_BASE    0x2C000000
 #define DIST_OFFSET 0x1000
-#define CPU_OFFSET  0x100
+#define CPU_OFFSET  0x2000
 
 pl130_gic_t gic;
 static pl130_gic_ICDICTR_t gic_config;
@@ -148,12 +148,12 @@ void gic_ack_irq(uint32_t irq)
 // Kernel timer and tsc
 //
 
-#define PIT_BASE 	0xE0000000
-#define PIT0_OFFSET	0x11000
-#define PIT_DIFF	0x1000
+#define PIT_BASE 	0x1C100000
+#define PIT0_OFFSET	0x10000
+#define PIT_DIFF	0x10000
 
-#define PIT0_IRQ	36
-#define PIT1_IRQ	37
+#define PIT0_IRQ	34
+#define PIT1_IRQ	35
 
 #define PIT0_ID		0
 #define PIT1_ID		1
@@ -293,8 +293,8 @@ void pit_mask_irq(bool masked, uint8_t pit_id)
 // TSC uses cpu private timer
 //
 
-#define TSC_BASE 	0xE0200000
-#define TSC_OFFSET	0x600
+#define TSC_BASE 	0x2C000000
+#define TSC_OFFSET	0x80000
 
 static cortex_a9_pit_t tsc;
 
@@ -358,7 +358,7 @@ int scu_get_core_count(void)
 // Sys Flag Register
 //
 
-#define SYSFLAGSET_BASE		0xFF000030
+#define SYSFLAGSET_BASE		0x1C010030
 
 lpaddr_t sysflagset_base = SYSFLAGSET_BASE;
 void write_sysflags_reg(uint32_t regval)

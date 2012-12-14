@@ -147,7 +147,7 @@ class O3_ARM_v7a_3(DerivO3CPU):
 # Instruction Cache
 # All latencys assume a 1GHz clock rate, with a faster clock they would be faster
 class O3_ARM_v7a_ICache(BaseCache):
-    latency = '1ns'
+    response_latency = '1'
     block_size = 64
     mshrs = 2
     tgts_per_mshr = 8
@@ -158,7 +158,7 @@ class O3_ARM_v7a_ICache(BaseCache):
 # Data Cache
 # All latencys assume a 1GHz clock rate, with a faster clock they would be faster
 class O3_ARM_v7a_DCache(BaseCache):
-    latency = '2ns'
+    response_latency = '2'
     block_size = 64
     mshrs = 6
     tgts_per_mshr = 8
@@ -170,7 +170,7 @@ class O3_ARM_v7a_DCache(BaseCache):
 # TLB Cache 
 # Use a cache as a L2 TLB
 class O3_ARM_v7aWalkCache(BaseCache):
-    latency = '4ns'
+    response_latency = '4'
     block_size = 64
     mshrs = 6
     tgts_per_mshr = 8
@@ -183,7 +183,7 @@ class O3_ARM_v7aWalkCache(BaseCache):
 # L2 Cache
 # All latencys assume a 1GHz clock rate, with a faster clock they would be faster
 class O3_ARM_v7aL2(BaseCache):
-    latency = '12ns'
+    response_latency = '12'
     block_size = 64
     mshrs = 16
     tgts_per_mshr = 8
@@ -192,5 +192,5 @@ class O3_ARM_v7aL2(BaseCache):
     write_buffers = 8
     prefetch_on_access = 'true'
     # Simple stride prefetcher
-    prefetcher = StridePrefetcher(degree=8, latency='1.0ns')
+    prefetcher = StridePrefetcher(degree=8, latency=1)
 

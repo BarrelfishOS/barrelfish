@@ -35,7 +35,7 @@ static inline cycles_t cyclecount(void)
 {
     return rdtsc();
 }
-#elif defined(__arm__) && defined(__GEM5__)
+#elif defined(__arm__) && defined(__gem5__)
 /**
  * XXX: Gem5 doesn't support the ARM performance monitor extension
  * therefore we just poll a fixed number of times instead of using
@@ -194,13 +194,19 @@ static void poll_channel(struct waitset_chanstate *chan)
 // cleaner interface. For now, I just wanted to keep them out of
 // get_next_event()
 
-static inline cycles_t pollcycles_reset(void)
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
+static __attribute__((noinline, unused))
+#else
+static inline 
+#endif
+cycles_t pollcycles_reset(void)
 {
     cycles_t pollcycles;
-#if defined(__arm__) && !defined(__GEM5__)
+#if defined(__arm__) && !defined(__gem5__)
     reset_cycle_counter();
     pollcycles = waitset_poll_cycles;
-#elif defined(__arm__) && defined(__GEM5__)
+#elif defined(__arm__) && defined(__gem5__)
     pollcycles = 0;
 #else
     pollcycles = cyclecount() + waitset_poll_cycles;
@@ -208,21 +214,33 @@ static inline cycles_t pollcycles_reset(void)
     return pollcycles;
 }
 
-static inline cycles_t pollcycles_update(cycles_t pollcycles)
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
+static __attribute__((noinline, unused))
+#else
+static inline 
+#endif
+cycles_t pollcycles_update(cycles_t pollcycles)
 {
     cycles_t ret = pollcycles;
-    #if defined(__arm__) && defined(__GEM5__)
+    #if defined(__arm__) && defined(__gem5__)
     ret++;
     #endif
     return ret;
 }
 
-static inline bool pollcycles_expired(cycles_t pollcycles)
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
+static __attribute__((noinline, unused))
+#else
+static inline 
+#endif
+bool pollcycles_expired(cycles_t pollcycles)
 {
     bool ret;
-    #if defined(__arm__) && !defined(__GEM5__)
+    #if defined(__arm__) && !defined(__gem5__)
     ret = (cyclecount() > pollcycles || is_cycle_counter_overflow());
-    #elif defined(__arm__) && defined(__GEM5__)
+    #elif defined(__arm__) && defined(__gem5__)
     ret = pollcycles >= POLL_COUNT;
     #else
     ret = cyclecount() > pollcycles;

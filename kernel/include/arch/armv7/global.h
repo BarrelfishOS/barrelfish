@@ -36,7 +36,12 @@ struct global {
 
 extern struct global *global;
 
-//#define GLOBAL_VBASE	0x21000
+#if defined(__gem5__)
+#define GLOBAL_VBASE	0x21000
+#elif defined(__pandaboard__)
 #define GLOBAL_VBASE	(GEN_ADDR(31) + 0x21000)
+#else
+#error "unknown armv7 platform"
+#endif
 
 #endif

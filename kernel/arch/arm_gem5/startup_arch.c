@@ -683,6 +683,7 @@ void arm_kernel_startup(void)
     if(hal_cpu_is_bsp())
     {
     	/* Initialize the location to allocate phys memory from */
+        printf("start_free_ram = 0x%lx\n", glbl_core_data->start_free_ram);
     	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
     	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);

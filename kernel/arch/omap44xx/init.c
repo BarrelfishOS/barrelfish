@@ -106,7 +106,7 @@ relocate_got_base(lvaddr_t offset)
 		    );
 }
 
-#ifndef __GEM5__
+#ifndef __gem5__
 static void enable_cycle_counter_user_access(void)
 {
     /* enable user-mode access to the performance counter*/
@@ -255,7 +255,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
     tsc_init();
     printf("tsc_init done --\n");
-#ifndef __GEM5__
+#ifndef __gem5__
     enable_cycle_counter_user_access();
     reset_cycle_counter();
 #endif

@@ -25,7 +25,7 @@
 
 
 #define BASE_PAGE_SIZE                  0x1000
-#define ALIGNMENT						0x10000
+#define ALIGNMENT                       0x10000
 
 
 /// Round up n to the next multiple of size
@@ -48,11 +48,6 @@ static errval_t linear_alloc(void *s, genvaddr_t base, size_t size, uint32_t fla
 }
 
 genvaddr_t kernel_entry;
-
-//extern char _binary_arm_gem5_sbin_cpu_start;
-//extern char _binary_arm_gem5_sbin_cpu_end;
-//extern char _binary_arm_gem5_sbin_cpu_size;
-
 
 // Prototypes for functions from molly_boot.S:
 void molly_to_kernel_transition(genvaddr_t entry_addr, void* mbi_ptr);
@@ -88,7 +83,7 @@ void molly_init(void)
     uint32_t kernel_bytes = mbi_mods[0].mod_end - mbi_mods[0].mod_start;
 
     err = elf32_load(EM_ARM, linear_alloc, NULL, (uint32_t)kernel,
-    				kernel_bytes, &kernel_entry, NULL, NULL, NULL);
+                    kernel_bytes, &kernel_entry, NULL, NULL, NULL);
     if (err_is_fail(err)) {
         return;
     }

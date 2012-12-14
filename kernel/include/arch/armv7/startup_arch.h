@@ -37,7 +37,13 @@
                                  ARM_L2_SMALL_USR_RW)
 
 // Well known address for glbl_core_data @64Kb
+#if defined(__gem5__)
+#define GLBL_COREDATA_BASE_PHYS         (0x10000)
+#elif defined(__pandaboard__)
 #define GLBL_COREDATA_BASE_PHYS		(GEN_ADDR(31) + 0x10000)
+#else
+#error "unknown armv7 platform"
+#endif
 
 void create_module_caps(struct spawn_state *st);
 

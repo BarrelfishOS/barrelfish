@@ -29,7 +29,7 @@
 #include <global.h>
 #include <start_aps.h>
 
-#define GEM5_RAM_SIZE	0x20000000
+#define GEM5_RAM_SIZE	(256UL*1024*1024)
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -204,6 +204,7 @@ relocate_got_base(lvaddr_t offset)
 		);
 }
 
+#if 0
 static void enable_mmu(void)
 {
 	__asm volatile (
@@ -215,8 +216,9 @@ static void enable_mmu(void)
 			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
 		);
 }
+#endif
 
-#ifndef __GEM5__
+#ifndef __gem5__
 static void enable_cycle_counter_user_access(void)
 {
 	/* enable user-mode access to the performance counter*/
@@ -334,7 +336,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 	 pit_init(timeslice, 1);
 	 tsc_init();
 
-#ifndef __GEM5__
+#ifndef __gem5__
 	 enable_cycle_counter_user_access();
 	 reset_cycle_counter();
 #endif
@@ -398,8 +400,8 @@ void arch_init(void *pointer)
 
     // Find relocation section
     rela = elf32_find_section_header_type((struct Elf32_Shdr *)
-    									  ((uintptr_t)elf->addr),
-    									  elf->num, SHT_REL);
+            ((uintptr_t)elf->addr),
+            elf->num, SHT_REL);
 
     if (rela == NULL) {
         panic("Kernel image does not include relocation section!");
@@ -407,7 +409,7 @@ void arch_init(void *pointer)
 
     // Find symtab section
     symtab = elf32_find_section_header_type((struct Elf32_Shdr *)(lpaddr_t)elf->addr,
-    									  elf->num, SHT_DYNSYM);
+            elf->num, SHT_DYNSYM);
 
     if (symtab == NULL) {
         panic("Kernel image does not include symbol table!");
@@ -415,17 +417,16 @@ void arch_init(void *pointer)
 
     paging_init();
 
-    enable_mmu();
-
+    cp15_enable_mmu();
 
     // Relocate kernel image for top of memory
     elf32_relocate(MEMORY_OFFSET + (lvaddr_t)&kernel_first_byte,
-    			   (lvaddr_t)&kernel_first_byte,
-    			   (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
-    			   rela->sh_size,
-    			   (struct Elf32_Sym *)(symtab->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
-    			   symtab->sh_size,
-    			   START_KERNEL_PHYS, &kernel_first_byte);
+            (lvaddr_t)&kernel_first_byte,
+            (struct Elf32_Rel *)(rela->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
+            rela->sh_size,
+            (struct Elf32_Sym *)(symtab->sh_addr - START_KERNEL_PHYS + &kernel_first_byte),
+            symtab->sh_size,
+            START_KERNEL_PHYS, &kernel_first_byte);
     /*** Aliased kernel available now -- low memory still mapped ***/
 
     // Relocate stack to aliased location

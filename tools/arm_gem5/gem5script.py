@@ -25,7 +25,7 @@ from Caches import *
 bfsrcdir='%s/../..' % os.path.dirname(inspect.getfile(inspect.currentframe()))
 print "Barrelfish source-directory is assume to be %s" % bfsrcdir
 
-class MemBus(Bus):
+class MemBus(CoherentBus):
     badaddr_responder = BadAddr()
     default = Self.badaddr_responder.pio
     
@@ -101,24 +101,22 @@ parser.add_option("--loglevel", type="int", default=4)
 
 (CPUClass, mem_mode, FutureClass) = setCPUClass(options)
 
-system = LinuxArmSystem()
+system = ArmSystem()
 
 #kernel to boot
 system.kernel = options.kernel
 
 
 #memory system
-system.iobus = Bus(bus_id=0)
-#system.iobus = NoncoherentBus()
-system.membus = MemBus(bus_id=1)
-#system.membus = MemBus()
+system.iobus = NoncoherentBus()
+system.membus = MemBus()
 system.membus.badaddr_responder.warn_access = "warn"
 
-system.bridge = Bridge(delay='50ns', nack_delay='4ns')
+system.bridge = Bridge(delay='50ns')
 system.bridge.master = system.iobus.slave
 system.bridge.slave = system.membus.master
 
-system.physmem = SimpleMemory(range = AddrRange('512MB'),conf_table_reported = True)
+system.physmem = SimpleMemory(range = AddrRange('256MB'),conf_table_reported = True)
 
 system.mem_mode = mem_mode
 #load ramdisk at specific location (256MB = @0x10000000)
@@ -130,8 +128,7 @@ CPUClass.clock = "1GHz"
 system.cpu = [CPUClass(cpu_id=i) for i in xrange(options.num_cpus)]
 
 #machine type
-system.machine_type = "VExpress_ELT"
-system.realview = VExpress_ELT()
+system.realview = VExpress_EMM()
 
 #setup bootloader
 system.realview.nvmem = SimpleMemory(range = AddrRange(Addr('2GB'), size = '64MB'), zero = True)
@@ -163,7 +160,7 @@ if options.caches or options.l2cache:
     system.iocache.cpu_side = system.iobus.master
     system.iocache.mem_side = system.membus.slave
 else:
-    system.iobridge = Bridge(delay='50ns', nack_delay='4ns',
+    system.iobridge = Bridge(delay='50ns',
                                ranges = [system.physmem.range])
     system.iobridge.slave = system.iobus.master
     system.iobridge.master = system.membus.slave

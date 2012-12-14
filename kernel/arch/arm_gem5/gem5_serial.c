@@ -21,12 +21,13 @@
 
 #define NUM_PORTS 2
 unsigned serial_console_port = 0;
-unsigned serial_debug_port = 1;
+unsigned serial_debug_port = 0;
 const unsigned serial_num_physical_ports = NUM_PORTS;
 
 
-#define UART0_VBASE		0xE0009000
-#define UART0_SECTION_OFFSET	0x9000
+#define UART0_VBASE            0x1c090000
+#define UART0_SECTION_OFFSET   0x90000
+
 #define UART_DEVICE_BYTES	0x4c
 #define UART_MAPPING_DIFF	0x1000
 
