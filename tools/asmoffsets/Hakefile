@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 concat [ let
-    kopts = kernelOptions arch ""
+    kopts = kernelOptions arch
     opts = kopts { -- Need this to exclude asmoffsets.h!
                    optDependencies = [d | d <- optDependencies kopts,
                                       d /= Dep InstallTree arch "/include/asmoffsets.h"]

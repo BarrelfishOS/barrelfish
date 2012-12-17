@@ -48,7 +48,7 @@ let
   
   link_cpudriver arg = linkKernel opts name objs libs
     where 
-      opts = (kernelOptions (head $ Args.architectures arg) ("_for" ++ suffix))
+      opts = (kernelOptions $ head $ Args.architectures arg)
       suffix = if "cpu" == Args.target arg 
              then "" 
              else "_" ++ (Args.target arg)
@@ -59,34 +59,25 @@ let
     
   cpudrivers arglist = 
     let 
-      cafiles = Data.List.nub $ concat [ [ [ arch, Args.target arg, cfile ] 
+      cafiles = Data.List.nub $ concat [ [ [ arch, cfile ] 
                                          | arch <- Args.architectures arg,
-                                           target <- [ if "cpu" == Args.target arg
-                                                       then ""
-                                                       else "_for_" ++ Args.target arg ],
                                            cfile <- common_c ++ (Args.cFiles arg) ]
                                        | arg <- arglist ]
-      safiles = Data.List.nub $ concat [ [ [ arch, target, sfile ]
+      safiles = Data.List.nub $ concat [ [ [ arch, sfile ]
                                          | arch <- Args.architectures arg,
-                                           target <- [ if "cpu" == Args.target arg
-                                                       then ""
-                                                       else "_for_" ++ Args.target arg ],
                                            sfile <- Args.assemblyFiles arg ]
                                        | arg <- arglist ]
-      mafiles = Data.List.nub $ concat [ [ [ arch, target, mfile ]
+      mafiles = Data.List.nub $ concat [ [ [ arch, mfile ]
                                          | arch <- Args.architectures arg,
-                                           target <- [ if "cpu" == Args.target arg
-                                                       then ""
-                                                       else "_for_" ++ Args.target arg ],
                                            mfile <- Args.mackerelDevices arg ]
                                        | arg <- arglist ]
     in
-     ( [ compileCFile (kernelOptions a t) f | [a,t,f] <- cafiles ]
+     ( [ compileCFile (kernelOptions a) f | [a,f] <- cafiles ]
        ++
-       [ assembleSFile (kernelOptions a t) f | [a,t,f] <- safiles ]
+       [ assembleSFile (kernelOptions a) f | [a,f] <- safiles ]
        ++
-       [ mackerelDependencies (kernelOptions a t) f [ c | [a,_,c] <- cafiles]  
-       | [a,t,f] <- mafiles ]
+       [ mackerelDependencies (kernelOptions a) f [ c | [a,c] <- cafiles]  
+       | [a,f] <- mafiles ]
        ++
        [ link_cpudriver arg | arg <- arglist ]
      )

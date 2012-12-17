@@ -123,8 +123,7 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/include/c",
                     "/include/target" ./. archFamily arch]]
 
-kernelOptions :: String -> String -> Options
-kernelOptions arch target = Options {
+kernelOptions arch = Options {
             optArch = arch,
             optArchFamily = archFamily arch,
             optFlags = kernelCFlags arch,
@@ -141,7 +140,7 @@ kernelOptions arch target = Options {
             optLdCxxFlags = [],
             optLibs = [],
             optCxxLibs = [],
-            optSuffix = target,
+            optSuffix = [],
             optInterconnectDrivers = [],
             optFlounderBackends = [],
             extraFlags = [],

@@ -23,7 +23,7 @@
       Rules [ buildKernelMdb allfiles filename args arch
               | arch <- architectures args ]
     buildKernelMdb allfiles filename args arch =
-      let kopts = kernelOptions arch ""
+      let kopts = kernelOptions arch
           libopts = libGetOptionsForArch arch args
           opts = kopts {
               extraIncludes = extraIncludes libopts,
