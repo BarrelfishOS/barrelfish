@@ -48,7 +48,7 @@ let
   
   link_cpudriver arg = linkKernel opts name objs libs
     where 
-      opts = (kernelOptions (head $ Args.architectures arg) (Args.target arg))
+      opts = (kernelOptions (head $ Args.architectures arg) ("_for" ++ suffix))
       suffix = if "cpu" == Args.target arg 
              then "" 
              else "_" ++ (Args.target arg)
@@ -61,14 +61,23 @@ let
     let 
       cafiles = Data.List.nub $ concat [ [ [ arch, Args.target arg, cfile ] 
                                          | arch <- Args.architectures arg,
+                                           target <- [ if "cpu" == Args.target arg
+                                                       then ""
+                                                       else "_for_" ++ Args.target arg ],
                                            cfile <- common_c ++ (Args.cFiles arg) ]
                                        | arg <- arglist ]
-      safiles = Data.List.nub $ concat [ [ [ arch, Args.target arg, sfile ]
+      safiles = Data.List.nub $ concat [ [ [ arch, target, sfile ]
                                          | arch <- Args.architectures arg,
+                                           target <- [ if "cpu" == Args.target arg
+                                                       then ""
+                                                       else "_for_" ++ Args.target arg ],
                                            sfile <- Args.assemblyFiles arg ]
                                        | arg <- arglist ]
-      mafiles = Data.List.nub $ concat [ [ [ arch, Args.target arg, mfile ]
+      mafiles = Data.List.nub $ concat [ [ [ arch, target, mfile ]
                                          | arch <- Args.architectures arg,
+                                           target <- [ if "cpu" == Args.target arg
+                                                       then ""
+                                                       else "_for_" ++ Args.target arg ],
                                            mfile <- Args.mackerelDevices arg ]
                                        | arg <- arglist ]
     in

@@ -141,7 +141,7 @@ kernelOptions arch target = Options {
             optLdCxxFlags = [],
             optLibs = [],
             optCxxLibs = [],
-            optSuffix = if "cpu" == target then "" else "_for_" ++ target,
+            optSuffix = target,
             optInterconnectDrivers = [],
             optFlounderBackends = [],
             extraFlags = [],
