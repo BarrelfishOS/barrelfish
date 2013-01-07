@@ -97,7 +97,7 @@ def default_bootmodules(build, machine):
     # set the kernel: elver on x86_64
     if a == "x86_64":
         m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
-    elif a == "arm":
+    elif a == "armv5":
         m.set_kernel("%s/sbin/cpu.bin" % a, machine.get_kernel_args())
     else:
         m.set_kernel("%s/sbin/cpu" % a, machine.get_kernel_args())
@@ -121,7 +121,7 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/pci" % a, ["auto"])
 
     # ARM-specific stuff
-    elif a == "arm":
+    elif a == "armv5":
         m.add_module_arg("spawnd", "bootarm")
     elif a == "arm_gem5":
     	if machine.get_ncores() == 1:
