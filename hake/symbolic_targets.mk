@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009, 2010, 2011, 2012 ETH Zurich.
+# Copyright (c) 2009-2013 ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -220,8 +220,8 @@ MODULES_armv5=\
 
 # XScale-specific modules to build by default
 MODULES_xscale=\
-	sbin/cpu \
-	sbin/cpu.bin
+	sbin/cpu_ixp2800 \
+	sbin/cpu_ixp2800.bin
 
 # ARMv7-specific modules to build by default
 # XXX: figure out armv7 default

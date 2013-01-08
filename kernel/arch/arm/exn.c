@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 ETH Zurich.
+ * Copyright (c) 2009-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -161,7 +161,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
         case 15:
             {
                 char str[128];
-                snprintf(str, 128, "\t(pc)\t%08x",
+                snprintf(str, 128, "\t(pc)\t%08lx",
                          save_area->regs[R0_REG + i] -
                          local_phys_to_mem((uint32_t)&kernel_first_byte) +
                          0x100000);

@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2012, ETH Zurich.
+-- Copyright (c) 2007-2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -312,6 +312,10 @@ let
                 "arch/arm/exec.c", 
                 "arch/arm/misc.c", 
                 "arch/arm/phys_mmap.c", 
+                -- according to the Xscale documentation, the MMU is a
+                -- standard ARMv5 design, so we should be able to use
+                -- the armv5 cp15 code. -SG, 8/1/13
+                "arch/armv5/cp15.c",
                 "arch/armv5/init.c", 
                 "arch/armv5/kludges.c", 
                 "arch/armv5/startup_arch.c", 

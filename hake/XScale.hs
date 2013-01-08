@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2011, ETH Zurich.
+-- Copyright (c) 2007-2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -176,9 +176,9 @@ linkKernel opts objs libs kbin =
               Rule [ Str (objdump ++ " -d -M reg-names-raw"),
                     In SrcTree arch kbin, Str ">", Out arch (kbin ++ ".asm")],
               Rule [ Str "cpp",
-                     NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/arm",
+                     NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/xscale",
                      Str "-D__ASSEMBLER__",
-                     Str "-P", In SrcTree "src" "/kernel/arch/arm/linker.lds.in",
+                     Str "-P", In SrcTree "src" "/kernel/arch/xscale/linker.lds.in",
                      Out arch linkscript
                    ]
             ]

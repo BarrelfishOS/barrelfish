@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2009, 2011, 2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -227,7 +227,7 @@ uint32_t tsc_get_hz(void)
 #define NUM_PORTS 2
 unsigned serial_console_port = 0;
 unsigned serial_debug_port = 1;
-unsigned serial_num_physical_ports = NUM_PORTS;
+const unsigned serial_num_physical_ports = NUM_PORTS;
 
 static ixp2800_uart_t ports[2];
 
@@ -236,7 +236,7 @@ errval_t serial_init(unsigned port)
     if (port < NUM_PORTS) {
         assert(ports[port].base == 0);
         lvaddr_t base = paging_map_device(0xc0030000ul + port * 0x01000000, 0x00100000);
-        ixp2800_uart_init(&ports[index], base + 0x30000);
+        ixp2800_uart_init(&ports[port], base + 0x30000);
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_SERIAL_PORT_INVALID;
@@ -258,5 +258,5 @@ char serial_getchar(unsigned port)
 {
     assert(port < NUM_PORTS);
     assert(ports[port].base != 0);
-    return ixp2800_putchar(&ports[port], c);
+    return ixp2800_getchar(&ports[port]);
 };
