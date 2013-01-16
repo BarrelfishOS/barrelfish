@@ -13,7 +13,7 @@
 
 > module IL.Paka.Builders where
 
-> import Text.PrettyPrint.HughesPJ
+> import Text.PrettyPrint.HughesPJ hiding (first)
 > import qualified Data.Map as Map
 > import Debug.Trace
 

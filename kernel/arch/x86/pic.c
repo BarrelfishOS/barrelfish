@@ -13,7 +13,7 @@
  */
 
 #include <kernel.h>
-#include <pic.h>
+#include <arch/x86/pic.h>
 #include <dev/lpc_pic_dev.h>
 
 /// The dual PIC
@@ -26,13 +26,13 @@ void pic_eoi(int irq)
 {
     // Send specific end of interrupt message
     lpc_pic_ocw2_t eoi = lpc_pic_ocw2_default;
-    lpc_pic_ocw2_rsleoi_insert(eoi, lpc_pic_seoi);
+    eoi = lpc_pic_ocw2_rsleoi_insert(eoi, lpc_pic_seoi);
 
     if(irq < 8) {
-        lpc_pic_ocw2_level_insert(eoi, irq);
+        eoi = lpc_pic_ocw2_level_insert(eoi, irq);
         lpc_pic_master_ocw2_wr(&pic, eoi);
     } else {
-        lpc_pic_ocw2_level_insert(eoi, irq - 8);
+        eoi = lpc_pic_ocw2_level_insert(eoi, irq - 8);
         lpc_pic_slave_ocw2_wr(&pic, eoi);
     }
 }
@@ -119,8 +119,8 @@ void pic_init(void)
 
     /* ICW4 */
     lpc_pic_icw4_t icw4 = lpc_pic_icw4_default;
-    lpc_pic_icw4_aeoi_insert(icw4, 0);
-    lpc_pic_icw4_sfnm_insert(icw4, 0);
+    icw4 = lpc_pic_icw4_aeoi_insert(icw4, 0);
+    icw4 = lpc_pic_icw4_sfnm_insert(icw4, 0);
     lpc_pic_master_icw4_wr(&pic, icw4);
     lpc_pic_slave_icw4_wr(&pic, icw4);
 

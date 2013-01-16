@@ -11,11 +11,12 @@
 
 module Main where
  
-import System
 import System.IO
 import System.IO.Error
 import System.Console.GetOpt
 import System.FilePath
+import System.Exit
+import System.Environment
 import Data.Maybe
 import Data.List
 import Text.ParserCombinators.Parsec as Parsec
@@ -131,7 +132,7 @@ run_checks input_fn dev =
     case (Checks.check_all input_fn dev) of
       Just errors ->
           do { (hPutStrLn stderr (unlines [ e ++ "\n"  | e <-errors]))
-             ; exitWith (ExitFailure 1)
+             ; System.Exit.exitWith (ExitFailure 1)
              }
       Nothing -> do { return "" }
 
@@ -188,7 +189,7 @@ testentry =
 
 -- Main entry point of Mackernel 
 main :: IO ()
-main = do { cli <- System.getArgs
+main = do { cli <- System.Environment.getArgs
           ; opts <- compilerOpts cli
           ; let input_fn = fromJust $ opt_infilename opts
                 output_fn = fromJust $ opt_outfilename opts

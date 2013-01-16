@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,8 +17,9 @@
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
 
-/* irefs for mem server and name service */
+/* irefs for mem server name service and ramfs */
 iref_t mem_serv_iref = 0;
+iref_t ramfs_serv_iref = 0;
 iref_t name_serv_iref = 0;
 iref_t monitor_rpc_iref = 0;
 
@@ -74,10 +75,21 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         return err;
     }
 
-    /* Spawn chips before other domains */
-    err = spawn_domain("chips");
+    /* SKB needs vfs for ECLiPSe so we need to start ramfsd first... */
+    err = spawn_domain("ramfsd");
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed spawning chips");
+        DEBUG_ERR(err, "failed spawning ramfsd");
+        return err;
+    }
+    // XXX: Wait for ramfsd to initialize
+    while (ramfs_serv_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+
+    /* Spawn skb (new nameserver) before other domains */
+    err = spawn_domain("skb");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed spawning skb");
         return err;
     }
     // XXX: Wait for name_server to initialize
@@ -108,7 +120,7 @@ static errval_t boot_app_core(int argc, char *argv[])
     struct intermon_binding *intermon_binding;
     errval_t err;
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     /* Create the self endpoint as the kernel doesn't do it */
     err = cap_retype(cap_selfep, cap_dispatcher, ObjType_EndPoint, 0);
     if (err_is_fail(err)) {
@@ -126,12 +138,16 @@ static errval_t boot_app_core(int argc, char *argv[])
     intermon_init(intermon_binding, parent_core_id);
 
     /* Request memserv and nameserv iref */
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     err = request_mem_serv_iref(intermon_binding);
     assert(err_is_ok(err));
 #endif
     err = request_name_serv_iref(intermon_binding);
     assert(err_is_ok(err));
+
+    err = request_ramfs_serv_iref(intermon_binding);
+    assert(err_is_ok(err));
+
 
 #ifdef BARRELFISH_MULTIHOP_CHAN_H
     // request my part of the routing table
@@ -139,7 +155,7 @@ static errval_t boot_app_core(int argc, char *argv[])
     assert(err_is_ok(err));
 #endif // BARRELFISH_MULTIHOP_CHAN_H
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     /* initialize self ram alloc */
     err = mon_ram_alloc_init(parent_core_id, intermon_binding);
     if (err_is_fail(err)) {
@@ -166,7 +182,11 @@ static errval_t boot_app_core(int argc, char *argv[])
 #endif
 
     // Spawn local spawnd
+#ifdef __scc__
+    err = spawn_domain("spawnd");
+#else
     err = spawn_spawnd(intermon_binding);
+#endif
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning spawnd");
     }
@@ -216,6 +236,19 @@ errval_t request_name_serv_iref(struct intermon_binding *st)
     }
     return SYS_ERR_OK;
 }
+
+errval_t request_ramfs_serv_iref(struct intermon_binding *st)
+{
+    errval_t err = st->tx_vtbl.ramfs_serv_iref_request(st, NOP_CONT);
+    if (err_is_fail(err)) {
+        return err_push(err, MON_ERR_SEND_REMOTE_MSG);
+    }
+    while(ramfs_serv_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+    return SYS_ERR_OK;
+}
+
 
 void ipi_test(void);
 

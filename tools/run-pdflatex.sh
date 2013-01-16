@@ -153,7 +153,7 @@ run_latex
 if [ -n "$HAS_BIB" ]; then (bibtex $AUX_FILE_WITHOUT_AUX && test -r $BBL_FILE)  || exit; echo run_latex; fi
 if [ -n "$HAS_GLO" ]; then (makeglossaries -s $IST_FILE $GLO_FILE && makeglossaries -s $IST_FILE $ACN_FILE && test -r $GLO_FILE)  || exit; echo run_latex; fi
 if [ -e "$TOC_FILE" -o -e "$BBL_FILE" -o -e "$VER_FILE" -o -e "$GLO_FILE" -o -e "$ACN_FILE" ]; then run_latex; fi
-while egrep Rerun "$LOG_FILE"; do run_latex; done
+while egrep -e 'LaTeX Warning.*Rerun' "$LOG_FILE"; do run_latex; done
 rm -f "$AUX_FILE" "$HST_FILE" "$LOG_FILE" "$TOC_FILE" "$BBL_FILE" 
 rm -f "$BLG_FILE" "$VER_FILE" 
 rm -f "$GLO_FILE" "$ACN_FILE" "$IST_FILE"

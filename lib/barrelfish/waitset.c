@@ -9,7 +9,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,10 +19,11 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
 #include <barrelfish/threads.h>
 #include <barrelfish/dispatch.h>
-#include <threads.h>
-#include "waitset_chan.h"
+#include "threads_priv.h"
+#include "waitset_chan_priv.h"
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP
 #  include <barrelfish/ump_endpoint.h>
@@ -34,6 +35,19 @@ static inline cycles_t cyclecount(void)
 {
     return rdtsc();
 }
+#elif defined(__arm__) && defined(__gem5__)
+/**
+ * XXX: Gem5 doesn't support the ARM performance monitor extension
+ * therefore we just poll a fixed number of times instead of using
+ * cycle counts. POLL_COUNT is deliberately set to 42, guess why! ;)
+ */
+#define POLL_COUNT	42
+#elif defined(__arm__)
+#include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
+static inline cycles_t cyclecount(void)
+{
+    return get_cycle_count();
+}
 #else
 static inline cycles_t cyclecount(void)
 {
@@ -43,7 +57,7 @@ static inline cycles_t cyclecount(void)
 #endif
 
 // FIXME: bogus default value. need to measure this at boot time
-#define WAITSET_POLL_CYCLES_DEFAULT 2000
+#define WAITSET_POLL_CYCLES_DEFAULT 2000 
 
 /// Maximum number of cycles to spend polling channels before yielding CPU
 cycles_t waitset_poll_cycles = WAITSET_POLL_CYCLES_DEFAULT;
@@ -166,6 +180,74 @@ static void poll_channel(struct waitset_chanstate *chan)
     }
 }
 
+// pollcycles_*: arch-specific implementation for polling.
+//               Used by get_next_event().
+//
+//   pollcycles_reset()  -- return the number of pollcycles we want to poll for
+//   pollcycles_update() -- update the pollcycles variable. This is needed for
+//                          implementations where we don't have a cycle counter
+//                          and we just count the number of polling operations
+//                          performed
+//   pollcycles_expired() -- check if pollcycles have expired
+//
+// We might want to move them to architecture-specific files, and/or create a
+// cleaner interface. For now, I just wanted to keep them out of
+// get_next_event()
+
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
+static __attribute__((noinline, unused))
+#else
+static inline 
+#endif
+cycles_t pollcycles_reset(void)
+{
+    cycles_t pollcycles;
+#if defined(__arm__) && !defined(__gem5__)
+    reset_cycle_counter();
+    pollcycles = waitset_poll_cycles;
+#elif defined(__arm__) && defined(__gem5__)
+    pollcycles = 0;
+#else
+    pollcycles = cyclecount() + waitset_poll_cycles;
+#endif
+    return pollcycles;
+}
+
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
+static __attribute__((noinline, unused))
+#else
+static inline 
+#endif
+cycles_t pollcycles_update(cycles_t pollcycles)
+{
+    cycles_t ret = pollcycles;
+    #if defined(__arm__) && defined(__gem5__)
+    ret++;
+    #endif
+    return ret;
+}
+
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
+static __attribute__((noinline, unused))
+#else
+static inline 
+#endif
+bool pollcycles_expired(cycles_t pollcycles)
+{
+    bool ret;
+    #if defined(__arm__) && !defined(__gem5__)
+    ret = (cyclecount() > pollcycles || is_cycle_counter_overflow());
+    #elif defined(__arm__) && defined(__gem5__)
+    ret = pollcycles >= POLL_COUNT;
+    #else
+    ret = cyclecount() > pollcycles;
+    #endif
+    return ret;
+}
+
 /**
  * \brief Wait for (block) and return next event on given waitset
  *
@@ -193,7 +275,8 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 polling_loop:
     was_polling = true;
     assert(ws->polling); // this thread is polling
-    pollcycles = cyclecount() + waitset_poll_cycles;
+    // get the amount of cycles we want to poll for
+    pollcycles = pollcycles_reset();
 
     // while there are no pending events, poll channels
     while (ws->polled != NULL && ws->pending == NULL) {
@@ -207,11 +290,12 @@ polling_loop:
 
             nextchan = chan->next;
             poll_channel(chan);
-
+            // update pollcycles
+            pollcycles = pollcycles_update(pollcycles);
             // yield the thread if we exceed the cycle count limit
-            if (ws->pending == NULL && cyclecount() > pollcycles) {
+            if (ws->pending == NULL && pollcycles_expired(pollcycles)) {
                 thread_yield();
-                pollcycles = cyclecount() + waitset_poll_cycles;
+                pollcycles = pollcycles_reset();
             }
         }
 

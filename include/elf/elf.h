@@ -533,6 +533,11 @@
 #define R_386_TLS_DTPOFF32      36      /* GOT entry containing TLS offset */
 #define R_386_TLS_TPOFF32       37      /* GOT entry of -ve static TLS offset */
 
+/* ARM relocations. A LOT MISSING! */
+#define R_ARM_NONE				0
+#define R_ARM_ABS32				2
+#define R_ARM_RELATIVE			23
+
 /**
  * \brief ELF64 file header.
  */

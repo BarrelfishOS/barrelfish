@@ -8,7 +8,7 @@
 ##########################################################################
 
 try:
-    from mercurial import hg, ui, node
+    from mercurial import hg, ui, node, error, commands
     mercurial_module = True
 except ImportError:
     mercurial_module = False
@@ -22,7 +22,10 @@ class Checkout:
         # Set parameters
         self.base_dir = base_dir
         if mercurial_module:
-            self.repo = hg.repository(ui.ui(), base_dir)
+            try:
+                self.repo = hg.repository(ui.ui(), base_dir)
+            except error.RepoError:
+                self.repo = None
 
     def get_base_dir(self):
         return self.base_dir
@@ -30,6 +33,8 @@ class Checkout:
     def describe(self):
         if not mercurial_module:
             return '(mercurial module not available)'
+        elif not self.repo:
+            return '(repository information not available)'
 
         # identify the parents of the working revision
         context = self.repo[None]
@@ -40,3 +45,16 @@ class Checkout:
         else:
             s += ' unmodified'
         return s
+
+    def changes(self):
+        if not mercurial_module or not self.repo:
+            return None
+
+        context = self.repo[None]
+        if not context.files() and not context.deleted():
+            return None
+
+        diffui = ui.ui()
+        diffui.pushbuffer()
+        commands.diff(diffui, self.repo, git=True)
+        return diffui.popbuffer()

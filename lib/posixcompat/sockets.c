@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -743,7 +743,12 @@ struct hostent *gethostbyname(const char *name)
     }
 }
 
-#if 0
+struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type)
+{
+    assert(!"NYI");
+    return NULL;
+}
+
 int getaddrinfo(const char *restrict nodename,
                 const char *restrict servname,
                 const struct addrinfo *restrict hints,
@@ -762,4 +767,65 @@ const char *gai_strerror(int ecode)
 {
     return "No error";
 }
-#endif
+
+int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+{
+    struct fdtab_entry *e = fdtab_get(sockfd);
+
+    switch (e->type) {
+    case FDTAB_TYPE_UNIX_SOCKET:
+        {
+            struct _unix_socket *us = e->handle;
+
+            if (*addrlen > sizeof(struct sockaddr_un)) {
+                *addrlen = sizeof(struct sockaddr_un);
+            }
+
+            memcpy(addr, &us->peer, *addrlen);
+
+            return 0;
+        }
+
+    case FDTAB_TYPE_LWIP_SOCKET:
+        return lwip_getpeername(e->fd, addr, addrlen);
+
+    case FDTAB_TYPE_AVAILABLE:
+        errno = EBADF;
+        return -1;
+
+    default:
+        errno = ENOTSOCK;
+        return -1;
+    }
+}
+
+int shutdown(int sockfd, int how)
+{
+    struct fdtab_entry *e = fdtab_get(sockfd);
+
+    switch (e->type) {
+    case FDTAB_TYPE_UNIX_SOCKET:
+        assert(!"NYI");
+        return -1;
+
+    case FDTAB_TYPE_LWIP_SOCKET:
+        return lwip_shutdown(e->fd, how);
+
+    case FDTAB_TYPE_AVAILABLE:
+        errno = EBADF;
+        return -1;
+
+    default:
+        errno = ENOTSOCK;
+        return -1;
+    }
+}
+
+/**
+ * \brief Create a pair of connected sockets.
+ */
+int socketpair(int domain, int type, int protocol, int sockfd[2])
+{
+    assert(!"NYI");
+    return -1;
+}

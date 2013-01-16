@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -114,7 +114,7 @@ void apic_init(void)
         local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
                           X86_64_REAL_MODE_LINEAR_OFFSET);
 #elif defined (__i386__)
-#       if !defined(__scc__) || defined(RCK_EMU)
+#       if !defined(__scc__)
     volatile uint32_t *ap_wait = (volatile uint32_t *)
         local_phys_to_mem((lpaddr_t)&x86_32_init_ap_wait - ((lpaddr_t)&x86_32_start_ap) +
                           X86_32_REAL_MODE_LINEAR_OFFSET);
@@ -123,7 +123,7 @@ void apic_init(void)
 #error "Architecture not supported"
 #endif
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#if !defined(__scc__)
     ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
     lpaddr_t apic_phys = ((lpaddr_t)apic_base_msr) & APIC_BASE_ADDRESS_MASK;
     lvaddr_t apic_base = paging_map_device(apic_phys, APIC_PAGE_SIZE);
@@ -140,7 +140,7 @@ void apic_init(void)
           apic_phys, apic_base);
     xapic_initialize(&apic, (void *)apic_base);
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#if !defined(__scc__)
     apic_id = apic_get_id();
     debug(SUBSYS_APIC, "APIC ID=%hhu\n", apic_id);
     if (ia32_apic_base_bsp_extract(apic_base_msr)) {
@@ -188,24 +188,24 @@ void apic_init(void)
 	xapic_lvt_thermal_wr(&apic, t);
     }
 
-#if defined(__scc__) && !defined(RCK_EMU)
+#if defined(__scc__)
     //LINT0: inter-core interrupt
     //generate fixed int
     {
 	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
-	xapic_lvt_lint_vector_insert(   t, APIC_INTER_CORE_VECTOR);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
+	t = xapic_lvt_lint_vector_insert(   t, APIC_INTER_CORE_VECTOR);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
 	xapic_lvt_lint0_wr(&apic, t);
 
 	//LINT1: usually used to generate an NMI
 	//generate device interrupt
 	t = xapic_lvt_lint1_initial;
-	xapic_lvt_lint_vector_insert(   t, 32);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
+	t = xapic_lvt_lint_vector_insert(   t, 32);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
 	xapic_lvt_lint1_wr(&apic, t);
     }
 #else
@@ -214,20 +214,20 @@ void apic_init(void)
     //disabled (we use IOAPICs exclusively)
     {
 	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
-	xapic_lvt_lint_vector_insert(   t, 0);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_extint);
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_masked);
+	t = xapic_lvt_lint_vector_insert(   t, 0);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_extint);
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_masked);
 	xapic_lvt_lint0_wr(&apic, t);
 
 	//LINT1: usually used to generate an NMI
 	//generate NMI
 	//disabled (FIXME?)
 	t = xapic_lvt_lint1_initial;
-	xapic_lvt_lint_vector_insert(   t, 0);
-	xapic_lvt_lint_dlv_mode_insert( t, xapic_extint); //xapic_nmi,
-	xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	xapic_lvt_lint_mask_insert(     t, xapic_masked);
+	t = xapic_lvt_lint_vector_insert(   t, 0);
+	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_extint); //xapic_nmi,
+	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
+	t = xapic_lvt_lint_mask_insert(     t, xapic_masked);
 	xapic_lvt_lint1_wr(&apic, t);
     }
 #endif
@@ -235,8 +235,8 @@ void apic_init(void)
     //error interrupt register
     {
 	xapic_lvt_err_t t = xapic_lvt_err_initial;
-	xapic_lvt_err_vector_insert(t, APIC_ERROR_INTERRUPT_VECTOR);
-	xapic_lvt_err_mask_insert(  t, xapic_not_masked);
+	t = xapic_lvt_err_vector_insert(t, APIC_ERROR_INTERRUPT_VECTOR);
+	t = xapic_lvt_err_mask_insert(  t, xapic_not_masked);
 	xapic_lvt_err_wr(&apic, t);
     }
 
@@ -251,10 +251,10 @@ void apic_init(void)
     }
 #endif
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#if !defined(__scc__)
     // enable the thing, if it wasn't already!
     if (!(ia32_apic_base_global_extract(apic_base_msr))) {
-        ia32_apic_base_global_insert(apic_base_msr, 1);
+        apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 1);
         ia32_apic_base_wr(NULL,apic_base_msr);
     }
 #endif

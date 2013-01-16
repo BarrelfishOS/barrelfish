@@ -15,15 +15,13 @@
 #include <barrelfish/dispatch.h>
 #include <pci/pci.h>
 
-#include "ehci_op_dev.h"
-#include "ehci_cap_dev.h"
+#include <dev/ehci_dev.h>
 
 #include "usb_manager_client.h"
 #include "boot.h"
 
-// Move to local
-#include <usb/ehci/ehci.h>      // Has device structures
-#include <usb/ehci/async_queue.h>       // In init function
+#include "ehci.h"      // Has device structures
+#include "async_queue.h"       // In init function
 
 #define GBYTES (1024 * 1024 * 1024)
 
@@ -33,7 +31,7 @@
 //XXX: Enable this macro for EHCI debugging
 //#define EHCI_LOCAL_DEBUG
 
-#include <usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 static struct device_mem *bar_info = NULL;
 static bool ehci_initialized = false;
@@ -45,7 +43,7 @@ static void ehci_init(void);
 static void ehci_post_init(void);
 static void enable_global_routing(void);
 static void print_ehci_device(void);
-static void set_ehci_status(ehci_op_t *dev, uint8_t val);
+static void set_ehci_status(ehci_t *dev, uint8_t val);
 static void port_scanner(void);
 
 /*
@@ -53,15 +51,15 @@ static void port_scanner(void);
  */
 static void assert_ehci_reg(void)
 {
-    assert(sizeof (struct ehci_op_usb_cmd_t) == 4);
-    assert(sizeof (struct ehci_op_usb_status_t) == 4);
-    assert(sizeof (struct ehci_op_usb_int_t) == 4);
-    assert(sizeof (struct ehci_op_frame_index_t) == 4);
-    assert(sizeof (struct ehci_op_ctrl_dss_reg_t) == 4);
-    assert(sizeof (struct ehci_op_flba_reg_t) == 4);
-    assert(sizeof (struct ehci_op_asyn_list_reg_t) == 4);
-    assert(sizeof (struct ehci_op_config_flag_t) == 4);
-    assert(sizeof (struct ehci_op_portsc_t) == 4);
+    assert(sizeof (struct ehci_usb_cmd_t) == 4);
+    assert(sizeof (struct ehci_usb_status_t) == 4);
+    assert(sizeof (struct ehci_usb_int_t) == 4);
+    assert(sizeof (struct ehci_frame_index_t) == 4);
+    assert(sizeof (struct ehci_ctrl_dss_reg_t) == 4);
+    assert(sizeof (struct ehci_flba_reg_t) == 4);
+    assert(sizeof (struct ehci_asyn_list_reg_t) == 4);
+    assert(sizeof (struct ehci_config_flag_t) == 4);
+    assert(sizeof (struct ehci_portsc_t) == 4);
 }
 
 /**
@@ -74,22 +72,22 @@ static void assert_reset(void)
     volatile uint32_t val;
     assert_ehci_reg();
 
-    val = ehci_op_usb_cmd_rd_raw(&ehci_op_device);
+    val = ehci_usb_cmd_rd_raw(&ehci_device);
     assert(val == 0x000080000 || val == 0x00080B00);
 
-    val = ehci_op_usb_status_rd_raw(&ehci_op_device);
+    val = ehci_usb_status_rd_raw(&ehci_device);
     assert(val == 0x00001000);
 
-    val = ehci_op_usb_int_rd_raw(&ehci_op_device);
+    val = ehci_usb_int_rd_raw(&ehci_device);
     assert(val == 0x00000000);
 
-    val = ehci_op_frame_index_rd_raw(&ehci_op_device);
+    val = ehci_frame_index_rd_raw(&ehci_device);
     assert(val == 0x00000000);
 
-    val = ehci_op_ctrl_dss_reg_rd_raw(&ehci_op_device);
+    val = ehci_ctrl_dss_reg_rd_raw(&ehci_device);
     assert(val == 0x00000000);
 
-    val = ehci_op_config_flag_rd_raw(&ehci_op_device);
+    val = ehci_config_flag_rd_raw(&ehci_device);
     assert(val == 0x00000000);
 }
 
@@ -104,7 +102,7 @@ static void ehci_reset(void)
     volatile uint32_t i;
     dprintf("\n EHCI: Performing EHCI reset ...");
     // Host controller reset
-    ehci_op_usb_cmd_hcr_wrf(&ehci_op_device, 1);
+    ehci_usb_cmd_hcr_wrf(&ehci_device, 1);
 
     // Give time to stablize
     for (i = 0; i < 50000; i++)
@@ -122,7 +120,7 @@ static void ehci_pre_init(void)
 {
     uint8_t cap_length = 0x0;
     uint64_t op_base = 0x0;
-    ehci_cap_hcc_params_t ex_cap_64;
+    ehci_hcc_params_t ex_cap_64;
     uint64_t ram_upper = GBYTES;
     ram_upper *= 4;             // 4 GB RAM affinity, 32 bit HC
     char *buff = (char *)malloc(2000 * sizeof (char));
@@ -148,13 +146,21 @@ static void ehci_pre_init(void)
             bar_info[0].vaddr);
 
     // init the device capability struct
-    ehci_cap_initialize(&ehci_cap_device, (void *)(bar_info[0].vaddr));
+    ehci_initialize(&ehci_device, (void *)(bar_info[0].vaddr), NULL);
     dprintf("Capability device init done\n");
 
-    dprintf("Checking device addresss %lx\n", (uint64_t) ehci_cap_device.base);
+    // Locating the operational device address
+    cap_length = ehci_cap_length_rd(&ehci_device);
+    assert(cap_length != 0);
+    op_base = bar_info[0].vaddr + cap_length;
 
-    assert((void *)ehci_cap_device.base == (void *)bar_info[0].vaddr);
-    ex_cap_64 = ehci_cap_hcc_params_rd(&ehci_cap_device);
+    dprintf("Operational base address found to be at %lx\n", op_base);
+    dprintf("Initializing the operational device...\n");
+    ehci_initialize(&ehci_device, 
+		    (void *)(bar_info[0].vaddr), 
+		    op_base );
+
+    ex_cap_64 = ehci_hcc_params_rd(&ehci_device);
     dprintf("Checking 64 bit addressing capabilities\n");
     if (ex_cap_64.ex_ac == 0) {
         // Controller is not capable of
@@ -172,20 +178,11 @@ static void ehci_pre_init(void)
         assert(!"64 bit HC, NYI");
     }
 
-    dprintf("CAP Registers mapped successfully\n");
-    ehci_cap_hci_revision_pr(buff, 2000, &ehci_cap_device);
+    dprintf("Registers mapped successfully\n");
+    ehci_hci_revision_pr(buff, 2000, &ehci_device);
     dprintf("%s\n", buff);
     free(buff);
 
-    // Locating the operational device address
-    cap_length = ehci_cap_cap_length_rd(&ehci_cap_device);
-    assert(cap_length != 0);
-    op_base = bar_info[0].vaddr + cap_length;
-
-    dprintf("Operational base address found to be at %lx\n", op_base);
-    dprintf("Initializing the operational device...\n");
-
-    ehci_op_initialize(&ehci_op_device, (void *)op_base);
     dprintf("ALL WORK DONE, passing on to reset \n");
     ehci_reset();
     ehci_init();
@@ -203,7 +200,7 @@ static void print_ehci_device(void)
 {
     dprintf("Printing EHCI status ... \n");
     char buff[1024];
-    ehci_op_pr(buff, sizeof(buff), &ehci_op_device);
+    ehci_pr(buff, sizeof(buff), &ehci_device);
     dprintf("%.*s\n", (int)sizeof(buff), buff);
 }
 
@@ -214,8 +211,8 @@ static void print_ehci_device(void)
 static void handle_cc(void)
 {
     int no_of_cc, global_routing, port_routing_logic, ports_per_cc;
-    ehci_cap_hcs_params_t hc_capabilities;
-    hc_capabilities = ehci_cap_hcs_params_rd(&ehci_cap_device);
+    ehci_hcs_params_t hc_capabilities;
+    hc_capabilities = ehci_hcs_params_rd(&ehci_device);
     no_of_cc = hc_capabilities.n_cc;
     port_routing_logic = hc_capabilities.prr;
     ports_per_cc = hc_capabilities.n_pcc;
@@ -225,7 +222,7 @@ static void handle_cc(void)
     dprintf("Port routing logic is (Must be complementry to CF) %d\n",
             port_routing_logic);
 
-    global_routing = (ehci_op_config_flag_rd(&ehci_op_device)).cf;
+    global_routing = (ehci_config_flag_rd(&ehci_device)).cf;
 
     // If routing not enabled then do it NOW.
     if (global_routing) {
@@ -246,7 +243,7 @@ static void handle_cc(void)
 static void enable_global_routing(void)
 {
     // Enabale global routing
-    ehci_op_config_flag_cf_wrf(&ehci_op_device, 0x01);
+    ehci_config_flag_cf_wrf(&ehci_device, 0x01);
 }
 
 
@@ -259,18 +256,18 @@ static void reset_and_power(int port_num)
 {
     int i;
     int port_enable;
-    port_enable = (ehci_op_portsc_arr_rd(&ehci_op_device, port_num)).p_ed;
+    port_enable = (ehci_portsc_arr_rd(&ehci_device, port_num)).p_ed;
     assert(port_enable == 0);   // Port must be disabled before reset
 
-    if ((ehci_op_portsc_arr_rd(&ehci_op_device, port_num)).line_status == 1) {
+    if ((ehci_portsc_arr_rd(&ehci_device, port_num)).line_status == 1) {
         dprintf("A LOW/FULL speed device is connected on port [%d]\n",
                 port_num);
         dprintf("Not configuring the device, skipping ahead\n");
     } else {
         // Disable the port
-        ehci_op_portsc_arr_p_ed_wrf(&ehci_op_device, port_num, 0x00);
+        ehci_portsc_arr_p_ed_wrf(&ehci_device, port_num, 0x00);
         // Reset the port
-        ehci_op_portsc_arr_p_reset_wrf(&ehci_op_device, port_num, 0x1);
+        ehci_portsc_arr_p_reset_wrf(&ehci_device, port_num, 0x1);
 
         // Wait 2 mseconds. how ? dummy loop here
 
@@ -281,13 +278,13 @@ static void reset_and_power(int port_num)
             thread_yield();
 
         // Stop the reset process.
-        ehci_op_portsc_arr_p_reset_wrf(&ehci_op_device, port_num, 0x00);
+        ehci_portsc_arr_p_reset_wrf(&ehci_device, port_num, 0x00);
 
         // Stablize, same issue
         for (i = 0; i < 100000; i++)
             thread_yield();
         // Check status of the port, MUST be 1
-        assert((ehci_op_portsc_arr_rd(&ehci_op_device, port_num)).p_ed == 0x01);
+        assert((ehci_portsc_arr_rd(&ehci_device, port_num)).p_ed == 0x01);
         // If this was zero then we have a
         // full speed device (strange ??)
         // Not supported. Hence device can not be
@@ -303,9 +300,9 @@ static void print_ehci_status(void)
 {
         return ;
         char *buff = (char *) malloc(10000 * sizeof(char));
-        ehci_op_usb_status_t usb_status;
-        usb_status = ehci_op_usb_status_rd(&ehci_op_device);
-        ehci_op_usb_status_prtval(buff, 10000, usb_status);
+        ehci_usb_status_t usb_status;
+        usb_status = ehci_usb_status_rd(&ehci_device);
+        ehci_usb_status_prtval(buff, 10000, usb_status);
         dprintf("%s \n", buff);
         free(buff);
 }*/
@@ -351,7 +348,7 @@ static void port_scanner(void)
     int total_no_ports, i, sz, no_activity_ports = 0;
     char *buff = NULL;
     sz = 2000;
-    total_no_ports = (ehci_cap_hcs_params_rd(&ehci_cap_device)).n_ports;
+    total_no_ports = (ehci_hcs_params_rd(&ehci_device)).n_ports;
 
     // Buffer to hold printing dump
     buff = (char *)malloc(sz * sizeof (char));
@@ -363,9 +360,9 @@ static void port_scanner(void)
     // Scan all ports
     for (i = 0; i < total_no_ports; i++) {
         // Device is connected && status changed
-        if ((ehci_op_portsc_arr_rd(&ehci_op_device, i)).ccs == 1
-            && ehci_op_portsc_arr_rd(&ehci_op_device, i).csc == 1) {
-            ehci_op_portsc_arr_pri(buff, sz, &ehci_op_device, i);
+        if ((ehci_portsc_arr_rd(&ehci_device, i)).ccs == 1
+            && ehci_portsc_arr_rd(&ehci_device, i).csc == 1) {
+            ehci_portsc_arr_pri(buff, sz, &ehci_device, i);
             dprintf("%s\n", buff);
             dprintf("Device detected at [%d]\n", i);
             dprintf("Initializing the reset and power logic\n");
@@ -373,8 +370,8 @@ static void port_scanner(void)
             config_device(i);
         }
         // Device is disconnected and status changed
-        else if ((ehci_op_portsc_arr_rd(&ehci_op_device, i)).ccs == 0
-                 && ehci_op_portsc_arr_rd(&ehci_op_device, i).csc == 1) {
+        else if ((ehci_portsc_arr_rd(&ehci_device, i)).ccs == 0
+                 && ehci_portsc_arr_rd(&ehci_device, i).csc == 1) {
             dprintf("Device disconnect detected !!\n");
             device_disconnect_logic(i);
 
@@ -399,23 +396,23 @@ static void ehci_post_init(void)
     handle_cc();
 }
 
-static void set_ehci_status(ehci_op_t *dev, uint8_t val)
+static void set_ehci_status(ehci_t *dev, uint8_t val)
 {
     volatile uint8_t new_val, status, timeout = 100;
-    status = ehci_op_usb_status_rd(dev).hc_halt;       // Halt status
-    new_val = ehci_op_usb_cmd_rd(dev).rs;
+    status = ehci_usb_status_rd(dev).hc_halt;       // Halt status
+    new_val = ehci_usb_cmd_rd(dev).rs;
 
     dprintf("ehci status is R/S bit [%d] Halt [%d]\n", new_val, status);
 
     if (status == 0x0)          // EHCI is already running
         return;
 
-    ehci_op_usb_cmd_rs_wrf(dev, val);  // Enable the ehci in RUN state
+    ehci_usb_cmd_rs_wrf(dev, val);  // Enable the ehci in RUN state
     dprintf("Wrote %d to USB_COMMAND register on R/S field\n", val);
 
     while (timeout > 0) {
-        status = ehci_op_usb_status_rd(dev).hc_halt;
-        new_val = ehci_op_usb_cmd_rd(dev).rs;
+        status = ehci_usb_status_rd(dev).hc_halt;
+        new_val = ehci_usb_cmd_rd(dev).rs;
 
         dprintf("R/S status check status [%d] cmd [%d]\n", status, new_val);
         timeout--;
@@ -444,43 +441,43 @@ static void ehci_init(void)
 {
     // STEP 1. Write CTRLDSEGMENT to locate 4 G segment
     // For 32 bit HC this will be all zero.
-    ehci_op_ctrl_dss_reg_wr_raw(&ehci_op_device, (0x0));
+    ehci_ctrl_dss_reg_wr_raw(&ehci_device, (0x0));
 
     //STEP 2. Setup Interrupt map
     dprintf("Enabling the interrupts\n");
-    ehci_op_usb_int_usbi_e_wrf(&ehci_op_device, ENABLE);
+    ehci_usb_int_usbi_e_wrf(&ehci_device, ENABLE);
 
     dprintf("Async Advanc          : [%d]\n", ENABLE);
-    ehci_op_usb_int_iaa_e_wrf(&ehci_op_device, ENABLE);
+    ehci_usb_int_iaa_e_wrf(&ehci_device, ENABLE);
 
     dprintf("Host system errors    : [%d]\n", ENABLE);
-    ehci_op_usb_int_hye_e_wrf(&ehci_op_device, ENABLE);
+    ehci_usb_int_hye_e_wrf(&ehci_device, ENABLE);
 
     // XXX: Periodic schedule not enabled
     dprintf("Frame list roll over  : [%d]\n", DISABLE);
-    ehci_op_usb_int_flr_e_wrf(&ehci_op_device, DISABLE);
+    ehci_usb_int_flr_e_wrf(&ehci_device, DISABLE);
 
     dprintf("Port change           : [%d]\n", ENABLE);
-    ehci_op_usb_int_pci_e_wrf(&ehci_op_device, ENABLE);
+    ehci_usb_int_pci_e_wrf(&ehci_device, ENABLE);
 
     // Enabale USB transaction error interrupts
     dprintf("Error reporting       : [%d]\n", ENABLE);
-    ehci_op_usb_int_usbei_e_wrf(&ehci_op_device, ENABLE);
+    ehci_usb_int_usbei_e_wrf(&ehci_device, ENABLE);
 
 
     // XXX STEP 3. PERIODICLIST_BASE register with periodic frame list
     // FIXME; Setup the queue
-    //ehci_op_flba_reg_wr_raw(&ehci_op_device,
+    //ehci_flba_reg_wr_raw(&ehci_device,
     //periodic_address.frame_id.base); // Lower 32 bits, in either
     //mode 32 or 64 we need them
 
 
     // STEP 4. USBCMD to set interrupt rate and ON/RUN bit to start
     // controller in hardware.
-    ehci_op_usb_cmd_itc_wrf(&ehci_op_device, ehci_op_uframe_1); // ehci_op_uframes_8
-    //ehci_op_usb_cmd_itc_wrf(&ehci_op_device, ehci_op_uframes_64);
+    ehci_usb_cmd_itc_wrf(&ehci_device, ehci_uframe_1); // ehci_uframes_8
+    //ehci_usb_cmd_itc_wrf(&ehci_device, ehci_uframes_64);
 
-    set_ehci_status(&ehci_op_device, 1); // set EHCI ON
+    set_ehci_status(&ehci_device, 1); // set EHCI ON
 
     // XXX 4.2 = Set up the async queue managment
     // Already taken care by async_init
@@ -502,13 +499,13 @@ static void handle_interrupt(void *args)
 {
     dprintf("An interrupt recevied. Probing for the source \
                 of interrupt [%lu] \n", total_int + 1);
-    ehci_op_usb_status_t usb_status = ehci_op_usb_status_rd(&ehci_op_device);
+    ehci_usb_status_t usb_status = ehci_usb_status_rd(&ehci_device);
 
     // acknowledge all pending interrupts
     // XXX: These bits are WC, hence writing 1 will ACK and clear the bit
-    ehci_op_usb_status_wr(&ehci_op_device, usb_status);
+    ehci_usb_status_wr(&ehci_device, usb_status);
 
-    ehci_op_usb_int_t usb_int = ehci_op_usb_int_rd(&ehci_op_device);
+    ehci_usb_int_t usb_int = ehci_usb_int_rd(&ehci_device);
 
     total_int++;
     bool handled = false;
@@ -547,15 +544,15 @@ static void handle_interrupt(void *args)
 
     if (usb_status.flr == 0x1 && usb_int.flr_e == 0x1) {
         // Frame list rollover, used in periodic schedule
-        //ehci_op_usb_status_flr_wrf(&ehci_op_device, 0x1);       // ACK
+        //ehci_usb_status_flr_wrf(&ehci_device, 0x1);       // ACK
         dprintf("Interrupt due to FRAME LIST ROLLOVER flr = %x\n",
-                ehci_op_frame_index_rd_raw(&ehci_op_device));
+                ehci_frame_index_rd_raw(&ehci_device));
         handled = true;
     }
 
     if (usb_status.usb_i == 0x1) {
         // ioc interrupt, also issued on short packets
-        //ehci_op_usb_status_usb_i_wrf(&ehci_op_device, 0x1);     // ACK
+        //ehci_usb_status_usb_i_wrf(&ehci_device, 0x1);     // ACK
         dprintf("Interrupt due to IOC ioc, ACKed and cleared [%lu]\n",
                 total_int);
 

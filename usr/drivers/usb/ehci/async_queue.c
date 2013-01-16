@@ -12,18 +12,18 @@
 #include <timer/timer.h>
 #include <usb/utility.h>
 
-#include "ehci_op_dev.h"
+#include <dev/ehci_dev.h>
 
 #include <usb/mem/usb_mem.h>
-#include <usb/ehci/ehci.h>
-#include <usb/ehci/ehci_status.h>
-#include <usb/ehci/async_queue.h>
+#include "ehci.h"
+#include "ehci_status.h"
+#include "async_queue.h"
 
 #define TESTING 0
 
 //XXX: Enabale this macro for debugging local file specific debugging
 //#define EHCI_LOCAL_DEBUG
-#include <usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 #include "toggle_state.h"
 
@@ -181,13 +181,13 @@ static void clean_and_post(qhead_wrapper_t * qhw)
  * \param from  debugging char string from caller function
  */
 
-void enable_async_schedule(ehci_op_t dev, char *from)
+void enable_async_schedule(ehci_t dev, char *from)
 {
     thread_mutex_lock(&safe_register_access);
     volatile uint8_t new_val, status, timeout = 100;
     int i;
-    status = ehci_op_usb_status_rd(&dev).as_s;
-    new_val = ehci_op_usb_cmd_rd(&dev).as_e;
+    status = ehci_usb_status_rd(&dev).as_s;
+    new_val = ehci_usb_cmd_rd(&dev).as_e;
 
     dprintf("(ENABLING %s) async schedule status before"
             "ENABLING status [%d] cmd [%d]\n", from, status, new_val);
@@ -196,15 +196,15 @@ void enable_async_schedule(ehci_op_t dev, char *from)
     {
         new_val = 0x1;
         // Enable the schedule 
-        ehci_op_usb_cmd_as_e_wrf(&dev, new_val);
+        ehci_usb_cmd_as_e_wrf(&dev, new_val);
         dprintf("(ENABLING %s) Wrote %d to"
                 "USB_COMMAND register\n", from, new_val);
         // Repeated attemps untill we see status change 
         while (timeout > 0) {
             i = 0;
 
-            status = ehci_op_usb_status_rd(&dev).as_s;
-            new_val = ehci_op_usb_cmd_rd(&dev).as_e;
+            status = ehci_usb_status_rd(&dev).as_s;
+            new_val = ehci_usb_cmd_rd(&dev).as_e;
 
             dprintf("(ENABLING %s)"
                     "periodic status check"
@@ -238,12 +238,12 @@ void enable_async_schedule(ehci_op_t dev, char *from)
  *  \param from debugging string from caller function
  */
 
-void disable_async_schedule(ehci_op_t dev, char *from)
+void disable_async_schedule(ehci_t dev, char *from)
 {
     thread_mutex_lock(&safe_register_access);
     volatile uint8_t new_val, status, timeout = 100;
-    status = ehci_op_usb_status_rd(&dev).as_s;
-    new_val = ehci_op_usb_cmd_rd(&dev).as_e;
+    status = ehci_usb_status_rd(&dev).as_s;
+    new_val = ehci_usb_cmd_rd(&dev).as_e;
     int i;
 
     dprintf("(DISABLING %s)"
@@ -255,14 +255,14 @@ void disable_async_schedule(ehci_op_t dev, char *from)
     {
         new_val = 0x0;
         // Disable the schedule 
-        ehci_op_usb_cmd_as_e_wrf(&dev, new_val);
+        ehci_usb_cmd_as_e_wrf(&dev, new_val);
         dprintf("(DISABLING %s)"
                 "Wrote %d to USB_COMMAND"
                 "register to disbale the queue \n", from, new_val);
         while (timeout > 0) {
             i = 0;
-            status = ehci_op_usb_status_rd(&dev).as_s;
-            new_val = ehci_op_usb_cmd_rd(&dev).as_e;
+            status = ehci_usb_status_rd(&dev).as_s;
+            new_val = ehci_usb_cmd_rd(&dev).as_e;
             dprintf("EHCI: (DISABLING %s)"
                     "periodic status check"
                     "status [%d] cmd [%d]\n", from, status, new_val);
@@ -288,9 +288,9 @@ void disable_async_schedule(ehci_op_t dev, char *from)
  *
  * \param dev EHCI operation device 
  */
-static void set_doorbell_flag(ehci_op_t dev)
+static void set_doorbell_flag(ehci_t dev)
 {
-    ehci_op_usb_cmd_iaad_wrf(&dev, 0x1);        // Set the door bell
+    ehci_usb_cmd_iaad_wrf(&dev, 0x1);        // Set the door bell
 }
 
 
@@ -323,7 +323,7 @@ static int scan_and_release_qheads(void *args)
             // XXX: WHY did we receive an interrupt 
             // on a NULL list ?
             if (temp == NULL) {
-                disable_async_schedule(ehci_op_device, "NULL_INT_NEVER");
+                disable_async_schedule(ehci_device, "NULL_INT_NEVER");
                 USER_PANIC("\n\n scan_and_release called on NULL head\n\n");
                 break;
             }                   //temp == NULL
@@ -345,7 +345,7 @@ static int scan_and_release_qheads(void *args)
                 dprintf("EHCI_RELEASE:"
                         "Total of %d nodes are"
                         "released dbug id %x \n", total, temp->dbug);
-                disable_async_schedule(ehci_op_device, "RELEASE_FREE_ALL");
+                disable_async_schedule(ehci_device, "RELEASE_FREE_ALL");
                 start_async_node = NULL;
                 free_all = 0x0;
                 clean_and_post(temp);
@@ -548,7 +548,7 @@ static int scan_and_remove(void *args)
             //thread_mutex_unlock(&list_update);
 
             dprintf("%s: setting up the doorbell...\n", __func__);
-            set_doorbell_flag(ehci_op_device);
+            set_doorbell_flag(ehci_device);
             dprintf("%s: should be now any minute ..\n", __func__);
 
         }                       // 1 Invocation complete, set it as false  
@@ -568,10 +568,10 @@ static int scan_and_remove(void *args)
 
 static void null_list_activation(qhead_wrapper_t * node)
 {
-    struct ehci_op_asyn_list_reg_t reg;
+    struct ehci_asyn_list_reg_t reg;
     dprintf("%s: Node is found to be NULL ... inserting node\n", __func__);
 
-    disable_async_schedule(ehci_op_device, "internal_queue_NULL");
+    disable_async_schedule(ehci_device, "internal_queue_NULL");
     // Level 1. Internal book keeping
     // Mark this only entry as HEAD
     node->qh->ep_char.str.head = 1;
@@ -591,8 +591,8 @@ static void null_list_activation(qhead_wrapper_t * node)
     // Physical address of a single queue head address 
     reg.lpl = HIGHER_ADD(((uintptr_t) (node->mem.pa)), 5);
 
-    ehci_op_asyn_list_reg_wr(&ehci_op_device, reg);
-    enable_async_schedule(ehci_op_device, "internal_queue_NULL");
+    ehci_asyn_list_reg_wr(&ehci_device, reg);
+    enable_async_schedule(ehci_device, "internal_queue_NULL");
     dprintf("%s: Node inserted and schedule is enabled ...\n", __func__);
     printf("%llu\n", (unsigned long long int)rdtsc());
 
@@ -633,16 +633,16 @@ void internal_queue_req(qhead_wrapper_t * node)
         // Recursive loop setting ..with one queue head only
         node->qh->next_qhead.str.ptr =
             HIGHER_ADD(((uintptr_t) node->mem.pa), 5);
-        disable_async_schedule(ehci_op_device, "internal_queue_testing");
+        disable_async_schedule(ehci_device, "internal_queue_testing");
         reg.lpl = HIGHER_ADD(((uintptr_t) (node->mem.pa)), 5);
         // Physical address of a single queue head address 
-        ehci_op_asyn_list_reg_wr(&ehci_op_device, reg);
+        ehci_asyn_list_reg_wr(&ehci_device, reg);
 
         if (Q_DEBUG)
             dprintf("\n EHCI: async queue physical addresss\
                                                 set to ASYNCLISTADDR register \
-                                                %lx", (uint64_t) (ehci_op_asyn_list_reg_rd_raw(&ehci_op_device)));
-        enable_async_schedule(ehci_op_device, "intern_queue_testing");
+                                                %lx", (uint64_t) (ehci_asyn_list_reg_rd_raw(&ehci_device)));
+        enable_async_schedule(ehci_device, "intern_queue_testing");
     } else {
     }
 #endif

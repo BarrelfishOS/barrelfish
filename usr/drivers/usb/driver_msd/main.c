@@ -10,7 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <stdio.h>
 
-#include <usb/driver/driver.h>
+#include "driver.h"
 
 #include <if/usb_driver_defs.h>
 #include <usb/mem/usb_mem.h>

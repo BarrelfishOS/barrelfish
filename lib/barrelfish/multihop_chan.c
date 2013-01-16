@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,7 +19,6 @@
 #include <if/monitor_defs.h>
 #include <collections/hash_table.h>
 #include <bench/bench.h>
-#include "waitset_chan.h"
 
 // TODO remove this
 #include <stdio.h>
@@ -37,7 +36,7 @@
 /**
  * We use a hash table to map VCIs to bindings.
  */
-static hash_table *mappings;
+static collections_hash_table *mappings;
 
 // is the mapping table initialized?
 static bool is_mapping_table_initialized = false;
@@ -48,7 +47,7 @@ static inline void multihop_chan_init_mapping_table(void)
 
     if (!is_mapping_table_initialized) {
         is_mapping_table_initialized = true;
-        hash_create_with_buckets(&mappings, MULTIHOP_MAPPING_TABLE_BACKETS,
+        collections_hash_create_with_buckets(&mappings, MULTIHOP_MAPPING_TABLE_BACKETS,
                 free);
         /*
          *  We use a constant as seed for the random function.
@@ -77,10 +76,10 @@ static inline multihop_vci_t multihop_chan_mapping_insert(
         // we assign VCIs randomly, but need
         // to make sure that it is not yet taken
         vci = (multihop_vci_t) rand();
-    } while (hash_find(mappings, vci) != NULL);
+    } while (collections_hash_find(mappings, vci) != NULL);
 
     // insert into forwarding table
-    hash_insert(mappings, vci, chan_state);
+    collections_hash_insert(mappings, vci, chan_state);
     return vci;
 }
 
@@ -88,7 +87,7 @@ static inline multihop_vci_t multihop_chan_mapping_insert(
 static inline void multihop_chan_mapping_delete(multihop_vci_t vci)
 {
     assert(is_mapping_table_initialized);
-    hash_delete(mappings, vci);
+    collections_hash_delete(mappings, vci);
 }
 
 // get entry from the mapping table
@@ -96,7 +95,7 @@ static inline struct multihop_chan* multihop_chan_mappings_lookup(multihop_vci_t
 {
 
     assert(is_mapping_table_initialized);
-    struct multihop_chan *chan_state = hash_find(mappings, vci);
+    struct multihop_chan *chan_state = collections_hash_find(mappings, vci);
 
     if (chan_state == NULL) {
         USER_PANIC("invalid virtual circuit identifier in multi-hop channel");

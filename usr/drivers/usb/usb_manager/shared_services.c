@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <usb/usb/shared_state.h>
-#include <usb/usb/usb_device.h>
+#include <usb/shared_state.h>
+#include <usb/usb_device.h>
 #include <usb/mem/usb_mem.h>
 
 #include "shared_services.h"

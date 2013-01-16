@@ -14,7 +14,7 @@
 module UMPCommon where
 
 import Data.Char
-import Maybe
+import Data.Maybe
 
 import qualified CAbsSyntax as C
 import qualified Backend

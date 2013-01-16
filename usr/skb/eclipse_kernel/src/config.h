@@ -75,7 +75,7 @@
 #       define SIZEOF_LONG 8
 #       define SIZEOF_CHAR_P 8
 #       define SIZEOF_LONG_P 8
-#elif defined(__i386__)
+#elif defined(__i386__) || defined(__arm__)
 #       define SIZEOF_INT 4
 #       define SIZEOF_LONG 4
 #       define SIZEOF_CHAR_P 4
@@ -181,7 +181,9 @@
 
 /* Check for ways to control floating point rounding */
 //#define HAVE_FPU_CONTROL_H 0
+#if !defined(__arm__)
 #define HAVE_FPSETROUND
+#endif
 /* #undef HAVE_IEEE_FLAGS */
 
 /* Specify the host architecture as returned by ARCH */

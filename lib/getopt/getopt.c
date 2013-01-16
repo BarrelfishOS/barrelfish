@@ -20,13 +20,34 @@
 #include <limits.h>
 #include <getopt/getopt.h>
 
+static int handle_uint(unsigned int *var, const char *val)
+{
+    assert(var != NULL);
+    int base;
+
+    // determine base (0x -> hex, anything else -> decimal)
+    if (val[0] == '0' && val[1] == 'x') {
+        base = 16;
+        val += 2;
+    } else {
+        base = 10;
+    }
+
+    unsigned long x = strtoul(val, NULL, base);
+    if (x > UINT_MAX) { 
+	x = UINT_MAX;
+    }
+    *var = (unsigned)x;
+    return 0;
+}
+
 static int handle_int(int *var, const char *val)
 {
     assert(var != NULL);
     int base;
 
     // determine base (0x -> hex, anything else -> decimal)
-    if (val && val[0] == '0' && val[1] == 'x') {
+    if (val[0] == '0' && val[1] == 'x') {
         base = 16;
         val += 2;
     } else {
@@ -64,6 +85,9 @@ static int handle_argument(const char *var, const char *val,
             switch(a->type) {
             case ArgType_Int:
                 return handle_int(a->var.integer, val);
+
+            case ArgType_UInt:
+                return handle_uint(a->var.uinteger, val);
 
             case ArgType_Bool:
                 return handle_bool(a->var.boolean, val);

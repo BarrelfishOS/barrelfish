@@ -1,7 +1,7 @@
 if Config.libc == "newlib" then
-[ build library { 
+[ build library {
   target = "time",
-  cFiles = [ 
+  cFiles = [
     "asctime.c",
     "asctime_r.c",
     "clock.c",
@@ -22,10 +22,13 @@ if Config.libc == "newlib" then
     "tzset.c",
     "tzset_r.c",
     "tzvars.c",
-    "wcsftime.c"
-        ],
-  addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES" ],
-  omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+    "wcsftime.c" ],
+  addCFlags = Config.newlibAddCFlags,
+  omitCFlags = [ "-std=c99",
+                 "-Wmissing-prototypes",
+                 "-Wmissing-declarations",
+                 "-Wimplicit-function-declaration",
+                 "-Werror" ]
    }
 ]
 else []

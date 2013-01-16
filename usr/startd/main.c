@@ -11,7 +11,7 @@
  */
 
 /*
- * Copyright (c) 2010-2011, ETH Zurich.
+ * Copyright (c) 2010-2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -24,7 +24,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/spawn_client.h> // XXX: for cpu_type_to_archstr()
+#include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 #include <barrelfish/cpu_arch.h> // for CURRENT_CPU_TYPE
 
 #include <vfs/vfs.h>
@@ -126,7 +126,7 @@ int main(int argc, const char *argv[])
     // XXX: wait for spawnd on same core to register itself
     // not sure why, but without this there is a race on bootup -AB 20110526
 
-    char namebuf[16];
+    /*char namebuf[16];
     snprintf(namebuf, sizeof(namebuf), "spawn.%u", my_core_id);
     namebuf[sizeof(namebuf) - 1] = '\0';
 
@@ -135,7 +135,7 @@ int main(int argc, const char *argv[])
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "unexpected error waiting for '%s'\n", namebuf);
         return -1;
-    }
+    }*/
 
     // startup distributed services
     spawn_dist_domains();

@@ -12,7 +12,7 @@
 
 module ArchDefaults where
 
-import List
+import Data.List
 import HakeTypes
 import Path
 import qualified Config
@@ -61,7 +61,6 @@ cStdIncs arch archFamily =
       NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/target" ./. archFamily),
       NoDep SrcTree "src" "/include/ipv4", -- XXX
-      NoDep SrcTree "src" "/include/posixcompat", -- XXX
       NoDep InstallTree arch "/include",
       NoDep InstallTree arch "/include/dev",
       NoDep SrcTree "src" ".",
@@ -85,6 +84,7 @@ ldCxxFlags arch =
 -- Libraries that are linked to all applications.
 stdLibs arch = 
     [ In InstallTree arch "/lib/libbarrelfish.a",
+      In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
       --In InstallTree arch "/lib/libposixcompat.a",

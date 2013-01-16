@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,15 +15,25 @@
 #ifndef SPAWNDOMAIN_H
 #define SPAWNDOMAIN_H
 
+
+//XXX: added alignment to workaround an arm-gcc bug
+//which generated (potentially) unaligned access code to those fields
 /**
  * \brief Struct to refer to the various caps within a domain being spawned.
  */
 struct spawninfo {
     domainid_t domain_id;
-    struct cnoderef rootcn, taskcn, segcn, pagecn;
-    struct capref   rootcn_cap, taskcn_cap, pagecn_cap;
-    struct capref   dispframe, dcb, argspg, vtree;
-    struct capref   fdcap;
+    struct cnoderef rootcn __attribute__ ((aligned(4)));
+    struct cnoderef taskcn __attribute__ ((aligned(4)));
+    struct cnoderef segcn  __attribute__ ((aligned(4)));
+    struct cnoderef pagecn __attribute__ ((aligned(4)));
+    struct capref   rootcn_cap __attribute__ ((aligned(4)));
+    struct capref	taskcn_cap __attribute__ ((aligned(4)));
+    struct capref	pagecn_cap __attribute__ ((aligned(4)));
+    struct capref   dispframe __attribute__ ((aligned(4)));
+    struct capref	dcb __attribute__ ((aligned(4)));
+    struct capref	argspg __attribute__ ((aligned(4)));
+    struct capref 	vtree __attribute__ ((aligned(4)));
 
     // Slot (in segcn) from where elfload_allocate should allocate frames from
     cslot_t elfload_slot;
@@ -56,7 +66,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
                           size_t binary_size, enum cpu_type type,
                           const char *name, coreid_t coreid,
                           char *const argv[], char *const envp[],
-                          struct capref fdcap);
+                          struct capref inheritcn_cap, struct capref argcn_cap);
 errval_t spawn_run(struct spawninfo *si);
 errval_t spawn_free(struct spawninfo *si);
 

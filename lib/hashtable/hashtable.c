@@ -113,6 +113,21 @@ static int ht_put_word(struct dictionary *dict, const char *key, size_t key_len,
     return ht_put(dict, e);
 }
 
+static int ht_put_capability(struct dictionary *dict, char *key,
+                             struct capref cap)
+{
+    struct _ht_entry *e = malloc(sizeof(struct _ht_entry));
+    if (NULL == e) {
+        return 1;
+    }
+    e->key = key;
+    e->key_len = strlen(key);
+    e->capvalue = cap;
+    e->type = TYPE_CAPABILITY;
+
+    return ht_put(dict, e);
+}
+
 /**
  * \brief get a value from the hashtable for a given key
  * \param ht the hashtable
@@ -141,6 +156,31 @@ static ENTRY_TYPE ht_get(struct dictionary *dict, const char *key, size_t key_le
         _e = _e->next;
     }
     *value = NULL;
+    return 0;
+}
+
+static ENTRY_TYPE ht_get_capability(struct dictionary *dict, char *key,
+                                    struct capref *value)
+{
+    assert(dict != NULL);
+    assert(key != NULL);
+    assert(value != NULL);
+
+    struct hashtable *ht = (struct hashtable*) dict;
+    size_t key_len = strlen(key);
+    int _hash_value = hash(key, key_len);
+    int _index = index_for(ht->table_length, _hash_value);
+    struct _ht_entry *_e = ht->entries[_index];
+
+    while (NULL != _e) {
+        if ((_hash_value == _e->hash_value) && (equals(key, _e->key, key_len))) {
+            assert(_e->type == TYPE_CAPABILITY);
+            *value = _e->capvalue;
+            return _e->type;
+        }
+        _e = _e->next;
+    }
+    *value = NULL_CAP;
     return 0;
 }
 
@@ -188,7 +228,9 @@ static void ht_init(struct hashtable *_ht, int capacity, int load_factor)
     _ht->threshold = (capacity * load_factor) / 100;
     _ht->d.size = ht_size;
     _ht->d.put_word = ht_put_word;
+    _ht->d.put_capability = ht_put_capability;
     _ht->d.get = ht_get;
+    _ht->d.get_capability = ht_get_capability;
     _ht->d.remove = ht_remove;
 }
 

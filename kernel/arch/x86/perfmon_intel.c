@@ -56,13 +56,11 @@ errval_t perfmon_intel_init(void)
 void perfmon_intel_measure_start(uint8_t event, uint8_t umask)
 {
     ia32_perfevtsel_t sel0 = ia32_perfevtsel_default;
-
-    ia32_perfevtsel_evsel_insert(sel0, event);
-    ia32_perfevtsel_umask_insert(sel0, umask);
-    ia32_perfevtsel_usr_insert  (sel0, 1);
-    ia32_perfevtsel_os_insert   (sel0, 0);
-    ia32_perfevtsel_en_insert   (sel0, 1);
-
+    sel0 = ia32_perfevtsel_evsel_insert(sel0, event);
+    sel0 = ia32_perfevtsel_umask_insert(sel0, umask);
+    sel0 = ia32_perfevtsel_usr_insert  (sel0, 1);
+    sel0 = ia32_perfevtsel_os_insert   (sel0, 0);
+    sel0 = ia32_perfevtsel_en_insert   (sel0, 1);
     ia32_perfevtsel0_wr(&ia32, sel0);
 }
 

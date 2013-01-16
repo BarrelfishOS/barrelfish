@@ -8,13 +8,13 @@
  */
 
 #include <stdio.h>
-#include <usb/driver/driver.h>
+//#include "driver.h"
 #include <if/usb_driver_defs.h>
 
 #include "driver_managment.h"
 
-#include <usb/usb/usb_debug.h>
-#include <usb/usb/usbd.h>
+#include <usb/usb_debug.h>
+#include <usb/usbd.h>
 
 struct thread_sem sync = THREAD_SEM_INITIALIZER;
 volatile int status;

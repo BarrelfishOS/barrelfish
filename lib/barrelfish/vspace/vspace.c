@@ -23,6 +23,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h>
 #include "vspace_internal.h"
+#include <stdio.h>
 
 /**
  * \brief Initialize the current vspace structure

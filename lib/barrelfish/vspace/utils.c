@@ -48,10 +48,10 @@ errval_t vspace_unmap(const void *buf)
 }
 
 /// Map with an alignment constraint
-errval_t vspace_map_anon_aligned(void **retaddr, struct memobj *memobj,
-                                 struct vregion *vregion, size_t size,
-                                 size_t *retsize, vregion_flags_t flags,
-                                 size_t alignment)
+errval_t vspace_map_anon_nomalloc(void **retaddr, struct memobj_anon *memobj,
+                                  struct vregion *vregion, size_t size,
+                                  size_t *retsize, vregion_flags_t flags,
+                                  size_t alignment)
 {
     errval_t err1, err2;
     size = ROUND_UP(size, BASE_PAGE_SIZE);
@@ -60,12 +60,13 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj *memobj,
     }
 
     // Create a memobj and vregion
-    err1 = memobj_create_anon((struct memobj_anon*)memobj, size, 0);
+    err1 = memobj_create_anon(memobj, size, 0);
     if (err_is_fail(err1)) {
         err1 = err_push(err1, LIB_ERR_MEMOBJ_CREATE_ANON);
         goto error;
     }
-    err1 = vregion_map_aligned(vregion, get_current_vspace(), memobj, 0, size,
+    err1 = vregion_map_aligned(vregion, get_current_vspace(),
+                               (struct memobj *)memobj, 0, size,
                                flags, alignment);
     if (err_is_fail(err1)) {
         err1 = err_push(err1, LIB_ERR_VREGION_MAP);
@@ -78,7 +79,7 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj *memobj,
 
  error:
     if (err_no(err1) !=  LIB_ERR_MEMOBJ_CREATE_ANON) {
-        err2 = memobj_destroy_anon(memobj);
+        err2 = memobj_destroy_anon((struct memobj *)memobj);
         if (err_is_fail(err2)) {
             DEBUG_ERR(err2, "memobj_destroy_anon failed");
         }
@@ -92,12 +93,13 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj *memobj,
  * The memory object and vregion are returned so the user can call fill and
  * pagefault on it to create actual mappings.
  */
-errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
-                              struct vregion **ret_vregion, size_t size,
-                              size_t *retsize, vregion_flags_t flags)
+errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
+                                 struct vregion **ret_vregion, size_t size,
+                                 size_t *retsize, vregion_flags_t flags,
+                                 size_t alignment)
 {
     errval_t err;
-    struct memobj *memobj = NULL;
+    struct memobj_anon *memobj = NULL;
     struct vregion *vregion = NULL;
     
     // Allocate space
@@ -107,8 +109,43 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
     vregion = malloc(sizeof(struct vregion));
     assert(vregion != NULL);
 
-    err = vspace_map_anon_aligned(retaddr, memobj, vregion, size,
-                                  retsize, flags, 0);
+    err = vspace_map_anon_nomalloc(retaddr, memobj, vregion, size,
+                                   retsize, flags, alignment);
+    
+    if (err_is_fail(err)) {
+        free(memobj);
+        free(vregion);
+    }
+    
+    *ret_memobj = (struct memobj *)memobj;
+    *ret_vregion = vregion;
+    
+    return err;
+}
+
+/**
+ * \brief Wrapper for creating and mapping a memory object of type anonymous.
+ *
+ * The memory object and vregion are returned so the user can call fill and
+ * pagefault on it to create actual mappings.
+ */
+errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
+                              struct vregion **ret_vregion, size_t size,
+                              size_t *retsize, vregion_flags_t flags)
+{
+    errval_t err;
+    struct memobj_anon *memobj = NULL;
+    struct vregion *vregion = NULL;
+    
+    // Allocate space
+    memobj = malloc(sizeof(struct memobj_anon));
+    assert(memobj != NULL);
+
+    vregion = malloc(sizeof(struct vregion));
+    assert(vregion != NULL);
+
+    err = vspace_map_anon_nomalloc(retaddr, memobj, vregion, size,
+                                   retsize, flags, 0);
     
     if (err_is_fail(err))
     {
@@ -116,7 +153,7 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
       free(vregion);
     }
     
-    *ret_memobj = memobj;
+    *ret_memobj = (struct memobj *)memobj;
     *ret_vregion = vregion;
     
     return err;

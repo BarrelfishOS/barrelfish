@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,7 +14,7 @@
 
 #include "monitor.h"
 #include <inttypes.h>
-#include <barrelfish/spawn_client.h> // XXX: for cpu_type_to_archstr()
+#include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 
 /* Use to figure out when all monitors initialized. */
 int seen_connections = 0;
@@ -68,6 +68,7 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
 
     /* Assure memory server and chips have initialized */
     assert(mem_serv_iref != 0);
+    assert(ramfs_serv_iref != 0);
     assert(name_serv_iref != 0);
     assert(monitor_mem_iref != 0);
 
@@ -117,7 +118,7 @@ void boot_initialize_request(struct monitor_binding *st)
 
     printf("all %d monitors up\n", num_monitors);
 
-#if !defined(__scc__) || defined(RCK_EMU)
+#ifndef __scc__
     if(num_monitors > 1) {
         printf("monitor: synchronizing clocks\n");
         err = timing_sync_timer();

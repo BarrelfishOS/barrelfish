@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -148,8 +148,8 @@ static void bind_cont(void *st, errval_t err, struct monitor_mem_binding *b)
 
 errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b)
 {
-#if defined(__scc__) && !defined(RCK_EMU)
-    assert(!"Should not be calling this from real SCC");
+#ifdef __scc__
+    assert(!"Should not be calling this on SCC platform");
 #endif
 
     errval_t err;

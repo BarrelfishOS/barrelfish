@@ -26,7 +26,7 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/terminal.h>
 #include <trace/trace.h>
-#include <pci/pci.h>
+#include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
@@ -53,7 +53,7 @@ struct cmd {
 
 static char *cwd;
 
-static bool pci_connected = false;
+static bool acpi_connected = false;
 
 static int help(int argc, char *argv[]);
 
@@ -339,24 +339,24 @@ static int spawnpixels(int argc, char *argv[])
 
 static int reset(int argc, char *argv[])
 {
-    if (!pci_connected) {
-        int r = pci_client_connect();
+    if (!acpi_connected) {
+        int r = connect_to_acpi();
         assert(r == 0);
-        pci_connected = true;
+        acpi_connected = true;
     }
 
-    return pci_reset();
+    return acpi_reset();
 }
 
 static int poweroff(int argc, char *argv[])
 {
-    if (!pci_connected) {
-        int r = pci_client_connect();
+    if (!acpi_connected) {
+        int r = connect_to_acpi();
         assert(r == 0);
-        pci_connected = true;
+        acpi_connected = true;
     }
 
-    return pci_sleep(4);
+    return acpi_sleep(4);
 }
 
 static int ps(int argc, char *argv[])

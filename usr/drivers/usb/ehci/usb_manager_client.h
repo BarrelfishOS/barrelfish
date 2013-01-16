@@ -11,7 +11,7 @@
 #define  USB_MANAGER_CLIENT_H
 
 #include <barrelfish/barrelfish.h>
-#include <usb/usb/usb_services.h>
+#include <usb/usb_services.h>
 
 /* This file act as wrapper to the functions provided by USB manager
  * server. This is implemented to have a better and cleaner interface to

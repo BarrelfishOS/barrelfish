@@ -12,12 +12,12 @@
 
 #include <usb/utility.h>
 
-#include <usb/usb/usb_device.h>
-#include <usb/usb/usb_services.h>
-#include <usb/usb/usb_topology.h>
+#include <usb/usb_device.h>
+#include <usb/usb_services.h>
+#include <usb/usb_topology.h>
 
 //#define USB_LOCL_DEBUG
-#include<usb/usb/usb_debug.h>
+#include<usb/usb_debug.h>
 #include "shared_services.h"
 
 /*

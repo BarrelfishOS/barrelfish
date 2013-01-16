@@ -16,16 +16,17 @@
 #include <stdlib.h>
 
 #include <usb/utility.h>
-#include <usb/error_codes.h>
+#include "error_codes.h"
 
 #include <usb/mem/usb_mem.h>
-#include <usb/ehci/ehci_status.h>
-#include <usb/usb/usb_device.h>
-#include <usb/ehci/async_queue.h>
-#include <usb/ehci/ehci_core.h>
+#include <usb/usb_device.h>
+
+#include "async_queue.h"
+#include "ehci_status.h"
+#include "ehci_core.h"
 
 //#define EHCI_LOCAL_DEBUG 
-#include <usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 
 #include "context.h"

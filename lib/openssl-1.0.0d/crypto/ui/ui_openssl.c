@@ -675,6 +675,10 @@ static void recsig(int i)
 	}
 #endif
 
+// XXX Disable this function for barrelfish, since we do not support getch(),
+// and when compiling with -O0, it leads to an error.
+
+#if 0
 /* Internal functions specific for Windows */
 #if defined(OPENSSL_SYS_MSDOS) && !defined(OPENSSL_SYS_WIN16) && !defined(OPENSSL_SYS_WINCE)
 static int noecho_fgets(char *buf, int size, FILE *tty)
@@ -720,4 +724,5 @@ static int noecho_fgets(char *buf, int size, FILE *tty)
 #endif
 	return(strlen(buf));
 	}
+#endif
 #endif

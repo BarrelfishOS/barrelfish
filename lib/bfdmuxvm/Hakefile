@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -12,7 +12,5 @@
 
 [ build library { target = "bfdmuxvm",
                   cFiles = [ "vm.c" ]
--- try and get rid of lwip library here as it is only used for ntoh[l/s]
-		  , addLibraries = [ "lwip" ]
                 }
 ]

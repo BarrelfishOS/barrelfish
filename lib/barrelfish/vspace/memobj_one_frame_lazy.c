@@ -117,7 +117,19 @@ static errval_t pagefault(struct memobj *memobj, struct vregion *vregion,
     genvaddr_t vregion_off   = vregion_get_offset(vregion);
     vregion_flags_t flags = vregion_get_flags(vregion);
 
-    err = pmap->f.map(pmap, vregion_base + vregion_off + offset, lazy->frame,
+    // XXX: ugly --> need to revoke lazy->frame in order to clean up
+    //               all the copies that are created here
+    struct capref frame_copy;
+    err = slot_alloc(&frame_copy);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cap_copy(frame_copy, lazy->frame);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = pmap->f.map(pmap, vregion_base + vregion_off + offset, frame_copy,
                       offset, lazy->chunk_size, flags, NULL, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_MAP);

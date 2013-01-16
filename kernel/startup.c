@@ -125,6 +125,7 @@ struct dcb *spawn_module(struct spawn_state *st,
                          lpaddr_t bootinfo, lvaddr_t args_base,
                          alloc_phys_func alloc_phys, lvaddr_t *retparamaddr)
 {
+    printf("spawn_module\n");
     errval_t err;
 
     // check for reuse of static state

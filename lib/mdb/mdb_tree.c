@@ -2,14 +2,9 @@
 #include <mdb/mdb.h>
 #include <cap_predicates.h>
 #include <barrelfish_kpi/capabilities.h>
-#include <barrelfish_kpi/capbits.h>
 #include <capabilities.h>
 #include <assert.h>
 #include <stdio.h>
-
-#ifndef NDEBUG
-#define NDEBUG
-#endif
 
 #ifndef MIN
 #define MIN(a, b) ((a)<(b)?(a):(b))
@@ -862,12 +857,13 @@ mdb_choose_inner(genpaddr_t address, size_t size, struct cte *first,
     assert(second);
     assert(get_type_root(C(first)->type) == get_type_root(C(second)->type));
 #ifndef NDEBUG
+    genpaddr_t end = address + size;
     genpaddr_t fst_beg = get_address(C(first));
     genpaddr_t snd_beg = get_address(C(second));
     genpaddr_t fst_end = fst_beg + get_size(C(first));
     genpaddr_t snd_end = snd_beg + get_size(C(second));
-    assert(mdb_is_inside(address, size, fst_beg, fst_end));
-    assert(mdb_is_inside(address, size, snd_beg, snd_end));
+    assert(mdb_is_inside(address, end, fst_beg, fst_end));
+    assert(mdb_is_inside(address, end, snd_beg, snd_end));
 #endif
 
     if (compare_caps(C(first), C(second), true) <= 0) {
@@ -1024,7 +1020,12 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
             ret = MDB_RANGE_FOUND_INNER;
         }
         if (ret < MDB_RANGE_FOUND_SURROUNDING &&
-            (current_address <= address && current_end >= search_end))
+            current_address <= address &&
+            // exclude 0-length match with curaddr==addr
+            current_address < search_end &&
+            current_end >= search_end &&
+            // exclude 0-length match with currend==addr
+            current_end > address)
         {
             result = current;
             ret = MDB_RANGE_FOUND_SURROUNDING;
@@ -1045,7 +1046,8 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
         }
     }
 
-    if (N(current)->right && root >= current_root && search_end > current_address) {
+    if (N(current)->right && root >= current_root &&
+        (search_end > current_address || (search_end == current_address && size == 0))) {
         mdb_sub_find_range_merge(root, address, size, max_precision,
                                  N(current)->right, /*inout*/&ret,
                                  /*inout*/&result);
@@ -1083,5 +1085,23 @@ mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
     }
 
     *result = mdb_sub_find_range(root, address, size, max_result, mdb_root, ret_node);
+    return SYS_ERR_OK;
+}
+
+errval_t
+mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node)
+{
+    int result;
+    errval_t err;
+    // query for size 1 to get the smallest cap that includes the byte at the
+    // given address
+    err = mdb_find_range(get_type_root(ObjType_RAM), address,
+                         1, MDB_RANGE_FOUND_SURROUNDING, ret_node, &result);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    if (result != MDB_RANGE_FOUND_SURROUNDING) {
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
     return SYS_ERR_OK;
 }

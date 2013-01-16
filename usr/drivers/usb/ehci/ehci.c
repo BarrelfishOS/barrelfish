@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 
-#include <usb/ehci/ehci.h>
+#include "ehci.h"
 
 static void print_next_ptr(char *from, union h_ptr ptr, int i)
 {

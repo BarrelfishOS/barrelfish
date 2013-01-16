@@ -5,9 +5,9 @@ let
      "dlmalloc"  -> []
      "oldmalloc" -> []
 in
-[ build library { 
+[ build library {
   target = "reent",
-  cFiles = [ 
+  cFiles = [
     "reent.c",
     "impure.c",
     --"fcntlr.c",
@@ -31,8 +31,9 @@ in
     --"readr.c",
     --"execr.c"
    ] ++ sbrk_files,
-    addCFlags = [ "-DPACKAGE_NAME=\"newlib\"", "-DPACKAGE_TARNAME=\"newlib\"", "-DPACKAGE_VERSION=\"1.19.0\"", "-DPACKAGE_BUGREPORT=\"\"", "-DPACKAGE_URL=\"\"", "-D_I386MACH_ALLOW_HW_INTERRUPTS", "-DMISSING_SYSCALL_NAMES" ],
-    omitCFlags = [ "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
-   }
-]
-else []
+    addCFlags = Config.newlibAddCFlags,
+    omitCFlags = [ "-Wmissing-prototypes",
+                   "-Wmissing-declarations",
+                   "-Wimplicit-function-declaration",
+                   "-Werror"]
+}] else []

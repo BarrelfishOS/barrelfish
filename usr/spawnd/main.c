@@ -20,7 +20,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
-#include <barrelfish/spawn_client.h> // XXX: for cpu_type_to_archstr()
+#include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 #include <barrelfish/cpu_arch.h> // for CURRENT_CPU_TYPE
 
 #include <vfs/vfs.h>
@@ -117,6 +117,7 @@ int main(int argc, const char *argv[])
 
     // read in the bootmodules file so that we know what to start
     get_bootmodules();
+    //debug_printf("gbootmodules is:\n%s\n", gbootmodules);
 
     // construct sane inital environment
     init_environ();
@@ -124,7 +125,11 @@ int main(int argc, const char *argv[])
     if (argc >= 2 && strcmp(argv[1],"boot") == 0) {
         // if we're the BSP, bring up the other cores
         is_bsp_core = true;
+#if defined(USE_KALUGA_DVM) && (!defined(__arm__) && !defined(__scc__))
+        err = start_service();
+#else
         bsp_bootup(gbootmodules, argc, argv);
+#endif
     } else {
         // otherwise offer the spawn service
         err = start_service();

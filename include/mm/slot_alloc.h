@@ -25,20 +25,23 @@ errval_t slot_alloc_dynamic(void *inst, uint64_t nslots, struct capref *ret);
 
 struct mm; // forward declaration
 
+//XXX: added alignment to workaround an arm-gcc bug
+//which generated (potentially) unaligned access code to those fields
+
 /// Instance data for pre-allocating slot allocator
 struct slot_prealloc {
     uint8_t maxslotbits;            ///< Maximum number of slots per allocation
     uint8_t cnode_size_bits;        ///< Size of created cnodes
 
-    struct cnoderef top_cnode;    ///< Top-level cnode
-    struct capref top_cnode_slot; ///< Location to place top-level cnode
+    struct cnoderef top_cnode __attribute__ ((aligned(4)));    ///< Top-level cnode
+    struct capref top_cnode_slot __attribute__ ((aligned(4))); ///< Location to place top-level cnode
     uint64_t top_used;              ///< Slots used in top-level cnode
 
     /// Metadata for next place from which to allocate slots
     struct {
         struct capref cap;        ///< Next cap to allocate
         uint64_t free;              ///< Number of free slots including cap
-    } meta[2];
+    } meta[2] __attribute__ ((aligned(4)));
 
     /// Which entry in meta array we are currently allocating from
     uint8_t current;

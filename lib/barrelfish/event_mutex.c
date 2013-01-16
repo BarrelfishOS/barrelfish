@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/event_mutex.h>
-#include <threads.h>
+#include "threads_priv.h"
 
 /// Initialise a new event mutex
 void event_mutex_init(struct event_mutex *em, struct waitset *waitset)

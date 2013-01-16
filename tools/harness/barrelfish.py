@@ -13,10 +13,11 @@ import builds
 class BootModules(object):
     """Modules to boot (ie. the menu.lst file)"""
 
-    def __init__(self):
+    def __init__(self, machine):
         self.hypervisor = None
         self.kernel = (None, [])
         self.modules = []
+        self.machine = machine
 
     def set_kernel(self, kernel, args=None):
         self.kernel = (kernel, args if args else [])
@@ -80,6 +81,9 @@ class BootModules(object):
 
         if self.hypervisor:
             ret.append(self.hypervisor)
+            
+        if self.machine.get_bootarch() == "arm_gem5":
+        	ret.append('arm_gem5_harness_kernel')
 
         return ret
 
@@ -88,12 +92,12 @@ def default_bootmodules(build, machine):
     # FIXME: clean up / separate platform-specific logic
 
     a = machine.get_bootarch()
-    m = BootModules()
+    m = BootModules(machine)
 
     # set the kernel: elver on x86_64
     if a == "x86_64":
         m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
-    elif a == "arm":
+    elif a == "armv5":
         m.set_kernel("%s/sbin/cpu.bin" % a, machine.get_kernel_args())
     else:
         m.set_kernel("%s/sbin/cpu" % a, machine.get_kernel_args())
@@ -103,20 +107,28 @@ def default_bootmodules(build, machine):
     m.add_module("%s/sbin/init" % a)
     m.add_module("%s/sbin/mem_serv" % a)
     m.add_module("%s/sbin/monitor" % a)
-    m.add_module("%s/sbin/chips" % a, ["boot"])
     m.add_module("%s/sbin/ramfsd" % a, ["boot"])
+    m.add_module("%s/sbin/skb" % a, ["boot"])
     m.add_module("%s/sbin/spawnd" % a, ["boot"])
     m.add_module("%s/sbin/startd" % a, ["boot"])
 
     # SKB and PCI are x86-only for the moment
     if a == "x86_64" or a == "x86_32":
-        m.add_module("%s/sbin/skb" % a, ["boot"])
+        m.add_module("%s/sbin/acpi" % a, ["boot"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("%s/sbin/pci" % a, ["boot"])
+        m.add_module("%s/sbin/kaluga" % a, ["boot"])
 	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
+        m.add_module("%s/sbin/pci" % a, ["auto"])
 
     # ARM-specific stuff
-    elif a == "arm":
+    elif a == "armv5":
         m.add_module_arg("spawnd", "bootarm")
+    elif a == "arm_gem5":
+    	if machine.get_ncores() == 1:
+    		m.add_module_arg("spawnd", "bootarm=0")
+    	elif machine.get_ncores() == 2:
+    		m.add_module_arg("spawnd", "bootarm=1")
+    	elif machine.get_ncores() == 4:
+    		m.add_module_arg("spawnd", "bootarm=1-3")
 
     return m

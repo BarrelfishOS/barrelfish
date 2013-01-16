@@ -19,7 +19,8 @@
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish/lmp_endpoints.h>
 #include <barrelfish/caddr.h>
-#include "waitset_chan.h"
+#include <barrelfish/waitset_chan.h>
+#include "waitset_chan_priv.h"
 
 static void endpoint_init(struct lmp_endpoint *ep)
 {

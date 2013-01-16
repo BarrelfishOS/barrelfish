@@ -13,7 +13,7 @@
 
 %if false
 
-> {-# OPTIONS_GHC -fglasgow-exts -XBangPatterns #-}
+>  {-# OPTIONS_GHC -XBangPatterns #-}
 
 %endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,8 +10,32 @@
 #include <grp.h>
 #include <assert.h>
 
+struct group *getgrgid(gid_t gid)
+{
+    assert(!"NYI");
+    return NULL;
+}
+
 struct group *getgrnam(const char *name)
 {
     assert(!"NYI");
     return NULL;
+}
+
+struct group *getgrent(void)
+{
+    assert(!"NYI");
+    return NULL;
+}
+
+void setgrent(void)
+{
+    assert(!"NYI");
+    return;
+}
+
+void endgrent(void)
+{
+    assert(!"NYI");
+    return;
 }

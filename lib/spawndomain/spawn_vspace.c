@@ -28,7 +28,7 @@ errval_t spawn_vspace_init(struct spawninfo *si, struct capref vnode,
 {
     errval_t err;
     struct pmap *pmap = NULL;
-    
+
     si->vspace = malloc(sizeof (struct vspace));
     if (si->vspace == NULL) {
         err = LIB_ERR_MALLOC_FAIL;

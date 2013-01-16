@@ -15,9 +15,9 @@
  */
 
 
-#include <usb/usb/shared_state.h>
+#include <usb/shared_state.h>
 #include <usb/mem/usb_mem.h>
-#include <usb/ehci/ehci_debug.h>
+#include <ehci_debug.h>
 
 
 #include "toggle_state.h"

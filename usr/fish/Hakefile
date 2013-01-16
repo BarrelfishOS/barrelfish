@@ -12,7 +12,8 @@
 
 [ build application { target = "fish",
   		      cFiles = [ "fish.c", "font.c" ],
-		      addLibraries = libDeps ["trace", "skb", "pci", "vfs"],
-  		      flounderBindings = [ "pixels" ]
+		      addLibraries = libDeps ["trace", "skb", "pci", "vfs", "acpi_client"],
+                      flounderExtraBindings = [("acpi", ["rpcclient"])],
+  		      flounderBindings = [ "pixels", "acpi" ]
                     }
 ]

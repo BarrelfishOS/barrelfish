@@ -14,7 +14,7 @@
  * See section 9.4 USB 2.0 documentation for more details
  */
 
-#include <usb/usb/device_commands.h>
+#include <usb/device_commands.h>
 
 /*
  * \brief Constructor for reading device descriptor request

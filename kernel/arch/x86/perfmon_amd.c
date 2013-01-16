@@ -57,7 +57,7 @@ bool perfmon_amd_supported(void)
 void perfmon_amd_measure_stop(uint8_t idx)
 {
     ia32_amd_perfevtsel_t sel = ia32_amd_perfevtsel_default;
-    ia32_amd_perfevtsel_en_insert(sel,0);
+    sel = ia32_amd_perfevtsel_en_insert(sel,0);
 
     switch(idx) {
     case 0:
@@ -80,13 +80,13 @@ void perfmon_amd_measure_start(uint16_t event, uint8_t umask, bool os,
 {
     ia32_amd_perfevtsel_t sel = ia32_amd_perfevtsel_default;
 
-    ia32_amd_perfevtsel_evsel_insert(sel,event & 0xff);
-    ia32_amd_perfevtsel_umask_insert(sel,umask);
-    ia32_amd_perfevtsel_usr_insert(sel,1);
-    ia32_amd_perfevtsel_os_insert(sel,os ? 1 : 0);
-    ia32_amd_perfevtsel_intr_insert(sel,intr ? 1 : 0);
-    ia32_amd_perfevtsel_en_insert(sel,1);
-    ia32_amd_perfevtsel_evsel_hi_insert(sel, (event >> 8) & 0xf);
+    sel = ia32_amd_perfevtsel_evsel_insert(sel,event & 0xff);
+    sel = ia32_amd_perfevtsel_umask_insert(sel,umask);
+    sel = ia32_amd_perfevtsel_usr_insert(sel,1);
+    sel = ia32_amd_perfevtsel_os_insert(sel,os ? 1 : 0);
+    sel = ia32_amd_perfevtsel_intr_insert(sel,intr ? 1 : 0);
+    sel = ia32_amd_perfevtsel_en_insert(sel,1);
+    sel = ia32_amd_perfevtsel_evsel_hi_insert(sel, (event >> 8) & 0xf);
 
     switch(idx) {
     case 0:

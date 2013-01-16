@@ -13,19 +13,19 @@
 
 module Main where
 
-import System
+import System.Environment
 import System.IO
 import System.Directory
 import System.Exit
 import GHC hiding (Target)
 import GHC.Paths ( libdir )
-import DynFlags ( defaultDynFlags,
+import DynFlags ( defaultLogAction,
                   xopt_set,
                   ExtensionFlag (Opt_DeriveDataTypeable) )
 import Data.Dynamic
 import Data.Maybe
-import List
-import Monad
+import Data.List
+import Control.Monad
 
 import RuleDefs
 import HakeTypes
@@ -82,7 +82,7 @@ usage = unlines [ "Usage: hake <options>",
                   "   --bfsource-dir <dir> (defaults to source dir)",
                   "   --install-dir <dir> (defaults to source dir)",
                   "   --quiet",
-                  "   --vervose"
+                  "   --verbose"
                 ]
 
 --
@@ -323,7 +323,7 @@ stripSrcDir s = Path.removePrefix Config.source_dir s
 hakeModule :: [String] -> [(String,String)] -> String
 hakeModule allfiles hakefiles = 
     let unqual_imports = ["RuleDefs", "HakeTypes", "Path", "Args"]
-        qual_imports = ["Config"]
+        qual_imports = ["Config", "Data.List" ]
         relfiles = [ stripSrcDir f | f <- allfiles ]
         wrap1 n c = wrapLet "build a" 
                     ("(buildFunction a) allfiles " ++ (show n) ++ " a")
@@ -356,24 +356,26 @@ wrapLet var expr body =
 evalHakeFiles :: Opts -> [String] -> [(String,String)] 
               -> IO [(String,HRule)]
 evalHakeFiles o allfiles hakefiles = 
-    let imports = [ "HakeTypes", "Hakefiles"]
-        all_imports = ["Prelude"] ++ imports
+    let imports = [ "Hakefiles"]
+        all_imports = imports
         moddirs = [ (opt_installdir o) ./. "hake", 
                     ".", 
                     (opt_bfsourcedir o) ./. "hake" ]
     in do 
-      defaultErrorHandler defaultDynFlags $ do 
+      defaultErrorHandler defaultLogAction $ do
          runGhc (Just libdir) $ do
            dflags <- getSessionDynFlags
-           setSessionDynFlags dflags { importPaths = moddirs,
+	   let dflags1 = foldl xopt_set dflags [ Opt_DeriveDataTypeable ]
+	   _ <- setSessionDynFlags dflags1{
+		importPaths = moddirs,
                 hiDir = Just "./hake",
-                objectDir = Just "./hake",
-                flags = (flags $ xopt_set dflags Opt_DeriveDataTypeable) }
+                objectDir = Just "./hake"
+	   }
            targets <- mapM (\m -> guessTarget m Nothing) imports
            setTargets targets
            load LoadAllTargets
            modlist <- mapM (\m -> findModule (mkModuleName m) Nothing) all_imports
-           setContext [] $ map (\x -> (x, Nothing)) modlist
+           setContext [IIModule m | m <- modlist]
            val <- dynCompileExpr "Hakefiles.hf :: [(String, HRule)]" 
            return (fromDyn val [("failed",Error "failed")])
 
@@ -425,7 +427,7 @@ strip_hfn opts f = Path.removePrefix (opt_sourcedir opts) f
 main :: IO() 
 main = do
     -- parse arguments; architectures default to config file
-    args <- System.getArgs
+    args <- System.Environment.getArgs
     let o1 = parse_arguments args
         al = if opt_architectures o1 == [] 
              then Config.architectures 
@@ -446,7 +448,7 @@ main = do
     hPutStrLn stdout ("Source directory: " ++ opt_sourcedir opts)
     hPutStrLn stdout ("BF Source directory: " ++ opt_bfsourcedir opts)
     hPutStrLn stdout ("Install directory: " ++ opt_installdir opts)
-      
+
     hPutStrLn stdout "Reading directory tree..."
     l <- listFilesR (opt_sourcedir opts)
     hPutStrLn stdout "Reading Hakefiles..."

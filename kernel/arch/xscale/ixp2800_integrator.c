@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2009, 2011, 2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -224,53 +224,39 @@ uint32_t tsc_get_hz(void)
 // Serial console and debugger interfaces
 //
 
-#define CONSOLE_PORT 0
-#define DEBUG_PORT   1
+#define NUM_PORTS 2
+unsigned serial_console_port = 0;
+unsigned serial_debug_port = 1;
+const unsigned serial_num_physical_ports = NUM_PORTS;
 
 static ixp2800_uart_t ports[2];
 
-static errval_t serial_init(uint8_t index, uint8_t port_no)
+errval_t serial_init(unsigned port)
 {
-    if (port_no < 2) {
-        assert(ports[port_no].base == 0);
-
-        lvaddr_t base = paging_map_device(0xc0030000ul + port_no * 0x01000000, 0x00100000);
-        ixp2800_uart_init(&ports[index], base + 0x30000);
+    if (port < NUM_PORTS) {
+        assert(ports[port].base == 0);
+        lvaddr_t base = paging_map_device(0xc0030000ul + port * 0x01000000, 0x00100000);
+        ixp2800_uart_init(&ports[port], base + 0x30000);
         return SYS_ERR_OK;
-    }
-    else {
+    } else {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 }
-
-errval_t serial_console_init(uint8_t port_ordinal)
+errval_t serial_early_init(unsigned port)
 {
-    return serial_init(CONSOLE_PORT, port_ordinal);
+    return SYS_ERR_OK; // Unused currently
 }
 
-void serial_console_putchar(char c)
+void serial_putchar(unsigned port, char c) 
 {
-     ixp2800_putchar(&ports[CONSOLE_PORT], c);
-}
+    assert(port < NUM_PORTS);
+    assert(ports[port].base != 0);
+    ixp2800_putchar(&ports[port], c);
+};
 
-char serial_console_getchar(void)
+char serial_getchar(unsigned port)
 {
-    return ixp2800_getchar(&ports[CONSOLE_PORT]);
-}
-
-errval_t serial_debug_init(uint8_t port_ordinal)
-{
-    //Unused
-    return SYS_ERR_OK;
-}
-
-void serial_debug_putchar(char c)
-{
-    //Redirect debug to putchar
-    serial_console_putchar(c);
-}
-
-char serial_debug_getchar(void)
-{
-    return ixp2800_getchar(&ports[DEBUG_PORT]);
-}
+    assert(port < NUM_PORTS);
+    assert(ports[port].base != 0);
+    return ixp2800_getchar(&ports[port]);
+};

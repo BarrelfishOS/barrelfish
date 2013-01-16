@@ -37,7 +37,12 @@
 # error set CACHELINE_BYTES appropriately
 #endif
 
-#define UMP_PAYLOAD_WORDS  (CACHELINE_BYTES / sizeof(uintptr_t) - 1)
+// Size of a UMP message in Bytes
+// This needs to be such that ump_payload defined in params in flounder/UMP.hs
+// and the size of the UMP headers fits into it. It also needs to be a multiple
+// of a cache-line.
+#define UMP_PAYLOAD_BYTES  64
+#define UMP_PAYLOAD_WORDS  (UMP_PAYLOAD_BYTES / sizeof(uintptr_t) - 1)
 #define UMP_MSG_WORDS      (UMP_PAYLOAD_WORDS + 1)
 #define UMP_MSG_BYTES      (UMP_MSG_WORDS * sizeof(uintptr_t))
 
@@ -61,7 +66,8 @@ struct ump_message {
         uintptr_t raw;
     } header;
 };
-STATIC_ASSERT_SIZEOF(struct ump_message, CACHELINE_BYTES);
+STATIC_ASSERT((sizeof(struct ump_message)%CACHELINE_BYTES)==0, 
+               "Size of UMP message is not a multiple of cache-line size");
 
 /// Type used for indices of UMP message slots
 typedef uint16_t ump_index_t;

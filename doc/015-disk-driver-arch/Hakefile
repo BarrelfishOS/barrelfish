@@ -18,7 +18,8 @@ let
 
   figoutput f = "/tmp/" ++ f ++ ".pdf"
 
-  inkscape f = [ Str "inkscape", Str "-D", Str "-A",
+  -- Fix issues with modified LD_LIBRARY_PATH breaking inkscape, -SG, 9/1/13
+  inkscape f = [ Str "LD_LIBRARY_PATH=", Str "inkscape", Str "-D", Str "-A",
                  Out "tools" (figoutput f), In SrcTree "src" ("figures/" ++ f ++ ".svg"), NL ]
   in 
  [ buildTechNoteWithDeps "disk-driver-report.tex" "TN-015-DiskDriverArchitecture.pdf" True True

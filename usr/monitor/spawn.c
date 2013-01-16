@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -34,30 +34,6 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         name = pname;
     } else {
         name++;
-    }
-
-    /* copy phys addr cnode cap to PCI and/or mic_slave */
-    if (strcmp(name, "pci") == 0 || strcmp(name, "mic_slave") == 0) {
-        src.cnode = cnode_root;
-        src.slot  = ROOTCN_SLOT_PACN;
-        dest.cnode = si->rootcn;
-        dest.slot  = ROOTCN_SLOT_PACN;
-        err = cap_copy(dest, src);
-        if (err_is_fail(err)) {
-            return err_push(err, SPAWN_ERR_COPY_PACN);
-        }
-    }
-
-    /* Pass IO cap to PCI */
-    if (!strcmp(name, "pci")) {
-        dest.cnode = si->taskcn;
-        dest.slot  = TASKCN_SLOT_IO;
-        src.cnode = cnode_task;
-        src.slot  = TASKCN_SLOT_IO;
-        err = cap_copy(dest, src);
-        if (err_is_fail(err)) {
-            return err_push(err, SPAWN_ERR_COPY_IO_CAP);
-        }
     }
 
     /* Pass IRQ cap to bfscope (XXX: kludge) */
@@ -171,7 +147,7 @@ static errval_t spawn_image_with_args(const char *name, void *image,
     printf("Spawning %s on core %d\n", name, my_core_id);
 
     err = spawn_load_image(&si, (lvaddr_t)image, imagelen, CURRENT_CPU_TYPE,
-                           name, my_core_id, argv, envp, NULL_CAP);
+                           name, my_core_id, argv, envp, NULL_CAP, NULL_CAP);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);
     }
@@ -233,7 +209,8 @@ errval_t spawn_all_domains(void)
 
         /* Do not spawn special domains */
         if(!strcmp(short_name, "init") ||
-           !strcmp(short_name, "chips") ||
+           !strcmp(short_name, "skb") ||
+           !strcmp(short_name, "ramfsd") ||
            !strcmp(short_name, "cpu") ||
            !strcmp(short_name, "monitor") ||
            !strcmp(short_name, "mem_serv")) {
@@ -248,7 +225,11 @@ errval_t spawn_all_domains(void)
         }
 
         // Pass the local arch-specific core ID to the PCI and spawnd domains
-        if(strcmp(short_name, "pci") == 0 || strcmp(short_name, "spawnd") == 0) {
+        if(strcmp(short_name, "pci") == 0 
+           || strcmp(short_name, "spawnd") == 0
+           || strcmp(short_name, "kaluga") == 0
+           || strcmp(short_name, "acpi") == 0
+           || strcmp(short_name, "ioapic") == 0) {
             // Get hardware core ID
             uintptr_t my_arch_id = 0;
             err = invoke_monitor_get_arch_id(&my_arch_id);

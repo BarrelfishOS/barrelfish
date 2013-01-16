@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -89,9 +89,7 @@ static inline void cache_flush_range(void *base, size_t len)
 #ifdef __scc__
 static inline void cl1flushmb(void)
 {
-#ifndef RCK_EMU
     __asm volatile ( ".byte 0x0f; .byte 0x0a;\n" ); // CL1FLUSHMB
-#endif
 }
 #endif
 

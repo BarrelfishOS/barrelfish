@@ -10,7 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <if/usb_manager_defs.h>
 
-#include <usb/usb/usbd.h>
+#include <usb/usbd.h>
 #include <usb/mem/usb_mem.h>
 
 #include "ehci_client.h"
@@ -22,7 +22,7 @@
  */
 
 //#define USB_LOCAL_DEBUG
-#include <usb/usb/usb_debug.h>
+#include <usb/usb_debug.h>
 
 /*typedef struct client_state_t 
 {

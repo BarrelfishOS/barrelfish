@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -22,14 +22,15 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish/dispatcher_arch.h>
+#include <barrelfish/waitset_chan.h>
 #include <arch/registers.h>
 #include <barrelfish/dispatch.h>
 #include <if/interdisp_defs.h>
 #include "arch/threads.h"
 #include "init.h"
 #include <if/monitor_defs.h>
-#include "threads.h"
-#include "waitset_chan.h"
+#include "threads_priv.h"
+#include "waitset_chan_priv.h"
 
 ///< Struct to maintain per dispatcher domain library state
 struct domain_state {
@@ -1088,7 +1089,7 @@ struct skb_state *get_skb_state(void)
 /**
  * \brief Returns a pointer to the chips_context state on the dispatcher priv
  */
-struct nameservice_rpc_client *get_nameservice_rpc_client(void)
+struct octopus_rpc_client *get_nameservice_rpc_client(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -1098,7 +1099,7 @@ struct nameservice_rpc_client *get_nameservice_rpc_client(void)
 /**
  * \brief set the chips_context state on the dispatcher priv
  */
-void set_nameservice_rpc_client(struct nameservice_rpc_client *c)
+void set_nameservice_rpc_client(struct octopus_rpc_client *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);

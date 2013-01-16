@@ -4,7 +4,8 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK CAB F.78, Universitaetstr 6, CH-8092 Zurich. 
+-- Attn: Systems Group.
 --
 -- Hakefile for /hake
 --
@@ -17,6 +18,7 @@ in
 [ Rule ([ Str "ghc -O --make -XDeriveDataTypeable",
           Str "-package ghc",
           Str "-package ghc-paths",
+          Str "-rtsopts=all",
           Str "-o", Out "hake" "/hake",
           Str "-outputdir", NoDep BuildTree "hake" "/",
           NStr "-i", NoDep SrcTree "src" "",
@@ -24,7 +26,9 @@ in
           In SrcTree "src" "Main.hs",
           Dep InstallTree "" "Config.hs",
           Str "$(LDFLAGS)"
-        ] ++ [Dep SrcTree "src" f | f <- hakesrc] ),
+        ] 
+        ++ [Dep SrcTree "src" f | f <- hakesrc] 
+        ++ [NL, Str "rm", NoDep BuildTree "hake" "/ARMv5.o" ]),
   Rule [ Str "cp", 
          In SrcTree "src" "symbolic_targets.mk",
          Out "root" "symbolic_targets.mk" 

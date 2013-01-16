@@ -148,13 +148,13 @@ class QEMUMachineX32Multiproc(QEMUMachineX32):
 @machines.add_machine
 class QEMUMachineARMUniproc(QEMUMachineBase):
     '''Uniprocessor ARM QEMU (currently only capable of running the kernel)'''
-    name = 'qemu_arm'
+    name = 'qemu_armv5'
 
     def get_ncores(self):
         return 1
 
     def get_bootarch(self):
-        return "arm"
+        return "armv5"
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
@@ -162,7 +162,7 @@ class QEMUMachineARMUniproc(QEMUMachineBase):
         self.kernel_img = os.path.join(tftp_dir, modules.kernel[0])
 
         # write menu.lst
-        menu_lst = 'arm/menu.lst'
+        menu_lst = 'armv5/menu.lst'
         menu_lst_path = os.path.join(tftp_dir, menu_lst)
         self._write_menu_lst(modules.get_menu_data('/'), menu_lst_path)
 

@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <string.h>
@@ -38,19 +39,6 @@ static void spawn_bind_cont(void *st, errval_t err, struct spawn_binding *b)
     retst->err = err;
     retst->b = b;
     retst->present = true;
-}
-
-/* XXX: utility function that doesn't really belong here */
-const char *cpu_type_to_archstr(enum cpu_type cpu_type)
-{
-    STATIC_ASSERT(CPU_TYPE_NUM == 4, "knowledge of all CPU types here");
-    switch(cpu_type) {
-    case CPU_X86_64:    return "x86_64";
-    case CPU_X86_32:    return "x86_32";
-    case CPU_SCC:       return "scc";
-    case CPU_ARM:       return "arm";
-    default:            USER_PANIC("cpu_type_to_pathstr: %d unknown", cpu_type);
-    }
 }
 
 static struct spawn_binding *spawn_b = NULL;
@@ -116,21 +104,25 @@ static errval_t bind_client(coreid_t coreid)
 /**
  * \brief Request the spawn daemon on a specific core to spawn a program
  *
- * \param coreid Core ID on which to spawn the program
- * \param path   Absolute path in the file system to an executable image
- *                        suitable for the given core
- * \param argv   Command-line arguments, NULL-terminated
- * \param envp   Optional environment, NULL-terminated (pass NULL to inherit)
- * \param fdcap  A cap to a file descriptor region to pass through
- * \param flags  Flags to spawn
- * \param ret_domainid If non-NULL, filled in with domain ID of program
+ * \param coreid        Core ID on which to spawn the program
+ * \param path          Absolute path in the file system to an executable image
+ *                      suitable for the given core
+ * \param argv          Command-line arguments, NULL-terminated
+ * \param envp          Optional environment, NULL-terminated
+ *                      (pass NULL to inherit)
+ * \param inheritcn_cap Cap to a CNode containing capabilities to be inherited
+ * \param argcn_cap     Cap to a CNode containing capabilities passed as
+ *                      arguments
+ * \param flags         Flags to spawn
+ * \param ret_domainid  If non-NULL, filled in with domain ID of program
  *
  * \bug flags are currently ignored
  */
-errval_t spawn_program_with_fdcap(coreid_t coreid, const char *path,
-                             char *const argv[], char *const envp[],
-                             struct capref fdcap,
-                             spawn_flags_t flags, domainid_t *ret_domainid)
+errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
+                                 char *const argv[], char *const envp[],
+                                 struct capref inheritcn_cap,
+                                 struct capref argcn_cap, spawn_flags_t flags,
+                                 domainid_t *ret_domainid)
 {
     struct spawn_rpc_client *cl;
     errval_t err, msgerr;
@@ -234,15 +226,14 @@ errval_t spawn_program_with_fdcap(coreid_t coreid, const char *path,
         path = pathbuf;
     }
 
-    if (capref_is_null(fdcap)) {
-        err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen, 
+    if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
+        err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,
                                     envstr, envstrlen,
                                     &msgerr, &domain_id);
     } else {
-        err = cl->vtbl.spawn_domain_with_fdcap(cl, path, argstr, argstrlen, 
-                                               envstr, envstrlen,
-                                               fdcap, 
-                                               &msgerr, &domain_id);
+        err = cl->vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
+                                              envstr, envstrlen, inheritcn_cap,
+                                              argcn_cap, &msgerr, &domain_id);
     }
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending spawn request");
@@ -256,6 +247,7 @@ errval_t spawn_program_with_fdcap(coreid_t coreid, const char *path,
 
     return msgerr;
 }
+
 
 /**
  * \brief Request the spawn daemon on a specific core to spawn a program
@@ -274,8 +266,8 @@ errval_t spawn_program(coreid_t coreid, const char *path,
                              char *const argv[], char *const envp[],
                              spawn_flags_t flags, domainid_t *ret_domainid)
 {
-    return spawn_program_with_fdcap(coreid, path, argv, envp, NULL_CAP, 
-                                    flags, ret_domainid);
+    return spawn_program_with_caps(coreid, path, argv, envp, NULL_CAP,
+                                   NULL_CAP, flags, ret_domainid);
 }    
 
 
@@ -318,13 +310,16 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
         iref_t iref;
         err = nameservice_lookup(namebuf, &iref);
         if (err_is_fail(err)) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
+                continue; // no spawn daemon on this core
+            }
             //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
             return err;
         }
 
         err = spawn_program(c, path, argv, envp, flags, NULL);
         if (err_is_fail(err)) {
-            if (err_no(err) == CHIPS_ERR_UNKNOWN_NAME) {
+            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
                 continue; // no spawn daemon on this core
             } else {
                 DEBUG_ERR(err, "error spawning %s on core %u\n", path, c);
@@ -462,6 +457,79 @@ errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
     err = cl->vtbl.status(cl, domain, (spawn_ps_entry_t*)pse, argbuf, arglen, reterr);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "status");
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Utility function to create an inherit cnode and copy fdcap into it.
+ *
+ * \param inheritcn_capp Pointer to capref, filled-in with location of inheritcn
+ *                       capability.
+ * \param fdcap          fdcap to copy into inherit cnode.
+ */
+errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
+                                    struct capref fdcap)
+{
+    errval_t err;
+
+    // construct inherit CNode
+    struct cnoderef inheritcn;
+    err = cnode_create(inheritcn_capp, &inheritcn, DEFAULT_CNODE_SLOTS, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (capref_is_null(fdcap)) {
+        return SYS_ERR_OK;
+    }
+
+    // copy fdcap to inherit Cnode
+    struct capref dest = {
+        .cnode = inheritcn,
+        .slot  = INHERITCN_SLOT_FDSPAGE
+    };
+    err = cap_copy(dest, fdcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Utility function to create an inherit cnode and copy session
+ *        capability into it.
+ *
+ * \param inheritcn_capp Pointer to capref, filled-in with location of inheritcn
+ *                       capability.
+ * \param sidcap         sidcap to copy into inherit cnode.
+ */
+errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
+                                    struct capref sidcap)
+{
+    errval_t err;
+
+    // construct inherit CNode
+    struct cnoderef inheritcn;
+    err = cnode_create(inheritcn_capp, &inheritcn, DEFAULT_CNODE_SLOTS, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (capref_is_null(sidcap)) {
+        return SYS_ERR_OK;
+    }
+
+    // copy fdcap to inherit Cnode
+    struct capref dest = {
+        .cnode = inheritcn,
+        .slot  = INHERITCN_SLOT_SESSIONID
+    };
+    err = cap_copy(dest, sidcap);
+    if (err_is_fail(err)) {
+        return err;
     }
 
     return SYS_ERR_OK;

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -107,7 +107,7 @@ errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
 {
     // Create a Frame Capability 
     size_t allocated_size;
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     if (LMP_only) {
         ram_set_affinity(0x0, PRIVATE_MEM_MAX);
     } else {
@@ -123,7 +123,7 @@ errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
 #endif
 
     errval_t r = frame_alloc(shared_mem, size, &allocated_size);
-#if defined(__scc__) && !defined(RCK_EMU)
+#ifdef __scc__
     ram_set_affinity(0, 0);
 #endif
     if (err_is_fail(r)) {

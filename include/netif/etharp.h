@@ -43,6 +43,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/ip.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

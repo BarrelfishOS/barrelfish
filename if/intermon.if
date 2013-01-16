@@ -44,6 +44,9 @@ interface intermon "The Interface between monitors" {
         message mem_serv_iref_request();
         message mem_serv_iref_reply(iref iref);
 
+        message ramfs_serv_iref_request();
+        message ramfs_serv_iref_reply(iref iref);
+
         message name_serv_iref_request();
         message name_serv_iref_reply(iref iref);
 

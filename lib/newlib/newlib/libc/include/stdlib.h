@@ -221,6 +221,12 @@ extern long double strtold (const char *, char **);
 extern long double wcstold (const wchar_t *, wchar_t **);
 #endif /* _LDBL_EQ_DBL */
 
+/* from POSIX (see libposixcompat) */
+void srandom(unsigned long x);
+char *initstate(unsigned long seed, char *arg_state, long n);
+char *setstate(char *arg_state);
+long random(void);
+
 _END_STD_C
 
 #endif /* _STDLIB_H_ */

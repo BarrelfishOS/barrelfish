@@ -3,7 +3,7 @@
  * \brief Barrelfish collections library list data structure
  */
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -11,7 +11,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "collections/list.h"
+#include <collections/list.h>
 
 /******************************************************
  * a simple linked list implementation.
@@ -21,7 +21,8 @@
  * private functions.
  */
 
-static void list_push(listnode* existing, listnode* insert)
+static void list_push(collections_listnode *existing,
+                      collections_listnode *insert)
 {
     insert->next = existing->next;
     insert->prev = existing;
@@ -29,7 +30,7 @@ static void list_push(listnode* existing, listnode* insert)
     insert->next->prev = insert;
 }
 
-static void* list_pop(listnode* n)
+static void *list_pop(collections_listnode *n)
 {
     void *data = n->data;
     n->next->prev = n->prev;
@@ -41,21 +42,25 @@ static void* list_pop(listnode* n)
 /*
  * Insert the data at the head.
  */
-static listnode *list_create_node(listnode *start, listnode *where, void *data)
+static collections_listnode *list_create_node(collections_listnode *start,
+                                              collections_listnode *where,
+                                              void *data)
 {
-    listnode *newnode = (listnode*) malloc(sizeof(listnode));
+    collections_listnode *newnode = (collections_listnode *)
+                                    malloc(sizeof(collections_listnode));
     newnode->data = data;
 
     list_push(where, newnode);
-    ((header_data *)(start->data))->size ++;
+    ((collections_header_data *)(start->data))->size ++;
     return newnode;
 }
 
-static void list_destroy_node(listnode *start, listnode *node)
+static void list_destroy_node(collections_listnode *start,
+                              collections_listnode *node)
 {
     list_pop(node);
     free(node);
-    ((header_data*)start->data)->size--;
+    ((collections_header_data*)start->data)->size--;
 }
 
 
@@ -66,20 +71,22 @@ static void list_destroy_node(listnode *start, listnode *node)
 /*
  * Creates a new linked list.
  */
-void list_create(listnode **start, release_data func)
+void collections_list_create(collections_listnode **start,
+                             collections_release_data func)
 {
-    listnode *t;
+    collections_listnode *t;
 
 	//
 	// this is an empty list containing only the header.
 	//
-    t = (listnode *)malloc(sizeof(listnode));
+    t = (collections_listnode *)malloc(sizeof(collections_listnode));
     t->next = t->prev = t;
-    header_data *h = (header_data *)malloc(sizeof(header_data));
+    collections_header_data *h = (collections_header_data *)
+                                 malloc(sizeof(collections_header_data));
     h->size = 0;
 	h->data_free = func;
 	h->cur_item = NULL;
-    t->data = (void*)h;
+    t->data = (void *)h;
 
     *start = t;
 }
@@ -87,18 +94,19 @@ void list_create(listnode **start, release_data func)
 /* 
  * Releases all the nodes in the list.
  */
-void list_release(listnode *start)
+void collections_list_release(collections_listnode *start)
 {
-    release_data data_free = ((header_data*)start->data)->data_free;
-    listnode* cur = start->next;
+    collections_release_data data_free =
+        ((collections_header_data*)start->data)->data_free;
+    collections_listnode *cur = start->next;
 
-	// 
-	// travel through the rest of the
-	// list and release all the nodes.
-	//
+    //
+    // travel through the rest of the
+    // list and release all the nodes.
+    //
     while (cur != start)
     {
-        void * data = cur->data;
+        void *data = cur->data;
         if (data != NULL && data_free)
         {
             data_free(data);
@@ -108,8 +116,8 @@ void list_release(listnode *start)
     }
 
     //
-	// release the header.
-	//
+    // release the header.
+    //
     free(start->data);
     free(start);
 
@@ -119,22 +127,36 @@ void list_release(listnode *start)
 /*
  * Inserts an element in the head of the list.
  */
-int32_t list_insert(listnode *start, void *data)
+int32_t collections_list_insert(collections_listnode *start, void *data)
 {
-	listnode *ret = list_create_node(start, start, data);
-	if (ret) {
-		// success ...
-		return 0;
-	}
-	return 1;
+    collections_listnode *ret = list_create_node(start, start, data);
+    if (ret) {
+        // success ...
+        return 0;
+    }
+    return 1;
+}
+
+/*
+ * Inserts an element at the tail of the list.
+ */
+int32_t collections_list_insert_tail(collections_listnode *start, void *data)
+{
+    collections_listnode *ret = list_create_node(start, start->prev, data);
+    if (ret) {
+        // success ...
+        return 0;
+    }
+    return 1;
 }
 
 /*
  * Returns the data that matches the user provided key.
  */
-void *list_find_if(listnode *start, list_predicate p, void *arg)
+void *collections_list_find_if(collections_listnode *start,
+                               collections_list_predicate p, void *arg)
 {
-    listnode *cur = start->next;
+    collections_listnode *cur = start->next;
     while (cur != start)
     {
         if (p(cur->data, arg))
@@ -144,12 +166,13 @@ void *list_find_if(listnode *start, list_predicate p, void *arg)
 
         cur = cur->next;
     }
-	return NULL;
+    return NULL;
 }
 
-void * list_remove_if(listnode *start, list_predicate p, void *arg)
+void * collections_list_remove_if(collections_listnode *start,
+                                  collections_list_predicate p, void *arg)
 {
-    listnode *cur = start->next;
+    collections_listnode *cur = start->next;
     while (cur != start)
     {
         if (p(cur->data, arg))
@@ -163,15 +186,47 @@ void * list_remove_if(listnode *start, list_predicate p, void *arg)
     return NULL;
 }
 
-void *list_get_ith_item(listnode *start, uint32_t item)
+void *collections_list_remove_ith_item(collections_listnode *start,
+                                       uint32_t item)
 {
-    uint32_t n = list_size(start);
+    void *element;
+
+    uint32_t n = collections_list_size(start);
+    if (item >= n) {
+        element = NULL;
+    } else if (item <= n/2) {
+
+        collections_listnode *cur = start->next;
+        while (item != 0) {
+            cur = cur->next;
+            item--;
+        }
+        element = cur->data;
+        list_destroy_node(start, cur);
+
+    } else {
+
+        collections_listnode *cur = start;
+        do {
+            cur = cur ->prev;
+            item++;
+        } while (item !=n);
+        element = cur->data;
+        list_destroy_node(start, cur);
+    }
+
+    return element;
+}
+
+void *collections_list_get_ith_item(collections_listnode *start, uint32_t item)
+{
+    uint32_t n = collections_list_size(start);
     if (item >= n) {
         return NULL;
     }
     else if (item <= n / 2)
     {
-        listnode* cur = start->next;
+        collections_listnode* cur = start->next;
         while (item != 0)
         {
             cur = cur->next;
@@ -181,7 +236,7 @@ void *list_get_ith_item(listnode *start, uint32_t item)
     }
     else
     {
-        listnode *cur = start;
+        collections_listnode *cur = start;
         do {
             cur = cur->prev;
             item++;
@@ -193,18 +248,18 @@ void *list_get_ith_item(listnode *start, uint32_t item)
 /*
  * Return the total number of nodes in the list.
  */
-uint32_t list_size(listnode *start)
+uint32_t collections_list_size(collections_listnode *start)
 {
-    return ((header_data *)(start->data))->size;
+    return ((collections_header_data *)(start->data))->size;
 }
 
 #if 0
-static void* list_front(listnode* start)
+static void* list_front(collections_listnode* start)
 {
     return (start->next == start) ? NULL : start->next->data;
 }
 
-static void* list_back(listnode* start)
+static void* list_back(collections_listnode* start)
 {
     return (start->prev == start) ? NULL : start->prev->data;
 }
@@ -218,20 +273,20 @@ static void* list_back(listnode* start)
 /*
  * Opens the list for traversal.
  */
-int32_t	list_traverse_start(listnode *start)
+int32_t	collections_list_traverse_start(collections_listnode *start)
 {
-	header_data*	head = (header_data*) start->data;
+    collections_header_data* head = (collections_header_data *) start->data;
 
-	if (head->cur_item) {
-		// if the next item is not null, a
-		// traversal is already in progress.
-		printf("Error: list is already opened for traversal.\n");
-		return -1;
-	}
+    if (head->cur_item) {
+        // if the next item is not null, a
+        // traversal is already in progress.
+        printf("Error: list is already opened for traversal.\n");
+        return -1;
+    }
 
-	head->cur_item = start;
+    head->cur_item = start;
 
-	return 1;
+    return 1;
 }
 
 /*
@@ -239,16 +294,16 @@ int32_t	list_traverse_start(listnode *start)
  * If all the items have been fetched,
  * returns null.
  */
-void* list_traverse_next(listnode *start)
+void *collections_list_traverse_next(collections_listnode *start)
 {
-	header_data*	head = (header_data*) start->data;
+    collections_header_data *head = (collections_header_data *) start->data;
 
-	if (!head->cur_item) {
-		// asking for the next item without
-		// starting the traversal.
-		printf("Error: list must be opened for traversal.\n");
-		return NULL;
-	}
+    if (!head->cur_item) {
+        // asking for the next item without
+        // starting the traversal.
+        printf("Error: list must be opened for traversal.\n");
+        return NULL;
+    }
 
     head->cur_item = head->cur_item->next;
     if (head->cur_item == start)
@@ -264,25 +319,26 @@ void* list_traverse_next(listnode *start)
 /*
  * Finishes the list traversal.
  */
-int32_t	list_traverse_end(listnode *start)
+int32_t	collections_list_traverse_end(collections_listnode *start)
 {
-	header_data*	head = (header_data*) start->data;
+    collections_header_data *head = (collections_header_data *) start->data;
 
-	if (!head->cur_item) {
-		// closing without
-		// starting the traversal.
-		printf("Error: list must be opened before ending.\n");
-		return -1;
-	}
+    if (!head->cur_item) {
+        // closing without
+        // starting the traversal.
+        printf("Error: list must be opened before ending.\n");
+        return -1;
+    }
 
-	head->cur_item = NULL;
+    head->cur_item = NULL;
 
-	return 1;
+    return 1;
 }
 
-int list_visit(listnode *start, list_visitor_func func, void *arg)
+int collections_list_visit(collections_listnode *start,
+                           collections_list_visitor_func func, void *arg)
 {
-    listnode* cur = start->next;
+    collections_listnode *cur = start->next;
     while (cur != start && func(cur->data, arg))
     {
         cur = cur->next;

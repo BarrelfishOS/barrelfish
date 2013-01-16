@@ -30,6 +30,7 @@
 #include <barrelfish/core_state_arch.h>
 #include "vspace_internal.h"
 
+
 /**
  * \brief Initialize the pinned region
  *

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -27,7 +27,8 @@
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
 #include <trace/trace.h>
-#include "threads.h"
+#include <octopus/init.h>
+#include "threads_priv.h"
 #include "init.h"
 
 /// Are we the init domain (and thus need to take some special paths)?
@@ -245,9 +246,9 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     }
 #endif
 
-    // try to connect to name service (may fail if we are chips!)
+    // try to connect to name service (may fail if we are the skb or ramfsd!)
     err = nameservice_client_blocking_bind();
-    if (err_is_fail(err)) { // Chips fails with following error
+    if (err_is_fail(err)) {
         if (err_no(err) == LIB_ERR_GET_NAME_IREF) {
             // skip everything else if we don't have a nameservice
             return SYS_ERR_OK;

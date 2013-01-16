@@ -39,6 +39,14 @@
 #define AF_LOCAL        AF_UNIX         /* local to host (pipes, portals) */
 #endif
 #define AF_UNIX         1               /* standardized name for AF_LOCAL */
+#if __BSD_VISIBLE
+#define AF_MAX          38
+#endif
+
+#ifndef _SA_FAMILY_T_DECLARED
+typedef __sa_family_t	sa_family_t;
+#define _SA_FAMILY_T_DECLARED
+#endif
 
 ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
@@ -56,5 +64,8 @@ int setsockopt(int sockfd, int level, int optname, const void *optval,
                socklen_t optlen);
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+int shutdown(int sockfd, int how);
+int socketpair(int domain, int type, int protocol, int sockfd[2]);
 
 #endif

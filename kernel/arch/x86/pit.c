@@ -14,7 +14,7 @@
 
 #include <kernel.h>
 #include <arch/x86/pit.h>
-#include "lpc_timer_dev.h"
+#include <dev/lpc_timer_dev.h>
 
 #define TIMER_IOBASE    0x40
 

@@ -15,14 +15,13 @@
 
 > module Main where
 
-> import System
 > import System.Environment
 > import System.Exit
 > import System.Console.GetOpt
 > import System.IO
 > import System.FilePath.Posix
-> import Maybe
-> import Monad
+> import Data.Maybe
+> import Control.Monad
 
 > import Text.ParserCombinators.Parsec as Parsec
 > import qualified Parser
@@ -170,7 +169,7 @@
 
 > main :: IO ()
 > main = do 
->        argv <- System.getArgs
+>        argv <- System.Environment.getArgs
 >        case getOpt RequireOrder options argv of
 >          (optf, [ inFile, outFile ], []) -> do
 >              opts <- foldM (flip id) defaultOptions optf

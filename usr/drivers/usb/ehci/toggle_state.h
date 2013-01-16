@@ -10,7 +10,7 @@
 #ifndef EHCI_TOGGLE_STATE_H
 #define EHCI_TOGGLE_STATE_H
 
-#include <usb/usb/shared_state.h>
+#include <usb/shared_state.h>
 
 void map_dev_arr(struct capref cap, uint32_t sz);
 

@@ -64,6 +64,7 @@ struct dcb *fpu_dcb = NULL;
  */
 static inline void context_switch(struct dcb *dcb)
 {
+//    printf("Executing the context switch\n");
     assert(dcb != NULL);
     assert(dcb->vspace != 0);
 

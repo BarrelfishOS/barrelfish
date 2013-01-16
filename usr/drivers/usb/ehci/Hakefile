@@ -15,7 +15,7 @@
                           "ehci_core.c", "boot.c", "usb_manager_client.c",
                           "toggle_state.c" ],
                       flounderDefs = [ "ehci", "usb_manager" ],
-                      mackerelDevices = [ "ehci_op", "ehci_cap" ],
+                      mackerelDevices = [ "ehci" ],
                       addLibraries = [ "pci", "memusb", "timer", "skb" ]
                     }
 ]

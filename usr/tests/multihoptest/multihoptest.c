@@ -119,6 +119,10 @@ static void send_cont(void *arg)
         err = vnode_create(myst->cap2, ObjType_VNode_x86_64_ptable);
         assert(err_is_ok(err));
 
+#ifdef __gem5__
+        struct test_multihop_binding *mb = (struct test_multihop_binding *)b;
+        mb->capst.tx_capnum = 0;
+#endif
         err = test_caps__tx(b, txcont, 69, myst->cap1, myst->cap2);
         break;
 

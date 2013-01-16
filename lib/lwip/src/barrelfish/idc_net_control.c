@@ -28,6 +28,7 @@
 #include <if/net_ports_rpcclient_defs.h>
 #include <stdio.h>
 #include <assert.h>
+#include "lwip/barrelfish.h"
 #include "idc_barrelfish.h"
 
 #include "lwip_barrelfish_debug.h"
@@ -92,14 +93,6 @@ void network_polling_loop(void)
     }
 }
 
-
-
-
-
-/*
- * @}
- */
-// FIXME: not used.  Remove it
 errval_t lwip_err_to_errval(err_t e)
 {
     switch (e) {
@@ -137,7 +130,6 @@ errval_t lwip_err_to_errval(err_t e)
             USER_PANIC("unknown LWIP error in lwip_err_to_errval");
     }
 }
-
 
 /***************************************************************
     Adding new code to communicate with net_ports server

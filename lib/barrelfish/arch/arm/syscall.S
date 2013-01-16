@@ -21,11 +21,20 @@ syscall:
         ldr     lr, =swi_done
         swi     #0
 swi_done:
-        pop     {r3,r4-r10}
-        // r0,r1 contain return values, r3 points to return structure        
+	// This is where we end up executing after the system call?
+	// This accesses the stack, which was restored in do_resume
+        pop     {r3,r4-r10} // pop 7 registers
+        // r0,r1 contain return values, r3 points to return structure
         str     r0, [r3, #0]
         str     r1, [r3, #4]
-        // XXX: My assembler warns about the following line -AB 20110506
-        // "Warning: writeback of base register when in register list is UNPREDICTABLE"
-        // Popping the SP does seem a little dubious?
-        pop     {r11, sp, pc}
+        pop {r11}
+
+        pop {r3} // Using r3 to tempararily hold the value of sp register
+                 // Warning: Assuming that clobbering r3 is OK!!
+        pop {lr} // Return address where we have to return
+        mov sp, r3  // Restoring sp from r3 now.
+        mov pc, lr // return by loading pc
+	nop
+	nop
+	nop
+	nop

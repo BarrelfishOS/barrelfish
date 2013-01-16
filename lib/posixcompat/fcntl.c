@@ -70,6 +70,26 @@ int fcntl(int fd, int cmd, ...)
             break;
         }
 
+    case F_GETFL:
+        {
+            POSIXCOMPAT_DEBUG("fcntl(%d, F_GETFL)\n", fd);
+
+            switch(e->type) {
+            case FDTAB_TYPE_FILE:
+            case FDTAB_TYPE_LWIP_SOCKET:
+                {
+                    // no flags set
+                    return 0;
+                }
+                break;
+
+            default:
+                assert(!"NYI");
+                return -1;
+                break;
+            }
+        }
+
     default:
         assert(!"NYI");
         retval = -1;

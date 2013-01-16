@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -105,6 +105,7 @@ enum cnode_cmd {
     CNodeCmd_Retype,    ///< Retype capability
     CNodeCmd_Delete,    ///< Delete capability
     CNodeCmd_Revoke,    ///< Revoke capability
+    CNodeCmd_Create,    ///< Create capability
 };
 
 enum vnode_cmd {
@@ -134,6 +135,7 @@ enum kernel_cmd {
     MonitorCmd_Delete,
     MonitorCmd_Revoke,
     KernelCmd_Sync_timer,
+    KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,
     KernelCmd_Count
@@ -193,6 +195,13 @@ enum perfmon_cmd {
     PerfmonCmd_Activate,    ///< Activate performance counters
     PerfmonCmd_Deactivate,  ///< Deactivate performance counters 
     PerfmonCmd_Write        ///< Read current performance counter values
+};
+
+/**
+ * ID capability commands.
+ */
+enum id_cmd {
+    IDCmd_Identify  ///< Return system-wide unique ID
 };
 
 /**

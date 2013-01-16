@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -29,7 +29,7 @@
 #include <trace/trace.h>
 
 #include "arch/threads.h"
-#include "threads.h"
+#include "threads_priv.h"
 #include "init.h"
 
 #if defined(__x86_64__)
@@ -976,6 +976,8 @@ static bool init_domain_global; // XXX
 
 /// Thread created on static stack in new domain that runs init code
 static int bootstrap_thread(struct spawn_domain_params *params)
+//int bootstrap_thread(struct spawn_domain_params *params);
+//int bootstrap_thread(struct spawn_domain_params *params)
 {
     errval_t err;
 
@@ -1150,7 +1152,7 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
  *
  * The thread will not be run, until a subsequent call to thread_resume()
  */
-void thread_pause_and_capture_state(struct thread *thread, 
+void thread_pause_and_capture_state(struct thread *thread,
                                     arch_registers_state_t **ret_regs,
                                     arch_registers_fpu_state_t **ret_fpuregs)
 {

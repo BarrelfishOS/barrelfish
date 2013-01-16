@@ -29,7 +29,9 @@ typedef enum uint8_t {
  */
 struct dictionary {
     int (*put_word)(struct dictionary*, const char*, size_t, uintptr_t);
+    int (*put_capability)(struct dictionary*, char*, struct capref);
     ENTRY_TYPE (*get)(struct dictionary*, const char*, size_t, void**);
+    ENTRY_TYPE (*get_capability)(struct dictionary*, char*, struct capref*);
     int (*size)(struct dictionary*);
     int (*remove)(struct dictionary*, char*, size_t);
 };

@@ -17,13 +17,12 @@ module Parser where
 
 import FuguBackend
 
-import qualified System
 import Text.ParserCombinators.Parsec as Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Pos
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language( javaStyle )
-import Char
+import Data.Char
 import Numeric
 import Data.List
 import Text.Printf

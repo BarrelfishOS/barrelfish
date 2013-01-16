@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,10 +17,10 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/monitor_client.h>
+#include <barrelfish/waitset_chan.h>
 #include <flounder/flounder_support.h>
 #include <flounder/flounder_support_caps.h>
 #include <if/monitor_defs.h>
-#include "waitset_chan.h"
 
 /*
  * NB: many of these functions are trivial, but exist so that we don't need to

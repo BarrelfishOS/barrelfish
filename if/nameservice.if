@@ -23,6 +23,7 @@ interface nameservice "Name server (chips) interface" {
     // Simple capability storage
     rpc get_cap(in string key, out cap retcap, out errval reterr);
     rpc put_cap(in string key, in cap storecap, out errval reterr);
+    rpc remove_cap(in string key, out errval reterr);
 
     // Shared-memory semaphores
     rpc sem_new(in uint32 value, out uint32 sem, out errval reterr);

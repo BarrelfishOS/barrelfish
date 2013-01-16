@@ -15,6 +15,10 @@
 #ifndef BARRELFISH_DEBUG_H
 #define BARRELFISH_DEBUG_H
 
+#include <errors/errno.h>
+#include <barrelfish/caddr.h>
+#include <barrelfish_kpi/registers_arch.h>
+
 struct capability;
 errval_t debug_cap_identify(struct capref cap, struct capability *ret);
 void debug_cspace(struct capref root);

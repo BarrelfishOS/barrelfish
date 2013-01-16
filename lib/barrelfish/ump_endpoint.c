@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -16,7 +16,8 @@
 #include <barrelfish/ump_endpoint.h>
 #include <barrelfish/ump_impl.h>
 #include <barrelfish/waitset.h>
-#include "waitset_chan.h"
+#include <barrelfish/waitset_chan.h>
+#include "waitset_chan_priv.h"
 
 /**
  * \brief Initialise a new UMP endpoint
@@ -80,6 +81,7 @@ errval_t ump_endpoint_deregister(struct ump_endpoint *ep)
     return waitset_chan_deregister(&ep->waitset_state);
 }
 
+#include <stdio.h>
 /**
  * \brief Migrate an event registration made with ump_endpoint_register() to a new waitset.
  *
@@ -88,5 +90,6 @@ errval_t ump_endpoint_deregister(struct ump_endpoint *ep)
  */
 void ump_endpoint_migrate(struct ump_endpoint *ep, struct waitset *ws)
 {
+    printf("ump_endpoint_migrate\n");
     waitset_chan_migrate(&ep->waitset_state, ws);
 }

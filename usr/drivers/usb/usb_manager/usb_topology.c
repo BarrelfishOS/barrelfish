@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <usb/usb/usb_topology.h>
-#include <usb/usb/usb_debug.h>
+#include <usb/usb_topology.h>
+#include <usb/usb_debug.h>
 
 #include "shared_services.h"
 

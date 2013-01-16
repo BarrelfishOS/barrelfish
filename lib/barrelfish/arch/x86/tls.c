@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,7 +13,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
-#include "threads.h"
+#include "threads_priv.h"
 
 struct tls_index {
     uintptr_t ti_module;

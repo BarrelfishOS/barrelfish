@@ -3,23 +3,24 @@
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
--- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- If you do not find this file, copies can be found by writing to:-
+-- ETH Zurich D-INFK CAB F.78, Universitaetstr 6, CH-8092 Zurich. 
+-- Attn: Systems Group.
 --
 -- Basic Hake rule definitions and combinators
 --
 --------------------------------------------------------------------------
 
 module RuleDefs where
-import Data.List
-import List (intersect)
+import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
 import Path
 import qualified X86_64
 import qualified X86_32
 import qualified SCC
-import qualified ARM
+import qualified ARMv5
 import qualified ARM11MP
 import qualified XScale
+import qualified ARMv7
 import HakeTypes
 import qualified Args
 import qualified Config
@@ -78,23 +79,26 @@ options :: String -> Options
 options "x86_64" = X86_64.options
 options "x86_32" = X86_32.options
 options "scc" = SCC.options
-options "arm" = ARM.options
+options "armv5" = ARMv5.options
 options "arm11mp" = ARM11MP.options
 options "xscale" = XScale.options
+options "armv7" = ARMv7.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
 kernelCFlags "scc" = SCC.kernelCFlags
-kernelCFlags "arm" = ARM.kernelCFlags
+kernelCFlags "armv5" = ARMv5.kernelCFlags
 kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
+kernelCFlags "armv7" = ARMv7.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
 kernelLdFlags "scc" = SCC.kernelLdFlags
-kernelLdFlags "arm" = ARM.kernelLdFlags
+kernelLdFlags "armv5" = ARMv5.kernelLdFlags
 kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
+kernelLdFlags "armv7" = ARMv7.kernelLdFlags
 
 archFamily :: String -> String
 archFamily arch = optArchFamily (options arch)
@@ -164,9 +168,10 @@ cCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cCompiler opts phase src obj
     | optArch opts == "x86_32"  = X86_32.cCompiler opts phase src obj
     | optArch opts == "scc"     = SCC.cCompiler opts phase src obj
-    | optArch opts == "arm"     = ARM.cCompiler opts phase src obj
+    | optArch opts == "armv5"   = ARMv5.cCompiler opts phase src obj
     | optArch opts == "arm11mp" = ARM11MP.cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
+    | optArch opts == "armv7" = ARMv7.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 cPreprocessor :: Options -> String -> String -> String -> [ RuleToken ]
@@ -193,12 +198,14 @@ makeDepend opts phase src obj depfile
         X86_32.makeDepend opts phase src obj depfile
     | optArch opts == "scc" =
         SCC.makeDepend opts phase src obj depfile
-    | optArch opts == "arm" =
-        ARM.makeDepend opts phase src obj depfile
+    | optArch opts == "armv5" =
+        ARMv5.makeDepend opts phase src obj depfile
     | optArch opts == "arm11mp" =
         ARM11MP.makeDepend opts phase src obj depfile
     | optArch opts == "xscale" =
         XScale.makeDepend opts phase src obj depfile
+    | optArch opts == "armv7" = 
+        ARMv7.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
 
 makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -212,9 +219,10 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_64"  = X86_64.cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_32"  = X86_32.cToAssembler opts phase src afile objdepfile
     | optArch opts == "scc"     = SCC.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "arm"     = ARM.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "armv5"   = ARMv5.cToAssembler opts phase src afile objdepfile
     | optArch opts == "arm11mp" = ARM11MP.cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "armv7" = ARMv7.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 --
@@ -225,9 +233,10 @@ assembler opts src obj
     | optArch opts == "x86_64"  = X86_64.assembler opts src obj
     | optArch opts == "x86_32"  = X86_32.assembler opts src obj
     | optArch opts == "scc"     = SCC.assembler opts src obj
-    | optArch opts == "arm"     = ARM.assembler opts src obj
+    | optArch opts == "armv5"   = ARMv5.assembler opts src obj
     | optArch opts == "arm11mp" = ARM11MP.assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
+    | optArch opts == "armv7" = ARMv7.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
@@ -235,9 +244,10 @@ archive opts objs libs name libname
     | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
     | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
     | optArch opts == "scc"     = SCC.archive opts objs libs name libname
-    | optArch opts == "arm"     = ARM.archive opts objs libs name libname
+    | optArch opts == "armv5"     = ARMv5.archive opts objs libs name libname
     | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
+    | optArch opts == "armv7" = ARMv7.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -245,9 +255,10 @@ linker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.linker opts objs libs bin
     | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
     | optArch opts == "scc"    = SCC.linker opts objs libs bin
-    | optArch opts == "arm" = ARM.linker opts objs libs bin
+    | optArch opts == "armv5"  = ARMv5.linker opts objs libs bin
     | optArch opts == "arm11mp" = ARM11MP.linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
+    | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -703,14 +714,14 @@ linkCxx opts objs libs bin =
 --
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
 linkKernel opts name objs libs
-    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "arm" = ARM.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] kernelPath
-    | otherwise =
-        Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
+    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
+    | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
 -- Copy a file from one place to another
@@ -743,17 +754,22 @@ staticLibrary opts libpath objs libs =
 --
 compileHaskell prog main deps = compileHaskellWithLibs prog main deps []
 compileHaskellWithLibs prog main deps dirs =
+  let 
+    tools_dir = (Dep InstallTree "tools" "/tools/.marker")
+  in
     Rule ([ NStr "ghc -i",
             NoDep SrcTree "src" ".",
             Str "-odir ", NoDep BuildTree "tools" ".",
             Str "-hidir ", NoDep BuildTree "tools" ".",
+            Str "-rtsopts=all",
             Str "--make ",
             In SrcTree "src" main,
             Str "-o ",
             Out "tools" ("/bin" ./. prog),
             Str "$(LDFLAGS)" ]
           ++ concat [[ NStr "-i", NoDep SrcTree "src" d] | d <- dirs]
-          ++ [ (Dep SrcTree "src" dep) | dep <- deps ])
+          ++ [ (Dep SrcTree "src" dep) | dep <- deps ]
+          ++ [ tools_dir ])
 
 --
 -- Compile (and link) a C binary (for the host architecture)
@@ -938,25 +954,29 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- manually add dependencies for now (it would be better if each library
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
-libposixcompat_deps = LibDeps $ [ LibDep x | x <- deps ]
-    where deps = ["vfsfd", "posixcompat"]
+libposixcompat_deps = LibDeps [ LibDep "posixcompat", liblwip_deps,
+                                libvfs_deps_all ]
 liblwip_deps        = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps        = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager", "contmng" ,"procon" , "net_if_raw", "bfdmuxvm"]
-libnet_deps         = LibDeps $ [liblwip_deps, libposixcompat_deps]
-libnfs_deps         = LibDeps $ [ LibDep "nfs", libnet_deps]
+libnfs_deps         = LibDeps $ [ LibDep "nfs", liblwip_deps ]
 
 -- we need to make vfs more modular to make this actually useful
-data VFSModules = VFS_RamFS | VFS_NFS
+data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
 vfsdeps :: [VFSModules] -> [LibDepTree]
-vfsdeps [] = [LibDep "vfs"]
-vfsdeps (VFS_RamFS:xs) = [] ++ vfsdeps xs
-vfsdeps (VFS_NFS:xs) =   [libnfs_deps] ++ vfsdeps xs
+vfsdeps []                  = [LibDep "vfs"]
+vfsdeps (VFS_RamFS:xs)      = [] ++ vfsdeps xs
+vfsdeps (VFS_NFS:xs)        = [libnfs_deps] ++ vfsdeps xs
+vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci" ] ++ vfsdeps xs
+vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
 
-libvfs_deps_all   = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS]
-libvfs_deps_nfs   = LibDeps $ vfsdeps [VFS_NFS]
-libvfs_deps_ramfs = LibDeps $ vfsdeps [VFS_RamFS]
+libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
+                                            VFS_FAT]
+libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
+libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
+libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
+libvfs_deps_fat        = LibDeps $ vfsdeps [VFS_FAT, VFS_BlockdevFS]
 
 -- flatten the dependency tree
 flat :: [LibDepTree] -> [LibDepTree]
@@ -969,7 +989,6 @@ str2dep  str
     | str == "vfs"         = libvfs_deps_all
     | str == "posixcompat" = libposixcompat_deps
     | str == "lwip"        = liblwip_deps
-    | str == "net"         = libnet_deps
     | str == "netQmng"     = libnetQmng_deps
     | otherwise            = LibDep str
 
@@ -977,9 +996,10 @@ str2dep  str
 --   we need a specific order for the .a, so we define a total order
 libDeps :: [String] -> [String]
 libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
-    where xord = [ "vfs"
+    where xord = [  "posixcompat"
+                  , "vfs"
+                  , "ahci"
                   , "nfs"
-                  , "posixcompat"
                   , "net_queue_manager"
                   , "bfdmuxvm"
                   , "lwip"
@@ -990,4 +1010,17 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "timer"
                   , "hashtable"]
           xcmp (LibDep a) (LibDep b) = compare (elemIndex a xord) (elemIndex b xord)
+
+
+--
+-- Build a CPU driver
+--
+
+cpuDriver :: Args.Args
+cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn, 
+                               Args.target = "cpu" }
+
+-- CPU drivers are built differently
+cpuDriverBuildFn :: [String] -> String -> Args.Args -> HRule
+cpuDriverBuildFn af tf args = Rules []
 

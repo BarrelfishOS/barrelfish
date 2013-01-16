@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -265,6 +265,34 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     }
 }
 
+
+/**
+ * \brief Create a capability
+ *
+ * \param dest      Location where to create the cap, which must be empty.
+ * \param type      Kernel object type to create.
+ * \param size_bits Size of the created capability as a power of two.
+ *                  (ignored for fixed-size objects)
+ *
+ * Only certain types of capabilities can be created this way. If invoked on
+ * a capability type, that is not creatable at runtime the error
+ * SYS_ERR_TYPE_NOT_CREATABLE is returned. Most capabilities have to be retyped
+ * from other capabilities with cap_retype().
+ */
+errval_t cap_create(struct capref dest, enum objtype type, uint8_t size_bits)
+{
+    errval_t err;
+
+    // Number of valid bits in the destination CNode address
+    uint8_t dest_vbits = get_cnode_valid_bits(dest);
+    // Address of the cap to the destination CNode
+    capaddr_t dest_cnode_cptr = get_cnode_addr(dest);
+
+    err = invoke_cnode_create(cap_root, type, size_bits, dest_cnode_cptr,
+                              dest.slot, dest_vbits);
+
+    return err;
+}
 
 /**
  * \brief Delete the given capability
@@ -667,4 +695,61 @@ errval_t devframe_type(struct capref *dest, struct capref src, uint8_t bits)
     }
 
     return cap_retype(*dest, src, ObjType_DevFrame, bits);
+}
+
+/**
+ * \brief Create an ID cap in a newly allocated slot.
+ *
+ * \param dest  Pointer to capref struct, filld-in with location of new cap.
+ *
+ * The caller is responsible for revoking the cap after using it.
+ */
+errval_t idcap_alloc(struct capref *dest)
+{
+    errval_t err = slot_alloc(dest);
+
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    return idcap_create(*dest);
+}
+
+/**
+ * \brief Create an ID cap in the specified slot.
+ *
+ * \param dest  Capref, where ID cap should be created.
+ *
+ * The caller is responsible for revoking the cap after using it.
+ */
+errval_t idcap_create(struct capref dest)
+{
+    return cap_create(dest, ObjType_ID, 0);
+}
+
+/**
+ * \brief Builds a #cnoderef struct from a #capref struct using cap
+ *        identification.
+ *
+ * \param cnoder Pointer to a cnoderef struct, fill-in by function.
+ * \param capr   Capref to a CNode capability.
+ */
+errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
+{
+    struct capability cap;
+    errval_t err = debug_cap_identify(capr, &cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (cap.type != ObjType_CNode) {
+        return LIB_ERR_NOT_CNODE;
+    }
+
+    cnoder->address = get_cap_addr(capr);
+    cnoder->address_bits = get_cap_valid_bits(capr);
+    cnoder->size_bits = cap.u.cnode.bits;
+    cnoder->guard_size = cap.u.cnode.guard_size;
+
+    return SYS_ERR_OK;
 }

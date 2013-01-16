@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -24,7 +24,7 @@
 #include <barrelfish/debug.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish_kpi/cpu_arch.h>
-#include <threads.h>
+#include "threads_priv.h"
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
 # include <barrelfish/lmp_chan.h>
@@ -71,6 +71,10 @@ uint64_t disp_run_counter(void)
  */
 void disp_run(dispatcher_handle_t handle)
 {
+    // We can't call printf(), so do this silly thing...
+//    assert_print("FIXME: infinite while loop\n");
+//    while(1);
+
     struct dispatcher_generic* disp_gen = get_dispatcher_generic(handle);
     struct dispatcher_shared_generic* disp =
         get_dispatcher_shared_generic(handle);

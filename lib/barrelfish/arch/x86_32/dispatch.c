@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,7 +17,7 @@
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish/syscalls.h>
-#include <threads.h>
+#include "threads_priv.h"
 
 /* entry points defined in assembler code */
 extern void run_entry(void);

@@ -18,7 +18,8 @@
 #include <if/monitor_defs.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/idc_export.h>
-#include "waitset_chan.h"
+#include <barrelfish/waitset_chan.h>
+#include "waitset_chan_priv.h"
 
 /**
  * \brief Initialise a new LMP channel

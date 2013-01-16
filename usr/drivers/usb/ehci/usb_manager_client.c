@@ -11,7 +11,7 @@
 
 #include "usb_manager_client.h"
 
-#include<usb/ehci/ehci_debug.h>
+#include "ehci_debug.h"
 
 volatile static bool connect = false;
 static struct usb_manager_client_response *resp = NULL;

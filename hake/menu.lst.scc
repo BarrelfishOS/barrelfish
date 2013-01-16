@@ -20,9 +20,9 @@ module	/scc/sbin/init
 module	/scc/sbin/mem_serv
 module	/scc/sbin/monitor
 
-module	/scc/sbin/chips boot
 module	/scc/sbin/ramfsd boot
-module  /scc/sbin/spawnd boot bootscc=1
+module  /scc/sbin/skb boot
+module  /scc/sbin/spawnd boot bootscc=1-47
 module  /scc/sbin/startd boot
 # modules needed to start the networking
 # module  /scc/sbin/eMAC core=0
@@ -32,20 +32,10 @@ module  /scc/sbin/startd boot
 # module  /scc/sbin/NGD_MNG core=2 cardname=eMAC2_1
 # module  /scc/sbin/netd core=1 cardname=eMAC2_1
 
-# Test for network throughput
-# module  /scc/sbin/netthroughput core=1 /nfs nfs://10.110.4.41/shared /nfs/pravin/testfile.txt
-
-# For webserver
-# module  /scc/sbin/webserver core=1 eMAC2_1 10.110.4.41 /shared/pravin/sw
-
-
 # RCK memory map
-# Everything up til VGA is private RAM (maybe we want to throw it away)
-mmap	map	0x0		0xa000		2
-# Everything after VGA is private RAM (we also live in this area)
-mmap	map	0xe800		0x26ff1800	1
-# Shared RAM (over all MCs) in the middle of address space
-#mmap	map	0x80000000	0x4000000	1
+# 624MB private RAM
+mmap	map	0x0		0x27000000	1
+# 1GB shared RAM (over all MCs) in the middle of address space
 mmap    map     0x80000000      0x40000000      1
-# At the very end we have some platform memory (bootup EEPROM)
-mmap	map	0xfffc0000	0x40000		2
+# 16MB more private RAM (bootup jump is in here, too)
+mmap	map	0xff000000	0x1000000	1
