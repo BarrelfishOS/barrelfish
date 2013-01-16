@@ -24,7 +24,7 @@
 #include <if/pci_defs.h>
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
-#include "pci_confspace.h"
+//#include "pci_confspace.h"
 
 #include "pci.h"
 #include "pci_debug.h"
@@ -215,7 +215,7 @@ static void get_vbe_bios_cap(struct pci_binding *b)
 
 static void read_conf_header_handler(struct pci_binding *b, uint32_t dword)
 {
-    
+
     struct client_state *cc = (struct client_state *) b->st;
     struct pci_address addr = {
         .bus= cc->bus,
@@ -224,7 +224,7 @@ static void read_conf_header_handler(struct pci_binding *b, uint32_t dword)
     };
     PCI_DEBUG("Read config header from %u:%u:%u\n",addr.bus, addr.device, addr.function);
     uint32_t val = pci_read_conf_header(&addr, dword);
-    
+
     errval_t err;
     err = b->tx_vtbl.read_conf_header_response(b, NOP_CONT, SYS_ERR_OK, val);
     assert(err_is_ok(err));
@@ -240,7 +240,7 @@ static void write_conf_header_handler(struct pci_binding *b, uint32_t dword, uin
     };
     PCI_DEBUG("Write config header from %u:%u:%u\n",addr.bus, addr.device, addr.function);
     pci_write_conf_header(&addr, dword, val);
-    
+
     errval_t err;
     err = b->tx_vtbl.write_conf_header_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));

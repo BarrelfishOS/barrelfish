@@ -61,6 +61,8 @@
  *
  */
 
+#include <barrelfish/barrelfish.h>
+
 #include "lwip/opt.h"
 
 #include "lwip/stats.h"
@@ -77,7 +79,6 @@
 #include <string.h>
 #include <assert.h>
 #include <trace/trace.h>
-#include <barrelfish/barrelfish.h>
 
 
 #define SIZEOF_STRUCT_PBUF        LWIP_MEM_ALIGN_SIZE(sizeof(struct pbuf))

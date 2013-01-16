@@ -169,9 +169,6 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
     return msgerr;
 }
 
-    return err_is_fail(err) ? err : msgerr;
-}
-
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;
@@ -183,6 +180,10 @@ errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
 {
     errval_t err, msgerr;
     err = pci_client->vtbl.write_conf_header(pci_client, dword, val, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+
 static void bind_cont(void *st, errval_t err, struct pci_binding *b)
 {
     errval_t *reterr = st;
