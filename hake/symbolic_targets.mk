@@ -526,7 +526,7 @@ arm_gem5_image: $(GEM5_MODULES) \
 	# Translate each of the binary files we need
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5 molly_gem5
 	# Generate appropriate linker script
-	cpp -P -DBASE_ADDR=0x00100000 $(SRCDIR)tools/arm_molly/molly_ld_script.in \
+	cpp -P -DBASE_ADDR=0x00100000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_gem5/molly_ld_script
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
@@ -550,19 +550,13 @@ arm_gem5_image: $(GEM5_MODULES) \
 		-o arm_gem5_image
 
 # ARM GEM5 Simulation Targets
-
 ARM_PREFIX=arm-none-linux-gnueabi-
+ARM_FLAGS=$(SRCDIR)/tools/arm_gem5/gem5script.py --caches --l2cache --n=2 --kernel=arm_gem5_image
 
 arm_gem5: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --caches --l2cache
+	gem5.fast $(ARM_FLAGS)
 
 arm_gem5_detailed: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --cpu-type=arm_detailed --caches --l2cache
-
-arm_gem5_detailed_mc: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --cpu-type=arm_detailed --n=2 --caches --l2cache
-
-arm_gem5_mc: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --n=4 --caches --l2cache
+	gem5.fast $(ARM_FLAGS) --cpu-type=arm_detailed
 
 .PHONY: arm_gem5_mc arm_gem5 arm_gem5_detailed arm_gem5_detailed
