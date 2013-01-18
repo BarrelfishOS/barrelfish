@@ -437,6 +437,27 @@ static struct sysret handle_frame_identify(struct capability *to,
     };
 }
 
+static struct sysret handle_frame_modify_flags(struct capability *to,
+                                               int cmd, uintptr_t *args)
+{
+    // Modify flags of (part of) mapped region of frame
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
+
+    // unpack arguments
+    size_t offset = args[0]; // in pages; of first page to modify from first
+                             // page in mapped region
+    size_t pages  = args[1]; // #pages to modify
+    size_t flags  = args[2]; // new flags
+
+    page_mappings_modify_flags(to, offset, pages, flags);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = 0,
+    };
+}
+
+
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint64_t    port = args[0];
@@ -729,9 +750,11 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
+        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
+        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,

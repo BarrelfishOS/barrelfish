@@ -234,6 +234,25 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     return sysret.error;
 }
 
+/**
+ * \brief Modify mapping flags on parts of a mapped frame
+ *
+ * \param frame    CSpace address of frame capability
+ * \param off      Offset (in #pages) of the first page to get new set of flags
+ *                 from the first page in the mapping identified by `frame`
+ * \param pages    Number of pages that should get new set of flags
+ * \param flags    New set of flags
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_frame_modify_flags(struct capref frame,
+                                                 size_t offset,
+                                                 size_t pages,
+                                                 size_t flags)
+{
+    return cap_invoke4(frame, FrameCmd_ModifyFlags, offset, pages, flags).error;
+}
+
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
                                        uint16_t port, uint32_t *data)
 {

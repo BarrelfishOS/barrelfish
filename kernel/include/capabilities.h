@@ -62,6 +62,8 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages);
 errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
                              size_t entry, size_t num_pages);
+errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
+                                    size_t pages, size_t flags);
 void paging_dump_tables(struct dcb *dispatcher);
 
 errval_t caps_retype(enum objtype type, size_t objbits,
