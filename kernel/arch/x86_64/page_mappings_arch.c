@@ -421,7 +421,6 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     }
 
     return SYS_ERR_OK;
-    return SYS_ERR_OK;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
