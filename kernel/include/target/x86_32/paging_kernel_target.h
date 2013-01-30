@@ -329,6 +329,34 @@ static inline void paging_x86_32_map(union x86_32_ptable_entry * NONNULL entry,
     *entry = tmp;
 }
 
+/**
+ * \brief Modify flags of a normal (small) page.
+ *
+ * From small page table entry, pointed to by 'entry', maps physical address
+ * 'base' with page attribute bitmap 'bitmap'.
+ *
+ * \param entry         Pointer to page table entry to map from.
+ * \param bitmap        Bitmap to apply to page attributes.
+ */
+static inline void paging_x86_32_modify_flags(union x86_32_ptable_entry * NONNULL entry,
+                                              paging_x86_32_flags_t bitmap)
+{
+    union x86_32_ptable_entry tmp;
+
+    tmp.base.present = bitmap & X86_32_PTABLE_PRESENT ? 1 : 0;
+    tmp.base.read_write = bitmap & X86_32_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.base.user_supervisor = bitmap & X86_32_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.base.write_through = bitmap & X86_32_PTABLE_WRITE_THROUGH ? 1 : 0;
+    tmp.base.cache_disabled = bitmap & X86_32_PTABLE_CACHE_DISABLED ? 1 : 0;
+    tmp.base.attr_index = bitmap & X86_32_PTABLE_ATTR_INDEX ? 1 : 0;
+    tmp.base.global = bitmap & X86_32_PTABLE_GLOBAL_PAGE ? 1 : 0;
+#ifdef CONFIG_NXE
+    tmp.base.execute_disable = bitmap & X86_32_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+#endif
+
+    *entry = tmp;
+}
+
 static inline void paging_x86_32_unmap(union x86_32_ptable_entry * NONNULL entry)
 {
     entry->raw = X86_32_PTABLE_CLEAR;

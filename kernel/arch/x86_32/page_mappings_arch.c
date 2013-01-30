@@ -376,6 +376,35 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     return SYS_ERR_OK;
 }
 
+errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
+                                    size_t pages, size_t uflags)
+{
+    struct cte *mapping = cte_for_cap(frame);
+    struct mapping_info *info = &mapping->mapping_info;
+
+    /* Calculate page access protection flags */
+    // Get frame cap rights
+    paging_x86_32_flags_t flags =
+        paging_x86_32_cap_to_page_flags(frame->rights);
+    // Mask with provided access rights mask
+    flags = paging_x86_32_mask_attrs(flags, X86_32_PTABLE_ACCESS(uflags));
+    // Add additional arch-specific flags
+    flags |= X86_32_PTABLE_FLAGS(uflags);
+    // Unconditionally mark the page present
+    flags |= X86_32_PTABLE_PRESENT;
+
+    /* Calculate location of page table entries we need to modify */
+    lvaddr_t base = info->pte + offset;
+
+    for (int i = 0; i < pages; i++) {
+        union x86_32_ptable_entry *entry =
+            (union x86_32_ptable_entry *)base + i;
+        paging_x86_32_modify_flags(entry, flags);
+    }
+
+    return SYS_ERR_OK;
+}
+
 void paging_dump_tables(struct dcb *dispatcher)
 {
     printf("dump_hw_page_tables\n");

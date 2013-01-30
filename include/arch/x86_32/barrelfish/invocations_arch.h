@@ -291,6 +291,30 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     return sysret.error;
 }
 
+/**
+ * \brief Modify mapping flags on parts of a mapped frame
+ *
+ * \param frame    CSpace address of frame capability
+ * \param off      Offset (in #pages) of the first page to get new set of flags
+ *                 from the first page in the mapping identified by `frame`
+ * \param pages    Number of pages that should get new set of flags
+ * \param flags    New set of flags
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_frame_modify_flags(struct capref frame,
+                                                 size_t offset,
+                                                 size_t pages,
+                                                 size_t flags)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(frame);
+    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
+
+    return syscall5((invoke_bits << 16) | (FrameCmd_ModifyFlags << 8) |
+                    SYSCALL_INVOKE, invoke_cptr, offset, pages, flags).error;
+}
+
+
 #ifdef __scc__
 /**
  * \brief Return the physical address and size of a frame capability

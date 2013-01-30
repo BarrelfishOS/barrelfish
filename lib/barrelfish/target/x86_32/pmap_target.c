@@ -80,6 +80,25 @@ static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
     return NULL;
 }
 
+static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+
+    struct vnode *n;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (!n->is_vnode) {
+            uint16_t end = n->entry + n->u.frame.pte_count;
+            if (n->entry <= entry && entry + npages <= end) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 {
     assert(root != NULL);
@@ -585,37 +604,35 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
  * \param pages number of pages to modify
  * \param flags the new set of flags
  */
-static errval_t do_single_remap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t pages, vregion_flags_t flags)
+static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
+                                       size_t pages, vregion_flags_t flags)
 {
-    // TODO: reset mapping info
-    // XXX: need new copy of cap?
-    errval_t err;
-
-    // Remap with new permissions in the kernel
+    errval_t err = SYS_ERR_OK;
     struct vnode *ptable = find_ptable(pmap, vaddr);
+    uint16_t ptentry = X86_32_PTABLE_BASE(vaddr);
     if (ptable) {
-        struct vnode *page = find_vnode(ptable, X86_32_PTABLE_BASE(vaddr));
+        struct vnode *page = find_vnode(ptable, ptentry);
         if (page) {
-            err = vnode_unmap(ptable->u.vnode.cap, page->u.frame.cap,
-                              page->entry, pages);
-            if (err_is_fail(err)) {
-                printf("vnode_unmap returned error: %s (%"PRIuERRV")\n",
+            if (inside_region(page, ptentry, pages)) {
+                // we're modifying part of a valid mapped region
+                // arguments to invocation: invoke frame cap, first affected
+                // page (as offset from first page in mapping), #affected
+                // pages, new flags. Invocation should check compatibility of
+                // new set of flags with cap permissions.
+                size_t off = ptentry - page->entry;
+                paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+                err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
+                printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                         err_getstring(err), err);
-                return err_push(err, LIB_ERR_VNODE_UNMAP);
+                return err;
+            } else {
+                // overlaps some region border
+                return LIB_ERR_PMAP_EXISTING_MAPPING;
             }
-            paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-            err = vnode_map(ptable->u.vnode.cap, page->u.frame.cap, page->entry,
-                            pmap_flags, page->u.frame.offset, pages);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_VNODE_MAP);
-            }
-            page->u.frame.flags = flags;
         }
     }
-
     return SYS_ERR_OK;
 }
-
 /**
  * \brief Modify page mapping
  *
@@ -635,14 +652,14 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
     if (X86_32_PDIR_BASE(vaddr) == X86_32_PDIR_BASE(vend)) {
         // fast path
-        err = do_single_remap(x86, vaddr, pages, flags);
+        err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
     } else { // slow path
         // unmap first leaf
         uint32_t c = X86_32_PTABLE_SIZE - X86_32_PTABLE_BASE(vaddr);
-        err = do_single_remap(x86, vaddr, c, flags);
+        err = do_single_modify_flags(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_VNODE_UNMAP);
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
@@ -652,7 +669,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         vaddr += c * X86_32_BASE_PAGE_SIZE;
         while (X86_32_PDIR_BASE(vaddr) < X86_32_PDIR_BASE(vend)) {
             c = X86_32_PTABLE_SIZE;
-            err = do_single_remap(x86, vaddr, X86_32_PTABLE_SIZE, flags);
+            err = do_single_modify_flags(x86, vaddr, X86_32_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
@@ -662,7 +679,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         // unmap remaining part
         c = X86_32_PTABLE_BASE(vend) - X86_32_PTABLE_BASE(vaddr);
         if (c) {
-            err = do_single_remap(x86, vaddr, c, flags);
+            err = do_single_modify_flags(x86, vaddr, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
