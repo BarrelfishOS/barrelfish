@@ -14,6 +14,7 @@
 #include <exceptions.h>
 #include <arm_hal.h>
 #include <cap_predicates.h>
+#include <dispatch.h>
 
 /**
  * Kernel L1 page table
@@ -234,6 +235,19 @@ void paging_context_switch(lpaddr_t ttbr)
     }
 }
 
+static void
+paging_set_flags(union arm_l2_entry *entry, uintptr_t kpi_paging_flags)
+{
+        entry->small_page.bufferable = 1;
+        entry->small_page.cacheable =
+            (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
+        entry->small_page.ap10  =
+            (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
+        entry->small_page.ap10 |=
+            (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
+        entry->small_page.ap2 = 0;
+}
+
 static errval_t
 caps_map_l1(struct capability* dest,
             cslot_t            slot,
@@ -369,16 +383,7 @@ caps_map_l2(struct capability* dest,
         entry->raw = 0;
 
         entry->small_page.type = L2_TYPE_SMALL_PAGE;
-        entry->small_page.bufferable = 1;
-        entry->small_page.cacheable =
-            (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
-
-        entry->small_page.ap10  =
-            (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
-        entry->small_page.ap10 |=
-            (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
-        entry->small_page.ap2 = 0;
-
+        paging_set_flags(entry, kpi_paging_flags);
         entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
 
         entry++;
@@ -425,7 +430,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 {
     size_t unmapped_pages = 0;
-    union l2_entry *ptentry = (union l2_entry *)pt + slot;
+    union arm_l2_entry *ptentry = (union arm_l2_entry *)pt + slot;
     for (int i = 0; i < num_pages; i++) {
         ptentry++->raw = 0;
         unmapped_pages++;
@@ -445,13 +450,13 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpad
     switch (pgtable->type) {
         case ObjType_VNode_ARM_l1:
         {
-            union l1_entry *e = (union l1_entry*)lv;
+            union arm_l1_entry *e = (union arm_l1_entry*)lv;
             *paddr = (genpaddr_t)(e->page_table.base_address) << 10;
             return;
         }
         case ObjType_VNode_ARM_l2:
         {
-            union l2_entry *e = (union l2_entry*)lv;
+            union arm_l2_entry *e = (union arm_l2_entry*)lv;
             *paddr = (genpaddr_t)(e->small_page.base_address) << 12;
             return;
         }
@@ -510,6 +515,27 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     return SYS_ERR_OK;
 }
 
+errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
+                             uintptr_t pages, uintptr_t kpi_paging_flags)
+{
+    // check flags
+    assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
+
+    struct cte *mapping = cte_for_cap(frame);
+    struct mapping_info *info = &mapping->mapping_info;
+
+    /* Calculate location of page table entries we need to modify */
+    lvaddr_t base = info->pte + offset;
+
+    for (int i = 0; i < pages; i++) {
+        union arm_l2_entry *entry =
+            (union arm_l2_entry *)base + i;
+        paging_set_flags(entry, kpi_paging_flags);
+    }
+
+    return SYS_ERR_OK;
+}
+
 void paging_dump_tables(struct dcb *dispatcher)
 {
     printf("dump_hw_page_tables\n");
@@ -517,14 +543,14 @@ void paging_dump_tables(struct dcb *dispatcher)
 
     for (int l1_index = 0; l1_index < ARM_L1_MAX_ENTRIES; l1_index++) {
         // get level2 table
-        union l1_entry *l1_e = (union l1_entry *)l1 + l1_index;
+        union arm_l1_entry *l1_e = (union arm_l1_entry *)l1 + l1_index;
         if (!l1_e->raw) { continue; }
         genpaddr_t ptable_gp = (genpaddr_t)(l1_e->page_table.base_address) << 10;
         lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
         for (int entry = 0; entry < ARM_L2_MAX_ENTRIES; entry++) {
-            union l2_entry *e =
-                (union l2_entry *)ptable_lv + entry;
+            union arm_l2_entry *e =
+                (union arm_l2_entry *)ptable_lv + entry;
             genpaddr_t paddr = (genpaddr_t)(e->small_page.base_address) << BASE_PAGE_BITS;
             if (!paddr) {
                 continue;
