@@ -111,6 +111,25 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
+static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+
+    struct vnode *n;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (!n->is_vnode) {
+            uint16_t end = n->entry + n->u.frame.pte_count;
+            if (n->entry <= entry && entry + npages <= end) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 {
     assert(root != NULL);
@@ -651,6 +670,36 @@ determine_addr(struct pmap   *pmap,
     return SYS_ERR_OK;
 }
 
+static errval_t do_single_modify_flags(struct pmap_arm *pmap, genvaddr_t vaddr,
+                                       size_t pages, vregion_flags_t flags)
+{
+    errval_t err = SYS_ERR_OK;
+    struct vnode *ptable = find_ptable(pmap, vaddr);
+    uint16_t ptentry = ARM_USER_L2_OFFSET(vaddr);
+    if (ptable) {
+        struct vnode *page = find_vnode(ptable, ptentry);
+        if (page) {
+            if (inside_region(page, ptentry, pages)) {
+                // we're modifying part of a valid mapped region
+                // arguments to invocation: invoke frame cap, first affected
+                // page (as offset from first page in mapping), #affected
+                // pages, new flags. Invocation should check compatibility of
+                // new set of flags with cap permissions.
+                size_t off = ptentry - page->entry;
+                uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+                err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
+                printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
+                        err_getstring(err), err);
+                return err;
+            } else {
+                // overlaps some region border
+                return LIB_ERR_PMAP_EXISTING_MAPPING;
+            }
+        }
+    }
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Modify page mapping
  *
@@ -674,7 +723,7 @@ modify_flags(struct pmap     *pmap,
 
     if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
         // fast path
-        err = do_single_unmap(pmap_arm, vaddr, pte_count, false);
+        err = do_single_modify_flags(pmap_arm, vaddr, pte_count, false);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -682,7 +731,7 @@ modify_flags(struct pmap     *pmap,
     else { // slow path
         // unmap first leaf
         uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
-        err = do_single_unmap(pmap_arm, vaddr, c, false);
+        err = do_single_modify_flags(pmap_arm, vaddr, c, false);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -691,7 +740,7 @@ modify_flags(struct pmap     *pmap,
         vaddr += c * BASE_PAGE_SIZE;
         while (ARM_L1_OFFSET(vaddr) < ARM_L1_OFFSET(vend)) {
             c = ARM_L2_MAX_ENTRIES;
-            err = do_single_unmap(pmap_arm, vaddr, c, true);
+            err = do_single_modify_flags(pmap_arm, vaddr, c, true);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -701,7 +750,7 @@ modify_flags(struct pmap     *pmap,
         // unmap remaining part
         c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(vaddr);
         if (c) {
-            err = do_single_unmap(pmap_arm, vaddr, c, true);
+            err = do_single_modify_flags(pmap_arm, vaddr, c, true);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }

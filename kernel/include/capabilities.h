@@ -64,6 +64,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
                              size_t entry, size_t num_pages);
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t flags);
+errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
+                             uintptr_t pages, uintptr_t kpi_paging_flags);
 void paging_dump_tables(struct dcb *dispatcher);
 
 errval_t caps_retype(enum objtype type, size_t objbits,

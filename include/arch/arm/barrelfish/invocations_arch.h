@@ -321,6 +321,35 @@ invoke_frame_identify (struct capref frame, struct frame_identity *ret)
     return sysret.error;
 }
 
+/**
+ * \brief Return the physical address and size of a frame capability
+ *
+ * \param frame    CSpace address of frame capability
+ * \param ret      frame_identity struct filled in with relevant data
+ *
+ * \return Error code
+ */
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_frame_modify_flags (struct capref frame, uintptr_t offset,
+		uintptr_t pages, uintptr_t flags)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(frame);
+    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
+
+    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
+    arg1 |= ((uintptr_t)FrameCmd_ModifyFlags<<8);
+    arg1 |= (uintptr_t)SYSCALL_INVOKE;
+
+    return syscall5(arg1, invoke_cptr, offset, pages, flags).error;
+}
+
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
                                        uint16_t port, uint32_t *data)
 {

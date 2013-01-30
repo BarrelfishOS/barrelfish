@@ -276,6 +276,22 @@ void paging_context_switch(lpaddr_t ttbr)
     }
 }
 
+static void
+paging_set_flags(union l2_entry *entry, uintptr_t kpi_paging_flags)
+{
+    entry->small_page.bufferable = 1;
+    entry->small_page.cacheable =
+        (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
+
+    entry->small_page.ap0  =
+        (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
+    entry->small_page.ap0 |=
+        (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
+    entry->small_page.ap1 = entry->small_page.ap0;
+    entry->small_page.ap2 = entry->small_page.ap0;
+    entry->small_page.ap3 = entry->small_page.ap0;
+}
+
 static errval_t
 caps_map_l1(struct capability* dest,
             cslot_t            slot,
@@ -412,18 +428,7 @@ caps_map_l2(struct capability* dest,
         entry->raw = 0;
 
         entry->small_page.type = L2_TYPE_SMALL_PAGE;
-        entry->small_page.bufferable = 1;
-        entry->small_page.cacheable =
-            (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
-
-        entry->small_page.ap0  =
-            (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
-        entry->small_page.ap0 |=
-            (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
-        entry->small_page.ap1 = entry->small_page.ap0;
-        entry->small_page.ap2 = entry->small_page.ap0;
-        entry->small_page.ap3 = entry->small_page.ap0;
-
+        paging_set_flags(entry, kpi_paging_flags);
         entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
 
         entry++;
@@ -551,6 +556,27 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
 
     // update mapping info
     memset(&mapping->mapping_info, 0, sizeof(struct mapping_info));
+
+    return SYS_ERR_OK;
+}
+
+errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
+                             uintptr_t pages, uintptr_t kpi_paging_flags)
+{
+    // check flags
+    assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
+
+    struct cte *mapping = cte_for_cap(frame);
+    struct mapping_info *info = &mapping->mapping_info;
+
+    /* Calculate location of page table entries we need to modify */
+    lvaddr_t base = info->pte + offset;
+
+    for (int i = 0; i < pages; i++) {
+        union l2_entry *entry =
+            (union l2_entry *)base + i;
+        paging_set_flags(entry, kpi_paging_flags);
+    }
 
     return SYS_ERR_OK;
 }
