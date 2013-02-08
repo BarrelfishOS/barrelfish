@@ -265,8 +265,8 @@ struct oflock {
 
 #ifndef _KERNEL
 __BEGIN_DECLS
-int open(const char*pathname, int flags, ...);
-int creat (char * file, int mode);
+int open(const char *pathname, int flags, ...);
+int creat(const char *file, int mode);
 int	fcntl(int, int, ...);
 #if __BSD_VISIBLE || __POSIX_VISIBLE >= 200809
 int	openat(int, const char *, int, ...);

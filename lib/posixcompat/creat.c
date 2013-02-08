@@ -6,14 +6,9 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-#include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <barrelfish/barrelfish.h>
-#include "posixcompat.h"
 
-int creat (char * file, int mode)
+int creat (const char *file, int mode)
 {
-    USER_PANIC("creat() NYI");
-    return -1;
+    return open(file, O_CREAT | O_WRONLY | O_TRUNC, mode);
 }
