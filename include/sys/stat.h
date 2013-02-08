@@ -67,7 +67,8 @@ struct stat {
 
 __BEGIN_DECLS
 mode_t umask(mode_t mask);
-//int chmod(const char *path, mode_t mode);
+int chmod(const char *path, mode_t mode);
+int mkdir(const char *pathname, int mode);
 int stat(const char *pathname, struct stat *buf);
 int fstat(int fd, struct stat*buf);
 int lstat(const char *path, struct stat *buf);
