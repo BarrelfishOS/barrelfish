@@ -6,7 +6,6 @@
 #define __BF_LIBGEN_H
 
 #include <sys/cdefs.h>
-#include <sys/reent.h>
 
 __BEGIN_DECLS
 
