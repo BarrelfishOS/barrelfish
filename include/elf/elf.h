@@ -42,6 +42,10 @@
 #ifndef ELF_H
 #define ELF_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /* Indexes into the e_ident array.  Keep synced with
    http://www.sco.com/developers/gabi/latest/ch4.eheader.html */
 #define EI_MAG0         0       /* Magic number, byte 0. */
@@ -759,5 +763,7 @@ size_t  elf_virtual_size(lvaddr_t base);
 genvaddr_t elf_virtual_base32(struct Elf32_Ehdr *ehead);
 genvaddr_t elf_virtual_base64(struct Elf64_Ehdr *ehead);
 genvaddr_t elf_virtual_base(lvaddr_t base);
+
+__END_DECLS
 
 #endif // ELF_H

@@ -10,6 +10,7 @@
 #ifndef STAT_BARRELFISH_H_
 #define STAT_BARRELFISH_H_
 
+#include <sys/cdefs.h>
 #include <sys/types.h> // for mode_t and dev_t
 
 struct stat {
@@ -64,10 +65,12 @@ struct stat {
 #define S_ISCHR(mode)    (((mode) & S_IFMT) == S_IFCHR)
 #define S_ISFIFO(mode)   (((mode) & S_IFMT) == S_IFIFO)
 
+__BEGIN_DECLS
 mode_t umask(mode_t mask);
 //int chmod(const char *path, mode_t mode);
 int stat(const char *pathname, struct stat *buf);
 int fstat(int fd, struct stat*buf);
 int lstat(const char *path, struct stat *buf);
+__END_DECLS
 
 #endif //  STAT_BARRELFISH_H_

@@ -10,7 +10,13 @@
 #ifndef POSIXCOMPAT_H
 #define POSIXCOMPAT_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 errval_t spawn_setup_fds(struct capref *frame, int rfd);
 errval_t posixcompat_unpack_fds(void);
+
+__END_DECLS
 
 #endif

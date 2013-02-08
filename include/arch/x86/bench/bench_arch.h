@@ -15,8 +15,12 @@
 #ifndef ARCH_X86_BARRELFISH_BENCH_H
 #define ARCH_X86_BARRELFISH_BENCH_H
 
-#include <bench/bench.h>
+#include <sys/cdefs.h>
+
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
+#include <bench/bench.h>
+
+__BEGIN_DECLS
 
 extern bool rdtscp_flag;
 
@@ -34,5 +38,6 @@ static inline cycles_t bench_tsc(void)
 }
 
 uint64_t bench_tsc_to_ms(cycles_t tsc);
+__END_DECLS
 
 #endif // ARCH_X86_64_BARRELFISH_BENCH_H

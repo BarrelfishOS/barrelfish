@@ -16,10 +16,14 @@
 #define INCLUDEBARRELFISH_CAPABILITIES_H
 
 #include <stdint.h>
+#include <sys/cdefs.h>
+
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish/invocations_arch.h>
+
+__BEGIN_DECLS
 
 errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
                  cslot_t slots, cslot_t *retslots);
@@ -125,5 +129,7 @@ static inline errval_t cap_copy(struct capref dest, struct capref src)
                             scp_vbits);
     return err;
 }
+
+__END_DECLS
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H

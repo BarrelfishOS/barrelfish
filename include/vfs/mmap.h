@@ -10,8 +10,12 @@
 #ifndef VFS_MMAP_H
 #define VFS_MMAP_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/memobj.h>
 #include <vfs/vfs.h>
+
+__BEGIN_DECLS
 
 struct memobj_vfs {
     struct memobj_anon anon; // underlying anon memobj that manages the frames
@@ -40,5 +44,7 @@ errval_t vspace_map_file_aligned(size_t alignment, size_t size,
                                  off_t offset, size_t filesize,
                                  struct vregion **ret_vregion,
                                  struct memobj **ret_memobj);
+
+__END_DECLS
 
 #endif

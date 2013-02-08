@@ -15,8 +15,12 @@
 #ifndef BULK_TRANSFER_H
 #define BULK_TRANSFER_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer_arch.h>
+
+__BEGIN_DECLS
 
 struct bulk_transfer;
 
@@ -123,5 +127,7 @@ static inline void bulk_slave_prepare_recv(struct bulk_transfer_slave *bt,
     assert(mem != NULL);
     bulk_arch_prepare_recv(mem, len);
 }
+
+__END_DECLS
 
 #endif

@@ -15,7 +15,10 @@
 #ifndef BARRELFISH_WAITSET_CHAN_H
 #define BARRELFISH_WAITSET_CHAN_H
 
+#include <sys/cdefs.h>
 #include <barrelfish/waitset.h>
+
+__BEGIN_DECLS
 
 static inline bool waitset_chan_is_registered(struct waitset_chanstate *chan)
 {
@@ -35,5 +38,7 @@ errval_t waitset_chan_register(struct waitset *ws, struct waitset_chanstate *cha
                                struct event_closure closure);
 void waitset_chan_migrate(struct waitset_chanstate *chan,
                           struct waitset *new_ws);
+
+__END_DECLS
 
 #endif // BARRELFISH_WAITSET_CHAN_H

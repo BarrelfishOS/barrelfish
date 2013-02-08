@@ -15,6 +15,10 @@
 #ifndef BARRELFISH_IDC_H
 #define BARRELFISH_IDC_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// Generic control operations on an established IDC binding
 typedef enum idc_control {
     IDC_CONTROL_TEARDOWN,   ///< Initiate connection teardown
@@ -61,5 +65,7 @@ typedef enum idc_bind_flags {
 #endif
 
 void idc_init(void);
+
+__END_DECLS
 
 #endif // BARRELFISH_IDC_H

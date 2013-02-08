@@ -18,7 +18,11 @@
 #ifndef INCLUDEBARRELFISH_CADDR_H
 #define INCLUDEBARRELFISH_CADDR_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish_kpi/types.h>
+
+__BEGIN_DECLS
 
 /**
  * \brief User-level representation of a CNode, its CSpace address and size
@@ -149,5 +153,7 @@ static inline struct cnoderef build_cnoderef(struct capref cap,
     ret.guard_size   = 0; // XXX
     return ret;
 }
+
+__END_DECLS
 
 #endif

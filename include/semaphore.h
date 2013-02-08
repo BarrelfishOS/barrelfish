@@ -11,6 +11,9 @@
 #define SEMAPHORE_H
 
 #include <barrelfish/thread_sync.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 struct posix_semaphore {
     int pshared;
@@ -25,5 +28,7 @@ int sem_destroy(sem_t *sem);
 int sem_wait(sem_t *sem);
 int sem_trywait(sem_t *sem);
 int sem_post(sem_t *sem);
+
+__END_DECLS
 
 #endif

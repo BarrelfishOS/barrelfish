@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_VSPACE_LAYOUT_H
 #define LIBBARRELFISH_VSPACE_LAYOUT_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct vspace_layout;
 struct vspace_layout_funcs {
     errval_t (*alloc)(struct vspace_layout *layout, genvaddr_t *addr);
@@ -65,5 +69,7 @@ static inline lvaddr_t vspace_layout_genvaddr_to_lvaddr(struct vspace_layout *l,
 }
 
 errval_t vspace_layout_init(struct vspace_layout *l);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_VSPACE_LAYOUT_H

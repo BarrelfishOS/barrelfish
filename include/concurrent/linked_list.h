@@ -13,6 +13,10 @@
 #ifndef LINKED_LIST_H_
 #define LINKED_LIST_H_
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct ll_element {
     struct ll_element *next;
     void* key;
@@ -59,5 +63,7 @@ static inline const uintptr_t get_marked_reference(const uintptr_t p)
 {
     return p | 0x1;
 }
+
+__END_DECLS
 
 #endif /* LINKED_LIST_H_ */

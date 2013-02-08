@@ -16,6 +16,10 @@
 #ifndef __FLOUNDER_SUPPORT_CAPS_H
 #define __FLOUNDER_SUPPORT_CAPS_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// State for indirect (via monitor) cap tx/rx machinery
 struct flounder_cap_state {
     bool tx_cap_ack;    ///< Waiting to send a cap ack (for current rx message)
@@ -34,5 +38,7 @@ errval_t flounder_stub_send_cap(struct flounder_cap_state *s,
                                 uintptr_t monitor_id,
                                 struct capref cap, bool give_away,
                                 void (*cont)(void *st));
+
+__END_DECLS
 
 #endif // __FLOUNDER_SUPPORT_CAPS_H

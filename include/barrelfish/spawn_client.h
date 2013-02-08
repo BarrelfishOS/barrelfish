@@ -10,7 +10,10 @@
 #ifndef BARRELFISH_SPAWN_CLIENT_H
 #define BARRELFISH_SPAWN_CLIENT_H
 
+#include <sys/cdefs.h>
 #include <barrelfish_kpi/types.h>
+
+__BEGIN_DECLS
 
 /// Flags for spawning a program
 typedef enum spawn_flags {
@@ -50,5 +53,7 @@ errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
                                     struct capref fdcap);
 errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
                                      struct capref sidcap);
+
+__END_DECLS
 
 #endif // BARRELFISH_SPAWN_CLIENT_H

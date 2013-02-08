@@ -43,6 +43,7 @@
 #define __BF_UNISTD_H
 
 #include <stddef.h>
+#include <sys/cdefs.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <fcntl.h> // for pid_t
@@ -204,6 +205,7 @@
 struct stat;
 extern char **environ;
 
+__BEGIN_DECLS
 #if (__XSI_VISIBLE && __XSI_VISIBLE <= 500) || __BSD_VISIBLE
 int          chroot(const char *path);
 #endif
@@ -253,5 +255,6 @@ int          symlink(const char *oldpath, const char *newpath);
 long         sysconf(int name);
 int          unlink(const char*pathname);
 int          write(int fd, const void *buf, size_t len);
+__END_DECLS
 
 #endif // __BF_UNISTD_H

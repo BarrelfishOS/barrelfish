@@ -15,7 +15,13 @@
 #ifndef BARRELFISH_MORECORE_H
 #define BARRELFISH_MORECORE_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 errval_t morecore_init(void);
 void morecore_use_optimal(void);
+
+__END_DECLS
 
 #endif

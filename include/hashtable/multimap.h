@@ -16,6 +16,9 @@
 #define MULTIMAP_H_
 
 #include <hashtable/hashtable.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 struct multimap {
     struct hashtable h;
@@ -26,5 +29,7 @@ struct multimap {
 };
 
 struct multimap* create_multimap(void);
+
+__END_DECLS
 
 #endif /* MULTIMAP_H_ */

@@ -16,6 +16,9 @@
 #define LIBBARRELFISH_THREADS_H
 
 #include <barrelfish/thread_sync.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 typedef int (*thread_func_t)(void *);
 
@@ -58,5 +61,7 @@ void thread_sem_post(struct thread_sem *sem);
 
 void thread_set_tls(void *);
 void *thread_get_tls(void);
+
+__END_DECLS
 
 #endif

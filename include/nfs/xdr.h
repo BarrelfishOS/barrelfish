@@ -49,6 +49,8 @@
 #include <sys/types.h>
 #include <sys/cdefs.h>
 
+__BEGIN_DECLS
+
 /* nasty typedefs needed by RPC/XDR code */
 typedef int enum_t;
 typedef bool bool_t;
@@ -260,5 +262,7 @@ extern bool xdr_pointer(XDR *, char **, u_int, xdrproc_t);
 extern bool xdr_wrapstring(XDR *, char **);
 //extern void xdr_free(xdrproc_t, void *);
 //extern unsigned long xdr_sizeof(xdrproc_t func, void *data);
+
+__END_DECLS
 
 #endif /* !_RPC_XDR_H */

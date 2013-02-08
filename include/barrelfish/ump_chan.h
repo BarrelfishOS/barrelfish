@@ -15,8 +15,12 @@
 #ifndef BARRELFISH_UMP_CHAN_H
 #define BARRELFISH_UMP_CHAN_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/ump_endpoint.h>
 #include <barrelfish/monitor_client.h>
+
+__BEGIN_DECLS
 
 struct ump_chan;
 struct monitor_binding;
@@ -135,5 +139,7 @@ static inline void ump_chan_migrate_recv(struct ump_chan *lc,
 {
     ump_endpoint_migrate(&lc->endpoint, ws);
 }
+
+__END_DECLS
 
 #endif // BARRELFISH_UMP_CHAN_H

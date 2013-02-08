@@ -15,6 +15,7 @@
 #ifndef SPAWNDOMAIN_H
 #define SPAWNDOMAIN_H
 
+#include <sys/cdefs.h>
 
 //XXX: added alignment to workaround an arm-gcc bug
 //which generated (potentially) unaligned access code to those fields
@@ -54,6 +55,7 @@ struct spawninfo {
     size_t tls_init_len, tls_total_len;
 };
 
+__BEGIN_DECLS
 errval_t spawn_get_cmdline_args(struct mem_region *module,
                                 char **retargs);
 int spawn_tokenize_cmdargs(char *args, char *argv[], size_t argv_len);
@@ -113,5 +115,6 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
 /* errval_t spawn_memory(struct spawninfo *si, const char *name, uint8_t core_id, */
 /*                       int argc, char *argv[], lvaddr_t binary, */
 /*                       size_t binary_size); */
+__END_DECLS
 
 #endif //SPAWNDOMAIN_H

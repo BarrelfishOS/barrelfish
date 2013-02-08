@@ -15,8 +15,12 @@
 #ifndef BARRELFISH_MM_H
 #define BARRELFISH_MM_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/slab.h>
 #include <mm/slot_alloc.h>
+
+__BEGIN_DECLS
 
 enum nodetype {
     NodeType_Dummy,     ///< The whole region doesn't exist, but it has children
@@ -85,5 +89,7 @@ struct mem_cap {
 size_t mm_relinquish_all(struct mm *mm, struct mem_cap *ret, size_t retlen);
 size_t mm_relinquish_range(struct mm *mm, genpaddr_t base, genpaddr_t limit,
                            struct mem_cap *ret, size_t retlen);
+
+__END_DECLS
 
 #endif /* BARRELFISH_MM_H */

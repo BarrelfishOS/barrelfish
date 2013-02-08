@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_VREGION_H
 #define LIBBARRELFISH_VREGION_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define VREGION_FLAGS_READ     0x01 // Reading allowed
 #define VREGION_FLAGS_WRITE    0x02 // Writing allowed
 #define VREGION_FLAGS_EXECUTE  0x04 // Execute allowed
@@ -113,5 +117,7 @@ errval_t vregion_map_fixed(struct vregion* point, struct vspace* vspace, struct 
 errval_t vregion_destroy(struct vregion* region);
 errval_t vregion_pagefault_handler(struct vregion* region, genvaddr_t addr,
                                    vm_fault_type_t type);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_VREGION_H

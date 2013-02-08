@@ -37,7 +37,7 @@
 //#define	_SIZE_T_DECLARED
 //#endif
 
-//__BEGIN_DECLS
+__BEGIN_DECLS
 //int	 bcmp(const void *, const void *, size_t) __pure;	/* LEGACY */
 //void	 bcopy(const void *, void *, size_t);			/* LEGACY */
 //void	 bzero(void *, size_t);					/* LEGACY */
@@ -53,6 +53,6 @@
 //char	*rindex(const char *, int) __pure;			/* LEGACY */
 int	 strcasecmp(const char *, const char *) __pure;
 int	 strncasecmp(const char *, const char *, size_t) __pure;
-//__END_DECLS
+__END_DECLS
 
 #endif /* _STRINGS_H_ */

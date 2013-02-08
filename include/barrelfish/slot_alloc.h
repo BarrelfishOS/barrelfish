@@ -15,9 +15,13 @@
 #ifndef SLOT_ALLOC_H
 #define SLOT_ALLOC_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/threads.h>
 #include <barrelfish/slab.h>
 #include <barrelfish/vspace_common.h>
+
+__BEGIN_DECLS
 
 struct slot_allocator {
     errval_t (*alloc)(struct slot_allocator *ca, struct capref *cap);
@@ -93,5 +97,7 @@ errval_t range_slot_free(struct range_slot_allocator *alloc, struct capref cap,
                          cslot_t nslots);
 errval_t range_slot_alloc_init(struct range_slot_allocator *ret,
                                cslot_t nslots, cslot_t *retslots);
+
+__END_DECLS
 
 #endif // SLOT_ALLOC_H

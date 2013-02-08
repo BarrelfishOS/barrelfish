@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_MEMOBJ_H
 #define LIBBARRELFISH_MEMOBJ_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 // FIXME: these enum names need to be scoped (e.g. MEMOBJ_X rather than X) -AB
 enum memobj_type {
     ANONYMOUS,
@@ -119,5 +123,7 @@ errval_t memobj_create_one_frame_lazy(struct memobj_one_frame_lazy *memobj,
                                       struct capref frame, size_t chunk_size);
 errval_t memobj_create_one_frame_one_map(struct memobj_one_frame_one_map *memobj,
                                          size_t size, memobj_flags_t flags);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_MEMOBJ_H

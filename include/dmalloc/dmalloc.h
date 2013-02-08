@@ -1,6 +1,10 @@
 #ifndef __DMALLOC_H__
 #define __DMALLOC_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
   malloc(size_t n)
   Returns a pointer to a newly allocated chunk of at least n bytes, or
@@ -57,5 +61,9 @@ void* dlcalloc(size_t, size_t);
 */
 
 void* dlrealloc(void*, size_t);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif

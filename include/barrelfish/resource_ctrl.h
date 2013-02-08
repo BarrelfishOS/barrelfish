@@ -15,8 +15,14 @@
 #ifndef LIBBARRELFISH_RESOURCE_CTRL_H
 #define LIBBARRELFISH_RESOURCE_CTRL_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 errval_t rsrc_manifest(const char *manifest, rsrcid_t *id);
 errval_t rsrc_join(rsrcid_t id);
 errval_t rsrc_phase(rsrcid_t id, uint32_t phase);
+
+__END_DECLS
 
 #endif

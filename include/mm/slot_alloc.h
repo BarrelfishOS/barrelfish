@@ -15,6 +15,10 @@
 #ifndef MM_SLOT_ALLOC_H
 #define MM_SLOT_ALLOC_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// Generic interface to slot allocator function
 typedef errval_t (*slot_alloc_t)(void *inst, uint64_t nslots, struct capref *ret);
 
@@ -69,5 +73,7 @@ struct slot_alloc_basecn {
 
 /// Initialiser for the single-cnode implementation
 errval_t slot_alloc_basecn_init(struct slot_alloc_basecn *slot_alloc);
+
+__END_DECLS
 
 #endif // MM_SLOT_ALLOC_H

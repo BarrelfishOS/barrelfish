@@ -15,7 +15,11 @@
 #ifndef _COLLECTIONS_STACK_H_
 #define _COLLECTIONS_STACK_H_
 
+#include <sys/cdefs.h>
+
 #include <collections/list.h>
+
+__BEGIN_DECLS
 
 struct collections_stack {
     /**
@@ -38,5 +42,7 @@ void  collections_stack_push(struct collections_stack *stack, void *element);
 void *collections_stack_top(struct collections_stack *stack);
 
 void  collections_stack_release(struct collections_stack *stack);
+
+__END_DECLS
 
 #endif // _COLLECTIONS_STACK_H_
