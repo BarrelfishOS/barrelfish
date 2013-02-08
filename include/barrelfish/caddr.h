@@ -18,6 +18,7 @@
 #ifndef INCLUDEBARRELFISH_CADDR_H
 #define INCLUDEBARRELFISH_CADDR_H
 
+#include <stdbool.h>
 #include <sys/cdefs.h>
 
 #include <barrelfish_kpi/types.h>

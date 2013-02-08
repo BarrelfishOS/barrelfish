@@ -15,6 +15,7 @@
 #ifndef ARCH_X86_BARRELFISH_BENCH_H
 #define ARCH_X86_BARRELFISH_BENCH_H
 
+#include <stdbool.h>
 #include <sys/cdefs.h>
 
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>

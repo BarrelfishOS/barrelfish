@@ -17,6 +17,7 @@
 #define TARGET_X86_64_BARRELFISH_KPI_REGISTERS_H
 
 #include <barrelfish_kpi/eflags_arch.h> // for USER_EFLAGS
+#include <barrelfish_kpi/types.h>       // for lvaddr_t
 
 /** \brief Number of registers to be saved for this architecture
  *

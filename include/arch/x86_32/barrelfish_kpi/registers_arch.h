@@ -16,6 +16,7 @@
 #ifndef ARCH_X86_32_BARRELFISH_KPI_REGISTERS_H
 #define ARCH_X86_32_BARRELFISH_KPI_REGISTERS_H
 
+#include <barrelfish_kpi/types.h> // for lvaddr_t
 #include <target/x86_32/barrelfish_kpi/registers_target.h>
 
 ///< Opaque handle for the register state

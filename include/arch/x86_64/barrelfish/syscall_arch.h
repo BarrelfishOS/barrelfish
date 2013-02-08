@@ -15,6 +15,7 @@
 #ifndef ARCH_X86_64_BARRELFISH_SYSCALL_H
 #define ARCH_X86_64_BARRELFISH_SYSCALL_H
 
+#include <barrelfish_kpi/syscalls.h>  // for struct sysret.
 
 /*
  * Introduction to the syscall macros, or "what the hell is going on here"?

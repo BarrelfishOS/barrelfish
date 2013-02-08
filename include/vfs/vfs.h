@@ -10,6 +10,7 @@
 #ifndef VFS_H
 #define VFS_H
 
+#include <errors/errno.h> // for errval_t
 #include <stddef.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>

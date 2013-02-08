@@ -18,6 +18,7 @@
 #ifndef __ASSEMBLER__
 #include<stddef.h> // for offsetof
 #include <barrelfish/curdispatcher_arch.h> // XXX For curdispatcher()
+#include <barrelfish_kpi/types.h> // for lvaddr_t
 #endif
 
 //
