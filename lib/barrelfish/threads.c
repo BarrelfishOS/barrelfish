@@ -274,7 +274,7 @@ static void fpu_context_switch(struct dispatcher_generic *disp_gen,
 }
 
 /**
- * \brief Check whether the stack pointer is out of bounds.
+ * \brief Returns false if the stack pointer is out of bounds.
  */
 static bool thread_check_stack_bounds(struct thread *thread,
                                       arch_registers_state_t *archregs) {
@@ -1377,12 +1377,15 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
                       100);
         }
 
-        if (thread_check_stack_bounds(thread, regs)) {
+        // warn on stack overflow.
+        lvaddr_t sp = (lvaddr_t) registers_get_sp(regs);
+        if (sp < (lvaddr_t)thread->stack ||
+            sp > (lvaddr_t)thread->stack_top) {
             char str[256];
             snprintf(str, sizeof(str), "Error: stack bounds exceeded: sp = 0x%"
                      PRIxPTR " but [bottom, top] = [0x%" PRIxPTR ", 0x%"
-                     PRIxPTR "]\n", (lvaddr_t) registers_get_sp(regs),
-                     (lvaddr_t) thread->stack, (lvaddr_t) thread->stack_top);
+                     PRIxPTR "]\n", (lvaddr_t) sp, (lvaddr_t) thread->stack,
+                     (lvaddr_t) thread->stack_top);
             sys_print(str, sizeof(str));
         }
 
