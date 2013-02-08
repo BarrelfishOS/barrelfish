@@ -124,6 +124,12 @@ registers_get_ip(arch_registers_state_t *regs)
     return regs->named.pc;
 }
 
+static inline uint32_t
+registers_get_sp(arch_registers_state_t *regs)
+{
+    return regs->named.stack;
+}
+
 #endif // __ASSEMBLER__
 
 #endif // ARCH_ARM_BARRELFISH_KPI_REGISTERS_H

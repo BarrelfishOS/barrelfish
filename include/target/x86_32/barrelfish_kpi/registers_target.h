@@ -66,5 +66,11 @@ registers_x86_32_get_ip(struct registers_x86_32 *regs)
     return regs->eip;
 }
 
+static inline uint32_t
+registers_x86_32_get_sp(struct registers_x86_32 *regs)
+{
+    return regs->esp;
+}
+
 #endif // __ASSEMBLER__
 #endif // TARGET_X86_32_BARRELFISH_KPI_REGISTERS_H

@@ -49,4 +49,10 @@ registers_get_ip(arch_registers_state_t *regs)
     return registers_x86_64_get_ip(regs);
 }
 
+static inline uint64_t
+registers_get_sp(arch_registers_state_t *regs)
+{
+    return registers_x86_64_get_sp(regs);
+}
+
 #endif // ARCH_X86_64_BARRELFISH_KPI_REGISTERS_H
