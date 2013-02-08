@@ -29,7 +29,7 @@ struct event_closure {
     void *arg;
 };
 
-#define MKCLOSURE(h,a)  (struct event_closure){ .handler = (h), .arg = (a) }
+#define MKCLOSURE(h,a)  (struct event_closure){ /*handler*/ (h), /*arg*/ (a) }
 #define NOP_CLOSURE     MKCLOSURE(NULL, NULL)
 
 /**

@@ -30,7 +30,7 @@ __BEGIN_DECLS
 #define NFS_READDIR_COOKIE 0        ///< initial cookie for readdir
 #define NFS_READDIR_COOKIEVERF NULL ///< initial cookie verifier for readder
 
-#define NULL_NFS_FH ((struct nfs_fh3) { .data_len = 0, .data_val = NULL })
+#define NULL_NFS_FH ((struct nfs_fh3) { /*data_len*/ 0, /*data_val*/ NULL })
 
 struct nfs_client;
 
