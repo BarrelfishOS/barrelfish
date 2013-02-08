@@ -805,19 +805,19 @@ handle_vmexit_unhandeled (struct guest *g)
 static inline uint64_t
 lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
 {
-    union x86_lm_va va = { raw: vaddr };
+    union x86_lm_va va = { .raw = vaddr };
     uint64_t *page_table;
 
     // get a pointer to the pml4 table
     page_table = (uint64_t *)guest_to_host(amd_vmcb_cr3_rd(&g->vmcb));
     // get pml4 entry
-    union x86_lm_pml4_entry pml4e = { raw: page_table[va.u.pml4_idx] };
+    union x86_lm_pml4_entry pml4e = { .raw = page_table[va.u.pml4_idx] };
     assert (pml4e.u.p == 1);
 
     // get a pointer to the pdp table
     page_table = (uint64_t *)guest_to_host(pml4e.u.pdp_base_pa << 12);
     // get pdp entry
-    union x86_lm_pdp_entry pdpe = { raw: page_table[va.u.pdp_idx] };
+    union x86_lm_pdp_entry pdpe = { .raw = page_table[va.u.pdp_idx] };
     assert(pdpe.u.p == 1);
     // check for 1GB page (PS bit set)
     if (pdpe.u.ps == 1) {
@@ -827,7 +827,7 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
     // get a pointer to the pd table
     page_table = (uint64_t *)guest_to_host(pdpe.u.pd_base_pa << 12);
     // get pd entry
-    union x86_lm_pd_entry pde = { raw: page_table[va.u.pd_idx] };
+    union x86_lm_pd_entry pde = { .raw = page_table[va.u.pd_idx] };
     if (pde.u.p == 0) {
         printf("g2h %lx, pml4e %p %lx, pdpe %p %lx, pde %p %lx\n", guest_to_host(0), &pml4e, pml4e.raw, &pdpe, pdpe.raw, &pde, pde.raw);
     }
@@ -840,7 +840,7 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
     // get a pointer to the page table
     page_table = (uint64_t *)guest_to_host(pde.u.pt_base_pa << 12);
     // get the page table entry
-    union x86_lm_pt_entry pte = { raw: page_table[va.u.pt_idx] };
+    union x86_lm_pt_entry pte = { .raw = page_table[va.u.pt_idx] };
     assert(pte.u.p == 1);
 
     return (pte.u.base_pa << 12) | va.u.pa_offset;
@@ -852,13 +852,13 @@ lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
     // PAE not supported
     guest_assert(g, amd_vmcb_cr4_rd(&g->vmcb).pae == 0);
 
-    union x86_legm_va va = { raw: vaddr };
+    union x86_legm_va va = { .raw = vaddr };
     uint32_t *page_table;
 
     // get a pointer to the pd table
     page_table = (uint32_t *)guest_to_host(amd_vmcb_cr3_rd(&g->vmcb));
     // get pd entry
-    union x86_legm_pd_entry pde = { raw: page_table[va.u.pd_idx] };
+    union x86_legm_pd_entry pde = { .raw = page_table[va.u.pd_idx] };
     assert (pde.u.p == 1);
     // check for 4MB page (PS bit set)
     if (pde.u.ps == 1) {
@@ -868,7 +868,7 @@ lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
     // get a pointer to the page table
     page_table = (uint32_t *)guest_to_host(pde.u.pt_base_pa << 12);
     // get the page table entry
-    union x86_legm_pt_entry pte = { raw: page_table[va.u.pt_idx] };
+    union x86_legm_pt_entry pte = { .raw = page_table[va.u.pt_idx] };
     assert(pte.u.p == 1);
 
     return (pte.u.base_pa << 12) | va.u.pa_offset;
@@ -1067,7 +1067,7 @@ handle_vmexit_ldt (struct guest *g)
     bool addr32 = code[-2] == 0x67 || code[-1] == 0x67;
     bool op32 = code[-2] == 0x66 || code[-1] == 0x66;
     // fetch modrm
-    union x86_modrm modrm = { raw: code[2] };
+    union x86_modrm modrm = { .raw = code[2] };
 
     assert(modrm.u.regop == 2 || modrm.u.regop == 3);
     guest_assert(g, op32);
@@ -1884,7 +1884,7 @@ decode_mov_instr_length (struct guest *g, uint8_t *code)
     // variants are supported
     assert(code[0] == 0x89 || code[0] == 0x8b);
 
-    union x86_modrm modrm = { raw: code[1] };
+    union x86_modrm modrm = { .raw = code[1] };
     // check for displacements
     if (modrm.u.mod == 0x1) {
         // 1B displacement
@@ -1915,7 +1915,7 @@ decode_mov_is_write (struct guest *g, uint8_t *code)
     // we only support one move variant (in each direction) for now
     assert(code[0] == 0x89 || code[0] == 0x8b);
 
-    union x86_modrm modrm = { raw: code[1] };
+    union x86_modrm modrm = { .raw = code[1] };
     // not defined for reg to reg moves
     assert(modrm.u.mod != 3);
 
@@ -1949,7 +1949,7 @@ decode_mov_src_val (struct guest *g, uint8_t *code) {
     // we only support one variant for now
     assert(code[0] == 0x89);
 
-    union x86_modrm modrm = { raw: code[1] };
+    union x86_modrm modrm = { .raw = code[1] };
     return get_reg_val_by_reg_num(g, modrm.u.regop);
 }
 
@@ -1968,7 +1968,7 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
     // we only support one variant for now
     assert(code[0] == 0x8b);
 
-    union x86_modrm modrm = { raw: code[1] };
+    union x86_modrm modrm = { .raw = code[1] };
     set_reg_val_by_reg_num(g, modrm.u.regop, val);
 }
 
