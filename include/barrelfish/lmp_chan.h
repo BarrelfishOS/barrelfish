@@ -168,10 +168,10 @@ static inline lmp_send_flags_t idc_control_to_lmp_flags(idc_control_t control,
 {
     switch (control) {
     case IDC_CONTROL_SET_SYNC:
-        return flags | LMP_FLAG_SYNC;
+        return (lmp_send_flags_t) ((unsigned)flags | (unsigned)LMP_FLAG_SYNC);
 
     case IDC_CONTROL_CLEAR_SYNC:
-        return flags & ~LMP_FLAG_SYNC;
+        return (lmp_send_flags_t) ((unsigned)flags & ~(unsigned)LMP_FLAG_SYNC);
 
     default: // no-op for other control ops
         return flags;
