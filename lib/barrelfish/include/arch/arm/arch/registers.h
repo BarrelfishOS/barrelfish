@@ -45,12 +45,4 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
     regs->named.pc = entry;
 }
 
-static inline bool
-registers_is_stack_invalid(struct dispatcher_generic *disp_gen,
-                             arch_registers_state_t *archregs)
-{
-  return archregs->named.stack > (lvaddr_t)disp_gen->current->stack ||
-    archregs->named.stack <= (lvaddr_t)disp_gen->current->stack_top;
-}
-
 #endif // ARCH_ARM_BARRELFISH_REGISTERS_H
