@@ -288,7 +288,7 @@ update_lfn(const uint8_t *entry_data, fat_direntry_t *entry,
     if (seq_nr & 0x40) {
         // first entry, reset lfn_data
         FAT_DEBUG("first entry, resetting lfn_data");
-        memset(lfn_data, 0, sizeof(lfn_data));
+        memset(lfn_data, 0, LFN_CHAR_COUNT*sizeof(*lfn_data));
     }
     /*
     if (seq_nr & 0x80) {

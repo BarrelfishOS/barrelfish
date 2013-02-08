@@ -149,7 +149,7 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     struct ps_entry *pe = malloc(sizeof(struct ps_entry));
     assert(pe != NULL);
     memset(pe, 0, sizeof(struct ps_entry));
-    memcpy(pe->argv, argv, sizeof(argv));
+    memcpy(pe->argv, argv, MAX_CMDLINE_ARGS*sizeof(*argv));
     pe->argbuf = argbuf;
     pe->argbytes = argbytes;
     /*

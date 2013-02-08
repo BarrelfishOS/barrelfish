@@ -13,7 +13,7 @@
 
 #include "posixcompat.h"
 
-static char *dummy_hostname = "barrelfish.local";
+static char dummy_hostname[] = "barrelfish.local";
 
 /**
  * \brief Get name of current host.
