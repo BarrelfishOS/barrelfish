@@ -635,7 +635,7 @@ void publish_handler(struct octopus_binding *b, char* record)
     if (err_is_fail(err)) {
         drs->error = err;
         drs->reply(b, drs);
-        goto out;
+        goto out1;
     }
 
     struct ast_object* ast = NULL;
@@ -643,7 +643,7 @@ void publish_handler(struct octopus_binding *b, char* record)
     if (err_is_fail(err)) {
         drs->error = err;
         drs->reply(b, drs);
-        goto out;
+        goto out2;
     }
 
 
@@ -689,9 +689,10 @@ void publish_handler(struct octopus_binding *b, char* record)
         }
     }
 
-out:
-    free(record);
+out2:
     free_ast(ast);
+out1:
+    free(record);
 }
 
 void get_identifier(struct octopus_binding* b)

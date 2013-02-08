@@ -61,7 +61,7 @@ strrchr(const char *s, int c)
     if(strlen(s) == 0)
         return NULL;
 
-    for(i = strlen(s) - 1; i >= 0; i--) {
+    for(i = strlen(s) - 1; i != 0; i--) {
         if(s[i] == c)
             return (char *)&s[i];
     }

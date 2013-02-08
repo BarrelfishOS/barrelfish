@@ -42,12 +42,11 @@ static size_t copy_file_fd(void *dest, genpaddr_t offset, struct fd_store *fds)
 
 static void debug_uipaddr_print(u32_t addr) 
 {
-
     debug_printf("%"U16_F".%"U16_F".%"U16_F".%"U16_F"\n", 
-                 (u16_t)(ntohl(addr) >> 24) & 0xff,
-                 (u16_t)(ntohl(addr) >> 16) & 0xff,  
-                 (u16_t)(ntohl(addr) >> 8) & 0xff,   
-                 (u16_t)ntohl(addr) & 0xff);
+                 (u16_t)((ntohl(addr) >> 24) & 0xff),
+                 (u16_t)((ntohl(addr) >> 16) & 0xff),
+                 (u16_t)((ntohl(addr) >> 8) & 0xff),
+                 (u16_t)(ntohl(addr) & 0xff));
 }
 
 static void debug_ipaddr_print(struct ip_addr *ipaddr) {
