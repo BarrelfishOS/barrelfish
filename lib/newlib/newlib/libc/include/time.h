@@ -253,11 +253,6 @@ int _EXFUN(clock_getenable_attr, (clockid_t clock_id, int *attr));
 
 #endif /* _POSIX_CPUTIME or _POSIX_THREAD_CPUTIME */
 
-/* This is a non-standard GNU extension implemented in libposixcompat. */
-# if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
-time_t _EXFUN(timegm, (struct tm *));
-# endif
-
 #ifdef __cplusplus
 }
 #endif
