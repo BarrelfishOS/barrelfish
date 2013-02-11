@@ -470,7 +470,7 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 	# Translate each of the binary files we need
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_panda
 	# Generate appropriate linker script
-	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)tools/arm_molly/molly_ld_script.in \
+	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_panda/molly_ld_script
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
