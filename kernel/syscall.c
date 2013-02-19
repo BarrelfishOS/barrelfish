@@ -18,10 +18,12 @@
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
+#include <cap_predicates.h>
 #include <mdb/mdb.h>
 #include <dispatch.h>
 #include <wakeup.h>
 #include <paging_kernel_helper.h>
+#include <paging_kernel_arch.h>
 #include <exec.h>
 #include <irq.h>
 #include <trace/trace.h>
@@ -323,12 +325,39 @@ sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_sl
     if (dest_cnode_cap->cap.type == ObjType_CNode) {
         return SYSRET(caps_copy_to_cnode(dest_cnode_cap, dest_slot, src_cap,
                                          mint, param1, param2));
-    } else if (type_is_vnode(dest_cnode_cap->cap.type)) {
-        return SYSRET(caps_copy_to_vnode(dest_cnode_cap, dest_slot, src_cap,
-                                         param1, param2));
     } else {
         return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
     }
+}
+
+static inline struct cte *cte_for_cap(struct capability *cap)
+{
+    return (struct cte *) (cap - offsetof(struct cte, cap));
+}
+
+struct sysret
+sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+        int source_vbits, uintptr_t flags, uintptr_t offset,
+        uintptr_t pte_count)
+{
+    assert (type_is_vnode(ptable->type));
+
+    errval_t err;
+
+    /* Lookup source cap */
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+
+    /* Perform map */
+    // XXX: this does not check if we do have CAPRIGHTS_READ_WRITE on
+    // the destination cap (the page table we're inserting into)
+    return SYSRET(caps_copy_to_vnode(cte_for_cap(ptable), slot, src_cte, flags,
+                                     offset, pte_count));
 }
 
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,

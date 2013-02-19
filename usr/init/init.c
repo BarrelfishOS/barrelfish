@@ -153,6 +153,13 @@ static errval_t bootstrap(int argc, char *argv[])
         return err_push(err, INIT_ERR_SPAWN_MONITOR);
     }
 
+    /* unmap bootinfo mem */
+    err = multiboot_cleanup_mapping();
+    if (err_is_fail(err)) {
+        //return err_push(err, INIT_ERR_UNMAP_BOOTINFO);
+        return err;
+    }
+
     /* Initialize monitor */
     err = initialize_monitor(&monitor_si);
     if (err_is_fail(err)) {

@@ -574,6 +574,17 @@ static void cap_set_remote(struct monitor_blocking_binding *b,
     }
 }
 
+static void dump_hw_ptables(struct monitor_blocking_binding *b,
+                            struct capref cap)
+{
+    printf("dump_hw_ptables in monitor rpc server\n");
+    errval_t err = invoke_kernel_dump_ptables(cap_kernel, cap);
+    if (err_is_fail(err)) {
+        printf("error: %s (%ld)\n", err_getstring(err), err);
+    }
+    b->tx_vtbl.dump_hw_ptables_response(b, NOP_CONT);
+}
+
 /* ----------------------- BOOTINFO REQUEST CODE START ---------------------- */
 
 static void get_phyaddr_cap(struct monitor_blocking_binding *b)
@@ -681,6 +692,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,
+
+    .dump_hw_ptables_call    = dump_hw_ptables,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

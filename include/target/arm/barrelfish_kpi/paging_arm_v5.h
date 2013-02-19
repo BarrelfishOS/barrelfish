@@ -27,9 +27,22 @@
 #define LARGE_PAGE_MASK         (LARGE_PAGE_SIZE - 1)
 #define LARGE_PAGE_OFFSET(a)    ((a) & LARGE_PAGE_MASK)
 
-#define ARM_L1_OFFSET(addr)       (((uintptr_t)addr) >> 20)
-#define ARM_L2_OFFSET(addr)       ((((uintptr_t)addr) >> 12) & 0xff)
-#define ARM_PAGE_OFFSET(addr)     ((uintptr_t)addr & 0xfff)
+#define ARM_L1_OFFSET(addr)       ((((uintptr_t)addr) >> 20) & 0xfff) // 12 bits
+#define ARM_L2_OFFSET(addr)       ((((uintptr_t)addr) >> 12) & 0xff)  // 8 bits
+#define ARM_PAGE_OFFSET(addr)     ((uintptr_t)addr & 0xfff)           // 12 bits
+
+// L1 Alignment determined by TTBR register (bits 13:0 ignored by hardware)
+#define ARM_L1_ALIGN                    16384u
+
+#define ARM_L1_MAX_ENTRIES              4096u
+#define ARM_L1_BYTES_PER_ENTRY          4u
+#define ARM_L1_SECTION_BYTES            (1024u * 1024u)
+#define ARM_L1_TABLE_BYTES              (ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY)
+
+#define ARM_L2_ALIGN                    1024u
+#define ARM_L2_MAX_ENTRIES              256u
+#define ARM_L2_BYTES_PER_ENTRY          4u
+#define ARM_L2_TABLE_BYTES              ARM_L2_ALIGN
 
 /* Page type independent page options */
 #define KPI_PAGING_FLAGS_READ    0x01

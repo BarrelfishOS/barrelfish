@@ -232,6 +232,7 @@ invoke_cnode_revoke(struct capref root, capaddr_t cap,
     return syscall4((invoke_bits << 16) | (CNodeCmd_Revoke << 8) | SYSCALL_INVOKE,
                     invoke_cptr, cap, bits).error;
 }
+
 //XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
 #if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
 	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
@@ -239,13 +240,45 @@ static __attribute__((noinline, unused)) errval_t
 #else
 static inline errval_t
 #endif
-invoke_vnode_unmap(struct capref cap, size_t entry)
+invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
+                 int frombits, uintptr_t flags, uintptr_t offset,
+                 uintptr_t pte_count)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(ptable);
+    capaddr_t invoke_cptr = get_cap_addr(ptable) >> (CPTR_BITS - invoke_bits);
+
+    assert(slot <= 0xffff);
+    assert(frombits <= 0xff);
+
+    // XXX: needs check of flags, offset, and pte_count sizes
+    return syscall7((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, from, (slot << 16) | frombits,
+                    flags, offset, pte_count).error;
+}
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits,
+                   size_t entry, size_t pte_count)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
 
-    return syscall3((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, entry).error;
+    pte_count -= 1;
+
+    assert(entry < 1024);
+    assert(pte_count < 1024);
+    assert(mapping_bits <= 0xff);
+
+    return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, mapping_cptr,
+		    ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) |
+                     (entry & 0x3ff)).error;
 }
 
 /**
@@ -286,6 +319,35 @@ invoke_frame_identify (struct capref frame, struct frame_identity *ret)
     ret->base = 0;
     ret->bits = 0;
     return sysret.error;
+}
+
+/**
+ * \brief Return the physical address and size of a frame capability
+ *
+ * \param frame    CSpace address of frame capability
+ * \param ret      frame_identity struct filled in with relevant data
+ *
+ * \return Error code
+ */
+
+//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
+#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
+	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
+static __attribute__((noinline, unused)) errval_t
+#else
+static inline errval_t
+#endif
+invoke_frame_modify_flags (struct capref frame, uintptr_t offset,
+		uintptr_t pages, uintptr_t flags)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(frame);
+    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
+
+    uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
+    arg1 |= ((uintptr_t)FrameCmd_ModifyFlags<<8);
+    arg1 |= (uintptr_t)SYSCALL_INVOKE;
+
+    return syscall5(arg1, invoke_cptr, offset, pages, flags).error;
 }
 
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
@@ -392,6 +454,21 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
 
     return sysret.error;
 }
+
+static inline errval_t invoke_kernel_dump_ptables(struct capref kern_cap,
+                                                  struct capref dispcap)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kern_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kern_cap) >> (CPTR_BITS - invoke_bits);
+
+    capaddr_t dispcaddr = get_cap_addr(dispcap);
+
+    struct sysret sysret =
+        syscall3((invoke_bits << 16) | (KernelCmd_DumpPTables << 8) | SYSCALL_INVOKE,
+             invoke_cptr, dispcaddr);
+    return sysret.error;
+}
+
 
 static inline errval_t
 invoke_dispatcher_properties(

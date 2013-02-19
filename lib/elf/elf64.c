@@ -335,7 +335,7 @@ errval_t elf64_load(uint16_t em_machine, elf_allocator_fn allocate_func,
         struct Elf64_Phdr *p = &phead[i];
 
         if (p->p_type == PT_LOAD) {
-            //printf("Loading segment: start=0x%lx, size=%lu, flags=%d\n",
+            //printf("Loading segment: start=0x%"PRIx64", size=%"PRIu64", flags=%d\n",
             //p->p_vaddr, p->p_memsz, p->p_flags);
 
             // Map segment in user-space memory

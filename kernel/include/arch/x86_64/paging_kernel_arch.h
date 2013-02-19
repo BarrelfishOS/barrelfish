@@ -61,4 +61,36 @@ static lvaddr_t inline paging_map_device(lpaddr_t base, size_t size)
     return paging_x86_64_map_device(base, size);
 }
 
+static inline bool is_root_pt(enum objtype type) {
+    return type == ObjType_VNode_x86_64_pml4;
+}
+
+static inline size_t get_pte_size(void) {
+    return sizeof(union x86_64_ptable_entry);
+}
+
+static inline void do_one_tlb_flush(genvaddr_t vaddr)
+{
+    __asm__ __volatile__("invlpg %0" : : "m" (*(char *)vaddr));
+}
+
+static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
+{
+    for (genvaddr_t addr = vaddr; addr < vend; addr += X86_64_BASE_PAGE_SIZE) {
+        __asm__ __volatile__("invlpg %0" : : "m" (*(char *)addr));
+    }
+}
+
+static inline void do_full_tlb_flush(void) {
+    // XXX: FIXME: Going to reload cr3 to flush the entire TLB.
+    // This is inefficient.
+    // The current implementation is also not multicore safe.
+    // We should only invalidate the affected entry using invlpg
+    // and figure out which remote tlbs to flush.
+    uint64_t cr3;
+    __asm__ __volatile__("mov %%cr3,%0" : "=a" (cr3) : );
+    __asm__ __volatile__("mov %0,%%cr3" :  : "a" (cr3));
+}
+
+
 #endif // KERNEL_ARCH_X86_64_PAGING_H

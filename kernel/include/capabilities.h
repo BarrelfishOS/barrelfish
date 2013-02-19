@@ -18,8 +18,9 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <mdb/mdb.h>
 #include <offsets.h>
+#include <paging_generic.h>
 
-STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)) <= (1UL << OBJBITS_CTE), "cap+mdbnode fit in cte");
+STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode) + sizeof(struct mapping_info)) <= (1UL << OBJBITS_CTE), "cap+mdbnode fit in cte");
 
 /**
  * \brief A CTE (Capability Table Entry).
@@ -31,10 +32,12 @@ STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)) <= (1UL << OB
 struct cte {
     struct capability   cap;            ///< The capability
     struct mdbnode      mdbnode;        ///< MDB "root" node for the cap
+    struct mapping_info mapping_info;   ///< Mapping info for mapped pmem capabilities
 
     /// Padding to fill the struct out to the size required by OBJBITS_CTE
     char padding[(1UL << OBJBITS_CTE)
-                 - sizeof(struct capability) - sizeof(struct mdbnode)];
+                 - sizeof(struct capability) - sizeof(struct mdbnode)
+                 - sizeof(struct mapping_info)];
 };
 
 static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
@@ -54,9 +57,16 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2);
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
-                            struct cte *src_cte, uintptr_t param1,
-                            uintptr_t param2);
-errval_t page_mappings_unmap(struct capability *pgtable, size_t entry);
+                            struct cte *src_cte, uintptr_t flags,
+                            uintptr_t offset, uintptr_t pte_count);
+size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages);
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
+                             size_t entry, size_t num_pages);
+errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
+                                    size_t pages, size_t flags);
+errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
+                             uintptr_t pages, uintptr_t kpi_paging_flags);
+void paging_dump_tables(struct dcb *dispatcher);
 
 errval_t caps_retype(enum objtype type, size_t objbits,
                      struct capability *dest_cnode,

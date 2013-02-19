@@ -1084,6 +1084,11 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
         }
     }
 
+    // unmap if mapped
+    if (type_is_vnode(cap->type) || cap->type == ObjType_Frame || cap->type == ObjType_DevFrame) {
+        unmap_capability(cte);
+    }
+
     // Remove from mapping database
     remove_mapping(cte);
     // Initialize the cap

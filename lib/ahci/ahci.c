@@ -126,11 +126,8 @@ static void ahci_mgmt_open_cb(struct ahci_mgmt_binding *b, errval_t status,
     }
     port->port_base = (char *)port->mapped_vaddr + offset;
 
-    // destroy controller mem cap
-    cleanup_err = cap_destroy(controller_mem);
-    if (err_is_fail(cleanup_err)) {
-        USER_PANIC_ERR(cleanup_err, "cap_destroy failed");
-    }
+    // store controller mem cap in port
+    port->hba_cap = controller_mem;
 
     // setup mackerel struct for port
     ahci_port_initialize(&port->port, port->port_base);
@@ -467,6 +464,11 @@ errval_t ahci_close(struct ahci_binding *_binding, struct event_closure _continu
     st->continuation = _continuation;
     struct bind_st *bst = mgmt_binding->st;
     bst->st = st;
+    // unmap controller memory
+    errval_t err = cap_destroy(_binding->port_info.hba_cap);
+    if (err_is_fail(err)) {
+        printf("cap_destroy: %s (%ld)\n", err_getstring(err), err);
+    }
     ahci_mgmt_close_call__tx(mgmt_binding, NOP_CONT, _binding->port_id);
 
     return SYS_ERR_OK;

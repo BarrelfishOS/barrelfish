@@ -15,6 +15,7 @@
 #ifndef LIBBARRELFISH_PMAP_H
 #define LIBBARRELFISH_PMAP_H
 
+struct pmap_dump_info;
 struct pmap;
 struct pmap_funcs {
     errval_t (*determine_addr)(struct pmap *pmap, struct memobj *memobj,
@@ -32,6 +33,9 @@ struct pmap_funcs {
                        vregion_flags_t *retflags);
     errval_t (*serialise)(struct pmap *pmap, void *buf, size_t buflen);
     errval_t (*deserialise)(struct pmap *pmap, void *buf, size_t buflen);
+
+    errval_t (*dump)(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen,
+		     size_t *items_written);
 };
 
 struct pmap {
