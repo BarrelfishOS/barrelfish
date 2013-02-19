@@ -20,6 +20,10 @@ from machines import Machine
 
 GEM5_PATH = '/home/netos/tools/gem5/gem5/build/ARM/'
 GEM5_CACHES_ENABLE = '--caches --l2cache'.split()
+# gem5 takes quite a while to come up. If we return right away, 
+# telnet will be opened too early and fails to connect
+GEM5_START_TIMEOUT = 90 # in seconds
+
 
 class Gem5MachineBase(Machine):
 	def __init__(self, options):
@@ -78,8 +82,7 @@ class Gem5MachineBase(Machine):
 		debug.verbose('starting "%s" in gem5.py:reboot' % ' '.join(cmd))
 		devnull = open('/dev/null', 'w')
 		self.child = subprocess.Popen(cmd, stderr=devnull)
-		# gem5 takes quite a while to come up. If we return right away, telnet will be opened too early and fails to connect
-		time.sleep(30)
+		time.sleep(GEM5_START_TIMEOUT)
 
 	def shutdown(self):
 		debug.verbose('gem5:shutdown requested');
@@ -97,7 +100,7 @@ class Gem5MachineBase(Machine):
 		if self.child.poll() != None: # Check if child is down
 			print ' '.join(['gem5 is down, return code is ', self.child.returncode])
 			return None
-		self.telnet = subprocess.Popen(['telnet','-d','localhost','3456'], stdout=subprocess.PIPE)
+		self.telnet = subprocess.Popen(['telnet','localhost','3456'], stdout=subprocess.PIPE)
 		return self.telnet.stdout
 	
 class Gem5MachineARM(Gem5MachineBase):
