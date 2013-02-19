@@ -97,7 +97,7 @@ class Gem5MachineBase(Machine):
 		if self.child.poll() != None: # Check if child is down
 			print ' '.join(['gem5 is down, return code is ', self.child.returncode])
 			return None
-		self.telnet = subprocess.Popen(['telnet','localhost','3456'], stdout=subprocess.PIPE)
+		self.telnet = subprocess.Popen(['telnet','-d','localhost','3456'], stdout=subprocess.PIPE)
 		return self.telnet.stdout
 	
 class Gem5MachineARM(Gem5MachineBase):
