@@ -184,8 +184,19 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
         return err;
     }
 
+    // Create a copy of the capability to map in our vspace
+    struct capref host_cap;
+    err = slot_alloc(&host_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cap_copy(host_cap, cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     // Map into my vspace
-    err = vspace_map_wrapper(guest_to_host(guest_paddr), cap, bytes);
+    err = vspace_map_wrapper(guest_to_host(guest_paddr), host_cap, bytes);
     if (err_is_fail(err)) {
         return err;
     }
