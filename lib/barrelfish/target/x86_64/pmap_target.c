@@ -60,6 +60,14 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
     return pmap_flags;
 }
 
+static inline bool is_same_pdir(genvaddr_t va1, genvaddr_t va2)
+{
+    return (va1>>X86_64_LARGE_PAGE_BITS) == (va2>>X86_64_LARGE_PAGE_BITS);
+}
+static inline genvaddr_t get_addr_prefix(genvaddr_t va)
+{
+    return va >> X86_64_LARGE_PAGE_BITS;
+}
 static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 {
     assert(root != NULL);
@@ -307,16 +315,29 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t pte_count = DIVIDE_ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
-    if (X86_64_PDIR_BASE(vaddr) == X86_64_PDIR_BASE(vend)) {
+#if 0
+    struct frame_identity fi;
+    invoke_frame_identify(frame, &fi);
+    genpaddr_t paddr = fi.base + offset;
+
+    debug_printf("do_map: 0x%"
+            PRIxGENVADDR"--0x%"PRIxGENVADDR" -> 0x%"PRIxGENPADDR
+            "; pte_count = %zd; frame bits = %zd\n", vaddr, vend, paddr,
+            pte_count, (size_t)fi.bits);
+#endif
+
+
+    if (is_same_pdir(vaddr, vend)) {
         // fast path
+        //debug_printf("do_map: fast path: %zd\n", pte_count);
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
         }
-    }
-    else { // multiple leaf page tables
+    } else { // multiple leaf page tables
         // first leaf
         uint32_t c = X86_64_PTABLE_SIZE - X86_64_PTABLE_BASE(vaddr);
+        //debug_printf("do_map: slow path: first leaf %"PRIu32"\n", c);
         genvaddr_t temp_end = vaddr + c * X86_64_BASE_PAGE_SIZE;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
@@ -324,7 +345,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         }
 
         // map full leaves
-        while (X86_64_PDIR_BASE(temp_end) < X86_64_PDIR_BASE(vend)) {
+        while (get_addr_prefix(temp_end) < get_addr_prefix(vend)) {
             // update vars
             vaddr = temp_end;
             temp_end = vaddr + X86_64_PTABLE_SIZE * X86_64_BASE_PAGE_SIZE;
@@ -343,6 +364,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             frame = next;
 
             // do mapping
+            //debug_printf("do_map: slow path: full leaf %d\n", X86_64_PTABLE_SIZE);
             err = do_single_map(pmap, vaddr, temp_end, frame, offset, X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -365,6 +387,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             }
 
             // do mapping
+            //debug_printf("do_map: slow path: last leaf %"PRIu32"\n", c);
             err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -558,7 +581,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     size = ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
-    if (X86_64_PDIR_BASE(vaddr) == X86_64_PDIR_BASE(vend)) {
+    if (is_same_pdir(vaddr, vend)) {
         // fast path
         err = do_single_unmap(x86, vaddr, size / X86_64_BASE_PAGE_SIZE, false);
         if (err_is_fail(err)) {
@@ -575,7 +598,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
         // unmap full leaves
         vaddr += c * X86_64_BASE_PAGE_SIZE;
-        while (X86_64_PDIR_BASE(vaddr) < X86_64_PDIR_BASE(vend)) {
+        while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE, true);
             if (err_is_fail(err)) {
@@ -632,6 +655,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
     return SYS_ERR_OK;
 }
 
+
 /**
  * \brief Modify page mapping
  *
@@ -652,7 +676,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     // vaddr and vend specify begin and end of the region (inside a mapping)
     // that should receive the new set of flags
 
-    if (X86_64_PDIR_BASE(vaddr) == X86_64_PDIR_BASE(vend)) {
+    if (is_same_pdir(vaddr, vend)) {
         // fast path
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
@@ -669,7 +693,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
         // modify full leaves
         vaddr += c * X86_64_BASE_PAGE_SIZE;
-        while (X86_64_PDIR_BASE(vaddr) < X86_64_PDIR_BASE(vend)) {
+        while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_modify_flags(x86, vaddr, X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {

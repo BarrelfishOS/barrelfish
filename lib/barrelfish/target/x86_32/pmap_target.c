@@ -63,6 +63,14 @@ static paging_x86_32_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
     return pmap_flags;
 }
 
+static inline bool is_same_pdir(genvaddr_t va1, genvaddr_t va2)
+{
+    return (va1>>X86_32_LARGE_PAGE_BITS) == (va2>>X86_32_LARGE_PAGE_BITS);
+}
+static inline genvaddr_t get_addr_prefix(genvaddr_t va)
+{
+    return va >> X86_32_LARGE_PAGE_BITS;
+}
 /**
  * \brief Starting at a given root, return the vnode with entry equal to #entry
  */
@@ -297,7 +305,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t pte_count = DIVIDE_ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
-    if (X86_32_PDIR_BASE(vaddr) == X86_32_PDIR_BASE(vend)) {
+    if (is_same_pdir(vaddr, vend)) {
         // fast path
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
@@ -314,7 +322,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         }
 
         // map full leaves
-        while (X86_32_PDIR_BASE(temp_end) < X86_32_PDIR_BASE(vend)) {
+        while (get_addr_prefix(temp_end) < get_addr_prefix(vend)) {
             // update vars
             vaddr = temp_end;
             temp_end = vaddr + X86_32_PTABLE_SIZE * X86_32_BASE_PAGE_SIZE;
@@ -552,7 +560,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
-    if (X86_32_PDIR_BASE(vaddr) == X86_32_PDIR_BASE(vend)) {
+    if (is_same_pdir(vaddr, vend)) {
         // fast path
         err = do_single_unmap(x86, vaddr, size / X86_32_BASE_PAGE_SIZE, false);
         if (err_is_fail(err)) {
@@ -569,7 +577,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
         // unmap full leaves
         vaddr += c * X86_32_BASE_PAGE_SIZE;
-        while (X86_32_PDIR_BASE(vaddr) < X86_32_PDIR_BASE(vend)) {
+        while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_32_PTABLE_SIZE;
             err = do_single_unmap(x86, vaddr, X86_32_PTABLE_SIZE, true);
             if (err_is_fail(err)) {
@@ -650,7 +658,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     size_t pages = DIVIDE_ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
-    if (X86_32_PDIR_BASE(vaddr) == X86_32_PDIR_BASE(vend)) {
+    if (is_same_pdir(vaddr, vend)) {
         // fast path
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
@@ -667,7 +675,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
         // unmap full leaves
         vaddr += c * X86_32_BASE_PAGE_SIZE;
-        while (X86_32_PDIR_BASE(vaddr) < X86_32_PDIR_BASE(vend)) {
+        while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_32_PTABLE_SIZE;
             err = do_single_modify_flags(x86, vaddr, X86_32_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
