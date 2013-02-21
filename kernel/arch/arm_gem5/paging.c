@@ -349,7 +349,7 @@ caps_map_l2(struct capability* dest,
     }
 
     // check offset within frame
-    if ((offset + BYTES_PER_PAGE > ((genpaddr_t)1 << src->u.frame.bits)) ||
+    if ((offset + BYTES_PER_PAGE > get_size(src)) ||
         ((offset % BYTES_PER_PAGE) != 0)) {
         panic("oops");
         return SYS_ERR_FRAME_OFFSET_INVALID;
@@ -369,7 +369,7 @@ caps_map_l2(struct capability* dest,
         panic("Remapping valid page.");
     }
 
-    lpaddr_t src_lpaddr = gen_phys_to_local_phys(src->u.frame.base + offset);
+    lpaddr_t src_lpaddr = gen_phys_to_local_phys(get_address(src) + offset);
     if ((src_lpaddr & (BASE_PAGE_SIZE - 1))) {
         panic("Invalid target");
     }
