@@ -34,8 +34,15 @@ module /x86_64/sbin/routing_setup boot
 # Drivers
 module /x86_64/sbin/pci auto
 module /x86_64/sbin/ahcid auto
+
+## For networking
+## For qemu, enable rtl8029
 module /x86_64/sbin/rtl8029 auto
+
+## For real hardware, enable e1000n
 module /x86_64/sbin/e1000n auto
+
+## Other services needed for networking
 module /x86_64/sbin/NGD_mng auto
 module /x86_64/sbin/netd auto
 

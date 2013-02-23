@@ -40,6 +40,7 @@
 //     hand, we don't want smaller buffers and having the card split larger
 //     packets to multiple buffers, because otherwise we'd had to create a
 //     pbuf chain.
+//#define RECEIVE_PBUF_SIZE 1514
 #define RECEIVE_PBUF_SIZE 2048
 
 
@@ -47,7 +48,7 @@ static inline void *binding_to_buffer(uint8_t binding_index);
 
 
 // antoinek: Come from benchmark interface
-void buffer_rx_add(size_t idx);
+errval_t buffer_rx_add(size_t idx);
 
 extern void *buffer_base;
 extern size_t buffer_size;
@@ -67,6 +68,7 @@ static struct pbuf_desc *pbufs;
 
 
 /** Add a pbuf to the rx ring. */
+// Return NULL when it can't add
 static struct pbuf *add_pbuf_to_rx_ring(void)
 {
     struct pbuf *p;
@@ -89,8 +91,13 @@ static struct pbuf *add_pbuf_to_rx_ring(void)
     assert(offset < buffer_count * buffer_size);
 
     idx = mem_barrelfish_put_pbuf(p);
-    buffer_rx_add(idx);
+    errval_t err = buffer_rx_add(idx);
 
+    if (err != SYS_ERR_OK) {
+        pbuf_free(p);
+        p = NULL;
+ //       return NULL;
+    }
     return p;
 }
 
@@ -103,11 +110,17 @@ static void rx_populate_ring(void)
     assert(pbufs == NULL);
     pbufs = calloc(buffer_count, sizeof(struct pbuf_desc));
 
+    struct pbuf *added_pbuf = NULL;
     // Fill ring
     for (i = 0; i < RECEIVE_BUFFERS; i++) {
-        add_pbuf_to_rx_ring();
-    }
-}
+        added_pbuf = add_pbuf_to_rx_ring();
+        if (added_pbuf == NULL) {
+            // FIXME: Here, maybe application should just for some other events
+            USER_PANIC("Can't do initial population of RX_ring \n");
+            abort();
+        }
+    } // end for:  for every slot
+} // end rx_populate_ring
 
 
 /**

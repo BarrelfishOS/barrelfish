@@ -505,8 +505,8 @@ static void polling_loop(void)
 //        do_pending_work_for_all();
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
-        err = event_dispatch(ws); // blocking
-//        err = event_dispatch_non_block(ws); // nonblocking
+//        err = event_dispatch(ws); // blocking // doesn't work correctly
+        err = event_dispatch_non_block(ws); // nonblocking
         if (err != LIB_ERR_NO_EVENT) {
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "in event_dispatch_non_block");
@@ -531,6 +531,7 @@ static void polling_loop(void)
             ++jobless_iterations;
             if (jobless_iterations == 10) {
                 if (use_interrupt) {
+                    E1000N_DEBUG("no work available, yielding thread\n");
                     thread_yield();
                 }
             }
@@ -622,7 +623,7 @@ int main(int argc, char **argv)
     E1000N_DEBUG("connected to pci\n");
 
     if(use_interrupt) {
-        printf("class %x: vendor %x, device %x, function %x\n",
+        printf("e1000: class %x: vendor %x, device %x, function %x\n",
                 PCI_CLASS_ETHERNET, PCI_VENDOR_INTEL, deviceid,
                 function);
         r = pci_register_driver_irq(e1000_init, PCI_CLASS_ETHERNET,

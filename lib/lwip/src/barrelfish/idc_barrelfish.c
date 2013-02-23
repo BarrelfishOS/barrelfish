@@ -116,7 +116,12 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
     idx = mem_barrelfish_put_pbuf(p);
 
     offset = p->payload - buffer_base;
-    buffer_tx_add(idx, offset % buffer_size, p->len);
+    errval_t err = buffer_tx_add(idx, offset % buffer_size, p->len);
+    if (err != SYS_ERR_OK) {
+        printf("idc_send_packet_to_network_driver: failed\n");
+        LWIPBF_DEBUG("idc_send_packet_to_network_driver: failed\n");
+        return 0;
+    }
 
     LWIPBF_DEBUG("idc_send_packet_to_network_driver: terminated\n");
     return 1;

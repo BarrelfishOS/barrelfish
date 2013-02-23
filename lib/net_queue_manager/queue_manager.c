@@ -273,6 +273,7 @@ static struct client_closure *create_new_client(
         free(cc);
         return NULL;
     }
+    // cc->q->debug = 1;
     return cc;
 } // end function: create_new_client
 

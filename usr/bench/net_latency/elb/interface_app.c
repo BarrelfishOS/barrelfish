@@ -41,7 +41,7 @@ size_t buffer_size = 2048;
 /******************************************************************************/
 /* Buffer management */
 
-void buffer_tx_add(size_t idx, size_t len)
+errval_t buffer_tx_add(size_t idx, size_t len)
 {
     struct slot_data s = {
         .buffer_id = bufid_tx,
@@ -51,7 +51,11 @@ void buffer_tx_add(size_t idx, size_t len)
         .client_data = idx + 1,
     };
     //printf("buffer_tx_add()\n");
-    sp_produce_slot(spp_tx, &s);
+    bool ret = sp_produce_slot(spp_tx, &s);
+    if (ret) {
+        return (SYS_ERR_OK);
+    }
+    return CONT_ERR_NO_MORE_SLOTS;
 }
 
 void buffer_rx_add(size_t idx)

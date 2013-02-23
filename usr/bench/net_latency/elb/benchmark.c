@@ -139,7 +139,12 @@ void benchmark_init(void)
 
     // Register a bunch of buffers to avoid race conditions
     for (i = 0; i < 8; i++) {
-        buffer_rx_add(buf_count + i);
+        errval_t err3 = buffer_rx_add(buf_count + i);
+        assert(err3 != SYS_ERR_OK);
+        if (err3 != SYS_ERR_OK) {
+            printf("elb: failed to register buffers...\n");
+            abort();
+        }
     }
 
     if (is_server) {
@@ -269,7 +274,11 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
         }
 
         // Reregister rx buffer
-        buffer_rx_add(idx);
+        errval_t err = buffer_rx_add(idx);
+        if (err != SYS_ERR_OK) {
+            printf("Could not add buffer in RX ring\n");
+            abort();
+        }
 
         if (bench_ctl_add_run(bench_ctl, result)) {
             uint64_t tscperus = tscperms / 1000;
@@ -301,7 +310,13 @@ void benchmark_rx_done(size_t idx, size_t pkt_len)
 void benchmark_tx_done(size_t idx)
 {
     if (is_server) {
-        buffer_rx_add(idx);
+        // Reregister rx buffer
+        errval_t err = buffer_rx_add(idx);
+        if (err != SYS_ERR_OK) {
+            printf("Could not add buffer in RX ring\n");
+            abort();
+        }
+
     }
 }
 
@@ -327,7 +342,12 @@ static void client_send_packet(void)
     memcpy(frame->dst_mac, bcast, 6);
     frame->ethertype = 0x0608;
     sent_at = rdtsc();
-    buffer_tx_add(idx, 0, len);
+    errval_t err = buffer_tx_add(idx, 0, len);
+    if (err != SYS_ERR_OK) {
+        printf("Could not add buffer for TX\n");
+        assert(err != SYS_ERR_OK);
+        abort();
+    }
 }
 
 static void respond_buffer(size_t i, size_t len)
@@ -338,6 +358,11 @@ static void respond_buffer(size_t i, size_t len)
     memcpy(frame->src_mac, our_mac, 6);
     memcpy(frame->dst_mac, bcast, 6);*/
 
-    buffer_tx_add(i, 0, len);
+    errval_t err = buffer_tx_add(i, 0, len);
+    if (err != SYS_ERR_OK) {
+        printf("Could not add buffer for TX\n");
+        assert(err != SYS_ERR_OK);
+        abort();
+    }
 }
 

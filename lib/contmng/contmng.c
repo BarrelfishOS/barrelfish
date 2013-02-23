@@ -24,15 +24,18 @@
 #include <contmng/contmng.h>
 
 /* QUEUE_DEBUG enables the debug statements */
-//#define QUEUE_DEBUG 1
+#define QUEUE_DEBUG 1
 
 static void cont_queue_send_next_message(struct cont_queue *q);
+
 
 #ifdef QUEUE_DEBUG
 static void qprintf_mac(struct cont_queue *q, char *msg)
 {
     if (q->debug) {
-        printf("CQ: %s [%d] [%d] qqqqqq\n", msg, q->head, q->tail);
+        printf("CQ: %s [%s.%d:%.*s] [%d] [%d] [%d] qqqqqq\n",
+                msg, disp_name(), disp_get_core_id(),
+                64, q->name, q->head, q->tail, q->running);
     }
 }
 #define qprintf(x...) qprintf_mac(x)
@@ -41,10 +44,10 @@ static void qprintf_mac(struct cont_queue *q, char *msg)
 #define qprintf(x...) ((void)0)
 #endif /* QUEUE_DEBUG */
 
+
 //****************************************************************************
 /************** Generic continuation queue implementation *******************/
 /* WARN: use only when your responses contains only integers */
-
 
 
 /* allocates the memory for continuation queue
@@ -59,6 +62,9 @@ struct cont_queue *create_cont_q(char *name)
         /* FIXME: introduce new error and return the error */
     }
     memset(ptr, 0, sizeof(struct cont_queue));
+    if (name != NULL) {
+        strncpy(ptr->name, name, 63);
+    }
     return ptr;
 }/* end function: create_cont_q */
 
@@ -67,6 +73,7 @@ struct cont_queue *create_cont_q(char *name)
  * or if the producer should pause for a while */
 int queue_free_slots(struct cont_queue *q)
 {
+
     if (((q->head + 1) % MAX_QUEUE_SIZE) > q->tail) {
         return (MAX_QUEUE_SIZE -
                     (((q->head + 1) % MAX_QUEUE_SIZE) - q->tail)
@@ -77,26 +84,38 @@ int queue_free_slots(struct cont_queue *q)
 } // end function
 
 
+
+bool can_enqueue_cont_q(struct cont_queue *q)
+{
+    if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail) {
+        return false;
+    } else {
+        return true;
+    }
+} // end function: can_enqueue_cont_q
+
 /* Adds element to the queue */
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 {
 
-    qprintf(q, "enqueue started");
     if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail)
     {
+        qprintf(q, "ERROR: Queue full");
         printf("ERROR:  Queue [%s] is full\n", q->name);
-/*
+        printf("ERROR: %.*s:%.*s\n", DISP_NAME_LEN, disp_name(), 64, q->name);
+        printf("ERROR: CQ: head [%d], tail [%d] qqqqqq\n", q->head, q->tail);
         printf("callstack: %p %p %p %p\n",
 	     __builtin_return_address(0),
 	     __builtin_return_address(1),
 	     __builtin_return_address(2),
 	     __builtin_return_address(3));
-*/
+
         // Following two lines are there to force the seg-fault of the domain
         // as abort was showing some strange behaviour
-        int *p = NULL;
-        *p = 43;
+//        int *p = NULL;
+//        *p = 43;
         abort();
+//        return CONT_ERR_NO_MORE_SLOTS;
     }
 
     /* Copying the structure */
@@ -111,11 +130,10 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
     }
 
     q->head = (q->head + 1) % MAX_QUEUE_SIZE;
-    qprintf(q, "enqueued");
 
     // If no continuations are running, then execute this one directly
-//    if (((q->tail + 1) % MAX_QUEUE_SIZE) == q->head) {
-    if (q->running == 0) {
+    if (((q->tail + 1) % MAX_QUEUE_SIZE) == q->head) {
+//    if (q->running == 0) {
         q->running = 1;
         qprintf(q, "directly-sending");
         cont_queue_send_next_message(q);
@@ -144,11 +162,11 @@ void cont_queue_callback(void *arg)
             complicated? huh.. :-P */
 void cont_queue_send_next_message(struct cont_queue *q)
 {
-    qprintf(q, "sending-msg");
+//    qprintf(q, "sending-msg");
 
     if(q->head == q->tail){
-        qprintf(q, "Queue-empty-Recursion-End!!");
         q->running = 0;
+        qprintf(q, "Queue-empty-Recursion-End!!");
         return;
     }
     errval_t err = q->qelist[q->tail].handler(q->qelist[q->tail]);
@@ -160,6 +178,7 @@ void cont_queue_send_next_message(struct cont_queue *q)
             USER_PANIC_ERR(err, "cont_queue_send_next_message ");
         }
     }
+    qprintf(q, "sending-msg done: ");
 } /* end function: cont_queue_send_next_message */
 
 void cont_queue_show_queue(struct cont_queue *q)

@@ -248,7 +248,12 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
     //and the corresponding data structures (i.e. array entries)
 
     uint64_t ts = rdtsc();
-    mem_barrelfish_replace_pbuf(pbuf_id);
+    struct pbuf *replaced_pbuf = mem_barrelfish_replace_pbuf(pbuf_id);
+    if (replaced_pbuf == NULL) {
+        printf("\n");
+        assert(replaced_pbuf != NULL);
+        USER_PANIC("Can't replace received pbuf in RX ring\n");
+    }
     netbench_record_event_simple(nb, RE_PBUF_REPLACE, ts);
 }
 

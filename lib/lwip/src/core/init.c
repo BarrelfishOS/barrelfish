@@ -464,9 +464,10 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
     card_name = "rtl8029";
 #else
     // FIXME: also check for e10k
-    //card_name = "e1000";
+    // FIXME: get this from kaluga
+    card_name = "e1000";
     //card_name = "e10k";
-    card_name = "vmkitmon_eth";
+    //card_name = "vmkitmon_eth";
 #endif // CONFIG_QEMU_NETWORK
 #else
     static char cid[100];

@@ -119,14 +119,14 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
     benchmark_rx_done((size_t) opaque, pkt_len);
 }
 
-void buffer_tx_add(size_t idx, size_t offset, size_t len)
+errval_t buffer_tx_add(size_t idx, size_t offset, size_t len)
 {
     struct driver_buffer buffer = {
         .va = buffer_address(idx) + offset,
         .pa = buffer_phys(idx) + offset,
         .len = len,
     };
-    ether_transmit_pbuf_list_ptr(&buffer, 1, (void*) idx);
+    return ether_transmit_pbuf_list_ptr(&buffer, 1, (void*) idx);
 }
 
 bool handle_tx_done(void *opaque)
@@ -135,9 +135,9 @@ bool handle_tx_done(void *opaque)
     return true;
 }
 
-void buffer_rx_add(size_t idx)
+errval_t buffer_rx_add(size_t idx)
 {
-    rx_register_buffer_fn_ptr(buffer_phys(idx),
+    return rx_register_buffer_fn_ptr(buffer_phys(idx),
                               buffer_address(idx),
                               (void*) idx);
 }
