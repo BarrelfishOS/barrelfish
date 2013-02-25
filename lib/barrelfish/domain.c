@@ -523,16 +523,15 @@ static void span_domain_reply(struct monitor_binding *mb,
         goto error;
     }
 
+    return;
+
+ error:
     /* Free the dispatcher frame */
     err = cap_destroy(span_domain_state->frame);
     if (err_is_fail(err)) {
         err_push(err, LIB_ERR_CAP_DESTROY);
         goto error;
     }
-
-    return;
-
- error:
     if (span_domain_state->callback) { /* Use the callback to return error */
         span_domain_state->callback(span_domain_state->callback_arg, err);
     } else { /* Use debug_err if no callback registered */
