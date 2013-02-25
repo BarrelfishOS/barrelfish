@@ -414,7 +414,7 @@ caps_map_l2(struct capability* dest,
         panic("Remapping valid page.");
     }
 
-    lpaddr_t src_lpaddr = gen_phys_to_local_phys(get_address(src));
+    lpaddr_t src_lpaddr = gen_phys_to_local_phys(get_address(src) + offset);
     if ((src_lpaddr & (BASE_PAGE_SIZE - 1))) {
         panic("Invalid target");
     }
