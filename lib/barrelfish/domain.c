@@ -513,29 +513,23 @@ errval_t domain_init(void)
 static void span_domain_reply(struct monitor_binding *mb,
                               errval_t msgerr, uintptr_t domain_id)
 {
-    errval_t err;
+    /* On success, no further action needed */
+    if (err_is_ok(msgerr)) {
+        return;
+    }
+
+    /* On failure, release resources and notify the caller */
     struct span_domain_state *span_domain_state =
         (struct span_domain_state*)domain_id;
-
-    /* Check if span_domain_request failed */
-    if (err_is_fail(msgerr)) {
-        err = msgerr;
-        goto error;
-    }
-
-    return;
-
- error:
-    /* Free the dispatcher frame */
-    err = cap_destroy(span_domain_state->frame);
+    errval_t err = cap_destroy(span_domain_state->frame);
     if (err_is_fail(err)) {
-        err_push(err, LIB_ERR_CAP_DESTROY);
-        goto error;
+        err_push(msgerr, LIB_ERR_CAP_DESTROY);
     }
+
     if (span_domain_state->callback) { /* Use the callback to return error */
-        span_domain_state->callback(span_domain_state->callback_arg, err);
+        span_domain_state->callback(span_domain_state->callback_arg, msgerr);
     } else { /* Use debug_err if no callback registered */
-        DEBUG_ERR(err, "Failure in span_domain_reply");
+        DEBUG_ERR(msgerr, "Failure in span_domain_reply");
     }
     free(span_domain_state);
 }
