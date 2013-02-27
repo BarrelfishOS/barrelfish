@@ -452,7 +452,7 @@ void paging_dump_tables(struct dcb *dispatcher)
                 for (int entry = 0; entry < X86_64_PTABLE_SIZE; entry++) {
                     union x86_64_ptable_entry *e =
                         (union x86_64_ptable_entry *)ptable_lv + entry;
-                    genpaddr_t paddr = e->base.base_addr << BASE_PAGE_BITS;
+                    genpaddr_t paddr = (genpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
                     if (!paddr) {
                         continue;
                     }
