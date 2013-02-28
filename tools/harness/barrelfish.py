@@ -36,6 +36,10 @@ class BootModules(object):
             return modulespec == modulename.rsplit('/',1)[-1]
 
     def add_module(self, module, args=None):
+
+        # Support for build targets with / in their name (e.g. examples/xmpl-spawn)
+        module = module.replace('$BUILD', os.path.dirname(self.kernel[0]))
+
         # XXX: workaround for backwards compatibility: prepend default path
         if not '/' in module:
             assert self.kernel

@@ -46,4 +46,4 @@ import memtest, webserver, rpctests, splash_bomp, echoserver, \
     skew, tsctests, vmkit, nfscat, mdbbench, \
     rcce, bulktests, tracing, buildall, bomp_sidebyside, \
     monitortest, phases, clockdrift, channel_cost, fputest, TimerTest, \
-    multihoptests, perfmontest, freemem
+    multihoptests, perfmontest, freemem, spawntest
