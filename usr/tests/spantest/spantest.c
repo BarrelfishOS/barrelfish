@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
     trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0);
 
     //sys_print("\nDone\n", 6);
-    printf("Done in %ld cycles\n", finish-before);
+    printf("spantest: Done in %ld cycles\n", finish-before);
 
     //trace_dump();
 
