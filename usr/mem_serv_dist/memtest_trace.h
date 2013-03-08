@@ -15,18 +15,7 @@
 #define __MEMTEST_TRACE_H__
 
 #include <barrelfish/barrelfish.h>
-
-// #define TRACE_SUBSYS_MEMTEST (TRACE_SUBSYS_MEMSERV | 0x0FF)
-#define TRACE_SUBSYS_MEMTEST 0xA0FF
-#define TRACE_EVENT_MEMTEST_START 0x0000
-#define TRACE_EVENT_MEMTEST_STOP 0x0001
-#define TRACE_EVENT_MEMTEST_STARTED 0x0020
-#define TRACE_EVENT_MEMTEST_WAIT 0x0030
-#define TRACE_EVENT_MEMTEST_RUN 0x0040
-#define TRACE_EVENT_MEMTEST_DONE 0x0050
-#define TRACE_EVENT_MEMTEST_ALLOC 0x0066
-#define TRACE_EVENT_NSTEST_MASTER 0x0444
-#define TRACE_EVENT_NSTEST_WORKER 0x0555
+#include <trace_definitions/trace_defs.h>
 
 errval_t init_tracing(void);
 void start_tracing(void);

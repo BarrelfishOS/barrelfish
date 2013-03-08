@@ -15,6 +15,7 @@
 #include <barrelfish/debug.h> // XXX: To set the cap_identify_reply handler
 #include <barrelfish/sys_debug.h> // XXX: for sys_debug_send_ipi
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <if/mem_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <if/monitor_loopback_defs.h>
@@ -837,7 +838,7 @@ static void span_domain_request(struct monitor_binding *mb,
 {
     errval_t err, err2;
 
-    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_SPAN0, core_id);
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN0, core_id);
     
     struct span_state *state;
     uintptr_t state_id;
@@ -853,7 +854,7 @@ static void span_domain_request(struct monitor_binding *mb,
     state->mb        = mb;
     state->domain_id = domain_id;
 
-    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_SPAN1, core_id);
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN1, core_id);
 
     /* Look up the destination monitor */
     struct intermon_binding *ib;
@@ -1094,6 +1095,19 @@ errval_t monitor_server_init(struct monitor_binding *b)
         USER_PANIC_ERR(err2, "multihop_monitor_init failed");
     }
 #endif // CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+
+#ifdef CONFIG_TRACE
+    errval_t err3;
+    err3 = bfscope_monitor_init(b);
+    if (err_is_fail(err3)) {
+        USER_PANIC_ERR(err3, "bfscope_monitor_init failed");
+    }
+
+    err3 = trace_monitor_init(b);
+    if (err_is_fail(err3)) {
+        USER_PANIC_ERR(err3, "trace_monitor_init failed");
+    }
+#endif // CONFIG_TRACE
 
     return monitor_server_arch_init(b);
 }

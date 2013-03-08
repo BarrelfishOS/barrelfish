@@ -61,6 +61,7 @@
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <asmoffsets.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <arch/x86/timing.h>
 #include <arch/x86/syscall.h>
 #include <arch/x86/ipi_notify.h>
@@ -819,7 +820,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
         apic_eoi();
         assert(kernel_ticks_enabled);
         update_kernel_now();
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_TIMER, kernel_now);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
         wakeup_check(kernel_now);
     } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
         // Handle performance counter overflow
@@ -868,22 +869,6 @@ static __attribute__ ((used)) void handle_irq(int vector)
     } else if (vector == APIC_INTER_CORE_VECTOR) {
         apic_eoi();
         ipi_handle_notify();
-    } else if (vector == 63) {
-        // Record snapshot of current state
-        trace_snapshot();
-
-        // Record the running domain at the start of a trace
-#ifdef TRACE_CSWITCH
-//#if TRACE_N_BM
-
-//#else
-        trace_event(TRACE_SUBSYS_KERNEL,
-                    TRACE_EVENT_CSWITCH,
-                    (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
-//#endif // TRACE_N_BM
-#endif
-
-        apic_eoi();
     }
 #if 0
  else if (irq >= 0 && irq <= 15) { // classic PIC device interrupt

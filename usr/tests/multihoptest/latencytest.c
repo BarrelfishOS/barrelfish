@@ -21,6 +21,7 @@
 #include <if/bench_defs.h>
 #include <unistd.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 static char my_name[100];
 
@@ -163,7 +164,7 @@ static void experiment_cont(void* arg)
 #if CONFIG_TRACE
             // dump trace
             char *buf = malloc(50*4096*4096);
-            size_t length = trace_dump(buf, 20*4096*4096);
+            size_t length = trace_dump(buf, 20*4096*4096, NULL);
             printf("%s\n", buf);
             printf("length of buffer %lu\n", length);
 #endif

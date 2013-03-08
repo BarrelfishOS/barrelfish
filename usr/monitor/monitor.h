@@ -207,6 +207,14 @@ errval_t multihop_intermon_init(struct intermon_binding *ib);
 errval_t multihop_monitor_init(struct monitor_binding *mb);
 errval_t multihop_request_routing_table(struct intermon_binding *b);
 
+/* trace_support.c */
+errval_t trace_intermon_init(struct intermon_binding *ib);
+errval_t trace_monitor_init(struct monitor_binding *mb);
+
+/* bfscope_support.c */
+errval_t bfscope_intermon_init(struct intermon_binding *ib);
+errval_t bfscope_monitor_init(struct monitor_binding *mb);
+
 /* rck_support.c */
 errval_t rck_intermon_init(struct intermon_binding *ib);
 errval_t rck_monitor_init(struct monitor_binding *mb);

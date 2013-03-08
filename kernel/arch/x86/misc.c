@@ -128,28 +128,5 @@ wait_cycles(uint64_t duration)
  */
 lvaddr_t kernel_trace_buf = 0;
 
-/**
- * Put rundown of current state in the trace buffer
- * This would typically be called at the start of tracing
- */
-void trace_snapshot(void)
-{
-    // DCBS
-    struct dcb *dcb = dcbs_list;
-    struct trace_event ev;
-    errval_t err;
-
-    while (dcb != NULL) {
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb->disp);
-        //printf("%d DCB: %p %.*s\n", my_core_id, dcb, DISP_NAME_LEN, disp->name);
-	// Top bit of timestamp is flag to indicate dcb rundown events
-        ev.timestamp = (1ULL << 63) | (uintptr_t)dcb;
-	assert(sizeof(ev.u.raw) <= sizeof(disp->name));
-        memcpy(&ev.u.raw, disp->name, sizeof(ev.u.raw));
-        err = trace_write_event(&ev);
-        dcb = dcb->next_all;
-    }
-
-    // TO DO: currently running domain
-}
+struct trace_application kernel_trace_boot_applications[TRACE_MAX_BOOT_APPLICATIONS];
+int kernel_trace_num_boot_applications = 0;

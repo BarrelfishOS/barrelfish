@@ -57,6 +57,7 @@
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #define LWIP_TRACE_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 

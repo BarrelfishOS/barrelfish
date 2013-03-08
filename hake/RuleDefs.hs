@@ -674,6 +674,24 @@ fuguFile opts file =
          ]
 
 --
+-- Build a Pleco library
+--
+plecoFile :: Options -> String -> HRule
+plecoFile opts file =
+    let arch = optArch opts
+        cfile = file ++ ".c"
+        hfile = "/include/trace_definitions/" ++ file ++ ".h"
+        jsonfile = "/trace_definitions/" ++ file ++ ".json"
+    in
+      Rules [ Rule [In InstallTree "tools" "/bin/pleco",
+                    In SrcTree "src" (file++".pleco"),
+                    Out arch hfile,
+                    Out arch jsonfile,
+                    Out arch cfile ],
+              compileGeneratedCFile opts cfile
+         ]
+
+--
 -- Build a Hamlet file
 --
 hamletFile :: Options -> String -> HRule

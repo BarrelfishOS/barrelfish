@@ -27,10 +27,7 @@
 #include <exec.h>
 #include <irq.h>
 #include <trace/trace.h>
-
-/// Keep track of all DCBs for tracing rundown
-/// XXX this is never garbage-collected at the moment
-struct dcb *dcbs_list = NULL;
+#include <trace_definitions/trace_defs.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
@@ -151,22 +148,15 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
         dcb->domain_id = odisp->u.dispatcher.dcb->domain_id;
     }
 
-    // Remember the DCB for tracing purposes
-    // When we have proper process management, dead dcbs should be removed from this list
-    if (dcb->next_all == NULL) {
-        dcb->next_all = dcbs_list;
-        dcbs_list = dcb;
-    }
-
     if(!dcb->is_vm_guest) {
-        struct trace_event ev;
-	// Top bit of timestamp is flag to indicate dcb rundown events
-        ev.timestamp = (1ULL << 63) | (uintptr_t)dcb;
         struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb->disp);
-	assert(sizeof(ev.u.raw) <= sizeof(disp->name));
-        memcpy(&ev.u.raw, disp->name, sizeof(ev.u.raw));
-        err = trace_write_event(&ev);
+                    get_dispatcher_shared_generic(dcb->disp);
+        err = trace_new_application(disp->name, (uintptr_t) dcb);
+
+        if (err == TRACE_ERR_NO_BUFFER) {
+            // Try to use the boot buffer.
+            trace_new_boot_application(disp->name, (uintptr_t) dcb);
+        }
     }
 
     return SYSRET(SYS_ERR_OK);

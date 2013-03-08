@@ -20,6 +20,7 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include "e1000n.h"
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
@@ -374,7 +375,7 @@ static void print_rx_bm_stats(bool stop_trace)
 
         /*
         char *buf = malloc(4096*4096);
-        trace_dump(buf, 4096*4096);
+        trace_dump(buf, 4096*4096, NULL);
         printf("%s\n", buf);
         */
 #endif // TRACE_N_BM

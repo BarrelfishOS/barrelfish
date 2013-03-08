@@ -611,6 +611,10 @@ static struct sysret handle_trace_setup(struct capability *cap,
     lpaddr_t lpaddr = gen_phys_to_local_phys(frame->u.frame.base);
     kernel_trace_buf = local_phys_to_mem(lpaddr);
     //printf("kernel.%u: handle_trace_setup at %lx\n", apic_id, kernel_trace_buf);
+
+    // Copy boot applications.
+	trace_copy_boot_applications();
+
     return SYSRET(SYS_ERR_OK);
 }
 

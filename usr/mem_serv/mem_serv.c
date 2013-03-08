@@ -19,6 +19,7 @@
 #include <barrelfish/dispatch.h>
 #include <mm/mm.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <barrelfish/morecore.h>
 #include <barrelfish/monitor_client.h>
 
@@ -237,7 +238,7 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     struct capref *cap = malloc(sizeof(struct capref));
     errval_t err, ret;
 
-    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_ALLOC, bits);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_ALLOC, bits);
 
     /* refill slot allocator if needed */
     err = slot_prealloc_refill(mm_ram.slot_alloc_inst);

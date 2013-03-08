@@ -57,6 +57,7 @@
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <asmoffsets.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <exec.h>
 #ifdef __scc__
 #       include <rck.h>
@@ -783,7 +784,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
             kernel_now += kernel_timeslice;
         }
         tsc_lasttime = tsc_now;
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_TIMER, kernel_now);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
         wakeup_check(kernel_now);
     } else if (vector == APIC_ERROR_INTERRUPT_VECTOR) {
         printk(LOG_ERR, "APIC error interrupt fired!\n"); // XXX: do something?
@@ -795,18 +796,6 @@ static __attribute__ ((used)) void handle_irq(int vector)
 #else
         ipi_handle_notify();
 #endif
-    } else if (vector == 63) {
-        // Record snapshot of current state
-        trace_snapshot();
-
-        // Record the running domain at the start of a trace
-#ifdef TRACE_CSWITCH
-        trace_event(TRACE_SUBSYS_KERNEL,
-                    TRACE_EVENT_CSWITCH,
-                    (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
-#endif
-
-        apic_eoi();
     }
 #if 0
  else if (irq >= 0 && irq <= 15) { // classic PIC device interrupt

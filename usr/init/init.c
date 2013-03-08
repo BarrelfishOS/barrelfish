@@ -118,9 +118,21 @@ static errval_t bootstrap(int argc, char *argv[])
     /* Initialize tracing */
     err = trace_init();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error initialising trace buffer");
+        DEBUG_ERR(err, "error initializing trace buffer");
         printf("Warning: tracing not available\n");
     }
+    #if defined(CONFIG_TRACE)
+    err = trace_my_setup();
+    if (err_is_fail(err)) {
+		DEBUG_ERR(err, "error setting up tracing in init");
+		printf("Warning: tracing not available\n");
+	} else {
+		// Initialize the pointers
+		trace_reset_all();
+		// Enable all subsystems by default.
+		trace_set_all_subsys_enabled(true);
+	}
+    #endif
 
     /* Load mem_serv */
     printf("Spawning memory server (%s)...\n", MEM_SERV_NAME);

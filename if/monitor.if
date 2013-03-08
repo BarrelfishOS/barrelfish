@@ -169,4 +169,21 @@ interface monitor "The monitor to client Interface" {
           
           // cap transfer
           call multihop_cap_send(vci_t vci, uint8 direction, errval err, cap cap, capid_t capid);
+
+          /* Tracing Framework */
+
+         // Notify a core that it should prepare the tracing state. The origin core
+         // is the one who initiated the preparation request.
+         message trace_prepare(coreid origin_core);
+
+         // Notify the core who initiated the preparation that it is finished.
+         message trace_prepare_finished();
+
+         /* bfscope - the tracing server */
+
+         // Send a message to bfscope, to notify that it should flush
+         call bfscope_flush_send(iref iref);
+
+         // Notify the initiatior of the flush request that it has been completed.
+         response bfscope_flush_ack();
 };
