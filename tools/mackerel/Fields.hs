@@ -80,6 +80,9 @@ make_list_from_word dn dflt LSBFIRST init_offset decls =
 make_list_from_word dn dflt MSBFIRST init_offset decls = 
     make_list_from_word dn dflt LSBFIRST init_offset (reverse decls)
 
+--   make_list_from_word dflt MSBFIRST init_offset decls =
+-- -    make_list dflt LSBFIRST init_offset (reverse decls)
+-- +    make_list_from_word dflt LSBFIRST init_offset (reverse decls)
 --
 -- Create a list of fields, in the right order, with the right 
 -- attribute, from a set of other fields (e.g. from a type).

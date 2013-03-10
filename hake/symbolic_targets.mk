@@ -14,6 +14,11 @@
 # Disable built-in implicit rules. GNU make adds environment's MAKEFLAGS too.
 MAKEFLAGS=r
 
+# Explicitly disable the flex and bison implicit rules
+%.c : %.y
+
+%.c : %.l
+
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 
