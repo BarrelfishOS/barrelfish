@@ -1,10 +1,10 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2011, ETH Zurich.
+% Copyright (c) 2011-2013, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
 % If you do not find this file, copies can be found by writing to:
-% ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+% ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \documentclass[a4paper,11pt,twoside]{report}
@@ -15,8 +15,9 @@
 \usepackage{pifont}
 \usepackage{textcomp}
 \usepackage{amsmath}
+\usepackage{multirow}
 
-\title{Mackerel 1.4 User Guide}
+\title{Mackerel User Guide}
 \author{Barrelfish project}
 % \date{\today}		% Uncomment (if needed) - date is automatic
 \tnnumber{2}
@@ -30,6 +31,8 @@
 \vhEntry{1.3}{15.08.2011}{TR}{Added support for imports and new
   command-line options}
 \vhEntry{1.4}{09.12.2011}{TR}{New mapping for constants}
+\vhEntry{1.5}{11.03.2013}{TR}{Added quick reference, corrected errors,
+  and clarified field insertions}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -1037,7 +1040,7 @@ For the device, \Mac generates:
 \item An \texttt{snprintf}-like function to
   pretty-print \emph{all} the register contents of the device, with prototype:
   \begin{quote}
-    \texttt{int DN\_pr(char *s, size\_t sz, DP\_CNSTS\_t v);}
+    \texttt{int DN\_pr(char *s, size\_t sz, DN\_t *v);}
   \end{quote}
   For a complex device, this is a lot of information, and may require a
   large buffer to fully capture.  This is also potentially a large
@@ -1094,7 +1097,7 @@ For a constants declaration of type \texttt{CNSTS}, having fields
   field value, or NULL if the argument does not correspond to a field
   value:
   \begin{quote}
-    \texttt{int DP\_CNSTS\_describe(DP\_CNSTS\_t e);}
+    \texttt{char *DP\_CNSTS\_describe(DP\_CNSTS\_t e);}
   \end{quote}
   Note that this function can also simply be used as a test of whether
   the value is valid. 
@@ -1134,6 +1137,11 @@ generate the following:
   \begin{quote}
     \texttt{DP\_REGTYPE\_t DP\_REGTYPE\_FLD\_insert(DP\_REGTYPE\_t r, FLDTYPE\_t val );}
   \end{quote}
+  Note that this insertion is \textit{not} in place, in contrast to
+  the function generated for \texttt{datatype} declarations (see
+  below).  Instead, this it returns a new value of the register type
+  with the specified field modified, and so is intended to be used in
+  a ``functional'' style. 
 
 \item For every field \texttt{FLD} (of type \texttt{FLDTYPE\_t}) of the
   register type, a function to extract a single field from a value
@@ -1176,8 +1184,10 @@ For a \texttt{datatype} declaration
   datatype, a function to insert a value into that field of a value
   of type \texttt{DP\_DATATYPE\_t}: 
   \begin{quote}
-    \texttt{DP\_DATATYPE\_t DP\_DATATYPE\_FLD\_insert(DP\_DATATYPE\_t r, FLDTYPE\_t val );}
+    \texttt{void DP\_DATATYPE\_FLD\_insert(DP\_DATATYPE\_t r, FLDTYPE\_t val );}
   \end{quote}
+  Note that this insertion is \textit{in place}, in contrast to the
+  ``functional'' style used for register types. 
 
 \item For every field \texttt{FLD} (of type \texttt{FLDTYPE\_t}) of the
   datatype, a function to extract a single field from a value
@@ -1939,5 +1949,109 @@ The \Mac source directory contains the files listed below.
 \item[TypeName.hs] Data type for scoping type names when importing.
 \item[TypeTable.hs] Representing register, data, and constants types.
 \end{description}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Quick reference}\label{chap:quickref}
+
+In the following quick reference, the following identifiers are used
+as examples, assuming a Mackerel file named \texttt{dev1.dev}: 
+
+\begin{description}
+\item[dev1] A device definition.\\
+\item[const1] A constants definition.
+\item[cval1] One value of the constants definition.\\
+\item[rtype2] A register type definition.
+\item[field2] A field in the above register type.
+\item[ftype2] The type of this field.\\
+\item[dtype3] A data type definition.
+\item[field3] A field in the above data type.
+\item[ftype3] The type of this field.\\
+\item[reg4] A register definition with its own type.
+\item[rtype4] Type of the above register.
+\item[field4] A field in the above register.
+\item[ftype4] The type of this field.\\
+\item[array5] A register array.
+\item[field5] A field in the elements of the above array.
+\item[ftype5] The type of this field.
+\end{description}
+
+\clearpage
+\section*{Quick list of Mackerel C declarations:}
+{\footnotesize
+\begin{tabular}{|l|l|}
+\hline 
+\textbf{C declaration} & \textbf{Description} \\ \hline 
+\multicolumn{2}{|l|}{Device declarations} \\ \hline
+\texttt{struct dev1\_t} & Device structure \\ 
+\texttt{typedef dev1\_t} & Device type defintion (as above) \\ 
+\texttt{enum dev1\_initials} & Initial register values \\
+\texttt{void dev1\_initialize( dev1\_t *dev, ... )} & Initialization \\
+\texttt{int dev1\_pr( char *s, size\_t sz, device\_t *v )} & Print \\
+\hline
+
+\multicolumn{2}{|l|}{Constants declarations} \\ \hline
+\texttt{typedef dev1\_const1\_t} & Integer type \\
+\texttt{\#define dev1\_cval1} & Macro giving integer value \\
+\texttt{char *dev1\_const1\_describe( dev1\_const1\_t e )} & Description \\
+\texttt{int dev1\_const1\_prtval( char *s, size\_t sz,
+  dev1\_const1\_t e )} & Print \\
+\texttt{int dev1\_const1\_chk( dev1\_const1\_t e)} & Check value \\
+\hline
+
+\multicolumn{2}{|l|}{Register type declarations} \\ \hline
+\texttt{typedef dev1\_rtype2\_t} & Type defintion \\
+\texttt{\#define dev1\_rtype2\_default} & Default value \\
+\texttt{int dev1\_rtype2\_prtval( char *s, size\_t sz,
+  dev1\_rtype2\_t v )} & Print \\
+\texttt{dev1\_rtype2\_t dev1\_rtype2\_field2\_insert( dev1\_rtype2\_t r, ftype2\_t val )} & Insert a field value \\
+\texttt{ftype2\_t dev1\_rtype2\_field2\_extract( dev1\_rtype2\_t r )} & Extract field value\\
+\hline
+
+\multicolumn{2}{|l|}{Datatype declarations} \\ \hline
+\texttt{typedef dev1\_dtype3\_t} & Pointer to datatype \\
+\texttt{const size\_t dev1\_dtype3\_size} & Size \\
+\texttt{typedef dev1\_dtype3\_array\_t} & Byte array of the same size \\
+\texttt{int dev1\_dtype3\_prtval( char *s, size t sz, dev1\_dtype3\_t
+  v )} & Print \\
+\texttt{void dev1\_dtype3\_field3\_insert( dev1\_dtype3\_t r, ftype3\_t val )} & Insert field \\
+\texttt{ftype3\_t dev1\_dtype3\_field3\_extract( dev1\_dtype3\_t r )} & Extract field \\
+\hline
+
+\multicolumn{2}{|l|}{Register declarations} \\ \hline
+\texttt{dev1\_rtype4\_t dev1\_reg4\_rd( dev1\_t *dev )} & Read register \\
+\texttt{dev1\_rtype4\_t dev1\_reg4\_rawrd( dev1\_t *dev )} & Raw read \\
+\texttt{void dev1\_reg4\_wr( dev1\_t *dev, dev1\_rtype4\_t val )} & Write register \\
+\texttt{void dev1\_reg4\_rawwr( dev1\_t *dev, dev1\_rtype4\_t val )} & Raw write \\
+\texttt{ftype4\_t dev1\_reg4\_field4\_rdf( dev1\_t *dev )} & Read field \\
+\texttt{void dev1\_reg4\_field4\_wrf( dev1\_t *dev, ftype4 val )} & Write field \\
+\texttt{ftype4\_t dev1\_reg4\_field4\_rd\_shaddow( dev1\_t *dev )} & Read shadow \\
+\texttt{int dev1\_reg4\_pr( char *s, size\_t sz, dev1\_t *dev )} & Print \\
+\hline
+
+\multicolumn{2}{|l|}{Register array declarations} \\ \hline
+\texttt{const int dev1\_array5\_length} & Num. registers \\
+\texttt{dev1\_rtype5\_t dev1\_reg5\_rd( dev1\_t *dev, int i )} & Read register \\
+\texttt{dev1\_rtype5\_t dev1\_reg5\_rawrd( dev1\_t *dev, int i )} & Raw read \\
+\texttt{void dev1\_reg5\_wr( dev1\_t *dev, int i, dev1\_rtype5\_t val )} & Write register \\
+\texttt{void dev1\_reg5\_rawwr( dev1\_t *dev, int i, dev1\_rtype5\_t val )} & Raw write \\
+
+\texttt{ftype5\_t dev1\_reg5\_field5\_rdf( dev1\_t *dev, int i )} & Read field \\
+\texttt{void dev1\_reg5\_field5\_wrf( dev1\_t *dev, int i, ftype5 val )} & Write field \\
+\texttt{ftype5\_t dev1\_reg5\_field5\_rd\_shaddow( dev1\_t *dev, int i
+  )} & Read shadow \\
+\texttt{int dev1\_reg5\_pri( char *s, size\_t sz, dev1\_t *dev, int i )} & Print \\
+\texttt{int dev1\_reg5\_pr( char *s, size\_t sz, dev1\_t *dev )} &
+Print array \\
+\hline
+
+\multicolumn{2}{|l|}{Space access functions} \\ \hline
+\texttt{uint\textit{x}\_t dev1\_space6\_read\_\textit{x}(
+    dev1\_t *dev, size\_t offset )} & Read a value \\
+\texttt{void dev1\_space6\_write\textit{x}(
+    dev1\_t *dev, size\_t offset, uint\textit{x}\_t value )} & Write a
+    value \\
+\hline
+
+\end{tabular}}
 
 \end{document}
