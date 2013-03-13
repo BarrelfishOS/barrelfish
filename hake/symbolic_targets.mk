@@ -159,6 +159,7 @@ MODULES_x86_64= \
 	sbin/bcached \
 	sbin/testdesc \
 	sbin/testdesc-child \
+	sbin/lshw \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
