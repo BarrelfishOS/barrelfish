@@ -160,11 +160,11 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
 
     if(!dcb->is_vm_guest) {
         struct trace_event ev;
-	// Top bit of timestamp is flag to indicate dcb rundown events
+        // Top bit of timestamp is flag to indicate dcb rundown events
         ev.timestamp = (1ULL << 63) | (uintptr_t)dcb;
         struct dispatcher_shared_generic *disp =
             get_dispatcher_shared_generic(dcb->disp);
-	assert(sizeof(ev.u.raw) <= sizeof(disp->name));
+        assert(sizeof(ev.u.raw) <= sizeof(disp->name));
         memcpy(&ev.u.raw, disp->name, sizeof(ev.u.raw));
         err = trace_write_event(&ev);
     }
