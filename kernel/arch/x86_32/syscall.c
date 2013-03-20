@@ -27,6 +27,7 @@
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <barrelfish_kpi/syscall_overflows_arch.h>
+#include <trace/trace.h>
 #include <arch/x86/debugregs.h>
 #include <arch/x86/syscall.h>
 #include <arch/x86/timing.h>
