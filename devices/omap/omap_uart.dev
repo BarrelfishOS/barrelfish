@@ -24,22 +24,22 @@
 device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     
     register THR wo addr (base, 0x0) "Transmit holding" {
-        _       24 ro;
+        _       24;
         thr     8 wo       "Transmit holding register";
     };
 
     register RHR ro also addr (base, 0x0) "Receive holding" {
-        _       24 ro;
+        _       24;
         rhr     8 ro       "Receive holding register";
     };
 
     register DLL rw also addr (base, 0x0) "Divisor latch low" {
-        _         24 ro;
+        _         24;
         clock_lsb 8 rw     "Divisor latch low";
     };
 
     register IER rw addr (base, 0x4) "Interrupt enable" {
-        _          24 ro;
+        _          24;
         cts_it     1    "CTS interrupt enable";
         rts_it     1    "RTS interrupt enable";
         xoff_it    1    "XOFF interrupt enable";
@@ -61,19 +61,19 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register IIR ro addr (base, 0x8) "Interrupt identification" {
-        _          24 ro;
+        _          24;
         fcr_mirror 2    "Mirror contents of FCR[0]";
         it_type    5 type(it_type)      "Interrupt type";
         it_pending 1    "No interrupt pending";
     };
 
     register DLH rw also addr (base, 0x4) "Divisor latch high" {
-        _          26 ro;
+        _          26;
         clock_msb  6  rw   "Divisor latch high";
     };
 
     register FCR wo also addr (base, 0x8) "FIFO control" {
-        _             24 ro;
+        _             24;
         rx_fifo_trig  2 "RX FIFO trigger level";
         tx_fifo_trig  2 "TX FIFO trigger level";
         dma_mode      1 "Enable DMA mode";
@@ -90,7 +90,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register EFR wo also addr (base, 0x8) "Enhanced feature register" {
-        _                 24 ro;
+        _                 24;
         auto_cts_en       1     "Enable auto-CTS flow control";
         auto_rts_en       1     "Enable auto-RTS flow control";
         special_char_detect 1   "Enable special character detect";
@@ -107,7 +107,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register LCR rw addr (base, 0xc) "Line control" {
-        _               24 ro;
+        _               24;
         div_en          1       "Divisor latch enable";
         break_en        1       "Break control enable";
         parity_type2    1       "Parity format";
@@ -118,12 +118,12 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register XON1 rw addr (base, 0x10) "XON1 character" {
-        _            24 ro;
+        _            24;
         xon_word1    8     "XON1 character";
     };
 
     register MCR rw also addr (base, 0x10) "Modem control" {
-        _            25 ro;
+        _            25;
         tcr_tlr      1  "Enable access to TCR and TLR";
         xon_en       1  "Enable XON any function";
         loopback_en  1  "Enable local loopback mode";
@@ -134,7 +134,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register LSR ro addr (base, 0x14) "Line status" {
-        _               24 ro;
+        _               24;
         rx_fifo_sts     1       "RX FIFO error";
         tx_sr_e         1       "THR and TX FIFO empty";
         tx_fifo_e       1       "THR empty";
@@ -146,23 +146,23 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register XON2 rw also addr (base, 0x14) "XON2 character" {
-        _          24 ro;
+        _          24;
         xon_word2  8    "XON2 character";
     };
 
     register TCR rw addr (base, 0x18) "Transmission control" {
-        _                  24 ro;
+        _                  24;
         rx_fifo_trig_start 4    "RX FIFO trigger level to RESTORE transmission";
         rx_fifo_trig_halt  4    "RX FIFO trigger level to HALT transmission";
     };
 
     register XOFF1 rw also addr (base, 0x18) "XOFF1 character" {
-        _           24 ro;
+        _           24;
         xoff_word1  8     "XOFF1 character";
     };
 
     register MSR ro also addr (base, 0x18) "Modem status" {
-        _         24 ro;
+        _         24;
         ncd_sts   1     "Complement of DCD input";
         nri_sts   1     "Complement of RI input";
         ndsr_sts  1     "Complement of DSR input";
@@ -174,7 +174,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register SPR rw addr (base, 0x1c) "Scratchpad" {
-        _                 24 ro;
+        _                 24;
         spr_word          8     "Scratchpad";
     };
 
@@ -201,7 +201,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register MDR1 rw addr (base, 0x20) "Mode definition 1" {
-        _                  24 ro;
+        _                  24;
         frame_end_mode     1    "0 = Frame length method, 1 = EOT bit method";
         sip_mode           1    "Enable automatic SIP mode";
         sct                1    "Store and control IrDA transmission";
@@ -211,7 +211,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register MDR2 rw addr (base, 0x24) "Mode definition 2" {
-        _              24 ro;
+        _              24;
         set_txir_alt   1    "Enable alternate mode for SET_TXIR";
         irrxinvert     1    "IrDA mode: Invert RX pin";
         cir_pulse_mode 2    "CIR pulse modulation width";
@@ -242,14 +242,14 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register UASR ro addr(base, 0x38) "Autobauding status" {
-        _           24 ro;
+        _           24;
         parity      2 type(parity_type) "Parity";
         bit_by_char 1                   "1=8 bits per char";
         speed       5 type(baud_rate)   "Baud rate";
     };
 
     register ACR rw addr(base, 0x3C) "Auxiliary control" {
-        _               24 ro;
+        _               24;
         pulse_type      1       "Pulse width (1 = 1.6us, 0 = 3/16 baud";
         sd_mod          1       "SD pin set to low if 1";
         dis_ir_rx       1       "Disable RX input";
@@ -261,7 +261,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
   
     register SCR rw addr (base, 0x40) "Supplementary control" {
-        _                       24 ro;
+        _                       24;
         rx_trig_granu1  1       "Enable granularity 1 trigger RX level";
         tx_trig_granu1  1       "Enable granularity 1 trigger TX level";
         dsr_it          1       "Enable DSR interrupt";
@@ -272,7 +272,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register SSR rw addr (base, 0x44) "Supplementary status" {
-        _               29 ro;
+        _               29;
         dma_counter_rst 1 rw    "Reset DMA counter on FIFO reset";
         rx_cts_dsr_wake_up_sts 1 ro "Falling edge detected on RX, CTS, or DSR";
         tx_fifo_full    1 ro    "TX FIFO is full";
@@ -294,7 +294,7 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
 
     register WER rw addr (base, 0x5C) "Wakeup enable" {
-        _               24 ro;
+        _               24;
         tx_wakeup       1       "TX event can wake up system";
         rx_lsi          1       "Receiver line status interrupt can wakeup";
         rhr_int         1       "RHR can wake up system";
@@ -306,47 +306,47 @@ device omap_uart msbfirst ( addr base ) "OMAP4430 UART" {
     };
   
     register CPFS rw addr (base, 0x60) "Carrier frequency prescaler" {
-        _       24 ro;
+        _       24;
         scale   8       "System clock freq. prescaler (12x multiple)";
     };
   
   
     register RFLVL ro addr (base, 0x64) "RX FIFO level" {
-        _       24 ro;
+        _       24;
         lvl     8  ro  "Receive FIFO level";
     };
   
     register TFLVL ro addr (base, 0x68) "TX FIFO level" {
-        _       24 ro;
+        _       24;
         lvl     8  ro  "Transmit FIFO level";
     };
   
     register IER2 rw addr (base, 0x6C) "Interrupt enable 2" {
-        _       30 ro;
+        _       30;
         tfe     1  rw  "Transmit FIFO empty";
         rfe     1  rw  "Receive FIFO empty";
     };
   
     register ISR2 rw addr (base, 0x70) "Interrupt status 2" {
-        _       30 ro;
+        _       30;
         tfs     1  rw  "Transmit FIFO empty";
         rfs     1  rw  "Receive FIFO empty";
     };
 
     register FSEL rw addr (base, 0x74) "Frequency selection" {
-        _       24 ro;
+        _       24;
         f       8  rw   "Frequency";
     };
   
     register MDR3 rw addr (base, 0x80) "Mode definiton register 3" {
-        _               29 ro;
+        _               29;
         tx_dma_th       1    "Enable to set different TXDMA threshold";
         ndef_freq       1    "Enable NONDEFAULT fclk frequencies";
         d_cir_rx_demod  1    "Disable CIR RX demodulation";
     };
 
     register TXDT rw addr (base, 0x84) "Transmit DMA threshold" {
-        _       24 ro;
+        _       24;
         tdt     8  rw   "Threshold";
     };
 
