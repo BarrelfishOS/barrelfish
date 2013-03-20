@@ -157,12 +157,12 @@ size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
         }
 
         // Get the first event
-        int index = tbuf->tail_index + 1;
-        if (index == TRACE_MAX_EVENTS) {
-            index = 0;
+        int idx = tbuf->tail_index + 1;
+        if (idx == TRACE_MAX_EVENTS) {
+            idx = 0;
         }
 
-        uint64_t timestamp = tbuf->events[index].timestamp;
+        uint64_t timestamp = tbuf->events[idx].timestamp;
         if (timestamp <= min_timestamp) {
             min_timestamp = timestamp;
         }

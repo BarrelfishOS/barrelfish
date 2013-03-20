@@ -26,12 +26,14 @@
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/curdispatcher_arch.h>
 #else // IN_KERNEL
-#include <string.h>
 #include <arch/x86/apic.h> // XXX!
 #endif // IN_KERNEL
 #endif // __x86_64__
 
 #include <barrelfish/sys_debug.h>
+#include <barrelfish/waitset.h> // struct event_closure
+
+#include <string.h> // memcpy
 
 /*
  * turn some tracing on or off
@@ -364,6 +366,7 @@ extern int kernel_trace_num_boot_applications;
 
 static inline void trace_new_boot_application(char* name, uintptr_t dcb)
 {
+    #if defined(TRACING_EXISTS)
 	if (kernel_trace_num_boot_applications < TRACE_MAX_BOOT_APPLICATIONS) {
 
 
@@ -372,15 +375,18 @@ static inline void trace_new_boot_application(char* name, uintptr_t dcb)
 
 		kernel_trace_num_boot_applications++;
 	}
+    #endif
 }
 
 static inline void trace_copy_boot_applications(void)
 {
 
+    #if defined(TRACING_EXISTS)
 	int i;
 	for (i = 0; i < kernel_trace_num_boot_applications; i++) {
 		trace_new_application(kernel_trace_boot_applications[i].name, kernel_trace_boot_applications[i].dcb);
 	}
+    #endif
 }
 #else // !IN_KERNEL
 

@@ -288,7 +288,7 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     }
 }
 
-static void dump_ram_region(int index, struct mem_region* m)
+static void dump_ram_region(int idx, struct mem_region* m)
 {
 #if 0
     uintptr_t start, limit;
@@ -314,7 +314,7 @@ static void dump_ram_region(int index, struct mem_region* m)
 
     printf("RAM region %d: 0x%" PRIxPTR
            " - 0x%" PRIxPTR " (%zu %cB, %u bits)\n",
-           index, start, limit, quantity, prefix, m->mr_bits);
+           idx, start, limit, quantity, prefix, m->mr_bits);
 #endif // 0
 }
 

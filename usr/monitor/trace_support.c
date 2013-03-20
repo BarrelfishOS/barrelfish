@@ -15,6 +15,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/event_queue.h>
+#include <barrelfish/dispatcher_arch.h>
 #include <trace/trace.h>
 #include <sys/time.h>
 #include "monitor.h"
