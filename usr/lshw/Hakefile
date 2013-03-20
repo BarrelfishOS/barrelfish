@@ -15,6 +15,6 @@
                       addLibraries = libDeps [ "octopus" ],
                       flounderDefs = [ "octopus" ],
                       flounderBindings = [ "octopus" ],
-                      architectures = allArchitectures
+                      architectures = thcArchitectures
         }
 ]
