@@ -172,14 +172,13 @@ layout of a single event can be seen in Figure \ref{fig:trace-event}.
 \begin{figure}[t]
 	\begin{center}
 
-		\begin{bytefield}[bitwidth=0.2cm]{64}
-			\bitheader{0,16,32,48,63} \\
-			\bitbox{64}{Timestamp} \\
-			\bitbox{16}{Subsystem}
-			\bitbox{16}{Event}
-			\bitbox{32}{Argument}
-
-	\end{bytefield}
+	  \begin{bytefield}{64}
+	    \bitheader{0,16,32,48,63} \\
+	    \bitbox{64}{Timestamp} \\
+	    \bitbox{16}{Subsystem}
+	    \bitbox{16}{Event}
+	    \bitbox{32}{Argument}
+	  \end{bytefield}
 
 	\end{center}
 	\caption{Representation of a single trace event in memory in Barrelfish.}
