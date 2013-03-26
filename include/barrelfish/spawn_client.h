@@ -43,6 +43,7 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     spawn_flags_t flags, domainid_t *ret_domainid);
 errval_t spawn_kill(domainid_t domainid);
 errval_t spawn_exit(uint8_t exitcode);
+errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitcode, bool nohang);
 errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang);
 errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client);
 errval_t spawn_get_domain_list(uint8_t **domains, size_t *len);
