@@ -573,13 +573,13 @@ void _thc_callcont_c(awe_t *awe,
 static void init_lazy_awe (void ** lazy_awe_fp) {
 
   // Get the saved awe
-  awe_t *awe = GET_LAZY_AWE(lazy_awe_fp);
+  awe_t *awe = THC_LAZY_FRAME_AWE(lazy_awe_fp);
   
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX " found lazy awe %p @ frameptr %p",
 			awe, lazy_awe_fp));
 
   // Scrub nested return, lazy awe will now return through dispatch loop
-  *(lazy_awe_fp+1) = NULL;
+  THC_LAZY_FRAME_RET(lazy_awe_fp) = NULL;
   
   assert(awe->status == LAZY_AWE);
   // Allocate a new stack for this awe
@@ -596,13 +596,13 @@ static void init_lazy_awe (void ** lazy_awe_fp) {
 static void check_for_lazy_awe (void * ebp) {
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX "> CheckForLazyAWE (ebp=%p)\n", ebp));
   void **frame_ptr  = (void **) ebp;
-  void *ret_addr    = *(frame_ptr+1);
+  void *ret_addr    = THC_LAZY_FRAME_RET(frame_ptr);
   while (frame_ptr != NULL && ret_addr != NULL) {
     if (ret_addr == &_thc_lazy_awe_marker) {
       init_lazy_awe(frame_ptr);
     }
-    frame_ptr = (void **) *(frame_ptr);
-    ret_addr   = *(frame_ptr+1);
+    frame_ptr = (void **) THC_LAZY_FRAME_PREV(frame_ptr);
+    ret_addr   = THC_LAZY_FRAME_RET(frame_ptr);
   } 
  
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX "< CheckForLazyAWE\n"));
@@ -1392,7 +1392,7 @@ __asm__ ("      .text \n\t"
          " jmp *0(%rdi)                    \n\t");
 
 /*
-           void _thc_schedulecont(awe_t *awe)   // rdi
+           int _thc_schedulecont(awe_t *awe)   // rdi
 */
 
 __asm__ ("      .text \n\t"
@@ -1463,7 +1463,7 @@ __asm__ ("      .text                     \n\t"
          " jmp *0(%eax)                   \n\t");
 
 /*
-           void _thc_schedulecont(awe_t *awe)   // 4
+           int _thc_schedulecont(awe_t *awe)   // 4
 */
 
 __asm__ ("      .text                     \n\t"
@@ -1541,7 +1541,7 @@ __asm__ ("      .text                     \n\t"
          " jmp *0(%eax)                    \n\t");
 
 /*
-           void _thc_schedulecont(awe_t *awe)   // 4
+           int _thc_schedulecont(awe_t *awe)   // 4
 */
 
 __asm__ ("      .text                     \n\t"

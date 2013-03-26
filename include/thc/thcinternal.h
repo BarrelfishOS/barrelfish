@@ -256,7 +256,24 @@ extern int _end_text_nx;
 #error "Need definition of GET_STACK_POINTER and RESTORE_OLD_STACK_POINTER"
 #endif
 
-#if defined(__x86_64__) 
+
+#if defined(__x86_64__) || defined(__i386__)
+// INIT_LAZY_AWE() is used in the beggining of the nested function in ASYNC_.
+// The signature of the nested function is:
+//   void _thc_nested_async(FORCE_ARGS_STACK awe_t *awe)
+//
+// So in INIT_LAZY_AWE, the stack in x86 looks like:
+//  sp ->
+//        .......
+//  rbp-> [ saved rbp ] rbp[0]
+//        [ RET ]       rbp[1]
+//        [ awe ]       rbp[2] (passed as first arg)
+#define THC_LAZY_FRAME_PREV(FRAME_PTR) *((FRAME_PTR)+0)
+#define THC_LAZY_FRAME_RET(FRAME_PTR)  *((FRAME_PTR)+1)
+#define THC_LAZY_FRAME_AWE(FRAME_PTR)  *((FRAME_PTR)+2)
+#endif
+
+#if defined(__x86_64__)
 #define INIT_LAZY_AWE(AWE_PTR, LAZY_MARKER)				\
   __asm__ volatile (							\
     " movq 8(%%rbp), %%rsi       \n\t"					\
@@ -271,8 +288,6 @@ extern int _end_text_nx;
     " popq %rbp                  \n\t" /* restore rbp                */ \
     " jmp  " JMP_ADDR "          \n\t" /* jump to continuation       */ \
     );
-#define GET_LAZY_AWE(FRAME_PTR)						\
-    *((FRAME_PTR)+2)   /* was passed as first arg */
 #elif defined(__i386__)
 #define INIT_LAZY_AWE(AWE_PTR, LAZY_MARKER)				\
   __asm__ volatile (							\
@@ -289,8 +304,6 @@ extern int _end_text_nx;
     " addl $4, %esp              \n\t" /* clean up stack for callee  */ \
     " jmp  " JMP_ADDR "          \n\t" /* jump to continuation       */ \
     );
-#define GET_LAZY_AWE(FRAME_PTR)						\
-    *((FRAME_PTR)+2)   /* was passed as first arg */
 #elif defined(__arm__)
 #define INIT_LAZY_AWE(_) assert(0 && "THC not yet implemented on ARM")
 #define RETURN_CONT(_) assert(0 && "THC not yet implemented on ARM")
@@ -337,19 +350,25 @@ extern int _end_text_nx;
 #define GET_STACK_POINTER(_)         /* Not used */
 #define RESTORE_OLD_STACK_POINTER(_) /* Not used */
 
+
+// SWIZZLE_DEF:
+//  - _NAME: name of the function
+//  - _NS:   new stack, address just above top of commited region
+//  - _FN:   (nested) function to call:  void _FN(void)
+
 #if (defined(__x86_64__) && (defined(linux) || defined(BARRELFISH)))
 #define SWIZZLE_DEF_(_NAME,_NS,_FN)                                     \
   __attribute__((noinline)) void _NAME(void) {                          \
-    __asm__ volatile("movq %0, %%rdi           \n\t"			\
-                     "subq $8, %%rdi           \n\t"			\
-                     "movq %%rsp, (%%rdi)      \n\t"			\
-                     "movq %%rdi, %%rsp        \n\t"			\
-                     "call " _FN "             \n\t"                    \
-                     "popq %%rsp               \n\t"			\
-                     :							\
+    __asm__ volatile("movq %0, %%rdi      \n\t" /* put NS to %rdi   */  \
+                     "subq $8, %%rdi      \n\t" /* fix NS address   */  \
+                     "movq %%rsp, (%%rdi) \n\t" /* store sp to NS   */  \
+                     "movq %%rdi, %%rsp   \n\t" /* set sp to NS     */  \
+                     "call " _FN "        \n\t" /* call _FN         */  \
+                     "popq %%rsp          \n\t" /* restore old sp   */  \
+                     :                                                  \
                      : "m" (_NS)                                        \
-                     : "memory", "cc", "rsi", "rdi");			\
-  }									
+                     : "memory", "cc", "rsi", "rdi");                   \
+  }
 #define SWIZZLE_DEF(_NAME,_NS,_FN) SWIZZLE_DEF_(_NAME,_NS,_FN)
 #elif (defined(__i386__) && (defined(linux) || defined(BARRELFISH)))
 #define SWIZZLE_DEF(_NAME,_NS,_FN)                                      \
