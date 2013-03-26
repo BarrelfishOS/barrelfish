@@ -27,12 +27,11 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#define OPT_NONE             0
+#define OPT_HELP             0
 #define OPT_LIST_PCI         1
 #define OPT_LIST_HW          2
 #define OPT_LIST_ALL         3
 #define OPT_LIST_PATTERN     4
-#define OPT_HELP             5
 
 
 struct opt_t {
