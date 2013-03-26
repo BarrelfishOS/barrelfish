@@ -1603,6 +1603,76 @@ __asm__ ("      .text \n\t"
 	 " int3                      \n\t" /* should never be called */
 	 );
 
+#elif (defined(__arm__) && (defined(linux) || defined(BARRELFISH)))
+// NOTES:
+//  - not sure about alignment (.align)
+
+/*
+            static void thc_awe_execute_0(awe_t *awe)    // r0
+*/
+
+__asm__ (" .text              \n\t"
+         " .align  2          \n\t"
+         "thc_awe_execute_0:  \n\t"
+         " ldr sp, [r0, #8]   \n\t" // sp = awe->esp (stack pointer)
+         " ldr fp, [r0, #4]   \n\t" // fp = awe->ebp (frame pointer)
+         " ldr pc, [r0, #0]   \n\t" // pc = awe->eip (jump / pc)
+);
+
+/*
+           int _thc_schedulecont(awe_t *awe)   // r0
+*/
+
+__asm__ (" .text                    \n\t"
+         " .align  2                \n\t"
+         " .globl _thc_schedulecont \n\t"
+         " .type _thc_schedulecont, %function \n\t"
+         "_thc_schedulecont:  \n\t"
+         // save fp, sp, lr in stack (similarly to what gcc does)
+         // from ARM Architecutre Reference Manual ARMv7-A and ARMv7-R
+         // PUSH (A8-248):
+         // "The SP and PC can be in the list in ARM code, but not in Thumb
+         //  code. However, ARM instructions that include the SP or the PC in
+         //  the list are deprecated, and if the SP is in the list, the value
+         //  the instruction stores for the SP is UNKNOWN."
+         " mov ip, sp         \n\t"
+         " push {fp, ip, lr}  \n\t"
+         // set awe
+         " str lr, [r0, #0]   \n\t" // awe->eip = lr (return address)
+         " str fp, [r0, #4]   \n\t" // awe->ebp = fp (frame pointer)
+         " str sp, [r0, #8]   \n\t" // awe->esp = sp (stack pointer)
+         // Call C function void _thc_schedulecont_c(awe_t *awe)
+         // awe still in r0
+         " bl _thc_schedulecont_c \n\t"
+         // return 0
+         "mov r0, #0 \n\t"
+         // restore saved state. We return by restoring lr in the pc
+         " ldm sp, {fp, sp, pc} \n\t"
+);
+
+/*
+           __attribute__((returns_twice)) void
+           void _thc_callcont(awe_t *awe,   // r0
+                   THCContFn_t fn,          // r1
+                   void *args) {            // r2
+*/
+
+__asm__ (" .text                          \n\t"
+         " .align  2                      \n\t"
+         " .globl _thc_callcont           \n\t"
+         " .type _thc_callcont, %function \n\t"
+         "_thc_callcont:                  \n\t"
+         // set  awe
+         " str lr, [r0, #0]   \n\t" // awe->eip = lr (return address)
+         " str fp, [r0, #4]   \n\t" // awe->ebp = fp (frame pointer)
+         " str sp, [r0, #8]   \n\t" // awe->esp = sp (stack pointer)
+         // AWE now initialized.  Call into C for the rest.
+         // r0 : AWE , r1 : fn , r2 : args
+         " bl _thc_callcont_c\n\t"
+         // hopefully a fault (x86 does int3)
+         " mov r0, #0xffffffff \n\t"
+         " ldr r0, [r0] \n\t"
+);
 
 #else
 void thc_awe_execute_0(awe_t *awe) {

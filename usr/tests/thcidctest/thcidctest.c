@@ -568,6 +568,7 @@ int main(int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
+    printf("%s %s DONE!\n", argv[0], kind);
     return EXIT_SUCCESS;
 }
 

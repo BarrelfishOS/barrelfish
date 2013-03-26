@@ -200,7 +200,29 @@ extern int _end_text_nx;
   __asm__ volatile ("" : : : "ebx", "edi", "esi", "esp", "memory", "cc")
 #endif
 #elif defined(__arm__)
-#define KILL_CALLEE_SAVES assert(0 && "THC not yet implemented on ARM")
+// see ARM Procedure Call Standard (APCS): 5.1 Machine Registers
+// NB: gcc complains about clobbering two registers:
+//  . v8 (i.e., r11), is the frame pointer in ARM and cannot be clobbered
+//  . v7 is the PIC register
+//
+#if defined(__pic__)
+    #define KILL_CALLEE_SAVES()                                           \
+    __asm__ volatile ("" : : : "sp",                                      \
+                         "v1", "v2", "v3", "v4", "v5", "v6",              \
+                         "s16", "s17", "s18", "s19", "s20", "s21", "s22", \
+                         "s23", "s24", "s25", "s26", "s27", "s28", "s29", \
+                         "s30", "31",                                     \
+                         "memory")
+#else // same as before, but including v7
+    #define KILL_CALLEE_SAVES()                                           \
+    __asm__ volatile ("" : : : "sp",                                      \
+                         "v1", "v2", "v3", "v4", "v5", "v6", "v7",        \
+                         "s16", "s17", "s18", "s19", "s20", "s21", "s22", \
+                         "s23", "s24", "s25", "s26", "s27", "s28", "s29", \
+                         "s30", "31",                                     \
+                         "memory")
+
+#endif
 #else
 #error "Need definition of KILL_CALLEE_SAVES" 
 #endif
@@ -305,6 +327,26 @@ extern int _end_text_nx;
     " jmp  " JMP_ADDR "          \n\t" /* jump to continuation       */ \
     );
 #elif defined(__arm__)
+
+// *** NOTEs for the adventurous: porting lazy THC to ARM
+//
+// INIT_LAZY_AWE puts a marker in place of the returned address, which is saved
+// in the awe structure. check_for_lazy_awe() checks for this  marker and lazily
+// initializes an awe if needed.
+//
+// In ARM, the caller passes the return address via lr and not the stack.
+// Gcc (4.7) usually compiles functions the following way:
+//   mov     ip, sp
+//   push    {rXX, rYY, fp, ip, lr, pc}
+//   sub     fp, ip, #4
+//   ....
+//   ldm     sp, {rXX, rYY, fp, sp, pc}
+//
+// So the return address is pushed on the stack by the callee, but I'm not sure
+// how consistent is this even if we only consider gcc.
+//
+// check_for_lazy_awe() and init_lazy_awe() also need to change.
+
 #define INIT_LAZY_AWE(_) assert(0 && "THC not yet implemented on ARM")
 #define RETURN_CONT(_) assert(0 && "THC not yet implemented on ARM")
 #define GET_LAZY_AWE(_) assert(0 && "THC not yet implemented on ARM")
@@ -382,9 +424,30 @@ extern int _end_text_nx;
                      :							\
                      : "m" (_NS)                                        \
                      : "memory", "cc", "eax", "edx");			\
-  }									
-#elif defined(__arm__)
-#define SWIZZLE_DEF(_NAME,_NS,_FN) assert(0 && "THC not yet implemented on ARM")
+  }
+#elif defined(__arm__) && (defined(linux) || defined(BARRELFISH))
+
+// Notes:
+// - ARM Architecutre Reference Manual ARMv7-A and ARMv7-R:
+//   STMDB:
+//   "The SP and PC can be in the list in ARM code, but not in Thumb code.
+//   However, ARM instructions that include the SP or the PC in the list are
+//   deprecated."
+// - This can probably be optimized
+//
+#define SWIZZLE_DEF(_NAME, _NS, _FN)                                          \
+    __attribute__((noinline)) void _NAME(void) {                              \
+    __asm__ volatile("ldr r0, %0      \n\t" /* set r0 to new stack */         \
+                     "mov r1, sp      \n\t" /* set r1 to old stack */         \
+                     "stmdb r0!, {r1} \n\t" /* save old stack to new stack */ \
+                     "mov sp, r0      \n\t" /* set sp to new stack */         \
+                     "bl " _FN "      \n\t" /* call _FN */                    \
+                     "ldmia sp, {r1}  \n\t" /* old stack pointer to r1 */     \
+                     "mov sp, r1      \n\t" /* restore stack pointer */       \
+                     :                                                        \
+                     : "m" (_NS)                                              \
+                     : "memory", "r0", "r1");                                 \
+    }
 #else
 #error "No definition of SWIZZLE_DEF for THC"
 #endif
