@@ -28,14 +28,9 @@ void trigger_handler(struct octopus_binding* b, octopus_trigger_id_t id,
 {
     assert(t != 0);
 
-// XXX:
-#if defined(__i386__)
-    trigger_handler_fn trigger_fn = (trigger_handler_fn) (uint32_t)t;
-    void* state = (void*) (uint32_t)st;
-#else
-    trigger_handler_fn trigger_fn = (trigger_handler_fn) t;
-    void* state = (void*) st;
-#endif
+    // XXX: The casting to uintptr_t is for 32-bit archs
+    trigger_handler_fn trigger_fn = (trigger_handler_fn) (uintptr_t)t;
+    void* state = (void*) (uintptr_t)st;
 
     if (trigger_fn != NULL) {
         trigger_fn(mode, record, state);
@@ -55,13 +50,8 @@ octopus_trigger_t oct_mktrigger(errval_t in_case, octopus_binding_type_t send_to
                 .m = mode,
                 .send_to = send_to,
                 // TODO: bad uint64_t here!
-#if defined(__i386__)
-                .trigger = (uint64_t)(uint32_t) fn,
-                .st = (uint64_t)(uint32_t) state
-#else
-                .trigger = (uint64_t) fn,
-                .st = (uint64_t) state
-#endif
+                .trigger = (uint64_t)(uintptr_t) fn,
+                .st = (uint64_t)(uintptr_t) state
             };
 }
 

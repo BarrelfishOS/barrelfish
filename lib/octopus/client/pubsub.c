@@ -34,13 +34,9 @@ void subscription_handler(struct octopus_binding *b, subscription_t id,
 {
 
     // XXX: Probably send some offset around and use 32bit in flounder?
-#if defined(__i386__)
-    subscription_handler_fn handler_fn = (subscription_handler_fn) (uint32_t)fn;
-    void* state = (void*) (uint32_t)st;
-#else
-    subscription_handler_fn handler_fn = (subscription_handler_fn) fn;
-    void* state = (void*) st;
-#endif
+    // XXX: The casting to uintptr_t is for 32-bit archs
+    subscription_handler_fn handler_fn = (subscription_handler_fn)(uintptr_t)fn;
+    void* state = (void*)(uintptr_t)st;
 
     if (handler_fn != NULL) {
         handler_fn(mode, record, state);
@@ -87,13 +83,8 @@ errval_t oct_subscribe(subscription_handler_fn function, const void *state,
     uint64_t fl_function = 0;
     uint64_t fl_state = 0;
 
-#if defined(__i386__)
-    fl_function = (uint64_t)(uint32_t)function;
-    fl_state = (uint64_t)(uint32_t)state;
-#else
-    fl_function = (uint64_t)function;
-    fl_state = (uint64_t)state;
-#endif
+    fl_function = (uint64_t)(uintptr_t)function;
+    fl_state = (uint64_t)(uintptr_t)state;
 
     err = cl->call_seq.subscribe(cl, buf, fl_function,
             fl_state, id, &error_code); // XXX: Sending Pointer as uint64
