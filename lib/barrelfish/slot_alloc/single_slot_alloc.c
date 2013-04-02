@@ -92,11 +92,27 @@ static errval_t sfree(struct slot_allocator *ca, struct capref cap)
         // Freeing at the edge of walk
         if (cap.slot == walk->slot + walk->space) {
             walk->space++;
+
+            // check if we can merge walk to next
+            struct cnode_meta *next = walk->next;
+            if (next && next->slot == walk->slot + walk->space) {
+                walk->space += next->space;
+                walk->next = next->next;
+                slab_free(&sca->slab, next);
+            }
+
             goto finish;
         }
         else if (cap.slot < walk->slot + walk->space) {
             err = LIB_ERR_SLOT_UNALLOCATED;
             goto unlock;
+        }
+
+        // Freing just before walk->next
+        if (walk->next && cap.slot + 1 == walk->next->slot) {
+            walk->next->slot = cap.slot;
+            walk->next->space++;
+            goto finish;
         }
 
         // Freeing after walk and before walk->next
@@ -143,6 +159,17 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
 
     slab_init(&ret->slab, sizeof(struct cnode_meta), NULL);
     if (buflen > 0) {
+        // check for callers that do not provide enough buffer space
+        #if !defined(NDEBUG)
+        size_t buflen_proper = SINGLE_SLOT_ALLOC_BUFLEN(nslots);
+        if (buflen != buflen_proper) {
+            debug_printf("******* FIXME: %s buflen=%lu != buflen_proper=%lu"
+                         "call stack: %p %p\n",
+                         __FUNCTION__, buflen, buflen_proper,
+                         __builtin_return_address(0),
+                         __builtin_return_address(1));
+        }
+        #endif
         slab_grow(&ret->slab, buf, buflen);
     }
 
@@ -166,7 +193,7 @@ errval_t single_slot_alloc_init(struct single_slot_allocator *ret,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
-    size_t buflen = sizeof(struct cnode_meta) * nslots / 2; // worst case
+    size_t buflen = SINGLE_SLOT_ALLOC_BUFLEN(nslots);
     void *buf = malloc(buflen);
     if (!buf) {
         return LIB_ERR_MALLOC_FAIL;
