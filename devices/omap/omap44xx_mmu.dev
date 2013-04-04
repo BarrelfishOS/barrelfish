@@ -1,0 +1,81 @@
+/*
+ * omap44xx_mmu.dev
+ *
+ * The OMAP4460 has three Memory management units (MMU):
+ *  a) Cortex A9 MMU: For the two ARMV7 cores
+ *  b) Cortex M3 MMU: For the two multimedia processors
+ *  c) DSP device MMU: Don't know what that is
+ *
+ * This is derived from:
+ *
+ * OMAP4460 Multimedia Device Silicon Revision 1.x Technical Reference
+ * Manual Version Q, in particular Section 25.6
+ *
+ */
+
+device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU)" {
+
+    register revision ro addr(base, 0x0000) "This register contains the IP revision code" type(uint32);
+
+	constants idle_mode width(2) "Idle mode" {
+	im_force	= 0x0 "Force idle";
+	im_none		= 0x1 "No idle";
+	im_smart	= 0x2 "Smart idle";
+    };
+
+ 	constants auto_idle_mode width(1) "Idle mode" {
+	aim_free	= 0x0 "Interconnect clock is free-running";
+	aim_auto	= 0x1 "Automatic interconnect clock gating strategy";
+    };
+
+    register sysconfig rw addr(base, 0x0010) "Controls the various parameters of the L3 interconnect interface" {
+	_				21;
+	clockactivity	2 						"Clock activity during wake-up mode";
+	_				3;
+	idlemode		2 type(idle_mode)		"Wake-up enable";
+	_ 				2;
+	softreset		1						"Software reset";
+	autoidle		1 type(auto_idle_mode)	"Internal interconnect clock gating strategy";
+    };
+
+    
+    register sysstatus r addr(base, 0x0014) "Status information about the Module" type(uint32);
+
+	register irqstatus rw addr(base, 0x0018) "Interrupt Status" type(uint32);
+
+	register irqenable rw addr(base, 0x001C) "Allows to mask/unmask the module internal sources of interrupt" type(uint32);
+
+	register walking_state rw addr(base, 0x0040) "Status information about the table walking logic" type(uint32);
+
+	register control rw addr(base, 0x0044) "Programs MMU Features" type(uint32);
+
+	register fault_address r addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
+
+	register translation_table_base_address r addr(base, 0x004C) "Translation Table Base address" type(uint32);
+
+	register lock rw addr(base, 0x0050) "Lock some TLB entries" type(uint32);
+
+	register load_tlb rw addr(base, 0x0054) "Load TLB entries" type(uint32);
+
+	register cam rw addr(base, 0x0058) "Holds a CAM entry" type(uint32);
+
+	register ram rw addr(base, 0x005C) "Holds a RAM entry" type(uint32);
+
+	register flush_tlb_non_protected rw addr(base, 0x0060) "Flush non-protected TLB entries" type(uint32);
+
+	register flush_cam_entry rw addr(base, 0x0064) "Flush entry pointed to by CAM virtual address" type(uint32);
+
+	register read_cam_entry r addr(base, 0x0068) "Read CAM data from CAM entry" type(uint32);
+
+	register read_ram_entry r addr(base, 0x006C) "Read RAM data from RAM entry" type(uint32);
+
+	register emu_fault_address r addr(base, 0x0070) "Fault Address caused by debugger" type(uint32);
+
+	register  fault_pc r addr(base, 0x0080) "Fault Address caused by Process Counter" type(uint32);
+
+	register  fault_status rw addr(base, 0x0084) "Fault status" type(uint32);
+
+	register  gp_reg rw addr(base, 0x0088) "Bus-error back response enable?" type(uint32);
+
+	register  dspss_gpr rw addr(base, 0x0088) "MMU Hardware debug multiplexer" type(uint32);
+};
