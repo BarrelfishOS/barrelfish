@@ -29,7 +29,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     };
 
     register sysconfig rw addr(base, 0x0010) "Controls the various parameters of the L3 interconnect interface" {
-	_				21;
+	_				22;
 	clockactivity	2 						"Clock activity during wake-up mode";
 	_				3;
 	idlemode		2 type(idle_mode)		"Wake-up enable";
@@ -44,18 +44,19 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	done	= 0x1 "Reset completed";
     };
 
-    register sysstatus r addr(base, 0x0014) "Status information about the Module" type(uint32) {
+    register sysstatus ro addr(base, 0x0014) "Status information about the Module" {
     _				31;
-    reset_done 		 1 type(reset_state)	"Status information about module";
+    reset_state		 1 type(reset_state)	"Reset state";
     };
 
-	register irqstatus rw addr(base, 0x0018) "Interrupt Status" type(uint32) {
+	register irqstatus rw addr(base, 0x0018) "Interrupt Status" {
+	_					27;
 	multihitfault		1	"Error due to multiple matched in TLB";
 	tablewalkfault		1	"Error response received during table walk";
 	emumiss				1	"Unrecoverable TLB miss during debug";
 	translation_fault	1	"Invalid descriptor in translation tables";
 	tlbmiss				1	"Unrecoverable TLB miss";
-	}
+	};
 
 	register irqenable rw addr(base, 0x001C) "Allows to mask/unmask the module internal sources of interrupt" type(uint32);
 
@@ -63,9 +64,9 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 
 	register control rw addr(base, 0x0044) "Programs MMU Features" type(uint32);
 
-	register fault_address r addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
+	register fault_address ro addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
 
-	register translation_table_base_address r addr(base, 0x004C) "Translation Table Base address" type(uint32);
+	register translation_table_base_address ro addr(base, 0x004C) "Translation Table Base address" type(uint32);
 
 	register lock rw addr(base, 0x0050) "Lock some TLB entries" type(uint32);
 
@@ -79,17 +80,17 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 
 	register flush_cam_entry rw addr(base, 0x0064) "Flush entry pointed to by CAM virtual address" type(uint32);
 
-	register read_cam_entry r addr(base, 0x0068) "Read CAM data from CAM entry" type(uint32);
+	register read_cam_entry ro addr(base, 0x0068) "Read CAM data from CAM entry" type(uint32);
 
-	register read_ram_entry r addr(base, 0x006C) "Read RAM data from RAM entry" type(uint32);
+	register read_ram_entry ro addr(base, 0x006C) "Read RAM data from RAM entry" type(uint32);
 
-	register emu_fault_address r addr(base, 0x0070) "Fault Address caused by debugger" type(uint32);
+	register emu_fault_address ro addr(base, 0x0070) "Fault Address caused by debugger" type(uint32);
 
-	register  fault_pc r addr(base, 0x0080) "Fault Address caused by Process Counter" type(uint32);
+	register  fault_pc ro addr(base, 0x0080) "Fault Address caused by Process Counter" type(uint32);
 
 	register  fault_status rw addr(base, 0x0084) "Fault status" type(uint32);
 
 	register  gp_reg rw addr(base, 0x0088) "Bus-error back response enable?" type(uint32);
 
-	register  dspss_gpr rw addr(base, 0x0088) "MMU Hardware debug multiplexer" type(uint32);
+	/*register  dspss_gpr rw addr(base, 0x0088) "MMU Hardware debug multiplexer" type(uint32);*/
 };
