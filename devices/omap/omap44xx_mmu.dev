@@ -17,7 +17,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 
     register revision ro addr(base, 0x0000) "This register contains the IP revision code" type(uint32);
 
-    constants idle_mode ifwdth(2) "Idle mode" {
+    constants idle_mode width(2) "Idle mode" {
     im_force    = 0x0 "Force idle";
     im_none     = 0x1 "No idle";
     im_smart    = 0x2 "Smart idle";
@@ -66,7 +66,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 
     constants irq_toggle width(1) "IRQ Toggle" {
     masked  = 0x0 "Interrupt is Masked";
-    enabled = 0x1 "Interrupt is enabled";
+    irq_enabled = 0x1 "Interrupt is enabled";
     };
 
     register irqenable rw addr(base, 0x001C) "Allows to mask/unmask the module internal sources of interrupt" {
@@ -106,7 +106,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     register ttb ro addr(base, 0x004C) "Translation Table Base address" type(uint32);
 
     register lock rw addr(base, 0x0050) "Lock some TLB entries" {
-    _               16;
+    _               17;
     basevalue       5;
     _               1;
     current_victim  5;
@@ -127,7 +127,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     large = 0x1 "64 KB";
     small = 0x2 "4 KB";
     super = 0x3 "16 MB";
-    }
+    };
 
     register cam rw addr(base, 0x0058) "Holds a CAM entry" {
     virtual_tag     20                  "Virtual address tag";
@@ -158,7 +158,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     physical_address 20 "Physical address";
     _               2;
     endianness      1 type(page_endianness)         "Page endianness";
-    element_size    1 type(page_element_size)       "Page element size";
+    element_size    2 type(page_element_size)       "Page element size";
     mixed           1 type(page_mixed_attributes)   "Mixed page attribute";
     _               6;
     };
@@ -166,7 +166,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     register gflush wo addr(base, 0x0060) "Flush non-protected TLB entries" {
     _               31;
     global_flush    1 "Flush all non-protected TLB entries when set";
-    }
+    };
 
     register flush_entry rw addr(base, 0x0064) "Flush entry pointed to by CAM virtual address" {
     _               31;
@@ -185,7 +185,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     physical_address 20 "Physical address";
     _               2;
     endianness      1 type(page_endianness)         "Page endianness";
-    element_size    1 type(page_element_size)       "Page element size";
+    element_size    2 type(page_element_size)       "Page element size";
     mixed           1 type(page_mixed_attributes)   "Mixed page attribute";
     _               6;
     };
