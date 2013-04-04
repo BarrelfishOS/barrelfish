@@ -83,7 +83,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	running	= 0x1 "Table walk is running";
     };
 
-	register walking_state rw addr(base, 0x0040) "Status information about the table walking logic" {
+	register walking_st rw addr(base, 0x0040) "Status information about the table walking logic" {
 	_				31;
 	status 			1 type(twl_state)	"Table walk status";
 	};
@@ -93,7 +93,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	enabled	 = 0x1 "Enabled";
     };
 
-	register control rw addr(base, 0x0044) "Programs MMU Features" {
+	register cntl rw addr(base, 0x0044) "Programs MMU Features" {
 	_				28;
 	emu_tlb_update	1 type(mmu_feature_status) "TLB Update on emulated table walk";
 	tlw				1 type(mmu_feature_status) "Table walk logic";
@@ -101,9 +101,9 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	_				1;
 	};
 
-	register fault_address ro addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
+	register fault_ad ro addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
 
-	register translation_table_base_address ro addr(base, 0x004C) "Translation Table Base address" type(uint32);
+	register ttb ro addr(base, 0x004C) "Translation Table Base address" type(uint32);
 
 	register lock rw addr(base, 0x0050) "Lock some TLB entries" {
 	_				16;
@@ -117,7 +117,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	start = 0x1 "Start TLB load";
     };
 
-	register load_tlb wo addr(base, 0x0054) "Load TLB entries" {
+	register ld_tlb wo addr(base, 0x0054) "Load TLB entries" {
 	_				31;
 	load_table_item	1 type(tlb_load_signal) "Load data in the TLB";
 	};
@@ -163,17 +163,17 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	_				6;
 	};
 
-	register flush_tlb_non_protected wo addr(base, 0x0060) "Flush non-protected TLB entries" {
+	register gflush wo addr(base, 0x0060) "Flush non-protected TLB entries" {
 	_ 				31;
 	global_flush	1 "Flush all non-protected TLB entries when set";
 	}
 
-	register flush_cam_entry rw addr(base, 0x0064) "Flush entry pointed to by CAM virtual address" {
+	register flush_entry rw addr(base, 0x0064) "Flush entry pointed to by CAM virtual address" {
 	_				31;
 	flush_entry 	1 "Flush TLB entry pointed to by CAM entry.";
 	};
 
-	register read_cam_entry ro addr(base, 0x0068) "Read CAM data from CAM entry" {
+	register read_cam ro addr(base, 0x0068) "Read CAM data from CAM entry" {
 	virtual_tag		20					"Virtual address tag";
 	_ 				8;
 	preserved		1 					"Preserved bit";
@@ -181,7 +181,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	page_size		2 type(page_size)	"Page size";
 	};
 
-	register read_ram_entry ro addr(base, 0x006C) "Read RAM data from RAM entry" {
+	register read_ram ro addr(base, 0x006C) "Read RAM data from RAM entry" {
 	physical_address 20	"Physical address";
 	_ 				2;
 	endianness		1 type(page_endianness)			"Page endianness";
@@ -190,16 +190,26 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	_				6;
 	};
 
-	register emu_fault_address ro addr(base, 0x0070) "Fault Address caused by debugger" type(uint32);
+	register emu_fault_ad ro addr(base, 0x0070) "Fault Address caused by debugger" type(uint32);
 
 	register  fault_pc ro addr(base, 0x0080) "Fault Address caused by Process Counter" type(uint32);
 
-	register  fault_status rw addr(base, 0x0084) "Fault status" type(uint32) {
-	/* TODO */
+	register  fault_status rw addr(base, 0x0084) "Fault status" {
+	_ 24;
+	fault_trans_id 		4 "Master ID who causes a fault";
+	read_write 			1 "Indicates read or write";
+	fault_type 			2 "MMU fault type";
+	fault_indication 	1 "Indicates a MMU Fault";
 	};
 
+ 	constants bus_error_back_en_status width(1) "Bus error back enable status bit" {
+	default = 0x0 "Default behaviour for MMU page faults";
+	return_bus_error = 0x1 "All MMU faults return bus error back";
+    };
+
 	register  gp_reg rw addr(base, 0x0088) "Bus-error back response enable?" {
-	/* TODO */
+	_ 					31;
+	bus_error_back_en	1 type(bus_error_back_en_status)	"Bus error back response enable bit";
 	};
 
 	/* TODO overlap?
