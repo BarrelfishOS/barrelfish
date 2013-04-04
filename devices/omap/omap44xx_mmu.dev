@@ -49,30 +49,86 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
     reset_state		 1 type(reset_state)	"Reset state";
     };
 
+
+ 	constants irq_fault width(1) "IRQ Fault" {
+	false	= 0x0 "No fault.";
+	pending	= 0x1 "Fault is pending";
+    };
+
 	register irqstatus rw addr(base, 0x0018) "Interrupt Status" {
 	_					27;
-	multihitfault		1	"Error due to multiple matched in TLB";
-	tablewalkfault		1	"Error response received during table walk";
-	emumiss				1	"Unrecoverable TLB miss during debug";
-	translation_fault	1	"Invalid descriptor in translation tables";
-	tlbmiss				1	"Unrecoverable TLB miss";
+	multihitfault		1 type(irq_fault)	"Error due to multiple matched in TLB";
+	tablewalkfault		1 type(irq_fault)	"Error response received during table walk";
+	emumiss				1 type(irq_fault)	"Unrecoverable TLB miss during debug";
+	translation_fault	1 type(irq_fault)	"Invalid descriptor in translation tables";
+	tlbmiss				1 type(irq_fault)	"Unrecoverable TLB miss";
 	};
 
-	register irqenable rw addr(base, 0x001C) "Allows to mask/unmask the module internal sources of interrupt" type(uint32);
+ 	constants irq_toggle width(1) "IRQ Toggle" {
+	masked	= 0x0 "Interrupt is Masked";
+	enabled	= 0x1 "Interrupt is enabled";
+    };
 
-	register walking_state rw addr(base, 0x0040) "Status information about the table walking logic" type(uint32);
+	register irqenable rw addr(base, 0x001C) "Allows to mask/unmask the module internal sources of interrupt" {
+	_					27;
+	multihitfault		1 type(irq_toggle)	"Error due to multiple matched in TLB";
+	tablewalkfault		1 type(irq_toggle)	"Error response received during table walk";
+	emumiss				1 type(irq_toggle)	"Unrecoverable TLB miss during debug";
+	translation_fault	1 type(irq_toggle)	"Invalid descriptor in translation tables";
+	tlbmiss				1 type(irq_toggle)	"Unrecoverable TLB miss";
+	};
 
-	register control rw addr(base, 0x0044) "Programs MMU Features" type(uint32);
+ 	constants twl_state width(1) "Table walk status" {
+	completed	= 0x0 "Table walk done";
+	running	= 0x1 "Table walk is running";
+    };
+
+	register walking_state rw addr(base, 0x0040) "Status information about the table walking logic" {
+	_				31;
+	status 			1 type(twl_state)	"Table walk status";
+	};
+
+ 	constants mmu_feature_status width(1) "MMU Feature Status" {
+	disabled = 0x0 "Disabled";
+	enabled	 = 0x1 "Enabled";
+    };
+
+	register control rw addr(base, 0x0044) "Programs MMU Features" {
+	_				28;
+	emu_tlb_update	1 type(mmu_feature_status) "TLB Update on emulated table walk";
+	tlw				1 type(mmu_feature_status) "Table walk logic";
+	mmu				1 type(mmu_feature_status) "Memory management unit";
+	_				1;
+	};
 
 	register fault_address ro addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
 
 	register translation_table_base_address ro addr(base, 0x004C) "Translation Table Base address" type(uint32);
 
-	register lock rw addr(base, 0x0050) "Lock some TLB entries" type(uint32);
+	register lock rw addr(base, 0x0050) "Lock some TLB entries" {
+	_				16;
+	basevalue		5;
+	_				1;
+	current_victim	5;
+	_				4;
+	};
 
-	register load_tlb rw addr(base, 0x0054) "Load TLB entries" type(uint32);
+ 	constants tlb_load_signal width(1) "TLB Load signal" {
+	start = 0x1 "Start TLB load";
+    };
 
-	register cam rw addr(base, 0x0058) "Holds a CAM entry" type(uint32);
+	register load_tlb wo addr(base, 0x0054) "Load TLB entries" {
+	_				31;
+	load_table_item	1 type() "Load data in the TLB";
+	};
+
+	register cam rw addr(base, 0x0058) "Holds a CAM entry" {
+	virtual_tag		20	"Virtual address tag";
+	_ 				8;
+	preserved		1 	"Preserved bit";
+	valid			1  	"Valid bit";
+	pagesize		2 	"Page size";
+	};
 
 	register ram rw addr(base, 0x005C) "Holds a RAM entry" type(uint32);
 
