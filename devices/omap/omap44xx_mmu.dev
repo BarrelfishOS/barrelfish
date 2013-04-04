@@ -9,7 +9,7 @@
  * This is derived from:
  *
  * OMAP4460 Multimedia Device Silicon Revision 1.x Technical Reference
- * Manual Version Q, in particular Section 25.6
+ * Manual Version X, in particular Section 20.5
  *
  */
 
@@ -33,15 +33,29 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 	clockactivity	2 						"Clock activity during wake-up mode";
 	_				3;
 	idlemode		2 type(idle_mode)		"Wake-up enable";
-	_ 				2;
+	_ 				1;
 	softreset		1						"Software reset";
 	autoidle		1 type(auto_idle_mode)	"Internal interconnect clock gating strategy";
     };
 
-    
-    register sysstatus r addr(base, 0x0014) "Status information about the Module" type(uint32);
 
-	register irqstatus rw addr(base, 0x0018) "Interrupt Status" type(uint32);
+ 	constants reset_state width(1) "Reset monitoring" {
+	ongoing	= 0x0 "Internal module reset in on-going";
+	done	= 0x1 "Reset completed";
+    };
+
+    register sysstatus r addr(base, 0x0014) "Status information about the Module" type(uint32) {
+    _				31;
+    reset_done 		 1 type(reset_state)	"Status information about module";
+    };
+
+	register irqstatus rw addr(base, 0x0018) "Interrupt Status" type(uint32) {
+	multihitfault		1	"Error due to multiple matched in TLB";
+	tablewalkfault		1	"Error response received during table walk";
+	emumiss				1	"Unrecoverable TLB miss during debug";
+	translation_fault	1	"Invalid descriptor in translation tables";
+	tlbmiss				1	"Unrecoverable TLB miss";
+	}
 
 	register irqenable rw addr(base, 0x001C) "Allows to mask/unmask the module internal sources of interrupt" type(uint32);
 
