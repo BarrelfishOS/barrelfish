@@ -100,9 +100,10 @@ listFilesR path = let
     isDODD :: String -> Bool
     isDODD f = not $ (isSuffixOf "/." f) 
                   || (isSuffixOf "/.." f) 
-                  || (isSuffixOf "/.hg" f)
                   || (isSuffixOf "CMakeFiles" f)
-                  || (isPrefixOf "./build" f)
+                  || (isPrefixOf (path ++ "/.hg") f)
+                  || (isPrefixOf (path ++ "/build") f)
+                  || (isPrefixOf (path ++ "/.git") f)
 
     listDirs :: [FilePath] -> IO [FilePath]
     listDirs = filterM doesDirectoryExist 
