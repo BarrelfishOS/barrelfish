@@ -342,7 +342,7 @@ static void client_send_packet(void)
     memcpy(frame->dst_mac, bcast, 6);
     frame->ethertype = 0x0608;
     sent_at = rdtsc();
-    errval_t err = buffer_tx_add(idx, 0, len);
+    errval_t err = buffer_tx_add(idx, 0, len, 0);
     if (err != SYS_ERR_OK) {
         printf("Could not add buffer for TX\n");
         assert(err != SYS_ERR_OK);
@@ -358,7 +358,7 @@ static void respond_buffer(size_t i, size_t len)
     memcpy(frame->src_mac, our_mac, 6);
     memcpy(frame->dst_mac, bcast, 6);*/
 
-    errval_t err = buffer_tx_add(i, 0, len);
+    errval_t err = buffer_tx_add(i, 0, len, 0);
     if (err != SYS_ERR_OK) {
         printf("Could not add buffer for TX\n");
         assert(err != SYS_ERR_OK);

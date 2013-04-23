@@ -31,7 +31,7 @@ static void idc_register_buffer(struct net_queue_manager_binding *binding,
                                 uint64_t qid, uint64_t slots, uint8_t role);
 
 static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
-                               uint64_t offset, uint64_t len);
+                     uint64_t offset, uint64_t len, uint64_t more_chunks);
 
 static void idc_get_mac_address(struct net_queue_manager_binding *binding,
                                 uint64_t qid);
@@ -55,10 +55,11 @@ size_t buffer_count = BUFFER_COUNT;
 /******************************************************************************/
 /* Buffer management */
 
-errval_t buffer_tx_add(size_t idx, size_t offset, size_t len)
+errval_t buffer_tx_add(size_t idx, size_t offset, size_t len, size_t more_chunks)
 {
     errval_t err = SYS_ERR_OK;
-    err = idc_raw_add_buffer(binding_tx, idx * BUFFER_SIZE + offset, len);
+    err = idc_raw_add_buffer(binding_tx, idx * BUFFER_SIZE + offset, len,
+            (uint64_t)more_chunks);
     return err;
 }
 
@@ -66,7 +67,7 @@ errval_t buffer_rx_add(size_t idx)
 {
 
     errval_t err = SYS_ERR_OK;
-    err = idc_raw_add_buffer(binding_rx, idx * BUFFER_SIZE, BUFFER_SIZE);
+    err = idc_raw_add_buffer(binding_rx, idx * BUFFER_SIZE, BUFFER_SIZE, 0);
     return err;
 }
 
@@ -112,26 +113,19 @@ static errval_t send_raw_add_buffer(struct q_entry entry)
 {
     struct net_queue_manager_binding *b = entry.binding_ptr;
 
-//    printf("#### send_raw_add_buffer called %"PRIu64" %"PRIu64"\n",
-//            entry.plist[0], entry.plist[1]);
     if (b->can_send(b)) {
- //       printf("#### send_raw_add_buffer can_send good\n");
 
-//        errval_t err = net_queue_manager_raw_add_buffer__tx(
         errval_t err = b->tx_vtbl.raw_add_buffer(
                 b, MKCONT(cont_queue_callback, b->st),
-                                                    entry.plist[0],
-                                                    entry.plist[1]);
-  //      printf("#### send_raw_add_buffer return %"PRIu64"\n", err);
+                   entry.plist[0], entry.plist[1], entry.plist[2]);
         return err;
     } else {
-   //     printf("#### send_raw_add_buffer can_send bad\n");
         return FLOUNDER_ERR_TX_BUSY;
     }
 }
 
 static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
-                               uint64_t offset, uint64_t len)
+                               uint64_t offset, uint64_t len, uint64_t more_chunks)
 {
 
     struct q_entry entry;
@@ -140,10 +134,10 @@ static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
     entry.binding_ptr = binding;
     entry.plist[0] = offset;
     entry.plist[1] = len;
+    entry.plist[2] = more_chunks;
 
 
     struct waitset *ws = get_default_waitset();
-
     int passed_events = 0;
     while (can_enqueue_cont_q(binding->st) == false) {
         if (passed_events > 5) {

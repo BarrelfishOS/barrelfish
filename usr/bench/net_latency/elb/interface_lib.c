@@ -119,6 +119,7 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
     benchmark_rx_done((size_t) opaque, pkt_len);
 }
 
+//errval_t buffer_tx_add(size_t idx, size_t offset, size_t len, size_t more_chunks)
 errval_t buffer_tx_add(size_t idx, size_t offset, size_t len)
 {
     struct driver_buffer buffer = {

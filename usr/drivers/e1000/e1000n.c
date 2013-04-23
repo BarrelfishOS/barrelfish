@@ -186,6 +186,10 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
         }
     }
 
+    if (count > 1) {
+        printf("Sending %zx chunks\n", count);
+    }
+
     for (int i = 0; i < count; i++) {
         r = transmit_pbuf(buffers[i].pa, buffers[i].len,
                     i == (count - 1), //last?

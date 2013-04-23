@@ -65,7 +65,8 @@ static void register_buffer(struct net_queue_manager_binding *cc,
         struct capref cap, struct capref sp, uint64_t queueid,
         uint64_t slots, uint8_t role);
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
-                           uint64_t offset, uint64_t length);
+                           uint64_t offset, uint64_t length,
+                           uint64_t more);
 static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
@@ -380,6 +381,22 @@ static void report_register_buffer_result(struct net_queue_manager_binding *cc,
     entry.plist[1] = queueid;
     entry.plist[2] = buffer_id;
     //   error, queue_id, buffer_id
+
+    struct waitset *ws = get_default_waitset();
+    int passed_events = 0;
+    while (can_enqueue_cont_q(ccl->q) == false) {
+
+       // USER_PANIC("queue full, can go further\n");
+
+        if (passed_events > 5) {
+            USER_PANIC("queue full, can go further\n");
+            //return CONT_ERR_NO_MORE_SLOTS;
+        }
+        event_dispatch(ws);
+        ++passed_events;
+    }
+
+
     enqueue_cont_q(ccl->q, &entry);
 }
 
@@ -467,6 +484,22 @@ static void send_raw_xmit_done(struct net_queue_manager_binding *b,
     entry.binding_ptr = b;
     entry.plist[0] = offset;
     entry.plist[1] = length;
+
+    struct waitset *ws = get_default_waitset();
+    int passed_events = 0;
+    while (can_enqueue_cont_q(ccl->q) == false) {
+
+//        USER_PANIC("queue full, can go further\n");
+
+        if (passed_events > 5) {
+            USER_PANIC("queue full, can go further\n");
+            //return CONT_ERR_NO_MORE_SLOTS;
+        }
+        event_dispatch(ws);
+        ++passed_events;
+    }
+
+
     enqueue_cont_q(ccl->q, &entry);
 } // end function: send_raw_xmit_done
 
@@ -518,6 +551,21 @@ static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
     entry.plist[0] = queueid;
     entry.plist[1] = get_mac_addr_from_device();
        // queueid,  hwaddr
+
+    struct waitset *ws = get_default_waitset();
+    int passed_events = 0;
+    while (can_enqueue_cont_q(ccl->q) == false) {
+
+       // USER_PANIC("queue full, can go further\n");
+
+        if (passed_events > 5) {
+            USER_PANIC("queue full, can go further\n");
+           // return CONT_ERR_NO_MORE_SLOTS;
+        }
+        event_dispatch(ws);
+        ++passed_events;
+    }
+
 
     enqueue_cont_q(ccl->q, &entry);
 }
@@ -684,7 +732,8 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
  * Interface related: raw interface
  ****************************************************************/
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
-                           uint64_t offset, uint64_t length)
+                           uint64_t offset, uint64_t length,
+                           uint64_t more)
 {
     struct client_closure *cl = (struct client_closure *) cc->st;
     struct buffer_descriptor *buffer = cl->buffer_ptr;
@@ -711,16 +760,27 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
 
         opaque = (void*)bsm;
 
+        // save information as list of packet-chunks before sending to HW
+        cl->driver_buff_list[cl->chunk_counter].va = vaddr;
+        cl->driver_buff_list[cl->chunk_counter].pa = paddr;
+        cl->driver_buff_list[cl->chunk_counter].len = length;
+        ++cl->chunk_counter;
+        if (more == 0) {
+            err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list, cl->chunk_counter, opaque);
+            assert(err_is_ok(err));
+            cl->chunk_counter = 0;
+        } else {
+    //        USER_PANIC("packet broken with multiple parts\n");
+            printf("packet broken with multiple parts\n");
+        }
 
-        struct driver_buffer buffers;
+    } else { // RX_BUFFER_ID
 
-        buffers.va  = vaddr;
-        buffers.pa  = paddr;
-        buffers.len = length;
+        // Sanity check.  Making sure that more flag is not set
+        if (more == 1) {
+            USER_PANIC("broken buffer registerd with for RX buffer\n");
+        }
 
-        err = ether_transmit_pbuf_list_ptr(&buffers, 1, opaque);
-        assert(err_is_ok(err));
-    } else {
         // Make sure that there is opaque slot available (isfull)
         assert(buffer->rxq.buffer_state_used <
                 (buffer->rxq.buffer_state_size - 1));

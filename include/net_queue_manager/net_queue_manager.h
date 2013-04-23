@@ -101,7 +101,17 @@ enum pbuf_lifecycle {
     PBUF_REGISTER_GENERATED,
     PBUF_REGISTER_SENT
 };
+
+
+struct driver_buffer {
+    uint64_t pa;
+    void    *va;
+    size_t   len;
+};
+
+
 #define MAX_STAT_EVENTS   5   // This is the count of pbuf_lifecycle events
+#define MAX_CHUNKS   5 // Max no. of allowed chunks for single packet
 
 
 /* This is client_closure for network service */
@@ -117,6 +127,11 @@ struct client_closure {
     uint64_t queueid; // The queueid to which this buffer belongs
     struct net_queue_manager_binding *app_connection; // Binding pointer to talk back
     struct cont_queue *q; // Cont management queue to report events
+
+
+    // Place to store data when there are multiple parts to the packet
+    struct driver_buffer driver_buff_list[MAX_CHUNKS]; // list of already seen chunks
+    uint8_t chunk_counter; // How many chunks are already seen?
 
     // For debugging and benchmarking help
     uint8_t debug_print; // To control connection level debug prints
@@ -137,12 +152,6 @@ struct client_closure {
     uint64_t pbuf_count;  // # pbufs sent
     uint64_t in_dropped_app_buf_full; // # packets dropped for lack of buffers
 }; /* holds info about how much data is transferred to NIC. */
-
-struct driver_buffer {
-    uint64_t pa;
-    void    *va;
-    size_t   len;
-};
 
 /*****************************************************************
  * Driver states

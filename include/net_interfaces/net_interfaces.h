@@ -28,7 +28,7 @@ void benchmark_do_pending_work(void);
 
 void net_if_init(const char* cardname, uint64_t qid);
 void net_if_terminate(void);
-errval_t buffer_tx_add(size_t idx, size_t offset, size_t len);
+errval_t buffer_tx_add(size_t idx, size_t offset, size_t len, size_t more_chunks);
 errval_t buffer_rx_add(size_t idx);
 void benchmark_get_mac_address(uint8_t *mac);
 uint64_t get_tx_bufferid(void);

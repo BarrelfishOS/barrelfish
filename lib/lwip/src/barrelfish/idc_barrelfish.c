@@ -111,20 +111,36 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
     LWIPBF_DEBUG("idc_send_packet_to_network_driver: called\n");
 
     // At the moment we can't deal with buffer chains
-    assert(p->next == NULL);
-
-    idx = mem_barrelfish_put_pbuf(p);
-
-    offset = p->payload - buffer_base;
-    errval_t err = buffer_tx_add(idx, offset % buffer_size, p->len);
-    if (err != SYS_ERR_OK) {
-        printf("idc_send_packet_to_network_driver: failed\n");
-        LWIPBF_DEBUG("idc_send_packet_to_network_driver: failed\n");
-        return 0;
+    //assert(p->next == NULL);
+    if(p->next != NULL) {
+        printf("warning: idc_send_packet_to_network_driver: packet chain found\n");
     }
 
-    LWIPBF_DEBUG("idc_send_packet_to_network_driver: terminated\n");
-    return 1;
+    size_t more_chunks = false;
+    uint64_t pkt_count = 0;
+    while(p != NULL) {
+
+        if (p->next != NULL) {
+            more_chunks = 1;
+        }
+
+        idx = mem_barrelfish_put_pbuf(p);
+
+        offset = p->payload - buffer_base;
+        errval_t err = buffer_tx_add(idx, offset % buffer_size, p->len,
+                more_chunks);
+        if (err != SYS_ERR_OK) {
+            printf("idc_send_packet_to_network_driver: failed\n");
+            USER_PANIC("idc_send_packet_to_network_driver: failed\n");
+            LWIPBF_DEBUG("idc_send_packet_to_network_driver: failed\n");
+            return 0;
+        }
+
+        LWIPBF_DEBUG("idc_send_packet_to_network_driver: terminated\n");
+        ++pkt_count;
+        p = p->next;
+    }
+    return pkt_count;
 } // end function: idc_send_packet_to_network_driver
 
 
