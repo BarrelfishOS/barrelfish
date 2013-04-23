@@ -256,9 +256,9 @@ For the pleco file of Listing \ref{lst:pleco-file}, the header file shown in
 Listing \ref{lst:headerfile} has been generated during the build process. In
 Barrelfish source code, this file can be included with the statement:
 
-\begin{description}
-	\item[$\#$include] <trace\_definitions/trace\_defs.h>
-\end{description}
+\begin{lstlisting}
+#include <trace_definitions/trace_defs.h>
+\end{lstlisting}
 
 Note that the macro that are created for events also contain the subsystem name,
 so that there will not be any name collisions when two different subsystem
