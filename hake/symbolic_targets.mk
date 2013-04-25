@@ -232,7 +232,9 @@ MODULES_xscale=\
 # ARMv7-specific modules to build by default
 # XXX: figure out armv7 default
 MODULES_armv7=\
-	sbin/cpu_omap44xx
+	sbin/cpu_omap44xx \
+	sbin/usb_manager \
+	sbin/kaluga
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -465,7 +467,9 @@ PANDABOARD_MODULES=\
 	armv7/sbin/spawnd \
 	armv7/sbin/startd \
 	armv7/sbin/skb \
-	armv7/sbin/memtest
+	armv7/sbin/memtest \
+	armv7/sbin/kaluga \
+	armv7/sbin/usb_manager \
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@
