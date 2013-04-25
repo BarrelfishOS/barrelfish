@@ -18,7 +18,6 @@
  * ------------------------------------------------------------------------
  */
 
-
 /*
  * ------------------------------------------------------------------------
  * OHCI Bulk Pipe Functions
@@ -51,7 +50,7 @@ struct usb_hcdi_pipe_fn usb_ohci_xfer_bulk_fun =
 static void
 usb_ohci_xfer_bulk_open(struct usb_xfer *xfer)
 {
-    return;
+    return; /* noop */
 }
 
 /**
@@ -75,7 +74,7 @@ usb_ohci_xfer_bulk_close(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_bulk_enter(struct usb_xfer *xfer)
 {
-    return;
+    return; /* noop */
 }
 
 /**
@@ -87,7 +86,14 @@ usb_ohci_xfer_bulk_enter(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_bulk_start(struct usb_xfer *xfer)
 {
+    // get the host controller of this transfer
+    usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
+    // setup the transfer descriptors and queue heads
+    usb_ohci_xfer_setup(xfer, &hc->qh_bulk_last);
+
+    // enqueue it on the interrupt queue
+    usb_ohci_xfer_enqueue(xfer);
 }
 
 /*
@@ -158,10 +164,13 @@ usb_ohci_xfer_ctrl_enter(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_ctrl_start(struct usb_xfer *xfer)
 {
+    // get the host controller
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
+    // setup the queue heads and transfer descriptors
     usb_ohci_xfer_setup(xfer, &hc->qh_ctrl_last);
 
+    // enqueue it on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);
 }
 
@@ -206,7 +215,12 @@ usb_ohci_xfer_intr_open(struct usb_xfer *xfer)
     uint16_t x;
 
     best = 0;
-    bit = USB_OHCI_NO_EP_DESCRIPTORS / 2; // we have Intr - Isoc
+    /*
+     * we have USB_OHCI_NO_EP_DESCRIPTORS total endpoint descriptors
+     * in the interrupt transfer lists. This consist of half
+     * interrupt endpoints and half isochronus endpoints
+     */
+    bit = USB_OHCI_NO_EP_DESCRIPTORS / 2;
 
     /*
      * loop over the possible interrupt intervals and find the best
@@ -241,11 +255,13 @@ usb_ohci_xfer_intr_open(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_intr_close(struct usb_xfer *xfer)
 {
+    // get the host controller
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
     // update the usage statistics for the interval type
     hc->intr_stats[xfer->intr_qh_pos]--;
 
+    // remove the transfer
     usb_ohci_xfer_remove(xfer, USB_ERR_CANCELLED);
 }
 
@@ -270,10 +286,13 @@ usb_ohci_xfer_intr_enter(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_intr_start(struct usb_xfer *xfer)
 {
+    // get the host controller
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
+    // setup the queue heads and the transfer descriptors
     usb_ohci_xfer_setup(xfer, hc->qh_intr_last[xfer->intr_qh_pos]);
 
+    // enqueue it on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);
 }
 
@@ -309,7 +328,7 @@ struct usb_hcdi_pipe_fn usb_ohci_xfer_isoc_fun =
 static void
 usb_ohci_xfer_isoc_open(struct usb_xfer *xfer)
 {
-    return;
+    return; /* noop */
 }
 
 /**
@@ -334,7 +353,7 @@ usb_ohci_xfer_isoc_close(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_isoc_enter(struct usb_xfer *xfer)
 {
-
+    assert(!"NYI: cannot create isochronus transfers at this time")
 }
 
 /**
@@ -346,7 +365,8 @@ usb_ohci_xfer_isoc_enter(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_isoc_start(struct usb_xfer *xfer)
 {
-
+    // put the transfer on the interrupt queue
+    usb_ohci_xfer_enqueue(xfer);
 }
 
 /*

@@ -16,4 +16,5 @@ void usb_ohci_xfer_done_isoc(struct usb_xfer *xfer);
 void usb_ohci_xfer_remove(struct usb_xfer *xfer, usb_error_t err);
 void usb_ohci_xfer_enqueue(struct usb_xfer *xfer);
 usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last);
-#endif
+
+#endif /* _USB_OHCI_XFER_H_ */

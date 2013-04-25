@@ -73,12 +73,6 @@ struct usb_hcdi_pipe_fn {
 
 
 
- /*
-    this typedef is used to refer to a physical address in the hardware
-    related data structures of the host controller
-  */
- typedef volatile uintptr_t usb_paddr_t;
-
 
  #define USB_HOST_UHCI 0x10
  #define USB_HOST_OHCI 0x11
@@ -86,7 +80,7 @@ struct usb_hcdi_pipe_fn {
  #define USB_HOST_XHCI 0x30
 
  typedef struct usb_host_controller {
-     usb_controller_type_t hc_type;    // the type of the host controller
+    usb_controller_type_t hc_type;    // the type of the host controller
     void *hc_control;   // pointer to the host specific controller
 
     struct usb_xfer_queue intr_queue;

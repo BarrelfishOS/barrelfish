@@ -125,11 +125,6 @@ struct usb_ohci_config_desc {
     struct resource          *sc_irq_res;
 	void                     *sc_intr_hdl;
 
-	bus_size_t               sc_io_size;
-	bus_space_tag_t          sc_io_tag;
-	bus_space_handle_t       sc_io_hdl;
-
-
 
 } usb_ohci_hc_t;
 

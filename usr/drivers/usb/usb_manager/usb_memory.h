@@ -11,6 +11,12 @@
 #ifndef _USB_MEMORY_H_
 #define _USB_MEMORY_H_
 
+/*
+ * definition of the usb physical address type
+ */
+typedef volatile uintptr_t usb_paddr_t;
+
+
 
 
 /*
