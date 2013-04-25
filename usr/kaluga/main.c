@@ -79,20 +79,29 @@ int main(int argc, char** argv)
     assert(my_core_id == BSP_CORE_ID);
     printf("Kaluga running.\n");
 
+    printf("Kaluga: Connecting to SKB.\n");
+
     err = skb_client_connect();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Connect to SKB.");
     }
+
+    printf("Kaluga: SKB client connected.\n");
+
     // Make sure the driver db is loaded
     err = skb_execute("[device_db].");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Device DB not loaded.");
     }
 
+    printf("Kaluga: intializing octopus\n");
+
     err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Initialize octopus service.");
     }
+
+    printf("Kaluga: parse boot modules...\n");
 
     err = init_boot_modules();
     if (err_is_fail(err)) {
@@ -100,21 +109,30 @@ int main(int argc, char** argv)
     }
     add_start_function_overrides();
 
+    printf("Kaluga: barrier.acpi\n");
+
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot
     // time in order to start-up properly.
     char* record = NULL;
     err = oct_barrier_enter("barrier.acpi", &record, 2);
 
+
+    printf("Kaluga: cores\n");
+
     err = watch_for_cores();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching cores.");
     }
 
+    printf("Kaluga: pci_root_bridge\n");
+
     err = watch_for_pci_root_bridge();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI root bridges.");
     }
+
+    printf("Kaluga: pci_devices\n");
 
     err = watch_for_pci_devices();
     if (err_is_fail(err)) {
@@ -127,6 +145,8 @@ int main(int argc, char** argv)
     // It might be better to get rid of this completely
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
+
+    printf("Kaluga: THC_Finish()\n");
 
     THCFinish();
     return EXIT_SUCCESS;

@@ -81,6 +81,7 @@ struct usb_dma_page {
     uint32_t  size;
     void *buffer;
     struct usb_xfer *xfer;
+    struct usb_dma_page *next;
 };
 
 
@@ -104,11 +105,14 @@ struct usb_page_list_entry {
 
 
 
-static struct usb_page *usb_page_alloc();
+struct usb_page *usb_mem_page_alloc();
+void usb_mem_page_free(struct usb_page *ret_page);
 
-usb_mem_alloc(uint32_t size, uint32_t align, struct usb_memory_block *ret_mem);
+uint32_t usb_mem_next_block(uint32_t size, uint32_t align, struct usb_page *page,
+                        struct usb_memory_block *ret_mem);
 
-usb_mem_free
+struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align);
+void usb_mem_dma_free(struct usb_dma_page *page);
 
 
 #endif /* _USB_MEMORY_H_ */

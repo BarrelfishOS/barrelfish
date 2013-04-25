@@ -353,6 +353,7 @@ usb_ohci_xfer_isoc_close(struct usb_xfer *xfer)
 static void
 usb_ohci_xfer_isoc_enter(struct usb_xfer *xfer)
 {
+    // TODO: Implement
     assert(!"NYI: cannot create isochronus transfers at this time")
 }
 

@@ -7,98 +7,170 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include "usb_memory.h"
+
+static struct usb_page *free_pages = NULL;
+
+static struct usb_dma_page *free_dma_buffers = NULL;
+
+#define USB_PAGE_SIZE 0x1000 // 4k
 
 
-
-
-
-static struct usb_page map_new_frame(int num, uint8_t flag)
+/**
+ * \brief   allocates a chunk of memory from a given usb_page with the given
+ *          size and alignment constraints.
+ *
+ * \param size      the minimum size of the block
+ * \param align     the alignment requirement of the block (physical memory)
+ * \param page      the given usb_page to allocate from
+ * \param ret_mem   the filled usb_mem_block structure with all the information
+ *
+ * \return  size of the requested block
+ */
+uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
+        struct usb_page *page, struct usb_memory_block *ret_mem)
 {
-    int r = 0;
-    struct capref frame;
-    struct frame_identity frame_id = { .base = 0, .bits = 0 };
-    struct usb_page map;
+    // check if there is enough free space on this usb page
+    struct usb_memory_block *free = &page->free;
 
-    if (flag == USB_NEAR_EHCI && ehci_core_id != -1)
-        set_range_to_ehci();
-    else if (flag == USB_NEAR_SELF && self_core_id != -1)
-        set_range(self_core_id);
+    uint32_t size_req = size;
 
-    // In case DONOT_CARE...we just fall through
+    uint32_t offset = free->phys_addr % align;
 
-    // XXX: IMPORTANT - Assuming that num pages will be contigious
-    //      otherwise ...:-( !!
-    int total_size = BASE_PAGE_SIZE * num;
-    r = frame_alloc(&frame, total_size, NULL);
-    assert(r == 0);
-    r = invoke_frame_identify(frame, &frame_id);
-    assert(r == 0);
-    void *va;
-    r = vspace_map_one_frame_attr(&va, total_size, frame,
-                                  VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                  NULL, NULL);
-    assert(r == 0);
-    map.va = va;
-    map.frame = frame;
-    map.frame_id = frame_id;
-    map.valid = 1;
-    map.pa = (void *)frame_id.base;
+    // calculate the required size
+    if (offset) {
+        size_req += (align - offset);
+    }
 
-    insert_page(map, num);
-    usb_pages += num;
+    // check if we have enough free space, otherwise return
+    if (free->size < size_req) {
+        ret_mem->buffer = 0;
+        ret_mem->phys_addr = 0;
+        ret_mem->size = 0;
+        return 0;
+    }
 
-    dprintf("\n EHCI: A new frame is allocated   PADDR %lx     VADDR %lx ",
-            (uint64_t) map.frame_id.base, (uint64_t) map.va);
+    ret_mem->buffer = free->buffer + offset;
+    ret_mem->phys_addr = free->phys_addr + offset;
+    ret_mem->size = size;
 
-    return map;
+    // update free memory in page
+    free->buffer += size_req;
+    free->phys_addr += size_req;
+    free->size -= size_req;
+
+    assert(free->size >= 0);
+
+    return size;
 }
 
-
-
-
 /*
- * \brief Maps a given capability into caller's domain.
+ * \brief   allocates a fresh usb_page for hardware descriptors
+ *
+ * \return  pointer to struct usb_page or NULL
  */
-
-void *map_cap(struct capref cap, uint32_t sz)
+struct usb_page *usb_mem_page_alloc()
 {
-    void *retval;
-    errval_t err = vspace_map_one_frame(&retval, sz, cap, NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map_one_frame failed");
+    struct usb_page *ret;
+
+    // check if we have a free page left
+    if (free_pages != NULL) {
+        ret = free_pages;
+        free_pages = free_pages->next;
+        ret->next = NULL;
+        return ret;
+    }
+
+    ret = (struct usb_page *) malloc(sizeof(struct usb_page));
+    memset(ret, 0, sizeof(struct usb_page));
+
+    uint32_t ret_size;
+    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, &ret_size);
+
+    if (err) {
         return NULL;
     }
-    return retval;
+
+    err = invoke_frame_identify(ret->cap, &ret->frame_id);
+
+    if (err) {
+        return NULL;
+    }
+
+    err = vspace_map_one_frame_attr(&ret->page->buffer, USB_PAGE_SIZE, ret->cap,
+            VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+
+    if (err) {
+        return NULL;
+    }
+    ret->page.phys_addr = ret->frame_id.base;
+    ret->page.size = USB_PAGE_SIZE;
+    ret->free.size = USB_PAGE_SIZE;
+    ret->free.buffer = ret->page.buffer;
+
+    return ret;
 }
 
-/*
- * \brief Allocates an I/O buffer of size sz.
- *
- * \param sz   size of the I/O buffer.
- * \param flag for NUMA aware allocation
- */
-
-usb_mem malloc_iobuff(uint32_t sz, uint8_t flag)
+void usb_mem_page_free(struct usb_page *mem)
 {
-    // FIXME: This is very poor memory managment
-    // code for EHCI. Even for a small io buffer request
-    // it allocates a whole new frame.
-    int no_frames = (sz / BASE_PAGE_SIZE);
-    if (sz % BASE_PAGE_SIZE != 0)       //spilled data into next frame
-        no_frames++;
-
-    usb_page map = map_new_frame(no_frames, flag);
-    //reset the range for neq requests
-    set_range(self_core_id);
-
-    usb_mem mem;
-    mem.va = map.va;
-    mem.pa = map.pa;
-    mem.type = EHCI_MEM_TYPE_IO;
-    mem.free = 1;
-    mem.size = sz;
-    mem.cap = map.frame;
-
-    return mem;
+    if (free_pages != NULL) {
+        mem->next = free_pages;
+    } else {
+        mem->next = NULL;
+    }
+    free_pages = mem;
 }
+
+struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
+{
+    struct usb_dma_page *ret;
+
+    // check if we have a free page left
+    if (free_dma_buffers != NULL) {
+        ret = free_dma_buffers;
+        free_dma_buffers = free_dma_buffers->next;
+        ret->next = NULL;
+        return ret;
+    }
+
+    ret = (struct usb_dma_page *) malloc(sizeof(struct usb_dma_page));
+    memset(ret, 0, sizeof(struct usb_dma_page));
+
+    uint32_t ret_size;
+    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, &ret_size);
+
+    if (err) {
+        return NULL;
+    }
+
+    err = invoke_frame_identify(ret->cap, &ret->frame_id);
+
+    if (err) {
+        return NULL;
+    }
+
+    err = vspace_map_one_frame_attr(&ret->buffer, USB_PAGE_SIZE, ret->cap,
+            VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+
+    if (err) {
+        return NULL;
+    }
+    ret->phys_addr = ret->frame_id.base;
+    ret->size = USB_PAGE_SIZE;
+
+    return ret;
+}
+
+void usb_mem_dma_free(struct usb_dma_page *page)
+{
+    if (free_dma_buffers != NULL) {
+        page->next = free_dma_buffers;
+    } else {
+        page->next = NULL;
+    }
+    free_dma_buffers = page;
+}
+
+
+
 

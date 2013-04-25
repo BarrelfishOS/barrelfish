@@ -88,7 +88,7 @@ typedef struct usb_ohci_hcca usb_ohci_hcca_t;
  * Extra Fields:
  *  - next:             virtual pointer to the next ED of the list
  *  - prev:             virtual pointer to the previous ED of the list
- *  - obj_next:         TODO: ??
+ *  - obj_next:         virtual pointer to the next ED
  *  - ed_self:          physical address of this endpoint descriptor
  */
 #define USB_OHCI_ED_ALIGN 16
@@ -170,8 +170,8 @@ typedef struct usb_ohci_ed_ctrl  usb_ohci_ed_ctrl_t;
  *  - td_buffer_end:       physical pointer to the last byte in the buffer
  *
  * Extra Fields:
- *  - obj_next:         virtual pointer to the next td TODO: ??
- *  - alt_next:         alternative virtual  next pointer TODO: ??
+ *  - obj_next:         virtual pointer to the next td
+ *  - alt_next:         alternative virtual  next pointer
  *  - td_self:          physical address of this endpoint
  *  - len:              length of the data block of this transfer
  */
@@ -235,7 +235,7 @@ typedef struct usb_ohci_td      usb_ohci_td_t;
  *      - size:             length of the isochronus packet
  *
  * Extra Fields:
- *  - obj_next:         TODO: ??
+ *  - obj_next:         virtual pointer to the next itd
  *  - itd_self:         physical addres of this transfer descriptor
  *  - frames:           number of frames
  */

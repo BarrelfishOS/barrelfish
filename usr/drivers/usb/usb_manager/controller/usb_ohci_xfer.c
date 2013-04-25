@@ -7,14 +7,101 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "usb_ohci_xfer.h"
 #include "usb_ohci_descriptors.h"
+#include "usb_ohci_xfer.h"
 #include "../usb_endpoint.h"
 
 
 static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
 {
-    assert(!"NYI: checking for short frames");
+    usb_ohci_td_t *td;
+    usb_ohci_ed_t *ed;
+
+    usb_ohci_td_ctrl_t *td_ctrl;
+    uint16_t cc;
+    usb_paddr_t td_next;
+    usb_paddr_t current_buffer;
+
+    td = xfer->hcd_td_cache;
+
+    /*
+     * loop over the frame, a frame may contain more than one short
+     * packets, we have to make sure that we reached the last one
+     */
+    while(1) {
+        /* TODO: invalidate chache ? */
+        current_buffer = td->td_current_buffer;
+        td_ctrl = &td->td_control;
+        td_next = td->td_nextTD;
+
+        /*
+         * check if we have reached the last transfer descriptor
+         * if so we are done
+         */
+
+        if (((void *) td) == xfer->hcd_td_last) {
+            td = NULL;
+            break;
+        }
+
+        /*
+         * check the condition codes, if it is USB_OHCI_STATUS_OK then
+         * the transfer is finished
+         */
+        cc = td_ctrl->condition_code;
+        if (cc) {
+            td = NULL;
+            break;
+        }
+
+        /*
+         * check if we have reached the last packet i.e. the td_nextTD is
+         * NULL, but hwe have to mask out the last four bits, since these may
+         * be used otherwise.
+         * If we have a current buffer then there is something else in the
+         * frame we follow the alternative and stop processing.
+         */
+        if (((td_next & (~0xF)) == 0) || current_buffer) {
+            td = td->alt_next;
+            break;
+        }
+
+        // go to next transfer descriptor
+        td = td->obj_next;
+    }
+
+    // update of the cache
+    xfer->hcd_td_cache = td;
+
+    /*
+     * we have found a non completed short transfer for this endpoint
+     * this means we have to update the head pointer of the endpoint
+     * descriptor to this one
+     */
+    if (td) {
+        // get the associated endpoint
+        ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
+
+        ed->ed_headP = td->td_self;
+
+        // TODO: invalideate cache?
+
+        /*
+         * we need to make sure that the OHCI takes up this remaining
+         * transfer descriptor for processing.
+         */
+        if (xfer->type == USB_XFER_TYPE_BULK) {
+            /* TODO: write register BLF
+             * OWRITE4(sc, OHCI_COMMAND_STATUS, OHCI_BLF);
+             */
+        }
+
+        if (xfer->type == USB_XFER_TYPE_CTRL) {
+            /* TODO: write register CLF
+             * OWRITE4(sc, OHCI_COMMAND_STATUS, OHCI_CLF);
+             */
+        }
+    }
 }
 
 /**
@@ -33,6 +120,8 @@ uint8_t usb_ohci_xfer_is_finished(struct usb_xfer *xfer)
 
     // getting the endpoint from the queue head list
     ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
+
+    /* TODO: invalidate cache ? */
 
     // get the transfer descriptor pointers
     ed_headP = ed->ed_headP;
@@ -54,6 +143,10 @@ uint8_t usb_ohci_xfer_is_finished(struct usb_xfer *xfer)
 
         if (xfer->flags_internal.short_frames_ok) {
             usb_ohci_xfer_short_frames(xfer);
+
+            if (xfer->hcd_td_cache) {
+                return 0;
+            }
         }
 
         // handle the data toggle flag
@@ -74,7 +167,15 @@ uint8_t usb_ohci_xfer_is_finished(struct usb_xfer *xfer)
     return 0;
 }
 
-
+/**
+ * \brief This function updates the frame_lengths of the usb transfer
+ *
+ * \param xfer  the current USB transfer
+ *
+ * \return USB_ERR_OK on success
+ *         USB_ERR_IO
+ *         USB_ERR_STALLED
+ */
 static usb_error_t
 usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
 {
@@ -290,7 +391,7 @@ void usb_ohci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
     // get the endpoint associated with the usb transfer
     ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
 
-    // todo: invalideate page cache of endpoint
+    // todo: invalidate page cache of endpoint
 
     switch (xfer->type) {
         case USB_XFER_TYPE_ISOC:
@@ -330,7 +431,7 @@ void usb_ohci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
 void usb_ohci_xfer_enqueue(struct usb_xfer *xfer)
 {
     /* check for early completion */
-    if (usb_ohci_xfer_finished(xfer)) {
+    if (usb_ohci_xfer_is_finished(xfer)) {
         return;
     }
     /* put transfer on interrupt queue */
