@@ -170,6 +170,7 @@ typedef struct usb_ohci_ed_ctrl  usb_ohci_ed_ctrl_t;
  *  - td_buffer_end:       physical pointer to the last byte in the buffer
  *
  * Extra Fields:
+ *  - buf:              buffer space for small transfer (max. 64 bytes)
  *  - obj_next:         virtual pointer to the next td
  *  - alt_next:         alternative virtual  next pointer
  *  - td_self:          physical address of this endpoint
@@ -194,11 +195,11 @@ struct usb_ohci_td {
     usb_paddr_t             td_buffer_end;
 
     /* extra fields */
+    uint8_t                 buf[64];
     struct usb_ohci_td      *obj_next;
     struct usb_ohci_td      *alt_next;
-    // TODO: struct usb_page_cache   *page_cache;
     uintptr_t               td_self;
-    uint16_t                len;
+    uint32_t                len;
 } __aligned(USB_OHCI_TD_ALIGN);
 
 typedef struct usb_ohci_td_ctrl usb_ohci_td_ctrl_t;
@@ -213,7 +214,9 @@ typedef struct usb_ohci_td      usb_ohci_td_t;
 // disable the interrupts for this transfer
 #define USB_OHCI_TD_DISABLE_IRQ 7
 
-
+// TD integrated buffer offset
+#define USB_OHCI_TD_BUFFER_OFFSET 16
+#define USB_OHCI_TD_BUFFER_SIZE 64
 
 /*
  * ------------------------------------------------------------------------

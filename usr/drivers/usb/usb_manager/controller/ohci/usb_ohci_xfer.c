@@ -11,7 +11,6 @@
 #include "usb_ohci_xfer.h"
 #include "../usb_endpoint.h"
 
-
 static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
 {
     usb_ohci_td_t *td;
@@ -28,7 +27,7 @@ static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
      * loop over the frame, a frame may contain more than one short
      * packets, we have to make sure that we reached the last one
      */
-    while(1) {
+    while (1) {
         /* TODO: invalidate chache ? */
         current_buffer = td->td_current_buffer;
         td_ctrl = &td->td_control;
@@ -127,7 +126,6 @@ uint8_t usb_ohci_xfer_is_finished(struct usb_xfer *xfer)
     ed_headP = ed->ed_headP;
     ed_tailP = ed->ed_tailP;
 
-
     /*
      *  if the endpoint is halted or there are no transfer descriptors
      *  then there is no activitiy
@@ -176,8 +174,7 @@ uint8_t usb_ohci_xfer_is_finished(struct usb_xfer *xfer)
  *         USB_ERR_IO
  *         USB_ERR_STALLED
  */
-static usb_error_t
-usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
+static usb_error_t usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
 {
     usb_ohci_td_t *td;
     usb_ohci_td_t *td_alt_next;
@@ -187,7 +184,6 @@ usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
     usb_ohci_td_ctrl_t td_flags;
     uint16_t cc;
 
-
     td = xfer->hcd_td_cache;
     td_alt_next = td->alt_next;
 
@@ -196,7 +192,7 @@ usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
     if (xfer->actual_frames != xfer->num_frames) {
         if (xfer->actual_frames < xfer->max_frame_count) {
             xfer->frame_lengths[xfer->actual_frames] = 0;
-        } else{
+        } else {
             // TODO: error handling if actual frame is bigger than max frames
             assert(!"Frame overflow");
         }
@@ -303,7 +299,6 @@ usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
             (cc == USB_OHCI_STATUS_STALL) ? USB_ERR_STALLED : USB_ERR_IOERROR);
 }
 
-
 /**
  * \brief   this function handles the completion of a transfer
  *
@@ -359,7 +354,6 @@ void usb_ohci_xfer_done(struct usb_xfer *xfer)
 
 }
 
-
 /**
  * \brief
  *
@@ -370,7 +364,7 @@ void usb_ohci_xfer_done(struct usb_xfer *xfer)
  */
 void usb_ohci_xfer_done_isoc(struct usb_xfer *xfer)
 {
-   assert(!"NYI: need to check isochronus transfer competition");
+    assert(!"NYI: need to check isochronus transfer competition");
 }
 
 /**
@@ -391,7 +385,7 @@ void usb_ohci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
     // get the endpoint associated with the usb transfer
     ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
 
-    // todo: invalidate page cache of endpoint
+    // TODO: invalidate page cache of endpoint
 
     switch (xfer->type) {
         case USB_XFER_TYPE_ISOC:
@@ -421,7 +415,6 @@ void usb_ohci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
     usb_xfer_done(xfer, error);
 }
 
-
 /*
  * \brief enqueues the transfer on the controller's interrupt queue to
  *        handle the completed transfers
@@ -439,13 +432,12 @@ void usb_ohci_xfer_enqueue(struct usb_xfer *xfer)
 
     /* start timeout, if any */
     /* TODO: handle time out
-    if (xfer->timeout != 0) {
-        usbd_transfer_timeout_ms(xfer, &ohci_timeout, xfer->timeout);
-    }*/
+     if (xfer->timeout != 0) {
+     usbd_transfer_timeout_ms(xfer, &ohci_timeout, xfer->timeout);
+     }*/
 }
 
-struct usb_ohci_setup_td
-{
+struct usb_ohci_setup_td {
     struct usb_page_cache *pc;
     usb_ohci_td_t *td;
     usb_ohci_td_t *td_next;
@@ -458,364 +450,191 @@ struct usb_ohci_setup_td
     uint8_t last_frame;
 };
 
-
-static void
-usb_ohci_xfer_setup_td(struct usb_ohci_setup_td *temp)
+/**
+ * \brief   this function is used to setup the transfer descriptors
+ *          and allocating buffers for the transfers
+ *
+ * \param temp  setup information for the transfer descriptors
+ */
+static void usb_ohci_xfer_setup_td(struct usb_ohci_setup_td *temp)
 {
-    struct usb_page_search buf_res;
     usb_ohci_td_t *td;
     usb_ohci_td_t *td_next;
-    usb_ohci_td_t *td_alt_next;
-    uint32_t buf_offset;
-    uint32_t average;
-    uint32_t len_old;
-    uint8_t shortpkt_old;
-    uint8_t precompute;
+    usb_ohci_td_t *td_alt_next = NULL;
 
-    td_alt_next = NULL;
-    buf_offset = 0;
-    shortpkt_old = temp->shortpkt;
-    len_old = temp->len;
-    precompute = 1;
+    uint32_t average = 0;
+    uint8_t old_shortpkt = temp->shortpkt;
+    uint32_t old_len = temp->len;
 
-    /* software is used to detect short incoming transfers */
+    /*
+     * this is used to precompute the length of the transfer
+     */
+    uint8_t precompute = 1;
+    uint8_t restart = 1;
 
-    if ((temp->td_flags & htole32(OHCI_TD_DP_MASK)) == htole32(OHCI_TD_IN)) {
-        temp->td_flags |= htole32(OHCI_TD_R);
+    /*
+     * we are using software to detect short packets thus we allow
+     * buffer rounding i.e. the buffer does not have to be filled
+     * completely
+     */
+    if (temp->td_flags.direction_pid == USB_OHCI_PID_IN) {
+        temp->td_flags.rounding = 1;
     } else {
-        temp->td_flags &= ~htole32(OHCI_TD_R);
+        temp->td_flags.rounding = 0;
     }
-
-    restart:
 
     td = temp->td;
     td_next = temp->td_next;
 
-    while (1) {
+    while (restart) {
 
-        if (temp->len == 0) {
-
-            if (temp->shortpkt) {
-                break;
-            }
-            /* send a Zero Length Packet, ZLP, last */
-
-            temp->shortpkt = 1;
-            average = 0;
-
-        } else {
-
-            average = temp->average;
-
-            if (temp->len < average) {
-                if (temp->len % temp->max_frame_size) {
-                    temp->shortpkt = 1;
+        while (1) {
+            if (temp->len == 0) {
+                /*
+                 * handling of zero length packets. these packets are sent last
+                 * thus we stop processing if we see the short packet flag
+                 */
+                if (temp->shortpkt) {
+                    break;
                 }
-                average = temp->len;
+
+                temp->shortpkt = 1;
+                average = 0;
+
+            } else {
+                average = temp->average;
+
+                /*
+                 * check if the length of the transfer is smaller than the
+                 * average i.e. if we have a short packet not using the whole
+                 * USB frame
+                 */
+                if (temp->len < average) {
+                    if (temp->len % temp->max_frame_size) {
+                        temp->shortpkt = 1;
+                    }
+                    average = temp->len;
+                }
             }
+
+            if (td_next == NULL) {
+                /*
+                 * TODO: PANIC: not enough transport descriptors
+                 */
+                assert(!"ran out of transfer descriptors!");
+            }
+
+            /*
+             * get the next td to process
+             */
+            td = td_next;
+            td_next = td->obj_next;
+
+            /*
+             * check if we are pre-computing the lengths.
+             * update the remaining length and continue with the loop
+             */
+            if (precompute) {
+                temp->len -= average;
+
+                continue;
+            }
+
+            /* fill in the current TD with the data */
+            td->td_control = temp->td_flags;
+
+            /* the next td uses the toggle carry */
+            temp->td_flags.data_toggle = 1;
+
+            /*
+             * setup the fields in the transfer descriptor depending on the
+             * packet size, zero length packets do not need a buffer
+             * buffer but other wise we need
+             */
+            if (average == 0) {
+                td->td_current_buffer = 0;
+                td->td_buffer_end = 0;
+                td->len = 0;
+            } else {
+                // buffer size is bigger than the td internal buffer
+                if (average > USB_OHCI_TD_BUFFER_SIZE) {
+                    /*
+                     * TODO: allocate a bigger buffer here
+                     */
+                    assert(!"NYI: handling of biger buffers ");
+                } else {
+                    td->td_current_buffer = td->td_self
+                            + USB_OHCI_TD_BUFFER_OFFSET;
+                    td->td_buffer_end = td->td_current_buffer + average;
+                }
+
+                /* set the length of this transfer descriptor */
+                td->len = average;
+
+                /* update the remaining length of the transfer */
+                temp->len -= average;
+            }
+
+            if ((td_next == td_alt_next) && temp->setup_alt_next) {
+                /*
+                 * we have to setup the alternative transfer descriptors
+                 * because we need to receive these frames one by one
+                 *
+                 * - delay interrupts must be 1
+                 * - last td in the list
+                 */
+                td->td_control.delay_interrupt = 1;
+                td->td_nextTD = 0;
+
+            } else {
+                /*
+                 * do the linking of the transfer descriptors using
+                 * their physical addresses if there is another
+                 * td in the list
+                 */
+                if (td_next) {
+                    td->td_nextTD = td_next->td_self;
+                }
+            }
+
+            td->alt_next = td_alt_next;
         }
-
-        if (td_next == NULL) {
-            panic("%s: out of OHCI transfer descriptors!", __FUNCTION__);
-        }
-        /* get next TD */
-
-        td = td_next;
-        td_next = td->obj_next;
-
-        /* check if we are pre-computing */
 
         if (precompute) {
+            precompute = 0;
 
-            /* update remaining length */
-
-            temp->len -= average;
-
-            continue;
-        }
-        /* fill out current TD */
-        td->td_flags = temp->td_flags;
-
-        /* the next TD uses TOGGLE_CARRY */
-        temp->td_flags &= ~htole32(OHCI_TD_TOGGLE_MASK);
-
-        if (average == 0) {
-            /*
-             * The buffer start and end phys addresses should be
-             * 0x0 for a zero length packet.
-             */
-            td->td_cbp = 0;
-            td->td_be = 0;
-            td->len = 0;
-
-        } else {
-
-            usbd_get_page(temp->pc, buf_offset, &buf_res);
-            td->td_cbp = htole32(buf_res.physaddr);
-            buf_offset += (average - 1);
-
-            usbd_get_page(temp->pc, buf_offset, &buf_res);
-            td->td_be = htole32(buf_res.physaddr);
-            buf_offset++;
-
-            td->len = average;
-
-            /* update remaining length */
-
-            temp->len -= average;
-        }
-
-        if ((td_next == td_alt_next) && temp->setup_alt_next) {
-            /* we need to receive these frames one by one ! */
-            td->td_flags &= htole32(~OHCI_TD_INTR_MASK);
-            td->td_flags |= htole32(OHCI_TD_SET_DI(1));
-            td->td_next = htole32(OHCI_TD_NEXT_END);
-        } else {
-            if (td_next) {
-                /* link the current TD with the next one */
-                td->td_next = td_next->td_self;
+            /* the last frame does not have an alternative next td */
+            if (temp->last_frame) {
+                td_alt_next = NULL;
+            } else {
+                td_alt_next = td_next;
             }
-        }
 
-        td->alt_next = td_alt_next;
-
-        usb_pc_cpu_flush(td->page_cache);
-    }
-
-    if (precompute) {
-        precompute = 0;
-
-        /* setup alt next pointer, if any */
-        if (temp->last_frame) {
-            /* no alternate next */
-            td_alt_next = NULL;
+            /*
+             * we were precomputing so we need to restore the values
+             */
+            temp->shortpkt = old_shortpkt;
+            temp->len = old_len;
         } else {
-            /* we use this field internally */
-            td_alt_next = td_next;
+            restart = 0;
         }
 
-        /* restore */
-        temp->shortpkt = shortpkt_old;
-        temp->len = len_old;
-        goto restart;
     }
+
     temp->td = td;
     temp->td_next = td_next;
 }
 
 
-
-
-
-void
-usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
+/**
+ * \brief   this function sets up the standard chains for the  transfer
+ *          descriptors for an USB transfer.
+ *
+ * \param xfer      the usb transfer to setup the transfer descriptors
+ * \param ed_last   the last endpoint descriptor
+ */
+void usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
 {
-    struct usb_ohci_setup_td temp;
-    struct usb_hcdi_pipe_fn *pipe_fn;
-    usb_ohci_ed_t *ed;
-    usb_ohci_td_t *td;
-    uint32_t ed_flags;
-    uint32_t x;
 
-
-    temp.average = xfer->max_frame_size;
-    temp.max_frame_size = xfer->max_frame_size;
-
-    /* toggle the DMA set we are using */
-    xfer->flags_internal.curr_dma_set ^= 1;
-
-    /* get next DMA set */
-    td = xfer->hcd_td_start[xfer->flags_internal.curr_dma_set];
-
-    xfer->hcd_td_first = td;
-    xfer->hcd_td_cache = td;
-
-    temp.td = NULL;
-    temp.td_next = td;
-    temp.last_frame = 0;
-    temp.setup_alt_next = xfer->flags_internal.short_frames_ok;
-
-    pipe_fn = xfer->endpoint->pipe_fn;
-
-
-
-    /*
-     * Control transfer may need a setup packet for certain requests
-     * so check if we need such a setup packet and generate one in the
-     * very first transfer descriptor
-     */
-    if (xfer->flags_internal.ctrl_xfer) {
-        if (xfer->flags_internal.ctrl_header) {
-            memset(&temp.td_flags, 0, sizeof(temp.td_flags))
-            temp.td_flags.data_toggle = 0;
-            temp.td_flags.direction_pid = USB_OHCI_PID_SETUP;
-            temp.td_flags.delay_interrupt = USB_OHCI_TD_DISABLE_IRQ;
-            temp.td_flags.condition_code = 0;
-
-            temp.td_flags = htole32(OHCI_TD_SETUP | OHCI_TD_NOCC |
-                OHCI_TD_TOGGLE_0 | OHCI_TD_NOINTR);
-
-            temp.len = xfer->frame_lengths[0];
-            temp.pc = xfer->frame_buffers + 0;
-            temp.shortpkt = temp.len ? 1 : 0;
-            /* check for last frame */
-            if (xfer->num_frames == 1) {
-                /* no STATUS stage yet, SETUP is last */
-                if (xfer->flags_int.control_act) {
-                    temp.last_frame = 1;
-                    temp.setup_alt_next = 0;
-                }
-            }
-            ohci_setup_standard_chain_sub(&temp);
-
-            /*
-             * XXX assume that the setup message is
-             * contained within one USB packet:
-             */
-            xfer->endpoint->toggle_next = 1;
-        }
-        x = 1;
-    } else {
-        x = 0;
-    }
-    temp.td_flags = htole32(OHCI_TD_NOCC | OHCI_TD_NOINTR);
-
-    /* set data toggle */
-
-    if (xfer->endpoint->toggle_next) {
-        temp.td_flags |= htole32(OHCI_TD_TOGGLE_1);
-    } else {
-        temp.td_flags |= htole32(OHCI_TD_TOGGLE_0);
-    }
-
-    /* set endpoint direction */
-
-    if (UE_GET_DIR(xfer->endpointno) == UE_DIR_IN) {
-        temp.td_flags |= htole32(OHCI_TD_IN);
-    } else {
-        temp.td_flags |= htole32(OHCI_TD_OUT);
-    }
-
-    while (x != xfer->nframes) {
-
-        /* DATA0 / DATA1 message */
-
-        temp.len = xfer->frlengths[x];
-        temp.pc = xfer->frbuffers + x;
-
-        x++;
-
-        if (x == xfer->nframes) {
-            if (xfer->flags_int.control_xfr) {
-                /* no STATUS stage yet, DATA is last */
-                if (xfer->flags_int.control_act) {
-                    temp.last_frame = 1;
-                    temp.setup_alt_next = 0;
-                }
-            } else {
-                temp.last_frame = 1;
-                temp.setup_alt_next = 0;
-            }
-        }
-        if (temp.len == 0) {
-
-            /* make sure that we send an USB packet */
-
-            temp.shortpkt = 0;
-
-        } else {
-
-            /* regular data transfer */
-
-            temp.shortpkt = (xfer->flags.force_short_xfer) ? 0 : 1;
-        }
-
-        ohci_setup_standard_chain_sub(&temp);
-    }
-
-    /* check if we should append a status stage */
-
-    if (xfer->flags_int.control_xfr &&
-        !xfer->flags_int.control_act) {
-
-        /*
-         * Send a DATA1 message and invert the current endpoint
-         * direction.
-         */
-
-        /* set endpoint direction and data toggle */
-
-        if (UE_GET_DIR(xfer->endpointno) == UE_DIR_IN) {
-            temp.td_flags = htole32(OHCI_TD_OUT |
-                OHCI_TD_NOCC | OHCI_TD_TOGGLE_1 | OHCI_TD_SET_DI(1));
-        } else {
-            temp.td_flags = htole32(OHCI_TD_IN |
-                OHCI_TD_NOCC | OHCI_TD_TOGGLE_1 | OHCI_TD_SET_DI(1));
-        }
-
-        temp.len = 0;
-        temp.pc = NULL;
-        temp.shortpkt = 0;
-        temp.last_frame = 1;
-        temp.setup_alt_next = 0;
-
-        ohci_setup_standard_chain_sub(&temp);
-    }
-    td = temp.td;
-
-    /* Ensure that last TD is terminating: */
-    td->td_next = htole32(OHCI_TD_NEXT_END);
-    td->td_flags &= ~htole32(OHCI_TD_INTR_MASK);
-    td->td_flags |= htole32(OHCI_TD_SET_DI(1));
-
-    usb_pc_cpu_flush(td->page_cache);
-
-    /* must have at least one frame! */
-
-    xfer->td_transfer_last = td;
-
-#ifdef USB_DEBUG
-    if (ohcidebug > 8) {
-        DPRINTF("nexttog=%d; data before transfer:\n",
-            xfer->endpoint->toggle_next);
-        ohci_dump_tds(xfer->td_transfer_first);
-    }
-#endif
-
-    ed = xfer->qh_start[xfer->flags_int.curr_dma_set];
-
-    ed_flags = (OHCI_ED_SET_FA(xfer->address) |
-        OHCI_ED_SET_EN(UE_GET_ADDR(xfer->endpointno)) |
-        OHCI_ED_SET_MAXP(xfer->max_frame_size));
-
-    ed_flags |= (OHCI_ED_FORMAT_GEN | OHCI_ED_DIR_TD);
-
-    if (xfer->xroot->udev->speed == USB_SPEED_LOW) {
-        ed_flags |= OHCI_ED_SPEED;
-    }
-    ed->ed_flags = htole32(ed_flags);
-
-    td = xfer->td_transfer_first;
-
-    ed->ed_headp = td->td_self;
-
-    if (xfer->xroot->udev->flags.self_suspended == 0) {
-        /* the append function will flush the endpoint descriptor */
-        OHCI_APPEND_QH(ed, *ed_last);
-
-        if (methods == &ohci_device_bulk_methods) {
-            ohci_softc_t *sc = OHCI_BUS2SC(xfer->xroot->bus);
-
-            OWRITE4(sc, OHCI_COMMAND_STATUS, OHCI_BLF);
-        }
-        if (methods == &ohci_device_ctrl_methods) {
-            ohci_softc_t *sc = OHCI_BUS2SC(xfer->xroot->bus);
-
-            OWRITE4(sc, OHCI_COMMAND_STATUS, OHCI_CLF);
-        }
-    } else {
-        usb_pc_cpu_flush(ed->page_cache);
-    }
 }
-
 
