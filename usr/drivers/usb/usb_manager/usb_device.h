@@ -16,3 +16,9 @@
  // device status flags
  #define USB_DEVICE_STATUS_SELF_POWERED  0x0001
  #define USB_DEVICE_STATUS_REMOTE_WAKEUP 0x0002
+
+struct usb_device {
+
+    /* TODO: Type */
+    uint8_t speed;
+};

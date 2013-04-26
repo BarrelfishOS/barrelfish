@@ -178,18 +178,21 @@ struct usb_xfer
     uint32_t num_frames;
     uint32_t actual_frames;
     uint32_t *frame_lengths;    // array of frame lengths
-    struct usb_page_cache *frame_buffers;
+    struct usb_page_cache *frame_buffers; // TODO: not really needed?
 
     uint16_t max_packet_count;
     uint16_t max_packet_size;
     uint16_t max_frame_size;    // maximum size of a frame
+    uint16_t max_hc_frame_size;
     uint32_t max_frame_count;   // size of array frame_length
 
 
     struct usb_host_controller *host_controller;
+    struct usb_device *device;
     uint8_t device_address;
     uint8_t endpoint_number;
     uint8_t usb_state;
+    uint8_t ed_direction;
 
 
     uint16_t isoc_time_complete;

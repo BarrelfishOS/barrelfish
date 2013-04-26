@@ -9,7 +9,8 @@
 
 #include "usb_ohci_descriptors.h"
 #include "usb_ohci_xfer.h"
-#include "../usb_endpoint.h"
+#include "../../usb_endpoint.h"
+#include "../../usb_device.h"
 
 static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
 {
@@ -635,6 +636,160 @@ static void usb_ohci_xfer_setup_td(struct usb_ohci_setup_td *temp)
  */
 void usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
 {
+    struct usb_ohci_setup_td temp;
+    struct usb_hcdi_pipe_fn *pipe_fn;
 
+    usb_ohci_ed_t *ed;
+    usb_ohci_td_t *td;
+    usb_ohci_ed_ctrl_t ed_flags;
+    uint32_t x;
+
+    /*
+     * getting the size information out of the xfer
+     */
+    temp.average = xfer->max_hc_frame_size;
+    temp.max_frame_size = xfer->max_frame_size;
+
+    /* toggle the next DMA set bit and get the next set */
+    xfer->flags_internal.curr_dma_set ^= 1;
+    td = xfer->hcd_td_start[xfer->flags_internal.curr_dma_set];
+
+    /* update the beginning of the td list */
+    xfer->hcd_td_first = td;
+    xfer->hcd_td_cache = td;
+
+    temp.td = NULL;
+    temp.td_next = td;
+    temp.last_frame = 0;
+    temp.setup_alt_next = xfer->flags_internal.short_frames_ok;
+
+    pipe_fn = xfer->endpoint->pipe_fn;
+
+    /*
+     * check if we have to prepend a setup message, this is the case
+     * if we are handling with control transfers and a header is requested
+     */
+    if (xfer->flags_internal.ctrl_xfer) {
+        if (xfer->flags_internal.ctrl_header) {
+            temp.td_flags.data_toggle = 0;
+            temp.td_flags.condition_code = 0;
+            temp.td_flags.direction_pid = USB_OHCI_PID_SETUP;
+            temp.td_flags.delay_interrupt = USB_OHCI_TD_DISABLE_IRQ;
+
+            temp.len = xfer->frame_lengths[0];
+            temp.shortpkt = temp.len ? 1 : 0;
+
+            /* check if this is the last frame, i.e. there is no data stage */
+            if (xfer->num_frames == 1) {
+                if (xfer->flags_internal.ctrl_active) {
+                    temp.last_frame = 1;
+                    temp.setup_alt_next = 0;
+                }
+            }
+            usb_ohci_xfer_setup_td(&temp);
+
+            xfer->endpoint->data_toggle = 1;
+        }
+        x = 1;
+    } else {
+        x = 0;
+    }
+
+    temp.td_flags.condition_code = 0;
+    temp.td_flags.delay_interrupt = USB_OHCI_TD_DISABLE_IRQ;
+
+    if (xfer->endpoint->data_toggle) {
+        temp.td_flags.data_toggle = 1;
+    } else {
+        temp.td_flags.data_toggle = 0;
+    }
+
+    if (xfer->ed_direction == USB_OHCI_ED_DIRECTION_IN) {
+        temp.td_flags.direction_pid = USB_OHCI_PID_IN;
+    } else {
+        temp.td_flags.direction_pid = USB_OHCI_PID_OUT;
+    }
+
+    while (x != xfer->num_frames) {
+
+        /*
+         * Handling DATA0 and DATA1 packets
+         */
+        temp.len = xfer->frame_lengths[x++];
+
+        if (x == xfer->num_frames) {
+            if (xfer->flags_internal.ctrl_xfer) {
+                if (xfer->flags_internal.ctrl_active) {
+                    /* no STATUS stage, just DATA */
+                    temp.last_frame = 1;
+                    temp.setup_alt_next = 0;
+                }
+            } else {
+                temp.last_frame = 1;
+                temp.setup_alt_next = 0;
+            }
+
+        }
+
+        if (temp.len == 0) {
+            /* this is a short packet  but we want to send an USB packet */
+            temp.shortpkt = 0;
+        } else {
+            temp.shortpkt = (xfer->flags.short_xfer_forced) ? 0 : 1;
+        }
+
+        usb_ohci_xfer_setup_td(&temp);
+    }
+
+    /*
+     * control transfer have a status stage, check if we have to append
+     * such a status stage
+     */
+    if (xfer->flags_internal.ctrl_xfer && !xfer->flags_internal.ctrl_active) {
+        memset(&temp.td_flags, 0, sizeof(usb_ohci_td_ctrl_t));
+        temp.td_flags.condition_code = 0;
+        temp.td_flags.data_toggle = 1;
+        temp.td_flags.delay_interrupt = 1;
+        if(xfer->ed_direction == USB_OHCI_ED_DIRECTION_IN) {
+            temp.td_flags.direction_pid = USB_OHCI_ED_DIRECTION_OUT;
+        } else {
+            temp.td_flags.direction_pid = USB_OHCI_ED_DIRECTION_OUT;
+        }
+
+        temp.len = 0;
+        temp.shortpkt = 0;
+        temp.last_frame = 1;
+        temp.setup_alt_next = 0;
+
+        usb_ohci_xfer_setup_td(&temp);
+    }
+
+    td = temp.td;
+
+    /* ensure that the last TD is terminating */
+    td->td_nextTD = 0;
+    td->td_control.delay_interrupt = 1;
+
+    xfer->hcd_td_last = td;
+
+    ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
+
+    ed_flags.function_address = xfer->device_address;
+    ed_flags.endpoint_number = xfer->endpoint_number;
+    ed_flags.max_packet_size = xfer->max_frame_size;
+    ed_flags.td_format = USB_OHCI_ED_FORMAT_GENERAL;
+    ed_flags.direction = USB_OHCI_ED_DIRECTION_FROM_TD;
+
+    if (xfer->device->speed == USB_SPEED_LOW) {
+        ed_flags.speed = USB_OHCI_ED_LOWSPEED;
+    }
+
+    ed->ed_control = ed_flags;
+
+    td = xfer->hcd_td_first;
+
+    ed->ed_headP = td->td_self;
+
+    /* TODO: self suspended */
 }
 
