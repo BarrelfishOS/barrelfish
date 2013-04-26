@@ -160,9 +160,8 @@ static void trace_intermon_measure_ack_recv(struct intermon_binding* ib, coreid_
 
 	printf("NTP result: %" PRIu64 " %" PRIu64 " %" PRIu64 " %" PRIu64 "\n", t0,t1,t2,t3);
 
-	// Network Time Protocol formula ( *-1 because we calculated the offset of
-	// core 0 to this one, but we want the opposite).
-	int64_t offset = -1 * (((t1-t0)+(t2-t3))/2);
+    // Network Time Protocol formula
+    int64_t offset = (((t1-t0)+(t2-t3))/2);
 
 	dispatcher_handle_t handle = curdispatcher();
 	struct dispatcher_generic *disp = get_dispatcher_generic(handle);
