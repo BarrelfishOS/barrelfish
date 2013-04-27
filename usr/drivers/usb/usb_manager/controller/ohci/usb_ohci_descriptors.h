@@ -306,3 +306,5 @@ typedef struct usb_ohci_itd     usb_ohci_itd_t;
 #define USB_OHCI_PAGE(x)        ((x) &~ 0xfff)
 #define USB_OHCI_PAGE_OFFSET(x) ((x) & 0xfff)
 #define USB_OHCI_PAGE_MASK(x)   ((x) & 0xfff)
+
+

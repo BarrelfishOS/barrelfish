@@ -90,7 +90,7 @@ usb_ohci_xfer_bulk_start(struct usb_xfer *xfer)
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
     // setup the transfer descriptors and queue heads
-    usb_ohci_xfer_setup(xfer, &hc->qh_bulk_last);
+    usb_ohci_xfer_start(xfer, &hc->qh_bulk_last);
 
     // enqueue it on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);
@@ -168,7 +168,7 @@ usb_ohci_xfer_ctrl_start(struct usb_xfer *xfer)
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
     // setup the queue heads and transfer descriptors
-    usb_ohci_xfer_setup(xfer, &hc->qh_ctrl_last);
+    usb_ohci_xfer_start(xfer, &hc->qh_ctrl_last);
 
     // enqueue it on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);
@@ -290,7 +290,7 @@ usb_ohci_xfer_intr_start(struct usb_xfer *xfer)
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
     // setup the queue heads and the transfer descriptors
-    usb_ohci_xfer_setup(xfer, hc->qh_intr_last[xfer->intr_qh_pos]);
+    usb_ohci_xfer_start(xfer, hc->qh_intr_last[xfer->intr_qh_pos]);
 
     // enqueue it on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);

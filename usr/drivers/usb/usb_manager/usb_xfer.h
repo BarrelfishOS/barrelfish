@@ -12,12 +12,11 @@
 
 #include "usb_controller.h"
 
-
 enum usb_xfer_type {
-  USB_XFER_TYPE_ISOC = 0,
-  USB_XFER_TYPE_INTR,
-  USB_XFER_TYPE_CTRL,
-  USB_XFER_TYPE_BULK
+    USB_XFER_TYPE_ISOC = 0,
+    USB_XFER_TYPE_INTR,
+    USB_XFER_TYPE_CTRL,
+    USB_XFER_TYPE_BULK
 };
 
 /*
@@ -48,8 +47,7 @@ enum usb_xfer_type {
  *  - cancellable           set if this transfer can immediately be cancelled
  *  - notify                set if the device driver is being notified
  */
-struct usb_xfer_flags_internal
-{
+struct usb_xfer_flags_internal {
     enum usb_controller_mode usb_mode;
 
     uint16_t remaining_bytes;
@@ -100,8 +98,7 @@ struct usb_xfer_flags_internal
  *  - pipe_stalled          stall the endpoint before starting the transfer
  *  - prescale              prescale to frames for isochr transfers
  */
-struct usb_xfer_flags
-{
+struct usb_xfer_flags {
     uint8_t short_xfer_forced :1;
     uint8_t short_xfer_ok :1;
     uint8_t short_frames_ok :1;
@@ -128,10 +125,8 @@ struct usb_xfer_flags
  *  - command:  a function pointer to a command to execute
  *  - recurse:
  */
-struct usb_xfer_queue
-{
-    struct
-    {
+struct usb_xfer_queue {
+    struct {
         struct usb_xfer *first;
         struct usb_xfer **last_next;
     } head;
@@ -151,11 +146,9 @@ struct usb_xfer_queue
  * Fields:
  *  -
  */
-struct usb_xfer
-{
-    uint32_t device_driver_binding; // flounder ref
-    struct
-    {
+struct usb_xfer {
+    uint32_t device_driver_binding;  // flounder ref
+    struct {
         struct usb_xfer *next; /* next element */
         struct usb_xfer **prev_next; /* address of previous next element */
     } wait_entry;
@@ -168,24 +161,25 @@ struct usb_xfer
     struct usb_endpoint *endpoint;
     void *hcd_qh_start[2];
     void *hcd_td_start[2];
-    void *hcd_td_first; // first td in the list
-    void *hcd_td_last; // last td in the list
+    void *hcd_td_first;  // first td in the list
+    void *hcd_td_last;  // last td in the list
     void *hcd_td_cache;  // a field used to swap the tds
 
+    uint32_t max_data_length;
     uint32_t sum_bytes;
     uint32_t actual_bytes;
 
     uint32_t num_frames;
     uint32_t actual_frames;
     uint32_t *frame_lengths;    // array of frame lengths
-    struct usb_page_cache *frame_buffers; // TODO: not really needed?
+    struct usb_page_cache *frame_buffers;  // TODO: not really needed?
 
-    uint16_t max_packet_count;
+    uint32_t max_packet_count;
     uint16_t max_packet_size;
     uint16_t max_frame_size;    // maximum size of a frame
     uint16_t max_hc_frame_size;
+    uint32_t max_data_length; max_hc_frame_size;
     uint32_t max_frame_count;   // size of array frame_length
-
 
     struct usb_host_controller *host_controller;
     struct usb_device *device;
@@ -193,7 +187,6 @@ struct usb_xfer
     uint8_t endpoint_number;
     uint8_t usb_state;
     uint8_t ed_direction;
-
 
     uint16_t isoc_time_complete;
     uint16_t interval;          // for isoc and intr
@@ -204,8 +197,38 @@ struct usb_xfer
 
 };
 
+/*
+ * ------------------------------------------------------------------------
+ * USB Transfer Setup Parameters
+ * ------------------------------------------------------------------------
+ * This data structure contains all the relevant information needed to
+ * setup a new USB transfer
+ *
+ * Fields:
+ *  -
+ */
+struct usb_xfer_setup_params {
+    struct usb_device *device;
+    struct usb_xfer *curr_xfer;
+    const struct usb_config *curr_setup;
+    const struct usb_hcdi_pipe_fn *pipe_fn;
+    enum usb_xfer_type type;
+    void *buf;
+    uint32_t *xfer_length_ptr;
+
+    uint32_t size[7];
+    uint32_t bufsize;
+    uint32_t bufsize_max;
+
+    uint32_t hc_max_frame_size;
+    uint16_t hc_max_packet_size;
+    uint8_t hc_max_packet_count;
+    enum usb_dev_speed speed;
+    usb_error_t err;
+};
+
 void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer);
 void usb_xfer_dequeue(struct usb_xfer *xfer);
 void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err);
-
+void usb_xfer_setup_struct(struct usb_xfer_setup_params *param);
 #endif

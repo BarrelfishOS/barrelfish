@@ -30,6 +30,7 @@ struct usb_ohci_td *usb_ohci_td_alloc()
     if (free_tds != NULL) {
         ret = free_tds;
         free_tds = free_tds->obj_next;
+        ret->obj_next = NULL;
         return ret;
     }
 
@@ -83,6 +84,7 @@ struct usb_ohci_td *usb_ohci_td_alloc()
     ret->td_self = mem.phys_addr;
     ret->td_current_buffer = mem.phys_addr + USB_OHCI_TD_BUFFER_OFFSET;
     ret->td_buffer_end = ret->td_current_buffer + USB_OHCI_TD_BUFFER_SIZE;
+    ret->obj_next = NULL;
 
     return ret;
 }
@@ -108,6 +110,7 @@ struct usb_ohci_ed *usb_ohci_ed_alloc()
     if (free_tds != NULL) {
         ret = free_eds;
         free_eds = free_eds->obj_next;
+        ret->obj_next = NULL;
         return ret;
     }
 
@@ -166,6 +169,18 @@ void usb_ohci_ed_free(struct usb_ohci_ed *ed)
     ed->ed_nextED = 0;
     ed->ed_tailP = 0;
     free_eds = ed;
+}
+
+
+struct usb_ohci_td *usb_ohci_itd_alloc()
+{
+    assert(!"NYI: allocating itd is not implemented. ");
+    return NULL;
+}
+
+void usb_ohci_itd_free(struct usb_ohci_itd *td)
+{
+    assert(!"NYI: freeing itd is not implemented. ");
 }
 
 void *usb_ohci_buffer_alloc(uint32_t size, uint32_t align)

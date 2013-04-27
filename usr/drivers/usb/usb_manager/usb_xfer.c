@@ -96,3 +96,16 @@ usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
     //todo: send message to driver that transfer is completed
     assert(!"Send message to client driver");
 }
+
+/**
+ * \brief   this function is called from the xfer_setup function of the
+ *          respective USB host controller driver. This function sets the
+ *          correct values in the usb_xfer struct.
+ *
+ * \param   param   USB transfer setup parameters
+ *
+ */
+void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
+{
+
+}

@@ -21,7 +21,6 @@
 #define USB_OHCI_EP_TYPE_CTRL 2
 #define USB_OHCI_EP_TYPE_BULK 3
 
-
 /*
  * ------------------------------------------------------------------------
  * OHCI Host Controller Frame Mappings
@@ -37,20 +36,19 @@
  * Fields:
  *
  */
- struct usb_ohci_memory_pages {
-	struct usb_page_cache hcca_pc;
-	struct usb_page_cache ctrl_start_pc;
-	struct usb_page_cache bulk_start_pc;
-	struct usb_page_cache isoc_start_pc;
-	struct usb_page_cache intr_start_pc[USB_OHCI_NO_EP_DESCRIPTORS];
+struct usb_ohci_memory_pages {
+    struct usb_page_cache hcca_pc;
+    struct usb_page_cache ctrl_start_pc;
+    struct usb_page_cache bulk_start_pc;
+    struct usb_page_cache isoc_start_pc;
+    struct usb_page_cache intr_start_pc[USB_OHCI_NO_EP_DESCRIPTORS];
 
-	struct usb_page hcca_pg;
-	struct usb_page ctrl_start_pg;
-	struct usb_page bulk_start_pg;
-	struct usb_page isoc_start_pg;
-	struct usb_page intr_start_pg[USB_OHCI_NO_EP_DESCRIPTORS];
+    struct usb_page hcca_pg;
+    struct usb_page ctrl_start_pg;
+    struct usb_page bulk_start_pg;
+    struct usb_page isoc_start_pg;
+    struct usb_page intr_start_pg[USB_OHCI_NO_EP_DESCRIPTORS];
 };
-
 
 /*
  * ------------------------------------------------------------------------
@@ -66,11 +64,10 @@
  *  - ep_desc:     endpoint descriptor
  */
 struct usb_ohci_config_desc {
-	struct usb_config_descriptor    confg_desc;
-	struct usb_interface_descriptor iface_desc;
-	struct usb_endpoint_descriptor  ep_desc;
+    struct usb_config_descriptor confg_desc;
+    struct usb_interface_descriptor iface_desc;
+    struct usb_endpoint_descriptor ep_desc;
 } __packed;
-
 
 /*
  * ------------------------------------------------------------------------
@@ -87,47 +84,40 @@ struct usb_ohci_config_desc {
  *  - iface_desc:  interface descriptor
  *  - ep_desc:     endpoint descriptor
  */
- typedef struct usb_ohci_hc {
-	struct ohci_memory_pages memory_pages;
+typedef struct usb_ohci_hc {
+    struct ohci_memory_pages memory_pages;
 
-	union ohci_hub_desc      root_hub_desc;
-	uint8_t                  root_hub_num_ports;
-	struct usb_device        *devices[USB_OHCI_MAX_DEVICES];
+    union ohci_hub_desc root_hub_desc;
+    uint8_t root_hub_num_ports;
+    uint8_t hub_idata[32];
+    uint8_t address;
+    uint8_t configuration;
 
-	struct usb_ohci_hcca         *hcca;
-	struct usb_ohci_ed           *qh_ctrl_last;
-	struct usb_ohci_ed           *qh_bulk_last;
-	struct usb_ohci_ed           *qh_isoc_last;
-	struct usb_ohci_ed           *qh_intr_last[USB_OHCI_NO_EP_DESCRIPTORS];
+    struct usb_device *devices[USB_OHCI_MAX_DEVICES];
 
-	struct usb_ohci_ed  *qh_ed_free;
-	struct usb_ohci_td  *qh_td_free;
-	struct usb_ohci_itd *qh_itd_free;
+    struct usb_ohci_hcca *hcca;
+    struct usb_ohci_ed *qh_ctrl_last;
+    struct usb_ohci_ed *qh_bulk_last;
+    struct usb_ohci_ed *qh_isoc_last;
+    struct usb_ohci_ed *qh_intr_last[USB_OHCI_NO_EP_DESCRIPTORS];
 
-	uint16_t intr_stats[USB_OHCI_NO_EP_DESCRIPTORS]; //kees track of the interrupt transfes
+    struct usb_ohci_ed *qh_ed_free;
+    struct usb_ohci_td *qh_td_free;
+    struct usb_ohci_itd *qh_itd_free;
 
-    usb_host_controller_t       *controller;
+    uint16_t intr_stats[USB_OHCI_NO_EP_DESCRIPTORS];  //kees track of the interrupt transfes
 
-    uint32_t sc_eintrs;     /* enabled interrupts */
+    usb_host_controller_t *controller;
 
+    uint32_t enabled_intrs; /* enabled interrupts */
 
-    uint16_t sc_id_vendor;
+    uint16_t id_vendor;
 
+    char vendor[16];
 
-    uint8_t                  sc_hub_idata[32];
-
-    char                     sc_vendor[16];
-
-
-    struct usb_callout       hc_tmo_rhsc;
-
-    struct resource          *sc_io_res;
-    struct resource          *sc_irq_res;
-	void                     *sc_intr_hdl;
 
 
 } usb_ohci_hc_t;
-
 
 /*
  * ------------------------------------------------------------------------
@@ -135,7 +125,7 @@ struct usb_ohci_config_desc {
  * ------------------------------------------------------------------------
  */
 usb_error_t usb_ohci_init(usb_ohci_hc_t *sc);
-void	    usb_ohci_detach(struct ohci_host_controller *sc);
-void	    usb_ohci_interrupt(usb_ohci_hc_t *sc);
+void usb_ohci_detach(struct ohci_host_controller *sc);
+void usb_ohci_interrupt(usb_ohci_hc_t *sc);
 
 #endif /* _USB_OHCI_H_ */

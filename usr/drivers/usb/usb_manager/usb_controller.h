@@ -22,9 +22,9 @@ typedef enum {
 
 
 enum usb_controller_mode {
-    USB_CONTROLLER_MODE_HOST,      /* initiates transfers */
-    USB_CONTROLLER_MODE_HOST,      /* bus transfer target */
-    USB_CONTROLLER_MODE_HOST       /* can be host or device */
+    USB_CONTROLLER_MODE_HOST, /* initiates transfers */
+    USB_CONTROLLER_MODE_HOST, /* bus transfer target */
+    USB_CONTROLLER_MODE_HOST /* can be host or device */
 };
 #define USB_MODE_MAX    (USB_MODE_DUAL+1)
 
@@ -35,18 +35,64 @@ enum usb_controller_mode {
  * This data structure stores pointers to host controller specific
  * functions that are used to control the USB bus.
  *
- * Fields:
- *  - open_pipe
- *  - sw_irq
- *  - poll
- *  - mem_alloc
- *  - mem_free
- *  - xfer_alloc
- *  - xfer_free
+ * Fields
+ *  - endpoint_init
+ *  - xfer_setup
+ *  - xfer_unsetup
+ *  - get_dma_delay
+ *  - device_suspend
+ *  - device_resume
+ *  - set_hw_power
+ *  - set_hw_power_sleep
+ *  - get_hw_ep_profile
+ *  - set_stall
+ *  - clear_stall
+ *  - xfer_poll
+ *  - get_power_mode
+ *  - endpoint_uninit
+ *  - device_init
+ *  - device_uninit
+ *  - start_dma_delay
+ *  - device_state_change
+ *  - set_address
  */
 struct usb_hcdi_bus_fn {
-
+    void (*endpoint_init)(struct usb_device *, struct usb_endpoint_descriptor *,
+            struct usb_endpoint *);
+    void (*xfer_setup)(struct usb_setup_params *);
+    void (*xfer_unsetup)(struct usb_xfer *);
+    void (*get_dma_delay)(struct usb_device *, uint32_t *);
+    void (*device_suspend)(struct usb_device *);
+    void (*device_resume)(struct usb_device *);
+    void (*set_hw_power)(struct usb_bus *);
+    void (*set_hw_power_sleep)(struct usb_host_controller *, uint32_t);
+    void (*get_hw_ep_profile)(struct usb_device *udev,
+            const struct usb_hw_ep_profile **ppf, uint8_t ep_addr);
+    void (*set_stall)(struct usb_device *udev, struct usb_xfer *xfer,
+            struct usb_endpoint *ep, uint8_t *did_stall);
+    void (*clear_stall)(struct usb_device *udev, struct usb_endpoint *ep);
+    void (*xfer_poll)(struct usb_bus *);
+    void (*get_power_mode)(struct usb_device *udev, int8_t *pmode);
+    void (*endpoint_uninit)(struct usb_device *, struct usb_endpoint *);
+    usb_error_t (*device_init)(struct usb_device *);
+    void (*device_uninit)(struct usb_device *);
+    void (*start_dma_delay)(struct usb_xfer *);
+    void (*device_state_change)(struct usb_device *);
+    usb_error_t (*set_address)(struct usb_device *, struct mtx *, uint16_t);
 };
+
+
+/*
+ * flags representing USB power states
+ */
+#define USB_HW_POWER_CONTROL    0x01
+#define USB_HW_POWER_BULK   0x02
+#define USB_HW_POWER_INTERRUPT  0x04
+#define USB_HW_POWER_ISOC   0x08
+#define USB_HW_POWER_NON_ROOT_HUB 0x10
+#define USB_HW_POWER_SUSPEND 0x20
+#define USB_HW_POWER_RESUME 0x40
+#define USB_HW_POWER_SHUTDOWN 0x60
 
 /*
  * ------------------------------------------------------------------------
@@ -69,24 +115,25 @@ struct usb_hcdi_pipe_fn {
     void (*start)(struct usb_xfer *);
     // optional functions
     void *info;
- };
+};
 
+#define USB_HOST_UHCI 0x10
+#define USB_HOST_OHCI 0x11
+#define USB_HOST_EHCI 0x20
+#define USB_HOST_XHCI 0x30
 
-
-
- #define USB_HOST_UHCI 0x10
- #define USB_HOST_OHCI 0x11
- #define USB_HOST_EHCI 0x20
- #define USB_HOST_XHCI 0x30
-
- typedef struct usb_host_controller {
+typedef struct usb_host_controller {
     usb_controller_type_t hc_type;    // the type of the host controller
     void *hc_control;   // pointer to the host specific controller
 
     struct usb_xfer_queue intr_queue;
     struct usb_xfer_queue done_queue;
 
- } usb_host_controller_t;
+    struct usb_device **devices;
+    uint8_t devices_max;
 
+    struct usb_device *root_hub;
+
+} usb_host_controller_t;
 
 usb_error_t controller_init();

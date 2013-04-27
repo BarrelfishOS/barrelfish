@@ -17,6 +17,9 @@
 struct usb_ohci_td *usb_ohci_td_alloc();
 void usb_ohci_td_free(struct usb_ohci_td *td);
 
+struct usb_ohci_td *usb_ohci_itd_alloc();
+void usb_ohci_itd_free(struct usb_ohci_itd *td);
+
 struct usb_ohci_ed *usb_ohci_ed_alloc();
 void usb_ohci_ed_free(struct usb_ohci_ed *ed);
 

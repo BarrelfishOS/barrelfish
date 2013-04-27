@@ -11,6 +11,7 @@
 #include "usb_ohci_xfer.h"
 #include "../../usb_endpoint.h"
 #include "../../usb_device.h"
+#include "../../usb_xfer.h"
 
 static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
 {
@@ -29,7 +30,7 @@ static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
      * packets, we have to make sure that we reached the last one
      */
     while (1) {
-        /* TODO: invalidate chache ? */
+
         current_buffer = td->td_current_buffer;
         td_ctrl = &td->td_control;
         td_next = td->td_nextTD;
@@ -439,7 +440,6 @@ void usb_ohci_xfer_enqueue(struct usb_xfer *xfer)
 }
 
 struct usb_ohci_setup_td {
-    struct usb_page_cache *pc;
     usb_ohci_td_t *td;
     usb_ohci_td_t *td_next;
     uint32_t average;
@@ -626,7 +626,6 @@ static void usb_ohci_xfer_setup_td(struct usb_ohci_setup_td *temp)
     temp->td_next = td_next;
 }
 
-
 /**
  * \brief   this function sets up the standard chains for the  transfer
  *          descriptors for an USB transfer.
@@ -634,7 +633,7 @@ static void usb_ohci_xfer_setup_td(struct usb_ohci_setup_td *temp)
  * \param xfer      the usb transfer to setup the transfer descriptors
  * \param ed_last   the last endpoint descriptor
  */
-void usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
+void usb_ohci_xfer_start(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
 {
     struct usb_ohci_setup_td temp;
     struct usb_hcdi_pipe_fn *pipe_fn;
@@ -750,7 +749,7 @@ void usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
         temp.td_flags.condition_code = 0;
         temp.td_flags.data_toggle = 1;
         temp.td_flags.delay_interrupt = 1;
-        if(xfer->ed_direction == USB_OHCI_ED_DIRECTION_IN) {
+        if (xfer->ed_direction == USB_OHCI_ED_DIRECTION_IN) {
             temp.td_flags.direction_pid = USB_OHCI_ED_DIRECTION_OUT;
         } else {
             temp.td_flags.direction_pid = USB_OHCI_ED_DIRECTION_OUT;
@@ -780,7 +779,7 @@ void usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
     ed_flags.td_format = USB_OHCI_ED_FORMAT_GENERAL;
     ed_flags.direction = USB_OHCI_ED_DIRECTION_FROM_TD;
 
-    if (xfer->device->speed == USB_SPEED_LOW) {
+    if (xfer->device->speed == USB_DEVICE_SPEED_LOW) {
         ed_flags.speed = USB_OHCI_ED_LOWSPEED;
     }
 
@@ -791,5 +790,163 @@ void usb_ohci_xfer_setup(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
     ed->ed_headP = td->td_self;
 
     /* TODO: self suspended */
+    if (xfer->device->flags.self_suspended == 0) {
+
+    }
+}
+
+/**
+ * \brief   this function sets up a new usb transfer on the host controller
+ *
+ * \param   param the parameters to setup the usb transfer
+ *
+ */
+void usb_ohci_xfer_setup(struct usb_xfer_setup_params *param)
+{
+    usb_ohci_hc_t *hc = (usb_ohci_hc_t*) (param->device->controller->hc_control);
+    struct usb_xfer *xfer = param->curr_xfer;
+    void *last_obj;
+    /*
+     * variables to track how many descriptors we have to allocate
+     */
+    uint32_t num_td = 0;
+    uint32_t num_itd = 0;
+    uint32_t num_qh = 0;
+    uint32_t n = 0;
+
+    /*
+     * set the OHCI specific values
+     */
+    param->hc_max_packet_count = 1;
+    param->hc_max_packet_size = 0x500;
+    param->hc_max_frame_size = USB_OHCI_PAGE_SIZE;
+
+    /* TODO: set BDMA enabled?  */
+    usb_xfer_setup_struct(param);
+
+    switch (param->type) {
+        case USB_XFER_TYPE_ISOC:
+            num_itd = ((xfer->max_data_length / USB_OHCI_PAGE_SIZE)
+                    + ((xfer->num_frames + USB_OHCI_ISOCHRONUS_TD_OFFSETS - 1)
+                            / USB_OHCI_ISOCHRONUS_TD_OFFSETS) + 1);
+            break;
+        case USB_XFER_TYPE_INTR:
+            num_td = ((2 * xfer->num_frames)
+                    + xfer->max_data_length / xfer->max_hc_frame_size);
+            num_qh = 1;
+            break;
+        case USB_XFER_TYPE_CTRL:
+            num_td = ((2 * xfer->num_frames) + 1 /* STATUS stage*/
+            + (xfer->max_data_length / xfer->max_hc_frame_size));
+            num_qh = 1;
+            break;
+        case USB_XFER_TYPE_BULK:
+            num_qh = 1;
+            num_td = ((2 * xfer->num_frames)
+                    + (xfer->max_data_length / xfer->max_hc_frame_size));
+            break;
+    }
+    uint8_t alloc_dma_set;
+    do {
+        alloc_dma_set = xfer->flags_internal.curr_dma_set;
+
+        /*
+         * check if setting up the usb transfer succeeded
+         */
+        if (param->err) {
+            return;
+        }
+
+        last_obj = NULL;
+
+        /*
+         * allocate memory for the transfer descriptors
+         */
+        usb_ohci_td_t *td;
+        for (n = 0; n < num_td; n++) {
+            td = usb_ohci_td_alloc();
+            if (td == NULL) {
+                param->err = USB_ERR_NOMEM;
+                // free the allocated td's
+                for (td = last_obj; td != NULL; td = td->obj_next) {
+                    usb_ohci_td_free(td);
+                }
+                return;
+            }
+
+            td->obj_next = last_obj;
+            last_obj = td;
+        }
+
+        /*
+         * allocate memory for the isochronus transfer descriptors
+         */
+        usb_ohci_itd_t *itd;
+        for (n = 0; n < num_itd; n++) {
+            itd = usb_ohci_itd_alloc();
+            if (itd == NULL) {
+                param->err = USB_ERR_NOMEM;
+                // free the allocated iTDs
+                for (uint32_t i = 0; i < n; i++) {
+                    itd = last_obj;
+                    last_obj = itd->obj_next;
+                    usb_ohci_itd_free(itd);
+                }
+
+                // free the allocated TDs
+                for (n = 0; n < num_td; n++) {
+                    td = last_obj;
+                    last_obj = td->obj_next;
+                    usb_ohci_td_free(td);
+                }
+                return;
+            }
+
+            itd->obj_next = last_obj;
+            last_obj = itd;
+        }
+        xfer->hcd_td_start[xfer->flags_internal.curr_dma_set] = last_obj;
+
+        /*
+         * allocate memory for the queue heads
+         */
+        usb_ohci_ed_t *ed;
+        last_obj = NULL;
+        for (n = 0; n < num_qh; n++) {
+            ed = usb_ohci_ed_alloc();
+            if (ed == NULL) {
+                for (ed = last_obj; ed != NULL; ed = ed->obj_next) {
+                    usb_ohci_ed_free(ed);
+                }
+                last_obj =
+                        xfer->hcd_td_start[xfer->flags_internal.curr_dma_set];
+                for (n = 0; n < num_itd; n++) {
+                    itd = last_obj;
+                    last_obj = itd->obj_next;
+                    usb_ohci_itd_free(itd);
+                }
+                for (n = 0; n < num_td; n++) {
+                    td = last_obj;
+                    last_obj = td->obj_next;
+                    usb_ohci_td_free(td);
+                }
+            }
+            last_obj = ed;
+        }
+        xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set] = last_obj;
+
+        if (!xfer->flags_internal.curr_dma_set) {
+            xfer->flags_internal.curr_dma_set = 1;
+        }
+    } while (!alloc_dma_set);
+}
+
+/**
+ * \brief   this function is a stub to unsetup a usb transfer
+ *
+ */
+void usb_ohci_xfer_unsetup()
+{
+    return;
 }
 
