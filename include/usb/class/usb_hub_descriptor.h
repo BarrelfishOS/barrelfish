@@ -164,6 +164,7 @@ typedef struct usb_hub_status usb_hub_status_t;
  */
 struct usb_hub_port_status
 {
+    struct wPortStatus {
     uint8_t _reserved :3;
     uint8_t port_indicator :1;
     uint8_t port_test_mode :1;
@@ -176,6 +177,8 @@ struct usb_hub_port_status
     uint8_t port_suspend :1;
     uint8_t port_enable :1;
     uint8_t port_connection :1;
+    } wPortStatus;
+    struct {
     uint16_t _reserved__ :10;
     uint8_t reset_change :1;
     uint8_t over_current_change :1;
@@ -183,5 +186,24 @@ struct usb_hub_port_status
     uint8_t port_enable_change :1;
     uint8_t connect_change :1;
     uint8_t over_current_change :1;
+    } wPortChange;
 };
 
+/*
+ * device class codes
+ */
+#define USB_HUB_CLASS_CODE  0x09
+#define USB_HUB_SUBCLASS_CODE 0x00
+#define USB_HUB_PROTOCOL_FSHUB       0x00
+#define USB_HUB_PROTOCOL_HSHUBSTT    0x01
+#define USB_HUB_PROTOCOL_HSHUBMTT    0x02
+#define USB_HUB_PROTOCOL_SSHUB       0x03
+
+/*
+ * interface class code
+ */
+#define USB_HUB_IFACE_CLASS_CODE     0x09
+#define USB_HUB_IFACE_SUBCLASS_CODE      0
+#define USB_HUB_IFACE_PROTOCOL_FSHUB       0
+#define USB_HUB_IFACE_PROTOCOL_HSHUBSTT    0   /* Yes, same as previous */
+#define USB_HUB_IFACE_PROTOCOL_HSHUBMTT    1

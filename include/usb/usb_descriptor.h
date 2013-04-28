@@ -72,7 +72,7 @@ typedef struct usb_descriptor usb_descriptor_t;
  *  - iManufacturer:     index of string descriptor describing manufacturer
  *  - iProduct:          index of string descriptor describing product
  *  - iSerialNumber:     index of string describing device's serial number
- *  - bNumConfiguration: number of possible configurations
+ *  - bNumConfigurations:number of possible configurations
  */
 struct usb_device_descriptor
 {
@@ -84,7 +84,7 @@ struct usb_device_descriptor
   uint8_t bDeviceProtocol;
   uint8_t bMaxPacketSize0;
   uint16_t idVendor;
-  uint16_t idProdut;
+  uint16_t idProduct;
   uint16_t bcdDevice;
   uint8_t iManufacturer;
   uint8_t iProduct;

@@ -78,7 +78,8 @@ struct usb_device {
     struct usb_config_descriptor *config_desc;
 
     enum usb_device_speed speed;
-    enum usb_dev_state state;
+    enum usb_device_state state;
+
 
     struct usb_hub *hub;        /* only if this is a hub */
     struct usb_xfer *ctrl_xfer[2];
@@ -110,5 +111,6 @@ struct usb_device {
     // needed?
     struct usb_temp_data *usb_template_ptr;
 };
+
 
 #endif /* _USB_DEVICE_H_ */

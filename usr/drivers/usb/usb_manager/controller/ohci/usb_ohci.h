@@ -11,6 +11,7 @@
 #define _USB_OHCI_H_
 
 #include "usb_ohci_descriptors.h"
+#include <dev/ohci_dev.h>
 
 // the OHCI controller supports maximum 127 devices
 #define	USB_OHCI_MAX_DEVICES 127
@@ -64,7 +65,7 @@ struct usb_ohci_memory_pages {
  *  - ep_desc:     endpoint descriptor
  */
 struct usb_ohci_config_desc {
-    struct usb_config_descriptor confg_desc;
+    struct usb_config_descriptor config_desc;
     struct usb_interface_descriptor iface_desc;
     struct usb_endpoint_descriptor ep_desc;
 } __packed;
@@ -85,13 +86,13 @@ struct usb_ohci_config_desc {
  *  - ep_desc:     endpoint descriptor
  */
 typedef struct usb_ohci_hc {
-    struct ohci_memory_pages memory_pages;
-
+    ohci_t ohci_base;
     union ohci_hub_desc root_hub_desc;
     uint8_t root_hub_num_ports;
-    uint8_t hub_idata[32];
-    uint8_t address;
-    uint8_t configuration;
+    uint8_t root_hub_intr_data[32];
+    uint8_t root_hub_address;
+    uint8_t root_hub_config;
+    uint32_t enabled_intrs; /* enabled interrupts */
 
     struct usb_device *devices[USB_OHCI_MAX_DEVICES];
 
@@ -105,11 +106,11 @@ typedef struct usb_ohci_hc {
     struct usb_ohci_td *qh_td_free;
     struct usb_ohci_itd *qh_itd_free;
 
-    uint16_t intr_stats[USB_OHCI_NO_EP_DESCRIPTORS];  //kees track of the interrupt transfes
+    uint16_t intr_stats[USB_OHCI_NO_EP_DESCRIPTORS];  //keeps track of the interrupt transfes
 
     usb_host_controller_t *controller;
 
-    uint32_t enabled_intrs; /* enabled interrupts */
+
 
     uint16_t id_vendor;
 

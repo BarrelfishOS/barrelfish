@@ -32,25 +32,24 @@
  *                      USB_ERR_REQUEST
  *  - configured state: valid request forall recipients
  */
-usb_error_t
-usb_clear_feature(uint8_t recipient, uint8_t recipient_index, uint16_t feature)
+usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
+        uint16_t feature)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_H2D;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = (recipient & USB_REQUEST_RECIPIENT_MASK);
-  req.bRequest = USB_REQUEST_CLEAR_FEATURE;
-  req.wValue = feature;
-  req.wIndex = 0;
-  if (recipient != USB_REQUEST_RECIPIENT_DEVICE)
-    {
-      req.wIndex = recipient_index;
+    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = (recipient & USB_REQUEST_RECIPIENT_MASK);
+    req.bRequest = USB_REQUEST_CLEAR_FEATURE;
+    req.wValue = feature;
+    req.wIndex = 0;
+    if (recipient != USB_REQUEST_RECIPIENT_DEVICE) {
+        req.wIndex = recipient_index;
     }
-  req.wLength = 0;
+    req.wLength = 0;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 }
 
 /**
@@ -66,21 +65,20 @@ usb_clear_feature(uint8_t recipient, uint8_t recipient_index, uint16_t feature)
  *  - address state:    must return the value zero
  *  - configured state: a non zero value must be returned
  */
-usb_error_t
-usb_get_configuration(uint8_t *ret_config)
+usb_error_t usb_get_configuration(uint8_t *ret_config)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_D2H;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
-  req.bRequest = USB_REQUEST_GET_CONFIG;
-  req.wValue = 0;
-  req.wIndex = 0;
-  req.wLength = 1;
+    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.bRequest = USB_REQUEST_GET_CONFIG;
+    req.wValue = 0;
+    req.wIndex = 0;
+    req.wLength = 1;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 }
 
 /**
@@ -96,64 +94,56 @@ usb_get_configuration(uint8_t *ret_config)
  *  - address state:    valid request
  *  - configured state: valid request
  */
-usb_error_t
-usb_get_descriptor(uint8_t desc_type, uint8_t desc_index, uint16_t lang,
-    void *ret_desc)
+usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
+        uint16_t lang, void *ret_desc)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_D2H;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
-  req.bRequest = USB_REQUEST_GET_DESCRIPTOR;
-  req.wValue = (desc_type << 8) | desc_index;
+    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.bRequest = USB_REQUEST_GET_DESCRIPTOR;
+    req.wValue = (desc_type << 8) | desc_index;
 
-  /* wIndex stores the language id if a string descriptor is requested*/
-  if (desc_type == USB_DESCRIPTOR_TYPE_STRING)
-    {
-      req.wIndex = lang;
+    /* wIndex stores the language id if a string descriptor is requested*/
+    if (desc_type == USB_DESCRIPTOR_TYPE_STRING) {
+        req.wIndex = lang;
+    } else {
+        req.wIndex = 0;
     }
-  else
-    {
-      req.wIndex = 0;
-    }
-  req.wIndex = lang;
+    req.wIndex = lang;
 
-  /*
-   the maximum bytes to be returned, if length of the descriptor exceeds
-   this value, only the first wLength bytes are returned.
-   */
-  req.wLength = 0;
+    /*
+     the maximum bytes to be returned, if length of the descriptor exceeds
+     this value, only the first wLength bytes are returned.
+     */
+    req.wLength = 0;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 
 }
 
-usb_error_t
-usb_get_config_descriptor(uint8_t config_index,
-    struct usb_config_descriptor *ret_desc)
+usb_error_t usb_get_config_descriptor(uint8_t config_index,
+        struct usb_config_descriptor *ret_desc)
 {
 
 }
 
-usb_error_t
-usb_get_iface_descriptor(uint8_t iface_index,
-    struct usb_config_descriptor *ret_desc)
+usb_error_t usb_get_iface_descriptor(uint8_t iface_index,
+        struct usb_config_descriptor *ret_desc)
 {
 
 }
 
-usb_error_t
-usb_get_ep_descriptor(uint8_t ep_index,
-    struct usb_endpoint_descriptor *ret_desc)
+usb_error_t usb_get_ep_descriptor(uint8_t ep_index,
+        struct usb_endpoint_descriptor *ret_desc)
 {
 
 }
 
-usb_error_t
-usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
-    void *ret_desc)
+usb_error_t usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
+        void *ret_desc)
 {
 
 }
@@ -177,32 +167,30 @@ usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
  * If the interface does not exists then the device will reply with a
  * USB_ERR_REQUEST
  */
-usb_error_t
-usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
+usb_error_t usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_D2H;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
-  req.bRequest = USB_REQUEST_GET_INTERFACE;
-  req.wValue = 0;
-  req.wIndex = (0x00FF & iface_number);
-  req.wLength = 1;
+    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
+    req.bRequest = USB_REQUEST_GET_INTERFACE;
+    req.wValue = 0;
+    req.wIndex = (0x00FF & iface_number);
+    req.wLength = 1;
 
-  // TODO: FLOUNDER CALL
-  usb_error_t err;
-  uint32_t ret_val;
-  err = usb_do_request_static(&req, &ret_val);
+    // TODO: FLOUNDER CALL
+    usb_error_t err;
+    uint32_t ret_val;
+    err = usb_do_request_static(&req, &ret_val);
 
-  if (err != USB_ERR_OK)
-    {
-      *ret_alt_iface = 0;
-      return err;
+    if (err != USB_ERR_OK) {
+        *ret_alt_iface = 0;
+        return err;
     }
 
-  *ret_alt_iface = (uint8_t) (ret_val & 0xFF);
-  return USB_ERR_OK;
+    *ret_alt_iface = (uint8_t) (ret_val & 0xFF);
+    return USB_ERR_OK;
 }
 
 /**
@@ -222,23 +210,22 @@ usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
  * If the interface or endpoint does not exists then the device will reply
  * with a USB_ERR_REQUEST
  */
-usb_error_t
-usb_get_status(uint8_t recipient, uint16_t recipient_index,
-    uint16_t *ret_status)
+usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
+        uint16_t *ret_status)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_D2H;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = (recipient & USB_REQUEST_RECIPIENT_MASK);
-  req.bRequest = USB_REQUEST_GET_STATUS;
-  req.wValue = 0;
+    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = (recipient & USB_REQUEST_RECIPIENT_MASK);
+    req.bRequest = USB_REQUEST_GET_STATUS;
+    req.wValue = 0;
 
-  req.wIndex = recipient_index;
-  req.wLength = 2;
+    req.wIndex = recipient_index;
+    req.wLength = 2;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 }
 
 /**
@@ -256,23 +243,22 @@ usb_get_status(uint8_t recipient, uint16_t recipient_index,
  *  - configured state: not specified
  *
  */
-usb_error_t
-usb_set_address(uint16_t new_address)
+usb_error_t usb_set_address(uint16_t new_address)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  assert(new_address < 128);
+    assert(new_address < 128);
 
-  req.bType.direction = USB_DIRECTION_H2D;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
-  req.bRequest = USB_REQUEST_SET_ADDRESS;
-  req.wValue = new_address;
-  req.wIndex = 0;
-  req.wLength = 0;
+    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.bRequest = USB_REQUEST_SET_ADDRESS;
+    req.wValue = new_address;
+    req.wIndex = 0;
+    req.wLength = 0;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 
 }
 
@@ -295,21 +281,20 @@ usb_set_address(uint16_t new_address)
  *
  *  There will be a request error if the configuration does not match
  */
-usb_error_t
-usb_set_configuration(uint8_t config_value)
+usb_error_t usb_set_configuration(uint8_t config_value)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_H2D;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
-  req.bRequest = USB_REQUEST_SET_CONFIG;
-  req.wValue = (config_value & 0x00FF);
-  req.wIndex = 0;
-  req.wLength = 0;
+    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.bRequest = USB_REQUEST_SET_CONFIG;
+    req.wValue = (config_value & 0x00FF);
+    req.wIndex = 0;
+    req.wLength = 0;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 }
 
 /**
@@ -333,39 +318,37 @@ usb_set_configuration(uint8_t config_value)
  *
  *  There will be a request error if the configuration does not match
  */
-usb_error_t
-usb_set_descriptor(uint8_t desc_type, uint8_t desc_index, uint8_t language,
-    struct usb_descriptor descriptor)
+usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
+        uint8_t language, struct usb_descriptor descriptor)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_H2D;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
-  req.bRequest = USB_REQUEST_SET_DESCRIPTOR;
-  /*
-   * the index must be zero if other descriptors as string or config are used
-   * The only allowed values for descriptor type are device, configuration,
-   * and string descriptor types.
-   */
-  switch (desc_type)
-    {
-  case USB_DESCRIPTOR_TYPE_DEVICE:
-  case USB_DESCRIPTOR_TYPE_CONFIG:
-    req.wValue = (desc_type << 8) | desc_index;
-    break;
-  case USB_DESCRIPTOR_TYPE_DEVICE:
-    req.wValue = (desc_type << 8);
-    break;
-  default:
-    return USB_ERR_BAD_REQUEST;
+    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.bRequest = USB_REQUEST_SET_DESCRIPTOR;
+    /*
+     * the index must be zero if other descriptors as string or config are used
+     * The only allowed values for descriptor type are device, configuration,
+     * and string descriptor types.
+     */
+    switch (desc_type) {
+        case USB_DESCRIPTOR_TYPE_DEVICE:
+        case USB_DESCRIPTOR_TYPE_CONFIG:
+            req.wValue = (desc_type << 8) | desc_index;
+            break;
+        case USB_DESCRIPTOR_TYPE_DEVICE:
+            req.wValue = (desc_type << 8);
+            break;
+        default:
+            return USB_ERR_BAD_REQUEST;
     }
 
-  req.wIndex = 0;
-  req.wLength = 0;
+    req.wIndex = 0;
+    req.wLength = 0;
 
-  // TODO: FLOUNDER CALL
-  return usb_do_request(&req);
+    // TODO: FLOUNDER CALL
+    return usb_do_request(&req);
 }
 
 /**
@@ -388,40 +371,34 @@ usb_set_descriptor(uint8_t desc_type, uint8_t desc_index, uint8_t language,
  *  that does not exist causes a STALL to be returned in the Status stage of
  *  the request.
  */
-usb_error_t
-usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
-    uint8_t index)
+usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
+        uint8_t index)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_H2D;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = recipient;
-  req.bRequest = USB_REQUEST_SET_FEATURE;
-  req.wLength = 0;
+    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = recipient;
+    req.bRequest = USB_REQUEST_SET_FEATURE;
+    req.wLength = 0;
 
-  req.wIndex = 0;
+    req.wIndex = 0;
 
-  if (recipient != USB_REQUEST_RECIPIENT_DEVICE)
-    {
-      // the LSb of the wIndex only stores the index of an endpoint/interface
-      req.wIndex = index;
+    if (recipient != USB_REQUEST_RECIPIENT_DEVICE) {
+        // the LSb of the wIndex only stores the index of an endpoint/interface
+        req.wIndex = index;
     }
 
-  if (feature == USB_REQUEST_FEATURE_TEST_MODE)
-    {
-      if (recipient != USB_REQUEST_RECIPIENT_DEVICE)
-        {
-          // only devices may get an TEST_MODE feature request
-          return USB_ERR_BAD_REQUEST;
-        }
-      else
-        {
-          req.wIndex = (test << 8);
+    if (feature == USB_REQUEST_FEATURE_TEST_MODE) {
+        if (recipient != USB_REQUEST_RECIPIENT_DEVICE) {
+            // only devices may get an TEST_MODE feature request
+            return USB_ERR_BAD_REQUEST;
+        } else {
+            req.wIndex = (test << 8);
         }
     }
-  // TODO: Flounder Defs
-  usb_do_request(&req);
+    // TODO: Flounder Defs
+    usb_do_request(&req);
 }
 
 /**
@@ -444,21 +421,20 @@ usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
  *  If the interface or the alternate setting does not exist, then the device
  *  responds with a Request Error.
  */
-usb_error_t
-usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
+usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_H2D;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
-  req.bRequest = USB_REQUEST_SET_INTERFACE;
-  req.wIndex = (0x00FF & interface);
-  req.wValue = (0x00FF & alt_setting);
-  req.wLength = 0;
+    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
+    req.bRequest = USB_REQUEST_SET_INTERFACE;
+    req.wIndex = (0x00FF & interface);
+    req.wValue = (0x00FF & alt_setting);
+    req.wLength = 0;
 
-  // TODO: Flounder
-  return usb_do_request(&req);
+    // TODO: Flounder
+    return usb_do_request(&req);
 }
 
 /**
@@ -476,20 +452,19 @@ usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
  *  - address state:    device shall response with a request error
  *  - configured state: valid request
  */
-usb_error_t
-usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
+usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
 {
-  struct usb_device_request req;
+    struct usb_device_request req;
 
-  req.bType.direction = USB_DIRECTION_D2H;
-  req.bType.type = USB_REQUEST_TYPE_STANDARD;
-  req.bType.recipient = USB_REQUEST_RECIPIENT_ENDPOINT;
-  req.bRequest = USB_REQUEST_SYNCH_FRAME;
-  req.wIndex = endpoint;
-  req.wValue = 0;
-  req.wLength = 2;
+    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_ENDPOINT;
+    req.bRequest = USB_REQUEST_SYNCH_FRAME;
+    req.wIndex = endpoint;
+    req.wValue = 0;
+    req.wLength = 2;
 
-  // TODO: Flounder
-  return usb_do_request(&req);
+    // TODO: Flounder
+    return usb_do_request(&req);
 }
 

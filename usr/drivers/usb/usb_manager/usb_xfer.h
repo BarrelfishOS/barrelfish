@@ -172,7 +172,9 @@ struct usb_xfer {
     uint32_t num_frames;
     uint32_t actual_frames;
     uint32_t *frame_lengths;    // array of frame lengths
-    struct usb_page_cache *frame_buffers;  // TODO: not really needed?
+    uint8_t frame_shift;
+    struct usb_dma_page *frame_buffers;  // TODO: not really needed?
+    struct usb_dma_page dma_page;
 
     uint32_t max_packet_count;
     uint16_t max_packet_size;
@@ -190,6 +192,7 @@ struct usb_xfer {
 
     uint16_t isoc_time_complete;
     uint16_t interval;          // for isoc and intr
+    uint16_t timeout;
     usb_error_t error;
 
     struct usb_xfer_flags flags;
@@ -210,7 +213,7 @@ struct usb_xfer {
 struct usb_xfer_setup_params {
     struct usb_device *device;
     struct usb_xfer *curr_xfer;
-    const struct usb_config *curr_setup;
+    const struct usb_xfer_config *xfer_setup;
     const struct usb_hcdi_pipe_fn *pipe_fn;
     enum usb_xfer_type type;
     void *buf;
@@ -219,12 +222,47 @@ struct usb_xfer_setup_params {
     uint32_t size[7];
     uint32_t bufsize;
     uint32_t bufsize_max;
+    struct usb_dma_page dma_page;
 
     uint32_t hc_max_frame_size;
     uint16_t hc_max_packet_size;
     uint8_t hc_max_packet_count;
     enum usb_dev_speed speed;
     usb_error_t err;
+};
+
+/**
+ * ------------------------------------------------------------------------
+ * USB Transfer Configuration
+ * ------------------------------------------------------------------------
+ * This data structure contains an USB configuration used for setting up
+ * new USB transfers.
+ *
+ * Fields:
+ *  - bufsize   total pipe buffer size in bytes
+ *  - frames    maximum number of USB frames to be used
+ *  - interval  interval in milliseconds
+ *  - timeout   transfer timeout in milliseconds
+ *  - flags     transfer flags
+ *  - usb_mode  host or device mode
+ *  - type      transfer type
+ *  - endpoint  endpoint number to be used
+ *  - direction the direction of the transfer
+ *  - ep_index  the endpoint index to be used
+ *  - if_index  the interface index to be used
+ */
+struct usb_xfer_config {
+    uint32_t bufsize;
+    uint32_t frames;
+    uint32_t interval;
+    uint32_t timeout;
+    struct usb_xfer_flags flags;
+    enum usb_controller_mode usb_mode;
+    uint8_t type;
+    uint8_t endpoint;
+    uint8_t direction;
+    uint8_t ep_index;
+    uint8_t if_index;
 };
 
 void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer);
