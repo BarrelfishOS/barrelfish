@@ -7,28 +7,23 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef _USB_OHCI_MEMORY_H_
-#define _USB_OHCI_MEMORY_H_
+#ifndef USB_OHCI_MEMORY_H_
+#define USB_OHCI_MEMORY_H_
 
-#include "usb_ohci_descriptors.h"
+/* prototypes */
 
 
-
-struct usb_ohci_td *usb_ohci_td_alloc();
+struct usb_ohci_td *usb_ohci_td_alloc(void);
 void usb_ohci_td_free(struct usb_ohci_td *td);
 
-struct usb_ohci_td *usb_ohci_itd_alloc();
+struct usb_ohci_itd *usb_ohci_itd_alloc(void);
 void usb_ohci_itd_free(struct usb_ohci_itd *td);
 
-struct usb_ohci_ed *usb_ohci_ed_alloc();
+struct usb_ohci_ed *usb_ohci_ed_alloc(void);
 void usb_ohci_ed_free(struct usb_ohci_ed *ed);
 
 usb_paddr_t usb_ohci_buffer_alloc(uint32_t size, uint32_t align);
-void usb_ohci_buffer_free(usb_paddr_t  buf);
-
-
-
-
+void usb_ohci_buffer_free(usb_paddr_t buf);
 
 
 #endif /* _USB_OHCI_MEMORY_H_ */

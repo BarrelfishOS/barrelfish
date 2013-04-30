@@ -11,5 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "usb", 
-        cFiles = [ "class/usb_hub_request.c", "usb_request.c", 
-                    "usb_transfer.c", "usb_error.c" ] } ]
+        cFiles = [ "class/usb_hub_request.c", 
+                    "usb_driver.c",
+                    "usb_error.c",
+                    "usb_request.c", 
+                    "usb_transfer.c" 
+        ] 
+    } 
+]

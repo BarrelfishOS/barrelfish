@@ -11,10 +11,22 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "usb_manager",
-                      cFiles = [ "usb.c" ],
-                      --flounderBindings = [ "serial" ],
-                      mackerelDevices = [ "ohci" ],
-                      --addLibraries = ["pci"]
+                      cFiles = [ "usb.c", "usb_controller.c", "usb_device.c", 
+                      "usb_endpoint.c","usb_hub.c","usb_memory.c","usb_xfer.c", 
+                      "controller/ohci/usb_ohci_bus.c", 
+                      "controller/ohci/usb_ohci_memory.c", 
+                      "controller/ohci/usb_ohci_queue.c",
+                      "controller/ohci/usb_ohci_pipe.c", 
+                      "controller/ohci/usb_ohci_root_hub.c", 
+                      "controller/ohci/usb_ohci_xfer.c", 
+                      "controller/ohci/usb_ohci.c"],
+                      
+                      flounderBindings = [ "usb_manager" ],
+                      flounderExtraBindings = [ ("usb_manager",["rpcclient"]) ],
+                      
+                      mackerelDevices = [ "ohci", "omap/ohci" ],
+                      
+                      addLibraries = ["usb"],
                       architectures = allArchitectures
                     }
 ]

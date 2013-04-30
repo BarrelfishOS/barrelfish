@@ -10,6 +10,8 @@
 #ifndef _USB_DESCRIPTOR_H_
 #define _USB_DESCRIPTOR_H_
 
+#include <stdint.h>
+
 //USB descriptor codes (USB Specification, Rev 2.0, Table 9.5)
 #define USB_DESCRIPTOR_TYPE_DEVICE             1
 #define USB_DESCRIPTOR_TYPE_CONFIG             2

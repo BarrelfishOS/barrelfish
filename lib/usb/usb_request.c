@@ -49,7 +49,7 @@ usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -78,7 +78,7 @@ usb_error_t usb_get_configuration(uint8_t *ret_config)
     req.wLength = 1;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -120,32 +120,32 @@ usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 
 }
 
 usb_error_t usb_get_config_descriptor(uint8_t config_index,
         struct usb_config_descriptor *ret_desc)
 {
-
+    return USB_ERR_OK;
 }
 
 usb_error_t usb_get_iface_descriptor(uint8_t iface_index,
         struct usb_config_descriptor *ret_desc)
 {
-
+    return USB_ERR_OK;
 }
 
 usb_error_t usb_get_ep_descriptor(uint8_t ep_index,
         struct usb_endpoint_descriptor *ret_desc)
 {
-
+    return USB_ERR_OK;
 }
 
 usb_error_t usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
         void *ret_desc)
 {
-
+    return USB_ERR_OK;
 }
 
 /**
@@ -180,9 +180,10 @@ usb_error_t usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
     req.wLength = 1;
 
     // TODO: FLOUNDER CALL
-    usb_error_t err;
-    uint32_t ret_val;
-    err = usb_do_request_static(&req, &ret_val);
+    usb_error_t err = USB_ERR_OK;
+    uint32_t ret_val = 0;
+
+    err = USB_ERR_OK; //usb_do_request_static(&req, &ret_val);
 
     if (err != USB_ERR_OK) {
         *ret_alt_iface = 0;
@@ -211,7 +212,7 @@ usb_error_t usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
  * with a USB_ERR_REQUEST
  */
 usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
-        uint16_t *ret_status)
+        struct usb_status *ret_status)
 {
     struct usb_device_request req;
 
@@ -225,7 +226,7 @@ usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
     req.wLength = 2;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -243,11 +244,13 @@ usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
  *  - configured state: not specified
  *
  */
-usb_error_t usb_set_address(uint16_t new_address)
+usb_error_t usb_set_address(uint8_t new_address)
 {
     struct usb_device_request req;
 
-    assert(new_address < 128);
+    if(new_address > 127) {
+        return USB_ERR_INVAL;
+    }
 
     req.bType.direction = USB_DIRECTION_H2D;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
@@ -258,7 +261,7 @@ usb_error_t usb_set_address(uint16_t new_address)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 
 }
 
@@ -294,7 +297,7 @@ usb_error_t usb_set_configuration(uint8_t config_value)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -319,7 +322,7 @@ usb_error_t usb_set_configuration(uint8_t config_value)
  *  There will be a request error if the configuration does not match
  */
 usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
-        uint8_t language, struct usb_descriptor descriptor)
+        uint8_t language, struct usb_descriptor *descriptor)
 {
     struct usb_device_request req;
 
@@ -333,7 +336,7 @@ usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
      * and string descriptor types.
      */
     switch (desc_type) {
-        case USB_DESCRIPTOR_TYPE_DEVICE:
+        case USB_DESCRIPTOR_TYPE_STRING:
         case USB_DESCRIPTOR_TYPE_CONFIG:
             req.wValue = (desc_type << 8) | desc_index;
             break;
@@ -348,7 +351,7 @@ usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -398,7 +401,7 @@ usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
         }
     }
     // TODO: Flounder Defs
-    usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -434,7 +437,7 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
     req.wLength = 0;
 
     // TODO: Flounder
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -465,6 +468,6 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
     req.wLength = 2;
 
     // TODO: Flounder
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 

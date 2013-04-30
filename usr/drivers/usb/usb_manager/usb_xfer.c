@@ -7,8 +7,20 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "usb_xfer.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <barrelfish/barrelfish.h>
+
+#include <usb/usb.h>
 #include <usb/usb_descriptor.h>
+#include <usb/usb_error.h>
+#include <usb/usb_xfer.h>
+#include <usb/usb_device.h>
+
+#include "usb_controller.h"
+#include "usb_xfer.h"
+
+
 
 /**
  * \brief   this function adds a usb xfer to a usb transfer queue if it
@@ -120,26 +132,25 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
         xfer->max_frame_count = 0;
         return;
     }
-    struct usb_xfer_config setup_config = param->xfer_setup;
+    const struct usb_xfer_config *setup_config = param->xfer_setup;
     struct usb_endpoint_descriptor *ep_desc = xfer->endpoint->descriptor;
     uint8_t type = ep_desc->bmAttributes.xfer_type;
 
     uint32_t num_frlengths;
     uint32_t num_frbuffers;
-    uint32_t x;
 
     xfer->flags = setup_config->flags;
     xfer->num_frames = setup_config->frames;
     xfer->timeout = setup_config->timeout;
     xfer->interval = setup_config->interval;
-    xfer->endpoint_number = ep_desc->bEndpointAddress;
+    xfer->endpoint_number = ep_desc->bEndpointAddress.ep_number;
     xfer->max_packet_size = ep_desc->wMaxPacketSize;
     xfer->flags_internal.usb_mode = param->device->flags.usb_mode;
 
     param->bufsize = setup_config->bufsize;
 
     switch (param->speed) {
-        case USB_DEVICE_SPEED_HIGH:
+        case USB_SPEED_HIGH:
             switch (type) {
                 case USB_ENDPOINT_XFER_ISOCHR:
                 case USB_ENDPOINT_XFER_INTR:
@@ -155,7 +166,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             }
             xfer->max_packet_size &= 0x7FF;
             break;
-        case USB_DEVICE_SPEED_SUPER:
+        case USB_SPEED_SUPER:
             assert(!"NYI: No super speed support right now.");
             break;
         default:
@@ -203,8 +214,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
                  * and high speed devices we have to do conversion
                  * from 125 us -> 1 ms
                  */
-                if (param->speed != USB_DEVICE_SPEED_FULL
-                        && param->speed != USB_DEVICE_SPEED_LOW) {
+                if (param->speed != USB_SPEED_FULL
+                        && param->speed != USB_SPEED_LOW) {
                     if (xfer->interval < 4) {
                         /* smallest interval 1 ms*/
                         xfer->interval = 1;
@@ -230,8 +241,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
                 xfer->frame_shift++;
                 tmp *= 2;
             }
-            if (param->speed != USB_DEVICE_SPEED_FULL
-                    && param->speed != USB_DEVICE_SPEED_LOW) {
+            if (param->speed != USB_SPEED_FULL
+                    && param->speed != USB_SPEED_LOW) {
                 xfer->frame_shift += 3;
             }
 
@@ -364,7 +375,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     xfer->dma_page = param->dma_page;
 
     xfer->max_hc_frame_size = (param->hc_max_frame_size
-            - (param->hc_max_frame_size % xfer->max_frame_size))
+            - (param->hc_max_frame_size % xfer->max_frame_size));
     if (xfer->max_hc_frame_size == 0) {
         param->err = USB_ERR_INVAL;
         xfer->max_hc_frame_size = 1;

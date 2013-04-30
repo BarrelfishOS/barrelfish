@@ -18,6 +18,10 @@
 #ifndef _LIB_USB_REQUEST_H
 #define _LIB_USB_REQUEST_H
 
+#include <usb/usb_descriptor.h>
+#include <usb/usb_error.h>
+#include <usb/usb.h>
+
 /**
  * ------------------------------------------------------------------------
  * USB Device Request (USB Specification, Rev 2.0, Section 9.4)
@@ -117,10 +121,11 @@ typedef struct usb_device_request usb_device_request_t;
  * =======================================================================
  */
 
-usb_error_t usb_clear_feature(uint8_t recipent, uint8_t feature);
+usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
+        uint16_t feature);
 usb_error_t usb_get_configuration(uint8_t *ret_config);
-usb_error_t usb_get_descriptor(uint8_t type, uint8_t index,
-							   uint8_t language, void *desc);
+usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
+        uint16_t lang, void *ret_desc);
 usb_error_t usb_get_device_descriptor(struct usb_device_descriptor *ret_desc);
 usb_error_t usb_get_config_descriptor(uint8_t config_index,
 									  struct usb_config_descriptor *ret_desc);
@@ -131,13 +136,15 @@ usb_error_t usb_get_ep_descriptor(uint8_t ep_index,
 usb_error_t usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
 									  void *ret_desc);
 usb_error_t usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface);
-usb_error_t usb_get_status(uint8_t recipent, struct usb_status *ret_status);
+usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
+                                        struct usb_status *ret_status);
 usb_error_t usb_set_address(uint8_t device_address);
 usb_error_t usb_set_configuration(uint8_t config_value);
-usb_error_t usb_set_descriptor(uint8_t type, uint8_t index,
-							   struct usb_descriptor descriptor);
-usb_error_t usb_set_feature(uint8_t recipent, uint8_t feature);
-usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
+usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
+        uint8_t language, struct usb_descriptor *descriptor);
+usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
+        uint8_t index);
+usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface);
 usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame);
 
 

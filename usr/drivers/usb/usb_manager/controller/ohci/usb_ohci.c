@@ -7,11 +7,21 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "usb_ohci.h"
-#include "usb_ohci_pipe.h"
-#include "usb_ohci_root.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <barrelfish/barrelfish.h>
 
-#define USB_OHCI_INTERRUPT_ENDPOINT 1
+#include "ohci_device.h"
+
+#include <usb/usb_error.h>
+
+#include "usb_ohci.h"
+
+
+/*
+ * our mackerel base
+ */
+struct ohci_t ohci_base;
 
 
  /*
@@ -34,7 +44,7 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc)
 
 
 
-void	    ohci_detach(usb_ohci_hc_t *hc)
+void	    usb_ohci_detach(usb_ohci_hc_t *hc)
 {
 
 }
@@ -42,4 +52,7 @@ void	    ohci_detach(usb_ohci_hc_t *hc)
 
 
 
-void	    ohci_interrupt(usb_ohci_hc_t *sc);
+void	    usb_ohci_interrupt(usb_ohci_hc_t *sc)
+{
+
+}

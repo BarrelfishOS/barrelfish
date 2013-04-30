@@ -28,6 +28,7 @@ module /armv7/sbin/startd boot
 
 module /armv7/sbin/memtest
 module  /armv7/sbin/usb_manager
+module  /armv7/sbin/usb_keyboard
 module  /armv7/sbin/kaluga
 
 # For pandaboard, use following values.

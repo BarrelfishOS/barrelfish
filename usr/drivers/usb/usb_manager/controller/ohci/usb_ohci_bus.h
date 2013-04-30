@@ -10,9 +10,8 @@
 #ifndef _USB_OHCI_BUS_H_
 #define _USB_OHCI_BUS_H_
 
-#include "usb_ohci_bus.h"
 
-struct usb_bus_methods *usb_ohci_get_bus_fn();
+struct usb_hcdi_bus_fn *usb_ohci_get_bus_fn(void);
 
 
 

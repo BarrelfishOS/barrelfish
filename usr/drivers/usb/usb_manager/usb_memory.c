@@ -7,6 +7,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <barrelfish/barrelfish.h>
+
 #include "usb_memory.h"
 
 static struct usb_page *free_pages = NULL;
@@ -31,11 +36,11 @@ uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
         struct usb_page *page, struct usb_memory_block *ret_mem)
 {
     // check if there is enough free space on this usb page
-    struct usb_memory_block *free = &page->free;
+    struct usb_memory_block *free_pg = &page->free;
 
     uint32_t size_req = size;
 
-    uint32_t offset = free->phys_addr % align;
+    uint32_t offset = free_pg->phys_addr % align;
 
     // calculate the required size
     if (offset) {
@@ -43,23 +48,23 @@ uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
     }
 
     // check if we have enough free space, otherwise return
-    if (free->size < size_req) {
+    if (free_pg->size < size_req) {
         ret_mem->buffer = 0;
         ret_mem->phys_addr = 0;
         ret_mem->size = 0;
         return 0;
     }
 
-    ret_mem->buffer = free->buffer + offset;
-    ret_mem->phys_addr = free->phys_addr + offset;
+    ret_mem->buffer = free_pg->buffer + offset;
+    ret_mem->phys_addr = free_pg->phys_addr + offset;
     ret_mem->size = size;
 
     // update free memory in page
-    free->buffer += size_req;
-    free->phys_addr += size_req;
-    free->size -= size_req;
+    free_pg->buffer += size_req;
+    free_pg->phys_addr += size_req;
+    free_pg->size -= size_req;
 
-    assert(free->size >= 0);
+    assert(free_pg->size >= 0);
 
     return size;
 }
@@ -69,7 +74,7 @@ uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
  *
  * \return  pointer to struct usb_page or NULL
  */
-struct usb_page *usb_mem_page_alloc()
+struct usb_page *usb_mem_page_alloc(void)
 {
     struct usb_page *ret;
 
@@ -84,8 +89,7 @@ struct usb_page *usb_mem_page_alloc()
     ret = (struct usb_page *) malloc(sizeof(struct usb_page));
     memset(ret, 0, sizeof(struct usb_page));
 
-    uint32_t ret_size;
-    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, &ret_size);
+    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, NULL);
 
     if (err) {
         return NULL;
@@ -97,7 +101,7 @@ struct usb_page *usb_mem_page_alloc()
         return NULL;
     }
 
-    err = vspace_map_one_frame_attr(&ret->page->buffer, USB_PAGE_SIZE, ret->cap,
+    err = vspace_map_one_frame_attr(&ret->page.buffer, USB_PAGE_SIZE, ret->cap,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
 
     if (err) {
@@ -136,8 +140,7 @@ struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
     ret = (struct usb_dma_page *) malloc(sizeof(struct usb_dma_page));
     memset(ret, 0, sizeof(struct usb_dma_page));
 
-    uint32_t ret_size;
-    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, &ret_size);
+    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, NULL);
 
     if (err) {
         return NULL;

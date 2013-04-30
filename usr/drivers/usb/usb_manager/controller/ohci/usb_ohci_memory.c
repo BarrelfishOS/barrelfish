@@ -7,8 +7,19 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "usb_ohci_memory.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <barrelfish/barrelfish.h>
+
+
+#include <usb/usb.h>
+
 #include "../../usb_memory.h"
+
+#include "usb_ohci.h"
+#include "usb_ohci_memory.h"
+
 
 static struct usb_ohci_td *free_tds = NULL;
 static struct usb_ohci_ed *free_eds = NULL;
@@ -20,7 +31,7 @@ static struct usb_page *free_pages = NULL;
  *
  * \return  pointer to a usb_ohci_td struct
  */
-struct usb_ohci_td *usb_ohci_td_alloc()
+struct usb_ohci_td *usb_ohci_td_alloc(void)
 {
     struct usb_ohci_td * ret = NULL;
 
@@ -100,7 +111,7 @@ void usb_ohci_td_free(struct usb_ohci_td *td)
     free_tds = td;
 }
 
-struct usb_ohci_ed *usb_ohci_ed_alloc()
+struct usb_ohci_ed *usb_ohci_ed_alloc(void)
 {
     struct usb_ohci_ed * ret = NULL;
 
@@ -145,7 +156,7 @@ struct usb_ohci_ed *usb_ohci_ed_alloc()
     /*
      * retry allocating a new td descriptor in the given block
      */
-    ret_size = usb_mem_next_block(sizeof(struct usb_ohci_Ed), USB_OHCI_ED_ALIGN,
+    ret_size = usb_mem_next_block(sizeof(struct usb_ohci_ed), USB_OHCI_ED_ALIGN,
             free_pages, &mem);
 
     assert(ret_size >= min_size);
@@ -163,16 +174,18 @@ struct usb_ohci_ed *usb_ohci_ed_alloc()
 
 void usb_ohci_ed_free(struct usb_ohci_ed *ed)
 {
+    /*
+     * delete the hardware part of the descriptor
+     */
+    memset(ed, 0, USB_OHCI_ED_HW_SIZE);
     ed->obj_next = free_eds;
-    ed->ed_control = 0;
-    ed->ed_headP = 0;
-    ed->ed_nextED = 0;
-    ed->ed_tailP = 0;
+    ed->prev = NULL;
+    ed->next = NULL;
     free_eds = ed;
 }
 
 
-struct usb_ohci_td *usb_ohci_itd_alloc()
+struct usb_ohci_itd *usb_ohci_itd_alloc(void)
 {
     assert(!"NYI: allocating itd is not implemented. ");
     return NULL;
@@ -183,12 +196,12 @@ void usb_ohci_itd_free(struct usb_ohci_itd *td)
     assert(!"NYI: freeing itd is not implemented. ");
 }
 
-void *usb_ohci_buffer_alloc(uint32_t size, uint32_t align)
+usb_paddr_t usb_ohci_buffer_alloc(uint32_t size, uint32_t align)
 {
-
+    return 0;
 }
 
-void usb_ohci_buffer_free(void *buf)
+void usb_ohci_buffer_free(usb_paddr_t buf)
 {
 
 }

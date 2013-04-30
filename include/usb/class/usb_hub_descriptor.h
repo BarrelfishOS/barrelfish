@@ -7,6 +7,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#ifndef LIBUSB_HUB_DESCRITPOR_H_
+#define LIBUSB_HUB_DESCRITPOR_H_
+
+#include <stdint.h>
+
 // the hub descriptor type
 #define USB_DESCRIPTOR_TYPE_HUB	0x29
 
@@ -164,7 +169,7 @@ typedef struct usb_hub_status usb_hub_status_t;
  */
 struct usb_hub_port_status
 {
-    struct wPortStatus {
+    struct {
     uint8_t _reserved :3;
     uint8_t port_indicator :1;
     uint8_t port_test_mode :1;
@@ -179,13 +184,12 @@ struct usb_hub_port_status
     uint8_t port_connection :1;
     } wPortStatus;
     struct {
-    uint16_t _reserved__ :10;
+    uint16_t _reserved__ :11;
     uint8_t reset_change :1;
     uint8_t over_current_change :1;
     uint8_t suspend_change :1;
     uint8_t port_enable_change :1;
     uint8_t connect_change :1;
-    uint8_t over_current_change :1;
     } wPortChange;
 };
 
@@ -207,3 +211,5 @@ struct usb_hub_port_status
 #define USB_HUB_IFACE_PROTOCOL_FSHUB       0
 #define USB_HUB_IFACE_PROTOCOL_HSHUBSTT    0   /* Yes, same as previous */
 #define USB_HUB_IFACE_PROTOCOL_HSHUBMTT    1
+
+#endif /* LIBUSB_HUB_DESCRITPOR_H_ */

@@ -7,12 +7,35 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "usb_ohci_bus.h"
-#include "usb_ohci.h"
-#include "usb_ohci_descriptors.h"
-#include <usb/usb_descriptor.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <barrelfish/barrelfish.h>
 
-#include "dev/ohci_dev.h"
+#include "ohci_device.h"
+
+#include <usb/usb.h>
+#include <usb/usb_descriptor.h>
+#include <usb/class/usb_hub_descriptor.h>
+#include <usb/usb_error.h>
+#include <usb/usb_device.h>
+#include <usb/usb_xfer.h>
+
+
+#include "../../usb_controller.h"
+
+
+#include "../../usb_memory.h"
+
+#include "usb_ohci.h"
+#include "usb_ohci_root_hub.h"
+#include "usb_ohci_bus.h"
+
+
+#include "usb_ohci_xfer.h"
+#include "usb_ohci_pipe.h"
+#include "usb_ohci_queue.h"
+
+
 
 /*
  * ------------------------------------------------------------------------
@@ -60,7 +83,7 @@ static void usb_ohci_do_poll(struct usb_host_controller *hc)
 static void usb_ohci_ep_init(struct usb_device *device,
         struct usb_endpoint_descriptor *ep_desc, struct usb_endpoint *ep)
 {
-    if (device->flags.usb_mode != USB_CONTROLLER_MODE_HOST) {
+    if (device->flags.usb_mode != USB_MODE_HOST) {
         /* this usb device mode is not supported */
         return;
     }
@@ -70,7 +93,7 @@ static void usb_ohci_ep_init(struct usb_device *device,
     /*
      * we can only initialize endpoints for function devices
      */
-    if (device->device_index != hc->address) {
+    if (device->device_index != hc->root_hub_address) {
         switch (ep_desc->bmAttributes.xfer_type) {
             case USB_ENDPOINT_XFER_CONTROL:
                 ep->pipe_fn = usb_ohci_get_ctrl_pipe_fn();
@@ -79,7 +102,7 @@ static void usb_ohci_ep_init(struct usb_device *device,
                 ep->pipe_fn = usb_ohci_get_intr_pipe_fn();
                 break;
             case USB_ENDPOINT_XFER_ISOCHR:
-                if (device->speed == USB_DEVICE_SPEED_FULL) {
+                if (device->speed == USB_SPEED_FULL) {
                     ep->pipe_fn = usb_ohci_get_isoc_pipe_fn();
                 }
                 break;
@@ -112,16 +135,16 @@ static void usb_ohci_device_resume(struct usb_device *device)
             (xfer) = (((xfer))->wait_entry.next)) {
         ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
         switch (xfer->type) {
-            case USB_XFER_TYPE_BULK:
+            case USB_TYPE_BULK:
                 usb_ohci_append_qh(ed, hc->qh_bulk_last);
                 ohci_cmdstatus_blf_wrf(hc->ohci_base, 0x1);
                 break;
-            case USB_XFER_TYPE_CTRL:
+            case USB_TYPE_CTRL:
                 usb_ohci_append_qh(ed, hc->qh_ctrl_last);
                 ohci_cmdstatus_clf_wrf(hc->ohci_base, 0x1);
                 break;
 
-            case USB_XFER_TYPE_INTR:
+            case USB_TYPE_INTR:
                 usb_ohci_append_qh(ed, hc->qh_intr_last[xfer->intr_qh_pos]);
                 break;
             default:
@@ -154,14 +177,14 @@ static void usb_ohci_device_suspend(struct usb_device *device)
         if (xfer->device == device) {
             ed = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
             switch (xfer->type) {
-                case USB_XFER_TYPE_BULK:
+                case USB_TYPE_BULK:
                     usb_ohci_remove_qh(ed, hc->qh_bulk_last);
                     break;
-                case USB_XFER_TYPE_CTRL:
+                case USB_TYPE_CTRL:
                     usb_ohci_remove_qh(ed, hc->qh_ctrl_last);
                     break;
 
-                case USB_XFER_TYPE_INTR:
+                case USB_TYPE_INTR:
                     usb_ohci_remove_qh(ed, hc->qh_intr_last[xfer->intr_qh_pos]);
                     break;
                 default:
@@ -173,7 +196,7 @@ static void usb_ohci_device_suspend(struct usb_device *device)
     }
 }
 
-static void usb_ohci_set_hw_power(struct usb_host_controller controller)
+static void usb_ohci_set_hw_power(struct usb_host_controller *controller)
 {
     /*
          * TODO: implement
@@ -181,7 +204,7 @@ static void usb_ohci_set_hw_power(struct usb_host_controller controller)
         assert(!"NYI: Power control not implemented");
 }
 
-static void usb_ohci_set_hw_power_sleep(struct usb_host_controller controller, uint32_t state)
+static void usb_ohci_set_hw_power_sleep(struct usb_host_controller *controller, uint32_t state)
 {
     /*
      * TODO: implement
@@ -202,7 +225,8 @@ static void usb_ohci_get_dma_delay(struct usb_device *device,
     *ret_delay = (1125); /* hardcoded in ms microseconds */
 }
 
-static struct usb_hcdi_bus_fn ohci_bus_methods = {
+static struct usb_hcdi_bus_fn usb_ohci_bus_fn = {
+        .roothub_exec = usb_ohci_roothub_exec,
         .endpoint_init = usb_ohci_ep_init,
             .xfer_setup = usb_ohci_xfer_setup,
             .xfer_unsetup = usb_ohci_xfer_unsetup,
@@ -211,13 +235,11 @@ static struct usb_hcdi_bus_fn ohci_bus_methods = {
             .device_suspend = usb_ohci_device_suspend,
             .set_hw_power = usb_ohci_set_hw_power,
             .set_hw_power_sleep = usb_ohci_set_hw_power_sleep,
-            .roothub_exec = usb_ohci_roothub_exec,
-            .xfer_poll = usb_ohci_do_poll,
+            .xfer_poll = usb_ohci_do_poll
 };
 
-struct usb_hcdi_bus_fn *usb_ohci_get_bus_fn()
+struct usb_hcdi_bus_fn *usb_ohci_get_bus_fn(void)
 {
-    return &ohci_bus_methods;
-
+    return &usb_ohci_bus_fn;
 }
 

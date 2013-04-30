@@ -7,13 +7,25 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <barrelfish/barrelfish.h>
+
+#include "ohci_device.h"
+
+#include <usb/usb.h>
+#include <usb/usb_descriptor.h>
 #include <usb/usb_error.h>
 #include <usb/usb_request.h>
-#include <usb/usb_descriptor.h>
-#include <usb/usb.h>
+#include <usb/usb_device.h>
 #include <usb/class/usb_hub_descriptor.h>
 #include <usb/class/usb_hub_request.h>
+
+#include "../../usb_controller.h"
+#include "usb_ohci.h"
 #include "usb_ohci_root_hub.h"
+
 
 static const struct usb_device_descriptor usb_ohci_root_hub_device_desc = {
         .bLength = sizeof(struct usb_device_descriptor),
@@ -37,7 +49,7 @@ static const struct usb_ohci_config_desc usb_ohci_root_hub_config_desc = {
         .bLength = sizeof(struct usb_config_descriptor),
         .bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIG,
         .wTotalLength = sizeof(usb_ohci_root_hub_config_desc),
-        .bNumInterface = 1,
+        .bNumInterfaces = 1,
         .bConfigurationValue = 1,
         .iConfiguration = 0,
         .bmAttributes = USB_CONFIG_SELF_POWERED,
@@ -50,9 +62,8 @@ static const struct usb_ohci_config_desc usb_ohci_root_hub_config_desc = {
 }, .ep_desc = {
         .bLength = sizeof(struct usb_endpoint_descriptor),
         .bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
-        .bEndpointAddress.direction = USB_ENDPOINT_DIRECTION_IN,
-        .bEndpointAddress.ep_number = 1,
-        .bmAttributes.xfer_type = USB_ENDPOINT_XFER_INTR,
+        .bEndpointAddress = {USB_ENDPOINT_DIRECTION_IN,0,1},
+        .bmAttributes = {0,0,0,USB_ENDPOINT_XFER_INTR},
         .wMaxPacketSize = 32,
         .bInterval = 255,
 },
@@ -62,12 +73,10 @@ static const struct usb_hub_class_descriptor usb_ohci_root_hub_desc = {
         .bDesLength = 0,
         .bDescriptorType = USB_DESCRIPTOR_TYPE_HUB,
         .bNbrPorts = 0,
-        .wHubCharacteristics = 0,
+        .wHubCharacteristics = {0, 0, 0, 0, 0, 0},
         .bPwrOn2PwrGood = 0,
         .bHubContrCurrent = 0,
-        .bDeviceRemovable[32] = {
-        0
-        }
+        .bDeviceRemovable =     {0}
 };
 
 /**
@@ -82,7 +91,8 @@ static void ohci_root_hub_interrupt(usb_ohci_hc_t *hc)
     memset(hc->root_hub_intr_data, 0, sizeof(hc->root_hub_intr_data));
 
     /* get the root hub status */
-    ohci_rh_status_t hstatus = ohci_rh_status_rd(hc->ohci_base);
+    //ohci_rh_status_t hstatus = ohci_rh_status_rd(hc->ohci_base);
+
 
     /* get the number of ports */
     uint16_t num_ports = hc->root_hub_num_ports + 1;
@@ -136,13 +146,11 @@ static void usb_ohci_root_hub_sc_intr_enable(usb_ohci_hc_t *hc)
  *  \param  ret_data    pointer to the returned data
  *  \param  ret_length  the returned length
  */
-usb_error_t ohci_roothub_exec(struct usb_device *device,
+usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
         struct usb_device_request *req, const void **ret_data,
         uint16_t *ret_length)
 {
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) device->controller->hc_control;
-
-    usb_error_t err = USB_ERR_OK;
 
     const void *data = (const void *) hc->root_hub_desc.temp;
     uint16_t length = 0;
@@ -249,19 +257,19 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
 
                 /* hub class specific request */
                 if (req->bType.type == USB_REQUEST_TYPE_CLASS) {
-                    if ((value & 0xFF) != 0) {
-                        ret_length = length;
-                        ret_data = data;
+                    if ((req_value & 0xFF) != 0) {
+                        *ret_length = length;
+                        *ret_data = data;
                         return USB_ERR_IOERROR;
                     }
                     ohci_rh_descra_t cda;
                     cda = ohci_rh_descra_rd(hc->ohci_base);
 
                     // get the standard hub descriptor to fill in data
-                    hc->root_hub_desc = usb_ohci_root_hub_desc;
+                    hc->root_hub_desc.hub_descriptor = usb_ohci_root_hub_desc;
 
-                    struct usb_hub_class_descriptor *hub = &hc->root_hub_desc
-                            .hub_descriptor;
+                    struct usb_hub_class_descriptor *hub = &(hc->root_hub_desc
+                            .hub_descriptor);
                     hub->bNbrPorts = hc->root_hub_num_ports;
 
                     hub->wHubCharacteristics.power_mode =
@@ -302,7 +310,7 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
                         data = (const void *) &usb_ohci_root_hub_config_desc;
                         break;
                     case USB_DESCRIPTOR_TYPE_STRING:
-                        switch (value & 0xFF) {
+                        switch (req_value & 0xFF) {
                             case 0:
                                 str_ptr = "\001";
                                 break;
@@ -360,14 +368,17 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
                     /* get port status */
                     if ((req_index < 1) || req_index > hc->root_hub_num_ports) {
                         // invalid port number;
-                        ret_length = length;
-                        ret_data = data;
+                        *ret_length = length;
+                        *ret_data = data;
                         return USB_ERR_IOERROR;
                     }
                     ohci_rh_portstat_t ps = ohci_rh_portstat_rawrd(
                             hc->ohci_base, req_index);
-                    hc->root_hub_desc.port_status.wPortChange = (ps >> 16);
-                    hc->root_hub_desc.port_status.wPortStatus = (ps & 0xFFFF);
+                    memcpy(&hc->root_hub_desc.port_status.wPortChange, &ps, 2);
+                    ps <<= 16;
+                    memcpy(&hc->root_hub_desc.port_status.wPortStatus, &ps, 2);
+                    //hc->root_hub_desc.port_status.wPortChange = (ps >> 16);
+                    //hc->root_hub_desc.port_status.wPortStatus = (ps & 0xFFFF);
                     length = sizeof(hc->root_hub_desc.port_status);
                     break;
                 }
@@ -390,12 +401,12 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
              * we can set the address of the root hub if it is
              * withint the maximum devices range
              */
-            if (value > USB_OHCI_MAX_DEVICES) {
+            if (req_value > USB_OHCI_MAX_DEVICES) {
                 *ret_length = length;
                 *ret_data = data;
                 return USB_ERR_IOERROR;
             }
-            hc->root_hub_address = value;
+            hc->root_hub_address = req_value;
             break;
 
         case USB_REQUEST_SET_CONFIG:
@@ -404,12 +415,12 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
              *
              * We have only two two options (0, 1) that we can set
              */
-            if (value > 1) {
+            if (req_value > 1) {
                 *ret_length = length;
                 *ret_data = data;
                 return USB_ERR_IOERROR;
             }
-            hc->root_hub_config = value;
+            hc->root_hub_config = req_value;
             break;
 
         case USB_REQUEST_SET_DESCRIPTOR:
@@ -422,8 +433,8 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
              * but is is an error for hub class requests
              */
             if (req->bType.type == USB_REQUEST_TYPE_CLASS) {
-                ret_length = length;
-                ret_data = data;
+                *ret_length = length;
+                *ret_data = data;
                 return USB_ERR_IOERROR;
             }
             break;
@@ -518,6 +529,8 @@ usb_error_t ohci_roothub_exec(struct usb_device *device,
             *ret_data = data;
             return USB_ERR_IOERROR;
             break;
-
     }
+    *ret_length = length;
+    *ret_data = data;
+    return USB_ERR_OK;
 }

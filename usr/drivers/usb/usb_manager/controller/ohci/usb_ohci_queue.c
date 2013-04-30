@@ -7,8 +7,13 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <barrelfish/barrelfish.h>
+
+#include "usb_ohci.h"
 #include "usb_ohci_queue.h"
-#include "usb_ohci_xfer.h"
+
 
 
 

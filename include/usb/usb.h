@@ -7,17 +7,73 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef _USB_USB_H_
-#define _USB_USB_H_
+#ifndef LIBUSB_USB_H_
+#define LIBUSB_USB_H_
 
+/**
+ *
+ */
+const char *usb_manager_name = "usb_manager_service";
+
+/**
+ *
+ */
+typedef enum usb_mode  {
+    USB_MODE_HOST, /* initiates transfers */
+    USB_MODE_DEVICE, /* bus transfer target */
+    USB_MODE_DUAL /* can be host or device */
+} usb_mode_t;
+#define USB_MODE_MAX    (USB_MODE_DUAL+1)
+
+
+/**
+ * The USB device speed enumeration describes all possible USB speed
+ * settings for a device.
+ */
+typedef enum usb_speed {
+    USB_SPEED_VARIABLE,
+    USB_SPEED_LOW,
+    USB_SPEED_FULL,
+    USB_SPEED_HIGH,
+    USB_SPEED_SUPER,
+} usb_speed_t;
+
+typedef enum usb_hc_version {
+    USB_UHCI=0x0100,
+    USB_OHCI=0x0110,
+    USB_EHCI=0x0200,
+    USB_XHCI=0x0300
+} usb_hc_version_t;
+
+/**
+ *
+ */
+typedef enum usb_type {
+    USB_TYPE_ISOC = 0,
+    USB_TYPE_INTR,
+    USB_TYPE_CTRL,
+    USB_TYPE_BULK
+} usb_type_t;
+
+
+/*
+ * definition of the usb physical address type
+ */
+typedef volatile uintptr_t usb_paddr_t;
+
+/**
+ *
+ */
 struct usb_status {
     uint16_t wStatus;
 };
-
 typedef struct usb_status usb_status_t;
 
-#define USB_STATUS_SELF_POWERED 0x0001;
-#define USB_STATUS_REMOTE_WAKEUP 0x0002;
-#define USB_STATUS_EP_HALT  0x0001;
+#define USB_STATUS_SELF_POWERED     0x0001;
+#define USB_STATUS_REMOTE_WAKEUP    0x0002;
+#define USB_STATUS_EP_HALT          0x0001;
+
+
+
 
 #endif

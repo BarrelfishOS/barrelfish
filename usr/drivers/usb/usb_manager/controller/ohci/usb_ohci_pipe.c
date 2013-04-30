@@ -7,10 +7,23 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <barrelfish/barrelfish.h>
+
+#include <usb/usb.h>
+#include <usb/usb_descriptor.h>
+#include <usb/class/usb_hub_descriptor.h>
+#include <usb/usb_error.h>
+#include <usb/usb_device.h>
+#include <usb/usb_xfer.h>
+
+#include "../../usb_controller.h"
+
+#include "usb_ohci.h"
 #include "usb_ohci_pipe.h"
-#include "usb_ohci_queue.h"
+
 #include "usb_ohci_xfer.h"
-#include "../usb_xfer.h"
 
 /*
  * ------------------------------------------------------------------------
@@ -35,11 +48,10 @@ static void
 usb_ohci_xfer_bulk_start(struct usb_xfer *xfer);
 
 // data structure containing the function pointers
-struct usb_hcdi_pipe_fn usb_ohci_xfer_bulk_fun =
-    { .open = usb_ohci_xfer_bulk_open,
-            .close = usb_ohci_xfer_bulk_close,
-            .enter = usb_ohci_xfer_bulk_enter,
-            .start = usb_ohci_xfer_bulk_start };
+struct usb_hcdi_pipe_fn usb_ohci_xfer_bulk_fun = {
+.open = usb_ohci_xfer_bulk_open, .close = usb_ohci_xfer_bulk_close, .enter =
+        usb_ohci_xfer_bulk_enter, .start = usb_ohci_xfer_bulk_start
+};
 
 /**
  * \brief Function to open a bulk pipe. Bulk types do not need any
@@ -47,8 +59,7 @@ struct usb_hcdi_pipe_fn usb_ohci_xfer_bulk_fun =
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_bulk_open(struct usb_xfer *xfer)
+static void usb_ohci_xfer_bulk_open(struct usb_xfer *xfer)
 {
     return; /* noop */
 }
@@ -59,8 +70,7 @@ usb_ohci_xfer_bulk_open(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_bulk_close(struct usb_xfer *xfer)
+static void usb_ohci_xfer_bulk_close(struct usb_xfer *xfer)
 {
     usb_ohci_xfer_remove(xfer, USB_ERR_CANCELLED);
 }
@@ -71,8 +81,7 @@ usb_ohci_xfer_bulk_close(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_bulk_enter(struct usb_xfer *xfer)
+static void usb_ohci_xfer_bulk_enter(struct usb_xfer *xfer)
 {
     return; /* noop */
 }
@@ -83,8 +92,7 @@ usb_ohci_xfer_bulk_enter(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_bulk_start(struct usb_xfer *xfer)
+static void usb_ohci_xfer_bulk_start(struct usb_xfer *xfer)
 {
     // get the host controller of this transfer
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
@@ -113,11 +121,10 @@ static void
 usb_ohci_xfer_ctrl_start(struct usb_xfer *xfer);
 
 // data structure containing the function pointers
-struct usb_hcdi_pipe_fn usb_ohci_xfer_ctrl_fun =
-    { .open = usb_ohci_xfer_ctrl_open,
-            .close = usb_ohci_xfer_ctrl_close,
-            .enter = usb_ohci_xfer_ctrl_enter,
-            .start = usb_ohci_xfer_ctrl_start };
+struct usb_hcdi_pipe_fn usb_ohci_xfer_ctrl_fun = {
+.open = usb_ohci_xfer_ctrl_open, .close = usb_ohci_xfer_ctrl_close, .enter =
+        usb_ohci_xfer_ctrl_enter, .start = usb_ohci_xfer_ctrl_start
+};
 
 /**
  * \brief Function to open a control pipe. Control pipes do not need any
@@ -125,8 +132,7 @@ struct usb_hcdi_pipe_fn usb_ohci_xfer_ctrl_fun =
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_ctrl_open(struct usb_xfer *xfer)
+static void usb_ohci_xfer_ctrl_open(struct usb_xfer *xfer)
 {
     return; /* just a noop */
 }
@@ -137,8 +143,7 @@ usb_ohci_xfer_ctrl_open(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_ctrl_close(struct usb_xfer *xfer)
+static void usb_ohci_xfer_ctrl_close(struct usb_xfer *xfer)
 {
     usb_ohci_xfer_remove(xfer, USB_ERR_CANCELLED);
 }
@@ -149,8 +154,7 @@ usb_ohci_xfer_ctrl_close(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_ctrl_enter(struct usb_xfer *xfer)
+static void usb_ohci_xfer_ctrl_enter(struct usb_xfer *xfer)
 {
     return; /* noop */
 }
@@ -161,8 +165,7 @@ usb_ohci_xfer_ctrl_enter(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_ctrl_start(struct usb_xfer *xfer)
+static void usb_ohci_xfer_ctrl_start(struct usb_xfer *xfer)
 {
     // get the host controller
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
@@ -191,11 +194,10 @@ static void
 usb_ohci_xfer_intr_start(struct usb_xfer *xfer);
 
 // data structure containing the function pointers
-struct usb_hcdi_pipe_fn usb_ohci_xfer_intr_fun =
-    { .open = usb_ohci_xfer_intr_open,
-            .close = usb_ohci_xfer_intr_close,
-            .enter = usb_ohci_xfer_intr_enter,
-            .start = usb_ohci_xfer_intr_start };
+struct usb_hcdi_pipe_fn usb_ohci_xfer_intr_fun = {
+.open = usb_ohci_xfer_intr_open, .close = usb_ohci_xfer_intr_close, .enter =
+        usb_ohci_xfer_intr_enter, .start = usb_ohci_xfer_intr_start
+};
 
 /**
  * \brief Function to open a interrupt pipe. Requests on interrupt
@@ -205,8 +207,7 @@ struct usb_hcdi_pipe_fn usb_ohci_xfer_intr_fun =
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_intr_open(struct usb_xfer *xfer)
+static void usb_ohci_xfer_intr_open(struct usb_xfer *xfer)
 {
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
@@ -252,8 +253,7 @@ usb_ohci_xfer_intr_open(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_intr_close(struct usb_xfer *xfer)
+static void usb_ohci_xfer_intr_close(struct usb_xfer *xfer)
 {
     // get the host controller
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
@@ -271,8 +271,7 @@ usb_ohci_xfer_intr_close(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_intr_enter(struct usb_xfer *xfer)
+static void usb_ohci_xfer_intr_enter(struct usb_xfer *xfer)
 {
     return; /* noop */
 }
@@ -283,14 +282,13 @@ usb_ohci_xfer_intr_enter(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_intr_start(struct usb_xfer *xfer)
+static void usb_ohci_xfer_intr_start(struct usb_xfer *xfer)
 {
     // get the host controller
     usb_ohci_hc_t *hc = (usb_ohci_hc_t *) xfer->host_controller->hc_control;
 
     // setup the queue heads and the transfer descriptors
-    usb_ohci_xfer_start(xfer, hc->qh_intr_last[xfer->intr_qh_pos]);
+    usb_ohci_xfer_start(xfer, &hc->qh_intr_last[xfer->intr_qh_pos]);
 
     // enqueue it on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);
@@ -313,11 +311,10 @@ static void
 usb_ohci_xfer_isoc_start(struct usb_xfer *xfer);
 
 // data structure containing the function pointers
-struct usb_hcdi_pipe_fn usb_ohci_xfer_isoc_fun =
-    { .open = usb_ohci_xfer_isoc_open,
-            .close = usb_ohci_xfer_isoc_close,
-            .enter = usb_ohci_xfer_isoc_enter,
-            .start = usb_ohci_xfer_isoc_start };
+struct usb_hcdi_pipe_fn usb_ohci_xfer_isoc_fun = {
+.open = usb_ohci_xfer_isoc_open, .close = usb_ohci_xfer_isoc_close, .enter =
+        usb_ohci_xfer_isoc_enter, .start = usb_ohci_xfer_isoc_start
+};
 
 /**
  * \brief Function to open a isochronus pipe. There is no special
@@ -325,8 +322,7 @@ struct usb_hcdi_pipe_fn usb_ohci_xfer_isoc_fun =
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_isoc_open(struct usb_xfer *xfer)
+static void usb_ohci_xfer_isoc_open(struct usb_xfer *xfer)
 {
     return; /* noop */
 }
@@ -337,8 +333,7 @@ usb_ohci_xfer_isoc_open(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_isoc_close(struct usb_xfer *xfer)
+static void usb_ohci_xfer_isoc_close(struct usb_xfer *xfer)
 {
     usb_ohci_xfer_remove(xfer, USB_ERR_CANCELLED);
 }
@@ -350,11 +345,10 @@ usb_ohci_xfer_isoc_close(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_isoc_enter(struct usb_xfer *xfer)
+static void usb_ohci_xfer_isoc_enter(struct usb_xfer *xfer)
 {
     // TODO: Implement
-    assert(!"NYI: cannot create isochronus transfers at this time")
+    assert(!"NYI: cannot create isochronus transfers at this time");
 }
 
 /**
@@ -363,8 +357,7 @@ usb_ohci_xfer_isoc_enter(struct usb_xfer *xfer)
  *
  * \param xfer  usb transfer request
  */
-static void
-usb_ohci_xfer_isoc_start(struct usb_xfer *xfer)
+static void usb_ohci_xfer_isoc_start(struct usb_xfer *xfer)
 {
     // put the transfer on the interrupt queue
     usb_ohci_xfer_enqueue(xfer);
@@ -374,26 +367,22 @@ usb_ohci_xfer_isoc_start(struct usb_xfer *xfer)
  * Exported functions
  */
 
-struct usb_hcdi_pipe_fn *
-usb_ohci_get_bulk_pipe_fn()
+struct usb_hcdi_pipe_fn *usb_ohci_get_bulk_pipe_fn(void)
 {
     return &usb_ohci_xfer_bulk_fun;
 }
 
-struct usb_hcdi_pipe_fn *
-usb_ohci_get_ctrl_pipe_fn()
+struct usb_hcdi_pipe_fn *usb_ohci_get_ctrl_pipe_fn(void)
 {
     return &usb_ohci_xfer_ctrl_fun;
 }
 
-struct usb_hcdi_pipe_fn *
-usb_ohci_get_isoc_pipe_fn()
+struct usb_hcdi_pipe_fn *usb_ohci_get_isoc_pipe_fn(void)
 {
     return &usb_ohci_xfer_isoc_fun;
 }
 
-struct usb_hcdi_pipe_fn *
-usb_ohci_get_intr_pipe_fn()
+struct usb_hcdi_pipe_fn *usb_ohci_get_intr_pipe_fn(void)
 {
     return &usb_ohci_xfer_intr_fun;
 }

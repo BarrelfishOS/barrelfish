@@ -17,6 +17,9 @@
 #ifndef _LIB_USB_HUB_REQUEST_H
 #define _LIB_USB_HUB_REQUEST_H
 
+#include <stdint.h>
+#include <usb/usb_error.h>
+
 /*
  * USB Hub Class Specific Request Codes
  * (USB Specification, Rev 2.0, Table 11.16)
@@ -71,8 +74,8 @@ usb_hub_set_hub_feature(uint16_t feature);
 usb_error_t
 usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port);
 usb_error_t
-usb_hub_get_tt_state(struct usb_hub_tt_flags flags, uint16_t port,
-        struct usb_hub_tt_state *ret_state);
+usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
+        uint16_t ret_length, void *ret_state);
 usb_error_t
 usb_hub_stop_tt(uint16_t port);
 

@@ -8,14 +8,14 @@
  */
 
 
-#ifndef _USB_MEMORY_H_
-#define _USB_MEMORY_H_
+#ifndef USB_MEMORY_H_
+#define USB_MEMORY_H_
 
-/*
- * definition of the usb physical address type
- */
-typedef volatile uintptr_t usb_paddr_t;
+#include <barrelfish/barrelfish.h>
+#include <usb/usb.h>
 
+/* prototypes */
+struct usb_xfer;
 
 
 
@@ -105,7 +105,7 @@ struct usb_page_list_entry {
 
 
 
-struct usb_page *usb_mem_page_alloc();
+struct usb_page *usb_mem_page_alloc(void);
 void usb_mem_page_free(struct usb_page *ret_page);
 
 uint32_t usb_mem_next_block(uint32_t size, uint32_t align, struct usb_page *page,
@@ -115,4 +115,4 @@ struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align);
 void usb_mem_dma_free(struct usb_dma_page *page);
 
 
-#endif /* _USB_MEMORY_H_ */
+#endif /* USB_MEMORY_H_ */

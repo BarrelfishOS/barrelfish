@@ -37,7 +37,7 @@
                "monitor_mem",
                "mouse",
                "nameservice",
---               "netd",
+--              "netd",
                "acpi",
                "pci",
                "ping_pong",

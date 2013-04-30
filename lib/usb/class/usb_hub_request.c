@@ -50,7 +50,7 @@ usb_hub_clear_hub_feature(uint16_t feature)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -116,7 +116,7 @@ usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
         }
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -161,7 +161,7 @@ usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; // usb_do_request(&req);
 }
 
 /**
@@ -198,7 +198,7 @@ usb_hub_get_hub_descriptor(uint16_t num_ports,
     req.wLength = len;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -226,7 +226,7 @@ usb_hub_get_hub_status(struct usb_hub_status *ret_status)
     req.wLength = 4;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -257,7 +257,7 @@ usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status)
     req.wLength = 4;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -293,7 +293,7 @@ usb_hub_reset_tt(uint16_t port)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -325,7 +325,7 @@ usb_hub_set_hub_descriptor(uint16_t desc_length,
     req.wLength = desc_length;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -355,7 +355,7 @@ usb_hub_set_hub_feature(uint16_t feature)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -411,7 +411,7 @@ usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req);
 }
 
 /**
@@ -452,7 +452,7 @@ usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
     req.wLength = max_length;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }
 
 /**
@@ -489,5 +489,5 @@ usb_hub_stop_tt(uint16_t port)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return usb_do_request(&req);
+    return USB_ERR_OK; //usb_do_request(&req)
 }

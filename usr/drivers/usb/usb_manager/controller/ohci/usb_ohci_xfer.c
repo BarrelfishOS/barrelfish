@@ -7,11 +7,25 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "usb_ohci_descriptors.h"
-#include "usb_ohci_xfer.h"
-#include "../../usb_endpoint.h"
-#include "../../usb_device.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <barrelfish/barrelfish.h>
+
+#include <usb/usb.h>
+#include <usb/usb_error.h>
+#include <usb/usb_device.h>
+#include <usb/usb_xfer.h>
+
+#include "../../usb_controller.h"
 #include "../../usb_xfer.h"
+#include "usb_ohci.h"
+#include "usb_ohci_xfer.h"
+#include "usb_ohci_memory.h"
+#include "usb_ohci_queue.h"
+
+
+
 
 static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
 {
@@ -91,13 +105,13 @@ static void usb_ohci_xfer_short_frames(struct usb_xfer *xfer)
          * we need to make sure that the OHCI takes up this remaining
          * transfer descriptor for processing.
          */
-        if (xfer->type == USB_XFER_TYPE_BULK) {
+        if (xfer->type == USB_TYPE_BULK) {
             /* TODO: write register BLF
              * OWRITE4(sc, OHCI_COMMAND_STATUS, OHCI_BLF);
              */
         }
 
-        if (xfer->type == USB_XFER_TYPE_CTRL) {
+        if (xfer->type == USB_TYPE_CTRL) {
             /* TODO: write register CLF
              * OWRITE4(sc, OHCI_COMMAND_STATUS, OHCI_CLF);
              */
@@ -133,7 +147,7 @@ uint8_t usb_ohci_xfer_is_finished(struct usb_xfer *xfer)
      *  then there is no activitiy
      */
     if (USB_OHCI_EP_HALTED(ed) || !USB_OHCI_EP_HAS_TD(ed_headP, ed_tailP)) {
-        if (xfer->type == USB_XFER_TYPE_ISOC) {
+        if (xfer->type == USB_TYPE_ISOC) {
             // isochronus endponts have to be treated differently;
             usb_ohci_xfer_done_isoc(xfer);
 
@@ -184,12 +198,15 @@ static usb_error_t usb_ohci_xfer_update_frame_lengths(struct usb_xfer *xfer)
     usb_paddr_t phy_start;
     usb_paddr_t phy_end;
     usb_ohci_td_ctrl_t td_flags;
+
     uint16_t cc;
 
     td = xfer->hcd_td_cache;
     td_alt_next = td->alt_next;
 
-    td_flags = 0;
+    usb_ohci_td_ctrl_t td_flags_zero = {0,0,0,0,0,0,0};
+
+    td_flags = td_flags_zero;
 
     if (xfer->actual_frames != xfer->num_frames) {
         if (xfer->actual_frames < xfer->max_frame_count) {
@@ -390,16 +407,16 @@ void usb_ohci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
     // TODO: invalidate page cache of endpoint
 
     switch (xfer->type) {
-        case USB_XFER_TYPE_ISOC:
+        case USB_TYPE_ISOC:
             usb_ohci_remove_qh(ed, hc->qh_isoc_last);
             break;
-        case USB_XFER_TYPE_INTR:
+        case USB_TYPE_INTR:
             usb_ohci_remove_qh(ed, hc->qh_intr_last[xfer->intr_qh_pos]);
             break;
-        case USB_XFER_TYPE_CTRL:
+        case USB_TYPE_CTRL:
             usb_ohci_remove_qh(ed, hc->qh_ctrl_last);
             break;
-        case USB_XFER_TYPE_BULK:
+        case USB_TYPE_BULK:
             usb_ohci_remove_qh(ed, hc->qh_bulk_last);
             break;
         default:
@@ -430,7 +447,7 @@ void usb_ohci_xfer_enqueue(struct usb_xfer *xfer)
         return;
     }
     /* put transfer on interrupt queue */
-    usb_xfer_enqueue(xfer->host_controller->intr_queue, xfer);
+    usb_xfer_enqueue(&xfer->host_controller->intr_queue, xfer);
 
     /* start timeout, if any */
     /* TODO: handle time out
@@ -779,7 +796,7 @@ void usb_ohci_xfer_start(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
     ed_flags.td_format = USB_OHCI_ED_FORMAT_GENERAL;
     ed_flags.direction = USB_OHCI_ED_DIRECTION_FROM_TD;
 
-    if (xfer->device->speed == USB_DEVICE_SPEED_LOW) {
+    if (xfer->device->speed == USB_SPEED_LOW) {
         ed_flags.speed = USB_OHCI_ED_LOWSPEED;
     }
 
@@ -803,7 +820,6 @@ void usb_ohci_xfer_start(struct usb_xfer *xfer, usb_ohci_ed_t **ed_last)
  */
 void usb_ohci_xfer_setup(struct usb_xfer_setup_params *param)
 {
-    usb_ohci_hc_t *hc = (usb_ohci_hc_t*) (param->device->controller->hc_control);
     struct usb_xfer *xfer = param->curr_xfer;
     void *last_obj;
     /*
@@ -825,22 +841,22 @@ void usb_ohci_xfer_setup(struct usb_xfer_setup_params *param)
     usb_xfer_setup_struct(param);
 
     switch (param->type) {
-        case USB_XFER_TYPE_ISOC:
+        case USB_TYPE_ISOC:
             num_itd = ((xfer->max_data_length / USB_OHCI_PAGE_SIZE)
                     + ((xfer->num_frames + USB_OHCI_ISOCHRONUS_TD_OFFSETS - 1)
                             / USB_OHCI_ISOCHRONUS_TD_OFFSETS) + 1);
             break;
-        case USB_XFER_TYPE_INTR:
+        case USB_TYPE_INTR:
             num_td = ((2 * xfer->num_frames)
                     + xfer->max_data_length / xfer->max_hc_frame_size);
             num_qh = 1;
             break;
-        case USB_XFER_TYPE_CTRL:
+        case USB_TYPE_CTRL:
             num_td = ((2 * xfer->num_frames) + 1 /* STATUS stage*/
             + (xfer->max_data_length / xfer->max_hc_frame_size));
             num_qh = 1;
             break;
-        case USB_XFER_TYPE_BULK:
+        case USB_TYPE_BULK:
             num_qh = 1;
             num_td = ((2 * xfer->num_frames)
                     + (xfer->max_data_length / xfer->max_hc_frame_size));
@@ -945,7 +961,7 @@ void usb_ohci_xfer_setup(struct usb_xfer_setup_params *param)
  * \brief   this function is a stub to unsetup a usb transfer
  *
  */
-void usb_ohci_xfer_unsetup()
+void usb_ohci_xfer_unsetup(struct usb_xfer *xfer)
 {
     return;
 }
