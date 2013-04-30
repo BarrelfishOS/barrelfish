@@ -13,11 +13,6 @@
 /**
  *
  */
-const char *usb_manager_name = "usb_manager_service";
-
-/**
- *
- */
 typedef enum usb_mode  {
     USB_MODE_HOST, /* initiates transfers */
     USB_MODE_DEVICE, /* bus transfer target */
