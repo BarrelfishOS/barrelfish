@@ -23,6 +23,8 @@ struct usb_device;
 struct usb_host_controller;
 struct usb_dma_page;
 struct usb_hcdi_pipe_fn;
+struct usb_request_state;
+struct usb_manager_binding;
 
 /*
  * ------------------------------------------------------------------------
@@ -75,8 +77,6 @@ struct usb_xfer_flags_internal {
 
     uint8_t short_frames_ok :1;
     uint8_t short_transfer_ok :1;
-
-    /* TODO: BUS DMA? */
 
     uint8_t isoc_xfer :1;
     uint8_t curr_dma_set :1;
@@ -151,7 +151,10 @@ struct usb_xfer_queue {
  *  -
  */
 struct usb_xfer {
-    uint32_t device_driver_binding;  // flounder ref
+    struct usb_manager_binding *usb_manager_binding;  // flounder ref
+    struct usb_request_state *usb_manager_request_state;
+    void(*usb_manager_request_callback)(void *);
+
     struct {
         struct usb_xfer *next; /* next element */
         struct usb_xfer **prev_next; /* address of previous next element */
@@ -174,10 +177,10 @@ struct usb_xfer {
 
     uint32_t num_frames;
     uint32_t actual_frames;
-    uint32_t *frame_lengths;    // array of frame lengths
+    uint32_t *frame_lengths;    // pointer to an array of frame lengths
     uint8_t frame_shift;
-    struct usb_dma_page *frame_buffers;  // TODO: not really needed?
-    struct usb_dma_page *dma_page;
+    struct usb_dma_page *frame_buffers;  // pointer to an array of DMA frames where the device reads / writes to mem
+    struct usb_dma_page *dma_page;  // pointer for storing the data
 
     uint32_t max_packet_count;
     uint16_t max_packet_size;

@@ -85,7 +85,7 @@ static const struct usb_hub_class_descriptor usb_ohci_root_hub_desc = {
  *
  * \param   hc  the host controller
  */
-static void ohci_root_hub_interrupt(usb_ohci_hc_t *hc)
+void usb_ohci_root_hub_interrupt(usb_ohci_hc_t *hc)
 {
     /* clear old interrupt data */
     memset(hc->root_hub_intr_data, 0, sizeof(hc->root_hub_intr_data));
@@ -135,7 +135,7 @@ static void usb_ohci_root_hub_sc_intr_enable(usb_ohci_hc_t *hc)
     /* acknowledge any RHSC interrupts */
     ohci_intstatus_rhsc_wrf(hc->ohci_base, 1);
 
-    ohci_root_hub_interrupt(hc);
+    usb_ohci_root_hub_interrupt(hc);
 }
 
 /**
@@ -534,3 +534,4 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
     *ret_data = data;
     return USB_ERR_OK;
 }
+

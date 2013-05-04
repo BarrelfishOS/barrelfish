@@ -105,6 +105,18 @@ errval_t initialize_monitor(struct spawninfo *si)
     }
 #endif // __x86_64__ || __i386__
 
+#if __arm__
+    /* Give monitor IO */
+       dest.cnode = si->taskcn;
+       dest.slot  = TASKCN_SLOT_IO;
+       src.cnode = cnode_task;
+       src.slot  = TASKCN_SLOT_IO;
+       err = cap_copy(dest, src);
+       if (err_is_fail(err)) {
+           return err_push(err, INIT_ERR_COPY_IO_CAP);
+       }
+#endif
+
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP
 #if 0   // XXX: Disabled until SCC has a decent memory allocator
     /* Give monitor the foreign frame capability */

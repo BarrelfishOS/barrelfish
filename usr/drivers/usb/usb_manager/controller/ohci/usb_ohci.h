@@ -394,7 +394,9 @@ typedef struct usb_ohci_hc {
 
     struct usb_ohci_hcca *hcca;
     struct usb_ohci_ed *qh_ctrl_last;
+    struct usb_ohci_ed *qh_ctrl_first;
     struct usb_ohci_ed *qh_bulk_last;
+    struct usb_ohci_ed *qh_bulk_first;
     struct usb_ohci_ed *qh_isoc_last;
     struct usb_ohci_ed *qh_intr_last[USB_OHCI_NO_EP_DESCRIPTORS];
 
@@ -417,7 +419,7 @@ typedef struct usb_ohci_hc {
  * OHCI Host Controller Function Prototypes
  * ------------------------------------------------------------------------
  */
-usb_error_t usb_ohci_init(usb_ohci_hc_t *sc);
+usb_error_t usb_ohci_init(usb_ohci_hc_t *sc, uintptr_t base);
 void usb_ohci_detach(usb_ohci_hc_t *sc);
 void usb_ohci_interrupt(usb_ohci_hc_t *sc);
 

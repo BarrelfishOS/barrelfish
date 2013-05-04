@@ -12,6 +12,8 @@
 
 /* prototypes */
 
+struct usb_ohci_hcca *usb_ohci_hcca_alloc(void);
+usb_paddr_t usb_ohci_hcca_physaddr(void);
 
 struct usb_ohci_td *usb_ohci_td_alloc(void);
 void usb_ohci_td_free(struct usb_ohci_td *td);

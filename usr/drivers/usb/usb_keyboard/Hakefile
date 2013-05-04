@@ -13,8 +13,8 @@
 [ build application { target = "usb_keyboard",
                       cFiles = [ "usb_keyboard.c"],
                       
-                      flounderBindings = [ "usb_driver" ],
-                      
+                      flounderBindings = [ "usb_manager" ],
+                       flounderExtraBindings = [ ("usb_manager",["rpcclient"]) ],
                       addLibraries = ["usb"],
                       architectures = allArchitectures
                     }

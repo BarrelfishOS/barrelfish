@@ -114,5 +114,6 @@ uint32_t usb_mem_next_block(uint32_t size, uint32_t align, struct usb_page *page
 struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align);
 void usb_mem_dma_free(struct usb_dma_page *page);
 
-
+void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data, uint32_t length);
+void usb_mem_copy_out(struct usb_dma_page *pg, uint32_t offset, void *data, uint32_t length);
 #endif /* USB_MEMORY_H_ */

@@ -19,6 +19,5 @@
 
 usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
           struct usb_device_request *req, const void **pptr, uint16_t *plength);
-void ohci_root_intr(usb_ohci_hc_t *hc);
-
+void usb_ohci_root_hub_interrupt(usb_ohci_hc_t *hc);
 #endif /* USB_OHCI_ROOT_HUB_H_ */

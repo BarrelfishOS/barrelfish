@@ -66,20 +66,6 @@ struct usb_hcdi_pipe_fn {
 
 
 
-typedef struct usb_host_controller {
-    usb_hc_version_t hc_type;    // the type of the host controller
-    void *hc_control;   // pointer to the host specific controller
-
-    struct usb_xfer_queue intr_queue;
-    struct usb_xfer_queue done_queue;
-
-    struct usb_device **devices;
-    uint8_t devices_max;
-
-    struct usb_device *root_hub;
-
-} usb_host_controller_t;
-
 
 
 /*
@@ -138,5 +124,25 @@ struct usb_hcdi_bus_fn {
     usb_error_t (*set_address)(struct usb_device *, uint16_t);
 };
 
+
+
+
+typedef struct usb_host_controller {
+    usb_hc_version_t hc_type;    // the type of the host controller
+    void *hc_control;   // pointer to the host specific controller
+
+    struct usb_hcdi_bus_fn *hcdi_bus_fn;
+
+    enum usb_revision usb_revision;
+
+    struct usb_xfer_queue intr_queue;
+    struct usb_xfer_queue done_queue;
+
+    struct usb_device **devices;
+    uint8_t devices_max;
+
+    struct usb_device *root_hub;
+
+} usb_host_controller_t;
 
 #endif /* _USB_CONTROLLER_H_ */

@@ -175,5 +175,28 @@ void usb_mem_dma_free(struct usb_dma_page *page)
 }
 
 
+void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data, uint32_t length)
+{
+    if (pg == NULL || data == NULL) {
+        return;
+    }
+
+    if ((offset + length)>pg->size) {
+        return;
+    }
+    memcpy(pg->buffer+offset, data, length);
+}
+
+
+void usb_mem_copy_out(struct usb_dma_page *pg, uint32_t offset, void *data, uint32_t length)
+{
+    if (pg == NULL || data == NULL) {
+            return;
+        }
+    if ((offset + length)>pg->size) {
+            return;
+        }
+    memcpy(data, (pg->buffer)+offset, length);
+}
 
 

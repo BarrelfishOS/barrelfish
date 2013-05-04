@@ -388,7 +388,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     }
 
     if (param->buf) {
-        assert(!"NYI: initialize frame buffers");
+        //assert(!"NYI: initialize frame buffers");
+
     }
 
 }

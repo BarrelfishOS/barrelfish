@@ -9,28 +9,33 @@
 
 
 interface usb_manager "USB Manager Interface" {
-    
-    typedef struct {
-        uint8             bType;
-        uint8             bRequest;
-        uint16            wValue;
-        uint16            wIndex;
-        uint16            uint16;
-    } usb_device_request;
+   
 
-    alias usb_error_t uint32;
-    
-    
-
-    rpc request_get_data(in usb_device_request request, 
-                            in uint16 length,
-                            in uint8 data[len], 
-                            out usb_error_t ret_status);
+    rpc request_read(in uint8 request[req_length], 
+                            out uint8 data[data_length], 
+                            out uint16 ret_status);
                             
-    rpc request_set_data(in usb_device_request request, 
-                            out usb_error_t ret_status,
-                            out uint16 ret_length, 
-                            out uint8 ret_data[len_out]);
+    rpc request_write(in uint8 request[req_length], 
+                            in uint8 data[data_length],
+                            out uint16 ret_status);
                             
-    rpc request(in usb_device_request request, out usb_error_t ret_status);
+    rpc request(in uint8 request[req_length], out uint16 ret_status);
+    
+    rpc connect(in uint16 init_config, out uint16 ret_status);
+    
+    message transfer_done_notify(uint32 offset, uint32 length);
+    
+    message transfer_start(uint8 xfer_id);
+    
+    message transfer_stop(uint8 xfer_id);
+    
+    rpc transfer_setup(in uint8 iface, in uint8 setup[setup_length], 
+                       in uint8 setup_count, in cap buffer,
+                       out uint16 status, out uint8 xfer_ids[xfer_count]);
+    
+    message transfer_unsetup(uint8 iface);
+    
+    message transfer_submit(uint8 xfer_id);
+    
+    rpc transfer_status();
 };

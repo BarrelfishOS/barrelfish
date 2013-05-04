@@ -50,7 +50,7 @@
  *
  * \param   hc  pointer to the host controller
  */
-static void usb_ohci_do_poll(struct usb_host_controller *hc)
+void usb_ohci_do_poll(struct usb_host_controller *hc)
 {
     struct usb_xfer *xfer;
 

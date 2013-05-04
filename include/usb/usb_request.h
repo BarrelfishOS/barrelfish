@@ -148,5 +148,12 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface);
 usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame);
 
 
+/*
+ * FLAGS
+ */
+#define USB_REQUEST_FLAG_IGNORE_SHORT_XFER 0x01
+#define USB_REQUEST_FLAG_DELAY_STATUS      0x02
+#define USB_REQUEST_FLAG_USER_DATA         0x04
+
 
 #endif

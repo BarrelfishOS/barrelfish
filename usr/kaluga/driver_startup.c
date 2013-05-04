@@ -85,3 +85,38 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
     free(card_argument);
     return err;
 }
+
+
+errval_t start_usb_manager(void)
+{
+    return SYS_ERR_OK;
+    struct module_info driver = {
+            .complete_line = "/armv7/sbin/usb_manager",
+            .path = "/armv7/sbin/usb_manager",
+            .binary ="usb_manager",
+
+            .cmdargs = "", // Used for pointers in argv
+            .argc = 1,
+            .argv = {
+                    [0] ="ohci",
+            },
+            .did = 0,
+    };
+
+    errval_t err = SYS_ERR_OK;
+
+    if (is_started(&driver)) {
+        return KALUGA_ERR_DRIVER_ALREADY_STARTED;
+    }
+
+    err = spawn_program(0, driver.path, driver.argv,
+            environ, 0, &driver.did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Spawning %s failed.", driver.path);
+        return err;
+    }
+
+    // XXX: Manually add cardname (overwrite first (auto) argument)
+    // +Weird convention, e1000n binary but cardname=e1000
+    return err;
+}

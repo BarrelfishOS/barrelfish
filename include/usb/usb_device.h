@@ -26,6 +26,7 @@ struct usb_hub;
 struct usb_xfer;
 struct usb_interface;
 struct usb_host_controller;
+struct usb_manager_binding;
 
 
 /*
@@ -42,7 +43,7 @@ enum usb_device_state {
 
 #define USB_DEVICE_START_ADDR 0
 #define USB_DEVICE_MIN_COUNT  2
-
+#define USB_DEVICE_CTRL_XFER_MAX 2
 
 
 
@@ -71,7 +72,11 @@ struct usb_device_flags {
 
 
 struct usb_device {
+    struct usb_manager_binding *usb_manager_binding;
     struct usb_interface *ifaces;
+    struct usb_device *next;
+
+
     struct usb_endpoint ctrl_ep;    /* Control Endpoint 0 */
     struct usb_endpoint *endpoints;
     struct usb_host_controller *controller;
@@ -84,7 +89,7 @@ struct usb_device {
     enum usb_device_state state;
 
     struct usb_hub *hub;        /* only if this is a hub */
-    struct usb_xfer *ctrl_xfer[2];
+    struct usb_xfer *ctrl_xfer[USB_DEVICE_CTRL_XFER_MAX];
 
     struct usb_endpoint *ep_clear_stall;   /* current clear stall endpoint */
 

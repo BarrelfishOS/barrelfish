@@ -42,6 +42,7 @@ typedef enum {
 	USB_ERR_NO_INTR_THREAD,		/* 27 */
 	USB_ERR_NOT_LOCKED,			/* 28 */
 	USB_ERR_BAD_REQUEST,		/* 29 */
+	USB_ERR_IDC,                /* 30 */
 	USB_ERR_MAX
 } usb_error_t;
 

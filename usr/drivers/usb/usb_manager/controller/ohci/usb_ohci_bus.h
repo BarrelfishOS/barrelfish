@@ -10,9 +10,8 @@
 #ifndef _USB_OHCI_BUS_H_
 #define _USB_OHCI_BUS_H_
 
-
 struct usb_hcdi_bus_fn *usb_ohci_get_bus_fn(void);
-
+void usb_ohci_do_poll(struct usb_host_controller *hc);
 
 
 #endif

@@ -40,6 +40,16 @@ typedef enum usb_hc_version {
     USB_XHCI=0x0300
 } usb_hc_version_t;
 
+typedef enum usb_revision {
+    USB_REV_UNKNOWN,
+    USB_REV_PRE_1_0,
+    USB_REV_1_0,
+    USB_REV_1_1,
+    USB_REV_2_0,
+    USB_REV_2_5,
+    USB_REV_3_0
+} usb_revision_t;
+
 /**
  *
  */
