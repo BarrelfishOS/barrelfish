@@ -145,4 +145,6 @@ typedef struct usb_host_controller {
 
 } usb_host_controller_t;
 
+usb_error_t usb_hc_init(usb_host_controller_t *hc);
+
 #endif /* _USB_CONTROLLER_H_ */
