@@ -14,6 +14,7 @@ import datetime
 import debug
 
 RAW_FILE_NAME = 'raw.txt'
+BOOT_FILE_NAME = 'bootlog.txt'
 
 
 def run_test(build, machine, test, path):
@@ -65,6 +66,24 @@ def process_results(test, path):
         return True  # no results, assume success
 
     retval = True  # everything OK
+
+    # Process raw.txt and make a bootlog.txt that begins with grubs
+    # output, avoids having encoding issues when viewing logfiles
+    boot_file_name = os.path.join(path, BOOT_FILE_NAME)
+    if os.path.exists(raw_file_name):
+        idx = 0
+        with open(raw_file_name, 'r') as rf:
+            lines = rf.readlines()
+            for idx, line in enumerate(lines):
+                if line.strip() == "root (nd)":
+                    break
+        if idx > 0:
+            with open(boot_file_name, 'w') as wf:
+                wf.writelines(lines[idx:])
+        else:
+            debug.verbose('Magic string root (nd) not found, do not write bootlog.txt')
+    else:
+        debug.verbose('No file named %s exists. Do not create bootlog.txt.' % raw_file_name)
 
     # if a single result, turn it into a list
     if not isinstance(results, types.ListType):
