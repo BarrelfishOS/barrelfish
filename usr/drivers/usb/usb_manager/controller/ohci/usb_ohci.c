@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <barrelfish/barrelfish.h>
 
 #include "ohci_device.h"
@@ -27,7 +28,7 @@
  */
 static struct ohci_t ohci_base;
 
-static struct usb_ohci_ed *usb_ohci_init_ed(struct usb_ohci_ed *list)
+static struct usb_ohci_ed *usb_ohci_init_ed(struct usb_ohci_ed **list)
 {
     struct usb_ohci_ed *ed =  usb_ohci_ed_alloc();
     if (ed == NULL) {
@@ -36,7 +37,7 @@ static struct usb_ohci_ed *usb_ohci_init_ed(struct usb_ohci_ed *list)
     ed->ed_control.skip=1;
 
     if (list != NULL) {
-        list = ed;
+        *list = ed;
     }
     return ed;
 }
@@ -49,6 +50,12 @@ static struct usb_ohci_ed *usb_ohci_init_ed(struct usb_ohci_ed *list)
  */
 static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
 {
+    USB_DEBUG("usb_ohci_init_controller()\n");
+
+    char status[512];
+    ohci_control_pr(status, 512, hc->ohci_base);
+    printf(status);
+
     /*
      * check the ownership of the host controller
      */
@@ -62,6 +69,10 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
     /*
      * TODO: Wait till reset is done
      */
+    for(uint32_t i = 0; i < 2000000000; i++);
+
+    USB_DEBUG("usb_ohci_init_controller(): Device Reset done.\n");
+
 
     ohci_fm_interval_t ival = ohci_fm_interval_rd(hc->ohci_base);
 
@@ -71,6 +82,8 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
         /*
          * TODO: Wait 10 us
          */
+        for(uint32_t j = 0; j < 2000000000; j++);
+
         if (!ohci_cmdstatus_hcr_rdf(hc->ohci_base)) {
             break;
         }
@@ -88,7 +101,6 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
     /*
      * Setting up register values
      */
-
     // HCCA pointer
     ohci_hcca_wr(hc->ohci_base, usb_ohci_hcca_physaddr());
 
@@ -98,13 +110,15 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
     // Bulk ED head pointer
     ohci_bulk_head_wr(hc->ohci_base, hc->qh_bulk_first->ed_self);
 
+    USB_DEBUG("usb_ohci_init() - reset and enable interrupts\n");
     // reset the interrupts
-    ohci_intdisable_wr(hc->ohci_base, 0xFFFFFFFF);
+    ohci_intdisable_rawwr(hc->ohci_base, 0x0);
     ohci_interrupt_t enabled_intrs = ohci_intenable_rd(hc->ohci_base);
     enabled_intrs= ohci_interrupt_mie_insert(enabled_intrs, 1);
     enabled_intrs= ohci_interrupt_wdh_insert(enabled_intrs, 1);
     enabled_intrs= ohci_interrupt_rd_insert(enabled_intrs, 1);
     enabled_intrs= ohci_interrupt_ue_insert(enabled_intrs, 1);
+    enabled_intrs= ohci_interrupt_oc_insert(enabled_intrs, 1);
     enabled_intrs= ohci_interrupt_rhsc_insert(enabled_intrs, 1);
     ohci_intenable_wr(hc->ohci_base, enabled_intrs);
 
@@ -113,17 +127,20 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
     // setting the desired features
     ohci_control_t ctrl = ohci_control_rd(hc->ohci_base);
     ctrl = ohci_control_ie_insert(ctrl, 1);
+    ctrl = ohci_control_ir_insert(ctrl,0);
     ctrl = ohci_control_cle_insert(ctrl, 1);
     ctrl = ohci_control_ble_insert(ctrl, 1);
     ctrl = ohci_control_cbsr_insert(ctrl, 3);
     ctrl = ohci_control_hcfs_insert(ctrl, 2);
     ctrl = ohci_control_pe_insert(ctrl, 1);
+    ctrl = ohci_control_rwe_insert(ctrl, 1);
+    ctrl = ohci_control_rwc_insert(ctrl, 1);
     ohci_control_wr(hc->ohci_base, ctrl);
 
     /*
      * the controller is now OPERATIONAL and running.
      */
-
+    debug_printf("OHCI host controller operational now!\n");
     // setting some remaining registers
     ival = ohci_fm_interval_fit_insert(ival, 0);
     ival = ohci_fm_interval_fsmps_insert(ival, (ival-210)*6/7);
@@ -142,9 +159,27 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
         /*
          * TODO: delay
          */
+        for(uint32_t j = 0; j < 100000000; j++);
         hc->root_hub_num_ports = ohci_rh_descra_ndp_rdf(hc->ohci_base);
     }
+    debug_printf("OHCI CONTROLLER INTIALIZED. Having %u ports\n",
+            hc->root_hub_num_ports );
 
+    char buf[8001];
+
+           // ohci_rh_descra_pr(buf, 15999, hc->ohci_base);
+        //    printf(buf);
+            ohci_pr(buf, 5000, hc->ohci_base);
+           printf(buf);
+
+                       uint32_t* test = (uint32_t* )hc->ohci_base->base;
+                       test = test + (-0x800+0x44)/4;
+                       printf("TEST: %x", (*test)>>16);
+
+                       //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
+                       usb_ohci_root_hub_interrupt(hc);
+                       ohci_pr(buf, 5000, hc->ohci_base);
+                                  printf(buf);
     return USB_ERR_OK;
 }
 
@@ -161,7 +196,6 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
  */
 usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
 {
-
     /*
      * initialize the mackerel framework
      */
@@ -171,11 +205,11 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
     /*
      * setup the endpoint descriptors
      */
-    hc->qh_bulk_last = usb_ohci_init_ed(hc->qh_bulk_first);
-    hc->qh_ctrl_last = usb_ohci_init_ed(hc->qh_ctrl_first);
+    hc->qh_bulk_last = usb_ohci_init_ed(&hc->qh_bulk_first);
+    hc->qh_ctrl_last = usb_ohci_init_ed(&hc->qh_ctrl_first);
     hc->qh_isoc_last = usb_ohci_init_ed(NULL);
 
-    for (uint16_t i = 0; USB_OHCI_NO_EP_DESCRIPTORS; i++) {
+    for (uint16_t i = 0; i<USB_OHCI_NO_EP_DESCRIPTORS; i++) {
         hc->qh_intr_last[i] = usb_ohci_init_ed(NULL);
     }
 
@@ -206,7 +240,6 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
     usb_ohci_ed_t *intr_ed = hc->qh_intr_last[0];
     intr_ed->next = hc->qh_isoc_last;
     intr_ed->ed_nextED = hc->qh_isoc_last->ed_self;
-
     /*
      * allocate and initiate the HCCA memory region
      */
@@ -228,7 +261,8 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
         return USB_ERR_INVAL;
     }
 
-    usb_ohci_do_poll(hc->controller);
+    USB_DEBUG("usb_ohci_init() - calling usb_ohci_do_poll\n");
+    //usb_ohci_do_poll(hc->controller);
 
     return USB_ERR_OK;
 

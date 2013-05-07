@@ -74,7 +74,7 @@ struct usb_ohci_hcca *usb_ohci_hcca_alloc(void)
 
     assert(ret_size >= USB_OHCI_HCCA_SIZE);
 
-    hcca = (struct usb_ohci_hcca *)mem.buffer;
+    hcca = (struct usb_ohci_hcca *) mem.buffer;
     hcca_phys = mem.phys_addr;
 
     return hcca;
@@ -213,13 +213,12 @@ struct usb_ohci_ed *usb_ohci_ed_alloc(void)
         }
         // get a new page;
         free_pages = usb_mem_page_alloc();
+        /*
+         * retry allocating a new td descriptor in the given block
+         */
+        ret_size = usb_mem_next_block(sizeof(struct usb_ohci_ed),
+                USB_OHCI_ED_ALIGN, free_pages, &mem);
     }
-
-    /*
-     * retry allocating a new td descriptor in the given block
-     */
-    ret_size = usb_mem_next_block(sizeof(struct usb_ohci_ed), USB_OHCI_ED_ALIGN,
-            free_pages, &mem);
 
     assert(ret_size >= min_size);
 

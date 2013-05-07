@@ -79,6 +79,6 @@ typedef struct usb_status usb_status_t;
 #define USB_STATUS_EP_HALT          0x0001;
 
 
-
+#define USB_DEBUG(x...) debug_printf(x)
 
 #endif

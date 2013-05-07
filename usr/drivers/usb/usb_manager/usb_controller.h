@@ -143,8 +143,12 @@ typedef struct usb_host_controller {
 
     struct usb_device *root_hub;
 
+    struct usb_host_controller *next;
+    struct usb_host_controller **prev_next;
+
 } usb_host_controller_t;
 
-usb_error_t usb_hc_init(usb_host_controller_t *hc);
+usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
+        void *controller_base);
 
 #endif /* _USB_CONTROLLER_H_ */

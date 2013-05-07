@@ -100,18 +100,23 @@ void usb_ohci_root_hub_interrupt(usb_ohci_hc_t *hc)
         num_ports = (8 * sizeof(hc->root_hub_intr_data));
     }
 
+    //char buf[4048];
+        //     ohci_rh_portstat_pr(buf, 4047, hc->ohci_base);
+          //  printf(buf);
     ohci_rh_portstat_t ps;
     /* set the bits in the interrupt data field */
-    for (uint16_t i = 1; i < num_ports; i++) {
+    for (uint16_t i = 0; i < num_ports; i++) {
+
         ps = ohci_rh_portstat_rd(hc->ohci_base, i);
         if (ps >> 16) {
             /* port i has changed */
+            USB_DEBUG("port %u, has changed..\n", i);
             hc->root_hub_intr_data[i / 8] |= (1 << (i % 8));
         }
     }
 
     /* TODO: Handle the hub interrupts */
-    assert(!"NYI: Root hub interrupt handling");
+   // assert(!"NYI: Root hub interrupt handling");
     //uhub_root_intr(&sc->sc_bus, sc->sc_hub_idata, sizeof(sc->sc_hub_idata));
 }
 
