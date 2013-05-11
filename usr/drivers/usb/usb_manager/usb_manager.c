@@ -99,246 +99,8 @@ static void* usb_subsystem_base = NULL;
 #define USB_SUBSYSTEM_L4_OFFSET 0x00062000
 //#define USB_OHCI_OFFSET         (0x000A9000-USB_SUBSYSTEM_L4_OFFSET)
 #define USB_OHCI_OFFSET         0x00002800
-#define USB_EHCI_OFFSET         0x00000000
-#define USB_UHCI_OFFSET         0x00000000
-#define USB_XHCI_OFFSET         0x00000000
-/*
- * USBTLLHS_config 0x4A06 2000 2KB
- USBTLLHS_ULPI 0x4A06 2800 2KB
- HSUSBHOST 0x4A06 4000 2KB
- OHCI       0x4A06 4800 1KB
- EHCI 0x4A06 4C00 1KB
- *
- */
-#define USB_PANDABOARD_OHCI_BASE 0x4A064800
-#define USB_PANDABAORD_OHCI_SIZE 1024
+#define USB_EHCI_OFFSET         0x00002C00
 
-#if __arm__
-static void pandaboard_enable_usb(void *l4_cfg_base)
-{
-    USB_DEBUG("doing pandaboard related setup.\n");
-
-    /*
-     * enable static dependencies
-     */
-    volatile uint32_t *CM_L3INIT_STATICDEP = (uint32_t *) (l4_cfg_base + 0x9304);
-    *CM_L3INIT_STATICDEP = 0xFFFF;
-
-    /*
-     * enable the HS usb host control
-     */
-    volatile uint32_t *CM_L3INIT_HSUSBHOST_CLKCTRL = (uint32_t *) (l4_cfg_base + 0x9358);
-    *CM_L3INIT_HSUSBHOST_CLKCTRL = (0x2 | 0xFF00);
-
-    /*
-     * enable HS USB OTG Clock
-     */
-    volatile uint32_t *CM_L3INIT_HSUSBOTG_CLKCTRL = (uint32_t *) (l4_cfg_base +0x9360);
-    *CM_L3INIT_HSUSBOTG_CLKCTRL = (0x1 << 24) | (0x1 << 8) | 0x1;
-
-    // enable l3 usbphy clock control
-    volatile uint32_t *CM_L3INIT_USBPHY_CLKCTRL = (uint32_t *) (l4_cfg_base +0x93E0);
-    *CM_L3INIT_USBPHY_CLKCTRL = (0x1 << 8) | 0x1;
-
-    /*
-     * set input enable
-     */
-
-    volatile uint32_t * USBB1_ULPITLL_CLK = (uint32_t *)(l4_cfg_base+0x1000C0);
-    *USBB1_ULPITLL_CLK = (*USBB1_ULPITLL_CLK) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19);
-
-    volatile uint32_t * USBB1_ULPITLL_DIR = (uint32_t *)(l4_cfg_base+0x1000C4);
-    *USBB1_ULPITLL_DIR = (*USBB1_ULPITLL_CLK) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB1_ULPITLL_DAT0 = (uint32_t *)(l4_cfg_base+0x1000C8);
-    *USBB1_ULPITLL_DAT0 = (*USBB1_ULPITLL_DAT0) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB1_ULPITLL_DAT2 = (uint32_t *)(l4_cfg_base+0x1000CC);
-    *USBB1_ULPITLL_DAT2 = (*USBB1_ULPITLL_DAT2) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB1_ULPITLL_DAT4 = (uint32_t *)(l4_cfg_base+0x1000D0);
-    *USBB1_ULPITLL_DAT4 = (*USBB1_ULPITLL_DAT4) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB1_ULPITLL_DAT6 = (uint32_t *)(l4_cfg_base+0x1000D4);
-    *USBB1_ULPITLL_DAT6 = (*USBB1_ULPITLL_DAT6) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * DAT7_PAD1_USBB1_HSIC_DATA = (uint32_t *)(l4_cfg_base+0x1000D8);
-    *DAT7_PAD1_USBB1_HSIC_DATA = (*DAT7_PAD1_USBB1_HSIC_DATA) |
-    (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-    volatile uint32_t * USBC1_ICUSB_DP = (uint32_t *)(l4_cfg_base+0x1000DC);
-    *USBC1_ICUSB_DP = (*USBC1_ICUSB_DP) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19);
-
-    volatile uint32_t * USBC1_ICUSB_DM = (uint32_t *)(l4_cfg_base+0x1000E0);
-    *USBC1_ICUSB_DM = (*USBC1_ICUSB_DM) | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB2_ULPITLL_STP = (uint32_t *)(l4_cfg_base+0x100160);
-    *USBB2_ULPITLL_STP = (*USBB2_ULPITLL_STP) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * PAD1_USBB2_ULPITLL_NXT = (uint32_t *)(l4_cfg_base+0x100164);
-    *PAD1_USBB2_ULPITLL_NXT = (*PAD1_USBB2_ULPITLL_NXT) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB2_ULPITLL_DAT1 = (uint32_t *)(l4_cfg_base+0x100168);
-    *USBB2_ULPITLL_DAT1 = (*PAD1_USBB2_ULPITLL_NXT) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB2_ULPITLL_DAT3 = (uint32_t *)(l4_cfg_base+0x10016C);
-    *USBB2_ULPITLL_DAT3 = (*USBB2_ULPITLL_DAT3) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB2_ULPITLL_DAT5 = (uint32_t *)(l4_cfg_base+0x100170);
-    *USBB2_ULPITLL_DAT5 = (*USBB2_ULPITLL_DAT5) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * USBB2_ULPITLL_DAT7 = (uint32_t *)(l4_cfg_base+0x100174);
-    *USBB2_ULPITLL_DAT7 = (*USBB2_ULPITLL_DAT7) | (0x1 << 30) |(0x1 << 28) |(0x1 << 24) |(0x1 << 19)
-    | (0x1 << 14) |(0x1 << 12) |(0x1 << 8) |(0x1 << 3);
-
-    volatile uint32_t * CONTROL_USB2PHYCORE = (uint32_t *)(l4_cfg_base+0x100620);
-    *CONTROL_USB2PHYCORE = (0x3 << 26) | (0x3 << 24) | (0x1 << 29);
-
-    /*
-     * enabling usb ttl clock
-     */
-    volatile uint32_t *CM_L3INIT_HSUSBTLL_CLKCTRL = (uint32_t *) (l4_cfg_base +0x9368);
-    *CM_L3INIT_HSUSBTLL_CLKCTRL = (0x1<<8) | (0x1<<9) | 0x1;
-
-    // enable full speed usb
-    volatile uint32_t *CM_L3INIT_FSUSB_CLKCTRL = (uint32_t *)(l4_cfg_base + 0x93D0);
-    *CM_L3INIT_FSUSB_CLKCTRL = 0x2;
-
-    // enable the usb phy clock
-    volatile uint32_t * CM_ALWON_USBPHY_CLKCTRL = (uint32_t *)(l4_cfg_base+0x8640);
-    *CM_ALWON_USBPHY_CLKCTRL = (0x1 << 8);
-
-    // wakeup dependencies
-    //volatile uint32_t * PM_L3INIT_HSUSBHOST_WKDEP = (uint32_t *)(l4_cfg_base+0x30785);
-    //*PM_L3INIT_HSUSBHOST_WKDEP = 0x3;
-
-}
-
-static void pandaboard_usb_global_init(void *usb_base)
-{
-    /*
-     * Reset usb ttl
-     */
-    volatile uint32_t *USBTLL_SYSCONFIG = (uint32_t *)(usb_base+0x10);
-    *USBTLL_SYSCONFIG = ((*USBTLL_SYSCONFIG) | 0x2);
-
-    /*
-     * wait till reset is done
-     */
-    volatile uint32_t *USBTLL_SYSSTATUS = (uint32_t *)(usb_base+0x14);
-    while(!((*USBTLL_SYSSTATUS) & 0x1));
-    /*
-     * enable interrupts on ttl
-     */
-    volatile uint32_t *USBTLL_IRQENABLE = (uint32_t *)(usb_base+0x1C);
-    *USBTLL_IRQENABLE = (*USBTLL_IRQENABLE) | 0x3;
-
-    /*
-     * host controller reset
-     */
-    volatile uint32_t *UHH_SYSCONFIG = (uint32_t *)(usb_base+0x2010);
-    *UHH_SYSCONFIG = (*UHH_SYSCONFIG) | 0x1;
-
-    /*
-     * wait till reset is done
-     */
-    volatile uint32_t * UHH_SYSSTATUS = (uint32_t *)(usb_base+0x2014);
-    while(((*UHH_SYSSTATUS) & 0x6) != 0x6);
-
-    /*
-     * Configuration of the ports
-     *
-     * EHCI
-     *
-     * The EHCI controller, based on the Enhanced Host Controller Interface
-     * (EHCI) Specification for USB Release 1.1, is responsible for HS traffic
-     * (480 Mbps), over ULPI/USB 2.0 transceiver macrocell interface (UTMI).
-     *
-     * OHCI
-     *
-     * The OHCI controller, based on the Open Host Controller Interface (OHCI
-     * Specification for USB Release 1.0a, is responsible for full-speed
-     * (FS)/low-speed (LS) traffic (12/1.5 Mbps, respectively), over a serial
-     * interface.
-     *
-     * PORTS
-     *
-     * Each of the three external ports of the HS USB host controller module is
-     * owned by one of the controllers (EHCI or OHCI) at a given time. Each port
-     * can work in several modes:
-     *  - When the port is owned by the OHCI (FS) host, the 6-pin internal
-     *    serial interface to the TLL is used.
-     *  - When the port is owned by the EHCI (HS) host, UTMI internal interface
-     *    to the TLL, or ULPI to external PHY is used.
-     *
-     *  - HS-only (with external HS physical layer [PHY]/HS TLL mode HSIC) on
-     *    the EHCI
-     *  - FS-/LS-only (with external FS PHY/FS TLL mode) on the OHCI
-     */
-
-    volatile uint32_t *UHH_DEBUG_CSR = (uint32_t *)(usb_base + 0x2044);
-    *UHH_DEBUG_CSR = 0xFF;
-
-#define UUH_HOSTCONFIG_PORT_1_HS 0x0
-#define UUH_HOSTCONFIG_PORT_1_FS (0x1 << 16)
-#define UUH_HOSTCONFIG_PORT_2_HS 0x0
-#define UUH_HOSTCONFIG_PORT_2_FS (0x1 << 18)
-
-    volatile uint32_t *UHH_HOSTCONFIG = (uint32_t *)(usb_base + 0x2040);
-    *UHH_HOSTCONFIG = ( *UHH_HOSTCONFIG) | UUH_HOSTCONFIG_PORT_1_FS | UUH_HOSTCONFIG_PORT_2_FS;
-
-#define TTL_CHAN_MODE_SERIAL 0x3
-#define TTL_CHAN_MODE_ULPI 0x1
-#define TTL_CHAN_MODE_TRANSPARENT 0x5
-#define TTL_CHAN_FSLS_PHY   (0x3<<24)
-#define TTL_CHAN_FSLS_TTL   (0x7<<24)
-#define TTL_CHAN_FSLS_6_PHY   (0x0<<24)
-#define TTL_CHAN_FSLS_6_PHY2   (0x1<<24)
-
-    volatile uint32_t *TLL_CHANNEL_CONF_0 = (uint32_t *)(usb_base + 0x40);
-    *TLL_CHANNEL_CONF_0 = TTL_CHAN_MODE_SERIAL | TTL_CHAN_FSLS_6_PHY;
-    volatile uint32_t *TLL_CHANNEL_CONF_1 = (uint32_t *)(usb_base + 0x44);
-    *TLL_CHANNEL_CONF_1 = TTL_CHAN_MODE_SERIAL | TTL_CHAN_FSLS_6_PHY;
-    volatile uint32_t *TLL_SHARED_CONF = (uint32_t *)(usb_base + 0x30);
-    *TLL_SHARED_CONF = 0x1;
-
-//    volatile uint32_t *CONFIGFLAG = (uint32_t *)(usb_base + 0x2C50 );
-//    *CONFIGFLAG = 0x1;
-
-    volatile uint32_t *PORT_1 = (uint32_t *)(usb_base + 0x2C54 );
-    printf("PORT1: %u (%x, %u) ", (*PORT_1)&0x1, *PORT_1, ((*PORT_1) >> 13)&0x1);
-    *PORT_1 = 0x1<<13;
-    volatile uint32_t *PORT_2 = (uint32_t *)(usb_base + 0x2C58);
-    printf("PORT2: %u (%x, %u) ", (*PORT_2)&0x1, *PORT_2, ((*PORT_2) >> 13)&0x1);
-    *PORT_2 = 0x1<<13;
-    volatile uint32_t *PORT_3 = (uint32_t *)(usb_base + 0x2C5C);
-    printf("PORT3: %u (%x, %u)  ", (*PORT_3)&0x1, *PORT_3, ((*PORT_3) >> 13)&0x1);
-    *PORT_3 = 0x1<<13;
-
-    /*volatile uint8_t *FUNCTION_CTRL_0 = (uint8_t *)(usb_base + 0x804);
-     *FUNCTION_CTRL_0 = (0x1<<6) | (0x1 << 2) | 0x1;
-     volatile uint8_t *FUNCTION_CTRL_1 = (uint8_t *)(usb_base + 0x904);
-     *FUNCTION_CTRL_1 = (0x1<<6) | (0x1 << 2) | 0x3;
-     */
-    volatile uint32_t *USBINTR = (uint32_t *)(usb_base + 0x2C18);
-    *USBINTR = 0xFF;
-
-    printf("UHH_DEBUG_CSR = %x, CCS = %x", *UHH_DEBUG_CSR, ((*UHH_DEBUG_CSR)>>17)&0x3);
-    printf("UHH_HOSTCONFIG=%x, CCS=%x \n", *UHH_HOSTCONFIG, ((*UHH_HOSTCONFIG)>>8)&0x3);
-
-    USB_DEBUG("Pandaboard USB global init done.\n");
-
-}
-#endif
 /*
  *
  */
@@ -512,11 +274,6 @@ static errval_t init_device_range(void)
 
     usb_subsystem_base = ret_addr + USB_SUBSYSTEM_L4_OFFSET;
 
-#if __arm__
-    pandaboard_enable_usb(ret_addr);
-    pandaboard_usb_global_init(usb_subsystem_base);
-#endif
-
     return SYS_ERR_OK;
 }
 
@@ -534,7 +291,7 @@ int main(int argc, char *argv[])
 
     debug_printf("USB Manager started.\n");
 
-    init_device_range();
+
 
     /*
      * start the server
@@ -545,40 +302,46 @@ int main(int argc, char *argv[])
             IDC_EXPORT_FLAGS_DEFAULT);
 
 #if __arm__
-    argc = 2;
-    argv = (char *[]) {"ohci", "ehci"};
+    init_device_range();
+    argc = 4;
+    uint32_t tmp =USB_OHCI_OFFSET;
+    char ohci_base[4];
+    memcpy(ohci_base, &tmp, 4);
 
+    tmp = USB_EHCI_OFFSET;
+    char ehci_base[4];
+    memcpy(ehci_base, &tmp, 4);
+    argv = (char *[]) {"ehci", ehci_base, "ohci", ohci_base};
 #endif
 
     /*
      * parse command line args
      */
-    if (argc == 0) {
-        debug_printf("Usage: usb_manager [host controller type list]\n");
+    if (argc == 0 || argc % 2) {
+        debug_printf("Usage: usb_manager [host-controller offset]\n");
     }
 
     usb_error_t uerr = USB_ERR_OK;
-    for (uint16_t i = 0; i < argc; i++) {
+    for (uint16_t i = 0; i < argc; i+=2) {
         usb_host_controller_t *hc = NULL;
+        uint32_t offset = *((uint32_t*)argv[i+1]);
+        if (strcmp(argv[i], "ehci") == 0) {
+            hc = malloc(sizeof(*hc));
+            uerr = usb_hc_init(hc, USB_EHCI, usb_subsystem_base + offset);
+        }
+
         if (strcmp(argv[i], "ohci") == 0) {
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_OHCI,
-                    usb_subsystem_base + USB_OHCI_OFFSET);
+            uerr = usb_hc_init(hc, USB_OHCI, usb_subsystem_base + offset);
         }
         if (strcmp(argv[i], "uhci") == 0) {
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_UHCI,
-                    usb_subsystem_base + USB_UHCI_OFFSET);
+            uerr = usb_hc_init(hc, USB_UHCI, usb_subsystem_base + offset);
         }
-        if (strcmp(argv[i], "ehci") == 0) {
-            hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_EHCI,
-                    usb_subsystem_base + USB_EHCI_OFFSET);
-        }
+
         if (strcmp(argv[i], "xhci") == 0) {
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_XHCI,
-                    usb_subsystem_base + USB_XHCI_OFFSET);
+            uerr = usb_hc_init(hc, USB_XHCI, usb_subsystem_base + offset);
         }
 
         if (uerr != USB_ERR_OK && hc != NULL) {

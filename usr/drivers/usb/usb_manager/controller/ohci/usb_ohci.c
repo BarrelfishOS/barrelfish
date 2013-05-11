@@ -165,12 +165,12 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
     debug_printf("OHCI CONTROLLER INTIALIZED. Having %u ports\n",
             hc->root_hub_num_ports );
 
-    char buf[8001];
+    //char buf[8001];
 
            // ohci_rh_descra_pr(buf, 15999, hc->ohci_base);
         //    printf(buf);
-            ohci_pr(buf, 5000, hc->ohci_base);
-           printf(buf);
+            //ohci_pr(buf, 5000, hc->ohci_base);
+           //printf(buf);
 
                        uint32_t* test = (uint32_t* )hc->ohci_base->base;
                        test = test + (-0x800+0x44)/4;
@@ -178,8 +178,7 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
 
                        //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
                        usb_ohci_root_hub_interrupt(hc);
-                       ohci_pr(buf, 5000, hc->ohci_base);
-                                  printf(buf);
+
     return USB_ERR_OK;
 }
 

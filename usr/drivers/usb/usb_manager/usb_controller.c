@@ -44,7 +44,14 @@ usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
             return usb_ohci_init((usb_ohci_hc_t*)controller, (uintptr_t)controller_base);
             break;
         case USB_EHCI:
-            debug_printf("Failure: EHCI not yet implemented\n");
+            controller = malloc(sizeof(usb_ehci_hc_t));
+            if (controller == NULL) {
+                return USB_ERR_NOMEM;
+            }
+            hc->hc_type = USB_EHCI;
+            hc->hc_control = controller;
+            ((usb_ehci_hc_t*)controller)->controller = hc;
+            return usb_ehci_init((usb_ehci_hc_t*)controller, controller_base);
             break;
         case USB_XHCI:
             debug_printf("Failure: XHCI not yet implemented\n");
