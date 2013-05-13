@@ -668,8 +668,20 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
-    lpaddr_t init_alloc_end = alloc_phys(0); // XXX
-    create_phys_caps(init_alloc_end);
+    // XXX: temporary fix for trac ticket #253: make it more unlikely that
+    // we run out of root cnode slots by aligning the memory we declare free
+    // to 1MB.
+    lpaddr_t init_alloc_end = alloc_phys(0);
+    lpaddr_t align = 1UL << 20; // 1MB
+    // XXX: No checks are in place to make sure that init_alloc_end_aligned
+    // is actually a valid physical memory address (e.g. a location at which
+    // RAM exists.
+    lpaddr_t init_alloc_end_aligned = (init_alloc_end + align) & ~(align-1);
+    printf("aligning free memory start to 0x%"PRIxLPADDR" (was 0x%"PRIxLPADDR
+           "): wasting %lu kB\n",
+           init_alloc_end_aligned, init_alloc_end,
+           (init_alloc_end_aligned - init_alloc_end) / 1024);
+    create_phys_caps(init_alloc_end_aligned);
 
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = NEEDED_KERNEL_SPACE; // Size of kernel
