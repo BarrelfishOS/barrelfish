@@ -109,6 +109,8 @@ static uint32_t device = PCI_DONT_CARE;
 static uint32_t function = PCI_DONT_CARE;
 static uint32_t deviceid = PCI_DONT_CARE;
 static uint32_t vendor = PCI_VENDOR_INTEL;
+static uint32_t program_interface = PCI_DONT_CARE;
+static e1000_mac_type_t mac_type = e1000_undefined;
 
 /*****************************************************************
  * For use with the net_queue_manager
@@ -632,60 +634,6 @@ static void polling_loop(void)
 }
 
 /*****************************************************************
- * Parse octopus output.
- *****************************************************************/
-static int parse_device(const char *parse_data, uint32_t *bus, uint32_t *class,
-		uint32_t *device, uint32_t *deviceid, uint32_t *function,
-		uint32_t *prog_if, uint32_t *subclass, uint32_t *vendor)
-{
-	uint32_t progif, pcibus, cls, dev, devid, fun, subcls, ven;
-	uint32_t retval = 0;
-	uint32_t pci; /* ignored */
-	int i;
-
-	const char *supported_fmt[][2] =
-		{
-		/* PCI */
-			{ "hw.pci.device.%u { "
-					"bus: %u, class: %u, device: %u, "
-					"device_id: %u, function: %u, prog_if: %u, "
-					"subclass: %u, vendor: %u }", "pci" },
-		/* PCIe */
-			{ "hw.pcie.device.%u { "
-					"bus: %u, class: %u, device: %u, "
-					"device_id: %u, function: %u, prog_if: %u, "
-					"subclass: %u, vendor: %u }", "pcie" },
-		/* terminator */
-			{ 0, 0 } };
-
-	/* parse octopus device listing */
-	for (i = 0; supported_fmt[i][0] != 0 && retval < 9; i++)
-		retval = sscanf(parse_data, supported_fmt[i][0], &pci, &pcibus, &cls,
-				&dev, &devid, &fun, &progif, &subcls, &ven);
-
-	if (retval >= 9) {
-		E1000_DEBUG("Found free device: "
-			"hw.%s.device.%u { "
-			"bus: %u, class: 0x%x, device: 0x%x, "
-			"device_id: 0x%x, function: 0x%x, prog_if: %u, "
-			"subclass: 0x%x, vendor: 0x%x }\n", supported_fmt[i][1], pci, pcibus, cls, dev, devid, fun, progif, subcls, ven);
-
-		*bus = pcibus;
-		*class = cls;
-		*device = dev;
-		*deviceid = devid;
-		*function = fun;
-		*prog_if = progif;
-		*subclass = subcls;
-		*vendor = ven;
-
-		return 0;
-	}
-
-	return 1;
-}
-
-/*****************************************************************
  * Parse MAC address to see if it has a valid format.
  *
  ****************************************************************/
@@ -828,6 +776,112 @@ static void exit_help(const char *program)
 }
 
 
+static errval_t trigger_existing_and_watch(const char* query,
+        trigger_handler_fn event_handler, void* state,
+        octopus_trigger_id_t* tid)
+{
+    errval_t error_code;
+    char** names = NULL;
+    char* output = NULL;
+    char* record = NULL; // freed by cpu_change_event
+    size_t len = 0;
+    octopus_trigger_t t = oct_mktrigger(0, octopus_BINDING_EVENT,
+            OCT_PERSIST | OCT_ON_SET | OCT_ON_DEL | OCT_ALWAYS_SET, 
+            event_handler, state);
+
+    // Get current cores registered in system
+    struct octopus_thc_client_binding_t* rpc = oct_get_thc_client();
+    errval_t err = rpc->call_seq.get_names(rpc, query,
+            t, &output, tid, &error_code);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+    err = error_code;
+
+    switch(err_no(err)) {
+    case SYS_ERR_OK:
+        err = oct_parse_names(output, &names, &len);
+        if (err_is_fail(err)) {
+            goto out;
+        }
+
+        for (size_t i=0; i < len; i++) {
+            err = oct_get(&record, names[i]);
+
+            switch (err_no(err)) {
+            case SYS_ERR_OK:
+                event_handler(OCT_ON_SET, record, state);
+                break;
+
+            case OCT_ERR_NO_RECORD:
+                assert(record == NULL);
+                break;
+
+            default:
+                DEBUG_ERR(err, "Unable to retrieve record for %s", names[i]);
+                assert(record == NULL);
+                break;
+            }
+        }
+        break;
+    case OCT_ERR_NO_RECORD:
+        err = SYS_ERR_OK; // Overwrite (trigger is set)
+        break;
+
+    default:
+        // Do nothing (wait for trigger)
+        break;
+    }
+
+out:
+    oct_free_names(names, len);
+    free(output);
+
+    return err;
+}
+
+
+static void check_possible_e1000_card(octopus_mode_t mode, char* record, void* st) 
+{
+    errval_t err;
+    if (mode & OCT_ON_SET) {
+
+        int64_t pcibus, cls, subcls, dev, devid, fun, ven, prog_if;
+        static char* format = "_ { bus: %d, class: %d, device: %d, "
+                "device_id: %d, function: %d, prog_if: %d, "
+                "subclass: %d, vendor: %d }";
+        err = oct_read(record, format, &pcibus, &cls, &dev, &devid, &fun,
+                &prog_if, &subcls, &ven);
+
+        if (err_is_ok(err)) {
+            e1000_mac_type_t check_mac_type = e1000_get_mac_type(ven, devid);
+
+            if (check_mac_type != e1000_undefined) {
+                E1000_DEBUG("Using device. vendor: 0x%"PRIx64", device id: 0%"PRIx64".\n", ven, devid);
+                mac_type = check_mac_type;
+                bus = pcibus;
+                class = cls;
+                device = dev;
+                deviceid = devid;
+                function = fun;
+                subclass = subcls;
+                vendor = ven;
+                program_interface = prog_if;
+            }
+            else {
+                E1000_DEBUG("Unsupported device. vendor: 0x%"PRIx64", device id: 0x%"PRIx64".\n", ven, devid);
+            }
+        }
+        else {
+            E1000_DEBUG("Device record, %s.", record);
+            DEBUG_ERR(err, "Unable to read it.\n");
+        }
+
+    }
+
+    free(record);
+}
+
 /*****************************************************************
  * main.
  *
@@ -835,12 +889,8 @@ static void exit_help(const char *program)
  ****************************************************************/
 int main(int argc, char **argv)
 {
-	static e1000_mac_type_t mac_type = e1000_undefined;
 	char *service_name = 0;
-	char **names;
 	errval_t err;
-	size_t size;
-	uint32_t prog_if = 0;
 
 	/** Parse command line arguments. */
 	for (int i = 1; i < argc; i++) {
@@ -929,68 +979,25 @@ int main(int argc, char **argv)
 	 * Scan for an supported, unclaimed PCI/PCIe card.
 	 */
 	if (use_force == false) {
-		const char *pci_query = "r'hw.*'";
-		iref_t iref;
-
-		err = nameservice_blocking_lookup("pci_discovery_done", &iref);
-		if (err_is_fail(err)) {
-			fprintf(stderr, "Error: nameservice_blocking_lookup failed for pci_discovery_done.\n");
-			exit(err);
-		}
-
 		err = oct_init();
-		if (err_is_fail(err) && use_force == false) {
-			E1000_PRINT_ERROR("Error: oct_init failed. Unable to detect card.\n");
-			exit(err);
+		if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Unable to initialize octopus.");
 		}
 
-		/* Get name of entries */
-		err = oct_get_names(&names, &size, pci_query);
-		if (err) {
-			E1000_PRINT_ERROR("Error: oct_get_names failed. Unable to detect card.\n");
-			exit(err);
-		} else {
-			for (int i = 0; i < size && mac_type == e1000_undefined; i++) {
-				uint32_t pcibus, cls, subcls, dev, devid, fun, ven;
-				char *data;
-
-				/* Get value for each entry */
-				err = oct_get(&data, names[i]);
-				if (err) {
-					E1000_PRINT_ERROR("Error: oct_get failed. Unable to detect card.\n");
-					exit(err);
-				}
-
-				err = parse_device(data, &pcibus, &cls, &dev, &devid, &fun,
-						&prog_if, &subcls, &ven);
-				free(data);
-
-				if (err == 0 && prog_if == 0) {
-					mac_type = e1000_get_mac_type(ven, devid);
-
-					if (mac_type != e1000_undefined) {
-						E1000_DEBUG("Using device. vendor: 0x%x, device id: 0%x.\n", ven, devid);
-
-						bus = pcibus;
-						class = cls;
-						device = dev;
-						deviceid = devid;
-						function = fun;
-						subclass = subcls;
-						vendor = ven;
-					}
-				}
-			}
-		}
-
-		if (size != 0)
-			oct_free_names(names, size);
-
-		if (mac_type == e1000_undefined) {
-			E1000_PRINT_ERROR("Did not find any supported device.\n");
-			E1000_PRINT_ERROR("Try passing device id to driver. Use -h for help.\n");
-			exit(1);
-		}
+        // TODO(gz): We can remove this in case we make sure e1000 is 
+        // always started by kaluga, need to think of a proper way
+        // to start device drivers
+        octopus_trigger_id_t tid;
+        trigger_existing_and_watch("r'hw\\.pci.device.*' {}", 
+                                   check_possible_e1000_card, NULL, &tid);
+        if (mac_type == e1000_undefined) {
+            E1000_DEBUG("No supported e1000 card found yet, wait for one to appear.\n");
+        }
+        while (mac_type == e1000_undefined) {
+            messages_wait_and_handle_next();
+        }
+        oct_remove_trigger(tid);
+        // end XXX
 	}
 	else {
 		/* Check if forced device id and vendor is known to be supported. */
@@ -1012,12 +1019,12 @@ int main(int argc, char **argv)
 	assert(err_is_ok(err));
 
 	if (use_interrupt)
-		err = pci_register_driver_irq(e1000_init_fn, class, subclass, prog_if,
+		err = pci_register_driver_irq(e1000_init_fn, class, subclass, program_interface,
 				vendor, deviceid, bus, device, function,
 				e1000_interrupt_handler_fn, NULL);
 
 	else
-		err = pci_register_driver_noirq(e1000_init_fn, class, subclass, prog_if,
+		err = pci_register_driver_noirq(e1000_init_fn, class, subclass, program_interface,
 				vendor, deviceid, bus, device, function);
 
 	if (err_is_fail(err)) {
