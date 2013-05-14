@@ -77,8 +77,10 @@
 #define E1000_DEVICE_82573E              0x108B
 #define E1000_DEVICE_82573E_IAMT         0x108C
 #define E1000_DEVICE_82573L              0x109A
+#define E1000_DEVICE_82574L              0x10D3
+#define E1000_DEVICE_82575EB             0x10A7 // TODO(gz): This cards needs more work
+#define E1000_DEVICE_82576EG             0x10C9 // TODO(gz): This cards needs more work
 #define E1000_DEVICE_82546GB_QUAD_COPPER_KSP3 0x10B5
-
 
 /**
  * Group definitions for cards that share specification and quirks.
@@ -105,6 +107,9 @@ typedef enum {
     e1000_82571,
     e1000_82572,
     e1000_82573,
+    e1000_82574,
+    e1000_82575,
+    e1000_82576,
     e1000_num_macs
 } e1000_mac_type_t;
 

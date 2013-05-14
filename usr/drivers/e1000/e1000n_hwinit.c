@@ -63,11 +63,17 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
 	 * devices that support this.
 	 */
 	if (dev->mac_type != e1000_82544) {
-		e1000_eecd_ee_req_wrf(dev->device, 0);
+		e1000_eecd_ee_req_wrf(dev->device, 1);
 	}
 
+    while (!e1000_eecd_ee_gnt_rdf(dev->device)) {
+        usec_delay(1000);
+    }
+
 	/* EEPROM present */
-	if (e1000_eecd_ee_pres_rdf(dev->device)) {
+    // TODO(gz): Why does e1000 82574 have ee_pres == 0?
+	if (e1000_eecd_ee_pres_rdf(dev->device) || 
+        dev->mac_type == e1000_82574) {
 		e1000_eerd_ms_t eerd_ms = 0;
 		e1000_eerd_nm_t eerd_nm = 0;
 
@@ -75,6 +81,8 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
 		case e1000_82571:
 		case e1000_82572:
 		case e1000_82573:
+        case e1000_82574:
+        case e1000_82575:
 			/* These devices have SPI or Microwire EEPROMs */
 			eerd_ms = e1000_eerd_ms_start_insert(eerd_ms, 1);
 			eerd_ms = e1000_eerd_ms_addr_insert(eerd_ms, offset);
@@ -102,14 +110,18 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
 	}
 	else {
 		E1000_DEBUG("No EEPROM pressent.\n");
+        e1000_eecd_ee_req_wrf(dev->device, 0);
 		return -1;
 	}
 
-	if (timeout)
+	if (timeout) {
+        e1000_eecd_ee_req_wrf(dev->device, 0);
 		return 0; /* Success */
+    }
 
 	E1000_DEBUG("EEPROM read timed out\n");
 
+    e1000_eecd_ee_req_wrf(dev->device, 0);
 	return 1;
 }
 
@@ -399,6 +411,7 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
 
 	e1000_ctrlext_t ctrlext = e1000_ctrlext_rd(dev->device);
 	if (e1000_ctrlext_link_mode_extract(ctrlext) == e1000_serdes) {
+        E1000_DEBUG("Auto-negotiation: serdes mode");
 		int timeout = 4000;
 
 		e1000_ctrl_lrst_wrf(dev->device, 1);
@@ -421,6 +434,9 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
 	}
 
 	E1000_DEBUG("Auto-negotiate link status: %s\n", e1000_check_link_up(dev) ? "link-up" : "link-down");
+    if (!link_up) {
+        e1000_txcw_ane_wrf(dev->device, 0);
+    }
 
 	return link_up;
 }
@@ -483,9 +499,10 @@ static void e1000_set_serial_interface_mode(e1000_device_t *dev)
 {
 	e1000_ctrlext_t ctrlext = e1000_ctrlext_rd(dev->device);
 
-	// XXX: How do we set these ones up?
-	if (dev->mac_type == e1000_82544)
+	if (dev->mac_type == e1000_82544) {
+        assert(!"XXX: How do we set these ones up?");
 		return;
+    }
 
 	if (dev->mac_type == e1000_82573)
 		ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, e1000_l82573);
@@ -496,10 +513,11 @@ static void e1000_set_serial_interface_mode(e1000_device_t *dev)
 	else if (dev->mac_type == e1000_82540 || dev->mac_type == e1000_82541
 			|| dev->mac_type == e1000_82547) {
 		/* reserved */
-		ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, 0);
-	} else
+		ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, 0); 
+    } 
+    else {
 		ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, e1000_glci);
-
+    }
 	/* write serial interface mode */
 	e1000_ctrlext_wr(dev->device, ctrlext);
 }
@@ -603,7 +621,13 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
 	e1000_set_serial_interface_mode(dev);
 
 	E1000_DEBUG("Auto negotiating link.\n");
-	e1000_auto_negotiate_link(dev);
+	if (!e1000_auto_negotiate_link(dev)) {
+        E1000_DEBUG("Auto negotiating link failed, force link-up in driver.\n");
+        e1000_ctrl_slu_wrf(dev->device, 0x1);
+        //set full-duplex
+        e1000_ctrl_fd_wrf(dev->device, 0x1);
+        e1000_ctrl_speed_wrf(dev->device, e1000_status_speed_rdf(dev->device));
+    }
 
 	/* set flow control */
 	e1000_fcal_wr(dev->device, 0);
