@@ -30,14 +30,16 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     mb1000	= 0b10 "1Gb/s";
     mb_notused	= 0b11 "1Gb/s";
   };
+
   register ctrl rw addr(base, 0x0000) "Device control" {
     fd		1 "full-duplex";
     _		1 mbz;
     gio_md	1 "GIO master disable";
     lrst	1 "Link reset";
-    _		2 mbz;
-    slu		1 "Set link up";
     _		1 mbz;
+    asde	1 "Auto-Speed Detection Enable";
+    slu		1 "Set link up";
+    ilos	1 "Invert Loss-of-Signal (LOS)";
     speed	2 type(linkspeed) "Speed selection";
     _		1 mbz;
     frcspd	1 "Force speed";
@@ -46,7 +48,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     sdp0_data	1 "SDP0 data value, or dock/undock status";
     sdp1_data	1 "SDP1 data value";
     advd3wuc	1 "D3cold wakeup capability";
-    _		1 mbz;
+    en_phy_pwr_mgmt 1 "PHY Power-Management Enable";
     sdp0_iodir	1 "SDP0 pin I/O directionality";
     sdp1_iodir	1 "SDP1 pin I/O directionality";
     _		2 mbz;
@@ -57,7 +59,37 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     vme		1 "VLAN mode enable";
     phy_rst	1 "PHY reset";
   };
-  
+
+  // 82546 rev 3
+  register ctrldup rw addr(base, 0x0004) "Device Control Duplicate (Shadow)" {
+    fd          1 "full-duplex";
+    _           1 mbz;
+    gio_md      1 "GIO master disable";
+    lrst        1 "Link reset";
+    _           1 mbz;
+    asde        1 "Auto-Speed Detection Enable";
+    slu         1 "Set link up";
+    ilos        1 "Invert Loss-of-Signal (LOS)";
+    speed       2 type(linkspeed) "Speed selection";
+    _           1 mbz;
+    frcspd      1 "Force speed";
+    frcdplx     1 "Force duplex";
+    _           5 mbz;
+    sdp0_data   1 "SDP0 data value, or dock/undock status";
+    sdp1_data   1 "SDP1 data value";
+    advd3wuc    1 "D3cold wakeup capability";
+    en_phy_pwr_mgmt 1 "PHY Power-Management Enable";
+    sdp0_iodir  1 "SDP0 pin I/O directionality";
+    sdp1_iodir  1 "SDP1 pin I/O directionality";
+    _           2 mbz;
+    rst         1 "Device reset";
+    rfce        1 "Receive flow control enable";
+    tfce        1 "Transmit flow control enable";
+    _           1 mbz;
+    vme         1 "VLAN mode enable";
+    phy_rst     1 "PHY reset";
+  };
+
   constants lanid "LAN ID" {
     lan_a       = 0b00 "LAN A";
     lan_b       = 0b01 "LAN B";
@@ -69,18 +101,22 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   };
 
   // 13.3.2 
-  register status rw addr(base, 0x0008) "Device status" {
+  register status ro addr(base, 0x0008) "Device status" {
     fd		1 "Link full duplex configuration";
     lu		1 "Link up";
-    lan_id	2 "LAN ID";
+    func_id	2 "Function ID";
     txoff	1 "Transmission paused";
     tbimode	1 "TBI mode";
     speed	2 type(linkspeed) "Link speed setting";
     asdv	2 type(linkspeed) "Auto speed detection value";
-    phyra	1 "PHY reset asserted";
-    _		8 mbz;
-    gio_mes	1 "GIO master enable status";
-    _		12;
+    phyra	1 "PHY reset asserted"; 
+    pci66	1 "PCI Bus speed indication";
+    bus64	1 "PCI Bus Width indication";
+    pcix_mode   1 "PCI-X Mode indication";
+    pcixspd     2 "PCI-X Bus Speed Indication";
+    _		3 mbz;
+    gio_mes     1 "GIO master enable status";
+    _		12 mbz;
   };
 
   // 13.3.3
@@ -89,17 +125,20 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     flash_wr_disable	= 0b01 "Flash writes discarded";
     flash_wr_enable	= 0b10 "Flash writed enabled";
   };
+
   constants eeaddrsize "EEPROM address size" {
     bits8or9	= 0 "8- and 9-bit";
     bits16	= 1 "16-bit";
   };
+
   constants nvmtype "Non-volatile memory type" {
     eeprom	= 0b00 "EEPROM";
     saflash	= 0b01 "Stand-alone Flash";
     spiflash	= 0b10 "Shared SPI Flash";
     sio		= 0b11 "SIO";
   };
-  register eec rw addr(base, 0x0010) "EEPROM/Flash control" {
+
+  register eecd rw addr(base, 0x0010) "EEPROM/Flash control" {
     ee_sk	1 "Clock input to EEPROM";
     ee_cs	1 "Chip select to EEPROM";
     ee_di	1 "Data input to EEPROM";
@@ -108,27 +147,33 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     ee_req	1 "Request EEPROM access";
     ee_gnt	1 "Grant EEPROM access";
     ee_pres	1 "EEPROM present";
-    auto_rd	1 "EEPROM auto read done";
-    ee_addr_sz  1 type(eeaddrsize) "EEPROM address size";
-    ee_size	4 "EEPROM size (x128 bytes)";
-    nvadds	2 "NVM address size in bytes";
-    _		3;
-    aupden	1 "Enable automatic Flash update";
-    _		2;
-    nvmtype	2 ro type(nvmtype) "NVM type";
-    _		7;
+    ee_size_n	1 "EEPROM size for NM93C46 compatible EEPROM" ;
+    ee_size_m   1 "EEPROM size for Microwire EEPROMs";
+    _           2 mbz;
+    ee_type     1 "EEPROM Type. (82541xx and 82547GI/EI)";
+    _		18 mbz;
   };
 
   // 13.3.4
-  register eerd rw addr(base, 0x0014) "EEPROM read" {
-    start	1 "Start read";
-    done	1 ro "Read done";
-    addr	14 "Read address";
-    data	16 "Read data";
+  // NM93C46 compatible EEPROMs
+  register eerd_nm rw addr(base, 0x0014) "EEPROM read" {
+    start       1 "Start read";  
+    _           3 mbz;
+    done        1 ro "Read done";
+    _           3 mbz;
+    addr        8 "Read address";
+    data        16 "Read data";
   };
 
-  // 13.3.5
+  register eerd_ms rw also addr(base, 0x0014) "EEPROM read 82541xx and 82547GI/EI" {
+    start       1 "Start read";
+    done        1 ro "Read done";
+    addr        14 "Read address";
+    data        16 "Read data";   
+  };
 
+
+  // 13.3.5
   constants linkmode "Link mode" {
     glci	= 0b00 "Direct coper or GLCI";
     l82573	= 0b10 "Must be set for 82573E/V/L";
@@ -281,7 +326,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     rxcw_fd	1 "RXCW full-duplex";
     rxcw_hd	1 "RXCW half-duplex";
     rxcw_pause	2 "RXCW pause";
-   _		3 mbz;
+    _		3 mbz;
     rxcw_rfi	2 "RXCW remote fault indication";
     _		1 mbz;
     rxcw_npr	1 "RXCW next page request";
@@ -543,7 +588,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   // Note that the description of the transmit length (13.3.62/71) refers to
   // the size of the descriptor buffer in bytes. This is misleading; the whole
   // register (raw value) refers to that, but the bottom 7 bits must be zero.
-  regtype dqlen"Descriptor length value" {
+  regtype dqlen "Descriptor length value" {
     _		7 mbz;
     len		13 "Num. descriptors (x8)";
     _		12 mbz;
@@ -664,7 +709,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   register tipg rw addr(base, 0x0410) "Transmit IPQ" {
     ipgt	10 "IPG back to back (x MAC clock, +4)";
     ipgr1	10 "IPG Part 1";
-    ipgr	10 "IPG after deferral";
+    ipgr2	10 "IPG after deferral";
     _		2 mbz;
   };
 
