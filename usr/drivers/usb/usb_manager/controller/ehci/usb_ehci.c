@@ -250,8 +250,51 @@ void usb_ehci_interrupt(usb_ehci_hc_t *hc)
         return;
     }
 
+    /* acknowledge the interrupts */
+    ehci_usbsts_wr(hc->ehci_base,  intr);
 
+    intr &= hc->enabled_interrupts;
 
+    if (ehci_usbsts_hse_extract(intr)) {
+        /*
+         * host system error -> unrecoverable error
+         * serious error occurs during a host system access involving the host
+         * controller module.
+         */
+        debug_printf("EHCI controller encountered an unrecoverable error\n");
+    }
+
+    if (ehci_usbsts_pcd_extract(intr)) {
+        /*
+         * port change detected
+         * there is something going on on the port e.g. a new device is attached
+         *
+         * This interrupt stays enabled untill the port is reset, so to avoid
+         * multiple interrupts, disable the port change interrupts for now.
+         */
+        ehci_usbsts_pcd_insert(hc->enabled_interrupts, 0);
+        ehci_usbsts_pcd_wrf(hc->ehci_base, 0);
+
+        usb_ehci_roothub_interrupt(hc);
+    }
+
+    intr = ehci_usbsts_pcd_insert(intr, 0);
+    intr = ehci_usbsts_iaa_insert(intr, 0);
+    intr = ehci_usbsts_usbei_insert(intr, 0);
+    intr = ehci_usbsts_usbi_insert(intr, 0);
+
+    if (intr != 0) {
+        /*
+         * there is still an interrupt left, so block on this type
+         */
+        hc->enabled_interrupts &= ~intr;
+        ehci_usbintr_wr(hc->ehci_base, hc->enabled_interrupts);
+    }
+
+    /*
+     * poll the USB transfers
+     */
+    usb_ehci_poll(hc);
 }
 
 /**

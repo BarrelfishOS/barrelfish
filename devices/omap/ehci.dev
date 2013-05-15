@@ -191,7 +191,7 @@ device ehci msbfirst (addr cap, addr op) "EHCI USB Controller" {
 	wkcnnt_e     1		"Wake on connect enable";
 	ptc          4 type(test_mode_val) "Port test control";
 	pic          2 type(indi_val)      "Port indicator control";
-	por          1		"Port owner";
+	po           1		"Port owner";
 	pp           1		"Port power";
 	ls           2 type(lstatus_val)   "Line status value";
 	_            1 mbz;

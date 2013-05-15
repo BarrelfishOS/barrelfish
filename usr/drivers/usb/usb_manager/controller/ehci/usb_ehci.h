@@ -15,7 +15,7 @@
 #include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
 #include <usb/class/usb_hub_descriptor.h>
-#include "usb_ehci_root_hub.h"
+
 
 /// maximum devices supported by the host controller
 #define USB_EHCI_MAX_DEVICES 128
@@ -590,6 +590,16 @@ typedef struct usb_ehci_fstn usb_ehci_fstn_t;
 /**
  *
  */
+union usb_ehci_hub_descriptor {
+    struct usb_status status;
+    struct usb_hub_port_status port_status;
+    struct usb_hub_class_descriptor hub_desc;
+    uint8_t temp[128];
+};
+
+/**
+ *
+ */
 struct usb_ehci_config_descriptor {
     struct usb_config_descriptor config;
     struct usb_interface_descriptor iface;
@@ -626,6 +636,7 @@ struct usb_ehci_hc {
     uint8_t root_hub_interrupt_data[8];
     uint16_t root_hub_id_vendor;      /* vendor ID for root hub */
     char    root_hub_vendor[16];      /* vendor string for root hub */
+    uint8_t root_hub_reset;
 
     /* devices */
     struct usb_device *devices[USB_EHCI_MAX_DEVICES];
@@ -648,13 +659,7 @@ struct usb_ehci_hc {
     struct usb_ehci_sitd *sidt_free;
     struct usb_ehci_itd *itd_free;
 
-
-
-
-    uint8_t sc_offs;        /* offset to operational registers */
     uint8_t sc_doorbell_disable;    /* set on doorbell failure */
-
-    uint8_t sc_isreset;
 
 
 };

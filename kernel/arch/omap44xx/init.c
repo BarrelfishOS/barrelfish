@@ -179,6 +179,77 @@ void kernel_startup_early(void)
     timeslice = CONSTRAIN(timeslice, 1, 20);
 }
 
+/*
+ * initialize the USB functionality of the pandaboard
+ */
+static void hsusb_init(void)
+{
+    printf("hsusb initialization routine\n");
+
+    /*
+     * Global Initialization of the OMAPP44xx USB Sub System
+     */
+    printf("  Global initialization of HS USB Subsystem\n");
+    printf("   - USB TTL reset...");
+    /*
+     * Reset USBTTL
+     * USBTLL_SYSCONFIG = 0x2
+     */
+    *((volatile uint32_t*) (0x4A062010)) = (uint32_t) (0x1 << 1);
+
+    /*
+     * wait till reset is done
+     */
+    while (!((*((volatile uint32_t*) (0x4A062014))) & 0x1)) {
+        printf("%c", 0xE);
+    }
+    /*
+     * enable config features
+     */
+    *((volatile uint32_t*) (0x4A062010)) = (uint32_t) ((0x1 << 2) | (0x1 << 3)
+            | (0x1 << 8));
+
+    printf("OK\n");
+
+    /*
+     * enable interrupts on USBTTL:
+     *  - all interrupts
+     */
+    *((volatile uint32_t*) (0x4A06201C)) = (uint32_t) (0x5);
+
+    printf("   - Host controller reset...");
+
+    /*
+     * per form a reset on the USB host controller module
+     * this resets both EHCI and OCHI controllers
+     */
+    *((volatile uint32_t*) (0x4A064010)) = (uint32_t) (0x1);
+
+    /*
+     * wait till reset is done
+     */
+    while (((*((volatile uint32_t*) (0x4A064014))) & 0x6) != 0x6) {
+        printf("%c", 0xE);
+    }
+
+    /* enable some USB host features */
+    *((volatile uint32_t*) (0x4A064010)) = (uint32_t) ((0x1 << 2) | (0x1 << 4));
+
+    printf("OK\n");
+
+    printf("   - Setting USB host configuration values...");
+
+    /*
+     * setting the host configuration to external PHY and enable
+     * the burst types, app start clk
+     */
+    *((volatile uint32_t*) (0x4A064040)) =
+            (uint32_t) ((0x7 << 2) | (0x1 << 31));
+
+    printf("OK\n");
+
+    printf("hsusb initialization done.\n");
+}
 
 // GPIO numbers for enabling the USB hub on the pandaboard
 #define HSUSB_HUB_POWER 1
@@ -214,8 +285,7 @@ static void usb_power_on(void)
      * Bit  8: is the enable bit
      * Bit 16: is the divider bit (here for two)
      */
-    *((volatile uint32_t*)(SCRM_AUXCLK3)) = (uint32_t)((1<<16) | (1<<8));
-
+    *((volatile uint32_t*) (SCRM_AUXCLK3)) = (uint32_t) ((1 << 16) | (1 << 8));
 
     /*
      * Forward the clock to the GPIO_WK31 pin
@@ -224,34 +294,35 @@ static void usb_power_on(void)
      *  - no input buffer (0x0)
      *  - no wake up (0x0)
      */
-    *((volatile uint32_t*)(PAD0_FREF_CLK3_OUT)) = (uint32_t)(0x0000);
+    *((volatile uint32_t*) (PAD0_FREF_CLK3_OUT)) = (uint32_t) (0x0000);
 
     printf(" - setting the clocks\n");
 
     /*
      * Perform a reset on the USB hub i.e. drive the GPIO_1 pin to low
      * and enable the dataout for the this pin in GPIO
-     */
-    uint32_t gpoi_1_oe = omap44xx_gpio_oe_rd(&g1) & (~(1UL << HSUSB_HUB_POWER));
+     */uint32_t gpoi_1_oe = omap44xx_gpio_oe_rd(&g1)
+            & (~(1UL << HSUSB_HUB_POWER));
     omap44xx_gpio_oe_wr(&g1, gpoi_1_oe);
 
-    omap44xx_gpio_cleardataout_wr(&g1, 1UL << HSUSB_HUB_POWER);
+    omap44xx_gpio_cleardataout_wr(&g1, (1UL << HSUSB_HUB_POWER));
+
+    printf(" - power down the root hub\n");
 
     /*
      * forward the data outline to the USB hub by muxing the
      * CONTROL_CORE_PAD0_KPD_COL1_PAD1_KPD_COL2 into mode 3 (gpio_1)
      */
-    *((volatile uint32_t*)(PAD1_KPD_COL2)) = (uint32_t)((0x0003 | (3 << 3)| (1<<8))<<16);
+    *((volatile uint32_t*) (PAD1_KPD_COL2)) = (uint32_t) (0x0003 << 16);
 
     printf(" - reset the USB hub \n");
-
 
     /*
      * Perform a reset on the USB phy i.e. drive GPIO_62 to low
      *
      * HSUSB_HUB_RESET: 0 = Hub & Phy held in reset     1 = Normal operation.
-     */
-    uint32_t gpoi_2_oe = omap44xx_gpio_oe_rd(&g2) & (~(1UL << HSUSB_HUB_RESET));
+     */uint32_t gpoi_2_oe = omap44xx_gpio_oe_rd(&g2)
+            & (~(1UL << HSUSB_HUB_RESET));
     omap44xx_gpio_oe_wr(&g2, gpoi_2_oe);
 
     omap44xx_gpio_cleardataout_wr(&g2, (1UL << HSUSB_HUB_RESET));
@@ -260,19 +331,21 @@ static void usb_power_on(void)
      * forward the data on gpio_62 pin to the output by muxing
      *  CONTROL_CORE_PAD0_GPMC_WAIT1_PAD1_GPMC_WAIT2 to mode 0x3
      */
-    *((volatile uint32_t*)(PAD0_GPMC_WAIT1)) = (uint32_t)(0x0003 | (1<<3));
-
+    *((volatile uint32_t*) (PAD0_GPMC_WAIT1)) = (uint32_t) (0x0003);
 
     printf(" - reset the USB PHY\n");
 
     /* delay to give the hardware time to reset TODO: propper delay*/
     for (int j = 0; j < 8000; j++) {
-            printf("%c", 0xE);
-        }
+        printf("%c", 0xE);
+    }
 
-    assert((*((volatile uint32_t*)(PAD0_GPMC_WAIT1))) == (uint32_t)(0x0003 | (1<<3)));
-    assert((*((volatile uint32_t*)(PAD1_KPD_COL2))) == (uint32_t)((0x0003 | (3 << 3)| (1<<8))<<16));
+    assert((*((volatile uint32_t*)(PAD0_GPMC_WAIT1))) == (uint32_t)(0x0003));
+    assert(
+            (*((volatile uint32_t*)(PAD1_KPD_COL2))) == (uint32_t)((0x0003)<<16));
     assert((*((volatile uint32_t*)(PAD0_FREF_CLK3_OUT))) == (uint32_t)(0x0000));
+
+    hsusb_init();
 
     /* enable the USB HUB */
     omap44xx_gpio_setdataout_wr(&g2, (1UL << HSUSB_HUB_RESET));
@@ -282,94 +355,33 @@ static void usb_power_on(void)
 
     assert(!(0x2 & (*((volatile uint32_t*)(0x4A310134)))));
     assert((0x2 & (*((volatile uint32_t*)(0x4A31013C)))));
+    /* soft reset the pyh */
+    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x1 << 5) | (0x5 << 16)
+            | (0x2 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+        printf("%c", 0xE);
+    }
 
+    /* enable the high speed mode */
+    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x40) | (0x04 << 16)
+            | (0x2 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+        printf("%c", 0xE);
 
+    }
 
+    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x15 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+        printf("%c", 0xE);
+
+    }
+
+    printf("Debug State = %x", (*((volatile uint32_t*) (0x4A064CA4))) & 0xFF);
 
     printf(" - USB hub and PHY re-enabled\n");
-    printf(" - usb_power_on: complete.\n");
+    printf("usb_power_on: complete.\n");
 }
-
-/*
- * initialize the USB functionality of the pandaboard
- */
-static void hsusb_init(void)
-{
-    printf("hsusb initialization routine\n");
-
-    /*
-     * Global Initialization of the OMAPP44xx USB Sub System
-     */
-    printf("  Global initialization of HS USB Subsystem\n");
-    printf("   - USB TTL reset...");
-    /*
-     * Reset USBTTL
-     * USBTLL_SYSCONFIG = 0x2
-     */
-    *((volatile uint32_t*)(0x4A062010)) = (uint32_t)(0x1<<1);
-
-    /*
-     * wait till reset is done
-     */
-    while (!((*((volatile uint32_t*)(0x4A062014))) & 0x1)) {
-        printf("%c", 0xE);
-    }
-    /*
-     * enable config features
-     */
-    *((volatile uint32_t*)(0x4A062010)) = (uint32_t)((0x1 << 2) | (0x1 << 3) | (0x1 << 8));
-
-    printf("OK\n");
-
-    /*
-     * enable interrupts on USBTTL:
-     *  - all interrupts
-     */
-    *((volatile uint32_t*)(0x4A06201C)) = (uint32_t)(0x5);
-
-
-
-    printf("   - Host controller reset...");
-
-    /*
-     * per form a reset on the USB host controller module
-     * this resets both EHCI and OCHI controllers
-     */
-    *((volatile uint32_t*)(0x4A064010)) = (uint32_t)(0x1);
-
-
-    /*
-     * wait till reset is done
-     */
-    while (((*((volatile uint32_t*)(0x4A064014))) & 0x6) != 0x6) {
-            printf("%c", 0xE);
-        }
-
-    /* enable some USB host features */
-    *((volatile uint32_t*)(0x4A064010)) = (uint32_t)((0x1 << 2) | (0x1 << 4));
-
-    printf("OK\n");
-
-    printf("   - Setting USB host configuration values...");
-
-    /*
-     * setting the host configuration to external PHY and enable
-     * the burst types, app start clk
-     */
-    *((volatile uint32_t*)(0x4A064040)) = (uint32_t)((0x7<<2) | (0x1 << 31));
-
-
-    *((volatile uint32_t*)(0x4A064CA4)) = (uint32_t)((0x1<<5) | (0x5 << 16) | (0x2<<22) | (0x1<<24) | (0x1<<31));
-
-    while ( *((volatile uint32_t*)(0x4A064CA4)) & (1 << 31)) {
-        printf("%c", 0xE);
-    }
-
-    printf("OK\n");
-
-    printf("hsusb initialization done.\n");
-}
-
 
 static void prcm_init(void)
 {
@@ -378,75 +390,86 @@ static void prcm_init(void)
      * Set the system clock to 38.4 MHz
      * CM_SYS_CLKSEL = 0x7
      */
-    *((volatile uint32_t*)(0x4A306110)) = (uint32_t)(0x7);
+    *((volatile uint32_t*) (0x4A306110)) = (uint32_t) (0x7);
 
-    if (!(*((volatile uint32_t*)(0x4A306110)))) {
+    if (!(*((volatile uint32_t*) (0x4A306110)))) {
         printf("WARNING: Could not set SYS_CLK\n");
         return;
     }
 
     /* ALTCLKSRC */
-    *((volatile uint32_t*)(0x4A30A110)) = (uint32_t)(0x1 | (0x3<<2));
-
+    *((volatile uint32_t*) (0x4A30A110)) = (uint32_t) (0x1 | (0x3 << 2));
 
     printf("Enabling the L4PER clocks\n");
     /* CM_L4PER_CLKSTCTRL */
-    *((volatile uint32_t*)(0x4A009400)) = (uint32_t)(0x2);
-    printf("/* CM_L4PER_CLKSTCTRL */ %p \n", *((volatile uint32_t*)(0x4A009400)));
-
+    *((volatile uint32_t*) (0x4A009400)) = (uint32_t) (0x2);
+    printf("/* CM_L4PER_CLKSTCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009400)));
 
     printf("Enabling the GPIO clocks\n");
     /* CM_L4PER_GPIO2_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009460)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A009460)) = (uint32_t) (0x1);
     /* CM_L4PER_GPIO3_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009468)) = (uint32_t)((0x1<<8)|(0x1));
+    *((volatile uint32_t*) (0x4A009468)) = (uint32_t) ((0x1 << 8) | (0x1));
     /* CM_L4PER_GPIO4_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009470)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A009470)) = (uint32_t) (0x1);
     /* CM_L4PER_GPIO5_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009478)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A009478)) = (uint32_t) (0x1);
     /* CM_L4PER_GPIO6_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009480)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A009480)) = (uint32_t) (0x1);
     /* CM_L4PER_HDQ1W_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009488)) = (uint32_t)(0x2);
+    *((volatile uint32_t*) (0x4A009488)) = (uint32_t) (0x2);
     /* CM_WKUP_GPIO1_CLKCTRL */
-    *((volatile uint32_t*)(0x4A008E00)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A008E00)) = (uint32_t) (0x1);
 
-
-    printf("/* CM_L4PER_GPIO2_CLKCTRL */ %p \n",*((volatile uint32_t*)(0x4A009460)));
-    printf("/* CM_L4PER_GPIO3_CLKCTRL */ %p \n",*((volatile uint32_t*)(0x4A009468)));
-    printf("/* CM_L4PER_GPIO4_CLKCTRL */ %p \n",*((volatile uint32_t*)(0x4A009470)));
-    printf("/* CM_L4PER_GPIO5_CLKCTRL */ %p \n",*((volatile uint32_t*)(0x4A009478)));
-    printf("/* CM_L4PER_GPIO6_CLKCTRL */ %p \n",*((volatile uint32_t*)(0x4A009480)));
-    printf("/* CM_L4PER_HDQ1W_CLKCTRL */ %p \n",*((volatile uint32_t*)(0x4A009488)));
-    printf("/* CM_WKUP_GPIO1_CLKCTRL */ %p \n", *((volatile uint32_t*)(0x4A008E00)));
-
+    printf("/* CM_L4PER_PIO2_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009460)));
+    printf("/* CM_L4PER_GPIO3_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009468)));
+    printf("/* CM_L4PER_GPIO4_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009470)));
+    printf("/* CM_L4PER_GPIO5_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009478)));
+    printf("/* CM_L4PER_GPIO6_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009480)));
+    printf("/* CM_L4PER_HDQ1W_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A009488)));
+    printf("/* CM_WKUP_GPIO1_CLKCTRL */ %p \n",
+            *((volatile uint32_t*) (0x4A008E00)));
 
     printf("Enabling the USB clocks\n");
     /* CM_L3INIT_HSI_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009338)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A009338)) = (uint32_t) (0x1);
     /* CM_L3INIT_HSUSBHOST_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009358)) = (uint32_t)(0x2 | (0xFF00) | 0x3<<24);
+    *((volatile uint32_t*) (0x4A009358)) = (uint32_t) (0x2 | (0xFF00)
+            | 0x3 << 24);
     /* CM_L3INIT_HSUSBOTG_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009360)) = (uint32_t)(0x1);
+    *((volatile uint32_t*) (0x4A009360)) = (uint32_t) (0x1);
     /* CM_L3INIT_HSUSBTLL_CLKCTRL */
-    *((volatile uint32_t*)(0x4A009368)) = (uint32_t)((0x1 << 8) | (0x1 << 9) | 0x1);
+    *((volatile uint32_t*) (0x4A009368)) = (uint32_t) ((0x1 << 8) | (0x1 << 9)
+            | 0x1);
     /* CM_L3INIT_FSUSB_CLKCTRL */
-    *((volatile uint32_t*)(0x4A0093D0)) = (uint32_t)(0x2);
+    *((volatile uint32_t*) (0x4A0093D0)) = (uint32_t) (0x2);
     /* CM_L3INIT_USBPHY_CLKCTRL */
-    *((volatile uint32_t*)(0x4A0093E0)) = (uint32_t)(0x301);
+    *((volatile uint32_t*) (0x4A0093E0)) = (uint32_t) (0x301);
 
-    printf("/* CM_L3INIT_HSI_CLKCTRL */%p \n",*((volatile uint32_t*)(0x4A009338)));
-    printf("/* CM_L3INIT_HSUSBHOST_CLKCTRL */%p \n",*((volatile uint32_t*)(0x4A009358)));
-    printf("/* CM_L3INIT_HSUSBOTG_CLKCTRL */%p \n",*((volatile uint32_t*)(0x4A009360)));
-    printf("/* CM_L3INIT_HSUSBTLL_CLKCTRL */%p \n",*((volatile uint32_t*)(0x4A009368)));
-    printf("/* CM_L3INIT_FSUSB_CLKCTRL */%p \n",*((volatile uint32_t*)(0x4A0093D0)));
-    printf("/* CM_L3INIT_USBPHY_CLKCTRL */%p \n",*((volatile uint32_t*)(0x4A0093E0)));
+    printf("/* CM_L3INIT_HSI_CLKCTRL */%p \n",
+            *((volatile uint32_t*) (0x4A009338)));
+    printf("/* CM_L3INIT_HSUSBHOST_CLKCTRL */%p \n",
+            *((volatile uint32_t*) (0x4A009358)));
+    printf("/* CM_L3INIT_HSUSBOTG_CLKCTRL */%p \n",
+            *((volatile uint32_t*) (0x4A009360)));
+    printf("/* CM_L3INIT_HSUSBTLL_CLKCTRL */%p \n",
+            *((volatile uint32_t*) (0x4A009368)));
+    printf("/* CM_L3INIT_FSUSB_CLKCTRL */%p \n",
+            *((volatile uint32_t*) (0x4A0093D0)));
+    printf("/* CM_L3INIT_USBPHY_CLKCTRL */%p \n",
+            *((volatile uint32_t*) (0x4A0093E0)));
 
     /* OMAP44XX_SCRM_ALTCLKSRC */
-   // clock = (uint32_t *) (l4_cfg_wkup + 0xA110);
+    // clock = (uint32_t *) (l4_cfg_wkup + 0xA110);
     //*clock = (0x1) | (0x3 << 2);
 }
-
 
 #define M0              0
 #define M3              3
@@ -463,78 +486,76 @@ static void set_muxconf_regs(void)
     uint16_t mux_1, mux_2;
 
     /* CONTROL_PADCONF_CORE_SYSCONFIG */
-    *((volatile uint32_t*)(0x4A100010)) = (uint32_t)(0x1 << 2);
+    *((volatile uint32_t*) (0x4A100010)) = (uint32_t) (0x1 << 2);
     /* CONTROL_PADCONF_WKUP_SYSCONFIG */
-    *((volatile uint32_t*)(0x4A31E010)) = (uint32_t)(0x1 << 2);
+    *((volatile uint32_t*) (0x4A31E010)) = (uint32_t) (0x1 << 2);
     /* CONTROL_GEN_CORE_SYSCONFIG */
-    *((volatile uint32_t*)(0x4A002010)) = (uint32_t)(0x1 << 2);
+    *((volatile uint32_t*) (0x4A002010)) = (uint32_t) (0x1 << 2);
     /* CONTROL_GEN_WKUP_SYSCONFIG */
-    *((volatile uint32_t*)(0x4A30C010)) = (uint32_t)(0x1 << 2);
-
+    *((volatile uint32_t*) (0x4A30C010)) = (uint32_t) (0x1 << 2);
 
     /* USBB1_ULPITLL_CLK */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
-    mux_2 = *((volatile uint32_t*)(0x4A1000C0)) & 0xFFFF;
-    *((volatile uint32_t*)(0x4A1000C0)) = (uint32_t)(mux_1<<16 | mux_2);
-
+    mux_2 = *((volatile uint32_t*) (0x4A1000C0)) & 0xFFFF;
+    *((volatile uint32_t*) (0x4A1000C0)) = (uint32_t) (mux_1 << 16 | mux_2);
 
     /* USBB1_ULPITLL_DIR */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
     /* USBB1_ULPITLL_STP */
-        mux_2 = OMAP_PIN_OUTPUT | M4;
-    *((volatile uint32_t*)(0x4A1000C4)) = (uint32_t)(mux_1<<16 | mux_2);
+    mux_2 = OMAP_PIN_OUTPUT | M4;
+    *((volatile uint32_t*) (0x4A1000C4)) = (uint32_t) (mux_1 << 16 | mux_2);
 
     /* USBB1_ULPITLL_NXT */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
     /* USBB1_ULPITLL_DAT0 */
     mux_2 = OMAP_PIN_INPUT_PULLDOWN | M4;
-    *((volatile uint32_t*)(0x4A1000C8)) = (uint32_t)(mux_1<<16 | mux_2);
+    *((volatile uint32_t*) (0x4A1000C8)) = (uint32_t) (mux_1 << 16 | mux_2);
 
     /* USBB1_ULPITLL_DAT1 */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
     /* USBB1_ULPITLL_DAT2 */
     mux_2 = OMAP_PIN_INPUT_PULLDOWN | M4;
-    *((volatile uint32_t*)(0x4A1000CC)) = (uint32_t)(mux_1<<16 | mux_2);
+    *((volatile uint32_t*) (0x4A1000CC)) = (uint32_t) (mux_1 << 16 | mux_2);
 
     /* USBB1_ULPITLL_DAT3 */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
     /* USBB1_ULPITLL_DAT4 */
     mux_2 = OMAP_PIN_INPUT_PULLDOWN | M4;
-    *((volatile uint32_t*)(0x4A1000D0)) = (uint32_t)(mux_1<<16 | mux_2);
+    *((volatile uint32_t*) (0x4A1000D0)) = (uint32_t) (mux_1 << 16 | mux_2);
 
     /* USBB1_ULPITLL_DAT5 */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
     /* USBB1_ULPITLL_DAT6 */
     mux_2 = OMAP_PIN_INPUT_PULLDOWN | M4;
-    *((volatile uint32_t*)(0x4A1000D4)) = (uint32_t)(mux_1<<16 | mux_2);
+    *((volatile uint32_t*) (0x4A1000D4)) = (uint32_t) (mux_1 << 16 | mux_2);
 
     /* USBB1_ULPITLL_DAT7 */
     mux_2 = OMAP_PIN_INPUT_PULLDOWN | M4;
-    mux_1 = (*((volatile uint32_t*)(0x4A1000C0))>>16) & 0xFFFF;
-    *((volatile uint32_t*)(0x4A1000D8)) = (uint32_t)(mux_1<<16 | mux_2);
+    mux_1 = (*((volatile uint32_t*) (0x4A1000C0)) >> 16) & 0xFFFF;
+    *((volatile uint32_t*) (0x4A1000D8)) = (uint32_t) (mux_1 << 16 | mux_2);
 
+    printf("/* USBB1_ULPITLL_CLK */ %p\n",
+            *((volatile uint32_t*) (0x4A1000C0)));
 
+    printf("/* USBB1_ULPITLL_DIR */ %p\n",
+            *((volatile uint32_t*) (0x4A1000C4)));
 
+    printf("/* USBB1_ULPITLL_NXT */ %p\n",
+            *((volatile uint32_t*) (0x4A1000C8)));
 
-    printf("/* USBB1_ULPITLL_CLK */ %p\n", *((volatile uint32_t*)(0x4A1000C0)));
+    printf("/* USBB1_ULPITLL_DAT1 */ %p\n",
+            *((volatile uint32_t*) (0x4A1000CC)));
 
-    printf("/* USBB1_ULPITLL_DIR */ %p\n", *((volatile uint32_t*)(0x4A1000C4)));
+    printf("/* USBB1_ULPITLL_DAT3 */ %p\n",
+            *((volatile uint32_t*) (0x4A1000D0)));
 
-    printf("/* USBB1_ULPITLL_NXT */ %p\n",*((volatile uint32_t*)(0x4A1000C8)));
+    printf("/* USBB1_ULPITLL_DAT5 */ %p\n",
+            *((volatile uint32_t*) (0x4A1000D4)));
 
-    printf("/* USBB1_ULPITLL_DAT1 */ %p\n",*((volatile uint32_t*)(0x4A1000CC)));
-
-    printf("/* USBB1_ULPITLL_DAT3 */ %p\n",*((volatile uint32_t*)(0x4A1000D0)));
-
-    printf("/* USBB1_ULPITLL_DAT5 */ %p\n",*((volatile uint32_t*)(0x4A1000D4)));
-
-    printf("/* USBB1_ULPITLL_DAT7 */ %p\n",*((volatile uint32_t*)(0x4A1000D8)));
-
+    printf("/* USBB1_ULPITLL_DAT7 */ %p\n",
+            *((volatile uint32_t*) (0x4A1000D8)));
 
 }
-
-
-
 
 /**
  * \brief Continue kernel initialization in kernel address space.
@@ -774,7 +795,6 @@ void arch_init(void *pointer)
         prcm_init();
         set_muxconf_regs();
         usb_power_on();
-        hsusb_init();
 
     } else {
         global = (struct global *) GLOBAL_VBASE;

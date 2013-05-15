@@ -10,14 +10,12 @@
 #ifndef USB_EHCI_ROOT_HUB_H_
 #define USB_EHCI_ROOT_HUB_H_
 
-/**
- *
- */
-union usb_ehci_hub_descriptor {
-    struct usb_status status;
-    struct usb_hub_port_status port_status;
-    struct usb_hub_class_descriptor hub_desc;
-    uint8_t temp[128];
-};
+
+void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc);
+usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
+        struct usb_device_request *req, const void **ret_data,
+        uint16_t *ret_length);
+void usb_ehci_roothub_port_disown(usb_ehci_hc_t *sc, uint16_t index,
+        uint8_t lowspeed);
 
 #endif /* USB_EHCI_ROOT_HUB_H_ */
