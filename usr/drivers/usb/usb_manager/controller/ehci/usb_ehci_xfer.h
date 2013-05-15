@@ -15,4 +15,11 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer, usb_ehci_qh_t **qh_last
 uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer);
 
 
+void usb_ehci_xfer_done(struct usb_xfer *xfer);
+void usb_ehci_xfer_fs_isoc_done(struct usb_xfer *xfer);
+void usb_ehci_xfer_hs_isoc_done(struct usb_xfer *xfer);
+
+
+
+
 #endif /* USB_EHCI_XFER_H_ */

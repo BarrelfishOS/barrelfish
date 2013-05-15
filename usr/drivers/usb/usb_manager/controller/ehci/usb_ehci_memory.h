@@ -11,6 +11,16 @@
 #ifndef USB_EHCI_MEMORY_H_
 #define USB_EHCI_MEMORY_H_
 
+
+typedef enum {
+   USB_EHCI_DS_32BIT,
+   USB_EHCI_DS_64BIT
+} usb_ds_size_t;
+
+void usb_ehci_set_datastruct_size(usb_ds_size_t size);
+void usb_ehci_print_datastruct_sizes(void);
+
+
 struct usb_ehci_qh *usb_ehci_qh_alloc(void);
 void usb_ehci_qh_free(struct usb_ehci_qh *qh);
 
@@ -26,5 +36,5 @@ void usb_ehci_itd_free(struct usb_ehci_itd *itd);
 usb_paddr_t usb_ehci_buffer_page_alloc(void);
 void usb_ehci_buffer_page_free(usb_paddr_t buf);
 
-struct usb_ehci_pframes *usb_ehci_pframes_alloc(void);
+void usb_ehci_pframes_alloc(usb_ehci_hc_t *hc);
 #endif /* USB_EHCI_MEMORY_H_ */

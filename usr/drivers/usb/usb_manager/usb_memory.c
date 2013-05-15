@@ -70,7 +70,7 @@ uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
 }
 
 /*
- * \brief   allocates a fresh usb_page for hardware descriptors
+ * \brief   allocates a fresh usb_page for hardware descriptors of size 4k
  *
  * \return  pointer to struct usb_page or NULL
  */
@@ -83,7 +83,7 @@ struct usb_page *usb_mem_page_alloc(void)
         ret = free_pages;
         free_pages = free_pages->next;
         ret->next = NULL;
-        return ret;
+        return (ret);
     }
 
     ret = (struct usb_page *) malloc(sizeof(struct usb_page));
@@ -110,6 +110,7 @@ struct usb_page *usb_mem_page_alloc(void)
     ret->page.phys_addr = ret->frame_id.base;
     ret->page.size = USB_PAGE_SIZE;
     ret->free.size = USB_PAGE_SIZE;
+    ret->free.phys_addr = ret->page.phys_addr;
     ret->free.buffer = ret->page.buffer;
 
     return ret;

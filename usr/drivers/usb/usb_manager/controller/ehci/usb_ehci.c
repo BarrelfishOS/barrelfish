@@ -23,6 +23,7 @@
 #include "usb_ehci_memory.h"
 #include "usb_ehci_bus.h"
 #include "usb_ehci_root_hub.h"
+#include "usb_ehci_xfer.h"
 
 #define WAIT(ms) \
     for (int j = 0; j < ((ms)*10); j++) {printf("%c", 0xE);}
@@ -32,6 +33,10 @@
 /// the base for the EHCI control registers
 static struct ehci_t ehci_base;
 
+
+/**
+ * \brief   performs a soft reset on the EHCI host controller
+ */
 static usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
 {
     USB_DEBUG("resetting ehci controller.\n");
@@ -53,10 +58,35 @@ static usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
     }
     /* last check if reset was completed */
     if (ehci_usbcmd_hcr_rdf(hc->ehci_base)) {
-        return USB_ERR_TIMEOUT;
+        return (USB_ERR_TIMEOUT);
     }
 
-    return USB_ERR_OK;
+    /*
+     * checking if the reset was successfuly
+     */
+    if ((ehci_usbcmd_rawrd(hc->ehci_base) & 0xFFFFF0FF) != 0x00080000) {
+        debug_printf("WARNING: Reset is succeeded: USBCMD has wrong value.\n");
+    }
+    if (ehci_usbsts_rawrd(hc->ehci_base) != 0x00001000) {
+        debug_printf("WARNING: Reset is succeeded: USBST has wrong value.\n");
+    }
+    if (ehci_usbintr_rawrd(hc->ehci_base) != 0x00000000) {
+        debug_printf("WARNING: Reset is succeeded: USBINTR has wrong value.\n");
+    }
+    if (ehci_frindex_rawrd(hc->ehci_base) != 0x00000000) {
+        debug_printf("WARNING: Reset is succeeded: FRINDEX has wrong value.\n");
+    }
+    if (ehci_ctrldssegment_rawrd(hc->ehci_base) != 0x00000000) {
+        debug_printf("WARNING: Reset is succeeded: CTRLDS has wrong value.\n");
+    }
+    if (ehci_configflag_rawrd(hc->ehci_base) != 0x00000000) {
+        debug_printf("WARNING: Reset is succeeded: CONFIGFLG has wrong value.\n");
+    }
+    if ((ehci_portsc_rawrd(hc->ehci_base, 0) | 0x00001000) != 0x00003000) {
+        debug_printf("WARNING: Reset is succeeded: PORTSC has wrong value.\n");
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -90,14 +120,13 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
     return USB_ERR_TIMEOUT;
 }
 
-
 static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
 {
 
     USB_DEBUG(" initializing the controller hardware\n");
     if (ehci_hccparams_bit64ac_rdf(hc->ehci_base)) {
         debug_printf("NYI: Host controller uses 64-bit memory addresses!\n");
-        return USB_ERR_BAD_CONTEXT;
+        return (USB_ERR_BAD_CONTEXT);
 
         ehci_ctrldssegment_wr(hc->ehci_base, 0);
     }
@@ -106,7 +135,7 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
      * set the start of the lists
      */
     ehci_periodiclistbase_wr(hc->ehci_base, hc->pframes_phys);
-    //ehci_asynclistaddr_wr(hc->ehci_base, hc->qh_async_first->qh_self);
+    ehci_asynclistaddr_wr(hc->ehci_base, hc->qh_async_first->qh_self);
 
     /*
      * enable interrupts
@@ -121,9 +150,9 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     // interrupt threshold to 1 micro frame
     cmd = ehci_usbcmd_itc_insert(cmd, 1);
     // enable the async schedule
-    //cmd = ehci_usbcmd_ase_insert(cmd, 1);
+    cmd = ehci_usbcmd_ase_insert(cmd, 1);
     // enable the periodic schedule
-    //cmd = ehci_usbcmd_pse_insert(cmd, 1);
+    cmd = ehci_usbcmd_pse_insert(cmd, 1);
     // keep the frame list size
     cmd = ehci_usbcmd_fls_insert(cmd, ehci_usbcmd_fls_rdf(hc->ehci_base));
     // start the host controller
@@ -167,16 +196,29 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     printf("\n---------------------------------------\n");
 
     ehci_portsc_pri(buf, 1024, hc->ehci_base, 1);
-        printf("\n---------------------------------------\n");
-        printf(buf);
-        printf("\n---------------------------------------\n");
+    printf("\n---------------------------------------\n");
+    printf(buf);
+    printf("\n---------------------------------------\n");
 
-        ehci_usbsts_pr(buf, 1024, hc->ehci_base);
-            printf("\n---------------------------------------\n");
-            printf(buf);
-            printf("\n---------------------------------------\n");
     return (USB_ERR_OK);
 
+}
+
+
+static void usb_ehci_poll(usb_ehci_hc_t *hc) {
+
+    struct usb_xfer *xfer;
+    uint8_t repeat = 0;
+
+    do {
+        for (xfer = (&hc->controller->intr_queue.head)->first; xfer;
+                xfer = ((xfer))->wait_entry.next) {
+
+            if (usb_ehci_xfer_is_finished(xfer)) {
+                repeat = 1;
+            }
+        }
+    } while(repeat);
 
 }
 
@@ -192,6 +234,23 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
  */
 void usb_ehci_interrupt(usb_ehci_hc_t *hc)
 {
+    /*
+     * read the status register and mask out the interrupts [5..0]
+     */
+    ehci_usbsts_t intr = ehci_usbsts_rawrd(hc->ehci_base) & 0x3F;
+
+    if (!(intr)) {
+        /* there was no interrupt for this controller */
+        return;
+    }
+
+    if (!(intr & hc->enabled_interrupts)) {
+        /* there was an interrupt we dont have enabled */
+        USB_DEBUG("Unenabled interrupt happened.\n");
+        return;
+    }
+
+
 
 }
 
@@ -212,7 +271,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
 
     if (cap_offset == 0) {
         debug_printf("ERROR: EHCI capability register length is zero.\n");
-        return USB_ERR_INVAL;
+        return (USB_ERR_INVAL);
     }
 
     ehci_initialize(hc->ehci_base, (mackerel_addr_t) controller_base,
@@ -230,8 +289,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     debug_printf("Device found: EHCI controller rev: %x.%x with %u ports\n",
             hc->revision >> 8, hc->revision & 0xFF, hc->root_hub_num_ports);
 
-    USB_DEBUG("Resetting the host controller...");
-
     usb_error_t err;
     err = usb_ehci_hc_halt(hc);
     if (err != USB_ERR_OK) {
@@ -240,12 +297,12 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
 
     err = usb_ehci_hc_reset(hc);
     if (err != USB_ERR_OK) {
-            debug_printf("ERROR: Host controller not reset properly. \n");
-        }
+        debug_printf("ERROR: Host controller not reset properly. \n");
+    }
 
-    USB_DEBUG("Reset done.");
+    USB_DEBUG("Reset done.\n");
 
-    if (ehci_usbcmd_fls_rdf(hc->ehci_base)== ehci_frame_rsvd) {
+    if (ehci_usbcmd_fls_rdf(hc->ehci_base) == ehci_frame_rsvd) {
         /*
          * this field should be initialized to a correct values
          * having FLS=0x3 is invalid!
@@ -269,10 +326,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
 
     usb_ehci_qh_t *qh;
 
-    // TODO: MOVE DOWN!
-    usb_ehci_initialize_controller(hc);
-
-    return USB_ERR_OK;
+    USB_DEBUG("ehci init: allocate QHs for interupt transfers\n");
 
     /* setup the terminate qheue head */
     qh = usb_ehci_qh_alloc();
@@ -280,7 +334,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
     hc->qh_terminate = qh;
-
 
     /*
      * initialize the queue heads for the interrupt transfer typ
@@ -303,9 +356,9 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     uint16_t bit = USB_EHCI_VFRAMELIST_COUNT / 2;
     uint32_t curr, next;
 
-    while(bit) {
+    while (bit) {
         curr = bit;
-        while (curr & bit ) {
+        while (curr & bit) {
             usb_ehci_qh_t *qh_curr;
             usb_ehci_qh_t *qh_next;
 
@@ -324,6 +377,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh = hc->qh_intr_last[0];
     qh->qh_link = USB_EHCI_LINK_TERMINATE;
 
+    USB_DEBUG("ehci init: allocate iTDs and siTDs for isochronus transfers\n");
     /*
      * initialize the isochronus and isochronus split queues
      */
@@ -341,24 +395,30 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
         sitd->sitd_next.address = hc->qh_intr_last[next]->qh_self;
 
         usb_ehci_itd_t *itd = usb_ehci_itd_alloc();
-        hc->qh_itd_hs_p_last[i] = itd;
+        hc->qh_itd_hs_last[i] = itd;
 
         itd->itd_self |= USB_EHCI_LINKTYPE_ITD;
 
-        itd->itd_next.address = itd->itd_self;
+        itd->itd_next.address = sitd->sitd_self;
     }
 
-
+    USB_DEBUG("ehci init: initialize pframes\n");
     /*
      * initialize the pframes
      */
+    if (hc->pframes == NULL) {
+        usb_ehci_pframes_alloc(hc);
+    }
+    assert(hc->pframes);
+
     usb_paddr_t *pframes = (hc->pframes);
+
     for (uint32_t i = 0; i < USB_EHCI_FRAMELIST_COUNT; i++) {
         next = i & (USB_EHCI_VFRAMELIST_COUNT - 1);
-        (pframes[i]) = hc->qh_itd_hs_p_last[next]->itd_self;
+        (pframes[i]) = hc->qh_itd_hs_last[next]->itd_self;
     }
 
-
+    USB_DEBUG("ehci init: initialize async queue\n");
     /*
      * initialize the async queue
      */
@@ -377,5 +437,11 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh->qh_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
 
-    return USB_ERR_OK;
+    err = usb_ehci_initialize_controller(hc);
+
+    if (err == USB_ERR_OK) {
+        usb_ehci_poll(hc);
+    }
+
+    return (err);
 }

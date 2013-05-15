@@ -47,7 +47,7 @@
  */
 
 /// EHCI Isochronus HS Transfer Descriptor (iTD) alignment
-#define USB_EHCI_ITD_ALIGN 128
+#define USB_EHCI_ITD_ALIGN 64
 
 /// EHCI Split Isochronus Transfer Descriptor (siTD) alignment
 #define USB_EHCI_SITD_ALIGN 64
@@ -154,18 +154,18 @@ union usb_ehci_itd_bp {
         uint8_t endpoint :4;             ///< then endpoint number for this TD
         uint8_t _reserved :1;            ///< reserved, has to be zero
         uint8_t device_addres :7;        ///< the device of for this TD
-    } buffer_pointer_0;                   ///< Representation for BP 0
+    } bp_0;                   ///< Representation for BP 0
     struct bp_1 {
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
         uint8_t direction :1;            ///< Direction of the transfer (1=IN)
         uint16_t max_packet_size :11;    ///< maximum packet size for this EP
-    } buffer_pointer_1;                   ///< Representation for BP 1
+    } bp_1;                   ///< Representation for BP 1
     struct bp_2 {
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
         uint16_t _reserved :10;          ///< reserved, has to be zero
         uint8_t multi :2;               ///< num of transactions per uFrame 0..3
-    } buffer_pointer_2;                   ///< Representation for BP 2
-    usb_paddr_t buffer_pointer;           ///< Representation for BP 3..6
+    } bp_2;                   ///< Representation for BP 2
+    usb_paddr_t bp;           ///< Representation for BP 3..6
 };
 
 /// iTD buffer pointer type
@@ -182,7 +182,7 @@ typedef union usb_ehci_itd_bp usb_ehci_itd_bp_t;
 struct usb_ehci_itd {
     usb_ehci_td_next_t itd_next;        ///< next link pointer
     usb_ehci_itd_status_t itd_status[8];  ///< status fields of the transfer
-    usb_ehci_itd_bp_t buffer_pointer[7];  ///< buffer pointer list
+    usb_ehci_itd_bp_t itd_bp[7];  ///< buffer pointer list
     /* extra fields for management */
     usb_paddr_t itd_self;                ///< physical address of this iTD
     struct usb_ehci_itd *next;           ///< virtual pointer of iTDs
@@ -285,13 +285,14 @@ union usb_ehci_sitd_bp {
     struct usb_ehci_sitd_bp_0 {
         usb_paddr_t buffer_pointer :20;  ///< physical address of the buffer
         uint16_t offset :12;            ///< offset into the page buffer
-    } buffer_pointer_0;
+    } bp_0;
     struct usb_ehci_sitd_bp_1 {
         usb_paddr_t buffer_pointer :20;  ///< physical address of the buffer
         uint8_t _reserved :7;           ///< reserved, should be zero
         uint8_t tp :2;                  ///< transaction position
         uint8_t count :3;               ///< number of OUT start-split requests
-    } buffer_pointer;
+    } bp_1;
+    usb_paddr_t bp;
 };
 
 /// siTD buffer pointer list type
@@ -635,7 +636,7 @@ struct usb_ehci_hc {
     struct usb_ehci_qh *qh_intr_last[USB_EHCI_VFRAMELIST_COUNT];
     uint16_t qh_intr_stat[USB_EHCI_VFRAMELIST_COUNT];
     struct usb_ehci_sitd *qh_sitd_fs_last[USB_EHCI_VFRAMELIST_COUNT];
-    struct usb_ehci_itd *qh_itd_hs_p_last[USB_EHCI_VFRAMELIST_COUNT];
+    struct usb_ehci_itd *qh_itd_hs_last[USB_EHCI_VFRAMELIST_COUNT];
     struct usb_ehci_qh *qh_terminate;
     usb_paddr_t pframes_phys;
     usb_paddr_t *pframes;
@@ -666,5 +667,7 @@ typedef struct usb_ehci_hc usb_ehci_hc_t;
 
 void usb_ehci_interrupt(usb_ehci_hc_t *hc);
 usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base);
+
+
 
 #endif /* USB_EHCI_H_ */
