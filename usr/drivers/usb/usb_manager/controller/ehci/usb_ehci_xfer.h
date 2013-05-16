@@ -19,7 +19,8 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer);
 void usb_ehci_xfer_fs_isoc_done(struct usb_xfer *xfer);
 void usb_ehci_xfer_hs_isoc_done(struct usb_xfer *xfer);
 
-
+void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param);
+void usb_ehci_xfer_unsetup(struct usb_xfer *xfer);
 
 
 #endif /* USB_EHCI_XFER_H_ */

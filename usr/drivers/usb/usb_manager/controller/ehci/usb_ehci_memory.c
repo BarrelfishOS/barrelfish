@@ -397,12 +397,57 @@ void usb_ehci_itd_free(struct usb_ehci_itd *itd)
 
 usb_paddr_t usb_ehci_buffer_page_alloc(void)
 {
-    return 0;
+    struct usb_page *page;
+    if (free_pages != NULL) {
+        /* get the free apge */
+        page = free_pages;
+        free_pages = page->next;
+
+        /* put it into the used page */
+        page->next = used_pages;
+        used_pages = page;
+
+        /* return address */
+        return (page->page.phys_addr);
+    }
+
+    page = usb_mem_page_alloc();
+
+    // page has to be 4k aligned
+    assert(!(page->page.phys_addr & 0xFFF));
+
+    page->next = used_pages;
+    used_pages = page;
+
+    return (page->page.phys_addr);;
 }
 
 void usb_ehci_buffer_page_free(usb_paddr_t buf)
 {
+    struct usb_page *page = used_pages;
+    struct usb_page *prev = page;
+    while (page->next != NULL) {
+        if (page->page.phys_addr == buf) {
+            break;
+        }
+        prev = page;
+        page = page->next;
+    }
 
+    if (page->page.phys_addr != buf) {
+        /* page not found */
+        debug_printf("WARNING: freeing up a page that was not allocated");
+        return;
+    }
+
+    if (prev == page) {
+        used_pages = page->next;
+    } else {
+        prev->next = page->next;
+    }
+
+    page->next = free_pages;
+    free_pages = page;
 }
 
 void usb_ehci_pframes_alloc(usb_ehci_hc_t *hc)

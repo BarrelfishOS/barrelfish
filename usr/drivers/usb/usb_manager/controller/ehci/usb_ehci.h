@@ -350,7 +350,7 @@ struct usb_ehci_qtd_token {
 typedef struct usb_ehci_qtd_token usb_ehci_qtd_token_t;
 
 /// the maximum
-#define USB_EHCI_QTD_MAX_BYTES 0x5000;
+#define USB_EHCI_QTD_MAX_BYTES 0x4000;
 
 /*
  * qTD PID Codes

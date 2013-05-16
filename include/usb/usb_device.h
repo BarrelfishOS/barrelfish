@@ -103,6 +103,8 @@ struct usb_device {
     uint8_t depth;
     uint8_t hub_port_index;
     uint8_t hub_port_number;
+    uint8_t hs_hub_address;
+    uint8_t hs_hub_port_number;
     uint8_t iface_max;
     uint8_t ep_max;
 

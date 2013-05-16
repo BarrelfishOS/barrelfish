@@ -15,6 +15,8 @@ struct usb_device;
 struct usb_xfer;
 struct usb_xfer_config;
 
+
+
 void usb_transfer_setup_ctrl_default(struct usb_device *device,
         struct usb_request_state *st);
 void usb_transfer_start(struct usb_xfer *xfer);

@@ -320,8 +320,8 @@ struct usb_endpoint
 
     uint8_t ref_allocation;
     uint8_t ref_bandwidth;
-    uint8_t hs_start;
-    uint8_t hs_complete;
+    uint8_t hs_smask;
+    uint8_t hs_cmask;
     uint8_t hs_uframe;
 
     uint16_t max_packet_size;
