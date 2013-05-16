@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -421,7 +421,23 @@ static void populate_multiboot(struct dirent *root, struct bootinfo *bi)
 
             // append line to bootscript
             const char *args = remove_prefix(multiboot_module_rawstring(region));
+            char *line = NULL;
+
+            // Prepend a '/' if path is relative
+            if(args[0] != '/') {
+                line = calloc(strlen(args) + 2, 1);
+                line[0] = '/';
+                strcat(line, args);
+                args = line;
+            }
+
             err = append_to_file(bootscript_f, args);
+
+            // Free temporary buffer if allocated
+            if(line != NULL) {
+                free(line);
+            }
+
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "error appending to bootscript");
             }
