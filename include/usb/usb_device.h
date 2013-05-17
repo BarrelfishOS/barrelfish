@@ -75,7 +75,7 @@ struct usb_device {
     struct usb_manager_binding *usb_manager_binding;
     struct usb_interface *ifaces;
     struct usb_device *next;
-
+    uint32_t xfer_ids;
 
     struct usb_endpoint ctrl_ep;    /* Control Endpoint 0 */
     struct usb_endpoint *endpoints;
@@ -119,5 +119,12 @@ struct usb_device {
 
 };
 
+usb_error_t usb_device_get_iface_count(uint8_t *ret_count);
+usb_error_t usb_device_get_speed(usb_speed_t *ret_speed);
+usb_error_t usb_device_state(void);
+
+usb_error_t usb_device_suspend(void);
+usb_error_t usb_device_resume(void);
+usb_error_t usb_device_powersave(void);
 
 #endif /* USB_DEVICE_H_ */

@@ -155,6 +155,8 @@ struct usb_xfer {
     struct usb_request_state *usb_manager_request_state;
     void(*usb_manager_request_callback)(void *);
 
+    uint32_t xfer_id;
+
     struct {
         struct usb_xfer *next; /* next element */
         struct usb_xfer **prev_next; /* address of previous next element */
@@ -173,7 +175,7 @@ struct usb_xfer {
     void *hcd_td_cache;  // a field used to swap the tds
 
     uint32_t sum_bytes;
-    uint32_t actual_bytes;
+    uint32_t actual_bytes;/* TODO: REALLY NEEDED ? */
 
     uint32_t num_frames;
     uint32_t actual_frames;
@@ -337,5 +339,7 @@ struct usb_endpoint
 
 // the maximum number of endpoints
 #define USB_ENDPOINT_MAX 32
+
+
 
 #endif

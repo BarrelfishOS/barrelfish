@@ -293,7 +293,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     xfer = device->ctrl_xfer[0];
 
     if (xfer == NULL) {
-        return USB_ERR_NOMEM;
+        return (USB_ERR_NOMEM);
     }
 
     xfer->usb_manager_request_callback = req_state->callback;

@@ -205,24 +205,6 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
 }
 
 
-static void usb_ehci_poll(usb_ehci_hc_t *hc) {
-
-    struct usb_xfer *xfer;
-    uint8_t repeat = 0;
-
-    do {
-        for (xfer = (&hc->controller->intr_queue.head)->first; xfer;
-                xfer = ((xfer))->wait_entry.next) {
-
-            if (usb_ehci_xfer_is_finished(xfer)) {
-                repeat = 1;
-            }
-        }
-    } while(repeat);
-
-}
-
-
 /*
  * Exported Functions
  */

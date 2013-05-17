@@ -255,7 +255,7 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
 {
     if (setup_count == 0) {
         debug_printf("usb_transfer_setup(): invalid setup count\n");
-        return USB_ERR_INVAL;
+        return (USB_ERR_INVAL);
     }
 
     if (ifaces == 0) {

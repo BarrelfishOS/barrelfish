@@ -37,5 +37,7 @@ interface usb_manager "USB Manager Interface" {
     
     message transfer_submit(uint8 xfer_id);
     
+    message device_removed();    
+    
     rpc transfer_status();
 };

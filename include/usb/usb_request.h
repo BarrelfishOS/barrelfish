@@ -18,9 +18,12 @@
 #ifndef _LIB_USB_REQUEST_H
 #define _LIB_USB_REQUEST_H
 
+#include <barrelfish/barrelfish.h>
+
+#include <usb/usb.h>
 #include <usb/usb_descriptor.h>
 #include <usb/usb_error.h>
-#include <usb/usb.h>
+
 
 /**
  * ------------------------------------------------------------------------

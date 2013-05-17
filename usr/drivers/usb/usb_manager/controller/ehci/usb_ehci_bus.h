@@ -12,4 +12,14 @@
 
 struct usb_hcdi_bus_fn *usb_ehci_get_bus_fn(void);
 
+void usb_ehci_endpoint_init(struct usb_device *device,
+        struct usb_endpoint_descriptor *ep_desc, struct usb_endpoint *ep);
+
+void usb_ehci_get_dma_delay(struct usb_device *device, uint32_t *ret_delay);
+void usb_ehci_device_resume(struct usb_device *device);
+void usb_ehci_device_suspend(struct usb_device *device);
+void usb_ehci_sleep(struct usb_host_controller *hc, uint32_t state);
+void usb_ehci_set_power(struct usb_host_controller *hc);
+void usb_ehci_poll(usb_ehci_hc_t *hc);
+
 #endif /* _USB_EHCI_BUS_H_ */
