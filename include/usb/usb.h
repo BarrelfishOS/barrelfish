@@ -10,6 +10,8 @@
 #ifndef LIBUSB_USB_H_
 #define LIBUSB_USB_H_
 
+#include <usb/usb_error.h>
+
 /**
  *
  */
@@ -80,5 +82,7 @@ typedef struct usb_status usb_status_t;
 
 
 #define USB_DEBUG(x...) debug_printf(x)
+
+usb_error_t usb_driver_init(void);
 
 #endif

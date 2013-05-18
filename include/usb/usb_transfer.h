@@ -27,9 +27,9 @@ typedef void (usb_transfer_cb_t)(usb_error_t err, void *data,
  */
 enum usb_transfer_state {
     USB_TRANSFER_STATE_SETUP,   ///< transfer is setup
+    USB_TRANSFER_STATE_STALLED, ///< transfer is in stalled state
     USB_TRANSFER_STATE_DONE,    ///< transfer is executed successfully
     USB_TRANSFER_STATE_ERROR,   ///< transfer is in error state
-    USB_TRANSFER_STATE_STALLED  ///< transfer is in stalled state
 };
 
 /// USB transfer state type

@@ -235,7 +235,6 @@ void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count)
 
         xfer->endpoint->ref_allocation--;
 
-
     }
 }
 
@@ -273,15 +272,13 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
      * TODO: CHECK FOR DEVICE SPEED MAX
      */
 
-
     /*
      * setting up all transfers
      */
 
-     /*
-      * todo: initialize done queue callback wrapper
-      */
-
+    /*
+     * todo: initialize done queue callback wrapper
+     */
 
     return USB_ERR_OK;
 }
@@ -334,3 +331,327 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
     return 1;
 
 }
+
+/*
+ * --------------------------------------------------------------------------
+ * Flounder Callbacks
+ * --------------------------------------------------------------------------
+ */
+
+/// define for checking of error codes and retrying
+#define USB_TX_TRANSER_ERR(_retry) \
+    if (err_is_fail(err)) { \
+       if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {\
+           USB_DEBUG("re-sending _retry() \n");\
+           txcont = MKCONT(_retry, st);\
+           struct waitset *ws = get_default_waitset();\
+           err = st->bind->register_send(st->bind, ws, txcont);\
+           if (err_is_fail(err)) {\
+               DEBUG_ERR(err, "error register_send on binding failed!\n");\
+           }\
+       } else {\
+           DEBUG_ERR(err, "error _retry(): sending response!\n");\
+           free(st);\
+       }\
+   }\
+
+
+static void usb_tx_transfer_generic_cb(void *a)
+{
+    USB_DEBUG("usb_tx_generic_cb: sending transfer response successful\n");
+    free(a);
+}
+
+/* ------------------------- transfer setup ------------------------- */
+
+struct usb_tsetup_state {
+    struct usb_manager_binding *bind;
+    uint32_t tid;
+    usb_error_t error;
+};
+
+static void usb_tx_transfer_setup_response(void *a)
+{
+    errval_t err;
+    struct usb_tsetup_state *st = (struct usb_tsetup_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_setup_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_setup_response__tx(st->bind, txcont,
+            (uint32_t) st->error, st->tid);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_setup_response);
+}
+
+/**
+ *
+ */
+void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
+        usb_manager_setup_param_t params)
+{
+    struct usb_tsetup_state *st = malloc(sizeof(struct usb_tsetup_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    switch ((usb_type_t) type) {
+        case USB_TYPE_BULK:
+            USB_DEBUG("received usb_rx_transfer_setup_call [bulk type]\n");
+            /* TODO: Handle transfer setup */
+            st->error = USB_ERR_OK;
+            st->tid = 123;
+            break;
+        case USB_TYPE_CTRL:
+            USB_DEBUG("received usb_rx_transfer_setup_call [ctrl type]\n");
+            /* TODO: Handle transfer setup */
+            st->error = USB_ERR_OK;
+            st->tid = 234;
+            break;
+        case USB_TYPE_ISOC:
+            USB_DEBUG("received usb_rx_transfer_setup_call [isoc type]\n");
+            /* TODO: Handle transfer setup */
+            st->error = USB_ERR_OK;
+            st->tid = 345;
+            break;
+        case USB_TYPE_INTR:
+            USB_DEBUG("received usb_rx_transfer_setup_call [intr type]\n");
+            /* TODO: Handle transfer setup */
+            st->error = USB_ERR_OK;
+            st->tid = 123;
+            break;
+        default:
+            USB_DEBUG("received usb_rx_transfer_setup_call [invalid type]\n");
+            st->error = USB_ERR_INVAL;
+            break;
+    }
+    usb_tx_transfer_setup_response(st);
+}
+
+/* ------------------------- transfer unsetup ------------------------- */
+
+struct usb_tunsetup_state {
+    struct usb_manager_binding *bind;
+    usb_error_t error;
+};
+
+static void usb_tx_transfer_unsetup_response(void *a)
+{
+    errval_t err;
+    struct usb_tunsetup_state *st = (struct usb_tunsetup_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_unsetup_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_unsetup_response__tx(st->bind, txcont,
+            (uint32_t) st->error);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_unsetup_response);
+}
+
+/**
+ *
+ */
+void usb_rx_transfer_unsetup_call(struct usb_manager_binding *bind,
+        uint32_t tid)
+{
+    struct usb_tunsetup_state *st = malloc(sizeof(struct usb_tunsetup_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    usb_tx_transfer_unsetup_response(st);
+}
+
+/* ------------------------- transfer start ------------------------- */
+
+struct usb_tstart_state {
+    struct usb_manager_binding *bind;
+    usb_error_t error;
+
+};
+
+static void usb_tx_transfer_start_response(void *a)
+{
+    errval_t err;
+    struct usb_tstart_state *st = (struct usb_tstart_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_start_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_start_response__tx(st->bind, txcont,
+            (uint32_t) st->error);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_start_response);
+}
+
+void usb_rx_transfer_start_call(struct usb_manager_binding *bind, uint32_t tid)
+{
+    struct usb_tstart_state *st = malloc(sizeof(struct usb_tstart_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    usb_tx_transfer_start_response(st);
+}
+
+/* ------------------------- transfer stop ------------------------- */
+
+struct usb_tstop_state {
+    struct usb_manager_binding *bind;
+    usb_error_t error;
+};
+
+static void usb_tx_transfer_stop_response(void *a)
+{
+    errval_t err;
+    struct usb_tstop_state *st = (struct usb_tstop_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_stop_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_stop_response__tx(st->bind, txcont,
+            (uint32_t) st->error);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_stop_response);
+}
+
+void usb_rx_transfer_stop_call(struct usb_manager_binding *bind, uint32_t tid)
+{
+    struct usb_tstop_state *st = malloc(sizeof(struct usb_tstop_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    usb_tx_transfer_stop_response(st);
+}
+
+/* ------------------------- transfer status ------------------------- */
+
+struct usb_tstatus_state {
+    struct usb_manager_binding *bind;
+    usb_error_t error;
+    uint32_t actlen;
+    uint32_t length;
+    uint32_t actframes;
+    uint32_t numframes;
+};
+
+static void usb_tx_transfer_status_response(void *a)
+{
+    errval_t err;
+    struct usb_tstatus_state *st = (struct usb_tstatus_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_status_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_status_response__tx(st->bind, txcont,
+            (uint32_t) st->error, st->actlen, st->length, st->actframes,
+            st->numframes);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_status_response);
+}
+
+void usb_rx_transfer_status_call(struct usb_manager_binding *bind, uint32_t tid)
+{
+    struct usb_tstatus_state *st = malloc(sizeof(struct usb_tstatus_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    usb_tx_transfer_status_response(st);
+}
+
+/* ------------------------- transfer state ------------------------- */
+
+struct usb_tstate_state {
+    struct usb_manager_binding *bind;
+    usb_error_t error;
+    uint32_t state;
+};
+
+static void usb_tx_transfer_state_response(void *a)
+{
+    errval_t err;
+    struct usb_tstate_state *st = (struct usb_tstate_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_state_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_state_response__tx(st->bind, txcont,
+            (uint32_t) st->error, st->state);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_state_response);
+}
+
+void usb_rx_transfer_state_call(struct usb_manager_binding *bind, uint32_t tid)
+{
+    struct usb_tstate_state *st = malloc(sizeof(struct usb_tstate_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    usb_tx_transfer_state_response(st);
+}
+
+/* ------------------------- transfer clear stall ------------------------- */
+
+struct usb_tclearstall_state {
+    struct usb_manager_binding *bind;
+    usb_error_t error;
+};
+
+static void usb_tx_transfer_clear_stall_response(void *a)
+{
+    errval_t err;
+    struct usb_tclearstall_state *st = (struct usb_tclearstall_state *) a;
+
+    USB_DEBUG("usb_tx_transfer_clear_stall_response()\n");
+
+    struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
+
+    err = usb_manager_transfer_clear_stall_response__tx(st->bind, txcont,
+            (uint32_t) st->error);
+
+    USB_TX_TRANSER_ERR(usb_tx_transfer_clear_stall_response);
+}
+
+void usb_rx_transfer_clear_stall_call(struct usb_manager_binding *bind,
+        uint32_t tid)
+{
+    struct usb_tclearstall_state *st = malloc(
+            sizeof(struct usb_tclearstall_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
+
+    st->bind = bind;
+
+    usb_tx_transfer_clear_stall_response(st);
+}
+

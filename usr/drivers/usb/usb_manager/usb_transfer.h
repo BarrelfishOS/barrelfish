@@ -11,9 +11,27 @@
 #ifndef USB_TRANSFER_H_
 #define USB_TRANSFER_H_
 
+#include <if/usb_manager_defs.h>
+#include <if/usb_manager_rpcclient_defs.h>
+
 struct usb_device;
 struct usb_xfer;
 struct usb_xfer_config;
+
+/*
+ * flounder callback functions
+ */
+void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
+        usb_manager_setup_param_t params);
+void usb_rx_transfer_unsetup_call(struct usb_manager_binding *bind,
+        uint32_t tid);
+void usb_rx_transfer_start_call(struct usb_manager_binding *bind, uint32_t tid);
+void usb_rx_transfer_stop_call(struct usb_manager_binding *bind, uint32_t tid);
+void usb_rx_transfer_status_call(struct usb_manager_binding *bind,
+        uint32_t tid);
+void usb_rx_transfer_state_call(struct usb_manager_binding *bind, uint32_t tid);
+void usb_rx_transfer_clear_stall_call(struct usb_manager_binding *bind,
+        uint32_t tid);
 
 
 

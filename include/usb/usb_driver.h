@@ -14,8 +14,6 @@
 #include <usb/usb_error.h>
 #include <usb/usb_request.h>
 
-usb_error_t usb_driver_init(void);
-
 #include <if/usb_manager_defs.h>
 #include <if/usb_manager_rpcclient_defs.h>
 

@@ -4,7 +4,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <pager/pager.h>
 
 #include <usb/usb.h>
 #include <usb/usb_error.h>
@@ -17,6 +16,7 @@
 #include "usb_controller.h"
 #include "usb_request.h"
 #include "usb_device.h"
+#include "usb_transfer.h"
 
 static usb_host_controller_t *host_controllers = NULL;
 
@@ -157,7 +157,17 @@ static struct usb_manager_rx_vtbl usb_manager_handle_fn = {
         .request_write_call = usb_rx_request_write_call,
         .request_call = usb_rx_request_call,
         .connect_call = usb_rx_connect_call,
+        .transfer_setup_call = usb_rx_transfer_setup_call,
+         .transfer_unsetup_call = usb_rx_transfer_unsetup_call,
+         .transfer_start_call =  usb_rx_transfer_start_call,
+         .transfer_stop_call = usb_rx_transfer_stop_call,
+         .transfer_status_call =  usb_rx_transfer_status_call,
+         .transfer_state_call = usb_rx_transfer_state_call,
+         .transfer_clear_stall_call = usb_rx_transfer_clear_stall_call,
 };
+
+
+
 
 /**
  *

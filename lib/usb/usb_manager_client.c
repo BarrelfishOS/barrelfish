@@ -22,12 +22,12 @@
 
 #include "usb_manager_client.h"
 
-#if 0
+
 static void done_cb(struct usb_manager_binding *_binding, uint32_t tid, uint32_t error, uint8_t *data, size_t length)
 {
-    printf("received done notify!");
+    debug_printf("received done notify!\n");
 }
-#endif
+
 
 /*
  * --------------------------------------------------------------------------
@@ -64,7 +64,7 @@ static void usb_bind_cb(void *st, errval_t err,
 
     usb_manager_rpc_client_init(&usb_manager, b);
 
-    //b->rx_vtbl.transfer_done_notify = done_cb;
+    b->rx_vtbl.transfer_done_notify = done_cb;
 
     //b->rx_vtbl.transfer_done_notify_response = done_cb;
 
