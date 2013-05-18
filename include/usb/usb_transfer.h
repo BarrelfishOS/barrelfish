@@ -56,11 +56,11 @@ typedef struct usb_transfer_setup usb_transfer_setup_t;
 usb_error_t usb_transfer_setup_control(usb_transfer_setup_t *setup,
         usb_transfer_cb_t *done_cb, usb_xfer_id_t *ret_id);
 usb_error_t usb_transfer_setup_isoc(usb_transfer_setup_t *setup,
-        usb_transfer_cb_t *done_c, usb_xfer_id_t *ret_id);
+        usb_transfer_cb_t *done_cb, usb_xfer_id_t *ret_id);
 usb_error_t usb_transfer_setup_bulk(usb_transfer_setup_t *setup,
-        usb_transfer_cb_t *done_c, usb_xfer_id_t *ret_id);
+        usb_transfer_cb_t *done_cb, usb_xfer_id_t *ret_id);
 usb_error_t usb_transfer_setup_intr(usb_transfer_setup_t *setup,
-        usb_transfer_cb_t *done_c, usb_xfer_id_t *ret_id);
+        usb_transfer_cb_t *done_cb, usb_xfer_id_t *ret_id);
 usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid);
 
 /* transfer control */
@@ -71,8 +71,8 @@ usb_error_t usb_transfer_stop(usb_xfer_id_t tid);
 usb_error_t usb_transfer_clear_stall(usb_xfer_id_t tid);
 
 /* state */
-usb_error_t usb_transfer_state(usb_xfer_id_t tid, uint32_t *ret_state);
-usb_error_t usb_transfer_status(usb_xfer_id_t tid, uint32_t *ret_actlen,
+usb_error_t usb_transfer_get_state(usb_xfer_id_t tid, usb_tstate_t *ret_state);
+usb_error_t usb_transfer_get_status(usb_xfer_id_t tid, uint32_t *ret_actlen,
         uint32_t *ret_length, uint32_t *ret_actframes, uint32_t *ret_numframes);
 
 #endif

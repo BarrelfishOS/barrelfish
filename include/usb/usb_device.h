@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include <usb/usb.h>
+#include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
 #include <usb/usb_xfer.h> /* for usb_endpoint */
 

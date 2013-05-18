@@ -16,9 +16,10 @@
 
 #include <usb/usb.h>
 #include <usb/usb_request.h>
-#include <usb/usb_device.h>
 #include <usb/usb_xfer.h>
 #include <usb/usb_transfer.h>
+
+#include "usb_manager_client.h"
 
 /*
  * -------------------------------------------------------------------------
@@ -39,7 +40,7 @@ struct usb_xfer_state {
 };
 
 /// stores the created transfer
-//static struct usb_xfer_state xfers = NULL;
+static struct usb_xfer_state *xfers = NULL;
 
 /*
  * -------------------------------------------------------------------------
@@ -62,6 +63,10 @@ struct usb_xfer_state {
 usb_error_t usb_transfer_setup_control(usb_transfer_setup_t *setup,
         usb_transfer_cb_t *done_cb, usb_xfer_id_t *ret_id)
 {
+    //  err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
+   // sizeof(req), (uint8_t **) &data, length, ret_status);
+
+    xfers = NULL;
     return (USB_ERR_OK);
 }
 
@@ -186,12 +191,34 @@ usb_error_t usb_transfer_clear_stall(usb_xfer_id_t tid)
  * -------------------------------------------------------------------------
  */
 
-usb_error_t usb_transfer_state(usb_xfer_id_t tid, uint32_t *ret_state)
+/**
+ * \brief   gets the state of the USB transfer
+ *
+ * \param   tid         the ID of the transfer to get the state
+ * \param   ret_state   the returned state
+ *
+ * \return  USB_ERR_OK on success
+ *          USB_ERR_XX on failure
+ */
+usb_error_t usb_transfer_get_state(usb_xfer_id_t tid, usb_tstate_t *ret_state)
 {
     return (USB_ERR_OK);
 }
 
-usb_error_t usb_transfer_status(usb_xfer_id_t tid, uint32_t *ret_actlen,
+
+/**
+ * \brief   gets the status of the USB transfer
+ *
+ * \param   tid             the ID of the transfer to get the status
+ * \param   ret_actlen      the actual length of the transfer processed
+ * \param   ret_length      the total length of the transfer
+ * \param   ret_actframes   the actual frames processed
+ * \param   ret_numframes   the total frames of the transfer
+ *
+ * \return  USB_ERR_OK on success
+ *          USB_ERR_XX on failure
+ */
+usb_error_t usb_transfer_get_status(usb_xfer_id_t tid, uint32_t *ret_actlen,
         uint32_t *ret_length, uint32_t *ret_actframes, uint32_t *ret_numframes)
 {
     return (USB_ERR_OK);

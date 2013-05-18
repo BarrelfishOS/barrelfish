@@ -21,15 +21,92 @@
 static usb_host_controller_t *host_controllers = NULL;
 
 /*
- * ========================================================================
- * Service Export Functions
- * ========================================================================
+ * ------------------------------------------------------------------------
+ * Service connect
+ * ------------------------------------------------------------------------
  */
 
-/*
- * service name
- */
+/// the service name to export
 static const char *usb_manager_name = "usb_manager_service";
+
+/**
+ * struct representing the state of a new USB driver connection
+ */
+struct usb_manager_connect_state {
+    struct usb_manager_binding *b;  ///< the usb_manager_binding struct
+    usb_error_t error;              ///< the outcome of the initial setup
+};
+
+static void usb_driver_connect_cb(void *a)
+{
+    USB_DEBUG("driver connect call sucessfull terminated\n");
+    free(a);
+}
+
+static void usb_driver_test_cb(void *a)
+{
+    USB_DEBUG("driver xfer done notify successful terminated\n");
+}
+
+struct usb_manager_connect_state test;
+
+static void usb_driver_test_response(void *a) {
+    USB_DEBUG("sending xfer done notify\n");
+    struct event_closure txcont = MKCONT(usb_driver_test_cb, &test);
+    errval_t err;
+        uint8_t data[4];
+        err = usb_manager_transfer_done_notify__tx(test.b, txcont, 1, 0,  data, 4);
+
+
+        if (err_is_fail(err)) {
+            if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+                // try to resend
+                USB_DEBUG("resending done notify response\n");
+                            txcont = MKCONT(usb_driver_test_response, &test);
+                            err = test.b->register_send(test.b, get_default_waitset(), txcont);
+                            if (err_is_fail(err)) {
+                                DEBUG_ERR(err, "failed to register send");
+                            }
+            } else {
+                // error
+                DEBUG_ERR(err, "error while sending done notify");
+
+            }
+        }
+}
+
+
+static void usb_driver_connect_response(void *a)
+{
+    errval_t err;
+    struct usb_manager_connect_state *st = a;
+
+    test.b = st->b;
+
+    USB_DEBUG("sending driver connect response\n");
+
+    struct event_closure txcont = MKCONT(usb_driver_connect_cb, st);
+
+    err = usb_manager_connect_response__tx(st->b, txcont, st->error);
+
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            // try to resend
+            USB_DEBUG("resending driver connect response\n");
+            txcont = MKCONT(usb_driver_connect_response, st);
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to register send");
+            }
+        } else {
+            // error
+            DEBUG_ERR(err, "error while seniding driver connect response");
+            free(st);
+        }
+    }
+    usb_driver_test_response(NULL);
+}
+
 
 /**
  * \brief
@@ -39,23 +116,37 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
 {
     debug_printf("server: received connect call from new device driver\n");
 
-    /*
-     * TODO: set the initial configuration
-     */
-    return;
+    struct usb_manager_connect_state *st;
 
+    st = malloc(sizeof(struct usb_manager_connect_state));
+
+    if (st == NULL) {
+        USER_PANIC("cannot reply, out of memory!");
+    }
+
+    st->b = bind;
+
+    /*
+     * TODO: DEVICE SETUP
+     */
+#if 0
     struct usb_device *dev = usb_device_get_pending();
 
-    assert(dev != NULL);
+        assert(dev != NULL);
 
-    bind->st = dev;
-    dev->usb_manager_binding = bind;
+        bind->st = dev;
+        dev->usb_manager_binding = bind;
 
-    /*
-     * TODO: Configure Device
-     */
+        /*
+         * TODO: Configure Device
+         */
 
-    usb_device_config_complete(dev);
+        usb_device_config_complete(dev);
+#endif
+    st->error = USB_ERR_OK;
+
+    // send response
+    usb_driver_connect_response(st);
 }
 
 /**
@@ -76,7 +167,7 @@ static errval_t service_connected_cb(void *st, struct usb_manager_binding *b)
     debug_printf("service_connected_cb(): Setting handler functions.\n");
     b->rx_vtbl = usb_manager_handle_fn;
 
-    return SYS_ERR_OK;
+    return (SYS_ERR_OK);
 }
 
 /**

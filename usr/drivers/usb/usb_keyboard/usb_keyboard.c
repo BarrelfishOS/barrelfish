@@ -21,10 +21,13 @@ int main(int argc, char *argv[])
     struct waitset *ws = get_default_waitset();
         while (1) {
             err = event_dispatch(ws);
+            printf("event dispatched...\n");
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "in event_dispatch");
                 break;
             }
         }
+
+        printf("KEYBOARD TERMINATED!");
 // ff
 }

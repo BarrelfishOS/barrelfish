@@ -17,6 +17,11 @@
 #include <usb/usb_request.h>
 #include <usb/usb_descriptor.h>
 
+#include <if/usb_manager_defs.h>
+#include <if/usb_manager_rpcclient_defs.h>
+
+#include "usb_manager_client.h"
+
 /**
  * \brief this request is used to clear or disable a specific feature.
  *
@@ -78,7 +83,7 @@ usb_error_t usb_get_configuration(uint8_t *ret_config)
     req.wLength = 1;
 
     // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (USB_ERR_OK); //usb_do_request(&req);
 }
 
 /**
@@ -375,7 +380,7 @@ usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
  *  the request.
  */
 usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
-        uint8_t index)
+        uint8_t recipent_index)
 {
     struct usb_device_request req;
 
@@ -389,13 +394,13 @@ usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
 
     if (recipient != USB_REQUEST_RECIPIENT_DEVICE) {
         // the LSb of the wIndex only stores the index of an endpoint/interface
-        req.wIndex = index;
+        req.wIndex = recipent_index;
     }
 
     if (feature == USB_REQUEST_FEATURE_TEST_MODE) {
         if (recipient != USB_REQUEST_RECIPIENT_DEVICE) {
             // only devices may get an TEST_MODE feature request
-            return USB_ERR_BAD_REQUEST;
+            return (USB_ERR_BAD_REQUEST);
         } else {
             req.wIndex = (test << 8);
         }
@@ -471,3 +476,101 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
     return USB_ERR_OK; //usb_do_request(&req);
 }
 
+
+
+/**
+ * \brief
+ *
+ * \return
+ */
+usb_error_t usb_do_request(struct usb_device_request *req)
+{
+    errval_t err;
+    uint16_t *ret_status  = 0;
+    usb_error_t ret;
+
+    debug_printf("libusb: usb_do_request()");
+
+    err = usb_manager.vtbl.request(&usb_manager, (uint8_t*) req, sizeof(req),
+            ret_status);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "libusb: do_request rpc failed");
+        return (USB_ERR_IDC);
+    }
+
+    ret = (usb_error_t) *ret_status;
+    free(ret_status);
+
+    debug_printf("libusb: usb_do_request() succeeded");
+
+    return (ret);
+}
+
+/**
+ * \brief
+ *
+ * \return
+ */
+usb_error_t usb_do_request_write(struct usb_device_request *req,
+        uint16_t length, void *data)
+{
+    errval_t err;
+    usb_error_t ret;
+    uint16_t *ret_status = 0;
+
+    debug_printf("libusb: usb_do_request_write()");
+
+    err = usb_manager.vtbl.request_write(&usb_manager, (uint8_t*) req,
+            sizeof(req), (uint8_t *) data, length, ret_status);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "libusb: do_request_write rpc failed");
+        return (USB_ERR_IDC);
+    }
+
+    debug_printf("libusb: usb_do_request_write() succeeded");
+
+    ret = (usb_error_t) *ret_status;
+    free(ret_status);
+
+    return (ret);
+}
+
+/**
+ * \brief
+ *
+ * \return
+ */
+usb_error_t usb_do_request_read(struct usb_device_request *req,
+        uint16_t *ret_length, void **ret_data)
+{
+    errval_t err;
+    uint16_t *ret_status  = 0;
+    uint8_t *data  = 0;
+    size_t *length  = 0;
+    usb_error_t ret;
+
+    debug_printf("libusb: usb_do_request_read()");
+
+    err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
+            sizeof(req), (uint8_t **) &data, length, ret_status);
+
+    *ret_length = *length;
+    free(length);
+    ret = (usb_error_t) *ret_status;
+    free(ret_status);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "libusb: do_request_write rpc failed");
+        *ret_length = 0;
+        *ret_data = NULL;
+        return (USB_ERR_IDC);
+    }
+
+    debug_printf("libusb: usb_do_request_read() got data (len=%i)", *ret_length);
+
+    *ret_data = (void *) data;
+
+    return (ret);
+}

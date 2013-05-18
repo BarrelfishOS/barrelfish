@@ -104,6 +104,7 @@ struct usb_xfer_flags_internal {
  *  - prescale              prescale to frames for isochr transfers
  */
 struct usb_xfer_flags {
+    uint8_t _unused : 6;            ///< unused bits to fill up the 2 bytes
     uint8_t short_xfer_forced :1;
     uint8_t short_xfer_ok :1;
     uint8_t short_frames_ok :1;
@@ -175,7 +176,7 @@ struct usb_xfer {
     void *hcd_td_cache;  // a field used to swap the tds
 
     uint32_t sum_bytes;
-    uint32_t actual_bytes;/* TODO: REALLY NEEDED ? */
+    uint32_t actual_bytes;
 
     uint32_t num_frames;
     uint32_t actual_frames;

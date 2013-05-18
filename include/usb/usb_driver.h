@@ -16,12 +16,6 @@
 
 usb_error_t usb_driver_init(void);
 
-usb_error_t usb_do_request(struct usb_device_request *req);
-usb_error_t usb_do_request_write(struct usb_device_request *req,
-        uint16_t length, void *data);
-usb_error_t usb_do_request_read(struct usb_device_request *req,
-        uint16_t *ret_length, void **ret_data);
-
 #include <if/usb_manager_defs.h>
 #include <if/usb_manager_rpcclient_defs.h>
 

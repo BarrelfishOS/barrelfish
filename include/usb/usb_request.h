@@ -151,6 +151,11 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface);
 usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame);
 
 
+usb_error_t usb_do_request(struct usb_device_request *req);
+usb_error_t usb_do_request_write(struct usb_device_request *req,
+        uint16_t length, void *data);
+usb_error_t usb_do_request_read(struct usb_device_request *req,
+        uint16_t *ret_length, void **ret_data);
 /*
  * FLAGS
  */
