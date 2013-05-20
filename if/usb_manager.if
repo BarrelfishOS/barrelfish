@@ -27,7 +27,7 @@ interface usb_manager "USB Manager Interface" {
      * ---------------------------------------------------------------------- 
      */
     
-    rpc connect(in uint16 init_config, out uint32 ret_error);
+    rpc connect(in uint16 init_config, out uint32 ret_error, out uint8 ret_desc[length]);
 
     message device_disconnect_notify();
     
@@ -40,13 +40,13 @@ interface usb_manager "USB Manager Interface" {
      
     rpc request_read(in uint8 request[req_length], 
                             out uint8 data[data_length], 
-                            out uint16 ret_status);
+                            out uint32 ret_status);
                             
     rpc request_write(in uint8 request[req_length], 
                             in uint8 data[data_length],
-                            out uint16 ret_status);
+                            out uint32 ret_status);
                             
-    rpc request(in uint8 request[req_length], out uint16 ret_status);
+    rpc request(in uint8 request[req_length], out uint32 ret_status);
     
     
     /* 

@@ -56,10 +56,10 @@ typedef enum usb_revision {
  *
  */
 typedef enum usb_type {
-    USB_TYPE_ISOC = 0,
-    USB_TYPE_INTR,
-    USB_TYPE_CTRL,
-    USB_TYPE_BULK
+    USB_TYPE_CTRL = 0,
+    USB_TYPE_ISOC,
+    USB_TYPE_BULK,
+    USB_TYPE_INTR
 } usb_type_t;
 
 
@@ -83,6 +83,6 @@ typedef struct usb_status usb_status_t;
 
 #define USB_DEBUG(x...) debug_printf(x)
 
-usb_error_t usb_driver_init(void);
+usb_error_t usb_lib_init(void);
 
 #endif

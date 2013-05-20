@@ -76,11 +76,7 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
                 && (device->ctrl_ep_desc.wMaxPacketSize
                         == device->device_desc.bMaxPacketSize0));
 
-        xfer->usb_manager_request_state = st;
-        xfer->usb_manager_request_callback = st->callback;
-
         if ((device->flags.usb_mode == USB_MODE_DEVICE) && xfer_reuse) {
-
             usb_transfer_start(xfer);
             return;
         }
@@ -99,9 +95,6 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
         debug_printf("could not allocate default control transfer\n");
         return;
     }
-
-    xfer->usb_manager_request_state = st;
-    xfer->usb_manager_request_callback = st->callback;
 
     // start the usb transfer
     usb_transfer_start(xfer);
@@ -248,6 +241,8 @@ void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count)
  * \para    setup_count the number of setups we have to do
  * \
  */
+//usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
+//        struct usb_xfer *usb_xfer, const struct usb_xfer_config *setup)
 usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
         struct usb_xfer **usb_xfers, const struct usb_xfer_config *setups,
         uint16_t setup_count)
@@ -280,7 +275,7 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
      * todo: initialize done queue callback wrapper
      */
 
-    return USB_ERR_OK;
+    return (USB_ERR_OK);
 }
 
 /**
@@ -297,7 +292,7 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
      * there is no transfer, so it is completed
      */
     if (xfer == NULL) {
-        return 1;
+        return (1);
     }
 
     /*
@@ -305,14 +300,14 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
      * then we are not completed
      */
     if (xfer->flags_internal.transferring) {
-        return 0;
+        return (0);
     }
 
     /*
      * if we are waiting on a queue then we are not finished
      */
     if (xfer->wait_queue) {
-        return 0;
+        return (0);
     }
 
     /*
@@ -325,11 +320,10 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
      * we are scheduled for callback so not quite finished yet
      */
     if (queue->current == xfer) {
-        return 0;
+        return (0);
     }
 
-    return 1;
-
+    return (1);
 }
 
 /*

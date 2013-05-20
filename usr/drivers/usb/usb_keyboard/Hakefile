@@ -6,14 +6,15 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for drivers/serial
+-- Hakefile for drivers/usb/usb_keyboard
 -- 
 --------------------------------------------------------------------------
 
 [ build application { target = "usb_keyboard",
-                      cFiles = [ "usb_keyboard.c"],
-                      
-                      flounderBindings = [ "usb_manager" ],
+                      cFiles = [ "usb_keyboard.c",
+                                 "usb_keyboard_service.c", 
+                                 "usb_keyboard_driver.c"],
+                      flounderBindings = [ "usb_manager","keyboard"],
                        flounderExtraBindings = [ ("usb_manager",["rpcclient"]) ],
                       addLibraries = ["usb"],
                       architectures = allArchitectures

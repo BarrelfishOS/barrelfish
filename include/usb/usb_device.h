@@ -119,7 +119,7 @@ struct usb_device {
     char *product;
 
 };
-
+const struct usb_generic_descriptor *usb_get_generic_descriptor(void);
 usb_error_t usb_device_get_iface_count(uint8_t *ret_count);
 usb_error_t usb_device_get_speed(usb_speed_t *ret_speed);
 usb_error_t usb_device_state(void);

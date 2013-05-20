@@ -152,8 +152,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     switch (param->speed) {
         case USB_SPEED_HIGH:
             switch (type) {
-                case USB_ENDPOINT_XFER_ISOCHR:
-                case USB_ENDPOINT_XFER_INTR:
+                case USB_ENDPOINT_TYPE_ISOCHR:
+                case USB_ENDPOINT_TYPE_INTR:
                     xfer->max_packet_count += (xfer->max_packet_size >> 11) & 3;
 
                     if (xfer->max_packet_count > 3) {
@@ -198,11 +198,11 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     xfer->max_frame_size = xfer->max_packet_size * xfer->max_packet_count;
 
     switch (type) {
-        case USB_ENDPOINT_XFER_ISOCHR:
+        case USB_ENDPOINT_TYPE_ISOCHR:
             /* TODO: ISOCHRONUS IMPLEMENTATION */
             assert(!"NYI: isochronus support not yet implemented");
             break;
-        case USB_ENDPOINT_XFER_INTR:
+        case USB_ENDPOINT_TYPE_INTR:
             /* handling of interrupt transfers */
 
             if (xfer->interval == 0) {
@@ -259,8 +259,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
         /*
          * check for minimum packet size
          */
-        if ((param->bufsize <= 8) && (type != USB_ENDPOINT_XFER_BULK)
-                && (type != USB_ENDPOINT_XFER_BULK)) {
+        if ((param->bufsize <= 8) && (type != USB_ENDPOINT_TYPE_BULK)
+                && (type != USB_ENDPOINT_TYPE_BULK)) {
             xfer->max_packet_size = 8;
             xfer->max_packet_count = 1;
             param->bufsize = 0;
@@ -287,7 +287,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     if (param->bufsize == 0) {
         param->bufsize = xfer->max_frame_size;
 
-        if (type == USB_ENDPOINT_XFER_ISOCHR) {
+        if (type == USB_ENDPOINT_TYPE_ISOCHR) {
             param->bufsize *= xfer->num_frames;
         }
     }
@@ -306,7 +306,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             return;
         }
         param->bufsize -= (param->bufsize % xfer->max_frame_size);
-        if (type == USB_ENDPOINT_XFER_CONTROL) {
+        if (type == USB_ENDPOINT_TYPE_CONTROL) {
             /* add the device request size for the setup message
              *  to the buffer length
              */
@@ -316,12 +316,12 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     xfer->max_data_length = param->bufsize;
 
     switch (type) {
-        case USB_ENDPOINT_XFER_ISOCHR:
+        case USB_ENDPOINT_TYPE_ISOCHR:
             num_frlengths = xfer->num_frames;
             num_frbuffers = 1;
             break;
 
-        case USB_ENDPOINT_XFER_CONTROL:
+        case USB_ENDPOINT_TYPE_CONTROL:
             /* set the control transfer flag */
 
             xfer->flags_internal.ctrl_xfer = 1;

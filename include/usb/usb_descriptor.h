@@ -277,13 +277,14 @@ typedef struct usb_endpoint_descriptor usb_endpoint_descriptor_t;
 // size information of endpoint descriptor
 #define USB_ENDPOINT_DESCRIPTOR_SIZE 9
 
-#define USB_ENDPOINT_DIRECTION_OUT  0
-#define USB_ENDPOINT_DIRECTION_IN   1
+#define USB_ENDPOINT_DIRECTION_OUT  0x00
+#define USB_ENDPOINT_DIRECTION_IN   0x01
+#define USB_ENDPOINT_DIRECTION_ANY  0xFF
 
-#define USB_ENDPOINT_XFER_CONTROL   0x00
-#define USB_ENDPOINT_XFER_ISOCHR    0x01
-#define USB_ENDPOINT_XFER_BULK      0x02
-#define USB_ENDPOINT_XFER_INTR      0x03
+#define USB_ENDPOINT_TYPE_CONTROL   0x00
+#define USB_ENDPOINT_TYPE_ISOCHR    0x01
+#define USB_ENDPOINT_TYPE_BULK      0x02
+#define USB_ENDPOINT_TYPE_INTR      0x03
 
 #define USB_ENDPOINT_SYNC_NON_ISO   0x00
 #define USB_ENDPOINT_SYNC_NONE      0x00
@@ -334,5 +335,32 @@ typedef struct usb_string_descriptor usb_string_descriptor_t;
 
 #define USB_STRING_GET_ELEMENT_COUNT(sd)    ((sd->bLength -2 )/2)
 #define USB_STRING_GET_STRLEN(sd)           ((sd->bLength -2 ))
+
+
+/*
+ * ------------------------------------------------------------------------
+ * USB Generic Descriptor
+ * ------------------------------------------------------------------------
+ * This descriptor is used to supply the device driver with all the necessary
+ * information upon initialization and connection to the usb manager.
+ *
+ * A request for a configuration descriptor returns the configuration
+ * descriptor, all interface descriptors, and endpoint descriptors for all of
+ * the interfaces in a single request. The first interface descriptor follows
+ * the configuration descriptor. The endpoint descriptors for the first
+ * interface follow the first interface descriptor. If there are additional
+ * interfaces, their interface descriptor and endpoint descriptors follow the
+ * first interface’s endpoint descriptors.
+ */
+
+struct usb_generic_descriptor
+{
+    struct usb_device_descriptor device;
+    struct usb_config_descriptor config;
+    struct usb_interface_descriptor iface[1];
+    struct usb_endpoint_descriptor endpoint[1];
+};
+
+typedef struct usb_generic_descriptor usb_generic_descriptor_t;
 
 #endif

@@ -136,20 +136,20 @@ void usb_ehci_endpoint_init(struct usb_device *device,
     }
 
     switch(ep_desc->bmAttributes.xfer_type) {
-        case USB_ENDPOINT_XFER_CONTROL:
+        case USB_ENDPOINT_TYPE_CONTROL:
             ep->pipe_fn = usb_ehci_get_ctrl_pipe_fn();
             break;
-        case USB_ENDPOINT_XFER_INTR:
+        case USB_ENDPOINT_TYPE_INTR:
             ep->pipe_fn = usb_ehci_get_intr_pipe_fn();
                     break;
-        case USB_ENDPOINT_XFER_ISOCHR:
+        case USB_ENDPOINT_TYPE_ISOCHR:
             if (device->speed == USB_SPEED_HIGH) {
                 ep->pipe_fn = usb_ehci_get_hs_isoc_pipe_fn();
             } else if (device->speed == USB_SPEED_FULL) {
                 ep->pipe_fn = usb_ehci_get_fs_isoc_pipe_fn();
             }
                     break;
-        case USB_ENDPOINT_XFER_BULK:
+        case USB_ENDPOINT_TYPE_BULK:
             ep->pipe_fn = usb_ehci_get_bulk_pipe_fn();
                     break;
         default:

@@ -22,6 +22,9 @@ typedef uint32_t usb_xfer_id_t;
 typedef void (usb_transfer_cb_t)(usb_error_t err, void *data,
         uint32_t data_length);
 
+// the USB control endpoint
+#define USB_ENDPOINT_CONTROL 0
+
 /**
  * this enumeration stores the different states of an USB transfer
  */
@@ -41,9 +44,11 @@ typedef enum usb_transfer_state usb_tstate_t;
  */
 struct usb_transfer_setup {
     uint32_t interval;              ///< the interval for interrupt / isochr
+    uint32_t timeout;               ///< period till the transfer timeouts
     uint32_t max_bytes;             ///< maximum bytes to to transfer
     uint32_t max_frames;            ///< the maximum bumber of frames
     struct usb_xfer_flags flags;    ///< some specific transfer flags
+    uint8_t type;                   ///< the type of the usb pipe
     uint8_t direction;              ///< the direction of the data transfer
     uint8_t endpoint;               ///< the associated endpoint of the transfer
     uint8_t interface;              ///< the itnerface to use

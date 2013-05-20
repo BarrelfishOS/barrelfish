@@ -53,8 +53,8 @@ usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
     }
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+
+    return (usb_do_request(&req));
 }
 
 /**
@@ -82,8 +82,25 @@ usb_error_t usb_get_configuration(uint8_t *ret_config)
     req.wIndex = 0;
     req.wLength = 1;
 
-    // TODO: FLOUNDER CALL
-    return (USB_ERR_OK); //usb_do_request(&req);
+    uint16_t ret_length;
+    void *ret_data;
+
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    if (ret_length != 1) {
+        return (USB_ERR_IOERROR);
+    }
+
+    if (ret_config) {
+        *ret_config = *((uint8_t *)ret_data);
+        free(ret_data);
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -100,7 +117,7 @@ usb_error_t usb_get_configuration(uint8_t *ret_config)
  *  - configured state: valid request
  */
 usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
-        uint16_t lang, void *ret_desc)
+        uint16_t lang, void **ret_desc, uint16_t *ret_length)
 {
     struct usb_device_request req;
 
@@ -124,33 +141,82 @@ usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
      */
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    usb_descriptor_t *desc;
+    uint16_t ret_data_length;
+
+    usb_error_t err = usb_do_request_read(&req, &ret_data_length, (void **)&desc);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    /* we check for the size of the returned descriptors */
+    switch (desc_type) {
+        case USB_DESCRIPTOR_TYPE_DEVICE:
+            if (ret_data_length != sizeof(struct usb_device_descriptor)) {
+                return (USB_ERR_IOERROR);
+            }
+            break;
+        case USB_DESCRIPTOR_TYPE_INTERFACE:
+            if (ret_data_length != sizeof(struct usb_interface_descriptor)) {
+                return (USB_ERR_IOERROR);
+            }
+            break;
+        case USB_DESCRIPTOR_TYPE_ENDPOINT:
+            if (ret_data_length != sizeof(struct usb_endpoint_descriptor)) {
+                return (USB_ERR_IOERROR);
+            }
+            break;
+        case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
+            if (ret_data_length
+                    != sizeof(struct usb_device_qualifier_descriptor)) {
+                return (USB_ERR_IOERROR);
+            }
+            break;
+        default:
+            /* variable sized descriptors */
+            if(ret_data_length != desc->bLength) {
+                return (USB_ERR_IOERROR);
+            }
+            break;
+    }
+
+    /* ok all should be fine */
+
+    if (ret_length) {
+        *ret_length = ret_data_length;
+    }
+
+    if (ret_desc) {
+        *ret_desc = desc;
+    }
+
+    return (USB_ERR_OK);
 
 }
 
 usb_error_t usb_get_config_descriptor(uint8_t config_index,
         struct usb_config_descriptor *ret_desc)
 {
-    return USB_ERR_OK;
+    return USB_ERR_BAD_REQUEST;
 }
 
 usb_error_t usb_get_iface_descriptor(uint8_t iface_index,
         struct usb_config_descriptor *ret_desc)
 {
-    return USB_ERR_OK;
+    return USB_ERR_BAD_REQUEST;
 }
 
 usb_error_t usb_get_ep_descriptor(uint8_t ep_index,
         struct usb_endpoint_descriptor *ret_desc)
 {
-    return USB_ERR_OK;
+    return USB_ERR_BAD_REQUEST;
 }
 
 usb_error_t usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
         void *ret_desc)
 {
-    return USB_ERR_OK;
+    return USB_ERR_BAD_REQUEST;
 }
 
 /**
@@ -184,19 +250,25 @@ usb_error_t usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
     req.wIndex = (0x00FF & iface_number);
     req.wLength = 1;
 
-    // TODO: FLOUNDER CALL
     usb_error_t err = USB_ERR_OK;
-    uint32_t ret_val = 0;
+    void *ret_val;
+    uint16_t ret_length;
 
-    err = USB_ERR_OK; //usb_do_request_static(&req, &ret_val);
+    err = usb_do_request_read(&req, &ret_length, &ret_val);
 
     if (err != USB_ERR_OK) {
-        *ret_alt_iface = 0;
-        return err;
+        return (err);
     }
 
-    *ret_alt_iface = (uint8_t) (ret_val & 0xFF);
-    return USB_ERR_OK;
+    if (ret_length != 1) {
+        return (USB_ERR_IOERROR);
+    }
+
+    if (ret_alt_iface) {
+        *ret_alt_iface = *((uint8_t*) (ret_val));
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -230,8 +302,25 @@ usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
     req.wIndex = recipient_index;
     req.wLength = 2;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    void *ret_data;
+    uint16_t ret_length;
+
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    if (ret_length != 2) {
+        return (USB_ERR_IOERROR);
+    }
+
+    if (ret_status) {
+        ret_status->wStatus = *((uint16_t *) ret_data);
+        free(ret_data);
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -253,8 +342,8 @@ usb_error_t usb_set_address(uint8_t new_address)
 {
     struct usb_device_request req;
 
-    if(new_address > 127) {
-        return USB_ERR_INVAL;
+    if (new_address > 127) {
+        return (USB_ERR_INVAL);
     }
 
     req.bType.direction = USB_DIRECTION_H2D;
@@ -265,8 +354,7 @@ usb_error_t usb_set_address(uint8_t new_address)
     req.wIndex = 0;
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request(&req));
 
 }
 
@@ -301,8 +389,7 @@ usb_error_t usb_set_configuration(uint8_t config_value)
     req.wIndex = 0;
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request(&req));
 }
 
 /**
@@ -349,14 +436,13 @@ usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
             req.wValue = (desc_type << 8);
             break;
         default:
-            return USB_ERR_BAD_REQUEST;
+            return (USB_ERR_BAD_REQUEST);
     }
 
     req.wIndex = 0;
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request_write(&req, descriptor->bLength, descriptor));
 }
 
 /**
@@ -405,8 +491,7 @@ usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
             req.wIndex = (test << 8);
         }
     }
-    // TODO: Flounder Defs
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request(&req));
 }
 
 /**
@@ -441,8 +526,7 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
     req.wValue = (0x00FF & alt_setting);
     req.wLength = 0;
 
-    // TODO: Flounder
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request(&req));
 }
 
 /**
@@ -460,7 +544,7 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
  *  - address state:    device shall response with a request error
  *  - configured state: valid request
  */
-usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
+usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t *ret_frame)
 {
     struct usb_device_request req;
 
@@ -472,11 +556,30 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
     req.wValue = 0;
     req.wLength = 2;
 
-    // TODO: Flounder
-    return USB_ERR_OK; //usb_do_request(&req);
+    uint16_t ret_length;
+    void *ret_data;
+
+    if (ret_frame) {
+        *ret_frame = 0;
+    }
+
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    /* the returned data must be of length 2 */
+    if (ret_length != 2) {
+        return (USB_ERR_IOERROR);
+    }
+
+    if (ret_frame) {
+        *ret_frame = *((uint16_t *) ret_data);
+        free(ret_data);
+    }
+    return (USB_ERR_OK);
 }
-
-
 
 /**
  * \brief
@@ -486,10 +589,10 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame)
 usb_error_t usb_do_request(struct usb_device_request *req)
 {
     errval_t err;
-    uint16_t *ret_status  = 0;
+    uint32_t *ret_status = 0;
     usb_error_t ret;
 
-    debug_printf("libusb: usb_do_request()");
+    USB_DEBUG("libusb: usb_do_request()");
 
     err = usb_manager.vtbl.request(&usb_manager, (uint8_t*) req, sizeof(req),
             ret_status);
@@ -502,7 +605,7 @@ usb_error_t usb_do_request(struct usb_device_request *req)
     ret = (usb_error_t) *ret_status;
     free(ret_status);
 
-    debug_printf("libusb: usb_do_request() succeeded");
+    USB_DEBUG("libusb: usb_do_request() succeeded");
 
     return (ret);
 }
@@ -517,9 +620,9 @@ usb_error_t usb_do_request_write(struct usb_device_request *req,
 {
     errval_t err;
     usb_error_t ret;
-    uint16_t *ret_status = 0;
+    uint32_t *ret_status = 0;
 
-    debug_printf("libusb: usb_do_request_write()");
+    USB_DEBUG("libusb: usb_do_request_write()");
 
     err = usb_manager.vtbl.request_write(&usb_manager, (uint8_t*) req,
             sizeof(req), (uint8_t *) data, length, ret_status);
@@ -529,7 +632,7 @@ usb_error_t usb_do_request_write(struct usb_device_request *req,
         return (USB_ERR_IDC);
     }
 
-    debug_printf("libusb: usb_do_request_write() succeeded");
+    USB_DEBUG("libusb: usb_do_request_write() succeeded");
 
     ret = (usb_error_t) *ret_status;
     free(ret_status);
@@ -546,12 +649,12 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
         uint16_t *ret_length, void **ret_data)
 {
     errval_t err;
-    uint16_t *ret_status  = 0;
-    uint8_t *data  = 0;
-    size_t *length  = 0;
+    uint32_t *ret_status = 0;
+    uint8_t *data = 0;
+    size_t *length = 0;
     usb_error_t ret;
 
-    debug_printf("libusb: usb_do_request_read()");
+    USB_DEBUG("libusb: usb_do_request_read()");
 
     err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
             sizeof(req), (uint8_t **) &data, length, ret_status);
@@ -568,7 +671,7 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
         return (USB_ERR_IDC);
     }
 
-    debug_printf("libusb: usb_do_request_read() got data (len=%i)", *ret_length);
+    USB_DEBUG("libusb: usb_do_request_read() got data (len=%i)", *ret_length);
 
     *ret_data = (void *) data;
 

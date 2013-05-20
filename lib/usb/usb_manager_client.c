@@ -22,12 +22,11 @@
 
 #include "usb_manager_client.h"
 
-
-static void done_cb(struct usb_manager_binding *_binding, uint32_t tid, uint32_t error, uint8_t *data, size_t length)
+static void done_cb(struct usb_manager_binding *_binding, uint32_t tid,
+        uint32_t error, uint8_t *data, size_t length)
 {
     debug_printf("received done notify!\n");
 }
-
 
 /*
  * --------------------------------------------------------------------------
@@ -44,17 +43,11 @@ struct usb_manager_rpc_client usb_manager;
 /// string representing the usb manager service identifier
 static const char *usb_manager_name = "usb_manager_service";
 
-//static struct usb_manager_rx_vtbl driver_fn = {
-//        .transfer_done_notify = done_cb
-//};
-
-
 
 /**
  *
  */
-static void usb_bind_cb(void *st, errval_t err,
-        struct usb_manager_binding *b)
+static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
 {
     debug_printf("libusb: bind callback complete\n");
 
@@ -70,9 +63,24 @@ static void usb_bind_cb(void *st, errval_t err,
 
     uint32_t ret_status;
 
-    printf("about to call...");
+    uint8_t *tmp;
+    size_t length;
 
-    err=usb_manager.vtbl.connect(&usb_manager, 0, &ret_status);
+    printf("about to call...");
+    err = usb_manager.vtbl.connect(&usb_manager, 0, &ret_status,
+            &tmp, &length);
+
+    if (((usb_error_t)ret_status) != USB_ERR_OK) {
+        debug_printf("libusb: ERROR connecting to the USB manager\n");
+        return;
+    }
+
+    if (length < sizeof(struct usb_generic_descriptor)) {
+        debug_printf("libusb: ERROR received to less data for the generic "
+                "descriptor\n");
+    }
+
+    gen_descriptor = (usb_generic_descriptor_t *)tmp;
 
     debug_printf("libusb: driver connected (status=%i)", ret_status);
 
@@ -83,7 +91,7 @@ static void usb_bind_cb(void *st, errval_t err,
  *          USB manager service
  *
  */
-usb_error_t usb_driver_init(void)
+usb_error_t usb_lib_init(void)
 {
     errval_t err;
 
@@ -101,8 +109,6 @@ usb_error_t usb_driver_init(void)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "USB manager binding failed");
     }
-
-
 
     return (USB_ERR_OK);
 }

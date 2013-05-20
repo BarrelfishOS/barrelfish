@@ -22,7 +22,6 @@
 #include <usb/class/usb_hub_descriptor.h>
 #include <usb/class/usb_hub_request.h>
 
-
 #include "../../usb_controller.h"
 #include "usb_ehci.h"
 #include "usb_ehci_root_hub.h"
@@ -30,36 +29,36 @@
 #define WAIT(x)
 
 static const struct usb_device_descriptor rh_dev_desc = {
-        .bLength = sizeof(struct usb_device_descriptor),
-        .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
-        .bcdUSB = 0x0200,
-        .bDeviceClass = USB_HUB_CLASS_CODE,
-        .bDeviceSubClass = USB_HUB_SUBCLASS_CODE,
-        .bDeviceProtocol = USB_HUB_PROTOCOL_HSHUBSTT,
-        .bMaxPacketSize0 = 64,
-        .idVendor = 0,
-        .idProduct = 0,
-        .bcdDevice = 0x0100,
-        .iManufacturer = 1,
-        .iProduct = 2,
-        .iSerialNumber = 0,
-        .bNumConfigurations = 1,
+    .bLength = sizeof(struct usb_device_descriptor),
+    .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE,
+    .bcdUSB = 0x0200,
+    .bDeviceClass = USB_HUB_CLASS_CODE,
+    .bDeviceSubClass = USB_HUB_SUBCLASS_CODE,
+    .bDeviceProtocol = USB_HUB_PROTOCOL_HSHUBSTT,
+    .bMaxPacketSize0 = 64,
+    .idVendor = 0,
+    .idProduct = 0,
+    .bcdDevice = 0x0100,
+    .iManufacturer = 1,
+    .iProduct = 2,
+    .iSerialNumber = 0,
+    .bNumConfigurations = 1,
 };
 
 static const struct usb_device_qualifier_descriptor rh_qual_desc = {
-        .bLength = sizeof(struct usb_device_qualifier_descriptor),
-        .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER,
-        .bcdUSB = 0x0200,
-        .bDeviceClass = USB_HUB_CLASS_CODE,
-        .bDeviceSubClass = USB_HUB_SUBCLASS_CODE,
-        .bDeviceProtocol = USB_HUB_PROTOCOL_FSHUB,
-        .bMaxPacketSize0 = 0,
-        .bNumConfigurations = 0,
-        .bReserved = 0,
+    .bLength = sizeof(struct usb_device_qualifier_descriptor),
+    .bDescriptorType = USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER,
+    .bcdUSB = 0x0200,
+    .bDeviceClass = USB_HUB_CLASS_CODE,
+    .bDeviceSubClass = USB_HUB_SUBCLASS_CODE,
+    .bDeviceProtocol = USB_HUB_PROTOCOL_FSHUB,
+    .bMaxPacketSize0 = 0,
+    .bNumConfigurations = 0,
+    .bReserved = 0,
 };
 
 static const struct usb_ehci_config_descriptor rh_cfg_desc = {
-.config = {
+    .config = {
         .bLength = sizeof(struct usb_config_descriptor),
         .bDescriptorType = USB_DESCRIPTOR_TYPE_CONFIG,
         .wTotalLength = sizeof(rh_cfg_desc),
@@ -68,33 +67,51 @@ static const struct usb_ehci_config_descriptor rh_cfg_desc = {
         .iConfiguration = 0,
         .bmAttributes = USB_CONFIG_SELF_POWERED,
         .bMaxPower = 0,
-}, .iface = {
-.bLength = sizeof(struct usb_interface_descriptor), .bDescriptorType =
-        USB_DESCRIPTOR_TYPE_INTERFACE, .bNumEndpoints = 1, .bInterfaceClass =
-        USB_HUB_IFACE_CLASS_CODE, .bInterfaceSubClass =
-        USB_HUB_IFACE_SUBCLASS_CODE, .bInterfaceProtocol = 0,
-}, .endpoint = {
-.bLength = sizeof(struct usb_endpoint_descriptor), .bDescriptorType =
-        USB_DESCRIPTOR_TYPE_ENDPOINT, .bEndpointAddress = {
-USB_ENDPOINT_DIRECTION_IN, 0, 1
-}, .bmAttributes = {
-0, 0, 0, USB_ENDPOINT_XFER_INTR
-}, .wMaxPacketSize = (8 << 8), .bInterval = 255,
-},
+    },
+    .iface = {
+        .bLength = sizeof(struct usb_interface_descriptor),
+        .bDescriptorType = USB_DESCRIPTOR_TYPE_INTERFACE,
+        .bNumEndpoints = 1,
+        .bInterfaceClass = USB_HUB_IFACE_CLASS_CODE,
+        .bInterfaceSubClass = USB_HUB_IFACE_SUBCLASS_CODE,
+        .bInterfaceProtocol = 0,
+    },
+    .endpoint = {
+        .bLength = sizeof(struct usb_endpoint_descriptor),
+        .bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
+        .bEndpointAddress = {
+            USB_ENDPOINT_DIRECTION_IN,
+            0,
+            1
+        },
+        .bmAttributes = {
+            0,
+            0,
+            0,
+            USB_ENDPOINT_TYPE_INTR
+        },
+        .wMaxPacketSize = (8 << 8),
+        .bInterval = 255,
+    },
 };
 
 static const struct usb_hub_class_descriptor rh_desc = {
-        .bDesLength = 0,
-        .bDescriptorType = USB_DESCRIPTOR_TYPE_HUB,
-        .bNbrPorts = 0,
-        .wHubCharacteristics = {
-        0, 0, 0, 0, 0, 0
-        },
-        .bPwrOn2PwrGood = 0,
-        .bHubContrCurrent = 0,
-        .bDeviceRemovable = {
+    .bDesLength = 0,
+    .bDescriptorType = USB_DESCRIPTOR_TYPE_HUB,
+    .bNbrPorts = 0,
+    .wHubCharacteristics = {
+        0,
+        0,
+        0,
+        0,
+        0,
         0
-        }
+    },
+    .bPwrOn2PwrGood = 0,
+    .bHubContrCurrent = 0,
+    .bDeviceRemovable = {
+        0
+    }
 };
 
 void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
@@ -113,12 +130,12 @@ void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
         ps = ehci_portsc_pec_insert(ps, 0);
         ps = ehci_portsc_csc_insert(ps, 0);
         if (ps) {
-            hc->root_hub_interrupt_data[i/8] |= (1<<(i%8));
+            hc->root_hub_interrupt_data[i / 8] |= (1 << (i % 8));
         }
     }
     /*
      * TODO: uhub_root_intr(&sc->sc_bus, sc->sc_hub_idata,
-        sizeof(sc->sc_hub_idata));
+     sizeof(sc->sc_hub_idata));
      */
 }
 
@@ -131,7 +148,6 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
     const char *str;
     const void *data = (const void *) &hc->root_hub_descriptor;
     uint16_t data_length = 0;
-
 
 #define C(req, recipent, dir) ((req) | ((recipent)<<8) | ((dir)<<16))
     switch (C(req->bRequest, req->bType.recipient, req->bType.direction)) {
@@ -178,7 +194,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                         return (USB_ERR_IOERROR);
                     }
                     data_length = sizeof(rh_qual_desc);
-                    data = (const void *)&rh_qual_desc;
+                    data = (const void *) &rh_qual_desc;
                     break;
 
                 case USB_DESCRIPTOR_TYPE_CONFIG:
@@ -353,8 +369,8 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     }
 
                     if (!ehci_portsc_ped_rdf(hc->ehci_base, req->wIndex)) {
-                        if(hc->flags.tt_present) {
-                             usb_ehci_roothub_port_disown(hc, req->wIndex, 0);
+                        if (hc->flags.tt_present) {
+                            usb_ehci_roothub_port_disown(hc, req->wIndex, 0);
                         }
                     }
                     hc->root_hub_reset = 1;

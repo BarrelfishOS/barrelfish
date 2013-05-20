@@ -63,7 +63,7 @@ static const struct usb_ohci_config_desc usb_ohci_root_hub_config_desc = {
         .bLength = sizeof(struct usb_endpoint_descriptor),
         .bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
         .bEndpointAddress = {USB_ENDPOINT_DIRECTION_IN,0,1},
-        .bmAttributes = {0,0,0,USB_ENDPOINT_XFER_INTR},
+        .bmAttributes = {0,0,0,USB_ENDPOINT_TYPE_INTR},
         .wMaxPacketSize = 32,
         .bInterval = 255,
 },

@@ -16,15 +16,16 @@ struct usb_manager_binding;
 struct usb_device;
 struct usb_device_request;
 
-
+/// struct for managing the request state
 struct usb_request_state {
-    struct usb_manager_binding *binding;
+    struct usb_manager_binding *bind;
     void (*callback)(void *a);
     void *data;
     uint16_t data_length;
-    uint16_t status;
+    usb_error_t error;
     struct usb_xfer *xfer;
 };
+
 
 /*
  * Flounder Callback Functions

@@ -128,7 +128,7 @@ usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
         uint16_t feature);
 usb_error_t usb_get_configuration(uint8_t *ret_config);
 usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
-        uint16_t lang, void *ret_desc);
+        uint16_t lang, void **ret_desc, uint16_t *ret_length);
 usb_error_t usb_get_device_descriptor(struct usb_device_descriptor *ret_desc);
 usb_error_t usb_get_config_descriptor(uint8_t config_index,
 									  struct usb_config_descriptor *ret_desc);
@@ -148,7 +148,7 @@ usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
 usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
         uint8_t index);
 usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface);
-usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t ret_frame);
+usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t *ret_frame);
 
 
 usb_error_t usb_do_request(struct usb_device_request *req);

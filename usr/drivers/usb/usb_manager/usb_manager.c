@@ -33,8 +33,10 @@ static const char *usb_manager_name = "usb_manager_service";
  * struct representing the state of a new USB driver connection
  */
 struct usb_manager_connect_state {
-    struct usb_manager_binding *b;  ///< the usb_manager_binding struct
-    usb_error_t error;              ///< the outcome of the initial setup
+    struct usb_manager_binding *b;      ///< the usb_manager_binding struct
+    void  *desc;                        ///< generic descriptor
+    uint32_t length;                    ///< length of the descirptor
+    usb_error_t error;                  ///< the outcome of the initial setup
 };
 
 static void usb_driver_connect_cb(void *a)
@@ -87,7 +89,8 @@ static void usb_driver_connect_response(void *a)
 
     struct event_closure txcont = MKCONT(usb_driver_connect_cb, st);
 
-    err = usb_manager_connect_response__tx(st->b, txcont, st->error);
+    err = usb_manager_connect_response__tx(st->b, txcont, st->error, st->desc,
+            st->length);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
