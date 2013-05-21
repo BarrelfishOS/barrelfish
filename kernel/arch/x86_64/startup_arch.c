@@ -214,6 +214,15 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
         struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
 
+        /* On some machines (brie1) the IOAPIC region is only 1kB.
+         * Currently we're not able to map regions that are <4kB so we
+         * make sure that every region (if there is no problematic overlap)
+         * is at least BASE_PAGE_SIZEd (==4kB) here.
+         */
+        if ((curmmap->length < BASE_PAGE_SIZE) && (curmmap->base_addr + BASE_PAGE_SIZE <= nextmmap->base_addr)) {
+            curmmap->length = BASE_PAGE_SIZE;
+        }
+
 #define DISCARD_NEXT_MMAP do {\
     uint32_t discardsize = nextmmap->size + 4;\
     memmove(cur + curmmap->size + 4, cur + curmmap->size + 4 + discardsize, clean_mmap_length - (cur - clean_mmap_addr) - curmmap->size - 4 - discardsize);\
@@ -420,13 +429,6 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
             debug(SUBSYS_STARTUP, "platform %lx--%lx\n", mmap->base_addr,
                   mmap->base_addr + mmap->length);
             assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
-            /* XXX: on some machines (brie1) the IOAPIC region is only
-             * 1kB.  Currently we're not able to map regions that are
-             * <4kB so we increase the size of the region here.
-             */
-            if (mmap->length<BASE_PAGE_SIZE) { 
-                mmap->length = BASE_PAGE_SIZE;
-            }
             err = create_caps_to_cnode(mmap->base_addr, mmap->length,
                                        RegionType_PlatformData, &spawn_state, bootinfo);
             assert(err_is_ok(err));
