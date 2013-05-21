@@ -42,7 +42,7 @@ usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = (recipient & USB_REQUEST_RECIPIENT_MASK);
     req.bRequest = USB_REQUEST_CLEAR_FEATURE;
@@ -74,7 +74,7 @@ usb_error_t usb_get_configuration(uint8_t *ret_config)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_REQUEST_GET_CONFIG;
@@ -121,7 +121,7 @@ usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_REQUEST_GET_DESCRIPTOR;
@@ -242,7 +242,7 @@ usb_error_t usb_get_alt_iface(uint16_t iface_number, uint8_t *ret_alt_iface)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
     req.bRequest = USB_REQUEST_GET_INTERFACE;
@@ -293,7 +293,7 @@ usb_error_t usb_get_status(uint8_t recipient, uint16_t recipient_index,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = (recipient & USB_REQUEST_RECIPIENT_MASK);
     req.bRequest = USB_REQUEST_GET_STATUS;
@@ -346,7 +346,7 @@ usb_error_t usb_set_address(uint8_t new_address)
         return (USB_ERR_INVAL);
     }
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_REQUEST_SET_ADDRESS;
@@ -381,7 +381,7 @@ usb_error_t usb_set_configuration(uint8_t config_value)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_REQUEST_SET_CONFIG;
@@ -418,7 +418,7 @@ usb_error_t usb_set_descriptor(uint8_t desc_type, uint8_t desc_index,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_REQUEST_SET_DESCRIPTOR;
@@ -470,7 +470,7 @@ usb_error_t usb_set_feature(uint8_t recipient, uint16_t feature, uint8_t test,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = recipient;
     req.bRequest = USB_REQUEST_SET_FEATURE;
@@ -518,7 +518,7 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
     req.bRequest = USB_REQUEST_SET_INTERFACE;
@@ -548,7 +548,7 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t *ret_frame)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_ENDPOINT;
     req.bRequest = USB_REQUEST_SYNCH_FRAME;

@@ -242,7 +242,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
              * GetConfiguration() Request
              */
             if ((req->bType.recipient == USB_REQUEST_RECIPIENT_DEVICE)
-                    && req->bType.direction == USB_DIRECTION_D2H) {
+                    && req->bType.direction == USB_REQUEST_READ) {
                 length = 1;
                 hc->root_hub_desc.temp[0] = hc->root_hub_config;
             }
@@ -258,7 +258,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
              * and also a class specific request
              */
             if ((req->bType.recipient == USB_REQUEST_RECIPIENT_DEVICE)
-                    && req->bType.direction == USB_DIRECTION_D2H) {
+                    && req->bType.direction == USB_REQUEST_READ) {
 
                 /* hub class specific request */
                 if (req->bType.type == USB_REQUEST_TYPE_CLASS) {
@@ -348,7 +348,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
              * Root hub has just one interface and no alternative one
              */
             if ((req->bType.recipient == USB_REQUEST_RECIPIENT_DEVICE)
-                    && req->bType.direction == USB_DIRECTION_D2H) {
+                    && req->bType.direction == USB_REQUEST_READ) {
                 length = 1;
                 hc->root_hub_desc.temp[0] = 0;
             }
@@ -358,7 +358,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
             /*
              * GetStatus() Request
              */
-            if (req->bType.direction == USB_DIRECTION_H2D) {
+            if (req->bType.direction == USB_REQUEST_WRITE) {
                 *ret_data = data;
                 *ret_length = length;
                 return USB_ERR_IOERROR;

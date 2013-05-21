@@ -40,8 +40,11 @@ iref_t usb_manager_iref;
 /// the usb manager RPC client structure
 struct usb_manager_rpc_client usb_manager;
 
+
 /// string representing the usb manager service identifier
 static const char *usb_manager_name = "usb_manager_service";
+
+static volatile uint8_t bound = 0;
 
 
 /**
@@ -57,34 +60,10 @@ static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
 
     usb_manager_rpc_client_init(&usb_manager, b);
 
-    b->rx_vtbl.transfer_done_notify = done_cb;
-
-    //b->rx_vtbl.transfer_done_notify_response = done_cb;
-
-    uint32_t ret_status;
-
-    uint8_t *tmp;
-    size_t length;
-
-    printf("about to call...");
-    err = usb_manager.vtbl.connect(&usb_manager, 0, &ret_status,
-            &tmp, &length);
-
-    if (((usb_error_t)ret_status) != USB_ERR_OK) {
-        debug_printf("libusb: ERROR connecting to the USB manager\n");
-        return;
-    }
-
-    if (length < sizeof(struct usb_generic_descriptor)) {
-        debug_printf("libusb: ERROR received to less data for the generic "
-                "descriptor\n");
-    }
-
-    gen_descriptor = (usb_generic_descriptor_t *)tmp;
-
-    debug_printf("libusb: driver connected (status=%i)", ret_status);
-
+    bound = 1;
 }
+
+
 
 /**
  * \brief   does the initialization of the USB library and the binding to the
@@ -109,6 +88,41 @@ usb_error_t usb_lib_init(void)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "USB manager binding failed");
     }
+
+    while(!bound) {
+               err = event_dispatch(get_default_waitset());
+               assert(err_is_ok(err));
+           }
+
+    usb_manager.b->rx_vtbl.transfer_done_notify = done_cb;
+
+
+    uint32_t ret_status;
+
+       uint8_t *tmp;
+       size_t length;
+
+       err = usb_manager.vtbl.connect(&usb_manager, 0, &ret_status,
+               &tmp, &length);
+       err = usb_manager.vtbl.connect(&usb_manager, 0, &ret_status,
+                      &tmp, &length);
+
+       if (((usb_error_t)ret_status) != USB_ERR_OK) {
+           debug_printf("libusb: ERROR connecting to the USB manager\n");
+           return (ret_status);
+       }
+
+       if (length < sizeof(struct usb_generic_descriptor)) {
+           debug_printf("libusb: ERROR received to less data for the generic "
+                   "descriptor\n");
+           return (USB_ERR_BAD_BUFSIZE);
+       }
+
+
+
+       gen_descriptor = (usb_generic_descriptor_t *)tmp;
+
+       debug_printf("libusb: driver connected (status=%i)\n", ret_status);
 
     return (USB_ERR_OK);
 }

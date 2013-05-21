@@ -31,7 +31,7 @@ usb_hub_clear_hub_feature(uint16_t feature)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_HUB_REQ_CLEAR_FEATURE;
@@ -85,7 +85,7 @@ usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_CLEAR_FEATURE;
@@ -143,7 +143,7 @@ usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_CLEAR_FEATURE;
@@ -189,7 +189,7 @@ usb_hub_get_hub_descriptor(uint16_t num_ports,
     // each port occupies one bit in the last field
     uint16_t len = (num_ports + 7 + USB_HUB_DESCRIPTOR_MIN_SIZE * 8) / 8;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_HUB_REQ_GET_DESCRIPTOR;
@@ -217,7 +217,7 @@ usb_hub_get_hub_status(struct usb_hub_status *ret_status)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_HUB_REQ_GET_STATUS;
@@ -248,7 +248,7 @@ usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_GET_STATUS;
@@ -284,7 +284,7 @@ usb_hub_reset_tt(uint16_t port)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_RESET_TT;
@@ -316,7 +316,7 @@ usb_hub_set_hub_descriptor(uint16_t desc_length,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_HUB_REQ_SET_DESCRIPTOR;
@@ -346,7 +346,7 @@ usb_hub_set_hub_feature(uint16_t feature)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_HUB_REQ_SET_FEATURE;
@@ -380,7 +380,7 @@ usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_SET_FEATURE;
@@ -443,7 +443,7 @@ usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_D2H;
+    req.bType.direction = USB_REQUEST_READ;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_GET_TT_STATE;
@@ -480,7 +480,7 @@ usb_hub_stop_tt(uint16_t port)
 {
     struct usb_device_request req;
 
-    req.bType.direction = USB_DIRECTION_H2D;
+    req.bType.direction = USB_REQUEST_WRITE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_STOP_TT;

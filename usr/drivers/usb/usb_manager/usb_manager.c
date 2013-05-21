@@ -34,7 +34,7 @@ static const char *usb_manager_name = "usb_manager_service";
  */
 struct usb_manager_connect_state {
     struct usb_manager_binding *b;      ///< the usb_manager_binding struct
-    void  *desc;                        ///< generic descriptor
+    void *desc;                        ///< generic descriptor
     uint32_t length;                    ///< length of the descirptor
     usb_error_t error;                  ///< the outcome of the initial setup
 };
@@ -52,31 +52,35 @@ static void usb_driver_test_cb(void *a)
 
 struct usb_manager_connect_state test;
 
-static void usb_driver_test_response(void *a) {
+static void usb_driver_test_response(void *a)
+{
     USB_DEBUG("sending xfer done notify\n");
+    if (test.b == NULL) {
+        return;
+    }
     struct event_closure txcont = MKCONT(usb_driver_test_cb, &test);
     errval_t err;
-        uint8_t data[4];
-        err = usb_manager_transfer_done_notify__tx(test.b, txcont, 1, 0,  data, 4);
+    uint8_t data[4];
+    //err = usb_manager_transfer_done_notify__tx(test.b, txcont, 1, 0, data, 4);
+    err = test.b->tx_vtbl.transfer_done_notify(test.b, txcont, 1, 0, data, 4);
 
-
-        if (err_is_fail(err)) {
-            if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-                // try to resend
-                USB_DEBUG("resending done notify response\n");
-                            txcont = MKCONT(usb_driver_test_response, &test);
-                            err = test.b->register_send(test.b, get_default_waitset(), txcont);
-                            if (err_is_fail(err)) {
-                                DEBUG_ERR(err, "failed to register send");
-                            }
-            } else {
-                // error
-                DEBUG_ERR(err, "error while sending done notify");
-
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            // try to resend
+            USB_DEBUG("resending done notify response\n");
+            txcont = MKCONT(usb_driver_test_response, &test);
+            err = test.b->register_send(test.b, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to register send");
             }
-        }
-}
+        } else {
+            // error
+            DEBUG_ERR(err, "error while sending done notify");
 
+        }
+    }
+    test.b = NULL;
+}
 
 static void usb_driver_connect_response(void *a)
 {
@@ -102,14 +106,13 @@ static void usb_driver_connect_response(void *a)
                 DEBUG_ERR(err, "failed to register send");
             }
         } else {
+            usb_driver_test_response(NULL);
             // error
             DEBUG_ERR(err, "error while seniding driver connect response");
             free(st);
         }
     }
-    usb_driver_test_response(NULL);
 }
-
 
 /**
  * \brief
@@ -129,22 +132,23 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
 
     st->b = bind;
 
+
     /*
      * TODO: DEVICE SETUP
      */
 #if 0
     struct usb_device *dev = usb_device_get_pending();
 
-        assert(dev != NULL);
+    assert(dev != NULL);
 
-        bind->st = dev;
-        dev->usb_manager_binding = bind;
+    bind->st = dev;
+    dev->usb_manager_binding = bind;
 
-        /*
-         * TODO: Configure Device
-         */
+    /*
+     * TODO: Configure Device
+     */
 
-        usb_device_config_complete(dev);
+    usb_device_config_complete(dev);
 #endif
     st->error = USB_ERR_OK;
 
@@ -156,21 +160,18 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
  *
  */
 static struct usb_manager_rx_vtbl usb_manager_handle_fn = {
-        .request_read_call = usb_rx_request_read_call,
-        .request_write_call = usb_rx_request_write_call,
-        .request_call = usb_rx_request_call,
-        .connect_call = usb_rx_connect_call,
-        .transfer_setup_call = usb_rx_transfer_setup_call,
-         .transfer_unsetup_call = usb_rx_transfer_unsetup_call,
-         .transfer_start_call =  usb_rx_transfer_start_call,
-         .transfer_stop_call = usb_rx_transfer_stop_call,
-         .transfer_status_call =  usb_rx_transfer_status_call,
-         .transfer_state_call = usb_rx_transfer_state_call,
-         .transfer_clear_stall_call = usb_rx_transfer_clear_stall_call,
+    .request_read_call = usb_rx_request_read_call,
+    .request_write_call = usb_rx_request_write_call,
+    .request_call = usb_rx_request_call,
+    .connect_call = usb_rx_connect_call,
+    .transfer_setup_call = usb_rx_transfer_setup_call,
+    .transfer_unsetup_call = usb_rx_transfer_unsetup_call,
+    .transfer_start_call = usb_rx_transfer_start_call,
+    .transfer_stop_call = usb_rx_transfer_stop_call,
+    .transfer_status_call = usb_rx_transfer_status_call,
+    .transfer_state_call = usb_rx_transfer_state_call,
+    .transfer_clear_stall_call = usb_rx_transfer_clear_stall_call,
 };
-
-
-
 
 /**
  *
@@ -315,7 +316,8 @@ static errval_t init_device_range(void)
 
     debug_printf("invoke frame identify\n");
     struct frame_identity frameid = {
-    0, 0
+        0,
+        0
     };
 #if 0
 
@@ -395,8 +397,6 @@ int main(int argc, char *argv[])
 
     debug_printf("USB Manager started.\n");
 
-
-
     /*
      * start the server
      */
@@ -426,9 +426,9 @@ int main(int argc, char *argv[])
     }
 
     usb_error_t uerr = USB_ERR_OK;
-    for (uint16_t i = 0; i < argc; i+=2) {
+    for (uint16_t i = 0; i < argc; i += 2) {
         usb_host_controller_t *hc = NULL;
-        uint32_t offset = *((uint32_t*)argv[i+1]);
+        uint32_t offset = *((uint32_t*) argv[i + 1]);
         if (strcmp(argv[i], "ehci") == 0) {
             hc = malloc(sizeof(*hc));
             uerr = usb_hc_init(hc, USB_EHCI, usb_subsystem_base + offset);

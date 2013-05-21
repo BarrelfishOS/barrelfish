@@ -68,8 +68,8 @@ typedef struct usb_device_request usb_device_request_t;
 #define USB_REQUEST_RECIPIENT_OTHER     3
 
 // the direction of the request: host to device or device to host
-#define USB_DIRECTION_H2D 0
-#define USB_DIRECTION_D2H 1
+#define USB_REQUEST_WRITE 0
+#define USB_REQUEST_READ 1
 
 // type of the request.
 #define USB_REQUEST_TYPE_STANDARD 0

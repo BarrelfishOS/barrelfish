@@ -151,16 +151,16 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
 
 #define C(req, recipent, dir) ((req) | ((recipent)<<8) | ((dir)<<16))
     switch (C(req->bRequest, req->bType.recipient, req->bType.direction)) {
-        case C(USB_REQUEST_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_H2D):
-        case C(USB_REQUEST_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_INTERFACE, USB_DIRECTION_H2D):
-        case C(USB_REQUEST_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_ENDPOINT, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
+        case C(USB_REQUEST_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_WRITE):
+        case C(USB_REQUEST_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_ENDPOINT, USB_REQUEST_WRITE):
             /* no-op: don't handle write requests */
             break;
-        case C(USB_REQUEST_GET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_D2H):
+        case C(USB_REQUEST_GET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_READ):
             data_length = 1;
             hc->root_hub_descriptor.temp[0] = hc->root_hub_config;
             break;
-        case C(USB_REQUEST_GET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_D2H):
+        case C(USB_REQUEST_GET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_READ):
             switch (req->wValue >> 8) {
                 /*
                  * the only the string type has an id.. the others
@@ -231,12 +231,12 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     break;
             }
             break;
-        case C(USB_REQUEST_GET_INTERFACE, USB_REQUEST_RECIPIENT_INTERFACE, USB_DIRECTION_D2H):
+        case C(USB_REQUEST_GET_INTERFACE, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_READ):
             /* we don't have an alternative interface */
             data_length = 1;
             hc->root_hub_descriptor.temp[0] = 0;
             break;
-        case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_D2H):
+        case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_READ):
             if (req->bType.type != USB_REQUEST_TYPE_CLASS) {
                 data_length = 2;
                 hc->root_hub_descriptor.status.wStatus = USB_STATUS_SELF_POWERED;
@@ -246,40 +246,40 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             memset(hc->root_hub_descriptor.temp, 0, 16);
 
             break;
-        case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_INTERFACE, USB_DIRECTION_D2H):
-        case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_ENDPOINT, USB_DIRECTION_D2H):
+        case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_READ):
+        case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_ENDPOINT, USB_REQUEST_READ):
             data_length = 2;
             hc->root_hub_descriptor.status.wStatus = 0;
             break;
-        case C(USB_REQUEST_SET_ADDRESS, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_SET_ADDRESS, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             if (req->wValue >= USB_EHCI_MAX_DEVICES) {
                 return (USB_ERR_IOERROR);
             }
             hc->root_hub_address = req->wValue;
             break;
-        case C(USB_REQUEST_SET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_SET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             if ((req->wValue != 0) && (req->wValue != 1)) {
                 return (USB_ERR_IOERROR);
             }
             hc->root_hub_config = req->wValue;
             break;
-        case C(USB_REQUEST_SET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_SET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             break;
-        case C(USB_REQUEST_SET_FEATURE, USB_REQUEST_RECIPIENT_DEVICE, USB_DIRECTION_H2D):
-        case C(USB_REQUEST_SET_FEATURE, USB_REQUEST_RECIPIENT_INTERFACE, USB_DIRECTION_H2D):
-        case C(USB_REQUEST_SET_FEATURE, USB_REQUEST_RECIPIENT_ENDPOINT, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_SET_FEATURE, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
+        case C(USB_REQUEST_SET_FEATURE, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_WRITE):
+        case C(USB_REQUEST_SET_FEATURE, USB_REQUEST_RECIPIENT_ENDPOINT, USB_REQUEST_WRITE):
             return (USB_ERR_IOERROR);
             break;
-        case C(USB_REQUEST_SET_INTERFACE, USB_REQUEST_RECIPIENT_INTERFACE, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_SET_INTERFACE, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_WRITE):
             break;
-        case C(USB_REQUEST_SYNCH_FRAME, USB_REQUEST_RECIPIENT_ENDPOINT, USB_DIRECTION_H2D):
+        case C(USB_REQUEST_SYNCH_FRAME, USB_REQUEST_RECIPIENT_ENDPOINT, USB_REQUEST_WRITE):
             break;
 
             /*
              * handling hub class specific requests
              */
 
-        case C(USB_HUB_REQ_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_DIRECTION_H2D):
+        case C(USB_HUB_REQ_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
             if ((req->wIndex < 1) || (req->wLength > hc->root_hub_num_ports)) {
                 /* invalid port nuber  */
                 return (USB_ERR_IOERROR);
@@ -331,13 +331,13 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     break;
             }
             break;
-        case C(USB_HUB_REQ_GET_STATUS, USB_REQUEST_RECIPIENT_OTHER, USB_DIRECTION_D2H):
+        case C(USB_HUB_REQ_GET_STATUS, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_READ):
             if ((req->wIndex < 1) || (req->wLength > hc->root_hub_num_ports)) {
                 /* invalid port number  */
                 return (USB_ERR_IOERROR);
             }
             break;
-        case C(USB_HUB_REQ_SET_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_DIRECTION_H2D):
+        case C(USB_HUB_REQ_SET_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
             if ((req->wIndex < 1) || (req->wLength > hc->root_hub_num_ports)) {
                 /* invalid port number  */
                 return (USB_ERR_IOERROR);
@@ -388,9 +388,9 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     return (USB_ERR_IOERROR);
             }
             break;
-        case C(USB_HUB_REQ_CLEAR_TT_BUFFER, USB_REQUEST_RECIPIENT_OTHER, USB_DIRECTION_H2D):
-        case C(USB_HUB_REQ_RESET_TT, USB_REQUEST_RECIPIENT_OTHER, USB_DIRECTION_H2D):
-        case C(USB_HUB_REQ_STOP_TT, USB_REQUEST_RECIPIENT_OTHER, USB_DIRECTION_H2D):
+        case C(USB_HUB_REQ_CLEAR_TT_BUFFER, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
+        case C(USB_HUB_REQ_RESET_TT, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
+        case C(USB_HUB_REQ_STOP_TT, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
             break;
         default:
             return (USB_ERR_IOERROR);

@@ -13,6 +13,7 @@
 
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
+#include <usb/usb_parse.h>
 #include <usb/class/usb_hid.h>
 
 /**
@@ -771,8 +772,7 @@ struct usb_hid_descriptor *usb_hid_get_descriptor_from_usb(
     if (desc == NULL) {
         return (NULL);
     }
-    //while ((desc = usb_desc_foreach(cd, desc))) {
-        while (0) {
+    while ((desc = usb_parse_next_descriptor(cd, desc))) {
         if ((desc->bDescriptorType == USB_DESCRIPTOR_TYPE_HID) &&
             (desc->bLength >= USB_HID_DESCRIPTOR_SIZE(0))) {
             return ((void *)desc);
@@ -795,7 +795,7 @@ usb_error_t usb_req_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
 {
     //struct usb_interface *iface = usbd_get_iface(udev, iface_index);
     struct usb_hid_descriptor *hid;
-    usb_error_t err;
+
 
     /*if ((iface == NULL) || (ifacesc == NULL)) {
         return (USB_ERR_INVAL);
@@ -824,11 +824,11 @@ usb_error_t usb_req_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
     // TODO
     /*err = usbd_req_get_report_descriptor
         (mtx, *descp, *sizep, iface_index);
-     */
+
     if (err) {
         free(*ret_desc);
         *ret_desc = NULL;
         return (err);
-    }
+    }*/
     return (USB_ERR_OK);
 }

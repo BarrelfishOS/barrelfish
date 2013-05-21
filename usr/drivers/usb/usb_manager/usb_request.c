@@ -68,7 +68,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         /*
          * cannot write data to the root hub
          */
-        if ((req->bType.direction != USB_DIRECTION_D2H) && (length != 0)) {
+        if ((req->bType.direction != USB_REQUEST_READ) && (length != 0)) {
             debug_printf("Error: root hub does not support writing of data\n");
             if (req_state) {
                 req_state->error = USB_ERR_INVAL;
@@ -180,7 +180,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          * second frame buffer and indicate that we have two frames
          */
         if (current_data_length > 0) {
-            if (!(req->bType.direction = USB_DIRECTION_D2H)) {
+            if (!(req->bType.direction = USB_REQUEST_READ)) {
                 usb_mem_copy_in(xfer->frame_buffers + 1, 0, data,
                         current_data_length);
             }
@@ -229,7 +229,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          * and we have some bytes to read
          */
         if ((current_data_length > 0)
-                && (req->bType.direction == USB_DIRECTION_D2H)) {
+                && (req->bType.direction == USB_REQUEST_READ)) {
             usb_mem_copy_out(xfer->frame_buffers + 1, 0, data,
                     current_data_length);
         }
