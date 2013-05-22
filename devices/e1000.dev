@@ -490,7 +490,13 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
 
   // 13.3.32
   register iam rw addr(base, 0x00e0) "Interrupt ack auto mask" type(intreg);
-  
+
+  regarray eitr addr(base, 0x1680)[9;0x4] "Extended Interrupt Throttle" {
+    _         2 mbz;
+    interval 13 "Interval";
+    _         1 mbz;
+    counter  16 "Down counter";
+  };
 
   /************************************
    * Receive registers
