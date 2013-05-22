@@ -187,7 +187,23 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
         return (USB_ERR_IOERROR);
     }
 
+
+
+    /*
+     * R/WHost controller has port power control switches. This bit
+     * represents the current setting of the switch (0 = off, 1 = on). When
+     * power is not available on a port (i.e. PP equals a 0), the port is non-
+     * functional and will not report attaches, detaches, etc.
+     */
+    if (ehci_hcsparams_ppc_rdf(hc->ehci_base)) {
+        for (uint8_t i = 0; i < hc->root_hub_num_ports; i++) {
+            ehci_portsc_pp_wrf(hc->ehci_base, i, 1);
+        }
+    }
+
+    WAIT(300);
     debug_printf("EHCI controller up and running.\n");
+
 
     char buf[1024];
     ehci_portsc_pri(buf, 1024, hc->ehci_base, 0);
@@ -195,11 +211,16 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     printf(buf);
     printf("\n---------------------------------------\n");
 
-    ehci_portsc_pri(buf, 1024, hc->ehci_base, 1);
-    printf("\n---------------------------------------\n");
-    printf(buf);
-    printf("\n---------------------------------------\n");
 
+       ehci_usbsts_pr(buf, 1024, hc->ehci_base);
+              printf("\n---------------------------------------\n");
+              printf(buf);
+              printf("\n---------------------------------------\n");
+
+              ehci_usbintr_pr(buf, 1024, hc->ehci_base);
+                            printf("\n---------------------------------------\n");
+                            printf(buf);
+                            printf("\n---------------------------------------\n");
     return (USB_ERR_OK);
 
 }
@@ -285,7 +306,7 @@ void usb_ehci_interrupt(usb_ehci_hc_t *hc)
 usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
 {
     printf("\n");
-    USB_DEBUG("usb_ehci_init()\n");
+    USB_DEBUG("usb_ehci_init(%p)\n", controller_base);
 
     /* initialize the mackerel framework */
     hc->ehci_base = &ehci_base;

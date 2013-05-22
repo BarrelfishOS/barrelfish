@@ -78,31 +78,48 @@ static union arm_l1_entry * aligned_boot_l1_high;
 static int timeslice = 5;  //interval in ms in which the scheduler gets called
 
 static struct cmdarg cmdargs[] = {
-{
-"consolePort", ArgType_UInt, {
-.uinteger = &serial_console_port
-}
-}, {
-"debugPort", ArgType_UInt, {
-.uinteger = &serial_debug_port
-}
-}, {
-"loglevel", ArgType_Int, {
-.integer = &kernel_loglevel
-}
-}, {
-"logmask", ArgType_Int, {
-.integer = &kernel_log_subsystem_mask
-}
-}, {
-"timeslice", ArgType_Int, {
-.integer = &timeslice
-}
-}, {
-NULL, 0, {
-NULL
-}
-}
+    {
+        "consolePort",
+        ArgType_UInt,
+        {
+            .uinteger = &serial_console_port
+        }
+    },
+    {
+        "debugPort",
+        ArgType_UInt,
+        {
+            .uinteger = &serial_debug_port
+        }
+    },
+    {
+        "loglevel",
+        ArgType_Int,
+        {
+            .integer = &kernel_loglevel
+        }
+    },
+    {
+        "logmask",
+        ArgType_Int,
+        {
+            .integer = &kernel_log_subsystem_mask
+        }
+    },
+    {
+        "timeslice",
+        ArgType_Int,
+        {
+            .integer = &timeslice
+        }
+    },
+    {
+        NULL,
+        0,
+        {
+            NULL
+        }
+    }
 };
 
 static inline void __attribute__ ((always_inline))
@@ -179,18 +196,20 @@ void kernel_startup_early(void)
     timeslice = CONSTRAIN(timeslice, 1, 20);
 }
 
+#define KERNEL_DEBUG_USB 0
+
 /*
  * initialize the USB functionality of the pandaboard
  */
 static void hsusb_init(void)
 {
-    printf("hsusb initialization routine\n");
+    printf("  > hsusb_init()...\n");
 
     /*
      * Global Initialization of the OMAPP44xx USB Sub System
      */
-    printf("  Global initialization of HS USB Subsystem\n");
-    printf("   - USB TTL reset...");
+    printf("  >  > USB TTL reset...");
+
     /*
      * Reset USBTTL
      * USBTLL_SYSCONFIG = 0x2
@@ -204,7 +223,10 @@ static void hsusb_init(void)
         printf("%c", 0xE);
     }
     /*
-     * enable config features
+     * USBTLL_SYSCONFIG
+     *  - Setting ENAWAKEUP
+     *  - Setting SIDLEMODE
+     *  - Setting CLOCKACTIVITY
      */
     *((volatile uint32_t*) (0x4A062010)) = (uint32_t) ((0x1 << 2) | (0x1 << 3)
             | (0x1 << 8));
@@ -212,43 +234,54 @@ static void hsusb_init(void)
     printf("OK\n");
 
     /*
-     * enable interrupts on USBTTL:
+     * USBTLL_IRQENABLE:
      *  - all interrupts
      */
-    *((volatile uint32_t*) (0x4A06201C)) = (uint32_t) (0x5);
+    *((volatile uint32_t*) (0x4A06201C)) = (uint32_t) (0x7);
 
-    printf("   - Host controller reset...");
+    printf("  >  > USB host controller reset...");
 
     /*
      * per form a reset on the USB host controller module
      * this resets both EHCI and OCHI controllers
+     *
+     * UHH_SYSCONFIG = 0x1
      */
     *((volatile uint32_t*) (0x4A064010)) = (uint32_t) (0x1);
 
     /*
      * wait till reset is done
+     * UHH_SYSSTATUS = 0x6
      */
     while (((*((volatile uint32_t*) (0x4A064014))) & 0x6) != 0x6) {
         printf("%c", 0xE);
     }
 
-    /* enable some USB host features */
+    /* enable some USB host features
+     * UHH_SYSCONFIG
+     *  - STANDBYMODE
+     *  - IDLEMODE
+     */
     *((volatile uint32_t*) (0x4A064010)) = (uint32_t) ((0x1 << 2) | (0x1 << 4));
 
     printf("OK\n");
 
-    printf("   - Setting USB host configuration values...");
+    printf("  >  > Setting USB host configuration values...");
 
     /*
      * setting the host configuration to external PHY and enable
      * the burst types, app start clk
+     *
+     * UHH_HOSTCONFIG
+     *  - APP_START_CLK
+     *  - ENAINCR_x
      */
     *((volatile uint32_t*) (0x4A064040)) =
             (uint32_t) ((0x7 << 2) | (0x1 << 31));
 
     printf("OK\n");
 
-    printf("hsusb initialization done.\n");
+    printf("  > done.\n");
 }
 
 // GPIO numbers for enabling the USB hub on the pandaboard
@@ -265,7 +298,7 @@ static void hsusb_init(void)
  */
 static void usb_power_on(void)
 {
-    printf("usb_power_on: \n - start...\n");
+    printf("usb_power_on()... \n");
 
     // mackerel device state variables
     omap44xx_gpio_t g1;
@@ -277,6 +310,7 @@ static void usb_power_on(void)
     omap44xx_gpio_initialize(&g1, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
     omap44xx_gpio_initialize(&g2, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO2);
 
+    printf("  > forward the AUXCLK3 to GPIO_WK31\n");
     /*
      * the USB hub needs the FREF_CLK3_OUT to be 19.2 MHz and that this
      * clock goes to the GPIO_WK31 out.
@@ -296,7 +330,7 @@ static void usb_power_on(void)
      */
     *((volatile uint32_t*) (PAD0_FREF_CLK3_OUT)) = (uint32_t) (0x0000);
 
-    printf(" - setting the clocks\n");
+    printf("  > reset external USB hub and PHY\n");
 
     /*
      * Perform a reset on the USB hub i.e. drive the GPIO_1 pin to low
@@ -307,15 +341,11 @@ static void usb_power_on(void)
 
     omap44xx_gpio_cleardataout_wr(&g1, (1UL << HSUSB_HUB_POWER));
 
-    printf(" - power down the root hub\n");
-
     /*
      * forward the data outline to the USB hub by muxing the
      * CONTROL_CORE_PAD0_KPD_COL1_PAD1_KPD_COL2 into mode 3 (gpio_1)
      */
     *((volatile uint32_t*) (PAD1_KPD_COL2)) = (uint32_t) (0x0003 << 16);
-
-    printf(" - reset the USB hub \n");
 
     /*
      * Perform a reset on the USB phy i.e. drive GPIO_62 to low
@@ -333,10 +363,8 @@ static void usb_power_on(void)
      */
     *((volatile uint32_t*) (PAD0_GPMC_WAIT1)) = (uint32_t) (0x0003);
 
-    printf(" - reset the USB PHY\n");
-
     /* delay to give the hardware time to reset TODO: propper delay*/
-    for (int j = 0; j < 8000; j++) {
+    for (int j = 0; j < 4000; j++) {
         printf("%c", 0xE);
     }
 
@@ -347,14 +375,24 @@ static void usb_power_on(void)
 
     hsusb_init();
 
-    /* enable the USB HUB */
-    omap44xx_gpio_setdataout_wr(&g2, (1UL << HSUSB_HUB_RESET));
+    printf("  > enable the external USB hub and PHY\n");
 
     /* power on the USB subsystem */
     omap44xx_gpio_setdataout_wr(&g1, (1UL << HSUSB_HUB_POWER));
 
+
+    /* enable the USB HUB */
+    omap44xx_gpio_setdataout_wr(&g2, (1UL << HSUSB_HUB_RESET));
+
+    for (int j = 0; j < 4000; j++) {
+            printf("%c", 0xE);
+        }
+
+    printf("  > performing softreset on the USB PHY\n");
+
     assert(!(0x2 & (*((volatile uint32_t*)(0x4A310134)))));
     assert((0x2 & (*((volatile uint32_t*)(0x4A31013C)))));
+
     /* soft reset the pyh */
     *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x1 << 5) | (0x5 << 16)
             | (0x2 << 22) | (0x1 << 24) | (0x1 << 31));
@@ -362,14 +400,19 @@ static void usb_power_on(void)
         printf("%c", 0xE);
     }
 
-    /* enable the high speed mode */
-    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x40) | (0x04 << 16)
-            | (0x2 << 22) | (0x1 << 24) | (0x1 << 31));
-    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
-        printf("%c", 0xE);
+    try_again:
+    /* wait till reset is done */
+    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x5 << 16)
+                | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+        while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+            printf("%c", 0xE);
+        }
+        if (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31) & (0x1<<5)) {
+            /* reset is not done */
+            goto try_again;
+        }
 
-    }
-
+    /* read the debug register */
     *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x15 << 16)
             | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
     while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
@@ -377,15 +420,29 @@ static void usb_power_on(void)
 
     }
 
-    printf("Debug State = %x", (*((volatile uint32_t*) (0x4A064CA4))) & 0xFF);
+    printf("  > ULPI line state = %s\n",
+            (*((volatile uint32_t*) (0x4A064CA4))) & 0x1 ?
+                    "Connected" : "Disconnected");
 
-    printf(" - USB hub and PHY re-enabled\n");
-    printf("usb_power_on: complete.\n");
+    /*
+     * reading out the vendor ID of the ULPI receiver
+     * This ID must be 0x24 according to the SMSC USB3320 data sheet
+     */
+    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x00 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+        printf("%c", 0xE);
+    }
+    assert(0x24 == ((*((volatile uint32_t*) (0x4A064CA4))) & 0xFF));
+
+    printf("done.\n");
 }
 
 static void prcm_init(void)
 {
+    printf("prcm_init()...\n");
 
+    printf("  > CM_SYS_CLKSEL=38.4MHz \n");
     /*
      * Set the system clock to 38.4 MHz
      * CM_SYS_CLKSEL = 0x7
@@ -400,13 +457,11 @@ static void prcm_init(void)
     /* ALTCLKSRC */
     *((volatile uint32_t*) (0x4A30A110)) = (uint32_t) (0x1 | (0x3 << 2));
 
-    printf("Enabling the L4PER clocks\n");
+    printf("  > Enabling L4PER interconnect clock\n");
     /* CM_L4PER_CLKSTCTRL */
     *((volatile uint32_t*) (0x4A009400)) = (uint32_t) (0x2);
-    printf("/* CM_L4PER_CLKSTCTRL */ %p \n",
-            *((volatile uint32_t*) (0x4A009400)));
 
-    printf("Enabling the GPIO clocks\n");
+    printf("  > Enabling GPIOi clocks\n");
     /* CM_L4PER_GPIO2_CLKCTRL */
     *((volatile uint32_t*) (0x4A009460)) = (uint32_t) (0x1);
     /* CM_L4PER_GPIO3_CLKCTRL */
@@ -421,7 +476,7 @@ static void prcm_init(void)
     *((volatile uint32_t*) (0x4A009488)) = (uint32_t) (0x2);
     /* CM_WKUP_GPIO1_CLKCTRL */
     *((volatile uint32_t*) (0x4A008E00)) = (uint32_t) (0x1);
-
+#if KERNEL_DEBUG_USB
     printf("/* CM_L4PER_PIO2_CLKCTRL */ %p \n",
             *((volatile uint32_t*) (0x4A009460)));
     printf("/* CM_L4PER_GPIO3_CLKCTRL */ %p \n",
@@ -436,8 +491,8 @@ static void prcm_init(void)
             *((volatile uint32_t*) (0x4A009488)));
     printf("/* CM_WKUP_GPIO1_CLKCTRL */ %p \n",
             *((volatile uint32_t*) (0x4A008E00)));
-
-    printf("Enabling the USB clocks\n");
+#endif
+    printf("  > Enabling L3INIT USB clocks\n");
     /* CM_L3INIT_HSI_CLKCTRL */
     *((volatile uint32_t*) (0x4A009338)) = (uint32_t) (0x1);
     /* CM_L3INIT_HSUSBHOST_CLKCTRL */
@@ -452,7 +507,7 @@ static void prcm_init(void)
     *((volatile uint32_t*) (0x4A0093D0)) = (uint32_t) (0x2);
     /* CM_L3INIT_USBPHY_CLKCTRL */
     *((volatile uint32_t*) (0x4A0093E0)) = (uint32_t) (0x301);
-
+#if KERNEL_DEBUG_USB
     printf("/* CM_L3INIT_HSI_CLKCTRL */%p \n",
             *((volatile uint32_t*) (0x4A009338)));
     printf("/* CM_L3INIT_HSUSBHOST_CLKCTRL */%p \n",
@@ -465,10 +520,8 @@ static void prcm_init(void)
             *((volatile uint32_t*) (0x4A0093D0)));
     printf("/* CM_L3INIT_USBPHY_CLKCTRL */%p \n",
             *((volatile uint32_t*) (0x4A0093E0)));
-
-    /* OMAP44XX_SCRM_ALTCLKSRC */
-    // clock = (uint32_t *) (l4_cfg_wkup + 0xA110);
-    //*clock = (0x1) | (0x3 << 2);
+#endif
+    printf("done.\n");
 }
 
 #define M0              0
@@ -482,7 +535,7 @@ static void prcm_init(void)
 
 static void set_muxconf_regs(void)
 {
-    printf("setting pad muxes \n");
+    printf("set_muxconf_regs()...");
     uint16_t mux_1, mux_2;
 
     /* CONTROL_PADCONF_CORE_SYSCONFIG */
@@ -534,6 +587,7 @@ static void set_muxconf_regs(void)
     mux_1 = (*((volatile uint32_t*) (0x4A1000C0)) >> 16) & 0xFFFF;
     *((volatile uint32_t*) (0x4A1000D8)) = (uint32_t) (mux_1 << 16 | mux_2);
 
+#if KERNEL_DEBUG_USB
     printf("/* USBB1_ULPITLL_CLK */ %p\n",
             *((volatile uint32_t*) (0x4A1000C0)));
 
@@ -554,7 +608,8 @@ static void set_muxconf_regs(void)
 
     printf("/* USBB1_ULPITLL_DAT7 */ %p\n",
             *((volatile uint32_t*) (0x4A1000D8)));
-
+#endif
+    printf("done\n");
 }
 
 /**
@@ -569,6 +624,8 @@ static void set_muxconf_regs(void)
 static void __attribute__ ((noinline,noreturn)) text_init(void)
 {
     errval_t errval;
+
+
 
     // Map-out low memory
     if (glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
@@ -655,6 +712,8 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     enable_cycle_counter_user_access();
     reset_cycle_counter();
 #endif
+
+
 
     // tell BSP that we are started up
     // XXX NYI: See Section 27.4.4 in the OMAP44xx manual for how this
@@ -812,6 +871,8 @@ void arch_init(void *pointer)
     printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR"\n",
             local_phys_to_mem((uint32_t) &kernel_first_byte));
 
+
+
     print_system_identification();
     size_ram();
 
@@ -819,8 +880,11 @@ void arch_init(void *pointer)
         set_leds();
     }
 
+
+
     paging_init();
     cp15_enable_mmu();
     printf("MMU enabled\n");
+
     text_init();
 }

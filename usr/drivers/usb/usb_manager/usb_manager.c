@@ -132,7 +132,6 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
 
     st->b = bind;
 
-
     /*
      * TODO: DEVICE SETUP
      */
@@ -416,6 +415,23 @@ int main(int argc, char *argv[])
     char ehci_base[4];
     memcpy(ehci_base, &tmp, 4);
     argv = (char *[]) {"ehci", ehci_base, "ohci", ohci_base};
+
+    tmp =USB_EHCI_OFFSET+(int32_t)usb_subsystem_base;
+    *((volatile uint32_t*) (tmp+0x00A4)) = (uint32_t) ((0x15 << 16)
+                | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+        while (*((volatile uint32_t*) (tmp+0x00A4)) & (1 << 31)) {
+            printf("%c", 0xE);
+
+        }
+        assert(*(((volatile uint32_t*) (tmp+0x00A4))) & 0x1);
+
+        *((volatile uint32_t*) (tmp+0x00A4)) = (uint32_t) ((0x00 << 16)
+                | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+        while (*((volatile uint32_t*) (tmp+0x00A4)) & (1 << 31)) {
+            printf("%c", 0xE);
+        }
+        assert(0x24 == ((*((volatile uint32_t*) (tmp+0x00A4))) & 0xFF));
+
 #endif
 
     /*
@@ -435,6 +451,7 @@ int main(int argc, char *argv[])
         }
 
         if (strcmp(argv[i], "ohci") == 0) {
+            continue;
             hc = malloc(sizeof(*hc));
             uerr = usb_hc_init(hc, USB_OHCI, usb_subsystem_base + offset);
         }
