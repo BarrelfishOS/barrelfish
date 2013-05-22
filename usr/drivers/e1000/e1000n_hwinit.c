@@ -795,7 +795,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         tctl = e1000_tctl_ct_insert(tctl, 0x10);
         tctl = e1000_tctl_en_insert(tctl, 1);
         tctl = e1000_tctl_psp_insert(tctl, 1);
-        tctl = e1000_tctl_cold_insert(tctl, 0x40);
+        tctl = e1000_tctl_bst_insert(tctl, 0x40);
         e1000_tctl_wr(dev->device, tctl);
     }
 

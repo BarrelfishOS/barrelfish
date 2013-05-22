@@ -688,7 +688,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _		1 mbz;
     psp		1 "Pad short packets";
     ct		8 "Collision threshold";
-    cold	10 type(coldist) "Collision distance";
+    bst	    10 "Back-Off Slot time";
     swxoff	1 "Software XOFF transmission";
     _		1 mbz;
     rtlc	1 "Retransmit on late collision";
