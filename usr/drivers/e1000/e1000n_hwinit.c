@@ -755,7 +755,13 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
     e1000_configure_rx(dev);
 
     /* --------------------- transmit setup --------------------- */
-    {
+    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
+        e1000_txdctl_82575_t txdctl = 0;
+        txdctl = e1000_txdctl_82575_enable_insert(txdctl, 1);
+        txdctl = e1000_txdctl_82575_priority_insert(txdctl, 1);
+        e1000_txdctl_82575_wr(dev->device, 0, txdctl);
+    }
+    else {
         e1000_txdctl_t txdctl = 0;
         txdctl = e1000_txdctl_gran_insert(txdctl, 1);
         e1000_txdctl_wr(dev->device, 0, txdctl);

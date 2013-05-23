@@ -750,6 +750,19 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     lwthresh	7 "Transmit descriptor low threshold";
   };
 
+  regarray txdctl_82575 rw also addr(base, 0x3828)[4;0x100] "Transmit descr. control queue for 82575 cards"  {
+    pthresh  6 "Prefetch threshold";
+    _        2 mbz;
+    hthresh  6 "Host threshold";
+    _        2;
+    wthresh  6 "Write back threshold";
+    _        3 mb1;
+    enable   1 "Enable the queue";
+    swflsh   1 "Transmit Software Flush";
+    priority 1 "Priority";
+    _        4;
+  };
+
   // 13.3.67
   register tadv rw addr(base, 0x382c) "Tx absolute intr. delay" {
     idv		16 "Interrupt delay value";
