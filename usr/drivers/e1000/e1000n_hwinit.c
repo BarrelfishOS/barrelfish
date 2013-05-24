@@ -419,23 +419,11 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
 {
     bool link_up = false;
 
-    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
-        E1000_DEBUG("Auto-negotiation: 82575 mode");
-        int timeout = 4000;
-        while (e1000_check_link_up(dev) == false && 0 < timeout--) {
-            usec_delay(10);
-        }
-        link_up = e1000_check_link_up(dev);
-        goto out;
-    }
-
-    e1000_txcw_ane_wrf(dev->device, 1);
-
     e1000_ctrlext_t ctrlext = e1000_ctrlext_rd(dev->device);
     if (e1000_ctrlext_link_mode_extract(ctrlext) == e1000_serdes) {
         E1000_DEBUG("Auto-negotiation: serdes mode");
         int timeout = 4000;
-
+        e1000_txcw_ane_wrf(dev->device, 1);
         e1000_ctrl_lrst_wrf(dev->device, 1);
 
         while (e1000_rxcw_anc_rdf(dev->device) == 0 && 0 < timeout--) {
@@ -445,10 +433,17 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
         if (timeout > 0) {
             link_up = true;
         }
+
+        if (!link_up) {
+            e1000_txcw_ane_wrf(dev->device, 0);
+        }
     } else {
         int timeout = 4000;
 
-        e1000_ctrl_asde_wrf(dev->device, 1);
+        // XXX: find out which cards really need this?
+        if (dev->mac_type < e1000_82571) {
+            e1000_ctrl_asde_wrf(dev->device, 1);
+        }
 
         while (e1000_check_link_up(dev) == false && 0 < timeout--) {
             usec_delay(10);
@@ -457,12 +452,6 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
         link_up = e1000_check_link_up(dev);
     }
 
-    
-    if (!link_up) {
-        e1000_txcw_ane_wrf(dev->device, 0);
-    }
-
-out:
     E1000_DEBUG("Auto-negotiate link status: %s\n", e1000_check_link_up(dev) ? "link-up" : "link-down");
     return link_up;
 }
