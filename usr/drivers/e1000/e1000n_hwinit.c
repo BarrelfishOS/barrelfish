@@ -419,7 +419,7 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
 {
     bool link_up = false;
 
-    if (dev->mac_type == e1000_82575) {
+    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
         E1000_DEBUG("Auto-negotiation: 82575 mode");
         int timeout = 4000;
         while (e1000_check_link_up(dev) == false && 0 < timeout--) {
