@@ -521,16 +521,10 @@ static void e1000_set_serial_interface_mode(e1000_device_t *dev)
     if (dev->mac_type == e1000_82573) {
         ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, e1000_l82573);
     }
-
     else if (dev->media_type == e1000_media_type_serdes) {
         ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, e1000_serdes);
     }
-
-    else if (dev->mac_type == e1000_82540 || dev->mac_type == e1000_82541
-             || dev->mac_type == e1000_82547) {
-        /* reserved */
-        ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, 0);
-    } else {
+    else {
         ctrlext = e1000_ctrlext_link_mode_insert(ctrlext, e1000_glci);
     }
     /* write serial interface mode */
