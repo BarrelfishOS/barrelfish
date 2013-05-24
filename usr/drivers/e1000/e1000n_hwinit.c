@@ -419,6 +419,16 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
 {
     bool link_up = false;
 
+    if (dev->mac_type == e1000_82575) {
+        E1000_DEBUG("Auto-negotiation: 82575 mode");
+        int timeout = 4000;
+        while (e1000_check_link_up(dev) == false && 0 < timeout--) {
+            usec_delay(10);
+        }
+        link_up = e1000_check_link_up(dev);
+        goto out;
+    }
+
     e1000_txcw_ane_wrf(dev->device, 1);
 
     e1000_ctrlext_t ctrlext = e1000_ctrlext_rd(dev->device);
@@ -447,11 +457,13 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
         link_up = e1000_check_link_up(dev);
     }
 
-    E1000_DEBUG("Auto-negotiate link status: %s\n", e1000_check_link_up(dev) ? "link-up" : "link-down");
+    
     if (!link_up) {
         e1000_txcw_ane_wrf(dev->device, 0);
     }
 
+out:
+    E1000_DEBUG("Auto-negotiate link status: %s\n", e1000_check_link_up(dev) ? "link-up" : "link-down");
     return link_up;
 }
 
