@@ -580,7 +580,7 @@ static void e1000_set_tipg(e1000_device_t *dev)
 static void e1000_configure_tx(e1000_device_t *dev)
 {
     // TODO: configure_tx
-    if (dev->mac_type >= e1000_82571) {
+    if (dev->mac_type >= e1000_82571 && dev->mac_type < e1000_82575) {
         /* Reset delay timers after every interrupt */
         e1000_ctrlext_int_tca_wrf(dev->device, 1);
     }
