@@ -559,6 +559,11 @@ static void e1000_set_tipg(e1000_device_t *dev)
         tipg = e1000_tipg_ipgr1_insert(tipg, DEFAULT_82542_TIPG_IPGR1);
         tipg = e1000_tipg_ipgr2_insert(tipg, DEFAULT_82542_TIPG_IPGR2);
         break;
+    case e1000_82575:
+    case e1000_82576:
+        tipg = e1000_tipg_ipgr1_insert(tipg, DEFAULT_82575_TIPG_IPGR1);
+        tipg = e1000_tipg_ipgr2_insert(tipg, DEFAULT_82575_TIPG_IPGR2);
+        break;
     default:
         tipg = e1000_tipg_ipgr1_insert(tipg, DEFAULT_82543_TIPG_IPGR1);
         tipg = e1000_tipg_ipgr2_insert(tipg, DEFAULT_82543_TIPG_IPGR2);
