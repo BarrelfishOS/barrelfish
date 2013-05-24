@@ -497,6 +497,10 @@ static void e1000_set_rxbsize(e1000_device_t *dev, e1000_rx_bsize_t rx_bsize)
         break;
     }
 
+    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
+        bsex = 0; // Reserved and must be zero 0 on these cards
+    }
+
     rctl = e1000_rctl_rd(dev->device);
     rctl = e1000_rctl_bsize_insert(rctl, bsize);
     rctl = e1000_rctl_bsex_insert(rctl, bsex);
