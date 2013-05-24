@@ -1024,7 +1024,17 @@ int main(int argc, char **argv)
     e1000_device.device = &e1000;
     e1000_device.mac_type = mac_type;
     e1000_device.device_id = deviceid;
-    e1000_device.rx_bsize = receive_buffer_size;
+    if (e1000_device.mac_type == e1000_82575 || e1000_device.mac_type == e1000_82576) {
+        // These cards do not have a bsex reg entry
+        // therefore, we can't use 16384 buffer size.
+        // If we use smaller buffers than 2048 bytes the
+        // eop bit on received packets might not be set in case the package
+        // is biger than the receive buffer size and we don't handle these
+        // cases currently.
+        e1000_device.rx_bsize = bsize_2048;
+    } else {
+        e1000_device.rx_bsize = receive_buffer_size;
+    }
     e1000_device.media_type = e1000_media_type_undefined;
 
     global_service_name = service_name;
