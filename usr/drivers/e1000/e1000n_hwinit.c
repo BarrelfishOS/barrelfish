@@ -717,7 +717,14 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
 
     /* --------------------- receive setup --------------------- */
     /* receive descriptor control */
-    {
+    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
+        e1000_rxdctl_82575_t rxdctl = 0;
+
+        rxdctl = e1000_rxdctl_82575_enable_insert(rxdctl, 1);
+        rxdctl = e1000_rxdctl_82575_wthresh_insert(rxdctl, 1);
+        e1000_rxdctl_82575_wr(dev->device, 0, rxdctl);
+    }
+    else {
         e1000_rxdctl_t rxdctl = 0;
 
         rxdctl = e1000_rxdctl_gran_insert(rxdctl, 1);

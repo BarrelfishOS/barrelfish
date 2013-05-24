@@ -616,15 +616,28 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     gran_cache	= 0 "Cache line granularity";
     gran_desc	= 1 "Descriptor granularity";
   };
+
   regarray rxdctl rw addr(base, 0x2828)[2;0x100] "Rx descriptor control" {
-    pthresh	6 "Prefetch threshold";
-    _		2 mbz;
-    hthresh	6 "Host threshold";
-    _		2 mbz;
-    wthresh	6 "Write back threshold";
-    _		2 mbz;
-    gran	1 type(threshgran) "Granularity";
-    _		7 mbz;
+    pthresh 6 "Prefetch threshold";
+    _       2 mbz;
+    hthresh 6 "Host threshold";
+    _       2 mbz;
+    wthresh 6 "Write back threshold";
+    _       2 mbz;
+    gran    1 type(threshgran) "Granularity";
+    _       7 mbz;
+  };
+
+  regarray rxdctl_82575 rw also addr(base, 0x2828)[2;0x100] "Rx descriptor control" {
+    pthresh 6 "Prefetch threshold";
+    _       2 mbz;
+    hthresh 6 "Host threshold";
+    _       2 mbz;
+    wthresh 6 "Write back threshold";
+    _       3 mbz;
+    enable  1 "Granularity";
+    swflush 1 "Receive Software Flush";
+    _       5 mbz;
   };
 
   // 13.3.45
