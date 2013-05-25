@@ -12,7 +12,7 @@
 
 [ build application { target = "usb_manager",
                       cFiles = [ "usb_manager.c", "usb_controller.c", 
-                      "usb_device.c", "usb_endpoint.c","usb_hub.c",
+                      "usb_device.c", "usb_endpoint.c",
                       "usb_memory.c","usb_xfer.c",
                       "usb_request.c", "usb_transfer.c",
                       -- OHCI Controller
@@ -30,7 +30,10 @@
                       "controller/ehci/usb_ehci_pipe.c", 
                       "controller/ehci/usb_ehci_root_hub.c", 
                       "controller/ehci/usb_ehci_xfer.c", 
-                      "controller/ehci/usb_ehci.c"
+                      "controller/ehci/usb_ehci.c",
+                      -- USB hub
+                      "hub/usb_hub.c",
+                      "hub/usb_hub_request.c"
                       ],
                       
                       flounderBindings = [ "usb_manager" ],

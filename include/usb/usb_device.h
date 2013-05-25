@@ -119,6 +119,10 @@ struct usb_device {
     char *product;
 
 };
+
+#define USB_DEVICE_IS_ROOTHUB(dev) \
+        ((dev)->parent_hub == NULL)
+
 const struct usb_generic_descriptor *usb_get_generic_descriptor(void);
 usb_error_t usb_device_get_iface_count(uint8_t *ret_count);
 usb_error_t usb_device_get_speed(usb_speed_t *ret_speed);

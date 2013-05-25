@@ -19,10 +19,9 @@
 #include <usb/usb_error.h>
 #include <usb/usb_request.h>
 #include <usb/usb_device.h>
-#include <usb/class/usb_hub_descriptor.h>
-#include <usb/class/usb_hub_request.h>
 
 #include "../../usb_controller.h"
+#include "../../hub/usb_hub.h"
 #include "usb_ehci.h"
 #include "usb_ehci_root_hub.h"
 
@@ -95,8 +94,8 @@ static const struct usb_ehci_config_descriptor rh_cfg_desc = {
     },
 };
 
-static const struct usb_hub_class_descriptor rh_desc = {
-    .bDesLength = 0,
+static const struct usb_hub_descriptor rh_desc = {
+    .bDescLength = 0,
     .bDescriptorType = USB_DESCRIPTOR_TYPE_HUB,
     .bNbrPorts = 0,
     .wHubCharacteristics = {
@@ -185,9 +184,9 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     hc->root_hub_descriptor.hub_desc.wHubCharacteristics
                             .power_mode = ehci_hcsparams_ppc_rdf(hc->ehci_base);
                     hc->root_hub_descriptor.hub_desc.bPwrOn2PwrGood = 200;
-                    hc->root_hub_descriptor.hub_desc.bDesLength = 8
+                    hc->root_hub_descriptor.hub_desc.bDescLength = 8
                             + ((hc->root_hub_num_ports + 7) / 8);
-                    data_length = hc->root_hub_descriptor.hub_desc.bDesLength;
+                    data_length = hc->root_hub_descriptor.hub_desc.bDescLength;
                     break;
                 case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
                     if ((req->wValue & 0xFF) != 0) {

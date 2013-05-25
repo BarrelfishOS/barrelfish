@@ -267,6 +267,12 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     return ((usb_error_t) err);
 }
 
+
+usb_error_t usb_exec_request(struct usb_device *device, struct usb_device_request *request, void *data)
+{
+    return (USB_ERR_OK);
+}
+
 /*
  * --------------------------------------------------------------------------
  * Flounder Callbacks

@@ -338,16 +338,17 @@ void tsc_init(void)
     cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
 
     gic_enable_interrupt(29, 0, 0, 0, 0);
+
     // ohci interrupt
-    gic_enable_interrupt(76+32,0x3,0,0,0);
+    //gic_enable_interrupt(76+32,0x3,0,0,0);
     // ehci interrupt
-    gic_enable_interrupt(77+32,0x3,0,0,0);
+    //gic_enable_interrupt(77+32,0x3,0,0,0);
     // USB TTL
-    gic_enable_interrupt(78+32,0x3,0,0,0);
+    //gic_enable_interrupt(78+32,0x3,0,0,0);
     // ehci interrupt
-    gic_enable_interrupt(57+32,0x3,0,0,0);
+    //gic_enable_interrupt(57+32,0x3,0,0,0);
     // USB TTL
-    gic_enable_interrupt(58+32,0x3,0,0,0);
+    //gic_enable_interrupt(58+32,0x3,0,0,0);
     printf("gic_enable_interrupt done\n");
 }
 

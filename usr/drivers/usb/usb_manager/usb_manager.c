@@ -4,6 +4,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/inthandler.h>
 
 #include <usb/usb.h>
 #include <usb/usb_error.h>
@@ -17,8 +18,6 @@
 #include "usb_request.h"
 #include "usb_device.h"
 #include "usb_transfer.h"
-
-static usb_host_controller_t *host_controllers = NULL;
 
 /*
  * ------------------------------------------------------------------------
@@ -45,42 +44,7 @@ static void usb_driver_connect_cb(void *a)
     free(a);
 }
 
-static void usb_driver_test_cb(void *a)
-{
-    USB_DEBUG("driver xfer done notify successful terminated\n");
-}
-
 struct usb_manager_connect_state test;
-
-static void usb_driver_test_response(void *a)
-{
-    USB_DEBUG("sending xfer done notify\n");
-    if (test.b == NULL) {
-        return;
-    }
-    struct event_closure txcont = MKCONT(usb_driver_test_cb, &test);
-    errval_t err;
-    uint8_t data[4];
-    //err = usb_manager_transfer_done_notify__tx(test.b, txcont, 1, 0, data, 4);
-    err = test.b->tx_vtbl.transfer_done_notify(test.b, txcont, 1, 0, data, 4);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            // try to resend
-            USB_DEBUG("resending done notify response\n");
-            txcont = MKCONT(usb_driver_test_response, &test);
-            err = test.b->register_send(test.b, get_default_waitset(), txcont);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to register send");
-            }
-        } else {
-            // error
-            DEBUG_ERR(err, "error while sending done notify");
-
-        }
-    }
-    test.b = NULL;
-}
 
 static void usb_driver_connect_response(void *a)
 {
@@ -106,7 +70,6 @@ static void usb_driver_connect_response(void *a)
                 DEBUG_ERR(err, "failed to register send");
             }
         } else {
-            usb_driver_test_response(NULL);
             // error
             DEBUG_ERR(err, "error while seniding driver connect response");
             free(st);
@@ -199,7 +162,10 @@ static void service_exported_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
+
 static void* usb_subsystem_base = NULL;
+
+#if __arm__
 #define USB_SUBSYSTEM_L4_OFFSET 0x00062000
 //#define USB_OHCI_OFFSET         (0x000A9000-USB_SUBSYSTEM_L4_OFFSET)
 #define USB_OHCI_OFFSET         0x00002800
@@ -318,22 +284,6 @@ static errval_t init_device_range(void)
         0,
         0
     };
-#if 0
-
-    struct capref iter_cap = device_range_cap;
-    for (uint16_t i = 0; i < 12; i++) {
-        err = invoke_frame_identify(iter_cap, &frameid);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "frameid\n");
-        }
-        uint32_t last = (uint32_t) (0xFFFFFFFF & (frameid.base));
-        uint32_t size = frameid.bits;
-
-        debug_printf("DevFrame: [base %p,  size=%u kB]\n", last,
-                (1 << size) / 1024);
-        iter_cap.slot++;
-    }
-#endif
 
     err = invoke_frame_identify(l4_CFG_domain_cap, &frameid);
     if (err_is_fail(err)) {
@@ -348,40 +298,24 @@ static errval_t init_device_range(void)
     void *ret_addr = NULL;
     size_t size = 16 * 1024 * 1024;
 
-#define MAP_ANON 0
-
-#if MAP_ANON
-    struct memobj *memobj;
-    struct vregion *vregion;
-    err = vspace_map_anon_attr(&ret_addr, &memobj, &vregion, size, NULL,
-            VREGION_FLAGS_READ_WRITE_NOCACHE);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create a vspace mapping");
-    }
-
-    err = memobj->f.fill(memobj, 0, l4_CFG_domain_cap, size);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to fill");
-    }
-
-    err = memobj->f.pagefault(memobj, vregion, USB_SUBSYSTEM_L4_OFFSET, 0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to fault");
-    }
-
-#else
     err = vspace_map_one_frame_attr(&ret_addr, size, l4_CFG_domain_cap,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create a vspace mapping");
     }
-#endif
 
     usb_subsystem_base = ret_addr + USB_SUBSYSTEM_L4_OFFSET;
 
-    return SYS_ERR_OK;
+    uint32_t ret_vector;
+    err = inthandler_setup(usb_hc_intr_handler, NULL, &ret_vector);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to enable interrupt");
+    }
+
+    return (SYS_ERR_OK);
 }
 
+#endif
 /*
  * ========================================================================
  * MAIN
@@ -407,7 +341,7 @@ int main(int argc, char *argv[])
 #if __arm__
     init_device_range();
     argc = 4;
-    uint32_t tmp =USB_OHCI_OFFSET;
+    uint32_t tmp = USB_OHCI_OFFSET;
     char ohci_base[4];
     memcpy(ohci_base, &tmp, 4);
 
@@ -416,21 +350,21 @@ int main(int argc, char *argv[])
     memcpy(ehci_base, &tmp, 4);
     argv = (char *[]) {"ehci", ehci_base, "ohci", ohci_base};
 
-    tmp =USB_EHCI_OFFSET+(int32_t)usb_subsystem_base;
-    *((volatile uint32_t*) (tmp+0x00A4)) = (uint32_t) ((0x15 << 16)
-                | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-        while (*((volatile uint32_t*) (tmp+0x00A4)) & (1 << 31)) {
-            printf("%c", 0xE);
+    tmp = USB_EHCI_OFFSET + (int32_t) usb_subsystem_base;
+    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x15 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
+        printf("%c", 0xE);
 
-        }
-        assert(*(((volatile uint32_t*) (tmp+0x00A4))) & 0x1);
+    }
+    assert(*(((volatile uint32_t*) (tmp+0x00A4))) & 0x1);
 
-        *((volatile uint32_t*) (tmp+0x00A4)) = (uint32_t) ((0x00 << 16)
-                | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-        while (*((volatile uint32_t*) (tmp+0x00A4)) & (1 << 31)) {
-            printf("%c", 0xE);
-        }
-        assert(0x24 == ((*((volatile uint32_t*) (tmp+0x00A4))) & 0xFF));
+    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x00 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
+        printf("%c", 0xE);
+    }
+    assert(0x24 == ((*((volatile uint32_t*) (tmp+0x00A4))) & 0xFF));
 
 #endif
 
@@ -469,9 +403,6 @@ int main(int argc, char *argv[])
             free(hc);
             continue;
         }
-
-        hc->next = host_controllers;
-        host_controllers = hc;
     }
 
     /*

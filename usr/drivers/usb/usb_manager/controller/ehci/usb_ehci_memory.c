@@ -16,6 +16,7 @@
 
 #include "../../usb_memory.h"
 
+#include "../../usb_controller.h"
 #include "usb_ehci.h"
 #include "usb_ehci_memory.h"
 
@@ -35,7 +36,6 @@ static struct usb_ehci_sitd *free_sitd = NULL;
 static struct usb_ehci_qtd *free_qtd = NULL;
 static struct usb_ehci_qh *free_qh = NULL;
 
-
 static struct usb_page *used_pages = NULL;
 static struct usb_page *free_pages = NULL;
 
@@ -51,8 +51,8 @@ void usb_ehci_set_datastruct_size(usb_ds_size_t size)
             break;
         case USB_EHCI_DS_64BIT:
             //ds_size = size;
-            assert(
-                    !"NYI: Support of 64 bit data structures not yet supported\n");
+            assert( !"NYI: Support of 64 bit data structures "
+            "not yet supported\n");
             break;
         default:
             debug_printf("ERROR: Unknown data structure size\n");
@@ -191,7 +191,7 @@ struct usb_ehci_qtd *usb_ehci_qtd_alloc(void)
         free_pages = page->next;
     }
 
-    uint32_t size_qtd= sizeof(struct usb_ehci_qtd);
+    uint32_t size_qtd = sizeof(struct usb_ehci_qtd);
     uint32_t num_qtd = page->free.size / size_qtd;
 
     qtd = page->free.buffer;
@@ -200,7 +200,7 @@ struct usb_ehci_qtd *usb_ehci_qtd_alloc(void)
     for (uint32_t i = 0; i < num_qtd; i++) {
         assert(!(qtd_self % USB_EHCI_QTD_ALIGN));
         USB_EM_DEBUG(" Allocating QTD: vaddr=%p, phys=%p (%x) [%x]\n", qtd,
-                       qtd_self, qtd_self % USB_EHCI_QTD_ALIGN, size_qtd);
+                qtd_self, qtd_self % USB_EHCI_QTD_ALIGN, size_qtd);
         memset(qtd, 0, size_qtd);
         qtd->qtd_self = qtd_self;
         qtd->obj_next = free_qtd;
@@ -230,8 +230,8 @@ void usb_ehci_qtd_free(struct usb_ehci_qtd *qtd)
      * clear out all physical fields except the buffer pointers
      */
     memset(qtd, 0, 0xB);
-    qtd->qtd_alt_next |=USB_EHCI_LINK_TERMINATE;
-    qtd->qtd_next |=USB_EHCI_LINK_TERMINATE;
+    qtd->qtd_alt_next |= USB_EHCI_LINK_TERMINATE;
+    qtd->qtd_next |= USB_EHCI_LINK_TERMINATE;
     qtd->qtd_bp[0].bp &= 0xFFFFF000;
     qtd->qtd_bp[1].bp &= 0xFFFFF000;
     qtd->qtd_bp[2].bp &= 0xFFFFF000;
@@ -273,7 +273,7 @@ struct usb_ehci_sitd *usb_ehci_sitd_alloc(void)
         free_pages = page->next;
     }
 
-    uint32_t size_sitd= sizeof(struct usb_ehci_sitd);
+    uint32_t size_sitd = sizeof(struct usb_ehci_sitd);
     uint32_t num_sitd = page->free.size / size_sitd;
 
     sitd = page->free.buffer;
@@ -323,57 +323,57 @@ struct usb_ehci_itd *usb_ehci_itd_alloc(void)
 {
     usb_ehci_itd_t *itd;
 
-        /*
-         * we have a free queue transfer descriptor left, so we can use it
-         */
-        if (free_itd != NULL) {
-            itd = free_itd;
-            free_itd = itd->obj_next;
-            return (itd);
-        }
-
-        /*
-         * we have to populate our free queue element transfer descriptor
-         */
-        struct usb_page *page;
-
-        if (free_pages == NULL) {
-            page = usb_mem_page_alloc();
-        } else {
-            page = free_pages;
-            free_pages = page->next;
-        }
-
-        uint32_t size_itd= sizeof(struct usb_ehci_itd);
-        uint32_t num_itd = page->free.size / size_itd;
-
-        itd = page->free.buffer;
-        usb_paddr_t itd_self = page->free.phys_addr;
-
-        for (uint32_t i = 0; i < num_itd; i++) {
-            USB_EM_DEBUG(" Allocating ITD: vaddr=%p, phys=%p (%x) [%x]\n", itd,
-                            itd_self, itd_self % USB_EHCI_ITD_ALIGN, size_itd);
-            assert(!(itd_self % USB_EHCI_ITD_ALIGN));
-            memset(itd, 0, size_itd);
-            itd->itd_self = itd_self;
-            itd->obj_next = free_itd;
-            free_itd = itd;
-
-            itd++;
-            itd_self += size_itd;
-        }
-
-        page->free.size -= (num_itd * size_itd);
-        page->free.buffer += (num_itd * size_itd);
-        page->free.phys_addr += (num_itd * size_itd);
-
-        page->next = used_pages;
-        used_pages = page;
-
+    /*
+     * we have a free queue transfer descriptor left, so we can use it
+     */
+    if (free_itd != NULL) {
         itd = free_itd;
         free_itd = itd->obj_next;
-
         return (itd);
+    }
+
+    /*
+     * we have to populate our free queue element transfer descriptor
+     */
+    struct usb_page *page;
+
+    if (free_pages == NULL) {
+        page = usb_mem_page_alloc();
+    } else {
+        page = free_pages;
+        free_pages = page->next;
+    }
+
+    uint32_t size_itd = sizeof(struct usb_ehci_itd);
+    uint32_t num_itd = page->free.size / size_itd;
+
+    itd = page->free.buffer;
+    usb_paddr_t itd_self = page->free.phys_addr;
+
+    for (uint32_t i = 0; i < num_itd; i++) {
+        USB_EM_DEBUG(" Allocating ITD: vaddr=%p, phys=%p (%x) [%x]\n", itd,
+                itd_self, itd_self % USB_EHCI_ITD_ALIGN, size_itd);
+        assert(!(itd_self % USB_EHCI_ITD_ALIGN));
+        memset(itd, 0, size_itd);
+        itd->itd_self = itd_self;
+        itd->obj_next = free_itd;
+        free_itd = itd;
+
+        itd++;
+        itd_self += size_itd;
+    }
+
+    page->free.size -= (num_itd * size_itd);
+    page->free.buffer += (num_itd * size_itd);
+    page->free.phys_addr += (num_itd * size_itd);
+
+    page->next = used_pages;
+    used_pages = page;
+
+    itd = free_itd;
+    free_itd = itd->obj_next;
+
+    return (itd);
 }
 
 void usb_ehci_itd_free(struct usb_ehci_itd *itd)

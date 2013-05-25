@@ -17,6 +17,7 @@
 #include <misc.h>
 #include <stdio.h>
 #include <wakeup.h>
+#include <irq.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
                             arch_registers_state_t* save_area)
@@ -290,9 +291,10 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     	dispatch(schedule());
     }
     else {
-        // gic_ack_irq(irq);
-        // send_user_interrupt(irq);
-        panic("Unhandled IRQ %"PRIu32"\n", irq);
+         gic_ack_irq(irq);
+         send_user_interrupt(irq);
+
+         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
 
 }

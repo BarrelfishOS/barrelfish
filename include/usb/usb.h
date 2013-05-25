@@ -63,6 +63,20 @@ typedef enum usb_type {
 } usb_type_t;
 
 
+typedef enum usb_power {
+    USB_POWER_MODE_OFF = 0,
+    USB_POWER_MODE_ON = 1,
+    USB_POWER_MODE_SAVE = 2,
+    USB_POWER_MODE_SUSPEND = 3,
+    USB_POWER_MODE_RESUME = 4
+} usb_power_t;
+
+/// the maximum power consumption in mA
+#define USB_POWER_MAX 500
+
+/// the minimum power requirements in mA
+#define USB_POWER_MIN 100
+
 /*
  * definition of the usb physical address type
  */
@@ -80,6 +94,21 @@ typedef struct usb_status usb_status_t;
 #define USB_STATUS_REMOTE_WAKEUP    0x0002;
 #define USB_STATUS_EP_HALT          0x0001;
 
+/*
+ * some delays
+ */
+#define USB_DELAY_PORT_RESET 10
+#define USB_DELAY_PORT_ROOT_RESET 50
+#define USB_DELAY_PORT_RECOVERY 10
+#define USB_DELAY_PORT_POWERUP 100
+#define USB_DELAY_PORT_RESUME 20
+#define USB_DELAY_SET_ADDRESS 2
+#define USB_DELAY_RESUME 100
+#define USB_DELAY_WAIT 10
+#define USB_DELAY_RECOVERY 10
+
+#define USB_WAIT(ms) \
+    for (uint32_t i = 0; i < 0xFFF*ms; i++) {};
 
 #define USB_DEBUG(x...) debug_printf(x)
 

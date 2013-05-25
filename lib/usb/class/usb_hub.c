@@ -7,9 +7,20 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <usb/class/usb_hub_descriptor.h>
-#include <usb/class/usb_hub_request.h>
+/*
+ * ===========================================================================
+ * This file contains class specific functions for USB hub devices
+ *
+ * USB Device Class 0x09
+ * ===========================================================================
+ */
+
+#include <stdlib.h>
+#include <barrelfish/barrelfish.h>
+
 #include <usb/usb_request.h>
+#include <usb/usb_transfer.h>
+#include <usb/class/usb_hub.h>
 
 /**
  * \brief 	This request resets a value reported in the hub status.
@@ -181,7 +192,7 @@ usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
  */
 usb_error_t
 usb_hub_get_hub_descriptor(uint16_t num_ports,
-        struct usb_hub_class_descriptor *ret_desc)
+        struct usb_hub_descriptor *ret_desc)
 {
     struct usb_device_request req;
 
@@ -312,7 +323,7 @@ usb_hub_reset_tt(uint16_t port)
  */
 usb_error_t
 usb_hub_set_hub_descriptor(uint16_t desc_length,
-        struct usb_hub_class_descriptor *desc)
+        struct usb_hub_descriptor *desc)
 {
     struct usb_device_request req;
 

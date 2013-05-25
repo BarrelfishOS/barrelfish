@@ -13,13 +13,13 @@
 
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
-#include <usb/class/usb_hub_descriptor.h>
+
 #include <usb/usb_error.h>
 #include <usb/usb_device.h>
 #include <usb/usb_xfer.h>
 
 #include "../../usb_controller.h"
-
+#include "../../hub/usb_hub.h"
 #include "usb_ohci.h"
 #include "usb_ohci_pipe.h"
 

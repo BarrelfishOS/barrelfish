@@ -27,7 +27,7 @@ struct usb_xfer;
 struct usb_host_controller;
 struct usb_hw_ep_profile;
 
-
+#define USB_ROOTHUB_ADDRESS 1
 
 /*
  * flags representing USB power states
@@ -40,6 +40,8 @@ struct usb_hw_ep_profile;
 #define USB_HW_POWER_SUSPEND 0x20
 #define USB_HW_POWER_RESUME 0x40
 #define USB_HW_POWER_SHUTDOWN 0x60
+
+
 
 /*
  * ------------------------------------------------------------------------
@@ -125,7 +127,7 @@ struct usb_hcdi_bus_fn {
 };
 
 
-
+typedef void (usb_intr_handler_t)(struct usb_host_controller *);
 
 typedef struct usb_host_controller {
     usb_hc_version_t hc_type;    // the type of the host controller
@@ -141,6 +143,8 @@ typedef struct usb_host_controller {
     struct usb_device **devices;
     uint8_t devices_max;
 
+    usb_intr_handler_t *handle_intr;
+
     struct usb_device *root_hub;
 
     struct usb_host_controller *next;
@@ -148,7 +152,19 @@ typedef struct usb_host_controller {
 
 } usb_host_controller_t;
 
+
+
+
 usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
         void *controller_base);
+
+void usb_hc_intr_handler(void *arg);
+
+void usb_hc_explore_device_tree(usb_host_controller_t *hc);
+
+void usb_hc_detach_device(usb_host_controller_t *hc);
+
+uint16_t
+usb_isoc_time_expand(struct usb_host_controller *hc, uint16_t isoc_time_curr);
 
 #endif /* _USB_CONTROLLER_H_ */

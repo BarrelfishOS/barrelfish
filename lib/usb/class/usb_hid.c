@@ -7,6 +7,16 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+/*
+ * ===========================================================================
+ * This file contains class specific functions for human interface devices
+ * such as keyboard and mouse
+ *
+ * USB Device Class 0x03
+ * ===========================================================================
+ */
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>

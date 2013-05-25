@@ -14,7 +14,7 @@
 #include <usb/usb.h>
 #include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
-#include <usb/class/usb_hub_descriptor.h>
+#include "../../hub/usb_hub.h"
 
 
 /// maximum devices supported by the host controller
@@ -593,7 +593,7 @@ typedef struct usb_ehci_fstn usb_ehci_fstn_t;
 union usb_ehci_hub_descriptor {
     struct usb_status status;
     struct usb_hub_port_status port_status;
-    struct usb_hub_class_descriptor hub_desc;
+    struct usb_hub_descriptor hub_desc;
     uint8_t temp[128];
 };
 
@@ -637,6 +637,7 @@ struct usb_ehci_hc {
     uint16_t root_hub_id_vendor;      /* vendor ID for root hub */
     char    root_hub_vendor[16];      /* vendor string for root hub */
     uint8_t root_hub_reset;
+    struct usb_device *root_hub;
 
     /* devices */
     struct usb_device *devices[USB_EHCI_MAX_DEVICES];
@@ -651,8 +652,6 @@ struct usb_ehci_hc {
     struct usb_ehci_qh *qh_terminate;
     usb_paddr_t pframes_phys;
     usb_paddr_t *pframes;
-
-
 
     /* free lists of allocated structures */
     struct usb_ehci_qh *qh_free;
@@ -670,7 +669,7 @@ typedef struct usb_ehci_hc usb_ehci_hc_t;
  * Function Prototypes
  */
 
-void usb_ehci_interrupt(usb_ehci_hc_t *hc);
+void usb_ehci_interrupt(usb_host_controller_t *host);
 usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base);
 
 

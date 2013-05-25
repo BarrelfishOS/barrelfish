@@ -19,6 +19,7 @@
 #include <usb/usb_error.h>
 
 #include "../../usb_controller.h"
+#include "../../usb_device.h"
 #include "usb_ehci.h"
 #include "usb_ehci_memory.h"
 #include "usb_ehci_bus.h"
@@ -32,7 +33,6 @@
 
 /// the base for the EHCI control registers
 static struct ehci_t ehci_base;
-
 
 /**
  * \brief   performs a soft reset on the EHCI host controller
@@ -80,7 +80,8 @@ static usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
         debug_printf("WARNING: Reset is succeeded: CTRLDS has wrong value.\n");
     }
     if (ehci_configflag_rawrd(hc->ehci_base) != 0x00000000) {
-        debug_printf("WARNING: Reset is succeeded: CONFIGFLG has wrong value.\n");
+        debug_printf(
+                "WARNING: Reset is succeeded: CONFIGFLG has wrong value.\n");
     }
     if ((ehci_portsc_rawrd(hc->ehci_base, 0) | 0x00001000) != 0x00003000) {
         debug_printf("WARNING: Reset is succeeded: PORTSC has wrong value.\n");
@@ -107,7 +108,7 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
     for (uint8_t i = 0; i < 10; i++) {
         if (ehci_usbsts_hch_rdf(hc->ehci_base)) {
             /* all activity halted, return */
-            return USB_ERR_OK;
+            return (USB_ERR_OK);
         }
         WAIT(200);
         continue;
@@ -115,9 +116,9 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
     /* check again if halted */
     if (ehci_usbsts_hch_rdf(hc->ehci_base)) {
         /* all activity halted, return */
-        return USB_ERR_OK;
+        return (USB_ERR_OK);
     }
-    return USB_ERR_TIMEOUT;
+    return (USB_ERR_TIMEOUT);
 }
 
 static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
@@ -187,8 +188,6 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
         return (USB_ERR_IOERROR);
     }
 
-
-
     /*
      * R/WHost controller has port power control switches. This bit
      * represents the current setting of the switch (0 = off, 1 = on). When
@@ -204,27 +203,8 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     WAIT(300);
     debug_printf("EHCI controller up and running.\n");
 
-
-    char buf[1024];
-    ehci_portsc_pri(buf, 1024, hc->ehci_base, 0);
-    printf("\n---------------------------------------\n");
-    printf(buf);
-    printf("\n---------------------------------------\n");
-
-
-       ehci_usbsts_pr(buf, 1024, hc->ehci_base);
-              printf("\n---------------------------------------\n");
-              printf(buf);
-              printf("\n---------------------------------------\n");
-
-              ehci_usbintr_pr(buf, 1024, hc->ehci_base);
-                            printf("\n---------------------------------------\n");
-                            printf(buf);
-                            printf("\n---------------------------------------\n");
     return (USB_ERR_OK);
-
 }
-
 
 /*
  * Exported Functions
@@ -235,8 +215,12 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
  *
  * \param   hc  host controller
  */
-void usb_ehci_interrupt(usb_ehci_hc_t *hc)
+void usb_ehci_interrupt(usb_host_controller_t *host)
 {
+    usb_ehci_hc_t *hc = (usb_ehci_hc_t *)host->hc_control;
+
+    USB_DEBUG("usb_ehci_interrupt()\n");
+
     /*
      * read the status register and mask out the interrupts [5..0]
      */
@@ -254,7 +238,7 @@ void usb_ehci_interrupt(usb_ehci_hc_t *hc)
     }
 
     /* acknowledge the interrupts */
-    ehci_usbsts_wr(hc->ehci_base,  intr);
+    ehci_usbsts_wr(hc->ehci_base, intr);
 
     intr &= hc->enabled_interrupts;
 
@@ -323,8 +307,8 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     ehci_initialize(hc->ehci_base, (mackerel_addr_t) controller_base,
             (mackerel_addr_t) (controller_base + cap_offset));
 
-    USB_DEBUG("EHCI mackerel device initialized.[cap base=%p, op-offset=%x]\n",
-            controller_base, cap_offset);
+    USB_DEBUG(
+            "EHCI mackerel device initialized.[cap base=%p, op-offset=%x]\n", controller_base, cap_offset);
 
     /*
      * read revision and number of ports
@@ -482,6 +466,20 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
+
+    /* allocate the USB root hub device */
+    struct usb_device *root_hub = usb_device_alloc(NULL, 0, 0, 1,
+            USB_SPEED_HIGH, USB_MODE_HOST);
+
+    if (root_hub) {
+        hc->root_hub = root_hub;
+        hc->controller->root_hub = root_hub;
+    }
+
+    hc->devices[USB_ROOTHUB_ADDRESS] = root_hub;
+
+    // set the devices
+    hc->controller->devices = hc->devices;
 
     err = usb_ehci_initialize_controller(hc);
 

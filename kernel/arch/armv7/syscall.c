@@ -15,6 +15,7 @@
 
 #include <arch/armv7/arm_hal.h>
 #include <arch/armv7/start_aps.h>
+#include <arch/armv7/irq.h>
 
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
@@ -461,6 +462,28 @@ monitor_identify_cap(
     return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
 }
 
+static struct sysret handle_irq_table_set( struct capability* to,
+        arch_registers_state_t* context,
+        int argc
+        )
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    return SYSRET(irq_table_set(sa->arg2, sa->arg3));
+}
+
+static struct sysret handle_irq_table_delete( struct capability* to,
+        arch_registers_state_t* context,
+        int argc
+        )
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    return SYSRET(irq_table_delete(sa->arg2));
+}
+
+
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -492,6 +515,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
+    [ObjType_IRQTable] = {
+            [IRQTableCmd_Set] = handle_irq_table_set,
+            [IRQTableCmd_Delete] = handle_irq_table_delete,
+        },
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,

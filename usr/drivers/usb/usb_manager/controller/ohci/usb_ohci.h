@@ -23,7 +23,7 @@
 #include <usb/usb.h>
 #include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
-#include <usb/class/usb_hub_descriptor.h>
+#include "../../hub/usb_hub.h"
 
 /*
  * ------------------------------------------------------------------------
@@ -342,7 +342,7 @@ typedef struct usb_ohci_itd     usb_ohci_itd_t;
  union usb_ohci_hub_desc {
     struct usb_status status;
     struct usb_hub_port_status port_status;
-    struct usb_hub_class_descriptor hub_descriptor;
+    struct usb_hub_descriptor hub_descriptor;
     uint8_t temp[128];
 };
 

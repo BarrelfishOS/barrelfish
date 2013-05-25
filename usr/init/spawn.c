@@ -115,6 +115,15 @@ errval_t initialize_monitor(struct spawninfo *si)
        if (err_is_fail(err)) {
            return err_push(err, INIT_ERR_COPY_IO_CAP);
        }
+       /* Give monitor IRQ */
+           dest.cnode = si->taskcn;
+           dest.slot  = TASKCN_SLOT_IRQ;
+           src.cnode = cnode_task;
+           src.slot  = TASKCN_SLOT_IRQ;
+           err = cap_copy(dest, src);
+           if (err_is_fail(err)) {
+               return err_push(err, INIT_ERR_COPY_IRQ_CAP);
+           }
 #endif
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP

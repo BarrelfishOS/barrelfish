@@ -1,6 +1,6 @@
 /**
  * \file User-level interrupt handler support
- * \brief 
+ * \brief
  */
 
 /*

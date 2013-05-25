@@ -19,9 +19,7 @@
 #include <usb/usb_error.h>
 #include <usb/usb_request.h>
 #include <usb/usb_device.h>
-#include <usb/class/usb_hub_descriptor.h>
-#include <usb/class/usb_hub_request.h>
-
+#include "../../hub/usb_hub.h"
 #include "../../usb_controller.h"
 #include "usb_ohci.h"
 #include "usb_ohci_root_hub.h"
@@ -69,8 +67,8 @@ static const struct usb_ohci_config_desc usb_ohci_root_hub_config_desc = {
 },
 };
 
-static const struct usb_hub_class_descriptor usb_ohci_root_hub_desc = {
-        .bDesLength = 0,
+static const struct usb_hub_descriptor usb_ohci_root_hub_desc = {
+        .bDescLength = 0,
         .bDescriptorType = USB_DESCRIPTOR_TYPE_HUB,
         .bNbrPorts = 0,
         .wHubCharacteristics = {0, 0, 0, 0, 0, 0},
@@ -273,7 +271,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
                     // get the standard hub descriptor to fill in data
                     hc->root_hub_desc.hub_descriptor = usb_ohci_root_hub_desc;
 
-                    struct usb_hub_class_descriptor *hub = &(hc->root_hub_desc
+                    struct usb_hub_descriptor *hub = &(hc->root_hub_desc
                             .hub_descriptor);
                     hub->bNbrPorts = hc->root_hub_num_ports;
 
@@ -290,8 +288,8 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
                         }
                         i >>= 1;
                     }
-                    hub->bDesLength = 8 + ((hc->root_hub_num_ports + 7 / 8));
-                    length = hub->bDesLength;
+                    hub->bDescLength = 8 + ((hc->root_hub_num_ports + 7 / 8));
+                    length = hub->bDescLength;
                     break;
                 }
                 /* standard usb request */

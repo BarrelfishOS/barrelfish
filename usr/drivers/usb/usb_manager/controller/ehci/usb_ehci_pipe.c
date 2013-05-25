@@ -13,13 +13,13 @@
 
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
-#include <usb/class/usb_hub_descriptor.h>
+
 #include <usb/usb_error.h>
 #include <usb/usb_device.h>
 #include <usb/usb_xfer.h>
 
 #include "../../usb_controller.h"
-#include "../../usb_hub.h"
+#include "../../hub/usb_hub.h"
 
 #include "usb_ehci.h"
 #include "usb_ehci_pipe.h"
@@ -172,7 +172,7 @@ static void usb_ehci_xfer_intr_open(struct usb_xfer *xfer)
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
 
-    usb_hub_alloc_hs_bandwidth(xfer);
+    usb_hub_bandwidth_alloc(xfer);
 
     /*
      * find the best qh position for the given interrupt interval
@@ -218,7 +218,7 @@ static void usb_ehci_xfer_intr_close(struct usb_xfer *xfer)
     usb_ehci_xfer_remove(xfer, USB_ERR_CANCELLED);
 
     /* we have allocated the bandwidth, so we have to free it again */
-    usb_hub_free_hs_bandwidth(xfer);
+    usb_hub_bandwidth_free(xfer);
 }
 
 /**
