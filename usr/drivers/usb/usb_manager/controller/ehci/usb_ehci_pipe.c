@@ -19,7 +19,7 @@
 #include <usb/usb_xfer.h>
 
 #include "../../usb_controller.h"
-#include "../../hub/usb_hub.h"
+#include <usb_hub.h>
 
 #include "usb_ehci.h"
 #include "usb_ehci_pipe.h"

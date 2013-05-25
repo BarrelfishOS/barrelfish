@@ -19,7 +19,7 @@
 #include <usb/usb_error.h>
 #include <usb/usb_request.h>
 #include <usb/usb_device.h>
-#include "../../hub/usb_hub.h"
+#include <usb_hub.h>
 #include "../../usb_controller.h"
 #include "usb_ohci.h"
 #include "usb_ohci_root_hub.h"
