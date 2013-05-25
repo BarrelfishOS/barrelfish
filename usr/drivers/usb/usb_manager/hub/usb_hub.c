@@ -26,8 +26,8 @@
 
 
 #include <usb_hub.h>
-#include "../usb_device.h"
-#include "../usb_transfer.h"
+#include <usb_device.h>
+#include <usb_transfer.h>
 
 /*static const struct usb_transfer_setup hub_config[USB_HUB_NUM_TRANSFERS] = {
     [0] = {
@@ -612,4 +612,33 @@ usb_error_t usb_hub_query_info(struct usb_hub *hub, uint8_t *ret_nports,
     }
 
     return (err);
+}
+
+void usb_hub_root_interrupt(struct usb_host_controller *hc)
+{
+    if (hc == NULL) {
+          debug_printf("WARNING: No host controller");
+            return;
+        }
+        if ((bus->devices == NULL) ||
+            (bus->devices[USB_ROOT_HUB_ADDR] == NULL)) {
+            DPRINTF("No root HUB\n");
+            return;
+        }
+        if (mtx_owned(&bus->bus_mtx)) {
+            do_unlock = 0;
+        } else {
+            USB_BUS_LOCK(bus);
+            do_unlock = 1;
+        }
+        if (do_probe) {
+            bus->do_probe = 1;
+        }
+        if (usb_proc_msignal(&bus->explore_proc,
+            &bus->explore_msg[0], &bus->explore_msg[1])) {
+            /* ignore */
+        }
+        if (do_unlock) {
+            USB_BUS_UNLOCK(bus);
+        }
 }

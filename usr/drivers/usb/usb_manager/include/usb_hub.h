@@ -319,6 +319,8 @@ uint16_t usb_hub_schedule_expand(struct usb_device *udev,
         struct usb_hub_schedule **pp_start, struct usb_hub_schedule **pp_end,
         uint16_t isoc_time);
 
+void usb_hub_root_interrupt(struct usb_host_controller *hc);
+
 usb_error_t uhub_query_info(struct usb_hub *hub, uint8_t *ret_nports, uint8_t *ret_ptt);
 
 void usb_hub_set_device(struct usb_hub_port *up, struct usb_device *device,

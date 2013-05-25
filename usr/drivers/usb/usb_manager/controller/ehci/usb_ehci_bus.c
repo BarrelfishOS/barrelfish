@@ -22,10 +22,10 @@
 #include <usb/usb_xfer.h>
 
 
-#include "../../usb_controller.h"
+#include <usb_controller.h>
 #include <usb_hub.h>
 
-#include "../../usb_memory.h"
+#include <usb_memory.h>
 
 #include "usb_ehci.h"
 #include "usb_ehci_root_hub.h"

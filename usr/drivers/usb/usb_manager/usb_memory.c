@@ -12,7 +12,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
-#include "usb_memory.h"
+#include <usb_memory.h>
 
 static struct usb_page *free_pages = NULL;
 

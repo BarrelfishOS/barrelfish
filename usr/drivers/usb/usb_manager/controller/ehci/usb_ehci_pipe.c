@@ -18,7 +18,7 @@
 #include <usb/usb_device.h>
 #include <usb/usb_xfer.h>
 
-#include "../../usb_controller.h"
+#include <usb_controller.h>
 #include <usb_hub.h>
 
 #include "usb_ehci.h"

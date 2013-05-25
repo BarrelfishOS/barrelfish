@@ -26,7 +26,7 @@
 #include <usb/usb_request.h>
 
 #include <usb_hub.h>
-#include "../usb_request.h"
+#include <usb_request.h>
 
 usb_error_t usb_hub_clear_hub_feature(struct usb_device *hub, uint16_t feature)
 {

@@ -17,10 +17,10 @@
 #include <usb/usb_xfer.h>
 #include <usb/usb_request.h>
 
-#include "usb_controller.h"
-#include "usb_transfer.h"
-#include "usb_request.h"
-#include "usb_xfer.h"
+#include <usb_controller.h>
+#include <usb_transfer.h>
+#include <usb_request.h>
+#include <usb_xfer.h>
 
 static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX] =
         {

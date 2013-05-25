@@ -19,10 +19,10 @@
 #include <usb/usb_device.h>
 #include <usb/usb_xfer.h>
 
-#include "usb_controller.h"
-#include "usb_request.h"
-#include "usb_transfer.h"
-#include "usb_memory.h"
+#include <usb_controller.h>
+#include <usb_request.h>
+#include <usb_transfer.h>
+#include <usb_memory.h>
 
 /**
  * \brief   this function handles the USB requests

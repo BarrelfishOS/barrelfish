@@ -17,7 +17,7 @@
 #include <usb/usb.h>
 #include <usb/usb_error.h>
 
-#include "../../usb_controller.h"
+#include <usb_controller.h>
 #include "usb_ohci.h"
 #include "usb_ohci_memory.h"
 #include "usb_ohci_bus.h"

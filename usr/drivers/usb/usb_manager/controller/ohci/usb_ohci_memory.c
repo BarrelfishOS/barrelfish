@@ -14,7 +14,7 @@
 
 #include <usb/usb.h>
 
-#include "../../usb_memory.h"
+#include <usb_memory.h>
 
 #include "usb_ohci.h"
 #include "usb_ohci_memory.h"

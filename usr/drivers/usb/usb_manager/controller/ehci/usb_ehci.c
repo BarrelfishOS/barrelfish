@@ -18,8 +18,8 @@
 #include <usb/usb.h>
 #include <usb/usb_error.h>
 
-#include "../../usb_controller.h"
-#include "../../usb_device.h"
+#include <usb_controller.h>
+#include <usb_device.h>
 #include "usb_ehci.h"
 #include "usb_ehci_memory.h"
 #include "usb_ehci_bus.h"

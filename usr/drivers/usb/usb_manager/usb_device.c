@@ -14,7 +14,7 @@
 #include <usb/usb_error.h>
 #include <usb/usb_device.h>
 
-#include "usb_device.h"
+#include <usb_device.h>
 
 static struct usb_device *devices[USB_MAX_DEVICES];
 static struct usb_device *devices_pending = NULL;

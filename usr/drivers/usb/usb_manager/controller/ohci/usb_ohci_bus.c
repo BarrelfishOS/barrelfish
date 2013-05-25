@@ -21,10 +21,10 @@
 #include <usb/usb_xfer.h>
 
 
-#include "../../usb_controller.h"
+#include <usb_controller.h>
 #include <usb_hub.h>
 
-#include "../../usb_memory.h"
+#include <usb_memory.h>
 
 #include "usb_ohci.h"
 #include "usb_ohci_root_hub.h"

@@ -20,7 +20,7 @@
 #include <usb/usb_request.h>
 #include <usb/usb_device.h>
 
-#include "../../usb_controller.h"
+#include <usb_controller.h>
 #include <usb_hub.h>
 #include "usb_ehci.h"
 #include "usb_ehci_root_hub.h"
@@ -132,6 +132,7 @@ void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
             hc->root_hub_interrupt_data[i / 8] |= (1 << (i % 8));
         }
     }
+
     /*
      * TODO: uhub_root_intr(&sc->sc_bus, sc->sc_hub_idata,
      sizeof(sc->sc_hub_idata));

@@ -14,9 +14,9 @@
 
 #include <usb/usb.h>
 
-#include "../../usb_memory.h"
+#include <usb_memory.h>
 
-#include "../../usb_controller.h"
+#include <usb_controller.h>
 #include "usb_ehci.h"
 #include "usb_ehci_memory.h"
 

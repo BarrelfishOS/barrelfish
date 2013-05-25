@@ -14,10 +14,10 @@
 #include <if/usb_manager_rpcclient_defs.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include "usb_controller.h"
-#include "usb_request.h"
-#include "usb_device.h"
-#include "usb_transfer.h"
+#include <usb_controller.h>
+#include <usb_request.h>
+#include <usb_device.h>
+#include <usb_transfer.h>
 
 /*
  * ------------------------------------------------------------------------
