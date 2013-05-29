@@ -165,7 +165,7 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
         #if !defined(__arm__)
         size_t buflen_proper = SINGLE_SLOT_ALLOC_BUFLEN(nslots);
         if (buflen != buflen_proper) {
-            debug_printf("******* FIXME: %s buflen=%lu != buflen_proper=%lu"
+            debug_printf("******* FIXME: %s buflen=%zu != buflen_proper=%zu"
                          "call stack: %p %p\n",
                          __FUNCTION__, buflen, buflen_proper,
                          __builtin_return_address(0),
