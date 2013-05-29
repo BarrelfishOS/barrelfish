@@ -77,7 +77,7 @@
 #define TRACE_PERCORE_BUF_SIZE    0x1ff00
 // (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer flags)))
 
-#define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)	// Size of all trace buffers
+#define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)    // Size of all trace buffers
 
 // Size of the array storing which subsystems are enabled
 #define TRACE_SUBSYS_ENABLED_BUF_SIZE (TRACE_NUM_SUBSYSTEMS * sizeof(bool))
@@ -98,11 +98,11 @@
  * NOTE: This is only used by threads on the same core so no lock prefix
  */
 static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
-        uintptr_t nw)
+                             uintptr_t nw)
 {
     register bool res;
     __asm volatile("cmpxchgq %2,%0     \n\t"
-                   "setz %1                  \n\t"
+                   "setz %1            \n\t"
                    : "+m" (*address), "=q" (res)
                    : "r" (nw), "a" (old)
                    : "memory");
@@ -114,7 +114,7 @@ static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
 
 
 static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
-        uintptr_t nw)
+                             uintptr_t nw)
 {
     return false;
 }
@@ -126,7 +126,7 @@ static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
 
 
 static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
-        uintptr_t nw)
+                             uintptr_t nw)
 {
     return false;
 }
@@ -147,10 +147,10 @@ struct trace_event {
     union {
         uint64_t raw;
         // ... stuff that is embedded in the event
-	struct {
-	    uint32_t word1;
-	    uint32_t word2;
-	} w32;
+        struct {
+            uint32_t word1;
+            uint32_t word2;
+        } w32;
         struct {
             uint32_t arg;
             uint16_t event;
@@ -161,9 +161,8 @@ struct trace_event {
 
 // Trace information about an application
 struct trace_application {
-
-	char name[8]; ///< Name of the application
-	uint64_t dcb; ///< DCB address of the application
+    char name[8]; ///< Name of the application
+    uint64_t dcb; ///< DCB address of the application
 };
 
 /// Trace buffer
@@ -174,11 +173,11 @@ struct trace_buffer {
     // ... flags...
     struct trace_buffer *master;       // Pointer to the trace master
     volatile bool     running;
-    volatile bool     autoflush;	   // Are we flushing automatically?
+    volatile bool     autoflush;       // Are we flushing automatically?
     volatile uint64_t start_trigger;
     volatile uint64_t stop_trigger;
     volatile uint64_t stop_time;
-    int64_t			  t_offset;		   // Time offset relative to core 0
+    int64_t           t_offset;           // Time offset relative to core 0
     uint64_t          t0;              // Start time of trace
     uint64_t          duration;        // Max trace duration
 
@@ -246,8 +245,9 @@ void trace_init_disp(void);
  * Lock-free implementation.
  *
  */
-static inline uintptr_t trace_reserve_and_fill_slot(struct trace_event *ev,
-                                                   struct trace_buffer *buf)
+static inline uintptr_t
+trace_reserve_and_fill_slot(struct trace_event *ev,
+                            struct trace_buffer *buf)
 {
     uintptr_t i, nw;
     struct trace_event *slot;
@@ -256,7 +256,7 @@ static inline uintptr_t trace_reserve_and_fill_slot(struct trace_event *ev,
         i = buf->head_index;
 
         if (buf->tail_index - buf->head_index == 1 ||
-            (buf->tail_index == 0 && (buf->head_index == TRACE_MAX_EVENTS-1))) {
+                (buf->tail_index == 0 && (buf->head_index == TRACE_MAX_EVENTS-1))) {
             // Buffer is full, overwrite last event
             return i;
         }
@@ -315,8 +315,8 @@ static inline errval_t trace_write_event(struct trace_event *ev)
     (void) trace_reserve_and_fill_slot(ev, trace_buf);
 
     if (ev->u.raw == master->stop_trigger ||
-        (ev->timestamp>>63 == 0 &&  // Not a DCB event
-         ev->timestamp > master->stop_time)) {
+            (ev->timestamp>>63 == 0 &&  // Not a DCB event
+             ev->timestamp > master->stop_time)) {
         master->stop_trigger = 0;
         master->running = false;
     }
@@ -330,30 +330,30 @@ static inline errval_t trace_new_application(char *new_application_name, uintptr
 {
 #ifdef TRACING_EXISTS
 
-	if (kernel_trace_buf == 0 || my_core_id >= TRACE_COREID_LIMIT) {
-		return TRACE_ERR_NO_BUFFER;
-	}
+    if (kernel_trace_buf == 0 || my_core_id >= TRACE_COREID_LIMIT) {
+        return TRACE_ERR_NO_BUFFER;
+    }
 
-	struct trace_buffer *trace_buf = (struct trace_buffer*) (kernel_trace_buf
-				+ my_core_id * TRACE_PERCORE_BUF_SIZE);
+    struct trace_buffer *trace_buf = (struct trace_buffer*) (kernel_trace_buf
+            + my_core_id * TRACE_PERCORE_BUF_SIZE);
 
-	int i;
-	int new_value;
-	do {
-		i = trace_buf->num_applications;
+    int i;
+    int new_value;
+    do {
+        i = trace_buf->num_applications;
 
-		if (i == TRACE_MAX_APPLICATIONS)
-			return -1; // TODO error code
+        if (i == TRACE_MAX_APPLICATIONS)
+            return -1; // TODO error code
 
-		new_value = i + 1;
+        new_value = i + 1;
 
-	} while (!trace_cas((uintptr_t*)&trace_buf->num_applications, i, new_value));
+    } while (!trace_cas((uintptr_t*)&trace_buf->num_applications, i, new_value));
 
-	trace_buf->applications[i].dcb = (uint64_t) dcb;
-	memcpy(&trace_buf->applications[i].name, new_application_name, 8);
+    trace_buf->applications[i].dcb = (uint64_t) dcb;
+    memcpy(&trace_buf->applications[i].name, new_application_name, 8);
 
 #endif // TRACING_EXISTS
-	return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
 // During boot of a core the trace buffer is not yet mapped, but we still want
@@ -366,38 +366,26 @@ extern int kernel_trace_num_boot_applications;
 
 static inline void trace_new_boot_application(char* name, uintptr_t dcb)
 {
-    #if defined(TRACING_EXISTS)
-	if (kernel_trace_num_boot_applications < TRACE_MAX_BOOT_APPLICATIONS) {
+#if defined(TRACING_EXISTS)
+    if (kernel_trace_num_boot_applications < TRACE_MAX_BOOT_APPLICATIONS) {
 
+        kernel_trace_boot_applications[kernel_trace_num_boot_applications].dcb = (uint64_t) dcb;
+        memcpy(kernel_trace_boot_applications[kernel_trace_num_boot_applications].name, name, 8);
 
-		kernel_trace_boot_applications[kernel_trace_num_boot_applications].dcb = (uint64_t) dcb;
-		memcpy(kernel_trace_boot_applications[kernel_trace_num_boot_applications].name, name, 8);
-
-		kernel_trace_num_boot_applications++;
-	}
-    #endif
+        kernel_trace_num_boot_applications++;
+    }
+#endif
 }
 
 static inline void trace_copy_boot_applications(void)
 {
-
-    #if defined(TRACING_EXISTS)
-	int i;
-	for (i = 0; i < kernel_trace_num_boot_applications; i++) {
-		trace_new_application(kernel_trace_boot_applications[i].name, kernel_trace_boot_applications[i].dcb);
-	}
-    #endif
+#if defined(TRACING_EXISTS)
+    for (int i = 0; i < kernel_trace_num_boot_applications; i++) {
+        trace_new_application(kernel_trace_boot_applications[i].name, kernel_trace_boot_applications[i].dcb);
+    }
+#endif
 }
 #else // !IN_KERNEL
-
-/*
-static inline coreid_t get_my_core_id(void)
-{
-    dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_generic *disp = get_dispatcher_generic(handle);
-    return disp->core_id;
-}
-*/
 
 // User-space version: gets trace buffer pointer out of the current dispatcher
 static inline errval_t trace_write_event(struct trace_event *ev)
@@ -437,7 +425,7 @@ static inline errval_t trace_write_event(struct trace_event *ev)
     (void) trace_reserve_and_fill_slot(ev, trace_buf);
 
     if (ev->u.raw == master->stop_trigger ||
-        ev->timestamp > master->stop_time) {
+            ev->timestamp > master->stop_time) {
         master->stop_trigger = 0;
         master->running = false;
     }
@@ -461,8 +449,8 @@ static inline errval_t trace_event_raw(uint64_t raw)
 #ifdef CONFIG_TRACE
 
 #if TRACE_ONLY_SUB_NET
-	/* we do not want the stats about actual messages sent */
-	return SYS_ERR_OK;
+    /* we do not want the stats about actual messages sent */
+    return SYS_ERR_OK;
 #endif // TRACE_ONLY_SUB_NET
 
 
@@ -480,13 +468,13 @@ static inline errval_t trace_event_raw(uint64_t raw)
 static inline bool trace_is_subsys_enabled(uint16_t subsys)
 {
 #ifdef CONFIG_TRACE
-	assert(subsys < TRACE_NUM_SUBSYSTEMS);
+    assert(subsys < TRACE_NUM_SUBSYSTEMS);
 
-	uint8_t* base_pointer;
+    uint8_t* base_pointer;
 #ifdef IN_KERNEL
-	base_pointer = (uint8_t*) kernel_trace_buf;
+    base_pointer = (uint8_t*) kernel_trace_buf;
 #else // !IN_KERNEL
-	base_pointer = (uint8_t*) trace_buffer_master;
+    base_pointer = (uint8_t*) trace_buffer_master;
 #endif // !IN_KERNEL
 
     if (base_pointer == NULL) {
@@ -507,10 +495,10 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 {
 #ifdef CONFIG_TRACE
 
-	// Check if the subsystem is enabled, i.e. we log events for it
-	if (!trace_is_subsys_enabled(subsys)) {
-		return SYS_ERR_OK;
-	}
+    // Check if the subsystem is enabled, i.e. we log events for it
+    if (!trace_is_subsys_enabled(subsys)) {
+        return SYS_ERR_OK;
+    }
 
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();
@@ -521,17 +509,17 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 #if TRACE_ONLY_SUB_NET
     /* NOTE: This will ensure that only network related messages are logged. PS */
     if (subsys != TRACE_SUBSYS_NET) {
-    	return SYS_ERR_OK;
+        return SYS_ERR_OK;
     }
 #endif // TRACE_ONLY_SUB_NET
 
 #if TRACE_ONLY_SUB_BNET
-/*
-    Recording the events only on the core where I are interested
-    if (get_my_core_id() != 1) {
-    	return SYS_ERR_OK;
-    }
-*/
+    /*
+       Recording the events only on the core where I are interested
+       if (get_my_core_id() != 1) {
+       return SYS_ERR_OK;
+       }
+     */
 #endif // TRACE_ONLY_SUB_NET
 
     return trace_write_event(&ev);

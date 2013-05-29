@@ -6,17 +6,16 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/drivers/e1000
+-- Hakefile for /usr/drivers/e1000_dev
 --
 --------------------------------------------------------------------------
 
 [ build application { target = "e1000n",
-                      cFiles = [ "e1000n.c", "e1000n_hwinit.c",
-                                 "e1000n_helpers.c", "e1000n_debug.c"],
+                      cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
                       flounderBindings = [ "net_queue_manager",
                                             "net_soft_filters" ],
                       mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", "netQmng", "trace" ]
+                      addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     }
 ]
-
