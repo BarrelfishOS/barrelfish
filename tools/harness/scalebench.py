@@ -1,25 +1,36 @@
 #!/usr/bin/env python
 
-##########################################################################
+#
 # Copyright (c) 2009, 2011, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
 # If you do not find this file, copies can be found by writing to:
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
-##########################################################################
+#
 
 import sys
 
 # check interpreter version to avoid confusion over syntax/module errors
-if sys.version_info < (2,6):
+if sys.version_info < (2, 6):
     sys.stderr.write('Error: Python 2.6 or greater is required\n')
     sys.exit(1)
 
-import os, optparse, traceback, datetime, getpass, fnmatch
-import siteconfig, harness, debug, checkout, builds, tests, machines
+import os
+import optparse
+import traceback
+import datetime
+import getpass
+import fnmatch
+import harness
+import debug
+import checkout
+import builds
+import tests
+import machines
 from tests.common import TimeoutError
 from socket import gethostname
+
 
 def list_all():
     print 'Build types:\t', ', '.join([b.name for b in builds.all_builds])
@@ -30,8 +41,9 @@ def list_all():
 
 
 def parse_args():
-    p = optparse.OptionParser(usage='Usage: %prog [options] SOURCEDIR RESULTDIR',
-            description='Barrelfish regression/benchmark harness')
+    p = optparse.OptionParser(
+        usage='Usage: %prog [options] SOURCEDIR RESULTDIR',
+        description='Barrelfish regression/benchmark harness')
 
     g = optparse.OptionGroup(p, 'Basic options')
     g.add_option('-b', '--build', action='append', dest='buildspecs',
@@ -40,7 +52,7 @@ def parse_args():
                  help='places builds under DIR [default: SOURCEDIR/builds]')
     g.add_option('-e', '--existingbuild', dest='existingbuild', metavar='DIR',
                  help='existing build directory (may not be used with -b)')
-    g.add_option('-m', '--machine', action='append', dest='machinespecs', 
+    g.add_option('-m', '--machine', action='append', dest='machinespecs',
                  metavar='MACHINE', help='victim machines to use')
     g.add_option('-t', '--test', action='append', dest='testspecs',
                  metavar='TEST', help='tests/benchmarks to run')
@@ -98,7 +110,8 @@ def parse_args():
             matches = _lookup(spec, builds.all_builds)
             if matches == []:
                 p.error('no builds match "%s" (try -L for a list)' % spec)
-            options.builds.extend([b for b in matches if b not in options.builds])
+            options.builds.extend(
+                [b for b in matches if b not in options.builds])
         options.builds = [b(options) for b in options.builds]
 
     # resolve and instantiate all machines
@@ -109,7 +122,8 @@ def parse_args():
         matches = _lookup(spec, machines.all_machines)
         if matches == []:
             p.error('no machines match "%s" (try -L for a list)' % spec)
-        options.machines.extend([m for m in matches if m not in options.machines])
+        options.machines.extend(
+            [m for m in matches if m not in options.machines])
     options.machines = [m(options) for m in options.machines]
 
     # resolve and instantiate all tests
@@ -119,7 +133,8 @@ def parse_args():
             matches = _lookup(spec, tests.all_tests)
             if matches == []:
                 p.error('no tests match "%s" (try -L for a list)' % spec)
-            options.tests.extend([t for t in matches if t not in options.tests])
+            options.tests.extend(
+                [t for t in matches if t not in options.tests])
     else:
         p.error('no tests specified (try -t memtest if unsure)')
     options.tests = [t(options) for t in options.tests]
@@ -130,7 +145,7 @@ def parse_args():
     debug.verbose('Tests:    ' + ', '.join([t.name for t in options.tests]))
 
     return options
-    
+
 
 def make_results_dir(options, build, machine, test):
     # Create a unique directory for the output from this test
@@ -160,8 +175,9 @@ def write_description(options, checkout, build, machine, test, path):
         with open(os.path.join(path, 'changes.patch'), 'w') as f:
             f.write(diff)
 
+
 def main(options):
-    retval = True # everything was OK
+    retval = True  # everything was OK
     co = checkout.Checkout(options.sourcedir)
 
     # determine build architectures
@@ -175,8 +191,8 @@ def main(options):
         build.configure(co, buildarchs)
         for machine in options.machines:
             for test in options.tests:
-                debug.log('running test %s on %s, cwd is %s' \
-                              % (test.name, machine.name, os.getcwd()))
+                debug.log('running test %s on %s, cwd is %s'
+                          % (test.name, machine.name, os.getcwd()))
                 path = make_results_dir(options, build, machine, test)
                 write_description(options, co, build, machine, test, path)
                 try:
@@ -225,4 +241,4 @@ def main(options):
 
 if __name__ == "__main__":
     if not main(parse_args()):
-        sys.exit(1) # one or more tests failed
+        sys.exit(1)  # one or more tests failed
