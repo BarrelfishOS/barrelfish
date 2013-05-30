@@ -151,9 +151,9 @@ def make_results_dir(options, build, machine, test):
     # Create a unique directory for the output from this test
     timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     dirname = '-'.join([test.name, build.name, machine.name, timestamp])
-    path = os.path.join(options.resultsdir, dirname)
+    path = os.path.join(options.resultsdir, str(datetime.datetime.now().year), dirname)
     debug.verbose('create result directory %s' % path)
-    os.mkdir(path)
+    os.makedirs(path)
     return path
 
 
