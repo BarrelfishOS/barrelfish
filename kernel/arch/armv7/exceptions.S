@@ -40,27 +40,27 @@
 abt_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 abt_stack_top:
-        .space 4, 0
+        .space 8, 0
 
 irq_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 irq_stack_top:
-         .space 4, 0
+         .space 8, 0
 
 fiq_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 fiq_stack_top:
-         .space 4, 0
+         .space 8, 0
 
 undef_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 undef_stack_top:
-        .space 4, 0
+        .space 8, 0
 
 svc_stack:
         .space EXCEPTION_MODE_STACK_BYTES, 0
 svc_stack_top:
-        .space 4, 0
+        .space 8, 0
 
         //
         // System mode stack
