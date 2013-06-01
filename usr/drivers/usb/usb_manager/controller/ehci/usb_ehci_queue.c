@@ -26,10 +26,12 @@
 
 void usb_ehci_enqueue_xfer_intrq(struct usb_xfer *xfer)
 {
+    USB_DEBUG_TR("usb_ehci_enqueue_xfer_intrq()\n");
     /*
      * check if the transfer is already finished
      */
     if (usb_ehci_xfer_is_finished(xfer)) {
+        USB_DEBUG("NOTICE: transfer already finished...\n");
         return;
     }
 
@@ -157,6 +159,7 @@ usb_ehci_itd_t *usb_ehci_deq_hs_td(usb_ehci_itd_t *std, usb_ehci_itd_t *last)
  */
 usb_ehci_qh_t *usb_ehci_enq_qh(usb_ehci_qh_t *qh, usb_ehci_qh_t *last)
 {
+    USB_DEBUG_TR("usb_ehci_enq_qh()\n");
     /*
      * a queue head can only be linked once
      */
@@ -169,13 +172,11 @@ usb_ehci_qh_t *usb_ehci_enq_qh(usb_ehci_qh_t *qh, usb_ehci_qh_t *last)
      * update virtual pointers
      */
     qh->next = last->next;
-    qh->prev = last;
-    last->next = qh;
-
-    /*
-     * update physical links
-     */
     qh->qh_link = last->qh_link;
+
+    qh->prev = last;
+
+    last->next = qh;
     last->qh_link = qh->qh_self;
 
     return (qh);

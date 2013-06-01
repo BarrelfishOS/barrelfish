@@ -62,9 +62,6 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
      * does not have a parent hub associated
      */
     if (device->parent_hub == NULL) {
-
-        return (USB_ERR_BAD_REQUEST);
-#if 0
         /*
          * cannot write data to the root hub
          */
@@ -76,18 +73,22 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
             }
             return (USB_ERR_INVAL);
         }
+
         const void *ret_desc;
         uint16_t ret_size;
-        err = device->controller->hcdi_bus_fn->roothub_exec(device, req,
-                &ret_desc, &ret_size);
-
+        err = USB_ERR_NO_ROOT_HUB;
+        if (device->controller->hcdi_bus_fn->roothub_exec != NULL) {
+            err = device->controller->hcdi_bus_fn->roothub_exec(device, req,
+                    &ret_desc, &ret_size);
+        }
         if (err != USB_ERR_OK) {
+            USB_DEBUG("ERROR: root_hub_exec failed(): %s\n", usb_get_error_string(err));
             if (req_state) {
                 req_state->error = err;
                 req_state->callback(req_state->bind);
             }
 
-            return err;
+            return (err);
         }
 
         /*
@@ -95,6 +96,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          * is set
          */
         if (length > ret_size) {
+
             if (!(flags & USB_REQUEST_FLAG_IGNORE_SHORT_XFER)) {
                 if (req_state) {
                     req_state->error = USB_ERR_SHORT_XFER;
@@ -106,6 +108,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
             // short xfers are ok so update the length
             length = ret_size;
         }
+
         if (ret_length) {
             *ret_length = length;
         }
@@ -116,11 +119,11 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         if (length > 0 && data != NULL) {
             memcpy(data, ret_desc, length);
         }
-
-        req_state->error = USB_ERR_OK;
+        if (req_state) {
+            req_state->error = USB_ERR_OK;
+        }
 
         return (USB_ERR_OK);
-#endif
     }
 
     /*
@@ -133,11 +136,13 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     xfer = device->ctrl_xfer[0];
 
     if (xfer == NULL) {
+        debug_printf("ERROR: No memory for setting up transfers\n");
         return (USB_ERR_NOMEM);
     }
 
-    req_state->xfer = xfer;
-
+    if (req_state) {
+        req_state->xfer = xfer;
+    }
     /*
      * we have a xfer so set it up according to the setup
      * and the given flags
@@ -159,7 +164,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     /*
      * copy the request into DMA memory
      */
-    usb_mem_copy_in(xfer->frame_buffers, 0, req, sizeof(*req));
+    usb_mem_copy_in(xfer->frame_buffers[0], 0, req, sizeof(*req));
     xfer->frame_lengths[0] = sizeof(*req);
 
     /*
@@ -181,7 +186,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          */
         if (current_data_length > 0) {
             if (!(req->bType.direction = USB_REQUEST_READ)) {
-                usb_mem_copy_in(xfer->frame_buffers + 1, 0, data,
+                usb_mem_copy_in(xfer->frame_buffers[1], 0, data,
                         current_data_length);
             }
             xfer->num_frames = 2;
@@ -191,10 +196,10 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
         usb_transfer_start(xfer);
 
+        /* wait till completed... */
         while (!usb_transfer_completed(xfer)) {
-            /*
-             * TODO: WAIT
-             */
+            xfer->host_controller->handle_intr(xfer->host_controller);
+            USB_WAIT(200);
             thread_yield();
         }
 
@@ -230,7 +235,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          */
         if ((current_data_length > 0)
                 && (req->bType.direction == USB_REQUEST_READ)) {
-            usb_mem_copy_out(xfer->frame_buffers + 1, 0, data,
+            usb_mem_copy_out(xfer->frame_buffers[1], 0, data,
                     current_data_length);
         }
 
@@ -267,10 +272,10 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     return ((usb_error_t) err);
 }
 
-
-usb_error_t usb_exec_request(struct usb_device *device, struct usb_device_request *request, void *data)
+usb_error_t usb_exec_request(struct usb_device *device,
+        struct usb_device_request *request, void *data, uint16_t *ret_length)
 {
-    return (USB_ERR_OK);
+    return (usb_handle_request(device, 0, request, NULL, data, ret_length));
 }
 
 /*
@@ -389,7 +394,7 @@ void usb_rx_request_read_call(struct usb_manager_binding *binding,
     } else {
         /* XXX: Just allocating some memory, note this may not be enough */
         st->data = malloc(1024);
-        req->wLength = 1024; // setting the maximum data length
+        req->wLength = 1024;  // setting the maximum data length
     }
     st->callback = usb_tx_request_read_response;
 
@@ -521,4 +526,165 @@ void usb_rx_request_call(struct usb_manager_binding *binding, uint8_t *request,
     struct usb_device_request *req = (struct usb_device_request *) request;
 
     usb_handle_request(device, 0, req, st, st->data, &st->data_length);
+}
+
+/*
+ * --------------------------------------------------------------------------
+ *  Functions needed for new devices
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * \brief Sets the address of a new device
+ */
+usb_error_t usb_req_set_address(struct usb_device *dev, uint16_t addr)
+{
+    struct usb_device_request req;
+    usb_error_t err = USB_ERR_INVAL;
+
+    req.bRequest = USB_REQUEST_SET_ADDRESS;
+    req.wValue = addr;
+    req.wIndex = 0;
+    req.wLength = 0;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.direction = USB_REQUEST_WRITE;
+
+    if (dev->controller->hcdi_bus_fn->set_address != NULL) {
+        USB_DEBUG("set_address function set.\n");
+        err = (dev->controller->hcdi_bus_fn->set_address)(dev, addr);
+    }
+
+    if (err != USB_ERR_INVAL) {
+        return (err);
+    }
+
+    return (usb_exec_request(dev, &req, NULL, NULL));
+}
+
+/**
+ *
+ */
+usb_error_t usb_req_get_descriptor(struct usb_device *dev,
+        uint16_t *actual_length, void *desc, uint16_t min_length,
+        uint16_t max_length, uint16_t id, uint8_t type, uint8_t desc_index,
+        uint8_t retries)
+{
+    USB_DEBUG_TR("usb_req_get_descriptor()\n");
+    struct usb_device_request req;
+    usb_error_t err;
+
+    req.bRequest = USB_REQUEST_GET_DESCRIPTOR;
+    req.wIndex = id;
+    req.bType.direction = USB_REQUEST_READ;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.wValue = ((type) << 8) | desc_index;
+
+    while (1) {
+        if ((min_length < 2) || (max_length < 2)) {
+            return (USB_ERR_INVAL);
+        }
+
+        req.wLength = min_length;
+
+        err = usb_exec_request(dev, &req, desc, NULL);
+
+        if (err != USB_ERR_OK) {
+            if (!retries) {
+                return (err);
+            }
+
+            retries--;
+
+            continue;
+        }
+
+        uint8_t *buf = desc;
+        if (min_length == max_length) {
+
+            if ((buf[0] > min_length) && (actual_length == NULL)) {
+                buf[0] = min_length;
+            }
+
+            buf[1] = type;
+            return (err);
+        }
+
+        if (max_length > buf[0]) {
+            max_length = buf[0];
+        }
+
+        while (min_length > max_length) {
+            buf[--min_length] = 0;
+        }
+    }
+
+    if (actual_length != NULL) {
+        if (err != USB_ERR_OK) {
+            *actual_length = 0;
+        } else {
+            *actual_length = min_length;
+        }
+    }
+    return (err);
+}
+
+usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
+        struct usb_device_descriptor *desc)
+{
+    return (usb_req_get_descriptor(dev, NULL, desc, sizeof(*desc),
+            sizeof(*desc), 0, USB_DESCRIPTOR_TYPE_DEVICE, 0, 3));
+}
+
+usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
+        struct usb_config_descriptor **cdesc, uint8_t cindex)
+{
+    USB_DEBUG_TR("usb_req_get_config_descriptor()\n");
+    usb_error_t err;
+
+    struct usb_config_descriptor cd;
+
+    err = usb_req_get_descriptor(dev, NULL, &cd, sizeof(cd), sizeof(cd), 0,
+            USB_DESCRIPTOR_TYPE_CONFIG, cindex, 0);
+    if (err) {
+        return (err);
+    }
+    /* Extra sanity checking */
+    if (cd.wTotalLength < sizeof(cd)) {
+        return (USB_ERR_INVAL);
+    }
+
+    *cdesc = malloc(cd.wTotalLength);
+
+    if (*cdesc == NULL) {
+        return (USB_ERR_NOMEM);
+    }
+
+    err = usb_req_get_descriptor(dev, NULL, *cdesc, cd.wTotalLength, cd.wTotalLength, 0,
+            USB_DESCRIPTOR_TYPE_CONFIG, cindex, 3);
+
+    if (err != USB_ERR_OK) {
+        free (*cdesc);
+        *cdesc = NULL;
+        return (err);
+    }
+
+    return (USB_ERR_OK);
+}
+
+usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config)
+{
+    USB_DEBUG_TR("usb_req_set_config()\n");
+    struct usb_device_request req;
+
+    req.bRequest = USB_REQUEST_SET_CONFIG;
+    req.wIndex = 0;
+    req.bType.direction = USB_REQUEST_WRITE;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
+    req.wValue = config;
+
+    return (usb_exec_request(dev, &req, NULL, NULL));
+
 }

@@ -10,8 +10,6 @@
 #ifndef _USB_INTERFACE_H_
 #define _USB_INTERFACE_H_
 
-#include "usb_endpoint.h"
-
 
 /*
  * ------------------------------------------------------------------------
@@ -32,7 +30,7 @@ struct usb_interface
 {
     struct usb_interface_descriptor *descriptor;
     uint8_t alt_setting;
-
+    uint8_t parent_iface_index;
     uint8_t iface_index;
 
     struct usb_device *device;

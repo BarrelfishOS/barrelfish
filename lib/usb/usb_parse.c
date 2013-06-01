@@ -15,18 +15,6 @@
 #include <usb/usb_descriptor.h>
 #include <usb/usb_parse.h>
 
-/*------------------------------------------------------------------------*
- *  usb_desc_foreach
- *
- * This function is the safe way to iterate across the USB config
- * descriptor. It contains several checks against invalid
- * descriptors. If the "desc" argument passed to this function is
- * "NULL" the first descriptor, if any, will be returned.
- *
- * Return values:
- *   NULL: End of descriptors
- *   Else: Next descriptor after "desc"
- *------------------------------------------------------------------------*/
 
 /**
  * \brief use this function to iterate over the USB configuration descriptor
@@ -40,6 +28,7 @@
 struct usb_descriptor *usb_parse_next_descriptor(
         struct usb_config_descriptor *cd, struct usb_descriptor *_desc)
 {
+    USB_DEBUG_TR("usb_parse_next_descriptor()\n");
     uint8_t *desc_next;
     uint8_t *start;
     uint8_t *end;
@@ -78,7 +67,6 @@ struct usb_descriptor *usb_parse_next_descriptor(
 }
 
 
-#if 0
 /*------------------------------------------------------------------------*
  *  usb_idesc_foreach
  *
@@ -90,10 +78,10 @@ struct usb_descriptor *usb_parse_next_descriptor(
  *   NULL: End of descriptors
  *   Else: A valid interface descriptor
  *------------------------------------------------------------------------*/
-struct usb_interface_descriptor *
-usb_idesc_foreach(struct usb_config_descriptor *cd,
-        struct usb_idesc_parse_state *ps)
+struct usb_interface_descriptor *usb_parse_next_iface(
+        struct usb_config_descriptor *cd, struct usb_iface_parse_state *ps)
 {
+    USB_DEBUG_TR("usb_parse_next_iface()\n");
     struct usb_interface_descriptor *id;
     uint8_t new_iface;
 
@@ -103,11 +91,11 @@ usb_idesc_foreach(struct usb_config_descriptor *cd,
     new_iface = 1;
 
     while (1) {
-        id = (struct usb_interface_descriptor *) usb_desc_foreach(cd,
+        id = (struct usb_interface_descriptor *) usb_parse_next_descriptor(cd,
                 (struct usb_descriptor *) id);
         if (id == NULL)
             break;
-        if ((id->bDescriptorType == UDESC_INTERFACE)
+        if ((id->bDescriptorType == USB_DESCRIPTOR_TYPE_INTERFACE)
                 && (id->bLength >= sizeof(*id))) {
             if (ps->iface_no_last == id->bInterfaceNumber)
                 new_iface = 0;
@@ -132,6 +120,7 @@ usb_idesc_foreach(struct usb_config_descriptor *cd,
     return (id);
 }
 
+
 /*------------------------------------------------------------------------*
  *  usb_edesc_foreach
  *
@@ -144,18 +133,19 @@ usb_idesc_foreach(struct usb_config_descriptor *cd,
  *   Else: A valid endpoint descriptor
  *------------------------------------------------------------------------*/
 struct usb_endpoint_descriptor *
-usb_edesc_foreach(struct usb_config_descriptor *cd,
+usb_parse_next_edesc(struct usb_config_descriptor *cd,
         struct usb_endpoint_descriptor *ped)
 {
+    USB_DEBUG_TR("usb_parse_next_edesc()\n");
     struct usb_descriptor *desc;
 
     desc = ((struct usb_descriptor *) ped);
 
-    while ((desc = usb_desc_foreach(cd, desc))) {
-        if (desc->bDescriptorType == UDESC_INTERFACE) {
+    while ((desc = usb_parse_next_descriptor(cd, desc))) {
+        if (desc->bDescriptorType == USB_DESCRIPTOR_TYPE_CONFIG) {
             break;
         }
-        if (desc->bDescriptorType == UDESC_ENDPOINT) {
+        if (desc->bDescriptorType == USB_DESCRIPTOR_TYPE_ENDPOINT) {
             if (desc->bLength < sizeof(*ped)) {
                 /* endpoint descriptor is invalid */
                 break;
@@ -165,7 +155,7 @@ usb_edesc_foreach(struct usb_config_descriptor *cd,
     }
     return (NULL);
 }
-
+#if 0
 /*------------------------------------------------------------------------*
  *  usb_ed_comp_foreach
  *

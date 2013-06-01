@@ -17,6 +17,7 @@
 /* prototypes */
 struct usb_xfer;
 
+#define USB_PAGE_SIZE 0x1000 // 4k
 
 
 /*

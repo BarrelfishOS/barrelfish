@@ -38,7 +38,7 @@ usb_error_t usb_hub_clear_hub_feature(struct usb_device *hub, uint16_t feature)
     req.wValue = feature;
     req.wLength = 0;
     req.wIndex = 0;
-    return (usb_exec_request(hub, &req, 0));
+    return (usb_exec_request(hub, &req, NULL, NULL));
 }
 
 usb_error_t usb_hub_clear_port_feature(struct usb_device *hub, uint16_t feature,
@@ -52,7 +52,7 @@ usb_error_t usb_hub_clear_port_feature(struct usb_device *hub, uint16_t feature,
     req.wValue = feature;
     req.wLength = 0;
     req.wIndex = port;
-    return (usb_exec_request(hub, &req, 0));
+    return (usb_exec_request(hub, &req, NULL, NULL));
 }
 
 usb_error_t usb_hub_clear_tt_buffer(struct usb_device *hub, uint8_t dev_addr,
@@ -79,13 +79,14 @@ usb_error_t usb_hub_clear_tt_buffer(struct usb_device *hub, uint8_t dev_addr,
     req.wValue = wValue;
     req.wLength = 0;
     req.wIndex = tt_port;
-    return (usb_exec_request(hub, &req, 0));
+    return (usb_exec_request(hub, &req, NULL, NULL));
 }
 
 usb_error_t usb_hub_get_hub_status(struct usb_device *hub,
         struct usb_hub_status *ret_status)
 
 {
+    USB_DEBUG_TR("usb_hub_get_hub_status()\n");
     struct usb_device_request req;
 
     req.bType.direction = USB_REQUEST_READ;
@@ -95,12 +96,13 @@ usb_error_t usb_hub_get_hub_status(struct usb_device *hub,
     req.wValue = 0;
     req.wLength = sizeof(struct usb_hub_status);
     req.wIndex = 0;
-    return (usb_exec_request(hub, &req, ret_status));
+    return (usb_exec_request(hub, &req, ret_status, NULL));
 }
 
 usb_error_t usb_hub_get_port_status(struct usb_device *hub, uint16_t port,
         struct usb_hub_port_status *ret_status)
 {
+    USB_DEBUG_TR("usb_hub_get_port_status(%u)\n", port);
     struct usb_device_request req;
 
     req.bType.direction = USB_REQUEST_READ;
@@ -110,11 +112,12 @@ usb_error_t usb_hub_get_port_status(struct usb_device *hub, uint16_t port,
     req.wValue = 0;
     req.wLength = sizeof(struct usb_hub_port_status);
     req.wIndex = port;
-    return (usb_exec_request(hub, &req, ret_status));
+    return (usb_exec_request(hub, &req, ret_status, NULL));
 }
 
 usb_error_t usb_hub_reset_tt(struct usb_device *hub, uint16_t port)
 {
+    USB_DEBUG_TR("usb_hub_reset_tt()\n");
     struct usb_device_request req;
 
     if (hub->device_desc.bDeviceClass == USB_HUB_CLASS_CODE
@@ -133,7 +136,7 @@ usb_error_t usb_hub_reset_tt(struct usb_device *hub, uint16_t port)
     req.wValue = 0;
     req.wLength = 0;
     req.wIndex = port;
-    return (usb_exec_request(hub, &req, 0));
+    return (usb_exec_request(hub, &req, NULL, NULL));
 }
 
 usb_error_t usb_hub_set_hub_feature(struct usb_device *hub, uint16_t feature)
@@ -147,7 +150,7 @@ usb_error_t usb_hub_set_hub_feature(struct usb_device *hub, uint16_t feature)
     req.wValue = feature;
     req.wLength = 0;
     req.wIndex = 0;
-    return (usb_exec_request(hub, &req, 0));
+    return (usb_exec_request(hub, &req, NULL, NULL));
 }
 
 usb_error_t usb_hub_set_port_feature(struct usb_device *hub, uint16_t feature,
@@ -162,7 +165,7 @@ usb_error_t usb_hub_set_port_feature(struct usb_device *hub, uint16_t feature,
     req.wValue = feature;
     req.wLength = 0;
     req.wIndex = port;
-    return (usb_exec_request(hub, &req, 0));
+    return (usb_exec_request(hub, &req, NULL, NULL));
 }
 
 usb_error_t usb_hub_get_tt_state(struct usb_device *hub, uint16_t flags,
@@ -182,6 +185,7 @@ usb_error_t usb_hub_stop_tt(struct usb_device *hub, uint16_t port)
 usb_error_t usb_hub_get_hub_descriptor(struct usb_device *hub, uint16_t nports,
         struct usb_hub_descriptor *ret_desc)
 {
+    USB_DEBUG_TR("usb_hub_get_hub_descriptor() [manager]\n");
     struct usb_device_request req;
 
     uint16_t wLength = (nports + 7 + (8 * 8)) / 8;
@@ -190,10 +194,10 @@ usb_error_t usb_hub_get_hub_descriptor(struct usb_device *hub, uint16_t nports,
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bRequest = USB_HUB_REQ_GET_DESCRIPTOR;
-    req.wValue = USB_DESCRIPTOR_TYPE_HUB;
+    req.wValue = USB_DESCRIPTOR_TYPE_HUB<<8;
     req.wLength = wLength;
     req.wIndex = 0;
-    return (usb_exec_request(hub, &req, ret_desc));
+    return (usb_exec_request(hub, &req, ret_desc, NULL));
 }
 
 usb_error_t usb_hub_set_hub_descriptor(struct usb_device *hub,
@@ -209,17 +213,21 @@ usb_error_t usb_hub_re_enumerate(struct usb_device *hub)
 
 usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
 {
+    USB_DEBUG_TR("usb_hub_reset_port(%u)\n", port);
     usb_error_t err;
     struct usb_hub_port_status ps;
 
     /* clear port reset changes (if any) */
-    usb_hub_clear_port_feature(hub, USB_HUB_FEATURE_C_PORT_RESET, port);
+    err = usb_hub_clear_port_feature(hub, USB_HUB_FEATURE_C_PORT_RESET, port);
+    if (err != USB_ERR_OK) {
+        debug_printf("ERROR: could not clear port reset on port %u\n", port);
+        return (err);
+    }
 
     /* initate the rest sequence */
     err = usb_hub_set_port_feature(hub, USB_HUB_FEATURE_PORT_RESET, port);
-
     if (err != USB_ERR_OK) {
-        debug_printf("ERROR: port reset could not reset port\n");
+        debug_printf("ERROR: port reset could not reset port %u\n", port);
         return (err);
     }
 
@@ -252,7 +260,7 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
             break;
         }
 
-        if (timeout > 1000) {
+        if (timeout > 10000) {
             timeout = 0;
             break;
         }
@@ -275,6 +283,8 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
 
     /* give the device time to recover from reset */
     USB_WAIT(USB_DELAY_PORT_RECOVERY);
+
+    USB_DEBUG_TR("usb_hub_reset_port(%u)... DONE.\n", port);
 
     return (err);
 }

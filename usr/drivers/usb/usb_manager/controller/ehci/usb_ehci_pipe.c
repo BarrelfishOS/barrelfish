@@ -106,6 +106,7 @@ struct usb_hcdi_pipe_fn *usb_ehci_get_bulk_pipe_fn(void)
  */
 static void usb_ehci_xfer_ctrl_open(struct usb_xfer *xfer)
 {
+    USB_DEBUG_TR("usb_ehci_xfer_ctrl_open()\n");
     return; /* no-op */
 }
 
@@ -131,6 +132,7 @@ static void usb_ehci_xfer_ctrl_enter(struct usb_xfer *xfer)
  */
 static void usb_ehci_xfer_ctrl_start(struct usb_xfer *xfer)
 {
+    USB_DEBUG_TR("usb_ehci_xfer_ctrl_start()\n");
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
 
@@ -139,6 +141,8 @@ static void usb_ehci_xfer_ctrl_start(struct usb_xfer *xfer)
 
     /* enqueue on the xfer interrupt queue*/
     usb_ehci_enqueue_xfer_intrq(xfer);
+
+    USB_DEBUG_TR("usb_ehci_xfer_ctrl_start() done.\n");
 }
 
 
@@ -169,6 +173,7 @@ struct usb_hcdi_pipe_fn *usb_ehci_get_ctrl_pipe_fn(void)
  */
 static void usb_ehci_xfer_intr_open(struct usb_xfer *xfer)
 {
+    USB_DEBUG_TR("usb_ehci_xfer_intr_open()\n");
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
 

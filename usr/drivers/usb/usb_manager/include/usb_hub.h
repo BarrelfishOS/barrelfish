@@ -20,6 +20,9 @@
 #ifndef USB_HUB_H
 #define USB_HUB_H
 
+
+struct usb_host_controller;
+
 /// the hub descriptor type value
 #define USB_DESCRIPTOR_TYPE_HUB 0x29
 

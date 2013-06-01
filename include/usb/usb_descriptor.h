@@ -277,6 +277,8 @@ typedef struct usb_endpoint_descriptor usb_endpoint_descriptor_t;
 // size information of endpoint descriptor
 #define USB_ENDPOINT_DESCRIPTOR_SIZE 9
 
+#define USB_ENDPOINT_ADDRESS_ANY    0xFF
+
 #define USB_ENDPOINT_DIRECTION_OUT  0x00
 #define USB_ENDPOINT_DIRECTION_IN   0x01
 #define USB_ENDPOINT_DIRECTION_ANY  0xFF
@@ -285,6 +287,7 @@ typedef struct usb_endpoint_descriptor usb_endpoint_descriptor_t;
 #define USB_ENDPOINT_TYPE_ISOCHR    0x01
 #define USB_ENDPOINT_TYPE_BULK      0x02
 #define USB_ENDPOINT_TYPE_INTR      0x03
+#define USB_ENDPOINT_TYPE_ANY       0xFF
 
 #define USB_ENDPOINT_SYNC_NON_ISO   0x00
 #define USB_ENDPOINT_SYNC_NONE      0x00

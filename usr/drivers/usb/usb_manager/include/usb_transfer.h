@@ -40,8 +40,8 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
 void usb_transfer_start(struct usb_xfer *xfer);
 void usb_transfer_stop(struct usb_xfer *xfer);
 void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count);
-usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
-        struct usb_xfer **ppxfer, const struct usb_xfer_config *setup_start, uint16_t n_setup);
+usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
+        struct usb_xfer **usb_xfer, const struct usb_xfer_config *setup);
 uint8_t usb_transfer_completed(struct usb_xfer *xfer);
 
 #endif /* USB_TRANSFER_H_ */

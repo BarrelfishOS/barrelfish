@@ -10,12 +10,23 @@
 #ifndef USB_PARSE_H_
 #define USB_PARSE_H_
 
+struct usb_iface_parse_state {
+    struct usb_descriptor *desc;
+    uint8_t iface_index; /* current interface index */
+    uint8_t iface_no_last;
+    uint8_t iface_index_alt; /* current alternate setting */
+};
+
 struct usb_descriptor *usb_parse_next_descriptor(
         struct usb_config_descriptor *cd, struct usb_descriptor *_desc);
 
+struct usb_interface_descriptor *usb_parse_next_iface(
+        struct usb_config_descriptor *cd, struct usb_iface_parse_state *ps);
+
+struct usb_endpoint_descriptor *usb_parse_next_edesc(
+        struct usb_config_descriptor *cd, struct usb_endpoint_descriptor *ped);
 #if 0
-struct usb_interface_descriptor *usb_idesc_foreach(
-        struct usb_config_descriptor *cd, struct usb_idesc_parse_state *ps);
+
 struct usb_endpoint_descriptor *
 usb_edesc_foreach(struct usb_config_descriptor *cd,
         struct usb_endpoint_descriptor *ped);

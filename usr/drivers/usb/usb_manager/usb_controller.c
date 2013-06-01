@@ -26,13 +26,18 @@
 
 static usb_host_controller_t *host_controllers = NULL;
 
-
 usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
         void *controller_base)
 {
     if (hc == NULL) {
         return (USB_ERR_NOMEM);
     }
+
+    (((&hc->done_queue.head))->first) = NULL;
+    (&hc->done_queue.head)->last_next = &(((&hc->done_queue.head))->first);
+
+    (((&hc->intr_queue.head))->first) = NULL;
+        (&hc->intr_queue.head)->last_next = &(((&hc->intr_queue.head))->first);
 
     usb_error_t err = USB_ERR_INVAL;
     void *controller;
@@ -87,16 +92,14 @@ usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
 
     }
 
-
     return (USB_ERR_OK);
 }
-
 
 void usb_hc_intr_handler(void *arg)
 {
     usb_host_controller_t *hc = host_controllers;
 
-    while(hc != NULL) {
+    while (hc != NULL) {
         if (hc->handle_intr != NULL) {
             (hc->handle_intr)(hc);
         }
@@ -119,6 +122,6 @@ void usb_hc_explore_device_tree(usb_host_controller_t *hc)
 
     /*TODO
      * if (hc->root_hub && hc->root_hub->hub) {
-        usb_hub_explore(hc->root_hub);
-    }*/
+     usb_hub_explore(hc->root_hub);
+     }*/
 }

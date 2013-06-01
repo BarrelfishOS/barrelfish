@@ -122,28 +122,23 @@ void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
         num_ports = 8 * sizeof(hc->root_hub_interrupt_data);
     }
 
-    for (uint16_t i = 1; i < num_ports; i++) {
+    for (uint16_t i = 0; i < hc->root_hub_num_ports; i++) {
         ehci_portsc_t ps = ehci_portsc_rd(hc->ehci_base, i);
         /* clear out the change bits */
-        ps = ehci_portsc_occ_insert(ps, 0);
-        ps = ehci_portsc_pec_insert(ps, 0);
-        ps = ehci_portsc_csc_insert(ps, 0);
-        if (ps) {
+        if (ehci_portsc_occ_extract(ps) || ehci_portsc_pec_extract(ps)
+                || ehci_portsc_csc_extract(ps)) {
+            USB_DEBUG("roothub_interrupt: port %i has changed\n", i+1);
             hc->root_hub_interrupt_data[i / 8] |= (1 << (i % 8));
         }
     }
 
-    /*
-     * TODO: uhub_root_intr(&sc->sc_bus, sc->sc_hub_idata,
-     sizeof(sc->sc_hub_idata));
-     */
+    usb_hub_root_interrupt(hc->controller);
 }
 
 usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
         struct usb_device_request *req, const void **ret_data,
         uint16_t *ret_length)
 {
-
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) device->controller->hc_control;
     const char *str;
     const void *data = (const void *) &hc->root_hub_descriptor;
@@ -167,10 +162,12 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                  * result in an IO error if there is an id set.
                  */
                 case USB_DESCRIPTOR_TYPE_DEVICE:
+                case USB_DESCRIPTOR_TYPE_HUB:
                     if ((req->wValue & 0xFF) != 0) {
                         return (USB_ERR_IOERROR);
                     }
                     if (req->bType.type != USB_REQUEST_TYPE_CLASS) {
+                        USB_DEBUG("usb_ehci_roothub_exec()->GET_DEVICE_DESC\n");
                         data_length = sizeof(rh_dev_desc);
                         data = (const void *) &rh_dev_desc;
                         break;
@@ -201,6 +198,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     if ((req->wValue & 0xFF) != 0) {
                         return (USB_ERR_IOERROR);
                     }
+                    USB_DEBUG("usb_ehci_roothub_exec()->GET_CONFIG_DESC\n");
                     data_length = sizeof(rh_cfg_desc);
                     data = (const void *) &rh_cfg_desc;
                     break;
@@ -227,6 +225,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                      */
                     break;
                 default:
+                    debug_printf("GET_DESC ->IOERR\n");
                     return (USB_ERR_IOERROR);
                     break;
             }
@@ -255,12 +254,14 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             if (req->wValue >= USB_EHCI_MAX_DEVICES) {
                 return (USB_ERR_IOERROR);
             }
+            USB_DEBUG("usb_ehci_roothub_exec()->SET_ADDRESS\n");
             hc->root_hub_address = req->wValue;
             break;
         case C(USB_REQUEST_SET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             if ((req->wValue != 0) && (req->wValue != 1)) {
                 return (USB_ERR_IOERROR);
             }
+            USB_DEBUG("usb_ehci_roothub_exec()->SET_CONFIG\n");
             hc->root_hub_config = req->wValue;
             break;
         case C(USB_REQUEST_SET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
@@ -284,6 +285,9 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                 /* invalid port nuber  */
                 return (USB_ERR_IOERROR);
             }
+            /* mackerel is zero based */
+            req->wIndex--;
+
             switch (req->wValue) {
                 case USB_HUB_FEATURE_PORT_ENABLE:
                     ehci_portsc_ped_wrf(hc->ehci_base, req->wIndex, 0);
@@ -332,16 +336,57 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             }
             break;
         case C(USB_HUB_REQ_GET_STATUS, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_READ):
-            if ((req->wIndex < 1) || (req->wLength > hc->root_hub_num_ports)) {
+            if ((req->wIndex < 1) || (req->wIndex > hc->root_hub_num_ports)) {
                 /* invalid port number  */
+                debug_printf("ehci: root_hub_exec: invalid port number %i\n",
+                        req->wIndex);
                 return (USB_ERR_IOERROR);
             }
+            data_length = sizeof(hc->root_hub_descriptor.port_status);
+            struct usb_hub_port_status *ps = &(hc->root_hub_descriptor
+                    .port_status);
+            memset(ps, 0, sizeof(*ps));
+            /* subtract one, mackerel is zero based */
+            ehci_portsc_t ehci_ps = ehci_portsc_rd(hc->ehci_base,
+                    req->wIndex - 1);
+
+            ps->wPortStatus.enabled = ehci_portsc_ped_extract(ehci_ps);
+            ps->wPortStatus.indicator = ehci_portsc_pic_extract(ehci_ps) > 0;
+            ps->wPortStatus.test_mode = ehci_portsc_ptc_extract(ehci_ps) > 0;
+
+            if (ehci_portsc_ls_extract(ehci_ps) == 0x1) {
+                /* low speed device */
+                USB_DEBUG("port (%u) has low speed device\n", req->wIndex);
+                ps->wPortStatus.is_ls = 1;
+                ps->wPortStatus.is_hs = 0;
+            } else {
+                ps->wPortStatus.is_hs = 1;
+                ps->wPortStatus.is_ls = 0;
+            }
+
+            ps->wPortStatus.power_state = ehci_portsc_pp_extract(ehci_ps);
+            ps->wPortStatus.reset = ehci_portsc_pr_extract(ehci_ps);
+            ps->wPortStatus.over_current = ehci_portsc_oca_extract(ehci_ps);
+            if (ehci_portsc_sus_extract(ehci_ps)
+                    && !(ehci_portsc_fpr_extract(ehci_ps))) {
+                ps->wPortStatus.suspend = 1;
+            }
+            ps->wPortStatus.connection = ehci_portsc_ccs_extract(ehci_ps);
+
+            ps->wPortChange.is_reset = hc->root_hub_reset;
+            ps->wPortChange.over_current = ehci_portsc_occ_extract(ehci_ps);
+            ps->wPortChange.resumed = ehci_portsc_fpr_extract(ehci_ps);
+            ps->wPortChange.disabled = ehci_portsc_pec_extract(ehci_ps);
+            ps->wPortChange.connect = ehci_portsc_csc_extract(ehci_ps);
+
             break;
         case C(USB_HUB_REQ_SET_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
-            if ((req->wIndex < 1) || (req->wLength > hc->root_hub_num_ports)) {
+            if ((req->wIndex < 1) || (req->wIndex > hc->root_hub_num_ports)) {
                 /* invalid port number  */
                 return (USB_ERR_IOERROR);
             }
+            /* mackerel is zero based */
+            req->wIndex--;
             switch (req->wValue) {
                 case USB_HUB_FEATURE_PORT_ENABLE:
                     ehci_portsc_ped_wrf(hc->ehci_base, req->wIndex, 1);
@@ -357,14 +402,14 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     }
                     /* initiate reset sequence */
                     ehci_portsc_pr_wrf(hc->ehci_base, req->wIndex, 1);
-                    WAIT(200);
+                    USB_WAIT(200);
 
                     /* clear the reset */
                     ehci_portsc_pr_wrf(hc->ehci_base, req->wIndex, 0);
-                    WAIT(200);
+                    USB_WAIT(200);
 
                     if (ehci_portsc_pr_rdf(hc->ehci_base, req->wIndex)) {
-                        debug_printf("timeout while resetting port\n");
+                        debug_printf("exec: timeout while resetting port\n");
                         return (USB_ERR_TIMEOUT);
                     }
 
@@ -395,8 +440,15 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
         default:
             return (USB_ERR_IOERROR);
     }
-    *ret_length = data_length;
-    *ret_data = data;
+
+    if (ret_length) {
+        *ret_length = data_length;
+    }
+
+    if (ret_data) {
+
+        *ret_data = data;
+    }
 
     return (USB_ERR_OK);
 }
@@ -408,6 +460,10 @@ void usb_ehci_roothub_port_disown(usb_ehci_hc_t *hc, uint16_t portno,
         debug_printf("ERROR: port does not exist! \n");
         return;
     }
+
+    assert(portno > 0);
+    /* mackerel is zero based */
+    portno--;
 
     ehci_portsc_po_wrf(hc->ehci_base, portno, 1);
 

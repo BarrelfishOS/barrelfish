@@ -366,6 +366,18 @@ int main(int argc, char *argv[])
     }
     assert(0x24 == ((*((volatile uint32_t*) (tmp+0x00A4))) & 0xFF));
 
+    /* read the debug register */
+    *((volatile uint32_t*) (tmp+0x00A4)) = (uint32_t) ((0x15 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (tmp+0x00A4)) & (1 << 31)) {
+        printf("%c", 0xE);
+
+    }
+
+    debug_printf("  > ULPI line state = %s\n",
+            (*((volatile uint32_t*) (tmp+0x00A4))) & 0x1 ?
+                    "Connected" : "Disconnected");
+
 #endif
 
     /*

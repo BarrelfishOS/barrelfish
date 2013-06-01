@@ -21,24 +21,31 @@
 #include <usb_transfer.h>
 #include <usb_request.h>
 #include <usb_xfer.h>
+#include <usb_endpoint.h>
+#include <usb_pipe.h>
+#include <usb_memory.h>
 
 static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX] =
         {
 
-        /* This transfer is used for generic control endpoint transfers */
+            /* This transfer is used for generic control endpoint transfers */
 
-        [0] = {
-        .type = USB_TYPE_CTRL, .endpoint = 0x00, /* Control endpoint */
-        .direction = 0xFF, .bufsize = 1024, /* bytes */
-        .flags = {
-        .ext_buffer = 1,
-        }, .usb_mode = USB_MODE_DUAL,
-        /* both modes */
-        },
+            [0] = {
+                .type = USB_TYPE_CTRL,
+                .endpoint = 0x00, /* Control endpoint */
+                .direction = 0xFF,
+                .bufsize = 1024, /* bytes */
+                .flags = {
+                    .ext_buffer = 1,
+                },
+                .usb_mode = USB_MODE_DUAL,
+                .usb_type = USB_TYPE_CTRL,
+            /* both modes */
+            },
 
-        /* This transfer is used for generic clear stall only */
+            /* This transfer is used for generic clear stall only */
 
-        [1] = {
+            [1] = {
                 .type = USB_TYPE_CTRL,
                 .endpoint = 0x00, /* Control pipe */
                 .direction = 0xFF,
@@ -46,8 +53,97 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
                 .timeout = 1000, /* 1 second */
                 .interval = 50, /* 50ms */
                 .usb_mode = USB_MODE_HOST,
-        },
+            },
         };
+
+static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
+{
+    USB_DEBUG_TR("usb_transfer_ctrl_start()\n");
+
+    uint16_t length;
+
+    if (xfer->flags.pipe_stalled && xfer->flags_internal.ctrl_active) {
+        xfer->flags_internal.ctrl_stall = 1;
+        xfer->flags_internal.ctrl_active = 0;
+    } else {
+        xfer->flags_internal.ctrl_stall = 1;
+    }
+
+    if (xfer->num_frames > 2) {
+        debug_printf("ERROR: too many frames %u", xfer->num_frames);
+        return (1);
+    }
+
+    if (xfer->flags_internal.ctrl_active) {
+        if (xfer->flags_internal.ctrl_header) {
+            xfer->flags_internal.ctrl_header = 0;
+
+            if (xfer->flags_internal.usb_mode == USB_MODE_DEVICE) {
+                assert(!"NYI: device mode");
+            }
+        }
+
+        length = xfer->sum_bytes;
+    } else {
+        if (xfer->frame_lengths[0] != sizeof(struct usb_device_request)) {
+            debug_printf("ERROR: wrong frame length: %u / %u",
+                    xfer->frame_lengths[0], sizeof(struct usb_device_request));
+            return (1);
+        }
+
+        if (xfer->flags_internal.usb_mode == USB_MODE_DEVICE) {
+            assert(!"NYI: device mode");
+        } else {
+            struct usb_device_request req;
+
+            usb_mem_copy_out(xfer->frame_buffers[0], 0, &req, sizeof(req));
+
+            xfer->flags_internal.remaining_bytes = req.wLength;
+
+            xfer->endpoint_number &= ~(USB_REQUEST_READ);
+            if ((req.bType.direction == USB_REQUEST_READ)) {
+                xfer->endpoint_number |= (USB_REQUEST_READ);
+            }
+
+        }
+
+        xfer->flags_internal.ctrl_header = 1;
+
+        length = xfer->sum_bytes - sizeof(struct usb_device_request);
+    }
+
+    if (length > xfer->flags_internal.remaining_bytes) {
+        debug_printf("ERROR: length (%u) remaining length is greater than "
+                "remaining length (%u)", length,
+                xfer->flags_internal.remaining_bytes);
+        return (1);
+    }
+
+    if (xfer->flags.short_xfer_forced) {
+        xfer->flags_internal.remaining_bytes = 0;
+    } else {
+        if ((length != xfer->max_data_length)
+                && (length != xfer->flags_internal.remaining_bytes)
+                && (xfer->num_frames != 1)) {
+            debug_printf("ERROR: short xfer w/o force_short_xfer\n");
+            return (1);
+        }
+        xfer->flags_internal.remaining_bytes -= length;
+    }
+
+    if ((xfer->flags_internal.remaining_bytes > 0) || xfer->flags.manual_status) {
+        xfer->flags_internal.ctrl_active = 1;
+
+        if ((!xfer->flags_internal.ctrl_header) && (xfer->num_frames==1)) {
+            debug_printf("ERROR: invalid parameter combination!\n");
+            return (1);
+        }
+    } else {
+        xfer->flags_internal.ctrl_active = 0;
+    }
+
+    return (0);
+}
 
 /**
  * \brief   this function is used to allocate the structure and resources
@@ -58,8 +154,10 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
 void usb_transfer_setup_ctrl_default(struct usb_device *device,
         struct usb_request_state *st)
 {
+    USB_DEBUG_TR("usb_transfer_setup_ctrl_default()\n");
     /* setting up transfers for the USB root hub is not allowed */
     if (device->parent_hub == NULL) {
+        debug_printf("ERROR: setting up transfers for root hub not allowed\n");
         return;
     }
 
@@ -72,6 +170,7 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
     uint8_t xfer_reuse = 0;
 
     if (xfer) {
+        USB_DEBUG("usb_transfer_setup_ctrl_default(): reuse xfer\n");
         xfer_reuse = ((xfer->device_address == device->device_address)
                 && (device->ctrl_ep_desc.wMaxPacketSize
                         == device->device_desc.bMaxPacketSize0));
@@ -86,18 +185,25 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
      * we cannot reuse the USB transfer so we have to update the fields
      */
     device->ctrl_ep_desc.wMaxPacketSize = device->device_desc.bMaxPacketSize0;
+    device->ctrl_ep.descriptor = &device->ctrl_ep_desc;
 
     usb_transfer_unsetup(device->ctrl_xfer, USB_DEVICE_CTRL_XFER_MAX);
 
-    uint8_t iface = 0;
-    if (usb_transfer_setup(device, &iface, device->ctrl_xfer,
-            usb_control_ep_cfg, USB_DEVICE_CTRL_XFER_MAX)) {
-        debug_printf("could not allocate default control transfer\n");
+    if (usb_transfer_setup(device, 0, &(device->ctrl_xfer[0]),
+            usb_control_ep_cfg)) {
+        debug_printf("usb_transfer_setup_ctrl_default(): "
+                "ERROR: could not allocate default control transfer\n");
         return;
     }
 
-    // start the usb transfer
-    usb_transfer_start(xfer);
+    if (usb_transfer_setup(device, 0, &(device->ctrl_xfer[1]),
+            usb_control_ep_cfg)) {
+        debug_printf("usb_transfer_setup_ctrl_default(): "
+                "ERROR: could not allocate default control transfer\n");
+        return;
+    }
+
+    USB_DEBUG_TR("usb_transfer_setup_ctrl_default() Done.\n");
 }
 
 /**
@@ -107,7 +213,9 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
  */
 void usb_transfer_start(struct usb_xfer *xfer)
 {
+    USB_DEBUG_TR("usb_transfer_start()\n");
     if (xfer == NULL) {
+        USB_DEBUG("NOTICE: No xfer to start...\n");
         return;
     }
 
@@ -123,14 +231,95 @@ void usb_transfer_start(struct usb_xfer *xfer)
      * have to do sth.
      */
     if (xfer->flags_internal.transferring) {
+        USB_DEBUG_TR("usb_transfer_start(). altready transferring\n");
         return;
     }
 
     struct usb_xfer_queue *queue = &(xfer->host_controller->done_queue);
 
+    assert(queue);
+
     if (queue->current != xfer) {
         usb_xfer_enqueue(queue, xfer);
     }
+
+    if (!xfer->flags_internal.pipe_open) {
+        xfer->flags_internal.pipe_open = 1;
+        xfer->endpoint->pipe_fn->open(xfer);
+    }
+
+    xfer->flags_internal.transferring = 1;
+
+    if (xfer->wait_queue) {
+        usb_xfer_dequeue(xfer);
+    }
+
+    xfer->flags_internal.transfer_closed = 0;
+    xfer->flags_internal.dma_wait = 0;
+    xfer->flags_internal.cancellable = 0;
+
+    xfer->sum_bytes = 0;
+    xfer->actual_bytes = 0;
+    xfer->actual_frames = 0;
+
+    xfer->error = USB_ERR_OK;
+
+    if (xfer->device->state < USB_DEVICE_STATE_POWERED) {
+        debug_printf("device is not alive anymore...\n");
+        usb_xfer_done(xfer, USB_ERR_CANCELLED);
+        return;
+    }
+
+    if (xfer->num_frames == 0) {
+        if (xfer->flags.pipe_stalled) {
+            USB_DEBUG("Want to stall w/o transferring...\n");
+            xfer->flags_internal.cancellable = 1;
+            /* TODO: usb_command_wrapper(&xfer->endpoint->endpoint_q, xfer); */
+            return;
+        }
+
+        usb_xfer_done(xfer, USB_ERR_INVAL);
+        return;
+    }
+
+    for (uint32_t frame = 0; frame < xfer->num_frames; frame++) {
+        xfer->frame_lengths[frame + xfer->max_frame_count] =
+                xfer->frame_lengths[frame];
+
+        xfer->sum_bytes += xfer->frame_lengths[frame];
+        if (xfer->sum_bytes < xfer->frame_lengths[frame]) {
+            debug_printf("WARNING: total length wrapped arroud!\n");
+            usb_xfer_done(xfer, USB_ERR_INVAL);
+            return;
+        }
+    }
+
+    xfer->flags_internal.short_frames_ok = 0;
+    xfer->flags_internal.short_transfer_ok = 0;
+
+    if (xfer->flags_internal.ctrl_xfer) {
+        if (usb_transfer_ctrl_start(xfer)) {
+            debug_printf("WARNING: starting usb ctrl transfer failed..\n");
+            usb_xfer_done(xfer, USB_ERR_STALLED);
+            return;
+        }
+    }
+
+    if (xfer) {
+        if (xfer->flags.short_frames_ok) {
+            xfer->flags_internal.short_frames_ok = 1;
+            xfer->flags_internal.short_transfer_ok = 1;
+        } else if (xfer->flags.short_xfer_ok) {
+            xfer->flags_internal.short_transfer_ok = 1;
+            if (xfer->flags_internal.ctrl_xfer) {
+                xfer->flags_internal.short_frames_ok = 1;
+            }
+        }
+    }
+
+    /* TODO: usb_pipe_enter */
+    usb_pipe_enter(xfer);
+    USB_DEBUG_TR("usb_transfer_start(). DONE\n");
 }
 
 /**
@@ -211,6 +400,8 @@ void usb_transfer_stop(struct usb_xfer *xfer)
  */
 void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count)
 {
+    USB_DEBUG_TR("usb_transfer_unsetup()\n");
+
     if (*xfers == NULL || xfer_count == 0) {
         return;
     }
@@ -241,20 +432,10 @@ void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count)
  * \para    setup_count the number of setups we have to do
  * \
  */
-//usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
-//        struct usb_xfer *usb_xfer, const struct usb_xfer_config *setup)
-usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
-        struct usb_xfer **usb_xfers, const struct usb_xfer_config *setups,
-        uint16_t setup_count)
+usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
+        struct usb_xfer **ret_xfer, const struct usb_xfer_config *setup)
 {
-    if (setup_count == 0) {
-        debug_printf("usb_transfer_setup(): invalid setup count\n");
-        return (USB_ERR_INVAL);
-    }
-
-    if (ifaces == 0) {
-        debug_printf("usb_transfer_setup(): interfaces array is NULL!");
-    }
+    USB_DEBUG_TR("usb_transfer_setup()\n");
 
     struct usb_xfer_setup_params params;
     memset(&params, 0, sizeof(params));
@@ -262,19 +443,42 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t *ifaces,
     params.device = device;
     params.speed = device->speed;
     params.hc_max_packet_count = 1;
+    params.err = USB_ERR_OK;
+    params.type = setup->usb_type;
+    params.size[0] = 0;
+    params.buf = NULL;
+    params.xfer_setup = setup;
 
-    /*
-     * TODO: CHECK FOR DEVICE SPEED MAX
-     */
+    struct usb_endpoint *ep = usb_endpoint_lookup(device, iface, setup);
 
-    /*
-     * setting up all transfers
-     */
+    if ((ep == NULL) || (ep->pipe_fn == NULL)) {
+        return (USB_ERR_NO_PIPE);
+    }
 
-    /*
-     * todo: initialize done queue callback wrapper
-     */
+    struct usb_xfer *xfer = malloc(sizeof(struct usb_xfer));
 
+    xfer->device_address = device->device_address;
+    xfer->host_controller = device->controller;
+    xfer->device = device;
+    xfer->endpoint = ep;
+    params.curr_xfer = xfer;
+    params.pipe_fn = xfer->endpoint->pipe_fn;
+
+    (device->controller->hcdi_bus_fn->xfer_setup)(&params);
+
+    if (params.err != USB_ERR_OK) {
+        debug_printf("ERROR: hcdi_xfer_setup failed: %s\n",
+                usb_get_error_string(params.err));
+        return (params.err);
+    }
+
+    xfer->endpoint->ref_allocation++;
+
+    assert(xfer->endpoint->ref_allocation);
+
+    *ret_xfer = xfer;
+
+    USB_DEBUG_TR("usb_transfer_setup() DONE.\n");
     return (USB_ERR_OK);
 }
 

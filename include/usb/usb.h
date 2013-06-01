@@ -108,9 +108,10 @@ typedef struct usb_status usb_status_t;
 #define USB_DELAY_RECOVERY 10
 
 #define USB_WAIT(ms) \
-    for (uint32_t i = 0; i < 0xFFF*ms; i++) {};
+    for (uint32_t i = 0; i < 0x5*(ms); i++) {printf("%c", 0xE);};
 
 #define USB_DEBUG(x...) debug_printf(x)
+#define USB_DEBUG_TR(x...) debug_printf(x)
 
 usb_error_t usb_lib_init(void);
 

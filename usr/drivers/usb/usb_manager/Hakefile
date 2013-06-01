@@ -15,6 +15,7 @@
                       "usb_device.c", "usb_endpoint.c",
                       "usb_memory.c","usb_xfer.c",
                       "usb_request.c", "usb_transfer.c",
+                      "usb_pipe.c",
                       -- OHCI Controller
                       "controller/ohci/usb_ohci_bus.c", 
                       "controller/ohci/usb_ohci_memory.c", 

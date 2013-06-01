@@ -138,11 +138,6 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     ehci_periodiclistbase_wr(hc->ehci_base, hc->pframes_phys);
     ehci_asynclistaddr_wr(hc->ehci_base, hc->qh_async_first->qh_self);
 
-    /*
-     * enable interrupts
-     */
-    ehci_usbintr_wr(hc->ehci_base, hc->enabled_interrupts);
-
     USB_DEBUG(" setting the command flags\n");
     /*
      * setting the start registers
@@ -178,6 +173,11 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
         }
         WAIT(200);
     }
+
+    /*
+        * enable interrupts
+        */
+       ehci_usbintr_wr(hc->ehci_base, hc->enabled_interrupts);
 
     if (ehci_usbsts_hch_rdf(hc->ehci_base)) {
         /*
@@ -226,6 +226,10 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
      */
     ehci_usbsts_t intr = ehci_usbsts_rawrd(hc->ehci_base) & 0x3F;
 
+    char buf[1024];
+    ehci_usbsts_prtval(buf, 2013, intr);
+    printf(buf);
+
     if (!(intr)) {
         /* there was no interrupt for this controller */
         return;
@@ -252,6 +256,9 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     }
 
     if (ehci_usbsts_pcd_extract(intr)) {
+        USB_DEBUG("usb_ehci_interrupt(): port change detected\n");
+
+
         /*
          * port change detected
          * there is something going on on the port e.g. a new device is attached
@@ -260,9 +267,13 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
          * multiple interrupts, disable the port change interrupts for now.
          */
         ehci_usbsts_pcd_insert(hc->enabled_interrupts, 0);
-        ehci_usbsts_pcd_wrf(hc->ehci_base, 0);
+
+        /* disable the PCD interrupt for now */
+        ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
 
         usb_ehci_roothub_interrupt(hc);
+
+
     }
 
     intr = ehci_usbsts_pcd_insert(intr, 0);
@@ -282,6 +293,11 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
      * poll the USB transfers
      */
     usb_ehci_poll(hc);
+
+    ehci_usbsts_pcd_insert(hc->enabled_interrupts, 1);
+
+    /* disable the PCD interrupt for now */
+    ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
 }
 
 /**
@@ -344,6 +360,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     /* set some fields of the generic controller  */
     hc->controller->hcdi_bus_fn = usb_ehci_get_bus_fn();
     hc->controller->usb_revision = USB_REV_2_0;
+    hc->controller->devices = hc->devices;
 
     /* set the standard enabled interrupts */
     ehci_usbintr_t en_intrs = 0;
@@ -468,18 +485,19 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
 
     /* allocate the USB root hub device */
-    struct usb_device *root_hub = usb_device_alloc(NULL, 0, 0, 1,
+    USB_DEBUG("ehci_init: allocating root hub device\n");
+    struct usb_device *root_hub = usb_device_alloc(hc->controller, NULL, 0, 0, 1,
             USB_SPEED_HIGH, USB_MODE_HOST);
 
     if (root_hub) {
+        usb_hub_init(root_hub);
         hc->root_hub = root_hub;
         hc->controller->root_hub = root_hub;
+    } else {
+        debug_printf("WARNING: No root hub!");
     }
 
     hc->devices[USB_ROOTHUB_ADDRESS] = root_hub;
-
-    // set the devices
-    hc->controller->devices = hc->devices;
 
     err = usb_ehci_initialize_controller(hc);
 

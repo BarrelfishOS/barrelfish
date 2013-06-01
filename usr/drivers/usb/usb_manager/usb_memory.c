@@ -18,7 +18,7 @@ static struct usb_page *free_pages = NULL;
 
 static struct usb_dma_page *free_dma_buffers = NULL;
 
-#define USB_PAGE_SIZE 0x1000 // 4k
+
 
 
 /**
@@ -135,7 +135,7 @@ struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
         ret = free_dma_buffers;
         free_dma_buffers = free_dma_buffers->next;
         ret->next = NULL;
-        return ret;
+        return (ret);
     }
 
     ret = (struct usb_dma_page *) malloc(sizeof(struct usb_dma_page));
@@ -178,6 +178,7 @@ void usb_mem_dma_free(struct usb_dma_page *page)
 
 void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data, uint32_t length)
 {
+    USB_DEBUG_TR("usb_mem_copy_in()\n");
     if (pg == NULL || data == NULL) {
         return;
     }

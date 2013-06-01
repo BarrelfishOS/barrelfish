@@ -182,8 +182,7 @@ struct usb_xfer {
     uint32_t actual_frames;
     uint32_t *frame_lengths;    // pointer to an array of frame lengths
     uint8_t frame_shift;
-    struct usb_dma_page *frame_buffers;  // pointer to an array of DMA frames where the device reads / writes to mem
-    struct usb_dma_page *dma_page;  // pointer for storing the data
+    struct usb_dma_page **frame_buffers;  // pointer to an array of DMA frames where the device reads / writes to mem
 
     uint32_t max_packet_count;
     uint16_t max_packet_size;
@@ -236,6 +235,7 @@ struct usb_xfer_config {
     uint32_t timeout;
     struct usb_xfer_flags flags;
     usb_mode_t usb_mode;
+    usb_type_t usb_type;
     uint8_t type;
     uint8_t endpoint;
     uint8_t direction;
