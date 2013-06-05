@@ -442,6 +442,8 @@ bool lwip_init_ex(const char *card_name, uint64_t queueid,
                                 NULL, bfeth_init, ethernet_input);
 
     assert(n != NULL);
+    extern bool lwip_init_done;
+    lwip_init_done = true;
 
     return true;
 }

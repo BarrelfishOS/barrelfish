@@ -42,6 +42,7 @@
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 struct waitset *lwip_waitset;
+bool lwip_init_done = false;
 
 /*************************************************************
  * \defGroup LocalStates Local states
@@ -294,7 +295,9 @@ void idc_connect_to_driver(char *card_name, uint64_t queueid)
 void benchmark_rx_done(size_t idx, size_t len)
 {
     LWIPBF_DEBUG("benchmark_rx_done(%"PRIu64", %"PRIu64")\n", idx, len);
-    handle_incoming(idx, len);
+    if (lwip_init_done) {
+        handle_incoming(idx, len);
+    }
 }
 
 void benchmark_tx_done(size_t idx)
