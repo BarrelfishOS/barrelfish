@@ -356,6 +356,7 @@ arm:
 
 # Builds a dummy romfs_size.h
 $(ARCH)/include/romfs_size.h:
+	mkdir -p $(shell dirname $@)
 	echo "size_t romfs_cpio_archive_size = 0; //should not see this" > $@
 
 arminstall:
