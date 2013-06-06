@@ -365,8 +365,7 @@ let
                          "omap/omap_uart", 
                          "omap/omap44xx_id", 
                          "omap/omap44xx_emif",
-                         "omap/omap44xx_gpio",
-                         "omap/omap44xx_mmu"],
+                         "omap/omap44xx_gpio"],
      addLibraries = [ "elf", "cpio" ]
      }                            
   

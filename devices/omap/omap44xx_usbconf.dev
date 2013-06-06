@@ -123,12 +123,12 @@ device omap44xx_usbconf msbfirst ( addr base ) "OMAP44xx USB host subsystem" {
 	tllfullspeed	1	"PHY speed emul. in TLL (full/slow)";
 	tllconnect	1	"Emulate Full/Low-Speed connect";
 	tllattach	1	"Emulate cable attach/detach";
-	utmiisadev	1	"Select cable end "seen" by UTMI side of TLL";
+	utmiisadev	1	"Select cable end seen by UTMI side of TLL";
 	chanmode	2	"Main channel mode selection";
 	chanen		1	"Active-high channel enable";
     };
 
-    regarray sar_cntx rw  rw addr(base, 0x0400)[7] 
+    regarray sar_cntx rw addr(base, 0x0400)[7] 
 	"Save and restore context array" 
 	type(uint32);
 };
