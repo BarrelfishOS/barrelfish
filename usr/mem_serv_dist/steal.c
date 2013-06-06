@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <mm/mm.h>
 #include <if/mem_defs.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
@@ -282,7 +283,7 @@ errval_t percore_steal_handler_common(uint8_t bits,
     struct capref cap;
     errval_t err, ret;
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC, bits);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC, bits);
     /* debug_printf("%d: percore steal request: bits: %d\n", disp_get_core_id(), bits); */
 
     // refill slot allocator if needed 
@@ -308,7 +309,7 @@ errval_t percore_steal_handler_common(uint8_t bits,
         cap = NULL_CAP;
     }
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC_COMPLETE, bits);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC_COMPLETE, bits);
 
     *retcap = cap;
     return ret;

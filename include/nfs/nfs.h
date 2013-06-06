@@ -15,6 +15,8 @@
 #ifndef BARRELFISH_NFS_H
 #define BARRELFISH_NFS_H
 
+#include <sys/cdefs.h>
+
 #include <lwip/err.h> // for err_t
 #include <lwip/ip_addr.h> // for struct ip_addr
 #include <errors/errno.h>
@@ -23,10 +25,12 @@
 #include <nfs/mount_rpc.h>
 #include <nfs/nfs_rpc.h>
 
+__BEGIN_DECLS
+
 #define NFS_READDIR_COOKIE 0        ///< initial cookie for readdir
 #define NFS_READDIR_COOKIEVERF NULL ///< initial cookie verifier for readder
 
-#define NULL_NFS_FH ((struct nfs_fh3) { .data_len = 0, .data_val = NULL })
+#define NULL_NFS_FH ((struct nfs_fh3) { /*data_len*/ 0, /*data_val*/ NULL })
 
 struct nfs_client;
 
@@ -227,5 +231,7 @@ void nfs_freefh(struct nfs_fh3 fh);
 
 errval_t nfsstat_to_errval(enum nfsstat3 s);
 errval_t mountstat_to_errval(enum mountstat3 s);
+
+__END_DECLS
 
 #endif // BARRELFISH_NFS_H

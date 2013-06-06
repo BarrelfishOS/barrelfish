@@ -15,12 +15,17 @@
 #ifndef BARRELFISH_DEBUG_H
 #define BARRELFISH_DEBUG_H
 
+#include <sys/cdefs.h>
+
 #include <errors/errno.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/registers_arch.h>
 
+__BEGIN_DECLS
+
 struct capability;
 errval_t debug_cap_identify(struct capref cap, struct capability *ret);
+errval_t debug_dump_hw_ptables(void);
 void debug_cspace(struct capref root);
 void debug_my_cspace(void);
 void debug_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -66,5 +71,7 @@ void user_panic_fn(const char *file, const char *func, int line,
  */
 #define USER_PANIC(msg...)                                 \
     user_panic_fn(__FILE__, __func__, __LINE__, msg);      \
+
+__END_DECLS
 
 #endif //BARRELFISH_DEBUG_H

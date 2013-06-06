@@ -23,6 +23,7 @@
 #include <barrelfish/resource_ctrl.h>
 #include <barrelfish/waitset.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #define POLL_CYCLES (cycles_t)0xfffffffff
 #define MAX_COUNT 100
@@ -50,7 +51,7 @@ static const char *my_manifest =
 static void ping(struct ping_pong_binding *b, uint64_t arg)
 {
     errval_t err;
-    err = trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_BCAST_WITH_CCAST_SEND, 1);
+    err = trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_ROUTE_BCAST_WITH_CCAST_SEND, 1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "trace_event failed");
     }
@@ -63,7 +64,7 @@ static void ping(struct ping_pong_binding *b, uint64_t arg)
 
 static void pong(struct ping_pong_binding *b, uint64_t arg)
 {
-    trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_BCAST_WITH_CCAST_SEND, 0);
+    trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_ROUTE_BCAST_WITH_CCAST_SEND, 0);
     request_done = true;
     timestamp[idx].time1 = bench_tsc();
 }
@@ -124,7 +125,7 @@ static void experiment(void)
 #if CONFIG_TRACE
         if (exp_count == EXPERIMENT_COUNT - 1) {
             char *buf = malloc(4096*4096);
-            size_t length = trace_dump(buf, 4096*4096);
+            size_t length = trace_dump(buf, 4096*4096, NULL);
             printf("%s\n", buf);
             printf("length of buffer %lu\n", length);
         }

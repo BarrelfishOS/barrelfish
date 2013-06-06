@@ -15,9 +15,13 @@
 #ifndef __FLOUNDER_SUPPORT_UMP_H
 #define __FLOUNDER_SUPPORT_UMP_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/ump_chan.h>
 #include <flounder/flounder_support_caps.h>
 #include <trace/trace.h>
+
+__BEGIN_DECLS
 
 /// Number of bits available for the message type in the header
 #define FL_UMP_MSGTYPE_BITS (UMP_HEADER_BITS - UMP_INDEX_BITS)
@@ -132,5 +136,7 @@ static inline void flounder_stub_ump_send_cap_ack(struct flounder_ump_state *s)
     flounder_stub_ump_control_fill(s, &ctrl, FL_UMP_CAP_ACK);
     msg->header.control = ctrl;
 }
+
+__END_DECLS
 
 #endif // __FLOUNDER_SUPPORT_UMP_H

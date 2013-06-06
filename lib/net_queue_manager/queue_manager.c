@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
 

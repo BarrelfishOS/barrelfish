@@ -25,6 +25,7 @@
            "arm",
            "ata_identify",
            "audio_nbm",
+           "e1000",
            "e10k",
            "e10k_q",
            "ehci",
@@ -56,11 +57,12 @@
            "sp804_pit",
            "cortex_a9_pit",
            "a9scu",
-	   "omap/omap_uart",
-	   "omap/omap44xx_emif",
-	   "omap/omap44xx_gpio",
-	   "omap/omap44xx_id",
-	   "omap/omap44xx_usbconf"
+           "omap/omap_uart",
+           "omap/omap44xx_emif",
+           "omap/omap44xx_gpio",
+           "omap/omap44xx_id",
+           "omap/omap44xx_usbconf",
+           "omap/omap44xx_mmu"
          ], arch <- allArchitectures
 ] ++
 
@@ -75,7 +77,6 @@
            "arm_icp_pit",
            "cpuid",
            "crb_sif",
-           "e1000",
            "eMAC",
            "ht_config",
            "lpc_ioapic",

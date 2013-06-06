@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_SLAB_H
 #define LIBBARRELFISH_SLAB_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 // forward declarations
 struct slab_alloc;
 struct block_head;
@@ -43,8 +47,16 @@ void slab_free(struct slab_alloc *slabs, void *block);
 size_t slab_freecount(struct slab_alloc *slabs);
 errval_t slab_default_refill(struct slab_alloc *slabs);
 
+// size of block header
+#define SLAB_BLOCK_HDRSIZE (sizeof(void *))
+// should be able to fit the header into the block
+#define SLAB_REAL_BLOCKSIZE(blocksize) \
+    (((blocksize) > SLAB_BLOCK_HDRSIZE) ? (blocksize) : SLAB_BLOCK_HDRSIZE)
+
 /// Macro to compute the static buffer size required for a given allocation
 #define SLAB_STATIC_SIZE(nblocks, blocksize) \
-        ((nblocks) * ((blocksize) + sizeof(void *)) + sizeof(struct slab_head))
+        ((nblocks) * SLAB_REAL_BLOCKSIZE(blocksize) + sizeof(struct slab_head))
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_SLAB_H

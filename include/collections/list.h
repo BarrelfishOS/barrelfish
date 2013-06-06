@@ -14,10 +14,11 @@
 #ifndef _LIST_H_
 #define _LIST_H_
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <sys/cdefs.h>
 
 #ifdef WIN32
 #include <malloc.h>
@@ -29,6 +30,7 @@
 #include <barrelfish/barrelfish.h>
 #endif // BARRELFISH
 
+__BEGIN_DECLS
 
 /*
  * Predicate function.
@@ -114,5 +116,7 @@ typedef int (*collections_list_visitor_func)(void *data, void *arg);
  */
 int collections_list_visit(collections_listnode *start,
                            collections_list_visitor_func f, void *arg);
+
+__END_DECLS
 
 #endif

@@ -64,7 +64,7 @@ syscall_entry:
 	add	%rsi, %rcx
 
 	/* Check that it's an endpoint */
-	cmp	$OBJTYPE_ENDPOINT, OFFSETOF_CAP_TYPE(%rcx)
+	cmpl	$OBJTYPE_ENDPOINT, OFFSETOF_CAP_TYPE(%rcx)
 	jne	err_endpoint
 
 	/* TODO: Check rights on the endpoint */
@@ -78,10 +78,10 @@ syscall_entry:
 
 	/* Check whether listener is runnable */
 #if defined(CONFIG_SCHEDULER_RR)
-	cmp	$0, OFFSETOF_DCB_RR_PREV(%rsi)
+	cmpl	$0, OFFSETOF_DCB_RR_PREV(%rsi)
 	je	lrpc_make_runnable
 #elif defined(CONFIG_SCHEDULER_RBED)
-	cmp	$0, OFFSETOF_DCB_RBED_NEXT(%rsi)
+	cmpl	$0, OFFSETOF_DCB_RBED_NEXT(%rsi)
 	je	lrpc_rbed_check_runnable
 #else
 # error Must define a kernel scheduling policy!

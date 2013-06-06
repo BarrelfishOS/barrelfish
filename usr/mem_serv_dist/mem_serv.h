@@ -27,12 +27,6 @@
 #       define MEMSERV_AFFINITY
 #endif
 
-// FIXME: this should end up in trace.h
-//#define TRACE_SUBSYS_PERCORE_MEMSERV (TRACE_SUBSYS_MEMSERV + 0xDDD)
-#define TRACE_SUBSYS_PERCORE_MEMSERV 0xADDD
-#define TRACE_EVENT_ALLOC_COMPLETE    0x0002
-#define TRACE_EVENT_INIT    0x0000
-
 // appropriate size type for available RAM
 typedef genpaddr_t memsize_t;
 #define PRIuMEMSIZE PRIuGENPADDR

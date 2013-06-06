@@ -15,6 +15,10 @@
 #ifndef GETOPT_H
 #define GETOPT_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 enum argtype {
     ArgType_Int,
     ArgType_UInt,
@@ -37,5 +41,7 @@ struct cmdarg {
 };
 
 extern void parse_commandline(const char *cmdline, struct cmdarg *cmdargs);
+
+__END_DECLS
 
 #endif // GETOPT_H

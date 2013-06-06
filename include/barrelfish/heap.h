@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_HEAP_H
 #define LIBBARRELFISH_HEAP_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 union heap_header {                 /* block header */
     struct {
         union heap_header *ptr;     /* next block if on free list */
@@ -38,5 +42,7 @@ void heap_init(struct heap *heap, void *buf, size_t buflen,
 void *heap_alloc(struct heap *heap, size_t nbytes);
 void heap_free(struct heap *heap, void *ap);
 union heap_header *heap_default_morecore(struct heap *h, unsigned nu);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_HEAP_H

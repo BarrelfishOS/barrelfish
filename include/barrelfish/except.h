@@ -15,7 +15,10 @@
 #ifndef LIBBARRELFISH_EXCEPT_H
 #define LIBBARRELFISH_EXCEPT_H
 
+#include <sys/cdefs.h>
 #include <barrelfish_kpi/registers_arch.h>
+
+__BEGIN_DECLS
 
 enum exception_type {
     EXCEPT_NULL = 0,
@@ -54,5 +57,7 @@ errval_t thread_set_exception_handler(exception_handler_fn newhandler,
                                       exception_handler_fn *oldhandler,
                                       void *new_stack_base, void *new_stack_top,
                                       void **old_stack_base, void **old_stack_top);
+
+__END_DECLS
 
 #endif

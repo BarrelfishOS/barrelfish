@@ -18,6 +18,7 @@
 #include <mdb/mdb.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
+#include <paging_generic.h>
 #include <exec.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/global.h>
@@ -126,6 +127,21 @@ static struct sysret copy_or_mint(struct capability *root,
                             destcn_vbits, source_vbits, param1, param2, mint);
 }
 
+static struct sysret handle_map(struct capability *ptable,
+                                int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot          = args[0];
+    capaddr_t source_cptr   = args[1];
+    int       source_vbits  = args[2];
+    uint64_t  flags         = args[3];
+    uint64_t  offset        = args[4];
+    uint64_t  pte_count     = args[5];
+
+    return sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
+                   pte_count);
+}
+
 static struct sysret handle_mint(struct capability *root,
                                  int cmd, uintptr_t *args)
 {
@@ -137,7 +153,6 @@ static struct sysret handle_copy(struct capability *root,
 {
     return copy_or_mint(root, args, false);
 }
-
 
 static struct sysret handle_delete_common(struct capability *root,
                                    uintptr_t *args,
@@ -174,8 +189,20 @@ static struct sysret handle_revoke(struct capability *root,
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
-    size_t entry = args[0];
-    errval_t err = page_mappings_unmap(pgtable, entry);
+    capaddr_t cptr = args[0];
+    int bits       = args[1];
+    size_t entry   = args[2];
+    size_t pages   = args[3];
+
+    errval_t err;
+    struct cte *mapping;
+    err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, bits,
+                                    &mapping, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+
+    err = page_mappings_unmap(pgtable, mapping, entry, pages);
     return SYSRET(err);
 }
 
@@ -410,6 +437,27 @@ static struct sysret handle_frame_identify(struct capability *to,
     };
 }
 
+static struct sysret handle_frame_modify_flags(struct capability *to,
+                                               int cmd, uintptr_t *args)
+{
+    // Modify flags of (part of) mapped region of frame
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
+
+    // unpack arguments
+    size_t offset = args[0]; // in pages; of first page to modify from first
+                             // page in mapped region
+    size_t pages  = args[1]; // #pages to modify
+    size_t flags  = args[2]; // new flags
+
+    page_mappings_modify_flags(to, offset, pages, flags);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = 0,
+    };
+}
+
+
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint64_t    port = args[0];
@@ -536,6 +584,10 @@ static struct sysret handle_trace_setup(struct capability *cap,
     lpaddr_t lpaddr = gen_phys_to_local_phys(frame->u.frame.base);
     kernel_trace_buf = local_phys_to_mem(lpaddr);
     //printf("kernel.%u: handle_trace_setup at %lx\n", apic_id, kernel_trace_buf);
+
+    // Copy boot applications.
+    trace_copy_boot_applications();
+
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -575,6 +627,34 @@ static struct sysret kernel_ipi_delete(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret kernel_dump_ptables(struct capability *cap,
+                                         int cmd, uintptr_t *args)
+{
+    assert(cap->type == ObjType_Kernel);
+
+    printf("kernel_dump_ptables\n");
+
+    capaddr_t dispcaddr = args[0];
+
+    struct cte *dispcte;
+    errval_t err = caps_lookup_slot(&dcb_current->cspace.cap, dispcaddr, CPTR_BITS,
+                           &dispcte, CAPRIGHTS_WRITE);
+    if (err_is_fail(err)) {
+        printf("failed to lookup dispatcher cap\n");
+        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME));
+    }
+    struct capability *dispcap = &dispcte->cap;
+    if (dispcap->type != ObjType_Dispatcher) {
+        printf("dispcap is not dispatcher cap\n");
+        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME_INVALID));
+    }
+
+    struct dcb *dispatcher = dispcap->u.dispatcher.dcb;
+
+    paging_dump_tables(dispatcher);
+
+    return SYSRET(SYS_ERR_OK);
+}
 
 /* 
  * \brief Activate performance monitoring
@@ -673,10 +753,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest
     },
     [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify
+        [FrameCmd_Identify] = handle_frame_identify,
+        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify
+        [FrameCmd_Identify] = handle_frame_identify,
+        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -687,15 +769,19 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke] = handle_revoke,
     },
     [ObjType_VNode_x86_64_pml4] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_pdpt] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_pdir] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_ptable] = {
+        [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
@@ -716,7 +802,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MonitorCmd_Revoke]      = monitor_handle_revoke,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
-        [KernelCmd_IPI_Delete]   = kernel_ipi_delete
+        [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
+        [KernelCmd_DumpPTables]  = kernel_dump_ptables
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,

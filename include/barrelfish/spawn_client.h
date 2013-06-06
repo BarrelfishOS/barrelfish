@@ -10,7 +10,10 @@
 #ifndef BARRELFISH_SPAWN_CLIENT_H
 #define BARRELFISH_SPAWN_CLIENT_H
 
+#include <sys/cdefs.h>
 #include <barrelfish_kpi/types.h>
+
+__BEGIN_DECLS
 
 /// Flags for spawning a program
 typedef enum spawn_flags {
@@ -40,6 +43,7 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     spawn_flags_t flags, domainid_t *ret_domainid);
 errval_t spawn_kill(domainid_t domainid);
 errval_t spawn_exit(uint8_t exitcode);
+errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitcode, bool nohang);
 errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang);
 errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
                          uint8_t *exitcode, bool nohang);
@@ -52,5 +56,7 @@ errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
                                     struct capref fdcap);
 errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
                                      struct capref sidcap);
+
+__END_DECLS
 
 #endif // BARRELFISH_SPAWN_CLIENT_H

@@ -15,6 +15,7 @@
 #ifndef SPAWNDOMAIN_H
 #define SPAWNDOMAIN_H
 
+#include <sys/cdefs.h>
 
 //XXX: added alignment to workaround an arm-gcc bug
 //which generated (potentially) unaligned access code to those fields
@@ -54,6 +55,7 @@ struct spawninfo {
     size_t tls_init_len, tls_total_len;
 };
 
+__BEGIN_DECLS
 errval_t spawn_get_cmdline_args(struct mem_region *module,
                                 char **retargs);
 int spawn_tokenize_cmdargs(char *args, char *argv[], size_t argv_len);
@@ -69,6 +71,8 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
                           struct capref inheritcn_cap, struct capref argcn_cap);
 errval_t spawn_run(struct spawninfo *si);
 errval_t spawn_free(struct spawninfo *si);
+
+errval_t multiboot_cleanup_mapping(void);
 
 /* spawn_vspace.c */
 errval_t spawn_vspace_init(struct spawninfo *si, struct capref vnode,
@@ -91,6 +95,7 @@ struct mem_region *multiboot_find_module_containing(struct bootinfo *bi,
 						    const char *containing);
 errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
                           lvaddr_t *retaddr, genpaddr_t *retpaddr);
+errval_t spawn_unmap_module(lvaddr_t mapped_addr);
 errval_t spawn_map_bootinfo(struct spawninfo *si, genvaddr_t *retvaddr);
 const char *getopt_module(struct mem_region *module);
 
@@ -113,5 +118,6 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
 /* errval_t spawn_memory(struct spawninfo *si, const char *name, uint8_t core_id, */
 /*                       int argc, char *argv[], lvaddr_t binary, */
 /*                       size_t binary_size); */
+__END_DECLS
 
 #endif //SPAWNDOMAIN_H

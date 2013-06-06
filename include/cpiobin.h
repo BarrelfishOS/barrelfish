@@ -11,6 +11,9 @@
 #define __CPIOBIN_H__
 
 #include <stdint.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 typedef enum
 {
@@ -133,5 +136,7 @@ cpio_visit(
     cpio_generic_header_t* g,
     void*                  arg
 );
+
+__END_DECLS
 
 #endif // __CPIOBIN_H__

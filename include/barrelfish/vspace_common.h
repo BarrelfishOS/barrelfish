@@ -23,12 +23,16 @@ typedef uint32_t vregion_flags_t;
 #define PRIuVREGIONFLAGS PRIu32
 #define PRIxVREGIONFLAGS PRIx32
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/memobj.h>
 #include <barrelfish/vregion.h>
 #include <barrelfish/pmap_arch.h>
 #include <barrelfish/vspace_layout.h>
 #include <barrelfish/vspace.h>
 #include <barrelfish/vspace_mmu_aware.h>
+
+__BEGIN_DECLS
 
 errval_t vspace_unmap(const void *buf);
 errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
@@ -65,5 +69,7 @@ errval_t vspace_map_one_frame_fixed_attr(lvaddr_t addr, size_t size,
                                     struct capref frame, vregion_flags_t flags,
                                     struct memobj **retmemobj,
                                          struct vregion **retvregion);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_VSPACE_COMMON_H

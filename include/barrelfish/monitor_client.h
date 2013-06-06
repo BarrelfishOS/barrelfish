@@ -15,6 +15,10 @@
 #ifndef BARRELFISH_MONITOR_CLIENT_H
 #define BARRELFISH_MONITOR_CLIENT_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct monitor_lmp_binding;
 
 /// Handlers for incoming/outgoing capabilities on the monitor binding
@@ -42,5 +46,7 @@ errval_t monitor_client_new_binding(monitor_bind_cont_fn *cont, void *st,
 errval_t monitor_client_blocking_rpc_init(void);
 
 errval_t monitor_cap_set_remote(struct capref cap, bool remote);
+
+__END_DECLS
 
 #endif // BARRELFISH_MONITOR_CLIENT_H

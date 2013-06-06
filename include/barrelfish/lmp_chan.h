@@ -15,9 +15,13 @@
 #ifndef BARRELFISH_LMP_CHAN_H
 #define BARRELFISH_LMP_CHAN_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/waitset.h>
 #include <barrelfish/lmp_endpoints.h>
 #include <barrelfish/idc.h>
+
+__BEGIN_DECLS
 
 struct lmp_chan;
 struct event_queue_node;
@@ -164,10 +168,10 @@ static inline lmp_send_flags_t idc_control_to_lmp_flags(idc_control_t control,
 {
     switch (control) {
     case IDC_CONTROL_SET_SYNC:
-        return flags | LMP_FLAG_SYNC;
+        return (lmp_send_flags_t) ((unsigned)flags | (unsigned)LMP_FLAG_SYNC);
 
     case IDC_CONTROL_CLEAR_SYNC:
-        return flags & ~LMP_FLAG_SYNC;
+        return (lmp_send_flags_t) ((unsigned)flags & ~(unsigned)LMP_FLAG_SYNC);
 
     default: // no-op for other control ops
         return flags;
@@ -175,5 +179,7 @@ static inline lmp_send_flags_t idc_control_to_lmp_flags(idc_control_t control,
 }
 
 #include <barrelfish/lmp_chan_arch.h>
+
+__END_DECLS
 
 #endif // BARRELFISH_LMP_CHAN_H

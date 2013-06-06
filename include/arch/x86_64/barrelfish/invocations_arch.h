@@ -196,9 +196,17 @@ static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
     return cap_invoke3(root, CNodeCmd_Revoke, cap, bits).error;
 }
 
-static inline errval_t invoke_vnode_unmap(struct capref cap, size_t entry)
+static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
+                                        capaddr_t src, int frombits, size_t flags,
+                                        size_t offset, size_t pte_count)
 {
-    return cap_invoke2(cap, VNodeCmd_Unmap, entry).error;
+    return cap_invoke7(ptable, VNodeCmd_Map, slot, src, frombits, flags, offset, pte_count).error;
+}
+
+static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_addr,
+                                          int bits, size_t entry, size_t num_pages)
+{
+    return cap_invoke5(cap, VNodeCmd_Unmap, mapping_addr, bits, entry, num_pages).error;
 }
 
 /**
@@ -224,6 +232,25 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     ret->base = 0;
     ret->bits = 0;
     return sysret.error;
+}
+
+/**
+ * \brief Modify mapping flags on parts of a mapped frame
+ *
+ * \param frame    CSpace address of frame capability
+ * \param off      Offset (in #pages) of the first page to get new set of flags
+ *                 from the first page in the mapping identified by `frame`
+ * \param pages    Number of pages that should get new set of flags
+ * \param flags    New set of flags
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_frame_modify_flags(struct capref frame,
+                                                 size_t offset,
+                                                 size_t pages,
+                                                 size_t flags)
+{
+    return cap_invoke4(frame, FrameCmd_ModifyFlags, offset, pages, flags).error;
 }
 
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,
@@ -316,6 +343,13 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
     if (sysret.error == SYS_ERR_OK) {
         *core_id = sysret.value;
     }
+    return sysret.error;
+}
+static inline errval_t invoke_kernel_dump_ptables(struct capref kern_cap,
+                                                  struct capref dispcap)
+{
+    capaddr_t dispcaddr = get_cap_addr(dispcap);
+    struct sysret sysret = cap_invoke2(kern_cap, KernelCmd_DumpPTables, dispcaddr);
     return sysret.error;
 }
 

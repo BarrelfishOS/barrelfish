@@ -22,6 +22,18 @@ let arch = "x86_64"
                                            "-std=gnu99",
                                            "-m32",
                                            "-mno-red-zone",
+
+					   -- avoid SSE instructions, SIMD is disabled
+                                           "-mno-mmx",
+                                           "-mno-sse",
+                                           "-mno-sse2",
+                                           "-mno-sse3",
+                                           "-mno-sse4.1",
+                                           "-mno-sse4.2",
+                                           "-mno-sse4",
+                                           "-mno-sse4a",
+                                           "-mno-3dnow",
+
                                            "-fPIE",
                                            "-fno-stack-protector",
                                            "-U__linux__",

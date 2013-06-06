@@ -160,6 +160,7 @@ class TestCommon(Test):
                         yield BOOT_TIMEOUT_LINE_FAIL
                 else:
                     yield TEST_TIMEOUT_LINE
+                debug.verbose("timeout encountered in collect_data");
                 raise e
 
             yield line
@@ -167,6 +168,7 @@ class TestCommon(Test):
             if not self.boot_phase:
                 self.process_line(line)
                 if self.is_finished(line):
+                    debug.verbose("is_finished returned true for line %s" % line)
                     break
             elif self.is_booted(line):
                 self.boot_phase = False

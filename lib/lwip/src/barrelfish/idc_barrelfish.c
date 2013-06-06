@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <contmng/contmng.h>
 #include <contmng/netbench.h>
 #include <procon/procon.h>

@@ -16,6 +16,7 @@
 #include <barrelfish/threads.h>
 
 #include "trace/trace.h"
+#include <trace_definitions/trace_defs.h>
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 
 
@@ -31,13 +32,13 @@ TASK(int, fib, 1, int, n) {
 }
 
 MAIN_TASK(main, args) {
-    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 1);
+    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
     trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_START, 0);
     uint64_t start = rdtsc();
     int fib_res = CALL(fib, 1, 35);
     uint64_t end = rdtsc();
     trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_END, 0);
-    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0);
+    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 0);
     printf("cycles taken - %ld\n", (end - start));
     printf("result - %d\n", (fib_res));
     return 0;

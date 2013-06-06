@@ -16,10 +16,14 @@
 #define INCLUDEBARRELFISH_CAPABILITIES_H
 
 #include <stdint.h>
+#include <sys/cdefs.h>
+
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish/invocations_arch.h>
+
+__BEGIN_DECLS
 
 errval_t cnode_create(struct capref *ret_dest, struct cnoderef *cnoderef,
                  cslot_t slots, cslot_t *retslots);
@@ -91,20 +95,20 @@ cap_mint(struct capref dest, struct capref src, uint64_t param1,
  */
 static inline errval_t
 vnode_map(struct capref dest, struct capref src, capaddr_t slot,
-          uint64_t attr, uint64_t off)
+          uint64_t attr, uint64_t off, uint64_t pte_count)
 {
-    uint8_t dvbits = get_cap_valid_bits(dest);
-    capaddr_t daddr = get_cap_addr(dest) >> (CPTR_BITS - dvbits);
     uint8_t svbits = get_cap_valid_bits(src);
     capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
 
-    return invoke_cnode_mint(cap_root, daddr, slot, saddr, dvbits, svbits,
-                             attr, off);
+    return invoke_vnode_map(dest, slot, saddr, svbits, attr, off, pte_count);
 }
 
-static inline errval_t vnode_unmap(struct capref pgtl, size_t entry)
+static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping, size_t entry, size_t num_pages)
 {
-    return invoke_vnode_unmap(pgtl, entry);
+    uint8_t bits = get_cap_valid_bits(mapping);
+    capaddr_t mapping_addr = get_cap_addr(mapping) >> (CPTR_BITS - bits);
+
+    return invoke_vnode_unmap(pgtl, mapping_addr, bits, entry, num_pages);
 }
 
 /**
@@ -125,5 +129,7 @@ static inline errval_t cap_copy(struct capref dest, struct capref src)
                             scp_vbits);
     return err;
 }
+
+__END_DECLS
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H

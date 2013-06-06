@@ -21,9 +21,9 @@
 /* XXX: these must match the corresponding OBJBITS definitions in barrelfish_kpi/capabilities.h */
 
 /* Size of CNode entry: */
-define cte_size 6;
+define cte_size 7;
 /* Size of DCB: */
-define dispatcher_size 9;
+define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
 define vnode_size 12; /* BASE_PAGE_BITS */
 

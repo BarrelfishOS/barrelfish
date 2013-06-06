@@ -15,6 +15,7 @@
 #ifndef ARCH_X86_64_BARRELFISH_SYSCALL_H
 #define ARCH_X86_64_BARRELFISH_SYSCALL_H
 
+#include <barrelfish_kpi/syscalls.h>  // for struct sysret.
 
 /*
  * Introduction to the syscall macros, or "what the hell is going on here"?
@@ -92,7 +93,7 @@ static inline struct sysret syscall(uint64_t num, uint64_t arg1, uint64_t arg2,
 {
     BF_SYSCALL_BODY(num, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
                     arg10, arg11, arg12, "");
-    return (struct sysret){.error = a10_ret1, .value = a2_ret2};
+    return (struct sysret){/*error*/ a10_ret1, /*value*/ a2_ret2};
 }
 
 #define syscall12(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l) \

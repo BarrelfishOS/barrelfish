@@ -15,6 +15,10 @@
 #ifndef BARRELFISH_SYS_DEBUG_H
 #define BARRELFISH_SYS_DEBUG_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 // XXX: arguments to sys_debug_set_breakpoint, which are clearly x86-specific!!
 #define X86_DEBUG_MODE_EXECONLY     (0) ///< Break on instruction execution only.
 #define X86_DEBUG_MODE_WRITEONLY    (1) ///< Break on data writes only.
@@ -42,5 +46,7 @@ errval_t sys_debug_get_apic_ticks_per_sec(uint32_t *ret);
 errval_t sys_debug_feign_frame_cap(struct capref slot, lpaddr_t base,
                                    uint8_t bits);
 #endif
+
+__END_DECLS
 
 #endif //BARRELFISH_SYS_DEBUG_H

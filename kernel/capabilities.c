@@ -26,6 +26,7 @@
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <wakeup.h>
 
 /// Ignore remote capabilities if this is defined
@@ -201,7 +202,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     /* Set the type specific fields and insert into #dest_caps */
     switch(type) {
     case ObjType_Frame:
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         // XXX: SCC hack, while we don't have a devframe allocator
         if(lpaddr + ((lpaddr_t)1 << bits) < PADDR_SPACE_LIMIT) {
             memset((void*)lvaddr, 0, (lvaddr_t)1 << bits);
@@ -209,7 +210,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
             printk(LOG_WARN, "Allocating RAM at 0x%" PRIxLPADDR
                    " uninitialized\n", lpaddr);
         }
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
             src_cap.u.frame.base = genpaddr + i * ((genpaddr_t)1 << objbits);
@@ -261,9 +262,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
     case ObjType_CNode:
         assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -286,9 +287,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -319,9 +320,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -341,9 +342,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -363,9 +364,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -391,9 +392,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -420,9 +421,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -442,9 +443,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -464,9 +465,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -486,9 +487,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -514,9 +515,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
     case ObjType_Dispatcher:
         assert((1UL << OBJBITS_DISPATCHER) >= sizeof(struct dcb));
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 1);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_BZERO, 0);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -1066,9 +1067,7 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
         default:
             // Handle VNodes here
             if(type_is_vnode(cap->type)) {
-                // XXX: Assumes that all VNodes store base as first
-                // parameter and that it's a genpaddr_t
-                ram.base = cap->u.vnode_x86_64_pml4.base;
+                ram.base = get_address(cap);
                 ram.bits = vnode_objbits(cap->type);
             }
             break;
@@ -1082,6 +1081,11 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
                                       len, false);
             //assert(err_is_ok(err));
         }
+    }
+
+    // unmap if mapped
+    if (type_is_vnode(cap->type) || cap->type == ObjType_Frame || cap->type == ObjType_DevFrame) {
+        unmap_capability(cte);
     }
 
     // Remove from mapping database

@@ -387,9 +387,9 @@ errval_t spawn_exit(uint8_t exitcode)
 }
 
 /**
- * \brief Exit this domain.
+ * \brief Wait for spawned proccess to exit on core.
  */
-errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
+errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitcode, bool nohang)
 {
     return spawn_wait_core(disp_get_core_id(), domainid, exitcode, nohang);
 }
@@ -415,6 +415,14 @@ errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
     }
 
     return reterr;
+}
+
+/**
+ * \brief Wait for spawned proccess to exit on current core.
+ */
+errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
+{
+    return spawn_wait_coreid(disp_get_core_id(), domainid, exitcode, nohang);
 }
 
 /**

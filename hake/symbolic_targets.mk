@@ -14,6 +14,11 @@
 # Disable built-in implicit rules. GNU make adds environment's MAKEFLAGS too.
 MAKEFLAGS=r
 
+# Explicitly disable the flex and bison implicit rules
+%.c : %.y
+
+%.c : %.l
+
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 
@@ -159,6 +164,7 @@ MODULES_x86_64= \
 	sbin/bcached \
 	sbin/testdesc \
 	sbin/testdesc-child \
+	sbin/lshw \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -277,17 +283,17 @@ DISK=hd.img
 AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-x86_64 -no-kvm -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
-        QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-i386 -no-kvm -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
 else ifeq ($(ARCH),scc)
-        QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -cpu pentium -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-i386 -no-kvm -smp 2 -m 1024 -cpu pentium -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
 else ifeq ($(ARCH),armv5)
-	ARM_QEMU_CMD=qemu-system-arm -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
+	ARM_QEMU_CMD=qemu-system-arm -no-kvm -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
 	GDB=xterm -e arm-linux-gnueabi-gdb
 simulate: $(MODULES) armv5/romfs.cpio
 	$(ARM_QEMU_CMD)
@@ -300,7 +306,7 @@ debugsim: $(MODULES) armv5/romfs.cpio armv5/tools/debug.arm.gdb
 	$(SRCDIR)/tools/debug.sh "$(ARM_QEMU_CMD) -initrd armv5/romfs.cpio" "$(GDB)" "-s $(ARCH)/sbin/cpu -x armv5/tools/debug.arm.gdb $(GDB_ARGS)"
 .PHONY : debugsim
 else ifeq ($(ARCH),arm11mp)
-	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
+	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
 endif
 
@@ -312,17 +318,10 @@ simulate: $(MODULES)
 	$(QEMU_CMD)
 .PHONY : simulate
 
-debugsim: $(MODULES) $(ARCH)/debug.gdb
+debugsim: $(MODULES)
 	$(CLEAN_HD)
-	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(ARCH)/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
+	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(SRCDIR)/tools/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
 .PHONY : debugsim
-
-debugsimvga: $(MODULES)
-	$(CLEAN_HD)
-	$(QEMU_CMD) -s -S &
-	while [ ! `netstat -nlp 2>/dev/null | grep qemu` ]; do sleep 1; done
-	$(GDB) -x $(SRCDIR)/debug.gdb.in
-.PHONY : debugsimvga
 
 endif
 
@@ -355,6 +354,7 @@ arm:
 
 # Builds a dummy romfs_size.h
 $(ARCH)/include/romfs_size.h:
+	mkdir -p $(shell dirname $@)
 	echo "size_t romfs_cpio_archive_size = 0; //should not see this" > $@
 
 arminstall:
@@ -475,7 +475,7 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 	# Translate each of the binary files we need
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_panda
 	# Generate appropriate linker script
-	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)tools/arm_molly/molly_ld_script.in \
+	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_panda/molly_ld_script
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
@@ -531,7 +531,7 @@ arm_gem5_image: $(GEM5_MODULES) \
 	# Translate each of the binary files we need
 	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5 molly_gem5
 	# Generate appropriate linker script
-	cpp -P -DBASE_ADDR=0x00100000 $(SRCDIR)tools/arm_molly/molly_ld_script.in \
+	cpp -P -DBASE_ADDR=0x00100000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_gem5/molly_ld_script
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
@@ -555,19 +555,13 @@ arm_gem5_image: $(GEM5_MODULES) \
 		-o arm_gem5_image
 
 # ARM GEM5 Simulation Targets
-
 ARM_PREFIX=arm-none-linux-gnueabi-
+ARM_FLAGS=$(SRCDIR)/tools/arm_gem5/gem5script.py --caches --l2cache --n=2 --kernel=arm_gem5_image
 
 arm_gem5: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --caches --l2cache
+	gem5.fast $(ARM_FLAGS)
 
 arm_gem5_detailed: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --cpu-type=arm_detailed --caches --l2cache
-
-arm_gem5_detailed_mc: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --cpu-type=arm_detailed --n=2 --caches --l2cache
-
-arm_gem5_mc: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
-	gem5.fast $(SRCDIR)/tools/arm_gem5/gem5script.py --kernel=arm_gem5_image --n=4 --caches --l2cache
+	gem5.fast $(ARM_FLAGS) --cpu-type=arm_detailed
 
 .PHONY: arm_gem5_mc arm_gem5 arm_gem5_detailed arm_gem5_detailed

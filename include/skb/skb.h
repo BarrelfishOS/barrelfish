@@ -10,7 +10,10 @@
 #ifndef SKB_H_
 #define SKB_H_
 
-#include <stdint.h> /* int32_t */
+#include <stdint.h>    /* for int32_t */
+#include <sys/cdefs.h> /* for __BEGIN_DECLS, __END_DECLS */
+
+__BEGIN_DECLS
 
 errval_t skb_client_connect(void);
 errval_t skb_evaluate(char *query, char **result, char **str_error, int32_t *int_error);
@@ -43,5 +46,6 @@ void skb_read_list_init(struct list_parser_status *status);
 bool skb_read_list(struct list_parser_status *status, char *fmt, ...)
     __attribute__((format(scanf, 2, 3)));
 
+__END_DECLS
 
 #endif // SKB_H_

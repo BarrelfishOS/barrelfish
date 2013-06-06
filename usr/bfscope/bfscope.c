@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief Barrelfish trace server
+ * \brief Barrelfish trace server, Version 2
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -19,9 +19,16 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 #include <barrelfish/lmp_endpoints.h>
+#include <barrelfish/event_queue.h>
+#include <barrelfish/nameservice_client.h>
 #include <trace/trace.h>
 
-/* LWIP Network stack includes... */
+#include <flounder/flounder.h>
+#include <if/monitor_defs.h>
+
+#include <if/empty_defs.h>
+
+/* LWIP Network stack includes */
 #include <lwip/init.h>
 #include <lwip/netif.h>
 #include <lwip/dhcp.h>
@@ -33,23 +40,27 @@
 
 #define BFSCOPE_BUFLEN (2<<20)
 
-extern void idc_print_statistics(void);
-extern void idc_print_cardinfo(void);
-extern void network_polling_loop(void);
+extern struct waitset *lwip_waitset;
 
 static char *trace_buf = NULL;
 static size_t trace_length = 0;
 static size_t trace_sent = 0;
+static bool dump_in_progress = false;
 
+/// Timestamp when the sending of a trace dump over the network started
 static uint64_t timestamp_start = 0;
 
-static struct trace_buffer *bfscope_save_tracebuf = NULL;
-static bool bfscope_trace_acquired = false;
-
+/// The client that connected to this bfscope instance.
 static struct tcp_pcb *bfscope_client = NULL;
+
+/// If we are in autoflush is enabled, bfscope can itself determine to flush. In
+/// that case, we don't want to notify anyone after doing a locally initiated flush.
+static bool local_flush = false;
 
 
 #define DEBUG if (0) printf
+
+static void bfscope_send_flush_ack_to_monitor(void);
 
 /*
  * \brief Close the specified TCP connection
@@ -72,7 +83,26 @@ static void error_cb(void *arg, err_t err)
 
     DEBUG("bfscope: TCP(%p) error %d\n", arg, err);
 
-    if (tpcb) bfscope_connection_close(tpcb);
+    if (tpcb) {
+        bfscope_connection_close(tpcb);
+    }
+}
+
+/*
+ * Call this method when you finished dumping the current trace buffer.
+ */
+static void bfscope_trace_dump_finished(void)
+{
+    trace_length = 0;
+    trace_sent = 0;
+    dump_in_progress = false;
+
+    if (!local_flush) {
+        bfscope_send_flush_ack_to_monitor();
+    } else {
+        // Locally initiated flush is finished.
+        local_flush = false;
+    }
 }
 
 /*
@@ -95,15 +125,16 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
     }
 
     /* Give the data to LWIP until it runs out of buffer space */
-    int r = tcp_write(tpcb, bufptr, len,
+    err_t lwip_err = tcp_write(tpcb, bufptr, len,
                       TCP_WRITE_FLAG_COPY | (more ? TCP_WRITE_FLAG_MORE : 0));
 
     //DEBUG("%d %ld+%d\n", r, trace_sent, len);
 
-    if (r == ERR_MEM) {
-        printf("BAD!\n");
+    if (lwip_err == ERR_MEM) {
+        printf("bfscope: lwip: out of memory\n");
         return;
     }
+
     trace_sent += len;
 
     if (trace_sent >= trace_length) {
@@ -111,8 +142,8 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
         uint64_t timestamp_stop = rdtsc();
         DEBUG("bfscope: done (%lu bytes) in %ld cycles\n",
                trace_sent, timestamp_stop - timestamp_start);
-        trace_length = 0;
-        trace_sent = 0;
+
+        bfscope_trace_dump_finished();
     }
 }
 
@@ -124,34 +155,26 @@ static err_t send_cb(void *arg, struct tcp_pcb *tpcb, u16_t length)
     //printf("send_cb %d\n", length);
 
     /* If we haven't finished sending the trace, then send more data */
-    if (trace_length) bfscope_trace_send(tpcb);
+    if (trace_length) {
+        bfscope_trace_send(tpcb);
+    }
 
     return ERR_OK;
 }
 
-
-static void bfscope_trace_complete(void)
+/*
+ * \brief This method should be called when a trace should be dumped on the network.
+ */
+static void bfscope_trace_dump_network(void)
 {
-    dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_generic *disp = get_dispatcher_generic(handle);
-    int len;
+    assert(bfscope_client != NULL);
+    assert(trace_length > 0);
 
-    bfscope_trace_acquired = true;
-
-    /* Re-enable tracing if necessary */
-    if (disp->trace_buf == NULL &&
-        bfscope_save_tracebuf != NULL) disp->trace_buf = bfscope_save_tracebuf;
-
-    if (bfscope_client == NULL) return;
-
-
-    /* Format the trace into global trace buffer */
-    trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN);
-
-    DEBUG("bfscope: trace length %lu\n", trace_length);
+    printf("bfscope: sending %lu bytes to network...\n", trace_length);
 
     /* Send length field */
     char tmpbuf[10];
+    int len;
     len = snprintf(tmpbuf, 9, "%08ld", trace_length);
     tcp_write(bfscope_client, tmpbuf, 8, TCP_WRITE_FLAG_COPY);
 
@@ -164,62 +187,50 @@ static void bfscope_trace_complete(void)
     tcp_output(bfscope_client);
 }
 
-static void ipi_handler(void *arg)
-{
-    sys_print("!", 1);
-    DEBUG("bfscope_ipi\n");
-#if 0
-    // consume IDC message
-    struct idc_recv_msg msg;
-    idc_endpoint_poll(arg, &msg, NULL);
-#endif
-
-    // Handle the trace completion
-    bfscope_trace_complete();
-}
-
-/**
- * \brief Wait for a trace completion IPI
+/*
+ * \brief This method should be called when a trace should be dumped on the console.
  */
-static errval_t bfscope_trace_wait_ipi(void)
+static void bfscope_trace_dump_console(void)
 {
-    dispatcher_handle_t handle = curdispatcher();
-    struct dispatcher_generic *disp = get_dispatcher_generic(handle);
-    struct trace_buffer *buf = disp->trace_buf;
-    if (buf == NULL) return TRACE_ERR_NO_BUFFER;
+     printf("%s\n", trace_buf);
 
-    ((struct trace_buffer *)trace_buffer_master)->ipi_dest = disp_get_core_id();
-
-    /* XXX Temporarily disable tracing for this process */
-    bfscope_save_tracebuf = buf;
-    disp->trace_buf = NULL;
-
-    return SYS_ERR_OK;
+     bfscope_trace_dump_finished();
 }
 
 /*
- * \brief Take a real trace and dump it ito the trace_buf
+ * \brief This method should be called when a trace should be dumped.
+ *
+ * (Based upon a different application calling trace_flush() or so.)
  */
-static void trace_acquire(struct tcp_pcb *tpcb,
-                          uint64_t start_trigger,
-                          uint64_t stop_trigger)
+static void bfscope_trace_dump(void)
 {
-    errval_t err;
-
-    if (trace_buf == NULL) {
-        trace_buf = malloc(BFSCOPE_BUFLEN);
+    if(dump_in_progress) {
+        // Currently there is already a dump in progress, do nothing.
+        return;
     }
-    assert(trace_buf);
 
-    trace_reset_all();
+    int number_of_events = 0;
+    // Acquire the trace buffer
+    trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN, &number_of_events);
 
-    bfscope_trace_acquired = false;
+    DEBUG("bfscope: trace length %lu, nr. of events %d\n", trace_length, number_of_events);
 
-    err = trace_control(start_trigger, stop_trigger, 10 * 30 * 2000000);
+    if (trace_length <= 0 || number_of_events <= 0) {
+        DEBUG("bfscope: trace length too small, not dumping.\n");
+        return;
+    }
 
-    err = bfscope_trace_wait_ipi();
+    dump_in_progress = true;
+
+
+    if (bfscope_client != NULL) {
+        // We have a connected client, dump to network
+        bfscope_trace_dump_network();
+    } else {
+        // There is no client, just dump to console
+        bfscope_trace_dump_console();
+    }
 }
-
 
 /*
  * \brief Callback from LWIP when we receive TCP data
@@ -238,29 +249,19 @@ static err_t recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
 
     assert(p->next == 0);
 
+
     if ((p->tot_len > 2) && (p->tot_len < 200)) {
-        if (strncmp(p->payload, "stat", 4) == 0) {
-            idc_print_statistics();
-        }
-        if (strncmp(p->payload, "cardinfo", 8) == 0) {
-            idc_print_cardinfo();
-        }
         if (strncmp(p->payload, "trace", strlen("trace")) == 0) {
 
             DEBUG("bfscope: trace request\n");
 
-            if (trace_length == 0) {
-                sys_print("T",1);
-                trace_acquire((struct tcp_pcb *)arg,
-                              TRACE_EVENT(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 1),
-                              TRACE_EVENT(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0));
-           } else {
-                printf("trace already in progress\n");
-                //sys_print("X",1);
-                tcp_write(tpcb, "000000", 6, TCP_WRITE_FLAG_COPY);
-            }
+            // NOOP
+
+        } else {
+            DEBUG("bfscope: could not understand request\n");
         }
     }
+
 
     /* Done with the incoming data */
     tcp_recved(tpcb, p->len);
@@ -275,11 +276,14 @@ static err_t recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
 static err_t accept_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
 {
     printf("bfscope: connected\n");
+
     assert(err == ERR_OK);
+
     tcp_recv(tpcb, recv_cb);
     tcp_sent(tpcb, send_cb);
     tcp_err(tpcb, error_cb);
     tcp_arg(tpcb, (void*)tpcb);
+
     tcp_accepted(tpcb);
 
     bfscope_client = tpcb;
@@ -290,9 +294,9 @@ static err_t accept_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
 /*
  * \brief Start listening on the bfscope server port
  */
-static int bfscope_server_init(void)
+static err_t bfscope_server_init(void)
 {
-    err_t r;
+    err_t err;
 
     uint16_t bind_port = BFSCOPE_TCP_PORT;
 
@@ -301,9 +305,9 @@ static int bfscope_server_init(void)
         return ERR_MEM;
     }
 
-    r = tcp_bind(pcb, IP_ADDR_ANY, bind_port);
-    if(r != ERR_OK) {
-        return(r);
+    err = tcp_bind(pcb, IP_ADDR_ANY, bind_port);
+    if(err != ERR_OK) {
+        return(err);
     }
 
     struct tcp_pcb *pcb2 = tcp_listen(pcb);
@@ -312,75 +316,91 @@ static int bfscope_server_init(void)
 
     printf("bfscope: listening on port %d\n", BFSCOPE_TCP_PORT);
 
-    return (0);
+    return ERR_OK;
 }
 
+//------------------------------------------------------------------------------
+// Monitor Messaging Interface
+//------------------------------------------------------------------------------
 
+/*
+ * This function is called when we receive a flush message from our monitor.
+ */
+static void bfscope_handle_flush_msg(struct monitor_binding *mb, iref_t iref)
+{
+    printf("bfscope flush request message received!\n");
 
-//******************************************************************************
-// irq handling stuff
-//******************************************************************************
-static struct lmp_endpoint *idcep;
+    bfscope_trace_dump();
+}
 
-static void generic_interrupt_handler(void *arg)
+struct bfscope_ack_send_state {
+    struct event_queue_node qnode;
+    struct monitor_binding *monitor_binding;
+};
+
+static void bfscope_send_flush_ack_cont(void* arg)
 {
     errval_t err;
 
-    // consume message
-    struct lmp_recv_buf buf = { .buflen = 0 };
-    err = lmp_endpoint_recv(idcep, &buf, NULL);
-    assert(err_is_ok(err));
+    struct bfscope_ack_send_state *state = (struct bfscope_ack_send_state*) arg;
+    struct monitor_binding *monitor_binding = state->monitor_binding;
 
-    ipi_handler(NULL);
+    err = monitor_binding->tx_vtbl.bfscope_flush_ack(monitor_binding, MKCONT(free, state));
 
-    // re-register
-    struct event_closure cl = {
-        .handler = generic_interrupt_handler,
-        .arg = arg,
-    };
-    err = lmp_endpoint_register(idcep, get_default_waitset(), cl);
-    assert(err_is_ok(err));
+    if (err_is_ok(err)) {
+        event_mutex_unlock(&monitor_binding->mutex);
+    } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        err = monitor_binding->register_send(monitor_binding, monitor_binding->waitset, MKCONT(&bfscope_send_flush_ack_cont, state));
+        assert(err_is_ok(err));
+    } else {
+        event_mutex_unlock(&monitor_binding->mutex);
+        //TODO: Error handling
+        USER_PANIC_ERR(err, "Could not send flush ack message to monitor of bfscope");
+    }
 }
 
-static errval_t register_interrupt(int irqvector)
+/*
+ * Call this method when bfscope is done with flushing and wants to notify
+ * the initiator of the flush request.
+ */
+static void bfscope_send_flush_ack_to_monitor(void) {
+
+
+    struct bfscope_ack_send_state *state = malloc(sizeof(struct bfscope_ack_send_state));
+    //memset(state, 0, sizeof(struct trace_broadcast_start_state));
+
+    state->monitor_binding = get_monitor_binding();
+
+    event_mutex_enqueue_lock(&state->monitor_binding->mutex, &state->qnode, MKCLOSURE(&bfscope_send_flush_ack_cont, state));
+}
+
+//------------------------------------------------------------------------------
+// Interface Exporting
+//------------------------------------------------------------------------------
+
+static void export_cb(void *st, errval_t err, iref_t iref)
 {
-    struct capref epcap;
-    errval_t err;
-
-    // use minimum-sized endpoint, because we don't need to buffer >1 interrupt
-    err = endpoint_create(LMP_RECV_LENGTH, &epcap, &idcep);
     if (err_is_fail(err)) {
-        return err;
+        USER_PANIC_ERR(err, "export failed");
     }
 
-    err = invoke_irqtable_set(cap_irq, irqvector, epcap);
-    if (err_is_fail(err)) {
-        if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
-            printf("cope: Error registering IRQ, check that cope " \
-                   "is spawned by the monitor by having 'boot' as its " \
-                   "first argument\n");
-        } else {
-            DEBUG_ERR(err, "bfscope, irq set");
-        }
-        return err;
-    }
+    printf("bfscope: exported at iref %"PRIuIREF"\n", iref);
 
-    // register to receive on this endpoint
-    struct event_closure cl = {
-        .handler = generic_interrupt_handler,
-        .arg = NULL,
-    };
-    err = lmp_endpoint_register(idcep, get_default_waitset(), cl);
+    // register this iref with the name service
+    err = nameservice_register("bfscope", iref);
     if (err_is_fail(err)) {
-        lmp_endpoint_free(idcep);
-        // TODO: release vector
-        return err;
+        USER_PANIC_ERR(err, "nameservice_register failed");
     }
-    return SYS_ERR_OK;
 }
-//******************************************************************************
 
+static errval_t connect_cb(void *st, struct empty_binding *b)
+{
+    USER_PANIC("bfscope: connect_cb got called");
+}
 
+//------------------------------------------------------------------------------
+// Main
+//------------------------------------------------------------------------------
 
 int main(int argc, char**argv)
 {
@@ -394,23 +414,72 @@ int main(int argc, char**argv)
     return -1;
 #endif
 
+    // Allocate the outgoing buffer
+    if (trace_buf == NULL) {
+        trace_buf = malloc(BFSCOPE_BUFLEN);
+    }
+    assert(trace_buf);
+
+    /* Disable tracing for bfscope */
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic *disp = get_dispatcher_generic(handle);
+    disp->trace_buf = NULL;
+
     printf("%.*s running on core %d\n", DISP_NAME_LEN, disp_name(),
            disp_get_core_id());
-
-    // Register IRQ
-    errval_t err = register_interrupt(TRACE_COMPLETE_IPI_IRQ);
-    assert(err_is_ok(err)); //XXX
-    printf("Registered IRQ\n");
 
     /* Connect to e1000 driver */
     printf("%.*s: trying to connect to the e1000 driver...\n",
            DISP_NAME_LEN, disp_name());
 
     lwip_init_auto();
-    int r = bfscope_server_init();
-    assert(r == 0);
 
-    network_polling_loop();
+    err_t lwip_err = bfscope_server_init();
+
+    assert(lwip_err == ERR_OK);
+
+
+    // Export our empty interface
+    errval_t err;
+    err = empty_export(NULL /* state pointer for connect/export callbacks */,
+            export_cb, connect_cb, get_default_waitset(),
+            IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "export failed");
+    }
+
+    // Register our message handlers with the monitor
+    struct monitor_binding *monitor_binding;
+    monitor_binding = get_monitor_binding();
+    monitor_binding->rx_vtbl.bfscope_flush_send = &bfscope_handle_flush_msg;
+
+
+    while (1) {
+        //err = event_dispatch(lwip_waitset);
+        err = event_dispatch_non_block(lwip_waitset);
+
+        if (err == LIB_ERR_NO_EVENT) {
+            // It is ok that no event is dispatched.
+            err = ERR_OK;
+        }
+
+        DEBUG("bfscope: dispatched event, autoflush: %d\n",((struct trace_buffer*) trace_buffer_master)->autoflush);
+
+        // Check if we are in autoflush mode
+        if(((struct trace_buffer*) trace_buffer_master)->autoflush) {
+            local_flush = true;
+            bfscope_trace_dump();
+        }
+
+        thread_yield_dispatcher(NULL_CAP);
+
+
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            break;
+        }
+    }
+
     return 0;
 }
 

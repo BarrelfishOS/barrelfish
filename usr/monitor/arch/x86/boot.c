@@ -381,10 +381,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     }
 
     /* Clean up */ // XXX: Should not delete the remote cap
-    err = cap_destroy(cpu_memory_cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "cap_destroy failed");
-    }
     err = cap_destroy(spawn_memory_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
@@ -392,6 +388,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     err = vspace_unmap(cpu_buf_memory);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vspace unmap CPU driver memory failed");
+    }
+    err = cap_destroy(cpu_memory_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
     }
 
     return SYS_ERR_OK;

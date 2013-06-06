@@ -10,4 +10,8 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build library { target = "trace", cFiles = [ "trace.c", "control.c" ] } ]
+[ build library { 
+	target = "trace",
+	cFiles = [ "trace.c", "control.c" ],
+	flounderDefs = [ "monitor" ]
+} ]

@@ -18,17 +18,16 @@
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
+#include <cap_predicates.h>
 #include <mdb/mdb.h>
 #include <dispatch.h>
 #include <wakeup.h>
 #include <paging_kernel_helper.h>
+#include <paging_kernel_arch.h>
 #include <exec.h>
 #include <irq.h>
 #include <trace/trace.h>
-
-/// Keep track of all DCBs for tracing rundown
-/// XXX this is never garbage-collected at the moment
-struct dcb *dcbs_list = NULL;
+#include <trace_definitions/trace_defs.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
@@ -149,22 +148,15 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
         dcb->domain_id = odisp->u.dispatcher.dcb->domain_id;
     }
 
-    // Remember the DCB for tracing purposes
-    // When we have proper process management, dead dcbs should be removed from this list
-    if (dcb->next_all == NULL) {
-        dcb->next_all = dcbs_list;
-        dcbs_list = dcb;
-    }
-
     if(!dcb->is_vm_guest) {
-        struct trace_event ev;
-	// Top bit of timestamp is flag to indicate dcb rundown events
-        ev.timestamp = (1ULL << 63) | (uintptr_t)dcb;
         struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb->disp);
-	assert(sizeof(ev.u.raw) <= sizeof(disp->name));
-        memcpy(&ev.u.raw, disp->name, sizeof(ev.u.raw));
-        err = trace_write_event(&ev);
+                    get_dispatcher_shared_generic(dcb->disp);
+        err = trace_new_application(disp->name, (uintptr_t) dcb);
+
+        if (err == TRACE_ERR_NO_BUFFER) {
+            // Try to use the boot buffer.
+            trace_new_boot_application(disp->name, (uintptr_t) dcb);
+        }
     }
 
     return SYSRET(SYS_ERR_OK);
@@ -323,12 +315,39 @@ sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_sl
     if (dest_cnode_cap->cap.type == ObjType_CNode) {
         return SYSRET(caps_copy_to_cnode(dest_cnode_cap, dest_slot, src_cap,
                                          mint, param1, param2));
-    } else if (type_is_vnode(dest_cnode_cap->cap.type)) {
-        return SYSRET(caps_copy_to_vnode(dest_cnode_cap, dest_slot, src_cap,
-                                         param1, param2));
     } else {
         return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
     }
+}
+
+static inline struct cte *cte_for_cap(struct capability *cap)
+{
+    return (struct cte *) (cap - offsetof(struct cte, cap));
+}
+
+struct sysret
+sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+        int source_vbits, uintptr_t flags, uintptr_t offset,
+        uintptr_t pte_count)
+{
+    assert (type_is_vnode(ptable->type));
+
+    errval_t err;
+
+    /* Lookup source cap */
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+
+    /* Perform map */
+    // XXX: this does not check if we do have CAPRIGHTS_READ_WRITE on
+    // the destination cap (the page table we're inserting into)
+    return SYSRET(caps_copy_to_vnode(cte_for_cap(ptable), slot, src_cte, flags,
+                                     offset, pte_count));
 }
 
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,

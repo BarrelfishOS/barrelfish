@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <if/nameservice_defs.h>
 #include <if/monitor_defs.h>
 

@@ -72,12 +72,12 @@ struct slot_alloc_state {
     struct slot_allocator_list head;
     struct slot_allocator_list reserve;
 
-    struct cnode_meta top_buf[SLOT_ALLOC_CNODE_SLOTS / 2];
-    struct cnode_meta head_buf[SLOT_ALLOC_CNODE_SLOTS / 2];
-    struct cnode_meta reserve_buf[SLOT_ALLOC_CNODE_SLOTS / 2];
+    char     top_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
+    char    head_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
+    char reserve_buf[SINGLE_SLOT_ALLOC_BUFLEN(SLOT_ALLOC_CNODE_SLOTS)];
+    char    root_buf[SINGLE_SLOT_ALLOC_BUFLEN(DEFAULT_CNODE_SLOTS   )];
 
     struct single_slot_allocator rootca;
-    struct cnode_meta root_buf[DEFAULT_CNODE_SLOTS / 2];
 };
 
 struct terminal_state;

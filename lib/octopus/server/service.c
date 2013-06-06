@@ -9,7 +9,7 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -635,7 +635,7 @@ void publish_handler(struct octopus_binding *b, char* record)
     if (err_is_fail(err)) {
         drs->error = err;
         drs->reply(b, drs);
-        goto out;
+        goto out1;
     }
 
     struct ast_object* ast = NULL;
@@ -643,7 +643,7 @@ void publish_handler(struct octopus_binding *b, char* record)
     if (err_is_fail(err)) {
         drs->error = err;
         drs->reply(b, drs);
-        goto out;
+        goto out2;
     }
 
 
@@ -689,9 +689,10 @@ void publish_handler(struct octopus_binding *b, char* record)
         }
     }
 
-out:
-    free(record);
+out2:
     free_ast(ast);
+out1:
+    free(record);
 }
 
 void get_identifier(struct octopus_binding* b)

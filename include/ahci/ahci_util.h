@@ -46,6 +46,7 @@ struct ahci_port_info {
     struct ahci_dma_region *receive_fis;
     struct ahci_command_slot command_slots[32];
     uint32_t hba_capabilities;
+    struct capref hba_cap;
 };
 
 errval_t ahci_port_alloc_dma_structs(ahci_port_t *port,

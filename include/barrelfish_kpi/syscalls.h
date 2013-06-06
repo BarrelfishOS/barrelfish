@@ -24,7 +24,7 @@ struct sysret {
 };
 
 /// Macro used for constructing return values from single-value syscalls
-#define SYSRET(x) (struct sysret){ .error = x, .value = 0 }
+#define SYSRET(x) (struct sysret){ /*error*/ x, /*value*/ 0 }
 #endif // __ASSEMBLER__
 
 /*

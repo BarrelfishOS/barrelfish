@@ -15,6 +15,10 @@
 #ifndef BARRELFISH_MSGBUF_H
 #define BARRELFISH_MSGBUF_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// A generic message buffer into which things can be marshalled
 struct msgbuf {
     char *buf;      ///< Pointer to start of message buffer
@@ -65,5 +69,7 @@ DECLARE_PRIM_MARSHALLING(size, size_t)
 DECLARE_PRIM_MARSHALLING(iref, iref_t)
 
 #undef DECLARE_PRIM_MARSHALLING
+
+__END_DECLS
 
 #endif // BARRELFISH_MSGBUF_H

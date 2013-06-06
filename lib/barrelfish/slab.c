@@ -17,11 +17,13 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/slab.h>
+#include <barrelfish/static_assert.h>
 
 struct block_head {
     struct block_head *next;///< Pointer to next block in free list
-    char buf[0];            ///< Start of actual block data
 };
+
+STATIC_ASSERT_SIZEOF(struct block_head, SLAB_BLOCK_HDRSIZE);
 
 /**
  * \brief Initialise a new slab allocator
@@ -34,7 +36,7 @@ void slab_init(struct slab_alloc *slabs, size_t blocksize,
                slab_refill_func_t refill_func)
 {
     slabs->slabs = NULL;
-    slabs->blocksize = blocksize;
+    slabs->blocksize = SLAB_REAL_BLOCKSIZE(blocksize);
     slabs->refill_func = refill_func;
 }
 
@@ -55,15 +57,15 @@ void slab_grow(struct slab_alloc *slabs, void *buf, size_t buflen)
     buf = (char *)buf + sizeof(struct slab_head);
 
     /* calculate number of blocks in buffer */
-    size_t headed_blocksize = slabs->blocksize + sizeof(struct block_head);
-    assert(buflen / headed_blocksize <= UINT32_MAX);
-    head->free = head->total = buflen / headed_blocksize;
+    size_t blocksize = slabs->blocksize;
+    assert(buflen / blocksize <= UINT32_MAX);
+    head->free = head->total = buflen / blocksize;
     assert(head->total > 0);
 
     /* enqueue blocks in freelist */
     struct block_head *bh = head->blocks = buf;
     for (uint32_t i = head->total; i > 1; i--) {
-        buf = (char *)buf + headed_blocksize;
+        buf = (char *)buf + blocksize;
         bh->next = buf;
         bh = buf;
     }
@@ -111,7 +113,7 @@ void *slab_alloc(struct slab_alloc *slabs)
     sh->blocks = bh->next;
     sh->free--;
 
-    return &bh->buf[0];
+    return bh;
 }
 
 /**
@@ -126,15 +128,15 @@ void slab_free(struct slab_alloc *slabs, void *block)
         return;
     }
 
-    struct block_head *bh = (struct block_head *)block - 1;
+    struct block_head *bh = (struct block_head *)block;
 
     /* find matching slab */
     struct slab_head *sh;
-    size_t headed_blocksize = slabs->blocksize + sizeof(struct block_head);
+    size_t blocksize = slabs->blocksize;
     for (sh = slabs->slabs; sh != NULL; sh = sh->next) {
         /* check if block falls inside this slab */
         uintptr_t slab_limit = (uintptr_t)sh + sizeof(struct slab_head)
-                               + headed_blocksize * sh->total;
+                               + blocksize * sh->total;
         if ((uintptr_t)bh > (uintptr_t)sh && (uintptr_t)bh < slab_limit) {
             break;
         }

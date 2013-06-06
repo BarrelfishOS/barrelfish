@@ -22,6 +22,7 @@
 #include <lwip/tcp.h>
 #include <netif/bfeth.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include "echoserver.h"
 
 
@@ -91,7 +92,7 @@ static err_t echo_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
         } else if (n64b == 8) {
             trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_STOP, 0);
             char* trbuf = malloc(4096*4096);
-            size_t length = trace_dump(trbuf, 4096*4096);
+            size_t length = trace_dump(trbuf, 4096*4096, NULL);
             printf("%s\n", trbuf);
             printf("length of buffer %zu\n", length);
             free(trbuf);

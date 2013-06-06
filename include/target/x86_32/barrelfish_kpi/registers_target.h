@@ -16,6 +16,8 @@
 #ifndef TARGET_X86_32_BARRELFISH_KPI_REGISTERS_H
 #define TARGET_X86_32_BARRELFISH_KPI_REGISTERS_H
 
+#include <barrelfish_kpi/types.h> // for lvaddr_t
+
 /** \brief Number of registers to be saved for this architecture
  *
  * This is the same as ARCH_NUMREGS, but it is used by assembler stubs, so needs
@@ -62,6 +64,12 @@ static inline uint32_t
 registers_x86_32_get_ip(struct registers_x86_32 *regs)
 {
     return regs->eip;
+}
+
+static inline uint32_t
+registers_x86_32_get_sp(struct registers_x86_32 *regs)
+{
+    return regs->esp;
 }
 
 #endif // __ASSEMBLER__

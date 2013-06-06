@@ -15,7 +15,14 @@
 #ifndef LIBBARRELFISH_THREADS_H
 #define LIBBARRELFISH_THREADS_H
 
+#include <barrelfish/caddr.h> // for struct capref.
 #include <barrelfish/thread_sync.h>
+#include <barrelfish_kpi/registers_arch.h>
+#include <barrelfish_kpi/dispatcher_handle.h>
+#include <errors/errno.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 typedef int (*thread_func_t)(void *);
 
@@ -58,5 +65,7 @@ void thread_sem_post(struct thread_sem *sem);
 
 void thread_set_tls(void *);
 void *thread_get_tls(void);
+
+__END_DECLS
 
 #endif

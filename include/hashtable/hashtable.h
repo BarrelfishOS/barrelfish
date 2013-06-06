@@ -16,6 +16,9 @@
 
 #include <hashtable/dictionary.h>
 #include <stdio.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /**
  * \brief an entry of a hashtable
@@ -58,5 +61,7 @@ struct hashtable* create_hashtable2(int capacity, int loadFactor);
 struct hashtable* create_hashtable(void);
 
 void print_hashtable(FILE *stream, struct hashtable *ht);
+
+__END_DECLS
 
 #endif /*HASHTABLE_H_*/

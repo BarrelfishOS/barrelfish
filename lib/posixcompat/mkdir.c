@@ -7,11 +7,12 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <sys/stat.h>
+#include <errno.h>
+
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
-#include <unistd.h>
-#include <errno.h>
 #include "posixcompat.h"
 
 int mkdir(const char *pathname, int mode)

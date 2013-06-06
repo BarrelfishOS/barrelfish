@@ -114,7 +114,7 @@ errval_t trace_my_setup(void)
         return SYS_ERR_OK;
     }
 
-    err = vspace_map_one_frame((void**)&trace_buffer_master, TRACE_BUF_SIZE,
+    err = vspace_map_one_frame((void**)&trace_buffer_master, TRACE_ALLOC_SIZE,
                                cap, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame failed");

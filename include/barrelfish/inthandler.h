@@ -10,9 +10,15 @@
 #ifndef _BARRELFISH_INTHANDLER_H
 #define _BARRELFISH_INTHANDLER_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 typedef void (*interrupt_handler_fn)(void *);
 
 errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
                           uint32_t *ret_vector);
+
+__END_DECLS
 
 #endif

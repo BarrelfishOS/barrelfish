@@ -22,6 +22,7 @@
 #include <lwip/init.h>
 #include <lwip/ip_addr.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <timer/timer.h>
 #include <contmng/netbench.h>
 #include "webserver_network.h"
@@ -539,7 +540,7 @@ static void handle_cache_load_done(void)
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
 
     char *buf = malloc(4096*4096);
-    trace_dump(buf, 4096*4096);
+    trace_dump(buf, 4096*4096, NULL);
     printf("%s\n", buf);
 
 #endif // ENABLE_WEB_TRACING

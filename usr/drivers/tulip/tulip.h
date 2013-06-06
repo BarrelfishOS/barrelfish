@@ -26,11 +26,10 @@
 #define TU_DEBUG(x...) ((void)0)
 #endif
 
-
 #define PCI_VENDOR_DEC          0x1011
 #define PCI_DEVICE_DEC_TULIP    0x9
-#define PORTBASE                0xec00   
-
-int tulip_initialize_card(struct pci_address *net_card_address);
+#define TULIP_PORTBASE          0xec00   
+#define TULIP_PORTEND           0xec1f
+#define TULIP_IRQ               9
 
 #endif // _TULIP_H

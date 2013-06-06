@@ -47,7 +47,7 @@
 #define ARM_L2_SMALL_BUFFERABLE         0x004
 #define ARM_L2_SMALL_USR_RO             0x20
 #define ARM_L2_SMALL_USR_RW             0x30
-#define ARM_L2_SMALL_USR_NONE			0x10
+#define ARM_L2_SMALL_USR_NONE            0x10
 
 /* Page type independent page options */
 #define KPI_PAGING_FLAGS_READ    0x01
@@ -68,8 +68,8 @@ union arm_l1_entry {
     struct {
         uint32_t        type            :2;     // == 1
         uint32_t        pxn             :1;     // PXN
-        uint32_t		ns				:1;
-        uint32_t		sbz0			:1;		// Should-be-zero
+        uint32_t        ns              :1;
+        uint32_t        sbz0            :1;     // Should-be-zero
         uint32_t        domain          :4;
         uint32_t        sbz1            :1;     // Should-be-zero
         uint32_t        base_address    :22;
@@ -80,42 +80,42 @@ union arm_l1_entry {
         uint32_t        type            :2;     // == 2
         uint32_t        bufferable      :1;
         uint32_t        cacheable       :1;
-        uint32_t        execute_never	:1;
+        uint32_t        execute_never   :1;
         uint32_t        domain          :4;
         uint32_t        sbz0            :1;
-        uint32_t        ap10 			:2;		// AP[1:0]
-        uint32_t		tex				:3;		// type extension
-        uint32_t		ap2				:1;		// AP[2]
-        uint32_t		shareable		:1;
-        uint32_t		not_global		:1;
-        uint32_t        mbz0            :1;		//must be zero
-        uint32_t		ns				:1;
+        uint32_t        ap10            :2;        // AP[1:0]
+        uint32_t        tex             :3;        // type extension
+        uint32_t        ap2             :1;        // AP[2]
+        uint32_t        shareable       :1;
+        uint32_t        not_global      :1;
+        uint32_t        mbz0            :1;        //must be zero
+        uint32_t        ns              :1;
         uint32_t        base_address    :12;
     } section;
 
     /// L1 entry for 16MB mapped super section
     struct {
-    	uint32_t        type            :2;     // == 3
-    	uint32_t        bufferable      :1;
-    	uint32_t        cacheable       :1;
-    	uint32_t        execute_never	:1;
-    	uint32_t        domain          :4;
-    	uint32_t        sbz0            :1;
-    	uint32_t        ap10 			:2;		// AP[1:0]
-    	uint32_t		tex				:3;		// type extension
-    	uint32_t		ap2				:1;		// AP[2]
-    	uint32_t		shareable		:1;
-    	uint32_t		not_global		:1;
-    	uint32_t        mbo0            :1;		//must be one
-    	uint32_t		ns				:1;
-    	uint32_t        base_address    :12;
+        uint32_t        type            :2;     // == 3
+        uint32_t        bufferable      :1;
+        uint32_t        cacheable       :1;
+        uint32_t        execute_never   :1;
+        uint32_t        domain          :4;
+        uint32_t        sbz0            :1;
+        uint32_t        ap10            :2;        // AP[1:0]
+        uint32_t        tex             :3;        // type extension
+        uint32_t        ap2             :1;        // AP[2]
+        uint32_t        shareable       :1;
+        uint32_t        not_global      :1;
+        uint32_t        mbo0            :1;        //must be one
+        uint32_t        ns              :1;
+        uint32_t        base_address    :12;
     } super_section;
 
 };
 
-#define L1_TYPE_INVALID_ENTRY   		0
-#define L1_TYPE_PAGE_TABLE_ENTRY    	1
-#define L1_TYPE_SECTION_ENTRY   		2
+#define L1_TYPE_INVALID_ENTRY           0
+#define L1_TYPE_PAGE_TABLE_ENTRY        1
+#define L1_TYPE_SECTION_ENTRY           2
 #define L1_TYPE_SUPER_SECTION_ENTRY     3
 #define L1_TYPE(x)              ((x) & 3)
 
@@ -132,26 +132,26 @@ union arm_l2_entry {
         uint32_t        type            :2;     // == 1
         uint32_t        bufferable      :1;
         uint32_t        cacheable       :1;
-        uint32_t        ap10 			:2;		// AP[1:0]
-        uint32_t        sbz0           	:3;		// should be zero
-        uint32_t        ap2             :1;		// AP[2]
+        uint32_t        ap10            :2;        // AP[1:0]
+        uint32_t        sbz0            :3;        // should be zero
+        uint32_t        ap2             :1;        // AP[2]
         uint32_t        shareable       :1;
-        uint32_t		not_global		:1;
-        uint32_t		tex				:3;		// type extension TEX[2:0]
-        uint32_t        execute_never	:1;
+        uint32_t        not_global      :1;
+        uint32_t        tex             :3;        // type extension TEX[2:0]
+        uint32_t        execute_never   :1;
         uint32_t        base_address    :16;
     } large_page;
 
     /// Descriptor for a 4K page
     struct {
-    	uint32_t		type			:2;		// == 2 or 3
+        uint32_t        type            :2;        // == 2 or 3
         uint32_t        bufferable      :1;
         uint32_t        cacheable       :1;
-        uint32_t        ap10 			:2;		// AP[1:0]
-        uint32_t		tex				:3;		// type extension TEX[2:0]
-        uint32_t        ap2             :1;		// AP[2]
+        uint32_t        ap10            :2;        // AP[1:0]
+        uint32_t        tex             :3;        // type extension TEX[2:0]
+        uint32_t        ap2             :1;        // AP[2]
         uint32_t        shareable       :1;
-        uint32_t		not_global		:1;
+        uint32_t        not_global      :1;
         uint32_t        base_address    :20;
     } small_page;
 
@@ -165,7 +165,7 @@ union arm_l2_entry {
 #define L2_TYPE(x)              ((x) & 3)
 
 #define BYTES_PER_SECTION       0x100000
-#define BYTES_PER_LARGE_PAGE	0x10000
+#define BYTES_PER_LARGE_PAGE    0x10000
 #define BYTES_PER_PAGE          0x1000
 #define BYTES_PER_SMALL_PAGE    0x400
 

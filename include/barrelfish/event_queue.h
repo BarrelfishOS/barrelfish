@@ -15,8 +15,12 @@
 #ifndef BARRELFISH_EVENT_QUEUE_H
 #define BARRELFISH_EVENT_QUEUE_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/waitset.h>
 #include <barrelfish/threads.h>
+
+__BEGIN_DECLS
 
 /// What mode does an event queue operate in?
 enum event_queue_mode {
@@ -47,5 +51,7 @@ void event_queue_add(struct event_queue *q, struct event_queue_node *qn,
                      struct event_closure event);
 errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn);
 errval_t event_queue_trigger(struct event_queue *q);
+
+__END_DECLS
 
 #endif // BARRELFISH_EVENT_QUEUE_H

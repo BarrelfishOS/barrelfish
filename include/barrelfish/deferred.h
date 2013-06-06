@@ -15,7 +15,10 @@
 #ifndef BARRELFISH_DEFERRED_H
 #define BARRELFISH_DEFERRED_H
 
+#include <sys/cdefs.h>
 #include <barrelfish/waitset.h>
+
+__BEGIN_DECLS
 
 struct deferred_event {
     struct waitset_chanstate waitset_state; ///< Waitset state
@@ -44,5 +47,7 @@ errval_t periodic_event_cancel(struct periodic_event *event);
 
 // XXX: internal to libbarrelfish; should be in another header file
 void trigger_deferred_events_disabled(dispatcher_handle_t dh, systime_t now);
+
+__END_DECLS
 
 #endif // BARRELFISH_DEFERRED_H

@@ -49,6 +49,8 @@ typedef uint64_t paging_x86_64_flags_t;
 #define X86_64_PTABLE_MASK         0x1ff   /**< Page dir/table address mask */
 #define X86_64_PTABLE_CLEAR        0       /**< Bitmap of a clear table entry */
 
+#define X86_64_PTABLE_ENTRY_SIZE   sizeof(union x86_64_pdir_entry)
+
 /// Default access is read/write, but not execute
 #define X86_64_PTABLE_ACCESS_DEFAULT \
     (X86_64_PTABLE_EXECUTE_DISABLE | X86_64_PTABLE_USER_SUPERVISOR | \

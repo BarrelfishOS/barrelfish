@@ -214,6 +214,15 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
         struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
 
+        /* On some machines (brie1) the IOAPIC region is only 1kB.
+         * Currently we're not able to map regions that are <4kB so we
+         * make sure that every region (if there is no problematic overlap)
+         * is at least BASE_PAGE_SIZEd (==4kB) here.
+         */
+        if ((curmmap->length < BASE_PAGE_SIZE) && (curmmap->base_addr + BASE_PAGE_SIZE <= nextmmap->base_addr)) {
+            curmmap->length = BASE_PAGE_SIZE;
+        }
+
 #define DISCARD_NEXT_MMAP do {\
     uint32_t discardsize = nextmmap->size + 4;\
     memmove(cur + curmmap->size + 4, cur + curmmap->size + 4 + discardsize, clean_mmap_length - (cur - clean_mmap_addr) - curmmap->size - 4 - discardsize);\
@@ -668,8 +677,20 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
-    lpaddr_t init_alloc_end = alloc_phys(0); // XXX
-    create_phys_caps(init_alloc_end);
+    // XXX: temporary fix for trac ticket #253: make it more unlikely that
+    // we run out of root cnode slots by aligning the memory we declare free
+    // to 1MB.
+    lpaddr_t init_alloc_end = alloc_phys(0);
+    lpaddr_t align = 1UL << 20; // 1MB
+    // XXX: No checks are in place to make sure that init_alloc_end_aligned
+    // is actually a valid physical memory address (e.g. a location at which
+    // RAM exists.
+    lpaddr_t init_alloc_end_aligned = (init_alloc_end + align) & ~(align-1);
+    printf("aligning free memory start to 0x%"PRIxLPADDR" (was 0x%"PRIxLPADDR
+           "): wasting %lu kB\n",
+           init_alloc_end_aligned, init_alloc_end,
+           (init_alloc_end_aligned - init_alloc_end) / 1024);
+    create_phys_caps(init_alloc_end_aligned);
 
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = NEEDED_KERNEL_SPACE; // Size of kernel

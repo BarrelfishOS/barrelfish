@@ -16,6 +16,9 @@
 #define __FLOUNDER_SUPPORT_H
 
 #include <flounder/flounder.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /// State associated with an ongoing generic bind attempt
 struct flounder_generic_bind_attempt {
@@ -58,5 +61,7 @@ void flounder_support_migrate_notify(struct waitset_chanstate *chan,
 #else
 # define FL_DEBUG(msg...) ((void)0)
 #endif
+
+__END_DECLS
 
 #endif // __FLOUNDER_SUPPORT_H

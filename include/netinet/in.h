@@ -46,7 +46,11 @@
 #ifndef _NETINET_IN_H_
 #define _NETINET_IN_H_
 
+#include <stdint.h> // for int_least16_t, int_least32_t.
 #include <lwip/sockets.h>
+
+typedef int_least16_t in_port_t;
+typedef int_least32_t in_addr_t;
 
 /*
  * Ports < IPPORT_RESERVED are reserved for

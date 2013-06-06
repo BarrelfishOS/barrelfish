@@ -56,6 +56,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish/invocations_arch.h>
+#include <stdio.h>
 
 // Location of VSpace managed by this system.
 #define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024)
@@ -65,6 +67,12 @@
 //#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
 #define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256)
 // increased above value from 128 for pandaboard port
+
+// Convenience macros to figure out user space page table indices
+// we use 10 bits for both L1 and L2 tables in user space, even though
+// in hardware we use 12 bits for L1 and 8 bits for L2.
+#define ARM_USER_L1_OFFSET(addr) ((uintptr_t)(addr >> 22) & 0x3ffu)
+#define ARM_USER_L2_OFFSET(addr) ((uintptr_t)(addr >> 12) & 0x3ffu)
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -92,9 +100,10 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
 {
     assert(root != NULL);
+    assert(root->is_vnode);
     struct vnode *n;
 
-    for(n = root->children; n != NULL; n = n->next) {
+    for(n = root->u.vnode.children; n != NULL; n = n->next) {
         if(n->entry == entry) {
             return n;
         }
@@ -102,9 +111,54 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
+static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+
+    struct vnode *n;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (!n->is_vnode) {
+            uint16_t end = n->entry + n->u.frame.pte_count;
+            if (n->entry <= entry && entry + npages <= end) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+    uint32_t end_entry = entry + len;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (n->is_vnode && n->entry == entry) {
+            return true;
+        }
+        // n is frame
+        uint32_t end = n->entry + n->u.frame.pte_count;
+        if (n->entry < entry && end > end_entry) {
+            return true;
+        }
+        if (n->entry >= entry && n->entry < end_entry) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
-    struct vnode *walk = root->children;
+    assert(root->is_vnode);
+    struct vnode *walk = root->u.vnode.children;
     struct vnode *prev = NULL;
     while (walk) {
         if (walk == item) {
@@ -112,14 +166,14 @@ static void remove_vnode(struct vnode *root, struct vnode *item)
                 prev->next = walk->next;
                 return;
             } else {
-                root->children = walk->next;
+                root->u.vnode.children = walk->next;
                 return;
             }
         }
         prev = walk;
         walk = walk->next;
     }
-    USER_PANIC("Should not get here");
+    assert(!"Should not get here");
 }
 
 /**
@@ -129,36 +183,38 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
                             enum objtype type, uint32_t entry,
                             struct vnode **retvnode)
 {
+    assert(root->is_vnode);
     errval_t err;
 
     struct vnode *newvnode = slab_alloc(&pmap_arm->slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
+    newvnode->is_vnode = true;
 
     // The VNode capability
-    err = slot_alloc(&newvnode->cap);
+    err = slot_alloc(&newvnode->u.vnode.cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = vnode_create(newvnode->cap, type);
+    err = vnode_create(newvnode->u.vnode.cap, type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-    err = vnode_map(root->cap, newvnode->cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0);
+    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
+                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1);
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
     // The VNode meta data
-    newvnode->entry     = entry;
-    newvnode->next      = root->children;
-    root->children      = newvnode;
-    newvnode->children  = NULL;
+    newvnode->entry            = entry;
+    newvnode->next             = root->u.vnode.children;
+    root->u.vnode.children     = newvnode;
+    newvnode->u.vnode.children = NULL;
 
     if (retvnode) {
         *retvnode = newvnode;
@@ -174,8 +230,9 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
                            struct vnode    **ptable)
 {
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
-    // of L2 is 1 page of L2 entries (4 tables) so
-    uintptr_t index = ((uintptr_t)vaddr) >> 22;
+    // of L2 is 1 page of L2 entries (4 tables) so we use 10 bits for the L1
+    // index here
+    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
     if ((*ptable = find_vnode(&pmap->root, index)) == NULL)
     {
         // L1 table entries point to L2 tables so allocate an L2
@@ -185,6 +242,10 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
 
         errval_t err = alloc_vnode(pmap, &pmap->root, ObjType_VNode_ARM_l2,
                                    index, &tmp);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "alloc_vnode");
+            return err;
+        }
         assert(tmp != NULL);
         *ptable = tmp; // Set argument to received value
 
@@ -197,38 +258,138 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
     return SYS_ERR_OK;
 }
 
+static struct vnode *find_ptable(struct pmap_arm  *pmap,
+                                 genvaddr_t vaddr)
+{
+    // NB Strictly there are 12 bits in the ARM L1, but allocations unit
+    // of L2 is 1 page of L2 entries (4 tables) so
+    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
+    return find_vnode(&pmap->root, index);
+}
+
+static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_t vend,
+                              struct capref frame, size_t offset, size_t pte_count,
+                              vregion_flags_t flags)
+{
+    // Get the page table
+    struct vnode *ptable;
+    errval_t err = get_ptable(pmap, vaddr, &ptable);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+    }
+    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+    // XXX: reassess the following note -SG
+    // NOTE: strictly speaking a l2 entry only has 8 bits, but due to the way
+    // Barrelfish allocates l1 and l2 tables, we use 10 bits for the tracking
+    // index here and in the map syscall
+    uintptr_t index = ARM_USER_L2_OFFSET(vaddr);
+    // Create user level datastructure for the mapping
+    bool has_page = has_vnode(ptable, index, pte_count);
+    assert(!has_page);
+    struct vnode *page = slab_alloc(&pmap->slab);
+    assert(page);
+    page->is_vnode = false;
+    page->entry = index;
+    page->next  = ptable->u.vnode.children;
+    ptable->u.vnode.children = page;
+    page->u.frame.cap = frame;
+    page->u.frame.pte_count = pte_count;
+
+    // Map entry into the page table
+    err = vnode_map(ptable->u.vnode.cap, frame, index,
+                    pmap_flags, offset, pte_count);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_MAP);
+    }
+    return SYS_ERR_OK;
+}
+
 static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
                        struct capref frame, size_t offset, size_t size,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
+
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+    size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
+    genvaddr_t vend = vaddr + size;
+
+    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
+        // fast path
+        err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "[do_map] in fast path");
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
+    } else { // multiple leaf page tables
+        // first leaf
+        uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
+        genvaddr_t temp_end = vaddr + c * BASE_PAGE_SIZE;
+        err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
+
+        // map full leaves
+        while (ARM_L1_OFFSET(temp_end) < ARM_L1_OFFSET(vend)) { // update vars
+            vaddr = temp_end;
+            temp_end = vaddr + ARM_L2_MAX_ENTRIES * BASE_PAGE_SIZE;
+            offset += c * BASE_PAGE_SIZE;
+            c = ARM_L2_MAX_ENTRIES;
+            // copy cap
+            struct capref next;
+            err = slot_alloc(&next);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            err = cap_copy(next, frame);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            frame = next;
+
+            // do mapping
+            err = do_single_map(pmap, vaddr, temp_end, frame, offset, ARM_L2_MAX_ENTRIES, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+        }
+
+        // map remaining part
+        offset += c * BASE_PAGE_SIZE;
+        c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(temp_end);
+        if (c) {
+            // copy cap
+            struct capref next;
+            err = slot_alloc(&next);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+            err = cap_copy(next, frame);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+
+            // do mapping
+            err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_DO_MAP);
+            }
+        }
+    }
+    if (retoff) {
+        *retoff = offset;
+    }
+    if (retsize) {
+        *retsize = size;
+    }
+    //has_vnode_debug = false;
+    return SYS_ERR_OK;
+#if 0
+    errval_t err;
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
 
     for (size_t i = offset; i < offset + size; i += BASE_PAGE_SIZE) {
-        // Get the page table
-        struct vnode *ptable;
-        err = get_ptable(pmap, vaddr, &ptable);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
-        }
-        uintptr_t index = (((uintptr_t)vaddr) >> 12) & 0x3ffu;
-        // Create user level datastructure for the mapping
-        struct vnode *page = find_vnode(ptable, index);
-        assert(!page);
-        page = slab_alloc(&pmap->slab);
-        assert(page);
-        page->entry = index;
-        page->next  = ptable->children;
-        ptable->children = page;
-        page->children = NULL;
-        page->cap = frame;
-
-        // Map entry into the page table
-        err = vnode_map(ptable->cap, frame, index,
-                        pmap_flags, i);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_MAP);
-        }
 
         vaddr += BASE_PAGE_SIZE;
     }
@@ -240,6 +401,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         *retsize = size;
     }
     return SYS_ERR_OK;
+#endif
 }
 
 static size_t
@@ -374,6 +536,40 @@ map(struct pmap     *pmap,
                   retoff, retsize);
 }
 
+static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
+                                size_t pte_count, bool delete_cap)
+{
+    errval_t err;
+    struct vnode *pt = find_ptable(pmap, vaddr);
+    if (pt) {
+        // analog to do_single_map we use 10 bits for tracking pages in user space -SG
+        struct vnode *page = find_vnode(pt, ARM_USER_L2_OFFSET(vaddr));
+        if (page && page->u.frame.pte_count == pte_count) {
+            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap,
+                              page->entry, page->u.frame.pte_count);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "vnode_unmap");
+                return err_push(err, LIB_ERR_VNODE_UNMAP);
+            }
+
+            // Free up the resources
+            if (delete_cap) {
+                err = cap_destroy(page->u.frame.cap);
+                if (err_is_fail(err)) {
+                    return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
+                }
+            }
+            remove_vnode(pt, page);
+            slab_free(&pmap->slab, page);
+        }
+        else {
+            return LIB_ERR_PMAP_FIND_VNODE;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Remove page mappings
  *
@@ -388,41 +584,52 @@ unmap(struct pmap *pmap,
       size_t       size,
       size_t      *retsize)
 {
-	errval_t err;
+    errval_t err, ret = SYS_ERR_OK;
+    struct pmap_arm *pmap_arm = (struct pmap_arm*)pmap;
     size = ROUND_UP(size, BASE_PAGE_SIZE);
-    struct pmap_arm* pmap_arm = (struct pmap_arm*)pmap;
+    size_t pte_count = size / BASE_PAGE_SIZE;
+    genvaddr_t vend = vaddr + size;
 
-
-    for (size_t i = 0; i < size; i+=BASE_PAGE_SIZE) {
-            // Find the page table
-            struct vnode *ptable;
-            err = get_ptable(pmap_arm, vaddr + i, &ptable);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
-            }
-
-            // Find the page
-            uintptr_t index = (((uintptr_t)vaddr+i) >> 12) & 0x3ffu;
-            struct vnode *page = find_vnode(ptable, index);
-            if (!page) {
-                return LIB_ERR_PMAP_FIND_VNODE;
-            }
-
-            // Unmap it in the kernel
-            err = vnode_unmap(ptable->cap, page->entry);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_VNODE_UNMAP);
-            }
-
-            // Free up the resources
-            remove_vnode(ptable, page);
-            slab_free(&pmap_arm->slab, page);
+    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
+        // fast path
+        err = do_single_unmap(pmap_arm, vaddr, pte_count, false);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_UNMAP);
+        }
+    } else { // slow path
+        // unmap first leaf
+        uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
+        err = do_single_unmap(pmap_arm, vaddr, c, false);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
 
-        if (retsize) {
-            *retsize = size;
+        // unmap full leaves
+        vaddr += c * BASE_PAGE_SIZE;
+        while (ARM_L1_OFFSET(vaddr) < ARM_L1_OFFSET(vend)) {
+            c = ARM_L2_MAX_ENTRIES;
+            err = do_single_unmap(pmap_arm, vaddr, c, true);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
+            }
+            vaddr += c * BASE_PAGE_SIZE;
         }
-        return SYS_ERR_OK;
+
+        // unmap remaining part
+        c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(vaddr);
+        if (c) {
+            err = do_single_unmap(pmap_arm, vaddr, c, true);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
+            }
+        }
+    }
+
+    if (retsize) {
+        *retsize = size;
+    }
+
+    return ret;
 }
 
 /**
@@ -463,6 +670,36 @@ determine_addr(struct pmap   *pmap,
     return SYS_ERR_OK;
 }
 
+static errval_t do_single_modify_flags(struct pmap_arm *pmap, genvaddr_t vaddr,
+                                       size_t pages, vregion_flags_t flags)
+{
+    errval_t err = SYS_ERR_OK;
+    struct vnode *ptable = find_ptable(pmap, vaddr);
+    uint16_t ptentry = ARM_USER_L2_OFFSET(vaddr);
+    if (ptable) {
+        struct vnode *page = find_vnode(ptable, ptentry);
+        if (page) {
+            if (inside_region(page, ptentry, pages)) {
+                // we're modifying part of a valid mapped region
+                // arguments to invocation: invoke frame cap, first affected
+                // page (as offset from first page in mapping), #affected
+                // pages, new flags. Invocation should check compatibility of
+                // new set of flags with cap permissions.
+                size_t off = ptentry - page->entry;
+                uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+                err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
+                printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
+                        err_getstring(err), err);
+                return err;
+            } else {
+                // overlaps some region border
+                return LIB_ERR_PMAP_EXISTING_MAPPING;
+            }
+        }
+    }
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Modify page mapping
  *
@@ -478,8 +715,53 @@ modify_flags(struct pmap     *pmap,
              vregion_flags_t  flags,
              size_t          *retsize)
 {
-    USER_PANIC("NYI");
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err, ret = SYS_ERR_OK;
+    struct pmap_arm *pmap_arm = (struct pmap_arm*)pmap;
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+    size_t pte_count = size / BASE_PAGE_SIZE;
+    genvaddr_t vend = vaddr + size;
+
+    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
+        // fast path
+        err = do_single_modify_flags(pmap_arm, vaddr, pte_count, false);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_UNMAP);
+        }
+    }
+    else { // slow path
+        // unmap first leaf
+        uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
+        err = do_single_modify_flags(pmap_arm, vaddr, c, false);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_UNMAP);
+        }
+
+        // unmap full leaves
+        vaddr += c * BASE_PAGE_SIZE;
+        while (ARM_L1_OFFSET(vaddr) < ARM_L1_OFFSET(vend)) {
+            c = ARM_L2_MAX_ENTRIES;
+            err = do_single_modify_flags(pmap_arm, vaddr, c, true);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
+            }
+            vaddr += c * BASE_PAGE_SIZE;
+        }
+
+        // unmap remaining part
+        c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(vaddr);
+        if (c) {
+            err = do_single_modify_flags(pmap_arm, vaddr, c, true);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_UNMAP);
+            }
+        }
+    }
+
+    if (retsize) {
+        *retsize = size;
+    }
+
+    return ret;
 }
 
 /**
@@ -550,9 +832,10 @@ pmap_init(struct pmap   *pmap,
               pmap_arm->slab_buffer,
               sizeof(pmap_arm->slab_buffer));
 
-    pmap_arm->root.cap      = vnode;
-    pmap_arm->root.next     = NULL;
-    pmap_arm->root.children = NULL;
+    pmap_arm->root.is_vnode         = true;
+    pmap_arm->root.u.vnode.cap      = vnode;
+    pmap_arm->root.next             = NULL;
+    pmap_arm->root.u.vnode.children = NULL;
 
     return SYS_ERR_OK;
 }

@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,6 +15,7 @@
 #include <barrelfish/debug.h> // XXX: To set the cap_identify_reply handler
 #include <barrelfish/sys_debug.h> // XXX: for sys_debug_send_ipi
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <if/mem_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <if/monitor_loopback_defs.h>
@@ -77,17 +78,64 @@ static void ms_multiboot_cap_request(struct monitor_binding *b, cslot_t slot)
 
 /* ----------------------- MULTIBOOT REQUEST CODE END ----------------------- */
 
+static void alloc_iref_reply_handler(struct monitor_binding *b,
+                                       struct monitor_msg_queue_elem *e);
+
+struct alloc_iref_reply_state {
+    struct monitor_msg_queue_elem elem;
+    struct monitor_alloc_iref_reply__args args;
+    struct monitor_binding *b;
+};
+
+static void alloc_iref_reply_cont(struct monitor_binding *b,
+                                    uintptr_t service_id,
+                                    iref_t iref, errval_t reterr)
+{
+    errval_t err;
+
+    err = b->tx_vtbl.alloc_iref_reply(b, NOP_CONT, service_id, iref, reterr);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            struct alloc_iref_reply_state *me =
+                malloc(sizeof(struct alloc_iref_reply_state));
+            assert(me != NULL);
+            struct monitor_state *ist = b->st;
+            assert(ist != NULL);
+            me->args.service_id = service_id;
+            me->args.iref = iref;
+            me->args.err = reterr;
+            me->b = b;
+            me->elem.cont = alloc_iref_reply_handler;
+
+            err = monitor_enqueue_send(b, &ist->queue,
+                                       get_default_waitset(), &me->elem.queue);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "monitor_enqueue_send failed");
+            }
+            return;
+        }
+
+        USER_PANIC_ERR(err, "reply failed");
+    }
+}
+
+static void alloc_iref_reply_handler(struct monitor_binding *b,
+                                       struct monitor_msg_queue_elem *e)
+{
+    struct alloc_iref_reply_state *st = (struct alloc_iref_reply_state *)e;
+    alloc_iref_reply_cont(b, st->args.service_id, st->args.iref,
+                          st->args.err);
+    free(e);
+}
+
 static void alloc_iref_request(struct monitor_binding *b,
                                uintptr_t service_id)
 {
-    errval_t err, reterr;
+    errval_t reterr;
 
     iref_t iref = 0;
     reterr = iref_alloc(b, service_id, &iref);
-    err = b->tx_vtbl.alloc_iref_reply(b, NOP_CONT, service_id, iref, reterr);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "reply failed");
-    }
+    alloc_iref_reply_cont(b, service_id, iref, reterr);
 }
 
 /******* stack-ripped bind_lmp_service_request *******/
@@ -837,7 +885,7 @@ static void span_domain_request(struct monitor_binding *mb,
 {
     errval_t err, err2;
 
-    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_SPAN0, core_id);
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN0, core_id);
     
     struct span_state *state;
     uintptr_t state_id;
@@ -853,7 +901,7 @@ static void span_domain_request(struct monitor_binding *mb,
     state->mb        = mb;
     state->domain_id = domain_id;
 
-    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_SPAN1, core_id);
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN1, core_id);
 
     /* Look up the destination monitor */
     struct intermon_binding *ib;
@@ -1094,6 +1142,19 @@ errval_t monitor_server_init(struct monitor_binding *b)
         USER_PANIC_ERR(err2, "multihop_monitor_init failed");
     }
 #endif // CONFIG_INTERCONNECT_DRIVER_MULTIHOP
+
+#ifdef CONFIG_TRACE
+    errval_t err3;
+    err3 = bfscope_monitor_init(b);
+    if (err_is_fail(err3)) {
+        USER_PANIC_ERR(err3, "bfscope_monitor_init failed");
+    }
+
+    err3 = trace_monitor_init(b);
+    if (err_is_fail(err3)) {
+        USER_PANIC_ERR(err3, "trace_monitor_init failed");
+    }
+#endif // CONFIG_TRACE
 
     return monitor_server_arch_init(b);
 }

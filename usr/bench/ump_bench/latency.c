@@ -17,19 +17,19 @@
 #define MAX_COUNT 1000
 static struct timestamps *timestamps;
 
-void experiment(coreid_t index)
+void experiment(coreid_t idx)
 {
     timestamps = malloc(sizeof(struct timestamps) * MAX_COUNT);
     assert(timestamps != NULL);
 
-    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[index];
+    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[idx];
     struct flounder_ump_state *fus = &bu->ump_state;
     struct ump_chan *chan = &fus->chan;
 
     struct ump_chan_state *send = &chan->send_chan;
     struct ump_chan_state *recv = &chan->endpoint.chan;
 
-    printf("Running latency between core %d and core %d\n", my_core_id, index);
+    printf("Running latency between core %d and core %d\n", my_core_id, idx);
 
     /* Run experiment */
     for (int i = 0; i < MAX_COUNT; i++) {

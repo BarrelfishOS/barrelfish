@@ -274,6 +274,16 @@ static void fpu_context_switch(struct dispatcher_generic *disp_gen,
 }
 
 /**
+ * \brief Returns false if the stack pointer is out of bounds.
+ */
+static bool thread_check_stack_bounds(struct thread *thread,
+                                      arch_registers_state_t *archregs) {
+    lvaddr_t sp = (lvaddr_t) registers_get_sp(archregs);
+    return sp > (lvaddr_t)thread->stack ||
+           sp <= (lvaddr_t)thread->stack_top;
+}
+
+/**
  * \brief Schedule and run the next active thread, or yield the dispatcher.
  *
  * This may only be called from the dispatcher (on its stack and while
@@ -294,7 +304,7 @@ void thread_run_disabled(dispatcher_handle_t handle)
 
         // check stack bounds
         warn_disabled(&stack_warned,
-                      registers_is_stack_invalid(disp_gen, enabled_area));
+                      thread_check_stack_bounds(disp_gen->current, enabled_area));
 
         struct thread *next = disp_gen->current->next;
         assert_disabled(next != NULL);
@@ -1319,6 +1329,7 @@ static void exception_handler_wrapper(arch_registers_state_t *cpuframe,
     assert_disabled(disp_gen->current == me);
     disp_resume(dh, cpuframe);
 }
+
 #if 0
 void thread_debug_regs(struct thread *t);
 void thread_debug_regs(struct thread *t)
@@ -1333,6 +1344,7 @@ void thread_debug_regs(struct thread *t)
   printf("\n");
 }
 #endif
+
 /**
  * \brief Deliver an exception to the current thread, and resume.
  *
@@ -1363,6 +1375,18 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
         } else {
             sys_print("Can't deliver exception to thread: handler not set\n",
                       100);
+        }
+
+        // warn on stack overflow.
+        lvaddr_t sp = (lvaddr_t) registers_get_sp(regs);
+        if (sp < (lvaddr_t)thread->stack ||
+            sp > (lvaddr_t)thread->stack_top) {
+            char str[256];
+            snprintf(str, sizeof(str), "Error: stack bounds exceeded: sp = 0x%"
+                     PRIxPTR " but [bottom, top] = [0x%" PRIxPTR ", 0x%"
+                     PRIxPTR "]\n", (lvaddr_t) sp, (lvaddr_t) thread->stack,
+                     (lvaddr_t) thread->stack_top);
+            sys_print(str, sizeof(str));
         }
 
         // TODO: actually delete the thread!

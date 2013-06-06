@@ -10,6 +10,7 @@
 #ifndef UTIME_BARRELFISH_H_
 #define UTIME_BARRELFISH_H_
 
+#include <sys/cdefs.h>
 #include <time.h>
 
 struct utimbuf {
@@ -17,6 +18,8 @@ struct utimbuf {
     time_t modtime;
 };
 
+__BEGIN_DECLS
 int utime(const char *filename, const struct utimbuf *times);
+__END_DECLS
 
 #endif // UTIME_BARRELFISH_H_

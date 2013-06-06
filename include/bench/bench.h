@@ -17,15 +17,18 @@
 
 #include <barrelfish/types.h> // for cycles_t
 #include <bench/bench_arch.h>
+#include <sys/cdefs.h>
 
 #define BENCH_IGNORE_WATERMARK 0XDEADBEEF
 
+__BEGIN_DECLS
 void bench_init(void);
 cycles_t bench_avg(cycles_t *array, size_t len);
 cycles_t bench_variance(cycles_t *array, size_t len);
 cycles_t bench_min(cycles_t *array, size_t len);
 cycles_t bench_max(cycles_t *array, size_t len);
 cycles_t bench_tscoverhead(void);
+__END_DECLS
 
 
 /*

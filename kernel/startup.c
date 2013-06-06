@@ -13,6 +13,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 #include <kernel.h>
 #include <startup.h>
 #include <exec.h>
@@ -20,6 +21,7 @@
 #include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/domain_params.h>
+#include <trace/trace.h>
 
 coreid_t my_core_id;
 
@@ -125,8 +127,9 @@ struct dcb *spawn_module(struct spawn_state *st,
                          lpaddr_t bootinfo, lvaddr_t args_base,
                          alloc_phys_func alloc_phys, lvaddr_t *retparamaddr)
 {
-    printf("spawn_module\n");
     errval_t err;
+
+    printf("spawn module: %s\n", name);
 
     // check for reuse of static state
 #ifndef NDEBUG
@@ -332,6 +335,9 @@ struct dcb *spawn_module(struct spawn_state *st,
                               caps_locate_slot(CNODE(st->basepagecn), i));
         assert(err_is_ok(err));
     }
+
+    // Store the application in the boot applications.
+	trace_new_boot_application((char*) name, (uintptr_t) init_dcb);
 
     return init_dcb;
 }

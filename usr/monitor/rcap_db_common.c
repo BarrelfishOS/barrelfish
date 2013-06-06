@@ -48,8 +48,9 @@ uint64_t hash_cap(struct capability * cap)
     case 3: hash ^= (uint64_t)(data_end[2]) << 16;
     case 2: hash ^= (uint64_t)(data_end[1]) << 8;
     case 1: hash ^= (uint64_t)(data_end[0]);
-        hash *= HASH_M;
+    case 0: break;
     };
+    hash *= HASH_M;
     
     hash ^= hash >> HASH_R;
     hash *= HASH_M;

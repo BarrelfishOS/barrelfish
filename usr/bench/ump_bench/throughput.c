@@ -17,12 +17,12 @@
 #define MAX_COUNT 100
 static struct timestamps *timestamps;
 
-void experiment(coreid_t index)
+void experiment(coreid_t idx)
 {
     timestamps = malloc(sizeof(struct timestamps) * MAX_COUNT);
     assert(timestamps != NULL);
 
-    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[index];
+    struct bench_ump_binding *bu = (struct bench_ump_binding*)array[idx];
     struct flounder_ump_state *fus = &bu->ump_state;
     struct ump_chan *chan = &fus->chan;
 
@@ -30,7 +30,7 @@ void experiment(coreid_t index)
     struct ump_chan_state *recv = &chan->endpoint.chan;
 
     printf("Running throughput between core %d and core %d\n",
-           my_core_id, index);
+           my_core_id, idx);
 
     volatile struct ump_message *msg;
     struct ump_control ctrl;

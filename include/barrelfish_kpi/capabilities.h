@@ -18,10 +18,10 @@
 /* FIXME: OBJBITS defines must match sizes in Hamlet's capabilities/caps.hl */
 
 // Size of CNode entry
-#define OBJBITS_CTE             6
+#define OBJBITS_CTE             7
 
 // Size of dispatcher
-#define OBJBITS_DISPATCHER      9
+#define OBJBITS_DISPATCHER     10
 
 #ifndef __ASSEMBLER__
 
@@ -97,6 +97,53 @@ static inline size_t vnode_objbits(enum objtype type)
 }
 
 /**
+ * Return number of page table entries for vnode in bits.
+ * @param type Object type.
+ * @return Number of page table entries in bits
+ */
+static inline size_t vnode_entry_bits(enum objtype type) {
+    // This function should be emitted by hamlet or somesuch.
+    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+
+    if (type == ObjType_VNode_x86_64_pml4 ||
+        type == ObjType_VNode_x86_64_pdpt ||
+        type == ObjType_VNode_x86_64_pdir ||
+        type == ObjType_VNode_x86_64_ptable)
+    {
+        return 9;      // log2(X86_64_PTABLE_SIZE)
+    }
+#ifdef CONFIG_PAE
+    if (type == ObjType_VNode_x86_32_pdpt)
+    {
+        return 2;       // log2(X86_32_PDPTE_SIZE)
+    }
+    else if (type == ObjType_VNode_x86_32_pdir ||
+             type == ObjType_VNode_x86_32_ptable)
+    {
+        return 9;       // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
+    }
+#else
+    if (type == ObjType_VNode_x86_32_pdir ||
+        type == ObjType_VNode_x86_32_ptable)
+    {
+        return 10;      // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
+    }
+#endif
+    if (type == ObjType_VNode_ARM_l2)
+    {
+        return 9;       // log2(ARM_L2_MAX_ENTRIES)
+    }
+    else if (type == ObjType_VNode_ARM_l1)
+    {
+        return 12;      // log2(ARM_L1_MAX_ENTRIES)
+    }
+
+    assert(!"unknown page table type");
+    return 0;
+}
+
+
+/**
  * CNode capability commands.
  */
 enum cnode_cmd {
@@ -109,6 +156,7 @@ enum cnode_cmd {
 };
 
 enum vnode_cmd {
+    VNodeCmd_Map,
     VNodeCmd_Unmap,
 };
 
@@ -138,6 +186,7 @@ enum kernel_cmd {
     KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,
+    KernelCmd_DumpPTables,
     KernelCmd_Count
 };
 
@@ -155,8 +204,9 @@ enum dispatcher_cmd {
  * Frame capability commands.
  */
 enum frame_cmd {
-    FrameCmd_Identify,   ///< Return physical address of frame
-    FrameCmd_SCC_Identify,      ///< Return MC route to frame
+    FrameCmd_Identify,      ///< Return physical address of frame
+    FrameCmd_SCC_Identify,  ///< Return MC route to frame
+    FrameCmd_ModifyFlags,   ///< Modify flags for (part of) the mapped region of frame
 };
 
 /**

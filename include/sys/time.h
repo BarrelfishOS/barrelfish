@@ -42,6 +42,7 @@
 #ifndef SYS_TIME_BARRELFISH_H_
 #define SYS_TIME_BARRELFISH_H_
 
+#include <sys/cdefs.h>
 #include <time.h>
 
 struct timezone {
@@ -82,8 +83,10 @@ struct itimerval {
 	    ((tvp)->tv_usec cmp (uvp)->tv_usec) :			\
 	    ((tvp)->tv_sec cmp (uvp)->tv_sec))
 
+__BEGIN_DECLS
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 int setitimer(int which, const struct itimerval *new_value,
               struct itimerval *old_value);
+__END_DECLS
 
 #endif
