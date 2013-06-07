@@ -67,7 +67,7 @@
 
 
 /* FIXME: Move this to config */
-//#define MYDEBUGLWIP 1
+#define MYDEBUGLWIP 1
 
 #ifdef MYDEBUGLWIP
 #define DEBUGPRINTPS(arg...) printf(arg)
@@ -283,6 +283,8 @@ static void remaining_lwip_initialization(char *card_name, uint64_t queueid)
 
     DEBUGPRINTPS("remaining_lwip_init: allocating memory for sending\n");
     mem_init();                 // 1'th buffer
+    DEBUGPRINTPS("remaining_lwip_init: done with memroy allocation\n");
+
     DEBUGPRINTPS("LWIP: lwip_starting\n");
     netif_init();
 #if LWIP_SOCKET

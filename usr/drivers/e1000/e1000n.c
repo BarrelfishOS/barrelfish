@@ -63,15 +63,23 @@
 //#define ENABLE_DEBUGGING_E1000 1
 #ifdef ENABLE_DEBUGGING_E1000
 static bool local_debug = true;
+#define E1000N_DEBUG(x...) do{printf("e1000n: " x);} while(0)
 #define E1000N_DPRINT(x...) do{if(local_debug) printf("e1000n: " x); } while(0)
 #else
 #define E1000N_DPRINT(x...) ((void)0)
+#define E1000N_DEBUG(x...) ((void)0)
 #endif // ENABLE_DEBUGGING_E1000
 
 /* MTU is 1500 bytes, plus Ethernet header plus CRC. */
 #define RX_PACKET_MAX_LEN       (1500 + 14 + 4)
 
 #define PACKET_SIZE_LIMIT       1073741824      /* 1 Gigabyte */
+
+/*****************************************************************
+ * Local states:
+ *****************************************************************/
+static uint64_t minbase = -1;
+static uint64_t maxbase = -1;
 
 /*****************************************************************
  * External declarations for net_queue_manager
@@ -92,17 +100,17 @@ static volatile struct tx_desc *transmit_ring;
 struct pbuf_desc {
     void *opaque;
 };
-static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFER];
+
+static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFERS];
+
 //remember the tx pbufs in use
 
 //receive
 static volatile union rx_desc *receive_ring;
 
-static void *receive_ring_phys_addr = NULL;
-static void *receive_ring_virt_addr = NULL;
-static uint32_t receive_bufptr_index = 0;
-static uint32_t receive_ring_index = 0;
-static uint32_t receive_ring_free = 0;
+static uint32_t receive_bufptr = 0;
+static uint32_t receive_index = 0;
+static uint32_t receive_free = 0;
 static void **receive_opaque = NULL;
 /*****************************************************************
 
@@ -139,9 +147,7 @@ static e1000_mac_type_t mac_type = e1000_undefined;
 static char *global_service_name = 0;
 static uint64_t assumed_queue_id = 0;   /* what net queue to bind to */
 static uint32_t ether_transmit_index = 0;
-static uint32_t ether_transmit_bufptr_index = 0;
-
-static struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFERS];
+static uint32_t ether_transmit_bufptr = 0;
 
 /*****************************************************************
  * Print physical link status.
@@ -198,32 +204,6 @@ static void e1000_print_link_status(e1000_device_t *dev)
     }
 }
 
-/*****************************************************************
- * And descriptor to receive ring
- *
- ****************************************************************/
-static int add_desc(uint64_t paddr)
-{
-    e1000_dqval_t dqval = 0;
-    union rx_desc desc;
-
-    desc.raw[0] = desc.raw[1] = 0;
-    desc.rx_read_format.buffer_address = paddr;
-
-    if (receive_ring_free == DRIVER_RECEIVE_BUFFERS) {
-        return -1;
-    }
-
-    receive_ring[receive_ring_index] = desc;
-
-    receive_ring_index = (receive_ring_index + 1) % DRIVER_RECEIVE_BUFFERS;
-
-    dqval = e1000_dqval_val_insert(dqval, receive_ring_index);
-    e1000_rdt_wr(&e1000, 0, dqval);
-    receive_ring_free++;
-
-    return 0;
-}
 
 /*****************************************************************
  * get_mac_address_fn for net_queue_manager
@@ -243,12 +223,12 @@ static uint64_t find_tx_free_slot_count_fn(void)
 {
     uint64_t free_slots;
 
-    if (ether_transmit_index >= ether_transmit_bufptr_index) {
+    if (ether_transmit_index >= ether_transmit_bufptr) {
         free_slots = DRIVER_TRANSMIT_BUFFERS
-                     - ((ether_transmit_index - ether_transmit_bufptr_index)
+                     - ((ether_transmit_index - ether_transmit_bufptr)
                         % DRIVER_TRANSMIT_BUFFERS);
     } else {
-        free_slots = (ether_transmit_bufptr_index - ether_transmit_index)
+        free_slots = (ether_transmit_bufptr - ether_transmit_index)
                      % DRIVER_TRANSMIT_BUFFERS;
     }
 
@@ -282,11 +262,11 @@ static bool handle_free_TX_slot_fn(void)
     bool sent = false;
     volatile struct tx_desc *txd;
 
-    if (ether_transmit_bufptr_index == ether_transmit_index) {
+    if (ether_transmit_bufptr == ether_transmit_index) {
         return false;
     }
 
-    txd = &transmit_ring[ether_transmit_bufptr_index];
+    txd = &transmit_ring[ether_transmit_bufptr];
     if (txd->ctrl.legacy.stat_rsv.d.dd != 1) {
         return false;
 
@@ -296,9 +276,9 @@ static bool handle_free_TX_slot_fn(void)
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_TXDRVSEE, 0);
 #endif
 
-    sent = handle_tx_done(pbuf_list_tx[ether_transmit_bufptr_index].s.opaque); 
+    sent = handle_tx_done(pbuf_list_tx[ether_transmit_bufptr].opaque);
 
-    ether_transmit_bufptr_index = (ether_transmit_bufptr_index + 1)
+    ether_transmit_bufptr = (ether_transmit_bufptr + 1)
                                   % DRIVER_TRANSMIT_BUFFERS;
     netbench_record_event_simple(bm, RE_TX_DONE, ts);
 
@@ -362,14 +342,12 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
             return ETHERSRV_ERR_CANT_TRANSMIT;
         }
     }
-        USER_PANIC("find_buffer failed.\n");
-
 
     if (count > 1) {
         printf("Sending %zx chunks\n", count);
     }
     for (int i = 0; i < count; i++) {
-        r = transmit_pbuf(buffers[i].pa, buffers[i].len,
+        errval_t r = transmit_pbuf(buffers[i].pa, buffers[i].len,
                     i == (count - 1), //last?
                     opaque);
         if(err_is_fail(r)) {
@@ -390,191 +368,47 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
 
 
 
-
-
-
-/*****************************************************************
- *
- *
- *
- *****************************************************************/
-static int add_desc(uint64_t paddr, void *opaque)
-{
-    union rx_desc r;
-    r.raw[0] = r.raw[1] = 0;
-    r.rx_read_format.buffer_address = paddr;
-
-    if(receive_free == DRIVER_RECEIVE_BUFFERS) {
-        // This is serious error condition.
-        // Printing debug information to help user!
-    	//E1000N_DEBUG("no space to add a new receive pbuf\n");
-    	printf("no space to add a new receive pbuf [%"PRIu32"], [%"PRIu32"]\n",
-                receive_free, receive_index);
-        printf("%p\n%p\n%p\n", __builtin_return_address(0),
-                __builtin_return_address(1), __builtin_return_address(2));
-        abort();
-    	/* FIXME: how can you return -1 as error here
-    	 * when return type is unsigned?? */
-    	return -1;
-    }
-
-    receive_ring[receive_index] = r;
-    receive_opaque[receive_index] = opaque;
-
-    receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
-    e1000_rdt_wr(&d, 0, (e1000_dqval_t){ .val=receive_index } );
-    receive_free++;
-    return 0;
-}
-
-
-static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
-{
-    return add_desc(paddr, opaque);
-}
-static uint64_t rx_find_free_slot_count_fn(void)
-{
-    return DRIVER_RECEIVE_BUFFERS - receive_free;
-}
-
-static void print_rx_bm_stats(bool stop_trace)
-{
-    if (g_cl == NULL) {
-        return;
-    }
-
-    if (g_cl->debug_state != 4) {
-        return;
-    }
-
-    uint64_t cts = rdtsc();
-
-    if (stop_trace) {
-
-#if TRACE_N_BM
-    // stopping the tracing
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_STOP, 0);
-
-        /*
-        char *buf = malloc(4096*4096);
-        trace_dump(buf, 4096*4096);
-        printf("%s\n", buf);
-        */
-#endif // TRACE_N_BM
-
-    } // end if: stop_trace
-
-    uint64_t running_time = cts - g_cl->start_ts;
-    printf("D:I:%u: RX speed = [%"PRIu64"] packets "
-        "data(%"PRIu64") / time(%"PU") = [%f] MB/s ([%f]Mbps) = "
-        " [%f]mpps, INT [%"PRIu64"]\n",
-        disp_get_core_id(),
-        total_rx_p_count, total_rx_datasize, in_seconds(running_time),
-        ((total_rx_datasize/in_seconds(running_time))/(1024 * 1024)),
-        (((total_rx_datasize * 8)/in_seconds(running_time))/(1024 * 1024)),
-        ((total_rx_p_count/in_seconds(running_time))/(double)(1000000)),
-        interrupt_counter
-        );
-
-    netbench_print_event_stat(bm, RE_COPY, "D: RX CP T", 1);
-    netbench_print_event_stat(bm, RE_PROCESSING_ALL, "D: RX processing T", 1);
-} // end function: print_rx_bm_stats
-
-static char tmp_buf[2000];
 static bool handle_next_received_packet(void)
 {
     volatile union rx_desc *rxd;
     size_t len = 0;
     bool new_packet = false;
-    errval_t err;
 
-    if (receive_bufptr_index == receive_ring_index) {
+    if (receive_bufptr == receive_index) { //no packets received
         return false;
     }
 
-    rxd = &receive_ring[receive_bufptr_index];
+//    E1000N_DEBUG("Inside handle next packet 2\n");
+    rxd = &receive_ring[receive_bufptr];
 
-    if ((rxd->rx_read_format.info.status.dd)
-            && (rxd->rx_read_format.info.status.eop)) {
-        struct buffer_descriptor *buffer = NULL;
-        void *buffer_address = NULL;
-        void *data = NULL;
-        size_t len = 0;
+    if ((rxd->rx_read_format.info.status.dd) &&
+            (rxd->rx_read_format.info.status.eop)
+//            && (!local_pbuf[receive_bufptr].event_sent)
+            ) {
+        // valid packet received
 
-        /* A valid packet received */
-        E1000_DEBUG("Potential packet receive [%"PRIu32"]!\n", receive_bufptr_index);
+    E1000N_DPRINT("Potential packet receive [%"PRIu32"]!\n",
+            receive_bufptr);
         new_packet = true;
-
-        /* Ensures that netd is up and running */
-        if (waiting_for_netd()) {
-            E1000_DEBUG("still waiting for netd to register buffers.\n");
-            buffer = NULL;
-            goto end;
-        }
-
         len = rxd->rx_read_format.info.length;
-
-        if (len > RX_PACKET_MAX_LEN) {
-            E1000_DEBUG("Dropping packet with invalid length %zu.\n", len);
-            goto end;
-        }
         total_rx_datasize += len;
 
 #if TRACE_ONLY_SUB_NNET
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXDRVSEE,
                     (uint32_t) len);
-#endif
+#endif // TRACE_ONLY_SUB_NNET
 
-        buffer_address = (void *) rxd->rx_read_format.buffer_address;
-        data = (buffer_address - receive_ring_phys_addr)
-               + receive_ring_virt_addr;
-        if (data == NULL || len == 0) {
-            E1000_DEBUG("Dropping incorrect packet.\n");
-            // FIXME: What should I do when such errors occur.
-            buffer = NULL;
-            goto end;
-        }
-
-#if !defined(__scc__) && !defined(__i386__)
-        cache_flush_range(data, len);
-#endif
-
-#ifdef CONFIG_MICROBENCHMARKS
-        /* This code is useful for RX micro-benchmark
-         * only to measure performance of accepting incoming packets */
-        if (g_cl != NULL) {
-            if (g_cl->debug_state == 4) {
-                uint64_t ts = rdtsc();
-
-                process_received_packet(data, len);
-                total_processing_time = total_processing_time +
-                                        (rdtsc() - ts);
-            } else {
-                process_received_packet(data, len);
-            }
-        } else {
-            process_received_packet(data, len);
-        }
-#else
-        process_received_packet(data, len);
-#endif
-
-    } else {
-        /* false alarm. Something else happened, not packet arrival */
-        return false;
+        process_received_packet(receive_opaque[receive_bufptr], len, true);
+    } // end if: valid packet received
+    else {
+    	// false alarm. Something else happened, not packet arrival
+    	return false;
     }
-
-end:
-    receive_ring_free--;
-    err = add_desc(rxd->rx_read_format.buffer_address);
-    if (err) {
-        E1000_PRINT_ERROR("ERROR: add_desc failed, so not able to re-use pbuf.\n");
-    }
-
-    receive_bufptr_index = (receive_bufptr_index + 1) % DRIVER_RECEIVE_BUFFERS;
-
+    receive_bufptr = (receive_bufptr + 1) % DRIVER_RECEIVE_BUFFERS;
+    --receive_free;
     return new_packet;
-}
+} // end function: handle_next_received_packet
+
 
 /*****************************************************************
  * print receive benchmarking stats.
@@ -665,7 +499,6 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
  ****************************************************************/
 static void polling_loop(void)
 {
-    struct waitset *ws = get_default_waitset();
     uint64_t poll_count = 0;
     uint64_t ts;
     uint8_t jobless_iterations = 0;
@@ -680,7 +513,9 @@ static void polling_loop(void)
 //        do_pending_work_for_all();
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
+        struct waitset *ws = get_default_waitset();
 //        err = event_dispatch(ws); // blocking // doesn't work correctly
+        err = event_dispatch_non_block(ws); // nonblocking
         if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
             E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
                         (unsigned int)err);
@@ -730,50 +565,59 @@ static bool parse_mac(uint8_t *mac, const char *str)
 }
 
 
-/*****************************************************************
- * Initialize the hardware
- *
- ****************************************************************/
-static void build_receive_ring(void)
+static int add_desc(uint64_t paddr, void *opaque)
 {
-    struct capref frame;
-    struct frame_identity frameid;
-    errval_t err;
-    uint32_t i;
+    e1000_dqval_t dqval = 0;
+    union rx_desc desc;
 
-    E1000_DEBUG("Setting up receive ring.\n");
+    desc.raw[0] = desc.raw[1] = 0;
+    desc.rx_read_format.buffer_address = paddr;
 
-    err = frame_alloc(&frame,
-                      (DRIVER_RECEIVE_BUFFERS - 1) * receive_buffer_size, NULL);
-    if (err_is_fail(err)) {
-        E1000_PRINT_ERROR("Error: Failed to allocate frame for receive buffers.\n");
-        exit(err);
+
+    if(receive_free == DRIVER_RECEIVE_BUFFERS) {
+        // This is serious error condition.
+        // Printing debug information to help user!
+    	//E1000N_DEBUG("no space to add a new receive pbuf\n");
+    	printf("no space to add a new receive pbuf [%"PRIu32"], [%"PRIu32"]\n",
+                receive_free, receive_index);
+        printf("%p\n%p\n%p\n", __builtin_return_address(0),
+                __builtin_return_address(1), __builtin_return_address(2));
+        abort();
+    	/* FIXME: how can you return -1 as error here
+    	 * when return type is unsigned?? */
+    	return -1;
     }
 
-    err = invoke_frame_identify(frame, &frameid);
-    if (err_is_fail(err) || frameid.base == 0) {
-        E1000_PRINT_ERROR("Error: Failed to invoke frame identity.\n");
-        exit(err);
-    }
+    receive_ring[receive_index] = desc;
+    receive_opaque[receive_index] = opaque;
 
-    receive_ring_phys_addr = (void *) ((lpaddr_t *) frameid.base);
+    receive_index = (receive_index + 1) % DRIVER_RECEIVE_BUFFERS;
+    dqval = e1000_dqval_val_insert(dqval, receive_index);
+    e1000_rdt_wr(&e1000, 0, dqval);
 
-    err = vspace_map_one_frame_attr(&receive_ring_virt_addr,
-                                    (DRIVER_RECEIVE_BUFFERS - 1) * receive_buffer_size, frame,
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(err) || receive_ring_virt_addr == 0) {
-        E1000_PRINT_ERROR("Error: Failed to vspace_map_one_frame.\n");
-        exit(err);
-    }
-
-    for (i = 0; i < DRIVER_RECEIVE_BUFFERS - 1; i++) {
-        err = add_desc(((lpaddr_t)receive_ring_phys_addr + (i * receive_buffer_size)));
-        if (err) {
-            E1000_PRINT_ERROR("Error: Failed to setup descriptor.\n");
-            exit(1);
-        }
-    }
+    receive_free++;
+    return 0;
 }
+
+static void setup_internal_memory(void)
+{
+    receive_opaque = calloc(sizeof(void *), DRIVER_RECEIVE_BUFFERS);
+    assert(receive_opaque != NULL );
+}
+
+
+
+static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
+{
+    return add_desc(paddr, opaque);
+}
+
+static uint64_t rx_find_free_slot_count_fn(void)
+{
+    return DRIVER_RECEIVE_BUFFERS - receive_free;
+}
+
+
 
 /*****************************************************************
  * PCI init callback.
@@ -789,12 +633,18 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
                  mac_address, user_mac_address, use_interrupt);
     E1000_DEBUG("Hardware initialization complete.\n");
 
-    build_receive_ring();
+    setup_internal_memory();
 
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
-                  transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
-                  handle_free_TX_slot_fn);
+		  NULL,
+                  transmit_pbuf_list_fn,
+                  find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn,
+                  receive_buffer_size,
+                  rx_register_buffer_fn,
+                  rx_find_free_slot_count_fn);
 }
+
 
 /*****************************************************************
  * e1000 interrupt handler
@@ -969,7 +819,6 @@ int main(int argc, char **argv)
     errval_t err;
 
     /** Parse command line arguments. */
-    for (int i = 1; i < argc; i++) {
     E1000N_DEBUG("e1000 standalone driver started.\n");
 
     E1000N_DEBUG("argc = %d\n", argc);
@@ -978,44 +827,32 @@ int main(int argc, char **argv)
         if (strncmp(argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
             E1000_DEBUG("minbase = %lu\n", minbase);
-        }
-
-        else if (strncmp(argv[i], "affinitymax=", strlen("affinitymax="))
+        } else if (strncmp(argv[i], "affinitymax=", strlen("affinitymax="))
                  == 0) {
             maxbase = atol(argv[i] + strlen("affinitymax="));
             E1000_DEBUG("maxbase = %lu\n", maxbase);
-        }
-
-        else if (strncmp(argv[i], "servicename=", strlen("servicename="))
+        } else if (strncmp(argv[i], "servicename=", strlen("servicename="))
                  == 0) {
             service_name = argv[i] + strlen("servicename=");
             E1000_DEBUG("service name = %s\n", service_name);
         } else if(strncmp(argv[i],"bus=",strlen("bus=")-1)==0) {
-
-        else if (strncmp(argv[i], "bus=", strlen("bus=")) == 0) {
             bus = atol(argv[i] + strlen("bus="));
             E1000_DEBUG("bus = %ul\n", bus);
             use_force = true;
-        }
-
-        else if (strncmp(argv[i], "device=", strlen("device=")) == 0) {
+        } else if (strncmp(argv[i], "device=", strlen("device=")) == 0) {
             device = atol(argv[i] + strlen("device="));
             E1000_DEBUG("device = %ul\n", device);
             use_force = true;
-        }
-
-        else if (strncmp(argv[i], "function=", strlen("function=")) == 0) {
+        } else if (strncmp(argv[i], "function=", strlen("function=")) == 0) {
             function = atol(argv[i] + strlen("function="));
             E1000_DEBUG("function = %u\n", function);
             use_force = true;
-        }
-
-        else if (strncmp(argv[i], "deviceid=", strlen("deviceid=")) == 0) {
+        } else if (strncmp(argv[i], "deviceid=", strlen("deviceid=")) == 0) {
             deviceid = strtoul(argv[i] + strlen("deviceid="), NULL, 0);
             E1000_DEBUG("deviceid = %u\n", deviceid);
             use_force = true;
+        } else if (strncmp(argv[i], "mac=", strlen("mac=")) == 0) {
 
-        else if (strncmp(argv[i], "mac=", strlen("mac=")) == 0) {
             if (parse_mac(mac_address, argv[i] + strlen("mac="))) {
                 user_mac_address = true;
                 E1000_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
@@ -1025,22 +862,16 @@ int main(int argc, char **argv)
                 exit(1);
             }
         } else if(strcmp(argv[i],"noirq")==0) {
-
-        else if (strcmp(argv[i], "noirq") == 0) {
             E1000_DEBUG("Driver working in polling mode.\n");
             use_interrupt = false;
-        }
-
-        else if (strcmp(argv[i], "-h") == 0 ||
+        } else if (strcmp(argv[i], "-h") == 0 ||
                  strcmp(argv[i], "--help") == 0) {
             exit_help(argv[0]);
-        }
-
-        else {
+        } else {
             E1000_PRINT_ERROR("Error: unknown argument: %s.\n", argv[i]);
-            exit_help(argv[0]);
+            //exit_help(argv[0]);
         }
-    }
+    } // end for :
 
     if ((minbase != -1) && (maxbase != -1)) {
         E1000_DEBUG("set memory affinity [%lx, %lx]\n", minbase, maxbase);

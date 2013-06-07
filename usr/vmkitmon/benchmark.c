@@ -91,6 +91,12 @@ void record_packet_transmit_to_bf(void){
 	}
 }
 
+
+// FIXME: (PS) added following prototype to avoid the compilation warning.
+//      But need a better way to include this function. It is defined in
+//      lib/bench/arch/x86/bench_arch.c
+uint64_t bench_tsc_to_us(cycles_t tsc);
+
 void print_bench_stats(void){
 	int ele_in_array;
 	printf("-----------  BF TO NET\n");

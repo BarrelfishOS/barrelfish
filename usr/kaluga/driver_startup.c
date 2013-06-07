@@ -72,6 +72,7 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
     size_t name_len = strlen("cardname=")+strlen(cardname)+1;
     char* card_argument = malloc(name_len);
     sprintf(card_argument, "cardname=%s", cardname);
+    printf("############# starting network with argiments %s\n", card_argument);
 
     // Spawn netd and ngd_mng
     netd->argv[0] = card_argument;

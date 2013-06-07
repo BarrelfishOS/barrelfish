@@ -17,7 +17,6 @@ extern struct buffer_descriptor *buffers_list;
 /* NETD connections */
 #define NETD_BUF_NR 2
 struct net_queue_manager_binding *netd[NETD_BUF_NR];
-bool waiting_for_netd(void);
 
 // Measurement purpose, counting interrupt numbers
 extern uint64_t interrupt_counter;
