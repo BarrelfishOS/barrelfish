@@ -98,5 +98,5 @@ errval_t init_device_manager(char *dev_name, uint64_t valid_queues,
 
     return init_ports_service(dev_name);
 //    return SYS_ERR_OK;
-} // end function: init_ports_service
+} // end function: init_device_manager
 

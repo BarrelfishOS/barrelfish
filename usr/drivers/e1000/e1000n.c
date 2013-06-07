@@ -60,15 +60,6 @@
 /* Transmit and receive buffers must be multiples of 8 */
 #define DRIVER_RECEIVE_BUFFERS      (1024 * 8)
 #define DRIVER_TRANSMIT_BUFFERS     (1024 * 8)
-//#define ENABLE_DEBUGGING_E1000 1
-#ifdef ENABLE_DEBUGGING_E1000
-static bool local_debug = true;
-#define E1000N_DEBUG(x...) do{printf("e1000n: " x);} while(0)
-#define E1000N_DPRINT(x...) do{if(local_debug) printf("e1000n: " x); } while(0)
-#else
-#define E1000N_DPRINT(x...) ((void)0)
-#define E1000N_DEBUG(x...) ((void)0)
-#endif // ENABLE_DEBUGGING_E1000
 
 /* MTU is 1500 bytes, plus Ethernet header plus CRC. */
 #define RX_PACKET_MAX_LEN       (1500 + 14 + 4)
@@ -282,7 +273,7 @@ static bool handle_free_TX_slot_fn(void)
                                   % DRIVER_TRANSMIT_BUFFERS;
     netbench_record_event_simple(bm, RE_TX_DONE, ts);
 
-    return true;
+    return sent;
 }
 
 /*****************************************************************
@@ -334,11 +325,10 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                                       void                 *opaque)
 
 {
-    E1000N_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);
+    E1000_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);
     if (!can_transmit(count)){
         while(handle_free_TX_slot_fn());
         if (!can_transmit(count)){
-
             return ETHERSRV_ERR_CANT_TRANSMIT;
         }
     }
@@ -351,11 +341,11 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                     i == (count - 1), //last?
                     opaque);
         if(err_is_fail(r)) {
-            //E1000N_DEBUG("ERROR:transmit_pbuf failed\n");
+            //E1000_DEBUG("ERROR:transmit_pbuf failed\n");
             printf("ERROR:transmit_pbuf failed\n");
             return r;
         }
-        E1000N_DEBUG("transmit_pbuf done for pbuf 0x%p, index %i\n",
+        E1000_DEBUG("transmit_pbuf done for pbuf 0x%p, index %i\n",
             opaque, i);
     } // end for: for each pbuf
 #if TRACE_ONLY_SUB_NNET
@@ -378,17 +368,17 @@ static bool handle_next_received_packet(void)
         return false;
     }
 
-//    E1000N_DEBUG("Inside handle next packet 2\n");
+//    E1000_DEBUG("Inside handle next packet 2\n");
     rxd = &receive_ring[receive_bufptr];
 
     if ((rxd->rx_read_format.info.status.dd) &&
             (rxd->rx_read_format.info.status.eop)
 //            && (!local_pbuf[receive_bufptr].event_sent)
             ) {
-        // valid packet received
 
-    E1000N_DPRINT("Potential packet receive [%"PRIu32"]!\n",
-            receive_bufptr);
+//      valid packet received
+//      E1000_DEBUG ("Potential packet receive [%"PRIu32"]!\n",
+//            receive_bufptr);
         new_packet = true;
         len = rxd->rx_read_format.info.length;
         total_rx_datasize += len;
@@ -536,7 +526,7 @@ static void polling_loop(void)
             ++jobless_iterations;
             if (jobless_iterations == 10) {
                 if (use_interrupt) {
-                    E1000N_DEBUG("no work available, yielding thread\n");
+                    E1000_DEBUG("no work available, yielding thread\n");
                     thread_yield();
                 }
             }
@@ -577,7 +567,7 @@ static int add_desc(uint64_t paddr, void *opaque)
     if(receive_free == DRIVER_RECEIVE_BUFFERS) {
         // This is serious error condition.
         // Printing debug information to help user!
-    	//E1000N_DEBUG("no space to add a new receive pbuf\n");
+    	//E1000_DEBUG("no space to add a new receive pbuf\n");
     	printf("no space to add a new receive pbuf [%"PRIu32"], [%"PRIu32"]\n",
                 receive_free, receive_index);
         printf("%p\n%p\n%p\n", __builtin_return_address(0),
@@ -819,11 +809,11 @@ int main(int argc, char **argv)
     errval_t err;
 
     /** Parse command line arguments. */
-    E1000N_DEBUG("e1000 standalone driver started.\n");
+    E1000_DEBUG("e1000 standalone driver started.\n");
 
-    E1000N_DEBUG("argc = %d\n", argc);
+    E1000_DEBUG("argc = %d\n", argc);
     for (int i = 0; i < argc; i++) {
-        E1000N_DEBUG("arg %d = %s\n", i, argv[i]);
+        E1000_DEBUG("arg %d = %s\n", i, argv[i]);
         if (strncmp(argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
             E1000_DEBUG("minbase = %lu\n", minbase);
@@ -958,6 +948,7 @@ int main(int argc, char **argv)
 
     e1000_print_link_status(&e1000_device);
 
+    E1000_DEBUG("#### starting polling.\n");
     polling_loop();
 
     return 1;

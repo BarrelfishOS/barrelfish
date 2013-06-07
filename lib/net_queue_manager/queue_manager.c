@@ -111,6 +111,7 @@ static size_t rx_buffer_size = 0;
 // client_no used to give id's to clients
 // WARN: should start at 0 as loopback table lookup depends on this assumption
 static int client_no = 0;  // number of clients(apps) connected
+static struct net_queue_manager_binding *all_apps[1024];
 
 static uint64_t buffer_id_counter = 0; // number of buffers registered
 // FIXME: following should be gone in next version of code
@@ -229,6 +230,8 @@ struct buffer_descriptor *get_lo_receiver(void *opaque)
 // Client and buffer management code
 // *************************************************************
 
+
+
 // Creates a new client for given connection
 static struct client_closure *create_new_client(
         struct net_queue_manager_binding *b)
@@ -264,10 +267,13 @@ static struct client_closure *create_new_client(
     reset_client_closure_stat(cc);
     cc->start_ts = rdtsc();
 
+    all_apps[client_no] = b;
+
     cc->cl_no = client_no++;
 
     char name[64];
-    sprintf(name, "ether_a_%d", cc->cl_no);
+    sprintf(name, "ether_a_%d_%s", cc->cl_no,
+                (cc->cl_no % 2)? "RX" : "TX");
     cc->q = create_cont_q(name);
     if (cc->q == NULL) {
         ETHERSRV_DEBUG("create_new_client: queue allocation failed\n");
@@ -473,7 +479,7 @@ static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
     }
 }
 
-static void send_raw_xmit_done(struct net_queue_manager_binding *b,
+static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
                                uint64_t offset, uint64_t length)
 {
     struct client_closure *ccl = (struct client_closure *) b->st;
@@ -493,15 +499,17 @@ static void send_raw_xmit_done(struct net_queue_manager_binding *b,
 //        USER_PANIC("queue full, can go further\n");
 
         if (passed_events > 5) {
-            USER_PANIC("queue full, can go further\n");
-            //return CONT_ERR_NO_MORE_SLOTS;
+            cont_queue_show_queue(ccl->q);
+            printf("########### queue full, can't go further ############\n");
+            // USER_PANIC("queue full, can't go further\n");
+            return CONT_ERR_NO_MORE_SLOTS;
         }
         event_dispatch(ws);
         ++passed_events;
     }
 
-
     enqueue_cont_q(ccl->q, &entry);
+    return SYS_ERR_OK;
 } // end function: send_raw_xmit_done
 
 
@@ -599,8 +607,14 @@ bool handle_tx_done(void *opaque)
     --buffer->txq.buffer_state_used;
 
     // Handle raw interface
-    send_raw_xmit_done(bsm->binding, (uintptr_t)bsm->offset, 0);
-    return true;
+    errval_t err = send_raw_xmit_done(bsm->binding, (uintptr_t)bsm->offset, 0);
+    if (err_is_ok(err)) {
+        return true;
+    } else {
+        printf("handle_tx_done failed for client_no %d\n", cl->cl_no);
+        return false;
+    }
+
 }// end function: handle_tx_done
 
 
@@ -651,9 +665,19 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 
         assert(is_last);
 
-        send_raw_xmit_done(bsm->binding, bsm->offset, pkt_len);
-        --buf->rxq.buffer_state_used;
-        return;
+        errval_t err = send_raw_xmit_done(bsm->binding, bsm->offset, pkt_len);
+        if (err_is_ok(err)) {
+            --buf->rxq.buffer_state_used;
+            return;
+        } else {
+            // As application is not able to process the packet
+            // we will drop this one
+            USER_PANIC("send_raw_xmit_done failed as queue full, can't go further: 1\n");
+            // FIXME: Don't crash. figure out how can you drop the packet
+            // and continue working after dropping the packet
+            --buf->rxq.buffer_state_used;
+            return;
+        }
     }
 } // end function: process_received_packet
 
@@ -681,17 +705,27 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
     // check if there are slots which can be used in app (!isempty)
     if(buffer->rxq.buffer_state_used == 0) {
 
-        printf("[%d] Dropping packet as no space in userspace "
+        printf("[%s] Dropping packet as no space in userspace "
                 "2cp pkt buf [%" PRIu64 "]: "
                 "size[%"PRIu64"] used[%"PRIu64"], after [%"PRIu64"] sent"
-                " added [%"PRIu64"] \n",
-                disp_get_domain_id(),
+                " added [%"PRIu64"] \n", disp_name(),
                 buffer->buffer_id, buffer->rxq.buffer_state_size,
                 buffer->rxq.buffer_state_used, sent_packets, rx_added);
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }
         //abort(); // optional, should be removed
+        return false;
+    }
+
+    if (!is_enough_space_in_queue(cl->q)) {
+
+        printf("[%s] Dropping packet as app [%d] is not processing packets"
+                "fast enough.  Cont queue is almost full [%d]\n",
+                disp_name(), cl->cl_no, queue_free_slots(cl->q));
+        if (cl->debug_state == 4) {
+            ++cl->in_dropped_app_buf_full;
+        }
         return false;
     }
 
@@ -725,7 +759,19 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 #endif // TRACE_ETHERSRV_MODE
 
     // Handle raw interface
-    send_raw_xmit_done(b, offset, len);
+    errval_t err = send_raw_xmit_done(b, offset, len);
+    if (err_is_ok(err)) {
+        return true;
+    } else {
+        // As application is not able to process the packet
+        // we will drop this one
+        USER_PANIC("send_raw_xmit_done failed as queue full, can't go further: 2\n");
+        // FIXME: Don't crash. ignore the packet, undo any changes done by it
+        // and continue.  Ideally this shouldn't happen as we are checking for
+        // free space before actually sending the packt.
+        return false;
+    }
+
     return true;
 } // end function: copy_packet_to_user
 

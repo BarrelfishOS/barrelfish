@@ -69,6 +69,7 @@ struct cont_queue *create_cont_q(char *name)
 }/* end function: create_cont_q */
 
 
+
 /* Tells if queue has enough space to add more events,
  * or if the producer should pause for a while */
 int queue_free_slots(struct cont_queue *q)
@@ -83,6 +84,15 @@ int queue_free_slots(struct cont_queue *q)
     }
 } // end function
 
+
+int is_enough_space_in_queue(struct cont_queue *q)
+{
+    if (queue_free_slots(q) > (MAX_QUEUE_SIZE/10)) {
+        return true;
+    } else {
+        return false;
+    }
+} // end function: is_enough_space_in_queue
 
 
 bool can_enqueue_cont_q(struct cont_queue *q)
@@ -183,13 +193,15 @@ void cont_queue_send_next_message(struct cont_queue *q)
 
 void cont_queue_show_queue(struct cont_queue *q)
 {
-/*
-    int i = 0;
-    int idx = 0;
+
     int len = 0;
     len = q->head - q->tail;
     printf("Showing the cont queue status for queue[%s]\n", q->name);
     printf("queue len [%d]==> head [%d] - tail [%d]\n", len, q->head, q->tail);
+
+    /*
+    int i = 0;
+    int idx = 0;
     idx = q->tail;
     while (idx != q->head){
         printf("elem %d: [%s], state %u\n", idx, q->qelist[idx].fname,
@@ -207,7 +219,8 @@ void cont_queue_show_queue(struct cont_queue *q)
         printf("elem %d: [%s], state %d\n", idx, q->qelist[idx].fname,
                 q->qelist[idx].history);
     }
-*/
+    */
+
 } // end function: cont_queue_show_queue
 
 

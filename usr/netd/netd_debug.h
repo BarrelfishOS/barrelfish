@@ -14,9 +14,9 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-#define NETD_SERVICE_DEBUG 1
+//#define NETD_SERVICE_DEBUG 1
 #if defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define NETD_DEBUG(x...) printf("netd: " x)
+#define NETD_DEBUG(x...) printf("NETD: " x)
 #else
 #define NETD_DEBUG(x...) ((void)0)
 #endif // defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)

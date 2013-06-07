@@ -36,7 +36,7 @@ __BEGIN_DECLS
  * 5. void * pointers are casted to uint64_t which is assumed to be lossless.
  * */
 
-#define MAX_QUEUE_SIZE 512
+#define MAX_QUEUE_SIZE 1024
 #define MAX_PARAMS 10
 
 struct q_entry {
@@ -66,6 +66,7 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry);
 void cont_queue_callback(void *arg);
 void cont_queue_show_queue(struct cont_queue *q);
 int queue_free_slots(struct cont_queue *q);
+int is_enough_space_in_queue(struct cont_queue *q);
 
 void show_binary_blob (void *data, int len);
 

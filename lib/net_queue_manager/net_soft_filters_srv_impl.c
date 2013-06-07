@@ -1171,7 +1171,7 @@ static bool handle_arp_packet(void *packet, size_t len)
 static bool handle_netd_packet(void *packet, size_t len)
 {
     if(waiting_for_netd()){
-        ETHERSRV_DEBUG("waiting for netd\n");
+//        ETHERSRV_DEBUG("waiting for netd\n");
     	return false;
     }
 
