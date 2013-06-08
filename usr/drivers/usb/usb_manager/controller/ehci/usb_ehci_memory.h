@@ -37,4 +37,6 @@ usb_paddr_t usb_ehci_buffer_page_alloc(void);
 void usb_ehci_buffer_page_free(usb_paddr_t buf);
 
 void usb_ehci_pframes_alloc(usb_ehci_hc_t *hc);
+
+
 #endif /* USB_EHCI_MEMORY_H_ */

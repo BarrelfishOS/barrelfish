@@ -18,9 +18,6 @@ static struct usb_page *free_pages = NULL;
 
 static struct usb_dma_page *free_dma_buffers = NULL;
 
-
-
-
 /**
  * \brief   allocates a chunk of memory from a given usb_page with the given
  *          size and alignment constraints.
@@ -31,8 +28,7 @@ static struct usb_dma_page *free_dma_buffers = NULL;
  * \param ret_mem   the filled usb_mem_block structure with all the information
  *
  * \return  size of the requested block
- */
-uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
+ */uint32_t usb_mem_next_block(uint32_t size, uint32_t align,
         struct usb_page *page, struct usb_memory_block *ret_mem)
 {
     // check if there is enough free space on this usb page
@@ -128,20 +124,35 @@ void usb_mem_page_free(struct usb_page *mem)
 
 struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
 {
-    struct usb_dma_page *ret;
+    struct usb_dma_page *ret, *prev;
+
+    /* round up */
+    size = size + (USB_PAGE_SIZE - (size & 0xFFF));
+
+    ret = free_dma_buffers;
+    prev = NULL;
 
     // check if we have a free page left
-    if (free_dma_buffers != NULL) {
-        ret = free_dma_buffers;
-        free_dma_buffers = free_dma_buffers->next;
-        ret->next = NULL;
-        return (ret);
+    while (ret) {
+        if (ret->size >= size) {
+            if (prev) {
+                prev->next = ret->next;
+
+            } else {
+                free_dma_buffers = ret->next;
+                ret->next = NULL;
+
+            }
+            return (ret);
+        }
+        prev = ret;
+        ret = ret->next;
     }
 
     ret = (struct usb_dma_page *) malloc(sizeof(struct usb_dma_page));
     memset(ret, 0, sizeof(struct usb_dma_page));
 
-    errval_t err = frame_alloc(&ret->cap, USB_PAGE_SIZE, NULL);
+    errval_t err = frame_alloc(&ret->cap, size, NULL);
 
     if (err) {
         return NULL;
@@ -153,16 +164,16 @@ struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
         return NULL;
     }
 
-    err = vspace_map_one_frame_attr(&ret->buffer, USB_PAGE_SIZE, ret->cap,
+    err = vspace_map_one_frame_attr(&ret->buffer, size, ret->cap,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
 
     if (err) {
         return NULL;
     }
     ret->phys_addr = ret->frame_id.base;
-    ret->size = USB_PAGE_SIZE;
+    ret->size = size;
 
-    return ret;
+    return (ret);
 }
 
 void usb_mem_dma_free(struct usb_dma_page *page)
@@ -175,30 +186,34 @@ void usb_mem_dma_free(struct usb_dma_page *page)
     free_dma_buffers = page;
 }
 
-
-void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data, uint32_t length)
+void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data,
+        uint32_t length)
 {
-    USB_DEBUG_TR("usb_mem_copy_in()\n");
+
     if (pg == NULL || data == NULL) {
+        debug_printf("WARNING: wrong data structures\n");
         return;
     }
 
-    if ((offset + length)>pg->size) {
+    if ((offset + length) > pg->size) {
+        debug_printf("WARNING: offset+length > pg->size\n");
         return;
     }
-    memcpy(pg->buffer+offset, data, length);
+
+    memcpy(pg->buffer + offset, data, length);
+
+    return;
 }
 
-
-void usb_mem_copy_out(struct usb_dma_page *pg, uint32_t offset, void *data, uint32_t length)
+void usb_mem_copy_out(struct usb_dma_page *pg, uint32_t offset, void *data,
+        uint32_t length)
 {
     if (pg == NULL || data == NULL) {
-            return;
-        }
-    if ((offset + length)>pg->size) {
-            return;
-        }
-    memcpy(data, (pg->buffer)+offset, length);
+        return;
+    }
+    if ((offset + length) > pg->size) {
+        return;
+    }
+    memcpy(data, (pg->buffer) + offset, length);
 }
-
 

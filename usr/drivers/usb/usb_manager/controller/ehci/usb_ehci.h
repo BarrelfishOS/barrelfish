@@ -10,12 +10,10 @@
 #ifndef USB_EHCI_H_
 #define USB_EHCI_H_
 
-
 #include <usb/usb.h>
 #include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
 #include <usb_hub.h>
-
 
 /// maximum devices supported by the host controller
 #define USB_EHCI_MAX_DEVICES 128
@@ -97,10 +95,10 @@
  */
 union usb_ehci_td_next {
     struct usb_ehci_td_next_ptr {
+        uint32_t valid :1;  ///< Valid bit (0 = Valid)
+        uint32_t typ :2;    ///< Type of the element referenced by next
+        uint32_t _zero :2;  ///< Always zero
         usb_paddr_t next_link :27;  ///< Pointer to the next element
-        volatile uint8_t _zero :2;  ///< Always zero
-        volatile uint8_t typ :2;    ///< Type of the element referenced by next
-        volatile uint8_t valid :1;  ///< Valid bit (0 = Valid)
     } fields;
     usb_paddr_t address;
 };
@@ -134,11 +132,11 @@ typedef union usb_ehci_td_next usb_ehci_td_next_t;
  * Describes the content of the status fields of an iTD.
  */
 struct usb_ehci_itd_status {
-    volatile uint8_t status :4;        ///< transaction status record
-    volatile uint16_t length :12;      ///< length of the data in bytes
-    volatile uint8_t ioc :1;           ///< issue an interrupt upon completion
-    volatile uint8_t page_select :3;   ///< page buffer to use (0..6)
-    volatile uint16_t offset :12;      ///< offset in the buffer in bytes
+    uint32_t offset :12;      ///< offset in the buffer in bytes
+    uint32_t page_select :3;   ///< page buffer to use (0..6)
+    uint32_t ioc :1;           ///< issue an interrupt upon completion
+    uint32_t length :12;      ///< length of the data in bytes
+    uint32_t status :4;        ///< transaction status record
 };
 
 /// iTD status field type
@@ -150,20 +148,20 @@ typedef struct usb_ehci_itd_status usb_ehci_itd_status_t;
  */
 union usb_ehci_itd_bp {
     struct bp_0 {
+        uint32_t device_addres :7;        ///< the device of for this TD
+        uint32_t endpoint :4;             ///< then endpoint number for this TD
+        uint32_t _reserved :1;            ///< reserved, has to be zero
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
-        uint8_t endpoint :4;             ///< then endpoint number for this TD
-        uint8_t _reserved :1;            ///< reserved, has to be zero
-        uint8_t device_addres :7;        ///< the device of for this TD
     } bp_0;                   ///< Representation for BP 0
     struct bp_1 {
+        uint32_t max_packet_size :11;    ///< maximum packet size for this EP
+        uint32_t direction :1;            ///< Direction of the transfer (1=IN)
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
-        uint8_t direction :1;            ///< Direction of the transfer (1=IN)
-        uint16_t max_packet_size :11;    ///< maximum packet size for this EP
     } bp_1;                   ///< Representation for BP 1
     struct bp_2 {
+        uint32_t multi :2;               ///< num of transactions per uFrame 0..3
+        uint32_t _reserved :10;          ///< reserved, has to be zero
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
-        uint16_t _reserved :10;          ///< reserved, has to be zero
-        uint8_t multi :2;               ///< num of transactions per uFrame 0..3
     } bp_2;                   ///< Representation for BP 2
     usb_paddr_t bp;           ///< Representation for BP 3..6
 };
@@ -202,17 +200,17 @@ typedef struct usb_ehci_itd usb_ehci_itd_t;
  * scheduling control.
  */
 struct usb_ehci_sitd_ep {
-    uint8_t direction :1;      ///< direction of the transfer (IN = 1)
-    uint8_t port_number :7;    ///< port number of recipient TT
-    uint8_t _reserved_1 :1;    ///< reserved, should be zero
-    uint8_t hub_address :7;    ///< device address of the TT's hub
-    uint8_t _reserved_2 :4;    ///< reserved, should be zero
-    uint8_t endpoint :4;       ///< endpoint number of the device
-    uint8_t _reserved_3 :1;    ///< reserved, should be zero
-    uint8_t device_address :7;  ///< the device address of this transfer
-    uint16_t _reserved_4;       ///< reserved, should be zero
-    uint8_t c_mask;             ///< split competition mask
-    uint8_t s_mask;             ///< split start mask
+    uint32_t device_address :7;  ///< the device address of this transfer
+    uint32_t _reserved_3 :1;    ///< reserved, should be zero
+    uint32_t endpoint :4;       ///< endpoint number of the device
+    uint32_t _reserved_2 :4;    ///< reserved, should be zero
+    uint32_t hub_address :7;    ///< device address of the TT's hub
+    uint32_t _reserved_1 :1;    ///< reserved, should be zero
+    uint32_t port_number :7;    ///< port number of recipient TT
+    uint32_t direction :1;      ///< direction of the transfer (IN = 1)
+    uint32_t s_mask : 8;             ///< split start mask
+    uint32_t c_mask : 8;             ///< split competition mask
+    uint32_t _reserved_4 : 16;       ///< reserved, should be zero
 };
 
 /// siTD Endoint Capabilities/Characteristics state
@@ -225,12 +223,12 @@ typedef struct usb_ehci_sitd_ep usb_ehci_sitd_ep_t;
  * Dwords 3-6 are used to manage the state of the transfer.
  */
 struct usb_ehci_sitd_state {
-    uint8_t ioc :1;         ///< interrupt on complete (1=do an interrupt)
-    uint8_t page_select :1;  ///< which data page pointer to use
-    uint8_t _reserved :4;   ///< reserved, should be zero
-    uint16_t length :10;    ///< total bytes to transfer
-    uint8_t c_prog_mask;     ///< frame complete-split progress mask
-    uint8_t status;          ///< status of the transaction executed
+    uint32_t status : 8;          ///< status of the transaction executed
+    uint32_t c_prog_mask : 8;     ///< frame complete-split progress mask
+    uint32_t length :10;    ///< total bytes to transfer
+    uint32_t _reserved :4;   ///< reserved, should be zero
+    uint32_t page_select :1;  ///< which data page pointer to use
+    uint32_t ioc :1;         ///< interrupt on complete (1=do an interrupt)
 };
 
 /// siTD transaction state type
@@ -283,14 +281,15 @@ typedef struct usb_ehci_sitd_state usb_ehci_sitd_state_t;
  */
 union usb_ehci_sitd_bp {
     struct usb_ehci_sitd_bp_0 {
+        usb_paddr_t offset :12;            ///< offset into the page buffer
         usb_paddr_t buffer_pointer :20;  ///< physical address of the buffer
-        uint16_t offset :12;            ///< offset into the page buffer
+
     } bp_0;
     struct usb_ehci_sitd_bp_1 {
+        uint32_t count :3;               ///< number of OUT start-split requests
+        uint32_t tp :2;                  ///< transaction position
+        uint32_t _reserved :7;           ///< reserved, should be zero
         usb_paddr_t buffer_pointer :20;  ///< physical address of the buffer
-        uint8_t _reserved :7;           ///< reserved, should be zero
-        uint8_t tp :2;                  ///< transaction position
-        uint8_t count :3;               ///< number of OUT start-split requests
     } bp_1;
     usb_paddr_t bp;
 };
@@ -338,13 +337,13 @@ typedef struct usb_ehci_sitd usb_ehci_sitd_t;
  * remaining endpoint-addressing information is specified in the queue head).
  */
 struct usb_ehci_qtd_token {
-    uint8_t data_toggle :1;     ///< data toggle bit
-    uint16_t bytes :15;        ///< total bytes to transfer,
-    uint8_t ioc :1;            ///< interrupt on complete
-    uint8_t current_page :3;   ///< index into the buffer pointer list
-    uint8_t err_count :2;      ///< number of consecutive errors
-    uint8_t pid :2;            ///< pid code
-    uint8_t status;             ///<
+    uint32_t status : 8;             ///<
+    uint32_t pid :2;            ///< pid code
+    uint32_t err_count :2;      ///< number of consecutive errors
+    uint32_t current_page :3;   ///< index into the buffer pointer list
+    uint32_t ioc :1;            ///< interrupt on complete
+    uint32_t bytes :15;        ///< total bytes to transfer,
+    uint32_t data_toggle :1;     ///< data toggle bit
 };
 
 typedef struct usb_ehci_qtd_token usb_ehci_qtd_token_t;
@@ -403,8 +402,8 @@ typedef struct usb_ehci_qtd_token usb_ehci_qtd_token_t;
 
 union usb_ehci_qtd_bp {
     struct usb_ehci_qtd_bp0 {
-        usb_paddr_t bp_list :20;  ///< physaddr of a 4k aligned memory region
         uint16_t offset :12;      ///< offset into the memory region
+        usb_paddr_t bp_list :20;  ///< physaddr of a 4k aligned memory region
     } bp_0;                       ///< representation for the first buffer page
     usb_paddr_t bp;               ///< physaddr of a 5k aligned memory region
 };
@@ -458,21 +457,21 @@ typedef struct usb_ehci_qtd usb_ehci_qtd_t;
  */
 struct usb_ehci_qh_ep {
     /* endpoint characteristics */
-    uint8_t nak_count_reload :4;   ///< value to re load the NAK fields
-    uint8_t is_control_ep :1;      ///< EP is control (for non HS EPs only)
-    uint16_t max_packet_size :11;  ///< the maximum packet size (max 1024)
-    uint8_t head_reclamation :1;   ///< this QH is the head of the reclamation
-    uint8_t data_toggle_ctrl :1;   ///< initial data toggle from qTD
-    uint8_t ep_speed :2;           ///< endpoint speed
-    uint8_t ep_number :4;          ///< endpoint number for this request
-    uint8_t inactive :1;           ///< request active bit set to zero
-    uint8_t device_address :7;     ///< the device for this request
+    uint32_t device_address :7;     ///< the device for this request
+    uint32_t inactive :1;           ///< request active bit set to zero
+    uint32_t ep_number :4;          ///< endpoint number for this request
+    uint32_t ep_speed :2;           ///< endpoint speed
+    uint32_t data_toggle_ctrl :1;   ///< initial data toggle from qTD
+    uint32_t head_reclamation :1;   ///< this QH is the head of the reclamation
+    uint32_t max_packet_size :11;  ///< the maximum packet size (max 1024)
+    uint32_t is_control_ep :1;      ///< EP is control (for non HS EPs only)
+    uint32_t nak_count_reload :4;   ///< value to re load the NAK fields
     /* endpoint capabilities */
-    uint8_t mult :2;               ///< number of transactions issued
-    uint8_t port_number :7;        ///< port number identifier of USB2.0 hub
-    uint8_t hub_addr :7;           ///< address of the hub doint FS/LS trans
-    uint8_t complete_mask;          ///< split completition mask
-    uint8_t irq_mask;               ///< interrupt schedule mask
+    uint32_t irq_mask :8;               ///< interrupt schedule mask
+    uint32_t complete_mask :8;          ///< split completition mask
+    uint32_t hub_addr :7;           ///< address of the hub doint FS/LS trans
+    uint32_t port_number :7;        ///< port number identifier of USB2.0 hub
+    uint32_t mult :2;               ///< number of transactions issued
 };
 
 /// queue head endpoint characteristics type
@@ -495,13 +494,13 @@ typedef struct usb_ehci_qh_ep usb_ehci_qh_ep_t;
  * Queue head status fields
  */
 struct usb_ehci_qh_status {
-    uint8_t data_togglet :1;    ///< data toggle control
-    uint16_t bytes :15;         ///< length of the transfer in bytes
-    uint8_t ioc :1;             ///< interrupt on completition flag
-    uint8_t current_page :3;    ///< current buffer page
-    uint8_t err_count :2;       ///< error counter
-    uint8_t pid :2;             ///< pid of the transfer
-    uint8_t status;             ///< status of the transfer
+    uint32_t status : 8;             ///< status of the transfer
+    uint32_t pid :2;             ///< pid of the transfer
+    uint32_t err_count :2;       ///< error counter
+    uint32_t current_page :3;    ///< current buffer page
+    uint32_t ioc :1;             ///< interrupt on completition flag
+    uint32_t bytes :15;         ///< length of the transfer in bytes
+    uint32_t data_togglet :1;    ///< data toggle control
 };
 
 ///
@@ -512,18 +511,18 @@ typedef struct usb_ehci_qh_status usb_ehci_qh_status_t;
  */
 union usb_ehci_qh_bp {
     struct usb_ehci_qh_bp_0 {
+        uint32_t offset :12;        ///< offset into the buffer
         usb_paddr_t address :20;    ///< address of the buffer page
-        uint16_t offset :12;        ///< offset into the buffer
     } bp_0;                         ///< format of buffer page 0
     struct usb_ehci_qh_bp_1 {
+        uint32_t c_prog_mask :8;    ///< split transaction progress
+        uint32_t _reserved :4;       ///< reserved, should be zero
         usb_paddr_t address :20;    ///< address of the buffer page
-        uint8_t _reserved :4;       ///< reserved, should be zero
-        uint8_t c_prog_mask : 8;    ///< split transaction progress
     } bp_1;                         ///< format of buffer page 1
     struct usb_ehci_qh_bp_2 {
+        uint32_t tag :5;             ///< frame tag
+        uint32_t bytes :7;           ///< keeps track of bytes sent / received
         usb_paddr_t address :20;    ///< address of the buffer page
-        uint8_t bytes :7;           ///< keeps track of bytes sent / received
-        uint8_t tag :5;             ///< frame tag
     } bp_2;                         ///< format of buffer page 2
     usb_paddr_t bp;                 ///< address of the buffer page
 };
@@ -566,7 +565,7 @@ typedef struct usb_ehci_qh usb_ehci_qh_t;
 struct usb_ehci_fstn {
     usb_paddr_t fstn_link;    ///< physaddr of the next data object
     usb_paddr_t fstn_back;    ///< linkpointer to a queue head
-} __aligned(USB_EHCI_FSTN_ALIGN);
+}__aligned(USB_EHCI_FSTN_ALIGN);
 
 /// EHCI Periodic Frame Span Traversal Node type
 typedef struct usb_ehci_fstn usb_ehci_fstn_t;
@@ -585,7 +584,6 @@ typedef struct usb_ehci_fstn usb_ehci_fstn_t;
 /// validity check for the back path pointer
 #define USB_EHCI_FSTN_BACK_VALID(fstn) \
     (!(((fstn)->fstn_back) & 0x1))
-
 
 /**
  *
@@ -606,16 +604,15 @@ struct usb_ehci_config_descriptor {
     struct usb_endpoint_descriptor endpoint;
 };
 
-
 struct usb_ehci_hc_flags {
-    uint8_t set_mode : 1;
-    uint8_t force_speed : 1;
-    uint8_t no_term_reset: 1;
-    uint8_t big_endian_desc: 1;
-    uint8_t big_endian_mimo: 1;
-    uint8_t tt_present: 1;
-    uint8_t bug_lost_int: 1;
-    uint8_t iaa_bug :1 ;
+    uint8_t set_mode :1;
+    uint8_t force_speed :1;
+    uint8_t no_term_reset :1;
+    uint8_t big_endian_desc :1;
+    uint8_t big_endian_mimo :1;
+    uint8_t tt_present :1;
+    uint8_t bug_lost_int :1;
+    uint8_t iaa_bug :1;
 };
 
 /**
@@ -623,19 +620,18 @@ struct usb_ehci_hc_flags {
  */
 struct usb_ehci_hc {
     struct ehci_t *ehci_base;
-    struct usb_host_controller *controller;
-    uint32_t enabled_interrupts;
+    struct usb_host_controller *controller;uint32_t enabled_interrupts;
     uint16_t revision;
     struct usb_ehci_hc_flags flags;
 
     /* root hub */
     union usb_ehci_hub_descriptor root_hub_descriptor;
     uint8_t root_hub_num_ports;
-    uint8_t root_hub_address;        /* device address */
-    uint8_t root_hub_config;        /* device configuration */
+    uint8_t root_hub_address; /* device address */
+    uint8_t root_hub_config; /* device configuration */
     uint8_t root_hub_interrupt_data[8];
-    uint16_t root_hub_id_vendor;      /* vendor ID for root hub */
-    char    root_hub_vendor[16];      /* vendor string for root hub */
+    uint16_t root_hub_id_vendor; /* vendor ID for root hub */
+    char root_hub_vendor[16]; /* vendor string for root hub */
     uint8_t root_hub_reset;
     struct usb_device *root_hub;
 
@@ -658,12 +654,10 @@ struct usb_ehci_hc {
     struct usb_ehci_sitd *sidt_free;
     struct usb_ehci_itd *itd_free;
 
-    uint8_t sc_doorbell_disable;    /* set on doorbell failure */
-
+    uint8_t sc_doorbell_disable; /* set on doorbell failure */
 
 };
 typedef struct usb_ehci_hc usb_ehci_hc_t;
-
 
 /*
  * Function Prototypes
@@ -671,7 +665,5 @@ typedef struct usb_ehci_hc usb_ehci_hc_t;
 
 void usb_ehci_interrupt(usb_host_controller_t *host);
 usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base);
-
-
 
 #endif /* USB_EHCI_H_ */

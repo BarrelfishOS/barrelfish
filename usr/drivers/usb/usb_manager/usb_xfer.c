@@ -34,7 +34,7 @@ void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer)
     USB_DEBUG_TR("usb_xfer_enqueue()\n");
     // check if already in a queue
     if (xfer->wait_queue == NULL) {
-
+        USB_DEBUG("adding to queue...\n");
         assert(queue != NULL);
 
         xfer->wait_queue = queue;
@@ -44,7 +44,6 @@ void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer)
 
         *(&queue->head)->last_next = (xfer);
         (&queue->head)->last_next = &(((xfer))->wait_entry.next);
-
     }
 }
 
@@ -56,6 +55,7 @@ void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer)
  */
 void usb_xfer_dequeue(struct usb_xfer *xfer)
 {
+    USB_DEBUG_TR("usb_xfer_dequeue()\n");
     struct usb_xfer_queue *queue;
 
     queue = xfer->wait_queue;
@@ -157,6 +157,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     xfer->timeout = setup_config->timeout;
     xfer->interval = setup_config->interval;
     xfer->endpoint_number = ep_desc->bEndpointAddress.ep_number;
+    xfer->ed_direction = ep_desc->bEndpointAddress.direction;
     xfer->max_packet_size = ep_desc->wMaxPacketSize;
     xfer->flags_internal.usb_mode = param->device->flags.usb_mode;
     xfer->max_packet_count = 1;
@@ -308,7 +309,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     }
 
     if (xfer->flags.ext_buffer) {
-        USB_DEBUG("setup proxy buffer.\n");
         param->bufsize += (xfer->max_frame_size - 1);
 
         if (param->bufsize < xfer->max_frame_size) {
@@ -386,8 +386,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     for (uint32_t i = 0; i < xfer->num_frames; i++) {
         xfer->frame_lengths[i] = 0;
-        xfer->frame_buffers[i] = usb_mem_dma_alloc(USB_PAGE_SIZE,
-                USB_PAGE_SIZE);
+        xfer->frame_buffers[i] = usb_mem_dma_alloc(
+                param->num_pages * USB_PAGE_SIZE, USB_PAGE_SIZE);
     }
 
     if (!xfer->flags.ext_buffer) {

@@ -387,9 +387,8 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     dev->state = USB_DEVICE_STATE_POWERED;
 
     if (dev->flags.usb_mode == USB_MODE_HOST) {
-        USB_DEBUG("calling usb_req_set_address()\n");
+        USB_DEBUG("calling usb_req_set_address() %u\n", dev->device_address);
         err = usb_req_set_address(dev, device_index);
-
         if (dev->device_address == 0) {
             dev->device_address = device_index;
         }

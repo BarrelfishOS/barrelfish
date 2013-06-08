@@ -22,8 +22,6 @@
 #include "usb_ehci_xfer.h"
 #include "usb_ehci_queue.h"
 
-
-
 void usb_ehci_enqueue_xfer_intrq(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR("usb_ehci_enqueue_xfer_intrq()\n");
@@ -48,14 +46,14 @@ void usb_ehci_enqueue_xfer_intrq(struct usb_xfer *xfer)
      */
 }
 
-
 /**
  * \brief enqueues a new split isochronus transaction descriptor into the queue
  *
  * \param sitd the siTD to insert into the list
  * \param last the last element of the list
  */
-usb_ehci_sitd_t *usb_ehci_enq_fs_td(usb_ehci_sitd_t *sitd, usb_ehci_sitd_t *last)
+usb_ehci_sitd_t *usb_ehci_enq_fs_td(usb_ehci_sitd_t *sitd,
+        usb_ehci_sitd_t *last)
 {
     /*
      * update the virtual links
@@ -79,7 +77,8 @@ usb_ehci_sitd_t *usb_ehci_enq_fs_td(usb_ehci_sitd_t *sitd, usb_ehci_sitd_t *last
  * \param sitd the siTD element to be removed
  * \param last the last element of the list
  */
-usb_ehci_sitd_t *usb_ehci_deq_fs_td(usb_ehci_sitd_t *sitd, usb_ehci_sitd_t *last)
+usb_ehci_sitd_t *usb_ehci_deq_fs_td(usb_ehci_sitd_t *sitd,
+        usb_ehci_sitd_t *last)
 {
     /*
      * update virtual pointers
@@ -91,14 +90,12 @@ usb_ehci_sitd_t *usb_ehci_deq_fs_td(usb_ehci_sitd_t *sitd, usb_ehci_sitd_t *last
      */
     sitd->prev->sitd_next = sitd->sitd_next;
 
-
     if (sitd->next) {
-          sitd->next->prev = sitd->prev;
-      }
+        sitd->next->prev = sitd->prev;
+    }
 
-    return ((last==sitd) ? sitd->prev : last);
+    return ((last == sitd) ? sitd->prev : last);
 }
-
 
 /*
  * \brief enqueues a new isochronus transaction descriptor into the queue
@@ -143,12 +140,11 @@ usb_ehci_itd_t *usb_ehci_deq_hs_td(usb_ehci_itd_t *std, usb_ehci_itd_t *last)
      */
     std->prev->itd_next = std->itd_next;
 
-
     if (std->next) {
-          std->next->prev = std->prev;
-      }
+        std->next->prev = std->prev;
+    }
 
-    return ((last==std) ? std->prev : last);
+    return ((last == std) ? std->prev : last);
 }
 
 /**
@@ -168,16 +164,13 @@ usb_ehci_qh_t *usb_ehci_enq_qh(usb_ehci_qh_t *qh, usb_ehci_qh_t *last)
         return (last);
     }
 
-    /*
-     * update virtual pointers
-     */
     qh->next = last->next;
     qh->qh_link = last->qh_link;
 
     qh->prev = last;
 
     last->next = qh;
-    last->qh_link = qh->qh_self;
+    last->qh_link = qh->qh_self | (USB_EHCI_LINKTYPE_QH << 1);
 
     return (qh);
 }

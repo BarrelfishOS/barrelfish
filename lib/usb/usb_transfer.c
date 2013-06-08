@@ -324,6 +324,7 @@ usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid)
  */
 usb_error_t usb_transfer_start(usb_xfer_id_t tid)
 {
+    USB_DEBUG("libusb: transfer_start()");
     struct usb_xfer_state *st = usb_xfer_state_get(tid);
     if (st == NULL) {
         return (USB_ERR_INVAL);

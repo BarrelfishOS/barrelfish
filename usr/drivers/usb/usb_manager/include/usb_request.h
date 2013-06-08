@@ -43,7 +43,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         struct usb_device_request *req, struct usb_request_state *req_state,
         void *data, uint16_t *ret_length);
 
-usb_error_t usb_exec_request(struct usb_device *device,
+usb_error_t usb_exec_request(struct usb_device *device, uint16_t flags,
         struct usb_device_request *request, void *data, uint16_t *ret_length);
 
 /* handler function for new device initialization */

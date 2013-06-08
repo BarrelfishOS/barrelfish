@@ -32,9 +32,11 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         void *data, uint16_t *ret_length)
 {
     struct usb_xfer *xfer;
-    usb_error_t err;
+    usb_error_t err = USB_ERR_OK;
     uint16_t length = req->wLength;
     uint16_t actual_length = 0;
+
+    debug_printf("\n\nusb_handle_request: length = %u\n", length);
 
     /*
      * check if the device is in the correct state to handle requests
@@ -133,6 +135,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
     usb_transfer_setup_ctrl_default(device, req_state);
 
+
     xfer = device->ctrl_xfer[0];
 
     if (xfer == NULL) {
@@ -167,13 +170,16 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     usb_mem_copy_in(xfer->frame_buffers[0], 0, req, sizeof(*req));
     xfer->frame_lengths[0] = sizeof(*req);
 
+
     /*
      * loop till we got all requested data
      */
     uint16_t current_data_length;
     while (1) {
         current_data_length = length;
+        USB_DEBUG("%u, %u\n", length, current_data_length);
         if (current_data_length > xfer->max_data_length) {
+            USB_DEBUG("NOTICE: current_data_length > xfer->max_data_length\n");
             current_data_length = xfer->max_data_length;
         }
         // set the frame length of the data stage
@@ -185,12 +191,19 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          * second frame buffer and indicate that we have two frames
          */
         if (current_data_length > 0) {
-            if (!(req->bType.direction = USB_REQUEST_READ)) {
+            USB_DEBUG("FOFOFOOFN\n");
+            if ((req->bType.direction == USB_REQUEST_WRITE)) {
                 usb_mem_copy_in(xfer->frame_buffers[1], 0, data,
                         current_data_length);
             }
             xfer->num_frames = 2;
         } else {
+            if (xfer->flags.manual_status) {
+                xfer->flags.manual_status = 0;
+            } else {
+                debug_printf("break...\n");
+                break;
+            }
             xfer->num_frames = 1;
         }
 
@@ -198,7 +211,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
         /* wait till completed... */
         while (!usb_transfer_completed(xfer)) {
-            xfer->host_controller->handle_intr(xfer->host_controller);
+            //xfer->host_controller->handle_intr(xfer->host_controller);
             USB_WAIT(200);
             thread_yield();
         }
@@ -269,13 +282,15 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         req_state->callback(req_state->bind);
     }
 
+
+    USB_DEBUG_TR("handle_request_done()\n");
     return ((usb_error_t) err);
 }
 
-usb_error_t usb_exec_request(struct usb_device *device,
+usb_error_t usb_exec_request(struct usb_device *device, uint16_t flags,
         struct usb_device_request *request, void *data, uint16_t *ret_length)
 {
-    return (usb_handle_request(device, 0, request, NULL, data, ret_length));
+    return (usb_handle_request(device, flags, request, NULL, data, ret_length));
 }
 
 /*
@@ -559,7 +574,7 @@ usb_error_t usb_req_set_address(struct usb_device *dev, uint16_t addr)
         return (err);
     }
 
-    return (usb_exec_request(dev, &req, NULL, NULL));
+    return (usb_exec_request(dev, USB_REQUEST_FLAG_DELAY_STATUS, &req, NULL, NULL));
 }
 
 /**
@@ -588,7 +603,7 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
 
         req.wLength = min_length;
 
-        err = usb_exec_request(dev, &req, desc, NULL);
+        err = usb_exec_request(dev, 0, &req, desc, NULL);
 
         if (err != USB_ERR_OK) {
             if (!retries) {
@@ -685,6 +700,6 @@ usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config)
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.wValue = config;
 
-    return (usb_exec_request(dev, &req, NULL, NULL));
+    return (usb_exec_request(dev, 0, &req, NULL, NULL));
 
 }

@@ -266,7 +266,7 @@ struct usb_xfer_setup_params {
     uint32_t bufsize;
     uint32_t bufsize_max;
     struct usb_dma_page *dma_page;
-
+    uint8_t num_pages;
     uint32_t hc_max_frame_size;
     uint16_t hc_max_packet_size;
     uint8_t hc_max_packet_count;

@@ -43,9 +43,9 @@
  *  - wLength:      length of data to be transferred in phase 2
  */
 struct usb_request_type {
-	uint8_t direction : 1;	// host2device or device2host
-	uint8_t type : 2;		// standard, class, vendor
-	uint8_t recipient : 5;	// device, interface, endpoint...
+    uint8_t recipient : 5;  // device, interface, endpoint...
+    uint8_t type : 2;       // standard, class, vendor
+    uint8_t direction : 1;	// host2device or device2host
 };
 
 typedef struct usb_request_type  usb_request_type_t;

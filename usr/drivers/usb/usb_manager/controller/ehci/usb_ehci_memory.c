@@ -110,8 +110,8 @@ struct usb_ehci_qh *usb_ehci_qh_alloc(void)
 
     for (uint32_t i = 0; i < num_qh; i++) {
         assert(!(qh_self % USB_EHCI_QH_ALIGN));
-        USB_EM_DEBUG(" Allocating QH: vaddr=%p, phys=%p (%x) [%x]\n", qh,
-                qh_self, qh_self % USB_EHCI_QH_ALIGN, size_qh);
+        USB_EM_DEBUG(" Allocating QH: vaddr=%p, phys=%p (%x) [%x] (%u of %u)\n", qh,
+                qh_self, qh_self % USB_EHCI_QH_ALIGN, size_qh, i, num_qh);
         memset(qh, 0, size_qh);
         qh->qh_self = qh_self;
         qh->obj_next = free_qh;

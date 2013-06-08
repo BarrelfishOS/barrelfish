@@ -136,7 +136,8 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
      * set the start of the lists
      */
     ehci_periodiclistbase_wr(hc->ehci_base, hc->pframes_phys);
-    ehci_asynclistaddr_wr(hc->ehci_base, hc->qh_async_first->qh_self);
+    ehci_asynclistaddr_wr(hc->ehci_base, hc->qh_async_last->qh_self);
+    printf("+++++asyncist = %p, %u, rec=%u\n", ehci_asynclistaddr_rawrd(hc->ehci_base), ehci_usbsts_ass_rdf(hc->ehci_base), ehci_usbsts_rec_rdf(hc->ehci_base));
 
     USB_DEBUG(" setting the command flags\n");
     /*
@@ -151,6 +152,7 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     cmd = ehci_usbcmd_pse_insert(cmd, 1);
     // keep the frame list size
     cmd = ehci_usbcmd_fls_insert(cmd, ehci_usbcmd_fls_rdf(hc->ehci_base));
+
     // start the host controller
     cmd = ehci_usbcmd_rs_insert(cmd, 1);
 
@@ -219,16 +221,20 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
 {
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *)host->hc_control;
 
-    USB_DEBUG("usb_ehci_interrupt()\n");
+    USB_DEBUG_TR("usb_ehci_interrupt()\n");
 
     /*
      * read the status register and mask out the interrupts [5..0]
      */
     ehci_usbsts_t intr = ehci_usbsts_rawrd(hc->ehci_base) & 0x3F;
 
+
     char buf[1024];
-    ehci_usbsts_prtval(buf, 2013, intr);
+    ehci_usbsts_prtval(buf, 1013, intr);
     printf(buf);
+    ehci_usbintr_pr(buf, 1023, hc->ehci_base);
+    printf(buf);
+    printf("+++++asyncist = %p, %u, rec=%u\n", ehci_asynclistaddr_rawrd(hc->ehci_base), ehci_usbsts_ass_rdf(hc->ehci_base), ehci_usbsts_rec_rdf(hc->ehci_base));
 
     if (!(intr)) {
         /* there was no interrupt for this controller */
@@ -268,9 +274,10 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
          */
         ehci_usbsts_pcd_insert(hc->enabled_interrupts, 0);
 
-        /* disable the PCD interrupt for now */
-        ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
 
+        /* disable the PCD interrupt for now */
+        //ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
+        ehci_usbintr_pcie_wrf(hc->ehci_base, 0);
         usb_ehci_roothub_interrupt(hc);
 
 
@@ -280,6 +287,8 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     intr = ehci_usbsts_iaa_insert(intr, 0);
     intr = ehci_usbsts_usbei_insert(intr, 0);
     intr = ehci_usbsts_usbi_insert(intr, 0);
+
+    ehci_usbcmd_iaad_wrf(hc->ehci_base, 1);
 
     if (intr != 0) {
         /*
@@ -294,10 +303,11 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
      */
     usb_ehci_poll(hc);
 
-    ehci_usbsts_pcd_insert(hc->enabled_interrupts, 1);
+    ehci_usbintr_pcie_insert(hc->enabled_interrupts, 1);
 
     /* disable the PCD interrupt for now */
-    ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
+    //ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
+    USB_DEBUG_TR("usb_ehci_interrupt() - done\n");
 }
 
 /**
@@ -473,13 +483,12 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
 
     hc->qh_async_last = qh;
     hc->qh_async_first = qh;
-    qh->qh_self |= USB_EHCI_LINKTYPE_QH;
 
     qh->qh_ep.ep_speed = USB_EHCI_QH_SPEED_HIGH;
     qh->qh_ep.head_reclamation = 1;
 
     qh->qh_ep.mult = 1;
-    qh->qh_link = qh->qh_self;
+    qh->qh_link = qh->qh_self | (USB_EHCI_LINKTYPE_QH << 1) | USB_EHCI_LINK_TERMINATE;
     qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;

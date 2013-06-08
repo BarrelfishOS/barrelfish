@@ -68,10 +68,10 @@ static void usb_ehci_xfer_bulk_enter(struct usb_xfer *xfer)
 static void usb_ehci_xfer_bulk_start(struct usb_xfer *xfer)
 {
     // get the host controller of this transfer
-    usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
+    usb_ehci_hc_t *hc = (usb_ehci_hc_t *) (xfer->host_controller->hc_control);
 
     /* setup the standard transfer descriptors */
-    usb_ehci_xfer_standard_setup(xfer, &hc->qh_async_last);
+    usb_ehci_xfer_standard_setup(xfer, &(hc->qh_async_last));
 
     /* enqueue on the xfer interrupt queue*/
     usb_ehci_enqueue_xfer_intrq(xfer);
@@ -134,10 +134,10 @@ static void usb_ehci_xfer_ctrl_start(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR("usb_ehci_xfer_ctrl_start()\n");
     // get the host controller of this transfer
-    usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
+    usb_ehci_hc_t *hc = (usb_ehci_hc_t *) (xfer->host_controller->hc_control);
 
     /* setup the standard transfer descriptors */
-    usb_ehci_xfer_standard_setup(xfer, &hc->qh_async_last);
+    usb_ehci_xfer_standard_setup(xfer, &(hc->qh_async_last));
 
     /* enqueue on the xfer interrupt queue*/
     usb_ehci_enqueue_xfer_intrq(xfer);
