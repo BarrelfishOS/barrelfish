@@ -835,7 +835,7 @@ device omap44xx_device_prm msbfirst ( addr base ) "" {
 
     constants emif2_offwkup_disable_status width(1) "" {
         EMIF2_OFFWKUP_DISABLE_0 = 0 "Notifier is activated.";
-        EMIF2_OFFWKUP_DISABLE_1 = 1 "Notifier is not activated – stays low.";
+        EMIF2_OFFWKUP_DISABLE_1 = 1 "Notifier is not activated - stays low.";
     };
 
     constants device_off_enable_status width(1) "" {

@@ -93,25 +93,21 @@ device omap44xx_sr_mpu msbfirst ( addr base ) "" {
     constants mcuaccumintstatena_status width(1) "" {
         MCUACCUMINTSTATENA_1_r = 1 "Accum interrupt status is set.";
         MCUACCUMINTSTATENA_0_w = 0 "Accum interrupt status is unchanged.";
-        MCUACCUMINTSTATENA_1_w = 1 "Accum interrupt status is cleared.";
     };
 
     constants mcuvalidintstatena_status width(1) "" {
         MCUVALIDINTSTATENA_1_r = 1 "Valid interrupt status is set.";
         MCUVALIDINTSTATENA_0_w = 0 "Valid interrupt status is unchanged.";
-        MCUVALIDINTSTATENA_1_w = 1 "Valid interrupt status is cleared.";
     };
 
     constants mcuboundsintstatena_status width(1) "" {
         MCUBOUNDSINTSTATENA_1_r = 1 "Bounds interrupt status is set.";
         MCUBOUNDSINTSTATENA_0_w = 0 "Bounds interrupt status is unchanged.";
-        MCUBOUNDSINTSTATENA_1_w = 1 "Bounds interrupt status is cleared.";
     };
 
     constants mcudisableackintstatena_status width(1) "" {
         MCUDISABLEACKINTSTATENA_1_r = 1 "MCUDisable acknowledge status is set.";
         MCUDISABLEACKINTSTATENA_0_w = 0 "MCUDisable interrupt status is unchanged.";
-        MCUDISABLEACKINTSTATENA_1_w = 1 "MCUDisable interrupt status is cleared.";
     };
     
     register irqstatus addr(base, 0x28) "MCU masked interrupt status and clear." {

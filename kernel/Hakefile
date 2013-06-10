@@ -355,7 +355,7 @@ let
                 "arch/omap44xx/startup_arch.c", 
                 "arch/omap44xx/omap_uart.c", 
                 "arch/omap44xx/start_aps.c", 
-                "arch/armv7/kputchar.c" ],
+                "arch/armv7/kputchar.c"],
      mackerelDevices = [ "arm", 
                          "arm_icp_pit", 
                          "pl130_gic", 
@@ -366,7 +366,7 @@ let
                          "omap/omap44xx_id", 
                          "omap/omap44xx_emif",
                          "omap/omap44xx_gpio"],
-     addLibraries = [ "elf", "cpio" ]
+     addLibraries = [ "elf", "cpio", "fdif" ]
      }                            
   
   ]

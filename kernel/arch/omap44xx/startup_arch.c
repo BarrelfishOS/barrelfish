@@ -109,7 +109,8 @@ static lpaddr_t bsp_init_alloc_addr = PHYS_MEMORY_START;
  *
  * \return Base physical address of memory region.
  */
-static lpaddr_t bsp_alloc_phys(size_t size)
+lpaddr_t bsp_alloc_phys(size_t);
+lpaddr_t bsp_alloc_phys(size_t size)
 {
     // round to base page size
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
@@ -695,6 +696,8 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     return init_dcb;
 }
 
+void play_with_fdif(void);
+
 void arm_kernel_startup(void)
 {
     printf("arm_kernel_startup entered \n");
@@ -748,6 +751,8 @@ void arm_kernel_startup(void)
     // enable interrupt forwarding to cpu
     // FIXME: PS: enable this as it is needed for multicore setup.
     // gic_cpu_interface_enable();
+
+    play_with_fdif();
 
     // Should not return
     printf("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",

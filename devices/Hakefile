@@ -57,12 +57,17 @@
            "sp804_pit",
            "cortex_a9_pit",
            "a9scu",
-           "omap/omap_uart",
-           "omap/omap44xx_emif",
-           "omap/omap44xx_gpio",
-           "omap/omap44xx_id",
-           "omap/omap44xx_usbconf",
-           "omap/omap44xx_mmu"
+	   "omap/omap_uart",
+	   "omap/omap44xx_emif",
+	   "omap/omap44xx_gpio",
+	   "omap/omap44xx_id",
+	   "omap/omap44xx_usbconf",
+	   "omap/omap44xx_mmu",
+           "omap/omap44xx_cam_prm",
+           "omap/omap44xx_cam_cm2",
+           "omap/omap44xx_fdif",
+           "omap/omap44xx_sr_mpu",
+           "omap/omap44xx_device_prm"
          ], arch <- allArchitectures
 ] ++
 
