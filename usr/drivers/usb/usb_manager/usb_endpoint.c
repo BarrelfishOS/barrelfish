@@ -69,8 +69,8 @@ struct usb_endpoint *usb_endpoint_lookup(struct usb_device *dev, uint8_t iface,
         }
 
         if (!ep_index-- && !any) {
-            USB_DEBUG(
-                    "usb_endpoint_lookup(): found iface=%u, ep=%u\n", iface, ep_current);
+            USB_DEBUG_DEV(
+                    "usb_endpoint_lookup(): found iface=0x%x, ep=0x%x\n", iface, ep->endpoint_address);
             return (ep);
         }
 
@@ -78,7 +78,7 @@ struct usb_endpoint *usb_endpoint_lookup(struct usb_device *dev, uint8_t iface,
     }
 
     if (dev->ctrl_ep.descriptor && any && !ep_index) {
-        USB_DEBUG("usb_endpoint_lookup(): found default ctrl ep\n");
+        USB_DEBUG_DEV("usb_endpoint_lookup(): found default ctrl ep\n");
         return (&dev->ctrl_ep);
     }
 

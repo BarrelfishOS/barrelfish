@@ -56,6 +56,8 @@ usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
         struct usb_device_descriptor *desc);
 usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
         struct usb_config_descriptor **cdesc, uint8_t index);
+usb_error_t usb_req_get_string_desc(struct usb_device *dev, void *sdesc,
+        uint16_t max_len, uint16_t lang_id, uint8_t string_index);
 usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config);
 
 #endif /* USB_REQUEST_H_ */

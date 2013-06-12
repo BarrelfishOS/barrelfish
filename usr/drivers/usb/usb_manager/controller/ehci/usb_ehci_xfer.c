@@ -27,7 +27,7 @@
 
 void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
 {
-    USB_DEBUG_TR("usb_ehci_xfer_setup()\n");
+    USB_DEBUG_TR_ENTER;
     struct usb_xfer *xfer = param->curr_xfer;
 
     uint32_t num_qtd = 0;
@@ -107,7 +107,7 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
     }
     uint8_t alloc_dma_set;
 
-    USB_DEBUG("usb_ehci_xfer_setup() Start Allocating queue...\n");
+    USB_DEBUG_XFER_HC("usb_ehci_xfer_setup() Start Allocating queue...\n");
 
     do {
         alloc_dma_set = 0;
@@ -123,12 +123,12 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
         void *obj_last = NULL;
         uint32_t td_alloc;
 
-        //USB_DEBUG("usb_ehci_xfer_setup() Allocating %u iTDs...\n", num_itd);
+        USB_DEBUG_XFER_HC("Allocating %u iTDs...\n", num_itd);
         for (td_alloc = 0; td_alloc < num_itd; td_alloc++) {
             usb_ehci_itd_t *itd = usb_ehci_itd_alloc();
 
             if (itd == NULL) {
-                debug_printf("ERROR: Failed to allocate iTD descriptor");
+                USB_DEBUG("ERROR: Failed to allocate iTD descriptor");
                 itd = obj_last;
                 while (itd != NULL) {
                     usb_ehci_itd_free(itd);
@@ -143,12 +143,12 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
             obj_last = itd;
         }
 
-        //USB_DEBUG("usb_ehci_xfer_setup() Allocating %u siTDs...\n", num_sitd);
+        USB_DEBUG_XFER_HC("Allocating %u siTDs...\n", num_sitd);
         for (td_alloc = 0; td_alloc < num_sitd; td_alloc++) {
             usb_ehci_sitd_t *sitd = usb_ehci_sitd_alloc();
 
             if (sitd == NULL) {
-                debug_printf("ERROR: Failed to allocate iTD descriptor");
+                USB_DEBUG("ERROR: Failed to allocate iTD descriptor");
                 sitd = obj_last;
                 while (sitd != NULL) {
                     usb_ehci_sitd_free(sitd);
@@ -162,12 +162,12 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
 
             obj_last = sitd;
         }
-        //USB_DEBUG("usb_ehci_xfer_setup() Allocating %u qTDs...\n", num_qtd);
+        USB_DEBUG_XFER_HC("Allocating %u qTDs...\n", num_qtd);
         for (td_alloc = 0; td_alloc < num_qtd; td_alloc++) {
             usb_ehci_qtd_t *qtd = usb_ehci_qtd_alloc();
 
             if (qtd == NULL) {
-                debug_printf("ERROR: Failed to allocate qTD descriptor");
+                USB_DEBUG("ERROR: Failed to allocate qTD descriptor");
                 qtd = obj_last;
                 while (qtd != NULL) {
                     usb_ehci_qtd_free(qtd);
@@ -189,7 +189,7 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
         for (td_alloc = 0; td_alloc < num_qh; td_alloc++) {
             usb_ehci_qh_t *qh = usb_ehci_qh_alloc();
             if (qh == NULL) {
-                debug_printf("ERROR: Failed to allocate iTD descriptor");
+                USB_DEBUG("ERROR: Failed to allocate iTD descriptor");
                 qh = obj_last;
                 while (qh != NULL) {
                     usb_ehci_qh_free(qh);
@@ -204,24 +204,24 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
 
         xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set] = obj_last;
 
-
         if (!xfer->flags_internal.curr_dma_set) {
             xfer->flags_internal.curr_dma_set = 1;
             alloc_dma_set = 1;
         }
     } while (alloc_dma_set);
 
-    USB_DEBUG_TR("usb_ehci_xfer_setup() Done.\n");
+    USB_DEBUG_TR_RETURN;
 }
 
 void usb_ehci_xfer_unsetup(struct usb_xfer *xfer)
 {
+    USB_DEBUG("NOTICE: freeing up the resources is nyi!\n");
     return;
 }
 
 void usb_ehci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
 {
-    USB_DEBUG_TR("usb_ehci_xfer_remove()\n");
+    USB_DEBUG_TR_ENTER;
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
 
@@ -254,13 +254,14 @@ void usb_ehci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
             }
             break;
         default:
-            debug_printf("ERROR: Invalid transfer type");
+            USB_DEBUG("ERROR: Invalid transfer type");
+            USB_DEBUG_TR_RETURN;
             return;
             break;
     }
 
     usb_xfer_done(xfer, error);
-    USB_DEBUG_TR("usb_ehci_xfer_remove() DONE.\n");
+    USB_DEBUG_TR_RETURN;
 }
 
 struct usb_ehci_qtd_setup_param {
@@ -287,12 +288,14 @@ struct usb_ehci_qtd_setup_param {
  */
 static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 {
-
+    USB_DEBUG_TR_ENTER;
     /* pointers to the terminated queue head */
     usb_paddr_t terminate = setup->hc->qh_terminate->qh_self;
     usb_paddr_t qtd_alt_next = setup->hc->qh_terminate->qh_self;
 
-    /* variables for tracking the length */uint32_t length_avg = 0;
+    /* variables for tracking the length */
+
+    uint32_t length_avg = 0;
     uint32_t length_old = setup->length;
 
     usb_ehci_qtd_t *td;
@@ -375,7 +378,6 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                         setup->qtd_token.data_toggle = 1;
                     }
                 }
-
                 /* set the length of this qTD */
                 td->len = length_avg;
 
@@ -383,8 +385,10 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                 setup->length -= length_avg;
 
                 uint32_t buf_offset = 0;
-
+                memset(td->qtd_bp, 0, sizeof(td->qtd_bp));
                 td->qtd_bp[0].bp = (setup->pages->phys_addr) & (~0xFFF);  //usb_ehci_buffer_page_alloc();
+
+                assert(!((setup->pages->phys_addr) & (0xFFF)));
 
                 uint8_t pages_count = 1;
 
@@ -395,16 +399,17 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                     buf_offset += USB_EHCI_BUFFER_SIZE;
                     /* TODO: set to the pages ... */
                     td->qtd_bp[pages_count].bp = (setup->pages->phys_addr
-                            + buf_offset) & (~0xFFF);  //usb_ehci_buffer_page_alloc();
+                            + buf_offset) & (~0xFFF);
+
+                    assert(!((setup->pages->phys_addr + buf_offset) & (0xFFF)));
 
                     pages_count++;
                 }
 
-
                 /* the last remainder < USB_EHCI_BUFFER_SIZE */
                 buf_offset += length_avg;
                 td->qtd_bp[pages_count].bp = (setup->pages->phys_addr
-                        + buf_offset - 1) & (~0xFFF);  //usb_ehci_buffer_page_alloc();
+                        + buf_offset - 1) & (~0xFFF);
             }
 
             if (td_next) {
@@ -435,8 +440,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
         } else {
             /* break the loop */
 
-            precompute = 1;
-
+            //precompute = 1;
             break;
         }
 
@@ -444,12 +448,15 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
     setup->td = td;
     setup->td_next = td_next;
+
+    USB_DEBUG_TR_RETURN;
 }
 
 void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
         usb_ehci_qh_t **qh_last)
 {
-    USB_DEBUG_TR("usb_ehci_xfer_standard_setup()\n");
+    USB_DEBUG_TR_ENTER;
+
     usb_ehci_qh_t *qh;
 
     // toggle the DMA set
@@ -499,7 +506,7 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
         if (xfer->flags_internal.ctrl_header) {
 
             xfer->endpoint->data_toggle = 0;
-
+            memset(&setup.qtd_token, 0, sizeof(setup.qtd_token));
             setup.qtd_token.err_count = 3;
             setup.qtd_token.status = USB_EHCI_QTD_STATUS_ACTIVE;
             setup.qtd_token.pid = USB_EHCI_QTD_PID_SETUP;
@@ -519,7 +526,7 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
                     setup.setup_alt_next = 0;
                 }
             }
-            USB_DEBUG("prepend setup message...\n");
+
             usb_ehci_xfer_qtd_setup(&setup);
         }
         frames = 1;
@@ -547,6 +554,7 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
             }
         }
 
+        memset(&setup.qtd_token, 0, sizeof(setup.qtd_token));
         setup.qtd_token.err_count = 3;
         setup.qtd_token.data_toggle = 1;
 
@@ -565,7 +573,6 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
         }
 
         usb_ehci_xfer_qtd_setup(&setup);
-
     }
 
     /*
@@ -573,13 +580,15 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
      * and the xfer is not active
      */
     if (xfer->flags_internal.ctrl_xfer && !xfer->flags_internal.ctrl_active) {
+
+        memset(&setup.qtd_token, 0, sizeof(setup.qtd_token));
         setup.qtd_token.err_count = 3;
         setup.qtd_token.data_toggle = 1;
         setup.qtd_token.status = USB_EHCI_QTD_STATUS_ACTIVE;
         if (xfer->ed_direction == USB_ENDPOINT_DIRECTION_IN) {
-            setup.qtd_token.pid = USB_EHCI_QTD_PID_IN;
-        } else {
             setup.qtd_token.pid = USB_EHCI_QTD_PID_OUT;
+        } else {
+            setup.qtd_token.pid = USB_EHCI_QTD_PID_IN;
         }
         setup.length = 0;
         setup.shortpkt = 0;
@@ -603,15 +612,12 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
     /* get the qh */
     qh = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
 
-    USB_DEBUG("addr = %u, ep = %u", xfer->device_address, xfer->endpoint_number);
-
     qh->qh_ep.device_address = xfer->device_address;
     qh->qh_ep.ep_number = xfer->endpoint_number;
     qh->qh_ep.max_packet_size = xfer->max_packet_size;
 
     switch (xfer->device->speed) {
         case USB_SPEED_HIGH:
-            USB_DEBUG("High speed device..\n");
             qh->qh_ep.ep_speed = USB_EHCI_QH_SPEED_HIGH;
             if (xfer->type != USB_TYPE_INTR) {
                 qh->qh_ep.nak_count_reload = 8;
@@ -644,8 +650,6 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
         qh->qh_ep.data_toggle_ctrl = 1;
     }
 
-
-
     qh->qh_ep.complete_mask = xfer->endpoint->hs_cmask;
     qh->qh_ep.irq_mask = xfer->endpoint->hs_smask;
     qh->qh_ep.mult = xfer->max_packet_count & 0x3;
@@ -668,10 +672,11 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
     qh->qh_next_qtd = td->qtd_self;
     qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
 
-
     if (xfer->device->flags.self_suspended == 0) {
         usb_ehci_enq_qh(qh, *qh_last);
     }
+
+    USB_DEBUG_TR_RETURN;
 }
 
 void usb_ehci_xfer_fs_isoc_done(struct usb_xfer *xfer)
@@ -705,15 +710,17 @@ static void usb_ehci_update_dt(struct usb_xfer *xfer, uint16_t actual_length,
  */
 static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
 {
-    USB_DEBUG_TR("usb_ehci_xfer_done_process_frames()\n");
+    USB_DEBUG_TR_ENTER;
 
     if (xfer == NULL) {
         USB_DEBUG("WARNING: xfer is NULL.\n");
         return (USB_ERR_OK);
     }
 
-    usb_ehci_qtd_t *qtd = xfer->hcd_td_cache;
+    usb_ehci_qtd_t *qtd = xfer->hcd_td_first;
     usb_ehci_qtd_t *qtd_alt_next = qtd->alt_next;
+
+    qtd = xfer->hcd_td_cache;
 
     /*
      * update the frame length
@@ -723,14 +730,13 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
     }
 
     uint16_t actual_length;
-    uint8_t status = qtd->qtd_token.status;
+    uint8_t status;
     while (1) {
         actual_length = qtd->qtd_token.bytes;
-
-
+        status = qtd->qtd_token.status;
 
         if (actual_length > qtd->len) {
-            debug_printf("WARNING: Invalid status length. Halting EP\n");
+            USB_DEBUG("WARNING: Invalid status length. Halting EP\n");
             status |= USB_EHCI_QTD_STATUS_HALTED;
         } else {
             xfer->frame_lengths[xfer->actual_frames] += qtd->len
@@ -770,7 +776,6 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
             }
             break;
         }
-        debug_printf("step 6\n");
         qtd = qtd->obj_next;
 
         /*
@@ -784,11 +789,28 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
     /* update the transfer cache used to signal processing */
     xfer->hcd_td_cache = qtd;
 
-    USB_DEBUG_TR("usb_ehci_xfer_done_process_frames() DONE.\n");
-
     if (status & USB_EHCI_QTD_STATUS_HALTED) {
+        while (qtd) {
+            USB_DEBUG(
+                    "QTD Status: %x, errorcount = %u\n", qtd->qtd_token.status, qtd->qtd_token.err_count);
+            qtd = qtd->obj_next;
+        }
+        USB_DEBUG("NOTICE: status = %x\n", status);
+        USB_DEBUG(
+                "---babble detected = %u\n", (status & USB_EHCI_QTD_STATUS_BABBLE) > 0);
+        USB_DEBUG(
+                "---transfer error = %u\n", (status & USB_EHCI_QTD_STATUS_TRANS_ERR) > 0);
+        USB_DEBUG(
+                "---buffer error = %u\n", (status & USB_EHCI_QTD_STATUS_DATA_ERR) > 0);
+        USB_DEBUG(
+                "---missed micro frame= %u\n", (status & USB_EHCI_QTD_STATUS_MISS) > 0);
+
+        USB_DEBUG_TR_RETURN;
+
         return (USB_ERR_STALLED);
     } else {
+
+        USB_DEBUG_TR_RETURN;
         return (USB_ERR_OK);
     }
 }
@@ -800,7 +822,7 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
  */
 void usb_ehci_xfer_done(struct usb_xfer *xfer)
 {
-    USB_DEBUG_TR("usb_ehci_xfer_done()\n");
+    USB_DEBUG_TR_ENTER;
     usb_error_t err = USB_ERR_OK;
 
     /*
@@ -813,6 +835,7 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
 
         if (xfer->flags_internal.ctrl_header) {
             /* the header was not sent */
+            USB_DEBUG_XFER_HC("usb_ehci_xfer_done: xfer->flags_internal.ctrl_header\n");
             err = usb_ehci_xfer_done_process_frames(xfer);
         }
         /* control transfers have one frame max per transfer */
@@ -820,6 +843,7 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
 
         if (xfer->hcd_td_cache == NULL) {
             /* remove the xfer */
+            USB_DEBUG_XFER_HC("usb_ehci_xfer_done: xfer->hcd_td_cache == NULL\n");
             usb_ehci_xfer_remove(xfer, err);
             return;
         }
@@ -831,6 +855,7 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
         xfer->actual_frames++;
 
         if (xfer->hcd_td_cache == NULL) {
+            USB_DEBUG_XFER_HC("usb_ehci_xfer_done: xfer->hcd_td_cache == NULL loop\n");
             usb_ehci_xfer_remove(xfer, err);
             return;
         }
@@ -840,7 +865,10 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
     if (xfer->flags_internal.ctrl_xfer && !xfer->flags_internal.ctrl_active) {
         err = usb_ehci_xfer_done_process_frames(xfer);
     }
+
     usb_ehci_xfer_remove(xfer, err);
+
+    USB_DEBUG_TR_RETURN;
 }
 
 /*
@@ -853,7 +881,8 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
  */
 uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
 {
-    USB_DEBUG_TR("usb_ehci_xfer_is_finished()\n");
+    USB_DEBUG_TR_ENTER;
+
     if (xfer->type == USB_TYPE_ISOC) {
         /*
          * TODO Handling of isochronus transfers
@@ -878,7 +907,8 @@ uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
      * check if the status is still pending
      */
     if (status & USB_EHCI_QTD_STATUS_ACTIVE) {
-        USB_DEBUG("NOTICE: transfer still active..\n");
+        USB_DEBUG_XFER_HC("NOTICE: transfer still active..\n");
+        USB_DEBUG_TR_RETURN;
         return (0);
     }
 
@@ -891,7 +921,8 @@ uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
 
         if (status & USB_EHCI_QTD_STATUS_ACTIVE) {
             xfer->hcd_td_cache = qtd;
-            USB_DEBUG("NOTICE: transfer still active..\n");
+            USB_DEBUG_XFER_HC("NOTICE: transfer still active..\n");
+            USB_DEBUG_TR_RETURN;
             return (0);
         }
 
@@ -929,11 +960,14 @@ uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
 
         qtd = qtd->obj_next;
     }
-    USB_DEBUG("NOTICE: transfer done..\n");
+    USB_DEBUG_XFER_HC("NOTICE: transfer done..\n");
 
+    xfer->flags_internal.done = 1;
     xfer->flags_internal.transferring = 0;
+
     usb_ehci_xfer_done(xfer);
 
+    USB_DEBUG_TR_RETURN;
     return (1);
 }
 

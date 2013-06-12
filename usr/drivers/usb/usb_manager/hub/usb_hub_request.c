@@ -86,7 +86,7 @@ usb_error_t usb_hub_get_hub_status(struct usb_device *hub,
         struct usb_hub_status *ret_status)
 
 {
-    USB_DEBUG_TR("usb_hub_get_hub_status()\n");
+    USB_DEBUG_TR_ENTER;
     struct usb_device_request req;
 
     req.bType.direction = USB_REQUEST_READ;
@@ -102,7 +102,8 @@ usb_error_t usb_hub_get_hub_status(struct usb_device *hub,
 usb_error_t usb_hub_get_port_status(struct usb_device *hub, uint16_t port,
         struct usb_hub_port_status *ret_status)
 {
-    USB_DEBUG_TR("usb_hub_get_port_status(%u)\n", port);
+    USB_DEBUG_TR_ENTER;
+
     struct usb_device_request req;
 
     req.bType.direction = USB_REQUEST_READ;
@@ -117,7 +118,8 @@ usb_error_t usb_hub_get_port_status(struct usb_device *hub, uint16_t port,
 
 usb_error_t usb_hub_reset_tt(struct usb_device *hub, uint16_t port)
 {
-    USB_DEBUG_TR("usb_hub_reset_tt()\n");
+    USB_DEBUG_TR_ENTER;
+
     struct usb_device_request req;
 
     if (hub->device_desc.bDeviceClass == USB_HUB_CLASS_CODE
@@ -185,7 +187,7 @@ usb_error_t usb_hub_stop_tt(struct usb_device *hub, uint16_t port)
 usb_error_t usb_hub_get_hub_descriptor(struct usb_device *hub, uint16_t nports,
         struct usb_hub_descriptor *ret_desc)
 {
-    USB_DEBUG_TR("usb_hub_get_hub_descriptor() [manager]\n");
+    USB_DEBUG_TR_ENTER;
     struct usb_device_request req;
 
     uint16_t wLength = (nports + 7 + (8 * 8)) / 8;
@@ -213,21 +215,23 @@ usb_error_t usb_hub_re_enumerate(struct usb_device *hub)
 
 usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
 {
-    USB_DEBUG_TR("usb_hub_reset_port(%u)\n", port);
+    USB_DEBUG_TR_ENTER;
     usb_error_t err;
     struct usb_hub_port_status ps;
 
     /* clear port reset changes (if any) */
     err = usb_hub_clear_port_feature(hub, USB_HUB_FEATURE_C_PORT_RESET, port);
     if (err != USB_ERR_OK) {
-        debug_printf("ERROR: could not clear port reset on port %u\n", port);
+        USB_DEBUG("ERROR: could not clear port reset on port %u\n", port);
+        USB_DEBUG_TR_RETURN;
         return (err);
     }
 
     /* initate the rest sequence */
     err = usb_hub_set_port_feature(hub, USB_HUB_FEATURE_PORT_RESET, port);
     if (err != USB_ERR_OK) {
-        debug_printf("ERROR: port reset could not reset port %u\n", port);
+        USB_DEBUG("ERROR: port reset could not reset port %u\n", port);
+        USB_DEBUG_TR_RETURN;
         return (err);
     }
 
@@ -241,12 +245,15 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
 
         err = usb_hub_get_port_status(hub, port, &ps);
         if (err != USB_ERR_OK) {
-            debug_printf("ERROR: could not get port status\n");
+            USB_DEBUG("ERROR: could not get port status\n");
+            USB_DEBUG_TR_RETURN;
             return (err);
         }
 
         if (!ps.wPortStatus.connection) {
             /* the devie has disappeared, so give up */
+            USB_DEBUG("NOTICE: Device has disappeared...\n");
+            USB_DEBUG_TR_RETURN;
             return (err);
         }
 
@@ -272,20 +279,21 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
      */
     err = usb_hub_clear_port_feature(hub, USB_HUB_FEATURE_C_PORT_RESET, port);
     if (err != USB_ERR_OK) {
-        debug_printf("ERROR: Could not reset port feature\n");
+        USB_DEBUG("ERROR: Could not reset port feature\n");
+        USB_DEBUG_TR_RETURN;
         return (err);
     }
 
     if (timeout == 0) {
-        debug_printf("ERROR: timeout happened during reset\n");
+        USB_DEBUG("ERROR: timeout happened during reset\n");
+        USB_DEBUG_TR_RETURN;
         return (USB_ERR_TIMEOUT);
     }
 
     /* give the device time to recover from reset */
     USB_WAIT(USB_DELAY_PORT_RECOVERY);
 
-    USB_DEBUG_TR("usb_hub_reset_port(%u)... DONE.\n", port);
-
+    USB_DEBUG_TR_RETURN;
     return (err);
 }
 

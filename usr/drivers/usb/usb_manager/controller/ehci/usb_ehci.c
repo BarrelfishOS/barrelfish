@@ -137,7 +137,6 @@ static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
      */
     ehci_periodiclistbase_wr(hc->ehci_base, hc->pframes_phys);
     ehci_asynclistaddr_wr(hc->ehci_base, hc->qh_async_last->qh_self);
-    printf("+++++asyncist = %p, %u, rec=%u\n", ehci_asynclistaddr_rawrd(hc->ehci_base), ehci_usbsts_ass_rdf(hc->ehci_base), ehci_usbsts_rec_rdf(hc->ehci_base));
 
     USB_DEBUG(" setting the command flags\n");
     /*
@@ -234,7 +233,6 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     printf(buf);
     ehci_usbintr_pr(buf, 1023, hc->ehci_base);
     printf(buf);
-    printf("+++++asyncist = %p, %u, rec=%u\n", ehci_asynclistaddr_rawrd(hc->ehci_base), ehci_usbsts_ass_rdf(hc->ehci_base), ehci_usbsts_rec_rdf(hc->ehci_base));
 
     if (!(intr)) {
         /* there was no interrupt for this controller */
@@ -371,10 +369,11 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     hc->controller->hcdi_bus_fn = usb_ehci_get_bus_fn();
     hc->controller->usb_revision = USB_REV_2_0;
     hc->controller->devices = hc->devices;
+    hc->controller->devices_max = USB_EHCI_MAX_DEVICES;
 
     /* set the standard enabled interrupts */
     ehci_usbintr_t en_intrs = 0;
-    en_intrs = ehci_usbintr_iaae_insert(en_intrs, 1);
+    en_intrs = ehci_usbintr_iaae_insert(en_intrs, 0);
     en_intrs = ehci_usbintr_hsee_insert(en_intrs, 1);
     en_intrs = ehci_usbintr_pcie_insert(en_intrs, 1);
     en_intrs = ehci_usbintr_usbie_insert(en_intrs, 1);

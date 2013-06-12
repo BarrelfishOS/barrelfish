@@ -61,6 +61,7 @@ struct usb_xfer_flags_internal {
 
     uint8_t pipe_open :1;
     uint8_t transferring :1;
+    uint8_t done : 1;
 
     uint8_t dma_wait :1;
     uint8_t transfer_closed :1;
@@ -73,7 +74,7 @@ struct usb_xfer_flags_internal {
     uint8_t ctrl_xfer :1;
     uint8_t ctrl_header :1;
     uint8_t ctrl_active :1;
-    uint8_t ctrl_stall;
+    uint8_t ctrl_stall :1;
 
     uint8_t short_frames_ok :1;
     uint8_t short_transfer_ok :1;

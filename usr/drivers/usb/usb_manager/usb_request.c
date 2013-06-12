@@ -31,23 +31,33 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         struct usb_device_request *req, struct usb_request_state *req_state,
         void *data, uint16_t *ret_length)
 {
+    USB_DEBUG_TR_ENTER;
+
     struct usb_xfer *xfer;
     usb_error_t err = USB_ERR_OK;
     uint16_t length = req->wLength;
     uint16_t actual_length = 0;
 
-    debug_printf("\n\nusb_handle_request: length = %u\n", length);
+    USB_DEBUG_REQ("usb_handle_request: %u\n", length);
+    /* debug_printf("bmRequestType = %x\n", *((uint8_t *)(&req->bType)));
+     debug_printf("bRequest  = %x\n", *((uint8_t *)(&req->bRequest)));
+     debug_printf("wValue = %x\n", *((uint16_t *)(&req->wValue)));
+     debug_printf("wIndex = %x\n", *((uint16_t *)(&req->wIndex)));
+     debug_printf("wLength= %x\n", *((uint16_t *)(&req->wLength)));
+     */
 
     /*
      * check if the device is in the correct state to handle requests
      * the device must be at lease in the powered state
      */
     if (device->state < USB_DEVICE_STATE_POWERED) {
-        debug_printf("Error: USB Device has not been configured\n");
+        USB_DEBUG("Error: USB Device has not been configured\n");
         if (req_state) {
             req_state->error = USB_ERR_NOT_CONFIGURED;
             req_state->callback(req_state->bind);
         }
+
+        USB_DEBUG_TR_RETURN;
         return (USB_ERR_NOT_CONFIGURED);
     }
 
@@ -68,11 +78,13 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          * cannot write data to the root hub
          */
         if ((req->bType.direction != USB_REQUEST_READ) && (length != 0)) {
-            debug_printf("Error: root hub does not support writing of data\n");
+            USB_DEBUG("Error: root hub does not support writing of data\n");
             if (req_state) {
                 req_state->error = USB_ERR_INVAL;
                 req_state->callback(req_state->bind);
             }
+
+            USB_DEBUG_TR_RETURN;
             return (USB_ERR_INVAL);
         }
 
@@ -84,12 +96,12 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
                     &ret_desc, &ret_size);
         }
         if (err != USB_ERR_OK) {
-            USB_DEBUG("ERROR: root_hub_exec failed(): %s\n", usb_get_error_string(err));
+            USB_DEBUG(
+                    "ERROR: root_hub_exec failed(): %s\n", usb_get_error_string(err));
             if (req_state) {
                 req_state->error = err;
                 req_state->callback(req_state->bind);
-            }
-
+            } USB_DEBUG_TR_RETURN;
             return (err);
         }
 
@@ -103,7 +115,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
                 if (req_state) {
                     req_state->error = USB_ERR_SHORT_XFER;
                     req_state->callback(req_state->bind);
-                }
+                } USB_DEBUG_TR_RETURN;
                 return (USB_ERR_SHORT_XFER);
             }
 
@@ -135,11 +147,12 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
     usb_transfer_setup_ctrl_default(device, req_state);
 
-
     xfer = device->ctrl_xfer[0];
-
+    xfer->ed_direction =
+            (req->bType.direction == USB_REQUEST_READ) ?
+                    USB_ENDPOINT_DIRECTION_IN : USB_ENDPOINT_DIRECTION_OUT;
     if (xfer == NULL) {
-        debug_printf("ERROR: No memory for setting up transfers\n");
+        USB_DEBUG("ERROR: No memory for setting up transfers\n");
         return (USB_ERR_NOMEM);
     }
 
@@ -167,9 +180,9 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     /*
      * copy the request into DMA memory
      */
-    usb_mem_copy_in(xfer->frame_buffers[0], 0, req, sizeof(*req));
-    xfer->frame_lengths[0] = sizeof(*req);
-
+    usb_mem_copy_in(xfer->frame_buffers[0], 0, req,
+            sizeof(struct usb_device_request));
+    xfer->frame_lengths[0] = sizeof(struct usb_device_request);
 
     /*
      * loop till we got all requested data
@@ -177,7 +190,6 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     uint16_t current_data_length;
     while (1) {
         current_data_length = length;
-        USB_DEBUG("%u, %u\n", length, current_data_length);
         if (current_data_length > xfer->max_data_length) {
             USB_DEBUG("NOTICE: current_data_length > xfer->max_data_length\n");
             current_data_length = xfer->max_data_length;
@@ -191,29 +203,27 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
          * second frame buffer and indicate that we have two frames
          */
         if (current_data_length > 0) {
-            USB_DEBUG("FOFOFOOFN\n");
             if ((req->bType.direction == USB_REQUEST_WRITE)) {
                 usb_mem_copy_in(xfer->frame_buffers[1], 0, data,
                         current_data_length);
             }
             xfer->num_frames = 2;
         } else {
-            if (xfer->flags.manual_status) {
-                xfer->flags.manual_status = 0;
-            } else {
-                debug_printf("break...\n");
-                break;
+            if (xfer->frame_lengths[0] == 0) {
+                if (xfer->flags.manual_status) {
+                    xfer->flags.manual_status = 0;
+                } else {
+                    break;
+                }
             }
             xfer->num_frames = 1;
-        }
-
+        } USB_DEBUG_REQ("-------------------- starting transfer\n");
         usb_transfer_start(xfer);
 
         /* wait till completed... */
         while (!usb_transfer_completed(xfer)) {
-            //xfer->host_controller->handle_intr(xfer->host_controller);
             USB_WAIT(200);
-            thread_yield();
+            //thread_yield();
         }
 
         /*
@@ -282,8 +292,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         req_state->callback(req_state->bind);
     }
 
-
-    USB_DEBUG_TR("handle_request_done()\n");
+    USB_DEBUG_TR_RETURN;
     return ((usb_error_t) err);
 }
 
@@ -554,6 +563,7 @@ void usb_rx_request_call(struct usb_manager_binding *binding, uint8_t *request,
  */
 usb_error_t usb_req_set_address(struct usb_device *dev, uint16_t addr)
 {
+    USB_DEBUG_TR_ENTER;
     struct usb_device_request req;
     usb_error_t err = USB_ERR_INVAL;
 
@@ -574,7 +584,7 @@ usb_error_t usb_req_set_address(struct usb_device *dev, uint16_t addr)
         return (err);
     }
 
-    return (usb_exec_request(dev, USB_REQUEST_FLAG_DELAY_STATUS, &req, NULL, NULL));
+    return (usb_exec_request(dev, 0, &req, NULL, NULL));
 }
 
 /**
@@ -585,7 +595,7 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
         uint16_t max_length, uint16_t id, uint8_t type, uint8_t desc_index,
         uint8_t retries)
 {
-    USB_DEBUG_TR("usb_req_get_descriptor()\n");
+    USB_DEBUG_TR_ENTER;
     struct usb_device_request req;
     usb_error_t err;
 
@@ -595,6 +605,7 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.wValue = ((type) << 8) | desc_index;
+    uint16_t ret_length = 0;
 
     while (1) {
         if ((min_length < 2) || (max_length < 2)) {
@@ -603,13 +614,15 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
 
         req.wLength = min_length;
 
-        err = usb_exec_request(dev, 0, &req, desc, NULL);
+        err = usb_exec_request(dev, 0, &req, desc, &ret_length);
 
         if (err != USB_ERR_OK) {
             if (!retries) {
                 return (err);
             }
-
+            USB_DEBUG("#### RETRY: usb_req_get_descriptor()... halting.\n");
+            while (1)
+                ;
             retries--;
 
             continue;
@@ -621,9 +634,8 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
             if ((buf[0] > min_length) && (actual_length == NULL)) {
                 buf[0] = min_length;
             }
-
             buf[1] = type;
-            return (err);
+            break;
         }
 
         if (max_length > buf[0]) {
@@ -641,15 +653,25 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
         } else {
             *actual_length = min_length;
         }
-    }
+    } USB_DEBUG_TR_RETURN;
     return (err);
 }
 
 usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
         struct usb_device_descriptor *desc)
 {
-    return (usb_req_get_descriptor(dev, NULL, desc, sizeof(*desc),
-            sizeof(*desc), 0, USB_DESCRIPTOR_TYPE_DEVICE, 0, 3));
+    USB_DEBUG_TR_ENTER;
+    usb_error_t err;
+    uint16_t act_len = 0;
+
+    err = usb_req_get_descriptor(dev, &act_len, desc, sizeof(*desc),
+            sizeof(*desc), 0, USB_DESCRIPTOR_TYPE_DEVICE, 0, 3);
+
+    if (act_len != sizeof(struct usb_device_descriptor)) {
+        debug_printf("WARNING: received too less data!");
+        assert(err != USB_ERR_OK);
+    }
+    return (err);
 }
 
 usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
@@ -676,16 +698,23 @@ usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
         return (USB_ERR_NOMEM);
     }
 
-    err = usb_req_get_descriptor(dev, NULL, *cdesc, cd.wTotalLength, cd.wTotalLength, 0,
-            USB_DESCRIPTOR_TYPE_CONFIG, cindex, 3);
+    err = usb_req_get_descriptor(dev, NULL, *cdesc, cd.wTotalLength,
+            cd.wTotalLength, 0, USB_DESCRIPTOR_TYPE_CONFIG, cindex, 3);
 
     if (err != USB_ERR_OK) {
-        free (*cdesc);
+        free(*cdesc);
         *cdesc = NULL;
         return (err);
     }
 
     return (USB_ERR_OK);
+}
+
+usb_error_t usb_req_get_string_desc(struct usb_device *dev, void *sdesc,
+        uint16_t max_len, uint16_t lang_id, uint8_t string_index)
+{
+    return (usb_req_get_descriptor(dev, NULL, sdesc, 2, max_len, lang_id,
+            USB_DESCRIPTOR_TYPE_STRING, string_index, 0));
 }
 
 usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config)
@@ -699,6 +728,7 @@ usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config)
     req.bType.type = USB_REQUEST_TYPE_STANDARD;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.wValue = config;
+    req.wLength = 0;
 
     return (usb_exec_request(dev, 0, &req, NULL, NULL));
 

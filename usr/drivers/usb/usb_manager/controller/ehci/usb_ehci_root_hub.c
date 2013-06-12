@@ -115,6 +115,7 @@ static const struct usb_hub_descriptor rh_desc = {
 
 void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
 {
+    USB_DEBUG_TR_ENTER;
     memset(hc->root_hub_interrupt_data, 0, sizeof(hc->root_hub_interrupt_data));
 
     uint16_t num_ports = hc->root_hub_num_ports + 1;
@@ -127,7 +128,7 @@ void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
         /* clear out the change bits */
         if (ehci_portsc_occ_extract(ps) || ehci_portsc_pec_extract(ps)
                 || ehci_portsc_csc_extract(ps)) {
-            USB_DEBUG("roothub_interrupt: port %i has changed\n", i+1);
+            USB_DEBUG_HC("roothub_interrupt: port %i has changed\n", i+1);
             hc->root_hub_interrupt_data[i / 8] |= (1 << (i % 8));
         }
     }
@@ -139,6 +140,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
         struct usb_device_request *req, const void **ret_data,
         uint16_t *ret_length)
 {
+    USB_DEBUG_TR_ENTER;
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) device->controller->hc_control;
     const char *str;
     const void *data = (const void *) &hc->root_hub_descriptor;
@@ -167,7 +169,6 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                         return (USB_ERR_IOERROR);
                     }
                     if (req->bType.type != USB_REQUEST_TYPE_CLASS) {
-                        USB_DEBUG("usb_ehci_roothub_exec()->GET_DEVICE_DESC\n");
                         data_length = sizeof(rh_dev_desc);
                         data = (const void *) &rh_dev_desc;
                         break;
@@ -198,7 +199,6 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     if ((req->wValue & 0xFF) != 0) {
                         return (USB_ERR_IOERROR);
                     }
-                    USB_DEBUG("usb_ehci_roothub_exec()->GET_CONFIG_DESC\n");
                     data_length = sizeof(rh_cfg_desc);
                     data = (const void *) &rh_cfg_desc;
                     break;
@@ -254,14 +254,12 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             if (req->wValue >= USB_EHCI_MAX_DEVICES) {
                 return (USB_ERR_IOERROR);
             }
-            USB_DEBUG("usb_ehci_roothub_exec()->SET_ADDRESS\n");
             hc->root_hub_address = req->wValue;
             break;
         case C(USB_REQUEST_SET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             if ((req->wValue != 0) && (req->wValue != 1)) {
                 return (USB_ERR_IOERROR);
             }
-            USB_DEBUG("usb_ehci_roothub_exec()->SET_CONFIG\n");
             hc->root_hub_config = req->wValue;
             break;
         case C(USB_REQUEST_SET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):

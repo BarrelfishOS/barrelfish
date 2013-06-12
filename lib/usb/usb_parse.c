@@ -28,7 +28,7 @@
 struct usb_descriptor *usb_parse_next_descriptor(
         struct usb_config_descriptor *cd, struct usb_descriptor *_desc)
 {
-    USB_DEBUG_TR("usb_parse_next_descriptor()\n");
+    USB_DEBUG_TR_ENTER;
     uint8_t *desc_next;
     uint8_t *start;
     uint8_t *end;
@@ -81,7 +81,7 @@ struct usb_descriptor *usb_parse_next_descriptor(
 struct usb_interface_descriptor *usb_parse_next_iface(
         struct usb_config_descriptor *cd, struct usb_iface_parse_state *ps)
 {
-    USB_DEBUG_TR("usb_parse_next_iface()\n");
+    USB_DEBUG_TR_ENTER;
     struct usb_interface_descriptor *id;
     uint8_t new_iface;
 
@@ -136,7 +136,7 @@ struct usb_endpoint_descriptor *
 usb_parse_next_edesc(struct usb_config_descriptor *cd,
         struct usb_endpoint_descriptor *ped)
 {
-    USB_DEBUG_TR("usb_parse_next_edesc()\n");
+    USB_DEBUG_TR_ENTER;
     struct usb_descriptor *desc;
 
     desc = ((struct usb_descriptor *) ped);

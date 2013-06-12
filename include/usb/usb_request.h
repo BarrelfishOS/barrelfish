@@ -45,7 +45,7 @@
 struct usb_request_type {
     uint8_t recipient : 5;  // device, interface, endpoint...
     uint8_t type : 2;       // standard, class, vendor
-    uint8_t direction : 1;	// host2device or device2host
+    uint8_t direction : 1;  // host2device or device2host
 };
 
 typedef struct usb_request_type  usb_request_type_t;
@@ -56,7 +56,7 @@ struct usb_device_request {
 	uint16_t 			wValue;
 	uint16_t 			wIndex;
 	uint16_t 			wLength;
-};
+}__packed;
 
 typedef struct usb_device_request usb_device_request_t;
 

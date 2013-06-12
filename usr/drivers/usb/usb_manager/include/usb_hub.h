@@ -20,7 +20,6 @@
 #ifndef USB_HUB_H
 #define USB_HUB_H
 
-
 struct usb_host_controller;
 
 /// the hub descriptor type value
@@ -109,7 +108,7 @@ struct usb_hub_descriptor {
     uint8_t bPwrOn2PwrGood;        ///< time from power on till accessible (2ms)
     uint8_t bHubContrCurrent;      ///< max power requirements of the hub (mA)
     uint8_t bDeviceRemovable[32];  ///< device removable bitmap (byte granularity)
-};
+}__attribute__((packed));
 
 // The maximum supported ports
 #define USB_HUB_MAX_PORTS 255
@@ -135,7 +134,7 @@ struct usb_hub_status {
     uint16_t _reserved_ :14;        ///< unused, should be zero
     uint8_t local_power_change :1;  ///< indicates a change in local power source
     uint8_t over_current_change :1;  ///< indicates a change in over current
-};
+}__attribute__((packed));
 
 /// usb hub status type
 typedef struct usb_hub_status usb_hub_status_t;
@@ -157,30 +156,30 @@ typedef struct usb_hub_status usb_hub_status_t;
  */
 struct usb_hub_port_status {
     struct {
-        uint8_t device_mode :1;  ///< impl specific
-        uint8_t _reserved :2;   ///< unused, set to zero
-        uint8_t indicator :1;   ///< set if indicator color is sw controlled
-        uint8_t test_mode :1;   ///< port operates is in test mode
-        uint8_t is_hs :1;       ///< attached device is a high speed device
-        uint8_t is_ls :1;       ///< attached devices is a low speed device
-        uint8_t power_state :1;  ///< local power control state
-        uint8_t link_state :3;  ///< USB 3.0, unused, set to zero
-        uint8_t reset :1;       ///< is set when host wants to reset device
-        uint8_t over_current :1;       ///< a over current condition happened
-        uint8_t suspend :1;     ///< device on that port is suspended
-        uint8_t enabled :1;     ///< the port is enabled
         uint8_t connection :1;  ///< there is a device connected to the port
+        uint8_t enabled :1;     ///< the port is enabled
+        uint8_t suspend :1;     ///< device on that port is suspended
+        uint8_t over_current :1;       ///< a over current condition happened
+        uint8_t reset :1;       ///< is set when host wants to reset device
+        uint8_t link_state :3;  ///< USB 3.0, unused, set to zero
+        uint8_t power_state :1;  ///< local power control state
+        uint8_t is_ls :1;       ///< attached devices is a low speed device
+        uint8_t is_hs :1;       ///< attached device is a high speed device
+        uint8_t test_mode :1;   ///< port operates is in test mode
+        uint8_t indicator :1;   ///< set if indicator color is sw controlled
+        uint8_t _reserved :2;   ///< unused, set to zero
+        uint8_t device_mode :1;  ///< impl specific
     } wPortStatus;              ///< port status flags
     struct {
-        uint16_t _reserved :8;  ///< unused, set to zero
-        uint8_t configerr :1;
-        uint8_t linkstate :1;
-        uint8_t bh_is_reset :1;
-        uint8_t is_reset :1;    ///< the reset procedure on the port is complete
-        uint8_t over_current :1;   ///< there is a change in over_current status
-        uint8_t resumed :1;     ///< the device resume procedure is completed
-        uint8_t disabled :1;    ///< the port got disabled to an error
         uint8_t connect :1;     ///< the current connect status has changed
+        uint8_t disabled :1;    ///< the port got disabled to an error
+        uint8_t resumed :1;     ///< the device resume procedure is completed
+        uint8_t over_current :1;   ///< there is a change in over_current status
+        uint8_t is_reset :1;    ///< the reset procedure on the port is complete
+        uint8_t bh_is_reset :1;
+        uint8_t linkstate :1;
+        uint8_t configerr :1;
+        uint16_t _reserved :8;  ///< unused, set to zero
     } wPortChange;              ///< port change flags
 };
 
@@ -193,7 +192,7 @@ struct usb_hub_port {
     uint8_t restarts;       ///< the number of restarts on this hub
     uint8_t device_index;   ///< the address of the attached device
     usb_mode_t usb_mode;    ///< the mode host or device mode
-};
+}__attribute__((packed));
 
 /// US hub port type
 typedef struct usb_hub_port usb_hub_port_t;
@@ -309,7 +308,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device);
  */
 void usb_hub_bandwidth_alloc(struct usb_xfer *xfer);
 void usb_hub_bandwidth_free(struct usb_xfer *xfer);
-void usb_hub_bandwidth_adjust(struct usb_device *device, uint16_t length,
+uint8_t usb_hub_bandwidth_adjust(struct usb_device *device, uint16_t length,
         uint8_t slot, uint8_t mask);
 
 /*
@@ -324,18 +323,18 @@ uint16_t usb_hub_schedule_expand(struct usb_device *udev,
 
 void usb_hub_root_interrupt(struct usb_host_controller *hc);
 
-usb_error_t uhub_query_info(struct usb_hub *hub, uint8_t *ret_nports, uint8_t *ret_ptt);
+usb_error_t uhub_query_info(struct usb_hub *hub, uint8_t *ret_nports,
+        uint8_t *ret_ptt);
 
 void usb_hub_set_device(struct usb_hub_port *up, struct usb_device *device,
         uint8_t device_index);
 struct usb_device *usb_hub_get_device(struct usb_hub *hub,
         struct usb_hub_port *port);
 
-
 /* USB hubs specific requests */
 usb_error_t usb_hub_clear_hub_feature(struct usb_device *hub, uint16_t feature);
 usb_error_t usb_hub_clear_port_feature(struct usb_device *hub, uint16_t feature,
-         uint8_t port);
+        uint8_t port);
 usb_error_t usb_hub_clear_tt_buffer(struct usb_device *hub, uint8_t dev_addr,
         uint8_t ep_num, uint8_t ep_type, uint8_t direction, uint16_t tt_port);
 usb_error_t usb_hub_get_hub_status(struct usb_device *hub,

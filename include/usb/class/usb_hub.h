@@ -155,26 +155,30 @@ typedef struct usb_hub_status usb_hub_status_t;
  */
 struct usb_hub_port_status {
     struct {
-        uint8_t _reserved :3;   ///< unused, set to zero
-        uint8_t indicator :1;   ///< set if indicator color is sw controlled
-        uint8_t test_mode :1;   ///< port operates is in test mode
-        uint8_t is_hs :1;       ///< attached device is a high speed device
-        uint8_t is_ls :1;       ///< attached devices is a low speed device
-        uint8_t power_state :1;  ///< local power control state
-        uint8_t _reserved_ :3;  ///< unused, set to zero
-        uint8_t reset :1;       ///< is set when host wants to reset device
-        uint8_t over_current :1;       ///< a over current condition happened
-        uint8_t suspend :1;     ///< device on that port is suspended
-        uint8_t enabled :1;     ///< the port is enabled
         uint8_t connection :1;  ///< there is a device connected to the port
+        uint8_t enabled :1;     ///< the port is enabled
+        uint8_t suspend :1;     ///< device on that port is suspended
+        uint8_t over_current :1;       ///< a over current condition happened
+        uint8_t reset :1;       ///< is set when host wants to reset device
+        uint8_t link_state :3;  ///< USB 3.0, unused, set to zero
+        uint8_t power_state :1;  ///< local power control state
+        uint8_t is_ls :1;       ///< attached devices is a low speed device
+        uint8_t is_hs :1;       ///< attached device is a high speed device
+        uint8_t test_mode :1;   ///< port operates is in test mode
+        uint8_t indicator :1;   ///< set if indicator color is sw controlled
+        uint8_t _reserved :2;   ///< unused, set to zero
+        uint8_t device_mode :1;  ///< impl specific
     } wPortStatus;              ///< port status flags
     struct {
-        uint16_t _reserved :11;  ///< unused, set to zero
-        uint8_t is_reset :1;    ///< the reset procedure on the port is complete
-        uint8_t over_current :1;   ///< there is a change in over_current status
-        uint8_t resumed :1;     ///< the device resume procedure is completed
-        uint8_t disabled :1;    ///< the port got disabled to an error
         uint8_t connect :1;     ///< the current connect status has changed
+        uint8_t disabled :1;    ///< the port got disabled to an error
+        uint8_t resumed :1;     ///< the device resume procedure is completed
+        uint8_t over_current :1;   ///< there is a change in over_current status
+        uint8_t is_reset :1;    ///< the reset procedure on the port is complete
+        uint8_t bh_is_reset :1;
+        uint8_t linkstate :1;
+        uint8_t configerr :1;
+        uint16_t _reserved :8;  ///< unused, set to zero
     } wPortChange;              ///< port change flags
 };
 

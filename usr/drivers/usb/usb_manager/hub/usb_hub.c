@@ -28,20 +28,23 @@
 #include <usb_hub.h>
 #include <usb_device.h>
 #include <usb_transfer.h>
+#include <usb_driver.h>
 
-/*static const struct usb_transfer_setup hub_config[USB_HUB_NUM_TRANSFERS] = {
- [0] = {
- .type = USB_ENDPOINT_TYPE_INTR,
- .direction = USB_ENDPOINT_DIRECTION_ANY,
- .timeout = 0,
- .flags = {
- .short_xfer_ok = 1,
- .pipe_on_falure = 1,
- },
- .max_bytes = 0,
- .interval = USB_HUB_INTR_INTERVAL
- },
- };*/
+static const struct usb_xfer_config hub_config[USB_HUB_NUM_TRANSFERS] = {
+    [0] = {
+        .type = USB_ENDPOINT_TYPE_INTR,
+        .direction = USB_ENDPOINT_DIRECTION_ANY,
+        .endpoint = USB_ENDPOINT_ADDRESS_ANY,
+        .timeout = 0,
+        .flags = {
+            .short_xfer_ok = 1,
+            .pipe_on_falure = 1,
+        },
+        .bufsize = 0,
+        .interval = USB_HUB_INTR_INTERVAL,
+        .usb_type = USB_TYPE_INTR
+    },
+};
 
 struct usb_device *usb_hub_get_device(struct usb_hub *hub,
         struct usb_hub_port *port)
@@ -92,7 +95,7 @@ static uint8_t usb_hub_too_deep(struct usb_device *device)
  */
 static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
 {
-    USB_DEBUG_TR("usb_hub_reattach_port(%u) \n", portno);
+    USB_DEBUG_TR_ENTER;
     usb_error_t err = USB_ERR_OK;
     uint8_t timeout = 0;
 
@@ -115,19 +118,19 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
         }
         err = usb_hub_get_port_status(hub->device, portno, &ps);
         if (err) {
-            debug_printf("ERROR: could not get port status. Port=%u", portno);
+            USB_DEBUG("ERROR: could not get port status. Port=%u", portno);
             break;
         }
 
         if (!ps.wPortStatus.connection) {
             /* no device attached... error */
-            debug_printf("WARNING: no device connected to port %u.\n", portno);
+            USB_DEBUG("WARNING: no device connected to port %u.\n", portno);
             break;
         }
 
         /* check for the power on the port */
         if (!ps.wPortStatus.power_state) {
-            debug_printf("WARNING: Connected port %u has no power!\n", portno);
+            USB_DEBUG("WARNING: Connected port %u has no power!\n", portno);
         }
 
         if (!ps.wPortStatus.device_mode) {
@@ -141,21 +144,20 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
 
             err = usb_hub_reset_port(hub->device, portno);
             if (err != USB_ERR_OK) {
-                debug_printf("WARNING: port reset failed.\n");
+                USB_DEBUG("WARNING: port reset failed.\n");
                 break;
             }
 
             err = usb_hub_get_port_status(hub->device, portno, &ps);
             if (err != USB_ERR_OK) {
-                debug_printf("ERROR: Could not read port status (%u)\n",
-                        portno);
+                USB_DEBUG("ERROR: Could not read port status (%u)\n", portno);
                 break;
             }
 
             if (ps.wPortChange.connect || !ps.wPortStatus.connection) {
                 if (timeout) {
-                    debug_printf("WARTNING: timed out. "
-                            "Giving up port reset...\n");
+                    USB_DEBUG("WARTNING: timed out. "
+                    "Giving up port reset...\n");
                     break;
                 }
                 timeout = 1;
@@ -172,12 +174,12 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
             case USB_SPEED_HIGH:
                 if (ps.wPortStatus.is_hs) {
                     speed = USB_SPEED_HIGH;
-                    USB_DEBUG("device speed is HS -> HIGH SPEED\n");
+                    USB_DEBUG_DEV("device speed is HS -> HIGH SPEED\n");
                 } else if (ps.wPortStatus.is_ls) {
-                    USB_DEBUG("device speed is HS -> LOW SPEED\n");
+                    USB_DEBUG_DEV("device speed is HS -> LOW SPEED\n");
                     speed = USB_SPEED_LOW;
                 } else {
-                    USB_DEBUG("device speed is HS -> FULL SPEED\n");
+                    USB_DEBUG_DEV("device speed is HS -> FULL SPEED\n");
                     speed = USB_SPEED_FULL;
                 }
                 break;
@@ -185,14 +187,14 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
             case USB_SPEED_FULL:
                 if (ps.wPortStatus.is_ls) {
                     speed = USB_SPEED_LOW;
-                    USB_DEBUG("device speed is FS -> LOW SPEED\n");
+                    USB_DEBUG_DEV("device speed is FS -> LOW SPEED\n");
                 } else {
                     speed = USB_SPEED_FULL;
-                    USB_DEBUG("device speed is FS -> FULL SPEED\n");
+                    USB_DEBUG_DEV("device speed is FS -> FULL SPEED\n");
                 }
                 break;
             case USB_SPEED_LOW:
-                USB_DEBUG("device speed is LS -> LOW SPEED\n");
+                USB_DEBUG_DEV("device speed is LS -> LOW SPEED\n");
                 speed = USB_SPEED_LOW;
                 break;
             case USB_SPEED_SUPER:
@@ -210,15 +212,18 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
 
         usb_mode_t mode = USB_MODE_HOST;
         if (ps.wPortStatus.device_mode) {
-            USB_DEBUG("new device in DEVICE_MODE\n");
+            USB_DEBUG_DEV("new device in DEVICE_MODE\n");
             mode = USB_MODE_DEVICE;
         }
 
         child = usb_device_alloc(hub->device->controller, hub->device,
                 hub->device->depth + 1, portno - 1, portno, speed, mode);
         if (child == NULL) {
-            debug_printf("Could not allocate a new device!\n");
+            USB_DEBUG("ERROR: Could not allocate a new device!\n");
+            return (USB_ERR_NOMEM);
         }
+
+        usb_driver_start(child);
 
         return (USB_ERR_OK);
     }
@@ -235,16 +240,9 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
         }
     }
     if (err) {
-        debug_printf("WARNING: Device problem, disabling port\n");
+        USB_DEBUG("WARNING: Device problem, disabling port\n");
     }
     return (err);
-}
-
-static usb_error_t usb_hub_explore_device(struct usb_hub *hub,
-        struct usb_hub_port *port)
-{
-
-    return (USB_ERR_OK);
 }
 
 static usb_error_t usb_hub_suspend_resume_port(struct usb_hub *hub,
@@ -264,13 +262,16 @@ static usb_error_t usb_hub_suspend_resume_port(struct usb_hub *hub,
  */
 usb_error_t usb_hub_init(struct usb_device *hub_device)
 {
-    USB_DEBUG_TR("usb_hub_init()\n");
+    USB_DEBUG_TR_ENTER;
+
     struct usb_device *parent_hub = hub_device->parent_hub;
     usb_error_t err;
 
+    USB_DEBUG_DEV("initializing hub device...\n");
+
     /* check if the hub has an appropriate depth */
     if (usb_hub_too_deep(hub_device)) {
-        debug_printf("Hub is too deep!. Ignored. \n");
+        USB_DEBUG("Hub is too deep!. Ignored. \n");
         /* TODO: err */
         return (USB_ERR_TOO_DEEP);
     }
@@ -281,7 +282,7 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
          * note: bus powered hubs cannot be connected to other
          * bus powered hubs.
          */
-        debug_printf("WARNING: insufficient power.\n");
+        USB_DEBUG("WARNING: insufficient power.\n");
         /* TODO: ERR */
         return (USB_ERR_INVAL);
     }
@@ -297,14 +298,14 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
         case USB_SPEED_HIGH:
             err = usb_hub_get_hub_descriptor(hub_device, 1, &desc);
             if (err != USB_ERR_OK) {
-                debug_printf("ERROR: could not get hub descriptor \n");
+                USB_DEBUG("ERROR: could not get hub descriptor \n");
                 return (err);
             }
             /* get the number of ports */
             nports = desc.bNbrPorts;
 
             if (nports > 127) {
-                debug_printf("WARNING: invalid port count\n");
+                USB_DEBUG("WARNING: invalid port count\n");
                 return (USB_ERR_INVAL);
             }
 
@@ -340,6 +341,8 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
             break;
     }
 
+    USB_DEBUG_DEV("Found hub device: Num ports = %u\n", desc.bNbrPorts);
+
     if (nports == 0) {
         debug_printf("ERROR: hub has no ports\n");
         return (USB_ERR_IOERROR);
@@ -371,14 +374,14 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
         /*
          * the root hub is special, it needs no interrupt transfer
          */
-        USB_DEBUG("device was the root hub\n");
+        USB_DEBUG_DEV("device was the root hub \n");
         err = USB_ERR_OK;
     } else {
-        /* TODO: usb_transfer_setup(udev, &iface_index, sc->sc_xfer,
-         uhub_config, UHUB_N_TRANSFER, sc, &sc->sc_mtx); */
+        USB_DEBUG_DEV("device was an attached hub \n");
+        usb_transfer_setup(hub_device, 0, &hub->xfers[0], hub_config);
     }
     if (err != USB_ERR_OK) {
-        debug_printf("COuld not setup the interrupt transfer\n");
+        debug_printf("Could not setup the interrupt transfer\n");
         free(hub);
         return (err);
     }
@@ -468,7 +471,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
     struct usb_hub *hub = hub_device->hub;
 
     if (hub == NULL) {
-        debug_printf("ERROR: hub_explore() - bad context.\n");
+        USB_DEBUG("ERROR: hub_explore() - bad context.\n");
         return (USB_ERR_BAD_CONTEXT);
     }
 
@@ -478,7 +481,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
      * so if this is the case, skip the exploration process at this stage.
      */
     if (usb_hub_too_deep(hub_device)) {
-        debug_printf("WARNING: hub_explore() - too deep.\n");
+        USB_DEBUG("WARNING: hub_explore() - too deep.\n");
         return (USB_ERR_TOO_DEEP);
     }
 
@@ -492,21 +495,23 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
         port = hub->ports + i;
         portno = i + 1;
 
+        USB_DEBUG_DEV("exploring port %i.\n", portno);
+
         err = usb_hub_get_port_status(hub->device, portno, &ps);
         if (err != USB_ERR_OK) {
-            debug_printf("WARNING: Could not read port status. Hub gone?%s\n",
-                    usb_get_error_string(err));
+            USB_DEBUG(
+                    "WARNING: Could not read port status. Hub gone?%s\n", usb_get_error_string(err));
             break;
         }
 
         /* check if we have a port over current condition */
         if (ps.wPortChange.over_current) {
-            debug_printf("NOTICE: Over current condition on port %u.\n",
-                    portno);
+            USB_DEBUG_DEV(
+                    "NOTICE: Over current condition on port %u.\n", portno);
             err = usb_hub_clear_port_feature(hub->device,
                     USB_HUB_FEATURE_C_PORT_OVER_CURRENT, portno);
             if (err != USB_ERR_OK) {
-                debug_printf(
+                USB_DEBUG(
                         "WARNING: Could not clear port feature. Hub gone?\n");
                 break;
             }
@@ -517,7 +522,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
          * on the port
          */
         if (ps.wPortChange.disabled) {
-            USB_DEBUG("WARNING: Port %i got disabled.\n", i);
+            USB_DEBUG_DEV("WARNING: Port %i got disabled.\n", i);
             err = usb_hub_clear_port_feature(hub->device,
                     USB_HUB_FEATURE_C_PORT_ENABLE, portno);
             if (err != USB_ERR_OK) {
@@ -527,16 +532,15 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
             }
 
             if (ps.wPortChange.connect) {
-                USB_DEBUG("NOTICE: Device on ort %u is gone.\n", i);
+                USB_DEBUG_DEV("NOTICE: Device on ort %u is gone.\n", i);
                 /* the device is gone, ignore the port error */
 
             } else if (ps.wPortStatus.enabled) {
-                debug_printf("WARNING: illegal enable change on port %u\n",
-                        portno);
+                USB_DEBUG(
+                        "WARNING: illegal enable change on port %u\n", portno);
             } else {
                 if (port->restarts == USB_HUB_MAX_RESTARTS) {
-                    debug_printf("WARNING: too many restarts on port %u.\n ",
-                            i);
+                    USB_DEBUG("WARNING: too many restarts on port %u.\n ", i);
                 } else {
                     ps.wPortChange.connect = 1;
                     port->restarts++;
@@ -545,7 +549,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
         }
 
         if (ps.wPortChange.connect) {
-            USB_DEBUG("NOTICE: New device on port %u: reattach\n", portno);
+            USB_DEBUG_DEV("NOTICE: New device on port %u: reattach\n", portno);
             err = usb_hub_reattach_port(hub, portno);
             if (err != USB_ERR_OK) {
                 debug_printf("WARNING: Could not reattach port. Hub gone?\n");
@@ -554,7 +558,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
         }
 
         if (ps.wPortChange.resumed || ps.wPortChange.linkstate) {
-            USB_DEBUG("NOTICE: suspend/resume device on port %i.\n", i);
+            USB_DEBUG_DEV("NOTICE: suspend/resume device on port %i.\n", i);
             err = usb_hub_suspend_resume_port(hub, portno);
             if (err != USB_ERR_OK) {
                 debug_printf("WARNING: Could not resume the port. Hub gone?\n");
@@ -562,7 +566,14 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
             }
         }
 
-        err = usb_hub_explore_device(hub, port);
+        struct usb_host_controller *hc = hub_device->controller;
+        struct usb_device *child = hc->devices[port->device_index];
+
+        if (child != NULL && child->hub != NULL) {
+            USB_DEBUG_DEV("Device on port %u is a hub. Exploring...\n", portno);
+            err = usb_hub_explore(child);
+        }
+
         if (err != USB_ERR_OK) {
             /* no device is present, just continue */
             continue;
@@ -575,9 +586,126 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
     return (USB_ERR_OK);
 }
 
+static uint8_t usb_hub_find_slot(uint16_t *ptr, uint8_t start, uint8_t end,
+        uint8_t mask)
+{
+    uint16_t min = 0 - 1;
+    uint8_t slot = 0;
+    for (uint8_t cs = start; cs < end; cs++) {
+        uint16_t sum = 0;
+
+        for (uint8_t bw = cs; cs < end; bw++) {
+            if (mask & (1U << (bw - cs))) {
+                sum += ptr[bw];
+            }
+        }
+
+        if (min >= sum) {
+            min = sum;
+            slot = cs;
+        }
+
+        if (mask & (1U << (end - 1 - cs))) {
+            break;
+        }
+    }
+    return (slot);
+}
+
+uint8_t usb_hub_bandwidth_adjust(struct usb_device *dev, uint16_t length,
+        uint8_t slot, uint8_t mask)
+{
+    struct usb_host_controller *hc = dev->controller;
+    switch (dev->speed) {
+        case USB_SPEED_LOW:
+        case USB_SPEED_FULL:
+            length *= dev->speed == USB_SPEED_LOW ? 8 : 1;
+
+            assert(dev->parent_hs_hub != NULL);
+            struct usb_hub *hub = dev->parent_hs_hub->hub;
+            assert(hub != NULL);
+
+            if (slot >= 8) {
+                slot = usb_hub_find_slot(hub->uframe_usage, 4, 6, mask);
+            }
+            for (uint32_t cs = slot; cs < 8; cs++) {
+                if (mask & (1U << (cs - slot))) {
+                    hub->uframe_usage[cs] += length;
+                    hc->uframe_usage[cs] += length;
+                }
+            }
+            break;
+        default:
+            if (slot >= 8) {
+                slot = usb_hub_find_slot(hub->uframe_usage, 8, 6, mask);
+            }
+            for (uint32_t cs = slot; cs < 8; cs++) {
+                if (mask & (1U << (cs - slot))) {
+                    hc->uframe_usage[cs] += length;
+                }
+            }
+            break;
+    }
+    return (slot);
+}
+
 void usb_hub_bandwidth_alloc(struct usb_xfer *xfer)
 {
-    assert(!"NYI");
+    struct usb_device *dev = xfer->device;
+
+    xfer->endpoint->ref_bandwidth++;
+    if (xfer->endpoint->ref_bandwidth != 1) {
+        /* the bandwidth for this transfer is already allocated... */
+        return;
+    }
+
+    uint8_t slot, mask;
+
+    switch (xfer->type) {
+        case USB_TYPE_INTR:
+            mask = 0x01;
+            slot = usb_hub_bandwidth_adjust(dev, xfer->max_frame_size, 8, mask);
+            xfer->endpoint->hs_uframe = slot;
+            xfer->endpoint->hs_smask = mask << slot;
+
+            switch (xfer->device->speed) {
+                case USB_SPEED_LOW:
+                case USB_SPEED_FULL:
+                    xfer->endpoint->hs_cmask = (-(0x04 << slot)) & 0xFE;
+                    break;
+                default:
+                    xfer->endpoint->hs_cmask = 0x00;
+                    break;
+            }
+
+            break;
+        case USB_TYPE_ISOC:
+            switch (xfer->frame_shift) {
+                case 0:
+                    mask = 0xFF;
+                    break;
+                case 1:
+                    mask = 0x55;
+                    break;
+                case 2:
+                    mask = 0x11;
+                    break;
+                default:
+                    mask = 0x01;
+                    break;
+
+            }
+            slot = usb_hub_bandwidth_adjust(dev, xfer->max_frame_size, 8, mask);
+            xfer->endpoint->hs_uframe = slot;
+            xfer->endpoint->hs_smask = mask << slot;
+            xfer->endpoint->hs_cmask = 0;
+            break;
+        default:
+            xfer->endpoint->hs_uframe = 0;
+            xfer->endpoint->hs_smask = 0;
+            xfer->endpoint->hs_cmask = 0;
+            break;
+    }
 }
 
 void usb_hub_bandwidth_free(struct usb_xfer *xfer)

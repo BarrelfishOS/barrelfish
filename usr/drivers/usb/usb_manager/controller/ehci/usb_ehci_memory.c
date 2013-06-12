@@ -20,11 +20,6 @@
 #include "usb_ehci.h"
 #include "usb_ehci_memory.h"
 
-#if 0
-#define USB_EM_DEBUG(x...) USB_DEBUG(x)
-#else
-#define USB_EM_DEBUG(x...)
-#endif
 /// which version of data structures we have to use
 static usb_ds_size_t ds_size = USB_EHCI_DS_32BIT;
 
@@ -110,7 +105,7 @@ struct usb_ehci_qh *usb_ehci_qh_alloc(void)
 
     for (uint32_t i = 0; i < num_qh; i++) {
         assert(!(qh_self % USB_EHCI_QH_ALIGN));
-        USB_EM_DEBUG(" Allocating QH: vaddr=%p, phys=%p (%x) [%x] (%u of %u)\n", qh,
+        USB_DEBUG_MEM(" Allocating QH: vaddr=%p, phys=%p (%x) [%x] (%u of %u)\n", qh,
                 qh_self, qh_self % USB_EHCI_QH_ALIGN, size_qh, i, num_qh);
         memset(qh, 0, size_qh);
         qh->qh_self = qh_self;
@@ -199,7 +194,7 @@ struct usb_ehci_qtd *usb_ehci_qtd_alloc(void)
 
     for (uint32_t i = 0; i < num_qtd; i++) {
         assert(!(qtd_self % USB_EHCI_QTD_ALIGN));
-        USB_EM_DEBUG(" Allocating QTD: vaddr=%p, phys=%p (%x) [%x]\n", qtd,
+        USB_DEBUG_MEM(" Allocating QTD: vaddr=%p, phys=%p (%x) [%x]\n", qtd,
                 qtd_self, qtd_self % USB_EHCI_QTD_ALIGN, size_qtd);
         memset(qtd, 0, size_qtd);
         qtd->qtd_self = qtd_self;
@@ -281,7 +276,7 @@ struct usb_ehci_sitd *usb_ehci_sitd_alloc(void)
 
     for (uint32_t i = 0; i < num_sitd; i++) {
         assert(!(sitd_self % USB_EHCI_SITD_ALIGN));
-        USB_EM_DEBUG(" Allocating SITD: vaddr=%p, phys=%p (%x) [%x]\n", sitd,
+        USB_DEBUG_MEM(" Allocating SITD: vaddr=%p, phys=%p (%x) [%x]\n", sitd,
                 sitd_self, sitd_self % USB_EHCI_SITD_ALIGN, size_sitd);
         memset(sitd, 0, size_sitd);
         sitd->sitd_self = sitd_self;
@@ -351,7 +346,7 @@ struct usb_ehci_itd *usb_ehci_itd_alloc(void)
     usb_paddr_t itd_self = page->free.phys_addr;
 
     for (uint32_t i = 0; i < num_itd; i++) {
-        USB_EM_DEBUG(" Allocating ITD: vaddr=%p, phys=%p (%x) [%x]\n", itd,
+        USB_DEBUG_MEM(" Allocating ITD: vaddr=%p, phys=%p (%x) [%x]\n", itd,
                 itd_self, itd_self % USB_EHCI_ITD_ALIGN, size_itd);
         assert(!(itd_self % USB_EHCI_ITD_ALIGN));
         memset(itd, 0, size_itd);

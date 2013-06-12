@@ -44,12 +44,11 @@
  *  - bDescriptorType:      type of the descriptor
  *  - bDescriptorSubType:   subtype of the descriptor
  */
-struct usb_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  uint8_t bDescriptorSubType;
-};
+struct usb_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubType;
+}__attribute__((packed));
 
 typedef struct usb_descriptor usb_descriptor_t;
 
@@ -76,22 +75,21 @@ typedef struct usb_descriptor usb_descriptor_t;
  *  - iSerialNumber:     index of string describing device's serial number
  *  - bNumConfigurations:number of possible configurations
  */
-struct usb_device_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  uint16_t bcdUSB;
-  uint8_t bDeviceClass;
-  uint8_t bDeviceSubClass;
-  uint8_t bDeviceProtocol;
-  uint8_t bMaxPacketSize0;
-  uint16_t idVendor;
-  uint16_t idProduct;
-  uint16_t bcdDevice;
-  uint8_t iManufacturer;
-  uint8_t iProduct;
-  uint8_t iSerialNumber;
-  uint8_t bNumConfigurations;
+struct usb_device_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t bDeviceClass;
+    uint8_t bDeviceSubClass;
+    uint8_t bDeviceProtocol;
+    uint8_t bMaxPacketSize0;
+    uint16_t idVendor;
+    uint16_t idProduct;
+    uint16_t bcdDevice;
+    uint8_t iManufacturer;
+    uint8_t iProduct;
+    uint8_t iSerialNumber;
+    uint8_t bNumConfigurations;
 };
 
 typedef struct usb_device_descriptor usb_device_descriptor_t;
@@ -118,18 +116,17 @@ typedef struct usb_device_descriptor usb_device_descriptor_t;
  *  - bNumConfiguration: number of possible configurations
  *  - bReserved:         always ZERO
  */
-struct usb_device_qualifier_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  uint16_t bcdUSB;
-  uint8_t bDeviceClass;
-  uint8_t bDeviceSubClass;
-  uint8_t bDeviceProtocol;
-  uint8_t bMaxPacketSize0;
-  uint8_t bNumConfigurations;
-  uint8_t bReserved;
-};
+struct usb_device_qualifier_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t bcdUSB;
+    uint8_t bDeviceClass;
+    uint8_t bDeviceSubClass;
+    uint8_t bDeviceProtocol;
+    uint8_t bMaxPacketSize0;
+    uint8_t bNumConfigurations;
+    uint8_t bReserved;
+}__attribute__((packed));
 
 typedef struct usb_device_qualifier_descriptor usb_device_qualifier_descriptor_t;
 
@@ -158,17 +155,16 @@ typedef struct usb_device_qualifier_descriptor usb_device_qualifier_descriptor_t
  *  - bmAttributes:         bit map of configuration characteristics
  *  - bMaxPower:            maximum power consumption in 2mA unit steps
  */
-struct usb_config_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  uint16_t wTotalLength;
-  uint8_t bNumInterfaces;
-  uint8_t bConfigurationValue;
-  uint8_t iConfiguration;
-  uint8_t bmAttributes;
-  uint8_t bMaxPower;
-};
+struct usb_config_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t wTotalLength;
+    uint8_t bNumInterfaces;
+    uint8_t bConfigurationValue;
+    uint8_t iConfiguration;
+    uint8_t bmAttributes;
+    uint8_t bMaxPower;
+}__attribute__((packed));
 
 typedef struct usb_config_descriptor usb_config_descriptor_t;
 
@@ -202,18 +198,17 @@ typedef struct usb_config_descriptor usb_config_descriptor_t;
  *  - bInterfaceProtocol:   protocol code (qualified by class/subclass)
  *  - iInterface:           index of string descriptor describing this iface
  */
-struct usb_interface_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  uint8_t bInterfaceNumber;
-  uint8_t bAlternateSetting;
-  uint8_t bNumEndpoints;
-  uint8_t bInterfaceClass;
-  uint8_t bInterfaceSubClass;
-  uint8_t bInterfaceProtocol;
-  uint8_t iInterface;
-};
+struct usb_interface_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bInterfaceNumber;
+    uint8_t bAlternateSetting;
+    uint8_t bNumEndpoints;
+    uint8_t bInterfaceClass;
+    uint8_t bInterfaceSubClass;
+    uint8_t bInterfaceProtocol;
+    uint8_t iInterface;
+}__attribute__((packed));
 
 typedef struct usb_interface_descriptor usb_interface_descriptor_t;
 
@@ -243,34 +238,31 @@ typedef struct usb_interface_descriptor usb_interface_descriptor_t;
  *  - wMaxPacketSize:   maximum packet size for this endpoint
  *  - bInterval:        interval for polling in (micro)frames
  */
-struct usb_endpoint_address
-{
-  uint8_t direction :1;
-  uint8_t _reserved :3;
-  uint8_t ep_number :4;
+struct usb_endpoint_address {
+    uint8_t ep_number :4;
+    uint8_t _reserved :3;
+    uint8_t direction :1;
 };
 
 typedef struct usb_endpoint_address usb_endpoint_address_t;
 
-struct usb_endpoint_attributes
-{
-  uint8_t _unused :2;
-  uint8_t usage_type :2;
-  uint8_t sync_type :2;
-  uint8_t xfer_type :2;
+struct usb_endpoint_attributes {
+    uint8_t xfer_type :2;
+    uint8_t sync_type :2;
+    uint8_t usage_type :2;
+    uint8_t _unused :2;
 };
 
 typedef struct usb_endpoint_attributes usb_endpoint_attributes_t;
 
-struct usb_endpoint_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  usb_endpoint_address_t bEndpointAddress;
-  usb_endpoint_attributes_t bmAttributes;
-  uint16_t wMaxPacketSize;
-  uint8_t bInterval;
-};
+struct usb_endpoint_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    usb_endpoint_address_t bEndpointAddress;
+    usb_endpoint_attributes_t bmAttributes;
+    uint16_t wMaxPacketSize;
+    uint8_t bInterval;
+}__attribute__((packed));
 
 typedef struct usb_endpoint_descriptor usb_endpoint_descriptor_t;
 
@@ -318,27 +310,24 @@ typedef struct usb_endpoint_descriptor usb_endpoint_descriptor_t;
  *  - bString:          char array containing the string (not null term.)
  *  - wLangID:          language ID code
  */
-struct usb_string_descriptor_languages
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  uint16_t wLangID[128];
-};
+struct usb_string_descriptor_languages {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint16_t wLangID[128];
+}__attribute__((packed));
 
 typedef struct usb_string_descriptor_languages usb_string_descriptor_languages_t;
 
-struct usb_string_descriptor
-{
-  uint8_t bLength;
-  uint8_t bDescriptorType;
-  char bString[256];
-};
+struct usb_string_descriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    char bString[256];
+}__attribute__((packed));
 
 typedef struct usb_string_descriptor usb_string_descriptor_t;
 
 #define USB_STRING_GET_ELEMENT_COUNT(sd)    ((sd->bLength -2 )/2)
 #define USB_STRING_GET_STRLEN(sd)           ((sd->bLength -2 ))
-
 
 /*
  * ------------------------------------------------------------------------
@@ -356,8 +345,7 @@ typedef struct usb_string_descriptor usb_string_descriptor_t;
  * first interface’s endpoint descriptors.
  */
 
-struct usb_generic_descriptor
-{
+struct usb_generic_descriptor {
     struct usb_device_descriptor device;
     struct usb_config_descriptor config;
     struct usb_interface_descriptor iface[1];

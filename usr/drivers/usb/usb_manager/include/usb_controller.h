@@ -144,6 +144,7 @@ typedef struct usb_host_controller {
     uint8_t devices_max;
 
     usb_intr_handler_t *handle_intr;
+    uint16_t uframe_usage[8];
 
     struct usb_device *root_hub;
 

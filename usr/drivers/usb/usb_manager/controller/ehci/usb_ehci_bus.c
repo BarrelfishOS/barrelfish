@@ -57,20 +57,20 @@ static struct usb_hcdi_bus_fn usb_ehci_bus_fn =
 
 
 void usb_ehci_poll(usb_ehci_hc_t *hc) {
-
+    USB_DEBUG_TR_ENTER;
     struct usb_xfer *xfer;
     uint8_t repeat = 0;
 
     do {
+        repeat = 0;
         for (xfer = (&hc->controller->intr_queue.head)->first; xfer;
                 xfer = ((xfer))->wait_entry.next) {
-
             if (usb_ehci_xfer_is_finished(xfer)) {
                 repeat = 1;
             }
         }
     } while(repeat);
-
+    USB_DEBUG_TR_RETURN;
 }
 
 

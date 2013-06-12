@@ -24,7 +24,8 @@
 
 void usb_ehci_enqueue_xfer_intrq(struct usb_xfer *xfer)
 {
-    USB_DEBUG_TR("usb_ehci_enqueue_xfer_intrq()\n");
+    USB_DEBUG_TR_ENTER;
+
     /*
      * check if the transfer is already finished
      */
@@ -155,7 +156,8 @@ usb_ehci_itd_t *usb_ehci_deq_hs_td(usb_ehci_itd_t *std, usb_ehci_itd_t *last)
  */
 usb_ehci_qh_t *usb_ehci_enq_qh(usb_ehci_qh_t *qh, usb_ehci_qh_t *last)
 {
-    USB_DEBUG_TR("usb_ehci_enq_qh()\n");
+    USB_DEBUG_TR_ENTER;
+
     /*
      * a queue head can only be linked once
      */

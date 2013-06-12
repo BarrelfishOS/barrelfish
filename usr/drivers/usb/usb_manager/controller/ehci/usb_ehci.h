@@ -159,7 +159,7 @@ union usb_ehci_itd_bp {
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
     } bp_1;                   ///< Representation for BP 1
     struct bp_2 {
-        uint32_t multi :2;               ///< num of transactions per uFrame 0..3
+        uint32_t multi :2;              ///< num of transactions per uFrame 0..3
         uint32_t _reserved :10;          ///< reserved, has to be zero
         usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
     } bp_2;                   ///< Representation for BP 2
@@ -208,9 +208,9 @@ struct usb_ehci_sitd_ep {
     uint32_t _reserved_1 :1;    ///< reserved, should be zero
     uint32_t port_number :7;    ///< port number of recipient TT
     uint32_t direction :1;      ///< direction of the transfer (IN = 1)
-    uint32_t s_mask : 8;             ///< split start mask
-    uint32_t c_mask : 8;             ///< split competition mask
-    uint32_t _reserved_4 : 16;       ///< reserved, should be zero
+    uint32_t s_mask :8;             ///< split start mask
+    uint32_t c_mask :8;             ///< split competition mask
+    uint32_t _reserved_4 :16;       ///< reserved, should be zero
 };
 
 /// siTD Endoint Capabilities/Characteristics state
@@ -223,8 +223,8 @@ typedef struct usb_ehci_sitd_ep usb_ehci_sitd_ep_t;
  * Dwords 3-6 are used to manage the state of the transfer.
  */
 struct usb_ehci_sitd_state {
-    uint32_t status : 8;          ///< status of the transaction executed
-    uint32_t c_prog_mask : 8;     ///< frame complete-split progress mask
+    uint32_t status :8;          ///< status of the transaction executed
+    uint32_t c_prog_mask :8;     ///< frame complete-split progress mask
     uint32_t length :10;    ///< total bytes to transfer
     uint32_t _reserved :4;   ///< reserved, should be zero
     uint32_t page_select :1;  ///< which data page pointer to use
@@ -337,7 +337,7 @@ typedef struct usb_ehci_sitd usb_ehci_sitd_t;
  * remaining endpoint-addressing information is specified in the queue head).
  */
 struct usb_ehci_qtd_token {
-    uint32_t status : 8;             ///<
+    uint32_t status :8;             ///<
     uint32_t pid :2;            ///< pid code
     uint32_t err_count :2;      ///< number of consecutive errors
     uint32_t current_page :3;   ///< index into the buffer pointer list
@@ -457,15 +457,21 @@ typedef struct usb_ehci_qtd usb_ehci_qtd_t;
  */
 struct usb_ehci_qh_ep {
     /* endpoint characteristics */
+    /* byte 0 */
     uint32_t device_address :7;     ///< the device for this request
     uint32_t inactive :1;           ///< request active bit set to zero
+
+    /* byte 1*/
     uint32_t ep_number :4;          ///< endpoint number for this request
     uint32_t ep_speed :2;           ///< endpoint speed
     uint32_t data_toggle_ctrl :1;   ///< initial data toggle from qTD
     uint32_t head_reclamation :1;   ///< this QH is the head of the reclamation
+
+    /* byte 2-3 */
     uint32_t max_packet_size :11;  ///< the maximum packet size (max 1024)
     uint32_t is_control_ep :1;      ///< EP is control (for non HS EPs only)
     uint32_t nak_count_reload :4;   ///< value to re load the NAK fields
+
     /* endpoint capabilities */
     uint32_t irq_mask :8;               ///< interrupt schedule mask
     uint32_t complete_mask :8;          ///< split completition mask
@@ -494,7 +500,7 @@ typedef struct usb_ehci_qh_ep usb_ehci_qh_ep_t;
  * Queue head status fields
  */
 struct usb_ehci_qh_status {
-    uint32_t status : 8;             ///< status of the transfer
+    uint32_t status :8;             ///< status of the transfer
     uint32_t pid :2;             ///< pid of the transfer
     uint32_t err_count :2;       ///< error counter
     uint32_t current_page :3;    ///< current buffer page

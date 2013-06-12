@@ -10,6 +10,7 @@
 #ifndef LIBUSB_USB_H_
 #define LIBUSB_USB_H_
 
+#include <stdio.h>
 #include <usb/usb_error.h>
 
 /**
@@ -34,6 +35,8 @@ typedef enum usb_speed {
     USB_SPEED_HIGH,
     USB_SPEED_SUPER,
 } usb_speed_t;
+
+#define USB_SPEED_MAX (USB_SPEED_SUPER+1)
 
 typedef enum usb_hc_version {
     USB_UHCI=0x0100,
@@ -108,11 +111,41 @@ typedef struct usb_status usb_status_t;
 #define USB_DELAY_RECOVERY 10
 
 #define USB_WAIT(ms) \
-    for (uint32_t i = 0; i < 0x5*(ms); i++) {printf("%c", 0xE);};
+    for (uint32_t i = 0; i < 4*(ms); i++) {printf("%c", 0xE);};
 
+
+/* some debug vars */
 #define USB_DEBUG(x...) debug_printf(x)
-#define USB_DEBUG_TR(x...) debug_printf(x)
+//#define USB_DEBUG(x...)
 
+//#define USB_DEBUG_XFER(x...) USB_DEBUG(x)
+#define USB_DEBUG_XFER(x...)
+
+#define USB_DEBUG_HC(x...) USB_DEBUG(x)
+//#define USB_DEBUG_HC(x...)
+
+//#define USB_DEBUG_XFER_HC(x...) USB_DEBUG(x)
+#define USB_DEBUG_XFER_HC(x...)
+
+//#define USB_DEBUG_REQ(x...) USB_DEBUG(x)
+#define USB_DEBUG_REQ(x...)
+
+#define USB_DEBUG_DEV(x...) USB_DEBUG(x)
+//#define USB_DEBUG_DEV(x...)
+
+//#define USB_DEBUG_TR_ENTER USB_DEBUG(">> %s()\n",  __func__)
+#define USB_DEBUG_TR_ENTER
+
+//#define USB_DEBUG_TR_RETURN USB_DEBUG("<< %s() return\n", __func__)
+#define USB_DEBUG_TR_RETURN
+
+#define USB_DEBUG_TR(x...) USB_DEBUG(x)
+
+#define USB_DEBUG_DRIVER(x...) USB_DEBUG(x)
+//#define USB_DEBUG_DRIVER(x...)
+
+//#define USB_DEBUG_MEM(x...) USB_DEBUG(x)
+#define USB_DEBUG_MEM(x...)
 usb_error_t usb_lib_init(void);
 
 #endif
