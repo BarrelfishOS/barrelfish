@@ -273,7 +273,7 @@ static struct client_closure *create_new_client(
 
     char name[64];
     sprintf(name, "ether_a_%d_%s", cc->cl_no,
-                (cc->cl_no % 2)? "RX" : "TX");
+                ((cc->cl_no % 2) == 0)? "RX" : "TX");
     cc->q = create_cont_q(name);
     if (cc->q == NULL) {
         ETHERSRV_DEBUG("create_new_client: queue allocation failed\n");

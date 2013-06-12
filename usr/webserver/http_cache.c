@@ -282,8 +282,8 @@ static void read_callback (void *arg, struct nfs_client *client,
     memcpy (e->hbuff->data + e->copied, res->data.data_val, res->data.data_len);
     e->copied += res->data.data_len;
 
-//    DEBUGPRINT ("got response of len %d, filesize %lu\n",
-//    			res->data.data_len, e->copied);
+    DEBUGPRINT ("got response of len %d, filesize %lu for file %s\n",
+    			res->data.data_len, e->copied, e->name);
 
     // free arguments
     xdr_READ3res(&xdr_free, result);
@@ -296,26 +296,25 @@ static void read_callback (void *arg, struct nfs_client *client,
         return;
     }
 
-	/* This is the end-of-file, so deal with it. */
-
+    /* This is the end-of-file, so deal with it. */
     e->valid = 1;
-	e->loading = 0;
-	decrement_buff_holder_ref (e->hbuff);
+    e->loading = 0;
+    decrement_buff_holder_ref (e->hbuff);
 
 #ifdef PRELOAD_WEB_CACHE
-	if (!cache_loading_phase) {
-		handle_pending_list (e); /* done! */
-		return;
-	}
+    if (!cache_loading_phase) {
+        handle_pending_list (e); /* done! */
+        return;
+    }
 
-	/* This is cache loading going on... */
-	printf("Copied %zu bytes for file [%s] of length: %zu\n",
-				e->copied, e->name, e->hbuff->len);
-	++cache_loaded_counter;
-	handle_cache_load_done();
+    /* This is cache loading going on... */
+    printf("Copied %zu bytes for file [%s] of length: %zu\n",
+            e->copied, e->name, e->hbuff->len);
+    ++cache_loaded_counter;
+    handle_cache_load_done();
 
 #else // PRELOAD_WEB_CACHE
-	handle_pending_list(e); /* done! */
+    handle_pending_list(e); /* done! */
 #endif // PRELOAD_WEB_CACHE
 }
 
@@ -387,9 +386,9 @@ static void lookup_callback (void *arg, struct nfs_client *client,
     }
 
     /*	as file does not exist, send all the http_conns to error page. */
-	error_cache->conn = e->conn;
-	error_cache->last = e->last;
-	handle_pending_list (error_cache); /* done! */
+    error_cache->conn = e->conn;
+    error_cache->last = e->last;
+    handle_pending_list (error_cache); /* done! */
 
     /* free this cache entry as it is pointing to invalid page */
     e->conn = NULL;
@@ -410,7 +409,7 @@ static err_t async_load_cache_entry(struct http_cache_entry *e)
 
     // FIXME: currently only works for files in root directory.
     // Do lookup for given filename in root dir
-    DEBUGPRINT ("pageloading starting\n");
+    DEBUGPRINT ("pageloading starting with nfs_lookup\n");
     r = nfs_lookup(my_nfs_client, nfs_root_fh, e->name,
                 lookup_callback, e);
     assert(r == ERR_OK);
@@ -493,6 +492,10 @@ static void readdir_callback(void *arg, struct nfs_client *client,
 //    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     // initiate a lookup for every entry
     for (entry3 *e = resok->reply.entries; e != NULL; e = e->nextentry) {
+        if (strlen(e->name) < 3 ) {
+            printf("ignoring the file %s\n", e->name);
+            continue;
+        }
         ++cache_lookups_started;
         printf("Loading the file %s\n", e->name);
         ce = find_cacheline(e->name);
@@ -500,6 +503,24 @@ static void readdir_callback(void *arg, struct nfs_client *client,
         async_load_cache_entry(ce);
         e->name = NULL; // prevent freeing by XDR
         last = e;
+
+        // continue handling events till this page is not completly loaded.
+
+/*
+        struct waitset *ws = get_default_waitset();
+        errval_t err;
+
+        DEBUGPRINT ("looping for events inside loop of readdir_callback\n");
+        while (ce->valid != 1) {
+            err = event_dispatch(ws);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch");
+                break;
+            }
+        }
+        DEBUGPRINT ("readdir_callback: %s file loaded\n", e->name);
+*/
+
     }
 
     /* more in the directory: repeat call */

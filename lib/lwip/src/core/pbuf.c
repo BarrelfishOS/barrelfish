@@ -133,7 +133,15 @@ static struct pbuf *alloc_pool_pbuf(void)
         }
 
         alloc_failed = (p == NULL || payload == NULL);
+
         if (alloc_failed) {
+            if (p == NULL) {
+                printf("p = memp_malloc(MEMP_PBUF) failed\n");
+            }
+
+            if (payload == NULL) {
+                printf("payload = memp_malloc(MEMP_PBUF_POOL) failed\n");
+            }
             try_again = try_free_segs();
         }
     } while (alloc_failed && try_again);

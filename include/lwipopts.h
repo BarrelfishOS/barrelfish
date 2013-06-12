@@ -74,7 +74,7 @@
  Enable debugging of these subsystems */
 
 #define ETHARP_DEBUG     LWIP_DBG_ON
-// #define NETIF_DEBUG      LWIP_DBG_ON
+#define NETIF_DEBUG      LWIP_DBG_ON
 // #define PBUF_DEBUG       LWIP_DBG_ON
 #define DHCP_DEBUG       LWIP_DBG_ON
 #define UDP_DEBUG        LWIP_DBG_ON
@@ -83,7 +83,7 @@
 // #define TCPIP_DEBUG      LWIP_DBG_ON
 // #define TCP_INPUT_DEBUG  LWIP_DBG_ON
 // #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
-// #define SOCKETS_DEBUG    LWIP_DBG_ON
+#define SOCKETS_DEBUG    LWIP_DBG_ON
 
 #ifndef CHECKSUM_GEN_IP
 #define CHECKSUM_GEN_IP                 1
