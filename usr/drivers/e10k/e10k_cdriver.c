@@ -858,7 +858,12 @@ static void idc_filter_unregistered(struct e10k_binding *b,
 void cd_request_device_info(struct e10k_binding *b)
 {
     if (b == NULL) {
-        qd_queue_init_data(b, *regframe, d_mac);
+        struct capref cr;
+        errval_t err = slot_alloc(&cr);
+        assert(err_is_ok(err));
+        err = cap_copy(cr, *regframe);
+        assert(err_is_ok(err));
+        qd_queue_init_data(b, cr, d_mac);
         return;
     }
     idc_queue_init_data(b, *regframe, d_mac);
