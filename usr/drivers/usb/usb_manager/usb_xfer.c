@@ -141,9 +141,10 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
      }*/
 
     //todo: send message to driver that transfer is completed
-    if (xfer->usb_manager_request_callback) {
-        assert(!"Send message to client driver");
+    if (xfer->xfer_done_cb) {
+        (xfer->xfer_done_cb)(xfer, err);
     }
+
 
     USB_DEBUG_TR_RETURN;
     return;
@@ -283,7 +284,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
                 case USB_ENDPOINT_TYPE_ISOCHR:
                 case USB_ENDPOINT_TYPE_INTR:
                     xfer->max_packet_count += (xfer->max_packet_size >> 11) & 3;
-
                     if (xfer->max_packet_count > 3) {
                         xfer->max_packet_count = 3;
                     }
@@ -523,7 +523,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             xfer->num_frames * sizeof(struct usb_dma_page));
 
     for (uint32_t i = 0; i < xfer->num_frames; i++) {
-        xfer->frame_lengths[i] = 0;
+        xfer->frame_lengths[i] = xfer->max_data_length;
         xfer->frame_buffers[i] = usb_mem_dma_alloc(
                 param->num_pages * USB_PAGE_SIZE, USB_PAGE_SIZE);
     }

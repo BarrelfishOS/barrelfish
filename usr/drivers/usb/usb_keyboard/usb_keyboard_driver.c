@@ -863,7 +863,7 @@ usb_error_t usb_keyboard_init(void)
 
     keyboard.num_config = gen_desc->device.bNumConfigurations;
 
-    if (gen_desc->iface->bInterfaceClass != USB_HID_IFCLASS_CODE) {
+    if (gen_desc->iface->bInterfaceClass != USB_HID_CLASS_CODE) {
         debug_printf("ERROR: Not a HID class device \n");
         return (USB_ERR_BAD_CONTEXT);
     }

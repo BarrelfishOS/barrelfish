@@ -13,8 +13,11 @@
 #include <usb/usb_descriptor.h>
 
 
-#define USB_HID_IFCLASS_CODE 0x3
-#define USB_HID_IFSUBCLASS_CODE
+#define USB_HID_CLASS_CODE 0x3
+#define USB_HID_SUBCLASS_CODE_BOOT 0x1
+#define USB_HID_PROTOCOL_NONE 0x0
+#define USB_HID_PROTOCOL_KEYBOARD 0x1
+#define USB_HID_PROTOCOL_MOUSE 0x2
 
 
 /*
@@ -201,8 +204,8 @@ struct usb_hid_request {
     /*data*/
 };
 
-#define USB_HID_REQUEST_TYPE_H2D 0xA1
-#define USB_HID_REQUEST_TYPE_D2H 0x21
+#define USB_HID_REQUEST_TYPE_WRITE 0xA1
+#define USB_HID_REQUEST_TYPE_READ 0x21
 
 #define USB_HID_REQUEST_VALUE_IN      0x01
 #define USB_HID_REQUEST_VALUE_OUT     0x02

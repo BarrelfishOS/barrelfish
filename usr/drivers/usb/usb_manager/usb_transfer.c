@@ -53,6 +53,7 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
                 .timeout = 1000, /* 1 second */
                 .interval = 50, /* 50ms */
                 .usb_mode = USB_MODE_HOST,
+                .usb_type = USB_TYPE_CTRL
             },
         };
 
@@ -503,6 +504,8 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
 
     struct usb_xfer *xfer = malloc(sizeof(struct usb_xfer));
 
+    xfer->xfer_done_cb = setup->xfer_done_cb;
+    xfer->type = setup->usb_type;
     xfer->device_address = device->device_address;
     xfer->host_controller = device->controller;
     xfer->device = device;

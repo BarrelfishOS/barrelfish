@@ -26,6 +26,9 @@ struct usb_hcdi_pipe_fn;
 struct usb_request_state;
 struct usb_manager_binding;
 
+
+typedef void xfer_done_cb_t (struct usb_xfer *xfer, usb_error_t error);
+
 /*
  * ------------------------------------------------------------------------
  * USB Transfer Flags (Internal)
@@ -155,8 +158,7 @@ struct usb_xfer_queue {
 struct usb_xfer {
     struct usb_manager_binding *usb_manager_binding;  // flounder ref
     struct usb_request_state *usb_manager_request_state;
-    void(*usb_manager_request_callback)(void *);
-
+    xfer_done_cb_t *xfer_done_cb;
     uint32_t xfer_id;
 
     struct {
@@ -242,6 +244,7 @@ struct usb_xfer_config {
     uint8_t direction;
     uint8_t ep_index;
     uint8_t if_index;
+    xfer_done_cb_t *xfer_done_cb;
 };
 
 /*

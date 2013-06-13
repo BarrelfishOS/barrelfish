@@ -252,7 +252,7 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
 
         if (!ps.wPortStatus.connection) {
             /* the devie has disappeared, so give up */
-            USB_DEBUG("NOTICE: Device has disappeared...\n");
+            USB_DEBUG("NOTICE: Device %i has disappeared...\n", hub->device_address);
             USB_DEBUG_TR_RETURN;
             return (err);
         }

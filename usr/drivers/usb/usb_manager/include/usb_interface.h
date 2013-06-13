@@ -41,5 +41,6 @@ struct usb_interface
 
 };
 
+#define USB_INTERFACE_INDEX_ANY 0xFF
 
 #endif

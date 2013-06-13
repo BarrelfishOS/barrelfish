@@ -30,7 +30,8 @@ module /armv7/sbin/startd boot
 module /armv7/sbin/memtest
 
 module  /armv7/sbin/usb_manager
-module  /armv7/sbin/usb_keyboard
+#module  /armv7/sbin/usb_keyboard
+
 
 # For pandaboard, use following values.
 mmap map 0x80000000 0x40000000 1

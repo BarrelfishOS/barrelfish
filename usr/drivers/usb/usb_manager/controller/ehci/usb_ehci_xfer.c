@@ -536,10 +536,8 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
      * setup the remaining frames
      */
     while (frames < xfer->num_frames) {
-
         setup.length = xfer->frame_lengths[frames];
         setup.pages = xfer->frame_buffers[frames];
-
         frames++;
 
         if (frames == xfer->num_frames) {

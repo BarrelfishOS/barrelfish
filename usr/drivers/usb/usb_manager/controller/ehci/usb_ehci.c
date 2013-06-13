@@ -302,7 +302,7 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     usb_ehci_poll(hc);
 
     ehci_usbintr_pcie_insert(hc->enabled_interrupts, 1);
-
+    ehci_usbintr_pcie_wrf(hc->ehci_base, 1);
     /* disable the PCD interrupt for now */
     //ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
     USB_DEBUG_TR("usb_ehci_interrupt() - done\n");
@@ -400,10 +400,11 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
         hc->qh_intr_last[i] = qh;
         qh->qh_ep.ep_speed = USB_EHCI_QH_SPEED_HIGH;
         qh->qh_ep.mult = 1;
+        qh->qh_curr_qtd = 0;
         qh->qh_next_qtd = USB_EHCI_LINK_TERMINATE;
         qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
         qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
-        qh->qh_self |= USB_EHCI_LINKTYPE_QH;
+        qh->qh_self |= (USB_EHCI_LINKTYPE_QH << 1);
     }
 
     /*
@@ -443,7 +444,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
         usb_ehci_sitd_t *sitd = usb_ehci_sitd_alloc();
         hc->qh_sitd_fs_last[i] = sitd;
 
-        sitd->sitd_self |= USB_EHCI_LINKTYPE_SITD;
+        sitd->sitd_self |= (USB_EHCI_LINKTYPE_SITD << 1);
 
         sitd->sitd_back_link = USB_EHCI_LINK_TERMINATE;
 
@@ -453,7 +454,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
         usb_ehci_itd_t *itd = usb_ehci_itd_alloc();
         hc->qh_itd_hs_last[i] = itd;
 
-        itd->itd_self |= USB_EHCI_LINKTYPE_ITD;
+        itd->itd_self |= (USB_EHCI_LINKTYPE_ITD<<1);
 
         itd->itd_next.address = sitd->sitd_self;
     }

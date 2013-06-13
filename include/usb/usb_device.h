@@ -74,8 +74,11 @@ struct usb_device_flags {
 
 struct usb_device {
     struct usb_manager_binding *usb_manager_binding;
+    char *path;
+    struct usb_device *next_pending;
+
     struct usb_interface *ifaces;
-    struct usb_device *next;
+
     uint32_t xfer_ids;
 
     struct usb_endpoint ctrl_ep;    /* Control Endpoint 0 */
@@ -84,7 +87,7 @@ struct usb_device {
     struct usb_device *parent_hub;
     struct usb_device *parent_hs_hub;
 
-    struct usb_config_descriptor *config_desc;
+
 
     usb_speed_t speed;
     enum usb_device_state state;
@@ -111,8 +114,9 @@ struct usb_device {
 
     struct usb_device_flags flags;
 
-    struct usb_endpoint_descriptor ctrl_ep_desc;
     struct usb_device_descriptor device_desc;
+    struct usb_endpoint_descriptor ctrl_ep_desc;
+    struct usb_config_descriptor *config_desc;
 
     char *serial_number;
     char *manifacturer;

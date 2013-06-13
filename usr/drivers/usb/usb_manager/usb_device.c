@@ -23,43 +23,9 @@
 #include <usb_interface.h>
 #include <usb_hub.h>
 
-static struct usb_device *devices[USB_MAX_DEVICES];
-static struct usb_device *devices_pending = NULL;
-static struct usb_device *device_process = NULL;
 
-void usb_device_insert_pending(struct usb_device *new_device)
-{
-    new_device->next = devices_pending;
-    devices_pending = new_device;
-}
 
-void usb_device_config_complete(struct usb_device *device)
-{
-    assert(device == device_process);
 
-    devices[device->device_address] = device;
-
-    device_process = NULL;
-}
-
-struct usb_device * usb_device_get_pending(void)
-{
-    if (device_process) {
-        return device_process;
-    }
-
-    device_process = devices_pending;
-    devices_pending = device_process->next;
-
-    return devices_pending;
-}
-
-struct usb_device *usb_device_get_by_address(uint8_t address)
-{
-    return devices[address];
-}
-
-#define USB_INTERFACE_INDEX_ANY 0xFF
 
 static void usb_device_cfg_free(struct usb_device *dev, uint8_t iface)
 {
@@ -416,6 +382,7 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
             dev->hs_hub_address = hub->device_address;
             dev->parent_hs_hub = hub;
             dev->hs_hub_port_number = adev->hub_port_number;
+            break;
         }
         adev = hub;
         hub = hub->parent_hub;
@@ -453,12 +420,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     dev->state = USB_DEVICE_STATE_ADDRESSED;
 
-    USB_DEBUG_DEV(
-            "bcdUSB=%x, class = %x, subclass = %x\n", dev->device_desc.bcdUSB, dev->device_desc.bDeviceClass, dev->device_desc.bDeviceSubClass);
-
-    USB_DEBUG_DEV(
-            "bMaxPacketSize0 = %u, bNumConfigurations=%u\n", dev->device_desc.bMaxPacketSize0, dev->device_desc.bNumConfigurations);
-
     USB_DEBUG_DEV("----------- calling usb_device_setup_descriptor()\n");
     err = usb_device_setup_descriptor(dev);
 
@@ -478,7 +439,8 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     if (dev->device_desc.iManufacturer || dev->device_desc.iProduct
             || dev->device_desc.iSerialNumber) {
-        err = usb_req_get_string_desc(dev, buf, 4, 0, 0);
+        USB_DEBUG_DEV("----------- calling usb_req_get_string_desc()\n");
+        //err = usb_req_get_string_desc(dev, buf, 4, 0, 0);
     } else {
         USB_DEBUG("no string descriptors...\n");
         err = USB_ERR_INVAL;

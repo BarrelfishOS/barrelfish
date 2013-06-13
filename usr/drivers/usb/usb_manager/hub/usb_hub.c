@@ -30,6 +30,9 @@
 #include <usb_transfer.h>
 #include <usb_driver.h>
 
+
+static void usb_hub_intr_cb(struct usb_xfer *xfer, usb_error_t err);
+
 static const struct usb_xfer_config hub_config[USB_HUB_NUM_TRANSFERS] = {
     [0] = {
         .type = USB_ENDPOINT_TYPE_INTR,
@@ -42,9 +45,27 @@ static const struct usb_xfer_config hub_config[USB_HUB_NUM_TRANSFERS] = {
         },
         .bufsize = 0,
         .interval = USB_HUB_INTR_INTERVAL,
-        .usb_type = USB_TYPE_INTR
+        .usb_type = USB_TYPE_INTR,
+        .xfer_done_cb = &usb_hub_intr_cb
     },
 };
+
+static uint8_t usb_hub_xplore_done = 1;
+
+static void usb_hub_intr_cb(struct usb_xfer *xfer, usb_error_t err)
+{
+    USB_DEBUG_DEV("ushb hub intr callback!\n");
+
+    if (err != USB_ERR_OK) {
+        USB_DEBUG("WARNING: hub intr transfer failed...\n");
+        usb_transfer_start(xfer);
+    }
+
+    if (usb_hub_xplore_done) {
+        usb_hub_explore((xfer->device));
+    }
+    usb_transfer_start(xfer);
+}
 
 struct usb_device *usb_hub_get_device(struct usb_hub *hub,
         struct usb_hub_port *port)
@@ -435,6 +456,7 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
 
     /* start the interrupt transfer */
     if (hub->xfers[0] != NULL) {
+        USB_DEBUG_DEV("starting hub interrupt transfer\n");
         usb_transfer_start(hub->xfers[0]);
     }
 
@@ -469,6 +491,8 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
     usb_error_t err;
 
     struct usb_hub *hub = hub_device->hub;
+
+    usb_hub_xplore_done = 0;
 
     if (hub == NULL) {
         USB_DEBUG("ERROR: hub_explore() - bad context.\n");
@@ -572,6 +596,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
         if (child != NULL && child->hub != NULL) {
             USB_DEBUG_DEV("Device on port %u is a hub. Exploring...\n", portno);
             err = usb_hub_explore(child);
+            usb_hub_xplore_done = 0;
         }
 
         if (err != USB_ERR_OK) {
@@ -582,6 +607,8 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
         port->restarts = 0;
 
     }
+
+    usb_hub_xplore_done = 1;
 
     return (USB_ERR_OK);
 }

@@ -471,7 +471,7 @@ PANDABOARD_MODULES=\
 	armv7/sbin/memtest \
 	armv7/sbin/kaluga \
 	armv7/sbin/usb_manager \
-	armv7/sbin/usb_keyboard \
+	armv7/sbin/usb_keyboard
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@
