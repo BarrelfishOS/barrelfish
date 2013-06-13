@@ -816,11 +816,7 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
             err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list, cl->chunk_counter, opaque);
             assert(err_is_ok(err));
             cl->chunk_counter = 0;
-        } else {
-    //        USER_PANIC("packet broken with multiple parts\n");
-            printf("packet broken with multiple parts\n");
         }
-
     } else { // RX_BUFFER_ID
 
         // Sanity check.  Making sure that more flag is not set
