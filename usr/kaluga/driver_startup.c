@@ -89,8 +89,14 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
 
 errval_t start_usb_manager(void)
 {
-    return SYS_ERR_OK;
-    struct module_info driver = {
+
+    struct module_info* driver = find_module("usb_manager");
+        if (driver == NULL || !is_auto_driver(driver)) {
+            KALUGA_DEBUG("NGD_mng not found or not declared as auto.");
+            return KALUGA_ERR_DRIVER_NOT_AUTO;
+        }
+
+   /* struct module_info driver = {
             .complete_line = "/armv7/sbin/usb_manager",
             .path = "/armv7/sbin/usb_manager",
             .binary ="usb_manager",
@@ -101,18 +107,20 @@ errval_t start_usb_manager(void)
                     [0] ="ohci",
             },
             .did = 0,
-    };
+    };*/
 
     errval_t err = SYS_ERR_OK;
 
-    if (is_started(&driver)) {
+    if (is_started(driver)) {
+        debug_printf("driver is already started...");
         return KALUGA_ERR_DRIVER_ALREADY_STARTED;
     }
 
-    err = spawn_program(0, driver.path, driver.argv,
-            environ, 0, &driver.did);
+    debug_printf("starting %s\n", driver->path);
+    err = spawn_program(0, driver->path, driver->argv,
+            environ, 0, &driver->did);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Spawning %s failed.", driver.path);
+        DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;
     }
 

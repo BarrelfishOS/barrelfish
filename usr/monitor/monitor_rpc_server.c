@@ -482,6 +482,22 @@ static void cap_identify(struct monitor_blocking_binding *b,
     }
 }
 
+#define ARM_IRQ_MAX 256
+
+static void arm_irq_handle_call(struct monitor_blocking_binding *b,
+        struct capref ep, uint32_t irq)
+{
+
+    errval_t err = 1;
+
+    if (irq <= ARM_IRQ_MAX) {
+        err = invoke_irqtable_set(cap_irq, irq, ep);
+    }
+
+    errval_t err2 = b->tx_vtbl.arm_irq_handle_response(b, NOP_CONT, err);
+    assert(err_is_ok(err2));
+}
+
 static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep)
 {
     /* allocate a new slot in the IRQ table */
@@ -693,6 +709,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .alloc_monitor_ep_call   = alloc_monitor_ep,
     .cap_identify_call       = cap_identify,
     .irq_handle_call         = irq_handle_call,
+    .arm_irq_handle_call     = arm_irq_handle_call,
     .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,

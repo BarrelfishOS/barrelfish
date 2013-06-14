@@ -10,7 +10,7 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "examples/xmpl-spawn",
+[ build application { target = "examples/xmplspawn",
                       cFiles = [ "spawn.c" ]
                     }
 ]

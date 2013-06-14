@@ -235,7 +235,8 @@ MODULES_armv7=\
 	sbin/cpu_omap44xx \
 	sbin/usb_manager \
 	sbin/usb_keyboard \
-	sbin/kaluga
+	sbin/kaluga \
+	sbin/examples/xmplspawn
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -471,7 +472,7 @@ PANDABOARD_MODULES=\
 	armv7/sbin/memtest \
 	armv7/sbin/kaluga \
 	armv7/sbin/usb_manager \
-	armv7/sbin/usb_keyboard
+	armv7/sbin/usb_keyboard \
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@

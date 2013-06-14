@@ -171,6 +171,7 @@ static void* usb_subsystem_base = NULL;
 #define USB_OHCI_OFFSET         0x00002800
 #define USB_EHCI_OFFSET         0x00002C00
 
+#define USB_ARM_EHCI_IRQ 109
 /*
  *
  */
@@ -306,8 +307,7 @@ static errval_t init_device_range(void)
 
     usb_subsystem_base = ret_addr + USB_SUBSYSTEM_L4_OFFSET;
 
-    uint32_t ret_vector;
-    err = inthandler_setup(usb_hc_intr_handler, NULL, &ret_vector);
+    err = inthandler_setup_arm(usb_hc_intr_handler, NULL, USB_ARM_EHCI_IRQ);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to enable interrupt");
     }

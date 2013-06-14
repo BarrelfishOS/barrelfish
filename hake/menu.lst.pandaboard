@@ -29,8 +29,8 @@ module /armv7/sbin/startd boot
 
 module /armv7/sbin/memtest
 
-module  /armv7/sbin/usb_manager
-#module  /armv7/sbin/usb_keyboard
+module  /armv7/sbin/usb_manager auto
+module  /armv7/sbin/usb_keyboard auto
 
 
 # For pandaboard, use following values.
