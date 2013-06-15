@@ -236,7 +236,7 @@ static usb_error_t usb_device_setup_descriptor(struct usb_device *dev)
     return (err);
 }
 
-static usb_error_t usb_device_set_configuration(struct usb_device *dev,
+usb_error_t usb_device_set_configuration(struct usb_device *dev,
         uint8_t config)
 {
     USB_DEBUG_TR_ENTER;

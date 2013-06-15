@@ -707,6 +707,8 @@ usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
         return (err);
     }
 
+    dev->config_desc_size = cd.wTotalLength;
+
     return (USB_ERR_OK);
 }
 

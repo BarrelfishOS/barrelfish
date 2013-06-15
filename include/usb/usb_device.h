@@ -117,6 +117,7 @@ struct usb_device {
     struct usb_device_descriptor device_desc;
     struct usb_endpoint_descriptor ctrl_ep_desc;
     struct usb_config_descriptor *config_desc;
+    uint16_t config_desc_size;
 
     char *serial_number;
     char *manifacturer;

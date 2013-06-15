@@ -505,10 +505,6 @@ static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep
     static int nextvec = 0;
     int vec = nextvec++;
 
-#if __arm__
-    vec = 109;
-#endif
-
     /* set it and reply */
     errval_t err = invoke_irqtable_set(cap_irq, vec, ep);
     errval_t err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);

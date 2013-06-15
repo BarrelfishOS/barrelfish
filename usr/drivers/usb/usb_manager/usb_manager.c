@@ -18,6 +18,7 @@
 #include <usb_request.h>
 #include <usb_device.h>
 #include <usb_transfer.h>
+#include <usb_driver.h>
 
 /*
  * ------------------------------------------------------------------------
@@ -44,19 +45,21 @@ static void usb_driver_connect_cb(void *a)
     free(a);
 }
 
-struct usb_manager_connect_state test;
-
 static void usb_driver_connect_response(void *a)
 {
     errval_t err;
     struct usb_manager_connect_state *st = a;
 
-    test.b = st->b;
 
     USB_DEBUG("sending driver connect response\n");
 
     struct event_closure txcont = MKCONT(usb_driver_connect_cb, st);
+    //txcont = NOP_CONT;
 
+    err = st->b->tx_vtbl.connect_response(st->b, txcont, st->error,
+            st->desc, st->length);
+
+    /*
     err = usb_manager_connect_response__tx(st->b, txcont, st->error, st->desc,
             st->length);
 
@@ -74,7 +77,7 @@ static void usb_driver_connect_response(void *a)
             DEBUG_ERR(err, "error while seniding driver connect response");
             free(st);
         }
-    }
+    }*/
 }
 
 /**
@@ -95,24 +98,25 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
 
     st->b = bind;
 
-    /*
-     * TODO: DEVICE SETUP
-     */
-#if 0
-    struct usb_device *dev = usb_device_get_pending();
+    usb_driver_connected(bind, init_config);
 
-    assert(dev != NULL);
-
-    bind->st = dev;
-    dev->usb_manager_binding = bind;
-
-    /*
-     * TODO: Configure Device
-     */
-
-    usb_device_config_complete(dev);
-#endif
     st->error = USB_ERR_OK;
+
+    if (bind->st == NULL) {
+        /* error */
+        st->error = USB_ERR_IOERROR;
+
+        usb_driver_connect_response(st);
+        return;
+    }
+
+    struct usb_device *dev = bind->st;
+    st->length = sizeof((dev->device_desc)) + dev->config_desc_size;
+    void *data = malloc(st->length);
+
+    memcpy(data, &(dev->device_desc), sizeof((dev->device_desc)));
+    memcpy(data+sizeof((dev->device_desc)), dev->config_desc,
+            dev->config_desc_size);
 
     // send response
     usb_driver_connect_response(st);

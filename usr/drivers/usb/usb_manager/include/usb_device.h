@@ -21,4 +21,7 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc, struct usb_d
         uint8_t portindex, uint8_t portno, usb_speed_t speed, usb_mode_t mode);
 void usb_device_free(struct usb_device * device, uint8_t flag);
 
+usb_error_t usb_device_set_configuration(struct usb_device *dev,
+        uint8_t config);
+
 #endif /* USB_DEVICE_H_ */
