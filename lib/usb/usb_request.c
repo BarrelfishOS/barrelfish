@@ -14,11 +14,9 @@
  * =======================================================================
  */
 
+#include <usb/usb.h>
 #include <usb/usb_request.h>
-#include <usb/usb_descriptor.h>
 
-#include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
 
 #include "usb_manager_client.h"
 
@@ -649,20 +647,20 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
         uint16_t *ret_length, void **ret_data)
 {
     errval_t err;
-    uint32_t *ret_status = 0;
-    uint8_t *data = 0;
-    size_t *length = 0;
+    uint32_t ret_status = 0;
+    uint8_t *data = NULL;
+    size_t length = 0;
     usb_error_t ret;
 
-    USB_DEBUG("libusb: usb_do_request_read()");
+    USB_DEBUG("libusb: usb_do_request_read()\n");
 
     err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
-            sizeof(req), (uint8_t **) &data, length, ret_status);
+            sizeof(*req), (uint8_t **) &data, &length, &ret_status);
 
-    *ret_length = *length;
-    free(length);
-    ret = (usb_error_t) *ret_status;
-    free(ret_status);
+    *ret_length = length;
+
+    ret = (usb_error_t) ret_status;
+
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "libusb: do_request_write rpc failed");
@@ -671,7 +669,7 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
         return (USB_ERR_IDC);
     }
 
-    USB_DEBUG("libusb: usb_do_request_read() got data (len=%i)", *ret_length);
+    USB_DEBUG("libusb: usb_do_request_read() got data (len=%i)\n", *ret_length);
 
     *ret_data = (void *) data;
 

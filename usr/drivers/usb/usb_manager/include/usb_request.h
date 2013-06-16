@@ -10,8 +10,6 @@
 #ifndef USB_REQUEST_H_
 #define USB_REQUEST_H_
 
-#include <usb/usb_error.h>
-
 struct usb_manager_binding;
 struct usb_device;
 struct usb_device_request;
@@ -21,6 +19,7 @@ struct usb_request_state {
     struct usb_manager_binding *bind;
     void (*callback)(void *a);
     void *data;
+    struct usb_device_request *req;
     uint16_t data_length;
     usb_error_t error;
     struct usb_xfer *xfer;

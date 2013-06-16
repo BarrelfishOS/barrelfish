@@ -12,6 +12,10 @@
 
 #include <stdio.h>
 #include <usb/usb_error.h>
+#include <usb/usb_descriptor.h>
+
+
+#define USB_MANAGER_SERVICE "usb_manager_service_name"
 
 /**
  *
@@ -146,6 +150,8 @@ typedef struct usb_status usb_status_t;
 
 //#define USB_DEBUG_MEM(x...) USB_DEBUG(x)
 #define USB_DEBUG_MEM(x...)
-usb_error_t usb_lib_init(void);
+
+
+usb_error_t usb_lib_init(uint8_t init_config);
 
 #endif

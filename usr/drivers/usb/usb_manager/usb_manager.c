@@ -8,7 +8,6 @@
 
 #include <usb/usb.h>
 #include <usb/usb_error.h>
-#include <usb/usb_device.h>
 
 #include <if/usb_manager_defs.h>
 #include <if/usb_manager_rpcclient_defs.h>
@@ -41,7 +40,8 @@ struct usb_manager_connect_state {
 
 static void usb_driver_connect_cb(void *a)
 {
-    USB_DEBUG("driver connect call sucessfull terminated\n");
+    struct usb_manager_connect_state *st = a;
+    free(st->desc);
     free(a);
 }
 
@@ -50,23 +50,14 @@ static void usb_driver_connect_response(void *a)
     errval_t err;
     struct usb_manager_connect_state *st = a;
 
-
-    USB_DEBUG("sending driver connect response\n");
-
     struct event_closure txcont = MKCONT(usb_driver_connect_cb, st);
-    //txcont = NOP_CONT;
 
-    err = st->b->tx_vtbl.connect_response(st->b, txcont, st->error,
-            st->desc, st->length);
-
-    /*
     err = usb_manager_connect_response__tx(st->b, txcont, st->error, st->desc,
             st->length);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             // try to resend
-            USB_DEBUG("resending driver connect response\n");
             txcont = MKCONT(usb_driver_connect_response, st);
             err = st->b->register_send(st->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
@@ -75,9 +66,10 @@ static void usb_driver_connect_response(void *a)
         } else {
             // error
             DEBUG_ERR(err, "error while seniding driver connect response");
+            free(st->desc);
             free(st);
         }
-    }*/
+    }
 }
 
 /**
@@ -86,8 +78,6 @@ static void usb_driver_connect_response(void *a)
 static void usb_rx_connect_call(struct usb_manager_binding *bind,
         uint16_t init_config)
 {
-    debug_printf("server: received connect call from new device driver\n");
-
     struct usb_manager_connect_state *st;
 
     st = malloc(sizeof(struct usb_manager_connect_state));
@@ -97,6 +87,8 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
     }
 
     st->b = bind;
+    /* todo usb_manager_rpc_client_init() */
+
 
     usb_driver_connected(bind, init_config);
 
@@ -104,18 +96,18 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
 
     if (bind->st == NULL) {
         /* error */
+        debug_printf("ERROR: no state associated..\n");
         st->error = USB_ERR_IOERROR;
-
         usb_driver_connect_response(st);
         return;
     }
 
     struct usb_device *dev = bind->st;
     st->length = sizeof((dev->device_desc)) + dev->config_desc_size;
-    void *data = malloc(st->length);
+    st->desc = malloc(st->length);
 
-    memcpy(data, &(dev->device_desc), sizeof((dev->device_desc)));
-    memcpy(data+sizeof((dev->device_desc)), dev->config_desc,
+    memcpy(st->desc, &(dev->device_desc), sizeof((dev->device_desc)));
+    memcpy(st->desc + sizeof((dev->device_desc)), dev->config_desc,
             dev->config_desc_size);
 
     // send response
@@ -166,8 +158,7 @@ static void service_exported_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
-
-static void* usb_subsystem_base = NULL;
+//static void* usb_subsystem_base = NULL;
 
 #if __arm__
 #define USB_SUBSYSTEM_L4_OFFSET 0x00062000
@@ -181,7 +172,7 @@ static void* usb_subsystem_base = NULL;
  */
 static errval_t init_device_range(void)
 {
-    USB_DEBUG("Setting up device range.\n");
+    USB_DEBUG("doing pandaboard related setup...\n");
     errval_t err;
 
     struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
@@ -190,6 +181,7 @@ static errval_t init_device_range(void)
     // Request I/O Cap
     struct capref requested_caps;
     errval_t error_code;
+
     err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
 
@@ -199,13 +191,15 @@ static errval_t init_device_range(void)
 
     err = slot_alloc(&device_range_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        printf("slot alloc failed. Step 1\n");
+        return (err);
     }
     struct capref tiler_cap = NULL_CAP;
 
     err = slot_alloc(&tiler_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 1\n");
+        return (err);
     }
 
     err = cap_retype(device_range_cap, requested_caps, ObjType_DevFrame, 29);
@@ -214,48 +208,56 @@ static errval_t init_device_range(void)
 
     err = slot_alloc(&l3_ocm_ram);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 2\n");
+        return (err);
     }
 
     err = cap_retype(l3_ocm_ram, device_range_cap, ObjType_DevFrame, 26);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to mint the cap");
+        DEBUG_ERR(err, "failed to retype the dev cap. Step 3\n");
+        return (err);
     }
 
     struct capref l3_config_registers_cap;
     err = slot_alloc(&l3_config_registers_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot alloc failed. Step 4\n");
+        return (err);
     }
 
     struct capref l4_domains_cap;
     err = slot_alloc(&l4_domains_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 5\n");
+        return (err);
     }
 
     struct capref emif_registers_cap;
     err = slot_alloc(&emif_registers_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 6\n");
+        return (err);
     }
 
     struct capref gpmc_iss_cap;
     err = slot_alloc(&gpmc_iss_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 7\n");
+        return (err);
     }
 
     struct capref l3_emu_m3_sgx_cap;
     err = slot_alloc(&l3_emu_m3_sgx_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 8\n");
+        return (err);
     }
 
     struct capref display_iva_cap;
     err = slot_alloc(&display_iva_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 9\n");
+        return (err);
     }
     struct capref tmp_cap = display_iva_cap;
     tmp_cap.slot++;
@@ -264,62 +266,100 @@ static errval_t init_device_range(void)
     struct capref l4_PER_domain_cap;
     err = slot_alloc(&l4_PER_domain_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 12\n");
+        return (err);
     }
+
     struct capref l4_ABE_domain_cap;
     err = slot_alloc(&l4_ABE_domain_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 11\n");
+        return (err);
     }
+
     struct capref l4_CFG_domain_cap;
     err = slot_alloc(&l4_CFG_domain_cap);
     if (err_is_fail(err)) {
-        printf(" slot alloc failed.\n");
+        DEBUG_ERR(err, "slot_alloc failed. Step 12\n");
+        return (err);
     }
+
     err = cap_retype(l4_PER_domain_cap, l4_domains_cap, ObjType_DevFrame, 24);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to mint the cap");
+        DEBUG_ERR(err, "failed to retype the cap. Step 13\n");
+        return (err);
     }
     tmp_cap = l4_CFG_domain_cap;
     tmp_cap.slot++;
     cap_delete(tmp_cap);
 
-    debug_printf("invoke frame identify\n");
-    struct frame_identity frameid = {
-        0,
-        0
-    };
+    struct frame_identity frameid;  // = {        0,        0    };
 
     err = invoke_frame_identify(l4_CFG_domain_cap, &frameid);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frameid\n");
+        DEBUG_ERR(err, "could not identify the frame. Step 14\n");
     }
+
+    struct capref dest = {
+        .cnode = cnode_root,
+        .slot = ROOTCN_SLOT_ARGCN
+    };
+
+    err = cap_copy(dest, l4_CFG_domain_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not copy to the argcn slot");
+    }
+
+    // get the 32 bit
     uint32_t last = (uint32_t) (0xFFFFFFFF & (frameid.base));
     uint32_t size2 = frameid.bits;
 
-    debug_printf("L4_CFG_domain_cap: [base %p,  size=%u kB]\n", last,
-            (1 << size2) / 1024);
+    /* the L4 CFG domain cap must have address 0x4A000000 */
+    assert(last == 0x4a000000);
 
-    void *ret_addr = NULL;
-    size_t size = 16 * 1024 * 1024;
-
-    err = vspace_map_one_frame_attr(&ret_addr, size, l4_CFG_domain_cap,
-            VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create a vspace mapping");
-    }
-
-    usb_subsystem_base = ret_addr + USB_SUBSYSTEM_L4_OFFSET;
+    /* the size of the L4 CFG domain is 16k */
+    assert(((1 << size2) / 1024) == (16 * 1024));
 
     err = inthandler_setup_arm(usb_hc_intr_handler, NULL, USB_ARM_EHCI_IRQ);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to enable interrupt");
+        DEBUG_ERR(err, "failed to enable interrupt. Step 16.\n");
     }
+
+    USB_DEBUG("pandaboard related setup completed successfully.\n");
 
     return (SYS_ERR_OK);
 }
 
 #endif
+
+static uintptr_t map_device_cap(void)
+{
+    errval_t err;
+
+    struct capref dev_cap = {
+        .cnode = cnode_root,
+        .slot = ROOTCN_SLOT_ARGCN
+    };
+
+    struct frame_identity frameid;  // = {        0,        0    };
+
+    err = invoke_frame_identify(dev_cap, &frameid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not identify the frame.\n");
+    }
+
+    void *ret_addr = NULL;
+    size_t size = (1UL << frameid.bits); /* bytes */
+
+    err = vspace_map_one_frame_attr(&ret_addr, size, dev_cap,
+            VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to create a vspace mapping. Step 15\n");
+    }
+
+    return ((uintptr_t) ret_addr);
+}
+
 /*
  * ========================================================================
  * MAIN
@@ -344,44 +384,14 @@ int main(int argc, char *argv[])
 
 #if __arm__
     init_device_range();
-    argc = 4;
-    uint32_t tmp = USB_OHCI_OFFSET;
-    char ohci_base[4];
-    memcpy(ohci_base, &tmp, 4);
+    argc = 2;
 
-    tmp = USB_EHCI_OFFSET;
+    /* just settuing up the params for the OMAP ehci controller */
+
+    uint32_t tmp = (uint32_t) USB_EHCI_OFFSET + USB_SUBSYSTEM_L4_OFFSET;
     char ehci_base[4];
     memcpy(ehci_base, &tmp, 4);
-    argv = (char *[]) {"ehci", ehci_base, "ohci", ohci_base};
-
-    tmp = USB_EHCI_OFFSET + (int32_t) usb_subsystem_base;
-    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x15 << 16)
-            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
-
-    }
-    assert(*(((volatile uint32_t*) (tmp+0x00A4))) & 0x1);
-
-    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x00 << 16)
-            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
-    }
-    assert(0x24 == ((*((volatile uint32_t*) (tmp+0x00A4))) & 0xFF));
-
-    /* read the debug register */
-    *((volatile uint32_t*) (tmp+0x00A4)) = (uint32_t) ((0x15 << 16)
-            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-    while (*((volatile uint32_t*) (tmp+0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
-
-    }
-
-    debug_printf("  > ULPI line state = %s\n",
-            (*((volatile uint32_t*) (tmp+0x00A4))) & 0x1 ?
-                    "Connected" : "Disconnected");
-
+    argv = (char *[]) {"ehci", ehci_base};
 #endif
 
     /*
@@ -391,28 +401,56 @@ int main(int argc, char *argv[])
         debug_printf("Usage: usb_manager [host-controller offset]\n");
     }
 
+    uintptr_t base = map_device_cap();
+    /*
+     * TODO: spawn with caps -> init device range -> store cap in this location
+     */
+
+#if __arm__
+    /* the ehci ULPI register of the omap */
+    tmp = USB_EHCI_OFFSET + USB_SUBSYSTEM_L4_OFFSET + (uint32_t) base;
+
+    /* read the debug register and check line state */
+    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x15 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
+        printf("%c", 0xE);
+
+    }
+    assert(*(((volatile uint32_t*) (tmp+0x00A4))) & 0x1);
+
+    /* read the vendor low register and check if it has the corrent value */
+    *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x00 << 16)
+            | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
+        printf("%c", 0xE);
+    }
+    assert(0x24 == ((*((volatile uint32_t*) (tmp+0x00A4))) & 0xFF));
+
+#endif
+
     usb_error_t uerr = USB_ERR_OK;
     for (uint16_t i = 0; i < argc; i += 2) {
         usb_host_controller_t *hc = NULL;
-        uint32_t offset = *((uint32_t*) argv[i + 1]);
+        uintptr_t controller_base = base + *((uint32_t*) argv[i + 1]);
         if (strcmp(argv[i], "ehci") == 0) {
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_EHCI, usb_subsystem_base + offset);
+            uerr = usb_hc_init(hc, USB_EHCI, controller_base);
         }
 
         if (strcmp(argv[i], "ohci") == 0) {
             continue;
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_OHCI, usb_subsystem_base + offset);
+            uerr = usb_hc_init(hc, USB_OHCI, controller_base);
         }
         if (strcmp(argv[i], "uhci") == 0) {
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_UHCI, usb_subsystem_base + offset);
+            uerr = usb_hc_init(hc, USB_UHCI, controller_base);
         }
 
         if (strcmp(argv[i], "xhci") == 0) {
             hc = malloc(sizeof(*hc));
-            uerr = usb_hc_init(hc, USB_XHCI, usb_subsystem_base + offset);
+            uerr = usb_hc_init(hc, USB_XHCI, controller_base);
         }
 
         if (uerr != USB_ERR_OK && hc != NULL) {

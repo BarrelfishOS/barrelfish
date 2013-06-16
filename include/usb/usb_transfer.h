@@ -10,9 +10,6 @@
 #ifndef _LIBUSB_TRANSFER_H_
 #define _LIBUSB_TRANSFER_H_
 
-#include <barrelfish/barrelfish.h>
-
-#include <usb/usb_error.h>
 #include <usb/usb_xfer.h>
 
 /// USB transfer id type
@@ -43,15 +40,16 @@ typedef enum usb_transfer_state usb_tstate_t;
  * a new USB transfer
  */
 struct usb_transfer_setup {
-    uint32_t interval;              ///< the interval for interrupt / isochr
-    uint32_t timeout;               ///< period till the transfer timeouts
     uint32_t max_bytes;             ///< maximum bytes to to transfer
     uint32_t max_frames;            ///< the maximum bumber of frames
+    uint32_t interval;              ///< the interval for interrupt / isochr
+    uint32_t timeout;               ///< period till the transfer timeouts
     struct usb_xfer_flags flags;    ///< some specific transfer flags
     uint8_t type;                   ///< the type of the usb pipe
     uint8_t direction;              ///< the direction of the data transfer
     uint8_t endpoint;               ///< the associated endpoint of the transfer
     uint8_t interface;              ///< the itnerface to use
+    usb_transfer_cb_t *callback;    ///< the function to call upon completition
 };
 
 /// USB transfer setup type

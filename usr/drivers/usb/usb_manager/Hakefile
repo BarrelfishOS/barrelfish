@@ -37,10 +37,10 @@
                       "hub/usb_hub_request.c"
                       ],
                       
+                      flounderDefs = [ "usb_manager", "monitor_blocking" ],
                       flounderBindings = [ "usb_manager" ],
                       flounderExtraBindings = [ ("usb_manager",["rpcclient"])],
                       
-                      flounderDefs = ["monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
                       
                       mackerelDevices = [ "ohci", "omap/ohci", 

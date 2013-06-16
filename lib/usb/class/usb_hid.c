@@ -16,13 +16,14 @@
  * ===========================================================================
  */
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
+#include <usb/usb_request.h>
 #include <usb/usb_descriptor.h>
+#include <usb/usb_device.h>
 #include <usb/usb_parse.h>
 #include <usb/class/usb_hid.h>
 
@@ -219,7 +220,6 @@ int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h)
                 s->ousage++;
             }
         } else {
-            debug_printf( "Using last usage\n");
             dval = s->usage_last;
         }
         s->icount++;
@@ -229,8 +229,6 @@ int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h)
          */
         if (s->kindset & (1 << c->kind)) {
             *h = *c;
-            debug_printf( "%u,%u,%u\n", h->loc.position, h->loc.size,
-                    h->loc.count);
             c->loc.position += c->loc.size * c->loc.count;
             return (1);
         }
@@ -344,7 +342,7 @@ int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h)
                         *h = *c;
                         return (1);
                     default:
-                        USB_DEBUG("Main bTag=%d\n", bTag);
+                        /* noop */
                         break;
                 }
                 break;
@@ -415,7 +413,7 @@ int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h)
                         }
                         break;
                     default:
-                        USB_DEBUG("Global bTag=%d\n", bTag);
+                        /* noop */
                         break;
                 }
                 break;
@@ -491,12 +489,12 @@ int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h)
                         c->set_delimiter = dval;
                         break;
                     default:
-                        USB_DEBUG("Local bTag=%d\n", bTag);
+                        /* noop */
                         break;
                 }
                 break;
             default:
-                USB_DEBUG("default bType=%d\n", bType);
+                /* noop */
                 break;
         }
     }
@@ -585,7 +583,8 @@ int32_t usb_hid_locate(const void *desc, uint32_t size, uint32_t usage,
     struct usb_hid_data *d;
     struct usb_hid_item h;
 
-    for (d = usb_hid_start_parse(desc, size, 1 << k); usb_hid_get_item(d, &h);) {
+    for (d = usb_hid_start_parse(desc, size, 1 << k); usb_hid_get_item(d, &h);
+            ) {
         if (h.kind == k && !(h.flags & USB_HID_IO_CONST) && h.usage == usage) {
             if (index--)
                 continue;
@@ -656,8 +655,8 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     else
         data = (uint32_t) ((uint32_t) data << n) >> n;
 
-    USB_DEBUG("hid_get_data: loc %d/%d = %lu\n", loc->position, loc->size,
-            (long)data);
+    USB_DEBUG(
+            "hid_get_data: loc %d/%d = %lu\n", loc->position, loc->size, (long)data);
 
     return (data);
 }
@@ -673,7 +672,8 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
  * \return  0: on failure
  *          data: on sucess
  */
-int32_t usb_hid_get_data(const uint8_t *buf, uint32_t len, struct usb_hid_location *loc)
+int32_t usb_hid_get_data(const uint8_t *buf, uint32_t len,
+        struct usb_hid_location *loc)
 {
     return (usb_hid_get_data_generic(buf, len, loc, 1));
 }
@@ -688,8 +688,7 @@ int32_t usb_hid_get_data(const uint8_t *buf, uint32_t len, struct usb_hid_locati
  *
  * \return  0: on failure
  *          data: on sucess
- */
-uint32_t usb_hid_get_data_unsigned(const uint8_t *buf, uint32_t len,
+ */uint32_t usb_hid_get_data_unsigned(const uint8_t *buf, uint32_t len,
         struct usb_hid_location *loc)
 {
     return (usb_hid_get_data_generic(buf, len, loc, 0));
@@ -722,7 +721,7 @@ void usb_hid_put_data_unsigned(uint8_t *buf, uint32_t len,
     /* Put data in a safe way */
     rpos = (hpos / 8);
     n = (hsize + 7) / 8;
-    data = ((uint64_t)value) << (hpos % 8);
+    data = ((uint64_t) value) << (hpos % 8);
     mask = ((1ULL << hsize) - 1ULL) << (hpos % 8);
     rpos += n;
     while (n--) {
@@ -755,8 +754,7 @@ int32_t usb_hid_is_collection(const void *desc, uint32_t size, uint32_t usage)
         return (0);
 
     while ((err = usb_hid_get_item(hd, &hi))) {
-         if (hi.kind == USB_HID_KIND_COLLECTION &&
-             hi.usage == usage)
+        if (hi.kind == USB_HID_KIND_COLLECTION && hi.usage == usage)
             break;
     }
     usb_hid_end_parse(hd);
@@ -777,15 +775,16 @@ int32_t usb_hid_is_collection(const void *desc, uint32_t size, uint32_t usage)
 struct usb_hid_descriptor *usb_hid_get_descriptor_from_usb(
         struct usb_config_descriptor *cd, struct usb_interface_descriptor *id)
 {
-    struct usb_descriptor *desc = (void *)id;
+    struct usb_descriptor *desc = (void *) id;
 
     if (desc == NULL) {
         return (NULL);
     }
+
     while ((desc = usb_parse_next_descriptor(cd, desc))) {
-        if ((desc->bDescriptorType == USB_DESCRIPTOR_TYPE_HID) &&
-            (desc->bLength >= USB_HID_DESCRIPTOR_SIZE(0))) {
-            return ((void *)desc);
+        if ((desc->bDescriptorType == USB_DESCRIPTOR_TYPE_HID)
+                && (desc->bLength >= USB_HID_DESCRIPTOR_SIZE(0))) {
+            return ((void *) desc);
         }
         if (desc->bDescriptorType == USB_DESCRIPTOR_TYPE_INTERFACE) {
             break;
@@ -800,45 +799,73 @@ struct usb_hid_descriptor *usb_hid_get_descriptor_from_usb(
  *
  *
  */
-usb_error_t usb_req_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
+usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
         uint16_t *ret_size, uint8_t iface)
 {
-    //struct usb_interface *iface = usbd_get_iface(udev, iface_index);
     struct usb_hid_descriptor *hid;
 
-
-    /*if ((iface == NULL) || (ifacesc == NULL)) {
-        return (USB_ERR_INVAL);
-    }*/
-
-    //struct usb_config_descriptor *ret_cfg_desc;
-    //usb_get_config_descriptor(0, &ret_cfg_desc);
+    struct usb_config_descriptor *cfg_desc = usb_device_get_cfg_desc();
 
     /* TODO */
-    hid = usb_hid_get_descriptor_from_usb(NULL, NULL);
+    hid = usb_hid_get_descriptor_from_usb(cfg_desc,
+            (struct usb_interface_descriptor *) (cfg_desc + 1));
 
     if (hid == NULL) {
         return (USB_ERR_IOERROR);
     }
-    *ret_size = hid->descriptors[0].wDescriptorLength;
+
+    *ret_size = USB_HID_DTYPE_GET_LEN(hid->descriptors);
+
+    USB_DEBUG("size of the hid descriptors = %u\n", *ret_size);
     if (*ret_size == 0) {
         return (USB_ERR_IOERROR);
     }
-
-    *ret_desc = malloc(*ret_size);
 
     if (*ret_desc == NULL) {
         return (USB_ERR_NOMEM);
     }
 
-    // TODO
-    /*err = usbd_req_get_report_descriptor
-        (mtx, *descp, *sizep, iface_index);
+    usb_error_t err = usb_hid_get_report_descriptor(ret_desc, *ret_size,
+            iface);
 
     if (err) {
-        free(*ret_desc);
         *ret_desc = NULL;
         return (err);
-    }*/
+    }
+
     return (USB_ERR_OK);
+}
+
+usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
+        uint16_t size, uint8_t iface)
+{
+    if (d == NULL) {
+        return (USB_ERR_INVAL);
+    }
+    struct usb_device_request req;
+    req.bType.direction = USB_REQUEST_READ;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
+    req.bType.type = USB_REQUEST_TYPE_STANDARD;
+    req.bRequest = USB_HID_REQUEST_GET_DESCRIPTOR;
+    req.wValue = USB_DESCRIPTOR_TYPE_REPORT << 8;
+    req.wIndex = iface;
+    req.wLength = size;
+
+    uint16_t ret_data_length;
+
+    usb_error_t err = usb_do_request_read(&req, &ret_data_length, (void **)d);
+
+    if (err != USB_ERR_OK) {
+        *d = NULL;
+    }
+
+    if (ret_data_length != size) {
+        USB_DEBUG("WARNING: got wrong data size. \n");
+        free(*d);
+        *d = NULL;
+        err = USB_ERR_IOERROR;
+    }
+
+    return (err);
+
 }

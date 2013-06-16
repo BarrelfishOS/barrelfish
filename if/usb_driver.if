@@ -10,6 +10,6 @@
 
 interface usb_driver "USB Drive Interface" {
     
-
-    response xfer_done_notify();
+    message device_detach_notify();
+    message xfer_done_notify();
 };

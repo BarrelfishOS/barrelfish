@@ -25,6 +25,8 @@ struct usb_interface_descriptor *usb_parse_next_iface(
 
 struct usb_endpoint_descriptor *usb_parse_next_edesc(
         struct usb_config_descriptor *cd, struct usb_endpoint_descriptor *ped);
+
+
 #if 0
 
 struct usb_endpoint_descriptor *

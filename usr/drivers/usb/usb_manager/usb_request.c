@@ -16,13 +16,14 @@
 
 #include <usb/usb.h>
 #include <usb/usb_request.h>
-#include <usb/usb_device.h>
-#include <usb/usb_xfer.h>
 
+
+#include <usb_device.h>
 #include <usb_controller.h>
 #include <usb_request.h>
 #include <usb_transfer.h>
 #include <usb_memory.h>
+#include <usb_xfer.h>
 
 /**
  * \brief   this function handles the USB requests
@@ -217,12 +218,14 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
                 }
             }
             xfer->num_frames = 1;
-        } USB_DEBUG_REQ("-------------------- starting transfer\n");
+        }
+
+        USB_DEBUG_REQ("-------------------- starting transfer\n");
         usb_transfer_start(xfer);
 
         /* wait till completed... */
         while (!usb_transfer_completed(xfer)) {
-            USB_WAIT(200);
+            USB_WAIT(5);
             //thread_yield();
         }
 
@@ -289,7 +292,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
     if (req_state) {
         req_state->error = (usb_error_t) err;
-        req_state->callback(req_state->bind);
+        req_state->callback(req_state);
     }
 
     USB_DEBUG_TR_RETURN;
@@ -336,12 +339,9 @@ static void free_request_state(struct usb_request_state *st)
     if (st->data) {
         free(st->data);
     }
-    if (st->xfer) {
-
+    if (st->req) {
+        free(st->req);
     }
-    /*
-     * todo: Free XFER
-     */
     free(st);
 }
 
@@ -410,7 +410,7 @@ void usb_rx_request_read_call(struct usb_manager_binding *binding,
 
     struct usb_device *device = (struct usb_device *) binding->st;
     struct usb_device_request *req = (struct usb_device_request *) request;
-
+    st->req = req;
     st->bind = binding;
     st->data_length = 0;
     if (req->wLength > 0) {
@@ -420,6 +420,7 @@ void usb_rx_request_read_call(struct usb_manager_binding *binding,
         st->data = malloc(1024);
         req->wLength = 1024;  // setting the maximum data length
     }
+
     st->callback = usb_tx_request_read_response;
 
     usb_handle_request(device, 0, req, st, st->data, &st->data_length);
@@ -661,6 +662,7 @@ usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
         struct usb_device_descriptor *desc)
 {
     USB_DEBUG_TR_ENTER;
+
     usb_error_t err;
     uint16_t act_len = 0;
 
@@ -677,7 +679,8 @@ usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
 usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
         struct usb_config_descriptor **cdesc, uint8_t cindex)
 {
-    USB_DEBUG_TR("usb_req_get_config_descriptor()\n");
+    USB_DEBUG_TR_ENTER;
+
     usb_error_t err;
 
     struct usb_config_descriptor cd;
@@ -715,13 +718,15 @@ usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
 usb_error_t usb_req_get_string_desc(struct usb_device *dev, void *sdesc,
         uint16_t max_len, uint16_t lang_id, uint8_t string_index)
 {
+    return (USB_ERR_IOERROR);
     return (usb_req_get_descriptor(dev, NULL, sdesc, 2, max_len, lang_id,
             USB_DESCRIPTOR_TYPE_STRING, string_index, 0));
 }
 
 usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config)
 {
-    USB_DEBUG_TR("usb_req_set_config()\n");
+    USB_DEBUG_TR_ENTER;
+
     struct usb_device_request req;
 
     req.bRequest = USB_REQUEST_SET_CONFIG;

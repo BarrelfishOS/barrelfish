@@ -19,6 +19,8 @@
                     "usb_device.c",
                     "usb_request.c", 
                     "usb_transfer.c" 
-        ] 
+        ], flounderDefs = [ "usb_manager" ],
+        flounderBindings = [ "usb_manager" ],
+        flounderExtraBindings = [ ("usb_manager", ["rpcclient"]) ]
     } 
 ]

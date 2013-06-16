@@ -14,19 +14,14 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <usb/usb.h>
-#include <usb/usb_error.h>
 #include <usb/usb_driver.h>
+#include <usb/usb_device.h>
 
-#include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
+
 
 #include "usb_manager_client.h"
 
-static void done_cb(struct usb_manager_binding *_binding, uint32_t tid,
-        uint32_t error, uint8_t *data, size_t length)
-{
-    debug_printf("received done notify!\n");
-}
+
 
 /*
  * --------------------------------------------------------------------------
@@ -70,7 +65,7 @@ static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
  *          USB manager service
  *
  */
-usb_error_t usb_lib_init(void)
+usb_error_t usb_lib_init(uint8_t init_config)
 {
     errval_t err;
 
@@ -94,7 +89,6 @@ usb_error_t usb_lib_init(void)
                assert(err_is_ok(err));
            }
 
-    usb_manager.b->rx_vtbl.transfer_done_notify = done_cb;
 
 
     uint32_t ret_status;
@@ -104,8 +98,7 @@ usb_error_t usb_lib_init(void)
 
        err = usb_manager.vtbl.connect(&usb_manager, 0, &ret_status,
                &tmp, &length);
-       err = usb_manager.vtbl.connect(&usb_manager, 0, &ret_status,
-                      &tmp, &length);
+
 
        if (((usb_error_t)ret_status) != USB_ERR_OK) {
            debug_printf("libusb: ERROR connecting to the USB manager\n");
@@ -118,9 +111,7 @@ usb_error_t usb_lib_init(void)
            return (USB_ERR_BAD_BUFSIZE);
        }
 
-
-
-       gen_descriptor = (usb_generic_descriptor_t *)tmp;
+       usb_device_init(tmp);
 
        debug_printf("libusb: driver connected (status=%i)\n", ret_status);
 

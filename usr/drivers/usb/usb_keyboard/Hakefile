@@ -14,8 +14,7 @@
                       cFiles = [ "usb_keyboard.c",
                                  "usb_keyboard_service.c", 
                                  "usb_keyboard_driver.c"],
-                      flounderBindings = [ "usb_manager","keyboard"],
-                       flounderExtraBindings = [ ("usb_manager",["rpcclient"]) ],
+                    
                       addLibraries = ["usb"],
                       architectures = allArchitectures
                     }

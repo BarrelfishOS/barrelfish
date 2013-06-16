@@ -27,7 +27,7 @@
 static usb_host_controller_t *host_controllers = NULL;
 
 usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
-        void *controller_base)
+        uintptr_t controller_base)
 {
     if (hc == NULL) {
         return (USB_ERR_NOMEM);

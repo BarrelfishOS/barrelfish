@@ -24,18 +24,18 @@ int main(int argc, char *argv[])
 {
     USB_DEBUG("####### usb keyboard driver start #######\n");
 
-    usb_error_t uerr = usb_lib_init();
+    usb_error_t uerr = usb_lib_init(1);
 
-    messages_handler_loop();
+
 
     if (uerr != USB_ERR_OK) {
         debug_printf("ERROR: Could not initialize the USB driver library\n");
         return (EXIT_FAILURE);
     }
 
-
-
     uerr = usb_keyboard_init();
+
+    messages_handler_loop();
 
     if (uerr != USB_ERR_OK) {
         debug_printf("ERROR: Could not initialize the USB driver library\n");

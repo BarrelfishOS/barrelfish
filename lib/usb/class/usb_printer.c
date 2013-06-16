@@ -7,15 +7,12 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef USB_MANAGER_CLIENT_H_
-#define USB_MANAGER_CLIENT_H_
 
-#include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
+/*
+ * ===========================================================================
+ * This file contains class specific functions printer devices
+ *
+ * USB Device Class 0x07
+ * ===========================================================================
+ */
 
-extern iref_t usb_manager_iref;
-extern struct usb_manager_rpc_client usb_manager;
-
-
-
-#endif /* USB_MANAGER_CLIENT_H_ */

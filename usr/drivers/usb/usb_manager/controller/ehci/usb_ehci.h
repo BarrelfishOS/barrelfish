@@ -670,6 +670,6 @@ typedef struct usb_ehci_hc usb_ehci_hc_t;
  */
 
 void usb_ehci_interrupt(usb_host_controller_t *host);
-usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base);
+usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base);
 
 #endif /* USB_EHCI_H_ */

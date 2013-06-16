@@ -11,24 +11,23 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
-#include <usb/usb_descriptor.h>
-#include <usb/usb_xfer.h>
-#include <usb/usb_device.h>
+
+
 
 #include <usb_xfer.h>
-
+#include <usb_device.h>
 #include <usb_endpoint.h>
 
 struct usb_endpoint *usb_endpoint_lookup(struct usb_device *dev, uint8_t iface,
         const struct usb_xfer_config *filter)
 {
-    uint8_t ep_index = filter->ep_index;
+    uint8_t ep_index = 0; //filter->endpoint;
+
     struct usb_endpoint *ep = dev->endpoints;
     usb_endpoint_address_t *epaddr;
     usb_endpoint_attributes_t *epattr;
 
     uint8_t any = 1;
-
     /* loop over all endpoints */
     for (uint8_t ep_current = 0; ep_current < dev->ep_max; ep_current++) {
         if (ep == NULL) {
@@ -48,6 +47,7 @@ struct usb_endpoint *usb_endpoint_lookup(struct usb_device *dev, uint8_t iface,
             any = 0;
             if (epaddr->direction != filter->direction) {
                 /* wrong direction, check next next */
+                USB_DEBUG("wrong direction type\n");
                 continue;
             }
         }
@@ -68,7 +68,7 @@ struct usb_endpoint *usb_endpoint_lookup(struct usb_device *dev, uint8_t iface,
             }
         }
 
-        if (!ep_index-- && !any) {
+        if (!(ep_index--) && !any) {
             USB_DEBUG_XFER(
                     "usb_endpoint_lookup(): found iface=0x%x, ep=0x%x\n", iface, ep->endpoint_address);
             return (ep);

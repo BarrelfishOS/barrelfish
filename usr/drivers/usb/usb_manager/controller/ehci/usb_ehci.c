@@ -39,7 +39,7 @@ static struct ehci_t ehci_base;
  */
 static usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
 {
-    USB_DEBUG("resetting ehci controller.\n");
+    USB_DEBUG_HC("Performing reset sequence on EHCI controller.\n");
     /* write the reset bit */
     ehci_usbcmd_hcr_wrf(hc->ehci_base, 1);
 
@@ -65,26 +65,25 @@ static usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
      * checking if the reset was successfuly
      */
     if ((ehci_usbcmd_rawrd(hc->ehci_base) & 0xFFFFF0FF) != 0x00080000) {
-        debug_printf("WARNING: Reset is succeeded: USBCMD has wrong value.\n");
+        debug_printf("WARNING: USBCMD has wrong value.\n");
     }
     if (ehci_usbsts_rawrd(hc->ehci_base) != 0x00001000) {
-        debug_printf("WARNING: Reset is succeeded: USBST has wrong value.\n");
+        debug_printf("WARNING: USBST has wrong value.\n");
     }
     if (ehci_usbintr_rawrd(hc->ehci_base) != 0x00000000) {
-        debug_printf("WARNING: Reset is succeeded: USBINTR has wrong value.\n");
+        debug_printf("WARNING: USBINTR has wrong value.\n");
     }
     if (ehci_frindex_rawrd(hc->ehci_base) != 0x00000000) {
-        debug_printf("WARNING: Reset is succeeded: FRINDEX has wrong value.\n");
+        debug_printf("WARNING:FRINDEX has wrong value.\n");
     }
     if (ehci_ctrldssegment_rawrd(hc->ehci_base) != 0x00000000) {
         debug_printf("WARNING: Reset is succeeded: CTRLDS has wrong value.\n");
     }
     if (ehci_configflag_rawrd(hc->ehci_base) != 0x00000000) {
-        debug_printf(
-                "WARNING: Reset is succeeded: CONFIGFLG has wrong value.\n");
+        debug_printf("WARNING: CONFIGFLG has wrong value.\n");
     }
     if ((ehci_portsc_rawrd(hc->ehci_base, 0) | 0x00001000) != 0x00003000) {
-        debug_printf("WARNING: Reset is succeeded: PORTSC has wrong value.\n");
+        debug_printf("WARNING: PORTSC has wrong value.\n");
     }
 
     return (USB_ERR_OK);
@@ -220,19 +219,12 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
 {
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *)host->hc_control;
 
-    USB_DEBUG_TR("usb_ehci_interrupt()\n");
+    USB_DEBUG_HC("ehci controller handling interrupt..\n");
 
     /*
      * read the status register and mask out the interrupts [5..0]
      */
     ehci_usbsts_t intr = ehci_usbsts_rawrd(hc->ehci_base) & 0x3F;
-
-
-    char buf[1024];
-    ehci_usbsts_prtval(buf, 1013, intr);
-    printf(buf);
-    ehci_usbintr_pr(buf, 1023, hc->ehci_base);
-    printf(buf);
 
     if (!(intr)) {
         /* there was no interrupt for this controller */
@@ -256,11 +248,15 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
          * serious error occurs during a host system access involving the host
          * controller module.
          */
-        debug_printf("EHCI controller encountered an unrecoverable error\n");
+        USB_DEBUG("EHCI controller encountered an unrecoverable error\n");
+        USB_DEBUG("NYI: handling of unrecoverable errors! \n");
+
     }
 
+    uint8_t pcd_disabled = 0;
+
     if (ehci_usbsts_pcd_extract(intr)) {
-        USB_DEBUG("usb_ehci_interrupt(): port change detected\n");
+        USB_DEBUG(">> Port change detected. \n");
 
 
         /*
@@ -274,11 +270,11 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
 
 
         /* disable the PCD interrupt for now */
-        //ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
         ehci_usbintr_pcie_wrf(hc->ehci_base, 0);
+        pcd_disabled = 1;
+
+        /* handle port status change */
         usb_ehci_roothub_interrupt(hc);
-
-
     }
 
     intr = ehci_usbsts_pcd_insert(intr, 0);
@@ -289,6 +285,7 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     ehci_usbcmd_iaad_wrf(hc->ehci_base, 1);
 
     if (intr != 0) {
+        USB_DEBUG("NOTICE: Blocking interrupt %x\n", intr);
         /*
          * there is still an interrupt left, so block on this type
          */
@@ -296,25 +293,23 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
         ehci_usbintr_wr(hc->ehci_base, hc->enabled_interrupts);
     }
 
-    /*
-     * poll the USB transfers
-     */
+    /* poll the USB transfers */
     usb_ehci_poll(hc);
 
-    ehci_usbintr_pcie_insert(hc->enabled_interrupts, 1);
-    ehci_usbintr_pcie_wrf(hc->ehci_base, 1);
-    /* disable the PCD interrupt for now */
-    //ehci_usbsts_pcd_wrf(hc->ehci_base, hc->enabled_interrupts);
-    USB_DEBUG_TR("usb_ehci_interrupt() - done\n");
+    if (pcd_disabled) {
+        /* enable the port status change interrupt again */
+        ehci_usbintr_pcie_insert(hc->enabled_interrupts, 1);
+        ehci_usbintr_pcie_wrf(hc->ehci_base, 1);
+    }
+    USB_DEBUG_TR_RETURN;
 }
 
 /**
  * \brief   initialize the host controller
  */
-usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
+usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base)
 {
-    printf("\n");
-    USB_DEBUG("usb_ehci_init(%p)\n", controller_base);
+    USB_DEBUG_HC("Initializing EHCI controller...\n");
 
     /* initialize the mackerel framework */
     hc->ehci_base = &ehci_base;
@@ -330,9 +325,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
 
     ehci_initialize(hc->ehci_base, (mackerel_addr_t) controller_base,
             (mackerel_addr_t) (controller_base + cap_offset));
-
-    USB_DEBUG(
-            "EHCI mackerel device initialized.[cap base=%p, op-offset=%x]\n", controller_base, cap_offset);
 
     /*
      * read revision and number of ports
@@ -353,8 +345,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     if (err != USB_ERR_OK) {
         debug_printf("ERROR: Host controller not reset properly. \n");
     }
-
-    USB_DEBUG("Reset done.\n");
 
     if (ehci_usbcmd_fls_rdf(hc->ehci_base) == ehci_frame_rsvd) {
         /*
@@ -381,8 +371,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     hc->enabled_interrupts = en_intrs;
 
     usb_ehci_qh_t *qh;
-
-    USB_DEBUG("ehci init: allocate QHs for interupt transfers\n");
 
     /* setup the terminate qheue head */
     qh = usb_ehci_qh_alloc();
@@ -434,7 +422,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh = hc->qh_intr_last[0];
     qh->qh_link = USB_EHCI_LINK_TERMINATE;
 
-    USB_DEBUG("ehci init: allocate iTDs and siTDs for isochronus transfers\n");
     /*
      * initialize the isochronus and isochronus split queues
      */
@@ -459,7 +446,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
         itd->itd_next.address = sitd->sitd_self;
     }
 
-    USB_DEBUG("ehci init: initialize pframes\n");
     /*
      * initialize the pframes
      */
@@ -475,7 +461,6 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
         (pframes[i]) = hc->qh_itd_hs_last[next]->itd_self;
     }
 
-    USB_DEBUG("ehci init: initialize async queue\n");
     /*
      * initialize the async queue
      */
@@ -494,7 +479,8 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, void *controller_base)
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
 
     /* allocate the USB root hub device */
-    USB_DEBUG("ehci_init: allocating root hub device\n");
+    USB_DEBUG_HC("initializing root hub device.\n");
+
     struct usb_device *root_hub = usb_device_alloc(hc->controller, NULL, 0, 0, 1,
             USB_SPEED_HIGH, USB_MODE_HOST);
 

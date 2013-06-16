@@ -12,8 +12,6 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
-#include <usb/usb_error.h>
-#include <usb/usb_device.h>
 #include <usb/usb_parse.h>
 
 #include <usb_controller.h>
@@ -58,7 +56,7 @@ static void usb_device_init_endpoint(struct usb_device *device,
     ep->descriptor = desc;
     ep->iface_index = iface_index;
     ep->endpoint_address = desc->bEndpointAddress.ep_number;
-
+    ep->max_packet_size = desc->wMaxPacketSize;
     (&ep->transfers.head)->first = NULL;
     (&ep->transfers.head)->last_next = &((&ep->transfers.head)->first);
 
@@ -183,7 +181,6 @@ static usb_error_t usb_device_cfg_process(struct usb_device *dev, uint8_t iface,
     if (!init) {
         dev->iface_max = iface_ps.iface_index;
         dev->ifaces = NULL;
-
         if (dev->iface_max != 0) {
             dev->ifaces = malloc(sizeof(*interface) * dev->iface_max);
             if (dev->ifaces == NULL) {
@@ -213,7 +210,6 @@ static usb_error_t usb_device_setup_descriptor(struct usb_device *dev)
     switch (dev->speed) {
         case USB_SPEED_LOW:
         case USB_SPEED_FULL:
-            USB_DEBUG_DEV("not a high speed device!\n");
             err = usb_req_get_descriptor(dev, NULL, &dev->device_desc, 8, 8, 0,
                     USB_DESCRIPTOR_TYPE_DEVICE, 0, 0);
             if (err != USB_ERR_OK) {
@@ -225,7 +221,6 @@ static usb_error_t usb_device_setup_descriptor(struct usb_device *dev)
         default:
             break;
     }
-    USB_DEBUG_DEV("---------- calling usb_req_get_device_descriptor()\n");
     err = usb_req_get_device_descriptor(dev, &dev->device_desc);
 
     if (err != USB_ERR_OK) {
@@ -261,7 +256,6 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev,
     usb_error_t err;
     struct usb_config_descriptor *cdesc;
 
-    USB_DEBUG_DEV("---------- calling usb_req_get_config_descriptor()\n");
     err = usb_req_get_config_descriptor(dev, &cdesc, config);
 
     if (err) {
@@ -283,7 +277,6 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev,
     dev->config_number = cdesc->bConfigurationValue;
     dev->state = USB_DEVICE_STATE_CONFIGURED;
 
-    USB_DEBUG_DEV("---------- calling usb_req_set_config()\n");
     err = usb_req_set_config(dev, cdesc->bConfigurationValue);
 
     if (err != USB_ERR_OK) {
@@ -351,6 +344,10 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     memset(dev, 0, sizeof(struct usb_device));
 
+    dev->xfer_id = 0;
+
+
+
     /* initialize the device */
     dev->parent_hub = parent_hub;
     dev->hub_port_index = portindex;
@@ -395,8 +392,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     dev->state = USB_DEVICE_STATE_POWERED;
 
     if (dev->flags.usb_mode == USB_MODE_HOST) {
-        USB_DEBUG_DEV(
-                "----------- calling usb_req_set_address() %u -> %u\n", dev->device_address, device_index);
         err = usb_req_set_address(dev, device_index);
 
         if (err) {
@@ -420,7 +415,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     dev->state = USB_DEVICE_STATE_ADDRESSED;
 
-    USB_DEBUG_DEV("----------- calling usb_device_setup_descriptor()\n");
     err = usb_device_setup_descriptor(dev);
 
     assert(dev->device_desc.bDescriptorType == USB_DESCRIPTOR_TYPE_DEVICE);
@@ -439,8 +433,7 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     if (dev->device_desc.iManufacturer || dev->device_desc.iProduct
             || dev->device_desc.iSerialNumber) {
-        USB_DEBUG_DEV("----------- calling usb_req_get_string_desc()\n");
-        //err = usb_req_get_string_desc(dev, buf, 4, 0, 0);
+        err = usb_req_get_string_desc(dev, buf, 4, 0, 0);
     } else {
         USB_DEBUG("no string descriptors...\n");
         err = USB_ERR_INVAL;
@@ -469,7 +462,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     usb_device_setup_strings(dev);
 
-    USB_DEBUG_DEV("----------- calling usb_device_set_configuration()\n");
     err = usb_device_set_configuration(dev, 0);
 
     if (err != USB_ERR_OK) {
@@ -494,7 +486,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     }
 
     if (device_index != 0) {
-        USB_DEBUG("setting device with index %i\n", device_index);
         hc->devices[device_index] = dev;
     }
 
@@ -506,5 +497,17 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
 void usb_device_free(struct usb_device * device, uint8_t flag)
 {
+    debug_printf("TODO: freeing up the device and it's transfers..\n");
 
+    /*
+     * 1) check if it is a hub device... and free up recursively
+     *
+     * 2) notiry the usb device driver
+     *
+     * 3) free up the transfers
+     *
+     * 4) free up the device
+     */
+
+    device->controller->devices[device->device_index] = NULL;
 }

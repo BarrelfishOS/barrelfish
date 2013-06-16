@@ -14,12 +14,12 @@
 
 #include <usb/usb.h>
 #include <usb/usb_error.h>
-#include <usb/usb_device.h>
-#include <usb/usb_xfer.h>
 
 #include <usb_controller.h>
+#include <usb_device.h>
 #include <usb_xfer.h>
 #include <usb_memory.h>
+
 #include "usb_ehci.h"
 #include "usb_ehci_xfer.h"
 #include "usb_ehci_memory.h"
@@ -213,9 +213,18 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
     USB_DEBUG_TR_RETURN;
 }
 
+static uint8_t unsetup_shown = 0;
+
 void usb_ehci_xfer_unsetup(struct usb_xfer *xfer)
 {
-    USB_DEBUG("NOTICE: freeing up the resources is nyi!\n");
+    if (unsetup_shown) {
+        return;
+    }
+    unsetup_shown =1;
+    USB_DEBUG("TODO: freeing up the resources is nyi!\n");
+    /*
+     * TODO: Free up resources
+     */
     return;
 }
 

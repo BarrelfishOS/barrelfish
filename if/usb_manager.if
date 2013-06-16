@@ -12,13 +12,15 @@ interface usb_manager "USB Manager Interface" {
     
     /* transfer setup parameters, keep in sync with struct usb_transfer_setup */
     typedef struct {
-        uint32 interval;
-        uint32 max_bytes;
-        uint32 max_frames;
-        uint16 xfer_flags;
-        uint8 bDirection;
-        uint8 bEndpoint;
-        uint8 bInterface;
+ uint32 max_bytes;             ///< maximum bytes to to transfer
+    uint32 max_frames;            ///< the maximum bumber of frames
+    uint32 interval;              ///< the interval for interrupt / isochr
+    uint32 timeout;               ///< period till the transfer timeouts
+    uint16 flags;    ///< some specific transfer flags
+    uint8 type;                   ///< the type of the usb pipe
+    uint8 direction;              ///< the direction of the data transfer
+    uint8 endpoint;               ///< the associated endpoint of the transfer
+    uint8 iface;              ///< the itnerface to use
     } setup_param;
     
     /* 

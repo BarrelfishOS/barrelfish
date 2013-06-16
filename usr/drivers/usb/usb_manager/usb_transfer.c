@@ -13,12 +13,11 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb_error.h>
-#include <usb/usb_device.h>
-#include <usb/usb_xfer.h>
 #include <usb/usb_request.h>
 
 #include <usb_controller.h>
 #include <usb_transfer.h>
+#include <usb_device.h>
 #include <usb_request.h>
 #include <usb_xfer.h>
 #include <usb_endpoint.h>
@@ -56,6 +55,13 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
                 .usb_type = USB_TYPE_CTRL
             },
         };
+
+
+static void usb_transfer_complete_notify(struct usb_xfer *xfer, usb_error_t err)
+{
+    USB_DEBUG("sending transfer complete notify...device = %u, xfer=%u\n", xfer->device_address, xfer->xfer_id);
+    usb_transfer_start(xfer);
+}
 
 static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
 {
@@ -251,7 +257,6 @@ void usb_transfer_start(struct usb_xfer *xfer)
         usb_xfer_enqueue(queue, xfer);
     }
 
-
     /*
      * submitting the transfer to start the USB hardware for the given
      * transfer
@@ -337,8 +342,6 @@ void usb_transfer_start(struct usb_xfer *xfer)
     }
 
 
-
-
     if ((((xfer)->endpoint_number & 0x80) ? 1 : 0)) {
         if (xfer->flags.short_frames_ok) {
             xfer->flags_internal.short_frames_ok = 1;
@@ -350,6 +353,7 @@ void usb_transfer_start(struct usb_xfer *xfer)
             }
         }
     }
+
 
     usb_pipe_enter(xfer);
     USB_DEBUG_TR_RETURN;
@@ -504,6 +508,9 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
 
     struct usb_xfer *xfer = malloc(sizeof(struct usb_xfer));
 
+    xfer->xfer_id = device->xfer_id++;
+    xfer->device_xfers_next = device->xfers;
+    device->xfers = xfer;
     xfer->xfer_done_cb = setup->xfer_done_cb;
     xfer->type = setup->usb_type;
     xfer->device_address = device->device_address;
@@ -597,7 +604,6 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
 #define USB_TX_TRANSER_ERR(_retry) \
     if (err_is_fail(err)) { \
        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {\
-           USB_DEBUG("re-sending _retry() \n");\
            txcont = MKCONT(_retry, st);\
            struct waitset *ws = get_default_waitset();\
            err = st->bind->register_send(st->bind, ws, txcont);\
@@ -613,7 +619,6 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
 
 static void usb_tx_transfer_generic_cb(void *a)
 {
-    USB_DEBUG("usb_tx_generic_cb: sending transfer response successful\n");
     free(a);
 }
 
@@ -623,14 +628,13 @@ struct usb_tsetup_state {
     struct usb_manager_binding *bind;
     uint32_t tid;
     usb_error_t error;
+
 };
 
 static void usb_tx_transfer_setup_response(void *a)
 {
     errval_t err;
     struct usb_tsetup_state *st = (struct usb_tsetup_state *) a;
-
-    USB_DEBUG("usb_tx_transfer_setup_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -652,32 +656,50 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
         debug_printf("WARNING: Cannot reply, out of memory!\n");
     }
 
+    struct usb_xfer_config setup;
+
     st->bind = bind;
+    struct usb_xfer *xfer;
+    struct usb_device *dev = (struct usb_device *)bind->st;
+
+    memcpy(&setup, &params, sizeof(params));
+    if (dev == NULL) {
+        st->tid = 0;
+        st->error = USB_ERR_BAD_CONTEXT;
+        usb_tx_transfer_setup_response(st);
+        return;
+    }
+
+    setup.xfer_done_cb = &usb_transfer_complete_notify;
 
     switch ((usb_type_t) type) {
         case USB_TYPE_BULK:
             USB_DEBUG("received usb_rx_transfer_setup_call [bulk type]\n");
             /* TODO: Handle transfer setup */
+            setup.usb_type = USB_TYPE_BULK;
             st->error = USB_ERR_OK;
             st->tid = 123;
             break;
         case USB_TYPE_CTRL:
             USB_DEBUG("received usb_rx_transfer_setup_call [ctrl type]\n");
             /* TODO: Handle transfer setup */
+            setup.usb_type = USB_TYPE_CTRL;
             st->error = USB_ERR_OK;
             st->tid = 234;
             break;
         case USB_TYPE_ISOC:
             USB_DEBUG("received usb_rx_transfer_setup_call [isoc type]\n");
             /* TODO: Handle transfer setup */
+            setup.usb_type = USB_TYPE_ISOC;
             st->error = USB_ERR_OK;
             st->tid = 345;
             break;
         case USB_TYPE_INTR:
             USB_DEBUG("received usb_rx_transfer_setup_call [intr type]\n");
             /* TODO: Handle transfer setup */
-            st->error = USB_ERR_OK;
-            st->tid = 123;
+            setup.usb_type = USB_TYPE_INTR;
+            st->error = usb_transfer_setup(dev, params.iface, &xfer, &setup);
+            st->tid = xfer->xfer_id;
             break;
         default:
             USB_DEBUG("received usb_rx_transfer_setup_call [invalid type]\n");
@@ -739,7 +761,7 @@ static void usb_tx_transfer_start_response(void *a)
     errval_t err;
     struct usb_tstart_state *st = (struct usb_tstart_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_start_response()\n");
+    USB_DEBUG("usb_tx_transfer_start_response()\n\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -751,13 +773,39 @@ static void usb_tx_transfer_start_response(void *a)
 
 void usb_rx_transfer_start_call(struct usb_manager_binding *bind, uint32_t tid)
 {
+    USB_DEBUG("usb_rx_transfer_start_call()\n");
+
+
     struct usb_tstart_state *st = malloc(sizeof(struct usb_tstart_state));
+    st->bind = bind;
+
+    struct usb_device *dev = (struct usb_device *)(bind->st);
+
+    assert(dev != NULL);
+
+    struct usb_xfer *xfer = dev->xfers;
+
+    while(xfer) {
+        if (xfer->xfer_id == tid) {
+            break;
+        }
+        xfer = xfer->device_xfers_next;
+    }
+
+    if (xfer == NULL) {
+        USB_DEBUG("no xfer!\n");
+        st->error = USB_ERR_BAD_CONTEXT;
+        usb_tx_transfer_start_response(st);
+    }
+
+    usb_transfer_start(xfer);
+
+    st->error = xfer->error;
 
     if (st == NULL) {
         debug_printf("WARNING: Cannot reply, out of memory!\n");
     }
 
-    st->bind = bind;
 
     usb_tx_transfer_start_response(st);
 }

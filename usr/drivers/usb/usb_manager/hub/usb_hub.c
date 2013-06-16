@@ -22,14 +22,12 @@
 
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
-#include <usb/usb_device.h>
 
 #include <usb_controller.h>
 #include <usb_hub.h>
 #include <usb_device.h>
 #include <usb_transfer.h>
 #include <usb_driver.h>
-
 
 static void usb_hub_intr_cb(struct usb_xfer *xfer, usb_error_t err);
 
@@ -54,8 +52,6 @@ static uint8_t usb_hub_xplore_done = 1;
 
 static void usb_hub_intr_cb(struct usb_xfer *xfer, usb_error_t err)
 {
-    USB_DEBUG_DEV("ushb hub intr callback!\n");
-
     if (err != USB_ERR_OK) {
         USB_DEBUG("WARNING: hub intr transfer failed...\n");
         usb_transfer_start(xfer);
@@ -70,7 +66,7 @@ static void usb_hub_intr_cb(struct usb_xfer *xfer, usb_error_t err)
 struct usb_device *usb_hub_get_device(struct usb_hub *hub,
         struct usb_hub_port *port)
 {
-    return (NULL);
+    return (hub->device->controller->devices[port->device_index]);
 }
 
 /**
@@ -131,12 +127,6 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
             break;
         }
 
-        if (child != NULL) {
-            USB_DEBUG("reattach: freeing up child and restart fresh\n");
-            /* free up the device to restart fresh */
-            usb_device_free(child, 0);
-            child = NULL;
-        }
         err = usb_hub_get_port_status(hub->device, portno, &ps);
         if (err) {
             USB_DEBUG("ERROR: could not get port status. Port=%u", portno);
@@ -144,8 +134,14 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
         }
 
         if (!ps.wPortStatus.connection) {
-            /* no device attached... error */
-            USB_DEBUG("WARNING: no device connected to port %u.\n", portno);
+            debug_printf("--------------------------------------\n");
+            debug_printf("Device detached: [%u, %u].\n",
+                    hub->device->device_address, portno);
+            if (child != NULL) {
+                /* free up the device to restart fresh */
+                usb_device_free(child, 0);
+                child = NULL;
+            }
             break;
         }
 
@@ -159,9 +155,8 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
                 USB_DEBUG("Port %u is suspended. Wake up.\n", portno);
                 err = usb_hub_clear_port_feature(hub->device,
                         USB_HUB_FEATURE_PORT_SUSPEND, portno);
+                USB_WAIT(USB_DELAY_PORT_POWERUP);
             }
-
-            USB_WAIT(USB_DELAY_PORT_POWERUP);
 
             err = usb_hub_reset_port(hub->device, portno);
             if (err != USB_ERR_OK) {
@@ -236,7 +231,9 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
             USB_DEBUG_DEV("new device in DEVICE_MODE\n");
             mode = USB_MODE_DEVICE;
         }
-
+        debug_printf("--------------------------------------\n");
+        debug_printf("new device attached on port [%u, %u]\n",
+                hub->device->device_address, portno);
         child = usb_device_alloc(hub->device->controller, hub->device,
                 hub->device->depth + 1, portno - 1, portno, speed, mode);
         if (child == NULL) {
@@ -515,11 +512,12 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
     uint8_t portno = 0;
     struct usb_hub_port_status ps;
 
+    USB_DEBUG_DEV(
+            "exploring ports of hub [%03u]...\n", hub_device->device_address);
+
     for (uint32_t i = 0; i < hub->num_ports; i++) {
         port = hub->ports + i;
         portno = i + 1;
-
-        USB_DEBUG_DEV("exploring port %i.\n", portno);
 
         err = usb_hub_get_port_status(hub->device, portno, &ps);
         if (err != USB_ERR_OK) {
@@ -573,7 +571,6 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
         }
 
         if (ps.wPortChange.connect) {
-            USB_DEBUG_DEV("NOTICE: New device on port %u: reattach\n", portno);
             err = usb_hub_reattach_port(hub, portno);
             if (err != USB_ERR_OK) {
                 debug_printf("WARNING: Could not reattach port. Hub gone?\n");
@@ -621,7 +618,7 @@ static uint8_t usb_hub_find_slot(uint16_t *ptr, uint8_t start, uint8_t end,
     for (uint8_t cs = start; cs < end; cs++) {
         uint16_t sum = 0;
 
-        for (uint8_t bw = cs; cs < end; bw++) {
+        for (uint8_t bw = cs; bw < end; bw++) {
             if (mask & (1U << (bw - cs))) {
                 sum += ptr[bw];
             }
@@ -655,6 +652,7 @@ uint8_t usb_hub_bandwidth_adjust(struct usb_device *dev, uint16_t length,
             if (slot >= 8) {
                 slot = usb_hub_find_slot(hub->uframe_usage, 4, 6, mask);
             }
+
             for (uint32_t cs = slot; cs < 8; cs++) {
                 if (mask & (1U << (cs - slot))) {
                     hub->uframe_usage[cs] += length;

@@ -15,13 +15,9 @@
 #include "ehci_device.h"
 
 #include <usb/usb.h>
-#include <usb/usb_descriptor.h>
 
-#include <usb/usb_error.h>
-#include <usb/usb_device.h>
-#include <usb/usb_xfer.h>
-
-
+#include <usb_xfer.h>
+#include <usb_device.h>
 #include <usb_controller.h>
 #include <usb_hub.h>
 

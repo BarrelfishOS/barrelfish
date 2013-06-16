@@ -11,8 +11,6 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 
-#include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
 
 #include <usb/usb.h>
 #include <usb/usb_request.h>
@@ -43,6 +41,9 @@ struct usb_xfer_state {
 /// stores the created transfer
 static struct usb_xfer_state *xfers = NULL;
 
+
+
+
 /*
  * -------------------------------------------------------------------------
  * Helper functions for maintaining the queue
@@ -57,15 +58,14 @@ static struct usb_xfer_state *xfers = NULL;
 static void usb_xfer_state_enq(struct usb_xfer_state *state)
 {
     if (xfers == NULL) {
-        state->prev = state;
-        state->next = state;
+        state->prev = NULL;
+        state->next = NULL;
         xfers = state;
         return;
     }
 
-    state->prev = xfers->prev;
+    state->prev = NULL;
     state->next = xfers;
-    xfers->prev->next = state;
     xfers->prev = state;
 }
 
@@ -77,7 +77,7 @@ static void usb_xfer_state_enq(struct usb_xfer_state *state)
  */
 static void usb_xfer_state_deq(struct usb_xfer_state *state)
 {
-    if (xfers->next == xfers) {
+    if (xfers->next == NULL) {
         xfers = NULL;
         return;
     }
@@ -85,6 +85,9 @@ static void usb_xfer_state_deq(struct usb_xfer_state *state)
     state->prev->next = state->next;
     state->next->prev = state->prev;
 }
+
+
+
 
 /**
  * \brief   gets the xfer state struct to a corresponding transfer id
@@ -94,10 +97,10 @@ static void usb_xfer_state_deq(struct usb_xfer_state *state)
  * \return  pointer to the usb transfer state if matchting tids
  *          NULL otherwise
  */
-static struct usb_xfer_state *usb_xfer_state_get(usb_xfer_id_t tid)
+static struct usb_xfer_state *usb_xfer_get_state(usb_xfer_id_t tid)
 {
-    struct usb_xfer_state *st = xfers->next;
-    while (st != xfers) {
+    struct usb_xfer_state *st = xfers;
+    while (st) {
         if (st->tid == tid) {
             break;
         }
@@ -110,6 +113,7 @@ static struct usb_xfer_state *usb_xfer_state_get(usb_xfer_id_t tid)
 
     return (st);
 }
+
 
 /*
  * -------------------------------------------------------------------------
@@ -264,6 +268,8 @@ usb_error_t usb_transfer_setup_intr(usb_transfer_setup_t *setup,
         return ((usb_error_t) ret_error);
     }
 
+    *ret_id = ret_tid;
+
     struct usb_xfer_state *st = malloc(sizeof(struct usb_xfer_state));
 
     st->done_cb = done_cb;
@@ -289,7 +295,7 @@ usb_error_t usb_transfer_setup_intr(usb_transfer_setup_t *setup,
  */
 usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid)
 {
-    struct usb_xfer_state *st = usb_xfer_state_get(tid);
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
         return (USB_ERR_INVAL);
     }
@@ -308,6 +314,7 @@ usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid)
     return (USB_ERR_OK);
 }
 
+
 /*
  * -------------------------------------------------------------------------
  * Functions for transfer controlling
@@ -324,11 +331,13 @@ usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid)
  */
 usb_error_t usb_transfer_start(usb_xfer_id_t tid)
 {
-    USB_DEBUG("libusb: transfer_start()");
-    struct usb_xfer_state *st = usb_xfer_state_get(tid);
+    USB_DEBUG("libusb: transfer_start() %u\n", tid);
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
+        USB_DEBUG("inavlid transfer id");
         return (USB_ERR_INVAL);
     }
+
 
     uint32_t ret_error = 0;
 
@@ -352,7 +361,7 @@ usb_error_t usb_transfer_start(usb_xfer_id_t tid)
  */
 usb_error_t usb_transfer_stop(usb_xfer_id_t tid)
 {
-    struct usb_xfer_state *st = usb_xfer_state_get(tid);
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
         return (USB_ERR_INVAL);
     }
@@ -377,7 +386,7 @@ usb_error_t usb_transfer_stop(usb_xfer_id_t tid)
  */
 usb_error_t usb_transfer_clear_stall(usb_xfer_id_t tid)
 {
-    struct usb_xfer_state *st = usb_xfer_state_get(tid);
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
         return (USB_ERR_INVAL);
     }
@@ -409,7 +418,7 @@ usb_error_t usb_transfer_clear_stall(usb_xfer_id_t tid)
  */
 usb_error_t usb_transfer_get_state(usb_xfer_id_t tid, usb_tstate_t *ret_state)
 {
-    struct usb_xfer_state *st = usb_xfer_state_get(tid);
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
         return (USB_ERR_INVAL);
     }
@@ -446,7 +455,7 @@ usb_error_t usb_transfer_get_status(usb_xfer_id_t tid, uint32_t *ret_actlen,
         uint32_t *ret_length, uint32_t *ret_actframes, uint32_t *ret_numframes)
 {
 
-    struct usb_xfer_state *st = usb_xfer_state_get(tid);
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
         return (USB_ERR_INVAL);
     }

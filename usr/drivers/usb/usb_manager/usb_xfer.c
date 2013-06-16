@@ -15,9 +15,8 @@
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
 #include <usb/usb_error.h>
-#include <usb/usb_xfer.h>
-#include <usb/usb_device.h>
 
+#include <usb_device.h>
 #include <usb_controller.h>
 #include <usb_memory.h>
 #include <usb_xfer.h>
@@ -145,7 +144,6 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
         (xfer->xfer_done_cb)(xfer, err);
     }
 
-
     USB_DEBUG_TR_RETURN;
     return;
 }
@@ -259,38 +257,29 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     const struct usb_xfer_config *setup_config = param->xfer_setup;
     struct usb_endpoint_descriptor *ep_desc = xfer->endpoint->descriptor;
-
     assert(setup_config);
     assert(ep_desc);
 
-    uint8_t type = ep_desc->bmAttributes.xfer_type;
+    xfer->max_packet_size = xfer->endpoint->max_packet_size;
 
-    uint32_t num_frlengths;
-    uint32_t num_frbuffers;
-    xfer->flags = setup_config->flags;
-    xfer->num_frames = setup_config->frames;
-    xfer->timeout = setup_config->timeout;
-    xfer->interval = setup_config->interval;
+    usb_speed_t ep_speed = param->speed;
+    uint8_t type = ep_desc->bmAttributes.xfer_type;
     xfer->endpoint_number = ep_desc->bEndpointAddress.ep_number;
     xfer->ed_direction = ep_desc->bEndpointAddress.direction;
-    xfer->max_packet_size = ep_desc->wMaxPacketSize;
-    xfer->flags_internal.usb_mode = param->device->flags.usb_mode;
-    xfer->max_packet_count = 1;
-    param->bufsize = setup_config->bufsize;
 
-    switch (param->speed) {
+
+
+    xfer->max_packet_count = 1;
+
+
+    switch (ep_speed) {
         case USB_SPEED_HIGH:
-            switch (type) {
-                case USB_ENDPOINT_TYPE_ISOCHR:
-                case USB_ENDPOINT_TYPE_INTR:
-                    xfer->max_packet_count += (xfer->max_packet_size >> 11) & 3;
-                    if (xfer->max_packet_count > 3) {
-                        xfer->max_packet_count = 3;
-                    }
-                    break;
-                default:
-                    /* nothing to do */
-                    break;
+            if (type == USB_ENDPOINT_TYPE_ISOCHR
+                    || type == USB_ENDPOINT_TYPE_INTR) {
+                xfer->max_packet_count += (xfer->max_packet_size >> 11) & 3;
+                if (xfer->max_packet_count > 3) {
+                    xfer->max_packet_count = 3;
+                }
             }
             xfer->max_packet_size &= 0x7FF;
             break;
@@ -301,6 +290,20 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             /* noop */
             break;
     }
+
+
+    uint32_t num_frlengths;
+    uint32_t num_frbuffers;
+    xfer->flags = setup_config->flags;
+    xfer->num_frames = setup_config->frames;
+    xfer->timeout = setup_config->timeout;
+    xfer->interval = setup_config->interval;
+    param->bufsize = setup_config->bufsize;
+
+
+    xfer->flags_internal.usb_mode = param->device->flags.usb_mode;
+
+
 
     /*
      * range checks and filter values according to the host controller
@@ -353,7 +356,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             break;
         case USB_TYPE_INTR:
             /* handling of interrupt transfers */
-
             if (xfer->interval == 0) {
                 /* interval is not set, get it from the endpoint descriptor */
                 xfer->interval = ep_desc->bInterval;
@@ -529,10 +531,10 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     }
 
     /*
-    if (!xfer->flags.ext_buffer) {
-        assert(!"NYI: allocating a local buffer");
-    }
-    */
+     if (!xfer->flags.ext_buffer) {
+     assert(!"NYI: allocating a local buffer");
+     }
+     */
 
     /*
      * we expect to have no data stage, so set it to the correct value
@@ -563,9 +565,9 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     }
 
     /*
-    if (param->buf) {
-        assert(!"NYI: initialize frame buffers");
-    }*/
+     if (param->buf) {
+     assert(!"NYI: initialize frame buffers");
+     }*/
 
     USB_DEBUG_TR_RETURN;
 }

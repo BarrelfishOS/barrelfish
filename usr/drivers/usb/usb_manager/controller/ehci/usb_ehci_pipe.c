@@ -12,14 +12,12 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
-#include <usb/usb_descriptor.h>
 
-#include <usb/usb_error.h>
-#include <usb/usb_device.h>
-#include <usb/usb_xfer.h>
 
+#include <usb_device.h>
 #include <usb_controller.h>
 #include <usb_hub.h>
+#include <usb_xfer.h>
 
 #include "usb_ehci.h"
 #include "usb_ehci_pipe.h"
@@ -187,6 +185,8 @@ static void usb_ehci_xfer_intr_open(struct usb_xfer *xfer)
 
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
+
+
 
     usb_hub_bandwidth_alloc(xfer);
 

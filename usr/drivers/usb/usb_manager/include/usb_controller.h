@@ -16,7 +16,7 @@
 #ifndef USB_CONTROLLER_H
 #define USB_CONTROLLER_H
 
-#include <usb/usb_xfer.h> /* usb_xfer_done_queue */
+#include <usb_xfer.h> /* usb_xfer_done_queue */
 
 /* prototypes */
 struct usb_device;
@@ -157,7 +157,7 @@ typedef struct usb_host_controller {
 
 
 usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
-        void *controller_base);
+        uintptr_t controller_base);
 
 void usb_hc_intr_handler(void *arg);
 

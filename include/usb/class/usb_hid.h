@@ -12,13 +12,11 @@
 
 #include <usb/usb_descriptor.h>
 
-
 #define USB_HID_CLASS_CODE 0x3
 #define USB_HID_SUBCLASS_CODE_BOOT 0x1
 #define USB_HID_PROTOCOL_NONE 0x0
 #define USB_HID_PROTOCOL_KEYBOARD 0x1
 #define USB_HID_PROTOCOL_MOUSE 0x2
-
 
 /*
  * USB HID class descriptor types
@@ -49,6 +47,16 @@
 #define USB_HID_REQUEST_GET_DESCRIPTOR 0x06
 #define USB_HID_REQUEST_SET_DESCRIPTOR 0x07
 
+struct usb_hid_dtype {
+    uint8_t bDescriptorType;   ///< the type of the optional descriptor
+    uint8_t wDescriptorLength[2];  ///< the size of the optional descriptor
+}__attribute__((packed));
+
+typedef struct usb_hid_dtype usb_hid_dtype_t;
+
+#define USB_HID_DTYPE_GET_LEN(_d) \
+    ((_d)->wDescriptorLength[0] | ((uint16_t)((_d)->wDescriptorLength[1] << 8)))
+
 /**
  * USB HID Descriptor Type
  * Device Class Definition for HID Devices, Section 6.2.1
@@ -60,14 +68,11 @@
 struct usb_hid_descriptor {
     uint8_t bLength;               ///< the total size in bytes of this descr
     uint8_t bDescriptorType;       ///< constant, specifying the HID descr type
-    uint16_t bcdHID;                ///< HID class specific release version
+    uint16_t bcdHID;               ///< HID class specific release version
     uint8_t bCountryCode;          ///< country code for localized hardware
     uint8_t bNumDescriptors;       ///< the number of class descriptors > 1
-    struct {
-        uint8_t bDescriptorType;   ///< the type of the optional descriptor
-        uint16_t wDescriptorLength;  ///< the size of the optional descriptor
-    } descriptors[1];               ///< subordinate descriptors
-};
+    usb_hid_dtype_t descriptors[1];       ///< subordinate descriptors
+}__attribute__((packed));
 
 /// USB HID descriptor type
 typedef struct usb_hid_descriptor usb_hid_descriptor_t;
@@ -84,7 +89,6 @@ typedef struct usb_hid_descriptor usb_hid_descriptor_t;
 #define USB_HID_REPORT_INPUT 0x01
 #define USB_HID_REPORT_OUTPUT 0x02
 #define USB_HID_REPORT_FEATURE 0x03
-
 
 /*
  * some flags
@@ -167,7 +171,6 @@ struct usb_hid_item {
 #define USB_HID_MAXUSAGE 64
 #define USB_HID_MAXPUSH 4
 #define USB_HID_MAXID 16
-
 
 /**
  * this structure is used for storing the necessary data when parsing
@@ -438,7 +441,6 @@ struct usb_hid_request {
 #define USB_HID_USAGE_COMBINE(x,y) \
     (((x) << 16) | (y))
 
-
 struct usb_hid_data *usb_hid_start_parse(const void *d, uint32_t len,
         int32_t kindset);
 void usb_hid_end_parse(struct usb_hid_data *s);
@@ -461,15 +463,14 @@ uint32_t usb_hid_get_data_unsigned(const uint8_t *buf, uint32_t len,
 void usb_hid_put_data_unsigned(uint8_t *buf, uint32_t len,
         struct usb_hid_location *loc, uint32_t value);
 
-
 int32_t usb_hid_is_collection(const void *desc, uint32_t size, uint32_t usage);
 
 struct usb_hid_descriptor *usb_hid_get_descriptor_from_usb(
         struct usb_config_descriptor *cd, struct usb_interface_descriptor *id);
 
-
-usb_error_t usb_req_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
+usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
         uint16_t *ret_size, uint8_t iface_index);
-
+usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
+        uint16_t size, uint8_t iface);
 #endif /* LIBUSB_CLASS_HID_H_ */
 

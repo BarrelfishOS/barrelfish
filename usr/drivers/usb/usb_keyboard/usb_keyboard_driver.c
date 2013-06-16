@@ -31,8 +31,8 @@ static struct usb_keyboard keyboard;
 static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
     [USB_KEYBOARD_DATA] = {
         .type = USB_TYPE_INTR,
-        .interface = 0x00,
-        .endpoint = 0x01, /* any address */
+        .interface = 0,
+        .endpoint = USB_ENDPOINT_ADDRESS_ANY, /* any address */
         .direction = USB_ENDPOINT_DIRECTION_IN,
         .max_bytes = 0, /* use wMaxPacketSize */
         .flags = {
@@ -43,7 +43,7 @@ static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
 
     [USB_KEYBOARD_LED_CTRL]= {
         .type = USB_TYPE_CTRL,
-        .interface = 0x00,
+        .interface = 0,
         .endpoint = USB_ENDPOINT_CONTROL,
         .max_bytes = sizeof(struct usb_device_request) + USB_KEYBOARD_BUFSIZE,
         .timeout = 1000,
@@ -743,7 +743,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.ctrl_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.ctrl_l.valid = 1;
-        USB_DEBUG("Found left control\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0xE4),
@@ -751,7 +750,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.ctrl_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.ctrl_r.valid = 1;
-        USB_DEBUG("Found right control\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0xE1),
@@ -759,7 +757,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.shift_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.shift_l.valid = 1;
-        USB_DEBUG("Found left shift\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0xE5),
@@ -775,7 +772,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.alt_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.alt_l.valid = 1;
-        USB_DEBUG("Found left alt\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0xE6),
@@ -783,7 +779,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.alt_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.alt_r.valid = 1;
-        USB_DEBUG("Found right alt\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0xE3),
@@ -791,7 +786,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.win_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.win_l.valid = 1;
-        USB_DEBUG("Found left GUI\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0xE7),
@@ -799,7 +793,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.win_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.win_r.valid = 1;
-        USB_DEBUG("Found right GUI\n");
     }
     /* figure out event buffer */
     if (usb_hid_locate(ptr, len,
@@ -807,12 +800,13 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             USB_HID_KIND_INPUT, 0, &keyboard.events.loc, &flags,
             &keyboard.events.report_id)) {
         keyboard.events.valid = 1;
-        USB_DEBUG("Found keyboard events\n");
     }
 
     /* figure out leds on keyboard */
     keyboard.keyboard_led_size = usb_hid_report_size(ptr, len,
             USB_HID_KIND_OUTPUT, NULL);
+
+    USB_DEBUG("LED SIZE = %u\n", keyboard.keyboard_led_size);
 
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_LEDS, 0x01),
@@ -820,7 +814,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.numlock.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.numlock.valid = 1;
-        USB_DEBUG("Found keyboard numlock\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_LEDS, 0x02),
@@ -828,7 +821,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.capslock.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.capslock.valid = 1;
-        USB_DEBUG("Found keyboard capslock\n");
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_LEDS, 0x03),
@@ -836,7 +828,6 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.scrolllock.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.scrolllock.valid = 1;
-        USB_DEBUG("Found keyboard scrolllock\n");
     }
 }
 
@@ -856,21 +847,24 @@ usb_error_t usb_keyboard_init(void)
      * descriptors, all Endpoint descriptors, and the HID descriptor for each
      * interface.
      */
-    const struct usb_generic_descriptor *gen_desc =
-            usb_get_generic_descriptor();
 
-    assert(gen_desc != NULL);
 
-    keyboard.num_config = gen_desc->device.bNumConfigurations;
 
-    if (gen_desc->iface->bInterfaceClass != USB_HID_CLASS_CODE) {
-        debug_printf("ERROR: Not a HID class device \n");
-        return (USB_ERR_BAD_CONTEXT);
+    keyboard.num_config = usb_device_get_num_config();
+
+    struct usb_interface *iface = usb_device_get_iface(0);
+
+    if (iface != NULL && iface->iface_class != USB_HID_CLASS_CODE) {
+        debug_printf("ERROR: device is not HID class..\n");
+       return (USB_ERR_INVAL);
     }
 
-    /* todo: check if it is really a key board */
+    if (iface->iface_protocol != USB_HID_PROTOCOL_KEYBOARD) {
+        debug_printf("ERROR: device is not a keyboard");
+        return (USB_ERR_INVAL);
+    }
 
-    /* TODO: Check for collection devices i.e. mouse/keyboard combinations */
+
 
     /*
      * setting up the USB transfers
@@ -880,25 +874,37 @@ usb_error_t usb_keyboard_init(void)
             &keyboard.xferids[USB_KEYBOARD_DATA]);
 
     if (err != USB_ERR_OK) {
-        debug_printf("Failed to setup USB transfer");
+        debug_printf("Failed to setup USB transfer: %s\n", usb_get_error_string(err));
         return (err);
     }
 
     struct usb_hid_descriptor *hid_ptr;
     uint16_t hid_length;
-    err = usb_req_get_hid_descriptor(&hid_ptr, &hid_length, 0);
+    err = usb_hid_get_hid_descriptor(&hid_ptr, &hid_length, 0);
+    if (err != USB_ERR_OK) {
+        debug_printf("could not get the HID descriptor: %s\n", usb_get_error_string(err));
+    }
+
 
     if (err == USB_ERR_OK) {
         USB_DEBUG("Parsing HID descriptor of %d bytes\n", (int16_t)hid_length);
         usb_keyboard_parse_hid((void *) hid_ptr, hid_length);
-
         free(hid_ptr);
     }
+
+
+
 
     /* TODO: do set idle request usbd_req_set_idle(sc->sc_udev, NULL, sc->sc_iface_index, 0, 0); */
 
     /* start the interrupt transfer */
-    usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA]);
+    err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA]);
+    if (err != USB_ERR_OK) {
+        USB_DEBUG("Failed to start the transfer: %s\n", usb_get_error_string(err));
+    }
+
+    USB_DEBUG("all ok sofar....\n");
+        while(1);
 
     if (0) {
         usb_keyboard_transfer_cb(0, NULL, 0);

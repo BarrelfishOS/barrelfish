@@ -6,16 +6,15 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#ifndef USB_MANAGER_SERVICE_H_
+#define USB_MANAGER_SERVICE_H_
 
-#ifndef USB_MANAGER_CLIENT_H_
-#define USB_MANAGER_CLIENT_H_
+#include <thc/thc.h>
 
 #include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
-
-extern iref_t usb_manager_iref;
-extern struct usb_manager_rpc_client usb_manager;
+#include <if/usb_manager_thc.h>
 
 
-
-#endif /* USB_MANAGER_CLIENT_H_ */
+errval_t usb_manager_service_init(void);
+void usb_manager_service_start(void);
+#endif /* USB_MANAGER_SERVICE_H_ */

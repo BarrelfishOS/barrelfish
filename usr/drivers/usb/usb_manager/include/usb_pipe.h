@@ -7,15 +7,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef USB_MANAGER_CLIENT_H_
-#define USB_MANAGER_CLIENT_H_
-
-#include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
-
-extern iref_t usb_manager_iref;
-extern struct usb_manager_rpc_client usb_manager;
+#ifndef USB_PIPE_H_
+#define USB_PIPE_H_
 
 
+void usb_pipe_start(struct usb_xfer_queue *queue);
+void usb_pipe_enter(struct usb_xfer *xfer);
 
-#endif /* USB_MANAGER_CLIENT_H_ */
+#endif /* USB_PIPE_H_ */

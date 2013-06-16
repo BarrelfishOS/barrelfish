@@ -22,9 +22,10 @@
 
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
-#include <usb/usb_device.h>
+
 #include <usb/usb_request.h>
 
+#include <usb_device.h>
 #include <usb_hub.h>
 #include <usb_request.h>
 
