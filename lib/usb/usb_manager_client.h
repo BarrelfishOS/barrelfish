@@ -12,6 +12,7 @@
 
 #include <if/usb_manager_defs.h>
 #include <if/usb_manager_rpcclient_defs.h>
+#include <if/usb_driver_defs.h>
 
 extern iref_t usb_manager_iref;
 extern struct usb_manager_rpc_client usb_manager;

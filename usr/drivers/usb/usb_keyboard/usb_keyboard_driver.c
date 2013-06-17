@@ -37,7 +37,8 @@ static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
         .max_bytes = 0, /* use wMaxPacketSize */
         .flags = {
             .short_xfer_ok = 1,
-            .pipe_on_falure = 1
+            .pipe_on_falure = 1,
+            .auto_restart = 1,
         },
     },
 
@@ -592,7 +593,7 @@ static void usb_keyboard_process_data(void)
 static void usb_keyboard_transfer_cb(usb_error_t err, void *data,
         uint32_t length)
 {
-    USB_DEBUG("usb_transfer_cb()\n");
+    USB_DEBUG("usb_keyboard_transfer_cb()\n");
 
     if (err != USB_ERR_OK) {
         debug_printf("WARNING: transfer not completed propperly.\n");
@@ -848,23 +849,19 @@ usb_error_t usb_keyboard_init(void)
      * interface.
      */
 
-
-
     keyboard.num_config = usb_device_get_num_config();
 
     struct usb_interface *iface = usb_device_get_iface(0);
 
     if (iface != NULL && iface->iface_class != USB_HID_CLASS_CODE) {
         debug_printf("ERROR: device is not HID class..\n");
-       return (USB_ERR_INVAL);
+        return (USB_ERR_INVAL);
     }
 
     if (iface->iface_protocol != USB_HID_PROTOCOL_KEYBOARD) {
         debug_printf("ERROR: device is not a keyboard");
         return (USB_ERR_INVAL);
     }
-
-
 
     /*
      * setting up the USB transfers
@@ -874,7 +871,14 @@ usb_error_t usb_keyboard_init(void)
             &keyboard.xferids[USB_KEYBOARD_DATA]);
 
     if (err != USB_ERR_OK) {
-        debug_printf("Failed to setup USB transfer: %s\n", usb_get_error_string(err));
+        debug_printf("Failed to setup USB transfer: %s\n",
+                usb_get_error_string(err));
+        return (err);
+    }
+
+    if (err != USB_ERR_OK) {
+        debug_printf("Failed to setup USB transfer: %s\n",
+                usb_get_error_string(err));
         return (err);
     }
 
@@ -882,9 +886,9 @@ usb_error_t usb_keyboard_init(void)
     uint16_t hid_length;
     err = usb_hid_get_hid_descriptor(&hid_ptr, &hid_length, 0);
     if (err != USB_ERR_OK) {
-        debug_printf("could not get the HID descriptor: %s\n", usb_get_error_string(err));
+        debug_printf("could not get the HID descriptor: %s\n",
+                usb_get_error_string(err));
     }
-
 
     if (err == USB_ERR_OK) {
         USB_DEBUG("Parsing HID descriptor of %d bytes\n", (int16_t)hid_length);
@@ -892,19 +896,22 @@ usb_error_t usb_keyboard_init(void)
         free(hid_ptr);
     }
 
+    err = usb_hid_set_idle(0, 0, 0);
+    if (err != USB_ERR_OK) {
+        USB_DEBUG("NOTICE: setting idle rate failed. (ignored)\n");
+    }
 
-
-
-    /* TODO: do set idle request usbd_req_set_idle(sc->sc_udev, NULL, sc->sc_iface_index, 0, 0); */
+    USB_DEBUG("start transfers...\n");
 
     /* start the interrupt transfer */
     err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA]);
     if (err != USB_ERR_OK) {
-        USB_DEBUG("Failed to start the transfer: %s\n", usb_get_error_string(err));
+        USB_DEBUG(
+                "Failed to start the transfer: %s\n", usb_get_error_string(err));
     }
 
     USB_DEBUG("all ok sofar....\n");
-        while(1);
+
 
     if (0) {
         usb_keyboard_transfer_cb(0, NULL, 0);

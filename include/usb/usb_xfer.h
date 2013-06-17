@@ -30,7 +30,8 @@
  *  - prescale              prescale to frames for isochr transfers
  */
 struct usb_xfer_flags {
-    uint8_t _unused : 6;            ///< unused bits to fill up the 2 bytes
+    uint8_t _unused : 5;            ///< unused bits to fill up the 2 bytes
+    uint8_t auto_restart:1;
     uint8_t short_xfer_forced :1;
     uint8_t short_xfer_ok :1;
     uint8_t short_frames_ok :1;

@@ -587,25 +587,21 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t *ret_frame)
 usb_error_t usb_do_request(struct usb_device_request *req)
 {
     errval_t err;
-    uint32_t *ret_status = 0;
-    usb_error_t ret;
+    uint32_t ret_status = 0;
 
-    USB_DEBUG("libusb: usb_do_request()");
+    USB_DEBUG("libusb: usb_do_request()\n");
 
-    err = usb_manager.vtbl.request(&usb_manager, (uint8_t*) req, sizeof(req),
-            ret_status);
+    err = usb_manager.vtbl.request(&usb_manager, (uint8_t*) req, sizeof(*req),
+            &ret_status);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "libusb: do_request rpc failed");
         return (USB_ERR_IDC);
     }
 
-    ret = (usb_error_t) *ret_status;
-    free(ret_status);
+    USB_DEBUG("libusb: usb_do_request() succeeded\n");
 
-    USB_DEBUG("libusb: usb_do_request() succeeded");
-
-    return (ret);
+    return ((usb_error_t) ret_status);
 }
 
 /**
@@ -617,25 +613,21 @@ usb_error_t usb_do_request_write(struct usb_device_request *req,
         uint16_t length, void *data)
 {
     errval_t err;
-    usb_error_t ret;
-    uint32_t *ret_status = 0;
+    uint32_t ret_status;
 
-    USB_DEBUG("libusb: usb_do_request_write()");
+    USB_DEBUG("libusb: usb_do_request_write()\n");
 
     err = usb_manager.vtbl.request_write(&usb_manager, (uint8_t*) req,
-            sizeof(req), (uint8_t *) data, length, ret_status);
+            sizeof(req), (uint8_t *) data, length, &ret_status);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "libusb: do_request_write rpc failed");
         return (USB_ERR_IDC);
     }
 
-    USB_DEBUG("libusb: usb_do_request_write() succeeded");
+    USB_DEBUG("libusb: usb_do_request_write() succeeded\n");
 
-    ret = (usb_error_t) *ret_status;
-    free(ret_status);
-
-    return (ret);
+    return ((usb_error_t) ret_status);
 }
 
 /**

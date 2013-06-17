@@ -37,8 +37,8 @@
                       "hub/usb_hub_request.c"
                       ],
                       
-                      flounderDefs = [ "usb_manager", "monitor_blocking" ],
-                      flounderBindings = [ "usb_manager" ],
+                      flounderDefs = [ "usb_manager", "usb_driver", "monitor_blocking" ],
+                      flounderBindings = [ "usb_manager", "usb_driver" ],
                       flounderExtraBindings = [ ("usb_manager",["rpcclient"])],
                       
                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],

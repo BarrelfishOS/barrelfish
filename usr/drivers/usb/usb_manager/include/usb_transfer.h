@@ -18,7 +18,21 @@ struct usb_device;
 struct usb_xfer;
 struct usb_xfer_config;
 
-
+/// define for checking of error codes and retrying
+#define USB_TX_TRANSER_ERR(_retry) \
+    if (err_is_fail(err)) { \
+       if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {\
+           txcont = MKCONT(_retry, st);\
+           struct waitset *ws = get_default_waitset();\
+           err = st->bind->register_send(st->bind, ws, txcont);\
+           if (err_is_fail(err)) {\
+               DEBUG_ERR(err, "error register_send on binding failed!\n");\
+           }\
+       } else {\
+           DEBUG_ERR(err, "error _retry(): sending response!\n");\
+           free(st);\
+       }\
+   }\
 
 /*
  * flounder callback functions

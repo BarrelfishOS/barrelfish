@@ -74,6 +74,7 @@ struct usb_device_flags {
 
 struct usb_device {
     struct usb_manager_binding *usb_manager_binding;
+    struct usb_driver_binding *usb_driver_binding;
     char *path;
     struct usb_device *next_pending;
 

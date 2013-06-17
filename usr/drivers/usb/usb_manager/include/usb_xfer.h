@@ -104,7 +104,8 @@ struct usb_xfer_flags_internal {
  *  - prescale              prescale to frames for isochr transfers
  */
 struct usb_xfer_flags {
-    uint8_t _unused : 6;            ///< unused bits to fill up the 2 bytes
+    uint8_t _unused : 5;            ///< unused bits to fill up the 2 bytes
+    uint8_t auto_restart:1;
     uint8_t short_xfer_forced :1;
     uint8_t short_xfer_ok :1;
     uint8_t short_frames_ok :1;
@@ -153,6 +154,7 @@ struct usb_xfer_queue {
  */
 struct usb_xfer {
     struct usb_manager_binding *usb_manager_binding;  // flounder ref
+    struct usb_driver_binding *usb_driver_binding;
     struct usb_request_state *usb_manager_request_state;
     xfer_done_cb_t *xfer_done_cb;
     uint32_t xfer_id;

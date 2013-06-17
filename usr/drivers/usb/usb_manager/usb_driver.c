@@ -239,8 +239,8 @@ static void usb_driver_spawn(void)
     domainid_t new_domain = -1;
 
     char *argv[1] = {
-        [0] = NULL, //"armv7/sbin/usb_keyboard",//"device_process->path,
-    };
+        [0] = NULL,  //"armv7/sbin/usb_keyboard",//"device_process->path,
+            };
 
     errval_t err = spawn_program(0, device_process->path, argv, NULL, 0,
             &new_domain);
@@ -260,15 +260,17 @@ static void usb_driver_insert_pending(struct usb_device *new_device)
     devices_pending = new_device;
 }
 
-void usb_driver_connected(struct usb_manager_binding *bind, uint16_t config)
+void usb_driver_connected(struct usb_manager_binding *bind,
+        struct usb_driver_binding *driver, uint16_t config)
 {
     USB_DEBUG_DRIVER("Finalizing driver binding\n");
-    usb_error_t err = USB_ERR_OK;;
+    usb_error_t err = USB_ERR_OK;
+    ;
     assert(device_process != NULL);
 
     if (device_process->config_number != config) {
         USB_DEBUG_DRIVER("Updating configuration to %u\n", config);
-        err = usb_device_set_configuration(device_process,config);
+        err = usb_device_set_configuration(device_process, config);
         if (err != USB_ERR_OK) {
             bind->st = NULL;
             return;
@@ -277,8 +279,8 @@ void usb_driver_connected(struct usb_manager_binding *bind, uint16_t config)
     }
 
     device_process->usb_manager_binding = bind;
+    device_process->usb_driver_binding = driver;
     bind->st = device_process;
-
 
     /* set the current device to be processed */
     device_process = NULL;

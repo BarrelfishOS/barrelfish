@@ -472,5 +472,6 @@ usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
         uint16_t *ret_size, uint8_t iface_index);
 usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
         uint16_t size, uint8_t iface);
+usb_error_t usb_hid_set_idle(uint8_t iface, uint8_t duration, uint8_t id);
 #endif /* LIBUSB_CLASS_HID_H_ */
 

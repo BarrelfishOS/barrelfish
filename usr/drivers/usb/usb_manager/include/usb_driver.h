@@ -7,10 +7,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-
 #ifndef USB_DRIVER_H_
 #define USB_DRIVER_H_
-
 
 #define USB_DEVICE_CLASS_COMPOSITE 0x00
 #define USB_DEVICE_CLASS_AUDIO 0x01
@@ -34,5 +32,6 @@
 #define USB_DEVICE_CLASS_VENDOR 0xFF
 
 void usb_driver_start(struct usb_device *dev);
-void usb_driver_connected(struct usb_manager_binding *bind, uint16_t config);
+void usb_driver_connected(struct usb_manager_binding *bind,
+        struct usb_driver_binding *driver, uint16_t config);
 #endif /* USB_DRIVER_H_ */

@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
         return (EXIT_FAILURE);
     }
 
+    USB_DEBUG("msg handler loop\n");
     messages_handler_loop();
 
     USB_DEBUG("####### usb keyboard driver terminated #######\n");

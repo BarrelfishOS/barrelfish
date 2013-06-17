@@ -29,9 +29,9 @@ interface usb_manager "USB Manager Interface" {
      * ---------------------------------------------------------------------- 
      */
     
-    rpc connect(in uint16 init_config, out uint32 ret_error, out uint8 ret_desc[length]);
+    rpc connect(in iref driver_iref, in uint16 init_config, out uint32 ret_error, out uint8 ret_desc[length]);
 
-    message device_disconnect_notify();
+    rpc device_disconnect_notify();
     
 
     /* 
@@ -74,7 +74,7 @@ interface usb_manager "USB Manager Interface" {
     
     rpc transfer_clear_stall(in uint32 tid, out uint32 ret_error);
     
-    message transfer_done_notify(uint32 tid, uint32 error, uint8 data[length]);
+    rpc transfer_done_notify(out uint32 tid, out uint32 error, out uint8 data[length]);
     
     /* 
      * ----------------------------------------------------------------------

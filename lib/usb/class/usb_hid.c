@@ -869,3 +869,19 @@ usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
     return (err);
 
 }
+
+usb_error_t usb_hid_set_idle(uint8_t iface, uint8_t duration, uint8_t id)
+{
+    struct usb_device_request req;
+
+    req.bRequest = USB_HID_REQUEST_SET_IDLE;
+    req.bType.direction = USB_REQUEST_WRITE;
+    req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
+    req.bType.type = USB_REQUEST_TYPE_CLASS;
+
+    req.wValue = (duration << 8) | id;
+    req.wIndex = iface;
+    req.wLength = 0;
+
+    return (usb_do_request(&req));
+}

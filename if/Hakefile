@@ -52,7 +52,7 @@
                "test",
                "timer",
                "trivfs",
-               "usb_driver",
+               "usb_driver",  
                "usb_manager",
                "xcorecap",
                "xcorecapbench",

@@ -12,6 +12,8 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
+#include <if/usb_driver_defs.h>
+
 #include <usb/usb_error.h>
 #include <usb/usb_request.h>
 
@@ -23,6 +25,8 @@
 #include <usb_endpoint.h>
 #include <usb_pipe.h>
 #include <usb_memory.h>
+
+
 
 static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX] =
         {
@@ -57,10 +61,59 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
         };
 
 
+struct usb_tdone_state {
+    struct usb_driver_binding *bind;
+    uint32_t data_length;
+    usb_error_t err;
+    uint32_t tid;
+};
+
+static void usb_transfer_complete_cb(void *a)
+{
+    free(a);
+}
+
+static void usb_transfer_complete_tx(void *a)
+{
+    struct usb_tdone_state *st = a;
+    errval_t err;
+
+    struct event_closure txcont = MKCONT(usb_transfer_complete_cb, st->bind);
+
+    uint8_t *data = (uint8_t*)(st+1);
+
+    err = usb_driver_transfer_done_notify__tx(st->bind, txcont, st->tid, st->err, data, st->data_length);;
+
+    USB_TX_TRANSER_ERR(usb_transfer_complete_tx);
+}
+
+
+
 static void usb_transfer_complete_notify(struct usb_xfer *xfer, usb_error_t err)
 {
-    USB_DEBUG("sending transfer complete notify...device = %u, xfer=%u\n", xfer->device_address, xfer->xfer_id);
-    usb_transfer_start(xfer);
+    uint32_t data_length = xfer->actual_bytes;
+
+    switch (xfer->type) {
+        case USB_TYPE_INTR:
+            if (data_length > 0) {
+                struct usb_tdone_state *st = malloc( sizeof(struct usb_tdone_state) +
+                        data_length);
+                void *buf = st+1;
+                usb_mem_copy_out(xfer->frame_buffers[0], 0, buf, data_length);
+                st->bind = xfer->usb_driver_binding;
+                usb_transfer_complete_tx(st);
+            }
+
+            xfer->frame_lengths[0] = xfer->max_data_length;
+            if (xfer->flags.auto_restart) {
+                usb_transfer_start(xfer);
+            }
+            break;
+        default:
+            /* noop */
+            break;
+    }
+
 }
 
 static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
@@ -94,8 +147,8 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
         length = xfer->sum_bytes;
     } else {
         if (xfer->frame_lengths[0] != sizeof(struct usb_device_request)) {
-            USB_DEBUG("ERROR: wrong frame length: %u / %u",
-                    xfer->frame_lengths[0], sizeof(struct usb_device_request));
+            USB_DEBUG(
+                    "ERROR: wrong frame length: %u / %u", xfer->frame_lengths[0], sizeof(struct usb_device_request));
             USB_DEBUG_TR_RETURN;
             return (1);
         }
@@ -118,8 +171,7 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
 
     if (length > xfer->flags_internal.remaining_bytes) {
         USB_DEBUG("ERROR: length (%u) remaining length is greater than "
-                "remaining length (%u)", length,
-                xfer->flags_internal.remaining_bytes);
+        "remaining length (%u)", length, xfer->flags_internal.remaining_bytes);
         USB_DEBUG_TR_RETURN;
         return (1);
     }
@@ -137,10 +189,11 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
         xfer->flags_internal.remaining_bytes -= length;
     }
 
-    if ((xfer->flags_internal.remaining_bytes > 0) || xfer->flags.manual_status) {
+    if ((xfer->flags_internal.remaining_bytes > 0)
+            || xfer->flags.manual_status) {
         xfer->flags_internal.ctrl_active = 1;
 
-        if ((!xfer->flags_internal.ctrl_header) && (xfer->num_frames==1)) {
+        if ((!xfer->flags_internal.ctrl_header) && (xfer->num_frames == 1)) {
             USB_DEBUG("ERROR: invalid parameter combination!\n");
             USB_DEBUG_TR_RETURN;
             return (1);
@@ -205,10 +258,9 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
     if (usb_transfer_setup(device, 0, &(device->ctrl_xfer[0]),
             usb_control_ep_cfg)) {
         USB_DEBUG("usb_transfer_setup_ctrl_default(): "
-                "ERROR: could not allocate default control transfer\n");
+        "ERROR: could not allocate default control transfer\n");
         return;
-    }
-    USB_DEBUG_XFER("setting up device ctrl xfer[1]\n");
+    }USB_DEBUG_XFER("setting up device ctrl xfer[1]\n");
     if (usb_transfer_setup(device, 0, &(device->ctrl_xfer[1]),
             usb_control_ep_cfg)) {
         debug_printf("usb_transfer_setup_ctrl_default(): "
@@ -227,6 +279,7 @@ void usb_transfer_setup_ctrl_default(struct usb_device *device,
 void usb_transfer_start(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR_ENTER;
+
     if (xfer == NULL) {
         USB_DEBUG_XFER("NOTICE: No xfer to start...\n");
         return;
@@ -309,7 +362,8 @@ void usb_transfer_start(struct usb_xfer *xfer)
             /* TODO: usb_command_wrapper(&xfer->endpoint->endpoint_q, xfer); */
             return;
         }
-        USB_DEBUG("ERROR: invalid number of frames (0) in usb_transfer_start()\n");
+        USB_DEBUG(
+                "ERROR: invalid number of frames (0) in usb_transfer_start()\n");
         usb_xfer_done(xfer, USB_ERR_INVAL);
         USB_DEBUG_TR_RETURN;
         return;
@@ -341,7 +395,6 @@ void usb_transfer_start(struct usb_xfer *xfer)
         }
     }
 
-
     if ((((xfer)->endpoint_number & 0x80) ? 1 : 0)) {
         if (xfer->flags.short_frames_ok) {
             xfer->flags_internal.short_frames_ok = 1;
@@ -353,7 +406,6 @@ void usb_transfer_start(struct usb_xfer *xfer)
             }
         }
     }
-
 
     usb_pipe_enter(xfer);
     USB_DEBUG_TR_RETURN;
@@ -456,7 +508,7 @@ void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count)
 
         usb_transfer_stop(xfer);
 
-        while(!usb_transfer_completed(xfer)) {
+        while (!usb_transfer_completed(xfer)) {
             xfer->flags_internal.draining = 1;
             USB_WAIT(200);
         }
@@ -501,13 +553,12 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
     struct usb_endpoint *ep = usb_endpoint_lookup(device, iface, setup);
 
     if ((ep == NULL) || (ep->pipe_fn == NULL)) {
-        USB_DEBUG_XFER("WARNING: No associated pipe!\n");
-        USB_DEBUG_TR_RETURN;
+        USB_DEBUG_XFER("WARNING: No associated pipe!\n");USB_DEBUG_TR_RETURN;
         return (USB_ERR_NO_PIPE);
     }
 
     struct usb_xfer *xfer = malloc(sizeof(struct usb_xfer));
-
+    memset(xfer, 0, sizeof(*xfer));
     xfer->xfer_id = device->xfer_id++;
     xfer->device_xfers_next = device->xfers;
     device->xfers = xfer;
@@ -523,8 +574,8 @@ usb_error_t usb_transfer_setup(struct usb_device *device, const uint8_t iface,
     (device->controller->hcdi_bus_fn->xfer_setup)(&params);
 
     if (params.err != USB_ERR_OK) {
-        USB_DEBUG("ERROR: hcdi_xfer_setup failed: %s\n",
-                usb_get_error_string(params.err));
+        USB_DEBUG(
+                "ERROR: hcdi_xfer_setup failed: %s\n", usb_get_error_string(params.err));
         return (params.err);
     }
 
@@ -589,8 +640,7 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
     if (queue->current == xfer) {
         USB_DEBUG_XFER("usb_transfer_completed() - scheduled for callback\n");
         return (0);
-    }
-    USB_DEBUG_XFER("usb_transfer_completed() - transfer is completed.\n");
+    }USB_DEBUG_XFER("usb_transfer_completed() - transfer is completed.\n");
     return (1);
 }
 
@@ -600,33 +650,16 @@ uint8_t usb_transfer_completed(struct usb_xfer *xfer)
  * --------------------------------------------------------------------------
  */
 
-/// define for checking of error codes and retrying
-#define USB_TX_TRANSER_ERR(_retry) \
-    if (err_is_fail(err)) { \
-       if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {\
-           txcont = MKCONT(_retry, st);\
-           struct waitset *ws = get_default_waitset();\
-           err = st->bind->register_send(st->bind, ws, txcont);\
-           if (err_is_fail(err)) {\
-               DEBUG_ERR(err, "error register_send on binding failed!\n");\
-           }\
-       } else {\
-           DEBUG_ERR(err, "error _retry(): sending response!\n");\
-           free(st);\
-       }\
-   }\
-
-
 static void usb_tx_transfer_generic_cb(void *a)
 {
-    free(a);
+    /// XXX: Pagefaults... free(a);
 }
 
 /* ------------------------- transfer setup ------------------------- */
 
 struct usb_tsetup_state {
-    struct usb_manager_binding *bind;
     uint32_t tid;
+    struct usb_manager_binding *bind;
     usb_error_t error;
 
 };
@@ -660,7 +693,7 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
 
     st->bind = bind;
     struct usb_xfer *xfer;
-    struct usb_device *dev = (struct usb_device *)bind->st;
+    struct usb_device *dev = (struct usb_device *) bind->st;
 
     memcpy(&setup, &params, sizeof(params));
     if (dev == NULL) {
@@ -678,6 +711,8 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_BULK;
             st->error = USB_ERR_OK;
+            xfer->usb_manager_binding = st->bind;
+            xfer->usb_driver_binding = dev->usb_driver_binding;
             st->tid = 123;
             break;
         case USB_TYPE_CTRL:
@@ -685,6 +720,8 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_CTRL;
             st->error = USB_ERR_OK;
+            xfer->usb_manager_binding = st->bind;
+            xfer->usb_driver_binding = dev->usb_driver_binding;
             st->tid = 234;
             break;
         case USB_TYPE_ISOC:
@@ -692,6 +729,8 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_ISOC;
             st->error = USB_ERR_OK;
+            xfer->usb_manager_binding = st->bind;
+            xfer->usb_driver_binding = dev->usb_driver_binding;
             st->tid = 345;
             break;
         case USB_TYPE_INTR:
@@ -699,6 +738,8 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_INTR;
             st->error = usb_transfer_setup(dev, params.iface, &xfer, &setup);
+            xfer->usb_manager_binding = st->bind;
+            xfer->usb_driver_binding = dev->usb_driver_binding;
             st->tid = xfer->xfer_id;
             break;
         default:
@@ -712,8 +753,8 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
 /* ------------------------- transfer unsetup ------------------------- */
 
 struct usb_tunsetup_state {
-    struct usb_manager_binding *bind;
     usb_error_t error;
+    struct usb_manager_binding *bind;
 };
 
 static void usb_tx_transfer_unsetup_response(void *a)
@@ -721,7 +762,6 @@ static void usb_tx_transfer_unsetup_response(void *a)
     errval_t err;
     struct usb_tunsetup_state *st = (struct usb_tunsetup_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_unsetup_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -751,9 +791,8 @@ void usb_rx_transfer_unsetup_call(struct usb_manager_binding *bind,
 /* ------------------------- transfer start ------------------------- */
 
 struct usb_tstart_state {
-    struct usb_manager_binding *bind;
     usb_error_t error;
-
+    struct usb_manager_binding *bind;
 };
 
 static void usb_tx_transfer_start_response(void *a)
@@ -761,7 +800,7 @@ static void usb_tx_transfer_start_response(void *a)
     errval_t err;
     struct usb_tstart_state *st = (struct usb_tstart_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_start_response()\n\n");
+    USB_DEBUG_REQ("usb_tx_transfer_start_response()\n\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -773,19 +812,22 @@ static void usb_tx_transfer_start_response(void *a)
 
 void usb_rx_transfer_start_call(struct usb_manager_binding *bind, uint32_t tid)
 {
-    USB_DEBUG("usb_rx_transfer_start_call()\n");
-
+    USB_DEBUG_REQ("usb_rx_transfer_start_call()\n");
 
     struct usb_tstart_state *st = malloc(sizeof(struct usb_tstart_state));
+
+    if (st == NULL) {
+        debug_printf("WARNING: Cannot reply, out of memory!\n");
+    }
     st->bind = bind;
 
-    struct usb_device *dev = (struct usb_device *)(bind->st);
+    struct usb_device *dev = (struct usb_device *) (bind->st);
 
     assert(dev != NULL);
 
     struct usb_xfer *xfer = dev->xfers;
 
-    while(xfer) {
+    while (xfer) {
         if (xfer->xfer_id == tid) {
             break;
         }
@@ -802,11 +844,6 @@ void usb_rx_transfer_start_call(struct usb_manager_binding *bind, uint32_t tid)
 
     st->error = xfer->error;
 
-    if (st == NULL) {
-        debug_printf("WARNING: Cannot reply, out of memory!\n");
-    }
-
-
     usb_tx_transfer_start_response(st);
 }
 
@@ -822,7 +859,7 @@ static void usb_tx_transfer_stop_response(void *a)
     errval_t err;
     struct usb_tstop_state *st = (struct usb_tstop_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_stop_response()\n");
+    USB_DEBUG_REQ("usb_tx_transfer_stop_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 

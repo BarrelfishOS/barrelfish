@@ -121,26 +121,69 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
      */
     usb_xfer_dequeue(xfer);
 
+    if (xfer->actual_frames > xfer->num_frames) {
+        if (xfer->error == USB_ERR_OK) {
+            USER_PANIC("WARNING: actual frames biggar than num frames! PANIC!");
+        } else {
+            xfer->actual_frames = xfer->num_frames;
+        }
+    }
+
+    uint32_t frame = 0;
+    xfer->actual_bytes = 0;
+    for (frame = 0; frame < xfer->actual_frames; frame++) {
+        xfer->actual_bytes += xfer->frame_lengths[frame];
+    }
+
+    while (frame < xfer->num_frames) {
+        xfer->frame_lengths[frame] = 0;
+        frame++;
+    }
+
+    if (xfer->actual_bytes > xfer->sum_bytes) {
+        if (xfer->error == USB_ERR_OK) {
+            USER_PANIC("WARNING: actual bytes biggar than sum bytes! PANIC!");
+        } else {
+            xfer->actual_frames = xfer->num_frames;
+        }
+    }
+
     /*
      * if the transfer was the current one being served on the endpoint
      * we have to update the current transfer pointer
      */
     struct usb_endpoint *ep = xfer->endpoint;
-    if (ep->transfers.current == xfer) {
+    struct usb_xfer_queue *q = &ep->transfers;
+    if (q->current == xfer) {
         USB_DEBUG_XFER("usb_xfer_done()->remove the xfer from ep list..\n");
         /* TODO: start next one if any*/
-        ep->transfers.current = NULL;
-    }
-    /*
-     * XXX: NEEDED?
-     struct usb_xfer_queue *done_queue = &xfer->host_controller->done_queue;
+        q->current = NULL;
+        struct usb_xfer *next_xfer = ((&q->head)->first);
+        if (next_xfer) {
+            if (((next_xfer->wait_entry.prev_next)) != NULL)
+                (*(next_xfer->wait_entry.prev_next))->wait_entry.prev_next =
+                        next_xfer->wait_entry.prev_next;
+            else {
+                (&q->head)->last_next = next_xfer->wait_entry.prev_next;
+            }
+            *(next_xfer)->wait_entry.prev_next = next_xfer->wait_entry.next;
+            (next_xfer)->wait_queue = NULL;
+            q->current = next_xfer;
+            (q->command)(q);
+        }
+        if (!(ep->transfers.current || ((&ep->transfers.head)->first))) {
+            xfer->endpoint->is_sync = 0;
+        }
 
-     if (done_queue->current != xfer) {
-     usb_xfer_enqueue(done_queue, xfer);
-     }*/
+    }
+
 
     //todo: send message to driver that transfer is completed
     if (xfer->xfer_done_cb) {
+        struct usb_xfer_queue *done_queue = &xfer->host_controller->done_queue;
+        if (done_queue->current != xfer) {
+            usb_xfer_enqueue(done_queue, xfer);
+        }
         (xfer->xfer_done_cb)(xfer, err);
     }
 
@@ -267,10 +310,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     xfer->endpoint_number = ep_desc->bEndpointAddress.ep_number;
     xfer->ed_direction = ep_desc->bEndpointAddress.direction;
 
-
-
     xfer->max_packet_count = 1;
-
 
     switch (ep_speed) {
         case USB_SPEED_HIGH:
@@ -291,7 +331,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             break;
     }
 
-
     uint32_t num_frlengths;
     uint32_t num_frbuffers;
     xfer->flags = setup_config->flags;
@@ -300,10 +339,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     xfer->interval = setup_config->interval;
     param->bufsize = setup_config->bufsize;
 
-
     xfer->flags_internal.usb_mode = param->device->flags.usb_mode;
-
-
 
     /*
      * range checks and filter values according to the host controller

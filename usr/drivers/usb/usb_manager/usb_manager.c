@@ -9,6 +9,7 @@
 #include <usb/usb.h>
 #include <usb/usb_error.h>
 
+#include <if/usb_driver_defs.h>
 #include <if/usb_manager_defs.h>
 #include <if/usb_manager_rpcclient_defs.h>
 
@@ -32,16 +33,40 @@ static const char *usb_manager_name = "usb_manager_service";
  */
 struct usb_manager_connect_state {
     struct usb_manager_binding *b;      ///< the usb_manager_binding struct
+    struct usb_driver_binding *driver;
     void *desc;                        ///< generic descriptor
     uint32_t length;                    ///< length of the descirptor
     usb_error_t error;                  ///< the outcome of the initial setup
+    iref_t driver_iref;
 };
+
+static void usb_driver_bind_cb(void *st, errval_t err,
+        struct usb_driver_binding *b)
+{
+    USB_DEBUG("usb_driver_bind_cb\n");
+    if (err_is_fail(err)) {
+        USB_DEBUG("bind failed..\n");
+    }
+
+    struct usb_manager_connect_state *cs = st;
+
+    cs->driver = b;
+    struct usb_device *dev = cs->b->st;
+    dev->usb_driver_binding = b;
+
+    free(cs->desc);
+    free(cs);
+}
 
 static void usb_driver_connect_cb(void *a)
 {
+    USB_DEBUG("usb_driver_connect_cb->binding...\n");
     struct usb_manager_connect_state *st = a;
-    free(st->desc);
-    free(a);
+    errval_t err = usb_driver_bind(st->driver_iref, usb_driver_bind_cb, st,
+            get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+
+    }
 }
 
 static void usb_driver_connect_response(void *a)
@@ -75,7 +100,7 @@ static void usb_driver_connect_response(void *a)
  * \brief
  */
 static void usb_rx_connect_call(struct usb_manager_binding *bind,
-        uint16_t init_config)
+        iref_t driver_iref, uint16_t init_config)
 {
     struct usb_manager_connect_state *st;
 
@@ -86,11 +111,10 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
     }
 
     st->b = bind;
-    /* todo usb_manager_rpc_client_init() */
+    st->driver_iref = driver_iref;
 
-    //struct usb_manager_rpc_client *usb_r = malloc(sizeof(struct usb_manager_rpc_client ));
-    //usb_manager_rpc_client_init(usb_r, bind);
-    usb_driver_connected(bind, init_config);
+
+    usb_driver_connected(bind, st->driver, init_config);
 
     st->error = USB_ERR_OK;
 
