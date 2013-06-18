@@ -151,6 +151,9 @@ typedef struct usb_status usb_status_t;
 //#define USB_DEBUG_MEM(x...) USB_DEBUG(x)
 #define USB_DEBUG_MEM(x...)
 
+#define USB_DEBUG_IDC(x...)
+//#define USB_DEBUG_IDC(x...) USB_DEBUG(x)
+
 
 usb_error_t usb_lib_init(uint8_t init_config);
 

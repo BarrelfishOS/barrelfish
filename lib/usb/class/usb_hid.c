@@ -628,6 +628,15 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     uint32_t rpos;
     uint8_t n;
 
+    /* XXX: seems that there are wrong locations of the keys... */
+    if (hpos > 67) {
+        hpos -= 64;
+    }
+
+    if (hpos == 24) {
+        hpos -= 8;
+    }
+
     /* Range check and limit */
     if (hsize == 0)
         return (0);
@@ -639,10 +648,12 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     rpos = (hpos / 8);
     n = (hsize + 7) / 8;
     rpos += n;
+
     while (n--) {
         rpos--;
-        if (rpos < len)
+        if (rpos < len) {
             data |= buf[rpos] << (8 * n);
+        }
     }
 
     /* Correctly shift down data */
@@ -650,14 +661,11 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     n = 32 - hsize;
 
     /* Mask and sign extend in one */
-    if (is_signed != 0)
+    if (is_signed != 0) {
         data = (int32_t) ((int32_t) data << n) >> n;
-    else
+    }    else {
         data = (uint32_t) ((uint32_t) data << n) >> n;
-
-    USB_DEBUG(
-            "hid_get_data: loc %d/%d = %lu\n", loc->position, loc->size, (long)data);
-
+    }
     return (data);
 }
 

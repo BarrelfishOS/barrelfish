@@ -26,8 +26,6 @@
 #include <usb_pipe.h>
 #include <usb_memory.h>
 
-
-
 static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX] =
         {
 
@@ -60,16 +58,18 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
             },
         };
 
-
 struct usb_tdone_state {
     struct usb_driver_binding *bind;
-    uint32_t data_length;
-    usb_error_t err;
-    uint32_t tid;
+    struct usb_xfer *xfer;
+    void *buf;
 };
 
 static void usb_transfer_complete_cb(void *a)
 {
+    struct usb_tdone_state *st = a;
+    if (st->xfer->flags.auto_restart) {
+        usb_transfer_start(st->xfer);
+    }
     free(a);
 }
 
@@ -78,36 +78,37 @@ static void usb_transfer_complete_tx(void *a)
     struct usb_tdone_state *st = a;
     errval_t err;
 
-    struct event_closure txcont = MKCONT(usb_transfer_complete_cb, st->bind);
+    struct event_closure txcont = MKCONT(usb_transfer_complete_cb, st);
 
-    uint8_t *data = (uint8_t*)(st+1);
-
-    err = usb_driver_transfer_done_notify__tx(st->bind, txcont, st->tid, st->err, data, st->data_length);;
+    err = usb_driver_transfer_done_notify__tx(st->bind, txcont,
+            st->xfer->xfer_id, st->xfer->error, st->buf,
+            st->xfer->actual_bytes);
 
     USB_TX_TRANSER_ERR(usb_transfer_complete_tx);
 }
-
-
 
 static void usb_transfer_complete_notify(struct usb_xfer *xfer, usb_error_t err)
 {
     uint32_t data_length = xfer->actual_bytes;
 
+    xfer->error = err;
+
     switch (xfer->type) {
         case USB_TYPE_INTR:
             if (data_length > 0) {
-                struct usb_tdone_state *st = malloc( sizeof(struct usb_tdone_state) +
-                        data_length);
-                void *buf = st+1;
-                usb_mem_copy_out(xfer->frame_buffers[0], 0, buf, data_length);
+                struct usb_tdone_state *st = malloc(
+                        sizeof(struct usb_tdone_state));
+                st->xfer = xfer;
+                st->buf = xfer->frame_buffers[0]->buffer;
                 st->bind = xfer->usb_driver_binding;
                 usb_transfer_complete_tx(st);
             }
+            if (0) {
+                usb_transfer_complete_tx(NULL);
+            }
 
             xfer->frame_lengths[0] = xfer->max_data_length;
-            if (xfer->flags.auto_restart) {
-                usb_transfer_start(xfer);
-            }
+
             break;
         default:
             /* noop */
@@ -297,8 +298,7 @@ void usb_transfer_start(struct usb_xfer *xfer)
      * have to do sth.
      */
     if (xfer->flags_internal.transferring) {
-        USB_DEBUG_XFER("NOTICE: already transferring\n");
-        USB_DEBUG_TR_RETURN;
+        USB_DEBUG_XFER("NOTICE: already transferring\n");USB_DEBUG_TR_RETURN;
         return;
     }
 
@@ -687,6 +687,7 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
 
     if (st == NULL) {
         debug_printf("WARNING: Cannot reply, out of memory!\n");
+        return;
     }
 
     struct usb_xfer_config setup;
@@ -762,7 +763,6 @@ static void usb_tx_transfer_unsetup_response(void *a)
     errval_t err;
     struct usb_tunsetup_state *st = (struct usb_tunsetup_state *) a;
 
-
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
     err = usb_manager_transfer_unsetup_response__tx(st->bind, txcont,
@@ -781,6 +781,7 @@ void usb_rx_transfer_unsetup_call(struct usb_manager_binding *bind,
 
     if (st == NULL) {
         debug_printf("WARNING: Cannot reply, out of memory!\n");
+        return;
     }
 
     st->bind = bind;
@@ -800,7 +801,7 @@ static void usb_tx_transfer_start_response(void *a)
     errval_t err;
     struct usb_tstart_state *st = (struct usb_tstart_state *) a;
 
-    USB_DEBUG_REQ("usb_tx_transfer_start_response()\n\n");
+    USB_DEBUG_IDC("usb_tx_transfer_start_response()\n\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -812,7 +813,7 @@ static void usb_tx_transfer_start_response(void *a)
 
 void usb_rx_transfer_start_call(struct usb_manager_binding *bind, uint32_t tid)
 {
-    USB_DEBUG_REQ("usb_rx_transfer_start_call()\n");
+    USB_DEBUG_IDC("usb_rx_transfer_start_call()\n");
 
     struct usb_tstart_state *st = malloc(sizeof(struct usb_tstart_state));
 
@@ -859,7 +860,7 @@ static void usb_tx_transfer_stop_response(void *a)
     errval_t err;
     struct usb_tstop_state *st = (struct usb_tstop_state *) a;
 
-    USB_DEBUG_REQ("usb_tx_transfer_stop_response()\n");
+    USB_DEBUG_IDC("usb_tx_transfer_stop_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -898,7 +899,7 @@ static void usb_tx_transfer_status_response(void *a)
     errval_t err;
     struct usb_tstatus_state *st = (struct usb_tstatus_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_status_response()\n");
+    USB_DEBUG_IDC("usb_tx_transfer_status_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -915,6 +916,7 @@ void usb_rx_transfer_status_call(struct usb_manager_binding *bind, uint32_t tid)
 
     if (st == NULL) {
         debug_printf("WARNING: Cannot reply, out of memory!\n");
+        return;
     }
 
     st->bind = bind;
@@ -935,7 +937,7 @@ static void usb_tx_transfer_state_response(void *a)
     errval_t err;
     struct usb_tstate_state *st = (struct usb_tstate_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_state_response()\n");
+    USB_DEBUG_IDC("usb_tx_transfer_state_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -950,7 +952,8 @@ void usb_rx_transfer_state_call(struct usb_manager_binding *bind, uint32_t tid)
     struct usb_tstate_state *st = malloc(sizeof(struct usb_tstate_state));
 
     if (st == NULL) {
-        debug_printf("WARNING: Cannot reply, out of memory!\n");
+        USB_DEBUG_IDC("WARNING: Cannot reply, out of memory!\n");
+        return;
     }
 
     st->bind = bind;
@@ -970,7 +973,7 @@ static void usb_tx_transfer_clear_stall_response(void *a)
     errval_t err;
     struct usb_tclearstall_state *st = (struct usb_tclearstall_state *) a;
 
-    USB_DEBUG("usb_tx_transfer_clear_stall_response()\n");
+    USB_DEBUG_IDC("usb_tx_transfer_clear_stall_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_transfer_generic_cb, st);
 
@@ -988,6 +991,7 @@ void usb_rx_transfer_clear_stall_call(struct usb_manager_binding *bind,
 
     if (st == NULL) {
         debug_printf("WARNING: Cannot reply, out of memory!\n");
+        return;
     }
 
     st->bind = bind;

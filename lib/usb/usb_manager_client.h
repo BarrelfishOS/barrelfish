@@ -17,6 +17,8 @@
 extern iref_t usb_manager_iref;
 extern struct usb_manager_rpc_client usb_manager;
 
-
+void usb_driver_rx_detach_notify(struct usb_driver_binding *b);
+void usb_driver_rx_done_notify(struct usb_driver_binding *b,
+        uint32_t tid, uint32_t error, uint8_t *data, size_t length);
 
 #endif /* USB_MANAGER_CLIENT_H_ */

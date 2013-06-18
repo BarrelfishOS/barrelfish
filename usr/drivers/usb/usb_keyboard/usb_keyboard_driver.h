@@ -13,6 +13,9 @@
 #include <usb/usb_transfer.h>
 #include <usb/class/usb_hid.h>
 
+#define USB_KEYBOARD_MODE_CHAR
+//#define USB_KEYBOARD_MODE_ATCODE
+
 #define USB_KEYBOARD_BUFSIZE 64
 #define USB_KEYBOARD_MODIFIIERS 8
 #define USB_KEYBOARD_KEYCODES 6
@@ -48,7 +51,7 @@ union usb_keyboard_modifiers {
 
 #define USB_KEYBOARD_MODIFIER_CHECK(_mod) \
     if (keyboard._mod.valid && (rid == keyboard._mod.report_id)) { \
-        if (usb_hid_get_data(data, length, &keyboard._mod.loc)) {\
+        if (usb_hid_get_data(data, length, &(keyboard._mod.loc))) {\
             keyboard.modifiers._mod = 1;\
         }\
     }\
@@ -63,10 +66,10 @@ union usb_keyboard_modifiers {
  *
  */
 struct usb_keyboard_led {
-uint8_t scrolllock :1;
-uint8_t numlock :1;
-uint8_t capslock :1;
-uint8_t reserved :5;
+    uint8_t scrolllock :1;
+    uint8_t numlock :1;
+    uint8_t capslock :1;
+    uint8_t reserved :5;
 };
 
 /**
@@ -74,8 +77,8 @@ uint8_t reserved :5;
  * modifiers such as alt/shift/ctrl...
  */
 struct usb_keyboard_data {
-union usb_keyboard_modifiers modifiers;  ///< the activated modifiers
-uint8_t keycode[USB_KEYBOARD_KEYCODES];  ///> the extracted keycode
+    union usb_keyboard_modifiers modifiers;  ///< the activated modifiers
+    uint8_t keycode[USB_KEYBOARD_KEYCODES];  ///> the extracted keycode
 };
 
 #define USB_KEYBOARD_KEY_ERROR 0x01
@@ -85,50 +88,53 @@ uint8_t keycode[USB_KEYBOARD_KEYCODES];  ///> the extracted keycode
 #define USB_KEYBOARD_SCAN_RELEASE 0x80
 
 struct usb_keyboard_key {
-uint8_t report_id;
-struct usb_hid_location loc;
-uint8_t valid;
+    uint8_t report_id;
+    struct usb_hid_location loc;
+    uint8_t valid;
 };
 
 struct usb_keyboard {
-/* location of special keys */
-struct usb_keyboard_key ctrl_l;
-struct usb_keyboard_key ctrl_r;
-struct usb_keyboard_key shift_l;
-struct usb_keyboard_key shift_r;
-struct usb_keyboard_key alt_l;
-struct usb_keyboard_key alt_r;
-struct usb_keyboard_key win_l;
-struct usb_keyboard_key win_r;
-struct usb_keyboard_key events;
-struct usb_keyboard_key numlock;
-struct usb_keyboard_key capslock;
-struct usb_keyboard_key scrolllock;
+    /* location of special keys */
+    struct usb_keyboard_key ctrl_l;
+    struct usb_keyboard_key ctrl_r;
+    struct usb_keyboard_key shift_l;
+    struct usb_keyboard_key shift_r;
+    struct usb_keyboard_key alt_l;
+    struct usb_keyboard_key alt_r;
+    struct usb_keyboard_key win_l;
+    struct usb_keyboard_key win_r;
+    struct usb_keyboard_key events;
+    struct usb_keyboard_key numlock;
+    struct usb_keyboard_key capslock;
+    struct usb_keyboard_key scrolllock;
 
-union usb_keyboard_modifiers modifiers;
-struct usb_keyboard_data new_data;
-struct usb_keyboard_data old_data;
+    union usb_keyboard_modifiers modifiers;
+    struct usb_keyboard_data new_data;
+    struct usb_keyboard_data old_data;
 
-uint8_t num_config;  ///< the number of configurations
-usb_xfer_id_t xferids[USB_KEYBOARD_NUM_TRANSFERS];
-uint8_t buffer[USB_KEYBOARD_BUFSIZE];
+    uint8_t num_config;  ///< the number of configurations
+    usb_xfer_id_t xferids[USB_KEYBOARD_NUM_TRANSFERS];
+    uint8_t buffer[USB_KEYBOARD_BUFSIZE];
 
-uint32_t composed_char;
-uint8_t  composed_done;
+    uint32_t composed_char;
+    uint8_t composed_done;
 
+#ifdef USB_KEYBOARD_MODE_ATCODE
+    uint32_t at_buffered_char[2];
+#endif
 
-uint8_t usb_iface_number;
+    uint8_t usb_iface_number;
 
-uint8_t keyboard_id;
-int32_t keyboard_size;
-uint16_t keyboard_led_size;
-struct usb_keyboard_led keyboard_led_state;
+    uint8_t keyboard_id;
+    int32_t keyboard_size;
+    uint16_t keyboard_led_size;
+    struct usb_keyboard_led keyboard_led_state;
 
-/* input buffers */
-uint32_t input[USB_KEYBOARD_IN_BUFSIZE];
-uint16_t input_head;
-uint16_t input_tail;
-uint16_t input_size;
+    /* input buffers */
+    uint32_t input[USB_KEYBOARD_IN_BUFSIZE];
+    uint16_t input_head;
+    uint16_t input_tail;
+    uint16_t input_size;
 };
 
 typedef struct usb_keyboard usb_keyboard_t;

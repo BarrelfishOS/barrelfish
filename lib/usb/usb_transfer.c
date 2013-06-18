@@ -115,6 +115,30 @@ static struct usb_xfer_state *usb_xfer_get_state(usb_xfer_id_t tid)
 }
 
 
+void usb_driver_rx_done_notify(struct usb_driver_binding *b,
+        uint32_t tid, uint32_t error, uint8_t *data, size_t length)
+{
+
+    struct usb_xfer_state *st = usb_xfer_get_state(tid);
+
+    if (st == NULL) {
+        debug_printf("WARNING: xfer done with unknown tid.. %u\n", tid);
+        free(data);
+        return;
+    }
+
+    st->done_cb(error, data, length);
+
+    free(data);
+}
+
+void usb_driver_rx_detach_notify(struct usb_driver_binding *b)
+{
+
+}
+
+
+
 /*
  * -------------------------------------------------------------------------
  * Functions for setup/unsetup of USB transfers
@@ -331,7 +355,6 @@ usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid)
  */
 usb_error_t usb_transfer_start(usb_xfer_id_t tid)
 {
-    USB_DEBUG("libusb: transfer_start() %u\n", tid);
     struct usb_xfer_state *st = usb_xfer_get_state(tid);
     if (st == NULL) {
         USB_DEBUG("inavlid transfer id");

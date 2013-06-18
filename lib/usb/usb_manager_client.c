@@ -43,25 +43,13 @@ static const char *usb_manager_name = "usb_manager_service";
 static volatile uint8_t bound = 0;
 static volatile uint8_t exported = 0;
 
-static void usb_driver_rx_done_notify(struct usb_driver_binding *b,
-        uint32_t tid, uint32_t error, uint8_t *data, size_t length)
-{
-
-    USB_DEBUG("fooo fooo\n");
-
-}
-
-static void usb_driver_rx_detach_notify(struct usb_driver_binding *b)
-{
-
-}
 
 /**
  *
  */
 static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
 {
-    debug_printf("libusb: bind callback complete\n");
+    USB_DEBUG_IDC("libusb: bind callback complete\n");
 
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "USB manager binding failed");
@@ -79,7 +67,7 @@ static struct usb_driver_rx_vtbl drv_rx_vtbl = {
 
 static void usb_driver_export_cb(void *st, errval_t err, iref_t iref)
 {
-    debug_printf("libusb: export cb completed\n");
+    USB_DEBUG_IDC("libusb: export cb completed\n");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "export failed");
     }
@@ -93,7 +81,7 @@ static volatile uint8_t manager_connected = 0;
 
 static errval_t usb_driver_connect_cb(void *st, struct usb_driver_binding *b)
 {
-    debug_printf("libusb: usb_driver_connect_cb\b");
+    USB_DEBUG_IDC("libusb: usb_driver_connect_cb\b");
     driver_binding = b;
 
     b->rx_vtbl = drv_rx_vtbl;
@@ -163,7 +151,7 @@ usb_error_t usb_lib_init(uint8_t init_config)
 
     usb_device_init(tmp);
 
-    debug_printf("libusb: driver connected (status=%i)\n", ret_status);
+    USB_DEBUG_IDC("libusb: driver connected (status=%i)\n", ret_status);
 
     return (USB_ERR_OK);
 }

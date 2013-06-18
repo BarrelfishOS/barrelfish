@@ -315,7 +315,7 @@ usb_error_t usb_exec_request(struct usb_device *device, uint16_t flags,
 #define USB_TX_REQUEST_ERR(_retry) \
     if (err_is_fail(err)) { \
        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {\
-           USB_DEBUG("re-sending _retry() \n");\
+           USB_DEBUG_IDC("re-sending _retry() \n");\
            txcont = MKCONT(_retry, st);\
            struct waitset *ws = get_default_waitset();\
            err = st->bind->register_send(st->bind, ws, txcont);\
@@ -347,7 +347,7 @@ static void free_request_state(struct usb_request_state *st)
 
 static void usb_tx_request_generic_cb(void *a)
 {
-    USB_DEBUG("rusb_tx_request_generic_cb(): successful transmitted\n");
+    USB_DEBUG_IDC("rusb_tx_request_generic_cb(): successful transmitted\n");
     struct usb_request_state *st = (struct usb_request_state *) a;
 
     free_request_state(st);
@@ -376,7 +376,7 @@ static void usb_tx_request_read_response(void *a)
     errval_t err;
     struct usb_request_state *st = (struct usb_request_state *) a;
 
-    USB_DEBUG("send usb_tx_request_read_response()\n");
+    USB_DEBUG_IDC("send usb_tx_request_read_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_request_generic_cb, st);
 
@@ -392,13 +392,16 @@ static void usb_tx_request_read_response(void *a)
 void usb_rx_request_read_call(struct usb_manager_binding *binding,
         uint8_t *request, size_t req_length)
 {
-    USB_DEBUG("received usb_rx_request_read_call()\n");
+    USB_DEBUG_TR_ENTER;
+
+    USB_DEBUG_IDC("received usb_rx_request_read_call()\n");
 
     // check if we have received the correct amount of data
     if (req_length != sizeof(struct usb_device_request)) {
-        debug_printf("received too less data to fullfill the request:\n "
+        USB_DEBUG_IDC("received too less data to fullfill the request:\n "
                 "request length: expected %i bytes, was %i\n",
                 sizeof(struct usb_device_request), req_length);
+
         usb_request_send_error(USB_ERR_INVAL, binding,
                 usb_tx_request_read_response);
     }
@@ -430,10 +433,12 @@ void usb_rx_request_read_call(struct usb_manager_binding *binding,
 
 static void usb_tx_request_write_response(void *a)
 {
+    USB_DEBUG_TR_ENTER;
+
     errval_t err;
     struct usb_request_state *st = (struct usb_request_state *) a;
 
-    USB_DEBUG("send usb_tx_request_write_response()\n");
+    USB_DEBUG_IDC("send usb_tx_request_write_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_request_generic_cb, st);
 
@@ -446,14 +451,16 @@ static void usb_tx_request_write_response(void *a)
 void usb_rx_request_write_call(struct usb_manager_binding *binding,
         uint8_t *request, size_t req_length, uint8_t *data, size_t data_length)
 {
-    USB_DEBUG("received usb_rx_request_call() of %i bytes\n", data_length);
+    USB_DEBUG_TR_ENTER;
+
+    USB_DEBUG_IDC("received usb_rx_request_call() of %i bytes\n", data_length);
 
     struct usb_device_request *req = (struct usb_device_request *) request;
 
     /* check if we have received the correct amount of data */
     if ((req_length != sizeof(struct usb_device_request))
             || (req->wLength != data_length)) {
-        debug_printf("ERROR in usb_rx_request_call(): received too less data"
+        USB_DEBUG_IDC("ERROR in usb_rx_request_call(): received too less data"
                 " to full fill the request:\n "
                 "request length: expected %i bytes, was %i\n"
                 "data length: expected %i, was %i\n",
@@ -469,7 +476,7 @@ void usb_rx_request_write_call(struct usb_manager_binding *binding,
     struct usb_request_state *st = malloc(sizeof(struct usb_request_state));
 
     if (st == NULL) {
-        debug_printf("WARNING: usb_rx_request_write_call(): out of memory\b");
+        USB_DEBUG_IDC("WARNING: usb_rx_request_write_call(): out of memory\b");
 
         usb_request_send_error(USB_ERR_NOMEM, binding,
                 usb_tx_request_write_response);
@@ -495,10 +502,12 @@ void usb_rx_request_write_call(struct usb_manager_binding *binding,
 
 static void usb_tx_request_response(void *a)
 {
+    USB_DEBUG_TR_ENTER;
+
     errval_t err;
     struct usb_request_state *st = (struct usb_request_state *) a;
 
-    USB_DEBUG("send usb_tx_request_response()\n");
+    USB_DEBUG_IDC("sending usb_tx_request_response()\n");
 
     struct event_closure txcont = MKCONT(usb_tx_request_generic_cb, st);
 
@@ -511,11 +520,13 @@ static void usb_tx_request_response(void *a)
 void usb_rx_request_call(struct usb_manager_binding *binding, uint8_t *request,
         size_t req_length)
 {
-    USB_DEBUG("received usb_rx_request_call()\n");
+    USB_DEBUG_TR_ENTER;
+
+    USB_DEBUG_IDC("received usb_rx_request_call()\n");
 
     /* check if we have received the correct amount of data */
     if (req_length != sizeof(struct usb_device_request)) {
-        debug_printf("ERROR in usb_rx_request_call(): received too less data"
+        USB_DEBUG_IDC("ERROR in usb_rx_request_call(): received too less data"
                 " to full fill the request:\n "
                 "request length: expected %i bytes, was %i\n",
                 sizeof(struct usb_device_request), req_length);
@@ -530,7 +541,7 @@ void usb_rx_request_call(struct usb_manager_binding *binding, uint8_t *request,
     struct usb_request_state *st = malloc(sizeof(struct usb_request_state));
 
     if (st == NULL) {
-        debug_printf("WARNING:usb_rx_request_call(): out of memory\b");
+        USB_DEBUG_IDC("WARNING:usb_rx_request_call(): out of memory\b");
 
         usb_request_send_error(USB_ERR_NOMEM, binding, usb_tx_request_response);
 
