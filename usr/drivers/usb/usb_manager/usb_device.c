@@ -14,13 +14,15 @@
 #include <usb/usb.h>
 #include <usb/usb_parse.h>
 
+#include <if/usb_driver_defs.h>
+
 #include <usb_controller.h>
 #include <usb_device.h>
 #include <usb_request.h>
 #include <usb_pipe.h>
 #include <usb_interface.h>
 #include <usb_hub.h>
-
+#include <usb_transfer.h>
 
 
 
@@ -306,7 +308,7 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev,
 
 static void usb_device_setup_strings(struct usb_device *dev)
 {
-    debug_printf("TODO: GET STRING DESCRIPTORS!\n");
+    //debug_printf("TODO: GET STRING DESCRIPTORS!\n");
     /// TODO...
 }
 
@@ -435,7 +437,7 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
             || dev->device_desc.iSerialNumber) {
         err = usb_req_get_string_desc(dev, buf, 4, 0, 0);
     } else {
-        USB_DEBUG("no string descriptors...\n");
+        /* there are no string descriptors.. setting to invalid */
         err = USB_ERR_INVAL;
     }
 
@@ -495,9 +497,68 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     return (dev);
 }
 
+
+
+
+
+
+
+static void usb_device_detach_cb(void *a)
+{
+    free(a);
+}
+
+static void usb_device_detach_notify(void *a)
+{
+
+    struct usb_driver_binding *st = a;
+    errval_t err;
+
+    struct event_closure txcont = MKCONT(usb_device_detach_cb, st);
+
+    err = usb_driver_device_detach_notify__tx(st, txcont);
+
+    if (err_is_fail(err)) {
+           if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+               txcont = MKCONT(usb_device_detach_notify, st);
+               struct waitset *ws = get_default_waitset();
+               err = st->register_send(st, ws, txcont);
+               if (err_is_fail(err)) {
+                   DEBUG_ERR(err, "error register_send on binding failed!\n");
+               }
+           } else {
+               DEBUG_ERR(err, "error _retry(): sending response!\n");\
+               free(st);
+           }
+       }
+}
+
+
+
 void usb_device_free(struct usb_device * device, uint8_t flag)
 {
-    debug_printf("TODO: freeing up the device and it's transfers..\n");
+    if (device->hub != NULL) {
+        debug_printf("Device was a hub device: TODO: recurse on other..");
+
+    } else {
+        usb_device_detach_notify(device->usb_driver_binding);
+    }
+
+
+
+    // TODO: notify the device drivers
+
+    struct usb_xfer *xfer = device->xfers;
+    struct usb_xfer *xfer_next;
+
+
+
+    while(device->xfers != NULL) {
+        xfer_next = xfer->device_xfers_next;
+        usb_transfer_unsetup(&xfer, 1);
+        xfer = xfer_next;
+    }
+
 
     /*
      * 1) check if it is a hub device... and free up recursively
@@ -510,4 +571,23 @@ void usb_device_free(struct usb_device * device, uint8_t flag)
      */
 
     device->controller->devices[device->device_index] = NULL;
+
+
+
+    if (device->config_desc)
+        free(device->config_desc);
+    if (device->ifaces)
+        free(device->ifaces);
+    if (device->endpoints)
+        free(device->endpoints);
+    if (device->serial_number)
+        free(device->serial_number);
+    if (device->manifacturer)
+        free(device->manifacturer);
+    if (device->product)
+        free(device->product);
+    if(device->ep_clear_stall)
+        free(device->ep_clear_stall);
+
+    free(device);
 }

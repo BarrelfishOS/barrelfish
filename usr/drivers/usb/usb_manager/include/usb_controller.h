@@ -111,6 +111,7 @@ struct usb_hcdi_bus_fn {
     void (*set_hw_power)(struct usb_host_controller *);
     void (*set_hw_power_sleep)(struct usb_host_controller *, uint32_t);
     void (*xfer_poll)(struct usb_host_controller *hc);
+    uint8_t (*xfer_finished)(struct usb_xfer *);
     void (*get_hw_ep_profile)(struct usb_device *udev,
             const struct usb_hw_ep_profile **ppf, uint8_t ep_addr);
     void (*set_stall)(struct usb_device *udev, struct usb_xfer *xfer,
@@ -142,7 +143,7 @@ typedef struct usb_host_controller {
 
     struct usb_device **devices;
     uint8_t devices_max;
-
+    uint8_t initialized;
     usb_intr_handler_t *handle_intr;
     uint16_t uframe_usage[8];
 

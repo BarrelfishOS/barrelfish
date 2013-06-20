@@ -39,13 +39,12 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     uint16_t length = req->wLength;
     uint16_t actual_length = 0;
 
-    USB_DEBUG_REQ("usb_handle_request: %u\n", length);
-    /* debug_printf("bmRequestType = %x\n", *((uint8_t *)(&req->bType)));
-     debug_printf("bRequest  = %x\n", *((uint8_t *)(&req->bRequest)));
-     debug_printf("wValue = %x\n", *((uint16_t *)(&req->wValue)));
-     debug_printf("wIndex = %x\n", *((uint16_t *)(&req->wIndex)));
-     debug_printf("wLength= %x\n", *((uint16_t *)(&req->wLength)));
-     */
+
+    USB_DEBUG_REQ("bmRequestType = %x\n", *((uint8_t *)(&req->bType)));
+    USB_DEBUG_REQ("bRequest  = %x\n", *((uint8_t *)(&req->bRequest)));
+    USB_DEBUG_REQ("wValue = %x\n", *((uint16_t *)(&req->wValue)));
+    USB_DEBUG_REQ("wIndex = %x\n", *((uint16_t *)(&req->wIndex)));
+    USB_DEBUG_REQ("wLength= %x\n", *((uint16_t *)(&req->wLength)));
 
     /*
      * check if the device is in the correct state to handle requests
@@ -192,7 +191,8 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     while (1) {
         current_data_length = length;
         if (current_data_length > xfer->max_data_length) {
-            USB_DEBUG("NOTICE: current_data_length > xfer->max_data_length\n");
+            USB_DEBUG("NOTICE: current_data_length (%u)> xfer->max_data_length (%u)\n",
+                    current_data_length, xfer->max_data_length);
             current_data_length = xfer->max_data_length;
         }
         // set the frame length of the data stage
@@ -225,7 +225,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
         /* wait till completed... */
         while (!usb_transfer_completed(xfer)) {
-            USB_WAIT(5);
+            USB_WAIT(10);
             //thread_yield();
         }
 
@@ -457,6 +457,7 @@ void usb_rx_request_write_call(struct usb_manager_binding *binding,
 
     struct usb_device_request *req = (struct usb_device_request *) request;
 
+
     /* check if we have received the correct amount of data */
     if ((req_length != sizeof(struct usb_device_request))
             || (req->wLength != data_length)) {
@@ -487,9 +488,10 @@ void usb_rx_request_write_call(struct usb_manager_binding *binding,
     /* fill in the struct */
 
     st->bind = binding;
+    st->req = req;
     /* write requests have no data to return */
-    st->data_length = 0;
-    st->data = NULL;
+    st->data_length = data_length;
+    st->data = data;
     st->callback = usb_tx_request_write_response;
 
     struct usb_device *device = (struct usb_device *) binding->st;

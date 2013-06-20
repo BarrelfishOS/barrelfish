@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
@@ -127,6 +128,7 @@ struct usb_hid_data *usb_hid_start_parse(const void *d, uint32_t len,
     }
 
     s = malloc(sizeof(*s));
+    memset(s, 0, sizeof(*s));
     s->start = s->p = d;
     s->end = ((const uint8_t *) d) + len;
     s->kindset = kindset;
@@ -577,16 +579,17 @@ int32_t usb_hid_report_size(const void *buf, uint32_t len, enum usb_hid_kind k,
  *          Else: there is a matching element found at location loc
  */
 int32_t usb_hid_locate(const void *desc, uint32_t size, uint32_t usage,
-        enum usb_hid_kind k, uint8_t index, struct usb_hid_location *loc,
+        enum usb_hid_kind k, uint8_t repindex, struct usb_hid_location *loc,
         uint32_t *flags, uint8_t *id)
 {
     struct usb_hid_data *d;
     struct usb_hid_item h;
 
-    for (d = usb_hid_start_parse(desc, size, 1 << k); usb_hid_get_item(d, &h);
-            ) {
+    d = usb_hid_start_parse(desc, size, 1 << k);
+
+    while(usb_hid_get_item(d, &h)) {
         if (h.kind == k && !(h.flags & USB_HID_IO_CONST) && h.usage == usage) {
-            if (index--)
+            if (repindex--)
                 continue;
             if (loc != NULL)
                 *loc = h.loc;
@@ -628,15 +631,6 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     uint32_t rpos;
     uint8_t n;
 
-    /* XXX: seems that there are wrong locations of the keys... */
-    if (hpos > 67) {
-        hpos -= 64;
-    }
-
-    if (hpos == 24) {
-        hpos -= 8;
-    }
-
     /* Range check and limit */
     if (hsize == 0)
         return (0);
@@ -666,6 +660,9 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     }    else {
         data = (uint32_t) ((uint32_t) data << n) >> n;
     }
+
+    USB_DEBUG_HID("Get data generic: pos=%u, size=%u, data=%x\n", hpos, hsize, data);
+
     return (data);
 }
 
@@ -824,7 +821,6 @@ usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
 
     *ret_size = USB_HID_DTYPE_GET_LEN(hid->descriptors);
 
-    USB_DEBUG("size of the hid descriptors = %u\n", *ret_size);
     if (*ret_size == 0) {
         return (USB_ERR_IOERROR);
     }

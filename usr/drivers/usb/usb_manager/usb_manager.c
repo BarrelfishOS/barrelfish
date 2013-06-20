@@ -43,9 +43,9 @@ struct usb_manager_connect_state {
 static void usb_driver_bind_cb(void *st, errval_t err,
         struct usb_driver_binding *b)
 {
-    USB_DEBUG("usb_driver_bind_cb\n");
+    USB_DEBUG_IDC("usb_driver_bind_cb\n");
     if (err_is_fail(err)) {
-        USB_DEBUG("bind failed..\n");
+        USB_DEBUG("driver binding failed..\n");
     }
 
     struct usb_manager_connect_state *cs = st;
@@ -60,7 +60,7 @@ static void usb_driver_bind_cb(void *st, errval_t err,
 
 static void usb_driver_connect_cb(void *a)
 {
-    USB_DEBUG("usb_driver_connect_cb->binding...\n");
+    USB_DEBUG_IDC("usb_driver_connect_cb->binding...\n");
     struct usb_manager_connect_state *st = a;
     errval_t err = usb_driver_bind(st->driver_iref, usb_driver_bind_cb, st,
             get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
@@ -517,6 +517,7 @@ int main(int argc, char *argv[])
         uintptr_t controller_base = base + strtoul(argv[i + 1], NULL, 10);
         if (strcmp(argv[i], "ehci") == 0) {
             hc = malloc(sizeof(*hc));
+            memset(hc, 0, sizeof(*hc));
             uerr = usb_hc_init(hc, USB_EHCI, controller_base);
         }
 
@@ -545,7 +546,6 @@ int main(int argc, char *argv[])
      * registring interrupt handler
      * inthandler_setup()
      */
-
     struct waitset *ws = get_default_waitset();
     while (1) {
         err = event_dispatch(ws);

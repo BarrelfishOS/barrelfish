@@ -37,6 +37,7 @@ static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
         .endpoint = USB_ENDPOINT_ADDRESS_ANY, /* any address */
         .direction = USB_ENDPOINT_DIRECTION_IN,
         .max_bytes = 0, /* use wMaxPacketSize */
+        .interval = 0, /* use bInterval from endpoint */
         .flags = {
             .short_xfer_ok = 1,
             .pipe_on_falure = 1,
@@ -54,269 +55,6 @@ static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
     },
 };
 
-#define USB_KEYBOARD_KEY_INDEX(c)      ((c) & 0xFF)
-#define NN 0                /* no translation */
-
-static const uint8_t usb_keyboard_keycodes[256] = {
-    0,
-    0,
-    0,
-    0,
-    30,
-    48,
-    46,
-    32, /* 00 - 07 */
-    18,
-    33,
-    34,
-    35,
-    23,
-    36,
-    37,
-    38, /* 08 - 0F */
-    50,
-    49,
-    24,
-    25,
-    16,
-    19,
-    31,
-    20, /* 10 - 17 */
-    22,
-    47,
-    17,
-    45,
-    21,
-    44,
-    2,
-    3, /* 18 - 1F */
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11, /* 20 - 27 */
-    28,
-    1,
-    14,
-    15,
-    57,
-    12,
-    13,
-    26, /* 28 - 2F */
-    27,
-    43,
-    43,
-    39,
-    40,
-    41,
-    51,
-    52, /* 30 - 37 */
-    53,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    64, /* 38 - 3F */
-    65,
-    66,
-    67,
-    68,
-    87,
-    88,
-    92,
-    70, /* 40 - 47 */
-    104,
-    102,
-    94,
-    96,
-    103,
-    99,
-    101,
-    98, /* 48 - 4F */
-    97,
-    100,
-    95,
-    69,
-    91,
-    55,
-    74,
-    78,/* 50 - 57 */
-    89,
-    79,
-    80,
-    81,
-    75,
-    76,
-    77,
-    71, /* 58 - 5F */
-    72,
-    73,
-    82,
-    83,
-    86,
-    107,
-    122,
-    NN, /* 60 - 67 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* 68 - 6F */
-    NN,
-    NN,
-    NN,
-    NN,
-    115,
-    108,
-    111,
-    113, /* 70 - 77 */
-    109,
-    110,
-    112,
-    118,
-    114,
-    116,
-    117,
-    119, /* 78 - 7F */
-    121,
-    120,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    123, /* 80 - 87 */
-    124,
-    125,
-    126,
-    127,
-    128,
-    NN,
-    NN,
-    NN, /* 88 - 8F */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* 90 - 97 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* 98 - 9F */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* A0 - A7 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* A8 - AF */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* B0 - B7 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* B8 - BF */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* C0 - C7 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* C8 - CF */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* D0 - D7 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* D8 - DF */
-    29,
-    42,
-    56,
-    105,
-    90,
-    54,
-    93,
-    106, /* E0 - E7 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* E8 - EF */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN, /* F0 - F7 */
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-    NN,
-/* F8 - FF */
-};
-
 /**
  *
  */
@@ -329,6 +67,7 @@ static void usb_keyboard_put_key(uint32_t key)
         if (keyboard.input_tail >= USB_KEYBOARD_IN_BUFSIZE) {
             keyboard.input_tail = 0;
         }
+        USB_DEBUG_KBD("buffer: but key %x\n", key);
     } else {
         debug_printf("WARNING: input buffer is full\n");
     }
@@ -348,6 +87,7 @@ static int32_t usb_keyboard_get_key(void)
 
     if (keyboard.input_size == 0) {
         c = -1;
+        USB_DEBUG_KBD("buffer: return no key \n");
     } else {
         c = keyboard.input[keyboard.input_head];
         --(keyboard.input_size);
@@ -355,13 +95,125 @@ static int32_t usb_keyboard_get_key(void)
         if (keyboard.input_head >= USB_KEYBOARD_IN_BUFSIZE) {
             keyboard.input_head = 0;
         }
+        USB_DEBUG_KBD("buffer: return key %x\n", c);
     }
     return (c);
 }
 
-static void usb_keyboard_keyaction(keycode & 0x7F, keycode & 0x80)
+static uint32_t usb_keyboard_keyaction(uint32_t keycode, uint32_t up)
 {
+    union usb_keyboard_modifiers *mods = &keyboard.state;
 
+    uint32_t action;
+    struct usb_key_map *key = &usb_keyboard_key_map[keycode];
+
+    uint32_t state = ((mods->shift_l | mods->shift_r) ? 1 : 0)
+            | ((mods->ctrl_l | mods->ctrl_r) ? 2 : 0)
+            | ((mods->alt_l | mods->alt_r) ? 4 : 0);
+
+    if (((key->flgs & 0x1) && mods->clock)
+            || ((key->flgs & 0x02) && mods->nlock)) {
+        state ^= 1;
+    }
+
+    if (up) {
+        USB_DEBUG_KBD(
+                "keyaction release: key = %x, %c\n", key->map[0], key->map[0]);
+        action = keyboard.last_active[keycode];
+        keyboard.last_active[keycode] = NOP;
+
+        switch (action) {
+            case LSH:
+                mods->shift_l = 0;
+                break;
+            case RSH:
+                mods->shift_r = 0;
+                break;
+            case RCTR:
+                mods->ctrl_r = 0;
+                break;
+            case LCTR:
+                mods->ctrl_l = 0;
+                break;
+            case LALT:
+                mods->alt_l = 0;
+                break;
+            case RALT:
+                mods->alt_r = 0;
+                break;
+            case NLK:
+                //mods->nlock ^= 1;
+                break;
+            case SLK:
+                //mods->slock ^= 1;
+                break;
+            case CLK:
+                //mods->clock ^= 1;
+                break;
+            case NOP:
+                /* release of normal key */
+                return (USB_KEYBOARD_KEY_NOKEY);
+        }
+        return (SPCLKEY | RELKEY | action);
+    } else {
+        /* key press */
+        action = key->map[state];
+        USB_DEBUG_KBD(
+                "keyaction release: key = [%x, %x], [%c, %c]\n", key->map[0], key->map[state], key->map[0], key->map[state]);
+
+        if (key->spcl & (0x80 >> state)) {
+            if (keyboard.last_active[keycode] == NOP) {
+                keyboard.last_active[keycode] = action;
+            }
+            if (keyboard.last_active[keycode] != action) {
+                action = NOP;
+            }
+            switch (action) {
+                case NLK:
+                    mods->nlock ^= 1;
+                    break;
+                case SLK:
+                    mods->slock ^= 1;
+                    break;
+                case CLK:
+                    mods->clock ^= 1;
+                    break;
+                case BTAB:
+                    action |= 0x08000000; /* back tab */
+                    break;
+                case LSH:
+                    mods->shift_l = 1;
+                    break;
+                case RSH:
+                    mods->shift_r = 1;
+                    break;
+                case LCTR:
+                    mods->ctrl_l = 1;
+                    break;
+                case RCTR:
+                    mods->ctrl_r = 1;
+                    break;
+                case LALT:
+                    mods->alt_l = 1;
+                    break;
+                case RALT:
+                    mods->alt_r = 1;
+                    break;
+                case NOP:
+                    return (USB_KEYBOARD_KEY_NOKEY);
+                    break;
+                default:
+                    USB_DEBUG_KBD("accents...\n");
+                    break;
+
+            }
+            return (0x80000000 | action);
+        } else {
+            keyboard.last_active[keycode] = NOP;
+            return (action);
+        }
+
+    }
 
 }
 
@@ -377,34 +229,44 @@ static void usb_keyboard_set_leds(void)
     req.bType.direction = USB_REQUEST_WRITE;
     req.bType.recipient = USB_REQUEST_RECIPIENT_INTERFACE;
     req.bType.type = USB_REQUEST_TYPE_CLASS;
-    req.wValue = USB_HID_REPORT_OUTPUT;
+    req.wValue = USB_HID_REPORT_OUTPUT<<8;
 
     req.wIndex = keyboard.usb_iface_number;
 
     memset(keyboard.buffer, 0, USB_KEYBOARD_BUFSIZE);
 
+
     uint8_t report_id = 0;
 
     if (keyboard.numlock.valid) {
-        if (keyboard.keyboard_led_state.numlock) {
+        if (keyboard.state.nlock) {
+            keyboard.keyboard_led_state.numlock = 1;
             usb_hid_put_data_unsigned(keyboard.buffer + 1,
                     USB_KEYBOARD_BUFSIZE - 1, &keyboard.numlock.loc, 1);
+        } else {
+            keyboard.keyboard_led_state.numlock = 1;
         }
         report_id = keyboard.numlock.report_id;
     }
 
     if (keyboard.scrolllock.valid) {
-        if (keyboard.keyboard_led_state.scrolllock) {
+        if (keyboard.state.slock) {
+            keyboard.keyboard_led_state.scrolllock = 1;
             usb_hid_put_data_unsigned(keyboard.buffer + 1,
                     USB_KEYBOARD_BUFSIZE - 1, &keyboard.scrolllock.loc, 1);
+        } else {
+            keyboard.keyboard_led_state.scrolllock = 1;
         }
         report_id = keyboard.scrolllock.report_id;
     }
 
     if (keyboard.capslock.valid) {
-        if (keyboard.keyboard_led_state.capslock) {
+        if (keyboard.state.clock) {
+            keyboard.keyboard_led_state.capslock = 1;
             usb_hid_put_data_unsigned(keyboard.buffer + 1,
                     USB_KEYBOARD_BUFSIZE - 1, &keyboard.capslock.loc, 1);
+        } else {
+            keyboard.keyboard_led_state.capslock = 0;
         }
         report_id = keyboard.capslock.report_id;
     }
@@ -424,10 +286,12 @@ static void usb_keyboard_set_leds(void)
         data = (void *) (&keyboard.buffer[1]);
     }
 
+    req.wLength = len;
+
     usb_error_t err = usb_do_request_write(&req, len, data);
 
     if (err != USB_ERR_OK) {
-        debug_printf("WARNING: set LED request not executed propperly\n");
+        debug_printf("WARNING: set LED request not executed propperly: %s\n", usb_get_error_string(err));
     }
 
 }
@@ -481,9 +345,8 @@ static uint32_t usb_keyboard_read_char(void)
 #else
         keycode = usb_keyboard_keycodes[USB_KEYBOARD_KEY_INDEX(usbcode)];
 
-        debug_printf("keycode = %c, %x, %x\n", keycode, keycode, usbcode);
-
         if (keycode == NN) {
+            USB_DEBUG_KBD("read char: no key (NN)\n");
             return (USB_KEYBOARD_KEY_NOKEY);
         }
 #endif
@@ -517,6 +380,9 @@ static uint32_t usb_keyboard_read_char(void)
                 break;
         }
 
+        USB_DEBUG_KBD(
+                "read char: ucode = %x, keycode = %x, released = %x\n", usbcode, keycode, usbcode & USB_KEYBOARD_KEY_RELEASE);
+
         if (usbcode & USB_KEYBOARD_KEY_RELEASE) {
             keycode |= USB_KEYBOARD_SCAN_RELEASE;
         }
@@ -540,7 +406,7 @@ static uint32_t usb_keyboard_read_char(void)
                     keyboard.composed_char *= 10;
                     keyboard.composed_char += keycode - 0x47;
                     if (keyboard.composed_char > 0xFF) {
-                        error = 1;
+                        return (USB_KEYBOARD_KEY_ERROR);
                     }
                     break;
                 case 0x4F:
@@ -550,13 +416,13 @@ static uint32_t usb_keyboard_read_char(void)
                     keyboard.composed_char *= 10;
                     keyboard.composed_char += keycode - 0x4E;
                     if (keyboard.composed_char > 0xFF) {
-                        error = 1;
+                        return (USB_KEYBOARD_KEY_ERROR);
                     }
                     break;
                 case 0x52:
                     keyboard.composed_char *= 10;
                     if (keyboard.composed_char > 0xFF) {
-                        error = 1;
+                        return (USB_KEYBOARD_KEY_ERROR);
                     }
                     break;
                     /* key released, no interest here */
@@ -585,9 +451,9 @@ static uint32_t usb_keyboard_read_char(void)
             }
         }
 
-
         action = usb_keyboard_keyaction(keycode & 0x7F, keycode & 0x80);
         if (action != USB_KEYBOARD_KEY_NOKEY) {
+            USB_DEBUG_KBD("read char: return code %x\n", action);
             return (action);
         }
     }
@@ -606,12 +472,27 @@ static void usb_keyboard_process_data(void)
         usb_keyboard_read();
     } else {
         uint32_t c;
+        char cp[2];
         while ((c = usb_keyboard_read_char()) != USB_KEYBOARD_KEY_NOKEY) {
-            debug_printf("GOT CHAR: %x, %c\n", c, c);
+            if (c < 0xFF) {
+                cp[0] = (char)(0xFF & c);
+                if (cp[0] == '\n') {
+                    cp[1] = cp[0];
+                    cp[0] = '\r';
+                    sys_print(cp, 2);
+                } else {
+                    sys_print(cp, 1);
+                }
+                //debug_printf("%c\n", 0xFF & c);
+                printf("f");
+            } else {
+                if ((c & SPCLKEY) && !(c & RELKEY)) {
+                   // debug_printf("special: %x\n", c);
+                    usb_keyboard_set_leds();
+                }
+            }
         }
     }
-    if (0)
-        usb_keyboard_set_leds();
 }
 
 /**
@@ -627,11 +508,12 @@ static void usb_keyboard_transfer_cb(usb_error_t err, void *data_in,
 {
     //USB_DEBUG("usb_keyboard_transfer_cb() %u\n", length);
 
-    uint8_t *p = data_in;
-    debug_printf("[%x][%x][%x][%x][%x][%x][%x][%x]\n", p[0], p[1], p[2], p[3],
-            p[4], p[5], p[6], p[7]);
-
     uint8_t *data = (uint8_t*) data_in;
+
+    //debug_printf("[%x][%x][%x][%x][%x][%x][%x][%x]\n", data[0], data[1], data[2],
+    //        data[3],data[4], data[5], data[6], data[7]);
+
+
 
     if (err != USB_ERR_OK) {
         debug_printf("WARNING: transfer not completed propperly.\n");
@@ -672,10 +554,9 @@ static void usb_keyboard_transfer_cb(usb_error_t err, void *data_in,
     USB_KEYBOARD_MODIFIER_CHECK(win_r);
     USB_KEYBOARD_MODIFIER_CHECK(win_l);
 
-    keyboard.old_data.modifiers = keyboard.modifiers;
+    keyboard.new_data.modifiers = keyboard.modifiers;
 
     if (keyboard.events.valid && (rid == keyboard.events.report_id)) {
-        USB_DEBUG("checking events...\n");
         uint32_t i = keyboard.events.loc.count;
         if (i > USB_KEYBOARD_KEYCODES) {
             i = USB_KEYBOARD_KEYCODES;
@@ -698,7 +579,7 @@ static void usb_keyboard_transfer_cb(usb_error_t err, void *data_in,
     union usb_keyboard_modifiers *old_mod = &keyboard.old_data.modifiers;
     union usb_keyboard_modifiers *new_mod = &keyboard.new_data.modifiers;
 
-    /* check for changed modifiers */
+    /* check for released modifiers keys */
     if (old_mod->generic != new_mod->generic) {
         USB_KEYBOARD_KEY_RELEASE_CHECK(ctrl_l, 0xe0);
         USB_KEYBOARD_KEY_RELEASE_CHECK(ctrl_r, 0xe4);
@@ -725,11 +606,13 @@ static void usb_keyboard_transfer_cb(usb_error_t err, void *data_in,
                 continue;
             }
             if (key == keyboard.new_data.keycode[j]) {
+                /* found the key again, so its not released...*/
                 found = 1;
                 break;
             }
         }
         if (!found) {
+            /* key is released. put key release into buffer */
             usb_keyboard_put_key(key | USB_KEYBOARD_KEY_RELEASE);
         }
     }
@@ -753,6 +636,11 @@ static void usb_keyboard_transfer_cb(usb_error_t err, void *data_in,
  * USB Keyboard initialization and de-initialization functions
  * --------------------------------------------------------------------------
  */
+
+#define USB_KEYBOARD_PARSE_DEBUG(_str, _key) \
+    USB_DEBUG_HID("%s: pos = %u, count = %u, size = %u, report_id = %u\n",\
+            _str, keyboard._key.loc.position, keyboard._key.loc.count,\
+        keyboard._key.loc.size, keyboard._key.report_id );
 
 /**
  * \brief   this function parses the HID descriptor and sets some special
@@ -778,6 +666,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.ctrl_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.ctrl_l.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("ctrl_l ", ctrl_l);
     }
 
     /* key CTRL right */
@@ -787,6 +677,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.ctrl_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.ctrl_r.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("ctrl_r ", ctrl_r);
     }
 
     /* key SHIFT left */
@@ -796,6 +688,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.shift_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.shift_l.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("shift_l", shift_l);
     }
 
     /* key SHIFT right */
@@ -805,6 +699,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.shift_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.shift_r.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("shift_r", shift_r);
     }
 
     /* key ALT left */
@@ -814,6 +710,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.alt_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.alt_l.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("alt_l  ", alt_l);
     }
 
     /* key ALT right */
@@ -823,6 +721,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.alt_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.alt_r.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("alt_r  ", alt_r);
     }
 
     /* key WIN left */
@@ -832,6 +732,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.win_l.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.win_l.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("win_l  ", win_l);
     }
 
     /* key WIN right */
@@ -841,13 +743,18 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.win_r.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.win_r.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("win_r  ", win_r);
     }
     /* figure out event buffer */
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_KEYBOARD, 0x00),
             USB_HID_KIND_INPUT, 0, &keyboard.events.loc, &flags,
             &keyboard.events.report_id)) {
+
         keyboard.events.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("events", events);
 
     }
 
@@ -855,14 +762,14 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
     keyboard.keyboard_led_size = usb_hid_report_size(ptr, len,
             USB_HID_KIND_OUTPUT, NULL);
 
-    USB_DEBUG("LED SIZE = %u\n", keyboard.keyboard_led_size);
-
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_LEDS, 0x01),
             USB_HID_KIND_OUTPUT, 0, &keyboard.numlock.loc, &flags,
             &keyboard.numlock.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.numlock.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("lednl ", numlock);
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_LEDS, 0x02),
@@ -870,6 +777,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.capslock.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.capslock.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("ledcs ", capslock);
     }
     if (usb_hid_locate(ptr, len,
             USB_HID_USAGE_COMBINE(USB_HID_USAGE_LEDS, 0x03),
@@ -877,6 +786,8 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
             &keyboard.scrolllock.report_id)) {
         if (flags & USB_HID_IO_VARIABLE)
             keyboard.scrolllock.valid = 1;
+
+        USB_KEYBOARD_PARSE_DEBUG("ledsl", scrolllock);
     }
 }
 
@@ -885,7 +796,7 @@ static void usb_keyboard_parse_hid(const uint8_t *ptr, uint32_t len)
  */
 usb_error_t usb_keyboard_init(void)
 {
-    USB_DEBUG("usb_keyboard_init()\n");
+    USB_DEBUG("usb_keyboard_init()...\n");
 
     memset(&keyboard, 0, sizeof(struct usb_keyboard));
 
@@ -918,6 +829,10 @@ usb_error_t usb_keyboard_init(void)
             &keyboard_tconf[USB_KEYBOARD_DATA], usb_keyboard_transfer_cb,
             &keyboard.xferids[USB_KEYBOARD_DATA]);
 
+    err = usb_transfer_setup_intr(
+                &keyboard_tconf[USB_KEYBOARD_DATA], usb_keyboard_transfer_cb,
+                &keyboard.xferids[USB_KEYBOARD_LED_CTRL]);
+
     if (err != USB_ERR_OK) {
         debug_printf("Failed to setup USB transfer: %s\n",
                 usb_get_error_string(err));
@@ -939,27 +854,27 @@ usb_error_t usb_keyboard_init(void)
     }
 
     if (err == USB_ERR_OK) {
-        USB_DEBUG("Parsing HID descriptor of %d bytes\n", (int16_t)hid_length);
+        USB_DEBUG_KBD("Parsing HID descriptor of %d bytes\n", (int16_t)hid_length);
         usb_keyboard_parse_hid((void *) hid_ptr, hid_length);
         free(hid_ptr);
     }
 
-    err = usb_hid_set_idle(0, 0, 0);
+    /* TODO: figure out why it takes so long with interrupts... */
+    err = usb_hid_set_idle(0, 12, 0);
     if (err != USB_ERR_OK) {
         USB_DEBUG("NOTICE: setting idle rate failed. (ignored)\n");
     }
 
     /* start the interrupt transfer */
     err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA]);
+    err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_LED_CTRL]);
     if (err != USB_ERR_OK) {
         USB_DEBUG(
                 "Failed to start the transfer: %s\n", usb_get_error_string(err));
     }
 
-    if (0) {
-        usb_keyboard_put_key(0);
-        usb_keyboard_get_key();
-    }
+    USB_DEBUG("keyboard initialized.\n");
+
     return (USB_ERR_OK);
 }
 

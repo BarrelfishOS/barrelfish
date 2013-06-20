@@ -49,6 +49,7 @@ static struct usb_hcdi_bus_fn usb_ehci_bus_fn =
     .set_hw_power_sleep = usb_ehci_sleep,
     .roothub_exec = usb_ehci_roothub_exec,
     .xfer_poll = usb_ehci_do_poll,
+    .xfer_finished = usb_ehci_xfer_is_finished,
 };
 
 
@@ -61,6 +62,10 @@ void usb_ehci_poll(usb_ehci_hc_t *hc) {
         repeat = 0;
         for (xfer = (&hc->controller->intr_queue.head)->first; xfer;
                 xfer = ((xfer))->wait_entry.next) {
+            if (xfer == ((xfer))->wait_entry.next) {
+                break;
+            }
+
             if (usb_ehci_xfer_is_finished(xfer)) {
                 repeat = 1;
             }

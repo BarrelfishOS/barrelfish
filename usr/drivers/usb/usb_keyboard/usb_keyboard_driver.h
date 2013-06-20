@@ -44,7 +44,10 @@ union usb_keyboard_modifiers {
         uint8_t win_r :1;
         uint8_t eject :1;
         uint8_t fn :1;
-        uint8_t _unused :6;
+        uint8_t slock : 1;
+        uint8_t nlock : 1;
+        uint8_t clock : 1;
+        uint8_t _unused :3;
     };
     uint16_t generic;
 };
@@ -81,15 +84,16 @@ struct usb_keyboard_data {
     uint8_t keycode[USB_KEYBOARD_KEYCODES];  ///> the extracted keycode
 };
 
-#define USB_KEYBOARD_KEY_ERROR 0x01
-#define USB_KEYBOARD_KEY_NOKEY 0x0
+
+#define USB_KEYBOARD_KEY_ERROR 0x20000000 //0x01
+#define USB_KEYBOARD_KEY_NOKEY 0x01000000 //0x0
 #define USB_KEYBOARD_KEY_PRESS 0x00
 #define USB_KEYBOARD_KEY_RELEASE 0x400
 #define USB_KEYBOARD_SCAN_RELEASE 0x80
 
 struct usb_keyboard_key {
-    uint8_t report_id;
     struct usb_hid_location loc;
+    uint8_t report_id;
     uint8_t valid;
 };
 
@@ -108,6 +112,7 @@ struct usb_keyboard {
     struct usb_keyboard_key capslock;
     struct usb_keyboard_key scrolllock;
 
+    union usb_keyboard_modifiers state;
     union usb_keyboard_modifiers modifiers;
     struct usb_keyboard_data new_data;
     struct usb_keyboard_data old_data;
@@ -116,6 +121,7 @@ struct usb_keyboard {
     usb_xfer_id_t xferids[USB_KEYBOARD_NUM_TRANSFERS];
     uint8_t buffer[USB_KEYBOARD_BUFSIZE];
 
+    uint32_t last_active[128];
     uint32_t composed_char;
     uint8_t composed_done;
 
@@ -141,5 +147,9 @@ typedef struct usb_keyboard usb_keyboard_t;
 
 void usb_keyboard_deinit(void);
 usb_error_t usb_keyboard_init(void);
+
+//#define USB_DEBUG_KBD(x...) debug_printf(x)
+#define USB_DEBUG_KBD(x...)
+
 
 #endif /* USB_KEYBOARD_DRIVER_H_ */

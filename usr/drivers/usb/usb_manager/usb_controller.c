@@ -92,6 +92,7 @@ usb_error_t usb_hc_init(usb_host_controller_t *hc, usb_hc_version_t version,
 
     }
 
+    hc->initialized = 1;
     return (USB_ERR_OK);
 }
 

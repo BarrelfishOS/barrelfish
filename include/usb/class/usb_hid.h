@@ -107,11 +107,11 @@ typedef struct usb_hid_descriptor usb_hid_descriptor_t;
  *
  */
 enum usb_hid_kind {
-    USB_HID_KIND_INPUT,         ///<
-    USB_HID_KIND_OUTPUT,        ///<
-    USB_HID_KIND_FEATURE,       ///<
-    USB_HID_KIND_COLLECTION,    ///<
-    USB_HID_KIND_ENDCOLLECTION,  ///<
+    USB_HID_KIND_INPUT = 0,         ///<
+    USB_HID_KIND_OUTPUT = 1,        ///<
+    USB_HID_KIND_FEATURE = 2,       ///<
+    USB_HID_KIND_COLLECTION = 3,    ///<
+    USB_HID_KIND_ENDCOLLECTION = 4,  ///<
 };
 
 /**
@@ -438,8 +438,7 @@ struct usb_hid_request {
 /* Usages, Consumer */
 #define USB_HID_USAGE_AC_PAN      0x0238
 
-#define USB_HID_USAGE_COMBINE(x,y) \
-    (((x) << 16) | (y))
+#define USB_HID_USAGE_COMBINE(x,y) (((x) << 16) | (y))
 
 struct usb_hid_data *usb_hid_start_parse(const void *d, uint32_t len,
         int32_t kindset);

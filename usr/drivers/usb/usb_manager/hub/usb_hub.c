@@ -735,7 +735,38 @@ void usb_hub_bandwidth_alloc(struct usb_xfer *xfer)
 
 void usb_hub_bandwidth_free(struct usb_xfer *xfer)
 {
-    assert(!"NYI.");
+
+    struct usb_device *dev;
+    uint8_t slot;
+    uint8_t mask;
+
+    dev = xfer->device;
+
+    xfer->endpoint->ref_bandwidth--;
+    if (xfer->endpoint->ref_bandwidth != 0) {
+        /* the allocated bandwidth is still needed.. */
+        return;
+    }
+
+    switch (xfer->type) {
+        case USB_TYPE_INTR:
+        case USB_TYPE_ISOC:
+
+            slot = xfer->endpoint->hs_uframe;
+            mask = xfer->endpoint->hs_smask;
+            ;
+
+            usb_hub_bandwidth_adjust(dev, -xfer->max_frame_size, slot,
+                    mask >> slot);
+
+            xfer->endpoint->hs_uframe = 0;
+            xfer->endpoint->hs_cmask = 0;
+            xfer->endpoint->hs_smask = 0;
+            break;
+
+        default:
+            break;
+    }
 }
 
 /**

@@ -185,7 +185,7 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
 
         obj_last = NULL;
 
-        //USB_DEBUG("usb_ehci_xfer_setup() Allocating %u QHs...\n", num_qh);
+        USB_DEBUG_XFER_HC("usb_ehci_xfer_setup() Allocating %u QHs...\n", num_qh);
         for (td_alloc = 0; td_alloc < num_qh; td_alloc++) {
             usb_ehci_qh_t *qh = usb_ehci_qh_alloc();
             if (qh == NULL) {
@@ -230,6 +230,7 @@ void usb_ehci_xfer_unsetup(struct usb_xfer *xfer)
 
 void usb_ehci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
 {
+
     USB_DEBUG_TR_ENTER;
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
@@ -406,7 +407,6 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
                     length_avg -= USB_EHCI_BUFFER_SIZE;
                     buf_offset += USB_EHCI_BUFFER_SIZE;
-                    /* TODO: set to the pages ... */
                     td->qtd_bp[pages_count].bp = (setup->pages->phys_addr
                             + buf_offset) & (~0xFFF);
 
@@ -472,6 +472,8 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
     xfer->flags_internal.curr_dma_set ^= 1;
 
     usb_ehci_qtd_t *td = xfer->hcd_td_start[xfer->flags_internal.curr_dma_set];
+
+    assert(td != NULL);
 
     xfer->hcd_td_first = td;
     xfer->hcd_td_cache = td;
@@ -798,18 +800,18 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
 
     if (status & USB_EHCI_QTD_STATUS_HALTED) {
         while (qtd) {
-            USB_DEBUG(
+            USB_DEBUG_XFER_HC(
                     "QTD Status: %x, errorcount = %u\n", qtd->qtd_token.status, qtd->qtd_token.err_count);
             qtd = qtd->obj_next;
         }
-        USB_DEBUG("NOTICE: status = %x\n", status);
-        USB_DEBUG(
+        USB_DEBUG_XFER_HC("NOTICE: status = %x\n", status);
+        USB_DEBUG_XFER_HC(
                 "---babble detected = %u\n", (status & USB_EHCI_QTD_STATUS_BABBLE) > 0);
-        USB_DEBUG(
+        USB_DEBUG_XFER_HC(
                 "---transfer error = %u\n", (status & USB_EHCI_QTD_STATUS_TRANS_ERR) > 0);
-        USB_DEBUG(
+        USB_DEBUG_XFER_HC(
                 "---buffer error = %u\n", (status & USB_EHCI_QTD_STATUS_DATA_ERR) > 0);
-        USB_DEBUG(
+        USB_DEBUG_XFER_HC(
                 "---missed micro frame= %u\n", (status & USB_EHCI_QTD_STATUS_MISS) > 0);
 
         USB_DEBUG_TR_RETURN;
@@ -855,6 +857,7 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
             return;
         }
     }
+
     /* loop over the xfer till we get actual frames == num frames */
     while (xfer->actual_frames < xfer->num_frames) {
         err = usb_ehci_xfer_done_process_frames(xfer);
@@ -890,6 +893,10 @@ uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR_ENTER;
 
+
+
+    assert(xfer != NULL);
+
     if (xfer->type == USB_TYPE_ISOC) {
         /*
          * TODO Handling of isochronus transfers
@@ -905,8 +912,15 @@ uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
     /*
      * non isochronus transfer
      */
-    usb_ehci_qtd_t *qtd = xfer->hcd_td_cache;
+    usb_ehci_qtd_t *qtd = ((xfer->hcd_td_cache != NULL) ? xfer->hcd_td_cache : xfer->hcd_td_first);
     usb_ehci_qh_t *qh = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
+
+    if (qtd == NULL) {
+        return (0);
+    }
+
+    assert(qtd != NULL);
+    assert(qh != NULL);
 
     uint8_t status = qh->qh_status.status;
 

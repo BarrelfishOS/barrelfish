@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2013 ETH Zurich.
+/ * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -153,6 +153,9 @@ typedef struct usb_status usb_status_t;
 
 #define USB_DEBUG_IDC(x...)
 //#define USB_DEBUG_IDC(x...) USB_DEBUG(x)
+
+//#define USB_DEBUG_HID(x...) debug_printf(x)
+#define USB_DEBUG_HID(x...)
 
 
 usb_error_t usb_lib_init(uint8_t init_config);

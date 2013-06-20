@@ -67,6 +67,7 @@ static void usb_xfer_state_enq(struct usb_xfer_state *state)
     state->prev = NULL;
     state->next = xfers;
     xfers->prev = state;
+    xfers = state;
 }
 
 /**
@@ -132,10 +133,7 @@ void usb_driver_rx_done_notify(struct usb_driver_binding *b,
     free(data);
 }
 
-void usb_driver_rx_detach_notify(struct usb_driver_binding *b)
-{
 
-}
 
 
 

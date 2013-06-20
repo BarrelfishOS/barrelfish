@@ -16,12 +16,12 @@ struct usb_device_request;
 
 /// struct for managing the request state
 struct usb_request_state {
+    usb_error_t error;
     struct usb_manager_binding *bind;
     void (*callback)(void *a);
     void *data;
     struct usb_device_request *req;
     uint16_t data_length;
-    usb_error_t error;
     struct usb_xfer *xfer;
 };
 

@@ -186,8 +186,6 @@ static void usb_ehci_xfer_intr_open(struct usb_xfer *xfer)
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
 
-
-
     usb_hub_bandwidth_alloc(xfer);
 
     /*
@@ -252,6 +250,8 @@ static void usb_ehci_xfer_intr_enter(struct usb_xfer *xfer)
 static void usb_ehci_xfer_intr_start(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR_ENTER;
+
+    assert(xfer != NULL);
 
    // get the host controller of this transfer
    usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;

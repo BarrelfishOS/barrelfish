@@ -36,7 +36,15 @@ void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer)
     USB_DEBUG_TR_ENTER;
 
     if (xfer->wait_queue == NULL) {
-        USB_DEBUG_XFER("adding transfer to a wait queue.\n");
+
+
+            USB_DEBUG_XFER("add: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
+                    xfer->xfer_id, queue, &queue->head.first,
+                    queue->head.last_next, xfer->wait_entry.next,
+                    &xfer->wait_entry.next, xfer->wait_entry.prev_next);
+
+
+
         assert(queue != NULL);
 
         xfer->wait_queue = queue;
@@ -46,6 +54,7 @@ void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer)
 
         *(&queue->head)->last_next = (xfer);
         (&queue->head)->last_next = &(((xfer))->wait_entry.next);
+
     }
 
     USB_DEBUG_TR_RETURN;
@@ -64,8 +73,11 @@ void usb_xfer_dequeue(struct usb_xfer *xfer)
     struct usb_xfer_queue *queue;
 
     queue = xfer->wait_queue;
+
     if (queue) {
+
         USB_DEBUG_XFER("removing the transfer from the wait queue\n");
+
         if ((xfer->wait_entry.next) != NULL)
             (xfer->wait_entry.next)->wait_entry.prev_next = xfer->wait_entry
                     .prev_next;
@@ -75,6 +87,13 @@ void usb_xfer_dequeue(struct usb_xfer *xfer)
         *(xfer)->wait_entry.prev_next = (xfer->wait_entry.next);
 
         xfer->wait_queue = NULL;
+
+
+        USB_DEBUG_XFER("rem: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
+                    xfer->xfer_id, queue, &queue->head.first,
+                    queue->head.last_next, xfer->wait_entry.next,
+                    &xfer->wait_entry.next, xfer->wait_entry.prev_next);
+
     }
 
     USB_DEBUG_TR_RETURN;
@@ -105,20 +124,30 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
         return;
     }
 
-    /* clear the transferring flag */
-    xfer->flags_internal.transferring = 0;
+    if (!xfer->flags_internal.transferring && !xfer->flags_internal.started) {
+        /* command wrapper */
+        return;
+    }
+
+    if ((!xfer->flags_internal.pipe_open)
+            && (!xfer->flags_internal.transfer_closed)) {
+        xfer->endpoint->pipe_fn->close(xfer);
+        xfer->flags_internal.transfer_closed = 1;
+        /* return 1 */
+    }
 
     // update error condition
     xfer->error = err;
 
     if (err != USB_ERR_OK) {
-        USB_DEBUG("Transfer done with error: %s\n", usb_get_error_string(err));
+        USB_DEBUG_XFER("Transfer done with error: %s\n", usb_get_error_string(err));
     }
 
     /*
      * the transfer was enqueued and is waiting on the interrupt queue
      * so we have to dequeue it...
      */
+
     usb_xfer_dequeue(xfer);
 
     if (xfer->actual_frames > xfer->num_frames) {
@@ -148,28 +177,54 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
         }
     }
 
+    xfer->flags_internal.ctrl_active = 0;
+
+    /* clear the transferring flag */
+    xfer->flags_internal.transferring = 0;
+
+    if (xfer->xfer_done_cb && xfer->flags_internal.notify
+            && xfer->host_controller->done_queue.current != xfer) {
+        // usb_xfer_enqueue(&xfer->host_controller->done_queue, xfer);
+    }
+
     /*
      * if the transfer was the current one being served on the endpoint
      * we have to update the current transfer pointer
      */
     struct usb_endpoint *ep = xfer->endpoint;
     struct usb_xfer_queue *q = &ep->transfers;
-    if (q->current == xfer) {
+
+    if (q->current == xfer || q->current == NULL) {
         USB_DEBUG_XFER("usb_xfer_done()->remove the xfer from ep list..\n");
         /* TODO: start next one if any*/
         q->current = NULL;
-        struct usb_xfer *next_xfer = ((&q->head)->first);
-        if (next_xfer) {
-            if (((next_xfer->wait_entry.prev_next)) != NULL)
-                (*(next_xfer->wait_entry.prev_next))->wait_entry.prev_next =
-                        next_xfer->wait_entry.prev_next;
-            else {
-                (&q->head)->last_next = next_xfer->wait_entry.prev_next;
+        if (!q->recurse_1) {
+            q->recurse_1 = 1;
+            struct usb_xfer *next_xfer = ((&q->head)->first);
+            if (next_xfer) {
+                if (((next_xfer->wait_entry.next)) != NULL) {
+                    (*(next_xfer->wait_entry.prev_next))->wait_entry.prev_next =
+                            next_xfer->wait_entry.prev_next;
+                    *(next_xfer)->wait_entry.prev_next = next_xfer->wait_entry
+                            .next;
+                } else {
+                    (&q->head)->last_next = &(q->head.first);  //next_xfer->wait_entry.prev_next;
+                    (&q->head)->first = NULL;  //&q->head.first;
+                }
+
+                (next_xfer)->wait_queue = NULL;
+                q->current = next_xfer;
+                USB_DEBUG_XFER(
+                        "rem2: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
+                        xfer->xfer_id, q, &q->head.first, q->head.last_next,
+                        xfer->wait_entry.next, &xfer->wait_entry.next,
+                        xfer->wait_entry.prev_next);
+                (q->command)(q);
+            } else {
+                (&q->head)->last_next = &q->head.first;  //next_xfer->wait_entry.prev_next;
+                (&q->head)->first = NULL;  //&q->head.first;
             }
-            *(next_xfer)->wait_entry.prev_next = next_xfer->wait_entry.next;
-            (next_xfer)->wait_queue = NULL;
-            q->current = next_xfer;
-            (q->command)(q);
+            q->recurse_1 = 0;
         }
         if (!(ep->transfers.current || ((&ep->transfers.head)->first))) {
             xfer->endpoint->is_sync = 0;
@@ -177,13 +232,9 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
 
     }
 
-
     //todo: send message to driver that transfer is completed
-    if (xfer->xfer_done_cb) {
-        struct usb_xfer_queue *done_queue = &xfer->host_controller->done_queue;
-        if (done_queue->current != xfer) {
-            usb_xfer_enqueue(done_queue, xfer);
-        }
+    if (xfer->xfer_done_cb && xfer->flags_internal.notify) {
+        xfer->flags_internal.notify = 0;
         (xfer->xfer_done_cb)(xfer, err);
     }
 
@@ -395,7 +446,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             if (xfer->interval == 0) {
                 /* interval is not set, get it from the endpoint descriptor */
                 xfer->interval = ep_desc->bInterval;
-
                 /*
                  * since the frames have different durations for FULL/LOW speed
                  * and high speed devices we have to do conversion

@@ -60,6 +60,12 @@ static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
     bound = 1;
 }
 
+void usb_driver_rx_detach_notify(struct usb_driver_binding *b)
+{
+    debug_printf("device detached... exiting driver.");
+    exit(0);
+}
+
 static struct usb_driver_rx_vtbl drv_rx_vtbl = {
     .device_detach_notify = usb_driver_rx_detach_notify,
     .transfer_done_notify = usb_driver_rx_done_notify,
@@ -131,7 +137,7 @@ usb_error_t usb_lib_init(uint8_t init_config)
     uint8_t *tmp;
     size_t length;
 
-    err = usb_manager.vtbl.connect(&usb_manager, usb_driver_iref, 0,
+    err = usb_manager.vtbl.connect(&usb_manager, usb_driver_iref, init_config,
             &ret_status, &tmp, &length);
 
     if (((usb_error_t) ret_status) != USB_ERR_OK) {

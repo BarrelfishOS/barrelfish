@@ -14,8 +14,6 @@
 #include <usb/usb.h>
 #include <usb/usb_descriptor.h>
 
-
-
 #include <usb_controller.h>
 
 #include <usb_xfer.h>
@@ -26,13 +24,15 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
     USB_DEBUG_TR_ENTER;
 
     struct usb_xfer *xfer = queue->current;
+
+    assert(xfer != NULL);
+
     struct usb_endpoint *ep = xfer->endpoint;
 
     uint8_t type;
 
     if (ep->is_stalled) {
-        USB_DEBUG_XFER("NOTICE: endpoint is already stalled...\n");
-        USB_DEBUG_TR_RETURN;
+        USB_DEBUG_XFER("NOTICE: endpoint is already stalled...\n"); USB_DEBUG_TR_RETURN;
         return;
     }
 
@@ -41,7 +41,6 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
         /* TODO: Stall pipe */
         assert(!"NYI: Stall pipe");
     }
-
 
     if (xfer->num_frames == 0) {
         USB_DEBUG_XFER("NOTICE: No frames to process... finishing transfer");
@@ -52,13 +51,13 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
 
     if (xfer->interval > 0) {
         type = (ep->descriptor->bmAttributes.xfer_type);
-        switch(type) {
+        switch (type) {
             case USB_ENDPOINT_TYPE_BULK:
             case USB_ENDPOINT_TYPE_CONTROL:
                 /* delay the transfer start...
                  * usbd_transfer_timeout_ms(xfer,
-                &usbd_transfer_start_cb,
-                xfer->interval);
+                 &usbd_transfer_start_cb,
+                 xfer->interval);
                  *
                  * */
                 assert(!"NYI: delayed start");
@@ -71,6 +70,7 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
     }
 
     if (xfer->error == USB_ERR_OK) {
+        xfer->flags_internal.notify = 1;
         ep->pipe_fn->start(xfer);
     }
 
@@ -106,32 +106,38 @@ void usb_pipe_enter(struct usb_xfer *xfer)
 
     if (ep->transfers.current != xfer) {
         usb_xfer_enqueue(&ep->transfers, xfer);
+
+
         if (ep->transfers.current != NULL) {
             USB_DEBUG_XFER("Some thing is already processing...\n");
+
             USB_DEBUG_TR_RETURN;
             return;
         }
     }
 
+    if (!ep->transfers.recurse_1) {
+        ep->transfers.recurse_1 = 1;
+        if (ep->transfers.current == NULL) {
+            xfer = ep->transfers.head.first;
 
-    if (ep->transfers.current == NULL) {
-        xfer = ep->transfers.head.first;
-        if (xfer) {
-
-            if (xfer->wait_entry.next != NULL) {
-                xfer->wait_entry.next->wait_entry.prev_next = xfer
-                        ->wait_entry.prev_next;
-            } else {
-                (&ep->transfers.head)->last_next = xfer->wait_entry.prev_next;
-
+            if (xfer) {
+                if (xfer->wait_entry.next != NULL) {
+                    xfer->wait_entry.next->wait_entry.prev_next = xfer
+                            ->wait_entry.prev_next;
+                    *(xfer->wait_entry.prev_next) = xfer->wait_entry.next;
+                } else {
+                    (&ep->transfers.head)->last_next = &(&ep->transfers.head)->first;
+                    (&ep->transfers.head)->first = NULL;
+                            //xfer->wait_entry.prev_next;
+                    xfer->wait_entry.prev_next = &xfer->wait_entry.next;
+                }
+                xfer->wait_queue = NULL;
+                ep->transfers.current = xfer;
+                USB_DEBUG_XFER("ep->transfers.command\n");
+                (ep->transfers.command)(&ep->transfers);
             }
-            *(xfer)->wait_entry.prev_next = xfer->wait_entry.next;
-            xfer->wait_queue = NULL;
-            ep->transfers.current = xfer;
+            ep->transfers.recurse_1 = 0;
         }
-        USB_DEBUG_XFER("ep->transfers.command\n");
-
-        (ep->transfers.command)(&ep->transfers);
-    }
-    USB_DEBUG_TR_RETURN;
+    } USB_DEBUG_TR_RETURN;
 }

@@ -219,7 +219,7 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
 {
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *)host->hc_control;
 
-    USB_DEBUG_HC("ehci controller handling interrupt..\n");
+    //USB_DEBUG_HC("ehci controller handling interrupt..\n");
 
     /*
      * read the status register and mask out the interrupts [5..0]

@@ -137,6 +137,7 @@ struct usb_xfer_queue {
         struct usb_xfer *first;
         struct usb_xfer **last_next;
     } head;
+
     struct usb_xfer *current;
     void (*command)(struct usb_xfer_queue *pq);
     uint8_t recurse_1 :1;

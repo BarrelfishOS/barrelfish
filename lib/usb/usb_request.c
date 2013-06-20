@@ -589,7 +589,7 @@ usb_error_t usb_do_request(struct usb_device_request *req)
     errval_t err;
     uint32_t ret_status = 0;
 
-    USB_DEBUG("libusb: usb_do_request()\n");
+    USB_DEBUG_IDC("libusb: usb_do_request()\n");
 
     err = usb_manager.vtbl.request(&usb_manager, (uint8_t*) req, sizeof(*req),
             &ret_status);
@@ -599,7 +599,7 @@ usb_error_t usb_do_request(struct usb_device_request *req)
         return (USB_ERR_IDC);
     }
 
-    USB_DEBUG("libusb: usb_do_request() succeeded\n");
+    USB_DEBUG_IDC("libusb: usb_do_request() succeeded\n");
 
     return ((usb_error_t) ret_status);
 }
@@ -615,17 +615,17 @@ usb_error_t usb_do_request_write(struct usb_device_request *req,
     errval_t err;
     uint32_t ret_status;
 
-    USB_DEBUG("libusb: usb_do_request_write()\n");
+    USB_DEBUG_IDC("libusb: usb_do_request_write()\n");
 
     err = usb_manager.vtbl.request_write(&usb_manager, (uint8_t*) req,
-            sizeof(req), (uint8_t *) data, length, &ret_status);
+            sizeof(*req), (uint8_t *) data, length, &ret_status);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "libusb: do_request_write rpc failed");
         return (USB_ERR_IDC);
     }
 
-    USB_DEBUG("libusb: usb_do_request_write() succeeded\n");
+    USB_DEBUG_IDC("libusb: usb_do_request_write() succeeded\n");
 
     return ((usb_error_t) ret_status);
 }
@@ -644,7 +644,7 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
     size_t length = 0;
     usb_error_t ret;
 
-    USB_DEBUG("libusb: usb_do_request_read()\n");
+    USB_DEBUG_IDC("libusb: usb_do_request_read()\n");
 
     err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
             sizeof(*req), (uint8_t **) &data, &length, &ret_status);
@@ -661,7 +661,7 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
         return (USB_ERR_IDC);
     }
 
-    USB_DEBUG("libusb: usb_do_request_read() got data (len=%i)\n", *ret_length);
+    USB_DEBUG_IDC("libusb: usb_do_request_read() got data (len=%i)\n", *ret_length);
 
     *ret_data = (void *) data;
 
