@@ -514,7 +514,7 @@ void usb_transfer_unsetup(struct usb_xfer **xfers, uint16_t xfer_count)
         xfer_count--;
         xfer = xfers[xfer_count];
 
-        if (xfers == NULL) {
+        if (xfer == NULL) {
             continue;
         }
 

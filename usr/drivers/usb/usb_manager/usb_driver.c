@@ -132,8 +132,6 @@ static char *usb_driver_lookup_iface(struct usb_device *dev)
     struct usb_interface_descriptor *idesc;
 
     char *path = NULL;
-    USB_DEBUG_DRIVER("looking up device class from interface\n");
-    USB_DEBUG_DRIVER(">> Parsing %u interfaces\n", dev->iface_max);
 
     uint32_t i = 0;
     while (iface != NULL && i < dev->iface_max) {

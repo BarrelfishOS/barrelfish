@@ -37,8 +37,6 @@ struct usb_driver_binding *driver_binding;
 /// the usb manager RPC client structure
 struct usb_manager_rpc_client usb_manager;
 
-/// string representing the usb manager service identifier
-static const char *usb_manager_name = "usb_manager_service";
 
 static volatile uint8_t bound = 0;
 static volatile uint8_t exported = 0;
@@ -114,7 +112,7 @@ usb_error_t usb_lib_init(uint8_t init_config)
         USER_PANIC_ERR(err, "could not export the driver interface");
     }
 
-    err = nameservice_blocking_lookup(usb_manager_name, &usb_manager_iref);
+    err = nameservice_blocking_lookup(USB_MANAGER_SERVICE, &usb_manager_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "USB manager service lookup failed");
     }

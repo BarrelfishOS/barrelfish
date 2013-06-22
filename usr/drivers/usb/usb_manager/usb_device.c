@@ -24,9 +24,6 @@
 #include <usb_hub.h>
 #include <usb_transfer.h>
 
-
-
-
 static void usb_device_cfg_free(struct usb_device *dev, uint8_t iface)
 {
     USB_DEBUG_TR_ENTER;
@@ -233,8 +230,7 @@ static usb_error_t usb_device_setup_descriptor(struct usb_device *dev)
     return (err);
 }
 
-usb_error_t usb_device_set_configuration(struct usb_device *dev,
-        uint8_t config)
+usb_error_t usb_device_set_configuration(struct usb_device *dev, uint8_t config)
 {
     USB_DEBUG_TR_ENTER;
 
@@ -347,8 +343,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     memset(dev, 0, sizeof(struct usb_device));
 
     dev->xfer_id = 0;
-
-
 
     /* initialize the device */
     dev->parent_hub = parent_hub;
@@ -491,88 +485,86 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
         hc->devices[device_index] = dev;
     }
 
-
     USB_DEBUG_TR_RETURN;
 
     return (dev);
 }
 
-
-
-
-
-
+static volatile uint8_t usb_device_detached = 0;
 
 static void usb_device_detach_cb(void *a)
 {
-    free(a);
+    debug_printf("detached..\n");
+    struct usb_device *st = a;
+    free(st->usb_driver_binding);
+    free(st->usb_manager_binding);
+    st->usb_driver_binding = NULL;
+    st->usb_manager_binding = NULL;
+    usb_device_detached = 1;
 }
 
 static void usb_device_detach_notify(void *a)
 {
 
-    struct usb_driver_binding *st = a;
+    struct usb_device *st = a;
     errval_t err;
 
     struct event_closure txcont = MKCONT(usb_device_detach_cb, st);
 
-    err = usb_driver_device_detach_notify__tx(st, txcont);
+    err = usb_driver_device_detach_notify__tx(st->usb_driver_binding, txcont);
 
     if (err_is_fail(err)) {
-           if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-               txcont = MKCONT(usb_device_detach_notify, st);
-               struct waitset *ws = get_default_waitset();
-               err = st->register_send(st, ws, txcont);
-               if (err_is_fail(err)) {
-                   DEBUG_ERR(err, "error register_send on binding failed!\n");
-               }
-           } else {
-               DEBUG_ERR(err, "error _retry(): sending response!\n");\
-               free(st);
-           }
-       }
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(usb_device_detach_notify, st);
+            struct waitset *ws = get_default_waitset();
+            err = st->usb_driver_binding->register_send(st->usb_driver_binding,
+                    ws, txcont);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "error register_send on binding failed!\n");
+            }
+        } else {
+            DEBUG_ERR(err, "error _retry(): sending response!\n");\
+            free(st->usb_driver_binding);
+            free(st->usb_manager_binding);
+            st->usb_driver_binding = NULL;
+            st->usb_manager_binding = NULL;
+        }
+    }
 }
-
-
 
 void usb_device_free(struct usb_device * device, uint8_t flag)
 {
+    usb_device_detached = 1;
     if (device->hub != NULL) {
         debug_printf("Device was a hub device: TODO: recurse on other..");
 
     } else {
-        usb_device_detach_notify(device->usb_driver_binding);
+        if (device->usb_driver_binding != NULL) {
+            usb_device_detached = 0;
+            usb_device_detach_notify(device);
+        }
     }
 
+    uint8_t timeout = 0;
+    while (!usb_device_detached) {
+        USB_WAIT(10);
+        if (timeout > 5) {
+            break;
+        }
+        timeout++;
+    }
 
-
-    // TODO: notify the device drivers
 
     struct usb_xfer *xfer = device->xfers;
     struct usb_xfer *xfer_next;
 
-
-
-    while(device->xfers != NULL) {
+    while (xfer != NULL) {
         xfer_next = xfer->device_xfers_next;
         usb_transfer_unsetup(&xfer, 1);
         xfer = xfer_next;
     }
 
-
-    /*
-     * 1) check if it is a hub device... and free up recursively
-     *
-     * 2) notiry the usb device driver
-     *
-     * 3) free up the transfers
-     *
-     * 4) free up the device
-     */
-
     device->controller->devices[device->device_index] = NULL;
-
-
 
     if (device->config_desc)
         free(device->config_desc);
@@ -586,8 +578,7 @@ void usb_device_free(struct usb_device * device, uint8_t flag)
         free(device->manifacturer);
     if (device->product)
         free(device->product);
-    if(device->ep_clear_stall)
+    if (device->ep_clear_stall)
         free(device->ep_clear_stall);
-
     free(device);
 }

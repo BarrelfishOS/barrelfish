@@ -134,8 +134,7 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
         }
 
         if (!ps.wPortStatus.connection) {
-            debug_printf("--------------------------------------\n");
-            debug_printf("Device detached: [%u, %u].\n",
+            debug_printf("Device detached from [Hub: %u, Port: %u].\n",
                     hub->device->device_address, portno);
             if (child != NULL) {
                 /* free up the device to restart fresh */
@@ -231,8 +230,7 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
             USB_DEBUG_DEV("new device in DEVICE_MODE\n");
             mode = USB_MODE_DEVICE;
         }
-        debug_printf("--------------------------------------\n");
-        debug_printf("new device attached on port [%u, %u]\n",
+        debug_printf("New device attached on [Hub: %u, Port: %u]\n",
                 hub->device->device_address, portno);
         child = usb_device_alloc(hub->device->controller, hub->device,
                 hub->device->depth + 1, portno - 1, portno, speed, mode);

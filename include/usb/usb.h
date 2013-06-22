@@ -136,8 +136,8 @@ typedef struct usb_status usb_status_t;
 //#define USB_DEBUG_REQ(x...) USB_DEBUG(x)
 #define USB_DEBUG_REQ(x...)
 
-#define USB_DEBUG_DEV(x...) USB_DEBUG(x)
-//#define USB_DEBUG_DEV(x...)
+//#define USB_DEBUG_DEV(x...) USB_DEBUG(x)
+#define USB_DEBUG_DEV(x...)
 
 //#define USB_DEBUG_TR_ENTER USB_DEBUG(">> %s()\n",  __func__)
 #define USB_DEBUG_TR_ENTER

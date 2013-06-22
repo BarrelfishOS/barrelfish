@@ -7,7 +7,6 @@
 #include <barrelfish/inthandler.h>
 
 #include <usb/usb.h>
-#include <usb/usb_error.h>
 
 #include <if/usb_driver_defs.h>
 #include <if/usb_manager_defs.h>
@@ -20,30 +19,37 @@
 #include <usb_driver.h>
 
 /*
- * ------------------------------------------------------------------------
- * Service connect
- * ------------------------------------------------------------------------
+ * ========================================================================
+ * Flounder callbacks and service connect handling
+ * ========================================================================
  */
-
-/// the service name to export
-static const char *usb_manager_name = "usb_manager_service";
 
 /**
  * struct representing the state of a new USB driver connection
  */
 struct usb_manager_connect_state {
     struct usb_manager_binding *b;      ///< the usb_manager_binding struct
-    struct usb_driver_binding *driver;
-    void *desc;                        ///< generic descriptor
+    struct usb_driver_binding *driver;  ///< the usb drivers service
+    void *desc;                         ///< configuration descriptor
     uint32_t length;                    ///< length of the descirptor
     usb_error_t error;                  ///< the outcome of the initial setup
-    iref_t driver_iref;
+    iref_t driver_iref;                 ///< the drivers iref
 };
 
+/**
+ * \brief callback for USB driver binding
+ *
+ * \param st the supplied state
+ * \param err the outcome of the binding process
+ * \param b the driver binding
+ *
+ * This function is the last step in the setup procedure and frees up the state
+ */
 static void usb_driver_bind_cb(void *st, errval_t err,
         struct usb_driver_binding *b)
 {
     USB_DEBUG_IDC("usb_driver_bind_cb\n");
+
     if (err_is_fail(err)) {
         USB_DEBUG("driver binding failed..\n");
     }
@@ -58,6 +64,13 @@ static void usb_driver_bind_cb(void *st, errval_t err,
     free(cs);
 }
 
+/*
+ * \brief callback for successful sent replies to the connect rpc
+ *
+ * \param a the state of the connection call
+ *
+ * This function binds to the USB driver iref
+ */
 static void usb_driver_connect_cb(void *a)
 {
     USB_DEBUG_IDC("usb_driver_connect_cb->binding...\n");
@@ -65,10 +78,18 @@ static void usb_driver_connect_cb(void *a)
     errval_t err = usb_driver_bind(st->driver_iref, usb_driver_bind_cb, st,
             get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
-
+        DEBUG_ERR(err, "usb driver bind failed");
+        usb_device_free(st->b->st, 0);
+        free(st->desc);
+        free(st);
     }
 }
 
+/*
+ * \brief sends the response to the connect rpc
+ *
+ * \param a the connection state
+ */
 static void usb_driver_connect_response(void *a)
 {
     errval_t err;
@@ -90,6 +111,8 @@ static void usb_driver_connect_response(void *a)
         } else {
             // error
             DEBUG_ERR(err, "error while seniding driver connect response");
+            /* free the device */
+            usb_device_free(st->b->st, 0);
             free(st->desc);
             free(st);
         }
@@ -97,7 +120,14 @@ static void usb_driver_connect_response(void *a)
 }
 
 /**
- * \brief
+ * \brief this function handles connections of new USB device driver processes
+ *
+ * \param bind  the binding which we received the connect cal
+ * \param driver_iref the iref of the usb driver
+ * \param init_config the initial configuration to set the device
+ *
+ * This function associates the USB device with an flounder binding. Further
+ * the usb manager connects to the usb drivers service for notifications
  */
 static void usb_rx_connect_call(struct usb_manager_binding *bind,
         iref_t driver_iref, uint16_t init_config)
@@ -113,20 +143,25 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
     st->b = bind;
     st->driver_iref = driver_iref;
 
-
+    // associate the bindings with the usb device
     usb_driver_connected(bind, st->driver, init_config);
 
-    st->error = USB_ERR_OK;
-
     if (bind->st == NULL) {
-        /* error */
+        /* if the connection fails, there will not be an association */
         debug_printf("ERROR: no state associated..\n");
         st->error = USB_ERR_IOERROR;
         usb_driver_connect_response(st);
         return;
     }
 
+    /*
+     * all went fine so the binding state pointer is now refering to the
+     * usb device and we can setup the reply
+     */
+
     struct usb_device *dev = bind->st;
+
+    /* we reply with the initial configuration descriptor */
     st->length = sizeof((dev->device_desc)) + dev->config_desc_size;
     st->desc = malloc(st->length);
 
@@ -134,13 +169,13 @@ static void usb_rx_connect_call(struct usb_manager_binding *bind,
     memcpy(st->desc + sizeof((dev->device_desc)), dev->config_desc,
             dev->config_desc_size);
 
+    st->error = USB_ERR_OK;
+
     // send response
     usb_driver_connect_response(st);
 }
 
-/**
- *
- */
+/// the receive function handles
 static struct usb_manager_rx_vtbl usb_manager_handle_fn = {
     .request_read_call = usb_rx_request_read_call,
     .request_write_call = usb_rx_request_write_call,
@@ -156,206 +191,59 @@ static struct usb_manager_rx_vtbl usb_manager_handle_fn = {
 };
 
 /**
+ * \brief this function sets the receive handlers for a newly connected
+ *        USB driver process
  *
+ * \param st the state (currently NULL)
+ * \param b  the binding of the new connection
  */
 static errval_t service_connected_cb(void *st, struct usb_manager_binding *b)
 {
-    debug_printf("service_connected_cb(): Setting handler functions.\n");
+    USB_DEBUG_IDC("service_connected_cb(): Setting handler functions.\n");
+
     b->rx_vtbl = usb_manager_handle_fn;
 
     return (SYS_ERR_OK);
 }
 
+/// state variable for the usb manager service
+static volatile uint8_t usb_manager_service_exported = 0;
+
 /**
+ * \brief call back function for the export of the USB manager service
  *
+ * \param st   the supplied state (currently NULL)
+ * \param err  the outcome of the service export
+ * \param iref the iref which the service is associated with
+ *
+ * NOTE: the usb manager blocks untill the service is exported and the
+ *       and registered with the name service.
  */
 static void service_exported_cb(void *st, errval_t err, iref_t iref)
 {
-    debug_printf("service_exported_cb(): Registring Nameserver.\n");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "service export failed.");
     }
 
-    err = nameservice_register(usb_manager_name, iref);
+    err = nameservice_register(USB_MANAGER_SERVICE, iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "registration with name server failed");
     }
+
+    usb_manager_service_exported = 1;
+
 }
 
-//static void* usb_subsystem_base = NULL;
-
-#if !__arm__
-#define USB_SUBSYSTEM_L4_OFFSET 0x00062000
-//#define USB_OHCI_OFFSET         (0x000A9000-USB_SUBSYSTEM_L4_OFFSET)
-#define USB_OHCI_OFFSET         0x00002800
-#define USB_EHCI_OFFSET         0x00002C00
-
-#define USB_ARM_EHCI_IRQ 109
-/*
+/**
+ * \brief this function maps the supplied device capability in our memory
  *
+ * The capability is expected to be in the argcn slot of the rootcn. The
+ * spawning domain has to ensure that the needed capability is at the right
+ * location.
+ *
+ * XXX: Maybe it would be better to move the caps into the inheritcn slot
+ *      to support one device capability per host controller.
  */
-static errval_t init_device_range(void)
-{
-    USB_DEBUG("doing pandaboard related setup...\n");
-    errval_t err;
-
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
-    assert(cl != NULL);
-
-    // Request I/O Cap
-    struct capref requested_caps;
-    errval_t error_code;
-
-    err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
-    assert(err_is_ok(err) && err_is_ok(error_code));
-
-    // Copy into correct slot
-
-    struct capref device_range_cap = NULL_CAP;
-
-    err = slot_alloc(&device_range_cap);
-    if (err_is_fail(err)) {
-        printf("slot alloc failed. Step 1\n");
-        return (err);
-    }
-    struct capref tiler_cap = NULL_CAP;
-
-    err = slot_alloc(&tiler_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 1\n");
-        return (err);
-    }
-
-    err = cap_retype(device_range_cap, requested_caps, ObjType_DevFrame, 29);
-
-    struct capref l3_ocm_ram = NULL_CAP;
-
-    err = slot_alloc(&l3_ocm_ram);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 2\n");
-        return (err);
-    }
-
-    err = cap_retype(l3_ocm_ram, device_range_cap, ObjType_DevFrame, 26);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retype the dev cap. Step 3\n");
-        return (err);
-    }
-
-    struct capref l3_config_registers_cap;
-    err = slot_alloc(&l3_config_registers_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot alloc failed. Step 4\n");
-        return (err);
-    }
-
-    struct capref l4_domains_cap;
-    err = slot_alloc(&l4_domains_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 5\n");
-        return (err);
-    }
-
-    struct capref emif_registers_cap;
-    err = slot_alloc(&emif_registers_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 6\n");
-        return (err);
-    }
-
-    struct capref gpmc_iss_cap;
-    err = slot_alloc(&gpmc_iss_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 7\n");
-        return (err);
-    }
-
-    struct capref l3_emu_m3_sgx_cap;
-    err = slot_alloc(&l3_emu_m3_sgx_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 8\n");
-        return (err);
-    }
-
-    struct capref display_iva_cap;
-    err = slot_alloc(&display_iva_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 9\n");
-        return (err);
-    }
-    struct capref tmp_cap = display_iva_cap;
-    tmp_cap.slot++;
-    cap_delete(tmp_cap);
-
-    struct capref l4_PER_domain_cap;
-    err = slot_alloc(&l4_PER_domain_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 12\n");
-        return (err);
-    }
-
-    struct capref l4_ABE_domain_cap;
-    err = slot_alloc(&l4_ABE_domain_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 11\n");
-        return (err);
-    }
-
-    struct capref l4_CFG_domain_cap;
-    err = slot_alloc(&l4_CFG_domain_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc failed. Step 12\n");
-        return (err);
-    }
-
-    err = cap_retype(l4_PER_domain_cap, l4_domains_cap, ObjType_DevFrame, 24);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retype the cap. Step 13\n");
-        return (err);
-    }
-    tmp_cap = l4_CFG_domain_cap;
-    tmp_cap.slot++;
-    cap_delete(tmp_cap);
-
-    struct frame_identity frameid;  // = {        0,        0    };
-
-    err = invoke_frame_identify(l4_CFG_domain_cap, &frameid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not identify the frame. Step 14\n");
-    }
-
-    struct capref dest = {
-        .cnode = cnode_root,
-        .slot = ROOTCN_SLOT_ARGCN
-    };
-
-    err = cap_copy(dest, l4_CFG_domain_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not copy to the argcn slot");
-    }
-
-    // get the 32 bit
-    uint32_t last = (uint32_t) (0xFFFFFFFF & (frameid.base));
-    uint32_t size2 = frameid.bits;
-
-    /* the L4 CFG domain cap must have address 0x4A000000 */
-    assert(last == 0x4a000000);
-
-    /* the size of the L4 CFG domain is 16k */
-    assert(((1 << size2) / 1024) == (16 * 1024));
-
-    err = inthandler_setup_arm(usb_hc_intr_handler, NULL, USB_ARM_EHCI_IRQ);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to enable interrupt. Step 16.\n");
-    }
-
-    USB_DEBUG("pandaboard related setup completed successfully.\n");
-
-    return (SYS_ERR_OK);
-}
-
-#endif
-
 static uintptr_t map_device_cap(void)
 {
     errval_t err;
@@ -365,11 +253,12 @@ static uintptr_t map_device_cap(void)
         .slot = ROOTCN_SLOT_ARGCN
     };
 
-    struct frame_identity frameid;  // = {        0,        0    };
+    struct frame_identity frameid;
 
     err = invoke_frame_identify(dev_cap, &frameid);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not identify the frame.\n");
+        USER_PANIC_ERR(err, "could not identify the frame.\n");
+        return (0);
     }
 
     void *ret_addr = NULL;
@@ -377,78 +266,130 @@ static uintptr_t map_device_cap(void)
 
     err = vspace_map_one_frame_attr(&ret_addr, size, dev_cap,
             VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to create a vspace mapping. Step 15\n");
+        USER_PANIC_ERR(err, "failed to create a vspace mapping.\n");
+        return (0);
     }
 
     return ((uintptr_t) ret_addr);
 }
 
+/*
+ * =========================================================================
+ * ARM and PandaBoard specific functions
+ * =========================================================================
+ */
 #if __arm__
-#define USB_SUBSYSTEM_L4_OFFSET 0x00062000
-#define USB_EHCI_OFFSET         0x00002C00
+
+// the offset into the supplied capability
+#define USB_CAPABILITY_OFFSET (0x00002C00 + 0x00062000)
+
+// the EHCI interrupt number on the pandaboard
 #define USB_ARM_EHCI_IRQ 109
+
+/**
+ * \brief this is a quick check function if everything is all right
+ *
+ * NOTE: there is just one specific setting possible on the PandaBoard
+ *       EHCI controller, with the specific capability and the specific offset
+ *       This function checks if these values match to ensure functionality
+ *       If you change something with the startup of the USB manager domain
+ *       you may need to change the values in this function!
+ */
 static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
 {
     USB_DEBUG("performing pandaboard integrity check.\n");
 
+    /* checking the host controller type */
     if (strcmp(argv[0], "ehci")) {
         debug_printf("wrong host controller type: %s\n", argv[0]);
         return (USB_ERR_INVAL);
     }
 
-    if (strtoul(argv[1], NULL, 10)
-            != ((uint32_t) USB_EHCI_OFFSET + USB_SUBSYSTEM_L4_OFFSET)) {
+    /* checking the memory offset */
+    if (strtoul(argv[1], NULL, 10) != ((uint32_t) USB_CAPABILITY_OFFSET)) {
         debug_printf("wrong offset!: %x (%s)\n", strtoul(argv[1], NULL, 10),
                 argv[1]);
         return (USB_ERR_INVAL);
     }
 
+    /* checking the IRQ number */
     if (strtoul(argv[2], NULL, 10) != USB_ARM_EHCI_IRQ) {
         debug_printf("wrong interrupt number: %s, %x", argv[2],
                 strtoul(argv[2], NULL, 10));
         return (USB_ERR_INVAL);
     }
 
-    /* the ehci ULPI register of the omap */
+    /*
+     * here we read some values from the ULPI register of the PandaBoards
+     * additional ULPI interface on the EHCI controller.
+     *
+     * The request are forwarded to the external ULPI receiver on the
+     * PandaBoard.
+     *
+     * NOTE: Not every EHCI controller has those register!
+     */
 
-    uint32_t tmp = USB_EHCI_OFFSET + USB_SUBSYSTEM_L4_OFFSET + (uint32_t) base;
+    uint32_t tmp = USB_CAPABILITY_OFFSET + (uint32_t) base;
 
-    /* read the debug register and check line state */
+    /*
+     * This request reads the debug register of the ULPI receiver. The values
+     * returned are the line state. If the returned value is 0x1 this means
+     * there is connection i.e. the USB hub on the PandaBoard is reachable.
+     */
     *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x15 << 16)
             | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+
+    /* wait till the request is done */
     while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
         printf("%c", 0xE);
 
     }
 
+    /* compare the result */
     if (!(*(((volatile uint32_t*) (tmp + 0x00A4))) & 0x1)) {
         return (USB_ERR_INVAL);
     }
 
-    /* read the vendor low register and check if it has the corrent value */
+    /*
+     * This request reads out the low part of the vendor id from the ULPI
+     * receiver on the PandaBoard. This should be 0x24.
+     *
+     * XXX: Assuming that all the Pandaboards have the same ULPI receiver
+     */
     *((volatile uint32_t*) (tmp + 0x00A4)) = (uint32_t) ((0x00 << 16)
             | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+
+    /* wait till request is done */
     while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
         printf("%c", 0xE);
     }
 
+    /* compare the values */
     if (0x24 != ((*((volatile uint32_t*) (tmp + 0x00A4))) & 0xFF)) {
         return (USB_ERR_INVAL);
     }
 
-    USB_DEBUG("pandaboard check passed. All fine.\n");
     return (USB_ERR_OK);
 }
-#endif
+
+#endif /* __arm__ */
 
 /*
  * ========================================================================
  * MAIN
+ * ========================================================================
  */
 
 /*
- * \brief   main
+ * \brief   main function of the usb manager
+ *
+ * The USB manager must be called with very the necessary arguments and supplied
+ * with the needed capability to access the device registers.
+ *
+ * On x86:
+ * On ARM:
  */
 int main(int argc, char *argv[])
 {
@@ -456,46 +397,56 @@ int main(int argc, char *argv[])
 
     debug_printf("USB Manager started.\n");
 
-    /*
-     * start the server
-     */
-    err = usb_manager_export(
-            NULL /* state pointer for connect/export callbacks */,
-            service_exported_cb, service_connected_cb, get_default_waitset(),
-            IDC_EXPORT_FLAGS_DEFAULT);
+    /* starting the usb manager service */
+    err = usb_manager_export(NULL, service_exported_cb, service_connected_cb,
+            get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
 
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to start the usb manager service.");
+        return (err);
+    }
+
+    /* wait till the service is exported */
+    while (!usb_manager_service_exported) {
+        event_dispatch(get_default_waitset());
+    }
+
+    /* map de device capability into our address space */
     uintptr_t base = map_device_cap();
 
-#if !__arm__
-    init_device_range();
-    argc = 2;
+    if (base == 0) {
+        USER_PANIC("failed to map the device capability");
+    }
 
-    /* just settuing up the params for the OMAP ehci controller */
-
-    uint32_t tmp = (uint32_t) USB_EHCI_OFFSET + USB_SUBSYSTEM_L4_OFFSET;
-    char ehci_base[4];
-    memcpy(ehci_base, &tmp, 4);
-    argv = (char *[]) {"ehci", ehci_base};
-#endif
-
+    /* the default tuple size is 2, since on x86 the interrupts can be routed */
     uint8_t arg_tuple_size = 2;
 
 #if __arm__
+
+    /* ARM / PandaBoard related setup and checks */
 
     if (pandaboard_checkup(base, argc, argv) != USB_ERR_OK) {
         USER_PANIC("Pandaboard checkup failed!\n");
     }
 
-    arg_tuple_size = 3;
     /*
-     * parse command line args
+     * the argument tuple size must be 3, i.e. the host usb manager expects
+     * [host-controller offset interrupt] as arguments, because the interrupts
+     * are fixed and cannot be allocated as we like.
      */
+    arg_tuple_size = 3;
+
+    /* checking the command line parameter count */
     if (argc != 3) {
         debug_printf("Usage: usb_manager [host-controller offset interrupt]\n");
     }
 
     uint32_t irq = strtoul(argv[2], NULL, 10);
 
+    /*
+     * setting up interrupt handler for the EHCI interrupt
+     * XXX: this should be done for each host controller eventually...
+     */
     err = inthandler_setup_arm(usb_hc_intr_handler, NULL, irq);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to enable interrupt. Step 16.\n");
@@ -511,28 +462,50 @@ int main(int argc, char *argv[])
     /* TODO: register interrupt routing.. */
 #endif
 
-    usb_error_t uerr = USB_ERR_OK;
+    usb_error_t uerr = USB_ERR_INVAL;
+
+    /*
+     * start initializing the host controllers supplied by the arguments
+     * XXX: Currently just one
+     */
     for (uint16_t i = 0; i < argc; i += arg_tuple_size) {
-        usb_host_controller_t *hc = NULL;
+
+        /* allocate the general host controller */
+        uerr = USB_ERR_INVAL;
+        usb_host_controller_t *hc = malloc(sizeof(*hc));
+        memset(hc, 0, sizeof(*hc));
+
         uintptr_t controller_base = base + strtoul(argv[i + 1], NULL, 10);
+
+        /* -------------------------------------------------------------------
+         * EHCI Controller
+         * -------------------------------------------------------------------
+         */
         if (strcmp(argv[i], "ehci") == 0) {
-            hc = malloc(sizeof(*hc));
-            memset(hc, 0, sizeof(*hc));
             uerr = usb_hc_init(hc, USB_EHCI, controller_base);
         }
 
+        /* -------------------------------------------------------------------
+         * OHCI Controller
+         * -------------------------------------------------------------------
+         */
         if (strcmp(argv[i], "ohci") == 0) {
-            continue;
-            hc = malloc(sizeof(*hc));
             uerr = usb_hc_init(hc, USB_OHCI, controller_base);
         }
+
+        /* -------------------------------------------------------------------
+         * UHCI Controller
+         * -------------------------------------------------------------------
+         */
         if (strcmp(argv[i], "uhci") == 0) {
-            hc = malloc(sizeof(*hc));
             uerr = usb_hc_init(hc, USB_UHCI, controller_base);
         }
 
+        /* -------------------------------------------------------------------
+         * XHCI Controller
+         * -------------------------------------------------------------------
+         */
         if (strcmp(argv[i], "xhci") == 0) {
-            hc = malloc(sizeof(*hc));
             uerr = usb_hc_init(hc, USB_XHCI, controller_base);
         }
 
@@ -542,16 +515,5 @@ int main(int argc, char *argv[])
         }
     }
 
-    /*
-     * registring interrupt handler
-     * inthandler_setup()
-     */
-    struct waitset *ws = get_default_waitset();
-    while (1) {
-        err = event_dispatch(ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            break;
-        }
-    }
+    messages_handler_loop();
 }
