@@ -66,7 +66,7 @@ usb_ehci_sitd_t *usb_ehci_enq_fs_td(usb_ehci_sitd_t *sitd,
      * update the physical links
      */
     sitd->sitd_next = last->sitd_next;
-    last->sitd_next.address = sitd->sitd_self;
+    last->sitd_next = sitd->sitd_self;
 
     return (sitd);
 }
@@ -116,7 +116,7 @@ usb_ehci_itd_t *usb_ehci_enq_hs_td(usb_ehci_itd_t *std, usb_ehci_itd_t *last)
      * update the physical links
      */
     std->itd_next = last->itd_next;
-    last->itd_next.address = std->itd_self;
+    last->itd_next = std->itd_self;
 
     return (std);
 
@@ -171,7 +171,7 @@ usb_ehci_qh_t *usb_ehci_enq_qh(usb_ehci_qh_t *qh, usb_ehci_qh_t *last)
     qh->prev = last;
 
     last->next = qh;
-    last->qh_link = qh->qh_self | (USB_EHCI_LINKTYPE_QH << 1);
+    last->qh_link = qh->qh_self | USB_EHCI_LINKTYPE_QH;
 
     return (qh);
 }

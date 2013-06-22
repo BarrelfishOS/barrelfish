@@ -860,7 +860,7 @@ usb_error_t usb_keyboard_init(void)
     }
 
     /* TODO: figure out why it takes so long with interrupts... */
-    err = usb_hid_set_idle(0, 12, 0);
+    err = usb_hid_set_idle(0, 15, 0);
     if (err != USB_ERR_OK) {
         USB_DEBUG("NOTICE: setting idle rate failed. (ignored)\n");
     }

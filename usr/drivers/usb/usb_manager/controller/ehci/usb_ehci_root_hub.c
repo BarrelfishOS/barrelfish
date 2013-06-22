@@ -412,9 +412,11 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     }
 
                     if (!ehci_portsc_ped_rdf(hc->ehci_base, req->wIndex)) {
-                        if (hc->flags.tt_present) {
+                        /*
+                         * TODO: DISOWNING PORTS...
+                         * if (hc->flags.tt_present) {
                             usb_ehci_roothub_port_disown(hc, req->wIndex, 0);
-                        }
+                        }*/
                     }
                     hc->root_hub_reset = 1;
 

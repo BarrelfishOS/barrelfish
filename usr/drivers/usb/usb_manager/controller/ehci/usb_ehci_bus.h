@@ -1,3 +1,7 @@
+/**
+ * \brief this file contains function prototypes for some HCDI functions
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -7,19 +11,17 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef _USB_EHCI_BUS_H_
-#define _USB_EHCI_BUS_H_
+#ifndef USB_EHCI_BUS_H_
+#define USB_EHCI_BUS_H_
 
+/* prototypes */
 struct usb_hcdi_bus_fn *usb_ehci_get_bus_fn(void);
-
 void usb_ehci_endpoint_init(struct usb_device *device,
         struct usb_endpoint_descriptor *ep_desc, struct usb_endpoint *ep);
-
-void usb_ehci_get_dma_delay(struct usb_device *device, uint32_t *ret_delay);
 void usb_ehci_device_resume(struct usb_device *device);
 void usb_ehci_device_suspend(struct usb_device *device);
 void usb_ehci_sleep(struct usb_host_controller *hc, uint32_t state);
 void usb_ehci_set_power(struct usb_host_controller *hc);
 void usb_ehci_poll(usb_ehci_hc_t *hc);
 
-#endif /* _USB_EHCI_BUS_H_ */
+#endif /* USB_EHCI_BUS_H_ */

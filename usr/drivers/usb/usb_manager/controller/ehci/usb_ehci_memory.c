@@ -302,7 +302,7 @@ struct usb_ehci_sitd *usb_ehci_sitd_alloc(void)
 void usb_ehci_sitd_free(struct usb_ehci_sitd *sitd)
 {
     memset(sitd, 0, 0xF);
-    sitd->sitd_next.address |= USB_EHCI_LINK_TERMINATE;
+    sitd->sitd_next |= USB_EHCI_LINK_TERMINATE;
     sitd->sitd_bp[0].bp &= 0xFFFFF000;
     sitd->sitd_bp[0].bp &= 0xFFFFF000;
     sitd->sitd_back_link |= USB_EHCI_LINK_TERMINATE;
@@ -374,7 +374,7 @@ struct usb_ehci_itd *usb_ehci_itd_alloc(void)
 void usb_ehci_itd_free(struct usb_ehci_itd *itd)
 {
     memset(itd, 0, 0x23);
-    itd->itd_next.address |= USB_EHCI_LINK_TERMINATE;
+    itd->itd_next |= USB_EHCI_LINK_TERMINATE;
     itd->itd_bp[0].bp &= 0xFFFFF000;
     itd->itd_bp[1].bp &= 0xFFFFF000;
     itd->itd_bp[2].bp &= 0xFFFFF000;

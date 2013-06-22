@@ -37,7 +37,7 @@ static struct ehci_t ehci_base;
 /**
  * \brief   performs a soft reset on the EHCI host controller
  */
-static usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
+usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
 {
     USB_DEBUG_HC("Performing reset sequence on EHCI controller.\n");
     /* write the reset bit */
@@ -120,7 +120,7 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
     return (USB_ERR_TIMEOUT);
 }
 
-static usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
+usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
 {
 
     USB_DEBUG(" initializing the controller hardware\n");
@@ -220,7 +220,8 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *)host->hc_control;
 
     //USB_DEBUG_HC("ehci controller handling interrupt..\n");
-
+    //char c = 'i';
+    //sys_print(&c, 1);
     /*
      * read the status register and mask out the interrupts [5..0]
      */
@@ -392,7 +393,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base)
         qh->qh_next_qtd = USB_EHCI_LINK_TERMINATE;
         qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
         qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
-        qh->qh_self |= (USB_EHCI_LINKTYPE_QH << 1);
+        qh->qh_self |= USB_EHCI_LINKTYPE_QH;
     }
 
     /*
@@ -431,19 +432,19 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base)
         usb_ehci_sitd_t *sitd = usb_ehci_sitd_alloc();
         hc->qh_sitd_fs_last[i] = sitd;
 
-        sitd->sitd_self |= (USB_EHCI_LINKTYPE_SITD << 1);
+        sitd->sitd_self |= USB_EHCI_LINKTYPE_SITD;
 
         sitd->sitd_back_link = USB_EHCI_LINK_TERMINATE;
 
         next = i | (USB_EHCI_VFRAMELIST_COUNT / 2);
-        sitd->sitd_next.address = hc->qh_intr_last[next]->qh_self;
+        sitd->sitd_next = hc->qh_intr_last[next]->qh_self;
 
         usb_ehci_itd_t *itd = usb_ehci_itd_alloc();
         hc->qh_itd_hs_last[i] = itd;
 
-        itd->itd_self |= (USB_EHCI_LINKTYPE_ITD<<1);
+        itd->itd_self |= USB_EHCI_LINKTYPE_ITD;
 
-        itd->itd_next.address = sitd->sitd_self;
+        itd->itd_next = sitd->sitd_self;
     }
 
     /*
@@ -473,7 +474,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base)
     qh->qh_ep.head_reclamation = 1;
 
     qh->qh_ep.mult = 1;
-    qh->qh_link = qh->qh_self | (USB_EHCI_LINKTYPE_QH << 1) | USB_EHCI_LINK_TERMINATE;
+    qh->qh_link = qh->qh_self | USB_EHCI_LINKTYPE_QH | USB_EHCI_LINK_TERMINATE;
     qh->qh_alt_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_next_qtd = USB_EHCI_LINK_TERMINATE;
     qh->qh_status.status = USB_EHCI_QTD_STATUS_HALTED;
