@@ -117,7 +117,7 @@ typedef struct usb_status usb_status_t;
 #define USB_DELAY_RECOVERY 10
 
 #define USB_WAIT(ms) \
-    for (uint32_t i = 0; i < 4*(ms); i++) {printf("%c", 0xE);};
+    for (uint32_t wait_i = 0; wait_i < 4*(ms); wait_i++) {printf("%c", 0xE);};
 
 
 /* some debug vars */

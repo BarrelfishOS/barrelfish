@@ -208,25 +208,13 @@ static void usb_ohci_set_hw_power_sleep(struct usb_host_controller *controller, 
     assert(!"NYI: Power control not implemented");
 }
 
-/**
- * \brief   gets the dma delay
- *
- * \param device    the usb device
- * \param ret_delay return value the delay in micro seconds
- *
- */
-static void usb_ohci_get_dma_delay(struct usb_device *device,
-        uint32_t *ret_delay)
-{
-    *ret_delay = (1125); /* hardcoded in ms microseconds */
-}
+
 
 static struct usb_hcdi_bus_fn usb_ohci_bus_fn = {
         .roothub_exec = usb_ohci_roothub_exec,
         .endpoint_init = usb_ohci_ep_init,
             .xfer_setup = usb_ohci_xfer_setup,
             .xfer_unsetup = usb_ohci_xfer_unsetup,
-            .get_dma_delay = usb_ohci_get_dma_delay,
             .device_resume = usb_ohci_device_resume,
             .device_suspend = usb_ohci_device_suspend,
             .set_hw_power = usb_ohci_set_hw_power,

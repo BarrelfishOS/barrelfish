@@ -18,6 +18,9 @@
 // general include for types
 #include <usb/usb.h>
 
+// include for the ehci_t mackerel type
+#include "ehci_device.h"
+
 // include for the root hub
 #include <usb_hub.h>
 
@@ -654,7 +657,7 @@ union usb_ehci_hub_descriptor {
  * This data structure contains data for management of the EHCI controller
  */
 struct usb_ehci_hc {
-    struct ehci_t *ehci_base;              ///< the mackerel device base
+    struct ehci_t ehci_base;              ///< the mackerel device base
     usb_host_controller_t *controller;     ///< pointer to the generic HC
     uint32_t enabled_interrupts;           ///< the currently enabled interrupts
     uint16_t ehci_revision;                ///< host controller revision

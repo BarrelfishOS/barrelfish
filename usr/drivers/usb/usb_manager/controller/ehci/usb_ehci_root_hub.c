@@ -118,7 +118,7 @@ void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
     USB_DEBUG_TR_ENTER;
 
     for (uint16_t i = 0; i < hc->rh_num_ports; i++) {
-        ehci_portsc_t ps = ehci_portsc_rd(hc->ehci_base, i);
+        ehci_portsc_t ps = ehci_portsc_rd(&hc->ehci_base, i);
         /* clear out the change bits */
         if (ehci_portsc_occ_extract(ps) || ehci_portsc_pec_extract(ps)
                 || ehci_portsc_csc_extract(ps)) {
@@ -172,9 +172,9 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                             ->rh_num_ports;
                     hc->rh_desc.hub_desc.wHubCharacteristics
                             .port_indicator = ehci_hcsparams_p_indicator_rdf(
-                            hc->ehci_base);
+                            &hc->ehci_base);
                     hc->rh_desc.hub_desc.wHubCharacteristics
-                            .power_mode = ehci_hcsparams_ppc_rdf(hc->ehci_base);
+                            .power_mode = ehci_hcsparams_ppc_rdf(&hc->ehci_base);
                     hc->rh_desc.hub_desc.bPwrOn2PwrGood = 200;
                     hc->rh_desc.hub_desc.bDescLength = 8
                             + ((hc->rh_num_ports + 7) / 8);
@@ -281,42 +281,42 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
 
             switch (req->wValue) {
                 case USB_HUB_FEATURE_PORT_ENABLE:
-                    ehci_portsc_ped_wrf(hc->ehci_base, req->wIndex, 0);
+                    ehci_portsc_ped_wrf(&hc->ehci_base, req->wIndex, 0);
                     break;
                 case USB_HUB_FEATURE_PORT_SUSPEND:
-                    if (ehci_portsc_sus_rdf(hc->ehci_base, req->wIndex)
-                            && (!ehci_portsc_fpr_rdf(hc->ehci_base, req->wIndex))) {
-                        ehci_portsc_fpr_wrf(hc->ehci_base, req->wIndex, 1);
+                    if (ehci_portsc_sus_rdf(&hc->ehci_base, req->wIndex)
+                            && (!ehci_portsc_fpr_rdf(&hc->ehci_base, req->wIndex))) {
+                        ehci_portsc_fpr_wrf(&hc->ehci_base, req->wIndex, 1);
                     }
                     WAIT(20);
 
-                    ehci_portsc_sus_wrf(hc->ehci_base, req->wIndex, 0);
-                    ehci_portsc_fpr_wrf(hc->ehci_base, req->wIndex, 0);
-                    ehci_portsc_ls_wrf(hc->ehci_base, req->wIndex, 0x3);
+                    ehci_portsc_sus_wrf(&hc->ehci_base, req->wIndex, 0);
+                    ehci_portsc_fpr_wrf(&hc->ehci_base, req->wIndex, 0);
+                    ehci_portsc_ls_wrf(&hc->ehci_base, req->wIndex, 0x3);
                     WAIT(4);
                     break;
                 case USB_HUB_FEATURE_PORT_POWER:
-                    ehci_portsc_pp_wrf(hc->ehci_base, req->wIndex, 0);
+                    ehci_portsc_pp_wrf(&hc->ehci_base, req->wIndex, 0);
                     break;
                 case USB_HUB_FEATURE_PORT_TEST:
                     /* clear port test */
                     break;
 
                 case USB_HUB_FEATURE_PORT_INDICATOR:
-                    ehci_portsc_pic_wrf(hc->ehci_base, req->wIndex, 0);
+                    ehci_portsc_pic_wrf(&hc->ehci_base, req->wIndex, 0);
                     break;
                 case USB_HUB_FEATURE_C_PORT_CONNECTION:
-                    ehci_portsc_csc_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_csc_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
 
                 case USB_HUB_FEATURE_C_PORT_ENABLE:
-                    ehci_portsc_pec_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_pec_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_C_PORT_SUSPEND:
-                    ehci_portsc_sus_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_sus_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_C_PORT_OVER_CURRENT:
-                    ehci_portsc_occ_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_occ_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_C_PORT_RESET:
                     hc->rh_reset = 0;
@@ -338,7 +338,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     .port_status);
             memset(ps, 0, sizeof(*ps));
             /* subtract one, mackerel is zero based */
-            ehci_portsc_t ehci_ps = ehci_portsc_rd(hc->ehci_base,
+            ehci_portsc_t ehci_ps = ehci_portsc_rd(&hc->ehci_base,
                     req->wIndex - 1);
 
             ps->wPortStatus.enabled = ehci_portsc_ped_extract(ehci_ps);
@@ -380,31 +380,31 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             req->wIndex--;
             switch (req->wValue) {
                 case USB_HUB_FEATURE_PORT_ENABLE:
-                    ehci_portsc_ped_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_ped_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_PORT_SUSPEND:
-                    ehci_portsc_sus_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_sus_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_PORT_RESET:
-                    if (ehci_portsc_ls_rdf(hc->ehci_base, req->wIndex) == 0x1) {
+                    if (ehci_portsc_ls_rdf(&hc->ehci_base, req->wIndex) == 0x1) {
                         /* low speed device */
                         usb_ehci_roothub_port_disown(hc, req->wIndex, 1);
                         break;
                     }
                     /* initiate reset sequence */
-                    ehci_portsc_pr_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_pr_wrf(&hc->ehci_base, req->wIndex, 1);
                     USB_WAIT(200);
 
                     /* clear the reset */
-                    ehci_portsc_pr_wrf(hc->ehci_base, req->wIndex, 0);
+                    ehci_portsc_pr_wrf(&hc->ehci_base, req->wIndex, 0);
                     USB_WAIT(200);
 
-                    if (ehci_portsc_pr_rdf(hc->ehci_base, req->wIndex)) {
+                    if (ehci_portsc_pr_rdf(&hc->ehci_base, req->wIndex)) {
                         debug_printf("exec: timeout while resetting port\n");
                         return (USB_ERR_TIMEOUT);
                     }
 
-                    if (!ehci_portsc_ped_rdf(hc->ehci_base, req->wIndex)) {
+                    if (!ehci_portsc_ped_rdf(&hc->ehci_base, req->wIndex)) {
                         /*
                          * TODO: DISOWNING PORTS...
                          * if (hc->flags.tt_present) {
@@ -415,12 +415,12 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
 
                     break;
                 case USB_HUB_FEATURE_PORT_POWER:
-                    ehci_portsc_pp_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_pp_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_PORT_TEST:
                     break;
                 case USB_HUB_FEATURE_PORT_INDICATOR:
-                    ehci_portsc_pic_wrf(hc->ehci_base, req->wIndex, 1);
+                    ehci_portsc_pic_wrf(&hc->ehci_base, req->wIndex, 1);
                     break;
                 default:
                     return (USB_ERR_IOERROR);
@@ -449,7 +449,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
 void usb_ehci_roothub_port_disown(usb_ehci_hc_t *hc, uint16_t portno,
         uint8_t lowspeed)
 {
-    if (portno > ehci_hcsparams_n_ports_rdf(hc->ehci_base)) {
+    if (portno > ehci_hcsparams_n_ports_rdf(&hc->ehci_base)) {
         debug_printf("ERROR: port does not exist! \n");
         return;
     }
@@ -458,7 +458,7 @@ void usb_ehci_roothub_port_disown(usb_ehci_hc_t *hc, uint16_t portno,
     /* mackerel is zero based */
     portno--;
 
-    ehci_portsc_po_wrf(hc->ehci_base, portno, 1);
+    ehci_portsc_po_wrf(&hc->ehci_base, portno, 1);
 
 }
 
