@@ -116,20 +116,13 @@ static const struct usb_hub_descriptor rh_desc = {
 void usb_ehci_roothub_interrupt(usb_ehci_hc_t *hc)
 {
     USB_DEBUG_TR_ENTER;
-    memset(hc->root_hub_interrupt_data, 0, sizeof(hc->root_hub_interrupt_data));
 
-    uint16_t num_ports = hc->root_hub_num_ports + 1;
-    if (num_ports > (8 * sizeof(hc->root_hub_interrupt_data))) {
-        num_ports = 8 * sizeof(hc->root_hub_interrupt_data);
-    }
-
-    for (uint16_t i = 0; i < hc->root_hub_num_ports; i++) {
+    for (uint16_t i = 0; i < hc->rh_num_ports; i++) {
         ehci_portsc_t ps = ehci_portsc_rd(hc->ehci_base, i);
         /* clear out the change bits */
         if (ehci_portsc_occ_extract(ps) || ehci_portsc_pec_extract(ps)
                 || ehci_portsc_csc_extract(ps)) {
             USB_DEBUG_HC("roothub_interrupt: port %i has changed\n", i+1);
-            hc->root_hub_interrupt_data[i / 8] |= (1 << (i % 8));
         }
     }
 
@@ -143,7 +136,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
     USB_DEBUG_TR_ENTER;
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) device->controller->hc_control;
     const char *str;
-    const void *data = (const void *) &hc->root_hub_descriptor;
+    const void *data = (const void *) &hc->rh_desc;
     uint16_t data_length = 0;
 
 #define C(req, recipent, dir) ((req) | ((recipent)<<8) | ((dir)<<16))
@@ -155,7 +148,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             break;
         case C(USB_REQUEST_GET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_READ):
             data_length = 1;
-            hc->root_hub_descriptor.temp[0] = hc->root_hub_config;
+            hc->rh_desc.temp[0] = hc->rh_device_config;
             break;
         case C(USB_REQUEST_GET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_READ):
             switch (req->wValue >> 8) {
@@ -174,18 +167,18 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                         break;
                     }
                     /* handling class specific request  */
-                    hc->root_hub_descriptor.hub_desc = rh_desc;
-                    hc->root_hub_descriptor.hub_desc.bNbrPorts = hc
-                            ->root_hub_num_ports;
-                    hc->root_hub_descriptor.hub_desc.wHubCharacteristics
+                    hc->rh_desc.hub_desc = rh_desc;
+                    hc->rh_desc.hub_desc.bNbrPorts = hc
+                            ->rh_num_ports;
+                    hc->rh_desc.hub_desc.wHubCharacteristics
                             .port_indicator = ehci_hcsparams_p_indicator_rdf(
                             hc->ehci_base);
-                    hc->root_hub_descriptor.hub_desc.wHubCharacteristics
+                    hc->rh_desc.hub_desc.wHubCharacteristics
                             .power_mode = ehci_hcsparams_ppc_rdf(hc->ehci_base);
-                    hc->root_hub_descriptor.hub_desc.bPwrOn2PwrGood = 200;
-                    hc->root_hub_descriptor.hub_desc.bDescLength = 8
-                            + ((hc->root_hub_num_ports + 7) / 8);
-                    data_length = hc->root_hub_descriptor.hub_desc.bDescLength;
+                    hc->rh_desc.hub_desc.bPwrOn2PwrGood = 200;
+                    hc->rh_desc.hub_desc.bDescLength = 8
+                            + ((hc->rh_num_ports + 7) / 8);
+                    data_length = hc->rh_desc.hub_desc.bDescLength;
                     break;
                 case USB_DESCRIPTOR_TYPE_DEVICE_QUALIFIER:
                     if ((req->wValue & 0xFF) != 0) {
@@ -209,7 +202,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                             str = "\001";
                             break;
                         case 1:
-                            str = hc->root_hub_vendor;
+                            str = hc->rh_vendor;
                             break;
                         case 2:
                             str = "EHCI root hub";
@@ -233,34 +226,34 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
         case C(USB_REQUEST_GET_INTERFACE, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_READ):
             /* we don't have an alternative interface */
             data_length = 1;
-            hc->root_hub_descriptor.temp[0] = 0;
+            hc->rh_desc.temp[0] = 0;
             break;
         case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_READ):
             if (req->bType.type != USB_REQUEST_TYPE_CLASS) {
                 data_length = 2;
-                hc->root_hub_descriptor.status.wStatus = USB_STATUS_SELF_POWERED;
+                hc->rh_desc.status.wStatus = USB_STATUS_SELF_POWERED;
                 break;
             }
             data_length = 16;
-            memset(hc->root_hub_descriptor.temp, 0, 16);
+            memset(hc->rh_desc.temp, 0, 16);
 
             break;
         case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_INTERFACE, USB_REQUEST_READ):
         case C(USB_REQUEST_GET_STATUS, USB_REQUEST_RECIPIENT_ENDPOINT, USB_REQUEST_READ):
             data_length = 2;
-            hc->root_hub_descriptor.status.wStatus = 0;
+            hc->rh_desc.status.wStatus = 0;
             break;
         case C(USB_REQUEST_SET_ADDRESS, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             if (req->wValue >= USB_EHCI_MAX_DEVICES) {
                 return (USB_ERR_IOERROR);
             }
-            hc->root_hub_address = req->wValue;
+            hc->rh_device_address = req->wValue;
             break;
         case C(USB_REQUEST_SET_CONFIG, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             if ((req->wValue != 0) && (req->wValue != 1)) {
                 return (USB_ERR_IOERROR);
             }
-            hc->root_hub_config = req->wValue;
+            hc->rh_device_config = req->wValue;
             break;
         case C(USB_REQUEST_SET_DESCRIPTOR, USB_REQUEST_RECIPIENT_DEVICE, USB_REQUEST_WRITE):
             break;
@@ -279,7 +272,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
              */
 
         case C(USB_HUB_REQ_CLEAR_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
-            if ((req->wIndex < 1) || (req->wLength > hc->root_hub_num_ports)) {
+            if ((req->wIndex < 1) || (req->wLength > hc->rh_num_ports)) {
                 /* invalid port nuber  */
                 return (USB_ERR_IOERROR);
             }
@@ -326,7 +319,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     ehci_portsc_occ_wrf(hc->ehci_base, req->wIndex, 1);
                     break;
                 case USB_HUB_FEATURE_C_PORT_RESET:
-                    hc->root_hub_reset = 0;
+                    hc->rh_reset = 0;
                     break;
                 default:
                     return (USB_ERR_IOERROR);
@@ -334,14 +327,14 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             }
             break;
         case C(USB_HUB_REQ_GET_STATUS, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_READ):
-            if ((req->wIndex < 1) || (req->wIndex > hc->root_hub_num_ports)) {
+            if ((req->wIndex < 1) || (req->wIndex > hc->rh_num_ports)) {
                 /* invalid port number  */
                 debug_printf("ehci: root_hub_exec: invalid port number %i\n",
                         req->wIndex);
                 return (USB_ERR_IOERROR);
             }
-            data_length = sizeof(hc->root_hub_descriptor.port_status);
-            struct usb_hub_port_status *ps = &(hc->root_hub_descriptor
+            data_length = sizeof(hc->rh_desc.port_status);
+            struct usb_hub_port_status *ps = &(hc->rh_desc
                     .port_status);
             memset(ps, 0, sizeof(*ps));
             /* subtract one, mackerel is zero based */
@@ -371,7 +364,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
             }
             ps->wPortStatus.connection = ehci_portsc_ccs_extract(ehci_ps);
 
-            ps->wPortChange.is_reset = hc->root_hub_reset;
+            ps->wPortChange.is_reset = hc->rh_reset;
             ps->wPortChange.over_current = ehci_portsc_occ_extract(ehci_ps);
             ps->wPortChange.resumed = ehci_portsc_fpr_extract(ehci_ps);
             ps->wPortChange.disabled = ehci_portsc_pec_extract(ehci_ps);
@@ -379,7 +372,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
 
             break;
         case C(USB_HUB_REQ_SET_FEATURE, USB_REQUEST_RECIPIENT_OTHER, USB_REQUEST_WRITE):
-            if ((req->wIndex < 1) || (req->wIndex > hc->root_hub_num_ports)) {
+            if ((req->wIndex < 1) || (req->wIndex > hc->rh_num_ports)) {
                 /* invalid port number  */
                 return (USB_ERR_IOERROR);
             }
@@ -418,7 +411,7 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                             usb_ehci_roothub_port_disown(hc, req->wIndex, 0);
                         }*/
                     }
-                    hc->root_hub_reset = 1;
+                    hc->rh_reset = 1;
 
                     break;
                 case USB_HUB_FEATURE_PORT_POWER:

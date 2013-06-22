@@ -377,8 +377,8 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                     setup->qtd_token.data_toggle = 1;
                 }
                 td->len = 0;
-                td->qtd_bp[0].bp = 0;
-                td->qtd_bp[1].bp = 0;
+                td->qtd_bp[0].address = 0;
+                td->qtd_bp[1].address = 0;
                 /* XXX: NO 64 bit support at the moment ! */
             } else {
                 if (setup->auto_data_toggle == 0) {
@@ -396,7 +396,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
                 uint32_t buf_offset = 0;
                 memset(td->qtd_bp, 0, sizeof(td->qtd_bp));
-                td->qtd_bp[0].bp = (setup->pages->phys_addr) & (~0xFFF);  //usb_ehci_buffer_page_alloc();
+                td->qtd_bp[0].address = (setup->pages->phys_addr) & (~0xFFF);  //usb_ehci_buffer_page_alloc();
 
                 assert(!((setup->pages->phys_addr) & (0xFFF)));
 
@@ -407,7 +407,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
                     length_avg -= USB_EHCI_BUFFER_SIZE;
                     buf_offset += USB_EHCI_BUFFER_SIZE;
-                    td->qtd_bp[pages_count].bp = (setup->pages->phys_addr
+                    td->qtd_bp[pages_count].address = (setup->pages->phys_addr
                             + buf_offset) & (~0xFFF);
 
                     assert(!((setup->pages->phys_addr + buf_offset) & (0xFFF)));
@@ -417,7 +417,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
                 /* the last remainder < USB_EHCI_BUFFER_SIZE */
                 buf_offset += length_avg;
-                td->qtd_bp[pages_count].bp = (setup->pages->phys_addr
+                td->qtd_bp[pages_count].address = (setup->pages->phys_addr
                         + buf_offset - 1) & (~0xFFF);
             }
 

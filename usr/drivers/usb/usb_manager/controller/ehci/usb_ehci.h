@@ -158,19 +158,19 @@ union usb_ehci_itd_bp {
         uint32_t device_addres :7;      ///< the device of for this TD
         uint32_t endpoint :4;           ///< then endpoint number for this TD
         uint32_t _reserved :1;          ///< reserved, has to be zero
-        usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
+        usb_paddr_t bp :20;             ///< physaddr of the buffer (4k aligned)
     } bp_0;                             ///< Representation for BP 0
     struct bp_1 {
         uint32_t max_packet_size :11;   ///< maximum packet size for this EP
         uint32_t direction :1;          ///< Direction of the transfer (1=IN)
-        usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
+        usb_paddr_t bp :20;             ///< physaddr of the buffer (4k aligned)
     } bp_1;                             ///< Representation for BP 1
     struct bp_2 {
         uint32_t multi :2;              ///< num of transactions per uFrame 0..3
         uint32_t _reserved :10;         ///< reserved, has to be zero
-        usb_paddr_t buffer_pointer :20;  ///< physaddr of the buffer (4k aligned)
+        usb_paddr_t bp :20;             ///< physaddr of the buffer (4k aligned)
     } bp_2;                             ///< Representation for BP 2
-    usb_paddr_t bp;                     ///< Representation for BP 3..6
+    usb_paddr_t address;                ///< Representation for BP 3..6
 };
 
 /// iTD buffer pointer type
@@ -215,7 +215,7 @@ typedef struct usb_ehci_itd usb_ehci_itd_t;
  * scheduling control.
  */
 struct usb_ehci_sitd_ep {
-    uint32_t device_address :7;  ///< the device address of this transfer
+    uint32_t device_address :7; ///< the device address of this transfer
     uint32_t _reserved_3 :1;    ///< reserved, should be zero
     uint32_t endpoint :4;       ///< endpoint number of this transfer
     uint32_t _reserved_2 :4;    ///< reserved, should be zero
@@ -239,7 +239,7 @@ typedef struct usb_ehci_sitd_ep usb_ehci_sitd_ep_t;
  */
 struct usb_ehci_sitd_state {
     uint32_t status :8;      ///< status of the transaction executed
-    uint32_t c_prog_mask :8; ///< frame complete-split progress mask
+    uint32_t c_mask :8;      ///< frame complete-split progress mask
     uint32_t length :10;     ///< total bytes to transfer
     uint32_t _reserved :4;   ///< reserved, should be zero
     uint32_t page_select :1; ///< which data page pointer to use
@@ -275,7 +275,6 @@ typedef struct usb_ehci_sitd_state usb_ehci_sitd_state_t;
 /// siTD status reserved bit 0
 #define USB_EHCI_SITD_STATUS_RESERVED       0x01
 
-
 /* Transaction position (TP) values */
 
 /// Transaction Position: ALL, the entire FS payload is in this transaction
@@ -301,16 +300,16 @@ typedef struct usb_ehci_sitd_state usb_ehci_sitd_state_t;
  */
 union usb_ehci_sitd_bp {
     struct usb_ehci_sitd_bp_0 {
-        usb_paddr_t offset :12;          ///< offset into the page buffer
-        usb_paddr_t buffer_pointer :20;  ///< physical address of the buffer
-    } bp_0;                              ///< representation for BP 0
+        usb_paddr_t offset :12;     ///< offset into the page buffer
+        usb_paddr_t bp :20;         ///< physical address of the buffer
+    } bp_0;                         ///< representation for BP 0
     struct usb_ehci_sitd_bp_1 {
-        uint32_t count :3;               ///< number of OUT start-split requests
-        uint32_t tp :2;                  ///< transaction position
-        uint32_t _reserved :7;           ///< reserved, should be zero
-        usb_paddr_t buffer_pointer :20;  ///< physical address of the buffer
-    } bp_1;                              ///< representation for BP 1
-    usb_paddr_t bp;
+        uint32_t count :3;          ///< number of OUT start-split requests
+        uint32_t tp :2;             ///< transaction position
+        uint32_t _reserved :7;      ///< reserved, should be zero
+        usb_paddr_t bp :20;         ///< physical address of the buffer
+    } bp_1;                         ///< representation for BP 1
+    usb_paddr_t address;
 };
 
 /// siTD buffer pointer list type
@@ -420,7 +419,6 @@ typedef struct usb_ehci_qtd_token usb_ehci_qtd_token_t;
 #define USB_EHCI_QTD_VALID_ALT(qtd) \
     (!(((next)->qtd_alt_next) & 0x1))
 
-
 /**
  * defines the structure of the elements in the buffer pointer list inside
  * a qTD
@@ -430,7 +428,7 @@ union usb_ehci_qtd_bp {
         uint16_t offset :12;      ///< offset into the memory region
         usb_paddr_t bp_list :20;  ///< physaddr of a 4k aligned memory region
     } bp_0;                       ///< representation for the first buffer page
-    usb_paddr_t bp;               ///< physaddr of a 5k aligned memory region
+    usb_paddr_t address;          ///< physaddr of a 5k aligned memory region
 };
 
 /// qTD buffer page type
@@ -456,7 +454,7 @@ struct usb_ehci_qtd {
     /* hardware required fields */
     usb_paddr_t qtd_next;           ///< phyaddr of the next qTD to process
     usb_paddr_t qtd_alt_next;       ///< phyaddr to the next data stream
-    usb_ehci_qtd_token_t qtd_token;  ///< various status fiels
+    usb_ehci_qtd_token_t qtd_token; ///< various status fiels
     usb_ehci_qtd_bp_t qtd_bp[5];    ///< buffer pointer lists
     /* extra fields for software management */
     struct usb_ehci_qtd *alt_next;  ///< virtual pointer to the alt_next
@@ -578,18 +576,18 @@ typedef union usb_ehci_qh_bp usb_ehci_qh_bp_t;
  */
 struct usb_ehci_qh {
     /* hardware required fields */
-    usb_paddr_t qh_link;           ///< physaddr to the next data object (QHLP)
-    usb_ehci_qh_ep_t qh_ep;        ///< EP characteristics for this transfer
-    usb_paddr_t qh_curr_qtd;       ///< current queue element processed
-    usb_paddr_t qh_next_qtd;       ///< the next queue element
-    usb_paddr_t qh_alt_next_qtd;   ///< the next alternative queue element
-    usb_ehci_qh_status_t qh_status;///< status of the queue transfer
-    usb_ehci_qh_bp_t bp_list[5];   ///< buffer pointer list
+    usb_paddr_t qh_link;            ///< physaddr to the next data object (QHLP)
+    usb_ehci_qh_ep_t qh_ep;         ///< EP characteristics for this transfer
+    usb_paddr_t qh_curr_qtd;        ///< current queue element processed
+    usb_paddr_t qh_next_qtd;        ///< the next queue element
+    usb_paddr_t qh_alt_next_qtd;    ///< the next alternative queue element
+    usb_ehci_qh_status_t qh_status; ///< status of the queue transfer
+    usb_ehci_qh_bp_t bp_list[5];    ///< buffer pointer list
     /* extra fields for software management */
-    struct usb_ehci_qh *next;      ///< virtual pointer to next element
-    struct usb_ehci_qh *prev;      ///< virtual pointer to previous element
-    struct usb_ehci_qh *obj_next;  ///< virtual pointer to next object
-    usb_paddr_t qh_self;           ///< physical address of this QH
+    struct usb_ehci_qh *next;       ///< virtual pointer to next element
+    struct usb_ehci_qh *prev;       ///< virtual pointer to previous element
+    struct usb_ehci_qh *obj_next;   ///< virtual pointer to next object
+    usb_paddr_t qh_self;            ///< physical address of this QH
 }__aligned(USB_EHCI_QH_ALIGN);
 
 /// USB EHCI queue head type
@@ -618,7 +616,6 @@ struct usb_ehci_fstn {
 /// EHCI Periodic Frame Span Traversal Node type
 typedef struct usb_ehci_fstn usb_ehci_fstn_t;
 
-
 /// extract the type of the normal path pointer field
 #define USB_EHCI_FSTN_LINK_TYPE(fstn) \
     ((((fstn)->fstn_link) >> 1) & 0x3)
@@ -633,7 +630,6 @@ typedef struct usb_ehci_fstn usb_ehci_fstn_t;
 /// validity check for the back path pointer
 #define USB_EHCI_FSTN_BACK_VALID(fstn) \
     (!(((fstn)->fstn_back) & 0x1))
-
 
 /*
  * ==========================================================================
@@ -652,58 +648,58 @@ union usb_ehci_hub_descriptor {
     uint8_t temp[128];
 };
 
-
 /**
  * EHCI Controller Software Control
  *
  * This data structure contains data for management of the EHCI controller
  */
 struct usb_ehci_hc {
-    struct ehci_t *ehci_base;
-    usb_host_controller_t *controller;
-    uint32_t enabled_interrupts;
-    uint16_t revision;
+    struct ehci_t *ehci_base;              ///< the mackerel device base
+    usb_host_controller_t *controller;     ///< pointer to the generic HC
+    uint32_t enabled_interrupts;           ///< the currently enabled interrupts
+    uint16_t ehci_revision;                ///< host controller revision
 
     /* root hub */
-    union usb_ehci_hub_descriptor root_hub_descriptor;
-    uint8_t root_hub_num_ports;
-    uint8_t root_hub_address; /* device address */
-    uint8_t root_hub_config; /* device configuration */
-    uint8_t root_hub_interrupt_data[8];
-    uint16_t root_hub_id_vendor; /* vendor ID for root hub */
-    char root_hub_vendor[16]; /* vendor string for root hub */
-    uint8_t root_hub_reset;
-    struct usb_device *root_hub;
+    union usb_ehci_hub_descriptor rh_desc; ///< root hub descriptor scratch buf
+    uint8_t rh_num_ports;                  ///< the number of root hub ports
+    uint8_t rh_device_address;             ///< the root hub device address
+    uint8_t rh_device_config;              ///< current root hub configuration
+    char rh_vendor[16];                    ///< root hub vendor string
+    uint8_t rh_reset;                      ///< root hub reset flag
+    struct usb_device *rh_device;          ///< pointer to the root hub device
 
     /* devices */
-    struct usb_device *devices[USB_EHCI_MAX_DEVICES];
-
-    /* transfers */
-    struct usb_ehci_qh *qh_async_last;
-    struct usb_ehci_qh *qh_async_first;
-    struct usb_ehci_qh *qh_intr_last[USB_EHCI_VFRAMELIST_COUNT];
-    uint16_t qh_intr_stat[USB_EHCI_VFRAMELIST_COUNT];
-    struct usb_ehci_sitd *qh_sitd_fs_last[USB_EHCI_VFRAMELIST_COUNT];
-    struct usb_ehci_itd *qh_itd_hs_last[USB_EHCI_VFRAMELIST_COUNT];
-    struct usb_ehci_qh *qh_terminate;
-    usb_paddr_t pframes_phys;
-    usb_paddr_t *pframes;
+    struct usb_device *devices[USB_EHCI_MAX_DEVICES];  ///< connected devices
 
     /* free lists of allocated structures */
-    struct usb_ehci_qh *qh_free;     ///< pointer to free queue heads
-    struct usb_ehci_sitd *sidt_free; ///< pointer to free siTD
-    struct usb_ehci_itd *itd_free;   ///< pointer to free iTD
+    struct usb_ehci_qh *qh_free;           ///< pointer to free queue heads
+    struct usb_ehci_sitd *sidt_free;       ///< pointer to free siTD
+    struct usb_ehci_itd *itd_free;         ///< pointer to free iTD
+
+    /* transfers */
+    struct usb_ehci_qh *qh_async_last;      ///< pointer to the last async qh
+    struct usb_ehci_qh *qh_async_first;     ///< pointer to the first async qh
+    struct usb_ehci_qh *qh_terminate;       ///< pointer to terminator qh
+
+    /* interrupt transfers */
+    struct usb_ehci_qh *qh_intr_last[USB_EHCI_VFRAMELIST_COUNT];  ///< intr qh
+    uint16_t qh_intr_stat[USB_EHCI_VFRAMELIST_COUNT];  ///< interrupt statistics
+
+    /* isochronus transfer lists */
+    struct usb_ehci_sitd *qh_sitd_fs_last[USB_EHCI_VFRAMELIST_COUNT];
+    struct usb_ehci_itd *qh_itd_hs_last[USB_EHCI_VFRAMELIST_COUNT];
+    usb_paddr_t pframes_phys;               ///< physical frames
+    usb_paddr_t *pframes;                   ///< physical frames
 };
 
 /// USB EHCI host controller type
 typedef struct usb_ehci_hc usb_ehci_hc_t;
 
-/*
- * Function Prototypes
- */
+/* Function Prototypes */
 
 void usb_ehci_interrupt(usb_host_controller_t *host);
 usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base);
 usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc);
 usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc);
+
 #endif /* USB_EHCI_H_ */

@@ -227,11 +227,11 @@ void usb_ehci_qtd_free(struct usb_ehci_qtd *qtd)
     memset(qtd, 0, 0xB);
     qtd->qtd_alt_next |= USB_EHCI_LINK_TERMINATE;
     qtd->qtd_next |= USB_EHCI_LINK_TERMINATE;
-    qtd->qtd_bp[0].bp &= 0xFFFFF000;
-    qtd->qtd_bp[1].bp &= 0xFFFFF000;
-    qtd->qtd_bp[2].bp &= 0xFFFFF000;
-    qtd->qtd_bp[3].bp &= 0xFFFFF000;
-    qtd->qtd_bp[4].bp &= 0xFFFFF000;
+    qtd->qtd_bp[0].address &= 0xFFFFF000;
+    qtd->qtd_bp[1].address &= 0xFFFFF000;
+    qtd->qtd_bp[2].address &= 0xFFFFF000;
+    qtd->qtd_bp[3].address &= 0xFFFFF000;
+    qtd->qtd_bp[4].address &= 0xFFFFF000;
 
     /*
      * clear out all virtual information
@@ -303,8 +303,8 @@ void usb_ehci_sitd_free(struct usb_ehci_sitd *sitd)
 {
     memset(sitd, 0, 0xF);
     sitd->sitd_next |= USB_EHCI_LINK_TERMINATE;
-    sitd->sitd_bp[0].bp &= 0xFFFFF000;
-    sitd->sitd_bp[0].bp &= 0xFFFFF000;
+    sitd->sitd_bp[0].address &= 0xFFFFF000;
+    sitd->sitd_bp[0].address &= 0xFFFFF000;
     sitd->sitd_back_link |= USB_EHCI_LINK_TERMINATE;
 
     sitd->prev = NULL;
@@ -375,13 +375,13 @@ void usb_ehci_itd_free(struct usb_ehci_itd *itd)
 {
     memset(itd, 0, 0x23);
     itd->itd_next |= USB_EHCI_LINK_TERMINATE;
-    itd->itd_bp[0].bp &= 0xFFFFF000;
-    itd->itd_bp[1].bp &= 0xFFFFF000;
-    itd->itd_bp[2].bp &= 0xFFFFF000;
-    itd->itd_bp[3].bp &= 0xFFFFF000;
-    itd->itd_bp[4].bp &= 0xFFFFF000;
-    itd->itd_bp[5].bp &= 0xFFFFF000;
-    itd->itd_bp[6].bp &= 0xFFFFF000;
+    itd->itd_bp[0].address &= 0xFFFFF000;
+    itd->itd_bp[1].address &= 0xFFFFF000;
+    itd->itd_bp[2].address &= 0xFFFFF000;
+    itd->itd_bp[3].address &= 0xFFFFF000;
+    itd->itd_bp[4].address &= 0xFFFFF000;
+    itd->itd_bp[5].address &= 0xFFFFF000;
+    itd->itd_bp[6].address &= 0xFFFFF000;
 
     itd->next = NULL;
     itd->prev = NULL;

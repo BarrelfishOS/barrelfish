@@ -21,6 +21,7 @@
 #include <usb/class/usb_hid.h>
 
 #include "usb_keyboard_driver.h"
+#include "usb_keyboard_service.h"
 
 #include "usb_keyboard_keymap.h"
 
@@ -43,15 +44,6 @@ static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
             .pipe_on_falure = 1,
             .auto_restart = 1,
         },
-    },
-
-    [USB_KEYBOARD_LED_CTRL]= {
-        .type = USB_TYPE_CTRL,
-        .interface = 0,
-        .endpoint = USB_ENDPOINT_CONTROL,
-        .max_bytes = sizeof(struct usb_device_request) + USB_KEYBOARD_BUFSIZE,
-        .timeout = 1000,
-        .direction = USB_ENDPOINT_DIRECTION_ANY
     },
 };
 
@@ -296,6 +288,128 @@ static void usb_keyboard_set_leds(void)
 
 }
 
+
+#if USB_KEYBOARD_MODE_ATCODE
+static int32_t usb_keyboard_atcode(uint32_t keycode, int32_t up)
+{
+    static const int scan[] = {
+          /* 89 */
+          0x11c,  /* Enter */
+          /* 90-99 */
+          0x11d,  /* Ctrl-R */
+          0x135,  /* Divide */
+          0x137 | 0x800,  /* PrintScreen */
+          0x138,  /* Alt-R */
+          0x147,  /* Home */
+          0x148,  /* Up */
+          0x149,  /* PageUp */
+          0x14b,  /* Left */
+          0x14d,  /* Right */
+          0x14f,  /* End */
+          /* 100-109 */
+          0x150,  /* Down */
+          0x151,  /* PageDown */
+          0x152,  /* Insert */
+          0x153,  /* Delete */
+          0x146,  /* XXX Pause/Break */
+          0x15b,  /* Win_L(Super_L) */
+          0x15c,  /* Win_R(Super_R) */
+          0x15d,  /* Application(Menu) */
+
+          /* SUN TYPE 6 USB KEYBOARD */
+          0x168,  /* Sun Type 6 Help */
+          0x15e,  /* Sun Type 6 Stop */
+          /* 110 - 119 */
+          0x15f,  /* Sun Type 6 Again */
+          0x160,  /* Sun Type 6 Props */
+          0x161,  /* Sun Type 6 Undo */
+          0x162,  /* Sun Type 6 Front */
+          0x163,  /* Sun Type 6 Copy */
+          0x164,  /* Sun Type 6 Open */
+          0x165,  /* Sun Type 6 Paste */
+          0x166,  /* Sun Type 6 Find */
+          0x167,  /* Sun Type 6 Cut */
+          0x125,  /* Sun Type 6 Mute */
+          /* 120 - 128 */
+          0x11f,  /* Sun Type 6 VolumeDown */
+          0x11e,  /* Sun Type 6 VolumeUp */
+          0x120,  /* Sun Type 6 PowerDown */
+
+          /* Japanese 106/109 keyboard */
+          0x73,   /* Keyboard Intl' 1 (backslash / underscore) */
+          0x70,   /* Keyboard Intl' 2 (Katakana / Hiragana) */
+          0x7d,   /* Keyboard Intl' 3 (Yen sign) (Not using in jp106/109) */
+          0x79,   /* Keyboard Intl' 4 (Henkan) */
+          0x7b,   /* Keyboard Intl' 5 (Muhenkan) */
+          0x5c,   /* Keyboard Intl' 6 (Keypad ,) (For PC-9821 layout) */
+      };
+
+      if ((keycode >= 89) && (keycode < (89 + (sizeof(scan) / sizeof(scan[0]))))) {
+          keycode = scan[keycode - 89];
+      }
+      /* Pause/Break */
+      if ((keycode == 104) && (!(keyboard.new_data.modifiers.ctrl_l |  keyboard.new_data.modifiers.ctrl_r))) {
+          keycode = (0x45 | 0x200 | 0x400);
+      }
+      if ((keyboard.new_data.modifiers.shift_l | keyboard.new_data.modifiers.shift_r )) {
+          keycode &= ~0x800;
+      }
+      keycode |= (up ? 0x80 : 0x00);
+
+      if (keycode & 0xF00) {
+          if (keycode & 0x400) {
+              /* Ctrl */
+              keyboard.at_buffered_char[0] = (0x1d | (keycode & 0x80));
+              keyboard.at_buffered_char[1] = (keycode & ~0xF00);
+          } else if (keycode & 0x800) {
+              /* Shift */
+              keyboard.at_buffered_char[0] = (0x2a | (keycode & 0x80));
+              keyboard.at_buffered_char[1] = (keycode & ~0x800);
+          } else {
+              keyboard.at_buffered_char[0] = (keycode & ~0xF00);
+              keyboard.at_buffered_char[1] = 0;
+          }
+          return ((keycode & 0x100) ? 0xe0 : 0xe1);
+      }
+      return (keycode);
+}
+
+
+static int32_t usb_keyboard_read(void)
+{
+    uint32_t keycode;
+    uint32_t scancode;
+
+    if (keyboard.at_buffered_char[0]) {
+        scancode = keyboard.at_buffered_char[0];
+        if (scancode & 0xF00) {
+            keyboard.at_buffered_char[0] &= ~0xF00;
+            return ((scancode & 0x100) ? 0xE0 : 0xE1);
+        }
+        keyboard.at_buffered_char[0] = keyboard.at_buffered_char[1];
+        keyboard.at_buffered_char[1] = 0;
+        return (scancode);
+    }
+
+    int32_t usbcode = usb_keyboard_get_key();
+
+    if (usbcode == -1) {
+        return (-1);
+    }
+
+    keycode = usb_keyboard_keycodes[usbcode & 0xFF];
+    if (keycode == NN) {
+        return (-1);
+    }
+    return (usb_keyboard_atcode(keycode, usbcode & USB_KEYBOARD_KEY_RELEASE));
+}
+#else
+static int32_t usb_keyboard_read(void)
+{
+
+}
+#endif
+
 static uint32_t usb_keyboard_read_char(void)
 {
     uint32_t keycode;
@@ -341,7 +455,7 @@ static uint32_t usb_keyboard_read_char(void)
         if (keycode == NN) {
             return (USB_KEYBOARD_KEY_NOKEY);
         }
-        return (usb_keyboard_atcode(keycode, &keyboard.new_data.modifiers), (usbcode & 0x400));
+        return (usb_keyboard_atcode(keycode, (usbcode & USB_KEYBOARD_KEY_RELEASE)));
 #else
         keycode = usb_keyboard_keycodes[USB_KEYBOARD_KEY_INDEX(usbcode)];
 
@@ -461,15 +575,19 @@ static uint32_t usb_keyboard_read_char(void)
     return (USB_KEYBOARD_KEY_NOKEY);
 }
 
-static uint32_t usb_keyboard_read(void)
-{
-    return (0);
-}
+
 
 static void usb_keyboard_process_data(void)
 {
-    if (0) {
-        usb_keyboard_read();
+    if (USB_KEYBOARD_MODE_ATCODE) {
+        int32_t sc;
+        while((sc = usb_keyboard_read()) != -1) {
+            if (sc & 0xF00) {
+                key_event((uint8_t)(0xFF & sc), 1);
+            } else {
+                key_event((uint8_t)(0xFF & sc), 0);
+            }
+        }
     } else {
         uint32_t c;
         char cp[2];
@@ -831,7 +949,7 @@ usb_error_t usb_keyboard_init(void)
 
     err = usb_transfer_setup_intr(
                 &keyboard_tconf[USB_KEYBOARD_DATA], usb_keyboard_transfer_cb,
-                &keyboard.xferids[USB_KEYBOARD_LED_CTRL]);
+                &keyboard.xferids[USB_KEYBOARD_DATA_2]);
 
     if (err != USB_ERR_OK) {
         debug_printf("Failed to setup USB transfer: %s\n",
@@ -865,17 +983,21 @@ usb_error_t usb_keyboard_init(void)
         USB_DEBUG("NOTICE: setting idle rate failed. (ignored)\n");
     }
 
-    /* start the interrupt transfer */
-    err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA]);
-    err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_LED_CTRL]);
-    if (err != USB_ERR_OK) {
-        USB_DEBUG(
-                "Failed to start the transfer: %s\n", usb_get_error_string(err));
-    }
-
-    USB_DEBUG("keyboard initialized.\n");
 
     return (USB_ERR_OK);
+}
+
+usb_error_t usb_keyboard_start_transfers(void)
+{
+    usb_error_t err;
+    /* start the interrupt transfer */
+    err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA]);
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+    err = usb_transfer_start(keyboard.xferids[USB_KEYBOARD_DATA_2]);
+
+    return (err);
 }
 
 /**

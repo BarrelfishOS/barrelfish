@@ -271,10 +271,13 @@ static void keyboard_bind_cb(void *st, errval_t err, struct keyboard_binding *b)
 {
     struct terminal_state *state = st;
 
+    debug_printf("bound keyboard.\n");
+
     if (err_is_ok(err)) {
         b->rx_vtbl = keyboard_rx_vtbl;
         b->st = state;
         state->kbd = b;
+
     } else {
         state->kbd_bound = false;
         USER_PANIC_ERR(err, "error binding to keyboard driver");
@@ -368,7 +371,7 @@ errval_t terminal_want_stdin(unsigned sources)
         state->kbd_bound = true;
     }
 
-    // XXX: I don't believe this waiting is correct. It changes this from a 
+    // XXX: I don't believe this waiting is correct. It changes this from a
     // non-blocking to a blocking API call. The caller should dispatch
     // the default waitset, and the bind will eventually complete. -AB
     while ((sources & TERMINAL_SOURCE_SERIAL) && state->serial == NULL) {
@@ -378,12 +381,22 @@ errval_t terminal_want_stdin(unsigned sources)
         }
     }
 
+    // XXX: it seems that one has to wait till the binding is complete
+    // otherwise the key_event messages are not received by the library. -RA
+    while ((sources & TERMINAL_SOURCE_KEYBOARD) && state->kbd == NULL) {
+            err = event_dispatch(get_default_waitset());
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "event_dispatch on default waitset failed.");
+            }
+        }
+
     if (sources & TERMINAL_SOURCE_SERIAL && state->serial != NULL) {
         err = state->serial->tx_vtbl.associate_stdin(state->serial, NOP_CONT);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "sending associate_stdin failed");
         }
     }
+
 
     err = SYS_ERR_OK;
 

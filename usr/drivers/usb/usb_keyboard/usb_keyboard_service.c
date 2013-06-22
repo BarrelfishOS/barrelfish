@@ -28,6 +28,9 @@ static const char *keyboard_service_name = "keyboard";
 /// connected keyboard clients
 static struct keyboard_binding *keyboard_clients = NULL;
 
+static volatile uint8_t keyboard_service_registered = 0;
+
+
 /*
  * Flounder callbacks
  */
@@ -51,16 +54,18 @@ static errval_t usb_keyboard_connect_handler(void *st,
  */
 static void usb_keyboard_export_cb(void *st, errval_t err, iref_t iref)
 {
-    USB_DEBUG("usb_keyboard_export_cb()\n");
     assert(err_is_ok(err));
     err = nameservice_register(keyboard_service_name, iref);
     assert(err_is_ok(err));
-    USB_DEBUG("usb_keyboard_export_cb(): name service registered\n");
+
+    keyboard_service_registered = 1;
 }
 
 /*
  *
  */
+
+
 
 /**
  * \brief   broadcasts the key event to all clients
@@ -70,7 +75,6 @@ static void usb_keyboard_export_cb(void *st, errval_t err, iref_t iref)
  */
 void key_event(uint8_t scancode, bool extended)
 {
-    USB_DEBUG("key_event() scancode = %c\n", scancode);
     struct keyboard_binding *c;
     errval_t err;
 
@@ -87,7 +91,6 @@ void key_event(uint8_t scancode, bool extended)
  */
 errval_t usb_keyboard_service_init(void)
 {
-    USB_DEBUG("usb_keyboard_service_init()\n");
     errval_t err;
 
     err = keyboard_export(NULL, usb_keyboard_export_cb,
@@ -97,6 +100,10 @@ errval_t usb_keyboard_service_init(void)
     if (err_is_fail(err)) {
         debug_printf("ERROR: Could not export the service\n");
         return (err);
+    }
+
+    while (!keyboard_service_registered) {
+        event_dispatch(get_default_waitset());
     }
 
     return (SYS_ERR_OK);

@@ -14,7 +14,7 @@
                       cFiles = [ "usb_keyboard.c",
                                  "usb_keyboard_service.c", 
                                  "usb_keyboard_driver.c"],
-                    
+                    flounderBindings = [ "keyboard"],
                       addLibraries = ["usb"],
                       architectures = allArchitectures
                     }

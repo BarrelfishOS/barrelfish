@@ -263,7 +263,7 @@ void usb_ehci_endpoint_init(struct usb_device *device,
      * CASE 1: The device is the root hub. Setting up endpoints for the root
      *         hub is not allowed, thus return
      */
-    if (device->device_index == hc->root_hub_address) {
+    if (device->device_index == hc->rh_device_address) {
         return;
     }
 

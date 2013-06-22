@@ -195,7 +195,7 @@ usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
      * functional and will not report attaches, detaches, etc.
      */
     if (ehci_hcsparams_ppc_rdf(hc->ehci_base)) {
-        for (uint8_t i = 0; i < hc->root_hub_num_ports; i++) {
+        for (uint8_t i = 0; i < hc->rh_num_ports; i++) {
             ehci_portsc_pp_wrf(hc->ehci_base, i, 1);
         }
     }
@@ -330,11 +330,11 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base)
     /*
      * read revision and number of ports
      */
-    hc->revision = ehci_hciversion_rd(hc->ehci_base);
-    hc->root_hub_num_ports = ehci_hcsparams_n_ports_rdf(hc->ehci_base);
+    hc->ehci_revision = ehci_hciversion_rd(hc->ehci_base);
+    hc->rh_num_ports = ehci_hcsparams_n_ports_rdf(hc->ehci_base);
 
     debug_printf("Device found: EHCI controller rev: %x.%x with %u ports\n",
-            hc->revision >> 8, hc->revision & 0xFF, hc->root_hub_num_ports);
+            hc->ehci_revision >> 8, hc->ehci_revision & 0xFF, hc->rh_num_ports);
 
     usb_error_t err;
     err = usb_ehci_hc_halt(hc);
@@ -487,7 +487,7 @@ usb_error_t usb_ehci_init(usb_ehci_hc_t *hc, uintptr_t controller_base)
 
     if (root_hub) {
         usb_hub_init(root_hub);
-        hc->root_hub = root_hub;
+        hc->rh_device = root_hub;
         hc->controller->root_hub = root_hub;
     } else {
         debug_printf("WARNING: No root hub!");

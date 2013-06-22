@@ -13,8 +13,7 @@
 #include <usb/usb_transfer.h>
 #include <usb/class/usb_hid.h>
 
-#define USB_KEYBOARD_MODE_CHAR
-//#define USB_KEYBOARD_MODE_ATCODE
+#define USB_KEYBOARD_MODE_ATCODE 1
 
 #define USB_KEYBOARD_BUFSIZE 64
 #define USB_KEYBOARD_MODIFIIERS 8
@@ -25,7 +24,7 @@
 /// enumeration of USB keyboard transfers
 enum {
     USB_KEYBOARD_DATA,          ///< used for data transfers to get key events
-    USB_KEYBOARD_LED_CTRL,      ///< used for led control
+    USB_KEYBOARD_DATA_2,
     USB_KEYBOARD_NUM_TRANSFERS,  ///< number of transfers
 };
 
@@ -125,7 +124,7 @@ struct usb_keyboard {
     uint32_t composed_char;
     uint8_t composed_done;
 
-#ifdef USB_KEYBOARD_MODE_ATCODE
+#if USB_KEYBOARD_MODE_ATCODE
     uint32_t at_buffered_char[2];
 #endif
 
@@ -147,6 +146,7 @@ typedef struct usb_keyboard usb_keyboard_t;
 
 void usb_keyboard_deinit(void);
 usb_error_t usb_keyboard_init(void);
+usb_error_t usb_keyboard_start_transfers(void);
 
 //#define USB_DEBUG_KBD(x...) debug_printf(x)
 #define USB_DEBUG_KBD(x...)
