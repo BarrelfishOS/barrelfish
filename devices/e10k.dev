@@ -1769,10 +1769,9 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   // 8.2.3.22.8
   register hlreg0 rw addr(base, 0x04240) "MAC Core Control 0 Register" {
     txcrcen     1 "Tx CRC Enable";
-    _           1 rsvd;
+    rxcrcstrp   1 "Rx CRC Strip";
     jumboen     1 "Jumbo Frame Enable";
-    _           1 mb1;
-    _           6 mbz;
+    _           7 mbz;
     txpaden     1 "Tx Pad Frame Enable";
     _           4 rsvd;
     lpbk        1 "Loopback enabled";

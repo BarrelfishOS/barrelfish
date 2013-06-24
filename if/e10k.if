@@ -26,7 +26,8 @@ interface e10k "e10k queue management interface" {
                                cap    txhwb,
                                cap    rx,
                                uint32 rxbufsz,
-                               bool   use_irq);
+                               bool   use_irq,
+                               bool   use_rsc);
     response queue_memory_registered();
 
     /* Modify interrupt rate for a particular queue */

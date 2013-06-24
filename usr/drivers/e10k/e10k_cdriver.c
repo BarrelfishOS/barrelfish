@@ -39,6 +39,7 @@ struct queue_state {
     struct capref rx_frame;
     uint32_t rxbufsz;
     bool use_irq;
+    bool use_rsc;
 
     uint64_t rx_head;
     uint64_t tx_head;
@@ -91,7 +92,8 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
-                              bool use_interrupts);
+                              bool use_interrupts,
+                              bool use_rsc);
 void cd_set_interrupt_rate(struct e10k_binding *b,
                            uint8_t queue,
                            uint16_t rate);
@@ -436,8 +438,11 @@ static void device_init(void)
 
     // Initialize interrupts
     e10k_eicr_wr(d, 0xffffffff);
-    e10k_eitr_l_wr(d, 0, 0x0);
+    // Set maximal interrupt delay
+    e10k_eitr_l_wr(d, 0, e10k_eitrn_itr_int_insert(0, 1023));
     e10k_gpie_eimen_wrf(d, 1);
+    // Just a guess for RSC delay
+    e10k_gpie_rsc_delay_wrf(d, 2);
 
     e10k_eimc_wr(d, e10k_eims_rd(d));
     e10k_eims_cause_wrf(d, 0x7fffffff);
@@ -466,6 +471,9 @@ static void device_init(void)
         }
     }
 
+    // Allow for per-queue RSC
+    e10k_rfctl_rsc_dis_wrf(d, 0);
+
     // Initialize RX filters
     for (i = 0; i < 128; i++) {
         e10k_ftqf_wr(d, i, 0);
@@ -480,9 +488,12 @@ static void device_init(void)
     // Accept broadcasts
     e10k_fctrl_bam_wrf(d, 1);
 
-    // Spec says that rscfrstsz has to be set to 0 (is mbz)
-    e10k_rdrxctl_wr(d, e10k_rdrxctl_rd(d));
-
+    // Make sure Rx CRC strip is consistently enabled in HLREG0 and RDRXCTL
+    e10k_hlreg0_rxcrcstrp_wrf(d, 1);
+    // Note: rscfrstsz has to be set to 0 (is mbz)
+    e10k_rdrxctl_t rdrxctl = e10k_rdrxctl_rd(d);
+    rdrxctl = e10k_rdrxctl_crcstrip_insert(rdrxctl, 1);
+    e10k_rdrxctl_wr(d, rdrxctl);
 
 
     // Configure buffers etc. according to specification
@@ -621,8 +632,21 @@ static void queue_hw_init(uint8_t n)
     e10k_rdlen_1_wr(d, n, rx_size);
 
     e10k_srrctl_1_bsz_pkt_wrf(d, n, queues[n].rxbufsz / 1024);
+    e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
+                                               //       all cases?
     e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
     e10k_srrctl_1_drop_en_wrf(d, n, 1);
+
+    // Set RSC status
+    if (queues[n].use_rsc) {
+        e10k_rscctl_1_maxdesc_wrf(d, n, 3);
+        e10k_rscctl_1_rsc_en_wrf(d, n, 1);
+        // TODO: (how) does this work for queues >=64?
+        e10k_psrtype_split_tcp_wrf(d, n, 1);
+    } else {
+        e10k_rscctl_1_maxdesc_wrf(d, n, 0);
+        e10k_rscctl_1_rsc_en_wrf(d, n, 0);
+    }
 
     // Initialize queue pointers (empty)
     e10k_rdt_1_wr(d, n, queues[n].rx_head);
@@ -880,7 +904,8 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb_frame,
                               struct capref rx_frame,
                               uint32_t rxbufsz,
-                              bool use_irq)
+                              bool use_irq,
+                              bool use_rsc)
 {
     DEBUG("register_queue_memory(%"PRIu8")\n", n);
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
@@ -896,6 +921,7 @@ void cd_register_queue_memory(struct e10k_binding *b,
     queues[n].rxbufsz = rxbufsz;
     queues[n].binding = b;
     queues[n].use_irq = use_irq;
+    queues[n].use_rsc = use_rsc;
 
     queue_hw_init(n);
 
