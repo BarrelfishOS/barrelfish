@@ -131,12 +131,16 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
     size_t more_chunks = false;
     uint64_t pkt_count = 0;
     while(p != NULL) {
+        // Check if this is intended to happen, or just a bug
+        if (p->len == 0) {
+            p = p->next;
+            continue;
+        }
+
         // Note: since we are freeing each pbuf in the chain separately, we
         // need to increment the reference count seperately, since lwip only
         // incremented the first pbuf's reference counter
-        if (pkt_count != 0) {
-            pbuf_ref(p);
-        }
+        pbuf_ref(p);
 
         more_chunks = (p->next != NULL);
         idx = mem_barrelfish_put_pbuf(p);
