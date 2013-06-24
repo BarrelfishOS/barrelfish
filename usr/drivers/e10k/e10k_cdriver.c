@@ -617,7 +617,7 @@ static void queue_hw_init(uint8_t n)
     e10k_rdlen_1_wr(d, n, rx_size);
 
     e10k_srrctl_1_bsz_pkt_wrf(d, n, queues[n].rxbufsz / 1024);
-    e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
+    e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
     e10k_srrctl_1_drop_en_wrf(d, n, 1);
 
     // Initialize queue pointers (empty)

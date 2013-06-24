@@ -22,14 +22,14 @@ struct e10k_queue_ops {
 
 struct e10k_queue {
     // FIXME: Look for appropriate type for the _head/tail/size fields
-    e10k_q_tdesc_legacy_array_t*    tx_ring;
+    e10k_q_tdesc_adv_wb_array_t*    tx_ring;
     void**                          tx_opaque;
     size_t                          tx_head;
     size_t                          tx_tail;
     size_t                          tx_size;
     uint32_t*                       tx_hwb;
 
-    e10k_q_rdesc_legacy_array_t*    rx_ring;
+    e10k_q_rdesc_adv_wb_array_t*    rx_ring;
     void**                          rx_opaque;
     size_t                          rx_head;
     size_t                          rx_tail;
@@ -64,37 +64,40 @@ static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size,
     q->opaque = opaque;
 
     // Initialize ring memory with zero
-    memset(tx, 0, tx_size * e10k_q_tdesc_legacy_size);
-    memset(rx, 0, rx_size * e10k_q_rdesc_legacy_size);
+    memset(tx, 0, tx_size * e10k_q_tdesc_adv_wb_size);
+    memset(rx, 0, rx_size * e10k_q_rdesc_adv_wb_size);
 
     return q;
 }
 
-
 static inline int e10k_queue_add_txbuf(e10k_queue_t* q, uint64_t phys,
-    size_t len, void* opaque, int last)
+    size_t len, void* opaque, int first, int last, size_t totallen)
 {
-    e10k_q_tdesc_legacy_t d;
+    e10k_q_tdesc_adv_rd_t d;
     size_t tail = q->tx_tail;
 
     // TODO: Check if there is room in the queue
     q->tx_opaque[tail] = opaque;
     d = q->tx_ring[tail];
 
-    e10k_q_tdesc_legacy_buffer_insert(d, phys);
-    e10k_q_tdesc_legacy_length_insert(d, len);
-    e10k_q_tdesc_legacy_rs_insert(d, (last == 1));
-    e10k_q_tdesc_legacy_ifcs_insert(d, 1);
-    e10k_q_tdesc_legacy_eop_insert(d, last);
+    e10k_q_tdesc_adv_rd_buffer_insert(d, phys);
+    e10k_q_tdesc_adv_rd_dtalen_insert(d, len);
+    if (first) {
+        e10k_q_tdesc_adv_rd_paylen_insert(d, totallen);
+    }
+    e10k_q_tdesc_adv_rd_dtyp_insert(d, e10k_q_adv_data);
+    e10k_q_tdesc_adv_rd_dext_insert(d, 1);
+    e10k_q_tdesc_adv_rd_rs_insert(d, (last == 1));
+    e10k_q_tdesc_adv_rd_ifcs_insert(d, 1);
+    e10k_q_tdesc_adv_rd_eop_insert(d, last);
 
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
 }
 
-static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque,
-    int* last)
+static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque)
 {
-    e10k_q_tdesc_legacy_t d;
+    e10k_q_tdesc_adv_wb_t d;
     size_t head = q->tx_head;
 
     // If HWB is enabled, we can skip reading the descriptor if nothing happened
@@ -103,11 +106,10 @@ static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque,
     }
 
     d = q->tx_ring[head];
-    if (q->tx_hwb || e10k_q_tdesc_legacy_dd_extract(d)) {
-        *last = e10k_q_tdesc_legacy_eop_extract(d);
+    if (q->tx_hwb || e10k_q_tdesc_adv_wb_dd_extract(d)) {
         *opaque = q->tx_opaque[head];
 
-        memset(d, 0, e10k_q_tdesc_legacy_size);
+        memset(d, 0, e10k_q_tdesc_adv_wb_size);
 
         q->tx_head = (head + 1) % q->tx_size;
         return 0;
@@ -138,14 +140,15 @@ static inline size_t e10k_queue_free_txslots(e10k_queue_t* q)
 static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
     void* opaque)
 {
-    e10k_q_rdesc_legacy_t d;
+    e10k_q_rdesc_adv_rd_t d;
     size_t tail = q->rx_tail;
 
     // TODO: Check if there is room in the queue
     q->rx_opaque[tail] = opaque;
-    d = q->rx_ring[tail];
+    d = (e10k_q_rdesc_adv_rd_t) q->rx_ring[tail];
 
-    e10k_q_rdesc_legacy_buffer_insert(d, phys);
+    e10k_q_rdesc_adv_rd_buffer_insert(d, phys);
+    e10k_q_rdesc_adv_rd_hdr_buffer_insert(d, 0);
 
     q->rx_tail = (tail + 1) % q->rx_size;
 
@@ -155,17 +158,17 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
 static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
     size_t* len, int* last)
 {
-    e10k_q_rdesc_legacy_t d;
+    e10k_q_rdesc_adv_wb_t d;
     size_t head = q->rx_head;
 
     d = q->rx_ring[head];
-    if (e10k_q_rdesc_legacy_dd_extract(d)) {
-        *last = e10k_q_rdesc_legacy_eop_extract(d);
-        *len = e10k_q_rdesc_legacy_length_extract(d);
+    if (e10k_q_rdesc_adv_wb_dd_extract(d)) {
+        *last = e10k_q_rdesc_adv_wb_eop_extract(d);
+        *len = e10k_q_rdesc_adv_wb_pkt_len_extract(d);
         // TODO: Extract status (okay/error)
         *opaque = q->rx_opaque[head];
 
-        memset(d, 0, e10k_q_rdesc_legacy_size);
+        memset(d, 0, e10k_q_rdesc_adv_wb_size);
 
         q->rx_head = (head + 1) % q->rx_size;
         return 0;
