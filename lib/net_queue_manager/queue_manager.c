@@ -817,9 +817,11 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
         cl->driver_buff_list[cl->chunk_counter].pa = paddr;
         cl->driver_buff_list[cl->chunk_counter].len = length;
         cl->driver_buff_list[cl->chunk_counter].flags = flags;
+        cl->driver_buff_list[cl->chunk_counter].opaque = opaque;
         ++cl->chunk_counter;
         if (more == 0) {
-            err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list, cl->chunk_counter, opaque);
+            err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list,
+                                               cl->chunk_counter);
             assert(err_is_ok(err));
             cl->chunk_counter = 0;
         }

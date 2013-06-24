@@ -1203,6 +1203,7 @@ static bool handle_netd_packet(void *packet, size_t len, uint64_t flags)
     return true;
 } // end function: handle_netd_packet
 
+#if 0 // LOOPBACK
 // give this packet to netd
 static bool handle_loopback_packet(void *packet, size_t len, void *opaque,
         uint64_t flags)
@@ -1269,6 +1270,7 @@ void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
 out:
      rx_ring_register_buffer(opaque_rx);
 } // end function: sf_process_received_packet_lo
+#endif
 
 
 
@@ -1294,6 +1296,7 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last,
                     (uint32_t) ((uintptr_t) pkt_data));
 #endif // TRACE_ONLY_SUB_NNET
 
+#if 0  // LOOPBACK
     if (is_loopback_device) {
         if(handle_loopback_packet(pkt_data, pkt_len, opaque, flags)) {
             goto out;
@@ -1301,6 +1304,7 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last,
             USER_PANIC("handle_loopback_packet failed");
         }
     }
+#endif
 
     // check for fragmented packet
     if (handle_fragmented_packet(pkt_data, pkt_len, flags)) {

@@ -110,6 +110,7 @@ struct driver_buffer {
     void    *va;
     size_t   len;
     uint64_t flags;
+    void    *opaque;
 };
 
 
@@ -169,8 +170,7 @@ typedef void (*ether_get_mac_address_t)(uint8_t *mac);
 typedef void (*ether_terminate_queue)(void);
 typedef errval_t (*ether_transmit_pbuf_list_t)(
     struct driver_buffer *buffers,
-    size_t                count,
-    void                 *opaque);
+    size_t                count);
 typedef uint64_t (*ether_get_tx_free_slots)(void);
 typedef bool (*ether_handle_free_TX_slot)(void);
 typedef errval_t (*ether_rx_register_buffer)(uintptr_t paddr, void *vaddr,

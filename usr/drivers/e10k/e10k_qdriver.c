@@ -245,8 +245,7 @@ static inline bool buf_tcphdrlen(struct driver_buffer *buf)
 
 
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
-                                      size_t                count,
-                                      void                 *opaque)
+                                      size_t                count)
 {
     size_t i;
     size_t totallen = 0;
@@ -273,13 +272,13 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
         e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
 
         e10k_queue_add_txbuf_ctx(q, buffers[0].pa, buffers[0].len,
-            opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
+            buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
         start++;
    }
 
     for (i = start; i < count; i++) {
-        e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len, opaque,
-            (i == 0), (i == count - 1), totallen);
+        e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len,
+            buffers[i].opaque, (i == 0), (i == count - 1), totallen);
     }
 
     e10k_queue_bump_txtail(q);
