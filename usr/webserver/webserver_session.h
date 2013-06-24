@@ -16,7 +16,7 @@
 //#define DEBUGWS 1
 
 #ifdef DEBUGWS
-#define DEBUGPRINT(arg...) printf(arg)
+#define DEBUGPRINT(arg...) printf("WEBSERVER: " arg)
 #else
 #define DEBUGPRINT(arg...) ((void)0)
 #endif /* DEBUGWS */

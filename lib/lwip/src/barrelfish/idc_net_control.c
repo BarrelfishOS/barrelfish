@@ -345,7 +345,9 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
        purpose */
     errval_t err, msgerr;
 
-    LWIPBF_DEBUG("idc_new_port: called\n");
+    //LWIPBF_DEBUG
+    printf
+        ("idc_new_port: ################################### called\n");
 
     // antoinek: FIXME: Need to figure out how to deal with this
     //assert(!"NYI");
@@ -362,7 +364,9 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
 
-    LWIPBF_DEBUG("idc_new_tcp_port: terminated\n");
+    //LWIPBF_DEBUG
+    printf
+        ("idc_new_port: ################################### terminated\n");
     return msgerr;
 }
 

@@ -954,9 +954,9 @@ struct filter *execute_filters(void *data, size_t len)
             // Currently we just take the most recently added filter as
             // reflected by the order in the list.
             ETHERSRV_DEBUG("##### Filter_id [%" PRIu64 "] type[%" PRIu64
-                           "] matched giving buff [%" PRIu64 "]..\n",
+                           "] matched giving buff [%" PRIu64 "].., len [%" PRIu64 "]\n",
                            head->filter_id, head->filter_type,
-                           head->buffer->buffer_id);
+                           head->buffer->buffer_id, len);
             return head;
         }
         head = head->next;
@@ -1175,7 +1175,7 @@ static bool handle_netd_packet(void *packet, size_t len)
     	return false;
     }
 
-//  ETHERSRV_DEBUG("No client wants, giving it to netd\n");
+  ETHERSRV_DEBUG("No client wants, giving it to netd\n");
     struct buffer_descriptor *buffer = ((struct client_closure *)
               (netd[RECEIVE_CONNECTION]->st))->buffer_ptr;
 
@@ -1312,7 +1312,7 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 
     // check for application specific packet
     if (handle_application_packet(pkt_data, pkt_len)) {
-        ETHERSRV_DEBUG("application specific packet..\n");
+        ETHERSRV_DEBUG("application specific packet.. len %"PRIu64"\n", pkt_len);
         goto out;
     }
 
@@ -1322,8 +1322,9 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
         goto out;
     }
 
-     // last resort: send packet to netd
-     handle_netd_packet(pkt_data, pkt_len);
+    // last resort: send packet to netd
+
+    handle_netd_packet(pkt_data, pkt_len);
 
 out:
      rx_ring_register_buffer(opaque);

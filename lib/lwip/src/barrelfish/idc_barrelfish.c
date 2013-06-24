@@ -98,13 +98,29 @@ uint64_t idc_get_packet_drop_count(void)
 
 uint64_t perform_lwip_work(void)
 {
-    return 0;
+    uint64_t ec = 0;
+    struct waitset *ws = get_default_waitset();
+    while (1) {
+        // check for any event without blocking
+        errval_t err = event_dispatch_non_block(ws);
+        if (err == LIB_ERR_NO_EVENT) {
+            break;
+        }
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            break;
+        }
+        ++ec;
+    }
+
+    return ec;
 }
 
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 {
     size_t idx;
     ptrdiff_t offset;
+    perform_lwip_work();
 
 #if TRACE_ONLY_LLNET
         trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPTX, 0);
@@ -263,6 +279,7 @@ static void handle_incoming(size_t idx, size_t len)
     p = mem_barrelfish_get_pbuf(idx);
     assert(p != NULL);
 
+    LWIPBF_DEBUG("handle_incoming: incoming packet: len %"PRIu64"\n", len);
     lwip_rec_handler(lwip_rec_data, idx, -1ULL, len, len, p);
 
 }

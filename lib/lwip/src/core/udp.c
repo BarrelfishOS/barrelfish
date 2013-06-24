@@ -622,6 +622,7 @@ err_t udp_bind(struct udp_pcb * pcb, struct ip_addr * ipaddr, u16_t port)
     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | 3, ("udp_bind: starting %u\n",
                                                  port));
 
+    printf("udp_bind:called............................ \n");
     /* Following modifications are part of DEMUX : PS */
     if (port == 0) {
         err = idc_udp_new_port(&port);
@@ -714,11 +715,14 @@ err_t udp_connect(struct udp_pcb * pcb, struct ip_addr * ipaddr, u16_t port)
 {
     struct udp_pcb *ipcb;
 
+//    printf("udp_connect:called............................ \n");
     if (pcb->local_port == 0) {
         err_t err = udp_bind(pcb, &pcb->local_ip, pcb->local_port);
 
-        if (err != ERR_OK)
+        if (err != ERR_OK) {
+            printf("udp_connect failed\n");
             return err;
+        }
     }
 
     ip_addr_set(&pcb->remote_ip, ipaddr);
