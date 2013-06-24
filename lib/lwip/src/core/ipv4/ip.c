@@ -269,7 +269,9 @@ err_t ip_input(struct pbuf * p, struct netif * inp)
 
     /* verify checksum */
 #if CHECKSUM_CHECK_IP
-    if (inet_chksum(iphdr, iphdr_hlen) != 0) {
+    int hwcxs_good = ((p->nicflags & NETIF_RXFLAG_IPCHECKSUM) &&
+            (p->nicflags & NETIF_RXFLAG_IPCHECKSUM_GOOD));
+    if (!hwcxs_good && inet_chksum(iphdr, iphdr_hlen) != 0) {
 
         LWIP_DEBUGF(IP_DEBUG | 2,
                     ("Checksum (0x%" X16_F ") failed, IP packet dropped.\n",

@@ -221,9 +221,42 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
     return 0;
 }
 
+static inline uint64_t e10k_queue_convert_rxflags(e10k_q_rdesc_adv_wb_t d)
+{
+    uint64_t flags = 0;
+
+    // IP checksum
+    if (e10k_q_rdesc_adv_wb_ipcs_extract(d)) {
+        flags |= NETIF_RXFLAG_IPCHECKSUM;
+        if (!e10k_q_rdesc_adv_wb_ipe_extract(d)) {
+            flags |= NETIF_RXFLAG_IPCHECKSUM_GOOD;
+        }
+    }
+
+    // L4 checksum
+    if (e10k_q_rdesc_adv_wb_l4i_extract(d)) {
+        flags |= NETIF_RXFLAG_L4CHECKSUM;
+        if (!e10k_q_rdesc_adv_wb_l4e_extract(d)) {
+            flags |= NETIF_RXFLAG_L4CHECKSUM_GOOD;
+        }
+    }
+
+    // Packet type
+    if (e10k_q_rdesc_adv_wb_pt_ipv4_extract(d)) {
+        flags |= NETIF_RXFLAG_TYPE_IPV4;
+    }
+    if (e10k_q_rdesc_adv_wb_pt_tcp_extract(d)) {
+        flags |= NETIF_RXFLAG_TYPE_TCP;
+    }
+    if (e10k_q_rdesc_adv_wb_pt_udp_extract(d)) {
+        flags |= NETIF_RXFLAG_TYPE_UDP;
+    }
+
+    return flags;
+}
 
 static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
-    size_t* len, int* last)
+    size_t* len, int* last, uint64_t *flags)
 {
     e10k_q_rdesc_adv_wb_t d;
     size_t head = q->rx_head;
@@ -276,7 +309,8 @@ static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
             !e10k_q_rdesc_adv_wb_eop_extract(d))
     {
         printf("e10k: RSC chained\n");
-        nextp = e10k_q_rdesc_adv_wb_nextp_extract(d);
+        e10k_q_rdesc_adv_wb_nl_t n = d;
+        nextp = e10k_q_rdesc_adv_wb_nl_nextp_extract(n);
         assert(nextp < q->rx_size);
 
         ctx_next = q->rx_context + nextp;
@@ -285,6 +319,13 @@ static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
 
          q->rx_head = (head + 1) % q->rx_size;
          return 1;
+    }
+
+    *flags = 0;
+    // Set flags if it this is a descriptor with EOP
+    // TODO: with multi-part packets, we want these flags on the first packet
+    if (e10k_q_rdesc_adv_wb_eop_extract(d)) {
+        *flags = e10k_queue_convert_rxflags(d);
     }
 
     // TODO: Extract status (okay/error)

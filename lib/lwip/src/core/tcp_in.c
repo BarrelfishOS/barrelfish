@@ -132,7 +132,10 @@ void tcp_input(struct pbuf *p, struct netif *inp)
     }
 #if CHECKSUM_CHECK_TCP
     /* Verify TCP checksum. */
-    if (inet_chksum_pseudo(p, (struct ip_addr *) &(iphdr->src),
+    int hwcxs_good = ((p->nicflags & NETIF_RXFLAG_L4CHECKSUM) &&
+            (p->nicflags & NETIF_RXFLAG_L4CHECKSUM_GOOD));
+    if (!hwcxs_good &&
+        inet_chksum_pseudo(p, (struct ip_addr *) &(iphdr->src),
                            (struct ip_addr *) &(iphdr->dest),
                            IP_PROTO_TCP, p->tot_len) != 0) {
         LWIP_DEBUGF(TCP_INPUT_DEBUG,

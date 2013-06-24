@@ -355,6 +355,7 @@ static size_t check_for_new_packets(void)
     void *op;
     int last;
     size_t count;
+    uint64_t flags = 0;
 
     if (!initialized) return 0;
 
@@ -363,15 +364,16 @@ static size_t check_for_new_packets(void)
     // TODO: This loop can cause very heavily bursty behaviour, if the packets
     // arrive faster than they can be processed.
     count = 0;
-    while (e10k_queue_get_rxbuf(q, &op, &len, &last) == 0) {
+    while (e10k_queue_get_rxbuf(q, &op, &len, &last, &flags) == 0) {
 #if TRACE_ONLY_LLNET
         trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVRX, 0);
 #endif // TRACE_ONLY_LLNET
 
-        DEBUG("New packet (q=%d)\n", qi);
+        DEBUG("New packet (q=%d f=%"PRIx64")\n", qi, flags);
 
-        process_received_packet(op, len, !!last, 0);
+        process_received_packet(op, len, !!last, flags);
         count++;
+        flags = 0;
     }
 
     if (count > 0) e10k_queue_bump_rxtail(q);

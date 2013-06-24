@@ -264,7 +264,9 @@ void udp_input(struct pbuf *p, struct netif *inp)
 #endif                          /* LWIP_UDPLITE */
         {
 #if CHECKSUM_CHECK_UDP
-            if (udphdr->chksum != 0) {
+            int hwcxs_good = ((p->nicflags & NETIF_RXFLAG_L4CHECKSUM) &&
+                    (p->nicflags & NETIF_RXFLAG_L4CHECKSUM_GOOD));
+            if (!hwcxs_good && udphdr->chksum != 0) {
                 if (inet_chksum_pseudo(p, (struct ip_addr *) &(iphdr->src),
                                        (struct ip_addr *) &(iphdr->dest),
                                        IP_PROTO_UDP, p->tot_len) != 0) {
