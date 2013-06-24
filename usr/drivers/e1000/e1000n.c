@@ -388,7 +388,7 @@ static bool handle_next_received_packet(void)
                     (uint32_t) len);
 #endif // TRACE_ONLY_SUB_NNET
 
-        process_received_packet(receive_opaque[receive_bufptr], len, true);
+        process_received_packet(receive_opaque[receive_bufptr], len, true, 0);
     } // end if: valid packet received
     else {
     	// false alarm. Something else happened, not packet arrival

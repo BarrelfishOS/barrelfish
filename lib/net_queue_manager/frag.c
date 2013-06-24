@@ -38,6 +38,7 @@ struct ip_packet {
     uint64_t ip_id;
     uint64_t timeout;
     struct ip_packet *next;
+    uint64_t flags;
 };
 
 struct fragment_filter {
@@ -115,7 +116,7 @@ static bool has_headers(void *packet, size_t len)
 
 
 static void add_packet_to_fragment_list(void *packet, size_t len,
-                                        uint64_t ip_id)
+                                        uint64_t ip_id, uint64_t flags)
 {
     struct ip_packet *new_packet = (struct ip_packet *) malloc
       (sizeof(struct ip_packet));
@@ -130,6 +131,7 @@ static void add_packet_to_fragment_list(void *packet, size_t len,
     memcpy(new_packet->data, packet, len);
     new_packet->ip_id = ip_id;
     new_packet->len = len;
+    new_packet->flags = flags;
     // TODO: set timeout here
     new_packet->next = frag_packets;
     frag_packets = new_packet;
@@ -207,7 +209,7 @@ static struct ip_packet *check_outstanding_fragmented_packets(uint64_t ip_id)
     return NULL;
 }
 
-bool handle_fragmented_packet(void *packet, size_t len)
+bool handle_fragmented_packet(void *packet, size_t len, uint64_t flags)
 {
     struct buffer_descriptor *buffer = NULL;
     uint64_t ip_id = get_ip_id(packet, len);
@@ -230,7 +232,7 @@ bool handle_fragmented_packet(void *packet, size_t len)
 
             buffer = ret_filter->buffer;
             add_fragment_filter(ip_id, buffer);
-            if (copy_packet_to_user(buffer, packet, len)) {
+            if (copy_packet_to_user(buffer, packet, len, flags)) {
 //                              send_packet_received_notification(buffer);
                 E_IPFRAG_DEBUG("IP_FRAG: user copy done %lu\n", ip_id);
             } else {
@@ -241,7 +243,8 @@ bool handle_fragmented_packet(void *packet, size_t len)
             while ((old_packet =
                     check_outstanding_fragmented_packets(ip_id)) != NULL) {
                 E_IPFRAG_DEBUG("out of order\n");
-                if (copy_packet_to_user(buffer, old_packet->data, len)) {
+                if (copy_packet_to_user(buffer, old_packet->data, len,
+                            old_packet->flags)) {
                     E_IPFRAG_DEBUG
                       ("IP_FRAG: user copy done for out of order\n");
 //                                      send_packet_received_notification(buffer);
@@ -261,7 +264,7 @@ bool handle_fragmented_packet(void *packet, size_t len)
                 E_IPFRAG_DEBUG
                   ("IP_FRAG: copying cont of ip_id %lu to buff %lu\n", ip_id,
                    buffer->buffer_id);
-                if (copy_packet_to_user(buffer, packet, len)) {
+                if (copy_packet_to_user(buffer, packet, len, flags)) {
                     E_IPFRAG_DEBUG
                       ("IP_FRAG: copying ip_id %lu to buff %lu done\n", ip_id,
                        buffer->buffer_id);
@@ -273,7 +276,7 @@ bool handle_fragmented_packet(void *packet, size_t len)
                 }
             } else {            // this is a very bad out of order packet
                 E_IPFRAG_DEBUG("IP_FRAG: out of order frag %lu\n", ip_id);
-                add_packet_to_fragment_list(packet, len, ip_id);
+                add_packet_to_fragment_list(packet, len, ip_id, flags);
                 return true;
             }
         }
@@ -293,7 +296,7 @@ bool handle_fragmented_packet(void *packet, size_t len)
                            ip_id, buffer->buffer_id);
 
             // this is the last of this sequence if there is no out of order
-            if (copy_packet_to_user(buffer, packet, len)) {
+            if (copy_packet_to_user(buffer, packet, len, flags)) {
                 E_IPFRAG_DEBUG("IP_FRAG: send last frag %lu to buff %lu done\n",
                                ip_id, buffer->buffer_id);
 //                              send_packet_received_notification(buffer);

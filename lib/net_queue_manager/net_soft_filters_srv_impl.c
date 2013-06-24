@@ -795,7 +795,8 @@ static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id
             assert(b != NULL);
             struct client_closure *cl = (struct client_closure *)b->st;
             assert(cl != NULL);
-            copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len);
+            copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len,
+                    bd->flags);
         }
     }
     rx_filter->pause_bufpos = 0;
@@ -894,7 +895,7 @@ static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id
 
 
 
-static void send_arp_to_all(void *data, uint64_t len)
+static void send_arp_to_all(void *data, uint64_t len, uint64_t flags)
 {
     struct filter *head = rx_filters;
 
@@ -912,7 +913,7 @@ static void send_arp_to_all(void *data, uint64_t len)
         assert(b != NULL);
         cl = (struct client_closure *) b->st;
         assert(cl != NULL);
-        copy_packet_to_user(head->buffer, data, len);
+        copy_packet_to_user(head->buffer, data, len, flags);
         head = head->next;
     }
 
@@ -930,7 +931,7 @@ static void send_arp_to_all(void *data, uint64_t len)
                 (uint32_t) (uintptr_t) data);
 #endif // TRACE_ETHERSRV_MODE
 
-    copy_packet_to_user(buffer, data, len);
+    copy_packet_to_user(buffer, data, len, flags);
 }
 
 
@@ -1054,7 +1055,7 @@ void init_soft_filters_service(char *service_name, uint64_t qid,
 
 
 // Checks if packet belongs to specific application and sends to it
-static bool handle_application_packet(void *packet, size_t len)
+static bool handle_application_packet(void *packet, size_t len, uint64_t flags)
 {
 
     // executing filters to find the relevant buffer
@@ -1105,6 +1106,7 @@ static bool handle_application_packet(void *packet, size_t len)
 
 //        memcpy_fast(bd->pkt_data, packet, len);
         bd->pkt_len = len;
+        bd->flags = flags;
         return true;
     }
 
@@ -1118,7 +1120,7 @@ static bool handle_application_packet(void *packet, size_t len)
                 (uint32_t) ((uintptr_t) packet));
 #endif // TRACE_ONLY_SUB_NNET
 
-    bool ret = copy_packet_to_user(buffer, packet, len);
+    bool ret = copy_packet_to_user(buffer, packet, len, flags);
     if (ret) {
         // Packet delivered to the application buffer
         if (cl->debug_state == 4) {
@@ -1146,7 +1148,7 @@ static bool handle_application_packet(void *packet, size_t len)
 
 // Checks if packet is of ARP type
 // If YES, then send it to all
-static bool handle_arp_packet(void *packet, size_t len)
+static bool handle_arp_packet(void *packet, size_t len, uint64_t flags)
 {
     int error;
 
@@ -1159,7 +1161,7 @@ static bool handle_arp_packet(void *packet, size_t len)
 
     if (res) { // we have an arp packet
 //      ETHERSRV_DEBUG("ARP packet...\n");
-        send_arp_to_all(packet, len);
+        send_arp_to_all(packet, len, flags);
         return true;
     }
 
@@ -1168,7 +1170,7 @@ static bool handle_arp_packet(void *packet, size_t len)
 
 
 // give this packet to netd
-static bool handle_netd_packet(void *packet, size_t len)
+static bool handle_netd_packet(void *packet, size_t len, uint64_t flags)
 {
     if(waiting_for_netd()){
 //        ETHERSRV_DEBUG("waiting for netd\n");
@@ -1194,7 +1196,7 @@ static bool handle_netd_packet(void *packet, size_t len)
 
     struct client_closure *cl = (struct client_closure *)b->st;
     assert(cl != NULL);
-    if (copy_packet_to_user(buffer, packet, len) == false) {
+    if (copy_packet_to_user(buffer, packet, len, flags) == false) {
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
     }
     ETHERSRV_DEBUG("packet handled by netd\n");
@@ -1202,7 +1204,8 @@ static bool handle_netd_packet(void *packet, size_t len)
 } // end function: handle_netd_packet
 
 // give this packet to netd
-static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
+static bool handle_loopback_packet(void *packet, size_t len, void *opaque,
+        uint64_t flags)
 {
 
     ETHERSRV_DEBUG("sending up the loopback packet\n");
@@ -1225,7 +1228,7 @@ static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
 
     struct client_closure *cl = (struct client_closure *)b->st;
     assert(cl != NULL);
-    if (copy_packet_to_user(buffer, packet, len) == false) {
+    if (copy_packet_to_user(buffer, packet, len, flags) == false) {
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
     }
     return true;
@@ -1233,7 +1236,7 @@ static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
 
 
 void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
-        size_t pkt_len, bool is_last)
+        size_t pkt_len, bool is_last, uint64_t flags)
 {
     void *pkt_data;
 
@@ -1256,7 +1259,7 @@ void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
 #endif // TRACE_ONLY_SUB_NNET
 
     if (is_loopback_device) {
-        if(handle_loopback_packet(pkt_data, pkt_len, opaque_tx)) {
+        if(handle_loopback_packet(pkt_data, pkt_len, opaque_tx, flags)) {
             goto out;
         } else {
             USER_PANIC("handle_loopback_packet failed");
@@ -1269,7 +1272,8 @@ out:
 
 
 
-void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
+void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last,
+        uint64_t flags)
 {
     void *pkt_data;
 
@@ -1291,7 +1295,7 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 #endif // TRACE_ONLY_SUB_NNET
 
     if (is_loopback_device) {
-        if(handle_loopback_packet(pkt_data, pkt_len, opaque)) {
+        if(handle_loopback_packet(pkt_data, pkt_len, opaque, flags)) {
             goto out;
         } else {
             USER_PANIC("handle_loopback_packet failed");
@@ -1299,7 +1303,7 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
     }
 
     // check for fragmented packet
-    if (handle_fragmented_packet(pkt_data, pkt_len)) {
+    if (handle_fragmented_packet(pkt_data, pkt_len, flags)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
 //        printf("fragmented packet..\n");
         goto out;
@@ -1311,20 +1315,20 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 #endif // TRACE_ONLY_SUB_NNET
 
     // check for application specific packet
-    if (handle_application_packet(pkt_data, pkt_len)) {
+    if (handle_application_packet(pkt_data, pkt_len, flags)) {
         ETHERSRV_DEBUG("application specific packet.. len %"PRIu64"\n", pkt_len);
         goto out;
     }
 
     // check for ARP packet
-     if (handle_arp_packet(pkt_data, pkt_len)) {
+     if (handle_arp_packet(pkt_data, pkt_len, flags)) {
         ETHERSRV_DEBUG("ARP packet..\n");
         goto out;
     }
 
     // last resort: send packet to netd
 
-    handle_netd_packet(pkt_data, pkt_len);
+    handle_netd_packet(pkt_data, pkt_len, flags);
 
 out:
      rx_ring_register_buffer(opaque);

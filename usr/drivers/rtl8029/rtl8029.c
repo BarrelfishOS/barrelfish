@@ -389,7 +389,8 @@ static void rtl8029_handle_interrupt(void *arg)
 
             if (packetbuf != NULL) {
                 packetbuf = NULL;
-                process_received_packet(packetbuf_opaque, packet_length, true);
+                process_received_packet(packetbuf_opaque, packet_length,
+                        true, 0);
             }
         }
     }

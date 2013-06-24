@@ -320,7 +320,7 @@ static size_t check_for_new_packets(void)
 
         DEBUG("New packet (q=%d)\n", qi);
 
-        process_received_packet(op, len, !!last);
+        process_received_packet(op, len, !!last, 0);
         count++;
     }
 
