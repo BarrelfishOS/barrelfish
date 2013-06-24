@@ -270,9 +270,9 @@ uint8_t get_driver_benchmark_state(int direction,
 static void handle_incoming(size_t idx, size_t len, uint64_t more,
                             uint64_t flags)
 {
+    static struct pbuf *start = NULL;
     struct pbuf *p;
 
-    assert(!more);
 #if TRACE_ONLY_LLNET
         trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPRX, 0);
 #endif // TRACE_ONLY_LLNET
@@ -281,11 +281,22 @@ static void handle_incoming(size_t idx, size_t len, uint64_t more,
     // Get the pbuf for this index
     p = mem_barrelfish_get_pbuf(idx);
     assert(p != NULL);
-
-    LWIPBF_DEBUG("handle_incoming: incoming packet: len %"PRIu64"\n", len);
     p->nicflags = flags;
-    lwip_rec_handler(lwip_rec_data, idx, -1ULL, len, len, p);
+    p->len = len;
+    p->tot_len = len;
 
+    if (start) {
+        pbuf_cat(start, p);
+    } else {
+        start = p;
+    }
+
+    if (!more) {
+        LWIPBF_DEBUG("handle_incoming: incoming packet: len %"PRIu64"\n", len);
+        p = start;
+        start = NULL;
+        lwip_rec_handler(lwip_rec_data, -1ULL, -1ULL, 0, 0, p);
+    }
 }
 
 static void handle_tx_done(size_t idx)

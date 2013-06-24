@@ -695,8 +695,8 @@ static uint64_t sent_packets = 0; // FIXME: remove this
  * buffer.
  */
 // FIXME: why is this not in soft filter management?
-bool copy_packet_to_user(struct buffer_descriptor *buffer,
-                         void *data, uint64_t len, uint64_t flags)
+bool copy_packet_to_user(struct buffer_descriptor *buffer, void *data,
+                         uint64_t len, bool more, uint64_t flags)
 {
     // Must only be called if we use software filtering
     assert(use_sf);
@@ -766,7 +766,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 #endif // TRACE_ETHERSRV_MODE
 
     // Handle raw interface
-    errval_t err = send_raw_xmit_done(b, offset, len, 0, flags);
+    errval_t err = send_raw_xmit_done(b, offset, len, more, flags);
     if (err_is_ok(err)) {
         return true;
     } else {
