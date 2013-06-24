@@ -128,20 +128,17 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 
     LWIPBF_DEBUG("idc_send_packet_to_network_driver: called\n");
 
-    // At the moment we can't deal with buffer chains
-    //assert(p->next == NULL);
-    if(p->next != NULL) {
-        printf("warning: idc_send_packet_to_network_driver: packet chain found\n");
-    }
-
     size_t more_chunks = false;
     uint64_t pkt_count = 0;
     while(p != NULL) {
-
-        if (p->next != NULL) {
-            more_chunks = 1;
+        // Note: since we are freeing each pbuf in the chain separately, we
+        // need to increment the reference count seperately, since lwip only
+        // incremented the first pbuf's reference counter
+        if (pkt_count != 0) {
+            pbuf_ref(p);
         }
 
+        more_chunks = (p->next != NULL);
         idx = mem_barrelfish_put_pbuf(p);
 
         offset = p->payload - buffer_base;
