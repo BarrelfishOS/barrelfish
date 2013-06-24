@@ -64,8 +64,9 @@ device e10k_q lsbfirst () "Intel 82599 10 GbE Controller Queues" {
     // Extended status
     dd          1 "Descriptor Done Status";
     eop         1 "End of Packet";
-    // TODO
-    _           18 "Rest of Status dpendent on EOP bit";
+    // FIXME: This is only correct for descriptors without the EOP bit
+    _           2;
+    nextp       16 "Next Descriptor Pointer";
 
     // Extended error
     fdirerr_len 3 "FDIRErr/FCERR";

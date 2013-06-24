@@ -71,7 +71,8 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
-                              bool use_interrupts) __attribute__((weak));
+                              bool use_interrupts,
+                              bool use_rsc) __attribute__((weak));
 void cd_set_interrupt_rate(struct e10k_binding *b,
                            uint8_t queue,
                            uint16_t rate) __attribute__((weak));
@@ -128,6 +129,9 @@ static bool use_txhwb = true;
 
 /** Indicates whether Interrupts should be used */
 static bool use_interrupts = false;
+
+/** Indicates whether RSC should be used */
+static bool use_rsc = false;
 
 /** Minimal delay between interrupts in us */
 static uint16_t interrupt_delay = 0;
@@ -414,7 +418,6 @@ static void setup_queue(void)
 /** Hardware queue initialized in card driver */
 static void hwqueue_initialized(void)
 {
-    // Just for testing make interrupts as slow as possible
     idc_set_interrupt_rate(qi, interrupt_delay);
 }
 
@@ -461,12 +464,13 @@ static void idc_register_queue_memory(uint8_t queue,
 
     if (!standalone) {
         cd_register_queue_memory(NULL, queue, tx, txhwb, rx, rxbufsz,
-                use_interrupts);
+                use_interrupts, use_rsc);
         return;
-    };
+    }
 
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx, txhwb, rx, rxbufsz, use_interrupts);
+                                       tx, txhwb, rx, rxbufsz, use_interrupts,
+                                       use_rsc);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -476,12 +480,12 @@ static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate)
 {
     errval_t r;
 
-    INITDEBUG("idc_register_queue_memory()\n");
+    INITDEBUG("idc_set_interrupt_rate()\n");
 
     if (!standalone) {
         cd_set_interrupt_rate(NULL, queue, rate);
         return;
-    };
+    }
 
     r = e10k_set_interrupt_rate__tx(binding, NOP_CONT, queue, rate);
     // TODO: handle busy
@@ -638,6 +642,9 @@ void qd_argument(const char *arg)
     } else if (strncmp(arg, "interrupts=",
                        strlen("interrupts=") - 1) == 0) {
         use_interrupts = !!atol(arg + strlen("interrupts="));
+    } else if (strncmp(arg, "rsc=",
+                       strlen("rsc=") - 1) == 0) {
+        use_rsc = !!atol(arg + strlen("rsc="));
     } else if (strncmp(arg, "int_delay=",
                        strlen("int_delay=") - 1) == 0) {
         long i = atol(arg + strlen("int_delay="));
@@ -755,7 +762,15 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
-                              bool use_ints)
+                              bool use_ints,
+                              bool use_rsc_)
+{
+    USER_PANIC("Should not be called");
+}
+
+void cd_set_interrupt_rate(struct e10k_binding *b,
+                           uint8_t queue,
+                           uint16_t rate)
 {
     USER_PANIC("Should not be called");
 }

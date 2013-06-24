@@ -12,12 +12,22 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 
 #include "e10k_q_dev.h"
 
 struct e10k_queue_ops {
     errval_t (*update_txtail)(void*, size_t);
     errval_t (*update_rxtail)(void*, size_t);
+};
+
+/**
+ * Context structure for RX descriptors. This is needed to implement RSC, since
+ * we need to be able to chain buffers together. */
+struct e10k_queue_rxctx {
+    void                    *opaque;
+    struct e10k_queue_rxctx *previous;
+    bool                    used;
 };
 
 struct e10k_queue {
@@ -30,7 +40,7 @@ struct e10k_queue {
     uint32_t*                       tx_hwb;
 
     e10k_q_rdesc_adv_wb_array_t*    rx_ring;
-    void**                          rx_opaque;
+    struct e10k_queue_rxctx*        rx_context;
     size_t                          rx_head;
     size_t                          rx_tail;
     size_t                          rx_size;
@@ -55,7 +65,7 @@ static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size,
     q->tx_hwb = tx_hwb;
 
     q->rx_ring = rx;
-    q->rx_opaque = malloc(sizeof(void*) * rx_size);
+    q->rx_context = malloc(sizeof(*q->rx_context) * rx_size);
     q->rx_head = 0;
     q->rx_tail = 0;
     q->rx_size = rx_size;
@@ -137,17 +147,27 @@ static inline size_t e10k_queue_free_txslots(e10k_queue_t* q)
 
 }
 
+#include <stdio.h>
 static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
     void* opaque)
 {
     e10k_q_rdesc_adv_rd_t d;
     size_t tail = q->rx_tail;
+    struct e10k_queue_rxctx *ctx;
+
+    ctx = q->rx_context + tail;
+    if (ctx->used) {
+        printf("e10k: Already used!\n");
+        return 1;
+    }
 
     // TODO: Check if there is room in the queue
-    q->rx_opaque[tail] = opaque;
+    ctx->opaque = opaque;
+    ctx->used = true;
     d = (e10k_q_rdesc_adv_rd_t) q->rx_ring[tail];
 
     e10k_q_rdesc_adv_rd_buffer_insert(d, phys);
+    // TODO: Does this make sense for RSC?
     e10k_q_rdesc_adv_rd_hdr_buffer_insert(d, 0);
 
     q->rx_tail = (tail + 1) % q->rx_size;
@@ -155,27 +175,82 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q, uint64_t phys,
     return 0;
 }
 
+
 static inline size_t e10k_queue_get_rxbuf(e10k_queue_t* q, void** opaque,
     size_t* len, int* last)
 {
     e10k_q_rdesc_adv_wb_t d;
     size_t head = q->rx_head;
+    struct e10k_queue_rxctx *ctx;
+    struct e10k_queue_rxctx *ctx_next;
+    size_t nextp;
 
     d = q->rx_ring[head];
-    if (e10k_q_rdesc_adv_wb_dd_extract(d)) {
-        *last = e10k_q_rdesc_adv_wb_eop_extract(d);
-        *len = e10k_q_rdesc_adv_wb_pkt_len_extract(d);
-        // TODO: Extract status (okay/error)
-        *opaque = q->rx_opaque[head];
+    ctx = q->rx_context + head;
 
-        memset(d, 0, e10k_q_rdesc_adv_wb_size);
-
-        q->rx_head = (head + 1) % q->rx_size;
-        return 0;
-    } else {
+    if (!e10k_q_rdesc_adv_wb_dd_extract(d)) {
         return 1;
     }
 
+    // Barrier needed according to linux driver to make sure nothing else is
+    // read before the dd bit TODO: make sure
+    lfence();
+
+    if (e10k_q_rdesc_adv_wb_rsccnt_extract(d)) {
+        printf("e10k.q0: Part of a large receive\n");
+    }
+
+    // RSC: we've already received parts of the large receive, but haven't
+    // returned them to the caller, so they will be returned first
+    if (ctx->previous && e10k_q_rdesc_adv_wb_eop_extract(d)) {
+        printf("e10k: Return part RSC\n");
+        // Look for first buffer in chain
+        do {
+            ctx_next = ctx;
+            ctx = ctx->previous;
+        } while (ctx->previous != NULL);
+        ctx_next->previous = NULL;
+
+        head = ctx - q->rx_context;
+        d = q->rx_ring[head];
+
+        // TODO: Extract status (okay/error)
+        *last = 0;
+        *len = e10k_q_rdesc_adv_wb_pkt_len_extract(d);
+        *opaque = ctx->opaque;
+
+        ctx->used = false;
+        memset(d, 0, e10k_q_rdesc_adv_wb_size);
+        return 0;
+    }
+
+    // RSC: We just received part of a large receive (not the last packet)
+    // chain this buffer to the indicated next one
+    if (e10k_q_rdesc_adv_wb_rsccnt_extract(d) &&
+            !e10k_q_rdesc_adv_wb_eop_extract(d))
+    {
+        printf("e10k: RSC chained\n");
+        nextp = e10k_q_rdesc_adv_wb_nextp_extract(d);
+        assert(nextp < q->rx_size);
+
+        ctx_next = q->rx_context + nextp;
+        assert(ctx_next->used);
+        ctx_next->previous = ctx;
+
+         q->rx_head = (head + 1) % q->rx_size;
+         return 1;
+    }
+
+    // TODO: Extract status (okay/error)
+    *last = e10k_q_rdesc_adv_wb_eop_extract(d);
+    *len = e10k_q_rdesc_adv_wb_pkt_len_extract(d);
+    *opaque = ctx->opaque;
+
+    ctx->used = false;
+    memset(d, 0, e10k_q_rdesc_adv_wb_size);
+
+    q->rx_head = (head + 1) % q->rx_size;
+    return 0;
 }
 
 static inline errval_t e10k_queue_bump_rxtail(e10k_queue_t* q)
