@@ -217,19 +217,19 @@ static void mem_write(struct pci_device *dev, uint32_t addr, int bar, uint32_t v
 				rdbal, rdbah, rdh, rdt, rdlen, rdxctl);
 #endif
 
-		e10k_q_rdesc_adv_array_t * rdbal_monvirt = (e10k_q_rdesc_adv_array_t *)guest_to_host((lvaddr_t)rdbal);
+		e10k_q_rdesc_adv_rd_array_t * rdbal_monvirt = (e10k_q_rdesc_adv_rd_array_t *)guest_to_host((lvaddr_t)rdbal);
 		if(rdbal != 0){
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 			dumpRegion((uint8_t*)rdbal_monvirt);
 #endif
 			//Patch region. RDLEN is in bytes. each descriptor needs 16 bytes
 			for(int j = rdt_old; j != rdt; j = j+1 == rdslots ? 0 : j+1 ){
-				e10k_q_rdesc_adv_t cur_rd = (e10k_q_rdesc_adv_t)(rdbal_monvirt + j);
-				uint64_t new_buf = e10k_q_rdesc_adv_buffer_extract(cur_rd);
-				e10k_q_rdesc_adv_buffer_insert(cur_rd, vaddr_to_paddr(new_buf));
+				e10k_q_rdesc_adv_rd_t cur_rd = (e10k_q_rdesc_adv_rd_t)(rdbal_monvirt + j);
+				uint64_t new_buf = e10k_q_rdesc_adv_rd_buffer_extract(cur_rd);
+				e10k_q_rdesc_adv_rd_buffer_insert(cur_rd, vaddr_to_paddr(new_buf));
 
-				uint64_t new_hdr = e10k_q_rdesc_adv_hdr_buffer_extract(cur_rd);
-				e10k_q_rdesc_adv_hdr_buffer_insert(cur_rd, vaddr_to_paddr(new_hdr));
+				uint64_t new_hdr = e10k_q_rdesc_adv_rd_hdr_buffer_extract(cur_rd);
+				e10k_q_rdesc_adv_rd_hdr_buffer_insert(cur_rd, vaddr_to_paddr(new_hdr));
 			}
 #if defined(VMKIT_PCI_ETHERNET_DUMPS_DEBUG_SWITCH)
 			dumpRegion((uint8_t*)rdbal_monvirt);

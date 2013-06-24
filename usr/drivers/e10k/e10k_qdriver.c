@@ -212,12 +212,16 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                                       void                 *opaque)
 {
     size_t i;
+    size_t totallen = 0;
     DEBUG("Add buffer callback %d:\n", count);
 
     // TODO: Make sure there is room in TX queue
     for (i = 0; i < count; i++) {
+        totallen += buffers[i].len;
+    }
+    for (i = 0; i < count; i++) {
         e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len, opaque,
-            (i == count - 1));
+            (i == 0), (i == count - 1), totallen);
     }
 
     e10k_queue_bump_txtail(q);
@@ -237,9 +241,8 @@ static uint64_t find_tx_free_slot_count_fn(void)
 static bool handle_free_tx_slot_fn(void)
 {
     void *op;
-    int last;
 
-    if (e10k_queue_get_txbuf(q, &op, &last) != 0) {
+    if (e10k_queue_get_txbuf(q, &op) != 0) {
         return false;
     }
 
