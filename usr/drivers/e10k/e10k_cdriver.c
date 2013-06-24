@@ -92,6 +92,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref rx,
                               uint32_t rxbufsz,
                               bool use_interrupts);
+void cd_set_interrupt_rate(struct e10k_binding *b,
+                           uint8_t queue,
+                           uint16_t rate);
+
 
 static void idc_write_queue_tails(struct e10k_binding *b);
 static void stop_device(void);
@@ -902,6 +906,23 @@ void cd_register_queue_memory(struct e10k_binding *b,
     idc_queue_memory_registered(b);
 }
 
+/** Request from queue driver to initialize hardware queue. */
+void cd_set_interrupt_rate(struct e10k_binding *b,
+                           uint8_t n,
+                           uint16_t rate)
+{
+    DEBUG("set_interrupt_rate(%"PRIu8")\n", n);
+
+    e10k_eitrn_t eitr = 0;
+    eitr = e10k_eitrn_itr_int_insert(eitr, rate);
+
+    if (n < 24) {
+        e10k_eitr_l_wr(d, n, eitr);
+    } else {
+        e10k_eitr_h_wr(d, n - 24, eitr);
+    }
+}
+
 /**
  * Request from queue driver to stop hardware queue and free everything
  * associated with that queue.
@@ -955,6 +976,7 @@ static void idc_unregister_filter(struct e10k_binding *b,
 static struct e10k_rx_vtbl rx_vtbl = {
     .request_device_info = cd_request_device_info,
     .register_queue_memory = cd_register_queue_memory,
+    .set_interrupt_rate = cd_set_interrupt_rate,
     .terminate_queue = idc_terminate_queue,
 
     .register_port_filter = idc_register_port_filter,
