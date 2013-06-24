@@ -425,8 +425,7 @@ static void device_init(void)
 
 
     // Wait for DMA initialization
-    // Hangs, but should work according to spec :-/
-    //while (e10k_rdrxctl_dma_initok_rdf(d) == 0); // TODO: Timeout
+    while (e10k_rdrxctl_dma_initok_rdf(d) == 0); // TODO: Timeout
 
     d_mac = e10k_ral_ral_rdf(d, 0) | ((uint64_t) e10k_rah_rah_rdf(d, 0) << 32);
     DEBUG("mac valid = %x\n", e10k_rah_av_rdf(d, 0));
