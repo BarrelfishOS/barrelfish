@@ -650,7 +650,7 @@ void qd_interrupt(bool is_rx, bool is_tx)
     if (is_rx) {
         count = check_for_new_packets();
         if (count == 0) {
-            printf("No RX\n");
+            //printf("No RX\n");
         }
     }
     check_for_free_txbufs();
