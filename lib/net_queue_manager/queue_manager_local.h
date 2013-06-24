@@ -31,8 +31,8 @@ extern uint64_t total_rx_datasize;
 // Function prototypes for ether_control service
 void init_soft_filters_service(char *service_name, uint64_t qid,
                                size_t rx_bufsz);
-void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last,
-        uint64_t flags);
+void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
+                                uint64_t flags);
 
 
 // To get the mac address from device

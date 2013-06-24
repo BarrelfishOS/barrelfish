@@ -200,6 +200,7 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
                 VMKITMON_ETH_DEBUG("Could not deliver packet, no receive buffer available. Drop packet.\n");
                 printf("Could not deliver packet, no receive buffer available. Drop packet.\n");
             } else {
+                struct driver_rx_buffer buf;
                 memcpy(rx_buffer_ring[receive_bufptr].vaddr, hv_addr, cur_tx->len);
                 //printf("got packet with len: %d\n",cur_tx->len);
                 if(cur_tx->len == 185){
@@ -207,7 +208,9 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
                 } else {
 					record_packet_transmit_to_bf();
                 }
-                process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true, 0);
+                buf.opaque = rx_buffer_ring[receive_bufptr].opaque;
+                buf.len = cur_tx->len;
+                process_received_packet(&buf, 1, 0);
                 /*
                 if(*(unsigned char *)hv_addr == 0xaa) {
                     //printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);

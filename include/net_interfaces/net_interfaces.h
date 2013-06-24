@@ -23,7 +23,7 @@ extern size_t buffer_count;
 
 void benchmark_init(void);
 void benchmark_argument(char *arg);
-void benchmark_rx_done(size_t idx, size_t len, uint64_t flags);
+void benchmark_rx_done(size_t idx, size_t len, uint64_t more, uint64_t flags);
 void benchmark_tx_done(size_t idx);
 void benchmark_do_pending_work(void);
 

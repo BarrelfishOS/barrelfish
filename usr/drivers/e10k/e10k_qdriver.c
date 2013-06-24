@@ -37,6 +37,8 @@
 /* Size of RX buffers */
 #define RXBUFSZ 2048
 
+/* Maximal number of buffers per packet */
+#define MAXDESCS 16
 
 // Enable Debugging for packet transfers
 #define DEBUG_ENABLE 0
@@ -352,9 +354,12 @@ static size_t check_for_new_packets(void)
 {
     size_t len;
     void *op;
-    int last;
+    int last = 1;
     size_t count;
+    size_t pkt_cnt;
+    struct driver_rx_buffer buf[MAXDESCS];
     uint64_t flags = 0;
+    int res;
 
     if (!initialized) return 0;
 
@@ -363,14 +368,26 @@ static size_t check_for_new_packets(void)
     // TODO: This loop can cause very heavily bursty behaviour, if the packets
     // arrive faster than they can be processed.
     count = 0;
-    while (e10k_queue_get_rxbuf(q, &op, &len, &last, &flags) == 0) {
+    pkt_cnt = 0;
+    while ((res = e10k_queue_get_rxbuf(q, &op, &len, &last, &flags)) == 0 ||
+           pkt_cnt != 0)
+    {
+        if (res != 0) continue;
 #if TRACE_ONLY_LLNET
         trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVRX, 0);
 #endif // TRACE_ONLY_LLNET
 
         DEBUG("New packet (q=%d f=%"PRIx64")\n", qi, flags);
 
-        process_received_packet(op, len, !!last, flags);
+        buf[pkt_cnt].opaque = op;
+        buf[pkt_cnt].len = len;
+        pkt_cnt++;
+        if (last) {
+            process_received_packet(buf, pkt_cnt, flags);
+            pkt_cnt = 0;
+        } else {
+            assert(pkt_cnt < MAXDESCS - 1);
+        }
         count++;
         flags = 0;
     }

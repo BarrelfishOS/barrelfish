@@ -472,7 +472,7 @@ static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
     if (b->can_send(b)) {
         errval_t err = b->tx_vtbl.raw_xmit_done(b,
                 MKCONT(cont_queue_callback, ccl->q),
-                e.plist[0], e.plist[1], e.plist[2]);
+                e.plist[0], e.plist[1], e.plist[2], e.plist[3]);
         return err;
     } else {
         return FLOUNDER_ERR_TX_BUSY;
@@ -481,7 +481,7 @@ static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
 
 static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
                                    uint64_t offset, uint64_t length,
-                                   uint64_t flags)
+                                   uint64_t more, uint64_t flags)
 {
     struct client_closure *ccl = (struct client_closure *) b->st;
 
@@ -492,7 +492,8 @@ static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
     entry.binding_ptr = b;
     entry.plist[0] = offset;
     entry.plist[1] = length;
-    entry.plist[2] = flags;
+    entry.plist[2] = more;
+    entry.plist[3] = flags;
 
     struct waitset *ws = get_default_waitset();
     int passed_events = 0;
@@ -610,7 +611,7 @@ bool handle_tx_done(void *opaque)
 
     // Handle raw interface
     errval_t err = send_raw_xmit_done(bsm->binding, (uintptr_t)bsm->offset, 0,
-            0);
+            0, 0);
     if (err_is_ok(err)) {
         return true;
     } else {
@@ -648,12 +649,13 @@ void do_pending_work_for_all(void)
 /**
  * Called by driver when it receives a new packet.
  */
-void process_received_packet(void *opaque, size_t pkt_len, bool is_last,
+void process_received_packet(struct driver_rx_buffer* bufs, size_t count,
         uint64_t flags)
 {
+    size_t i;
     if (use_sf) {
         // FIXME: this is broken quite badly
-        sf_process_received_packet(opaque, pkt_len, is_last, flags);
+        sf_process_received_packet(bufs, count, flags);
         return;
     }
     // If we do no software filtering we basically only have to tell the
@@ -661,27 +663,27 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last,
 
     // Handle raw interface
     if (use_raw_if) {
-        assert(opaque != NULL);
-        struct buffer_state_metadata *bsm = opaque;
-        struct client_closure *cl = bsm->binding->st;
-        struct buffer_descriptor *buf = cl->buffer_ptr;
-        assert(buf->rxq.buffer_state_used > 0);
+        for (i = 0; i < count; i++) {
+            assert(bufs[i].opaque != NULL);
+            struct buffer_state_metadata *bsm = bufs[i].opaque;
+            struct client_closure *cl = bsm->binding->st;
+            struct buffer_descriptor *buf = cl->buffer_ptr;
+            assert(buf->rxq.buffer_state_used > 0);
 
-        assert(is_last);
-
-        errval_t err = send_raw_xmit_done(bsm->binding, bsm->offset, pkt_len,
-                flags);
-        if (err_is_ok(err)) {
-            --buf->rxq.buffer_state_used;
-            return;
-        } else {
-            // As application is not able to process the packet
-            // we will drop this one
-            USER_PANIC("send_raw_xmit_done failed as queue full, can't go further: 1\n");
-            // FIXME: Don't crash. figure out how can you drop the packet
-            // and continue working after dropping the packet
-            --buf->rxq.buffer_state_used;
-            return;
+            errval_t err = send_raw_xmit_done(bsm->binding, bsm->offset,
+                    bufs[i].len, (i != count - 1), flags);
+            if (err_is_ok(err)) {
+                --buf->rxq.buffer_state_used;
+                return;
+            } else {
+                // As application is not able to process the packet
+                // we will drop this one
+                USER_PANIC("send_raw_xmit_done failed as queue full, can't go further: 1\n");
+                // FIXME: Don't crash. figure out how can you drop the packet
+                // and continue working after dropping the packet
+                --buf->rxq.buffer_state_used;
+                return;
+            }
         }
     }
 } // end function: process_received_packet
@@ -764,7 +766,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 #endif // TRACE_ETHERSRV_MODE
 
     // Handle raw interface
-    errval_t err = send_raw_xmit_done(b, offset, len, flags);
+    errval_t err = send_raw_xmit_done(b, offset, len, 0, flags);
     if (err_is_ok(err)) {
         return true;
     } else {

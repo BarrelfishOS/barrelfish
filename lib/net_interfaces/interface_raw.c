@@ -243,12 +243,13 @@ uint64_t get_tx_bufferid(void)
 }
 
 static void raw_xmit_done(struct net_queue_manager_binding *st,
-                          uint64_t offset, uint64_t len, uint64_t flags)
+                          uint64_t offset, uint64_t len, uint64_t more,
+                          uint64_t flags)
 {
     size_t idx = offset / BUFFER_SIZE;
 
     if (st == binding_rx) {
-        benchmark_rx_done(idx, len, flags);
+        benchmark_rx_done(idx, len, more, flags);
     } else {
         benchmark_tx_done(idx);
     }

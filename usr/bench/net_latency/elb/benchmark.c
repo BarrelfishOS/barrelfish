@@ -236,7 +236,8 @@ void benchmark_do_pending_work(void)
     return;
 }
 
-void benchmark_rx_done(size_t idx, size_t pkt_len, uint64_t flags)
+void benchmark_rx_done(size_t idx, size_t pkt_len, uint64_t more,
+                       uint64_t flags)
 {
     static bool first = true;
     if (is_server) {
