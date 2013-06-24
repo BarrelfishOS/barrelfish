@@ -215,19 +215,69 @@ static void stats_dump(void)
 /******************************************************************************/
 /* Transmit path */
 
+#define ETHHDR_LEN 14
+#define IPHDR_LEN 20
+#define UDPHDR_LEN 8
+
+
+
+static inline bool buf_use_tcpxsm(struct driver_buffer *buffers)
+{
+    return (buffers->flags & NETIF_TXFLAG_TCPCHECKSUM);
+}
+
+static inline bool buf_use_udpxsm(struct driver_buffer *buffers)
+{
+    return (buffers->flags & NETIF_TXFLAG_UDPCHECKSUM);
+}
+
+static inline bool buf_use_ipxsm(struct driver_buffer *buf)
+{
+    return (buf->flags & NETIF_TXFLAG_IPCHECKSUM) ||
+        buf_use_tcpxsm(buf) || buf_use_udpxsm(buf);
+}
+
+static inline bool buf_tcphdrlen(struct driver_buffer *buf)
+{
+    return ((buf->flags & NETIF_TXFLAG_TCPHDRLEN_MASK) >>
+        NETIF_TXFLAG_TCPHDRLEN_SHIFT) * 4;
+}
+
+
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                                       size_t                count,
                                       void                 *opaque)
 {
     size_t i;
     size_t totallen = 0;
+    size_t start = 0;
     DEBUG("Add buffer callback %d:\n", count);
 
     // TODO: Make sure there is room in TX queue
     for (i = 0; i < count; i++) {
         totallen += buffers[i].len;
     }
-    for (i = 0; i < count; i++) {
+
+    // Prepare checksum offload
+    if (buf_use_ipxsm(buffers)) {
+        e10k_q_l4_type_t l4t = 0;
+        uint8_t l4len = 0;
+
+        if (buf_use_tcpxsm(buffers)) {
+            l4t = e10k_q_tcp;
+            l4len = buf_tcphdrlen(buffers);
+        } else if (buf_use_udpxsm(buffers)) {
+            l4t = e10k_q_udp;
+            l4len = UDPHDR_LEN;
+        }
+        e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
+
+        e10k_queue_add_txbuf_ctx(q, buffers[0].pa, buffers[0].len,
+            opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
+        start++;
+   }
+
+    for (i = start; i < count; i++) {
         e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len, opaque,
             (i == 0), (i == count - 1), totallen);
     }

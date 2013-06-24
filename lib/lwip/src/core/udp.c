@@ -557,8 +557,11 @@ udp_sendto_if(struct udp_pcb * pcb, struct pbuf * p,
         /* calculate checksum */
 #if CHECKSUM_GEN_UDP
         if ((pcb->flags & UDP_FLAGS_NOCHKSUM) == 0) {
+            q->nicflags |= NETIF_TXFLAG_UDPCHECKSUM;
+            // Only calculate checksum over pseudo header
             udphdr->chksum =
-              inet_chksum_pseudo(q, src_ip, dst_ip, IP_PROTO_UDP, q->tot_len);
+              ~inet_chksum_pseudo_partial(q, src_ip, dst_ip, IP_PROTO_UDP,
+                                 q->tot_len, 0) & 0xffff;
             /* chksum zero must become 0xffff, as zero means 'no checksum' */
             if (udphdr->chksum == 0x0000)
                 udphdr->chksum = 0xffff;

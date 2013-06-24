@@ -34,6 +34,7 @@ struct e10k_queue {
     // FIXME: Look for appropriate type for the _head/tail/size fields
     e10k_q_tdesc_adv_wb_array_t*    tx_ring;
     void**                          tx_opaque;
+    bool*                           tx_isctx;
     size_t                          tx_head;
     size_t                          tx_tail;
     size_t                          tx_size;
@@ -58,14 +59,15 @@ static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size,
     e10k_queue_t* q = malloc(sizeof(*q));
 
     q->tx_ring = tx;
-    q->tx_opaque = malloc(sizeof(void*) * tx_size);
+    q->tx_opaque = calloc(tx_size, sizeof(void*));
+    q->tx_isctx = calloc(tx_size, sizeof(bool));
     q->tx_head = 0;
     q->tx_tail = 0;
     q->tx_size = tx_size;
     q->tx_hwb = tx_hwb;
 
     q->rx_ring = rx;
-    q->rx_context = malloc(sizeof(*q->rx_context) * rx_size);
+    q->rx_context = calloc(rx_size, sizeof(*q->rx_context));
     q->rx_head = 0;
     q->rx_tail = 0;
     q->rx_size = rx_size;
@@ -80,13 +82,40 @@ static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size,
     return q;
 }
 
-static inline int e10k_queue_add_txbuf(e10k_queue_t* q, uint64_t phys,
-    size_t len, void* opaque, int first, int last, size_t totallen)
+static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,
+    uint8_t maclen, uint16_t iplen, uint8_t l4len, e10k_q_l4_type_t l4t)
+{
+    e10k_q_tdesc_adv_ctx_t d;
+    size_t tail = q->tx_tail;
+
+    // TODO: Check if there is room in the queue
+    q->tx_isctx[tail] = true;
+    d = q->tx_ring[tail];
+
+    e10k_q_tdesc_adv_rd_dtyp_insert(d, e10k_q_adv_ctx);
+    e10k_q_tdesc_adv_rd_dext_insert(d, 1);
+
+    e10k_q_tdesc_adv_ctx_idx_insert(d, idx);
+    e10k_q_tdesc_adv_ctx_maclen_insert(d, maclen);
+    e10k_q_tdesc_adv_ctx_iplen_insert(d, iplen);
+    e10k_q_tdesc_adv_ctx_ipv4_insert(d, 1);
+    e10k_q_tdesc_adv_ctx_l4len_insert(d, l4len);
+    e10k_q_tdesc_adv_ctx_l4t_insert(d, l4t);
+
+    q->tx_tail = (tail + 1) % q->tx_size;
+    return 0;
+}
+
+
+static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, uint64_t phys,
+    size_t len, void* opaque, int first, int last, size_t totallen,
+    uint8_t ctx, bool ixsm, bool txsm)
 {
     e10k_q_tdesc_adv_rd_t d;
     size_t tail = q->tx_tail;
 
     // TODO: Check if there is room in the queue
+    q->tx_isctx[tail] = false;
     q->tx_opaque[tail] = opaque;
     d = q->tx_ring[tail];
 
@@ -101,14 +130,29 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, uint64_t phys,
     e10k_q_tdesc_adv_rd_ifcs_insert(d, 1);
     e10k_q_tdesc_adv_rd_eop_insert(d, last);
 
+    if (ctx != -1U) {
+        e10k_q_tdesc_adv_rd_idx_insert(d, ctx);
+        e10k_q_tdesc_adv_rd_cc_insert(d, 1);
+        e10k_q_tdesc_adv_rd_ixsm_insert(d, ixsm);
+        e10k_q_tdesc_adv_rd_txsm_insert(d, txsm);
+    }
+
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
+}
+
+static inline int e10k_queue_add_txbuf(e10k_queue_t* q, uint64_t phys,
+    size_t len, void* opaque, int first, int last, size_t totallen)
+{
+    return e10k_queue_add_txbuf_ctx(q, phys, len, opaque, first, last, totallen,
+            -1, false, false);
 }
 
 static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque)
 {
     e10k_q_tdesc_adv_wb_t d;
     size_t head = q->tx_head;
+    int result = 1;
 
     // If HWB is enabled, we can skip reading the descriptor if nothing happened
     if (q->tx_hwb && *q->tx_hwb == head) {
@@ -116,16 +160,18 @@ static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque)
     }
 
     d = q->tx_ring[head];
-    if (q->tx_hwb || e10k_q_tdesc_adv_wb_dd_extract(d)) {
-        *opaque = q->tx_opaque[head];
-
-        memset(d, 0, e10k_q_tdesc_adv_wb_size);
-
-        q->tx_head = (head + 1) % q->tx_size;
-        return 0;
-    } else {
+    if (!q->tx_hwb && !e10k_q_tdesc_adv_wb_dd_extract(d)) {
         return 1;
     }
+
+    if (!q->tx_isctx[head]) {
+        *opaque = q->tx_opaque[head];
+        result = 0;
+    }
+
+    memset(d, 0, e10k_q_tdesc_adv_wb_size);
+    q->tx_head = (head + 1) % q->tx_size;
+    return result;
 }
 
 static inline errval_t e10k_queue_bump_txtail(e10k_queue_t* q)

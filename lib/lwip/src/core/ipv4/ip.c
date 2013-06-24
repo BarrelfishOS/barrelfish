@@ -630,7 +630,8 @@ err_t ip_output_if_opt(struct pbuf * p, struct ip_addr * src,
 
         IPH_CHKSUM_SET(iphdr, 0);
 #if CHECKSUM_GEN_IP
-        IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
+        p->nicflags |= NETIF_TXFLAG_IPCHECKSUM;
+        //IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
 #endif
     } else {
         /* IP header already included in p */

@@ -554,9 +554,11 @@ err_t tcp_output(struct tcp_pcb *pcb)
 #endif
 
 #if CHECKSUM_GEN_TCP
+        p->nicflags |= NETIF_TXFLAG_TCPCHECKSUM;
+        p->nicflags |= TCPH_HDRLEN(tcphdr) << NETIF_TXFLAG_TCPHDRLEN_SHIFT;
         tcphdr->chksum =
-          inet_chksum_pseudo(p, &(pcb->local_ip), &(pcb->remote_ip),
-                             IP_PROTO_TCP, p->tot_len);
+          (~inet_chksum_pseudo_partial(p, &(pcb->local_ip), &(pcb->remote_ip),
+                             IP_PROTO_TCP, p->tot_len, 0)) & 0xffff;
 #endif
 #if LWIP_NETIF_HWADDRHINT
         ip_output_hinted(p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl,
@@ -752,10 +754,14 @@ static void tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
 
     seg->tcphdr->chksum = 0;
 #if CHECKSUM_GEN_TCP
-    seg->tcphdr->chksum = inet_chksum_pseudo(seg->p,
+    seg->p->nicflags |= NETIF_TXFLAG_TCPCHECKSUM;
+    seg->p->nicflags |=
+        TCPH_HDRLEN(seg->tcphdr) << NETIF_TXFLAG_TCPHDRLEN_SHIFT;
+    seg->tcphdr->chksum = (~inet_chksum_pseudo_partial(seg->p,
                                              &(pcb->local_ip),
                                              &(pcb->remote_ip),
-                                             IP_PROTO_TCP, seg->p->tot_len);
+                                             IP_PROTO_TCP, seg->p->tot_len,
+                                             0)) & 0xffff;
 #endif
     TCP_STATS_INC(tcp.xmit);
 
