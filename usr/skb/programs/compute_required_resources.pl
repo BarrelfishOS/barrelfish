@@ -9,7 +9,7 @@
 
 % this file is used for the ASPLOS11 paper to compute the padding overhead for
 % different algorithms. the script "mach" loads the algorihtm and this file into
-% eclipse-clp and outputs these values.
+% eclipse_language-clp and outputs these values.
 
 
 compute_required_resources(Plans, ResList, Name) :-
@@ -50,8 +50,8 @@ compute_required_resource_for_plan(BusElements, Min, Max, ResWithoutPadding, Rea
                                    ROMin, ROLimit, BaseDiff, LimitDiff, FillRate, FillPercent, ConsumptionRate, ConsumptionPercent) :-
     maplist(base, BusElements, Base),
     maplist(high, BusElements, High),
-    min(Base, Min),
-    max(High, Max),
+    eclipse_language:min(Base, Min),
+    eclipse_language:max(High, Max),
     RealRes is Max - Min,
     compute_unpadded_size(BusElements, ResWithoutPadding),
     PaddingOverhead is RealRes - ResWithoutPadding,
@@ -142,8 +142,8 @@ write_gnuplot_data(Result) :-
 write_full_tree(BusElements) :-
     maplist(base, BusElements, Base),
     maplist(high, BusElements, High),
-    min(Base, Min),
-    max(High, Max),
+    eclipse_language:min(Base, Min),
+    eclipse_language:max(High, Max),
     Size is Max - Min,
 %root bridge information
     write("treedata"),
@@ -278,12 +278,12 @@ buses(buselement(_, addr(Bus,_,_), _, _, _, _, _, _,_,_),Bus).
 plan_to_dot(BusElements) :-
     maplist(base, BusElements, Base),
     maplist(high, BusElements, High),
-    min(Base, Min),
-    max(High, Max),
+    eclipse_language:min(Base, Min),
+    eclipse_language:max(High, Max),
     Size is Max - Min,
     maplist(buses, BusElements, Buses),
-    min(Buses,B),
-    max(Buses,H),
+    eclipse_language:min(Buses,B),
+    eclipse_language:max(Buses,H),
 
     writeln('digraph G {'),
     writeln('\tedge[style=solid,color=black];'),

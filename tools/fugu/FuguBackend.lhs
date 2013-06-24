@@ -985,28 +985,6 @@ respectively, among the odd or even numbers.
 >                          (s : codes, succCode, failCode + 1)
 
 
-> {-
-> mkEnum :: Errors -> [Int] -> [Int] -> [(String, String, Int)]
-> mkEnum errors evenNumbers oddNumbers = reverse fields
->     where (fields,_,_) = foldl mkEnumField ([], evenNumbers, oddNumbers) errorTypes 
->           errorTypes = concat [ [ (typ, name,dom) 
->                                   | ErrorField typ name _ <- fields ]
->                                 | ErrorClass dom fields <- errors ]
->           mkEnumField (acc, evenNumbers, oddNumbers) (typ, name,dom) 
->               | typ == DefaultSuccess =
->                   ((dom, name, 0) : acc,
->                    evenNumbers,
->                    oddNumbers)
->               | typ == Success = 
->                   ((dom, name, head evenNumbers) : acc,
->                    tail evenNumbers,
->                    oddNumbers)
->               | typ == Failure =
->                   ((dom, name, head oddNumbers) : acc,
->                    evenNumbers,
->                    tail oddNumbers)
-> -}
-
 
 %%%%%%%%%%%%%%%%%%%%
 \subsubsection{Putting Things Together}
@@ -1110,6 +1088,7 @@ And we are done.
 >               noDomains = length domains
 >               bitBlock = (floor $ logBase 2 $ (fromInteger . toInteger) numberOfCodes) + 1
 
+%endif
 
 %%%%%%%%%%%%%%%%
 \subsubsection{Compiling the Test-Case}

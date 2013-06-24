@@ -313,17 +313,10 @@ simulate: $(MODULES)
 	$(QEMU_CMD)
 .PHONY : simulate
 
-debugsim: $(MODULES) $(ARCH)/debug.gdb
+debugsim: $(MODULES)
 	$(CLEAN_HD)
-	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(ARCH)/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
+	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(SRCDIR)/tools/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
 .PHONY : debugsim
-
-debugsimvga: $(MODULES)
-	$(CLEAN_HD)
-	$(QEMU_CMD) -s -S &
-	while [ ! `netstat -nlp 2>/dev/null | grep qemu` ]; do sleep 1; done
-	$(GDB) -x $(SRCDIR)/debug.gdb.in
-.PHONY : debugsimvga
 
 endif
 
@@ -356,6 +349,7 @@ arm:
 
 # Builds a dummy romfs_size.h
 $(ARCH)/include/romfs_size.h:
+	mkdir -p $(shell dirname $@)
 	echo "size_t romfs_cpio_archive_size = 0; //should not see this" > $@
 
 arminstall:
