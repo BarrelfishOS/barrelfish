@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -60,7 +60,7 @@ extern struct cnoderef cnode_root, cnode_task, cnode_base,
 
 /* well-known capabilities */
 extern struct capref cap_root, cap_monitorep, cap_irq, cap_io, cap_dispatcher,
-  cap_selfep, cap_kernel, cap_initep, cap_perfmon, cap_dispframe;
+  cap_selfep, cap_kernel, cap_initep, cap_perfmon, cap_dispframe, cap_sessionid;
 
 /**
  * \brief Returns the number of valid bits in the CSpace address of a cap
