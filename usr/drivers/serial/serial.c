@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -19,6 +20,15 @@
 
 static struct pc16550d_t uart;
 static uint16_t portbase;
+
+static void serial_poll(void)
+{
+    // Read as many characters as possible from FIFO
+    while(pc16550d_lsr_dr_rdf(&uart)) {
+        char c = pc16550d_rbr_rd(&uart);
+        serial_input(&c, 1);
+    }
+}
 
 static void serial_interrupt(void *arg)
 {
@@ -70,10 +80,14 @@ static void real_init(void)
     start_service();
 }
 
-int serial_init(uint16_t portbase_arg, uint8_t irq)
+errval_t serial_init(uint16_t portbase_arg, uint8_t irq)
 {
-    int r = pci_client_connect();
-    assert(r == 0); // XXX
+    errval_t err;
+
+    err = pci_client_connect();
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     portbase = portbase_arg;
 
@@ -93,14 +107,5 @@ void serial_write(char *c, size_t len)
 {
     for (int i = 0; i < len; i++) {
         serial_putc(c[i]);
-    }
-}
-
-void serial_poll(void)
-{
-    // Read as many characters as possible from FIFO
-    while(pc16550d_lsr_dr_rdf(&uart)) {
-        char c = pc16550d_rbr_rd(&uart);
-        serial_input(&c, 1);
     }
 }
