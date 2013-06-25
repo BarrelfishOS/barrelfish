@@ -132,6 +132,7 @@ ghc -O --make -XDeriveDataTypeable \
     -i$SRCDIR/hake \
     -ihake \
     -rtsopts=all \
+    -with-rtsopts="-K32m" \
     $SRCDIR/hake/Main.hs $LDFLAGS || exit 1
 
 if [ "$RUN_HAKE" == "No" ] ; then
