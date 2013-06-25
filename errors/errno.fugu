@@ -835,6 +835,7 @@ errors octopus  OCT_ERR_ {
     failure INVALID_ID          "Invalid Trigger ID.",
     failure CAP_NAME_UNKNOWN    "Capability storage: Unknown name.",
     failure CAP_OVERWRITE       "Capability storage: Cap already exists.",
+    failure IDCAP_INVOKE        "Error invoking ID capability.",
 };
 
 // kaluga library errors

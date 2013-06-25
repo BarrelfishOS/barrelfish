@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -30,6 +31,17 @@
 #include <bench/bench.h>
 
 #include "queue.h"
+
+/**
+ * Name prefix used to by the functions set_with_idcap_handler() and
+ * get_with_idcap_handler() to store and retrieve records by idcap.
+ *
+ * This essentially emulates a dedicated namespace for records stored with an
+ * id cap. Octopus and the SKB do not support dedicated namespaces atm.
+ * FIXME: store records set with the function 'set_with_idcap' in a dedicated
+ *        namespace.
+ */
+#define IDCAPID_NAME_PREFIX "idcapid."
 
 static uint64_t current_id = 1;
 
@@ -329,6 +341,160 @@ out:
 
     free_ast(ast);
     free(query);
+}
+
+static errval_t build_query_with_idcap(char **query_p, struct capref idcap,
+                                       char *attributes)
+{
+    errval_t err;
+    idcap_id_t id = 0;
+    size_t query_size, bytes_written;
+
+    // retrieve id from idcap
+    err = invoke_idcap_identify(idcap, &id);
+    if (err_is_fail(err)) {
+        return err_push(err, OCT_ERR_IDCAP_INVOKE);
+    }
+    cap_delete(idcap);
+
+    if (attributes == NULL) {
+        attributes = "";
+    }
+
+    // build query using the idcapid and the attributes
+    query_size = snprintf(NULL, 0, IDCAPID_NAME_PREFIX "%" PRIxIDCAPID "%s", id,
+                          attributes);
+    *query_p = (char *) malloc(query_size + 1); // include \0
+    if (*query_p == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    bytes_written = snprintf(*query_p, query_size + 1, IDCAPID_NAME_PREFIX
+                             "%" PRIxIDCAPID "%s", id, attributes);
+
+    return SYS_ERR_OK;
+}
+
+static void get_with_idcap_reply(struct octopus_binding *b,
+                                 struct oct_reply_state *drt)
+{
+    errval_t err;
+    char *reply = err_is_ok(drt->error) ?
+                  drt->query_state.std_out.buffer : NULL;
+    err = b->tx_vtbl.get_with_idcap_response(b,
+                                             MKCONT(free_oct_reply_state, drt),
+                                             reply, drt->server_id, drt->error);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            oct_rpc_enqueue_reply(b, drt);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+void get_with_idcap_handler(struct octopus_binding *b, struct capref idcap,
+                            octopus_trigger_t trigger)
+{
+    errval_t err;
+    char *query = NULL;
+    struct oct_reply_state *drs = NULL;
+    struct ast_object *ast = NULL;
+
+    err = build_query_with_idcap(&query, idcap, "");
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    OCT_DEBUG("get_with_idcap_handler: %s\n", query);
+
+    err = new_oct_reply_state(&drs, get_with_idcap_reply);
+    assert(err_is_ok(err));
+
+    err = check_query_length(query);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    err = generate_ast(query, &ast);
+    if (err_is_ok(err)) {
+        err = get_record(ast, &drs->query_state);
+        drs->server_id = install_trigger(b, ast, trigger, err);
+    }
+
+out:
+    drs->error = err;
+    drs->reply(b, drs);
+
+    free_ast(ast);
+    if (query != NULL) {
+        free(query);
+    }
+}
+
+static void set_with_idcap_reply(struct octopus_binding *b,
+                                 struct oct_reply_state *drs)
+{
+    char *record = err_is_ok(drs->error) && drs->return_record ?
+            drs->query_state.std_out.buffer : NULL;
+
+    errval_t err;
+    err = b->tx_vtbl.set_with_idcap_response(b,
+                                             MKCONT(free_oct_reply_state, drs),
+                                             record, drs->server_id,
+                                             drs->error);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            oct_rpc_enqueue_reply(b, drs);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB sending %s failed!", __FUNCTION__);
+    }
+}
+
+void set_with_idcap_handler(struct octopus_binding *b, struct capref idcap,
+                            char *attributes, uint64_t mode,
+                            octopus_trigger_t trigger, bool get)
+{
+    errval_t err;
+    char *query = NULL;
+    struct oct_reply_state *drs = NULL;
+    struct ast_object *ast = NULL;
+
+    err = build_query_with_idcap(&query, idcap, attributes);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+    OCT_DEBUG(" set_with_idcap_handler: %s\n", query);
+
+    err = new_oct_reply_state(&drs, set_with_idcap_reply);
+    assert(err_is_ok(err));
+
+    err = check_query_length(query);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    err = generate_ast(query, &ast);
+    if (err_is_ok(err)) {
+        if (ast->u.on.name->type == nodeType_Ident) {
+            err = set_record(ast, mode, &drs->query_state);
+            drs->server_id = install_trigger(b, ast, trigger, err);
+        } else {
+            err = OCT_ERR_NO_RECORD_NAME;
+        }
+    }
+
+out:
+    drs->error = err;
+    drs->return_record = get;
+    drs->reply(b, drs);
+
+    free_ast(ast);
+    free(attributes);
+    if (query != NULL) {
+        free(query);
+    }
+
 }
 
 static void del_reply(struct octopus_binding* b, struct oct_reply_state* drs)
