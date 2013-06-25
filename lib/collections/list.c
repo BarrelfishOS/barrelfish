@@ -8,7 +8,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <collections/list.h>
@@ -91,7 +92,7 @@ void collections_list_create(collections_listnode **start,
     *start = t;
 }
 
-/* 
+/*
  * Releases all the nodes in the list.
  */
 void collections_list_release(collections_listnode *start)
@@ -169,8 +170,13 @@ void *collections_list_find_if(collections_listnode *start,
     return NULL;
 }
 
-void * collections_list_remove_if(collections_listnode *start,
-                                  collections_list_predicate p, void *arg)
+/**
+ * Remove the first item that matches the given predicate and return it.
+ *
+ * \return The removed item.
+ */
+void *collections_list_remove_if(collections_listnode *start,
+                                 collections_list_predicate p, void *arg)
 {
     collections_listnode *cur = start->next;
     while (cur != start)
@@ -184,6 +190,30 @@ void * collections_list_remove_if(collections_listnode *start,
         cur = cur->next;
     }
     return NULL;
+}
+
+/**
+ * Remove all the items that match the given predicate.
+ *
+ * \return The number of items removed.
+ */
+uint32_t collections_list_remove_if_all(collections_listnode *start,
+                                    collections_list_predicate p, void *arg)
+{
+    uint32_t items_removed = 0;
+
+    collections_listnode *cur = start->next;
+    while (cur != start)
+    {
+        if (p(cur->data, arg))
+        {
+            list_destroy_node(start, cur);
+            items_removed++;
+        }
+        cur = cur->next;
+    }
+
+    return items_removed;
 }
 
 void *collections_list_remove_ith_item(collections_listnode *start,
