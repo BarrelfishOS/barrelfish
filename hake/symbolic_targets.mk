@@ -21,6 +21,7 @@ MAKEFLAGS=r
 
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
+ARM_GCC?=arm-none-linux-gnueabi-gcc
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -532,7 +533,7 @@ arm_gem5_image: $(GEM5_MODULES) \
 	# bootloader
 	tools/bin/arm_molly menu.lst.arm_gem5 arm_mbi.c
 	# Compile the complete boot image into a single executable
-	$(ARM_GCC)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
 		-nostdlib -march=armv7-a -mapcs -fno-unwind-tables \
 		-Tmolly_gem5/molly_ld_script \
 		-I$(SRCDIR)/include \
@@ -550,7 +551,6 @@ arm_gem5_image: $(GEM5_MODULES) \
 		-o arm_gem5_image
 
 # ARM GEM5 Simulation Targets
-ARM_GCC=$(which arm-none-linux-gnueabi-gcc || which arm-linux-gnueabi-gcc)
 ARM_FLAGS=$(SRCDIR)/tools/arm_gem5/gem5script.py --caches --l2cache --n=2 --kernel=arm_gem5_image
 
 arm_gem5: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
