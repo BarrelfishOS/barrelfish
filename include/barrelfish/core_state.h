@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #ifndef LIBBARRELFISH_CORESTATE_H
@@ -95,7 +96,7 @@ struct core_state_generic {
     struct mem_rpc_client *mem_st;
     struct morecore_state morecore_state;
     struct ram_alloc_state ram_alloc_state;
-    struct octopus_rpc_client *nameservice_rpc_client;
+    struct octopus_rpc_client *octopus_rpc_client;
     struct spawn_rpc_client *spawn_rpc_clients[MAX_CPUS];
     struct terminal_state *terminal_state;
     struct domain_state *domain_state;

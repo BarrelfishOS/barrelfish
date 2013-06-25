@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 #include <stdio.h>
 
@@ -32,7 +33,7 @@ errval_t nameservice_lookup(const char *iface, iref_t *retiref)
 {
     errval_t err;
 
-    struct octopus_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -77,7 +78,7 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref)
 {
     errval_t err;
 
-    struct octopus_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -121,7 +122,7 @@ errval_t nameservice_register(const char *iface, iref_t iref)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct octopus_rpc_client *r = get_nameservice_rpc_client();
+    struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -178,7 +179,7 @@ static void bind_continuation(void *st_arg, errval_t err,
             free(r);
             USER_PANIC_ERR(err, "error in nameservice_rpc_client_init");
         } else {
-            set_nameservice_rpc_client(r);
+            set_octopus_rpc_client(r);
         }
     }
 

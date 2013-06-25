@@ -15,7 +15,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -1087,23 +1088,23 @@ struct skb_state *get_skb_state(void)
 }
 
 /**
- * \brief Returns a pointer to the chips_context state on the dispatcher priv
+ * \brief Returns a pointer to the octopus rpc client on the dispatcher priv
  */
-struct octopus_rpc_client *get_nameservice_rpc_client(void)
+struct octopus_rpc_client *get_octopus_rpc_client(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    return disp->core_state.c.nameservice_rpc_client;
+    return disp->core_state.c.octopus_rpc_client;
 }
 
 /**
- * \brief set the chips_context state on the dispatcher priv
+ * \brief Sets the octopus rpc client on the dispatcher priv
  */
-void set_nameservice_rpc_client(struct octopus_rpc_client *c)
+void set_octopus_rpc_client(struct octopus_rpc_client *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    disp->core_state.c.nameservice_rpc_client = c;
+    disp->core_state.c.octopus_rpc_client = c;
 }
 
 /**
