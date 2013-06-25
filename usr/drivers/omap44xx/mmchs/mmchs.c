@@ -513,7 +513,7 @@ static int mmchs_finalize_cmd(void)
                     sdhc_stat_cerr_rdf(&sdhc)!=0x0) {
                     
                     print_mmchs();
-                    print_cm2();
+                    cm2_debug_print();
                     panic("mmchs_send_cmd: error - registers got dumped .. ");
                 }
             } else {

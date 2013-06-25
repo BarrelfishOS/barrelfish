@@ -41,7 +41,8 @@ static char PRBUF[PBS];
 /*
  * \brief initialize I2C controller `i`.
  */
-void ti_i2c_init(int i) {
+void ti_i2c_init(int i) 
+{
     // map & initialize mackerel device
     mackerel_addr_t i2c_vbase = omap_dev_map(i2c_pbase[i]);
     ti_i2c_initialize(&i2c[i], i2c_vbase);

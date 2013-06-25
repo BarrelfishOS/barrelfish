@@ -13,13 +13,9 @@
 #include <dev/omap/omap44xx_mmchs_dev.h>
 #include <dev/omap/omap44xx_ctrlmod_dev.h>
 
-// TRM Table 3-1286, page 918
-#define CM2_BASE   0x4A009300U
-#define CLKGEN_CM2_BASE  0x4A008100
-
-#define CM2_PADDR (0x4A009300U)
-#define CM2_CLKGEN_PADDR (0x4A008100)
-#define CM2_L4PER_PADDR (0x4A009400)
+#define L3INIT_CM2_PADDR (0x4A009300U)
+#define CLKGEN_CM2_PADDR (0x4A008100)
+#define L4PER_CM2_PADDR (0x4A009400)
 
 // We need this because paging_arm_device returns the address 
 // of the beginning of the section in virtual memory ..
@@ -30,9 +26,9 @@
     (paging_map_device(p, ARM_L1_SECTION_BYTES) \
      + (p & ARM_L1_SECTION_MASK))
 
-void cm2_enable_i2c(int i2c_index);
+void cm2_enable_i2c(size_t i2c_index);
 int  cm2_get_hsmmc1_base_clock(void);
-void print_cm2(void);
+void cm2_debug_print(void);
 void cm2_print_standby_state(void);
 
 void cm2_enable_hsmmc1(void);
