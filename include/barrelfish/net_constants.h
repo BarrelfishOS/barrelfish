@@ -54,27 +54,27 @@ enum buffer_memory_types {
 #if !defined(__scc__)
 /// Size of (static) heap memory
 #ifndef MEM_SIZE
-#define MEM_SIZE            (60*1024)
+#define MEM_SIZE            (60*1024*1024)
 #endif // MEM_SIZE
 
 /// Number of PBUF structs available
 #ifndef MEMP_NUM_PBUF
-#define MEMP_NUM_PBUF           128
+#define MEMP_NUM_PBUF           16384
 #endif // MEMP_NUM_PBUF
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE          128
+#define PBUF_POOL_SIZE          16384
 #endif // PBUF_POOL_SIZE
 
 /* Used in the ethersrv.c and the driver. */
-#define RECEIVE_BUFFERS 128
-#define TRANSMIT_BUFFERS 128 //< Number of transmit descriptors
+#define RECEIVE_BUFFERS (2444)
+#define TRANSMIT_BUFFERS (800*8) //< Number of transmit descriptors
                               //< (must be multiple of 8)
 
 /// the size of the pool
 #ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (4 * 2048)
+#define PBUF_POOL_BUFSIZE       (1600)
 #endif // PBUF_POOL_BUFSIZE
 
 /* from where the memory conf is coming? */
