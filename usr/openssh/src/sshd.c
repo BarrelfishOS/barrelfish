@@ -46,6 +46,9 @@
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#ifdef BARRELFISH
+# include <sys/param.h> /* For MAXHOSTNAMELEN */
+#endif
 #include <sys/socket.h>
 #ifdef HAVE_SYS_STAT_H
 # include <sys/stat.h>
@@ -1053,6 +1056,11 @@ server_listen(void)
 			close(listen_sock);
 			continue;
 		}
+        /*
+         * Barrelfish does not yet have support for SO_REUSEADDR. Disable
+         * setting this option.
+         */
+#if !defined(BARRELFISH)
 		/*
 		 * Set socket options.
 		 * Allow local port reuse in TIME_WAIT.
@@ -1060,6 +1068,7 @@ server_listen(void)
 		if (setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR,
 		    &on, sizeof(on)) == -1)
 			error("setsockopt SO_REUSEADDR: %s", strerror(errno));
+#endif /* !BARRELFISH */
 
 		/* Only communicate in IPv6 over AF_INET6 sockets. */
 		if (ai->ai_family == AF_INET6)
