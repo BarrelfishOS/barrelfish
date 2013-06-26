@@ -57,8 +57,10 @@ readpassphrase(const char *prompt, char *buf, size_t bufsiz, int flags)
 	int input, output, save_errno, i, need_restart;
 	char ch, *p, *end;
 	struct termios term, oterm;
+#if !defined(BARRELFISH)
 	struct sigaction sa, savealrm, saveint, savehup, savequit, saveterm;
 	struct sigaction savetstp, savettin, savettou, savepipe;
+#endif /* !BARRELFISH */
 
 	/* I suppose we could alloc on demand in this case (XXX). */
 	if (bufsiz == 0) {
@@ -91,6 +93,11 @@ restart:
 	 * up with echo turned off in the shell.  Don't worry about
 	 * things like SIGXCPU and SIGVTALRM for now.
 	 */
+    /*
+     * We don't deliver any of these signals in BF. Therefore we don't have to
+     * worry about that these signals mess up the code flow.
+     */
+#if !defined(BARRELFISH)
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;		/* don't restart system calls */
 	sa.sa_handler = handler;
@@ -103,6 +110,7 @@ restart:
 	(void)sigaction(SIGTSTP, &sa, &savetstp);
 	(void)sigaction(SIGTTIN, &sa, &savettin);
 	(void)sigaction(SIGTTOU, &sa, &savettou);
+#endif /* !BARRELFISH */
 
 	/* Turn off echo if possible. */
 	if (input != STDIN_FILENO && tcgetattr(input, &oterm) == 0) {
@@ -152,6 +160,11 @@ restart:
 		    errno == EINTR)
 			continue;
 	}
+    /*
+     * No need to restore signal settings in BF. We did not change them in the
+     * firstplace.
+     */
+#if !defined(BARRELFISH)
 	(void)sigaction(SIGALRM, &savealrm, NULL);
 	(void)sigaction(SIGHUP, &savehup, NULL);
 	(void)sigaction(SIGINT, &saveint, NULL);
@@ -161,6 +174,7 @@ restart:
 	(void)sigaction(SIGTSTP, &savetstp, NULL);
 	(void)sigaction(SIGTTIN, &savettin, NULL);
 	(void)sigaction(SIGTTOU, &savettou, NULL);
+#endif /* !BARRELFISH */
 	if (input != STDIN_FILENO)
 		(void)close(input);
 
