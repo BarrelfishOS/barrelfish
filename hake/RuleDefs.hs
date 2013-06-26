@@ -954,13 +954,17 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- manually add dependencies for now (it would be better if each library
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
-libposixcompat_deps = LibDeps [ LibDep "posixcompat", liblwip_deps,
-                                libvfs_deps_all ]
-liblwip_deps        = LibDeps $ [ LibDep x | x <- deps ]
+libposixcompat_deps   = LibDeps [ LibDep "posixcompat", liblwip_deps,
+                                  libvfs_deps_all ]
+liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"procon" ,"timer" ,"hashtable"]
-libnetQmng_deps        = LibDeps $ [ LibDep x | x <- deps ]
+libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager", "contmng" ,"procon" , "bfdmuxvm"]
-libnfs_deps         = LibDeps $ [ LibDep "nfs", liblwip_deps ]
+libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps ]
+libssh_deps           = LibDeps [ libposixcompat_deps, libopenbsdcompat_deps,
+                                  LibDep "zlib", LibDep "crypto", LibDep "ssh" ]
+libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
+                                  LibDep "openbsdcompat" ]
 
 -- we need to make vfs more modular to make this actually useful
 data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
@@ -986,17 +990,23 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 
 str2dep :: String -> LibDepTree
 str2dep  str
-    | str == "vfs"         = libvfs_deps_all
-    | str == "posixcompat" = libposixcompat_deps
-    | str == "lwip"        = liblwip_deps
-    | str == "netQmng"     = libnetQmng_deps
-    | otherwise            = LibDep str
+    | str == "vfs"           = libvfs_deps_all
+    | str == "posixcompat"   = libposixcompat_deps
+    | str == "lwip"          = liblwip_deps
+    | str == "netQmng"       = libnetQmng_deps
+    | str == "ssh"           = libssh_deps
+    | str == "openbsdcompat" = libopenbsdcompat_deps
+    | otherwise              = LibDep str
 
 -- get library depdencies
 --   we need a specific order for the .a, so we define a total order
 libDeps :: [String] -> [String]
 libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
-    where xord = [  "posixcompat"
+    where xord = [ "ssh"
+                  , "openbsdcompat"
+                  , "crypto"
+                  , "zlib"
+                  , "posixcompat"
                   , "vfs"
                   , "ahci"
                   , "nfs"
