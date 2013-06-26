@@ -25,6 +25,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * The Barrelfish port of OpenSSH does not support host key verification via
+ * DNS. See README_BARRELFISH.
+ */
+#if !defined(BARRELFISH)
+
 #include "includes.h"
 
 #include <sys/types.h>
@@ -304,3 +310,4 @@ export_dns_rr(const char *hostname, Key *key, FILE *f, int generic)
 
 	return success;
 }
+#endif /* !BARRLFISH */
