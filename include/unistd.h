@@ -250,6 +250,7 @@ int          setuid(uid_t uid);
 pid_t        setsid(void);
 int          symlink(const char *oldpath, const char *newpath);
 long         sysconf(int name);
+char        *ttyname(int fd);
 int          unlink(const char*pathname);
 int          write(int fd, const void *buf, size_t len);
 __END_DECLS

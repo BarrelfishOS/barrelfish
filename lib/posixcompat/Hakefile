@@ -70,6 +70,7 @@
                              "termios.c",
                              "time.c",
                              "timegm.c",
+                             "ttyname.c",
                              "umask.c",
                              "unlink.c",
                              "utime.c",
