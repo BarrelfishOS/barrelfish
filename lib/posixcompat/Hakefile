@@ -67,6 +67,7 @@
                              "sockets.c",
                              "stat.c",
                              "sysconf.c",
+                             "termios.c",
                              "time.c",
                              "timegm.c",
                              "umask.c",
