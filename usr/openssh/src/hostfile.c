@@ -45,7 +45,9 @@
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 
-#include <resolv.h>
+#if !defined(BARRELFISH)
+# include <resolv.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

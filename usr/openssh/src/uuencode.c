@@ -27,7 +27,9 @@
 
 #include <sys/types.h>
 #include <netinet/in.h>
-#include <resolv.h>
+#if !defined(BARRELFISH)
+# include <resolv.h>
+#endif /* !BARRELFISH */
 #include <stdio.h>
 
 #include "xmalloc.h"
