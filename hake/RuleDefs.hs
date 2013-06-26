@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------
--- Copyright (c) 2007-2011, ETH Zurich.
+-- Copyright (c) 2007-2011, 2012 ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -955,7 +955,7 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
 libposixcompat_deps   = LibDeps [ LibDep "posixcompat", liblwip_deps,
-                                  libvfs_deps_all ]
+                                  libvfs_deps_all, LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"procon" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
@@ -1007,6 +1007,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "crypto"
                   , "zlib"
                   , "posixcompat"
+                  , "term_server"
                   , "vfs"
                   , "ahci"
                   , "nfs"
