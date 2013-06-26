@@ -1,10 +1,11 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2009, ETH Zurich.
+-- Copyright (c) 2007-2009, 2012, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+-- Attn: Systems Group.
 --
 -- Hakefile for /usr/vmkitmon
 --
@@ -17,6 +18,8 @@
 				 "pci_host.c", "pci_hostbridge.c" ],
                       mackerelDevices = [ "amd_vmcb", "lpc_timer",
                                           "pc16550d_mem", "pci_hdr0_mem" ],
+                      flounderBindings = [ "serial" ],
+                      flounderDefs = [ "monitor" ],
                       addLibraries = libDeps [ "spawndomain", "x86emu", "vfs"],
                       architectures = ["x86_64"]
                     }

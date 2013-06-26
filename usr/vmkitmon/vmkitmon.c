@@ -3,12 +3,13 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include "vmkitmon.h"
@@ -81,7 +82,7 @@ int main (int argc, char *argv[])
         return 1;
     }
 
-    if(argc > 3) {
+    if (argc > 3) {
         imagefile = argv[3];
     }
 
@@ -102,12 +103,6 @@ int main (int argc, char *argv[])
     // fetch all relevant multiboot data
     //load_multiboot_files();
 
-    // aquire the standard input
-#if 1
-    err = terminal_want_stdin(TERMINAL_SOURCE_SERIAL);
-    assert_err(err, "terminal_want_stdin");
-#endif
-
     // load files
     // FIXME: use a dynamic way to specify those arguments
     printf("Loading file [%s]\n", GRUB_IMG_PATH);
@@ -123,7 +118,7 @@ int main (int argc, char *argv[])
         return 1;
     }
 
-    guest = guest_create ();
+    guest = guest_create();
     assert(guest != NULL);
     err = guest_make_runnable(guest, true);
     assert_err(err, "guest_make_runnable");
