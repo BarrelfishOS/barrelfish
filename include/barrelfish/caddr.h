@@ -25,6 +25,8 @@
 
 __BEGIN_DECLS
 
+#include <stdbool.h>
+
 /**
  * \brief User-level representation of a CNode, its CSpace address and size
  */
