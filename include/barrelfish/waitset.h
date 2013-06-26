@@ -20,6 +20,10 @@
 
 __BEGIN_DECLS
 
+#include <errors/errno.h>
+
+#include <stdbool.h>
+
 struct waitset;
 struct thread;
 
