@@ -97,7 +97,7 @@ void debug_printf(const char *fmt, ...)
     char str[256];
     size_t len;
 
-    len = snprintf(str, sizeof(str), "%.*s.%u: ", DISP_NAME_LEN, disp_name(),
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u\033[0m: ", DISP_NAME_LEN, disp_name(),
                    disp_get_core_id());
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
