@@ -1867,6 +1867,11 @@ main(int ac, char **av)
 		error("setsid: %.100s", strerror(errno));
 #endif
 
+/*
+ * This port of OpenSSH to Barrelfish does not support remote execution of
+ * commands.
+ */
+#if !defined(BARRELFISH)
 	if (rexec_flag) {
 		int fd;
 
@@ -1906,6 +1911,7 @@ main(int ac, char **av)
 		debug("rexec cleanup in %d out %d newsock %d pipe %d sock %d",
 		    sock_in, sock_out, newsock, startup_pipe, config_s[0]);
 	}
+#endif
 
 	/* Executed child processes don't need these. */
 	fcntl(sock_out, F_SETFD, FD_CLOEXEC);
