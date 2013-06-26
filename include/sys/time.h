@@ -4,7 +4,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 /*-
@@ -88,5 +89,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 int setitimer(int which, const struct itimerval *new_value,
               struct itimerval *old_value);
 __END_DECLS
+
+#include <sys/select.h>
 
 #endif

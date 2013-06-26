@@ -40,6 +40,8 @@
 
 #include <stddef.h>             /* for size_t */
 #include <fcntl.h>
+/* We use our own verions of FD_SETSIZE, FD_SET, FD_ISSET, FD_ZERO, FD_CLR */
+#include <sys/select.h>
 
 #include "lwip/ip_addr.h"
 #include "lwip/inet.h"
