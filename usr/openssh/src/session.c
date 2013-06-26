@@ -100,6 +100,14 @@
 #include <selinux/selinux.h>
 #endif
 
+#ifdef BARRELFISH
+# include <assert.h>
+# include <barrelfish/barrelfish.h>
+# include <barrelfish/spawn_client.h>
+# include <posixcompat.h>
+# define SHELL "fish"
+#endif
+
 #define IS_INTERNAL_SFTP(c) \
 	(!strncmp(c, INTERNAL_SFTP_NAME, sizeof(INTERNAL_SFTP_NAME) - 1) && \
 	 (c[sizeof(INTERNAL_SFTP_NAME) - 1] == '\0' || \
@@ -447,6 +455,10 @@ do_authenticated1(Authctxt *authctxt)
 int
 do_exec_no_pty(Session *s, const char *command)
 {
+#ifdef BARRELFISH
+    assert(!"NYI");
+    return -1;
+#else /* BARRELFISH */
 	pid_t pid;
 
 #ifdef USE_PIPES
@@ -631,6 +643,7 @@ do_exec_no_pty(Session *s, const char *command)
 	}
 #endif
 	return 0;
+#endif /* BARRELFISH */
 }
 
 /*
@@ -672,6 +685,45 @@ do_exec_pty(Session *s, const char *command)
 		return -1;
 	}
 
+#ifdef BARRELFISH
+    /*
+     * FIXME: We only support starting the shell at the moment.
+     */
+
+    struct capref session_id;
+    errval_t err;
+    coreid_t my_core_id = disp_get_core_id();
+    char *shell = SHELL;
+
+    /* establish a new session */
+    iref_t iref = posixcompat_pts_get_iref(ttyfd);
+    err = angler_new_session_with_iref(iref, &session_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error starting session.");
+    }
+
+    /* setup argv of the shell */
+    char *shell_argv[2];
+    shell_argv[0] = SHELL;
+    shell_argv[1] = NULL;
+
+    /* inherit the session capability */
+    struct capref inheritcn_cap;
+    err = alloc_inheritcn_with_sidcap(&inheritcn_cap, session_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
+    }
+
+    /* spawn shell on the same core */
+    extern char **environ;
+    err = spawn_program_with_caps(my_core_id, shell, shell_argv, NULL,
+                                  inheritcn_cap, NULL_CAP, SPAWN_NEW_DOMAIN,
+                                  NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error spawning shell.");
+    }
+
+#else /* BARRELFISH */
 	/* Fork the child. */
 	switch ((pid = fork())) {
 	case -1:
@@ -736,7 +788,7 @@ do_exec_pty(Session *s, const char *command)
 #ifdef HAVE_CYGWIN
 	cygwin_set_impersonation_token(INVALID_HANDLE_VALUE);
 #endif
-
+#endif /* BARRELFISH */
 	s->pid = pid;
 
 	/* Parent.  Close the slave side of the pseudo tty. */
@@ -1530,6 +1582,10 @@ do_setusercontext(struct passwd *pw)
 static void
 do_pwchange(Session *s)
 {
+#ifdef BARRELFISH
+    assert(!"NYI");
+    return;
+#else /* BARRELFISH */
 	fflush(NULL);
 	fprintf(stderr, "WARNING: Your password has expired.\n");
 	if (s->ttyfd != -1) {
@@ -1550,11 +1606,16 @@ do_pwchange(Session *s)
 		    "Password change required but no TTY available.\n");
 	}
 	exit(1);
+#endif /* BARRELFISH */
 }
 
 static void
 launch_login(struct passwd *pw, const char *hostname)
 {
+#ifdef BARRELFISH
+    assert(!"NYI");
+    return;
+#else /* BARRELFISH */
 	/* Launch login(1). */
 
 	execl(LOGIN_PROGRAM, "login", "-h", hostname,
@@ -1571,6 +1632,7 @@ launch_login(struct passwd *pw, const char *hostname)
 
 	perror("login");
 	exit(1);
+#endif /* BARRELFISH */
 }
 
 static void
@@ -1613,6 +1675,9 @@ child_close_fds(void)
 void
 do_child(Session *s, const char *command)
 {
+#ifdef BARRELFISH
+
+#else /* BARRELFISH */
 	extern char **environ;
 	char **env;
 	char *argv[ARGV_MAX];
@@ -1829,6 +1894,7 @@ do_child(Session *s, const char *command)
 	execve(shell, argv, env);
 	perror(shell);
 	exit(1);
+#endif /* BARRELFISH */
 }
 
 void
@@ -2063,8 +2129,10 @@ session_pty_req(Session *s)
 		n_bytes = packet_remaining();
 	tty_parse_modes(s->ttyfd, &n_bytes);
 
+#if !defined(BARRELFISH)
 	if (!use_privsep)
 		pty_setowner(s->pw, s->tty);
+#endif /* !defined(BARRELFISH) */
 
 	/* Set window size from the packet. */
 	pty_change_window_size(s->ptyfd, s->row, s->col, s->xpixel, s->ypixel);
