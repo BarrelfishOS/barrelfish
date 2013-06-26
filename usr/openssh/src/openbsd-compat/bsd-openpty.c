@@ -172,6 +172,36 @@ openpty(int *amaster, int *aslave, char *name, struct termios *termp,
 	}
 	return (-1);
 
+#elif defined(BARRELFISH)
+    int ptm;
+    char *pts;
+
+    /* open master side */
+    ptm = posix_openpt(O_RDWR | O_NOCTTY);
+    if (ptm < 0) {
+        return -1;
+    }
+    if (grantpt(ptm) < 0) {
+        return -1;
+    }
+    if (unlockpt(ptm) < 0) {
+        return -1;
+    }
+    *amaster = ptm;
+
+    pts = ptsname(ptm);
+    if (pts == NULL) {
+        return -1;
+    }
+
+    /* open slave side */
+    *aslave = open(pts, O_RDWR | O_NOCTTY);
+    if (*aslave < 0) {
+        close(*amaster);
+        return -1;
+    }
+
+    return 0;
 #else
 	/* BSD-style pty code. */
 	char ptbuf[64], ttbuf[64];
