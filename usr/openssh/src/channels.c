@@ -52,6 +52,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef BARRELFISH
+# include <assert.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -1437,6 +1440,9 @@ port_open_helper(Channel *c, char *rtype)
 static void
 channel_set_reuseaddr(int fd)
 {
+#ifdef BARRELFISH
+    assert(!"NYI");
+#else
 	int on = 1;
 
 	/*
@@ -1445,6 +1451,7 @@ channel_set_reuseaddr(int fd)
 	 */
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1)
 		error("setsockopt SO_REUSEADDR fd %d: %s", fd, strerror(errno));
+#endif
 }
 
 /*
