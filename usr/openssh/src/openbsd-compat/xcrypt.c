@@ -25,6 +25,9 @@
 #include "includes.h"
 
 #include <sys/types.h>
+#ifdef BARRELFISH
+# include <assert.h>
+#endif
 #include <unistd.h>
 #include <pwd.h>
 
@@ -61,7 +64,10 @@ char *
 xcrypt(const char *password, const char *salt)
 {
 	char *crypted;
-
+#ifdef BARRELFISH
+    assert(!"NYI");
+    return NULL;
+#else
 # ifdef HAVE_MD5_PASSWORDS
         if (is_md5_salt(salt))
                 crypted = md5_crypt(password, salt);
@@ -79,6 +85,7 @@ xcrypt(const char *password, const char *salt)
 # endif 
 
 	return crypted;
+#endif
 }
 
 /*
