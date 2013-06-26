@@ -1082,10 +1082,12 @@ server_listen(void)
 			verbose("socket: %.100s", strerror(errno));
 			continue;
 		}
+#if !defined(BARRELFISH)
 		if (set_nonblock(listen_sock) == -1) {
 			close(listen_sock);
 			continue;
 		}
+#endif
         /*
          * Barrelfish does not yet have support for SO_REUSEADDR. Disable
          * setting this option.
@@ -1225,6 +1227,7 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 				close(*newsock);
 				continue;
 			}
+#if !defined(BARRELFISH)
 			if (pipe(startup_p) == -1) {
 				close(*newsock);
 				continue;
@@ -1239,6 +1242,7 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 				close(startup_p[1]);
 				continue;
 			}
+#endif
 
 			for (j = 0; j < options.max_startups; j++)
 				if (startup_pipes[j] == -1) {
@@ -1268,15 +1272,19 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 				close_listen_socks();
 				*sock_in = *newsock;
 				*sock_out = *newsock;
+#if !defined(BARRELFISH)
 				close(startup_p[0]);
 				close(startup_p[1]);
+#endif
 				startup_pipe = -1;
 				pid = getpid();
+#if !defined(BARRELFISH)
 				if (rexec_flag) {
 					send_rexec_state(config_s[0],
 					    &cfg);
 					close(config_s[0]);
 				}
+#endif
 				break;
 #if !defined(BARRELFISH)
 			}
