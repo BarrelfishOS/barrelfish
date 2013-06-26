@@ -333,7 +333,9 @@ wait_until_can_do_something(fd_set **readsetp, fd_set **writesetp, int *maxfdp,
 		if (fdin != -1 && buffer_len(&stdin_buffer) > 0)
 			FD_SET(fdin, *writesetp);
 	}
+#if !defined(BARRELFISH)
 	notify_prepare(*readsetp);
+#endif /* !defined(BARRELFISH) */
 
 	/*
 	 * If we have buffered packet data going to the client, mark that
@@ -834,10 +836,14 @@ server_loop2(Authctxt *authctxt)
 		signal(SIGQUIT, sigterm_handler);
 	}
 
+#if !defined(BARRELFISH)
 	notify_setup();
+#endif /* !defined(BARRELFISH) */
 
 	max_fd = MAX(connection_in, connection_out);
+#if !defined(BARRELFISH)
 	max_fd = MAX(max_fd, notify_pipe[0]);
+#endif /* !defined(BARRELFISH) */
 
 	server_init_dispatch();
 
