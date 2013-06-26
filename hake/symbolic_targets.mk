@@ -67,6 +67,7 @@ MODULES_COMMON= \
 # List of modules that are arch-independent and always built
 MODULES_GENERIC= \
 	skb_ramfs.cpio.gz \
+	sshd_ramfs.cpio.gz \
 
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
@@ -156,6 +157,7 @@ MODULES_x86_64= \
 	sbin/testdesc \
 	sbin/testdesc-child \
 	sbin/angler \
+	sbin/sshd \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -194,6 +196,7 @@ MODULES_x86_32=\
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
 	sbin/angler \
+	sbin/sshd \
 
 # SCC-specific module to build by default
 MODULES_scc=\
@@ -275,7 +278,7 @@ DISK=hd.img
 AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+	QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
