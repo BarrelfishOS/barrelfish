@@ -27,7 +27,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <arpa/nameser.h>
+#if !defined(BARRELFISH)
+# include <arpa/nameser.h>
+#endif /* !BARRELFISH */
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
