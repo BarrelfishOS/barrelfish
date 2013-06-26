@@ -36,13 +36,18 @@
 
 #include "includes.h"
 
+#ifdef BARRELFISH
+# include <barrelfish/barrelfish.h> /* For debug_printf() */
+#endif
 #include <sys/types.h>
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
+#if !defined(BARRELFISH)
+# include <syslog.h>
+#endif /* !BARRELFISH */
 #include <unistd.h>
 #include <errno.h>
 #if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
@@ -54,7 +59,9 @@
 
 static LogLevel log_level = SYSLOG_LEVEL_INFO;
 static int log_on_stderr = 1;
+#if !defined(BARRELFISH)
 static int log_facility = LOG_AUTH;
+#endif /* !BARRELFISH */
 static char *argv0;
 static log_handler_fn *log_handler;
 static void *log_handler_ctx;
@@ -269,6 +276,10 @@ log_init(char *av0, LogLevel level, SyslogFacility facility, int on_stderr)
 	if (on_stderr)
 		return;
 
+    /*
+     * Barrelfish does not have a syslog. We simply use debug_printf().
+     */
+#if !defined(BARRELFISH)
 	switch (facility) {
 	case SYSLOG_FACILITY_DAEMON:
 		log_facility = LOG_DAEMON;
@@ -327,6 +338,7 @@ log_init(char *av0, LogLevel level, SyslogFacility facility, int on_stderr)
 	openlog(argv0 ? argv0 : __progname, LOG_PID, log_facility);
 	closelog();
 #endif
+#endif /* !BARRELFISH */
 }
 
 #define MSGBUFSIZ 1024
@@ -357,7 +369,9 @@ do_log(LogLevel level, const char *fmt, va_list args)
 	char msgbuf[MSGBUFSIZ];
 	char fmtbuf[MSGBUFSIZ];
 	char *txt = NULL;
+#if !defined(BARRELFISH)
 	int pri = LOG_INFO;
+#endif /* !BARRELFISH */
 	int saved_errno = errno;
 	log_handler_fn *tmp_handler;
 
@@ -368,34 +382,50 @@ do_log(LogLevel level, const char *fmt, va_list args)
 	case SYSLOG_LEVEL_FATAL:
 		if (!log_on_stderr)
 			txt = "fatal";
+#if !defined(BARRELFISH)
 		pri = LOG_CRIT;
+#endif /* !BARRELFISH */
 		break;
 	case SYSLOG_LEVEL_ERROR:
 		if (!log_on_stderr)
 			txt = "error";
+#if !defined(BARRELFISH)
 		pri = LOG_ERR;
+#endif /* !BARRELFISH */
 		break;
 	case SYSLOG_LEVEL_INFO:
+#if !defined(BARRELFISH)
 		pri = LOG_INFO;
+#endif /* !BARRELFISH */
 		break;
 	case SYSLOG_LEVEL_VERBOSE:
+#if !defined(BARRELFISH)
 		pri = LOG_INFO;
+#endif /* !BARRELFISH */
 		break;
 	case SYSLOG_LEVEL_DEBUG1:
 		txt = "debug1";
+#if !defined(BARRELFISH)
 		pri = LOG_DEBUG;
+#endif /* !BARRELFISH */
 		break;
 	case SYSLOG_LEVEL_DEBUG2:
 		txt = "debug2";
+#if !defined(BARRELFISH)
 		pri = LOG_DEBUG;
+#endif /* !BARRELFISH */
 		break;
 	case SYSLOG_LEVEL_DEBUG3:
 		txt = "debug3";
+#if !defined(BARRELFISH)
 		pri = LOG_DEBUG;
+#endif /* !BARRELFISH */
 		break;
 	default:
 		txt = "internal error";
+#if !defined(BARRELFISH)
 		pri = LOG_ERR;
+#endif /* !BARRELFISH */
 		break;
 	}
 	if (txt != NULL && log_handler == NULL) {
@@ -413,9 +443,17 @@ do_log(LogLevel level, const char *fmt, va_list args)
 		tmp_handler(level, fmtbuf, log_handler_ctx);
 		log_handler = tmp_handler;
 	} else if (log_on_stderr) {
+#ifdef BARRELFISH
+        debug_printf("%.500s\n", fmtbuf);
+#else /* BARRELFISH */
 		snprintf(msgbuf, sizeof msgbuf, "%s\r\n", fmtbuf);
 		write(STDERR_FILENO, msgbuf, strlen(msgbuf));
+#endif /* BARRELFISH */
 	} else {
+#ifdef BARRELFISH
+        // use debug_printf for logging
+        debug_printf("%.500s\n", fmtbuf);
+#else
 #if defined(HAVE_OPENLOG_R) && defined(SYSLOG_DATA_INIT)
 		openlog_r(argv0 ? argv0 : __progname, LOG_PID, log_facility, &sdata);
 		syslog_r(pri, &sdata, "%.500s", fmtbuf);
@@ -425,6 +463,7 @@ do_log(LogLevel level, const char *fmt, va_list args)
 		syslog(pri, "%.500s", fmtbuf);
 		closelog();
 #endif
+#endif /* !BARRELFISH */
 	}
 	errno = saved_errno;
 }
