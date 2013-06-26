@@ -51,6 +51,10 @@
 int
 daemon(int nochdir, int noclose)
 {
+/*
+ * We don't do anything, if OpenSSH calls daemon.
+ */
+#if !defined(BARRELFISH)
 	int fd;
 
 	switch (fork()) {
@@ -75,6 +79,7 @@ daemon(int nochdir, int noclose)
 		if (fd > 2)
 			(void)close (fd);
 	}
+#endif
 	return (0);
 }
 
