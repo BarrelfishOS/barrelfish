@@ -715,6 +715,11 @@ tun_open(int tun, int mode)
 void
 sanitise_stdfd(void)
 {
+/*
+ * Barrelfish does not have a /dev/null atm. Moreover, fcntl does not support
+ * the F_GETFL flag. Therefore we omit this checks.
+ */
+#if !defined(BARRELFISH)
 	int nullfd, dupfd;
 
 	if ((nullfd = dupfd = open(_PATH_DEVNULL, O_RDWR)) == -1) {
@@ -733,6 +738,7 @@ sanitise_stdfd(void)
 	}
 	if (nullfd > 2)
 		close(nullfd);
+#endif
 }
 
 char *
