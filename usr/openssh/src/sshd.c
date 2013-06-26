@@ -587,6 +587,11 @@ demote_sensitive_data(void)
 	/* We do not clear ssh1_host key and cookie.  XXX - Okay Niels? */
 }
 
+/*
+ * This port of OpenSSH to Barrelfish does not support privilege separation.
+ * See: README_BARRELFISH.
+ */
+#if !defined(BARRELFISH)
 static void
 privsep_preauth_child(void)
 {
@@ -745,6 +750,7 @@ privsep_postauth(Authctxt *authctxt)
 	 */
 	packet_set_authenticated();
 }
+#endif /* !BARRELFIH */
 
 static char *
 list_hostkey_types(void)
@@ -1989,9 +1995,11 @@ main(int ac, char **av)
 	buffer_init(&loginmsg);
 	auth_debug_reset();
 
+#if !defined(BARRELFISH)
 	if (use_privsep)
 		if (privsep_preauth(authctxt) == 1)
 			goto authenticated;
+#endif /* !BARRELFISH */
 
 	/* perform the key exchange */
 	/* authenticate user and start session */
@@ -2046,12 +2054,14 @@ main(int ac, char **av)
 	 * In privilege separation, we fork another child and prepare
 	 * file descriptor passing.
 	 */
+#if !defined(BARRELFISH)
 	if (use_privsep) {
 		privsep_postauth(authctxt);
 		/* the monitor process [priv] will not return */
 		if (!compat20)
 			destroy_sensitive_data();
 	}
+#endif /* !BARRELFISH */
 
 	packet_set_timeout(options.client_alive_interval,
 	    options.client_alive_count_max);
