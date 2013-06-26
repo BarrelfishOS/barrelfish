@@ -311,6 +311,11 @@ sighup_handler(int sig)
 static void
 sighup_restart(void)
 {
+/*
+ * In Barrefish we don't receive a SIGHUP, so we don't have to restart the
+ * server.
+ */
+#if !defined(BARRELFISH)
 	logit("Received SIGHUP; restarting.");
 	close_listen_socks();
 	close_startup_pipes();
@@ -320,6 +325,7 @@ sighup_restart(void)
 	logit("RESTART FAILED: av[0]='%.100s', error: %.100s.", saved_argv[0],
 	    strerror(errno));
 	exit(1);
+#endif
 }
 
 /*
