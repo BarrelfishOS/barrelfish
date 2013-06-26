@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -24,7 +24,9 @@
 bool lwip_sock_ready_read(int socket);
 bool lwip_sock_ready_write(int socket);
 
+errval_t lwip_sock_waitset_deregister_read(int socket);
 errval_t lwip_sock_waitset_register_read(int socket, struct waitset *ws);
+errval_t lwip_sock_waitset_deregister_write(int socket);
 errval_t lwip_sock_waitset_register_write(int socket, struct waitset *ws);
 
 #endif /* __LWIP_CHAN_SUPPORT_H__ */

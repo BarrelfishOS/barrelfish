@@ -2287,6 +2287,26 @@ static void do_nothing(void *arg)
 }
 
 /**
+ * \brief Deregister previously registered waitset on which an event is delivered
+ *        when the socket is ready for reading.
+ */
+errval_t lwip_sock_waitset_deregister_read(int socket)
+{
+    errval_t err;
+    struct lwip_socket *p_sock;
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    err = waitset_chan_deregister(&p_sock->recv_chanstate);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief Register a waitset on which an event is delivered when the socket is
  *        ready for reading.
  *
@@ -2322,6 +2342,26 @@ errval_t lwip_sock_waitset_register_read(int socket, struct waitset *ws)
             DEBUG_ERR(err, "Error trigger event on recv channel.");
             return err;
         }
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Deregister previously registered waitset on which an event is delivered
+ *        when the socket is ready for writing.
+ */
+errval_t lwip_sock_waitset_deregister_write(int socket)
+{
+    errval_t err;
+    struct lwip_socket *p_sock;
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    err = waitset_chan_deregister(&p_sock->send_chanstate);
+    if (err_is_fail(err)) {
+        return err;
     }
 
     return SYS_ERR_OK;
