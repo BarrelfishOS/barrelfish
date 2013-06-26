@@ -234,6 +234,24 @@ seed_rng(void)
 	memset(buf, '\0', sizeof(buf));
 
 #endif /* OPENSSL_PRNG_ONLY */
+
+/*
+ * FIXME: The use of a static seed is not secure!
+ *        It would be better to use PRNGD or EGD. See src/README.
+ *
+ * We dont have /dev/random on Barrelfish. Use the static seed 'BCDEDF...'.
+ */
+#ifdef BARRELFISH
+#define SIZE 48
+
+    unsigned char buf[SIZE];
+    unsigned char startchar = '\x42'; /* B */
+    for (int i = 0; i < SIZE; i++) {
+        buf[i] = startchar++;
+    }
+    RAND_add(buf, sizeof(buf), sizeof(buf));
+    memset(buf, '\0', sizeof(buf));
+#endif
 	if (RAND_status() != 1)
 		fatal("PRNG is not seeded");
 }
