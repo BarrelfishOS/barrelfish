@@ -1514,6 +1514,14 @@ main(int ac, char **av)
 			break;
 		}
 	}
+
+#ifdef BARRELFISH
+    fprintf(stderr ,"sshd started with %d commandline arguments\n", ac);
+    for (int i = 0; i < ac; i++) {
+        fprintf(stderr, "argv[%d]: '%s'\n", i, av[i]);
+    }
+#endif
+
 	if (rexeced_flag || inetd_flag)
 		rexec_flag = 0;
 	if (!test_flag && (rexec_flag && (av[0] == NULL || *av[0] != '/')))
