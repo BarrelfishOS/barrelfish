@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #define _USE_XOPEN
@@ -73,16 +74,23 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
         if (err_is_fail(err)) {
             printf("%s: file not found: %s\n", prog, err_getstring(err));
             free(prog);
-            return -1;
+            return EXIT_FAILURE;
         }
         vfs_close(vh);
     }
 
     assert(retdomainid != NULL);
 
+    // inherit the session capability
+    struct capref inheritcn_cap;
+    err = alloc_inheritcn_with_sidcap(&inheritcn_cap, cap_sessionid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
+    }
+
     argv[argc] = NULL;
-    err = spawn_program(coreid, prog, argv, NULL, SPAWN_NEW_DOMAIN,
-                        retdomainid);
+    err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
+                                  NULL_CAP, SPAWN_NEW_DOMAIN, retdomainid);
 
     if (prog != argv[0]) {
         free(prog);
@@ -91,15 +99,15 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     if (err_is_fail(err)) {
         printf("%s: error spawning: %s\n", argv[0], err_getstring(err));
         DEBUG_ERR(err, "Spawning Error\n");
-        return -1;
+        return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int quit(int argc, char *argv[])
 {
-    exit(0);
+    exit(EXIT_SUCCESS);
     assert(!"exit() returned");
     return 255;
 }
@@ -107,14 +115,14 @@ static int quit(int argc, char *argv[])
 static int print_cspace(int argc, char *argv[])
 {
     debug_my_cspace();
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int setenvcmd(int argc, char *argv[])
 {
     if (argc <= 1) {
         printf("Usage: %s [name=value]...\n", argv[0]);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     for (int i=1; i < argc; i++) {
@@ -131,7 +139,7 @@ static int setenvcmd(int argc, char *argv[])
         }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int printenv(int argc, char *argv[])
@@ -149,7 +157,7 @@ static int printenv(int argc, char *argv[])
         }
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static bool pixels_started = false;
@@ -297,14 +305,14 @@ static int demo(int argc, char *argv[])
         trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0);
         }
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int oncore(int argc, char *argv[])
 {
     if(argc < 3) {
         printf("Usage: %s <core id> <program> [args]\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     int core = atoi(argv[1]);
@@ -334,7 +342,7 @@ static int spawnpixels(int argc, char *argv[])
     pixels_started = true;
     printf("Done\n");
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int reset(int argc, char *argv[])
@@ -428,7 +436,7 @@ static int skb(int argc, char *argv[])
 
     if(argc < 2) {
         printf("Usage: %s <program>\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     if(!init) {
@@ -450,14 +458,14 @@ static int skb(int argc, char *argv[])
     free(result);
     free(str_err);
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int mount(int argc, char *argv[])
 {
     if (argc != 3) {
         printf("Usage: %s MOUNTPOINT URI\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
@@ -465,23 +473,23 @@ static int mount(int argc, char *argv[])
     free(path);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "in vfs_mount %s %s", argv[1], argv[2]);
-        return 1;
+        return EXIT_FAILURE;
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int cat(int argc, char *argv[])
 {
     if(argc < 2) {
         printf("Usage: %s [file...]\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     uint8_t buf[1024];
     size_t size;
     vfs_handle_t vh;
     errval_t err;
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
 
     for (int i = 1; i < argc; i++) {
         char *path = vfs_path_mkabsolute(cwd, argv[i]);
@@ -489,7 +497,7 @@ static int cat(int argc, char *argv[])
         free(path);
         if (err_is_fail(err)) {
             printf("%s: file not found\n", argv[i]);
-            ret = 1;
+            ret = EXIT_FAILURE;
             continue;
         }
 
@@ -498,7 +506,7 @@ static int cat(int argc, char *argv[])
             if (err_is_fail(err)) {
                 // XXX: Close any files that might be open
                 DEBUG_ERR(err, "error reading file");
-                return 1;
+                return EXIT_FAILURE;
             }
 
             fwrite(buf, 1, size, stdout);
@@ -521,7 +529,7 @@ static int cat2(int argc, char *argv[])
 
     if(argc < 3) {
         printf("Usage: %s [input-files...] output-file\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     /* Open output file creating it if it does not exist */
@@ -531,7 +539,7 @@ static int cat2(int argc, char *argv[])
     free(path);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error opening output file");
-        return 1;
+        return EXIT_FAILURE;
     }
 
     /* Open input files, read buffer and write to output file */
@@ -544,7 +552,7 @@ static int cat2(int argc, char *argv[])
         free(path);
         if (err_is_fail(err)) {
             printf("%s: file not found\n", argv[i]);
-            ret = 1;
+            ret = EXIT_FAILURE;
             continue;
         }
 
@@ -553,7 +561,7 @@ static int cat2(int argc, char *argv[])
             if (err_is_fail(err)) {
                 // XXX: Close any files that might be open
                 DEBUG_ERR(err, "error reading file");
-                return 1;
+                return EXIT_FAILURE;
             }
 
             size_t output_size;
@@ -561,13 +569,13 @@ static int cat2(int argc, char *argv[])
             if (err_is_fail(err)) {
                 // XXX: Close any files that might be open
                 DEBUG_ERR(err, "error writing to output file");
-                return 1;
+                return EXIT_FAILURE;
             }
             if (output_size != size) {
                 printf("Wanted to write %zu but only wrote %zu, aborting\n",
                        size, output_size);
                 // XXX: Close any files that might be open
-                return 1;
+                return EXIT_FAILURE;
             }
         } while(size > 0);
 
@@ -586,23 +594,23 @@ static int cat2(int argc, char *argv[])
 
 static int cp(int argc, char *argv[])
 {
-    if(argc != 3) {
+    if (argc != 3) {
         printf("Usage: %s src dest\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     static uint8_t buf[32768];
     size_t rsize, wsize;
     vfs_handle_t src = NULL, dst = NULL;
     errval_t err;
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
 
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
     err = vfs_open(path, &src);
     free(path);
     if (err_is_fail(err)) {
         printf("%s: %s\n", argv[1], err_getstring(err));
-        return 1;
+        return EXIT_FAILURE;
     }
 
     path = vfs_path_mkabsolute(cwd, argv[2]);
@@ -610,14 +618,14 @@ static int cp(int argc, char *argv[])
     free(path);
     if (err_is_fail(err)) {
         printf("%s: %s\n", argv[2], err_getstring(err));
-        ret = 1;
+        ret = EXIT_FAILURE;
         goto out;
     }
 
     err = vfs_truncate(dst, 0);
     if (err_is_fail(err)) {
         printf("truncate %s: %s\n", argv[2], err_getstring(err));
-        ret = 1;
+        ret = EXIT_FAILURE;
         goto out;
     }
 
@@ -625,7 +633,7 @@ static int cp(int argc, char *argv[])
         err = vfs_read(src, buf, sizeof(buf), &rsize);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "error reading file");
-            ret = 1;
+            ret = EXIT_FAILURE;
             goto out;
         }
 
@@ -634,7 +642,7 @@ static int cp(int argc, char *argv[])
             err = vfs_write(dst, &buf[wpos], rsize - wpos, &wsize);
             if (err_is_fail(err) || wsize == 0) {
                 DEBUG_ERR(err, "error writing file");
-                ret = 1;
+                ret = EXIT_FAILURE;
                 goto out;
             }
             wpos += wsize;
@@ -683,7 +691,7 @@ static int dd(int argc, char *argv[])
     size_t progress = 0;
 
     errval_t err;
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
 
     for (int i = 1; i < argc; i++)
     {
@@ -719,7 +727,7 @@ static int dd(int argc, char *argv[])
         free(path);
         if (err_is_fail(err)) {
             printf("%s: %s\n", source, err_getstring(err));
-            return 1;
+            return EXIT_FAILURE;
         }
 
         if (skip != 0)
@@ -738,7 +746,7 @@ static int dd(int argc, char *argv[])
             if (source_vh != NULL)
                 vfs_close(source_vh);
             printf("%s: %s\n", target, err_getstring(err));
-            return 1;
+            return EXIT_FAILURE;
         }
 
         if (seek != 0)
@@ -760,7 +768,7 @@ static int dd(int argc, char *argv[])
 
     if (buffer == NULL)
     {
-        ret = 2;
+        ret = EXIT_FAILURE;
         printf("failed to allocate buffer of size %zd\n", blocksize);
         goto out;
     }
@@ -773,7 +781,7 @@ static int dd(int argc, char *argv[])
             err = vfs_read(source_vh, buffer, blocksize, &rsize);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "error reading file");
-                ret = 1;
+                ret = EXIT_FAILURE;
                 goto out;
             }
 
@@ -788,7 +796,7 @@ static int dd(int argc, char *argv[])
                 err = vfs_write(target_vh, &buffer[wpos], rsize - wpos, &wsize);
                 if (err_is_fail(err) || wsize == 0) {
                     DEBUG_ERR(err, "error writing file");
-                    ret = 1;
+                    ret = EXIT_FAILURE;
                     goto out;
                 }
                 wpos += wsize;
@@ -846,12 +854,12 @@ static int touch(int argc, char *argv[])
 {
     if(argc < 2) {
         printf("Usage: %s [file...]\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     vfs_handle_t vh;
     errval_t err;
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
 
     for (int i = 1; i < argc; i++) {
         char *path = vfs_path_mkabsolute(cwd, argv[i]);
@@ -860,7 +868,7 @@ static int touch(int argc, char *argv[])
         if (err_is_fail(err)) {
             printf("%s: %s\n", argv[i], err_getstring(err));
             DEBUG_ERR(err, "vfs_create failed");
-            ret = 1;
+            ret = EXIT_FAILURE;
             continue;
         }
 
@@ -888,7 +896,7 @@ static char vfs_type_char(enum vfs_filetype type)
 static int ls(int argc, char *argv[])
 {
     errval_t err;
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
 
     // XXX: cheat and assume we have some extra space wherever argv lives
     if (argc <= 1) {
@@ -904,7 +912,7 @@ static int ls(int argc, char *argv[])
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in vfs_opendir %s", argv[i]);
             printf("%s: not found\n", argv[i]);
-            ret = 1;
+            ret = EXIT_FAILURE;
             continue;
         }
 
@@ -937,7 +945,7 @@ static int mkdir(int argc, char *argv[])
 {
     if(argc != 2) {
         printf("Usage: %s dir\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
@@ -945,9 +953,9 @@ static int mkdir(int argc, char *argv[])
     free(path);
     if (err_is_fail(err)) {
         printf("%s\n", err_getstring(err));
-        return 1;
+        return EXIT_FAILURE;
     } else {
-        return 0;
+        return EXIT_SUCCESS;
     }
 }
 
@@ -955,7 +963,7 @@ static int rmdir(int argc, char *argv[])
 {
     if(argc != 2) {
         printf("Usage: %s dir\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
@@ -963,9 +971,9 @@ static int rmdir(int argc, char *argv[])
     free(path);
     if (err_is_fail(err)) {
         printf("%s\n", err_getstring(err));
-        return 1;
+        return EXIT_FAILURE;
     } else {
-        return 0;
+        return EXIT_SUCCESS;
     }
 }
 
@@ -973,10 +981,10 @@ static int rm(int argc, char *argv[])
 {
     if(argc < 2) {
         printf("Usage: %s file...\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
 
     for (int i = 1; i < argc; i++) {
         char *path = vfs_path_mkabsolute(cwd, argv[i]);
@@ -984,7 +992,7 @@ static int rm(int argc, char *argv[])
         free(path);
         if (err_is_fail(err)) {
             printf("%s: %s\n", argv[i], err_getstring(err));
-            ret = 1;
+            ret = EXIT_FAILURE;
         }
     }
 
@@ -997,7 +1005,7 @@ static int cd(int argc, char *argv[])
 
     if (argc != 2) {
         printf("Usage: %s DIR\n", argv[0]);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     char *newcwd = vfs_path_mkabsolute(cwd, argv[1]);
@@ -1009,7 +1017,7 @@ static int cd(int argc, char *argv[])
         printf("cd to %s (-> %s) failed: %s\n",
                argv[1], newcwd, err_getstring(err));
         free(newcwd);
-        return 1;
+        return EXIT_FAILURE;
     }
     vfs_closedir(dh);
 
@@ -1017,13 +1025,13 @@ static int cd(int argc, char *argv[])
     free(cwd);
     cwd = newcwd;
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int pwd(int argc, char *argv[])
 {
     printf("%s\n", cwd);
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static int mnfs(int argc, char *argv[])
@@ -1041,13 +1049,13 @@ static int src(int argc, char *argv[])
         printf("Usage: %s file...\n", argv[0]);
     }
 
-    int ret = 0;
+    int ret = EXIT_SUCCESS;
     for (int i = 1; i < argc; i++) {
         char *path = vfs_path_mkabsolute(cwd, argv[i]);
         FILE *f = fopen(path, "r");
         if (!f) {
             printf("File %s not found\n", path);
-            ret = 1;
+            ret = EXIT_FAILURE;
             continue;
         }
         printf("Executing file %s\n", path);
@@ -1144,14 +1152,15 @@ static void getline(char *input, size_t size)
             if (i > 0) {
                 i--;
                 putchar('\b'); // FIXME: this kinda works on my terminal
-                //puts("\033[1X"); // XXX: suitable for xterm
+                putchar(' ');
+                putchar('\b');
+                //fputs("\033[1X", stdout); // XXX: suitable for xterm
             }
         } else if (in != '\n' && i < size - 1) {
             input[i++] = in;
-            putchar(in);
         }
         fflush(stdout);
-    } while(in != '\n');
+    } while (in != '\n');
     assert(i < size);
     input[i] = '\0';
     putchar('\n');
@@ -1175,7 +1184,7 @@ static int help(int argc, char *argv[])
 {
     struct cmd *cmd;
 
-    if(argc == 1) {
+    if (argc == 1) {
         printf("available commands:\n");
         for (int i=0; i < ENTRIES(commands); i++) {
             printf("%-15s", commands[i].name);
@@ -1184,15 +1193,15 @@ static int help(int argc, char *argv[])
             }
         }
         printf("\n");
-        return 0;
+        return EXIT_SUCCESS;
     }
 
-    if((cmd = find_command(argv[1])) != NULL) {
+    if ((cmd = find_command(argv[1])) != NULL) {
         printf("%s: %s\n", argv[1], cmd->usage);
-        return 0;
+        return EXIT_SUCCESS;
     } else {
         printf("%s: %s: command not found\n", argv[0], argv[1]);
-        return 1;
+        return EXIT_FAILURE;
     }
 }
 
@@ -1241,7 +1250,7 @@ static uint8_t wait_domain_id(domainid_t domainid)
 {
     uint8_t exitcode;
     errval_t err = spawn_wait(domainid, &exitcode, false);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn_wait");
     }
     return exitcode;
@@ -1269,39 +1278,24 @@ int main(int argc, const char *argv[])
     bool        is_bootscript = true;
     coreid_t my_core_id = disp_get_core_id();
 
-    // XXX: parse aguments to determine input sources to use
-    unsigned stdin_sources = 0;
-
     vfs_init();
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "serial") == 0) {
-            stdin_sources |= TERMINAL_SOURCE_SERIAL;
-        } else if (strcmp(argv[i], "keyboard") == 0) {
-            stdin_sources |= TERMINAL_SOURCE_KEYBOARD;
-        } else if (strcmp(argv[i], "nobootscript") == 0) {
+        if (strcmp(argv[i], "nobootscript") == 0) {
             is_bootscript = false;
         }
     }
-    // fallback default: use serial, as before
-    if (stdin_sources == 0) {
-        stdin_sources = TERMINAL_SOURCE_SERIAL;
-    }
-
-    // XXX: All the following calls should go away once we have stable APIs
-    errval_t e = terminal_want_stdin(stdin_sources);
-    assert(err_is_ok(e));
 
     cwd = strdup("/");
 
     printf("fish v0.2 -- pleased to meet you!\n");
 
     // run canned pre-boot commands
-    if(is_bootscript) {
+    if (is_bootscript) {
         runbootscript();
     }
 
-    for(;;) {
+    for (;;) {
         int             cmd_argc;
         char            *cmd_argv[64];      // Support a max of 64 cmd args
         struct cmd      *cmd;
@@ -1336,16 +1330,12 @@ int main(int argc, const char *argv[])
             exitcode = execute_program(my_core_id, cmd_argc, cmd_argv, &domain_id);
 
             // wait if it succeeds
-            if(exitcode == 0 && wait) {
+            if (exitcode == 0 && wait) {
                 exitcode = wait_domain_id(domain_id);
                 char exitstr[128];
                 snprintf(exitstr, 128, "%u", exitcode);
                 int r = setenv("EXITCODE", exitstr, 1);
                 assert(r == 0);
-
-                // Reacquire terminal for stdin
-                e = terminal_want_stdin(stdin_sources);
-                assert(err_is_ok(e));
             }
         }
     }
