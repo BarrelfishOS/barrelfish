@@ -19,6 +19,9 @@
 #include "includes.h"
 #if !defined(HAVE_POLL)
 
+#ifdef BARRELFISH
+# include <sys/param.h>
+#endif
 #ifdef HAVE_SYS_SELECT_H
 # include <sys/select.h>
 #endif
