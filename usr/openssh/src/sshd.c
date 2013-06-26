@@ -1235,7 +1235,12 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 			 * Got connection.  Fork a child to handle it, unless
 			 * we are in debugging mode.
 			 */
+            /*
+             * Atm, we only support a single connection without forking.
+             */
+#if !defined(BARRELFISH)
 			if (debug_flag) {
+#endif
 				/*
 				 * In debugging mode.  Close the listening
 				 * socket, and start processing the
@@ -1255,13 +1260,16 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 					close(config_s[0]);
 				}
 				break;
+#if !defined(BARRELFISH)
 			}
+#endif
 
 			/*
 			 * Normal production daemon.  Fork, and have
 			 * the child process the connection. The
 			 * parent continues listening.
 			 */
+#if !defined(BARRELFISH)
 			platform_pre_fork();
 			if ((pid = fork()) == 0) {
 				/*
@@ -1321,6 +1329,7 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 			 * from that of the child
 			 */
 			arc4random_stir();
+#endif
 		}
 
 		/* child process check (or debug mode) */
