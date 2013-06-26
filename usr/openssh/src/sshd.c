@@ -60,6 +60,11 @@
 #include "openbsd-compat/sys-queue.h"
 #include <sys/wait.h>
 
+#ifdef BARRElFISH
+# include <vfs/vfs.h> /* For vfs_init() */
+# include <lwip/tcpip.h> /* For tcpip_init() */
+#endif
+
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -262,6 +267,19 @@ void demote_sensitive_data(void);
 
 static void do_ssh1_kex(void);
 static void do_ssh2_kex(void);
+
+#ifdef BARRELFISH
+extern void network_polling_loop(void);
+
+static int poll_loop(void *args)
+{
+    network_polling_loop();
+
+    // should never be reached
+    return EXIT_FAILURE;
+}
+#endif
+
 
 /*
  * Close all listening sockets
@@ -1358,6 +1376,24 @@ main(int ac, char **av)
 	mode_t new_umask;
 	Key *key;
 	Authctxt *authctxt;
+
+    /*
+     * Initialise the VFS library and LWIP (networking) library.
+     */
+#ifdef BARRELFISH
+    vfs_init();
+    /*
+     * Start the main lwIP thread, that has exclusive access to the lwip core
+     * functions. Other threads communicate with this thread using message
+     * boxes.
+     *
+     * Note that tcpip_init calls lwip_init_auto().
+     */
+    tcpip_init(NULL, NULL);
+    lwip_socket_init();
+
+    struct thread *t = thread_create(poll_loop, NULL);
+#endif
 
 #ifdef HAVE_SECUREWARE
 	(void)set_auth_parameters(ac, av);
