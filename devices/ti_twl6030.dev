@@ -28,6 +28,9 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         i2c_addr_vmmc = 0x48 "VMMC I2C address";
     };
 
+    // address spaces for I2C physical adresses
+    // id1 == i2c addr 0x48
+    space id1(i) valuewise "Registers accessed via I2C addr 0x48";
 
     regtype cfg_grp "Group Configuration" {
         _       5 rsvd;
@@ -36,7 +39,7 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         grp_app 1 "Application Power Group";
     };
 
-    constants transition_cmd "Transition Command" {
+    constants transition_cmd width(2) "Transition Command" {
         tcmd_off = 0b00 "Off";
         tcmd_ams = 0b01 "Sleep/Active";
         // 0b10 is reserved
@@ -49,7 +52,7 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         active 2 type(transition_cmd) "active state";
     };
 
-    constants pwrstate "Power State" {
+    constants pwrstate width(2) "Power State" {
         pwr_off   = 0b00 "Off";
         pwr_on    = 0b01 "On";
         pwr_off_2 = 0b10 "Off";
@@ -71,12 +74,12 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         state     2 type(pwrstate) "Resource state after power group arbitration";
     };
 
-    constants wr "Warm reset" {
+    constants wr width(1) "Warm reset" {
         wr_reload_dflt = 0b0 "Reload default VSEL value on warm reset";
         wr_keep        = 0b1 "Keep voltage configuration settings on warm reset";
     };
     // Table 121
-    constants vsel "Voltage selector" {
+    constants vsel width(5) "Voltage selector" {
         v0v0 = 0b00000 "0.0V";
         v1v0 = 0b00001 "1.0V";
         v1v1 = 0b00010 "1.1V";
@@ -113,13 +116,22 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
 
     // VMMC registers
     // Table 152
-    register vmmc_cfg_grp addr(b, 0x98) "VMMC Group Configuration" type(cfg_grp);
+    //register vmmc_cfg_grp addr(b, 0x98) "VMMC Group Configuration" type(cfg_grp);
+    register vmmc_cfg_grp id1(0x98) "VMMC Group Configuration" type(cfg_grp);
+
     // Table 153
-    register vmmc_cfg_trans addr(b, 0x99) "VMMC Transition Configuration" type(cfg_trans);
+    //register vmmc_cfg_trans addr(b, 0x99) "VMMC Transition Configuration" type(cfg_trans);
+    register vmmc_cfg_trans id1(0x99) "VMMC Transition Configuration" type(cfg_trans);
+
     // Table 154
-    register vmmc_cfg_state_w wo addr(b, 0x9A) "VMMC State Configuration (write format)" type(cfg_state_w);
+    //register vmmc_cfg_state_w wo addr(b, 0x9A) "VMMC State Configuration (write format)" type(cfg_state_w);
+    register vmmc_cfg_state_w wo id1(0x9A) "VMMC State Configuration (write format)" type(cfg_state_w);
+
     // Table 155
-    register vmmc_cfg_state_r ro also addr(b, 0x9A) "VMMC State Configuration (read format)" type(cfg_state_r);
+    //register vmmc_cfg_state_r ro also addr(b, 0x9A) "VMMC State Configuration (read format)" type(cfg_state_r);
+    register vmmc_cfg_state_r ro also id1(0x9A) "VMMC State Configuration (read format)" type(cfg_state_r);
+
     // Table 156
-    register vmmc_cfg_voltage addr(b, 0x9B) "VMMC Voltage Configuration" type(cfg_voltage);
+    //register vmmc_cfg_voltage addr(b, 0x9B) "VMMC Voltage Configuration" type(cfg_voltage);
+    register vmmc_cfg_voltage id1(0x9B) "VMMC Voltage Configuration" type(cfg_voltage);
 };

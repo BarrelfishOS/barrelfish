@@ -101,9 +101,10 @@ void ti_i2c_init(int i)
     ti_i2c_con_mst_wrf(dev, 0x1);
 
     // enable interrupts for receive and transmit data ready
-    ti_i2c_irqenable_clr_wr(dev, 0xffff);
-    ti_i2c_irqenable_set_xrdy_ie_wrf(dev, 0x1);
-    ti_i2c_irqenable_set_rrdy_ie_wrf(dev, 0x1);
+    // Not using interrupts for now -SG
+    // ti_i2c_irqenable_clr_wr(dev, 0xffff);
+    // ti_i2c_irqenable_set_xrdy_ie_wrf(dev, 0x1);
+    // ti_i2c_irqenable_set_rrdy_ie_wrf(dev, 0x1);
 
     // enable DMA
     // we're not using DMA for now... -SG
@@ -121,10 +122,22 @@ static inline bool ti_i2c_poll_stat(ti_i2c_t *dev, ti_i2c_irqstatus_t flags,
     uint32_t start_ticks = tsc_read();
     uint32_t ticks;
     int32_t waittime = timeout;
+    printk(LOG_NOTE, "waittime = %"PRIu32"\n", waittime);
 
     while (waittime > 0) {
         ti_i2c_irqstatus_t stat = ti_i2c_stat_rd(dev);
-        if (stat & flags) {
+        printk(LOG_NOTE, "stat = 0x%"PRIx16"\n", stat);
+        if (stat & ti_i2c_irq_flag_aas) {
+            // address recognized as slave interrupt
+            if (stat & ti_i2c_irq_flag_rrdy) {
+                printk(LOG_NOTE, "AAS && RRDY\n");
+                printk(LOG_NOTE, "data = 0x%"PRIx8"\n",
+                        ti_i2c_data_data_rdf(dev));
+                ti_i2c_stat_aas_wrf(dev, 1);
+                ti_i2c_stat_rrdy_wrf(dev, 1);
+            }
+        }
+        else if (stat & flags) {
             if (retflags) {
                 *retflags = stat;
             }
@@ -132,6 +145,7 @@ static inline bool ti_i2c_poll_stat(ti_i2c_t *dev, ti_i2c_irqstatus_t flags,
         }
         ticks = tsc_read();
         waittime -= (ticks - start_ticks);
+        printk(LOG_NOTE, "waittime = %"PRIu32"\n", waittime);
         start_ticks = ticks;
     }
     return false;
@@ -151,6 +165,7 @@ static bool ti_i2c_wait_for_free_bus(ti_i2c_t *dev, int32_t timeout)
 static errval_t
 ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 {
+    printk(LOG_NOTE, "ti_i2c_read\n");
     bool wfb;
     wfb = ti_i2c_wait_for_free_bus(dev, DEFAULT_TIMEOUT);
     if (!wfb) {
@@ -172,7 +187,7 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     con = ti_i2c_con_stt_insert(con, 1);
     ti_i2c_con_wr(dev, con);
 
-    ti_i2c_irqstatus_t events, retevents;
+    ti_i2c_irqstatus_t events = 0, retevents;
 
     events = ti_i2c_irq_flag_al // arbitration lost
            | ti_i2c_irq_flag_nack // no acknowledgement
@@ -185,6 +200,7 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     // reading loop
     while (true) {
         // poll for NACK, AL, ARDY, RDR and RRDY
+        printk(LOG_NOTE, "waiting for 0x%"PRIx16"\n", events);
         while(!ti_i2c_poll_stat(dev, events, &retevents, DEFAULT_TIMEOUT)) {
             // poll for receive ready
         }
@@ -248,12 +264,14 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 static errval_t
 ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 {
+    printk(LOG_NOTE, "ti_i2c_write\n");
     bool wfb;
     wfb = ti_i2c_wait_for_free_bus(dev, DEFAULT_TIMEOUT);
     if (!wfb) {
         printk(LOG_ERR, "wait for bus free timed out\n");
         return SYS_ERR_I2C_WAIT_FOR_BUS;
     }
+    printk(LOG_NOTE, "bus is free, proceeding\n");
 
     // TODO: interrupt-driven?
 
@@ -269,7 +287,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     con = ti_i2c_con_stt_insert(con, 1);
     ti_i2c_con_wr(dev, con);
 
-    ti_i2c_irqstatus_t events, retevents;
+    ti_i2c_irqstatus_t events = 0, retevents;
     events = ti_i2c_irq_flag_al // arbitration lost
            | ti_i2c_irq_flag_nack // no acknowledgement
            | ti_i2c_irq_flag_ardy // register access ready
@@ -282,6 +300,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     // writing loop
     while (true) {
         // poll for NACK, AL, ARDY, XDR and XRDY
+        printk(LOG_NOTE, "waiting for 0x%"PRIx16"\n", events);
         while(!ti_i2c_poll_stat(dev, events, &retevents, DEFAULT_TIMEOUT)) {
             // poll for events
         }
@@ -313,6 +332,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 
             /* get the number of bytes that fit in the FIFO */
             amount = ti_i2c_bufstat_txstat_rdf(dev);
+            printk(LOG_NOTE, "#bytes = %"PRIu16"\n", amount);
         }
         else if (retevents & ti_i2c_irq_flag_xrdy) {
             // transmit data ready interrupt --> can send data
@@ -330,6 +350,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         }
 
         // write the bytes to the fifo
+        printk(LOG_NOTE, "writing %"PRIu16" bytes\n", amount);
         for (int i = 0; i < amount; i++) {
             ti_i2c_data_data_wrf(dev, buf[sofar++]);
         }
@@ -355,6 +376,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
  */
 errval_t ti_i2c_transfer(int devid, struct i2c_msg *msgs, size_t msgcount)
 {
+    printk(LOG_NOTE, "ti_i2c_transfer\n");
     if (!i2c_initialized[devid]) {
         return SYS_ERR_I2C_UNINITIALIZED;
     }

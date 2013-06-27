@@ -12,6 +12,7 @@
 
 #include <arm_hal.h>
 #include <gic.h>
+#include <ti_twl6030.h>
 
 #include <omap44xx_ctrlmod.h>
 
@@ -86,6 +87,9 @@ void sdmmc1_enable_power(void)
     // Step 3: Program desired SDMMC1_VDDS for MMC I/O in I2C attached power
     // controller TODO? -- assuming 3.0V for now, manual says reset value is
     // 3.0V -SG
+    // controller (3.0V)
+    errval_t err = ti_twl6030_set_vmmc_vsel(3000);
+    assert(err_is_ok(err));
 
     // Step 4: Set VMODE bit according to Step 3 (0x1 == 3.0V)
     printk(LOG_NOTE, "%s: Step 4\n", __FUNCTION__);
@@ -93,6 +97,7 @@ void sdmmc1_enable_power(void)
 
     // Step 5: wait for SDMMC1_VDDS voltage to stabilize TODO
     // might already be stable after reset? -SG
+    ti_twl6030_vmmc_pr();
 
     // Step 6: Disable PWRDNZ mode for MMC1_PBIAS and MMC1 I/O cell
     printk(LOG_NOTE, "%s: Step 6\n", __FUNCTION__);

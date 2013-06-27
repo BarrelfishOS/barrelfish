@@ -15,6 +15,7 @@
 #include <omap44xx_mmchs.h>
 #include <omap44xx_cm2.h>
 #include <omap44xx_ctrlmod.h>
+#include <ti_twl6030.h>
 
 #include <dev/omap/omap44xx_mmchs_dev.h>
 #include <dev/sdhc_dev.h>
@@ -667,6 +668,11 @@ static void mmchs_detect_card(void)
 static void mmchs_pre_configure(void) 
 {
     printf("mmchs: pre_configure()\n");
+
+    // need connection to TWL6030 for sdmmc1_enable_power()
+    ti_twl6030_init();
+    // for testing
+    ti_twl6030_vmmc_pr();
 
     // TRM chapter 18: Control module? Is that CM2?
     sdmmc1_enable_power();

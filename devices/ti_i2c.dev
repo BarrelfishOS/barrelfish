@@ -143,23 +143,24 @@ device ti_i2c msbfirst (addr b) "TI I2C controller" {
         type(irqenable);
 
     // dummy constants for polling stat flags
-    constants irqstatus_flags "irqstatus bitmasks" {
-        irq_flag_xdr  =0b1110    "Transmit draining";
-        irq_flag_rdr  =0b1101    "Receive draining";
-        irq_flag_bb   =0b1100    "Bus busy";
-        irq_flag_rovr =0b1011    "Receive overrun";
-        irq_flag_xudf =0b1010    "Transmit underflow";
-        irq_flag_aas  =0b1001    "Address recognized as slave IRQ status";
-        irq_flag_bf   =0b1000    "Bus free";
-        irq_flag_aerr =0b0111    "Access error";
-        irq_flag_stc  =0b0110    "Start condition";
-        irq_flag_gc   =0b0101    "General call";
-        irq_flag_xrdy =0b0100    "Transmit data ready";
-        irq_flag_rrdy =0b0011    "Receive data ready";
-        irq_flag_ardy =0b0010    "Register access ready";
-        irq_flag_nack =0b0001    "No acknowledgement";
-        irq_flag_al   =0b0000    "Arbitration lost";
+    constants irqstatus_flags width(16) "irqstatus bitmasks" {
+        irq_flag_xdr  = 0x4000 "Transmit draining";
+        irq_flag_rdr  = 0x2000 "Receive draining";
+        irq_flag_bb   = 0x1000 "Bus busy";
+        irq_flag_rovr = 0x0800 "Receive overrun";
+        irq_flag_xudf = 0x0400 "Transmit underflow";
+        irq_flag_aas  = 0x0200 "Address recognized as slave IRQ status";
+        irq_flag_bf   = 0x0100 "Bus free";
+        irq_flag_aerr = 0x0080 "Access error";
+        irq_flag_stc  = 0x0040 "Start condition";
+        irq_flag_gc   = 0x0020 "General call";
+        irq_flag_xrdy = 0x0010 "Transmit data ready";
+        irq_flag_rrdy = 0x0008 "Receive data ready";
+        irq_flag_ardy = 0x0004 "Register access ready";
+        irq_flag_nack = 0x0002 "No acknowledgement";
+        irq_flag_al   = 0x0001 "Arbitration lost";
     };
+
     // Table 23-63
     register stat rw1c addr(b, 0x88) "Interrupt status vector (legacy)"
         type(irqstatus);

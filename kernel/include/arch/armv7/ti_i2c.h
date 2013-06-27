@@ -10,8 +10,9 @@
 #define __TI_I2C_H__
 
 enum i2c_flags {
-    I2C_RD = 0x0,
-    I2C_WR = 0x1,
+    I2C_RD     = 0x1,
+    I2C_WR     = 0x2,
+    I2C_NOSTOP = 0x4,
 };
 
 struct i2c_msg {

@@ -21,7 +21,7 @@
  
  device omap44xx_ctrlmod msbfirst (addr gen_core, 
                                    addr gen_wkup, 
-                                       addr pad_core, 
+                                   addr pad_core, 
                                    addr pad_wkup) "TI Control Module" {
 
 
