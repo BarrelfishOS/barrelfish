@@ -90,6 +90,17 @@ void pci_init_datastructures(void)
     memset(dev_caps, 0, sizeof(dev_caps));
 }
 
+int pci_bar_to_caps_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t BAR)
+{
+    uint8_t i;
+    for (i = 0; i < PCI_NBARS && dev_caps[bus][dev][fun][i].assigned; i++) {
+        if (dev_caps[bus][dev][fun][i].bar_nr == BAR) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx)
 {
     return(dev_caps[bus][dev][fun][idx].nr_caps);

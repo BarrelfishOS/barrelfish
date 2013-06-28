@@ -60,6 +60,7 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                      uint32_t vendor_id, uint32_t device_id,
                      uint32_t *bus, uint32_t *dev,uint32_t *fun,
                      int *nr_allocated_bars);
+int pci_bar_to_caps_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t BAR);
 int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index);
 struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
                                      uint8_t index, int cap_nr);
@@ -68,5 +69,9 @@ uint8_t pci_get_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
 void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,
                                     bool pcie);
 errval_t pcie_setup_confspace(void);
+
+errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count);
+errval_t pci_msix_vector_init(struct pci_address *addr, uint16_t idx,
+                              uint8_t destination, uint8_t vector);
 
 #endif // PCI_H_

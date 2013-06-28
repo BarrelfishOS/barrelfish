@@ -169,6 +169,19 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
     return msgerr;
 }
 
+errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
+                                      uint8_t *ret_vector)
+{
+    errval_t err;
+    uint32_t vector = INVALID_VECTOR;
+    *ret_vector = 0;
+    err = inthandler_setup(handler, handler_arg, &vector);
+    if (err_is_ok(err)) {
+        *ret_vector = vector + 32; // FIXME: HACK
+    }
+    return err;
+}
+
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;
@@ -183,6 +196,22 @@ errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
     return err_is_fail(err) ? err : msgerr;
 }
 
+errval_t pci_msix_enable(uint16_t *count)
+{
+    errval_t err, msgerr;
+    err = pci_client->vtbl.msix_enable(pci_client, &msgerr, count);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t pci_msix_vector_init(uint16_t idx, uint8_t destination,
+                              uint8_t vector)
+{
+    errval_t err, msgerr;
+    err = pci_client->vtbl.msix_vector_init(pci_client, idx, destination,
+                                            vector, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+
+}
 
 static void bind_cont(void *st, errval_t err, struct pci_binding *b)
 {
