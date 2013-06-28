@@ -637,28 +637,28 @@ static void mmchs_detect_card(void)
     sdhc_ise_wr(&sdhc, ise);
 
     printf("Waiting for card to be inserted .. \n");
-    sdhc_pr(PRBUFL, &sdhc);
-    printf("%s\n", PRBUF);
+    //sdhc_pr(PRBUFL, &sdhc);
+    //printf("%s\n", PRBUF);
 
-    sdhc_ise_pr(PRBUFL, &sdhc);
-    printf("%s\n", PRBUF);
-    sdhc_ie_pr(PRBUFL, &sdhc);
-    printf("%s\n", PRBUF);
+    //sdhc_ise_pr(PRBUFL, &sdhc);
+    //printf("%s\n", PRBUF);
+    //sdhc_ie_pr(PRBUFL, &sdhc);
+    //printf("%s\n", PRBUF);
 
-    /* int i = 0; */
-    /* while (sdhc_ps_cins_rdf(&sdhc)!=0x1) { */
+     int i = 0;
+     while (sdhc_ps_cins_rdf(&sdhc)!=0x1) {
 
-    /*     if (++i>10000) { */
-    /*         printf("No card detected .. \n"); */
-    /*         return; */
-    /*     } */
+         if (++i>10000) {
+             printf("No card detected .. \n");
+             return;
+         }
 
-    /*     mmchs_wait_msec(1); */
-    /* } */
+         mmchs_wait_msec(1);
+     }
 
-    /* printf("Card detected .. \n"); */
-    /* /\* mmchs_init_stream(); *\/ */
-    /* /\* mmchs_identify_card(); *\/ */
+     printf("Card detected .. \n");
+      mmchs_init_stream();
+     mmchs_identify_card();
 }
 
 /*

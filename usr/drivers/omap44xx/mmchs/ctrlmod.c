@@ -97,7 +97,7 @@ void sdmmc1_enable_power(void)
 
     // Step 5: wait for SDMMC1_VDDS voltage to stabilize TODO
     // might already be stable after reset? -SG
-    ti_twl6030_vmmc_pr();
+    //ti_twl6030_vmmc_pr();
 
     // Step 6: Disable PWRDNZ mode for MMC1_PBIAS and MMC1 I/O cell
     printk(LOG_NOTE, "%s: Step 6\n", __FUNCTION__);
@@ -112,6 +112,7 @@ void sdmmc1_enable_power(void)
             omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_VMODE_ERROR_rdf(&ctrlmod));
 
     // Wait for Interrupt
+    printk(LOG_NOTE, "Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
     while(!pbias_got_irq) { }
 
     printk(LOG_NOTE, "%s: Step 8\n", __FUNCTION__);

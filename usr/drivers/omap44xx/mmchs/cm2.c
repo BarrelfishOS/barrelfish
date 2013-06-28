@@ -80,6 +80,9 @@ void cm2_enable_i2c(size_t i2c_index)
 {
     assert (i2c_index < 4);
 
+    //omap44xx_l4per_prm_pm_l4per_pwrstctrl_prf(cm2_buf, 1024-1, &l4per_prm);
+    //printf("%s\n", cm2_buf);
+
     omap44xx_l4per_cm2_cm_l4per_i2c_clkctrl_modulemode_wrf(&l4per_cm2, i2c_index, 0x2);
 
     // wait for module to get into functional state
@@ -110,14 +113,13 @@ int cm2_get_hsmmc1_base_clock(void)
  */
 void cm2_debug_print(void)
 {
-    char buf[1024];
-    omap44xx_l3init_cm2_pr(buf, 1024-1, &l3init_cm2);
+    omap44xx_l3init_cm2_pr(cm2_buf, 1024-1, &l3init_cm2);
     printf("%s\n", cm2_buf);
 
-    omap44xx_ckgen_cm2_pr(buf, 1024-1, &clkgen_cm2);
+    omap44xx_ckgen_cm2_pr(cm2_buf, 1024-1, &clkgen_cm2);
     printf("%s\n", cm2_buf);
 
-    omap44xx_l4per_cm2_pr(buf, 1024-1, &l4per_cm2);
+    omap44xx_l4per_cm2_pr(cm2_buf, 1024-1, &l4per_cm2);
     printf("%s\n", cm2_buf);
 }
 

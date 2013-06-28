@@ -114,6 +114,14 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         vsel 5 type(vsel) "Voltage to apply";
     };
 
+    register mmcctrl id1(0xEE) "MMCCTRL" {
+        _               4 rsvd;
+        vmmc_auto_off   1 "Is the regulator turned off automatically in case card is extracted?";
+        sw_fc           1 "Configure the external receptable mechanical contact";
+        _               1 rsvd;
+        sts_mmc         1 "Is card present?";
+    };
+
     // VMMC registers
     // Table 152
     //register vmmc_cfg_grp addr(b, 0x98) "VMMC Group Configuration" type(cfg_grp);
