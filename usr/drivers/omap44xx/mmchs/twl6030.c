@@ -96,18 +96,18 @@ void ti_twl6030_init(void)
     // initialize I2C1 host controller
     ti_i2c_init(I2C_HC);
     //printf("read VMMC_CFG_VOLTAGE %"PRIu8"\n", _ti_twl6030_id1_read_8(NULL, 0x9B));
+    //printf("read VMMC_CFG_VOLTAGE %"PRIu8"\n", _ti_twl6030_id1_read_8(NULL, 0x9B));
 
-
-    printk(LOG_NOTE, "scanning TWL\n");
+    //ti_twl6030_vmmc_pr();
+    /*printk(LOG_NOTE, "scanning TWL\n");
     ti_twl6030_scan();
-    printk(LOG_NOTE, "after scan\n");
-    while (1);
+    printk(LOG_NOTE, "after scan\n");*/
 }
 
 void ti_twl6030_vmmc_pr(void)
 {
     ti_twl6030_pr(PRBUFL, &twl);
-    printk(LOG_NOTE, "%s\n", PRBUF);
+    printf("%s\n", PRBUF);
 }
 
 void ti_twl6030_scan(void)

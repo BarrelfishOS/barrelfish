@@ -16,6 +16,8 @@
 #include <ti_i2c.h>
 #include <ti_i2c_dev.h>
 
+#pragma GCC diagnostic ignored "-Wunused-variable" 
+
 // there are 4 GP i2c controllers on the pandaboard
 #define I2C_COUNT 4
 static ti_i2c_t i2c[I2C_COUNT];
@@ -32,11 +34,8 @@ static lpaddr_t i2c_pbase[I2C_COUNT] =
 // default timeout for waits in ticks
 #define DEFAULT_TIMEOUT (tsc_get_hz() / 4)
 
-#if 0
-#define PBS (64*1024)
-static char PRBUF[PBS];
-#define PRBUFL PRBUF, (PBS-1)
-#endif
+#define PBS (10*1024)
+static char prbuf[PBS];
 
 /*
  * \brief initialize I2C controller `i`.
@@ -86,8 +85,8 @@ void ti_i2c_init(int i)
     // according to freebsd this is not necessary in single master mode -SG
 
     // set rx & tx threshold -- set to 5 (register value + 1)
-    ti_i2c_buf_txtrsh_wrf(dev, 0x4);
-    ti_i2c_buf_rxtrsh_wrf(dev, 0x4);
+    ti_i2c_buf_txtrsh_wrf(dev, 0xf);
+    ti_i2c_buf_rxtrsh_wrf(dev, 0xf);
 
     // bring controller out of reset
     //  Fast/Standard mode
@@ -112,6 +111,12 @@ void ti_i2c_init(int i)
     // set initialized flag
     i2c_initialized[i] = true;
 
+    //printf("Initialized\n");
+    //ti_i2c_sysc_pr(prbuf, PBS-1, dev);
+    //printf("%s\n", prbuf);
+
+
+
     return;
 }
 
@@ -127,6 +132,9 @@ static inline bool ti_i2c_poll_stat(ti_i2c_t *dev, ti_i2c_irqstatus_t flags,
     while (waittime > 0) {
         ti_i2c_irqstatus_t stat = ti_i2c_stat_rd(dev);
         printk(LOG_NOTE, "stat = 0x%"PRIx16"\n", stat);
+        //ti_i2c_stat_pr(prbuf, PBS-1, dev);
+        //printf("%s\n", prbuf);
+
         if (stat & ti_i2c_irq_flag_aas) {
             // address recognized as slave interrupt
             if (stat & ti_i2c_irq_flag_rrdy) {
@@ -176,6 +184,7 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     // TODO: interrupt-driven?
 
     // write number of bytes to read
+    assert(length > 0);
     ti_i2c_cnt_wr(dev, length);
 
     // clear write bit & initiate the read transaction, setting
@@ -221,6 +230,7 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         if (retevents & ti_i2c_irq_flag_ardy) {
             // register access ready --> transaction complete
             printk(LOG_NOTE, "ARDY transaction complete\n");
+            ti_i2c_stat_ardy_wrf(dev, 1);
             err = SYS_ERR_OK;
             break;
         }
@@ -264,7 +274,10 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 static errval_t
 ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 {
-    printk(LOG_NOTE, "ti_i2c_write\n");
+    uint16_t amount = 0, sofar = 0;
+    errval_t err = SYS_ERR_OK;
+
+    printk(LOG_NOTE, "ti_i2c_write(dev, *buf=%"PRIu8", length=%"PRIu16")\n", *buf, length);
     bool wfb;
     wfb = ti_i2c_wait_for_free_bus(dev, DEFAULT_TIMEOUT);
     if (!wfb) {
@@ -275,8 +288,22 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 
     // TODO: interrupt-driven?
 
+    //printk(LOG_NOTE, "AFTER WAIT FOR BUS:\n");
+    //ti_i2c_stat_pr(prbuf, PBS-1, dev);
+    //printf("%s\n", prbuf);
+
+
     // write number of bytes to write
+    assert(length > 0);
     ti_i2c_cnt_wr(dev, length);
+    ti_i2c_sa_sa_wrf(dev, 0x48);
+
+    //printk(LOG_NOTE, "AFTER WRITE SETUP:\n");
+    //ti_i2c_stat_pr(prbuf, PBS-1, dev);
+    //printf("%s\n", prbuf);
+    // Force write of 1st bit ez
+    //ti_i2c_data_data_wrf(dev, buf[sofar++]);
+
 
     // set write bit & initiate the write transaction, setting
     // the start bit (STT) starts the transaction
@@ -285,6 +312,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     con = ti_i2c_con_mst_insert(con, 1);
     con = ti_i2c_con_stp_insert(con, 1);
     con = ti_i2c_con_stt_insert(con, 1);
+    con = ti_i2c_con_xsa_insert(con, 0);
     ti_i2c_con_wr(dev, con);
 
     ti_i2c_irqstatus_t events = 0, retevents;
@@ -294,8 +322,6 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
            | ti_i2c_irq_flag_xdr // transmit draining
            | ti_i2c_irq_flag_xrdy; // transmit ready
 
-    uint16_t amount = 0, sofar = 0;
-    errval_t err = SYS_ERR_OK;
 
     // writing loop
     while (true) {
@@ -320,6 +346,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         // check if we have finished
         if (retevents & ti_i2c_irq_flag_ardy) {
             // register access ready --> transaction complete
+            ti_i2c_stat_ardy_wrf(dev, 1);
             printk(LOG_NOTE, "ARDY transaction complete\n");
             err = SYS_ERR_OK;
             break;
@@ -357,6 +384,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 
         // attempt to clear the receive ready bits
         ti_i2c_stat_xdr_wrf(dev, 1);
+        ti_i2c_stat_ardy_wrf(dev, 1);
         ti_i2c_stat_xrdy_wrf(dev, 1);
     }
 
