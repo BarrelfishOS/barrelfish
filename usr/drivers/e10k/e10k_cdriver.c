@@ -23,6 +23,7 @@
 
 #include "e10k.h"
 #include "sleep.h"
+#include "helper.h"
 
 //#define DEBUG(x...) printf("e10k: " x)
 #define DEBUG(x...) do {} while (0)
@@ -38,6 +39,10 @@ struct queue_state {
     struct capref txhwb_frame;
     struct capref rx_frame;
     uint32_t rxbufsz;
+
+    size_t msix_index;
+    int16_t msix_intvec;
+    uint8_t msix_intdest;
     bool use_irq;
     bool use_rsc;
 
@@ -92,6 +97,8 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
+                              int16_t msix_intvec,
+                              uint8_t msix_intdest,
                               bool use_interrupts,
                               bool use_rsc);
 void cd_set_interrupt_rate(struct e10k_binding *b,
@@ -105,18 +112,30 @@ static void stop_device(void);
 static void device_init(void);
 static void queue_hw_init(uint8_t n);
 static void queue_hw_stop(uint8_t n);
+static void interrupt_handler_msix(void* arg);
+//static void interrupt_handler_msix_b(void* arg);
 
 static void e10k_flt_ftqf_setup(int index, struct e10k_filter *filter);
 //static void e10k_flt_etype_setup(int filter, int queue, uint16_t etype);
+
+
 
 static const char *service_name = "e10k";
 uint64_t d_mac;
 static int initialized = 0;
 static e10k_t *d = NULL;
 static struct capref *regframe;
+static bool msix = true;
 
 /** Specifies if RX/TX is currently enabled on the device. */
 static bool rxtx_enabled = false;
+
+// Management of MSI-X vectors
+static struct bmallocator msix_alloc;
+/** MSI-X vector used by cdriver */
+static size_t cdriver_msix = -1;
+static uint8_t cdriver_vector;
+
 
 // State of queues and filters
 static struct queue_state queues[128];
@@ -345,6 +364,24 @@ static void tx_disable(void)
 }
 
 
+static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
+{
+    bool res;
+    errval_t err;
+    uint8_t dest;
+
+    res = bmallocator_alloc(&msix_alloc, msix_index);
+    assert(res);
+
+    err = get_apicid_from_core(core, &dest);
+    assert(err_is_ok(err));
+
+    err = pci_msix_vector_init(*msix_index, dest, vector);
+    assert(err_is_ok(err));
+
+    DEBUG("e10k: MSI-X vector setup index=%"PRIx64", core=%d apic=%d swvec=%x\n",
+            *msix_index, core, dest, vector);
+}
 
 /**
  * Initialize hardware registers.
@@ -355,6 +392,7 @@ static void device_init(void)
     int i;
     e10k_ctrl_t ctrl;
     e10k_pfqde_t pfqde;
+    errval_t err;
     bool initialized_before = initialized;
 
     initialized = 0;
@@ -437,14 +475,49 @@ static void device_init(void)
 
     // Initialize interrupts
     e10k_eicr_wr(d, 0xffffffff);
-    // Set maximal interrupt delay
-    e10k_eitr_l_wr(d, 0, e10k_eitrn_itr_int_insert(0, 1023));
-    e10k_gpie_eimen_wrf(d, 1);
+    if (msix) {
+        // Switch to MSI-X mode
+        e10k_gpie_msix_wrf(d, 1);
+        e10k_gpie_pba_sup_wrf(d, 1);
+        e10k_gpie_ocd_wrf(d, 1);
+
+        // Allocate msix vector for cdriver and set up handler
+        if (cdriver_msix == -1) {
+            err = pci_setup_inthandler(interrupt_handler_msix, NULL, &cdriver_vector);
+            assert(err_is_ok(err));
+
+            setup_interrupt(&cdriver_msix, disp_get_core_id(), cdriver_vector);
+        }
+
+        // Map management interrupts to our vector
+        e10k_ivar_misc_i_alloc0_wrf(d, cdriver_msix);
+        e10k_ivar_misc_i_alloc1_wrf(d, cdriver_msix);
+        e10k_ivar_misc_i_allocval0_wrf(d, 1);
+        e10k_ivar_misc_i_allocval1_wrf(d, 1);
+
+        // Enable auto masking of interrupt
+        e10k_gpie_eiame_wrf(d, 1);
+        e10k_eiamn_wr(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
+
+        // Set no interrupt delay
+        e10k_eitr_l_wr(d, cdriver_msix, 0);
+        e10k_gpie_eimen_wrf(d, 1);
+
+        // Enable interrupt
+        e10k_eimsn_wr(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
+    } else {
+        // Set no Interrupt delay
+        e10k_eitr_l_wr(d, 0, 0);
+        e10k_gpie_eimen_wrf(d, 1);
+
+        // Enable all interrupts
+        e10k_eimc_wr(d, e10k_eims_rd(d));
+        e10k_eims_cause_wrf(d, 0x7fffffff);
+    }
+
     // Just a guess for RSC delay
     e10k_gpie_rsc_delay_wrf(d, 2);
 
-    e10k_eimc_wr(d, e10k_eims_rd(d));
-    e10k_eims_cause_wrf(d, 0x7fffffff);
 
     // Initialize multiple register tables
     for (i = 1; i < 128; i++) {
@@ -657,17 +730,47 @@ static void queue_hw_init(uint8_t n)
 
     // Setup Interrupts for this queue
     if (queues[n].use_irq) {
+        uint8_t rxv, txv;
+        // Look for interrupt vector
+        if (queues[n].msix_intvec != 0) {
+            if (queues[n].msix_index == -1) {
+                setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
+                                queues[n].msix_intvec);
+            }
+            rxv = txv = queues[n].msix_index;
+        } else {
+            rxv = QUEUE_INTRX;
+            txv = QUEUE_INTTX;
+        }
+        DEBUG("rxv=%d txv=%d\n", rxv, txv);
+
+        // Setup mapping queue Rx/Tx -> interrupt
         uint8_t i = n / 2;
         if ((n % 2) == 0) {
-            e10k_ivar_i_alloc0_wrf(d, i, QUEUE_INTRX);
+            e10k_ivar_i_alloc0_wrf(d, i, rxv);
             e10k_ivar_i_allocval0_wrf(d, i, 1);
-            e10k_ivar_i_alloc1_wrf(d, i, QUEUE_INTTX);
-            e10k_ivar_i_allocval1_wrf(d, i, 0);
+            e10k_ivar_i_alloc1_wrf(d, i, txv);
+            e10k_ivar_i_allocval1_wrf(d, i, 1);
         } else {
-            e10k_ivar_i_alloc2_wrf(d, i, QUEUE_INTRX);
+            e10k_ivar_i_alloc2_wrf(d, i, rxv);
             e10k_ivar_i_allocval2_wrf(d, i, 1);
-            e10k_ivar_i_alloc3_wrf(d, i, QUEUE_INTTX);
-            e10k_ivar_i_allocval3_wrf(d, i, 0);
+            e10k_ivar_i_alloc3_wrf(d, i, txv);
+            e10k_ivar_i_allocval3_wrf(d, i, 1);
+        }
+        if (queues[n].msix_intvec != 0) {
+            e10k_eitr_l_wr(d, rxv, 0);
+
+            // Enable autoclear (higher ones are always auto cleared)
+            if (rxv < 16) {
+                e10k_eiac_rtxq_wrf(d, e10k_eiac_rtxq_rdf(d) | (1 << rxv));
+            }
+
+            // Enable interrupt
+            e10k_eimsn_wr(d, rxv / 32, (1 << (rxv % 32)));
+        }
+        if (rxv < 16) {
+            // Make sure interrupt is cleared
+            e10k_eicr_wr(d, 1 << rxv);
         }
     }
 
@@ -784,13 +887,8 @@ static void stop_device(void)
     DEBUG("Stopping device done\n");
 }
 
-/** Here are the global interrupts handled. */
-static void interrupt_handler(void* arg)
+static void management_interrupt(e10k_eicr_t eicr)
 {
-    e10k_eicr_t eicr = e10k_eicr_rd(d);
-
-    e10k_eicr_wr(d, eicr);
-
     if (e10k_eicr_ecc_extract(eicr)) {
         DEBUG("##########################################\n");
         DEBUG("ECC Error, resetting device :-/\n");
@@ -800,9 +898,38 @@ static void interrupt_handler(void* arg)
         DEBUG("Interrupt: %x\n", eicr);
         e10k_eicr_prtval(buf, sizeof(buf), eicr);
         puts(buf);
-    } else if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
+    } else if (msix) {
+        DEBUG("Weird management interrupt without cause: eicr=%x\n", eicr);
+    }
+}
+
+static void interrupt_handler_msix(void* arg)
+{
+    DEBUG("e10k: MSI-X management interrupt\n");
+    e10k_eicr_t eicr = e10k_eicr_rd(d);
+
+    eicr &= ~(1 << cdriver_msix);
+    management_interrupt(eicr);
+
+    // Ensure management MSI-X vector is cleared
+    e10k_eicr_wr(d, (1 << cdriver_msix));
+
+    // Reenable interrupt
+    e10k_eimsn_cause_wrf(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
+}
+
+/** Here are the global interrupts handled. */
+static void interrupt_handler(void* arg)
+{
+    e10k_eicr_t eicr = e10k_eicr_rd(d);
+
+    if (eicr >> 16) {
+        management_interrupt(eicr);
+    }
+    if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
+        e10k_eicr_wr(d, eicr);
         qd_interrupt(!!(eicr & (1 << QUEUE_INTRX)),
-                               !!(eicr & (1 << QUEUE_INTTX)));
+                     !!(eicr & (1 << QUEUE_INTTX)));
     }
 }
 
@@ -903,12 +1030,19 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb_frame,
                               struct capref rx_frame,
                               uint32_t rxbufsz,
+                              int16_t msix_intvec,
+                              uint8_t msix_intdest,
                               bool use_irq,
                               bool use_rsc)
 {
     DEBUG("register_queue_memory(%"PRIu8")\n", n);
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
 
+    if (use_irq && msix_intvec != 0 && !msix) {
+        printf("e10k: Queue %d requests MSI-X, but MSI-X is not enabled "
+                " card driver. Ignoring queue\n", n);
+        return;
+    }
     // Save state so we can restore the configuration in case we need to do a
     // reset
     queues[n].enabled = true;
@@ -918,6 +1052,9 @@ void cd_register_queue_memory(struct e10k_binding *b,
     queues[n].tx_head = 0;
     queues[n].rx_head = 0;
     queues[n].rxbufsz = rxbufsz;
+    queues[n].msix_index = -1;
+    queues[n].msix_intvec = msix_intvec;
+    queues[n].msix_intdest = msix_intdest;
     queues[n].binding = b;
     queues[n].use_irq = use_irq;
     queues[n].use_rsc = use_rsc;
@@ -938,13 +1075,15 @@ void cd_set_interrupt_rate(struct e10k_binding *b,
 {
     DEBUG("set_interrupt_rate(%"PRIu8")\n", n);
 
+    uint8_t i;
     e10k_eitrn_t eitr = 0;
     eitr = e10k_eitrn_itr_int_insert(eitr, rate);
 
-    if (n < 24) {
-        e10k_eitr_l_wr(d, n, eitr);
+    i = (queues[n].msix_index == -1 ? 0 : queues[n].msix_index);
+    if (i < 24) {
+        e10k_eitr_l_wr(d, i, eitr);
     } else {
-        e10k_eitr_h_wr(d, n - 24, eitr);
+        e10k_eitr_h_wr(d, i - 24, eitr);
     }
 }
 
@@ -1053,6 +1192,9 @@ static void initialize_mngif(void)
 /** Callback from pci to initialize a specific PCI device. */
 static void pci_init_card(struct device_mem* bar_info, int bar_count)
 {
+    errval_t err;
+    bool res;
+
     assert(!initialized);
 
     d = malloc(sizeof(*d));
@@ -1068,6 +1210,21 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
 
     // Initialize Mackerel binding
     e10k_initialize(d, (void*) bar_info[0].vaddr);
+
+    // Initialize manager for MSI-X vectors
+    if (msix) {
+        DEBUG("Enabling MSI-X interrupts\n");
+        uint16_t msix_count = 0;
+        err = pci_msix_enable(&msix_count);
+        assert(err_is_ok(err));
+        assert(msix_count > 0);
+        DEBUG("MSI-X #vecs=%d\n", msix_count);
+
+        res = bmallocator_init(&msix_alloc, msix_count);
+        assert(res);
+    } else {
+        DEBUG("Using legacy interrupts\n");
+    }
 
     // Initialize hardware registers etc.
     DEBUG("Initializing hardware\n");
@@ -1111,6 +1268,10 @@ static void parse_cmdline(int argc, char **argv)
             pci_device = atol(argv[i] + strlen("device="));
         } else if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0){
             pci_function = atol(argv[i] + strlen("function="));
+        } else if (strncmp(argv[i], "msix=", strlen("msix=") - 1) == 0) {
+            msix = !!atol(argv[i] + strlen("msix="));
+            // also pass this to queue driver
+            qd_argument(argv[i]);
         } else {
             qd_argument(argv[i]);
         }
