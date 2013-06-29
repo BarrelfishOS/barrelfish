@@ -37,23 +37,20 @@ void usb_xfer_enqueue(struct usb_xfer_queue *queue, struct usb_xfer *xfer)
 
     if (xfer->wait_queue == NULL) {
 
-
-            USB_DEBUG_XFER("add: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
-                    xfer->xfer_id, queue, &queue->head.first,
-                    queue->head.last_next, xfer->wait_entry.next,
-                    &xfer->wait_entry.next, xfer->wait_entry.prev_next);
-
-
+        USB_DEBUG_XFER("add: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
+                xfer->xfer_id, queue, &queue->head.first,
+                queue->head.last_next, xfer->wait_entry.next,
+                &xfer->wait_entry.next, xfer->wait_entry.prev_next);
 
         assert(queue != NULL);
 
         xfer->wait_queue = queue;
 
         xfer->wait_entry.next = NULL;
-        xfer->wait_entry.prev_next = (&queue->head)->last_next;
+        xfer->wait_entry.prev_next = queue->head.last_next;
 
-        *(&queue->head)->last_next = (xfer);
-        (&queue->head)->last_next = &(((xfer))->wait_entry.next);
+        *(queue->head.last_next) = xfer;
+        queue->head.last_next = &(xfer->wait_entry.next);
 
     }
 
@@ -79,20 +76,20 @@ void usb_xfer_dequeue(struct usb_xfer *xfer)
         USB_DEBUG_XFER("removing the transfer from the wait queue\n");
 
         if ((xfer->wait_entry.next) != NULL)
-            (xfer->wait_entry.next)->wait_entry.prev_next = xfer->wait_entry
+            xfer->wait_entry.next->wait_entry.prev_next = xfer->wait_entry
                     .prev_next;
         else {
-            (&queue->head)->last_next = xfer->wait_entry.prev_next;
+            queue->head.last_next = xfer->wait_entry.prev_next;
         }
-        *(xfer)->wait_entry.prev_next = (xfer->wait_entry.next);
+
+        *xfer->wait_entry.prev_next = xfer->wait_entry.next;
 
         xfer->wait_queue = NULL;
 
-
         USB_DEBUG_XFER("rem: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
-                    xfer->xfer_id, queue, &queue->head.first,
-                    queue->head.last_next, xfer->wait_entry.next,
-                    &xfer->wait_entry.next, xfer->wait_entry.prev_next);
+                xfer->xfer_id, queue, &queue->head.first,
+                queue->head.last_next, xfer->wait_entry.next,
+                &xfer->wait_entry.next, xfer->wait_entry.prev_next);
 
     }
 

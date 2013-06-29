@@ -38,7 +38,7 @@ static usb_transfer_setup_t keyboard_tconf[USB_KEYBOARD_NUM_TRANSFERS] = {
         .endpoint = USB_ENDPOINT_ADDRESS_ANY, /* any address */
         .direction = USB_ENDPOINT_DIRECTION_IN,
         .max_bytes = 0, /* use wMaxPacketSize */
-        .interval = 0, /* use bInterval from endpoint */
+        .interval = 5, /* use bInterval from endpoint */
         .flags = {
             .short_xfer_ok = 1,
             .pipe_on_falure = 1,
@@ -406,7 +406,7 @@ static int32_t usb_keyboard_read(void)
 #else
 static int32_t usb_keyboard_read(void)
 {
-
+    return (-1);
 }
 #endif
 
@@ -415,7 +415,7 @@ static uint32_t usb_keyboard_read_char(void)
     uint32_t keycode;
     uint32_t action = USB_KEYBOARD_KEY_NOKEY;
     int32_t usbcode;
-#ifdef USB_KEYBOARD_MODE_ATCODE
+#if USB_KEYBOARD_MODE_ATCODE
     uint32_t scancode;
 #endif
 
@@ -433,7 +433,7 @@ static uint32_t usb_keyboard_read_char(void)
             return (action);
         }
 
-#ifdef USB_KEYBOARD_MODE_ATCODE
+#if USB_KEYBOARD_MODE_ATCODE
         scancode = keyboard.at_buffered_char[0];
         if (scancode) {
             if (scancode & 0xF00) {
@@ -450,7 +450,7 @@ static uint32_t usb_keyboard_read_char(void)
             return (USB_KEYBOARD_KEY_NOKEY);
         }
 
-#ifdef USB_KEYBOARD_MODE_ATCODE
+#if USB_KEYBOARD_MODE_ATCODE
         keycode = usb_keyboard_keycodes[USB_KEYBOARD_KEY_INDEX(usbcode)];
         if (keycode == NN) {
             return (USB_KEYBOARD_KEY_NOKEY);

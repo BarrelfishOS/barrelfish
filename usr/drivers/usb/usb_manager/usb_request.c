@@ -621,6 +621,10 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
     req.wValue = ((type) << 8) | desc_index;
     uint16_t ret_length = 0;
 
+    /*
+     * XXX: There is actually a bug if min_length < max_length
+     * this causes the loop to run forever...
+     */
     while (1) {
         if ((min_length < 2) || (max_length < 2)) {
             return (USB_ERR_INVAL);
@@ -731,8 +735,9 @@ usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
 usb_error_t usb_req_get_string_desc(struct usb_device *dev, void *sdesc,
         uint16_t max_len, uint16_t lang_id, uint8_t string_index)
 {
-    return (USB_ERR_IOERROR);
-    return (usb_req_get_descriptor(dev, NULL, sdesc, 2, max_len, lang_id,
+    //return (USB_ERR_IOERROR);
+    /* TODO: change min_length = 2 */
+    return (usb_req_get_descriptor(dev, NULL, sdesc, max_len, max_len, lang_id,
             USB_DESCRIPTOR_TYPE_STRING, string_index, 0));
 }
 

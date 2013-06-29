@@ -24,9 +24,28 @@
 #include <usb_hub.h>
 #include <usb_interface.h>
 
+/// list containing usb devices that are currently pending for driver spawn */
 static struct usb_device *devices_pending = NULL;
+
+/// the currently spawned device waiting for driver connection
 static struct usb_device *device_process = NULL;
 
+/**
+ * \brief executes the query to find the driver binary path
+ *
+ * \param class    the USB class of the device
+ * \param subclass the USB subclass of the device
+ * \param protocol the protocol ID of the device
+ * \param vendor   the vendor ID of the device
+ * \param product  the product ID of the device
+ *
+ * \return the path of the binary on success
+ *         NULL if there is no matchting binary
+ *
+ * TODO: the query may be deferred to the SKB to get the path of the binary
+ *
+ * XXX: This function is a stub, serving only the usb_keyboard at the moment
+ */
 static char *usb_driver_query(uint8_t class, uint8_t subclass, uint8_t protocol,
         uint16_t vendor, uint16_t product)
 {
@@ -115,33 +134,46 @@ static char *usb_driver_query(uint8_t class, uint8_t subclass, uint8_t protocol,
             return (NULL);
     }
 
-    if (path != NULL) {
-
-        char *ret_path = malloc(strlen(path));
-        memcpy(ret_path, path, strlen(path));
-        return (ret_path);
-    }
-    return (NULL);
+    return (path);
 }
 
-static char *usb_driver_lookup_iface(struct usb_device *dev)
+/**
+ * \brief wrapper function for lookups using the information of the interface
+ *        to query the driver path
+ *
+ * \param device the device we want to query
+ *
+ * \return path to the driver binary on success
+ *         NULL if there is no binary
+ */
+static char *usb_driver_lookup_iface(struct usb_device *device)
 {
     USB_DEBUG_TR_ENTER;
 
-    struct usb_interface *iface = dev->ifaces;
+    struct usb_interface *iface = device->ifaces;
     struct usb_interface_descriptor *idesc;
 
     char *path = NULL;
 
     uint32_t i = 0;
-    while (iface != NULL && i < dev->iface_max) {
+
+    /* loop over all interfaces of this device */
+    while ((iface != NULL) && (i < device->iface_max)) {
+
+        /* get the interface descriptor */
         idesc = iface->descriptor;
         if (idesc == NULL) {
-            USB_DEBUG("IFACE == NULLL");
+            iface++;
+            i++;
+            continue;
         }
+
+        /* query using the interface information */
         path = usb_driver_query(idesc->bInterfaceClass,
                 idesc->bInterfaceSubClass, idesc->bInterfaceProtocol,
-                dev->device_desc.idVendor, dev->device_desc.idProduct);
+                device->device_desc.idVendor, device->device_desc.idProduct);
+
+        /* if there is a path, stop. Continue with next otherwise */
         if (path != NULL) {
             break;
         }
@@ -152,27 +184,68 @@ static char *usb_driver_lookup_iface(struct usb_device *dev)
     return (path);
 }
 
-static char *usb_driver_lookup_comm(struct usb_device *dev)
+/**
+ * \brief wrapper function for looking up driver path for communication devices
+ *
+ * \param device the device to lookup
+ *
+ * \return path of the driver binary on success
+ *         NULL if there is no matching binary
+ */
+static char *usb_driver_lookup_comm(struct usb_device *device)
 {
-    return usb_driver_query(dev->device_desc.bDeviceClass, 0, 0,
-            dev->device_desc.idVendor, dev->device_desc.idProduct);
+    return (usb_driver_query(device->device_desc.bDeviceClass, 0, 0,
+            device->device_desc.idVendor, device->device_desc.idProduct));
 }
 
-static char *usb_driver_lookup_diag(struct usb_device *dev)
+/**
+ * \brief wrapper function for looking up driver path for diagnostic devices
+ *
+ * \param device the device to lookup
+ *
+ * \return path of the driver binary on success
+ *         NULL if there is no matching binary
+ */
+static char *usb_driver_lookup_diag(struct usb_device *device)
 {
     return (NULL);
 }
 
-static char *usb_driver_lookup_misc(struct usb_device *dev)
+/**
+ * \brief wrapper function for looking up driver path for misc devices
+ *
+ * \param device the device to lookup
+ *
+ * \return path of the driver binary on success
+ *         NULL if there is no matching binary
+ */
+static char *usb_driver_lookup_misc(struct usb_device *device)
 {
     return (NULL);
 }
 
-static char *usb_driver_lookup_vendor(struct usb_device *dev)
+/**
+ * \brief wrapper function for looking up driver path for vendor devices
+ *
+ * \param device the device to lookup
+ *
+ * \return path of the driver binary on success
+ *         NULL if there is no matching binary
+ */
+static char *usb_driver_lookup_vendor(struct usb_device *device)
 {
-    return (usb_driver_lookup_iface(dev));
+    return (usb_driver_lookup_iface(device));
 }
 
+/**
+ * \brief generic driver lookup wrapper function that deferres the lookup
+ *        to the specific lookup function according to the USB IF
+ *
+ * \param device the device to lookup
+ *
+ * \return path of the driver binary on success
+ *         NULL if there is no matching binary
+ */
 static char *usb_driver_lookup(struct usb_device *dev)
 {
     USB_DEBUG_TR_ENTER;
@@ -195,18 +268,21 @@ static char *usb_driver_lookup(struct usb_device *dev)
             return (usb_driver_lookup_misc(dev));
             break;
         case USB_DEVICE_CLASS_VENDOR:
-            USB_DEBUG("vendor specific device found...\n");
             return (usb_driver_lookup_vendor(dev));
             break;
     }
 
     /*
-     * the device has to be identified via the interface
-     * descriptor...
+     * All other device classes have to be looked up using the
+     * interface descriptor
      */
     return (usb_driver_lookup_iface(dev));
 }
 
+/**
+ * \brief spawns the driver domain for the currently processing device
+ *
+ */
 static void usb_driver_spawn(void)
 {
     USB_DEBUG_TR_ENTER;
@@ -237,9 +313,10 @@ static void usb_driver_spawn(void)
     domainid_t new_domain = -1;
 
     char *argv[1] = {
-        [0] = NULL,  //"armv7/sbin/usb_keyboard",//"device_process->path,
-            };
+        [0] = NULL,
+    };
 
+    /* spawn the program */
     errval_t err = spawn_program(0, device_process->path, argv, NULL, 0,
             &new_domain);
 
@@ -252,32 +329,50 @@ static void usb_driver_spawn(void)
     }
 }
 
-static void usb_driver_insert_pending(struct usb_device *new_device)
+/**
+ * \brief inserts a device into the pending list for later processing
+ *
+ * \param device the usb device to insert
+ */
+static void usb_driver_insert_pending(struct usb_device *device)
 {
-    new_device->next_pending = devices_pending;
-    devices_pending = new_device;
+    device->next_pending = devices_pending;
+    devices_pending = device;
 }
 
+
+/**
+ * \brief associate the currently processing usb device with the respective
+ *        flounder bindings and set the desired configuration
+ *
+ * \param bind the usb manager binding
+ * \param driver the usb driver binding
+ * \param config the configuration to set
+ */
 void usb_driver_connected(struct usb_manager_binding *bind,
         struct usb_driver_binding *driver, uint16_t config)
 {
-    USB_DEBUG_DRIVER("Finalizing driver binding\n");
+
     usb_error_t err = USB_ERR_OK;
-    ;
+
     assert(device_process != NULL);
 
+    /* compare the desired configuration number and update if they differ*/
     if (device_process->config_number != config) {
         USB_DEBUG_DRIVER("Updating configuration to %u\n", config);
+
         err = usb_device_set_configuration(device_process, config);
         if (err != USB_ERR_OK) {
             bind->st = NULL;
             return;
         }
-
     }
+
+    /* set the bindings in both ways */
 
     device_process->usb_manager_binding = bind;
     device_process->usb_driver_binding = driver;
+
     bind->st = device_process;
 
     /* set the current device to be processed */
@@ -287,34 +382,48 @@ void usb_driver_connected(struct usb_manager_binding *bind,
     usb_driver_spawn();
 }
 
-void usb_driver_start(struct usb_device *dev)
+/**
+ * \brief initiates the spawning of the usb driver binary.
+ *
+ * \param device the device to start the driver
+ *
+ * NOTE: hub devices are configured using the internal driver
+ */
+void usb_driver_start(struct usb_device *device)
 {
     USB_DEBUG_TR_ENTER;
 
     usb_error_t err;
 
-    if (dev->device_desc.bDeviceClass == USB_HUB_CLASS_CODE
-            && dev->device_desc.bDeviceSubClass == USB_HUB_SUBCLASS_CODE) {
+    /* hub devices are initialized using the internal hub driver */
+    if (device->device_desc.bDeviceClass == USB_HUB_CLASS_CODE
+            && device->device_desc.bDeviceSubClass == USB_HUB_SUBCLASS_CODE) {
+
         USB_DEBUG_DRIVER("New Hub device. Starting internal driver.\n");
-        err = usb_hub_init(dev);
+
+        err = usb_hub_init(device);
+
         if (err != USB_ERR_OK) {
             USB_DEBUG("ERROR: Could not initialize the hub device!");
         }
         return;
     }
 
-    char *path = usb_driver_lookup(dev);
+    /* otherwise: look up driver binary */
+    char *path = usb_driver_lookup(device);
 
     if (path == NULL) {
         USB_DEBUG("WARNING: no suitable usb device driver found!\n");
         return;
     }
 
-    dev->path = path;
+    /* set the binary path */
+    device->path = path;
 
-    // insert the device into the pending lists...
-    usb_driver_insert_pending(dev);
+    /* insert it into the pending list */
+    usb_driver_insert_pending(device);
 
+    /* spawn it eventually */
     usb_driver_spawn();
 }
 

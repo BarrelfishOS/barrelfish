@@ -14,5 +14,8 @@
 
 struct usb_endpoint *usb_endpoint_lookup(struct usb_device *dev, uint8_t iface,
         const struct usb_xfer_config *filter);
+void usb_endpoint_init(struct usb_device *device,
+        uint8_t iface_index, struct usb_endpoint_descriptor *desc,
+        struct usb_endpoint *ep);
 
 #endif /* USB_ENDPOINT_H_ */

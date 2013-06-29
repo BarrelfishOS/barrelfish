@@ -23,79 +23,91 @@
 #include <usb_interface.h>
 #include <usb_hub.h>
 #include <usb_transfer.h>
+#include <usb_endpoint.h>
 
-static void usb_device_cfg_free(struct usb_device *dev, uint8_t iface)
+/**
+ * \brief frees up the allocated interface and enpoint structures for the
+ *        current configuration
+ *
+ * \param dev the usb device to free the structures
+ *
+ * NOTE: changing the configuration usually involves freeing up the old dat
+ */
+static void usb_device_free_config(struct usb_device *device)
 {
     USB_DEBUG_TR_ENTER;
-    if (dev->ifaces != NULL) {
-        free(dev->ifaces);
+
+    /* free the allocated array structures, if set */
+    if (device->ifaces != NULL) {
+        free(device->ifaces);
     }
 
-    if (dev->endpoints != NULL) {
-        free(dev->endpoints);
+    if (device->endpoints != NULL) {
+        free(device->endpoints);
     }
-    dev->ep_clear_stall = NULL;
-    dev->ifaces = NULL;
-    dev->iface_max = 0;
-    dev->endpoints = NULL;
-    dev->ep_max = 0;
+
+    /* update the pointers */
+    device->ep_clear_stall = NULL;
+    device->ifaces = NULL;
+    device->iface_max = 0;
+    device->endpoints = NULL;
+    device->ep_max = 0;
 }
 
-static void usb_device_init_endpoint(struct usb_device *device,
-        uint8_t iface_index, struct usb_endpoint_descriptor *desc,
-        struct usb_endpoint *ep)
+
+
+/**
+ * \brief this functions parses the configuration descriptor and allocates
+ *        the interface and endpoint structures for this configuration
+ *
+ * \param device the device to process the configuraiton
+ * \param iface the interface to initialze mostly USB_INTERFACE_ANY
+ * \þaram init  0=do allocation, 1=do initialization
+ *
+ * NOTE: usually you have to call first with init=0 to allocate the structures
+ *       then call with init=1 to initialize the allocated structures
+ */
+static usb_error_t usb_device_parse_config(struct usb_device *device,
+        uint8_t iface, uint8_t init)
 {
     USB_DEBUG_TR_ENTER;
-    struct usb_hcdi_bus_fn *bus_fn = device->controller->hcdi_bus_fn;
 
-    if (bus_fn && bus_fn->endpoint_init) {
-        (bus_fn->endpoint_init)(device, desc, ep);
-    }
-
-    ep->descriptor = desc;
-    ep->iface_index = iface_index;
-    ep->endpoint_address = desc->bEndpointAddress.ep_number;
-    ep->max_packet_size = desc->wMaxPacketSize;
-    (&ep->transfers.head)->first = NULL;
-    (&ep->transfers.head)->last_next = &((&ep->transfers.head)->first);
-
-    ep->transfers.command = &usb_pipe_start;
-
-    if (ep->pipe_fn == NULL) {
-        return;
-    }
-
-    if (bus_fn->clear_stall != NULL) {
-        (bus_fn->clear_stall)(device, ep);
-    }
-}
-
-static usb_error_t usb_device_cfg_process(struct usb_device *dev, uint8_t iface,
-        uint8_t init)
-{
-    USB_DEBUG_TR_ENTER;
     struct usb_iface_parse_state iface_ps;
+
+    /* variabels for tracking the endpoints */
     struct usb_endpoint *ep;
     uint8_t ep_max, ep_current;
+
+    /* the alternative interface index */
     uint8_t alt_index = 0;
+
     usb_error_t err = USB_ERR_OK;
 
     if (iface != USB_INTERFACE_INDEX_ANY) {
+        /*
+         * this is some kind of parameter overloading, if we set the alternate
+         * index to a specific value
+         */
         alt_index = init;
         init = 2;
     }
 
     if (init) {
-        ep = dev->endpoints;
-        ep_max = dev->ep_max;
+        /*
+         * performa a reset on the allocated endpoints and check if they are
+         * still used or not.
+         */
+        ep = device->endpoints;
+        ep_max = device->ep_max;
 
         while (ep_max--) {
             if ((iface == USB_INTERFACE_INDEX_ANY)
                     || (iface == ep->iface_index)) {
+                /* just check if the iface_index matches */
                 if (ep->ref_allocation != 0) {
                     err = USB_ERR_IN_USE;
                 } else {
-                    /* perform EP reset */
+                    /* perform the actual resetting */
                     memset(ep, 0, sizeof(*ep));
                     ep->iface_index = USB_INTERFACE_INDEX_ANY;
                 }
@@ -106,6 +118,8 @@ static usb_error_t usb_device_cfg_process(struct usb_device *dev, uint8_t iface,
             return (err);
         }
     }
+
+    /* reset the interface parsing state */
     memset(&iface_ps, 0, sizeof(iface_ps));
 
     ep_current = 0;
@@ -117,18 +131,38 @@ static usb_error_t usb_device_cfg_process(struct usb_device *dev, uint8_t iface,
     struct usb_endpoint_descriptor *edesc;
     uint8_t iface_index = 0;
 
-    while ((idesc = usb_parse_next_iface(dev->config_desc, &iface_ps))) {
+    /*
+     * The config descriptor has the following structure
+     *    + interface descriptor 1
+     *      + endpoint descriptor 1
+     *      + endpoint descriptor 2
+     *    + interface descriptor 2
+     *      + endpoint descriptor 1
+     *      + endpoint descriptor 2
+     *
+     * we first have to get the next interface and then all the belonging
+     * endpoints
+     */
+    while ((idesc = usb_parse_next_iface(device->config_desc, &iface_ps))) {
 
         if (iface_ps.iface_index == 32) {
-            /* the maximium ifaces */
+            /*
+             * there is a maximum of 32 interfaces, since the interface number
+             * is just 4 bits.
+             */
             break;
         }
 
-        interface = dev->ifaces + iface_ps.iface_index;
+        /* get next interface location */
+        interface = device->ifaces + iface_ps.iface_index;
 
         uint8_t do_init = 0;
 
         if (init) {
+            /*
+             * if a specific interface other than USB_INTERFACE_INDEX_ANY is
+             * given, then we just want to initialize this given interface
+             */
             if ((iface_index != USB_INTERFACE_INDEX_ANY)
                     && (iface_index != iface_ps.iface_index)) {
                 do_init = 0;
@@ -139,78 +173,118 @@ static usb_error_t usb_device_cfg_process(struct usb_device *dev, uint8_t iface,
             }
         }
 
+        /* update the current endpoint count in case of an alternative iface*/
         if (iface_ps.iface_index_alt == 0) {
             ep_current = ep_max;
         }
 
+        /* perform the initialization of the interface structure */
         if (do_init) {
             assert(interface != NULL);
+
             interface->descriptor = idesc;
-
             interface->parent_iface_index = USB_INTERFACE_INDEX_ANY;
-
             interface->alt_setting = alt_index;
         }
 
+        /*
+         * the endpoint descriptors are located in the configuration descriptor
+         * right after the interface descriptor. so we can use the address
+         * of the current interface descriptor as the starting point for
+         * looking for the first endpoint descriptor of this interface
+         */
         edesc = (struct usb_endpoint_descriptor *) idesc;
 
         ep_tmp = ep_current;
 
-        while ((edesc = usb_parse_next_edesc(dev->config_desc, edesc))) {
+        while ((edesc = usb_parse_next_edesc(device->config_desc, edesc))) {
 
             if (ep_tmp == 32) {
-                /* maximum endpoints */
+                /*
+                 * there are maximum 32 endpoints within an interface since the
+                 * endpoint number is just 4 bits long
+                 */
                 break;
             }
-            ep = dev->endpoints + ep_tmp;
+
+            /* get the location of the next endpoint */
+            ep = device->endpoints + ep_tmp;
+
             if (do_init) {
-                usb_device_init_endpoint(dev, iface_ps.iface_index, edesc, ep);
+                /* initialize it if the memory is allocated */
+                usb_endpoint_init(device, iface_ps.iface_index, edesc,
+                        ep);
             }
+
             ep_tmp++;
 
             if (ep_max < ep_tmp) {
+                /* update the current maximum found endpoints */
                 ep_max = ep_tmp;
             }
 
+            /*
+             * update the interface descriptor pointer.
+             * NOTE: usb_parse_next_edesc returns null if there is no more
+             *       endpoint descriptor, so we have to do the update
+             *       within the loop to avoid null pointers
+             */
             idesc = (struct usb_interface_descriptor *) edesc;
-        }
-
-    }
+        } /* parse next ep descriptor */
+    } /* parse next iface descriptor */
 
     if (!init) {
-        dev->iface_max = iface_ps.iface_index;
-        dev->ifaces = NULL;
-        if (dev->iface_max != 0) {
-            dev->ifaces = malloc(sizeof(*interface) * dev->iface_max);
-            if (dev->ifaces == NULL) {
-                usb_device_cfg_free(dev, USB_INTERFACE_INDEX_ANY);
+        /*
+         * allocate memory for the interface and endpoint structures according
+         * to the values of the number of found endpoints / interfaces
+         * in the code above.
+         */
+        device->iface_max = iface_ps.iface_index;
+        device->ifaces = NULL;
+        if (device->iface_max != 0) {
+            device->ifaces = malloc(sizeof(*interface) * device->iface_max);
+            if (device->ifaces == NULL) {
+                usb_device_free_config(device);
                 return (USB_ERR_NOMEM);
             }
         }
 
         if (ep_max != 0) {
-            dev->endpoints = malloc(sizeof(*ep) * ep_max);
-            if (dev->endpoints == NULL) {
-                usb_device_cfg_free(dev, USB_INTERFACE_INDEX_ANY);
+            device->endpoints = malloc(sizeof(*ep) * ep_max);
+            if (device->endpoints == NULL) {
+                usb_device_free_config(device);
                 return (USB_ERR_NOMEM);
             }
-            dev->ep_max = ep_max;
-            dev->ep_clear_stall = NULL;
+            device->ep_max = ep_max;
+            /* XXX: clearing stall currently not supported */
+            device->ep_clear_stall = NULL;
         }
     }
 
     return (USB_ERR_OK);
 }
 
-static usb_error_t usb_device_setup_descriptor(struct usb_device *dev)
+/**
+ * \brief initializes the device descriptor by executing the request on the
+ *        usb device
+ *
+ * \param device the device to initialize the device descriptor
+ */
+static usb_error_t usb_device_initialize_descriptor(struct usb_device *device)
 {
     USB_DEBUG_TR_ENTER;
+
     usb_error_t err;
-    switch (dev->speed) {
+
+    switch (device->speed) {
         case USB_SPEED_LOW:
         case USB_SPEED_FULL:
-            err = usb_req_get_descriptor(dev, NULL, &dev->device_desc, 8, 8, 0,
-                    USB_DESCRIPTOR_TYPE_DEVICE, 0, 0);
+            /*
+             * full and low speed device have a maximum packet size of 8 bytes
+             * so we have to treat them a little bit special here
+             */
+            err = usb_req_get_descriptor(device, NULL, &device->device_desc, 8,
+                    8, 0, USB_DESCRIPTOR_TYPE_DEVICE, 0, 0);
             if (err != USB_ERR_OK) {
                 USB_DEBUG("ERROR: Failed to get device descriptor\n");
                 USB_DEBUG_TR_RETURN;
@@ -218,35 +292,61 @@ static usb_error_t usb_device_setup_descriptor(struct usb_device *dev)
             }
             break;
         default:
-            break;
-    }
-    err = usb_req_get_device_descriptor(dev, &dev->device_desc);
+            /*
+             * for high and super speed devices we have a maximum packet size
+             * of at least 64 bytes
+             */
+            err = usb_req_get_device_descriptor(device, &device->device_desc);
+            if (err != USB_ERR_OK) {
+                /* retry once more */
+                USB_DEBUG("NOTICE: getting descriptor failed. retry.\n");
+                err = usb_req_get_device_descriptor(device,
+                        &device->device_desc);
+            }
 
-    if (err != USB_ERR_OK) {
-        USB_DEBUG("NOTICE: getting descriptor failed. retry.\n");
-        err = usb_req_get_device_descriptor(dev, &dev->device_desc);
+            break;
     }
 
     return (err);
 }
 
-usb_error_t usb_device_set_configuration(struct usb_device *dev, uint8_t config)
+/**
+ * \brief changes the current configuration of the device
+ *
+ * \param device the device to update the configuration
+ * \param config the configuration value to set
+ *
+ * NOTE: This updates also the configuration descriptor and parses it
+ */
+usb_error_t usb_device_set_configuration(struct usb_device *device,
+        uint8_t config)
 {
     USB_DEBUG_TR_ENTER;
 
-    usb_device_cfg_free(dev, USB_INTERFACE_INDEX_ANY);
-
-    /* free old config descriptor */
-    if (dev->config_desc) {
-        free(dev->config_desc);
-        dev->config_desc = NULL;
+    if (config > device->device_desc.bNumConfigurations) {
+        USB_DEBUG("WARNING: setting configuration bigger than num config\n");
+        return (USB_ERR_INVAL);
     }
 
-    if (config == 0xFF) {
-        dev->config_index = 0xFF;
-        dev->config_number = 0;
-        if (dev->state == USB_DEVICE_STATE_CONFIGURED) {
-            dev->state = USB_DEVICE_STATE_ADDRESSED;
+    /* free the old parsed configuration first i.e. the endpoints and ifaces */
+    usb_device_free_config(device);
+
+    /* free old config descriptor */
+    if (device->config_desc) {
+        free(device->config_desc);
+        device->config_desc = NULL;
+    }
+
+    /*
+     * if the configuration to be set is USB_CONFIGURATION_UNCONFIGURED
+     * then we don't process further and change the device state to
+     * ADDRESSED.
+     */
+    if (config == USB_CONFIGURATION_UNCONFIGURED) {
+        device->config_index = USB_CONFIGURATION_UNCONFIGURED;
+        device->config_number = 0;
+        if (device->state == USB_DEVICE_STATE_CONFIGURED) {
+            device->state = USB_DEVICE_STATE_ADDRESSED;
         }
         return (USB_ERR_OK);
     }
@@ -254,7 +354,8 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev, uint8_t config)
     usb_error_t err;
     struct usb_config_descriptor *cdesc;
 
-    err = usb_req_get_config_descriptor(dev, &cdesc, config);
+    /* get the new configuration descriptor belonging to configuration config */
+    err = usb_req_get_config_descriptor(device, &cdesc, config);
 
     if (err) {
         USB_DEBUG("ERROR: getting configuration failed.\n");
@@ -264,18 +365,23 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev, uint8_t config)
 
     assert(cdesc != NULL);
 
-    dev->config_desc = cdesc;
+    /* update the configuration descriptor of the device */
+    device->config_desc = cdesc;
 
-    /* TODO: Check for power */
-    if (dev->flags.usb_mode == USB_MODE_HOST) {
-        dev->flags.self_powered = 1;
-    }
+    /*
+     * TODO: Check if the devices has its own power source or if it takes
+     * the power from the bus. This is important for attached hubs since
+     * it its not allowed to attach multiple bus powered hubs in series
+     */
+    device->flags.self_powered = 1;
 
-    dev->config_index = config;
-    dev->config_number = cdesc->bConfigurationValue;
-    dev->state = USB_DEVICE_STATE_CONFIGURED;
+    /* update the device state and set the configuration values */
+    device->config_index = config;
+    device->config_number = cdesc->bConfigurationValue;
+    device->state = USB_DEVICE_STATE_CONFIGURED;
 
-    err = usb_req_set_config(dev, cdesc->bConfigurationValue);
+    /* set the actual configuration value */
+    err = usb_req_set_config(device, cdesc->bConfigurationValue);
 
     if (err != USB_ERR_OK) {
         USB_DEBUG("ERROR: usb_req_set_config failed.\n");
@@ -283,17 +389,20 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev, uint8_t config)
         return (err);
     }
 
-    err = usb_device_cfg_process(dev, USB_INTERFACE_INDEX_ANY, 0);
+    /* parse the configuration to allocate new interfaces and endpoints for
+     * this device and initialize them
+     */
+    err = usb_device_parse_config(device, USB_INTERFACE_INDEX_ANY, 0);
     if (err) {
-        usb_device_cfg_free(dev, USB_INTERFACE_INDEX_ANY);
-        USB_DEBUG("ERROR: processing not init, %s\n", __func__);
+        usb_device_free_config(device);
+        USB_DEBUG("WARNING: allocating ifaces and endpoints failed\n");
         return (err);
     }
 
-    err = usb_device_cfg_process(dev, USB_INTERFACE_INDEX_ANY, 1);
+    err = usb_device_parse_config(device, USB_INTERFACE_INDEX_ANY, 1);
     if (err) {
-        usb_device_cfg_free(dev, USB_INTERFACE_INDEX_ANY);
-        USB_DEBUG("%s, error while processing + init\n", __func__);
+        usb_device_free_config(device);
+        USB_DEBUG("WARNING: initialization of ifaces and endpoints failed\n");
         return (err);
     }
 
@@ -302,12 +411,29 @@ usb_error_t usb_device_set_configuration(struct usb_device *dev, uint8_t config)
     return (USB_ERR_OK);
 }
 
-static void usb_device_setup_strings(struct usb_device *dev)
+static void usb_device_setup_strings(struct usb_device *device)
 {
+    if (device->flags.no_strings == 0) {
+        debug_printf("language id %x\n", device->language_id);
+    }
     //debug_printf("TODO: GET STRING DESCRIPTORS!\n");
     /// TODO...
 }
 
+/**
+ * \brief allocates a newly discovered device and initializes it
+ *
+ * \param hc the host controller of the newly discovered device
+ * \param parent_hub the parent hub of the device
+ * \parem depth the depth of the device in the usb topology
+ * \param portindex the port index of the parent hub
+ * \param portno the port number the device is connected to
+ * \param speed speed information
+ * \þaram mode the mode of the device. Currently just USB_MODE_HOST
+ *
+ * \return pointer to a usb device on success
+ *         NULL on failure
+ */
 struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
         struct usb_device *parent_hub, uint8_t depth, uint8_t portindex,
         uint8_t portno, usb_speed_t speed, usb_mode_t mode)
@@ -315,12 +441,16 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     USB_DEBUG_TR_ENTER;
     usb_error_t err;
 
-    /* find a new and empty device index */
-    uint8_t device_index = 1; /* root hub address */
-    for (device_index = 1;
-            (device_index < hc->devices_max)
-                    && (hc->devices[device_index] != NULL); device_index++) {
-        /* noop */
+    /*
+     * find and empty device index / address we can use, starting at the
+     * root hub device address which is 1 per default.
+     */
+    uint8_t device_index = USB_ROOTHUB_ADDRESS;
+    while (device_index < hc->devices_max) {
+        if (hc->devices[device_index] == NULL) {
+            break;
+        }
+        device_index++;
     }
 
     if (device_index == hc->devices_max) {
@@ -329,114 +459,121 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
         return (NULL);
     }
 
-    if (depth > 0x10) {
+    /* the depth of the usb devices must not exceed 7 */
+    if (depth > 7) {
         USB_DEBUG("ERROR: Invalid device depth.\n");
         return (NULL);
     }
 
-    struct usb_device *dev = malloc(sizeof(struct usb_device));
-    if (dev == NULL) {
+    struct usb_device *device = malloc(sizeof(struct usb_device));
+    if (device == NULL) {
         USB_DEBUG("ERROR: no free mem.\n");
         return (NULL);
     }
 
-    memset(dev, 0, sizeof(struct usb_device));
+    /* make sure that everything has an expected value */
+    memset(device, 0, sizeof(struct usb_device));
 
-    dev->xfer_id = 0;
+    /* counter for xfer IDs belonging to this device */
+    device->xfer_id = 1;
 
-    /* initialize the device */
-    dev->parent_hub = parent_hub;
-    dev->hub_port_index = portindex;
-    dev->hub_port_number = portno;
+    /* initialize the device with the supplied values */
+    device->parent_hub = parent_hub;
+    device->hub_port_index = portindex;
+    device->hub_port_number = portno;
+    device->depth = depth;
+    device->controller = hc;
 
-    dev->depth = depth;
-    dev->controller = hc;
-    dev->device_address = 0; /* the default start address */
+    /* all new devices have 0 als default start address */
+    device->device_address = 0;
 
-    /* setup default endpont descriptor */
-    dev->ctrl_ep_desc.bLength = sizeof(dev->ctrl_ep_desc);
-    dev->ctrl_ep_desc.bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT;
-    dev->ctrl_ep_desc.wMaxPacketSize = 8;
+    /* setup default endpoint descriptor */
+    device->ctrl_ep_desc.bLength = sizeof(device->ctrl_ep_desc);
+    device->ctrl_ep_desc.bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT;
 
-    /* set the device max packet size */
-    dev->device_desc.bMaxPacketSize0 = 8;
+    /*
+     * by setting the maximum packet size of the control endpoint to 8 bytes
+     * we ensure that the initial transactions can be executed by any device
+     */
+    device->ctrl_ep_desc.wMaxPacketSize = 8;
+    device->device_desc.bMaxPacketSize0 = 8;
 
-    dev->speed = speed;
-    dev->flags.usb_mode = mode;
+    device->speed = speed;
+    device->flags.usb_mode = mode;
 
-    /* search for high speed USB hub  if any */
-    struct usb_device *hub = dev->parent_hub;
-    struct usb_device *adev = dev;
-
-    dev->controller = hc;
+    /*
+     * find the parent high speed hub. This is needed for the transaction
+     * translator of the high speed hub. This may not always succeed, since
+     * the root hub has no parent hub and OHCI/UHCI only supportes FULL/LOW
+     * speed devices.
+     */
+    struct usb_device *hub = device->parent_hub;
+    struct usb_device *adev = device;
 
     while (hub) {
         if (hub->speed == USB_SPEED_HIGH) {
-            dev->hs_hub_address = hub->device_address;
-            dev->parent_hs_hub = hub;
-            dev->hs_hub_port_number = adev->hub_port_number;
+            device->hs_hub_address = hub->device_address;
+            device->parent_hs_hub = hub;
+            device->hs_hub_port_number = adev->hub_port_number;
             break;
         }
         adev = hub;
         hub = hub->parent_hub;
     }
 
-    usb_device_init_endpoint(dev, 0, &dev->ctrl_ep_desc, &dev->ctrl_ep);
+    /* initialize the control endpoint */
+    usb_endpoint_init(device, 0, &device->ctrl_ep_desc,
+            &device->ctrl_ep);
 
-    dev->device_index = device_index;
+    device->device_index = device_index;
 
-    dev->state = USB_DEVICE_STATE_POWERED;
+    /* the devices is now attached and thus in the powered state */
+    device->state = USB_DEVICE_STATE_POWERED;
 
-    if (dev->flags.usb_mode == USB_MODE_HOST) {
-        err = usb_req_set_address(dev, device_index);
+    /* set the device address */
+    err = usb_req_set_address(device, device_index);
 
-        if (err) {
-            debug_printf("set address failed (ignored)\n");
-            return (NULL);
-        }
-        if (dev->device_address == 0) {
-            USB_DEBUG_DEV("setting device address to %i\n", device_index);
-            dev->device_address = device_index;
-        }
-    } else {
-        assert(!"NYI: device mode.\n");
-        dev->flags.self_powered = 0;
-
-        /* unconfigured state */
-        dev->config_index = 0;
-        dev->config_number = 0;
+    if (err) {
+        debug_printf("set address failed (ignored)\n");
+        return (NULL);
     }
 
+    /* wait till the address has settled */
     USB_WAIT(USB_DELAY_SET_ADDRESS*5);
 
-    dev->state = USB_DEVICE_STATE_ADDRESSED;
+    /*
+     * this check has to be done, since there may be a controller specific
+     * set address function that does this already for us, however this may
+     * not be the case, thus we have to check and do it ourself.
+     */
+    if (device->device_address == 0) {
+        USB_DEBUG_DEV("setting device address to %i\n", device_index);
+        device->device_address = device_index;
+    }
 
-    err = usb_device_setup_descriptor(dev);
+    /* update the devices state to addressed */
+    device->state = USB_DEVICE_STATE_ADDRESSED;
 
-    assert(dev->device_desc.bDescriptorType == USB_DESCRIPTOR_TYPE_DEVICE);
+    /* initialize the device descriptor */
+    err = usb_device_initialize_descriptor(device);
 
-    USB_DEBUG_DEV(
-            "bcdUSB=%x, class = %x, subclass = %x\n", dev->device_desc.bcdUSB, dev->device_desc.bDeviceClass, dev->device_desc.bDeviceSubClass);
-
-    USB_DEBUG_DEV(
-            "bMaxPacketSize0 = %u, bNumConfigurations=%u\n", dev->device_desc.bMaxPacketSize0, dev->device_desc.bNumConfigurations);
-
-    USB_DEBUG_DEV(
-            "idProduct = %x, idVendor = %x, iSerial = %x\n", dev->device_desc.idProduct, dev->device_desc.idVendor, dev->device_desc.iSerialNumber);
+    assert(device->device_desc.bDescriptorType == USB_DESCRIPTOR_TYPE_DEVICE);
 
     char buf[255];
     memset(buf, 0, sizeof(buf));
 
-    if (dev->device_desc.iManufacturer || dev->device_desc.iProduct
-            || dev->device_desc.iSerialNumber) {
-        err = usb_req_get_string_desc(dev, buf, 4, 0, 0);
+    /* try to read the string descriptors if any */
+    if (device->device_desc.iManufacturer || device->device_desc.iProduct
+            || device->device_desc.iSerialNumber) {
+        err = usb_req_get_string_desc(device, buf, 4, 0, 0);
     } else {
         /* there are no string descriptors.. setting to invalid */
         err = USB_ERR_INVAL;
     }
 
+    /* if there are any string descriptors try to get the language id */
     if (err != USB_ERR_OK || buf[0] < 4) {
-        dev->flags.no_strings = 1;
+        device->flags.no_strings = 1;
     } else {
         uint16_t langid = 0;
 
@@ -451,50 +588,60 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
         if (i >= buf[0]) {
             langid = (uint16_t) *(buf + 2);
         }
-        dev->language_id = langid;
+        device->language_id = langid;
     }
 
-    dev->power_needed = USB_POWER_MIN;
+    /* TODO: check for the real power needs */
+    device->power_needed = USB_POWER_MIN;
 
-    usb_device_setup_strings(dev);
+    /* setup the string descriptors by reading out the string descriptors */
+    usb_device_setup_strings(device);
 
-    err = usb_device_set_configuration(dev, 0);
+    /* finally set the configuration */
+    err = usb_device_set_configuration(device, 0);
 
     if (err != USB_ERR_OK) {
-        if (dev->device_desc.bNumConfigurations != 0) {
+        if (device->device_desc.bNumConfigurations != 0) {
             debug_printf("WARNING: Set configuration failed.\n");
 
             USB_DEBUG("WARNING: getting descriptor failed. "
             "Try to re-enumerate\n");
             /* TODO: err = usb_req_re_enumerate(dev, NULL); */
             assert(!"NYI: re-enumeration\n");
-            err = usb_device_set_configuration(dev, 0);
+            err = usb_device_set_configuration(device, 0);
         }
     }
 
     if (err != USB_ERR_OK) {
-        usb_device_free(dev, 0);
+        usb_device_free(device, 0);
         return (NULL);
     }
 
+    /* set the device index on the port of the parent hub */
     if (parent_hub) {
         (parent_hub->hub->ports + portindex)->device_index = device_index;
     }
 
     if (device_index != 0) {
-        hc->devices[device_index] = dev;
+        hc->devices[device_index] = device;
     }
 
     USB_DEBUG_TR_RETURN;
 
-    return (dev);
+    return (device);
 }
 
+
+/// state variable for the device detached
 static volatile uint8_t usb_device_detached = 0;
 
+/**
+ * \brief call back function when the detach notification is sent sucessfully
+ *
+ * \brief a pointer to the detached devices
+ */
 static void usb_device_detach_cb(void *a)
 {
-    debug_printf("detached..\n");
     struct usb_device *st = a;
     free(st->usb_driver_binding);
     free(st->usb_manager_binding);
@@ -503,6 +650,11 @@ static void usb_device_detach_cb(void *a)
     usb_device_detached = 1;
 }
 
+/**
+ * \brief sends the detach notification
+ *
+ * \param a pointer to the detached device
+ */
 static void usb_device_detach_notify(void *a)
 {
 
@@ -532,6 +684,9 @@ static void usb_device_detach_notify(void *a)
     }
 }
 
+/**
+ * \brief
+ */
 void usb_device_free(struct usb_device * device, uint8_t flag)
 {
     usb_device_detached = 1;
@@ -553,7 +708,6 @@ void usb_device_free(struct usb_device * device, uint8_t flag)
         }
         timeout++;
     }
-
 
     struct usb_xfer *xfer = device->xfers;
     struct usb_xfer *xfer_next;

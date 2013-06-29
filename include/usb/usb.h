@@ -90,6 +90,7 @@ typedef enum usb_power {
 typedef volatile uintptr_t usb_paddr_t;
 
 #define USB_CONFIGURATION_DEFAULT 1
+#define USB_CONFIGURATION_UNCONFIGURED 0xFF
 
 /**
  *

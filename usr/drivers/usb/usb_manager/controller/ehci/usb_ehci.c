@@ -35,7 +35,6 @@
  */
 usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
 {
-    USB_DEBUG_HC("Performing reset sequence on EHCI controller.\n");
     /* write the reset bit */
     ehci_usbcmd_hcr_wrf(&hc->ehci_base, 1);
 
@@ -52,42 +51,56 @@ usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
             continue;
         }
     }
+
     /* last check if reset was completed */
     if (ehci_usbcmd_hcr_rdf(&hc->ehci_base)) {
         return (USB_ERR_TIMEOUT);
     }
 
+    usb_error_t err = USB_ERR_OK;
+
     /*
-     * checking if the reset was successfuly
+     * The EHCI specification says that certain registers must have a
+     * defined value after reset while others are undefined.
+     *
+     * The following code checks if the reset was successful.
      */
     if ((ehci_usbcmd_rawrd(&hc->ehci_base) & 0xFFFFF0FF) != 0x00080000) {
         debug_printf("WARNING: USBCMD has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
     if (ehci_usbsts_rawrd(&hc->ehci_base) != 0x00001000) {
         debug_printf("WARNING: USBST has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
     if (ehci_usbintr_rawrd(&hc->ehci_base) != 0x00000000) {
         debug_printf("WARNING: USBINTR has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
     if (ehci_frindex_rawrd(&hc->ehci_base) != 0x00000000) {
         debug_printf("WARNING:FRINDEX has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
     if (ehci_ctrldssegment_rawrd(&hc->ehci_base) != 0x00000000) {
         debug_printf("WARNING: Reset is succeeded: CTRLDS has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
     if (ehci_configflag_rawrd(&hc->ehci_base) != 0x00000000) {
         debug_printf("WARNING: CONFIGFLG has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
     if ((ehci_portsc_rawrd(&hc->ehci_base, 0) | 0x00001000) != 0x00003000) {
         debug_printf("WARNING: PORTSC has wrong value.\n");
+        err = USB_ERR_IOERROR;
     }
 
-    return (USB_ERR_OK);
+    return (err);
 }
 
 /**
- * \brief   halts the ehci controller, this lets the last transaction finish
- *          then stopts the processing of the HC
+ * \brief halts the EHCI controller. Running transactions are finished first
+ *
+ * \param hc the host controller to halt
  */
 static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
 {
@@ -106,13 +119,14 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
             return (USB_ERR_OK);
         }
         USB_WAIT(200);
-        continue;
     }
-    /* check again if halted */
+
+    /* check if halted */
     if (ehci_usbsts_hch_rdf(&hc->ehci_base)) {
         /* all activity halted, return */
         return (USB_ERR_OK);
     }
+
     return (USB_ERR_TIMEOUT);
 }
 
@@ -165,6 +179,12 @@ usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
             break;
         }
         USB_WAIT(200);
+    }
+
+
+    if (ehci_usbsts_hch_rdf(&hc->ehci_base)) {
+        /* the host controller is still not started. */
+        return (USB_ERR_TIMEOUT);
     }
 
     /*
