@@ -10,11 +10,11 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "examples/xmplrpc_msg",
+[ build application { target = "examples/xmpl-rpc_msg",
                       cFiles = [ "rpc_msg.c" ],
 		      flounderBindings = [ "xmplrpc" ]
                     },
-  build application { target = "examples/xmplrpc_rpc",
+  build application { target = "examples/xmpl-rpc_rpc",
                       cFiles = [ "rpc_rpc.c" ],
 		      flounderBindings = [ "xmplrpc" ],
 		      flounderExtraBindings = [ ("xmplrpc",["rpcclient"]) ]

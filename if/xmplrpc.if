@@ -13,5 +13,4 @@
 
 interface xmplrpc "Example rpc interface" {
 	  rpc myrpc(in int i, out string s);
-	  message notify(int i);
 };

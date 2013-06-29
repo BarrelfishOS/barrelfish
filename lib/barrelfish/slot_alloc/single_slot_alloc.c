@@ -166,10 +166,8 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
             debug_printf("******* FIXME: %s buflen=%lu != buflen_proper=%lu"
                          "call stack: %p %p\n",
                          __FUNCTION__, buflen, buflen_proper,
-                         /* XXX The following code caused compile error */
-                         0,  // __builtin_return_address(0),
-                         0); // __builtin_return_address(1));
-
+                         __builtin_return_address(0),
+                         __builtin_return_address(1));
         }
         #endif
         slab_grow(&ret->slab, buf, buflen);
