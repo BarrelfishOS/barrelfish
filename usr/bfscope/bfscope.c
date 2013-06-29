@@ -36,7 +36,7 @@
 #include <netif/bfeth.h>
 #include <netif/etharp.h>
 
-#define BFSCOPE_TCP_PORT 666
+#define BFSCOPE_TCP_PORT 6666
 
 #define BFSCOPE_BUFLEN (2<<20)
 

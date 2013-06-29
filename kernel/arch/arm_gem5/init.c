@@ -28,7 +28,7 @@
 #include <global.h>
 #include <start_aps.h>
 
-#define GEM5_RAM_SIZE	(256UL*1024*1024)
+#define GEM5_RAM_SIZE               (256UL*1024*1024)
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -51,7 +51,7 @@ __attribute__ ((aligned(8)));
  * Boot-up L1 page table for addresses up to 2GB (translated by TTBR0)
  */
 //XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
+//     to 16K after relocation
 static union arm_l1_entry boot_l1_low[2*ARM_L1_MAX_ENTRIES]
 __attribute__ ((aligned(ARM_L1_ALIGN)));
 static union arm_l1_entry * aligned_boot_l1_low;
@@ -59,7 +59,7 @@ static union arm_l1_entry * aligned_boot_l1_low;
  * Boot-up L1 page table for addresses >=2GB (translated by TTBR1)
  */
 //XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
+//     to 16K after relocation
 static union arm_l1_entry boot_l1_high[2*ARM_L1_MAX_ENTRIES]
 __attribute__ ((aligned(ARM_L1_ALIGN)));
 static union arm_l1_entry * aligned_boot_l1_high;
@@ -112,7 +112,7 @@ struct atag_videotext {
 struct atag_ramdisk {
     uint32_t flags;             // Bit 0 = load, bit 1 = prompt
     uint32_t bytes;             // Decompressed size
-    uint32_t start;       		// Starting block of RAM disk image
+    uint32_t start;               // Starting block of RAM disk image
 };
 
 struct atag_initrd2 {
@@ -176,7 +176,7 @@ struct atag {
 // Kernel command line variables and binding options
 //
 
-static int timeslice				 = 5;		//interval in ms in which the scheduler gets called
+static int timeslice = 5;        //interval in ms in which the scheduler gets called
 
 static struct cmdarg cmdargs[] = {
     { "consolePort",    ArgType_UInt, { .uinteger = &serial_console_port}},
@@ -190,75 +190,58 @@ static struct cmdarg cmdargs[] = {
 static inline void __attribute__ ((always_inline))
 relocate_stack(lvaddr_t offset)
 {
-	__asm volatile (
-			"add	sp, sp, %[offset]\n\t" :: [offset] "r" (offset)
-		);
+    __asm volatile (
+        "add sp, sp, %[offset]\n\t" :: [offset] "r" (offset)
+    );
 }
 
 static inline void __attribute__ ((always_inline))
 relocate_got_base(lvaddr_t offset)
 {
-	__asm volatile (
-			"add	r10, r10, %[offset]\n\t" :: [offset] "r" (offset)
-		);
+    __asm volatile (
+        "add r10, r10, %[offset]\n\t" :: [offset] "r" (offset)
+    );
 }
-
-#if 0
-static void enable_mmu(void)
-{
-	__asm volatile (
-			"ldr    r0, =0x55555555\n\t"       // Initial domain permissions
-			"mcr    p15, 0, r0, c3, c0, 0\n\t"
-			"ldr	r1, =0x1007\n\t"			// Enable: D-Cache, I-Cache, Alignment, MMU
-			"mrc	p15, 0, r0, c1, c0, 0\n\t"	// read out system configuration register
-			"orr	r0, r0, r1\n\t"
-			"mcr	p15, 0, r0, c1, c0, 0\n\t"	// enable MMU
-		);
-}
-#endif
 
 #ifndef __gem5__
 static void enable_cycle_counter_user_access(void)
 {
-	/* enable user-mode access to the performance counter*/
-	__asm volatile ("mcr p15, 0, %0, C9, C14, 0\n\t" :: "r"(1));
+    /* enable user-mode access to the performance counter*/
+    __asm volatile ("mcr p15, 0, %0, C9, C14, 0\n\t" :: "r"(1));
 
-	/* disable counter overflow interrupts (just in case)*/
-	__asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
+    /* disable counter overflow interrupts (just in case)*/
+    __asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
 }
 #endif
 
 static void paging_init(void)
 {
+    // configure system to use TTBR1 for VAs >= 2GB
+    uint32_t ttbcr;
+    ttbcr = cp15_read_ttbcr();
+    ttbcr |= 1;
+    cp15_write_ttbcr(ttbcr);
 
+    // make sure pagetables are aligned to 16K
+    aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
+    aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
 
-	// configure system to use TTBR1 for VAs >= 2GB
-	uint32_t ttbcr;
-	ttbcr = cp15_read_ttbcr();
-	ttbcr |= 1;
-	cp15_write_ttbcr(ttbcr);
+    lvaddr_t vbase = MEMORY_OFFSET, base = 0;
 
-	// make sure pagetables are aligned to 16K
-	aligned_boot_l1_low = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
-	aligned_boot_l1_high = (union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
+    for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
+        base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
+    {
+        // create 1:1 mapping
+        paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
 
-	lvaddr_t vbase = MEMORY_OFFSET, base = 0;
+        // Alias the same region at MEMORY_OFFSET
+        paging_map_kernel_section((uintptr_t)aligned_boot_l1_high, vbase, base);
+    }
 
-	for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
-		base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES)
-	{
-		// create 1:1 mapping
-		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
-
-		// Alias the same region at MEMORY_OFFSET
-		paging_map_kernel_section((uintptr_t)aligned_boot_l1_high, vbase, base);
-
-	}
-
-	// Activate new page tables
-	cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
-	//cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
-	cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
+    // Activate new page tables
+    cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
+    //cp15_write_ttbr0((lpaddr_t)&boot_l1_high[0]);
+    cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
 }
 
 void kernel_startup_early(void)
@@ -281,8 +264,8 @@ void kernel_startup_early(void)
  */
 static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
-	errval_t errval;
-	// Relocate glbl_core_data to "memory"
+    errval_t errval;
+    // Relocate glbl_core_data to "memory"
     glbl_core_data = (struct arm_core_data *)
         local_phys_to_mem((lpaddr_t)glbl_core_data);
 
@@ -290,61 +273,58 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     global = (struct global*)local_phys_to_mem((lpaddr_t)global);
 
     // Map-out low memory
-    if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)
-    {
-    	struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
-    			local_phys_to_mem(glbl_core_data->mmap_addr);
-    	paging_arm_reset(mmap->base_addr, mmap->length);
-    }
-    else
-    {
-    	paging_arm_reset(0x0, GEM5_RAM_SIZE);
+    if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
+        struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
+                local_phys_to_mem(glbl_core_data->mmap_addr);
+        paging_arm_reset(mmap->base_addr, mmap->length);
+    } else {
+        paging_arm_reset(PHYS_MEMORY_START, GEM5_RAM_SIZE);
     }
 
-	exceptions_init();
+    exceptions_init();
 
-	kernel_startup_early();
+    kernel_startup_early();
 
-	//initialize console
-	 serial_console_init();
+    //initialize console
+     serial_console_init();
 
-	 // do not remove/change this printf: needed by regression harness
-	 printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", hal_get_board_id());
-	 printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
+     // do not remove/change this printf: needed by regression harness
+     printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", hal_get_board_id());
+     printf("The address of paging_map_kernel_section is %p\n", paging_map_kernel_section);
 
-	 errval = serial_debug_init();
-	 if (err_is_fail(errval))
-	 {
-		 printf("Failed to initialize debug port: %d", serial_debug_port);
-	 }
+     errval = serial_debug_init();
+     if (err_is_fail(errval)) {
+         printf("Failed to initialize debug port: %d", serial_debug_port);
+     }
 
-	 my_core_id = hal_get_cpu_id();
+     my_core_id = hal_get_cpu_id();
 
-	 gic_init();
+     gic_init();
 
-	 if(hal_cpu_is_bsp())
-	 {
-		 // init SCU if more than one core present
-		 if(scu_get_core_count() > 4)
-			 panic("ARM SCU doesn't support more than 4 cores!");
-		 if(scu_get_core_count() > 1)
-			 scu_enable();
-	 }
+     if(hal_cpu_is_bsp()) {
+         // init SCU if more than one core present
+         if(scu_get_core_count() > 4) {
+             panic("ARM SCU doesn't support more than 4 cores!");
+         }
+         if(scu_get_core_count() > 1) {
+             scu_enable();
+         }
+     }
 
-	 pit_init(timeslice, 0);
-	 pit_init(timeslice, 1);
-	 tsc_init();
+     pit_init(timeslice, 0);
+     pit_init(timeslice, 1);
+     tsc_init();
 
 #ifndef __gem5__
-	 enable_cycle_counter_user_access();
-	 reset_cycle_counter();
+     enable_cycle_counter_user_access();
+     reset_cycle_counter();
 #endif
 
-	 // tell BSP that we are started up
-	 uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-	 *ap_wait = AP_STARTED;
+     // tell BSP that we are started up
+     uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
+     *ap_wait = AP_STARTED;
 
-	 arm_kernel_startup();
+     arm_kernel_startup();
 }
 
 /**
@@ -363,14 +343,13 @@ void arch_init(void *pointer)
 
     serial_early_init(serial_console_port);
 
-    if(hal_cpu_is_bsp())
-    {
+    if(hal_cpu_is_bsp()) {
         struct multiboot_info *mb = (struct multiboot_info *)pointer;
         elf = (struct arm_coredata_elf *)&mb->syms.elf;
-    	memset(glbl_core_data, 0, sizeof(struct arm_core_data));
-    	glbl_core_data->start_free_ram =
-    	                ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte),
-    	                         BASE_PAGE_SIZE);
+        memset(glbl_core_data, 0, sizeof(struct arm_core_data));
+        glbl_core_data->start_free_ram =
+                        ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte),
+                                 BASE_PAGE_SIZE);
 
         glbl_core_data->mods_addr = mb->mods_addr;
         glbl_core_data->mods_count = mb->mods_count;
@@ -381,26 +360,25 @@ void arch_init(void *pointer)
 
         // Construct the global structure
         memset(&global->locks, 0, sizeof(global->locks));
-    }
-    else
-    {
-    	global = (struct global *)GLOBAL_VBASE;
-    	memset(&global->locks, 0, sizeof(global->locks));
-    	struct arm_core_data *core_data =
-    			(struct arm_core_data*)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
-    	glbl_core_data = core_data;
-    	glbl_core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
-    	my_core_id = core_data->dst_core_id;
-    	elf = &core_data->elf;
+    } else {
+        global = (struct global *)GLOBAL_VBASE;
+        memset(&global->locks, 0, sizeof(global->locks));
+        struct arm_core_data *core_data =
+                (struct arm_core_data*)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+        glbl_core_data = core_data;
+        glbl_core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
+        my_core_id = core_data->dst_core_id;
+        elf = &core_data->elf;
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem((uint32_t)&kernel_first_byte));
+    printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
+            local_phys_to_mem((uint32_t)&kernel_first_byte));
 
     // Find relocation section
     rela = elf32_find_section_header_type((struct Elf32_Shdr *)
-            ((uintptr_t)elf->addr),
-            elf->num, SHT_REL);
+                ((uintptr_t)elf->addr),
+                elf->num, SHT_REL);
 
     if (rela == NULL) {
         panic("Kernel image does not include relocation section!");
@@ -408,7 +386,7 @@ void arch_init(void *pointer)
 
     // Find symtab section
     symtab = elf32_find_section_header_type((struct Elf32_Shdr *)(lpaddr_t)elf->addr,
-            elf->num, SHT_DYNSYM);
+                elf->num, SHT_DYNSYM);
 
     if (symtab == NULL) {
         panic("Kernel image does not include symbol table!");

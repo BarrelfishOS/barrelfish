@@ -28,7 +28,8 @@
 #define APIC_BITS 11
 
 /// Assume size of the I/O APIC is one page
-#define IOAPIC_PAGE_SIZE        BASE_PAGE_SIZE
+#define IOAPIC_PAGE_BITS        BASE_PAGE_BITS
+#define IOAPIC_PAGE_SIZE        (1<<IOAPIC_PAGE_BITS)
 
 /// Maximum number of supported I/O APICs
 #define IOAPIC_MAX      5
@@ -81,10 +82,9 @@ static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s)
 
     assert(ioapic_nr < IOAPIC_MAX);
 
-    assert(IOAPIC_PAGE_SIZE == BASE_PAGE_SIZE);
-
     // allocate memory backing IOAPIC
-    err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, s->Address, &devmem);
+    err = mm_realloc_range(&pci_mm_physaddr, IOAPIC_PAGE_BITS, 
+                           s->Address, &devmem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate I/O APIC register page at 0x%x\n",
                   s->Address);
@@ -100,7 +100,7 @@ static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s)
     devframe = devmem;
 
     // Map registers
-    err = vspace_map_one_frame_attr((void**)&vaddr, BASE_PAGE_SIZE, devframe,
+    err = vspace_map_one_frame_attr((void**)&vaddr, IOAPIC_PAGE_SIZE, devframe,
                                     VREGION_FLAGS_READ_WRITE_NOCACHE,
                                     NULL, NULL);
     if (err_is_fail(err)) {

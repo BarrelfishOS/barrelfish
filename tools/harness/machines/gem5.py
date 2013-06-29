@@ -87,9 +87,11 @@ class Gem5MachineBase(Machine):
 	def shutdown(self):
 		debug.verbose('gem5:shutdown requested');
 		debug.verbose('terminating gem5')
-		self.child.terminate()
+		if not self.child is None:
+                        self.child.terminate()
 		debug.verbose('terminating telnet')
-		self.telnet.terminate()
+		if not self.telnet is None:
+                        self.telnet.terminate()
 		# try to cleanup tftp tree if needed
 		if self.tftp_dir and os.path.isdir(self.tftp_dir):
 			shutil.rmtree(self.tftp_dir, ignore_errors=True)
