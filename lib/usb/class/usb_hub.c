@@ -23,12 +23,12 @@
 #include <usb/class/usb_hub.h>
 
 /**
- * \brief 	This request resets a value reported in the hub status.
+ * \brief     This request resets a value reported in the hub status.
  *
- * \param 	feature the hub feature to clear USB_HUB_FEATURE_*
+ * \param     feature the hub feature to clear USB_HUB_FEATURE_*
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_BAD_REQUEST if feature selector is not USB_HUB_FEATURE_*
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_BAD_REQUEST if feature selector is not USB_HUB_FEATURE_*
  *
  * Clearing a feature means disabling that feature. If the feature to clear
  * is a status change, then clearing means acknowledging the change. This
@@ -65,14 +65,14 @@ usb_hub_clear_hub_feature(uint16_t feature)
 }
 
 /**
- * \brief 	This request resets a value reported in the port status.
+ * \brief     This request resets a value reported in the port status.
  *
- * \param 	feature the hub feature to clear USB_HUB_FEATURE_*
- * \param	port	a valid port number for that hub
- * \param	sel		port indicator selector when clearing a port indicator.
+ * \param     feature the hub feature to clear USB_HUB_FEATURE_*
+ * \param    port    a valid port number for that hub
+ * \param    sel        port indicator selector when clearing a port indicator.
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_BAD_REQUEST if feature selector is not USB_HUB_FEATURE_*
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_BAD_REQUEST if feature selector is not USB_HUB_FEATURE_*
  *
  * Clearing a feature disables that feature or triggers the start of a process
  * associated with that feature. Clearing a status change feature means
@@ -132,16 +132,16 @@ usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
 
 /**
  * \brief   This request clears the state of a Transaction Translator(TT)
- * 	        bulk/control buffer after it has been left in a busy state due to
- * 		    high-speed errors. This request is only defined for non-periodic
- * 		    endpoints.
+ *             bulk/control buffer after it has been left in a busy state due to
+ *             high-speed errors. This request is only defined for non-periodic
+ *             endpoints.
  *
- * \param 	dev_addr the hub feature to clear USB_HUB_FEATURE_*
- * \param	ep_num	a valid port number for that hub
- * \param	tt_port	the port number if multiple TTs are supported, or 1 else.
+ * \param     dev_addr the hub feature to clear USB_HUB_FEATURE_*
+ * \param    ep_num    a valid port number for that hub
+ * \param    tt_port    the port number if multiple TTs are supported, or 1 else.
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_BAD_REQUEST if feature selector is not USB_HUB_FEATURE_*
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_BAD_REQUEST if feature selector is not USB_HUB_FEATURE_*
  *
  *
  *
@@ -159,11 +159,11 @@ usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_CLEAR_FEATURE;
     /*
-     * bits 3..0 	endpoint number
-     * bits 10..4	device address
-     * bits 12..11	endpoint type
-     * bits 14..13	reserved
-     * bits 15		direction, 1=IN, 0=OUT
+     * bits 3..0     endpoint number
+     * bits 10..4    device address
+     * bits 12..11    endpoint type
+     * bits 14..13    reserved
+     * bits 15        direction, 1=IN, 0=OUT
      */
     req.wValue = (0x000F & ep_num) | ((0x007F & dev_addr) << 4);
     req.wValue |= ((0x0003 & ep_type) << 11);
@@ -176,14 +176,14 @@ usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
 }
 
 /**
- * \brief 	This request returns the hub descriptor. For other descriptors
- * 			than hub descriptors use the standard usb_hub_get_descriptor().
+ * \brief     This request returns the hub descriptor. For other descriptors
+ *             than hub descriptors use the standard usb_hub_get_descriptor().
  *
- * \param 	ret_desc	the returned hub descriptor
- * \param	num_ports	the number of ports of the hub
+ * \param     ret_desc    the returned hub descriptor
+ * \param    num_ports    the number of ports of the hub
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * All hubs are required to implement one hub descriptor, with descriptor
  * index zero.
@@ -213,13 +213,13 @@ usb_hub_get_hub_descriptor(uint16_t num_ports,
 }
 
 /**
- * \brief 	This request returns the current hub status and the states that
- * 			have changed since the previous acknowledgment.
+ * \brief     This request returns the current hub status and the states that
+ *             have changed since the previous acknowledgment.
  *
- * \param 	ret_status	the returned hub status
+ * \param     ret_status    the returned hub status
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
@@ -241,14 +241,14 @@ usb_hub_get_hub_status(struct usb_hub_status *ret_status)
 }
 
 /**
- * \brief 	This request returns the current port status and the current value
- * 			of the port status change bits.
+ * \brief     This request returns the current port status and the current value
+ *             of the port status change bits.
  *
- * \param	port		the port number we want to get the status
- * \param 	ret_status	the returned port status
+ * \param    port        the port number we want to get the status
+ * \param     ret_status    the returned port status
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * The port number must be a valid port number for that hub, greater than zero.
  *
@@ -272,13 +272,13 @@ usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status)
 }
 
 /**
- * \brief 	This request returns the transaction translator in a hub to a
- * 			known state.
+ * \brief     This request returns the transaction translator in a hub to a
+ *             known state.
  *
- * \param	port	the port for which we want to reset the TT
+ * \param    port    the port for which we want to reset the TT
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * The port number must be a valid port number for that hub, greater than zero.
  * If the hub provides only a single TT, then Port must be set to one.
@@ -308,13 +308,13 @@ usb_hub_reset_tt(uint16_t port)
 }
 
 /**
- * \brief 	This request overwrites the hub descriptor.
+ * \brief     This request overwrites the hub descriptor.
  *
- * \param	desc_length	the length of the hub descriptor
- * \param	desc		the new hub descriptor to write
+ * \param    desc_length    the length of the hub descriptor
+ * \param    desc        the new hub descriptor to write
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * All hubs are required to implement one hub descriptor with descriptor index
  * zero. This request writes the entire hub descriptor at once.
@@ -340,12 +340,12 @@ usb_hub_set_hub_descriptor(uint16_t desc_length,
 }
 
 /**
- * \brief 	This request sets a value reported in the hub status.
+ * \brief     This request sets a value reported in the hub status.
  *
- * \param	feature	the feature we want to enable for the hub
+ * \param    feature    the feature we want to enable for the hub
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * Setting a feature enables that feature; Status changes may not be
  * acknowledged using this request.
@@ -370,14 +370,14 @@ usb_hub_set_hub_feature(uint16_t feature)
 }
 
 /**
- * \brief 	This request sets a value reported in the port status.
+ * \brief     This request sets a value reported in the port status.
  *
- * \param	feature		the feature to set
- * \param 	selector	selector for test modes or 0 otherwise
- * \param	port		the port we want to set the featre
+ * \param    feature        the feature to set
+ * \param     selector    selector for test modes or 0 otherwise
+ * \param    port        the port we want to set the featre
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * The port number must be a valid port number for that hub, greater than zero.
  *
@@ -426,19 +426,19 @@ usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
 }
 
 /**
- * \brief 	This request returns the internal state of the transaction
- * 			translator (TT) in a vendor specific format. A TT receiving this
- * 			request must have first been stopped via the Stop_TT request. This
- * 			request is provided for debugging purposes.
+ * \brief     This request returns the internal state of the transaction
+ *             translator (TT) in a vendor specific format. A TT receiving this
+ *             request must have first been stopped via the Stop_TT request. This
+ *             request is provided for debugging purposes.
  *
- * \param	port		the port number we want to get the status
- * \param 	flags		vendor dependent flags
- * \param	max_length	the maximum length of data to be returned
- * \param	ret_length	the length of the returned state
- * \param	ret_state	the state returned
+ * \param    port        the port number we want to get the status
+ * \param     flags        vendor dependent flags
+ * \param    max_length    the maximum length of data to be returned
+ * \param    ret_length    the length of the returned state
+ * \param    ret_state    the state returned
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * The port number must be a valid port number for that hub, greater than zero.
  *
@@ -467,14 +467,14 @@ usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
 }
 
 /**
- * \brief 	This request stops the normal execution of the transaction
- * 			translator so that the internal TT state can be retrieved via
- * 			Get_TT_State. This request is provided for debugging purposes.
+ * \brief     This request stops the normal execution of the transaction
+ *             translator so that the internal TT state can be retrieved via
+ *             Get_TT_State. This request is provided for debugging purposes.
  *
- * \param	port	the port number for which the TT shall be stopped
+ * \param    port    the port number for which the TT shall be stopped
  *
- * \return	USB_ERR_OK on success
- * 			USB_ERR_* on failure
+ * \return    USB_ERR_OK on success
+ *             USB_ERR_* on failure
  *
  * The only standardized method to restart a TT after a Stop_TT request is via
  * the Reset_TT request.

@@ -226,7 +226,7 @@ usb_error_t usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
  * \param ret_alt_iface:    the alternate setting value
  *
  * \return USB_ERR_OK on success
- * 		   USB_ERR_* on failure
+ *            USB_ERR_* on failure
  *
  * Behaviour of the device upon receiving a request:
  *  - default state:    not specified
@@ -392,7 +392,7 @@ usb_error_t usb_set_configuration(uint8_t config_value)
 
 /**
  * \brief This request is optional and may be used to update existing
- * 		  descriptors or new descriptors may be added.
+ *           descriptors or new descriptors may be added.
  *
  * \param desc_type:    the new configuration to activate, this must be
  *                      zero or match a configuration from the config
@@ -529,10 +529,10 @@ usb_error_t usb_set_alt_iface(uint16_t alt_setting, uint16_t interface)
 
 /**
  * \brief This request is used to set and then report an endpoint’s
- * 		  synchronization frame.
+ *           synchronization frame.
  *
  * \param endpoint:      The feature to enable. This value must be appropriate
- * 						 to the recipient.
+ *                          to the recipient.
  * \param ret_frame:     The recipient of the request: USB_REQUEST_RECIPIENT_*
  *
  * \return USB_ERR_OK on sucess

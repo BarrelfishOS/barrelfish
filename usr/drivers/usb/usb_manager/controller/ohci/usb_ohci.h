@@ -315,7 +315,7 @@ typedef struct usb_ohci_itd     usb_ohci_itd_t;
 #define USB_OHCI_PAGE_MASK(x)   ((x) & 0xfff)
 
 // the OHCI controller supports maximum 127 devices
-#define	USB_OHCI_MAX_DEVICES 127
+#define USB_OHCI_MAX_DEVICES 127
 
 /* ENDPOINT TYPE CODES */
 #define USB_OHCI_EP_TYPE_ISOC 0

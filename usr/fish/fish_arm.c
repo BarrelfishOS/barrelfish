@@ -206,24 +206,24 @@ static void pixels_init(void)
             exit(EXIT_FAILURE);
         }
 
-	if (serv_iref == 0) {
-	    DEBUG_ERR(err, "failed to get a valid iref back from lookup");
-	    exit(EXIT_FAILURE);
-	}
+        if (serv_iref == 0) {
+            DEBUG_ERR(err, "failed to get a valid iref back from lookup");
+            exit(EXIT_FAILURE);
+        }
 
-	err = pixels_bind(serv_iref,
-			  my_pixels_bind_cb,
-			  &my_pixels_bindings[core],
-			  get_default_waitset(),
-			  IDC_BIND_FLAGS_DEFAULT);
-	if (err_is_fail(err)) {
-	    DEBUG_ERR(err, "bind request to pixels server failed immediately");
-	    exit(EXIT_FAILURE);
-	}
+        err = pixels_bind(serv_iref,
+                my_pixels_bind_cb,
+                &my_pixels_bindings[core],
+                get_default_waitset(),
+                IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "bind request to pixels server failed immediately");
+            exit(EXIT_FAILURE);
+        }
     }
 
     while (pixels_connected < NUM_PIXELS)
-	messages_wait_and_handle_next();
+        messages_wait_and_handle_next();
 
     printf("connected to pixels server\n");
     pixels_inited = true;
