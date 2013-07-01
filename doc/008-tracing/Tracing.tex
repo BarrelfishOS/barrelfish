@@ -735,6 +735,20 @@ int main(..) {
 \end{lstlisting}
 \end{code}
 
+\section{Getting traces to Aquarium 2 over the network}
+
+Assuming you have network hardware that works with Barrelfish you can also
+connect Aquarium 2 directly to the tracing infrastructure inside Barrelfish. The
+current default port for that is \verb!6666!.  If your Barrelfish and Aquarium 2
+machines are on the same subnet you can just connect to the Barrelfish machine's
+IP or host name from Aquarium 2.  Otherwise, if you have ssh access to a machine
+that can talk to the Barrelfish machines you can use ssh port-forwarding to
+connect Aquarium 2 to Barrelfish directly using the ssh invocation below.
+
+\begin{code}
+ssh -L 6666:<IP of Barrelfish machine>:6666 <ssh-machine>
+\end{code}
+
 \chapter{Performance Analysis}
 
 \section{Introduction}
