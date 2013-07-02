@@ -195,6 +195,8 @@ errval_t ti_twl6030_set_vmmc_vsel(int millis)
     printk(LOG_NOTE, "ti_twl6030_vmmc_vsel\n");
 
     ti_twl6030_vsel_t vsel = millis_to_vsel(millis);
+    
+    ti_twl6030_mmcctrl_sw_fc_wrf(&twl, 0x1);
 
     //ti_twl6030_mmcctrl_vmmc_auto_off_wrf(&twl, 0x0);
     // set regulator to application mode
