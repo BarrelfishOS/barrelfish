@@ -88,6 +88,40 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
     return err;
 }
 
+errval_t start_sdcard(void)
+{
+    errval_t err, error_code;
+    struct capref requested_caps;
+    static char* binary = "mmchs";
+
+    struct module_info* driver = find_module(binary);
+    if (driver == NULL || !is_auto_driver(driver)) {
+        KALUGA_DEBUG("%s not found or not declared as auto.", binary);
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
+    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    assert(cl != NULL);
+    err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
+    assert(err_is_ok(err) && err_is_ok(error_code));
+
+    struct capref device_range_cap = NULL_CAP;
+    err = slot_alloc(&device_range_cap);
+    assert (err_is_ok(err));
+    err = cap_retype(device_range_cap, requested_caps, ObjType_DevFrame, 29);
+    assert (err_is_ok(err));
+
+    err = spawn_program_with_caps(0, driver->path, driver->argv, environ,
+            NULL_CAP, device_range_cap, 0, &driver->did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Spawning %s failed.", driver->path);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
 errval_t start_usb_manager(void)
 {
 

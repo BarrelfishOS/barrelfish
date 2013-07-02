@@ -64,9 +64,8 @@ void cm2_enable_hsmmc1(void)
     volatile int cm2loop = 0;
     while (omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_idlest_rdf(&l3init_cm2)!=0) {
         if (++cm2loop>1000) {
-            printf("failed.\n");
-            panic("cm2: MMC power won't come up... "
-                  "Don't know what to do, IDLEST and STBYST are ro");
+            assert(!"cm2: MMC power won't come up... "
+                   "Don't know what to do, IDLEST and STBYST are ro");
         }
     }
     printf("done (%d cycles).\n", cm2loop);

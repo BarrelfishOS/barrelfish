@@ -752,8 +752,6 @@ void arm_kernel_startup(void)
     // FIXME: PS: enable this as it is needed for multicore setup.
     // gic_cpu_interface_enable();
 
-    play_with_fdif();
-
     // Should not return
     printf("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",
            get_dispatcher_shared_arm(init_dcb->disp)->enabled_save_area.named.r0);

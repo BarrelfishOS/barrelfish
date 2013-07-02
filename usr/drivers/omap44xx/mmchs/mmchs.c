@@ -318,7 +318,7 @@ void mmchs_identify_card(void)
     } while (sdhc_stat_cto_rdf(&sdhc)!=0x1);
 
     // We do not check for other cards (i.e. SD v1.x, or unknown cards .. )
-    panic("There is no SD v2 card in the slot .. \n");
+    assert(!"There is no SD v2 card in the slot .. \n");
 }
 
 /*
@@ -372,7 +372,7 @@ void mmchs_send_cmd(int cmd_idx, uint32_t arg)
         if(++loop>10000) {
 
             print_mmchs();
-            panic("mmchs_send_cmd failed, CMDI seems to stick .. ");
+            assert(!"mmchs_send_cmd failed, CMDI seems to stick .. ");
         }
     }
 
@@ -433,7 +433,7 @@ void mmchs_send_cmd(int cmd_idx, uint32_t arg)
         cmd = sdhc_ctm_rsp_type_insert(cmd, 0x0); // R7
         break;
     default:
-        panic("Unknown command .. ");
+        assert(!"Unknown command .. ");
     }
 
     if (1) { // no data
@@ -515,7 +515,7 @@ static int mmchs_finalize_cmd(void)
                     
                     print_mmchs();
                     cm2_debug_print();
-                    panic("mmchs_send_cmd: error - registers got dumped .. ");
+                    assert(!"mmchs_send_cmd: error - registers got dumped .. ");
                 }
             } else {
                 printf("mmchsd_send_cmd: no response \n");
@@ -748,11 +748,11 @@ static void mmchs_configure(void)
         con = omap44xx_mmchs_CON_DW8_insert(con, 0x0); // must be 0 for SD cards
         break;
     case 8:
-        panic("DW8=1 (a bus width of 8) is not supported for SD cards");
+        assert(!"DW8=1 (a bus width of 8) is not supported for SD cards");
         con = omap44xx_mmchs_CON_DW8_insert(con, 0x1);
         break;
     default:
-        panic("Given bus width not supported\n");
+        assert(!"Given bus width not supported\n");
     }
     
     // Write configuration
@@ -783,7 +783,7 @@ static void mmchs_configure(void)
         if (++sdbp_loop>1000) {
             printf("\n");
             print_mmchs();
-            panic("Timeout in setting SDBP");
+            assert(!"Timeout in setting SDBP");
         }
         mmchs_wait_msec(1);
     }
@@ -871,7 +871,7 @@ void mmchs_init(void)
         printf("SD Host Specification Version 2.0\n");
         break;
     default:
-        panic("Don't understand SREV field");
+        assert(!"Don't understand SREV field");
     }
     
 

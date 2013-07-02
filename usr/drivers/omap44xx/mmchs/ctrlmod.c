@@ -61,12 +61,12 @@ void sdmmc1_enable_power(void)
 {
     // compare with Table 18-109 in OMAP TRM, p3681
     // Step 1: software must keep PWRDNZ low when setting up voltages
-    printk(LOG_NOTE, "%s: Step 1\n", __FUNCTION__);
+    printf("%s: Step 1\n", __FUNCTION__);
     omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_PWRDNZ_wrf(&ctrlmod, 0x0);
     omap44xx_ctrlmod_PBIASLITE_MMC1_PWRDNZ_wrf(&ctrlmod, 0x0);
 
     // Step 2: preliminary settings for MMC1_PBIAS and MMC1 I/O cell
-    printk(LOG_NOTE, "%s: Step 2\n", __FUNCTION__);
+    printf("%s: Step 2\n", __FUNCTION__);
     //  1. turn of hiz mode
     omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_HIZ_MODE_wrf(&ctrlmod, 0x0);
     //  2. setup PBIAS_IRQ (MA_IRQ_75)
@@ -92,7 +92,7 @@ void sdmmc1_enable_power(void)
     assert(err_is_ok(err));
 
     // Step 4: Set VMODE bit according to Step 3 (0x1 == 3.0V)
-    printk(LOG_NOTE, "%s: Step 4\n", __FUNCTION__);
+    printf("%s: Step 4\n", __FUNCTION__);
     omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_VMODE_wrf(&ctrlmod, omap44xx_ctrlmod_vlt_hi);
 
     // Step 5: wait for SDMMC1_VDDS voltage to stabilize TODO
@@ -100,33 +100,33 @@ void sdmmc1_enable_power(void)
     //ti_twl6030_vmmc_pr();
 
     // Step 6: Disable PWRDNZ mode for MMC1_PBIAS and MMC1 I/O cell
-    printk(LOG_NOTE, "%s: Step 6\n", __FUNCTION__);
+    printf("%s: Step 6\n", __FUNCTION__);
     omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_PWRDNZ_wrf(&ctrlmod, 0x1);
     omap44xx_ctrlmod_PBIASLITE_MMC1_PWRDNZ_wrf(&ctrlmod, 0x1);
 
     // Step 7: Store SUPPLY_HI_OUT bit
     uint8_t supply_hi_out = 
         omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_SUPPLY_HI_OUT_rdf(&ctrlmod);
-    printk(LOG_NOTE, "%s: Step 7: supply_hi_out = %d\n", __FUNCTION__, supply_hi_out);
-    printk(LOG_NOTE, "%s: Step 7: vmode_error = %d\n", __FUNCTION__,
+    printf("%s: Step 7: supply_hi_out = %d\n", __FUNCTION__, supply_hi_out);
+    printf("%s: Step 7: vmode_error = %d\n", __FUNCTION__,
             omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_VMODE_ERROR_rdf(&ctrlmod));
 
     // Wait for Interrupt
-    printk(LOG_NOTE, "Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
+    printf("Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
     while(!pbias_got_irq) { }
 
-    printk(LOG_NOTE, "%s: Step 8\n", __FUNCTION__);
+    printf("%s: Step 8\n", __FUNCTION__);
 
     // Step 8: check VMODE_ERROR and set PWRDNZ if error
     if (omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_VMODE_ERROR_rdf(&ctrlmod)) {
-        printk(LOG_NOTE, "got VMODE error\n");
+        printf("got VMODE error\n");
         omap44xx_ctrlmod_PBIASLITE_MMC1_PWRDNZ_wrf(&ctrlmod, 0x0);
         omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_PWRDNZ_wrf(&ctrlmod, 0x0);
     }
     
     // Step 9: check if SUPPLY_HI_OUT corresponds to SDMMC1_VDDS (3.0V)
     if (supply_hi_out != omap44xx_ctrlmod_vlt_hi) {
-        printk(LOG_NOTE, "SDMMC1_VDDS seems to be != 3.0V\n");
+        printf("SDMMC1_VDDS seems to be != 3.0V\n");
         // TODO: redo setting SDMMC1_VDDS
     } else {
         // supply_hi_out should be 0x1 (3.0V)
@@ -142,7 +142,7 @@ void sdmmc1_enable_power(void)
 
 void pbias_handle_irq(void)
 {
-    printk(LOG_NOTE, "got pbias interrupt");
+    printf("got pbias interrupt");
 
     // set got-irq flag
     

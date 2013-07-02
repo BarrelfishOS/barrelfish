@@ -120,7 +120,8 @@ int main(int argc, char** argv)
 #ifdef __arm__
     debug_printf("Kaluga running on ARM. Skipping cores(), pci_root_bridge(), ...\n");
 
-    start_usb_manager();
+    err = start_sdcard();
+    assert(err_is_ok(err));
 #else
 
     err = watch_for_cores();

@@ -35,7 +35,7 @@ static inline uint8_t _ti_twl6030_id1_read_8(void *d, size_t off)
 
     errval_t err;
 
-    printk(LOG_NOTE, "id1_read_8(reg=0x%"PRIx8")\n", reg);
+    printf("id1_read_8(reg=0x%"PRIx8")\n", reg);
 
     /* set register to read from */
     msg[0].slave = ID1_I2C_ADDR;
@@ -51,7 +51,7 @@ static inline uint8_t _ti_twl6030_id1_read_8(void *d, size_t off)
     err = ti_i2c_transfer(I2C_HC, msg, 2);
 
     if (err_is_fail(err)) {
-        printk(LOG_NOTE, "ti_i2c_transfer: %"PRIuERRV"\n", err);
+        printf("ti_i2c_transfer: %"PRIuERRV"\n", err);
         return 0;
     }
 
@@ -76,7 +76,7 @@ static inline void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval)
     err = ti_i2c_transfer(I2C_HC, &msg, 1);
 
     if (err_is_fail(err)) {
-        printk(LOG_ERR, "ti_i2c_transfer failed in mackerel: %"PRIuERRV"\n", err);
+        printf("ti_i2c_transfer failed in mackerel: %"PRIuERRV"\n", err);
     }
 
     return;
@@ -90,7 +90,7 @@ static ti_twl6030_t twl;
 
 void ti_twl6030_init(void)
 {
-    printk(LOG_NOTE, "twl init\n");
+    printf("twl init\n");
     //ti_twl6030_initialize(&twl, 0x0);
 
     // initialize I2C1 host controller
@@ -99,9 +99,9 @@ void ti_twl6030_init(void)
     //printf("read VMMC_CFG_VOLTAGE %"PRIu8"\n", _ti_twl6030_id1_read_8(NULL, 0x9B));
 
     //ti_twl6030_vmmc_pr();
-    /*printk(LOG_NOTE, "scanning TWL\n");
+    /*printf("scanning TWL\n");
     ti_twl6030_scan();
-    printk(LOG_NOTE, "after scan\n");*/
+    printf("after scan\n");*/
 }
 
 void ti_twl6030_vmmc_pr(void)
@@ -123,7 +123,7 @@ void ti_twl6030_scan(void)
 
         errval_t err = ti_i2c_transfer(I2C_HC, &msg, 1);
         if (err_is_ok(err)) {
-            printk(LOG_NOTE, "found subdev at 0x%x\n", base + i);
+            printf("found subdev at 0x%x\n", base + i);
         }
     }
     return;
@@ -185,14 +185,14 @@ static ti_twl6030_vsel_t millis_to_vsel(int millis)
         case 3300:
             return ti_twl6030_v3v3;
         default:
-            printk(LOG_WARN, "voltage (%d) not available, returning 0.0V\n", millis);
+            printf("voltage (%d) not available, returning 0.0V\n", millis);
             return ti_twl6030_v0v0;
     }
 }
 
 errval_t ti_twl6030_set_vmmc_vsel(int millis)
 {
-    printk(LOG_NOTE, "ti_twl6030_vmmc_vsel\n");
+    printf("ti_twl6030_vmmc_vsel\n");
 
     ti_twl6030_vsel_t vsel = millis_to_vsel(millis);
     

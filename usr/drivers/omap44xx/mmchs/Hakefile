@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [
-    build library { target = "mmchs",
+    build application { target = "mmchs",
                     cFiles = (find withSuffices [".c"]),
                     mackerelDevices = [
                         "ti_i2c",
