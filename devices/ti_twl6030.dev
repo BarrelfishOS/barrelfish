@@ -122,6 +122,12 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         sts_mmc         1 "Is card present?";
     };
 
+    register mmcdebouncing id1(0xED) "MMC Debouncing" {
+        mmc_dev_bypass  1 "Is MMC debouncing bypassed?";
+        mins_deb        4 "Card insertion debouncing time";
+        mext_deb        3 "Card extraction debouncing time";
+    };
+
     // VMMC registers
     // Table 152
     //register vmmc_cfg_grp addr(b, 0x98) "VMMC Group Configuration" type(cfg_grp);
