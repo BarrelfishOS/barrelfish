@@ -1,5 +1,5 @@
 /** \file
- *  \brief Monitor's connection with the dispatchers on the same core for 
+ *  \brief Monitor's connection with the dispatchers on the same core for
  *  blocking rpc calls.
  */
 
@@ -34,7 +34,7 @@ struct retype_st {
     uint64_t new_type;
     uint8_t size_bits;
     capaddr_t to;
-    capaddr_t slot; 
+    capaddr_t slot;
     int dcn_vbits;
 };
 
@@ -182,9 +182,9 @@ static void free_revoke_st(struct revoke_st * st)
 
 
 static void remote_cap_retype(struct monitor_blocking_binding *b,
-                              struct capref croot, capaddr_t src, 
+                              struct capref croot, capaddr_t src,
                               uint64_t new_type, uint8_t size_bits,
-                              capaddr_t to, capaddr_t slot, int32_t dcn_vbits) 
+                              capaddr_t to, capaddr_t slot, int32_t dcn_vbits)
 {
     errval_t err;
     bool has_descendants;
@@ -194,14 +194,14 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
     struct retype_st * st = alloc_retype_st(b, croot, src, new_type, size_bits,
                                             to, slot, dcn_vbits);
 
-    
+
     /* Get the raw cap from the kernel */
-    err = monitor_domains_cap_identify(croot, src, CPTR_BITS, 
+    err = monitor_domains_cap_identify(croot, src, CPTR_BITS,
                                        &(st->rcap_st.capability));
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_CAP_REMOTE);
         goto reply;
-    }    
+    }
 
     /* Check if cap is retyped, if it is there is no point continuing,
        This will be checked again once we succeed in locking cap */
@@ -231,9 +231,9 @@ static void remote_cap_retype_phase_2(void * st_arg)
     errval_t err, reply_err;
     bool has_descendants;
     coremask_t on_cores;
-    struct retype_st * st = (struct retype_st *) st_arg;    
+    struct retype_st * st = (struct retype_st *) st_arg;
     struct monitor_blocking_binding *b = st->b;
-    
+
 
     reply_err = st->rcap_st.err;
 
@@ -248,10 +248,10 @@ static void remote_cap_retype_phase_2(void * st_arg)
         // lock failed or cap already retyped, unlock any cores we locked
         err = rcap_db_release_lock(&(st->rcap_st.capability), st->rcap_st.cores_locked);
         assert (err_is_ok(err));
-    } else { 
+    } else {
         // all good, do retype on domains behalf
-        reply_err = monitor_retype_remote_cap(st->croot, st->src, st->new_type, 
-                                              st->size_bits, st->to, st->slot, 
+        reply_err = monitor_retype_remote_cap(st->croot, st->src, st->new_type,
+                                              st->size_bits, st->to, st->slot,
                                               st->dcn_vbits);
 
         // signal if retype was a success to remote cores
@@ -272,9 +272,9 @@ static void remote_cap_delete(struct monitor_blocking_binding *b,
 
     /* Save state for stackripped reply */
     struct delete_st * st = alloc_delete_st(b, croot, src, vbits);
-    
+
     /* Get the raw cap from the kernel */
-    err = monitor_domains_cap_identify(croot, src, vbits, 
+    err = monitor_domains_cap_identify(croot, src, vbits,
                                        &(st->rcap_st.capability));
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_CAP_REMOTE);
@@ -297,13 +297,13 @@ reply:
 static void remote_cap_delete_phase_2(void * st_arg)
 {
     errval_t err, reply_err;
-    struct delete_st * st = (struct delete_st *) st_arg;    
+    struct delete_st * st = (struct delete_st *) st_arg;
     struct monitor_blocking_binding *b = st->b;
-    
+
     reply_err = st->rcap_st.err;
     if (err_is_fail(reply_err)) {
         // lock failed, unlock any cores we locked
-        err = rcap_db_release_lock(&(st->rcap_st.capability), 
+        err = rcap_db_release_lock(&(st->rcap_st.capability),
                                    st->rcap_st.cores_locked);
         assert (err_is_ok(err));
     } else {
@@ -312,7 +312,7 @@ static void remote_cap_delete_phase_2(void * st_arg)
         if (err_is_fail(reply_err)) {
             DEBUG_ERR(reply_err, "delete cap error");
         }
-        
+
         if (err_is_ok(reply_err)) {
             // signal delete to other cores
             err = rcap_db_delete(&st->rcap_st.capability);
@@ -332,9 +332,9 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
     errval_t err;
     /* Save state for stackripped reply */
     struct revoke_st * st = alloc_revoke_st(b, croot, src, vbits);
-    
+
     /* Get the raw cap from the kernel */
-    err = monitor_domains_cap_identify(croot, src, vbits, 
+    err = monitor_domains_cap_identify(croot, src, vbits,
                                        &(st->rcap_st.capability));
     if (err_is_fail(err)) {
         err_push(err, MON_ERR_CAP_REMOTE);
@@ -342,7 +342,7 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
     }
 
     /* request recursive lock on the cap and all of its descendants */
-    err = rcap_db_acquire_recursive_lock(&(st->rcap_st.capability), 
+    err = rcap_db_acquire_recursive_lock(&(st->rcap_st.capability),
                                          (struct rcap_st*)st);
     if (err_is_fail(err)) {
         goto reply;
@@ -358,13 +358,13 @@ reply:
 static void remote_cap_revoke_phase_2(void * st_arg)
 {
     errval_t err, reply_err;
-    struct revoke_st * st = (struct revoke_st *) st_arg;    
+    struct revoke_st * st = (struct revoke_st *) st_arg;
     struct monitor_blocking_binding *b = st->b;
-    
+
     reply_err = st->rcap_st.err;
     if (err_is_fail(reply_err)) {
         // recursive lock failed, unlock any cores we locked
-        err = rcap_db_release_recursive_lock(&(st->rcap_st.capability), 
+        err = rcap_db_release_recursive_lock(&(st->rcap_st.capability),
                                              st->rcap_st.cores_locked);
         assert (err_is_ok(err));
     } else {
@@ -373,7 +373,7 @@ static void remote_cap_revoke_phase_2(void * st_arg)
         if (err_is_fail(reply_err)) {
             DEBUG_ERR(reply_err, "revoke cap error");
         }
-        
+
         if (err_is_ok(reply_err)) {
             // signal revoke to other cores
             err = rcap_db_revoke(&st->rcap_st.capability);
@@ -480,6 +480,22 @@ static void cap_identify(struct monitor_blocking_binding *b,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "reply failed");
     }
+}
+
+#define ARM_IRQ_MAX 256
+
+static void arm_irq_handle_call(struct monitor_blocking_binding *b,
+        struct capref ep, uint32_t irq)
+{
+
+    errval_t err = 1;
+
+    if (irq <= ARM_IRQ_MAX) {
+        err = invoke_irqtable_set(cap_irq, irq, ep);
+    }
+
+    errval_t err2 = b->tx_vtbl.arm_irq_handle_response(b, NOP_CONT, err);
+    assert(err_is_ok(err2));
 }
 
 static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep)
@@ -689,6 +705,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .alloc_monitor_ep_call   = alloc_monitor_ep,
     .cap_identify_call       = cap_identify,
     .irq_handle_call         = irq_handle_call,
+    .arm_irq_handle_call     = arm_irq_handle_call,
     .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,

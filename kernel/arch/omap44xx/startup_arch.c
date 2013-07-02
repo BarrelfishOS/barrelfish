@@ -534,6 +534,16 @@ static struct dcb *spawn_init_common(const char *name,
                    INIT_PERM_RW);
 
 
+    /*
+     * we create the capability to the devices at this stage and store it
+     * in the TASKCN_SLOT_IO, where on x86 the IO capability is stored for
+     * device access on PCI. PCI is not available on the pandaboard so this
+     * should not be a problem.
+     */
+    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
+    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 30, 30, iocap);
+        assert(err_is_ok(err));
+
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_arm *disp_arm
