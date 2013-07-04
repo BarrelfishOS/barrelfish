@@ -23,21 +23,24 @@ static omap44xx_device_prm_t devprm;
 extern struct gimage lena_image;
 
 // XXX: you need to have this functions in user space...
-lvaddr_t paging_map_device(lpaddr_t base, size_t size);
-lpaddr_t bsp_alloc_phys(size_t);
 // not sure about these two, tough
 //void cp15_invalidate_tlb(void);
 //void cp15_invalidate_i_and_d_caches(void);
+
+static lpaddr_t* vbase_glbl;
 
 static void manage_clocks(void)
 {
     printf("Enable the clocks in domain CD_CAM\n");
 
     // Clock domain CAM
-    lvaddr_t vbase = paging_map_device(0x4A000000, 4096);
-    uint32_t offset = (0x4A009000 & ARM_L1_SECTION_MASK);
+    lvaddr_t* vbase;
+    errval_t err;
+    err = map_device_register(0x4A009000, 4096, &vbase);
+    assert(err_is_ok(err));
+    FDIF_DEBUG("vbase points to %p\n", vbase);
 
-    omap44xx_cam_cm2_initialize(&devclk, (mackerel_addr_t)vbase+offset);
+    omap44xx_cam_cm2_initialize(&devclk, (mackerel_addr_t)vbase);
     //omap44xx_cam_cm2_pm_cam_pwrstctrl_powerstate_wrf(&dev, omap44xx_cam_prm_POWERSTATE_2);
     omap44xx_cam_cm2_cm_cam_clkstctrl_clktrctrl_wrf(&devclk, 0x2);
     omap44xx_cam_cm2_cm_cam_fdif_clkctrl_modulemode_wrf(&devclk, 0x2);
@@ -50,8 +53,8 @@ static void manage_clocks(void)
     //omap44xx_cam_cm2_cm_cam_staticdep_memif_statdep_wrf(&devclk, 0x1);
     //omap44xx_cam_cm2_cm_cam_staticdep_ivahd_statdep_wrf(&devclk, 0x1);
 
-    omap44xx_cam_cm2_pr(printbuf, PRINT_BUFFER_SIZE, &devclk);
-    printf("%s\n", printbuf);
+    //omap44xx_cam_cm2_pr(printbuf, PRINT_BUFFER_SIZE, &devclk);
+    //printf("%s\n", printbuf);
 
 
     printf("Handle voltage for domain: VDD_CORE_L\n");
@@ -62,15 +65,14 @@ static void manage_clocks(void)
     //omap44xx_sr_mpu_srstatus_pr(printbuf, PRINT_BUFFER_SIZE-1, &devvolt);
     //printf("%s\n", printbuf);
 
-    vbase = paging_map_device(0x4A307B00, 4096);
-    offset = (0x4A307B00 & ARM_L1_SECTION_MASK);
-    omap44xx_device_prm_initialize(&devprm, (mackerel_addr_t)vbase+offset);
-    omap44xx_device_prm_pr(printbuf, PRINT_BUFFER_SIZE, &devprm);
-    printf("%s\n", printbuf);
+    err = map_device_register(0x4A307000, 4096, &vbase_glbl);
+    assert(err_is_ok(err));
+    lpaddr_t offset = (0x4A307B00 & 0xFFF);
+    omap44xx_device_prm_initialize(&devprm, (mackerel_addr_t)vbase_glbl+offset);
+    //omap44xx_device_prm_pr(printbuf, PRINT_BUFFER_SIZE, &devprm);
+    //printf("%s\n", printbuf);
 
     // Init voltage controller
-
-
     printf("Done handling voltage\n");
 }
 
@@ -79,24 +81,26 @@ static void manage_power(void)
     printf("Power-on the PD_CAM domain for fdif\n");
 
     // Power domain CAM
-    lvaddr_t vbase = paging_map_device(0x4A307000, 4096);
-    uint32_t offset = (0x4A307000 & ARM_L1_SECTION_MASK);
+    lvaddr_t* vbase;
+    errval_t err;
+    err = map_device_register(0x4A307000, 4096, &vbase);
+    assert(err_is_ok(err));
 
-    omap44xx_cam_prm_initialize(&dev, (mackerel_addr_t)vbase+offset);
+    omap44xx_cam_prm_initialize(&dev, (mackerel_addr_t)vbase);
     omap44xx_cam_prm_pm_cam_pwrstctrl_powerstate_wrf(&dev, omap44xx_cam_prm_POWERSTATE_3);
 
     while(omap44xx_cam_prm_pm_cam_pwrstst_powerstatest_rdf(&dev)
           != omap44xx_cam_prm_POWERSTATEST_3_r)
     {}
 
-    omap44xx_cam_prm_pr(printbuf, PRINT_BUFFER_SIZE, &dev);
-    printf("%s\n", printbuf);
+    //omap44xx_cam_prm_pr(printbuf, PRINT_BUFFER_SIZE, &dev);
+    //printf("%s\n", printbuf);
 
     // Face detect Module
-    vbase = paging_map_device(0x4A10A000, 4096);
-    offset = (0x4A10A000 & ARM_L1_SECTION_MASK);
+    err = map_device_register(0x4A10A000, 4096, &vbase);
+    assert(err_is_ok(err));
 
-    omap44xx_fdif_initialize(&devfdif, (mackerel_addr_t)vbase+offset);
+    omap44xx_fdif_initialize(&devfdif, (mackerel_addr_t)vbase);
 
     // Set this to 0x1 to force the device off the standby mode
     omap44xx_fdif_fdif_sysconfig_standbymode_wrf(&devfdif, 0x2);
@@ -109,7 +113,9 @@ static void manage_power(void)
 
 }
 
-void play_with_fdif(void) {
+int main(void) {
+    init_memory_manager();
+
     manage_clocks();
     manage_power();
     //manage_voltage();
@@ -129,13 +135,31 @@ void play_with_fdif(void) {
 
     size_t img_size = 320*240*8; // 75 KB
     size_t working_size = img_size; // 51.25 KB is enough
-    volatile uint8_t* image = (void*)bsp_alloc_phys(img_size);
-    void* workarea = (void*)bsp_alloc_phys(working_size);
-    assert (image != NULL && workarea != NULL);
+    size_t retbytes;
+    void* workarea;
+    uint8_t* image;
+    errval_t err;
+
+    struct capref img_cap;
+    struct capref workarea_cap;
+
+    err = frame_alloc(&img_cap, img_size, &retbytes);
+    assert(err_is_ok(err));
+    assert(retbytes >= img_size);
+
+    err = frame_alloc(&workarea_cap, working_size, &retbytes);
+    assert(err_is_ok(err));
+    assert(retbytes >= working_size);
+
+    err = vspace_map_one_frame((void**)&image, img_size, img_cap,
+                              NULL, NULL);
+    assert(err_is_ok(err));
+    err = vspace_map_one_frame(&workarea, working_size, workarea_cap,
+                              NULL, NULL);
+    assert(err_is_ok(err));
 
     printf("Set up the image ...\n");
     printf("RGB image type: width:%d height:%d bytes/pixel:%d\n", lena_image.width, lena_image.height, lena_image.bytes_per_pixel);
-
     printf("Convert to grayscale, store in image buffer...\n");
 
     for (int i=0; i<lena_image.width*lena_image.height; i+=1) {
@@ -148,9 +172,14 @@ void play_with_fdif(void) {
     // Does this do cache to mem writeback?
     //cp15_invalidate_tlb();
     //cp15_invalidate_i_and_d_caches();
-   
-    omap44xx_fdif_fdif_picaddr_wr(&devfdif, (uint32_t)image); // make sure 5 least significant bits are 0!
-    omap44xx_fdif_fdif_wkaddr_wr(&devfdif, (uint32_t)workarea); // make sure 5 least significant bits are 0!
+    struct frame_identity ret;
+    err = invoke_frame_identify(img_cap, &ret);
+    assert (err_is_ok(err));
+    omap44xx_fdif_fdif_picaddr_wr(&devfdif, ret.base); // make sure 5 least significant bits are 0!
+
+    err = invoke_frame_identify(workarea_cap, &ret);
+    assert (err_is_ok(err));
+    omap44xx_fdif_fdif_wkaddr_wr(&devfdif, ret.base); // make sure 5 least significant bits are 0!
     
     omap44xx_fdif_fd_dcond_min_wrf(&devfdif, 0x0); // 40 pixel
     omap44xx_fdif_fd_dcond_dir_wrf(&devfdif, 0x0); // up?
@@ -186,4 +215,5 @@ void play_with_fdif(void) {
         printf("Size: %d Confidence: %d Angle: %d\n", size, confidence, angle);
     }
 
+    return 0;
 }

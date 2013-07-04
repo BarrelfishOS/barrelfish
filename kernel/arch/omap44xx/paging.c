@@ -381,19 +381,19 @@ caps_map_l2(struct capability* dest,
     // ARM L2 has 256 entries, but we treat a 4K page as a consecutive
     // region of L2 with a single index. 4K == 4 * 1K
     if (slot >= (256 * 4)) {
-        panic("oops");
+        panic("oops: slot >= (256 * 4)");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
     if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
-        panic("oops");
+        panic("oops: src->type != ObjType_Frame && src->type != ObjType_DevFrame");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     // check offset within frame
     if ((offset + BYTES_PER_PAGE > get_size(src)) ||
         ((offset % BYTES_PER_PAGE) != 0)) {
-        panic("oops");
+        panic("oops: frame offset invalid");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 

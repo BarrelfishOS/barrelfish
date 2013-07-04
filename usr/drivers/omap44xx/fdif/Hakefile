@@ -11,13 +11,14 @@
 --------------------------------------------------------------------------
 
 [
-    build library { target = "fdif",
+    build application { target = "fdif",
                     cFiles = (find withSuffices [".c"]),
                     mackerelDevices = [
                         "omap/omap44xx_cam_prm",
                         "omap/omap44xx_cam_cm2",
                         "omap/omap44xx_sr_mpu",
                         "omap/omap44xx_fdif",
-                        "omap/omap44xx_device_prm" ] 
+                        "omap/omap44xx_device_prm" ],
+                    addLibraries = ["mm"]
                   }
 ]
