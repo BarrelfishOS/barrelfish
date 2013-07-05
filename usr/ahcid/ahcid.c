@@ -557,42 +557,61 @@ int main(int argc, char **argv)
     assert(err_is_ok(r));
     AHCID_DEBUG("connected to pci\n");
 
-    r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
-            PCI_SUB_SATA, PCI_DONT_CARE, PCI_VENDOR_INTEL,
-            PCI_DEVICE_ICH9R_82801IR /* QEMU ICH9R AHCI Controller */,
-            PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
-            ahci_interrupt_handler, NULL);
-    if (err_is_ok(r)) {
-        printf("ahcid: found QEMU ICH9R controller\n");
-        goto finish;
-    }
-    printf("ahcid: did not find QEMU ICH9R controller\n");
+    if (argc >= 3) {
+        AHCID_DEBUG("got %s as vendor_id:device_id\n", argv[2]);
+        uint64_t vendor_id, device_id;
+        vendor_id = strtol(argv[2], NULL, 16);
+        device_id = strtol(argv[2]+5, NULL, 16);
+        r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
+                PCI_SUB_SATA, PCI_DONT_CARE, vendor_id,
+                device_id,
+                PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
+                ahci_interrupt_handler, NULL);
+        if (err_is_fail(r)) {
+            printf("couldn't register device %04"PRIx64":%04"PRIx64": %s\n", vendor_id,
+                    device_id, err_getstring(r));
+            return 1;
+        }
+        printf("ahcid: registered device %04"PRIx64":%04"PRIx64"\n", vendor_id, device_id);
+    } else {
+        // fall-back: try some known AHCI devices
+        r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
+                PCI_SUB_SATA, PCI_DONT_CARE, PCI_VENDOR_INTEL,
+                PCI_DEVICE_ICH9R_82801IR /* QEMU ICH9R AHCI Controller */,
+                PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
+                ahci_interrupt_handler, NULL);
+        if (err_is_ok(r)) {
+            printf("ahcid: found QEMU ICH9R controller\n");
+            goto finish;
+        }
+        printf("ahcid: did not find QEMU ICH9R controller\n");
 
-    r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
-            PCI_SUB_SATA, PCI_DONT_CARE,
-            PCI_VENDOR_INTEL,
-            PCI_DEVICE_ICH10_82801JI /* 82801JI (ICH10 Family) AHCI Controller */,
-            PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
-            ahci_interrupt_handler, NULL);
-    if (err_is_ok(r)) {
-        printf("ahcid: found Sun Microsystems ICH10 Family controller\n");
-        goto finish;
-    }
-    printf("ahcid: did not find Sun Microsystems ICH10 Family controller\n");
+        r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
+                PCI_SUB_SATA, PCI_DONT_CARE,
+                PCI_VENDOR_INTEL,
+                PCI_DEVICE_ICH10_82801JI /* 82801JI (ICH10 Family) AHCI Controller */,
+                PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
+                ahci_interrupt_handler, NULL);
+        if (err_is_ok(r)) {
+            printf("ahcid: found Sun Microsystems ICH10 Family controller\n");
+            goto finish;
+        }
+        printf("ahcid: did not find Sun Microsystems ICH10 Family controller\n");
 
-    r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
-            PCI_SUB_SATA, PCI_DONT_CARE,
-            PCI_VENDOR_ATI,
-            PCI_DEVICE_SB7x0 /* ATI SB7x0/SB8x0/SB9x0 SATA controller (IDE mode) */,
-            PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
-            ahci_interrupt_handler, NULL);
-    if (err_is_ok(r)) {
-        printf("ahcid: found ATI Technologies Inc. SB7x0/8x0/9x0 controller\n");
-        goto finish;
+        r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
+                PCI_SUB_SATA, PCI_DONT_CARE,
+                PCI_VENDOR_ATI,
+                PCI_DEVICE_SB7x0 /* ATI SB7x0/SB8x0/SB9x0 SATA controller (IDE mode) */,
+                PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
+                ahci_interrupt_handler, NULL);
+        if (err_is_ok(r)) {
+            printf("ahcid: found ATI Technologies Inc. SB7x0/8x0/9x0 controller\n");
+            goto finish;
+        }
+        printf("ahcid: did not find ATI Technologies Inc. SB7x0/8x0/9x0 controller\n");
+        printf("ahcid: \ndid not find any supported AHCI controller\naborting...");
+        return 1;
     }
-    printf("ahcid: did not find ATI Technologies Inc. SB7x0/8x0/9x0 controller\n");
-    printf("ahcid: \ndid not find any supported AHCI controller\naborting...");
-    return 1;
 
 finish:
     AHCID_DEBUG("registered driver: retval=%d\n", r);

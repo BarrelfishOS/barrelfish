@@ -27,9 +27,35 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    err = spawn_program(where, mi->path, mi->argv + 1, environ, 0, &mi->did);
+    // construct additional command line arguments containing pci-id
+    // we need one extra entry for the new argument, but discard the binary
+    // name for some reason
+    uint64_t vendor_id, device_id;
+    char **argv = mi->argv;
+    bool cleanup = false;
+    err = oct_read(record, "_ { vendor: %d, device_id: %d }",
+            &vendor_id, &device_id);
+    if (err_is_ok(err)) {
+        // we assume that we're starting a device if the query above succeeds
+        // and therefore append the pci vendor and device id to the argument
+        // list.
+        argv = malloc((mi->argc+1) * sizeof(char *));
+        memcpy(argv, mi->argv, mi->argc * sizeof(char *));
+        char *pci_id  = malloc(10);
+        snprintf(pci_id, 10, "%04"PRIx64":%04"PRIx64, vendor_id, device_id);
+        printf("pci-id arg: %s\n", pci_id);
+        argv[mi->argc] = pci_id;
+        mi->argc += 1;
+        cleanup = true;
+    }
+    err = spawn_program(where, mi->path, argv,
+            environ, 0, &mi->did);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
+    }
+    if (cleanup) {
+        free(argv[0]);
+        free(argv);
     }
 
     return err;
