@@ -11,7 +11,8 @@
 
 #include <dev/pl130_gic_dev.h>
 #include <arm_hal.h>
-
+#include <gic.h>
+ 
 extern pl130_gic_t gic;
 extern uint32_t it_num_lines;
 
@@ -29,16 +30,6 @@ void  __attribute__((noreturn)) gic_disable_all_irqs(void)
     /*     pl130_gic_SPI_ICDICER_wr(&gic, i, (uint32_t)0xffffffff); */
     /* } */
 }
-
-
-// Helpers for enabling interrupts
-#define GIC_IRQ_PRIO_LOWEST       (0xF)
-#define GIC_IRQ_CPU_TRG_ALL       (0x3) // For two cores on the PandaBoard
-#define GIC_IRQ_CPU_TRG_BSP       (0x1)
-#define GIC_IRQ_EDGE_TRIGGERED    (0x1)
-#define GIC_IRQ_LEVEL_SENSITIVE   (0x0)
-#define GIC_IRQ_1_TO_N            (0x1)
-#define GIC_IRQ_N_TO_N            (0x0)
 
 /*
  * \brief Enable an interrupt

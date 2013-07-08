@@ -366,7 +366,7 @@ let
                          "omap/omap44xx_id", 
                          "omap/omap44xx_emif",
                          "omap/omap44xx_gpio"],
-     addLibraries = [ "elf", "cpio", "fdif" ]
+     addLibraries = [ "elf", "cpio", "fdif", "mmchs" ]
      }                            
   
   ]

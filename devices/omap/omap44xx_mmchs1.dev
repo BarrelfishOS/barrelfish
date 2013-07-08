@@ -80,10 +80,8 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
     };
 
     constants softreset_status width(1) "" {
-        SOFTRESET_0_w = 0 "No action";
         SOFTRESET_0_r = 0 "Reset done, no pending action";
         SOFTRESET_1_r = 1 "Reset (software or other) ongoing";
-        SOFTRESET_1_w = 1 "Initiate software reset";
     };
     
     register mmchs_hl_sysconfig addr(base, 0x10) "Clock management configuration" {
@@ -122,8 +120,6 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
 
     constants softreset_status1 width(1) "" {
         SOFTRESET_0_r_1 = 0 "Normal mode";
-        SOFTRESET_0_w_1 = 0 "No effect.";
-        SOFTRESET_1_w_1 = 1 "Trigger a module reset.";
         SOFTRESET_1_r_1 = 1 "The module is reset.";
     };
 
@@ -170,100 +166,72 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
 
     constants wakd_status width(1) "" {
         WAKD_0_w = 0 "The pin SWAKEUP is driven low.";
-        WAKD_0_r = 0 "No action. Returns 0.";
         WAKD_1_w = 1 "The pin SWAKEUP is driven high.";
-        WAKD_1_r = 1 "No action. Returns 1.";
     };
 
     constants ssb_status width(1) "" {
         SSB_0_w = 0 "Clear this SSB bit field. Writing 0 does not clear already set status bits;";
-        SSB_0_r = 0 "No action. Returns 0.";
-        SSB_1_r = 1 "No action. Returns 1.";
         SSB_1_w = 1 "Force to 1 all status bits of the interrupt status register () only if the corresponding bit field in the Interrupt signal enable register () is set.";
     };
 
     constants d7d_status width(1) "" {
         D7D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT7 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D7D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT7 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D7D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT7 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
-        D7D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT7 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
     };
 
     constants d6d_status width(1) "" {
         D6D_0_r = 0 "If SYSTEST[DDIR] = 1 (input mode direction), returns the value on the DAT6 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D6D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT6 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D6D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT6 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
-        D6D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT6 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
     };
 
     constants d5d_status width(1) "" {
         D5D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT5 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D5D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT5 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D5D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT5 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
-        D5D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT5 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
     };
 
     constants d4d_status width(1) "" {
-        D4D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT4 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D4D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT4 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D4D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT4 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
         D4D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT4 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
     };
 
     constants d3d_status width(1) "" {
-        D3D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT3 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D3D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT3 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
         D3D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT3 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
-        D3D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT3 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
     };
 
     constants d2d_status width(1) "" {
-        D2D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT2 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D2D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT2 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D2D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT2 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
         D2D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT2 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
     };
 
     constants d1d_status width(1) "" {
         D1D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT1 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D1D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT1 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D1D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT1 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
-        D1D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT1 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
     };
 
     constants d0d_status width(1) "" {
-        D0D_0_w = 0 "If[3] DDIR = 0 (output mode direction), the DAT0 line is driven low. If [3] DDIR = 1 (input mode direction), no effect.";
         D0D_0_r = 0 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT0 line (low). If [3] DDIR = 0 (output mode direction), returns 0";
-        D0D_1_w = 1 "If[3] DDIR = 0 (output mode direction), the DAT0 line is driven high. If [3] DDIR = 1 (input mode direction), no effect.";
         D0D_1_r = 1 "If[3] DDIR = 1 (input mode direction), returns the value on the DAT0 line (high) If [3] DDIR = 0 (output mode direction), returns 1";
     };
 
     constants ddir_status width(1) "" {
         DDIR_0_w = 0 "The DAT lines are outputs (host to card)";
-        DDIR_0_r = 0 "No action. Returns 0.";
-        DDIR_1_r = 1 "No action. Returns 1.";
         DDIR_1_w = 1 "The DAT lines are inputs (card to host)";
     };
 
     constants cdat_status width(1) "" {
-        CDAT_0_w = 0 "If[1] CDIR = 0 (output mode direction), the CMD line is driven low. If [1] CDIR = 1 (input mode direction), no effect.";
         CDAT_0_r = 0 "If[1] CDIR = 1 (input mode direction), returns the value on the CMD line (low). If [1] CDIR = 0 (output mode direction), returns 0";
-        CDAT_1_w = 1 "If[1] CDIR = 0 (output mode direction), the CMD line is driven high. If [1] CDIR = 1 (input mode direction), no effect.";
         CDAT_1_r = 1 "If[1] CDIR = 1 (input mode direction), returns the value on the CMD line (high) If [1] CDIR = 0 (output mode direction), returns 1";
     };
 
     constants cdir_status width(1) "" {
-        CDIR_0_r = 0 "No action. Returns 0.";
         CDIR_0_w = 0 "The CMD line is an output (host to card)";
-        CDIR_1_r = 1 "No action. Returns 1.";
         CDIR_1_w = 1 "The CMD line is an input (card to host)";
     };
 
     constants mckd_status width(1) "" {
-        MCKD_0_r = 0 "No action. Returns 0.";
         MCKD_0_w = 0 "The output clock is driven low.";
         MCKD_1_w = 1 "The output clock is driven high.";
-        MCKD_1_r = 1 "No action. Returns 1.";
     };
     
     register mmchs_systest addr(base, 0x128) "System Test register This register is used to control the signals that connect to I/O pins when the module is configured in system test (SYSTEST) mode for boundary connectivity verification. Note: In SYSTEST mode, a write into register will not start a transfer. The buffer behaves as a stack accessible only by the local host (push and pop operations). In this mode, the Transfer Block Size ([11:0] BLEN) and the Blocks count for current transfer ([31:16] NBLK) are needed to generate a Buffer write ready interrupt ([4] BWR) or a Buffer read ready interrupt ([5] BRR) and DMA requests if enabled." {
@@ -303,10 +271,8 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
     };
 
     constants boot_cf0_status width(1) "" {
-        BOOT_CF0_0_w = 0 "CMD line is released when it was previously forced to 0 by a boot sequence.";
         BOOT_CF0_0_r = 0 "CMD line not forced";
         BOOT_CF0_1_r = 1 "CMD line forced to 0 is enabled";
-        BOOT_CF0_1_w = 1 "CMD line forced to 0 is enabled and will be active after writing into";
     };
 
     constants boot_ack_status width(1) "" {
@@ -820,80 +786,58 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
     };
 
     constants bada_status width(1) "" {
-        BADA_0_w = 0 "Status bit unchanged";
         BADA_0_r = 0 "No Interrupt.";
         BADA_1_r = 1 "Bad Access";
-        BADA_1_w = 1 "Status is cleared";
     };
 
     constants cerr_status width(1) "" {
-        CERR_0_w = 0 "Status bit unchanged";
         CERR_0_r = 0 "No Error";
-        CERR_1_w = 1 "Status is cleared";
         CERR_1_r = 1 "Card error";
     };
 
     constants admae_status width(1) "" {
-        ADMAE_0_w = 0 "Status bit unchanged";
         ADMAE_0_r = 0 "No Interrupt.";
-        ADMAE_1_w = 1 "Status is cleared";
         ADMAE_1_r = 1 "ADMA error";
     };
 
     constants ace_status width(1) "" {
-        ACE_0_w = 0 "Status bit unchanged";
         ACE_0_r = 0 "No Error.";
         ACE_1_r = 1 "AutoCMD12 error";
-        ACE_1_w = 1 "Status is cleared";
     };
 
     constants deb_status width(1) "" {
         DEB_0_r = 0 "No Error";
-        DEB_0_w = 0 "Status bit unchanged";
-        DEB_1_w = 1 "Status is cleared";
         DEB_1_r = 1 "Data end bit error";
     };
 
     constants dcrc_status width(1) "" {
         DCRC_0_r = 0 "No Error.";
-        DCRC_0_w = 0 "Status bit unchanged";
         DCRC_1_r = 1 "Data CRC error";
-        DCRC_1_w = 1 "Status is cleared";
     };
 
     constants dto_status1 width(1) "" {
         DTO_0_r = 0 "No error.";
-        DTO_0_w = 0 "Status bit unchanged";
-        DTO_1_w = 1 "Status is cleared";
         DTO_1_r = 1 "Time out";
     };
 
     constants cie_status width(1) "" {
         CIE_0_r = 0 "No error.";
-        CIE_0_w = 0 "Status bit unchanged";
         CIE_1_r = 1 "Command index error";
-        CIE_1_w = 1 "Status is cleared";
     };
 
     constants ceb_status width(1) "" {
-        CEB_0_w = 0 "Status bit unchanged";
         CEB_0_r = 0 "No error.";
         CEB_1_r = 1 "Command end bit error";
-        CEB_1_w = 1 "Status is cleared";
     };
 
     constants ccrc_status width(1) "" {
         CCRC_0_r = 0 "No Error.";
-        CCRC_0_w = 0 "Status bit unchanged";
-        CCRC_1_w = 1 "Status is cleared";
         CCRC_1_r = 1 "Command CRC error";
     };
 
     constants cto_status width(1) "" {
-        CTO_0_w = 0 "Status bit unchanged";
         CTO_0_r = 0 "No error";
         CTO_1_r = 1 "Time Out";
-        CTO_1_w = 1 "Status is cleared";
     };
 
     constants erri_status width(1) "" {
@@ -902,17 +846,13 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
     };
 
     constants bsr_status width(1) "" {
-        BSR_0_w = 0 "Status bit unchanged";
         BSR_0_r = 0 "No Interrupt.";
-        BSR_1_w = 1 "Status is cleared";
         BSR_1_r = 1 "Boot status received interrupt.";
     };
 
     constants obi_status width(1) "" {
         OBI_0_r_1 = 0 "No Out-Of-Band interrupt.";
-        OBI_0_w = 0 "Status bit unchanged";
         OBI_1_r_1 = 1 "Interrupt Out-Of-Band occurs";
-        OBI_1_w = 1 "Status is cleared";
     };
 
     constants cirq_status width(1) "" {
@@ -921,58 +861,42 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
     };
 
     constants crem_status width(1) "" {
-        CREM_0_w = 0 "Status bit unchanged";
         CREM_0_r = 0 "Card state stable or Debouncing";
         CREM_1_r = 1 "Card removed";
-        CREM_1_w = 1 "Status is cleared";
     };
 
     constants cins_status1 width(1) "" {
         CINS_0_r_1 = 0 "Card state stable or debouncing";
-        CINS_0_w = 0 "Status bit unchanged";
-        CINS_1_w = 1 "Status is cleared";
         CINS_1_r_1 = 1 "Card inserted";
     };
 
     constants brr_status width(1) "" {
         BRR_0_r = 0 "Not Ready to read buffer";
-        BRR_0_w = 0 "Status bit unchanged";
         BRR_1_r = 1 "Ready to read buffer";
-        BRR_1_w = 1 "Status is cleared";
     };
 
     constants bwr_status width(1) "" {
-        BWR_0_w = 0 "Status bit unchanged";
         BWR_0_r = 0 "Not Ready to write buffer";
         BWR_1_r = 1 "Ready to write buffer";
-        BWR_1_w = 1 "Status is cleared";
     };
 
     constants dma_status width(1) "" {
         DMA_0_r = 0 "Dma interrupt detected";
-        DMA_0_w = 0 "Status bit unchanged";
-        DMA_1_w = 1 "Status is cleared";
         DMA_1_r = 1 "No dma interrupt";
     };
 
     constants bge_status width(1) "" {
         BGE_0_r = 0 "No block gap event";
-        BGE_0_w = 0 "Status bit unchanged";
-        BGE_1_w = 1 "Status is cleared";
         BGE_1_r = 1 "Transaction stopped at block gap";
     };
 
     constants tc_status width(1) "" {
-        TC_0_w = 0 "Status bit unchanged";
         TC_0_r = 0 "No transfer complete";
-        TC_1_w = 1 "Status is cleared";
         TC_1_r = 1 "Data transfer complete";
     };
 
     constants cc_status width(1) "" {
-        CC_0_w = 0 "Status bit unchanged";
         CC_0_r = 0 "No Command complete";
-        CC_1_w = 1 "Status is cleared";
         CC_1_r = 1 "Command complete";
     };
     
@@ -1123,23 +1047,17 @@ device omap44xx_mmchs1 msbfirst ( addr base ) "" {
     };
 
     constants vs18_status width(1) "" {
-        VS18_0_w = 0 "1.8 V not supported";
         VS18_0_r = 0 "1.8 V not supported";
         VS18_1_r = 1 "1.8 V supported";
-        VS18_1_w = 1 "1.8 V supported";
     };
 
     constants vs30_status width(1) "" {
         VS30_0_r = 0 "3.0 V not supported";
-        VS30_0_w = 0 "3.0 V not supported";
-        VS30_1_w = 1 "3.0 V supported";
         VS30_1_r = 1 "3.0 V supported";
     };
 
     constants vs33_status width(1) "" {
         VS33_0_r = 0 "3.3 V not supported";
-        VS33_0_w = 0 "3.3 V not supported";
-        VS33_1_w = 1 "3.3 V supported";
         VS33_1_r = 1 "3.3 V supported";
     };
 
