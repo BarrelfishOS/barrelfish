@@ -690,6 +690,10 @@ errors trace TRACE_ERR_ {
     failure KERNEL_INVOKE       "Failed to set up tracing in kernel",
 };
 
+errors driverkit DRIVERKIT_ {
+    failure NO_CAP_FOUND       "No capability to map this address range.",
+};
+
 // errors in PCI/device handling
 errors pci PCI_ERR_ {
     failure IOAPIC_INIT         "Failed in ioapic_init()",

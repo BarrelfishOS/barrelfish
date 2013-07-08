@@ -1,7 +1,17 @@
+/*
+ * Copyright (c) 2013, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <barrelfish/barrelfish.h>
+#include <driverkit/driverkit.h>
 
 #include <dev/omap/omap44xx_cam_prm_dev.h>
 #include <dev/omap/omap44xx_cam_cm2_dev.h>
@@ -114,7 +124,7 @@ static void manage_power(void)
 }
 
 int main(void) {
-    init_memory_manager();
+    //init_memory_manager();
 
     manage_clocks();
     manage_power();
@@ -193,6 +203,7 @@ int main(void) {
 
     omap44xx_fdif_fd_ctrl_run_wrf(&devfdif, 0x1);
 
+    printf("%s:%d: Waiting until fdif is done...\n", __FUNCTION__, __LINE__);
     while(omap44xx_fdif_fd_ctrl_finish_rdf(&devfdif) != 0x1);
 
     printf("Face detection completed:\n");
