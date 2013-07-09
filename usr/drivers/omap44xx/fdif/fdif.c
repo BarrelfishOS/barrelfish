@@ -21,6 +21,13 @@
 
 #include "fdif.h"
 
+/*
+ * Driver for face detection on OMAP 4460.
+ *
+ * based on: OMAP TRM (OMAP4460 Multimedia Device Silicon Revision 1.x, 
+ *               Version X, Technial Reference Manual)
+ */
+
 #define PRINT_BUFFER_SIZE (1024*1024)
 static char printbuf[PRINT_BUFFER_SIZE];
 
@@ -123,7 +130,63 @@ static void manage_power(void)
 
 }
 
-int main(void) {
+
+/*
+ * \brief Enable in poll-based mode
+ *
+ * See OMAP TRM 9.4.1.2.1.1 Main Sequence – FDIF Polling Method
+ */
+static void enable_poll_mode(void)
+{
+    omap44xx_fdif_fd_ctrl_run_wrf(&devfdif, 0x1);
+
+    printf("%s:%d: Waiting until fdif is done...\n", __FUNCTION__, __LINE__);
+    while(omap44xx_fdif_fd_ctrl_finish_rdf(&devfdif) != 0x1);
+}
+
+/*
+ * \brief Enable in interrupt-based mode
+ *
+ * See OMAP TRM 9.4.1.2.1.2 Main Sequence – FDIF Interrupt Method
+ */
+static void enable_irq_mode(void)
+{
+    printf("fdif: enabling irq-based mode\n");
+    
+    // XXX fill me
+}
+
+/*
+ * \brief Set image parameters
+ *
+ * See OMAP TRM 9.4.1.2.1.3 Subsequence – Set Image Parameters
+ */
+static void set_image_params(genpaddr_t picaddr, genpaddr_t wkaddr)
+{
+    // make sure 5 least significant bits are 0!
+
+    omap44xx_fdif_fdif_picaddr_wr(&devfdif, picaddr);
+    omap44xx_fdif_fdif_wkaddr_wr(&devfdif, wkaddr); 
+    
+    omap44xx_fdif_fd_dcond_min_wrf(&devfdif, 0x0); // 40 pixel
+    omap44xx_fdif_fd_dcond_dir_wrf(&devfdif, 0x0); // up?
+
+    omap44xx_fdif_fd_startx_startx_wrf(&devfdif, 0x0);
+    omap44xx_fdif_fd_starty_starty_wrf(&devfdif, 0x0);
+
+    omap44xx_fdif_fd_sizex_sizex_wrf(&devfdif, 0x140); // TODO
+    omap44xx_fdif_fd_sizey_sizey_wrf(&devfdif, 0xf0); // TODO
+    omap44xx_fdif_fd_lhit_lhit_wrf(&devfdif, 0x5);
+}
+
+/*
+ * \brief Face detection on OMAP4460
+ *
+ * We support poll-based mode as well as interrupt-based mode. The
+ * default setting is to use polling for its simplicity. If interrups is
+ * given as command line argument, interrupts will be used instead.
+ */
+int main(int argc, char **argv) {
     //init_memory_manager();
 
     manage_clocks();
@@ -161,15 +224,18 @@ int main(void) {
     assert(err_is_ok(err));
     assert(retbytes >= working_size);
 
-    err = vspace_map_one_frame((void**)&image, img_size, img_cap,
-                              NULL, NULL);
+    // Map space for image (as non-cacheable)
+    err = vspace_map_one_frame_attr((void**)&image, img_size, img_cap,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE, 
+                                    NULL, NULL);
     assert(err_is_ok(err));
     err = vspace_map_one_frame(&workarea, working_size, workarea_cap,
                               NULL, NULL);
     assert(err_is_ok(err));
 
     printf("Set up the image ...\n");
-    printf("RGB image type: width:%d height:%d bytes/pixel:%d\n", lena_image.width, lena_image.height, lena_image.bytes_per_pixel);
+    printf("RGB image type: width:%d height:%d bytes/pixel:%d\n", 
+           lena_image.width, lena_image.height, lena_image.bytes_per_pixel);
     printf("Convert to grayscale, store in image buffer...\n");
 
     for (int i=0; i<lena_image.width*lena_image.height; i+=1) {
@@ -182,29 +248,27 @@ int main(void) {
     // Does this do cache to mem writeback?
     //cp15_invalidate_tlb();
     //cp15_invalidate_i_and_d_caches();
+
     struct frame_identity ret;
     err = invoke_frame_identify(img_cap, &ret);
     assert (err_is_ok(err));
-    omap44xx_fdif_fdif_picaddr_wr(&devfdif, ret.base); // make sure 5 least significant bits are 0!
 
-    err = invoke_frame_identify(workarea_cap, &ret);
+    struct frame_identity wkret;
+    err = invoke_frame_identify(workarea_cap, &wkret);
     assert (err_is_ok(err));
-    omap44xx_fdif_fdif_wkaddr_wr(&devfdif, ret.base); // make sure 5 least significant bits are 0!
     
-    omap44xx_fdif_fd_dcond_min_wrf(&devfdif, 0x0); // 40 pixel
-    omap44xx_fdif_fd_dcond_dir_wrf(&devfdif, 0x0); // up?
+    set_image_params(ret.base, wkret.base);
 
-    omap44xx_fdif_fd_startx_startx_wrf(&devfdif, 0x0);
-    omap44xx_fdif_fd_starty_starty_wrf(&devfdif, 0x0);
+    if (argc>2) {
 
-    omap44xx_fdif_fd_sizex_sizex_wrf(&devfdif, 0x140); // TODO
-    omap44xx_fdif_fd_sizey_sizey_wrf(&devfdif, 0xf0); // TODO
-    omap44xx_fdif_fd_lhit_lhit_wrf(&devfdif, 0x5);
+        // Interrupt based mode
+        enable_irq_mode();
 
-    omap44xx_fdif_fd_ctrl_run_wrf(&devfdif, 0x1);
+    } else {
 
-    printf("%s:%d: Waiting until fdif is done...\n", __FUNCTION__, __LINE__);
-    while(omap44xx_fdif_fd_ctrl_finish_rdf(&devfdif) != 0x1);
+        // Poll based mode
+        enable_poll_mode();
+    }
 
     printf("Face detection completed:\n");
     printf("Read the results...\n");
