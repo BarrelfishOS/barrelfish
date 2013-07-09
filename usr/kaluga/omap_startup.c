@@ -135,7 +135,7 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
     }
     free(name);
 
-    walk_cspace(dev_cnode, 0);
+    //walk_cspace(dev_cnode, 0);
 
     printf("%s:%d: dev_cnode.address=0x%x\n", __FUNCTION__, __LINE__, dev_cnode.address);
     printf("%s:%d: build_cnoderef(dev_cnode_cap).address=0x%x\n", __FUNCTION__, __LINE__, build_cnoderef(dev_cnode_cap, PAGE_CNODE_BITS).address);

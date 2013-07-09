@@ -41,7 +41,7 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
         .cnode = build_cnoderef(argcn, bits),
         .slot = 0
     };
-    walk_cspace(build_cnoderef(argcn, bits), 0);
+    //walk_cspace(build_cnoderef(argcn, bits), 0);
 
 
     for (size_t i = 0; i<12; i++) {
