@@ -196,17 +196,11 @@ static void enable_irq_mode(void)
 {
     errval_t err;
 
-    printf("fdif: enabling irq-based mode\n");
-
-    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 0, 1);
-    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 1, 1);
     omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 2, 1);
-    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 3, 1);
 
-    // Register interrupt handler to kernel
-    printf("Enabling interrupts .. \n");
+    // Register interrupt handler in kernel
     err = inthandler_setup_arm(irq_handler, NULL, FDIF_IRQ);
-    printf("    .. done!\n");
+    assert(err_is_ok(err));
 
     omap44xx_fdif_fd_ctrl_run_wrf(&devfdif, 0x1);
 
@@ -313,18 +307,18 @@ int main(int argc, char **argv) {
     
     set_image_params(ret.base, wkret.base);
 
-    /* if (argc>2 || err_is_ok(err)) { // always true */
+    if (argc>2) { // always true
 
-    /*     // Interrupt based mode */
+        // Interrupt based mode
+        printf("fdif: enabling irq-based mode\n");
         enable_irq_mode();
 
-    /* } else { */
+    } else {
 
-    /*     // Poll based mode */
-    /*     enable_poll_mode(); */
-    /* } */
-
-    read_result();
+        // Poll based mode
+        printf("fdif: enabling poll-based mode\n");
+        enable_poll_mode();
+    }
 
     return 0;
 }
