@@ -15,17 +15,13 @@
 #include <barrelfish/inthandler.h>
 #include <driverkit/driverkit.h>
 
+#include "fdif.h"
+
 #include <dev/omap/omap44xx_cam_prm_dev.h>
 #include <dev/omap/omap44xx_cam_cm2_dev.h>
 #include <dev/omap/omap44xx_fdif_dev.h>
 #include <dev/omap/omap44xx_sr_mpu_dev.h>
 #include <dev/omap/omap44xx_device_prm_dev.h>
-
-#include "fdif.h"
-
-// XXX Temporarily disable annoying warnings about unused functions!!
-#pragma GCC diagnostic ignored "-Wunused-function" 
-#pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
 
 #define FDIF_IRQ (32+69) 
 
@@ -62,7 +58,7 @@ static void manage_clocks(void)
     errval_t err;
     err = map_device_register(0x4A009000, 4096, &vbase);
     assert(err_is_ok(err));
-    FDIF_DEBUG("vbase points to %p\n", vbase);
+    FDIF_DEBUG("vbase points to %p\n", (void*) vbase);
 
     omap44xx_cam_cm2_initialize(&devclk, (mackerel_addr_t)vbase);
     //omap44xx_cam_cm2_pm_cam_pwrstctrl_powerstate_wrf(&dev, omap44xx_cam_prm_POWERSTATE_2);

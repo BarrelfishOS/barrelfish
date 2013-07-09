@@ -10,7 +10,8 @@
 #ifndef FDIF_H_
 #define FDIF_H_
 
-#include <barrelfish/barrelfish.h>
+#include <stdio.h>
+#include <barrelfish/types.h>
 
 void play_with_fdif(void);
 
