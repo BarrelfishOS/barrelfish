@@ -41,7 +41,7 @@ int         mmchs_init_and_ident_card(void);
 
 static void mmchs_change_clock_frequency(int clkdiv);
 static int  mmchs_finalize_cmd(void);
-void mmchs_handle_irq(void);
+void mmchs_handle_irq(void *args);
 void mmchs_init(void);
 
 // MMC1 interrupt, two lines

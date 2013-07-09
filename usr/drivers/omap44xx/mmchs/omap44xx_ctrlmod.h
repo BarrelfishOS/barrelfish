@@ -22,6 +22,6 @@ void ctrlmod_init(void);
 // turn on sdmmc1 power
 void sdmmc1_enable_power(void);
 
-void pbias_handle_irq(void);
+void pbias_handle_irq(void *args);
 
 #endif /* __ARM_CTRLMOD_H__ */

@@ -8,6 +8,8 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/inthandler.h>
+
 #include <driverkit/driverkit.h>
 
 #include "omap44xx_mmchs.h"
@@ -843,12 +845,8 @@ void mmchs_init(void)
     printf("\nmmchs: entered init().\n");
 
     // Enable interrupts
-    // TODO(gz): REENABLE INTERRUPT IN USER SPACE
-    //gic_enable_interrupt(MMC1_IRQ,
-    //                     GIC_IRQ_CPU_TRG_BSP,
-    //                     0,//                         GIC_IRQ_PRIO_LOWEST,
-    //                     GIC_IRQ_LEVEL_SENSITIVE,
-    //                     GIC_IRQ_1_TO_N);
+    err = inthandler_setup_arm(mmchs_handle_irq, NULL, MMC1_IRQ);
+    assert(err_is_ok(err));
 
     // Configure Pad multiplexing
     // Does not change anything ctrlmod_init();
@@ -915,7 +913,7 @@ void mmchs_init(void)
  *
  * See TRM 24.4.4.1, page 5092
  */
-void mmchs_handle_irq(void)
+void mmchs_handle_irq(void *args)
 {
     printf("mmchs: got interrupt\n");
 
@@ -1000,16 +998,8 @@ void mmchs_handle_irq(void)
 
     // Unset STAT bits
     sdhc_stat_wr(&sdhc, ~0x0);
-
-    // Acknowledge interrupt
-    // TODO(gz): ACK INTERRUPT IN USER SPACE?
-    //gic_ack_irq(0x73);
-
-    // Activate interrupts again .. 
-    //__asm volatile ("CPSIE aif");
-
-    // Never return ..
-    // XXX
+    
+    printf("%s:%d: Never return ..\n", __FUNCTION__, __LINE__);
     while (1) ;
 }
 

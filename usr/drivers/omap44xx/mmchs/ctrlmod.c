@@ -8,6 +8,9 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/inthandler.h>
+#include <barrelfish/waitset.h>
+
 #include <driverkit/driverkit.h>
 
 #include <arm_hal.h>
@@ -72,13 +75,9 @@ void sdmmc1_enable_power(void)
     //  1. turn of hiz mode
     omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_HIZ_MODE_wrf(&ctrlmod, 0x0);
     
-    // TODO(gz): REENABLE ONCE WE HAVE INTERRUPTS
     //  2. setup PBIAS_IRQ (MA_IRQ_75)
-    //gic_enable_interrupt(PBIAS_IRQ,
-    //                     GIC_IRQ_CPU_TRG_BSP,
-    //                     0,//                         PIC_IRQ_PRIO_LOWEST,
-    //                     GIC_IRQ_LEVEL_SENSITIVE,
-    //                     GIC_IRQ_1_TO_N);
+    errval_t err = inthandler_setup_arm(pbias_handle_irq, NULL, PBIAS_IRQ);
+    assert(err_is_ok(err));
 
     //  3. pad multiplexing -- looks ok when dumping pad registers, so I'm
     //  not doing anything right now -SG
@@ -93,7 +92,7 @@ void sdmmc1_enable_power(void)
     // controller TODO? -- assuming 3.0V for now, manual says reset value is
     // 3.0V -SG
     // controller (3.0V)
-    errval_t err = ti_twl6030_set_vmmc_vsel(3000);
+    err = ti_twl6030_set_vmmc_vsel(3000);
     assert(err_is_ok(err));
 
     // Step 4: Set VMODE bit according to Step 3 (0x1 == 3.0V)
@@ -118,7 +117,9 @@ void sdmmc1_enable_power(void)
 
     // Wait for Interrupt
     printf("Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
-    while(!pbias_got_irq) { }
+    while(!pbias_got_irq) {
+        event_dispatch(get_default_waitset());
+    }
 
     printf("%s: Step 8\n", __FUNCTION__);
 
@@ -141,12 +142,10 @@ void sdmmc1_enable_power(void)
     }
 
     // Step 12: clear PBIAS IRQ
-    // TODO(gz): ACK INTERRUPT IN USPACE?
-    //gic_ack_irq(PBIAS_IRQ);
     pbias_got_irq = 0;
 }
 
-void pbias_handle_irq(void)
+void pbias_handle_irq(void *args)
 {
     printf("got pbias interrupt");
 
