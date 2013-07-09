@@ -27,6 +27,7 @@
                     addIncludes = [
                         "../../../../kernel/include/",
                         "../../../../kernel/include/arch/armv7/"
-                    ]
+                    ],
+                    architectures = ["armv7"]
                   }
 ]

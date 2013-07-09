@@ -78,7 +78,7 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
     // put them all in a single cnode
     for (size_t i=0; fdif.registers[i][0] != 0x0; i++) {
         struct capref device_frame;
-        printf("%s:%d: mapping 0x%x %u\n", __FUNCTION__, __LINE__, 
+        printf("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__, 
                fdif.registers[i][0], fdif.registers[i][1]);
         err = get_device_cap(fdif.registers[i][0], fdif.registers[i][1], &device_frame);
         assert(err_is_ok(err));

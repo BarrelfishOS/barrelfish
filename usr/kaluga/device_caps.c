@@ -24,7 +24,7 @@ static struct mm register_manager;
  **/
 errval_t get_device_cap(lpaddr_t address, size_t size, struct capref* devframe) 
 {
-    KALUGA_DEBUG("map_device_register: %"PRIxLPADDR" %zu %zu\n", address, size, log2ceil(size));
+    KALUGA_DEBUG("map_device_register: %"PRIxLPADDR" %zu %u\n", address, size, log2ceil(size));
 
     struct allocated_range {
         struct capref cr;
