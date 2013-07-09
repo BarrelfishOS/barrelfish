@@ -47,7 +47,7 @@ void mmchs_init(void);
 // MMC1 interrupt, two lines
 //    (MM_IRQ_50 for Cortex-M3 INTC)
 //     MA_IRQ_83 for Cortex-A9 INTC
-// see Free BSD sys/arch/arm/ti/omap4/omap4_reg.h
+// see Free BSD sys/arm/ti/omap4/omap4_reg.h
 #define MMC1_IRQ (32+83) 
 
 #endif /* __ARM_MMCHS_H__ */
