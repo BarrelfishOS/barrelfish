@@ -139,8 +139,15 @@ int main(int argc, char** argv)
     assert(err_is_ok(err));
 
     struct module_info* mi = find_module("fdif");
-    err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
-    assert(err_is_ok(err));
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
+        assert(err_is_ok(err));
+    }
+    mi = find_module("mmchs");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        assert(err_is_ok(err));
+    }
 #endif
 
     THCFinish();
