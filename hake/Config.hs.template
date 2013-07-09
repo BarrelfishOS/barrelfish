@@ -15,6 +15,7 @@ module Config where
 import HakeTypes
 import Data.Char
 import qualified Args
+import Data.List
 
 -- path to source and install directories; these are automatically set by hake.sh at setup time 
 source_dir :: String
@@ -177,7 +178,8 @@ memserv_percore = False
 
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
-lazy_thc = True
+lazy_thc | elem "armv7" architectures  = False
+         | otherwise                   = True
 
 -- Select remote cap database implementation
 data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
