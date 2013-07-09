@@ -11,6 +11,8 @@
 #include <stdlib.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/waitset.h>
+#include <barrelfish/inthandler.h>
 #include <driverkit/driverkit.h>
 
 #include <dev/omap/omap44xx_cam_prm_dev.h>
@@ -20,6 +22,12 @@
 #include <dev/omap/omap44xx_device_prm_dev.h>
 
 #include "fdif.h"
+
+// XXX Temporarily disable annoying warnings about unused functions!!
+#pragma GCC diagnostic ignored "-Wunused-function" 
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
+
+#define FDIF_IRQ (32+69) 
 
 /*
  * Driver for face detection on OMAP 4460.
@@ -128,6 +136,41 @@ static void manage_power(void)
 
 }
 
+/*
+ * \brief 
+ *
+ */
+static void read_result(void)
+{
+    printf("Face detection completed:\n");
+    printf("Read the results...\n");
+    
+    int faces = omap44xx_fdif_fd_dnum_dnum_rdf(&devfdif);
+    printf("Faces found: %d\n", faces);
+    //omap44xx_fdif_pr(printbuf, PRINT_BUFFER_SIZE, &devfdif);
+    //printf("%s\n", printbuf);
+
+    for (int i=0; i<faces; i++) {
+        printf("Face %d:\n", i);
+        int x = omap44xx_fdif_fd_centerx_centerx_rdf(&devfdif, i);
+        int y = omap44xx_fdif_fd_centery_centery_rdf(&devfdif, i);
+        printf("Position (X,Y): %d %d\n", x, y);
+
+        int size = omap44xx_fdif_fd_confsize_size_rdf(&devfdif, i);
+        int confidence = omap44xx_fdif_fd_confsize_conf_rdf(&devfdif, i);
+        int angle = omap44xx_fdif_fd_angle_angle_rdf(&devfdif, i);
+        printf("Size: %d Confidence: %d Angle: %d\n", size, confidence, angle);
+    }
+}
+
+/*
+ * \brief Interrupt handler for "finish" interrupt
+ *
+ */
+static void irq_handler(void *args)
+{
+    read_result();
+}
 
 /*
  * \brief Enable in poll-based mode
@@ -140,6 +183,8 @@ static void enable_poll_mode(void)
 
     printf("%s:%d: Waiting until fdif is done...\n", __FUNCTION__, __LINE__);
     while(omap44xx_fdif_fd_ctrl_finish_rdf(&devfdif) != 0x1);
+
+    read_result();
 }
 
 /*
@@ -149,9 +194,25 @@ static void enable_poll_mode(void)
  */
 static void enable_irq_mode(void)
 {
+    errval_t err;
+
     printf("fdif: enabling irq-based mode\n");
-    
-    // XXX fill me
+
+    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 0, 1);
+    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 1, 1);
+    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 2, 1);
+    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 3, 1);
+
+    // Register interrupt handler to kernel
+    printf("Enabling interrupts .. \n");
+    err = inthandler_setup_arm(irq_handler, NULL, FDIF_IRQ);
+    printf("    .. done!\n");
+
+    omap44xx_fdif_fd_ctrl_run_wrf(&devfdif, 0x1);
+
+    while(1) {
+        event_dispatch(get_default_waitset());
+    }
 }
 
 /*
@@ -197,11 +258,6 @@ int main(int argc, char **argv) {
 
     omap44xx_fdif_fdif_ctrl_max_tags_wrf(&devfdif, 0xA);
 
-    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 0, 1);
-    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 1, 1);
-    omap44xx_fdif_fdif_irqenable_set_finish_irq_wrf(&devfdif, 2, 1);
-
-    printf("Polling Method\n");
     printf("Set Image Parameters\n");
 
     size_t img_size = 320*240*8; // 75 KB
@@ -257,36 +313,18 @@ int main(int argc, char **argv) {
     
     set_image_params(ret.base, wkret.base);
 
-    if (argc>2) {
+    /* if (argc>2 || err_is_ok(err)) { // always true */
 
-        // Interrupt based mode
+    /*     // Interrupt based mode */
         enable_irq_mode();
 
-    } else {
+    /* } else { */
 
-        // Poll based mode
-        enable_poll_mode();
-    }
+    /*     // Poll based mode */
+    /*     enable_poll_mode(); */
+    /* } */
 
-    printf("Face detection completed:\n");
-    printf("Read the results...\n");
-    
-    int faces = omap44xx_fdif_fd_dnum_dnum_rdf(&devfdif);
-    printf("Faces found: %d\n", faces);
-    //omap44xx_fdif_pr(printbuf, PRINT_BUFFER_SIZE, &devfdif);
-    //printf("%s\n", printbuf);
-
-    for (int i=0; i<faces; i++) {
-        printf("Face %d:\n", i);
-        int x = omap44xx_fdif_fd_centerx_centerx_rdf(&devfdif, i);
-        int y = omap44xx_fdif_fd_centery_centery_rdf(&devfdif, i);
-        printf("Position (X,Y): %d %d\n", x, y);
-
-        int size = omap44xx_fdif_fd_confsize_size_rdf(&devfdif, i);
-        int confidence = omap44xx_fdif_fd_confsize_conf_rdf(&devfdif, i);
-        int angle = omap44xx_fdif_fd_angle_angle_rdf(&devfdif, i);
-        printf("Size: %d Confidence: %d Angle: %d\n", size, confidence, angle);
-    }
+    read_result();
 
     return 0;
 }
