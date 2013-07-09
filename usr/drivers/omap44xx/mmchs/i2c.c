@@ -7,14 +7,12 @@
  * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
  */
 
-#include <kernel.h>
-#include <paging_kernel_arch.h>
+#include <barrelfish/barrelfish.h>
+#include <driverkit/driverkit.h>
 
-#include <arm_hal.h>
-
-#include <omap44xx_cm2.h> // for turning on I2C clocks
-#include <ti_i2c.h>
-#include <ti_i2c_dev.h>
+#include "omap44xx_cm2.h" // for turning on I2C clocks
+#include "ti_i2c.h"
+#include <dev/ti_i2c_dev.h>
 
 #pragma GCC diagnostic ignored "-Wunused-variable" 
 
@@ -37,14 +35,25 @@ static lpaddr_t i2c_pbase[I2C_COUNT] =
 #define PBS (10*1024)
 static char prbuf[PBS];
 
+static int tsc_get_hz(void) {
+    return 0x100000;
+}
+
+static int tsc_read(void) {
+    static int count = 0;
+    return count++;
+}
+
 /*
  * \brief initialize I2C controller `i`.
  */
 void ti_i2c_init(int i) 
 {
     // map & initialize mackerel device
-    mackerel_addr_t i2c_vbase = omap_dev_map(i2c_pbase[i]);
-    ti_i2c_initialize(&i2c[i], i2c_vbase);
+    lvaddr_t i2c_vbase;
+    errval_t err = map_device_register(i2c_pbase[i], 0x1000, &i2c_vbase);
+    assert(err_is_ok(err));
+    ti_i2c_initialize(&i2c[i], (mackerel_addr_t)i2c_vbase);
 
     ti_i2c_t *dev = &i2c[i];
 

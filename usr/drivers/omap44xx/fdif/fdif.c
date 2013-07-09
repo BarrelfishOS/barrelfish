@@ -44,14 +44,13 @@ extern struct gimage lena_image;
 //void cp15_invalidate_tlb(void);
 //void cp15_invalidate_i_and_d_caches(void);
 
-static lpaddr_t* vbase_glbl;
 
 static void manage_clocks(void)
 {
     printf("Enable the clocks in domain CD_CAM\n");
 
     // Clock domain CAM
-    lvaddr_t* vbase;
+    lvaddr_t vbase;
     errval_t err;
     err = map_device_register(0x4A009000, 4096, &vbase);
     assert(err_is_ok(err));
@@ -82,10 +81,9 @@ static void manage_clocks(void)
     //omap44xx_sr_mpu_srstatus_pr(printbuf, PRINT_BUFFER_SIZE-1, &devvolt);
     //printf("%s\n", printbuf);
 
-    err = map_device_register(0x4A307000, 4096, &vbase_glbl);
+    err = map_device_register(0x4A307B00, 4096, &vbase);
     assert(err_is_ok(err));
-    lpaddr_t offset = (0x4A307B00 & 0xFFF);
-    omap44xx_device_prm_initialize(&devprm, (mackerel_addr_t)vbase_glbl+offset);
+    omap44xx_device_prm_initialize(&devprm, (mackerel_addr_t)vbase);
     //omap44xx_device_prm_pr(printbuf, PRINT_BUFFER_SIZE, &devprm);
     //printf("%s\n", printbuf);
 
@@ -98,7 +96,7 @@ static void manage_power(void)
     printf("Power-on the PD_CAM domain for fdif\n");
 
     // Power domain CAM
-    lvaddr_t* vbase;
+    lvaddr_t vbase;
     errval_t err;
     err = map_device_register(0x4A307000, 4096, &vbase);
     assert(err_is_ok(err));

@@ -7,14 +7,14 @@
  * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
  */
 
-#include <kernel.h>
-#include <paging_kernel_arch.h>
+#include <barrelfish/barrelfish.h>
+#include <driverkit/driverkit.h>
 
 #include <arm_hal.h>
 #include <gic.h>
-#include <ti_twl6030.h>
 
-#include <omap44xx_ctrlmod.h>
+#include "ti_twl6030.h"
+#include "omap44xx_ctrlmod.h"
 
 #define SYSCTRL_GENERAL_CORE 0x4a002000u
 #define SYSCTRL_GENERAL_WKUP 0x4a30c000u
@@ -40,8 +40,10 @@ void ctrlmod_init(void)
 
     // Map
     for (int i=0; i<4; i++) {
-        vaddr[i] = paging_map_device(addr[i], ARM_L1_SECTION_BYTES);
-        vaddr[i]  += (addr[i] & ARM_L1_SECTION_MASK);
+         errval_t err = map_device_register(addr[i], 0x1000, &vaddr[i]);
+         if (err_is_fail(err)) {
+             USER_PANIC_ERR(err, "Can not map device register");
+         }
     }
 
     // Initialize Mackerel
@@ -69,12 +71,15 @@ void sdmmc1_enable_power(void)
     printf("%s: Step 2\n", __FUNCTION__);
     //  1. turn of hiz mode
     omap44xx_ctrlmod_PBIASLITE_MMC1_PBIASLITE_HIZ_MODE_wrf(&ctrlmod, 0x0);
+    
+    // TODO(gz): REENABLE ONCE WE HAVE INTERRUPTS
     //  2. setup PBIAS_IRQ (MA_IRQ_75)
-    gic_enable_interrupt(PBIAS_IRQ,
-                         GIC_IRQ_CPU_TRG_BSP,
-                         0,//                         PIC_IRQ_PRIO_LOWEST,
-                         GIC_IRQ_LEVEL_SENSITIVE,
-                         GIC_IRQ_1_TO_N);
+    //gic_enable_interrupt(PBIAS_IRQ,
+    //                     GIC_IRQ_CPU_TRG_BSP,
+    //                     0,//                         PIC_IRQ_PRIO_LOWEST,
+    //                     GIC_IRQ_LEVEL_SENSITIVE,
+    //                     GIC_IRQ_1_TO_N);
+
     //  3. pad multiplexing -- looks ok when dumping pad registers, so I'm
     //  not doing anything right now -SG
     //  4. set MMC1 speed control to 26MHz@30pF (0x0) -- alternative 65MHz@30pF (0x1)
@@ -136,7 +141,8 @@ void sdmmc1_enable_power(void)
     }
 
     // Step 12: clear PBIAS IRQ
-    gic_ack_irq(PBIAS_IRQ);
+    // TODO(gz): ACK INTERRUPT IN USPACE?
+    //gic_ack_irq(PBIAS_IRQ);
     pbias_got_irq = 0;
 }
 
@@ -144,11 +150,7 @@ void pbias_handle_irq(void)
 {
     printf("got pbias interrupt");
 
-    // set got-irq flag
-    
+    // set got-irq flag   
     pbias_got_irq = true;
-
-    // Activate interrupts again .. 
-    __asm volatile ("CPSIE aif");
 }
 

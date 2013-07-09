@@ -6,16 +6,15 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
  */
+#include <barrelfish/barrelfish.h>
+#include <driverkit/driverkit.h>
 
-#include <kernel.h>
-#include <paging_kernel_arch.h>
-
-#include <arm_hal.h>
-#include <omap44xx_cm2.h>
-
+#include <arch/arm/omap44xx/device_registers.h>
 #include <dev/omap/omap44xx_l3init_cm2_dev.h>
 #include <dev/omap/omap44xx_ckgen_cm2_dev.h>
 #include <dev/omap/omap44xx_l4per_cm2_dev.h>
+
+#include "omap44xx_cm2.h"
 
 static omap44xx_l3init_cm2_t l3init_cm2;
 static omap44xx_l4per_cm2_t l4per_cm2;
@@ -91,14 +90,20 @@ void cm2_enable_i2c(size_t i2c_index)
 
 void cm2_init(void)
 {
-    mackerel_addr_t l3init_vaddr = omap_dev_map(L3INIT_CM2_PADDR);
-    omap44xx_l3init_cm2_initialize(&l3init_cm2, l3init_vaddr);
+    lvaddr_t l3init_vaddr;
+    errval_t err = map_device_register(OMAP44XX_CM2, 0x1000, &l3init_vaddr);
+    assert(err_is_ok(err));
+    omap44xx_l3init_cm2_initialize(&l3init_cm2, (mackerel_addr_t)l3init_vaddr);
+    
+    lvaddr_t clkgen_vaddr;
+    err = map_device_register(OMAP44XX_CLKGEN_CM2, 0x1000, &clkgen_vaddr);
+    assert(err_is_ok(err));
+    omap44xx_ckgen_cm2_initialize(&clkgen_cm2, (mackerel_addr_t)clkgen_vaddr);
 
-    mackerel_addr_t clkgen_vaddr = omap_dev_map(CLKGEN_CM2_PADDR);
-    omap44xx_ckgen_cm2_initialize(&clkgen_cm2, clkgen_vaddr);
-
-    mackerel_addr_t l4per_vaddr = omap_dev_map(L4PER_CM2_PADDR);
-    omap44xx_l4per_cm2_initialize(&l4per_cm2, l4per_vaddr);
+    lvaddr_t l4per_vaddr;
+    err = map_device_register(OMAP44XX_L4PER_CM2, 0x1000, &l4per_vaddr);
+    assert(err_is_ok(err));
+    omap44xx_l4per_cm2_initialize(&l4per_cm2, (mackerel_addr_t)l4per_vaddr);
 }
 
 int cm2_get_hsmmc1_base_clock(void)

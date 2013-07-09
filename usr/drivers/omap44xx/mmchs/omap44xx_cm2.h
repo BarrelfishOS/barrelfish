@@ -10,12 +10,9 @@
 #ifndef __ARM_CM2_H__
 #define __ARM_CM2_H__
 
+#include <barrelfish/barrelfish.h>
 #include <dev/omap/omap44xx_mmchs_dev.h>
 #include <dev/omap/omap44xx_ctrlmod_dev.h>
-
-#define L3INIT_CM2_PADDR (0x4A009300U)
-#define CLKGEN_CM2_PADDR (0x4A008100)
-#define L4PER_CM2_PADDR (0x4A009400)
 
 // We need this because paging_arm_device returns the address 
 // of the beginning of the section in virtual memory ..

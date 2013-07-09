@@ -11,7 +11,8 @@
 #define DRIVERKIT_H
 
 #include <barrelfish/types.h> 
+#include <errors/errno.h>
 
-errval_t map_device_register(lpaddr_t, size_t, lvaddr_t**);
+errval_t map_device_register(lpaddr_t, size_t, lvaddr_t*);
  
 #endif // DRIVERKIT_H

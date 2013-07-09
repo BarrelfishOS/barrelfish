@@ -23,6 +23,7 @@
                         "omap/omap44xx_ckgen_cm2",
                         "omap/omap44xx_l4per_cm2"
                     ],
+                    addLibraries = ["driverkit"],
                     addCFlags = [ "-DIN_KERNEL" ],
                     addIncludes = [
                         "../../../../kernel/include/",

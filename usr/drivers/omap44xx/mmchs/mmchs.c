@@ -7,15 +7,13 @@
  * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
  */
 
-#include <kernel.h>
-#include <paging_kernel_arch.h>
+#include <barrelfish/barrelfish.h>
+#include <driverkit/driverkit.h>
 
-#include <arm_hal.h>
-
-#include <omap44xx_mmchs.h>
-#include <omap44xx_cm2.h>
-#include <omap44xx_ctrlmod.h>
-#include <ti_twl6030.h>
+#include "omap44xx_mmchs.h"
+#include "omap44xx_cm2.h"
+#include "omap44xx_ctrlmod.h"
+#include "ti_twl6030.h"
 
 #include <dev/omap/omap44xx_mmchs_dev.h>
 #include <dev/sdhc_dev.h>
@@ -833,21 +831,24 @@ void mmchs_init(void)
 {
     cm2_init();
 
-    mackerel_addr_t mmchs_vaddr = omap_dev_map(MMCHS_PADDR);
+    lvaddr_t mmchs_vaddr;
+    errval_t err = map_device_register(MMCHS_BASE, 0x1000, &mmchs_vaddr);
+    assert(err_is_ok(err));
     
     // Initialize devices
-    omap44xx_mmchs_initialize(&mmchs, mmchs_vaddr);
-    sdhc_initialize(&sdhc, mmchs_vaddr + 0x200);
+    omap44xx_mmchs_initialize(&mmchs, (mackerel_addr_t)mmchs_vaddr);
+    sdhc_initialize(&sdhc, (mackerel_addr_t) mmchs_vaddr + 0x200);
     ctrlmod_init();
 
     printf("\nmmchs: entered init().\n");
 
     // Enable interrupts
-    gic_enable_interrupt(MMC1_IRQ,
-                         GIC_IRQ_CPU_TRG_BSP,
-                         0,//                         GIC_IRQ_PRIO_LOWEST,
-                         GIC_IRQ_LEVEL_SENSITIVE,
-                         GIC_IRQ_1_TO_N);
+    // TODO(gz): REENABLE INTERRUPT IN USER SPACE
+    //gic_enable_interrupt(MMC1_IRQ,
+    //                     GIC_IRQ_CPU_TRG_BSP,
+    //                     0,//                         GIC_IRQ_PRIO_LOWEST,
+    //                     GIC_IRQ_LEVEL_SENSITIVE,
+    //                     GIC_IRQ_1_TO_N);
 
     // Configure Pad multiplexing
     // Does not change anything ctrlmod_init();
@@ -1001,12 +1002,20 @@ void mmchs_handle_irq(void)
     sdhc_stat_wr(&sdhc, ~0x0);
 
     // Acknowledge interrupt
-    gic_ack_irq(0x73);
+    // TODO(gz): ACK INTERRUPT IN USER SPACE?
+    //gic_ack_irq(0x73);
 
     // Activate interrupts again .. 
-    __asm volatile ("CPSIE aif");
+    //__asm volatile ("CPSIE aif");
 
     // Never return ..
     // XXX
     while (1) ;
+}
+
+
+int main(int argc, char** argv) 
+{
+    mmchs_init();
+    return 0;
 }

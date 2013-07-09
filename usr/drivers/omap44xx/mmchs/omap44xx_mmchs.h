@@ -10,7 +10,7 @@
 #ifndef __ARM_MMCHS_H__
 #define __ARM_MMCHS_H__
 
-#include <kernel.h>
+#include <barrelfish/types.h>
 
 // Use 3.3 Volt for bus voltage
 // #define MMCHS_VS33 1
@@ -43,8 +43,6 @@ static void mmchs_change_clock_frequency(int clkdiv);
 static int  mmchs_finalize_cmd(void);
 void mmchs_handle_irq(void);
 void mmchs_init(void);
-
-#define MMCHS_PADDR (0x4809C000U)
 
 // MMC1 interrupt, two lines
 //    (MM_IRQ_50 for Cortex-M3 INTC)

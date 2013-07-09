@@ -10,6 +10,7 @@
 #ifndef __ARM_CTRLMOD_H__
 #define __ARM_CTRLMOD_H__
 
+#include <barrelfish/barrelfish.h>
 #include <dev/omap/omap44xx_ctrlmod_dev.h>
 
 // afaict, the power enabling procedure is only possible in a
