@@ -65,7 +65,7 @@
            "omap/omap44xx_gpio",
            "omap/omap44xx_id",
            "omap/omap44xx_usbconf",
-	   "omap/omap44xx_mmu",
+           "omap/omap44xx_mmu",
            "omap/omap44xx_ctrlmod",
            "omap/omap44xx_cam_prm",
            "omap/omap44xx_cam_cm2",
