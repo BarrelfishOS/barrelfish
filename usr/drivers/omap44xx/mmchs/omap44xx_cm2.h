@@ -12,7 +12,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <dev/omap/omap44xx_mmchs_dev.h>
-#include <dev/omap/omap44xx_ctrlmod_dev.h>
+#include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
 
 // We need this because paging_arm_device returns the address 
 // of the beginning of the section in virtual memory ..

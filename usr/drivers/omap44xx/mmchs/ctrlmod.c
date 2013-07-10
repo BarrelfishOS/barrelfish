@@ -20,7 +20,7 @@
 #include "omap44xx_ctrlmod.h"
 
 #define SYSCTRL_PADCONF_CORE 0x4a100000u
-static omap44xx_sysctrl_pandconf_core_t ctrlmod;
+static omap44xx_sysctrl_padconf_core_t ctrlmod;
 
 /*
  * \brief Initialization of control module
@@ -32,7 +32,7 @@ void ctrlmod_init(void)
     assert(err_is_ok(err));
 
     // Initialize Mackerel
-    omap44xx_sysctrl_pandconf_core(&ctrlmod, (mackerel_addr_t) vaddr); 
+    omap44xx_sysctrl_padconf_core_initialize(&ctrlmod, (mackerel_addr_t) vaddr); 
 }
 
 static bool pbias_got_irq = false;
@@ -45,13 +45,13 @@ void sdmmc1_enable_power(void)
     // compare with Table 18-109 in OMAP TRM, p3681
     // Step 1: software must keep PWRDNZ low when setting up voltages
     printf("%s: Step 1\n", __FUNCTION__);
-    omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x0);
-    omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x0);
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x0);
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x0);
 
     // Step 2: preliminary settings for MMC1_PBIAS and MMC1 I/O cell
     printf("%s: Step 2\n", __FUNCTION__);
     //  1. turn of hiz mode
-    omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_hiz_mode_wrf(0x0);
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_hiz_mode_wrf(&ctrlmod, 0x0);
 
     //  2. setup PBIAS_IRQ (MA_IRQ_75)
     errval_t err = inthandler_setup_arm(pbias_handle_irq, NULL, PBIAS_IRQ);
@@ -60,20 +60,20 @@ void sdmmc1_enable_power(void)
     //  3. pad multiplexing -- looks ok when dumping pad registers, so I'm
     //  not doing anything right now -SG
     //  4. set MMC1 speed control to 26MHz@30pF (0x0) -- alternative 65MHz@30pF (0x1)
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_dr0_speedctrl_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_dr0_speedctrl_wrf(&ctrlmod,
             0x0);
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_dr1_speedctrl_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_dr1_speedctrl_wrf(&ctrlmod,
             0x0);
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_dr2_speedctrl_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_dr2_speedctrl_wrf(&ctrlmod,
             0x0);
     //  5. set MMC1 pullup strength to 10-50kOhm (0x1) -- alt. 50-110kOhm (0x0)
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_putstrength_grp0_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_pustrength_grp0_wrf(&ctrlmod,
             0x0);
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_putstrength_grp1_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_pustrength_grp1_wrf(&ctrlmod,
             0x0);
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_putstrength_grp2_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_pustrength_grp2_wrf(&ctrlmod,
             0x0);
-    omap44xx_sysctrl_pandconf_core_control_mmc1_sdmmc1_putstrength_grp3_wrf(&ctrlmod,
+    omap44xx_sysctrl_padconf_core_control_mmc1_sdmmc1_pustrength_grp3_wrf(&ctrlmod,
             0x0);
 
     // Step 3: Program desired SDMMC1_VDDS for MMC I/O in I2C attached power
@@ -85,23 +85,23 @@ void sdmmc1_enable_power(void)
 
     // Step 4: Set VMODE bit according to Step 3 (0x1 == 3.0V)
     printf("%s: Step 4\n", __FUNCTION__);
-    omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_wrf(&ctrlmod, 0x1);
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_wrf(&ctrlmod, 0x1);
 
     // Step 5: wait for SDMMC1_VDDS voltage to stabilize TODO
     // might already be stable after reset? -SG
-    //ti_twl6030_vmmc_pr();
+    ti_twl6030_vmmc_pr();
 
     // Step 6: Disable PWRDNZ mode for MMC1_PBIAS and MMC1 I/O cell
     printf("%s: Step 6\n", __FUNCTION__);
-    omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x1);
-    omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x1);
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x1);
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x1);
 
     // Step 7: Store SUPPLY_HI_OUT bit
     uint8_t supply_hi_out = 
-        omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_supply_hi_out_rdf(&ctrlmod);
+        omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_supply_hi_out_rdf(&ctrlmod);
     printf("%s: Step 7: supply_hi_out = %d\n", __FUNCTION__, supply_hi_out);
     printf("%s: Step 7: vmode_error = %d\n", __FUNCTION__,
-            omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_error_rdf(&ctrlmod));
+            omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_error_rdf(&ctrlmod));
 
     // Wait for Interrupt
     printf("Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
@@ -112,21 +112,21 @@ void sdmmc1_enable_power(void)
     printf("%s: Step 8\n", __FUNCTION__);
 
     // Step 8: check VMODE_ERROR and set PWRDNZ if error
-    if (omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_error_rdf(&ctrlmod)) {
+    if (omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_error_rdf(&ctrlmod)) {
         printf("got VMODE error\n");
-        omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x0);
-        omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x0);
+        omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x0);
+        omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x0);
     }
     
     // Step 9: check if SUPPLY_HI_OUT corresponds to SDMMC1_VDDS (3.0V)
-    if (supply_hi_out != omap44xx_ctrlmod_vlt_hi) {
+    if (supply_hi_out != 0x1) {
         printf("SDMMC1_VDDS seems to be != 3.0V\n");
         // TODO: redo setting SDMMC1_VDDS
     } else {
         // supply_hi_out should be 0x1 (3.0V)
-        assert(supply_hi_out == omap44xx_ctrlmod_vlt_hi);
+        assert(supply_hi_out == 0x1);
         // set VMODE bit to supply_hi_out
-        omap44xx_sysctrl_pandconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_wrf(&ctrlmod, supply_hi_out);
+        omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_wrf(&ctrlmod, supply_hi_out);
     }
 
     // Step 12: clear PBIAS IRQ

@@ -11,7 +11,7 @@
 #define __ARM_CTRLMOD_H__
 
 #include <barrelfish/barrelfish.h>
-#include <dev/omap/omap44xx_ctrlmod_dev.h>
+#include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
 
 // afaict, the power enabling procedure is only possible in a
 // interrupt-driven way and we need the PBIAS interrupt -SG

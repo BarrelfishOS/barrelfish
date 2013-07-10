@@ -18,7 +18,7 @@
                         "ti_twl6030",
                         "sdhc",
                         "omap/omap44xx_mmchs",
-                        "omap/omap44xx_ctrlmod",
+                        "omap/omap44xx_sysctrl_padconf_core",
                         "omap/omap44xx_l3init_cm2",
                         "omap/omap44xx_ckgen_cm2",
                         "omap/omap44xx_l4per_cm2"
