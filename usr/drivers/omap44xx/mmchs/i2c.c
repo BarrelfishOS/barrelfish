@@ -16,6 +16,13 @@
 
 #pragma GCC diagnostic ignored "-Wunused-variable" 
 
+#if defined(I2C_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#define I2C_DEBUG(x...) printf("i2c: " x)
+#else
+#define I2C_DEBUG(x...) ((void)0)
+#endif
+
+
 // there are 4 GP i2c controllers on the pandaboard
 #define I2C_COUNT 4
 static ti_i2c_t i2c[I2C_COUNT];
@@ -120,9 +127,9 @@ void ti_i2c_init(int i)
     // set initialized flag
     i2c_initialized[i] = true;
 
-    //printf("Initialized\n");
+    //I2C_DEBUG("Initialized\n");
     //ti_i2c_sysc_pr(prbuf, PBS-1, dev);
-    //printf("%s\n", prbuf);
+    //I2C_DEBUG("%s\n", prbuf);
 
 
 
@@ -136,19 +143,19 @@ static inline bool ti_i2c_poll_stat(ti_i2c_t *dev, ti_i2c_irqstatus_t flags,
     uint32_t start_ticks = tsc_read();
     uint32_t ticks;
     int32_t waittime = timeout;
-    printf("waittime = %"PRIu32"\n", waittime);
+    I2C_DEBUG("waittime = %"PRIu32"\n", waittime);
 
     while (waittime > 0) {
         ti_i2c_irqstatus_t stat = ti_i2c_stat_rd(dev);
-        printf("stat = 0x%"PRIx16"\n", stat);
+        I2C_DEBUG("stat = 0x%"PRIx16"\n", stat);
         //ti_i2c_stat_pr(prbuf, PBS-1, dev);
-        //printf("%s\n", prbuf);
+        //I2C_DEBUG("%s\n", prbuf);
 
         if (stat & ti_i2c_irq_flag_aas) {
             // address recognized as slave interrupt
             if (stat & ti_i2c_irq_flag_rrdy) {
-                printf("AAS && RRDY\n");
-                printf("data = 0x%"PRIx8"\n", ti_i2c_data_data_rdf(dev));
+                I2C_DEBUG("AAS && RRDY\n");
+                I2C_DEBUG("data = 0x%"PRIx8"\n", ti_i2c_data_data_rdf(dev));
                 ti_i2c_stat_aas_wrf(dev, 1);
                 ti_i2c_stat_rrdy_wrf(dev, 1);
             }
@@ -161,7 +168,7 @@ static inline bool ti_i2c_poll_stat(ti_i2c_t *dev, ti_i2c_irqstatus_t flags,
         }
         ticks = tsc_read();
         waittime -= (ticks - start_ticks);
-        printf("waittime = %"PRIu32"\n", waittime);
+        I2C_DEBUG("waittime = %"PRIu32"\n", waittime);
         start_ticks = ticks;
     }
     return false;
@@ -181,11 +188,11 @@ static bool ti_i2c_wait_for_free_bus(ti_i2c_t *dev, int32_t timeout)
 static errval_t
 ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 {
-    printf("ti_i2c_read\n");
+    I2C_DEBUG("ti_i2c_read\n");
     bool wfb;
     wfb = ti_i2c_wait_for_free_bus(dev, DEFAULT_TIMEOUT);
     if (!wfb) {
-        printf("wait for bus free timed out\n");
+        I2C_DEBUG("wait for bus free timed out\n");
         return SYS_ERR_I2C_WAIT_FOR_BUS;
     }
 
@@ -217,19 +224,19 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     // reading loop
     while (true) {
         // poll for NACK, AL, ARDY, RDR and RRDY
-        printf("waiting for 0x%"PRIx16"\n", events);
+        I2C_DEBUG("waiting for 0x%"PRIx16"\n", events);
         while(!ti_i2c_poll_stat(dev, events, &retevents, DEFAULT_TIMEOUT)) {
             // poll for receive ready
         }
 
         if (retevents & ti_i2c_irq_flag_al) {
-            printf("arbitration lost\n");
+            I2C_DEBUG("arbitration lost\n");
             err = SYS_ERR_I2C_FAILURE;
             break;
         }
 
         if (retevents & ti_i2c_irq_flag_nack) {
-            printf("no ACK from slave\n");
+            I2C_DEBUG("no ACK from slave\n");
             err = SYS_ERR_I2C_FAILURE;
             break;
         }
@@ -237,7 +244,7 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         // check if we have finished
         if (retevents & ti_i2c_irq_flag_ardy) {
             // register access ready --> transaction complete
-            printf("ARDY transaction complete\n");
+            I2C_DEBUG("ARDY transaction complete\n");
             ti_i2c_stat_ardy_wrf(dev, 1);
             err = SYS_ERR_OK;
             break;
@@ -246,14 +253,14 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         // read some data
         if (retevents & ti_i2c_irq_flag_rdr) {
             // Receive draining interrupt --> we got the last data bytes
-            printf("Receive draining interrupt\n");
+            I2C_DEBUG("Receive draining interrupt\n");
 
             /* get the number of bytes in the FIFO */
             amount = ti_i2c_bufstat_rxstat_rdf(dev);
         }
         else if (retevents & ti_i2c_irq_flag_rrdy) {
             // Receive data ready interrupt --> got data
-            printf("Receive data ready interrupt\n");
+            I2C_DEBUG("Receive data ready interrupt\n");
 
             // get the number of bytes in the FIFO
             amount = ti_i2c_bufstat_rxstat_rdf(dev);
@@ -262,7 +269,7 @@ ti_i2c_read(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 
         // sanity check we haven't overwritten the array
         if ((sofar + amount) > length) {
-            printf("to many bytes to read\n");
+            I2C_DEBUG("to many bytes to read\n");
             amount = (length - sofar);
         }
 
@@ -285,20 +292,20 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     uint16_t amount = 0, sofar = 0;
     errval_t err = SYS_ERR_OK;
 
-    printf("ti_i2c_write(dev, *buf=%"PRIu8", length=%"PRIu16")\n", *buf, length);
+    I2C_DEBUG("ti_i2c_write(dev, *buf=%"PRIu8", length=%"PRIu16")\n", *buf, length);
     bool wfb;
     wfb = ti_i2c_wait_for_free_bus(dev, DEFAULT_TIMEOUT);
     if (!wfb) {
-        printf("wait for bus free timed out\n");
+        I2C_DEBUG("wait for bus free timed out\n");
         return SYS_ERR_I2C_WAIT_FOR_BUS;
     }
-    printf("bus is free, proceeding\n");
+    I2C_DEBUG("bus is free, proceeding\n");
 
     // TODO: interrupt-driven?
 
-    //printf("AFTER WAIT FOR BUS:\n");
+    //I2C_DEBUG("AFTER WAIT FOR BUS:\n");
     //ti_i2c_stat_pr(prbuf, PBS-1, dev);
-    //printf("%s\n", prbuf);
+    //I2C_DEBUG("%s\n", prbuf);
 
 
     // write number of bytes to write
@@ -306,9 +313,9 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     ti_i2c_cnt_wr(dev, length);
     ti_i2c_sa_sa_wrf(dev, 0x48);
 
-    //printf("AFTER WRITE SETUP:\n");
+    //I2C_DEBUG("AFTER WRITE SETUP:\n");
     //ti_i2c_stat_pr(prbuf, PBS-1, dev);
-    //printf("%s\n", prbuf);
+    //I2C_DEBUG("%s\n", prbuf);
     // Force write of 1st bit ez
     //ti_i2c_data_data_wrf(dev, buf[sofar++]);
 
@@ -334,19 +341,19 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
     // writing loop
     while (true) {
         // poll for NACK, AL, ARDY, XDR and XRDY
-        printf("waiting for 0x%"PRIx16"\n", events);
+        I2C_DEBUG("waiting for 0x%"PRIx16"\n", events);
         while(!ti_i2c_poll_stat(dev, events, &retevents, DEFAULT_TIMEOUT)) {
             // poll for events
         }
 
         if (retevents & ti_i2c_irq_flag_al) {
-            printf("arbitration lost\n");
+            I2C_DEBUG("arbitration lost\n");
             err = SYS_ERR_I2C_FAILURE;
             break;
         }
 
         if (retevents & ti_i2c_irq_flag_nack) {
-            printf("no ACK from slave\n");
+            I2C_DEBUG("no ACK from slave\n");
             err = SYS_ERR_I2C_FAILURE;
             break;
         }
@@ -355,7 +362,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         if (retevents & ti_i2c_irq_flag_ardy) {
             // register access ready --> transaction complete
             ti_i2c_stat_ardy_wrf(dev, 1);
-            printf("ARDY transaction complete\n");
+            I2C_DEBUG("ARDY transaction complete\n");
             err = SYS_ERR_OK;
             break;
         }
@@ -363,15 +370,15 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
         // send some data
         if (retevents & ti_i2c_irq_flag_xdr) {
             // transmit draining interrupt --> we are sending the last data bytes
-            printf("Receive draining interrupt\n");
+            I2C_DEBUG("Receive draining interrupt\n");
 
             /* get the number of bytes that fit in the FIFO */
             amount = ti_i2c_bufstat_txstat_rdf(dev);
-            printf("#bytes = %"PRIu16"\n", amount);
+            I2C_DEBUG("#bytes = %"PRIu16"\n", amount);
         }
         else if (retevents & ti_i2c_irq_flag_xrdy) {
             // transmit data ready interrupt --> can send data
-            printf("Receive data ready interrupt\n");
+            I2C_DEBUG("Receive data ready interrupt\n");
 
             // get the number of bytes that fit in the FIFO
             amount = ti_i2c_bufstat_txstat_rdf(dev);
@@ -380,12 +387,12 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
 
         // sanity check so we don't write more bytes than available
         if ((sofar + amount) > length) {
-            printf("truncating length to not access data beyond buf\n");
+            I2C_DEBUG("truncating length to not access data beyond buf\n");
             amount = (length - sofar);
         }
 
         // write the bytes to the fifo
-        printf("writing %"PRIu16" bytes\n", amount);
+        I2C_DEBUG("writing %"PRIu16" bytes\n", amount);
         for (int i = 0; i < amount; i++) {
             ti_i2c_data_data_wrf(dev, buf[sofar++]);
         }
@@ -412,7 +419,7 @@ ti_i2c_write(ti_i2c_t *dev, uint8_t *buf, uint16_t length)
  */
 errval_t ti_i2c_transfer(int devid, struct i2c_msg *msgs, size_t msgcount)
 {
-    printf("ti_i2c_transfer\n");
+    I2C_DEBUG("ti_i2c_transfer\n");
     if (!i2c_initialized[devid]) {
         return SYS_ERR_I2C_UNINITIALIZED;
     }
