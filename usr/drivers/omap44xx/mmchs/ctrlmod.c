@@ -80,6 +80,7 @@ void sdmmc1_enable_power(void)
     // controller TODO? -- assuming 3.0V for now, manual says reset value is
     // 3.0V -SG
     // controller (3.0V)
+    ti_twl6030_vmmc_off();
     err = ti_twl6030_set_vmmc_vsel(3000);
     assert(err_is_ok(err));
 
@@ -95,6 +96,8 @@ void sdmmc1_enable_power(void)
     printf("%s: Step 6\n", __FUNCTION__);
     omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x1);
     omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x1);
+
+    ti_twl6030_vmmc_on();
 
     // Step 7: Store SUPPLY_HI_OUT bit
     uint8_t supply_hi_out = 

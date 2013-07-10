@@ -17,4 +17,7 @@ void ti_twl6030_scan(void);
 void ti_twl6030_vmmc_pr(void);
 errval_t ti_twl6030_set_vmmc_vsel(int millis);
 
+void ti_twl6030_vmmc_on(void);
+void ti_twl6030_vmmc_off(void);
+
 #endif // __TI_TWL6030_H__
