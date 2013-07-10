@@ -75,7 +75,8 @@
            "omap/omap44xx_mmchs",
            "omap/omap44xx_l3init_cm2",
            "omap/omap44xx_ckgen_cm2",
-           "omap/omap44xx_l4per_cm2"
+           "omap/omap44xx_l4per_cm2",
+           "omap/omap44xx_sysctrl_padconf_core"
          ], arch <- allArchitectures
 ] ++
 

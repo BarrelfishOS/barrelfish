@@ -3662,8 +3662,8 @@ device omap44xx_sysctrl_padconf_core msbfirst ( addr base ) "" {
     };
     
     register control_core_pad0_usba0_otg_ce_pad1_usba0_otg_dp addr(base, 0x194) "Register control for Pads usba0_otg_ce and usba0_otg_dp Access conditions. Read: unrestricted, Write: unrestricted" {
-        usba0_otg 1 ro type(gpmc_ad1_wakeupevent_status) "Pad_x wake-up event status latched in the IO";
-        usba0_otg 1 rw type(usba0_otg_status) "Input pad wake-up enable (and OFF mode input enable value)";
+        usba0_otg_ro 1 ro type(gpmc_ad1_wakeupevent_status) "Pad_x wake-up event status latched in the IO";
+        usba0_otg_rw 1 rw type(usba0_otg_status) "Input pad wake-up enable (and OFF mode input enable value)";
         _ 9 mbz;
         usba0_otg_dp_pulltypeselect 1 rw type(usba0_otg_dp_pulltypeselect_status) "Pullup/down selection for pad usba0_otg_dp";
         usba0_otg_dp_pulludenable 1 rw type(usba0_otg_dp_pulludenable_status) "Pullup/down enable for pad usba0_otg_dp";
@@ -4735,64 +4735,64 @@ device omap44xx_sysctrl_padconf_core msbfirst ( addr base ) "" {
     register control_smart2io_padconf_1 ro addr(base, 0x5B4) "SMART2 I/O control 1 Access conditions. Read: unrestricted, Write: unrestricted" type(uint32);
     
     register control_smart3io_padconf_0 addr(base, 0x5B8) "SMART3 I/O control 0 Access conditions. Read: unrestricted, Write: unrestricted" {
-        dmic_dr0_mb 2 rw "50-Ω output buffer mode control for group dmic_dr0. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr3_mb 2 rw "25-Ω output buffer mode control for group gpio_dr3. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr4_mb 2 rw "25-Ω output buffer mode control for group gpio_dr4. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr5_mb 2 rw "50-Ω output buffer mode control for group gpio_dr5. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr6_mb 2 rw "50-Ω output buffer mode control for group gpio_dr6. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        hsi_dr1_mb 2 rw "25-Ω output buffer mode control for group hsi_dr1. Refer to the I/Os with combined Mode and Load Settings for more information about mode settings.";
-        hsi_dr2_mb 2 rw "25-Ω output buffer mode control for group hsi_dr2. Refer to the I/Os with combined Mode and Load Settings for more information about mode settings.";
-        hsi_dr3_mb 2 rw "25-Ω output buffer mode control for group hsi_dr3. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        mcbsp2_dr0_mb 2 rw "50-Ω output buffer mode control for group mcbsp2_dr0. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        mcspi4_dr0_mb 2 rw "50-Ω output buffer mode control for group mcspi4_dr0. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        mcspi4_dr1_mb 2 rw "50-Ω output buffer mode control for group mcspi4_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        sdmmc3_dr0_mb 2 rw "50-Ω output buffer mode control for group sdmmc3_dr0. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        dmic_dr0_mb 2 rw "50-Ohm output buffer mode control for group dmic_dr0. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr3_mb 2 rw "25-Ohm output buffer mode control for group gpio_dr3. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr4_mb 2 rw "25-Ohm output buffer mode control for group gpio_dr4. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr5_mb 2 rw "50-Ohm output buffer mode control for group gpio_dr5. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr6_mb 2 rw "50-Ohm output buffer mode control for group gpio_dr6. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        hsi_dr1_mb 2 rw "25-Ohm output buffer mode control for group hsi_dr1. Refer to the I/Os with combined Mode and Load Settings for more information about mode settings.";
+        hsi_dr2_mb 2 rw "25-Ohm output buffer mode control for group hsi_dr2. Refer to the I/Os with combined Mode and Load Settings for more information about mode settings.";
+        hsi_dr3_mb 2 rw "25-Ohm output buffer mode control for group hsi_dr3. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        mcbsp2_dr0_mb 2 rw "50-Ohm output buffer mode control for group mcbsp2_dr0. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        mcspi4_dr0_mb 2 rw "50-Ohm output buffer mode control for group mcspi4_dr0. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        mcspi4_dr1_mb 2 rw "50-Ohm output buffer mode control for group mcspi4_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        sdmmc3_dr0_mb 2 rw "50-Ohm output buffer mode control for group sdmmc3_dr0. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 6 mbz;
-        spi2_dr0_mb 2 rw "50-Ω output buffer mode control for group spi2_dr0. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        spi2_dr0_mb 2 rw "50-Ohm output buffer mode control for group spi2_dr0. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
     };
     
     register control_smart3io_padconf_1 addr(base, 0x5BC) "SMART3 I/O control 1 Access conditions. Read: unrestricted, Write: unrestricted" {
-        spi2_dr1_mb 2 rw "50-Ω output buffer mode control for group spi2_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        spi2_dr2_mb 2 rw "50-Ω output buffer mode control for group spi2_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        uart2_dr0_mb 2 rw "50-Ω output buffer mode control for group spi2_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        uart2_dr1_mb 2 rw "50-Ω output buffer mode control for group spi2_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        uart4_dr0_mb 2 rw "50-Ω output buffer mode control for group spi2_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        hsi_dr0_mb 2 rw "25-Ω output buffer mode control for group hsi_dr0. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        spi2_dr1_mb 2 rw "50-Ohm output buffer mode control for group spi2_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        spi2_dr2_mb 2 rw "50-Ohm output buffer mode control for group spi2_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        uart2_dr0_mb 2 rw "50-Ohm output buffer mode control for group spi2_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        uart2_dr1_mb 2 rw "50-Ohm output buffer mode control for group spi2_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        uart4_dr0_mb 2 rw "50-Ohm output buffer mode control for group spi2_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        hsi_dr0_mb 2 rw "25-Ohm output buffer mode control for group hsi_dr0. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 6 mbz;
-        gpmc_dr1_mb 2 rw "50-Ω output buffer mode control for group gpmc_dr1. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpmc_dr1_mb 2 rw "50-Ohm output buffer mode control for group gpmc_dr1. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 4 mbz;
-        pdm_dr0_mb 2 rw "50-Ω output buffer mode control for group pdm_dr0. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr2_mb 2 rw "50-Ω output buffer mode control for group fref_dr2. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr3_mb 2 rw "50-Ω output buffer mode control for group fref_dr3. Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        usbb1_dr2_mb 2 rw "25-Ω output buffer mode control for group usbb1_dr2. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        pdm_dr0_mb 2 rw "50-Ohm output buffer mode control for group pdm_dr0. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr2_mb 2 rw "50-Ohm output buffer mode control for group fref_dr2. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr3_mb 2 rw "50-Ohm output buffer mode control for group fref_dr3. Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        usbb1_dr2_mb 2 rw "25-Ohm output buffer mode control for group usbb1_dr2. Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
     };
     
     register control_smart3io_padconf_2 addr(base, 0x5C0) "SMART3 I/O control 2 Access conditions. Read: unrestricted, Write: unrestricted" {
-        dmic_dr0_lb 1 rw "50-Ω output buffer load control dmic_dr0_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr3_lb 1 rw "25-Ω output buffer load control gpio_dr3_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr4_lb 1 rw "25-Ω output buffer load control gpio_dr4_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr5_lb 1 rw "50-Ω output buffer load control gpio_dr5_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpio_dr6_lb 1 rw "50-Ω output buffer load control gpio_dr6_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        hsi_dr1_lb 1 rw "25-Ω output buffer load control hsi_dr1_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        hsi_dr2_lb 1 rw "25-Ω output buffer load control hsi_dr2_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        hsi_dr3_lb 1 rw "25-Ω output buffer load control hsi_dr3_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        mcbsp2_dr0_lb 1 rw "50-Ω output buffer load control mcbsp2_dr0_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        mcspi4_dr0_lb 1 rw "50-Ω output buffer load control mcspi4_dr0_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        mcspi4_dr1_lb 1 rw "50-Ω output buffer load control mcspi4_dr1_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        dmic_dr0_lb 1 rw "50-Ohm output buffer load control dmic_dr0_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr3_lb 1 rw "25-Ohm output buffer load control gpio_dr3_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr4_lb 1 rw "25-Ohm output buffer load control gpio_dr4_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr5_lb 1 rw "50-Ohm output buffer load control gpio_dr5_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpio_dr6_lb 1 rw "50-Ohm output buffer load control gpio_dr6_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        hsi_dr1_lb 1 rw "25-Ohm output buffer load control hsi_dr1_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        hsi_dr2_lb 1 rw "25-Ohm output buffer load control hsi_dr2_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        hsi_dr3_lb 1 rw "25-Ohm output buffer load control hsi_dr3_lb Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        mcbsp2_dr0_lb 1 rw "50-Ohm output buffer load control mcbsp2_dr0_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        mcspi4_dr0_lb 1 rw "50-Ohm output buffer load control mcspi4_dr0_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        mcspi4_dr1_lb 1 rw "50-Ohm output buffer load control mcspi4_dr1_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 4 mbz;
-        spi2_dr0_lb 1 rw "50-Ω output buffer load control spi2_dr0_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        spi2_dr1_lb 1 rw "50-Ω output buffer load control spi2_dr1_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        spi2_dr2_lb 1 rw "50-Ω output buffer load control spi2_dr2_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        uart2_dr0_lb 1 rw "50-Ω output buffer load control uart2_dr0_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        uart2_dr1_lb 1 rw "50-Ω output buffer load control uart2_dr1_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        uart4_dr0_lb 1 rw "50-Ω output buffer load control uart4_dr0_lb Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        hsi_dr0_lb 1 rw "25-Ω output buffer load control hsi_dr0 Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr3_lb 1 rw "50-Ω output buffer load control fref_dr3 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        gpmc_dr1_lb 1 rw "50-Ω output buffer load control gpmc_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        pdm_dr0_lb 1 rw "50-Ω output buffer load control pdm_dr0 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr2_lb 1 rw "50-Ω output buffer load control fref_dr2 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        sdmmc3_dr0_lb 1 rw "50-Ω output buffer load control sdmmc3_dr0 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        usbb1_dr2_lb 1 rw "25-Ω output buffer load control usbb1_dr2 Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        spi2_dr0_lb 1 rw "50-Ohm output buffer load control spi2_dr0_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        spi2_dr1_lb 1 rw "50-Ohm output buffer load control spi2_dr1_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        spi2_dr2_lb 1 rw "50-Ohm output buffer load control spi2_dr2_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        uart2_dr0_lb 1 rw "50-Ohm output buffer load control uart2_dr0_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        uart2_dr1_lb 1 rw "50-Ohm output buffer load control uart2_dr1_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        uart4_dr0_lb 1 rw "50-Ohm output buffer load control uart4_dr0_lb Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        hsi_dr0_lb 1 rw "25-Ohm output buffer load control hsi_dr0 Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr3_lb 1 rw "50-Ohm output buffer load control fref_dr3 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        gpmc_dr1_lb 1 rw "50-Ohm output buffer load control gpmc_dr1 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        pdm_dr0_lb 1 rw "50-Ohm output buffer load control pdm_dr0 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr2_lb 1 rw "50-Ohm output buffer load control fref_dr2 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        sdmmc3_dr0_lb 1 rw "50-Ohm output buffer load control sdmmc3_dr0 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        usbb1_dr2_lb 1 rw "25-Ohm output buffer load control usbb1_dr2 Refer to I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 4 mbz;
     };
 
@@ -4847,24 +4847,24 @@ device omap44xx_sysctrl_padconf_core msbfirst ( addr base ) "" {
     };
     
     register control_smart3io_padconf_3 addr(base, 0x5C8) "SMART3 IO control 3 Access conditions. Read: unrestricted, Write: unrestricted" {
-        slimbus1_dr0_mb 2 rw "50-Ω output buffer mode control for group slimbus1_dr0 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus1_dr1_mb 2 rw "50-Ω output buffer mode control for group slimbus1_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr0_mb 2 rw "50-Ω output buffer mode control for group slimbus2_dr0 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr1_mb 2 rw "50-Ω output buffer mode control for group slimbus2_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr2_mb 2 rw "50-Ω output buffer mode control for group slimbus2_dr2 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr3_mb 2 rw "50-Ω output buffer mode control for group slimbus2_dr3 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus1_dr0_lb 1 rw "50-Ω output buffer load control for group slimbus1_dr0 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr1_lb 1 rw "50-Ω output buffer load control for group slimbus2_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr2_lb 1 rw "50-Ω output buffer load control for group slimbus2_dr2 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr3_lb 1 rw "50-Ω output buffer load control for group slimbus2_dr3 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus1_dr1_lb 1 rw "50-Ω output buffer load control for group slimbus1_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        slimbus2_dr0_lb 1 rw "50-Ω output buffer load control for group slimbus2_dr0 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus1_dr0_mb 2 rw "50-Ohm output buffer mode control for group slimbus1_dr0 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus1_dr1_mb 2 rw "50-Ohm output buffer mode control for group slimbus1_dr1 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr0_mb 2 rw "50-Ohm output buffer mode control for group slimbus2_dr0 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr1_mb 2 rw "50-Ohm output buffer mode control for group slimbus2_dr1 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr2_mb 2 rw "50-Ohm output buffer mode control for group slimbus2_dr2 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr3_mb 2 rw "50-Ohm output buffer mode control for group slimbus2_dr3 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus1_dr0_lb 1 rw "50-Ohm output buffer load control for group slimbus1_dr0 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr1_lb 1 rw "50-Ohm output buffer load control for group slimbus2_dr1 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr2_lb 1 rw "50-Ohm output buffer load control for group slimbus2_dr2 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr3_lb 1 rw "50-Ohm output buffer load control for group slimbus2_dr3 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus1_dr1_lb 1 rw "50-Ohm output buffer load control for group slimbus1_dr1 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        slimbus2_dr0_lb 1 rw "50-Ohm output buffer load control for group slimbus2_dr0 Refer to 50-Ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 14 mbz;
     };
 
     constants dpm_dr1_ds_status width(1) "" {
-        DPM_DR1_DS_0 = 0 "50 Ω";
-        DPM_DR1_DS_1 = 1 "25 Ω";
+        DPM_DR1_DS_0 = 0 "50 Ohm";
+        DPM_DR1_DS_1 = 1 "25 Ohm";
     };
     
     register control_smart2io_padconf_2 addr(base, 0x5CC) "SMART2 IO control 2 Access conditions. Read: unrestricted, Write: unrestricted" {
@@ -5022,10 +5022,10 @@ device omap44xx_sysctrl_padconf_core msbfirst ( addr base ) "" {
     };
 
     constants i2c4_sda_load_bits_status width(2) "" {
-        I2C4_SDA_LOAD_BITS_0 = 0 "4.5 kΩ (5-15 pF) / 1.66 kΩ (5-12 pF)";
-        I2C4_SDA_LOAD_BITS_1 = 1 "2.1 kΩ (15-50 pF) / 920 Ω (12-25 pF)";
-        I2C4_SDA_LOAD_BITS_2 = 2 "860 Ω (50-150 pF) / 500 Ω (25-50 pF)";
-        I2C4_SDA_LOAD_BITS_3 = 3 "N.A / 300 Ω (50-80 pF)";
+        I2C4_SDA_LOAD_BITS_0 = 0 "4.5 kOhm (5-15 pF) / 1.66 kOhm (5-12 pF)";
+        I2C4_SDA_LOAD_BITS_1 = 1 "2.1 kOhm (15-50 pF) / 920 Ohm (12-25 pF)";
+        I2C4_SDA_LOAD_BITS_2 = 2 "860 Ohm (50-150 pF) / 500 Ohm (25-50 pF)";
+        I2C4_SDA_LOAD_BITS_3 = 3 "N.A / 300 Ohm (50-80 pF)";
     };
 
     constants i2c4_sda_pullupresx_status width(1) "" {
@@ -5112,7 +5112,7 @@ device omap44xx_sysctrl_padconf_core msbfirst ( addr base ) "" {
     register control_avdac addr(base, 0x60C) "AVDAC control Access conditions. Read: unrestricted, Write: unrestricted" {
         avdac_acen 1 rw type(avdac_acen_status) "AC coupling enable";
         avdac_tvoutbypass 1 rw type(avdac_tvoutbypass_status) "TV OUT bypass signal";
-        avdac_inputinv 1 rw type(avdac_inputinv_status) "Inversion control for DAC input data – din[9:0]";
+        avdac_inputinv 1 rw type(avdac_inputinv_status) "Inversion control for DAC input data - din[9:0]";
         _ 16 mbz;
         _ 1 mbz;
         _ 12 mbz;
@@ -5316,8 +5316,8 @@ device omap44xx_sysctrl_padconf_core msbfirst ( addr base ) "" {
     };
 
     constants sdmmc1_pustrength_grp0_status width(1) "" {
-        SDMMC1_PUSTRENGTH_GRP0_0 = 0 "Pull up with 50 to 110 kΩ on MMC1 data pins";
-        SDMMC1_PUSTRENGTH_GRP0_1 = 1 "Pull up with 10 to 50 kΩ on MMC1 data pins";
+        SDMMC1_PUSTRENGTH_GRP0_0 = 0 "Pull up with 50 to 110 kOhm on MMC1 data pins";
+        SDMMC1_PUSTRENGTH_GRP0_1 = 1 "Pull up with 10 to 50 kOhm on MMC1 data pins";
     };
 
     constants sdmmc1_dr0_speedctrl_status width(1) "" {
