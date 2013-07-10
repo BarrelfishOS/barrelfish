@@ -34,7 +34,7 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
         .cnode = cnode_root,
         .slot = 10
     };
-    debug_cspace(argcn);
+    //debug_cspace(argcn);
 
     size_t bits = 8; // TODO(gz): How do I figure this value out on the fly?
     struct capref device_cap_iter = {

@@ -94,12 +94,12 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
     struct capref dev_cnode_cap;
     cslot_t retslots;
     err = cnode_create(&dev_cnode_cap, &dev_cnode, 255, &retslots);
-    printf("%s:%d: retslots=%d in bits: %d\n", __FUNCTION__, __LINE__, retslots, log2ceil(retslots));
+    //printf("%s:%d: retslots=%d in bits: %d\n", __FUNCTION__, __LINE__, retslots, log2ceil(retslots));
     assert(err_is_ok(err));
 
-    char buf[1024];
-    debug_print_cap_at_capref(buf, 1023, dev_cnode_cap);
-    printf("%s:%d: %s\n", __FUNCTION__, __LINE__, buf);
+    //char buf[1024];
+    //debug_print_cap_at_capref(buf, 1023, dev_cnode_cap);
+    //printf("%s:%d: %s\n", __FUNCTION__, __LINE__, buf);
 
     struct capref device_cap;
     device_cap.cnode = dev_cnode;
@@ -137,8 +137,8 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
 
     //walk_cspace(dev_cnode, 0);
 
-    printf("%s:%d: dev_cnode.address=0x%x\n", __FUNCTION__, __LINE__, dev_cnode.address);
-    printf("%s:%d: build_cnoderef(dev_cnode_cap).address=0x%x\n", __FUNCTION__, __LINE__, build_cnoderef(dev_cnode_cap, PAGE_CNODE_BITS).address);
+    //printf("%s:%d: dev_cnode.address=0x%x\n", __FUNCTION__, __LINE__, dev_cnode.address);
+    //printf("%s:%d: build_cnoderef(dev_cnode_cap).address=0x%x\n", __FUNCTION__, __LINE__, build_cnoderef(dev_cnode_cap, PAGE_CNODE_BITS).address);
 
     // TODO(gz) Figure out the differences between argcap and inheritcap
     err = spawn_program_with_caps(0, driver->path, driver->argv, environ,
