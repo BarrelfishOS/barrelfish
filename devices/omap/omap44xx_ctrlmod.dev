@@ -83,7 +83,6 @@
      register PBIASLITE addr(pad_core,0x600)
          "PBIASLITE control for extended drain pad settings"
      { 
-         _                            20 rsvd;
          USBC1_ICUSB_PWRDNZ           1 rw "PWRDNZ for USBC1 IO";
          MMC1_PBIASLITE_VMODE         1 rw type(voltage) "MMC1 PBIAS VMODE control";
          MMC1_PBIASLITE_PWRDNZ        1 rw "PWRDNZ for MMC1 PBIAS";
@@ -96,6 +95,7 @@
          PBIASLITE1_VMODE_ERROR       1 ro "Error bit for PBIAS VMODE";
          PBIASLITE1_SUPPLY_HI_OUT     1 ro type(voltage) "Indicator for PBIAS voltage";
          PBIASLITE1_HIZ_MODE          1 rw "PBIAS hi-z mode";
+         _                            20 rsvd;
      };
 
      constants usbc1_speeds "Clock speeds for usbc1" {
